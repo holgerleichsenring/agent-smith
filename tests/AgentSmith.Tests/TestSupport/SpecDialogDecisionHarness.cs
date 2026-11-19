@@ -46,7 +46,7 @@ internal sealed class SpecDialogDecisionHarness(
         new SpecDialogProposalRepository(context).WriteAsync(state.JobId, runId, OutcomeProposalJson.Write(proposal), default);
 
     public SpecDialogOutcomeFlow Flow() => new(Proposals, new SpecDialogOutcomeComposer(), new SpecDialogReplyComposer(),
-        Notices, Channel, Cards, NullLogger<SpecDialogOutcomeFlow>.Instance, TurnProposals);
+        Notices, Channel, Cards, NullLogger<SpecDialogOutcomeFlow>.Instance);
 
     public SpecDialogDecisionPath Decisions() => new(Proposals, Outcomes, Sink, RatifiedMockStamps.Over(Repository),
         new SpecDialogOutcomeComposer(), Notices, Cards);

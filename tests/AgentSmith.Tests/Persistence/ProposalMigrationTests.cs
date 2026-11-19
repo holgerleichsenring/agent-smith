@@ -23,9 +23,12 @@ public sealed class ProposalMigrationTests : IDisposable
 
     private static readonly string AwaitingJson = Json("awaiting");
     private static readonly string FilingJson = Json("filing");
-    private static readonly string ReviewingJson = OutcomeProposalJson.Write(Spec("reviewing") with { UnderReview = true });
+    // 2026-11-19-6b0bd: the flag and the state are retired; the migration's SQL still reads and writes them, so its test
+    // keeps the literal JSON field and the literal state.
+    private const string Reviewing = "reviewing";
+    private static readonly string ReviewingJson = UnderReview(Json("reviewing"));
     private static readonly string LatestJson = Json("latest");
-    private static readonly string LatestDraftJson = OutcomeProposalJson.Write(Spec("latest draft") with { UnderReview = true });
+    private static readonly string LatestDraftJson = UnderReview(Json("latest draft"));
 
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
     private readonly AgentSmithDbContext _context;
@@ -54,9 +57,9 @@ public sealed class ProposalMigrationTests : IDisposable
         [
             ("s-await", "run-a", "a1", SpecDialogProposalClaim.Awaiting, AwaitingJson),
             ("s-file", "proposal:f1", "f1", SpecDialogProposalClaim.Filing, FilingJson),
-            ("s-review", "proposal:review:s-review", (string?)null, SpecDialogProposalClaim.Reviewing, ReviewingJson),
+            ("s-review", "proposal:review:s-review", (string?)null, Reviewing, ReviewingJson),
             ("s-latest", "proposal:migrated-s-latest", "migrated-s-latest", SpecDialogProposalClaim.Awaiting, LatestJson),
-            ("s-draft", "proposal:review:s-draft", (string?)null, SpecDialogProposalClaim.Reviewing, LatestDraftJson),
+            ("s-draft", "proposal:review:s-draft", (string?)null, Reviewing, LatestDraftJson),
         ], "the awaiting proposal lands on the turn row whose JSON is its own; every other one on a row of its own");
         rows.Select(r => OutcomeProposalJson.Read(r.ProposalJson)).Should().HaveCount(5, "every stored proposal still reads");
         (await new SpecDialogProposalClaim(_context).ReadAsync("web", "t-latest", default)).AwaitingId
@@ -109,4 +112,6 @@ public sealed class ProposalMigrationTests : IDisposable
     private static SpecOutcome Spec(string goal) => new(new SpecDraft("2026-11-17-a0b6x", goal, "spec: x", []));
 
     private static string Json(string goal) => OutcomeProposalJson.Write(Spec(goal));
+
+    private static string UnderReview(string json) => json[..^1] + ",\"underReview\":true}";
 }

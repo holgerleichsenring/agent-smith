@@ -6,7 +6,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
 /// 2026-11-10-d854c: each kept turn of a conversation's view gets its own proposal, read by the turn's run id, so a
-/// later proposal never hides an earlier one. A mark under review stays only while a turn computes.
+/// later proposal never hides an earlier one.
 /// <para>2026-11-11-205ff: NO ORPHAN ROW. A stored proposal no kept turn carries is classified by its run row alone,
 /// which every replica sees alike: the newest live one (this conversation's running run first) is
 /// <see cref="SpecDialogSessionView.RunningProposal"/>; every other one is listed in
@@ -62,5 +62,5 @@ public sealed class SpecDialogTurnProposals(
     }
 
     private SpecDialogProposalPush? Push(ConversationState state, OutcomeProposal proposal, DateTimeOffset at, bool computing) =>
-        composer.Compose(DialogTarget.Of(state), proposal.UnderReview && !computing ? proposal with { UnderReview = false } : proposal, at);
+        composer.Compose(DialogTarget.Of(state), proposal, at);
 }

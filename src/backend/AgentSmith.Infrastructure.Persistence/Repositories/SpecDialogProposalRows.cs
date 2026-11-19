@@ -31,11 +31,6 @@ internal sealed class SpecDialogProposalRows(IUnitOfWork unitOfWork)
         return superseded;
     }
 
-    /// <summary>A draft under review other than <paramref name="keep"/>'s stays its turn's proposal, under review no more.</summary>
-    public Task<int> EndReviewAsync(string session, string? keep, CancellationToken ct) =>
-        Of(session).Where(p => p.State == SpecDialogProposalClaim.Reviewing && p.RunId != keep)
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.State, (string?)null), ct);
-
     /// <summary>Supersedes what awaits and puts row <paramref name="key"/> up under <paramref name="id"/>; how many rows
     /// that wrote (none when the row was already decided) and the id it superseded.</summary>
     public async Task<(int Written, string? Replaced)> TakeAwaitingAsync(
@@ -58,18 +53,8 @@ internal sealed class SpecDialogProposalRows(IUnitOfWork unitOfWork)
     private Task<int> PutUpAsync(string session, string key, string json, string id, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
-        return Of(session).Where(p => p.RunId == key && (p.State == null
-                || p.State == SpecDialogProposalClaim.Reviewing || p.State == SpecDialogProposalClaim.Awaiting))
+        return Of(session).Where(p => p.RunId == key && (p.State == null || p.State == SpecDialogProposalClaim.Awaiting))
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.ProposalJson, json).SetProperty(p => p.ProposalId, id)
                 .SetProperty(p => p.State, SpecDialogProposalClaim.Awaiting).SetProperty(p => p.UpdatedAt, now), ct);
-    }
-
-    /// <summary>Writes row <paramref name="key"/> as the draft under review, unless it was put to a decision.</summary>
-    public Task<int> ReviewAsync(string session, string key, string json, CancellationToken ct)
-    {
-        var now = DateTimeOffset.UtcNow;
-        return Of(session).Where(p => p.RunId == key && (p.State == null || p.State == SpecDialogProposalClaim.Reviewing))
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.ProposalJson, json).SetProperty(p => p.State, SpecDialogProposalClaim.Reviewing)
-                .SetProperty(p => p.UpdatedAt, now), ct);
     }
 }

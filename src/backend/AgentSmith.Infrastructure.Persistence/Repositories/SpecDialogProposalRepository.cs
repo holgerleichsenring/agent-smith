@@ -44,10 +44,6 @@ public sealed class SpecDialogProposalRepository(IUnitOfWork unitOfWork)
             .Select(p => new { p.ProposalId, p.ProposalJson }).FirstOrDefaultAsync(ct) is { ProposalId: { } id } row
             ? (id, row.ProposalJson) : null;
 
-    /// <summary>The draft under review on the session; null when none is.</summary>
-    public Task<string?> ReviewingAsync(string sessionId, CancellationToken ct) =>
-        InState(sessionId, SpecDialogProposalClaim.Reviewing).Select(p => (string?)p.ProposalJson).FirstOrDefaultAsync(ct);
-
     /// <summary>The awaiting proposal of each of <paramref name="sessionIds"/> that has one, in one read.</summary>
     public async Task<IReadOnlyDictionary<string, string>> AwaitingBySessionsAsync(
         IReadOnlyCollection<string> sessionIds, CancellationToken ct) =>
@@ -61,10 +57,6 @@ public sealed class SpecDialogProposalRepository(IUnitOfWork unitOfWork)
 
     public Task<int> DeleteBySessionAsync(string sessionId, CancellationToken ct) =>
         unitOfWork.Set<SpecDialogProposal>().Where(p => p.SessionId == sessionId).ExecuteDeleteAsync(ct);
-
-    /// <summary>2026-11-13-3dc8: drops one run's row, written mid-turn for a draft the turn's reply removed.</summary>
-    public Task<int> DeleteByRunAsync(string runId, CancellationToken ct) =>
-        unitOfWork.Set<SpecDialogProposal>().Where(p => p.RunId == runId).ExecuteDeleteAsync(ct);
 
     private IQueryable<SpecDialogProposal> InState(string sessionId, string state) =>
         unitOfWork.Set<SpecDialogProposal>().AsNoTracking()

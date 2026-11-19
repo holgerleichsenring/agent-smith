@@ -108,7 +108,7 @@ public sealed class DialogProposalPaneTests : IDisposable
 
         await channel.ProposeAsync(
             State() with { Platform = "slack" }, new SpecOutcome(Draft("p9001")),
-            CancellationToken.None);
+            CancellationToken.None, "proposal-1");
 
         _hub.Pushes.Should().BeEmpty(
             "a Slack thread reads its proposal in the thread, and its id is a dialog id "

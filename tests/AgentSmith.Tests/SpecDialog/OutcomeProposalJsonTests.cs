@@ -27,4 +27,17 @@ public sealed class OutcomeProposalJsonTests
 
         back.Tickets.Single().Specs.Should().ContainSingle().Which.Should().BeEquivalentTo(spec);
     }
+
+    // 2026-11-19-6b0bd: the under-review state is retired; a row stored while it existed still reads, and is not written back.
+    [Fact]
+    public void Read_StoredRowWithUnderReview_ReadsAndWritesWithoutIt()
+    {
+        var stored = OutcomeProposalJson.Write(new BugOutcome(new BugTicketDraft("It vanished", "Gone.", null)));
+        var json = stored[..^1] + ",\"underReview\":true}";
+
+        var back = OutcomeProposalJson.Read(json).Should().BeOfType<BugOutcome>().Subject;
+
+        back.Ticket.Title.Should().Be("It vanished");
+        OutcomeProposalJson.Write(back).Should().Be(stored);
+    }
 }

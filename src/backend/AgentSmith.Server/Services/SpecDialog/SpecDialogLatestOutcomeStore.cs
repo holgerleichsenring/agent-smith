@@ -61,14 +61,13 @@ public sealed class SpecDialogLatestOutcomeStore(
         UpdateAsync(() => repository.GetBySessionIdAsync(sessionId, ct),
             session => session.LatestFilingJson = JsonSerializer.Serialize(filing, JsonOptions), sessionId, ct);
 
-    /// <summary>What a session holds, open or closed: its filing, the proposal awaiting a decision with its id and the
-    /// draft under review (2026-11-10-ccd9). One unreadable record shows as absent rather than failing the read.</summary>
+    /// <summary>What a session holds, open or closed: its filing and the proposal awaiting a decision with its id. One
+    /// unreadable record shows as absent rather than failing the read.</summary>
     private async Task<SpecDialogLatestOutcome> OfAsync(SpecDialogSession session, CancellationToken ct)
     {
         var awaiting = await repository.Proposals.AwaitingAsync(session.SessionId, ct);
         var proposal = Readable(awaiting?.Json, OutcomeProposalJson.Read, session.ThreadId);
-        return new(proposal, FilingOf(session), awaiting?.Id,
-            Readable(await repository.Proposals.ReviewingAsync(session.SessionId, ct), OutcomeProposalJson.Read, session.ThreadId));
+        return new(proposal, FilingOf(session), awaiting?.Id);
     }
 
     /// <summary>What each of <paramref name="sessions"/> holds, in one read — the conversation list's, with no draft.</summary>

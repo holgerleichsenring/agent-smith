@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-6b0bd
+goal: "A design turn's proposal has no under-review state: the UnderReview flag, the reviewing row, its observer and the pane's reviewing draft are removed end to end."
+
+applies_to: "default (Contracts OutcomeProposal, ITurnProposalObserver; Server SpecDialog proposal state, view, push, outcome channel; Persistence SpecDialogProposalClaim/Rows/Repository; dashboard spec-dialog types, useSpecDialog, DialogProposalRounds)"
+
+requires: [2026-11-18-9c1ca]
+
+facts:
+  - claim: "OutcomeProposal carries UnderReview, published while its turn's review runs."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:43-45"
+  - claim: "9c1ca deleted the producer PublishUnderReviewAsync and named this retirement as its follow-up; nothing calls ITurnProposalObserver.PublishAsync."
+    evidence: ".agentsmith/decisions/2026-11-18-9c1ca.yaml:28-31"
+  - claim: "DialogProposalObserver is the only caller of StoreReviewingAsync, which writes the reviewing row."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DialogProposalObserver.cs:27-31"
+  - claim: "OutcomeProposalJson reads with System.Text.Json defaults, which skip a property the Dto does not declare."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:15-28"
+  - claim: "ProposalTableMoveSql, a shipped migration's SQL, writes state 'reviewing' for rows whose JSON said underReview."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/Support/ProposalTableMoveSql.cs:24,59"
+
+scope:
+  in: "Remove OutcomeProposal.UnderReview, its Dto field (an old row's underReview is skipped on read), SpecDialogProposalPush.UnderReview and Reviewing, SpecDialogSessionView.Reviewing, SpecDialogLatestOutcome.Reviewing, ITurnProposalObserver and its accessor, DialogProposalObserver, SpecDialogProposalContinuity.Observe, StoreReviewingAsync, ClearDraftAsync (state and claim), SetReviewingAsync, EndReviewAsync, ReviewAsync, ReviewingAsync, SpecDialogProposalClaim.Reviewing, the turn-row drop for an answered turn (no mid-turn row is written any more), ProposeAsync's optional id, the DI registration (TurnActivityExtensions.cs:15) and the doc reference in ITurnRunRecorderAccessor.cs:5. Readers that copy or clear the flag go: SpecDialogViewReader.Current, SpecDialogTurnProposals.Push, SpecDialogProposalComposer; PutUpAsync loses its Reviewing branch. SpecDialogTurnSeeds seeds a revised draft with changed: false (Seed keeps its parameter; offer_filing passes true). Dashboard: reviewing and underReview leave the types, useSpecDialog's reviewing branches and DialogProposalRounds' underReview label. Tests: TurnDraftClearTests, the reviewing cases of ProposalDecisionTests, SpecDialogProposalTableTests and TurnRunRecordTests and the dashboard reviewing/underReview cases go; InterruptedTurnDraftTests, SpecDialogProposalTableTests' turn-row test and DialogProposalPaneTests are rewritten without the flag; ProposalMigrationTests' fixtures become literal JSON with \"underReview\":true and the literal 'reviewing'. One test proves an old row with underReview reads."
+  out: "The migration SQL (history). No data migration: an old 'reviewing' row is inert — a run's row reads as its turn's proposal not awaiting a decision (what ending its review did), an unbound one is left out of the turn rows as before. The hub-event mirror (SpecDialogProposalPush is a Server model, not a Contracts event)."
+
+upgrade_impact: "An old reviewing row no longer seeds the next turn as an interrupted draft; a run's row shows as its turn's proposal, an unbound one shows nowhere, and nothing is deleted. Stored JSON keeps reading."
+
+steps:
+  - id: contracts
+    action: "Remove the flag and the observer contracts."
+  - id: server
+    action: "Remove the reviewing writes, reads, view and push fields; ProposeAsync takes the id."
+  - id: persistence
+    action: "Remove the reviewing claim methods, rows and constant."
+  - id: dashboard
+    action: "Remove reviewing/underReview from types, hook and rounds; update tests."
+  - id: tests
+    action: "Delete tests of the removed path; add the old-row read test."
+
+tests:
+  - "OutcomeProposalJson reads a stored row carrying \"underReview\":true."
+  - "Dashboard suite green without reviewing/underReview."
+
+done:
+  - "grep finds no UnderReview/underReview/Reviewing state outside migration history; build, full suite, dashboard tests and build, gen:hub-events green."

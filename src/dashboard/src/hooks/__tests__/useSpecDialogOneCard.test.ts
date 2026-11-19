@@ -11,12 +11,12 @@ const agent = (text: string, proposal?: SpecDialogProposalPush): DialogEntry =>
   ({ key: `a-${text}`, kind: "agent", text, at: "2026-11-10T10:00:30Z", ...(proposal ? { proposal } : {}) });
 const cards = (held: DialogEntry[]) => held.filter((entry) => entry.proposal);
 
-function view(over: { computing: boolean; proposal?: SpecDialogProposalPush; reviewing?: SpecDialogProposalPush; proposalTurn: number | null; turns: number }): SpecDialogView {
+function view(over: { computing: boolean; proposal?: SpecDialogProposalPush; proposalTurn: number | null; turns: number }): SpecDialogView {
   return {
     dialogId: "d-1", projects: [], question: null,
     turn: { computing: over.computing } as SpecDialogView["turn"],
     session: {
-      proposal: over.proposal ?? null, reviewing: over.reviewing ?? null, proposalTurn: over.proposalTurn,
+      proposal: over.proposal ?? null, proposalTurn: over.proposalTurn,
       transcript: Array.from({ length: over.turns }, (_, i) => ({ role: i % 2 ? "assistant" : "user", text: `t${i}`, at: "x" })),
     } as unknown as SpecDialogView["session"],
   };
@@ -32,10 +32,9 @@ describe("one card per proposal", () => {
     expect(held[1].text).toBe("Here is the cut.");
   });
 
-  // 2026-11-12-92e9c: the running turn's draft under review is the working line's, never a transcript entry.
-  it("useSpecDialog_ReloadMidTurn_ReviewingDraftIsNoCard", () => {
-    expect(trailingCard(view({ computing: true, reviewing: draft("p1"), proposalTurn: null, turns: 1 }))).toBeNull();
-    const read = view({ computing: true, proposal: draft("p1"), reviewing: draft("p12"), proposalTurn: 1, turns: 3 });
+  // 2026-11-19-6b0bd: a reload mid-turn shows the stored proposal on its own turn and nothing trailing.
+  it("useSpecDialog_ReloadMidTurn_StoredProposalOnItsTurn", () => {
+    const read = view({ computing: true, proposal: draft("p1"), proposalTurn: 1, turns: 3 });
     expect(trailingCard(read)).toBeNull();
     expect(cards(transcriptEntries(read)).map((entry) => entry.proposal)).toEqual([draft("p1")]);
   });

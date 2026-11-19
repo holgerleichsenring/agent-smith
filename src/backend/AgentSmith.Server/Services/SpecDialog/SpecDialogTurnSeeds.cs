@@ -69,8 +69,9 @@ internal static class SpecDialogTurnSeeds
         if (state.Revising is { } revising)
         {
             seeds[ContextKeys.SpecDialogRevisedProposal] = revising;
-            // 2026-11-12-cd4ca: the draft is edited in place; an interrupted one is proposed again as it stands.
-            slot.Proposal.Seed(Application.Services.SpecDialog.Writes.ProposalDraftSeed.Of(revising), revising.UnderReview);
+            // 2026-11-12-cd4ca: the draft is edited in place. 2026-11-19-6b0bd: no draft is under review any more, so an
+            // unchanged one is never proposed again as it stands.
+            slot.Proposal.Seed(Application.Services.SpecDialog.Writes.ProposalDraftSeed.Of(revising), changed: false);
         }
         if (state.Subject is null) seeds[ContextKeys.SpecDialogNameable] = true; // 2026-11-04-96a0a: offers name_conversation
         // 2026-09-22-9519: the way back out of a filing, beside the identity it acts under; 14a3d: only once something was filed.

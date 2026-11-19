@@ -91,10 +91,9 @@ describe("useSpecDialog, a send while the turn computes", () => {
   });
 });
 
-// 2026-11-12-92e9c: a written turn never changes. A draft under review stays out of the conversation; the final proposal
-// joins its turn's reply with the steps the page watched, and filing it later takes nothing from that turn.
-const draft = (dialogId: string, reviewing: boolean): SpecDialogProposalPush => ({
-  dialogId, kind: "spec", bug: null, parent: null, children: [], at: started, reviewing,
+// 2026-11-12-92e9c: a written turn never changes. The final proposal joins its turn's reply with the steps the page watched, and filing it later takes nothing from that turn.
+const draft = (dialogId: string): SpecDialogProposalPush => ({
+  dialogId, kind: "spec", bug: null, parent: null, children: [], at: started,
   spec: { specId: "s-1", goal: "Retry the import", steps: [], tests: [], done: [], requires: [] },
 } as unknown as SpecDialogProposalPush);
 
@@ -103,21 +102,17 @@ describe("useSpecDialog, a turn once shown", () => {
     const hook = renderHook(() => useSpecDialog(INSTANCE_DIALOG_ID));
     await waitFor(() => expect(hook.result.current.activity).toHaveLength(1));
     const dialogId = hook.result.current.dialogId!;
-    act(() => hub.specDialogProposals.emit(draft(dialogId, true)));
-    act(() => hub.specDialogProposals.emit(draft(dialogId, true)));
-    expect(hook.result.current.entries.filter((entry) => entry.proposal)).toHaveLength(0);
     act(() => hub.specDialogMessages.emit({ dialogId, title: "t", text: "Here is the cut.", at: started }));
-    act(() => hub.specDialogProposals.emit(draft(dialogId, false)));
+    act(() => hub.specDialogProposals.emit(draft(dialogId)));
     return { ...hook, dialogId };
   }
 
-  it("ReviewingDraft_NotInTranscript_FinalAttachesToReply", async () => {
+  it("FinalProposal_AttachesToReply", async () => {
     const { result } = await replied();
 
     const shown = result.current.entries.filter((entry) => entry.proposal);
     expect(shown).toHaveLength(1);
     expect(shown[0].text).toBe("Here is the cut.");
-    expect(shown[0].proposal?.reviewing).toBe(false);
     expect(shown[0].steps).toEqual([step]);
   });
 

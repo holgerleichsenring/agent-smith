@@ -45,7 +45,7 @@ public sealed class InterruptedTurnDraftTests : IDisposable
         var harness = new SpecDialogDecisionHarness(_context);
         var state = await harness.OpenAsync("dashboard", Dialog);
         // Turn A's replica stored its draft and died; the reaper marked its run, as it would.
-        await harness.WriteTurnAsync(state, "run-a", Bug("draft of a") with { UnderReview = true });
+        await harness.WriteTurnAsync(state, "run-a", Bug("draft of a"));
         await RunAsync("run-a", RunStatuses.Failed);
         // Turn B ran to completion.
         await harness.Sessions.AppendTurnAsync("dashboard", Dialog, TranscriptRole.Assistant, "b", null, null, default, runId: "run-b");
@@ -64,13 +64,13 @@ public sealed class InterruptedTurnDraftTests : IDisposable
     {
         var harness = new SpecDialogDecisionHarness(_context);
         var state = await harness.OpenAsync("dashboard", Dialog);
-        await harness.WriteTurnAsync(state, "run-x", Bug("draft under review") with { UnderReview = true });
+        await harness.WriteTurnAsync(state, "run-x", Bug("draft of x"));
         await RunAsync("run-x", RunStatuses.Running);
 
         // This replica's gate knows nothing of run-x: computing is false here.
         var read = await ReadAsync(harness);
 
-        read.RunningProposal!.Bug!.Title.Should().Be("draft under review", "the run row says it is live");
+        read.RunningProposal!.Bug!.Title.Should().Be("draft of x", "the run row says it is live");
         read.InterruptedTurns.Should().BeNull();
     }
 
