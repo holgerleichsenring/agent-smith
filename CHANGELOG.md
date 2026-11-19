@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.191.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.191.0...v0.191.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **master:** a green finish_spec is not re-driven for unbacked done steps (2026-11-19-9c6e) ([1a2324b](https://github.com/holgerleichsenring/agent-smith/commit/1a2324b147b1db8fcbf9dcf96d4da1961c1460f2))
+* **master:** a green finish_spec is not re-driven for unbacked done steps (2026-11-19-9c6e) ([a6f7222](https://github.com/holgerleichsenring/agent-smith/commit/a6f7222d8363d40998a44bc0dd325f1cfa0fe2d4))
+
 ## [0.191.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.190.1...v0.191.0) (2026-11-19)
 
 
