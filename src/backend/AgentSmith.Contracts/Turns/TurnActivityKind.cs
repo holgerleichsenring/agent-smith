@@ -14,4 +14,7 @@ public enum TurnActivityKind
 
     /// <summary>The turn was sent back over its own answer — a refusal or an invalid outcome.</summary>
     Revising,
+
+    /// <summary>2026-11-19-687ea: a model call has started and not returned yet — the page shows it as a live line.</summary>
+    Thinking,
 }

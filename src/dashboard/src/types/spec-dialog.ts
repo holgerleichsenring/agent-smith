@@ -299,11 +299,12 @@ export interface SpecDialogReadingPush {
 }
 
 /** What a running design turn was doing when it reported one step. */
-export type SpecDialogActivityKind = "tool" | "model" | "revising";
+export type SpecDialogActivityKind = "tool" | "model" | "revising" | "thinking";
 
 /** 2026-09-17-042ee: one step a running design turn took, pushed as it happens. A tool
  *  carries its name and a whitelisted argument summary; a model call carries the model and
- *  the intent it narrated; revising is a state and carries neither (2026-11-18-9c1ca: no review runs after a turn). */
+ *  the intent it narrated; revising is a state and carries neither (2026-11-18-9c1ca: no review runs after a turn).
+ *  2026-11-19-687ea: thinking is a model call that has started, with the model (and the sub-agent) as its name. */
 export interface SpecDialogActivityPush {
   dialogId: string;
   kind: SpecDialogActivityKind;

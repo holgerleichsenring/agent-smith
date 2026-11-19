@@ -5,6 +5,8 @@
 // 2026-11-13-3dc8: the working line renders these too. A sub-agent's or reviewer's step arrives as "Name › tool": its
 // reads and searches join the burst by the tool after the prefix, and its model answers are no lines at all — a
 // reviewer's verdict JSON is not the master's narration.
+// 2026-11-19-687ea: a model call that STARTED is a thinking step. It is no line of its own — the working view shows the
+// last one as a live line while it is the newest step — and, like a silent model step, it does not break a burst.
 
 /** What both a pushed step and a fetched one carry. */
 export interface RawStep {
@@ -46,6 +48,7 @@ export function condenseSteps(steps: RawStep[]): StepLine[] {
   let burst: Burst | null = null;
   for (const step of steps) {
     const name = step.name ?? "";
+    if (step.kind === "thinking") continue;
     if (step.kind === "model" && (!step.detail?.trim() || name.includes(PREFIX))) continue;
     const tool = toolOf(name);
     if (step.kind === "tool" && (READ.test(tool) || SEARCH.test(tool))) {
@@ -75,4 +78,14 @@ function lineOf(step: RawStep, name: string): StepLine {
   if (step.kind === "revising") return { key: step.seq, kind: "step", text: "revising its answer" };
   const text = [name || step.kind, step.detail].filter(Boolean).join(" ");
   return { key: step.seq, kind: step.kind === "tool" && WRITE.test(toolOf(name)) ? "write" : "step", text };
+}
+
+/** 2026-11-19-687ea: the model call in flight — the newest step when it is a thinking one — with the sub-agent that
+ *  made it, or null for the master's own. Null when the newest step is anything else. */
+export function inFlight(steps: RawStep[]): { key: number; who: string | null } | null {
+  const last = steps.at(-1);
+  if (!last || last.kind !== "thinking") return null;
+  const name = last.name ?? "";
+  const at = name.lastIndexOf(PREFIX);
+  return { key: last.seq, who: at < 0 ? null : name.slice(0, at) };
 }

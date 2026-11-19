@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-19-687ea: "DIALOG THINKING LINE (Contracts TurnActivityKind, EventPublishingChatClient, dashboard condenseSteps, DialogWorking). A model call is reported when it starts; the working view's last line reads 'thinking · Ns' (child-prefixed) while it runs. -> .agentsmith/specs/done/2026-11-19-687ea-dialog-thinking-line.yaml"
     2026-11-19-687ec: "DIALOG REOPEN FULL STEPS (dashboard useSpecDialog, turnSteps, useTurnSteps). A page opening or reopening a running design turn reads the steps it misses from the turn's run, so it shows the whole list, not the server's 50-step tail. -> .agentsmith/specs/done/2026-11-19-687ec-dialog-reopen-full-steps.yaml"
     2026-11-19-6b0be: "RUN LOG READY WORDING (dashboard runLogSections, DialogWorking). The first step section reads Before the work, not Got ready; a reading line says a repository's sandbox is ready or a ticket was read. -> .agentsmith/specs/done/2026-11-19-6b0be-run-log-ready-wording.yaml"
     2026-11-19-6b0bd: "PROPOSAL UNDER REVIEW RETIRED (OutcomeProposal, SpecDialog proposal state/view/push, SpecDialogProposalClaim, dashboard useSpecDialog). The under-review flag, reviewing row, observer and pane draft are gone; old rows still read. -> .agentsmith/specs/done/2026-11-19-6b0bd-proposal-under-review-retired.yaml"
