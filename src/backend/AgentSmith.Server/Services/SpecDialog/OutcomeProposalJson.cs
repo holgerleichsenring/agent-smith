@@ -43,7 +43,6 @@ internal static class OutcomeProposalJson
         Templates = proposal.Templates, Findings = proposal.Findings,
         ReviewRounds = proposal.ReviewRounds.Count == 0 ? null : proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
         Uploads = proposal.Uploads.Count == 0 ? null : proposal.Uploads,
-        UnderReview = proposal.UnderReview ? true : null,
         ReviewedClean = proposal.ReviewedClean.Count == 0 ? null : proposal.ReviewedClean,
         Questions = proposal.Questions.Count == 0 ? null : proposal.Questions, Spend = proposal.Spend, // 2026-11-10-d854a
         OfferLed = proposal.OfferLed ? true : null, FilingOffer = proposal.FilingOffer, // 2026-11-15-bf77
@@ -62,7 +61,7 @@ internal static class OutcomeProposalJson
     }) with
     {
         Templates = dto.Templates ?? [], Findings = dto.Findings ?? [], ReviewRounds = dto.ReviewRounds ?? [],
-        NotReviewed = dto.NotReviewed, Uploads = dto.Uploads ?? [], UnderReview = dto.UnderReview == true,
+        NotReviewed = dto.NotReviewed, Uploads = dto.Uploads ?? [],
         ReviewedClean = dto.ReviewedClean ?? [], Questions = dto.Questions ?? [], Spend = dto.Spend,
         OfferLed = dto.OfferLed == true, FilingOffer = dto.FilingOffer,
     };
@@ -89,7 +88,7 @@ internal static class OutcomeProposalJson
         IReadOnlyList<ProposalReviewRound>? ReviewRounds = null, // 2026-10-13-8762i: absent on an older row
         IReadOnlyList<string>? NotReviewed = null, AgentSmith.Contracts.Specs.SeriesContract? Contract = null, // 2026-10-13-8762j: epic only
         IReadOnlyList<GraphTicket>? Tickets = null, // 2026-10-14-dbcej: tickets only
-        bool? UnderReview = null, // 2026-11-09-9a98: absent on a final proposal
+        // 2026-11-19-6b0bd: an older row's underReview is not declared here, so reading skips it.
         string? Comment = null, // 2026-10-28-7a69c: comment only
         IReadOnlyList<UploadProvenance>? Uploads = null, // 2026-11-04-96a0c: absent on an older row
         IReadOnlyList<AgentSmith.Contracts.Specs.ReviewedText>? ReviewedClean = null, // 2026-11-10-8e59: absent on an older row

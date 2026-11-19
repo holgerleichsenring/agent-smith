@@ -52,7 +52,7 @@ Pipeline: code
 ├── LoadMemoryIndex        → loads the project's recorded memory index
 ├── LoadContext            → loads .agentsmith/ context files
 ├── AnalyzeCode            → scout agent maps relevant files
-├── DeriveSpec             → derives the specs from the ticket
+├── DeriveSpec             → the series on the branch, else a stand-in per repository
 ├── SpecHandback           → hands the ticket back when it cannot be implemented as written
 ├── SpecGate               → validates the specs before the master starts
 ├── EnsurePrerequisites    → installs dependencies

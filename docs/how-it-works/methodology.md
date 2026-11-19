@@ -17,9 +17,9 @@ Speculation surfaces; it doesn't get to pass as fact. And the framework enforces
 
 There is one coding pipeline, `code`. Its shape is simple to say: the ticket becomes a specification, and the specification is worked spec by spec, each spec checked before the next one starts.
 
-**The spec is the plan.** After the code has been read, `DeriveSpec` cuts the ticket into an ordered set of specs on the ticket branch — goal, steps, "done when" per spec. Before it writes, the derivation looks at the repository through read-only tools, and the cut it posts to the ticket separates facts (each backed by a look it took) from assumptions (stated without one). When several specs share names, data or files, the series carries a contract that says who owns what, and a cut that collides is sent back. There is no second planning step and no approval gate: the master opens on the spec, and the spec is what gets verified. Details in [Expectations](expectations.md).
+**The spec is the plan, and the master writes it.** A ticket filed from [Work it out](work-it-out.md) already carries its reviewed specs on its branch. A ticket without one gets the whole ticket as a stand-in spec per repository in scope, and the coding master writes the real spec first — goal, steps, "done when" — from the ticket and the code it reads, records it with `revise_spec`, then builds it. No other model cuts the ticket. There is no second planning step and no approval gate: the master opens on the spec, and the spec is what gets verified. Details in [Expectations](expectations.md).
 
-**Hand it back instead of guessing.** A ticket that reads two ways, contradicts the repository, or can't be built as written is handed back at derivation, before any code. A ticket that asks for something that must not be done is refused even earlier, by the scope call, before a sandbox exists.
+**Ask instead of guessing.** When only a person can answer what the work is, the master asks on the ticket. A ticket that asks for something that must not be done is refused even earlier, by the scope call, before a sandbox exists.
 
 **One master, real commands.** The `coding-agent-master` skill leads the spec's work: the code is edited and the repo's own build and tests are run via real commands, visible in the run timeline.
 

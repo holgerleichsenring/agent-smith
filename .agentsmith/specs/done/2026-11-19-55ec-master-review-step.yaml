@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-55ec
+goal: "Every master has its work reviewed by a fresh sub-agent as a step (skills v5.41.0), and the sub-agent budgets leave room for that review."
+applies_to: "backend (embedded skills pin, loop limits defaults) + config + docs"
+requires:
+  - 2026-11-19-15c8
+facts:
+  - claim: "The v5.41.0 release tarball hashes to f703e3db7f34e291a794c721e1004c8b41b2f9e4928fc6e8f94431a96ab878b5."
+    evidence: "observed: 2026-11-19, shasum -a 256 of the released agentsmith-skills-v5.41.0.tar.gz, matching its .sha256 asset"
+  - claim: "A design turn may spawn 4 sub-agents and a run 20 by default."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/LoopLimitsConfig.cs:34-44"
+  - claim: "A live design turn on terra spawned two readers and no reviewer; the skill made review optional."
+    evidence: "observed: 2026-11-19 design turn, spawn_agents called once with two reading tasks"
+scope:
+  in: "SkillsCatalogVersion v5.41.0 (design-partner 3.8.0, coding-agent 3.4.0: a fresh reviewer sub-agent reviews every draft and every spec's diff, as advice the master weighs); MaxSubAgentsPerDialogTurn 4 -> 8, MaxSubAgentsPerRun 20 -> 40; schema, example config, docs."
+  out: "Any gate that refuses a master for a missing review — the review is a step of the master's text and its outcome is visible in the reply or report."
+upgrade_impact: "A deployment that sets limits.max_sub_agents_per_dialog_turn or max_sub_agents_per_run explicitly keeps its value; at 4 a design turn with several readers has no child left for the review, and the master says so in its reply."
+steps:
+  - id: pin
+    action: "Pin the embedded skills catalog to v5.41.0."
+  - id: budgets
+    action: "Raise the default sub-agent budgets to 8 per design turn and 40 per run."
+done:
+  - "Build and the full suite are green on the v5.41.0 pin with the new defaults."

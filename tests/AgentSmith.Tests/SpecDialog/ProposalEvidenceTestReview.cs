@@ -9,6 +9,5 @@ namespace AgentSmith.Tests.SpecDialog;
 internal static class ProposalEvidenceTestReview
 {
     public static ProposalEvidenceReview Create(ITurnActivityObserverAccessor? activity = null) =>
-        new(new EvidenceCheck(new EvidenceReferences()), new EpicChildOrderer(),
-            activity ?? TurnActivityRecorder.Silent());
+        new(new EvidenceCheck(new EvidenceReferences()), activity ?? TurnActivityRecorder.Silent());
 }

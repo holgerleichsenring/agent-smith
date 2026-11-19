@@ -36,7 +36,6 @@ public sealed class RecordedCallsCompositionTests
     {
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), Project);
         harness.ChatClient
-            .EnqueueDeferred(() => Worker(SpecDerivationFixture.DerivationJson, 0.25m))
             .EnqueueDeferred(() => Worker("Planning: patch it.", 0.50m))
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// fix"}""")
             .EnqueueDeferred(() => Worker(GreenVerdict, 0.75m));
@@ -49,7 +48,7 @@ public sealed class RecordedCallsCompositionTests
         var rows = await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<RunLlmCall>().AsNoTracking()
             .Where(c => c.RunId == runner.LastRunId).ToListAsync();
         ledger.Calls.Should().HaveCount(rows.Count).And.NotBeEmpty();
-        ledger.CostUsd.Should().Be(rows.Sum(r => r.CostUsd)).And.BeGreaterThanOrEqualTo(1.50m);
+        ledger.CostUsd.Should().Be(rows.Sum(r => r.CostUsd)).And.BeGreaterThanOrEqualTo(1.25m);
         PipelineCostTracker.GetOrCreate(runner.LastContext!).EstimateCostUsd().Should().Be(0m,
             "the tracker keeps worker spend apart; the ledger is what the run recorded");
     }
@@ -60,7 +59,6 @@ public sealed class RecordedCallsCompositionTests
     {
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), Project);
         harness.ChatClient
-            .EnqueueDeferred(() => Worker(SpecDerivationFixture.DerivationJson, 0.25m))
             .EnqueueDeferred(() => Worker("Planning: patch it.", 0.50m))
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// fix"}""")
             .EnqueueDeferred(() => Worker(GreenVerdict, 0.75m));

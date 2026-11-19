@@ -41,13 +41,13 @@ public sealed class AcceptanceCriteriaSectionTests
             .Should().Equal("the API returns a widget with its id and its name", "the store is empty after a delete");
 
     [Fact]
-    public void SpecFallback_FieldCriteria_KeepLeadingDashesInsideTheText()
+    public void StandIn_FieldCriteria_KeepLeadingDashesInsideTheText()
     {
         var ticket = new Ticket(new TicketId("42"), "Widget", "body", "- --dry-run exits 0\n- **the table** exists\n_No response_", "open", "test");
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
-        var fallback = new SpecFallback(validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
+        var fallback = new SpecStandIns(validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
 
-        var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment("body"), [], SpecSource.Derived, []);
+        var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment("body"), null, SpecSource.Derived, [], []);
 
         set.Specs.Single().Draft.Done.Should().Equal("--dry-run exits 0", "**the table** exists");
     }

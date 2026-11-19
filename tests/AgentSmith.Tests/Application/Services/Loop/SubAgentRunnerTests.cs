@@ -242,7 +242,7 @@ public sealed class SubAgentRunnerTests
 
     /// <summary>2026-11-18-c8e2a: the runner over a real pass, request builder and events.</summary>
     internal static SubAgentRunner Compose(IAgenticLoopRunner loopRunner, IEventPublisher publisher, LoopLimitsConfig limits) =>
-        new(new SubAgentPass(loopRunner, new SubAgentRequestBuilder(), new SubAgentEvents(publisher),
+        new(new SubAgentPass(loopRunner, new SubAgentRequestBuilder(publisher), new SubAgentEvents(publisher),
                 new AgentSmith.Application.Services.Turns.SubAgentActivityFrame(
                     new AgentSmith.Application.Services.Turns.AsyncLocalTurnActivityObserverAccessor()),
                 NullLogger<SubAgentPass>.Instance),

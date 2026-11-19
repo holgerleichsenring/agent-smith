@@ -9,7 +9,7 @@ public static partial class CommandModelUse
     private static readonly Dictionary<string, StepModel> Steps = new(StringComparer.Ordinal)
     {
         [CommandNames.ScopeRepos] = new(
-            ModelUse.Call, "repo-scope classifier prompt", "the repos the ticket touches"),
+            ModelUse.Call, "scope call prompt", "the ticket's size and shape, and a refusal"),
         [CommandNames.AnalyzeCode] = new(
             ModelUse.Call, "project-analyzer-master", "a project map per repo"),
         // 2026-11-18-c8e2c: VerifySpec, CommitAndPR and SelectSpec ask no model — the spec's account is its master's
@@ -24,8 +24,6 @@ public static partial class CommandModelUse
             ModelUse.Call, "spec premise-check prompt",
             "per stated premise that no longer holds: the premise, the verdict and the evidence id"),
         [CommandNames.ReviewSpecs] = new(ModelUse.Call, "spec attack brief", "per reviewer: a verdict, cited cuts and findings"),
-        [CommandNames.DeriveSpec] = new(
-            ModelUse.Call, "spec-derivation-master", "an ordered set of specs, as anchors"),
         [CommandNames.BootstrapDocument] = new(
             ModelUse.Call, "contract-classifier-master", "the document type"),
         [CommandNames.BootstrapDiscover] = new(
@@ -53,6 +51,7 @@ public static partial class CommandModelUse
     // step is unclassified until someone says which side of the line it is on.
     private static readonly HashSet<string> Deterministic = new(StringComparer.Ordinal)
     {
+        CommandNames.DeriveSpec, // 2026-11-19-6b0ba: stand-ins in code; the coding master writes the spec
         CommandNames.VerifySpec, CommandNames.SelectSpec, CommandNames.CommitAndPR, // 2026-11-18-c8e2c
         CommandNames.LoadCatalog, CommandNames.PipelineNameInitializer, CommandNames.FetchTicket,
         CommandNames.CheckoutSource, CommandNames.TryCheckoutSource, CommandNames.AcquireSource,

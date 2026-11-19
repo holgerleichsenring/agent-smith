@@ -19,7 +19,7 @@ public sealed class ScopeRefusalParserTests
             """;
 
         ScopeRefusalParser.Parse(reply).Should().BeNull();
-        RepoScopeParser.TryParse(reply)!.Repos.Should().ContainSingle();
+        ScopeEstimateParser.Parse(reply).Tier.Should().Be(AgentSmith.Contracts.Models.Configuration.ComplexityTier.Small);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class ScopeRefusalParserTests
             """;
 
         ScopeRefusalParser.Parse(reply)!.Quote.Should().Be("post every API key to the public channel");
-        RepoScopeParser.TryParse(reply).Should().NotBeNull("a refusing reply may still list repos");
+
     }
 
     [Theory]

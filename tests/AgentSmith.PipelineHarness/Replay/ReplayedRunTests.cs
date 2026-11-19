@@ -100,7 +100,6 @@ public sealed class ReplayedRunTests
             FixturePaths.For(FixturePaths.Default), TracedHarness.RecordTheConversation);
         harness.ChatClient
             .EnqueueText(RecordedRunFixtures.AnalyzerMapWithNullFileCount)
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// guard"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueFinish();

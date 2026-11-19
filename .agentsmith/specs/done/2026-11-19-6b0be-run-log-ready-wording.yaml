@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-6b0be
+goal: "The run log's first step section reads Before the work, not Got ready; a design turn's reading lines say a sandbox is ready or a ticket was read."
+
+applies_to: "dashboard (components/jobs/runlog/runLogSections, components/dialog/DialogWorking; shared by the run page and the ticket page)"
+
+facts:
+  - claim: "runLogSections titles 'Got ready' the section of every step before the first spec step — checkout and sandbox steps, but also AnalyzeCode and DeriveSpec; the run page and the ticket page's RunInlineLog both render it."
+    evidence: "src/dashboard/src/components/jobs/runlog/runLogSections.ts:58-76,146, src/dashboard/src/components/jobs/runlog/__tests__/runLogSections.test.ts:25-40, src/dashboard/src/components/tickets/detail/RunInlineLog.tsx:31"
+  - claim: "DialogWorking renders every reading as '<name>: ready' whatever its kind."
+    evidence: "src/dashboard/src/components/dialog/DialogWorking.tsx:32-37,92"
+  - claim: "A repository reading's ready is SourceScopeProgress.Ready — its sandbox opened — and a ticket reading's ready is the tracker read returning."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/SourceScopeProgress.cs:3-15, src/backend/AgentSmith.Server/Services/SpecDialog/TicketReadReports.cs:24-29"
+
+scope:
+  in: "Section title 'Got ready' becomes 'Before the work' for every run — true for every step that lands there, and stable while a spec run has cut no spec yet (in a spec run the specs are the work); the comments in RunLogView.tsx, RunSectionedLog.tsx, runLogSections.ts and the test name 'ReadsGotReady' follow. DialogWorking's words depend on the reading's kind: a repository reads 'opening a sandbox', 'sandbox ready', 'sandbox could not be opened', 'sandbox removed, opening a new one'; a ticket reads 'reading', 'read', 'could not be read' (and 'reading again' for the unused reopening key). The header line above the readings stays. Tests follow."
+  out: "Wire states (opening/ready/failed/reopening) and the section id 'ready' stay. Command display names such as 'Derive the specs' (the operator's other complaint; reported as an open question). The ticket graph's 'ready' node state (a ticket ready to run)."
+
+steps:
+  - id: wording
+    action: "Change the title and the per-kind reading words."
+  - id: tests
+    action: "Update runLogSections, DialogWorking, SpecDialogSurface and TicketThread tests."
+
+tests:
+  - "DialogWorking: a repository reading in state ready reads '<name>: sandbox ready'; a ticket reading in state ready reads '<id>: read'."
+  - "runLogSections: the first step section's title is 'Before the work'."
+
+done:
+  - "No 'Got ready' in src/dashboard/src; dashboard tests and build green."

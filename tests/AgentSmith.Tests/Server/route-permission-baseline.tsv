@@ -102,6 +102,7 @@ GET	/api/tickets/{project}/{ticketId}/reviews	runs.read	route:project
 GET	/api/tickets/{project}/{ticketId}/series	runs.read	route:project
 GET	/api/tickets/{project}/{ticketId}/text	runs.read	route:project
 GET	/health	anonymous	-
+GET	/health/ready	anonymous	-
 POST	/api/archive/import	archive.import	-
 POST	/api/config/agents	config.write	-
 POST	/api/config/changes/{id}/revert	config.write,secrets.write	-

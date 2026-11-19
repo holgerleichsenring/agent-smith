@@ -10,7 +10,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// 2026-10-26-bdd0c fast-tier end-to-end: a spec derivation that hands the ticket back asks on the ticket and
-/// ends. The clarification status is seeded, so a park that slipped through would move the ticket there.
+/// ends; 2026-11-19-6b0ba: the question is the blocker its coding master finished with. The clarification status is seeded, so a park that slipped through would move the ticket there.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class SpecDeriveQuestionTests
@@ -20,7 +20,7 @@ public sealed class SpecDeriveQuestionTests
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
-        harness.ChatClient.EnqueueText(SpecDerivationFixture.QuestionJson);
+        SpecWritingScript.AsksFirst(harness, "Which client is meant, the web one or the mobile one?");
 
         var runner = Runner(harness);
         var result = await runner.RunAsync(PipelinePresets.SpecDeriveName);

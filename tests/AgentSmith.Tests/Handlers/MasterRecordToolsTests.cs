@@ -72,14 +72,13 @@ public sealed class MasterRecordToolsTests
         using var scope = provider.CreateScope();
         var hosts = scope.ServiceProvider.GetRequiredService<MasterRecordToolHosts>();
         var pipeline = TwoRepositories();
-        var agent = new AgentSmith.Contracts.Models.Configuration.AgentConfig();
 
-        hosts.Create(pipeline, "/work", codingMaster: true, agent).ReviseSpec.Should().BeNull("no spec is current");
-        hosts.Create(pipeline, "/work", codingMaster: true, agent).FinishSpec.Should().BeNull("2026-11-18-98fa: nor finish_spec");
+        hosts.Create(pipeline, "/work", codingMaster: true).ReviseSpec.Should().BeNull("no spec is current");
+        hosts.Create(pipeline, "/work", codingMaster: true).FinishSpec.Should().BeNull("2026-11-18-98fa: nor finish_spec");
         pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft("2026-10-14-5678a", "goal", "spec: 2026-10-14-5678a\n", []));
-        hosts.Create(pipeline, "/work", codingMaster: false, agent).ReviseSpec.Should().BeNull("a scan master revises nothing");
-        hosts.Create(pipeline, "/work", codingMaster: false, agent).FinishSpec.Should().BeNull("nor finishes a spec");
-        hosts.Create(pipeline, "/work", codingMaster: true, agent).SpecTools.Select(t => t.Name)
+        hosts.Create(pipeline, "/work", codingMaster: false).ReviseSpec.Should().BeNull("a scan master revises nothing");
+        hosts.Create(pipeline, "/work", codingMaster: false).FinishSpec.Should().BeNull("nor finishes a spec");
+        hosts.Create(pipeline, "/work", codingMaster: true).SpecTools.Select(t => t.Name)
             .Should().Equal(HandForwardToolHost.Name, AgentSmith.Application.Services.Specs.Revision.ReviseSpecToolHost.Name,
                 FinishSpecToolHost.Name);
     }

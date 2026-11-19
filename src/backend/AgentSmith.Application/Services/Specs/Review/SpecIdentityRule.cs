@@ -10,7 +10,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// </summary>
 public static class SpecIdentityRule
 {
-    public static bool Holds(SpecDraft original, SpecDraft revised)
+    /// <param name="mayGainAppliesTo">2026-11-19-6b0ba: a stand-in states no applies_to; the spec its master writes may.</param>
+    public static bool Holds(SpecDraft original, SpecDraft revised, bool mayGainAppliesTo = false)
     {
         ArgumentNullException.ThrowIfNull(original);
         ArgumentNullException.ThrowIfNull(revised);
@@ -18,7 +19,9 @@ public static class SpecIdentityRule
         {
             var before = OutcomeYamlReader.ReadMap(original.Yaml);
             var after = OutcomeYamlReader.ReadMap(revised.Yaml);
-            return new[] { "spec", "requires", "repos", "applies_to" }.All(key => SpecRevisionEdit.Equal(before.GetValueOrDefault(key), after.GetValueOrDefault(key)));
+            var gains = mayGainAppliesTo && before.GetValueOrDefault("applies_to") is null;
+            return new[] { "spec", "requires", "repos", "applies_to" }.Where(key => !(gains && key == "applies_to"))
+                .All(key => SpecRevisionEdit.Equal(before.GetValueOrDefault(key), after.GetValueOrDefault(key)));
         }
         catch (YamlDotNet.Core.YamlException)
         {

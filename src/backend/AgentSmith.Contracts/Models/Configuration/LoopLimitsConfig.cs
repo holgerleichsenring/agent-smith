@@ -29,17 +29,18 @@ public sealed class LoopLimitsConfig
     /// p0177: run-wide cap on the total number of sub-agents the master may
     /// spawn across all spawn_agents calls within one run. SubAgentBudget
     /// enforces this via thread-safe TryReserve; once exhausted, surplus
-    /// tasks return Failed without an LLM call. Defaults to 20.
+    /// tasks return Failed without an LLM call. Defaults to 40. 2026-11-19-55ec: every spec now has a builder and a
+    /// fresh reviewer, and a re-review after a larger change, all from one run-wide budget.
     /// </summary>
-    public int MaxSubAgentsPerRun { get; set; } = 20;
+    public int MaxSubAgentsPerRun { get; set; } = 40;
 
     /// <summary>
     /// 2026-09-22-5891: how many sub-agents ONE design turn may fan out into. A design turn
     /// is a run of its own, so the run-wide number above would let a single conversation
     /// turn open twenty children; this is the number the design surface gates on and the
-    /// capacity of the budget it constructs for itself. Defaults to 4 — one wave at
-    /// <see cref="MaxConcurrentSubAgents"/>. Set to 0 to take the spawn tool off the design
+    /// capacity of the budget it constructs for itself. Defaults to 8 — two waves at
+    /// <see cref="MaxConcurrentSubAgents"/>: readers, then the reviewer and one re-review (2026-11-19-55ec). Set to 0 to take the spawn tool off the design
     /// surface entirely.
     /// </summary>
-    public int MaxSubAgentsPerDialogTurn { get; set; } = 4;
+    public int MaxSubAgentsPerDialogTurn { get; set; } = 8;
 }

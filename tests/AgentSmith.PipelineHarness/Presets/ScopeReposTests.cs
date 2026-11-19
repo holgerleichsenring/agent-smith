@@ -25,18 +25,16 @@ public sealed class ScopeReposTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // ScopeRepos: the classifier names one of the two repos; 2026-11-18-9c1cb: the run keeps both.
+            // ScopeRepos: a reply still naming one of the two repos (2026-11-19-6b0bb: no longer asked for); the run keeps both.
             .EnqueueScopeReply("""{"repos":[{"name":"primary","affected":true,"confidence":0.95},{"name":"secondary","affected":false,"confidence":0.9,"reason":"not named by the ticket"}],"rationale":"The ticket names the primary service only."}""")
-            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
-            // p0394a: no plan slot — the spec is the plan, the master consumes next.
-            // Two repositories in scope, so the spec names the one it changes.
-            .EnqueueText(SpecDerivationFixture.DerivationJson.Replace("\"carries\"", "\"repos\": [\"primary\"], \"carries\"", StringComparison.Ordinal))
+            // 2026-11-19-6b0ba: the series names the one repository it changes; no model cuts the ticket.
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// scoped fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
             .EnqueueFinish(summary: "fixed");
 
-        var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() };
+        var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() }
+            .WithSeries(new HarnessSeries.Member("Reject empty payloads with a 400 instead of a 500", "An empty request body is answered with 400."));
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue($"a real change and a green verdict pass: {result.Message}");
@@ -68,7 +66,6 @@ public sealed class ScopeReposTests
             .EnqueueScopeReply("I think it is probably the primary one?") // no JSON — parse failure
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() };

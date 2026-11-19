@@ -30,9 +30,9 @@ public sealed class DashboardOutcomeChannel(
     private const string FiledMethod = "SpecDialogFiled";
 
     /// <summary>What this turn would file, published before the person is asked.</summary>
-    /// <param name="proposalId">2026-11-10-ccd9: the awaiting proposal's id; null pushes a draft under review.</param>
+    /// <param name="proposalId">2026-11-10-ccd9: the awaiting proposal's id.</param>
     public Task ProposeAsync(
-        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken, string? proposalId = null)
+        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken, string proposalId)
     {
         ArgumentNullException.ThrowIfNull(state);
         if (!DialogTarget.IsDashboard(state)) return Task.CompletedTask;
@@ -40,7 +40,7 @@ public sealed class DashboardOutcomeChannel(
         var push = composer.Compose(dialogId, proposal, DateTimeOffset.UtcNow);
         return push is null
             ? Task.CompletedTask
-            : PushAsync(ProposalMethod, dialogId, push with { ProposalId = proposalId, Reviewing = proposalId is null },
+            : PushAsync(ProposalMethod, dialogId, push with { ProposalId = proposalId },
                 cancellationToken);
     }
 

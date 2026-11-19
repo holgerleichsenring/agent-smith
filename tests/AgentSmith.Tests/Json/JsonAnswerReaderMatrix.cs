@@ -54,8 +54,6 @@ internal static class JsonAnswerReaderMatrix
     {
         ["FindingRefutationReader"] = (Refutations, "[c2]", t => Refuter().Read(t)?.Count.ToString()),
         ["SpecCutAnswerReader"] = (Cuts, "[c2]", t => SpecCutAnswerReader.Read(t)?.Count.ToString()),
-        ["SpecAttackAnswerReader"] = (Verdict, "{x}", t => SpecAttackAnswerReader.Read(t)?.Verdict),
-        ["SeriesContractAnswerReader"] = (Verdict, "{x}", t => SeriesContractAnswerReader.Read(t)?.Verdict),
         ["ClientUsageReportReader"] = (Usage, "{x}", t => ClientUsageReportReader.Read(t)?.CallSites.Count.ToString()),
         ["StagedAuthFileJsonReader"] = (Staged, "{x}", t => new StagedAuthFileJsonReader().Read(t).Count.ToString()),
         ["ProviderErrorPayloadParser"] = (ProviderError, "{x}", ProviderErrorPayloadParser.TryExtractMessage),

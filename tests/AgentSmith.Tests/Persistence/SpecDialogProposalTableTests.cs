@@ -110,19 +110,6 @@ public sealed class SpecDialogProposalTableTests : IDisposable
     }
 
     [Fact]
-    public async Task Reviewing_NeverAwaits()
-    {
-        var (id, _) = await Claim().SetAwaitingAsync(Platform, Thread, "{\"awaits\":true}", "run-1", default);
-
-        await Claim().SetReviewingAsync(Platform, Thread, "{\"draft\":true}", "run-2", default);
-
-        (await Claim().ReadAsync(Platform, Thread, default)).AwaitingId.Should().Be(id, "a draft never takes the awaiting slot");
-        var draft = await _context.Set<SpecDialogProposal>().AsNoTracking().SingleAsync(p => p.RunId == "run-2");
-        (draft.State, draft.ProposalId).Should().Be((SpecDialogProposalClaim.Reviewing, (string?)null));
-        (await Claim().ClaimAsync(Platform, Thread, "run-2", default)).Should().BeNull();
-    }
-
-    [Fact]
     public async Task OneAwaitingIndex_RefusesASecondAwaitingRow()
     {
         await Claim().SetAwaitingAsync(Platform, Thread, "{}", default);
@@ -157,7 +144,7 @@ public sealed class SpecDialogProposalTableTests : IDisposable
     public async Task TurnRows_LeaveOutTheRowsNoRunWrote()
     {
         await Claim().SetAwaitingAsync(Platform, Thread, "{\"unbound\":true}", default);
-        await Claim().SetReviewingAsync(Platform, Thread, "{\"run\":true}", "run-1", default);
+        await new SpecDialogProposalRepository(_context).EnsureAsync(Session, "run-1", "{\"run\":true}", default);
 
         var rows = await new SpecDialogProposalRepository(_context).ReadBySessionAsync(Session, default);
 

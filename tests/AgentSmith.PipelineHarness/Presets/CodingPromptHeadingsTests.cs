@@ -28,7 +28,6 @@ public sealed class CodingPromptHeadingsTests
     {
         await using var harness = BuildHarness(new RecordingTicketProvider());
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueFinish();
 
@@ -58,7 +57,6 @@ public sealed class CodingPromptHeadingsTests
     {
         await using var harness = BuildHarness(new RecordingTicketProvider());
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueFinish();
 

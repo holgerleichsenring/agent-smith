@@ -14,8 +14,7 @@ export const SERIES_TOKEN = "series";
 // 2026-11-10-8e59: information, not a hold — nothing is built before a review ends clean on its exact text.
 export const NOT_YET_REVIEWED = "not yet reviewed, will be reviewed before it is built";
 
-export function notReviewedLabel(entry: string, underReview = false): string {
-  if (underReview) return entry === SERIES_TOKEN ? "the series contract is under review" : `${entry} — under review`;
+export function notReviewedLabel(entry: string): string {
   return entry === SERIES_TOKEN
     ? `the series contract — ${NOT_YET_REVIEWED}`
     : `${entry} — ${NOT_YET_REVIEWED}`;
@@ -24,11 +23,9 @@ export function notReviewedLabel(entry: string, underReview = false): string {
 export function DialogProposalRounds({
   rounds,
   notReviewed,
-  underReview,
 }: {
   rounds?: SpecDialogReviewRound[];
   notReviewed?: string[] | null;
-  underReview?: boolean;
 }) {
   const waiting = notReviewed ?? [];
   if (!rounds?.length && waiting.length === 0) return null;
@@ -47,7 +44,7 @@ export function DialogProposalRounds({
       ))}
       {waiting.map((entry) => (
         <p key={entry} data-testid="dialog-not-reviewed" className="dsh-body font-semibold text-ink">
-          {notReviewedLabel(entry, underReview)}
+          {notReviewedLabel(entry)}
         </p>
       ))}
     </div>

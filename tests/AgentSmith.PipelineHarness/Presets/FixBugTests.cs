@@ -94,7 +94,6 @@ public sealed class FixBugTests
         harness.ChatClient
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
@@ -131,7 +130,6 @@ public sealed class FixBugTests
         // derivation; the master then answers with no tool calls = no changes.
         harness.ChatClient.EnqueueText("{}")
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
@@ -156,7 +154,6 @@ public sealed class FixBugTests
         // p0328 drafter.
         harness.ChatClient.EnqueueText("{}")
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
@@ -215,7 +212,6 @@ public sealed class FixBugTests
         harness.ChatClient
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueText("I changed the file. (No structured verdict emitted.)");
 
@@ -265,7 +261,6 @@ public sealed class FixBugTests
         harness.ChatClient
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/.agentsmith/runs/run/plan.md","content":"# Plan"}""")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueFinish(summary: "fixed");

@@ -19,6 +19,9 @@ public sealed class SeriesManifestDocument
     public bool TicketPinnedWhole { get; set; }
     public List<string> Specs { get; set; } = [];
 
+    /// <summary>2026-11-19-6b0ba: the spec ids still standing in for the ticket; null when none does.</summary>
+    public List<string>? StandIns { get; set; }
+
     /// <summary>2026-10-12-f5f7b: the repositories whose sub-series make up the ticket's set, as the
     /// write that stamped this manifest saw them; null on a manifest that predates it, which is a
     /// one-repository series.</summary>

@@ -63,12 +63,32 @@ public sealed class RetiredConfigKeysTests
     {
         const string yaml = """
             spec_review:
-              rounds: 4
+              reground_read_budget: 24
               design_turn: true
             """;
 
         _detector.InYaml(yaml, "config/agentsmith.yml").Should().ContainSingle()
             .Which.Field.Should().Be("spec_review.design_turn");
+    }
+
+    // 2026-11-19-4176: the sizing of the run-time spec review, which is gone; the re-ground budget stays.
+    [Fact]
+    public void RetiredConfigKeys_SpecReviewSizing_ReportsOneAdvisoryPerKey()
+    {
+        const string yaml = """
+            spec_review:
+              rounds: 4
+              reviewers: 2
+              max_concurrent: 2
+              budget_share_percent: 40
+              attack_look_floor: 24
+              series_contract_max_chars: 60000
+              reground_read_budget: 24
+            """;
+
+        _detector.InYaml(yaml, "config/agentsmith.yml").Select(f => f.Field).Should().BeEquivalentTo(
+            "spec_review.rounds", "spec_review.reviewers", "spec_review.max_concurrent", "spec_review.budget_share_percent",
+            "spec_review.attack_look_floor", "spec_review.series_contract_max_chars");
     }
 
     [Fact]

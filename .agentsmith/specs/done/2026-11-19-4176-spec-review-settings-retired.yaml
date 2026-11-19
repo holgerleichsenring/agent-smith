@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-4176
+goal: "The spec_review settings nothing reads are retired end to end, keeping reground_read_budget; the dead series-contract reviewer chain and SpecCutResidues are deleted."
+
+applies_to: "default (SpecReviewConfig, retired config keys, schema, Specs/Review, docs), dashboard (settings form, config types)"
+
+requires: [2026-11-19-3e10]
+
+facts:
+  - claim: "SpecReviewConfig holds rounds, reviewers, max_concurrent, budget_share_percent, attack_look_floor, reground_read_budget and series_contract_max_chars, each validated in Problems."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SpecReviewConfig.cs:38-45"
+  - claim: "Only reground_read_budget is read, by the citation re-ground."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecCitationRegrounder.cs:27"
+  - claim: "The schema and the dashboard settings form still describe the review those fields sized."
+    evidence: "config/agentsmith.schema.json:251-265, src/dashboard/src/components/config/SeriesSettingsForms.tsx:14-32"
+  - claim: "The series-contract reviewer and SpecCutResidues are only registered; nothing injects them."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRegistrations.cs:19, src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRegistrations.cs:26"
+
+scope:
+  in: "SpecReviewConfig keeps RegroundReadBudget only, with its validation. The six fields get RetiredConfigKeys rows (an advisory, so stored and file values are tolerated) and leave the schema, the dashboard SpecReviewSetting type, the settings form and its tests, and the docs (settings, agentsmith-yml reference). Deleted: ISeriesContractReviewer, SeriesContractReviewer, its admission, prompt, input, answer, answer reader, members and review, SeriesContractPromptSection, SpecAttackAdmission, SpecAttackAnswer, SpecRegisters, SpecCutResidues and SpecRevisionCause.SeriesContractReview; their registrations, tests and rows in the model-output and JSON-reader lists. Kept: SpecAttackResult, SpecReviewMerge/Merged and SpecReviewResidue (the ticket page's stored rounds and the events), SpecRevisionEdit, SpecToday. The design_turn retirement reason stops saying the run reviews each spec before building."
+  out: "SpecReviewRoundEvent, the stored round rows and the ticket page's rounds (stored runs). The series contract itself (SeriesContractCheck, SeriesContractReader, the manifest's contract), which the design turn and verify_series still use."
+
+upgrade_impact: "A config or stored setting that still names a retired spec_review key loads with an advisory naming it — a stored spec_review document names all six until it is saved once; the settings page shows only the re-ground read budget."
+
+steps:
+  - id: config
+    action: "SpecReviewConfig trimmed; RetiredConfigKeys rows; schema. Tests that set a retired field (RetiredConfigKeysTests' design_turn case, ConfigImportPlannerTests, ConfigStudioApiSmokeTests, SeriesConfigTests, StoredSpecReviewSettingsReaderTests, SpecReviewConfigTests, ReviewLoopRig) use reground_read_budget or drop it."
+  - id: dashboard
+    action: "SpecReviewSetting type, SpecReviewForm, the settings.ts block description, and their tests."
+  - id: delete
+    action: "Delete the listed chain; trim ReviewLoopRig; split SpecRegistersTodayTests (SpecToday stays); drop SeriesContractAnswerReader from ModelOutputParsingRuleTests and the JSON reader matrix."
+  - id: docs
+    action: "docs/configure-it/settings.md (its refused-value example), docs/reference/configuration/agentsmith-yml.md, docs/how-it-works/spec-dialogue.md."
+
+tests:
+  - "A yaml naming spec_review.rounds and the other retired keys reports one advisory per key."
+  - "SpecReviewConfig validates reground_read_budget only."
+  - "The settings form shows the re-ground read budget and no retired field."
+
+done:
+  - "Nothing reads or offers a retired spec_review key; build, the full suite and the dashboard tests and build are green."

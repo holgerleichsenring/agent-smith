@@ -79,8 +79,7 @@ public sealed class ScopeReposCallFailureTests
             new RepoScopeClassifier(factory.Object, EventTestStubs.RunContext, NullLogger<RepoScopeClassifier>.Instance),
             new ScopeEstimateRecorder(AgentSmithConfig.Empty(), Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(),
                 NullLogger<ScopeEstimateRecorder>.Instance),
-            new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
-            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance));
+            new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance));
     }
 
     private static ScopeReposContext Context(params string[] repoNames)

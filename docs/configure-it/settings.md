@@ -58,14 +58,11 @@ The same block carries `dashboard_url`, your dashboard's address, so the ticket 
 
 ### Spec review
 
-Fresh reviewers attack a spec and their cuts are applied when the master revises a spec with `revise_spec`, when the entry re-ground checks a spec, and in a Work it out turn. A coding run does not review specs before building them. This group sizes that review:
+No step of a run reviews a spec any more: a coding run builds the spec it has, `revise_spec` writes the master's own text without a review (a second opinion is a reviewer the master briefs itself), and a proposal in [Work it out](../how-it-works/work-it-out.md) is not reviewed after its turn. The `spec_review:` block holds one setting:
 
-- Rounds per spec, 4 by default. `0` turns the review off.
-- Reviewers per round, 2: fresh reviewers attacking each spec in one round.
-- Max concurrent reviewers, 2.
-- Budget share (percent), 40: the share of the run's cost cap and wall clock a coding run's review may use. A proposal in Work it out has no share and no time limit: every draft gets its rounds, and only the run's cost cap or a cancel stops them.
+- Re-ground read budget, 24: the file reads that re-check the citations of the spec a run enters; past it a citation is left unchecked.
 
-The block is `spec_review:` (`rounds`, `reviewers`, `max_concurrent`, `budget_share_percent`), and every run reads it fresh. An invalid block is refused at validation: saving it, importing a file with it, and the startup check all name the problem (for example `spec_review.rounds is -1; it must be 0 or more`). It sets the review a spec gets when its master revises it or the run re-grounds its citations; nothing reviews a spec before its master builds it, and a proposal in [Work it out](../how-it-works/work-it-out.md) is not reviewed after its turn. `design_turn` is retired: a file that still sets it gets an advisory.
+The block is `spec_review:` (`reground_read_budget`), and every run reads it fresh. An invalid value is refused at validation: saving it, importing a file with it, and the startup check all name the problem (`spec_review.reground_read_budget is 0; it must be 1 or more`). `design_turn`, `rounds`, `reviewers`, `max_concurrent`, `budget_share_percent`, `attack_look_floor` and `series_contract_max_chars` are retired: a file or a stored setting that still names one gets an advisory, and saving the settings page once clears a stored one.
 
 ### Series
 

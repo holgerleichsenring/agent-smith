@@ -28,9 +28,9 @@ namespace AgentSmith.Tests.Specs;
 /// 2026-09-08-5cd2, run a109's shape through the real reader: the branch carries a set
 /// whose first spec executed (the marker's commit is the last one on the spec path, so
 /// the pointer's sha no longer matches), and the ticket comes back re-triggered. When
-/// the ticket text changed since the set was cut, the deriver is called with the branch
-/// set and the ticket-edit cause; when it did not — or the set predates the fingerprint —
-/// nothing is derived, exactly as before.
+/// the ticket text changed since the set was cut, the unbuilt tail is kept and the edit is
+/// handed to its coding master (2026-11-19-6b0ba); when it did not — or the set predates the
+/// fingerprint — nothing is recorded as new input.
 /// </summary>
 public sealed class DeriveSpecTicketEditTests
 {
@@ -44,19 +44,19 @@ public sealed class DeriveSpecTicketEditTests
         """;
 
     [Fact]
-    public async Task DeriveSpec_AnEditedTicketWithAnExecutedSpec_CallsTheDeriverWithTheSetAndTheCause()
+    public async Task DeriveSpec_AnEditedTicketWithAnExecutedSpec_KeepsTheTailAndHandsTheEditToItsMaster()
     {
         var files = SeededFiles(fingerprint: "a-fingerprint-of-the-text-before-the-edit");
-        var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
 
-        var result = await Handler(files, deriver, published).ExecuteAsync(Context(), default);
+        var context = Context();
+        var result = await Handler(files, published).ExecuteAsync(context, default);
 
         result.IsSuccess.Should().BeTrue();
-        deriver.Calls.Should().Be(1, "the edited text is new input the model has not seen");
-        deriver.PreviousSeen!.Executed.Should().Equal("p19106a");
-        deriver.CauseSeen.Should().Be(SpecRevisionCause.TicketEdit);
-        published.Set!.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
+        context.Pipeline.Get<string>(ContextKeys.SpecKeptInput).Should().Be(SpecRevisionCause.TicketEdit,
+            "the unbuilt spec is kept and its coding master amends it for the edit (2026-11-19-6b0ba)");
+        published.Set!.StandIns.Should().BeEmpty();
+        published.Set.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
         published.Set.Executed.Should().Equal(["p19106a"], "the executed spec is carried, never edited");
         published.Set.Current.Cause.Should().Be(SpecRevisionCause.TicketEdit);
     }
@@ -65,12 +65,11 @@ public sealed class DeriveSpecTicketEditTests
     public async Task DeriveSpec_ASetWithoutAFingerprint_IsNotRederived()
     {
         var files = SeededFiles(fingerprint: null);
-        var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
 
-        await Handler(files, deriver, published).ExecuteAsync(Context(), default);
+        await Handler(files, published).ExecuteAsync(Context(), default);
 
-        deriver.Calls.Should().Be(0, "a set cut before the fingerprint existed compares as unchanged");
+        published.Set!.StandIns.Should().BeEmpty("a set cut before the fingerprint existed compares as unchanged");
         published.Set!.Specs.Select(p => p.Draft.Goal).Should().Equal("Goal p19106a", "Goal p19106b");
     }
 
@@ -78,12 +77,10 @@ public sealed class DeriveSpecTicketEditTests
     public async Task DeriveSpec_AnUnchangedTicketWithAnExecutedSpec_IsNotRederived()
     {
         var files = SeededFiles(fingerprint: TicketTextFingerprint.Of(Ticket()));
-        var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
 
-        await Handler(files, deriver, published).ExecuteAsync(Context(), default);
+        await Handler(files, published).ExecuteAsync(Context(), default);
 
-        deriver.Calls.Should().Be(0, "the text the set was cut from is the text on the ticket");
         published.Set!.Current.Cause.Should().Be(SpecRevisionCause.ReviewerEdit,
             "the pointer here still names the derivation commit, so the last commit on the spec path "
             + "is a foreign one — a reviewer's edit after the spec ran; the marker itself moves the "
@@ -92,19 +89,19 @@ public sealed class DeriveSpecTicketEditTests
     }
 
     [Fact]
-    public async Task DeriveSpec_ARevisionTheModelWrote_CarriesTheCurrentFingerprint()
+    public async Task DeriveSpec_ARevisionOverAnEdit_CarriesTheCurrentFingerprint()
     {
         var files = SeededFiles(fingerprint: "a-fingerprint-of-the-text-before-the-edit");
         var published = new CapturingPublisher();
 
-        await Handler(files, new CapturingDeriver(RecutTail()), published).ExecuteAsync(Context(), default);
+        await Handler(files, published).ExecuteAsync(Context(), default);
 
         published.Set!.TicketFingerprint.Should().Be(TicketTextFingerprint.Of(Ticket()),
-            "the next run compares against the text this cut actually saw");
+            "the next run compares against the text this run handed its master");
     }
 
     private static DeriveSpecHandler Handler(
-        SeededFileReader files, ISpecSetDeriver deriver, ISpecSetPublisher publisher)
+        SeededFileReader files, ISpecSetPublisher publisher)
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(files);
@@ -119,26 +116,21 @@ public sealed class DeriveSpecTicketEditTests
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
         var tickets = new Mock<ITicketProviderFactory>();
         return new DeriveSpecHandler(
-            deriver, SeriesDoubles.BranchRead(reader), publisher, pointers,
+            SeriesDoubles.BranchRead(reader), publisher, pointers,
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance),
-            new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
-            new SpecCoverageRefusal(
-                new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
-                new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
+            new SpecStandIns(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecSetTicketCommenter(tickets.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(),
-            new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
-            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())),
-            NullLogger<DeriveSpecHandler>.Instance);
+            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())));
     }
 
     // The marker's commit is the last one on the spec path: every git call answers it.
@@ -191,41 +183,6 @@ public sealed class DeriveSpecTicketEditTests
         done:
           - "Done {id}."
         """;
-
-    // The model's reply: the executed head repeated, the tail cut from the current text.
-    private static SpecDerivation RecutTail()
-    {
-        var segments = TicketSegmenter.Segment(EditedTicket);
-        var carries = segments.Select(s => s.Id).ToList();
-        DerivedSpec Spec(string id, string goal) => new(
-            new SpecDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
-            id, string.Empty, carries);
-        var specs = new[] { Spec("p19106a", "Goal p19106a"), Spec("p19106b", "Cut again from the edited text") };
-        return new SpecDerivation(
-            new SpecSet(
-                Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
-                [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
-                SpecSource.BranchArtifact, ExecutedSpecIds: ["p19106a"]),
-            []);
-    }
-
-    private sealed class CapturingDeriver(SpecDerivation derivation) : ISpecSetDeriver
-    {
-        public int Calls { get; private set; }
-        public SpecSet? PreviousSeen { get; private set; }
-        public string? CauseSeen { get; private set; }
-
-        public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
-            string cause, IReadOnlyList<string> repositories, AgentConfig agentConfig, PipelineContext pipeline,
-            CancellationToken cancellationToken)
-        {
-            Calls++;
-            PreviousSeen = previous;
-            CauseSeen = cause;
-            return Task.FromResult<(SpecDerivation?, string?)>((derivation, null));
-        }
-    }
 
     private sealed class CapturingPublisher : ISpecSetPublisher
     {

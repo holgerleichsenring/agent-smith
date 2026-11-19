@@ -154,8 +154,6 @@ export interface SpecDialogSession {
   ticket: SpecDialogSessionTicket | null;
   /** 2026-11-05-862ea: what the design partner said the work is; null while none is stored. */
   workPicture?: SpecDialogWorkPicture | null;
-  /** 2026-11-10-ccd9: a draft under review beside the awaiting `proposal`; never approvable. */
-  reviewing?: SpecDialogProposalPush | null;
   /** 2026-11-10-d854c: the run of the turn last started here — after a crash, the turn that died. */
   runningRunId?: string | null;
   /** 2026-11-10-d854c: that run's own proposal when no kept turn carries it. */
@@ -301,11 +299,12 @@ export interface SpecDialogReadingPush {
 }
 
 /** What a running design turn was doing when it reported one step. */
-export type SpecDialogActivityKind = "tool" | "model" | "revising";
+export type SpecDialogActivityKind = "tool" | "model" | "revising" | "thinking";
 
 /** 2026-09-17-042ee: one step a running design turn took, pushed as it happens. A tool
  *  carries its name and a whitelisted argument summary; a model call carries the model and
- *  the intent it narrated; revising is a state and carries neither (2026-11-18-9c1ca: no review runs after a turn). */
+ *  the intent it narrated; revising is a state and carries neither (2026-11-18-9c1ca: no review runs after a turn).
+ *  2026-11-19-687ea: thinking is a model call that has started, with the model (and the sub-agent) as its name. */
 export interface SpecDialogActivityPush {
   dialogId: string;
   kind: SpecDialogActivityKind;
@@ -373,6 +372,8 @@ export interface SpecDialogActivityStep {
   detail?: string | null;
   seq: number;
   timestamp: string;
+  /** 2026-11-19-687ec: the turn the step belongs to, so a running turn's history can be told from an earlier turn's. */
+  turnStartedAt?: string | null;
 }
 
 /** 2026-11-10-d854c: one page of a turn's steps, run-wide, with how many there are; d854b: its span and sub-agent calls. */
@@ -448,8 +449,6 @@ export interface SpecDialogProposalPush {
   reviewRounds?: SpecDialogReviewRound[];
   /** 2026-10-13-8762i: spec ids (or "series") not reviewed yet. 2026-11-10-8e59: information only — Approve stays. */
   notReviewed?: string[] | null;
-  /** 2026-11-09-9a98: its turn's review is running, so what is listed above is still under review. */
-  underReview?: boolean;
   /** 2026-10-14-dbcek: a list's ticket texts in the order they must merge; absent or empty for every other kind. */
   tickets?: SpecDialogGraphTicket[];
   /** 2026-10-28-7a69c: the comment a ticket's conversation proposes to post; absent for every other kind. */
@@ -458,10 +457,8 @@ export interface SpecDialogProposalPush {
   configChanges?: SpecDialogConfigChange[] | null;
   /** 2026-11-04-96a0c: per upload, what the proposing turn and the conversation opened; absent on an older proposal. */
   uploads?: SpecDialogUploadRead[];
-  /** 2026-11-10-ccd9: the awaiting proposal's id, which an approve or reject of it carries; absent on a draft under review. */
+  /** 2026-11-10-ccd9: the awaiting proposal's id, which an approve or reject of it carries. */
   proposalId?: string | null;
-  /** 2026-11-10-ccd9: a draft under review — shown, never approvable, never over the awaiting proposal. */
-  reviewing?: boolean;
   /** 2026-11-10-d854a: the operator's open questions, each with the design partner's proposal; absent on an older proposal. */
   questions?: SpecDialogOpenQuestion[];
   /** 2026-11-10-d854a: the proposing turn's spend so far, its total on the final proposal; absent on an older one. */

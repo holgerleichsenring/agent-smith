@@ -14,7 +14,7 @@ facts:
   - claim: "The same live demo, end to end, cleared review on the first round in three of three runs; the deriver's own wording was accepted."
     evidence: "observed: 2026-11-04, three demo runs of a binary built from spec/2026-11-02-2b26"
   - claim: "The eval that pins this is red today and runs by hand only (LiveLLM)."
-    evidence: "tests/AgentSmith.Tests/Integration/LiveDoneTargetStateEvalTests.cs:97-115"
+    evidence: "tests/AgentSmith.Tests/Integration/LiveDoneTargetStateEvalTests.cs:53-72"
 
 scope:
   in: "NOT IN THE TICKET: a done entry that states the rule the ticket's fix leaves in force (what already held plus what now holds) is in the ticket. SHAPE RULE: a comparison the ticket itself names is an outcome, not the code's form. Measured with the existing eval, three runs, by hand."

@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services;
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
@@ -21,7 +23,7 @@ public sealed class EpicGroundPromptTests
     private const string TicketBody = "Store a widget and read it back.";
 
     [Fact]
-    public void EpicGround_ReachesTheDerivationPrompt()
+    public void EpicGround_ReachesTheStandInPrompt()
     {
         var prompt = Compose(Pipeline(new EpicGround(
             "4711", "Widget service", "## Goal\nOne vocabulary for the widget service.")));
@@ -36,7 +38,7 @@ public sealed class EpicGroundPromptTests
     }
 
     [Fact]
-    public void NoEpicGround_LeavesTheDerivationPromptUnchanged() =>
+    public void NoEpicGround_LeavesTheStandInPromptUnchanged() =>
         Compose(new PipelineContext()).Should().NotContain("The epic this ticket is one slice of",
             "a ticket that is nobody's slice reads the prompt it always read");
 
@@ -93,10 +95,9 @@ public sealed class EpicGroundPromptTests
         return pipeline;
     }
 
+    // 2026-11-19-6b0ba: the epic is read where the ticket's spec is written — by its coding master, on a stand-in.
     private static string Compose(PipelineContext pipeline) =>
-        SpecPromptComposer.Compose(
-            new Ticket(new TicketId("42"), "Widget storage", TicketBody, null, "open", "test"),
-            TicketSegmenter.Segment(TicketBody), previous: null, cause: string.Empty, pipeline, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
+        SpecWritingPromptBlocks.StandIn(StandInSets.Run(pipeline, StandInSets.Draft), StandInSets.Draft);
 
     private const string Yaml = """
         spec: p9000

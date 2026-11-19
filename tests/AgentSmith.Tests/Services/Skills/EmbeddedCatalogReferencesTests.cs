@@ -115,34 +115,17 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         body.Should().Contain("template", "a cited order that never names the template orders nothing");
     }
 
-    /// <summary>
-    /// 2026-09-13-7d9f: the derivation reads the EPIC a ticket is one slice of, and the section
-    /// that carries it tells the model to follow the source order its instructions state rather
-    /// than restating that order — so the master must state one, or the section points at
-    /// nothing. Same shared <c>source-precedence</c> section (2026-09-13-ab17), same pin move
-    /// (2026-09-13-4072), ungated the same way its two siblings are.
-    /// </summary>
+    /// <summary>2026-11-19-2d7a: no model cuts a ticket any more; the pinned catalog carries no derivation master, and
+    /// the coding master writes a stand-in's spec first (coding-agent-master 3.3.0).</summary>
     [Fact]
-    public async Task EmbeddedCatalog_SpecDerivationMaster_SaysWhereATemplateSitsAmongItsSources()
+    public async Task EmbeddedCatalog_HasNoSpecDerivationMaster_AndTheCodingMasterWritesAStandInsSpec()
     {
         var root = await MaterializeAsync();
-        var master = Directory
-            .GetFiles(Path.Combine(root, "skills", "_masters"), "SKILL.md", SearchOption.AllDirectories)
-            .SingleOrDefault(f => Path.GetFileName(Path.GetDirectoryName(f)) == "spec-derivation-master");
-        master.Should().NotBeNull("the derivation is the skill that cuts one ticket into specs");
+        var masters = Directory.GetDirectories(Path.Combine(root, "skills", "_masters")).Select(Path.GetFileName);
+        masters.Should().NotContain("spec-derivation-master").And.Contain("coding-agent-master");
 
-        var rules = File.ReadAllText(master!);
-        rules.Should().Contain("{{ref:source-precedence}}",
-            "the pinned master must CITE the shared order rather than restate one of its own");
-
-        var catalogPath = new Mock<ISkillsCatalogPath>();
-        catalogPath.Setup(p => p.Root).Returns(root);
-        var body = new SkillBodyResolver(new CatalogSkillReferenceSource(catalogPath.Object))
-            .ResolveBody(
-                new RoleSkillDefinition { Name = "spec-derivation-master", Rules = rules },
-                SkillRole.Master);
-
-        body.Should().Contain("template", "a cited order that never names the template orders nothing");
+        var coding = File.ReadAllText(Path.Combine(root, "skills", "_masters", "coding-agent-master", "SKILL.md"));
+        coding.Should().Contain("version: \"3.4.0\"").And.Contain("`revise_spec` and work from what you wrote");
     }
 
     private async Task<string> MaterializeAsync()

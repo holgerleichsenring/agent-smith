@@ -35,7 +35,6 @@ public sealed class FormatBeforeCommitHarnessTests
         harness.StubSandboxFactory!.BaseFiles = new Dictionary<string, string>(StringComparer.Ordinal);
         harness.StubSandboxFactory.ReportsWorkingTree = true;
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Handler.cs","content":"class Handler {}\n"}""")
             .EnqueueFinish();
@@ -64,7 +63,6 @@ public sealed class FormatBeforeCommitHarnessTests
         harness.StubSandboxFactory.ReportsWorkingTree = true;
         harness.StubSandboxFactory.ShellAnswers["dotnet csharpier"] = (1, "Unrecognized command or argument './src/Handler.cs'");
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Handler.cs","content":"class Handler {}\n"}""")
             .EnqueueFinish();

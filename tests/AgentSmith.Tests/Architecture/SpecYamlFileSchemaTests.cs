@@ -57,19 +57,19 @@ public sealed class SpecYamlFileSchemaTests
     /// house style still produces a spec the fallback accepts.
     /// </summary>
     [Fact]
-    public void SpecSchema_ALongTicketTitle_StillProducesAValidFallbackSpec()
+    public void SpecSchema_ALongTicketTitle_StillProducesAValidStandInSpec()
     {
         var title = string.Join(' ', Enumerable.Repeat("migrate the reporting client", 30));
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
-        var fallback = new SpecFallback(
+        var fallback = new SpecStandIns(
             validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
 
         var build = () => fallback.Build(
             "run-1", "2026-10-06-0a0a",
             new Ticket(new TicketId("19106"), title, "Body.", null, "open", "azdo", []),
             [new TicketSegment(0, "Body.", 0, 0)],
-            [],
-            SpecSource.Derived, ["app"]);
+            null,
+            SpecSource.Derived, ["app"], []);
 
         title.Length.Should().BeGreaterThan(800, "the point is a title no convention allows");
         build.Should().NotThrow(

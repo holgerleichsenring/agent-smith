@@ -28,7 +28,7 @@ public sealed class ApprovedSetNotRecutTests
         var result = await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
         result.IsSuccess.Should().BeTrue();
-        harness.Deriver.Calls.Should().Be(0,
+        harness.Recuts.Calls.Should().Be(0,
             "a person ratified this set; a comment must not re-cut it behind their back");
         harness.Writer.Written!.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
     }
@@ -40,7 +40,7 @@ public sealed class ApprovedSetNotRecutTests
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
         harness.Writer.Written!.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
     }
 
@@ -59,7 +59,7 @@ public sealed class ApprovedSetNotRecutTests
         harness.Writer.Written.Should().BeNull(
             "the pointer names the branch's own commit, so nothing arrived and no revision is written (2026-11-17-7c9ba)");
         context.Pipeline.Get<SpecSet>(ContextKeys.SpecSet).Specs.Should().HaveCount(2);
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
     }
 
     /// <summary>
@@ -97,7 +97,7 @@ public sealed class ApprovedSetNotRecutTests
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
         harness.Writer.Written!.Current.Cause.Should().StartWith(SpecRevisionCause.Comment);
     }
 
@@ -105,11 +105,10 @@ public sealed class ApprovedSetNotRecutTests
     public async Task UnapprovedSet_RetriggerWithNoExecutedSpec_StillReCuts()
     {
         var harness = Harness(approved: false);
-        harness.Deriver.Result = Derivation();
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
-        harness.Deriver.Calls.Should().Be(1,
+        harness.Recuts.Calls.Should().Be(1,
             "a ticket nobody approved amends exactly as it does today");
         harness.Writer.Written!.Current.Cause.Should().Be(SpecRevisionCause.Retrigger);
     }
@@ -203,7 +202,7 @@ public sealed class ApprovedSetNotRecutTests
 
         harness.Notices.Comments.Should().ContainSingle()
             .Which.Should().Contain("edited");
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
     }
 
     /// <summary>
@@ -305,7 +304,7 @@ public sealed class ApprovedSetNotRecutTests
 
         await harness.Handler().ExecuteAsync(context, default);
 
-        harness.Deriver.Calls.Should().Be(0, "an approved set is read, never generated");
+        harness.Recuts.Calls.Should().Be(0, "an approved set is read, never generated");
         var set = context.Pipeline.Get<SpecSet>(ContextKeys.SpecSet);
         set.Source.Should().Be(SpecSource.BranchArtifact);
         set.Specs[0].Draft.Goal.Should().Be("Goal p19106a",
@@ -328,7 +327,7 @@ public sealed class ApprovedSetNotRecutTests
 
         context.Pipeline.Has(ContextKeys.SpecQuestionPin).Should().BeTrue(
             "an unanswered question is still pinned as the answer");
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
     }
 
     private static ApprovedSetHarness Harness(
@@ -400,16 +399,4 @@ public sealed class ApprovedSetNotRecutTests
     private static TicketComment Operator(string body) =>
         new("operator", DateTimeOffset.UtcNow.AddHours(-1), body);
 
-    private static SpecDerivation Derivation()
-    {
-        var segments = TicketSegmenter.Segment(Text);
-        var spec = new DerivedSpec(
-            ApprovedSets.Spec("p19106a").Draft, "p19106a", string.Empty, [.. segments.Select(s => s.Id)]);
-        return new SpecDerivation(
-            new SpecSet(
-                Key, [spec], SpecAccountingBuilder.Build([spec], [], segments),
-                [new SpecRevision(1, SpecRevisionCause.Initial, ApprovedSets.Noon)],
-                SpecSource.Derived),
-            []);
-    }
 }

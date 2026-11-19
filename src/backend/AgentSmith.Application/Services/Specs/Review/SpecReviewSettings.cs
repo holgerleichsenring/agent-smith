@@ -2,6 +2,6 @@ using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Services.Specs.Review;
 
-/// <summary>2026-10-13-8762g: what one run's spec review is read with — the <c>spec_review:</c> block and the
-/// watchdog's wall-time ceiling the review's share and its first spec are measured against.</summary>
-public sealed record SpecReviewSettings(SpecReviewConfig Review, int MaxRunWallTimeSeconds);
+/// <summary>2026-10-13-8762g: the <c>spec_review:</c> block as one run reads it. 2026-11-19-3e10: the wall-time ceiling
+/// went with the review budget it measured.</summary>
+public sealed record SpecReviewSettings(SpecReviewConfig Review);

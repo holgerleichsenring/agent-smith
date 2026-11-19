@@ -95,8 +95,13 @@ internal static class MasterHandlerFixture
 
     /// <summary>The design turn's outcome gate over the given loop, with the real resolver.</summary>
     /// <summary>2026-11-12-cd4ca: the design master's write tools over the real checks (2026-11-15-06fc: as files).</summary>
-    internal static AgentSmith.Application.Services.Tools.ProposalWriteTools ProposalWrites() =>
-        new(AgentSmith.Tests.SpecDialog.Writes.DraftWriteRig.Files());
+    internal static AgentSmith.Application.Services.Tools.ProposalWriteTools ProposalWrites(
+        AgentSmith.Contracts.Services.ITicketExistence? existence = null) =>
+        new(AgentSmith.Tests.SpecDialog.Writes.DraftWriteRig.Files(), new AgentSmith.Application.Services.Tools.DraftWriteFindings(
+            AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
+            new AgentSmith.Application.Services.SpecDialog.TicketExistenceFindings(
+                NullLogger<AgentSmith.Application.Services.SpecDialog.TicketExistenceFindings>.Instance, existence),
+            NullLogger<AgentSmith.Application.Services.Tools.DraftWriteFindings>.Instance));
 
     /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
     internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(

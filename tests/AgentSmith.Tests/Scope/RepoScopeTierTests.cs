@@ -18,11 +18,8 @@ public sealed class RepoScopeTierTests
              "complexity": "large", "rationale": "cross-repo migration"}
             """;
 
-        var result = RepoScopeParser.TryParse(reply);
-
-        result.Should().NotBeNull();
-        result!.Tier.Should().Be(ComplexityTier.Large);
-        result.Repos.Should().ContainSingle().Which.Name.Should().Be("server");
+        ScopeEstimateParser.Parse(reply).Tier.Should().Be(ComplexityTier.Large,
+            "a reply that still lists repositories is read for its estimate alone");
     }
 
     [Theory]
@@ -33,21 +30,21 @@ public sealed class RepoScopeTierTests
     public void ComplexityTier_EachBucketParsed(string raw, ComplexityTier expected)
     {
         var reply = $$"""{"repos": [{"name": "a", "affected": true, "confidence": 0.9}], "complexity": "{{raw}}"}""";
-        RepoScopeParser.TryParse(reply)!.Tier.Should().Be(expected);
+        ScopeEstimateParser.Parse(reply).Tier.Should().Be(expected);
     }
 
     [Fact]
     public void ComplexityTier_Absent_ParsesToUnknown()
     {
         var reply = """{"repos": [{"name": "a", "affected": true, "confidence": 0.9}]}""";
-        RepoScopeParser.TryParse(reply)!.Tier.Should().Be(ComplexityTier.Unknown);
+        ScopeEstimateParser.Parse(reply).Tier.Should().Be(ComplexityTier.Unknown);
     }
 
     [Fact]
     public void ComplexityTier_Unrecognised_ParsesToUnknown()
     {
         var reply = """{"repos": [{"name": "a", "affected": true, "confidence": 0.9}], "complexity": "colossal"}""";
-        RepoScopeParser.TryParse(reply)!.Tier.Should().Be(ComplexityTier.Unknown);
+        ScopeEstimateParser.Parse(reply).Tier.Should().Be(ComplexityTier.Unknown);
     }
 
     [Fact]

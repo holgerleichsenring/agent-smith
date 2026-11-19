@@ -15,8 +15,5 @@ public sealed class StoredSpecReviewSettingsReader(IConfigStore store) : ISpecRe
 {
     public SpecReviewSettings Current() => new(
         store.GetSetting(ConfigDocTypes.SpecReview) as SpecReviewConfig
-            ?? throw new InvalidOperationException("The stored spec_review settings are not a spec_review block."),
-        (store.GetSetting(ConfigDocTypes.Orchestrator) as OrchestratorGlobalConfig
-            ?? throw new InvalidOperationException("The stored orchestrator settings are not an orchestrator block."))
-            .MaxRunWallTimeSeconds);
+            ?? throw new InvalidOperationException("The stored spec_review settings are not a spec_review block."));
 }

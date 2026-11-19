@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchDialogActivity } from "@/lib/specDialogApi";
-import type { SpecDialogActivityPush } from "@/types/spec-dialog";
+import type { SpecDialogActivityPush, SpecDialogActivityStep } from "@/types/spec-dialog";
 import type { RawStep } from "./condenseSteps";
 
 // 2026-11-12-92e9c: a turn's steps for its message. A turn this page watched keeps the steps pushed while it ran; a
@@ -32,9 +32,13 @@ export function useTurnSteps(runId?: string | null, live?: SpecDialogActivityPus
   return fetched;
 }
 
-async function readAll(runId: string, signal: AbortSignal): Promise<TurnSteps> {
+/** Every step a run kept, page by page. 2026-11-19-687ec: also how a running turn's page reads back what it missed. */
+export async function readAll(
+  runId: string,
+  signal?: AbortSignal,
+): Promise<{ steps: SpecDialogActivityStep[]; firstAt: string | null; lastAt: string | null }> {
   let page = await fetchDialogActivity(runId, null, PAGE, signal);
-  const steps: RawStep[] = [...page.steps];
+  const steps: SpecDialogActivityStep[] = [...page.steps];
   while (page.hasMore && page.nextSeq !== null) {
     page = await fetchDialogActivity(runId, page.nextSeq, PAGE, signal);
     steps.push(...page.steps);

@@ -1,0 +1,5 @@
+spec: 2026-11-19-15c8
+decisions:
+  - chosen: "Pin v5.40.0 in the same PR as the code it describes."
+    alternatives: "Leave v5.39.0 pinned until the next release."
+    why: "The design partner's text promised a review the code no longer runs; the operator's next live run must not rely on it."

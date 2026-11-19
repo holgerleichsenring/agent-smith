@@ -22,6 +22,8 @@ public sealed class FakeRedisStreams
         FakeRedisIndexCommands.Setup(db, State);
         var redis = new Mock<IConnectionMultiplexer>();
         redis.Setup(r => r.GetDatabase(It.IsAny<int>(), It.IsAny<object?>())).Returns(db.Object);
+        // It answers every read, so it is a connected transport (2026-08-24-035a: a disconnected one skips the cold start).
+        redis.Setup(r => r.IsConnected).Returns(true);
         Connection = redis.Object;
     }
 

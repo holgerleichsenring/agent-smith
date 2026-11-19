@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-6b0bd
+
+decisions:
+  - category: Architecture
+    chose: "Retire the whole under-review path: OutcomeProposal.UnderReview, the push's UnderReview and Reviewing, the view's Reviewing, SpecDialogLatestOutcome.Reviewing, ITurnProposalObserver and its accessor, DialogProposalObserver, StoreReviewingAsync/SetReviewingAsync/EndReviewAsync/ReviewAsync/ReviewingAsync, the claim's Reviewing constant, the answered-turn draft clear and row drop, and the dashboard's reviewing/underReview handling"
+    over: "Removing only the UnderReview flag and leaving the reviewing row path in place"
+    reason: "9c1ca deleted the only producer (PublishUnderReviewAsync) and named this whole path as its follow-up; nothing calls ITurnProposalObserver.PublishAsync, so every part is dead and a half-removal would keep a second, unwritten proposal path."
+  - category: Implementation
+    chose: "No data migration; stored JSON keeps reading because System.Text.Json skips the undeclared underReview property"
+    over: "A migration nulling State = 'reviewing' or stripping the JSON field"
+    reason: "Brief: no column drops, JSON fields just stop being written. An old reviewing row is inert: a run's row reads as its turn's proposal not awaiting a decision (what ending its review did), an unbound one stays out of the turn rows. A migration would need both providers and buys nothing a reader sees."
+  - category: Implementation
+    chose: "ProposalMigrationTests keeps the literal 'reviewing' state and a literal \"underReview\":true JSON field"
+    over: "Rewriting its fixtures through OutcomeProposalJson.Write"
+    reason: "The shipped migration's SQL matches LIKE '%\"underReview\":true%' and writes 'reviewing'; written through Write() the fixtures would no longer exercise that branch."
+  - category: Implementation
+    chose: "A revised draft is seeded with changed: false; ProposalStore.Seed keeps its parameter"
+    over: "Dropping the parameter"
+    reason: "offer_filing still seeds with changed: true; only the under-review re-publish of an interrupted draft is gone."
+  - category: Process
+    chose: "Adversarial review in two rounds (BUILD WITH CUTS, then BUILD)"
+    reason: "Cuts applied: migration test fixtures, named readers of the flag, corrected upgrade_impact, tests sorted into delete and rewrite."

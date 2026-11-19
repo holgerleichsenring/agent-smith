@@ -29,8 +29,7 @@ public sealed class MasterRecordToolHosts(
 {
     /// <param name="codingMaster">2026-11-10-4778 review: only a coding master's remember may keep a lesson on the
     /// project ('@project'); a scan or review master's writes only where a code change lands.</param>
-    /// <param name="agent">2026-11-17-ec48a: the master's agent, which a spec revision's review is made under.</param>
-    public MasterRecordTools Create(PipelineContext pipeline, string repoRoot, bool codingMaster = false, AgentConfig? agent = null)
+    public MasterRecordTools Create(PipelineContext pipeline, string repoRoot, bool codingMaster = false)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         var repositories = runRepositories.For(pipeline);
@@ -47,8 +46,8 @@ public sealed class MasterRecordToolHosts(
             memory.CanRecord ? new MemoryDisputeToolHost(memory) : null,
             sources is null ? null : new ProjectMemoryWriteToolHost(sources, pipeline))
         {
-            ReviseSpec = spec is not null && codingMaster && agent is not null && revision is not null
-                ? new Specs.Revision.ReviseSpecToolHost(revision, pipeline, agent) : null,
+            ReviseSpec = spec is not null && codingMaster && revision is not null
+                ? new Specs.Revision.ReviseSpecToolHost(revision, pipeline) : null,
             FinishSpec = spec is not null && codingMaster ? new FinishSpecToolHost() : null, // 2026-11-18-98fa
         };
     }

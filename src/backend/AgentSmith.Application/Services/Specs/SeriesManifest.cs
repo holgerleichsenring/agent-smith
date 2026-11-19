@@ -31,7 +31,7 @@ public sealed class SeriesManifest
             Ticket = set.Key,
             Goal = set.Goal,
             TicketPinnedWhole = set.TicketPinnedWhole,
-            Specs = [.. set.Specs.Select(p => p.SpecId)],
+            Specs = [.. set.Specs.Select(p => p.SpecId)], StandIns = set.StandIns.Count > 0 ? [.. set.StandIns] : null, // 6b0ba
             SeriesRepos = set.SeriesRepos is { Count: > 0 } members ? [.. members] : null, // 2026-10-12-f5f7d
             Revisions = [.. set.Revisions.Select(r => new SeriesRevisionEntry
             {

@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-687ec
+goal: "A page that opens or reopens a running design turn shows its whole step list, read from the run, not only the last fifty steps the server keeps in memory."
+
+applies_to: "dashboard (hooks/useSpecDialog, components/dialog/turnSteps) + default (Server RunningDialogTurn doc)"
+
+facts:
+  - claim: "RunningDialogTurn serves a reader arriving mid-turn only its last 50 steps; a page that stayed open merged every push."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/RunningDialogTurn.cs:25-30,87-91, src/dashboard/src/hooks/useSpecDialog.ts:269,516"
+  - claim: "Every step is recorded as a DialogActivity run event with its turn sequence and turn start, readable in pages at GET /api/runs/{runId}/dialog-activity."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DialogActivityRecorder.cs:15-28, src/backend/AgentSmith.Server/Extensions/DialogActivityEndpoints.cs:14-16, src/dashboard/src/lib/specDialogApi.ts:330"
+  - claim: "The conversation read carries the running turn's run id."
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogSessionView.cs:67, src/dashboard/src/types/spec-dialog.ts:158"
+
+scope:
+  in: "When a conversation read shows a computing turn whose held steps are not contiguous from sequence 1 above what the page already read from history (a late reader holds only the tail; a reconnect loses the pushes of its gap) and the session names its running run, the page reads that run's dialog activity with the pager useTurnSteps already has (readAll, exported), keeps the steps of the same turn (turn start compared as instants), maps them to pushes (timestamp → at, the dialog id, the held turnStartedAt string re-stamped so mergedSteps' string compare keeps them) and merges them by sequence. The page remembers, per turn, the highest sequence a history read returned for THIS turn and reads again only for a gap above it — a step reported before the run had an id is never kept, so a gap may stay; a read that returned none of this turn's steps (runningRunId still names the previous turn's run) marks nothing. The in-memory tail stays: it covers steps the batching projector has not written yet; its doc says so."
+  out: "Raising or removing the server's in-memory tail (it bounds memory per running turn and the persisted read covers the rest). Paging the history lazily."
+
+steps:
+  - id: history
+    action: "useTurnSteps exports readAll, typed as the persisted steps; SpecDialogActivityStep gains turnStartedAt; turnSteps gains historyGap(held, readUpTo) and historyOf(steps, dialogId, turnStartedAt) mapping persisted steps to pushes."
+  - id: wire
+    action: "useSpecDialog load: after merging the read's steps, backfill once per turn when needed."
+  - id: doc
+    action: "RunningDialogTurn's Kept doc names the tail's reason."
+  - id: tests
+    action: "A reader arriving after 80 steps (held 31..80) sees step 1 after the history merge; steps of another turn are left out."
+
+tests:
+  - "turnSteps: historyOf keeps the turn's steps (same instant, other string) and drops another turn's; merged with a held tail 31..80, seq 1 is first."
+  - "useSpecDialog: a read of a computing turn holding seqs 31..80 reads the run's history once and the activity then starts at seq 1; a second read does not read it again; a history read with none of this turn's steps is retried on the next read."
+  - "historyGap: false when held is contiguous from 1 or empty; true for 31..80 and for 1..20 + 90..140; false when the only gap lies at or below readUpTo."
+
+done:
+  - "Dashboard tests and build green; dotnet build green."

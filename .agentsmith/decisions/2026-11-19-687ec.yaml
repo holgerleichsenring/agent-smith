@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-687ec
+
+decisions:
+  - category: Architecture
+    chose: "The page reads a running turn's missing steps back from its run (GET /api/runs/{runId}/dialog-activity through useTurnSteps' existing readAll pager), keyed on session.runningRunId"
+    over: "Raising or removing RunningDialogTurn's in-memory cap; or the conversation read merging persisted steps server-side"
+    reason: "Every step is already persisted as a DialogActivity run event, so the history has one home. The conversation read is issued after every hub message, so a server-side merge would query hundreds of rows per push; the page reads once per gap. Raising the cap only moves the cliff."
+  - category: Behaviour
+    chose: "The in-memory tail (Kept = 50) stays, with its reason restated: the newest steps the batching projector may not have written yet, and a memory bound per running turn"
+    over: "Deleting the cap"
+    reason: "Without it a running turn holds every step in memory for the whole turn while the run holds them anyway; the tail is what the persisted read cannot yet see. No new limit is added."
+  - category: Behaviour
+    chose: "A gap is any missing sequence above the highest one a history read returned for this turn; a read that returned none of this turn's steps marks nothing and is retried with the next step"
+    over: "'seq 1 not held' read once per turn"
+    reason: "Review: a reconnect loses the pushes of its gap (1..20 then 90..140), which 'seq 1 not held' misses; runningRunId can still name the previous turn's run before the grounding step links the new one, so a permanent once-per-turn flag would block every later read; a step reported before the run had an id is never kept, so a gap at or below what history returned is not re-read."
+  - category: Behaviour
+    chose: "Persisted steps are filtered by turn start compared as an instant and re-stamped with the held turnStartedAt string"
+    over: "Comparing the strings"
+    reason: "mergedSteps tells turns apart by string; the persisted and pushed serialisations of one instant may differ in form, and a step of 'another' turn would be dropped as not newer."
+  - category: Behaviour
+    chose: "A page holding its full ACTIVITY_KEPT (1000) reports no gap"
+    over: "Reading history whenever seq 1 is missing"
+    reason: "That page keeps only the newest steps on purpose; reading history there would re-merge and re-slice on every step."

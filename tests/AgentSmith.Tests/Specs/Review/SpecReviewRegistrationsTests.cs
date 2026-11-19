@@ -22,24 +22,8 @@ public sealed class SpecReviewRegistrationsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<SpecRoundEvidence>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<ISpecAttackReviewer>().Should().BeOfType<SpecAttackReviewer>();
-        scope.ServiceProvider.GetRequiredService<SpecAttackAdmission>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<SpecReviewRoundPublisher>().Should().NotBeNull();
-    }
-
-    [Fact]
-    public void SpecCutReviserAndResidues_ResolveFromTheRealServiceProvider()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
-        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
-
-        scope.ServiceProvider.GetRequiredService<ISpecCutReviser>().Should().BeOfType<SpecCutReviser>();
-        scope.ServiceProvider.GetRequiredService<SpecRevisionGuard>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<SpecCutResidues>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.Revision.MasterSpecRevision>()
+            .Should().NotBeNull("2026-11-19-3e10: revise_spec resolves without a review panel");
     }
 
     [Fact]
@@ -89,19 +73,6 @@ public sealed class SpecReviewRegistrationsTests
     }
 
     [Fact]
-    public void AddSpecReview_ResolvesTheSeriesContractReviewer()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
-        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
-
-        scope.ServiceProvider.GetRequiredService<ISeriesContractReviewer>().Should().BeOfType<SeriesContractReviewer>();
-        scope.ServiceProvider.GetRequiredService<SeriesContractAdmission>().Should().NotBeNull();
-    }
-
-    [Fact]
     public void AddSpecReview_ResolvesContractReaderAndCheck()
     {
         var services = new ServiceCollection();
@@ -112,7 +83,6 @@ public sealed class SpecReviewRegistrationsTests
 
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SeriesContractReader>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SeriesContractCheck>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SpecDerivationParser>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Filing.FiledSeriesFactory>().Should().NotBeNull();
     }
 

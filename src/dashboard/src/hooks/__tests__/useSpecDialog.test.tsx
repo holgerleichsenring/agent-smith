@@ -38,6 +38,7 @@ const api = vi.hoisted(() => ({
   fetch: vi.fn(),
   post: vi.fn(async () => {}),
   resume: vi.fn(async () => {}),
+  activity: vi.fn(),
 }));
 vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (id: string) => api.fetch(id),
@@ -47,6 +48,7 @@ vi.mock("@/lib/specDialogApi", () => ({
   deleteSpecDialogConversation: async () => {},
   uploadSpecDialogImage: async () => ({}),
   uploadSpecDialogReferences: async () => ({}),
+  fetchDialogActivity: (...args: unknown[]) => api.activity(...(args as [])),
 }));
 
 const { useSpecDialog } = await import("../useSpecDialog");
@@ -91,10 +93,9 @@ describe("useSpecDialog, a send while the turn computes", () => {
   });
 });
 
-// 2026-11-12-92e9c: a written turn never changes. A draft under review stays out of the conversation; the final proposal
-// joins its turn's reply with the steps the page watched, and filing it later takes nothing from that turn.
-const draft = (dialogId: string, reviewing: boolean): SpecDialogProposalPush => ({
-  dialogId, kind: "spec", bug: null, parent: null, children: [], at: started, reviewing,
+// 2026-11-12-92e9c: a written turn never changes. The final proposal joins its turn's reply with the steps the page watched, and filing it later takes nothing from that turn.
+const draft = (dialogId: string): SpecDialogProposalPush => ({
+  dialogId, kind: "spec", bug: null, parent: null, children: [], at: started,
   spec: { specId: "s-1", goal: "Retry the import", steps: [], tests: [], done: [], requires: [] },
 } as unknown as SpecDialogProposalPush);
 
@@ -103,21 +104,17 @@ describe("useSpecDialog, a turn once shown", () => {
     const hook = renderHook(() => useSpecDialog(INSTANCE_DIALOG_ID));
     await waitFor(() => expect(hook.result.current.activity).toHaveLength(1));
     const dialogId = hook.result.current.dialogId!;
-    act(() => hub.specDialogProposals.emit(draft(dialogId, true)));
-    act(() => hub.specDialogProposals.emit(draft(dialogId, true)));
-    expect(hook.result.current.entries.filter((entry) => entry.proposal)).toHaveLength(0);
     act(() => hub.specDialogMessages.emit({ dialogId, title: "t", text: "Here is the cut.", at: started }));
-    act(() => hub.specDialogProposals.emit(draft(dialogId, false)));
+    act(() => hub.specDialogProposals.emit(draft(dialogId)));
     return { ...hook, dialogId };
   }
 
-  it("ReviewingDraft_NotInTranscript_FinalAttachesToReply", async () => {
+  it("FinalProposal_AttachesToReply", async () => {
     const { result } = await replied();
 
     const shown = result.current.entries.filter((entry) => entry.proposal);
     expect(shown).toHaveLength(1);
     expect(shown[0].text).toBe("Here is the cut.");
-    expect(shown[0].proposal?.reviewing).toBe(false);
     expect(shown[0].steps).toEqual([step]);
   });
 
@@ -134,5 +131,54 @@ describe("useSpecDialog, a turn once shown", () => {
     await waitFor(() => expect(result.current.proposal).toBeNull());
     const turn = result.current.entries.find((entry) => entry.text === "Here is the cut.");
     expect(turn?.proposal?.spec?.specId).toBe("s-1");
+  });
+});
+
+// 2026-11-19-687ec: the server serves a late reader only its in-memory tail; the page reads the rest from the run.
+describe("useSpecDialog, a page opening a running turn", () => {
+  const tail = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => ({ ...step, seq: from + i }));
+  const keptOnRun = (to: number, turnStartedAt = "2016-01-01T00:00:00.0000000+00:00") => ({
+    count: to, nextSeq: null, hasMore: false,
+    steps: Array.from({ length: to }, (_, i) => ({
+      kind: "tool", name: "read_file", detail: "src/import.ts", seq: i + 1, timestamp: started, turnStartedAt,
+    })),
+  });
+  function running(id: string): SpecDialogView {
+    const read = view(id);
+    return {
+      ...read,
+      session: { ...read.session!, runningRunId: "run-9" } as SpecDialogView["session"],
+      turn: { computing: true, elapsedSeconds: 300, steps: tail(31, 80), turnStartedAt: started },
+    };
+  }
+
+  beforeEach(() => {
+    api.activity.mockReset();
+    api.fetch.mockImplementation(async (id: string) => running(id));
+  });
+
+  it("ReaderAfterFiftySteps_SeesTheFirstStep", async () => {
+    api.activity.mockResolvedValue(keptOnRun(80));
+
+    const { result } = renderHook(() => useSpecDialog(INSTANCE_DIALOG_ID));
+
+    await waitFor(() => expect(result.current.activity).toHaveLength(80));
+    expect(result.current.activity[0].seq).toBe(1);
+    expect(api.activity).toHaveBeenCalledTimes(1);
+    expect(api.activity.mock.calls[0][0]).toBe("run-9");
+  });
+
+  it("HistoryWithNoneOfThisTurn_IsReadAgainWithTheNextStep", async () => {
+    api.activity.mockResolvedValueOnce(keptOnRun(10, "2015-12-31T00:00:00Z")).mockResolvedValue(keptOnRun(81));
+
+    const { result } = renderHook(() => useSpecDialog(INSTANCE_DIALOG_ID));
+    await waitFor(() => expect(api.activity).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(result.current.activity[0].seq).toBe(31);
+
+    act(() => hub.specDialogActivity.emit({ ...step, dialogId: result.current.dialogId!, seq: 81 }));
+
+    await waitFor(() => expect(result.current.activity[0].seq).toBe(1));
+    expect(api.activity).toHaveBeenCalledTimes(2);
   });
 });

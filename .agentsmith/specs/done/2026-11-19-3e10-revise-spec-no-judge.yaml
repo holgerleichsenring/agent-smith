@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-3e10
+goal: "revise_spec writes the coding master's revision without a judge: the review panel that could refuse or cut its text is deleted, and only the mechanical checks stay."
+
+applies_to: "default (Specs/Revision, Specs/Review, SpecExecutionPromptFactory; tests and harness; docs)"
+
+requires: [2026-11-19-6b0ba]
+
+facts:
+  - claim: "MasterSpecRevision runs SpecRevisionReview before SpecRevisionWriter writes; spec_review.rounds 0 skips it, and invalid settings or a spent review budget refuse the revision."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Revision/MasterSpecRevision.cs:31-35"
+  - claim: "SpecRevisionReview resolves cited facts, asks the attack panel, merges the answers and applies cuts with the cut reviser; REFUSE writes nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecRevisionReview.cs:16-30"
+  - claim: "The writer publishes the review round as a spec review round event."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Revision/SpecRevisionWriter.cs:47-50"
+  - claim: "The tool description and the spec contract tell the master one fresh review decides."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Revision/ReviseSpecToolHost.cs:22, src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:94"
+
+scope:
+  in: "MasterSpecRevision: reason required, SpecRevisionGate, SpecRevisionText, then SpecRevisionWriter writes the text; no review, no round number, no spec_review read. The writer records the revision without a review round. ReviseSpecToolHost's description and the spec contract say the text is checked against the schema and written; a second opinion is a sub-agent the master briefs with spawn_agents. SpecRevisionWriter takes the pipeline, drops RoundAsync and the round publisher, and its decision line and reply name no review. ReviseSpecToolHost and MasterSpecRevision take no AgentConfig, and MasterRecordToolHosts stops gating revise_spec on one. Deleted, because this spec removes their last reference: SpecRevisionReview, SpecRevisionVerdict, SpecRevisionOutcome, the refused/unresolved/not-taken/cuts-not-applied replies, ContextKeys.SpecRevisionReviews, SpecReviewPanel, ISpecAttackReviewer/SpecAttackReviewer and its answer reader, input and prompt sections, ISpecRoundEvidence/SpecRoundEvidence and its result and probe, ISpecCutReviser/SpecCutReviser/SpecCutRevision/SpecCutRevisionPrompt/SpecRevisionGuard/SpecRevisionLists, SpecReviewInput, SpecReviewRun, SpecReviewBudget, SpecReviewWiderGoal, SpecReviewRoundPublisher, DerivationLookTerms.AttackReview* with DerivationLookFactory.ForProposalAttack, SpecCitations, and SpecReviewSettings.MaxRunWallTimeSeconds. Kept: SpecReviewMerge and the round types (the ticket page reads stored rounds), the settings reader (re-ground budget), SpecReviewRevision (entry re-ground), the identity rule, and the series-contract reviewer chain with the types it shares."
+  out: "Named follow-up 'spec_review settings retired': the fields nothing reads after this (rounds, reviewers, max_concurrent, budget_share_percent, attack_look_floor, series_contract_max_chars) with their stored settings, dashboard form and docs/configure-it/settings.md, and code already dead before this spec (the series-contract reviewer chain, SpecCutResidues). SpecReviewRoundEvent and its projection stay for stored runs."
+
+upgrade_impact: "No setting. revise_spec writes the master's revision after the schema and identity checks; spec_review.rounds no longer applies to it."
+
+steps:
+  - id: revise
+    action: "MasterSpecRevision and SpecRevisionWriter without the review or AgentConfig; replies trimmed to written and not revised; MasterRecordToolHosts offers revise_spec without an agent gate."
+  - id: words
+    action: "ReviseSpecToolHost description and SpecExecutionPromptFactory's contract; docs/how-it-works/{methodology,end-to-end,lifecycle,expectations}.md and docs/reference/pipelines/fix-and-feature.md where they describe the review."
+  - id: delete
+    action: "Delete the review types and what only they used, to a fixpoint; their registrations."
+  - id: tests
+    action: "Delete tests of deleted classes (SpecReviewPanelTests, AttackReviewFixtures uses, SpecRegistersTodayTests' attack terms, ReviewLoopRig parts, ProposalReviewSurfacesTests' attack look); SpecReviewRegistrationsTests, SpecExecutionPromptFactoryTests, LiveDoneTargetStateEvalTests compile and pin the new wording; MasterSpecRevisionTests and ReviseSpecCompositionTests assert the direct write; add below."
+
+tests:
+  - "revise_spec writes a valid changed text as the next revision with no reviewer call, and the criteria become the revised ones."
+  - "revise_spec refuses an invalid or identity-moving text and writes nothing."
+
+done:
+  - "No code path of revise_spec calls a model; build and the full suite are green."

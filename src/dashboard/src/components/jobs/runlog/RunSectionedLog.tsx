@@ -12,7 +12,7 @@ import { DeliveredBody, PlanBody, SpecBody } from "./RunLogSectionBodies";
 import { initiallyOpen, runLogSections, type LogSection } from "./runLogSections";
 import { RunStepDetail } from "./RunStepDetail";
 
-// 2026-11-18-d6d2e: the run page's sectioned log on its own (2026-11-17-6d9eb..6d9ec) — Ticket, Got ready, The plan,
+// 2026-11-18-d6d2e: the run page's sectioned log on its own (2026-11-17-6d9eb..6d9ec) — Ticket, Before the work, The plan,
 // a section per spec, Checked against the spec, Delivered; a running or stopped section starts open; a step opens its
 // detail in place. The run page and the ticket page's report both draw it. The caller owns where the open step lives
 // (the run page's address, the report's own state), the ids' prefix, and the two bodies that differ between them:

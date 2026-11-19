@@ -22,9 +22,6 @@ public sealed class SeriesSpecPullRequestsTests
     private const string ServerPr = "https://stub.test/sample-server/pull/1";
     private const string ClientPr = "https://stub.test/sample-client/pull/1";
 
-    private static readonly string OneSpecEach = SpecDerivationFixture.TwoSpecJson
-        .Replace("\"slug\": \"introduce-the-guard\",", "\"slug\": \"introduce-the-guard\", \"repos\": [\"sample-server\"],")
-        .Replace("\"slug\": \"migrate-the-callers\",", "\"slug\": \"migrate-the-callers\", \"repos\": [\"sample-client\"],");
 
     [Fact]
     public async Task SeriesOverServerAndClient_RunEndsWithoutCode_OnePrPerRepositoryCrossLinked()
@@ -40,10 +37,11 @@ public sealed class SeriesSpecPullRequestsTests
         });
         harness.ChatClient
             .EnqueueScopeReply("no verdict")
-            .EnqueueText(OneSpecEach)
             .EnqueueThrow(new MasterBudgetExhaustedException("per-pipeline cost budget exhausted: 15.02 USD of 15.00 USD spent"));
 
-        var runner = new PipelineRunner(harness.Services) { ReposOverride = Repos(), DoneStatus = "done", FailedStatus = "failed" };
+        var runner = new PipelineRunner(harness.Services) { ReposOverride = Repos(), DoneStatus = "done", FailedStatus = "failed" }
+            .WithSeries([new HarnessSeries.Member("Introduce the empty-payload guard", "An empty request body is answered with 400.", "sample-server"),
+            new HarnessSeries.Member("Move the existing callers onto the guard", "No caller builds its own empty-payload check.", "sample-client")]);
         await runner.RunAsync("code");
 
         var pipeline = runner.LastContext!;

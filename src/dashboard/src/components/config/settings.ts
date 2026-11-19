@@ -60,7 +60,7 @@ export const SETTING_SUBTITLE: Record<SettingKey, string> = {
   pipeline_cost_cap: "USD / token budget per run — a default plus per-pipeline and per-tier caps",
   queue: "consumer backpressure and Redis retry cadence",
   dialogue: "hot-wait window and approval timeout for human dialogue",
-  spec_review: "adversarial review rounds per spec, reviewers per round and the share of a run they may use",
+  spec_review: "the file reads that re-check the citations of the spec a run enters",
   series: "how many specs a series holds and one attempt runs, and its budget for starting attempts by itself",
   preconditions: "how often a ticket stuck on a precondition is checked again",
   branch_cleanup: "the sweep that deletes finished agent-smith branches, and how often it runs",

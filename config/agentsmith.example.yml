@@ -622,7 +622,7 @@ tool_runner:
 # docs/reference/configuration/skills.md.
 # skills:
 #   source: default
-#   version: v5.38.0
+#   version: v5.41.0
 #   # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills.
 #   cache_dir: /var/lib/agentsmith/skills
 
@@ -635,10 +635,10 @@ limits:
   # Sub-agent limits. Every run's master gets spawn_agents while
   # max_sub_agents_per_run is above 0; set it to 0 to take fan-out away.
   max_concurrent_sub_agents: 4
-  max_sub_agents_per_run: 20
+  max_sub_agents_per_run: 40
   # 2026-09-22-5891: a design turn is a run of its own, so it fans out under its own
   # count rather than the run-wide one above. 0 takes spawn_agents off the design surface.
-  max_sub_agents_per_dialog_turn: 4
+  max_sub_agents_per_dialog_turn: 8
 
 # Per-run cost cap. When cumulative USD or tokens cross the cap, the remaining
 # model calls short-circuit with a `cost-cap-exhausted` observation and the run

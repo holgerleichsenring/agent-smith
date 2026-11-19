@@ -3,13 +3,8 @@ using System.Text.Json;
 namespace AgentSmith.Application.Services.Scope;
 
 /// <summary>
-/// p0413a: reads the ticket ESTIMATE — complexity tier and work shape — out of a
-/// scope-classifier reply on its own, without the reply having to be a usable
-/// repo verdict. <see cref="RepoScopeParser"/> refuses a reply that carries no
-/// <c>repos</c> array, which is the right contract for scoping and the wrong one
-/// for estimating: a run with one repository has nothing to scope and the model
-/// has no reason to list it, yet the size and shape it states are still the
-/// facts that size the run's ceiling and its cut.
+/// p0413a: reads the ticket ESTIMATE — complexity tier and work shape — out of a scope-call reply, the first
+/// object that states either. 2026-11-19-6b0bb: the reply carries no repo verdict any more.
 /// </summary>
 public static class ScopeEstimateParser
 {

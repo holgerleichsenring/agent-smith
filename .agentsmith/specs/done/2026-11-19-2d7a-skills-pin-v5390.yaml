@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-2d7a
+goal: "The embedded skills catalog is pinned to v5.39.0: coding-agent-master 3.3.0 writes a stand-in's spec first, and the spec-derivation-master is gone."
+
+applies_to: "default (Infrastructure.Core skills pin; tests that read the packaged catalog)"
+
+requires: [2026-11-19-6b0ba, 2026-11-19-3e10]
+
+facts:
+  - claim: "The pin is SkillsCatalogVersion v5.38.0 with its sha256, and the tarball is checked in under Resources/."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-58"
+  - claim: "The v5.39.0 release tarball hashes to 809368d58258cf249e07cff30376eb22dd91bd397e9bf52198610e2bc56fc1a6."
+    evidence: "observed: 2026-11-19, shasum -a 256 of the released agentsmith-skills-v5.39.0.tar.gz"
+
+scope:
+  in: "SkillsCatalogVersion v5.39.0 and its sha256; the v5.38.0 tarball replaced by v5.39.0. Tests that read the packaged spec-derivation-master are deleted where their subject is that master; tests that pin coding-agent-master text or version follow 3.3.0."
+  out: "Any skill text change (released by the operator)."
+
+upgrade_impact: "A deployment on the embedded catalog loads coding-agent-master 3.3.0; a pinned skills.version below v5.39.0 still carries the old masters."
+
+steps:
+  - id: pin
+    action: "Bump the version and sha256; swap the tarball."
+  - id: tests
+    action: "Fix every test reading the packaged catalog: delete what tested spec-derivation-master, follow coding-agent-master 3.3.0."
+
+tests:
+  - "The packaged catalog validates at build and no master named spec-derivation-master is packaged."
+
+done:
+  - "Build and the full suite are green on the v5.39.0 pin."

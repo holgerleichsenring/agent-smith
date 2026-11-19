@@ -7,32 +7,13 @@ import { CheckField, NumberField, keep, patcher } from "./formFields";
 // either block's rule: a value the run would refuse is refused by the server on save, and SettingsStudio shows
 // its reason under the Save button.
 
+// 2026-11-19-4176: no step reviews a spec any more; the review's sizing is retired and only the re-ground is left.
 export function SpecReviewForm({ value, onChange }: { value: SpecReviewSetting; onChange: (v: SettingValue) => void }) {
   const set = patcher(value, onChange);
   return (
-    <>
-      <NumberField label="Rounds per spec" value={value.rounds}
-        onChange={(v) => set({ rounds: keep(v, value.rounds) })} testId="setting-specreview-rounds"
-        help="adversarial review rounds before a spec is built; 0 = off" />
-      <NumberField label="Reviewers per round" value={value.reviewers}
-        onChange={(v) => set({ reviewers: keep(v, value.reviewers) })} testId="setting-specreview-reviewers"
-        help="fresh reviewers attacking each spec in one round" />
-      <NumberField label="Max concurrent reviewers" value={value.maxConcurrent}
-        onChange={(v) => set({ maxConcurrent: keep(v, value.maxConcurrent) })} testId="setting-specreview-concurrent" />
-      <NumberField label="Budget share (percent)" value={value.budgetSharePercent}
-        onChange={(v) => set({ budgetSharePercent: keep(v, value.budgetSharePercent) })} testId="setting-specreview-share"
-        help="share of the run's cost cap and wall clock review may use" />
-      <NumberField label="Attack look floor" value={value.attackLookFloor}
-        onChange={(v) => set({ attackLookFloor: keep(v, value.attackLookFloor) })} testId="setting-specreview-lookfloor"
-        help="the fewest file looks one reviewer gets; a spec citing many paths gets its paths plus 12" />
-      <NumberField label="Re-ground read budget" value={value.regroundReadBudget}
-        onChange={(v) => set({ regroundReadBudget: keep(v, value.regroundReadBudget) })} testId="setting-specreview-reground"
-        help="file reads that re-check the citations of the spec a run enters; past it a citation is left unchecked" />
-      <NumberField label="Series contract characters" value={value.seriesContractMaxChars}
-        onChange={(v) => set({ seriesContractMaxChars: keep(v, value.seriesContractMaxChars) })}
-        testId="setting-specreview-contractchars"
-        help="members shown whole to the series contract reviewer; past it each is shown in part" />
-    </>
+    <NumberField label="Re-ground read budget" value={value.regroundReadBudget}
+      onChange={(v) => set({ regroundReadBudget: keep(v, value.regroundReadBudget) })} testId="setting-specreview-reground"
+      help="file reads that re-check the citations of the spec a run enters; past it a citation is left unchecked" />
   );
 }
 

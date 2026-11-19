@@ -49,7 +49,7 @@ public sealed class DesignTurnTextContractTests
         var master = Folded();
 
         master.Should().NotContain("never rewrites the spec", "how a run later corrects a spec is not drafting knowledge");
-        master.Should().Contain("re-checked against the code before it is built", "the re-check's effect on facts stays");
+        master.Should().Contain("the coding master checks both against the code before it builds", "the re-check's effect on facts stays");
         master.Should().NotContain("Your first reply is an",
             "the bound-ticket section states the situation, not the order of replies").And
             .NotContain("a bound ticket's first judgement",

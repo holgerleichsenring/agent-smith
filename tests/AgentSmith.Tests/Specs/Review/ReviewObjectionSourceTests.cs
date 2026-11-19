@@ -41,15 +41,14 @@ public sealed class ReviewObjectionSourceTests
     }
 
     [Fact]
-    public void Source_AnsweredReviewObjection_DerivesOverTheRenderedPreviousCut()
+    public void Source_AnsweredReviewObjection_CutsAgainOverTheExecutedHead()
     {
         var decision = Decide(Asked() with { Executed = [First] },
             Thread(OurObjection(First), new TicketComment("author", After, "change it as the reviewer asks")));
 
         decision.Cause.Should().Be(SpecRevisionCause.Comment);
         decision.NeedsModel.Should().BeTrue();
-        PreviousCutPromptSection.Render(decision.Set, decision.Cause!, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults)
-            .Should().Contain($"{First} (ran — kept as it is)").And.Contain($"{Second} (not started)");
+        decision.Set!.Executed.Should().Equal(First);
     }
 
     [Fact]

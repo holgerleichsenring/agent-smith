@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-08-24-035a
+
+decisions:
+  - category: Architecture
+    chose: "A readiness endpoint /health/ready over StartupProbePass: 503 until the first pass completed or ReadBudget elapsed, then 200 for good"
+    over: "Readiness on /health (always 200), or readiness that follows subsystem health"
+    reason: |
+      /health answered 200 the moment the port bound, before anything was checked, so a rollout routed traffic to an
+      unchecked pod. Readiness that follows subsystem health would pull the one pod that reports a fault out of the
+      service; it waits once and then stays ready.
+  - category: Architecture
+    chose: "Reuse StartupProbePass.ReadBudget (15 s) as the readiness bound"
+    over: "A new configurable readiness timeout"
+    reason: |
+      The same pass, the same bound the findings endpoint already waits with; a second knob for the same wait would be
+      a second limit to keep in step. The 503 body names the value and the constant.
+  - category: Implementation
+    chose: "Skip the broadcaster's cold-start reads when the multiplexer is not connected"
+    over: "Moving the whole cold start behind the bind"
+    reason: |
+      Measured: the cold start costs 1.6 s with 50 recent runs on a full CPU, and 5.9 s when Redis is unreachable
+      because the first read waits out the backlog timeout before the catch starts empty anyway. Moving the cold
+      start behind the bind was built and reverted in 2026-10-29-7f2d (the cursor race); the guard takes the
+      avoidable wait without reopening that.
+  - category: Scope
+    chose: "Leave the deploy templates to 2026-11-19-6b0bf"
+    over: "Probe timings in this spec, as its August draft planned"
+    reason: |
+      The measured 60-120 s restart is not the process: boot to /health takes 3.0 s at 4 CPUs, 4.5 s at 0.5 and
+      33.8 s at 0.2. It is the pod's CPU share and the rollout shape (RWO volume, no surge, no drain), which belong
+      together in the manifest spec.

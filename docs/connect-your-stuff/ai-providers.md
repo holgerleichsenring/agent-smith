@@ -16,7 +16,7 @@ codeably uses different models at different points in a run. Each agent block ha
 |---|---|---|
 | `scout` | Walks the codebase with tools, picks relevant files. High call volume. | Cheap. `gpt-4.1-mini`, `claude-haiku`, `gemini-flash`. |
 | `primary` | Writes the code, reviews, makes the actual changes. | The good one. `gpt-4.1`, `claude-sonnet`, `gemini-pro`. |
-| `planning` | Derives the spec from the ticket, drafts expectations, decides which repos a ticket touches. | Usually same as `primary`. |
+| `planning` | The scope call: estimates the ticket's size and refuses what must not be done. | Usually same as `primary`. |
 | `reasoning` | Judgement calls: accounting a delivery against its criteria, refuting scan findings, reviewing a spec diff, parsing a chat intent. Optional. | Same as `primary`. |
 | `summarization` | Folds the older part of a long conversation into a summary (see [Context compaction](../reference/concepts/context-compaction.md)). | Cheap. `*-mini` / `*-haiku`. |
 | `code_map_generation` | Drives the repository analyzer, which explores the repo with tools and writes the code map. Optional. | Cheap. |

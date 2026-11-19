@@ -9,7 +9,7 @@ using static AgentSmith.Tests.Specs.DerivationTestLooks;
 
 namespace AgentSmith.Tests.Specs.Review;
 
-/// <summary>2026-10-13-8762e: an attack review's spec, look and minted evidence as the tests compose them.</summary>
+/// <summary>2026-10-13-8762e: a spec, look and minted evidence as the tests compose them.</summary>
 internal static class AttackReviewFixtures
 {
     public const string Key = "shop-dotnet";
@@ -47,7 +47,7 @@ internal static class AttackReviewFixtures
     public static DerivationLook Look() =>
         new(new Dictionary<string, ISandbox> { [Key] = new CountingSandbox(0) },
             new FixedReaderFactory(new InMemorySandboxFileReader()), new PackageEcosystemDetector(),
-            NullLogger.Instance, terms: DerivationLookTerms.AttackReviewWith(24));
+            NullLogger.Instance, terms: DerivationLookTerms.SpecReview);
 
     public static string Read(DerivationLook look, string path, int lines, int exit = 0) =>
         look.Evidence.Remember(new EvidenceRecord(Key, EvidenceRecord.Read, $"read {path}", exit, Ran: true, path, lines));
@@ -56,10 +56,5 @@ internal static class AttackReviewFixtures
         look.Evidence.Remember(new EvidenceRecord(
             Key, EvidenceRecord.Search, $"grep -E '{pattern}' .", exit, Ran: exit is 0 or 1, "."));
 
-    public static SpecAttackResult Admit(string json, DerivationLook look) =>
-        new SpecAttackAdmission(NullLogger<SpecAttackAdmission>.Instance).Admit(
-            SpecAttackAnswerReader.Read(json)!, SpecRegisters.Read(Yaml), look, Names);
 
-    public static SpecAttackInput Input(SpecDraft? draft = null) =>
-        new(draft ?? Draft(), "spec", 1, 0, "Make the nightly export usable by accounting.", true, [], 0, 1, []);
 }

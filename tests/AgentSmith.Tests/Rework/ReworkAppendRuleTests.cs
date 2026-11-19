@@ -77,18 +77,6 @@ public sealed class ReworkAppendRuleTests
                 AgentSmith.Contracts.Tickets.TicketLabelVocabulary.ForOptional(null));
 
     [Fact]
-    public void PreviousCut_FullyExecutedTicketEdit_RendersAppendWithRoom()
-    {
-        var rendered = PreviousCutPromptSection.Render(Executed(3), SpecRevisionCause.TicketEdit, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
-
-        rendered.Should().Contain("ADD new specs after them").And.Contain($"at most {AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults.AppendRoom(3)} new spec(s)");
-    }
-
-    [Fact]
-    public void PreviousCut_Rework_NamesThePullRequestReview() =>
-        PreviousCutPromptSection.Render(Executed(2), SpecRevisionCause.Rework, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().Contain("pull request review section");
-
-    [Fact]
     public void Notice_CommentAtCap_SaysFull()
     {
         var set = Executed(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults.MaxSpecs) with
@@ -99,15 +87,4 @@ public sealed class ReworkAppendRuleTests
         SpecRecutNotice.Render(set, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().Contain("nothing was added").And.NotContain("cut again");
     }
 
-    [Fact]
-    public void Parse_AppendReplyShorterThanHead_Refused()
-    {
-        const string reply = """{ "specs": [ { "goal": "only one", "done": ["x"], "carries": [] } ] }""";
-
-        var parsed = AgentSmith.Tests.Specs.DerivationTestParsers.Real().Parse(
-            reply, "k", "2026-10-06-0a0a", "1", [], SpecSource.Derived, Executed(2).Specs);
-
-        parsed.Derivation.Should().BeNull();
-        parsed.Error.Should().Contain("2 already ran");
-    }
 }

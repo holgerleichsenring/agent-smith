@@ -160,6 +160,16 @@
 :is(.mock-viewer, .tk-runlog) .rl-detail-line[data-tone="bad"] .rl-text, :is(.mock-viewer, .tk-runlog) .rl-detail-line[data-tone="bad"] .rl-meta-col { color: var(--bad); }
 :is(.mock-viewer, .tk-runlog) .rl-detail-line[data-tone="dim"] .rl-text { color: var(--ink-3); }
 :is(.mock-viewer, .tk-runlog) .rl-detail-repo { color: var(--ink-2); overflow-wrap: anywhere; }
+/* 2026-11-19-687eb: an open step's sub-agents, one line each under its header, opened to their brief and calls. */
+:is(.mock-viewer, .tk-runlog) .rl-subs { display: flex; flex-direction: column; gap: 2px; padding-bottom: 4px; }
+:is(.mock-viewer, .tk-runlog) .rl-sub-head { display: grid; grid-template-columns: 14px minmax(0, 16rem) minmax(0, 1fr); gap: 8px; width: 100%; padding: 0;
+  border: 0; background: none; font: inherit; color: var(--ink-2); text-align: left; cursor: pointer; }
+:is(.mock-viewer, .tk-runlog) .rl-sub-head:hover .rl-sub-name { text-decoration: underline; }
+:is(.mock-viewer, .tk-runlog) .rl-sub-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+:is(.mock-viewer, .tk-runlog) .rl-sub-mark { color: var(--ink-3); }
+:is(.mock-viewer, .tk-runlog) .rl-sub-run { color: var(--run); }
+:is(.mock-viewer, .tk-runlog) .rl-sub-body { display: flex; flex-direction: column; gap: 2px; padding: 2px 0 6px 22px; }
+:is(.mock-viewer, .tk-runlog) .rl-sub-brief { color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; padding-bottom: 2px; }
 :is(.mock-viewer, .tk-runlog) .rl-detail-older { color: var(--ink-3); font-family: var(--sans); font-size: 12px; }
 :is(.mock-viewer, .tk-runlog) .rl-more-lines { font-family: var(--sans); font-size: 12px; padding-top: 4px; text-align: left; }
 :is(.mock-viewer, .tk-runlog) .rl-output { max-height: 320px; overflow: auto; padding: 4px 0 4px 14px; white-space: pre-wrap; color: var(--ink-2); }

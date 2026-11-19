@@ -1,0 +1,9 @@
+spec: 2026-11-19-55ec
+decisions:
+  - chosen: "The review is a step in the master's skill text, run by a fresh sub-agent; its outcome is shown in the reply or report; nothing refuses the master for skipping it."
+    alternatives: "A mechanical precondition on offer_filing / finish_spec that refuses until a review child answered the current draft or diff."
+    why: "Operator: a mechanical refusal can misfire on a formality and loop the master again; a Claude Code session has no such gate either — the step is part of the procedure and its outcome is visible."
+    decider: operator
+  - chosen: "Raise the default budgets (design turn 8, run 40) rather than exempt review children from the count."
+    alternatives: "Count review children separately; leave the defaults and rely on the master to save a slot."
+    why: "One count stays one count; 8 is two waves at the default concurrency of 4 (readers, then reviewer and one re-review), 40 covers builder, reviewer and one re-review for a dozen specs in one run."

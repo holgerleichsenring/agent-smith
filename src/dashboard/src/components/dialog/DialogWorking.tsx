@@ -5,8 +5,9 @@ import type {
   SpecDialogReadingPush,
   SpecDialogReadingState,
 } from "@/types/spec-dialog";
-import { condenseSteps } from "./condenseSteps";
-import { DialogElapsed } from "./DialogElapsed";
+import { useEffect, useState } from "react";
+import { condenseSteps, inFlight } from "./condenseSteps";
+import { DialogElapsed, minutesAndSeconds } from "./DialogElapsed";
 import { DialogMessage } from "./DialogTranscript";
 
 // 2026-09-15-cb3e, found in use: a design turn materialises the scope's repositories and
@@ -29,11 +30,21 @@ import { DialogMessage } from "./DialogTranscript";
 // condensed lines the turn leaves behind, newest last, under a clock in minutes and seconds; the clock ticking is the
 // second cue beside the ring, and a new line arriving is the third.
 
-const READING_WORDS: Record<SpecDialogReadingState, string> = {
-  opening: "opening",
-  ready: "ready",
-  failed: "could not be opened",
-  reopening: "removed, reopening",
+// 2026-11-19-6b0be: a repository's line is its sandbox opening, not a read of it; a ticket's is the tracker read. Each
+// says which, so "ready" no longer reads as work done.
+const READING_WORDS: Record<SpecDialogReadingPush["kind"], Record<SpecDialogReadingState, string>> = {
+  repository: {
+    opening: "opening a sandbox",
+    ready: "sandbox ready",
+    failed: "sandbox could not be opened",
+    reopening: "sandbox removed, opening a new one",
+  },
+  ticket: {
+    opening: "reading",
+    ready: "read",
+    failed: "could not be read",
+    reopening: "reading again",
+  },
 };
 
 const READING_MARK: Record<SpecDialogReadingState, string> = {
@@ -67,6 +78,7 @@ export function DialogWorking({
           ? "Reading the ticket and the repositories it needs…"
           : "Opening the repositories it needs…";
   const lines = condenseSteps(activity);
+  const thinking = inFlight(activity);
   return (
     <DialogMessage who="agent" testId="dialog-working">
       <div className="flex flex-col gap-1.5 dsh-body text-body">
@@ -89,21 +101,40 @@ export function DialogWorking({
                 data-state={reading.state}
                 className={READING_MARK[reading.state]}
               >
-                {reading.name}: {READING_WORDS[reading.state]}
+                {reading.name}: {READING_WORDS[reading.kind][reading.state]}
               </li>
             ))}
           </ul>
         )}
-        {lines.length > 0 && (
+        {(lines.length > 0 || thinking) && (
           <ul data-testid="dialog-activity" className="flex flex-col gap-0.5 font-mono dsh-mono text-mute">
             {lines.map((line) => (
               <li key={line.key} data-testid="dialog-activity-line" data-kind={line.kind}>
                 {line.text}
               </li>
             ))}
+            {thinking && (
+              <li key={`thinking-${thinking.key}`} data-testid="dialog-thinking">
+                {thinking.who ? `${thinking.who} › ` : ""}thinking · <SecondsSinceSeen />
+              </li>
+            )}
           </ul>
         )}
       </div>
     </DialogMessage>
   );
+}
+
+/** 2026-11-19-687ea: seconds since this line appeared on THIS page, ticking. Counted from when the page saw the call
+ *  start rather than from the server's stamp, so two clocks are never differenced; a page that arrives mid-call counts
+ *  from its arrival. Keyed by the step, so the next call starts at 0. */
+function SecondsSinceSeen() {
+  const [since] = useState(() => Date.now());
+  const [now, setNow] = useState(since);
+  useEffect(() => {
+    const ticker = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(ticker);
+  }, []);
+  const seconds = Math.max(0, Math.floor((now - since) / 1000));
+  return <>{seconds < 60 ? `${seconds}s` : minutesAndSeconds(seconds)}</>;
 }

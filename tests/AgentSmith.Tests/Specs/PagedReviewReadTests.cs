@@ -51,20 +51,6 @@ public sealed class PagedReviewReadTests
         second.Should().Contain($"\n{next}\tline {next} ");
         var paged = look.Evidence.Looks[1];
         paged.FirstLine.Should().Be(next);
-        OwnReadRule.Within(next, paged).Should().BeTrue();
-        OwnReadRule.Within(next - 1, paged).Should().BeFalse("that line came from the first page, under its own id");
-        OwnReadRule.Within(next - 1, look.Evidence.Looks[0]).Should().BeTrue();
-    }
-
-    [Fact]
-    public void OwnReadRule_PagedRead_AdmitsOnlyTheShownLines()
-    {
-        var read = new EvidenceLook("P2", Repo, "read a", 0, true, "[P2]", EvidenceRecord.Read, "a", LinesReturned: 10, FirstLine: 41);
-
-        OwnReadRule.Within(41, read).Should().BeTrue();
-        OwnReadRule.Within(50, read).Should().BeTrue();
-        OwnReadRule.Within(51, read).Should().BeFalse();
-        OwnReadRule.Within(40, read).Should().BeFalse();
     }
 
     [Fact]

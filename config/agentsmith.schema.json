@@ -117,11 +117,11 @@
         "max_concurrent_sub_agents": { "type": "integer", "description": "Sub-agents running at once. Default 4." },
         "max_sub_agents_per_run": {
           "type": "integer",
-          "description": "Sub-agents one run may spawn. Default 20. 0 takes spawn_agents off every run's master."
+          "description": "Sub-agents one run may spawn. Default 40. 0 takes spawn_agents off every run's master."
         },
         "max_sub_agents_per_dialog_turn": {
           "type": "integer",
-          "description": "Sub-agents one design turn may spawn. Default 4. 0 takes spawn_agents off the design surface."
+          "description": "Sub-agents one design turn may spawn. Default 8. 0 takes spawn_agents off the design surface."
         }
       }
     },
@@ -248,21 +248,10 @@
     },
     "spec_review": {
       "type": "object",
-      "description": "The run-time review of each unbuilt spec before the master builds it: rounds of fresh reviewers whose cuts are applied each round. Global; read live per run.",
+      "description": "What sizes the entry re-ground of a spec's citations. No step reviews a spec; the review's sizing keys are retired. Global; read live per run.",
       "additionalProperties": false,
       "properties": {
-        "rounds": { "type": "integer", "minimum": 0, "description": "Rounds per spec. 0 turns the review off. Default 4." },
-        "reviewers": { "type": "integer", "minimum": 1, "description": "Fresh reviewers per round. Default 2." },
-        "max_concurrent": { "type": "integer", "minimum": 1, "description": "Reviewers running at once. Default 2." },
-        "budget_share_percent": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 100,
-          "description": "The share of the run's cost cap and wall clock the review may use; the specs it did not clear are left to the next attempt. The first reviewed spec always runs to its stop. Default 40."
-        },
-        "attack_look_floor": { "type": "integer", "minimum": 1, "description": "The fewest file looks one attack reviewer gets; a spec citing many paths gets its distinct cited paths plus 12 instead. It keeps one review inside its share of the run. Default 24." },
-        "reground_read_budget": { "type": "integer", "minimum": 1, "description": "The distinct (repository, path) pairs, each candidate read counted as one more, the citations of the spec a run enters are re-grounded against; a citation past it is left unchecked. Default 24." },
-        "series_contract_max_chars": { "type": "integer", "minimum": 1, "description": "The characters of members the series-contract reviewer is shown whole; past it each member is shown in part (goal, scope, steps and the lines naming the contract). Default 60000." }
+        "reground_read_budget": { "type": "integer", "minimum": 1, "description": "The distinct (repository, path) pairs, each candidate read counted as one more, the citations of the spec a run enters are re-grounded against; a citation past it is left unchecked. Default 24." }
       }
     },
     "series": {

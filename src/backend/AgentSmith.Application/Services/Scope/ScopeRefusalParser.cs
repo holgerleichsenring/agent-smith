@@ -3,11 +3,8 @@ using System.Text.Json;
 namespace AgentSmith.Application.Services.Scope;
 
 /// <summary>
-/// Reads the REFUSAL out of a scope-classifier reply on its own, without the reply
-/// having to be a usable repo verdict — the same independence
-/// <see cref="ScopeEstimateParser"/> has, for the same reason: <see cref="RepoScopeParser"/>
-/// refuses a reply without a <c>repos</c> array, and a refusing reply for a
-/// single-repository run has no reason to carry one.
+/// Reads the REFUSAL out of a scope-call reply on its own, beside the estimate (<see cref="ScopeEstimateParser"/>),
+/// so a reply carrying one is never refused for lacking the other.
 /// </summary>
 public static class ScopeRefusalParser
 {

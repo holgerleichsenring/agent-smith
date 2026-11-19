@@ -665,24 +665,6 @@ describe("SpecDialogSurface", () => {
     expect(screen.queryByTestId("dialog-turn-user")).toBeNull();
   });
 
-  // 2026-11-10-ccd9: the next turn's draft under review is shown in the pane; the approval card keeps showing — and
-  // sending — the proposal awaiting a decision, by its id.
-  it("Card_WhileNextTurnReviews_ShowsAndSendsTheAwaitingProposal", async () => {
-    await renderSurface();
-    act(() => proposals.emit(proposal({
-      kind: "epic", spec: null, parent: draftSpec("p9000"), children: [draftSpec("p9000a"), draftSpec("p9000b")],
-    })));
-    act(() => questions.emit(question()));
-    act(() => proposals.emit(proposal({ spec: draftSpec("p9100"), proposalId: null, reviewing: true, at: "2026-09-15T10:05:00Z" })));
-
-    expect(await screen.findByTestId("dialog-decision-summary"))
-      .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
-    fireEvent.click(screen.getByTestId("dialog-file"));
-
-    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve", "sample"));
-    expect(sentProposalIds.at(-1)).toBe("q-1");
-  });
-
   it("SpecDialog_AnApprovalTheServerDidNotRecord_IsDroppedAndTheQuestionComesBack", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
@@ -2007,8 +1989,8 @@ describe("SpecDialogSurface", () => {
 
     const lines = await screen.findAllByTestId("dialog-reading");
     expect(lines.map((line) => [line.textContent, line.getAttribute("data-state")])).toEqual([
-      ["repo-a: ready", "ready"],
-      ["template-repo: could not be opened", "failed"],
+      ["repo-a: sandbox ready", "ready"],
+      ["template-repo: sandbox could not be opened", "failed"],
     ]);
   });
 

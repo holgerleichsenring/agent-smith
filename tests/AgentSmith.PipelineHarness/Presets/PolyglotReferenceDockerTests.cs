@@ -136,7 +136,6 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
     private static void Script(
         RealCompositionHarness harness, IReadOnlyList<(string Path, string Content)> files)
     {
-        harness.ChatClient.EnqueueText(SpecDerivationFixture.DerivationJson);
         foreach (var (path, content) in files)
             harness.ChatClient.EnqueueToolCall("write_file", JsonSerializer.Serialize(
                 new { path = "primary/" + path, content }));

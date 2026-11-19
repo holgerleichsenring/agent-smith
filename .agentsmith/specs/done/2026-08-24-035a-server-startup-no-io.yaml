@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-08-24-035a
+
+goal: "The server says when it is ready: liveness answers at once, readiness waits for the first probe pass or its budget, and a dead Redis no longer holds the bind."
+
+applies_to: "default (Server startup, Server events)"
+
+requires:
+  - 2026-10-29-7f2d
+
+facts:
+  - claim: "The probe pass already runs after the bind (7f2d) and no spawner is probed before Build(); the August offenders this spec named are gone."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:28-47, src/backend/AgentSmith.Server/Extensions/StartupProbeRunExtensions.cs:15-24"
+  - claim: "Liveness and readiness are both /health, which answers 200 the moment the port binds, before the first probe pass has run."
+    evidence: "src/backend/AgentSmith.Server/Extensions/WebApplicationExtensions.cs:11-27, deploy/k8s/8-deployment-server.yaml:207-221"
+  - claim: "JobsBroadcaster.StartAsync awaits its cold start before Kestrel binds; with Redis unreachable the first read waits out the 5 s backlog timeout."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:50-60, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:79-97"
+  - claim: "The first pass's completion is held by StartupProbePass, with a 15 s read budget the findings endpoint already uses."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/StartupProbePass.cs:9-24"
+
+scope:
+  in: "A readiness endpoint over StartupProbePass; skipping the cold-start reads when the multiplexer is not connected."
+  out: "Moving the cold start behind the bind (7f2d built and reverted it: the cursor race). The deploy manifests, which are 2026-11-19-6b0bf. The migrate init container."
+
+decisions:
+  - key: "MEASURED, THE BOOT IS NOT THE 60-120 S. Local boot to /health is 3.0 s at 4 CPUs, 4.5 s at 0.5, 33.8 s at 0.2; the compose server's log shows a 1.6 s cold start with 50 recent runs. The minutes come from the pod's CPU share and the rollout shape, which 6b0bf fixes."
+  - key: "READINESS WAITS ONCE, THEN STAYS READY. A degraded server must keep reporting, so readiness never flips back on a subsystem; it only waits for the first pass, bounded by the existing ReadBudget."
+  - key: "A DISCONNECTED REDIS SKIPS THE COLD START. Nothing can be read, the catch already starts empty; asking IsConnected first saves the five-second wait and says why."
+
+steps:
+  - id: readiness
+    action: "StartupProbePass.IsSettled (completed, or ReadBudget elapsed since construction, on a TimeProvider); GET /health/ready answers 200 when settled and 503 naming the budget otherwise; anonymous."
+  - id: cold-start
+    action: "JobsBroadcaster.ColdStartAsync returns at once, with a warning, when the multiplexer is not connected."
+  - id: tests
+    action: "StartupProbePassTests, a booted readiness test, a cold-start test; route allow-list and baseline updated; build; affected classes."
+
+tests:
+  - "StartupProbePassTests.Settled_BeforeTheFirstPass_IsFalse"
+  - "StartupProbePassTests.Settled_AfterComplete_IsTrue"
+  - "StartupProbePassTests.Settled_BudgetElapsed_IsTrueRatherThanWaitingForever"
+  - "ReadinessEndpointTests.Ready_AfterTheFirstPass_Answers200"
+  - "ReadinessEndpointTests.Ready_BeforeTheFirstPass_Answers503"
+  - "JobsBroadcasterColdStartTests.Start_RedisNotConnected_SkipsTheReads"
+
+done:
+  - "/health answers immediately; /health/ready is 503 until the first pass or its budget, then 200."
+  - "A boot with Redis not connected makes no cold-start read."
+  - "Build green, full suite green, dashboard gen/test/build green."

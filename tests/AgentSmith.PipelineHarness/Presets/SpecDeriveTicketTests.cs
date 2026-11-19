@@ -42,7 +42,6 @@ public sealed class SpecDeriveTicketTests
         var tickets = new RecordingTicketProvider();
         var transitions = new RecordingTransitionerFactory();
         await using var harness = BuildHarness(tickets, transitions);
-        harness.ChatClient.EnqueueText(SpecDerivationFixture.DerivationJson);
 
         await RunAsync(new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" });
 

@@ -20,10 +20,4 @@ public static partial class ContextKeys
     /// none yet.
     /// </summary>
     public const string TicketMessagesHanded = "TicketMessagesHanded";
-
-    /// <summary>
-    /// <c>int</c> — 2026-11-17-ec48a: how many revisions of a spec the coding master had reviewed in this run, so each
-    /// revision review is stored as a round of its own after the pre-build rounds. Absent: none yet.
-    /// </summary>
-    public const string SpecRevisionReviews = "SpecRevisionReviews";
 }

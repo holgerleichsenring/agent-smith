@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-687eb
+goal: "An open run step lists its sub-agents under its header, one line each with status, tool calls and time, expandable to the child's brief and tool calls."
+
+applies_to: "dashboard (components/jobs/runlog/RunStepDetail, stepDetailLines) + default (Application SubAgentRequestBuilder)"
+
+facts:
+  - claim: "Sub-agents appear on the step log only as 'X started: …' and 'X finished after N tool calls' lines inside the newest-first event list."
+    evidence: "src/dashboard/src/components/jobs/runlog/stepDetailLines.ts:165-171, src/dashboard/src/components/jobs/runlog/RunStepDetail.tsx:53,94"
+  - claim: "SubAgentToolCallEvent (run id, sub-agent id, tool, args summary) exists and is rendered by stepDetailLines, but nothing publishes it; ToolCallEvent's only producer EventPublishingAIFunction is never constructed."
+    evidence: "src/backend/AgentSmith.Contracts/Events/L2SubAgentEvents.cs:62-75, src/dashboard/src/components/jobs/runlog/stepDetailLines.ts:139-141, src/backend/AgentSmith.Application/Services/Events/EventPublishingAIFunction.cs:20"
+  - claim: "A coding-run child's tool calls are kept nowhere attributed to the child: its sandbox calls are SandboxCommand rows with no child id, its other tools leave nothing; a design turn's reach the dialog's DialogActivity steps ('X › read_file') through the activity frame, which a coding run does not observe."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentPass.cs:21, src/backend/AgentSmith.Application/Services/Turns/SubAgentActivityFrame.cs:15-17, src/backend/AgentSmith.Contracts/Events/L3SandboxStreamEvents.cs:15-27"
+  - claim: "Completed fires at the end of every pass of a child; a continuation sends Messaged(continued) and no new Spawned. Child names are not unique."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentPass.cs:45,81, src/backend/AgentSmith.Application/Services/Tools/SubAgentTeamToolHost.cs:55"
+  - claim: "A child's LLM calls carry its name as their role."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:58-61"
+  - claim: "The step's newest page already carries every older Spawned/Completed/Messaged event of the step; the other events are paged."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/StepSubAgentLifecycleReader.cs:17-31, src/backend/AgentSmith.Server/Extensions/RunStepQueryEndpoints.cs:66-69"
+
+scope:
+  in: "SubAgentRequestBuilder.Build wraps each child's granted functions beside the existing per-child MidTurnMessageAIFunction (built once; a continuation reuses the request), so every call publishes SubAgentToolCallEvent (child id, tool, ToolArgumentFacts.Summarize) before it runs — for coding runs and design turns alike. The step's events stay paged as they are (the lifecycle reader is unchanged). RunStepDetail renders, directly under RunStepHead, one row per child (spawn order): name, then 'finished|failed|stopped|running · N tool calls · duration'. Status is the child's latest lifecycle event: Spawned or Messaged(continued) → running, Completed → its status. N is the number of loaded SubAgentToolCall events of that child (Completed.ToolCalls counts one pass only and is 0 on failure, so it is not used), with '+' while older events of the step are not loaded and the child started before them. A running child whose latest LLM call (role = its name; same-named children share it — a stated limitation) has not finished adds 'thinking · Ns'. Expanding a row shows the brief (Spawned.activity) and the loaded tool calls, oldest first: time · tool · target, with 'load older' when the step has older events. The flat list no longer repeats Spawned, Completed and SubAgentToolCall lines; a coding child's SandboxCommand rows stay in it (they carry no child id)."
+  out: "SubAgentTimelinePanel/SubAgentTreeNode (unused here). Tool results or durations per child call. Nested children (one level only)."
+
+steps:
+  - id: record
+    action: "Add SubAgentToolCallAIFunction (publishes SubAgentToolCallEvent before invoking); SubAgentRequestBuilder takes IEventPublisher and wraps each granted function with it."
+  - id: model
+    action: "A pure subAgentRows(events, { runEnded, hasOlder }) building rows (id, name, brief, status, toolCalls, startedAt, endedAt, thinkingSince, calls)."
+  - id: view
+    action: "StepSubAgents component under RunStepHead with expandable rows; stepDetailLines drops the three lifecycle/call cases."
+  - id: tests
+    action: "Backend: a child's tool call publishes SubAgentToolCallEvent with its id; Dashboard: stepSubAgents rows, statuses and thinking; RunStepDetail renders rows before the list and expands."
+
+tests:
+  - "SubAgentRequestBuilderTests: invoking a granted tool of the built request publishes SubAgentToolCallEvent with the member's id and tool name."
+  - "subAgentRows: finished child counts its loaded SubAgentToolCall events and shows its duration; a continued child (Messaged continued after Completed) is running; running child thinking since its open LLM call; failed status; '+' when older events are not loaded."
+  - "RunStepDetail: sub-agent rows render before step-detail-line rows; clicking expands brief and calls."
+
+done:
+  - "dotnet build green, affected backend tests green; dashboard tests and build green; gen:hub-events green."

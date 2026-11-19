@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-4176
+
+decisions:
+  - category: Configuration
+    chose: "Retire spec_review.rounds, reviewers, max_concurrent, budget_share_percent, attack_look_floor and series_contract_max_chars end to end — model, validation, schema, dashboard type and form, docs — with RetiredConfigKeys rows; reground_read_budget stays"
+    over: "Keeping the fields in config as inert knobs"
+    reason: "Nothing reads them since the run-time review (9c1cb), revise_spec's review (3e10) and the never-wired series-contract reviewer are gone; a setting that does nothing misleads the person who sets it. The retired-key advisory follows the design_turn precedent, so a file or a stored document still naming one loads with an advisory; the stored document loses them on its next save."
+  - category: Scope
+    chose: "Deleted the series-contract reviewer chain (interface, reviewer, admission, prompt and its section, input, answer and reader, members, review), SpecAttackAdmission, SpecAttackAnswer, SpecRegisters, SpecCutResidues, SpecRevisionCause.SeriesContractReview, and the two types the fixpoint left (OwnReadRule, SpecFindingWire)"
+    over: "Leaving registered-but-never-injected code"
+    reason: "Prefer deletion. Kept for stored runs and the ticket page: SpecAttackResult, SpecReviewMerge/Merged, SpecReviewResidue and the round events; kept for the design turn and verify_series: the series contract itself (SeriesContractCheck, SeriesContractReader, the manifest's contract)."
+  - category: Testing
+    chose: "Tests of deleted classes are deleted; tests that set a retired field use reground_read_budget; a retired-key test asserts one advisory per retired spec_review key; the dashboard test asserts the form offers only the re-ground budget"
+    over: "Keeping tests of retired settings"
+    reason: "A test of a setting nothing reads proves nothing."

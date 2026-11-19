@@ -26,6 +26,10 @@ public static partial class ContextKeys
     /// question, or a person answered it.</summary>
     public const string SpecQuestionPin = "SpecQuestionPin";
 
+    /// <summary>2026-11-19-6b0ba: the cause of an input (a comment, an edit, a rework) that arrived over a set whose
+    /// unbuilt specs are kept as they are — the coding master is told it and amends the spec with revise_spec.</summary>
+    public const string SpecKeptInput = "SpecKeptInput";
+
     /// <summary>p0393a: which specs of the sequence are through and which are not
     /// (<see cref="Specs.SpecSequenceProgress"/>). A stopped sequence leaves a
     /// half-migrated repository, and the pull request must state it per spec.</summary>

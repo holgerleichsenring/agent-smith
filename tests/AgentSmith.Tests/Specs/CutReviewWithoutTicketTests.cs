@@ -97,19 +97,6 @@ public sealed class CutReviewWithoutTicketTests
         withCriteria.Should().Contain("judged against its completion criteria");
     }
 
-    [Theory]
-    [InlineData("upgrade", "", null, CutReviewTicket.Whole)]
-    [InlineData("", "", "the audit is clean", CutReviewTicket.Whole)]
-    [InlineData(" ", "", "  ", CutReviewTicket.Absent)]
-    public void TicketText_TitleDescriptionAndCriteria_AreOneTicket(
-        string title, string description, string? criteria, CutReviewTicket expected)
-    {
-        var ticket = new AgentSmith.Domain.Entities.Ticket(
-            new AgentSmith.Domain.Models.TicketId("1"), title, description, criteria, "open", "test");
-
-        SpecCutReviewPrompt.StateOf(SpecCutReviewTicketText.Of(ticket)).Should().Be(expected);
-    }
-
     internal static SpecDraft DoneLess() =>
         new("e1", "Move every sender onto the new bus", "spec: e1", [])
         {

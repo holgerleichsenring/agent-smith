@@ -52,8 +52,8 @@ public sealed class SpecSetTicketCommenterTests
     [Fact]
     public void Comment_TheDerivationTimeComment_CarriesContextsAndTheOnesLeftOut()
     {
-        var set = Set(contexts: "\"contexts\": [\"frontend\"],",
-            discardedContexts: """[{"context": "backend", "reason": "the audit flags nothing there"}]""");
+        var set = Set(contexts: ["frontend"],
+            discardedContexts: [new DiscardedContext("backend", "the audit flags nothing there")]);
 
         var body = SpecSetComment.Render(set, null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
@@ -135,26 +135,23 @@ public sealed class SpecSetTicketCommenterTests
         SpecPullRequestLines.Render(new Dictionary<string, string> { ["Server"] = "https://x/pull/1" }, ["Server"], "Open")
             .Should().Be("Open: https://x/pull/1");
 
-    private static SpecSet Set(string contexts = "", string discardedContexts = "[]")
+    // 2026-11-19-6b0ba: built as the set types hold it — no derivation reply exists to parse any more.
+    private static SpecSet Set(IReadOnlyList<string>? contexts = null, IReadOnlyList<DiscardedContext>? discardedContexts = null)
     {
         var segments = TicketSegmenter.Segment(Ticket);
-        var reply = $$$"""
-            {"specs": [
-               {"slug": "raise-the-floors", "goal": "Raise the direct package floors the audit names",
-                {{{contexts}}}
-                "steps": [{"id": "raise", "action": "Raise the versions"}],
-                "done": ["The manifests carry versions the audit no longer flags.", "The build exits 0."],
-                "carries": [{{{segments[0].Id}}}],
-                "facts": [{"claim": "one direct package is affected", "cites": "L1"},
-                          {"claim": "every other finding is transitive", "cites": ""}] }],
-             "discarded": [{"segment": {{{segments[^1].Id}}}, "reason": "a sign-off"}],
-             "discarded_contexts": {{{discardedContexts}}},
-             "ignored_instructions": [],
-             "handback": {"case": "none", "reason": ""}}
-            """;
-        var parsed = DerivationTestParsers.Real().Parse(
-            reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, null, MintedLooks.Ran(Evidence));
-        parsed.Error.Should().BeNull();
-        return parsed.Derivation!.Set;
+        var draft = new Contracts.Models.SpecDraft("2026-10-06-9106a", "Raise the direct package floors the audit names",
+            "spec: 2026-10-06-9106a", [])
+        {
+            Done = ["The manifests carry versions the audit no longer flags.", "The build exits 0."],
+            Facts = [new Contracts.Models.SpecFact("one direct package is affected", Evidence)],
+            Assumptions = ["every other finding is transitive"],
+            Contexts = contexts ?? [],
+        };
+        var spec = new DerivedSpec(draft, "raise-the-floors", string.Empty, [segments[0].Id]);
+        return new SpecSet(
+            "azdo-19106", [spec],
+            SpecAccountingBuilder.Build([spec], [new DiscardedSegment(segments[^1].Id, "a sign-off")], segments, discardedContexts),
+            [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)], SpecSource.Derived,
+            Series: "2026-10-06-9106");
     }
 }

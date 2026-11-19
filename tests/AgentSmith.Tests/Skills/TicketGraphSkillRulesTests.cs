@@ -47,7 +47,7 @@ public sealed class TicketGraphSkillRulesTests
 
         master.Should().Contain("`requires` orders them, so a ticket's dependencies are written before it",
             Because("the merge order rule"));
-        master.Should().Contain("A filed ticket is required as `ticket:<tracker id>` (`ticket:41`, `ticket:PROJ-41`)",
+        master.Should().Contain("A ticket of this draft is required by its key (`approval-core`); a filed ticket as `ticket:<tracker id>` (`ticket:41`, `ticket:PROJ-41`)",
             Because("a filed ticket's id without '#'"));
     }
 
@@ -55,7 +55,7 @@ public sealed class TicketGraphSkillRulesTests
     public void EmbeddedSkills_DesignPartnerMaster_TicketIsWrittenAgainstItsMergedRequiresAndSizedForOneRun() =>
         DesignPartner().Should().Contain(
             "Its requirement describes the change against the code as it stands once its requires have merged, "
-            + "small enough for one run to build, review and merge; its specs state their facts against that state too.",
+            + "small enough for one run to build, review and merge.",
             Because("the ticket size rule"));
 
     [Fact]

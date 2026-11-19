@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-3e10
+
+decisions:
+  - category: Architecture
+    chose: "revise_spec writes the master's text after the mechanical checks only — a reason, SpecRevisionGate, SpecRevisionText (schema and identity) — and SpecRevisionWriter resets the criteria"
+    over: "Keeping the fresh review panel that could refuse or cut the master's revision, or switching it off by spec_review.rounds"
+    reason: "Operator's standing principle: one master owns the run; no uncommissioned model may judge, rewrite or stop it. A review stays available the way it is in a spec-first session: the master briefs a reviewer itself with spawn_agents; no new tool or flag."
+  - category: Behaviour
+    chose: "ReviseSpecToolHost and MasterSpecRevision take no AgentConfig, and MasterRecordToolHosts offers revise_spec to a coding master on a spec without an agent gate"
+    over: "Keeping the AgentConfig parameter unused"
+    reason: "The agent was only the review's model; a parameter nothing reads is a gate that means nothing."
+  - category: Scope
+    chose: "Deleted with the review, as each lost its last production reference: SpecRevisionReview, SpecRevisionVerdict, SpecRevisionOutcome, the refused/unresolved/not-taken/cuts-not-applied replies, ContextKeys.SpecRevisionReviews, SpecReviewPanel, the attack reviewer (interface, reviewer, answer reader, input, prompt and its owner-words and questions sections), the round evidence check (interface, check, result, probe), the cut reviser (interface, reviser, revision, prompt, guard, lists), SpecReviewInput, SpecReviewRun, SpecReviewBudget, SpecReviewWiderGoal, SpecReviewRoundPublisher, DerivationLookTerms.AttackReview*, DerivationLookFactory.ForProposalAttack, SpecCitations, SpecCutReviewTicketText and SpecReviewSettings.MaxRunWallTimeSeconds; QuoteWords moved to SeriesContractPrompt"
+    over: "Leaving them registered and unused"
+    reason: "Prefer deletion. Kept because something else uses them: SpecReviewMerge and the round types (the ticket page reads stored rounds), the settings reader (re-ground budget), SpecReviewRevision (entry re-ground), the identity rule, SpecReviewScopes (stored rows), and the series-contract reviewer chain with the types it shares."
+  - category: Scope
+    chose: "Named follow-up 'spec_review settings retired': rounds, reviewers, max_concurrent, budget_share_percent, attack_look_floor and series_contract_max_chars, which nothing reads after this, with their stored settings and dashboard form; plus code already dead before this spec (the series-contract reviewer chain, SpecCutResidues)"
+    over: "Retiring the config surface here"
+    reason: "It reaches the stored settings, the config studio, the dashboard form and the retired-keys list — its own spec. docs/configure-it/settings.md says now that only reground_read_budget has an effect."
+  - category: Testing
+    chose: "Deleted the tests of the deleted reviewer, panel, evidence check, reviser, guard, round publisher, attack prompt and ticket-text helper, and the attack eval in LiveDoneTargetStateEvalTests (its cut-review eval stays); MasterSpecRevisionTests and the harness ReviseSpecCompositionTests assert the direct write with no reviewer call; the harness drops its attack-reviewer script slot"
+    over: "Keeping tests of deleted behaviour"
+    reason: "A test of code that no longer exists proves nothing."

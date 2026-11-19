@@ -41,7 +41,9 @@ internal sealed class ApprovedSetHarness
 
     internal RecordingPullRequestOpener PullRequests { get; } = new();
 
-    internal CountingDeriver Deriver { get; } = new();
+    /// <summary>2026-11-19-6b0ba: what took the deriver's place — whether a run cut the set (wrote stand-ins or
+    /// handed an input over kept specs to their master), and under which cause.</summary>
+    internal CutProbe Recuts { get; } = new();
 
     /// <summary>2026-09-17-0e79b: the kept-set notices posted to the ticket.</summary>
     internal RecordingTicketComments Notices { get; } = new();
@@ -62,7 +64,9 @@ internal sealed class ApprovedSetHarness
     /// <summary>The thread the run carries, which is what the comment rule reads.</summary>
     internal IReadOnlyList<TicketComment>? Comments { get; set; }
 
-    internal DeriveSpecHandler Handler()
+    internal ICommandHandler<DeriveSpecContext> Handler() => new ProbedHandler(Build(), Recuts);
+
+    private DeriveSpecHandler Build()
     {
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
         var draftReader = new SpecDraftReader();
@@ -76,7 +80,6 @@ internal sealed class ApprovedSetHarness
                 .GetAwaiter().GetResult();
         var cuts = Cuts.Factory();
         return new DeriveSpecHandler(
-            Deriver,
             SeriesDoubles.BranchRead(SeriesDoubles.Reader(factory.Object, gitOps), factory.Object),
             Publisher(),
             Pointers,
@@ -85,20 +88,15 @@ internal sealed class ApprovedSetHarness
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance),
-            new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
-            new SpecCoverageRefusal(
-                new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
-                new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
+            new SpecStandIns(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecSetTicketCommenter(cuts, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetTicketCommenter>.Instance),
             new ApprovedSetKeptNotice(
                 Notices.Factory(), Decisions, NullLogger<ApprovedSetKeptNotice>.Instance),
-            new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(cuts, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
-            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())),
-            NullLogger<DeriveSpecHandler>.Instance);
+            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())));
     }
 
     /// <summary>The real publisher: the writer, the pointer recorder and the draft pull request.</summary>
@@ -161,29 +159,26 @@ internal sealed class ApprovedSetHarness
         }
     }
 
-    internal sealed class CountingDeriver : ISpecSetDeriver
+    /// <summary>Counts the runs that cut the set and records the cause the last one ran under.</summary>
+    internal sealed class CutProbe
     {
-        internal int Calls { get; private set; }
+        internal int Calls { get; set; }
 
-        internal SpecDerivation? Result { get; set; }
+        internal string? CauseSeen { get; set; }
+    }
 
-        /// <summary>2026-09-22-8b25: the set the model was put in front of — which carries the
-        /// executed head the parser re-uses verbatim, so a caller can pin what a re-cut may
-        /// reach.</summary>
-        internal SpecSet? PreviousSeen { get; private set; }
-
-        /// <summary>2026-09-22-8b25: the cause the model was told, which decides how it amends.</summary>
-        internal string? CauseSeen { get; private set; }
-
-        public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
-            string cause, IReadOnlyList<string> repositories, AgentConfig agentConfig, PipelineContext pipeline,
-            CancellationToken cancellationToken)
+    private sealed class ProbedHandler(DeriveSpecHandler inner, CutProbe cuts) : ICommandHandler<DeriveSpecContext>
+    {
+        public async Task<CommandResult> ExecuteAsync(DeriveSpecContext context, CancellationToken cancellationToken)
         {
-            Calls++;
-            PreviousSeen = previous;
-            CauseSeen = cause;
-            return Task.FromResult<(SpecDerivation?, string?)>((Result, Result is null ? "no cut" : null));
+            var result = await inner.ExecuteAsync(context, cancellationToken);
+            var set = context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var published) ? published : null;
+            if (context.Pipeline.Has(ContextKeys.SpecKeptInput) || set is { StandIns.Count: > 0 })
+            {
+                cuts.Calls++;
+                cuts.CauseSeen = set?.Current.Cause;
+            }
+            return result;
         }
     }
 }

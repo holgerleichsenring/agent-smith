@@ -30,8 +30,17 @@ describe("DialogWorking", () => {
   it("names a repository whose sandbox is reopening, under the opening header", () => {
     render(<DialogWorking readings={[reading("reopening")]} activity={[]} since={null} />);
 
-    expect(screen.getByTestId("dialog-reading")).toHaveTextContent("repo-a: removed, reopening");
+    expect(screen.getByTestId("dialog-reading")).toHaveTextContent("repo-a: sandbox removed, opening a new one");
     expect(screen.getByTestId("dialog-working")).toHaveTextContent("Opening the repositories it needs…");
+  });
+
+  // 2026-11-19-6b0be: a repository's ready is its sandbox; a ticket's is the read.
+  it("ReadingWords_SayWhatIsReady_PerKind", () => {
+    render(<DialogWorking readings={[reading("ready"), { ...reading("ready"), kind: "ticket", name: "SCRUM-7" }]} activity={[]} since={null} />);
+
+    expect(screen.getAllByTestId("dialog-reading").map((line) => line.textContent)).toEqual([
+      "repo-a: sandbox ready", "SCRUM-7: read",
+    ]);
   });
 
   // 2026-11-13-3dc8: the condensed lines and a clock in minutes and seconds; no step count, no fold.

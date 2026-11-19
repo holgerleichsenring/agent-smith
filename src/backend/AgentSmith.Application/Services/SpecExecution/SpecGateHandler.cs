@@ -36,6 +36,10 @@ public sealed class SpecGateHandler(ILogger<SpecGateHandler> logger)
                 $"The derivation handed ticket {context.Ticket.Id.Value} back "
                 + $"({set.Handback!.Case}) — nothing to gate"));
 
+        // 2026-11-19-6b0ba: the gate a spec derivation splices after a master judges that master's spec only.
+        if (context.SpecId is { Length: > 0 } written)
+            return Task.FromResult(SpecDerivationGate.AfterMaster(context.Pipeline, set, written));
+
         if (set.Specs.Count == 0)
             return Task.FromResult(CommandResult.Fail(
                 $"Spec set {set.Key} carries no spec — there is nothing to build."));
@@ -45,9 +49,10 @@ public sealed class SpecGateHandler(ILogger<SpecGateHandler> logger)
         // working off one key whether or not a sequence is involved.
         var first = set.Specs[0];
         context.Pipeline.Set(ContextKeys.CurrentSpec, first.Draft);
-        // 2026-10-26-bdd0d: a spec derivation ends here, on where its specs are.
-        if (PipelinePresets.LeavesTicketAlone(context.Pipeline))
-            context.Pipeline.Set(ContextKeys.SpecDerivationEnded, SpecDerivationSummary.Of(context.Pipeline, set));
+        // 2026-10-26-bdd0d: a spec derivation ends here, on where its specs are — 2026-11-19-6b0ba: unless a stand-in
+        // waits for the coding master to write it.
+        if (PipelinePresets.LeavesTicketAlone(context.Pipeline) && SpecDerivationGate.Front(context.Pipeline, set) is { } ended)
+            return Task.FromResult(ended);
         logger.LogInformation(
             "Spec set {Key} validated: {Count} spec(s), first is {SpecId} ({Goal})",
             set.Key, set.Specs.Count, first.SpecId, first.Draft.Goal);

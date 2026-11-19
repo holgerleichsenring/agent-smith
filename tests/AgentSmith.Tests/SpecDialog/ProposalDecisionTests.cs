@@ -227,17 +227,6 @@ public sealed class ProposalDecisionTests : IDisposable
     }
 
     [Fact]
-    public async Task Observer_MidReviewDraft_WritesOnlyAReviewingRow()
-    {
-        var (state, id) = await ProposedAsync();
-
-        await Harness().Proposals.StoreReviewingAsync(state, Spec("p2") with { UnderReview = true }, default);
-
-        (await StoredProposals.ByIdAsync(Context(), id))!.State.Should().Be(SpecDialogProposalClaim.Awaiting, "the awaiting proposal is untouched");
-        (await StoredProposals.InStateAsync(Context(), SpecDialogProposalClaim.Reviewing)).Should().NotBeNull();
-    }
-
-    [Fact]
     public async Task Reject_SingleCompareAndSet_ClearsTheCard()
     {
         var (state, id) = await ProposedAsync();

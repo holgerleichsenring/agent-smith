@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-6c6d
+
+decisions:
+  - category: Architecture
+    chose: "ProposalEvidenceReview checks ProposalSpecSet.Drafts(proposal) — every draft of a spec, an epic or a ticket list — and drops its EpicChildOrderer dependency (the orderer stays for its other users)"
+    over: "Keeping the ordering exemption (only specs describing today checked), or widening it ticket by ticket"
+    reason: "Operator decision: a fact cites what exists now in the turn's repositories or uploads; what an earlier spec or a required ticket will create is an assumption. With that rule no spec has a reason to be exempt, and in a live turn 7 of 8 tickets carried requires, so the exemption left most specs unchecked."
+  - category: Interface
+    chose: "The proposal overload appends 'cite what exists now; what an earlier spec or ticket creates is an assumption' to each finding's Why; Problem stays 'cited evidence does not resolve'; the drafts overload SeriesVerification calls keeps its Why"
+    over: "A new Problem string, the hint shown once per proposal, or the hint in both overloads"
+    reason: "Problem is the stable key tests and readers match; the reason plus hint reads as one line on the card ('cited evidence does not resolve: not a file …: <path> — cite what exists now; …'). SeriesVerification reads at the ticket branch where predecessors already ran, so the hint would be wrong there. Repeating the hint per finding keeps each finding self-contained wherever it is quoted."
+  - category: Scope
+    chose: "Findings stay advisory and are produced where they are today — ProposalMechanicalChecks after the master's loop, published on the proposal card and pane"
+    over: "Running the evidence check inside the master's loop (in the write tools) so the master can act within the same turn"
+    reason: "The ask was to widen what is checked, not when; an in-loop check is a separate change (spec review noted that the master today sees the findings only through the posted proposal)."

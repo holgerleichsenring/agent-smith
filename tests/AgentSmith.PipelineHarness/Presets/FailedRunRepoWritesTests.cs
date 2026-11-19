@@ -25,9 +25,6 @@ public sealed class FailedRunRepoWritesTests
 
     // 2026-10-12-f5f7a: over several repositories each spec names exactly one; a reply naming none
     // is asked again, so the two-spec fixture states them.
-    private static readonly string TwoSpecOneRepoEach = SpecDerivationFixture.TwoSpecJson
-        .Replace("\"slug\": \"introduce-the-guard\",", "\"slug\": \"introduce-the-guard\", \"repos\": [\"sample-server\"],")
-        .Replace("\"slug\": \"migrate-the-callers\",", "\"slug\": \"migrate-the-callers\", \"repos\": [\"sample-client\"],");
 
     private static IReadOnlyList<RepoConnection> ThreeRepos() =>
     [
@@ -43,13 +40,13 @@ public sealed class FailedRunRepoWritesTests
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
             .EnqueueScopeReply("no verdict") // unusable — the run keeps all three repos
-            .EnqueueText(TwoSpecOneRepoEach)
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
         var runner = new PipelineRunner(harness.Services)
         {
             ReposOverride = ThreeRepos(), DoneStatus = "done", FailedStatus = "failed",
-        };
+        }.WithSeries([new HarnessSeries.Member("Introduce the empty-payload guard", "An empty request body is answered with 400.", "sample-server"),
+            new HarnessSeries.Member("Move the existing callers onto the guard", "No caller builds its own empty-payload check.", "sample-client")]);
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse("nothing was verified, so nothing was delivered");

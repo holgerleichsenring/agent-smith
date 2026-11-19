@@ -92,22 +92,4 @@ public sealed class TicketHtmlDownstreamTests
             .And.NotContain("<h2").And.NotContain("<li>");
     }
 
-    [Fact]
-    public void Of_ATicketWhoseBodyIsHtml_IsShownToTheCutReviewAsText()
-    {
-        var text = SpecCutReviewTicketText.Of(HtmlTicket());
-
-        text.Should().Contain("Dependency update")
-            .And.Contain("Update all direct dependencies")
-            .And.Contain("the build is green")
-            .And.NotContain("<h2").And.NotContain("<li>");
-    }
-
-    [Fact]
-    public void Of_ATicketWhoseBodyIsPlainText_IsUnchanged()
-    {
-        SpecCutReviewTicketText.Of(TextTicket()).Should()
-            .Be("Title: Dependency update\n\nDescription:\n## Goal\nUpdate all direct dependencies."
-                + "\n\nAcceptance criteria:\n- the build is green");
-    }
 }

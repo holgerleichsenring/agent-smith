@@ -18,10 +18,8 @@ public static class SpecDerivationRegistrations
     {
     services.AddTransient<ISpecCutReviewer, SpecCutReviewer>(); // p0422: the design turn's whole-set review and verify_series
     Review.SpecReviewRegistrations.AddSpecReview(services); // 2026-10-13-8762e: the spec review rounds
-        services.AddTransient<ContradictionHandbackGate>(); // 2026-10-12-3a36b; 9c1cb: mechanical
         services.AddTransient<ForeignCommitProbe>();
         services.AddTransient<HandbackHeadsReader>();
-        services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();
     // 2026-10-06-03c7d: a series is one manifest under series/ and its specs in specs/planned/.
     services.AddTransient<ISpecSetReader, SeriesReader>();
     // 2026-10-12-f5f7b: every run repository's sub-series, joined into one set.
@@ -41,15 +39,9 @@ public static class SpecDerivationRegistrations
     // write filing makes onto the ticket branch.
     services.AddTransient<SeriesFiles>();
     services.AddTransient<FiledSpecBranch>();
-    services.AddTransient<SpecDerivationEnvelope>();
-    services.AddTransient<SpecDerivationParser>();
-    services.AddTransient<SpecReposRule>().AddTransient<DerivedSpecRepos>(); // 2026-10-12-3a36e
-    services.AddTransient<DerivedSpecSequence>();
-    // 2026-09-07-b7e2: the derivation may look before it writes — its call, its tool
-    // host over the run's sandboxes, and the resolver that decides a fact in code.
-    services.AddTransient<DerivedSpecBuilder>();
+    services.AddTransient<SpecReposRule>(); // 2026-10-12-3a36e
+    // 2026-09-07-b7e2: the resolver that decides a fact in code.
     services.AddTransient<FactResolver>();
-    services.AddTransient<SpecDerivationCall>();
     // 2026-09-13-9f84: what an opened template declares as its own proof, read and reported.
     services.AddTransient<TemplateProofReport>();
     services.AddTransient<TemplateProofRead>();
@@ -57,15 +49,13 @@ public static class SpecDerivationRegistrations
     // 2026-09-13-6f35: the coding master opens the same declarations the derivation cites.
     services.AddTransient<Handlers.MasterTemplateScopes>().AddTransient<Handlers.MasterTemplateAdvice>(); // + 54bea
     services.AddTransient<DerivationLookFactory>();
-    services.AddTransient<ScopedContextCoverage>(); // 2026-09-08-1830: the cut covers what the scope call named
     services.TryAddSingleton<IPackageEcosystemDetector, Sandbox.PackageEcosystemDetector>();
     services.AddTransient<SpecSourceResolver>().AddTransient<ApprovedContinuation>().AddTransient<ContinuationMerge>(); // 9a59l
     // 2026-10-06-03c7c: a series' base id is minted in code, once, and read back thereafter.
     services.TryAddSingleton(TimeProvider.System);
     services.AddTransient<SeriesIdFactory>();
     services.AddTransient<SeriesResolver>();
-    services.AddTransient<SpecFallback>();
-    services.AddTransient<SpecCutGate>();
+    services.AddTransient<SpecStandIns>(); // 2026-11-19-6b0ba
     services.AddTransient<SpecRefusalReporter>();
     services.AddTransient<SpecSetTicketCommenter>();
     services.AddTransient<AgentSmith.Contracts.Reviews.IFullSetPrNotice, Rework.FullSetPrNotice>();
@@ -95,7 +85,6 @@ public static class SpecDerivationRegistrations
     services.AddTransient<ApprovedSpecSetCarrier>();
     services.AddTransient<ApprovedSetHandoff>();
     services.AddTransient<FiledTicketSpecGate>();
-    services.AddTransient<SpecCoverageRefusal>();
     // 2026-09-17-0e79b: an approved set is never re-cut — the input is reported instead.
     services.AddTransient<ApprovedSetKeptNotice>();
     // 2026-09-17-042eh: where a spec began, which its diff and the shortfall read.

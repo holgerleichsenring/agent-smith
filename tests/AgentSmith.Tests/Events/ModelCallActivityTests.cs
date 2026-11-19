@@ -12,9 +12,10 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Tests.Events;
 
 /// <summary>
-/// 2026-09-17-042ee: a design turn's owner is told each model call, and told it WHEN IT
-/// RETURNS — the intent sentence exists only then. Reporting at call start would show the
-/// sentence the previous call narrated, which is worse than showing none.
+/// 2026-09-17-042ee: a design turn's owner is told each model call, and told its intent WHEN IT
+/// RETURNS — the sentence exists only then, and at call start the scope still holds the one the
+/// previous call narrated. 2026-11-19-687ea: the call is ALSO reported when it starts, as thinking
+/// with the model's name and no sentence, so a call in flight reads as one.
 /// </summary>
 public sealed class ModelCallActivityTests
 {
@@ -29,8 +30,9 @@ public sealed class ModelCallActivityTests
         await client.GetResponseAsync(
             [new ChatMessage(ChatRole.User, "go")], options: null, CancellationToken.None);
 
-        recorder.Lines.Should().ContainSingle().Which.Should()
-            .Be("model sample-model Reading Router.cs to confirm the dispatch path.");
+        recorder.Lines.Should().Equal(
+            "thinking sample-model",
+            "model sample-model Reading Router.cs to confirm the dispatch path.");
     }
 
     [Fact]
@@ -51,7 +53,7 @@ public sealed class ModelCallActivityTests
     public async Task ModelCall_WhenTheReportThrows_PublishesOneFinishedEventNotTwo()
     {
         var accessor = TurnActivityRecorder.Silent();
-        using var observing = accessor.Observe(new ThrowingObserver());
+        using var observing = accessor.Observe(new ThrowingObserver(AgentSmith.Contracts.Turns.TurnActivityKind.Model));
         var publisher = EventTestStubs.Recording();
         var client = NewClient("Reading Router.cs.", accessor, publisher);
 
@@ -64,6 +66,21 @@ public sealed class ModelCallActivityTests
             .Which.Outcome.Should().Be(WorkOutcome.Ok);
     }
 
+    [Fact]
+    public async Task ModelCall_WhenTheThinkingReportThrows_PublishesNoCallEvents()
+    {
+        var accessor = TurnActivityRecorder.Silent();
+        using var observing = accessor.Observe(new ThrowingObserver(AgentSmith.Contracts.Turns.TurnActivityKind.Thinking));
+        var publisher = EventTestStubs.Recording();
+        var client = NewClient("Reading Router.cs.", accessor, publisher);
+
+        var act = () => client.GetResponseAsync(
+            [new ChatMessage(ChatRole.User, "go")], options: null, CancellationToken.None);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        publisher.Events.OfType<LlmCallStartedEvent>().Should().BeEmpty("no call started, so none is left open");
+        publisher.Events.OfType<LlmCallFinishedEvent>().Should().BeEmpty("no call was made, so none is priced");
+    }
 
     [Fact]
     public async Task ModelCall_WithNoAccessorInjected_StillAnswers()
@@ -89,12 +106,15 @@ public sealed class ModelCallActivityTests
                 new ModelPricingResolver(new Dictionary<string, ModelPricing>(StringComparer.OrdinalIgnoreCase))),
             new ThrottleWaitReporter(), "sample-model", activity);
 
-    /// <summary>Reports by throwing, as the observer contract forbids and a test double may.</summary>
-    private sealed class ThrowingObserver : AgentSmith.Contracts.Turns.ITurnActivityObserver
+    /// <summary>Reports one kind by throwing, as the observer contract forbids and a test double may.</summary>
+    private sealed class ThrowingObserver(AgentSmith.Contracts.Turns.TurnActivityKind throwsOn)
+        : AgentSmith.Contracts.Turns.ITurnActivityObserver
     {
         public Task ReportAsync(
             AgentSmith.Contracts.Turns.TurnActivity activity, CancellationToken cancellationToken) =>
-            throw new OperationCanceledException("the push was cancelled");
+            activity.Kind == throwsOn
+                ? throw new OperationCanceledException("the push was cancelled")
+                : Task.CompletedTask;
     }
 
     /// <summary>A run id with no call scope: LlmCall events are published, nothing reads the intent.</summary>

@@ -16,7 +16,8 @@ import {
 import { HELD_DIALOG_ID, type DialogIdSource } from "@/lib/specDialogSession";
 // 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
 // "which steps belong to the turn running now" is a rule of its own with its own tests.
-import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
+import { historyGap, historyOf, mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
+import { readAll } from "@/components/dialog/useTurnSteps";
 // 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
 import { withImages, withMocks } from "@/components/dialog/transcriptImages";
 import { replyRecorded, type AwaitedReply } from "@/components/dialog/recordedReply";
@@ -106,7 +107,7 @@ export interface SpecDialogState {
   conversations: SpecDialogSessionSummary[];
   entries: DialogEntry[];
   question: SpecDialogQuestionPush | null;
-  /** What this turn would file, until a later turn supersedes it — a draft under review included. */
+  /** What this turn would file, until a later turn supersedes it. */
   proposal: SpecDialogProposalPush | null;
   /** 2026-11-10-ccd9: the proposal awaiting a decision — the only one the approval card shows and names. */
   awaitingProposal: SpecDialogProposalPush | null;
@@ -198,6 +199,9 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   // 2026-11-12-92e9c: the same, for the reply push to keep on its turn before the wait's end clears it.
   const activityNow = useRef<SpecDialogActivityPush[]>([]);
   useEffect(() => { activityNow.current = activity; }, [activity]);
+  // 2026-11-19-687ec: what the page read back from the running turn's run — the turn, the highest sequence a read
+  // returned for it, and whether a read is out.
+  const history = useRef<{ turn: string; upTo: number; reading: boolean } | null>(null);
   const replySteps = useRef<SpecDialogActivityPush[]>([]);
   // The transcript is re-seeded from the server only when the CONVERSATION changed — a
   // refetch after every reply would otherwise drop the framework's own lines, which the
@@ -281,7 +285,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       const learnedBefore = live !== null && live.read < issued;
       if (armed === false || (typeof armed === "string" && next.session?.sessionId !== armed)) {
         // 2026-11-12-92e9c: the pane lets the proposal go; the turn that showed it keeps it.
-        if (learnedBefore && !(next.session?.reviewing ?? next.session?.proposal)) {
+        if (learnedBefore && !next.session?.proposal) {
           known.current = null;
           setProposal(null);
         }
@@ -290,10 +294,10 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       reseed.current = false;
       // A proposal pushed while this read was out is newer than anything the read carries. The read
       // may still have caught it stored, under a moment of its own, and then already shows it on its
-      // turn. 2026-11-12-92e9c: a draft under review never joins the conversation.
+      // turn.
       if (live !== null && !learnedBefore) {
         const stored = next.session?.proposal ?? null;
-        const placed = live.proposal.reviewing === true || (stored !== null && sameDraft(stored, live.proposal));
+        const placed = stored !== null && sameDraft(stored, live.proposal);
         // The pane already holds it, and whatever was filed after it; only the entries were replaced. Nothing of
         // this read was shown yet, so a stored card with no reply that the live proposal outran is not seeded.
         setEntries(placed ? seed(next) : withCard(seed(next, false), live.proposal, live.ownTurn));
@@ -372,6 +376,27 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   useEffect(() => {
     if (dialogId) void load(dialogId);
   }, [dialogId, load]);
+
+  // 2026-11-19-687ec: a page arriving mid-turn holds only the server's in-memory tail, a reconnect loses the pushes
+  // of its gap — so when the held steps miss any, they are read back from the turn's run. A read that found none of
+  // this turn's steps (the session still names the previous turn's run) marks nothing and is tried with the next step.
+  const runningRunId = view?.session?.runningRunId ?? null;
+  useEffect(() => {
+    const turn = activity[0]?.turnStartedAt;
+    if (!computing || !turn || !runningRunId || !dialogId) return;
+    if (history.current?.turn !== turn) history.current = { turn, upTo: 0, reading: false };
+    const mark = history.current;
+    if (mark.reading || !historyGap(activity, mark.upTo)) return;
+    mark.reading = true;
+    void readAll(runningRunId)
+      .then((read) => {
+        const kept = historyOf(read.steps, dialogId, turn);
+        if (kept.length === 0) return;
+        mark.upTo = Math.max(mark.upTo, ...kept.map((step) => step.seq));
+        setActivity((held) => mergedSteps(held, kept));
+      }, () => undefined)
+      .finally(() => { mark.reading = false; });
+  }, [activity, computing, runningRunId, dialogId]);
 
   // The list reads overlap exactly as the dialog reads do — one goes out per framework message —
   // and a late answer carrying the row as it was two replies ago would roll the title and the
@@ -503,9 +528,6 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       setFiled(null);
       const ownTurn = replyWasDraftOnly.current;
       known.current = { proposal: proposed, read: reads.current, ownTurn };
-      // 2026-11-10-ccd9: a draft under review is shown in the pane, never on the approval card. 2026-11-12-92e9c: nor
-      // in the conversation — it may arrive several times a turn; only the final proposal joins its turn's reply.
-      if (proposed.reviewing) return;
       awaitedAtRead.current = reads.current;
       setAwaitingProposal(proposed);
       const steps = replySteps.current;
@@ -807,7 +829,7 @@ export function withInterrupted(held: DialogEntry[], interrupted: SpecDialogInte
 }
 
 /** 2026-11-10-7da6: a card the transcript has no reply for yet goes at the end — a stored proposal whose turn is not
- *  in the transcript. 2026-11-12-92e9c: never the running turn's draft under review; that is the working line's. */
+ *  in the transcript. */
 export function trailingCard(view: SpecDialogView): SpecDialogProposalPush | null {
   const session = view.session;
   if (!session) return null;
@@ -897,8 +919,7 @@ function heldOutcome(view: SpecDialogView): {
   proposal: SpecDialogProposalPush | null;
   filed: SpecDialogFilingPush | null;
 } {
-  // 2026-11-10-ccd9: the pane shows a draft under review over the awaiting proposal; the card never does.
-  const proposal = view.session?.reviewing ?? view.session?.proposal ?? null;
+  const proposal = view.session?.proposal ?? null;
   const filing = view.session?.filing ?? null;
   const superseded = proposal !== null && filing !== null && Date.parse(filing.at) < Date.parse(proposal.at);
   return { proposal, filed: superseded ? null : filing };

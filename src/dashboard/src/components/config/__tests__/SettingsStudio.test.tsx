@@ -24,7 +24,7 @@ const FIXTURES: Record<string, unknown> = {
   },
   registries: [],
   trace: { enabled: false },
-  spec_review: { rounds: 4, reviewers: 2, maxConcurrent: 2, budgetSharePercent: 40, attackLookFloor: 24, regroundReadBudget: 24, seriesContractMaxChars: 60000 },
+  spec_review: { regroundReadBudget: 24 },
   series: { maxSpecs: 24, specsPerAttempt: 8, secondsPerSpec: 0, budgetUsd: 150, wallClockHours: 12, continueAfterWallTime: true, buildNoteMaxChars: 8000 },
   tickets: {
     requiresLinkDeadlineSeconds: 60, dependentsWakeWindowHours: 24, dependentsWakeCap: 50, prRereadIntervalSeconds: 300,
@@ -360,23 +360,18 @@ describe("SettingsStudio", () => {
   });
 
   // 2026-10-13-8762w: the spec review and series blocks are edited here; the server holds the one rule.
-  it("SettingsStudio_SpecReviewForm_EditsRoundsReviewersConcurrencyAndBudgetShare", async () => {
+  // 2026-11-19-4176: the review's sizing is retired; only the re-ground read budget is offered.
+  it("SettingsStudio_SpecReviewForm_EditsOnlyTheReGroundReadBudget", async () => {
     render(<SettingsStudio settingKey="spec_review" />);
-    const rounds = await screen.findByTestId("setting-specreview-rounds");
-    expect(rounds).toHaveValue(4);
+    const budget = await screen.findByTestId("setting-specreview-reground");
+    expect(budget).toHaveValue(24);
     expect(screen.getByRole("heading", { name: /Spec review/ })).toBeInTheDocument();
-    expect(screen.getByText("adversarial review rounds before a spec is built; 0 = off")).toBeInTheDocument();
-    expect(screen.getByText("share of the run's cost cap and wall clock review may use")).toBeInTheDocument();
-    fireEvent.change(rounds, { target: { value: "0" } });
-    fireEvent.change(screen.getByTestId("setting-specreview-reviewers"), { target: { value: "3" } });
-    fireEvent.change(screen.getByTestId("setting-specreview-concurrent"), { target: { value: "1" } });
-    fireEvent.change(screen.getByTestId("setting-specreview-share"), { target: { value: "25" } });
-    // 2026-11-18-9c1ca: no review runs after a Work it out turn, so there is no switch for one.
-    expect(screen.queryByTestId("setting-specreview-designturn")).toBeNull();
+    for (const retired of ["rounds", "reviewers", "concurrent", "share", "lookfloor", "contractchars", "designturn"])
+      expect(screen.queryByTestId(`setting-specreview-${retired}`)).toBeNull();
+    fireEvent.change(budget, { target: { value: "30" } });
     fireEvent.click(screen.getByTestId("settings-save"));
     await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
-    expect(saveSetting).toHaveBeenCalledWith("spec_review",
-      { rounds: 0, reviewers: 3, maxConcurrent: 1, budgetSharePercent: 25, attackLookFloor: 24, regroundReadBudget: 24, seriesContractMaxChars: 60000 });
+    expect(saveSetting).toHaveBeenCalledWith("spec_review", { regroundReadBudget: 30 });
   });
 
   it("SettingsStudio_SeriesForm_EditsCapsBudgetAndWallClock", async () => {

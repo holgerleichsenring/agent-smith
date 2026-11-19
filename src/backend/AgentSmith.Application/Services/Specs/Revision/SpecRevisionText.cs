@@ -12,7 +12,8 @@ namespace AgentSmith.Application.Services.Specs.Revision;
 /// </summary>
 public sealed class SpecRevisionText(ISpecDraftValidator validator, SpecDraftReader reader)
 {
-    public (SpecDraft? Draft, string? Refusal) Read(SpecDraft current, string? yaml)
+    /// <param name="isStandIn">2026-11-19-6b0ba: the current spec is the ticket's stand-in, which may gain applies_to.</param>
+    public (SpecDraft? Draft, string? Refusal) Read(SpecDraft current, string? yaml, bool isStandIn = false)
     {
         ArgumentNullException.ThrowIfNull(current);
         var text = yaml ?? string.Empty;
@@ -20,7 +21,7 @@ public sealed class SpecRevisionText(ISpecDraftValidator validator, SpecDraftRea
         if (outcome is not SpecDraftValid valid)
             return (null, outcome is SpecDraftInvalid invalid ? $"the spec is invalid: {invalid.Error}" : "spec_yaml holds no spec");
         var draft = reader.Read(valid.Yaml) with { Repos = current.Repos };
-        if (!SpecIdentityRule.Holds(current, draft))
+        if (!SpecIdentityRule.Holds(current, draft, isStandIn))
             return (null, $"a revision keeps spec ({current.SpecId}), requires, repos and applies_to as they are; "
                 + "a change to those is a different spec, which a new spec in the series carries");
         return Unchanged(current.Yaml, draft.Yaml) ? (null, "the text is the spec as it stands; nothing to revise") : (draft, null);

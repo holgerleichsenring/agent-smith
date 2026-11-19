@@ -114,7 +114,6 @@ public sealed class ContextSourcesHarnessTests
         };
         var write = $$"""{"path":"primary/{{LibraryPath}}","content":{{System.Text.Json.JsonSerializer.Serialize(Library(touched: true))}}}""";
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: I will add Save to the repository.")
             .EnqueueToolCall("write_file", write)
             .EnqueueFinish();

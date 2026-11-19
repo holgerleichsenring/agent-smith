@@ -35,7 +35,6 @@ public sealed class MasterAskHumanParkTests
         harness.ChatClient
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("ask_human",
                 """{"question":"Should the refresh window be 5 or 15 minutes?"}""")
             .EnqueueText("Waiting for the operator's answer.");
@@ -66,7 +65,6 @@ public sealed class MasterAskHumanParkTests
         harness.ChatClient
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("ask_human",
                 """{"question":"Which export format is authoritative, CSV or XLSX?"}""")
             .EnqueueText("Parked on the operator's answer.");

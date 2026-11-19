@@ -90,12 +90,12 @@ public sealed class SeriesConfigTests
     [Fact]
     public void SpecReviewConfigValidator_InvalidBlock_IsABlockingFinding()
     {
-        var invalid = new AgentSmithConfig { SpecReview = new SpecReviewConfig { Rounds = -1 } };
+        var invalid = new AgentSmithConfig { SpecReview = new SpecReviewConfig { RegroundReadBudget = 0 } };
 
         SpecReviewConfigValidator.Findings(invalid).Should().ContainSingle(f => f.IsBlocking && f.Field == "spec_review")
-            .Which.Reason.Should().Contain("spec_review.rounds is -1");
+            .Which.Reason.Should().Contain("spec_review.reground_read_budget is 0");
         new AgentSmithConfigValidator(new SkillsConfigValidator()).Validate(invalid)
-            .Should().Contain(reason => reason.Contains("spec_review.rounds is -1"), "the startup check refuses it (2026-11-10-8e59)");
+            .Should().Contain(reason => reason.Contains("spec_review.reground_read_budget is 0"), "the startup check refuses it (2026-11-10-8e59)");
         SpecReviewConfigValidator.Findings(new AgentSmithConfig()).Should().BeEmpty();
     }
 

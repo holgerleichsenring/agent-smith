@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.PipelineHarness.Composition;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,9 +10,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// 2026-10-26-bdd0d fast-tier end-to-end: a preview derivation derives and records the specs and writes nothing —
-/// no spec commit, no spec pull request, no comment on the ticket — and its summary says so. A derivation in
-/// branch mode stores the specs and says that.
+/// 2026-10-26-bdd0d fast-tier end-to-end: a preview derivation records the specs and writes nothing — no spec
+/// commit, no spec pull request, no comment on the ticket — and its summary says so. A derivation in branch mode
+/// stores the specs and says that. 2026-11-19-6b0ba: the coding master writes the spec from the ticket's stand-in.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class SpecDerivePreviewTests
@@ -21,7 +22,7 @@ public sealed class SpecDerivePreviewTests
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
-        harness.ChatClient.EnqueueText(SpecDerivationFixture.DerivationJson);
+        SpecWritingScript.WritesTheSpec(harness);
         var runner = new PipelineRunner(harness.Services);
         runner.RequestContext[ContextKeys.SpecDerivationPreview] = true;
 
@@ -33,7 +34,9 @@ public sealed class SpecDerivePreviewTests
             step.Command == "git" && step.Args != null && (step.Args.Contains("commit") || step.Args.Contains("push"))),
             "a preview writes nothing to the branch");
         SpecPullRequests.Of(runner.LastContext!).Should().BeEmpty("a preview opens no spec pull request");
-        runner.LastContext!.Has(ContextKeys.SpecSet).Should().BeTrue("the derived set is recorded on the run");
+        var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
+        set.Specs.Single().Draft.Goal.Should().Be(SpecWritingScript.WrittenGoal, "the coding master wrote the spec");
+        set.StandIns.Should().BeEmpty();
     }
 
     [Fact]
@@ -41,7 +44,7 @@ public sealed class SpecDerivePreviewTests
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
-        harness.ChatClient.EnqueueText(SpecDerivationFixture.DerivationJson);
+        SpecWritingScript.WritesTheSpec(harness);
         var runner = new PipelineRunner(harness.Services);
         runner.RequestContext[ContextKeys.SpecDerivationPreview] = true;
 
@@ -52,16 +55,17 @@ public sealed class SpecDerivePreviewTests
     }
 
     [Fact]
-    public async Task SpecGate_Derivation_EndsWithWhereTheSpecsAre()
+    public async Task SpecDerive_TheMasterWritesTheSpec_EndsWithWhereTheSpecsAre()
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
-        harness.ChatClient.EnqueueText(SpecDerivationFixture.DerivationJson);
+        harness.StubSandboxFactory!.AdvancesHeadOnCommit = true; // the master's revision is a commit of its own
+        SpecWritingScript.WritesTheSpec(harness);
         var runner = new PipelineRunner(harness.Services);
 
         var result = await runner.RunAsync(PipelinePresets.SpecDeriveName);
 
-        result.IsSuccess.Should().BeTrue();
+        result.IsSuccess.Should().BeTrue(result.Message);
         result.Message.Should().Be("1 spec derived and stored on the ticket branch.");
         SpecPullRequests.Of(runner.LastContext!).Should().ContainSingle("branch mode opens the draft spec pull request");
         tickets.Finalized.Should().BeEmpty();

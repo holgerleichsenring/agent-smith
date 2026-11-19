@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-6b0bc
+goal: "The project analyzer's finalize turn keeps the caller's tools and tool mode; its instruction text alone asks for the map JSON."
+
+applies_to: "default (Application ProjectMapFinalizer, IProjectMapFinalizer, ProjectAnalyzer docs; tests ProjectAnalyzerTests, ChatClientCallScopeRuleTests comment)"
+
+requires: [2026-11-18-9c1cc]
+
+facts:
+  - claim: "ProjectMapFinalizer sends the finalize turn with FinalizeOptions: the caller's tools, ToolMode None and the caller's MaxOutputTokens."
+    evidence: "src/backend/AgentSmith.Application/Services/ProjectMapFinalizer.cs:29-46"
+  - claim: "ContextPressureFinalizingChatClient forwards the caller's options unchanged on its forced turn and steers by text (9c1cc)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ContextPressureFinalizingChatClient.cs:13-17"
+  - claim: "The analyzer's JSON contract is set by the catalog skill project-analyzer-master, which this repository does not hold."
+    evidence: "src/backend/AgentSmith.Application/Prompts/PromptOwnership.cs:25"
+
+scope:
+  in: "ProjectMapFinalizer passes the caller's ChatOptions unchanged; FinalizeOptions goes. The instruction keeps asking for only the JSON, no tool calls. Doc comments stop saying tools are disabled: IProjectMapFinalizer.cs:8-10, ProjectAnalyzer.cs:18-19, and the stale 9c1cc remark in ChatClientCallScopeRuleTests.cs:41. ProjectAnalyzerTests pins the finalize turn's options as the caller's, and a finalize turn that calls a tool before answering still yields the map. Supersedes p0385's ToolMode None choice (decisions file)."
+  out: "A typed submit_project_map tool: it needs a new nested schema and a change to the catalog skill's output contract, which lives in the skills repository; typed map delivery is the planned p0295 (structured output, needs a live smoke). The lenient JSON reader, the budget and the retry stay."
+
+upgrade_impact: "A finalize turn may call tools again: up to 25 more scout round trips (the per-call FunctionInvokingChatClient cap), so about 100 per analysis at worst against about 52; a finalize turn that ends on the cap mid-call has no JSON and falls through to the retry, as a prose reply does. The prompt cache is kept, since tool_choice no longer changes."
+
+steps:
+  - id: finalizer
+    action: "Delete FinalizeOptions; pass options through."
+  - id: tests
+    action: "Update ProjectAnalyzerTests' finalize-turn assertion."
+
+tests:
+  - "ProjectAnalyzerTests: the finalize turn's options are the exploration turn's (same tools, tool mode not None)."
+  - "ProjectAnalyzerTests: with the scripted client wrapped in a FunctionInvokingChatClient, a finalize turn whose first reply calls a scout tool the stub sandbox answers and whose next is the JSON returns the map."
+
+done:
+  - "No ChatToolMode.None in ProjectMapFinalizer; ProjectAnalyzerTests green; build and full suite green."

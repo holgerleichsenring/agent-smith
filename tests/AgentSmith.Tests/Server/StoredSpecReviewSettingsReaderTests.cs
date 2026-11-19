@@ -44,26 +44,24 @@ public sealed class StoredSpecReviewSettingsReaderTests
 
         var settings = new StoredSpecReviewSettingsReader(h.Store).Current();
 
-        (settings.Review.Rounds, settings.Review.Reviewers, settings.Review.MaxConcurrent, settings.Review.BudgetSharePercent)
-            .Should().Be((4, 2, 2, 40));
-        settings.MaxRunWallTimeSeconds.Should().Be(5400);
+        settings.Review.RegroundReadBudget.Should().Be(24);
     }
 
     [Fact]
-    public void SpecReviewSettings_StoreEditOfRounds_AppliesToTheNextReadWithoutRebuildingTheProvider()
+    public void SpecReviewSettings_StoreEditOfTheReGroundBudget_AppliesToTheNextReadWithoutRebuildingTheProvider()
     {
         using var h = new DbConfigTestHarness();
-        h.Import("spec_review:\n  rounds: 3\n");
+        h.Import("spec_review:\n  reground_read_budget: 3\n");
         var services = new ServiceCollection();
         services.AddSingleton(h.Store);
         services.AddSingleton<ISpecReviewSettingsReader, StoredSpecReviewSettingsReader>();
         using var provider = services.BuildServiceProvider();
         var reader = provider.GetRequiredService<ISpecReviewSettingsReader>();
-        reader.Current().Review.Rounds.Should().Be(3);
+        reader.Current().Review.RegroundReadBudget.Should().Be(3);
 
-        h.Store.SaveSetting("spec_review", JsonDocument.Parse("""{"rounds":0}""").RootElement,
+        h.Store.SaveSetting("spec_review", JsonDocument.Parse("""{"regroundReadBudget":9}""").RootElement,
             new ChangeAttribution("operator"));
-        provider.GetRequiredService<ISpecReviewSettingsReader>().Current().Review.Rounds.Should().Be(0);
+        provider.GetRequiredService<ISpecReviewSettingsReader>().Current().Review.RegroundReadBudget.Should().Be(9);
     }
 
     [Fact]
@@ -77,6 +75,5 @@ public sealed class StoredSpecReviewSettingsReaderTests
 
         services.Where(d => d.ServiceType == typeof(ISpecReviewSettingsReader)).Should().ContainSingle()
             .Which.ImplementationType.Should().Be(typeof(StoredSpecReviewSettingsReader));
-        scope.ServiceProvider.GetRequiredService<SpecReviewPanel>().Should().NotBeNull();
     }
 }

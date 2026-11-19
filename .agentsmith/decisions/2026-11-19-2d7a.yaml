@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-2d7a
+
+decisions:
+  - category: Dependencies
+    chose: "Pin the embedded skills catalog to v5.39.0 (sha256 809368d5…c1a6), the checked-in tarball swapped, docs and the example config following the version"
+    over: "Leaving v5.38.0 embedded, whose coding master does not know stand-ins and which still packages spec-derivation-master"
+    reason: "6b0ba made the coding master write a stand-in's spec first and removed the derivation; v5.39.0 (coding-agent-master 3.3.0) says so and drops the derivation master, so the code and the packaged prompts agree."
+  - category: Testing
+    chose: "Deleted the tests whose subject was the packaged spec-derivation-master (SpecDerivationPromptTests, its shape-rule and source-precedence checks); a new catalog test pins that no derivation master is packaged and that coding-agent-master 3.3.0 writes a stand-in's spec with revise_spec"
+    over: "Keeping tests of a master the catalog no longer ships"
+    reason: "A test of a prompt that no longer exists proves nothing."

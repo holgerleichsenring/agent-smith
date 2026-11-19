@@ -121,16 +121,6 @@ public sealed class SeriesOutOfStepTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Theory]
-    [InlineData("series_out_of_step")]
-    [InlineData("7")]
-    public void SpecDerivationEnvelope_ModelNamesOutOfStep_Refused(string name)
-    {
-        using var doc = JsonDocument.Parse($$$"""{"specs": [], "handback": {"case": "{{{name}}}", "reason": "x"}}""");
-
-        new SpecDerivationEnvelope().Handback(doc.RootElement).Should().BeNull("only the code raises this case");
-    }
-
     [Fact]
     public async Task SpecSetPointerRecorder_RecordShasAsync_MergesAndKeepsTheRevision()
     {

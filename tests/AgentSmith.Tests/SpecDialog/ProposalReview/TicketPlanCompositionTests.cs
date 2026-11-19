@@ -44,6 +44,18 @@ public sealed class TicketPlanCompositionTests
     }
 
     [Fact]
+    public async Task MechanicalChecks_SiblingWrittenWithThePrefix_NoFindingAndNotCheckedOnTheTracker()
+    {
+        var existence = new ScriptedExistence(["foundation", "41"]);
+
+        var checkedList = await ProposalReviewRig.Checks(existence).CheckAsync(WithProject(),
+            List(Ticket("foundation"), Ticket("order-api", "ticket:foundation", "ticket:41")), CancellationToken.None);
+
+        existence.Checked.Should().ContainSingle().Which.Should().Equal("41");
+        checkedList.Findings.Should().ContainSingle().Which.Why.Should().Be("ticket 41 does not exist on gh-tracker");
+    }
+
+    [Fact]
     public async Task MechanicalChecks_UnreadableTicket_NamedWithItsClass()
     {
         var existence = new ScriptedExistence([], new UnreadableTicket("41", "unauthorized"));

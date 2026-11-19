@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-6b0ba
+
+decisions:
+  - category: Architecture
+    chose: "DeriveSpec calls no model; where it called SpecSetDeriver it writes a mechanical stand-in (the whole ticket as one spec per repository in scope) and the coding master writes the real spec first with its existing revise_spec"
+    over: "Keeping the deriver as a commissioned sub-agent of the coding master, or a new pre-master step in which the coding master writes specs in a separate conversation"
+    reason: "One master owns the run, as a spec-first session writes its own spec before building. revise_spec already writes a revision to the branch and resets the criteria the verification reads; a separate writing conversation would split the outcome over two masters again. Replaces: SpecSetDeriver and the p0393a single-spec fallback (SpecFallback becomes SpecStandIns), one shape, no second path."
+  - category: Behaviour
+    chose: "A stand-in is recorded on the set (SpecSet.StandIns, manifest stand_ins) and revise_spec (SpecRevisionWriter) takes its id off; SpecReviewRevision's other callers (entry re-ground) leave it alone"
+    over: "A run-only context key"
+    reason: "Adversarial review: a run that ends before the master writes the spec would leave the next run building the raw ticket with no instruction to write it."
+  - category: Behaviour
+    chose: "Stand-ins only where nothing is left to build (no set, an empty unbuilt tail, a hand-back); an input over unbuilt specs keeps them and names the cause to the master (ContextKeys.SpecKeptInput), who amends with revise_spec"
+    over: "Dropping the unbuilt tail and writing stand-ins for every input"
+    reason: "Adversarial review: approved sets with an unbuilt tail are re-cut on Rework, Overrule and RecutDemand; replacing a reviewed, approved spec with the raw ticket would throw away what a person approved. The deriver amended the previous cut; the master amending its spec is the same act by the one master."
+  - category: Behaviour
+    chose: "Over several repositories one stand-in per repository, each naming its repository; a master whose repository has nothing to do writes a spec saying so"
+    over: "One stand-in naming every repository (needs a placement, OfRepository and verify-sandbox change) or parking every unapproved multi-repository ticket (the old fallback)"
+    reason: "Keeps the one-spec-one-repository rule (f5f7a) and every reader of it unchanged, and keeps multi-repository tickets working without a person cutting them first. Cost: one master pass per repository in scope."
+  - category: Behaviour
+    chose: "revise_spec may add applies_to to a stand-in that has none; spec, requires and repos stay fixed"
+    over: "Freezing applies_to as for every other revision"
+    reason: "A stand-in is composed without contexts, so freezing it would forbid the written spec from ever naming the contexts its templates and principles are read for."
+  - category: Scope
+    chose: "spec-derive stays, as a run of the same coding master with a write-only brief: preset adds MaterializeReferenceSets and SpecSequence, its block is SelectSpec, AgenticMaster, SpecGate and is spliced only for stand-ins"
+    over: "Deleting spec-derive because Work it out on an existing ticket also yields reviewed specs"
+    reason: "The operator asked to keep the feature that derives specs for review without coding and named this shape; it is the same master, not a second deriver. A written spec waits for its person, so Derive again over written specs reports them unchanged as before."
+  - category: Behaviour
+    chose: "In spec-derive the in-block SpecGate judges only its own spec: a finish_spec blocker becomes a Question hand-back asked through DerivationQuestion, an unrevised stand-in fails the run naming it, and once no stand-in is left the run ends on SpecDerivationSummary; the write-only contract replaces the ask_human sentence"
+    over: "MasterOpenQuestions in the block (it parks the ticket, which a derivation must not) or a new end step"
+    reason: "Reuses existing steps; a derivation still never parks and ends on where its specs are. Stand-ins deferred to a later attempt are not judged."
+  - category: Behaviour
+    chose: "A stand-in is not posted to the ticket as a cut comment"
+    over: "Posting it like a derived cut"
+    reason: "It is the ticket itself; the master's spec is on the branch and in the draft spec PR."
+  - category: Scope
+    chose: "Deleted with the deriver: its call, messages, attempts, parser, envelope, DerivedSpecSequence/Builder/Repos, DerivedContractRule, ContradictionHandbackGate and citations, ScopedContextCoverage/Question/GapPromptSection, SpecCoverageRefusal, SpecScopeHandback, SpecPromptComposer, PreviousCutPromptSection, WorkShapePromptSection, ScopeNamedContextsPromptSection, ScopeRepositoriesPromptSection, QuestionHandbackShape, SpecDerivation, SpecCutGate, ReferenceMaterializer.CarryForDerivationAsync, DerivationLookFactory.Create and the look's stage run (DerivationLookStages, VerifyStageRunTool, MayRunAStage); found by reference count to a fixpoint"
+    over: "Leaving unreferenced code"
+    reason: "Prefer deletion; the look and its read tools stay for verify_series and the attack reviewer. EpicGroundPromptSection and the question pin stay and now reach the coding master's stand-in block."
+  - category: Scope
+    chose: "VerifyDerivationDigest/Stamp stay"
+    over: "Deleting them with the derivation"
+    reason: "They hash the files a context.yaml verify block was derived from (e14d) — a mechanical drift report, unrelated to spec derivation."
+  - category: Scope
+    chose: "revise_spec's own review stays as it is; the question whether it should be a review the master commissions is left to the operator"
+    over: "Removing it here"
+    reason: "Out of this spec's goal; it is the operator's call (named in the report). With spec_review.rounds 0 it is already off."
+  - category: Testing
+    chose: "Tests of the deriver, its parser, prompts and look stage run are deleted; handler tests migrate to the stand-in behaviour (ApprovedSetHarness probes cuts instead of a fake deriver); new: stand-in handler, prompt blocks, derivation gate, spec-derive sequence, manifest round trip, revise_spec on a stand-in"
+    over: "Keeping deleted behaviour's tests as fixtures"
+    reason: "A test of code that no longer exists proves nothing."

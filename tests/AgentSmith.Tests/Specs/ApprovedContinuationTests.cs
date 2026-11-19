@@ -160,7 +160,7 @@ public sealed class ApprovedContinuationTests
             ("p19106a", "Goal p19106a"), ("p19106b", "B, re-cut"), ("p19106c", "Appended work"));
         harness.Writer.Written.Current.Cause.Should().StartWith(SpecRevisionCause.Approval);
         harness.Writer.Written.Approval!.Conversation.Should().Be("session-continue");
-        harness.Deriver.Calls.Should().Be(0);
+        harness.Recuts.Calls.Should().Be(0);
         harness.Notices.Comments.Should().ContainSingle("the discarded edit to the spec that ran is named")
             .Which.Should().Contain("p19106a");
     }

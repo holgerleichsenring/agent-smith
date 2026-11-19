@@ -98,7 +98,8 @@ public sealed partial class SpecDialogOutcomeTests
             .Which.Findings.Should().ContainSingle().Subject;
         finding.Problem.Should().Be(AgentSmith.Application.Services.SpecDialog.ProposalEvidenceReview.Problem);
         finding.Quote.Should().Be("the widget handler already exists");
-        finding.Why.Should().Be($"not a file (missing, or a directory): {Repo}/src/Gone.cs");
+        finding.Why.Should().Be($"not a file (missing, or a directory): {Repo}/src/Gone.cs — "
+            + AgentSmith.Application.Services.SpecDialog.ProposalEvidenceReview.CiteWhatExists);
         finding.Evidence.Should().BeNull();
     }
 

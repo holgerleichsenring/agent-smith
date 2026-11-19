@@ -97,3 +97,32 @@ describe("useStepAddress", () => {
     expect(window.location.search).toBe("");
   });
 });
+
+// 2026-11-19-687eb: the step's sub-agents are rows under its header, before the event list, opened to brief and calls.
+describe("RunStepDetail, sub-agents", () => {
+  it("RunStepDetail_SubAgents_RowsBeforeTheList_ExpandToBriefAndCalls", () => {
+    page = {
+      events: [
+        ev({ type: EventType.SubAgentSpawned, timestamp: at(1), subAgentId: "a", name: "Target architecture analyst", activity: "Map the target architecture",
+          parentSubAgentId: null, inheritedContextHash: "x" }),
+        ev({ type: EventType.SubAgentToolCall, timestamp: at(2), subAgentId: "a", toolName: "read_file", argsSummary: "src/arch.md" }),
+        ev({ type: EventType.SubAgentCompleted, timestamp: at(60), subAgentId: "a", status: "Succeeded", observationsCount: 1, findingsCount: 0,
+          filesWrittenCount: 0, toolCalls: 1, costUsd: 0.1 }),
+        ev({ type: EventType.DecisionLogged, timestamp: at(61), category: "c", chose: "Use the outbox", over: null, reason: "r" }),
+      ],
+      hasOlder: false, loading: false, loadOlder,
+    };
+    render(<RunStepDetail runId="r1" step={step("AgenticMaster", { subAgents: 1 })} live={false} />);
+
+    const row = screen.getByTestId("step-sub-agent");
+    expect(row).toHaveTextContent("Target architecture analyst");
+    expect(screen.getByTestId("step-sub-agent-status")).toHaveTextContent("finished · 1 tool call · 59.0s");
+    expect(row.compareDocumentPosition(screen.getAllByTestId("step-detail-line")[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId("step-sub-agent-body")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("step-sub-agent-toggle"));
+
+    expect(screen.getByTestId("step-sub-agent-brief")).toHaveTextContent("Map the target architecture");
+    expect(screen.getAllByTestId("step-sub-agent-call").map((c) => c.textContent)).toEqual([expect.stringMatching(/read_file\s*src\/arch\.md/)]);
+  });
+});

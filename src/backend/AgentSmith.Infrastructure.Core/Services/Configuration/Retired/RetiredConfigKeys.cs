@@ -17,6 +17,10 @@ public static class RetiredConfigKeys
         "It was read only by the skill-call runtime, which nothing had used since p0312, so it bounded "
         + "nothing; the run's cost cap is the budget (2026-11-17-274cb). Remove the key from agentsmith.yml.";
 
+    private const string SpecReviewGone =
+        "No step of a run reviews a spec any more: the master builds the spec it has and briefs a reviewer itself when it "
+        + "wants one (2026-11-18-9c1cb, 2026-11-19-3e10). Remove the key from agentsmith.yml.";
+
     public static IReadOnlyList<RetiredConfigKey> All { get; } =
     [
         new("trackers.*.parent_link_type", "2026-09-28",
@@ -66,6 +70,13 @@ public static class RetiredConfigKeys
             "A design turn's child reads its ceiling from agents.<name>.dialog_sub_agent_loop_iterations (2026-11-12-cd4cl)."),
         new("spec_review.design_turn", "2026-11-18",
             "No review runs after a Work it out turn: its master owns the draft and commissions a review when it wants "
-            + "one; the run still reviews each spec before it is built (2026-11-18-9c1ca)."),
+            + "one (2026-11-18-9c1ca)."),
+        new("spec_review.rounds", "2026-11-19", SpecReviewGone),
+        new("spec_review.reviewers", "2026-11-19", SpecReviewGone),
+        new("spec_review.max_concurrent", "2026-11-19", SpecReviewGone),
+        new("spec_review.budget_share_percent", "2026-11-19", SpecReviewGone),
+        new("spec_review.attack_look_floor", "2026-11-19", SpecReviewGone),
+        new("spec_review.series_contract_max_chars", "2026-11-19",
+            "Nothing shows the series contract to a reviewer any more; the reviewer that read it was never wired (2026-11-19-4176)."),
     ];
 }

@@ -3,9 +3,7 @@ using System.Text.Json;
 namespace AgentSmith.Application.Services.Scope;
 
 /// <summary>
-/// p0413: the case-insensitive JSON lookups the scope-reply readers share, split
-/// out of <see cref="RepoScopeParser"/> so the parser owns the reply's SHAPE and
-/// these own how one field is read out of it.
+/// p0413: the case-insensitive JSON lookups the scope-reply readers share — how one field is read out of a reply.
 /// </summary>
 internal static class RepoScopeJson
 {

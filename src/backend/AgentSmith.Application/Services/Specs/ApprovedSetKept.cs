@@ -49,8 +49,8 @@ public static class ApprovedSetKept
     /// runs.control poster (4860b) and revises only its current spec (ec48a); an approval starts nothing (9a59l).</summary>
     public const string TheConversationRule =
         "To change a spec, say what should change in the ticket's conversation. While a run is building a spec, a message "
-        + "from someone who may control runs reaches its agent, which can revise the spec it is building, with one review "
-        + "of the change; a change to another spec is raised again once the run has ended. Otherwise the conversation "
+        + "from someone who may control runs reaches its agent, which can revise the spec it is building; "
+        + "a change to another spec is raised again once the run has ended. Otherwise the conversation "
         + "proposes the change, and once you approve it, it is recorded for the next attempt, which continues the series "
         + "by spec id. A spec that already ran is never edited, so a correction to one becomes a new spec after it.";
 

@@ -136,9 +136,6 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
       case EventType.ToolResult:
         if (!e.ok) add(e.timestamp, "tool", `${e.tool} failed${e.errorMessage ? `: ${e.errorMessage}` : ""}`, "tool", "bad");
         break;
-      case EventType.SubAgentToolCall:
-        add(e.timestamp, "tool", `${who(e.subAgentId)}${e.argsSummary ?? e.toolName}`, "tool");
-        break;
       case EventType.SubAgentFileWritten:
         add(e.timestamp, "write", `${who(e.subAgentId)}${e.path}`, "file", "ok", `${e.bytes} bytes`);
         break;
@@ -162,13 +159,7 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
       case EventType.L1StepDetail:
         add(e.timestamp, "obs", e.detail, "obs", "dim");
         break;
-      case EventType.SubAgentSpawned:
-        add(e.timestamp, "sub-agent", `${e.name} started: ${e.activity}`, "obs");
-        break;
-      case EventType.SubAgentCompleted:
-        add(e.timestamp, "sub-agent", `${names.get(e.subAgentId) ?? e.subAgentId} ${childEnd(e.status)} after ${e.toolCalls} tool calls`, "obs",
-          e.status === "Succeeded" ? "text" : e.status === "Stopped" ? "dim" : "bad");
-        break;
+      // 2026-11-19-687eb: a child's start, end and tool calls are its row above the list (StepSubAgents), not lines here.
       case EventType.SubAgentMessaged:
         add(e.timestamp, "sub-agent", `${e.continued ? "sent back to" : "to"} ${names.get(e.subAgentId) ?? e.subAgentId}: ${e.text}`, "obs",
           e.continued ? "run" : "text");
@@ -227,7 +218,7 @@ export function repoOutcomeWords(r: RepoOutcome): string {
 }
 
 /** 2026-11-18-c8e2d: how a child's pass ended, in the run log's words. */
-function childEnd(status: string): string {
+export function childEnd(status: string): string {
   switch (status) {
     case "Succeeded": return "finished";
     case "Failed": return "failed";

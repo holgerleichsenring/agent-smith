@@ -31,4 +31,39 @@ public sealed class StartupProbePassTests
         var spent = TimeSpan.Zero;
         await pass.WaitAsync(spent, CancellationToken.None);
     }
+
+    // 2026-08-24-035a: readiness reads IsSettled.
+    [Fact]
+    public void Settled_BeforeTheFirstPass_IsFalse()
+    {
+        new StartupProbePass(new SteppedClock()).IsSettled.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Settled_AfterComplete_IsTrue()
+    {
+        var pass = new StartupProbePass(new SteppedClock());
+
+        pass.Complete();
+
+        pass.IsSettled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Settled_BudgetElapsed_IsTrueRatherThanWaitingForever()
+    {
+        var clock = new SteppedClock();
+        var pass = new StartupProbePass(clock);
+
+        clock.Advance(StartupProbePass.ReadBudget);
+
+        pass.IsSettled.Should().BeTrue("a hanging probe must not hold readiness forever");
+    }
+
+    private sealed class SteppedClock : TimeProvider
+    {
+        private DateTimeOffset _now = new(2026, 8, 24, 0, 0, 0, TimeSpan.Zero);
+        public void Advance(TimeSpan by) => _now += by;
+        public override DateTimeOffset GetUtcNow() => _now;
+    }
 }

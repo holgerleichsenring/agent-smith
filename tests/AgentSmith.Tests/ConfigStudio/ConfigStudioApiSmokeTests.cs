@@ -534,7 +534,7 @@ public sealed class ConfigStudioApiSmokeTests
 
     [Fact]
     public Task ConfigSettings_SpecReviewWithZeroReviewers_Is400AndNotSaved() =>
-        RefusedAndNotSavedAsync("spec_review", """{"reviewers":0}""", "spec_review.reviewers");
+        RefusedAndNotSavedAsync("spec_review", """{"regroundReadBudget":0}""", "spec_review.reground_read_budget");
 
     // 2026-11-16-f3fbc: a recheck interval under 60 seconds is refused on save as it is at load.
     [Fact]

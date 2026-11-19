@@ -40,10 +40,6 @@ public abstract record OutcomeProposal
     /// <summary>2026-11-10-8e59: the drafts whose exact text a review ended clean on.</summary>
     public IReadOnlyList<Specs.ReviewedText> ReviewedClean { get; init; } = [];
 
-    /// <summary>2026-11-09-9a98: published while its turn's review runs, which a final proposal never is.
-    /// Stored, it outlives a cancel; a reader takes it as true only while that turn computes.</summary>
-    public bool UnderReview { get; init; }
-
     /// <summary>2026-11-10-d854a: the operator's open questions the turn laid on its draft through state_open_questions.</summary>
     public IReadOnlyList<OpenQuestion> Questions { get; init; } = [];
 
@@ -72,8 +68,12 @@ public sealed record SpecOutcome(SpecDraft Draft) : OutcomeProposal;
 /// </summary>
 public sealed record EpicOutcome(SpecDraft Parent, IReadOnlyList<SpecDraft> Children, Specs.SeriesContract? Contract = null) : OutcomeProposal;
 
-/// <summary>2026-10-14-dbcej: 2 to 20 tickets joined by requires; 2026-11-17-5701a: each carries its own specs.</summary>
-public sealed record TicketGraphOutcome(IReadOnlyList<GraphTicket> Tickets) : OutcomeProposal;
+/// <summary>2026-10-14-dbcej: 2 to 20 tickets joined by requires; 2026-11-17-5701a: each carries its own specs.
+/// 2026-11-19-46bd: a sibling required as <c>ticket:&lt;key&gt;</c> is read as the sibling here, once, for every reader.</summary>
+public sealed record TicketGraphOutcome(IReadOnlyList<GraphTicket> Tickets) : OutcomeProposal
+{
+    public IReadOnlyList<GraphTicket> Tickets { get; init; } = GraphTicketRequire.Siblings(Tickets);
+}
 
 /// <summary>2026-10-28-7a69c: a ticket's conversation ends in a comment on it, and nothing starts.</summary>
 public sealed record TicketCommentOutcome(string Comment) : OutcomeProposal;

@@ -53,6 +53,16 @@ public sealed class FilingPlanTests
     }
 
     [Fact]
+    public async Task Plan_SiblingWrittenWithThePrefix_LinkedToTheSiblingAndFiledAfterIt()
+    {
+        var plan = await PlanAsync(List(Ticket("ui", "ticket:api"), Ticket("api")));
+
+        plan.Tickets.Select(t => t.Key).Should().Equal("api", "ui");
+        plan.Tickets[1].Requires.Should().Equal("api");
+        _rig.Tracker.Created.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Plan_ListTicketWithMoreSpecsThanASeries_SplitAndItsDependentRequiresTheLastPart()
     {
         var big = Ticket("api") with { Specs = [SpecOf("a"), SpecOf("b"), SpecOf("c")] };

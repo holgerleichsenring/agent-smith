@@ -50,24 +50,6 @@ public sealed class SeriesPerRepoRecordTests
     }
 
     [Fact]
-    public void DerivedSpecBuilder_IdInDone_NotReminted()
-    {
-        const string reply = """
-            {"specs": [{"slug": "one", "goal": "Do one", "done": ["One."], "carries": [1]},
-                        {"slug": "two", "goal": "Do two", "done": ["Two."], "carries": [1]}]}
-            """;
-        var segments = TicketSegmenter.Segment("Do one and two.");
-
-        var parsed = DerivationTestParsers.Real().Parse(
-            reply, SeriesRepoBranches.Key, SeriesRepoBranches.Base, "4711", segments, SpecSource.Derived,
-            taken: [$"{Id('a')}-ran-elsewhere.yaml", Id('c')]);
-
-        parsed.Derivation!.Set.Specs.Select(p => p.SpecId).Should().Equal([Id('b'), Id('d')],
-            "a done/ file and a stored executed id are skipped to the next free letter");
-        parsed.Derivation.Set.Specs[1].Draft.Requires.Should().Equal(Id('b'));
-    }
-
-    [Fact]
     public void SeriesIdFactory_NextFree_SkipsTakenIdsButNotLongerOnes()
     {
         SeriesIdFactory.NextFree("2026-10-12-0b0b", 0, ["2026-10-12-0b0ba-x.yaml"]).Should().Be(("2026-10-12-0b0bb", 1));

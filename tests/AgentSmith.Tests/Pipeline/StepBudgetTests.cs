@@ -95,7 +95,7 @@ public sealed class StepBudgetTests
     public void StepBudget_PresetWithoutASequence_IsUnchanged()
     {
         // Everything the budget could change is reachable only through SpecSequence, and
-        // exactly one preset carries it — so every OTHER preset is untouched by construction.
+        // only code and spec-derive (2026-11-19-6b0ba) carry it — every OTHER preset is untouched by construction.
         // That the executor then uses 100 is proven through the executor itself, in
         // PipelineExecutorBudgetTests.PipelineExecutor_NothingPublished_StopsAtTheHundredItAlwaysHad.
         var withASequence = PipelinePresets.Names
@@ -103,8 +103,8 @@ public sealed class StepBudgetTests
                 .Contains(CommandNames.SpecSequence, StringComparer.Ordinal))
             .ToList();
 
-        withASequence.Should().ContainSingle("one publisher, reachable from one preset")
-            .Which.Should().Be(PipelinePresets.CodeName);
+        withASequence.Should().BeEquivalentTo([PipelinePresets.CodeName, PipelinePresets.SpecDeriveName],
+            "one publisher, reachable from the presets that run a spec's master");
         PipelinePresets.Names.Should().HaveCountGreaterThan(
             1, "the premise: there are other presets for this to say something about");
     }

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-687ea
+
+decisions:
+  - category: Architecture
+    chose: "A new turn step kind 'thinking', reported by EventPublishingChatClient when a model call starts and carried by the existing observer, keep, record and push"
+    over: "Inferring an in-flight call on the page from 'the last step is a tool'; or pushing LlmCallStarted run events to the conversation page"
+    reason: "The model step is reported only on return, so the page cannot know a call is in flight; guessing from a tool step would count the tool's own run time as thinking (a heuristic around a missing signal). LlmCallStarted lives on the run's event stream, which the conversation page does not read. One more kind on the step path the page already follows is the smallest real signal."
+  - category: Behaviour
+    chose: "Thinking is reported before LlmCallStarted, outside the call's try"
+    over: "After LlmCallStarted, or inside the try"
+    reason: "Review: after Started and outside the try, a throwing report would leave a Started with no Finished (the p0423 defect); inside the try the catch would publish a Failed cost row for a call never made."
+  - category: Behaviour
+    chose: "The live seconds count from when THIS page first saw the thinking step"
+    over: "Counting from the step's server timestamp"
+    reason: "The dialog page never differences the server's clock with the browser's (DialogElapsed, 2026-09-18-2f8b). A page open during the turn sees the push within milliseconds; a page arriving mid-call counts from its arrival."
+  - category: Behaviour
+    chose: "Only the newest step can be the live line; parallel children's other in-flight calls are not shown"
+    over: "One live line per sub-agent with an open call"
+    reason: "The brief asks for the LAST line; the run page's sub-agent rows (2026-11-19-687eb) show each child's own thinking state."
+  - category: Behaviour
+    chose: "Thinking steps are recorded on the run like every other step"
+    over: "Pushing them live only"
+    reason: "One observer path for every kind keeps the page's merge, the reload read and 2026-11-19-687ec's history read uniform; the run gains one small row per model call, and past turns drop the kind in condenseSteps."

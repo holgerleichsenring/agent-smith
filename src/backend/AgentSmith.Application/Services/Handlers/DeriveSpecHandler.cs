@@ -1,49 +1,40 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0393a: turns any ticket into an ordered set of specs on the ticket branch, so
-/// the `code` pipeline runs on ordinary tickets and not only on hand-written ones.
-/// It runs after AnalyzeCode: the contradiction hand-back is only findable once the
-/// repositories have been read. An unanswered question from the last run is pinned as
-/// the answer before the model runs, and the ticket is told which reading was taken.
+/// p0393a: resolves the ordered set of specs a ticket's run builds, on the ticket branch. It runs after AnalyzeCode.
+/// An unanswered question from the last run is pinned as the answer, and the ticket is told which reading was taken.
 /// <para>
-/// The accounting is the safeguard: every ticket segment is carried by a named spec or discarded
-/// with a reason. If it cannot be produced, the run does NOT split at all — one spec with the whole
-/// ticket, and a run event naming why: fall back to a shape known to work.
-/// </para>
-/// <para>
-/// 2026-09-17-0e79a/b: a set a person APPROVED is never re-cut — a comment, a ticket edit or a
-/// re-trigger is recorded in the revision it publishes and reported once, on the ticket and on
-/// the run. 2026-09-22-6ad7: the SET comes off the ticket branch and from nowhere else; the
-/// record is resolved for the repositories it names and hands the set over once, on a branch
-/// that carries nothing at the path. A filed ticket whose branch carries no readable set PARKS.
+/// 2026-09-17-0e79a/b: a set a person APPROVED is never re-cut — a comment, a ticket edit or a re-trigger is recorded
+/// in the revision it publishes and reported once, on the ticket and on the run. 2026-09-22-6ad7: the SET comes off
+/// the ticket branch and from nowhere else; the record is resolved for the repositories it names and hands the set over
+/// once, on a branch that carries nothing at the path. A filed ticket whose branch carries no readable set PARKS.
 /// </para>
 /// <para>2026-11-17-7c9ba: a plain re-trigger over the branch set as it is writes no revision and says nothing.</para>
+/// <para>
+/// 2026-11-19-6b0ba: no model cuts the ticket here. A ticket with no spec to build gets stand-ins
+/// (<see cref="SpecStandIns"/>) and its coding master writes the real spec as its first work; an input over a set
+/// with unbuilt specs keeps them, and the master is told the input and amends the spec itself.
+/// </para>
 /// </summary>
 public sealed class DeriveSpecHandler(
-    ISpecSetDeriver deriver,
     SeriesBranchRead branchRead,
     ISpecSetPublisher publisher,
     ISpecSetPointerStore pointers,
     ApprovedSpecSetResolver approvals,
     SpecSourceResolver sourceResolver,
-    SpecFallback fallback,
-    SpecCoverageRefusal coverageRefusal,
+    SpecStandIns standIns,
     SpecSetTicketCommenter commenter,
     ApprovedSetKeptNotice keptNotice,
-    SpecCutGate gate,
     UnansweredQuestionPin questionPin,
     UnansweredQuestionNotice questionNotice, SeriesResolver seriesOf, ForeignCommitProbe expiry,
-    SpecSetUnchanged unchanged, ILogger<DeriveSpecHandler> logger)
+    SpecSetUnchanged unchanged)
     : ICommandHandler<DeriveSpecContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -75,9 +66,7 @@ public sealed class DeriveSpecHandler(
 
         var unanswered = questionPin.Pin(previous?.Set, context.Pipeline);
         var series = seriesOf.Resolve(decision.Set, approval, pointer); // 2026-10-06-03c7c
-        var (set, ignored) = decision.NeedsModel
-            ? await DeriveAsync(context, decision, key.Value, series, segments, cancellationToken)
-            : (decision.Set! with { Series = series }, (IReadOnlyList<IgnoredInstruction>)[]);
+        var set = Resolve(context, decision, key.Value, series, segments);
 
         // Reported BEFORE the publish, which clears the input: an unreported input is never marked as dealt with.
         var reported = await keptNotice.PostAsync(
@@ -89,52 +78,39 @@ public sealed class DeriveSpecHandler(
             return await publisher.KeepAsync(context.Pipeline, branch.Scope,
                 finalized with { Revisions = previous!.Set.Revisions }, previous.LastCommitSha, cancellationToken);
         var result = await publisher.PublishAsync(
-            context.Pipeline, project, branch.Scope, finalized, ignored, cancellationToken);
+            context.Pipeline, project, branch.Scope, finalized, [], cancellationToken);
         if (!finalized.IsHandedBack)
             await AnnounceAsync(context, finalized, unanswered, cancellationToken);
         return result;
     }
 
-    private async Task<(SpecSet Set, IReadOnlyList<IgnoredInstruction> Ignored)> DeriveAsync(
+    // Stand-ins where nothing is left to build; a set with unbuilt specs is kept, and an input over it is the master's.
+    private SpecSet Resolve(
         DeriveSpecContext context, SpecSourceResolver.Decision decision, string key, string series,
-        IReadOnlyList<TicketSegment> segments, CancellationToken ct)
+        IReadOnlyList<TicketSegment> segments)
     {
-        // 2026-10-12-3a36e: the scope by its configured names — what every spec's repos names.
-        IReadOnlyList<string> scope = [.. context.Repos.Select(r => r.Name)];
-        var (derivation, error) = await deriver.DeriveAsync(context.Ticket!, segments, decision.Set,
-            series, decision.Cause!, scope, context.AgentConfig, context.Pipeline, ct);
-
-        if (derivation is null)
+        var kept = decision.Set;
+        if (!decision.NeedsModel) return kept! with { Series = series };
+        if (kept is { IsHandedBack: false, UnexecutedTail.Count: > 0 })
         {
-            await gate.RefusedAsync(
-                context.Pipeline, context.Ticket!.Id.Value,
-                $"the derivation produced nothing usable ({error})", ct);
-            // The fallback is a fresh set; what the branch carries wins where a fresh set would lose it.
-            return (decision.KeptOnFailure
-                ?? fallback.Build(key, series, context.Ticket!, segments, [], decision.Source, scope), []);
+            context.Pipeline.Set(ContextKeys.SpecKeptInput, decision.Cause!);
+            return kept with { Series = series };
         }
-
-        // p0447: the deriver kept the least-objected cut; its objection is reported, not obeyed — a
-        // reviewer's finding nobody can see is the same as no review.
-        if (error is not null)
-            await gate.KeptDespiteAsync(context.Pipeline, context.Ticket!.Id.Value, error, ct);
-
-        if (derivation.Set.IsHandedBack || derivation.Set.Accounting.IsComplete)
-            return (derivation.Set, derivation.IgnoredInstructions);
-
-        return (
-            await coverageRefusal.ApplyAsync(
-                context.Pipeline, context.Ticket!, key, series, segments, derivation.Set, decision.Source, scope, ct),
-            derivation.IgnoredInstructions);
+        IReadOnlyList<string> scope = [.. context.Repos.Select(r => r.Name)];
+        IReadOnlyList<string> taken = context.Pipeline.TryGet<IReadOnlyList<string>>(ContextKeys.SpecTakenIds, out var t)
+            && t is not null ? t : [];
+        var fresh = standIns.Build(key, series, context.Ticket!, segments, kept, decision.Source, scope, taken);
+        return kept is null ? fresh : fresh with { Goal = kept.Goal };
     }
 
-    // Non-blocking ratification: the cut is posted and the run proceeds — blocking would reintroduce the wait.
+    // Non-blocking: the set is posted and the run proceeds. A stand-in is the ticket itself, so it is not posted.
     private async Task AnnounceAsync(
         DeriveSpecContext context, SpecSet finalized, UnansweredQuestion? unanswered, CancellationToken ct)
     {
         if (unanswered is not null)
             await questionNotice.PostAsync(context.Pipeline, context.Tracker, unanswered, ct);
-        await commenter.PostAsync(context.Pipeline, context.Tracker, finalized, ct);
+        if (finalized.StandIns.Count == 0)
+            await commenter.PostAsync(context.Pipeline, context.Tracker, finalized, ct);
     }
 
     private static string ProjectOf(PipelineContext pipeline) =>

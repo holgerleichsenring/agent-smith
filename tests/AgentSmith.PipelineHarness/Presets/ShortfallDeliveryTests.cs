@@ -36,7 +36,6 @@ public sealed class ShortfallDeliveryTests
         // The harness accountant cites the first file it sees for every criterion; withhold
         // spec 2's so the spec is not found already satisfied on entry and its master runs.
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             // spec 1: green, verified, accounted, recorded
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
@@ -44,7 +43,7 @@ public sealed class ShortfallDeliveryTests
             // spec 2: the master dies on the money fence before it does anything
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
-        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
+        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }.WithSeries(HarnessSeries.TwoSpecs);
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue("the run delivered what it built and verified");
@@ -85,10 +84,9 @@ public sealed class ShortfallDeliveryTests
         var pullRequests = new RecordingSourceProvider();
         await using var harness = BuildHarness(tickets, pullRequests);
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
-        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
+        var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }.WithSeries(HarnessSeries.TwoSpecs);
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse("no spec was verified, so nothing was delivered");

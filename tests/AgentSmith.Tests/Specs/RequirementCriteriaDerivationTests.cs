@@ -30,25 +30,13 @@ public sealed class RequirementCriteriaDerivationTests
         .RenderSpec(new SpecDraftReader().Read(Yaml)).Body;
 
     [Fact]
-    public void SpecPrompt_TicketWithoutAcceptanceField_ReadsTheBodySection()
-    {
-        var ticket = new Ticket(new TicketId("42"), "p9000a: Widget storage layer", Body, null, "open", "test");
-
-        var prompt = SpecPromptComposer.Compose(
-            ticket, TicketSegmenter.Segment(Body), previous: null, cause: string.Empty, new PipelineContext(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
-
-        prompt.Should().Contain("**Acceptance Criteria:** \n- the table exists\n- the repository reads it back");
-        prompt.Should().NotContain("None specified");
-    }
-
-    [Fact]
-    public void SpecFallback_RequirementTicket_TakesDoneFromTheCriteriaSection()
+    public void StandIn_RequirementTicket_TakesDoneFromTheCriteriaSection()
     {
         var ticket = new Ticket(new TicketId("42"), "p9000a: Widget storage layer", Body, null, "open", "test");
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
-        var fallback = new SpecFallback(validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
+        var fallback = new SpecStandIns(validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
 
-        var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(Body), [], SpecSource.Derived, []);
+        var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(Body), null, SpecSource.Derived, [], []);
 
         set.Specs.Single().Draft.Done.Should().Equal("the table exists", "the repository reads it back");
     }

@@ -19,6 +19,6 @@ public sealed class LoaderSpecReviewSettingsReader(
         var current = loader is not null && context is not null
             ? loader.LoadConfig(context.ConfigPath)
             : config ?? AgentSmithConfig.Empty();
-        return new SpecReviewSettings(current.SpecReview, current.Orchestrator.MaxRunWallTimeSeconds);
+        return new SpecReviewSettings(current.SpecReview);
     }
 }

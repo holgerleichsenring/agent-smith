@@ -78,7 +78,6 @@ public sealed class MergeOnGateGreenTests
             services.AddSingleton<ISourceProviderFactory>(new RecordingFactory(new StubSourceProviderFactory(), merges));
         });
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Feature.cs","content":"public class Feature {}"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")

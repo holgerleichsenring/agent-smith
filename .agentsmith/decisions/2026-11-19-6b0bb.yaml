@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-6b0bb
+
+decisions:
+  - category: Architecture
+    chose: "The scope call asks for complexity, shape, shape_reason and refusal only; the reply type carries the estimate, the refusal and a call failure"
+    over: "Keeping the repo verdicts, contexts, expected changes and rationale in the prompt and parser for possible later use"
+    reason: "Since 9c1cb nothing narrows on them and since 6b0ba nothing holds a cut against the named contexts; a field asked for and never read is cost and a second place the model can be wrong."
+  - category: Scope
+    chose: "Deleted RepoScopeParser, RepoScopeClassification, RepoScopeVerdict, the contexts/expected-changes/rationale readers, ScopeNamedContextsRecorder, ScopeNamedContexts and its context key, and the ContextKeys.WorkShape key"
+    over: "Keeping the parser as the reader of the estimate"
+    reason: "ScopeEstimateParser and ScopeRefusalParser already read their fields on their own; kept, RepoScopeParser would put a 'no repos object' error on every healthy reply. The work shape is still published to the run row (RunWorkShapeResolvedEvent), which the dashboard shows; only its unread context key goes."
+  - category: Scope
+    chose: "The step keeps its name ScopeRepos"
+    over: "Renaming it to what it does now"
+    reason: "Stored runs, presets, ledger lines, model-use rows and dashboard labels name it; the rename buys nothing a reader needs, and the step still publishes the run's repositories (ApprovedRepoScope)."
+  - category: Testing
+    chose: "Tests of the deleted parser, verdicts and recorder are deleted; tier, shape and refusal tests read through ScopeEstimateParser and ScopeRefusalParser; handler tests assert the shape through the run decisions and the published event; new: the prompt asks for no repository verdicts"
+    over: "Keeping tests of deleted fields"
+    reason: "A test of code that no longer exists proves nothing."

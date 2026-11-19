@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-6b0ba
+goal: "On a ticket without a spec the coding master writes it as its first work; DeriveSpec's model call, its look tools and its retries are deleted, and spec-derive runs that same master."
+
+applies_to: "default (Handlers/DeriveSpecHandler, Application/Services/Specs, SpecExecution, Contracts/Commands and Contracts/Specs, SpecExecutionPromptFactory; tests and harness)"
+
+requires: [2026-11-18-9c1cb, 2026-11-18-9c1cd]
+
+facts:
+  - claim: "DeriveSpec calls SpecSetDeriver when the source resolver says a cut is needed; the deriver runs its own LLM loop (spec-derivation-master, up to 3 attempts) with look tools and returns the set the coding master is then given."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:78-79, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:50, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:68-71"
+  - claim: "SpecFallback builds one spec carrying the whole ticket (goal = title, done = the ticket's own criteria) with the id of the series' first member; over several repositories it hands the ticket back."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:32, src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:41"
+  - claim: "Every revision made during a run goes through SpecReviewRevision, which replaces the revised drafts in the set and publishes it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRevision.cs:26-31"
+  - claim: "A revision may not change spec, requires, repos or applies_to."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecIdentityRule.cs:21"
+  - claim: "The coding master revises the spec it is building with revise_spec; the spec contract is rendered in code."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:87"
+  - claim: "spec-derive is the code front through SpecGate, and SpecGate ends it with the summary sentence; the spec block is hard-wired to CodeSpecBlock."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecGateHandler.cs:50, src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:22, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:85-86"
+  - claim: "The look's stage-run capability has no product holder since 9c1cb."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLook.cs:64"
+
+scope:
+  in: "DeriveSpec calls no model. Where it called the deriver it builds stand-ins mechanically only when there is no set or its unbuilt tail is empty: the executed head kept, and per repository in scope one spec carrying the whole ticket and naming that repository, ids from SeriesIdFactory.NextFree past the taken ones. An input over a set with an unbuilt tail keeps the tail unchanged and the cause is named in the master's spec contract (it amends with revise_spec). The set records them in SpecSet.StandIns (manifest stand_ins); SpecRevisionWriter (revise_spec) drops a revised id from it. The stand-ins are published as before but posted to no ticket comment. The coding master's spec contract, for a stand-in, says to write the spec first and record it with revise_spec (which may add applies_to to a stand-in that has none), that a repository with nothing to do revises its spec to say so, and renders the epic ground and the question pin the derivation prompt rendered. spec-derive: preset adds MaterializeReferenceSets and SpecSequence; its block is SelectSpec, AgenticMaster, SpecGate and is spliced only for stand-ins; its contract says to write the spec, build nothing, and finish blocked with the question as blocker when only a person can answer (replacing the ask_human sentence). The front SpecGate under spec-derive ends the run on its sentence when no stand-in is left; the in-block SpecGate judges only its own spec: a blocker becomes a question hand-back ended through DerivationQuestion, an unrevised stand-in fails naming it, and once no stand-in is left it ends on the sentence; it does not reset CurrentSpec, and stand-ins deferred to a later attempt are no failure. Deleted: SpecSetDeriver and ISpecSetDeriver, the derivation call, messages, attempts, parser, envelope, DerivedSpecSequence/Builder/Repos, contract rule, ContradictionHandbackGate, ScopedContextCoverage/Question, SpecCoverageRefusal, SpecScopeHandback, SpecPromptComposer (EpicGroundPromptSection and the question pin stay), ReferenceMaterializer.CarryForDerivationAsync, the look's stage run (DerivationLookStages, VerifyStageRunTool), and every class only these used; only the deriver's rows leave SpecDerivationRegistrations. CommandModelUse lists DeriveSpec as deterministic."
+  out: "The scope call (2026-11-19-6b0bb). The look and its read tools, which verify_series still uses. revise_spec's own review (an open question for the operator). VerifyDerivationDigest/Stamp, which hash a context.yaml verify block. The skills repo: coding-agent-master text and the unused spec-derivation-master go in the report as a proposed diff."
+
+upgrade_impact: "No setting. A code run on a ticket without a spec makes no derivation call: its master gets the ticket as a stand-in spec per repository and writes the real one before building, so a multi-repository ticket is no longer handed back for want of a cut, and a master whose repository has nothing to do says so. A stand-in becomes one spec; more work is a follow-up the master proposes. spec-derive costs a coding master pass per repository instead of a derivation."
+
+steps:
+  - id: stand-in
+    action: "SpecFallback becomes SpecStandIns (head + one whole-ticket spec per repository, NextFree ids); SpecSet.StandIns with manifest field; DeriveSpecHandler uses it where it called the deriver with an empty or no tail, else keeps the set, and skips the cut comment for stand-ins; SpecRevisionWriter clears revised ids; SpecRevisionText lets a stand-in gain applies_to."
+  - id: contract
+    action: "SpecExecutionPromptBlocks: a stand-in block (write the spec first, revise_spec, nothing-to-do case, epic ground, question pin), the input's cause over a kept tail, and under spec-derive a write-only contract."
+  - id: spec-derive
+    action: "Preset adds MaterializeReferenceSets and SpecSequence; PipelinePresets.SpecBlockFor(name) used by Effective and SpecSequenceHandler, which splices only stand-ins under spec-derive; SpecGate's front and in-block cases."
+  - id: delete
+    action: "Delete the deriver family and the look's stage run to a fixpoint; drop their registrations, model-use row and baseline rows."
+  - id: tests
+    action: "Delete tests of deleted classes (incl. TicketGraphCompositionTests and RatifiedMockStampTests uses); rewrite SpecDerivePresetTests; migrate harness; add the tests below."
+
+tests:
+  - "DeriveSpec on a ticket without a set publishes one whole-ticket spec per repository in scope, records them as stand-ins and makes no model call."
+  - "A re-cut over a fully executed head appends stand-ins with free ids; an input over an unbuilt tail keeps the set."
+  - "A revision of a stand-in removes it from StandIns and may add applies_to."
+  - "The spec prompt carries the stand-in block only for a stand-in, and the write-only contract only under spec-derive."
+  - "spec-derive: the in-block SpecGate fails an unrevised stand-in, turns a blocker into a question, ends on its sentence when none is left (preview included)."
+
+done:
+  - "No pipeline step runs the spec-derivation-master; DeriveSpec has no model dependency; VerifyStageRunTool and DerivationLookStages are gone."
+  - "Build and the full suite are green; the dashboard tests and build are green."
