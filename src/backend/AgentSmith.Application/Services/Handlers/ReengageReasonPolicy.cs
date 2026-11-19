@@ -12,10 +12,12 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed record ReengageDecision(bool Reengage, string? Reason);
 
 /// <summary>
-/// 2026-10-13-9a59f: names why the master re-engages or stops. Re-drives: a red verdict with actionable steps, done
-/// steps the diff does not back, a master that has not called finish_spec (once). Stops: the budget, a blocker,
+/// 2026-10-13-9a59f: names why the master re-engages or stops. Re-drives: a red verdict with actionable steps and a
+/// master that has not called finish_spec (once). Stops: the budget, a blocker,
 /// a red verdict over a drained ledger, a master still without finish_spec after its one re-drive, and nothing left.
 /// 2026-11-18-98fa: nothing is judged per done line — what the master reported is its call.
+/// 2026-11-19-9c6e: a done step the diff does not show no longer re-drives: a master whose child built the work
+/// was re-driven five times after a green finish_spec (live replay). The coverage is still reported on the run.
 /// </summary>
 internal static class ReengageReasonPolicy
 {
@@ -31,8 +33,6 @@ internal static class ReengageReasonPolicy
             return ledger.HasActionablePending
                 ? Drive(MasterPassReasons.RedWithOpenSteps)
                 : Stop(MasterPassReasons.RedAccepted);
-        if (ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes).Count > 0)
-            return Drive(MasterPassReasons.UnbackedDone);
         if (verification is null)
             return UnfinishedAfterOneRedrive(reengagePass)
                 ? Stop(MasterPassReasons.Verdictless)

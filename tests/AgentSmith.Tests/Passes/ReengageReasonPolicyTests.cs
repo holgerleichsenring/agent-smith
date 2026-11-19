@@ -32,9 +32,9 @@ public sealed class ReengageReasonPolicyTests
             .Should().Be(new ReengageDecision(true, MasterPassReasons.RedWithOpenSteps));
 
     [Fact]
-    public void Reengage_UnbackedDoneSteps_NamesThatReason() =>
+    public void Reengage_GreenFinishWithUnbackedDoneSteps_StopsNothingLeft() =>
         Decide(Ledger(ProgressStatus.Done, "src/Worker.cs"), Verdict(VerificationStatus.Green), Changed)
-            .Should().Be(new ReengageDecision(true, MasterPassReasons.UnbackedDone));
+            .Should().Be(new ReengageDecision(false, MasterPassReasons.NothingLeft));
 
     [Fact]
     public void Reengage_GreenFinish_IsNothingLeft_WhateverTheDoneLines() =>

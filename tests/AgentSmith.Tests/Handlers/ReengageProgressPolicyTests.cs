@@ -131,7 +131,7 @@ public sealed class ReengageProgressPolicyTests
     // ---- Lazy-done: a done step whose target is absent from the diff re-drives ----
 
     [Fact]
-    public void Reengage_LazyDoneWithoutDiff_KeepsDriving()
+    public void Reengage_GreenDoneWithoutDiff_Stops()
     {
         var ledger = new ProgressLedger(new[]
         {
@@ -139,7 +139,7 @@ public sealed class ReengageProgressPolicyTests
         });
         var green = new MasterVerification(VerificationStatus.Green, true, true, true, true, "green");
         ReengageReasonPolicy.Decide("code", ledger, green, budgetExhausted: false, System.Array.Empty<CodeChange>(),
-            reengagePass: 1).Reengage.Should().BeTrue();
+            reengagePass: 1).Reengage.Should().BeFalse(); // 2026-11-19-9c6e
     }
 
     // ---- 2026-11-18-98fa: finish_spec's blocker is the blocked claim ----

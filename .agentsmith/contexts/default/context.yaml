@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-19-9c6e: "MASTER NO UNBACKED REDRIVE (ReengageReasonPolicy). A done step the diff does not show no longer re-drives the master after a green finish_spec; the replay showed five wasted passes. -> .agentsmith/specs/done/2026-11-19-9c6e-master-no-unbacked-redrive.yaml"
     2026-11-18-9c1cd: "MASTER TOOL SURFACE (MasterToolComposition, MergedTools, MergedDialogTools, FilesystemToolHost; skills v5.38.0). Every master offers at most 20 tools, one per job, the same on every turn and drive; merged tools answer why they cannot act. -> .agentsmith/specs/done/2026-11-18-9c1cd-master-tool-surface.yaml"
     2026-11-18-9c1cc: "MASTER LOOP HEURISTICS REMOVED (StageRepair, MasterLoopGovernorChatClient, ContextPressureFinalizingChatClient, RetiredConfigKeys). A red stage returns to the master while repairs change the failure; the drift reminder and ledger-complete brake are gone; the forced final turn keeps its tools. -> .agentsmith/specs/done/2026-11-18-9c1cc-master-loop-heuristics-removed.yaml"
     2026-11-18-9c1cb: "SPEC JUDGES REMOVED (PipelinePresets, ScopeReposHandler, SpecSetDeriver, ContradictionHandbackGate, SpecSequenceHandler). Nothing judges a spec before its master: ReviewSpecs, CheckSpecPremises, the cut review and contradiction checker are deleted; ScopeRepos estimates and refuses but narrows no repository. -> .agentsmith/specs/done/2026-11-18-9c1cb-spec-judges-removed.yaml"

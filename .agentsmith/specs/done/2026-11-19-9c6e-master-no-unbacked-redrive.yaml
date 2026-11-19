@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-9c6e
+goal: "A done step the diff does not show no longer re-drives the master; its green finish_spec ends the spec, and the coverage stays a reported fact."
+
+applies_to: "default (Application/Services/Handlers/ReengageReasonPolicy.cs)"
+
+requires: [2026-11-18-9c1cc]
+
+facts:
+  - claim: "ReengageReasonPolicy re-drove the master whenever a ledger step marked done named a path the diff did not carry, even after a green finish_spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageReasonPolicy.cs:34-35"
+  - claim: "In the worker-mode replay of 2026-11-19 (run 2026-11-19T00-57-35-3618) the master let a child build the spec, called finish_spec green on its first pass and was re-driven five times for unbacked-done before going idle."
+    evidence: "the replay's MasterPassEnded events, reengage reason unbacked-done x5"
+
+scope:
+  in: "Remove the unbacked-done re-drive; ProgressLedgerCoverage stays for the run's reporting."
+  out: "The red-with-open-steps re-drive, the one re-drive for a missing finish_spec, budget and blocker stops."
+
+steps:
+  - id: drop-redrive
+    action: "Delete the unbacked-done branch from ReengageReasonPolicy.Decide."
+  - id: tests
+    action: "Rewrite the tests that pinned the re-drive to expect a stop."
+
+done:
+  - "A green finish_spec with a done step the diff does not show stops with NothingLeft."
+  - "A master without finish_spec still gets exactly one re-drive."
+
+tests:
+  - Reengage_GreenFinishWithUnbackedDoneSteps_StopsNothingLeft
+  - ShouldReengage_NoVerdictButUnbackedDoneStep_StopsAfterItsOneRedrive
