@@ -50,7 +50,7 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
             """);
 
         (cfg.Limits.MaxToolCallsPerSkill, cfg.Limits.MaxSecondsPerSkillCall, cfg.Limits.MaxConcurrentSubAgents,
-            cfg.Limits.MaxSubAgentsPerRun, cfg.Limits.MaxSubAgentsPerDialogTurn).Should().Be((30, 300, 4, 20, 4));
+            cfg.Limits.MaxSubAgentsPerRun, cfg.Limits.MaxSubAgentsPerDialogTurn).Should().Be((30, 300, 4, 40, 8));
     }
 
     // 2026-11-17-274cb: a retired key in an old file still loads; the loader ignores it.

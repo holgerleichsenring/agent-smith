@@ -117,11 +117,11 @@
         "max_concurrent_sub_agents": { "type": "integer", "description": "Sub-agents running at once. Default 4." },
         "max_sub_agents_per_run": {
           "type": "integer",
-          "description": "Sub-agents one run may spawn. Default 20. 0 takes spawn_agents off every run's master."
+          "description": "Sub-agents one run may spawn. Default 40. 0 takes spawn_agents off every run's master."
         },
         "max_sub_agents_per_dialog_turn": {
           "type": "integer",
-          "description": "Sub-agents one design turn may spawn. Default 4. 0 takes spawn_agents off the design surface."
+          "description": "Sub-agents one design turn may spawn. Default 8. 0 takes spawn_agents off the design surface."
         }
       }
     },

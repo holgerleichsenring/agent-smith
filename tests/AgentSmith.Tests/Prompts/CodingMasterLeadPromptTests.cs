@@ -17,10 +17,11 @@ public sealed class CodingMasterLeadPromptTests
     {
         var master = Folded();
 
-        master.Should().Contain("A sub-agent builds it; you know the goal, you did not write the code");
+        // 2026-11-19-55ec: a fresh sub-agent reviews; the master decides and is not the reviewer.
+        master.Should().Contain("A sub-agent builds it, a fresh\nsub-agent reviews it, and you decide".Replace("\n", " "));
         master.Should().Contain("A child you start with `spawn_agents` and `background: true` works beside you");
-        master.Should().Contain("Something missing or wrong goes back to the child with `send_message`");
-        master.Should().Contain("Its answer is its account; you decide by looking");
+        master.Should().Contain("What the review or your own run shows missing or wrong goes back to the builder with `send_message`");
+        master.Should().Contain("{{ref:code-review-brief}}", "the review brief is a shared reference, inlined at load");
     }
 
     [Fact]

@@ -73,8 +73,8 @@ A failed child does not stop its siblings; it comes back as a `Failed` row and t
 ```yaml
 limits:
   max_concurrent_sub_agents: 4               # children in flight at once
-  max_sub_agents_per_run: 20                 # children across all spawn_agents calls in one run; 0 removes the tools
-  max_sub_agents_per_dialog_turn: 4          # the same count for one design turn; 0 removes the tools there
+  max_sub_agents_per_run: 40                 # children across all spawn_agents calls in one run; 0 removes the tools
+  max_sub_agents_per_dialog_turn: 8          # the same count for one design turn; 0 removes the tools there
 
 agents:
   claude-default:
@@ -82,7 +82,7 @@ agents:
     dialog_sub_agent_loop_iterations: 100    # iteration ceiling for a design turn's child
 ```
 
-The per-run count is a budget that `spawn_agents` reserves from. When a call asks for more children than are left, the ones that fit run and the rest come back as `Failed` with `reason: budget_exhausted`, without a model call. A design turn builds a budget of its own from `max_sub_agents_per_dialog_turn`, so one conversation turn cannot open twenty children.
+The per-run count is a budget that `spawn_agents` reserves from. When a call asks for more children than are left, the ones that fit run and the rest come back as `Failed` with `reason: budget_exhausted`, without a model call. A design turn builds a budget of its own from `max_sub_agents_per_dialog_turn`, so one conversation turn cannot open forty children. A turn's readers and the review of its draft (and one re-review) come from that count.
 
 Children's model usage is added to the run's cost tracker, so it counts against the run's [cost cap](../configuration/pipeline-cost-cap.md) and shows up in the run's total.
 
