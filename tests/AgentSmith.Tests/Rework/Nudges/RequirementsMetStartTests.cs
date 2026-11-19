@@ -33,6 +33,18 @@ public sealed class RequirementsMetStartTests : IDisposable
     private readonly InMemorySpecApprovalStore _approvals = new();
     private readonly FakeTicketTracker _tracker = new() { Status = "open" };
     private readonly Mock<ISpawnPipelineRunsUseCase> _spawn = new();
+    private readonly AgentSmith.Tests.Series.InMemorySeriesRunStore _series = new();
+    private readonly Mock<IPreviousAttemptReader> _attempts = new();
+    private readonly Mock<IActiveRunLease> _leases = new();
+    private readonly Mock<IRedisClaimLock> _locks = Locks();
+    private readonly Mock<IReworkNudges> _nudges = new();
+
+    private static Mock<IRedisClaimLock> Locks()
+    {
+        var locks = new Mock<IRedisClaimLock>();
+        locks.Setup(l => l.TryAcquireAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>())).ReturnsAsync("token");
+        return locks;
+    }
     private ServiceProvider? _scopes;
 
     public void Dispose() => _scopes?.Dispose();
@@ -84,6 +96,185 @@ public sealed class RequirementsMetStartTests : IDisposable
         await StartAsync(GitHub, "42");
 
         Untouched();
+    }
+
+    // 2026-11-19-1b72a: a ticket of a paused series is not moved into a trigger status it could not be claimed from; the
+    // resume starts it.
+    [Fact]
+    public async Task RequirementsMetStart_SeriesPaused_StartsNothing()
+    {
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+        await _series.OpenAsync(new AgentSmith.Contracts.Series.SeriesRunRecord("sr-1", "conv-1", GitHub.Name, "operator", true,
+            AgentSmith.Contracts.Series.SeriesRunStates.Paused,
+            [new AgentSmith.Contracts.Series.SeriesTicket("42", "#42", "work", false, DateTimeOffset.UnixEpoch)], DateTimeOffset.UnixEpoch), default);
+
+        (await StartAsync(GitHub, "42")).Should().Be(ReworkNudgeDisposition.Finish);
+
+        Untouched();
+    }
+
+    [Fact]
+    public async Task SeriesResumeStart_RequirementsLanded_StartsAndClaimsThroughThePollersRoute()
+    {
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+
+        var start = await SeriesActs(GitHub).StartIfReadyAsync(GitHub.Name, "42", default);
+
+        start.Started.Should().BeTrue(start.Text);
+        _tracker.Labels.Should().Equal(Tag);
+        Claimed(Times.Once());
+    }
+
+    [Fact]
+    public async Task SeriesResumeStart_StatusAlreadyTriggers_ClaimsThroughTheFallbackSpawn()
+    {
+        _tracker.Labels.Add(Tag);
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+
+        (await SeriesActs(GitHub).StartIfReadyAsync(GitHub.Name, "42", default)).Started.Should().BeTrue();
+
+        Claimed(Times.Once(), "in webhook mode a ticket the pause held in its trigger status is claimed by the resume");
+    }
+
+    [Fact]
+    public async Task SeriesResumeStart_WaitsForAStartByName_IsLeftToThatStart()
+    {
+        await HeldAsync(GitHub, "42", "41", startsWhenMet: false);
+        Land(GitHub, "41");
+
+        var start = await SeriesActs(GitHub).StartIfReadyAsync(GitHub.Name, "42", default);
+
+        start.Should().Be(new AgentSmith.Contracts.Series.SeriesStart(false, "Ticket 42 is held: it waits for a start by name."));
+        Untouched();
+    }
+
+    [Fact]
+    public async Task SeriesResumeStart_GreenPushPrerequisite_StartsBeforeItLands()
+    {
+        var project = GitHub with { RequiresStart = RequiresStart.OnGreenPush };
+        await HeldAsync(project, "42", "41");
+        _attempts.Setup(a => a.LatestAsync(project.Name, "41", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PreviousAttempt("run-41", RunStatuses.Success, DateTimeOffset.UnixEpoch, Finished: true) { OpenedPullRequest = true });
+
+        (await SeriesActs(project).StartIfReadyAsync(project.Name, "42", default)).Started.Should().BeTrue();
+
+        Claimed(Times.Once());
+    }
+
+    [Fact]
+    public async Task SeriesResumeStart_ClosedTicket_IsLeftAlone()
+    {
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+        await _facts.SetAsync(new TicketClosedMark(GitHub.Tracker.Name, Key(GitHub, "42"), "42", "alpha", DateTimeOffset.UnixEpoch,
+            "Ada", "superseded", [], false), default);
+
+        (await SeriesActs(GitHub).StartIfReadyAsync(GitHub.Name, "42", default)).Started.Should().BeFalse();
+
+        Untouched();
+    }
+
+    [Fact]
+    public async Task SeriesResumeStart_AnotherPausedSeriesHoldsIt_IsNotStarted()
+    {
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+        await _series.OpenAsync(new AgentSmith.Contracts.Series.SeriesRunRecord("sr-2", "conv-2", GitHub.Name, "operator", true,
+            AgentSmith.Contracts.Series.SeriesRunStates.Paused,
+            [new AgentSmith.Contracts.Series.SeriesTicket("42", "#42", "work", false, DateTimeOffset.UnixEpoch)], DateTimeOffset.UnixEpoch), default);
+
+        (await SeriesActs(GitHub).StartIfReadyAsync(GitHub.Name, "42", default)).Text.Should().Be("Ticket 42 is held: series sr-2 is paused.");
+
+        Untouched();
+    }
+
+    // 2026-11-19-1b72a: a claimed start queues a code run; a second wake (or a resume) for the same ticket finds it
+    // under way and starts nothing — the double start seen under on_green_push.
+    [Fact]
+    public async Task RequirementsMetStart_TwoWakesForOneTicket_StartItOnce()
+    {
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+        Queues();
+
+        await StartAsync(GitHub, "42");
+        await StartAsync(GitHub, "42");
+
+        Claimed(Times.Once());
+    }
+
+    [Fact]
+    public async Task SeriesStartTicket_AfterAWake_DoesNotStartAgain()
+    {
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+        Queues();
+        await StartAsync(GitHub, "42");
+
+        (await SeriesActs(GitHub).StartAsync(GitHub.Name, "42", default)).Should().Be(
+            "Ticket 42 is under way: a start of it is queued already; retry or tell it instead.");
+        Claimed(Times.Once());
+    }
+
+    [Fact]
+    public async Task SeriesResumeStart_LiveLease_IsUnderWay()
+    {
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+        _leases.Setup(l => l.GetByTicketAsync("alpha", new AgentSmith.Domain.Models.TicketId("42"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StaleLease("alpha", new AgentSmith.Domain.Models.TicketId("42"), "run-1", null));
+
+        (await SeriesActs(GitHub).StartIfReadyAsync(GitHub.Name, "42", default)).Text.Should().Be("Ticket 42 is held: a run holds it now.");
+        Untouched();
+    }
+
+    // A resume and a wake both start a waiting ticket: the resume takes the nudge's ticket lock, so while a wake holds it
+    // the resume starts nothing and the wake's start is the one.
+    [Fact]
+    public async Task SeriesResumeStart_WhileTheNudgeHoldsTheTicketsLock_StartsNothing()
+    {
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+        _locks.Setup(l => l.TryAcquireAsync(ReworkNudgeWorker.LockKey("alpha", "42"), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
+        (await SeriesActs(GitHub).StartIfReadyAsync(GitHub.Name, "42", default)).Started.Should().BeFalse();
+
+        Untouched();
+        _nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r => r.TicketId == "42" && r.Origin == ReworkNudgeOrigin.RequirementsMet),
+            It.IsAny<CancellationToken>()), Times.Once, "the start is queued behind the nudge, never lost");
+    }
+
+    // The nudge a busy resume queued starts a ticket without requirements only while a running series whose approver may
+    // start runs owns it — read when the nudge is served, so a series stopped since starts nothing.
+    [Theory]
+    [InlineData(AgentSmith.Contracts.Series.SeriesRunStates.Running, true, true)]
+    [InlineData(AgentSmith.Contracts.Series.SeriesRunStates.Stopped, true, false)]
+    [InlineData(AgentSmith.Contracts.Series.SeriesRunStates.Running, false, false)]
+    public async Task RequirementsMetStart_TicketWithoutRequirements_StartsOnlyForARunningSeriesThatMayStartRuns(
+        string state, bool mayStartRuns, bool starts)
+    {
+        await _approvals.SaveAsync(ApprovedSets.Record(Key(GitHub, "42"), DateTimeOffset.UnixEpoch, tracker: GitHub.Tracker.Name), default);
+        await _series.OpenAsync(new AgentSmith.Contracts.Series.SeriesRunRecord("sr-1", "conv-1", GitHub.Name, "operator", mayStartRuns,
+            state, [new AgentSmith.Contracts.Series.SeriesTicket("42", "#42", "work", false, DateTimeOffset.UnixEpoch)], DateTimeOffset.UnixEpoch), default);
+
+        await StartAsync(GitHub, "42");
+
+        Claimed(starts ? Times.Once() : Times.Never());
+    }
+
+    // The claim the fallback spawn makes queues the ticket's code run, as the capacity queue does.
+    private void Queues()
+    {
+        var queued = false;
+        _spawn.Setup(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), "code",
+                It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(), It.IsAny<CancellationToken>(),
+                It.IsAny<Dictionary<string, string>?>()))
+            .Callback(() => queued = true).ReturnsAsync(new SpawnResult([]));
+        _attempts.Setup(a => a.HasQueuedAsync("alpha", "42", It.IsAny<CancellationToken>())).ReturnsAsync(() => queued);
     }
 
     [Fact]
@@ -222,17 +413,34 @@ public sealed class RequirementsMetStartTests : IDisposable
         _facts.Landed.Add(new TicketLandingFact(project.Tracker.Name, Key(project, ticket), ticket, project.Name, kind,
             DateTimeOffset.UnixEpoch, null, null, null));
 
-    private RequirementsMetStart Start(ResolvedProject project)
+    private RequirementsMetStart Start(ResolvedProject project) => new(Waiting(project));
+
+    // 2026-11-19-1b72a: the one start the wake and a series' resume share.
+    private WaitingTicketStart Waiting(ResolvedProject project)
     {
-        var config = new AgentSmithConfig
-        {
-            Projects = new Dictionary<string, ResolvedProject> { [project.Name] = project },
-            PipelineTriggers = PipelineTriggerMap.Empty,
-        };
+        var config = Config(project);
         _scopes = new ServiceCollection().AddScoped(_ => ActSteps.Start(config, FiledWorkDoubles.Move(config), _tracker)).BuildServiceProvider();
-        return new RequirementsMetStart(_facts, new TicketStartHold(_facts, _facts, _tracker, NullLogger<TicketStartHold>.Instance),
-            TicketRequirementDoubles.Of(_facts, _approvals),
-            _scopes.GetRequiredService<IServiceScopeFactory>(), Fallback(config), NullLogger<RequirementsMetStart>.Instance);
+        return new WaitingTicketStart(_facts, new TicketStartHold(_facts, _facts, _tracker, NullLogger<TicketStartHold>.Instance),
+            new AgentSmith.Application.Services.Claim.UnmetTicketRequirements(_facts, _facts, _approvals,
+                new AgentSmith.Application.Services.Claim.GreenPrerequisites(_facts, _attempts.Object, _facts), _series),
+            _scopes.GetRequiredService<IServiceScopeFactory>(), Fallback(config), _attempts.Object, _leases.Object,
+            NullLogger<WaitingTicketStart>.Instance);
+    }
+
+    private static AgentSmithConfig Config(ResolvedProject project) => new()
+    {
+        Projects = new Dictionary<string, ResolvedProject> { [project.Name] = project },
+        PipelineTriggers = PipelineTriggerMap.Empty,
+    };
+
+    private AgentSmith.Server.Services.Series.SeriesTicketActs SeriesActs(ResolvedProject project)
+    {
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(Config(project));
+        var waiting = Waiting(project);
+        return new(new AgentSmith.Server.Services.Tickets.TicketProjects(loader.Object, new ServerContext("c.yml")),
+            TicketRequirementDoubles.Of(_facts, _approvals), null!, _attempts.Object, null!, null!, null!, null!, waiting,
+            _nudges.Object, _locks.Object);
     }
 
     private ReworkFallbackSpawn Fallback(AgentSmithConfig config)

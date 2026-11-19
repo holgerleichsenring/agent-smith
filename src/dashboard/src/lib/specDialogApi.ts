@@ -6,7 +6,7 @@
 // no id at all: it answers for the signed-in principal.
 
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
-import type { SeriesRunView } from "@/types/series";
+import type { SeriesAct, SeriesRunView } from "@/types/series";
 import type {
   FiledWork,
   SpecDialogActivityPage,
@@ -43,6 +43,17 @@ export async function fetchFiledWork(
 /** 2026-11-17-0207e: the series the conversation filed, or null when it filed none. */
 export async function fetchSeriesRun(dialogId: string, signal?: AbortSignal): Promise<SeriesRunView | null> {
   return getJson<SeriesRunView | null>(`/api/spec-dialog/${encodeURIComponent(dialogId)}/series`, signal);
+}
+
+/**
+ * 2026-11-19-1b72a: the conversation head's Pause or Resume — the act the series master takes for the same words.
+ * Answers the series as its pane now shows it.
+ */
+export async function actOnSeries(dialogId: string, act: SeriesAct): Promise<SeriesRunView | null> {
+  const path = `/api/spec-dialog/${encodeURIComponent(dialogId)}/series/${act}`;
+  const res = await apiFetch(path, { method: "POST" });
+  if (!res.ok) throw await refused(res, path);
+  return (await res.json()) as SeriesRunView | null;
 }
 
 /**

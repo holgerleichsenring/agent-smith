@@ -16,6 +16,12 @@ public sealed class SeriesConversation(SpecDialogSessionRepository sessions, Spe
         await notices.SayAsync(SpecDialogSessionMapper.ToState(session), text, cancellationToken);
     }
 
+    public async Task<bool> HasPaneAsync(string conversation, CancellationToken cancellationToken)
+    {
+        var session = await sessions.GetBySessionIdAsync(conversation, cancellationToken);
+        return session is not null && DialogTarget.IsDashboard(SpecDialogSessionMapper.ToState(session));
+    }
+
     /// <summary>2026-11-17-0207b: the operator turns the divert stamped with the series' id, from the stored transcript,
     /// so a beat reads them on whichever replica it runs.</summary>
     public async Task<IReadOnlyList<SeriesOperatorMessage>> AddressedAsync(

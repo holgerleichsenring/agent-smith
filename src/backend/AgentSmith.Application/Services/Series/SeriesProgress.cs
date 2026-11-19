@@ -24,8 +24,13 @@ public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launc
     /// <summary>Starts the series check; what the master's check_series and the last landing both do.</summary>
     public async Task<string> CheckAsync(SeriesBeat beat, CancellationToken ct)
     {
+        if (beat.Record.State == SeriesRunStates.Paused) // 2026-11-19-1b72a: a pause holds the check as well
+            return "The series is paused; the check starts again once the operator resumes it.";
         var run = await launch.LaunchAsync(beat.Record.Project, PipelinePresets.SeriesVerifyName, beat.Record.Id, ct);
-        await KeepAsync(beat, r => r with { State = SeriesRunStates.Verifying, VerifyRunId = run }, ct);
+        // 2026-11-19-1b72a: a pause pressed while the check launched is kept; the check resumes into Verifying.
+        await KeepAsync(beat, r => r.State == SeriesRunStates.Paused
+            ? r with { PausedFrom = SeriesRunStates.Verifying, VerifyRunId = run }
+            : r with { State = SeriesRunStates.Verifying, VerifyRunId = run }, ct);
         beat.Said.Add($"All {beat.Facts.Count} tickets landed. The series check on main runs now (run {run}).");
         return $"The series check runs as {run}.";
     }
@@ -34,11 +39,14 @@ public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launc
     {
         var followUp = verdict.FollowUpTicketId is { } id ? beat.Record.Tickets.FirstOrDefault(t => t.TicketId == id)?.Key ?? id : null;
         beat.Said.Add(SeriesSummaryText.Of(beat, verdict, followUp));
-        var ends = followUp is null && beat.Record.State == SeriesRunStates.Verifying;
+        // 2026-11-19-1b72a: a verdict that arrives during a pause ends the series it would have ended.
+        var ends = followUp is null && (beat.Record.State == SeriesRunStates.Paused ? beat.Record.PausedFrom : beat.Record.State)
+            == SeriesRunStates.Verifying;
         await KeepAsync(beat, r => r with
         {
             Verdicts = [.. r.Verdicts.Take(r.Verdicts.Count - 1), r.Verdicts[^1] with { Reported = true }], // not a limit: all but the last
             State = ends ? SeriesRunStates.Done : r.State, FinishedAt = ends ? beat.Now : r.FinishedAt,
+            PausedFrom = ends ? null : r.PausedFrom,
         }, ct);
     }
 

@@ -22,10 +22,8 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         if (string.IsNullOrWhiteSpace(project) || string.IsNullOrWhiteSpace(ticketId)) return null;
         using var scope = scopeFactory.CreateScope();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var run = await uow.Set<Run>().AsNoTracking()
-            .Where(r => r.Project == project && r.TicketId == ticketId
-                && r.Pipeline == PipelinePresets.CodeName && r.Status != RunStatuses.Queued
-                && (excludingRunId == null || r.Id != excludingRunId))
+        var run = await PreviousAttemptRows.Of(uow.Set<Run>(), uow.Set<RunStep>(), project, ticketId)
+            .Where(r => excludingRunId == null || r.Id != excludingRunId)
             .OrderByDescending(r => r.Id)
             .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt, r.ActsReadAt, r.CancelReason, r.EndKind, r.EndDetailJson, r.PullRequestsJson })
             .FirstOrDefaultAsync(cancellationToken);
@@ -86,6 +84,14 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
     private static bool Opened(RunPullRequestView pr) => PullRequestStatuses.IsOpen(pr.Status) && !string.IsNullOrEmpty(pr.Url); // 3435b
 
     // 2026-10-08-0781: a queued code reservation will run, and its end checks the ticket again.
+    /// <summary>2026-11-19-1b72a: whether the ticket has an attempt, as <see cref="LatestAsync"/> counts one — one EXISTS.</summary>
+    public async Task<bool> HasAttemptAsync(string project, string ticketId, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        return await PreviousAttemptRows.Of(uow.Set<Run>(), uow.Set<RunStep>(), project, ticketId).AnyAsync(cancellationToken);
+    }
+
     public async Task<bool> HasQueuedAsync(string project, string ticketId, CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();

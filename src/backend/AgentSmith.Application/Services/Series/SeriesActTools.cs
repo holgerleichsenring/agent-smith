@@ -8,8 +8,9 @@ namespace AgentSmith.Application.Services.Series;
 /// 2026-11-17-0207a: what the series master does — through the paths a person's act takes, as the series' approver.
 /// Start, retry and tell reach a member ticket; a re-cut is proposed to the operator in the conversation; stop ends the
 /// series and hands the conversation back to the design partner. 2026-11-18-3863h: deploy, to a no-approval environment.
+/// 2026-11-19-1b72a: pause and resume, the act the conversation head's buttons take; a paused series starts no ticket.
 /// </summary>
-public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISeriesRunStore store)
+public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISeriesRunStore store, SeriesPause pause)
 {
     public IEnumerable<AIFunction> GetTools() =>
     [
@@ -19,7 +20,27 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
         AIFunctionFactory.Create(ProposeRecut, "propose_recut"),
         AIFunctionFactory.Create(StopSeriesAsync, "stop_series"),
         AIFunctionFactory.Create(DeployAsync, "deploy"), // 2026-11-18-3863h
+        AIFunctionFactory.Create(PauseSeriesAsync, "pause_series"), // 2026-11-19-1b72a
+        AIFunctionFactory.Create(ResumeSeriesAsync, "resume_series"),
     ];
+
+    [Description("Pauses the series when the operator asks to hold it: no ticket of it starts until it is resumed, and a running run finishes. "
+        + "With stopNow the running runs are cancelled too — for 'stop now', not for 'hold on'. The conversation is told in one line.")]
+    public async Task<string> PauseSeriesAsync(
+        [Description("True to cancel the runs under way as well.")] bool stopNow = false, CancellationToken ct = default)
+    {
+        var said = await pause.PauseAsync(beat.Record.Id, stopNow, ct);
+        await RereadAsync(ct);
+        return said;
+    }
+
+    [Description("Resumes a paused series when the operator says to go on: it starts every ticket that is ready and runs on as before. The conversation is told in one line.")]
+    public async Task<string> ResumeSeriesAsync(CancellationToken ct = default)
+    {
+        var said = await pause.ResumeAsync(beat.Record.Id, ct);
+        await RereadAsync(ct);
+        return said;
+    }
 
     [Description("Starts a deploy of a context to an environment its deployment binding delivers without a person's approval, as a person's Deploy does; an approval environment is refused. Name the version for an entry environment; leave it empty for one that promotes from another.")]
     public async Task<string> DeployAsync(
@@ -35,7 +56,7 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
 
     [Description("Starts a ticket no run has worked yet, once the tickets it requires are met.")]
     public Task<string> StartTicketAsync([Description("The ticket's key or id.")] string ticket, CancellationToken ct = default) =>
-        OnTicketAsync(ticket, fact => acts.StartAsync(beat.Record.Project, fact.Ticket.TicketId, ct));
+        OnTicketAsync(ticket, fact => Paused ?? acts.StartAsync(beat.Record.Project, fact.Ticket.TicketId, ct));
 
     [Description("Retries a ticket's newest code run unchanged, after any end but a success — for a failure that was not the work's fault.")]
     public Task<string> RetryTicketAsync([Description("The ticket's key or id.")] string ticket, CancellationToken ct = default) =>
@@ -56,7 +77,8 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
         return "The proposal is posted to the operator with this beat's report.";
     }
 
-    [Description("Ends the series: its tickets keep running on their own, the status reports stop, and the conversation goes back to the design partner.")]
+    [Description("Ends the series: its tickets keep running on their own, the status reports stop, and the conversation goes back to the design partner. "
+        + "To hold its tickets instead — 'halt', 'stop', 'wait' — pause_series.")]
     public async Task<string> StopSeriesAsync([Description("Why the series stops, said in the conversation.")] string reason, CancellationToken ct = default)
     {
         var stopped = await store.UpdateAsync(beat.Record.Id, r => r with { State = SeriesRunStates.Stopped, FinishedAt = beat.Now }, ct);
@@ -71,5 +93,15 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
         if (!beat.Record.MayStartRuns)
             return $"The series' approver {beat.Record.Principal} may not start runs (runs.control), so the series acts on no ticket.";
         return await act(fact);
+    }
+
+    // 2026-11-19-1b72a: a paused series starts no new ticket, by its own hand neither; a retry is no new ticket.
+    private Task<string>? Paused => beat.Record.State == SeriesRunStates.Paused
+        ? Task.FromResult("The series is paused, so it starts no new ticket; resume_series first when the operator says to go on.")
+        : null;
+
+    private async Task RereadAsync(CancellationToken ct)
+    {
+        if (await store.GetAsync(beat.Record.Id, ct) is { } read) beat.Record = read;
     }
 }

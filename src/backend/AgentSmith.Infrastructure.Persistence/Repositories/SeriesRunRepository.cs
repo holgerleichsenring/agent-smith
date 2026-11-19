@@ -45,6 +45,12 @@ public sealed class SeriesRunRepository(IServiceScopeFactory scopeFactory) : ISe
         return [.. rows.Select(Record)];
     }
 
+    public Task<SeriesRunRecord?> PausedWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        WithTicketAsync([SeriesRunStates.Paused], project, ticketId, cancellationToken);
+
+    public Task<SeriesRunRecord?> RunningWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        WithTicketAsync([SeriesRunStates.Running, SeriesRunStates.Verifying], project, ticketId, cancellationToken);
+
     public async Task<SeriesRunRecord?> UpdateAsync(
         string id, Func<SeriesRunRecord, SeriesRunRecord> change, CancellationToken cancellationToken)
     {
@@ -66,7 +72,15 @@ public sealed class SeriesRunRepository(IServiceScopeFactory scopeFactory) : ISe
         }
     }
 
-    private static readonly string[] Active = [SeriesRunStates.Running, SeriesRunStates.Verifying];
+    private static readonly string[] Active = [SeriesRunStates.Running, SeriesRunStates.Verifying, SeriesRunStates.Paused];
+
+    private async Task<SeriesRunRecord?> WithTicketAsync(string[] states, string project, string ticketId, CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var rows = await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<SeriesRun>().AsNoTracking()
+            .Where(s => states.Contains(s.State) && s.Project == project).ToListAsync(ct);
+        return rows.Select(Record).FirstOrDefault(r => r.Tickets.Any(t => t.TicketId == ticketId));
+    }
 
     private async Task<SeriesRunRecord?> FirstAsync(
         Func<IQueryable<SeriesRun>, IQueryable<SeriesRun>> query, CancellationToken cancellationToken)

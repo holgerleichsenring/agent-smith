@@ -105,4 +105,44 @@ public sealed class SeriesVerifyTests
 
         beat.Reasons.Should().ContainSingle().Which.Should().Contain("check_series");
     }
+
+    // 2026-11-19-1b72a: a verdict that arrives while the operator paused the check still ends the series.
+    [Fact]
+    public async Task Progress_VerdictArrivingDuringAPause_EndsTheSeries()
+    {
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T, [new(Criteria[0].Cited, true, "ok")]);
+        var beat = await BeatAsync(SeriesRecords.Running() with
+        {
+            State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Verifying, VerifyRunId = "run-v", Verdicts = [verdict],
+        });
+
+        await Progress.MoveAsync(beat, default);
+
+        _store.Records["sr-1"].Should().Match<SeriesRunRecord>(r => r.State == SeriesRunStates.Done && r.PausedFrom == null);
+    }
+
+    [Fact]
+    public async Task CheckSeries_WhilePaused_StartsNoCheckAndKeepsThePause()
+    {
+        var beat = await BeatAsync(SeriesRecords.Running() with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running });
+
+        (await Progress.CheckAsync(beat, default)).Should().Contain("paused");
+
+        _store.Records["sr-1"].State.Should().Be(SeriesRunStates.Paused);
+        _launch.VerifyNoOtherCalls();
+    }
+
+    // A pause pressed while this beat launched the check is kept; the check resumes into Verifying.
+    [Fact]
+    public async Task CheckSeries_PausePressedMidBeat_KeepsThePause()
+    {
+        _launch.Setup(l => l.LaunchAsync("sample", PipelinePresets.SeriesVerifyName, "sr-1", It.IsAny<CancellationToken>())).ReturnsAsync("run-v");
+        var beat = await BeatAsync(SeriesRecords.Running());
+        await _store.UpdateAsync("sr-1", r => r with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running }, default);
+
+        await Progress.CheckAsync(beat, default);
+
+        _store.Records["sr-1"].Should().Match<SeriesRunRecord>(r =>
+            r.State == SeriesRunStates.Paused && r.PausedFrom == SeriesRunStates.Verifying && r.VerifyRunId == "run-v");
+    }
 }

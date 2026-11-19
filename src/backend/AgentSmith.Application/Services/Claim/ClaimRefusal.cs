@@ -33,6 +33,6 @@ internal sealed class ClaimRefusal(
         // lock and before any tracker write.
         return await new UnmovedTicketGate(unmovedTickets).RefusalAsync(request, config, cancellationToken)
             ?? await new BoundaryStopGate(attempts).RefusalAsync(request, config, cancellationToken) // 2026-10-13-8762g
-            ?? await new RequiresUnmetGate(requirements).RefusalAsync(request, config, cancellationToken);
+            ?? await new RequiresUnmetGate(requirements, attempts).RefusalAsync(request, config, cancellationToken);
     }
 }

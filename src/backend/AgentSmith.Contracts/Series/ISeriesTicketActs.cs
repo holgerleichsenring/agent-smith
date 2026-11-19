@@ -20,4 +20,14 @@ public interface ISeriesTicketActs
     /// binding delivers without approval only; listed on <paramref name="ticketId"/> when one is named.</summary>
     Task<string> DeployAsync(
         string project, string context, string environment, string? version, string? ticketId, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-19-1b72a: a resume's start — as <see cref="StartAsync"/>, but a ticket whose requirement waits for a
+    /// start by name is left to that start, and the answer says whether it started.</summary>
+    Task<SeriesStart> StartIfReadyAsync(string project, string ticketId, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-19-1b72a: asks the CI loop again for a ticket whose red CI waited out a pause (merge: on_ci_green).</summary>
+    Task<string> AskCiLoopAsync(string project, string ticketId, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-19-1b72a: cancels a member ticket's unfinished run through the run cancel a person's Cancel takes.</summary>
+    Task<string> CancelAsync(string runId, CancellationToken cancellationToken);
 }

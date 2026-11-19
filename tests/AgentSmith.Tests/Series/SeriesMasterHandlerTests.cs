@@ -20,7 +20,8 @@ public sealed class SeriesMasterHandlerTests
     private readonly AgentSmithConfig _config = new();
 
     private SeriesMasterHandler Handler => new(_loop.Object, Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"),
-        Mock.Of<ISeriesTicketActs>(), _store, _config, Mock.Of<ISeriesConversation>(), new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()));
+        Mock.Of<ISeriesTicketActs>(), _store, _config, Mock.Of<ISeriesConversation>(), new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()),
+        new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), Mock.Of<ISeriesConversation>()));
 
     private async Task<SeriesBeat> RunAsync(SeriesRunRecord record, params string[] reasons)
     {

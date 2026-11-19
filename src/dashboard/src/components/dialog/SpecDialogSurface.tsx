@@ -27,10 +27,11 @@ import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
 import { deletionWarning } from "./conversationDelete";
 import { DialogComposer } from "./DialogComposer";
 import { DialogConversations } from "./DialogConversations";
-import { DialogDecisionBar, decides } from "./DialogDecisionBar";
+import { DialogDecisionBar, asideKey, decides } from "./DialogDecisionBar";
 import { DialogPaneHandle, paneWidthStyle, usePaneWidth } from "./DialogPaneHandle";
 import { DialogPane, useDialogPaneFocus } from "./DialogPane";
 import { useSeriesRun } from "@/hooks/useSeriesRun";
+import { DialogSeriesHead } from "./DialogSeriesHead";
 import { DialogProjectChoice, type ProjectsRead } from "./DialogProjectChoice";
 import { DialogTicketSearch } from "./DialogTicketSearch";
 import { DialogGreeting } from "./DialogGreeting";
@@ -322,7 +323,8 @@ export function SpecDialogSurface() {
     : null;
   const title = session?.subject ?? listed;
   // 2026-11-17-0207e: the series its filing runs as, read again with every message the series posts.
-  const series = useSeriesRun(session ? dialog.dialogId : null, dialog.entries.length);
+  // 2026-11-19-1b72a: and with every refetch of the filed work's runs, since the series no longer posts its table.
+  const { series, act: actOnSeries } = useSeriesRun(session ? dialog.dialogId : null, dialog.entries.length, work);
   // Which tickets already have a conversation, from the list this page already holds — so a result
   // row says so instead of offering to open a second one the unique index would refuse anyway.
   const boundTickets = new Set(
@@ -343,7 +345,7 @@ export function SpecDialogSurface() {
     <DialogDecisionBar
       decision={decision}
       onApprove={() => void dialog.send("approve", project, "approved", undefined, awaitingId ?? undefined)}
-      onKeepChatting={() => setChattingOn(awaitingId ?? "")}
+      onKeepChatting={() => setChattingOn(asideKey(awaitingId))}
     />
   ) : null;
 
@@ -419,9 +421,7 @@ export function SpecDialogSurface() {
               {/* The dialog id IS the session key: a page that lost it would open a second
                   conversation beside one still running, and an operator comparing two tabs
                   needs to see which is which. */}
-              {series && (
-                <span data-testid="dialog-series-state" data-state={series.state}>{series.headState}</span>
-              )}
+              {series && <DialogSeriesHead series={series} onAct={actOnSeries} />}
               <span data-testid="dialog-identity" className="mono">
                 {session
                   ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`

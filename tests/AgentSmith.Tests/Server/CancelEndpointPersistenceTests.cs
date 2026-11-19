@@ -128,6 +128,23 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
         _published.Should().BeEmpty();
     }
 
+    // 2026-11-19-1b72a: a series' "stop now" cancels through this same endpoint path — the flag lands on the row.
+    [Fact]
+    public async Task SeriesRunCancel_RunningRun_PersistsTheCancelAsTheButtonDoes()
+    {
+        await SeedRunningRunAsync("run-4", jobId: "abc123def456");
+        var services = new ServiceCollection().AddSingleton<IRunCancellationRegistry>(_registry).AddSingleton(NewBroadcaster())
+            .AddSingleton(_events).AddTransient(_ => NewRepository()).AddSingleton(Mock.Of<ICapacityQueue>())
+            .AddSingleton(NewFinalizer()).AddSingleton(TimeProvider.System).AddSingleton(NewTerminalWriter()).BuildServiceProvider();
+        var cancel = new AgentSmith.Server.Services.Series.SeriesRunCancel(services);
+
+        (await cancel.CancelAsync("run-4", CancellationToken.None)).Should().Be("Run run-4 is cancelled.");
+        (await cancel.CancelAsync("run-unknown", CancellationToken.None)).Should().Be("Run run-unknown was not found to cancel.");
+
+        using var check = new AgentSmithDbContext(Options());
+        check.Runs.Single(r => r.Id == "run-4").CancelRequested.Should().BeTrue();
+    }
+
     private async Task SeedRunningRunAsync(string runId, string? jobId)
     {
         using var ctx = new AgentSmithDbContext(Options());

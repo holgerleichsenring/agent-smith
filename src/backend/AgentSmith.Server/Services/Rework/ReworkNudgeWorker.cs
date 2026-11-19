@@ -46,6 +46,9 @@ public sealed class ReworkNudgeWorker(
         }
     }
 
+    /// <summary>The ticket's lock a nudge is served under; 2026-11-19-1b72a: a series' resume start takes it too.</summary>
+    public static string LockKey(string project, string ticketId) => $"agentsmith:rework-nudge:{project}:{ticketId}";
+
     public async Task DrainAsync(CancellationToken ct)
     {
         IReadOnlyList<ClaimedReworkNudge> claimed;
@@ -56,7 +59,7 @@ public sealed class ReworkNudgeWorker(
 
     private async Task OneAsync(ClaimedReworkNudge nudge, CancellationToken ct)
     {
-        var key = $"agentsmith:rework-nudge:{nudge.Project}:{nudge.TicketId}";
+        var key = LockKey(nudge.Project, nudge.TicketId);
         var token = await locks.TryAcquireAsync(key, ReworkNudgeRepository.ClaimLease, ct);
         if (token is null)
         {

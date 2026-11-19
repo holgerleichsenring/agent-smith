@@ -107,6 +107,41 @@ public sealed class RetryTests : IDisposable
         refusal.Text.Should().Contain("r-2");
     }
 
+    // 2026-11-19-1b72a: a start the pump let go while the series was paused is no attempt to retry; the resume starts it.
+    [Fact]
+    public async Task Retry_StartHeldByAPausedSeries_409SaysResumeTheSeries()
+    {
+        var held = TicketStoreHarness.Run("r-1", status: Cancelled);
+        held.EndKind = RunEndKinds.SeriesPaused;
+        await _h.AddAsync(held);
+        await _h.Series.OpenAsync(new AgentSmith.Contracts.Series.SeriesRunRecord("sr-1", "conv-1", "alpha", "operator", true,
+            AgentSmith.Contracts.Series.SeriesRunStates.Paused,
+            [new AgentSmith.Contracts.Series.SeriesTicket("42", "#42", "work", false, TicketStoreHarness.T)], TicketStoreHarness.T), default);
+
+        var refusal = await RefusedAsync("r-1");
+
+        refusal.Reason.Should().Be(RetryRefusals.SeriesPaused);
+        refusal.Text.Should().Be(AgentSmith.Application.Services.Claim.RequiresUnmetGate.SeriesPaused);
+    }
+
+    [Theory]
+    [InlineData(AgentSmith.Contracts.Series.SeriesRunStates.Running)]
+    [InlineData(AgentSmith.Contracts.Series.SeriesRunStates.Stopped)]
+    public async Task Retry_StartHeldByASeriesNoLongerPaused_IsWordedByTheSeriesState(string state)
+    {
+        var held = TicketStoreHarness.Run("r-1", status: Cancelled);
+        held.EndKind = RunEndKinds.SeriesPaused;
+        await _h.AddAsync(held);
+        await _h.Series.OpenAsync(new AgentSmith.Contracts.Series.SeriesRunRecord("sr-1", "conv-1", "alpha", "operator", true, state,
+            [new AgentSmith.Contracts.Series.SeriesTicket("42", "#42", "work", false, TicketStoreHarness.T)], TicketStoreHarness.T), default);
+
+        var refusal = await RefusedAsync("r-1");
+
+        refusal.Reason.Should().Be(RetryRefusals.SeriesPaused);
+        refusal.Text.Should().Be(state == AgentSmith.Contracts.Series.SeriesRunStates.Running
+            ? RunRetryGate.ResumedDropText : RunRetryGate.EndedDropText);
+    }
+
     [Fact]
     public async Task Retry_NewerQueuedReservation_409AlreadyStarting()
     {

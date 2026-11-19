@@ -61,7 +61,7 @@ public sealed class SpawnPipelineRunsUseCase(
     {
         ValidateForSpawn(project, envelope);
         var probe = SpawnRequestBuilder.BuildRequest(project, pipelineName, envelope, matchedTrigger, planAnswers, existingRunId: null);
-        if (await new Claim.RequiresUnmetGate(requirements).RefusalAsync(probe, config, ct) is { } held)
+        if (await new Claim.RequiresUnmetGate(requirements, previousAttempts).RefusalAsync(probe, config, ct) is { } held)
         {
             logger.LogInformation("Spawn refused before any reservation for project={Project} ticket={Ticket}: {Rejection}",
                 project.Name, envelope.TicketId, held.Rejection);

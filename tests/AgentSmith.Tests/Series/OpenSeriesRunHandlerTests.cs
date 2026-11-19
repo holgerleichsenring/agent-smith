@@ -65,4 +65,16 @@ public sealed class OpenSeriesRunHandlerTests
         record.Tickets[^1].FollowUp.Should().BeTrue();
         record.State.Should().Be(SeriesRunStates.Running, "the follow-up is worked before the series checks again");
     }
+
+    [Fact]
+    public async Task OpenSeriesRun_JoiningAPausedSeries_KeepsItPaused()
+    {
+        await _store.OpenAsync(SeriesRecords.Running("sr-1") with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Verifying }, default);
+
+        await RunAsync(Filed(1, series: "sr-1"));
+
+        var record = _store.Records["sr-1"];
+        record.State.Should().Be(SeriesRunStates.Paused, "2026-11-19-1b72a: a follow-up does not lift the operator's pause");
+        record.PausedFrom.Should().Be(SeriesRunStates.Running, "on resume the follow-up is worked before the series checks again");
+    }
 }

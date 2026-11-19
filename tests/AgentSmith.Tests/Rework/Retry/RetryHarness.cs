@@ -52,6 +52,9 @@ namespace AgentSmith.Tests.Rework.Retry;
 /// </summary>
 internal sealed class RetryHarness : IDisposable
 {
+    /// <summary>2026-11-19-1b72a: the series runs, for a retry of a start a paused series held.</summary>
+    public AgentSmith.Tests.Series.InMemorySeriesRunStore Series { get; } = new();
+
     public const string Principal = "ops-1";
 
     private readonly SqliteConnection _connection = MigratedStoreTemplate.OpenCopy();
@@ -81,7 +84,7 @@ internal sealed class RetryHarness : IDisposable
         services.AddScoped(sp => AgentSmith.Tests.TestSupport.ActSteps.Start(Config, sp.GetRequiredService<AgentSmith.Application.Services.Filing.FiledWorkMove>(), Tracker)); // e061b
         services.AddScoped<PendingEditStart>().AddScoped<BoundAttemptStarts>();
         // 2026-10-14-dbceh: OperatorStart asks the requires gate; 2026-10-14-dbcei: so does the conversation's start.
-        services.AddSingleton(AgentSmith.Tests.TestSupport.TicketRequirementDoubles.Of(Facts, Approvals));
+        services.AddSingleton(new AgentSmith.Application.Services.Claim.UnmetTicketRequirements(Facts, Facts, Approvals, series: Series)); // 1b72a
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 

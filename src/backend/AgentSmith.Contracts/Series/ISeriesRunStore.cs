@@ -17,6 +17,12 @@ public interface ISeriesRunStore
     /// <summary>The newest series of a conversation, active or ended; null when it never had one.</summary>
     Task<SeriesRunRecord?> LatestForConversationAsync(string conversation, CancellationToken cancellationToken);
 
+    /// <summary>2026-11-19-1b72a: the paused series of the project that holds the ticket, if one does.</summary>
+    Task<SeriesRunRecord?> PausedWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-19-1b72a: the running or verifying (not paused) series of the project that holds the ticket, if one does.</summary>
+    Task<SeriesRunRecord?> RunningWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken);
+
     /// <summary>Applies the change to the stored record and saves it; null when there is no such series.</summary>
     Task<SeriesRunRecord?> UpdateAsync(
         string id, Func<SeriesRunRecord, SeriesRunRecord> change, CancellationToken cancellationToken);

@@ -28,7 +28,8 @@ public sealed class SeriesPanelTests
         view.CriticalPath.Should().Equal("SCRUM-45", "SCRUM-46");
         view.CriticalPathLeft.Should().Be("2 tickets, about 1 h 00 min left");
         view.Eta.Should().Be("20:37 UTC");
-        view.Now.Select(n => n.Ticket).Should().Equal(["SCRUM-45", "SCRUM-46"], "SCRUM-47 has not started and waits on nothing");
+        view.Tickets.Select(n => n.Ticket).Should().Equal(["SCRUM-43", "SCRUM-44", "SCRUM-45", "SCRUM-46", "SCRUM-47"],
+            "2026-11-19-1b72a: the pane lists every ticket");
         view.HeadState.Should().Be("series running");
     }
 
@@ -42,5 +43,17 @@ public sealed class SeriesPanelTests
         view.Eta.Should().BeNull();
         view.HeadState.Should().Be("series running · 1 question for you");
         view.Question.Should().Be("Keep it?");
+    }
+
+    [Fact]
+    public void Panel_PausedSeries_HeadsItselfPaused_AndListsEveryTicketWithItsState()
+    {
+        var record = SeriesRecords.Running() with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running };
+
+        var view = SeriesPanel.Of(record, Facts(1), SeriesRecords.T.AddHours(1), Project, new DialogueGlobalConfig());
+
+        view.HeadState.Should().Be("series paused");
+        view.Tickets.Should().HaveCount(5);
+        view.Tickets[2].Should().Match<SeriesTableRow>(r => r.Ticket == "SCRUM-45" && r.State == "coding" && r.Cost == "$1.5");
     }
 }

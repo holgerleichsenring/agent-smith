@@ -3,9 +3,11 @@ using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Series;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.Series;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -147,6 +149,53 @@ public sealed class RequiresUnmetGateTests
     }
 
     private RequiresUnmetGate Gate() => new(TicketRequirementDoubles.Of(_facts, _approvals));
+
+    [Fact]
+    public async Task RequiresUnmetGate_PausedSeries_HoldsTheClaim()
+    {
+        var series = new InMemorySeriesRunStore();
+        var record = new SeriesRunRecord("sr-1", "conv-1", "my-project", "operator", true, SeriesRunStates.Paused,
+            [new SeriesTicket("42", "#42", "work", false, DateTimeOffset.UnixEpoch)], DateTimeOffset.UnixEpoch);
+        await series.OpenAsync(record, default);
+        var gate = new RequiresUnmetGate(new UnmetTicketRequirements(_facts, _facts, _approvals, series: series));
+
+        var refusal = await gate.RefusalAsync(Request(), Config(), default);
+
+        refusal!.Rejection.Should().Be(ClaimRejectionReason.SeriesPaused);
+        refusal.Error.Should().Be(RequiresUnmetGate.SeriesPaused, "a ticket without requirement rows is held by its paused series too");
+        await series.UpdateAsync("sr-1", r => r with { State = SeriesRunStates.Running }, default);
+        (await gate.RefusalAsync(Request(), Config(), default)).Should().BeNull("a resumed series holds nothing");
+    }
+
+    [Fact]
+    public async Task RequiresUnmetGate_PausedSeries_LetsAWorkedTicketsRetryThrough()
+    {
+        var series = new InMemorySeriesRunStore();
+        await series.OpenAsync(new SeriesRunRecord("sr-1", "conv-1", "my-project", "operator", true, SeriesRunStates.Paused,
+            [new SeriesTicket("42", "#42", "work", false, DateTimeOffset.UnixEpoch)], DateTimeOffset.UnixEpoch), default);
+        var attempts = new Mock<IPreviousAttemptReader>();
+        attempts.Setup(a => a.LatestAsync("my-project", "42", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentSmith.Contracts.Runs.PreviousAttempt("run-1", "failed", DateTimeOffset.UnixEpoch, true));
+        var gate = new RequiresUnmetGate(new UnmetTicketRequirements(_facts, _facts, _approvals, series: series), attempts.Object);
+
+        (await gate.RefusalAsync(Request(), Config(), default)).Should().BeNull(
+            "2026-11-19-1b72a: a retry, rework or CI fix is no new ticket; holding it would lose it");
+    }
+
+    [Fact]
+    public async Task RequiresUnmetGate_PausedSeries_TheClaimsOwnQueuedRunIsNoEarlierAttempt()
+    {
+        var series = new InMemorySeriesRunStore();
+        await series.OpenAsync(new SeriesRunRecord("sr-1", "conv-1", "my-project", "operator", true, SeriesRunStates.Paused,
+            [new SeriesTicket("42", "#42", "work", false, DateTimeOffset.UnixEpoch)], DateTimeOffset.UnixEpoch), default);
+        var attempts = new Mock<IPreviousAttemptReader>();
+        attempts.Setup(a => a.LatestAsync("my-project", "42", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentSmith.Contracts.Runs.PreviousAttempt("run-q", "running", DateTimeOffset.UnixEpoch, false));
+        var gate = new RequiresUnmetGate(new UnmetTicketRequirements(_facts, _facts, _approvals, series: series), attempts.Object);
+
+        (await gate.RefusalAsync(Request() with { ExistingRunId = "run-q" }, Config(), default))!.Error
+            .Should().Be(RequiresUnmetGate.SeriesPaused, "the capacity pump's claim reuses its reserved run, read as BoundaryStopGate reads it");
+    }
 
     private void Edges(string ticket, params string[] required) =>
         _facts.Edges.AddRange(required.Select(r =>

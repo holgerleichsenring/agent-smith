@@ -267,6 +267,8 @@ export const RUN_END_KINDS = {
   criteriaUnmet: "criteria-unmet",
   superseded: "superseded",
   readinessUnknown: "readiness-unknown",
+  /** 2026-11-19-1b72a: a queued start dropped because its series is paused; resume starts it again. */
+  seriesPaused: "series-paused",
 } as const;
 
 export interface TicketOtherRun {

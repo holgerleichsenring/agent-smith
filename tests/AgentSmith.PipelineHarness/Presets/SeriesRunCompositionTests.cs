@@ -44,12 +44,12 @@ public sealed class SeriesRunCompositionTests
         rig.Facts.Set("1", RunStatuses.Running, finished: false);
         await BeatAsync(sp, series.Id);
         (await TextsAsync(sp)).Should().Contain(t => t.StartsWith("Filed 3 tickets. #1 started; 2 wait on their prerequisites"))
-            .And.Contain(t => t.Contains("| #2 |") && t.Contains("waits on #1"));
+            .And.NotContain(t => t.Contains("| #2 |"), "2026-11-19-1b72a: the dashboard's Series pane holds the table");
 
         rig.Facts.Set("1", RunStatuses.Success, prOpened: true);
         rig.Facts.Set("2", RunStatuses.Running, finished: false);
         await BeatAsync(sp, series.Id);
-        (await TextsAsync(sp)).Last().Should().Contain("| #1 | Title api | green · PR open |").And.Contain("| #2 | Title ui | coding |");
+        (await TextsAsync(sp)).Last().Should().Be("#1's pull request waits for your merge.", "only what needs the operator is written");
 
         await sp.GetRequiredService<DashboardDialogDispatcher>().DispatchAsync(
             "d-series", "Should forwarding keep the deadline?", "sample.user", true, Project, default);
@@ -90,9 +90,12 @@ public sealed class SeriesRunCompositionTests
         kept.Verdicts.Last().FollowUpStart.Should().BeNull("the follow-up is started like any filed ticket");
     }
 
-    private static Task BeatAsync(IServiceProvider sp, string series) =>
-        sp.GetRequiredService<IActRun>().RunAsync(Project, PipelinePresets.SeriesRunName,
+    private static async Task BeatAsync(IServiceProvider sp, string series)
+    {
+        var beat = await sp.GetRequiredService<IActRun>().RunAsync(Project, PipelinePresets.SeriesRunName,
             new Dictionary<string, object> { [ContextKeys.SeriesRunId] = series });
+        beat.IsSuccess.Should().BeTrue(beat.Message);
+    }
 
     private static async Task<IReadOnlyList<string>> TextsAsync(IServiceProvider sp) =>
         [.. (await sp.GetRequiredService<SpecDialogSessionManager>().GetOpenByThreadAsync("dashboard", "d-series", default))!

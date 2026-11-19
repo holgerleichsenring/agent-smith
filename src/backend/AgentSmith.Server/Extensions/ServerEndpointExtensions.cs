@@ -43,6 +43,7 @@ internal static class ServerEndpointExtensions
         app.MapRetryEndpoints(); // 2026-10-13-9a59n: retry after an infrastructure end
         app.MapSpecDialogEndpoints(); // 2026-09-15-9033: the dashboard's spec-dialog channel
         app.MapSpecDialogViewEndpoints(); // 2026-09-15-cb3e: what is on the dialog page
+        app.MapSpecDialogSeriesEndpoints(); // 2026-11-19-1b72a: the head's Pause and Resume
         app.MapTicketConversationEndpoints(); // 8e51b: which conversation a ticket has
         app.MapSpecDialogDeletionEndpoints(); // 2026-09-18-7a05: a conversation the operator owns, gone
         app.MapSpecDialogResumeEndpoints(); // 2026-09-22-2a86: continued in the tab, by id rather than by a typed command

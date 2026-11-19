@@ -17,6 +17,13 @@ const state = (d: TicketDetail, liveEvents: RunEvent[] = [], cut = null as Param
   ticketState({ detail: d, liveEvents, series: cut })!;
 
 describe("ticketState", () => {
+  // 2026-11-19-1b72a: a head its paused series held offers nothing to continue — the resume starts it.
+  it("ticketState_HeldByAPausedSeries_IsPausedWithNoAct", () => {
+    const view = state(failedTicket({ status: "cancelled", endKind: "series-paused" }));
+    expect(view).toMatchObject({ tone: "q", pill: "Paused", act: null });
+    expect(view.sentence).toBe("Its series is paused; it starts again when the series resumes.");
+  });
+
   it("ticketState_FailedOnInfrastructure_OffersRetryUnchanged", () => {
     const view = state(failedTicket({ endedOnInfrastructure: true }));
     expect(view.tone).toBe("bad");

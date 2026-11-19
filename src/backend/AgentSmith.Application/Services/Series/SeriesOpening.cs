@@ -3,10 +3,11 @@ using AgentSmith.Contracts.Models.Configuration;
 namespace AgentSmith.Application.Services.Series;
 
 /// <summary>2026-11-17-0207b: the series' first message — what was filed, what started, what waits and on what rule,
-/// how it merges and how often it reports.</summary>
+/// how it merges and how often it reports. 2026-11-19-1b72a: under a Series pane it writes only when the operator is
+/// needed.</summary>
 public static class SeriesOpening
 {
-    public static string Text(SeriesBeat beat, ResolvedProject project, DialogueGlobalConfig dialogue)
+    public static string Text(SeriesBeat beat, ResolvedProject project, DialogueGlobalConfig dialogue, bool pane = false)
     {
         ArgumentNullException.ThrowIfNull(beat);
         var rows = beat.Rows;
@@ -21,7 +22,9 @@ public static class SeriesOpening
             MergeWhen.OnCiGreen => "I merge each one when its CI is green; a red CI goes back to its run with the failing check",
             _ => "Their pull requests stay open for you to merge",
         };
-        return text + $"{merge} and report here on every change and every {dialogue.SeriesStatusMinutes} minutes.";
+        return text + (pane
+            ? $"{merge}. I write here only when you are needed; the Series pane shows every ticket, and Pause holds the series."
+            : $"{merge} and report here on every change and every {dialogue.SeriesStatusMinutes} minutes.");
     }
 
     private static string WaitRule(ResolvedProject project) => project.RequiresStart == RequiresStart.OnMerge

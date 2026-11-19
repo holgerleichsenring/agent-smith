@@ -86,6 +86,27 @@
 .mock-dialog .dl-upload-row .d-upload-head { padding-left: 0; padding-right: 0; }
 .mock-dialog .dl-upload-row .d-tree-note { padding-left: 0; }
 .mock-dialog .dl-upload-row > .px-3 { padding-left: 0; padding-right: 0; }
+/* 2026-11-19-1b72b: the Proposal tab's tickets and slices as the run view draws its sections — rows under hairlines, a
+   ▸/▾ toggle, what a row holds indented beneath it; no card, no fill. Colours are the shell's tokens only. */
+.mock-dialog .dl-prop-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line-2); }
+.mock-dialog .dl-prop-rows.list-decimal { list-style: decimal; padding-left: 20px; }
+.mock-dialog .dl-prop-rows > li { border-bottom: 1px solid var(--line-2); }
+.mock-dialog .dl-prop-row { background: none; border: 0; }
+.mock-dialog button.dl-prop-head { width: 100%; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 7px 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.mock-dialog button.dl-prop-head::before { content: "\25B8"; flex: none; width: 12px; color: var(--ink-3); }
+.mock-dialog button.dl-prop-head[aria-expanded="true"]::before { content: "\25BE"; }
+.mock-dialog button.dl-prop-head:hover .dl-prop-title { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); }
+.mock-dialog button.dl-prop-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mock-dialog .dl-prop-n { flex: none; min-width: 1.5ch; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.mock-dialog .dl-prop-main { flex: 1 1 160px; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.mock-dialog .dl-prop-title { font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+.mock-dialog .dl-prop-dim { color: var(--ink-3); font-size: 12px; }
+.mock-dialog .dl-prop-waits { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; margin-left: auto; font-size: 12px; color: var(--ink-3); }
+.mock-dialog .dl-prop-body { display: flex; flex-direction: column; gap: 8px; padding: 0 0 10px 20px; background: none; }
+.mock-dialog .dl-prop-body[hidden] { display: none; }
+.mock-dialog .dl-prop-specs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line-2); }
+.mock-dialog .dl-prop-specs > li { border-bottom: 1px solid var(--line-2); padding: 5px 0 5px 12px; }
+.mock-dialog .dl-prop-spec { display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
 
 @media (max-width: 1180px) {
   .mock-dialog.dl-shell { grid-template-columns: 236px minmax(0, 1fr); }
@@ -102,7 +123,20 @@
 /* 2026-11-17-0207e: the series panel — a hairline progress bar, and the Now rows' state coloured by kind. */
 .mock-dialog .d-series-bar { height: 4px; border-radius: 2px; background: var(--line-2); }
 .mock-dialog .d-series-fill { height: 4px; border-radius: 2px; background: var(--ink-2); }
-.mock-dialog [data-kind="running"] .text-mute, .mock-dialog [data-kind="green"] .text-mute { color: var(--run); }
-.mock-dialog [data-kind="red"] .text-mute { color: var(--bad); }
+/* 2026-11-19-1b72a: every ticket a hairline row — key, title, state, cost, time — the state coloured by kind; the head's
+   Pause / Resume is a plain text button beside the state. */
+.mock-dialog .dl-series-rows { display: flex; flex-direction: column; }
+.mock-dialog .dl-series-row { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line-2); min-width: 0; }
+.mock-dialog .dl-series-what { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-dialog .dl-series-ticket-state { flex: 0 1 auto; min-width: 0; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
+.mock-dialog .dl-series-num { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.mock-dialog .dl-series-row:is([data-kind="running"], [data-kind="green"]) .dl-series-ticket-state { color: var(--run); }
+.mock-dialog .dl-series-row[data-kind="red"] .dl-series-ticket-state { color: var(--bad); }
+.mock-dialog .dl-series-row[data-kind="landed"] .dl-series-ticket-state { color: var(--ok); }
+.mock-dialog .dl-series-head { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; max-width: 100%; }
+.mock-dialog .dl-series-act { background: none; border: 0; padding: 0; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font: inherit; }
+.mock-dialog .dl-series-act:disabled { color: var(--ink-3); cursor: default; }
+.mock-dialog .dl-series-refusal { color: var(--bad); flex-basis: 100%; min-width: 0; overflow-wrap: anywhere; }
 .mock-dialog [data-testid="dialog-series-state"][data-state="done"] { color: var(--ok); }
 .mock-dialog [data-testid="dialog-series-state"]:not([data-state="done"]) { color: var(--run); }
+.mock-dialog [data-testid="dialog-series-state"][data-state="paused"] { color: var(--ink-2); }

@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Series;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
@@ -13,10 +14,12 @@ namespace AgentSmith.Application.Services.Claim;
 /// <para>2026-11-17-9a39a: <see cref="ForStartAsync"/> is the question a START asks: under the project's
 /// <see cref="RequiresStart.OnGreenPush"/> an unlanded requirement is lifted when its prerequisite pushed a green
 /// branch the ticket can stack on (<see cref="GreenPrerequisites"/>). Without the green reader it answers landings.</para>
+/// <para>2026-11-19-1b72a: a paused series holds its tickets too (<see cref="PausedSeriesAsync"/>); without the series
+/// store nothing is paused.</para>
 /// </summary>
 public sealed class UnmetTicketRequirements(
     ITicketRequirementStore requirements, ITicketLandingStore landings, ISpecApprovalStore approvals,
-    GreenPrerequisites? green = null)
+    GreenPrerequisites? green = null, ISeriesRunStore? series = null)
 {
     /// <summary>
     /// Whether the ticket has requirement rows, and the edges whose required ticket has not landed, in the
@@ -55,4 +58,13 @@ public sealed class UnmetTicketRequirements(
     /// </summary>
     public async Task<bool> FiledCompletelyAsync(string tracker, string ticketKey, CancellationToken cancellationToken) =>
         await approvals.GetAsync(tracker, ticketKey, cancellationToken) is not null;
+
+    /// <summary>2026-11-19-1b72a: the paused series the ticket belongs to, which holds every start of it until it is
+    /// resumed; null when no paused series holds it.</summary>
+    public Task<SeriesRunRecord?> PausedSeriesAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        series is null ? Task.FromResult<SeriesRunRecord?>(null) : series.PausedWithTicketAsync(project, ticketId, cancellationToken);
+
+    /// <summary>2026-11-19-1b72a: the running (not paused) series the ticket belongs to; null when none does.</summary>
+    public Task<SeriesRunRecord?> RunningSeriesAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        series is null ? Task.FromResult<SeriesRunRecord?>(null) : series.RunningWithTicketAsync(project, ticketId, cancellationToken);
 }
