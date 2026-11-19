@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DialogDecisionBar, decides } from "../DialogDecisionBar";
-import { DialogQuestionCard } from "../DialogQuestionCard";
 import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
@@ -48,14 +47,14 @@ describe("filing offer", () => {
     expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent(/^File these 12 tickets\?/);
   });
 
-  it("TicketCard_OfferLedNotOffered_OffersNoApprove", () => {
+  it("TicketDecision_OfferLedNotOffered_PutsNoDecision", () => {
     const spec = {
       ...base, kind: "spec", tickets: [], offerLed: true,
       spec: { specId: "p1", goal: "g", steps: [], tests: [], done: [], requires: [], yaml: "", facts: [], assumptions: [] },
     } as unknown as SpecDialogProposalPush;
-    render(<DialogQuestionCard question={question} proposal={spec} onAnswer={vi.fn()}
-      ticketEffect={{ summary: "Approving continues this ticket's series.", approvable: true }} inTicket />);
-    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
-    expect(screen.queryByText(/Not offered/)).toBeNull();
+    // 2026-11-19-1b72c: the ticket page decides in the composer's place too; an unoffered draft puts no decision.
+    const decision = approvalDecision(question, spec, { summary: "Approving continues this ticket's series.", approvable: true }, true);
+    expect(decides(decision, null, null)).toBe(false);
+    expect(decision!.summary).toBeNull();
   });
 });

@@ -67,6 +67,7 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
     {
         Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
         Questions = SpecDialogProposalComposer.KnownIds(proposal), Spend = proposal.Spend, // d854b; the page's own id filter
+        OfferLed = proposal.OfferLed, FilingOffer = proposal.FilingOffer, // 2026-11-19-1b72c: the offer gate, as the push
     };
 
     private static TicketConversationDraftView Draft(SpecDraft draft, IReadOnlyDictionary<string, int> ratified) =>

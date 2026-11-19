@@ -40,10 +40,7 @@ export function approvalDecision(
   // 2026-10-14-dbcek: the preview there answers a list with a plain refusal and no start arm, which would read as
   // approvable — so approving is withheld and the summary says where a list is filed.
   const boundList = proposal?.kind === "tickets" && (inTicket === true || effect !== null);
-  // 2026-11-15-bf77: a master that offers filing leads it — File waits for its offer on this draft and shows its line.
-  // A proposal from a master whose skill does not know offer_filing (offerLed absent) keeps the rule above alone.
-  const offer = proposal?.offerLed ? (proposal.filingOffer ?? null) : null;
-  const unoffered = proposal?.offerLed === true && offer === null;
+  const { offer, unoffered } = offerOf(proposal);
   return {
     expired: hasExpired(question),
     approvable: !boundList && !unoffered && !(effect && !effect.approvable),
@@ -54,14 +51,30 @@ export function approvalDecision(
   };
 }
 
+/** What actionOf reads of a proposal — the ticket page's conversation proposal carries the kind alone (2026-11-19-1b72c). */
+export type ActionSource = Pick<SpecDialogProposalPush, "kind"> & Partial<Pick<SpecDialogProposalPush, "bug" | "tickets" | "configChanges">>;
+
+/** What the offer gate reads of a proposal — the push and the ticket page's conversation proposal both carry it. */
+export type OfferSource = Partial<Pick<SpecDialogProposalPush, "offerLed" | "filingOffer">>;
+
+/**
+ * 2026-11-15-bf77: a master that offers filing leads it — the decision waits for its offer on this draft and shows its
+ * line. A proposal from a master whose skill does not know offer_filing (offerLed absent) is never held back.
+ * 2026-11-19-1b72c: one rule for Work it out's decision and the ticket page's.
+ */
+export function offerOf(proposal: OfferSource | null): { offer: string | null; unoffered: boolean } {
+  const offer = proposal?.offerLed ? (proposal.filingOffer ?? null) : null;
+  return { offer, unoffered: proposal?.offerLed === true && offer === null };
+}
+
 /** 2026-11-19-7c42b: the approve button names what it creates, so nobody reads "File" as a file. */
-export function actionOf(proposal: SpecDialogProposalPush, bound: boolean): string {
+export function actionOf(proposal: ActionSource, bound: boolean): string {
   if (proposal.kind === "config") {
     const count = proposal.configChanges?.length ?? 0;
     return count === 1 ? "Apply 1 change" : `Apply ${count} changes`;
   }
   if (proposal.kind === "comment") return "Post comment";
-  if (proposal.bug) return "Create bug ticket";
+  if (proposal.bug || proposal.kind === "bug") return "Create bug ticket";
   if (proposal.kind === "tickets") {
     const count = proposal.tickets?.length ?? 0;
     return count === 1 ? "Create 1 ticket" : `Create ${count} tickets`;

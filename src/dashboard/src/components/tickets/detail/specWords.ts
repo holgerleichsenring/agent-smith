@@ -87,7 +87,8 @@ export function defaultSpec(specs: TicketSeriesSpec[]): TicketSeriesSpec | null 
 
 /** A criterion's mark, words and the attempt that verified it. */
 export function criterionRow(criterion: TicketSeriesCriterion, spec: TicketSeriesSpec): { mark: string; glyph: string; who: string } {
-  const unjudged = spec.report ? "see the master's report" : spec.verdictRecorded === false ? "no verdict recorded"
+  // 2026-11-19-1b72c: a spec that recorded no verdict leaves the line unmarked rather than saying so.
+  const unjudged = spec.report ? "see the master's report" : spec.verdictRecorded === false ? ""
     : spec.state === "not_started" ? "not started" : "verify pending";
   return verdictRow(criterion, spec.executedByAttempt != null ? `A${spec.executedByAttempt}` : "", unjudged);
 }

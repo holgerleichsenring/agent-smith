@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-1b72c
+goal: "The ticket page decides like Work it out: an offered proposal replaces the composer with its named action and Keep chatting; no Approve/Discard; retired verdict words leave the run view."
+applies_to: "dashboard (tickets/detail TicketComposer, DialogQuestionCard, runlog runSections, reportWords, SpecCard)"
+requires:
+  - 2026-11-19-7c42b
+facts:
+  - claim: "The ticket composer offers Approve and Discard beside the text field."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:149; src/dashboard/src/components/tickets/detail/TicketComposer.tsx:94"
+  - claim: "The run view still counts done criteria met and says 'no verdict recorded', though the per-criterion verdict was retired on 2026-11-18."
+    evidence: "src/dashboard/src/components/jobs/runlog/runSections.ts:72-74; src/dashboard/src/components/tickets/detail/reportWords.ts:46-55"
+scope:
+  in: "The ticket page's decision on an awaiting proposal; the verdict words in the run view and spec card."
+  out: "Work it out (done in 2026-11-19-7c42b)."
+decisions:
+  - "Same rule as Work it out: a decision or text, never both at once; discard in words."
+  - "The run view shows the master's report instead of a criterion count nobody records; a run with neither a recorded verdict nor a report shows no check section (run data carries no separate build/test result)."
+steps:
+  - id: decision
+    action: "On the ticket page, put an offered proposal's named action and Keep chatting in the composer's place; remove Approve and Discard."
+  - id: verdict-words
+    action: "Remove 'N of M done criteria met', 'no verdict recorded' and the 'Checked against the spec' row where no verdict exists."
+done:
+  - "when a bound proposal is offered, then the ticket composer is replaced by its action and Keep chatting"
+  - "No file under src/dashboard/src renders 'no verdict recorded'."
+tests:
+  - TicketComposer_Offered_DecidesInTheComposersPlace
+  - RunSections_NoVerdict_ShowsNoCriteriaCount

@@ -1,88 +1,41 @@
 "use client";
 
-import { DialogProposalUploads } from "@/components/dialog/DialogProposalUploads";
 import { Markdown } from "@/components/ui/Markdown";
-import type { TicketApprovalEffect } from "@/lib/tickets/approvalEffect";
-import { approvalDecision, hasExpired, type ApprovalDecision } from "./approvalDecision";
-import type {
-  SpecDialogChoice,
-  SpecDialogDecision,
-  SpecDialogProposalPush,
-  SpecDialogQuestionPush,
-} from "@/types/spec-dialog";
+import { hasExpired } from "./approvalDecision";
+import type { SpecDialogChoice, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
 // 2026-09-15-cb3e: the affordance a typed question needs. The controls come from the
-// question itself — a Choice question carries its choices, and the APPROVAL that files
-// tickets carries no approve/reject pair of its own: every adapter builds that from the kind,
-// which is why the kind travels with the push. (2026-09-22-355b: an approval DOES carry
-// choices now — the other shapes the proposal could take — and they ride beside that pair.)
+// question itself — a Choice question carries its choices, a confirmation is Yes/No.
 //
 // An answer goes back as an ordinary message through the same endpoint the composer uses,
 // so a click and a typed reply take one path — and anything else the operator types is the
 // edit note the flow already routes.
 //
-// 2026-09-17-c7aed: the approval is the decision, so it gets a surface of its own — what
-// will be filed, counted from the proposal, above the confirmation text as sent. Nothing is
-// said about the order the slices run in: that depends on the project, not on the proposal.
-//
-// 2026-09-17-042ek: and the confirmation the server sends a PAGE now carries no text at all,
-// because this card already says all of it — the counted summary, 042ed's findings, and the
-// two buttons that are the approve/reject sentence. What the card cannot say by itself is
-// what would be filed when the proposal did not reach it, and the two ways that happens are
-// not the same thing, so they do not get the same sentence. With NO proposal the draft is
-// nowhere on this page — the shown transcript strips every draft block and the seed drops the
-// agent entry that leaves empty — so the honest advice is to reject and ask again. With a
-// proposal this build cannot count, the findings below still come from it and the operator
-// can read it in the pane; only the one-line count is missing.
-//
 // 2026-09-17-042ef: the card is the Projects page's panel card, and the accent line around it
 // is this page's own modifier — it says the conversation is waiting on a person, which is a
 // state the studio's cards never have. An expired card keeps the plain card line, because
-// nothing is waiting any more. The two controls are the studio's buttons.
+// nothing is waiting any more.
+//
+// 2026-11-19-1b72c: an APPROVAL is no longer decided on this card. An offered proposal takes the
+// composer's place as a decision (DialogDecisionBar, 7c42b) on both pages, and discarding is said in
+// words, so the card's Approve/Reject pair and its shape buttons are gone. An approval reaches the
+// card only once its wait is over, to say nothing was filed.
 
-// 2026-09-22-355b: an APPROVAL now carries choices too — the other shapes the proposal could
-// take, named by the server from the proposal's own kind. They ride BESIDE the approve/reject
-// pair rather than replacing it, because the pair, the recorded decision and the counted
-// summary above are all keyed off the approval kind. A shape goes back as its own label, which
-// the server reads as an edit note: the turn runs again in that shape and nothing is filed —
-// which the footer has to say, because a button that silently buys a turn is a surprise.
 interface Control {
   label: string;
   answer: string;
   primary: boolean;
-  /** 2026-09-17-042el: the approval buttons are a decision, shown as one rather than echoed. */
-  decision?: SpecDialogDecision;
-  /** 2026-09-22-355b: why this shape — the wire already carried it and the card dropped it. */
-  description?: string | null;
 }
 
 export function DialogQuestionCard({
   question,
-  proposal,
   onAnswer,
-  ticketEffect,
-  inTicket,
 }: {
   question: SpecDialogQuestionPush;
-  proposal: SpecDialogProposalPush | null;
-  onAnswer: (answer: string, decision?: SpecDialogDecision) => void;
-  /** 2026-10-13-9a59r: on a TICKET-BOUND conversation "Approve & file … One ticket." is false — 9a59l
-   *  continues the ticket or files a follow-up — so the card says what the preview says instead. */
-  ticketEffect?: TicketApprovalEffect | null;
-  /** 2026-10-14-dbcek: the conversation belongs to a ticket, where a list of tickets is never filed. */
-  inTicket?: boolean;
+  onAnswer: (answer: string) => void;
 }) {
   const expired = hasExpired(question);
-  // 2026-11-12-92e9d: the guards and the summary are the Work it out composer's too (approvalDecision).
-  const approval = approvalDecision(question, proposal, ticketEffect, inTicket);
-  const controls = expired ? [] : controlsFor(question, approval); // 2026-11-10-8e59: review state never hides Approve
-  const decision = approval !== null && !expired;
-  const shapes = decision && question.choices.length > 0;
-  const summary = decision ? approval.summary : null;
-  // Only where the server said nothing AND the card has nothing of its own: a chat-shaped
-  // confirmation that still carries its text keeps that text, and shows no second line.
-  // 2026-11-19-7c42b: an unoffered draft is countable; it only waits for its offer, so it gets no "cannot count" line.
-  const unsummarised = decision && approval.approvable && !summary && question.text.trim().length === 0;
+  const controls = expired ? [] : controlsFor(question);
   return (
     <div
       data-testid="dialog-question"
@@ -92,20 +45,6 @@ export function DialogQuestionCard({
       <div className={expired ? "fl mb-1" : "fl on mb-1"}>
         {expired ? "no longer waiting — nothing was filed" : "waiting on you"}
       </div>
-      {summary && (
-        <p data-testid="dialog-approval-summary" className="dsh-body font-semibold text-ink">
-          {summary}
-        </p>
-      )}
-      {unsummarised && (
-        <p data-testid="dialog-approval-unsummarised" className="dsh-body font-semibold text-ink">
-          {proposal
-            ? "A proposal is waiting for your decision; this page cannot count what it would file. The Proposal tab has it in full."
-            : "Nothing was saved about this proposal, so this page cannot show it. Reject it and ask for a fresh one."}
-        </p>
-      )}
-      {/* 2026-11-12-92e9c: the review's count (8714) moved onto the turn's course line and spec marks. */}
-      {decision && proposal && <DialogProposalUploads uploads={proposal.uploads} />}
       {question.text.trim().length > 0 && <Markdown>{question.text}</Markdown>}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {controls.map((control) => (
@@ -113,47 +52,26 @@ export function DialogQuestionCard({
             key={control.answer}
             type="button"
             data-testid={`dialog-answer-${control.answer}`}
-            onClick={() => onAnswer(control.answer, control.decision)}
+            onClick={() => onAnswer(control.answer)}
             className={control.primary ? "btn primary" : "btn"}
           >
             {control.label}
-            {control.description && (
-              <span data-testid="dialog-shape-why" className="ec-sub">
-                {control.description}
-              </span>
-            )}
           </button>
         ))}
         {/* 2026-09-17-042ek: an EXPIRED card promised a revision it cannot deliver — the
-            confirmer has stopped waiting and the timeout cleared the stored proposal, so the
-            next message buys a whole design turn instead. That was survivable while the server
-            text was still on the card; with the text now empty it was the only sentence left. */}
-        {/* 2026-09-22-355b: picking a shape files nothing — it spends a whole turn, because
-            the master is asked again in that shape and the operator approves THAT. A button
-            beside "approve & file" that quietly buys minutes and money has to say so. */}
+            confirmer has stopped waiting, so the next message buys a whole design turn instead. */}
         <span className="ec-sub min-w-44 flex-1">
           {expired
             ? "The wait is over — anything you write below starts a new turn."
-            : decision
-              ? (shapes ? "Picking a shape files nothing — it starts a new turn. " : "")
-                + "Anything you write below is a note, and the proposal is revised with it."
-              : "Anything else you write below is a note — the proposal is revised with it."}
+            : "Anything else you write below is a note — the proposal is revised with it."}
         </span>
       </div>
     </div>
   );
 }
 
-function controlsFor(question: SpecDialogQuestionPush, approval: ApprovalDecision | null): Control[] {
-  if (approval) {
-    const approve: Control[] = !approval.approvable ? []
-      : [{ label: approval.bound ? "Approve" : "Approve & file", answer: "approve", primary: true, decision: "approved" }];
-    return [
-      ...approve,
-      { label: "Reject", answer: "reject", primary: false, decision: "rejected" },
-      ...question.choices.map(asShape),
-    ];
-  }
+function controlsFor(question: SpecDialogQuestionPush): Control[] {
+  if (question.kind === "approval") return [];
   if (question.choices.length > 0) return question.choices.map(asControl);
   if (question.kind === "confirmation")
     return [
@@ -166,10 +84,4 @@ function controlsFor(question: SpecDialogQuestionPush, approval: ApprovalDecisio
 
 function asControl(choice: SpecDialogChoice): Control {
   return { label: choice.label, answer: choice.label, primary: false };
-}
-
-/** A shape offered beside the pair: the label is the answer, and it says why it is offered. */
-function asShape(choice: SpecDialogChoice): Control {
-  const { label, description } = choice;
-  return { label, answer: label, primary: false, description };
 }

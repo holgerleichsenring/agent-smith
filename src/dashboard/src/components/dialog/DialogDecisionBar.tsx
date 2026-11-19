@@ -38,5 +38,10 @@ export function DialogDecisionBar({
 
 /** Whether the decision is put to the operator now: offered, still answerable, and not set aside for chatting. */
 export function decides(decision: ApprovalDecision | null, chattingOn: string | null, proposalId: string | null): boolean {
-  return decision !== null && decision.approvable && !decision.expired && chattingOn !== (proposalId ?? "");
+  return decision !== null && decision.approvable && !decision.expired && chattingOn !== asideKey(proposalId);
+}
+
+/** The key a decision is set aside under for Keep chatting — the awaiting proposal's id, "" when it carries none. */
+export function asideKey(proposalId: string | null | undefined): string {
+  return proposalId ?? "";
 }

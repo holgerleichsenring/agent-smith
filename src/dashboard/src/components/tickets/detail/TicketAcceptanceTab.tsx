@@ -61,7 +61,7 @@ function RunCriteria({ run }: { run: TicketSeriesUnattributed }) {
       <h5>Run criteria, not tied to a spec · attempt {run.attempt}</h5>
       <div className="crit">
         {run.criteria.map((criterion) => (
-          <CriterionLine key={criterion.text} criterion={criterion} row={verdictRow(criterion, by, "no verdict recorded")} judgedBy={run.runId} />
+          <CriterionLine key={criterion.text} criterion={criterion} row={verdictRow(criterion, by, "")} judgedBy={run.runId} />
         ))}
         {run.unmeasured.map((account) => (
           <div key={account.repositories} className="ci" data-testid="acceptance-unmeasured">

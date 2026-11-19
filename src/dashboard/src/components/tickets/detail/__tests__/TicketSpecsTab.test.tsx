@@ -377,14 +377,15 @@ describe("Ticket specs and acceptance tabs over a run-record series", () => {
     expect(within(doc).queryByTestId("spec-discuss")).toBeNull();
   });
 
-  it("Acceptance_ShowsTheRecordedVerdicts_NoVerdictRecorded_AndTheUnattributedRunCriteria", async () => {
+  it("Acceptance_ShowsTheRecordedVerdicts_NoVerdictWords_AndTheUnattributedRunCriteria", async () => {
     nav.search = "tab=acceptance";
     await open();
     expect(screen.getByTestId("acceptance-run-record")).toBeInTheDocument();
     expect(screen.getByTestId("acceptance-tally")).toHaveTextContent("1 of 1 verified · 1 spec without a recorded verdict");
     expect(screen.getByTestId("acceptance-spec-p1a")).toHaveTextContent("A1");
     const none = screen.getByTestId("acceptance-spec-p1b");
-    expect(none).toHaveTextContent("no verdict recorded");
+    // 2026-11-19-1b72c: a spec that recorded no verdict leaves its lines unmarked rather than saying so.
+    expect(none).not.toHaveTextContent("no verdict recorded");
     expect(none).not.toHaveTextContent("verify pending");
     const run = screen.getByTestId("acceptance-run-r-1");
     expect(run).toHaveTextContent("Run criteria, not tied to a spec · attempt 1");

@@ -1,12 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { DialogDecisionBar, decides } from "../DialogDecisionBar";
 import { DialogQuestionCard } from "../DialogQuestionCard";
-import { decides } from "../DialogDecisionBar";
 import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
-// 2026-10-13-9a59r: the approval card on a ticket-bound conversation says what approving does there, and
-// reads "Approve"; without ticketEffect it is the card it always was.
+// 2026-10-13-9a59r: on a ticket-bound conversation the decision says what approving does there; without ticketEffect
+// it is the decision it always was. 2026-11-19-1b72c: the approval card left; the decision bar takes the composer's
+// place on the ticket page as on Work it out, and the card answers only the questions that are not an approval.
 
 const question: SpecDialogQuestionPush = {
   dialogId: "d-1", questionId: "q-1", kind: "approval", text: "", choices: [], at: "2026-09-15T10:01:00Z", expiresAt: null,
@@ -16,28 +17,21 @@ const proposal = {
   spec: { specId: "p1", goal: "g", steps: [], tests: [], done: [], requires: [], yaml: "", facts: [], assumptions: [] },
 } as unknown as SpecDialogProposalPush;
 
-describe("DialogQuestionCard ticketEffect", () => {
-  it("WithTicketEffect_ThePrimaryControlReadsApprove_AndTheSummaryIsTheEffectLabel", () => {
-    const onAnswer = vi.fn();
-    render(<DialogQuestionCard question={question} proposal={proposal} onAnswer={onAnswer}
-      ticketEffect={{ summary: "Approving continues this ticket's series.", approvable: true }} />);
-    expect(screen.getByTestId("dialog-answer-approve")).toHaveTextContent(/^Approve$/);
-    expect(screen.getByTestId("dialog-approval-summary")).toHaveTextContent(/^Approving continues this ticket's series\.$/);
-    fireEvent.click(screen.getByTestId("dialog-answer-approve"));
-    expect(onAnswer).toHaveBeenCalledWith("approve", "approved");
+describe("ticket decision effect", () => {
+  it("WithTicketEffect_TheActionWritesTheSpecToTheTicket_AndTheSummaryIsTheEffectLabel", () => {
+    const onApprove = vi.fn();
+    const decision = approvalDecision(question, proposal, { summary: "Approving continues this ticket's series.", approvable: true }, true)!;
+    render(<DialogDecisionBar decision={decision} onApprove={onApprove} onKeepChatting={vi.fn()} />);
+    expect(screen.getByTestId("dialog-file")).toHaveTextContent(/^Write spec to ticket$/);
+    expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent(/^Approving continues this ticket's series\.$/);
+    fireEvent.click(screen.getByTestId("dialog-file"));
+    expect(onApprove).toHaveBeenCalledOnce();
   });
 
-  it("WithoutTicketEffect_TheCardIsUnchanged", () => {
-    render(<DialogQuestionCard question={question} proposal={proposal} onAnswer={vi.fn()} />);
-    expect(screen.getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
-    expect(screen.getByTestId("dialog-approval-summary")).toHaveTextContent("File this spec? One ticket.");
-  });
-
-  it("ANotApprovableEffect_OffersNoApprove", () => {
-    render(<DialogQuestionCard question={question} proposal={proposal} onAnswer={vi.fn()}
-      ticketEffect={{ summary: "x", approvable: false }} />);
-    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
-    expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
+  it("WithoutTicketEffect_TheDecisionIsUnchanged", () => {
+    render(<DialogDecisionBar decision={approvalDecision(question, proposal)!} onApprove={vi.fn()} onKeepChatting={vi.fn()} />);
+    expect(screen.getByTestId("dialog-file")).toHaveTextContent("Create ticket");
+    expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent("File this spec? One ticket.");
   });
 
   // 2026-11-12-92e9d: the composer's decision follows the same preview.
@@ -49,5 +43,18 @@ describe("DialogQuestionCard ticketEffect", () => {
 
   it("ApprovalDecision_OtherQuestionKind_IsNull", () => {
     expect(approvalDecision({ ...question, kind: "choice" }, proposal)).toBeNull();
+  });
+
+  it("DialogQuestionCard_Approval_OffersNoApproveOrReject", () => {
+    render(<DialogQuestionCard question={question} onAnswer={vi.fn()} />);
+    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
+    expect(screen.queryByTestId("dialog-answer-reject")).toBeNull();
+  });
+
+  it("DialogQuestionCard_Choice_AnswersWithTheLabel", () => {
+    const onAnswer = vi.fn();
+    render(<DialogQuestionCard question={{ ...question, kind: "choice", choices: [{ label: "Postgres", description: null }] }} onAnswer={onAnswer} />);
+    fireEvent.click(screen.getByTestId("dialog-answer-Postgres"));
+    expect(onAnswer).toHaveBeenCalledWith("Postgres");
   });
 });

@@ -11,8 +11,9 @@ import { MasterReportText } from "./TicketFollowUps";
 import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-11-16-6877a: the spec an attempt delivered, as a card inside its report. Closed it names the spec and how many
-// done criteria were met; open it lists every criterion with its verdict and what the run cited, and the choices the
-// run took without asking ("Decided for you"), each kept or changed with the Defaults tab's own verdicts.
+// done criteria were met (a spec stored with verdicts) or that its master reported — nothing when neither (1b72c);
+// open it lists every criterion with its verdict and what the run cited, and the choices the run took without asking
+// ("Decided for you"), each kept or changed with the Defaults tab's own verdicts.
 
 export function SpecCard({ spec, runId }: { spec: TicketSeriesSpec; runId: string }) {
   const [open, setOpen] = useState(false);
@@ -25,9 +26,7 @@ export function SpecCard({ spec, runId }: { spec: TicketSeriesSpec; runId: strin
       <button type="button" className="tk-spec-head" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}>
         <span className="tk-chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
         <span className="tk-spec-name">Spec <span className="mono">{spec.specId}</span></span>
-        <span className={`tk-spec-tally ${tally?.all ? "ok" : tally ? "amber" : ""}`} data-testid="spec-card-tally">
-          {tally?.words ?? "no verdict recorded"}
-        </span>
+        {tally && <span className={`tk-spec-tally ${tally.all ? "ok" : "amber"}`} data-testid="spec-card-tally">{tally.words}</span>}
       </button>
       {open && (
         <div className="tk-spec-body" id={bodyId}>

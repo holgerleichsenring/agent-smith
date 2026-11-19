@@ -47,7 +47,8 @@ describe("runLogSections", () => {
   it("runLogSections_OrderTitlesAndMeta", () => {
     const specs = [{ specId: SPEC, ordinal: 1, title: "upgrade dependencies", status: "in_progress", startedAt: null, endedAt: null, verdict: null, decisions: [], steps: [] }] as RunSpecRow[];
     const sections = runLogSections(steps, specs, snap(), null);
-    expect(sections.map((s) => s.id)).toEqual(["ticket", "ready", "plan", `spec:${SPEC}`, "check", "deliver"]);
+    // 2026-11-19-1b72c: the run recorded no verdict and no report, so it has no check section.
+    expect(sections.map((s) => s.id)).toEqual(["ticket", "ready", "plan", `spec:${SPEC}`, "deliver"]);
     expect(sections[0].meta).toBe("13");
     expect(sections[1].title).toBe("Before the work"); // 2026-11-19-6b0be
     expect(sections[1].meta).toBe("3 steps · 88 llm · $0.08 · 4m 36s");
@@ -56,7 +57,7 @@ describe("runLogSections", () => {
     expect(spec.state).toBe("running");
     expect(spec.meta).toBe("2 of 3 steps done · 170 llm · $7.28 · 1h 15m");
     expect(spec.steps.map((s) => s.story)).toEqual([true, true, false]);
-    expect(sections[5].meta).toMatch(/^not reached yet · 0 of 2 steps done/);
+    expect(sections[4].meta).toMatch(/^not reached yet · 0 of 2 steps done/);
     expect(initiallyOpen(sections)).toEqual(new Set([`spec:${SPEC}`]));
   });
 

@@ -9,7 +9,7 @@ import { spanWords } from "./runMetaWords";
 // 2026-11-17-6d9eb: the run log sectioned by work, as the approved mock draws it. Every step row the server projects
 // lands in exactly one section: before the first spec step in Before the work, a spec's steps in that spec's section, a later
 // step without a spec in Delivered when its command delivers and otherwise in the section before it. A run that cut no
-// spec reads Before the work, The work, Delivered by command. Ticket, The plan and Checked against the spec carry what the run
+// spec reads Before the work, The work, Delivered by command. Ticket, The plan and the check (when one was recorded) carry what the run
 // read and was judged on rather than steps. Each section and step says its llm calls, cost and time.
 
 export type LogSectionKind = "ticket" | "ready" | "plan" | "spec" | "work" | "check" | "deliver";
@@ -163,10 +163,9 @@ export function runLogSections(
   }
   if (rowsOf("work").length > 0) sections.push(stepSection("work", "work", "The work"));
 
+  // 2026-11-19-1b72c: a run that recorded no verdict, no report and no unmeasured account has no check section.
   const check = checkOf(snapshot?.acceptance);
-  const unmeasured = snapshot?.acceptance?.unmeasured?.length ?? 0;
-  sections.push({ id: "check", kind: "check", title: "Checked against the spec", specId: null,
-    state: unmeasured > 0 ? "bad" : check.state, meta: unmeasured > 0 ? `${check.summary} · not measured` : check.summary, steps: [] });
+  if (check) sections.push({ id: "check", kind: "check", title: check.title, specId: null, state: check.state, meta: check.summary, steps: [] });
 
   const deliver = stepSection("deliver", "deliver", "Delivered");
   deliver.meta = deliverMeta(snapshot, rowsOf("deliver"));

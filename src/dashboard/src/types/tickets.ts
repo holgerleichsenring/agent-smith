@@ -583,6 +583,9 @@ export interface TicketConversation {
     /** 2026-11-10-d854b: the operator's open questions and what the proposing turn spent. */
     questions?: SpecDialogOpenQuestion[];
     spend?: SpecDialogSpend | null;
+    /** 2026-11-19-1b72c: the master leads filing (bf77) — the decision waits for filingOffer, its line. */
+    offerLed?: boolean;
+    filingOffer?: string | null;
   } | null;
   transcriptHidden: boolean;
   threadUnavailable: boolean;
