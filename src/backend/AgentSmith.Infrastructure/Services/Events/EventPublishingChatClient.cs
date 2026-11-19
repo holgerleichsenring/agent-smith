@@ -48,12 +48,13 @@ public sealed class EventPublishingChatClient(
         var scope = runContext.CurrentCallScope;
         var materialised = messages as IList<ChatMessage> ?? messages.ToList();
         var prompt = PromptText(materialised);
-        // p0224: the model is known to the factory at wrap time, so LlmCallStarted (the
-        // in-flight row) carries the real model instead of "unknown" — the response's
-        // ModelId still wins on LlmCallFinished when present.
+        // p0224: the model is known at wrap time, so LlmCallStarted carries it; the response's wins on Finished.
         var model = options?.ModelId
             ?? (string.IsNullOrEmpty(configuredModel) ? "unknown" : configuredModel);
 
+        // 2026-11-19-687ea: told at START too — before LlmCallStarted, outside the try, so a failed report opens no call.
+        await (turnActivity?.ReportAsync(new TurnActivity(TurnActivityKind.Thinking, model), cancellationToken)
+            ?? Task.CompletedTask);
         if (!string.IsNullOrEmpty(runId))
         {
             await eventPublisher.PublishAsync(
@@ -99,10 +100,8 @@ public sealed class EventPublishingChatClient(
             throw;
         }
 
-        // 2026-09-17-042ee: reported ON RETURN, because the intent exists only now — at call
-        // start the scope still holds the sentence the PREVIOUS call narrated. OUTSIDE the
-        // try: a report that failed would be caught above as the CALL failing and publish a
-        // second LlmCallFinished — a duplicate cost row — for a call already published as Ok.
+        // 2026-09-17-042ee: the intent is reported ON RETURN, the only moment it exists. OUTSIDE the try: a failed
+        // report caught as the call failing would publish a second LlmCallFinished for a call already published as Ok.
         await (turnActivity?.ReportAsync(
             new TurnActivity(TurnActivityKind.Model, model, intent), cancellationToken)
             ?? Task.CompletedTask);

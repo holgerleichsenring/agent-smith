@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Application.Services.Turns;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.AI;
 
@@ -9,8 +10,9 @@ namespace AgentSmith.Application.Services.Loop;
 /// <summary>
 /// p0177: builds a child's first loop request from its spec — who it is, where it works, the tool surface its master
 /// granted and how far it may go. 2026-11-18-c8e2a: each granted function hands on what the master writes to it.
+/// 2026-11-19-687eb: and records each call on the run under the child's id.
 /// </summary>
-public sealed class SubAgentRequestBuilder
+public sealed class SubAgentRequestBuilder(IEventPublisher events)
 {
     public AgenticLoopRequest Build(SubAgentMember member, SubAgentContext context)
     {
@@ -20,7 +22,10 @@ public sealed class SubAgentRequestBuilder
         // The master grants the child tool surface: read-only for a scan master, read/write
         // for a coding master, never spawn_agents.
         var tools = context.ChildTools
-            .Select(t => t is AIFunction f ? new MidTurnMessageAIFunction(f, member.Inbox) : t).ToList();
+            .Select(t => t is AIFunction f
+                ? new SubAgentToolCallAIFunction(
+                    new MidTurnMessageAIFunction(f, member.Inbox), events, context.MasterRunId, member.Id)
+                : t).ToList();
         var systemPrompt = SystemPrompt(spec) + SubAgentSituation.Render( // 2026-11-09-0620e
             context.Sandboxes.Keys, tools, context.ChildIterationCeiling ?? context.AgentConfig.MaxSubAgentLoopIterations);
         // The master's real AgentConfig, passed on the context: the coding-master path never

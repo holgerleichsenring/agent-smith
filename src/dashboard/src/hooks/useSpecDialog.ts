@@ -16,7 +16,8 @@ import {
 import { HELD_DIALOG_ID, type DialogIdSource } from "@/lib/specDialogSession";
 // 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
 // "which steps belong to the turn running now" is a rule of its own with its own tests.
-import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
+import { historyGap, historyOf, mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
+import { readAll } from "@/components/dialog/useTurnSteps";
 // 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
 import { withImages, withMocks } from "@/components/dialog/transcriptImages";
 import { replyRecorded, type AwaitedReply } from "@/components/dialog/recordedReply";
@@ -198,6 +199,9 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   // 2026-11-12-92e9c: the same, for the reply push to keep on its turn before the wait's end clears it.
   const activityNow = useRef<SpecDialogActivityPush[]>([]);
   useEffect(() => { activityNow.current = activity; }, [activity]);
+  // 2026-11-19-687ec: what the page read back from the running turn's run — the turn, the highest sequence a read
+  // returned for it, and whether a read is out.
+  const history = useRef<{ turn: string; upTo: number; reading: boolean } | null>(null);
   const replySteps = useRef<SpecDialogActivityPush[]>([]);
   // The transcript is re-seeded from the server only when the CONVERSATION changed — a
   // refetch after every reply would otherwise drop the framework's own lines, which the
@@ -372,6 +376,27 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   useEffect(() => {
     if (dialogId) void load(dialogId);
   }, [dialogId, load]);
+
+  // 2026-11-19-687ec: a page arriving mid-turn holds only the server's in-memory tail, a reconnect loses the pushes
+  // of its gap — so when the held steps miss any, they are read back from the turn's run. A read that found none of
+  // this turn's steps (the session still names the previous turn's run) marks nothing and is tried with the next step.
+  const runningRunId = view?.session?.runningRunId ?? null;
+  useEffect(() => {
+    const turn = activity[0]?.turnStartedAt;
+    if (!computing || !turn || !runningRunId || !dialogId) return;
+    if (history.current?.turn !== turn) history.current = { turn, upTo: 0, reading: false };
+    const mark = history.current;
+    if (mark.reading || !historyGap(activity, mark.upTo)) return;
+    mark.reading = true;
+    void readAll(runningRunId)
+      .then((read) => {
+        const kept = historyOf(read.steps, dialogId, turn);
+        if (kept.length === 0) return;
+        mark.upTo = Math.max(mark.upTo, ...kept.map((step) => step.seq));
+        setActivity((held) => mergedSteps(held, kept));
+      }, () => undefined)
+      .finally(() => { mark.reading = false; });
+  }, [activity, computing, runningRunId, dialogId]);
 
   // The list reads overlap exactly as the dialog reads do — one goes out per framework message —
   // and a late answer carrying the row as it was two replies ago would roll the title and the

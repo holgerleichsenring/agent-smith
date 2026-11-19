@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-687ea
+goal: "While a design turn's model call runs, the working view's last line reads 'thinking · 14s' (or '<child> › thinking · 9s'), ticking, until the next step arrives."
+
+applies_to: "dashboard (components/dialog/condenseSteps, DialogWorking) + default (Contracts TurnActivityKind, Infrastructure EventPublishingChatClient)"
+
+facts:
+  - claim: "A model call is reported as a turn step only ON RETURN (kind model, name = model id), so between a tool step and the next model step nothing tells the page a call is in flight."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:102-107, src/backend/AgentSmith.Contracts/Turns/TurnActivityKind.cs:12-13"
+  - claim: "A sub-agent's steps reach the observer named '<child> › <name>' through NamedTurnActivityObserver."
+    evidence: "src/backend/AgentSmith.Application/Services/Turns/NamedTurnActivityObserver.cs:15"
+  - claim: "Every reported step is kept on the turn, recorded as a DialogActivity run event and pushed to the dialog group; the page renders condenseSteps(activity) under the clock."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DialogActivityObserver.cs:24-33, src/dashboard/src/components/dialog/DialogWorking.tsx:85,110-118"
+  - claim: "LlmCallStarted run events go to the run's event stream, which the conversation page does not read."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:55-62, src/dashboard/src/hooks/useSpecDialog.ts:516"
+
+scope:
+  in: "A new TurnActivityKind Thinking ('thinking' on the wire), reported by EventPublishingChatClient when a call STARTS (name = model id) — before LlmCallStarted is published and outside the try, so a failed report neither orphans a Started nor publishes a Failed cost row — through the same observer, keep, record and push as every other step. condenseSteps drops thinking steps (they never break a burst of reads, past turns show nothing new). DialogWorking: when the turn's last step is a thinking step, a last line 'thinking · Ns' — or '<child> › thinking · Ns' for a sub-agent's — whose seconds tick from when this page first saw that step. The next step replaces it; the line goes with the working view when the turn ends."
+  out: "Shipping before 2026-11-19-687ec (each model call becomes two steps, so the in-memory tail covers fewer tool calls; 687ec reads the whole history). The run page's step log (a different component path; sub-agent thinking there is 2026-11-19-687eb). Showing more than one in-flight call when children run in parallel — the last one is the line. A server-side per-step clock."
+
+steps:
+  - id: contract
+    action: "Add TurnActivityKind.Thinking; SpecDialogActivityKind gains 'thinking'; the push's doc names it."
+  - id: report
+    action: "EventPublishingChatClient reports Thinking(model) before publishing LlmCallStarted, outside the try."
+  - id: dashboard
+    action: "condenseSteps skips thinking; a pure inFlight(steps) returns the label of the last step when it is thinking; DialogWorking renders it with a ticking seconds counter."
+  - id: tests
+    action: "Backend: ModelCallActivityTests (class doc reworded) — the chat client reports Thinking before Model; a throwing report leaves no orphan Started; a throwing Model report still publishes one Finished Ok. Dashboard: condenseSteps drops thinking; inFlight labels master and child; DialogWorking shows the line only while the last step is thinking."
+
+tests:
+  - "ModelCallActivityTests: a call with an observer reports Thinking then Model, both with the model name; a Thinking report that throws publishes neither LlmCallStarted nor LlmCallFinished; a Model report that throws still publishes exactly one Finished Ok."
+  - "condenseSteps: thinking steps produce no line and do not split a read burst."
+  - "inFlight: last step thinking → 'thinking'; 'PoC analyst › gpt-x' thinking → 'PoC analyst › thinking'; last step a tool → null."
+  - "DialogWorking: renders dialog-thinking 'thinking · 0s' when the last step is thinking, none otherwise."
+
+done:
+  - "dotnet build green, affected backend tests green; dashboard tests and build green; gen:hub-events unchanged."

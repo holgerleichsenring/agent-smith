@@ -23,9 +23,10 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class RunningDialogTurn
 {
     /// <summary>
-    /// How many steps of one turn a reader is served. A turn that reads forty files reports
-    /// forty; the page folds all but the last few away, and the ones before this bound say
-    /// nothing a reader arriving now is waiting for.
+    /// How many steps of one turn a reader is served from memory: the newest, which the batching projector may not have
+    /// written to the run yet. 2026-11-19-687ec: everything before them is read back from the turn's run
+    /// (DialogActivity events) by the page itself, so this bounds the memory a running turn holds, not what a reader
+    /// sees.
     /// </summary>
     private const int Kept = 50;
 

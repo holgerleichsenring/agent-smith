@@ -38,6 +38,7 @@ const api = vi.hoisted(() => ({
   fetch: vi.fn(),
   post: vi.fn(async () => {}),
   resume: vi.fn(async () => {}),
+  activity: vi.fn(),
 }));
 vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (id: string) => api.fetch(id),
@@ -47,6 +48,7 @@ vi.mock("@/lib/specDialogApi", () => ({
   deleteSpecDialogConversation: async () => {},
   uploadSpecDialogImage: async () => ({}),
   uploadSpecDialogReferences: async () => ({}),
+  fetchDialogActivity: (...args: unknown[]) => api.activity(...(args as [])),
 }));
 
 const { useSpecDialog } = await import("../useSpecDialog");
@@ -129,5 +131,54 @@ describe("useSpecDialog, a turn once shown", () => {
     await waitFor(() => expect(result.current.proposal).toBeNull());
     const turn = result.current.entries.find((entry) => entry.text === "Here is the cut.");
     expect(turn?.proposal?.spec?.specId).toBe("s-1");
+  });
+});
+
+// 2026-11-19-687ec: the server serves a late reader only its in-memory tail; the page reads the rest from the run.
+describe("useSpecDialog, a page opening a running turn", () => {
+  const tail = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => ({ ...step, seq: from + i }));
+  const keptOnRun = (to: number, turnStartedAt = "2016-01-01T00:00:00.0000000+00:00") => ({
+    count: to, nextSeq: null, hasMore: false,
+    steps: Array.from({ length: to }, (_, i) => ({
+      kind: "tool", name: "read_file", detail: "src/import.ts", seq: i + 1, timestamp: started, turnStartedAt,
+    })),
+  });
+  function running(id: string): SpecDialogView {
+    const read = view(id);
+    return {
+      ...read,
+      session: { ...read.session!, runningRunId: "run-9" } as SpecDialogView["session"],
+      turn: { computing: true, elapsedSeconds: 300, steps: tail(31, 80), turnStartedAt: started },
+    };
+  }
+
+  beforeEach(() => {
+    api.activity.mockReset();
+    api.fetch.mockImplementation(async (id: string) => running(id));
+  });
+
+  it("ReaderAfterFiftySteps_SeesTheFirstStep", async () => {
+    api.activity.mockResolvedValue(keptOnRun(80));
+
+    const { result } = renderHook(() => useSpecDialog(INSTANCE_DIALOG_ID));
+
+    await waitFor(() => expect(result.current.activity).toHaveLength(80));
+    expect(result.current.activity[0].seq).toBe(1);
+    expect(api.activity).toHaveBeenCalledTimes(1);
+    expect(api.activity.mock.calls[0][0]).toBe("run-9");
+  });
+
+  it("HistoryWithNoneOfThisTurn_IsReadAgainWithTheNextStep", async () => {
+    api.activity.mockResolvedValueOnce(keptOnRun(10, "2015-12-31T00:00:00Z")).mockResolvedValue(keptOnRun(81));
+
+    const { result } = renderHook(() => useSpecDialog(INSTANCE_DIALOG_ID));
+    await waitFor(() => expect(api.activity).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(result.current.activity[0].seq).toBe(31);
+
+    act(() => hub.specDialogActivity.emit({ ...step, dialogId: result.current.dialogId!, seq: 81 }));
+
+    await waitFor(() => expect(result.current.activity[0].seq).toBe(1));
+    expect(api.activity).toHaveBeenCalledTimes(2);
   });
 });

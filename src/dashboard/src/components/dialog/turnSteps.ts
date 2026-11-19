@@ -1,4 +1,4 @@
-import type { SpecDialogActivityPush } from "@/types/spec-dialog";
+import type { SpecDialogActivityKind, SpecDialogActivityPush, SpecDialogActivityStep } from "@/types/spec-dialog";
 
 // 2026-09-18-2f8b: the steps of ONE running turn, as the page holds them. They reach it two
 // ways — served by the conversation read and pushed over the hub — and the two overlap, so
@@ -54,4 +54,42 @@ export function mergedSteps(
     kept = [...kept, step].sort((a, b) => a.seq - b.seq).slice(-ACTIVITY_KEPT);
   }
   return kept;
+}
+
+// 2026-11-19-687ec: a page that opens (or reopens) a running turn is served only the tail the server keeps in memory,
+// and a reconnect loses the pushes of its gap. Every step is also kept on the turn's run, so the page reads the gap
+// back from there instead of showing a list that starts in the middle.
+
+/** Whether the held steps miss a sequence above `readUpTo` — the highest one a history read already returned. A gap
+ *  at or below it is a step the run never kept (one reported before the run had an id), which no read will fill. A
+ *  page holding its full ACTIVITY_KEPT keeps only the newest steps on purpose, so nothing is missing there. */
+export function historyGap(held: SpecDialogActivityPush[], readUpTo: number): boolean {
+  if (held.length >= ACTIVITY_KEPT) return false;
+  let expected = 1;
+  for (const step of held) {
+    if (step.seq > expected && step.seq - 1 > readUpTo) return true;
+    expected = Math.max(expected, step.seq + 1);
+  }
+  return false;
+}
+
+/** The steps a run kept for THIS turn, as the page holds them. The turn is compared as an instant and re-stamped with
+ *  the held string, because the merge tells turns apart by that string. */
+export function historyOf(
+  kept: SpecDialogActivityStep[],
+  dialogId: string,
+  turnStartedAt: string,
+): SpecDialogActivityPush[] {
+  const turn = Date.parse(turnStartedAt);
+  return kept
+    .filter((step) => step.turnStartedAt != null && Date.parse(step.turnStartedAt) === turn)
+    .map((step) => ({
+      dialogId,
+      kind: step.kind as SpecDialogActivityKind,
+      name: step.name ?? null,
+      detail: step.detail ?? null,
+      at: step.timestamp,
+      seq: step.seq,
+      turnStartedAt,
+    }));
 }
