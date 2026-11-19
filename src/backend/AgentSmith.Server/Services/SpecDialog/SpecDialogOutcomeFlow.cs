@@ -41,7 +41,11 @@ public sealed class SpecDialogOutcomeFlow(
             logger.LogInformation("The ticket steward leads spec-dialog session {SessionId}; its awaiting proposal is cleared", state.JobId);
             if (!DialogTarget.IsDashboard(state)) await notices.TellAsync(state, composer.ComposeSuperseded(), cancellationToken);
         }
-        if (proposal is AnswerOutcome) return; // 2026-11-19-6b0bd: no draft is written mid-turn, so none is left to clear
+        if (proposal is AnswerOutcome answer)
+        {
+            if (answer.Withdrawn) await WithdrawAsync(state, cancellationToken);
+            return; // 2026-11-19-6b0bd: no draft is written mid-turn, so none is left to clear
+        }
         (string Id, string? Replaced) stored;
         try
         {
@@ -58,5 +62,14 @@ public sealed class SpecDialogOutcomeFlow(
         await chatCards.PostAsync(state, proposal, stored.Id, cancellationToken);
         logger.LogInformation("Outcome {Kind} for spec-dialog session {SessionId} awaits a decision as {ProposalId}",
             proposal.GetType().Name, state.JobId, stored.Id);
+    }
+
+    // 2026-11-19-7c42a: the turn deleted its draft because the operator said to discard it — the awaiting proposal ends
+    // as a Discard click ended it, and the next turn starts with no draft.
+    private async Task WithdrawAsync(ConversationState state, CancellationToken cancellationToken)
+    {
+        if ((await proposals.ReadAsync(state, cancellationToken)).AwaitingId is not { } id) return;
+        if (await proposals.RejectAsync(state, id, cancellationToken))
+            logger.LogInformation("Spec-dialog session {SessionId} discarded its draft; proposal {ProposalId} is withdrawn", state.JobId, id);
     }
 }

@@ -1,0 +1,11 @@
+spec: 2026-11-19-7c42a
+decisions:
+  - chosen: "AnswerOutcome carries Withdrawn; an emptied draft is still an answer."
+    alternatives: "A new WithdrawnOutcome kind."
+    why: "It proposes nothing, exactly as an answer; a second outcome kind would need every switch over outcomes to learn it."
+  - chosen: "Withdraw through the existing reject compare-and-set."
+    alternatives: "Supersede the row, or add a withdrawn state."
+    why: "Discarding in words replaces the Discard button, which rejected; one end state for one act."
+  - chosen: "No notice in the transcript on a withdraw."
+    alternatives: "Post 'Rejected — nothing was filed' as the button did."
+    why: "The agent's own reply already says the draft is discarded; a framework line beside it is the banner the operator asked to remove."

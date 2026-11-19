@@ -44,6 +44,31 @@ public sealed class SpecDialogOutcomeFlowTests : IDisposable
             "a chat thread is told on the design path and on the steward's");
     }
 
+    [Fact]
+    public async Task HandleAsync_WithdrawnAnswer_RejectsTheAwaitingProposal()
+    {
+        // 2026-11-19-7c42a: the operator said to discard the draft and the turn deleted it.
+        var harness = new SpecDialogDecisionHarness(_context, sink: Mock.Of<IOutcomeSink>());
+        var state = await harness.OpenAsync("dashboard", "d-7c42a");
+        await harness.Flow().HandleAsync(state, Spec("p1"), default);
+
+        await harness.Flow().HandleAsync(state, new AnswerOutcome { Withdrawn = true }, default);
+
+        (await harness.Proposals.ReadAsync(state, default)).AwaitingId.Should().BeNull("a discarded draft awaits nothing");
+    }
+
+    [Fact]
+    public async Task HandleAsync_PlainAnswer_LeavesTheAwaitingProposal()
+    {
+        var harness = new SpecDialogDecisionHarness(_context, sink: Mock.Of<IOutcomeSink>());
+        var state = await harness.OpenAsync("dashboard", "d-7c42a2");
+        await harness.Flow().HandleAsync(state, Spec("p1"), default);
+
+        await harness.Flow().HandleAsync(state, new AnswerOutcome(), default);
+
+        (await harness.Proposals.ReadAsync(state, default)).AwaitingId.Should().NotBeNull("an answer that changed nothing decides nothing");
+    }
+
     private async Task<int> SupersededNoticesAsync(string platform, string thread)
     {
         var harness = new SpecDialogDecisionHarness(_context, sink: Mock.Of<IOutcomeSink>());

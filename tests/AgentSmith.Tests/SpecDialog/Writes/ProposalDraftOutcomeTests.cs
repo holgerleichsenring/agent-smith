@@ -29,6 +29,17 @@ public sealed class ProposalDraftOutcomeTests
     }
 
     [Fact]
+    public void For_EmptiedDraft_IsWithdrawnAnswer()
+    {
+        // 2026-11-19-7c42a: a turn that deleted its whole draft withdraws the proposal awaiting a decision.
+        var store = new ProposalStore();
+        store.Seed(new ProposalDraft { Specs = [Spec("p9001", false)] }, changed: false);
+        store.Seed(ProposalDraft.Empty, changed: true);
+
+        ProposalDraftOutcome.For(store).Should().BeOfType<AnswerOutcome>().Which.Withdrawn.Should().BeTrue();
+    }
+
+    [Fact]
     public void ProposalDraftOutcome_EachKind_IsWhatTheDraftHolds()
     {
         ProposalDraftOutcome.Of(new ProposalDraft { Specs = [Spec("p9001", false)] }).Should().BeOfType<SpecOutcome>();
