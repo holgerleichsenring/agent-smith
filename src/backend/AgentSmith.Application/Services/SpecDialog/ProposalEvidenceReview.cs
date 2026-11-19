@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Application.Services.Specs.Review;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Sandbox;
@@ -8,32 +9,32 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// 2026-10-02-3f06c: the facts of a design turn's proposal whose cited file or line does not exist
-/// in the turn's repositories — found without a model call, by reading the cited files.
+/// in the turn's repositories or uploads — found without a model call, by reading the cited files.
 /// <para>
-/// ONLY WHAT DESCRIBES TODAY IS CHECKED. A spec that requires another, and every epic child after
-/// the first in filing order, describes the state its predecessors leave, which is not built yet;
-/// a citation of a file a predecessor creates is correct there. So: a single spec whose requires
-/// name no spec id, an epic's parent, and its first child — the parent alone when the children
-/// cannot be ordered. A spec requiring a done spec goes unchecked too; that costs a missed check,
-/// never a false finding. 2026-11-17-5701a: in a ticket list, the first spec of each ticket that requires nothing.
+/// 2026-11-19-6c6d: EVERY SPEC OF THE PROPOSAL IS CHECKED. A fact cites what exists now; what an earlier spec or a
+/// required ticket will create is an assumption, not a fact — so a citation that does not resolve is a finding
+/// whatever the spec requires, and its reason says so. The findings are advisory: they ride on the proposal.
 /// </para>
 /// </summary>
-public sealed class ProposalEvidenceReview(
-    EvidenceCheck check, EpicChildOrderer orderer, ITurnActivityObserverAccessor activity)
+public sealed class ProposalEvidenceReview(EvidenceCheck check, ITurnActivityObserverAccessor activity)
 {
     public const string Problem = "cited evidence does not resolve";
+
+    /// <summary>What a proposal's finding asks of its author, after the reason the citation failed.</summary>
+    public const string CiteWhatExists = "cite what exists now; what an earlier spec or ticket creates is an assumption";
 
     public async Task<IReadOnlyList<ProposalFinding>> FindingsAsync(
         PipelineContext pipeline, OutcomeProposal proposal, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(proposal);
-        var drafts = Checked(proposal);
+        var drafts = ProposalSpecSet.Drafts(proposal);
         var repositories = DerivationLookFactory.ProposalRepositories(pipeline);
-        var references = Specs.Review.ReviewReferences.For(pipeline); // 2026-11-10-864f: citations of an upload resolve
-        return drafts.Count == 0 || (repositories is null && references.Count == 0)
-            ? []
-            : await FindingsAsync(drafts, repositories ?? new Dictionary<string, ISandbox>(StringComparer.Ordinal), ct, references);
+        var references = ReviewReferences.For(pipeline); // 2026-11-10-864f: citations of an upload resolve
+        if (drafts.Count == 0 || (repositories is null && references.Count == 0)) return [];
+        var findings = await FindingsAsync(
+            drafts, repositories ?? new Dictionary<string, ISandbox>(StringComparer.Ordinal), ct, references);
+        return [.. findings.Select(f => f with { Why = $"{f.Why} — {CiteWhatExists}" })];
     }
 
     /// <summary>The cited files of <paramref name="drafts"/> read in <paramref name="repositories"/> — the caller
@@ -53,17 +54,4 @@ public sealed class ProposalEvidenceReview(
                     findings.Add(new ProposalFinding(draft.SpecId, Problem, problem.ToString(), fact.Claim));
         return findings;
     }
-
-    private IReadOnlyList<SpecDraft> Checked(OutcomeProposal proposal) => proposal switch
-    {
-        SpecOutcome spec when !spec.Draft.Requires.Any(RequiresEdgeChecker.SpecIdRegex().IsMatch) =>
-            [spec.Draft],
-        EpicOutcome epic => orderer.Order(epic.Children) is { Error: null, Children: [var first, ..] }
-            ? [epic.Parent, first]
-            : [epic.Parent],
-        TicketGraphOutcome graph => [.. graph.Tickets.Where(t => t.Requires.Count == 0)
-            .Select(t => orderer.Order(t.Specs) is { Error: null, Children: [var first, ..] } ? first : null)
-            .OfType<SpecDraft>()],
-        _ => [],
-    };
 }
