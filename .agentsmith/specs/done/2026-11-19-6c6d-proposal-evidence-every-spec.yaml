@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-6c6d
+goal: "Every spec of a design turn's draft gets the mechanical evidence check; a citation that does not resolve is a finding telling the master to cite what exists now."
+
+applies_to: "default (SpecDialog: ProposalEvidenceReview)"
+
+facts:
+  - claim: "The proposal evidence check reads only the drafts that describe today: a spec requiring no spec, an epic's parent and first child, a ticket list's first spec of each ticket that requires nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:57-68"
+  - claim: "Every draft of a proposal is already enumerated in one place."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalSpecSet.cs:22-28"
+  - claim: "EpicChildOrderer has users beyond the evidence check, so it stays."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/SeriesFilingPlan.cs, src/backend/AgentSmith.Application/Services/SpecDialog/Writes/SpecDraftShape.cs"
+  - claim: "A finding's Why is the evidence problem as text, e.g. 'not a file (missing, or a directory): <path>'."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:52, src/backend/AgentSmith.Application/Services/Specs/EvidenceProblem.cs:4-7"
+
+scope:
+  in: "ProposalEvidenceReview checks ProposalSpecSet.Drafts(proposal) — every draft, no ordering exemption; its EpicChildOrderer dependency goes. The proposal overload (the one ProposalMechanicalChecks calls) appends the hint 'cite what exists now; what an earlier spec or ticket creates is an assumption' to each finding's Why; the drafts overload SeriesVerification calls at the ticket branch, where predecessors ran, keeps its Why unchanged. Class doc rewritten."
+  out: "Blocking on findings: they stay advisory, published after the master ends on the proposal card and pane. Running the check inside the master's loop. SeriesVerification's own choice of which specs it checks at the ticket branch. The design partner skill text (agent-smith-skills, a separate repo)."
+
+upgrade_impact: "A design proposal now carries evidence findings on specs that require another spec or ticket too; nothing blocks on them."
+
+steps:
+  - id: review
+    action: "ProposalEvidenceReview: drop the orderer, check every draft, append the hint to Why in the proposal overload only; update the class doc and the test factory tests/AgentSmith.Tests/SpecDialog/ProposalEvidenceTestReview.cs (no EpicChildOrderer)."
+  - id: tests
+    action: "ProposalEvidenceReviewTests: the two exemption tests become checks (an epic's later child and a spec requiring a spec are checked); a ticket requiring another ticket: missing citation yields the hinted finding, a resolving one none, an upload citation resolves. The exact-Why assertions in ProposalEvidenceReviewTests (FactCitingAMissingFile) and the harness preset tests/AgentSmith.PipelineHarness/Presets/SpecDialogOutcomeTests.ProposalReview.cs (SpecDialogOutcome_ProposalCitingAMissingFile_CarriesTheFinding) carry the hint."
+
+tests:
+  - "A spec in a ticket that requires another ticket is checked; a non-resolving citation yields a finding whose Why ends with the hint."
+  - "A resolving citation there yields no finding."
+  - "A reference:<name> citation resolves against the upload as before."
+
+done:
+  - "Every draft of a proposal is checked; build and the affected tests are green; the full suite passes in the spec gate."
