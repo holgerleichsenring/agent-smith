@@ -17,11 +17,11 @@ public sealed class SourceAnchoringPreamble
         "Tools available in this round (the framework filters by phase, but " +
         "the surface is uniform): read_file (with start_line + line_count for " +
         "targeted slices and line-numbered output by default), write_file, " +
-        "edit (replace_all available), multi_edit (atomic + dry_run), " +
-        "grep_in_file, grep_in_tree (context_before / context_after + " +
+        "edit (replace_all, or several edits atomically with dry_run), " +
+        "grep_in_tree (a directory or one file; context_before / context_after + " +
         "output_mode in {content, files_with_matches, count} + head_limit), " +
-        "find_files (path-relative globs), list_directory (with_sizes + " +
-        "sort_by), directory_tree, run_command (full shell in the repo's " +
+        "find_files (path-relative globs), directory_tree (max_depth, " +
+        "with_sizes + sort_by), run_command (full shell in the repo's " +
         "ephemeral sandbox — build, test, git, sed, rm, scripts; " +
         "timeout_seconds up to 600s for builds), http_request (live HTTP " +
         "probing). Plus log_decision " +

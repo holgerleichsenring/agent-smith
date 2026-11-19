@@ -8,6 +8,8 @@ using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Moq;
 
+using AgentSmith.Tests.TestHelpers;
+
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
@@ -42,9 +44,10 @@ public sealed class DesignReadSurfaceTests
 
         await Run(loop, CodingMaster, context, children, maxSubAgents: 20);
 
-        loop.MasterTools.Should().Contain("design_read");
-        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should()
-            .NotContain("design_read", "children fanning out over one file would share one rate limit");
+        // 2026-11-18-9c1cd: design_read is web_fetch on a Figma link — the master's web_fetch takes its depth.
+        loop.Tools.Takes("web_fetch", "depth").Should().BeTrue();
+        children.SeenContexts.Single().ChildTools.Takes("web_fetch", "depth").Should()
+            .BeFalse("children fanning out over one file would share one rate limit");
     }
 
     [Fact]
@@ -57,8 +60,8 @@ public sealed class DesignReadSurfaceTests
 
         await Run(loop, DesignMaster, context, children, limits: new LoopLimitsConfig());
 
-        loop.MasterTools.Should().Contain("design_read");
-        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain("design_read");
+        loop.Tools.Takes("web_fetch", "depth").Should().BeTrue();
+        children.SeenContexts.Single().ChildTools.Takes("web_fetch", "depth").Should().BeFalse();
     }
 
     [Fact]

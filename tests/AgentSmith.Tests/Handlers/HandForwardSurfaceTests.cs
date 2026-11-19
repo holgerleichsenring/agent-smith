@@ -9,6 +9,8 @@ using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 
+using AgentSmith.Tests.TestHelpers;
+
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
@@ -29,8 +31,10 @@ public sealed class HandForwardSurfaceTests
         var withoutSpec = new CapturingLoop();
         await Run(withoutSpec, CodingMaster, MasterHandlerFixture.BuildContext(CodingMaster));
 
-        withSpec.MasterTools.Should().Contain(HandForwardToolHost.Name);
-        withoutSpec.MasterTools.Should().NotContain(HandForwardToolHost.Name);
+        // 2026-11-18-9c1cd: hand_forward's build note rides finish_spec.
+        withSpec.Tools.Takes(FinishSpecToolHost.Name, "relied_on").Should().BeTrue();
+        withoutSpec.MasterTools.Should().NotContain(FinishSpecToolHost.Name);
+        withSpec.MasterTools.Concat(withoutSpec.MasterTools).Should().NotContain(HandForwardToolHost.Name);
     }
 
     [Fact]
@@ -44,10 +48,10 @@ public sealed class HandForwardSurfaceTests
         var design = new CapturingLoop();
         await Run(design, DesignMaster, DesignContext(), limits: new LoopLimitsConfig());
 
-        coding.MasterTools.Should().Contain(HandForwardToolHost.Name);
-        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain(HandForwardToolHost.Name);
-        scan.MasterTools.Should().NotContain(HandForwardToolHost.Name);
-        design.MasterTools.Should().NotContain(HandForwardToolHost.Name);
+        coding.Tools.Takes(FinishSpecToolHost.Name, "renamed").Should().BeTrue();
+        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain(FinishSpecToolHost.Name);
+        scan.MasterTools.Should().NotContain(FinishSpecToolHost.Name);
+        design.MasterTools.Should().NotContain(FinishSpecToolHost.Name);
     }
 
     [Fact]
@@ -68,12 +72,13 @@ public sealed class HandForwardSurfaceTests
         await Run(noRun, CodingMaster, MasterHandlerFixture.BuildContext(CodingMaster));
 
         // 2026-10-25-9324b: a dispute needs a run to publish on; a child acts for its master and disputes nothing.
-        coding.MasterTools.Should().Contain(MemoryDisputeToolHost.Name);
-        scan.MasterTools.Should().Contain(MemoryDisputeToolHost.Name);
-        design.MasterTools.Should().Contain(MemoryDisputeToolHost.Name);
-        designNoStore.MasterTools.Should().NotContain(MemoryDisputeToolHost.Name, "2026-11-10-14a3d: no store, nothing to dispute");
-        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain(MemoryDisputeToolHost.Name);
-        noRun.MasterTools.Should().NotContain(MemoryDisputeToolHost.Name);
+        // 2026-11-18-9c1cd: dispute_memory is remember's dispute, offered on every master and saying why it cannot act.
+        foreach (var master in new[] { coding, scan, design, designNoStore, noRun })
+            master.Tools.Takes("remember", "dispute").Should().BeTrue();
+        children.SeenContexts.Single().ChildTools.Takes("remember", "dispute").Should().BeFalse();
+        var refused = await noRun.Tools.OfType<AIFunction>().Single(t => t.Name == "remember")
+            .InvokeAsync(new AIFunctionArguments { ["name"] = "a-fact", ["dispute"] = "it was wrong" });
+        refused!.ToString().Should().Contain("Not recorded");
     }
 
     private static AgenticMasterContext WithRun(AgenticMasterContext context)
@@ -141,11 +146,14 @@ public sealed class HandForwardSurfaceTests
 
         public IReadOnlyList<string> MasterTools { get; private set; } = [];
 
+        public IReadOnlyList<AITool> Tools { get; private set; } = [];
+
         public async Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
         {
             if (MasterTools.Count == 0)
             {
                 MasterTools = [.. request.Tools!.OfType<AIFunction>().Select(t => t.Name)];
+                Tools = [.. request.Tools!];
                 if (spawn)
                     await request.Tools!.OfType<AIFunction>().Single(t => t.Name == "spawn_agents").InvokeAsync(
                         new AIFunctionArguments { ["tasks"] = JsonDocument.Parse(OneTask).RootElement }, cancellationToken);

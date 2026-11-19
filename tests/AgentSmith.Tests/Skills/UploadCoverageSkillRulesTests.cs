@@ -23,10 +23,10 @@ public sealed class UploadCoverageSkillRulesTests
     {
         var master = PackagedMaster.Folded("design-partner-master");
 
-        master.Should().Contain("`read_notes` and `write_notes` keep this conversation's working file",
+        master.Should().Contain("`read_file`, `write_file` and `edit_file` take it as a path", // 9c1cd: notes: is a path
             Because("the notes tools"));
         master.Should().Contain("Keep there what the next turn should not have to re-read", Because("what the notes are for"));
-        master.Should().Contain("`write_notes` replaces the file with the whole text you pass", Because("the write's effect"));
+        master.Should().Contain("`write_file` on `notes:` replaces the file with the whole text you pass", Because("the write's effect"));
         master.Should().NotContain("note_reference", "the per-upload note is gone");
     }
 }

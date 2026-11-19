@@ -220,9 +220,9 @@ public sealed class SpecExecutionTests
         var chat = harness.ChatClient;
         // Spec a: start, wait, send back, wait, report.
         chat.EnqueueToolCall("spawn_agents", Spawn("WidgetBuilder", "build the widget endpoint"))
-            .EnqueueToolCall("wait_for_agents", "{}")
+            .EnqueueToolCall("send_message", """{"wait":true}""")
             .EnqueueToolCall("send_message", """{"agent_id":"WidgetBuilder","text":"The done list asks for the 404 to be tested; add that test."}""")
-            .EnqueueToolCall("wait_for_agents", "{}")
+            .EnqueueToolCall("send_message", """{"wait":true}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"impl","activity":"the work","status":"done"}]}""")
             .EnqueueFinish(summary: "the widget endpoint", report: "## Delivered\n- GET /widget returns the widget (`src/Widget.cs`), its 404 tested");
         chat.EnqueueForToolCall("WidgetBuilder", "write_file", """{"path":"primary/src/Widget.cs","content":"// endpoint"}""")
@@ -231,13 +231,13 @@ public sealed class SpecExecutionTests
             .EnqueueForText("WidgetBuilder", "Added tests/WidgetTests.cs covering the 404.");
         // Spec b: start, wait, report with a follow-up; then the stage repair: send the red output back, wait, report again.
         chat.EnqueueToolCall("spawn_agents", Spawn("StoreBuilder", "build the widget store"))
-            .EnqueueToolCall("wait_for_agents", "{}")
+            .EnqueueToolCall("send_message", """{"wait":true}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"store","activity":"the work","status":"done"}]}""")
             .EnqueueFinish(summary: "the widget store",
                 report: "## Delivered\n- POST /widget stores the widget (`src/WidgetStore.cs`)\n\n## Open\n- CSV export needs a paging contract first",
                 followUps: [("Stored widgets are exported as CSV over paging", "the paging contract is its own design")])
             .EnqueueToolCall("send_message", """{"agent_id":"StoreBuilder","text":"The build is red: error CS1002. Fix it."}""")
-            .EnqueueToolCall("wait_for_agents", "{}")
+            .EnqueueToolCall("send_message", """{"wait":true}""")
             .EnqueueFinish(summary: "the widget store, build fixed", report: "## Fixed\n- the missing semicolon (`src/WidgetStoreFix.cs`); the build is green");
         chat.EnqueueForToolCall("StoreBuilder", "write_file", """{"path":"primary/src/WidgetStore.cs","content":"// store"}""")
             .EnqueueForText("StoreBuilder", "Built the store in src/WidgetStore.cs.")

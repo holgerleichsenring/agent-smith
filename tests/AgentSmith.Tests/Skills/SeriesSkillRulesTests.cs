@@ -63,7 +63,8 @@ public sealed class SeriesSkillRulesTests
     public void EmbeddedSkills_CodingAgentMaster_EndsEachSpecWithHandForward() =>
         // 2026-11-18-4f3e: coding-agent-master 3.0.0 states it as its last step before the report.
         PackagedMaster.Folded("coding-agent-master").Should().Contain(
-            "Call `hand_forward` once with what this spec renamed, moved, persisted and deviated from (`<old> -> <new>`)",
+            // 2026-11-18-9c1cd: 3.2.0 hands the build note forward through finish_spec.
+            "call `finish_spec`, naming there what this spec renamed, moved, persisted and deviated from (`<old> -> <new>`)",
             Because("the hand-forward rule"));
 
     [Fact]
@@ -71,13 +72,13 @@ public sealed class SeriesSkillRulesTests
     {
         // 2026-11-18-4f3e: coding-agent-master 3.0.0 words the same rule under "Asking and deciding".
         PackagedMaster.Folded("coding-agent-master").Should().Contain(
-            "A choice a person might overrule goes through `decide_by_default`; an implementation choice through `log_decision`",
+            "A choice a person might overrule goes through `log_decision` with `overrulable: true`; an implementation choice through `log_decision`",
             Because("the coding master's default-choice rule"));
 
         // 2026-11-10-fc66: a design turn carries neither tool. 2026-11-12-681f: its questions go on
         // state_open_questions, the one channel, each with a proposal the draft is built on.
         var partner = Folded();
-        partner.Should().Contain("Questions only the operator can answer go on `state_open_questions`, each with your proposal",
+        partner.Should().Contain("Questions only the operator can answer go on `state_work_picture`'s `open_questions`, each with your proposal",
             Because("the design partner's question rule"));
         partner.Should().Contain("The proposal is built on your proposals, marked `proposed:`.",
             Because("the draft is never held back for a question"));

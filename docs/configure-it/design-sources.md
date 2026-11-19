@@ -43,9 +43,9 @@ A design source whose `auth` names no entry of `secrets:` is a blocking finding 
 
 ## What the agent can do with it
 
-With a design source on the project, the coding master of a run and the design partner in [Work it out](../how-it-works/work-it-out.md) both get a tool called `design_read`. Scan pipelines don't get it, and neither do the sub-agents of a design conversation. A project without a design source never sees the tool.
+With a design source on the project, the coding master of a run and the design partner in [Work it out](../how-it-works/work-it-out.md) can read a Figma link with `web_fetch`: a link that carries `node-id` goes through the project's design source instead of fetching the page. Scan pipelines can't, and neither can sub-agents. On a project without a design source, `web_fetch` on a Figma link says so.
 
-`design_read` takes a Figma link that carries `node-id`, the link you get from "Copy link to selection" on a frame. It answers with:
+`web_fetch` takes a Figma link that carries `node-id`, the link you get from "Copy link to selection" on a frame. It answers with:
 
 - the file's name, version and last modification;
 - one line per node below the frame (three levels deep by default, up to six): type, name, size, auto-layout, colours as hex, corner radius, text with its font, the component an instance is of, applied style and variable names;
@@ -62,6 +62,6 @@ Any Figma link in a ticket's description, its comments, a design conversation or
 
 ### Versions
 
-When the design partner writes a ticket or spec from a frame, it cites the link with its `node-id` and the version `design_read` reported, for example `https://www.figma.com/design/<key>?node-id=1-2 (version 123456)`, and writes the acceptance criteria from the concrete values it read. The run that builds it passes that version back to `design_read`, which then says whether the design moved since (`design moved: <cited> -> <current>`) and can read the cited version instead of the current one. The run that builds it sees that answer in its tool result; the coding master has no rule of its own for a moved design.
+When the design partner writes a ticket or spec from a frame, it cites the link with its `node-id` and the version `web_fetch` reported, for example `https://www.figma.com/design/<key>?node-id=1-2 (version 123456)`, and writes the acceptance criteria from the concrete values it read. The run that builds it passes that version back to `web_fetch` (`expected_version`), which then says whether the design moved since (`design moved: <cited> -> <current>`) and can read the cited version instead of the current one. The run that builds it sees that answer in its tool result; the coding master has no rule of its own for a moved design.
 
 Every read in a run is recorded as a `DesignRead` event with the source, file key, node and version, so the run's event log shows which design the work was built against. A design conversation has no run, so its reads are recorded nowhere; the version travels in the ticket text it writes.

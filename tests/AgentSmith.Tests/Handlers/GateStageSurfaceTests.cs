@@ -10,6 +10,8 @@ using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 
+using AgentSmith.Tests.TestHelpers;
+
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
@@ -32,10 +34,12 @@ public sealed class GateStageSurfaceTests
         var design = new CapturingLoop();
         await Run(design, DesignMaster, Declare(DesignContext()), limits: new LoopLimitsConfig());
 
-        coding.MasterTools.Should().Contain(GateStageToolHost.Name);
-        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain(GateStageToolHost.Name);
-        scan.MasterTools.Should().NotContain(GateStageToolHost.Name);
-        design.MasterTools.Should().NotContain(GateStageToolHost.Name);
+        // 2026-11-18-9c1cd: run_gate_stage is run_command's stage, on the coding master only.
+        coding.Tools.Takes("run_command", "stage").Should().BeTrue();
+        children.SeenContexts.Single().ChildTools.Takes("run_command", "stage").Should().BeFalse();
+        scan.MasterTools.Should().NotContain(["run_command", GateStageToolHost.Name]);
+        design.Tools.Takes("run_command", "stage").Should().BeFalse();
+        coding.MasterTools.Concat(design.MasterTools).Should().NotContain(GateStageToolHost.Name);
     }
 
     private static AgenticMasterContext Declare(AgenticMasterContext context)
@@ -81,11 +85,14 @@ public sealed class GateStageSurfaceTests
 
         public IReadOnlyList<string> MasterTools { get; private set; } = [];
 
+        public IReadOnlyList<AITool> Tools { get; private set; } = [];
+
         public async Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
         {
             if (MasterTools.Count == 0)
             {
                 MasterTools = [.. request.Tools!.OfType<AIFunction>().Select(t => t.Name)];
+            Tools = [.. request.Tools!];
                 if (spawn)
                     await request.Tools!.OfType<AIFunction>().Single(t => t.Name == "spawn_agents").InvokeAsync(
                         new AIFunctionArguments { ["tasks"] = JsonDocument.Parse(OneTask).RootElement }, cancellationToken);

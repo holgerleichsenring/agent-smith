@@ -38,7 +38,8 @@ public sealed class NoStaticStateRuleTests
         // 2026-10-14-da5ef: the read tools a dialog turn's child may have, and the tools the ticket steward's
         // surface leaves out — fixed name sets, so the composition and its tests cannot spell them differently.
         typeof(AgentSmith.Application.Services.Tools.SpecDialogChildTools),
-        typeof(AgentSmith.Application.Services.Tools.TicketStewardTools),
+        // 2026-11-18-9c1cd: the image file extensions read_file shows as pictures.
+        typeof(AgentSmith.Application.Services.Tools.MergedTools),
         // 2026-09-28-89f1d: the studio's Jira path keys, with their accessors — a fixed table,
         // so the catalog read and the patch write cannot spell them differently.
         typeof(AgentSmith.Infrastructure.Core.Services.Configuration.Studio.JiraEndpointsMap),

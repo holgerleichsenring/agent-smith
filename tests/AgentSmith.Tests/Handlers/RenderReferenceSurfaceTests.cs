@@ -56,12 +56,13 @@ public sealed class RenderReferenceSurfaceTests
                 subAgents: children, limits: new LoopLimitsConfig(), render: _factory)
             .ExecuteAsync(context, CancellationToken.None);
 
-        loop.MasterTools.Should().Contain("run_in_reference");
-        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain("run_in_reference");
+        // 2026-11-18-9c1cd: run_in_reference is run_command with repo reference:<name>, the master's only.
+        loop.MasterTools.Should().Contain("run_command").And.NotContain("run_in_reference");
+        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain(["run_command", "run_in_reference"]);
     }
 
     [Fact]
-    public async Task DesignTurn_WithoutAnUpload_HasNoRunInReference()
+    public async Task DesignTurn_WithoutAnUpload_RunCommandSaysThereIsNone()
     {
         var loop = new CapturingLoop();
         var context = DesignContext();
@@ -71,7 +72,9 @@ public sealed class RenderReferenceSurfaceTests
                 render: _factory)
             .ExecuteAsync(context, CancellationToken.None);
 
-        loop.MasterTools.Should().NotContain("run_in_reference");
+        var answer = await loop.Tools.OfType<AIFunction>().Single(t => t.Name == "run_command")
+            .InvokeAsync(new AIFunctionArguments { ["command"] = "ls", ["repo"] = "reference:app" });
+        answer!.ToString().Should().Contain("no upload of that name");
     }
 
     [Fact]
@@ -127,11 +130,14 @@ public sealed class RenderReferenceSurfaceTests
 
         public IReadOnlyList<string> MasterTools { get; private set; } = [];
 
+        public IReadOnlyList<AITool> Tools { get; private set; } = [];
+
         public async Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
         {
             if (MasterTools.Count == 0)
             {
                 MasterTools = [.. request.Tools!.OfType<AIFunction>().Select(t => t.Name)];
+                Tools = [.. request.Tools!];
                 if (spawn)
                     await request.Tools!.OfType<AIFunction>().Single(t => t.Name == "spawn_agents").InvokeAsync(
                         new AIFunctionArguments { ["tasks"] = JsonDocument.Parse(OneTask).RootElement }, cancellationToken);

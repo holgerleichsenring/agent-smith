@@ -26,14 +26,14 @@ public static partial class DesignReferenceSection
         var sb = new StringBuilder("\n\n## Design references\n");
         sb.AppendLine(readable
             ? "The ticket or conversation points at these Figma designs, rebuilt from their file key and "
-              + "node. Nothing has been read: read a frame with design_read when the work depends on it."
+              + "node. Nothing has been read: read a frame by passing its link to web_fetch when the work depends on it."
             : "The ticket or conversation points at these Figma designs, rebuilt from their file key and "
               + "node. No design source is configured for this project, so they cannot be read here — "
               + "web_fetch on a Figma link returns the application shell, not the design. Say so when "
               + "the work depends on one.");
         foreach (var link in links.Take(MaxListed))
             sb.AppendLine(link.NodeId is null
-                ? $"- {link.Canonical} (names no node: design_read needs the link of a frame)"
+                ? $"- {link.Canonical} (names no node: web_fetch needs the link of a frame)"
                 : $"- {link.Canonical}");
         if (links.Count > MaxListed)
             sb.AppendLine($"- and {links.Count - MaxListed} more not listed.");

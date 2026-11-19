@@ -34,13 +34,16 @@ public sealed class StartNextAttemptSurfaceTests
     }
 
     [Fact]
-    public async Task AttemptStart_PosterWithoutRunsControl_ToolAbsent()
+    public async Task AttemptStart_PosterWithoutRunsControl_OfferedAndSaysWhy()
     {
         var loop = new SurfaceCapturingLoop();
 
         await Run(loop, DesignContext()); // no port seeded: no right, or a ticket never worked
 
-        loop.MasterTools.Should().NotContain(Tool);
+        // 2026-11-18-9c1cd: the bound turn's set is fixed; the tool answers why the poster may not.
+        var answer = await loop.Tools.OfType<AIFunction>().Single(t => t.Name == Tool)
+            .InvokeAsync(new AIFunctionArguments { ["reason"] = "go on" });
+        answer!.ToString().Should().Contain("runs.control");
     }
 
     [Fact]
@@ -82,6 +85,8 @@ public sealed class StartNextAttemptSurfaceTests
     {
         var context = MasterHandlerFixture.BuildContext(DesignMaster, includeTicket: false);
         context.Pipeline.Set(ContextKeys.PipelineName, PipelinePresets.SpecDialogName);
+        context.Pipeline.Set(ContextKeys.DialogueJobId, "s-start"); // a bound turn: its ticket is read
+        context.Pipeline.Set(ContextKeys.SpecDialogTicketReader, Mock.Of<ITicketReader>());
         context.Pipeline.Set<IReadOnlyList<SpecDialogTurn>>(ContextKeys.SpecDialogTranscript,
         [
             new SpecDialogTurn(SpecDialogTurn.UserRole, "the registry is added, go on"),

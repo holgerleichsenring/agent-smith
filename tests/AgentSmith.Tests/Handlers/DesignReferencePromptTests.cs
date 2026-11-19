@@ -33,7 +33,7 @@ public sealed class DesignReferencePromptTests
 
         var prompt = await UserPromptOf(context, "coding-agent-master");
 
-        prompt.Should().Contain("## Design references").And.Contain(Rebuilt).And.Contain("read a frame with design_read");
+        prompt.Should().Contain("## Design references").And.Contain(Rebuilt).And.Contain("read a frame by passing its link to web_fetch");
     }
 
     [Fact]

@@ -92,7 +92,7 @@ public sealed class SetupRegistryAuthHandler(
             $"Registry auth staged: {totalApplied} credential(s) across {sandboxes.Count} sandbox(es).");
     }
 
-    private async Task<int> StageInSandboxAsync(
+    internal async Task<int> StageInSandboxAsync(
         string repoKey, ISandbox sandbox, Func<AgentConfig> agentFactory,
         List<string> written, CancellationToken ct)
     {

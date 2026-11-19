@@ -82,7 +82,7 @@ public sealed class SpecDialogSubAgentTests
         await RunDesignTurnAsync(loop, children);
 
         var childTools = ChildTools(children);
-        childTools.Should().NotContain("recall", "2026-11-10-14a3d: the turn found no memory store");
+        childTools.Should().Contain("recall", "2026-11-18-9c1cd: offered on every turn; it says when there is no store");
         childTools.Should().NotContain(
             "remember", "the read-only scope refuses that write by throwing, and a child dies on errors");
     }

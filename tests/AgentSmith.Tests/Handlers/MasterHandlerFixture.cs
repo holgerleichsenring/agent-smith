@@ -38,7 +38,7 @@ internal static class MasterHandlerFixture
         IDecisionLogger? decisions = null,
         AgentSmith.Contracts.Events.IEventPublisher? recordEvents = null,
         AgentSmith.Contracts.Memory.IProjectMemoryRepository? projectMemory = null) =>
-        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger(), recordEvents, projectMemory), AgentSmithConfig.Empty(),
+        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger(), recordEvents, projectMemory),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),

@@ -35,10 +35,12 @@ internal sealed class ReferenceImageToolHost(
         + "must be PNG, JPEG, GIF or WebP, at most 5 MB and 1568 px on its long edge; a larger screenshot is shown "
         + "whole when the operator attaches it through the Image entry.")]
     public async Task<string> ViewReferenceImage(
-        [Description("The upload's address, reference:<name>, as listed under 'Material the operator uploaded'.")] string reference,
-        [Description("The file's path in the upload, as <name>/… or /work/<name>/… (in a run also as the carried directory's path).")] string path,
+        [Description("The upload's address, reference:<name>; omit when the path names it.")] string? reference = null,
+        [Description("The file's path in the upload, as <name>/… or /work/<name>/… (in a run also as the carried directory's path).")] string path = "",
         CancellationToken ct = default)
     {
+        // 2026-11-18-9c1cd: read_file passes the path alone; the upload is the one the path names.
+        if (string.IsNullOrEmpty(reference)) (reference, path) = Locate(path ?? string.Empty);
         if (!uploads.TryGetValue(reference ?? string.Empty, out var upload))
             return $"Error: '{reference}' is not an upload here. Uploads: [{string.Join(", ", uploads.Keys)}].";
         var relative = Relative(path ?? string.Empty, upload.SetId);
@@ -50,6 +52,16 @@ internal sealed class ReferenceImageToolHost(
         return result.IsAccepted
             ? $"image: {relative} follows this result"
             : $"image: not shown — {result.Refusal}. Ask the operator to attach it through the Image entry to have it shown whole.";
+    }
+
+    private (string Reference, string Path) Locate(string path)
+    {
+        foreach (var (address, upload) in uploads)
+        {
+            if (path.StartsWith(address + "/", StringComparison.Ordinal)) return (address, path[(address.Length + 1)..]);
+            if (path.Contains($"{ReferenceDirectory.ForSet(upload.SetId)}/", StringComparison.Ordinal)) return (address, path);
+        }
+        return (string.Empty, path);
     }
 
     // A design turn's copy lies under /work/<name>/; a run's under .agentsmith/reference/<set id>/.

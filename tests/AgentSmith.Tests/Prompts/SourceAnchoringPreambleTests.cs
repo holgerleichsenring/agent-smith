@@ -13,16 +13,14 @@ public sealed class SourceAnchoringPreambleTests
         var text = preamble.Build();
 
         text.Should().Contain("read_file")
-            .And.Contain("grep_in_file")
             .And.Contain("grep_in_tree")
             .And.Contain("find_files")
-            .And.Contain("list_directory")
             .And.Contain("directory_tree")
             .And.Contain("edit")
-            .And.Contain("multi_edit")
             .And.Contain("write_file")
             .And.Contain("run_command")
-            .And.Contain("http_request");
+            .And.Contain("http_request")
+            .And.NotContain("multi_edit").And.NotContain("grep_in_file").And.NotContain("list_directory"); // 2026-11-18-9c1cd
     }
 
     [Fact]

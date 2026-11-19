@@ -69,11 +69,11 @@ An upload an approval cites can't be removed, because the run of the filed ticke
 
 Each set is a read-only address in the turn's sandbox map, `reference:<name>`, named after the upload. The design partner reads it with the same file tools it uses on the repositories: `read_file`, `grep`, listing. On top of that it has:
 
-- `run_in_reference`, a shell command in a disposable container that holds a copy of the set. It can install, start, request and inspect, and nothing it does changes the stored upload. This exists only where sandboxes are containers; the in-process backend would run the command inside the server, so it isn't offered there.
-- `read_notes` and `write_notes`, the conversation's own notes file: what the material is, the commands that run it, what is settled. Every later turn's prompt carries the notes whole, and a run that carries one of the conversation's uploads shows them, so the next turn doesn't work it out again.
-- `view_reference_image`, which shows an image inside a set as a picture, on a model with vision.
+- `run_command` with `repo: reference:<name>`, a shell command in a disposable container that holds a copy of the set. It can install, start, request and inspect, and nothing it does changes the stored upload. This works only where sandboxes are containers; the in-process backend would run the command inside the server, so there the tool says it can't.
+- `notes:`, the conversation's own notes file, read and written with `read_file`, `write_file` and `edit_file`: what the material is, the commands that run it, what is settled. Every later turn's prompt carries the notes whole, and a run that carries one of the conversation's uploads shows them, so the next turn doesn't work it out again.
+- `read_file` on an image inside a set, which shows it as a picture on a model with vision.
 - `render_reference`, which renders a set, a page in a repository, or a public `http(s)` URL in a browser sandbox of its own and returns the exact computed styles of the elements it asks about, plus desktop and mobile screenshots.
-- `compare_reference`, which renders a reference and a candidate in one browser and lists every computed-style difference between the elements you map to each other, with a screenshot similarity and a diff image.
+- `render_reference` with a `reference`, which renders a reference and a candidate in one browser and lists every computed-style difference between the elements you map to each other, with a screenshot similarity and a diff image.
 
 The design partner treats a reference's look as what is wanted. Its code is material to read, nothing the new work has to copy.
 
@@ -138,7 +138,7 @@ The guarantee sits in one place, before building. A spec is reviewed in its exac
 
 ### Mock versions
 
-When the work has a visible result, the design partner can draw it. `write_mock` stores a whole HTML page as the next version of a spec's mock (v1, v2, …), renders it in the conversation's browser and keeps a desktop and a mobile screenshot. You see the desktop screenshot in the exchange and can open the page; reply with what's off and the next version follows.
+When the work has a visible result, the design partner can draw it. `write_file` on `mock:<spec_id>` stores a whole HTML page as the next version of a spec's mock (v1, v2, …), renders it in the conversation's browser and keeps a desktop and a mobile screenshot. You see the desktop screenshot in the exchange and can open the page; reply with what's off and the next version follows.
 
 On the proposal, each spec with mocks shows a strip of its versions as screenshots. **Ratify** on one picks it as the mock that spec is built against, one per spec, and the ratified version is outlined. Filing writes it beside the spec as `.agentsmith/specs/planned/{spec}-mock-v{n}.html` and names it in the spec's `ratified_mock` field. The spec's master builds against it; with the project's browser sandbox on, it can compare the built page with the mock itself. Once the proposal is filed the strip is read-only: a different ratification reaches the spec only through a new approval of the ticket.
 
@@ -179,9 +179,9 @@ Who answers depends on whether the ticket has run.
 
 Once a code attempt has worked the ticket, the conversation is led by the ticket steward (`ticket-steward-master` in the skills catalog). A ticket that has run isn't designed from scratch any more. It has attempts, a series of specs with some of them done, maybe a hand-back waiting for you, and the useful things to do are reading how it went, changing what's left and starting the next attempt. The steward does those directly, without a proposal card:
 
-- **Read the series.** `read_series` shows the series as the next attempt will read it: every spec's id, goal, state (done, failed, handed back, in progress, not started, carried), whether it already ran, and its text.
+- **Read the series.** `read_ticket` with `part: series` shows the series as the next attempt will read it: every spec's id, goal, state (done, failed, handed back, in progress, not started, carried), whether it already ran, and its text.
 - **Change it.** Ask for a change and the steward calls `edit_series`: it can re-cut a spec's text, drop a spec that hasn't run, or append a new one at the end (an appended spec gets a new id). A spec that already ran stays exactly as it ran. The edit is recorded as an approval for the next attempt, under your name, and starts nothing. The answer lists every spec with what happened to it.
-- **Check it.** `verify_series` reviews the specs that haven't run against the code on the ticket's branch, the same review a run gives its specs. An edited series skips the run's own review of the cut, so this check is the one it gets. The steward tells you what the review found before you say go.
+- **Check it.** `read_ticket` with `part: series` and `verify: true` reviews the specs that haven't run against the code on the ticket's branch, the same review a run gives its specs. An edited series skips the run's own review of the cut, so this check is the one it gets. The steward tells you what the review found before you say go.
 - **Start the next attempt.** Say "the registry is added, go on" and the steward calls `start_next_attempt` with what you said changed. A series edit the last attempt hasn't worked starts as its approval; with nothing edited, the latest attempt runs again unchanged, as a retry. That retry is open after a failed, cancelled or short attempt, and a ticket that already delivered needs a change first. The start goes through the same queue as every other act on the ticket, so it can still be declined, and a refusal is posted on the ticket.
 
 Changing the series and starting an attempt both need `runs.control`. Without it the steward isn't offered those tools and tells you who could. An edit is refused, with the reason, while a run waits for an answer to its question, when a person closed the ticket, when no attempt has published a series to edit, and when the series would hold more than `series.max_specs` specs (24 by default, set in Settings → Series, see [Global settings](../configure-it/settings.md)). The steward can hand checks that span repositories to read-only child agents, at most four per turn. It can't withdraw a filing.

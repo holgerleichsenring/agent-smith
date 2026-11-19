@@ -12,7 +12,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts("code");
 
-        // p0191: + GetArtifactCredentialsToolHost (private package feeds).
+        // 2026-11-18-9c1cd: no GetArtifactCredentialsToolHost — registry auth is staged before the master.
         // p0193: + WriteContextYamlToolHost (typed context.yaml write path).
         allowed.Should().BeEquivalentTo(new[]
         {
@@ -21,7 +21,6 @@ public sealed class AllHostsActivePolicyTests
             typeof(HumanToolHost),
             typeof(WebToolHost),
             typeof(SpawnAgentToolHost),
-            typeof(GetArtifactCredentialsToolHost),
             typeof(WriteContextYamlToolHost),
         });
     }
@@ -33,7 +32,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts("invoice-processor-not-yet-registered");
 
-        allowed.Should().HaveCount(7);
+        allowed.Should().HaveCount(6);
     }
 
     [Fact]
@@ -43,7 +42,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts(IToolKit.WildcardPipelineName);
 
-        allowed.Should().HaveCount(7);
+        allowed.Should().HaveCount(6);
     }
 
     [Fact]

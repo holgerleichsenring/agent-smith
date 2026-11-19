@@ -55,7 +55,7 @@ public static class PipelineHandlersExtensions
         // and the per-run factory for the master's escalation tool host.
         services.AddTransient<SandboxRepoCloner>().AddTransient<Tools.EnsureRepoSandboxToolFactory>();
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);
-        services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>();
+        services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>().AddTransient<SetupRegistryAuthHandler>().AddTransient<MidRunRegistryAuth>();
         // p0375: generic registry-auth staging for ecosystems the deterministic
         // NuGet/npm fast-paths do not cover — declared/persisted registry_auth
         // template first, Scout-role LLM fallback second, token substituted host-side.

@@ -17,9 +17,10 @@ public sealed class EnsureRepoSandboxToolFactory(
     ISandboxResourceResolver resourceResolver,
     SandboxRepoCloner cloner,
     Handlers.SandboxTargets sandboxTargets,
-    IHeldSandboxRegister heldSandboxes)
+    IHeldSandboxRegister heldSandboxes,
+    Handlers.MidRunRegistryAuth? registryAuth = null) // 2026-11-18-9c1cd
 {
     public EnsureRepoSandboxToolHost Create(
         PipelineContext pipeline, FilesystemToolHost fs, ILogger? logger) =>
-        new(pipeline, fs, capacityProbe, resourceResolver, cloner, logger, sandboxTargets, heldSandboxes);
+        new(pipeline, fs, capacityProbe, resourceResolver, cloner, logger, sandboxTargets, heldSandboxes, registryAuth);
 }

@@ -114,7 +114,7 @@ public sealed class DefaultDecisionToolTests
             new Repository(new BranchName("main"), "https://example.test/shop.git"), ["shop"], string.Empty, string.Empty);
 
         prompt.Should().NotContain("Log every non-obvious choice")
-            .And.Contain("Take a choice a person might overrule with decide_by_default; log every other non-obvious choice via log_decision");
+            .And.Contain("Take a choice a person might overrule with log_decision overrulable: true; log every other non-obvious choice via log_decision");
     }
 
     private static DefaultDecisionRecorder Recorder(IEventPublisher events) =>

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-18-9c1cd
+
+decisions:
+  - category: Architecture
+    chose: "Merged tools are delegating functions over the hosts they replace (MergedTools, MergedDialogTools), looked up by their old names in what the factories build; the hosts and their tests stay"
+    over: "Rewriting every host into a merged one"
+    reason: "Each old tool's checks and answers stay exactly its own, so behaviour is kept; only the surface the model sees changes. Fewer moving parts in one spec."
+  - category: Behaviour
+    chose: "A tool whose part cannot act this turn is still offered and answers why (poster lacks runs.control, no upload of that name, nothing filed, no series, already named, no memory record); recall is offered on every design turn"
+    over: "Composing a tool only when its port is seeded"
+    reason: "Operator: the tool set never changes during a run or a conversation (Anthropic guidance). Name, memory index, poster, uploads, filing and series all change between turns of one conversation."
+  - category: Scope
+    chose: "Merges: edit+multi_edit, grep_in_tree+grep_in_file, directory_tree+list_directory, log_decision+decide_by_default (overrulable), remember+dispute_memory (dispute), finish_spec+hand_forward, run_command+run_gate_stage (stage), send_message+wait_for_agents (wait), render_reference+compare_reference (reference), read_file+view_reference_image/read_mock/read_notes (paths), write_file+write_mock/write_notes/delete_file (mock:, notes:, delete), edit_file+notes, state_work_picture+state_open_questions, read_ticket+ticket_work/ticket_runs/read_series/verify_series (part, verify), start_next_attempt+derive_specs (mode), web_fetch+design_read (Figma link), run_command+run_in_reference (repo reference:<name>)"
+    over: "Keeping separate tools and only raising the cap"
+    reason: "Coding was up to 33 tools, the bound design partner 37. After the merges: coding 20, bound design partner 19, unbound 17, steward 19, each name once."
+  - category: Behaviour
+    chose: "write_context_yaml stays on the coding master and its children"
+    over: "Folding it into write_file on the context.yaml path with the JSON document as content"
+    reason: "Adversarial review: the typed JsonElement parameter carries the schema and bootstrap keeps the tool, so one name behaving two ways would weaken the write; design_read folded into web_fetch instead to stay at 20."
+  - category: Behaviour
+    chose: "get_artifact_credentials is gone; ensure_repo_sandbox stages registry auth in the sandbox it adds (MidRunRegistryAuth over SetupRegistryAuthHandler's per-sandbox staging)"
+    over: "Keeping the credentials tool"
+    reason: "SetupRegistryAuth stages every configured registry (NuGet, npm and the generic path) before the master; the review found the mid-run sandbox was the gap. A feed the agent's own change introduces gets no credential — accepted, the skill says a 401 is a missing registry to report."
+  - category: Behaviour
+    chose: "http_request leaves the coding master and the implementation/bootstrap filesystem set; scan masters keep it"
+    over: "Keeping it beside run_command"
+    reason: "On a surface with run_command it duplicates curl in the same sandbox; a scan master has no run_command and needs it."
+  - category: Behaviour
+    chose: "directory_tree records the listed root for UnreadAreas and takes with_sizes and sort_by (the flat listing); edit keeps dry_run for its edits form"
+    over: "Dropping those list_directory and multi_edit parameters"
+    reason: "Adversarial review: they were capabilities, not duplicates."
+  - category: Behaviour
+    chose: "The ticket steward's surface is built directly (no exclusion list); its write_file and edit_file keep only notes: and refuse draft: and mock: naming edit_series"
+    over: "Dropping notes from the steward"
+    reason: "The steward kept write_notes before; notes are a path now, and the steward drafts nothing."
+  - category: Scope
+    chose: "A ticket conversation moving from design partner to steward (its ticket was worked) is a change of master, not of one master's tool set"
+    over: "Giving both one identical surface"
+    reason: "Different skill, different contract (answers, never proposes); each master's own set is fixed."
+  - category: Architecture
+    chose: "Pin agent-smith-skills v5.38.0 (sha256 0ddd0048c75a06e353d484e1cddb950424c731339300640b7ab33a763c4500f0, verified against the release asset)"
+    over: "Keeping v5.37.1"
+    reason: "v5.38.0 is the release whose masters name the new tools (coding-agent-master 3.2.0, design-partner-master 3.6.0, ticket-steward-master 1.3.0)."

@@ -17,7 +17,7 @@ public sealed partial class TicketStewardSkillTests
     private static readonly Version StewardRelease = new(5, 17, 0);
 
     private static readonly string[] StewardActs =
-        ["start_next_attempt", "read_series", "edit_series", "verify_series", "ticket_runs"];
+        ["start_next_attempt", "edit_series", "read_ticket"]; // 2026-11-18-9c1cd: series and runs are read_ticket parts
 
     [GeneratedRegex(@"`([a-z][a-z0-9]*(?:_[a-z0-9]+)*)[`(]")]
     private static partial Regex BacktickedIdentifier();

@@ -69,9 +69,8 @@ public sealed class StewardTurnTests
 
         await Run(loop, TurnContext(PipelinePresets.TicketStewardMaster));
 
-        loop.Tools.Should().Contain(["start_next_attempt", "read_series", "edit_series", "verify_series",
-            "spawn_agents", "read_ticket", "ticket_runs", "read_file"]);
-        loop.Tools.Should().NotContain(TicketStewardTools.Excluded);
+        loop.Tools.Should().Contain(["start_next_attempt", "edit_series", "spawn_agents", "read_ticket", "read_file"]);
+        loop.Tools.Should().NotContain(["withdraw_filed_ticket", WorkPictureToolHost.Name, OfferFilingToolHost.Name]);
     }
 
     // 2026-11-18-d6d2b: the steward reads its ticket's record through the admin assistant's scoped reads; the design
@@ -122,7 +121,7 @@ public sealed class StewardTurnTests
         await Run(new SurfaceCapturingLoop(spawn: true), TurnContext(master), children);
 
         var childTools = children.SeenContexts.Single().ChildTools.Select(t => t.Name).ToList();
-        childTools.Should().Contain(["read_file", "read_ticket", "ticket_runs"]); // 14a3d: recall only over a store
+        childTools.Should().Contain(["read_file", "read_ticket", "recall"]); // 9c1cd: recall always; read_ticket carries the runs
         childTools.Should().OnlyContain(name => SpecDialogChildTools.ReadTools.Contains(name));
         childTools.Should().NotContain(["withdraw_filed_ticket", "start_next_attempt", "edit_series", "verify_series",
             "ask_human", "remember", "http_request"]);

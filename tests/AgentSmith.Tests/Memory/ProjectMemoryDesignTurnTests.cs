@@ -112,19 +112,25 @@ public sealed class ProjectMemoryDesignTurnTests
 
         await Run(loop, context, rows);
 
-        loop.Names.Should().Contain("recall").And.Contain("dispute_memory").And.NotContain("remember");
+        // 2026-11-18-9c1cd: dispute_memory is remember's dispute; remember is offered and says why the poster may not write.
+        loop.Names.Should().Contain("recall").And.Contain("remember").And.NotContain("dispute_memory");
+        var write = await loop.Tools.Single(t => t.Name == "remember").InvokeAsync(new AIFunctionArguments
+            { ["name"] = "x", ["type"] = "project", ["description"] = "d", ["body"] = "b" });
+        write!.ToString().Should().Contain("runs.control");
     }
 
     [Fact]
-    public async Task DesignTurn_PosterWithoutRunsControl_HasNoRemember()
+    public async Task DesignTurn_PosterWithoutRunsControl_RememberSaysWhy()
     {
         var without = new ToolCapture();
         await Run(without, DesignContext(mayStartRuns: false), new ProjectRows());
         var with = new ToolCapture();
         await Run(with, DesignContext(mayStartRuns: true), new ProjectRows());
 
-        without.Names.Should().NotContain("remember");
-        with.Names.Should().Contain("remember");
+        without.Names.Should().Equal(with.Names, "2026-11-18-9c1cd: the poster changes no tool");
+        var refused = await without.Tools.Single(t => t.Name == "remember").InvokeAsync(new AIFunctionArguments
+            { ["name"] = "x", ["type"] = "project", ["description"] = "d", ["body"] = "b" });
+        refused!.ToString().Should().Contain("runs.control");
     }
 
     [Fact]
@@ -238,10 +244,16 @@ public sealed class ProjectMemoryDesignTurnTests
     {
         public IReadOnlyList<string> Names { get; private set; } = [];
 
+        public IReadOnlyList<AIFunction> Tools { get; private set; } = [];
+
         public Task<AgentSmith.Application.Services.Loop.AgenticLoopResult> RunAsync(
             AgentSmith.Application.Services.Loop.AgenticLoopRequest request, CancellationToken cancellationToken)
         {
-            if (Names.Count == 0) Names = [.. request.Tools!.OfType<AIFunction>().Select(t => t.Name)];
+            if (Names.Count == 0)
+            {
+                Tools = [.. request.Tools!.OfType<AIFunction>()];
+                Names = [.. Tools.Select(t => t.Name)];
+            }
             return Task.FromResult(new AgentSmith.Application.Services.Loop.AgenticLoopResult(
                 new ChatResponse(new ChatMessage(ChatRole.Assistant, "An answer with no outcome block."))
                 {

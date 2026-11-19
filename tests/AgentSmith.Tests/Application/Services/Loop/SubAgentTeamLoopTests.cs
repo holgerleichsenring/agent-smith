@@ -54,11 +54,11 @@ public sealed class SubAgentTeamLoopTests
         string? childId = null;
         provider.Script("lead",
             _ => Call("spawn_agents", new() { ["background"] = true, ["tasks"] = Tasks(Child) }),
-            messages => { childId = IdIn(LastToolResult(messages)); return Call("wait_for_agents", []); },
+            messages => { childId = IdIn(LastToolResult(messages)); return Call("send_message", new() { ["wait"] = true }); },
             messages => ToolResults(messages).Contains("built the endpoint")
                 ? Call("send_message", new() { ["agent_id"] = childId, ["text"] = "the done list wants a test too" })
                 : Text("no notice arrived"),
-            _ => Call("wait_for_agents", []),
+            _ => Call("send_message", new() { ["wait"] = true }),
             messages => Text(LastToolResult(messages).Contains("test added") ? "lead satisfied" : "no second notice"));
         provider.Script(Child,
             _ => Text("built the endpoint"),
@@ -87,11 +87,11 @@ public sealed class SubAgentTeamLoopTests
         string? childId = null;
         provider.Script("lead",
             _ => Call("spawn_agents", new() { ["background"] = true, ["tasks"] = Tasks(Child) }),
-            messages => { childId = IdIn(LastToolResult(messages)); return Call("wait_for_agents", []); },
+            messages => { childId = IdIn(LastToolResult(messages)); return Call("send_message", new() { ["wait"] = true }); },
             messages => ToolResults(messages).Contains("404 test")
                 ? Text("sent nothing back")
                 : Call("send_message", new() { ["agent_id"] = childId, ["text"] = "the done list wants the 404 tested" }),
-            _ => Call("wait_for_agents", []),
+            _ => Call("send_message", new() { ["wait"] = true }),
             messages => LastToolResult(messages).Contains("404 test added")
                 ? new ChatResponse(new ChatMessage(ChatRole.Assistant, [new TextContent(report), new FunctionCallContent("f1", "finish_spec",
                     new Dictionary<string, object?>

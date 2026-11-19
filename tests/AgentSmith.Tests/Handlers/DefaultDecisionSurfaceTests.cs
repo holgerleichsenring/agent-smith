@@ -34,9 +34,13 @@ public sealed class DefaultDecisionSurfaceTests
         var noRun = new CapturingLoop();
         await Run(noRun, CodingMaster, MasterHandlerFixture.BuildContext(CodingMaster));
 
-        coding.MasterTools.Select(t => t.Name).Should().Contain(DefaultDecisionToolHost.Name);
-        design.MasterTools.Select(t => t.Name).Should().NotContain(DefaultDecisionToolHost.Name);
-        noRun.MasterTools.Select(t => t.Name).Should().NotContain(DefaultDecisionToolHost.Name, "no run id, no row to write");
+        // 2026-11-18-9c1cd: decide_by_default is log_decision's overrulable; offered on every coding master, it answers
+        // why where no run id gives the default a row.
+        coding.MasterTools.Takes("log_decision", "overrulable").Should().BeTrue();
+        design.MasterTools.Select(t => t.Name).Should().NotContain(["log_decision", DefaultDecisionToolHost.Name]);
+        var refused = await noRun.MasterTools.Single(t => t.Name == "log_decision").InvokeAsync(new AIFunctionArguments
+            { ["category"] = "Implementation", ["decision"] = "x", ["overrulable"] = true });
+        refused!.ToString().Should().Contain("no one to ratify it", "no run id, no row to write");
     }
 
     [Fact]
@@ -48,10 +52,10 @@ public sealed class DefaultDecisionSurfaceTests
         var scan = new CapturingLoop();
         await Run(scan, "security-master", WithRun(MasterHandlerFixture.BuildContext("security-master")), schema: "observation");
 
-        coding.MasterTools.Select(t => t.Name).Should().Contain(DefaultDecisionToolHost.Name);
-        children.SeenContexts.Single().ChildTools.Select(t => t.Name)
-            .Should().Contain("remember").And.NotContain(DefaultDecisionToolHost.Name);
-        scan.MasterTools.Select(t => t.Name).Should().NotContain(DefaultDecisionToolHost.Name);
+        coding.MasterTools.Takes("log_decision", "overrulable").Should().BeTrue();
+        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().Contain("remember");
+        children.SeenContexts.Single().ChildTools.Takes("log_decision", "overrulable").Should().BeFalse();
+        scan.MasterTools.Takes("log_decision", "overrulable").Should().BeFalse();
     }
 
     [Fact]

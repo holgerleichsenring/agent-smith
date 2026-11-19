@@ -17,7 +17,7 @@ public static class ProposalDraftSection
             || slot is null || slot.Proposal.Current.IsEmpty) return string.Empty;
         var sb = new StringBuilder().AppendLine().AppendLine("## Your draft")
             .AppendLine("The files your draft holds now. edit_file revises one in place, write_file adds or replaces one, "
-                + "delete_file removes one; a turn that changes none proposes nothing new and this draft stands as it is.");
+                + "write_file with delete: true removes one; a turn that changes none proposes nothing new and this draft stands as it is.");
         foreach (var file in DraftFiles.Of(slot.Proposal.Current))
             sb.AppendLine($"### {DraftPath.Shown(file.Path)}").AppendLine(Fence(file.Path))
                 .AppendLine(file.Text.TrimEnd()).AppendLine("```");

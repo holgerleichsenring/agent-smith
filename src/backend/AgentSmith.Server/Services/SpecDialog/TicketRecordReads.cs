@@ -26,7 +26,7 @@ public sealed class TicketRecordReads(
                 "Reads one of THIS ticket's runs event by event in sequence order: seq, type, step, time, role and payload — "
                 + "the commands a sandbox ran with their exit codes and output tails (type SandboxResult), each step's "
                 + "result (StepCompleted), the tool results (ToolResult) and how the run ended (RunFinished). The run ids are "
-                + "ticket_runs' ids; a run of another ticket is refused. Pass the last seq you saw as afterSeq for the next page."),
+                + "ids read_ticket part runs lists; a run of another ticket is refused. Pass the last seq you saw as afterSeq for the next page."),
             AIFunctionFactory.Create(ReadConfig, "read_config",
                 "Reads this ticket's project configuration as runs resolve it — repositories, tracker statuses (trigger, "
                 + "done, failed), agent and every resolved setting with where it came from. It carries no secret value."),
@@ -40,7 +40,7 @@ public sealed class TicketRecordReads(
         await using var scope = scopes.CreateAsyncScope();
         var services = scope.ServiceProvider;
         if (!await IsTicketRunAsync(services, runId, cancellationToken))
-            return $"Run '{runId}' is not one of ticket {ticketId}'s runs; read_run_events reads only those (see ticket_runs).";
+            return $"Run '{runId}' is not one of ticket {ticketId}'s runs; read_run_events reads only those (see read_ticket part runs).";
         return await services.GetRequiredService<AdminEventTools>()
             .ReadRunEvents(runId, type, step, afterSeq, limit, cancellationToken);
     }

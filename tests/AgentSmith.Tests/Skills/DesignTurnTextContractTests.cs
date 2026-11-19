@@ -38,7 +38,7 @@ public sealed class DesignTurnTextContractTests
         master.Should().NotContain("ask, rather than propose",
             "an unsettled done list is a proposal on the card, not a reason to hold the child back");
         master.Should().Contain("a turn without a proposal costs a turn", "the one rule says why the draft comes first");
-        master.Should().Contain("Questions only the operator can answer go on `state_open_questions`",
+        master.Should().Contain("Questions only the operator can answer go on `state_work_picture`'s `open_questions`",
             "the one rule says where the forks go");
     }
 

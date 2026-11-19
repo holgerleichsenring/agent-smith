@@ -75,7 +75,7 @@ public sealed class TicketGraphSkillRulesTests
 
         master.Should().Contain("**A ticket** carries its specs.", Because("a ticket carries its specs (2026-11-17-5701d)"));
         master.Should().Contain(
-            "its specs under `draft:tickets/<key>/` are written like any spec, reviewed in this turn, and filed onto the "
+            "its specs under `draft:tickets/<key>/` are written like any spec and filed onto the "
             + "ticket's branch, so its run builds them.",
             Because("the filing sentence"));
         master.Should().Contain("`draft:tickets/<key>/<label>.yaml`", Because("where a ticket's specs are written"));

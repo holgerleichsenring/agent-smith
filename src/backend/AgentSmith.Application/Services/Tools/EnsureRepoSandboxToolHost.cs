@@ -31,7 +31,7 @@ public sealed class EnsureRepoSandboxToolHost(
     SandboxRepoCloner cloner,
     ILogger? logger,
     SandboxTargets sandboxTargets,
-    IHeldSandboxRegister heldSandboxes) : IToolHost
+    IHeldSandboxRegister heldSandboxes, Handlers.MidRunRegistryAuth? registryAuth = null) : IToolHost
 {
     internal const string CapacityDenyAnswer =
         "no capacity right now — continue without this repo or ask the operator to retry later";
@@ -129,6 +129,7 @@ public sealed class EnsureRepoSandboxToolHost(
                 // 2026-09-13-a284: a repo escalated mid-run gets its pull request from the
                 // same loop as every other one, so it records its rung the same way.
                 PullRequestTargets.Record(pipeline, target.Name, checkout.Rung);
+                foreach (var (key, sandbox) in registryAuth is null ? [] : created) await registryAuth!.StageAsync(pipeline, key, sandbox, ct); // 9c1cd
             }
             GrowToolHost(target.Name, mine);
             return $"Sandbox ready for repo '{target.Name}' " +

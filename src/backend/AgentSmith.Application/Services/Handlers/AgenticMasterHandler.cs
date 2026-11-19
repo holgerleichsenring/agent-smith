@@ -35,7 +35,6 @@ public sealed class AgenticMasterHandler(
     IAgenticLoopRunner loopRunner,
     IPromptCatalog prompts,
     MasterRecordToolHosts recordHosts, // 2026-10-13-8762m: log_decision, recall, remember, hand_forward
-    AgentSmithConfig config,
     IContextYamlSerializer contextYamlSerializer,
     ContextDocumentGate contextDocumentGate, // 2026-08-25-c9c7: judges write_context_yaml's document
     SandboxContextYamlWriter contextYamlWriter, // 2026-08-26-364f: preserves what the document omits
@@ -284,7 +283,6 @@ public sealed class AgenticMasterHandler(
                 ContextKeys.SpecDialogTicketRuns, out var boundRuns) && boundRuns is not null
             ? new TicketRunsToolHost(boundRuns)
             : null;
-        var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         // p0341c: constrain write_context_yaml's context_name to the DISCOVERED contexts
         // per repo (from ScopeRepos' RemoteContextInventory) so the model can't author a
         // stray 'default' when discovery already resolved e.g. [api, ...].
@@ -369,7 +367,7 @@ public sealed class AgenticMasterHandler(
         // is CONSUMED — it has two exits now, and a turn that spawns nothing must still report.
         var team = SubAgentTeam.GetOrCreate(context.Pipeline, logger); // c8e2a: none outlives its loop; c8e2d: kept for the run
         var composed = composition.Compose(
-            isScanMaster, isSpecDialog, fs, records, human, credentials, writeContextYaml, web,
+            isScanMaster, isSpecDialog, fs, records, human, writeContextYaml, web,
             progress, withdraw, readTicket, ticketWork, ticketRuns, context, team);
         var masterTools = midTurn.Delivering(isSpecDialog ? reportingTools.Reporting(composed) : composed, context, team.Notices); // 4860b, c8e2a
 
