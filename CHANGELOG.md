@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.192.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.191.1...v0.192.0) (2026-11-19)
+
+
+### Features
+
+* **dashboard:** a page reopening a running design turn reads the steps it missed from the run (2026-11-19-687ec) ([5ccafb2](https://github.com/holgerleichsenring/agent-smith/commit/5ccafb27ee4f7983db3453650c5cd4970014aaab))
+* **dashboard:** a running model call shows as a live 'thinking' line in the design turn's working view (2026-11-19-687ea) ([2f85833](https://github.com/holgerleichsenring/agent-smith/commit/2f858334a4efb5a9fdb118e0fbea11a4e817cc61))
+* **dashboard:** an open run step lists its sub-agents under its header, expandable to their brief and tool calls (2026-11-19-687eb) ([c0e9377](https://github.com/holgerleichsenring/agent-smith/commit/c0e9377ef22663ef0e3c63149bbba0ee6324515d))
+* **masters:** a fresh sub-agent reviews every draft and every spec's diff; budgets leave room for it (2026-11-19-55ec) ([312525f](https://github.com/holgerleichsenring/agent-smith/commit/312525fb279156a9112a455ceb35f1f4b7d665d6))
+* **server:** readiness waits for the first probe pass; a disconnected Redis skips the cold start (2026-08-24-035a) ([7e6d3a7](https://github.com/holgerleichsenring/agent-smith/commit/7e6d3a7949459336759b0bafeff9dbb54270eebe))
+* **skills:** pin skills v5.39.0 — the coding master writes a stand-in's spec, no derivation master (2026-11-19-2d7a) ([b89aa64](https://github.com/holgerleichsenring/agent-smith/commit/b89aa64c19171c1855f3381d7351c0de9666223f))
+* **skills:** pin skills v5.40.0 — the design partner promises no later review and asks in the operator's language (2026-11-19-15c8) ([20ae1e1](https://github.com/holgerleichsenring/agent-smith/commit/20ae1e1f70e983ab0c2d7ae2dfdf04086585e02f))
+* **spec-dialog:** a stored draft spec or ticket answers its mechanical findings to the design master (2026-11-19-3d7e) ([cbf6151](https://github.com/holgerleichsenring/agent-smith/commit/cbf6151c39736ffb87c82919a0b51325f684869c))
+* **spec-dialog:** every spec of a design draft gets the evidence check; a missing citation says cite what exists now (2026-11-19-6c6d) ([4c13cee](https://github.com/holgerleichsenring/agent-smith/commit/4c13cee6f809aee0452e621201c497bbe5723d7e))
+* **specs:** the coding master writes a ticket's spec; DeriveSpec calls no model and spec-derive runs that master (2026-11-19-6b0ba) ([a984ad2](https://github.com/holgerleichsenring/agent-smith/commit/a984ad2af0a035fe42a0b8f078201bea04efc641))
+* the coding master owns derivation; a fresh sub-agent reviews every draft and diff; live activity view ([397c973](https://github.com/holgerleichsenring/agent-smith/commit/397c973740bf6b1f7ff99e4825ef9ce9a877dc39))
+
+
+### Bug Fixes
+
+* **analyzer:** the project analyzer's finalize turn keeps its tools; the instruction steers (2026-11-19-6b0bc) ([53e69f8](https://github.com/holgerleichsenring/agent-smith/commit/53e69f81e9b56310bd68571ddf861860dc7d4cb8))
+* **dashboard:** the run log's first section reads Before the work; reading lines say a sandbox is ready or a ticket was read (2026-11-19-6b0be) ([f4efa0a](https://github.com/holgerleichsenring/agent-smith/commit/f4efa0aaca5127546e22918e7e8596e3f4b5755b))
+* **spec-dialog:** a ticket that requires ticket:&lt;key&gt; of a sibling in the same list requires that sibling (2026-11-19-46bd) ([0c32d9e](https://github.com/holgerleichsenring/agent-smith/commit/0c32d9e8c238140723a9b6671ea419a4de9b6670))
+
 ## [0.191.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.191.0...v0.191.1) (2026-11-19)
 
 
