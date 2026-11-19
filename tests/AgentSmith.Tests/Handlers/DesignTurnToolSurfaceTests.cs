@@ -81,6 +81,20 @@ public sealed class DesignTurnToolSurfaceTests
             .Should().BeEquivalentTo(["read_file", "grep_in_tree", "find_files", "directory_tree"]);
     }
 
+    /// <summary>2026-11-19-1de4: the master's design read_file stands in for the bare one.</summary>
+    [Fact]
+    public void SpecDialogChildTools_WithDesignRead_ReadsWithIt()
+    {
+        var surface = new List<AITool>(
+            new[] { "read_file", "directory_tree", "write_file" }.Select(name => AIFunctionFactory.Create(() => "bare", name)));
+        var designRead = AIFunctionFactory.Create(() => "design", "read_file");
+
+        var child = SpecDialogChildTools.Of(surface, designRead);
+
+        child.Select(t => t.Name).Should().BeEquivalentTo(["read_file", "directory_tree"]);
+        child.Single(t => t.Name == "read_file").Should().BeSameAs(designRead);
+    }
+
     private static AgenticMasterContext DesignContext()
     {
         var context = MasterHandlerFixture.BuildContext(DesignMaster, includeTicket: false);

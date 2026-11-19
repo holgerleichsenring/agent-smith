@@ -6,6 +6,8 @@ namespace AgentSmith.Application.Services.Tools;
 /// The surface a CHILD of a dialog turn runs under: the read tools of its parent's base surface, by name, and
 /// nothing else. An allowlist rather than a list of exclusions, so a tool that joins the base surface later — an
 /// act on the ticket, a write, a question to the person — reaches no child until it is named a read here.
+/// 2026-11-19-1de4: its read_file is the master's design read_file, so a child reads the draft at draft: and the notes
+/// at notes: as its master does.
 /// <para>
 /// What it leaves out, and why: <c>withdraw_filed_ticket</c> and every act on the ticket, because a child acts on
 /// no person's word; the reference, mock and work-picture tools, which serve the conversation the parent holds.
@@ -20,10 +22,11 @@ public static class SpecDialogChildTools
         "web_fetch", "recall", "read_ticket",
     };
 
-    /// <summary>The read tools of the parent's surface.</summary>
-    public static IList<AITool> Of(IList<AITool> specDialogSurface)
+    /// <summary>The read tools of the parent's surface, with <paramref name="designRead"/> as read_file when given.</summary>
+    public static IList<AITool> Of(IList<AITool> specDialogSurface, AIFunction? designRead = null)
     {
         ArgumentNullException.ThrowIfNull(specDialogSurface);
-        return [.. specDialogSurface.Where(tool => ReadTools.Contains(tool.Name))];
+        return [.. specDialogSurface.Where(tool => ReadTools.Contains(tool.Name))
+            .Select(tool => designRead is not null && tool.Name == designRead.Name ? designRead : tool)];
     }
 }
