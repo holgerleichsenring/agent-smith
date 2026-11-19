@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.191.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.190.1...v0.191.0) (2026-11-19)
+
+
+### Features
+
+* **spec-dialog:** the design master owns its draft; no post-turn review (2026-11-18-9c1ca) ([3ab4749](https://github.com/holgerleichsenring/agent-smith/commit/3ab47494767813278ad69943ab7c3e1d677e4abd))
+
+
+### Bug Fixes
+
+* **config:** a secret card names the registries whose token uses it (2026-11-18-dafc) ([d81930d](https://github.com/holgerleichsenring/agent-smith/commit/d81930dfc881653f8123c21fbee5e180ae21beca))
+* **config:** a secret card names the registries whose token uses it (2026-11-18-dafc) ([9bc2441](https://github.com/holgerleichsenring/agent-smith/commit/9bc244128b7581ea8b4a1c7b13a1616ca9419262))
+
 ## [0.190.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.190.0...v0.190.1) (2026-11-18)
 
 
