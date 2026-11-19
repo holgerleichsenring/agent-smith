@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-1de4
+goal: "A design turn's sub-agent reads the current draft at draft: paths and the notes at notes: with the same read_file its master uses, and still writes nothing."
+
+applies_to: "default (Handlers: MasterToolComposition; Tools: SpecDialogChildTools, MergedTools)"
+
+facts:
+  - claim: "A design turn's children get the read tools of the base surface by name; the base read_file is the FilesystemToolHost one."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:95, src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:76-82"
+  - claim: "The master's read_file is MergedTools.ReadFile with design: true; only it answers notes: and mock:, and only its description names draft: and notes:."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.Dialog.cs:22-24, src/backend/AgentSmith.Application/Services/Tools/MergedTools.cs:36-58"
+  - claim: "FilesystemToolHost reads draft: paths when its DraftReader is set; its parameter descriptions name only repository paths."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:226-234, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:296-304"
+  - claim: "A child's situation tells it paths start with a source name and says nothing of draft: or notes:."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentSituation.cs:13-20"
+
+scope:
+  in: "The design turn's children get the master's merged read_file in place of the bare one (draft:, notes:, mock:, upload images: all reads). The design read_file description also says directory_tree draft: lists the draft."
+  out: "Write tools for a child; draft: support in grep_in_tree or find_files; the coding master's surface."
+
+upgrade_impact: "None; a design turn's reviewer reads the draft and notes it is briefed to read."
+
+steps:
+  - id: child-read
+    action: "SpecDialogChildTools.Of takes the design read_file and puts it in place of the base one; MasterToolComposition passes the master's read_file."
+  - id: description
+    action: "MergedTools.ReadFile's design description names directory_tree draft:."
+  - id: tests
+    action: "DesignChildDraftReadTests: the master writes a ticket and notes, spawns; the child reads the ticket, lists it under draft:, reads the notes; no write tool. DesignTurnToolSurfaceTests: Of swaps read_file."
+
+tests:
+  - "A child reads draft:tickets/<key>.yaml written by the master before the spawn, and directory_tree draft: lists it."
+  - "A child reads notes: the master wrote."
+  - "A child has no write_file, edit_file, delete_file or run_command."
+
+done:
+  - "A design turn's child reads draft: and notes:; build and the affected tests are green; the full suite passes in the spec gate."

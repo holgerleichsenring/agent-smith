@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-1de4
+
+decisions:
+  - category: Architecture
+    chose: "A design turn's child gets the master's merged read_file (MergedTools.ReadFile, design: true) in place of the bare FilesystemToolHost one, picked from the master's surface by name"
+    over: "A second child-only read_file that handles draft: and notes:, or teaching the child situation text about draft: while keeping the bare tool"
+    reason: "The draft: branch already worked on the shared FilesystemToolHost, but the child's read_file never named draft: or notes: and could not answer notes: at all; one read_file for master and child means one description and one set of addresses (draft:, notes:, mock:, upload images), all reads."
+  - category: Behavior
+    chose: "The design read_file description says directory_tree draft: lists the draft; grep_in_tree and find_files stay repository-only"
+    over: "Adding draft: to grep_in_tree and find_files"
+    reason: "The draft is a handful of files read whole; listing plus reading covers a review, and the smallest change is the one the brief needs."

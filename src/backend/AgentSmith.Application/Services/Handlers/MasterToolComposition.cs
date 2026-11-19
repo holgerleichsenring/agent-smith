@@ -92,7 +92,10 @@ public sealed partial class MasterToolComposition(
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var subCtx = new SubAgentContext(
             context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
-            ChildTools: sanity.Wrap(isSpecDialog ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface())) : BaseSurface(), context.Pipeline),
+            // 2026-11-19-1de4: a design turn's child reads with the master's read_file, so draft: and notes: reach it.
+            ChildTools: sanity.Wrap(isSpecDialog
+                ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface(), MergedTools.Named(master, "read_file")))
+                : BaseSurface(), context.Pipeline),
             Budget: budget, AgentConfig: context.AgentConfig,
             // No governor hooks on a child: how far it may go bounds the whole wave.
             ChildIterationCeiling: isSpecDialog ? context.AgentConfig.DialogSubAgentLoopIterations : null, // cd4cl

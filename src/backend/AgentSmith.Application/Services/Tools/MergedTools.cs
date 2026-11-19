@@ -55,7 +55,7 @@ public static partial class MergedTools
             "read_file",
             "Reads a file; start_line and line_count select a slice. Lines are numbered so you can cite file:line. An "
             + "image file (.png, .jpg, .gif, .webp) inside an upload is shown to you as a picture — your vision is the OCR."
-            + (design ? " Also reads draft:<path> (your draft), mock: (every mock version) or mock:<spec_id>[/v<n>] (a mock's HTML, newest by default), and notes: (this conversation's notes)." : string.Empty));
+            + (design ? " Also reads draft:<path> (your draft; directory_tree draft: lists it), mock: (every mock version) or mock:<spec_id>[/v<n>] (a mock's HTML, newest by default), and notes: (this conversation's notes)." : string.Empty));
 
     private const string DesignPaths = " On a design conversation also draft:<path>, mock:, mock:<spec_id>[/v<n>] or notes:.";
 
