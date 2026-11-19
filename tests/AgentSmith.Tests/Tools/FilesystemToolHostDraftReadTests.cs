@@ -6,7 +6,8 @@ using Moq;
 
 namespace AgentSmith.Tests.Tools;
 
-/// <summary>2026-11-15-06fc: read_file and directory_tree on draft: paths read the design turn's draft, not a sandbox.</summary>
+/// <summary>2026-11-15-06fc: read_file and directory_tree on draft: paths read the design turn's draft, not a sandbox.
+/// 2026-11-19-b2c1: find_files and grep_in_tree search it too.</summary>
 public sealed class FilesystemToolHostDraftReadTests
 {
     private static readonly IReadOnlyList<DraftFile> Files =
@@ -38,6 +39,29 @@ public sealed class FilesystemToolHostDraftReadTests
 
         (await host.DirectoryTree("draft:")).Should().Be("draft:epic/p0.yaml\ndraft:specs/p1.yaml");
         (await host.DirectoryTree("draft:specs")).Should().Be("draft:specs/p1.yaml");
+    }
+
+    [Fact]
+    public async Task FindFiles_Draft_MatchesItsPaths()
+    {
+        var (host, sandbox) = Host();
+
+        (await host.FindFiles("*.yaml", "draft:")).Should().Be("draft:epic/p0.yaml\ndraft:specs/p1.yaml");
+        (await host.FindFiles("p1", "draft:specs")).Should().Be("draft:specs/p1.yaml");
+        (await host.FindFiles("*.md", "draft:")).Should().StartWith("No file of the draft under draft:");
+        sandbox.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task GrepInTree_Draft_FindsLinesFilesAndCounts()
+    {
+        var (host, sandbox) = Host();
+
+        (await host.GrepInTree("^goal", "draft:")).Should().Be("draft:epic/p0.yaml:2:goal: g\ndraft:specs/p1.yaml:2:goal: one");
+        (await host.GrepInTree("requires", "draft:", output_mode: "files_with_matches")).Should().Be("draft:specs/p1.yaml");
+        (await host.GrepInTree("p", "draft:specs", output_mode: "count")).Should().Be("draft:specs/p1.yaml:2");
+        (await host.GrepInTree("[", "draft:")).Should().StartWith("Error: '[' is not a valid regular expression");
+        sandbox.VerifyNoOtherCalls();
     }
 
     private static (FilesystemToolHost Host, Mock<ISandbox> Sandbox) Host()
