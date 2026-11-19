@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.192.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.192.0...v0.192.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **spec-dialog:** a design turn's sub-agent reads the draft and notes (2026-11-19-1de4) ([0dad9c9](https://github.com/holgerleichsenring/agent-smith/commit/0dad9c9b5b33d366b548826fd296b8cd6c0bcf4a))
+* **spec-dialog:** a design turn's sub-agent reads the draft and notes with the master's read_file (2026-11-19-1de4) ([4b91b82](https://github.com/holgerleichsenring/agent-smith/commit/4b91b82e71e88a649b3e74b06a579fe38eb34653))
+
 ## [0.192.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.191.1...v0.192.0) (2026-11-19)
 
 
