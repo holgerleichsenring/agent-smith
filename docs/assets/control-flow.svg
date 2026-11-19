@@ -47,7 +47,7 @@
   <text x="694" y="204" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">04</text>
   <text x="868" y="204" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">ticket</text>
   <text x="694" y="221" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Scope repositories</text>
-  <text x="694" y="234" class="cf-accent" font-size="8.5" font-weight="400" text-anchor="start">call · repo-scope classifier prompt</text>
+  <text x="694" y="234" class="cf-accent" font-size="8.5" font-weight="400" text-anchor="start">call · scope call prompt</text>
   <rect x="40" y="258" width="198" height="58" rx="8" class="cf-gate"/>
   <text x="52" y="278" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">05</text>
   <text x="226" y="278" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">ticket</text>
@@ -182,8 +182,8 @@
   <text x="40" y="872" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">Every model call in the run above. Everything not listed here is deterministic machinery.</text>
   <line x1="40" y1="890" x2="880" y2="890" class="cf-rule"/>
   <text x="40" y="908" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Scope repositories</text>
-  <text x="250" y="908" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">repo-scope classifier prompt</text>
-  <text x="480" y="908" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ the repos the ticket touches</text>
+  <text x="250" y="908" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">scope call prompt</text>
+  <text x="480" y="908" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ the ticket's size and shape, and a refusal</text>
   <text x="40" y="932" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Set up private-feed credentials</text>
   <text x="250" y="932" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">registry-auth staging prompt</text>
   <text x="480" y="932" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ the auth files to write, with token placeholders</text>

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-6b0bb
+goal: "The scope call asks for and returns only what a run uses, its estimate and its refusal; per-repository verdicts, contexts, expected changes and the named-contexts record are deleted."
+
+applies_to: "default (Handlers/ScopeReposHandler, Application/Services/Scope, Prompts, Contracts/Commands; tests and harness)"
+
+requires: [2026-11-19-6b0ba]
+
+facts:
+  - claim: "ScopeReposHandler uses the reply's refusal, its estimate, and its contexts only to record named contexts."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:65-72"
+  - claim: "The system prompt asks for per-repository verdicts, contexts, expected changes and a rationale beside complexity, shape and refusal."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/RepoScopeSystemPrompt.cs:17-26"
+  - claim: "Named contexts were read only by the derivation (ScopedContextCoverage, SpecPromptComposer), which 2026-11-19-6b0ba deletes."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeNamedContextsRecorder.cs:37"
+
+scope:
+  in: "The system prompt is rewritten as a ticket estimate and security check asking for complexity, shape, shape_reason and refusal only. ScopeClassificationResult drops the classification; Error means the call failed. RepoScopeClassifier reads the reply with ScopeEstimateParser and ScopeRefusalParser. Deleted: RepoScopeParser, RepoScopeClassification, RepoScopeVerdict, the ReadContexts/ReadExpectedChanges/ReadRationale readers, ScopeNamedContextsRecorder, ScopeNamedContexts and its context key, and ScopeNamedContextsPromptSection if 6b0ba left it. CommandModelUse's ScopeRepos row and the stale WorkShape and handler comments say what the call does now. The handler keeps the approval's repositories, the inventory the prompt lists, the estimate and the refusal."
+  out: "Renaming the step ScopeRepos (stored runs, presets, ledger and dashboard labels name it; the rename buys nothing). The work shape, which the run row and dashboard show. ApprovedRepoScope."
+
+upgrade_impact: "No setting. The scope call's reply is shorter; nothing a run did with it changes."
+
+steps:
+  - id: prompt
+    action: "Rewrite RepoScopeSystemPrompt (opening sentence, rules, refusal's 'other fields') and RepoScopePrompt for complexity, shape, shape_reason and refusal."
+  - id: reply
+    action: "Parser and ScopeClassificationResult carry the estimate, refusal, error and call failure only; delete RepoScopeClassification/Verdict and the named-contexts family."
+  - id: tests
+    action: "Delete RepoScopeVerdictTests, ScopeNamedContextsRecorderTests and parser tests of deleted fields; update WorkShapeClassificationTests, ScopeRefusalParserTests, the ScopeRepos handler tests and the harness ScopeReposTests comment."
+
+tests:
+  - "The scope prompt asks for no repos, contexts or expected_changes."
+  - "A reply with complexity, shape and refusal parses; ScopeRepos records the tier and refuses on a refusal."
+
+done:
+  - "No code asks the scope call for, or reads, per-repository verdicts, contexts or expected changes; ScopeNamedContexts is gone."
+  - "Build and the full suite are green."

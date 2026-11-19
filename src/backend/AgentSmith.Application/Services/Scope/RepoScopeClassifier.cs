@@ -16,21 +16,12 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Scope;
 
 /// <summary>
-/// p0331: the one cheap LLM call of the ScopeRepos step — classifies
-/// (ticket body + comments) against the per-repo remote context inventory
-/// (name / workdir / language / purpose) into the affected-repo subset.
-/// Standard chat plumbing (factory + call scope + cost tracking).
-/// An LLM/transport failure returns an error string so the handler falls back
-/// to all repos, exactly like a parse failure. 2026-10-12-6bfae: the one
-/// exception is a rejected model id — a configuration fault every later call
-/// repeats — which propagates and fails the step with its explanation.
-/// <para>
-/// p0413a: the one call answers TWO questions — which repositories the ticket
-/// touches, and what the ticket is (size + shape). They are returned separately
-/// because they fail separately: a reply that is no usable repo verdict can
-/// still carry a usable estimate, and a run with nothing to scope asks the
-/// second question alone.
-/// </para>
+/// p0331: the one cheap LLM call of the ScopeRepos step. 2026-11-19-6b0bb: it reads the ticket (body + comments)
+/// beside the per-repo context inventory and answers what a run uses — the ticket's size and shape, and whether
+/// it demands something that must not be done. Standard chat plumbing (factory + call scope + cost tracking).
+/// An LLM/transport failure returns an error string and the run goes on unestimated. 2026-10-12-6bfae: the one
+/// exception is a rejected model id — a configuration fault every later call repeats — which propagates and fails
+/// the step with its explanation.
 /// </summary>
 public sealed class RepoScopeClassifier(
     IChatClientFactory chatClientFactory,
@@ -68,26 +59,15 @@ public sealed class RepoScopeClassifier(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Repo scope classification call failed — keeping all repos");
+            logger.LogWarning(ex, "The scope call failed — the run goes on unestimated");
             return new ScopeClassificationResult(
-                null, ScopeEstimate.None, $"classifier call failed ({ex.GetType().Name}: {ex.Message})",
-                CallFailed: true);
+                ScopeEstimate.None, $"classifier call failed ({ex.GetType().Name}: {ex.Message})", CallFailed: true);
         }
 
         return Read(text);
     }
 
-    // p0413a: the estimate is read from the verdict when the reply is one, and on its own
-    // when it is not — the repos-array contract gates SCOPING and must not take the size,
-    // the shape, or the refusal down with it. The refusal is read on its own for the same
-    // reason: a refusing reply need not be a usable repo verdict.
-    private static ScopeClassificationResult Read(string? text)
-    {
-        var classification = RepoScopeParser.TryParse(text);
-        var refusal = ScopeRefusalParser.Parse(text);
-        return classification is null
-            ? new(null, ScopeEstimateParser.Parse(text),
-                "classifier reply had no parseable {\"repos\": …} object", refusal)
-            : new(classification, new ScopeEstimate(classification.Tier, classification.Shape), null, refusal);
-    }
+    // The estimate and the refusal are read each on its own, so a reply carrying one is not refused for the other.
+    private static ScopeClassificationResult Read(string? text) =>
+        new(ScopeEstimateParser.Parse(text), null, ScopeRefusalParser.Parse(text));
 }

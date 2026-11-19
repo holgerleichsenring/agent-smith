@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Scope;
 /// p0413: the scope classifier estimates the ticket twice — its SIZE (complexity
 /// tier) and its SHAPE (deterministic transformation / judgement / mixed). Both
 /// are run facts, and both must leave the log: the size sizes the cost cap, the
-/// shape sizes the PROCESS the derivation builds. Split out of ScopeReposHandler,
+/// shape is shown on the run row. Split out of ScopeReposHandler,
 /// which owns the scoping decision, so the handler stays about repos.
 /// </summary>
 public sealed class ScopeEstimateRecorder(
@@ -64,17 +64,14 @@ public sealed class ScopeEstimateRecorder(
     }
 
     /// <summary>
-    /// p0413: the SHAPE reaches the two places that can act on it — the pipeline
-    /// context, where the spec derivation reads it to decide how few specs the
-    /// deliverable needs, and the run row, where an operator reads why the ticket
-    /// got the process it got. No shape stated => nothing recorded, and every
-    /// consumer behaves exactly as it did before.
+    /// p0413: the SHAPE reaches the run row, where an operator reads what kind of work the ticket was.
+    /// 2026-11-19-6b0bb: no step reads it from the context any more; the derivation that did is gone.
+    /// No shape stated => nothing recorded.
     /// </summary>
     private async Task RecordShapeAsync(
         PipelineContext pipeline, WorkShapeVerdict? shape, CancellationToken cancellationToken)
     {
         if (shape is null) return;
-        pipeline.Set(ContextKeys.WorkShape, shape);
         Record(pipeline, $"Work shape: {shape}");
         await PublishAsync(
             pipeline,

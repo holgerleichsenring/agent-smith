@@ -117,8 +117,7 @@ public sealed class ScopeReposRefusalTests
                 NullLogger<RepoScopeClassifier>.Instance),
             new ScopeEstimateRecorder(
                 AgentSmithConfig.Empty(), events.Object, NullLogger<ScopeEstimateRecorder>.Instance),
-            new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
-            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance));
+            new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance));
     }
 
     private static PipelineContext NewPipeline(params string[] repoNames)

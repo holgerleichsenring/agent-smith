@@ -23,10 +23,9 @@ public sealed class WorkShapeClassificationTests
              "rationale": "both components declare the same set"}
             """;
 
-        var result = RepoScopeParser.TryParse(reply);
+        var result = ScopeEstimateParser.Parse(reply);
 
-        result.Should().NotBeNull();
-        result!.Shape.Should().NotBeNull();
+        result.Shape.Should().NotBeNull();
         result.Shape!.Shape.Should().Be(WorkShape.Deterministic);
         result.Shape.Reason.Should().Be("the same declared upgrade applied across a known set");
     }
@@ -40,24 +39,24 @@ public sealed class WorkShapeClassificationTests
     {
         var reply = $$"""{"repos": [{"name": "a", "affected": true}], "shape": "{{raw}}"}""";
 
-        RepoScopeParser.TryParse(reply)!.Shape!.Shape.Should().Be(expected);
+        ScopeEstimateParser.Parse(reply).Shape!.Shape.Should().Be(expected);
     }
 
     [Fact]
-    public void Shape_Absent_LeavesTheCutUntouched()
+    public void Shape_Absent_IsNoShape()
     {
         var reply = """{"repos": [{"name": "a", "affected": true, "confidence": 0.9}]}""";
 
-        RepoScopeParser.TryParse(reply)!.Shape.Should().BeNull(
+        ScopeEstimateParser.Parse(reply).Shape.Should().BeNull(
             "no shape stated must read as 'no shape', not as a default one");
     }
 
     [Fact]
-    public void Shape_Unrecognised_LeavesTheCutUntouched()
+    public void Shape_Unrecognised_IsNoShape()
     {
         var reply = """{"repos": [{"name": "a", "affected": true}], "shape": "gnarly"}""";
 
-        RepoScopeParser.TryParse(reply)!.Shape.Should().BeNull();
+        ScopeEstimateParser.Parse(reply).Shape.Should().BeNull();
     }
 
     [Fact]
@@ -65,7 +64,7 @@ public sealed class WorkShapeClassificationTests
     {
         var reply = """{"repos": [{"name": "a", "affected": true}], "shape": "mixed"}""";
 
-        var shape = RepoScopeParser.TryParse(reply)!.Shape;
+        var shape = ScopeEstimateParser.Parse(reply).Shape;
 
         shape!.Shape.Should().Be(WorkShape.Mixed);
         shape.Reason.Should().BeNull();
@@ -90,5 +89,16 @@ public sealed class WorkShapeClassificationTests
         prompt.Should().Contain("shape_reason");
         prompt.Should().Contain("complexity is HOW MUCH, shape is",
             "the two estimates must not collapse into one another");
+    }
+
+    // 2026-11-19-6b0bb: the call asks only what a run uses.
+    [Fact]
+    public void ClassifierPrompt_AsksForNoRepositoryVerdicts()
+    {
+        var prompt = RepoScopeSystemPrompt.Text;
+
+        prompt.Should().NotContain("\"repos\"").And.NotContain("\"contexts\"").And.NotContain("expected_changes")
+            .And.NotContain("rationale");
+        prompt.Should().Contain("\"complexity\"").And.Contain("\"refusal\"");
     }
 }

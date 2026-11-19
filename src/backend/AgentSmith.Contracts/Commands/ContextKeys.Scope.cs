@@ -15,21 +15,6 @@ public static partial class ContextKeys
     /// initially-descoped repo also hits the cache.</summary>
     public const string RemoteContextInventory = "RemoteContextInventory";
 
-    /// <summary>2026-09-08-1830: the <see cref="Models.ScopeNamedContexts"/> the scope call
-    /// NAMED for this ticket — its claim, not a narrowing. Set on every ticketed run whose
-    /// classification names contexts, a single-repo run included, so the derivation's cut
-    /// can be held against it; absent when the scope call named none, or every repository
-    /// in scope has a single context. Never read by the sandbox coordinator.</summary>
-    public const string ScopeNamedContexts = "ScopeNamedContexts";
-
-    /// <summary>p0413: the <see cref="Models.WorkShapeVerdict"/> the scope classifier
-    /// stated for this ticket — the SHAPE of the work (deterministic transformation /
-    /// judgement / mixed) with its one-line reason. Read by the spec derivation, which
-    /// cuts deterministic work into the fewest specs its deliverable allows. Absent
-    /// when no classification ran or the model stated no shape: the derivation is then
-    /// told nothing and cuts exactly as it did before.</summary>
-    public const string WorkShape = "WorkShape";
-
     /// <summary>2026-09-22-7c41a: the <see cref="Models.Configuration.ComplexityTier"/> the
     /// scope call estimated, kept beside the cap it sized. The cap itself cannot cross a
     /// park (the checkpoint excludes it, and the scope step that raised it is a completed

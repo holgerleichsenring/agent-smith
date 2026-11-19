@@ -120,8 +120,6 @@ public sealed class ScopeReposHandlerTests
 
         await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
-        pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var shape).Should().BeTrue();
-        shape!.Shape.Should().Be(WorkShape.Deterministic);
         var published = _published.OfType<AgentSmith.Contracts.Events.RunWorkShapeResolvedEvent>().Single();
         published.RunId.Should().Be("run-19106");
         published.Shape.Should().Be("deterministic");
@@ -144,7 +142,6 @@ public sealed class ScopeReposHandlerTests
 
         await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
-        pipeline.Has(ContextKeys.WorkShape).Should().BeFalse();
         _published.OfType<AgentSmith.Contracts.Events.RunWorkShapeResolvedEvent>().Should().BeEmpty();
     }
 
@@ -188,9 +185,8 @@ public sealed class ScopeReposHandlerTests
         result.Message.Should().Contain("skipped");
         pipeline.TryGet<CostCapValues>("PipelineCostCap", out var cap).Should().BeTrue();
         cap!.Usd.Should().Be(new PipelineCostCapConfig().ForTier(ComplexityTier.Large).Usd);
-        pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var shape).Should().BeTrue();
-        shape!.Shape.Should().Be(WorkShape.Deterministic);
-        _published.OfType<AgentSmith.Contracts.Events.RunWorkShapeResolvedEvent>().Should().ContainSingle();
+        _published.OfType<AgentSmith.Contracts.Events.RunWorkShapeResolvedEvent>().Should().ContainSingle()
+            .Which.Shape.Should().Be("deterministic", "the shape reaches the run row");
         // …and SCOPING stayed out of it: nothing narrowed, nothing dropped, nothing
         // demanded — while the inventory the coordinator reads is still built.
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().HaveCount(1);
@@ -198,34 +194,6 @@ public sealed class ScopeReposHandlerTests
         _chatClient!.InvocationCount.Should().Be(1, "estimating costs the one call, not a second");
     }
 
-    [Fact]
-    public async Task ScopeRepos_SingleRepoRun_RecordsTheNamedContexts()
-    {
-        // 2026-09-08-1830: run 8688's shape — one repository, two contexts, both named,
-        // nothing narrowed. The claim is recorded before the single-repo return, and
-        // scoping still stays out of it.
-        _resolverMock
-            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[]
-            {
-                new RemoteContextDiscovery("frontend", "frontend", "node"),
-                new RemoteContextDiscovery("backend", "backend", "node"),
-            });
-        var pipeline = NewPipeline("app");
-        var handler = Handler(
-            """
-            {"repos": [{"name": "app", "affected": true, "confidence": 0.95}],
-             "contexts": {"app": ["frontend", "backend"]},
-             "rationale": "both the frontend and backend contexts need dependency auditing"}
-            """);
-
-        var result = await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
-
-        result.Message.Should().Contain("skipped");
-        var named = pipeline.Get<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts);
-        named.Contexts.Should().Equal("frontend", "backend");
-        named.Rationale.Should().Contain("dependency auditing");
-    }
 
     [Fact]
     public async Task Estimate_MultiRepoRun_StillSpendsOneCall()
@@ -245,8 +213,8 @@ public sealed class ScopeReposHandlerTests
 
         _chatClient!.InvocationCount.Should().Be(1);
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().HaveCount(2, "2026-11-18-9c1cb: nothing narrows");
-        pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var shape).Should().BeTrue();
-        shape!.Shape.Should().Be(WorkShape.Judgement);
+        pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions).Should().BeTrue();
+        decisions!.Should().Contain(d => d.Category == "scope" && d.Decision.StartsWith("Work shape: judgement"));
     }
 
     [Fact]
@@ -290,8 +258,7 @@ public sealed class ScopeReposHandlerTests
             new ScopeEstimateRecorder(
                 AgentSmithConfig.Empty(), events.Object,
                 NullLogger<ScopeEstimateRecorder>.Instance),
-            new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
-            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance));
+            new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance));
     }
 
     private static PipelineContext NewPipeline(params string[] repoNames)

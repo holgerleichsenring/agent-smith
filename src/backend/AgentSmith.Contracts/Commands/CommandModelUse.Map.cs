@@ -9,7 +9,7 @@ public static partial class CommandModelUse
     private static readonly Dictionary<string, StepModel> Steps = new(StringComparer.Ordinal)
     {
         [CommandNames.ScopeRepos] = new(
-            ModelUse.Call, "repo-scope classifier prompt", "the repos the ticket touches"),
+            ModelUse.Call, "scope call prompt", "the ticket's size and shape, and a refusal"),
         [CommandNames.AnalyzeCode] = new(
             ModelUse.Call, "project-analyzer-master", "a project map per repo"),
         // 2026-11-18-c8e2c: VerifySpec, CommitAndPR and SelectSpec ask no model — the spec's account is its master's

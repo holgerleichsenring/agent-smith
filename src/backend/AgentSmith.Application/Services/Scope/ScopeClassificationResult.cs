@@ -1,22 +1,14 @@
 namespace AgentSmith.Application.Services.Scope;
 
 /// <summary>
-/// p0413a: what the one scope call came back with. The repo verdict and the
-/// ticket estimate are separate fields because they are separate answers with
-/// separate failure modes — <paramref name="Error"/> describes the SCOPE
-/// verdict only, and an errored scope still carries whatever estimate the reply
-/// stated.
+/// p0413a: what the one scope call came back with. 2026-11-19-6b0bb: only what a run uses — the ticket estimate and
+/// the security refusal; the per-repository verdicts, contexts and expected changes it once returned narrowed the
+/// run (gone since 2026-11-18-9c1cb) or fed the derivation (gone since 2026-11-19-6b0ba).
 /// </summary>
-/// <param name="Classification">Null when the reply was not a usable repo verdict;
-/// the scope evaluator then keeps all repositories.</param>
-/// <param name="Estimate">The ticket's size and shape — <see cref="ScopeEstimate.None"/>
-/// when the reply stated neither.</param>
-/// <param name="Error">The scope-verdict failure, when any, for the run record.</param>
-/// <param name="Refusal">The reply's judgement that the ticket demands something that
-/// must not be done; null when it stated no objection. Read independently of the
-/// repo verdict, like the estimate, and consulted before anything else is.</param>
-/// <param name="CallFailed">2026-10-12-6bfae: the call itself failed — no reply exists. Tells a
-/// failed call from a reply without a repo verdict, which a healthy single-repo run returns.</param>
+/// <param name="Estimate">The ticket's size and shape — <see cref="ScopeEstimate.None"/> when the reply stated neither.</param>
+/// <param name="Error">Why there is no reply at all — the call failed; null when a reply came back.</param>
+/// <param name="Refusal">The reply's judgement that the ticket demands something that must not be done; null when it
+/// stated no objection.</param>
+/// <param name="CallFailed">2026-10-12-6bfae: the call itself failed — no reply exists.</param>
 public sealed record ScopeClassificationResult(
-    RepoScopeClassification? Classification, ScopeEstimate Estimate, string? Error,
-    ScopeRefusal? Refusal = null, bool CallFailed = false);
+    ScopeEstimate Estimate, string? Error, ScopeRefusal? Refusal = null, bool CallFailed = false);

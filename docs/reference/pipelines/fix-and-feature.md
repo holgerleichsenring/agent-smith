@@ -10,7 +10,7 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 |---|---------|-------------|
 | 1 | LoadCatalog / PipelineNameInitializer | Loads the pinned skills catalog, names the run |
 | 2 | FetchTicket | Reads the ticket, its comments and attachments from GitHub / Azure DevOps / Jira / GitLab |
-| 3 | ScopeRepos | Estimates the ticket's size, refuses what must not be done, records the contexts the ticket names; does not narrow the run's repos |
+| 3 | ScopeRepos | Estimates the ticket's size and shape and refuses what must not be done; does not narrow the run's repos |
 | 4 | CheckoutSource | Clones each repo, creates the work branch `agent-smith/<ticket-id>` |
 | 5 | RunPreflight | Proves the run's preconditions before anything is spent on them |
 | 6 | SetupRegistryAuth | Pre-stages private-feed credentials in the sandboxes |

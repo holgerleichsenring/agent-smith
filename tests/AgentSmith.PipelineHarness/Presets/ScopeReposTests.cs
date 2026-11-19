@@ -25,7 +25,7 @@ public sealed class ScopeReposTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // ScopeRepos: the classifier names one of the two repos; 2026-11-18-9c1cb: the run keeps both.
+            // ScopeRepos: a reply still naming one of the two repos (2026-11-19-6b0bb: no longer asked for); the run keeps both.
             .EnqueueScopeReply("""{"repos":[{"name":"primary","affected":true,"confidence":0.95},{"name":"secondary","affected":false,"confidence":0.9,"reason":"not named by the ticket"}],"rationale":"The ticket names the primary service only."}""")
             // 2026-11-19-6b0ba: the series names the one repository it changes; no model cuts the ticket.
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// scoped fix"}""")

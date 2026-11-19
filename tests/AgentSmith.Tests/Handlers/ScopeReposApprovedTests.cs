@@ -205,8 +205,7 @@ public sealed class ScopeReposApprovedTests
             new ScopeEstimateRecorder(
                 AgentSmithConfig.Empty(), Mock.Of<Contracts.Events.IEventPublisher>(),
                 NullLogger<ScopeEstimateRecorder>.Instance),
-            new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance),
-            new ScopeNamedContextsRecorder(NullLogger<ScopeNamedContextsRecorder>.Instance));
+            new ScopeRefusalRecorder(NullLogger<ScopeRefusalRecorder>.Instance));
     }
 
     private static PipelineContext NewPipeline(params string[] repoNames)
