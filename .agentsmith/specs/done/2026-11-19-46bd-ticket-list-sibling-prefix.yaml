@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-46bd
+goal: "A ticket of a proposed list that requires ticket:<key> of a sibling in the same list requires that sibling, not a tracker id."
+
+applies_to: "default (Contracts/Models: TicketGraphOutcome, GraphTicketRequire; consumers TicketGraphChecker, TicketExistenceFindings, ListFilingPlan, PlannedTicketFiler, TicketGraphProposalText unchanged)"
+
+facts:
+  - claim: "By convention a requirement prefixed ticket: names a ticket already filed on the tracker; a sibling is named by its bare key."
+    evidence: "src/backend/AgentSmith.Contracts/Models/GraphTicketRequire.cs:3-21"
+  - claim: "TicketExistenceFindings checks every ticket:<id> a list requires on the tracker and reports each missing one."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketExistenceFindings.cs:16-41"
+  - claim: "ListFilingPlan links a ticket:<id> requirement to the tracker id as written and a bare key to the sibling's filed key."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/ListFilingPlan.cs:45-47"
+  - claim: "A list becomes a TicketGraphOutcome from the draft, from a tickets outcome block and from the stored proposal JSON."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/Writes/ProposalDraftOutcome.cs:23, src/backend/AgentSmith.Application/Services/SpecDialog/TicketGraphOutcomeParser.cs:38, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:56"
+
+scope:
+  in: "GraphTicketRequire.Siblings(tickets): a requirement ticket:<x> (one leading '#' stripped) whose <x> equals, ordinal, the key of a ticket in the same list becomes the bare key <x>. TicketGraphOutcome applies it once to the list it is built with, so every consumer of the graph sees the sibling. A ticket:<x> matching no key stays a tracker id."
+  out: "The per-ticket draft write check (it sees no full list and already accepts ticket:<x>); the draft files keep what the master wrote. Removing a ticket the draft still names as ticket:<key> elsewhere."
+
+steps:
+  - id: normalize
+    action: "GraphTicketRequire.Siblings rewrites sibling-naming ticket: requirements to the bare key; unchanged tickets keep their instance."
+  - id: one-point
+    action: "TicketGraphOutcome's Tickets property is initialised from GraphTicketRequire.Siblings(Tickets)."
+
+tests:
+  - "GraphTicketRequireTests: ticket:<sibling> and ticket:#<sibling> become the bare key; ticket:41 and ticket:#41 stay; a list without one is returned as it is."
+  - "TicketPlanCompositionTests: a sibling written ticket:<key> yields no existence finding and is not checked on the tracker."
+  - "FilingPlanTests: a sibling written ticket:<key> is linked to the sibling's filed key and filed after it."
+
+done:
+  - "A list whose tickets require siblings as ticket:<key> gives no 'required ticket not found' finding for them."
+  - "Filing such a list links each ticket to its sibling's filed ticket, in merge order."
+  - "ticket:<id> of a ticket not in the list is still checked and linked as a tracker id."

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-46bd
+
+decisions:
+  - category: Behaviour
+    chose: "A requirement ticket:<x> (one leading '#' stripped) whose <x> equals, ordinal, the key of a ticket in the same list is that sibling and is rewritten to the bare key; any other ticket:<x> stays a tracker id"
+    over: "Reporting the prefixed sibling as a missing tracker ticket (today), or matching keys case-insensitively"
+    reason: "A key of the same list is named, so the reading is unambiguous rather than a heuristic. Live evidence: a draft of 8 tickets wrote its siblings as ticket:<key>, got 12 'required ticket not found' findings and would have filed links to tracker ids that do not exist, so the chain would not start in order. Keys are lower-case by shape, so ordinal matching loses nothing."
+  - category: Architecture
+    chose: "One normalization point: TicketGraphOutcome initialises its Tickets property from GraphTicketRequire.Siblings(Tickets)"
+    over: "Normalizing in ProposalDraftOutcome, TicketGraphOutcomeParser and OutcomeProposalJson separately, or in each consumer (TicketGraphChecker, TicketExistenceFindings, ListFilingPlan, PlannedTicketFiler, TicketGraphProposalText)"
+    reason: "Every path that turns a list into a graph — the draft, a tickets outcome block, a stored proposal read back — constructs the record, so the rule lives once next to the convention in GraphTicketRequire and a proposal stored before the fix reads right too. No code sets Tickets through 'with' on the outcome."
+  - category: Scope
+    chose: "The draft's own ticket files and the per-ticket draft write check are left as written"
+    over: "Rewriting the requirement when a ticket file is written"
+    reason: "A ticket is written one at a time, so its sibling may not exist yet at write time; only the whole list can tell. The write check already accepts ticket:<x>."
