@@ -73,7 +73,7 @@ describe("The dialog frame", () => {
   it("SpecDialog_TheShell_IsBarExchangeAndPane", () => {
     const sheet = readFileSync(sheetPath, "utf8");
 
-    expect(sheet).toContain("grid-template-columns: 236px minmax(0, 1fr) 9px var(--dl-pane-w, 40%)");
+    expect(sheet).toContain("grid-template-columns: 236px minmax(0, 1fr) 9px clamp(320px, var(--dl-pane-w, 40%), calc((100% - 245px) * 0.7))");
     expect(readFileSync(join(dialogDir, "SpecDialogSurface.tsx"), "utf8")).not.toContain("@6xl:grid-cols");
   });
 });

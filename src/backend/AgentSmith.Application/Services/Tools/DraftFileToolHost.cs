@@ -61,7 +61,8 @@ public sealed class DraftFileToolHost(
 
     [Description(
         "Deletes one file of your draft, or a directory of it: draft:specs/, draft:tickets/, or draft: for the whole "
-        + "draft. The answer is the check of the draft without it.")]
+        + "draft. Deleting draft: itself discards the draft: the proposal awaiting the operator's decision is withdrawn "
+        + "when the turn ends, unless you write the draft again. The answer is the check of the draft without it.")]
     private string DeleteFile([Description("The draft path of the file or directory.")] string path)
     {
         var unchanged = false;
@@ -70,7 +71,7 @@ public sealed class DraftFileToolHost(
             var result = write.Delete(draft, path ?? string.Empty);
             unchanged = result.Next is { } after && DraftFiles.Of(after).SequenceEqual(DraftFiles.Of(draft));
             return unchanged ? DraftWrite.Refused("unchanged") : result;
-        });
+        }, discards: DraftPath.Bare(path).Length == 0);
         return unchanged ? $"Nothing deleted: {Shown(path)} holds no file."
             : DraftWriteAnswer.Of(refusal, $"Deleted {Shown(path)}.", store);
     }

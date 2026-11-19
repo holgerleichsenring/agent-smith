@@ -641,6 +641,27 @@ describe("SpecDialogSurface", () => {
     expect(postSpecDialogMessage).not.toHaveBeenCalled();
   });
 
+  it("DialogDecisionBar_KeepChatting_ComesBackWithTheAgentsNextReply", async () => {
+    // A proposal that keeps its id (an admin draft) is decided again once the agent has answered the chat.
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question()));
+    fireEvent.click(await screen.findByTestId("dialog-keep-chatting"));
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), { target: { value: "one more thing" } });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
+    // While the turn runs the composer stays, though the decision still stands.
+    act(() => questions.emit(question()));
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+
+    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "Answered.", at: new Date().toISOString() }));
+    // The same proposal, same id, still awaiting after that turn.
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question()));
+
+    expect(await screen.findByTestId("dialog-decision")).toBeInTheDocument();
+  });
+
   it("DialogDecisionBar_Unoffered_RendersNothing", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({ offerLed: true } as Partial<SpecDialogProposalPush>)));

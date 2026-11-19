@@ -1,11 +1,12 @@
 /* 2026-11-17-d762a: Work it out in the ticket page's frame (ticket-thread.css, 8d1ca) — the conversations' bar beside
    the icon-only app sidebar, the exchange in the middle, the pane at the right.
    Plain: hairlines and text colour, no panels, no pills, no filled backgrounds; the open conversation is the bright row. */
-.mock-dialog.dl-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr) 9px var(--dl-pane-w, 40%); align-items: start; min-height: 100%; }
+.mock-dialog.dl-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr) 9px clamp(320px, var(--dl-pane-w, 40%), calc((100% - 245px) * 0.7)); align-items: start; min-height: 100%; }
 /* 2026-11-19-7c42b: the handle between the exchange and the pane; dragging sets --dl-pane-w on the shell. */
 .mock-dialog.dl-shell > .dl-pane-handle { position: sticky; top: 0; height: calc(100vh - var(--topbar-h, 0px)); cursor: col-resize; touch-action: none; }
 .mock-dialog.dl-shell > .dl-pane-handle::after { content: ""; display: block; width: 1px; height: 100%; margin: 0 auto; background: var(--line-2); }
-.mock-dialog.dl-shell > .dl-pane-handle:hover::after { width: 3px; background: var(--accent); }
+.mock-dialog.dl-shell > .dl-pane-handle:is(:hover, :focus-visible)::after { width: 3px; background: var(--accent); }
+.mock-dialog.dl-shell > .dl-pane-handle:focus-visible { outline: none; }
 .mock-dialog.dl-shell > .dl-page { min-width: 0; max-width: none; padding: 28px 32px 20px; min-height: calc(100vh - var(--topbar-h, 0px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
 /* 2026-11-17-76f1: a new conversation has no pane; its page is the home page's column. */
 .mock-dialog.dl-shell.dl-fresh { grid-template-columns: 236px minmax(0, 1fr); }

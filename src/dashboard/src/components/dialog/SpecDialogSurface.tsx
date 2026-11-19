@@ -278,6 +278,11 @@ export function SpecDialogSurface() {
   const [focus, setFocus] = useDialogPaneFocus(dialog.proposal, dialog.filed);
   // 2026-11-19-7c42b: the proposal whose decision the operator set aside to keep chatting.
   const [chattingOn, setChattingOn] = useState<string | null>(null);
+  // Set aside until the agent's next turn has finished: a standing decision comes back then, also for a proposal that
+  // keeps its id (an admin draft) or carries none — never while a turn runs, which would take the composer away.
+  useEffect(() => {
+    if (!dialog.working) setChattingOn(null);
+  }, [dialog.working]);
   const [paneWidth, setPaneWidth] = usePaneWidth();
   // 2026-11-12-92e9c: Inspect left with the controls inside a turn (2026-09-20-4b0ae's acknowledgement with it); the
   // pane is still scrolled to when an upload chip opens it.

@@ -18,6 +18,9 @@ public sealed class SpecDialogTurnDelivery(
         if (await turnRunner.RunTurnAsync(state, poster, ct) is not { } result) return;
         if (await keeper.KeepAsync(state, result, platform, threadId, ct) is { } notice) // 2026-11-04-96a0b
             await messenger.SendAsync(platform, channelId, threadId, notice, ct);
+        // 2026-11-19-7c42a: a discard is withdrawn BEFORE the reply goes out, because the reply makes the page re-read
+        // the conversation; read first, it would still find the proposal awaiting.
+        await outcomeFlow.WithdrawIfDiscardedAsync(state, result.Outcome, ct);
         await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
         // p0315e: a non-answer outcome is stored as the proposal awaiting a decision and shown; nothing waits.
         await outcomeFlow.HandleAsync(state, result.Outcome, ct, result.Stewarded, result.RunId);

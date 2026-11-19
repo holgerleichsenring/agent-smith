@@ -18,3 +18,6 @@ decisions:
   - chosen: "The ticket page keeps Approve/Discard; only its unoffered 'Not offered' line is gone."
     alternatives: "Rework the ticket card in the same spec."
     why: "The complaint was Work it out; the ticket card is its own decision surface with a bound ticket."
+  - chosen: "Review: Keep chatting resets when the next turn finishes (working goes false), never during a turn; the pane's track is measured from the handle to the shell's edge, a click that moves nothing stores nothing, the CSS clamps a stored width, the arrow keys resize."
+    alternatives: "Reset on the agent-entry count; measure the pane element."
+    why: "Two fresh code reviews: the entry count changes from entries the page adds itself mid-turn; the pane element leaves out its margins, so keys moved it the wrong way."

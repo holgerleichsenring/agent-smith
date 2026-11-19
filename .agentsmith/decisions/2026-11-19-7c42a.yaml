@@ -9,3 +9,6 @@ decisions:
   - chosen: "No notice in the transcript on a withdraw."
     alternatives: "Post 'Rejected — nothing was filed' as the button did."
     why: "The agent's own reply already says the draft is discarded; a framework line beside it is the banner the operator asked to remove."
+  - chosen: "Review: a discard is explicit — ProposalStore.Discarded, set only by delete_file on the draft: root and cleared by any later write; the withdraw runs before the reply is sent; an admin draft emptied of every change it continued is its discard."
+    alternatives: "Read a discard from any emptied draft; withdraw after the reply; guard on the loop's finish reason."
+    why: "Two fresh code reviews: an emptied store also arises from a recut that dies midway; the reply made the page re-read before the withdraw; the finish-reason guard never fires (the library makes a last call without tools at its ceiling)."
