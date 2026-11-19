@@ -4,7 +4,7 @@ import { DialogProposalPanel } from "../DialogProposalPanel";
 import { TurnResult } from "../TurnResult";
 import { turnProposalOf } from "../turnProposal";
 import { DialogQuestionCard } from "../DialogQuestionCard";
-import { DialogDecisionBar } from "../DialogDecisionBar";
+import { DialogDecisionBar, decides } from "../DialogDecisionBar";
 import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogGraphTicket, SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
@@ -105,21 +105,22 @@ describe("A proposed list of tickets", () => {
       /^A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket\.$/);
   });
 
-  // 2026-11-12-92e9d: the composer's File holds the same guard as the card's Approve.
-  it("DecisionBar_TicketsKindInBoundConversation_NoFileAndSaysWhereAListIsFiled", () => {
-    render(<DialogDecisionBar decision={approvalDecision(question, list, null, true)!} onDecide={vi.fn()} />);
+  // 2026-11-12-92e9d: the composer's decision holds the same guard as the card's Approve.
+  // 2026-11-19-7c42b: a decision that cannot be approved is not put at all — the composer stays.
+  it("DecisionBar_TicketsKindInBoundConversation_IsNotPut", () => {
+    const decision = approvalDecision(question, list, null, true)!;
 
-    expect(screen.queryByTestId("dialog-file")).toBeNull();
-    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent(/^A list of tickets is filed from Work it out/);
+    expect(decides(decision, null, "p-1")).toBe(false);
+    expect(decision.summary).toMatch(/^A list of tickets is filed from Work it out/);
   });
 
-  it("DecisionBar_UnboundList_FileSendsApprove", () => {
-    const onDecide = vi.fn();
-    render(<DialogDecisionBar decision={approvalDecision(question, list)!} onDecide={onDecide} />);
+  it("DecisionBar_UnboundList_CreateSendsApprove", () => {
+    const onApprove = vi.fn();
+    render(<DialogDecisionBar decision={approvalDecision(question, list)!} onApprove={onApprove} onKeepChatting={vi.fn()} />);
 
+    expect(screen.getByTestId("dialog-file")).toHaveTextContent(/^Create 3 tickets$/);
     screen.getByTestId("dialog-file").click();
-    expect(onDecide).toHaveBeenCalledWith("approve");
+    expect(onApprove).toHaveBeenCalledOnce();
     expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent(/^File these 3 tickets\?/);
   });
 });

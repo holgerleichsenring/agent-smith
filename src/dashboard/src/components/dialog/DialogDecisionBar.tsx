@@ -2,38 +2,41 @@
 
 import type { ApprovalDecision } from "./approvalDecision";
 
-// 2026-11-12-92e9d: the decision on the proposal awaiting one, at the composer — the only controls Work it out has
-// besides send. File and Discard send the approve and reject decisions the approval card sent; the line beside them
-// is the card's summary. No shapes are offered: the operator says a different shape in words.
-// 2026-11-15-bf77: when the design partner leads filing, File appears once it offered this draft, beside its line;
-// until then Discard stays and the line says to ask for filing in words.
+// 2026-11-12-92e9d: the decision on the proposal awaiting one, at the composer.
+// 2026-11-19-7c42b: a decision, not a banner. Once the design partner offered the draft it takes the composer's place
+// with exactly two answers — create what the draft holds, or keep chatting — the way a permission prompt does. Keep
+// chatting gives the composer back and decides nothing; discarding a draft is said in words. Until the draft is
+// offered, nothing shows here.
 
 export function DialogDecisionBar({
   decision,
-  onDecide,
+  onApprove,
+  onKeepChatting,
 }: {
   decision: ApprovalDecision;
-  onDecide: (answer: "approve" | "reject") => void;
+  onApprove: () => void;
+  onKeepChatting: () => void;
 }) {
-  if (decision.expired)
-    return (
-      <p data-testid="dialog-decision-expired" className="ec-sub">
-        No longer waiting — nothing was filed. Anything you write starts a new turn.
-      </p>
-    );
   return (
-    <div data-testid="dialog-decision" className="flex flex-wrap items-center gap-2">
-      <span data-testid="dialog-decision-summary" className="dsh-body min-w-44 flex-1 text-ink">
-        {decision.summary ?? "A proposal is waiting for your decision; the Proposal tab has it in full."}
-      </span>
-      {decision.approvable && (
-        <button type="button" data-testid="dialog-file" className="btn primary" onClick={() => onDecide("approve")}>
-          {decision.action ?? "File"}
-        </button>
+    <div data-testid="dialog-decision" className="dl-decision flex flex-col gap-2">
+      {decision.summary && (
+        <p data-testid="dialog-decision-summary" className="dsh-body m-0 text-ink">
+          {decision.summary}
+        </p>
       )}
-      <button type="button" data-testid="dialog-discard" className="btn" onClick={() => onDecide("reject")}>
-        Discard
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" data-testid="dialog-file" className="btn primary" onClick={onApprove}>
+          {decision.action}
+        </button>
+        <button type="button" data-testid="dialog-keep-chatting" className="btn" onClick={onKeepChatting}>
+          Keep chatting
+        </button>
+      </div>
     </div>
   );
+}
+
+/** Whether the decision is put to the operator now: offered, still answerable, and not set aside for chatting. */
+export function decides(decision: ApprovalDecision | null, chattingOn: string | null, proposalId: string | null): boolean {
+  return decision !== null && decision.approvable && !decision.expired && chattingOn !== (proposalId ?? "");
 }

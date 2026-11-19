@@ -1,12 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { DialogDecisionBar } from "../DialogDecisionBar";
+import { DialogDecisionBar, decides } from "../DialogDecisionBar";
 import { DialogQuestionCard } from "../DialogQuestionCard";
-import { NOT_OFFERED, approvalDecision } from "../approvalDecision";
+import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
 // 2026-11-15-bf77: File follows the design partner's offer. A 12-ticket proposal with open questions the master
 // has not offered shows no File; once it offers, File shows beside its line; a master that does not lead is unchanged.
+// 2026-11-19-7c42b: an unoffered draft puts no decision and says nothing; the button names what it creates.
 
 const question: SpecDialogQuestionPush = {
   dialogId: "d-1", questionId: "q-1", kind: "approval", text: "", choices: [], at: "2026-11-15T10:01:00Z", expiresAt: null,
@@ -20,24 +21,25 @@ const base = {
 } as unknown as SpecDialogProposalPush;
 
 function bar(proposal: SpecDialogProposalPush) {
-  const onDecide = vi.fn();
-  render(<DialogDecisionBar decision={approvalDecision(question, proposal)!} onDecide={onDecide} />);
-  return onDecide;
+  const onApprove = vi.fn();
+  render(<DialogDecisionBar decision={approvalDecision(question, proposal)!} onApprove={onApprove} onKeepChatting={vi.fn()} />);
+  return onApprove;
 }
 
 describe("filing offer", () => {
-  it("OfferLed_NotOffered_ShowsNoFile_KeepsDiscard_AndSaysToAsk", () => {
-    bar({ ...base, offerLed: true });
-    expect(screen.queryByTestId("dialog-file")).toBeNull();
-    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent(NOT_OFFERED);
+  it("OfferLed_NotOffered_PutsNoDecision_AndSaysNothing", () => {
+    const decision = approvalDecision(question, { ...base, offerLed: true })!;
+    expect(decision.approvable).toBe(false);
+    expect(decision.summary).toBeNull();
+    expect(decides(decision, null, "p-1")).toBe(false);
   });
 
   it("OfferLed_Offered_ShowsFileWithTheMastersLine", () => {
     const onDecide = bar({ ...base, offerLed: true, filingOffer: "Files the 12 tickets; the tracker question goes in as decided." });
     expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent(/^Files the 12 tickets; the tracker question goes in as decided\.$/);
+    expect(screen.getByTestId("dialog-file")).toHaveTextContent(/^Create 12 tickets$/);
     fireEvent.click(screen.getByTestId("dialog-file"));
-    expect(onDecide).toHaveBeenCalledWith("approve");
+    expect(onDecide).toHaveBeenCalledOnce();
   });
 
   it("NotOfferLed_KeepsTodaysFileAndCount", () => {
@@ -54,6 +56,6 @@ describe("filing offer", () => {
     render(<DialogQuestionCard question={question} proposal={spec} onAnswer={vi.fn()}
       ticketEffect={{ summary: "Approving continues this ticket's series.", approvable: true }} inTicket />);
     expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
-    expect(screen.getByTestId("dialog-approval-summary")).toHaveTextContent(NOT_OFFERED);
+    expect(screen.queryByText(/Not offered/)).toBeNull();
   });
 });

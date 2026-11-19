@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DialogQuestionCard } from "../DialogQuestionCard";
-import { DialogDecisionBar } from "../DialogDecisionBar";
+import { decides } from "../DialogDecisionBar";
 import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
@@ -40,12 +40,11 @@ describe("DialogQuestionCard ticketEffect", () => {
     expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
   });
 
-  // 2026-11-12-92e9d: the composer's File follows the same preview.
-  it("ANotApprovableEffect_DecisionBarOffersNoFile", () => {
+  // 2026-11-12-92e9d: the composer's decision follows the same preview.
+  // 2026-11-19-7c42b: a not-approvable decision is not put; the composer stays.
+  it("ANotApprovableEffect_DecisionBarIsNotPut", () => {
     const effect = { summary: "x", approvable: false };
-    render(<DialogDecisionBar decision={approvalDecision(question, proposal, effect)!} onDecide={vi.fn()} />);
-    expect(screen.queryByTestId("dialog-file")).toBeNull();
-    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
+    expect(decides(approvalDecision(question, proposal, effect), null, "p-1")).toBe(false);
   });
 
   it("ApprovalDecision_OtherQuestionKind_IsNull", () => {

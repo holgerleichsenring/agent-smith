@@ -15,12 +15,10 @@ export interface ApprovalDecision {
   summary: string | null;
   /** The bound preview answered: approving continues the ticket rather than filing a new one. */
   bound: boolean;
-  /** 2026-11-17-f3a8c: what the approve button says — Apply for the admin assistant's configuration changes. */
-  action?: "File" | "Apply";
+  /** 2026-11-17-f3a8c: what the approve button says. 2026-11-19-7c42b: what approving creates, by kind and count —
+   *  "Create 6 tickets", "Apply 3 changes" — never the bare "File". */
+  action: string;
 }
-
-/** 2026-11-15-bf77: an offer-led proposal the design partner has not offered to file yet. */
-export const NOT_OFFERED = "Not offered for filing yet. When you want it filed, say so, and the design partner offers it or says what is still open.";
 
 export const BOUND_LIST = "A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket.";
 
@@ -49,10 +47,26 @@ export function approvalDecision(
   return {
     expired: hasExpired(question),
     approvable: !boundList && !unoffered && !(effect && !effect.approvable),
-    summary: boundList ? BOUND_LIST : unoffered ? NOT_OFFERED : offer ?? (effect ? effect.summary : proposal ? summaryOf(proposal) : null),
+    // 2026-11-19-7c42b: an unoffered draft says nothing — the design partner's reply already says what is open.
+    summary: boundList ? BOUND_LIST : unoffered ? null : offer ?? (effect ? effect.summary : proposal ? summaryOf(proposal) : null),
     bound: effect !== null,
-    action: proposal?.kind === "config" ? "Apply" : "File",
+    action: proposal ? actionOf(proposal, effect !== null) : "Approve",
   };
+}
+
+/** 2026-11-19-7c42b: the approve button names what it creates, so nobody reads "File" as a file. */
+export function actionOf(proposal: SpecDialogProposalPush, bound: boolean): string {
+  if (proposal.kind === "config") {
+    const count = proposal.configChanges?.length ?? 0;
+    return count === 1 ? "Apply 1 change" : `Apply ${count} changes`;
+  }
+  if (proposal.kind === "comment") return "Post comment";
+  if (proposal.bug) return "Create bug ticket";
+  if (proposal.kind === "tickets") {
+    const count = proposal.tickets?.length ?? 0;
+    return count === 1 ? "Create 1 ticket" : `Create ${count} tickets`;
+  }
+  return bound ? "Write spec to ticket" : "Create ticket";
 }
 
 /** What the proposal says would be filed, and nothing it does not say. */

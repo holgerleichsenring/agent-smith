@@ -81,7 +81,8 @@ export function DialogQuestionCard({
   const summary = decision ? approval.summary : null;
   // Only where the server said nothing AND the card has nothing of its own: a chat-shaped
   // confirmation that still carries its text keeps that text, and shows no second line.
-  const unsummarised = decision && !summary && question.text.trim().length === 0;
+  // 2026-11-19-7c42b: an unoffered draft is countable; it only waits for its offer, so it gets no "cannot count" line.
+  const unsummarised = decision && approval.approvable && !summary && question.text.trim().length === 0;
   return (
     <div
       data-testid="dialog-question"
