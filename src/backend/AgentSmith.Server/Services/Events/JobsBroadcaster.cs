@@ -73,11 +73,11 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
 
     public ValueTask DisposeAsync() => new(StopAsync(CancellationToken.None));
 
-    // p0391a: rehydration is a nicety — the dashboard fills in again from live events.
-    // It ran unguarded inside StartAsync, so an unreachable Redis took the whole host
-    // down at boot. A cold start that cannot read starts empty and says so.
+    // p0391a: rehydration is a nicety; a cold start that cannot read starts empty and says so. 2026-08-24-035a: the
+    // host binds after this, and a read on a disconnected multiplexer waits out its backlog timeout first.
     private async Task ColdStartAsync(CancellationToken ct)
     {
+        if (!redis.IsConnected) { logger.LogWarning("JobsBroadcaster cold start skipped: Redis is not connected — starting empty"); return; }
         try
         {
             var db = redis.GetDatabase();
