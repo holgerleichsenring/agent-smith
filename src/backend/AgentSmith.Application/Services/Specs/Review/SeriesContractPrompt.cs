@@ -11,6 +11,9 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// </summary>
 public static class SeriesContractPrompt
 {
+    /// <summary>The fewest words a quote should carry: a shorter run also occurs elsewhere in its register.</summary>
+    public const int QuoteWords = 4; // not a limit: the reviewer is told it; nothing is cut at it
+
     public const string Brief =
         "Check this series against its contract before any more of it is built. For every member ask: does it "
         + "mint a name, number or table the contract gives another member or does not list; persist a datum "
@@ -39,7 +42,7 @@ public static class SeriesContractPrompt
                          {{Evidence(input.InRun)}}}],
                "findings": [{"text": "<what breaks the contract, one or two sentences>", {{Evidence(input.InRun)}}}]}
 
-            - Every quote is a run of at least {{SpecAttackPrompt.QuoteWords}} consecutive words of the register it
+            - Every quote is a run of at least {{QuoteWords}} consecutive words of the register it
               names in the member it names, copied exactly; a cut naming no member, or quoting anything else
               (requires, applies_to, the id), is discarded.
             {{Rule(input.InRun)}}

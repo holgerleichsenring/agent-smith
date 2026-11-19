@@ -37,10 +37,6 @@ public sealed class ProposalReviewSurfacesTests
     };
 
     [Fact]
-    public void ForProposalAttack_NoTurnRepositories_IsNull() =>
-        DerivationTestLooks.Factory().ForProposalAttack(new PipelineContext(), Draft, 24).Should().BeNull();
-
-    [Fact]
     public void OutcomeProposalJson_ReviewRoundsAndNotReviewed_RoundTrip_AndAnOldRowReadsNone()
     {
         var back = OutcomeProposalJson.Read(OutcomeProposalJson.Write(Reviewed()));

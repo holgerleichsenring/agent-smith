@@ -17,9 +17,9 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// 2026-11-17-ec48a fast-tier end-to-end: the operator writes to a running code attempt, the message reaches the master
-/// with a tool result, and the master revises the spec it is building with revise_spec instead of pausing. One review
-/// round runs over the changed text, the revision is committed to the ticket branch under the run's cause, and the run
-/// is judged against the revised done criteria. A refused revision writes nothing and the run keeps its criteria.
+/// with a tool result, and the master revises the spec it is building with revise_spec instead of pausing. The revision
+/// is committed to the ticket branch under the run's cause, and the run is judged against the revised done criteria.
+/// 2026-11-19-3e10: no reviewer judges the master's text.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class ReviseSpecCompositionTests
@@ -30,10 +30,6 @@ public sealed class ReviseSpecCompositionTests
     private const string StagedNames = "diff --cached --name-only";
 
 
-    private const string Refuse = """
-        {"verdict": "REFUSE", "cuts": [], "findings": [{"text": "Nothing in the sample reads a request body.",
-          "repository": "default", "path": null, "line": 0, "cites": "A1"}]}
-        """;
 
     private sealed class OneMessage : ITicketConversationMessages
     {
@@ -48,21 +44,19 @@ public sealed class ReviseSpecCompositionTests
     }
 
     [Fact]
-    public async Task Harness_AMessageChangesTheCriteria_TheMasterRevisesItsSpecWithOneReviewAndTheRunEndsGreen()
+    public async Task Harness_AMessageChangesTheCriteria_TheMasterRevisesItsSpecWithoutAReviewAndTheRunEndsGreen()
     {
         await using var harness = Harness();
-        var attacksBefore = 0;
-        Script(harness, () => attacksBefore = Attacks(harness), Verdict(Criterion, Added));
+        var callsBefore = 0;
+        Script(harness, () => callsBefore = harness.ChatClient.CallMessages.Count, Verdict(Criterion, Added));
         var runner = Runner(harness);
 
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue(result.Message);
         Results(harness).Should().ContainSingle(r => r.Contains("is revised: revision", StringComparison.Ordinal));
-        Attacks(harness).Should().Be(attacksBefore + 2, "one review round of the configured two reviewers, no more");
-        harness.ChatClient.CallMessages.Where(SpecAttackScript.Answers).Skip(attacksBefore)
-            .Should().OnlyContain(call => call.Any(m => m.Text != null && m.Text.Contains(Message, StringComparison.Ordinal)),
-                "the reviewers read the operator's message the run was handed");
+        harness.ChatClient.CallMessages.Count.Should().Be(callsBefore + 2,
+            "2026-11-19-3e10: the master's next turn and its closing turn — no reviewer is asked between them");
         var context = runner.LastContext!;
         context.Get<SpecDraft>(ContextKeys.CurrentSpec).Done.Should().Equal(Criterion, Added);
         context.Get<SpecSet>(ContextKeys.SpecSet).Revisions.Should().Contain(r => r.Cause.StartsWith("revised in run ", StringComparison.Ordinal)
@@ -72,26 +66,6 @@ public sealed class ReviseSpecCompositionTests
             && s.Path.Contains(".agentsmith/specs/planned/", StringComparison.Ordinal) && s.Content != null && s.Content.Contains(Added));
         steps.Should().Contain(s => s.Command == "git" && s.Args != null && s.Args.Contains("commit")
             && s.Args.Any(a => a.Contains("(revised in run ", StringComparison.Ordinal)));
-    }
-
-    [Fact]
-    public async Task Harness_TheReviewRefusesTheRevision_NothingIsWrittenAndTheRunKeepsItsCriteria()
-    {
-        await using var harness = Harness();
-        Script(harness, () => harness.ChatClient
-            .EnqueueSpecAttackToolCall("search_repository", """{"repository": "default", "pattern": "RequestBody"}""")
-            .EnqueueSpecAttackToolCall("search_repository", """{"repository": "default", "pattern": "RequestBody"}""")
-            .EnqueueSpecAttackReply(Refuse).EnqueueSpecAttackReply(Refuse), Verdict(Criterion));
-        var runner = Runner(harness);
-
-        var result = await runner.RunAsync("code");
-
-        result.IsSuccess.Should().BeTrue(result.Message);
-        Results(harness).Should().ContainSingle(r => r.StartsWith("Not revised: the review refused", StringComparison.Ordinal))
-            .Which.Should().Contain("Nothing in the sample reads a request body.");
-        runner.LastContext!.Get<SpecDraft>(ContextKeys.CurrentSpec).Done.Should().Equal(Criterion);
-        runner.LastContext.Get<SpecSet>(ContextKeys.SpecSet).Revisions
-            .Should().NotContain(r => r.Cause.StartsWith("revised in run ", StringComparison.Ordinal));
     }
 
     private static RealCompositionHarness Harness()
@@ -148,7 +122,6 @@ public sealed class ReviseSpecCompositionTests
     private static string Verdict(params string[] criteria) =>
         "## Delivered\n" + string.Join("\n", criteria.Select(c => $"- {c}: the guard"));
 
-    private static int Attacks(RealCompositionHarness harness) => harness.ChatClient.CallMessages.Count(SpecAttackScript.Answers);
 
     private static List<string> Results(RealCompositionHarness harness) =>
         [.. harness.ChatClient.CallMessages.SelectMany(call => call).SelectMany(m => m.Contents).OfType<FunctionResultContent>()

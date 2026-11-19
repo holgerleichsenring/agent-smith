@@ -61,17 +61,4 @@ public sealed record DerivationLookTerms(
         "Report only on the files you did read; say nothing about the rest.",
         "a finding you report cites that id in \"cites\", and one that cites none is discarded.",
         NumberedReads: true);
-
-    /// <summary>2026-10-13-8762e: a fresh reviewer attacking a spec before it is built. 2026-11-17-f9b0b: its allowance
-    /// is never below spec_review.attack_look_floor, and the look past it says so.</summary>
-    public static DerivationLookTerms AttackReviewWith(int allowance) => new(
-        "attack review", allowance, "A",
-        "Answer on what you opened; claim nothing about a cited file you did not open. The allowance is the larger of "
-        + "spec_review.attack_look_floor and the spec's cited paths plus 12, so one review stays inside its share of the run.",
-        "a cut or finding you report cites that id in \"cites\", and one that cites none is discarded.",
-        NumberedReads: true);
-
-    /// <summary>2026-10-13-8762e: sized to one spec — its distinct cited paths plus 12, never below the floor.</summary>
-    public static DerivationLookTerms AttackReviewFor(Contracts.Models.SpecDraft draft, int floor) =>
-        AttackReviewWith(Math.Max(floor, Review.SpecCitations.DistinctPaths(draft) + 12));
 }

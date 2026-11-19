@@ -47,7 +47,7 @@ internal static class AttackReviewFixtures
     public static DerivationLook Look() =>
         new(new Dictionary<string, ISandbox> { [Key] = new CountingSandbox(0) },
             new FixedReaderFactory(new InMemorySandboxFileReader()), new PackageEcosystemDetector(),
-            NullLogger.Instance, terms: DerivationLookTerms.AttackReviewWith(24));
+            NullLogger.Instance, terms: DerivationLookTerms.SpecReview);
 
     public static string Read(DerivationLook look, string path, int lines, int exit = 0) =>
         look.Evidence.Remember(new EvidenceRecord(Key, EvidenceRecord.Read, $"read {path}", exit, Ran: true, path, lines));
@@ -58,8 +58,7 @@ internal static class AttackReviewFixtures
 
     public static SpecAttackResult Admit(string json, DerivationLook look) =>
         new SpecAttackAdmission(NullLogger<SpecAttackAdmission>.Instance).Admit(
-            SpecAttackAnswerReader.Read(json)!, SpecRegisters.Read(Yaml), look, Names);
+            AgentSmith.Application.Services.Json.JsonAnswerReader.ReadObject<SpecAttackWire, SpecAttackAnswer>(
+                json, wire => wire.ToAnswer())!, SpecRegisters.Read(Yaml), look, Names);
 
-    public static SpecAttackInput Input(SpecDraft? draft = null) =>
-        new(draft ?? Draft(), "spec", 1, 0, "Make the nightly export usable by accounting.", true, [], 0, 1, []);
 }

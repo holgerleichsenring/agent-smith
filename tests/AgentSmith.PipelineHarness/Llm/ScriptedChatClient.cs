@@ -19,7 +19,6 @@ public sealed class ScriptedChatClient : IChatClient
     private readonly Queue<object> _responses = new();
     private readonly List<ScriptedToolCall> _toolCalls = new();
     private readonly ScopeClassificationScript _scopeScript = new();
-    private readonly SpecAttackScript _specAttackScript = new(); // 2026-10-13-8762g
     private int _toolCallCounter;
 
     public int InvocationCount { get; private set; }
@@ -41,14 +40,11 @@ public sealed class ScriptedChatClient : IChatClient
     /// drove. The scope classification is not excluded: it is a PRELUDE, so a preset whose
     /// only call is that one still reads it here, exactly as it did before the review existed.
     /// </summary>
-    /// <summary>2026-10-13-8762i: the calls the script answered — every call but the framework's own spec-review
-    /// and attack-review calls, which a design turn now makes after its proposal.</summary>
-    public int ScriptedInvocationCount =>
-        _callMessages.Count(m => !SpecAttackScript.Answers(m));
+    /// <summary>2026-10-13-8762i: the calls the script answered. 2026-11-19-3e10: no attack reviewer calls are left
+    /// to leave out.</summary>
+    public int ScriptedInvocationCount => _callMessages.Count;
 
-    public IReadOnlyList<ChatMessage> LastScriptedMessages =>
-        _callMessages.LastOrDefault(m => !SpecAttackScript.Answers(m))
-        ?? Array.Empty<ChatMessage>();
+    public IReadOnlyList<ChatMessage> LastScriptedMessages => _callMessages.LastOrDefault() ?? Array.Empty<ChatMessage>();
 
     /// <summary>Each call's messages joined to one string, in order.</summary>
     public IReadOnlyList<string> PromptsSeen =>
@@ -96,22 +92,6 @@ public sealed class ScriptedChatClient : IChatClient
     public ScriptedChatClient EnqueueScopeReply(string text)
     {
         _scopeScript.Enqueue(text);
-        return this;
-    }
-
-    /// <summary>2026-11-02-2b26d: scripts an attack reviewer's answer, which draws from its own slot
-    /// (see <see cref="SpecAttackScript"/>) instead of the FIFO; one per reviewer call reached.</summary>
-    public ScriptedChatClient EnqueueSpecAttackReply(string text)
-    {
-        _specAttackScript.Enqueue(text);
-        return this;
-    }
-
-    /// <summary>2026-11-02-2b26d: scripts an attack reviewer's tool call — the look its finding cites.</summary>
-    public ScriptedChatClient EnqueueSpecAttackToolCall(string toolName, string arguments)
-    {
-        var call = new FunctionCallContent("attack_" + Interlocked.Increment(ref _toolCallCounter), toolName, ParseArgs(arguments));
-        _specAttackScript.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, [call])));
         return this;
     }
 
@@ -201,8 +181,6 @@ public sealed class ScriptedChatClient : IChatClient
             return Task.FromResult(_agents[agent].Count > 0 ? _agents[agent].Dequeue() : DefaultEmpty());
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());
-        if (SpecAttackScript.Answers(LastMessages))
-            return Task.FromResult(_specAttackScript.Next());
         if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());
         var next = _responses.Dequeue();
         if (next is Func<ChatResponse> deferred)

@@ -44,21 +44,6 @@ public sealed class SpecRegistersTodayTests
         SpecToday.Describes(Draft("2026-09-19-c511c"), Set(executed: [])).Should().BeTrue();
     }
 
-    [Fact]
-    public void DerivationLookTerms_AttackReviewFor_IsCitedPathsPlusTwelveNeverBelowTheFloor()
-    {
-        DerivationLookTerms.AttackReviewFor(Draft(), 24).Allowance.Should().Be(24, "one cited path plus 12 is below the floor");
-        DerivationLookTerms.AttackReviewFor(Draft(), 40).Allowance.Should().Be(40, "2026-11-17-f9b0b: the floor is spec_review.attack_look_floor");
-        var wide = Draft() with
-        {
-            Facts = [.. Enumerable.Range(1, 20).Select(i => new Contracts.Models.SpecFact($"claim {i}", $"src/F{i}.cs:1, src/F{i}.cs:2"))],
-        };
-        DerivationLookTerms.AttackReviewFor(wide, 24).Allowance.Should().Be(32, "twenty distinct paths plus 12");
-        var terms = DerivationLookTerms.AttackReviewWith(24);
-        (terms.EvidencePrefix, terms.NumberedReads).Should().Be(("A", true));
-        terms.Settle.Should().Contain("spec_review.attack_look_floor", "the look past the allowance names its key");
-    }
-
     private static SpecSet Set(IReadOnlyList<string> executed) =>
         new("k", [Spec("2026-10-14-1234a"), Spec("2026-10-14-1234b")], SpecAccounting.Empty, [], SpecSource.Derived)
         {

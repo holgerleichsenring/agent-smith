@@ -26,8 +26,8 @@ namespace AgentSmith.Tests.Integration;
 /// <summary>
 /// 2026-11-02-2b26c: the demo's two gpt-4.1 runs never reached coding — the attack and cut reviewers read
 /// "the code does not apply the discount at 100.00 yet" as a refusal or a contradiction. This puts run 1's
-/// draft before one attack reviewer and the rejected boundary wordings before the cut reviewer, over the
-/// materialised demo sample and the demo's own ticket, three times each. Paid API; run by hand.
+/// rejected boundary wordings before the cut reviewer, over the materialised demo sample and the demo's own ticket,
+/// three times. Paid API; run by hand. 2026-11-19-3e10: the attack reviewer is gone, and its run with it.
 /// </summary>
 [Trait("Category", "LiveLLM")]
 [Trait("TestProcess", "serial")]
@@ -36,28 +36,8 @@ public sealed class LiveDoneTargetStateEvalTests(ITestOutputHelper output) : IDi
 {
     private const string Repo = "source";
     private const int Runs = 3;
-    private const string Boundary = "PriceCalculator.Total applies the bulk discount for totals of at least 100.00.";
 
     // Run 1's draft (2026-11-02-6e05a), its pointer to the carried .md left out.
-    private const string RunOneDraft = """
-        spec: 2026-11-02-6e05a
-        goal: Bulk discount is applied to orders with Total > 100.00; change the logic so exactly 100.00 qualifies, matching the business rule and tests.
-        repos:
-        - source
-        steps:
-        - id: conditional-update
-          action: Update PriceCalculator.Total logic to apply 10% discount for totals of 100.00 or more.
-        - id: test-validate
-          action: Verify Total_ExactlyAtBulkThreshold_GetsDiscount passes in PriceCalculatorTests.
-        done:
-        - PriceCalculator.Total applies the bulk discount for totals of at least 100.00.
-        - tests/Sample.Tests/PriceCalculatorTests.cs passes Total_ExactlyAtBulkThreshold_GetsDiscount.
-        assumptions:
-        - PriceCalculator.Total currently applies the bulk discount only for totals strictly above 100.00.
-        - Business rule and test require bulk discount for totals exactly at 100.00 as well.
-        contexts:
-        - backend
-        """;
 
     // The wordings the cut reviews rejected: run.log line 3230, run2.log lines 2480-2481.
     private static readonly string[] Rejected =
@@ -71,30 +51,6 @@ public sealed class LiveDoneTargetStateEvalTests(ITestOutputHelper output) : IDi
     private readonly string _dir = Path.Combine(Path.GetTempPath(), $"agentsmith-2b26c-{Guid.NewGuid():N}");
 
     [Fact]
-    public async Task SpecReview_AnOutcomeCriterionThatIsFalseAtBaseline_PassesUntouched()
-    {
-        if (!Credentials()) return;
-        var draft = new SpecDraftReader().Read(RunOneDraft);
-        var input = new SpecAttackInput(draft, "spec", 1, 0, SpecCutReviewTicketText.Of(Ticket()), true, [], 0, 0, [])
-            { RepositoryNames = new Dictionary<string, string>(StringComparer.Ordinal) { [Repo] = Repo } };
-        var reviewer = new SpecAttackReviewer(Factory(), new AsyncLocalRunContextAccessor(),
-            new SpecAttackAdmission(NullLogger<SpecAttackAdmission>.Instance), NullLogger<SpecAttackReviewer>.Instance);
-        var bad = new List<string>();
-        for (var run = 1; run <= Runs; run++)
-        {
-            await using var look = await LookAsync(DerivationLookTerms.AttackReviewFor(draft, new SpecReviewConfig().AttackLookFloor));
-            var result = await reviewer.ReviewAsync(input, look, new AgentConfig(), Cost(), CancellationToken.None);
-            output.WriteLine($"attack run {run}: {result?.Verdict ?? "(none)"}");
-            foreach (var cut in result?.Cuts ?? []) output.WriteLine($"  cut {cut.Register}: \"{cut.Quote}\" -> {cut.Replacement}");
-            foreach (var finding in result?.Findings ?? []) output.WriteLine($"  finding: {finding.Text} [{finding.Evidence}]");
-            if (result?.Verdict == "REFUSE") bad.Add($"run {run} refused");
-            bad.AddRange((result?.Cuts ?? []).Where(c => Boundary.Contains(c.Quote, StringComparison.Ordinal))
-                .Select(c => $"run {run} cut the boundary criterion: \"{c.Quote}\""));
-        }
-        bad.Should().BeEmpty("a done criterion the code does not meet yet is the work, not a fault");
-    }
-
-    [Fact]
     public async Task CutReview_TheRejectedBoundaryWordings_AreDeliverable()
     {
         if (!Credentials()) return;
@@ -105,7 +61,7 @@ public sealed class LiveDoneTargetStateEvalTests(ITestOutputHelper output) : IDi
         for (var run = 1; run <= Runs; run++)
         {
             await using var look = await LookAsync(DerivationLookTerms.CutReview);
-            var review = await reviewer.ReviewAsync([draft], "inline", SpecCutReviewTicketText.Of(Ticket()), look,
+            var review = await reviewer.ReviewAsync([draft], "inline", Ticket().Description, look,
                 new AgentConfig(), Cost(), CancellationToken.None);
             output.WriteLine($"cut run {run}: {review.Findings.Count} finding(s){(review.Problem is null ? "" : $", {review.Problem}")}");
             foreach (var f in review.Findings) output.WriteLine($"  {f.Problem}: \"{f.Criterion}\" — {f.Why}");

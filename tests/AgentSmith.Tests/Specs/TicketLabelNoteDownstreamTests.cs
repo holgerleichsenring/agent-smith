@@ -52,7 +52,7 @@ public sealed class TicketLabelNoteDownstreamTests
             MasterUserPrompt.Build(
                 ticket, new Repository(new BranchName("run/42"), "https://git.test/app"), [], "", ""),
             await ClassifierPromptAsync(ticket),
-            SpecCutReviewPrompt.For([Draft()], SpecCutReviewTicketText.Of(ticket), look: null),
+            SpecCutReviewPrompt.For([Draft()], ticket.Description, look: null),
             EpicGroundPromptSection.Build(pipeline),
         ];
 

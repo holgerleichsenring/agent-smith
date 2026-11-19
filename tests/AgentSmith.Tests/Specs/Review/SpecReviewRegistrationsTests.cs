@@ -22,14 +22,13 @@ public sealed class SpecReviewRegistrationsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<SpecRoundEvidence>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<ISpecAttackReviewer>().Should().BeOfType<SpecAttackReviewer>();
         scope.ServiceProvider.GetRequiredService<SpecAttackAdmission>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<SpecReviewRoundPublisher>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.Revision.MasterSpecRevision>()
+            .Should().NotBeNull("2026-11-19-3e10: revise_spec resolves without a review panel");
     }
 
     [Fact]
-    public void SpecCutReviserAndResidues_ResolveFromTheRealServiceProvider()
+    public void SpecCutResidues_ResolvesFromTheRealServiceProvider()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
@@ -37,8 +36,6 @@ public sealed class SpecReviewRegistrationsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<ISpecCutReviser>().Should().BeOfType<SpecCutReviser>();
-        scope.ServiceProvider.GetRequiredService<SpecRevisionGuard>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<SpecCutResidues>().Should().NotBeNull();
     }
 

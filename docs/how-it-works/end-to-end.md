@@ -55,7 +55,7 @@ A filed ticket's run does not derive the specs again: the review in the design t
 Things it handles without stopping:
 
 - **A premise turned out false**, but no done criterion depends on it. The run records the corrected fact, tells the master and carries on. A false premise that breaks a criterion hands the ticket back with the question.
-- **The spec needs a change** to be buildable. The master revises it with `revise_spec`: the new text is schema-checked, reviewed once and written as a numbered revision with its reason. A refused revision comes back with the findings.
+- **The spec needs a change** to be buildable. The master revises it with `revise_spec`: the new text is schema-checked and written as a numbered revision with its reason. A second opinion is a reviewer the master briefs itself.
 - **You write in the ticket's conversation while it runs.** A message from someone with `runs.control` reaches the master with its next tool result. No new run starts.
 
 The ticket page is where you follow it. The section bar on the left splits the page into **What happened**, **Specs**, **Acceptance**, **Runs**, **Cost** and **Defaults**.

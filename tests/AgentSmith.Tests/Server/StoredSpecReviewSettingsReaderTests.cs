@@ -46,7 +46,6 @@ public sealed class StoredSpecReviewSettingsReaderTests
 
         (settings.Review.Rounds, settings.Review.Reviewers, settings.Review.MaxConcurrent, settings.Review.BudgetSharePercent)
             .Should().Be((4, 2, 2, 40));
-        settings.MaxRunWallTimeSeconds.Should().Be(5400);
     }
 
     [Fact]
@@ -77,6 +76,5 @@ public sealed class StoredSpecReviewSettingsReaderTests
 
         services.Where(d => d.ServiceType == typeof(ISpecReviewSettingsReader)).Should().ContainSingle()
             .Which.ImplementationType.Should().Be(typeof(StoredSpecReviewSettingsReader));
-        scope.ServiceProvider.GetRequiredService<SpecReviewPanel>().Should().NotBeNull();
     }
 }

@@ -17,8 +17,8 @@ using Moq;
 namespace AgentSmith.Tests.Specs.Revision;
 
 /// <summary>
-/// 2026-11-17-ec48a: revise_spec as the tests compose it — the real gate, text, one-review, writer and orchestration
-/// over <see cref="ReviewLoopRig"/>'s scripted reviewer, reviser, evidence check and set publisher. The run builds the
+/// 2026-11-17-ec48a: revise_spec as the tests compose it — the real gate, text, writer and orchestration over
+/// <see cref="ReviewLoopRig"/>'s set publisher (2026-11-19-3e10: no reviewer). The run builds the
 /// rig's first spec; the decision log and the spec's row are recorded.
 /// </summary>
 internal sealed class SpecRevisionRig
@@ -40,28 +40,16 @@ internal sealed class SpecRevisionRig
     public Mock<IDecisionLogger> Decisions { get; } = new();
     public Mock<ISpecProgressRecorder> Progress { get; } = new();
     public List<string> Logged { get; } = [];
-    public SpecReviewSettings Settings { get; set; } = ReviewLoopRig.Settings(rounds: 4, reviewers: 1);
     public PipelineContext Pipeline => Loop.Pipeline;
 
     public static string RevisedYaml => CutRevisionFixtures.With(Criterion, Revised);
 
-    public MasterSpecRevision Revision()
-    {
-        var reader = new Mock<ISpecReviewSettingsReader>();
-        reader.Setup(r => r.Current()).Returns(() => Settings);
-        var writer = new SpecRevisionWriter(new SpecReviewRevision(Loop.Publisher.Object),
-            new SpecReviewRoundPublisher(Loop.Events, Loop.RunContext, NullLogger<SpecReviewRoundPublisher>.Instance),
-            Decisions.Object, Progress.Object, NullLogger<SpecRevisionWriter>.Instance);
-        return new MasterSpecRevision(new SpecRevisionGate(Git()), Text(), reader.Object,
-            new SpecRevisionReview(new SpecReviewPanel(Loop.Reviewer.Object, DerivationTestLooks.Factory()),
-                Loop.Evidence.Object, Loop.Reviser.Object), writer);
-    }
+    public MasterSpecRevision Revision() =>
+        new(new SpecRevisionGate(Git()), Text(), new SpecRevisionWriter(new SpecReviewRevision(Loop.Publisher.Object),
+            Decisions.Object, Progress.Object, NullLogger<SpecRevisionWriter>.Instance));
 
-    public async Task<string> ReviseAsync(string yaml, string reason = "the operator asked for a retry")
-    {
-        using var _ = Loop.RunContext.BeginScope(ReviewLoopRig.RunId);
-        return await Revision().ReviseAsync(Pipeline, new AgentConfig(), yaml, reason, CancellationToken.None);
-    }
+    public Task<string> ReviseAsync(string yaml, string reason = "the operator asked for a retry") =>
+        Revision().ReviseAsync(Pipeline, yaml, reason, CancellationToken.None);
 
     public static SpecRevisionText Text() => new(new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader());
 

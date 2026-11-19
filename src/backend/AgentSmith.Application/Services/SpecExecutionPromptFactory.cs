@@ -91,8 +91,7 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
         question is posted to the ticket and this run pauses for the answer.
         The operator may write to you while you work; such a message arrives after a tool result. Adjust your
         work to it. When it changes what this spec must make true — its goal, steps or done criteria — revise the
-        spec with revise_spec: one fresh review of the changed text decides, an accepted revision is written to the
-        ticket branch and its done criteria are the ones you verify; a refused one comes back with the reviewers'
-        findings, to revise again or to ask with ask_human.
+        spec with revise_spec: the text is checked against the spec schema and written to the ticket branch, and its
+        done criteria are the ones you verify. Want a second opinion first? Brief a reviewer with spawn_agents.
         """;
 }
