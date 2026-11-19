@@ -200,13 +200,10 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
   };
 }
 
-/** "3/4 repositories ok, failed: client" for a step that ran in more than one repository; null otherwise. */
-export function repoSummary(repos: RepoOutcome[]): string | null {
-  if (repos.length < 2) return null;
-  const finished = repos.filter((r) => r.exitCode !== null);
-  const failed = finished.filter((r) => r.exitCode !== 0 && r.exitCode !== -1).map((r) => r.repo);
-  const ok = finished.filter((r) => r.exitCode === 0).length;
-  return `${ok}/${repos.length} repositories ok${failed.length > 0 ? `, failed: ${failed.join(", ")}` : ""}`;
+/** 2026-11-19-1b72d: the Build and tests heading's count — "2 of 3 repositories green", "1 of 1 repository green". */
+export function repoGreenCount(repos: RepoOutcome[]): string {
+  const green = repos.filter((r) => r.exitCode === 0).length;
+  return `${green} of ${repos.length} ${repos.length === 1 ? "repository" : "repositories"} green`;
 }
 
 /** "passed · 41.0s", "failed (exit 2)", "not run", "running…". */

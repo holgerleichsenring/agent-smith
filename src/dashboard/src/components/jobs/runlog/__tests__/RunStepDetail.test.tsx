@@ -126,3 +126,48 @@ describe("RunStepDetail, sub-agents", () => {
     expect(screen.getAllByTestId("step-sub-agent-call").map((c) => c.textContent)).toEqual([expect.stringMatching(/read_file\s*src\/arch\.md/)]);
   });
 });
+
+// 2026-11-19-1b72d: an opened spec step reads as four headed parts — the spec's steps, the sub-agents, build and tests
+// per repository, the activity — in that order.
+describe("RunStepDetail, headed parts", () => {
+  it("RunStepDetail_Opened_ShowsFourHeadedSections", () => {
+    page = {
+      events: [
+        ev({ type: EventType.SubAgentSpawned, timestamp: at(1), subAgentId: "a", name: "OutboxReviewer", activity: "Review the outbox",
+          parentSubAgentId: null, inheritedContextHash: "x" }),
+        ev({ type: EventType.SubAgentCompleted, timestamp: at(30), subAgentId: "a", status: "Succeeded", observationsCount: 1, findingsCount: 0,
+          filesWrittenCount: 0, toolCalls: 12, costUsd: 0.1 }),
+        ev({ type: EventType.SandboxCommand, timestamp: at(40), repo: "server", command: "Run", summary: "dotnet test", isWrite: false }),
+        ev({ type: EventType.SandboxResult, timestamp: at(46), repo: "server", exitCode: 0, durationMs: 6300 }),
+        ev({ type: EventType.SandboxCommand, timestamp: at(50), repo: "client", command: "Run", summary: "npm run build", isWrite: false }),
+        ev({ type: EventType.DecisionLogged, timestamp: at(61), category: "c", chose: "Use the outbox", over: null, reason: "r" }),
+      ],
+      hasOlder: true, loading: false, loadOlder,
+    };
+    const ledger = [
+      { id: "s1", activity: "Record today's behaviour in a test", status: "done" as const, target: null },
+      { id: "s2", activity: "Add the event DTOs", status: "in_progress" as const, target: null },
+      { id: "s3", activity: "Map the outbox table", status: "pending" as const, target: null },
+    ];
+    render(<RunStepDetail runId="r1" step={step("AgenticMaster", { specId: "2026-11-19-480fa", subAgents: 1 })} live={false}
+      ledger={ledger} ledgerSpecId="2026-11-19-480fa" />);
+
+    expect(screen.getAllByTestId("step-part-heading").map((h) => h.textContent)).toEqual([
+      "Steps of the spec · 1 of 3 done", "Sub-agents", "Build and tests · 1 of 2 repositories green", "Activity",
+    ]);
+    expect(screen.getAllByTestId("step-spec-step").map((r) => [r.getAttribute("data-state"), r.textContent])).toEqual([
+      ["done", "1Record today's behaviour in a testdone"], ["in_progress", "2Add the event DTOsin progress"], ["open", "3Map the outbox tableopen"],
+    ]);
+    expect(screen.getByTestId("step-sub-agent-status")).toHaveTextContent("finished · 12 tool calls · 29.0s");
+    expect(screen.getByTestId("step-repo-server")).toHaveTextContent("dotnet test");
+    expect(screen.getByTestId("step-repo-server")).toHaveTextContent("passed · 6.3s");
+    expect(screen.getByTestId("step-part-activity")).toContainElement(screen.getByTestId("step-detail-bar"));
+  });
+
+  it("RunStepDetail_AStepWithoutASpec_HasNoStepsPart", () => {
+    page = { events: [], hasOlder: false, loading: false, loadOlder };
+    render(<RunStepDetail runId="r1" step={step("AgenticMaster")} live={false} ledger={null} ledgerSpecId={null} />);
+    expect(screen.queryByTestId("step-part-steps")).toBeNull();
+    expect(screen.getAllByTestId("step-part-heading").map((h) => h.textContent)).toEqual(["Activity"]);
+  });
+});

@@ -173,6 +173,31 @@
 :is(.mock-viewer, .tk-runlog) .rl-detail-older { color: var(--ink-3); font-family: var(--sans); font-size: 12px; }
 :is(.mock-viewer, .tk-runlog) .rl-more-lines { font-family: var(--sans); font-size: 12px; padding-top: 4px; text-align: left; }
 :is(.mock-viewer, .tk-runlog) .rl-output { max-height: 320px; overflow: auto; padding: 4px 0 4px 14px; white-space: pre-wrap; color: var(--ink-2); }
+/* 2026-11-19-1b72d: an opened step in headed parts — a small uppercase heading over hairline rows, no boxes; the spec's
+   steps and each repository's check as dot, key, what and state; the sub-agents' rows divided the same way. */
+:is(.mock-viewer, .tk-runlog) .rl-part { display: flex; flex-direction: column; padding-top: 10px; min-width: 0; }
+:is(.mock-viewer, .tk-runlog) .rl-part-head { margin: 0 0 4px; font-weight: 500; }
+:is(.mock-viewer, .tk-runlog) .rl-part > .rl-part-row:first-of-type, :is(.mock-viewer, .tk-runlog) .rl-part .rl-subs, :is(.mock-viewer, .tk-runlog) .rl-part .rl-detail-bar { border-top: 1px solid var(--line); }
+:is(.mock-viewer, .tk-runlog) .rl-part-row { display: grid; grid-template-columns: 8px minmax(3ch, max-content) minmax(0, 1fr) auto; gap: 10px; align-items: baseline;
+  padding: 4px 0; border-bottom: 1px solid var(--line); color: var(--ink-2); }
+:is(.mock-viewer, .tk-runlog) .rl-part-row.rl-part-note { display: block; }
+:is(.mock-viewer, .tk-runlog) .rl-part-dot { align-self: center; width: 7px; height: 7px; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+:is(.mock-viewer, .tk-runlog) .rl-part-key { color: var(--ink-3); white-space: nowrap; }
+:is(.mock-viewer, .tk-runlog) .rl-part-what { min-width: 0; color: var(--ink); overflow-wrap: anywhere; }
+:is(.mock-viewer, .tk-runlog) .rl-part-state { color: var(--ink-3); white-space: nowrap; }
+:is(.mock-viewer, .tk-runlog) .rl-part-more { grid-column: 3 / -1; }
+:is(.mock-viewer, .tk-runlog) .rl-part-row:is([data-state="done"], [data-state="ok"]) .rl-part-dot { background: var(--ok); border-color: var(--ok); }
+:is(.mock-viewer, .tk-runlog) .rl-part-row:is([data-state="done"], [data-state="ok"]) .rl-part-state { color: var(--ok); }
+:is(.mock-viewer, .tk-runlog) .rl-part-row:is([data-state="in_progress"], [data-state="run"]) .rl-part-dot { background: var(--run); border-color: var(--run); }
+:is(.mock-viewer, .tk-runlog) .rl-part-row:is([data-state="in_progress"], [data-state="run"]) .rl-part-state { color: var(--run); }
+:is(.mock-viewer, .tk-runlog) .rl-part-row[data-state="bad"] .rl-part-dot { background: var(--bad); border-color: var(--bad); }
+:is(.mock-viewer, .tk-runlog) .rl-part-row[data-state="bad"] .rl-part-state { color: var(--bad); }
+:is(.mock-viewer, .tk-runlog) .rl-part-row[data-state="open"] .rl-part-what, :is(.mock-viewer, .tk-runlog) .rl-part-row[data-state="dim"] .rl-part-what { color: var(--ink-2); }
+:is(.mock-viewer, .tk-runlog) .rl-part .rl-subs { gap: 0; padding-bottom: 0; }
+:is(.mock-viewer, .tk-runlog) .rl-part .rl-sub { border-bottom: 1px solid var(--line); }
+:is(.mock-viewer, .tk-runlog) .rl-part .rl-sub-head { padding: 4px 0; }
+:is(.mock-viewer, .tk-runlog) .rl-part .rl-detail-bar { padding: 4px 0; }
+@media (max-width: 640px) { :is(.mock-viewer, .tk-runlog) .rl-part-row { grid-template-columns: 8px max-content minmax(0, 1fr); } :is(.mock-viewer, .tk-runlog) .rl-part-state { grid-column: 3; white-space: normal; } :is(.mock-viewer, .tk-runlog) .rl-part-more { grid-column: 2 / -1; } }
 @media (max-width: 640px) { :is(.mock-viewer, .tk-runlog) .rl-detail-line { grid-template-columns: 62px minmax(0, 1fr); } :is(.mock-viewer, .tk-runlog) .rl-detail-line .rl-kind, :is(.mock-viewer, .tk-runlog) .rl-detail-line .rl-meta-col { display: none; } }
 
 /* 2026-11-18-e06bb: markdown in log text — inline code as a quiet mono token, a block in the log's own type; a decision

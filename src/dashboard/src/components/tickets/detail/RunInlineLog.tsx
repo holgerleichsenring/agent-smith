@@ -6,7 +6,7 @@ import { RunSectionedLog } from "@/components/jobs/runlog/RunSectionedLog";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunSteps } from "@/hooks/useRunSteps";
 import { runPath } from "@/lib/runPath";
-import { useAttemptRun, useTicketSeries } from "@/lib/tickets/TicketPageStore";
+import { useAttemptPasses, useAttemptRun, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
 import { specsOf } from "./reportWords";
 import { FollowUpList, MasterReportText } from "./TicketFollowUps";
@@ -23,12 +23,14 @@ export function RunInlineLog({ attempt }: { attempt: TicketAttempt }) {
   const events = useRunEvents(attempt.runId);
   const steps = useRunSteps(attempt.runId, snapshot ?? attempt.status);
   const [openStep, setOpenStep] = useState<number | null>(null);
+  // 2026-11-19-1b72d: an opened spec step's steps read their states from the passes the page's store already holds.
+  const passes = useAttemptPasses(attempt.runId);
   const specs = specsOf(attempt, useTicketSeries().data ?? null);
   if (steps.length === 0) return null;
   return (
     <div className="tk-runlog" data-testid={`thread-runlog-${attempt.number}`}>
       <RunSectionedLog runId={attempt.runId} snapshot={snapshot} events={events} steps={steps} openStep={openStep}
-        onOpenStep={setOpenStep} idPrefix={`r-${attempt.runId}-`}
+        onOpenStep={setOpenStep} idPrefix={`r-${attempt.runId}-`} passes={passes}
         checkBody={<CheckBody attempt={attempt} specs={specs} />} />
     </div>
   );

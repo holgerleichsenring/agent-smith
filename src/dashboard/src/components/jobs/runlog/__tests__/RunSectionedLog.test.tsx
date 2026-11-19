@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { RunStepRow } from "@/lib/runStepsApi";
+import type { RunSnapshot } from "@/types/hub-events";
 
 // 2026-11-18-d6d2e: the run page's log on its own — the run page and a ticket report draw it; the caller owns the open
 // step, the ids' prefix and the ticket and check bodies.
@@ -19,10 +20,12 @@ const steps = [row(1)];
 
 describe("RunSectionedLog", () => {
   it("RunSectionedLog_WithoutATicketBody_HasNoTicketSection_WithOneItHasIt", () => {
-    const { rerender } = render(<RunSectionedLog runId="r1" snapshot={null} events={[]} steps={steps} openStep={null}
+    // 2026-11-19-1b72c: the check section shows only for a run that recorded something — here its master's report.
+    const reported = { acceptance: { criteria: [], outcome: null, ratifiedBy: null, reports: [{ markdown: "## Done" }] } } as unknown as RunSnapshot;
+    const { rerender } = render(<RunSectionedLog runId="r1" snapshot={reported} events={[]} steps={steps} openStep={null}
       onOpenStep={() => {}} checkBody={<span data-testid="check-here" />} />);
     expect(screen.queryByTestId("run-section-ticket")).toBeNull();
-    rerender(<RunSectionedLog runId="r1" snapshot={null} events={[]} steps={steps} openStep={null}
+    rerender(<RunSectionedLog runId="r1" snapshot={reported} events={[]} steps={steps} openStep={null}
       onOpenStep={() => {}} ticketBody={<span />} checkBody={<span data-testid="check-here" />} />);
     expect(screen.getByTestId("run-section-ticket")).toBeInTheDocument();
     fireEvent.click(within(screen.getByTestId("run-section-check")).getByRole("button", { expanded: false }));
