@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-b2c1
+goal: "find_files and grep_in_tree search a design turn's draft at draft:, as read_file and directory_tree read it, for the master and its sub-agents."
+applies_to: "backend (FilesystemToolHost, DraftFileReads)"
+requires:
+  - 2026-11-19-1de4
+facts:
+  - claim: "read_file and directory_tree answer draft: paths when DraftReader is set; find_files and grep_in_tree route every root to a sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:234,304,314-332,462-480"
+  - claim: "A live design reviewer searched for the draft with find_files and grep_in_tree and found nothing."
+    evidence: "observed: 2026-11-19 design turn on 0.192.0, reviewer tool calls find_files '*draft*' and grep_in_tree over draft:"
+scope:
+  in: "find_files and grep_in_tree under a draft: root, answered from the draft files; their root descriptions name draft:."
+  out: "Searching notes: — read_file reads it whole."
+upgrade_impact: "None."
+steps:
+  - id: search
+    action: "Answer find_files and grep_in_tree under a draft: root from the draft files: glob or substring match on paths; regex lines, files with matches or counts."
+done:
+  - "find_files and grep_in_tree under draft: return the draft's matching paths and lines without touching a sandbox."
+tests:
+  - FindFiles_Draft_MatchesItsPaths
+  - GrepInTree_Draft_FindsLinesFilesAndCounts

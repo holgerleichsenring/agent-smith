@@ -1,0 +1,8 @@
+spec: 2026-11-19-b2c1
+decisions:
+  - chosen: "Answer draft: searches in DraftFileReads beside read and tree, from the same DraftReader."
+    alternatives: "Write the draft into a sandbox so the ordinary search runs over it."
+    why: "The draft is in-memory turn state; one reader serves every draft tool, and no sandbox round trip is needed."
+  - chosen: "A non-backtracking regex instead of a match timeout."
+    alternatives: "A regex timeout."
+    why: "A timeout is a new limit; NonBacktracking runs in linear time and needs none."

@@ -313,11 +313,12 @@ public sealed class FilesystemToolHost : IToolHost
     [Description("Finds files whose path (relative to root) matches a glob pattern. Pattern is path-relative — 'Controller.cs' matches any file with 'Controller.cs' in its path; '*.cs' matches every .cs file; 'src/**/*.cs' matches every .cs under src/. Truncates at head_limit and appends a marker line.")]
     public async Task<string> FindFiles(
         [Description("Glob pattern matched against the path relative to root. Substring match if no glob chars are present.")] string pattern,
-        [Description("Directory to search under, from the repository root (default '.').")] string root = ".",
+        [Description("Directory to search under, from the repository root (default '.'); in a design turn 'draft:' searches the draft.")] string root = ".",
         [Description("Maximum number of matches to return (default 1000).")] int? head_limit = null,
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: FindFiles pattern={Pattern} root={Root}", pattern, root);
+        if (DraftReader is { } drafted && SpecDialog.Writes.DraftPath.Names(root)) return DraftFileReads.Find(drafted(), root, pattern);
         if (_guards.CheckRead(root) is { } error) return error;
         var limit = head_limit ?? SizeLimits.GrepDefaultHeadLimit;
         var (runner, bareRoot, routeErr) = Route(root);
@@ -461,7 +462,7 @@ public sealed class FilesystemToolHost : IToolHost
     [Description("Searches all files under a directory tree for lines matching a regular expression. Use a glob filter (e.g. '*.cs') to narrow file types. context_before / context_after / context include adjacent lines. output_mode: 'content' (default), 'files_with_matches', or 'count'. NOT exhaustive: it skips " + GrepScope.Summary + ", and it honours the repository's own ignore rules, so no result here proves a string is absent from the checkout.")]
     public Task<string> GrepInTree(
         [Description("Regular expression pattern to search for.")] string pattern,
-        [Description("Directory to search under, or one file to search, from the repository root (default '.').")] string root = ".",
+        [Description("Directory to search under, or one file to search, from the repository root (default '.'); in a design turn 'draft:' searches the draft.")] string root = ".",
         [Description("Optional glob filter for file names (e.g. '*.cs', '**/*.json').")] string? glob = null,
         [Description("Maximum number of matches to return (default 1000).")] int? head_limit = null,
         [Description("Lines of context before each match (-B). Overridden by 'context' if set.")] int? context_before = null,
@@ -471,6 +472,8 @@ public sealed class FilesystemToolHost : IToolHost
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: GrepInTree pattern={Pattern} root={Root} glob={Glob}", pattern, root, glob);
+        if (DraftReader is { } drafted && SpecDialog.Writes.DraftPath.Names(root))
+            return Task.FromResult(DraftFileReads.Grep(drafted(), root, pattern, glob, ParseOutputMode(output_mode)));
         if (_guards.CheckRead(root) is { } error) return Task.FromResult(error);
         var (before, after) = ResolveContext(context_before, context_after, context);
         var mode = ParseOutputMode(output_mode);
