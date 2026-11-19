@@ -1,9 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { DialogProposalPanel } from "../DialogProposalPanel";
 import { TurnResult } from "../TurnResult";
 import { turnProposalOf } from "../turnProposal";
-import { DialogQuestionCard } from "../DialogQuestionCard";
 import { DialogDecisionBar, decides } from "../DialogDecisionBar";
 import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogGraphTicket, SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
@@ -56,10 +55,50 @@ describe("A proposed list of tickets", () => {
     render(<DialogProposalPanel proposal={withSpecs} />);
 
     const specs = screen.getByTestId("dialog-graph-specs-order-api");
-    expect(within(specs).getByTestId("dialog-graph-spec-order-state")).toHaveTextContent("order-stateThe API returns the order state.");
+    expect(within(specs).getByTestId("dialog-graph-spec-order-state")).toHaveTextContent("order-state · The API returns the order state.");
     expect(within(specs).getByTestId("dialog-graph-spec-finding")).toHaveTextContent("the route is named twice");
     expect(screen.queryByTestId("dialog-graph-specs-order-ui")).not.toBeInTheDocument();
     expect(within(screen.getByTestId("dialog-graph-ticket-order-api")).queryByTestId("dialog-graph-ticket-finding")).toBeNull();
+  });
+
+  // 2026-11-19-1b72b: a ticket is a row — order, title, what it waits for — whose toggle opens its specs below it as rows.
+  it("DialogProposalGraph_Ticket_IsARowThatOpensToItsSpecs", () => {
+    const spec = { specId: "export-csv", goal: "The export writes CSV.", steps: [], tests: [], done: [], requires: [], yaml: "" };
+    const withSpecs: SpecDialogProposalPush = {
+      ...list, findings: [],
+      tickets: [ticket("order-api"), { ...ticket("order-export", ["order-api"]), specs: [spec] }],
+    };
+    render(<DialogProposalPanel proposal={withSpecs} />);
+
+    const row = screen.getByTestId("dialog-graph-ticket-order-export");
+    expect(row).not.toHaveClass("ecard");
+    const toggle = within(row).getByRole("button");
+    expect(toggle).toHaveTextContent("2Title of order-exportorder-exportwaits for order-api");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    const specs = within(row).getByTestId("dialog-graph-specs-order-export");
+    expect(specs).not.toBeVisible();
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(specs).toBeVisible();
+    expect(document.getElementById(toggle.getAttribute("aria-controls")!)).toContainElement(specs);
+    expect(within(specs).getByTestId("dialog-graph-spec-export-csv")).toHaveTextContent(/^export-csv · The export writes CSV\.$/);
+    expect(within(row).getByText("The scope of order-export.")).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(specs).not.toBeVisible();
+  });
+
+  it("DialogProposalGraph_LaterFinding_OpensTheRow", () => {
+    const clean: SpecDialogProposalPush = { ...list, findings: [] };
+    const { rerender } = render(<DialogProposalPanel proposal={clean} />);
+    const toggle = within(screen.getByTestId("dialog-graph-ticket-order-ui")).getByRole("button");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    rerender(<DialogProposalPanel proposal={list} />);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
   });
 
   it("DialogProposalPanel_TicketsKind_ListLevelFindingAboveTheTickets", () => {
@@ -79,29 +118,18 @@ describe("A proposed list of tickets", () => {
     expect(strip).toHaveTextContent("order-ui Title of order-ui · waits for order-api, #41");
   });
 
-  it("DialogQuestionCard_TicketsKind_SummarySaysHowManyHaveNothingToWaitFor", () => {
-    render(<DialogQuestionCard question={question} proposal={list} onAnswer={vi.fn()} />);
-
-    expect(screen.getByTestId("dialog-approval-summary")).toHaveTextContent(
+  // 2026-11-19-1b72c: the approval card left both pages; the decision counts the list as the card did.
+  it("ApprovalDecision_TicketsKind_SummarySaysHowManyHaveNothingToWaitFor", () => {
+    expect(approvalDecision(question, list)!.summary).toMatch(
       /^File these 3 tickets\? 1 has nothing to wait for; the rest wait until what they require is merged\.$/);
   });
 
-  it("DialogQuestionCard_UnboundConversation_ApproveReadsApproveAndFile", () => {
-    render(<DialogQuestionCard question={question} proposal={list} onAnswer={vi.fn()} />);
+  it("ApprovalDecision_TicketsKindInBoundConversation_NotApprovableAndSaysWhereAListIsFiled", () => {
+    const effect = { summary: "Approving is refused: the proposed cut has no order its specs can run in.", approvable: true };
+    const decision = approvalDecision(question, list, effect, true)!;
 
-    expect(screen.getByTestId("dialog-answer-approve")).toHaveTextContent(/^Approve & file$/);
-    expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
-  });
-
-  it("DialogQuestionCard_TicketsKindInBoundConversation_NoApproveAndSaysWhereAListIsFiled", () => {
-    const shaped = { ...question, choices: [{ label: "Make it one ticket's series", description: "the pieces need no merge between them" }] };
-    render(<DialogQuestionCard question={shaped} proposal={list} onAnswer={vi.fn()} inTicket
-      ticketEffect={{ summary: "Approving is refused: the proposed cut has no order its specs can run in.", approvable: true }} />);
-
-    expect(screen.queryByTestId("dialog-answer-approve")).toBeNull();
-    expect(screen.getByTestId("dialog-answer-reject")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-answer-Make it one ticket's series")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-approval-summary")).toHaveTextContent(
+    expect(decision.approvable).toBe(false);
+    expect(decision.summary).toMatch(
       /^A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket\.$/);
   });
 
