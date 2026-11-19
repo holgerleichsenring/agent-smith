@@ -17,12 +17,21 @@ env:
 # ".next/standalone: not found" / "Unable to reserve cache ... another job may be
 # creating this cache". cancel-in-progress: false → queue (never drop a main
 # publish); different refs (PRs) still run in parallel.
+#
+# A newer push to main supersedes an older run instead of queueing behind it: the newer
+# commit contains the older one, so the older images would be stale a minute later. It
+# still serialises the shared gha cache (the old run is cancelled before the new one builds).
 concurrency:
   group: docker-publish-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
+  # Tests run on pull requests only: a push to main is the commit a pull request already
+  # tested (and the local spec gate before it), so a second run there only delays the
+  # images. The release-please pull request changes versions only and is not built at all;
+  # the push of its merge builds and publishes the release.
   test:
+    if: github.event_name == 'pull_request' && github.head_ref != 'release-please--branches--main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +72,7 @@ jobs:
 
   docker:
     needs: test
+    if: ${{ !cancelled() && needs.test.result != 'failure' && !(github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main') }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -192,6 +202,7 @@ jobs:
   # joined into one multi-arch tag by browser-image-manifest.
   browser-image:
     needs: test
+    if: ${{ !cancelled() && needs.test.result != 'failure' && !(github.event_name == 'pull_request' && github.head_ref == 'release-please--branches--main') }}
     strategy:
       matrix:
         include:
@@ -285,7 +296,9 @@ jobs:
 
   browser-image-manifest:
     needs: browser-image
-    if: github.event_name != 'pull_request'
+    # A skipped test job upstream must not skip this one: the explicit status check overrides
+    # the implicit success() that would treat the skipped ancestor as a reason to skip.
+    if: ${{ !cancelled() && needs.browser-image.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -347,7 +360,7 @@ jobs:
   update-dockerhub-description:
     needs: docker
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && needs.docker.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
