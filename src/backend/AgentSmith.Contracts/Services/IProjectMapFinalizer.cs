@@ -6,8 +6,9 @@ namespace AgentSmith.Contracts.Services;
 
 /// <summary>
 /// p0385: the exploration's terminal turn. When an attempt burns its tool-call budget
-/// (or answers with prose), the SAME conversation continues with tool use disabled and
-/// one instruction demanding the JSON from the evidence already gathered — a shallow map
+/// (or answers with prose), the SAME conversation continues with one instruction demanding
+/// the JSON from the evidence already gathered (2026-11-19-6b0bc: with the caller's tools and
+/// tool mode unchanged — the instruction steers) — a shallow map
 /// beats a blank restart that hits the same cap again. Extracted from ProjectAnalyzer
 /// (2026-08-27-3eb1): sweeping a repository and closing a conversation are two reasons
 /// to change.

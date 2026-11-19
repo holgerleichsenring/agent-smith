@@ -60,11 +60,6 @@ public sealed class SpecDialogViewReader(
             ? SpecDialogChannelQuestion.From(dialogId, cards.CardOf(state, proposal, id), state.LastActivityAt)
             : null;
 
-    // 2026-11-09-9a98: a stored mark with no turn computing here was cancelled, failed or belongs to
-    // another replica. Not reviewed is true in all three, so the row needs no cleanup on any of them.
-    private OutcomeProposal Current(OutcomeProposal proposal, ConversationState state) =>
-        proposal.UnderReview && !turns.Liveness(state.JobId).Computing ? proposal with { UnderReview = false } : proposal;
-
     private SpecDialogSessionView Session(
         string dialogId, ConversationState state, SpecDialogLatestOutcome latest,
         IReadOnlyList<SpecDialogImageView> images, SpecDialogTicketView? ticket)
@@ -79,18 +74,13 @@ public sealed class SpecDialogViewReader(
             images,
             state.Subject,
             latest.Proposal is null ? null
-                : proposalComposer.Compose(dialogId, Current(latest.Proposal, state), at) is { } push
+                : proposalComposer.Compose(dialogId, latest.Proposal, at) is { } push
                     ? push with { ProposalId = latest.ProposalId } : null,
             latest.Filing is null
                 ? null
                 : new SpecDialogFilingPush(dialogId, latest.Filing.Filed, latest.Filing.Error,
                     latest.Filing.At, latest.Filing.Notes ?? []),
             card,
-            ticket)
-        {
-            Reviewing = latest.Reviewing is null ? null
-                : proposalComposer.Compose(dialogId, Current(latest.Reviewing, state), state.LastActivityAt) is { } draft
-                    ? draft with { Reviewing = true } : null,
-        };
+            ticket);
     }
 }

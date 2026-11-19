@@ -89,7 +89,6 @@ public sealed class SpecDialogTurnRunner(
         // through the flow. 2026-09-18-2f8b: the turn COMPUTES from here to the finally below, its steps
         // kept for a page arriving mid-turn; the activity scope opens INSIDE the try for a throw.
         using var observing = reading.Observe(state);
-        using var publishing = continuity.Observe(state);
         using var linking = runLink.Observe(state); // 2026-11-10-d854c: the grounding step names the run on the row
         // 2026-11-12-92e9a: the thread is stored as it grows; closed below before the gate lets the next turn in.
         var writing = threadWrites.Observe(state, project.Agent, slot.Thread);

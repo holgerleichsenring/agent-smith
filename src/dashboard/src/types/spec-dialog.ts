@@ -154,8 +154,6 @@ export interface SpecDialogSession {
   ticket: SpecDialogSessionTicket | null;
   /** 2026-11-05-862ea: what the design partner said the work is; null while none is stored. */
   workPicture?: SpecDialogWorkPicture | null;
-  /** 2026-11-10-ccd9: a draft under review beside the awaiting `proposal`; never approvable. */
-  reviewing?: SpecDialogProposalPush | null;
   /** 2026-11-10-d854c: the run of the turn last started here — after a crash, the turn that died. */
   runningRunId?: string | null;
   /** 2026-11-10-d854c: that run's own proposal when no kept turn carries it. */
@@ -448,8 +446,6 @@ export interface SpecDialogProposalPush {
   reviewRounds?: SpecDialogReviewRound[];
   /** 2026-10-13-8762i: spec ids (or "series") not reviewed yet. 2026-11-10-8e59: information only — Approve stays. */
   notReviewed?: string[] | null;
-  /** 2026-11-09-9a98: its turn's review is running, so what is listed above is still under review. */
-  underReview?: boolean;
   /** 2026-10-14-dbcek: a list's ticket texts in the order they must merge; absent or empty for every other kind. */
   tickets?: SpecDialogGraphTicket[];
   /** 2026-10-28-7a69c: the comment a ticket's conversation proposes to post; absent for every other kind. */
@@ -458,10 +454,8 @@ export interface SpecDialogProposalPush {
   configChanges?: SpecDialogConfigChange[] | null;
   /** 2026-11-04-96a0c: per upload, what the proposing turn and the conversation opened; absent on an older proposal. */
   uploads?: SpecDialogUploadRead[];
-  /** 2026-11-10-ccd9: the awaiting proposal's id, which an approve or reject of it carries; absent on a draft under review. */
+  /** 2026-11-10-ccd9: the awaiting proposal's id, which an approve or reject of it carries. */
   proposalId?: string | null;
-  /** 2026-11-10-ccd9: a draft under review — shown, never approvable, never over the awaiting proposal. */
-  reviewing?: boolean;
   /** 2026-11-10-d854a: the operator's open questions, each with the design partner's proposal; absent on an older proposal. */
   questions?: SpecDialogOpenQuestion[];
   /** 2026-11-10-d854a: the proposing turn's spend so far, its total on the final proposal; absent on an older one. */

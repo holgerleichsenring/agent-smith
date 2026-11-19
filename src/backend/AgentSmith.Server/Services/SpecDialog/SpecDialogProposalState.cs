@@ -27,24 +27,6 @@ public sealed class SpecDialogProposalState(
         return stored;
     }
 
-    /// <summary>A draft under review; never approvable, never over the awaiting proposal.</summary>
-    public Task StoreReviewingAsync(ConversationState state, OutcomeProposal proposal, CancellationToken ct) =>
-        StoreReviewingAsync(state, proposal, null, ct);
-
-    /// <summary>2026-11-17-a0b6d: the same, as run <paramref name="runId"/>'s own proposal row.</summary>
-    public async Task StoreReviewingAsync(ConversationState state, OutcomeProposal proposal, string? runId, CancellationToken ct)
-    {
-        await claim.SetReviewingAsync(state.Platform, state.ThreadId!, OutcomeProposalJson.Write(proposal), runId, ct);
-        await NudgeAsync(state, ct);
-    }
-
-    /// <summary>2026-11-13-3dc8: the turn ended without a proposal, so no draft under review stays behind.</summary>
-    public async Task ClearDraftAsync(ConversationState state, CancellationToken ct)
-    {
-        await claim.ClearDraftAsync(state.Platform, state.ThreadId!, ct);
-        await NudgeAsync(state, ct);
-    }
-
     /// <summary>The claimed proposal, or null when <paramref name="id"/> is no longer the awaiting one.</summary>
     public async Task<OutcomeProposal?> ClaimAsync(ConversationState state, string id, CancellationToken ct)
     {

@@ -171,24 +171,6 @@ public sealed class TurnRunRecordTests : IDisposable
     }
 
     [Fact]
-    public async Task ProposalStore_ObserverAndFlow_BothWriteTheTurnsRow()
-    {
-        var harness = new SpecDialogDecisionHarness(_context);
-        var state = await harness.OpenAsync("dashboard", Dialog);
-        var runs = new AsyncLocalRunContextAccessor();
-        var observer = new DialogProposalObserver(Scopes(harness, runs), state, NullLogger<DialogProposalObserver>.Instance);
-
-        using (runs.BeginScope("run-1")) await observer.PublishAsync(Bug("draft") with { UnderReview = true }, default);
-        var afterDraft = await harness.TurnProposals.ReadAsync(state.JobId, default);
-        await harness.Flow().HandleAsync(state, Bug("final"), default, runId: "run-1");
-
-        afterDraft["run-1"].Proposal.UnderReview.Should().BeTrue("the observer wrote the turn's draft while it was reviewed");
-        var kept = await harness.TurnProposals.ReadAsync(state.JobId, default);
-        kept.Should().ContainSingle();
-        ((BugOutcome)kept["run-1"].Proposal).Ticket.Title.Should().Be("final", "the flow replaced the draft with the turn's proposal");
-    }
-
-    [Fact]
     public async Task ProposalStore_TwoProposingTurns_BothReadableByRunId()
     {
         var harness = new SpecDialogDecisionHarness(_context);
@@ -242,14 +224,6 @@ public sealed class TurnRunRecordTests : IDisposable
     private static DialogActivityEvent Step(int seq, DateTimeOffset at) => new("run-1", at, "tool", "read_file", "a.cs", seq, at);
 
     private static BugOutcome Bug(string title) => new(new BugTicketDraft(title, "It vanished.", null));
-
-    private static IServiceScopeFactory Scopes(SpecDialogDecisionHarness harness, IRunContextAccessor runs)
-    {
-        var services = new ServiceCollection();
-        services.AddScoped(_ => harness.Proposals).AddScoped(_ => harness.Channel).AddScoped(_ => harness.TurnProposals);
-        services.AddSingleton(runs);
-        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
-    }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;

@@ -106,7 +106,7 @@ export interface SpecDialogState {
   conversations: SpecDialogSessionSummary[];
   entries: DialogEntry[];
   question: SpecDialogQuestionPush | null;
-  /** What this turn would file, until a later turn supersedes it — a draft under review included. */
+  /** What this turn would file, until a later turn supersedes it. */
   proposal: SpecDialogProposalPush | null;
   /** 2026-11-10-ccd9: the proposal awaiting a decision — the only one the approval card shows and names. */
   awaitingProposal: SpecDialogProposalPush | null;
@@ -281,7 +281,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       const learnedBefore = live !== null && live.read < issued;
       if (armed === false || (typeof armed === "string" && next.session?.sessionId !== armed)) {
         // 2026-11-12-92e9c: the pane lets the proposal go; the turn that showed it keeps it.
-        if (learnedBefore && !(next.session?.reviewing ?? next.session?.proposal)) {
+        if (learnedBefore && !next.session?.proposal) {
           known.current = null;
           setProposal(null);
         }
@@ -290,10 +290,10 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       reseed.current = false;
       // A proposal pushed while this read was out is newer than anything the read carries. The read
       // may still have caught it stored, under a moment of its own, and then already shows it on its
-      // turn. 2026-11-12-92e9c: a draft under review never joins the conversation.
+      // turn.
       if (live !== null && !learnedBefore) {
         const stored = next.session?.proposal ?? null;
-        const placed = live.proposal.reviewing === true || (stored !== null && sameDraft(stored, live.proposal));
+        const placed = stored !== null && sameDraft(stored, live.proposal);
         // The pane already holds it, and whatever was filed after it; only the entries were replaced. Nothing of
         // this read was shown yet, so a stored card with no reply that the live proposal outran is not seeded.
         setEntries(placed ? seed(next) : withCard(seed(next, false), live.proposal, live.ownTurn));
@@ -503,9 +503,6 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       setFiled(null);
       const ownTurn = replyWasDraftOnly.current;
       known.current = { proposal: proposed, read: reads.current, ownTurn };
-      // 2026-11-10-ccd9: a draft under review is shown in the pane, never on the approval card. 2026-11-12-92e9c: nor
-      // in the conversation — it may arrive several times a turn; only the final proposal joins its turn's reply.
-      if (proposed.reviewing) return;
       awaitedAtRead.current = reads.current;
       setAwaitingProposal(proposed);
       const steps = replySteps.current;
@@ -807,7 +804,7 @@ export function withInterrupted(held: DialogEntry[], interrupted: SpecDialogInte
 }
 
 /** 2026-11-10-7da6: a card the transcript has no reply for yet goes at the end — a stored proposal whose turn is not
- *  in the transcript. 2026-11-12-92e9c: never the running turn's draft under review; that is the working line's. */
+ *  in the transcript. */
 export function trailingCard(view: SpecDialogView): SpecDialogProposalPush | null {
   const session = view.session;
   if (!session) return null;
@@ -897,8 +894,7 @@ function heldOutcome(view: SpecDialogView): {
   proposal: SpecDialogProposalPush | null;
   filed: SpecDialogFilingPush | null;
 } {
-  // 2026-11-10-ccd9: the pane shows a draft under review over the awaiting proposal; the card never does.
-  const proposal = view.session?.reviewing ?? view.session?.proposal ?? null;
+  const proposal = view.session?.proposal ?? null;
   const filing = view.session?.filing ?? null;
   const superseded = proposal !== null && filing !== null && Date.parse(filing.at) < Date.parse(proposal.at);
   return { proposal, filed: superseded ? null : filing };

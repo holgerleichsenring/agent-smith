@@ -12,7 +12,6 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class SpecDialogProposalClaim(IUnitOfWork unitOfWork)
 {
-    public const string Reviewing = "reviewing";
     public const string Awaiting = "awaiting";
     public const string Filing = "filing";
     public const string Filed = "filed";
@@ -47,7 +46,7 @@ public sealed class SpecDialogProposalClaim(IUnitOfWork unitOfWork)
         SetAwaitingAsync(platform, threadId, json, null, ct);
 
     /// <summary>Stores <paramref name="json"/> as run <paramref name="runId"/>'s proposal awaiting a decision under a fresh
-    /// id, and returns that id with the id it superseded, if one was awaiting. A draft under review stops being one. Throws
+    /// id, and returns that id with the id it superseded, if one was awaiting. Throws
     /// when no open session takes it, or when the run's proposal was already decided.</summary>
     public async Task<(string Id, string? Replaced)> SetAwaitingAsync(
         string platform, string threadId, string json, string? runId, CancellationToken ct)
@@ -57,31 +56,9 @@ public sealed class SpecDialogProposalClaim(IUnitOfWork unitOfWork)
         var id = Guid.NewGuid().ToString("N");
         var key = runId ?? SpecDialogProposal.UnboundPrefix + id;
         await _proposals.EnsureAsync(session, key, json, ct);
-        await _rows.EndReviewAsync(session, key, ct);
         var (written, replaced) = await _rows.TakeAwaitingAsync(session, key, json, id, ct);
         if (written == 0) throw new InvalidOperationException($"The proposal '{key}' on thread '{threadId}' was already decided.");
         return (id, replaced);
-    }
-
-    /// <summary>The draft under review, on a row of no run.</summary>
-    public Task<int> SetReviewingAsync(string platform, string threadId, string json, CancellationToken ct) =>
-        SetReviewingAsync(platform, threadId, json, null, ct);
-
-    /// <summary>Run <paramref name="runId"/>'s draft under review; never approvable, it never touches the awaiting proposal.
-    /// One draft is under review per session: an older one stays its turn's proposal, under review no more.</summary>
-    public async Task<int> SetReviewingAsync(string platform, string threadId, string json, string? runId, CancellationToken ct)
-    {
-        if (await NewestAsync(platform, threadId, ct) is not { } session) return 0;
-        var key = runId ?? $"{SpecDialogProposal.UnboundPrefix}review:{session}";
-        await _proposals.EnsureAsync(session, key, json, ct);
-        await _rows.EndReviewAsync(session, key, ct);
-        return await _rows.ReviewAsync(session, key, json, ct);
-    }
-
-    /// <summary>2026-11-13-3dc8: a turn that ended without a proposal leaves no draft under review.</summary>
-    public async Task ClearDraftAsync(string platform, string threadId, CancellationToken ct)
-    {
-        if (await NewestAsync(platform, threadId, ct) is { } session) await _rows.EndReviewAsync(session, null, ct);
     }
 
     /// <summary>Claims proposal <paramref name="id"/>: moves it from awaiting to filing and returns its JSON — or null when
