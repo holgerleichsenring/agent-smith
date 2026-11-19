@@ -51,8 +51,8 @@
   <!-- v3.16.0 silent-drop incident, made a build failure).               -->
   <!-- ================================================================== -->
   <PropertyGroup>
-    <SkillsCatalogVersion>v5.39.0</SkillsCatalogVersion>
-    <SkillsCatalogSha256>809368d58258cf249e07cff30376eb22dd91bd397e9bf52198610e2bc56fc1a6</SkillsCatalogSha256>
+    <SkillsCatalogVersion>v5.40.0</SkillsCatalogVersion>
+    <SkillsCatalogSha256>169f275e8701fe813931d43e55854f8b478fe5d15f4e9150adefc7ee38f219b6</SkillsCatalogSha256>
     <SkillsCatalogFileName>agentsmith-skills-$(SkillsCatalogVersion).tar.gz</SkillsCatalogFileName>
     <SkillsCatalogTarball>$(MSBuildProjectDirectory)/Resources/$(SkillsCatalogFileName)</SkillsCatalogTarball>
     <SkillsCatalogDownloadUrl>https://github.com/holgerleichsenring/agent-smith-skills/releases/download/$(SkillsCatalogVersion)/$(SkillsCatalogFileName)</SkillsCatalogDownloadUrl>

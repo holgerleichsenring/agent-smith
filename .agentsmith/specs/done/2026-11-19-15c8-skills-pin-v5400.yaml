@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-15c8
+goal: "The embedded skills catalog is pinned to v5.40.0: design-partner-master 3.7.0 promises no later review and writes open questions in the operator's language."
+applies_to: "backend (embedded skills catalog pin) + docs"
+requires:
+  - 2026-11-19-2d7a
+facts:
+  - claim: "The v5.40.0 release tarball hashes to 169f275e8701fe813931d43e55854f8b478fe5d15f4e9150adefc7ee38f219b6."
+    evidence: "observed: 2026-11-19, shasum -a 256 of the released agentsmith-skills-v5.40.0.tar.gz"
+  - claim: "A live design turn on terra spawned no reviewer; the skill said every spec is reviewed again when it runs, which 9c1cb removed."
+    evidence: "observed: 2026-11-19 design turn, no review brief among its spawn_agents calls"
+scope:
+  in: "SkillsCatalogVersion v5.40.0 and its sha256; the v5.39.0 tarball replaced; docs and example config name v5.40.0."
+  out: "Any code change."
+upgrade_impact: "A deployment on the embedded catalog loads design-partner-master 3.7.0."
+steps:
+  - id: pin
+    action: "Set SkillsCatalogVersion and SkillsCatalogSha256 to v5.40.0 and replace the tarball."
+done:
+  - "Build and the full suite are green on the v5.40.0 pin."

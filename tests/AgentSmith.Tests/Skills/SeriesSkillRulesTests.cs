@@ -66,7 +66,7 @@ public sealed class SeriesSkillRulesTests
         // 2026-11-10-fc66: a design turn carries neither tool. 2026-11-12-681f: its questions go on
         // state_open_questions, the one channel, each with a proposal the draft is built on.
         var partner = Folded();
-        partner.Should().Contain("Questions only the operator can answer go on `state_work_picture`'s `open_questions`, each with your proposal",
+        partner.Should().Contain("Questions only the operator can answer go on `state_work_picture`'s `open_questions`, in the language the operator writes in, each with your proposal",
             Because("the design partner's question rule"));
         partner.Should().Contain("The proposal is built on your proposals, marked `proposed:`.",
             Because("the draft is never held back for a question"));
