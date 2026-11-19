@@ -17,8 +17,8 @@ using Moq;
 namespace AgentSmith.Tests.Specs.Review;
 
 /// <summary>
-/// 2026-10-13-8762g: the review's parts as the tests compose them — the series reviewer and a set publisher that takes
-/// every revision onto the branch unless told not to. 2026-11-19-3e10: the spec attack panel and its reviser are gone.
+/// 2026-10-13-8762g: a set publisher that takes every revision onto the branch unless told not to, as the revision tests
+/// compose it. 2026-11-19-3e10/4176: no reviewer of any kind is left.
 /// </summary>
 internal sealed class ReviewLoopRig
 {
@@ -33,13 +33,6 @@ internal sealed class ReviewLoopRig
         Pipeline.Set(ContextKeys.SpecSet, set ?? TwoSpecs());
         Pipeline.Set(ContextKeys.ProjectName, "shop-project");
         Pipeline.Set(ContextKeys.SpecRevisionSha, "sha-0");
-        SeriesReviewer.Setup(r => r.ReviewAsync(It.IsAny<SeriesContractInput>(), It.IsAny<DerivationLook?>(),
-                It.IsAny<AgentConfig>(), It.IsAny<PipelineCostTracker>(), It.IsAny<CancellationToken>()))
-            .Returns((SeriesContractInput input, DerivationLook? look, AgentConfig _, PipelineCostTracker _, CancellationToken _) =>
-            {
-                SeriesCalls.Add((input, look?.Terms.Allowance));
-                return Task.FromResult(OnSeriesReview(input));
-            });
         Publisher.Setup(p => p.PublishAsync(It.IsAny<PipelineContext>(), It.IsAny<string>(), It.IsAny<SeriesScope>(),
                 It.IsAny<SpecSet>(), It.IsAny<IReadOnlyList<IgnoredInstruction>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PipelineContext pipeline, string _, SeriesScope _, SpecSet published,
@@ -54,12 +47,6 @@ internal sealed class ReviewLoopRig
     }
 
     public PipelineContext Pipeline { get; } = new();
-    public Mock<ISeriesContractReviewer> SeriesReviewer { get; } = new();
-    public List<(SeriesContractInput Input, int? Allowance)> SeriesCalls { get; } = [];
-
-    /// <summary>2026-10-13-8762k: the series reviewer's answer; BUILD with nothing unless a test says otherwise.</summary>
-    public Func<SeriesContractInput, SeriesContractReview> OnSeriesReview { get; set; } =
-        _ => new SeriesContractReview(Build(), []);
     public Mock<Contracts.Specs.ISpecSetPublisher> Publisher { get; } = new();
     public RecordingEventPublisher Events { get; } = new();
     public AsyncLocalRunContextAccessor RunContext { get; } = new();
@@ -73,10 +60,6 @@ internal sealed class ReviewLoopRig
 
     public static SpecAttackResult Refuse(string finding = "The cited handler does not exist.") =>
         new(SpecReviewVerdicts.Refuse, [], [new SpecReviewFinding(finding, "shop search:'Handler' [A1]")]);
-
-    public static SpecReviewSettings Settings(int rounds = 4, int reviewers = 1, int share = 40) =>
-        new(new SpecReviewConfig { Rounds = rounds, Reviewers = reviewers, MaxConcurrent = 2, BudgetSharePercent = share });
-
     public SpecSet Set => Pipeline.Get<SpecSet>(ContextKeys.SpecSet);
 
     public static SpecSet TwoSpecs(string? secondRequires = null) => new(

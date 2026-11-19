@@ -1042,18 +1042,11 @@ export interface TraceSetting {
   enabled: boolean;
 }
 
-/** The run-time spec review (agentsmith.yml spec_review:). The server refuses a value the run would refuse. */
+/** agentsmith.yml spec_review: — 2026-11-19-4176: no step reviews a spec, so only the entry re-ground is sized here.
+ *  The server refuses a value the run would refuse. */
 export interface SpecReviewSetting {
-  rounds: number;
-  reviewers: number;
-  maxConcurrent: number;
-  budgetSharePercent: number;
-  /** 2026-11-17-f9b0b: the fewest looks one attack reviewer gets. */
-  attackLookFloor: number;
   /** 2026-11-17-f9b0b: the file reads one entered spec's citations are re-grounded against. */
   regroundReadBudget: number;
-  /** 2026-11-17-f9b0b: the characters of members the series-contract reviewer is shown whole. */
-  seriesContractMaxChars: number;
 }
 
 /** A ticket's spec series and its automatic continuation (agentsmith.yml series:). */

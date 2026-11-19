@@ -22,21 +22,8 @@ public sealed class SpecReviewRegistrationsTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<SpecAttackAdmission>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.Revision.MasterSpecRevision>()
             .Should().NotBeNull("2026-11-19-3e10: revise_spec resolves without a review panel");
-    }
-
-    [Fact]
-    public void SpecCutResidues_ResolvesFromTheRealServiceProvider()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
-        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
-
-        scope.ServiceProvider.GetRequiredService<SpecCutResidues>().Should().NotBeNull();
     }
 
     [Fact]
@@ -83,19 +70,6 @@ public sealed class SpecReviewRegistrationsTests
             .Select(t => t.Name).Should().NotContain("review_proposal",
                 "2026-11-18-9c1ca: a master that wants a review spawns a sub-agent with a review brief")
             .And.Contain("state_work_picture", "the surface was composed");
-    }
-
-    [Fact]
-    public void AddSpecReview_ResolvesTheSeriesContractReviewer()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
-        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
-        using var provider = services.BuildServiceProvider();
-        using var scope = provider.CreateScope();
-
-        scope.ServiceProvider.GetRequiredService<ISeriesContractReviewer>().Should().BeOfType<SeriesContractReviewer>();
-        scope.ServiceProvider.GetRequiredService<SeriesContractAdmission>().Should().NotBeNull();
     }
 
     [Fact]

@@ -15,8 +15,6 @@ public sealed class JsonAnswerReaderMatrixTests
         "2,2,2,2,2,4,1,null,null", "2,2,2,2,2,2,1,null,null")]
     [InlineData("SpecCutAnswerReader",
         "2,2,2,2,2,2,null,null,null", "2,2,2,2,2,2,null,null,null")]
-    [InlineData("SeriesContractAnswerReader",
-        "build,build,build,build,build,build,null,null,null", "build,build,build,build,build,build,null,null,null")]
     [InlineData("ClientUsageReportReader",
         "1,1,1,null,null,null,null,null,null", "1,1,1,1,1,1,null,null,null")]
     [InlineData("StagedAuthFileJsonReader",

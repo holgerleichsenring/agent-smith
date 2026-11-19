@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-19-4176: "SPEC_REVIEW SETTINGS RETIRED (SpecReviewConfig, RetiredConfigKeys, schema, dashboard settings form, docs). Only reground_read_budget is left; the six review-sizing keys load with an advisory. The never-wired series-contract reviewer chain and SpecCutResidues are deleted. -> .agentsmith/specs/done/2026-11-19-4176-spec-review-settings-retired.yaml"
     2026-11-19-2d7a: "SKILLS PIN v5.39.0 (Infrastructure.Core skills pin, docs, example config). coding-agent-master 3.3.0 writes a stand-in's spec first with revise_spec; spec-derivation-master is no longer packaged. -> .agentsmith/specs/done/2026-11-19-2d7a-skills-pin-v5390.yaml"
     2026-11-19-3e10: "REVISE_SPEC WITHOUT A JUDGE (MasterSpecRevision, SpecRevisionWriter, ReviseSpecToolHost). revise_spec writes the coding master's text after reason, gate and schema/identity checks; the attack panel, round evidence, cut reviser and revision review are deleted. -> .agentsmith/specs/done/2026-11-19-3e10-revise-spec-no-judge.yaml"
     2026-11-19-6b0bb: "SCOPE CALL TRIMMED (RepoScopeSystemPrompt, RepoScopeClassifier, ScopeClassificationResult, ScopeReposHandler). The scope call asks only for size, shape and a refusal; repo verdicts, contexts, expected changes, the named-contexts record and the WorkShape key are deleted. -> .agentsmith/specs/done/2026-11-19-6b0bb-scope-call-trim.yaml"

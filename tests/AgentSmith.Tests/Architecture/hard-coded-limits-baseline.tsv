@@ -110,8 +110,6 @@
 1	AgentSmith.Application/Services/Specs/HandbackHeadsReader.cs
 1	AgentSmith.Application/Services/Specs/ReferenceScopeName.cs
 3	AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs
-1	AgentSmith.Application/Services/Specs/Review/SeriesContractAdmission.cs
-1	AgentSmith.Application/Services/Specs/Review/SpecAttackAdmission.cs
 1	AgentSmith.Application/Services/Specs/Review/SpecCitationHistory.cs
 3	AgentSmith.Application/Services/Specs/Review/SpecCitationLocator.cs
 2	AgentSmith.Application/Services/Specs/Review/SpecEntryGrounding.cs

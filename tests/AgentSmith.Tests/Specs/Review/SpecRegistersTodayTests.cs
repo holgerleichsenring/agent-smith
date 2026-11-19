@@ -11,23 +11,6 @@ namespace AgentSmith.Tests.Specs.Review;
 /// attack review's allowance.</summary>
 public sealed class SpecRegistersTodayTests
 {
-    [Fact]
-    public void SpecRegisters_ReadsAllSevenRegisters()
-    {
-        var registers = SpecRegisters.Read(Yaml);
-
-        registers.Holds(SpecRegisterNames.Goal, "every order of the day").Should().BeTrue();
-        registers.Entries(SpecRegisterNames.Scope).Should().Equal(
-            "The export handler and its file writer.", "The import side stays as it is.");
-        registers.Holds(SpecRegisterNames.Decisions, "keeps the archive readable").Should().BeTrue();
-        registers.Entries(SpecRegisterNames.Steps).Should().Equal(
-            "writer", "Write the orders through the buffered file writer.");
-        registers.Entries(SpecRegisterNames.Tests).Should().Equal("Export_WritesEveryOrderOfTheDay");
-        registers.Holds(SpecRegisterNames.Done, "lands in the export file").Should().BeTrue();
-        registers.Entries(SpecRegisterNames.Facts).Should().Equal(
-            "The export handler reads the orders from the order store.", "src/Export/ExportHandler.cs:12");
-        registers.Holds(SpecRegisterNames.Goal, "lands in the export file").Should().BeFalse("that run is the done entry's");
-    }
 
     [Fact]
     public void SpecToday_RequiresAnUnbuiltSpec_DoesNotDescribeToday()

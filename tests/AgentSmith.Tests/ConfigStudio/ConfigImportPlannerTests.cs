@@ -21,11 +21,11 @@ public sealed class ConfigImportPlannerTests
     {
         var import = () => Planner.Plan("""
             spec_review:
-              rounds: -1
+              reground_read_budget: 0
             """, "test.yml");
 
         import.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>()
-            .WithMessage("*spec_review.rounds is -1*", "a block the run would refuse is never stored (2026-11-10-8e59)");
+            .WithMessage("*spec_review.reground_read_budget is 0*", "a block the run would refuse is never stored (2026-11-10-8e59)");
     }
 
     [Fact]

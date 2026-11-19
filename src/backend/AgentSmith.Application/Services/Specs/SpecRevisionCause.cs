@@ -59,7 +59,6 @@ public static class SpecRevisionCause
     /// the conversation it was approved in, so the revision history says which approval this
     /// revision is.</summary>
     public const string Approval = "approved in design conversation";
-    public const string SeriesContractReview = "series contract review"; // 2026-10-13-8762k: the set-scope round's cuts
     public const string CitationsRegrounded = "citations re-grounded in"; // 2026-10-13-8762n: "{this} {specId}: {old} -> {new}; …"
     public const string Overrule = "default overruled on the ticket"; // 2026-10-13-8762p: read off the previous attempt
 

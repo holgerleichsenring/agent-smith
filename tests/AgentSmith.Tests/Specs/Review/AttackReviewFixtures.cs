@@ -9,7 +9,7 @@ using static AgentSmith.Tests.Specs.DerivationTestLooks;
 
 namespace AgentSmith.Tests.Specs.Review;
 
-/// <summary>2026-10-13-8762e: an attack review's spec, look and minted evidence as the tests compose them.</summary>
+/// <summary>2026-10-13-8762e: a spec, look and minted evidence as the tests compose them.</summary>
 internal static class AttackReviewFixtures
 {
     public const string Key = "shop-dotnet";
@@ -56,9 +56,5 @@ internal static class AttackReviewFixtures
         look.Evidence.Remember(new EvidenceRecord(
             Key, EvidenceRecord.Search, $"grep -E '{pattern}' .", exit, Ran: exit is 0 or 1, "."));
 
-    public static SpecAttackResult Admit(string json, DerivationLook look) =>
-        new SpecAttackAdmission(NullLogger<SpecAttackAdmission>.Instance).Admit(
-            AgentSmith.Application.Services.Json.JsonAnswerReader.ReadObject<SpecAttackWire, SpecAttackAnswer>(
-                json, wire => wire.ToAnswer())!, SpecRegisters.Read(Yaml), look, Names);
 
 }

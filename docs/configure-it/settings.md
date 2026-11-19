@@ -58,7 +58,11 @@ The same block carries `dashboard_url`, your dashboard's address, so the ticket 
 
 ### Spec review
 
-No step of a run reviews a spec any more: a coding run builds the spec it has, `revise_spec` writes the master's own text without a review (a second opinion is a reviewer the master briefs itself), and a proposal in [Work it out](../how-it-works/work-it-out.md) is not reviewed after its turn. Of the `spec_review:` block, only `reground_read_budget` still has an effect — it sizes the entry re-ground of a spec's citations. `rounds`, `reviewers`, `max_concurrent`, `budget_share_percent` and `attack_look_floor` are read by nothing and will be retired. An invalid block is still refused at validation, naming the problem (for example `spec_review.rounds is -1; it must be 0 or more`). `design_turn` is retired: a file that still sets it gets an advisory.
+No step of a run reviews a spec any more: a coding run builds the spec it has, `revise_spec` writes the master's own text without a review (a second opinion is a reviewer the master briefs itself), and a proposal in [Work it out](../how-it-works/work-it-out.md) is not reviewed after its turn. The `spec_review:` block holds one setting:
+
+- Re-ground read budget, 24: the file reads that re-check the citations of the spec a run enters; past it a citation is left unchecked.
+
+The block is `spec_review:` (`reground_read_budget`), and every run reads it fresh. An invalid value is refused at validation: saving it, importing a file with it, and the startup check all name the problem (`spec_review.reground_read_budget is 0; it must be 1 or more`). `design_turn`, `rounds`, `reviewers`, `max_concurrent`, `budget_share_percent`, `attack_look_floor` and `series_contract_max_chars` are retired: a file or a stored setting that still names one gets an advisory, and saving the settings page once clears a stored one.
 
 ### Series
 
