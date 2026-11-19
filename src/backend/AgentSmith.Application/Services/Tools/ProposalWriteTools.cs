@@ -10,9 +10,10 @@ namespace AgentSmith.Application.Services.Tools;
 /// <summary>
 /// 2026-11-12-cd4ca: the design master's write tools over its turn's proposal store. 2026-11-15-06fc: the draft is
 /// files — write_file, edit_file and delete_file — checked against the turn's own repositories, and a comment is a
-/// file of the draft only on a conversation bound to a ticket.
+/// file of the draft only on a conversation bound to a ticket. 2026-11-19-3d7e: a stored spec or ticket answers its
+/// mechanical findings.
 /// </summary>
-public sealed class ProposalWriteTools(DraftFileWrite files)
+public sealed class ProposalWriteTools(DraftFileWrite files, DraftWriteFindings findings)
 {
     /// <summary>Every tool name, so a surface that never proposes can leave them out.</summary>
     public static readonly IReadOnlySet<string> Names = new HashSet<string>(StringComparer.Ordinal)
@@ -26,6 +27,6 @@ public sealed class ProposalWriteTools(DraftFileWrite files)
         ArgumentNullException.ThrowIfNull(store);
         IReadOnlyList<string> repos = [.. DerivationLookFactory.ProposalRepositories(pipeline)?.Keys ?? []];
         var bound = pipeline.TryGet<SeededTicket>(ContextKeys.SpecDialogTicket, out var ticket) && ticket is not null;
-        return new DraftFileToolHost(store, files, new DraftScope(repos, bound)).GetTools(null, null);
+        return new DraftFileToolHost(store, files, new DraftScope(repos, bound), findings, pipeline).GetTools(null, null);
     }
 }

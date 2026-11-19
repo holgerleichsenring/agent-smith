@@ -2,6 +2,10 @@ using AgentSmith.Application.Services.SpecDialog.Writes;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Tests.Specs;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 
@@ -186,6 +190,95 @@ public sealed class DraftFileToolHostTests
         tool.JsonSchema.ToString().Should().Contain("repos: the one repository it changes").And.Contain("requirement (its scope in prose");
     }
 
+    /// <summary>2026-11-19-3d7e: a stored spec answers the evidence its facts cite that does not resolve.</summary>
+    [Fact]
+    public async Task WriteFile_SpecCitingAMissingFile_AnswersTheFinding()
+    {
+        var (pipeline, _) = WithRepository();
+
+        var answer = await InvokeAsync(MasterHandlerFixtureWrites(), pipeline, new ProposalStore(), "write_file",
+            ("path", "draft:specs/store.yaml"), ("content", Cited("repo-a/src/gone.cs:3")));
+
+        answer.Should().StartWith("Stored draft:specs/store.yaml.").And.Contain(DraftWriteFindings.Heading)
+            .And.Contain($"- {AgentSmith.Application.Services.SpecDialog.ProposalEvidenceReview.Problem}: ")
+            .And.Contain("repo-a/src/gone.cs").And.Contain("(claim: \"the store exists\")");
+    }
+
+    [Fact]
+    public async Task WriteFile_SpecCitingAnExistingFile_AnswersNoFinding()
+    {
+        var (pipeline, repo) = WithRepository();
+
+        var answer = await InvokeAsync(MasterHandlerFixtureWrites(), pipeline, new ProposalStore(), "write_file",
+            ("path", "draft:specs/store.yaml"), ("content", Cited("repo-a/src/a.cs:1-2")));
+
+        answer.Should().StartWith("Stored draft:specs/store.yaml.").And.NotContain(DraftWriteFindings.Heading);
+        repo.Ran.Should().NotBeEmpty("the citation was read");
+    }
+
+    [Fact]
+    public async Task EditFile_TicketRequiringAMissingTicket_AnswersTheFinding()
+    {
+        var existence = new MissingTickets("41");
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.SpecDialogProject,
+            new ResolvedProject { Name = "shop", Tracker = new TrackerConnection { Name = "gh-tracker" } });
+        var writes = Handlers.MasterHandlerFixture.ProposalWrites(existence);
+        var store = new ProposalStore();
+        await InvokeAsync(writes, pipeline, store, "write_file", ("path", "draft:tickets/a-one.yaml"),
+            ("content", "title: A\nrequirement: Do A.\ndone:\n  - A is done\n"));
+
+        var answer = await InvokeAsync(writes, pipeline, store, "edit_file", ("path", "draft:tickets/a-one.yaml"),
+            ("old_string", "requirement: Do A."), ("new_string", "requirement: Do A.\nrequires: [\"ticket:41\"]"));
+
+        answer.Should().StartWith("Stored draft:tickets/a-one.yaml.").And.Contain(DraftWriteFindings.Heading)
+            .And.Contain("- required ticket not found: ticket 41 does not exist on gh-tracker");
+        existence.Checked.Should().Equal("41");
+    }
+
+    [Fact]
+    public async Task WriteFile_Refused_RunsNoCheck()
+    {
+        var (pipeline, repo) = WithRepository();
+        var existence = new MissingTickets("41");
+        var writes = Handlers.MasterHandlerFixture.ProposalWrites(existence);
+
+        var spec = await InvokeAsync(writes, pipeline, new ProposalStore(), "write_file",
+            ("path", "draft:notes.md"), ("content", Cited("repo-a/src/gone.cs:3")));
+        var ticket = await InvokeAsync(writes, pipeline, new ProposalStore(), "write_file",
+            ("path", "draft:tickets/a-one.yaml"), ("content", "title: A\nrequires: [\"ticket:41\"]\n"));
+
+        spec.Should().StartWith("Not stored:").And.NotContain(DraftWriteFindings.Heading);
+        ticket.Should().StartWith("Not stored:").And.NotContain(DraftWriteFindings.Heading);
+        repo.Ran.Should().BeEmpty();
+        existence.Checked.Should().BeEmpty();
+    }
+
+    private static string Cited(string evidence) =>
+        Spec + $"\nfacts:\n  - claim: \"the store exists\"\n    evidence: \"{evidence}\"";
+
+    private static ProposalWriteTools MasterHandlerFixtureWrites() => Handlers.MasterHandlerFixture.ProposalWrites();
+
+    private static (PipelineContext Pipeline, EvidenceTreeSandbox Repo) WithRepository()
+    {
+        var repo = new EvidenceTreeSandbox(new Dictionary<string, string> { ["src/a.cs"] = "1\n2\n" });
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)new Dictionary<string, ISandbox> { ["repo-a"] = repo });
+        return (pipeline, repo);
+    }
+
+    /// <summary>A tracker on which the given ids do not exist; records every id checked.</summary>
+    private sealed class MissingTickets(params string[] missing) : ITicketExistence
+    {
+        public List<string> Checked { get; } = [];
+
+        public Task<TicketExistenceResult> CheckAsync(ResolvedProject project, IReadOnlyList<string> ids, CancellationToken ct)
+        {
+            Checked.AddRange(ids);
+            return Task.FromResult(new TicketExistenceResult([.. missing.Where(ids.Contains)], []));
+        }
+    }
+
     private static async Task<ProposalStore> EpicAsync()
     {
         var store = new ProposalStore();
@@ -196,10 +289,13 @@ public sealed class DraftFileToolHostTests
         return store;
     }
 
-    private static async Task<string> InvokeAsync(ProposalStore store, string name, params (string Key, object Value)[] arguments)
+    private static Task<string> InvokeAsync(ProposalStore store, string name, params (string Key, object Value)[] arguments) =>
+        InvokeAsync(Handlers.MasterHandlerFixture.ProposalWrites(), new PipelineContext(), store, name, arguments);
+
+    private static async Task<string> InvokeAsync(
+        ProposalWriteTools writes, PipelineContext pipeline, ProposalStore store, string name, params (string Key, object Value)[] arguments)
     {
-        var tool = Handlers.MasterHandlerFixture.ProposalWrites().For(new PipelineContext(), store)
-            .OfType<AIFunction>().Single(t => t.Name == name);
+        var tool = writes.For(pipeline, store).OfType<AIFunction>().Single(t => t.Name == name);
         var args = new AIFunctionArguments();
         foreach (var (key, value) in arguments) args[key] = value;
         return (await tool.InvokeAsync(args))!.ToString()!;

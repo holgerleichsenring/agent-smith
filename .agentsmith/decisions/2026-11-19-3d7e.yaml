@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-19-3d7e
+
+decisions:
+  - category: Architecture
+    chose: "DraftWriteFindings runs the existing ProposalEvidenceReview (on a SpecOutcome of the stored spec) and TicketExistenceFindings (on a one-ticket TicketGraphOutcome) after a stored write_file/edit_file, and the host appends its block to the answer"
+    over: "A second evidence or existence implementation in the write path, or running ProposalMechanicalChecks over the whole draft on every write"
+    reason: "One implementation of each check; checking only the stored file keeps the answer about the change just made and spends one tracker call per stored ticket, not one per ticket of the draft."
+  - category: Behavior
+    chose: "The ticket's requires are normalized over the whole draft's tickets (TicketGraphOutcome constructor) before the stored ticket alone is checked"
+    over: "Building the one-ticket list from the raw ticket"
+    reason: "A ticket:<sibling> written with the prefix names a sibling of the draft, never a tracker id (2026-11-19-46bd); only the whole list knows its siblings."
+  - category: Behavior
+    chose: "Findings are advisory: the file stays stored, the answer lists 'Findings to fix:'; a check that throws logs and answers 'could not be checked'; a refused or unchanged write runs no check; ProposalMechanicalChecks still runs at the end of the turn"
+    over: "Refusing a write with findings, or dropping the end-of-turn check"
+    reason: "A citation may be fixed by a later edit in the same turn; the card still shows what remains at the end."

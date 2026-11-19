@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-3d7e
+goal: "The design master sees the mechanical findings of a stored draft file in the answer of the write or edit that stored it."
+
+applies_to: "default (Tools: DraftFileToolHost, ProposalWriteTools)"
+
+facts:
+  - claim: "A draft write answers only the synchronous shape check: stored and what the draft holds, or the refusal."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/DraftFileToolHost.cs:66-83, src/backend/AgentSmith.Application/Services/Tools/DraftWriteAnswer.cs:12-13"
+  - claim: "The evidence check and the ticket existence check run only after the master's loop, in ProposalMechanicalChecks."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ProposalMechanicalChecks.cs:15-44"
+  - claim: "ProposalEvidenceReview reads a proposal's drafts against the turn's repositories and uploads and appends the cite-what-exists hint."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:26-38"
+  - claim: "TicketExistenceFindings checks a list's ticket:<id> requires on the tracker; no existence reader or no project checks nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketExistenceFindings.cs:16-23"
+  - claim: "A TicketGraphOutcome normalizes ticket:<sibling> to the sibling's bare key on construction."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:73-76"
+
+scope:
+  in: "After write_file/edit_file STORES a spec file (single spec, epic parent or child, a ticket's spec), ProposalEvidenceReview runs on that spec; after it stores a ticket file, TicketExistenceFindings runs on that ticket (siblings normalized over the whole draft's tickets). Findings are appended to the answer as 'Findings to fix:' lines; the file stays stored. A failing check logs and says it could not be checked. The write tools become async."
+  out: "ProposalMechanicalChecks at the end of the turn stays as it is. delete_file runs no check. Blocking on findings. The bound-conversation list finding."
+
+upgrade_impact: "None; the master's write answers carry the findings it previously saw only on the approval card."
+
+steps:
+  - id: findings
+    action: "DraftWriteFindings (Tools): the stored file's spec or ticket from the draft after the write, the existing check on it, findings rendered as a block; check failures logged."
+  - id: wiring
+    action: "ProposalWriteTools takes DraftWriteFindings and passes it with the pipeline to DraftFileToolHost; write_file/edit_file are async and append the block only when the change was stored; registered in AddProposalWrites."
+  - id: tests
+    action: "DraftFileToolHostTests: a stored spec citing a missing file answers with the finding; a resolving citation answers without; a ticket requiring missing ticket:41 answers with the finding; a refused write runs no check."
+
+tests:
+  - "Stored spec with a missing citation: the answer names 'cited evidence does not resolve' and the path."
+  - "Stored spec whose citation resolves: the answer has no findings block."
+  - "Stored ticket requiring ticket:41 that the tracker lacks: the answer names 'ticket 41 does not exist'."
+  - "A refused write: no check runs."
+
+done:
+  - "Write/edit answers carry the stored file's mechanical findings; build and the affected tests are green; the full suite passes in the spec gate."
