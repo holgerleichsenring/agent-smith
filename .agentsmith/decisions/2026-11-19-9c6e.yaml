@@ -1,0 +1,9 @@
+spec: 2026-11-19-9c6e
+decisions:
+  - category: Architecture
+    chose: "Delete the unbacked-done re-drive; the master's green finish_spec ends the spec, and the mechanical verify stages run after it."
+    over: "Teaching the coverage check about paths a sub-agent wrote."
+    reason: "Operator rule: only mechanical gates and the human stop or redirect the master. Re-driving the master against its own green report on a path-matching heuristic is a judge outside the master; the replay showed five wasted passes."
+  - category: Process
+    chose: "No separate adversarial reviewer round for this two-line removal found by the proof replay."
+    reason: "The change is a deletion the audit already flagged (row 'UnbackedDone, borderline'); tests pin the new behaviour."

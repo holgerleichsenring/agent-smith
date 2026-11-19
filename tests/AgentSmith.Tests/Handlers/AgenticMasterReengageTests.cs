@@ -108,7 +108,7 @@ public sealed class AgenticMasterReengageTests
     }
 
     [Fact]
-    public void ShouldReengage_ModelMarkedDoneButTargetAbsentFromDiff_StillReengages()
+    public void ShouldReengage_ModelMarkedDoneButTargetAbsentFromDiff_GreenFinishStops()
     {
         // The ledger is drained and the step is marked done, but its declared target never
         // appears in the diff — marking-without-doing. The unfakeable diff drives re-engagement.
@@ -124,7 +124,7 @@ public sealed class AgenticMasterReengageTests
         ShouldReengage(
             "code", ledger, Verdict(VerificationStatus.Green),
             budgetExhausted: false, NoCriteria, changes, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeTrue();
+            .Should().BeFalse("2026-11-19-9c6e: the master's green finish_spec is its call; the coverage is reported, not re-driven");
     }
 
     [Fact]
@@ -166,10 +166,10 @@ public sealed class AgenticMasterReengageTests
     }
 
     [Fact]
-    public void ShouldReengage_NoVerdictButUnbackedDoneStep_KeepsDriving()
+    public void ShouldReengage_NoVerdictButUnbackedDoneStep_StopsAfterItsOneRedrive()
     {
-        // The null-verdict bound is scoped to the acceptance branch: a done step the diff
-        // does not back is unfinished WORK and re-drives regardless of the pass index.
+        // 2026-11-19-9c6e: a done step the diff does not back no longer re-drives on its own; a master without
+        // finish_spec still gets its one re-drive, and only that one.
         var ledger = new ProgressLedger(new[]
         {
             new ProgressLedgerEntry("1", "add worker", ProgressStatus.Done, Target: "src/Worker.cs"),
@@ -178,7 +178,7 @@ public sealed class AgenticMasterReengageTests
         ShouldReengage(
             "code", ledger, verification: null, budgetExhausted: false,
             new[] { "Worker added" }, NoChanges, reengagePass: 5, verdictDemandedInPass: false)
-            .Should().BeTrue();
+            .Should().BeFalse();
     }
 
     // p0365: forward-progress classification moved from AgenticMasterHandler.MadeForwardProgress
