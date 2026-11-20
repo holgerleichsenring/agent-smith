@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-20-44b6
+goal: "An opened spec step's rows use their four columns again; the run view and ticket page grow with the screen up to 1600px, prose keeps a readable line length."
+
+applies_to: "dashboard (run log, ticket page)"
+
+requires: [2026-11-19-1b72d]
+
+facts:
+  - claim: "The spec-step row carries class rl-spec-step, which the spec record's own rows also use."
+    evidence: "src/dashboard/src/components/jobs/runlog/SpecRecordView.tsx:64"
+  - claim: "rl-spec-step is a two-column grid of 12ch and 1fr, which overrides the four-column rl-part-row grid and squeezes the step text into 12ch."
+    evidence: "src/dashboard/src/styles/run-log.css:228"
+  - claim: "The run view caps its page at 820px and the ticket page at 820px/900px."
+    evidence: "src/dashboard/src/styles/ticket-thread.css:5"
+  - claim: "Prose stays readable on a wide page: a ticket message keeps max-width 72ch."
+    evidence: "src/dashboard/src/styles/ticket-thread.css:80"
+  - claim: "The operator saw the step text in a 12-character column on a 3466px screen."
+    evidence: "observed: 2026-11-20, ticket 19651 screenshot"
+
+scope:
+  in: "The spec-step row's class renamed; .rl-page and .tk-page capped at 1600px instead of 820/900px; the reply dock at 880px; prose (said, move detail, now-line text, sub-agent brief, markdown, decisions, step text) capped in ch."
+  out: "Other layout changes."
+
+steps:
+  - id: rows
+    action: "Rename the row class to rl-step-of-spec."
+  - id: width
+    action: "1600px page caps, 880px reply dock, ch caps on prose."
+
+tests:
+  - "StepSpecSteps rows do not carry rl-spec-step."
+
+done:
+  - "Dashboard tests and build green."

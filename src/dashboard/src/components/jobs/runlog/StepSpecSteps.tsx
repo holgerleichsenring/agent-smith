@@ -22,7 +22,7 @@ export function StepSpecSteps({ runId, specId, ledger, ledgerIsThisSpec, passes 
   return (
     <StepPart title={lines.length > 0 && !statesFailed ? `Steps of the spec · ${specStepsCount(lines)}` : "Steps of the spec"} testId="step-part-steps">
       {lines.map((l) => (
-        <div key={l.id} className="rl-part-row rl-spec-step" data-state={statesFailed ? "unknown" : l.state} data-testid="step-spec-step">
+        <div key={l.id} className="rl-part-row rl-step-of-spec" data-state={statesFailed ? "unknown" : l.state} data-testid="step-spec-step">
           <span className="rl-part-dot" aria-hidden="true" />
           <span className="rl-part-key">{l.number}</span>
           <span className="rl-part-what"><InlineText text={l.text} /></span>

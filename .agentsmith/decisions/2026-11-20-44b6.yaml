@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-20-44b6
+
+decisions:
+  - category: Implementation
+    chose: "Rename the new spec-step row's class to rl-step-of-spec"
+    over: "Scoping the old .rl-spec-step rule to the spec record view"
+    reason: "The old class belongs to the spec record view; the row from 1b72d took the name by accident, and a distinct name keeps the two from styling each other again."
+  - category: Implementation
+    chose: "Raise the run view and ticket page caps from 820/900px to 1600px (the width the other pages use), cap the reply dock at 880px and prose in ch"
+    over: "No cap at all (a review showed a full-screen reply box, 2500px text lines and right columns far from their labels on 2560px)"
+    reason: "Operator 2026-11-20: the width should follow the screen. Tables of steps, commands and activity use the room; messages keep max-width 72ch, so reading length does not grow."
