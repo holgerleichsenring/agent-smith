@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.195.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.195.1...v0.195.2) (2026-11-20)
+
+
+### Bug Fixes
+
+* **dashboard:** spec-step rows use four columns again; pages grow with the screen up to 1600px (2026-11-20-44b6) ([bd186cf](https://github.com/holgerleichsenring/agent-smith/commit/bd186cf307e2268e63ef448a77c6fceeaf374610))
+* **dashboard:** spec-step rows use their four columns again; run view and ticket page grow with the screen up to 1600px (2026-11-20-44b6) ([037c91c](https://github.com/holgerleichsenring/agent-smith/commit/037c91ca163acf95d2a23d115d6d6c2d9ff22f68))
+
 ## [0.195.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.195.0...v0.195.1) (2026-11-20)
 
 
