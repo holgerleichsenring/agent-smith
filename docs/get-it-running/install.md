@@ -3,7 +3,7 @@
 !!! info "Formerly Agent Smith"
     codeably was called Agent Smith until November 2026. The CLI, the config file `agentsmith.yml` and the images still carry that name; their rename follows.
 
-<p class="cb-lead">Three ways to get codeably on a machine. Pick the one that matches how you plan to run it. The current release is <strong>0.193.0</strong><!-- x-release-please-version -->.</p>
+<p class="cb-lead">Three ways to get codeably on a machine. Pick the one that matches how you plan to run it. The current release is <strong>0.194.0</strong><!-- x-release-please-version -->.</p>
 
 - **CLI single-binary** — fastest path. Good for trying things out on your laptop, good for cron jobs and short-lived runs. Single download, no daemon.
 - **Docker / docker-compose** — good for a small team setup or a long-lived server on one host. The server, a Redis, a one-shot database-migrate job and (optionally) the dashboard come up together with one `docker compose up`.
@@ -18,7 +18,7 @@ The release page on GitHub publishes a single-file executable for macOS, Linux, 
 <!-- x-release-please-start-version -->
 ```bash
 # Linux / macOS — adjust the version + arch for your machine
-VERSION=0.193.0
+VERSION=0.194.0
 curl -L -o agent-smith \
   https://github.com/holgerleichsenring/agent-smith/releases/download/v${VERSION}/agent-smith-linux-x64
 chmod +x agent-smith
@@ -82,9 +82,9 @@ Pull the images and check they're there:
 
 <!-- x-release-please-start-version -->
 ```bash
-docker pull holgerleichsenring/agent-smith-server:0.193.0
-docker pull holgerleichsenring/agent-smith-cli:0.193.0
-docker pull holgerleichsenring/agent-smith-sandbox-agent:0.193.0
+docker pull holgerleichsenring/agent-smith-server:0.194.0
+docker pull holgerleichsenring/agent-smith-cli:0.194.0
+docker pull holgerleichsenring/agent-smith-sandbox-agent:0.194.0
 docker pull redis:7-alpine
 ```
 <!-- x-release-please-end -->
@@ -113,7 +113,7 @@ Every release tag is published on Docker Hub and on the GitHub releases page. Se
 ```yaml
 deployment:
   registry: my-mirror.example/agent-smith
-  version: 0.193.0
+  version: 0.194.0
 ``` Skills ship embedded in the release — every binary carries the exact catalog it was tested with, so there is nothing to pin. The Skills setting (or a `skills:` block for the CLI) is an override for skills development or air-gap mirrors — see [Skills catalog](../how-it-works/skills-catalog.md).
 <!-- x-release-please-end -->
 
