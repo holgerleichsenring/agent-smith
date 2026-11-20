@@ -92,6 +92,8 @@ public static class ServerCompositionBuilder
         services.AddTransient(sp => sp.GetRequiredService<CurrentConfigSnapshot>().Value.Dialogue);
         services.RemoveAll<TicketsConfig>(); // 2026-11-17-f9b0d: and the tickets: block
         services.AddTransient(sp => sp.GetRequiredService<CurrentConfigSnapshot>().Value.Tickets);
+        services.RemoveAll<ConfiguredAgents>(); // 2026-11-20-24bd: and the agents, so a raised limit reaches a waiting run
+        services.AddTransient(sp => ConfiguredAgents.Of(sp.GetRequiredService<CurrentConfigSnapshot>().Value));
 
         // 2026-09-22-6968: the single resolution pass run against an EMPTY per-project
         // sandbox block — what a project would inherit if it said nothing. A dashboard

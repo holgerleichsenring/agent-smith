@@ -1,0 +1,187 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-20-24bd
+
+decisions:
+  - category: Architecture
+    chose: "Gate at the run's first LLM call, in the chat client stack, not at admission"
+    over: "A gate in the ticket funnel / capacity pump / InitRunAdmission beside the CPU/memory ledger"
+    reason: |
+      Admission misses design turns, admin turns and PR-label scans, which the operator wants counted.
+      Every pipeline (all of them run inside ExecutePipelineUseCase.ExecuteAsync) reaches the model only
+      through ChatClientFactory, so the decorator there sees every run that calls the model, and a run that
+      never calls it never waits.
+  - category: Architecture
+    chose: "One key per run: the agent's PRIMARY assignment (provider type + effective endpoint + deployment ?? model), built once in ModelRunSlotKey"
+    over: "One place per (run, deployment) for every role a run touches"
+    reason: |
+      Master and sub-agents run on primary. One key per run means a run never holds two places, so there is
+      no ordering between places and no deadlock. Every task of a gated agent (scout, summarization,
+      compaction, planning) enters under the primary key: the run holds one place, and its other roles pass
+      on it. Limits on non-primary roles stay out of scope. A key longer than the 191-character column keeps
+      a readable head and ends in the SHA-256 of the whole.
+  - category: Architecture
+    chose: "Places by unique INSERT: table ModelRunSlots (Key, Slot, RunId, AcquiredAt) with UNIQUE (Key, Slot) and an index on RunId; a unique violation means the place is taken and the next index is tried"
+    over: "The read-sum-write pattern of RunCapacityRepository; an in-process semaphore"
+    reason: |
+      The unique index works the same on SQLite, SQL Server and PostgreSQL and across replicas (multi-replica
+      is a requirement); RunCapacityRepository's read-sum-write under read-committed cannot guarantee a bound
+      of 1 under concurrent admission. Migrations generated with dotnet ef for all three providers.
+  - category: Implementation
+    chose: "The decorator sits directly above EventPublishingChatClient (below the tool loop, above retry and the rate limiter) — review finding 8, superseding the first cut above the rate limiter"
+    over: "Directly above the rate limiter, inside the event publisher"
+    reason: |
+      Inside the event publisher, LlmCallStarted and the turn's Thinking were published before the wait, so the
+      ticket page showed a model call in flight while the run only waited. Above it, nothing says a call started
+      until the run holds its place, and the Thinking that follows the wait is the live line again. A waiting run
+      still holds no rate-limit lease. The wait is no longer part of the call's time split (it is its own line and
+      its own wall-time record), so 8c (report a cancelled wait's ms) has nothing left to report.
+  - category: Implementation
+    chose: "Re-entrancy in two layers: an in-process 'run holds its place' record (ModelRunSlotSignal) checked first, and a per-run SemaphoreSlim (the run's 'door', owned by the signal and dropped on the run's release) around the first acquisition; the store's AcquireAsync is itself re-entrant by run id"
+    over: "Only the store's re-entrancy check"
+    reason: |
+      Four sub-agents starting at once before the run held its place would each insert, and at limit 1 three
+      would see the place taken by their own run's sibling and wait for the poll. Serializing the first take
+      per run (runs execute in one process) makes it one insert; afterwards every call passes on the set
+      without a query. The set is cleared for the run on every release.
+  - category: Implementation
+    chose: "Wait = loop of AcquireAsync, then WhenAny(next in-process release, 5 s poll), cancellable with the call's token"
+    over: "Poll only; a distributed notification (Redis pub/sub)"
+    reason: |
+      A release in this process (ExecuteAsync's finally, the terminal projection) wakes waiters at once;
+      a release on another replica is found by the poll. No new infrastructure. The release task is taken
+      before each acquire, so a release between the two is not missed.
+  - category: Architecture
+    chose: "Release in ExecuteAsync's finally FIRST, in its own try (every exit: success, failure, cancel, park on a question, queued backstop); in RunFinalizationProjection.ReleaseWhatTheRunHeldAsync (terminal); and RunDeletionRepository.DeleteSatellitesAsync deletes the rows"
+    over: "Release only on terminal status, like the CPU/memory reservation"
+    reason: |
+      The invariant says a run that is not executing holds no place: a parked run may wait for days. A resumed
+      run takes a place again at its first call. The projection and the delete free a place left behind by a
+      run that crashed past its finally or was reaped. A delete does not wake waiters in this process; their
+      poll finds the place. A prologue failure (config load, catalog resolve) happens before any model call, so
+      it holds no place; its terminal event would free one anyway.
+  - category: Implementation
+    chose: "Visibility through existing surfaces: TurnActivityKind.Waiting (reaches a design turn as DialogActivityEvent kind 'waiting', shown as its own step line) and an L1StepDetailEvent with origin 'model-slot' on the run, once per wait"
+    over: "A new hub event contract for a waiting run"
+    reason: |
+      The design turn's activity line and the run's step detail rows are where an operator already looks for
+      what a turn or a run is doing. Neither needs a contract change: DialogActivityEvent carries the kind as a
+      lowercased string and the dashboard renders an unknown kind as a step; only the TS union and
+      condenseSteps learn 'waiting' so the line is the gate's sentence. Text: "Waiting for the model: <model>
+      runs <n> at a time (agent.max_concurrent_runs)".
+  - category: Implementation
+    chose: "max_concurrent_runs < 1 refused in three places with one message (AgentConfig.ConcurrencyProblem): a Blocking startup finding, a refused studio save (ConfigStudioCapabilities.ValidateAgent), and a ConfigurationException at the gate"
+    over: "Validation at startup only"
+    reason: |
+      A startup finding blocks no project on its own (SeriesConfigValidator precedent), and a run at limit 0
+      would wait forever, so the gate refuses it too. The message names the value, the reason and the key.
+  - category: Implementation
+    chose: "The studio writes MaxConcurrentRuns on every agent save; null lifts the limit"
+    over: "Patch semantics (null keeps the stored value) like NetworkTimeoutSeconds"
+    reason: |
+      Null is a real value here (no limit), so the form must be able to clear it. Every AgentEntity producer
+      reads the stored entity first (studio form, admin entity kinds), so the field round-trips. Endpoint and
+      ApiVersion are written the same way.
+  - category: Implementation
+    chose: "In-process store (InProcessModelRunSlots) as the TryAdd default in the agent provider registrations; the server's relational persistence RemoveAll-swaps in DbModelRunSlots"
+    over: "A no-op default"
+    reason: |
+      The CLI has no database but can still run a design turn and sub-agents; the same contract in process
+      keeps the limit honest there. Follows the NoOpCapacityBudget -> DbCapacityBudget swap.
+  - category: Scope
+    chose: "No gate per start path — checked start paths: SpecDialogTurnRunner, AdminTurnRunner, DetachedPipelineLauncher, PipelineQueueConsumer, ActRun, MergeGreenRun all call ExecutePipelineUseCase.ExecuteAsync; sub-agents are Task.Run children of the run's flow and inherit the AsyncLocal run id"
+    over: "A gate on each start path (turn runners, scan launcher, queue consumer)"
+    reason: |
+      One case runs a run inside another run's flow: an act (ActRun) launched by a tool of a running master,
+      e.g. the series master's StartAsync -> TicketStartRun. Act presets (close, reopen, start, amend, comment,
+      ticket-body, retarget, merge-green, config, secret) run no master and no LLM step, so the inner run never
+      asks for a place and cannot deadlock against its parent. LLM calls outside any run (intent parsing,
+      the design turn's thread store and digest, connection probes) are not gated.
+  - category: Implementation
+    chose: "A run waiting on an operator answer inside its hot wait keeps its place; it frees it once it parks (checkpoints and leaves ExecuteAsync)"
+    over: "Releasing at the start of the hot wait"
+    reason: |
+      During the hot wait the run is still executing and continues on the answer without re-admission;
+      releasing there would let it lose its place mid-run. The hot wait is bounded by dialogue.hot_wait_seconds.
+  - category: Implementation
+    chose: "The SQLite concurrency tests use a file database with the server's SqliteTuningInterceptor (WAL, busy timeout); SQL Server and PostgreSQL legs run under RequiresSqlServerFact / RequiresPostgresFact"
+    over: "A shared in-memory connection"
+    reason: |
+      One in-memory connection is not thread-safe and cannot show concurrent writers; without the server's
+      busy timeout the concurrent inserts fail with 'database is locked' instead of a unique violation, which
+      is not how the server runs. The provider legs are skipped with a reason when no server is handed in.
+  - category: Architecture
+    chose: "Review finding 1: the time a run waits for its place is recorded per run (table ModelRunWaits: WaitedMs, WaitingSince) and subtracted on both wall-time clocks — PipelineRunWatchdog (registry clock) and RunRepository.GetWallTimeOverdueRunsAsync (Run.StartedAt clock, via ModelRunWaitClock)"
+    over: "Moving Run.StartedAt or the registry's RegisteredAt to the moment the place is taken; exempting waiting runs from the wall-time scan"
+    reason: |
+      StartedAt is what the operator sees and stays true. A wait still going on counts too, so a run waiting longer
+      than the ceiling is not killed mid-wait. One record serves both clocks and every replica. Waits are forgotten
+      when the run ends (terminal projection, delete, sweep), kept across a park.
+  - category: Implementation
+    chose: "Review finding 2: IChatClientFactory.EnterRunAsync (default: return at once) takes the run's place; RegistryAuthStager and ClientSurfaceReader call it before ScoutCallTimeBound starts its clock"
+    over: "Excluding the wait inside ScoutCallTimeBound; raising limits.max_seconds_per_skill_call"
+    reason: |
+      The bound is the caller's, so the caller orders it after the wait. Checked every other per-call timeout:
+      NetworkTimeoutChatClient and the Copilot quiet bound sit inside the builder's client, below the gate; the
+      preflight timeout wraps LlmReachableCheck, which probes a bare ungated client; sandbox/process/git timeouts
+      call no model. Only the two scout callers had the gate inside a bound.
+  - category: Implementation
+    chose: "Review finding 3 (revised by fix-check C): a sweep on the cancel enforcer's leader tick, in its own try, frees a place or wait only when its run ENDED, or is queued / waiting_for_input with a heartbeat older than the liveness threshold (RunLivenessReaper.StaleAfter), or has had no run row for 15 minutes; a 'running' row is never swept"
+    over: "Sweeping every place whose run is not 'running' after a 2-minute grace (the first cut); a new housekeeping loop"
+    reason: |
+      Run.Status is projected asynchronously, so a late RunStarted made the first cut delete a running run's
+      place. The liveness reaper already ends a running row that stopped beating, after which the sweep frees it.
+      Covers a process dying between publishing waiting_for_input and the finally, and a failed release.
+  - category: Implementation
+    chose: "Review finding 4: a hold this process trusts is confirmed against the store every 30 s; a place gone (deleted, finalized or swept elsewhere) is taken again, waiting if full; the delete path clears the hold in its process"
+    over: "Trusting the in-process hold for the run's life; querying the store on every call"
+    reason: |
+      A query every 30 s per running run is cheap; a stale hold could let two runs share a limit of 1 indefinitely.
+  - category: Implementation
+    chose: "Review finding 5: the waiting loop re-reads the limit for its key from the live configuration (ConfiguredAgents, served from CurrentConfigSnapshot in the server) on every iteration — the lowest limit any agent on that deployment sets, none (lifted) when the agents on it set none; an acquire refuses while the key already holds limit or more places"
+    over: "The limit captured when the chat client was built"
+    reason: |
+      A raised limit reaches a run already waiting (within one poll); a lowered one admits nobody until enough
+      runs have left, instead of filling free slot indices below the old limit.
+  - category: Implementation
+    chose: "Review finding 6: one helper ModelAssignment.EffectiveDeployment (assignment.Deployment ?? agent.Deployment ?? assignment.Model) used by the OpenAI/Azure builder, the key and the displayed model name"
+    over: "A separate resolution in the key"
+    reason: "The key must name exactly the deployment the requests go to."
+  - category: Architecture
+    chose: "Review finding 7: a run holds at most ONE place — the first it takes; a call of the same run through another gated agent (a pipeline agent: override beside project.Agent) passes on it"
+    over: "One place per (run, key)"
+    reason: |
+      Two places per run can deadlock at limit 1 (each run holding one key, waiting for the other). The cost: a run
+      that also calls a second deployment is not counted there. The store enforces it too (an acquire by a run that
+      holds any place answers true without a second row), and the per-run door serializes only that run.
+  - category: TradeOff
+    chose: "Review finding 10, accepted limitation: waiters in the releasing process are woken at once, waiters on other replicas find the place by a 5-second poll, so a busy replica's waiters can win repeatedly; no fair queue now"
+    over: "A fair queue in this spec"
+    reason: |
+      With one replica (today's deployment) wakes are fair enough and a poll bounds the delay elsewhere. Ordering
+      by WaitingSince across replicas is its own change: planned as 2026-11-20-a52f (model-slot-fair-queue).
+  - category: Implementation
+    chose: "Fix-check A: taking a place closes the run's open wait in the same store operation (the slot insert and the closed wait are one SaveChanges; a re-entrant take closes it too)"
+    over: "Clocks ignoring WaitingSince when a later place exists"
+    reason: |
+      A lost end-of-wait (the gate swallows a failed WaitEndedAsync in its finally) would leave WaitingSince open,
+      and both wall-time clocks would subtract a growing wait forever — a hung run never killed. Closing at the take
+      is the one moment the wait certainly ended.
+  - category: Implementation
+    chose: "Fix-check B: the watchdog reads the waits in its own try and scans with none on error; the enforcer's sweep has its own try"
+    over: "Letting a store error fail the scan"
+    reason: "A model-place store fault must never switch off the wall-time watchdog or the force-kills."
+  - category: Implementation
+    chose: "Fix-check C: a sweep or delete only FORGETS a run's hold (ModelRunSlotSignal.Forgotten); only the run's own release on leaving execution drops its per-run door (Released)"
+    over: "Dropping the door on every release"
+    reason: "A sweep or delete can come while the run's calls still use the door; a second door would allow two concurrent first takes of one run."
+  - category: Implementation
+    chose: "Fix-check D: every release (leaving execution, terminal, sweep) forgets the run's waits as well as its place"
+    over: "Keeping waits across a park"
+    reason: |
+      A resumed run's clocks start again (the watchdog re-registers it, PromoteToRunningAsync resets StartedAt), so a
+      wait before the park would be subtracted twice and buy the run extra wall time.
+  - category: Implementation
+    chose: "Leftovers: the live limit is read over every configured agent (catalog, each project's agent, each pipeline override — ConfiguredAgents.Of); a design turn's waiting line turns past tense ('Waited for the model: …') once any step follows it"
+    over: "Catalog agents only; a present-tense line left in the turn's history"
+    reason: "A project agent on its own deployment kept the captured limit; a finished wait read as still going on."
+

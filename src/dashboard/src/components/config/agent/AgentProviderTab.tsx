@@ -4,7 +4,7 @@ import type { ConfigCapabilities, StudioAgent } from "@/lib/configApi";
 import type { ConfigCatalog } from "../useConfigCatalog";
 import { NumberField, RefSelect, SelectField, TextField } from "../formFields";
 
-// The agent's own connection: provider, key, endpoint, api version, timeout. A catalog
+// The agent's own connection: provider, key, endpoint, api version, timeout, runs at a time (2026-11-20-24bd). A catalog
 // entry answers here unless it names a provider or endpoint of its own.
 
 export function AgentProviderTab({
@@ -56,6 +56,14 @@ export function AgentProviderTab({
         value={draft.networkTimeoutSeconds}
         testId="form-field-networkTimeoutSeconds"
         onChange={(v) => onChange({ ...draft, networkTimeoutSeconds: v })}
+      />
+      <NumberField
+        label="runs at a time on this model"
+        value={draft.maxConcurrentRuns ?? undefined}
+        placeholder="no limit"
+        help="max_concurrent_runs: a run and all its sub-agents count once; other runs wait. Set 1 for a shared deployment whose quota one run fills."
+        testId="form-field-maxConcurrentRuns"
+        onChange={(v) => onChange({ ...draft, maxConcurrentRuns: v ?? null })}
       />
     </>
   );

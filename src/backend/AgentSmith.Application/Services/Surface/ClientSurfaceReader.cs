@@ -78,6 +78,7 @@ public sealed class ClientSurfaceReader(
         using var call = costTracker.BeginCall(RoleName, RoleName, SkillExecutionPhase.Investigate, RoleName);
         using var scope = runContext.BeginCallScope(
             RoleName, SkillExecutionPhase.Investigate.ToString(), RoleName);
+        await chatClientFactory.EnterRunAsync(request.Agent, cancellationToken); // 24bd: the bound starts after the model wait
         var response = await Loop.ScoutCallTimeBound.RunAsync(
             limits.MaxSecondsPerSkillCall, ct => chat.GetResponseAsync(messages, options, ct), cancellationToken);
         costTracker.Track(response);

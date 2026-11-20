@@ -17,4 +17,8 @@ public enum TurnActivityKind
 
     /// <summary>2026-11-19-687ea: a model call has started and not returned yet — the page shows it as a live line.</summary>
     Thinking,
+
+    /// <summary>2026-11-20-24bd: a model call is waiting for its run's place on the deployment (agent.max_concurrent_runs);
+    /// the detail is the sentence the page shows.</summary>
+    Waiting,
 }

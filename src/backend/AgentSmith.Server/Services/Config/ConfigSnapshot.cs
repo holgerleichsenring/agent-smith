@@ -29,7 +29,8 @@ public sealed record ConfigAgent(
     int NetworkTimeoutSeconds,
     int MaxFixIterations,
     int? RequestsPerMinute,
-    int? InputTokensPerMinute);
+    int? InputTokensPerMinute,
+    int? MaxConcurrentRuns = null); // 2026-11-20-24bd: null is no limit
 
 /// <summary>
 /// A source repo connection. p0271: full Url + Organization + Project are

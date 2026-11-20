@@ -213,5 +213,15 @@ public sealed class ConfigSnapshotMapperTests
         agent.Model.Should().Be("claude-opus-4-1");
         agent.NetworkTimeoutSeconds.Should().Be(300);
         agent.RequestsPerMinute.Should().Be(50);
+        agent.MaxConcurrentRuns.Should().BeNull("unset is no limit");
+    }
+
+    [Fact]
+    public void ToSnapshot_Agent_CarriesItsRunsAtATime()
+    {
+        var config = BuildConfig();
+        config.Agents["claude"].MaxConcurrentRuns = 1;
+
+        Snap(config).Agents.Should().ContainSingle().Which.MaxConcurrentRuns.Should().Be(1); // 2026-11-20-24bd
     }
 }

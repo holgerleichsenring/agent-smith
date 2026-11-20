@@ -14,7 +14,8 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// keyed by the RUN id, never by (project, ticket): a re-triggered ticket's newer
 /// run must keep its lease when an older run of the same ticket is deleted.
 /// </summary>
-public sealed class RunDeletionRepository(IUnitOfWork unitOfWork, IUniqueViolationTranslator? violations = null)
+public sealed class RunDeletionRepository(
+    IUnitOfWork unitOfWork, IUniqueViolationTranslator? violations = null, AgentSmith.Contracts.Services.ModelRunSlotSignal? modelPlaces = null)
 {
     public Task<int> DeleteAsync(string runId, CancellationToken ct) =>
         DeleteManyAsync([runId], ct);
@@ -35,6 +36,7 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork, IUniqueViolati
         await DeleteSatellitesAsync(ids, ct);
         var deleted = await unitOfWork.Set<Run>().Where(r => ids.Contains(r.Id)).ExecuteDeleteAsync(ct);
         await tx.CommitAsync(ct);
+        foreach (var id in ids) modelPlaces?.Forgotten(id); // 2026-11-20-24bd: no stale hold, waiters here woken
         return deleted;
     }
 
@@ -87,6 +89,8 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork, IUniqueViolati
         await DeleteByRunIdAsync<RunExpectation>(ids, ct);
         await DeleteByRunIdAsync<RunCriterionJudgement>(ids, ct); // an operator's verdicts go with their run
         await DeleteByRunIdAsync<RunCapacity>(ids, ct); // p0336: release the ledger row
+        await DeleteByRunIdAsync<ModelRunSlot>(ids, ct); // 2026-11-20-24bd: and any model place left behind,
+        await DeleteByRunIdAsync<ModelRunWait>(ids, ct); // with the record of its waits
         await unitOfWork.Set<QueuedTicket>()
             .Where(q => q.ReservedRunId != null && ids.Contains(q.ReservedRunId)).ExecuteDeleteAsync(ct);
         await unitOfWork.Set<ActiveRun>()

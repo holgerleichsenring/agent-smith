@@ -113,7 +113,7 @@ internal static class RelationalPersistenceExtensions
         // CapacityBudget is configured; the k8s ResourceQuota stays the backstop.
         services.AddScoped<RunCapacityRepository>();
         services.RemoveAll<ICapacityBudget>();
-        services.AddSingleton<ICapacityBudget, DbCapacityBudget>();
+        services.AddSingleton<ICapacityBudget, DbCapacityBudget>().AddDbModelRunSlots(); // 2026-11-20-24bd
 
         // p0327: durable dialogue. Checkpoints + the answer inbox are relational
         // (SpecDialogSession precedent — Redis is a channel, never the authority); the

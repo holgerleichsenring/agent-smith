@@ -35,7 +35,7 @@ public sealed class ExecutePipelineUseCase(
     IConfigResolver configResolver,
     IProgressReporter progressReporter,
     IPipelineErrorHandler errorHandler,
-    ILogger<ExecutePipelineUseCase> logger)
+    ILogger<ExecutePipelineUseCase> logger, ModelPlaceRelease? modelPlaces = null) // 2026-11-20-24bd
 {
     // p0242: the single-run lease is CLAIMED by the poller at enqueue; this use
     // case owns the rest of its lifecycle — ATTACH the run id on start, RENEW the
@@ -245,10 +245,10 @@ public sealed class ExecutePipelineUseCase(
         }
         finally
         {
-            // p0242: the run is terminal on EVERY path out of the block above
-            // (success, operator/internal cancel, throw). Stop the heartbeat pump
-            // and release the lease so the ticket is reclaimable — CancellationToken
-            // .None so the release lands even when the caller's token is cancelled.
+            // p0242: EVERY path out of the block above (success, cancel, throw, park) releases the lease and stops the
+            // heartbeat pump (CancellationToken.None lands it under a cancelled token); 2026-11-20-24bd: the model place
+            // goes FIRST, in its own try, so nothing after it can keep a parked run holding it.
+            await (modelPlaces?.ReleaseAsync(runId) ?? Task.CompletedTask);
             heartbeatCts.Cancel();
             try { await heartbeatPump; } catch (OperationCanceledException) { /* expected */ }
             await ReleaseLeaseAsync(request, projectConfig.Name, runId, CancellationToken.None);

@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-20-24bd
+goal: "agent.max_concurrent_runs bounds how many runs use one model deployment at once; a run holds its slot for all its sub-agents, every other run waits."
+
+applies_to: "default (Infrastructure chat client stack, Persistence ledger, Application pipeline execution, config studio, dashboard)"
+
+requires: [2026-11-19-1b72a]
+
+invariant: >-
+  At any moment, the number of runs holding a slot on one deployment key is at most the
+  max_concurrent_runs of the agent that admitted them; a run never waits for a slot it already
+  holds, so the master, every sub-agent, compaction, scout and reviewer of one run never wait on
+  the limit; a run that is not executing (ended, parked on a question, crashed and reaped,
+  deleted) holds no slot.
+
+facts:
+  - claim: "Every pipeline, master and sub-agents included, executes in the server process inside ExecutePipelineUseCase.ExecuteAsync, which opens the only run scope."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:52"
+  - claim: "Sub-agents run as Task.Run children of the run's flow, so the AsyncLocal run id flows into them."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:52"
+  - claim: "The ambient run id is read through IRunContextAccessor.CurrentRunId; AsyncLocalRunContextAccessor backs it."
+    evidence: "src/backend/AgentSmith.Contracts/Events/IRunContextAccessor.cs:19"
+  - claim: "Every LLM call built by ChatClientFactory passes the RateLimitingChatClient wrapper, keyed today by provider::model only (ignores endpoint and deployment)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:225-236"
+  - claim: "Sub-agents use the master's AgentConfig with TaskType.Primary; other task types (scout, planning, summarization) may resolve to other deployments."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRequestBuilder.cs:31-36"
+  - claim: "An unset role falls back to the agent's own model/deployment; ModelAssignment.EffectiveEndpoint resolves the endpoint."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelRoleChain.cs:83-93"
+  - claim: "Start paths without any capacity gate that do call the LLM: design-partner turns (SpecDialogTurnRunner), admin turns (AdminTurnRunner), PR-label scans (DetachedPipelineLauncher); the ticket funnel, capacity pump, resume and InitRunAdmission paths gate CPU/memory only."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:99"
+  - claim: "A terminal run releases what it held in RunFinalizationProjection.ReleaseWhatTheRunHeldAsync; waiting states (queued, waiting_for_input) keep FinishedAt null and release nothing there."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:43-60"
+  - claim: "A deleted run's satellites (RunCapacity rows, queue entry) are removed in RunDeletionRepository.DeleteSatellitesAsync."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:89"
+  - claim: "RunCapacityRepository.TryReserveAsync is a read-sum-write under read-committed, so it cannot guarantee a bound of 1 under concurrent admission."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunCapacityRepository.cs:34-67"
+  - claim: "Agent fields reach the editable config studio through AgentEntity, ConfigCatalogMapper.ToAgent, RawConfigPatch.Agent and the dashboard AgentProviderTab/AgentTuningTab (pattern: NetworkTimeoutSeconds)."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/AgentEntity.cs:14-32"
+  - claim: "Multi-replica operation is a requirement, so the slot record lives in the database, not in process memory."
+    evidence: "observed: 2026-11-20, operator memory project_multi_replica_is_a_requirement"
+  - claim: "A prod-shared Azure deployment at 250k TPM ran into HTTP 429 when the series fanned out to three runs with sub-agents."
+    evidence: "observed: 2026-11-19, runs for #19651/#19655/#19666 in the live series"
+
+scope:
+  in: >-
+    agent.max_concurrent_runs (null/absent = unbounded; must be >= 1 when set); the key is the
+    agent's PRIMARY assignment: provider type + effective endpoint + (deployment ?? model); a
+    database slot table with a unique (key, slot) index acquired by insert, released by run id;
+    acquisition lazily at the run's first LLM call through the agent, re-entrant per run id,
+    waiting (cancellable, polling plus an in-process wake on release) while full; release when
+    ExecuteAsync leaves (any exit, including parking on a question), on terminal projection and on
+    delete; a visible waiting line on the run and on a design turn naming value, reason and config
+    key; schema, example config, docs, config snapshot, studio field.
+  out: "Per-deployment limits on non-primary roles; a worker-mode run (claude -p) whose model calls do not pass ChatClientFactory; changing the CPU/memory ledger or the capacity queue."
+
+decisions:
+  - key: "GATE AT THE FIRST LLM CALL, NOT AT ADMISSION: admission misses design turns, admin turns and scans, which the operator wants counted; every LLM call passes the chat client stack, and a run that never calls the model never waits."
+  - key: "ONE KEY PER RUN, THE PRIMARY DEPLOYMENT: master and sub-agents run there; one key means no ordering between several slots and so no deadlock."
+  - key: "SLOTS BY UNIQUE INSERT: works the same on SQLite, SQL Server and Postgres and across replicas, unlike the read-sum-write ledger."
+
+steps:
+  - id: config
+    action: "AgentConfig.MaxConcurrentRuns (int?), schema, example config, docs reference; validation rejects < 1."
+  - id: slots
+    action: "ModelRunSlot entity (Key, Slot, RunId, AcquiredAt) with unique (Key, Slot) and index on RunId, migrations for SQLite, SQL Server, Postgres; IModelRunSlots with AcquireAsync(key, limit, runId) and ReleaseAsync(runId)."
+  - id: gate
+    action: "A chat client decorator (or the RateLimitingChatClient) acquires the run's slot before the first call when the agent sets a limit and a run id is ambient; re-entrant per run; waits while full and reports the wait; no run id means no gate."
+  - id: release
+    action: "Release in ExecuteAsync's finally, in RunFinalizationProjection.ReleaseWhatTheRunHeldAsync and in RunDeletionRepository.DeleteSatellitesAsync."
+  - id: visible
+    action: "While waiting, the run and a design turn show one line: waiting for the model, <model> runs <n> at a time (agent.max_concurrent_runs)."
+  - id: studio
+    action: "Config snapshot and the editable agent form carry the field."
+
+tests:
+  - "One run with limit 1 starts four sub-agents at once; none waits."
+  - "A second run on the same deployment key waits until the first run's ExecuteAsync ends, then proceeds."
+  - "Two agents on different deployments do not block each other."
+  - "A run parked on a question frees its slot; a terminal projection and a delete free a slot left behind."
+  - "Concurrent AcquireAsync calls for limit 1 admit exactly one (each provider's unique index)."
+  - "No ambient run id: the call is not gated."
+  - "Config: max_concurrent_runs 0 is refused with a message naming the key."
+
+done:
+  - "The invariant holds under the tests above; build, full suite and dashboard tests green."

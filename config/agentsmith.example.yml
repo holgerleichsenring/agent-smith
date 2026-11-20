@@ -327,6 +327,10 @@ agents:
   #   endpoint: https://your-instance.openai.azure.com
   #   api_version: 2025-01-01-preview
   #   api_key_secret: AZURE_OPENAI_API_KEY   # the env var holding the key
+  #   # How many runs may use primary's deployment at once. A run and all its sub-agents
+  #   # count once; another run waits until a place frees. 1 suits a shared deployment whose
+  #   # tokens-per-minute quota one run fills. Unset is no limit; below 1 is refused.
+  #   max_concurrent_runs: 1
   #   # scout and summarization are unset, so they run on primary's deployment.
   #   models:
   #     primary:

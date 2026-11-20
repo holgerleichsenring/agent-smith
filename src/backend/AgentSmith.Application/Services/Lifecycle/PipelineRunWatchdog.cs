@@ -15,7 +15,8 @@ public sealed class PipelineRunWatchdog(
     IRunCancellationRegistry registry,
     IEventPublisher eventPublisher,
     Func<int> maxWallTimeSeconds,
-    ILogger<PipelineRunWatchdog> logger)
+    ILogger<PipelineRunWatchdog> logger,
+    IModelRunSlots? modelRunSlots = null) // 2026-11-20-24bd: a wait for a model place is no wall time
 {
     private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(1);
 
@@ -45,14 +46,30 @@ public sealed class PipelineRunWatchdog(
         var now = DateTimeOffset.UtcNow;
         var ceilingSeconds = maxWallTimeSeconds();
         var threshold = TimeSpan.FromSeconds(ceilingSeconds);
-        foreach (var entry in registry.Snapshot())
+        var entries = registry.Snapshot();
+        var waited = await WaitedAsync(entries, ct);
+        foreach (var entry in entries)
         {
             ct.ThrowIfCancellationRequested();
             // 2026-11-10-e706: a design turn is stopped by its cost cap or a person, never by its
             // age; every model wait it makes is bounded by the agent's network timeout instead.
             if (entry.Kind == RegisteredRunKind.DesignTurn) continue;
-            if (now - entry.RegisteredAt < threshold) continue;
-            await CancelOverdueAsync(entry, now - entry.RegisteredAt, ceilingSeconds, ct);
+            var elapsed = now - entry.RegisteredAt - waited.GetValueOrDefault(entry.RunId);
+            if (elapsed < threshold) continue;
+            await CancelOverdueAsync(entry, elapsed, ceilingSeconds, ct);
+        }
+    }
+
+    // 2026-11-20-24bd: a store that cannot be read counts no wait — the scan itself must still run.
+    private async Task<IReadOnlyDictionary<string, TimeSpan>> WaitedAsync(
+        IReadOnlyCollection<RunCancellationEntry> entries, CancellationToken ct)
+    {
+        if (modelRunSlots is null) return new Dictionary<string, TimeSpan>();
+        try { return await modelRunSlots.WaitedAsync([.. entries.Select(e => e.RunId)], ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "PipelineRunWatchdog could not read model waits; scanning without them");
+            return new Dictionary<string, TimeSpan>();
         }
     }
 

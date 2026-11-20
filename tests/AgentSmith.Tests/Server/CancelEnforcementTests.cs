@@ -305,7 +305,20 @@ public sealed class CancelEnforcementTests : IDisposable
         check.QueuedTickets.Should().BeEmpty("a terminal run must not re-enter the capacity queue");
     }
 
-    private CancelEnforcer NewEnforcer()
+    // 2026-11-20-24bd: a model place sweep that throws must not skip the force-kills of the same scan.
+    [Fact]
+    public async Task Enforcer_AFailingModelPlaceSweep_StillFinalizes()
+    {
+        await SeedRunAsync("run-swept", jobId: "abc123def457",
+            cancelRequested: true, deadline: DateTimeOffset.UtcNow.AddSeconds(-1));
+        var slots = new Mock<IModelRunSlots>();
+        slots.Setup(s => s.SweepAsync(It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("store down"));
+
+        (await NewEnforcer(slots.Object).RunOnceAsync(CancellationToken.None)).Should().Be(1);
+    }
+
+    private CancelEnforcer NewEnforcer(IModelRunSlots? modelRunSlots = null)
     {
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
@@ -325,7 +338,7 @@ public sealed class CancelEnforcementTests : IDisposable
         return new CancelEnforcer(
             provider, _events, _lease.Object, NewFinalizer(),
             new CancelTerminalWriter(provider),
-            TimeProvider.System, NullLogger<CancelEnforcer>.Instance);
+            TimeProvider.System, NullLogger<CancelEnforcer>.Instance, modelRunSlots);
     }
 
     // A high ceiling by default so the wall-time backstop stays inert in the

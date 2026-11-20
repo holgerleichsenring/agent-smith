@@ -299,7 +299,7 @@ export interface SpecDialogReadingPush {
 }
 
 /** What a running design turn was doing when it reported one step. */
-export type SpecDialogActivityKind = "tool" | "model" | "revising" | "thinking";
+export type SpecDialogActivityKind = "tool" | "model" | "revising" | "thinking" | "waiting";
 
 /** 2026-09-17-042ee: one step a running design turn took, pushed as it happens. A tool
  *  carries its name and a whitelisted argument summary; a model call carries the model and

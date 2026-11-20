@@ -95,6 +95,22 @@ public sealed class RegistryAuthStagingTests
             .BeTrue("placeholder-only output is clean");
     }
 
+    // 2026-11-20-24bd: the scout call's wall-clock bound (limits.max_seconds_per_skill_call) starts after the run's
+    // model place is held, so a wait for another run's turn cannot time the staging out.
+    [Fact]
+    public async Task RegistryAuthStager_EntersTheModelPlace_BeforeItsBoundedCall()
+    {
+        var capturing = new CapturingChatClientFactory("""{"files":[]}""");
+        var stager = new RegistryAuthStager(
+            capturing, new StagedAuthFileJsonReader(), Mock.Of<IRunContextAccessor>(),
+            new LoopLimitsConfig(), new AgentSmith.Application.Services.Tools.AgenticToolSurface(), NullLogger<RegistryAuthStager>.Instance);
+
+        await stager.StageAsync(Mock.Of<ISandbox>(), "/work",
+            [new UncoveredRegistry(new RegistryConfig(Host, "any", Token), ["/work/widget.manifest"])], new AgentConfig(), CancellationToken.None);
+
+        capturing.Order.Should().Equal("enter", "call");
+    }
+
     [Fact]
     public async Task RegistryAuthStager_PromptAndResponse_ContainNoRealToken()
     {
@@ -177,6 +193,15 @@ public sealed class RegistryAuthStagingTests
     {
         public string SentPromptText { get; private set; } = string.Empty;
 
+        /// <summary>2026-11-20-24bd: what the stager did, in order — entering the run's model place, then calling.</summary>
+        public List<string> Order { get; } = [];
+
+        public Task EnterRunAsync(AgentConfig agent, CancellationToken cancellationToken)
+        {
+            Order.Add("enter");
+            return Task.CompletedTask;
+        }
+
         public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null,
             MasterLoopHooks? masterLoopHooks = null) => new Inner(this, cannedResponse);
 
@@ -190,6 +215,7 @@ public sealed class RegistryAuthStagingTests
                 CancellationToken cancellationToken = default)
             {
                 owner.SentPromptText = string.Join("\n", messages.Select(m => m.Text));
+                owner.Order.Add("call");
                 return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, canned)));
             }
 

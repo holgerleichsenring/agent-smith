@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-20-a52f
+goal: "Runs waiting for a model place take it in the order they started waiting, on every replica, so no waiter starves while another replica's waiters keep winning."
+
+applies_to: "default (Infrastructure model gate, Persistence model places)"
+
+requires: [2026-11-20-24bd]
+
+invariant: >-
+  When a place on a deployment key frees, the run that has waited longest for that key takes it next, whichever
+  replica it waits on; a waiter is never passed over by a run that started waiting after it.
+
+facts:
+  - claim: "A release wakes only the waiters of the releasing process at once; every other waiter finds the place on its next poll."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbModelRunSlots.cs:59"
+  - claim: "A waiter polls the store every 5 s, or sooner when a release in its own process wakes it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/ModelRunGate.cs:89"
+  - claim: "A place is taken by whichever taker's INSERT lands first; nothing orders the takers."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbModelRunSlots.cs:34"
+  - claim: "The time a run waits is already recorded per run (ModelRunWaits.WaitingSince), so the wait order is known."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ModelRunWait.cs:12"
+  - claim: "With several replicas at limit 1, a waiter on the replica that runs most work can win every release while a waiter elsewhere keeps polling."
+    evidence: "observed: 2026-11-20, review of 2026-11-20-24bd (finding: multi-replica fairness)"
+
+scope:
+  in: >-
+    A waiter takes a free place only when no other run has waited longer on the same key (oldest WaitingSince per key,
+    read in the same acquire); a waiter is woken on every replica soon after a release (a short poll while it is the
+    oldest, or the existing pub/sub if one fits); the run's waiting line keeps saying what it waits for.
+  out: "Priorities between runs, per-project quotas, limits on non-primary roles, the CPU/memory capacity queue."
+
+steps:
+  - id: key-on-wait
+    action: "Record the key a run waits for beside its WaitingSince."
+  - id: oldest-first
+    action: "AcquireAsync admits a run only when it is the oldest waiter on the key (or nobody waits), inside the same store call."
+  - id: wake
+    action: "Shorten the oldest waiter's poll, or wake waiters across replicas through an existing channel; no new infrastructure."
+
+tests:
+  - "Three runs waiting on one key from two replicas take the place in the order they started waiting."
+  - "A run that starts waiting after another never takes a place before it, even when its own process released the place."
+  - "A waiter whose run ended is skipped, so the order never stalls on a dead waiter."
+
+done:
+  - "The invariant holds under the tests above; build, full suite and dashboard tests green."

@@ -14,15 +14,16 @@ namespace AgentSmith.Tests.TestSupport;
 /// </summary>
 internal static class RunEventAppliers
 {
-    public static RunEventApplier Default(ICapacityBudget? budget = null, ITicketActivityNudge? activity = null) =>
-        new(Families(budget, activity));
+    public static RunEventApplier Default(
+        ICapacityBudget? budget = null, ITicketActivityNudge? activity = null, IModelRunSlots? modelRunSlots = null) =>
+        new(Families(budget, activity, modelRunSlots));
 
     public static IReadOnlyList<IRunEventFamily> Families(
-        ICapacityBudget? budget = null, ITicketActivityNudge? activity = null) =>
+        ICapacityBudget? budget = null, ITicketActivityNudge? activity = null, IModelRunSlots? modelRunSlots = null) =>
     [
         new RunRowFamily(
             new RunStartProjection(new(), NullLogger<RunStartProjection>.Instance, activity),
-            finalization: new(new(), budget), checkpoints: new(), expectations: new(),
+            finalization: new(new(), budget, modelRunSlots: modelRunSlots), checkpoints: new(), expectations: new(),
             pullRequests: new(), classification: new(), deploys: new()),
         new RunStepFamily(steps: new(new()), llmCalls: new(new(), new(), new()), decisions: new(new())),
         new RunSandboxFamily(new(new(), new(), new()), new()),

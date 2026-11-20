@@ -66,7 +66,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RunExpectationConfiguration()); // p0328
         modelBuilder.ApplyConfiguration(new RunCriterionJudgementConfiguration()); // 2026-08-25-e257
-        modelBuilder.ApplyConfiguration(new RunCapacityConfiguration()); // p0336
+        modelBuilder.ApplyConfiguration(new RunCapacityConfiguration()); new ModelRunConfigurations().Apply(modelBuilder); // p0336, 24bd
         modelBuilder.ApplyConfiguration(new ConfigEntityConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigEntityVersionConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigRefConfiguration()); // p0349

@@ -42,6 +42,11 @@ public static class AgentProviderExtensions
         services.AddSingleton<ILlmRateLimiterRegistry, LlmRateLimiterRegistry>();
         // p0401: the throttle-wait box the limiter fills and the event emitter reads.
         services.AddSingleton<RateLimiting.ThrottleWaitReporter>();
+        // 2026-11-20-24bd: the run's place on a model deployment; a host with a database replaces the in-process store.
+        services.TryAddSingleton<ModelRunSlotSignal>();
+        services.TryAddSingleton<IModelRunSlots, InProcessModelRunSlots>();
+        services.AddSingleton<ModelRunWaitLine>().AddSingleton<ModelRunGate>();
+        services.TryAddTransient(sp => ConfiguredAgents.Of(sp.GetRequiredService<AgentSmithConfig>()));
         // p0427: the factory records a traced run's conversation, so the writer must exist
         // wherever the factory does. The null default keeps an untraced graph free.
         services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Contracts.Runs.NullRunTraceWriter>();

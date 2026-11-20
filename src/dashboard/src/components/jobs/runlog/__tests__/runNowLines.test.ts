@@ -54,6 +54,17 @@ describe("runNowLines", () => {
     expect(lines[2].text).toBe("Convert enums to integer ids");
   });
 
+  // 2026-11-20-24bd: a run waiting for its model place says so on its step line until its model call starts.
+  it("liveLines_WaitingForTheModel_ShowsTheSentence_UntilTheCallStarts", () => {
+    const sentence = "Waiting for the model: gpt41 runs 1 at a time (agent.max_concurrent_runs)";
+    const waiting: RunEvent = { ...base, type: EventType.L1StepDetail, timestamp: "2026-10-13T13:41:00Z", stepIndex: 4, origin: "model-slot", detail: sentence };
+    const events = [started(4, "Run master skill", "2026-10-13T13:40:00Z"), tool("reading the router", "2026-10-13T13:40:30Z"), waiting];
+    expect(liveLines(snap(), events, [], null)[0]).toMatchObject({ kind: "Run master skill", text: sentence, tone: "now" });
+
+    const callStarted = { ...base, type: EventType.LlmCallStarted, timestamp: "2026-10-13T13:45:00Z", model: "gpt41", role: "master", promptHash: "h", repoName: null } as unknown as RunEvent;
+    expect(liveLines(snap(), [...events, callStarted], [], null)[0].text).toBe("reading the router");
+  });
+
   it("liveLines_ANewHubEvent_MovesToTheTop", () => {
     const events = [started(4, "Run master skill", "2026-10-13T13:40:00Z"), decision("first", "2026-10-13T13:41:00Z")];
     expect(liveLines(snap(), events, [], null)[1].text).toBe("first");

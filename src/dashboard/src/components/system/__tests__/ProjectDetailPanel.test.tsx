@@ -73,6 +73,14 @@ describe("ProjectDetailPanel", () => {
     expect(within(screen.getByTestId("resolved-cost-cap")).getByText("default")).toBeInTheDocument();
   });
 
+  // 2026-11-20-24bd: the agent's runs at a time, "no limit" when unset.
+  it("ProjectDetailPanel_AgentRunsAtATime_ShowsNoLimitWhenUnset", () => {
+    renderPanel(makeProject(makeResolved()));
+
+    expect(within(screen.getByTestId("agent-section")).getByText("runs at a time").parentElement)
+      .toHaveTextContent("no limit");
+  });
+
   it("ProjectDetailPanel_ToolchainImage_ShowsResolvedPerRun_NotAValue", () => {
     renderPanel(makeProject(makeResolved()));
 

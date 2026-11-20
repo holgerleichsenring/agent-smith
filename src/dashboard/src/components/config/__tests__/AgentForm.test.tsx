@@ -258,6 +258,22 @@ describe("AgentForm (2026-09-30-62bab)", () => {
   });
 });
 
+// 2026-11-20-24bd: the provider tab carries the agent's runs at a time; clearing it lifts the limit.
+describe("AgentForm runs at a time (2026-11-20-24bd)", () => {
+  it("ProviderTab_RunsAtATime_WritesTheLimit_AndAnEmptyFieldLiftsIt", async () => {
+    render(<Harness />);
+    openTab("provider");
+    const field = screen.getByTestId("form-field-maxConcurrentRuns");
+    expect(field).toHaveValue(null);
+
+    fireEvent.change(field, { target: { value: "1" } });
+    expect(latest.maxConcurrentRuns).toBe(1);
+
+    fireEvent.change(field, { target: { value: "" } });
+    expect(latest.maxConcurrentRuns).toBeNull();
+  });
+});
+
 describe("AgentForm model id ranking (2026-10-12-6bfae)", () => {
   // An Anthropic agent was handed the Bedrock spelling: the list holds 17 "sonnet-5-5" ids and
   // the one its API accepts was ninth, past the eight the picker showed.

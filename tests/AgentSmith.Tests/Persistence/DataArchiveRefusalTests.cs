@@ -100,7 +100,7 @@ public sealed class DataArchiveRefusalTests : IDisposable
 
         var manifest = await _archive.Writer.WriteAsync(db, archive);
 
-        manifest.Tables.Sum(t => t.Rows).Should().Be(126); // two rows each, 0207a's SeriesRuns, f3a8d's StoredSecrets and 3863f's DeployRecords included
+        manifest.Tables.Sum(t => t.Rows).Should().Be(130); // two rows each, 0207a's SeriesRuns, f3a8d's StoredSecrets, 3863f's DeployRecords and 24bd's ModelRunSlots and ModelRunWaits included
     }
 
     private static DataArchiveManifest Overstated(DataArchiveManifest manifest) =>

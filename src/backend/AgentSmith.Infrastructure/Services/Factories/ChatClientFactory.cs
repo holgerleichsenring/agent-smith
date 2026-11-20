@@ -35,7 +35,8 @@ public sealed class ChatClientFactory(
     Contracts.Runs.SecretMasker masker, // 2026-10-25-c5a7i
     ILoggerFactory loggerFactory,
     ICredentialResolver credentials, // 2026-11-18-9ae8
-    Contracts.Prompts.IPromptRecorder? prompts = null) // 2026-11-09-0620a
+    Contracts.Prompts.IPromptRecorder? prompts = null, // 2026-11-09-0620a
+    ModelRunGate? runGate = null) // 2026-11-20-24bd
     : IChatClientFactory
 {
     private const int MaxIterationsPerRequest = 25;
@@ -153,9 +154,11 @@ public sealed class ChatClientFactory(
         // record is a replayable sequence instead of one flattened entry per skill call —
         // and so the analyzer and the spec derivation are recorded too, not just the master.
         // Off by default: the wrapper is not inserted at all.
-        var recorded = trace.IsEnabled
-            ? new RecordingChatClient(instrumented, trace, runContext)
-            : (IChatClient)instrumented;
+        // 2026-11-20-24bd: above the event publisher, every call of every task waits for its run's ONE place before
+        // anything says a model call started — a waiting run shows its waiting line, and its time split no wait.
+        IChatClient admitted = runGate is not null && agent.MaxConcurrentRuns is not null
+            ? new ModelRunGateChatClient(instrumented, runGate, agent) : instrumented;
+        var recorded = trace.IsEnabled ? new RecordingChatClient(admitted, trace, runContext) : admitted;
 
         // p0191: history-scrub sits above EventPublishing so the scrubbed
         // message list is what the provider sees. Prior-turn tool results
@@ -234,6 +237,9 @@ public sealed class ChatClientFactory(
             bare, limiter, label, waitReporter,
             loggerFactory.CreateLogger<RateLimitingChatClient>());
     }
+
+    public Task EnterRunAsync(AgentConfig agent, CancellationToken cancellationToken) =>
+        runGate?.EnterAsync(agent, cancellationToken) ?? Task.CompletedTask; // 2026-11-20-24bd
 
     public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => GetAssignment(agent, task).MaxTokens;
     public int? GetContextWindowTokens(AgentConfig agent, TaskType task) =>

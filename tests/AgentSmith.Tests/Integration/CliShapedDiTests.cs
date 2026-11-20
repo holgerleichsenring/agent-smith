@@ -89,6 +89,19 @@ public sealed class CliShapedDiTests
             .Should().BeOfType<AgentSmith.Application.Services.Sandbox.Registry.ImageReferenceCheck>();
     }
 
+    // 2026-11-20-24bd: no database in the CLI, so its places are held in process; the factory carries the gate.
+    [Fact]
+    public void Cli_RealComposition_HoldsModelPlacesInProcess_AndTheFactoryCarriesTheGate()
+    {
+        using var provider = AgentSmith.Cli.ServiceProviderFactory.Build(
+            configPath: string.Empty, verbose: false, headless: true);
+
+        provider.GetRequiredService<IModelRunSlots>()
+            .Should().BeOfType<AgentSmith.Infrastructure.Services.RateLimiting.InProcessModelRunSlots>();
+        provider.GetRequiredService<AgentSmith.Infrastructure.Services.RateLimiting.ModelRunGate>().Should().NotBeNull();
+        provider.GetRequiredService<IChatClientFactory>().Should().BeOfType<ChatClientFactory>();
+    }
+
     [Fact]
     public void Cli_ResolvesPipelineExecutor_WithoutRedis_DoesNotThrow()
     {
