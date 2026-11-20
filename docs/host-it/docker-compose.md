@@ -36,7 +36,7 @@ The env vars that matter on the server:
 REDIS_PASSWORD=…              # required; the server's REDIS_URL is redis:6379,password=${REDIS_PASSWORD}
 SANDBOX_TYPE=docker           # create each run's sandboxes as Docker containers on this host
 SERVER_PORT=8081              # published webhook/API port
-AGENTSMITH_VERSION=0.193.0    # image tag pin for all agent-smith images
+AGENTSMITH_VERSION=0.194.0    # image tag pin for all agent-smith images
 ```
 <!-- x-release-please-end -->
 
@@ -152,7 +152,7 @@ For per-run visibility, the [dashboard](../reference/operations/dashboard.md) be
 <!-- x-release-please-start-version -->
 ```bash
 # .env
-AGENTSMITH_VERSION=0.193.0
+AGENTSMITH_VERSION=0.194.0
 ```
 <!-- x-release-please-end -->
 
@@ -168,7 +168,7 @@ That one number is the upgrade. The sandbox-agent tag is derived from the releas
 # agentsmith.yml, optional
 deployment:
   registry: my-mirror.example/agent-smith
-  version: 0.193.0       # fills sandbox.agent_version where it is unset
+  version: 0.194.0       # fills sandbox.agent_version where it is unset
 ```
 <!-- x-release-please-end -->
 

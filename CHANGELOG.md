@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.194.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.193.0...v0.194.0) (2026-11-20)
+
+
+### Features
+
+* **dashboard:** an opened spec step shows its steps, sub-agents, build and tests, and activity under their own headings (2026-11-19-1b72d) ([649c3c7](https://github.com/holgerleichsenring/agent-smith/commit/649c3c7b1a59569e39a24b3d2f0fa4da54e22442))
+* **dashboard:** the proposal pane shows tickets and specs as hairline rows like the run view (2026-11-19-1b72b) ([71df5d9](https://github.com/holgerleichsenring/agent-smith/commit/71df5d93ba6e9191af93dc01dec94b3d5ac0991d))
+* **dashboard:** the ticket page decides like Work it out; runs without a verdict show no criteria count (2026-11-19-1b72c) ([297bf03](https://github.com/holgerleichsenring/agent-smith/commit/297bf0370ac962f3c9dd0e550670a623e888560d))
+* **dashboard:** Work it out decides in words — no banner, no Discard; an offered draft asks 'Create N tickets' or 'Keep chatting'; resizable pane (2026-11-19-7c42b) ([55e3ae3](https://github.com/holgerleichsenring/agent-smith/commit/55e3ae3a2e6efad35f8d9f06a41716dd75bf14b3))
+* **series:** pause and resume a series by words or one button; quiet dashboard status; no double starts (2026-11-19-1b72a) ([091585f](https://github.com/holgerleichsenring/agent-smith/commit/091585fdf5e14fdaca7250c71098153cc02f059c))
+* **skills:** pin skills v5.41.2 — design-partner discards a draft with delete_file and reviews the draft it replies with (2026-11-20-4cfa) ([f2089af](https://github.com/holgerleichsenring/agent-smith/commit/f2089af09c853d3088a9748a0972a4f2560878d8))
+* **spec-dialog:** a turn that deletes its draft withdraws the awaiting proposal; questions in the operator's language (2026-11-19-7c42a) ([7b69041](https://github.com/holgerleichsenring/agent-smith/commit/7b69041feca1b3131d70caa5def4673dd6ea0306))
+* **tickets:** the ticket thread leaves out host narration on pull requests; votes stay (2026-11-19-1b72e) ([c0fb40d](https://github.com/holgerleichsenring/agent-smith/commit/c0fb40d8afe3e85fb705a576d2f30689a0eb17e9))
+* Work it out decides in words, series pause, no double starts, run step sections (7c42a/b, 1b72a–e, 4cfa) ([6e2a22c](https://github.com/holgerleichsenring/agent-smith/commit/6e2a22c1716490581b5ae31353fc17ac0285a6ac))
+
+
+### Bug Fixes
+
+* **spec-dialog:** discard is explicit and withdrawn before the reply; Keep chatting and pane handle per review (2026-11-19-7c42a) ([5b88607](https://github.com/holgerleichsenring/agent-smith/commit/5b886070531f61670788310cd38578efd95c7877))
+
 ## [0.193.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.192.1...v0.193.0) (2026-11-19)
 
 
