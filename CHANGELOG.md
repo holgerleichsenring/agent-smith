@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.195.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.195.0...v0.195.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **capacity:** the housekeeping sweep frees reservations of ended runs and long-orphaned ones; live and waiting runs keep theirs (2026-11-20-9936b) ([f23a604](https://github.com/holgerleichsenring/agent-smith/commit/f23a604ad6b3ca633ebda7d82a27fb8535538ae1))
+* Retry after a cancelled-while-queued attempt; sweep orphaned capacity reservations (9936a/b) ([7ebd4a4](https://github.com/holgerleichsenring/agent-smith/commit/7ebd4a40eda4760a967fd737eda83c16efc42f06))
+* **rework:** Retry works after a cancelled-while-queued attempt; the request lands on the run the worker reads (2026-11-20-9936a) ([aee3739](https://github.com/holgerleichsenring/agent-smith/commit/aee37396a047363489b4b8b03fd928e903472ec5))
+
 ## [0.195.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.194.0...v0.195.0) (2026-11-20)
 
 
