@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-20-9936a
+
+decisions:
+  - category: Architecture
+    chose: "The gate maps a Retry onto the run the rework worker reads (RetryCheck.RecordOn) and RunRetry records the request there"
+    over: "(a) Change PreviousAttemptRows so the reader skips a person's queued cancel after a started attempt; (b) make TicketAttempts count a person's queued cancel as an attempt so the page offers Retry on it; (c) let the reader pick up a request stored on an earlier run"
+    reason: |
+      (a) moves the latest attempt for about forty consumers, and breaks the poll protection: after an owed-work
+      cancel (interrupted, stale lease) the claim door lets the poll take the ticket again, and a person's later
+      queued cancel is what keeps the poll off it. (b) puts a run that never started on the page as an attempt card
+      across a dozen ticket readers and still offers Retry on a run the person did not mean. (c) has the worker read
+      one run and the request from another, which is exactly the split the gate exists to prevent. Recording on the
+      worker's latest changes two files, leaves both notions of "attempt" as they are, and keeps the request one row
+      of the run the worker, the nudge handler and the new run's cause all read.
+  - category: TradeOff
+    chose: "A Retry of the head, or of a never-started cancel newer than it, is one Retry judged on the head's end"
+    over: "Judge each asked run on its own end"
+    reason: |
+      The conversation's start and the series master pass LatestAsync().RunId, the cancel; the button passes the head.
+      Both mean "do the ticket's last attempt again", so they give one answer: a success head stays Delivered even when a
+      cancelled rework follows it, and a failed head is retried whichever run was named.
+  - category: Scope
+    chose: "Replace RetryTests.RunRetry_CancelledReservationAfterFailedAttempt_RefusedForBothOrigins"
+    over: "Keep it green"
+    reason: "It pinned the stuck behaviour the operator hit on ticket 19655; RetryAfterQueuedCancelTests pins the new answer for the same shape."
