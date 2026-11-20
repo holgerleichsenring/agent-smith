@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.195.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.194.0...v0.195.0) (2026-11-20)
+
+
+### Features
+
+* **models:** agent.max_concurrent_runs bounds runs per model deployment (2026-11-20-24bd) ([6cc65ab](https://github.com/holgerleichsenring/agent-smith/commit/6cc65abfc2ee557bd89a8575ee79464f567625b4))
+* **models:** agent.max_concurrent_runs bounds runs per model deployment; a run keeps its place for all its sub-agents, others wait visibly (2026-11-20-24bd) ([cd151c8](https://github.com/holgerleichsenring/agent-smith/commit/cd151c8516ae315f8ffc41a5ae0345ba40f2183c))
+
 ## [0.194.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.193.0...v0.194.0) (2026-11-20)
 
 
