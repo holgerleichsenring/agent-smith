@@ -116,7 +116,7 @@ public sealed class CancelEnforcer(
     {
         if (modelRunSlots is null) return;
         try { await modelRunSlots.SweepAsync(RunLivenessReaper.StaleAfter, ct); }
-        catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogError(ex, "Model place sweep failed"); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogError(ex, "Model place / capacity ledger sweep failed"); } // 9936b: both
     }
 
     private async Task<bool> EnforceAsync(Run run, CancellationToken ct)

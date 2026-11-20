@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-20-9936b
+goal: "The model-place sweep on the cancel enforcer's tick also releases capacity ledger rows whose run ended or has had no Run row for the rowless grace."
+
+applies_to: "default (Persistence capacity ledger and model-place sweep, Server cancel enforcer)"
+
+requires: [2026-11-20-24bd]
+
+invariant: >-
+  A RunCapacity row whose Run row is terminal (FinishedAt set) is gone after the next leader tick; a row with no Run
+  row goes only once it is older than ModelRunSlotSweep.RowlessReservationGrace (24 h) AND no lease names its run or
+  could still be its unattached claim AND no capacity-queue entry reserves it, so an admitted run waiting in the job
+  queue keeps its reservation; a row whose Run is queued, waiting_for_input or running is never touched, and a run whose
+  row appears, turns non-terminal or is taken up by a lease or queue entry between the read and the delete keeps it; a failing capacity sweep neither undoes the model-place sweep nor skips the force-kills.
+
+facts:
+  - claim: "Prod holds a Reserved=1 RunCapacity row of a 2026-07-19 run whose Run row is gone (15 GiB held forever); earlier a queued orphan held 12 GiB."
+    evidence: "observed: 2026-11-20, operator, prod RunCapacities table"
+  - claim: "A reservation is released only on terminal projection; a waiting state keeps FinishedAt null and keeps its reservation by design."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:42-61"
+  - claim: "And on run delete, as a satellite."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:91"
+  - claim: "Release is a delete of the run's ledger row."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunCapacityRepository.cs:47-48"
+  - claim: "The spawn funnel reserves before the claim and releases only when the claim answers; a crash in between leaves a reservation with no Run row."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:81-84"
+  - claim: "The claim does NOT write the Run row: it takes the lease and pushes the job to the queue; the row appears only when a PipelineQueueConsumer slot dequeues the job and RunStarted is projected, so an admitted run can sit rowless far longer than 15 min (corrected after review; the first draft assumed the claim wrote the row)."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:85"
+  - claim: "The lease is taken at the claim with RunId null; the run id is attached only when the run begins, so an enqueued run's lease cannot be matched by run id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ActiveRun.cs:15-18"
+  - claim: "A capacity-queue entry names the run it reserved."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/QueuedTicket.cs:18"
+  - claim: "Other reservers: the capacity pump (queued row exists) and init admission."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:92"
+  - claim: "Init admission reserves too."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitRunAdmission.cs:55"
+  - claim: "RunCapacity carries no timestamp of its own; EntityBase.UpdatedAt is stamped on every SaveChanges, i.e. at footprint record and at reserve."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:117"
+  - claim: "24bd's ModelRunSlotSweep frees model places whose run ended or has had no row for RowlessGrace (15 min), judging rows in memory because SQLite cannot compare DateTimeOffset."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/ModelRunSlotSweep.cs:19-41"
+  - claim: "It runs on every CancelEnforcer scan (housekeeping leader, 15 s) inside its own try, before the force-kills."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:71"
+  - claim: "The try that isolates it."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:115-120"
+  - claim: "IModelRunSlots is the database store wherever the server has the database, the same database that holds RunCapacity."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ModelRunSlotsPersistenceExtensions.cs:14-20"
+
+scope:
+  in: >-
+    ModelRunSlotSweep.RunAsync also reads RunCapacity (RunId, UpdatedAt), the leases and the queue entries, and releases
+    a row whose run is terminal, or a rowless row older than RowlessReservationGrace (24 h, a named 'not a limit'
+    constant) that no lease names, no unattached lease claimed after it (1 min skew) could own and no queue entry
+    reserves; the delete re-checks in SQL (run still terminal or missing, no lease naming it, no unattached lease for a
+    rowless one, no queue entry); the capacity part runs AFTER the places and waits are deleted and
+    their waiters woken, so its failure cannot undo them, and it surfaces in the existing CancelEnforcer try (log
+    line names both), which keeps the force-kills safe.
+  out: "A second loop or hosted service; changing when the projection or the delete release; queued, waiting_for_input or running runs (stale or not); the reservation algorithm."
+
+decisions:
+  - key: "SAME SWEEP, OWN ROWLESS RULE: terminal rows go at once; rowless rows wait 24 h and must not be held by a lease or queue entry, because a reservation precedes its Run row by the whole job-queue wait."
+
+steps:
+  - id: sweep
+    action: "ModelRunSlotSweep: capacity rows released by the rule after the place sweep, with a re-checking delete; returns the place count as before."
+  - id: tests
+    action: "ModelRunSlotStoreTests (or a sibling) over migrated SQLite: each case below."
+
+tests:
+  - "A row whose run is terminal (FinishedAt set) is deleted on the next sweep, reserved or not."
+  - "A rowless row is kept past RowlessGrace (15 min) and deleted only after RowlessReservationGrace (24 h)."
+  - "Claimed, enqueued, not yet started (unattached lease, no Run row), older than 15 min and older than 24 h: keeps its reservation."
+  - "A rowless row a lease or a queue entry names is kept after 24 h."
+  - "Read-then-delete re-check: a Run row that appeared, a run that turned waiting_for_input, a lease that took the run up keep the row; ended and orphaned rows go."
+  - "Rows of a queued, a waiting_for_input (stale beat included) and a running run are kept."
+  - "With the RunCapacities table unreadable the sweep throws only after the stale places are freed; a throwing SweepAsync still lets the enforcer force-kill (existing CancelEnforcementTests case at tests/AgentSmith.Tests/Server/CancelEnforcementTests.cs:315)."
+
+done:
+  - "The invariant holds under the tests above; build and full suite green."
