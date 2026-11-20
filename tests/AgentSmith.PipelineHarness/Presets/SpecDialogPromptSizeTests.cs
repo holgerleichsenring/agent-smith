@@ -47,7 +47,9 @@ public sealed partial class SpecDialogWorkPictureTests
         // them on the ticket's branch.
         // 2026-11-18-550ac: 38588 with design-partner-master 3.5.0 (system 17083, tools 20583, 22 tools) — the cut by
         // theme replaced the merge and branch-state tests.
-        (system + user + tools).Should().BeLessThan(40000, "a first design turn carries only what it can use");
+        // 2026-11-20-4cfa: 40828 with design-partner-master 3.8.2 — the replied draft is reviewed as it stands, a recut
+        // deletes what it replaces and checks every ticket has a spec, delete_file discards the draft.
+        (system + user + tools).Should().BeLessThan(42000, "a first design turn carries only what it can use");
         // 2026-11-15-bf77: offer_filing (24 tools, 37268) — File appears because the master offered the draft.
         // 2026-11-18-9c1ca: review_proposal gone (23 at most).
         count.Should().BeLessThanOrEqualTo(23);
