@@ -30,6 +30,8 @@ describe("StepSpecSteps", () => {
     await waitFor(() => expect(screen.getAllByTestId("step-spec-step")).toHaveLength(2));
     expect(screen.getAllByTestId("step-spec-step").map((r) => r.getAttribute("data-state"))).toEqual(["done", "open"]);
     expect(fetchRunPasses).not.toHaveBeenCalled();
+    // 2026-11-20-44b6: the row must not carry the spec record's own row class, whose two-column grid squeezed its text.
+    for (const row of screen.getAllByTestId("step-spec-step")) expect(row.classList.contains("rl-spec-step")).toBe(false);
   });
 
   it("StepSpecSteps_PassesFailed_ShowsTheStepsAndSaysTheirStatesCouldNotBeRead", async () => {
