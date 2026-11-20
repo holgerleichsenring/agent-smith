@@ -48,7 +48,7 @@ public sealed class OpenAiChatClientBuilder(ICredentialResolver credentials, Htt
 
         if (isAzure)
         {
-            var deployment = assignment.Deployment ?? agent.Deployment ?? assignment.Model
+            var deployment = assignment.EffectiveDeployment(agent)
                 ?? throw new InvalidOperationException(
                     "Azure OpenAI requires a deployment name (per-task or AgentConfig.Deployment).");
 

@@ -93,6 +93,19 @@ function currentStep(events: RunEvent[], steps: RunStepRow[]): { label: string; 
   return null;
 }
 
+/** 2026-11-20-24bd: the gate's line while the run waits for its model place (agent.max_concurrent_runs) — shown until
+ *  the run's next model call starts, which is the wait ending. */
+const MODEL_WAIT_ORIGIN = "model-slot";
+
+function modelWait(events: RunEvent[]): RunEvent | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.type === EventType.LlmCallStarted) return null;
+    if (e.type === EventType.L1StepDetail && e.origin === MODEL_WAIT_ORIGIN) return e;
+  }
+  return null;
+}
+
 /** While the run works: the step with its newest narration, the sandbox beat, then the newest `max` acts. */
 export function liveLines(
   snapshot: RunSnapshot, events: RunEvent[], steps: RunStepRow[],
@@ -107,11 +120,13 @@ export function liveLines(
     if (e.type === EventType.ToolCall && e.intent) narration = e;
   }
   const said = narration && narration.type === EventType.ToolCall ? narration.intent : null;
+  const waiting = modelWait(events);
+  const waitText = waiting && waiting.type === EventType.L1StepDetail ? waiting.detail : null;
   lines.push({
     key: "step",
-    at: clockOf(narration?.timestamp ?? null),
+    at: clockOf((waiting ?? narration)?.timestamp ?? null),
     kind: step?.label ?? snapshot.stepName ?? "working",
-    text: said ?? (step || snapshot.stepName ? "working on it" : "starting"),
+    text: waitText ?? said ?? (step || snapshot.stepName ? "working on it" : "starting"),
     tone: "now",
   });
   if (beat?.lastCommand) lines.push({ key: "beat", at: null, kind: "ran", text: beat.lastCommand, tone: "dim" });

@@ -22,6 +22,7 @@ public static class RawConfigPatch
         agent.Endpoint = entity.Endpoint;
         agent.ApiVersion = entity.ApiVersion;
         if (entity.NetworkTimeoutSeconds is { } timeout) agent.NetworkTimeoutSeconds = timeout;
+        agent.MaxConcurrentRuns = entity.MaxConcurrentRuns; // 2026-11-20-24bd: null lifts the limit
 
         RawAgentModelPatch.Apply(entity, agent);
         if (entity.Pricing is { } pricing)

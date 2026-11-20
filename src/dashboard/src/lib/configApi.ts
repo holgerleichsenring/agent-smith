@@ -64,6 +64,8 @@ export interface ConfigAgent {
   maxFixIterations: number;
   requestsPerMinute: number | null;
   inputTokensPerMinute: number | null;
+  /** 2026-11-20-24bd: runs that may use the primary deployment at once; null is no limit. */
+  maxConcurrentRuns?: number | null;
 }
 
 export interface ConfigRepo {
@@ -520,6 +522,9 @@ export interface StudioAgent {
   endpoint?: string;
   apiVersion?: string;
   networkTimeoutSeconds?: number;
+  /** 2026-11-20-24bd: runs that may use the primary deployment at once (agent.max_concurrent_runs); absent or null
+   *  is no limit, and a save without it lifts the limit. */
+  maxConcurrentRuns?: number | null;
   /** 2026-09-30-62bab: entry name → the model it declares. */
   catalog: Record<string, AgentCatalogModel>;
   /** Role key → catalog entry name; an absent role (or "") inherits. */

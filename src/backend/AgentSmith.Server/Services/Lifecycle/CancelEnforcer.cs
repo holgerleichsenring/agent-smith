@@ -27,7 +27,8 @@ public sealed class CancelEnforcer(
     CancelledTicketFinalizer ticketFinalizer,
     CancelTerminalWriter terminalWriter,
     TimeProvider timeProvider,
-    ILogger<CancelEnforcer> logger)
+    ILogger<CancelEnforcer> logger,
+    IModelRunSlots? modelRunSlots = null) // 2026-11-20-24bd: sweeps places no executing run holds
 {
     // p0348: the wall-time ceiling for a RUNNING run. PipelineRunWatchdog enforces this
     // only over the in-memory registry; a run that outlived a restart is never registered,
@@ -67,6 +68,7 @@ public sealed class CancelEnforcer(
         // the same cancel path (flag + deadline) and is killed once the grace
         // elapses on a later scan, exactly like an operator cancel.
         await FlagWallTimeOverdueAsync(ct);
+        await SweepModelPlacesAsync(ct);
 
         IReadOnlyList<Run> candidates;
         using (var scope = services.CreateScope())
@@ -107,6 +109,14 @@ public sealed class CancelEnforcer(
             await events.PublishAsync(
                 new RunCancelRequestedEvent(run.Id, "watchdog-wall-time", now), ct);
         }
+    }
+
+    // 2026-11-20-24bd: its own try — a failing sweep must not skip the force-kills below.
+    private async Task SweepModelPlacesAsync(CancellationToken ct)
+    {
+        if (modelRunSlots is null) return;
+        try { await modelRunSlots.SweepAsync(RunLivenessReaper.StaleAfter, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogError(ex, "Model place sweep failed"); }
     }
 
     private async Task<bool> EnforceAsync(Run run, CancellationToken ct)

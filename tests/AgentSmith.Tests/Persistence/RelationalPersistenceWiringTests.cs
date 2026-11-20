@@ -46,6 +46,14 @@ public sealed class RelationalPersistenceWiringTests
         provider.GetRequiredService<IRunArtifactStore>().Should().BeOfType<DbRunArtifactStore>();
     }
 
+    // 2026-11-20-24bd: the model places live in the database, so the bound holds across replicas.
+    [Fact]
+    public void ServerComposition_IModelRunSlots_IsTheDatabaseStore()
+    {
+        using var provider = BuildProvider();
+        provider.GetRequiredService<IModelRunSlots>().Should().BeOfType<DbModelRunSlots>();
+    }
+
     private static ServiceProvider BuildProvider()
     {
         var services = new ServiceCollection();

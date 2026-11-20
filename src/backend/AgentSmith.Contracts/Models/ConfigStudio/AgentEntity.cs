@@ -23,11 +23,14 @@ public sealed record AgentEntity(
     AgentPricing? Pricing,
     AgentCacheSettings? Cache,
     AgentCompactionSettings? Compaction,
-    AgentRetrySettings? Retry)
+    AgentRetrySettings? Retry,
+    // 2026-11-20-24bd: runs that may use the primary deployment at once; null is no limit, and the value is always
+    // written, so clearing it in the form lifts the limit.
+    int? MaxConcurrentRuns = null)
 {
     public AgentEntity() : this(
         string.Empty, string.Empty, null, null, null, null,
-        new Dictionary<string, AgentCatalogModel>(), new Dictionary<string, string>(), null, null, null, null)
+        new Dictionary<string, AgentCatalogModel>(), new Dictionary<string, string>(), null, null, null, null, null)
     {
     }
 }

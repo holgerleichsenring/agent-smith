@@ -527,6 +527,11 @@
           "type": "integer",
           "description": "Per-request LLM HTTP timeout (default 300). The SDK default is 100s; a large completion exceeds it and the run dies with 'A task was cancelled'."
         },
+        "max_concurrent_runs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many runs may use the agent's primary deployment (provider, endpoint, deployment) at once. A run holds its place for the master and every sub-agent; another run waits at its first model call until a place frees. Design turns, admin turns and scans count as runs. Unset is no limit."
+        },
         "checkpoint_push_min_interval_seconds": {
           "type": "integer",
           "description": "p0360: minimum seconds between mid-run checkpoint pushes of dirty repo sandboxes to the run branch (default 120; <= 0 disables). A killed run loses at most the work since the last checkpoint."

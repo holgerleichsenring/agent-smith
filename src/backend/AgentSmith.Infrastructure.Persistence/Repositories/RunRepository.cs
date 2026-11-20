@@ -138,6 +138,6 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
         var running = await unitOfWork.Set<Run>().AsNoTracking()
             .Where(r => r.FinishedAt == null && !r.CancelRequested && r.Status == "running")
             .ToListAsync(ct);
-        return running.Where(r => now - r.StartedAt > maxWallTime).ToList();
+        return await new ModelRunWaitClock(unitOfWork).OverdueAsync(running, maxWallTime, now, ct); // 24bd: minus model waits
     }
 }

@@ -62,7 +62,8 @@ internal static class ConfigCatalogMapper
                 agent.Retry.MaxRetries,
                 agent.Retry.InitialDelayMs,
                 agent.Retry.BackoffMultiplier,
-                agent.Retry.MaxDelayMs));
+                agent.Retry.MaxDelayMs),
+            agent.MaxConcurrentRuns); // 2026-11-20-24bd
     }
 
     // p0345c: full tracker surface — identity + tracker-owned workflow + polling.

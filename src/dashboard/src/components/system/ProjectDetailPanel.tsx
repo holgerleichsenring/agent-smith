@@ -81,6 +81,7 @@ function AgentSection({ name, agent }: { name: string; agent: ConfigAgent | null
           <KvRow label="type" value={agent.type} />
           <KvRow label="network timeout" value={`${agent.networkTimeoutSeconds}s`} />
           <KvRow label="max fix iterations" value={agent.maxFixIterations} />
+          <KvRow label="runs at a time" value={agent.maxConcurrentRuns ?? "no limit"} />
           {agent.requestsPerMinute != null && (
             <KvRow label="rate limit" value={`${agent.requestsPerMinute} req/min`} />
           )}

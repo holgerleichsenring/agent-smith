@@ -79,6 +79,7 @@ One entry per LLM configuration. A project names one with `agent:`.
 | `cache` | `is_enabled` (default `true`), `strategy` (default `automatic`), prompt caching |
 | `retry` | `max_retries` (5), `initial_delay_ms` (2000), `backoff_multiplier` (2.0), `max_delay_ms` (60000) |
 | `network_timeout_seconds` | how long one provider call may take, default 300 |
+| `max_concurrent_runs` | how many runs may use the agent's primary deployment (provider, endpoint, deployment) at once; unset is no limit, below 1 is refused. A run holds its place for the master and every sub-agent, so it never waits on itself; another run, design turn, admin turn or scan waits at its first model call and shows "Waiting for the model: … runs n at a time". Set 1 for a shared deployment whose tokens-per-minute quota one run fills |
 | `rate_limit` | `requests_per_minute`, `input_tokens_per_minute`; unset takes the provider's default budget |
 | `compaction` | `is_enabled` (true), `max_context_tokens` (200000), `max_context_tokens_trigger_ratio` (0.7), `keep_recent_iterations` (3), `fold_target_ratio` (0.35, the share a fold shrinks the view to), `summary_budget_ratio` (0.1, past it the summary segments are merged). It summarizes with the `summarization` role |
 | loop tuning | `max_master_loop_iterations` (200), `max_sub_agent_loop_iterations` (100), `max_fix_iterations` (3, read only by a pinned catalog whose coding master predates 3.0.0), `ledger_reminder_every_n_iterations` (10), `checkpoint_push_min_interval_seconds` (120), `supports_vision` (true) |

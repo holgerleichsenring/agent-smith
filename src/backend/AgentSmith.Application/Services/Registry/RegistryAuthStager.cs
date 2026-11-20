@@ -51,6 +51,7 @@ public sealed class RegistryAuthStager(
         };
 
         using var _scope = runContext.BeginCallScope("registry-auth-stager", "SetupRegistryAuth");
+        await chatClientFactory.EnterRunAsync(agent, cancellationToken); // 24bd: the bound starts after the model wait
         var response = await Loop.ScoutCallTimeBound.RunAsync(
             limits.MaxSecondsPerSkillCall, ct => chat.GetResponseAsync(messages, options, ct), cancellationToken);
         var files = jsonReader.Read(response.Text);

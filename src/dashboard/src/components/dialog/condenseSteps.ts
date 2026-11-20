@@ -46,7 +46,7 @@ interface Burst {
 export function condenseSteps(steps: RawStep[]): StepLine[] {
   const lines: StepLine[] = [];
   let burst: Burst | null = null;
-  for (const step of steps) {
+  for (const [index, step] of steps.entries()) {
     const name = step.name ?? "";
     if (step.kind === "thinking") continue;
     if (step.kind === "model" && (!step.detail?.trim() || name.includes(PREFIX))) continue;
@@ -59,7 +59,7 @@ export function condenseSteps(steps: RawStep[]): StepLine[] {
     }
     if (burst) lines.push(burstLine(burst));
     burst = null;
-    lines.push(lineOf(step, name));
+    lines.push(lineOf(step, name, index < steps.length - 1));
   }
   if (burst) lines.push(burstLine(burst));
   return lines;
@@ -73,9 +73,15 @@ function burstLine(burst: Burst): StepLine {
   return { key: burst.key, kind: "reads", text };
 }
 
-function lineOf(step: RawStep, name: string): StepLine {
+function lineOf(step: RawStep, name: string, followed: boolean): StepLine {
   if (step.kind === "model") return { key: step.seq, kind: "said", text: step.detail!.trim() };
   if (step.kind === "revising") return { key: step.seq, kind: "step", text: "revising its answer" };
+  // 2026-11-20-24bd: the detail is the whole sentence — the model, its limit and the config key.
+  // Once anything followed it the wait is over, and the history says so in the past tense.
+  if (step.kind === "waiting") {
+    const said = step.detail?.trim() || "Waiting for the model";
+    return { key: step.seq, kind: "step", text: followed ? said.replace(/^Waiting for/, "Waited for") : said };
+  }
   const text = [name || step.kind, step.detail].filter(Boolean).join(" ");
   return { key: step.seq, kind: step.kind === "tool" && WRITE.test(toolOf(name)) ? "write" : "step", text };
 }

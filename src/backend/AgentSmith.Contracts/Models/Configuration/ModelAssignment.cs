@@ -43,5 +43,9 @@ public sealed class ModelAssignment
             ? NullIfBlank(agent.Endpoint)
             : null;
 
+    /// <summary>2026-11-20-24bd: the deployment this role's requests name — its own, else the agent's, else the model —
+    /// as the OpenAI/Azure builder sends it and as the model place is keyed.</summary>
+    public string EffectiveDeployment(AgentConfig agent) => Deployment ?? agent.Deployment ?? Model;
+
     private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }

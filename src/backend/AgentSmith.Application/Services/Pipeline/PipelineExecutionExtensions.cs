@@ -92,7 +92,7 @@ public static class PipelineExecutionExtensions
         // Registering it in this shared extension made it unconstructable in the
         // CLI graph; it lives in the Server composition (DispatcherExtensions).
         services.AddTransient<ConceptVocabularyLoader>();
-        services.AddTransient<ExecutePipelineUseCase>();
+        services.AddTransient<ExecutePipelineUseCase>().AddSingleton<ModelPlaceRelease>(); // 2026-11-20-24bd
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
         // Safe default lease so ExecutePipelineUseCase resolves in EVERY composition
         // root (CLI, tests). A ticket-bearing deployment (Server + persistence) swaps

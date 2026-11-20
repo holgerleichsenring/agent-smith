@@ -25,7 +25,8 @@ public sealed class RunFinalizationProjection(
     QueuedRunProjection queuedRuns,
     ICapacityBudget? capacityBudget = null,
     ITakenTicketStore? takenTickets = null,
-    IUniqueViolationTranslator? violations = null)
+    IUniqueViolationTranslator? violations = null,
+    IModelRunSlots? modelRunSlots = null) // 2026-11-20-24bd
 {
     public async Task ApplyAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct)
     {
@@ -58,6 +59,8 @@ public sealed class RunFinalizationProjection(
     private async Task ReleaseWhatTheRunHeldAsync(IUnitOfWork uow, Run run, string runId, CancellationToken ct)
     {
         if (capacityBudget is not null) await capacityBudget.ReleaseAsync(runId, ct);
+        // 2026-11-20-24bd: a run that crashed past ExecuteAsync's finally, or was reaped, gives its model place back here.
+        if (modelRunSlots is not null) await modelRunSlots.ReleaseAsync(runId, ct);
         // 2026-10-26-bdd0b: a derivation never took the ticket up, so the record of an owed attempt is not its to clear.
         if (takenTickets is null || run.TicketId is not { Length: > 0 } ticketId || PipelinePresets.LeavesTicketAlone(run.Pipeline)) return;
         var holder = await uow.Set<ActiveRun>().AsNoTracking()

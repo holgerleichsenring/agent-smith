@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SpecDialogActivityPush, SpecDialogActivityStep } from "@/types/spec-dialog";
-import { condenseSteps, type RawStep } from "../condenseSteps";
+import { condenseSteps, inFlight, type RawStep } from "../condenseSteps";
 
 // 2026-11-12-92e9c: one condenser for the steps pushed while a turn runs and the pages fetched from its run.
 
@@ -82,5 +82,22 @@ describe("condenseSteps", () => {
       ["said", "Checking the router."],
       ["step", "revising its answer"],
     ]);
+  });
+
+  // 2026-11-20-24bd: a turn whose run waits for its place on the model shows the gate's sentence as one line; the call
+  // that follows the wait reports thinking (the gate sits before it), which the working view shows live — no line.
+  it("WaitingForTheModel_IsOneLineWithTheSentence_AndTheCallAfterItThinksLive", () => {
+    const sentence = "Waiting for the model: gpt41 runs 1 at a time (agent.max_concurrent_runs)";
+    const steps: RawStep[] = [
+      { seq: 1, kind: "waiting", name: null, detail: sentence },
+      { seq: 2, kind: "thinking", name: "gpt41", detail: null },
+    ];
+
+    expect(condenseSteps(steps.slice(0, 1)).map((line) => [line.kind, line.text])).toEqual([["step", sentence]]);
+    expect(inFlight(steps.slice(0, 1))).toBeNull();
+    // the wait ended: the history line is past tense and the call after it thinks live
+    expect(condenseSteps(steps).map((line) => line.text))
+      .toEqual(["Waited for the model: gpt41 runs 1 at a time (agent.max_concurrent_runs)"]);
+    expect(inFlight(steps)).toEqual({ key: 2, who: null });
   });
 });

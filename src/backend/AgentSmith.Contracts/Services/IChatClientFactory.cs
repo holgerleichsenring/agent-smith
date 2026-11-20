@@ -75,4 +75,11 @@ public interface IChatClientFactory
     /// operator stated none. Null is the default answer so a test double stays valid.
     /// </summary>
     int? GetContextWindowTokens(AgentConfig agent, TaskType task) => null;
+
+    /// <summary>
+    /// 2026-11-20-24bd: returns once the ambient run holds its place on <paramref name="agent"/>'s deployment
+    /// (agent.max_concurrent_runs), so a caller that bounds one call by the clock starts its bound after the wait.
+    /// A factory without the gate, an agent without a limit and a call outside a run return at once.
+    /// </summary>
+    Task EnterRunAsync(AgentConfig agent, CancellationToken cancellationToken) => Task.CompletedTask;
 }

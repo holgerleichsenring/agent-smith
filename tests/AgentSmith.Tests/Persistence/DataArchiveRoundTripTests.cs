@@ -30,8 +30,8 @@ public sealed class DataArchiveRoundTripTests : IDisposable
     public async Task RoundTrip_EveryTable_RestoresEveryRow()
     {
         var expected = await SeededSnapshotAsync();
-        expected.Should().HaveCount(62); // 3863f: + DeployRecords; 0207a: + SeriesRuns; fcd7a: + ProjectMemories; 2026-11-10-d854c: + SpecDialogTurnProposal; f3a8d: + StoredSecrets
-        expected.Values.Sum(rows => rows.Count).Should().Be(126,
+        expected.Should().HaveCount(64); // 3863f: + DeployRecords; 0207a: + SeriesRuns; fcd7a: + ProjectMemories; 2026-11-10-d854c: + SpecDialogTurnProposal; f3a8d: + StoredSecrets; 24bd: + ModelRunSlots, ModelRunWaits
+        expected.Values.Sum(rows => rows.Count).Should().Be(130,
             "two rows per table plus the two shapes that broke the hand transfer");
 
         await ImportAsync(await ExportSeededAsync());
@@ -51,7 +51,7 @@ public sealed class DataArchiveRoundTripTests : IDisposable
         await using var db = MigratedStoreTemplate.Context(_source);
         var expected = DataArchiveHarness.Tables(db)
             .Select(t => DataArchiveFormat.EntryFor(t.GetTableName()!)).ToList();
-        expected.Should().HaveCount(62, "the store carries sixty-two tables");
+        expected.Should().HaveCount(64, "the store carries sixty-four tables");
         zip.Entries.Select(e => e.FullName).Should().Contain(expected);
     }
 
@@ -78,7 +78,7 @@ public sealed class DataArchiveRoundTripTests : IDisposable
             "the head is named, not identified — the timestamp prefix is provider-local");
         manifest.SourceProvider.Should().Be("Microsoft.EntityFrameworkCore.Sqlite");
         manifest.FormatVersion.Should().Be(DataArchiveFormat.Version);
-        manifest.Tables.Should().HaveCount(62);
+        manifest.Tables.Should().HaveCount(64); // 24bd: + ModelRunSlots, ModelRunWaits
         manifest.Tables.Single(t => t.Table == "RunArtifacts").Rows.Should().Be(4,
             "two generated rows plus the two shapes that broke the hand transfer");
     }
