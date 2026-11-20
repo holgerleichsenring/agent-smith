@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-20-9936b
+
+decisions:
+  - category: Architecture
+    chose: "Release orphaned RunCapacity rows inside 24bd's ModelRunSlotSweep, on the CancelEnforcer leader tick"
+    over: "A sweep method on ICapacityBudget called separately, or a hosted service of its own"
+    reason: |
+      The operator ruled out a second housekeeping loop. The place sweep already loads the Run rows by id on the same
+      database and runs once per leader tick inside an isolating try, so the ledger rows ride on the same read pattern
+      and the same rule.
+  - category: TradeOff
+    chose: "Release a row when its run is terminal (FinishedAt set), or when it has had no Run row for RowlessGrace since UpdatedAt; reserved or not"
+    over: "Only Reserved rows; also stale queued or waiting_for_input runs, as the place sweep frees"
+    reason: |
+      A queued or parked run keeps its reservation by design (RunFinalizationProjection), so it is never released here,
+      however stale. A running row is the liveness reaper's to end. An unreserved row of an ended or missing run holds no
+      budget, but the terminal projection deletes it too, so the same delete keeps the ledger in the state the projection
+      would have left. The grace is 24bd's projection-lag wait (the spawn funnel reserves before the claim writes the run),
+      not a new limit, so no config key.
+  - category: Architecture
+    chose: "Capacity release runs after the places and waits are deleted, and its delete checks again in SQL that the run is still terminal or missing"
+    over: "An own try with a logger inside the sweep; a delete by id alone"
+    reason: |
+      Ordering is enough to keep a ledger failure from undoing the place sweep, and the enforcer's existing try already
+      logs it and goes on to the force-kills (its log line now names both). The SQL check keeps a run whose row appeared,
+      or that was resumed, between the read and the delete from losing its reservation.
+  - category: TradeOff
+    chose: "A rowless reservation goes only after 24 h (RowlessReservationGrace, a named 'not a limit' constant) and only when no lease names its run, no unattached lease claimed after it could be its claim, and no capacity-queue entry reserves it"
+    over: "24bd's 15-minute RowlessGrace alone (first draft); a config key for the 24 h"
+    reason: |
+      Review (HIGH): the first draft assumed the claim writes the Run row. It does not — the claim takes the lease (RunId
+      null) and enqueues the job, and the row appears only when a queue consumer slot dequeues it, so a run admitted and
+      waiting more than 15 minutes would have lost its reservation and the ledger would over-admit. The lease cannot be
+      matched by run id while unattached, so any unattached lease claimed after the reservation holds every rowless row:
+      conservative, and transient because a lease attaches or is reaped. The orphans the sweep exists for are days to
+      months old, so 24 h costs nothing. No config key: the value refuses nothing and is not tuned by an operator — it
+      only bounds how long a lost reservation lingers, the same standing as 24bd's RowlessGrace; the hard-coded limit
+      ratchet accepts it through its 'not a limit' reason. Residual: an init run (reserves, no ticket lease) still
+      queued after 24 h would lose its reservation; no ceiling lets a run wait that long.

@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-20-9936a
+goal: "Retry of a ticket's newest started attempt is admitted when only runs a person cancelled while queued follow it, and the request lands on the run the rework worker reads."
+
+applies_to: "default (Server rework/retry, ticket readers; Persistence previous-attempt reader unchanged)"
+
+requires: [2026-11-19-1b72a]
+
+invariant: >-
+  A Retry the gate admits is recorded on the run DbPreviousAttemptReader.LatestAsync returns for the ticket, so the
+  rework worker, the attempt-cause reader and the gate always name the same run; the page's newest attempt
+  (TicketAttempts.Head) and the reader's latest may differ only by never-started cancelled runs newer than the head,
+  and a Retry asked of either is the same Retry; the previous-attempt reader's rows are unchanged, so the claim door
+  still refuses a poll of a ticket whose latest attempt is a person's queued cancel.
+
+facts:
+  - claim: "The page's newest attempt is TicketAttempts.Head: it drops EVERY cancelled code run without a step, a person's queued cancel included."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:21-32"
+  - claim: "The rework worker's previous attempt drops queued rows and only cancelled no-step rows WITHOUT a cancel reason (pump drops); a person's queued cancel carries reason 'operator' and stays an attempt."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/PreviousAttemptRows.cs:18-21"
+  - claim: "So for ticket 19655 (dc3b failed with steps, then 1c1a cancelled while queued by a person) Head = dc3b and LatestAsync = 1c1a; this is the whole disagreement, recorded as a known consequence in 1b72a."
+    evidence: ".agentsmith/decisions/2026-11-19-1b72a.yaml:45"
+  - claim: "A person's cancel of a queued run stamps CancelReason 'operator', finishes the row cancelled (FinishedAt set) and moves the ticket via failed_status; no step is ever written."
+    evidence: "src/backend/AgentSmith.Server/Extensions/QueuedRunCancel.cs:30-47"
+  - claim: "RunRetryGate compares Head with the asked run, then refuses unless LatestAsync names the same run, which is exactly the refusal the operator hit."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetryGate.cs:30-37"
+  - claim: "RunRetry records the request as a row of the ASKED run and words 'already starting' from that row."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:45-76"
+  - claim: "The retry request is read only off the reader's latest run (one row per run), so a request on any other run is never seen."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:25-33"
+  - claim: "Every consumer of the request reads it through RetryAct off that latest attempt: the nudge handler's pending acts and the started run's cause."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:32"
+  - claim: "The started run's cause reads RetryAct off LatestAsync(excluding itself)."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:41"
+  - claim: "The worker's nudge handler and the rework entry both read LatestAsync and launch only when that attempt is finished and precedes the act."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:34-43"
+  - claim: "The conversation's start (reply 'continue') retries LatestAsync().RunId, i.e. 1c1a for 19655, which the gate refuses as not the page's head."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ConversationAttemptStart.cs:39-42"
+  - claim: "The series master's Retry act also retries LatestAsync().RunId."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesTicketActs.cs:62-66"
+  - claim: "The series resume of a never-worked ticket asks HasAttemptAsync (same PreviousAttemptRows), not the retry gate; it is untouched."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/WaitingTicketStart.cs:36"
+  - claim: "The page offers Retry unchanged on the ticket's newest attempt from TicketAttempts.Of (dc3b), so the dashboard needs no change once the gate admits it."
+    evidence: "src/dashboard/src/components/tickets/detail/ThreadMessages.tsx:76"
+  - claim: "The poll protection is the claim door: BoundaryStopGate refuses a ticket whose LatestAsync ended cancelled with a non-owed reason on a project without failed_status; it reads PreviousAttemptRows, which this spec does not change."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/BoundaryStopGate.cs:38-49"
+  - claim: "An existing test pins the stuck behaviour (Retry of r-1 after an operator-cancelled r-2 refused for both origins); it is replaced, not kept."
+    evidence: "tests/AgentSmith.Tests/Rework/Retry/RetryTests.cs:200-215"
+
+scope:
+  in: >-
+    RunRetryGate returns where the request is recorded: the reader's latest run. It admits the asked run when it is
+    the page's head and the reader's latest is the head or a never-started cancelled code row newer than the head
+    (TicketAttempts.IsAttempt false), or when the asked run IS that newer never-started row (the conversation and
+    series paths); the end checks (hand-back, not finished, success) read the head. RunRetry upserts the request on
+    that run and words 'already starting' from it.
+  out: "PreviousAttemptRows / DbPreviousAttemptReader and their ~40 consumers; TicketAttempts and the page; the dashboard; the claim door."
+
+decisions:
+  - key: "RECORD ON THE RUN THE WORKER READS: the gate maps a Retry of the head onto the reader's latest when only never-started cancels lie between, instead of changing which run the reader returns (40 consumers and the poll protection ride on it)."
+
+steps:
+  - id: gate
+    action: "RunRetryGate.CheckAsync returns a RetryCheck (Refusal or RecordOn run id); the head/latest comparison admits the never-started-cancel gap described in scope."
+  - id: retry
+    action: "RunRetry stores the request and reads 'already starting' on RetryCheck.RecordOn."
+  - id: tests
+    action: "Replace the stuck-behaviour test; add the 19655 shape for the button and both conversation paths; pin the claim door over the real reader."
+
+tests:
+  - "19655 shape: failed started r-1, then r-2 cancelled while queued by a person (reason operator, no step): Retry of r-1 from the button is 202, the request row is on r-2, one worker pass launches once, and the new attempt's cause is Retry by the person."
+  - "Same shape from the conversation with the reader's latest (r-2, as ConversationAttemptStart and SeriesTicketActs pass it): requested and launched once."
+  - "Same shape with a success head: Retry refused Delivered, nothing recorded."
+  - "A started attempt newer than the head is still NotLatest (r-1 asked while r-2 failed)."
+  - "Claim door over the real reader: a ticket whose only run is a person's queued cancel, and the 19655 shape, on a project without failed_status: a poll claim is refused TicketLeftInPlace; a start by name passes."
+  - "Existing RetryTests, AttemptStart*, PreviousAttempt*, LeftInPlaceGateTests stay green."
+
+done:
+  - "The invariant holds under the tests above; build and full suite green."

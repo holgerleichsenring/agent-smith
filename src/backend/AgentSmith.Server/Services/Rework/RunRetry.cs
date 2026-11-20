@@ -18,6 +18,8 @@ namespace AgentSmith.Server.Services.Rework;
 /// attempt is already starting the request is refused, naming who asked. Otherwise the request is stored as a
 /// row of the run and an Operator nudge goes through the rework queue, whose worker enters through the rework
 /// entry like every other act; the stored request stays a pending act until an attempt starts after it.
+/// <para>2026-11-20-9936a: the request is a row of the run the gate names (<see cref="RetryCheck.RecordOn"/>) — the
+/// rework worker's latest, which is the asked run or a person's queued cancel that followed it.</para>
 /// </summary>
 public sealed class RunRetry(
     RunRepository runs,
@@ -42,7 +44,9 @@ public sealed class RunRetry(
         if (!config.Projects.TryGetValue(run.Project, out var project))
             return RunRetryResult.Invalid($"Project '{run.Project}' is not configured.");
         var ticketId = run.TicketId;
-        if (await gate.CheckAsync(project.Name, ticketId, runId, origin, ct) is { } refused) return RunRetryResult.Refused(refused);
+        var check = await gate.CheckAsync(project.Name, ticketId, runId, origin, ct);
+        if (check.Refusal is { } refused) return RunRetryResult.Refused(refused);
+        var recordOn = check.RecordOn!; // 2026-11-20-9936a: the run the rework worker reads, which may follow runId
         bool closed;
         try
         {
@@ -56,13 +60,13 @@ public sealed class RunRetry(
         }
         if (closed)
             return RunRetryResult.Refused(new(RetryRefusals.ClosedForWork, RetryRefusals.ClosedForWorkText, project.Name, ticketId));
-        if (await StartingAsync(project.Name, ticketId, runId, ct) is { } starting)
+        if (await StartingAsync(project.Name, ticketId, recordOn, ct) is { } starting)
             return RunRetryResult.Refused(new(RetryRefusals.Starting, starting, project.Name, ticketId));
-        await requests.UpsertAsync(runId, principal, clock.GetUtcNow(), ct);
+        await requests.UpsertAsync(recordOn, principal, clock.GetUtcNow(), ct);
         await nudges.EnqueueAsync(new ReworkNudgeRequest(
             project.Name, ticketId, ReworkNudgeOrigin.Operator, Channel: ReworkChannel.Retry), ct);
-        logger.LogInformation("Retry of run {RunId} of {Project}/#{Ticket} requested by {Principal} from the {Origin}",
-            runId, project.Name, ticketId, principal, origin);
+        logger.LogInformation("Retry of run {RunId} (recorded on {RecordOn}) of {Project}/#{Ticket} requested by {Principal} from the {Origin}",
+            runId, recordOn, project.Name, ticketId, principal, origin);
         return RunRetryResult.Requested(ticketId);
     }
 

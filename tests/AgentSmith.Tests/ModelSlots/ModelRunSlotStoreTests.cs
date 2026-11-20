@@ -168,6 +168,114 @@ public sealed class ModelRunSlotStoreTests : IDisposable
         (await store.WaitedAsync(["run-live"], CancellationToken.None)).Should().ContainKey("run-live");
     }
 
+    // 2026-11-20-9936b: the same sweep releases capacity reservations no run can use — an ended run's, and a rowless one's
+    // after the grace — and never a queued, parked or running run's, however stale.
+    [Fact]
+    public async Task Sweep_ReleasesCapacityOfEndedAndRowlessRuns_KeepsWaitingAndRunningOnes()
+    {
+        var clock = new ModelSlotsClock();
+        var store = Store(SqliteOptions(), new SqliteUniqueViolationTranslator(), clock: clock);
+        var stale = clock.GetUtcNow() - TimeSpan.FromHours(2);
+        await SeedRunAsync("run-ended", status: "success", finished: true);
+        await SeedRunAsync("run-queued", status: "queued", startedAt: stale);
+        await SeedRunAsync("run-parked", status: "waiting_for_input", startedAt: stale);
+        await SeedRunAsync("run-live", startedAt: stale);
+        foreach (var run in new[] { "run-ended", "run-queued", "run-parked", "run-live", "run-rowless" })
+            await SeedCapacityAsync(run, reserved: run != "run-queued");
+        await SeedCapacityAsync("run-ended-unreserved", reserved: false);
+        await SeedRunAsync("run-ended-unreserved", status: "failed", finished: true);
+
+        await store.SweepAsync(TimeSpan.FromMinutes(3), CancellationToken.None);
+
+        (await CapacityRunIdsAsync()).Should().BeEquivalentTo(["run-queued", "run-parked", "run-live", "run-rowless"],
+            "an ended run holds nothing; a rowless reservation waits out the grace, its run's row may still be coming");
+
+        clock.Advance(ModelRunSlotSweep.RowlessGrace + TimeSpan.FromMinutes(1));
+        await store.SweepAsync(TimeSpan.FromMinutes(3), CancellationToken.None);
+        (await CapacityRunIdsAsync()).Should().Contain("run-rowless", "an admitted run waits in the job queue without a row");
+
+        clock.Advance(ModelRunSlotSweep.RowlessReservationGrace);
+        await store.SweepAsync(TimeSpan.FromMinutes(3), CancellationToken.None);
+
+        (await CapacityRunIdsAsync()).Should().BeEquivalentTo(["run-queued", "run-parked", "run-live"],
+            "queued and waiting_for_input keep their reservation by design, and a running row is the liveness reaper's");
+    }
+
+    // The claim takes the lease (no run id yet) and enqueues the job; the Run row appears only when the job dequeues.
+    [Fact]
+    public async Task Sweep_ClaimedEnqueuedNotStarted_KeepsItsReservation()
+    {
+        var clock = new ModelSlotsClock();
+        var store = Store(SqliteOptions(), new SqliteUniqueViolationTranslator(), clock: clock);
+        await SeedCapacityAsync("run-enqueued", reserved: true);
+        await SeedLeaseAsync("1", runId: null, claimedAt: DateTimeOffset.UtcNow);
+
+        clock.Advance(ModelRunSlotSweep.RowlessGrace + TimeSpan.FromMinutes(1));
+        await store.SweepAsync(TimeSpan.FromMinutes(3), CancellationToken.None);
+        (await CapacityRunIdsAsync()).Should().Equal(["run-enqueued"]);
+
+        clock.Advance(ModelRunSlotSweep.RowlessReservationGrace);
+        await store.SweepAsync(TimeSpan.FromMinutes(3), CancellationToken.None);
+        (await CapacityRunIdsAsync()).Should().Equal(["run-enqueued"], "an unattached lease claimed after it may still be its claim");
+    }
+
+    [Theory]
+    [InlineData("lease")]
+    [InlineData("queue")]
+    public async Task Sweep_RowlessReservationALeaseOrQueueEntryNames_IsKept(string holder)
+    {
+        var clock = new ModelSlotsClock();
+        var store = Store(SqliteOptions(), new SqliteUniqueViolationTranslator(), clock: clock);
+        await SeedCapacityAsync("run-held", reserved: true);
+        await SeedCapacityAsync("run-orphan", reserved: true);
+        await using (var db = new AgentSmithDbContext(SqliteOptions()))
+        {
+            if (holder == "lease")
+                db.Add(new ActiveRun { Project = "p", TicketId = "1", RunId = "run-held", ClaimedAt = DateTimeOffset.UtcNow, HeartbeatAt = DateTimeOffset.UtcNow });
+            else
+                db.Add(new QueuedTicket { Project = "p", TicketId = "1", Pipeline = "code", Platform = "github", ReservedRunId = "run-held", EnqueuedAt = DateTimeOffset.UtcNow });
+            await db.SaveChangesAsync();
+        }
+
+        clock.Advance(ModelRunSlotSweep.RowlessReservationGrace + TimeSpan.FromMinutes(1));
+        await store.SweepAsync(TimeSpan.FromMinutes(3), CancellationToken.None);
+
+        (await CapacityRunIdsAsync()).Should().Equal(["run-held"]);
+    }
+
+    // The read and the delete are two statements: what changed between them is checked again by the delete.
+    [Fact]
+    public async Task DeleteReleased_RunRowAppearedOrTurnedLiveOrLeaseTookItUp_KeepsTheRow()
+    {
+        foreach (var run in new[] { "run-appeared", "run-resumed", "run-leased", "run-ended", "run-orphan" })
+            await SeedCapacityAsync(run, reserved: true);
+        await SeedRunAsync("run-appeared", status: "running");
+        await SeedRunAsync("run-resumed", status: "waiting_for_input");
+        await SeedRunAsync("run-ended", status: "failed", finished: true);
+        await SeedLeaseAsync("2", runId: "run-leased", claimedAt: DateTimeOffset.UtcNow);
+
+        await using (var db = new AgentSmithDbContext(SqliteOptions()))
+            (await ModelRunSlotSweep.DeleteReleasedAsync(db, ["run-appeared", "run-resumed", "run-leased", "run-ended", "run-orphan"], CancellationToken.None))
+                .Should().Be(2);
+
+        (await CapacityRunIdsAsync()).Should().BeEquivalentTo(["run-appeared", "run-resumed", "run-leased"]);
+    }
+
+    [Fact]
+    public async Task Sweep_CapacityLedgerUnreadable_ThrowsOnlyAfterThePlacesAreFreed()
+    {
+        var store = Store(SqliteOptions(), new SqliteUniqueViolationTranslator());
+        await SeedRunAsync("run-ended", status: "success", finished: true);
+        await store.AcquireAsync(Key, 1, "run-ended", CancellationToken.None);
+        await using (var db = new AgentSmithDbContext(SqliteOptions()))
+            await db.Database.ExecuteSqlRawAsync("DROP TABLE RunCapacities");
+
+        var sweep = () => store.SweepAsync(TimeSpan.FromMinutes(3), CancellationToken.None);
+
+        await sweep.Should().ThrowAsync<Exception>("the enforcer's try logs it and goes on to the force-kills");
+        (await RowsAsync(SqliteOptions())).Should().BeEmpty("the place was freed before the ledger was read");
+    }
+
     [Fact]
     public async Task Acquire_ClosesTheRunsOpenWait_InTheSameStoreOperation()
     {
@@ -279,6 +387,26 @@ public sealed class ModelRunSlotStoreTests : IDisposable
             HeartbeatAt = heartbeatAt,
         });
         await db.SaveChangesAsync();
+    }
+
+    private async Task SeedCapacityAsync(string runId, bool reserved)
+    {
+        await using var db = new AgentSmithDbContext(SqliteOptions());
+        db.Add(new RunCapacity { RunId = runId, FootprintJson = "{}", TotalCpuNanos = 1, TotalMemBytes = 15L << 30, Reserved = reserved });
+        await db.SaveChangesAsync();
+    }
+
+    private async Task SeedLeaseAsync(string ticket, string? runId, DateTimeOffset claimedAt)
+    {
+        await using var db = new AgentSmithDbContext(SqliteOptions());
+        db.Add(new ActiveRun { Project = "p", TicketId = ticket, RunId = runId, ClaimedAt = claimedAt, HeartbeatAt = claimedAt });
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<List<string>> CapacityRunIdsAsync()
+    {
+        await using var db = new AgentSmithDbContext(SqliteOptions());
+        return await db.Set<RunCapacity>().AsNoTracking().Select(c => c.RunId).ToListAsync();
     }
 
     private static async Task<List<ModelRunSlot>> RowsAsync(DbContextOptions<AgentSmithDbContext> options)

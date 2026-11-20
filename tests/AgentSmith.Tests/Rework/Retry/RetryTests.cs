@@ -198,22 +198,8 @@ public sealed class RetryTests : IDisposable
         (await _h.NudgesAsync()).Should().BeEmpty();
     }
 
-    [Fact]
-    public async Task RunRetry_CancelledReservationAfterFailedAttempt_RefusedForBothOrigins()
-    {
-        await _h.AttemptAsync("r-1", RunStatuses.Failed, null,
-            new RunSegment { RunId = "r-1", EventSeq = 1, StartedAt = TicketStoreHarness.T },
-            new RunSandbox { RunId = "r-1", Key = "api", RepoName = "api", EventSeq = 12, EndReason = SandboxEndReasons.Vanished });
-        await _h.AddAsync(TicketStoreHarness.Run("r-2", status: Cancelled, cancelReason: "operator"));
-
-        var button = await RefusedAsync("r-1");
-        var conversation = await _h.ConversationRetryAsync("r-1");
-
-        button.Reason.Should().Be(RetryRefusals.NotLatest, "the worker reads r-2 and would never see a request on r-1");
-        button.Text.Should().Contain("r-2");
-        conversation.Refusal!.Reason.Should().Be(RetryRefusals.NotLatest);
-        (await _h.RequestsAsync()).Should().BeEmpty();
-    }
+    // 2026-11-20-9936a: RunRetry_CancelledReservationAfterFailedAttempt_RefusedForBothOrigins pinned the stuck shape; it is
+    // admitted now — see RetryAfterQueuedCancelTests.
 
     [Fact]
     public async Task Retry_WhileAttemptStarting_409NamesFirstRequester()
