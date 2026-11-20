@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-1b72f
+goal: "A code run's result line counts every file its pull request changes, not only what the final commit step committed."
+applies_to: "backend (CommitAndPRHandler, CodeRunResult)"
+facts:
+  - claim: "The result line counts context.Changes, which after per-spec commits holds only what CommitAndPR still commits."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:213; src/backend/AgentSmith.Application/Services/Handlers/CodeRunResult.cs:42"
+  - claim: "A run whose spec commit judged 19 files reported '1 file(s) changed'."
+    evidence: "observed: 2026-11-19 run 2026-11-19T20-53-15-dea7, steps 24 and 28"
+steps:
+  - id: count
+    action: "Count the files the branch changes against its pull request's base."
+done:
+  - "when a spec commit changed 19 files and the final step commits 1, then the result line says 20 file(s) changed"
+tests:
+  - CodeRunResult_SpecCommitsAndFinalCommit_CountsTheBranchDiff

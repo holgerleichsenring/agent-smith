@@ -9,4 +9,8 @@ public interface ISeriesConversation
     /// <summary>2026-11-17-0207b: the operator messages addressed to the series after the given transcript index.</summary>
     Task<IReadOnlyList<SeriesOperatorMessage>> AddressedAsync(
         string conversation, string seriesRunId, int afterIndex, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-19-1b72a: whether the conversation is held on the dashboard, whose Series pane shows every ticket —
+    /// there the series writes only what needs the operator; a chat platform has no pane and keeps its status table.</summary>
+    Task<bool> HasPaneAsync(string conversation, CancellationToken cancellationToken);
 }

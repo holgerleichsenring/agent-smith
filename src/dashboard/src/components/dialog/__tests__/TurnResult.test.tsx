@@ -89,7 +89,7 @@ describe("TurnResult", () => {
 
     const questions = screen.getAllByTestId("turn-question");
     expect(questions[2]).toHaveTextContent("3. Which event contract?");
-    expect(questions[2]).toHaveTextContent("Proposal: Transactional outbox");
+    expect(questions[2]).toHaveTextContent("Transactional outbox");
     expect(within(screen.getByTestId("turn-questions")).queryAllByRole("button")).toHaveLength(0);
   });
 

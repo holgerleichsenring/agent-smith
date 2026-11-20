@@ -9,5 +9,5 @@ public sealed class ConfigDraftOutcome : IAdminTurnOutcome
     public OutcomeProposal Of(PipelineContext pipeline) =>
         pipeline.TryGet<AdminConfigDraft>(ContextKeys.AdminConfigDraft, out var draft) && draft is { Items.Count: > 0 }
             ? new ConfigChangeOutcome([.. draft.Items])
-            : new AnswerOutcome();
+            : new AnswerOutcome { Withdrawn = draft?.Emptied == true };
 }

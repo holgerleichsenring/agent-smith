@@ -5,14 +5,17 @@ namespace AgentSmith.Application.Services.SpecDialog.Writes;
 /// <summary>
 /// 2026-11-12-cd4ca: the outcome a design turn proposes, derived from its store. A turn that changed nothing is an
 /// answer; otherwise the draft's one kind is the proposal: a comment, a bug, tickets, one spec, or a parent with its
-/// children and the contract narrowed to them. An emptied draft proposes nothing.
+/// children and the contract narrowed to them. An emptied draft proposes nothing; one the turn discarded by deleting
+/// draft: withdraws the proposal awaiting a decision (2026-11-19-7c42a).
 /// </summary>
 public static class ProposalDraftOutcome
 {
     public static OutcomeProposal For(ProposalStore store)
     {
         ArgumentNullException.ThrowIfNull(store);
-        return store.Changed ? Of(store.Current) : new AnswerOutcome();
+        if (!store.Changed) return new AnswerOutcome();
+        // Only a deletion of the whole draft as the turn's last write is a discard; a draft emptied otherwise answers.
+        return store.Current.IsEmpty ? new AnswerOutcome { Withdrawn = store.Discarded } : Of(store.Current);
     }
 
     public static OutcomeProposal Of(ProposalDraft draft)

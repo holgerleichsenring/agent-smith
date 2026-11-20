@@ -16,6 +16,8 @@ public static class RetryRefusals
     public const string ClosedForWork = "closed-for-work";
     public const string Starting = "starting";
     public const string Delivered = "delivered";
+    /// <summary>2026-11-19-1b72a: the head is a start its paused series let go; the series' resume starts it.</summary>
+    public const string SeriesPaused = "series-paused";
 
     public const string HandedBackText = "a hand-back is answered in the ticket conversation";
 

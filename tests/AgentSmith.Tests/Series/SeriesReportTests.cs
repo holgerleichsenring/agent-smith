@@ -32,6 +32,15 @@ public sealed class SeriesReportTests
     }
 
     [Fact]
+    public void FirstBeat_UnderAPane_OpensWithoutTheTableAndSaysItWritesOnlyWhenNeeded()
+    {
+        var messages = SeriesReport.Messages(new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T), Project, Dialogue, pane: true);
+
+        messages.Should().ContainSingle().Which.Should().EndWith(
+            "I merge each one when its gate is green. I write here only when you are needed; the Series pane shows every ticket, and Pause holds the series.");
+    }
+
+    [Fact]
     public void LaterBeat_NothingChangedBeforeTheCadence_PostsNoTable()
     {
         var beat = new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T.AddMinutes(10));
@@ -60,7 +69,7 @@ public sealed class SeriesReportTests
     }
 
     [Fact]
-    public void Policy_Line_NamesMergeStartCadenceAndQuestionDefault() =>
+    public void Policy_Line_NamesMergeStartAndQuestionDefault() =>
         SeriesPolicy.Line(Project, Dialogue).Should().Be(
-            "merge on green gate · start on green push · status every 15 min · questions default to the recommendation after 2 h 00 min");
+            "merge on green gate · start on green push · questions default to the recommendation after 2 h 00 min");
 }

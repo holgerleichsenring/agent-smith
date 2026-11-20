@@ -840,6 +840,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<bool>("IsSystem")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsVote")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(32)

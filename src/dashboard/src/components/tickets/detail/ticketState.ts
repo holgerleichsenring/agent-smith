@@ -124,6 +124,9 @@ export function detailSentence(head: TicketAttempt): string | null {
 }
 
 function failed(detail: TicketDetail, head: TicketAttempt, pill: string): TicketStateView {
+  // 2026-11-19-1b72a: a start its paused series held is not a failure and has nothing to continue — the resume starts it.
+  if (head.endKind === RUN_END_KINDS.seriesPaused)
+    return { ...base(head), tone: "q", pill: "Paused", sentence: "Its series is paused; it starts again when the series resumes." };
   // 2026-11-17-f9b0a: a cancelled head is in the failed bucket and says it was cancelled.
   if (head.status === "cancelled")
     return { ...base(head), tone: "bad", pill: "Cancelled", sentence: `Attempt ${head.number} was cancelled.`, act: CONTINUE };

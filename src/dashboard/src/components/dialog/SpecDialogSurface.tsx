@@ -27,9 +27,11 @@ import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
 import { deletionWarning } from "./conversationDelete";
 import { DialogComposer } from "./DialogComposer";
 import { DialogConversations } from "./DialogConversations";
-import { DialogDecisionBar } from "./DialogDecisionBar";
+import { DialogDecisionBar, asideKey, decides } from "./DialogDecisionBar";
+import { DialogPaneHandle, paneWidthStyle, usePaneWidth } from "./DialogPaneHandle";
 import { DialogPane, useDialogPaneFocus } from "./DialogPane";
 import { useSeriesRun } from "@/hooks/useSeriesRun";
+import { DialogSeriesHead } from "./DialogSeriesHead";
 import { DialogProjectChoice, type ProjectsRead } from "./DialogProjectChoice";
 import { DialogTicketSearch } from "./DialogTicketSearch";
 import { DialogGreeting } from "./DialogGreeting";
@@ -275,6 +277,14 @@ export function SpecDialogSurface() {
   // it null, and a read that failed leaves the same null for ever with a failure beside it.
   const read: ProjectsRead = dialog.view ? "read" : dialog.failure ? "failed" : "pending";
   const [focus, setFocus] = useDialogPaneFocus(dialog.proposal, dialog.filed);
+  // 2026-11-19-7c42b: the proposal whose decision the operator set aside to keep chatting.
+  const [chattingOn, setChattingOn] = useState<string | null>(null);
+  // Set aside until the agent's next turn has finished: a standing decision comes back then, also for a proposal that
+  // keeps its id (an admin draft) or carries none — never while a turn runs, which would take the composer away.
+  useEffect(() => {
+    if (!dialog.working) setChattingOn(null);
+  }, [dialog.working]);
+  const [paneWidth, setPaneWidth] = usePaneWidth();
   // 2026-11-12-92e9c: Inspect left with the controls inside a turn (2026-09-20-4b0ae's acknowledgement with it); the
   // pane is still scrolled to when an upload chip opens it.
   const pane = useRef<HTMLElement>(null);
@@ -313,7 +323,8 @@ export function SpecDialogSurface() {
     : null;
   const title = session?.subject ?? listed;
   // 2026-11-17-0207e: the series its filing runs as, read again with every message the series posts.
-  const series = useSeriesRun(session ? dialog.dialogId : null, dialog.entries.length);
+  // 2026-11-19-1b72a: and with every refetch of the filed work's runs, since the series no longer posts its table.
+  const { series, act: actOnSeries } = useSeriesRun(session ? dialog.dialogId : null, dialog.entries.length, work);
   // Which tickets already have a conversation, from the list this page already holds — so a result
   // row says so instead of offering to open a second one the unique index would refuse anyway.
   const boundTickets = new Set(
@@ -326,11 +337,15 @@ export function SpecDialogSurface() {
   const decision = dialog.question && awaitingCard
     ? approvalDecision(dialog.question, awaitingCard, ticketEffect, bound !== null)
     : null;
-  const decisionBar = decision ? (
+  // 2026-11-19-7c42b: an offered draft is put as a decision in the composer's place; Keep chatting sets it aside for
+  // this proposal only, on this page, and decides nothing. Discard is said in words (7c42a).
+  const awaitingId = awaitingCard?.proposalId ?? null;
+  const deciding = decides(decision, chattingOn, awaitingId);
+  const decisionBar = deciding && decision ? (
     <DialogDecisionBar
       decision={decision}
-      onDecide={(answer) =>
-        void dialog.send(answer, project, answer === "approve" ? "approved" : "rejected", undefined, awaitingCard?.proposalId ?? undefined)}
+      onApprove={() => void dialog.send("approve", project, "approved", undefined, awaitingId ?? undefined)}
+      onKeepChatting={() => setChattingOn(asideKey(awaitingId))}
     />
   ) : null;
 
@@ -339,7 +354,7 @@ export function SpecDialogSurface() {
     // beside an icon-only app sidebar, the page's name in the bar rather than a page head over three cards.
     // 2026-11-17-76f1: a new conversation has no pane — nothing is read, proposed or filed yet — so the shell drops
     // its column and the composer stands where the home page's does.
-    <div className={`mock-shell mock-dialog dl-shell${fresh ? " dl-fresh" : ""}`} data-testid="spec-dialog">
+    <div className={`mock-shell mock-dialog dl-shell${fresh ? " dl-fresh" : ""}`} data-testid="spec-dialog" style={fresh ? undefined : paneWidthStyle(paneWidth)}>
       <DialogConversations
         dialogId={dialog.dialogId}
         sessionHere={session?.sessionId ?? null}
@@ -406,9 +421,7 @@ export function SpecDialogSurface() {
               {/* The dialog id IS the session key: a page that lost it would open a second
                   conversation beside one still running, and an operator comparing two tabs
                   needs to see which is which. */}
-              {series && (
-                <span data-testid="dialog-series-state" data-state={series.state}>{series.headState}</span>
-              )}
+              {series && <DialogSeriesHead series={series} onAct={actOnSeries} />}
               <span data-testid="dialog-identity" className="mono">
                 {session
                   ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`
@@ -467,7 +480,8 @@ export function SpecDialogSurface() {
           {/* The first render holds no dialog id yet — it is read off the browser after the
               mount — so the composer is still guarded on that. Nothing else disables it:
               with no project picked there is no composer to disable. */}
-          {!mustPick && (
+          {!mustPick && decisionBar}
+          {!mustPick && !decisionBar && (
             <DialogComposer
               disabled={!dialog.dialogId}
               onSend={(text) =>
@@ -487,12 +501,12 @@ export function SpecDialogSurface() {
               note={dialog.uploadNote}
               left={leftOf(session)}
               loadHeld={session && dialog.dialogId ? heldOn(dialog.dialogId) : undefined}
-              actions={decisionBar}
             />
           )}
         </section>
       </main>
       )}
+      {!fresh && <DialogPaneHandle onResize={setPaneWidth} />}
       {!fresh && <DialogPane
         session={session}
         projects={settled ? projects.filter((held) => held.name === project) : offered}

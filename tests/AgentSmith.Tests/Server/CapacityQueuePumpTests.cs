@@ -221,6 +221,61 @@ public sealed class CapacityQueuePumpTests : IDisposable
                 "the row must say what refused it, not merely that it ended");
     }
 
+    // 2026-11-19-1b72a: a paused series' hold must not wedge the FIFO, and must not count as an attempt — the drop is
+    // marked, the attempt reader passes over it, and the series' resume starts the ticket again.
+    [Fact]
+    public async Task QueueDrop_HeadHeldByAPausedSeries_IsMarkedAndIsNoAttempt()
+    {
+        var paused = ClaimResult.Rejected(ClaimRejectionReason.SeriesPaused,
+            AgentSmith.Application.Services.Claim.RequiresUnmetGate.SeriesPaused);
+        var harness = new Harness(_connection, ticketStatus: "Approved", claimResult: paused);
+        var reserved = await harness.EnqueueAsync("42");
+
+        await harness.Pump.TickAsync(CancellationToken.None);
+
+        using (var check = new AgentSmithDbContext(Options()))
+            check.Runs.Single(r => r.Id == reserved).EndKind.Should().Be(AgentSmith.Contracts.Runs.RunEndKinds.SeriesPaused);
+        var services = new ServiceCollection();
+        services.AddScoped<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        var scopes = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+        var run = new AgentSmithDbContext(Options()).Runs.Single(r => r.Id == reserved);
+        run.Pipeline.Should().Be("code", "the reader reads code runs, so the pass-over is what this proves");
+        (await new DbPreviousAttemptReader(scopes, new DecidedDefaults(scopes)).LatestAsync(run.Project, run.TicketId!, null, default))
+            .Should().BeNull("a start the pause let go worked nothing");
+    }
+
+    // 2026-11-19-1b72a: any start the pump let go on a refusal never began — it is no attempt, so the landing that lifts
+    // the refusal still starts the ticket; a queued run a person cancelled carries its reason and stays one.
+    [Fact]
+    public async Task QueueDrop_AnyRefusedHead_IsNoAttemptButAPersonsCancelIs()
+    {
+        var harness = new Harness(_connection, ticketStatus: "Approved", claimResult: RefusedClaim());
+        var reserved = await harness.EnqueueAsync("42");
+        await harness.Pump.TickAsync(CancellationToken.None);
+        var reader = Reader();
+        string project, ticket;
+        using (var check = new AgentSmithDbContext(Options()))
+            (project, ticket) = check.Runs.Where(r => r.Id == reserved).Select(r => new ValueTuple<string, string>(r.Project, r.TicketId!)).Single();
+
+        (await reader.HasAttemptAsync(project, ticket, default)).Should().BeFalse();
+
+        using (var db = new AgentSmithDbContext(Options()))
+        {
+            db.Runs.Single(r => r.Id == reserved).CancelReason = "operator";
+            await db.SaveChangesAsync();
+        }
+        (await reader.HasAttemptAsync(project, ticket, default)).Should().BeTrue();
+        (await reader.LatestAsync(project, ticket, null, default))!.RunId.Should().Be(reserved);
+    }
+
+    private DbPreviousAttemptReader Reader()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        var scopes = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+        return new DbPreviousAttemptReader(scopes, new DecidedDefaults(scopes));
+    }
+
     [Fact]
     public async Task QueueDrop_ARefusedHead_NudgesTheSurface()
     {

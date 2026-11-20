@@ -56,7 +56,7 @@ describe("TurnMessage", () => {
     expect(screen.getByTestId(`turn-spec-${draft(2).specId}`)).toHaveTextContent("✂");
     expect(screen.getByTestId(`turn-spec-${draft(3).specId}`)).toHaveTextContent("✕refused: 2026-11-12-003 goal 3 — The store is not shared.");
     expect(screen.queryByTestId(`turn-spec-${draft(0).specId}`)).toBeNull();
-    expect(screen.getByTestId("turn-question")).toHaveTextContent("1. Keep CSV?Proposal: Yes, behind a flag");
+    expect(screen.getByTestId("turn-question")).toHaveTextContent("1. Keep CSV?Yes, behind a flag");
     const course = screen.getByTestId("turn-course");
     expect(course).toHaveTextContent("12 min · $3.40 · 2 review rounds · 2 refusals: 1 open, 1 resolved");
     expect(within(course).getByTestId("turn-course-run")).toHaveAttribute("href", "/jobs/run-1");

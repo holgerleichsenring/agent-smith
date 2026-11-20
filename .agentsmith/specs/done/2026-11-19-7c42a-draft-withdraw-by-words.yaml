@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-7c42a
+goal: "A design turn that empties its draft withdraws the awaiting proposal, so the operator drops a draft in words; questions and proposals come in the operator's language."
+applies_to: "backend (ProposalDraftOutcome, SpecDialogOutcomeFlow, OutcomeProposal) + skills pin"
+facts:
+  - claim: "An emptied draft ends the turn as a plain AnswerOutcome, and HandleAsync returns before touching the awaiting row, so the next turn loads the same proposal again."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/Writes/ProposalDraftOutcome.cs:13-16; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:44; SpecDialogTurnSeeds.cs:69-75"
+  - claim: "Typed words never reject on the dashboard; only the Discard button sends a reject there."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogDecisionPath.cs:60; src/dashboard/src/components/dialog/SpecDialogSurface.tsx:329-335"
+  - claim: "A live terra turn wrote German questions with English proposals that began with 'proposed:'."
+    evidence: "observed: 2026-11-19 design turn 19-19-51-b6f1, SpecDialogProposal questions"
+scope:
+  in: "AnswerOutcome records that the draft was emptied; the outcome flow rejects the awaiting proposal then; open_questions' description asks for the operator's language; pin skills with design-partner 3.8.1."
+  out: "Chat-thread word matching (SpecDialogAnswerWords) — unchanged."
+decisions:
+  - "An emptied draft is an AnswerOutcome with Withdrawn set, not a new outcome kind: it proposes nothing, as before."
+  - "Withdrawing uses the existing reject compare-and-set (state rejected), the same end the Discard button had."
+steps:
+  - id: outcome
+    action: "Give AnswerOutcome a Withdrawn flag; ProposalDraftOutcome.For sets it when the turn changed the draft and left it empty."
+  - id: flow
+    action: "SpecDialogOutcomeFlow rejects the awaiting proposal on a withdrawn answer and says nothing else."
+  - id: tool-text
+    action: "open_questions' tool description: question and proposal in the operator's language, the proposal a plain sentence."
+  - id: pin
+    action: "Pin the skills release carrying design-partner 3.8.1."
+done:
+  - "when a turn deletes every draft file while a proposal awaits, then that proposal's row is rejected and the next turn starts with no draft"
+  - "when a turn changes nothing, then the awaiting proposal still awaits"
+  - "The pinned catalog's design-partner-master is version 3.8.1."
+tests:
+  - For_EmptiedDraft_IsWithdrawnAnswer
+  - HandleAsync_WithdrawnAnswer_RejectsTheAwaitingProposal

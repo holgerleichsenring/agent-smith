@@ -547,16 +547,17 @@ describe("SpecDialogSurface", () => {
   });
 
   // 2026-11-12-92e9d: the decision sits at the composer; the conversation holds no control.
-  it("AwaitingProposal_FileAndDiscardAtComposerOnly", async () => {
+  // 2026-11-19-7c42b: the decision takes the composer's place, with no Discard.
+  it("AwaitingProposal_DecisionInTheComposersPlaceOnly", async () => {
     await renderSurface();
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "", at: new Date().toISOString() }));
     act(() => proposals.emit(proposal()));
     act(() => questions.emit(question()));
 
     const file = await screen.findByTestId("dialog-file");
-    const composer = screen.getByTestId("dialog-composer-text").closest(".d-foot")!;
-    expect(composer).toContainElement(file);
-    expect(composer).toContainElement(screen.getByTestId("dialog-discard"));
+    expect(file).toHaveTextContent(/^Create ticket$/);
+    expect(screen.queryByTestId("dialog-composer-text")).toBeNull();
+    expect(screen.queryByTestId("dialog-discard")).toBeNull();
     expect(within(screen.getByTestId("dialog-decision")).getByTestId("dialog-decision-summary"))
       .toHaveTextContent("File this spec? One ticket.");
     expect(within(screen.getByTestId("dialog-transcript")).queryAllByRole("button")).toHaveLength(0);
@@ -566,7 +567,8 @@ describe("SpecDialogSurface", () => {
     expect(sentProposalIds.at(-1)).toBe("q-1");
   });
 
-  it("NotApprovable_FileHidden", async () => {
+  // 2026-11-19-7c42b: a decision that cannot be approved is not put; the composer stays and says nothing of it.
+  it("NotApprovable_NoDecision_ComposerStays", async () => {
     const bound = view().session!;
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...bound, ticket: { ticketId: "101", title: "Fix the login", text: "", readAt: "2026-09-15T10:00:00Z", truncated: false } },
@@ -580,10 +582,11 @@ describe("SpecDialogSurface", () => {
     act(() => proposals.emit(proposal()));
     act(() => questions.emit(question({ text: "" })));
 
-    await waitFor(() => expect(screen.getByTestId("dialog-decision-summary"))
-      .toHaveTextContent("Approving continues this ticket's series."));
+    await waitFor(() => expect(fetchApprovalPreview).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument());
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
     expect(screen.queryByTestId("dialog-file")).toBeNull();
-    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-discard")).toBeNull();
   });
 
   it("Filed_HistoryShowsQuietLines", async () => {
@@ -606,6 +609,69 @@ describe("SpecDialogSurface", () => {
     expect(screen.getByTestId("dialog-transcript").children).toHaveLength(2);
   });
 
+  // 2026-11-19-7c42b: an offered draft is put as a decision in the composer's place, its button naming what it creates.
+  it("DialogDecisionBar_Offered_NamesWhatItCreates", async () => {
+    const six = Array.from({ length: 6 }, (_, i) => ({
+      key: `t${i}`, title: `T${i}`, requirement: "r", done: [], requires: [], repos: [],
+    }));
+    await renderSurface();
+    act(() => proposals.emit(proposal({
+      kind: "tickets", spec: null, tickets: six, offerLed: true, filingOffer: "Creates the 6 tickets.",
+    } as Partial<SpecDialogProposalPush>)));
+    act(() => questions.emit(question({ text: "" })));
+
+    const surface = await screen.findByTestId("dialog-decision");
+    expect(within(surface).getByTestId("dialog-file")).toHaveTextContent(/^Create 6 tickets$/);
+    expect(within(surface).getByTestId("dialog-keep-chatting")).toHaveTextContent(/^Keep chatting$/);
+    expect(screen.queryByTestId("dialog-composer-text")).toBeNull();
+    fireEvent.click(within(surface).getByTestId("dialog-file"));
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve", "sample"));
+    expect(sentProposalIds.at(-1)).toBe("q-1");
+  });
+
+  it("DialogDecisionBar_KeepChatting_GivesTheComposerBack", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question()));
+
+    fireEvent.click(await screen.findByTestId("dialog-keep-chatting"));
+
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
+  });
+
+  it("DialogDecisionBar_KeepChatting_ComesBackWithTheAgentsNextReply", async () => {
+    // A proposal that keeps its id (an admin draft) is decided again once the agent has answered the chat.
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question()));
+    fireEvent.click(await screen.findByTestId("dialog-keep-chatting"));
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), { target: { value: "one more thing" } });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
+    // While the turn runs the composer stays, though the decision still stands.
+    act(() => questions.emit(question()));
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+
+    act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "Answered.", at: new Date().toISOString() }));
+    // The same proposal, same id, still awaiting after that turn.
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question()));
+
+    expect(await screen.findByTestId("dialog-decision")).toBeInTheDocument();
+  });
+
+  it("DialogDecisionBar_Unoffered_RendersNothing", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal({ offerLed: true } as Partial<SpecDialogProposalPush>)));
+    act(() => questions.emit(question({ text: "" })));
+
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(screen.queryByText(/Not offered/)).toBeNull();
+  });
+
   // 2026-11-12-92e9d: an ask_human question stands in the approval's place; the decision is not offered beside it.
   it("PendingAskHuman_HidesFileAndDiscard", async () => {
     await renderSurface();
@@ -620,15 +686,17 @@ describe("SpecDialogSurface", () => {
     expect(screen.queryByTestId("dialog-question")).toBeNull();
   });
 
-  it("SpecDialog_TheApprovalGate_OffersApproveAndRejectThoughItCarriesNoChoices", async () => {
+  // 2026-11-19-7c42b: the pair is approve and Keep chatting; there is no reject sender on Work it out.
+  it("SpecDialog_TheApprovalGate_OffersApproveAndKeepChattingThoughItCarriesNoChoices", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
 
     act(() => questions.emit(question()));
 
-    fireEvent.click(await screen.findByTestId("dialog-file"));
+    expect(await screen.findByTestId("dialog-keep-chatting")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("dialog-file"));
 
-    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-discard")).toBeNull();
     await waitFor(() =>
       expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "approve", "sample"));
   });
@@ -1883,7 +1951,8 @@ describe("SpecDialogSurface", () => {
   // 2026-09-15-cb3e, found by review: nothing is pushed when a wait expires — the confirmer
   // stops waiting and clears its entry. A card that kept its button turned a click into an
   // ordinary message and bought a whole design turn on the word "approve".
-  it("SpecDialog_AnExpiredQuestion_OffersNoButtonAndSaysItIsNotWaiting", async () => {
+  // 2026-11-19-7c42b: an expired decision is simply not put; the composer stays, with no "No longer waiting" line.
+  it("SpecDialog_AnExpiredQuestion_OffersNoButton_AndTheComposerStays", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
 
@@ -1891,7 +1960,9 @@ describe("SpecDialogSurface", () => {
       expiresAt: new Date(Date.now() - 1000).toISOString(),
     })));
 
-    expect(await screen.findByTestId("dialog-decision-expired")).toHaveTextContent("No longer waiting");
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(screen.queryByText(/No longer waiting/)).toBeNull();
     expect(screen.queryByTestId("dialog-file")).toBeNull();
     expect(screen.queryByTestId("dialog-discard")).toBeNull();
   });
@@ -2793,7 +2864,7 @@ describe("SpecDialogSurface", () => {
     const surface = await screen.findByTestId("dialog-decision");
     expect(within(surface).getByTestId("dialog-decision-summary"))
       .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
-    expect(screen.getByTestId("dialog-file")).toHaveTextContent(/^File$/);
+    expect(screen.getByTestId("dialog-file")).toHaveTextContent(/^Create ticket$/);
 
     act(() => questions.emit(question({ kind: "confirmation", text: "Keep the scope?" })));
 
@@ -2820,7 +2891,7 @@ describe("SpecDialogSurface", () => {
     const surface = await screen.findByTestId("dialog-decision");
     await waitFor(() => expect(within(surface).getByTestId("dialog-decision-summary"))
       .toHaveTextContent("Approving files a follow-up ticket linked to this closed one."));
-    expect(within(surface).getByTestId("dialog-file")).toHaveTextContent(/^File$/);
+    expect(within(surface).getByTestId("dialog-file")).toHaveTextContent(/^Write spec to ticket$/);
     expect(fetchApprovalPreview).toHaveBeenCalledWith("sample", "101", expect.anything());
   });
 
@@ -2828,7 +2899,8 @@ describe("SpecDialogSurface", () => {
   // sends them as the approval's choices. They ride BESIDE the pair — the card used to return
   // the choices INSTEAD of it, which on an approval would have left no way to approve at all.
   // 2026-11-12-92e9d: shapes are no longer offered — the operator says a different shape in words.
-  it("DecisionBar_AnApprovalWithShapes_OffersOnlyFileAndDiscard", async () => {
+  // 2026-11-19-7c42b: the pair is now the create action and Keep chatting.
+  it("DecisionBar_AnApprovalWithShapes_OffersOnlyCreateAndKeepChatting", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
 
@@ -2838,40 +2910,42 @@ describe("SpecDialogSurface", () => {
     })));
 
     const surface = await screen.findByTestId("dialog-decision");
-    expect(within(surface).getAllByRole("button").map((b) => b.textContent)).toEqual(["File", "Discard"]);
+    expect(within(surface).getAllByRole("button").map((b) => b.textContent)).toEqual(["Create ticket", "Keep chatting"]);
     expect(screen.queryByTestId("dialog-answer-Cut into several specs")).toBeNull();
     expect(screen.queryByTestId("dialog-shape-why")).toBeNull();
   });
 
-  it("DecisionBar_DiscardSendsTheRejectAndClearsTheProposalFromThePage", async () => {
+  // 2026-11-19-7c42b: Work it out offers no Discard and sends no reject — discarding is said in words, and the
+  // server withdraws the proposal when the agent deletes the draft (7c42a).
+  it("DecisionBar_OffersNoDiscard_AndSendsNoReject", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
     act(() => questions.emit(question({ text: "File these two tickets?", choices: [] })));
 
-    fireEvent.click(await screen.findByTestId("dialog-discard"));
-
-    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "reject", "sample"));
-    expect(sentProposalIds.at(-1)).toBe("q-1");
-    expect(screen.queryByTestId("dialog-decision")).toBeNull();
-    expect(screen.getByTestId("dialog-turn-decision").querySelector("[data-decision]"))
-      .toHaveAttribute("data-decision", "rejected");
+    await screen.findByTestId("dialog-decision");
+    expect(screen.queryByTestId("dialog-discard")).toBeNull();
+    expect(screen.queryByRole("button", { name: /discard|reject/i })).toBeNull();
+    fireEvent.click(screen.getByTestId("dialog-keep-chatting"));
+    expect(postSpecDialogMessage).not.toHaveBeenCalledWith(heldDialogId(), "reject", "sample");
   });
 
   // The wire has carried each choice's description all along and the card dropped it. A shape
   // is a redirection the operator has to be able to judge, so it says why it is offered.
-  // 2026-11-12-92e9d: a typed note decides nothing — File and Discard stay with the proposal awaiting a decision.
-  it("DecisionBar_SendingAMessage_KeepsFileAndDiscard", async () => {
+  // 2026-11-12-92e9d: a typed note decides nothing.
+  // 2026-11-19-7c42b: the note is typed after Keep chatting; it sends no decision and the set-aside decision stays aside.
+  it("DecisionBar_SendingAMessageAfterKeepChatting_DecidesNothing", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
     act(() => questions.emit(question()));
-    await screen.findByTestId("dialog-file");
+    fireEvent.click(await screen.findByTestId("dialog-keep-chatting"));
 
     fireEvent.change(screen.getByTestId("dialog-composer-text"), { target: { value: "make it smaller" } });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
 
     await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalledWith(heldDialogId(), "make it smaller", "sample"));
-    expect(screen.getByTestId("dialog-file")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-discard")).toBeInTheDocument();
+    expect(postSpecDialogMessage).not.toHaveBeenCalledWith(heldDialogId(), "approve", "sample");
+    expect(postSpecDialogMessage).not.toHaveBeenCalledWith(heldDialogId(), "reject", "sample");
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
   });
 
   // A CHOICE question is a different question: it has no approve/reject pair to ride beside,
@@ -2985,7 +3059,8 @@ describe("SpecDialogSurface", () => {
   // The other way the summary goes missing: a proposal DID arrive, of a kind this build cannot
   // count. Its findings render from it and the pane has it in full, so the two cases must not
   // share a sentence — one says the page has nothing, and here the page has almost everything.
-  it("SpecDialog_AnApprovalWhoseProposalCannotBeCounted_SaysSoWithoutClaimingItIsLost", async () => {
+  // 2026-11-19-7c42b: the bar no longer carries a fallback line; an uncounted proposal shows only its action.
+  it("SpecDialog_AnApprovalWhoseProposalCannotBeCounted_ShowsNoLine_AndNeverClaimsItIsLost", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
       kind: "spec", spec: null, bug: null, parent: null, children: [],
@@ -2997,15 +3072,18 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question({ text: "" })));
 
-    const line = await screen.findByTestId("dialog-decision-summary");
-    expect(line).toHaveTextContent("the Proposal tab has it in full");
-    expect(line).not.toHaveTextContent("Nothing was saved");
+    const surface = await screen.findByTestId("dialog-decision");
+    expect(within(surface).queryByTestId("dialog-decision-summary")).toBeNull();
+    expect(within(surface).getByTestId("dialog-file")).toHaveTextContent(/^Create ticket$/);
+    expect(screen.queryByText(/Nothing was saved/)).toBeNull();
   });
 
   // An expired approval has no summary, no findings and — since the server text went empty —
   // nothing at all but the eyebrow. The line beside its (absent) buttons promised a revision
   // the confirmer had already stopped waiting to make.
-  it("SpecDialog_AnExpiredQuestion_PromisesATurnNotARevision", async () => {
+  // 2026-11-19-7c42b: the expired line is gone; the composer is what an expired wait leaves, and nothing promises
+  // a revision.
+  it("SpecDialog_AnExpiredQuestion_LeavesTheComposerAndPromisesNoRevision", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
 
@@ -3013,9 +3091,9 @@ describe("SpecDialogSurface", () => {
       text: "", expiresAt: new Date(Date.now() - 1000).toISOString(),
     })));
 
-    const line = await screen.findByTestId("dialog-decision-expired");
-    expect(line).toHaveTextContent("Anything you write starts a new turn");
-    expect(line).not.toHaveTextContent("revised");
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(screen.queryByText(/revised/)).toBeNull();
   });
 
   it("SpecDialog_ATabWithNothingToShow_IsNotOffered", async () => {

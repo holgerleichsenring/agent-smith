@@ -51,5 +51,23 @@ public sealed class SeriesRunStoreTests : IDisposable
         kept.BeatRunId.Should().Be("run-9");
     }
 
+    [Fact]
+    public async Task SeriesRunStore_Paused_IsActiveAndHoldsItsTicketsOnly()
+    {
+        await Store.OpenAsync(SeriesRecords.Running("sr-1", "conv-1"), default);
+        (await Store.PausedWithTicketAsync("sample", "44", default)).Should().BeNull("a running series holds nothing");
+
+        await Store.UpdateAsync("sr-1", r => r with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running }, default);
+
+        (await Store.PausedWithTicketAsync("sample", "44", default))!.Id.Should().Be("sr-1");
+        (await Store.PausedWithTicketAsync("sample", "99", default)).Should().BeNull("not a ticket of the series");
+        (await Store.PausedWithTicketAsync("other", "44", default)).Should().BeNull("another project's ticket 44");
+        (await Store.ActiveForConversationAsync("conv-1", default))!.PausedFrom.Should().Be(SeriesRunStates.Running);
+        (await Store.RunningWithTicketAsync("sample", "44", default)).Should().BeNull("a paused series is not running");
+
+        await Store.UpdateAsync("sr-1", r => r with { State = SeriesRunStates.Running, PausedFrom = null }, default);
+        (await Store.RunningWithTicketAsync("sample", "44", default))!.Id.Should().Be("sr-1");
+    }
+
     public void Dispose() => _store.Dispose();
 }

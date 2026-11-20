@@ -25,6 +25,10 @@ public static class RunEndKinds
     /// <summary>A parked attempt closed because a newer attempt of the ticket started past it.</summary>
     public const string Superseded = "superseded";
 
+    /// <summary>2026-11-19-1b72a: a queued start the capacity pump let go because the ticket's series is paused. The
+    /// ticket is not worked by it: the attempt reader passes over it, so the resume starts the ticket again.</summary>
+    public const string SeriesPaused = "series-paused";
+
     /// <summary>2026-11-16-f3fbb: the ends a precondition decided — the ticket keeps its tracker status and is
     /// held Stuck until the precondition holds or a person starts it. <see cref="ReadinessUnknown"/> is not one:
     /// an unreachable host is infrastructure, retried.</summary>

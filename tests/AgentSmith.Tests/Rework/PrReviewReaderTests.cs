@@ -91,6 +91,32 @@ public sealed class PrReviewReaderTests
         mapped.Single().Notes.Select(n => n.Body).Should().Equal("kept");
     }
 
+    // 2026-11-19-1b72e: a system note on a VoteUpdate thread is a vote — a reset (0) too; a ref update is narration.
+    [Fact]
+    public void AzureDevOpsMap_VoteUpdateSystemNote_IsVote_RefUpdateIsNot()
+    {
+        GitPullRequestCommentThread System(string body, PropertiesCollection properties) => new()
+        {
+            Id = body.Length, Status = CommentThreadStatus.Unknown, Properties = properties,
+            Comments = [new Comment { Id = 1, Content = body, CommentType = CommentType.System, Author = new IdentityRef { Id = "1" }, PublishedDate = DateTime.UtcNow }],
+        };
+        var reset = System("Alice reset their vote", new PropertiesCollection { ["CodeReviewThreadType"] = "VoteUpdate", ["CodeReviewVoteResult"] = "0" });
+        var push = System("The reference refs/heads/agent-smith/42 was updated.", new PropertiesCollection { ["CodeReviewThreadType"] = "RefUpdate" });
+
+        var mapped = AzureReposReviewMapping.Map([reset, push], "u", "repo", "proj", null);
+
+        mapped.Select(t => (t.Notes.Single().IsSystem, t.Notes.Single().IsVote)).Should().Equal((true, true), (true, false));
+    }
+
+    [Theory]
+    [InlineData("approved this merge request", true)]
+    [InlineData("unapproved this merge request", true)]
+    [InlineData("requested changes", true)]
+    [InlineData("reset approvals from @alice by pushing to the branch", true)]
+    [InlineData("added 1 commit", false)]
+    public void GitLabIsVoteNote_TellsApprovalActsFromNarration(string body, bool vote) =>
+        GitLabPrReviewThreadReader.IsVoteNote(body).Should().Be(vote);
+
     private sealed class ScriptedGitLab : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

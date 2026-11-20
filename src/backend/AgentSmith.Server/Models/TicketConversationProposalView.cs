@@ -26,6 +26,12 @@ public sealed record TicketConversationProposalView(string Kind, IReadOnlyList<T
 
     /// <summary>2026-11-10-d854b: what the proposing turn spent; null on an older proposal.</summary>
     public ProposalSpend? Spend { get; init; }
+
+    /// <summary>2026-11-19-1b72c: the proposing master leads filing (2026-11-15-bf77), so the decision waits for its offer.</summary>
+    public bool OfferLed { get; init; }
+
+    /// <summary>2026-11-19-1b72c: the master's line of what filing this draft does; null until it offered.</summary>
+    public string? FilingOffer { get; init; }
 }
 
 /// <summary>2026-10-13-9a59h: one drafted spec of an open proposal.</summary>

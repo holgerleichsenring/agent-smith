@@ -43,7 +43,8 @@ export function specsOf(attempt: TicketAttempt, series: TicketSeries | null): Ti
     .sort((l, r) => l.ordinal - r.ordinal);
 }
 
-/** "5 of 5 done criteria met"; null when no verdict was recorded. */
+/** "5 of 5 done criteria met" for a spec stored with recorded verdicts, "reported" for one its master reported on; null
+ *  for neither — 2026-11-19-1b72c: the card then shows no tally at all rather than a line saying so. */
 export function criteriaTally(spec: TicketSeriesSpec): { words: string; all: boolean } | null {
   // 2026-11-18-98fa: a master that ended with finish_spec judged no line; its report is the verdict.
   if (spec.report) {

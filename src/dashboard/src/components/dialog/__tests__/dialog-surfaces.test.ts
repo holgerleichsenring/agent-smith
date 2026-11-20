@@ -66,13 +66,14 @@ export function localSurfaces(content: string): string[] {
 // 2026-11-17-d762a: the page is the ticket page's frame — the conversations' bar, the exchange and the pane — declared
 // in its own sheet. Asserted on the stylesheet, because jsdom lays nothing out: the bar keeps the ticket bar's width
 // and the pane keeps a fixed track for the given names it renders, while the exchange takes what is left.
+// 2026-11-19-7c42b: a 9px handle sits before the pane, whose track is the dragged width (40% until dragged).
 const sheetPath = join(dialogDir, "..", "..", "styles", "spec-dialog.css");
 
 describe("The dialog frame", () => {
   it("SpecDialog_TheShell_IsBarExchangeAndPane", () => {
     const sheet = readFileSync(sheetPath, "utf8");
 
-    expect(sheet).toContain("grid-template-columns: 236px minmax(0, 1fr) 320px");
+    expect(sheet).toContain("grid-template-columns: 236px minmax(0, 1fr) 9px clamp(320px, var(--dl-pane-w, 40%), calc((100% - 245px) * 0.7))");
     expect(readFileSync(join(dialogDir, "SpecDialogSurface.tsx"), "utf8")).not.toContain("@6xl:grid-cols");
   });
 });

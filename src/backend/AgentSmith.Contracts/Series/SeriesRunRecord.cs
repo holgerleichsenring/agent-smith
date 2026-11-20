@@ -44,6 +44,9 @@ public sealed record SeriesRunRecord(
 
     public DateTimeOffset? FinishedAt { get; init; }
 
+    /// <summary>2026-11-19-1b72a: the state a paused series returns to on resume; null unless paused.</summary>
+    public string? PausedFrom { get; init; }
+
     /// <summary>The optimistic version the store compares on update.</summary>
     public int Version { get; init; }
 

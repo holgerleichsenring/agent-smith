@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { DialogProposalPanel } from "../DialogProposalPanel";
 import type { SpecDraftProposal, SpecDialogProposalPush } from "@/types/spec-dialog";
 
@@ -62,6 +62,31 @@ describe("DialogProposalPanel", () => {
     expect(screen.queryByTestId("dialog-mock-versions-c-1")).toBeNull();
     expect(screen.queryByTestId("dialog-mock-versions-parent")).toBeNull();
   });
+  // 2026-11-19-1b72b: a slice is a row whose toggle opens its own body; each row controls a body of its own.
+  it("DialogProposalPanel_Slice_IsARowThatOpensItsBody", () => {
+    const epic: SpecDialogProposalPush = {
+      ...push(spec), kind: "epic", spec: null, parent: { ...spec, specId: "parent" },
+      children: [{ ...spec, specId: "c-1" }, { ...spec, specId: "c-2", steps: ["cut the second"], requires: ["c-1"] }],
+    };
+    render(<DialogProposalPanel proposal={epic} />);
+
+    const first = within(screen.getByTestId("dialog-proposal-spec-c-1")).getByRole("button");
+    const second = within(screen.getByTestId("dialog-proposal-spec-c-2")).getByRole("button");
+    expect(first).toHaveAttribute("aria-expanded", "true");
+    expect(second).toHaveAttribute("aria-expanded", "false");
+    expect(second).toHaveTextContent(/^c-2Open the seam$/);
+    expect(first.getAttribute("aria-controls")).not.toBe(second.getAttribute("aria-controls"));
+    const body = document.getElementById(second.getAttribute("aria-controls")!)!;
+    expect(body).not.toBeVisible();
+
+    fireEvent.click(second);
+
+    expect(second).toHaveAttribute("aria-expanded", "true");
+    expect(body).toBeVisible();
+    expect(within(body).getByText("cut the second")).toBeInTheDocument();
+    expect(within(body).getByText("Slice 1 · c-1")).toBeInTheDocument();
+  });
+
   // 2026-10-28-7a69c: a proposed comment is shown as the text that would be posted.
   it("RendersAProposedComment", () => {
     render(

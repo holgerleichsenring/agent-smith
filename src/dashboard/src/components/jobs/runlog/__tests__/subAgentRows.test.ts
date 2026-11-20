@@ -37,7 +37,8 @@ describe("subAgentRows", () => {
     ], { runEnded: false, hasOlder: false });
 
     expect(rows[0].running).toBe(true);
-    expect(rowSummary(rows[0])).toBe("running · 0 tool calls");
+    // 2026-11-19-1b72d: the first pass recorded one call.
+    expect(rowSummary(rows[0])).toBe("running · 1 tool call");
   });
 
   it("a running child whose LLM call is open is thinking since it started; a closed call is not", () => {
@@ -64,5 +65,38 @@ describe("subAgentRows", () => {
 
     expect(rowSummary(rows[0])).toBe("running · 1+ tool calls");
     expect(rowSummary(rows[1])).toBe("running · 1 tool call");
+  });
+});
+
+// 2026-11-19-1b72d: a finished child says the count its Completed events recorded, never a lower bound.
+describe("subAgentRows, recorded counts", () => {
+  it("SubAgentRows_Finished_CountsRecordedCalls", () => {
+    const done = (id: string, toolCalls: number, s: number) =>
+      ev({ type: EventType.SubAgentCompleted, timestamp: at(s), subAgentId: id, status: "Succeeded", observationsCount: 0, findingsCount: 0,
+        filesWrittenCount: 0, toolCalls, costUsd: 0 });
+    // The child's calls are on an older page that is not loaded: before, this read "0+ tool calls".
+    const rows = subAgentRows([spawned("a", "Reviewer", 0), done("a", 12, 88), spawned("b", "Fixer", 1), done("b", 2, 40),
+      ev({ type: EventType.SubAgentMessaged, timestamp: at(41), subAgentId: "b", text: "again", continued: true }), done("b", 3, 60),
+      call("a", "grep", "x", 87)], { runEnded: false, hasOlder: true });
+
+    expect(rowSummary(rows[0])).toBe("finished · 12 tool calls · 1m 28s");
+    expect(rowSummary(rows[1])).toBe("finished · 5 tool calls · 59.0s");
+  });
+
+  it("a failed child, or one whose continued pass has no loaded end, keeps the lower bound", () => {
+    const end = (id: string, status: string, toolCalls: number, s: number) =>
+      ev({ type: EventType.SubAgentCompleted, timestamp: at(s), subAgentId: id, status, observationsCount: 0, findingsCount: 0,
+        filesWrittenCount: 0, toolCalls, costUsd: 0 });
+    const rows = subAgentRows([spawned("a", "Failing", 0), end("a", "Failed", 0, 30), spawned("b", "Twice", 1),
+      ev({ type: EventType.SubAgentMessaged, timestamp: at(20), subAgentId: "b", text: "again", continued: true }), end("b", "Succeeded", 4, 40),
+      call("a", "grep", "x", 29)], { runEnded: false, hasOlder: true });
+
+    expect(rowSummary(rows[0])).toBe("failed · 1+ tool calls · 30.0s");
+    expect(rowSummary(rows[1])).toBe("finished · 4+ tool calls · 39.0s");
+  });
+
+  it("a child the run ended without an end of its own keeps the lower bound", () => {
+    const rows = subAgentRows([spawned("a", "A", 0), call("a", "grep", "x", 50)], { runEnded: true, hasOlder: true });
+    expect(rowSummary(rows[0])).toBe("ended with the run · 1+ tool calls");
   });
 });

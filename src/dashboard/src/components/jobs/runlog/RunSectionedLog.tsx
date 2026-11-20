@@ -11,6 +11,8 @@ import { RunLog } from "./RunLog";
 import { DeliveredBody, PlanBody, SpecBody } from "./RunLogSectionBodies";
 import { initiallyOpen, runLogSections, type LogSection } from "./runLogSections";
 import { RunStepDetail } from "./RunStepDetail";
+import { ledgerSpec } from "./specStepLines";
+import type { GivenPasses } from "./useSpecStepLines";
 
 // 2026-11-18-d6d2e: the run page's sectioned log on its own (2026-11-17-6d9eb..6d9ec) — Ticket, Before the work, The plan,
 // a section per spec, Checked against the spec, Delivered; a running or stopped section starts open; a step opens its
@@ -31,6 +33,8 @@ interface Props {
   /** The Ticket section's body; without one the log has no Ticket section. */
   ticketBody?: ReactNode;
   checkBody: ReactNode;
+  /** The run's passes as the page already read them; an opened spec step reads them itself without. */
+  passes?: GivenPasses;
 }
 
 function flip(set: ReadonlySet<string>, id: string): Set<string> {
@@ -39,7 +43,7 @@ function flip(set: ReadonlySet<string>, id: string): Set<string> {
   return next;
 }
 
-export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOpenStep, idPrefix = "", ticketBody, checkBody }: Props) {
+export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOpenStep, idPrefix = "", ticketBody, checkBody, passes }: Props) {
   const specs = useRunSpecs(runId, events.length);
   const ledger = useMemo(() => runLedger(snapshot, events), [snapshot, events]);
   const sections = useMemo(() => {
@@ -67,6 +71,7 @@ export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOp
   }, [openStep, sections, idPrefix]);
   const open = new Set(sections.filter((s) => initial.has(s.id) !== toggled.has(s.id)).map((s) => s.id));
   const hasSpecs = sections.some((s) => s.kind === "spec");
+  const ledgerSpecId = ledgerSpec(specs);
 
   const body = (s: LogSection) => {
     switch (s.kind) {
@@ -83,6 +88,6 @@ export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOp
     <RunLog sections={sections} events={events} open={open} onToggle={(id) => setToggled((t) => flip(t, id))} idPrefix={idPrefix}
       openStep={openStep} onToggleStep={(i) => { scrolled.current = true; stepClicked.current = true; onOpenStep(openStep === i ? null : i); }}
       mechanicsOpen={mechanics} onToggleMechanics={(id) => setMechanics((m) => flip(m, id))}
-      body={body} detail={(step) => <RunStepDetail runId={runId} step={step} live={isRunLive(snapshot?.status)} />} />
+      body={body} detail={(step) => <RunStepDetail runId={runId} step={step} live={isRunLive(snapshot?.status)} ledger={ledger} ledgerSpecId={ledgerSpecId} passes={passes} />} />
   );
 }

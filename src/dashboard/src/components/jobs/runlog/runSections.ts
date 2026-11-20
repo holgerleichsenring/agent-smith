@@ -61,18 +61,35 @@ export function sectionState(rows: RunStepRow[]): SectionState {
   return "done";
 }
 
-/** The check section from the run's acceptance verdicts: red when one is unmet, amber when one is unproven. */
-export function checkOf(acceptance: RunAcceptance | null | undefined): { state: SectionState; summary: string } {
+export interface RunCheck {
+  state: SectionState;
+  summary: string;
+  title: string;
+}
+
+/** The check section from the run's acceptance verdicts: red when one is unmet or an account went unmeasured, amber when
+ *  one is unproven. 2026-11-19-1b72c: null when the run recorded no verdict, no report and no unmeasured account — the
+ *  per-criterion verdict was retired (2026-11-18-98fa), so such a run has no check to show, not a "no verdict" line. */
+export function checkOf(acceptance: RunAcceptance | null | undefined): RunCheck | null {
+  const check = recordedCheck(acceptance);
+  if (!acceptance?.unmeasured?.length) return check;
+  return { state: "bad", summary: check ? `${check.summary} · not measured` : "not measured", title: check?.title ?? CHECK_TITLE };
+}
+
+function recordedCheck(acceptance: RunAcceptance | null | undefined): RunCheck | null {
   const criteria = acceptance?.criteria ?? [];
-  // 2026-11-18-98fa: masters that ended with finish_spec judged no line — the section says they reported.
+  // 2026-11-18-98fa: masters that ended with finish_spec judged no line — the section is their report.
   if (criteria.length === 0 && acceptance?.reports?.length) {
     const n = acceptance.followUps?.length ?? 0;
-    return { state: "done", summary: n > 0 ? `reported · ${n} follow-up${n === 1 ? "" : "s"}` : "reported" };
+    return { state: "done", summary: n > 0 ? `reported · ${n} follow-up${n === 1 ? "" : "s"}` : "reported", title: REPORT_TITLE };
   }
-  if (criteria.length === 0) return { state: "pending", summary: "no verdict recorded" };
+  if (criteria.length === 0) return null;
+  // A run stored before 98fa keeps its recorded verdicts and their count (98fa: "Runs stored before keep their counts").
   const met = criteria.filter((c) => c.status === "met").length;
-  const words = `${met} of ${criteria.length} done criteria met`;
-  if (criteria.some((c) => c.status === "unmet")) return { state: "bad", summary: words };
-  if (criteria.some((c) => c.status === "unproven")) return { state: "warn", summary: words };
-  return { state: "done", summary: words };
+  const summary = `${met} of ${criteria.length} done criteria met`;
+  const state = criteria.some((c) => c.status === "unmet") ? "bad" : criteria.some((c) => c.status === "unproven") ? "warn" : "done";
+  return { state, summary, title: CHECK_TITLE };
 }
+
+const CHECK_TITLE = "Checked against the spec";
+const REPORT_TITLE = "The master's report";

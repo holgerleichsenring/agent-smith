@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-20-4cfa
+goal: "The embedded skills catalog is pinned to v5.41.2: design-partner 3.8.2 names delete_file for discarding a draft and carries the shared spec-review brief."
+
+applies_to: "default (Infrastructure.Core skills pin)"
+
+requires: [2026-11-19-7c42a]
+
+facts:
+  - claim: "The pin is SkillsCatalogVersion v5.41.1 with its sha256, and the tarball is checked in under Resources/."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-58"
+  - claim: "The v5.41.2 release tarball hashes to c5f45285fe4beb0b5793eb970bf6ee5717b73da98731b0d685ad4b4cd11051e5, equal to the release's .sha256 asset."
+    evidence: "observed: 2026-11-20, shasum -a 256 of the released agentsmith-skills-v5.41.2.tar.gz"
+
+scope:
+  in: "SkillsCatalogVersion v5.41.2 and its sha256; the v5.41.1 tarball replaced; the first-design-turn size ceiling follows the measured 3.8.2 prompt."
+  out: "Any skill text change (released in agent-smith-skills #305)."
+
+upgrade_impact: "A deployment on the embedded catalog loads design-partner 3.8.2."
+
+steps:
+  - id: pin
+    action: "Bump the version and sha256; swap the tarball."
+
+tests:
+  - "The packaged catalog validates at build; the Skills test classes stay green."
+
+done:
+  - "Build and the full suite are green on the v5.41.2 pin."

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-1b72e
+goal: "The ticket thread no longer shows the host's system comments on a pull request, such as Azure DevOps' 'The reference … was updated' on every push."
+applies_to: "dashboard (tickets/detail thread) or backend thread reader"
+facts:
+  - claim: "Azure DevOps posts a system comment on each push to a PR branch, and the ticket thread shows each as a 'system' entry."
+    evidence: "observed: operator, 2026-11-19 screenshot of #19648, five 'The reference refs/heads/agent-smith/19648 was updated.' entries"
+  - claim: "Pull-request notes already carry IsSystem from the host's comment type."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewMapping.cs:33"
+scope:
+  in: "Host-generated system comments in the ticket thread."
+  out: "Comments people write, and agent-smith's own notes."
+steps:
+  - id: filter
+    action: "Leave host system comments out of the ticket thread where it is assembled."
+done:
+  - "when a PR carries host system comments, then the ticket thread shows none of them and every comment a person wrote"
+  - "Notes stored before this change show by their stored decision; a withdrawn vote stored earlier without a decision is not recovered."
+tests:
+  - TicketThread_HostSystemComment_IsNotShown

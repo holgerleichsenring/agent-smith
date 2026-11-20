@@ -140,11 +140,42 @@ public sealed class TicketConversationReadTests : IDisposable
     [Fact]
     public async Task TicketConversation_SystemPrNote_RoleSystem()
     {
-        await _h.AddAsync(Attempt("r-1", 0), Record("7"), Note("7", "t-1/c-1", "Alice voted -5", 10, author: "alice", system: true));
+        await _h.AddAsync(Attempt("r-1", 0), Record("7"),
+            Note("7", "t-1/c-1", "Alice voted -5", 10, author: "alice", system: true, decision: PrReviewDecisions.ChangesRequested));
 
         var entry = (await ReadAsync()).Entries.Single();
 
         (entry.Role, entry.Author).Should().Be((TicketConversationRoles.System, (string?)null));
+    }
+
+    // 2026-11-19-1b72e: the host narrating a push is not part of the thread; what people wrote is.
+    [Fact]
+    public async Task TicketThread_HostSystemComment_IsNotShown()
+    {
+        await _h.AddAsync(Attempt("r-1", 0), Record("7"),
+            Note("7", "t-1/c-1", "The reference refs/heads/agent-smith/42 was updated.", 10, author: null, system: true),
+            Note("7", "t-2/c-1", "The reference refs/heads/agent-smith/42 was updated.", 12, author: null, system: true),
+            Note("7", "t-3/c-1", "Please rename the handler.", 14, author: "bob"),
+            Note("7", "t-4/c-1", "Renamed.", 16, author: "agent", ours: true));
+
+        var entries = (await ReadAsync()).Entries;
+
+        entries.Select(e => e.Text).Should().Equal("Please rename the handler.", "Renamed.");
+        entries.Should().NotContain(e => e.Role == TicketConversationRoles.System);
+    }
+
+    // A withdrawn or reset vote carries no decision; it stays, or the thread would still read approved.
+    [Fact]
+    public async Task TicketThread_WithdrawnVote_StaysVisible()
+    {
+        await _h.AddAsync(Attempt("r-1", 0), Record("7"),
+            Note("7", "t-1/c-1", "Alice approved the pull request", 10, author: "alice", system: true, vote: true),
+            Note("7", "t-2/c-1", "Alice reset their vote", 12, author: "alice", system: true, vote: true),
+            Note("7", "t-3/c-1", "The reference refs/heads/agent-smith/42 was updated.", 14, author: null, system: true));
+
+        var entries = (await ReadAsync()).Entries;
+
+        entries.Select(e => e.Text).Should().Equal("Alice approved the pull request", "Alice reset their vote");
     }
 
     [Fact]

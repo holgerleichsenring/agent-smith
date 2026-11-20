@@ -45,8 +45,9 @@ internal static class ReworkHandlers
     private static RequirementsMetStart NoStart(ReworkFallbackSpawn fallback)
     {
         var facts = new InMemoryTicketFacts();
-        return new(facts, Hold(facts), TicketRequirementDoubles.Of(facts), Mock.Of<IServiceScopeFactory>(),
-            fallback, NullLogger<RequirementsMetStart>.Instance);
+        return new(new WaitingTicketStart(facts, Hold(facts), TicketRequirementDoubles.Of(facts), Mock.Of<IServiceScopeFactory>(),
+            fallback, Mock.Of<IPreviousAttemptReader>(), Mock.Of<IActiveRunLease>(),
+            NullLogger<WaitingTicketStart>.Instance));
     }
 
     public static TicketStartHold Hold(InMemoryTicketFacts facts, ITicketProviderFactory? trackers = null) =>

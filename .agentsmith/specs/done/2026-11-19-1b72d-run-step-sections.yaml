@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-1b72d
+goal: "An opened spec step in the run view shows four headed sections — the spec's steps with their state, the sub-agents, build and tests per repository, the activity log — in hairline rows."
+applies_to: "dashboard (components/jobs/runlog: RunStepDetail, StepSubAgents, stepDetailLines, subAgentRows)"
+requires:
+  - 2026-11-19-1b72c
+facts:
+  - claim: "The step shows '1 of 6 steps done' without naming the steps, and runs sub-agents, repository checks and the event list together without headings."
+    evidence: "observed: operator, 2026-11-19 screenshot of Run 1 of #19648, 'Run master skill' opened"
+  - claim: "A finished reviewer that read files shows '0+ tool calls'."
+    evidence: "observed: same screenshot, ApprovalOutboxReviewer finished · 0+ tool calls"
+scope:
+  in: "The opened spec step of the run view, the same component on the ticket page and the run page."
+  out: "The step list's head lines (Before the work, The plan, Delivered) — unchanged."
+steps:
+  - id: steps
+    action: "List the spec's steps under 'Steps of the spec' with done, current or open."
+  - id: subagents
+    action: "Put the sub-agents under their own heading with role, name, state, tool calls counted from the record, and duration."
+  - id: checks
+    action: "Put each repository's build/test command and result under 'Build and tests'."
+  - id: log
+    action: "Put the existing event list with its filters under 'Activity'."
+done:
+  - "when a spec step is opened, then the four sections render with their headings in this order"
+  - "A finished sub-agent shows its recorded tool call count without a '+'."
+tests:
+  - RunStepDetail_Opened_ShowsFourHeadedSections
+  - SubAgentRows_Finished_CountsRecordedCalls

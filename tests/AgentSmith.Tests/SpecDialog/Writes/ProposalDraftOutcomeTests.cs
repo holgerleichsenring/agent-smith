@@ -29,6 +29,31 @@ public sealed class ProposalDraftOutcomeTests
     }
 
     [Fact]
+    public void For_EmptiedDraft_IsWithdrawnAnswer()
+    {
+        // 2026-11-19-7c42a: a turn that deleted its whole draft withdraws the proposal awaiting a decision.
+        var store = new ProposalStore();
+        store.Seed(new ProposalDraft { Specs = [Spec("p9001", false)] }, changed: false);
+        store.Apply(_ => DraftWrite.To(ProposalDraft.Empty), discards: true);
+
+        ProposalDraftOutcome.For(store).Should().BeOfType<AnswerOutcome>().Which.Withdrawn.Should().BeTrue();
+    }
+
+    [Fact]
+    public void For_DraftEmptiedWithoutDiscard_IsPlainAnswer()
+    {
+        // A recut that deletes draft:tickets/ and dies before rewriting is no discard; nor is a discard written over.
+        var store = new ProposalStore();
+        store.Seed(new ProposalDraft { Specs = [Spec("p9001", false)] }, changed: false);
+        store.Apply(_ => DraftWrite.To(ProposalDraft.Empty));
+        ProposalDraftOutcome.For(store).Should().BeOfType<AnswerOutcome>().Which.Withdrawn.Should().BeFalse();
+
+        store.Apply(_ => DraftWrite.To(ProposalDraft.Empty), discards: true);
+        store.Apply(_ => DraftWrite.To(new ProposalDraft { Specs = [Spec("p9002", false)] }));
+        store.Discarded.Should().BeFalse("a write after the discard takes it back");
+    }
+
+    [Fact]
     public void ProposalDraftOutcome_EachKind_IsWhatTheDraftHolds()
     {
         ProposalDraftOutcome.Of(new ProposalDraft { Specs = [Spec("p9001", false)] }).Should().BeOfType<SpecOutcome>();

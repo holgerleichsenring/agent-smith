@@ -91,7 +91,7 @@ export function DialogPane({
     ...(series ? (["series"] as const) : []),
   ];
   // 2026-11-17-0207e: while a series runs its panel is what the column shows first.
-  const running = series && (series.state === "running" || series.state === "verifying");
+  const running = series && (series.state === "running" || series.state === "verifying" || series.state === "paused"); // 1b72a
   const fallback: DialogPaneTab = running ? "series" : filed ? "filed" : proposal ? "proposal" : "scope";
   const tab = focus && offered.includes(focus.tab) ? focus.tab : fallback;
   const ids = useId();
@@ -130,7 +130,7 @@ export function DialogPane({
         {tab === "filed" && <DialogFiledPanel filed={filed} work={work} />}
         {tab === "series" && series && <DialogSeriesPanel series={series} />}
         {tab === "proposal" && shownProposal && (
-          <DialogProposalPanel proposal={shownProposal} mocks={session?.mocks} ratifiedMocks={session?.ratifiedMocks}
+          <DialogProposalPanel key={shownProposal.proposalId ?? shownProposal.at} proposal={shownProposal} mocks={session?.mocks} ratifiedMocks={session?.ratifiedMocks}
             sessionId={session?.sessionId} onRatified={onRefresh} filed={filed !== null} />
         )}
         {tab === "scope" && (

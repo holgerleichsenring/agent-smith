@@ -113,7 +113,8 @@ describe("AttemptReport", () => {
     expect(within(log).getByTestId("run-section-spec:s2")).toHaveAttribute("data-state", "pending");
     expect(within(log).getByTestId("run-section-meta-spec:s2")).toHaveTextContent("0 of 2 steps done");
     expect(within(log).queryByTestId("run-section-ticket")).toBeNull();
-    expect(within(log).getByTestId("run-section-check")).toBeInTheDocument();
+    // 2026-11-19-1b72c: a run that recorded no verdict and no report has no check section.
+    expect(within(log).queryByTestId("run-section-check")).toBeNull();
     // The stopped spec opens by itself; the planned one stays closed.
     expect(within(log).getByTestId("run-step-2")).toHaveAttribute("id", "r-r-1-step-2");
     expect(within(log).queryByTestId("run-step-3")).toBeNull();
@@ -122,6 +123,8 @@ describe("AttemptReport", () => {
   // 2026-11-18-98fa: the check of a run whose master ended with finish_spec is its report and its follow-ups.
   it("AttemptReport_CheckSection_ShowsTheMastersReportAsMarkdown_AndItsFollowUpsToFile", async () => {
     runSteps.rows = [row(1, "AgenticMaster", "Run master skill", { specId: "s1", status: "success" })];
+    api.run.mockImplementationOnce(() => Promise.resolve({ runId: "r-1", status: "success",
+      acceptance: { criteria: [], outcome: null, ratifiedBy: null, reports: [{ markdown: "## Delivered", specId: "s1" }] } } as never));
     api.series.mockImplementationOnce(() => Promise.resolve(series("r-1", [spec({
       done: [{ text: "Builds", verdict: null, note: null, citation: null, overrule: null }],
       report: "## Delivered\n\n- the **retry** policy",
@@ -129,7 +132,7 @@ describe("AttemptReport", () => {
     })])));
     await report();
     const log = screen.getByTestId("thread-runlog-1");
-    fireEvent.click(within(within(log).getByTestId("run-section-check")).getByRole("button", { name: /Checked against the spec/ }));
+    fireEvent.click(within(within(log).getByTestId("run-section-check")).getByRole("button", { name: /The master's report/ }));
     const check = within(log).getByTestId("thread-runlog-check-1");
     expect(within(check).getByTestId("master-report-s1").querySelector("li")).toHaveTextContent("the retry policy");
     expect(check).not.toHaveTextContent("overrule");
@@ -150,6 +153,15 @@ describe("AttemptReport", () => {
   it("AttemptReport_Live_SaysItIsWorking", async () => {
     await report(attempt({ status: "running", finishedAt: null }));
     expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Run 1 is working.");
+  });
+
+  // 2026-11-19-1b72c: a spec that recorded no verdict and no report names no tally — no "no verdict" line.
+  it("SpecCard_NoVerdict_NamesNoTally", async () => {
+    api.series.mockImplementationOnce(() => Promise.resolve(series("r-1", [spec({ verdictRecorded: false })])));
+    await report();
+    const card = screen.getByTestId("spec-card-s1");
+    expect(within(card).queryByTestId("spec-card-tally")).toBeNull();
+    expect(card).not.toHaveTextContent(/no verdict|done criteria met/);
   });
 
   it("SpecCard_ClosedNamesTheTally_OpenListsVerdictsAndOpensTheWholeSpec", async () => {

@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { RunEvent } from "@/types/hub-events";
 import { minutesAndSeconds } from "@/components/dialog/DialogElapsed";
+import { StepPart } from "./StepPart";
 import { rowSummary, subAgentRows, type SubAgentRow } from "./subAgentRows";
 
 // 2026-11-19-687eb: an open step's sub-agents, directly under its header — one line each, opened to what its master
 // asked of it and the tool calls it made. They were two lines at the bottom of a newest-first list before, and their
-// tool calls were nowhere.
+// tool calls were nowhere. 2026-11-19-1b72d: under their own "Sub-agents" heading, a hairline row each.
 
 interface Props {
   events: RunEvent[];
@@ -28,22 +29,24 @@ export function StepSubAgents({ events, live, hasOlder, loading, loadOlder }: Pr
     return next;
   });
   return (
-    <div className="rl-subs" data-testid="step-sub-agents">
-      {rows.map((row) => (
-        <div key={row.id} className="rl-sub" data-testid="step-sub-agent" data-running={row.running}>
-          <button type="button" className="rl-sub-head" aria-expanded={open.has(row.id)} onClick={() => toggle(row.id)}
-            title={row.brief} data-testid="step-sub-agent-toggle">
-            <span className="rl-sub-mark" aria-hidden="true">{open.has(row.id) ? "▾" : "▸"}</span>
-            <span className="rl-sub-name">{row.name}</span>
-            <span className={row.failed ? "rl-bad" : row.running ? "rl-sub-run" : "rl-dim"} data-testid="step-sub-agent-status">
-              {rowSummary(row)}
-              {row.thinkingSince && <> · thinking · <Since iso={row.thinkingSince} /></>}
-            </span>
-          </button>
-          {open.has(row.id) && <SubAgentBody row={row} hasOlder={hasOlder} loading={loading} loadOlder={loadOlder} />}
-        </div>
-      ))}
-    </div>
+    <StepPart title="Sub-agents" testId="step-part-subagents">
+      <div className="rl-subs" data-testid="step-sub-agents">
+        {rows.map((row) => (
+          <div key={row.id} className="rl-sub" data-testid="step-sub-agent" data-running={row.running}>
+            <button type="button" className="rl-sub-head" aria-expanded={open.has(row.id)} onClick={() => toggle(row.id)}
+              title={row.brief} data-testid="step-sub-agent-toggle">
+              <span className="rl-sub-mark" aria-hidden="true">{open.has(row.id) ? "▾" : "▸"}</span>
+              <span className="rl-sub-name">{row.name}</span>
+              <span className={row.failed ? "rl-bad" : row.running ? "rl-sub-run" : "rl-dim"} data-testid="step-sub-agent-status">
+                {rowSummary(row)}
+                {row.thinkingSince && <> · thinking · <Since iso={row.thinkingSince} /></>}
+              </span>
+            </button>
+            {open.has(row.id) && <SubAgentBody row={row} hasOlder={hasOlder} loading={loading} loadOlder={loadOlder} />}
+          </div>
+        ))}
+      </div>
+    </StepPart>
   );
 }
 

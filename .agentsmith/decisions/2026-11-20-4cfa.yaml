@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-20-4cfa
+
+decisions:
+  - category: Dependencies
+    chose: "Pin the embedded skills catalog to v5.41.2 (sha256 c5f45285…51e5), the checked-in tarball swapped"
+    over: "Leaving v5.41.1, whose design-partner names write_file with delete:true, a tool shape that does not exist, so a draft could not be discarded"
+    reason: "The draft tools are write_file, edit_file and delete_file; 7c42a withdraws the proposal when the draft root is deleted, which only works when the skill names the real tool."
+  - category: Testing
+    chose: "Raise the first-design-turn size ceiling in SpecDialogPromptSizeTests from 40000 to 42000, with the measured 40828 and its cause in the comment"
+    over: "Trimming the 3.8.2 text to fit under 40000"
+    reason: "The 828 added characters are the fixes the live turn needed (delete_file, review of the draft as it stands, a recut deletes what it replaces); the ceiling exists to catch unused tools and formats, and the comment trail records every measured step."

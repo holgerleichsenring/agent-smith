@@ -101,9 +101,8 @@ public sealed class CapacityQueuePump(
         var result = await claimService.ClaimAsync(ToClaimRequest(head), config, ct);
         if (result.Outcome == ClaimOutcome.Claimed) await queue.RemoveAsync(head.Project, head.TicketId, ct);
         else if (head.ReservedRunId is not null) await capacityBudget.ReleaseAsync(head.ReservedRunId, ct);
-        // c1a7: a rejection is permanent, and this pump looks only at the head — it must not stay.
-        if (result.Outcome == ClaimOutcome.Rejected)
-            await drop.DropAsync(head, result.Error ?? $"{result.Rejection}", ct);
+        // c1a7: a rejection is permanent, and this pump looks only at the head — it must not stay (1b72a: a pause's is marked).
+        if (result.Outcome == ClaimOutcome.Rejected) await drop.RefusedAsync(head, result, ct);
         logger.LogInformation("Capacity-queue head {Project}/#{Ticket} (run {RunId}) launch → {Outcome}",
             head.Project, head.TicketId, head.ReservedRunId, result.Outcome);
     }

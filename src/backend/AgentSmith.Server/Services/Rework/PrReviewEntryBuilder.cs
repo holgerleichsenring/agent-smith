@@ -40,6 +40,7 @@ public sealed class PrReviewEntryBuilder
         entry.IsOurs = note.IsOurs;
         entry.IsBot = note.IsBot;
         entry.IsSystem = note.IsSystem;
+        entry.IsVote = note.IsVote;
         entry.File = thread.File;
         entry.Line = thread.Line;
         entry.Resolved = thread.Resolved;

@@ -169,6 +169,7 @@ beforeEach(() => {
   ticketsApi.preview.mockReset();
   ticketsApi.preview.mockImplementation(async () => preview());
   ticketsApi.retry.mockReset();
+  api.text.mockImplementation(() => Promise.resolve(ticketText()));
 });
 afterEach(() => vi.useRealTimers());
 
@@ -429,30 +430,50 @@ describe("Ticket thread", () => {
     expect(footers[0].closest("[data-entry-id]")).toHaveAttribute("data-entry-id", "x");
   });
 
-  it("Approve_AnswersTheApprovalQuestionWithApprove_OnTheOpenDialog", async () => {
+  // 2026-11-19-1b72c: the ticket page decides like Work it out — the offered proposal's action and Keep chatting take
+  // the composer's place; there is no Approve, Discard or Ask for changes.
+  it("TicketComposer_Offered_DecidesInTheComposersPlace", async () => {
     world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
     world.sessions["d-open"] = session("s-1");
     world.questions["d-open"] = approvalQuestion("d-open");
     await open();
-    expect(screen.getByTestId("ticket-effect")).toHaveTextContent("Approving continues this ticket's series. The next attempt starts now.");
+    const composer = screen.getByTestId("ticket-composer");
+    expect(within(composer).getByTestId("dialog-decision-summary"))
+      .toHaveTextContent("Approving continues this ticket's series. The next attempt starts now.");
+    expect(within(composer).getByTestId("dialog-file")).toHaveTextContent(/^Write spec to ticket$/);
+    expect(within(composer).getByTestId("dialog-keep-chatting")).toBeInTheDocument();
+    // A decision or text, never both.
+    expect(within(composer).queryByTestId("ticket-chat-box")).toBeNull();
+    expect(within(composer).queryByTestId("dialog-composer-text")).toBeNull();
+    for (const gone of ["ticket-approve", "ticket-discard", "ticket-ask-changes", "dialog-answer-reject"])
+      expect(screen.queryByTestId(gone)).toBeNull();
     // 2026-11-10-d854b: the draft is a row of the turn result now — its goal, then its repository.
     expect(screen.getByTestId("ticket-proposal")).toHaveTextContent(/Import consumer cap 30 s\s*portal-worker/);
-    fireEvent.click(screen.getByTestId("ticket-approve"));
+  });
+
+  it("TheAction_AnswersTheApprovalQuestionWithApprove_OnTheOpenDialog", async () => {
+    world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
+    world.sessions["d-open"] = session("s-1");
+    world.questions["d-open"] = approvalQuestion("d-open");
+    await open();
+    fireEvent.click(screen.getByTestId("dialog-file"));
     await settle();
     await settle();
     expect(dialogApi.resume).not.toHaveBeenCalled();
     expect(dialogApi.post).toHaveBeenCalledWith("d-open", "approve", "shop", undefined, "q-1"); // 2026-11-10-ccd9: the card shown
+    expect(dialogApi.post).not.toHaveBeenCalledWith("d-open", "reject", expect.anything(), expect.anything(), expect.anything());
   });
 
-  // 2026-11-12-92e9d: File and Discard are passed in by Work it out alone; the ticket composer keeps its own row.
-  it("TicketComposer_HasNoFile", async () => {
+  it("KeepChatting_GivesTheComposerBack_AndSendsNothing", async () => {
     world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
     world.sessions["d-open"] = session("s-1");
     world.questions["d-open"] = approvalQuestion("d-open");
     await open();
-    expect(screen.getByTestId("ticket-approve")).toBeInTheDocument();
-    expect(screen.queryByTestId("dialog-file")).toBeNull();
+    fireEvent.click(screen.getByTestId("dialog-keep-chatting"));
+    await settle();
     expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(input()).toBeInTheDocument();
+    expect(dialogApi.post).not.toHaveBeenCalled();
   });
 
   it("TicketComposer_QueuedDecision_CarriesTheShownId", async () => {
@@ -462,31 +483,108 @@ describe("Ticket thread", () => {
     world.sessions["d-open"] = session("s-1");
     world.questions["d-open"] = approvalQuestion("d-open", { questionId: "p-later" });
     await open();
-    fireEvent.click(screen.getByTestId("ticket-approve"));
+    fireEvent.click(screen.getByTestId("dialog-file"));
     await settle();
     await settle();
     expect(dialogApi.post).toHaveBeenCalledWith("d-open", "approve", "shop", undefined, "p-shown");
   });
 
-  it("WithRefusedQuestionPending_ThereIsNoApprove", async () => {
+  it("WithRefusedQuestionPending_ThereIsNoDecision_TheLineSaysWhy", async () => {
     world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
     ticketsApi.preview.mockImplementation(async () => preview({ start: { kind: "refused-question-pending" } }));
     await open();
     expect(screen.getByTestId("ticket-effect")).toHaveTextContent("answer it first");
-    expect(screen.queryByTestId("ticket-approve")).toBeNull();
-    expect(screen.getByTestId("ticket-discard")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(input()).toBeInTheDocument();
   });
 
-  it("AnExpiredQuestion_OffersNoApprove_AndWithNoApprovalQuestionThereIsNoEffectLine", async () => {
+  // 2026-10-14-dbcek: a list of tickets is filed from Work it out without a ticket, never from a ticket's conversation.
+  it("ABoundList_PutsNoDecision_TheLineSaysWhereAListIsFiled", async () => {
+    world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: { ...PROPOSAL, kind: "tickets" } };
+    await open();
+    expect(screen.getByTestId("ticket-effect")).toHaveTextContent("A list of tickets is filed from Work it out without a ticket");
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+  });
+
+  it("AnExpiredQuestion_PutsNoDecisionOnceWatched_AndShowsNoEffectLine", async () => {
     world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
     world.sessions["d-open"] = session("s-1");
     world.questions["d-open"] = approvalQuestion("d-open", { expiresAt: "2020-01-01T00:00:00Z" });
     await open();
+    fireEvent.click(screen.getByTestId("dialog-keep-chatting"));
+    await settle();
     fireEvent.focus(input());
     await settle();
     await settle();
-    expect(screen.queryByTestId("ticket-approve")).toBeNull();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
     expect(screen.queryByTestId("ticket-effect")).toBeNull();
+  });
+
+  // 2026-11-15-bf77 on the ticket page: a master that leads filing has not offered this draft — nothing to decide yet.
+  it("AnUnofferedDraft_PutsNoDecision_BeforeAndAfterTheFirstTouch", async () => {
+    world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: { ...PROPOSAL, offerLed: true, filingOffer: null } };
+    world.sessions["d-open"] = session("s-1");
+    world.questions["d-open"] = approvalQuestion("d-open");
+    await open();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(screen.queryByTestId("ticket-effect")).toBeNull();
+    fireEvent.focus(input());
+    await settle();
+    await settle();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(input()).toBeInTheDocument();
+  });
+
+  it("AnOfferedDraft_DecidesWithTheMastersLine", async () => {
+    world.conversation = {
+      ...conversation([]), sessionId: "s-1", openDialogId: "d-open",
+      proposal: { ...PROPOSAL, offerLed: true, filingOffer: "Writes the import cap spec to this ticket." },
+    };
+    await open();
+    expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent("Writes the import cap spec to this ticket.");
+  });
+
+  it("KeepChatting_TheDecisionComesBack_OnceTheNextTurnHasFinished", async () => {
+    world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
+    world.sessions["d-open"] = session("s-1");
+    world.questions["d-open"] = approvalQuestion("d-open");
+    await open();
+    fireEvent.click(screen.getByTestId("dialog-keep-chatting"));
+    await settle();
+    await sendText("Make the cap 20 s");
+    await settle();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    act(() => dialogHub.specDialogMessages.emit({ dialogId: "d-open", title: "", text: "Changed the cap to 20 s.", at: "2026-09-04T14:40:00Z" }));
+    await settle();
+    await settle();
+    expect(screen.getByTestId("dialog-decision")).toBeInTheDocument();
+    expect(screen.queryByTestId("ticket-chat-box")).toBeNull();
+  });
+
+  it("YourMoveReply_SetsTheDecisionAside_AndFocusesTheTextField", async () => {
+    world.detail = detail([attempt({ status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
+    world.sessions["d-open"] = session("s-1");
+    world.questions["d-open"] = approvalQuestion("d-open");
+    await open();
+    expect(screen.getByTestId("dialog-decision")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("ticket-state-act"));
+    await settle();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(document.activeElement).toBe(input());
+    expect(dialogApi.post).not.toHaveBeenCalled();
+  });
+
+  it("DivergenceDiscuss_SetsTheDecisionAside_AndFocusesTheTextField", async () => {
+    api.text.mockImplementation(() => Promise.resolve({ ...ticketText(), divergence: { specs: 2, unsaid: ["Retry with backoff"] } }));
+    world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
+    await open();
+    expect(screen.getByTestId("dialog-decision")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("divergence-discuss"));
+    await settle();
+    expect(screen.queryByTestId("dialog-decision")).toBeNull();
+    expect(document.activeElement).toBe(input());
   });
 
   it("RetryUnchanged_AfterAnInfrastructureEnd_A409ShowsItsReasonText", async () => {

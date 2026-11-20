@@ -54,7 +54,12 @@ public abstract record OutcomeProposal
 }
 
 /// <summary>A grounded answer — the turn ends with no artifact.</summary>
-public sealed record AnswerOutcome : OutcomeProposal;
+public sealed record AnswerOutcome : OutcomeProposal
+{
+    /// <summary>2026-11-19-7c42a: the turn deleted its whole draft, so the proposal awaiting a decision is withdrawn —
+    /// how the operator discards a draft in words.</summary>
+    public bool Withdrawn { get; init; }
+}
 
 /// <summary>A small change worth a fix-bug ticket, not a spec.</summary>
 public sealed record BugOutcome(BugTicketDraft Ticket) : OutcomeProposal;

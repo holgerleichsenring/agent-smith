@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-7c42b
+goal: "Work it out drops the decision banner and Discard; an offered draft replaces the composer with two choices, e.g. 'Create 6 tickets' and 'Keep chatting'; the proposal pane is wider and resizable."
+applies_to: "dashboard (approvalDecision, DialogDecisionBar, TurnQuestions, SpecDialogSurface, DialogPane)"
+requires:
+  - 2026-11-19-7c42a
+facts:
+  - claim: "The composer shows the NOT_OFFERED line and a Discard button while a proposal awaits, also after the operator answered."
+    evidence: "src/dashboard/src/components/dialog/approvalDecision.ts:23,44-52; src/dashboard/src/components/dialog/DialogDecisionBar.tsx:21-41"
+  - claim: "Each open question renders its proposal behind a literal 'Proposal:' label."
+    evidence: "src/dashboard/src/components/dialog/TurnQuestions.tsx:18"
+  - claim: "The operator asked for a decision that is either a click or text, never both at once, and for a wider pane they can size."
+    evidence: "observed: operator, 2026-11-19 chat, on the mock https://claude.ai/artifact/25d1YVHpEzSjdPJY7d3Cp2"
+scope:
+  in: "The Work it out composer's decision, the turn's open questions and the width of the Proposal/Scope/Uploads pane."
+  out: "The ticket page's approval card and composer (DialogQuestionCard, TicketComposer) — they keep Approve/Discard."
+decisions:
+  - "An offered draft is a decision like a permission prompt: it takes the composer's place with exactly two buttons; Keep chatting gives the composer back and leaves the draft standing."
+  - "An unoffered awaiting draft shows nothing at the composer; discarding is said in words (2026-11-19-7c42a)."
+  - "The approve button names its effect from the proposal's kind and count."
+  - "proposed: Keep chatting is page state keyed by the proposal id; it is not sent to the server, since nothing is decided."
+  - "proposed: The pane starts at 40% of the surface, resizes by a drag handle between 320px and 70%, is remembered per browser, and a double-click resets it."
+steps:
+  - id: no-banner
+    action: "Remove NOT_OFFERED and the Discard button from the Work it out bar; render nothing while a proposal awaits unoffered."
+  - id: decision
+    action: "When the draft is offered, render the decision in place of the composer: the approve button named by kind and count, and Keep chatting."
+  - id: questions
+    action: "Render each open question's proposal as plain text below it, without a label."
+  - id: pane
+    action: "Make the proposal pane 40% wide by default and resizable by a drag handle, remembered per browser."
+done:
+  - "No file under src/dashboard/src contains 'Not offered for filing yet'."
+  - "when a tickets proposal of 6 is offered, then the composer is replaced by 'Create 6 tickets' and 'Keep chatting', and Keep chatting brings the composer back"
+  - "when a proposal awaits unoffered, then the composer shows no decision bar and no Discard"
+  - "An open question's proposal renders without a 'Proposal:' prefix."
+  - "when the pane's handle is dragged, then its width changes within 320px and 70% and is kept after a reload"
+tests:
+  - DialogDecisionBar_Offered_NamesWhatItCreates
+  - DialogDecisionBar_KeepChatting_GivesTheComposerBack
+  - DialogDecisionBar_Unoffered_RendersNothing
+  - TurnQuestions_Proposal_HasNoLabel
+  - DialogPaneWidth_Drag_ClampsAndRemembers

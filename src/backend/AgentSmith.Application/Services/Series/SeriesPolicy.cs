@@ -4,7 +4,7 @@ namespace AgentSmith.Application.Services.Series;
 
 /// <summary>2026-11-17-0207b: the series' policy in the operator's words, read from the project and the dialogue
 /// settings — when a ticket merges, when a waiting one starts, how often the series reports, when a question
-/// defaults.</summary>
+/// defaults. 2026-11-19-1b72a: the line is the Series pane's, and the series no longer reports on a cadence there.</summary>
 public static class SeriesPolicy
 {
     public static string Merge(ResolvedProject project) => project.Merge.When switch
@@ -21,7 +21,7 @@ public static class SeriesPolicy
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(dialogue);
-        return $"{Merge(project)} · {Start(project)} · status every {dialogue.SeriesStatusMinutes} min · questions default "
+        return $"{Merge(project)} · {Start(project)} · questions default "
             + $"to the recommendation after {SeriesTable.Duration(TimeSpan.FromMinutes(dialogue.QuestionDefaultMinutes))}";
     }
 }

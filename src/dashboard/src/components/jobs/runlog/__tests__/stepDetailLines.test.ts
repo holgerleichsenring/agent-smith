@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EventType, type RunEvent } from "@/types/hub-events";
-import { repoOutcomeWords, repoSummary, stepDetailLines } from "../stepDetailLines";
+import { repoGreenCount, repoOutcomeWords, stepDetailLines } from "../stepDetailLines";
 
 // 2026-11-17-6d9ec: a step's events as terminal lines, with the summary the command timeline counted.
 
@@ -75,10 +75,10 @@ describe("stepDetailLines", () => {
     expect(view.lines[1]).toMatchObject({ kind: "pr", href: "https://example.test/server/pull/4", filter: null });
   });
 
-  it("repoSummary_And_repoOutcomeWords", () => {
+  it("repoGreenCount_And_repoOutcomeWords", () => {
     const view = stepDetailLines(events, true);
-    expect(repoSummary(view.repos)).toBe("1/2 repositories ok, failed: client");
+    expect(repoGreenCount(view.repos)).toBe("1 of 2 repositories green");
     expect(repoOutcomeWords({ repo: "a", summary: "x", exitCode: -1, durationMs: null })).toBe("not run");
-    expect(repoSummary(view.repos.slice(0, 1))).toBeNull();
+    expect(repoGreenCount(view.repos.slice(0, 1))).toBe("1 of 1 repository green");
   });
 });

@@ -71,6 +71,7 @@ describe("TicketTextDivergence", () => {
     await show();
 
     fireEvent.click(screen.getByTestId("divergence-discuss"));
+    await settle(); // 2026-11-19-1b72c: the composer's reply focuses the field once it is mounted
 
     const composer = screen.getByTestId("ticket-composer");
     expect(composer.contains(document.activeElement)).toBe(true);

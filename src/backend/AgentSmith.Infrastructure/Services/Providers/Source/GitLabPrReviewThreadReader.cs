@@ -63,8 +63,18 @@ public sealed class GitLabPrReviewThreadReader(
         {
             IsOurs = OwnPrNoteMarker.IsOurs(body, id == _tokenUser),
             HostId = note.TryGetProperty("id", out var noteId) ? noteId.ToString() : string.Empty,
+            IsVote = Bool(note, "system") && IsVoteNote(body),
         };
     }
+
+    // 2026-11-19-1b72e: GitLab's system notes carry no type; an approval act is told by the note GitLab writes for it.
+    private static readonly string[] VoteNotes = ["approved this merge request", "unapproved this merge request", "requested changes",
+        "reset approvals"];
+
+    /// <summary>A GitLab system note recording an approval, its withdrawal (by the reviewer, or reset by a push) or a
+    /// request for changes.</summary>
+    public static bool IsVoteNote(string body) =>
+        VoteNotes.Any(v => body.TrimStart().StartsWith(v, StringComparison.OrdinalIgnoreCase));
 
     private async Task<JsonDocument> GetAsync(string path, CancellationToken ct)
     {

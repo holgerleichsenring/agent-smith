@@ -36,6 +36,7 @@ public static class AzureReposReviewMapping
             IsOurs = OwnPrNoteMarker.IsOurs(comment.Content,
                 selfId is not null && string.Equals(comment.Author?.Id, selfId, StringComparison.OrdinalIgnoreCase)),
             HostId = CommentHostId(thread, comment),
+            IsVote = comment.CommentType == CommentType.System && AzureReposVoteThreads.VoteOf(thread) is not null, // 2026-11-19-1b72e
         };
 
     private static bool? Resolved(CommentThreadStatus status) => status switch

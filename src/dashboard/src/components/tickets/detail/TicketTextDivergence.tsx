@@ -4,17 +4,20 @@ import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
 import { overwriteTicketBody } from "@/lib/ticketBodyApi";
 import { useTicketDetail, useTicketEdited, useTicketText } from "@/lib/tickets/TicketPageStore";
+import { useTicketReply, type TicketReply } from "./ticketReply";
 
 // 2026-11-17-dd05d: the ticket's text in its tracker no longer states goals of its approved specs — someone edited
 // it there. One plain line says which, and the two ways to settle it: discuss the change with the agent in the ticket
 // conversation (2026-11-17-4860a: the composer under the thread, which only a ticket with a run has) or have the tracker
 // say the specs again (a 'ticket-body' run). Nothing when the two agree.
 
-// The conversation's composer sits under the thread this notice leads; the action brings it into view and focuses it.
-function discuss() {
+// The conversation's composer sits under the thread this notice leads; the action brings it into view and replies
+// through it (1b72c: a standing decision is set aside first, as Keep chatting does).
+function discuss(reply: TicketReply | null) {
   const composer = document.querySelector<HTMLElement>('[data-testid="ticket-composer"]');
   composer?.scrollIntoView?.({ block: "center" });
-  composer?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+  if (reply) reply();
+  else composer?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
 }
 
 export function TicketTextDivergence() {
@@ -23,6 +26,7 @@ export function TicketTextDivergence() {
   const edited = useTicketEdited();
   const conversation = (data?.attempts.length ?? 0) > 0;
   const lacks = useLacksPermission("runs.control", project);
+  const reply = useTicketReply();
   const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
   const divergence = text.data?.divergence;
@@ -51,7 +55,7 @@ export function TicketTextDivergence() {
       {!lacks && (
         <>
           {conversation && (
-            <button className="btn sm" type="button" onClick={discuss} data-testid="divergence-discuss">Discuss in the conversation</button>
+            <button className="btn sm" type="button" onClick={() => discuss(reply)} data-testid="divergence-discuss">Discuss in the conversation</button>
           )}
           <button className="btn sm" type="button" onClick={overwrite} disabled={busy} data-testid="divergence-overwrite">
             {busy ? "Overwriting…" : "Overwrite the tracker from the specs"}

@@ -30,7 +30,7 @@ public sealed class OpenQuestionsToolHost(SpecDialogReplySlot slot) : IToolHost
         + "is filed as decided on your proposal. The questions show with the draft on "
         + "every surface, so your reply need not repeat them. A later call in this turn replaces the list.")]
     private string StateOpenQuestions(
-        [Description("The questions, each {question, proposal, specIds}.")] OpenQuestion[] questions)
+        [Description("The questions, each {question, proposal, specIds}. Write the question and its proposal in the language the operator writes in; the proposal is a plain sentence with its reason and no leading label.")] OpenQuestion[] questions)
     {
         var entries = questions ?? [];
         for (var i = 0; i < entries.Length; i++)

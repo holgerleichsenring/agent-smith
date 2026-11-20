@@ -4,21 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { ApiRefusal, ApiResponseError } from "@/lib/apiResponse";
 import { INSTANCE_DIALOG_ID } from "@/lib/specDialogSession";
 import { useSpecDialog, type SpecDialogState } from "@/hooks/useSpecDialog";
-import type { SpecDialogDecision, SpecDialogQuestionPush } from "@/types/spec-dialog";
+import type { SpecDialogQuestionPush } from "@/types/spec-dialog";
 import type { TicketConversation } from "@/types/tickets";
 
 // 2026-10-13-9a59r: the ticket's Work it out session behind the composer. It runs on a dialog id of its
 // own (INSTANCE_DIALOG_ID), so the browser's held Work it out id is never read or rewritten. VIEWING WRITES
-// NOTHING: until the first act (focus, Send, Approve, Discard) nothing is opened, resumed or posted and the
+// NOTHING: until the first act (focus, Send, the decision's action) nothing is opened, resumed or posted and the
 // closed session is what 9a59h's transcript shows. On that act it goes to 9a59h's openDialogId, else
 // resumes the sessionId (any dialog.write holder, 9a59m), else binds the minted id with the first message
 // (project + ticket id); the act itself runs once the session is there. A refused resume is a state.
+// 2026-11-19-1b72c: the only decision sent from here is the approve; discarding is said in words, as in Work it out.
 
 export type ComposerAct =
   | { kind: "focus" }
   | { kind: "send"; text: string }
   /** 2026-11-10-ccd9: proposalId is the proposal the page showed when the act was taken — never a later one. */
-  | { kind: "decide"; decision: SpecDialogDecision; proposalId?: string };
+  | { kind: "approve"; proposalId?: string };
 
 export type ResumeRefusal =
   | { kind: "question-pending" }
@@ -67,10 +68,10 @@ export function useTicketComposer(conversation: TicketConversation, project: str
     setQueued(null);
     if (queued.kind === "send") {
       void dialog.send(queued.text, project, undefined, sessionId ? undefined : ticketId);
-    } else if (queued.kind === "decide") {
+    } else if (queued.kind === "approve") {
       // 2026-11-10-ccd9: the decision names the proposal SHOWN when it was queued, not a card loaded after it.
       const shown = queued.proposalId ?? dialog.question?.questionId;
-      if (isOpenApproval(dialog.question)) void dialog.send(queued.decision === "approved" ? "approve" : "reject", project, queued.decision, undefined, shown);
+      if (isOpenApproval(dialog.question)) void dialog.send("approve", project, "approved", undefined, shown);
       else setMissed(true);
     }
   }, [ready, queued, dialog, project, ticketId, sessionId]);

@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-1b72b
+goal: "The proposal pane shows tickets and specs as hairline rows like the run view — no boxes; a ticket row opens to its specs."
+applies_to: "dashboard (DialogProposalGraph, DialogProposalPanel, spec-dialog.css)"
+facts:
+  - claim: "Each proposed ticket renders in a bordered box in the pane."
+    evidence: "observed: 2026-11-19 screenshot of the Proposal tab, approval-core in a bordered card"
+  - claim: "The run view separates its sections by hairlines without boxes, which the operator prefers."
+    evidence: "observed: operator, 2026-11-19, on the ticket run view ('keine kästchen, klar getrennt')"
+scope:
+  in: "The Proposal tab's ticket list and spec list."
+  out: "The ticket page's own sections (2026-11-19-1b72c)."
+steps:
+  - id: rows
+    action: "Render each ticket as a row: order, title, what it waits for; a toggle opens its specs as indented rows."
+  - id: css
+    action: "Replace card borders and fills in the proposal pane with hairline row separators."
+done:
+  - "No ticket or spec in the Proposal tab is drawn with a border box or a filled background."
+  - "when a ticket row is opened, then its specs show below it as rows"
+tests:
+  - DialogProposalGraph_Ticket_IsARowThatOpensToItsSpecs

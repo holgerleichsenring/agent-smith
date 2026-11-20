@@ -9,6 +9,14 @@ describe("outcomePill", () => {
     expect(outcomePill(attempt({ status: "cancelled", endKind: "superseded", handedBack: true }))).toEqual(["q", "superseded"]);
   });
 
+  // 2026-11-19-1b72a: a start its paused series held is quiet, not a failure.
+  it("outcomePill_SeriesPaused_IsQuietAndSaysTheSeriesHeldIt", () => {
+    const held = attempt({ status: "cancelled", endKind: "series-paused" });
+    expect(outcomePill(held)).toEqual(["q", "held while the series is paused"]);
+    expect(attemptWords(held)).toBe("held while the series is paused");
+    expect(outcomeTone(held)).toBe("quiet");
+  });
+
   it("outcomePill_NoEndKind_KeepsTheStatusPill", () => {
     expect(outcomePill(attempt({ status: "failed" }))).toEqual(["bad", "failed"]);
   });

@@ -813,6 +813,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsSystem")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsVote")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(32)

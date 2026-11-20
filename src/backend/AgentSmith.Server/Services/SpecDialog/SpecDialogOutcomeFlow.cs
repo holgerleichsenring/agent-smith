@@ -41,7 +41,7 @@ public sealed class SpecDialogOutcomeFlow(
             logger.LogInformation("The ticket steward leads spec-dialog session {SessionId}; its awaiting proposal is cleared", state.JobId);
             if (!DialogTarget.IsDashboard(state)) await notices.TellAsync(state, composer.ComposeSuperseded(), cancellationToken);
         }
-        if (proposal is AnswerOutcome) return; // 2026-11-19-6b0bd: no draft is written mid-turn, so none is left to clear
+        if (proposal is AnswerOutcome) return; // 2026-11-19-6b0bd: no draft is written mid-turn; a discard went first (7c42a)
         (string Id, string? Replaced) stored;
         try
         {
@@ -58,5 +58,19 @@ public sealed class SpecDialogOutcomeFlow(
         await chatCards.PostAsync(state, proposal, stored.Id, cancellationToken);
         logger.LogInformation("Outcome {Kind} for spec-dialog session {SessionId} awaits a decision as {ProposalId}",
             proposal.GetType().Name, state.JobId, stored.Id);
+    }
+
+    /// <summary>
+    /// 2026-11-19-7c42a: the turn deleted its draft because the operator said to discard it — the awaiting proposal ends
+    /// as a Discard click ended it, and the next turn starts with no draft. A chat thread is told, as a click told it, so
+    /// its posted card is not left looking live; the dashboard reads it from the agent's reply.
+    /// </summary>
+    public async Task WithdrawIfDiscardedAsync(ConversationState state, OutcomeProposal outcome, CancellationToken cancellationToken)
+    {
+        if (outcome is not AnswerOutcome { Withdrawn: true }) return;
+        if ((await proposals.ReadAsync(state, cancellationToken)).AwaitingId is not { } id) return;
+        if (!await proposals.RejectAsync(state, id, cancellationToken)) return;
+        logger.LogInformation("Spec-dialog session {SessionId} discarded its draft; proposal {ProposalId} is withdrawn", state.JobId, id);
+        if (!DialogTarget.IsDashboard(state)) await notices.TellAsync(state, composer.ComposeRejected(), cancellationToken);
     }
 }

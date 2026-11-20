@@ -7,6 +7,7 @@ import { causeEntryMatch, causeEntryOf } from "./causeEntryMatch";
 import { ConversationEntry } from "./ConversationEntry";
 import { ProposalBlock } from "./ProposalBlock";
 import { TicketComposer } from "./TicketComposer";
+import { TicketReplyContext, type TicketReply } from "./ticketReply";
 import { threadItems, type ThreadItem } from "./threadItems";
 import { AttemptReport, DerivationMessage, RepeatLine, TicketTextMessage } from "./ThreadMessages";
 import { useNewestJump } from "./useNewestJump";
@@ -47,6 +48,8 @@ export function TicketThread({ lead }: { lead?: ReactNode }) {
   const sentinel = useRef<HTMLDivElement>(null);
   const dock = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  // 2026-11-19-1b72c: the composer's reply — it sets a standing decision aside before it focuses the text field.
+  const composerReply = useRef<TicketReply | null>(null);
   const newestJump = useNewestJump(data?.entries ?? null, sentinel, dock, end);
   useEffect(() => {
     if (!data || !detail.data || scrolledFor.current === causeOf) return;
@@ -61,11 +64,11 @@ export function TicketThread({ lead }: { lead?: ReactNode }) {
   }, [data, detail.data, target, asking, causeOf]);
 
   if (!detail.data) return null;
-  const reply = () => input.current?.focus();
+  const reply = () => (composerReply.current ? composerReply.current() : input.current?.focus());
   const answer = () => question.current?.scrollIntoView?.({ block: "center" });
 
   return (
-    <>
+    <TicketReplyContext.Provider value={reply}>
       <YourMoveBox detail={detail.data} onReply={reply} onAnswer={answer} />
       {lead}
       <div className="thread" role="log" aria-label="Conversation" ref={list} data-testid="conv">
@@ -100,13 +103,13 @@ export function TicketThread({ lead }: { lead?: ReactNode }) {
               </div>
             ) : (
               <TicketComposer conversation={data} project={detail.project} ticketId={detail.ticketId}
-                preview={preview} inputRef={input} />
+                preview={preview} inputRef={input} replyRef={composerReply} />
             )}
           </div>
         )}
       </div>
       <div ref={end} data-testid="conv-end" />
-    </>
+    </TicketReplyContext.Provider>
   );
 }
 

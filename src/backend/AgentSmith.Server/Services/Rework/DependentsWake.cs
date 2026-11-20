@@ -75,7 +75,7 @@ public sealed class DependentsWake(
         if ((await closed.OfAsync(edge.Tracker, [edge.TicketKey], ct)).Count > 0) return false;
         if ((await unmet.OfAsync(edge.Tracker, edge.TicketKey, ct)).Unmet.Count > 0) return false;
         return await unmet.FiledCompletelyAsync(edge.Tracker, edge.TicketKey, ct)
-            && await attempts.LatestAsync(edge.Project, edge.TicketId, null, ct) is null
+            && await attempts.LatestAsync(edge.Project, edge.TicketId, null, ct) is null // 2026-11-19-1b72a: a dropped start is none
             && !await attempts.HasQueuedAsync(edge.Project, edge.TicketId, ct)
             && await leases.GetByTicketAsync(edge.Project, new TicketId(edge.TicketId), ct) is null;
     }

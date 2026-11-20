@@ -1,0 +1,9 @@
+spec: 2026-11-19-1b72b
+decisions:
+  - chosen: "Tickets and slices are hairline rows with an accessible toggle; every detail stays inside the opened row."
+    alternatives: "Keep the bordered cards; a flat list without details."
+    decider: operator
+    why: "The operator prefers the run view's look — no boxes, clearly separated — and approved the mock."
+  - chosen: "A row opens when its initial-open reason appears later (a finding, a review), never closes one the operator opened; the panel is keyed by the proposal shown."
+    alternatives: "Read the initial state once."
+    why: "Fresh review: the old controlled details opened a ticket when a later review added findings."

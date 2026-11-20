@@ -7,6 +7,7 @@ import type {
   SpecDialogProposalPush,
 } from "@/types/spec-dialog";
 import { DialogProposalGraph } from "./DialogProposalGraph";
+import { DialogProposalRow } from "./DialogProposalRow";
 import { DialogProposalUploads } from "./DialogProposalUploads";
 import { MockVersions } from "./MockVersions";
 
@@ -33,6 +34,8 @@ import { MockVersions } from "./MockVersions";
 // its panel card, so the local eyebrow this file declared is gone.
 //
 // 2026-10-13-8762t: a spec with mock versions shows them as a strip beside its sections, with Ratify.
+//
+// 2026-11-19-1b72b: a slice is a hairline row that opens in place, as a proposed ticket is — no card.
 
 /** What the strip needs, handed through to every spec and slice; absent, no strip is drawn. */
 interface MockStrip {
@@ -72,7 +75,7 @@ export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDial
       {proposal.children.length > 0 && (
         <div>
           <Label>Slices, in the order they will be filed</Label>
-          <ol data-testid="dialog-proposal-children" className="ml-5 flex list-decimal flex-col gap-2 marker:font-mono marker:text-body">
+          <ol data-testid="dialog-proposal-children" className="dl-prop-rows list-decimal marker:font-mono marker:text-body">
             {proposal.children.map((child, index) => (
               <li key={child.specId}>
                 <Slice slice={child} siblings={proposal.children} open={index === 0} strip={strip} />
@@ -125,27 +128,23 @@ function Slice({
   strip: MockStrip;
 }) {
   return (
-    <details
-      data-testid={`dialog-proposal-spec-${slice.specId}`}
-      open={open}
-      className="ecard inert"
-    >
-      <summary className="flex cursor-pointer items-baseline gap-2 px-2.5 py-2">
-        <span className="ec-mark">{slice.specId}</span>
-        <span className="flex-1 dsh-body font-medium text-ink">{slice.goal}</span>
-      </summary>
-      <div className="px-2.5 pb-2.5">
-        <Lines
-          label="Waits for"
-          items={slice.requires.map((id) => {
-            const at = siblings.findIndex((sibling) => sibling.specId === id);
-            return at < 0 ? id : `Slice ${at + 1} · ${id}`;
-          })}
-        />
-        <Sections spec={slice} withoutRequires />
-        <Mocks specId={slice.specId} strip={strip} />
-      </div>
-    </details>
+    <DialogProposalRow testId={`dialog-proposal-spec-${slice.specId}`} initiallyOpen={open}
+      head={
+        <span className="dl-prop-main">
+          <span className="font-mono dl-prop-dim">{slice.specId}</span>
+          <span className="dl-prop-title">{slice.goal}</span>
+        </span>
+      }>
+      <Lines
+        label="Waits for"
+        items={slice.requires.map((id) => {
+          const at = siblings.findIndex((sibling) => sibling.specId === id);
+          return at < 0 ? id : `Slice ${at + 1} · ${id}`;
+        })}
+      />
+      <Sections spec={slice} withoutRequires />
+      <Mocks specId={slice.specId} strip={strip} />
+    </DialogProposalRow>
   );
 }
 

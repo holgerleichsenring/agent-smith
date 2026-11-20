@@ -17,12 +17,15 @@ const END_KIND_WORDS: Record<string, string> = {
   [RUN_END_KINDS.criteriaUnmet]: "criterion not accepted",
   [RUN_END_KINDS.superseded]: "superseded",
   [RUN_END_KINDS.readinessUnknown]: "readiness unknown",
+  [RUN_END_KINDS.seriesPaused]: "held while the series is paused", // 2026-11-19-1b72a
 };
 
 /** [class, words]: ok, amber, person, bad or q (quiet), and the outcome in words. */
 export function outcomePill(attempt: TicketAttempt): [string, string] {
   // 2026-10-16-86e6b: a park a newer attempt started past is closed as superseded, whatever it waited on.
   if (attempt.endKind === RUN_END_KINDS.superseded) return ["q", "superseded"];
+  // 2026-11-19-1b72a: a queued start its paused series held is no failure — quiet, and the resume starts it again.
+  if (attempt.endKind === RUN_END_KINDS.seriesPaused) return ["q", END_KIND_WORDS[RUN_END_KINDS.seriesPaused]];
   if (attempt.handedBack) return ["person", "handed back"];
   if (attempt.endedOnInfrastructure) return ["bad", "ended on infrastructure"];
   return PILLS[attempt.status] ?? ["q", attempt.status.replace(/_/g, " ")];

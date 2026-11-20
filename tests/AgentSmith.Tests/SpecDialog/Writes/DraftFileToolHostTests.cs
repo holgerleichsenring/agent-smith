@@ -17,6 +17,21 @@ public sealed class DraftFileToolHostTests
     private const string Spec = "goal: \"Widgets are stored\"\ndone:\n  - \"a widget survives a restart\"";
 
     [Fact]
+    public async Task DeleteFile_DraftRoot_DiscardsAndASubtreeDoesNot()
+    {
+        // 2026-11-19-7c42a: deleting draft: itself is the operator's discard; deleting draft:tickets/ is a recut.
+        var store = new ProposalStore();
+        await InvokeAsync(store, "write_file", ("path", "draft:specs/store.yaml"), ("content", Spec));
+        await InvokeAsync(store, "delete_file", ("path", "draft:specs/"));
+        store.Discarded.Should().BeFalse();
+
+        await InvokeAsync(store, "write_file", ("path", "draft:specs/store.yaml"), ("content", Spec));
+        await InvokeAsync(store, "delete_file", ("path", "draft:"));
+        store.Discarded.Should().BeTrue();
+        store.Current.IsEmpty.Should().BeTrue();
+    }
+
+    [Fact]
     public void ProposalWriteTools_OffersTheThreeFileTools()
     {
         var tools = Handlers.MasterHandlerFixture.ProposalWrites().For(new PipelineContext(), new ProposalStore());

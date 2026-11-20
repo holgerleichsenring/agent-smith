@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Services;
@@ -32,6 +33,16 @@ public sealed class CapacityQueueDrop(
     IRunListNudge runListNudge,
     ILogger<CapacityQueueDrop> logger)
 {
+    /// <summary>2026-11-19-1b72a: drops a head the claim refused, its refusal as the reason. A paused series' hold is not
+    /// permanent, but must not wedge the FIFO either: its drop is marked <see cref="RunEndKinds.SeriesPaused"/>, which the
+    /// attempt reader passes over, so the series' resume starts the ticket again.</summary>
+    public Task RefusedAsync(CapacityQueueEntry head, ClaimResult result, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return DropAsync(head, result.Error ?? $"{result.Rejection}", ct,
+            result.Rejection == ClaimRejectionReason.SeriesPaused ? RunEndKinds.SeriesPaused : null);
+    }
+
     /// <summary>
     /// FINALIZE, then REMOVE, then ANNOUNCE — the two orders fail differently. Removing first
     /// and then failing to finalize reproduces exactly the state this exists to fix: entry
@@ -39,12 +50,13 @@ public sealed class CapacityQueueDrop(
     /// leaves the head in place; the next tick peeks it, finalizes again as a no-op under the
     /// set-once guard, and retries the removal.
     /// </summary>
-    public async Task DropAsync(CapacityQueueEntry head, string reason, CancellationToken ct)
+    /// <param name="endKind">2026-11-19-1b72a: the RunEndKinds value of the drop, when it has one.</param>
+    public async Task DropAsync(CapacityQueueEntry head, string reason, CancellationToken ct, string? endKind = null)
     {
         ArgumentNullException.ThrowIfNull(head);
         var terminal = string.IsNullOrEmpty(head.ReservedRunId) ? null : new RunFinishedEvent(
             head.ReservedRunId!, "cancelled", null,
-            $"dropped from capacity queue: {reason}", DateTimeOffset.UtcNow);
+            $"dropped from capacity queue: {reason}", DateTimeOffset.UtcNow, EndKind: endKind);
         if (terminal is not null) await terminalWriter.FinalizeAsync(terminal, ct);
         await queue.RemoveAsync(head.Project, head.TicketId, ct);
         if (terminal is not null)

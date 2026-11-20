@@ -37,7 +37,8 @@ public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clo
         var joined = await store.UpdateAsync(id, r => r with
         {
             Tickets = [.. r.Tickets, .. tickets.Where(t => r.Tickets.All(m => m.TicketId != t.TicketId))],
-            State = r.IsActive ? SeriesRunStates.Running : r.State,
+            State = r.IsActive && r.State != SeriesRunStates.Paused ? SeriesRunStates.Running : r.State,
+            PausedFrom = r.State == SeriesRunStates.Paused ? SeriesRunStates.Running : r.PausedFrom, // 1b72a: a join keeps the pause
             Verdicts = FiledFor(r.Verdicts, tickets, starts), // 0207d: the check's follow-up, and whether it started
         }, ct);
         return joined is null

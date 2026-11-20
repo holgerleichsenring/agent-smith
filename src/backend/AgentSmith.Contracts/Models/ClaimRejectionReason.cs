@@ -31,5 +31,9 @@ public enum ClaimRejectionReason
 
     /// <summary>2026-10-14-dbceh: a ticket it requires has not landed, or its filing did not finish. Unlike the
     /// reasons above, this refusal lifts by itself once the required tickets land.</summary>
-    TicketRequiresUnmet
+    TicketRequiresUnmet,
+
+    /// <summary>2026-11-19-1b72a: the ticket's series is paused and no run worked the ticket yet. Lifted by the series'
+    /// resume, which starts the ticket again.</summary>
+    SeriesPaused
 }

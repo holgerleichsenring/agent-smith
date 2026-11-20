@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-19-1b72a
+goal: "The operator pauses and resumes a series in words or with one button, and the series writes to the conversation only what needs the operator; the full table lives in the Series pane."
+applies_to: "backend (Series*, Claim gates) + dashboard (series head, DialogSeriesPanel)"
+facts:
+  - claim: "stop_series ends the reports but its tickets keep starting on their own."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesActTools.cs:59-66"
+  - claim: "A waiting ticket is held at claim by RequiresUnmetGate until what it requires lands."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/RequiresUnmetGate.cs:9-32"
+  - claim: "Series states are running, verifying, done and stopped."
+    evidence: "src/backend/AgentSmith.Contracts/Series/SeriesRunStates.cs:5-13"
+  - claim: "The series posts a full status table on every change and every 15 minutes."
+    evidence: "observed: 2026-11-19 conversation, 'Status at 20:52 UTC' and 'Status at 20:53 UTC' tables one minute apart"
+scope:
+  in: "A paused series state; holding new ticket starts while paused (the existing claim gate, a second reason); pause/resume/stop-now as series master tools and as one head button; status messages reduced to what needs the operator; the ticket table in the Series pane."
+  out: "Chat platforms keep their own behaviour where the pane does not exist (Slack/Teams) — decided by the target, not a setting."
+decisions:
+  - "Paused is a series state, not a ticket label: one place to read, one gate to hold."
+  - "Pausing holds new starts; a running run finishes. 'Stop now' also cancels the running run through the existing run cancel."
+  - "On the dashboard the series writes only: a PR waits, a ticket failed, a question, the series finished or was paused/resumed. No periodic table."
+steps:
+  - id: state
+    action: "Add the paused state; the sweep keeps beating a paused series but starts nothing."
+  - id: gate
+    action: "Hold a claim of a ticket whose series is paused, with a sentence naming the pause, in the gate that holds unmet requires."
+  - id: tools
+    action: "Give the series master pause_series, resume_series and the stop-now act; resume starts what is ready."
+  - id: button
+    action: "Show the series state in the conversation head with Pause / Resume, the same acts as the words."
+  - id: quiet
+    action: "Post to a dashboard conversation only the events that need the operator; drop the periodic and per-change tables there."
+  - id: pane
+    action: "Show every ticket of the series as a hairline row in the Series pane: key, title, state, cost, time."
+done:
+  - "when the series is paused, then no ticket of it starts until it is resumed, and a running run finishes"
+  - "when the operator writes 'halt an' in the conversation, then the series is paused and says so in one line"
+  - "when Pause is clicked in the head, then the series is paused; the button then reads Resume"
+  - "A dashboard conversation receives no status table from the series."
+  - "The Series pane lists every ticket of the series with its state."
+tests:
+  - RequiresUnmetGate_PausedSeries_HoldsTheClaim
+  - SeriesActTools_PauseAndResume_ChangeTheState
+  - PostSeriesStatus_Dashboard_PostsNoTable
+  - DialogSeriesHead_Pause_SendsThePause

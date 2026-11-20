@@ -59,6 +59,24 @@ public sealed class ProposalReviewSurfacesTests
         push.NotReviewed.Should().Equal(Lone, ProposalReviewTokens.Series);
     }
 
+    // 2026-11-19-1b72c: the ticket page gates its decision on the master's offer, as Work it out does on the push.
+    [Fact]
+    public void TicketTranscriptReader_ProposalCarriesTheFilingOffer()
+    {
+        var reader = new TicketTranscriptReader(Mock.Of<IServiceScopeFactory>(), NullLogger<TicketTranscriptReader>.Instance);
+        var session = TicketConversationFixtures.Session();
+
+        var unoffered = reader.Proposal(session, ("p-1", OutcomeProposalJson.Write(new SpecOutcome(Draft) { OfferLed = true })))!;
+        var offered = reader.Proposal(session, ("p-1", OutcomeProposalJson.Write(
+            new SpecOutcome(Draft) { OfferLed = true, FilingOffer = "Writes one spec to the ticket." })))!;
+        var older = reader.Proposal(session, ("p-1", OutcomeProposalJson.Write(new SpecOutcome(Draft))))!;
+
+        unoffered.OfferLed.Should().BeTrue();
+        unoffered.FilingOffer.Should().BeNull();
+        offered.FilingOffer.Should().Be("Writes one spec to the ticket.");
+        older.OfferLed.Should().BeFalse();
+    }
+
     [Fact]
     public void TicketTranscriptReader_ProposalCarriesFindingsRoundsAndNotReviewed()
     {

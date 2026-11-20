@@ -15,7 +15,7 @@ public static partial class MergedDialogTools
                    [Description("One line of plain prose: where what is wanted is described (an upload, the ticket, the conversation) and what the repositories already provide.")] string? truth = null,
                    [Description("one-spec, series or plan.")] string? size = null,
                    [Description(WorkPictureToolHost.EffortDescription)] string? effort = null,
-                   [Description("The questions only the operator can answer, for the draft's card: each {question, proposal, specIds}. The operator takes your proposal or answers differently; a question still open when they approve is filed as decided on your proposal. A later call replaces the list.")] OpenQuestion[]? open_questions = null,
+                   [Description("The questions only the operator can answer, for the draft's card: each {question, proposal, specIds}. Write the question and its proposal in the language the operator writes in; the proposal is a plain sentence with its reason and no leading label. The operator takes your proposal or answers differently; a question still open when they approve is filed as decided on your proposal. A later call replaces the list.")] OpenQuestion[]? open_questions = null,
                    CancellationToken ct = default) =>
             {
                 var states = !string.IsNullOrWhiteSpace(kind) || !string.IsNullOrWhiteSpace(truth) || !string.IsNullOrWhiteSpace(size);
