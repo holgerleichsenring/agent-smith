@@ -66,6 +66,7 @@
     <ProjectReference Include="..\..\src\backend\AgentSmith.Server\AgentSmith.Server.csproj" />
     <ProjectReference Include="..\..\src\backend\AgentSmith.Cli\AgentSmith.Cli.csproj" />
     <ProjectReference Include="..\..\src\backend\AgentSmith.Infrastructure.Persistence\AgentSmith.Infrastructure.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\backend\AgentSmith.Infrastructure.Migration\AgentSmith.Infrastructure.Migration.csproj" />
     <!-- p0325: unit tests for the build-time skills packaging validator. -->
     <ProjectReference Include="..\..\src\backend\AgentSmith.SkillsPackaging\AgentSmith.SkillsPackaging.csproj" />
   </ItemGroup>

@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-22-747da: "DATA MIGRATION RUN ONCE (DataMigrationRunner, DataMigrationHistory, RunStoreMigrator, Infrastructure.Migration StoreMigrateRun). `database migrate` applies each data migration once and records it; the duplicate repair only while its index is pending; the three config-document migrations left the server start. -> .agentsmith/specs/done/2026-11-22-747da-data-migration-run-once.yaml"
     2026-11-22-6d85d: "UNBLOCKING MERGES NAMED (GreenReads.MergesToStartAsync, RequirementHold, RequiresUnmetGate, series ticket state, ticket list row). A held on_green_push ticket whose prerequisites are all green says 'starts once #A and #B are merged' on its series row, list row and refusal. -> .agentsmith/specs/done/2026-11-22-6d85d-series-unblocking-merges.yaml"
     2026-11-22-6d85c: "INTERRUPTED RUN RESTART (ServerStopEnd, InterruptedRestartPass, DbInterruptedAttemptReader, IRunRetry, series ticket state). A run the server's stop broke off ends cancelled/interrupted, not failed; its series row reads restarting, and a code attempt is retried unchanged once by itself. -> .agentsmith/specs/done/2026-11-22-6d85c-restart-interrupted-runs.yaml"
     2026-11-22-6d85b: "LANDING STACKED MERGE (TicketLandingRecorder, StackedMergeLanding, PrRecordTargetRead, PrReviewRecords.TargetBranch + migrations). A pull request merged into a required prerequisite's ticket branch lands its ticket only with that prerequisite, if it merged before that landing. -> .agentsmith/specs/done/2026-11-22-6d85b-landing-stacked-merge.yaml"

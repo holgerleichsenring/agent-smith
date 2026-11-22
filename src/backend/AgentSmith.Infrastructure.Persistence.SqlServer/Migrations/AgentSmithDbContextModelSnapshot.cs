@@ -437,6 +437,23 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.ToTable("ConnectionDiscoveries", (string)null);
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.DataMigrationRecord", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<DateTimeOffset>("AppliedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("Proven")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataMigrationHistory", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.DeployRecord", b =>
                 {
                     b.Property<string>("RunId")

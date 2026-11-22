@@ -2,7 +2,9 @@ using System.Text.Json;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
-using AgentSmith.Server.Services.Startup;
+using AgentSmith.Infrastructure.Migration.Services.ConfigDocuments;
+using AgentSmith.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -28,7 +30,7 @@ public sealed class PipelineAliasMigrationTests
         using var harness = new DbConfigTestHarness();
         harness.Import(LegacyYaml);
 
-        Migration(harness).Run().Should().Be(3, "the global trigger, the tracker and the project");
+        Migration(harness).Rewrite(harness.DocStore).Should().Be(3, "the global trigger, the tracker and the project");
 
         Doc(harness, ConfigDocTypes.PipelineTrigger, "bug").Should().Be("\"code\"");
         var tracker = Json(harness, ConfigDocTypes.Tracker, "legacy-tracker");
@@ -52,7 +54,7 @@ public sealed class PipelineAliasMigrationTests
         using var harness = new DbConfigTestHarness();
         harness.Import(LegacyYaml);
 
-        Migration(harness).Run();
+        Migration(harness).Rewrite(harness.DocStore);
 
         Version(harness, ConfigDocTypes.Agent, "claude-default").Should().Be(1,
             "an agent names no pipeline, and re-saving it would drop that installation's "
@@ -67,30 +69,25 @@ public sealed class PipelineAliasMigrationTests
         using var harness = new DbConfigTestHarness();
         harness.Import(LegacyYaml);
 
-        Migration(harness).Run();
+        Migration(harness).Rewrite(harness.DocStore);
 
-        Migration(harness).Run().Should().Be(0,
-            "a restart re-runs this, and a migration that rewrote on every boot would bump every "
-            + "version on every boot");
+        Migration(harness).Rewrite(harness.DocStore).Should().Be(0,
+            "a second pass finds nothing, so a re-run never bumps a version");
         Version(harness, ConfigDocTypes.Project, "legacy").Should().Be(2);
     }
 
     [Fact]
-    public void Migration_StoreUnreachable_RecordsAFindingAndNamesTheReplacement()
+    public async Task Migration_StoreUnreachable_IsNotCompleteSoTheNextMigrateTriesAgain()
     {
-        var findings = new StartupFindings();
+        var options = new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite("Data Source=:memory:").Options;
+        await using var db = new AgentSmithDbContext(options);
 
-        new PipelineAliasMigration(
-            new UnreachableDocuments(), new ConfigDocumentAssembler(), findings,
-            NullLogger<PipelineAliasMigration>.Instance).Run().Should().Be(0);
-
-        findings.All.Should().ContainSingle()
-            .Which.Reason.Should().Contain("fix-bug").And.Contain("does not exist");
+        (await Migration(new DbConfigTestHarness()).RunAsync(db, CancellationToken.None)).Should().BeFalse(
+            "a store it cannot read is not migrated, and the migration is not recorded");
     }
 
     private static PipelineAliasMigration Migration(DbConfigTestHarness harness) =>
-        new(harness.DocStore, harness.Assembler, new StartupFindings(),
-            NullLogger<PipelineAliasMigration>.Instance);
+        new(harness.Assembler, NullLogger<PipelineAliasMigration>.Instance);
 
     private static string Doc(DbConfigTestHarness harness, string type, string id) =>
         harness.DocStore.LoadAll().Single(r => r.Type == type && r.Id == id).Doc;

@@ -93,7 +93,6 @@ public sealed class IdentityEndpointTests(RoleMappingAuthorityFixture fixture)
             RoleClaim = seed.RoleClaim, GroupClaim = seed.GroupClaim, GroupRoles = seed.GroupRoles, Roles = seed.Roles,
             ProjectBindings = [new() { Project = "billing", Groups = ["billing-team"], Roles = [BuiltInRoles.Reader] }],
         };
-        source.AdoptStore();
 
         var identity = await Identity(Token(new Claim("groups", "billing-team")));
 

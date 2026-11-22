@@ -30,7 +30,6 @@ internal static class ResolverUnderTest
         TokenAuthorityConfig auth, StoredMappingStub stored, string? grant = null)
     {
         var source = new RoleMappingSource(stored, auth);
-        source.AdoptStore();
         return Resolver(source, Grant(grant));
     }
 

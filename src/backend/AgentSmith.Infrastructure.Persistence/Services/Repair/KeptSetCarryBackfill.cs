@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,20 @@ namespace AgentSmith.Infrastructure.Persistence.Services.Repair;
 /// and started another attempt. The ids are still in the attempt's own SpecSetPublished events; this fills every attempt
 /// row that has none from them, in C# so every provider runs the same code. A row whose events carry none gets an empty
 /// list, which reads exactly as before, so a second pass finds nothing left to look at.
+/// <para>2026-11-22-747da: a data migration, run once and recorded; no schema migration shipped with it.</para>
 /// </summary>
-public sealed class KeptSetCarryBackfill(ILogger<KeptSetCarryBackfill> logger)
+public sealed class KeptSetCarryBackfill(ILogger<KeptSetCarryBackfill> logger) : IDataMigration
 {
+    public string Id => "2026-11-22-a720a-kept-set-carry";
+
+    public string? ShippedWith => null;
+
+    public async Task<bool> RunAsync(AgentSmithDbContext db, CancellationToken ct)
+    {
+        await RepairAsync(db, ct);
+        return true;
+    }
+
     /// <summary>Attempt rows per page.</summary>
     public const int PageSize = 200; // not a limit: every page is drained, the size only bounds memory per round trip
 

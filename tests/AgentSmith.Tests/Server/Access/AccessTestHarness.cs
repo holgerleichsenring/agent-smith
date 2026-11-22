@@ -67,7 +67,6 @@ internal sealed class AccessTestHarness : IDisposable
 
         Mapping = new RoleMappingSource(
             new StoredRoleMapping(Store, NullLogger<StoredRoleMapping>.Instance), Auth);
-        Mapping.AdoptStore();
         Writer = new AccessGrantWriter(
             Store, Mapping, new CustomRoleRules(), new RoleRemovalGuard(Observed), Json);
         // 2026-09-14-2b7c: ONE buffer, shared by the removal and by whatever observes — a

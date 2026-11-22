@@ -132,7 +132,6 @@ public sealed class SignInCheckTests
         string? grant = null)
     {
         var source = new RoleMappingSource(new StoredMappingStub(mapping ?? new RoleMappingConfig()), auth);
-        source.AdoptStore();
         return new SignInCheck(auth, source, ResolverUnderTest.Grant(grant), observed ?? Store());
     }
 

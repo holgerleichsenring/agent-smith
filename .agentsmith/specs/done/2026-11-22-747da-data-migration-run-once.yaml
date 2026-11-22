@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-747da
+goal: "Every data migration runs once in `database migrate`, is recorded and skipped after; the server runs none of them at startup."
+
+applies_to: "default (RunStoreMigrator, DataMigrationRunner, config-document migrations, RoleMappingSource, DatabaseCommand)"
+
+requires: [2026-08-25-61f1, 2026-10-12-967ab, 2026-11-22-a720a, 2026-08-25-1806, 2026-09-25-e5b1, 2026-10-29-6bd3a]
+
+facts:
+  - claim: "The server runs two config-document migrations synchronously before app.Run() and a third after ApplicationStarted; each loads every config document."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:43, src/backend/AgentSmith.Server/Services/Startup/RoleMappingMigration.cs:49, src/backend/AgentSmith.Server/Services/Startup/PipelineAliasMigration.cs:61, src/backend/AgentSmith.Server/Services/Startup/LegacyTriggerMigration.cs:52, src/backend/AgentSmith.Server/Extensions/LegacyTriggerMigrationExtensions.cs:15"
+  - claim: "RunStoreMigrator runs the duplicate repair, the spec-name rewrite and the kept-set backfill on every migrate."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStoreMigrator.cs:28-34"
+  - claim: "The duplicate repair groups every RunEvent by (RunId, Seq) on every migrate, though the unique index it prepares exists since AddRunRecordIdentity."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Repair/ReplayedRunFinder.cs:18-24, src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260825085711_AddRunRecordIdentity.cs"
+  - claim: "The spec-name rewrite updates RunEvents by an unindexed Type and reopens every payload containing 'hase', which matches 'phase' forever."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/SpecRename/RunEventSpecNames.cs:20-25"
+  - claim: "The kept-set backfill leaves attempts without a SpecSetPublished event NULL, so they are re-queried at every migrate."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Repair/KeptSetCarryBackfill.cs:41-44"
+  - claim: "The role-mapping seed governs only until the server's migration calls AdoptStore; a store that cannot be read already falls back to the seed."
+    evidence: "src/backend/AgentSmith.Server/Security/RoleMappingSource.cs:27,48-49, src/backend/AgentSmith.Server/Security/StoredRoleMapping.cs:17-29"
+  - claim: "The roles and group roles of the seed come from the bootstrap file only, which the init container mounts."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/AuthEnvironmentOverlay.cs:44-48, deploy/k8s/8-deployment-server.yaml:57-60"
+  - claim: "Four providers exist: SQLite and MySQL share one migration set, SQL Server and PostgreSQL have their own."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:24-37"
+
+scope:
+  in: "A DataMigrationHistory table (id, applied-at) in all three migration sets. IDataMigration (id, optional watermark) and DataMigrationRunner in Persistence: a recorded id is skipped; one whose watermark the store's PRE-migrate applied list meets (an applied migration id whose 14-digit timestamp is at or after the watermark's, so every set compares the same) is recorded without running; any other runs, then is recorded; a duplicate key on recording means another replica's init container recorded it, which counts as applied (every data migration is idempotent). The duplicate repair runs only while no applied migration reaches AddRunRecordIdentity (the unique index proves it). Spec-name rewrite: data migration, watermark AddRunSpecIdColumns (it ran on every migrate since 967ab). Kept-set backfill: data migration without watermark, runs once, paged. RunStoreMigrator keeps only store repairs (the CLI local store runs them too). New project AgentSmith.Infrastructure.Migration (refs Persistence + provider sets, Infrastructure.Core, Application) holds StoreMigrateRun, the one migrate body, and the RoleMapping, PipelineAlias and LegacyTrigger migrations moved from the server as data migrations over the migrate context; a config-document migration that throws is logged and left unrecorded (retried next migrate) and never fails the migrate. CLI `database migrate` calls StoreMigrateRun. The server no longer runs any; RoleMappingSource reads store-else-seed always (AdoptStore removed; the import now only decides what the studio shows)."
+  out: "Running migrate from the server image (2026-11-22-747db). Rewriting the spec-name SQL itself: it now runs at most once per store. The admin-reachable check on the imported mapping (the seed already governs with the same content). Re-healing retired preset names a later `config import` brings in (the validator names the replacement)."
+
+steps:
+  - id: ledger
+    action: "Entity + configuration + EF migration AddDataMigrationHistory in the shared, SQL Server and PostgreSQL sets."
+  - id: runner
+    action: "IDataMigration, DataMigrationRunner; RunStoreMigrator reads applied migrations before MigrateAsync, gates the duplicate repair, runs the runner after."
+  - id: convert
+    action: "Spec-name rewrite (watermark) and kept-set backfill (none) implement IDataMigration."
+  - id: config-docs
+    action: "New project AgentSmith.Infrastructure.Migration (sln, both Dockerfiles, layers doc); move the three config-document migrations (+ PipelineAliasRewrite) there; delete their server extensions and AdoptStore."
+  - id: host
+    action: "StoreMigrateRun.RunAsync(configPath) in the migration project (bootstrap read, provider, WAL pragma, RunStoreMigrator, config-document migrations); DatabaseCommand delegates."
+
+tests:
+  - "DataMigrationRunnerTests (migrated SQLite): an unrecorded migration runs once and is recorded; a second migrate skips it; a watermark met by the pre-migrate list records it without running; a fresh store runs it; a duplicate key on recording counts as applied."
+  - "RunStoreMigrator: the duplicate repair does not run on a store that has AddRunRecordIdentity."
+  - "Moved config-document migration tests stay green over the migrate context; RoleMappingSource reads the store without AdoptStore."
+
+done:
+  - "A second `database migrate` runs no repair and no config-document migration; the server's startup path contains no migration call."

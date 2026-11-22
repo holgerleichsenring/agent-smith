@@ -112,9 +112,17 @@ The relational store behind run records, projections, the configuration and the 
 
 ---
 
+## Infrastructure.Migration
+
+**Project:** `AgentSmith.Infrastructure.Migration` | **References:** Application, Infrastructure.Core, Infrastructure.Persistence(.SqlServer, .Postgresql)
+
+`database migrate`: `StoreMigrateRun` applies the schema, then every data migration the store has not had, each once and recorded in `DataMigrationHistory` (`IDataMigration`, `DataMigrationRunner` in Persistence). It also holds the data migrations of the stored configuration (role mapping import, retired preset names, legacy trigger blocks), which need the configuration model. The CLI verb and the server image both run this one body; the server itself never migrates.
+
+---
+
 ## CLI
 
-**Project:** `AgentSmith.Cli` | **References:** Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql)
+**Project:** `AgentSmith.Cli` | **References:** Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql), Infrastructure.Migration
 
 The console tool: one run, then exit. It reads its whole configuration from `agentsmith.yml` and runs its sandbox in-process.
 
@@ -135,7 +143,7 @@ Supporting types: `ConfigDiscovery` (where the config file is found), `ServicePr
 
 ## Server
 
-**Project:** `AgentSmith.Server` | **References:** Contracts, Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql)
+**Project:** `AgentSmith.Server` | **References:** Contracts, Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql), Infrastructure.Migration
 
 The long-running deployment: one ASP.NET Core process with one DI tree.
 
