@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type {
   SpecDialogGraphTicket, SpecDialogProposalFinding, SpecDialogProposalPush, SpecDraftProposal,
 } from "@/types/spec-dialog";
@@ -15,18 +16,16 @@ import { LIST_KEY, waitsFor } from "./graphTicketWaits";
 // specs as indented rows (label · goal), like the run view's sections; no card.
 
 export function DialogProposalGraph({ proposal }: { proposal: SpecDialogProposalPush }) {
+  const t = useT();
   const tickets = proposal.tickets ?? [];
   const findings = proposal.findings ?? [];
   const listLevel = findings.filter((finding) => finding.specId === LIST_KEY);
   return (
     <div data-testid="dialog-proposal-graph" className="flex flex-col gap-3">
       <div>
-        <div className="fl mb-0.5">A list of tickets</div>
-        <h3 className="dsh-h3 font-semibold text-ink">{tickets.length} tickets, in the order they must merge</h3>
-        <p className="dsh-label text-body">
-          Each ticket is one run and one pull request per repository. A ticket starts only when every ticket it waits
-          for is merged, or a person marked it done by hand.
-        </p>
+        <div className="fl mb-0.5">{t("dialog.graph.list")}</div>
+        <h3 className="dsh-h3 font-semibold text-ink">{t("dialog.graph.heading", { count: tickets.length })}</h3>
+        <p className="dsh-label text-body">{t("dialog.graph.explain")}</p>
       </div>
       {listLevel.map((finding, index) => (
         <Finding key={`list-${index}`} finding={finding} testId="dialog-graph-list-finding" />
@@ -43,6 +42,7 @@ export function DialogProposalGraph({ proposal }: { proposal: SpecDialogProposal
 }
 
 function GraphTicket({ ticket, number, findings: all }: { ticket: SpecDialogGraphTicket; number: number; findings: SpecDialogProposalFinding[] }) {
+  const t = useT();
   const findings = all.filter((f) => f.specId === ticket.key);
   const specs = ticket.specs ?? [];
   const reviewed = all.some((f) => specs.some((spec) => spec.specId === f.specId));
@@ -55,7 +55,7 @@ function GraphTicket({ ticket, number, findings: all }: { ticket: SpecDialogGrap
             <span className="dl-prop-title">{ticket.title}</span>
             <span className="font-mono dl-prop-dim">{ticket.key}</span>
           </span>
-          <span data-testid={`dialog-graph-waits-${ticket.key}`} className="dl-prop-waits">{waitsFor(ticket)}</span>
+          <span data-testid={`dialog-graph-waits-${ticket.key}`} className="dl-prop-waits">{waitsFor(t, ticket)}</span>
         </>
       }>
       {findings.map((finding, index) => (
@@ -63,7 +63,7 @@ function GraphTicket({ ticket, number, findings: all }: { ticket: SpecDialogGrap
       ))}
       <p className="dsh-body whitespace-pre-line text-ink">{ticket.requirement}</p>
       <div>
-        <div className="fl mb-0.5">Done when</div>
+        <div className="fl mb-0.5">{t("common.doneWhen")}</div>
         <ul className="ml-4 list-disc dsh-body text-ink">
           {ticket.done.map((item) => (
             <li key={item}>{item}</li>
@@ -72,12 +72,12 @@ function GraphTicket({ ticket, number, findings: all }: { ticket: SpecDialogGrap
       </div>
       {ticket.repos.length > 0 && (
         <div className="dl-prop-dim">
-          repositories <span className="font-mono">{ticket.repos.join(", ")}</span>
+          {t("dialog.graph.repositories")} <span className="font-mono">{ticket.repos.join(", ")}</span>
         </div>
       )}
       {specs.length > 0 && (
         <div>
-          <div className="fl mb-0.5">Specs</div>
+          <div className="fl mb-0.5">{t("dialog.graph.specs")}</div>
           <ul data-testid={`dialog-graph-specs-${ticket.key}`} className="dl-prop-specs">
             {specs.map((spec) => (
               <li key={spec.specId}>
@@ -107,10 +107,11 @@ function TicketSpec({ spec, findings }: { spec: SpecDraftProposal; findings: Spe
 }
 
 function Finding({ finding, testId }: { finding: SpecDialogProposalFinding; testId: string }) {
+  const t = useT();
   return (
     <div data-testid={testId} className="border-l-2 border-state-stopped pl-2.5 dsh-body text-ink">
       <b>{finding.specId} — {finding.problem}</b>: {finding.why}
-      {finding.quote && <span className="ml-1 dsh-label text-body">it states: “{finding.quote}”</span>}
+      {finding.quote && <span className="ml-1 dsh-label text-body">{t("common.itStates", { quote: finding.quote })}</span>}
     </div>
   );
 }

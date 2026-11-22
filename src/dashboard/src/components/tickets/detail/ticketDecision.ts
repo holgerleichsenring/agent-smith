@@ -1,5 +1,6 @@
-import { actionOf, approvalDecision, BOUND_LIST, offerOf, type ApprovalDecision } from "@/components/dialog/approvalDecision";
+import { actionOf, approvalDecision, boundList, offerOf, type ApprovalDecision } from "@/components/dialog/approvalDecision";
 import { approvalProposal } from "@/components/dialog/approvalProposal";
+import type { T } from "@/lib/i18n/translate";
 import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 import type { TicketApprovalPreview, TicketConversation } from "@/types/tickets";
@@ -22,6 +23,7 @@ export interface WatchedApproval {
 }
 
 export function ticketDecision(
+  t: T,
   conversation: TicketConversation,
   preview: TicketApprovalPreview | null,
   watched: WatchedApproval | null,
@@ -31,24 +33,24 @@ export function ticketDecision(
     if (!isOpenApproval(watched.question)) return null;
     const card = approvalProposal(watched.question, watched.awaiting);
     // approvalProposal holds the card only while its proposalId is the question's, so both paths key by that id.
-    if (card) return { decision: approvalDecision(watched.question, card, effect, true)!, proposalId: card.proposalId ?? null };
+    if (card) return { decision: approvalDecision(t, watched.question, card, effect, true)!, proposalId: card.proposalId ?? null };
   } else if (conversation.openDialogId === null) return null;
   const proposal = conversation.proposal;
   if (!proposal || !effect) return null;
   // The page's own id, before and after the question is watched, so Keep chatting holds across the first act; an approve
   // without one names the open question when it is sent (useTicketComposer).
-  return { decision: fromConversation(proposal, effect), proposalId: proposal.proposalId ?? null };
+  return { decision: fromConversation(t, proposal, effect), proposalId: proposal.proposalId ?? null };
 }
 
 /** The page's own read of the proposal: approvalDecision's guards on a bound conversation, the offer gate included. */
-function fromConversation(proposal: NonNullable<TicketConversation["proposal"]>, effect: ReturnType<typeof ticketApprovalEffect>): ApprovalDecision {
+function fromConversation(t: T, proposal: NonNullable<TicketConversation["proposal"]>, effect: ReturnType<typeof ticketApprovalEffect>): ApprovalDecision {
   const list = proposal.kind === "tickets";
   const { offer, unoffered } = offerOf(proposal);
   return {
     expired: false,
     approvable: !list && !unoffered && effect.approvable,
-    summary: list ? BOUND_LIST : unoffered ? null : offer ?? effect.summary,
+    summary: list ? boundList(t) : unoffered ? null : offer ?? effect.summary,
     bound: true,
-    action: actionOf(proposal, true),
+    action: actionOf(t, proposal, true),
   };
 }

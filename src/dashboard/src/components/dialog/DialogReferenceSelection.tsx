@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useT } from "@/hooks/useT";
 import type { SpecDialogHeldContent } from "@/types/spec-dialog";
 import {
   leftOutOf,
@@ -36,6 +37,7 @@ export function DialogReferenceSelection({
   onSend: (files: File[], leftOut: PickLeftOut) => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const read = useSelectionEntries(files, loadHeld);
   const entries = read?.entries ?? null;
   // The operator's ticks, held against the read they were made on; a new read starts from its own.
@@ -47,7 +49,7 @@ export function DialogReferenceSelection({
     () => (entries ?? []).flatMap((entry, i) => sentBy(entry, ticks[i] ?? false)),
     [entries, ticks],
   );
-  const totals = totalsOf(sent, left);
+  const totals = totalsOf(t, sent, left);
   if (!entries) return null;
 
   return (
@@ -64,25 +66,25 @@ export function DialogReferenceSelection({
       </ul>
       {read && !read.checked && (
         <p className="d-pick-total" data-testid="dialog-reference-selection-unchecked">
-          Could not check which of these files this conversation already holds; the server still refuses a pick it holds entirely.
+          {t("dialog.pick.unchecked")}
         </p>
       )}
       <p className={`d-pick-total${totals.over ? " bad" : ""}`} data-testid="dialog-reference-selection-total">
-        {`Sending ${countOf(totals.files)}, ${megabytes(totals.bytes)}`}
+        {t("dialog.pick.sending", { files: t("common.files", { count: totals.files }), size: megabytes(totals.bytes) })}
         {totals.over ? ` — ${totals.over}.` : "."}
       </p>
       <div className="d-pick-actions">
         <button type="button" className="btn" data-testid="dialog-reference-selection-cancel" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </button>
         <button
           type="button"
           className="btn primary"
           data-testid="dialog-reference-selection-send"
           disabled={totals.files === 0 || totals.over !== null}
-          onClick={() => onSend(sent, leftOutOf(entries, ticks))}
+          onClick={() => onSend(sent, leftOutOf(t, entries, ticks))}
         >
-          Send
+          {t("common.send")}
         </button>
       </div>
     </div>
@@ -90,6 +92,7 @@ export function DialogReferenceSelection({
 }
 
 function EntryRow({ entry, ticked, onTick }: { entry: SelectionEntry; ticked: boolean; onTick: (ticked: boolean) => void }) {
+  const t = useT();
   const sending = sentBy(entry, true);
   const bytes = sending.reduce((sum, file) => sum + file.size, 0);
   return (
@@ -106,13 +109,9 @@ function EntryRow({ entry, ticked, onTick }: { entry: SelectionEntry; ticked: bo
         <span className="mono">{entry.name}</span>
       </label>
       <span className="d-pick-size">
-        {ticked || !entry.reason ? `${countOf(sending.length)}, ${megabytes(bytes)}` : entry.reason}
+        {ticked || !entry.reason ? `${t("common.files", { count: sending.length })}, ${megabytes(bytes)}` : entry.reason}
         {entry.held && <span className="d-pick-held" data-testid={`dialog-reference-held-${entry.name}`}>{entry.held}</span>}
       </span>
     </li>
   );
-}
-
-function countOf(files: number): string {
-  return files === 1 ? "1 file" : `${files} files`;
 }

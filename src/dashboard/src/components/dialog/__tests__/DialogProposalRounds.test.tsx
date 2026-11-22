@@ -4,6 +4,9 @@ import { DialogProposalRounds } from "../DialogProposalRounds";
 import { DialogDecisionBar } from "../DialogDecisionBar";
 import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush, SpecDialogReviewRound } from "@/types/spec-dialog";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-10-13-8762i: the approval card shows every review round of the proposal's drafts. 2026-11-10-8e59: a spec
 // not yet reviewed is marked, and Approve stays — nothing is built before a review ends clean on its exact text.
@@ -61,7 +64,7 @@ describe("DialogProposalRounds", () => {
 // 2026-11-19-1b72c: the approval card left; the decision put in the composer's place carries the same rule.
 describe("approval decision review rounds", () => {
   it("ApprovalDecision_NotReviewed_KeepsTheAction", () => {
-    const decision = approvalDecision(question, proposal(["2026-10-14-9000b"]))!;
+    const decision = approvalDecision(en, question, proposal(["2026-10-14-9000b"]))!;
     expect(decision.approvable).toBe(true);
     render(<DialogDecisionBar decision={decision} onApprove={vi.fn()} onKeepChatting={vi.fn()} />);
     expect(screen.getByTestId("dialog-file")).toHaveTextContent("Create ticket");
@@ -70,10 +73,10 @@ describe("approval decision review rounds", () => {
   });
 
   it("ApprovalDecision_SeriesToken_KeepsTheAction", () => {
-    expect(approvalDecision(question, proposal(["series"]))!.approvable).toBe(true);
+    expect(approvalDecision(en, question, proposal(["series"]))!.approvable).toBe(true);
   });
 
   it("AllReviewed_KeepsTheAction", () => {
-    expect(approvalDecision(question, proposal(null))!.approvable).toBe(true);
+    expect(approvalDecision(en, question, proposal(null))!.approvable).toBe(true);
   });
 });

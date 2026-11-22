@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 
 // 2026-11-19-7c42b: the proposal pane is as wide as the operator drags it. It starts at 40% of the page, stays
@@ -51,6 +52,7 @@ export function paneWidthStyle(width: number | null): CSSProperties | undefined 
 }
 
 export function DialogPaneHandle({ onResize }: { onResize: (width: number | null, remember?: boolean) => void }) {
+  const t = useT();
   const dragged = useRef<{ moved: boolean; width: number } | null>(null);
   const shellOf = (handle: HTMLElement) => handle.parentElement?.getBoundingClientRect() ?? null;
   const widthAt = (handle: HTMLElement, clientX: number) => {
@@ -91,8 +93,8 @@ export function DialogPaneHandle({ onResize }: { onResize: (width: number | null
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize the proposal pane"
-      title="Drag to resize · double-click to reset"
+      aria-label={t("dialog.pane.resize")}
+      title={t("dialog.pane.resizeHint")}
       tabIndex={0}
       className="dl-pane-handle"
       data-testid="dialog-pane-handle"

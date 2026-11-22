@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useEffect, useRef, useState } from "react";
 
 import { searchTickets, type TicketSearchFound } from "@/lib/specDialogApi";
@@ -65,6 +66,7 @@ export function DialogTicketSearch({
    *  one place on the surface that renders whether or not a project is being chosen. */
   reason?: string | null;
 }) {
+  const t = useT();
   const [text, setText] = useState("");
   const [found, setFound] = useState<TicketSearchFound[] | null>(null);
   const [more, setMore] = useState(false);
@@ -125,10 +127,10 @@ export function DialogTicketSearch({
           <span className="ec-mark filed">{picked.ticketId}</span>
           {picked.kind && <TicketKind kind={picked.kind} />}
           <span className="min-w-0 truncate text-ink">{picked.title}</span>
-          <span>on {picked.tracker}</span>
+          <span>{t("dialog.ticket.on", { tracker: picked.tracker })}</span>
           {stranded && (
             <span data-testid="dialog-ticket-stranded" className="ec-mark">
-              no project is configured on {picked.tracker}
+              {t("dialog.ticket.stranded", { tracker: picked.tracker })}
             </span>
           )}
           <button
@@ -139,7 +141,7 @@ export function DialogTicketSearch({
               setText("");
             }}
             className="d-conv-x"
-            aria-label="Discuss no ticket"
+            aria-label={t("dialog.ticket.clear")}
           >
             ×
           </button>
@@ -147,8 +149,8 @@ export function DialogTicketSearch({
       ) : (
         <input
           data-testid="dialog-ticket-query"
-          aria-label="Find a ticket by name or number"
-          placeholder={`Find a ticket by name or number (${minimum}+ characters)…`}
+          aria-label={t("dialog.ticket.query")}
+          placeholder={t("dialog.ticket.placeholder", { count: minimum })}
           value={text}
           onChange={(event) => setText(event.target.value)}
           className="d-input"
@@ -156,22 +158,22 @@ export function DialogTicketSearch({
       )}
       {!picked && typed.length > 0 && typed.length < minimum && (
         <p data-testid="dialog-ticket-minimum" className="ec-sub">
-          {minimum} characters or more.
+          {t("dialog.ticket.minimum", { count: minimum })}
         </p>
       )}
       {!picked && asking && found === null && (
         <p data-testid="dialog-ticket-asking" className="ec-sub">
-          Asking the configured trackers…
+          {t("dialog.ticket.asking")}
         </p>
       )}
       {!picked && found?.length === 0 && !failed && (
         <p data-testid="dialog-ticket-none" className="ec-sub">
-          No open ticket matches that.
+          {t("dialog.ticket.none")}
         </p>
       )}
       {!picked && failed && (
         <p data-testid="dialog-ticket-failed" className="ec-sub">
-          That search could not be run, so nothing is known about the boards yet.
+          {t("dialog.ticket.failed")}
         </p>
       )}
       {!picked && found !== null && found.length > 0 && (
@@ -192,13 +194,13 @@ export function DialogTicketSearch({
                       merely mentions it — it was already first, and now it says so. */}
                   {hit.exact && (
                     <span data-testid={`dialog-ticket-exact-${hit.ticketId}`} className="ec-mark filed">
-                      this number
+                      {t("dialog.ticket.exact")}
                     </span>
                   )}
                   <span>{hit.tracker}</span>
                   {bound.has(hit.ticketId) && (
                     <span data-testid={`dialog-ticket-bound-${hit.ticketId}`} className="ec-mark filed">
-                      has a conversation
+                      {t("dialog.ticket.bound")}
                     </span>
                   )}
                 </span>
@@ -211,21 +213,19 @@ export function DialogTicketSearch({
           empty board — both are the reason this page has its own search rather than a list. */}
       {!picked && more && (
         <p data-testid="dialog-ticket-more" className="ec-sub">
-          More matched than are shown. These are the most recently updated.
+          {t("dialog.ticket.more")}
         </p>
       )}
       {/* A tracker whose TEXT search worked and whose NUMBER read failed is not one nothing is
           known about — two failures, two sentences. */}
       {!picked && unreachable.length > 0 && (
         <p data-testid="dialog-ticket-unreachable" className="ec-sub">
-          {unreachable.join(", ")} could not be asked for a ticket by number, so a ticket of that
-          number there would not be found here.
+          {t("dialog.ticket.unreachable", { count: unreachable.length, list: unreachable.join(", ") })}
         </p>
       )}
       {!picked && unsearchable.length > 0 && (
         <p data-testid="dialog-ticket-unsearchable" className="ec-sub">
-          {unsearchable.join(", ")} could not be searched, so nothing here says whether the ticket
-          is on {unsearchable.length === 1 ? "it" : "them"}.
+          {t("dialog.ticket.unsearchable", { count: unsearchable.length, list: unsearchable.join(", ") })}
         </p>
       )}
     </div>

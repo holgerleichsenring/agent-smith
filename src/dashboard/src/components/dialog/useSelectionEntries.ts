@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/hooks/useT";
 import type { SpecDialogHeldContent } from "@/types/spec-dialog";
 import { heldIn, markHeld } from "./heldFiles";
 import { entriesOf, gitignoresOf, type SelectionEntry } from "./referenceSelection";
@@ -19,14 +20,17 @@ export function useSelectionEntries(
   files: File[],
   loadHeld?: () => Promise<SpecDialogHeldContent[]>,
 ): SelectionRead | null {
+  const t = useT();
   const [read, setRead] = useState<SelectionRead | null>(null);
   useEffect(() => {
     let live = true;
     const held = (loadHeld ? loadHeld() : Promise.resolve([])).then((h) => heldIn(files, h)).catch(() => null);
     void Promise.all([gitignoresOf(files), held]).then(([gitignores, found]) => {
       if (!live) return;
-      const entries = entriesOf(files, gitignores);
-      setRead({ entries: found ? markHeld(entries, found) : entries, checked: found !== null });
+      // The reasons are worded in the language of the moment the pick was read; a switch while the card is open
+      // keeps its ticks rather than re-reading the pick (2026-11-22-5485a).
+      const entries = entriesOf(t, files, gitignores);
+      setRead({ entries: found ? markHeld(t, entries, found) : entries, checked: found !== null });
     });
     return () => {
       live = false;

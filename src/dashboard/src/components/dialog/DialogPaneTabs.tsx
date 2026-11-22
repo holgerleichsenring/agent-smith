@@ -1,6 +1,8 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type { SpecDialogFilingPush, SpecDialogProposalPush } from "@/types/spec-dialog";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type { DialogPaneTab } from "./DialogPaneTab";
 
 // 2026-09-25-8e51d: the tablist and the eyebrow beside it, lifted out of DialogPane so a fourth
@@ -24,6 +26,7 @@ export function DialogPaneTabs({
   status: string;
   bad: boolean;
 }) {
+  const t = useT();
   return (
     // 2026-11-17-d762c: the tabs are words on one line, the chosen one bright — the ticket bar's sections, across.
     <div className="dl-tabs">
@@ -40,7 +43,7 @@ export function DialogPaneTabs({
             onClick={() => onPick(offer)}
             className="dl-tab"
           >
-            {TAB_LABEL[offer]}
+            {t(TAB_LABEL[offer])}
           </button>
         ))}
       </div>
@@ -52,22 +55,23 @@ export function DialogPaneTabs({
   );
 }
 
-const TAB_LABEL: Record<DialogPaneTab, string> = {
-  proposal: "Proposal",
-  scope: "Scope",
-  filed: "Filed",
-  approved: "Approved spec",
-  uploads: "Uploads",
-  series: "Series",
+const TAB_LABEL: Record<DialogPaneTab, TextKey> = {
+  proposal: "dialog.tab.proposal",
+  scope: "dialog.tab.scope",
+  filed: "dialog.tab.filed",
+  approved: "dialog.tab.approved",
+  uploads: "dialog.tab.uploads",
+  series: "dialog.tab.series",
 };
 
 export function statusOf(
+  t: T,
   tab: DialogPaneTab,
   shown: SpecDialogProposalPush | null,
   latest: SpecDialogProposalPush | null,
   filed: SpecDialogFilingPush | null,
 ): string {
-  if (tab === "filed") return filed?.error ? "filing failed" : "";
+  if (tab === "filed") return filed?.error ? t("dialog.tab.filingFailed") : "";
   // The scope pane has no state to report — it is a list of what a conversation may read, and
   // the panel says that in a sentence of its own. An eyebrow repeating it was the same noise
   // the heading was, one tab over.
@@ -79,6 +83,6 @@ export function statusOf(
   if (tab === "uploads") return "";
   // 2026-11-17-0207e: the series panel heads itself with its progress.
   if (tab === "series") return "";
-  if (shown !== latest) return "superseded";
-  return filed ? "filed" : "not filed yet";
+  if (shown !== latest) return t("dialog.tab.superseded");
+  return t(filed ? "dialog.tab.filed.status" : "dialog.tab.notFiledYet");
 }

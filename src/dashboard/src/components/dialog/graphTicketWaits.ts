@@ -4,6 +4,8 @@ import type { SpecDialogGraphTicket } from "@/types/spec-dialog";
 // named by its key; an existing ticket (`ticket:<id>`) as #<id> when the id is numeric and as written otherwise (a Jira
 // key) — the proposal carries no tracker type.
 
+import type { T } from "@/lib/i18n/translate";
+
 const EXISTING = "ticket:";
 
 /** A requires entry as a person reads it. */
@@ -15,8 +17,10 @@ export function requiredName(requirement: string): string {
 }
 
 /** "nothing to wait for", or "waits for a, #41". */
-export function waitsFor(ticket: SpecDialogGraphTicket): string {
-  return ticket.requires.length === 0 ? "nothing to wait for" : `waits for ${ticket.requires.map(requiredName).join(", ")}`;
+export function waitsFor(t: T, ticket: SpecDialogGraphTicket): string {
+  return ticket.requires.length === 0
+    ? t("dialog.waits.nothing")
+    : t("dialog.waits.for", { list: ticket.requires.map(requiredName).join(", ") });
 }
 
 /** The key a finding about the whole list carries — never a ticket key. */

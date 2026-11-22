@@ -10,6 +10,9 @@ import {
   sentBy,
   totalsOf,
 } from "../referenceSelection";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-10-02-075db: what a pick sends, worked out before the body that the server bounds.
 const MB = 1024 * 1024;
@@ -31,7 +34,7 @@ const paths = (files: File[]) => files.map((f) => f.webkitRelativePath);
 
 describe("referenceSelection", () => {
   it("referenceSelection_AFolderWithAVenvAndNodeModules_PreUnticksThemAsRebuildable", () => {
-    const entries = entriesOf([
+    const entries = entriesOf(en, [
       picked("app/.venv/lib/a.py"), picked("app/node_modules/x/i.js"), picked("app/src/main.py"),
     ], {});
 
@@ -46,7 +49,7 @@ describe("referenceSelection", () => {
       picked("app/.gitignore", 20, "dist\n*.log\n.env\n"), picked("app/.env"),
       picked("app/dist/bundle.js"), picked("app/src/main.ts"), picked("app/src/debug.log"),
     ];
-    const entries = entriesOf(files, await gitignoresOf(files));
+    const entries = entriesOf(en, files, await gitignoresOf(files));
 
     expect(entry(entries, "dist/")).toMatchObject({ ticked: false, reason: ".gitignore" });
     expect(paths(sentBy(entry(entries, "src/"), true))).toEqual(["app/src/main.ts"]);
@@ -60,14 +63,14 @@ describe("referenceSelection", () => {
       picked("app/web/.gitignore", 10, "build/\n"), picked("app/web/build/a.js"),
       picked("app/web/index.ts"), picked("app/build/kept.js"),
     ];
-    const entries = entriesOf(files, await gitignoresOf(files));
+    const entries = entriesOf(en, files, await gitignoresOf(files));
 
     expect(paths(sentBy(entry(entries, "web/"), true))).toEqual(["app/web/.gitignore", "app/web/index.ts"]);
     expect(entry(entries, "build/").ticked).toBe(true);
   });
 
   it("referenceSelection_NestedNodeModulesAndAnOversizedFile_AreLeftOutAndCounted", () => {
-    const entries = entriesOf([
+    const entries = entriesOf(en, [
       picked("app/frontend/src/a.ts"), picked("app/frontend/node_modules/x/i.js"),
       picked("app/frontend/video.mp4", 30 * MB),
     ], {});
@@ -75,32 +78,32 @@ describe("referenceSelection", () => {
 
     expect(frontend.ticked).toBe(true);
     expect(paths(sentBy(frontend, true))).toEqual(["app/frontend/src/a.ts"]);
-    expect(leftOutOf(entries, [true])).toEqual({
+    expect(leftOutOf(en, entries, [true])).toEqual({
       count: 2,
       summary: ["1 file under frontend/ (rebuildable)", "1 file under frontend/ (over 25 MB)"],
     });
   });
 
   it("referenceSelection_A52MbFile_IsUntickedOver25MbAndTotalsOverTheBoundSayByHowMuch", () => {
-    const entries = entriesOf([picked("big.bin", 52 * MB), picked("a.html", 10)], {});
+    const entries = entriesOf(en, [picked("big.bin", 52 * MB), picked("a.html", 10)], {});
 
     expect(entry(entries, "big.bin")).toMatchObject({ ticked: false, reason: "over 25 MB" });
-    expect(totalsOf([picked("a", 20 * MB), picked("b", 10 * MB)]).over).toBe("5 MB over the 25 MB a set may hold");
-    expect(totalsOf(Array.from({ length: 502 }, (_, i) => picked(`f${i}`))).over)
+    expect(totalsOf(en, [picked("a", 20 * MB), picked("b", 10 * MB)]).over).toBe("5 MB over the 25 MB a set may hold");
+    expect(totalsOf(en, Array.from({ length: 502 }, (_, i) => picked(`f${i}`))).over)
       .toBe("2 files over the 500 a set may hold");
-    expect(totalsOf([picked("a", 10)])).toEqual({ files: 1, bytes: 10, over: null });
+    expect(totalsOf(en, [picked("a", 10)])).toEqual({ files: 1, bytes: 10, over: null });
   });
 
   it("referenceSelection_LeftOut_NamesUntickedEntriesWhole", () => {
-    const entries = entriesOf([picked("app/.venv/a.py"), picked("app/notes/a.md"), picked("app/src/b.ts")], {});
+    const entries = entriesOf(en, [picked("app/.venv/a.py"), picked("app/notes/a.md"), picked("app/src/b.ts")], {});
 
-    expect(leftOutOf(entries, [false, false, true])).toEqual({
+    expect(leftOutOf(en, entries, [false, false, true])).toEqual({
       count: 2, summary: [".venv/ (rebuildable)", "notes/ (unticked)"],
     });
   });
 
   it("referenceSelection_APlainPick_KeepsEveryFileAsItsOwnEntry", () => {
-    const entries = entriesOf([new File(["a"], "a.html"), new File(["b"], "b.css")], {});
+    const entries = entriesOf(en, [new File(["a"], "a.html"), new File(["b"], "b.css")], {});
 
     expect(entries.map((e) => e.name)).toEqual(["a.html", "b.css"]);
   });

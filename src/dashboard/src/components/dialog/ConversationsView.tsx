@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { projectLabel } from "@/lib/installation";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -37,6 +38,7 @@ export function ConversationsView() {
   const [rows, setRows] = useState<SpecDialogSessionSummary[] | null>(null);
   const [total, setTotal] = useState(0);
   const [failure, setFailure] = useState<Error | null>(null);
+  const t = useT();
   const confirmation = useConfirmDialog();
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -59,8 +61,8 @@ export function ConversationsView() {
   // The same question the panel asks, from the same rule, so a conversation is not easier to
   // lose from here than from there.
   const remove = useCallback(async (conversation: SpecDialogSessionSummary) => {
-    const warning = deletionWarning(conversation);
-    if (warning !== null && !(await confirmation.ask(warning, { confirmLabel: "Delete" }))) return;
+    const warning = deletionWarning(t, conversation);
+    if (warning !== null && !(await confirmation.ask(warning, { confirmLabel: t("common.delete") }))) return;
     try {
       await deleteSpecDialogConversation(conversation.sessionId);
     } catch (thrown) {
@@ -69,7 +71,7 @@ export function ConversationsView() {
     }
     setRows((held) => (held ?? []).filter((row) => row.sessionId !== conversation.sessionId));
     setTotal((held) => Math.max(0, held - 1));
-  }, [confirmation]);
+  }, [confirmation, t]);
 
   const refusal = refusalIn(failure);
 
@@ -77,8 +79,8 @@ export function ConversationsView() {
     <div className="mock-shell mock-dialog" data-testid="conversations-page">
       <main className="main">
         <PageHead
-          title="Conversations"
-          sub="Every conversation you have had here, newest first."
+          title={t("dialog.conversations.label")}
+          sub={t("dialog.conversations.sub")}
         />
         {/* A refusal reads as one: the list route needs the dialog permission, and the rail
             offers Work it out to every caller, so a caller without it must be told which
@@ -103,18 +105,19 @@ function Listed({
   failure: Error | null;
   onDelete: (conversation: SpecDialogSessionSummary) => void;
 }) {
+  const t = useT();
   if (failure) {
     return (
       <p className="ec-sub" role="alert" data-testid="conversations-failed">
-        The conversations could not be read: {failure.message}
+        {t("dialog.conversations.failed", { reason: failure.message })}
       </p>
     );
   }
-  if (rows === null) return <p className="ec-sub" data-testid="conversations-loading">Reading…</p>;
+  if (rows === null) return <p className="ec-sub" data-testid="conversations-loading">{t("dialog.conversations.reading")}</p>;
   if (rows.length === 0) {
     return (
       <p className="ec-sub" data-testid="conversations-none">
-        No conversations yet. Start one on the Work it out page.
+        {t("dialog.conversations.none")}
       </p>
     );
   }
@@ -122,13 +125,13 @@ function Listed({
     <section className="ecard inert">
       <div className="d-head">
         <div className="d-head-t">
-          <h2 className="ec-name sans">Conversations</h2>
+          <h2 className="ec-name sans">{t("dialog.conversations.label")}</h2>
           {/* Counted, not inferred from the row count — which would be wrong for exactly the
               caller who holds the limit exactly. */}
           <span className="ec-sub" data-testid="conversations-count">
             {rows.length === total
-              ? `${total} in all`
-              : `the ${rows.length} most recent of ${total}`}
+              ? t("dialog.conversations.countAll", { count: total })
+              : t("dialog.conversations.countSome", { shown: rows.length, count: total })}
           </span>
         </div>
       </div>
@@ -148,12 +151,14 @@ function Row({
   conversation: SpecDialogSessionSummary;
   onDelete: (conversation: SpecDialogSessionSummary) => void;
 }) {
-  const filed = outcomeLabel(conversation);
+  const t = useT();
+  const filed = outcomeLabel(t, conversation);
   // 2026-09-21-f237a: the row says what the conversation is ABOUT; the delete says what the
   // person wrote. Opposite preferences over the same two strings, the same way the panel's row
   // resolves them.
-  const name = conversation.subject ?? conversation.title ?? `untitled ${conversation.sessionId}`;
-  const written = conversation.title ?? conversation.subject ?? `untitled ${conversation.sessionId}`;
+  const untitled = t("dialog.conversations.untitled", { id: conversation.sessionId });
+  const name = conversation.subject ?? conversation.title ?? untitled;
+  const written = conversation.title ?? conversation.subject ?? untitled;
   return (
     <div className="d-conv-row">
       <Link
@@ -173,17 +178,17 @@ function Row({
               {conversation.ticket}
             </span>
           )}
-          <span>{conversation.turns} turn{conversation.turns === 1 ? "" : "s"}</span>
-          <span>{lastActive(conversation.lastActivityAt)}</span>
-          {conversation.openDialogId && <span data-testid="conversations-open-mark">open</span>}
+          <span>{t("dialog.conversations.turns", { count: conversation.turns })}</span>
+          <span>{lastActive(t, conversation.lastActivityAt)}</span>
+          {conversation.openDialogId && <span data-testid="conversations-open-mark">{t("dialog.conversations.openMark")}</span>}
           {filed && <span className="ec-mark filed">{filed}</span>}
         </span>
       </Link>
       <button
         type="button"
         data-testid={`conversations-delete-${conversation.sessionId}`}
-        aria-label={`Delete ${written}`}
-        title="Delete this conversation"
+        aria-label={t("dialog.conversations.deleteNamed", { name: written })}
+        title={t("dialog.conversations.deleteThis")}
         onClick={() => onDelete(conversation)}
         className="d-conv-x"
       >

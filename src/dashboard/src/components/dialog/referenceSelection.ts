@@ -1,4 +1,5 @@
 import ignore from "ignore";
+import type { T } from "@/lib/i18n/translate";
 
 // 2026-10-02-075db: what a folder or file pick will send, worked out before anything is sent. The
 // server reads at most a bounded body and refuses a larger one unread, so a folder carrying a
@@ -83,7 +84,7 @@ export async function gitignoresOf(files: File[]): Promise<Record<string, string
 }
 
 /** The pick's entries, each with what it sends and what it leaves out. */
-export function entriesOf(files: File[], gitignores: Record<string, string>): SelectionEntry[] {
+export function entriesOf(t: T, files: File[], gitignores: Record<string, string>): SelectionEntry[] {
   const root = sharedRoot(files.map(pathOf));
   const ignores = Object.entries(gitignores)
     .sort(([a], [b]) => a.length - b.length)
@@ -96,7 +97,7 @@ export function entriesOf(files: File[], gitignores: Record<string, string>): Se
     entries.set(name, entry);
     sortInto(entry, file, ignores);
   }
-  return [...entries.values()].map(settle);
+  return [...entries.values()].map((entry) => settle(t, entry));
 }
 
 /** The files an entry sends with the operator's tick. */
@@ -114,17 +115,17 @@ export interface SelectionTotals {
 
 /** The totals of what will actually be sent, against the set's bounds — and, 2026-10-08-e8b9h,
  *  against what the conversation has `left` under its byte cap (null: nothing known to check). */
-export function totalsOf(sent: File[], left: number | null = null): SelectionTotals {
+export function totalsOf(t: T, sent: File[], left: number | null = null): SelectionTotals {
   const bytes = sent.reduce((sum, file) => sum + file.size, 0);
   const over: string[] = [];
-  if (bytes > MAX_SET_BYTES) over.push(`${megabytes(bytes - MAX_SET_BYTES)} over the 25 MB a set may hold`);
-  if (sent.length > MAX_FILES) over.push(`${sent.length - MAX_FILES} files over the ${MAX_FILES} a set may hold`);
-  if (left !== null && bytes > left) over.push(`${sizeOf(bytes)} where the conversation has ${sizeOf(left)} left`);
+  if (bytes > MAX_SET_BYTES) over.push(t("dialog.pick.overSet", { size: megabytes(bytes - MAX_SET_BYTES) }));
+  if (sent.length > MAX_FILES) over.push(t("dialog.pick.overFiles", { count: sent.length - MAX_FILES, max: MAX_FILES }));
+  if (left !== null && bytes > left) over.push(t("dialog.pick.overLeft", { size: sizeOf(bytes), left: sizeOf(left) }));
   return { files: sent.length, bytes, over: over.length > 0 ? over.join("; ") : null };
 }
 
 /** What the pick leaves out with these ticks: whole entries by name, the rest counted by reason. */
-export function leftOutOf(entries: SelectionEntry[], ticks: boolean[]): PickLeftOut {
+export function leftOutOf(t: T, entries: SelectionEntry[], ticks: boolean[]): PickLeftOut {
   let count = 0;
   const summary: string[] = [];
   entries.forEach((entry, i) => {
@@ -132,8 +133,8 @@ export function leftOutOf(entries: SelectionEntry[], ticks: boolean[]): PickLeft
     const sent = sentBy(entry, ticks[i]).length;
     if (sent === all) return;
     count += all - sent;
-    if (sent === 0) summary.push(`${entry.name} (${entry.reason ?? "unticked"})`);
-    else summary.push(...partsLeftOut(entry));
+    if (sent === 0) summary.push(`${entry.name} (${entry.reason ?? t("dialog.pick.unticked")})`);
+    else summary.push(...partsLeftOut(t, entry));
   });
   return { count, summary };
 }
@@ -153,12 +154,19 @@ export function sizeOf(bytes: number): string {
 
 /** A ticked entry's left-out files by reason; what a .gitignore left out counts only where the
  *  entry started ticked, because ticking one that started unticked sent those files. */
-function partsLeftOut(entry: SelectionEntry): string[] {
-  const counts = new Map<string, number>();
+function partsLeftOut(t: T, entry: SelectionEntry): string[] {
+  const counts = new Map<LeftOutReason, number>();
   for (const { reason } of entry.excluded) counts.set(reason, (counts.get(reason) ?? 0) + 1);
   if (entry.ticked) counts.set(".gitignore", entry.ignored.length);
   return [...counts].filter(([, n]) => n > 0)
-    .map(([reason, n]) => `${n === 1 ? "1 file" : `${n} files`} under ${entry.name} (${reason})`);
+    .map(([reason, n]) => t("dialog.pick.under", { files: t("common.files", { count: n }), name: entry.name, reason: reasonWord(t, reason) }));
+}
+
+/** 2026-11-22-5485a: a reason as the card says it; the reason itself stays the code the rules compare. */
+function reasonWord(t: T, reason: LeftOutReason): string {
+  if (reason === "rebuildable") return t("dialog.pick.rebuildable");
+  if (reason === "over 25 MB") return t("dialog.pick.overSize");
+  return reason;
 }
 
 function sortInto(entry: SelectionEntry, file: File, ignores: { folder: string; rules: ReturnType<typeof ignore> }[]) {
@@ -169,11 +177,11 @@ function sortInto(entry: SelectionEntry, file: File, ignores: { folder: string; 
   else entry.kept.push(file);
 }
 
-function settle(entry: SelectionEntry): SelectionEntry {
+function settle(t: T, entry: SelectionEntry): SelectionEntry {
   if (entry.kept.length > 0) return { ...entry, ticked: true };
-  const reasons = new Set<string>(entry.excluded.map((e) => e.reason));
+  const reasons = new Set<LeftOutReason>(entry.excluded.map((e) => e.reason));
   if (entry.ignored.length > 0) reasons.add(".gitignore");
-  return { ...entry, ticked: false, reason: [...reasons].join(", ") || null };
+  return { ...entry, ticked: false, reason: [...reasons].map((reason) => reasonWord(t, reason)).join(", ") || null };
 }
 
 /** Whether the .gitignore files above `path` ignore it; a deeper file's negation wins. */

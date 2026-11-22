@@ -1,8 +1,10 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { projectLabel } from "@/lib/installation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import type { T } from "@/lib/i18n/translate";
 import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 import { lastActive, outcomeLabel, outcomeTone } from "./conversationRows";
 
@@ -44,6 +46,7 @@ export function DialogConversations({
   // between them mints a second id: the first session opens on an id nothing is watching
   // while the page sits on the second with no session and no explanation. One click per
   // dialog id, released when the page is looking at one.
+  const t = useT();
   const [starting, setStarting] = useState(false);
   useEffect(() => setStarting(false), [dialogId]);
 
@@ -51,7 +54,7 @@ export function DialogConversations({
     // 2026-11-17-d762a: the page's own bar beside the icon-only app sidebar, in the ticket bar's look (8d1ca): the
     // page's name, New conversation as a row, a row per conversation and All conversations at its foot. Text and
     // hairlines only; the open conversation is the bright row.
-    <aside data-testid="dialog-controls" className="dl-bar" aria-label="Conversations">
+    <aside data-testid="dialog-controls" className="dl-bar" aria-label={t("dialog.conversations.label")}>
       <div className="dl-bar-id">Work it out</div>
       <button
         type="button"
@@ -63,10 +66,10 @@ export function DialogConversations({
         }}
         className="dl-bar-new"
       >
-        + New conversation
+        {t("dialog.conversations.new")}
       </button>
       {conversations.length > 0 && (
-        <nav data-testid="dialog-conversations" className="dl-bar-rows" aria-label="Recent conversations">
+        <nav data-testid="dialog-conversations" className="dl-bar-rows" aria-label={t("dialog.conversations.recent")}>
           {drawn(conversations, sessionHere).map((conversation) => (
             <Conversation
               key={conversation.sessionId}
@@ -80,7 +83,7 @@ export function DialogConversations({
       )}
       {/* 2026-09-21-f237b: the panel is not the only way to a conversation any more. */}
       <Link href="/spec-dialog/conversations" className="dl-bar-all" data-testid="dialog-see-all">
-        All conversations
+        {t("dialog.conversations.all")}
       </Link>
     </aside>
   );
@@ -116,8 +119,8 @@ export function drawn(
   return open ? [...rows, open] : rows;
 }
 
-function untitled({ sessionId }: SpecDialogSessionSummary): string {
-  return `untitled ${sessionId}`;
+function untitled(t: T, { sessionId }: SpecDialogSessionSummary): string {
+  return t("dialog.conversations.untitled", { id: sessionId });
 }
 
 function Conversation({
@@ -131,16 +134,17 @@ function Conversation({
   onOpen: (sessionId: string, openDialogId: string | null) => void;
   onDelete: (sessionId: string) => void;
 }) {
-  const filed = outcomeLabel(conversation);
-  const time = lastActive(conversation.lastActivityAt);
+  const t = useT();
+  const filed = outcomeLabel(t, conversation);
+  const time = lastActive(t, conversation.lastActivityAt);
   // 2026-09-21-f237a: the ROW says what the conversation is about, the DELETE says what the
   // person wrote — opposite preferences over the same two strings, on purpose. A row twenty-five
   // characters wide cannot show enough of an opening sentence to tell one conversation from
   // another; a confirmation that quoted a model-minted subject would ask someone to approve the
   // loss of something they have never seen under that name. Where only one of the two exists,
   // both fall back to it, so neither ever says "untitled" about a row that is showing a name.
-  const title = conversation.subject ?? conversation.title ?? untitled(conversation);
-  const written = conversation.title ?? conversation.subject ?? untitled(conversation);
+  const title = conversation.subject ?? conversation.title ?? untitled(t, conversation);
+  const written = conversation.title ?? conversation.subject ?? untitled(t, conversation);
   return (
     <div className="dl-row">
       <button
@@ -162,9 +166,7 @@ function Conversation({
               {conversation.ticket}
             </span>
           )}
-          <span>
-            {conversation.turns} turn{conversation.turns === 1 ? "" : "s"}
-          </span>
+          <span>{t("dialog.conversations.turns", { count: conversation.turns })}</span>
           <span>{time}</span>
           {filed && (
             <span data-testid="dialog-conversation-outcome" className={`dl-tone ${outcomeTone(conversation)}`}>
@@ -176,8 +178,8 @@ function Conversation({
       <button
         type="button"
         data-testid={`dialog-delete-${conversation.sessionId}`}
-        aria-label={`Delete ${written}`}
-        title="Delete this conversation"
+        aria-label={t("dialog.conversations.deleteNamed", { name: written })}
+        title={t("dialog.conversations.deleteThis")}
         onClick={() => onDelete(conversation.sessionId)}
         className="d-conv-x"
       >

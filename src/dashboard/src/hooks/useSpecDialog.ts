@@ -22,6 +22,7 @@ import { readAll } from "@/components/dialog/useTurnSteps";
 import { withImages, withMocks } from "@/components/dialog/transcriptImages";
 import { replyRecorded, type AwaitedReply } from "@/components/dialog/recordedReply";
 import { refusedNote, storedNote, type UploadNote } from "@/components/dialog/uploadNote";
+import { useT } from "./useT";
 import type { PickLeftOut } from "@/components/dialog/referenceSelection";
 import type {
   SpecDialogDecision,
@@ -161,6 +162,7 @@ export interface SpecDialogState {
 /** 2026-10-13-9a59r: `source` says where the dialog id comes from — the browser's held id by default
  *  (Work it out), or one minted per instance and never held (a ticket's conversation). */
 export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDialogState {
+  const t = useT();
   const ids = useRef(source);
   const [dialogId, setDialogId] = useState<string | null>(null);
   const [view, setView] = useState<SpecDialogView | null>(null);
@@ -627,7 +629,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       try {
         await uploadSpecDialogImage(dialogId, project ?? "", file);
       } catch (thrown) {
-        setUploadNote(refusedNote(thrown));
+        setUploadNote(refusedNote(t, thrown));
         return;
       }
       // The read has to RESEED: the image is not something this page said, so there is
@@ -635,7 +637,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       reseed.current = true;
       await load(dialogId);
     },
-    [dialogId, load],
+    [dialogId, load, t],
   );
 
   const refresh = useCallback(async () => {
@@ -653,15 +655,15 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       if (!dialogId || files.length === 0) return;
       setUploadNote(null);
       try {
-        setUploadNote(storedNote(await uploadSpecDialogReferences(dialogId, project ?? "", files), leftOut));
+        setUploadNote(storedNote(t, await uploadSpecDialogReferences(dialogId, project ?? "", files), leftOut));
       } catch (thrown) {
-        setUploadNote(refusedNote(thrown));
+        setUploadNote(refusedNote(t, thrown));
         return;
       }
       reseed.current = true;
       await load(dialogId);
     },
-    [dialogId, load],
+    [dialogId, load, t],
   );
 
   // A fresh dialog id with a resume queued for it: the resume waits for the subscription, so

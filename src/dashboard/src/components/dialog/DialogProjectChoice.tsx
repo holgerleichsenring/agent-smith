@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type { SpecDialogProject } from "@/types/spec-dialog";
 import { projectLabel } from "@/lib/installation";
 
@@ -34,6 +35,7 @@ export function DialogProjectChoice({
    *  not be answered for from a ticket at all. A reason, shown where the choice is made. */
   reason?: string | null;
 }) {
+  const t = useT();
   return (
     <div
       data-testid="dialog-project-choice"
@@ -46,38 +48,35 @@ export function DialogProjectChoice({
       )}
       {read === "pending" && (
         <p data-testid="dialog-project-choice-loading" className="dsh-body text-body">
-          Reading the configured projects…
+          {t("dialog.project.reading")}
         </p>
       )}
       {read === "failed" && (
         <p data-testid="dialog-project-choice-failed" className="dsh-body text-body">
-          The configured projects could not be read, so there is nothing to choose from yet.
-          What went wrong is reported at the top of this page.
+          {t("dialog.project.failed")}
         </p>
       )}
       {read === "read" && projects.length === 0 && (
         <p data-testid="dialog-project-choice-none" className="dsh-body text-body">
-          No project is configured, so there is nothing to design against yet. Configure one in
-          Config Studio and a conversation can be grounded in it.
+          {t("dialog.project.none")}
         </p>
       )}
       {read === "read" && projects.length > 0 && (
         <>
-          <p className="dsh-h3 text-ink">Which project is this about?</p>
+          <p className="dsh-h3 text-ink">{t("dialog.project.which")}</p>
           <p className="dsh-body text-body">
-            A conversation reads one project&apos;s repositories before it answers, so this is
-            what it will be grounded in.
+            {t("dialog.project.why")}
           </p>
           {/* The label is the control's own: nothing above it names the select, and a person
               tabbing here hears what they are choosing. */}
           <select
             data-testid="dialog-choice-project"
-            aria-label="Project"
+            aria-label={t("dialog.project.label")}
             value={picked}
             onChange={(event) => onPicked(event.target.value)}
             className="d-input max-w-xs"
           >
-            <option value="">pick a project…</option>
+            <option value="">{t("dialog.project.pick")}</option>
             {projects.map((project) => (
               <option key={project.name} value={project.name}>
                 {projectLabel(project.name)}

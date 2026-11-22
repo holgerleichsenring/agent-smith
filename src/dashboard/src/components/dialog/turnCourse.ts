@@ -1,3 +1,4 @@
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type { SpecDialogReviewRound } from "@/types/spec-dialog";
 import { SERIES_TOKEN } from "./DialogProposalRounds";
 import { durationOf, findingsOf, roundsOf, usd, type TurnProposal } from "./turnProposal";
@@ -10,6 +11,15 @@ export interface SpecMark {
   word: "passed" | "cuts" | "refused" | "waits on your answer" | "not reviewed";
   reason?: string;
 }
+
+/** 2026-11-22-5485a: the word is the mark's stable name (data-mark); this is how a reader hears it. */
+export const MARK_WORD: Record<SpecMark["word"], TextKey> = {
+  passed: "dialog.mark.passed",
+  cuts: "dialog.mark.cuts",
+  refused: "dialog.mark.refused",
+  "waits on your answer": "dialog.mark.waitsOnYou",
+  "not reviewed": "dialog.mark.notReviewed",
+};
 
 const REASON_CHARS = 120;
 
@@ -53,7 +63,7 @@ function shortened(text: string): string {
 
 /** "2 refusals: 1 open, 1 resolved" — a spec refused in any round, open while its last round still refuses.
  * 2026-11-13-b3a2: a spec whose last round waits on the owner's decisions is not a refusal. */
-export function refusalsOf(proposal: TurnProposal): string | null {
+export function refusalsOf(t: T, proposal: TurnProposal): string | null {
   const last = lastRounds(proposal);
   const refused = new Set((proposal.reviewRounds ?? [])
     .filter((round) => round.specId !== SERIES_TOKEN && normalised(round.verdict) === "refuse")
@@ -62,21 +72,23 @@ export function refusalsOf(proposal: TurnProposal): string | null {
   if (refused.size === 0) return null;
   const open = [...refused].filter((specId) => normalised(last.get(specId)?.verdict ?? "") === "refuse").length;
   const resolved = refused.size - open;
-  const noun = refused.size === 1 ? "refusal" : "refusals";
-  if (resolved === 0) return `${open} ${noun} open`;
-  if (open === 0) return `${resolved} ${noun} resolved`;
-  return `${refused.size} ${noun}: ${open} open, ${resolved} resolved`;
+  const count = refused.size;
+  if (resolved === 0) return t("dialog.course.refusalsOpen", { count, open });
+  if (open === 0) return t("dialog.course.refusalsResolved", { count, resolved });
+  return t("dialog.course.refusalsBoth", { count, open, resolved });
 }
 
 /** The course line's words before the run link: duration, cost, review rounds, refusals and a cap that ended the review. */
-export function courseOf(proposal: TurnProposal | null, firstAt?: string | null, lastAt?: string | null): string[] {
+export function courseOf(t: T, proposal: TurnProposal | null, firstAt?: string | null, lastAt?: string | null): string[] {
   const rounds = proposal ? roundsOf(proposal) : 0;
   const spend = proposal?.spend;
   return [
     durationOf(firstAt, lastAt),
     spend ? usd(spend.usd) : null,
-    rounds > 0 ? `${rounds} review ${rounds === 1 ? "round" : "rounds"}` : null,
-    proposal ? refusalsOf(proposal) : null,
-    spend?.capHit ? `cost cap reached${spend.capUsd != null ? ` at ${usd(spend.capUsd)}` : ""}` : null,
+    rounds > 0 ? t("dialog.course.reviewRounds", { count: rounds }) : null,
+    proposal ? refusalsOf(t, proposal) : null,
+    spend?.capHit
+      ? spend.capUsd != null ? t("dialog.course.costCapAt", { usd: usd(spend.capUsd) }) : t("dialog.course.costCap")
+      : null,
   ].filter((part): part is string => part !== null);
 }

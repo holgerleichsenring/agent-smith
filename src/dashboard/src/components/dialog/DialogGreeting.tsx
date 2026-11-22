@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useAccessToken } from "@/hooks/useAccessToken";
 import { useCallerIdentity } from "@/hooks/useCallerIdentity";
+import { useT } from "@/hooks/useT";
 import { useRuntimeSettings } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
 import { greetingFor } from "./greetingText";
 
@@ -22,16 +23,18 @@ export function DialogGreeting() {
 }
 
 function Unnamed() {
-  return <span>{greetingFor(useHour())}</span>;
+  const t = useT();
+  return <span>{greetingFor(t, useHour())}</span>;
 }
 
 function Named() {
+  const t = useT();
   const token = useAccessToken();
   const { identity } = useCallerIdentity(token !== null);
   // A name that is not a name is no better than none: the subject carries the NAME-CLAIM value,
   // and on the default claim that value is a directory identifier.
   const name = identity?.nameIsReadable ? identity.subject : null;
-  return <span>{greetingFor(useHour(), name)}</span>;
+  return <span>{greetingFor(t, useHour(), name)}</span>;
 }
 
 /** Read AFTER mount: decided during render it would be the build's clock, not the reader's. */

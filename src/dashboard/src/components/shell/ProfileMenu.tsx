@@ -9,6 +9,9 @@ import { useJobsHub } from "@/hooks/useJobsHub";
 import { useAccessToken } from "@/hooks/useAccessToken";
 import { useSessionEnd } from "@/hooks/useSessionEnd";
 import { useCallerIdentity } from "@/hooks/useCallerIdentity";
+import { useLanguage, useT } from "@/hooks/useT";
+import { chooseLanguage } from "@/lib/i18n/language";
+import { LANGUAGES, type Language, type TextKey } from "@/lib/i18n/translate";
 import type { SessionEndReason } from "@/lib/auth/AccessTokenStore";
 import { useRuntimeSettings } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
 import { signIn, signOut } from "@/lib/auth/session";
@@ -20,45 +23,59 @@ import { cn } from "@/lib/utils";
 // account. As before (2026-08-25-4530), an installation with no authority shows no account and
 // mounts no identity hook: the foot then names the installation alone.
 
-const SETTINGS: ReadonlyArray<{ label: string; href: string; icon: LucideIcon }> = [
-  { label: "Settings", href: "/config", icon: Settings },
-  { label: "Access", href: "/config/access", icon: ShieldCheck },
-  { label: "Installation", href: "/config/installation", icon: Server },
-  { label: "System", href: "/system", icon: Activity },
+const SETTINGS: ReadonlyArray<{ id: string; label: TextKey; href: string; icon: LucideIcon }> = [
+  { id: "settings", label: "shell.profile.settings", href: "/config", icon: Settings },
+  { id: "access", label: "shell.profile.access", href: "/config/access", icon: ShieldCheck },
+  { id: "installation", label: "shell.profile.installation", href: "/config/installation", icon: Server },
+  { id: "system", label: "shell.profile.system", href: "/system", icon: Activity },
 ];
 
 // 2026-08-28-0f46: a session that ENDED reads differently from one that never began.
-const WHY_IT_ENDED: Record<SessionEndReason, string> = {
-  expired: "Your session expired",
-  "renewal-refused": "Your session ended",
+const WHY_IT_ENDED: Record<SessionEndReason, TextKey> = {
+  expired: "shell.profile.sessionExpired",
+  "renewal-refused": "shell.profile.sessionEnded",
+};
+
+// 2026-11-22-5485a: each language is named in itself and flagged, so a reader who cannot read the page still finds
+// their own. Not dictionary entries: the name is the same whichever language is in force.
+const LANGUAGE_CHOICES: Record<Language, { flag: string; name: string }> = {
+  en: { flag: "\u{1F1EC}\u{1F1E7}", name: "English" },
+  de: { flag: "\u{1F1E9}\u{1F1EA}", name: "Deutsch" },
 };
 
 export function ProfileMenu({ collapsed }: { collapsed: boolean }) {
+  const t = useT();
+  const language = useLanguage();
   const { auth } = useRuntimeSettings();
   const { connectionState } = useJobsHub();
   const connected = connectionState === HubConnectionState.Connected;
+  // The document says which language it is in, so a screen reader speaks it in that voice.
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
   if (!auth.authority) {
-    return <Foot collapsed={collapsed} name="This installation" connected={connected} />;
+    return <Foot collapsed={collapsed} name={t("shell.profile.thisInstallation")} connected={connected} />;
   }
   return <Account collapsed={collapsed} connected={connected} />;
 }
 
 function Account({ collapsed, connected }: { collapsed: boolean; connected: boolean }) {
+  const t = useT();
   const token = useAccessToken();
   const ended = useSessionEnd();
   const { identity } = useCallerIdentity(token !== null);
 
   if (token === null) {
     return (
-      <Foot collapsed={collapsed} name="Not signed in" connected={connected} note={ended ? WHY_IT_ENDED[ended] : undefined}>
-        <MenuButton icon={LogIn} label="Sign in" testId="profile-sign-in" onClick={() => void signIn()} />
+      <Foot collapsed={collapsed} name={t("shell.profile.notSignedIn")} connected={connected} note={ended ? t(WHY_IT_ENDED[ended]) : undefined}>
+        <MenuButton icon={LogIn} label={t("shell.profile.signIn")} testId="profile-sign-in" onClick={() => void signIn()} />
       </Foot>
     );
   }
   return (
-    <Foot collapsed={collapsed} name={identity?.subject ?? "Signed in"} role={identity?.roles[0]} connected={connected}>
-      <MenuLink icon={UserRound} label="Your identity" href="/identity" testId="profile-identity" />
-      <MenuButton icon={LogOut} label="Sign out" testId="profile-sign-out" onClick={() => void signOut()} />
+    <Foot collapsed={collapsed} name={identity?.subject ?? t("shell.profile.signedIn")} role={identity?.roles[0]} connected={connected}>
+      <MenuLink icon={UserRound} label={t("shell.profile.identity")} href="/identity" testId="profile-identity" />
+      <MenuButton icon={LogOut} label={t("shell.profile.signOut")} testId="profile-sign-out" onClick={() => void signOut()} />
     </Foot>
   );
 }
@@ -84,6 +101,7 @@ function anchorOf(button: HTMLElement | null): CSSProperties | null {
 }
 
 function Foot({ collapsed, name, role, connected, note, children }: FootProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<CSSProperties | null>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -119,15 +137,17 @@ function Foot({ collapsed, name, role, connected, note, children }: FootProps) {
       document.removeEventListener("keydown", close);
     };
   }, [open]);
-  const status = note ?? [connected ? "Connected" : "Offline", role].filter(Boolean).join(" · ");
+  const status = note ?? [t(connected ? "shell.profile.connected" : "shell.profile.offline"), role].filter(Boolean).join(" · ");
 
   return (
     <div className="sb-foot" ref={root} data-testid="profile">
       {open && anchor && createPortal(
         <div className="sb-menu" role="menu" ref={menu} style={anchor} data-testid="profile-menu" onClick={() => setOpen(false)}>
           {SETTINGS.map((item) => (
-            <MenuLink key={item.href} {...item} testId={`profile-${item.label.toLowerCase()}`} />
+            <MenuLink key={item.href} icon={item.icon} label={t(item.label)} href={item.href} testId={`profile-${item.id}`} />
           ))}
+          <div className="sb-menu-rule" role="separator" />
+          <LanguageSwitch />
           {children && <div className="sb-menu-rule" role="separator" />}
           {children}
         </div>,
@@ -139,7 +159,7 @@ function Foot({ collapsed, name, role, connected, note, children }: FootProps) {
         className="sb-who"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={collapsed ? `${name}, settings and account` : undefined}
+        aria-label={collapsed ? t("shell.profile.menuLabel", { name }) : undefined}
         title={name}
         onClick={() => setOpen(!open)}
         data-testid="profile-button"
@@ -155,6 +175,31 @@ function Foot({ collapsed, name, role, connected, note, children }: FootProps) {
           </span>
         )}
       </button>
+    </div>
+  );
+}
+
+/** 2026-11-22-5485a: the language this browser shows the dashboard in, one flag per language; the one in force is checked. */
+function LanguageSwitch() {
+  const t = useT();
+  const language = useLanguage();
+  return (
+    <div className="sb-menu-lang" role="group" aria-label={t("shell.profile.language")} data-testid="profile-language">
+      {LANGUAGES.map((choice) => (
+        <button
+          key={choice}
+          type="button"
+          role="menuitemradio"
+          aria-checked={choice === language}
+          lang={choice}
+          title={LANGUAGE_CHOICES[choice].name}
+          data-testid={`profile-language-${choice}`}
+          onClick={() => chooseLanguage(choice)}
+        >
+          <span aria-hidden="true">{LANGUAGE_CHOICES[choice].flag}</span>
+          {LANGUAGE_CHOICES[choice].name}
+        </button>
+      ))}
     </div>
   );
 }

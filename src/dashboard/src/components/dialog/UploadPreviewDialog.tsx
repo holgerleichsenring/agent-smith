@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useEffect, useRef, useState } from "react";
 import { useBlobUrl } from "@/hooks/useBlobUrl";
 import { fetchReferenceFileBlob, fetchReferenceFilePreview } from "@/lib/referenceFilesApi";
@@ -19,6 +20,7 @@ export function UploadPreviewDialog({ dialogId, setId, path, onClose }: {
   path: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const held = useRef<HTMLDialogElement | null>(null);
   const [preview, setPreview] = useState<SpecDialogFilePreview | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -52,12 +54,12 @@ export function UploadPreviewDialog({ dialogId, setId, path, onClose }: {
         <p id="dialog-upload-preview-path" className="d-preview-t mono">{path}</p>
         {preview && <span className="ec-sub">{sizeOf(preview.bytes)}</span>}
         <button type="button" className="btn" data-testid="dialog-upload-preview-download"
-          onClick={() => void download(dialogId, setId, path)}>Download</button>
-        <button type="button" className="btn" data-testid="dialog-upload-preview-close" onClick={onClose}>Close</button>
+          onClick={() => void download(dialogId, setId, path)}>{t("dialog.preview.download")}</button>
+        <button type="button" className="btn" data-testid="dialog-upload-preview-close" onClick={onClose}>{t("dialog.preview.close")}</button>
       </div>
       <div className="d-preview-body">
-        {failed && <p role="alert" className="d-upload-note bad">{`The file could not be opened: ${failed}`}</p>}
-        {!failed && !preview && <p className="ec-sub" aria-busy="true">Opening…</p>}
+        {failed && <p role="alert" className="d-upload-note bad">{t("dialog.preview.couldNotOpen", { reason: failed })}</p>}
+        {!failed && !preview && <p className="ec-sub" aria-busy="true">{t("dialog.preview.opening")}</p>}
         {preview && <Shown preview={preview} dialogId={dialogId} setId={setId} />}
       </div>
     </dialog>
@@ -65,6 +67,7 @@ export function UploadPreviewDialog({ dialogId, setId, path, onClose }: {
 }
 
 function Shown({ preview, dialogId, setId }: { preview: SpecDialogFilePreview; dialogId: string; setId: string }) {
+  const t = useT();
   const picture = useBlobUrl(
     preview.kind === "image" ? () => fetchReferenceFileBlob(dialogId, setId, preview.path) : null,
     preview.kind === "image" ? `${setId}/${preview.path}` : null);
@@ -73,7 +76,7 @@ function Shown({ preview, dialogId, setId }: { preview: SpecDialogFilePreview; d
       <>
         {preview.truncated && (
           <p className="ec-sub" data-testid="dialog-upload-preview-cut">
-            {`Showing the first 200 KB of ${sizeOf(preview.bytes)}. Download the file for all of it.`}
+            {t("dialog.preview.cut", { size: sizeOf(preview.bytes) })}
           </p>
         )}
         <pre className="d-preview-text" data-testid="dialog-upload-preview-text" tabIndex={0}>{preview.text}</pre>
@@ -82,8 +85,8 @@ function Shown({ preview, dialogId, setId }: { preview: SpecDialogFilePreview; d
   if (preview.kind === "image")
     return picture.url
       ? <img className="d-preview-img" src={picture.url} alt={preview.path} data-testid="dialog-upload-preview-image" />
-      : <p className="ec-sub">{picture.failed ? "The picture could not be loaded." : "Loading the picture…"}</p>;
-  return <p className="ec-sub" data-testid="dialog-upload-preview-binary">This file is neither text nor a picture the page can show. Download it to open it.</p>;
+      : <p className="ec-sub">{t(picture.failed ? "dialog.preview.pictureFailed" : "dialog.preview.pictureLoading")}</p>;
+  return <p className="ec-sub" data-testid="dialog-upload-preview-binary">{t("dialog.preview.binary")}</p>;
 }
 
 /** Saves the file under its own name, through the bearer token like every other read. */

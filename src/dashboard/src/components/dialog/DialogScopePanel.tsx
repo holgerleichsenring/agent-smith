@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type {
   SpecDialogProject,
   SpecDialogSession,
@@ -31,13 +32,14 @@ export function DialogScopePanel({
    *  grounded in, and the ticket it starts from. Absent while nothing has been chosen. */
   starting?: { ticketId: string; title: string; kind?: string | null } | null;
 }) {
+  const t = useT();
   return (
     <div data-testid="dialog-scope">
       {/* The Scope tab above names this pane; a heading repeating it was the same noise the
           filed pane carried, one tab over. */}
       {session ? (
         <>
-          <p className="ec-sub mb-2">What this conversation may read.</p>
+          <p className="ec-sub mb-2">{t("dialog.scope.mayRead")}</p>
           {/* 2026-09-27-481bc: the ticket comes FIRST, because it is the requirement the rest is
               read against — and because it was the one thing the model read that a person could
               not. It is the SEEDED copy: the conversation reasons from what it was given, and a
@@ -52,12 +54,12 @@ export function DialogScopePanel({
               conversation is open" there reads as though nothing had been chosen at all. */}
           <p className="ec-sub mb-2">
             {projects.length === 1
-              ? "The conversation you are about to start will be grounded in:"
-              : "No conversation is open on this page yet. A new one can be grounded in:"}
+              ? t("dialog.scope.aboutToStart")
+              : t("dialog.scope.noneOpen")}
           </p>
           {starting && (
             <div data-testid="dialog-scope-starting" className="mb-3">
-              <div className="fl">Ticket</div>
+              <div className="fl">{t("dialog.scope.ticket")}</div>
               <div className="ec-marks ec-sub items-center">
                 <span className="dl-mono">{starting.ticketId}</span>
                 {starting.kind && <span>{starting.kind}</span>}
@@ -67,7 +69,7 @@ export function DialogScopePanel({
           )}
           {projects.length === 0 ? (
             <p data-testid="dialog-scope-none" className="dsh-body text-ink">
-              No project is configured, so there is nothing to design against yet.
+              {t("dialog.scope.noProject")}
             </p>
           ) : (
             projects.map((project) => <Grounding key={project.name} project={project} />)
@@ -79,16 +81,17 @@ export function DialogScopePanel({
 }
 
 function BoundTicket({ ticket }: { ticket: SpecDialogSessionTicket }) {
+  const t = useT();
   return (
     <div data-testid="dialog-scope-ticket" className="mb-3">
-      <div className="fl">Ticket</div>
+      <div className="fl">{t("dialog.scope.ticket")}</div>
       <div className="ec-marks ec-sub items-center">
         <span className="dl-mono">{ticket.ticketId}</span>
         <span className="min-w-0 truncate text-ink">{ticket.title}</span>
       </div>
       <div className="ec-sub mt-1">
-        read {new Date(ticket.readAt).toLocaleString()}
-        {ticket.truncated && " · longer than this conversation carries"}
+        {t("dialog.scope.read", { when: new Date(ticket.readAt).toLocaleString() })}
+        {ticket.truncated && t("dialog.scope.truncated")}
       </div>
       {/* The text the turn was actually seeded with, whitespace kept: a ticket body is written
           with line breaks that carry meaning, and collapsing them would show a different text
@@ -104,12 +107,13 @@ function BoundTicket({ ticket }: { ticket: SpecDialogSessionTicket }) {
 }
 
 function Grounding({ project }: { project: SpecDialogProject }) {
+  const t = useT();
   return (
     <div data-testid={`dialog-scope-project-${project.name}`} className="mb-3">
       <div className="ec-name given">{project.name}</div>
-      <div className="fl mt-2">Repositories</div>
+      <div className="fl mt-2">{t("dialog.scope.repositories")}</div>
       {project.repos.length === 0 ? (
-        <div className="ec-sub">no repositories</div>
+        <div className="ec-sub">{t("dialog.scope.noRepositories")}</div>
       ) : (
         <ul className="dl-lines">
           {project.repos.map((repo) => (
@@ -119,9 +123,9 @@ function Grounding({ project }: { project: SpecDialogProject }) {
           ))}
         </ul>
       )}
-      <div className="fl mt-2">Templates</div>
+      <div className="fl mt-2">{t("dialog.scope.templates")}</div>
       {project.templates.length === 0 ? (
-        <div className="ec-sub">no templates declared</div>
+        <div className="ec-sub">{t("dialog.scope.noTemplates")}</div>
       ) : (
         <ul className="dl-lines">
           {project.templates.map((template) => (

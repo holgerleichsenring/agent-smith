@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useBlobUrl } from "@/hooks/useBlobUrl";
 import { fetchBlob } from "@/lib/referenceFilesApi";
 
@@ -8,8 +9,9 @@ import { fetchBlob } from "@/lib/referenceFilesApi";
 // says so in place of a broken-image glyph.
 
 export function AuthedImage({ path, alt, className, testId }: { path: string; alt: string; className?: string; testId?: string }) {
+  const t = useT();
   const { url, failed } = useBlobUrl(() => fetchBlob(path), path);
-  if (failed) return <span className="ec-sub" data-testid={testId}>{`${alt} — could not be loaded`}</span>;
-  if (!url) return <span className="ec-sub" data-testid={testId} aria-busy="true">loading…</span>;
+  if (failed) return <span className="ec-sub" data-testid={testId}>{t("dialog.image.couldNotLoad", { alt })}</span>;
+  if (!url) return <span className="ec-sub" data-testid={testId} aria-busy="true">{t("dialog.image.loading")}</span>;
   return <img data-testid={testId} src={url} alt={alt} className={className} />;
 }

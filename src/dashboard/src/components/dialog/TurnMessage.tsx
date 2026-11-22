@@ -1,11 +1,12 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { SpecDialogActivityPush } from "@/types/spec-dialog";
 import { condenseSteps } from "./condenseSteps";
 import { waitsFor } from "./graphTicketWaits";
-import { courseOf, markOf } from "./turnCourse";
+import { courseOf, MARK_WORD, markOf } from "./turnCourse";
 import { rowsOf, type TurnProposal } from "./turnProposal";
 import { TurnQuestions } from "./TurnQuestions";
 import { useTurnSteps } from "./useTurnSteps";
@@ -28,9 +29,10 @@ export function TurnMessage({
   /** The steps this page watched the turn take; a past turn's are read from its run instead. */
   live?: SpecDialogActivityPush[];
 }) {
+  const t = useT();
   const { steps, firstAt, lastAt } = useTurnSteps(runId, live);
-  const lines = condenseSteps(steps);
-  const course = courseOf(proposal ?? null, firstAt, lastAt);
+  const lines = condenseSteps(t, steps);
+  const course = courseOf(t, proposal ?? null, firstAt, lastAt);
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="turn-message" data-kind={proposal?.kind}>
       {lines.length > 0 && (
@@ -48,7 +50,7 @@ export function TurnMessage({
           {runId && (
             <>
               {course.length > 0 ? " · " : ""}
-              <Link className="d-link" href={`/jobs/${encodeURIComponent(runId)}`} data-testid="turn-course-run">run</Link>
+              <Link className="d-link" href={`/jobs/${encodeURIComponent(runId)}`} data-testid="turn-course-run">{t("dialog.course.run")}</Link>
             </>
           )}
         </p>
@@ -58,6 +60,7 @@ export function TurnMessage({
 }
 
 function Outcome({ proposal }: { proposal: TurnProposal }) {
+  const t = useT();
   const rows = rowsOf(proposal);
   return (
     <>
@@ -68,7 +71,7 @@ function Outcome({ proposal }: { proposal: TurnProposal }) {
             return (
               <li key={row.specId} data-testid={`turn-spec-${row.specId}`} data-mark={mark.word} className="text-body">
                 <span aria-hidden="true" className="inline-block w-4 text-ink">{mark.mark}</span>
-                <span className="sr-only">{mark.word}: </span>
+                <span className="sr-only">{t(MARK_WORD[mark.word])}: </span>
                 <span className="font-mono dsh-label">{row.specId}</span> {row.goal}
                 {mark.reason && <span className="text-ink"> — {mark.reason}</span>}
               </li>
@@ -84,7 +87,7 @@ function Outcome({ proposal }: { proposal: TurnProposal }) {
         <ul className="flex flex-col gap-0.5 dsh-body text-body" data-testid="turn-ticket-lines">
           {proposal.tickets!.map((ticket) => (
             <li key={ticket.key}>
-              <span className="font-mono dsh-label text-ink">{ticket.key}</span> {ticket.title} · {waitsFor(ticket)}
+              <span className="font-mono dsh-label text-ink">{ticket.key}</span> {ticket.title} · {waitsFor(t, ticket)}
             </li>
           ))}
         </ul>

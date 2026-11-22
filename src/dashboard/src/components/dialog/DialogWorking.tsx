@@ -1,11 +1,13 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type {
   SpecDialogActivityPush,
   SpecDialogReadingPush,
   SpecDialogReadingState,
 } from "@/types/spec-dialog";
 import { useEffect, useState } from "react";
+import type { TextKey } from "@/lib/i18n/translate";
 import { condenseSteps, inFlight } from "./condenseSteps";
 import { DialogElapsed, minutesAndSeconds } from "./DialogElapsed";
 import { DialogMessage } from "./DialogTranscript";
@@ -32,18 +34,18 @@ import { DialogMessage } from "./DialogTranscript";
 
 // 2026-11-19-6b0be: a repository's line is its sandbox opening, not a read of it; a ticket's is the tracker read. Each
 // says which, so "ready" no longer reads as work done.
-const READING_WORDS: Record<SpecDialogReadingPush["kind"], Record<SpecDialogReadingState, string>> = {
+const READING_WORDS: Record<SpecDialogReadingPush["kind"], Record<SpecDialogReadingState, TextKey>> = {
   repository: {
-    opening: "opening a sandbox",
-    ready: "sandbox ready",
-    failed: "sandbox could not be opened",
-    reopening: "sandbox removed, opening a new one",
+    opening: "dialog.reading.repository.opening",
+    ready: "dialog.reading.repository.ready",
+    failed: "dialog.reading.repository.failed",
+    reopening: "dialog.reading.repository.reopening",
   },
   ticket: {
-    opening: "reading",
-    ready: "read",
-    failed: "could not be read",
-    reopening: "reading again",
+    opening: "dialog.reading.ticket.opening",
+    ready: "dialog.reading.ticket.ready",
+    failed: "dialog.reading.ticket.failed",
+    reopening: "dialog.reading.ticket.reopening",
   },
 };
 
@@ -64,6 +66,7 @@ export function DialogWorking({
   /** The moment on this browser's clock to count up from; null while nothing measured one. */
   since: number | null;
 }) {
+  const t = useT();
   const opening = readings.filter(
     (reading) => reading.state === "opening" || reading.state === "reopening",
   );
@@ -71,13 +74,13 @@ export function DialogWorking({
   // "the repositories it needs" whatever was open, and a bound conversation reads a ticket too.
   const openingWhat =
     opening.length === 0
-      ? "Working it out…"
+      ? t("dialog.working.working")
       : opening.every((reading) => reading.kind === "ticket")
-        ? "Reading the ticket…"
+        ? t("dialog.working.readingTicket")
         : opening.some((reading) => reading.kind === "ticket")
-          ? "Reading the ticket and the repositories it needs…"
-          : "Opening the repositories it needs…";
-  const lines = condenseSteps(activity);
+          ? t("dialog.working.readingBoth")
+          : t("dialog.working.openingRepos");
+  const lines = condenseSteps(t, activity);
   const thinking = inFlight(activity);
   return (
     <DialogMessage who="agent" testId="dialog-working">
@@ -101,7 +104,7 @@ export function DialogWorking({
                 data-state={reading.state}
                 className={READING_MARK[reading.state]}
               >
-                {reading.name}: {READING_WORDS[reading.kind][reading.state]}
+                {reading.name}: {t(READING_WORDS[reading.kind][reading.state])}
               </li>
             ))}
           </ul>
@@ -115,7 +118,7 @@ export function DialogWorking({
             ))}
             {thinking && (
               <li key={`thinking-${thinking.key}`} data-testid="dialog-thinking">
-                {thinking.who ? `${thinking.who} › ` : ""}thinking · <SecondsSinceSeen />
+                {thinking.who ? `${thinking.who} › ` : ""}{t("dialog.steps.thinking")} · <SecondsSinceSeen />
               </li>
             )}
           </ul>

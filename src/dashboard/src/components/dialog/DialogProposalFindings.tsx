@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type { SpecDialogProposalFinding } from "@/types/spec-dialog";
 
 // 2026-09-17-042ed: what a fresh instance found wrong with the proposal being approved, listed
@@ -12,11 +13,12 @@ import type { SpecDialogProposalFinding } from "@/types/spec-dialog";
 export function DialogProposalFindings({ findings }: { findings?: SpecDialogProposalFinding[] }) {
   // A proposal stored before this shipped, and every push a version behind, carries no findings
   // field at all — reading .length off it would blank the whole approval card.
+  const t = useT();
   if (!findings?.length) return null;
   return (
     <div data-testid="dialog-proposal-findings" className="mt-1.5 mb-1.5">
       <div className="fl">
-        {findings.length === 1 ? "the review found one thing" : `the review found ${findings.length} things`}
+        {t("dialog.findings.head", { count: findings.length })}
       </div>
       <ul className="ml-4 flex list-disc flex-col gap-1">
         {findings.map((finding, index) => (
@@ -32,7 +34,7 @@ export function DialogProposalFindings({ findings }: { findings?: SpecDialogProp
             ) : (
               finding.quote && (
                 <span data-testid="dialog-finding-quote" className="ml-1 dsh-label text-body">
-                  it states: “{finding.quote}”
+                  {t("common.itStates", { quote: finding.quote })}
                 </span>
               )
             )}

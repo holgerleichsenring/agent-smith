@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-5485b
+goal: "Every dashboard surface outside Work it out reads its UI text from the one dictionary of 2026-11-22-5485a, so the German choice covers the whole dashboard."
+
+applies_to: "dashboard (components/shell, home, tickets, jobs, config, access, system, overview, delivery, identity, execution, ui; app routes)"
+
+requires: [2026-11-22-5485a]
+
+facts:
+  - claim: "The dictionary, its typed lookup and the language store exist; the Work it out chat surface and the profile menu read from them."
+    evidence: "src/dashboard/src/lib/i18n/messages.ts:13, src/dashboard/src/hooks/useT.ts:15"
+  - claim: "The sidebar's own controls are English literals."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:86-87"
+  - claim: "FailedSurface and RefusalSurface word their sentences in English around a surface name the caller passes, so the Work it out page still passes English nouns into them."
+    evidence: "src/dashboard/src/components/shell/FailedSurface.tsx:37, src/dashboard/src/components/shell/RefusalSurface.tsx:48, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:379, src/dashboard/src/components/dialog/ConversationsView.tsx:89"
+  - claim: "The new-work composer that Work it out shows when no conversation is open is the home page's and still English."
+    evidence: "src/dashboard/src/components/home/HomeComposer.tsx:60"
+  - claim: "A run's status word comes from one English map shared by the run pages and the filed work in Work it out."
+    evidence: "src/dashboard/src/components/jobs/runStatus.ts:7-24"
+  - claim: "The ticket page's approval summary reaches the shared decision bar as English text."
+    evidence: "src/dashboard/src/lib/tickets/approvalEffect.ts:61"
+  - claim: "Dates are written with the browser's locale, not the chosen language."
+    evidence: "src/dashboard/src/components/dialog/DialogScopePanel.tsx:93, src/dashboard/src/components/dialog/conversationRows.ts:32"
+
+scope:
+  in: >
+    Move every literal UI text of the remaining components and routes to keys in the same dictionary, German beside
+    English, the way 5485a did it (components call useT; a pure helper that words text takes the lookup). The shell
+    surfaces take the surface name as a key. Dates and times follow the chosen language. The dictionary may split
+    into one module per area if it grows past reading, still one source a missing German fails to compile.
+  out: >
+    Text the model writes, server-sent messages and refusal reasons, which already arrive in their own words; product
+    nouns (Work it out, Spec, Ticket, Run).
+
+steps:
+  - id: plan
+    action: "Count the literals per area, cut the work into one slice per area if it is too large for one review."
+  - id: translate
+    action: "Area by area: keys with en and de, components switched to useT, tests stay English by default."
+
+tests:
+  - "The dictionary completeness and placeholder tests of 5485a stay green over every new key."
+  - "One component per area renders German when German is chosen."
+
+done:
+  - "No literal UI text is left in the dashboard's components outside the dictionary; dashboard tests and build green."

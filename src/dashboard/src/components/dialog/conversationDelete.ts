@@ -1,3 +1,4 @@
+import type { T } from "@/lib/i18n/translate";
 import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 
 // 2026-09-18-7a05: what a deletion does NOT undo, said before it happens. A deleted
@@ -11,9 +12,6 @@ import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 // cleared when a proposal is rejected or times out — so the third sentence is the one true of
 // every filing, and of a conversation that filed nothing at all.
 
-const NO_UNDO =
-  "This cannot be undone: the conversation and every answer you gave in it are deleted.";
-
 /**
  * The confirmation this conversation needs, or null when it needs none. A conversation with no
  * turns has nothing to lose — nothing was said in it and nothing could have been filed from it —
@@ -21,30 +19,23 @@ const NO_UNDO =
  * filed nothing: the filing marker is younger than the conversations that filed real tickets
  * before it existed, and confirming too much is the cheap side of that error.
  */
-export function deletionWarning(conversation: SpecDialogSessionSummary): string | null {
+export function deletionWarning(t: T, conversation: SpecDialogSessionSummary): string | null {
   if (conversation.turns === 0) return null;
-  return `Delete “${named(conversation)}”?\n\n${NO_UNDO}\n\n${survives(conversation)}`;
+  const question = t("dialog.delete.question", { name: named(t, conversation) });
+  return `${question}\n\n${t("dialog.delete.noUndo")}\n\n${survives(t, conversation)}`;
 }
 
 // 2026-09-21-f237a: the sentence the person wrote, and only where there is none the subject the
 // model minted for it. A conversation opened with a pasted block has no first line at all, and
 // asking about "untitled s-9" beside a row that reads its subject is worse than asking about the
 // subject.
-function named(conversation: SpecDialogSessionSummary): string {
-  return conversation.title ?? conversation.subject ?? `untitled ${conversation.sessionId}`;
+function named(t: T, conversation: SpecDialogSessionSummary): string {
+  return conversation.title ?? conversation.subject ?? t("dialog.conversations.untitled", { id: conversation.sessionId });
 }
 
-function survives(conversation: SpecDialogSessionSummary): string {
+function survives(t: T, conversation: SpecDialogSessionSummary): string {
   const kind = conversation.outcome?.kind ?? null;
-  if (kind === "spec" || kind === "epic" || kind === "tickets") {
-    return "The tickets it filed stay in the tracker, and the specification approved here stays"
-      + " with them — but the sentence in the ticket that names this conversation will stop"
-      + " resolving.";
-  }
-  if (kind === "bug") {
-    return "The tickets it filed stay in the tracker, and the specification approved here stays"
-      + " with them.";
-  }
-  return "Whatever it filed stays in the tracker, and the map from this conversation to it stops"
-    + " resolving.";
+  if (kind === "spec" || kind === "epic" || kind === "tickets") return t("dialog.delete.survivesLinked");
+  if (kind === "bug") return t("dialog.delete.survivesBug");
+  return t("dialog.delete.survivesOther");
 }

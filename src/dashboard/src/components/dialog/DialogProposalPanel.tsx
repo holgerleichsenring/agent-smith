@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { DialogConfigChanges } from "./DialogConfigChanges";
 import type {
   SpecDraftProposal,
@@ -47,6 +48,7 @@ interface MockStrip {
 }
 
 export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDialogProposalPush } & MockStrip) {
+  const t = useT();
   const specs = [proposal.parent, proposal.spec, ...proposal.children].filter(
     (spec): spec is SpecDraftProposal => spec !== null,
   );
@@ -57,7 +59,7 @@ export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDial
           graph and the uploads. */}
       {proposal.bug && (
         <div data-testid="dialog-proposal-bug">
-          <Label>A bug ticket</Label>
+          <Label>{t("dialog.proposal.bug")}</Label>
           <h3 className="dsh-h3 font-semibold text-ink">{proposal.bug.title}</h3>
           <p className="mt-1 dsh-body whitespace-pre-wrap text-ink">{proposal.bug.body}</p>
         </div>
@@ -66,15 +68,15 @@ export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDial
       {proposal.kind === "config" && <DialogConfigChanges changes={proposal.configChanges ?? []} />}
       {proposal.kind === "comment" && proposal.comment && (
         <div data-testid="dialog-proposal-comment">
-          <Label>A comment on the ticket — nothing starts</Label>
+          <Label>{t("dialog.proposal.comment")}</Label>
           <p className="mt-1 dsh-body whitespace-pre-wrap text-ink">{proposal.comment}</p>
         </div>
       )}
-      {proposal.spec && <Spec spec={proposal.spec} label="One spec" strip={strip} />}
-      {proposal.parent && <Spec spec={proposal.parent} label="The work ticket — one run works every slice" strip={strip} />}
+      {proposal.spec && <Spec spec={proposal.spec} label={t("dialog.proposal.oneSpec")} strip={strip} />}
+      {proposal.parent && <Spec spec={proposal.parent} label={t("dialog.proposal.workTicket")} strip={strip} />}
       {proposal.children.length > 0 && (
         <div>
-          <Label>Slices, in the order they will be filed</Label>
+          <Label>{t("dialog.proposal.slices")}</Label>
           <ol data-testid="dialog-proposal-children" className="dl-prop-rows list-decimal marker:font-mono marker:text-body">
             {proposal.children.map((child, index) => (
               <li key={child.specId}>
@@ -86,9 +88,7 @@ export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDial
       )}
       {specs.some((spec) => spec.yaml) && (
         <details>
-          <summary className="fl cursor-pointer">
-            The same thing, as it will be filed
-          </summary>
+          <summary className="fl cursor-pointer">{t("dialog.proposal.raw")}</summary>
           {specs.filter((spec) => spec.yaml).map((spec) => (
             <pre
               key={spec.specId}
@@ -127,6 +127,7 @@ function Slice({
   open: boolean;
   strip: MockStrip;
 }) {
+  const t = useT();
   return (
     <DialogProposalRow testId={`dialog-proposal-spec-${slice.specId}`} initiallyOpen={open}
       head={
@@ -136,10 +137,10 @@ function Slice({
         </span>
       }>
       <Lines
-        label="Waits for"
+        label={t("dialog.proposal.waitsFor")}
         items={slice.requires.map((id) => {
           const at = siblings.findIndex((sibling) => sibling.specId === id);
-          return at < 0 ? id : `Slice ${at + 1} · ${id}`;
+          return at < 0 ? id : t("dialog.proposal.slice", { number: at + 1, id });
         })}
       />
       <Sections spec={slice} withoutRequires />
@@ -149,14 +150,15 @@ function Slice({
 }
 
 function Sections({ spec, withoutRequires }: { spec: SpecDraftProposal; withoutRequires?: boolean }) {
+  const t = useT();
   return (
     <>
-      <Lines label="Steps" items={spec.steps} />
-      <Lines label="Tests" items={spec.tests} mono />
-      <Lines label="Done when" items={spec.done} />
-      {!withoutRequires && <Lines label="Waits for" items={spec.requires} />}
+      <Lines label={t("dialog.proposal.steps")} items={spec.steps} />
+      <Lines label={t("dialog.proposal.tests")} items={spec.tests} mono />
+      <Lines label={t("common.doneWhen")} items={spec.done} />
+      {!withoutRequires && <Lines label={t("dialog.proposal.waitsFor")} items={spec.requires} />}
       <RestsOn spec={spec} />
-      <Lines label="Assumed, not looked at" items={spec.assumptions ?? []} />
+      <Lines label={t("dialog.proposal.assumed")} items={spec.assumptions ?? []} />
     </>
   );
 }
@@ -171,11 +173,12 @@ function Mocks({ specId, strip }: { specId: string; strip: MockStrip }) {
 }
 
 function RestsOn({ spec }: { spec: SpecDraftProposal }) {
+  const t = useT();
   const facts = spec.facts ?? [];
   if (facts.length === 0) return null;
   return (
     <div className="mt-2" data-testid={`dialog-proposal-facts-${spec.specId}`}>
-      <Label>Rests on</Label>
+      <Label>{t("dialog.proposal.restsOn")}</Label>
       <ul className="ml-4 list-disc dsh-body text-ink">
         {facts.map((fact) => (
           <li key={`${fact.claim}|${fact.evidence}`}>

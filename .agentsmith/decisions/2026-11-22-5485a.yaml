@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-5485a
+
+decisions:
+  - category: Architecture
+    chose: "One dictionary module (lib/i18n/messages.ts) where each key holds { en, de } side by side, checked by `satisfies Record<string, MessageEntry>`: a key without German, or a plural in one language only, does not compile"
+    over: "Two files en.ts and de.ts with de: Record<keyof typeof en, string>; translations inside each component"
+    reason: "The operator wants each text defined once with both languages (per-component translations rejected). Side by side the compile check is the same and a reviewer reads English and German in one place."
+  - category: Dependencies
+    chose: "A 40-line translator of our own: {name} placeholders filled in one pass, a one/other plural picked by params.count"
+    over: "i18next / react-i18next, next-intl"
+    reason: "The agreed scope is two languages, placeholders and one/other plurals. A library adds a provider, namespaces, ICU parsing and a lockfile change for none of that; no decisive reason for one showed up."
+  - category: Architecture
+    chose: "The language is a module-level store read with useSyncExternalStore (useLanguage, useT); the server snapshot is English, so the prerendered shell hydrates in English and switches after mount"
+    over: "A React context provider in layout.tsx"
+    reason: "Components and their many existing tests render without a provider; a store needs none and a switch still re-renders every reader. It is the sidebar-collapsed setting's per-browser shape (localStorage behind try/catch), not a new storage location."
+  - category: Implementation
+    chose: "The stored choice wins; with none, navigator.language starting with de gives German, anything else English; blocked storage keeps the choice for the page only"
+    over: "Accept-Language from the server; a per-user setting on the identity"
+    reason: "As the operator asked: per browser, browser language as fallback. A server-side preference would be a second store for a setting the browser already holds."
+  - category: Implementation
+    chose: "Pure helpers that word text (approvalDecision, condenseSteps, deletionWarning, uploadNote, referenceSelection, filedWorkStatus, turnCourse, conversationRows, ...) take the lookup `t` as their first parameter; components get it from useT()"
+    over: "A module-global t() that reads the current language when called; a default English t parameter"
+    reason: "Passing it makes the language an input the compiler checks, so no helper can silently word text in a stale or default language; tests pass translator(\"en\"). The ticket page's ticketDecision follows, since it builds the same decision."
+  - category: Implementation
+    chose: "Values that are identifiers stay English: markOf's word (data-mark), a pick's left-out reason codes, the question answers yes/no sent to the server; only their display goes through the dictionary"
+    over: "Translating the values themselves"
+    reason: "They are compared and sent; translating them would change behaviour and the tests that pin it."
+  - category: Scope
+    chose: "Not translated: text the model writes, server-sent sentences (a waiting step's detail, refusal reasons, series state words, ticket approval effects), product nouns (Work it out, Spec, Ticket, Run, Turn, Review), the FailedSurface/RefusalSurface sentences and the home page's new-work composer shown on an empty Work it out page"
+    over: "Translating everything visible on the page now"
+    reason: "Model text already arrives in the operator's language; server sentences belong to their producer. The shell surfaces and the home composer belong to the rest of the dashboard, named in 2026-11-22-5485b with their file:line, as are dates that still follow the browser locale."
+  - category: Design
+    chose: "The switch is a row of two flagged buttons (GB English, DE Deutsch) under a rule in the profile menu, each named in its own language, role menuitemradio with aria-checked; the document's lang attribute follows the choice"
+    over: "A single toggle that shows the other language's flag; a select"
+    reason: "Both choices visible, the one in force marked, and a reader who cannot read the current language still finds their own. Language names are deliberately not dictionary entries: they read the same in either language."
+  - category: Design
+    chose: "German addresses the reader as du and keeps developer terms the operator uses (Spec, Ticket, Run, Turn, Review, Pull Request, gemergt): 'Weiter chatten', 'N Tickets anlegen', 'Spec ins Ticket schreiben'; filing is 'anlegen'"
+    over: "Formal Sie; translating Spec/Ticket/Review"
+    reason: "Developer tools in German commonly use du, and the operator's own examples keep the product nouns."
+  - category: Testing
+    chose: "vitest.setup.ts resets the language to English and clears the stored choice before every test; German tests choose it with resetLanguage(\"de\")"
+    over: "Relying on jsdom's en-US navigator.language"
+    reason: "The existing tests assert English and must not depend on the machine or on a choice an earlier test stored."
+  - category: Implementation
+    chose: "The dashboard principle 'all UI strings in code are English' names the dictionary's German as its one exception, and new UI text is a dictionary key"
+    over: "Leaving the principle as written"
+    reason: "Otherwise the German values contradict a principle every agent is told to follow."
+  - category: Implementation
+    chose: "A file pick's entry reasons are worded when the pick is read; switching language while the selection card is open keeps that card's wording and its ticks"
+    over: "Re-reading the pick on a language change"
+    reason: "Re-reading would reset the operator's ticks for a switch that almost never happens mid-pick."

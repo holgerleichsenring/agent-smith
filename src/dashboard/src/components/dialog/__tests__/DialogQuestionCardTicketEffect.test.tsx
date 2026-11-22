@@ -4,6 +4,9 @@ import { DialogDecisionBar, decides } from "../DialogDecisionBar";
 import { DialogQuestionCard } from "../DialogQuestionCard";
 import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-10-13-9a59r: on a ticket-bound conversation the decision says what approving does there; without ticketEffect
 // it is the decision it always was. 2026-11-19-1b72c: the approval card left; the decision bar takes the composer's
@@ -20,7 +23,7 @@ const proposal = {
 describe("ticket decision effect", () => {
   it("WithTicketEffect_TheActionWritesTheSpecToTheTicket_AndTheSummaryIsTheEffectLabel", () => {
     const onApprove = vi.fn();
-    const decision = approvalDecision(question, proposal, { summary: "Approving continues this ticket's series.", approvable: true }, true)!;
+    const decision = approvalDecision(en, question, proposal, { summary: "Approving continues this ticket's series.", approvable: true }, true)!;
     render(<DialogDecisionBar decision={decision} onApprove={onApprove} onKeepChatting={vi.fn()} />);
     expect(screen.getByTestId("dialog-file")).toHaveTextContent(/^Write spec to ticket$/);
     expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent(/^Approving continues this ticket's series\.$/);
@@ -29,7 +32,7 @@ describe("ticket decision effect", () => {
   });
 
   it("WithoutTicketEffect_TheDecisionIsUnchanged", () => {
-    render(<DialogDecisionBar decision={approvalDecision(question, proposal)!} onApprove={vi.fn()} onKeepChatting={vi.fn()} />);
+    render(<DialogDecisionBar decision={approvalDecision(en, question, proposal)!} onApprove={vi.fn()} onKeepChatting={vi.fn()} />);
     expect(screen.getByTestId("dialog-file")).toHaveTextContent("Create ticket");
     expect(screen.getByTestId("dialog-decision-summary")).toHaveTextContent("File this spec? One ticket.");
   });
@@ -38,11 +41,11 @@ describe("ticket decision effect", () => {
   // 2026-11-19-7c42b: a not-approvable decision is not put; the composer stays.
   it("ANotApprovableEffect_DecisionBarIsNotPut", () => {
     const effect = { summary: "x", approvable: false };
-    expect(decides(approvalDecision(question, proposal, effect), null, "p-1")).toBe(false);
+    expect(decides(approvalDecision(en, question, proposal, effect), null, "p-1")).toBe(false);
   });
 
   it("ApprovalDecision_OtherQuestionKind_IsNull", () => {
-    expect(approvalDecision({ ...question, kind: "choice" }, proposal)).toBeNull();
+    expect(approvalDecision(en, { ...question, kind: "choice" }, proposal)).toBeNull();
   });
 
   it("DialogQuestionCard_Approval_OffersNoApproveOrReject", () => {

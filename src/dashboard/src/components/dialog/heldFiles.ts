@@ -1,3 +1,4 @@
+import type { T } from "@/lib/i18n/translate";
 import type { SpecDialogHeldContent } from "@/types/spec-dialog";
 import type { SelectionEntry } from "./referenceSelection";
 
@@ -28,15 +29,15 @@ export async function heldIn(files: File[], held: SpecDialogHeldContent[]): Prom
 /** The entries with what is already held marked: a loose file — or a folder ALL of whose files
  *  are held — starts unticked and says where it is; the operator may still tick it. A folder says
  *  how many of its files are held, and one with any new file starts ticked and goes whole. */
-export function markHeld(entries: SelectionEntry[], held: HeldLookup): SelectionEntry[] {
+export function markHeld(t: T, entries: SelectionEntry[], held: HeldLookup): SelectionEntry[] {
   return entries.map((entry) => {
     const all = [...entry.kept, ...entry.ignored];
     const hits = all.filter((file) => held.has(file));
     if (hits.length === 0) return entry;
     const where = [...new Set(hits.map((file) => `'${held.get(file)!.name}'`))].join(", ");
-    const unticked = { ...entry, ticked: false, reason: `already uploaded in ${where}` };
+    const unticked = { ...entry, ticked: false, reason: t("dialog.held.alreadyIn", { where }) };
     if (!entry.name.endsWith("/")) return unticked;
-    const count = `${hits.length} of ${all.length} already uploaded in ${where}`;
+    const count = t("dialog.held.someAlreadyIn", { hits: hits.length, all: all.length, where });
     return hits.length === all.length ? { ...unticked, reason: count } : { ...entry, held: count };
   });
 }

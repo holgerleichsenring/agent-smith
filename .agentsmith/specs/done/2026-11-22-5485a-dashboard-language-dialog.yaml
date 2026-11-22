@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-5485a
+goal: "The dashboard speaks German or English from one typed dictionary, chosen by a flag switch in the profile menu, and the whole Work it out chat surface reads from it."
+
+applies_to: "dashboard (lib/i18n, hooks/useT, shell ProfileMenu, components/dialog)"
+
+requires: []
+
+facts:
+  - claim: "Every UI text of the dashboard is an English literal in the component that renders it; there is no dictionary and no language setting."
+    evidence: "src/dashboard/src/components/dialog/DialogDecisionBar.tsx:32"
+  - claim: "The profile menu is the sidebar foot that holds everything that is a setting rather than work."
+    evidence: "src/dashboard/src/components/shell/ProfileMenu.tsx:23-28"
+  - claim: "A per-browser setting is kept in localStorage behind try/catch, read after mount."
+    evidence: "src/dashboard/src/hooks/useSidebarCollapsed.ts:8-17"
+  - claim: "The dashboard principles say all UI strings in code are English."
+    evidence: ".agentsmith/contexts/dashboard/principles.md:8"
+
+scope:
+  in: >
+    src/lib/i18n: one dictionary where each key carries its en and de text side by side (a missing de is a compile
+    error), {name} placeholders and a one/other plural; a language store (stored choice, else navigator.language
+    de* -> German, else English) and useT(). A flag switch (GB / DE) in the profile menu. Every literal UI text under
+    components/dialog/** and the profile menu moves to keys, pure helpers that word text take the lookup as a
+    parameter. Tests run in English by default. The dashboard principle on English UI strings names the dictionary's
+    de values as the one exception.
+  out: >
+    The rest of the dashboard (2026-11-22-5485b). Text the model writes, server messages and refusal reasons, and
+    product nouns (Work it out, spec, ticket) stay as they are.
+
+steps:
+  - id: scaffold
+    action: "Dictionary, translator, language store, useT, test setup defaulting to English."
+  - id: switch
+    action: "Language switch with flags in ProfileMenu; html lang follows the choice."
+  - id: dialog
+    action: "Move every literal text under components/dialog/** to dictionary keys, German alongside."
+  - id: tests
+    action: "Dictionary completeness and placeholder parity, the switch, the browser fallback, a dialog component in German."
+
+tests:
+  - "Every key has en and de with the same placeholders."
+  - "The profile menu switch stores the choice and re-renders in German."
+  - "No stored choice: navigator.language de-DE gives German, en-US English, blocked storage still resolves."
+  - "DialogDecisionBar renders 'Weiter chatten' and '3 Tickets anlegen' in German."
+
+done:
+  - "Dashboard tests and build green; existing English assertions unchanged."

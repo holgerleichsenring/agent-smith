@@ -3,6 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { DialogConfigChanges } from "../DialogConfigChanges";
 import { summaryOf } from "../approvalDecision";
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 describe("the admin assistant's configuration draft", () => {
   it("shows each change with what the store holds and what it will hold", () => {
@@ -19,6 +22,6 @@ describe("the admin assistant's configuration draft", () => {
   it("asks to apply, not to file", () => {
     const proposal = { kind: "config", children: [], configChanges: [{ operation: "upsert", kind: "trackers", id: "a" }] } as unknown as SpecDialogProposalPush;
 
-    expect(summaryOf(proposal)).toContain("Apply this configuration change");
+    expect(summaryOf(en, proposal)).toContain("Apply this configuration change");
   });
 });

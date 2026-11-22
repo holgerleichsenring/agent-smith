@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type { FiledWork, SpecDialogFilingPush } from "@/types/spec-dialog";
 import { DialogFiledTicket, type NamedTicket } from "./DialogFiledTicket";
 
@@ -32,6 +33,7 @@ export function DialogFiledPanel({
   filed: SpecDialogFilingPush | null;
   work: FiledWork | null;
 }) {
+  const t = useT();
   const partial = filed !== null && filed.error !== null && filed.filed.length > 0;
   // A push from a server older than filing notes carries none.
   const notes = filed?.notes ?? [];
@@ -49,12 +51,12 @@ export function DialogFiledPanel({
         }
       >
         {filed === null
-          ? "This conversation's ticket, and the work on it."
+          ? t("dialog.filed.lead")
           : filed.error === null
-            ? "These tickets now exist."
+            ? t("dialog.filed.exist")
             : partial
-              ? "These tickets were created before it stopped — they exist."
-              : "Nothing was created."}
+              ? t("dialog.filed.partial")
+              : t("dialog.filed.none")}
       </p>
       {tickets.length > 0 && (
         <ul className="dsh-body flex flex-col gap-2">

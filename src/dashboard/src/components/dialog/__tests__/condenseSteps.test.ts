@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { SpecDialogActivityPush, SpecDialogActivityStep } from "@/types/spec-dialog";
 import { condenseSteps, inFlight, type RawStep } from "../condenseSteps";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-11-12-92e9c: one condenser for the steps pushed while a turn runs and the pages fetched from its run.
 
@@ -24,7 +27,7 @@ const fetched: SpecDialogActivityStep[] = raw.map((step) => ({ ...step, timestam
 
 describe("condenseSteps", () => {
   it("CountsReadBursts_KeepsWritesAndNarration_SameForLiveAndFetched", () => {
-    const lines = condenseSteps(live);
+    const lines = condenseSteps(en, live);
 
     expect(lines.map((line) => [line.kind, line.text])).toEqual([
       ["said", "Looking at the import path first."],
@@ -34,12 +37,12 @@ describe("condenseSteps", () => {
       ["step", "revising its answer"],
     ]);
     expect(lines.map((line) => line.key)).toEqual([1, 2, 6, 8, 9]);
-    expect(condenseSteps(fetched)).toEqual(lines);
+    expect(condenseSteps(en, fetched)).toEqual(lines);
   });
 
   // 2026-11-15-06fc: the draft is files; deleting one changes the draft like writing or editing one.
   it("DraftFileTools_AreWriteLines", () => {
-    const lines = condenseSteps([
+    const lines = condenseSteps(en, [
       { seq: 1, kind: "tool", name: "edit_file", detail: "draft:specs/p0001.yaml" },
       { seq: 2, kind: "tool", name: "delete_file", detail: "draft:specs/p0002.yaml" },
     ]);
@@ -52,7 +55,7 @@ describe("condenseSteps", () => {
 
   // 2026-11-13-3dc8: a sub-agent's or reviewer's steps arrive as "Name › …".
   it("PrefixedSubAgentReads_JoinBurst", () => {
-    const lines = condenseSteps([
+    const lines = condenseSteps(en, [
       { seq: 1, kind: "tool", name: "read_file", detail: "a.cs" },
       { seq: 2, kind: "tool", name: "RepoScout › read_file", detail: "b.cs" },
       { seq: 3, kind: "tool", name: "Review › grep", detail: "Store" },
@@ -62,7 +65,7 @@ describe("condenseSteps", () => {
   });
 
   it("PrefixedModelStep_NotALine", () => {
-    const lines = condenseSteps([
+    const lines = condenseSteps(en, [
       { seq: 1, kind: "tool", name: "read_file", detail: "a.cs" },
       { seq: 2, kind: "model", name: "Review › stub-model", detail: '{"verdict":"REFUSE","findings":[]}' },
       { seq: 3, kind: "tool", name: "read_file", detail: "b.cs" },
@@ -72,7 +75,7 @@ describe("condenseSteps", () => {
   });
 
   it("MasterNarration_Kept", () => {
-    const lines = condenseSteps([
+    const lines = condenseSteps(en, [
       { seq: 1, kind: "model", name: "master-model", detail: "Checking the router." },
       { seq: 2, kind: "revising", name: null, detail: null },
       { seq: 3, kind: "model", name: "Review › stub-model", detail: "[]" },
@@ -93,10 +96,10 @@ describe("condenseSteps", () => {
       { seq: 2, kind: "thinking", name: "gpt41", detail: null },
     ];
 
-    expect(condenseSteps(steps.slice(0, 1)).map((line) => [line.kind, line.text])).toEqual([["step", sentence]]);
+    expect(condenseSteps(en, steps.slice(0, 1)).map((line) => [line.kind, line.text])).toEqual([["step", sentence]]);
     expect(inFlight(steps.slice(0, 1))).toBeNull();
     // the wait ended: the history line is past tense and the call after it thinks live
-    expect(condenseSteps(steps).map((line) => line.text))
+    expect(condenseSteps(en, steps).map((line) => line.text))
       .toEqual(["Waited for the model: gpt41 runs 1 at a time (agent.max_concurrent_runs)"]);
     expect(inFlight(steps)).toEqual({ key: 2, who: null });
   });

@@ -14,6 +14,8 @@ import {
 import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import { approvalProposal } from "@/components/dialog/approvalProposal";
 import { approvalDecision } from "@/components/dialog/approvalDecision";
 import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
@@ -108,7 +110,7 @@ function useTicketHandover(
   const project = params.get(PROJECT_PARAM);
   // 2026-09-25-8e51a: an address that names only a ticket lets the TICKET name the project — its
   // own routing, on its own tracker. Several or none, and the choice stays with the operator.
-  const [reason, setReason] = useState<string | null>(null);
+  const [reason, setReason] = useState<NoProject | null>(null);
   // The read is IN FLIGHT while the page loads its own fresh conversation, and `open` is a
   // callback over the view — so it is a new function by the time the answer lands. Depending on
   // it would tear this effect down mid-flight and the answer would be dropped, once, silently:
@@ -142,14 +144,12 @@ function useTicketHandover(
         const read = held as TicketProjectRead | null;
         if (named.length === 0 && read?.routed?.length)
           setFound({ ticketId: read.ticketId, title: read.title, tracker: read.tracker, projects: read.routed, exact: true });
-        setReason(
-            whyNoProject(
-              named,
-              (held as TicketProjectRead | null)?.unanswerable ?? [],
-              (held as TicketProjectRead | null)?.elsewhere ?? [],
-              read?.routed ?? [],
-            ),
-          );
+        setReason({
+          named,
+          unanswerable: (held as TicketProjectRead | null)?.unanswerable ?? [],
+          elsewhere: (held as TicketProjectRead | null)?.elsewhere ?? [],
+          routed: read?.routed ?? [],
+        });
       })
       // A ticket the tracker does not have, or a read that failed: the page stays usable and the
       // operator is not handed a conversation bound to something that is not there.
@@ -168,31 +168,32 @@ function useTicketHandover(
 }
 
 /** Why the ticket did not name one project — a reason, never an accusation. */
-function whyNoProject(named: string[], unanswerable: string[], elsewhere: string[], routed: string[]): string {
+/** 2026-11-22-5485a: what the ticket read answered, kept as facts so the sentence is worded in the language in force. */
+interface NoProject {
+  named: string[];
+  unanswerable: string[];
+  elsewhere: string[];
+  routed: string[];
+}
+
+function whyNoProject(t: T, { named, unanswerable, elsewhere, routed }: NoProject): string {
   if (named.length > 1)
-    return `This ticket's labels name ${named.length} projects (${named.join(", ")}). Choose one.`;
+    return t("dialog.surface.manyProjects", { count: named.length, list: named.join(", ") });
   // 2026-09-27-1bd9: the labels DID name a project — on a tracker that does not hold this ticket.
   // Without this sentence the routing looks broken when it is merely pointed elsewhere.
   if (named.length === 0 && elsewhere.length > 0)
-    return (
-      `This ticket's labels name ${elsewhere.join(", ")}, which ${elsewhere.length === 1 ? "is" : "are"} ` +
-      "on another tracker — a project there would open a different board's ticket of this number. " +
-      "Choose a project on this one."
-    );
+    return t("dialog.surface.elsewhere", { count: elsewhere.length, list: elsewhere.join(", ") });
   if (unanswerable.length > 0)
-    return (
-      `No project matched this ticket's labels. ${unanswerable.join(", ")} ` +
-      "routes by area path, repository or address, which a ticket read by its id cannot carry — " +
-      "so it could not be answered for rather than ruled out. Choose a project."
-    );
+    return t("dialog.surface.unanswerable", { list: unanswerable.join(", ") });
   // 2026-10-29-8e47: the projects offered below are its tracker's, and the sentence says so
   // rather than reading as a failure beside them.
   if (routed.length > 0)
-    return "No label on this ticket names a project. These are the projects on its tracker. Choose one.";
-  return "No project's routing names this ticket. Choose one.";
+    return t("dialog.surface.routed");
+  return t("dialog.surface.unrouted");
 }
 
 export function SpecDialogSurface() {
+  const t = useT();
   const dialog = useSpecDialog();
   useHandover(dialog.open);
   // 2026-10-13-9a59r: a TICKET-BOUND conversation's approval continues that ticket or files a follow-up;
@@ -207,9 +208,10 @@ export function SpecDialogSurface() {
   const {
     pending: pendingTicket,
     found: addressedTicket,
-    reason: ticketReason,
+    reason: noProject,
     forget: forgetAddressedTicket,
   } = useTicketHandover(dialog.open, dialog.startNew);
+  const ticketReason = noProject ? whyNoProject(t, noProject) : null;
   // The picked project lives here rather than in the list, because SENDING needs it too: a
   // message typed with no session open has to open one, and the project is what opens it.
   // With a single configured project there is no picker and no choice to make.
@@ -307,8 +309,8 @@ export function SpecDialogSurface() {
     // that reached this with an id the list does not hold deletes without confirming, which is
     // what the hook did before the asking moved here.
     const listed = dialog.conversations.find((held) => held.sessionId === sessionId);
-    const warning = listed ? deletionWarning(listed) : null;
-    if (warning !== null && !(await confirmation.ask(warning, { confirmLabel: "Delete" }))) return;
+    const warning = listed ? deletionWarning(t, listed) : null;
+    if (warning !== null && !(await confirmation.ask(warning, { confirmLabel: t("common.delete") }))) return;
     await dialog.remove(sessionId);
   }
   // 2026-09-20-4b0af: the heading says what the conversation is ABOUT, and falls back to the
@@ -335,7 +337,7 @@ export function SpecDialogSurface() {
   // card's guards; a pending ask_human question stands in the approval's place, so neither shows beside it.
   const awaitingCard = approvalProposal(dialog.question, dialog.awaitingProposal);
   const decision = dialog.question && awaitingCard
-    ? approvalDecision(dialog.question, awaitingCard, ticketEffect, bound !== null)
+    ? approvalDecision(t, dialog.question, awaitingCard, ticketEffect, bound !== null)
     : null;
   // 2026-11-19-7c42b: an offered draft is put as a decision in the composer's place; Keep chatting sets it aside for
   // this proposal only, on this page, and decides nothing. Discard is said in words (7c42a).
@@ -410,12 +412,12 @@ export function SpecDialogSurface() {
                 this column's empty state, so the two are never on screen together and
                 neither can be read as the other. */}
             <h1 data-testid="dialog-heading" className="dl-title">
-              {title ?? "New conversation"}
+              {title ?? t("dialog.surface.newConversation")}
             </h1>
             <div className="dl-sub">
               {session && (
                 <span data-testid="dialog-exchange-project">
-                  in <span className="given">{session.scope.name}</span>
+                  {t("dialog.surface.in")} <span className="given">{session.scope.name}</span>
                 </span>
               )}
               {/* The dialog id IS the session key: a page that lost it would open a second
@@ -424,8 +426,8 @@ export function SpecDialogSurface() {
               {series && <DialogSeriesHead series={series} onAct={actOnSeries} />}
               <span data-testid="dialog-identity" className="mono">
                 {session
-                  ? `session ${session.sessionId} · dialog ${dialog.dialogId ?? ""}`
-                  : `dialog ${dialog.dialogId ?? ""} · no session open`}
+                  ? t("dialog.surface.identity", { session: session.sessionId, dialog: dialog.dialogId ?? "" })
+                  : t("dialog.surface.noSession", { dialog: dialog.dialogId ?? "" })}
               </span>
             </div>
             {session?.workPicture && <DialogWorkPicture picture={session.workPicture} />}

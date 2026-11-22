@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useState } from "react";
 import type { SeriesAct, SeriesRunView } from "@/types/series";
 
@@ -8,6 +9,7 @@ import type { SeriesAct, SeriesRunView } from "@/types/series";
 // has neither. A refusal is said beside it in the server's words.
 
 export function DialogSeriesHead({ series, onAct }: { series: SeriesRunView; onAct: (act: SeriesAct) => Promise<void> }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const act: SeriesAct | null = series.state === "paused" ? "resume"
@@ -34,7 +36,7 @@ export function DialogSeriesHead({ series, onAct }: { series: SeriesRunView; onA
           disabled={busy}
           onClick={() => void press(act)}
         >
-          {act === "pause" ? "Pause" : "Resume"}
+          {t(act === "pause" ? "dialog.series.pause" : "dialog.series.resume")}
         </button>
       )}
       {refusal && <span className="dl-series-refusal" role="alert">{refusal}</span>}

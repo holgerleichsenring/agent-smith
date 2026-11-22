@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import type { SpecDialogReviewRound } from "@/types/spec-dialog";
 
 // 2026-10-13-8762i: the review a design turn's proposal went through before it reached the person who approves it —
@@ -12,12 +14,9 @@ import type { SpecDialogReviewRound } from "@/types/spec-dialog";
 export const SERIES_TOKEN = "series";
 
 // 2026-11-10-8e59: information, not a hold — nothing is built before a review ends clean on its exact text.
-export const NOT_YET_REVIEWED = "not yet reviewed, will be reviewed before it is built";
-
-export function notReviewedLabel(entry: string): string {
-  return entry === SERIES_TOKEN
-    ? `the series contract — ${NOT_YET_REVIEWED}`
-    : `${entry} — ${NOT_YET_REVIEWED}`;
+export function notReviewedLabel(t: T, entry: string): string {
+  const name = entry === SERIES_TOKEN ? t("dialog.rounds.seriesContract") : entry;
+  return t("dialog.rounds.notReviewedLabel", { name, notYet: t("dialog.rounds.notYetReviewed") });
 }
 
 export function DialogProposalRounds({
@@ -27,6 +26,7 @@ export function DialogProposalRounds({
   rounds?: SpecDialogReviewRound[];
   notReviewed?: string[] | null;
 }) {
+  const t = useT();
   const waiting = notReviewed ?? [];
   if (!rounds?.length && waiting.length === 0) return null;
   const specIds = [...new Set((rounds ?? []).map((round) => round.specId))];
@@ -34,7 +34,7 @@ export function DialogProposalRounds({
     <div data-testid="dialog-proposal-rounds" className="mt-1.5 mb-1.5">
       {specIds.map((specId) => (
         <div key={specId} data-testid={`dialog-rounds-${specId}`} className="mb-1">
-          <div className="fl">{specId === SERIES_TOKEN ? "the series contract" : specId} — review</div>
+          <div className="fl">{t("dialog.rounds.review", { name: specId === SERIES_TOKEN ? t("dialog.rounds.seriesContract") : specId })}</div>
           <ol className="ml-4 flex list-decimal flex-col gap-1">
             {(rounds ?? []).filter((round) => round.specId === specId).map((round) => (
               <Round key={round.round} round={round} />
@@ -44,7 +44,7 @@ export function DialogProposalRounds({
       ))}
       {waiting.map((entry) => (
         <p key={entry} data-testid="dialog-not-reviewed" className="dsh-body font-semibold text-ink">
-          {notReviewedLabel(entry)}
+          {notReviewedLabel(t, entry)}
         </p>
       ))}
     </div>
@@ -52,15 +52,20 @@ export function DialogProposalRounds({
 }
 
 function Round({ round }: { round: SpecDialogReviewRound }) {
-  const reviewers = round.reviewerVerdicts.map((verdict) => verdict ?? "not taken").join(", ");
+  const t = useT();
+  const reviewers = round.reviewerVerdicts.map((verdict) => verdict ?? t("dialog.rounds.notTaken")).join(", ");
   return (
     <li data-testid="dialog-review-round" className="dsh-body text-ink">
-      <span className="font-semibold">round {round.round}: {round.verdict}</span>
-      <span className="ml-1 dsh-label text-body">(reviewers: {reviewers})</span>
+      <span className="font-semibold">{t("dialog.rounds.round", { round: round.round, verdict: round.verdict })}</span>
+      <span className="ml-1 dsh-label text-body">{t("dialog.rounds.reviewers", { list: reviewers })}</span>
       <ul className="ml-4 list-disc">
         {round.cuts.map((cut, index) => (
           <li key={`cut-${index}`} data-testid="dialog-round-cut">
-            suggested cut {cut.register}: “{cut.quote}” → {cut.replacement ? `“${cut.replacement}”` : "removed"}
+            {t("dialog.rounds.cut", {
+              register: cut.register,
+              quote: cut.quote,
+              replacement: cut.replacement ? t("common.quoted", { text: cut.replacement }) : t("dialog.rounds.removed"),
+            })}
             <span className="ml-1 dsh-mono font-mono text-body">{cut.evidence}</span>
           </li>
         ))}
@@ -72,7 +77,7 @@ function Round({ round }: { round: SpecDialogReviewRound }) {
         ))}
         {round.residues.map((residue, index) => (
           <li key={`residue-${index}`} data-testid="dialog-round-residue">
-            still stands in {residue.register}: “{residue.quote}”
+            {t("dialog.rounds.residue", { register: residue.register, quote: residue.quote })}
           </li>
         ))}
       </ul>

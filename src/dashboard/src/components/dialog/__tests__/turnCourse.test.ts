@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { SpecDialogReviewRound } from "@/types/spec-dialog";
 import { markOf, refusalsOf, waitsOnOwner } from "../turnCourse";
 import type { TurnProposal } from "../turnProposal";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-11-13-b3a2: a draft refused on owner decisions only waits on the operator's answer; it is not a refusal.
 
@@ -18,8 +21,8 @@ describe("turnCourse", () => {
 
     expect(markOf(turn, "s1")).toEqual({ mark: "⏸", word: "waits on your answer" });
     expect(markOf(turn, "s2").word).toBe("refused");
-    expect(refusalsOf(turn)).toBe("1 refusal open");
-    expect(refusalsOf(proposal([round("s1", ["Is the policy approved?"])]))).toBeNull();
+    expect(refusalsOf(en, turn)).toBe("1 refusal open");
+    expect(refusalsOf(en, proposal([round("s1", ["Is the policy approved?"])]))).toBeNull();
   });
 
   it("waitsOnOwner_NoFindings_False", () => {

@@ -78,6 +78,10 @@
 }
 .sb-menu a:hover, .sb-menu button:hover, .sb-menu a:focus-visible, .sb-menu button:focus-visible { background: var(--color-app-hover); color: var(--ink); outline: none; }
 .sb-menu-rule { height: 1px; margin: 4px 6px; background: var(--color-app-line-strong); }
+/* 2026-11-22-5485a: the language switch, one flag per language side by side; the one in force reads in ink */
+.sb-menu-lang { display: flex; gap: 2px; }
+.sb-menu-lang button { flex: 1; gap: 6px; }
+.sb-menu-lang button[aria-checked="true"] { color: var(--ink); font-weight: 600; background: var(--color-app-hover); }
 
 /* the top bar: one search field and the bell */
 .app-topbar {
