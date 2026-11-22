@@ -5,9 +5,7 @@ public enum MasterStopKind
 {
     Cap,
     Budget,
-    RedDrained,
-    Blocker,
-    Verdictless,
+    StepsOpen,
     Question,
     Idle,
     SelfRefilled,

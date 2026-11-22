@@ -28,7 +28,7 @@ public static class SpecWritingPromptBlocks
             one-sentence goal, the steps, and done lines a diff or a command can show — and record it with revise_spec
             (same spec id, requires and repos; you may add applies_to). Then work from what you wrote. When this
             repository has nothing to do for the ticket, write the spec to say so (done: no change in it) and finish.
-            Work beyond one spec is a follow-up you propose in finish_spec.
+            Work beyond one spec is a follow-up your report proposes.
             {pin}{EpicGroundPromptSection.Build(pipeline)}
             """;
     }
@@ -53,9 +53,8 @@ public static class SpecWritingPromptBlocks
         ## Spec contract
         This run writes SPEC {draft.SpecId} and builds nothing: a person reviews the spec before any code is written.
         Read the ticket and the code until the spec's premises hold, write the spec as above and record it with
-        revise_spec. Change no code and commit nothing. When only a person can answer what the spec must say, call
-        finish_spec with status blocked and the question as the blocker; it is posted on the ticket. Otherwise report
-        what you wrote and why, and call finish_spec with status no-tests.
+        revise_spec. Change no code and commit nothing. When only a person can answer what the spec must say, ask it
+        with ask_human; it is posted on the ticket. Otherwise report what you wrote and why.
         """;
 
     private static bool IsStandIn(PipelineContext pipeline, SpecDraft draft) =>

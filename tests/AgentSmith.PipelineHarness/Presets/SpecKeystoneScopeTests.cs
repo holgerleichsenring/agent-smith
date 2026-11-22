@@ -29,7 +29,7 @@ public sealed class SpecKeystoneScopeTests : IAsyncLifetime
     {
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
         var pipeline = Pipeline(await RepositoryAsync("Sample.Server"), await RepositoryAsync("Sample.Worker"));
-        pipeline.Set(ContextKeys.MasterVerification, new MasterVerification(VerificationStatus.Green, true, true, true, true, "s", Report: "the greeting is not localised yet"));
+        pipeline.Set(ContextKeys.MasterVerification, new MasterVerification("the greeting is not localised yet"));
 
         var result = await harness.Services.GetRequiredService<ICommandHandler<VerifySpecContext>>()
             .ExecuteAsync(new VerifySpecContext(new Dictionary<string, ProjectMap>(), pipeline), CancellationToken.None);

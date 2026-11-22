@@ -19,6 +19,8 @@ public sealed class ScriptedChatClient : IChatClient
     private readonly Queue<object> _responses = new();
     private readonly List<ScriptedToolCall> _toolCalls = new();
     private readonly ScopeClassificationScript _scopeScript = new();
+    private readonly Queue<object> _reportReads = new();
+    private readonly List<(IReadOnlyList<ChatMessage>, ChatOptions?)> _reportReadCalls = new();
     private int _toolCallCounter;
 
     public int InvocationCount { get; private set; }
@@ -62,28 +64,49 @@ public sealed class ScriptedChatClient : IChatClient
     }
 
     /// <summary>
-    /// 2026-11-18-98fa: scripts how a spec's coding master ends — its markdown report and the finish_spec call in one
-    /// answer, then the empty answer that closes the loop after the tool result.
+    /// 2026-11-22-96c8a: scripts how a spec's coding master ends — it marks its checklist done (one update_progress
+    /// that replaces the pending steps with one done step, as a master keeps it current) and then answers its markdown
+    /// report as the text of a reply that calls no tool. What the report's read takes off it (follow-ups, refused
+    /// instructions) is answered from the read's own slot; a refused instruction's quote is written into the report,
+    /// where the read checks for it.
     /// </summary>
-    public ScriptedChatClient EnqueueFinish(
-        string status = "green", string summary = "done", string report = "## Delivered\n- the change, built and tested",
-        IReadOnlyList<(string Goal, string Why)>? followUps = null, string[]? failingTests = null, string? blocker = null,
-        string[]? ignoredInstructions = null)
+    public ScriptedChatClient EnqueueReport(
+        string report = "## Delivered\n- the change, built and tested",
+        IReadOnlyList<(string Goal, string Why)>? followUps = null, string[]? ignoredInstructions = null)
     {
-        var args = new Dictionary<string, object?> { ["status"] = status, ["summary"] = summary };
-        if (followUps is not null)
-            args["follow_ups"] = System.Text.Json.JsonSerializer.SerializeToElement(followUps.Select(f => new { goal = f.Goal, why = f.Why }));
-        if (failingTests is not null) args["failing_tests"] = System.Text.Json.JsonSerializer.SerializeToElement(failingTests);
-        if (blocker is not null) args["blocker"] = blocker;
-        if (ignoredInstructions is not null)
-            args["ignored_instructions"] = System.Text.Json.JsonSerializer.SerializeToElement(ignoredInstructions);
+        if (ignoredInstructions is { Length: > 0 })
+            report += "\n\n## Ignored instructions\n" + string.Join("\n", ignoredInstructions.Select(q => $"- \"{q}\" — out of scope"));
         // Not on ToolCalls: those pin the order of the work tools a test drives; how a master ends is this helper's.
-        var callId = "call_" + (++_toolCallCounter);
         _responses.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant,
-            [new TextContent(report), new FunctionCallContent(callId, "finish_spec", args)])));
-        _responses.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, string.Empty)));
+            [new FunctionCallContent("call_" + (++_toolCallCounter), "update_progress", ParseArgs(
+                """{"items":[{"id":"the-work","activity":"the spec's work","status":"done"}]}"""))])));
+        _responses.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, report)));
+        if (followUps is not null || ignoredInstructions is not null)
+            EnqueueReportRead(System.Text.Json.JsonSerializer.Serialize(new
+            {
+                follow_ups = followUps?.Select(f => new { goal = f.Goal, why = f.Why }),
+                ignored_instructions = ignoredInstructions?.Select(q => new { quote = q, reason = "out of scope" }),
+            }));
         return this;
     }
+
+    /// <summary>2026-11-22-96c8a: the answer the next report read gets (a JSON extract, or anything a provider might
+    /// send back). An empty slot answers "{}": the report named nothing.</summary>
+    public ScriptedChatClient EnqueueReportRead(string answer)
+    {
+        _reportReads.Enqueue(answer);
+        return this;
+    }
+
+    /// <summary>2026-11-22-96c8a: a report read that fails.</summary>
+    public ScriptedChatClient EnqueueReportReadFailure(Exception failure)
+    {
+        _reportReads.Enqueue(failure);
+        return this;
+    }
+
+    /// <summary>The report reads served, in order — their messages and options.</summary>
+    public IReadOnlyList<(IReadOnlyList<ChatMessage> Messages, ChatOptions? Options)> ReportReads => _reportReadCalls;
 
     /// <summary>
     /// p0413a: scripts the ScopeRepos classification call, which draws from its own
@@ -172,8 +195,19 @@ public sealed class ScriptedChatClient : IChatClient
 
     private Task<ChatResponse> Respond(IEnumerable<ChatMessage> messages, ChatOptions? options)
     {
+        var list = messages.ToList();
+        // 2026-11-22-96c8a: the report read runs after a master ends — its own slot, outside every call list a preset
+        // asserts on, so a script never has to make room for it.
+        if (IsReportRead(list))
+        {
+            _reportReadCalls.Add((list, options));
+            var answer = _reportReads.Count > 0 ? _reportReads.Dequeue() : "{}";
+            return answer is Exception failure
+                ? Task.FromException<ChatResponse>(failure)
+                : Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, (string)answer)));
+        }
         InvocationCount++;
-        LastMessages = messages.ToList();
+        LastMessages = list;
         _callMessages.Add(LastMessages);
         LastOptions = options;
         FirstOptions ??= options;
@@ -199,6 +233,10 @@ public sealed class ScriptedChatClient : IChatClient
 
     public object? GetService(Type serviceType, object? serviceKey = null) => null;
     public void Dispose() { }
+
+    private static bool IsReportRead(IReadOnlyList<ChatMessage> messages) =>
+        messages.Any(m => m.Role == ChatRole.System
+            && (m.Text?.StartsWith(AgentSmith.Application.Services.Specs.Reports.MasterReportReader.Marker, StringComparison.Ordinal) ?? false));
 
     private static ChatResponse DefaultEmpty() =>
         new(new ChatMessage(ChatRole.Assistant, "{}"));

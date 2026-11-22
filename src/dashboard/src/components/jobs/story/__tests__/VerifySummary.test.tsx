@@ -44,7 +44,7 @@ describe("VerifySummary (the master's report)", () => {
     expect(screen.getByTestId("verify-follow-up")).toHaveTextContent("follow-up · s2");
   });
 
-  // 2026-11-18-98fa: masters that ended with finish_spec — their markdown reports, rendered, and no row table.
+  // 2026-11-18-98fa: masters that ended on their report — their markdown reports, rendered, and no row table.
   it("VerifySummary_FinishedMasters_RenderEachReportAsMarkdownWithTheFollowUps", () => {
     render(<VerifySummary acceptance={{ criteria: [], outcome: null, ratifiedBy: null, source: "master_verification",
       fixedInPassing: [], followUps: [{ goal: "Exports stream CSV", why: "paging first", specId: "s2" }],

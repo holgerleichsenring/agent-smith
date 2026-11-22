@@ -35,8 +35,9 @@ public sealed class MasterToolSurfaceTests
         var tools = await CodingSurface(CodingContext());
 
         tools.Should().OnlyHaveUniqueItems().And.HaveCountLessThanOrEqualTo(20)
-            .And.Contain(["finish_spec", "web_fetch", "render_reference", "send_message", "write_context_yaml", "edit"])
-            .And.NotContain(Retired).And.NotContain("http_request");
+            .And.Contain(["web_fetch", "render_reference", "send_message", "write_context_yaml", "edit"])
+            .And.NotContain(Retired).And.NotContain("http_request")
+            .And.NotContain(["finish_spec", "hand_forward"], "2026-11-22-96c8a: the coding master ends on its report");
     }
 
     [Fact]

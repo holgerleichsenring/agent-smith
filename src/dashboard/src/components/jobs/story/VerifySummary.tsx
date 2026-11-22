@@ -109,7 +109,7 @@ const CRIT_STAT: Record<AcceptanceCriterion["status"], string> = {
 // 2026-10-12-6bfad: an unmeasured account is never one of the N; it makes the badge bad
 // and says so after the count, or alone when there is nothing to count.
 function badgeFor(acceptance: RunAcceptance): { cls: string; label: string } {
-  // 2026-11-18-98fa: a run whose masters ended with finish_spec judged no line — the badge says it reported.
+  // 2026-11-18-98fa / 2026-11-22-96c8a: a run whose masters ended on their report judged no line — the badge says it reported.
   if (acceptance.reports != null && acceptance.criteria.length === 0 && !acceptance.unmeasured?.length) {
     const followUps = acceptance.followUps?.length ?? 0;
     return { cls: "ok", label: followUps > 0 ? `reported · ${followUps} follow-up${followUps === 1 ? "" : "s"}` : "reported" };

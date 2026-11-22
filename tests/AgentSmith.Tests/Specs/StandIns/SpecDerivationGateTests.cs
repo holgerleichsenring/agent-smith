@@ -42,11 +42,13 @@ public sealed class SpecDerivationGateTests
     }
 
     [Fact]
-    public void AfterMaster_ABlocker_BecomesTheQuestionTheHandbackStepAsks()
+    public void AfterMaster_AQuestionAskedWithAskHuman_BecomesTheQuestionTheHandbackStepAsks()
     {
+        // 2026-11-22-96c8a: a derivation's master asks with ask_human; the gate hands that question back.
         var pipeline = StandInSets.Run(new PipelineContext(), StandInSets.Draft);
-        pipeline.Set(ContextKeys.MasterVerification, new MasterVerification(
-            VerificationStatus.Failed, false, false, false, false, "blocked", Blocker: "Which client is meant?"));
+        pipeline.Set(ContextKeys.MasterVerification, new MasterVerification("## Blocked\nWhich client is meant?"));
+        pipeline.Set<IReadOnlyList<AgentSmith.Domain.Entities.PlanOpenQuestion>>(ContextKeys.MasterOpenQuestions,
+            [new AgentSmith.Domain.Entities.PlanOpenQuestion("1", "Which client is meant?", [])]);
 
         var result = SpecDerivationGate.AfterMaster(pipeline, Set(pipeline), StandInSets.Draft.SpecId);
 
@@ -54,6 +56,7 @@ public sealed class SpecDerivationGateTests
         result.InsertNext.Should().ContainSingle().Which.Name.Should().Be(CommandNames.SpecHandback);
         pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Should().Be(
             new SpecHandback(SpecHandbackCase.Question, "Which client is meant?"));
+        pipeline.Has(ContextKeys.MasterOpenQuestions).Should().BeFalse("the hand-back carries it from here");
     }
 
     [Fact]

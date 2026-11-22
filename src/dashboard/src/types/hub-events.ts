@@ -985,7 +985,7 @@ export interface RunAcceptance {
   /** 2026-11-18-c8e2d: the follow-up specs the masters proposed, each with the spec it came from. */
   followUps?: FollowUp[] | null;
   /** 2026-11-18-98fa: each spec master's markdown report, shown as written and never parsed. Present on runs whose
-   *  masters ended with finish_spec — they carry no criterion rows. */
+   *  masters reported (2026-11-22-96c8a: their last words; before, with finish_spec) — they carry no criterion rows. */
   reports?: MasterReport[] | null;
 }
 

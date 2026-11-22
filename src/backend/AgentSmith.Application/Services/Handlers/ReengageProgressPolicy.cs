@@ -13,8 +13,6 @@ public enum ReengageOutcome
     /// <summary>The pass called NO tool — the model is idle / has nothing left to do. The one
     /// reliable, unfakeable stall signal: agent-smith infrastructure was not invoked at all.</summary>
     StopIdle,
-    /// <summary>An honest blocked claim backed by a concrete blocker — respected.</summary>
-    StopBlocked,
     /// <summary>p0391: the pass refilled its own checklist. Every step left actionable at the
     /// end of the pass is one the model invented DURING it, and the pass added nothing to the
     /// diff — the ledger turned over without the work moving.</summary>
@@ -35,19 +33,16 @@ public enum ReengageOutcome
 /// else ("is it converging?") is genuinely hard to judge, so we do NOT gate on it — we keep
 /// driving while any tool fires, bounded by budget / wall-time / the hard cap (the caller), and
 /// surface the ambiguous signals (repeated reads/edits) to the operator rather than auto-aborting.
-/// A "can't" claim is honoured only with a concrete blocker — symmetry with the diff-verified
-/// "done" gate. Pure + testable.
+/// 2026-11-22-96c8a: no claim of the model stops it — a question goes through ask_human. Pure + testable.
 /// </summary>
 public static class ReengageProgressPolicy
 {
-    /// <summary>Decide the driver action after a pass from its tool-call count, any blocked
-    /// claim, and whether the pass refilled its own checklist (p0391).</summary>
+    /// <summary>Decide the driver action after a pass from its tool-call count and whether the pass refilled its
+    /// own checklist (p0391).</summary>
     public static ReengageOutcome Decide(
-        int toolCallsInPass, MasterBlockedClaim? block, bool passEndedOnException,
-        bool ledgerSelfRefilled = false)
+        int toolCallsInPass, bool passEndedOnException, bool ledgerSelfRefilled = false)
     {
         if (passEndedOnException) return ReengageOutcome.Continue;   // a crash is recovery, not idleness
-        if (ShouldRespectBlock(block)) return ReengageOutcome.StopBlocked;
         if (toolCallsInPass <= 0) return ReengageOutcome.StopIdle;   // empty pass — the only stall signal
         if (ledgerSelfRefilled) return ReengageOutcome.StopSelfRefilled;
         return ReengageOutcome.Continue;
@@ -92,10 +87,6 @@ public static class ReengageProgressPolicy
                 return true;
         return false;
     }
-
-    /// <summary>A blocked claim is respected only when a concrete blocker backs it (else re-driven).</summary>
-    public static bool ShouldRespectBlock(MasterBlockedClaim? claim) =>
-        claim is { IsBlocked: true } && !string.IsNullOrWhiteSpace(claim.Blocker);
 
     /// <summary>
     /// Tool calls the model made during a pass — the FunctionCallContent across the returned

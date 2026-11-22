@@ -18,7 +18,7 @@ namespace AgentSmith.Tests.Passes;
 /// </summary>
 public sealed class MasterPassRecorderTests
 {
-    private static readonly MasterPassState Empty = new(new ProgressLedger([]), [], null, null);
+    private static readonly MasterPassState Empty = new(new ProgressLedger([]), [], false, false);
 
     [Fact]
     public async Task PassRecorder_AfterPark_ContinuesTheOrdinalAndOpensAfterAnswer()

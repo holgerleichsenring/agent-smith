@@ -160,7 +160,8 @@ public sealed class VerifySpecHandler(
             return await RecordAsync(context, CommandResult.Fail(unverified), cancellationToken);
         }
         // 2026-11-18-c8e2c: green — the spec's account is its master's report, one per spec over its repositories. A spec
-        // with a done list whose master ended without finish_spec (98fa) has nobody's word on it: not delivered.
+        // with a done list whose master wrote no report (96c8a) has nobody's word on it: not delivered. What the report
+        // says about its own outcome is shown, never acted on.
         if (MasterReportAccount.Missing(context.Pipeline) is { } missing)
         {
             RunAccountLedger.RecordProblem(context.Pipeline, sandboxes.Keys, missing);
@@ -172,8 +173,10 @@ public sealed class VerifySpecHandler(
         RunAccountLedger.Record(context.Pipeline, [account]);
         // p0439: a spec that is through names the state it verified — the commit each sandbox stands at.
         await verifiedHeads.RecordAsync(context.Pipeline, all, cancellationToken);
+        var unread = MasterReportAccount.ReadProblem(context.Pipeline) is { } problem
+            ? $"; its report could not be read: {problem}" : string.Empty;
         return await RecordAsync(context, CommandResult.Ok(
-            $"{mechanical.Message} — the master reported, {account.FollowUps?.Count ?? 0} follow-up(s) proposed."), cancellationToken);
+            $"{mechanical.Message} — the master reported, {account.FollowUps?.Count ?? 0} follow-up(s) proposed{unread}."), cancellationToken);
     }
 
     // p0393a: verification is what makes a spec DONE, so this is where the sequence's

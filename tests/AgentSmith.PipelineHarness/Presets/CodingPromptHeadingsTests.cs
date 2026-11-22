@@ -29,7 +29,7 @@ public sealed class CodingPromptHeadingsTests
         await using var harness = BuildHarness(new RecordingTicketProvider());
         harness.ChatClient
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         await runner.RunAsync("code");
@@ -58,7 +58,7 @@ public sealed class CodingPromptHeadingsTests
         await using var harness = BuildHarness(new RecordingTicketProvider());
         harness.ChatClient
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         await new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }.RunAsync("code");
 

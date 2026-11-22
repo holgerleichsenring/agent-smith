@@ -116,12 +116,12 @@ public sealed class ContextSourcesHarnessTests
         harness.ChatClient
             .EnqueueText("Planning: I will add Save to the repository.")
             .EnqueueToolCall("write_file", write)
-            .EnqueueFinish();
+            .EnqueueReport();
         if (corrected)
             harness.ChatClient
                 .EnqueueText("Correcting: I keep it as it is.")
                 .EnqueueToolCall("write_file", write)
-                .EnqueueFinish();
+                .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

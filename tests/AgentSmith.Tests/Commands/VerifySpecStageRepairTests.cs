@@ -75,7 +75,7 @@ public sealed class VerifySpecStageRepairTests
     {
         await using var clones = await Clones(RedStage);
         if (clones is null) return;
-        var first = new MasterVerification(VerificationStatus.Green, true, true, true, true, "s", Report: "the app is changed in web/app.ts");
+        var first = new MasterVerification("the app is changed in web/app.ts");
         clones.Pipeline.Set(ContextKeys.MasterVerification, first);
 
         await Verify(clones);

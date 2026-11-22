@@ -90,24 +90,6 @@ public sealed class MergedToolsTests
     }
 
     [Fact]
-    public async Task FinishSpec_CarriesTheBuildNote()
-    {
-        var pipeline = new PipelineContext();
-        var finish = new FinishSpecToolHost();
-        var tool = MergedTools.FinishSpec(finish, new HandForwardToolHost(pipeline, "s1"));
-
-        var answer = await Invoke(tool, ("status", "green"), ("summary", "done"), ("renamed", new[] { "A -> B" }));
-
-        answer.Should().Contain("Build note for s1 recorded").And.Contain("Recorded: green");
-        pipeline.Get<IReadOnlyDictionary<string, SpecBuildNote>>(ContextKeys.SpecBuildNotes)["s1"].Renamed
-            .Should().Equal("A -> B");
-        finish.Verification.Should().NotBeNull();
-        await Invoke(tool, ("status", "green"), ("summary", "done again"));
-        pipeline.Get<IReadOnlyDictionary<string, SpecBuildNote>>(ContextKeys.SpecBuildNotes)["s1"].Renamed
-            .Should().Equal(["A -> B"], "a call naming no note field keeps the note");
-    }
-
-    [Fact]
     public async Task CodingRunCommand_Stage_WithoutDeclaredStages_SaysWhy()
     {
         var tool = MergedTools.CodingRunCommand(null!, null!, new PipelineContext());

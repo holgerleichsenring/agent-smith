@@ -78,7 +78,7 @@ export function checkOf(acceptance: RunAcceptance | null | undefined): RunCheck 
 
 function recordedCheck(acceptance: RunAcceptance | null | undefined): RunCheck | null {
   const criteria = acceptance?.criteria ?? [];
-  // 2026-11-18-98fa: masters that ended with finish_spec judged no line — the section is their report.
+  // 2026-11-18-98fa / 2026-11-22-96c8a: masters that ended on their report judged no line — the section is their report.
   if (criteria.length === 0 && acceptance?.reports?.length) {
     const n = acceptance.followUps?.length ?? 0;
     return { state: "done", summary: n > 0 ? `reported · ${n} follow-up${n === 1 ? "" : "s"}` : "reported", title: REPORT_TITLE };

@@ -39,7 +39,7 @@ public sealed class MemoryPerRepositoryTests
             .EnqueueToolCall("remember", """{"type":"project","name":"server-build-order","description":"Contracts build first","body":"The server builds its contracts first.","repository":"sample-server"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"sample-server"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-            .EnqueueFinish(summary: "fixed");
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() }
             .WithSeries(new HarnessSeries.Member("Reject empty payloads with a 400 instead of a 500", "An empty request body is answered with 400.", "sample-server"));

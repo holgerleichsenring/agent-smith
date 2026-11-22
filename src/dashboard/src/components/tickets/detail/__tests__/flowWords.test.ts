@@ -13,4 +13,10 @@ describe("flowWords", () => {
   it("passEndWords_UnresolvedClaims_IsNamed", () => {
     expect(passEndWords("unresolved-claims")).toBe("met claims cite nothing that changed or ran");
   });
+
+  // 2026-11-22-96c8a: open checklist steps are re-driven once, then the loop stops on them.
+  it("passEndWords_StepsOpen_AndUnfinished_AreNamed", () => {
+    expect(passEndWords("steps-open")).toBe("ended with checklist steps still open");
+    expect(passEndWords("unfinished")).toBe("driven once more");
+  });
 });

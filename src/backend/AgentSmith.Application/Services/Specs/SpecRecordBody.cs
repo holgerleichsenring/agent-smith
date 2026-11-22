@@ -16,7 +16,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// </para>
 /// <para>
 /// 2026-10-13-8762m: the build note's only home. A spec found already satisfied ran no master and
-/// carries no key; a master that made no hand_forward call is recorded as <c>missing</c>.
+/// carries no key; a spec whose report's read named no build note (2026-11-22-96c8a; was: a master that made no
+/// hand_forward call) is recorded as <c>missing</c>.
 /// </para>
 /// </summary>
 public static class SpecRecordBody

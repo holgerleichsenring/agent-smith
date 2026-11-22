@@ -1,4 +1,3 @@
-using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -11,33 +10,26 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class ReengageStopLog(ILogger<ReengageStopLog> logger)
 {
     // 2026-09-22-7c41a: when MONEY ended the re-engagement, say which cap and what was spent.
-    // p0406: a master that never called finish_spec is a NAMED outcome —
-    // an unknown verdict the keystone records honestly — not a silent break.
-    internal void NotReengaging(ReengageSession session, MasterVerification? verification, int reengagePass)
+    // 2026-11-22-96c8a: checklist steps still open after their one re-drive are a NAMED stop, not a silent break.
+    internal void NotReengaging(ReengageSession session, int reengagePass)
     {
         var skill = session.Context.MasterSkillName;
         if (session.CostTracker.IsBudgetExhausted)
             logger.LogWarning("Master '{Skill}' will not re-engage — {Stop}", skill, CostCapStop.Describe(session.CostTracker));
-        if (verification is not null || !ReengageReasonPolicy.UnfinishedAfterOneRedrive(reengagePass))
-            return;
-        logger.LogWarning(
-            "Master '{Skill}' did not call finish_spec across {Passes} pass(es) — ending the open loop without it "
-            + "rather than re-driving the same silence", skill, reengagePass);
+        else if (session.Progress.GetLedger().HasActionablePending && ReengageReasonPolicy.OpenAfterOneRedrive(reengagePass))
+            logger.LogWarning(
+                "Master '{Skill}' left checklist steps open across {Passes} pass(es) — ending the open loop rather than "
+                + "re-driving the same answer", skill, reengagePass);
     }
 
-    // p0365: an empty pass (no tool call) is surfaced as an idle stop, not a silent truncation; an honest
-    // blocked claim with a concrete blocker is respected and named.
-    internal void Stopped(string skill, ReengageOutcome outcome, MasterBlockedClaim? block)
+    // p0365: an empty pass (no tool call) is surfaced as an idle stop, not a silent truncation.
+    internal void Stopped(string skill, ReengageOutcome outcome)
     {
-        if (outcome == ReengageOutcome.StopBlocked)
-            logger.LogInformation(
-                "Master '{Skill}' reported a concrete blocker — stopping the open loop (respected): {Blocker}",
-                skill, block?.Blocker);
-        else if (outcome == ReengageOutcome.StopSelfRefilled)
+        if (outcome == ReengageOutcome.StopSelfRefilled)
             logger.LogInformation(
                 "Master '{Skill}' re-engagement pass refilled its own checklist — every remaining step was "
                 + "added during the pass and nothing reached the diff; stopping the open loop so the run "
-                + "ends on its verdict instead of on the budget", skill);
+                + "ends on its report instead of on the budget", skill);
         else
             logger.LogInformation(
                 "Master '{Skill}' re-engagement pass called no tool — the model is idle with work still open; "

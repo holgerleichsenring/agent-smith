@@ -69,7 +69,7 @@ internal static class MasterLoopHooksFactory
                 var l = ledger();
                 return l.IsEmpty ? null : ProgressLedgerRenderer.Render(l);
             },
-            RenderWorkingStateForPin: () => WorkingStateSection.Build(log.GetDecisions(), null),
+            RenderWorkingStateForPin: () => WorkingStateSection.Build(log.GetDecisions()),
             Compaction: context.AgentConfig.Compaction);
     }
 

@@ -10,5 +10,7 @@ public static class MasterPassRegistrations
         services.AddTransient<MasterPassRecorder>()
             .AddTransient<ReengageStopLog>()
             .AddTransient<ReengagePass>().AddTransient<MasterTicketExtras>()
-            .AddTransient<MasterReengagementLoop>();
+            .AddTransient<MasterReengagementLoop>()
+            // 2026-11-22-96c8a: what a spec's coding master leaves once it ended on its report.
+            .AddTransient<Specs.Reports.MasterReportReader>().AddTransient<Specs.Reports.MasterReportRecorder>();
 }

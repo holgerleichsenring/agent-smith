@@ -102,7 +102,7 @@ public sealed class ReplayedRunTests
             .EnqueueText(RecordedRunFixtures.AnalyzerMapWithNullFileCount)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// guard"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

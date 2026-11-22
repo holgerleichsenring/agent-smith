@@ -79,10 +79,9 @@ public sealed class SubAgentTeamLoopTests
     }
 
     [Fact]
-    public async Task Lead_SendsWorkBack_ChildFixesIt_ReportsAndFinishesWithFollowUp()
+    public async Task Lead_SendsWorkBack_ChildFixesIt_AndEndsOnItsReport()
     {
         const string report = "## Delivered\n- the endpoint returns 404, tested\n\n## Open\n- exports stream CSV needs paging";
-        var finish = new AgentSmith.Application.Services.Tools.FinishSpecToolHost();
         var provider = new AgentScripts();
         string? childId = null;
         provider.Script("lead",
@@ -93,12 +92,7 @@ public sealed class SubAgentTeamLoopTests
                 : Call("send_message", new() { ["agent_id"] = childId, ["text"] = "the done list wants the 404 tested" }),
             _ => Call("send_message", new() { ["wait"] = true }),
             messages => LastToolResult(messages).Contains("404 test added")
-                ? new ChatResponse(new ChatMessage(ChatRole.Assistant, [new TextContent(report), new FunctionCallContent("f1", "finish_spec",
-                    new Dictionary<string, object?>
-                    {
-                        ["status"] = "green", ["summary"] = "the 404 endpoint",
-                        ["follow_ups"] = System.Text.Json.JsonSerializer.SerializeToElement(new[] { new { goal = "Exports stream CSV over paging", why = "paging is its own design" } }),
-                    })]))
+                ? Text(report)
                 : Text("the child never fixed it"),
             _ => Text(""));
         provider.Script(Child,
@@ -108,11 +102,11 @@ public sealed class SubAgentTeamLoopTests
 
         var result = await rig.Loop.RunAsync(new AgenticLoopRequest(
             ToolLoopErrorToleranceSupport.Agent(), TaskType.Primary, "You are lead.", "lead the spec",
-            [.. rig.MasterTools(), .. finish.GetTools(null, null)]),
+            [.. rig.MasterTools()]),
             CancellationToken.None);
 
-        finish.Verification!.FollowUps.Should().ContainSingle().Which.Goal.Should().Be("Exports stream CSV over paging");
-        AgentSmith.Application.Services.Handlers.MasterReport.Of([.. result.Response.Messages]).Should().Be(report);
+        // 2026-11-22-96c8a: the lead's last words, a reply that calls no tool, are the report.
+        AgentSmith.Application.Services.Handlers.MasterReport.OfPass(result.Response).Should().Be(report);
     }
 
     [Fact]

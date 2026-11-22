@@ -1,38 +1,49 @@
-using AgentSmith.Application.Services.Tools;
-using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// 2026-11-18-98fa: the coding master's standing verdict — what finish_spec recorded, with the master's report
-/// beside it. The report is the master's last message with text up to its last finish_spec call, read over the whole
-/// conversation: a master that ended a drive on its report and called finish_spec in the next still has it. Only when
-/// no text precedes the call is the text after it the report. Nothing in it is parsed.
+/// 2026-11-22-96c8a: a coding master's report is what it said as it ended its passes. A pass's ending text is the text
+/// of its final message (an assistant message; text beside a tool call counts only there). Within one master step the
+/// report is every pass's ending text in order, joined with a blank line, an identical text once — so a re-drive's
+/// short closing line adds to the report instead of replacing it, and nothing pass 0 said is lost. A pass with no
+/// ending text (the budget, an exception, a final message that is only a call or empty) adds nothing. Nothing here
+/// is parsed.
 /// </summary>
 internal static class MasterReport
 {
-    internal static MasterVerification? Standing(FinishSpecToolHost? finish, IReadOnlyList<ChatMessage> thread) =>
-        finish?.Verification is { } recorded ? recorded with { Report = Of(thread) } : null;
+    internal const string Separator = "\n\n";
 
-    internal static string? Of(IReadOnlyList<ChatMessage> thread)
+    /// <summary>The text this pass ended on, or null.</summary>
+    internal static string? OfPass(ChatResponse? response)
     {
-        var call = LastIndex(thread, m => m.Contents.OfType<FunctionCallContent>().Any(c => c.Name == FinishSpecToolHost.Name));
-        if (call < 0) return null;
-        for (var i = call; i >= 0; i--)
-            if (Text(thread[i]) is { } before) return before;
-        for (var i = thread.Count - 1; i > call; i--)
-            if (Text(thread[i]) is { } after) return after;
-        return null;
+        if (response?.Messages is not { Count: > 0 } messages) return null;
+        var last = messages[^1];
+        if (last.Role != ChatRole.Assistant || string.IsNullOrWhiteSpace(last.Text)) return null;
+        return last.Text.Trim();
     }
 
-    private static string? Text(ChatMessage message) =>
-        message.Role == ChatRole.Assistant && !string.IsNullOrWhiteSpace(message.Text) ? message.Text.Trim() : null;
+    /// <summary>The step's ending texts after a pass: its own appended when it ended on one not said before.</summary>
+    internal static IReadOnlyList<string> Append(IReadOnlyList<string> texts, ChatResponse? response) =>
+        OfPass(response) is { } text && !texts.Contains(text, StringComparer.Ordinal) ? [.. texts, text] : texts;
 
-    private static int LastIndex(IReadOnlyList<ChatMessage> thread, Func<ChatMessage, bool> match)
+    /// <summary>
+    /// The spec's report after a step: its earlier report (an earlier step of the same spec — the first pass before a
+    /// stage repair, a structure correction or a review fix), then this step's ending texts not already in it as a
+    /// whole part. Null when neither has text.
+    /// </summary>
+    internal static string? After(string? earlier, IReadOnlyList<string> texts)
     {
-        for (var i = thread.Count - 1; i >= 0; i--)
-            if (match(thread[i])) return i;
-        return -1;
+        if (earlier is null) return Join(texts);
+        var added = texts.Where(t => !IsPart(earlier, t)).ToList();
+        return added.Count == 0 ? earlier : earlier + Separator + Join(added);
     }
+
+    private static bool IsPart(string joined, string text) =>
+        joined == text || joined.StartsWith(text + Separator, StringComparison.Ordinal)
+        || joined.EndsWith(Separator + text, StringComparison.Ordinal)
+        || joined.Contains(Separator + text + Separator, StringComparison.Ordinal);
+
+    /// <summary>The report the step's ending texts make, or null when no pass ended on text.</summary>
+    internal static string? Join(IReadOnlyList<string> texts) => texts.Count == 0 ? null : string.Join(Separator, texts);
 }

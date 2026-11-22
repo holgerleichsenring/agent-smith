@@ -30,8 +30,7 @@ internal sealed class ContextPressureFinalizingChatClient(
         "The conversation has reached the input limit of the model running it. Call no "
         + "tool for more work and reply now with your final answer, in the exact format your "
         + "instructions demand, based on the evidence you have already gathered. "
-        + "Omit anything you found no evidence for. No prose about the limit. When your tools include "
-        + "finish_spec, that reply's text is your report and the reply calls finish_spec, and no other tool.";
+        + "Omit anything you found no evidence for. No prose about the limit.";
 
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,

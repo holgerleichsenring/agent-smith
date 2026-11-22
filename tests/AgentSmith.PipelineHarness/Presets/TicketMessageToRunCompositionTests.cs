@@ -45,7 +45,7 @@ public sealed class TicketMessageToRunCompositionTests
         harness.ChatClient
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }
             .WithSeries(new HarnessSeries.Member("Introduce the empty-payload guard", "An empty request body is answered with 400."));
         runner.RequestContext[ContextKeys.ProjectName] = "fixture";

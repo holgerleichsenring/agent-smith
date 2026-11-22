@@ -1,34 +1,27 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Progress;
-using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// 2026-10-13-3890a: why a master's open loop ended, recorded once on the trail of every code run.
-/// 2026-11-18-98fa: no stop is challenged any more — what the master reported through finish_spec is its call.
+/// 2026-11-22-96c8a: no claim of the master's stops the loop; it ends on the budget, on steps still open after their
+/// one re-drive, or on nothing left.
 /// </summary>
 internal static class MasterLoopStop
 {
     /// <summary>Why the loop's top check said stop.</summary>
-    public static MasterStopKind ClassifyTop(bool budgetExhausted, MasterVerification? verification, int reengagePass)
+    public static MasterStopKind ClassifyTop(bool budgetExhausted, ProgressLedger ledger, int reengagePass)
     {
         if (budgetExhausted) return MasterStopKind.Budget;
-        if (verification?.Blocker is not null) return MasterStopKind.Blocker;
-        if (verification?.Status == VerificationStatus.Failed) return MasterStopKind.RedDrained;
-        if (verification is null && ReengageReasonPolicy.UnfinishedAfterOneRedrive(reengagePass))
-            return MasterStopKind.Verdictless;
+        if (ledger.HasActionablePending && ReengageReasonPolicy.OpenAfterOneRedrive(reengagePass))
+            return MasterStopKind.StepsOpen;
         return MasterStopKind.Satisfied;
     }
 
     /// <summary>Why a pass's own outcome said stop.</summary>
-    public static MasterStopKind ClassifyBottom(ReengageOutcome outcome, MasterVerification? verification, ProgressLedger ledger)
-    {
-        if (outcome == ReengageOutcome.StopBlocked) return MasterStopKind.Blocker;
-        if (outcome == ReengageOutcome.StopSelfRefilled) return MasterStopKind.SelfRefilled;
-        if (verification?.Status == VerificationStatus.Failed && !ledger.HasActionablePending) return MasterStopKind.RedDrained;
-        return MasterStopKind.Idle;
-    }
+    public static MasterStopKind ClassifyBottom(ReengageOutcome outcome) =>
+        outcome == ReengageOutcome.StopSelfRefilled ? MasterStopKind.SelfRefilled : MasterStopKind.Idle;
 
     /// <summary>The trail line, for pipelines that change code; null for the rest.</summary>
     public static string? TrailLine(string? pipelineName, MasterStopKind stop) =>

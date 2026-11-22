@@ -36,7 +36,7 @@ export function RunInlineLog({ attempt }: { attempt: TicketAttempt }) {
   );
 }
 
-// 2026-11-18-98fa: the check of a run whose masters ended with finish_spec is their reports, as written, and the
+// 2026-11-18-98fa / 2026-11-22-96c8a: the check of a run whose masters ended on their reports is those reports, as written, and the
 // follow-ups they proposed, each fileable here; a run before that keeps the pointer to its verdicts on the run page.
 function CheckBody({ attempt, specs }: { attempt: TicketAttempt; specs: TicketSeriesSpec[] }) {
   const reported = specs.filter((s) => s.report);

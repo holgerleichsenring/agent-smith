@@ -20,7 +20,7 @@ public sealed class StagedRegistriesInWorkingStateTests
     public void TheWorkingState_NamesTheCredentialsTheFrameworkStaged()
     {
         var state = WorkingStateSection.Build(
-            [], null, changedPaths: [],
+            [], changedPaths: [],
             // Reported from what was WRITTEN — a .NET config for a .NET repo, an .npmrc for
             // an npm one. The framework never names an ecosystem the repo does not use.
             stagedRegistries: [
@@ -45,7 +45,7 @@ public sealed class StagedRegistriesInWorkingStateTests
     [Fact]
     public void WithNothingStaged_TheBlockSaysNothing()
     {
-        var state = WorkingStateSection.Build([], null, changedPaths: []);
+        var state = WorkingStateSection.Build([], changedPaths: []);
 
         state.Should().NotContain("Package-feed credentials",
             "a run with no private feed should not be told about one");

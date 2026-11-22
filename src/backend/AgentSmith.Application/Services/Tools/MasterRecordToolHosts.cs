@@ -13,9 +13,9 @@ namespace AgentSmith.Application.Services.Tools;
 /// <summary>
 /// 2026-10-13-8762m: the record tools of one master start — log_decision, recall and remember, backed per
 /// REPOSITORY and resolved on every call so a repository ensure_repo_sandbox adds mid-run counts, and
-/// hand_forward when the master executes a spec. 2026-10-13-8762o: and decide_by_default where the pipeline
+/// the spec's build-note writer when the master executes a spec. 2026-10-13-8762o: and decide_by_default where the pipeline
 /// holds a run id. 2026-10-25-9324b: and dispute_memory
-/// beside them, with hand_forward's relied_on resolved the same way. 2026-10-25-6c1f: recall reads the standing.
+/// beside them, with the relied_on a report's read names (2026-11-22-96c8a; was hand_forward's) resolved the same way. 2026-10-25-6c1f: recall reads the standing.
 /// </summary>
 public sealed class MasterRecordToolHosts(
     IDecisionLogger decisionLogger,
@@ -40,7 +40,7 @@ public sealed class MasterRecordToolHosts(
             new LogDecisionToolHost(decisionLogger, repositories),
             new MemoryRecallToolHost(repositories, repoRoot, standings, pipeline, logger, sources),
             new MemoryWriteToolHost(repositories, repoRoot, logger, codingMaster ? sources : null, pipeline),
-            spec is null ? null : new HandForwardToolHost(pipeline, spec.SpecId, memory),
+            spec is null ? null : new SpecHandForward(pipeline, spec.SpecId, memory, logger),
             decisionLogger,
             defaults is null ? null : new DefaultDecisionToolHost(defaults),
             memory.CanRecord ? new MemoryDisputeToolHost(memory) : null,
@@ -48,7 +48,6 @@ public sealed class MasterRecordToolHosts(
         {
             ReviseSpec = spec is not null && codingMaster && revision is not null
                 ? new Specs.Revision.ReviseSpecToolHost(revision, pipeline) : null,
-            FinishSpec = spec is not null && codingMaster ? new FinishSpecToolHost() : null, // 2026-11-18-98fa
         };
     }
 
@@ -71,7 +70,7 @@ public sealed class MasterRecordToolHosts(
 
 /// <summary>
 /// 2026-10-13-8762m: what <see cref="MasterRecordToolHosts"/> builds for one master start. HandForward is
-/// null unless the master executes a spec; Decisions is the logger the open loop records its stop with;
+/// null unless the master executes a spec (2026-11-22-96c8a: no tool — it writes what the report's read names); Decisions is the logger the open loop records its stop with;
 /// DefaultDecision and Dispute are null where the pipeline holds no run id. 2026-11-10-fcd7b: ProjectRemember is the
 /// design turn's remember, which <see cref="DesignWorkToolGate"/> offers only to a poster who may start runs.
 /// </summary>
@@ -79,20 +78,12 @@ public sealed record MasterRecordTools(
     LogDecisionToolHost Log,
     MemoryRecallToolHost Recall,
     MemoryWriteToolHost Remember,
-    HandForwardToolHost? HandForward,
+    SpecHandForward? HandForward,
     IDecisionLogger Decisions,
     DefaultDecisionToolHost? DefaultDecision,
     MemoryDisputeToolHost? Dispute = null,
     ProjectMemoryWriteToolHost? ProjectRemember = null)
 {
-    /// <summary>2026-11-17-ec48a: revise_spec, beside hand_forward on a coding master that executes a spec only.</summary>
+    /// <summary>2026-11-17-ec48a: revise_spec, on a coding master that executes a spec only.</summary>
     public Specs.Revision.ReviseSpecToolHost? ReviseSpec { get; init; }
-
-    /// <summary>2026-11-18-98fa: finish_spec, beside hand_forward on a coding master that executes a spec only.</summary>
-    public FinishSpecToolHost? FinishSpec { get; init; }
-
-    /// <summary>The tools a spec's coding master gets beyond the base surface: hand_forward, revise_spec, finish_spec.</summary>
-    public IEnumerable<Microsoft.Extensions.AI.AITool> SpecTools =>
-        [.. HandForward?.GetTools(null, null) ?? [], .. ReviseSpec?.GetTools(null, null) ?? [],
-         .. FinishSpec?.GetTools(null, null) ?? []];
 }

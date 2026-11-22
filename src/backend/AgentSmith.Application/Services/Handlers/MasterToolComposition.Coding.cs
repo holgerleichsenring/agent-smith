@@ -28,11 +28,10 @@ public sealed partial class MasterToolComposition
         // 2026-10-01-283df: render_reference on a project whose config enables the browser, comparing as well.
         if (MergedTools.Named(references, "render_reference") is { } render)
             master = [.. master, MergedTools.RenderReference(render, MergedTools.Named(references, "compare_reference"))];
-        // p0331 ensure_repo_sandbox, p0341 update_progress; a spec's master only: revise_spec, finish_spec.
-        master = [.. master, .. _ensure.Create(pipeline, fs, _logger).GetTools(null, null),
+        // p0331 ensure_repo_sandbox, p0341 update_progress; a spec's master only: revise_spec. 2026-11-22-96c8a: no
+        // closing tool — the master ends on its report.
+        return [.. master, .. _ensure.Create(pipeline, fs, _logger).GetTools(null, null),
             .. progress.GetTools(null, null), .. records.ReviseSpec?.GetTools(null, null) ?? []];
-        if (records.FinishSpec is { } finish) master = [.. master, MergedTools.FinishSpec(finish, records.HandForward)];
-        return master;
     }
 
     private const string RememberDescription =

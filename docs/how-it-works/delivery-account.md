@@ -14,12 +14,11 @@ Anything missing goes back to the sub-agent with what the master saw and what a 
 
 ## The report
 
-The master ends in two parts, the way a Claude Code session reports to a person and to the tools around it:
+The master ends on **its report**: its last reply, written in markdown for the person who accepts the work — what the spec delivered and how the master saw it (paths, commands and their outcome), what it fixed in passing, what is still open and why, what it did not check itself, the follow-ups it proposes, any ticket instructions it refused, the build note for the next spec (what it renamed, moved, persisted and deviated from) and the memories it relied on. It calls no closing tool. The report is shown as written.
 
-- **Its report**, its last message, written in markdown for the person who accepts the work: what the spec delivered and how the master saw it (paths, commands and their outcome), what it fixed in passing, what is still open and why, what it did not check itself, and the follow-ups it proposes. Nothing parses it; it is shown as written.
-- **A `finish_spec` call** with what the pipeline acts on: the status (`green`, `no-tests`, `failed`, or `blocked` with its blocker), a one-line summary, the failing and already-failing test ids, the proposed follow-ups (a one-line goal and why each), and any ticket instructions it refused. The call is checked when it is made; a bad argument goes straight back to the master.
+After the master ends, one structured read takes the follow-ups (a one-line goal and why each), the refused instructions, the build note and the memories off the report. Nothing it reads is invented: a refused instruction is kept only when its quote appears in the report or the master's decisions, and a memory only when the store holds it. When the read fails, the report still stands and the run says the details could not be read; the read never decides delivery.
 
-A line left open is the master's call, weighed by what it costs the spec's and the ticket's goal: would the person accepting this hold it back for it? Nothing is judged per done line. You decide whether a follow-up becomes work. A master that ends without `finish_spec` gets one more pass to call it; still without it, the spec fails and says so.
+A line left open is the master's call, weighed by what it costs the spec's and the ticket's goal: would the person accepting this hold it back for it? Nothing is judged per done line, and what the report says about its own outcome is shown, never acted on. You decide whether a follow-up becomes work. A question only a person can answer goes through `ask_human`. A master that leaves checklist steps open gets one more pass for them; a master that wrote no report at all leaves nobody's word on the spec, and the spec fails and says so.
 
 ## The build and test stages
 

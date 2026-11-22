@@ -69,7 +69,7 @@ These are **debt**:
 These were **ask**; the operator ratified both features as built on 2026-11-17, so both are **debt**:
 
 - `Tools/DefaultDecisionToolHost`, under the open question about the product's decide-by-default feature: question 500, chosen 500, why 1000, alternatives 8 × 300.
-- `Tools/HandForwardToolHost`, under the open question about the build-note cap: 20 entries × 300 chars.
+- `Tools/SpecHandForward` (was `Tools/HandForwardToolHost`, renamed in 2026-11-22-96c8a), under the open question about the build-note cap: 20 entries × 300 chars.
 
 These are **debt**:
 

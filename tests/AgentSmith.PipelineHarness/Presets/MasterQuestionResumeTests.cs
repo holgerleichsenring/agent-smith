@@ -69,7 +69,7 @@ public sealed class MasterQuestionResumeTests
                 })
                 .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"csharp-fixture"}""")
                 .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-                .EnqueueFinish();
+                .EnqueueReport();
             await AnswerAsync(second, checkpoint, Answer);
             (await Sweeper(second).ScanOnceAsync(CancellationToken.None)).Should().Be(1,
                 "the answered checkpoint enqueues exactly one resume");

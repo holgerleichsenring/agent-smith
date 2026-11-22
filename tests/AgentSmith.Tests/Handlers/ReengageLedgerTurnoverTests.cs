@@ -41,9 +41,9 @@ public sealed class ReengageLedgerTurnoverTests
     [Fact]
     public void Decide_SelfRefilledPass_StopsWithItsOwnReason()
     {
-        // Surfaced as its own outcome, like StopIdle / StopBlocked — never a silent truncation.
+        // Surfaced as its own outcome, like StopIdle — never a silent truncation.
         ReengageProgressPolicy.Decide(
-            toolCallsInPass: 6, block: null, passEndedOnException: false, ledgerSelfRefilled: true)
+            toolCallsInPass: 6, passEndedOnException: false, ledgerSelfRefilled: true)
             .Should().Be(ReengageOutcome.StopSelfRefilled);
     }
 
@@ -134,7 +134,7 @@ public sealed class ReengageLedgerTurnoverTests
             passes++;
             var refilled = Ledger(("1", ProgressStatus.Done), ($"recheck-{passes}", ProgressStatus.Pending));
             outcome = ReengageProgressPolicy.Decide(
-                toolCallsInPass: 4, block: null, passEndedOnException: false,
+                toolCallsInPass: 4, passEndedOnException: false,
                 ledgerSelfRefilled: ReengageProgressPolicy.IsSelfRefilled(
                     ledgerIds, refilled, producedNewWork: false));
             ledgerIds = refilled.Entries.Select(e => e.Id).ToHashSet(StringComparer.Ordinal);

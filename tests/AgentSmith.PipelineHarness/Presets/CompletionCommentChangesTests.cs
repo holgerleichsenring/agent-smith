@@ -29,7 +29,7 @@ public sealed class CompletionCommentChangesTests
         harness.ChatClient
             .EnqueueText("Planning: patch it.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// fix"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var result = await new PipelineRunner(harness.Services).RunAsync("code");
 

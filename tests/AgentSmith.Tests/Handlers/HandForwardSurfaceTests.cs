@@ -14,8 +14,8 @@ using AgentSmith.Tests.TestHelpers;
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
-/// 2026-10-13-8762m: hand_forward joins the coding master of a spec — never its children, a scan master
-/// or a design turn — and only a spec-execution master start re-reads the memory index.
+/// 2026-10-13-8762m: only a spec-execution master start re-reads the memory index. 2026-11-22-96c8a: no master
+/// surface carries a closing tool or hand_forward any more — the coding master ends on its report.
 /// </summary>
 public sealed class HandForwardSurfaceTests
 {
@@ -24,21 +24,19 @@ public sealed class HandForwardSurfaceTests
     private const string Stale = "- [stale](stale.md) — the index as LoadMemoryIndex left it";
 
     [Fact]
-    public async Task MasterToolComposition_CodingMasterWithSpec_CarriesHandForward()
+    public async Task MasterToolComposition_CodingMasterWithSpec_CarriesNoClosingTool()
     {
         var withSpec = new CapturingLoop();
         await Run(withSpec, CodingMaster, WithSpec(MasterHandlerFixture.BuildContext(CodingMaster)));
         var withoutSpec = new CapturingLoop();
         await Run(withoutSpec, CodingMaster, MasterHandlerFixture.BuildContext(CodingMaster));
 
-        // 2026-11-18-9c1cd: hand_forward's build note rides finish_spec.
-        withSpec.Tools.Takes(FinishSpecToolHost.Name, "relied_on").Should().BeTrue();
-        withoutSpec.MasterTools.Should().NotContain(FinishSpecToolHost.Name);
-        withSpec.MasterTools.Concat(withoutSpec.MasterTools).Should().NotContain(HandForwardToolHost.Name);
+        withSpec.MasterTools.Should().NotBeEmpty();
+        withSpec.MasterTools.Concat(withoutSpec.MasterTools).Should().NotContain(["finish_spec", "hand_forward"]);
     }
 
     [Fact]
-    public async Task MasterToolComposition_ScanDesignAndChildSurfaces_CarryNoHandForward()
+    public async Task MasterToolComposition_NoSurface_CarriesNoClosingTool()
     {
         var coding = new CapturingLoop(spawn: true);
         var children = new MasterHandlerFixture.StubSubAgentRunner();
@@ -48,10 +46,8 @@ public sealed class HandForwardSurfaceTests
         var design = new CapturingLoop();
         await Run(design, DesignMaster, DesignContext(), limits: new LoopLimitsConfig());
 
-        coding.Tools.Takes(FinishSpecToolHost.Name, "renamed").Should().BeTrue();
-        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain(FinishSpecToolHost.Name);
-        scan.MasterTools.Should().NotContain(FinishSpecToolHost.Name);
-        design.MasterTools.Should().NotContain(FinishSpecToolHost.Name);
+        foreach (var names in new[] { coding.MasterTools, children.SeenContexts.Single().ChildTools.Select(t => t.Name), scan.MasterTools, design.MasterTools })
+            names.Should().NotContain(["finish_spec", "hand_forward"]);
     }
 
     [Fact]

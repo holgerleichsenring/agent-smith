@@ -26,7 +26,7 @@ public sealed class DerivedSpecCodeTests
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -52,11 +52,11 @@ public sealed class DerivedSpecCodeTests
             // spec 1: plan, master, verdict
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueFinish()
+            .EnqueueReport()
             // spec 2: its own plan, its own master pass, its own verdict
             .EnqueueText("Planning: move the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// moved"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services).WithSeries(HarnessSeries.TwoSpecs);
         await runner.RunAsync("code");

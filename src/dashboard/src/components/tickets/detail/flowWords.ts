@@ -19,6 +19,9 @@ const PASS_WORDS: Record<string, string> = {
   failed: "failed",
   unknown: "no end recorded",
   "red-with-open-steps": "verdict red with open steps",
+  // 2026-11-22-96c8a: no verdict any more — open checklist steps get one re-drive, then the loop stops.
+  unfinished: "driven once more",
+  "steps-open": "ended with checklist steps still open",
   "unbacked-done": "steps marked done that the diff does not back",
   "gate-unsatisfied": "acceptance gate unsatisfied",
   "unresolved-claims": "met claims cite nothing that changed or ran", // 2026-10-17-a196c

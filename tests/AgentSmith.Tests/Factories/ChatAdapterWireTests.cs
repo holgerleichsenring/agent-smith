@@ -85,6 +85,32 @@ public sealed class ChatAdapterWireTests : IDisposable
     }
 
     // ── Anthropic ────────────────────────────────────────────────────────────
+    /// <summary>2026-11-22-96c8a: the report read's JSON-schema format reaches Anthropic as structured output
+    /// (output_config.format json_schema under the structured-outputs beta), strict-compatible: every object closed
+    /// (additionalProperties false), every property required, no nullable arrays.</summary>
+    [Fact]
+    public async Task Anthropic_ReportReadFormat_IsSentAsStrictStructuredOutput()
+    {
+        var handler = new RecordingHandler(AnthropicResponse());
+        var client = new ClaudeChatClientBuilder(AgentSmith.Tests.TestSupport.TestCredentials.EnvironmentOnly, handler).Build(
+            AnthropicAgent(), new ModelAssignment { Model = "claude-sonnet-4-6" });
+
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "read it")],
+            new ChatOptions { ResponseFormat = AgentSmith.Application.Services.Specs.Reports.MasterReportReader.Format });
+
+        using var body = System.Text.Json.JsonDocument.Parse(handler.LastBody);
+        var format = body.RootElement.GetProperty("output_config").GetProperty("format");
+        format.GetProperty("type").GetString().Should().Be("json_schema");
+        var schema = format.GetProperty("schema");
+        schema.GetProperty("additionalProperties").GetBoolean().Should().BeFalse();
+        schema.GetProperty("required").EnumerateArray().Select(e => e.GetString()).Should().BeEquivalentTo(
+            "follow_ups", "ignored_instructions", "renamed", "moved", "persisted", "deviations", "relied_on");
+        schema.GetProperty("properties").GetProperty("follow_ups").GetProperty("items")
+            .GetProperty("additionalProperties").GetBoolean().Should().BeFalse();
+        handler.LastBody.Should().NotContain("\"null\"", "no nullable arrays");
+        handler.LastHeaders.Should().Contain("structured-outputs-2025-11-13");
+    }
+
     [Fact]
     public async Task Anthropic_RequestShaping_SetsModelIdAndMessages()
     {
@@ -221,11 +247,13 @@ public sealed class ChatAdapterWireTests : IDisposable
     {
         public string? LastUri { get; private set; }
         public string LastBody { get; private set; } = string.Empty;
+        public string LastHeaders { get; private set; } = string.Empty;
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastUri = request.RequestUri?.ToString();
+            LastHeaders = string.Join("\n", request.Headers.Select(h => $"{h.Key}: {string.Join(",", h.Value)}"));
             if (request.Content is not null)
                 LastBody = await request.Content.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK)

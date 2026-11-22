@@ -33,12 +33,12 @@ public sealed class BuildNoteHarnessTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueToolCall("remember",
                 """{"type":"project","name":"guard-home","description":"the empty-payload guard lives in src/Guard.cs","body":"One guard for every caller."}""")
-            // 2026-11-18-9c1cd: the build note rides finish_spec; the closing finish_spec names no note field and keeps it.
-            .EnqueueToolCall("finish_spec", """{"status":"green","summary":"the guard","renamed":["PayloadCheck -> EmptyPayloadGuard"],"persisted":["file src/Guard.cs"]}""")
-            .EnqueueFinish()
+            // 2026-11-22-96c8a: the build note is named in the report and taken off it by the report's read.
+            .EnqueueReport("## Delivered\n- the guard\n\n## Build note\n- renamed: PayloadCheck -> EmptyPayloadGuard\n- persisted: file src/Guard.cs")
+            .EnqueueReportRead("""{"renamed":["PayloadCheck -> EmptyPayloadGuard"],"persisted":["file src/Guard.cs"]}""")
             .EnqueueText("Planning: migrate the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// callers"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" }.WithSeries(HarnessSeries.TwoSpecs);
         var result = await runner.RunAsync("code");

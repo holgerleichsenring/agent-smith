@@ -47,7 +47,7 @@ public sealed class StepAttributionTests
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueToolCall("spawn_agents", SpawnOneSubAgent)   // master → child task
             .EnqueueText("Scout: the interface is IPatch.")      // the child's own turn
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var rows = await RunAndReadAsync(harness);
 
@@ -75,7 +75,7 @@ public sealed class StepAttributionTests
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var rows = await RunAndReadAsync(harness);
 

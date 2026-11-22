@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// The continuity carry rendered into a re-engagement pass and into the compaction
-/// pin — the decisions committed so far, the last build/test tail (p0341c) and the
+/// pin — the decisions committed so far (p0341c; 2026-11-22-96c8a: no verdict tail any more) and the
 /// paths the run has changed (p0411). Pure text over values, so it is unit-testable
 /// in isolation.
 /// </summary>
@@ -17,18 +17,13 @@ internal static class WorkingStateSection
     private const int MaxListedPaths = 30;
 
     internal static string Build(
-        IReadOnlyList<PlanDecision> decisions, MasterVerification? verification,
+        IReadOnlyList<PlanDecision> decisions,
         IReadOnlyList<string>? changedPaths = null,
         IReadOnlyList<string>? stagedRegistries = null)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("## Working state (carry this forward)");
         AppendDecisions(sb, decisions);
-        var tail = verification?.Summary;
-        sb.AppendLine("Last build/test: "
-            + (string.IsNullOrWhiteSpace(tail)
-                ? $"status {verification?.Status.ToString() ?? "not yet run"}"
-                : tail));
         AppendChangedFiles(sb, changedPaths);
         AppendStagedRegistries(sb, stagedRegistries);
         sb.AppendLine();

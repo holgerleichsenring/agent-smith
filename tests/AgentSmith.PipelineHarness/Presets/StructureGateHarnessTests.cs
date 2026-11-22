@@ -48,10 +48,10 @@ public sealed class StructureGateHarnessTests
         harness.ChatClient
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", Write(LongMethod()))
-            .EnqueueFinish()
+            .EnqueueReport()
             .EnqueueText("Correcting: I keep it as it is.")
             .EnqueueToolCall("write_file", Write(LongMethod()))
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -71,10 +71,10 @@ public sealed class StructureGateHarnessTests
         harness.ChatClient
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", Write(LongMethod()))
-            .EnqueueFinish()
+            .EnqueueReport()
             .EnqueueText("Correcting: I split Handle by responsibility.")
             .EnqueueToolCall("write_file", Write(SplitMethod()))
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

@@ -1,7 +1,6 @@
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Progress;
 using AgentSmith.Domain.Entities;
-using AgentSmith.Domain.Models;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Handlers;
@@ -19,167 +18,32 @@ public sealed class AgenticMasterReengageTests
         return new ProgressLedger(entries);
     }
 
-    private static MasterVerification Verdict(VerificationStatus status) =>
-        new(status, true, status != VerificationStatus.Failed, true,
-            status is VerificationStatus.Green, "summary");
-
-    // 2026-11-18-98fa: the old predicate's shape over ReengageReasonPolicy; the criteria no longer decide anything.
-    private static bool ShouldReengage(
-        string pipeline, ProgressLedger ledger, MasterVerification? verification, bool budgetExhausted,
-        IReadOnlyList<string> criteria, IReadOnlyList<CodeChange> changes, int reengagePass, bool verdictDemandedInPass)
-    {
-        _ = criteria;
-        _ = verdictDemandedInPass;
-        return ReengageReasonPolicy.Decide(pipeline, ledger, verification, budgetExhausted, changes, reengagePass).Reengage;
-    }
-
-    private static readonly IReadOnlyList<string> NoCriteria = System.Array.Empty<string>();
-    private static readonly IReadOnlyList<CodeChange> NoChanges = System.Array.Empty<CodeChange>();
-
-    // p0421: a spec "ships code" because it CHANGED something, not because it declared it.
-    private static readonly IReadOnlyList<CodeChange> SourceChanged =
-        [new CodeChange(new FilePath("src/Api/Program.cs"), "modified", "the spec edited it")];
+    // 2026-11-22-96c8a: the old predicate's shape over ReengageReasonPolicy — no verdict decides anything any more.
+    private static bool ShouldReengage(string pipeline, ProgressLedger ledger, bool budgetExhausted, int reengagePass) =>
+        ReengageReasonPolicy.Decide(pipeline, ledger, budgetExhausted, reengagePass).Reengage;
 
     [Fact]
-    public void ShouldReengage_GreenVerdictWithOpenLedgerItems_DoesNotReengage()
+    public void ShouldReengage_OpenLedgerItems_ReengagesOnce()
     {
-        // p0393: on a GREEN verdict the ledger has no vote. A checklist the model writes and
-        // then reads back as a reason to keep working is a loop carrying its own engine —
-        // a reminder to RECORD progress is not a reason to CONTINUE. What re-drives a green
-        // run is unfinished WORK: done steps the diff does not back, or unmet criteria.
-        ShouldReengage(
-            "code", Ledger(ProgressStatus.Done, ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeFalse();
-    }
-
-    [Fact]
-    public void ShouldReengage_BudgetExhausted_False()
-    {
-        ShouldReengage(
-            "code", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeFalse();
-    }
-
-    [Fact]
-    public void ShouldReengage_RedWithActionablePending_Reengages()
-    {
-        // p0363: RED with open actionable items is a status report mid-work, not a
-        // verdict of impossibility — the observed gpt-5.1 failure: verification red,
-        // ledger NOW item literally "fix the build", $43 budget left, model stops.
-        // The forward-progress gate still ends the loop after one unproductive red
-        // pass, so persistence stays bounded.
-        // p0393 kept this: on a RED verdict the ledger QUALIFIES an existing driver
-        // (the failure) rather than originating one.
-        ShouldReengage(
-            "code", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
+        ShouldReengage("code", Ledger(ProgressStatus.Done, ProgressStatus.Pending), budgetExhausted: false, reengagePass: 1)
             .Should().BeTrue();
+        ShouldReengage("code", Ledger(ProgressStatus.Done, ProgressStatus.Pending), budgetExhausted: false, reengagePass: 2)
+            .Should().BeFalse("a second re-drive is the same prompt against the same answer");
     }
 
     [Fact]
-    public void ShouldReengage_RedWithDrainedLedger_Stops()
-    {
-        // p0363: honest RED with nothing actionable left IS the verdict — justified
-        // surrender stays respected.
-        ShouldReengage(
-            "code", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
+    public void ShouldReengage_BudgetExhausted_False() =>
+        ShouldReengage("code", Ledger(ProgressStatus.Pending), budgetExhausted: true, reengagePass: 1).Should().BeFalse();
+
+    [Fact]
+    public void ShouldReengage_LedgerDrained_False() =>
+        ShouldReengage("code", Ledger(ProgressStatus.Done, ProgressStatus.Done), budgetExhausted: false, reengagePass: 1)
             .Should().BeFalse();
-    }
 
     [Fact]
-    public void ShouldReengage_LedgerDrained_NoContract_False()
-    {
-        ShouldReengage(
-            "code", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
+    public void ShouldReengage_NonCodePipeline_False() =>
+        ShouldReengage("security-scan", Ledger(ProgressStatus.Pending), budgetExhausted: false, reengagePass: 1)
             .Should().BeFalse();
-    }
-
-    [Fact]
-    public void ShouldReengage_NonCodePipeline_False()
-    {
-        ShouldReengage(
-            "security-scan", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeFalse();
-    }
-
-    [Fact]
-    public void ShouldReengage_ModelMarkedDoneButTargetAbsentFromDiff_GreenFinishStops()
-    {
-        // The ledger is drained and the step is marked done, but its declared target never
-        // appears in the diff — marking-without-doing. The unfakeable diff drives re-engagement.
-        var ledger = new ProgressLedger(new[]
-        {
-            new ProgressLedgerEntry("1", "add worker", ProgressStatus.Done, Target: "src/Worker.cs"),
-        });
-        var changes = new[]
-        {
-            new CodeChange(new FilePath("src/Unrelated.cs"), "x", "modified"),
-        };
-
-        ShouldReengage(
-            "code", ledger, Verdict(VerificationStatus.Green),
-            budgetExhausted: false, NoCriteria, changes, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeFalse("2026-11-19-9c6e: the master's green finish_spec is its call; the coverage is reported, not re-driven");
-    }
-
-    [Fact]
-    public void ShouldReengage_GenuinelyDone_ContractMetAndDiffBacks_Stops()
-    {
-        // Drained ledger, finish_spec green, the done step's target IS in the diff — genuinely complete.
-        var ledger = new ProgressLedger(new[]
-        {
-            new ProgressLedgerEntry("1", "update server", ProgressStatus.Done, Target: "src/Server.cs"),
-        });
-        var changes = new[]
-        {
-            new CodeChange(new FilePath("src/Server.cs"), "x", "modified"),
-        };
-
-        ShouldReengage(
-            "code", ledger, Verdict(VerificationStatus.Green),
-            budgetExhausted: false, new[] { "Server updated" }, changes, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeFalse();
-    }
-
-    [Fact]
-    public void ShouldReengage_NoVerdict_SecondPass_Stops()
-    {
-        // p0406 (run fa8c): the master emitted no verdict at all — zero Green, zero Failed,
-        // zero dispositions across the whole trail. "No verdict" never becomes "satisfied",
-        // so the acceptance branch re-drove every pass. One salvage pass, then the loop ends.
-        var criteria = new[] { "Inventory recorded" };
-
-        ShouldReengage(
-            "code", Ledger(ProgressStatus.Done), verification: null,
-            budgetExhausted: false, criteria, NoChanges, reengagePass: 1, verdictDemandedInPass: false)
-            .Should().BeTrue("the verdict nudge may still land on the first re-drive");
-
-        ShouldReengage(
-            "code", Ledger(ProgressStatus.Done), verification: null,
-            budgetExhausted: false, criteria, NoChanges, reengagePass: 2, verdictDemandedInPass: false)
-            .Should().BeFalse("a second re-drive is the same prompt against the same silence");
-    }
-
-    [Fact]
-    public void ShouldReengage_NoVerdictButUnbackedDoneStep_StopsAfterItsOneRedrive()
-    {
-        // 2026-11-19-9c6e: a done step the diff does not back no longer re-drives on its own; a master without
-        // finish_spec still gets its one re-drive, and only that one.
-        var ledger = new ProgressLedger(new[]
-        {
-            new ProgressLedgerEntry("1", "add worker", ProgressStatus.Done, Target: "src/Worker.cs"),
-        });
-
-        ShouldReengage(
-            "code", ledger, verification: null, budgetExhausted: false,
-            new[] { "Worker added" }, NoChanges, reengagePass: 5, verdictDemandedInPass: false)
-            .Should().BeFalse();
-    }
 
     // p0365: forward-progress classification moved from AgenticMasterHandler.MadeForwardProgress
     // to ReengageProgressPolicy (state-change + patience). Its unit + trajectory tests live in
@@ -189,11 +53,11 @@ public sealed class AgenticMasterReengageTests
     public void Reengage_NudgeCarriesWorkingStateBlock_NotJustLedger()
     {
         var decisions = new[] { new PlanDecision("Architecture", "handler signature is (cmd, ct)") };
-        var block = WorkingStateSection.Build(decisions, Verdict(VerificationStatus.Green));
+        var block = WorkingStateSection.Build(decisions);
 
         block.Should().Contain("Working state");
         block.Should().Contain("handler signature is (cmd, ct)");
-        block.Should().Contain("Last build/test");
+        block.Should().NotContain("Last build/test", "2026-11-22-96c8a: no verdict tail any more");
     }
 
     // p0411: the state block answers "what have I changed?" so the pass does not
@@ -202,7 +66,7 @@ public sealed class AgenticMasterReengageTests
     public void WorkingState_CarriesTheChangedFileSummary()
     {
         var block = WorkingStateSection.Build(
-            [], null, ["server/Api.cs", "server/Api.Tests.cs"]);
+            [], ["server/Api.cs", "server/Api.Tests.cs"]);
 
         block.Should().Contain("Changed files in the working tree (2)");
         block.Should().Contain("server/Api.cs");
@@ -215,7 +79,7 @@ public sealed class AgenticMasterReengageTests
         // The block is re-sent every pass — it stays a summary, never an unbounded list.
         var paths = Enumerable.Range(0, 40).Select(i => $"src/File{i:00}.cs").ToList();
 
-        var block = WorkingStateSection.Build([], null, paths);
+        var block = WorkingStateSection.Build([], paths);
 
         block.Should().Contain("Changed files in the working tree (40)");
         block.Should().Contain("+10 more");
@@ -227,7 +91,7 @@ public sealed class AgenticMasterReengageTests
     {
         // The compaction pin renders without a working-tree read; silence beats
         // claiming a clean tree the framework never looked at.
-        WorkingStateSection.Build([], null)
+        WorkingStateSection.Build([])
             .Should().NotContain("Changed files in the working tree");
     }
 
@@ -235,7 +99,7 @@ public sealed class AgenticMasterReengageTests
     public void ReengageNudge_CarriesTheChangedPaths()
     {
         var nudge = MasterNudges.BuildReengageNudge(
-            "original task", new ProgressLedger([]), [], null, ["src/Api.cs"]);
+            "original task", new ProgressLedger([]), [], ["src/Api.cs"]);
 
         nudge.Should().Contain("Changed files in the working tree (1): src/Api.cs");
     }

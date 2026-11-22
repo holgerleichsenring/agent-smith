@@ -61,7 +61,7 @@ public static class SpecCitationLocator
     /// <summary>The new side of every preceding note's moved entry whose old side is <paramref name="cited"/>.</summary>
     public static IEnumerable<string> NoteDestinations(IReadOnlyList<PrecedingNote> notes, string cited) =>
         notes.SelectMany(n => n.Note?.Moved ?? [])
-            .Select(e => e.Split(HandForwardToolHost.Arrow, 2))
+            .Select(e => e.Split(SpecHandForward.Arrow, 2))
             .Where(p => p.Length == 2 && Plain(p[0]) == Plain(cited))
             .Select(p => Plain(p[1]));
 
