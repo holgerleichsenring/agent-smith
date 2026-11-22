@@ -19,7 +19,8 @@ internal sealed class ThroughputRefusalWait(
     /// <summary>Whether <paramref name="ex"/> is a refusal the call can outwait.</summary>
     public bool Applies(Exception ex) => _reader.IsThroughputRefusal(ex);
 
-    public async Task OutwaitAsync(ILlmQuotaLease lease, Exception refusal, int refusals, CancellationToken cancellationToken)
+    public async Task OutwaitAsync(
+        ILlmQuotaLease lease, Exception refusal, int refusals, QuotaShortfallNotice notice, CancellationToken cancellationToken)
     {
         var wait = RetryWait.For(retry, refusals, refusal);
         logger.LogWarning(refusal,
@@ -29,8 +30,10 @@ internal sealed class ThroughputRefusalWait(
         var outwait = lease.RefusedAsync(wait.Delay, cancellationToken); // the pause holds every caller at once
         try
         {
+            if (RetryWait.RetryAfter(refusal) is { } asked && asked > RetryWait.Ceiling) // 2026-11-22-ab45
+                await notice.TooLongAsync(asked, _reader.Words(refusal), cancellationToken);
             if (waitLine is not null)
-                await waitLine.WaitingAsync(label, wait.Delay, $"the provider refused the call ({wait.Reason})", cancellationToken);
+                await waitLine.WaitingAsync(label, wait.Delay, notice.With($"the provider refused the call ({wait.Reason})"), cancellationToken);
             await outwait;
         }
         finally

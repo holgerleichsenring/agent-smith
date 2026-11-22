@@ -35,10 +35,11 @@ internal sealed class RateLimitingChatClient(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
     {
         var materialised = messages as IReadOnlyCollection<ChatMessage> ?? messages.ToList();
-        var lease = await AdmitAsync(materialised, options, cancellationToken);
+        var notice = new QuotaShortfallNotice(label, waitLine, logger); // 2026-11-22-ab45
+        var lease = await AdmitAsync(materialised, options, notice, cancellationToken);
         try
         {
-            return await SendUntilAcceptedAsync(materialised, options, lease, cancellationToken);
+            return await SendUntilAcceptedAsync(materialised, options, lease, notice, cancellationToken);
         }
         finally
         {
@@ -47,7 +48,8 @@ internal sealed class RateLimitingChatClient(
     }
 
     private async Task<ChatResponse> SendUntilAcceptedAsync(
-        IReadOnlyCollection<ChatMessage> messages, ChatOptions? options, ILlmQuotaLease lease, CancellationToken cancellationToken)
+        IReadOnlyCollection<ChatMessage> messages, ChatOptions? options, ILlmQuotaLease lease, QuotaShortfallNotice notice,
+        CancellationToken cancellationToken)
     {
         using var headers = quotaHeaders?.Begin();
         for (var refusals = 0; ; refusals++)
@@ -58,11 +60,12 @@ internal sealed class RateLimitingChatClient(
             {
                 var response = await base.GetResponseAsync(messages, options, cancellationToken);
                 lease.Settle(response.Usage, headers?.Reading, Stopwatch.GetElapsedTime(sent));
+                if (lease.Shortfall is { } counted) await notice.UsedTooMuchAsync(counted, CancellationToken.None); // never fails an answer
                 return response;
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested && _refusal.Applies(ex))
             {
-                await _refusal.OutwaitAsync(lease, ex, refusals, cancellationToken);
+                await _refusal.OutwaitAsync(lease, ex, refusals, notice, cancellationToken);
             }
         }
     }
@@ -73,21 +76,21 @@ internal sealed class RateLimitingChatClient(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var materialised = messages as IReadOnlyCollection<ChatMessage> ?? messages.ToList();
-        await AdmitAsync(materialised, options, cancellationToken);
+        await AdmitAsync(materialised, options, new QuotaShortfallNotice(label, waitLine, logger), cancellationToken);
         await foreach (var update in base.GetStreamingResponseAsync(materialised, options, cancellationToken))
             yield return update;
     }
 
     private async Task<ILlmQuotaLease> AdmitAsync(
-        IReadOnlyCollection<ChatMessage> messages, ChatOptions? options, CancellationToken cancellationToken)
+        IReadOnlyCollection<ChatMessage> messages, ChatOptions? options, QuotaShortfallNotice notice, CancellationToken cancellationToken)
     {
         var estimated = MessageTokenEstimate.Of(messages, options);
         var announced = false;
         var demand = new LlmQuotaDemand(estimated, options?.MaxOutputTokens ?? 0, (wait, paused, token) =>
         {
             announced = waitLine is not null;
-            return waitLine?.WaitingAsync(label, wait, paused ? PauseReason : BudgetReason, token) ?? Task.CompletedTask;
-        });
+            return waitLine?.WaitingAsync(label, wait, notice.With(paused ? PauseReason : BudgetReason), token) ?? Task.CompletedTask;
+        }, notice.TooLargeAsync);
         var waited = Stopwatch.StartNew();
         try
         {

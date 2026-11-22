@@ -16,17 +16,23 @@ internal sealed class ProviderRefusalReader(ILogger logger)
 
     public bool IsThroughputRefusal(Exception ex) => RetryWait.IsRateLimit(ex) && !IsCreditSpent(ex);
 
-    private bool IsCreditSpent(Exception ex)
+    /// <summary>2026-11-22-ab45: the refusal's own words (<c>error.message</c>), quoted to the operator as they are —
+    /// shown, never classified.</summary>
+    public string? Words(Exception ex) => Field(ex, "message");
+
+    private bool IsCreditSpent(Exception ex) => Field(ex, "code") == CreditSpent;
+
+    private string? Field(Exception ex, string name)
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
         {
-            if (e is ClientResultException client) return ErrorCode(client.GetRawResponse()) == CreditSpent;
+            if (e is ClientResultException client) return ErrorField(client.GetRawResponse(), name);
         }
 
-        return false;
+        return null;
     }
 
-    private string? ErrorCode(PipelineResponse? response)
+    private string? ErrorField(PipelineResponse? response, string name)
     {
         if (response?.Content is not { } content) return null;
         try
@@ -35,15 +41,15 @@ internal sealed class ProviderRefusalReader(ILogger logger)
             return body.RootElement.ValueKind == JsonValueKind.Object
                 && body.RootElement.TryGetProperty("error", out var error)
                 && error.ValueKind == JsonValueKind.Object
-                && error.TryGetProperty("code", out var code)
-                && code.ValueKind == JsonValueKind.String
-                    ? code.GetString()
+                && error.TryGetProperty(name, out var field)
+                && field.ValueKind == JsonValueKind.String
+                    ? field.GetString()
                     : null;
         }
         catch (JsonException ex)
         {
             // An empty or non-JSON body names no code; the refusal is then read by its status alone.
-            logger.LogDebug(ex, "The provider's refusal body is not JSON; no error code read");
+            logger.LogDebug(ex, "The provider's refusal body is not JSON; no error {Field} read", name);
             return null;
         }
     }

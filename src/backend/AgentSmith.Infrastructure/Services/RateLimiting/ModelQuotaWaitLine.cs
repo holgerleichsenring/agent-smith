@@ -23,7 +23,11 @@ public sealed class ModelQuotaWaitLine(
     /// <summary>The step-detail origin of the line that ends the wait.</summary>
     public const string OverOrigin = "model-quota-over";
 
+    /// <summary>2026-11-22-ab45: the step-detail origin of the line that says a call cannot fit a minute's quota.</summary>
+    public const string CannotFitOrigin = "model-quota-cannot-fit";
+
     private readonly Dictionary<string, int> _waiting = new(StringComparer.Ordinal);
+    private readonly RecentlyToldRuns _told = new();
 
     public static string Text(string deployment, TimeSpan wait, string reason) =>
         $"Waiting {Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds))} s for model quota on {deployment}: {reason}";
@@ -47,6 +51,17 @@ public sealed class ModelQuotaWaitLine(
         if (!Left(runId)) return;
         var text = OverText(deployment);
         await ShowAsync(runId, OverOrigin, new TurnActivity(TurnActivityKind.Thinking, deployment), text, cancellationToken);
+    }
+
+    /// <summary>2026-11-22-ab45: once per run and deployment, in the log, on the run and on a design turn: a call does not
+    /// fit a minute's quota (<paramref name="sentence"/> says how). A call outside a run is told every time; its notice
+    /// already says it once per call.</summary>
+    public async Task CannotFitAsync(string deployment, string sentence, CancellationToken cancellationToken)
+    {
+        var runId = runContext.CurrentRunId;
+        if (!string.IsNullOrEmpty(runId) && !_told.FirstTime(deployment, runId)) return;
+        logger.LogWarning("Run {RunId}: {CannotFit}", runId, sentence);
+        await ShowAsync(runId, CannotFitOrigin, new TurnActivity(TurnActivityKind.Waiting, null, sentence), sentence, cancellationToken);
     }
 
     // True for the first waiting call of a run; a call outside a run always shows.
@@ -74,11 +89,11 @@ public sealed class ModelQuotaWaitLine(
     }
 
     private async Task ShowAsync(
-        string? runId, string origin, TurnActivity activity, string text, CancellationToken cancellationToken)
+        string? runId, string origin, TurnActivity? activity, string text, CancellationToken cancellationToken)
     {
         try
         {
-            await turnActivity.ReportAsync(activity, cancellationToken);
+            if (activity is not null) await turnActivity.ReportAsync(activity, cancellationToken);
             if (!string.IsNullOrEmpty(runId))
                 await events.PublishAsync(
                     new L1StepDetailEvent(runId, runContext.CurrentStepIndex ?? 0, origin, text, DateTimeOffset.UtcNow),

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-ab45
+goal: "A model call that cannot fit a minute's quota says so once on the run and in the log, with the numbers and the config key, then keeps waiting as decided."
+
+applies_to: "default (Infrastructure RateLimiting)"
+
+requires: [2026-11-22-66e4a, 2026-11-22-66e4b]
+
+facts:
+  - claim: "A reservation larger than the bucket is clamped to it (p0350), so the call proceeds on a full bucket and leaves debt, without a word."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/QuotaReservation.cs:17"
+  - claim: "A Retry-After above the 120 s ceiling is capped per wait; each refusal logs the cap, none says the wait cannot succeed."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RetryWait.cs:36-39"
+  - claim: "A throughput refusal is waited out with no attempt cap."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RateLimitingChatClient.cs:66"
+  - claim: "The refusal's JSON body is read field by field from error (code for the credit check, message to quote)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/ProviderRefusalReader.cs:44"
+  - claim: "The run's quota waiting line goes through ModelQuotaWaitLine, one line per run."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/ModelQuotaWaitLine.cs:72-81"
+  - claim: "OpenAI words a daily refusal as 'tokens per day (TPD)' with code rate_limit_exceeded; Azure signals a daily cap as a Retry-After of about 24 h."
+    evidence: "observed: 2026-11-22, public OpenAI community and Microsoft Q&A reports of such 429 bodies (spec review)"
+
+scope:
+  in: >-
+    Three signals, all structured: the reservation (input estimate x learned ratio + counted max_tokens) above the
+    deployment's tokens per minute, said before any wait; the provider's settled count plus counted max_tokens above
+    it; a server-asked Retry-After above the 120 s ceiling, quoting the body's error.message as the provider's words
+    (shown, never classified). Each is said once per run and deployment — a warning log and a step line (origin
+    model-quota-cannot-fit) naming the numbers and agent.rate_limit.input_tokens_per_minute — and every waiting line of
+    that call adds it to its reason; a call outside a run (a design turn) is told per call and on its turn. The call then
+    waits and retries exactly as before. The memory is bounded: the 32 most recent runs per deployment.
+  out: >-
+    Any cap or failure for such a call (the operator decided none); classifying on message words; OpenAI's
+    credit_balance_exhausted code (no captured body yet, a spent account still waits on it); a provider limit below the
+    local budget (it shows as repeated short refusals; x-ratelimit-limit-tokens is not read yet).
+
+steps:
+  - id: detect
+    action: "QuotaReservation keeps the unclamped need; LlmRateLimiter tells OnShortfall before the wait; the lease sets Shortfall on settle; ThroughputRefusalWait reads a Retry-After above the ceiling."
+  - id: say
+    action: "QuotaShortfallNotice per call keeps the reason; ModelQuotaWaitLine.CannotFitAsync logs and shows it once per run and deployment."
+
+tests:
+  - "An oversize call is admitted, and its run is told once across two calls, naming N, M and the key."
+  - "A refusal asking longer than a minute is told once in the provider's words and the call is still retried."
+
+done:
+  - "build green, full suite green"

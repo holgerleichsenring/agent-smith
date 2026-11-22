@@ -33,6 +33,8 @@ internal sealed class DeploymentQuota
 
     public ProviderQuotaRule Rule { get; private set; }
 
+    public int TokenCapacity { get { lock (_lock) return _tokens.Capacity; } }
+
     /// <summary>2026-11-22-66e4b: the budget changed in the configuration; what is free, owed and paused stays.</summary>
     public void Resize(LlmRateLimitOptions options)
     {

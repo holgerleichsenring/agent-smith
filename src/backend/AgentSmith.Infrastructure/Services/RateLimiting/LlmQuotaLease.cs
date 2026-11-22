@@ -15,10 +15,15 @@ internal sealed class LlmQuotaLease(
 {
     private bool _owing;
 
+    public QuotaShortfall? Shortfall { get; private set; }
+
     public void Settle(UsageDetails? usage, ProviderQuotaReading? reading, TimeSpan callDuration)
     {
         Release();
         var counted = CountedInput(usage, quota.Rule);
+        var budget = quota.TokenCapacity; // 2026-11-22-ab45: the provider's own count says the call cannot fit either
+        Shortfall = counted > 0 && counted + reserved.Output > budget
+            ? new((long)counted + reserved.Output, (long)counted, reserved.Output, budget) : null;
         if (counted > 0) quota.Debit(counted + reserved.Output - reserved.Total, counted, Math.Max(1, estimatedInput));
         if (reading is not null) quota.Align(reading, callDuration);
     }

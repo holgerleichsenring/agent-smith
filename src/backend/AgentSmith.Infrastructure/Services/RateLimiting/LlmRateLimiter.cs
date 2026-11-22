@@ -35,6 +35,8 @@ internal sealed class LlmRateLimiter : ILlmRateLimiter
     {
         ArgumentNullException.ThrowIfNull(demand);
         var reserved = _quota.Reserve(demand);
+        if (reserved.Needed > _quota.TokenCapacity && demand.OnShortfall is { } shortfall) // 2026-11-22-ab45
+            await shortfall(new(reserved.Needed, reserved.Input, reserved.Output, _quota.TokenCapacity), cancellationToken);
         var expected = Enqueue(reserved.Total);
         try
         {

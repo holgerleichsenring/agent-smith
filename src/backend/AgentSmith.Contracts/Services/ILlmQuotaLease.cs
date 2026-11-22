@@ -18,6 +18,10 @@ public interface ILlmQuotaLease
     /// longer paused; the call is then resent on this lease.</summary>
     Task RefusedAsync(TimeSpan wait, CancellationToken cancellationToken) => Task.Delay(wait, cancellationToken);
 
+    /// <summary>2026-11-22-ab45: set by <see cref="Settle"/> when what the provider counted is more than the
+    /// deployment's whole minute.</summary>
+    QuotaShortfall? Shortfall => null;
+
     /// <summary>The call is over: a refused call no longer waits to be resent. Settling releases too; releasing twice
     /// does nothing.</summary>
     void Release() { }
