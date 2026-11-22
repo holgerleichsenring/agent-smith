@@ -21,6 +21,7 @@ public static class RunStoreRepairExtensions
         services.AddSingleton<DuplicateRowSelector>();
         services.AddSingleton<RunCostRecomputer>();
         services.AddSingleton<RunDuplicateRepair>();
+        services.AddSingleton<KeptSetCarryBackfill>(); // 2026-11-22-a720a
         services.AddSingleton<RunStoreMigrator>();
         return services.AddStoredSpecNameRewrite();
     }

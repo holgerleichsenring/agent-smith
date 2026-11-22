@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-a720a
+
+decisions:
+  - category: Implementation
+    chose: "The attempt's series fields are set once, by the first publish that carries specs or a revision (kept sets included)"
+    over: "Following the latest publish with specs"
+    reason: "Every publish carries set.Executed, which grows as this run's specs finish; following the latest would show a spec this run built as carried after a mid-run review revision (code review finding). A hand-back publishes no specs, so it does not take the slot."
+  - category: Implementation
+    chose: "A post-migration C# backfill in RunStoreMigrator, after the spec-name rewrite"
+    over: "An EF migration with raw SQL"
+    reason: "Reading CarriedSpecIds out of a JSON payload differs per provider (SQLite, MySQL, SQL Server, PostgreSQL); the migrator already runs a provider-neutral rewrite there. Rows whose events name nothing get [] (read the same as null) so a second pass finds nothing."
+  - category: Implementation
+    chose: "SpecGate makes no spec current when every spec of the set is executed, and ends 'nothing to build'"
+    over: "Accounting the carried specs' criteria from their earlier records"
+    reason: "Their criteria were accounted in the attempts that built them; this run built nothing, so it ratifies none and the one delivery gate is not asked to judge carried work. Operator asked that such a run never fails (measured: attempt 4 failed at acceptance). An input over a fully executed set (rework, status back) still gets stand-ins from DeriveSpec, so it has an unexecuted spec and is not exempt; the exempt run ends Success with no code change."
+  - category: Design
+    chose: "No series hold on an unmerged prerequisite"
+    over: "Holding the runway while the page says 'waits for #N (not merged)'"
+    reason: "2026-11-17-9a39a stacks a dependent once its prerequisite delivered green and never holds a started dependent again; its branch is cut from the prerequisite's. The '(not merged)' wording is the requirement's landing state, not a hold."
+  - category: Implementation
+    chose: "TicketSeriesCuts.Left is the one computation of what is left, read by SeriesRunwayReader"
+    over: "Repeating the count in the test"
+    reason: "The store-level test pins the same function the runway calls."

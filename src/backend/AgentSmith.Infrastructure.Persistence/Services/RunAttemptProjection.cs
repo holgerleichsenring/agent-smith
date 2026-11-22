@@ -9,7 +9,8 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// <summary>
 /// 2026-10-13-9a59d: writes the run's one <see cref="RunAttempt"/> row. The fetch fields are set ONCE —
 /// a resumed run fetches again and must not rewrite why the attempt began. 2026-10-13-8762g: so are the
-/// revision fields — the first revision-carrying publish's; a mid-run revision rides its cut list only. Two writers
+/// revision fields — the first revision-carrying publish's; a mid-run revision rides its cut list only (2026-11-22-a720a:
+/// so do the series fields, from the first publish with specs or a revision, kept sets included). Two writers
 /// inserting the same run's row meet at the unique RunId index, and the loser updates the winner's.
 /// </summary>
 public sealed class RunAttemptProjection(IUniqueViolationTranslator? violations = null)
@@ -31,18 +32,25 @@ public sealed class RunAttemptProjection(IUniqueViolationTranslator? violations 
         await uow.SaveChangesAsync(ct);
     }
 
+    /// <summary>2026-11-22-a720a: the series fields are the first publish's that carries specs or a revision — a kept set
+    /// (no revision) carries its executed ids too, and a later publish in the run (a review's revision, after a spec of
+    /// this run finished) must not turn this run's own work into carried work. The revision and approval fields stay the
+    /// first revision-carrying publish's.</summary>
     public async Task ApplyPublishAsync(IUnitOfWork uow, SpecSetPublishedEvent e, CancellationToken ct)
     {
-        if (e.RevisionNumber is null) return;
+        var carriesCut = e.Specs is { Count: > 0 };
+        if (e.RevisionNumber is null && !carriesCut) return;
         var row = await RowAsync(uow, e.RunId, ct);
-        if (row.RevisionNumber is not null) return;
-        row.RevisionNumber = e.RevisionNumber;
-        row.RevisionCause = e.RevisionCause;
-        row.SeriesId = e.SeriesId;
-        row.CarriedSpecIdsJson = JsonSerializer.Serialize(e.CarriedSpecIds ?? []);
-        row.ApprovalAt = e.ApprovalAt;
-        row.ApprovalConversation = e.ApprovalConversation;
-        row.ApprovalPrincipal = e.ApprovalPrincipal;
+        if (row.CarriedSpecIdsJson is null)
+            (row.SeriesId, row.CarriedSpecIdsJson) = (e.SeriesId ?? row.SeriesId, JsonSerializer.Serialize(e.CarriedSpecIds ?? []));
+        if (e.RevisionNumber is not null && row.RevisionNumber is null)
+        {
+            row.RevisionNumber = e.RevisionNumber;
+            row.RevisionCause = e.RevisionCause;
+            row.ApprovalAt = e.ApprovalAt;
+            row.ApprovalConversation = e.ApprovalConversation;
+            row.ApprovalPrincipal = e.ApprovalPrincipal;
+        }
         await uow.SaveChangesAsync(ct);
     }
 

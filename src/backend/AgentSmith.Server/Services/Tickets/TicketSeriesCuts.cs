@@ -18,6 +18,8 @@ public static class TicketSeriesCuts
     /// <summary>The state of a spec the cut's attempt carried in as executed.</summary>
     public const string CarriedState = "carried";
 
+    private const string Done = "done";
+
     /// <summary>A spec's state in a cut: carried when its attempt carried it, else that attempt's RunSpec status.</summary>
     public static string StateOf(TicketSeriesRecords records, string cutRunId, IReadOnlyList<string> carried, string specId) =>
         carried.Contains(specId, StringComparer.Ordinal) ? CarriedState
@@ -35,6 +37,20 @@ public static class TicketSeriesCuts
     /// <summary>The newest cut when it is a hand-back — published after any cut with specs.</summary>
     public static RunSeriesCut? CurrentHandback(IReadOnlyList<RunSeriesCut> ordered) =>
         ordered.Count > 0 && ordered[^1].HandbackCase is not null ? ordered[^1] : null;
+
+    /// <summary>2026-11-22-a720a: the series the runway reads — the latest cut with specs, its entries and how many of them
+    /// neither an attempt at or after the cut finished nor the cut's attempt carried in.</summary>
+    public static SeriesLeft Left(TicketSeriesRecords records)
+    {
+        ArgumentNullException.ThrowIfNull(records);
+        var cut = LatestWithSpecs(Ordered(records.Cuts));
+        if (cut is null) return new(null, [], 0);
+        var entries = Entries(cut);
+        var finished = records.Specs
+            .Where(s => s.Status == Done && string.CompareOrdinal(s.RunId, cut.RunId) >= 0).Select(s => s.SpecId)
+            .Concat(Carried(records, cut.RunId)).ToHashSet(StringComparer.Ordinal);
+        return new(cut, entries, entries.Count(e => !finished.Contains(e.SpecId)));
+    }
 
     /// <summary>The executed spec ids an attempt carried in, from its attempt record.</summary>
     public static IReadOnlyList<string> Carried(TicketSeriesRecords records, string runId) =>

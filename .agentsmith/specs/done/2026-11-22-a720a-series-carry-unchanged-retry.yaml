@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-a720a
+goal: "An unchanged retry records the specs its set carried in, so a completed series starts no further attempt; a run whose every spec is carried is not failed."
+
+applies_to: "default (RunAttemptProjection, RunStoreMigrator, series runway, SpecGate)"
+
+requires: [2026-11-17-7c9ba, 2026-10-13-9a59d, 2026-10-13-8762v]
+
+facts:
+  - claim: "Retry unchanged keeps the branch set and announces it with withRevision false, so the event carries no revision but its series and carried ids."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:75, src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:56-63"
+  - claim: "The cut projection honours the carried ids of every publish, revision or not."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSeriesCutProjection.cs:32"
+  - claim: "The attempt projection returns on a publish without a revision before it writes SeriesId and CarriedSpecIdsJson, so a kept set's attempt carries none."
+    evidence: "observed before this spec: RunAttemptProjection.ApplyPublishAsync opened with `if (e.RevisionNumber is null) return;` (git show 059b9cb83:src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptProjection.cs, line 36)"
+  - claim: "The runway counts done specs from runs at or after the cut plus the cut attempt's carried ids, and starts another attempt while any is left."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Runway/SeriesRunwayReader.cs:42-47, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesCuts.cs:43-53,56-59, src/backend/AgentSmith.Server/Services/Tickets/Runway/SeriesRunway.cs:25-26"
+  - claim: "The ticket page reads a spec the cut attempt carried as carried, else that attempt's own status or not_started."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesCuts.cs:22-24"
+  - claim: "Every migrating caller goes through RunStoreMigrator, which already runs a provider-neutral C# rewrite after the schema migration."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStoreMigrator.cs:27-32, src/backend/AgentSmith.Cli/Commands/DatabaseCommand.cs:88"
+  - claim: "RunEvents keep every event's payload as the serialized typed event under its EventType name."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTrailRowMapper.cs:16-21"
+  - claim: "The server never migrates; `database migrate` (the init container) runs RunStoreMigrator, so a repair lands at the next deploy."
+    evidence: "src/backend/AgentSmith.Cli/Services/CliRunRecordingSchema.cs:10-12, src/backend/AgentSmith.Cli/Commands/DatabaseCommand.cs:88"
+  - claim: "SpecGate makes the first spec of the set current even when an earlier attempt executed it, and the delivery gate fails a run whose current spec ratified criteria no spec reported (measured: attempt 4 of the ticket, every spec carried, FAILED at acceptance)."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecGateHandler.cs:56-57, src/backend/AgentSmith.Application/Services/Specs/AcceptanceCriteria.cs:23-25, src/backend/AgentSmith.Application/Services/RunDeliveryGate.cs:62-68"
+  - claim: "With every spec executed the sequence splices nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:33-37"
+  - claim: "A dependent that already has a code attempt is stacked once and never held again on an unmerged prerequisite."
+    evidence: ".agentsmith/specs/done/2026-11-17-9a39a-requires-green-start.yaml:26"
+
+scope:
+  in: "RunAttemptProjection.ApplyPublishAsync: SeriesId and CarriedSpecIdsJson are the first publish's that carries specs or a revision, kept sets included, so a later review revision never turns this run's own work into carried work; revision and approval fields stay the first revision publish's. KeptSetCarryBackfill (RunStoreMigrator, after the spec-name rewrite, provider-neutral C#): attempt rows with null carried ids that have SpecSetPublished events take them from the first publish with specs, else [] so a second pass converges. TicketSeriesCuts.Left: the one computation of what is left, read by SeriesRunwayReader. SpecGate: a set every spec of which is executed makes no spec current and ends 'nothing to build', so no carried criterion is ratified for the run."
+  out: "A hold on an unmerged prerequisite in SeriesRunway: stacking a started dependent is 2026-11-17-9a39a's design. Rows whose events retention already pruned. The page's '(not merged)' wording under on_green_push. The already-failed fourth attempt stays as recorded; it is the newest cut and carries all three, so the ticket reads complete after the repair."
+
+steps:
+  - id: projection
+    action: "ApplyPublishAsync as in scope."
+  - id: left
+    action: "TicketSeriesCuts.Left + SeriesLeft; SeriesRunwayReader reads it."
+  - id: backfill
+    action: "KeptSetCarryBackfill registered beside RunStoreMigrator, run after the spec-name rewrite."
+  - id: gate
+    action: "SpecGateHandler: every spec executed and not a spec derivation -> Ok 'nothing to build', no CurrentSpec."
+
+tests:
+  - "KeptSetCarryTests (migrated SQLite, real projections): attempt 1 delivers two of three, a kept retry delivers the third -> TicketSeriesCuts.Left is 0, SeriesRunway Next is complete, the carried specs read carried; a kept publish records series and carried ids and no revision; a later revision publish after a spec finished keeps the carried ids; the backfill fills a null row from its kept publish, leaves a filled row, writes [] where events carry none, and a second pass changes nothing"
+  - "SpecGateAllCarriedTests: every spec carried -> no current spec, no acceptance criteria, the delivery gate is satisfied; some left -> the first spec is current"
+  - "RunAttemptProjectionTests stay green (mid-run revision keeps the first revision, hand-back writes no revision)"
+
+done:
+  - "A series completed by a Retry unchanged reads complete and the runway starts no further attempt; an attempt with every spec carried ends without a failure; rows written before the fix are repaired at the next migrate."
