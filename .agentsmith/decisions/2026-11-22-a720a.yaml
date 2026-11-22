@@ -22,3 +22,7 @@ decisions:
     chose: "TicketSeriesCuts.Left is the one computation of what is left, read by SeriesRunwayReader"
     over: "Repeating the count in the test"
     reason: "The store-level test pins the same function the runway calls."
+  - category: Design
+    chose: "Removing the false red is the fix for the series master's retry loop"
+    over: "A guard on the master's messages"
+    reason: "A false red (the all-carried attempt FAILED at acceptance) made the series master message the ticket conversation with mayStartRuns (SeriesJudgement.NewlyRed -> SeriesTicketActs.TellAsync -> SeriesTicketMessage), which can loop bogus FAILED -> retry -> bogus FAILED. SpecGateAllCarriedTests pins that such a run's delivery gate is satisfied, so it does not end red. Recorded 2026-11-22 after the audit (coordinator)."
