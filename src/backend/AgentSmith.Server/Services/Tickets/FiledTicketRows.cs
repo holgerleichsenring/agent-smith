@@ -29,21 +29,25 @@ public sealed class FiledTicketRows(
 {
     private sealed record Filing(string Tracker, string TicketKey, string TicketId, string Project, string ContentJson, DateTimeOffset ApprovedAt);
 
-    public Task<IReadOnlyList<TicketSummaryView>> ListAsync(ProjectScope project, CancellationToken ct) =>
-        ReadAsync(rows => rows.Within(project), null, ct);
+    /// <summary>The scope's never-run rows; 2026-11-22-9719d: projects are looked up in the configuration the caller loaded.</summary>
+    public Task<IReadOnlyList<TicketSummaryView>> ListAsync(
+        ProjectScope project, IReadOnlyDictionary<string, ResolvedProject> configured, CancellationToken ct) =>
+        ReadAsync(rows => rows.Within(project), null, configured, ct);
 
     /// <summary>The pair's never-run row, or null when the pair has a code run or no filing record.</summary>
     public async Task<TicketSummaryView?> OneAsync(string project, string ticketId, CancellationToken ct)
     {
-        if (projects.Of(project) is not { } resolved) return null;
+        var configured = projects.All();
+        if (configured.GetValueOrDefault(project) is not { } resolved) return null;
         var key = TicketKey.For(resolved.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
         var tracker = resolved.Tracker.Name;
-        var rows = await ReadAsync(r => r.Where(a => a.Tracker == tracker && a.TicketKey == key), ticketId, ct);
+        var rows = await ReadAsync(r => r.Where(a => a.Tracker == tracker && a.TicketKey == key), ticketId, configured, ct);
         return rows.Count > 0 ? rows[0] : null;
     }
 
     private async Task<IReadOnlyList<TicketSummaryView>> ReadAsync(
-        Func<IQueryable<ApprovedSeries>, IQueryable<ApprovedSeries>> filter, string? ticketId, CancellationToken ct)
+        Func<IQueryable<ApprovedSeries>, IQueryable<ApprovedSeries>> filter, string? ticketId,
+        IReadOnlyDictionary<string, ResolvedProject> configured, CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
@@ -54,9 +58,7 @@ public sealed class FiledTicketRows(
         if (filings.Count == 0) return [];
         var runs = uow.Set<Run>().AsNoTracking().Where(r => r.Pipeline == PipelinePresets.CodeName && r.TicketId != "");
         if (ticketId is not null) runs = runs.Where(r => r.TicketId == ticketId);
-        var resolved = new Dictionary<string, ResolvedProject?>(StringComparer.Ordinal);
-        ResolvedProject? Of(string project) =>
-            resolved.TryGetValue(project, out var known) ? known : resolved[project] = projects.Of(project);
+        ResolvedProject? Of(string project) => configured.GetValueOrDefault(project);
         var ran = (await runs.Select(r => new { r.Project, r.Platform, r.TicketId }).Distinct().ToListAsync(ct))
             .Select(r => (Of(r.Project)?.Tracker.Name, keys.For(r.Project, r.Platform, r.TicketId))).ToHashSet();
         var titles = new Dictionary<(string, string), string?>();
@@ -70,12 +72,12 @@ public sealed class FiledTicketRows(
         }
         var landed = await TicketNodeStates.LandedAsync(landings, records.Select(r => (r.Filing.Tracker, r.Filing.TicketKey)), ct);
         var closed = await TicketNodeStates.ClosedAsync(marks, records.Select(r => (r.Filing.Tracker, r.Filing.TicketKey)), ct);
+        var holds = await HoldsAsync([.. records.Select(r => r.Filing)], Of, ct);
         var rows = new List<TicketSummaryView>(records.Count);
         foreach (var (filing, record) in records)
         {
             // 2026-11-17-b34ec: the rule a start reads, so a dependent stacked on a green prerequisite reads ready.
-            var unmet = Of(filing.Project) is { } owner
-                ? (await requirements.ForStartAsync(owner, filing.TicketKey, ct)).Unmet
+            var unmet = holds.TryGetValue((filing.Project, filing.TicketKey), out var hold) ? hold.Unmet
                 : (await requirements.OfAsync(filing.Tracker, filing.TicketKey, ct)).Unmet;
             var type = Of(filing.Project)?.Tracker.Type;
             string Name(string id) => type is { } t ? FiledTicketKey.Of(t, id) : id;
@@ -86,6 +88,18 @@ public sealed class FiledTicketRows(
                 closed.GetValueOrDefault((filing.Tracker, filing.TicketKey))));
         }
         return rows;
+    }
+
+    // 2026-11-22-9719d: the start rule for every filing of a configured project, one set-based read per project.
+    private async Task<Dictionary<(string Project, string Key), RequirementHold>> HoldsAsync(
+        List<Filing> filings, Func<string, ResolvedProject?> of, CancellationToken ct)
+    {
+        var holds = new Dictionary<(string, string), RequirementHold>();
+        foreach (var group in filings.GroupBy(f => f.Project, StringComparer.Ordinal))
+            if (of(group.Key) is { } owner)
+                foreach (var (key, hold) in await requirements.ForStartManyAsync(owner, [.. group.Select(f => f.TicketKey)], ct))
+                    holds[(group.Key, key)] = hold;
+        return holds;
     }
 
     // A landing makes it done; else a close mark closes it (a never-run ticket has no attempt or entry to bring it back).

@@ -16,6 +16,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// </summary>
 public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, IDecidedDefaults decided) : IPreviousAttemptReader
 {
+    private readonly PreviousAttemptEnds _ends = new(scopeFactory); // 2026-11-22-9719d
     public async Task<PreviousAttempt?> LatestAsync(
         string project, string ticketId, string? excludingRunId, CancellationToken cancellationToken)
     {
@@ -37,8 +38,8 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
             RetryRequestedBy = retry?.RequestedBy,
             RetryRequestedAt = retry?.RequestedAt,
             PullRequestUrls = await OpenedPullRequestsAsync(uow, project, ticketId, cancellationToken),
-            OpenedPullRequest = OpenedAny(run.PullRequestsJson), // 2026-11-17-9a39a: this attempt's own
-            AwaitingCiUrls = AwaitingCi(run.PullRequestsJson), // 2026-11-17-3435b
+            OpenedPullRequest = AttemptPullRequests.OpenedAny(run.PullRequestsJson), // 2026-11-17-9a39a: this attempt's own
+            AwaitingCiUrls = AttemptPullRequests.AwaitingCi(run.PullRequestsJson), // 2026-11-17-3435b
             FinishedAt = run.FinishedAt, // 2026-11-17-3435c: and why it and the attempts before it began
             CauseChannel = causes.FirstOrDefault(),
             CiFixStreak = causes.TakeWhile(c => c == AttemptChannels.Ci).Count(),
@@ -73,16 +74,6 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         return [.. ids.Select(id => byRun.GetValueOrDefault(id))];
     }
 
-    private static IReadOnlyDictionary<string, string> AwaitingCi(string? json) =>
-        (json is null ? [] : RunStoryJson.TryDeserialize<List<RunPullRequestView>>(json) ?? [])
-            .Where(p => p.Status == PullRequestStatuses.AwaitingCi && !string.IsNullOrEmpty(p.Url))
-            .GroupBy(p => p.Repo).ToDictionary(g => g.Key, g => g.Last().Url!);
-
-    private static bool OpenedAny(string? json) =>
-        json is not null && (RunStoryJson.TryDeserialize<List<RunPullRequestView>>(json) ?? []).Any(Opened);
-
-    private static bool Opened(RunPullRequestView pr) => PullRequestStatuses.IsOpen(pr.Status) && !string.IsNullOrEmpty(pr.Url); // 3435b
-
     // 2026-10-08-0781: a queued code reservation will run, and its end checks the ticket again.
     /// <summary>2026-11-19-1b72a: whether the ticket has an attempt, as <see cref="LatestAsync"/> counts one — one EXISTS.</summary>
     public async Task<bool> HasAttemptAsync(string project, string ticketId, CancellationToken cancellationToken)
@@ -91,6 +82,13 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         return await PreviousAttemptRows.Of(uow.Set<Run>(), uow.Set<RunStep>(), project, ticketId).AnyAsync(cancellationToken);
     }
+
+    public Task<IReadOnlySet<string>> AttemptedAsync(string project, IReadOnlyCollection<string> ticketIds, CancellationToken cancellationToken) =>
+        _ends.AttemptedAsync(project, ticketIds, cancellationToken); // 2026-11-22-9719d
+
+    public Task<IReadOnlyDictionary<string, PreviousAttempt>> LatestEndsAsync(
+        string project, IReadOnlyCollection<string> ticketIds, CancellationToken cancellationToken) =>
+        _ends.LatestAsync(project, ticketIds, cancellationToken); // 2026-11-22-9719d
 
     public async Task<bool> HasQueuedAsync(string project, string ticketId, CancellationToken cancellationToken)
     {
@@ -112,7 +110,7 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         var urls = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var json in rows)
             foreach (var pr in RunStoryJson.TryDeserialize<List<RunPullRequestView>>(json) ?? [])
-                if (Opened(pr)) urls.TryAdd(pr.Repo, pr.Url!);
+                if (AttemptPullRequests.Opened(pr)) urls.TryAdd(pr.Repo, pr.Url!);
         return urls;
     }
 }

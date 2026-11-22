@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-9719a
+goal: "The series' own beats (series-run, series-verify) take no model place, so a series status never waits behind a coding run that holds the one place."
+
+applies_to: "default (model gate, pipeline presets)"
+
+requires: [2026-11-20-24bd]
+
+invariant: "A run of series-run or series-verify never waits on the model limit and never holds a place; every other pipeline's runs keep the 24bd rules."
+
+facts:
+  - claim: "The gate keys a run's place on the ambient run id; a framework run had no way to pass."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/ModelRunGate.cs:46-50"
+  - claim: "series-run and series-verify are the series' own beat pipelines."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SeriesRun.cs:7"
+  - claim: "Every pipeline enters through ExecutePipelineUseCase, which opens the run scope and releases the place."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:52"
+  - claim: "A series beat waited 73 minutes for the model behind a coding run at max_concurrent_runs 1."
+    evidence: "observed: 2026-11-20, run 2026-11-20T09-32-47-87a8"
+
+scope:
+  in: "PipelinePresets.CountsAgainstModelLimit; ModelRunSlotSignal.Exempt/IsExempt cleared on the run's release; ModelPlaceRelease.Enter called after the prologue; the gate passes an exempt run; the store's release forgets the run even when its delete fails."
+  out: "Exempting any other pipeline."
+
+decisions:
+  - key: "OPERATOR 2026-11-22: the framework's calls are small and short; a status update must not wait 75 minutes. Design turns, admin turns, scans and coding runs keep counting."
+
+steps:
+  - id: exempt
+    action: "Mark series beats exempt after the prologue, pass them at the gate, forget on release."
+
+tests:
+  - "A series beat passes while another run holds the one place and takes none."
+  - "Only series-run and series-verify are exempt; the release forgets the exemption."
+
+done:
+  - "Build and the full suite green."
