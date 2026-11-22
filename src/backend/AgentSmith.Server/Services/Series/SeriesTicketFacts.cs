@@ -13,7 +13,8 @@ namespace AgentSmith.Server.Services.Series;
 /// </summary>
 public sealed class SeriesTicketFacts(
     TicketProjects projects, ITicketLandingStore landings, ITicketRequirementStore requirements,
-    TicketRunsQuery runs, IPreviousAttemptReader attempts, SeriesParkedQuestion parked, SeriesTicketCi ci) : ISeriesTicketFacts
+    TicketRunsQuery runs, IPreviousAttemptReader attempts, SeriesParkedQuestion parked, SeriesTicketCi ci,
+    Preconditions.InterruptedRestartWindow? restart = null) : ISeriesTicketFacts // 2026-11-22-6d85c
 {
     public async Task<IReadOnlyList<SeriesTicketFact>> ReadAsync(
         string project, IReadOnlyList<SeriesTicket> tickets, CancellationToken cancellationToken)
@@ -43,11 +44,16 @@ public sealed class SeriesTicketFacts(
         return latest is null ? fact : await ci.WithAsync(await parked.WithAsync(Attempt(fact, latest), latest, ct), project.Name, ct);
     }
 
-    private static SeriesTicketFact Attempt(SeriesTicketFact fact, PreviousAttempt latest) => fact with
+    private SeriesTicketFact Attempt(SeriesTicketFact fact, PreviousAttempt latest) => fact with
     {
         LatestRunId = latest.RunId, LatestStatus = latest.Status, LatestFinished = latest.Finished,
         OpenedPullRequest = latest.OpenedPullRequest, PullRequests = [.. latest.PullRequestUrls.Values],
         EndDetail = latest.Status == RunStatuses.Success ? null : latest.EndDetail?.Subject ?? latest.CancelReason ?? latest.EndKind,
+        // 2026-11-22-6d85c: a lost process is no red; the interrupted restart retries it once
+        Interrupted = latest is { Finished: true, Status: LeftInPlaceEnd.Cancelled } && OwedWorkCancel.IsOwed(latest.CancelReason),
+        // the restart retries it once, within its window; otherwise the row is red for a person
+        Restarting = !(latest.CauseChannel == AttemptChannels.Retry && latest.CauseActor == AttemptChannels.RestartActor)
+            && restart?.Covers(latest.FinishedAt) == true,
     };
 
     // 2026-11-18: a ticket with no landing has no landing time; GetValueOrDefault on a non-nullable value handed back

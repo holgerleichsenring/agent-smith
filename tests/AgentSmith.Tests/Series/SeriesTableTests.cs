@@ -44,6 +44,23 @@ public sealed class SeriesTableTests
     }
 
     [Fact]
+    public void SeriesTable_InterruptedAttempt_ReadsRestarting_WhileItsRestartIsToCome_ElseRed()
+    {
+        // 2026-11-22-6d85c: the server stopped under it; the interrupted restart retries it once.
+        var facts = new[]
+        {
+            SeriesRecords.Fact("43", "cancelled") with { EndDetail = "interrupted", Interrupted = true, Restarting = true },
+            SeriesRecords.Fact("44", "cancelled") with { EndDetail = "interrupted", Interrupted = true },
+        };
+
+        var rows = SeriesTable.Rows(facts, SeriesRecords.T);
+
+        rows.Select(r => (r.State, r.Kind)).Should().Equal(
+            ("interrupted · restarting", SeriesTicketState.Running),
+            ("red · interrupted, not restarted by itself", SeriesTicketState.Red));
+    }
+
+    [Fact]
     public void SeriesJudgement_NewlyRed_OnlyWhatTurnedRedSinceTheLastTable()
     {
         var record = SeriesRecords.Running() with { LastTable = "SCRUM-43=red · failed\nSCRUM-44=coding" };

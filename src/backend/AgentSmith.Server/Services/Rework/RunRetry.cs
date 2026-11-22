@@ -32,7 +32,7 @@ public sealed class RunRetry(
     RunRetryRequestRepository requests,
     IReworkNudges nudges,
     TimeProvider clock,
-    ILogger<RunRetry> logger)
+    ILogger<RunRetry> logger) : Contracts.IRunRetry
 {
     public async Task<RunRetryResult> RetryAsync(string runId, string principal, RetryOrigin origin, CancellationToken ct)
     {

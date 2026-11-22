@@ -51,6 +51,8 @@ internal static class PollingExtensions
         // re-run on every config epoch by LeaderEpochLoop and every preconditions.recheck_interval_seconds.
         services.AddSingleton<AgentSmith.Server.Services.Preconditions.PreconditionHoldCheck>();
         services.AddSingleton<AgentSmith.Server.Services.Preconditions.PreconditionReleasePass>();
+        services.AddSingleton<AgentSmith.Server.Services.Preconditions.InterruptedRestartPass>(); // 2026-11-22-6d85c
+        services.TryAddSingleton<AgentSmith.Server.Services.Preconditions.InterruptedRestartWindow>();
         services.AddSingleton<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>());
         services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>().Health);

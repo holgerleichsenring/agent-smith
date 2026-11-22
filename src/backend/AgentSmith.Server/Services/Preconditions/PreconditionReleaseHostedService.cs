@@ -14,6 +14,7 @@ namespace AgentSmith.Server.Services.Preconditions;
 /// completes a config re-checks at once; then every preconditions.recheck_interval_seconds, which notices an init
 /// that landed, since nothing reports one. An epoch start is no evidence by itself: a server restart or a lease
 /// handover starts one too, so every pass judges each stop by what changed after it.
+/// <para>2026-11-22-6d85c: each pass then restarts, once, the attempts a lost process ended (<see cref="InterruptedRestartPass"/>).</para>
 /// </summary>
 public sealed class PreconditionReleaseHostedService(
     IServiceProvider services,
@@ -39,11 +40,14 @@ public sealed class PreconditionReleaseHostedService(
     {
         ArgumentNullException.ThrowIfNull(config);
         var pass = services.GetRequiredService<PreconditionReleasePass>();
+        var restart = services.GetService<InterruptedRestartPass>(); // 2026-11-22-6d85c
         var interval = TimeSpan.FromSeconds(config.Preconditions.RecheckIntervalSeconds);
         while (!ct.IsCancellationRequested)
         {
             try { await pass.RunAsync(config, ct); }
             catch (Exception ex) when (!ct.IsCancellationRequested) { logger.LogWarning(ex, "Precondition pass failed; retried next interval"); }
+            try { await (restart?.RunAsync(config, ct) ?? Task.FromResult(0)); }
+            catch (Exception ex) when (!ct.IsCancellationRequested) { logger.LogWarning(ex, "Interrupted restart pass failed; retried next interval"); }
             await Task.Delay(interval, ct);
         }
     }

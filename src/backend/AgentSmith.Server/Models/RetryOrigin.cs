@@ -8,4 +8,7 @@ public enum RetryOrigin
 {
     Button,
     Conversation,
+
+    /// <summary>2026-11-22-6d85c: agent-smith's own unchanged retry after the server's stop interrupted the attempt.</summary>
+    Restart,
 }

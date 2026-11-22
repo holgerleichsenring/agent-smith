@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Server.Services.Series;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -12,6 +13,7 @@ public static class SeriesRunExtensions
     {
         services.AddSeriesRunPipeline();
         services.AddScoped<SeriesParkedQuestion>().AddScoped<SeriesTicketCi>().AddScoped<ISeriesTicketFacts, SeriesTicketFacts>();
+        services.TryAddSingleton<Services.Preconditions.InterruptedRestartWindow>(); // 2026-11-22-6d85c
         services.AddScoped<SeriesTicketMessage>().AddScoped<SeriesRunCancel>().AddScoped<ISeriesTicketActs, SeriesTicketActs>();
         services.AddScoped<ISeriesConversation, SeriesConversation>().AddScoped<ISeriesRunLaunch, SeriesRunLaunch>();
         services.AddScoped<ISeriesRecordReads, SeriesRecordReads>(); // 0207e: the admin assistant's run reads, lent
