@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.199.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.198.0...v0.199.0) (2026-11-22)
+
+
+### Features
+
+* **config:** agent.rate_limit is edited in the agent drawer and reaches the deployment's limiter at its next client (2026-11-22-66e4b) ([103d096](https://github.com/holgerleichsenring/agent-smith/commit/103d096a50fde40d8297de032cae7de8794988c4))
+* **rate-limit:** a model call that cannot fit a minute's quota says so once with the numbers and the config key (2026-11-22-ab45) ([fde4b62](https://github.com/holgerleichsenring/agent-smith/commit/fde4b62a6f15dc1c390004e9fbbe013b98f53c76))
+* **rate-limit:** one quota throttle per model deployment counts what the provider counts and waits a 429 out for every caller (2026-11-22-66e4a) ([153f980](https://github.com/holgerleichsenring/agent-smith/commit/153f98067bd5ad5976bf8ff16daf4ab673da8ba7))
+* **rate-limit:** one quota throttle per model deployment; 429 waits for every caller (2026-11-22-66e4a) ([bf0f9e2](https://github.com/holgerleichsenring/agent-smith/commit/bf0f9e28f0c58369ba1fd01380abe5351ebb0743))
+
+
+### Bug Fixes
+
+* **dashboard:** ticket comments use the column, attempt marks say who and how, model wait shown (2026-11-22-50d7a) ([af778a6](https://github.com/holgerleichsenring/agent-smith/commit/af778a65c4cb5d199d53ff48d26230d68a22beff))
+* **dashboard:** ticket comments use the column, attempt marks say who started them and how they ended, a run waiting for the model says so (2026-11-22-50d7a) ([963e8f2](https://github.com/holgerleichsenring/agent-smith/commit/963e8f223aee6e2e52b44a1a9e6589f9138a807b))
+* **rework:** a dependent's wake reschedules while its prerequisite's newest attempt runs (2026-11-22-d434a) ([003dd64](https://github.com/holgerleichsenring/agent-smith/commit/003dd64ac18919fbe3dd9eb4006484bb20f916b9))
+* **series:** a run waiting for its model place is not stuck (2026-11-22-d434b) ([0782c23](https://github.com/holgerleichsenring/agent-smith/commit/0782c23231de33bcfe7726c1706e0e87d32fd428))
+* **series:** an unchanged retry keeps its carried specs; an all-carried run is not failed (2026-11-22-a720a) ([cbaff25](https://github.com/holgerleichsenring/agent-smith/commit/cbaff25a5c0a919d7feb72ab46cf9cc5f77c3393))
+* **series:** unchanged retry keeps carried specs; tracker text follows specs; dependents not dropped (2026-11-22-a720a) ([1d7fc4d](https://github.com/holgerleichsenring/agent-smith/commit/1d7fc4d1f0ec103f9e323386358eb5b59efa02b8))
+* **tickets:** agent-smith's own rewrite of the ticket text never reads as a person's edit (2026-11-22-e812) ([b29f0ce](https://github.com/holgerleichsenring/agent-smith/commit/b29f0ce32b355dc399912b33a0e90f867f485439))
+* **tickets:** the tracker text follows the approved specs; a person's edit becomes a conversation question (2026-11-22-a720b) ([e1737c5](https://github.com/holgerleichsenring/agent-smith/commit/e1737c5791b1de8e345083ec168035859be26010))
+
 ## [0.198.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.197.0...v0.198.0) (2026-11-22)
 
 
