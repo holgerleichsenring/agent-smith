@@ -178,6 +178,8 @@ export interface TicketWaitsFor {
   title: string;
   /** 2026-10-15-114fd: the required ticket is closed; this one still waits */
   closed?: boolean;
+  /** 2026-11-22-6d85d: its merge is one of those that unblock this ticket — every prerequisite is green */
+  startsOnMerge?: boolean;
 }
 
 export interface TicketCounts {

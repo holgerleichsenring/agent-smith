@@ -28,7 +28,7 @@ public sealed class OperatorStart(
         {
             var key = AgentSmith.Contracts.Specs.TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
             var hold = await requirements.ForStartAsync(project, key, ct); // 2026-10-14-dbceh: the wake starts it; 9a39a
-            if (hold.Unmet.Count > 0) return RequiresUnmetGate.Sentence(hold.Unmet, hold.GreenLifts);
+            if (hold.Unmet.Count > 0) return RequiresUnmetGate.Sentence(hold);
             var (started, ended) = await starts.StartAsync(project, ticketId, mayStartRuns: true); // 2026-11-17-e061b: a 'start' run
             if (started is null) return $"Ticket {ticketId} was not started: {ended}";
             return started.State == FiledStartState.Started

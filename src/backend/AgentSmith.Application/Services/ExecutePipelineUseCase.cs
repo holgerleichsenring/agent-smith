@@ -35,7 +35,8 @@ public sealed class ExecutePipelineUseCase(
     IConfigResolver configResolver,
     IProgressReporter progressReporter,
     IPipelineErrorHandler errorHandler,
-    ILogger<ExecutePipelineUseCase> logger, ModelPlaceRelease? modelPlaces = null) // 2026-11-20-24bd
+    ILogger<ExecutePipelineUseCase> logger, ModelPlaceRelease? modelPlaces = null, // 2026-11-20-24bd
+    Lifecycle.ServerStopEnd? serverStop = null) // 2026-11-22-6d85c
 {
     // p0242: the single-run lease is CLAIMED by the poller at enqueue; this use
     // case owns the rest of its lifecycle — ATTACH the run id on start, RENEW the
@@ -97,6 +98,11 @@ public sealed class ExecutePipelineUseCase(
                 ? await pipelineExecutor.ExecuteAsync(prologue.Commands, projectConfig, pipeline, runCt)
                 : await pipelineExecutor.ResumeAsync(
                     resumePlan.Commands, projectConfig, pipeline, resumePlan.ExecutionCount, runCt);
+        }
+        catch (OperationCanceledException) when (serverStop?.Stopping == true && !cancellationRegistry.TryGetReason(runId, out _)) // 6d85c
+        {
+            cancellationRegistry.Unregister(runId);
+            return await serverStop.EndAsync(runId, PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd());
         }
         catch (OperationCanceledException) when (runCt.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
@@ -204,15 +210,9 @@ public sealed class ExecutePipelineUseCase(
         }
         catch (Exception ex)
         {
-            // p0175-fix: an unhandled exception in the executor (e.g. Docker
-            // sandbox image not built, Redis down, config loader throw) used
-            // to escape this method without publishing RunFinished. The
-            // dashboard then kept the run in its active map as status=running
-            // forever — operator sees a ghost. Now we publish a terminal
-            // RunFinished(failed) with the exception message as summary, then
-            // rethrow so PipelineQueueConsumer's existing log path is preserved.
-            // CancellationToken.None on the publish: even if the operator's
-            // ct is already cancelled, the terminal event still needs to land.
+            // p0175-fix: an unhandled executor exception (sandbox image, Redis, config) escaped without RunFinished and the
+            // dashboard kept a running ghost. Publish RunFinished(failed) under None (the event must land even under a
+            // cancelled token), then rethrow so PipelineQueueConsumer's log path is preserved.
             var failureCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
             await PublishRunFinishedAsync(runId, CommandResult.Fail(ex.Message), pipeline, failureCost, CancellationToken.None);
             cancellationRegistry.Unregister(runId);

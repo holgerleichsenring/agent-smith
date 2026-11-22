@@ -30,7 +30,7 @@ public sealed class SeriesTicketActs(
             return $"Ticket {ticketId} is under way: {underWay}; retry or tell it instead.";
         var key = TicketKey.For(resolved.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
         var hold = await requirements.ForStartAsync(resolved, key, cancellationToken);
-        if (hold.Unmet.Count > 0) return RequiresUnmetGate.Sentence(hold.Unmet, hold.GreenLifts);
+        if (hold.Unmet.Count > 0) return RequiresUnmetGate.Sentence(hold);
         var (started, ended) = await starts.StartAsync(resolved, ticketId, mayStartRuns: true);
         return started is null ? $"Ticket {ticketId} was not started: {ended}"
             : $"Ticket {ticketId}: {started.State} — {started.Reason}";

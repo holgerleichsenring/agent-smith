@@ -9,6 +9,10 @@ public sealed class ModelRunWait : EntityBase
 {
     public long Id { get; set; }
     public string RunId { get; set; } = string.Empty;
+
+    /// <summary>2026-11-20-a52f: the deployment key the run waits for; null on a wait recorded before the key was.</summary>
+    public string? Key { get; set; }
+
     public DateTimeOffset? WaitingSince { get; set; }
     public long WaitedMs { get; set; }
 
@@ -22,5 +26,14 @@ public sealed class ModelRunWait : EntityBase
         if (WaitingSince is null) return;
         WaitedMs = (long)Waited(now).TotalMilliseconds;
         WaitingSince = null;
+    }
+
+    /// <summary>2026-11-20-a52f: starts (or goes on with) a wait on <paramref name="key"/>; a wait left open on another
+    /// key is ended first, so it does not carry its age into this key's queue.</summary>
+    public void StartOn(string key, DateTimeOffset now)
+    {
+        if (Key != key) Close(now);
+        WaitingSince ??= now;
+        Key = key;
     }
 }

@@ -39,4 +39,7 @@ public sealed record PrReviewRecordView(
 
     /// <summary>2026-11-17-3435b: '&lt;head&gt;:&lt;state&gt;' the CI loop last acted on; null before it acted.</summary>
     public string? CiActed { get; init; }
+
+    /// <summary>2026-11-22-6d85b: the branch a merged pull request merged into; null when it was not read.</summary>
+    public string? TargetBranch { get; init; }
 }

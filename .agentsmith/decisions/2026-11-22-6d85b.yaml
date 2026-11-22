@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-6d85b
+
+decisions:
+  - category: Architecture
+    chose: "Hold a landing only while a merged pull request targets the ticket branch of a prerequisite the ticket REQUIRES and that prerequisite has not landed at or after the merge; every other target lands as before"
+    over: "Count a landing only on the repository's default branch (the operator's first sketch; TargetIsDefault from the host's default branch)"
+    reason: "Spec review: epic slices merge into their parent's rung (a ticket branch, no requirement edge) and would never land; a failed default-branch lookup falls back to 'main' and would refuse real landings on a 'master' repository. The stacked case is the defect, and the requirement edge names it exactly. A merge after the prerequisite landed is stranded on a dead branch and never lands."
+  - category: Architecture
+    chose: "Read the target once through the existing ISourceProvider.ReadPullRequestBaseAsync, the first time a refresh sees the record merged"
+    over: "Extending the three providers' state reads with a target branch"
+    reason: "No second path: every provider already reads a pull request's base for retargeting; one call per merged pull request is the whole cost."
+  - category: Implementation
+    chose: "One TargetBranch column on PrReviewRecord, no length bound"
+    over: "A bounded indexed column; a TargetIsDefault flag"
+    reason: "It is never queried by; a branch name longer than an index bound must not fail the refresh's save."
+  - category: Scope
+    chose: "TicketCloseAct keeps TicketLanding.OfStates; a held ticket is visible in the log only"
+    over: "Changing every landing reader in this spec"
+    reason: "The close act judges a person's close, not a landing; the periodic re-read of unlanded merged records asks the recorder again each pass, so a ticket lands as soon as its prerequisite does."
+  - category: Implementation
+    chose: "For a ticket that requires others, a merged pull request whose target is unknown holds the landing; the cut-off is the prerequisite's own merge in the same repository, else its landing time"
+    over: "Unknown target lands as before; the prerequisite's ticket landing time as the cut-off"
+    reason: "Code review: the providers' base reads answer null on a refused read, so 'unknown lands' would let one transient 5xx land a stacked ticket for good (landings are insert-only); the re-read of unlanded merged records reads the target again. A multi-repository prerequisite lands at its LAST merge, which would let a merge into its already-merged branch in another repository count."
+  - category: Risk
+    chose: "A merge stranded on a branch that already merged stays unlanded, re-read each pass and logged"
+    over: "Telling a person in the ticket conversation"
+    reason: "It needs a person's merge after the prerequisite's own; the re-read is oldest first, so it delays other records rather than starving them. Surfacing it on the ticket page is a follow-up the operator can ask for."

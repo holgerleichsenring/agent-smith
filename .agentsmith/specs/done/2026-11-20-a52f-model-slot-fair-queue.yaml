@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-20-a52f
+goal: "Runs waiting for a model place take it in the order they started waiting, on every replica, so no waiter starves while another replica's waiters keep winning."
+
+applies_to: "default (Infrastructure model gate, Persistence model places)"
+
+requires: [2026-11-20-24bd]
+
+invariant: >-
+  When a place on a deployment key frees, the live run that has waited longest for that key takes it next, whichever
+  replica it waits on; a recorded waiter is never passed over by a run that started waiting after it. Order is by
+  WaitingSince as each replica's clock stamped it (NTP skew accepted); a refused run counts from its recorded wait.
+
+facts:
+  - claim: "A release wakes only the waiters of the releasing process at once; every other waiter finds the place on its next poll."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbModelRunSlots.cs:50-63"
+  - claim: "A waiter polls the store every 5 s, or sooner when a release in its own process wakes it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/ModelRunGate.cs:79-89"
+  - claim: "A place is taken by whichever taker's INSERT lands first; nothing orders the takers."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbModelRunSlots.cs:27-46"
+  - claim: "The time a run waits is already recorded per run (ModelRunWaits.WaitingSince) but not the key it waits for, and nothing reads the order."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ModelRunWait.cs:8-13"
+  - claim: "The gate records the wait only after the first refused acquire, so a newcomer's first acquire sees every earlier waiter's row."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/ModelRunGate.cs:82-88"
+  - claim: "A running run's row is beaten while it waits (the heartbeat pump runs for the whole execution); the liveness bound is 3 minutes."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:86-87, src/backend/AgentSmith.Application/Services/Lifecycle/ActiveRunReaper.cs:44"
+  - claim: "With several replicas at limit 1, a waiter on the replica that runs most work can win every release while a waiter elsewhere keeps polling."
+    evidence: "observed: 2026-11-20, review of 2026-11-20-24bd (finding: multi-replica fairness)"
+
+scope:
+  in: >-
+    ModelRunWaits.Key; IModelRunSlots.WaitStartedAsync with the key (a default overload keeps the in-process store as it
+    is); DbModelRunSlots.AcquireAsync admits a run only while fewer live waiters started waiting before it on the key than
+    places are free, read in memory (SQLite cannot compare a DateTimeOffset in SQL); a waiter counts while its run is
+    unfinished and beat within ActiveRunReaper.LeaseFreshFor, or has no row yet and its wait is younger than
+    ModelRunSlotSweep.RowlessGrace; a dead waiter therefore blocks a freed place at most until that bound; an index on
+    Key; migrations for SQLite, SQL Server, PostgreSQL.
+  out: "Priorities between runs, per-project quotas, limits on non-primary roles, the CPU/memory capacity queue, the in-process store (one process, no replicas)."
+
+steps:
+  - id: key-on-wait
+    action: "Record the key a run waits for beside its WaitingSince (column, configuration, three migrations)."
+  - id: oldest-first
+    action: "AcquireAsync reads the open waits on the key with their runs in the same store call and admits the run only when the live waits older than its own (all of them for a run without one) are fewer than the free places."
+  - id: wake
+    action: "No new channel: the existing 5 s poll bounds how long a freed place stays idle while its oldest waiter sits on another replica."
+
+tests:
+  - "Three runs waiting on one key from two replicas take the place in the order they started waiting."
+  - "A run that starts waiting after another never takes a place before it, even when its own process released the place."
+  - "A waiter whose run ended is skipped, so the order never stalls on a dead waiter."
+  - "A waiter whose running row stopped beating past the bound is skipped; a fresh waiter without a row still counts."
+  - "A lowered limit still admits nobody while the places are full."
+  - "With two free places the two oldest waiters are admitted."
+
+done:
+  - "The invariant holds under the tests above; build, full suite and dashboard tests green."

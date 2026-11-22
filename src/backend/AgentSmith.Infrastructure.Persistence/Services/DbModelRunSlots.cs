@@ -12,10 +12,14 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// taken one, so the bound holds across replicas and providers without a read-sum-write. A release tells this
 /// process's waiters at once; a waiter on another replica finds the place on its next poll. The waits are kept
 /// beside the places (<see cref="ModelRunWait"/>), read by both wall-time clocks.
+/// <para>2026-11-20-a52f: a free place is admitted oldest wait first (<see cref="ModelRunWaitQueue"/>), so the store, not
+/// whichever replica polls first, decides who is next.</para>
 /// </summary>
 public sealed class DbModelRunSlots(
     IServiceScopeFactory scopeFactory, ModelRunSlotSignal signal, TimeProvider clock) : IModelRunSlots
 {
+    private readonly ModelRunWaitQueue _queue = new(clock);
+
     public async Task<bool> AcquireAsync(string key, int limit, string runId, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(key);
@@ -27,6 +31,8 @@ public sealed class DbModelRunSlots(
         var taken = await unitOfWork.Set<ModelRunSlot>().AsNoTracking()
             .Where(s => s.Key == key).Select(s => s.Slot).ToListAsync(cancellationToken);
         if (taken.Count >= limit) return false; // a lowered limit admits nobody until enough have left
+        // 2026-11-20-a52f: a free place goes to the runs that waited longest on this key, whichever replica they wait on.
+        if (await _queue.AheadOfAsync(unitOfWork, key, runId, cancellationToken) >= limit - taken.Count) return false;
         var violations = scope.ServiceProvider.GetRequiredService<IUniqueViolationTranslator>();
         var now = clock.GetUtcNow();
         var wait = await OpenWaitAsync(unitOfWork, runId, cancellationToken);
@@ -66,6 +72,10 @@ public sealed class DbModelRunSlots(
     public Task WaitStartedAsync(string runId, CancellationToken cancellationToken) =>
         UpdateWaitAsync(runId, (wait, now) => wait.WaitingSince ??= now, cancellationToken);
 
+    /// <summary>2026-11-20-a52f: the wait, with the key whose queue it stands in.</summary>
+    public Task WaitStartedAsync(string runId, string key, CancellationToken cancellationToken) =>
+        UpdateWaitAsync(runId, (wait, now) => wait.StartOn(key, now), cancellationToken);
+
     public Task WaitEndedAsync(string runId, CancellationToken cancellationToken) =>
         UpdateWaitAsync(runId, (wait, now) => wait.Close(now), cancellationToken);
 
@@ -93,7 +103,6 @@ public sealed class DbModelRunSlots(
         await unitOfWork.SaveChangesAsync(ct);
         return true;
     }
-
 
     private async Task UpdateWaitAsync(string runId, Action<ModelRunWait, DateTimeOffset> change, CancellationToken cancellationToken)
     {

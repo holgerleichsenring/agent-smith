@@ -19,6 +19,7 @@ internal static class RunRetryExtensions
         services.TryAddTransient<TicketRunsQuery>();
         services.TryAddTransient<RunRetryGate>();
         services.TryAddScoped<RunRetry>();
+        services.TryAddScoped<Contracts.IRunRetry>(sp => sp.GetRequiredService<RunRetry>()); // 2026-11-22-6d85c
         return services;
     }
 }

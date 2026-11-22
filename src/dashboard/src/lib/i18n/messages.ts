@@ -694,6 +694,13 @@ export const messages = {
   "dialog.prStatus.awaiting_ci": { en: "waiting for CI", de: "wartet auf CI" },
   "dialog.prStatus.no_changes": { en: "no changes", de: "keine Änderungen" },
   "dialog.prStatus.failed": { en: "could not be opened", de: "konnte nicht geöffnet werden" },
+
+  // --- tickets: the list (2026-11-22-6d85d) ---
+  "tickets.row.startsOnceMerged": {
+    en: { one: "starts once {keys} is merged", other: "starts once {keys} are merged" },
+    de: { one: "startet, sobald {keys} gemergt ist", other: "startet, sobald {keys} gemergt sind" },
+  },
+  "tickets.row.and": { en: "and", de: "und" },
   // --- tickets: a list row's starter, attempt marks and strip (2026-11-22-50d7a) ---
   "tickets.start.ticket_comment": { en: "started by a ticket comment", de: "gestartet durch einen Ticket-Kommentar" },
   "tickets.start.pull_request": { en: "started by a pull-request review", de: "gestartet durch ein Pull-Request-Review" },

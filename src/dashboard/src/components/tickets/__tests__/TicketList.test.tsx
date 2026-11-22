@@ -84,6 +84,16 @@ describe("TicketList", () => {
     expect(screen.getByTestId("ticket-pills-all-count")).toHaveTextContent("2");
   });
 
+  it("TicketRow_OnlyMergesRemain_NamesTheMergesThatUnblockIt", async () => {
+    // 2026-11-22-6d85d: two green prerequisites, neither carrying the other — one merge unblocks the ticket.
+    const row = neverRun("59", "blocked", [["58", "#58"], ["41", "#41"], ["40", "#40"]]);
+    row.waitsFor = row.waitsFor!.map((w) => ({ ...w, startsOnMerge: w.ticketId !== "58" }));
+    serve(list([row], { blocked: 1 }));
+    renderTickets();
+
+    expect(await screen.findByTestId("ticket-norun")).toHaveTextContent("starts once #41 and #40 are merged");
+  });
+
   it("TicketRow_NeverRunRow_ShowsWaitsForAndNoStripMarksAttemptsOrCost", async () => {
     serve(list([neverRun("59", "blocked", [["58", "#58"]]), neverRun("61", "filed")], { blocked: 1, filed: 1 }));
     renderTickets();

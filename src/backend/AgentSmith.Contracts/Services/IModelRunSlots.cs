@@ -10,7 +10,8 @@ public interface IModelRunSlots
 {
     /// <summary>True when <paramref name="runId"/> already holds a place (on any key), or took a free one of the
     /// <paramref name="limit"/> places on <paramref name="key"/> now; false while other runs hold
-    /// <paramref name="limit"/> or more places there (a lowered limit admits nobody until enough have left). A true
+    /// <paramref name="limit"/> or more places there (a lowered limit admits nobody until enough have left), or, in a
+    /// store that keeps the queue (2026-11-20-a52f), while as many live runs as places are free waited longer. A true
     /// answer closes the run's open wait in the same store operation, so a lost end-of-wait never keeps one open.</summary>
     Task<bool> AcquireAsync(string key, int limit, string runId, CancellationToken cancellationToken);
 
@@ -20,6 +21,11 @@ public interface IModelRunSlots
 
     /// <summary>Records that <paramref name="runId"/> started waiting for a place.</summary>
     Task WaitStartedAsync(string runId, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-20-a52f: records that <paramref name="runId"/> started waiting for a place on
+    /// <paramref name="key"/> — the queue the store admits oldest first. A store without a queue records the wait only.</summary>
+    Task WaitStartedAsync(string runId, string key, CancellationToken cancellationToken) =>
+        WaitStartedAsync(runId, cancellationToken);
 
     /// <summary>Adds the wait <paramref name="runId"/> just ended to the time it waited.</summary>
     Task WaitEndedAsync(string runId, CancellationToken cancellationToken);

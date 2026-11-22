@@ -761,6 +761,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Key")
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
                     b.Property<string>("RunId")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -776,6 +780,8 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Key");
 
                     b.HasIndex("RunId")
                         .IsUnique();
@@ -1035,6 +1041,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
                     b.Property<long?>("StateAtTicks")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("TargetBranch")
+                        .HasColumnType("text");
 
                     b.Property<string>("TicketId")
                         .IsRequired()

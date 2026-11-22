@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-6d85d
+goal: "A held ticket says which merges unblock it — 'starts once #A and #B are merged' — on its series row, ticket list row and claim refusal, when only merges remain."
+
+applies_to: "default (GreenReads, UnmetTicketRequirements, RequiresUnmetGate, series ticket facts and state)"
+
+requires: [2026-11-17-9a39a, 2026-11-22-9719d]
+
+invariant: "A held ticket whose unlanded prerequisites cannot advance by anything but a merge names exactly the merges after which it may start."
+
+facts:
+  - claim: "Under on_green_push a dependent starts on the stack tip only when every unlanded prerequisite is green and one's chain reaches the others; otherwise it waits."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/GreenReads.cs:47-82, src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:63-79"
+  - claim: "The claim refusal names every unmet prerequisite and says it waits for a green push or a merge."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/RequiresUnmetGate.cs:40-59"
+  - claim: "The series row of a ticket without an attempt says only 'waits on' and its unlanded prerequisites."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesTicketState.cs:17-25"
+  - claim: "Series state words are server sentences and are not translated in the dashboard."
+    evidence: ".agentsmith/decisions/2026-11-22-5485a.yaml:30-32"
+  - claim: "One held ticket needed two green unmerged prerequisites, another three; the table said only 'waits on'."
+    evidence: "observed: 2026-11-22, read-only audit of live data"
+
+scope:
+  in: >-
+    Under requires_start: on_green_push only: GreenReads.MergesToStartAsync — with every unlanded prerequisite green and no
+    tip, the fewest of them whose merge leaves one whose chain reaches the rest; RequirementHold.MergesToStart filled by
+    UnmetTicketRequirements, with each named prerequisite's unlanded bases first (a merge onto a base's branch lands only
+    with it, 2026-11-22-6d85b); RequiresUnmetGate.Sentence(hold), used by every start path that holds one; the series
+    row via SeriesTicketFact.StartsOnceMerged read once per series with ForStartManyAsync (a member by its key, any other
+    prerequisite by its id); the ticket list's blocked row via TicketWaitsForView.StartsOnMerge and the dashboard
+    dictionary (en, de).
+  out: "Merging anything; on_merge projects (their sentence already says every prerequisite must be merged); the base a stacked start cuts from after the merges."
+
+steps:
+  - id: reads
+    action: "GreenReads.MergesToStartAsync over the existing chain walk (UncoveredAsync), null while one is not green."
+  - id: hold
+    action: "UnmetTicketRequirements fills MergesToStart for a held, not yet started dependent."
+  - id: words
+    action: "The gate sentence, SeriesTicketState and the ticket list row (tickets.row.startsOnceMerged) say 'starts once A and B are merged'."
+
+tests:
+  - "Two independent green prerequisites: one merge named; three: two; a chain that carries one: only the other; two siblings stacked on an unlanded base: the base first; one not green: none and the old sentence."
+  - "The series row names a member by key and an outside prerequisite by id; the ticket list row names the merges."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

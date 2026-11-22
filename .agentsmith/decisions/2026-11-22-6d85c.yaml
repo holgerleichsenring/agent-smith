@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-6d85c
+
+decisions:
+  - category: Architecture
+    chose: "End a run the server's stop broke off as cancelled with OwedWorkCancel.Interrupted — the cancel the liveness reaper already writes for a killed process"
+    over: "A new end kind 'server-stopped'; leaving the failed end and teaching every reader"
+    reason: "No second path: InfrastructureEnd (Retry unchanged), LeftInPlaceEnd (the claim door does not hold it) and the attempt readers already treat that reason as a lost process, so a graceful stop and a hard kill now end the same way."
+  - category: Implementation
+    chose: "The discriminator is IHostApplicationLifetime.ApplicationStopping, as the first catch arm, in a small ServerStopEnd class"
+    over: "Any cancelled caller token; growing ExecutePipelineUseCase"
+    reason: "Spec review: a request-scoped token would otherwise turn a person's disconnect into owed work. ExecutePipelineUseCase is at its file-length baseline (617), so the end lives in its own class and a comment was condensed to keep the file at its length."
+  - category: Scope
+    chose: "A step that turned the cancellation into a failed step result stays failed"
+    over: "Reclassifying failed results while the host stops"
+    reason: "Its step-failure path already moved the ticket and commented before the use case sees the end; undoing that is a different change. The step runner rethrows a cancellation, so the common path is the thrown one."
+  - category: Architecture
+    chose: "Restart through the existing Retry (RunRetry behind a new IRunRetry seam) from a pass in the precondition subsystem, requester AttemptChannels.RestartActor, origin RetryOrigin.Restart, attempt channel 'retry'"
+    over: "A new 'restart' channel; a nudge origin of its own; a separate hosted service"
+    reason: "No second path: the precondition subsystem is the existing automatic-restart loop (2026-11-16-f3fbc) with its leader lease and interval, and Retry is the unchanged-attempt path a person takes, with its gate, tracker check and start refusal. The poller can also re-claim an owed end in a trigger status; a stored Retry is satisfied by any attempt that starts after it, and RunRetry refuses while a lease or a queued run exists, so the two do not double-start."
+  - category: Implementation
+    chose: "Once: a head whose own cause is the restart requester is not restarted again, and its series row turns red; only interruptions since an hour before this process started are restarted"
+    over: "Restarting every owed end ever; restarting forever"
+    reason: "A restart that is itself interrupted points at something a person should look at; Retry unchanged stays offered. The horizon keeps a deploy from retrying every interruption from before the restart existed. The hour is not a limit: it covers the gap between a stopping server's last end and the next one's first pass."
+  - category: Implementation
+    chose: "Only a cancellation is the server's stop, and only one no person or watchdog recorded a reason for; the series row says 'restarting' only while the restart is to come (same window, not itself a restart), red otherwise"
+    over: "Any exception while stopping; 'restarting' for every owed end"
+    reason: "Code review: a non-cancellation throw already went through the executor's fatal path, which moved the ticket to failed, so the run must say the same; an operator cancel that meets a stop stays the operator's. A row reading Running for an attempt the pass will never retry (before the window, unconfigured, a restart's own interruption) would keep the series master waiting."
+  - category: Risk
+    chose: "The one-hour window stays a documented constant (InterruptedRestartWindow.Horizon), not config"
+    over: "A config key with a dashboard field; no window"
+    reason: "It refuses nothing a person can do — Retry unchanged stays offered and the row turns red outside it — it only keeps a deploy from restarting interruptions from before the feature. A server down longer than an hour does not restart its own interrupted runs; whether that needs a setting is asked of the operator. Known edges: when the end events cannot be published during the stop, the reaper ends the run and CancelledTicketFinalizer moves the ticket as before; a restart interrupted before its attempt row is written is restarted again on the next stop."

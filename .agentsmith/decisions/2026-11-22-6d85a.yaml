@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-6d85a
+
+decisions:
+  - category: Architecture
+    chose: "Extend the periodic PR re-read (PrReviewRecordRepository.OpenUncheckedAsync) to name every project's open record whose CI was last read pending"
+    over: "A Refresh nudge from the change sweep's PrSweepRecordNudge; a new CI sweep or interval setting"
+    reason: "No second path: the re-read already owns 'records nothing else will read again' (webhook open, unread, unlanded merged) with its staleness bound, cap and oldest-first order, and MergePolicyConfig.CiPendingSeconds already promised that a pending head past the CI loop's window is seen by it. The PR sweep runs only in polling mode and would re-nudge every pass; the re-read reads each pending record at most once per tickets.pr_reread_stale_seconds."
+  - category: Scope
+    chose: "Only CI pending; open records never CI-read (CiState null) stay as they are"
+    over: "Also re-reading open polling records with no CI read"
+    reason: "A null CI on an open record means the provider has no CI reader or the record was written before 3435a; re-reading it every pass would read nothing new."
+  - category: Risk
+    chose: "The fix covers a record no refresh reaches; a host that keeps refusing the CI read keeps the stored pending with a warning per read"
+    over: "Clearing a pending CI after repeated read failures"
+    reason: "Spec review: the 71-hour record may also be a refused CI read (PrRecordCiRead logs 'could not be read; the stored CI stands'); the logs of the live instance decide which, and a refused read is a separate defect if it shows up."

@@ -33,6 +33,8 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         var retry = await uow.Set<RunRetryRequest>().AsNoTracking().Where(q => q.RunId == run.Id)
             .Select(q => new { q.RequestedBy, q.RequestedAt }).FirstOrDefaultAsync(cancellationToken);
         var causes = await CausesAsync(uow, project, ticketId, run.Id, cancellationToken); // 2026-11-17-3435c
+        var attempt = await uow.Set<RunAttempt>().AsNoTracking().Where(a => a.RunId == run.Id)
+            .Select(a => new { a.ApprovalAt, a.CauseActor }).FirstOrDefaultAsync(cancellationToken);
         return new PreviousAttempt(run.Id, run.Status, run.StartedAt, run.FinishedAt is not null)
         {
             RetryRequestedBy = retry?.RequestedBy,
@@ -53,9 +55,9 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
             // 2026-10-13-8762g: the RunSpec read only when the end is one a boundary can be.
             StoppedAtBoundary = run.FinishedAt is not null && SeriesBoundaryEnd.Ends(run.Status, run.CancelReason)
                 && await uow.Set<RunSpec>().AnyAsync(s => s.RunId == run.Id && s.Status == RunSeriesCutProjection.NotStarted, cancellationToken),
-            // 2026-10-13-9a59m: the approval this attempt published as worked (its RunAttempt row).
-            WorkedApprovalAt = await uow.Set<RunAttempt>().AsNoTracking().Where(a => a.RunId == run.Id)
-                .Select(a => a.ApprovalAt).FirstOrDefaultAsync(cancellationToken),
+            // 2026-10-13-9a59m: the approval this attempt published as worked; 2026-11-22-6d85c: who its cause names.
+            WorkedApprovalAt = attempt?.ApprovalAt,
+            CauseActor = attempt?.CauseActor,
             // 2026-10-13-8762p: the overruled defaults of the ticket's code runs, the act an overrule is.
             Overrules = [.. (await decided.ReadAsync(project, ticketId, null, cancellationToken))
                 .Where(d => d.Verdict == DefaultDecisionVerdicts.Overruled)],

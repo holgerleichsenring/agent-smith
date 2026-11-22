@@ -57,6 +57,9 @@ public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset
     /// <summary>2026-11-17-3435c: why this attempt began (its RunAttempt cause channel); null when it recorded none.</summary>
     public string? CauseChannel { get; init; }
 
+    /// <summary>2026-11-22-6d85c: who the attempt's cause names (a retry's requester); null when it recorded none.</summary>
+    public string? CauseActor { get; init; }
+
     /// <summary>2026-11-17-3435c: when the attempt finished; null while it runs or waits.</summary>
     public DateTimeOffset? FinishedAt { get; init; }
 

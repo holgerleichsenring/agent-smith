@@ -77,6 +77,46 @@ public sealed class ModelRunGateTests
     }
 
     [Fact]
+    public async Task ExemptTurn_PassesWhileThePlaceIsHeld_ARunScopeOpenedInsideItWaitsForItsOwn()
+    {
+        // 2026-11-22-6d85e: a conversation turn takes no place; a run it starts in-process opens its own run scope (as
+        // ExecutePipelineUseCase does) and is gated under that id — the ambient id is the run's, never the turn's.
+        var fixture = new ModelGateFixture();
+        var agent = ModelGateFixture.Agent(limit: 1);
+        using (fixture.RunContext.BeginScope("run-a")) await fixture.CallAsync(agent);
+        fixture.Signal.Exempt("turn");
+
+        Task started;
+        using (fixture.RunContext.BeginScope("turn"))
+        {
+            await fixture.CallAsync(agent).OrHang("the turn passes although run-a holds the one place");
+            using (fixture.RunContext.BeginScope("run-started"))
+                started = fixture.CallAsync(agent);
+            await fixture.CallAsync(agent).OrHang("the turn's next call still passes after it started a run");
+        }
+        await TestWaits.UntilAsync(() => fixture.ReportedWaiting, "the started run waits for its own place behind run-a");
+        started.IsCompleted.Should().BeFalse();
+        await fixture.Slots.ReleaseAsync("run-a", CancellationToken.None);
+        await started.OrHang("the freed place admits the started run");
+        fixture.Signal.IsExempt("run-started").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExemptTurn_WritesNoWait_AndStandsInNoQueue()
+    {
+        // 2026-11-22-6d85e: the wait table, its sweep and the a52f queue never see an exempt run.
+        var fixture = new ModelGateFixture();
+        var agent = ModelGateFixture.Agent(limit: 1);
+        using (fixture.RunContext.BeginScope("run-a")) await fixture.CallAsync(agent);
+        fixture.Signal.Exempt("turn");
+
+        using (fixture.RunContext.BeginScope("turn")) await fixture.CallAsync(agent).OrHang("the turn passes");
+
+        (await fixture.Slots.WaitedAsync(["turn"], CancellationToken.None)).Should().BeEmpty("an exempt run records no wait");
+        fixture.ReportedWaiting.Should().BeFalse("no waiting line is shown for it");
+    }
+
+    [Fact]
     public async Task TwoAgentsOnDifferentDeployments_DoNotBlockEachOther()
     {
         var fixture = new ModelGateFixture();

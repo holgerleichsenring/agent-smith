@@ -77,6 +77,80 @@ public sealed class UnmetTicketRequirementsForStartTests
         hold.StackedOn.Should().BeNull();
     }
 
+    [Fact]
+    public async Task ForStartAsync_TwoIndependentGreenPrerequisites_NamesOneMergeThatUnblocks()
+    {
+        // 2026-11-22-6d85d: neither carries the other, so no tip — merging one leaves the other as the base.
+        _facts.Edges.Add(Edge("42", "40"));
+        Attempt("41", RunStatuses.Success);
+        Attempt("40", RunStatuses.Success);
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.Unmet.Should().HaveCount(2);
+        hold.MergesToStart.Should().ContainSingle();
+        RequiresUnmetGate.Sentence(hold).Should().StartWith($"This ticket starts once #{hold.MergesToStart[0].RequiredTicketId} is merged");
+    }
+
+    [Fact]
+    public async Task ForStartAsync_ThreeIndependentGreenPrerequisites_NamesTwoMerges()
+    {
+        _facts.Edges.Add(Edge("42", "40"));
+        _facts.Edges.Add(Edge("42", "39"));
+        foreach (var id in new[] { "41", "40", "39" }) Attempt(id, RunStatuses.Success);
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.MergesToStart.Should().HaveCount(2);
+        RequiresUnmetGate.Sentence(hold).Should().MatchRegex("^This ticket starts once #\\d+ and #\\d+ are merged");
+    }
+
+    [Fact]
+    public async Task ForStartAsync_APrerequisiteChainReachesTheOther_NamesOnlyTheMergeItDoesNotCarry()
+    {
+        // 40 requires 39; 41 is independent: stacking on 40 carries 39, so only 41's merge remains.
+        _facts.Edges.Add(Edge("42", "40"));
+        _facts.Edges.Add(Edge("42", "39"));
+        _facts.Edges.Add(Edge("40", "39"));
+        foreach (var id in new[] { "41", "40", "39" }) Attempt(id, RunStatuses.Success);
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.MergesToStart.Select(e => e.RequiredTicketId).Should().Equal("41");
+    }
+
+    [Fact]
+    public async Task ForStartAsync_OneOfTwoPrerequisitesNotGreen_NamesNoMerge()
+    {
+        _facts.Edges.Add(Edge("42", "40"));
+        Attempt("41", RunStatuses.Success);
+        Attempt("40", RunStatuses.Failed);
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.MergesToStart.Should().BeEmpty();
+        RequiresUnmetGate.Sentence(hold).Should().Be(RequiresUnmetGate.Sentence(hold.Unmet, greenLifts: true));
+    }
+
+    [Fact]
+    public async Task ForStartAsync_TwoSiblingsStackedOnAnUnlandedBase_NamesTheBaseFirst()
+    {
+        // A merge onto 39's branch lands only with 39 (2026-11-22-6d85b), so 39's merge is named before 40's.
+        _facts.Edges.Add(Edge("42", "40"));
+        _facts.Edges.Add(Edge("41", "39"));
+        _facts.Edges.Add(Edge("40", "39"));
+        foreach (var id in new[] { "41", "40", "39" }) Attempt(id, RunStatuses.Success);
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.MergesToStart.Select(e => e.RequiredTicketId).Should().Equal("39", "40");
+        RequiresUnmetGate.Sentence(hold).Should().StartWith("This ticket starts once #39 and #40 are merged, in that order");
+    }
+
+    [Fact]
+    public void MergesNamed_JoinsWithCommasAndAnd() =>
+        RequiresUnmetGate.MergesNamed(["#1", "#2", "#3"]).Should().Be("#1, #2 and #3");
+
     private UnmetTicketRequirements Read() =>
         new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts));
 

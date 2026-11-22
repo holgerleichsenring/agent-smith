@@ -46,5 +46,16 @@ public sealed record SeriesTicketFact(SeriesTicket Ticket)
     /// <inheritdoc cref="PendingQuestion"/>
     public string? DialogueJobId { get; init; }
 
+    /// <summary>2026-11-22-6d85c: the newest attempt ended because the server stopped (or its process was lost), not on its
+    /// work; <see cref="Restarting"/> while agent-smith's one automatic restart of it is still to come.</summary>
+    public bool Interrupted { get; init; }
+
+    /// <inheritdoc cref="Interrupted"/>
+    public bool Restarting { get; init; }
+
+    /// <summary>2026-11-22-6d85d: the ticket ids whose merges unblock this held ticket — every prerequisite is green and
+    /// none carries the rest; empty when anything else holds it.</summary>
+    public IReadOnlyList<string> StartsOnceMerged { get; init; } = [];
+
     public bool Landed => LandedAt is not null;
 }

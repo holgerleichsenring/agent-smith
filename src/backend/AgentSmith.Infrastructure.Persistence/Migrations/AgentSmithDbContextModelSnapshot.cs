@@ -732,6 +732,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Key")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RunId")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -747,6 +751,8 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Key");
 
                     b.HasIndex("RunId")
                         .IsUnique();
@@ -1002,6 +1008,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.Property<long?>("StateAtTicks")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("TargetBranch")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("TicketId")
                         .IsRequired()

@@ -56,6 +56,21 @@ public sealed class GreenReads
         return null;
     }
 
+    /// <summary>2026-11-22-6d85d: with every unlanded prerequisite green and no tip, the fewest of them whose merge leaves
+    /// one whose chain reaches the rest — the merges that unblock the dependent; null while one is not green.</summary>
+    public async Task<IReadOnlyList<TicketRequirementEdge>?> MergesToStartAsync(IReadOnlyList<TicketRequirementEdge> unmet, CancellationToken ct)
+    {
+        var distinct = unmet.DistinctBy(e => e.RequiredTicketKey, StringComparer.Ordinal).ToList();
+        if (distinct.Count == 0 || !await AllGreenAsync(distinct, ct)) return null;
+        IReadOnlyList<TicketRequirementEdge>? fewest = null;
+        foreach (var candidate in distinct)
+        {
+            var left = await UncoveredAsync(candidate, distinct, ct);
+            if (fewest is null || left.Count < fewest.Count) fewest = left;
+        }
+        return fewest;
+    }
+
     private async Task<bool> AllGreenAsync(IReadOnlyList<TicketRequirementEdge> unmet, CancellationToken ct)
     {
         await PrefetchAsync(unmet, ct);
@@ -63,8 +78,12 @@ public sealed class GreenReads
             && unmet.All(e => GreenPrerequisites.IsGreen(_ends[e.RequiredTicketId]));
     }
 
-    // Walks the candidate's requirement chain; the seen set bounds it on any graph.
     private async Task<bool> ReachesAllAsync(
+        TicketRequirementEdge candidate, IReadOnlyList<TicketRequirementEdge> unmet, CancellationToken ct) =>
+        (await UncoveredAsync(candidate, unmet, ct)).Count == 0;
+
+    // The unmet prerequisites the candidate's requirement chain does not reach; the seen set bounds the walk on any graph.
+    private async Task<IReadOnlyList<TicketRequirementEdge>> UncoveredAsync(
         TicketRequirementEdge candidate, IReadOnlyList<TicketRequirementEdge> unmet, CancellationToken ct)
     {
         var others = unmet.Select(e => e.RequiredTicketKey).Where(k => k != candidate.RequiredTicketKey)
@@ -78,7 +97,7 @@ public sealed class GreenReads
                 others.Remove(edge.RequiredTicketKey);
                 frontier.Enqueue(edge.RequiredTicketKey);
             }
-        return others.Count == 0;
+        return [.. unmet.Where(e => others.Contains(e.RequiredTicketKey))];
     }
 
     private async Task<IReadOnlyList<TicketRequirementEdge>> EdgesAsync(string tracker, string key, CancellationToken ct) =>

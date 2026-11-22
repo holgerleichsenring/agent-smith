@@ -93,6 +93,9 @@ internal sealed class ModelGateFixture
 
         public Task WaitStartedAsync(string runId, CancellationToken cancellationToken) => inner.WaitStartedAsync(runId, cancellationToken);
 
+        public Task WaitStartedAsync(string runId, string key, CancellationToken cancellationToken) =>
+            inner.WaitStartedAsync(runId, key, cancellationToken);
+
         public Task WaitEndedAsync(string runId, CancellationToken cancellationToken) => inner.WaitEndedAsync(runId, cancellationToken);
 
         public Task<IReadOnlyDictionary<string, TimeSpan>> WaitedAsync(

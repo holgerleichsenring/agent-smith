@@ -20,7 +20,10 @@ public sealed class SeriesTicketMessage(
         if (await binder.BindingForAsync(resolved, ticketId, ct) is not { } binding)
             return $"Ticket {ticketId} could not be read from its tracker; nothing was sent.";
         var dialogId = (await binder.ExistingAsync(binding, ct))?.OpenDialogId ?? Guid.NewGuid().ToString("N");
-        _ = Task.Run(() => RouteAsync(dialogId, text, principal, mayStartRuns, project, ticketId), CancellationToken.None);
+        // 2026-11-22-6d85e: the route does not inherit the beat's ambient run id — the turn it starts opens its own, and a
+        // call keyed to the beat after the beat released would take a model place under a finished run.
+        using (ExecutionContext.SuppressFlow())
+            _ = Task.Run(() => RouteAsync(dialogId, text, principal, mayStartRuns, project, ticketId), CancellationToken.None);
         return $"Sent to ticket {ticketId}'s conversation: its running attempt reads it with its next tool result, "
             + "or its steward answers there.";
     }

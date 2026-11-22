@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
@@ -5,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace AgentSmith.Infrastructure.Persistence.Configurations;
 
-/// <summary>2026-11-20-24bd: one wait record per run.</summary>
+/// <summary>2026-11-20-24bd: one wait record per run; 2026-11-20-a52f: with the key it waits for.</summary>
 public sealed class ModelRunWaitConfiguration : IEntityTypeConfiguration<ModelRunWait>
 {
     public void Configure(EntityTypeBuilder<ModelRunWait> builder)
@@ -14,5 +15,7 @@ public sealed class ModelRunWaitConfiguration : IEntityTypeConfiguration<ModelRu
         builder.HasKey(w => w.Id);
         builder.Property(w => w.RunId).HasMaxLength(PersistenceLimits.IndexedString).IsRequired();
         builder.HasIndex(w => w.RunId).IsUnique();
+        builder.Property(w => w.Key).HasMaxLength(ModelRunSlotKey.MaxLength); // 2026-11-20-a52f: the queue's key
+        builder.HasIndex(w => w.Key);
     }
 }

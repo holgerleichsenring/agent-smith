@@ -17,6 +17,8 @@ namespace AgentSmith.Server.Services.Rework;
 /// the transition: only the replica whose insert won logs it and announces it. The row is the fact,
 /// Redis only announces it, so a failed announcement is logged and never fails the call.
 /// 2026-10-14-dbcei: a person's by-hand mark goes through the same insert, wake and announcements.
+/// 2026-11-22-6d85b: a pull request merged into a prerequisite's ticket branch lands only with that prerequisite
+/// (<see cref="StackedMergeLanding"/>); the periodic re-read of unlanded merged records asks again.
 /// </summary>
 public sealed class TicketLandingRecorder(
     IServiceScopeFactory scopes,
@@ -24,6 +26,7 @@ public sealed class TicketLandingRecorder(
     ISystemEventPublisher events,
     ITicketActivityNudge activity,
     IEnumerable<ITicketLandedSubscriber> subscribers, // 2026-11-17-023fb: the generic landing hook
+    StackedMergeLanding stacked, // 2026-11-22-6d85b: a merge into a prerequisite's branch lands with that prerequisite
     TimeProvider clock,
     ILogger<TicketLandingRecorder> logger)
 {
@@ -37,6 +40,11 @@ public sealed class TicketLandingRecorder(
         using (var scope = scopes.CreateScope())
             records = await scope.ServiceProvider.GetRequiredService<IPrReviewRecordReader>().ByTicketAsync(project.Name, ticketId, ct);
         if (TicketLanding.OfStates([.. records.Select(r => r.State)]) != TicketLanding.Merged) return false;
+        if (await stacked.UnreachedAsync(project, ticketId, records, ct) is { } why)
+        {
+            logger.LogInformation("Ticket {Project}/{Ticket} has not landed: {Why}", project.Name, ticketId, why);
+            return false;
+        }
         var newestMerged = records.Where(r => r.State == PrReviewStates.Merged)
             .OrderBy(r => r.StateAt ?? DateTimeOffset.MinValue).Last();
         var landedAt = records.Max(r => r.StateAt) ?? clock.GetUtcNow();

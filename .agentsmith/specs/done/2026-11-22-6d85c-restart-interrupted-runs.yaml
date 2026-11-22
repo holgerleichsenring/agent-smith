@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-6d85c
+goal: "A run the server's stop broke off ends as interrupted, not failed; its series row is not red, and a code attempt is retried unchanged once by itself."
+
+applies_to: "default (ExecutePipelineUseCase end, series ticket state, precondition subsystem, RunRetry)"
+
+requires: [2026-10-13-9a59n, 2026-11-16-f3fbc, 2026-11-17-166aa]
+
+invariant: "A run whose execution the server's own stop ended is recorded cancelled with the interrupted reason, and its ticket gets one automatic unchanged retry; a person's Retry stays available after that."
+
+facts:
+  - claim: "The queue consumer hands the host's stopping token to the pipeline; its stop surfaces as an OperationCanceledException."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineQueueConsumer.cs:36-45, src/backend/AgentSmith.Application/Services/PipelineQueueConsumer.cs:87"
+  - claim: "Both cancellation arms require the caller's token NOT to be cancelled, so the host's stop falls through to the generic arm and is published failed."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:101, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:150, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:205-219"
+  - claim: "The one infrastructure-end rule already counts a cancel with the interrupted reason, and the claim door does not hold an owed end."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/InfrastructureEnd.cs:29-34, src/backend/AgentSmith.Contracts/Runs/OwedWorkCancel.cs:9-15, src/backend/AgentSmith.Contracts/Runs/LeftInPlaceEnd.cs:11-13"
+  - claim: "The liveness reaper ends a run with no driving process (a killed server) as interrupted after 3 minutes."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:37-53"
+  - claim: "The series table reads every finished non-success attempt red, a cancel naming its reason."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesTicketState.cs:36-44, src/backend/AgentSmith.Server/Services/Series/SeriesTicketFacts.cs:46-51"
+  - claim: "Retry stores a request on the run and serves it through the rework queue; the precondition subsystem already restarts stuck tickets by itself every recheck interval."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:37-71, src/backend/AgentSmith.Server/Services/Preconditions/PreconditionReleaseHostedService.cs:38-49"
+
+scope:
+  in: >-
+    ServerStopEnd: while IHostApplicationLifetime.ApplicationStopping is cancelled, a cancellation out of the pipeline that
+    no person or watchdog recorded a reason for ends the run with RunCancelRequestedEvent(interrupted) and RunFinished
+    cancelled (first catch arm of ExecutePipelineUseCase); SeriesTicketFact.Interrupted/Restarting from
+    PreviousAttempt.CauseActor and InterruptedRestartWindow, the row 'interrupted · restarting' (kind running) while the
+    restart is to come, red otherwise; IInterruptedAttemptReader + InterruptedRestartPass run after the
+    precondition pass, retrying each code head cancelled with an owed reason through IRunRetry (RunRetry) as
+    AttemptChannels.RestartActor, RetryOrigin.Restart, never a head that restart caused, only interruptions since an hour
+    before the process started.
+  out: >-
+    Restarting design turns, scans or other non-code runs; a new channel or end kind (the retry channel and the interrupted
+    reason are extended); draining runs before a stop; a step that turned the cancellation into a failed step result (its
+    failure path already ran; it stays failed).
+
+steps:
+  - id: end
+    action: "ServerStopEnd and its catch arm; registered beside ExecutePipelineUseCase."
+  - id: series
+    action: "SeriesTicketFacts marks an owed cancel and agent-smith's restart; SeriesTicketState reads them."
+  - id: restart
+    action: "DbInterruptedAttemptReader, IRunRetry over RunRetry, InterruptedRestartPass in the precondition subsystem."
+
+tests:
+  - "ExecutePipelineUseCase: the server stopping mid-run ends cancelled with the interrupted reason and no ticket failure; a cancelled caller without a stopping server, or without a host, keeps the failed end."
+  - "SeriesTicketState: an interrupted attempt reads restarting while its restart is to come, red otherwise; the window covers ends since an hour before the process started."
+  - "Another exception while stopping stays failed (the executor's fatal path already moved the ticket)."
+  - "The reader lists interrupted and stale-lease heads only, not one with a newer attempt, a pending Retry, the restart itself, another pipeline or an end before the horizon; the pass retries once as agent-smith and skips an unconfigured project."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

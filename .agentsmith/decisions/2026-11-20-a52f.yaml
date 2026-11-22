@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-20-a52f
+
+decisions:
+  - category: Architecture
+    chose: "The store decides the order: AcquireAsync counts the live waits recorded on the key ahead of the asking run and admits it only while fewer than the free places"
+    over: "A cross-replica wake channel (Redis pub/sub) so every waiter hears a release at once; a ticket counter in the store"
+    reason: "Who is next is a fact the waits table already holds (WaitingSince); reading it in the acquire makes the poll irrelevant to fairness, and the existing 5 s poll only bounds how long a freed place sits idle. No new infrastructure."
+  - category: Implementation
+    chose: "A waiter is live while its run is unfinished and beat within ActiveRunReaper.LeaseFreshFor (3 min), or has no Run row yet and began waiting within ModelRunSlotSweep.RowlessGrace"
+    over: "Ignoring liveness (a crashed replica's wait would block the key until the sweep); a write per poll to keep a wait fresh"
+    reason: "The run row is already beaten while it waits, so liveness costs no write; a dead waiter holds a freed place back at most until the liveness reaper ends its run. A rowless waiter counts because the start event may lag behind its first model call."
+  - category: Implementation
+    chose: "WaitStartedAsync(runId, key, ct) as a default interface overload; the in-process store keeps its plain wait"
+    over: "Changing the one signature and every implementer"
+    reason: "The in-process store serves one process with no replicas, where the in-process wake already orders nothing worth fixing; the overload leaves it and the rate limiter's files untouched."
+  - category: Implementation
+    chose: "Order by WaitingSince as each replica's clock stamped it, the row id breaking a tie; a refused run counts from its recorded wait"
+    over: "A store-assigned sequence"
+    reason: "Replicas run NTP; the skew is seconds against waits of minutes. Between a run's first refused acquire and its wait being written a newcomer can still win once; that window is the gate's two calls, accepted in the invariant."
+  - category: Implementation
+    chose: "Liveness reads the later of HeartbeatAt and StartedAt (the liveness reaper's sign of life); a wait restarted on another key closes the old one first"
+    over: "HeartbeatAt ?? StartedAt; keeping the oldest WaitingSince across keys"
+    reason: "Code review: a resumed run's last beat predates its park and read it dead; a wait left open on key A after a lost end-of-wait would have jumped key B's queue. A lost end-of-wait on the SAME key still counts until the run's next acquire closes it or the run ends — it needs a failed database write and is accepted."

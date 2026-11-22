@@ -18,7 +18,8 @@ namespace AgentSmith.Infrastructure.Services.RateLimiting;
 /// While every place is held by other runs the call waits — woken by a release in this process, polling for one on
 /// another replica, re-reading the configured limit each time, cancelled with its run — and says so once per wait:
 /// a step line on the run and a waiting line on a design turn, naming the model, the limit and its config key. The
-/// wait is recorded in the store, so neither wall-time clock counts it.
+/// wait is recorded in the store, so neither wall-time clock counts it. 2026-11-20-a52f: with its key — a store that keeps
+/// the queue admits the longest waiter first, so the poll only bounds how long a freed place stays idle.
 /// </para>
 /// </summary>
 public sealed class ModelRunGate(
@@ -83,7 +84,7 @@ public sealed class ModelRunGate(
                 if (waited is null)
                 {
                     waited = Stopwatch.StartNew();
-                    await slots.WaitStartedAsync(runId, cancellationToken);
+                    await slots.WaitStartedAsync(runId, key, cancellationToken); // 2026-11-20-a52f: its place in the key's queue
                     await waitLine.ShowAsync(agent, limit, runId, cancellationToken);
                 }
                 await Task.WhenAny(woken, Task.Delay(PollInterval, cancellationToken));

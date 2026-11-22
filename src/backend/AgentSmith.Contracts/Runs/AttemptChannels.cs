@@ -36,4 +36,8 @@ public static class AttemptChannels
 
     /// <summary>2026-10-13-8762v: the actor a series start names.</summary>
     public const string SeriesActor = "agent-smith";
+
+    /// <summary>2026-11-22-6d85c: the requester of the one Retry agent-smith asks itself after the server's stop
+    /// interrupted an attempt; an attempt it caused is not restarted again.</summary>
+    public const string RestartActor = "agent-smith (after a server stop)";
 }

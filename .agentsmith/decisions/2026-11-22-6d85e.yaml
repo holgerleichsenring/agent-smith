@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-6d85e
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "Conversation turns (spec-dialog: Work it out design turns, ticket-conversation turns, the series master's message turns) take no model place"
+    over: "Turns keep counting against agent.max_concurrent_runs"
+    reason: "Operator 2026-11-22: a person must never wait about 40 minutes behind a coding run for an answer. The quota is protected by the shared rate limiter (2026-11-22-66e4a), not by the place."
+  - category: Implementation
+    chose: "Extend the 9719a exemption (PipelinePresets.CountsAgainstModelLimit) by one pipeline name"
+    over: "A per-turn flag on the request; a separate limit for turns"
+    reason: "No second path: the exemption is already a per-run-id set filled after the prologue and cleared on release. A run a turn starts — in-process through ActRun/ExecutePipelineUseCase or queued — opens its own run scope under its own id and is gated as before; sub-agents share the turn's id and are exempt with it."
+  - category: Implementation
+    chose: "SeriesTicketMessage routes without the beat's ExecutionContext (ExecutionContext.SuppressFlow)"
+    over: "Leaving the fire-and-forget Task.Run to inherit the beat's ambient run id"
+    reason: "Spec review: a model call on that route outside the turn's own scope would be keyed to the beat, whose exemption ends with its release, and would take a place under a finished run."
+  - category: Risk
+    chose: "Rely on the existing rate bounds against a series master re-running a ticket in a loop; there is no per-ticket count cap, before or after this change"
+    over: "A new per-ticket budget on retry_ticket and tell_ticket"
+    reason: "A beat judges only a ticket that newly turned red (SeriesJudgement.NewlyRed) or the operator's words, one beat at a time; a retry is admitted only for a finished non-success latest attempt and refused while one starts (RunRetryGate, RunRetry.StartingAsync); every rework it causes is a code run that still takes its place; CI fixes are capped by merge.ci_fix_attempts. A tell answered by a steward that changes no row triggers no beat. The turn's own wait for a place was an accidental throttle, not a cap; a ticket whose every attempt fails can still be retried red after red, each a gated code run, as since 9719a. A cap would be a new limit for the operator to decide."
+  - category: Scope
+    chose: "Keep ModelRunWaitLine's design-turn branch"
+    over: "Deleting it now that spec-dialog turns never wait"
+    reason: "It serves any turn-observed run that still counts; removing it is a cleanup, not this fix."

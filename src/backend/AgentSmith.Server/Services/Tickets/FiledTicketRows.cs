@@ -82,7 +82,8 @@ public sealed class FiledTicketRows(
             var type = Of(filing.Project)?.Tracker.Type;
             string Name(string id) => type is { } t ? FiledTicketKey.Of(t, id) : id;
             var waits = unmet.Select(e => new TicketWaitsForView(e.RequiredTicketId, filing.Project, Name(e.RequiredTicketId),
-                titles.GetValueOrDefault((e.Tracker, e.RequiredTicketKey)) ?? Name(e.RequiredTicketId))).ToList();
+                titles.GetValueOrDefault((e.Tracker, e.RequiredTicketKey)) ?? Name(e.RequiredTicketId),
+                StartsOnMerge: hold?.MergesToStart.Any(m => m.RequiredTicketKey == e.RequiredTicketKey) == true)).ToList(); // 6d85d
             rows.Add(Compose(filing, record, landed.GetValueOrDefault((filing.Tracker, filing.TicketKey)), waits,
                 type?.ToString().ToLowerInvariant(), record.Set.Goal ?? Name(filing.TicketId),
                 closed.GetValueOrDefault((filing.Tracker, filing.TicketKey))));

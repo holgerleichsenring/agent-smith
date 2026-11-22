@@ -34,7 +34,7 @@ public sealed class RunRetry(
     RunRetryRequestRepository requests,
     IReworkNudges nudges,
     TimeProvider clock,
-    ILogger<RunRetry> logger)
+    ILogger<RunRetry> logger) : Contracts.IRunRetry
 {
     /// <param name="name">The asker's display name; null when their token carries none.</param>
     public async Task<RunRetryResult> RetryAsync(

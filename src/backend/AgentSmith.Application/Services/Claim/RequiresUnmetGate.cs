@@ -38,7 +38,7 @@ public sealed class RequiresUnmetGate(UnmetTicketRequirements requirements, IPre
         if (!await requirements.FiledCompletelyAsync(tracker.Name, key, cancellationToken))
             return ClaimResult.Rejected(ClaimRejectionReason.TicketRequiresUnmet, IncompleteFiling);
         return hold.Unmet.Count == 0 ? null
-            : ClaimResult.Rejected(ClaimRejectionReason.TicketRequiresUnmet, Sentence(hold.Unmet, hold.GreenLifts));
+            : ClaimResult.Rejected(ClaimRejectionReason.TicketRequiresUnmet, Sentence(hold));
     }
 
     // The claim's own reserved run is no earlier attempt (as BoundaryStopGate reads it).
@@ -56,6 +56,24 @@ public sealed class RequiresUnmetGate(UnmetTicketRequirements requirements, IPre
             ? $"This ticket waits for {named} to push a green branch it can build on (requires_start: on_green_push), or to be merged; "
               + "merge them, or mark them done by hand."
             : $"This ticket waits for {named} to be merged first; merge them, or mark them done by hand.";
+    }
+
+    /// <summary>2026-11-22-6d85d: <see cref="Sentence(IReadOnlyList{TicketRequirementEdge}, bool)"/> for a hold — when only
+    /// merges remain, it names exactly the merges that unblock the ticket.</summary>
+    public static string Sentence(RequirementHold hold)
+    {
+        ArgumentNullException.ThrowIfNull(hold);
+        if (hold.MergesToStart.Count == 0) return Sentence(hold.Unmet, hold.GreenLifts);
+        var named = MergesNamed([.. hold.MergesToStart.Select(e => Named(e.RequiredTicketId))]);
+        return $"This ticket starts once {named} {(hold.MergesToStart.Count == 1 ? "is" : "are")} merged, in that order; it then "
+            + "builds on the green branch of what it still requires (requires_start: on_green_push).";
+    }
+
+    /// <summary>2026-11-22-6d85d: "#1", "#1 and #2", "#1, #2 and #3".</summary>
+    public static string MergesNamed(IReadOnlyList<string> names)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        return names.Count <= 1 ? string.Join("", names) : $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}";
     }
 
     private static string Named(string id) => id.Length > 0 && id.All(char.IsAsciiDigit) ? $"#{id}" : id;
