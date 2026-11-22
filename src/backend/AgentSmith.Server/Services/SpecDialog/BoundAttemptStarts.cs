@@ -21,7 +21,7 @@ public sealed class BoundAttemptStarts(
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(poster);
         if (!poster.MayStartRuns || await attempts.LatestAsync(project.Name, ticketId, null, ct) is null) return null;
-        return new ConversationAttemptStart(scopes, project, ticketId, conversation, poster.Id,
+        return new ConversationAttemptStart(scopes, project, ticketId, conversation, poster,
             loggerFactory.CreateLogger<ConversationAttemptStart>());
     }
 }

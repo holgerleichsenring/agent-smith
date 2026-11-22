@@ -46,6 +46,8 @@ export interface StatusInput {
   next?: string | null;
   /** Add that Retry unchanged gives the undelivered specs another attempt. */
   retryAlso?: boolean;
+  /** 2026-11-22-50d7a: a running run waiting for its model place — the head, worded by the caller from currentModelWait. */
+  waitingForModel?: string | null;
 }
 
 export interface RunStatusLine {
@@ -109,6 +111,7 @@ function headOf(input: StatusInput): Omit<RunStatusLine, "next" | "short"> {
   switch (status) {
     case "queued": return { tone: "run", head: input.queuePlace ? `Queued, place ${input.queuePlace}` : "Queued", clauses: [] };
     case "running": {
+      if (input.waitingForModel) return { tone: "run", head: input.waitingForModel, clauses: [] };
       const on = specs.find((s) => s.status === "in_progress");
       return { tone: "run", head: on ? `Working on spec ${on.ordinal} of ${specs.length}` : "Working", clauses: [] };
     }
@@ -217,9 +220,12 @@ export function retryAlso(ctx: StatusContext | null, attempt: TicketAttempt | nu
 }
 
 /** An attempt's line with its next step, as the ticket page reads it. */
-export function attemptStatus(attempt: TicketAttempt, ctx: StatusContext | null, queuePlace: number | null = null): RunStatusLine {
+export function attemptStatus(
+  attempt: TicketAttempt, ctx: StatusContext | null, queuePlace: number | null = null, waitingForModel: string | null = null,
+): RunStatusLine {
   const newest = !ctx?.latest || ctx.latest.number === attempt.number;
-  return runStatus(attemptStatusInput(attempt, nextStep(ctx, attempt), retryAlso(ctx, attempt), newest ? queuePlace : null));
+  const input = attemptStatusInput(attempt, nextStep(ctx, attempt), retryAlso(ctx, attempt), newest ? queuePlace : null);
+  return runStatus({ ...input, waitingForModel });
 }
 
 /** The ticket's latest attempt. */
@@ -231,6 +237,7 @@ export function latestAttempt(detail: TicketDetail | null): TicketAttempt | null
 export function snapshotStatus(
   snapshot: RunSnapshot, specs: RunSpecRow[], steps: RunStepRow[],
   ticket: { attempt: TicketAttempt | null; latest: TicketAttempt | null; move: YourMove | null } | null, canRetry = false,
+  waitingForModel: string | null = null,
 ): RunStatusLine {
   const attempt = ticket?.attempt ?? null;
   const failed = [...steps].reverse().find((s) => s.status === "failed" || s.status === "error");
@@ -244,5 +251,6 @@ export function snapshotStatus(
     summary: snapshot.summary, failedStep: failed?.resultMessage ?? null, attempt,
     next: ticket ? nextStep({ ...ticket, canRetry }, attempt) : null,
     retryAlso: ticket ? retryAlso({ ...ticket, canRetry }, attempt) : false,
+    waitingForModel,
   });
 }

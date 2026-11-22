@@ -51,6 +51,10 @@ export interface TicketAttemptMark {
   status: string;
   endedOnInfrastructure: boolean;
   handedBack: boolean;
+  /** 2026-11-22-50d7a: why the attempt began; absent or null where the list did not read its record */
+  cause?: AttemptCause | null;
+  /** 2026-11-22-50d7a: why its run ended (RUN_END_KINDS); null when unclassified */
+  endKind?: string | null;
 }
 
 /** One pull request of a ticket, as its review record says. */
