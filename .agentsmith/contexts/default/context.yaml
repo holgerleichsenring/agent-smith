@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-20-a52f: "MODEL PLACE FAIR QUEUE (DbModelRunSlots, ModelRunWaitQueue, ModelRunWaits.Key + migrations). A free model place goes to the live run that waited longest on its key, on every replica; dead waiters are skipped. -> .agentsmith/specs/done/2026-11-20-a52f-model-slot-fair-queue.yaml"
     2026-11-19-b2c1: "DRAFT SEARCH TOOLS (FilesystemToolHost, DraftFileReads). find_files and grep_in_tree under draft: search the design turn's draft for the master and its sub-agents, as read_file and directory_tree read it. -> .agentsmith/specs/done/2026-11-19-b2c1-draft-search-tools.yaml"
     2026-11-19-7c42a: "DRAFT WITHDRAW BY WORDS (ProposalDraftOutcome, SpecDialogOutcomeFlow). A turn that deletes its whole draft withdraws the awaiting proposal, so the operator discards in words; questions and proposals in the operator's language; skills v5.41.1. -> .agentsmith/specs/done/2026-11-19-7c42a-draft-withdraw-by-words.yaml"
     2026-11-19-7c42b: "DIALOG DECISION WORDS (dashboard approvalDecision, DialogDecisionBar, DialogPaneHandle, TurnQuestions). No banner, no Discard; an offered draft replaces the composer with 'Create N tickets' and 'Keep chatting'; questions show their proposal unlabeled; the pane starts at 40% and resizes. -> .agentsmith/specs/done/2026-11-19-7c42b-dialog-decision-words.yaml"

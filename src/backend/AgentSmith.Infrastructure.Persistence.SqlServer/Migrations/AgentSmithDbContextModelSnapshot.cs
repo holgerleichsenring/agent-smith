@@ -761,6 +761,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("Key")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
                     b.Property<string>("RunId")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -776,6 +780,8 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Key");
 
                     b.HasIndex("RunId")
                         .IsUnique();
