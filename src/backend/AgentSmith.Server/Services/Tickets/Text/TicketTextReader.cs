@@ -13,10 +13,11 @@ public sealed class TicketTextReader(
     TicketProjects projects,
     TicketTrackerTextReader tracker,
     TicketTextSnapshotReader snapshots,
-    TicketTextDivergence divergence)
+    Checks.TicketCheckKicks kicks)
 {
     /// <summary>Null when the tracker does not answer for a pair with no code run. 2026-11-17-dd05d: a filed ticket no
-    /// run worked is read from its tracker too, and a live read carries its divergence from the approved specs.</summary>
+    /// run worked is read from its tracker too. 2026-11-22-a720b: a tracker answer offers the ticket to the text edit
+    /// check, which runs off this request and never answers it.</summary>
     /// <param name="fresh">Past the tracker read's cache.</param>
     public async Task<TicketTextView?> ReadAsync(string project, string ticketId, CancellationToken ct, bool fresh = false)
     {
@@ -25,7 +26,10 @@ public sealed class TicketTextReader(
         var resolved = projects.Of(project);
         var read = resolved is null ? null : await tracker.ReadAsync(resolved, ticketId, ct, fresh);
         if (read?.Ticket is { } ticket)
-            return TicketTextView.FromTracker(ticket, read.At) with { Divergence = await divergence.OfAsync(resolved!, ticketId, ticket, ct) };
+        {
+            kicks.Offer([new Checks.TicketCheckKick(project, ticketId, Checks.TicketCheckKind.TextEdit)]);
+            return TicketTextView.FromTracker(ticket, read.At);
+        }
         if (code.Count == 0) return null;
         var ordered = attempts.Of(code).Select(a => a.Run).ToList();
         return await snapshots.ReadAsync(ordered, ct)

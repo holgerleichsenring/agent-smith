@@ -20,7 +20,7 @@ public sealed class RunConversationProjection(ProjectedEventRecords records) : I
     public IReadOnlyCollection<Type> Events { get; } =
     [
         typeof(TicketFetchedEvent), typeof(RunCheckpointedEvent),
-        typeof(SpecHandedBackEvent), typeof(SpecCutReviewedEvent),
+        typeof(SpecHandedBackEvent), typeof(SpecCutReviewedEvent), typeof(TicketTextRewrittenEvent), // e812
     ];
 
     public Task ApplyAsync(IUnitOfWork uow, RunEvent runEvent, long? eventSeq, CancellationToken ct) =>
@@ -34,6 +34,8 @@ public sealed class RunConversationProjection(ProjectedEventRecords records) : I
             QuestionText(e.QuestionJson), null),
         SpecHandedBackEvent e => Entry(e, RunConversationKinds.HandBack,
             e.Text, e.Quote is null ? null : RunStoryJson.Serialize(new { e.Quote })),
+        TicketTextRewrittenEvent e => Entry(e, RunConversationKinds.TicketRewritten,
+            e.Description, e.AcceptanceCriteria is null ? null : RunStoryJson.Serialize(new { e.AcceptanceCriteria })),
         SpecCutReviewedEvent e => Entry(e, RunConversationKinds.CutReview,
             null, RunStoryJson.Serialize(new { e.Attempt, e.Deliverable, e.Findings })),
         _ => null,

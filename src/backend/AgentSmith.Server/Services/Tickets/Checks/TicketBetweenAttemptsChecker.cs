@@ -57,11 +57,13 @@ public sealed class TicketBetweenAttemptsChecker(
         }
     }
 
-    // The fingerprint the attempt fetched; an attempt without one cannot be compared, and unknown is never unchanged.
+    // The fingerprint the attempt fetched — 2026-11-22-e812: or the text it wrote into the tracker, when it rewrote it from
+    // the approved specs; an attempt without one cannot be compared, and unknown is never unchanged.
     private async Task<string?> FingerprintAsync(string runId, CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<RunAttempt>().AsNoTracking()
-            .Where(a => a.RunId == runId).Select(a => a.TicketFingerprint).FirstOrDefaultAsync(ct);
+            .Where(a => a.RunId == runId).Select(a => a.TicketFingerprint == null ? null : a.LeftTicketFingerprint ?? a.TicketFingerprint)
+            .FirstOrDefaultAsync(ct);
     }
 }

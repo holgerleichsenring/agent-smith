@@ -9,12 +9,14 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// </summary>
 public sealed class RunAttemptFamily(RunAttemptProjection attempts) : IRunEventFamily
 {
-    public IReadOnlyCollection<Type> Events { get; } = [typeof(TicketFetchedEvent), typeof(SpecSetPublishedEvent)];
+    public IReadOnlyCollection<Type> Events { get; } =
+        [typeof(TicketFetchedEvent), typeof(SpecSetPublishedEvent), typeof(TicketTextRewrittenEvent)]; // e812
 
     public Task ApplyAsync(IUnitOfWork uow, RunEvent runEvent, long? eventSeq, CancellationToken ct) => runEvent switch
     {
         TicketFetchedEvent e => attempts.ApplyFetchAsync(uow, e, ct),
         SpecSetPublishedEvent e => attempts.ApplyPublishAsync(uow, e, ct),
+        TicketTextRewrittenEvent e => attempts.ApplyRewriteAsync(uow, e, ct),
         _ => Task.CompletedTask,
     };
 }

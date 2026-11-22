@@ -9,7 +9,8 @@ namespace AgentSmith.Server.Services.Tickets.Text;
 
 /// <summary>
 /// The newest ticket text an attempt kept when it fetched the ticket — description and criteria as text, the title
-/// from its run row — numbered as the detail numbers attempts. Null when no attempt kept one.
+/// from its run row — numbered as the detail numbers attempts. Null when no attempt kept one. 2026-11-22-e812: a text an
+/// attempt wrote into the tracker from the approved specs is a kept copy too, and the newer one.
 /// </summary>
 public sealed class TicketTextSnapshotReader(IServiceScopeFactory scopes)
 {
@@ -19,7 +20,8 @@ public sealed class TicketTextSnapshotReader(IServiceScopeFactory scopes)
         var runIds = attempts.Select(r => r.Id).ToList();
         using var scope = scopes.CreateScope();
         var rows = await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<RunConversationEntry>().AsNoTracking()
-            .Where(e => runIds.Contains(e.RunId) && e.Kind == RunConversationKinds.TicketText)
+            .Where(e => runIds.Contains(e.RunId)
+                && (e.Kind == RunConversationKinds.TicketText || e.Kind == RunConversationKinds.TicketRewritten)) // e812
             .ToListAsync(ct);
         var newest = rows.OrderByDescending(e => e.At).ThenByDescending(e => e.Id).FirstOrDefault();
         if (newest is null) return null;

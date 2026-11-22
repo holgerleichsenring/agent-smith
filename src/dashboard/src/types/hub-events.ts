@@ -56,6 +56,7 @@ export enum EventType {
   VerifyPassRecorded = 91,
   // 2026-11-18-3863f: a deploy delivered its pull request or started its pipeline.
   DeployDelivered = 92,
+  TicketTextRewritten = 93,
 }
 
 interface RunEventBase {
@@ -807,6 +808,15 @@ export interface VerifyPassRecordedEvent extends RunEventBase {
   staleDerivations: VerifyStaleDerivation[];
 }
 
+/** 2026-11-22-e812: the run rewrote its ticket's text from the approved specs. Mirrors C# TicketTextRewrittenEvent. */
+export interface TicketTextRewrittenEvent extends RunEventBase {
+  type: EventType.TicketTextRewritten;
+  ticketId: string;
+  description: string;
+  ticketFingerprint: string;
+  acceptanceCriteria?: string | null;
+}
+
 /** 2026-11-18-3863f: a deploy delivered — its pull request, or the pipeline run it started (null id: the host did
  *  not name it). Mirrors C# DeployDeliveredEvent. */
 export interface DeployDeliveredEvent extends RunEventBase {
@@ -915,7 +925,8 @@ export type RunEvent =
   | MemoryUseRecordedEvent
   | DialogActivityEvent
   | VerifyPassRecordedEvent
-  | DeployDeliveredEvent;
+  | DeployDeliveredEvent
+  | TicketTextRewrittenEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

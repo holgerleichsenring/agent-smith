@@ -11,6 +11,8 @@ namespace AgentSmith.Server.Services.Rework;
 /// delivers a ticket that already sits in a trigger status. A thrown exception reschedules the nudge.
 /// 2026-11-17-e061b: the tag and the move run as a 'start' pipeline (<see cref="Acts.TicketStartRun"/>) with a run id.
 /// 2026-11-19-1b72a: the start itself is <see cref="WaitingTicketStart"/>, which a series' resume shares.
+/// 2026-11-22-d434a: a start held by a prerequisite whose newest attempt has not ended reschedules the nudge (its
+/// backoff) instead of spending it — a requirement a green branch lifts gets no landing to wake it again.
 /// </summary>
 public sealed class RequirementsMetStart(WaitingTicketStart start)
 {
@@ -18,7 +20,7 @@ public sealed class RequirementsMetStart(WaitingTicketStart start)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(nudge);
-        await start.StartAsync(project, nudge.TicketId, onlyWithRequirements: true, ct);
-        return ReworkNudgeDisposition.Finish;
+        var started = await start.StartAsync(project, nudge.TicketId, onlyWithRequirements: true, ct);
+        return started.Pending ? ReworkNudgeDisposition.Reschedule : ReworkNudgeDisposition.Finish;
     }
 }

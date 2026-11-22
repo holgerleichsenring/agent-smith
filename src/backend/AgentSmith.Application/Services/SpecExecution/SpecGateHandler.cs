@@ -44,6 +44,12 @@ public sealed class SpecGateHandler(ILogger<SpecGateHandler> logger)
             return Task.FromResult(CommandResult.Fail(
                 $"Spec set {set.Key} carries no spec — there is nothing to build."));
 
+        // 2026-11-22-a720a: a set every spec of which an earlier attempt executed leaves nothing for this run to build or
+        // account for — no spec is made current, so the run's acceptance holds none of the carried specs' criteria.
+        if (set.UnexecutedTail.Count == 0 && !PipelinePresets.LeavesTicketAlone(context.Pipeline))
+            return Task.FromResult(CommandResult.Ok(
+                $"Every spec of {set.Key} was executed by an earlier attempt ({set.Executed.Count} carried) — nothing to build"));
+
         // The first spec is current until the sequence selects the next one. Publishing it
         // here keeps every downstream reader (planner, master, keystone, spec record)
         // working off one key whether or not a sequence is involved.

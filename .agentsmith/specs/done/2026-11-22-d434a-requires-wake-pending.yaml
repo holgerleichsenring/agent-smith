@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-d434a
+goal: "A dependent's wake that finds its prerequisite's newest attempt still running reschedules instead of being spent, so a green prerequisite's dependents still start."
+
+applies_to: "default (RequirementsMetStart, WaitingTicketStart)"
+
+requires: [2026-11-17-9a39a, 2026-11-19-1b72a]
+
+facts:
+  - claim: "The nudge of a finished attempt wakes its stacked dependents first, then runs the series' auto-start, which can start a new attempt of the same ticket at once."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:41,51, src/backend/AgentSmith.Server/Services/Rework/ReworkNoActTail.cs:22"
+  - claim: "A prerequisite is green only by its newest attempt, so the dependents' later nudges see the fresh unfinished attempt and read the requirement as unmet."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/GreenPrerequisites.cs:21-22"
+  - claim: "Before this spec an unmet requirement was silent and the wake always finished, assuming a landing wakes it again; a requirement a green branch lifts gets no landing, and the green wake has no recovery."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/WaitingTicketStart.cs:64-66,80-81, src/backend/AgentSmith.Server/Services/Rework/StackedDependentsWake.cs:13-17"
+  - claim: "Measured 2026-11-22: a prerequisite green at 19:36:57, a series attempt of it created 19:37:05; its two dependents never started and ten tickets waited behind them."
+    evidence: "observed: 2026-11-22, live run audit by the coordinator (runs 3517 and bd3e)"
+  - claim: "A nudge disposition Reschedule retries with the worker's backoff."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeDisposition.cs:4-8, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:66"
+
+scope:
+  in: "Under requires_start on_green_push, WaitingTicketStart.HeldAsync marks an unmet-requirement hold Pending when an unmet prerequisite has a queued code run or a newest attempt not finished and not parked on a question; WaitingStart carries Pending; RequirementsMetStart answers Reschedule for it and Finish otherwise."
+  out: "A prerequisite whose newest attempt ended Success without a pull request of its own stays not green (9a39a's rule). The bogus attempt itself is 2026-11-22-a720a."
+
+steps:
+  - id: pending
+    action: "WaitingStart.Pending; HeldAsync returns why and whether it is pending; InFlightAsync."
+  - id: reschedule
+    action: "RequirementsMetStart: Pending -> Reschedule."
+
+tests:
+  - "RequirementsMetPendingTests: a dependent whose prerequisite's newest attempt runs reschedules; one whose prerequisite ended red, or is parked on a question, is spent"
+  - "LandedByHandWakeTests stay green"
+
+done:
+  - "A green prerequisite whose next attempt starts at once no longer drops its dependents' wakes."

@@ -20,15 +20,17 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// 2026-10-12-967ab: and the stored-name rewrite last, because it reads and writes the columns
 /// the migration adds — rows written in the pre-rename names are rewritten in the spec names.
 /// </para>
+/// <para>2026-11-22-a720a: then attempt rows a kept spec set left without their carried ids are filled from their events.</para>
 /// </summary>
 public sealed class RunStoreMigrator(
-    RunDuplicateRepair repair, StoredSpecNameRewrite specNames, ILogger<RunStoreMigrator> logger)
+    RunDuplicateRepair repair, StoredSpecNameRewrite specNames, KeptSetCarryBackfill carried, ILogger<RunStoreMigrator> logger)
 {
     public async Task MigrateAsync(AgentSmithDbContext db, CancellationToken ct)
     {
         await RepairAsync(db, ct);
         await db.Database.MigrateAsync(ct);
         await specNames.RewriteAsync(db, ct);
+        await carried.RepairAsync(db, ct); // 2026-11-22-a720a
     }
 
     public async Task<RunRepairReport> RepairAsync(AgentSmithDbContext db, CancellationToken ct)

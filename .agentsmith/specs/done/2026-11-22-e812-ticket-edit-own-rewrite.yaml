@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-e812
+goal: "A ticket text agent-smith rewrote inside a run never reads as a person's edit between attempts or in the between-attempts check."
+
+applies_to: "default (ApprovedTicketText, TicketTextRewrittenEvent, RunAttempt, RunAttemptProjection, ConversationRunEntries, between-attempts check), dashboard (event mirror)"
+
+requires: [2026-11-22-a720b]
+
+facts:
+  - claim: "The attempt row keeps the fingerprint of the ticket its run fetched, set once."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptProjection.cs:20,29"
+  - claim: "The conversation draws an 'edited' entry, role person, wherever two attempts' fetched fingerprints differ."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationRunEntries.cs:66-81"
+  - claim: "The between-attempts check compares the tracker's text with a failed attempt's recorded fingerprint."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketTrackerObserver.cs:27-41"
+  - claim: "Since 2026-11-22-a720b a run that applies a newly approved revision rewrites the ticket's text after it fetched it, and knows the read-back fingerprint."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedTicketText.cs:28-46"
+  - claim: "The publish event is announced from the run's pipeline after the set is placed, and the attempt projection is its one writer of the attempt row."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:56-64, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptFamily.cs:14-19"
+  - claim: "Every provider has its own migration set: the shared SQLite/MySQL one, SQL Server and PostgreSQL."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261120082205_AddModelRunWaits.cs:1, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261120082207_AddModelRunWaits.cs:1, src/backend/AgentSmith.Infrastructure.Persistence.Postgresql/Migrations/20261120082210_AddModelRunWaits.cs:1"
+
+scope:
+  in: "ApprovedTicketText publishes TicketTextRewrittenEvent (text and fingerprint as stored, converted as a fetch converts) right after its read-back, before the branch write; RunAttemptProjection writes RunAttempt.LeftTicketFingerprint from it (last rewrite wins, a later publish never clears it; one nullable column, one plain AddColumn migration per provider set: shared SQLite/MySQL, SQL Server, PostgreSQL); RunConversationProjection keeps the text as a ticket-rewritten entry; ConversationTicketEdits (out of ConversationRunEntries) compares an attempt's left fingerprint (else its fetched one) with the next attempt's fetched one and diffs against the rewritten text; the between-attempts check compares the tracker with left ?? fetched; the tracker-unreachable snapshot reads the newest kept text, a rewrite included. TS mirror and the run-log filter labels follow."
+  out: "Rows before this spec: no run rewrote a ticket before 2026-11-22-a720b, so nothing to backfill. The amend run, which rewrites a ticket no attempt worked. A conversation entry of its own for the rewrite: the approved revision's line already says why the text changed, and new UI words wait for the dictionary move (2026-11-22-5485b)."
+
+steps:
+  - id: record
+    action: "TicketTextRewrittenEvent (EventType 93, resolver, hub-events.ts, FilterRail label); ApprovedTicketText publishes it."
+  - id: store
+    action: "RunAttempt.LeftTicketFingerprint + configuration + three migrations; RunAttemptFamily and RunConversationProjection apply the event."
+  - id: read
+    action: "ConversationTicketEdits; TicketBetweenAttemptsChecker reads left ?? fetched."
+
+tests:
+  - "KeptSetCarryTests: a rewrite records the left fingerprint and a later publish keeps it"
+  - "ConversationTicketEditsTests: an attempt that rewrote the text followed by one that fetched it shows no edited entry; a person's edit after it does, diffed against the rewritten text"
+  - "TicketStuckTests: a failed attempt that rewrote the text reads the tracker's rewritten text as unchanged"
+  - "ApprovedTicketTextTests: the rewrite publishes TicketTextRewrittenEvent with the read-back fingerprint; RunEventApplierFamiliesTests: it reaches the attempt and conversation families"
+
+done:
+  - "Only a person's edit of the ticket text reads as an edit on the ticket page."

@@ -10,10 +10,12 @@ namespace AgentSmith.Server.Services.Series;
 /// <summary>
 /// 2026-11-17-0207a: what is true of a series' member tickets, read where it is kept — the landings, the requires
 /// edges, every run of the ticket (cost, first start), the newest attempt and a question it is parked on.
+/// 2026-11-22-d434b: and whether that attempt waits for its model place.
 /// </summary>
 public sealed class SeriesTicketFacts(
     TicketProjects projects, ITicketLandingStore landings, ITicketRequirementStore requirements,
-    TicketRunsQuery runs, IPreviousAttemptReader attempts, SeriesParkedQuestion parked, SeriesTicketCi ci) : ISeriesTicketFacts
+    TicketRunsQuery runs, IPreviousAttemptReader attempts, SeriesParkedQuestion parked, SeriesTicketCi ci,
+    Infrastructure.Persistence.Repositories.ModelRunWaitClock waits) : ISeriesTicketFacts
 {
     public async Task<IReadOnlyList<SeriesTicketFact>> ReadAsync(
         string project, IReadOnlyList<SeriesTicket> tickets, CancellationToken cancellationToken)
@@ -40,7 +42,9 @@ public sealed class SeriesTicketFacts(
             FirstStartedAt = rows.Count == 0 ? null : rows.Min(r => r.Run.StartedAt),
             CostUsd = rows.Sum(r => r.Run.CostTotalUsd),
         };
-        return latest is null ? fact : await ci.WithAsync(await parked.WithAsync(Attempt(fact, latest), latest, ct), project.Name, ct);
+        if (latest is null) return fact;
+        var attempt = Attempt(fact, latest) with { WaitingForModel = !latest.Finished && await waits.IsWaitingAsync(latest.RunId, ct) };
+        return await ci.WithAsync(await parked.WithAsync(attempt, latest, ct), project.Name, ct);
     }
 
     private static SeriesTicketFact Attempt(SeriesTicketFact fact, PreviousAttempt latest) => fact with

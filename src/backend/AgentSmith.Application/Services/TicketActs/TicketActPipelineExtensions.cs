@@ -23,10 +23,8 @@ public static class TicketActPipelineExtensions
         services.AddScoped<TicketDescriptionRewrite>().AddScoped<TicketAmendmentWrite>(); // 2026-11-17-e061c
         services.AddTransient<ICommandHandler<AmendTicketContext>, AmendTicketHandler>();
         services.AddTransient<ICommandHandler<PostTicketCommentsContext>, PostTicketCommentsHandler>();
-        services.AddScoped<SeriesFingerprintStamp>().AddScoped<TicketBodyRender>(); // 2026-11-17-dd05b
         services.TryAddTransient<SeriesManifest>(); services.TryAddTransient<SeriesFiles>(); services.TryAddTransient<SeriesRepos>();
         services.TryAddTransient<SpecTicketRenderer>(); services.TryAddTransient<SeriesTicketRegion>(); services.TryAddTransient<SpecSetPointerRecorder>();
-        services.AddTransient<ICommandHandler<RenderTicketBodyContext>, RenderTicketBodyHandler>();
         services.AddTransient<ICommandHandler<RetargetPullRequestsContext>, RetargetPullRequestsHandler>(); // 2026-11-17-9a39c
         return services;
     }

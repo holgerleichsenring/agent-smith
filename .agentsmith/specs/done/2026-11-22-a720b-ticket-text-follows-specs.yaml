@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-a720b
+goal: "An approved revision rewrites the ticket's tracker text from its specs inside the run; a person's later edit is posted into the ticket conversation as a question."
+
+applies_to: "default (DeriveSpecHandler, ApprovedTicketText, ticket text edit check, 'ticket-body' act removed), dashboard (ticket page)"
+
+requires: [2026-11-17-dd05b, 2026-11-17-dd05d, 2026-11-22-a720a]
+
+facts:
+  - claim: "Before this spec only the 'amend' run and the 'ticket-body' run rewrote a ticket's description; a worked ticket's approved revision never did."
+    evidence: "observed: 2026-11-22, at 059b9cb83 TicketDescriptionRewrite had two callers, TicketAmendmentWrite and TicketBodyRender"
+  - claim: "An approval in a worked ticket's conversation only records; the next code run makes it the branch's revision."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedContinuation.cs:7-9,24-25, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:81-82"
+  - claim: "The 'ticket-body' run was launched only by POST .../body, was refused while a run held the ticket, and its stamp wrote the branch from the host with the unstripped ticket's fingerprint."
+    evidence: "observed: 2026-11-22, at 059b9cb83 TicketBodyOverwrite refused a held ticket and launched the act, the endpoint mapped POST body, and SeriesFingerprintStamp fingerprinted the ticket TicketBodyRender read back unstripped"
+  - claim: "The amend run rewrites the description first and writes the branch with the read-back ticket's fingerprint, label note stripped, through the same SpecTicketRenderer."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketActs/TicketAmendmentWrite.cs:25-29, src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:109, src/backend/AgentSmith.Application/Services/SpecDialog/SeriesTicketRegion.cs:11-20"
+  - claim: "The branch set's TicketFingerprint is what the next run compares the fetched, label-note-stripped ticket with."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:83, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:56-57"
+  - claim: "A framework line in a ticket's conversation is kept as a Notice turn and sent; a ticket's conversation is its newest bound session."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesConversation.cs:12-17, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:21-26"
+  - claim: "A 'comment' run posts agent-smith's comment on a ticket; the ticket's ledger spends a key once per (project, ticket)."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketCommentPost.cs:25-33, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkLedgerRepository.cs:40-54"
+  - claim: "The check worker runs kicked ticket checks off the request, each kick throttled per ticket for five minutes."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckKicks.cs:12-37, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckKickWorker.cs:26-42"
+
+scope:
+  in: "ApprovedTicketText (DeriveSpec, before PublishAsync): a published set with specs whose revision an approval given in a conversation caused, newer than the branch set's, rewrites the region (ApprovedSetRegion, the filing's renderer, placement by the labels), reads the ticket back and the set carries its stripped fingerprint; a text a person edited since the last write is kept as agent-smith's comment; not on a demand re-cut, a preview, an inline ticket, a first hand-off or a refused rewrite. TicketTextReader offers a TextEdit kick (TicketCheckKind) on a tracker answer; TicketTextEditNotice skips a ticket a run holds, reads the tracker fresh and the branch set and, when an approved set's fingerprint differs, spends 'ticket-text-edited|<fingerprint>' and posts 'The ticket text was changed …; goals no longer stated; Should this go into the specs?; the text now' into the ticket's open conversation (ISeriesConversation), else as agent-smith's comment through a 'comment' run (TicketTextEditPost). Removed: TicketTextView.Divergence, TicketTextDivergence (C#, tsx, tests), POST …/body, TicketBodyOverwrite, ticketBodyApi, the 'ticket-body' act (preset, command, key, data flow, builder, handler, render, request, outcome, SeriesFingerprintStamp, maps); docs and the control-flow diagram follow."
+  out: "Tickets whose approved revision predates this spec: their next approved revision rewrites them. The conversation turn's divergence section (ApprovedSetDivergence). Our own in-run rewrite showing as a person's 'edited' entry between attempts and in the between-attempts observation: 2026-11-22-e812. The run's existing kept-edit tracker notice beside the new question."
+
+steps:
+  - id: region
+    action: "ApprovedSetRegion; TicketDescriptionRewrite.RewriteAsync takes the tracker connection."
+  - id: in-run
+    action: "ApprovedTicketText.FollowAsync; DeriveSpecHandler passes the set through it before PublishAsync; registered in AddSpecDerivation."
+  - id: notice
+    action: "TicketCheckKind on TicketCheckKick; TicketTextReader offers TextEdit; worker runs TicketTextEditNotice; TicketTextEditPost; TicketTextView loses Divergence."
+  - id: remove-act
+    action: "Remove the 'ticket-body' act and the overwrite endpoint; route baseline, preset and data-flow tests follow."
+  - id: dashboard
+    action: "Remove TicketTextDivergence.tsx, its tests, ticketBodyApi and the divergence type; TicketPage leads with TicketWaitsFor only."
+  - id: docs
+    action: "dashboard.md: the text follows the specs, an edit becomes a conversation question; control-flow.svg regenerated."
+
+tests:
+  - "ApprovedTicketTextTests: a newer approval rewrites and the set carries the stripped read-back fingerprint; a replaced edit is kept as a comment, an unedited text gets none; the same approval, a demand re-cut, a derived set, a preview and a first hand-off rewrite nothing; a refused rewrite publishes the set as it was"
+  - "TicketTextEditNoticeTests (real readers, migrated store, filed branch): an edited text posts once into the open conversation over two checks; the written text posts nothing; no open conversation posts agent-smith's comment through a 'comment' run; the message names the unsaid goals"
+  - "Dashboard suite green without the notice; RoutePermissionGuardTests baseline without POST …/body"
+
+done:
+  - "After an approved revision the tracker text states its specs with no button; a person's edit after that appears in the ticket conversation as a question, never as a notice or an overwrite."

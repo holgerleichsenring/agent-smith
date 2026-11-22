@@ -20,6 +20,7 @@ public static class ServerStateExtensions
         services.AddScoped<WebhookLastSeenRepository>().AddSecretStore(); // 2026-10-02-5ab2e, 2026-11-17-f3a8d
         // 2026-10-08-0781: the rework nudge queue and its ledger.
         services.AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>();
+        services.AddScoped<ModelRunWaitClock>(); // 2026-11-22-d434b: the series reads a run waiting for its model place
         services.AddScoped<AgentSmith.Contracts.Sweep.ISweepCursors, SweepCursorStore>(); // 2026-10-08-9e6e
         services.AddScoped<PrSweepStore>(); // 2026-10-08-10b0
         // 2026-10-13-9a59b: the pull-request review records.

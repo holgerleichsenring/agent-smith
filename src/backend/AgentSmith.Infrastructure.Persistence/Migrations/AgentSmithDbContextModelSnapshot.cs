@@ -1632,6 +1632,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("LeftTicketFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RevisionCause")
                         .HasColumnType("TEXT");
 

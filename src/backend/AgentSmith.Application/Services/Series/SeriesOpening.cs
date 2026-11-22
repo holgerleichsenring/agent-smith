@@ -11,7 +11,7 @@ public static class SeriesOpening
     {
         ArgumentNullException.ThrowIfNull(beat);
         var rows = beat.Rows;
-        var started = rows.Where(r => r.Kind is SeriesTicketState.Running or SeriesTicketState.Green).Select(r => r.Ticket).ToList();
+        var started = rows.Where(r => r.Kind is SeriesTicketState.Running or SeriesTicketState.ModelWait or SeriesTicketState.Green).Select(r => r.Ticket).ToList();
         var held = rows.Count(r => r.Kind == SeriesTicketState.Held);
         var text = $"Filed {rows.Count} tickets. "
             + (started.Count > 0 ? $"{string.Join(", ", started)} started; " : "None has started yet; ")

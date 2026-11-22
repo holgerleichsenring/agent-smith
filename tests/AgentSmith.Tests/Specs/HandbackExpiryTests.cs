@@ -84,7 +84,7 @@ public sealed class HandbackExpiryTests
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
-            HandbackTestDoubles.Probe(), new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())));
+            HandbackTestDoubles.Probe(), new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.TicketText());
     }
 
     private static DeriveSpecContext Context(string author)
