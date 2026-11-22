@@ -44,7 +44,8 @@ describe("VerifySummary (the master's report)", () => {
     expect(screen.getByTestId("verify-follow-up")).toHaveTextContent("follow-up · s2");
   });
 
-  // 2026-11-18-98fa: masters that ended with finish_spec — their markdown reports, rendered, and no row table.
+  // 2026-11-18-98fa: masters that wrote reports — their markdown reports, rendered, and no row table.
+  // 2026-11-22-7103a: each closed under "Master's report", the badge counting them rather than saying "reported".
   it("VerifySummary_FinishedMasters_RenderEachReportAsMarkdownWithTheFollowUps", () => {
     render(<VerifySummary acceptance={{ criteria: [], outcome: null, ratifiedBy: null, source: "master_verification",
       fixedInPassing: [], followUps: [{ goal: "Exports stream CSV", why: "paging first", specId: "s2" }],
@@ -54,10 +55,12 @@ describe("VerifySummary (the master's report)", () => {
     expect(reports).toHaveLength(2);
     expect(reports[0].querySelector("li")).toHaveTextContent("the 404 handler");
     expect(reports[0].querySelector("strong")).toHaveTextContent("404");
-    expect(reports[0]).toHaveTextContent("Spec s1");
+    expect(reports[0].querySelector("summary")).toHaveTextContent(/^Spec s1 · Master's report$/);
+    expect(reports[0].querySelector("details")).not.toHaveAttribute("open");
     expect(screen.queryByTestId("verify-criteria")).toBeNull();
     expect(screen.queryByTestId("verify-empty")).toBeNull();
-    expect(screen.getByTestId("verify-outcome-badge")).toHaveTextContent("reported · 1 follow-up");
+    expect(screen.getByTestId("verify-outcome-badge")).toHaveTextContent(/^2 reports · 1 follow-up$/);
+    expect(screen.getByTestId("verify-outcome-badge")).not.toHaveTextContent("reported");
     expect(screen.getByTestId("verify-follow-up")).toHaveTextContent("Exports stream CSV");
   });
 
@@ -394,7 +397,22 @@ describe("VerifySummary (an account nobody could take)", () => {
       />,
     );
     const badge = screen.getByTestId("verify-outcome-badge");
-    expect(badge).toHaveTextContent("1 of 1 proven · not measured");
+    expect(badge).toHaveTextContent("1 of 1 proven · 1 account not measured");
     expect(badge).toHaveClass("bad");
   });
+
+describe("VerifySummary (folded reports)", () => {
+  // A single report sits in the check section, itself a fold: shown whole, not folded twice; the badge is neutral.
+  it("VerifySummary_Reports_BadgeCountsReportsAndReportsAreClosed", () => {
+    render(<VerifySummary acceptance={{ criteria: [], outcome: null, ratifiedBy: null, source: "master_verification",
+      reports: [{ markdown: "| Check | Result |\n|---|---|\n| build | green |", specId: "s1" }] }} fallback={fallback({})} />);
+    const badge = screen.getByTestId("verify-outcome-badge");
+    expect(badge).toHaveTextContent(/^1 report$/);
+    expect(badge).not.toHaveClass("ok");
+    const report = screen.getByTestId("verify-report-text");
+    expect(report.tagName).toBe("DIV");
+    expect(report.querySelector("details")).toBeNull();
+    expect(report.querySelector(".rl-md-table th")).toHaveTextContent("Check");
+  });
+});
 });

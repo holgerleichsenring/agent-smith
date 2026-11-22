@@ -36,8 +36,10 @@ export function RunInlineLog({ attempt }: { attempt: TicketAttempt }) {
   );
 }
 
-// 2026-11-18-98fa: the check of a run whose masters ended with finish_spec is their reports, as written, and the
-// follow-ups they proposed, each fileable here; a run before that keeps the pointer to its verdicts on the run page.
+// 2026-11-18-98fa: the check of a run whose masters wrote a report is those reports, as written, and the follow-ups they
+// proposed, each fileable here; a run before that keeps the pointer to its verdicts on the run page.
+// 2026-11-22-7103a: the check section is itself a fold — one report is shown whole in it; several each fold under
+// "Spec n · id · Master's report".
 function CheckBody({ attempt, specs }: { attempt: TicketAttempt; specs: TicketSeriesSpec[] }) {
   const reported = specs.filter((s) => s.report);
   if (reported.length === 0)
@@ -50,8 +52,7 @@ function CheckBody({ attempt, specs }: { attempt: TicketAttempt; specs: TicketSe
     <div className="rl-body-line" data-testid={`thread-runlog-check-${attempt.number}`}>
       {reported.map((spec) => (
         <div key={spec.specId} data-testid={`thread-runlog-report-${spec.specId}`}>
-          {reported.length > 1 && <div className="rl-dim">Spec {spec.ordinal} · <span className="mono">{spec.specId}</span></div>}
-          <MasterReportText spec={spec} />
+          <MasterReportText spec={spec} label={`Spec ${spec.ordinal} · ${spec.specId}`} folded={reported.length > 1} />
         </div>
       ))}
       {specs.some((s) => (s.followUps ?? []).length > 0) && (

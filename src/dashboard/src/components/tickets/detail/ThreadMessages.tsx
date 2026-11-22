@@ -9,7 +9,7 @@ import { shortRepo } from "@/lib/shortRepo";
 import { useTicketDetail, useTicketSeries, useTicketText } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketDerivation } from "@/types/tickets";
 import { money, platformWords } from "../ticketFormat";
-import { reportStopped, reportText, runLine, specsOf } from "./reportWords";
+import { reportStopped, runLine, specsOf } from "./reportWords";
 import { retriable, RetryUnchanged, RUNS_CONTROL } from "./RetryUnchanged";
 import { RunInlineLog } from "./RunInlineLog";
 import { SpecCard } from "./SpecCard";
@@ -17,6 +17,8 @@ import { derivationStoryLine, foldStoryLine, runStoryLine, ticketLead } from "./
 import { StoryRow } from "./StoryRow";
 import { derivationWords, type ThreadItem } from "./threadItems";
 import { TicketTextSection } from "./TicketTextSection";
+import { attemptStatus } from "@/components/jobs/runlog/runStatusLine";
+import { useAttemptStatus, useStatusContext } from "./useAttemptStatus";
 
 // 2026-11-16-6877a: the thread's own messages beside the conversation entries — the ticket as its tracker wrote it,
 // each attempt's report (its end in its own words, the spec it delivered, its pull requests, a question it waits on,
@@ -54,11 +56,12 @@ interface ReportProps {
 
 export function AttemptReport({ attempt, initiallyOpen, retry, questionRef, log = true }: ReportProps) {
   const [open, setOpen] = useState(initiallyOpen || !!attempt.pendingQuestion);
-  const line = runStoryLine(attempt);
+  // 2026-11-22-7103a: the row is the run's status line — what happened, then the next step.
+  const line = runStoryLine(attempt, useAttemptStatus(attempt));
   return (
     <StoryRow line={line} open={open} onToggle={() => setOpen(!open)} testId={`thread-report-${attempt.number}`}
       className={reportStopped(attempt) ? "stopped" : undefined}>
-      <AttemptBody attempt={attempt} retry={retry} questionRef={questionRef} log={log} lineText={line.text} />
+      <AttemptBody attempt={attempt} retry={retry} questionRef={questionRef} log={log} />
     </StoryRow>
   );
 }
@@ -68,21 +71,18 @@ interface BodyProps {
   retry?: boolean;
   questionRef?: RefObject<HTMLDivElement | null>;
   log: boolean;
-  /** The text of the line above the body: the report's own words are drawn only when they say more. */
-  lineText?: string;
 }
 
-/** 2026-11-22-4321a: a report's body — under its thread line, or under a Runs line. */
-export function AttemptBody({ attempt, retry, questionRef, log, lineText }: BodyProps) {
+/** 2026-11-22-4321a: a report's body — under its thread line, or under a Runs line. 2026-11-22-7103a: the line above it
+ *  is the status line, so the body no longer repeats the run's end text (Your move's Why and the run page keep it). */
+export function AttemptBody({ attempt, retry, questionRef, log }: BodyProps) {
   const { project } = useTicketDetail();
   const series = useTicketSeries().data;
   const specs = specsOf(attempt, series);
   const prs = attempt.pullRequests.filter((p) => p.url);
-  const said = reportText(attempt);
   return (
     <>
-      {said !== lineText && <div className="tk-said" data-testid="thread-report-text">{said}</div>}
-      {specs.map((spec) => <SpecCard key={spec.specId} spec={spec} runId={attempt.runId} />)}
+      {specs.map((spec) => <SpecCard key={spec.specId} spec={spec} attempt={attempt} />)}
       {prs.length > 0 && (
         <div className="tk-prs">
           {prs.map((p) => (
@@ -139,8 +139,12 @@ export function DerivationMessage({ derivation }: { derivation: TicketDerivation
 /** A folded run of equal repeats: one line ("Runs 3–6 · 4× same cause"), the lines it holds opened on demand. */
 export function RepeatLine({ items, testId, children }: { items: ThreadItem[]; testId: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  // 2026-11-22-7103a: the fold reads as its last run's status line, with that run's next step.
+  const { ctx, queuePlace } = useStatusContext();
+  const last = items.flatMap((i) => (i.kind === "report" ? [i.attempt] : [])).at(-1);
+  const status = last ? attemptStatus(last, ctx, queuePlace) : undefined;
   return (
-    <StoryRow line={foldStoryLine(items)} open={open} onToggle={() => setOpen(!open)} testId={testId} className="tk-fold">
+    <StoryRow line={foldStoryLine(items, status)} open={open} onToggle={() => setOpen(!open)} testId={testId} className="tk-fold">
       <div className="tk-fold-body">{children}</div>
     </StoryRow>
   );

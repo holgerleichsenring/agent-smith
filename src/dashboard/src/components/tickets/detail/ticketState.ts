@@ -70,6 +70,30 @@ function stateOf({ detail, liveEvents, series }: TicketStateInput): TicketStateV
   }
 }
 
+/** 2026-11-22-7103a: why an attempt stopped before any work, by its end kind, without the attempt's number — failureAct
+ *  and a run's status line say the same words. */
+const STOP_WORDS: Record<string, string> = {
+  [RUN_END_KINDS.imageUntrusted]: "a context names a container image outside the trusted registries",
+  [RUN_END_KINDS.bootstrapMissing]: "a repository has no agent-smith bootstrap",
+  [RUN_END_KINDS.preflight]: "a precondition did not hold",
+};
+
+/** 2026-11-22-7103a: a stopped run's status head from its end kind and detail — "Stopped before any work: …" or
+ *  "Failed: …" with no attempt number and no closing full stop; null when the end names no cause. */
+export function endCauseHead(head: TicketAttempt): string | null {
+  const told = detailSentence(head)?.replace(/[.!?]$/, "") ?? null;
+  const kind = head.endKind ?? "";
+  if (STOP_WORDS[kind]) return `Stopped before any work: ${told ?? STOP_WORDS[kind]}`;
+  switch (kind) {
+    case RUN_END_KINDS.readinessUnknown: {
+      const why = head.endDetail?.subject;
+      return `Stopped before any work: the repositories' bootstrap could not be read from the host${why ? `: ${why}` : ""}`;
+    }
+    case RUN_END_KINDS.criteriaUnmet: return "Failed: the verifier of that time did not accept a criterion";
+    default: return told ? `Failed: ${told}` : null;
+  }
+}
+
 /** The act that fits why the head attempt failed, first match wins. */
 export function failureAct(head: TicketAttempt, project: string): { sentence: string; act: StateAct } {
   const n = head.number;
@@ -85,19 +109,20 @@ export function failureAct(head: TicketAttempt, project: string): { sentence: st
   const told = detailSentence(head);
   switch (head.endKind) {
     case RUN_END_KINDS.imageUntrusted:
-      return { sentence: told ?? `Attempt ${n} stopped before any work: a context names a container image outside the trusted registries.`,
+      return { sentence: told ?? `Attempt ${n} stopped before any work: ${STOP_WORDS[RUN_END_KINDS.imageUntrusted]}.`,
         act: { kind: "link", label: "Trust the registry in Settings", href: SANDBOX_SETTINGS_PATH,
           note: "Add the image's registry to the sandbox's trusted registries, then start the next attempt." } };
     case RUN_END_KINDS.bootstrapMissing:
-      return { sentence: told ?? `Attempt ${n} stopped before any work: a repository has no agent-smith bootstrap.`,
+      return { sentence: told ?? `Attempt ${n} stopped before any work: ${STOP_WORDS[RUN_END_KINDS.bootstrapMissing]}.`,
         act: { kind: "init", project } };
     // 2026-11-18-c8e2c: only a run before then ends this way — the verifier it names is gone, so the next attempt is the move.
     case RUN_END_KINDS.criteriaUnmet:
       return { sentence: `Attempt ${n} failed: the verifier of that time did not accept a criterion.`, act: CONTINUE };
     case RUN_END_KINDS.preflight:
-      return { sentence: told ?? `Attempt ${n} stopped before any work: a precondition did not hold.`, act: CONTINUE };
+      return { sentence: told ?? `Attempt ${n} stopped before any work: ${STOP_WORDS[RUN_END_KINDS.preflight]}.`, act: CONTINUE };
+    // 2026-11-22-7103a: an end detail names the cause — the same words as the status line's (endCauseHead).
     default:
-      return { sentence: `Attempt ${n} failed.`, act: CONTINUE };
+      return { sentence: told ? `Attempt ${n} failed: ${told}` : `Attempt ${n} failed.`, act: CONTINUE };
   }
 }
 
@@ -129,7 +154,8 @@ function failed(detail: TicketDetail, head: TicketAttempt, pill: string): Ticket
     return { ...base(head), tone: "q", pill: "Paused", sentence: "Its series is paused; it starts again when the series resumes." };
   // 2026-11-17-f9b0a: a cancelled head is in the failed bucket and says it was cancelled.
   if (head.status === "cancelled")
-    return { ...base(head), tone: "bad", pill: "Cancelled", sentence: `Attempt ${head.number} was cancelled.`, act: CONTINUE };
+    // 2026-11-22-7103a: a person's cancel is no fault — grey.
+    return { ...base(head), tone: "q", pill: "Cancelled", sentence: `Attempt ${head.number} was cancelled.`, act: CONTINUE };
   return { ...base(head), tone: "bad", pill, ...failureAct(head, detail.summary.project) };
 }
 

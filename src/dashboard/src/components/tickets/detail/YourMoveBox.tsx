@@ -12,7 +12,7 @@ import { RetryUnchanged } from "./RetryUnchanged";
 import type { StateAct } from "./ticketState";
 import { useTicketTabGo } from "./useTicketTabGo";
 import { useYourMove } from "./useYourMove";
-import type { YourMove } from "./yourMove";
+import { actLabel, type YourMove } from "./yourMove";
 
 // 2026-11-16-6877a: the one box above the composer that says what is next — a coloured dot, one title, ticketState's
 // sentence, at most one bright act, and for a stopped ticket the run's own end text behind "Why". It takes the
@@ -30,10 +30,6 @@ export function YourMoveBox({ detail, onReply, onAnswer }: Props) {
   const read = useYourMove(detail);
   if (!read) return null;
   const { view, move } = read;
-  const review = detail.summary.bucket === "waiting_on_review";
-  const openPrs = view.pullRequests.filter((pr) => pr.state === "open");
-  const prAct: StateAct | null = review && openPrs.length === 1
-    ? { kind: "link", label: "Review the pull request", href: openPrs[0].url } : null;
   return (
     <section className={`tk-move ${move.tone}`} data-testid="ticket-state" data-tone={move.tone} aria-live="polite">
       <span className="tk-move-dot" aria-hidden="true" />
@@ -47,8 +43,7 @@ export function YourMoveBox({ detail, onReply, onAnswer }: Props) {
         )}
         {view.pullRequests.length > 0 && <PullRequests prs={view.pullRequests} />}
       </div>
-      <Act act={prAct ?? move.act} project={detail.summary.project} onReply={onReply} onAnswer={onAnswer}
-        question={detail.summary.bucket === "needs_you" && detail.summary.kind === "question"} />
+      <Act act={move.act} project={detail.summary.project} onReply={onReply} onAnswer={onAnswer} question={move.question} />
       {move.why && <Why move={move} attempt={view.attempt} />}
     </section>
   );
@@ -81,7 +76,7 @@ function Act({ act, project, onReply, onAnswer, question }: ActProps) {
       return (
         <span className="tk-move-act">
           <button type="button" className={question ? "btn primary" : "btn"} data-testid="ticket-state-act" onClick={go}>
-            {question ? "Answer the question" : "Reply below"}
+            {actLabel(act, question)}
           </button>
         </span>
       );

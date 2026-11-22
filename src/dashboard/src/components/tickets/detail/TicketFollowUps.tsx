@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BlockText } from "@/components/jobs/runlog/LogText";
+import { MasterReport } from "@/components/jobs/runlog/LogText";
 import { postFollowUp } from "@/lib/ticketsApi";
 import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import type { TicketSeriesSpec } from "@/types/tickets";
@@ -9,7 +9,7 @@ import type { TicketSeriesSpec } from "@/types/tickets";
 // 2026-11-18-c8e2d: the follow-up specs the masters proposed across the series — work each judged not worth holding
 // its spec for. The person decides: "File as a ticket" files one as a work ticket through a 'file' run; a second click
 // is refused by the server, so a filed one says so.
-// 2026-11-18-98fa: the masters' own reports ride above, as markdown; the run log's check section shows the same.
+// 2026-11-18-98fa: the masters' own reports ride above, as markdown, folded (7103a); the run log's check section shows the same.
 
 type Filing = { state: "filing" } | { state: "filed"; key: string } | { state: "refused"; text: string };
 
@@ -24,14 +24,11 @@ export function TicketFollowUps({ specs }: { specs: TicketSeriesSpec[] }) {
   );
 }
 
-/** 2026-11-18-98fa: one spec's master's report, as written. */
-export function MasterReportText({ spec }: { spec: TicketSeriesSpec }) {
+/** 2026-11-18-98fa: one spec's master's report, as written. 2026-11-22-7103a: closed under "Master's report"; `label`
+ *  names the spec where the place around it does not. */
+export function MasterReportText({ spec, label, folded = true }: { spec: TicketSeriesSpec; label?: string; folded?: boolean }) {
   if (!spec.report) return null;
-  return (
-    <div className="tk-master-report" data-testid={`master-report-${spec.specId}`}>
-      <BlockText text={spec.report} />
-    </div>
-  );
+  return <MasterReport text={spec.report} spec={label} testId={`master-report-${spec.specId}`} folded={folded} />;
 }
 
 /** The follow-ups of these specs, each with its "File as a ticket" action. */

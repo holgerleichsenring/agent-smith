@@ -76,25 +76,25 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("AttemptReport", () => {
-  it("AttemptReport_SaysTheRunsOwnWords_AndLinksTheRunWithTimeAndCost", async () => {
+  // 2026-11-22-7103a: the row is the run's status line; the body draws no end text of its own.
+  it("AttemptReport_SaysTheRunsStatus_AndLinksTheRunWithTimeAndCost", async () => {
     await report();
-    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Done on branch agent-smith/GH-101.");
-    // The line already says a one-line end text; the body does not repeat it.
+    expect(screen.getByTestId("thread-report-1-head")).toHaveTextContent("Done");
     expect(screen.queryByTestId("thread-report-text")).toBeNull();
     expect(screen.getByTestId("thread-run-1")).toHaveAttribute("href", "/jobs/r-1");
     expect(screen.getByTestId("thread-run-1")).toHaveTextContent("Run 1 · 30m 0s · $3.05 · open the run ›");
   });
 
-  it("AttemptReport_Closed_IsOneLineWithOutcomeEndKindSentenceAndDuration_AndOpensOnAClick", async () => {
+  it("AttemptReport_Closed_IsOneStatusLineWithDuration_AndOpensOnAClick", async () => {
     await report(attempt({ status: "failed", endKind: "image-untrusted", summary: "Registry ghcr.io/x is not trusted.\nmore" }), false);
     expect(screen.queryByTestId("thread-report-text")).toBeNull();
     const line = screen.getByTestId("thread-report-1");
-    expect(line).toHaveTextContent("Run 1failed · image not trusted · Registry ghcr.io/x is not trusted.30m 0s▸");
+    expect(line).toHaveTextContent(/^[A-Z][a-z]{2} \d+ \d\d:\d\dRun 1Stopped before any work: a context names a container image outside the trusted registries · → Nothing for you to do\.30m 0s▸$/);
     expect(line).toHaveClass("bad");
     expect(screen.queryByTestId("thread-run-1")).toBeNull();
     fireEvent.click(screen.getByTestId("thread-report-1-head"));
     expect(screen.getByTestId("thread-run-1")).toBeInTheDocument();
-    expect(screen.getByTestId("thread-report-text")).toHaveTextContent(/Registry ghcr.io\/x is not trusted.\s+more/);
+    expect(screen.queryByTestId("thread-report-text")).toBeNull();
   });
 
   // 2026-11-18-d6d2e: the run page's log — a section per spec, a planned spec hollow, a stopped one open by itself.
@@ -160,7 +160,7 @@ describe("AttemptReport", () => {
 
   it("AttemptReport_Live_SaysItIsWorking", async () => {
     await report(attempt({ status: "running", finishedAt: null }));
-    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Run 1 is working.");
+    expect(screen.getByTestId("thread-report-1-head")).toHaveTextContent("Working");
   });
 
   // 2026-11-19-1b72c: a spec that recorded no verdict and no report names no tally — no "no verdict" line.
@@ -184,6 +184,76 @@ describe("AttemptReport", () => {
     expect(criteria[1]).toHaveTextContent("RetryPolicy.cs:18");
     fireEvent.click(within(card).getByTestId("spec-card-open"));
     expect(nav.replace).toHaveBeenCalledWith("/tickets/shop/101?section=specs&spec=s1", { scroll: false });
+  });
+
+  // 2026-11-22-7103a: the card heads with what came of the spec in THIS attempt, in the status line's colours.
+  const rows = (s1: string, s2: string, v2: string | null = null) => [
+    { specId: "s1", ordinal: 1, title: "one", status: s1, verdict: null },
+    { specId: "s2", ordinal: 2, title: "two", status: s2, verdict: v2 }];
+  const twoSpecs = () => api.series.mockImplementationOnce(() => Promise.resolve(series("r-1", [
+    spec({ report: "## Done\n\n| Check | Result |\n|---|---|\n| build | green |" }),
+    spec({ specId: "s2", ordinal: 2, done: [
+      { text: "a", verdict: "unmet", note: null, citation: null, overrule: null },
+      { text: "b", verdict: "unmet", note: null, citation: null, overrule: null }] })])));
+
+  it("SpecCard_DoneSpecOfShortfall_SaysDeliveredGreen", async () => {
+    twoSpecs();
+    await report(attempt({ status: "shortfall", executedSpecs: rows("done", "failed", "No report was written.") }));
+    const delivery = within(screen.getByTestId("spec-card-s1")).getByTestId("spec-card-delivery");
+    expect(delivery).toHaveTextContent("delivered");
+    expect(delivery).toHaveClass("ok");
+    expect(screen.getByTestId("spec-card-s1")).not.toHaveTextContent("reported");
+  });
+
+  it("SpecCard_FailedSpec_SaysNotDeliveredRed_CriteriaCountDim", async () => {
+    twoSpecs();
+    await report(attempt({ status: "shortfall", executedSpecs: rows("done", "failed", "No report was written.") }));
+    const card = screen.getByTestId("spec-card-s2");
+    expect(within(card).getByTestId("spec-card-delivery")).toHaveTextContent("not delivered");
+    expect(within(card).getByTestId("spec-card-delivery")).toHaveClass("bad");
+    expect(within(card).getByTestId("spec-card-tally")).toHaveTextContent("0 of 2 done criteria met");
+    expect(within(card).getByTestId("spec-card-tally")).toHaveClass("tk-dim");
+  });
+
+  it("SpecCard_HandedBackAndCarried_SayTheirWords", async () => {
+    twoSpecs();
+    await report(attempt({ status: "success", executedSpecs: rows("carried", "handed_back") }));
+    expect(within(screen.getByTestId("spec-card-s1")).getByTestId("spec-card-delivery")).toHaveTextContent("carried");
+    const back = within(screen.getByTestId("spec-card-s2")).getByTestId("spec-card-delivery");
+    expect(back).toHaveTextContent("handed back");
+    expect(back).toHaveClass("person");
+  });
+
+  it("SpecCard_NotStartedInAnEndedAttempt_SaysNotStartedNotDelivered", async () => {
+    twoSpecs();
+    await report(attempt({ status: "failed", executedSpecs: rows("failed", "not_started") }));
+    const word = within(screen.getByTestId("spec-card-s2")).getByTestId("spec-card-delivery");
+    expect(word).toHaveTextContent(/^not started, not delivered$/);
+    expect(word).toHaveClass("bad");
+  });
+
+  // A head that ends in its own punctuation is not followed by " · ".
+  it("StoryRow_HeadEndingInPunctuation_IsFollowedByASpace", async () => {
+    const { StoryRow } = await import("../StoryRow");
+    render(<StoryRow line={{ at: null, who: "Run 9", outcome: "Why?", text: "→ Reply below.", meta: "", tone: "person" }} open={false} testId="row" />);
+    expect(screen.getByTestId("row-head").querySelector(".tk-text")).toHaveTextContent(/^Why\? → Reply below\.$/);
+  });
+
+  it("SpecCard_Opened_HasNoMasterReport", async () => {
+    twoSpecs();
+    await report(attempt({ status: "shortfall", executedSpecs: rows("done", "failed") }));
+    const card = screen.getByTestId("spec-card-s1");
+    fireEvent.click(within(card).getByRole("button", { expanded: false }));
+    expect(within(card).queryByTestId("master-report-s1")).toBeNull();
+  });
+
+  it("AttemptBody_Shortfall_DrawsNoSaidText", async () => {
+    twoSpecs();
+    await report(attempt({ status: "shortfall", summary: "Delivered 1 of 2 spec(s); not delivered: s2 — No report was written.\nmore",
+      executedSpecs: rows("done", "failed", "No report was written.") }));
+    expect(screen.queryByTestId("thread-report-text")).toBeNull();
+    expect(screen.getByTestId("thread-report-1-head")).toHaveTextContent("1 of 2 specs delivered · s2: No report was written.");
+    expect(screen.getByTestId("thread-report-1")).toHaveClass("bad");
   });
 
   it("SpecCard_DecidedForYou_KeepRatifies_ChangeOverrules_AConversationDefaultOffersKeepOnly", async () => {

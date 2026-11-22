@@ -88,13 +88,14 @@ afterEach(() => {
 describe("Ticket runs section", () => {
   // 2026-11-17-8d1cc: one line per run, newest first — outcome with its end kind, its own first line, start, duration,
   // cost — each opening its run, with what started it under it.
-  it("EveryRun_IsOneLine_NewestFirst_WithOutcomeEndKindStartDurationCostAndItsRunLink", async () => {
+  // 2026-11-22-7103a: the outcome and text are the run's status line.
+  it("EveryRun_IsOneLine_NewestFirst_WithItsStatusStartDurationCostAndItsRunLink", async () => {
     world.detail.attempts = world.detail.attempts.map((a) => (a.number === 1 ? { ...a, endKind: "image-untrusted", summary: "Registry not trusted" } : a));
     await open();
     const lines = screen.getAllByTestId(/^run-line-\d$/).map((c) => c.getAttribute("data-testid"));
     expect(lines).toEqual(["run-line-3", "run-line-2", "run-line-1"]);
-    expect(screen.getByTestId("run-line-1")).toHaveTextContent("Run 1handed back · image not trusted · Registry not trusted");
-    expect(screen.getByTestId("run-line-2")).toHaveTextContent(/succeeded · .*\$3\.05/);
+    expect(screen.getByTestId("run-line-1")).toHaveTextContent("Run 1Handed back · Registry not trusted.");
+    expect(screen.getByTestId("run-line-2")).toHaveTextContent(/Delivered · No pull request opened\..*\$3\.05/);
     expect(screen.getByTestId("run-link-r-2")).toHaveAttribute("href", "/jobs/r-2");
     expect(screen.getByTestId("ticket-section-runs")).toHaveTextContent("Runs3");
   });

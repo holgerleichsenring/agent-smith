@@ -18,14 +18,21 @@ describe("ticketDot", () => {
       [ticket({ bucket: "done", lastOutcome: null, landing: "merged" }), "ok"],
       [ticket({ bucket: "idle", lastOutcome: "success", landing: "unmerged" }), "bad"],
       [ticket({ bucket: "idle", lastOutcome: "success" }), "ok"],
-      [ticket({ bucket: "idle", lastOutcome: "shortfall" }), "ok"],
       [ticket({ bucket: "idle", lastOutcome: "failed" }), "bad"],
-      [ticket({ bucket: "idle", lastOutcome: "cancelled" }), "bad"],
+      // 2026-11-22-7103a: a cancel is no fault — grey, in the failed bucket too.
+      [ticket({ bucket: "idle", lastOutcome: "cancelled" }), "idle"],
+      [ticket({ bucket: "failed", lastOutcome: "cancelled" }), "idle"],
+      [ticket({ bucket: "failed", lastOutcome: "failed" }), "bad"],
       [ticket({ bucket: "idle", lastOutcome: null }), "idle"],
       [ticket({ bucket: "blocked" }), "blocked"],
       [ticket({ bucket: "filed" }), "filed"],
     ];
     expect(cases.map(([t]) => ticketDot(t))).toEqual(cases.map(([, cls]) => cls));
+  });
+
+  // 2026-11-22-7103a: an idle ticket whose last attempt fell short left a spec undelivered — red, not green.
+  it("TicketDot_IdleShortfall_IsBad", () => {
+    expect(ticketDot(ticket({ bucket: "idle", lastOutcome: "shortfall" }))).toBe("bad");
   });
 
   // 2026-10-15-114fd

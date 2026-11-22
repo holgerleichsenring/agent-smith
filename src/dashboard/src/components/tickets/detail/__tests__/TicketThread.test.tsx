@@ -335,7 +335,8 @@ describe("Ticket thread", () => {
       screen.getAllByTestId("conv-entry").find((e) => e.getAttribute("data-entry-id") === "a")!);
     fireEvent.click(toggle);
     expect(order()).toEqual(["thread-ticket", "thread-report-1", "c", "thread-report-2", "d", "e"]);
-    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Done on the branch.");
+    // 2026-11-22-7103a: the row is the run's status line.
+    expect(screen.getByTestId("thread-report-1-head")).toHaveTextContent(/Run 1Done · → See run 2, the latest\.30m 0s▸$/);
     expect(screen.getByTestId("thread-report-2")).toHaveClass("stopped");
     expect(screen.queryByTestId("conv-filter-all")).toBeNull();
   });
@@ -859,8 +860,10 @@ describe("Ticket thread reading", () => {
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
     const line = screen.getByTestId("thread-repeat-attempts-r-1");
-    // 2026-11-17-8d1cb: the fold is one line — "Runs 1–3", the outcome with its end kind, the cause, "3× same cause".
-    expect(line).toHaveTextContent("Runs 1–3failed · bootstrap missing · Pipeline aborted: missing bootstrap3× same cause");
+    // 2026-11-17-8d1cb: the fold is one line — "Runs 1–3", the LAST run's status line with its next step, "3× same cause"
+    // (7103a); no attempt number in the words.
+    expect(line).toHaveTextContent(
+      /^[A-Z][a-z]{2} \d+ \d\d:\d\dRuns 1–3Stopped before any work: a repository has no agent-smith bootstrap · → See run 4, the latest\.3× same cause▸$/);
     expect(screen.queryByTestId("thread-report-2")).toBeNull();
     expect(screen.getByTestId("thread-report-4")).toHaveTextContent("Pod did not start");
     fireEvent.click(screen.getByTestId("thread-repeat-attempts-r-1-head"));

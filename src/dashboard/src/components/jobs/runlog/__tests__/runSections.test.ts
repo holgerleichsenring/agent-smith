@@ -68,15 +68,29 @@ describe("runSections", () => {
 
   it("checkOf_MastersReported_IsTheMastersReport_WithItsFollowUps_NotZeroOfZero", () => {
     const reported = { criteria: [], outcome: null, ratifiedBy: null, reports: [{ markdown: "## Done", specId: "s1" }] };
-    expect(checkOf(reported)).toEqual({ state: "done", summary: "reported", title: "The master's report" });
-    expect(checkOf({ ...reported, followUps: [{ goal: "g", why: "w" }, { goal: "h", why: "w" }] })!.summary).toBe("reported · 2 follow-ups");
+    // 2026-11-22-7103a: the reports counted, never "reported".
+    expect(checkOf(reported)).toEqual({ state: "quiet", summary: "1 report", title: "The master's report" });
+    expect(checkOf({ ...reported, followUps: [{ goal: "g", why: "w" }, { goal: "h", why: "w" }] })!.summary).toBe("1 report · 2 follow-ups");
   });
 
   it("checkOf_UnmeasuredAccount_IsRed_WithOrWithoutVerdicts", () => {
     const unmeasured = [{ repositories: "portal-worker", reason: "red build" }];
     expect(checkOf({ criteria: [], outcome: null, ratifiedBy: null, unmeasured }))
-      .toEqual({ state: "bad", summary: "not measured", title: "Checked against the spec" });
+      .toEqual({ state: "bad", summary: "1 account not measured", title: "Checked against the spec" });
     const c = { text: "x", status: "met" as const, reason: null };
-    expect(checkOf({ criteria: [c], outcome: null, ratifiedBy: null, unmeasured })!.summary).toBe("1 of 1 done criteria met · not measured");
+    expect(checkOf({ criteria: [c], outcome: null, ratifiedBy: null, unmeasured })!.summary).toBe("1 of 1 done criteria met · 1 account not measured");
+  });
+
+  it("CheckOf_Reports_MetaCountsReports", () => {
+    const two = { criteria: [], outcome: null, ratifiedBy: null, reports: [{ markdown: "a", specId: "s1" }, { markdown: "b", specId: "s2" }],
+      followUps: [{ goal: "g", why: "w" }, { goal: "h", why: "w" }, { goal: "i", why: "w" }] };
+    // A report is no verdict: grey, never the green of a pass.
+    expect(checkOf(two)).toEqual({ state: "quiet", summary: "2 reports · 3 follow-ups", title: "The master's report" });
+  });
+
+  it("CheckOf_ReportsWithUnmeasured_IsBadAndCountsTheAccount", () => {
+    const one = { criteria: [], outcome: null, ratifiedBy: null, reports: [{ markdown: "a", specId: "s1" }],
+      unmeasured: [{ repositories: "server", reason: "no report" }] };
+    expect(checkOf(one)).toEqual({ state: "bad", summary: "1 report · 1 account not measured", title: "The master's report" });
   });
 });
