@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub, pr } from "../../__tests__/ticketFixtures";
-import { attempt, budget, conversation, defaults, detail, passes, reviews, series, spec, ticketText } from "./detailFixtures";
+import { attempt, budget, conversation, defaults, detail, entry, passes, reviews, series, spec, ticketText } from "./detailFixtures";
 import { EventType, type RunEvent } from "@/types/hub-events";
 import type { RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
 
@@ -167,7 +167,9 @@ describe("Ticket page", () => {
     world.detail = detail([attempt({ status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     const cases: Array<[string, string, string]> = [
-      ["", "happened", "What happened"], ["tab=summary", "happened", "What happened"], ["tab=conversation", "happened", "What happened"],
+      ["", "now", "Now"], ["tab=summary", "now", "Now"], ["section=happened", "now", "Now"],
+      ["tab=conversation", "conversation", "Conversation"], ["section=conversation", "conversation", "Conversation"],
+      ["causeOf=r-1", "conversation", "Conversation"],
       ["section=specs", "specs", "Specs"], ["tab=acceptance", "acceptance", "Acceptance"], ["tab=attempts", "runs", "Runs"],
       ["section=runs", "runs", "Runs"], ["tab=cost", "cost", "Cost"], ["section=defaults", "defaults", "Defaults"],
     ];
@@ -176,11 +178,15 @@ describe("Ticket page", () => {
       await open();
       expect(screen.getByTestId("ticket-section-title")).toHaveTextContent(title);
       expect(screen.getByTestId(`ticket-section-${id}`)).toHaveAttribute("aria-current", "page");
-      if (id === "happened") {
-        // 2026-11-17-8d1cb: the Your move line heads What happened, above the lines; the composer is at the bottom.
-        const log = screen.getByRole("log", { name: "Conversation" });
-        expect(screen.getByTestId("ticket-state").compareDocumentPosition(log) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      if (id === "now") {
+        // 2026-11-22-4321a: the Your move line heads Now, the current run under it; the composer is at the bottom.
+        expect(screen.queryByRole("log", { name: "Conversation" })).toBeNull();
+        expect(screen.getByTestId("ticket-state").compareDocumentPosition(screen.getByTestId("now-run")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(screen.getByTestId("conv-dock")).not.toContainElement(screen.getByTestId("ticket-state"));
+      } else if (id === "conversation") {
+        expect(screen.getByRole("log", { name: "Conversation" })).toBeInTheDocument();
+        expect(screen.queryByTestId("ticket-state")).toBeNull();
+        expect(screen.getByTestId("conv-dock")).toBeInTheDocument();
       } else {
         expect(screen.queryByRole("log", { name: "Conversation" })).toBeNull();
         expect(screen.getByTestId(`ticket-pane-${id}`)).toBeInTheDocument();
@@ -196,7 +202,9 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("ticket-section-runs")).toHaveTextContent("Runs1");
     fireEvent.click(screen.getByTestId("ticket-section-runs"));
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?section=runs", { scroll: false });
-    fireEvent.click(screen.getByTestId("ticket-section-happened"));
+    fireEvent.click(screen.getByTestId("ticket-section-conversation"));
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?section=conversation", { scroll: false });
+    fireEvent.click(screen.getByTestId("ticket-section-now"));
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101", { scroll: false });
   });
 
@@ -206,13 +214,57 @@ describe("Ticket page", () => {
       attempt({ number: 3, runId: "r-3", status: "failed", summary: "Pod did not start" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
-    // 2026-11-17-8d1cb: every run says how it ended and why in words, not only the newest; the newest is open.
-    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("failed · image not trusted · Image not trusted");
-    expect(screen.getByTestId("thread-report-2")).toHaveTextContent("superseded · Run 2 was cancelled.");
-    expect(screen.queryByTestId("thread-run-1")).toBeNull();
+    // 2026-11-22-4321a: Now holds the current run, open; the older runs are in the conversation and in Runs.
+    expect(screen.queryByTestId("thread-report-1")).toBeNull();
     expect(screen.getByTestId("thread-run-3")).toHaveAttribute("href", "/jobs/r-3");
     expect(screen.getByTestId("thread-run-3")).toHaveTextContent(/^Run 3 · .* · \$\d+\.\d\d · open the run ›$/);
+    cleanup();
+    // 2026-11-17-8d1cb: every run says how it ended and why in words, not only the newest.
+    nav.search = "section=conversation";
+    await open();
+    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("failed · image not trusted · Image not trusted");
+    expect(screen.getByTestId("thread-report-2")).toHaveTextContent("superseded · Run 2 was cancelled.");
+    expect(screen.getByTestId("thread-report-3")).toHaveTextContent("Pod did not start");
+    expect(screen.queryByTestId("thread-run-1")).toBeNull();
   });
+
+  // 2026-11-22-4321a: Now — the state line, what the ticket waits for, the current run open, then the newest entry only,
+  // the way to the whole conversation with its count, and the composer; the current run is above every entry.
+  it("Now_ShowsTheCurrentRunAboveTheNewestEntryOnly_AndLinksTheWholeConversation", async () => {
+    world.detail = detail([attempt({ status: "failed" }), attempt({ number: 2, runId: "r-2", status: "running", finishedAt: null })]);
+    world.conversation = conversation([
+      entry({ id: "old-1", text: "First words", attemptRunId: null, group: "before" }),
+      entry({ id: "old-2", text: "Second words", attemptRunId: "r-1" }),
+      entry({ id: "new", text: "Newest words", attemptRunId: null, group: "now", at: "2026-09-04T15:00:00Z" }),
+    ]);
+    await open();
+    const run = screen.getByTestId("now-run");
+    expect(within(run).getByTestId("thread-report-2")).toHaveAttribute("data-open", "true");
+    expect(within(run).queryByTestId("thread-report-1")).toBeNull();
+    const entries = screen.getAllByTestId("conv-entry");
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toHaveAttribute("data-entry-id", "new");
+    expect(run.compareDocumentPosition(entries[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("ticket-state").compareDocumentPosition(run) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("ticket-composer")).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-section-conversation")).toHaveTextContent("Conversation3");
+    const link = screen.getByTestId("now-conversation-link");
+    expect(link).toHaveTextContent("Whole conversation · 3 entries →");
+    fireEvent.click(link);
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?section=conversation", { scroll: false });
+  });
+
+  // 2026-11-22-4321a: a ticket whose only run is a deploy has no coding run to show — one line, not an empty box.
+  it("Now_WithOnlyADeployRun_SaysNoCodingRunYet_AndLinksTheNewestRun", async () => {
+    world.detail = detail([], { otherRuns: [{ runId: "dep-1", pipeline: "deploy", status: "success",
+      startedAt: "2026-09-04T12:00:00Z", finishedAt: "2026-09-04T12:05:00Z", cost: 0, neverStarted: false }] });
+    await open();
+    expect(screen.queryByTestId("now-run")).toBeNull();
+    expect(screen.getByTestId("now-no-run")).toHaveTextContent("No coding run yet.");
+    expect(screen.getByTestId("now-newest-run")).toHaveAttribute("href", "/jobs/dep-1");
+    expect(screen.getByTestId("now-newest-run")).toHaveTextContent("Deploy · delivered");
+  });
+
   it("TicketStateBlock_PullRequests_AreRowsWithShortRepoNumberStateAndLink", async () => {
     world.detail = detail([attempt({ status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed", pullRequests: [

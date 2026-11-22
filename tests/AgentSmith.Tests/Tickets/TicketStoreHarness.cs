@@ -107,6 +107,8 @@ internal sealed class TicketStoreHarness : IDisposable
     public RecordingBranchSources Branches { get; } = new();
     public AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore Pointers { get; } = new();
     public StaleLease? HeldLease { get; set; }
+    /// <summary>2026-11-22-9719d: every database command the readers send.</summary>
+    public CountingCommands Commands { get; } = new();
 
     public AgentSmithConfig Config { get; } = new()
     {
@@ -204,7 +206,7 @@ internal sealed class TicketStoreHarness : IDisposable
     }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
-        new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
+        new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).AddInterceptors(Commands).Options;
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {

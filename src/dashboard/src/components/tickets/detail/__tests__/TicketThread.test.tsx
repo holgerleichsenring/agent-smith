@@ -319,15 +319,27 @@ describe("Ticket thread", () => {
       attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
     };
     await open();
-    const log = screen.getByRole("log", { name: "Conversation" });
-    const order = [...log.querySelectorAll("[data-entry-id], [data-testid^=thread-report-]:not([data-testid=thread-report-text]):not([data-testid$=-head]), [data-testid=thread-ticket]")]
+    const log = screen.getByRole("log", { name: "Conversation" }).parentElement!;
+    const order = () => [...log.querySelectorAll("[data-entry-id], [data-testid^=thread-report-]:not([data-testid=thread-report-text]):not([data-testid$=-head]), [data-testid=thread-ticket]")]
       .map((n) => n.getAttribute("data-entry-id") ?? n.getAttribute("data-testid"));
-    expect(order).toEqual(["thread-ticket", "a", "b", "thread-report-1", "c", "thread-report-2", "d", "e"]);
+    // 2026-11-22-4321a: the newest five items are shown; the earlier ones wait behind one button.
+    expect(order()).toEqual(["thread-ticket", "thread-report-1", "c", "thread-report-2", "d", "e"]);
+    const toggle = screen.getByTestId("conv-earlier");
+    expect(toggle).toHaveTextContent("2 earlier entries");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(order()).toEqual(["thread-ticket", "a", "b", "thread-report-1", "c", "thread-report-2", "d", "e"]);
+    // 2026-11-22-4321a: the earlier items open outside the live log, so unfolding announces no history.
+    expect(screen.getByRole("log", { name: "Conversation" })).not.toContainElement(
+      screen.getAllByTestId("conv-entry").find((e) => e.getAttribute("data-entry-id") === "a")!);
+    fireEvent.click(toggle);
+    expect(order()).toEqual(["thread-ticket", "thread-report-1", "c", "thread-report-2", "d", "e"]);
     expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Done on the branch.");
     expect(screen.getByTestId("thread-report-2")).toHaveClass("stopped");
     expect(screen.queryByTestId("conv-filter-all")).toBeNull();
   });
-  it("CauseOf_ScrollsToTheEntryThatIsThatAttemptsCause_WithNoMatchItOpensAtTheNewest", async () => {
+  it("CauseOf_ScrollsToTheEntryThatIsThatAttemptsCause_WithNoMatchToThatAttemptsReport", async () => {
     const scrolled = vi.fn();
     Element.prototype.scrollIntoView = scrolled;
     world.detail = detail([attempt(), attempt({ number: 2, runId: "r-2", cause: prCause })]);
@@ -348,10 +360,11 @@ describe("Ticket thread", () => {
 
     cleanup();
     scrolled.mockClear();
+    // 2026-11-22-4321a: no entry is the attempt's cause — the thread opens at that attempt's report line.
     nav.search = "tab=conversation&causeOf=r-1";
     await open();
     expect(scrolled).toHaveBeenCalledTimes(1);
-    expect(scrolled.mock.instances[0]).toBe(screen.getByTestId("conv-end"));
+    expect(scrolled.mock.instances[0]).toBe(screen.getByTestId("thread-report-1"));
     expect(screen.queryAllByTestId("conv-entry").some((e) => e.getAttribute("data-target") === "true")).toBe(false);
   });
 
@@ -366,18 +379,109 @@ describe("Ticket thread", () => {
       ]),
       attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: prCause, revision: null }],
     };
-    nav.search = "";
+    nav.search = "section=conversation";
     const { client } = fakeHub();
     const page = () => <TicketPageStore project="shop" ticketId="101" client={client} api={api}><TicketPage /></TicketPageStore>;
     const { rerender } = render(page());
     await settle();
     expect(scrolled.mock.instances.at(-1)).toBe(screen.getByTestId("conv-end"));
     scrolled.mockClear();
-    nav.search = "causeOf=r-2";
+    nav.search = "section=conversation&causeOf=r-2";
     rerender(page());
     await settle();
     expect(scrolled).toHaveBeenCalledTimes(1);
     expect((scrolled.mock.instances[0] as unknown as HTMLElement).getAttribute("data-entry-id")).toBe("pr-review:k:c-77");
+  });
+
+  // 2026-11-22-4321a: a ?causeOf= entry among the earlier items is on the page, the thread unfolded.
+  it("CauseOf_AnEntryAmongTheEarlierItems_UnfoldsTheThread_AndScrollsToIt", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    world.detail = detail([attempt(), attempt({ number: 2, runId: "r-2", cause: prCause })]);
+    world.conversation = {
+      ...conversation([
+        entry({ id: "pr-review:k:c-77", source: "pr-review", kind: "comment", sourceId: "c-77", url: PR, attemptRunId: null, group: "before", role: "reviewer" }),
+        ...["n1", "n2", "n3", "n4", "n5", "n6"].map((id) => entry({ id, attemptRunId: null, group: "now" })),
+      ]),
+      attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: prCause, revision: null }],
+    };
+    nav.search = "section=conversation&causeOf=r-2";
+    await open();
+    expect(screen.queryByTestId("conv-earlier")).toBeNull();
+    expect((scrolled.mock.instances[0] as unknown as HTMLElement).getAttribute("data-entry-id")).toBe("pr-review:k:c-77");
+    cleanup();
+    nav.search = "section=conversation";
+    await open();
+    expect(screen.getByTestId("conv-earlier")).toHaveTextContent("2 earlier entries and 2 runs");
+    expect(screen.queryAllByTestId("conv-entry").map((e) => e.getAttribute("data-entry-id"))).not.toContain("pr-review:k:c-77");
+  });
+
+  // 2026-11-22-4321a: the conversation draws no Your move line and no run open by itself; Now does.
+  it("Conversation_HasNoYourMoveLine_AndOpensNoReportByItself", async () => {
+    world.detail = detail([attempt({ status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    nav.search = "section=conversation";
+    await open();
+    expect(screen.queryByTestId("ticket-state")).toBeNull();
+    expect(screen.getByTestId("thread-report-1")).not.toHaveAttribute("data-open");
+    expect(screen.queryByTestId("ticket-retry")).toBeNull();
+  });
+
+  // 2026-11-22-4321a: an older attempt's question is the current run; the newest attempt failed — Retry stays on Now.
+  it("Now_AnOlderAttemptAsks_TheNewestFailed_RetryStaysOnNow", async () => {
+    nav.search = "";
+    const question = { questionId: "q", type: "FreeText", text: "Keep it?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: null };
+    world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question }),
+      attempt({ number: 2, runId: "r-2", status: "failed" })]);
+    await open();
+    expect(within(screen.getByTestId("now-run")).getByTestId("thread-report-1")).toBeInTheDocument();
+    expect(screen.getAllByTestId("ticket-retry")).toHaveLength(1);
+    expect(within(screen.getByTestId("now-run")).queryByTestId("ticket-retry")).toBeNull();
+  });
+
+  // 2026-11-22-4321a: one composer serves Now and the Conversation section — a draft and a queued send survive a switch.
+  it("Composer_ADraftAndAQueuedSend_SurviveSwitchingFromNowToTheConversation", async () => {
+    world.conversation = { ...conversation([]), sessionId: "s-1" };
+    dialogApi.resume.mockImplementation(async (_s: unknown, dialogId: unknown) => { world.sessions[dialogId as string] = session("s-1"); });
+    nav.search = "";
+    const { client } = fakeHub();
+    const page = () => <TicketPageStore project="shop" ticketId="101" client={client} api={api}><TicketPage /></TicketPageStore>;
+    const { rerender } = render(page());
+    await settle();
+    fireEvent.change(input(), { target: { value: "Half a thought" } });
+    nav.search = "section=conversation";
+    rerender(page());
+    await settle();
+    expect(screen.getByRole("log", { name: "Conversation" })).toBeInTheDocument();
+    expect(input()).toHaveValue("Half a thought");
+
+    dialogHub.failJoins = 1;
+    await sendText("Go on");
+    expect(dialogApi.post).not.toHaveBeenCalled();
+    nav.search = "";
+    rerender(page());
+    await settle();
+    act(() => dialogHub.connectionState.emit("Connected"));
+    await settle();
+    await settle();
+    expect(dialogApi.post).toHaveBeenCalledWith(dialogApi.resume.mock.calls[0][1], "Go on", "shop", undefined, undefined);
+  });
+
+  // 2026-11-22-4321a: the fold's boundary is fixed at opening — an arrival appends, it pushes no shown item into the fold.
+  it("Fold_AnEntryArrivingWhileFolded_PushesNoShownItemIntoTheFold", async () => {
+    nav.search = "section=conversation";
+    const first = ["n1", "n2", "n3", "n4", "n5", "n6", "n7"].map((id) => entry({ id, attemptRunId: null, group: "now" }));
+    world.detail = detail([]);
+    world.conversation = conversation(first);
+    const hub = await open();
+    const shownIds = () => within(screen.getByRole("log", { name: "Conversation" })).queryAllByTestId("conv-entry").map((e) => e.getAttribute("data-entry-id"));
+    expect(shownIds()).toEqual(["n3", "n4", "n5", "n6", "n7"]);
+    expect(screen.getByTestId("conv-earlier")).toHaveTextContent("2 earlier entries");
+    world.conversation = conversation([...first, entry({ id: "n8", attemptRunId: null, group: "now" })]);
+    hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "GH-101" });
+    await settle(5000);
+    expect(shownIds()).toEqual(["n3", "n4", "n5", "n6", "n7", "n8"]);
+    expect(screen.getByTestId("conv-earlier")).toHaveTextContent("2 earlier entries");
   });
 
   it("AWorkersLaterAnswerComment_ShowsAsAnAgentEntry", async () => {
@@ -562,6 +666,7 @@ describe("Ticket thread", () => {
   });
 
   it("YourMoveReply_SetsTheDecisionAside_AndFocusesTheTextField", async () => {
+    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     world.detail = detail([attempt({ status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
@@ -577,6 +682,7 @@ describe("Ticket thread", () => {
   });
 
   it("DivergenceDiscuss_SetsTheDecisionAside_AndFocusesTheTextField", async () => {
+    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     api.text.mockImplementation(() => Promise.resolve({ ...ticketText(), divergence: { specs: 2, unsaid: ["Retry with backoff"] } }));
     world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
     await open();
@@ -588,6 +694,7 @@ describe("Ticket thread", () => {
   });
 
   it("RetryUnchanged_AfterAnInfrastructureEnd_A409ShowsItsReasonText", async () => {
+    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);
     ticketsApi.retry.mockResolvedValue({ kind: "refused", refusal: { reason: "closed-for-work", text: "the ticket was closed in its tracker — approving a change in the ticket conversation files a follow-up", project: "shop", ticketId: "101" } });
     await open();
@@ -599,6 +706,7 @@ describe("Ticket thread", () => {
 
   // 2026-11-17-166ad: any end but a success is retried, not only an infrastructure one.
   it("RetryUnchanged_IsOfferedForAFailureOrACancel_AndHiddenForASuccessARunAndAHandBack", async () => {
+    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     for (const status of ["failed", "cancelled"]) {
       world.detail = detail([attempt({ status })]);
       await open();
@@ -614,6 +722,7 @@ describe("Ticket thread", () => {
   });
 
   it("RetryUnchanged_IsHiddenFromACallerKnownToLackRunsControl", async () => {
+    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     identity.lacks = ["runs.control"];
     world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);
     await open();
@@ -622,6 +731,7 @@ describe("Ticket thread", () => {
 
   // 2026-11-18-d6d2d: Retry sits with the attempt it retries — the newest report — never in the composer.
   it("RetryUnchanged_SitsInTheNewestAttemptsReport_NotInTheComposer_AndNotOnAnOlderAttempt", async () => {
+    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     world.detail = detail([
       attempt({ status: "failed", summary: "Build broke" }),
       attempt({ number: 2, runId: "r-2", status: "failed", summary: "Tests broke" }),
@@ -643,6 +753,7 @@ describe("Ticket thread", () => {
   });
 
   it("RetryUnchanged_AnInfrastructureEnd_OffersOneRetry_InTheYourMoveBox", async () => {
+    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
@@ -662,6 +773,7 @@ describe("Ticket thread", () => {
   });
 
   it("PendingQuestion_ProjectGrant_ShowsTheAnswerCard", async () => {
+    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     const question = { questionId: "q", type: "FreeText", text: "Keep the Postgres outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
     world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);
     identity.heldIn = { shop: ["runs.control"] };
@@ -701,7 +813,8 @@ describe("Ticket thread reading", () => {
     scrolled.mockRestore();
   });
 
-  it("OpeningTheTab_WithAPendingQuestion_ScrollsTheQuestionCardIntoView", async () => {
+  it("OpeningNow_WithAPendingQuestion_ScrollsTheQuestionCardIntoView", async () => {
+    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
     const question = { questionId: "q", type: "FreeText", text: "Keep the Postgres outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
     world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);

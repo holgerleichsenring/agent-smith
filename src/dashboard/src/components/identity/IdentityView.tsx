@@ -1,7 +1,9 @@
 "use client";
 
 import { useAuthRequirements } from "@/hooks/useAuthRequirements";
+import { useState } from "react";
 import { useCallerIdentity } from "@/hooks/useCallerIdentity";
+import { resetSharedCallerIdentity } from "@/lib/sharedIdentityRead";
 import { useRuntimeSettings } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
 import { FailedSurface } from "@/components/shell/FailedSurface";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
@@ -25,6 +27,8 @@ export function IdentityView() {
   const { auth } = useRuntimeSettings();
   // With no authority configured nothing signs in, so the read is not attempted:
   // a refused request is a poor way to learn that there is nobody to describe.
+  // 2026-11-22-9719c: this page shows what the server makes of the token now — after a mapping edit, not 30 s later.
+  useState(() => resetSharedCallerIdentity());
   const { identity, refusal, failure, loading } = useCallerIdentity(Boolean(auth.authority));
   // The anonymous route, because an enforcing server answers /api/identity 401 to exactly
   // the caller whose token it rejected — so the refusal cannot be read off the identity.

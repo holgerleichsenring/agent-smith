@@ -45,6 +45,16 @@ public sealed class TicketRequirementRepository(IServiceScopeFactory scopeFactor
         string tracker, string ticketKey, CancellationToken cancellationToken) =>
         ReadAsync(r => r.Tracker == tracker && r.TicketKey == ticketKey, cancellationToken);
 
+    /// <summary>2026-11-22-9719d: one read for many dependents; each key's edges in the order RequiredOfAsync answers.</summary>
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<TicketRequirementEdge>>> RequiredOfManyAsync(
+        string tracker, IReadOnlyCollection<string> ticketKeys, CancellationToken cancellationToken)
+    {
+        var keys = ticketKeys.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var edges = keys.Count == 0 ? [] : await ReadAsync(r => r.Tracker == tracker && keys.Contains(r.TicketKey), cancellationToken);
+        var byKey = edges.ToLookup(e => e.TicketKey, StringComparer.OrdinalIgnoreCase);
+        return keys.ToDictionary(k => k, k => (IReadOnlyList<TicketRequirementEdge>)[.. byKey[k]], StringComparer.OrdinalIgnoreCase);
+    }
+
     public Task<IReadOnlyList<TicketRequirementEdge>> DependentsOfAsync(
         string tracker, string requiredTicketKey, CancellationToken cancellationToken) =>
         ReadAsync(r => r.Tracker == tracker && r.RequiredTicketKey == requiredTicketKey, cancellationToken);

@@ -20,7 +20,7 @@ public sealed class StackedDependentsWakeTests
 {
     private readonly InMemoryTicketFacts _facts = new();
     private readonly InMemorySpecApprovalStore _approvals = new();
-    private readonly Mock<IPreviousAttemptReader> _attempts = new();
+    private readonly Mock<IPreviousAttemptReader> _attempts = new() { CallBase = true }; // 9719d: the set reads loop LatestAsync
     private readonly Mock<IReworkNudges> _nudges = new();
 
     public StackedDependentsWakeTests()

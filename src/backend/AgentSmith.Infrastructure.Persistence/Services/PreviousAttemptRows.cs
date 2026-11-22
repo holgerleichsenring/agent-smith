@@ -16,7 +16,13 @@ internal static class PreviousAttemptRows
     private const string Cancelled = "cancelled"; // the status every cancel path finalizes a run with
 
     public static IQueryable<Run> Of(IQueryable<Run> runs, IQueryable<RunStep> steps, string project, string ticketId) =>
-        runs.AsNoTracking().Where(r => r.Project == project && r.TicketId == ticketId
-            && r.Pipeline == PipelinePresets.CodeName && r.Status != RunStatuses.Queued
+        Counted(runs.AsNoTracking().Where(r => r.Project == project && r.TicketId == ticketId), steps);
+
+    /// <summary>2026-11-22-9719d: the same rows for several tickets of the project.</summary>
+    public static IQueryable<Run> Of(IQueryable<Run> runs, IQueryable<RunStep> steps, string project, IReadOnlyCollection<string> ticketIds) =>
+        Counted(runs.AsNoTracking().Where(r => r.Project == project && ticketIds.Contains(r.TicketId)), steps);
+
+    private static IQueryable<Run> Counted(IQueryable<Run> runs, IQueryable<RunStep> steps) =>
+        runs.Where(r => r.Pipeline == PipelinePresets.CodeName && r.Status != RunStatuses.Queued
             && !(r.Status == Cancelled && r.CancelReason == null && !steps.Any(s => s.RunId == r.Id)));
 }

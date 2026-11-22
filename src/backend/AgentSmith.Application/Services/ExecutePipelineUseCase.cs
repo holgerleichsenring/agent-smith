@@ -75,7 +75,7 @@ public sealed class ExecutePipelineUseCase(
             if (ex is not LeaseHeldException { Resume: true }) await PublishPrologueFailureAsync(request, runId, ex);
             throw;
         }
-
+        modelPlaces?.Enter(runId, request.PipelineName); // 2026-11-22-9719a: after the prologue, inside the finally's reach
         var projectConfig = prologue.Project;
         var pipeline = prologue.Pipeline;
         RecordedCallAttach.To(pipeline, recordedCalls);

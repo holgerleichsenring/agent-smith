@@ -50,13 +50,17 @@ public sealed class DbModelRunSlots(
     public async Task ReleaseAsync(string runId, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(runId);
-        using (var scope = scopeFactory.CreateScope())
+        try
         {
+            using var scope = scopeFactory.CreateScope();
             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
             await unitOfWork.Set<ModelRunSlot>().Where(s => s.RunId == runId).ExecuteDeleteAsync(cancellationToken);
             await unitOfWork.Set<ModelRunWait>().Where(w => w.RunId == runId).ExecuteDeleteAsync(cancellationToken);
         }
-        signal.Released(runId);
+        finally
+        {
+            signal.Released(runId); // 2026-11-22-9719a: the process forgets the run even when the delete failed; the sweep frees the row
+        }
     }
 
     public Task WaitStartedAsync(string runId, CancellationToken cancellationToken) =>

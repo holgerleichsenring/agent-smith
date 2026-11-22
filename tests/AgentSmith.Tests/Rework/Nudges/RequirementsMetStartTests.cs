@@ -34,7 +34,7 @@ public sealed class RequirementsMetStartTests : IDisposable
     private readonly FakeTicketTracker _tracker = new() { Status = "open" };
     private readonly Mock<ISpawnPipelineRunsUseCase> _spawn = new();
     private readonly AgentSmith.Tests.Series.InMemorySeriesRunStore _series = new();
-    private readonly Mock<IPreviousAttemptReader> _attempts = new();
+    private readonly Mock<IPreviousAttemptReader> _attempts = new() { CallBase = true }; // 9719d: the set reads loop LatestAsync
     private readonly Mock<IActiveRunLease> _leases = new();
     private readonly Mock<IRedisClaimLock> _locks = Locks();
     private readonly Mock<IReworkNudges> _nudges = new();

@@ -36,7 +36,8 @@ function waitWords(wait: PersonWait): string {
     : `a question parked attempt ${wait.attempt} for ${span}`;
 }
 
-export function WaitingBanner({ totals, onRead }: { totals: ComputeTotals; onRead: () => void }) {
+/** 2026-11-22-4321a: onRead gets the run of the first wait, so the conversation opens unfolded at that attempt. */
+export function WaitingBanner({ totals, onRead }: { totals: ComputeTotals; onRead: (runId: string) => void }) {
   if (totals.waits.length === 0 || totals.waitingMs <= totals.modelMs) return null;
   const n = totals.waits.length;
   return (
@@ -46,7 +47,7 @@ export function WaitingBanner({ totals, onRead }: { totals: ComputeTotals; onRea
         {n === 1 ? "Waiting on you" : `${n} waits on you`} took longer than all of this ticket&apos;s model call time:{" "}
         {totals.waits.map(waitWords).join("; ")}.{" "}
         {totals.podsHeldWhileWaiting ? "A pod's lifetime overlapped a wait." : "No pods were held while waiting — a park releases its sandboxes."}{" "}
-        <button className="tk-link" type="button" onClick={onRead}>{n === 2 ? "Read both" : "Read in What happened"}</button>
+        <button className="tk-link" type="button" onClick={() => onRead(totals.waits[0].runId)} data-testid="compute-banner-read">{n === 2 ? "Read both" : "Read in the conversation"}</button>
       </span>
     </div>
   );

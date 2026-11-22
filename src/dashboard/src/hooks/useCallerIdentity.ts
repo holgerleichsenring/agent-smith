@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { refusalIn, type ApiRefusal } from "@/lib/apiResponse";
-import { fetchIdentity, type CallerIdentity } from "@/lib/identityApi";
+import type { CallerIdentity } from "@/lib/identityApi";
+import { sharedIdentityRead } from "@/lib/sharedIdentityRead";
 import { useAccessToken } from "./useAccessToken";
 
 // 2026-08-25-4530: what the server made of this caller's token, refreshed when
@@ -39,16 +40,16 @@ export function useCallerIdentity(enabled = true): CallerIdentityState {
       setState(IDLE);
       return;
     }
-    const controller = new AbortController();
+    let alive = true;
     setState({ ...IDLE, loading: true });
-    fetchIdentity(controller.signal)
-      .then((identity) => setState({ ...IDLE, identity }))
+    sharedIdentityRead(token)
+      .then((identity) => { if (alive) setState({ ...IDLE, identity }); })
       .catch((thrown: Error) => {
-        if (thrown.name === "AbortError") return;
+        if (!alive || thrown.name === "AbortError") return;
         const refusal = refusalIn(thrown);
         setState({ ...IDLE, refusal, failure: refusal ? null : thrown });
       });
-    return () => controller.abort();
+    return () => { alive = false; };
   }, [enabled, token]);
 
   return state;

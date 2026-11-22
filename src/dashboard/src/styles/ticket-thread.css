@@ -170,10 +170,19 @@
 .mock-tickets .tk-run .tk-meta { font-size: 12px; }
 .mock-tickets .tk-run-cause { margin: 4px 0 0 105px; font-size: 12px; color: var(--ink-3); }
 .mock-tickets .tk-run-cause a { color: var(--ink-2); }
+/* 2026-11-22-4321a: Now's way to the whole conversation, the Conversation's earlier entries, and a Runs line's run log —
+   text links under the hairlines, no boxes. */
+.mock-tickets .tk-now-more { margin: 2px 0 8px; }
+.mock-tickets .tk-earlier { padding: 10px 2px; }
+.mock-tickets .conv-history > .thread + .thread { border-top: 0; }
+.mock-tickets .conv-history > .thread:empty { display: none; }
+.mock-tickets .conv-history > .thread:empty + .thread { border-top: 1px solid var(--line-2); }
+.mock-tickets .tk-run-open { margin: 2px 0 0 105px; padding: 0; text-decoration: none; color: var(--ink-3); }
+.mock-tickets .tk-run > .tk-line-body { margin: 8px 0 4px 105px; }
 @media (max-width: 760px) {
   .mock-tickets .tk-run-line { flex-wrap: wrap; gap: 4px 10px; }
   .mock-tickets .tk-run .tk-text { flex-basis: 100%; order: 5; }
-  .mock-tickets .tk-run-cause { margin-left: 0; }
+  .mock-tickets .tk-run-cause, .mock-tickets .tk-run-open, .mock-tickets .tk-run > .tk-line-body { margin-left: 0; }
 }
 
 /* Cost — the total against the series budget, one thin bar, a mono line per run; compute figures as key/value lines. */

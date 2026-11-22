@@ -19,6 +19,17 @@ public interface ITicketRequirementStore
     Task<IReadOnlyList<TicketRequirementEdge>> RequiredOfAsync(
         string tracker, string ticketKey, CancellationToken cancellationToken);
 
+    /// <summary>2026-11-22-9719d: <see cref="RequiredOfAsync"/> for many dependents of one tracker connection; every
+    /// asked key is present, with no edges when it has none.</summary>
+    async Task<IReadOnlyDictionary<string, IReadOnlyList<TicketRequirementEdge>>> RequiredOfManyAsync(
+        string tracker, IReadOnlyCollection<string> ticketKeys, CancellationToken cancellationToken)
+    {
+        var byKey = new Dictionary<string, IReadOnlyList<TicketRequirementEdge>>(StringComparer.Ordinal);
+        foreach (var key in ticketKeys)
+            if (!byKey.ContainsKey(key)) byKey[key] = await RequiredOfAsync(tracker, key, cancellationToken);
+        return byKey;
+    }
+
     /// <summary>Every edge naming the ticket as required — who waits for it; empty for an unknown ticket.</summary>
     Task<IReadOnlyList<TicketRequirementEdge>> DependentsOfAsync(
         string tracker, string requiredTicketKey, CancellationToken cancellationToken);

@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { TicketDefaults, TicketDetail, TicketSeries } from "@/types/tickets";
+import type { TicketConversation, TicketDefaults, TicketDetail, TicketSeries } from "@/types/tickets";
 import { money, ticketCost } from "../ticketFormat";
 import { specsCounter, acceptanceTally } from "./specWords";
 import { TicketAcceptanceTab } from "./TicketAcceptanceTab";
@@ -14,6 +14,8 @@ export { SECTION_PARAM, sectionIdOf, type TicketSectionId } from "./ticketSectio
 // 2026-10-13-9a59q: the ticket page's tabs, ONE table. 2026-11-17-8d1ca: they are the sections of the ticket's own
 // bar now — What happened first, then Specs, Acceptance, Runs, Cost and Defaults — each with the count the bar shows
 // beside it, and the page shows one at a time. ?section= names it; an older ?tab= link still lands on its section.
+// 2026-11-22-4321a: Now takes What happened's place at the top, and the conversation, with its count of entries,
+// is the section after it. An address with only ?causeOf= (an older "read" link) lands on the conversation.
 
 export interface TicketSectionCounter {
   text: string;
@@ -27,18 +29,23 @@ export interface TicketSectionCounter {
 export interface TicketSectionReads {
   series: TicketSeries | null;
   defaults: TicketDefaults | null;
+  conversation: TicketConversation | null;
 }
 
 export interface TicketSection {
   id: TicketSectionId;
   label: string;
   counter?: (detail: TicketDetail, reads: TicketSectionReads) => TicketSectionCounter | null;
-  /** The section's pane; What happened is drawn by the page itself (the thread and its composer). */
+  /** The section's pane; Now and Conversation are drawn by the page itself (each holds the composer). */
   Pane: ComponentType | null;
 }
 
 export const ticketSections: TicketSection[] = [
-  { id: "happened", label: "What happened", Pane: null },
+  { id: "now", label: "Now", Pane: null },
+  {
+    id: "conversation", label: "Conversation", Pane: null,
+    counter: (_detail, { conversation }) => (conversation ? { text: String(conversation.entries.length) } : null),
+  },
   {
     id: "specs", label: "Specs", Pane: TicketSpecsTab,
     counter: (detail, { series }) => {
@@ -67,8 +74,9 @@ export const ticketSections: TicketSection[] = [
   },
 ];
 
-/** The section the address shows: ?section= first, else an older ?tab=, else What happened. */
-export function sectionOf(section: string | null, tab: string | null): TicketSection {
-  const id = sectionIdOf(section ?? tab);
+/** The section the address shows: ?section= first, else an older ?tab=, else the conversation when ?causeOf= names
+ *  an entry to show, else Now. */
+export function sectionOf(section: string | null, tab: string | null, causeOf: string | null = null): TicketSection {
+  const id = sectionIdOf(section ?? tab ?? (causeOf ? "conversation" : null));
   return ticketSections.find((s) => s.id === id)!;
 }

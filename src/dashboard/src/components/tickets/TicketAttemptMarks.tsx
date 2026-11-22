@@ -36,10 +36,16 @@ export function markKind(mark: TicketAttemptMark): MarkKind {
   }
 }
 
+/** 2026-11-22-9719b: the most marks a row draws; older ones fold into "+N" so a long history keeps its column. */
+export const MAX_MARKS = 6; // the marks column is 76px wide
+
 export function TicketAttemptMarks({ marks, count }: { marks: TicketAttemptMark[]; count: number }) {
+  const shown = marks.slice(-MAX_MARKS);
+  const folded = marks.length - shown.length;
   return (
     <div className="attempts hidesm" data-testid="ticket-attempts">
-      {marks.map((mark) => {
+      {folded > 0 && <span className="al-more" title={`${folded} older attempts`} data-testid="ticket-attempts-folded">+{folded}</span>}
+      {shown.map((mark) => {
         const kind = markKind(mark);
         return <i key={mark.runId} className={MARK_CLASS[kind]} data-mark={kind} title={`${mark.runId} · ${kind}`} />;
       })}

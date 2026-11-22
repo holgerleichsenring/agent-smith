@@ -66,7 +66,7 @@ export function TicketSpecsTab() {
           ))}
         </div>
         {selected && <SpecDocument spec={selected} attempts={attempts} runRecord={runRecord}
-          onDiscuss={attempts.length > 0 ? () => address.go("happened") : undefined} />}
+          onDiscuss={attempts.length > 0 ? () => address.go("conversation") : undefined} />}
       </div>
       <SeriesContractReview onSelect={(specId) => address.go("specs", { [SPEC_PARAM]: specId })} />
       <Revisions attempts={attempts} />

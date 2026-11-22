@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-9719d
+goal: "The ticket list loads the configuration once per read and reads every filing's start readiness in a few set-based queries, with the same answers a start gets."
+
+applies_to: "default (Server ticket readers, Application claim rules, Persistence attempt and requirement reads)"
+
+requires: [2026-11-17-b34ec, 2026-11-17-9a39a]
+
+invariant: >-
+  For every ticket the list shows, its waits-for entries are exactly what ForStartAsync answers a start of that
+  ticket: one rule (ForStartManyAsync) serves the list and every start path, and ForStartAsync is that rule for
+  one key. The list's configuration reads and readiness queries do not grow with the number of tickets.
+
+facts:
+  - claim: "GET /api/tickets reads TicketListReader; prod measured about 2.4 s and about 600 sequential round trips for 95 tickets."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:17"
+  - claim: "TicketListReader.AllAsync hands projects.Of to ClosedRequirements.Apply as the project lookup."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:58-59"
+  - claim: "ClosedRequirements calls the lookup once per summary (through TicketNodeStates.Summaries) and once per waits-for entry."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/ClosedRequirements.cs:17-22"
+  - claim: "TicketNodeStates.Summaries calls the lookup per summary."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketNodeStates.cs:33-35"
+  - claim: "TicketProjects.Of runs a full IConfigurationLoader.LoadConfig on every call; All() is the same load once."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketProjects.cs:12-16"
+  - claim: "DbConfigurationLoader.LoadConfig reads the stored configuration and merges the bootstrap secrets on each call."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:39-87"
+  - claim: "TicketRequiresReader loads the configuration once for its own project and again per summary through its lambda."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketRequiresReader.cs:22-30"
+  - claim: "TicketGraphReader already loads once (projects.All) and looks up the dictionary; it is the pattern followed."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketGraphReader.cs:24-36"
+  - claim: "FiledTicketRows memoizes projects.Of per project and asks ForStartAsync once per filing."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:57-79"
+  - claim: "ForStartAsync reads the edges and landings (OfAsync), then StartedAsync and TipAsync of GreenPrerequisites under on_green_push."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:44-52"
+  - claim: "StartedAsync asks the full LatestAsync only to learn whether an attempt exists."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/GreenPrerequisites.cs:23-24"
+  - claim: "TipAsync reads close marks once, LatestAsync per prerequisite, and RequiredOfAsync per chain step."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/GreenPrerequisites.cs:39-63"
+  - claim: "IsGreen reads only Finished, Status, StoppedAtBoundary and OpenedPullRequest of the attempt."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/GreenPrerequisites.cs:19-20"
+  - claim: "LatestAsync opens a scope and runs about eight queries (run, retry, causes x2, opened pull requests, boundary, attempt row, decided defaults); it answers null for a blank project or ticket id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:19-62"
+  - claim: "HasAttemptAsync is one EXISTS over the same attempt rows LatestAsync counts."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:88-93"
+  - claim: "The attempt rows are one predicate, PreviousAttemptRows.Of."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/PreviousAttemptRows.cs:18-21"
+  - claim: "Every edge of one dependent shares its tracker: AddAsync refuses a batch naming two dependents."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/TicketRequirementRepository.cs:57-59"
+  - claim: "ForStartAsync callers (all keep calling it, now the one-key form of ForStartManyAsync): TicketGraphStarts:60, StackedBaseStamp:25, RequiresUnmetGate:36, SeriesTicketActs:32, OperatorStart:30, StackedDependentsWake:54, ConversationAttemptStart:34, StackedPullRequestRetarget:44, WaitingTicketStart:76; FiledTicketRows:78 moves to ForStartManyAsync."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/RequiresUnmetGate.cs:36"
+  - claim: "GreenPrerequisites.StartedAsync and TipAsync have one production caller, UnmetTicketRequirements.ForStartAsync; IsGreen is also read by StackedDependentsWake."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/StackedDependentsWake.cs:33"
+  - claim: "HasAttemptAsync's other caller, WaitingTicketStart, is unchanged."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/WaitingTicketStart.cs:36"
+  - claim: "Files may not exceed 120 lines; DbPreviousAttemptReader is at 118."
+    evidence: "tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19"
+
+scope:
+  in: >-
+    TicketListReader, TicketRequiresReader and FiledTicketRows look projects up in one loaded configuration;
+    UnmetTicketRequirements.ForStartManyAsync (ForStartAsync delegates to it); GreenReads memoizes each prerequisite's
+    end, close mark and edges; IPreviousAttemptReader.AttemptedAsync and LatestEndsAsync (set reads, defaults loop the
+    single reads); ITicketRequirementStore.RequiredOfManyAsync (default loops RequiredOfAsync).
+  out: "TicketStandings per-stuck-ticket reads and its own configuration load; RunQueuePlace lease reads; the nudge write on GET; any change to what a start or the list answers."
+
+steps:
+  - id: config
+    action: "projects.All() once in TicketListReader, TicketRequiresReader and FiledTicketRows; a dictionary lookup instead of projects.Of."
+  - id: reads
+    action: "AttemptedAsync, LatestEndsAsync on IPreviousAttemptReader with Db overrides; RequiredOfManyAsync on the requirement store with a repository override."
+  - id: rule
+    action: "ForStartManyAsync with GreenReads; ForStartAsync delegates; FiledTicketRows asks it once per project."
+  - id: tests
+    action: "Counting tests, then the full suite."
+
+tests:
+  - "TicketListQueryCountTests: the list loads the configuration the same number of times for one ticket and for many."
+  - "TicketListQueryCountTests: N never-run dependents under on_green_push never call the full LatestAsync."
+  - "UnmetTicketRequirementsForStartManyTests: many keys answer exactly what ForStartAsync answers each."
+  - "TicketListQueryCountTests: the list sends the same number of database commands for 2 and 12 never-run dependents."
+  - "AttemptSetReadTests: AttemptedAsync and LatestEndsAsync agree with HasAttemptAsync and LatestAsync; RequiredOfManyAsync answers each key as RequiredOfAsync does."
+  - "Existing TicketNeverRunStackedTests, GreenPrerequisitesTests, UnmetTicketRequirementsForStartTests, TicketListReaderTests stay green."
+
+done:
+  - "dotnet build AgentSmith.sln and dotnet test AgentSmith.sln --filter Category!=LiveLLM green."

@@ -12,7 +12,15 @@ public sealed class ModelRunSlotSignal
 {
     private readonly ConcurrentDictionary<string, (string Key, DateTimeOffset ConfirmedAt)> _held = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _entering = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _exempt = new(StringComparer.Ordinal);
     private TaskCompletionSource _released = NewRelease();
+
+    /// <summary>2026-11-22-9719a: <paramref name="runId"/> is a framework run that takes no place; its calls pass the
+    /// gate until the run's own release forgets it.</summary>
+    public void Exempt(string runId) => _exempt[runId] = 0;
+
+    /// <summary>Whether <paramref name="runId"/> passes the gate without a place.</summary>
+    public bool IsExempt(string runId) => _exempt.ContainsKey(runId);
 
     /// <summary>The one door a run takes its place through, so its sub-agents starting at once insert one row. It is
     /// dropped by the run's own release on its way out of execution (<see cref="Released"/>), never by a sweep or a
@@ -36,6 +44,7 @@ public sealed class ModelRunSlotSignal
     public void Released(string runId)
     {
         _entering.TryRemove(runId, out _);
+        _exempt.TryRemove(runId, out _);
         Forgotten(runId);
     }
 

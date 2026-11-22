@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-9719c
+goal: "Every gated act on a page shares one /api/identity read instead of sending its own, so the ticket list sends one request, not about 200."
+
+applies_to: "dashboard (identity hook)"
+
+requires: []
+
+facts:
+  - claim: "useCallerIdentity fetched the identity once per mounted caller."
+    evidence: "src/dashboard/src/hooks/useCallerIdentity.ts:34"
+  - claim: "useLacksPermission calls useCallerIdentity; every ticket row's Close act uses it."
+    evidence: "src/dashboard/src/hooks/useLacksPermission.ts:10-13"
+  - claim: "The ticket list with 95 tickets sent about 200 identical identity requests."
+    evidence: "observed: 2026-11-22, browser network panel on /tickets"
+
+scope:
+  in: "A shared read per token, in flight and for 30 s after; a failed read is not kept; the identity page reads afresh; tests reset it."
+  out: "The /api/tickets latency (its own spec)."
+
+steps:
+  - id: share
+    action: "lib/sharedIdentityRead.ts; the hook reads through it."
+
+tests:
+  - "Fifty callers on one page send one request; a failed read is not kept."
+
+done:
+  - "Dashboard tests green."

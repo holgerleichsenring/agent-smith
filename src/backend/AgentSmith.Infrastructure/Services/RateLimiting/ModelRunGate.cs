@@ -44,7 +44,7 @@ public sealed class ModelRunGate(
         ArgumentNullException.ThrowIfNull(agent);
         if (agent.MaxConcurrentRuns is not { } configured) return;
         var runId = runContext.CurrentRunId;
-        if (string.IsNullOrEmpty(runId)) return;
+        if (string.IsNullOrEmpty(runId) || signal.IsExempt(runId)) return; // 2026-11-22-9719a: framework runs take no place
         if (AgentConfig.ConcurrencyProblem(configured) is { } problem) throw new ConfigurationException(problem);
         if (Confirmed(runId)) return;
 

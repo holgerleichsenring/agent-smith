@@ -9,9 +9,9 @@ import { isNeverRun } from "../ticketFormat";
 import { TicketHeader } from "./TicketHeader";
 import { LiveAttemptCancel, TicketMoreMenu } from "./TicketMoreMenu";
 import { TicketNeverRun } from "./TicketNeverRun";
+import { TicketTalk } from "./TicketTalk";
 import { sectionOf } from "./ticketPageSections";
 import { TicketSectionBar } from "./TicketSectionBar";
-import { TicketThread } from "./TicketThread";
 import { TicketWaitsFor } from "./TicketWaitsFor";
 import { TicketSpecsTab } from "./TicketSpecsTab";
 import { TicketTextDivergence } from "./TicketTextDivergence";
@@ -26,6 +26,8 @@ import { CAUSE_PARAM, SECTION_PARAM, TAB_PARAM, useTicketTabGo } from "./useTick
 // 2026-11-17-8d1ca: a ticket with a run has its section bar beside the main area, which shows ONE section — What
 // happened (what it waits for, the thread, Your move and the composer) unless ?section= names another. The heading
 // carries the section's name, Cancel for a live attempt in plain sight, and the ··· menu.
+// 2026-11-22-4321a: Now (Your move, what the ticket waits for, the current run, the newest entry, the composer) is the
+// section an address without ?section= shows; the conversation is a section of its own.
 
 export function TicketPage() {
   const detail = useTicketDetail();
@@ -57,7 +59,7 @@ export function TicketPage() {
 
 function TicketSections({ detail, project }: { detail: TicketDetail; project: string }) {
   const address = useTicketTabGo();
-  const section = sectionOf(address.param(SECTION_PARAM), address.param(TAB_PARAM));
+  const section = sectionOf(address.param(SECTION_PARAM), address.param(TAB_PARAM), address.param(CAUSE_PARAM));
   const select = (id: string) => address.go(id, { [CAUSE_PARAM]: null });
   return (
     <div className="mock-shell mock-tickets tk-shell" data-testid="ticket-page">
@@ -73,7 +75,8 @@ function TicketSections({ detail, project }: { detail: TicketDetail; project: st
             <section.Pane />
           </section>
         ) : (
-          <TicketThread lead={<><TicketWaitsFor project={project} /><TicketTextDivergence /></>} />
+          <TicketTalk conversation={section.id === "conversation"}
+            lead={<><TicketWaitsFor project={project} /><TicketTextDivergence /></>} />
         )}
       </main>
     </div>

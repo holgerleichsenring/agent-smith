@@ -19,7 +19,8 @@ public sealed class TicketRequiresReader(
     /// <summary>Null only for a project the configuration does not name.</summary>
     public async Task<TicketRequiresView?> ReadAsync(string project, string ticketId, CancellationToken ct)
     {
-        if (projects.Of(project) is not { } resolved) return null;
+        var configured = projects.All(); // 2026-11-22-9719d: one configuration load per read
+        if (configured.GetValueOrDefault(project) is not { } resolved) return null;
         var tracker = resolved.Tracker.Name;
         var key = TicketKey.For(resolved.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
         var requires = (await requirements.RequiredOfAsync(tracker, key, ct))
@@ -27,7 +28,7 @@ public sealed class TicketRequiresReader(
         var requiredBy = (await requirements.DependentsOfAsync(tracker, key, ct))
             .Select(e => (Key: e.TicketKey, Id: e.TicketId)).ToList();
         if (requires.Count == 0 && requiredBy.Count == 0) return new TicketRequiresView([], []);
-        var summaries = TicketNodeStates.Summaries(await list.AllAsync(ProjectScope.Single(project), ct), p => projects.Of(p));
+        var summaries = TicketNodeStates.Summaries(await list.AllAsync(ProjectScope.Single(project), ct), p => configured.GetValueOrDefault(p));
         var landed = await TicketNodeStates.LandedAsync(
             landings, requires.Concat(requiredBy).Select(e => (tracker, e.Key)), ct);
         TicketRequirementView Entry((string Key, string Id) e)

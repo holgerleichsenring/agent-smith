@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-9719c
+
+decisions:
+  - category: Implementation
+    chose: "One module-level read per token, shared in flight and for 30 s, dropped on failure; the identity page forgets it on mount"
+    over: "A React context provider for the identity"
+    reason: "Every caller already goes through useCallerIdentity; sharing the read inside it fixes all pages without touching the tree. The identity page reads afresh so a mapping edit shows at once."

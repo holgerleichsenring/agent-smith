@@ -20,7 +20,7 @@ namespace AgentSmith.Tests.Services.Claim;
 public sealed class StackedBaseStampTests
 {
     private readonly InMemoryTicketFacts _facts = new();
-    private readonly Mock<IPreviousAttemptReader> _attempts = new();
+    private readonly Mock<IPreviousAttemptReader> _attempts = new() { CallBase = true }; // 9719d: the set reads loop LatestAsync
 
     public StackedBaseStampTests() => _facts.Edges.Add(Edge("42", "41"));
 
