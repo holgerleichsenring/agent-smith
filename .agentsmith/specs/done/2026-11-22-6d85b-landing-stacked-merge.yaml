@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-6d85b
+goal: "A pull request merged into a required prerequisite's ticket branch lands its ticket only with that prerequisite, and only if it merged before that landing."
+
+applies_to: "default (TicketLandingRecorder, PR record refresh, Persistence PR records)"
+
+requires: [2026-10-14-dbceg, 2026-11-17-9a39a]
+
+invariant: "No ticket is recorded landed while a merged pull request of it sits on the ticket branch of a prerequisite it requires whose landing did not carry that merge."
+
+facts:
+  - claim: "The landing is recorded from the records' states alone: every pull request ended and one merged."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:33-45"
+  - claim: "A record keeps state, head and CI, but not the branch its pull request merged into."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:10-64"
+  - claim: "Every source provider already reads the branch a pull request targets."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.Targeting.cs:19-31"
+  - claim: "A stacked dependent's pull request targets its prerequisite's ticket branch until that one lands and it is retargeted."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/StackedPullRequestRetarget.cs:56-81"
+  - claim: "An epic slice's pull request targets its parent's ticket branch (the rung), which is no requirement edge."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxRungPublisher.cs:64"
+  - claim: "Merged records of a ticket with no landing are re-read by the periodic re-read, so a ticket refused now is asked again."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:38-44"
+
+scope:
+  in: >-
+    PrReviewRecord.TargetBranch with migrations, read once through ReadPullRequestBaseAsync when a refresh first sees the
+    record merged (PrRecordTargetRead); StackedMergeLanding: a merged record whose target is the ticket branch of a ticket
+    this one requires counts only once that prerequisite landed and its own pull request in that repository merged at or
+    after it (its landing time for a by-hand landing); for a ticket that requires others an unread target holds until a
+    re-read reads it (the providers answer null on a refused read); every other target (default branch, an epic rung) and
+    every ticket that requires nothing land as before; the recorder logs why it held.
+  out: "Reading the host's default branch; moving code between branches; by-hand landings; TicketCloseAct's own use of TicketLanding.OfStates; epic slices."
+
+steps:
+  - id: store
+    action: "TargetBranch column, view field and copy; the refresh reads it once for a merged record."
+  - id: count
+    action: "RecordMergedAsync asks StackedMergeLanding and records nothing while a stacked merge has not reached the default branch."
+
+tests:
+  - "A merged record on main, with no target read, or on a branch of a ticket not required lands."
+  - "One on an unlanded prerequisite's branch does not; one on a prerequisite's branch that landed after it does, by hand too; one merged after the prerequisite merged in that repository does not, though its last repository merged later; two repositories with one stacked unlanded do not."
+  - "An unread target lands a ticket that requires nothing and holds one that requires others."
+  - "The refresh reads the branch once; an open record reads none; a refused read leaves it unknown."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

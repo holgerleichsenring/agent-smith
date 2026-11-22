@@ -61,6 +61,7 @@ internal sealed class PrReviewRefreshHarness : IDisposable
 
     public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(), new PrRecordCiRead(NullLogger<PrRecordCiRead>.Instance), CiMerge(),
         new CiRedNudge(Store.ScopeFactory, Attempts.Object, Store.Services.GetRequiredService<IReworkNudges>()),
+        new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance),
         Recorder(), Activity.Object, Clock,
         NullLogger<PrReviewRecordRefresh>.Instance);
 
@@ -71,7 +72,13 @@ internal sealed class PrReviewRefreshHarness : IDisposable
 
     // 2026-10-14-dbceg: the landing recorder over the harness store.
     public TicketLandingRecorder Recorder() => new(Store.ScopeFactory, new LandedTicketRepository(Store.ScopeFactory), Wake(),
-        Events.Object, Activity.Object, Subscribers, Clock, NullLogger<TicketLandingRecorder>.Instance);
+        Events.Object, Activity.Object, Subscribers, Stacked(), Clock, NullLogger<TicketLandingRecorder>.Instance);
+
+    // 2026-11-22-6d85b: the stacked-merge rule over the harness store.
+    public StackedMergeLanding Stacked() => StackedOver(Store);
+
+    public static StackedMergeLanding StackedOver(ServerStateStore store) =>
+        new(new TicketRequirementRepository(store.ScopeFactory), new LandedTicketRepository(store.ScopeFactory), store.ScopeFactory);
 
     /// <summary>2026-11-17-023fb: what the landing hook calls after a won insert.</summary>
     public List<AgentSmith.Server.Contracts.ITicketLandedSubscriber> Subscribers { get; } = [];

@@ -1042,6 +1042,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<long?>("StateAtTicks")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("TargetBranch")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("TicketId")
                         .IsRequired()
                         .HasMaxLength(191)

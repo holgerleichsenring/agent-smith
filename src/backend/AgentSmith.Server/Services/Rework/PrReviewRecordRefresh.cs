@@ -28,6 +28,7 @@ public sealed class PrReviewRecordRefresh(
     IPrReviewAuthorTrust trust,
     PrReviewEntryBuilder builder,
     PrRecordCiRead ci, CiGreenMerge ciMerge, CiRedNudge ciRed, // 2026-11-17-3435a/b/c
+    PrRecordTargetRead target, // 2026-11-22-6d85b
     TicketLandingRecorder landing,
     ITicketActivityNudge activity,
     TimeProvider clock,
@@ -76,6 +77,7 @@ public sealed class PrReviewRecordRefresh(
             var entries = await builder.BuildAsync(PrKey.Of(pr.Url), repo.Type, state, notes, once, ct);
             var record = Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha);
             await ci.ApplyAsync(project, states, record, stored, ct);
+            await target.ApplyAsync(states, record, stored, ct); // 2026-11-22-6d85b: where a merge landed
             return await writer.WriteAsync(record, entries, start, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

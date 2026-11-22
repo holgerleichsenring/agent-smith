@@ -61,4 +61,8 @@ public sealed class PrReviewRecord : EntityBase
     /// <summary>2026-11-17-3435b: '&lt;head&gt;:&lt;state&gt;' the CI loop last acted on (a merge started, a fix asked for);
     /// null before it acted. A new head or a new verdict on the same head is acted on again.</summary>
     public string? CiActed { get; set; }
+
+    /// <summary>2026-11-22-6d85b: the branch a merged pull request merged into, read once after the merge; null before
+    /// one was read (an open record, an older row, a host that did not say).</summary>
+    public string? TargetBranch { get; set; }
 }

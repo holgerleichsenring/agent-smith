@@ -1009,6 +1009,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<long?>("StateAtTicks")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("TargetBranch")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("TicketId")
                         .IsRequired()
                         .HasMaxLength(191)

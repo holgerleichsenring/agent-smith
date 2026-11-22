@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-22-6d85b: "LANDING STACKED MERGE (TicketLandingRecorder, StackedMergeLanding, PrRecordTargetRead, PrReviewRecords.TargetBranch + migrations). A pull request merged into a required prerequisite's ticket branch lands its ticket only with that prerequisite, if it merged before that landing. -> .agentsmith/specs/done/2026-11-22-6d85b-landing-stacked-merge.yaml"
     2026-11-22-6d85a: "PR CI RE-READ (PrReviewRecordRepository.OpenUncheckedAsync, PR re-read). An open record whose CI was read pending is re-read every tickets.pr_reread_stale_seconds in polling mode too, so a finished build reaches the record, the series row and CiGreenMerge. -> .agentsmith/specs/done/2026-11-22-6d85a-pr-ci-reread.yaml"
     2026-11-22-6d85e: "MODEL LIMIT CONVERSATION TURNS (pipeline presets, SeriesTicketMessage). spec-dialog turns take no model place, so a person never waits behind a coding run; runs a turn starts are gated under their own id; the series message route no longer carries the beat's run id. -> .agentsmith/specs/done/2026-11-22-6d85e-conversation-turns-no-place.yaml"
     2026-11-20-a52f: "MODEL PLACE FAIR QUEUE (DbModelRunSlots, ModelRunWaitQueue, ModelRunWaits.Key + migrations). A free model place goes to the live run that waited longest on its key, on every replica; dead waiters are skipped. -> .agentsmith/specs/done/2026-11-20-a52f-model-slot-fair-queue.yaml"
