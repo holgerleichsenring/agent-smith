@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SpecDialogReferenceSet } from "@/types/spec-dialog";
 import { sizeOf } from "./referenceSelection";
@@ -18,6 +19,7 @@ export function UploadSetRow({ set, dialogId, focused, actions, onRemoveFile }: 
   actions: ReactNode;
   onRemoveFile: (path: string) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(focused);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -35,7 +37,7 @@ export function UploadSetRow({ set, dialogId, focused, actions, onRemoveFile }: 
           data-testid={`dialog-upload-open-${set.setId}`} onClick={() => setOpen(!open)}>
           <span aria-hidden="true" className="d-tree-caret">{open ? "▾" : "▸"}</span>
           <span className="ec-name sans given">{set.name}</span>
-          <span className="ec-sub">{set.files} {set.files === 1 ? "file" : "files"} · {sizeOf(set.bytes)}</span>
+          <span className="ec-sub">{t("common.files", { count: set.files })} · {sizeOf(set.bytes)}</span>
         </button>
         {actions}
       </div>

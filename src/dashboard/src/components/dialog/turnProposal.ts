@@ -1,3 +1,4 @@
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type {
   SpecDialogGraphTicket,
   SpecDialogOpenQuestion,
@@ -39,10 +40,10 @@ export interface TurnProposal {
 
 export type SpecStatus = "clean" | "findings" | "pending";
 
-export const STATUS_LABEL: Record<SpecStatus, string> = {
-  clean: "reviewed clean",
-  findings: "findings",
-  pending: "not reviewed",
+export const STATUS_LABEL: Record<SpecStatus, TextKey> = {
+  clean: "dialog.status.clean",
+  findings: "dialog.status.findings",
+  pending: "dialog.status.pending",
 };
 
 // The mark a turn's review leaves on a draft it did not get to.
@@ -81,16 +82,16 @@ export function findingsOf(proposal: TurnProposal, specId: string): SpecDialogPr
 }
 
 /** "1 clean · 2 with findings · 7 not reviewed", leaving out the states no row is in. */
-export function statusSummary(proposal: TurnProposal): string {
+export function statusSummary(t: T, proposal: TurnProposal): string {
   const counts = { clean: 0, findings: 0, pending: 0 };
   for (const row of rowsOf(proposal)) {
     const status = statusOf(proposal, row.specId);
     if (status) counts[status] += 1;
   }
   return [
-    counts.clean > 0 ? `${counts.clean} clean` : null,
-    counts.findings > 0 ? `${counts.findings} with findings` : null,
-    counts.pending > 0 ? `${counts.pending} not reviewed` : null,
+    counts.clean > 0 ? t("dialog.status.countClean", { count: counts.clean }) : null,
+    counts.findings > 0 ? t("dialog.status.countFindings", { count: counts.findings }) : null,
+    counts.pending > 0 ? t("dialog.status.countPending", { count: counts.pending }) : null,
   ].filter(Boolean).join(" · ");
 }
 

@@ -1,3 +1,4 @@
+import { useT } from "@/hooks/useT";
 import type { SpecDialogOpenQuestion } from "@/types/spec-dialog";
 
 // 2026-11-10-d854b: the questions only the operator can answer, each with the design partner's proposal and the
@@ -6,11 +7,12 @@ import type { SpecDialogOpenQuestion } from "@/types/spec-dialog";
 // 2026-11-19-7c42b: the proposal is the agent's own sentence under its question, with no label in front.
 
 export function TurnQuestions({ questions }: { questions: SpecDialogOpenQuestion[] }) {
+  const t = useT();
   if (questions.length === 0) return null;
   return (
     <div className="flex flex-col gap-1.5" data-testid="turn-questions">
       <div className="d-turn-head">
-        Open {questions.length === 1 ? "question" : "questions"} · {questions.length}
+        {t("dialog.questions.head", { count: questions.length })}
       </div>
       <ol className="flex flex-col gap-2 dsh-body">
         {questions.map((question, index) => (

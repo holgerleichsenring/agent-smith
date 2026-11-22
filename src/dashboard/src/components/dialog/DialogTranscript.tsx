@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type { ReactNode } from "react";
 import { Markdown } from "@/components/ui/Markdown";
 import { specDialogImageUrl } from "@/lib/specDialogApi";
@@ -99,11 +100,12 @@ function Turn({ entry, onOpenUpload }: { entry: DialogEntry; onOpenUpload?: (set
 /** 2026-11-11-205ff: the summary of a turn no kept turn carries — still running elsewhere, or stopped before it
  *  finished; its draft is below. */
 function Interrupted({ state }: { state: "running" | "stopped" }) {
+  const t = useT();
   return (
     <p className="dsh-body text-mute" data-testid={state === "running" ? "dialog-turn-running" : "dialog-turn-interrupted"}>
       {state === "running"
-        ? "This turn is still running. Its latest draft is below."
-        : "This turn stopped before it finished. Its last draft is below."}
+        ? t("dialog.transcript.running")
+        : t("dialog.transcript.stopped")}
     </p>
   );
 }
@@ -123,12 +125,13 @@ function AgentText({ text }: { text: string }) {
 }
 
 function Attached({ image }: { image: SpecDialogImage }) {
+  const t = useT();
   return (
     <DialogMessage who="user" testId="dialog-turn-image">
       <AuthedImage
         testId={`dialog-image-${image.id}`}
         path={specDialogImageUrl(image.id)}
-        alt="Attached by you"
+        alt={t("common.attachedByYou")}
         className="max-h-64 max-w-full"
       />
     </DialogMessage>
@@ -136,18 +139,19 @@ function Attached({ image }: { image: SpecDialogImage }) {
 }
 
 function ReferenceSetChip({ set, onOpen }: { set: SpecDialogReferenceSet; onOpen?: (setId: string) => void }) {
+  const t = useT();
   // 2026-11-17-d762b: one plain line — "upload name · n files · size · show files" — with show files a text link.
   return (
     <DialogMessage who="user" testId="dialog-turn-reference">
       <p data-testid={`dialog-reference-${set.setId}`} className="dl-upload">
-        <span className="dl-dim">upload</span> <span className="mono given">{set.name}</span>
-        {` · ${set.files} ${set.files === 1 ? "file" : "files"} · ${sizeOf(set.bytes)}`}
+        <span className="dl-dim">{t("dialog.transcript.upload")}</span> <span className="mono given">{set.name}</span>
+        {` · ${t("common.files", { count: set.files })} · ${sizeOf(set.bytes)}`}
         {onOpen && (
           <>
             {" · "}
             <button type="button" className="d-link" data-testid={`dialog-reference-open-${set.setId}`}
               onClick={() => onOpen(set.setId)}>
-              show files
+              {t("dialog.transcript.showFiles")}
             </button>
           </>
         )}
@@ -173,13 +177,14 @@ function Notice({ text }: { text: string }) {
 }
 
 function Decision({ entry }: { entry: DialogEntry }) {
+  const t = useT();
   const approved = entry.decision === "approved";
   return (
     <div data-testid="dialog-turn-decision">
       <p data-decision={entry.decision} data-pending={entry.pending ? "true" : undefined} className="dsh-body text-mute">
         {entry.pending
-          ? approved ? "File sent — waiting for it to be recorded" : "Discard sent — waiting for it to be recorded"
-          : approved ? "Approved — file the proposal" : "Rejected — nothing is filed"}
+          ? t(approved ? "dialog.transcript.fileSent" : "dialog.transcript.discardSent")
+          : t(approved ? "dialog.transcript.approved" : "dialog.transcript.rejected")}
       </p>
     </div>
   );
@@ -195,6 +200,7 @@ export function DialogMessage({
   testId?: string;
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     // 2026-11-17-d762b: the speaker is a small muted word in a narrow column, not a badge.
     <div data-testid={testId} className="grid grid-cols-[44px_minmax(0,1fr)] gap-2.5">
@@ -202,10 +208,10 @@ export function DialogMessage({
         aria-hidden="true"
         className={who === "user" ? "d-who" : "d-who agent"}
       >
-        {who === "user" ? "you" : "agent"}
+        {t(who === "user" ? "dialog.transcript.you" : "dialog.transcript.agent")}
       </div>
       <div className="min-w-0">
-        <span className="sr-only">{who === "user" ? "You:" : "agent-smith:"}</span>
+        <span className="sr-only">{who === "user" ? t("dialog.transcript.youSaid") : "agent-smith:"}</span>
         {children}
       </div>
     </div>

@@ -6,6 +6,7 @@ import { DialogDecisionBar, asideKey, decides } from "@/components/dialog/Dialog
 import { DialogQuestionCard } from "@/components/dialog/DialogQuestionCard";
 import { DialogWorking } from "@/components/dialog/DialogWorking";
 import { approvalProposal } from "@/components/dialog/approvalProposal";
+import { useT } from "@/hooks/useT";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import type { TicketApprovalPreview, TicketConversation } from "@/types/tickets";
 import { ticketDecision } from "./ticketDecision";
@@ -42,6 +43,7 @@ const REFUSAL_WORDS: Record<ResumeRefusal["kind"], string> = {
 };
 
 export function TicketComposer({ conversation, project, ticketId, preview, inputRef, replyRef }: Props) {
+  const t = useT();
   const composer = useTicketComposer(conversation, project, ticketId);
   const { dialog, engaged, approval, refusal } = composer;
   const own = useRef<HTMLTextAreaElement>(null);
@@ -52,7 +54,7 @@ export function TicketComposer({ conversation, project, ticketId, preview, input
   useEffect(() => {
     if (!dialog.working) setChattingOn(null);
   }, [dialog.working]);
-  const shown = ticketDecision(conversation, preview.data, engaged ? { question: dialog.question, awaiting: dialog.awaitingProposal } : null);
+  const shown = ticketDecision(t, conversation, preview.data, engaged ? { question: dialog.question, awaiting: dialog.awaitingProposal } : null);
   const deciding = shown !== null && decides(shown.decision, chattingOn, shown.proposalId);
   // A decision that cannot be taken here says why above the composer; one set aside for chatting says nothing.
   const blocked = shown && !shown.decision.approvable && !shown.decision.expired ? shown.decision.summary : null;

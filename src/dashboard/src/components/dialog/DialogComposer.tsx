@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useT } from "@/hooks/useT";
 import type { SpecDialogHeldContent } from "@/types/spec-dialog";
 import { AttachMenu } from "./AttachMenu";
 import { DialogReferenceSelection } from "./DialogReferenceSelection";
@@ -60,7 +61,7 @@ export function DialogComposer({
   inputRef,
   actions,
   tools,
-  placeholder = "Keep talking, or answer above…",
+  placeholder,
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
@@ -85,6 +86,7 @@ export function DialogComposer({
   /** 2026-11-16-6877a: the empty field's hint, where a surface says what sending does. */
   placeholder?: string;
 }) {
+  const t = useT();
   const [text, setText] = useState("");
   const [attaching, setAttaching] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
@@ -108,16 +110,15 @@ export function DialogComposer({
   };
   const [pick, setPick] = useState<File[] | null>(null);
   const waiting = pick || heldPick
-    ? "Send or cancel the selected files first."
-    : pending > 0 ? "Waiting for the upload to finish." : null;
+    ? t("dialog.composer.waitingSelection")
+    : pending > 0 ? t("dialog.composer.waitingUpload") : null;
   const [over, setOver] = useState<string | null>(null);
 
   /** Whether `files` fit what is left; says why not when they do not. */
   const fits = (files: File[]) => {
     const bytes = files.reduce((sum, file) => sum + file.size, 0);
     const refused = left !== null && bytes > left;
-    setOver(refused ? `${sizeOf(bytes)} is more than the ${sizeOf(left)} this conversation has left. `
-      + "Remove an upload in the Uploads tab to make room." : null);
+    setOver(refused ? t("dialog.composer.over", { size: sizeOf(bytes), left: sizeOf(left) }) : null);
     return !refused;
   };
   const shown: UploadNote | null = over ? { tone: "refused", text: over } : note ?? null;
@@ -200,8 +201,8 @@ export function DialogComposer({
         ref={plus}
         type="button"
         data-testid="dialog-composer-attach"
-        aria-label="Attach"
-        title="Attach"
+        aria-label={t("dialog.composer.attach")}
+        title={t("dialog.composer.attach")}
         aria-haspopup="menu"
         aria-expanded={attaching}
         onClick={() => setAttaching(!attaching)}
@@ -214,17 +215,17 @@ export function DialogComposer({
         <AttachMenu
           onLeave={() => setAttaching(false)}
           entries={[
-            { key: "image", label: "Image", onPick: () => openPicker(picker.current) },
+            { key: "image", label: t("dialog.composer.image"), onPick: () => openPicker(picker.current) },
             ...(onAttachSite ? [
-              { key: "files", label: "Files", onPick: () => openPicker(several.current) },
+              { key: "files", label: t("dialog.composer.files"), onPick: () => openPicker(several.current) },
               // 2026-10-08-e8b9i: the browser adds its own "upload N files?" prompt to a folder
               // pick, which no page can restyle or suppress; saying so keeps it from reading as ours.
-              { key: "folder", label: "Folder", onPick: () => openPicker(folder.current),
+              { key: "folder", label: t("dialog.composer.folder"), onPick: () => openPicker(folder.current),
                 describedBy: "dialog-composer-folder-hint" },
             ] : []),
           ]}
           hint={onAttachSite
-            ? { id: "dialog-composer-folder-hint", text: "Your browser may ask to confirm a folder upload." }
+            ? { id: "dialog-composer-folder-hint", text: t("dialog.composer.folderHint") }
             : undefined}
         />
       )}
@@ -237,7 +238,7 @@ export function DialogComposer({
       value={text}
       rows={3}
       disabled={disabled}
-      placeholder={placeholder}
+      placeholder={placeholder ?? t("dialog.composer.placeholder")}
       onChange={(event) => setText(event.target.value)}
       onKeyDown={(event) => {
         // Enter sends, shift+enter keeps writing: a design message is often several
@@ -254,8 +255,8 @@ export function DialogComposer({
     <button
       type="button"
       data-testid="dialog-composer-send"
-      aria-label="Send"
-      title="Send"
+      aria-label={t("common.send")}
+      title={t("common.send")}
       onClick={send}
       disabled={disabled || waiting !== null}
       className="d-icon send"

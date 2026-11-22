@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useEffect, useMemo, useState } from "react";
 import { fetchReferenceFiles } from "@/lib/referenceFilesApi";
 import type { SpecDialogReferenceFile } from "@/types/spec-dialog";
@@ -26,6 +27,7 @@ export function UploadFileTree({
   onOpen: (path: string) => void;
   onRemove: (path: string) => void;
 }) {
+  const t = useT();
   const [files, setFiles] = useState<SpecDialogReferenceFile[] | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
@@ -41,8 +43,8 @@ export function UploadFileTree({
   const [open, setOpen] = useState<Set<string> | null>(null);
   const shown = open ?? (root ? initiallyOpen(root) : new Set<string>());
 
-  if (failed) return <p className="ec-sub d-tree-note" role="alert">{`The files could not be read: ${failed}`}</p>;
-  if (!root) return <p className="ec-sub d-tree-note" aria-busy="true">Reading the files…</p>;
+  if (failed) return <p className="ec-sub d-tree-note" role="alert">{t("dialog.tree.couldNotRead", { reason: failed })}</p>;
+  if (!root) return <p className="ec-sub d-tree-note" aria-busy="true">{t("dialog.tree.reading")}</p>;
   const toggle = (path: string) => {
     const next = new Set(shown);
     if (next.has(path)) next.delete(path);
@@ -50,7 +52,7 @@ export function UploadFileTree({
     setOpen(next);
   };
   return (
-    <ul className="d-tree" data-testid={`dialog-upload-files-${setId}`} aria-label="Files in this upload">
+    <ul className="d-tree" data-testid={`dialog-upload-files-${setId}`} aria-label={t("dialog.tree.label")}>
       <FolderItems folder={root} open={shown} onToggle={toggle} cited={cited} onOpen={onOpen} onRemove={onRemove} />
     </ul>
   );
@@ -64,6 +66,7 @@ function FolderItems({ folder, open, onToggle, cited, onOpen, onRemove }: {
   onOpen: (path: string) => void;
   onRemove: (path: string) => void;
 }) {
+  const t = useT();
   return (
     <>
       {folder.folders.map((child) => (
@@ -72,7 +75,7 @@ function FolderItems({ folder, open, onToggle, cited, onOpen, onRemove }: {
             data-testid={`dialog-upload-folder-${child.path}`} onClick={() => onToggle(child.path)}>
             <span aria-hidden="true" className="d-tree-caret">{open.has(child.path) ? "▾" : "▸"}</span>
             <span className="mono">{`${child.name}/`}</span>
-            <span className="d-tree-size">{child.count === 1 ? "1 file" : `${child.count} files`}</span>
+            <span className="d-tree-size">{t("common.files", { count: child.count })}</span>
           </button>
           {open.has(child.path) && (
             <ul className="d-tree">
@@ -83,12 +86,12 @@ function FolderItems({ folder, open, onToggle, cited, onOpen, onRemove }: {
       ))}
       {folder.files.map((file) => (
         <li key={file.path} className="d-tree-file" data-testid={`dialog-upload-file-${file.path}`}>
-          <button type="button" className="d-tree-open mono" title={`Open ${file.path}`} onClick={() => onOpen(file.path)}>
+          <button type="button" className="d-tree-open mono" title={t("dialog.tree.open", { path: file.path })} onClick={() => onOpen(file.path)}>
             {file.name}
           </button>
           <span className="d-tree-size">{sizeOf(file.bytes)}</span>
           {!cited && (
-            <button type="button" className="d-tree-remove" aria-label={`Remove ${file.path}`} title="Remove this file"
+            <button type="button" className="d-tree-remove" aria-label={t("dialog.tree.removePath", { path: file.path })} title={t("dialog.tree.removeFile")}
               data-testid={`dialog-upload-file-remove-${file.path}`} onClick={() => onRemove(file.path)}>
               ×
             </button>

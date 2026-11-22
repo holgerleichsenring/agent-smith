@@ -164,4 +164,28 @@ describe("ProfileMenu", () => {
     fireEvent.click(screen.getByTestId("profile-sign-out"));
     expect(session.signOut).toHaveBeenCalledOnce();
   });
+
+  // 2026-11-22-5485a: the language switch — two flags, the one in force checked; a pick re-renders in that language,
+  // is kept for this browser and names the document's language.
+  it("Profile_LanguageSwitch_GermanPicked_ReadsGerman_AndIsRemembered", () => {
+    // This jsdom build ships no localStorage; a Map stands in for it, as in AppSidebar.test.
+    const backing = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: { getItem: (k: string) => backing.get(k) ?? null, setItem: (k: string, v: string) => void backing.set(k, v), removeItem: (k: string) => void backing.delete(k) },
+    });
+    renderProfile();
+    open();
+    expect(screen.getByTestId("profile-language-en")).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByTestId("profile-language-de")).toHaveTextContent("Deutsch");
+    fireEvent.click(screen.getByTestId("profile-language-de"));
+    expect(screen.getByTestId("profile-name")).toHaveTextContent("Diese Installation");
+    expect(backing.get("agentsmith.language")).toBe("de");
+    expect(document.documentElement.lang).toBe("de");
+    open();
+    expect(screen.getByTestId("profile-settings")).toHaveTextContent("Einstellungen");
+    expect(screen.getByTestId("profile-language-de")).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByTestId("profile-language-en"));
+    expect(screen.getByTestId("profile-name")).toHaveTextContent("This installation");
+  });
 });

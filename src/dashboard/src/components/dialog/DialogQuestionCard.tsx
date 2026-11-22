@@ -1,6 +1,8 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { Markdown } from "@/components/ui/Markdown";
+import type { T } from "@/lib/i18n/translate";
 import { hasExpired } from "./approvalDecision";
 import type { SpecDialogChoice, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
@@ -34,8 +36,9 @@ export function DialogQuestionCard({
   question: SpecDialogQuestionPush;
   onAnswer: (answer: string) => void;
 }) {
+  const t = useT();
   const expired = hasExpired(question);
-  const controls = expired ? [] : controlsFor(question);
+  const controls = expired ? [] : controlsFor(t, question);
   return (
     <div
       data-testid="dialog-question"
@@ -43,7 +46,7 @@ export function DialogQuestionCard({
       className={expired ? "ecard inert d-body text-body" : "ecard inert waiting d-body"}
     >
       <div className={expired ? "fl mb-1" : "fl on mb-1"}>
-        {expired ? "no longer waiting — nothing was filed" : "waiting on you"}
+        {t(expired ? "dialog.question.expired" : "dialog.question.waiting")}
       </div>
       {question.text.trim().length > 0 && <Markdown>{question.text}</Markdown>}
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -62,21 +65,21 @@ export function DialogQuestionCard({
             confirmer has stopped waiting, so the next message buys a whole design turn instead. */}
         <span className="ec-sub min-w-44 flex-1">
           {expired
-            ? "The wait is over — anything you write below starts a new turn."
-            : "Anything else you write below is a note — the proposal is revised with it."}
+            ? t("dialog.question.expiredHint")
+            : t("dialog.question.noteHint")}
         </span>
       </div>
     </div>
   );
 }
 
-function controlsFor(question: SpecDialogQuestionPush): Control[] {
+function controlsFor(t: T, question: SpecDialogQuestionPush): Control[] {
   if (question.kind === "approval") return [];
   if (question.choices.length > 0) return question.choices.map(asControl);
   if (question.kind === "confirmation")
     return [
-      { label: "Yes", answer: "yes", primary: true },
-      { label: "No", answer: "no", primary: false },
+      { label: t("dialog.question.yes"), answer: "yes", primary: true },
+      { label: t("dialog.question.no"), answer: "no", primary: false },
     ];
   // Free text and info questions are answered by writing, which the composer already does.
   return [];

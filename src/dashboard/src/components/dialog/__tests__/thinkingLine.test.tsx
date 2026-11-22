@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SpecDialogActivityPush } from "@/types/spec-dialog";
 import { condenseSteps, inFlight, type RawStep } from "../condenseSteps";
 import { DialogWorking } from "../DialogWorking";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-11-19-687ea: a model call in flight is the working view's last line, ticking, until the next step arrives.
 
@@ -22,7 +25,7 @@ describe("condenseSteps and thinking steps", () => {
       { seq: 5, kind: "thinking", name: "Analyst › m" },
     ];
 
-    expect(condenseSteps(raw).map((line) => line.text)).toEqual(["2 reads"]);
+    expect(condenseSteps(en, raw).map((line) => line.text)).toEqual(["2 reads"]);
   });
 });
 

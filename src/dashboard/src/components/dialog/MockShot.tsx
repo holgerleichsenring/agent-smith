@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type { TranscriptMock } from "@/hooks/useSpecDialog";
 import { fetchMockHtmlBlob, mockPath } from "@/lib/referenceFilesApi";
 import { AuthedImage } from "./AuthedImage";
@@ -10,15 +11,16 @@ import { DialogMessage } from "./DialogTranscript";
 // this origin, where it would run as the dashboard: it is saved as a file, through the bearer token.
 
 export function MockShot({ mock }: { mock: TranscriptMock }) {
+  const t = useT();
   const id = `${mock.specId}-v${mock.version}`;
   return (
     <DialogMessage who="agent" testId="dialog-turn-mock">
       <div data-testid={`dialog-mock-${id}`} className="ecard inert">
         <div className="flex flex-wrap items-center gap-2.5 px-3 py-2">
-          <span className="ec-mark">mock</span>
-          <span className="ec-name sans min-w-0 flex-1 given">{`Mock v${mock.version} — ${mock.specId}`}</span>
+          <span className="ec-mark">{t("dialog.mock.mark")}</span>
+          <span className="ec-name sans min-w-0 flex-1 given">{t("dialog.mock.title", { version: mock.version, spec: mock.specId })}</span>
           <button type="button" className="btn" data-testid={`dialog-mock-open-${id}`} onClick={() => void download(mock)}>
-            Open HTML
+            {t("dialog.mock.openHtml")}
           </button>
         </div>
         <div className="px-3 pb-2">
@@ -26,11 +28,11 @@ export function MockShot({ mock }: { mock: TranscriptMock }) {
             <AuthedImage
               testId={`dialog-mock-shot-${id}`}
               path={mockPath(mock.sessionId, mock.specId, mock.version, "shot")}
-              alt={`Mock v${mock.version} of ${mock.specId}, desktop`}
+              alt={t("dialog.mock.alt", { version: mock.version, spec: mock.specId })}
               className="max-h-96 max-w-full"
             />
           ) : (
-            <span className="ec-sub" data-testid={`dialog-mock-unrendered-${id}`}>not rendered</span>
+            <span className="ec-sub" data-testid={`dialog-mock-unrendered-${id}`}>{t("dialog.mock.unrendered")}</span>
           )}
         </div>
       </div>

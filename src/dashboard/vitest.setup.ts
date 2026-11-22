@@ -16,3 +16,15 @@ beforeEach(async () => {
   const shared = await import("@/lib/sharedIdentityRead");
   (shared as { resetSharedCallerIdentity?: () => void }).resetSharedCallerIdentity?.();
 });
+
+// 2026-11-22-5485a: the tests read the English text, whatever the machine's language or a choice an earlier test
+// stored; a test that wants German chooses it.
+beforeEach(async () => {
+  try {
+    window.localStorage.removeItem("agentsmith.language");
+  } catch {
+    /* no storage in this environment */
+  }
+  const language = await import("@/lib/i18n/language");
+  language.resetLanguage("en");
+});

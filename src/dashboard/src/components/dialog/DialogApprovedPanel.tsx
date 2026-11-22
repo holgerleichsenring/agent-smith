@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type { ApprovedSetView } from "@/types/spec-dialog";
 
 // 2026-09-25-8e51d: the specification a person APPROVED for the ticket this conversation belongs
@@ -8,18 +9,19 @@ import type { ApprovedSetView } from "@/types/spec-dialog";
 // is said so instead of showing a stored copy.
 
 export function DialogApprovedPanel({ approved }: { approved: ApprovedSetView }) {
+  const t = useT();
   return (
     <div className="flex flex-col gap-4" data-testid="dialog-approved-panel">
       <p className="dsh-body text-body" data-testid="dialog-approved-approval">
         {approved.approvedAt
-          ? `Approved ${new Date(approved.approvedAt).toLocaleString()}` +
-            (approved.approvedBy ? ` by ${approved.approvedBy}` : "") +
-            ". The specs below are on the ticket branch, where a run reads them."
-          : "Approved for this ticket. The specs below are on the ticket branch, where a run reads them."}
+          ? t("dialog.approved.at", { when: new Date(approved.approvedAt).toLocaleString() }) +
+            (approved.approvedBy ? t("dialog.approved.by", { who: approved.approvedBy }) : "") +
+            t("dialog.approved.tail")
+          : t("dialog.approved.noDate")}
       </p>
       {approved.branchUnread && (
         <p className="dsh-body text-body" data-testid="dialog-approved-branch-unread">
-          The ticket branch could not be read, so no specs are shown: {approved.branchUnread}
+          {t("dialog.approved.branchUnread", { reason: approved.branchUnread })}
         </p>
       )}
       <ul className="flex flex-col gap-3">

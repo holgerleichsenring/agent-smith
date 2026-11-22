@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { DialogDecisionBar, decides } from "../DialogDecisionBar";
 import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-11-15-bf77: File follows the design partner's offer. A 12-ticket proposal with open questions the master
 // has not offered shows no File; once it offers, File shows beside its line; a master that does not lead is unchanged.
@@ -21,13 +24,13 @@ const base = {
 
 function bar(proposal: SpecDialogProposalPush) {
   const onApprove = vi.fn();
-  render(<DialogDecisionBar decision={approvalDecision(question, proposal)!} onApprove={onApprove} onKeepChatting={vi.fn()} />);
+  render(<DialogDecisionBar decision={approvalDecision(en, question, proposal)!} onApprove={onApprove} onKeepChatting={vi.fn()} />);
   return onApprove;
 }
 
 describe("filing offer", () => {
   it("OfferLed_NotOffered_PutsNoDecision_AndSaysNothing", () => {
-    const decision = approvalDecision(question, { ...base, offerLed: true })!;
+    const decision = approvalDecision(en, question, { ...base, offerLed: true })!;
     expect(decision.approvable).toBe(false);
     expect(decision.summary).toBeNull();
     expect(decides(decision, null, "p-1")).toBe(false);
@@ -53,7 +56,7 @@ describe("filing offer", () => {
       spec: { specId: "p1", goal: "g", steps: [], tests: [], done: [], requires: [], yaml: "", facts: [], assumptions: [] },
     } as unknown as SpecDialogProposalPush;
     // 2026-11-19-1b72c: the ticket page decides in the composer's place too; an unoffered draft puts no decision.
-    const decision = approvalDecision(question, spec, { summary: "Approving continues this ticket's series.", approvable: true }, true);
+    const decision = approvalDecision(en, question, spec, { summary: "Approving continues this ticket's series.", approvable: true }, true);
     expect(decides(decision, null, null)).toBe(false);
     expect(decision!.summary).toBeNull();
   });

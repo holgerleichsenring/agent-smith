@@ -1,4 +1,5 @@
 import type { TicketApprovalEffect } from "@/lib/tickets/approvalEffect";
+import type { T } from "@/lib/i18n/translate";
 import type { SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
 
 /**
@@ -20,7 +21,10 @@ export interface ApprovalDecision {
   action: string;
 }
 
-export const BOUND_LIST = "A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket.";
+/** 2026-11-22-5485a: the sentence for a list on a bound conversation, in the language in force. */
+export function boundList(t: T): string {
+  return t("dialog.approval.boundList");
+}
 
 // The server pushes nothing when a wait expires, so the deadline is what the page has: a click past it is not an
 // answer, it posts the literal word as a message and buys a whole design turn.
@@ -30,6 +34,7 @@ export function hasExpired(question: SpecDialogQuestionPush): boolean {
 
 /** The decision an approval question offers on `proposal`; null for any other question. */
 export function approvalDecision(
+  t: T,
   question: SpecDialogQuestionPush,
   proposal: SpecDialogProposalPush | null,
   ticketEffect?: TicketApprovalEffect | null,
@@ -39,15 +44,15 @@ export function approvalDecision(
   const effect = ticketEffect ?? null;
   // 2026-10-14-dbcek: the preview there answers a list with a plain refusal and no start arm, which would read as
   // approvable — so approving is withheld and the summary says where a list is filed.
-  const boundList = proposal?.kind === "tickets" && (inTicket === true || effect !== null);
+  const listOnBound = proposal?.kind === "tickets" && (inTicket === true || effect !== null);
   const { offer, unoffered } = offerOf(proposal);
   return {
     expired: hasExpired(question),
-    approvable: !boundList && !unoffered && !(effect && !effect.approvable),
+    approvable: !listOnBound && !unoffered && !(effect && !effect.approvable),
     // 2026-11-19-7c42b: an unoffered draft says nothing — the design partner's reply already says what is open.
-    summary: boundList ? BOUND_LIST : unoffered ? null : offer ?? (effect ? effect.summary : proposal ? summaryOf(proposal) : null),
+    summary: listOnBound ? boundList(t) : unoffered ? null : offer ?? (effect ? effect.summary : proposal ? summaryOf(t, proposal) : null),
     bound: effect !== null,
-    action: proposal ? actionOf(proposal, effect !== null) : "Approve",
+    action: proposal ? actionOf(t, proposal, effect !== null) : t("dialog.approval.approve"),
   };
 }
 
@@ -68,39 +73,29 @@ export function offerOf(proposal: OfferSource | null): { offer: string | null; u
 }
 
 /** 2026-11-19-7c42b: the approve button names what it creates, so nobody reads "File" as a file. */
-export function actionOf(proposal: ActionSource, bound: boolean): string {
-  if (proposal.kind === "config") {
-    const count = proposal.configChanges?.length ?? 0;
-    return count === 1 ? "Apply 1 change" : `Apply ${count} changes`;
-  }
-  if (proposal.kind === "comment") return "Post comment";
-  if (proposal.bug || proposal.kind === "bug") return "Create bug ticket";
-  if (proposal.kind === "tickets") {
-    const count = proposal.tickets?.length ?? 0;
-    return count === 1 ? "Create 1 ticket" : `Create ${count} tickets`;
-  }
-  return bound ? "Write spec to ticket" : "Create ticket";
+export function actionOf(t: T, proposal: ActionSource, bound: boolean): string {
+  if (proposal.kind === "config") return t("dialog.approval.applyChanges", { count: proposal.configChanges?.length ?? 0 });
+  if (proposal.kind === "comment") return t("dialog.approval.postComment");
+  if (proposal.bug || proposal.kind === "bug") return t("dialog.approval.createBug");
+  if (proposal.kind === "tickets") return t("dialog.approval.createTickets", { count: proposal.tickets?.length ?? 0 });
+  return bound ? t("dialog.approval.writeSpec") : t("dialog.approval.createTicket");
 }
 
 /** What the proposal says would be filed, and nothing it does not say. */
-export function summaryOf(proposal: SpecDialogProposalPush): string | null {
-  if (proposal.bug) return "File this bug? One bug ticket.";
-  if (proposal.kind === "comment") return "Post this comment on the ticket? Nothing starts.";
-  if (proposal.kind === "config") {
-    const count = proposal.configChanges?.length ?? 0;
-    return `Apply ${count === 1 ? "this configuration change" : `these ${count} configuration changes`}? A config run writes them through the Config studio's checks.`;
-  }
+export function summaryOf(t: T, proposal: SpecDialogProposalPush): string | null {
+  if (proposal.bug) return t("dialog.approval.summaryBug");
+  if (proposal.kind === "comment") return t("dialog.approval.summaryComment");
+  if (proposal.kind === "config") return t("dialog.approval.summaryConfig", { count: proposal.configChanges?.length ?? 0 });
   if (proposal.kind === "tickets") {
     // Not "starts when filed": that depends on the landing of what it requires, read at filing.
-    const [count, roots] = [proposal.tickets?.length ?? 0, (proposal.tickets ?? []).filter((t) => t.requires.length === 0).length];
-    return `File these ${count} tickets? ${roots} ${roots === 1 ? "has" : "have"} nothing to wait for; the rest wait until what they require is merged.`;
+    const [count, roots] = [proposal.tickets?.length ?? 0, (proposal.tickets ?? []).filter((ticket) => ticket.requires.length === 0).length];
+    return t("dialog.approval.summaryTickets", { count, free: t("dialog.approval.summaryTicketsFree", { count: roots }) });
   }
   if (proposal.parent) {
-    const slices = proposal.children.length;
     // 2026-09-22-b3d7: the button files ONE ticket, whatever the slice count. The slices are what that ticket
     // carries, so this line counts the one ticket and no records.
-    return `File this epic? One work ticket carrying ${slices} slice${slices === 1 ? "" : "s"}.`;
+    return t("dialog.approval.summaryEpic", { count: proposal.children.length });
   }
-  if (proposal.spec) return "File this spec? One ticket.";
+  if (proposal.spec) return t("dialog.approval.summarySpec");
   return null;
 }

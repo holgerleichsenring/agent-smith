@@ -1,4 +1,5 @@
 import { ApiResponseError, refusalIn } from "@/lib/apiResponse";
+import type { T } from "@/lib/i18n/translate";
 import type { SpecDialogReferenceUpload } from "@/types/spec-dialog";
 import type { PickLeftOut } from "./referenceSelection";
 
@@ -14,12 +15,12 @@ export interface UploadNote {
 }
 
 /** The note for an upload that threw: the server's own reason where it gave one. */
-export function refusedNote(thrown: unknown): UploadNote {
+export function refusedNote(t: T, thrown: unknown): UploadNote {
   const refusal = refusalIn(thrown);
-  if (refusal) return { tone: "refused", text: `The upload was refused: ${refusal.message}` };
+  if (refusal) return { tone: "refused", text: t("dialog.upload.refused", { reason: refusal.message }) };
   if (thrown instanceof ApiResponseError && thrown.reason) return { tone: "refused", text: thrown.reason };
   const message = thrown instanceof Error ? thrown.message : String(thrown);
-  return { tone: "refused", text: `The upload failed: ${message}` };
+  return { tone: "refused", text: t("dialog.upload.failed", { reason: message }) };
 }
 
 /**
@@ -29,22 +30,20 @@ export function refusedNote(thrown: unknown): UploadNote {
  * 2026-10-02-075db: and what the selection card left out before sending, first — the pick's
  * left-out files are as much the operator's to know about as the server's.
  */
-export function storedNote(answer: SpecDialogReferenceUpload, notSent?: PickLeftOut): UploadNote | null {
+export function storedNote(t: T, answer: SpecDialogReferenceUpload, notSent?: PickLeftOut): UploadNote | null {
   const parts: string[] = [];
-  if (notSent && notSent.count > 0) {
-    const files = notSent.count === 1 ? "1 file" : `${notSent.count} files`;
-    parts.push(`Not sent (${files}): ${notSent.summary.join(", ")}.`);
-  }
+  if (notSent && notSent.count > 0)
+    parts.push(t("dialog.upload.notSent", { files: t("common.files", { count: notSent.count }), list: notSent.summary.join(", ") }));
   if (answer.leftOutCount > 0) {
     const listed = answer.leftOut.map((e) => `${e.path} (${e.reason})`).join(", ");
     const more = answer.leftOutCount > answer.leftOut.length
-      ? ` and ${answer.leftOutCount - answer.leftOut.length} more`
+      ? t("dialog.upload.andMore", { count: answer.leftOutCount - answer.leftOut.length })
       : "";
-    parts.push(`Left out: ${listed}${more}.`);
+    parts.push(t("dialog.upload.leftOut", { list: listed, more }));
   }
   if (answer.credentialFiles.length > 0)
-    parts.push(`The model and any run it starts can read ${answer.credentialFiles.join(", ")}.`);
+    parts.push(t("dialog.upload.credentials", { list: answer.credentialFiles.join(", ") }));
   if (parts.length === 0) return null;
-  const files = answer.files === 1 ? "1 file" : `${answer.files} files`;
-  return { tone: "stored", text: [`Stored ${files} of '${answer.name}'.`, ...parts].join(" ") };
+  const stored = t("dialog.upload.stored", { files: t("common.files", { count: answer.files }), name: answer.name });
+  return { tone: "stored", text: [stored, ...parts].join(" ") };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // 2026-09-20-4b0ab: the one modal moment on this page, drawn by the page. It was
@@ -36,10 +37,11 @@ export interface ConfirmDialogProps {
 
 export function ConfirmDialog({
   ask,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel,
+  cancelLabel,
   onResolve,
 }: ConfirmDialogProps) {
+  const t = useT();
   const held = useRef<HTMLDialogElement | null>(null);
   const settled = useRef(false);
 
@@ -105,7 +107,7 @@ export function ConfirmDialog({
           className="btn"
           onClick={() => resolve(false)}
         >
-          {cancelLabel}
+          {cancelLabel ?? t("common.cancel")}
         </button>
         <button
           type="button"
@@ -113,7 +115,7 @@ export function ConfirmDialog({
           className="btn bad"
           onClick={() => resolve(true)}
         >
-          {confirmLabel}
+          {confirmLabel ?? t("common.confirm")}
         </button>
       </div>
     </dialog>

@@ -8,6 +8,8 @@
 // 2026-11-19-687ea: a model call that STARTED is a thinking step. It is no line of its own — the working view shows the
 // last one as a live line while it is the newest step — and, like a silent model step, it does not break a burst.
 
+import type { T } from "@/lib/i18n/translate";
+
 /** What both a pushed step and a fetched one carry. */
 export interface RawStep {
   kind: string;
@@ -43,7 +45,7 @@ interface Burst {
 }
 
 /** The lines of one turn, in the order its steps came. */
-export function condenseSteps(steps: RawStep[]): StepLine[] {
+export function condenseSteps(t: T, steps: RawStep[]): StepLine[] {
   const lines: StepLine[] = [];
   let burst: Burst | null = null;
   for (const [index, step] of steps.entries()) {
@@ -57,29 +59,31 @@ export function condenseSteps(steps: RawStep[]): StepLine[] {
       else burst.reads += 1;
       continue;
     }
-    if (burst) lines.push(burstLine(burst));
+    if (burst) lines.push(burstLine(t, burst));
     burst = null;
-    lines.push(lineOf(step, name, index < steps.length - 1));
+    lines.push(lineOf(t, step, name, index < steps.length - 1));
   }
-  if (burst) lines.push(burstLine(burst));
+  if (burst) lines.push(burstLine(t, burst));
   return lines;
 }
 
-function burstLine(burst: Burst): StepLine {
+function burstLine(t: T, burst: Burst): StepLine {
   const text = [
-    burst.reads > 0 ? `${burst.reads} ${burst.reads === 1 ? "read" : "reads"}` : null,
-    burst.searches > 0 ? `${burst.searches} ${burst.searches === 1 ? "search" : "searches"}` : null,
+    burst.reads > 0 ? t("dialog.steps.reads", { count: burst.reads }) : null,
+    burst.searches > 0 ? t("dialog.steps.searches", { count: burst.searches }) : null,
   ].filter(Boolean).join(" · ");
   return { key: burst.key, kind: "reads", text };
 }
 
-function lineOf(step: RawStep, name: string, followed: boolean): StepLine {
+function lineOf(t: T, step: RawStep, name: string, followed: boolean): StepLine {
   if (step.kind === "model") return { key: step.seq, kind: "said", text: step.detail!.trim() };
-  if (step.kind === "revising") return { key: step.seq, kind: "step", text: "revising its answer" };
+  if (step.kind === "revising") return { key: step.seq, kind: "step", text: t("dialog.steps.revising") };
   // 2026-11-20-24bd: the detail is the whole sentence — the model, its limit and the config key.
-  // Once anything followed it the wait is over, and the history says so in the past tense.
+  // Once anything followed it the wait is over, and the history says so in the past tense. The server's sentence is
+  // English (2026-11-22-5485a); only the line this page words itself is translated.
   if (step.kind === "waiting") {
-    const said = step.detail?.trim() || "Waiting for the model";
+    const said = step.detail?.trim();
+    if (!said) return { key: step.seq, kind: "step", text: t(followed ? "dialog.steps.waitedForModel" : "dialog.steps.waitingForModel") };
     return { key: step.seq, kind: "step", text: followed ? said.replace(/^Waiting for/, "Waited for") : said };
   }
   const text = [name || step.kind, step.detail].filter(Boolean).join(" ");

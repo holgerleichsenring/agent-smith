@@ -6,6 +6,9 @@ import {
   pullRequestWords,
   runStatusTone,
 } from "../filedWorkStatus";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-09-17-042ef: the words and the tones a state reaches the page in. Every branch is
 // pinned here rather than through a render, because a render can only reach the states the
@@ -14,17 +17,17 @@ import {
 
 describe("specStatusWords", () => {
   it("SpecStatus_TheFiveTheProjectionWrites_AreEnglishAndOnlyTheStoppedOnesAlarm", () => {
-    expect(specStatusWords("not_started")).toEqual({ word: "not started", tone: "" });
-    expect(specStatusWords("in_progress")).toEqual({ word: "running", tone: "" });
-    expect(specStatusWords("done")).toEqual({ word: "done", tone: "" });
-    expect(specStatusWords("failed")).toEqual({ word: "failed", tone: "bad" });
-    expect(specStatusWords("handed_back")).toEqual({ word: "handed back", tone: "warn" });
+    expect(specStatusWords(en, "not_started")).toEqual({ word: "not started", tone: "" });
+    expect(specStatusWords(en, "in_progress")).toEqual({ word: "running", tone: "" });
+    expect(specStatusWords(en, "done")).toEqual({ word: "done", tone: "" });
+    expect(specStatusWords(en, "failed")).toEqual({ word: "failed", tone: "bad" });
+    expect(specStatusWords(en, "handed_back")).toEqual({ word: "handed back", tone: "warn" });
   });
 
   // A status nobody has named yet is shown, not hidden and not guessed into a state: the
   // underscores open and the tone stays calm, because an unknown word is not an alarm.
   it("SpecStatus_AWordTheMapDoesNotCarry_IsOpenedRatherThanShownRaw", () => {
-    expect(specStatusWords("some_new_state")).toEqual({ word: "some new state", tone: "" });
+    expect(specStatusWords(en, "some_new_state")).toEqual({ word: "some new state", tone: "" });
   });
 });
 
@@ -38,13 +41,13 @@ describe("isSpecTerminal", () => {
 
 describe("pullRequestWords", () => {
   it("PullRequestStatus_TheThreeTheRunRecords_AreEnglishAndOnlyAFailureAlarms", () => {
-    expect(pullRequestWords("opened")).toEqual({ word: "opened", tone: "" });
-    expect(pullRequestWords("no_changes")).toEqual({ word: "no changes", tone: "" });
-    expect(pullRequestWords("failed")).toEqual({ word: "could not be opened", tone: "bad" });
+    expect(pullRequestWords(en, "opened")).toEqual({ word: "opened", tone: "" });
+    expect(pullRequestWords(en, "no_changes")).toEqual({ word: "no changes", tone: "" });
+    expect(pullRequestWords(en, "failed")).toEqual({ word: "could not be opened", tone: "bad" });
   });
 
   it("PullRequestStatus_AWordTheMapDoesNotCarry_IsOpenedRatherThanShownRaw", () => {
-    expect(pullRequestWords("half_open")).toEqual({ word: "half open", tone: "" });
+    expect(pullRequestWords(en, "half_open")).toEqual({ word: "half open", tone: "" });
   });
 });
 

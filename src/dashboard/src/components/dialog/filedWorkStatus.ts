@@ -8,6 +8,8 @@
 // different question from the Badge's four-tone one on the runs list, which has a green for a
 // success a mark has no equivalent of — so the two are not one answer copied twice.
 
+import type { T, TextKey } from "@/lib/i18n/translate";
+
 /** The modifier a mark carries: "" is the studio's neutral mark, warn and bad its two alarms. */
 export type MarkTone = "" | "warn" | "bad";
 
@@ -17,20 +19,20 @@ export interface StatusWords {
 }
 
 // RunSpecProjection.StatusOf writes exactly these five and nothing else.
-const SPEC_STATUS: Record<string, StatusWords> = {
-  not_started: { word: "not started", tone: "" },
-  in_progress: { word: "running", tone: "" },
-  done: { word: "done", tone: "" },
+const SPEC_STATUS: Record<string, { word: TextKey; tone: MarkTone }> = {
+  not_started: { word: "dialog.specStatus.not_started", tone: "" },
+  in_progress: { word: "dialog.specStatus.in_progress", tone: "" },
+  done: { word: "dialog.specStatus.done", tone: "" },
   // 2026-09-17-0e79c: the two stopped states ask OPPOSITE things of the operator — a red build
   // is fixed in the code, a false premise by amending the spec here — so they never share a
   // tone any more than they share a word.
-  failed: { word: "failed", tone: "bad" },
-  handed_back: { word: "handed back", tone: "warn" },
+  failed: { word: "dialog.specStatus.failed", tone: "bad" },
+  handed_back: { word: "dialog.specStatus.handed_back", tone: "warn" },
 };
 
 /** What a spec's status column says, in words, and which mark carries it. */
-export function specStatusWords(status: string): StatusWords {
-  return SPEC_STATUS[status] ?? { word: status.replace(/_/g, " "), tone: "" };
+export function specStatusWords(t: T, status: string): StatusWords {
+  return wordsOf(t, SPEC_STATUS[status], status);
 }
 
 // RunSpecProjection.IsTerminal — the three states a spec does not leave again.
@@ -44,18 +46,23 @@ export function isSpecTerminal(status: string): boolean {
 
 // RunPullRequestView's documented vocabulary is "opened" | "no_changes" | "failed"
 // (PullRequestContracts.cs). It reached the screen raw, underscore and all.
-const PULL_REQUEST_STATUS: Record<string, StatusWords> = {
-  opened: { word: "opened", tone: "" },
-  awaiting_ci: { word: "waiting for CI", tone: "" }, // 2026-11-17-3435b
-  no_changes: { word: "no changes", tone: "" },
+const PULL_REQUEST_STATUS: Record<string, { word: TextKey; tone: MarkTone }> = {
+  opened: { word: "dialog.prStatus.opened", tone: "" },
+  awaiting_ci: { word: "dialog.prStatus.awaiting_ci", tone: "" }, // 2026-11-17-3435b
+  no_changes: { word: "dialog.prStatus.no_changes", tone: "" },
   // A pull request that could not be opened is a thing that did not happen, and it read in the
   // same grey as one that did while a skipped review one panel over was amber.
-  failed: { word: "could not be opened", tone: "bad" },
+  failed: { word: "dialog.prStatus.failed", tone: "bad" },
 };
 
 /** What a pull request's status column says, in words, and which mark carries it. */
-export function pullRequestWords(status: string): StatusWords {
-  return PULL_REQUEST_STATUS[status] ?? { word: status.replace(/_/g, " "), tone: "" };
+export function pullRequestWords(t: T, status: string): StatusWords {
+  return wordsOf(t, PULL_REQUEST_STATUS[status], status);
+}
+
+/** A known status in the language in force; an unknown one as the column wrote it, underscores spaced. */
+function wordsOf(t: T, known: { word: TextKey; tone: MarkTone } | undefined, status: string): StatusWords {
+  return known ? { word: t(known.word), tone: known.tone } : { word: status.replace(/_/g, " "), tone: "" };
 }
 
 /** Which mark a run's status column earns. The words come from runStatusWord. */

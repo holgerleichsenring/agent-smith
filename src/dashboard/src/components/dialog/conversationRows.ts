@@ -1,3 +1,4 @@
+import type { T } from "@/lib/i18n/translate";
 import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 
 // 2026-09-17-c7aed: the conversation list reads like a history, newest first, the way the list
@@ -17,10 +18,10 @@ function calendarDaysBetween(at: Date, now: Date): number {
 
 /** What a conversation filed and how many tickets that made, in the list's words; null when it
  *  filed nothing. */
-export function outcomeLabel({ outcome }: SpecDialogSessionSummary): string | null {
+export function outcomeLabel(t: T, { outcome }: SpecDialogSessionSummary): string | null {
   if (!outcome) return null;
-  const tickets = `${outcome.tickets} ticket${outcome.tickets === 1 ? "" : "s"}`;
-  const verb = outcome.partial ? "partly filed" : "filed";
+  const tickets = t("common.tickets", { count: outcome.tickets });
+  const verb = t(outcome.partial ? "dialog.conversations.partlyFiled" : "dialog.conversations.filed");
   return outcome.kind ? `${outcome.kind} ${verb} · ${tickets}` : `${tickets} ${verb}`;
 }
 
@@ -37,14 +38,14 @@ function timeOfDay(lastActivityAt: string, now: Date = new Date()): string | nul
  * 2026-09-21-f237c, every row in the panel too. Today's rows keep the clock time, because on the
  * day you are working "14:20" is what tells two of them apart.
  */
-export function lastActive(at: string, now: Date = new Date()): string {
+export function lastActive(t: T, at: string, now: Date = new Date()): string {
   const days = calendarDaysBetween(new Date(at), now);
-  if (days <= 0) return timeOfDay(at, now) ?? "today";
-  if (days === 1) return "yesterday";
-  if (days < 7) return `${days} days ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
+  if (days <= 0) return timeOfDay(at, now) ?? t("dialog.when.today");
+  if (days === 1) return t("dialog.when.yesterday");
+  if (days < 7) return t("dialog.when.daysAgo", { count: days });
+  if (days < 30) return t("dialog.when.weeksAgo", { count: Math.floor(days / 7) });
+  if (days < 365) return t("dialog.when.monthsAgo", { count: Math.floor(days / 30) });
+  return t("dialog.when.yearsAgo", { count: Math.floor(days / 365) });
 }
 
 /** 2026-11-17-d762a: the colour an outcome's words take in the bar — a partial filing is amber, a whole one green. */

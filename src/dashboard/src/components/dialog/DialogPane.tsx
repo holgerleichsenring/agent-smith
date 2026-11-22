@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useId, useState } from "react";
 import type { Ref } from "react";
 import type {
@@ -76,6 +77,7 @@ export function DialogPane({
   /** 2026-11-17-0207e: the series the conversation's filing runs as; null when it filed none. */
   series?: SeriesRunView | null;
 }) {
+  const t = useT();
   const shownProposal = focus?.tab === "proposal" && focus.proposal ? focus.proposal : proposal;
   const offered: DialogPaneTab[] = [
     ...(shownProposal ? (["proposal"] as const) : []),
@@ -113,7 +115,7 @@ export function DialogPane({
         tabId={tabId}
         panelId={panelId}
         onPick={(offer) => onFocus({ tab: offer })}
-        status={statusOf(tab, shownProposal, proposal, filed)}
+        status={statusOf(t, tab, shownProposal, proposal, filed)}
         bad={tab === "filed" && !!filed?.error}
       />
       {/* 2026-09-20-4b0ae: tabIndex minus one is focusable programmatically and only so — it

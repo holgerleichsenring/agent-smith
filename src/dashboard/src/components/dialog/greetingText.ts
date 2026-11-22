@@ -8,8 +8,11 @@
 //
 // No character to it on purpose. A voice is a decision of its own, and this one is not it.
 
+import type { T } from "@/lib/i18n/translate";
+
 /** The reader's own clock decides; nothing about this is the server's business. */
-export function greetingFor(hour: number, name?: string | null): string {
-  const part = hour < 5 ? "Good evening" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+export function greetingFor(t: T, hour: number, name?: string | null): string {
+  const part = t(hour < 5 ? "dialog.greeting.evening" : hour < 12 ? "dialog.greeting.morning"
+    : hour < 18 ? "dialog.greeting.afternoon" : "dialog.greeting.evening");
   return name ? `${part}, ${name}.` : `${part}.`;
 }

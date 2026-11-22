@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useState } from "react";
 import { mockPath } from "@/lib/referenceFilesApi";
 import { ratifySpecMock } from "@/lib/specDialogApi";
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function MockVersions({ specId, mocks, ratified, sessionId, onRatified, filed }: Props) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   if (mocks.length === 0) return null;
@@ -41,7 +43,7 @@ export function MockVersions({ specId, mocks, ratified, sessionId, onRatified, f
 
   return (
     <div className="mt-2" data-testid={`dialog-mock-versions-${specId}`}>
-      <div className="fl mb-0.5">Mock versions</div>
+      <div className="fl mb-0.5">{t("dialog.mock.versions")}</div>
       <ol className="flex gap-2 overflow-x-auto pb-1">
         {mocks.map((mock) => {
           const isRatified = mock.version === ratified;
@@ -55,22 +57,22 @@ export function MockVersions({ specId, mocks, ratified, sessionId, onRatified, f
             >
               <div className="flex items-baseline justify-between gap-1">
                 <span className="font-mono dsh-mono text-ink">{`v${mock.version}`}</span>
-                {isRatified && <span className="dsh-mono font-semibold text-state-proven">ratified</span>}
+                {isRatified && <span className="dsh-mono font-semibold text-state-proven">{t("dialog.mock.ratified")}</span>}
               </div>
               {mock.hasShot ? (
                 <AuthedImage
                   testId={`dialog-mock-version-shot-${id}`}
                   path={mockPath(sessionId, specId, mock.version, "shot")}
-                  alt={`Mock v${mock.version} of ${specId}, desktop`}
+                  alt={t("dialog.mock.alt", { version: mock.version, spec: specId })}
                   className="max-h-28 w-full object-cover object-top"
                 />
               ) : (
-                <span className="ec-sub" data-testid={`dialog-mock-version-noshot-${id}`}>{`v${mock.version} — no screenshot`}</span>
+                <span className="ec-sub" data-testid={`dialog-mock-version-noshot-${id}`}>{t("dialog.mock.noShot", { version: mock.version })}</span>
               )}
               {!isRatified && !filed && (
                 <button type="button" className="btn" disabled={busy} data-testid={`dialog-mock-ratify-${id}`}
                   onClick={() => void ratify(mock.version)}>
-                  Ratify
+                  {t("dialog.mock.ratify")}
                 </button>
               )}
             </li>
@@ -79,7 +81,7 @@ export function MockVersions({ specId, mocks, ratified, sessionId, onRatified, f
       </ol>
       {filed && (
         <p className="ec-sub" data-testid={`dialog-mock-filed-${specId}`}>
-          {`${ratified ? `filed with v${ratified}` : "filed"}; a new ratification reaches the spec only through a new approval of this ticket`}
+          {t("dialog.mock.filedTail", { filed: ratified ? t("dialog.mock.filedWith", { version: ratified }) : t("dialog.mock.filed") })}
         </p>
       )}
       {refusal && <p className="dsh-body text-state-stopped" role="alert" data-testid={`dialog-mock-refused-${specId}`}>{refusal}</p>}

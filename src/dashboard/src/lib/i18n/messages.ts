@@ -1,0 +1,656 @@
+// 2026-11-22-5485a: the dashboard's one dictionary. Every UI text is a key with its English and its German text side
+// by side, so a key without German does not compile and a reviewer reads both at once. {name} is filled from the
+// lookup's params; a plural entry has a one and an other form, picked by params.count. Product nouns stay as the
+// operator says them in both languages: Work it out, Spec, Ticket, Run, Turn, Review.
+//
+// The German addresses the reader as "du", as developer tools commonly do.
+
+type Forms = { one: string; other: string };
+
+/** One text in both languages, or one plural in both. */
+export type MessageEntry = { en: string; de: string } | { en: Forms; de: Forms };
+
+export const messages = {
+  // --- shared ---
+  "common.cancel": { en: "Cancel", de: "Abbrechen" },
+  "common.send": { en: "Send", de: "Senden" },
+  "common.delete": { en: "Delete", de: "Löschen" },
+  "common.confirm": { en: "Confirm", de: "Bestätigen" },
+  "common.doneWhen": { en: "Done when", de: "Fertig, wenn" },
+  "common.itStates": { en: "it states: “{quote}”", de: "dort steht: „{quote}“" },
+  "common.quoted": { en: "“{text}”", de: "„{text}“" },
+  "common.files": { en: { one: "1 file", other: "{count} files" }, de: { one: "1 Datei", other: "{count} Dateien" } },
+  "common.tickets": { en: { one: "1 ticket", other: "{count} tickets" }, de: { one: "1 Ticket", other: "{count} Tickets" } },
+  "common.attachedByYou": { en: "Attached by you", de: "Von dir angehängt" },
+
+  // --- shell: profile menu ---
+  "shell.profile.settings": { en: "Settings", de: "Einstellungen" },
+  "shell.profile.access": { en: "Access", de: "Zugriff" },
+  "shell.profile.installation": { en: "Installation", de: "Installation" },
+  "shell.profile.system": { en: "System", de: "System" },
+  "shell.profile.sessionExpired": { en: "Your session expired", de: "Deine Sitzung ist abgelaufen" },
+  "shell.profile.sessionEnded": { en: "Your session ended", de: "Deine Sitzung wurde beendet" },
+  "shell.profile.thisInstallation": { en: "This installation", de: "Diese Installation" },
+  "shell.profile.notSignedIn": { en: "Not signed in", de: "Nicht angemeldet" },
+  "shell.profile.signedIn": { en: "Signed in", de: "Angemeldet" },
+  "shell.profile.signIn": { en: "Sign in", de: "Anmelden" },
+  "shell.profile.signOut": { en: "Sign out", de: "Abmelden" },
+  "shell.profile.identity": { en: "Your identity", de: "Deine Identität" },
+  "shell.profile.connected": { en: "Connected", de: "Verbunden" },
+  "shell.profile.offline": { en: "Offline", de: "Offline" },
+  "shell.profile.menuLabel": { en: "{name}, settings and account", de: "{name}, Einstellungen und Konto" },
+  "shell.profile.language": { en: "Language", de: "Sprache" },
+
+  // --- dialog: the decision and what approving does ---
+  "dialog.decision.keepChatting": { en: "Keep chatting", de: "Weiter chatten" },
+  "dialog.approval.boundList": {
+    en: "A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket.",
+    de: "Eine Ticketliste wird in Work it out ohne Ticket angelegt; diese Unterhaltung führt ihr eigenes Ticket fort.",
+  },
+  "dialog.approval.approve": { en: "Approve", de: "Freigeben" },
+  "dialog.approval.applyChanges": {
+    en: { one: "Apply 1 change", other: "Apply {count} changes" },
+    de: { one: "1 Änderung übernehmen", other: "{count} Änderungen übernehmen" },
+  },
+  "dialog.approval.postComment": { en: "Post comment", de: "Kommentar posten" },
+  "dialog.approval.createBug": { en: "Create bug ticket", de: "Bug-Ticket anlegen" },
+  "dialog.approval.createTickets": {
+    en: { one: "Create 1 ticket", other: "Create {count} tickets" },
+    de: { one: "1 Ticket anlegen", other: "{count} Tickets anlegen" },
+  },
+  "dialog.approval.writeSpec": { en: "Write spec to ticket", de: "Spec ins Ticket schreiben" },
+  "dialog.approval.createTicket": { en: "Create ticket", de: "Ticket anlegen" },
+  "dialog.approval.summaryBug": { en: "File this bug? One bug ticket.", de: "Diesen Bug anlegen? Ein Bug-Ticket." },
+  "dialog.approval.summaryComment": {
+    en: "Post this comment on the ticket? Nothing starts.",
+    de: "Diesen Kommentar im Ticket posten? Es startet nichts.",
+  },
+  "dialog.approval.summaryConfig": {
+    en: {
+      one: "Apply this configuration change? A config run writes them through the Config studio's checks.",
+      other: "Apply these {count} configuration changes? A config run writes them through the Config studio's checks.",
+    },
+    de: {
+      one: "Diese Konfigurationsänderung übernehmen? Ein Config-Run schreibt sie über die Prüfungen des Config Studios.",
+      other: "Diese {count} Konfigurationsänderungen übernehmen? Ein Config-Run schreibt sie über die Prüfungen des Config Studios.",
+    },
+  },
+  "dialog.approval.summaryTickets": {
+    en: "File these {count} tickets? {free}; the rest wait until what they require is merged.",
+    de: "Diese {count} Tickets anlegen? {free}; die übrigen warten, bis gemergt ist, was sie voraussetzen.",
+  },
+  "dialog.approval.summaryTicketsFree": {
+    en: { one: "1 has nothing to wait for", other: "{count} have nothing to wait for" },
+    de: { one: "1 wartet auf nichts", other: "{count} warten auf nichts" },
+  },
+  "dialog.approval.summaryEpic": {
+    en: { one: "File this epic? One work ticket carrying 1 slice.", other: "File this epic? One work ticket carrying {count} slices." },
+    de: { one: "Dieses Epic anlegen? Ein Arbeitsticket mit 1 Slice.", other: "Dieses Epic anlegen? Ein Arbeitsticket mit {count} Slices." },
+  },
+  "dialog.approval.summarySpec": { en: "File this spec? One ticket.", de: "Diese Spec anlegen? Ein Ticket." },
+
+  // --- dialog: a turn's steps ---
+  "dialog.steps.reads": { en: { one: "1 read", other: "{count} reads" }, de: { one: "1× gelesen", other: "{count}× gelesen" } },
+  "dialog.steps.searches": {
+    en: { one: "1 search", other: "{count} searches" },
+    de: { one: "1× gesucht", other: "{count}× gesucht" },
+  },
+  "dialog.steps.revising": { en: "revising its answer", de: "überarbeitet seine Antwort" },
+  "dialog.steps.waitingForModel": { en: "Waiting for the model", de: "Wartet auf das Modell" },
+  "dialog.steps.waitedForModel": { en: "Waited for the model", de: "Hat auf das Modell gewartet" },
+  "dialog.steps.thinking": { en: "thinking", de: "denkt nach" },
+
+  // --- dialog: a turn's course and review ---
+  "dialog.course.reviewRounds": {
+    en: { one: "1 review round", other: "{count} review rounds" },
+    de: { one: "1 Review-Runde", other: "{count} Review-Runden" },
+  },
+  "dialog.course.notReviewed": { en: "Not reviewed", de: "Nicht reviewt" },
+  "dialog.course.refusalsOpen": {
+    en: { one: "{open} refusal open", other: "{open} refusals open" },
+    de: { one: "{open} Ablehnung offen", other: "{open} Ablehnungen offen" },
+  },
+  "dialog.course.refusalsResolved": {
+    en: { one: "{resolved} refusal resolved", other: "{resolved} refusals resolved" },
+    de: { one: "{resolved} Ablehnung erledigt", other: "{resolved} Ablehnungen erledigt" },
+  },
+  "dialog.course.refusalsBoth": {
+    en: { one: "{count} refusal: {open} open, {resolved} resolved", other: "{count} refusals: {open} open, {resolved} resolved" },
+    de: { one: "{count} Ablehnung: {open} offen, {resolved} erledigt", other: "{count} Ablehnungen: {open} offen, {resolved} erledigt" },
+  },
+  "dialog.course.costCap": { en: "cost cap reached", de: "Kostenlimit erreicht" },
+  "dialog.course.costCapAt": { en: "cost cap reached at {usd}", de: "Kostenlimit bei {usd} erreicht" },
+  "dialog.course.run": { en: "run", de: "Run" },
+  "dialog.mark.passed": { en: "passed", de: "bestanden" },
+  "dialog.mark.cuts": { en: "cuts", de: "mit Kürzungen" },
+  "dialog.mark.refused": { en: "refused", de: "abgelehnt" },
+  "dialog.mark.waitsOnYou": { en: "waits on your answer", de: "wartet auf deine Antwort" },
+  "dialog.mark.notReviewed": { en: "not reviewed", de: "nicht reviewt" },
+  "dialog.status.clean": { en: "reviewed clean", de: "ohne Befund reviewt" },
+  "dialog.status.findings": { en: "findings", de: "Befunde" },
+  "dialog.status.pending": { en: "not reviewed", de: "nicht reviewt" },
+  "dialog.status.countClean": { en: "{count} clean", de: "{count} ohne Befund" },
+  "dialog.status.countFindings": { en: "{count} with findings", de: "{count} mit Befunden" },
+  "dialog.status.countPending": { en: "{count} not reviewed", de: "{count} nicht reviewt" },
+  "dialog.waits.nothing": { en: "nothing to wait for", de: "wartet auf nichts" },
+  "dialog.waits.for": { en: "waits for {list}", de: "wartet auf {list}" },
+
+  // --- dialog: the turn result ---
+  "dialog.result.capReached": { en: "Cost cap reached", de: "Kostenlimit erreicht" },
+  "dialog.result.capReachedAt": { en: "Cost cap reached at {usd}", de: "Kostenlimit bei {usd} erreicht" },
+  "dialog.result.pendingSpecs": {
+    en: { one: " — 1 spec not reviewed in their latest form", other: " — {count} specs not reviewed in their latest form" },
+    de: { one: " – 1 Spec in ihrer neuesten Fassung nicht reviewt", other: " – {count} Specs in ihrer neuesten Fassung nicht reviewt" },
+  },
+  "dialog.result.nothingLost": {
+    en: "Nothing is lost: an unreviewed spec is reviewed before it is built.",
+    de: "Es geht nichts verloren: Eine nicht reviewte Spec wird vor dem Bauen reviewt.",
+  },
+  "dialog.result.ticketCount": { en: "{count} tickets", de: "{count} Tickets" },
+  "dialog.result.mergeOrder": { en: "in merge order", de: "in Merge-Reihenfolge" },
+  "dialog.result.specsBuildOrder": { en: "Specs · in build order", de: "Specs · in Build-Reihenfolge" },
+  "dialog.row.reviewFindings": { en: "Review findings", de: "Review-Befunde" },
+  "dialog.row.fullSpec": { en: "Full spec (YAML)", de: "Ganze Spec (YAML)" },
+  "dialog.row.facts": { en: "Facts and evidence", de: "Fakten und Belege" },
+  "dialog.row.rounds": { en: "Review rounds", de: "Review-Runden" },
+  "dialog.questions.head": {
+    en: { one: "Open question · 1", other: "Open questions · {count}" },
+    de: { one: "Offene Frage · 1", other: "Offene Fragen · {count}" },
+  },
+  "dialog.findings.head": {
+    en: { one: "the review found one thing", other: "the review found {count} things" },
+    de: { one: "das Review hat eine Sache gefunden", other: "das Review hat {count} Sachen gefunden" },
+  },
+
+  // --- dialog: review rounds ---
+  "dialog.rounds.notYetReviewed": {
+    en: "not yet reviewed, will be reviewed before it is built",
+    de: "noch nicht reviewt, wird vor dem Bauen reviewt",
+  },
+  "dialog.rounds.seriesContract": { en: "the series contract", de: "der Serienvertrag" },
+  "dialog.rounds.notReviewedLabel": { en: "{name} — {notYet}", de: "{name} – {notYet}" },
+  "dialog.rounds.review": { en: "{name} — review", de: "{name} – Review" },
+  "dialog.rounds.notTaken": { en: "not taken", de: "nicht abgegeben" },
+  "dialog.rounds.round": { en: "round {round}: {verdict}", de: "Runde {round}: {verdict}" },
+  "dialog.rounds.reviewers": { en: "(reviewers: {list})", de: "(Reviewer: {list})" },
+  "dialog.rounds.cut": { en: "suggested cut {register}: “{quote}” → {replacement}", de: "vorgeschlagene Kürzung {register}: „{quote}“ → {replacement}" },
+  "dialog.rounds.removed": { en: "removed", de: "entfernt" },
+  "dialog.rounds.residue": { en: "still stands in {register}: “{quote}”", de: "steht noch in {register}: „{quote}“" },
+
+  // --- dialog: conversations ---
+  "dialog.conversations.label": { en: "Conversations", de: "Unterhaltungen" },
+  "dialog.conversations.new": { en: "+ New conversation", de: "+ Neue Unterhaltung" },
+  "dialog.conversations.recent": { en: "Recent conversations", de: "Letzte Unterhaltungen" },
+  "dialog.conversations.all": { en: "All conversations", de: "Alle Unterhaltungen" },
+  "dialog.conversations.turns": { en: { one: "1 turn", other: "{count} turns" }, de: { one: "1 Turn", other: "{count} Turns" } },
+  "dialog.conversations.deleteNamed": { en: "Delete {name}", de: "{name} löschen" },
+  "dialog.conversations.deleteThis": { en: "Delete this conversation", de: "Diese Unterhaltung löschen" },
+  "dialog.conversations.untitled": { en: "untitled {id}", de: "ohne Titel {id}" },
+  "dialog.conversations.sub": {
+    en: "Every conversation you have had here, newest first.",
+    de: "Jede Unterhaltung, die du hier geführt hast, die neueste zuerst.",
+  },
+  "dialog.conversations.failed": { en: "The conversations could not be read: {reason}", de: "Die Unterhaltungen konnten nicht gelesen werden: {reason}" },
+  "dialog.conversations.reading": { en: "Reading…", de: "Wird gelesen…" },
+  "dialog.conversations.none": {
+    en: "No conversations yet. Start one on the Work it out page.",
+    de: "Noch keine Unterhaltungen. Starte eine auf der Seite Work it out.",
+  },
+  "dialog.conversations.countAll": { en: "{count} in all", de: "{count} insgesamt" },
+  "dialog.conversations.countSome": { en: "the {shown} most recent of {count}", de: "die {shown} neuesten von {count}" },
+  "dialog.conversations.openMark": { en: "open", de: "offen" },
+  "dialog.conversations.filed": { en: "filed", de: "angelegt" },
+  "dialog.conversations.partlyFiled": { en: "partly filed", de: "teilweise angelegt" },
+  "dialog.when.today": { en: "today", de: "heute" },
+  "dialog.when.yesterday": { en: "yesterday", de: "gestern" },
+  "dialog.when.daysAgo": { en: "{count} days ago", de: "vor {count} Tagen" },
+  "dialog.when.weeksAgo": { en: "{count}w ago", de: "vor {count} Wo." },
+  "dialog.when.monthsAgo": { en: "{count}mo ago", de: "vor {count} Mon." },
+  "dialog.when.yearsAgo": { en: "{count}y ago", de: "vor {count} J." },
+  "dialog.delete.question": { en: "Delete “{name}”?", de: "„{name}“ löschen?" },
+  "dialog.delete.noUndo": {
+    en: "This cannot be undone: the conversation and every answer you gave in it are deleted.",
+    de: "Das lässt sich nicht rückgängig machen: Die Unterhaltung und jede Antwort, die du darin gegeben hast, werden gelöscht.",
+  },
+  "dialog.delete.survivesLinked": {
+    en: "The tickets it filed stay in the tracker, and the specification approved here stays with them — but the sentence in the ticket that names this conversation will stop resolving.",
+    de: "Die angelegten Tickets bleiben im Tracker, und die hier freigegebene Spezifikation bleibt bei ihnen – aber der Satz im Ticket, der diese Unterhaltung nennt, führt dann ins Leere.",
+  },
+  "dialog.delete.survivesBug": {
+    en: "The tickets it filed stay in the tracker, and the specification approved here stays with them.",
+    de: "Die angelegten Tickets bleiben im Tracker, und die hier freigegebene Spezifikation bleibt bei ihnen.",
+  },
+  "dialog.delete.survivesOther": {
+    en: "Whatever it filed stays in the tracker, and the map from this conversation to it stops resolving.",
+    de: "Was sie angelegt hat, bleibt im Tracker, aber der Weg von dieser Unterhaltung dorthin führt dann ins Leere.",
+  },
+
+  // --- dialog: the page ---
+  "dialog.surface.newConversation": { en: "New conversation", de: "Neue Unterhaltung" },
+  "dialog.surface.in": { en: "in", de: "in" },
+  "dialog.surface.identity": { en: "session {session} · dialog {dialog}", de: "Session {session} · Dialog {dialog}" },
+  "dialog.surface.noSession": { en: "dialog {dialog} · no session open", de: "Dialog {dialog} · keine Session offen" },
+  "dialog.surface.manyProjects": {
+    en: "This ticket's labels name {count} projects ({list}). Choose one.",
+    de: "Die Labels dieses Tickets nennen {count} Projekte ({list}). Wähle eins.",
+  },
+  "dialog.surface.elsewhere": {
+    en: {
+      one: "This ticket's labels name {list}, which is on another tracker — a project there would open a different board's ticket of this number. Choose a project on this one.",
+      other: "This ticket's labels name {list}, which are on another tracker — a project there would open a different board's ticket of this number. Choose a project on this one.",
+    },
+    de: {
+      one: "Die Labels dieses Tickets nennen {list}, das auf einem anderen Tracker liegt – ein Projekt dort würde das Ticket dieser Nummer auf einem anderen Board öffnen. Wähle ein Projekt auf diesem.",
+      other: "Die Labels dieses Tickets nennen {list}, die auf einem anderen Tracker liegen – ein Projekt dort würde das Ticket dieser Nummer auf einem anderen Board öffnen. Wähle ein Projekt auf diesem.",
+    },
+  },
+  "dialog.surface.unanswerable": {
+    en: "No project matched this ticket's labels. {list} routes by area path, repository or address, which a ticket read by its id cannot carry — so it could not be answered for rather than ruled out. Choose a project.",
+    de: "Kein Projekt passte zu den Labels dieses Tickets. {list} routet nach Area Path, Repository oder Adresse, was ein über seine ID gelesenes Ticket nicht mitbringt – es ließ sich also weder zuordnen noch ausschließen. Wähle ein Projekt.",
+  },
+  "dialog.surface.routed": {
+    en: "No label on this ticket names a project. These are the projects on its tracker. Choose one.",
+    de: "Kein Label dieses Tickets nennt ein Projekt. Das sind die Projekte auf seinem Tracker. Wähle eins.",
+  },
+  "dialog.surface.unrouted": {
+    en: "No project's routing names this ticket. Choose one.",
+    de: "Das Routing keines Projekts nennt dieses Ticket. Wähle eins.",
+  },
+  "dialog.greeting.morning": { en: "Good morning", de: "Guten Morgen" },
+  "dialog.greeting.afternoon": { en: "Good afternoon", de: "Guten Tag" },
+  "dialog.greeting.evening": { en: "Good evening", de: "Guten Abend" },
+  "dialog.workPicture": { en: "Work picture: {kind} · {size} · {truth}", de: "Arbeitsbild: {kind} · {size} · {truth}" },
+  "dialog.workPicture.oneSpec": { en: "one spec", de: "eine Spec" },
+  "dialog.workPicture.series": { en: "series", de: "Serie" },
+  "dialog.workPicture.plan": { en: "plan", de: "Plan" },
+
+  // --- dialog: the composer ---
+  "dialog.composer.placeholder": { en: "Keep talking, or answer above…", de: "Schreib weiter oder antworte oben…" },
+  "dialog.composer.waitingSelection": {
+    en: "Send or cancel the selected files first.",
+    de: "Sende die ausgewählten Dateien zuerst oder brich ab.",
+  },
+  "dialog.composer.waitingUpload": { en: "Waiting for the upload to finish.", de: "Der Upload läuft noch." },
+  "dialog.composer.over": {
+    en: "{size} is more than the {left} this conversation has left. Remove an upload in the Uploads tab to make room.",
+    de: "{size} ist mehr als die {left}, die dieser Unterhaltung noch bleiben. Entferne einen Upload im Tab Uploads, um Platz zu schaffen.",
+  },
+  "dialog.composer.attach": { en: "Attach", de: "Anhängen" },
+  "dialog.composer.image": { en: "Image", de: "Bild" },
+  "dialog.composer.files": { en: "Files", de: "Dateien" },
+  "dialog.composer.folder": { en: "Folder", de: "Ordner" },
+  "dialog.composer.folderHint": {
+    en: "Your browser may ask to confirm a folder upload.",
+    de: "Dein Browser fragt eventuell nach, ob du den Ordner hochladen willst.",
+  },
+  "dialog.held.note": {
+    en: "{file} is already in this conversation, in '{name}'. It was not sent.",
+    de: "{file} ist schon in dieser Unterhaltung, in „{name}“. Die Datei wurde nicht gesendet.",
+  },
+  "dialog.held.ok": { en: "OK", de: "OK" },
+  "dialog.held.sendAnyway": { en: "Send anyway", de: "Trotzdem senden" },
+  "dialog.held.alreadyIn": { en: "already uploaded in {where}", de: "schon hochgeladen in {where}" },
+  "dialog.held.someAlreadyIn": { en: "{hits} of {all} already uploaded in {where}", de: "{hits} von {all} schon hochgeladen in {where}" },
+
+  // --- dialog: picking files to send ---
+  "dialog.pick.unchecked": {
+    en: "Could not check which of these files this conversation already holds; the server still refuses a pick it holds entirely.",
+    de: "Konnte nicht prüfen, welche dieser Dateien die Unterhaltung schon hat; der Server lehnt eine Auswahl, die er komplett schon hat, trotzdem ab.",
+  },
+  "dialog.pick.sending": { en: "Sending {files}, {size}", de: "{files}, {size} werden gesendet" },
+  "dialog.pick.overSet": { en: "{size} over the 25 MB a set may hold", de: "{size} über den 25 MB, die ein Set fassen darf" },
+  "dialog.pick.overFiles": { en: "{count} files over the {max} a set may hold", de: "{count} Dateien über den {max}, die ein Set fassen darf" },
+  "dialog.pick.overLeft": { en: "{size} where the conversation has {left} left", de: "{size}, wo die Unterhaltung nur noch {left} hat" },
+  "dialog.pick.unticked": { en: "unticked", de: "nicht ausgewählt" },
+  "dialog.pick.under": { en: "{files} under {name} ({reason})", de: "{files} unter {name} ({reason})" },
+  "dialog.pick.rebuildable": { en: "rebuildable", de: "neu erzeugbar" },
+  "dialog.pick.overSize": { en: "over 25 MB", de: "über 25 MB" },
+
+  // --- dialog: upload notes ---
+  "dialog.upload.refused": { en: "The upload was refused: {reason}", de: "Der Upload wurde abgelehnt: {reason}" },
+  "dialog.upload.failed": { en: "The upload failed: {reason}", de: "Der Upload ist fehlgeschlagen: {reason}" },
+  "dialog.upload.notSent": { en: "Not sent ({files}): {list}.", de: "Nicht gesendet ({files}): {list}." },
+  "dialog.upload.andMore": { en: " and {count} more", de: " und {count} weitere" },
+  "dialog.upload.leftOut": { en: "Left out: {list}{more}.", de: "Ausgelassen: {list}{more}." },
+  "dialog.upload.credentials": {
+    en: "The model and any run it starts can read {list}.",
+    de: "Das Modell und jeder Run, den es startet, können {list} lesen.",
+  },
+  "dialog.upload.stored": { en: "Stored {files} of '{name}'.", de: "{files} von „{name}“ gespeichert." },
+
+  // --- dialog: the uploads tab ---
+  "dialog.uploads.usage": { en: "{used} of {cap} used, {left} left", de: "{used} von {cap} belegt, {left} frei" },
+  "dialog.uploads.cited": { en: "cited by an approval", de: "von einer Freigabe zitiert" },
+  "dialog.uploads.remove": { en: "remove", de: "entfernen" },
+  "dialog.uploads.later": {
+    en: "not in the approval — a run carries it after the ticket is approved again",
+    de: "nicht in der Freigabe – ein Run nimmt es mit, sobald das Ticket erneut freigegeben ist",
+  },
+  "dialog.uploads.notSeenImages": {
+    en: {
+      one: "This project's model does not see images; 1 stored image(s) are not shown to it.",
+      other: "This project's model does not see images; {count} stored image(s) are not shown to it.",
+    },
+    de: {
+      one: "Das Modell dieses Projekts sieht keine Bilder; 1 gespeichertes Bild wird ihm nicht gezeigt.",
+      other: "Das Modell dieses Projekts sieht keine Bilder; {count} gespeicherte Bilder werden ihm nicht gezeigt.",
+    },
+  },
+  "dialog.uploads.notSeenInSets": {
+    en: {
+      one: "This project's model is not shown images inside uploads; 1 image file(s) in sets are not shown to it.",
+      other: "This project's model is not shown images inside uploads; {count} image file(s) in sets are not shown to it.",
+    },
+    de: {
+      one: "Dem Modell dieses Projekts werden keine Bilder in Uploads gezeigt; 1 Bilddatei in Sets wird ihm nicht gezeigt.",
+      other: "Dem Modell dieses Projekts werden keine Bilder in Uploads gezeigt; {count} Bilddateien in Sets werden ihm nicht gezeigt.",
+    },
+  },
+  "dialog.uploads.removeSet": { en: "Remove '{name}'?", de: "„{name}“ entfernen?" },
+  "dialog.uploads.removeImage": { en: "Remove the image attached {when}?", de: "Das am {when} angehängte Bild entfernen?" },
+  "dialog.uploads.removeOnly": {
+    en: "Remove '{path}'? It is the only file of '{name}', so the upload goes with it.",
+    de: "„{path}“ entfernen? Es ist die einzige Datei von „{name}“, der Upload verschwindet also mit.",
+  },
+  "dialog.uploads.removeFrom": { en: "Remove '{path}' from '{name}'?", de: "„{path}“ aus „{name}“ entfernen?" },
+  "dialog.uploads.removeTail": {
+    en: "The design partner no longer sees it from the next turn. This cannot be undone.",
+    de: "Der Design-Partner sieht es ab dem nächsten Turn nicht mehr. Das lässt sich nicht rückgängig machen.",
+  },
+  "dialog.uploads.confirmRemove": { en: "Remove", de: "Entfernen" },
+  "dialog.uploads.keep": { en: "Keep", de: "Behalten" },
+  "dialog.uploads.removalRefused": { en: "The removal was refused: {reason}", de: "Das Entfernen wurde abgelehnt: {reason}" },
+  "dialog.uploads.removalFailed": { en: "The removal failed: {reason}", de: "Das Entfernen ist fehlgeschlagen: {reason}" },
+  "dialog.tree.couldNotRead": { en: "The files could not be read: {reason}", de: "Die Dateien konnten nicht gelesen werden: {reason}" },
+  "dialog.tree.reading": { en: "Reading the files…", de: "Die Dateien werden gelesen…" },
+  "dialog.tree.label": { en: "Files in this upload", de: "Dateien in diesem Upload" },
+  "dialog.tree.open": { en: "Open {path}", de: "{path} öffnen" },
+  "dialog.tree.removePath": { en: "Remove {path}", de: "{path} entfernen" },
+  "dialog.tree.removeFile": { en: "Remove this file", de: "Diese Datei entfernen" },
+  "dialog.preview.download": { en: "Download", de: "Herunterladen" },
+  "dialog.preview.close": { en: "Close", de: "Schließen" },
+  "dialog.preview.couldNotOpen": { en: "The file could not be opened: {reason}", de: "Die Datei konnte nicht geöffnet werden: {reason}" },
+  "dialog.preview.opening": { en: "Opening…", de: "Wird geöffnet…" },
+  "dialog.preview.cut": {
+    en: "Showing the first 200 KB of {size}. Download the file for all of it.",
+    de: "Zeigt die ersten 200 KB von {size}. Lade die Datei herunter, um alles zu sehen.",
+  },
+  "dialog.preview.pictureFailed": { en: "The picture could not be loaded.", de: "Das Bild konnte nicht geladen werden." },
+  "dialog.preview.pictureLoading": { en: "Loading the picture…", de: "Das Bild wird geladen…" },
+  "dialog.preview.binary": {
+    en: "This file is neither text nor a picture the page can show. Download it to open it.",
+    de: "Diese Datei ist weder Text noch ein Bild, das die Seite zeigen kann. Lade sie herunter, um sie zu öffnen.",
+  },
+  "dialog.image.couldNotLoad": { en: "{alt} — could not be loaded", de: "{alt} – konnte nicht geladen werden" },
+  "dialog.image.loading": { en: "loading…", de: "lädt…" },
+
+  // --- dialog: the transcript ---
+  "dialog.transcript.running": {
+    en: "This turn is still running. Its latest draft is below.",
+    de: "Dieser Turn läuft noch. Sein neuester Entwurf steht unten.",
+  },
+  "dialog.transcript.stopped": {
+    en: "This turn stopped before it finished. Its last draft is below.",
+    de: "Dieser Turn hat aufgehört, bevor er fertig war. Sein letzter Entwurf steht unten.",
+  },
+  "dialog.transcript.upload": { en: "upload", de: "Upload" },
+  "dialog.transcript.showFiles": { en: "show files", de: "Dateien zeigen" },
+  "dialog.transcript.fileSent": { en: "File sent — waiting for it to be recorded", de: "Anlegen gesendet – es wird noch aufgezeichnet" },
+  "dialog.transcript.discardSent": {
+    en: "Discard sent — waiting for it to be recorded",
+    de: "Verwerfen gesendet – es wird noch aufgezeichnet",
+  },
+  "dialog.transcript.approved": { en: "Approved — file the proposal", de: "Freigegeben – der Vorschlag wird angelegt" },
+  "dialog.transcript.rejected": { en: "Rejected — nothing is filed", de: "Abgelehnt – nichts wird angelegt" },
+  "dialog.transcript.you": { en: "you", de: "du" },
+  "dialog.transcript.agent": { en: "agent", de: "Agent" },
+  "dialog.transcript.youSaid": { en: "You:", de: "Du:" },
+  "dialog.document": { en: "Document", de: "Dokument" },
+  "dialog.document.mark": { en: "document", de: "Dokument" },
+  "dialog.document.copyLabel": { en: "Copy the document: {title}", de: "Dokument kopieren: {title}" },
+  "dialog.document.copy": { en: "Copy", de: "Kopieren" },
+  "dialog.document.copied": { en: "Copied", de: "Kopiert" },
+  "dialog.mock.mark": { en: "mock", de: "Mock" },
+  "dialog.mock.title": { en: "Mock v{version} — {spec}", de: "Mock v{version} – {spec}" },
+  "dialog.mock.openHtml": { en: "Open HTML", de: "HTML öffnen" },
+  "dialog.mock.alt": { en: "Mock v{version} of {spec}, desktop", de: "Mock v{version} von {spec}, Desktop" },
+  "dialog.mock.unrendered": { en: "not rendered", de: "nicht gerendert" },
+  "dialog.mock.versions": { en: "Mock versions", de: "Mock-Versionen" },
+  "dialog.mock.ratified": { en: "ratified", de: "bestätigt" },
+  "dialog.mock.noShot": { en: "v{version} — no screenshot", de: "v{version} – kein Screenshot" },
+  "dialog.mock.ratify": { en: "Ratify", de: "Bestätigen" },
+  "dialog.mock.filedWith": { en: "filed with v{version}", de: "mit v{version} angelegt" },
+  "dialog.mock.filed": { en: "filed", de: "angelegt" },
+  "dialog.mock.filedTail": {
+    en: "{filed}; a new ratification reaches the spec only through a new approval of this ticket",
+    de: "{filed}; eine neue Bestätigung erreicht die Spec nur über eine neue Freigabe dieses Tickets",
+  },
+
+  // --- dialog: working ---
+  "dialog.working.working": { en: "Working it out…", de: "Wird ausgearbeitet…" },
+  "dialog.working.readingTicket": { en: "Reading the ticket…", de: "Das Ticket wird gelesen…" },
+  "dialog.working.readingBoth": {
+    en: "Reading the ticket and the repositories it needs…",
+    de: "Das Ticket und die Repositories, die es braucht, werden gelesen…",
+  },
+  "dialog.working.openingRepos": { en: "Opening the repositories it needs…", de: "Die Repositories, die es braucht, werden geöffnet…" },
+  "dialog.reading.repository.opening": { en: "opening a sandbox", de: "Sandbox wird geöffnet" },
+  "dialog.reading.repository.ready": { en: "sandbox ready", de: "Sandbox bereit" },
+  "dialog.reading.repository.failed": { en: "sandbox could not be opened", de: "Sandbox konnte nicht geöffnet werden" },
+  "dialog.reading.repository.reopening": { en: "sandbox removed, opening a new one", de: "Sandbox entfernt, eine neue wird geöffnet" },
+  "dialog.reading.ticket.opening": { en: "reading", de: "wird gelesen" },
+  "dialog.reading.ticket.ready": { en: "read", de: "gelesen" },
+  "dialog.reading.ticket.failed": { en: "could not be read", de: "konnte nicht gelesen werden" },
+  "dialog.reading.ticket.reopening": { en: "reading again", de: "wird erneut gelesen" },
+
+  // --- dialog: questions ---
+  "dialog.question.expired": { en: "no longer waiting — nothing was filed", de: "wartet nicht mehr – nichts wurde angelegt" },
+  "dialog.question.waiting": { en: "waiting on you", de: "wartet auf dich" },
+  "dialog.question.expiredHint": {
+    en: "The wait is over — anything you write below starts a new turn.",
+    de: "Die Wartezeit ist vorbei – alles, was du unten schreibst, startet einen neuen Turn.",
+  },
+  "dialog.question.noteHint": {
+    en: "Anything else you write below is a note — the proposal is revised with it.",
+    de: "Alles andere, was du unten schreibst, ist eine Notiz – der Vorschlag wird damit überarbeitet.",
+  },
+  "dialog.question.yes": { en: "Yes", de: "Ja" },
+  "dialog.question.no": { en: "No", de: "Nein" },
+
+  // --- dialog: choosing a project and a ticket ---
+  "dialog.project.reading": { en: "Reading the configured projects…", de: "Die konfigurierten Projekte werden gelesen…" },
+  "dialog.project.failed": {
+    en: "The configured projects could not be read, so there is nothing to choose from yet. What went wrong is reported at the top of this page.",
+    de: "Die konfigurierten Projekte konnten nicht gelesen werden, deshalb gibt es noch nichts zur Auswahl. Was schiefging, steht oben auf dieser Seite.",
+  },
+  "dialog.project.none": {
+    en: "No project is configured, so there is nothing to design against yet. Configure one in Config Studio and a conversation can be grounded in it.",
+    de: "Es ist kein Projekt konfiguriert, also gibt es noch nichts, an dem sich ein Entwurf orientieren kann. Konfiguriere eins im Config Studio, dann kann eine Unterhaltung darauf aufbauen.",
+  },
+  "dialog.project.which": { en: "Which project is this about?", de: "Um welches Projekt geht es?" },
+  "dialog.project.why": {
+    en: "A conversation reads one project's repositories before it answers, so this is what it will be grounded in.",
+    de: "Eine Unterhaltung liest die Repositories eines Projekts, bevor sie antwortet – darauf baut sie auf.",
+  },
+  "dialog.project.label": { en: "Project", de: "Projekt" },
+  "dialog.project.pick": { en: "pick a project…", de: "Projekt wählen…" },
+  "dialog.ticket.on": { en: "on {tracker}", de: "auf {tracker}" },
+  "dialog.ticket.stranded": { en: "no project is configured on {tracker}", de: "auf {tracker} ist kein Projekt konfiguriert" },
+  "dialog.ticket.clear": { en: "Discuss no ticket", de: "Kein Ticket besprechen" },
+  "dialog.ticket.query": { en: "Find a ticket by name or number", de: "Ticket nach Name oder Nummer suchen" },
+  "dialog.ticket.placeholder": {
+    en: "Find a ticket by name or number ({count}+ characters)…",
+    de: "Ticket nach Name oder Nummer suchen (ab {count} Zeichen)…",
+  },
+  "dialog.ticket.minimum": { en: "{count} characters or more.", de: "Mindestens {count} Zeichen." },
+  "dialog.ticket.asking": { en: "Asking the configured trackers…", de: "Die konfigurierten Tracker werden gefragt…" },
+  "dialog.ticket.none": { en: "No open ticket matches that.", de: "Kein offenes Ticket passt dazu." },
+  "dialog.ticket.failed": {
+    en: "That search could not be run, so nothing is known about the boards yet.",
+    de: "Die Suche konnte nicht laufen, deshalb ist über die Boards noch nichts bekannt.",
+  },
+  "dialog.ticket.exact": { en: "this number", de: "diese Nummer" },
+  "dialog.ticket.bound": { en: "has a conversation", de: "hat eine Unterhaltung" },
+  "dialog.ticket.more": {
+    en: "More matched than are shown. These are the most recently updated.",
+    de: "Es gab mehr Treffer als angezeigt. Das hier sind die zuletzt aktualisierten.",
+  },
+  "dialog.ticket.unreachable": {
+    en: {
+      one: "{list} could not be asked for a ticket by number, so a ticket of that number there would not be found here.",
+      other: "{list} could not be asked for a ticket by number, so a ticket of that number there would not be found here.",
+    },
+    de: {
+      one: "{list} ließ sich nicht nach einer Ticketnummer fragen; ein Ticket mit dieser Nummer dort taucht hier also nicht auf.",
+      other: "{list} ließen sich nicht nach einer Ticketnummer fragen; ein Ticket mit dieser Nummer dort taucht hier also nicht auf.",
+    },
+  },
+  "dialog.ticket.unsearchable": {
+    en: {
+      one: "{list} could not be searched, so nothing here says whether the ticket is on it.",
+      other: "{list} could not be searched, so nothing here says whether the ticket is on them.",
+    },
+    de: {
+      one: "{list} konnte nicht durchsucht werden, deshalb sagt hier nichts, ob das Ticket dort liegt.",
+      other: "{list} konnten nicht durchsucht werden, deshalb sagt hier nichts, ob das Ticket dort liegt.",
+    },
+  },
+
+  // --- dialog: the pane ---
+  "dialog.tab.proposal": { en: "Proposal", de: "Vorschlag" },
+  "dialog.tab.scope": { en: "Scope", de: "Scope" },
+  "dialog.tab.filed": { en: "Filed", de: "Angelegt" },
+  "dialog.tab.approved": { en: "Approved spec", de: "Freigegebene Spec" },
+  "dialog.tab.uploads": { en: "Uploads", de: "Uploads" },
+  "dialog.tab.series": { en: "Series", de: "Serie" },
+  "dialog.tab.filingFailed": { en: "filing failed", de: "Anlegen fehlgeschlagen" },
+  "dialog.tab.superseded": { en: "superseded", de: "überholt" },
+  "dialog.tab.filed.status": { en: "filed", de: "angelegt" },
+  "dialog.tab.notFiledYet": { en: "not filed yet", de: "noch nicht angelegt" },
+  "dialog.pane.resize": { en: "Resize the proposal pane", de: "Vorschlagsbereich in der Größe ändern" },
+  "dialog.pane.resizeHint": { en: "Drag to resize · double-click to reset", de: "Ziehen zum Ändern · Doppelklick zum Zurücksetzen" },
+  "dialog.proposal.bug": { en: "A bug ticket", de: "Ein Bug-Ticket" },
+  "dialog.proposal.comment": { en: "A comment on the ticket — nothing starts", de: "Ein Kommentar im Ticket – es startet nichts" },
+  "dialog.proposal.oneSpec": { en: "One spec", de: "Eine Spec" },
+  "dialog.proposal.workTicket": { en: "The work ticket — one run works every slice", de: "Das Arbeitsticket – ein Run bearbeitet jeden Slice" },
+  "dialog.proposal.slices": { en: "Slices, in the order they will be filed", de: "Slices, in der Reihenfolge, in der sie angelegt werden" },
+  "dialog.proposal.raw": { en: "The same thing, as it will be filed", de: "Dasselbe, so wie es angelegt wird" },
+  "dialog.proposal.waitsFor": { en: "Waits for", de: "Wartet auf" },
+  "dialog.proposal.slice": { en: "Slice {number} · {id}", de: "Slice {number} · {id}" },
+  "dialog.proposal.steps": { en: "Steps", de: "Schritte" },
+  "dialog.proposal.tests": { en: "Tests", de: "Tests" },
+  "dialog.proposal.assumed": { en: "Assumed, not looked at", de: "Angenommen, nicht nachgesehen" },
+  "dialog.proposal.restsOn": { en: "Rests on", de: "Stützt sich auf" },
+  "dialog.proposal.uploadOpened": {
+    en: " — this turn opened {thisTurn}; the conversation {opened} of {files}",
+    de: " – dieser Turn hat {thisTurn} geöffnet; die Unterhaltung {opened} von {files}",
+  },
+  "dialog.graph.list": { en: "A list of tickets", de: "Eine Ticketliste" },
+  "dialog.graph.heading": {
+    en: "{count} tickets, in the order they must merge",
+    de: "{count} Tickets, in der Reihenfolge, in der sie gemergt werden müssen",
+  },
+  "dialog.graph.explain": {
+    en: "Each ticket is one run and one pull request per repository. A ticket starts only when every ticket it waits for is merged, or a person marked it done by hand.",
+    de: "Jedes Ticket ist ein Run und ein Pull Request pro Repository. Ein Ticket startet erst, wenn jedes Ticket, auf das es wartet, gemergt ist oder jemand es von Hand als erledigt markiert hat.",
+  },
+  "dialog.graph.repositories": { en: "repositories", de: "Repositories" },
+  "dialog.graph.specs": { en: "Specs", de: "Specs" },
+  "dialog.config.delete": { en: "Delete", de: "Löschen" },
+  "dialog.config.change": { en: "Change", de: "Ändern" },
+  "dialog.config.create": { en: "Create", de: "Anlegen" },
+  "dialog.config.now": { en: "Now", de: "Jetzt" },
+  "dialog.config.after": { en: "After", de: "Danach" },
+  "dialog.scope.mayRead": { en: "What this conversation may read.", de: "Was diese Unterhaltung lesen darf." },
+  "dialog.scope.aboutToStart": {
+    en: "The conversation you are about to start will be grounded in:",
+    de: "Die Unterhaltung, die du gleich startest, baut hierauf auf:",
+  },
+  "dialog.scope.noneOpen": {
+    en: "No conversation is open on this page yet. A new one can be grounded in:",
+    de: "Auf dieser Seite ist noch keine Unterhaltung offen. Eine neue kann hierauf aufbauen:",
+  },
+  "dialog.scope.ticket": { en: "Ticket", de: "Ticket" },
+  "dialog.scope.noProject": {
+    en: "No project is configured, so there is nothing to design against yet.",
+    de: "Es ist kein Projekt konfiguriert, also gibt es noch nichts, an dem sich ein Entwurf orientieren kann.",
+  },
+  "dialog.scope.read": { en: "read {when}", de: "gelesen am {when}" },
+  "dialog.scope.truncated": { en: " · longer than this conversation carries", de: " · länger, als diese Unterhaltung mitführt" },
+  "dialog.scope.repositories": { en: "Repositories", de: "Repositories" },
+  "dialog.scope.noRepositories": { en: "no repositories", de: "keine Repositories" },
+  "dialog.scope.templates": { en: "Templates", de: "Templates" },
+  "dialog.scope.noTemplates": { en: "no templates declared", de: "keine Templates deklariert" },
+  "dialog.series.label": { en: "Series", de: "Serie" },
+  "dialog.series.progress": { en: "{landed} of {total} landed · {elapsed}", de: "{landed} von {total} gelandet · {elapsed}" },
+  "dialog.series.spent": { en: "{cost} spent", de: "{cost} ausgegeben" },
+  "dialog.series.eta": { en: " · est. finish {eta}", de: " · voraussichtlich fertig {eta}" },
+  "dialog.series.tickets": { en: "Tickets", de: "Tickets" },
+  "dialog.series.criticalPath": { en: "Critical path", de: "Kritischer Pfad" },
+  "dialog.series.policy": { en: "Policy", de: "Richtlinie" },
+  "dialog.series.pause": { en: "Pause", de: "Pausieren" },
+  "dialog.series.resume": { en: "Resume", de: "Fortsetzen" },
+  "dialog.approved.at": { en: "Approved {when}", de: "Freigegeben am {when}" },
+  "dialog.approved.by": { en: " by {who}", de: " von {who}" },
+  "dialog.approved.tail": {
+    en: ". The specs below are on the ticket branch, where a run reads them.",
+    de: ". Die Specs unten liegen auf dem Ticket-Branch, wo ein Run sie liest.",
+  },
+  "dialog.approved.noDate": {
+    en: "Approved for this ticket. The specs below are on the ticket branch, where a run reads them.",
+    de: "Für dieses Ticket freigegeben. Die Specs unten liegen auf dem Ticket-Branch, wo ein Run sie liest.",
+  },
+  "dialog.approved.branchUnread": {
+    en: "The ticket branch could not be read, so no specs are shown: {reason}",
+    de: "Der Ticket-Branch konnte nicht gelesen werden, deshalb werden keine Specs gezeigt: {reason}",
+  },
+
+  // --- dialog: filed work ---
+  "dialog.filed.lead": { en: "This conversation's ticket, and the work on it.", de: "Das Ticket dieser Unterhaltung und die Arbeit daran." },
+  "dialog.filed.exist": { en: "These tickets now exist.", de: "Diese Tickets gibt es jetzt." },
+  "dialog.filed.partial": {
+    en: "These tickets were created before it stopped — they exist.",
+    de: "Diese Tickets wurden angelegt, bevor es abbrach – es gibt sie.",
+  },
+  "dialog.filed.none": { en: "Nothing was created.", de: "Es wurde nichts angelegt." },
+  "dialog.start.started": { en: "started", de: "gestartet" },
+  "dialog.start.notStarted": { en: "not started", de: "nicht gestartet" },
+  "dialog.start.record": { en: "record", de: "Record" },
+  "dialog.start.withdrawn": { en: "withdrawn", de: "zurückgezogen" },
+  "dialog.start.notFiled": { en: "not filed here", de: "nicht hier angelegt" },
+  "dialog.start.held": { en: "waits", de: "wartet" },
+  "dialog.start.unknown": { en: "unknown", de: "unbekannt" },
+  "dialog.work.handedBack": { en: "handed back:", de: "zurückgegeben:" },
+  "dialog.work.times": { en: " — {count} times in a row", de: " – {count}-mal hintereinander" },
+  "dialog.work.questionOnTicket": { en: " — the question is on the ticket.", de: " – die Frage steht im Ticket." },
+  "dialog.work.in": { en: "in {project} · {cost}", de: "in {project} · {cost}" },
+  "dialog.work.waitingAnswer": { en: "waiting for an answer: {text}", de: "wartet auf eine Antwort: {text}" },
+  "dialog.work.pullRequests": {
+    en: { one: "pull request", other: "pull requests" },
+    de: { one: "Pull Request", other: "Pull Requests" },
+  },
+  "dialog.work.amend": {
+    en: "the specification is what has to change — approve the set again in this conversation.",
+    de: "die Spezifikation muss sich ändern – gib das Set in dieser Unterhaltung erneut frei.",
+  },
+  "dialog.work.noReviewRecorded": { en: "no review was recorded", de: "es wurde kein Review aufgezeichnet" },
+  "dialog.work.notReviewedYet": { en: "not reviewed yet", de: "noch nicht reviewt" },
+  "dialog.work.unreadable": { en: "unreadable", de: "unlesbar" },
+  "dialog.work.nobodyLooked": { en: "nobody looked", de: "niemand hat geschaut" },
+  "dialog.work.notReviewedBecause": { en: "not reviewed: {why}", de: "nicht reviewt: {why}" },
+  "dialog.work.noReason": { en: "no reason was recorded", de: "es wurde kein Grund aufgezeichnet" },
+  "dialog.work.reviewedNothing": { en: "reviewed, nothing found", de: "reviewt, nichts gefunden" },
+  "dialog.work.templateAdvice": { en: "template advice", de: "Template-Hinweis" },
+  "dialog.work.reverted": { en: "reverted", de: "zurückgenommen" },
+  "dialog.specStatus.not_started": { en: "not started", de: "nicht gestartet" },
+  "dialog.specStatus.in_progress": { en: "running", de: "läuft" },
+  "dialog.specStatus.done": { en: "done", de: "fertig" },
+  "dialog.specStatus.failed": { en: "failed", de: "fehlgeschlagen" },
+  "dialog.specStatus.handed_back": { en: "handed back", de: "zurückgegeben" },
+  "dialog.prStatus.opened": { en: "opened", de: "geöffnet" },
+  "dialog.prStatus.awaiting_ci": { en: "waiting for CI", de: "wartet auf CI" },
+  "dialog.prStatus.no_changes": { en: "no changes", de: "keine Änderungen" },
+  "dialog.prStatus.failed": { en: "could not be opened", de: "konnte nicht geöffnet werden" },
+} satisfies Record<string, MessageEntry>;
+
+export type MessageKey = keyof typeof messages;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type { ApprovalDecision } from "./approvalDecision";
 
 // 2026-11-12-92e9d: the decision on the proposal awaiting one, at the composer.
@@ -17,6 +18,7 @@ export function DialogDecisionBar({
   onApprove: () => void;
   onKeepChatting: () => void;
 }) {
+  const t = useT();
   return (
     <div data-testid="dialog-decision" className="dl-decision flex flex-col gap-2">
       {decision.summary && (
@@ -29,7 +31,7 @@ export function DialogDecisionBar({
           {decision.action}
         </button>
         <button type="button" data-testid="dialog-keep-chatting" className="btn" onClick={onKeepChatting}>
-          Keep chatting
+          {t("dialog.decision.keepChatting")}
         </button>
       </div>
     </div>

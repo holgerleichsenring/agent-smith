@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 
 import { deletionWarning } from "@/components/dialog/conversationDelete";
 import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-09-20-4b0ab: the rule that decides WHETHER a deletion is confirmed and WHAT it says had
 // no test of its own. Its only coverage was seven window.confirm spies on the surface, three of
@@ -21,16 +24,16 @@ function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDi
 describe("The deletion warning", () => {
   // 2026-10-14-dbcek: a list of tickets is told as a spec and an epic are.
   it("conversationDelete_TicketsKind_SaysTheFiledTicketsStay", () => {
-    const said = deletionWarning(conversation({ outcome: { kind: "tickets", tickets: 3, partial: false } }));
+    const said = deletionWarning(en, conversation({ outcome: { kind: "tickets", tickets: 3, partial: false } }));
 
     expect(said!).toContain("The tickets it filed stay in the tracker");
-    expect(said).toBe(deletionWarning(conversation({ outcome: { kind: "spec", tickets: 1, partial: false } })));
+    expect(said).toBe(deletionWarning(en, conversation({ outcome: { kind: "spec", tickets: 1, partial: false } })));
   });
 
   // A filed spec — and an epic parent — carries a sentence in the tracker that names this
   // conversation, so the warning says that sentence stops resolving.
   it("DeletionWarning_ASpecFiling_SaysWhatSurvivesInTheTracker", () => {
-    const said = deletionWarning(
+    const said = deletionWarning(en, 
       conversation({ outcome: { kind: "spec", tickets: 1, partial: false } }));
 
     expect(said).not.toBeNull();
@@ -42,17 +45,17 @@ describe("The deletion warning", () => {
       "the sentence in the ticket that names this conversation will stop resolving");
 
     // The epic parent carries the same sentence, for the same reason.
-    expect(deletionWarning(conversation({ outcome: { kind: "epic", tickets: 3, partial: false } })))
+    expect(deletionWarning(en, conversation({ outcome: { kind: "epic", tickets: 3, partial: false } })))
       .toBe(said);
     // "phase" is not a served kind; it says only the sentence true of every filing.
-    expect(deletionWarning(conversation({ outcome: { kind: "phase", tickets: 1, partial: false } })))
+    expect(deletionWarning(en, conversation({ outcome: { kind: "phase", tickets: 1, partial: false } })))
       .not.toContain("names this conversation");
   });
 
   // A bug ticket's body has no such sentence, and warning about one it never had would be a
   // warning about nothing.
   it("DeletionWarning_ABugFiling_SaysItsOwnSentence", () => {
-    const said = deletionWarning(
+    const said = deletionWarning(en, 
       conversation({ outcome: { kind: "bug", tickets: 1, partial: false } }));
 
     expect(said).not.toBeNull();
@@ -65,8 +68,8 @@ describe("The deletion warning", () => {
   // a conversation that filed nothing at all is still confirmed, in the sentence true of every
   // filing. Confirming too much is the cheap side of that error.
   it("DeletionWarning_AConversationThatFiledNothing_StillWarns", () => {
-    const filedNothing = deletionWarning(conversation({ outcome: null }));
-    const noKind = deletionWarning(
+    const filedNothing = deletionWarning(en, conversation({ outcome: null }));
+    const noKind = deletionWarning(en, 
       conversation({ outcome: { kind: null, tickets: 2, partial: false } }));
 
     expect(filedNothing).toContain(
@@ -76,14 +79,14 @@ describe("The deletion warning", () => {
 
     // A conversation nobody titled and nothing named is named by its session id rather than by
     // an empty quote.
-    expect(deletionWarning(conversation({ title: null, subject: null })))
+    expect(deletionWarning(en, conversation({ title: null, subject: null })))
       .toContain("Delete “untitled s-9”?");
   });
 
   // 2026-09-21-f237a: the warning quotes what the PERSON wrote wherever there is one, because
   // that is what they are being asked to destroy.
   it("TheDeletionWarning_ARowWithBoth_QuotesTheFirstLine", () => {
-    expect(deletionWarning(conversation({
+    expect(deletionWarning(en, conversation({
       title: "Ich brauche alle libraries aktualisiert",
       subject: "Aktualisierung aller Projektbibliotheken",
     }))).toContain("Delete “Ich brauche alle libraries aktualisiert”?");
@@ -93,15 +96,15 @@ describe("The deletion warning", () => {
   // row beside this warning is showing its subject. "untitled s-9" would name a different thing
   // from the one on screen.
   it("TheDeletionWarning_ARowWithASubjectAndNoTitle_QuotesTheSubject", () => {
-    expect(deletionWarning(conversation({
+    expect(deletionWarning(en, conversation({
       title: null, subject: "Aktualisierung aller Projektbibliotheken",
     }))).toContain("Delete “Aktualisierung aller Projektbibliotheken”?");
   });
 
   // Nothing was said in it and nothing could have been filed from it.
   it("DeletionWarning_AConversationWithNoTurns_NeedsNone", () => {
-    expect(deletionWarning(conversation({ turns: 0 }))).toBeNull();
+    expect(deletionWarning(en, conversation({ turns: 0 }))).toBeNull();
     // One turn is enough to be worth confirming.
-    expect(deletionWarning(conversation({ turns: 1 }))).not.toBeNull();
+    expect(deletionWarning(en, conversation({ turns: 1 }))).not.toBeNull();
   });
 });

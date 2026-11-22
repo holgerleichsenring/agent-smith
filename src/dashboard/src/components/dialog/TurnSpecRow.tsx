@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useState, type ReactNode } from "react";
 import type { SpecDialogProposalFinding, SpecDialogReviewRound } from "@/types/spec-dialog";
 import { DialogProposalRounds } from "./DialogProposalRounds";
@@ -26,6 +27,7 @@ export function TurnSpecRow({
   /** The ticket page's own parts for this spec: its disposition and a ratified mock. */
   extra?: ReactNode;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [fold, setFold] = useState<Fold>(null);
   const toggle = (next: Fold) => setFold((was) => (was === next ? null : next));
@@ -37,14 +39,14 @@ export function TurnSpecRow({
         <span className="dsh-label font-mono text-body">{draft.specId}</span>
         <span className="dsh-body min-w-0 flex-[1_1_280px]">{draft.goal}</span>
         {draft.repos.map((repo) => <span key={repo} className="d-repo">{repo}</span>)}
-        {status && <span className={`d-pill ${status}`} data-testid="turn-row-status">{STATUS_LABEL[status]}</span>}
+        {status && <span className={`d-pill ${status}`} data-testid="turn-row-status">{t(STATUS_LABEL[status])}</span>}
       </button>
       {extra && <div className="px-3 pb-2">{extra}</div>}
       {open && (
         <div className="open" data-testid="turn-row-open">
           {findings.length > 0 && (
             <div className="flex flex-col gap-1" data-testid="turn-row-findings">
-              <span className="fl">Review findings</span>
+              <span className="fl">{t("dialog.row.reviewFindings")}</span>
               {findings.map((finding, index) => (
                 <span key={index} className="text-ink">• {finding.problem}: {finding.why}</span>
               ))}
@@ -52,14 +54,14 @@ export function TurnSpecRow({
           )}
           {draft.done.length > 0 && (
             <div className="flex flex-col gap-1" data-testid="turn-row-done">
-              <span className="fl">Done when</span>
+              <span className="fl">{t("common.doneWhen")}</span>
               {draft.done.map((line, index) => <span key={index} className="text-ink">✓ {line}</span>)}
             </div>
           )}
           <div className="flex flex-wrap gap-4">
-            {draft.yaml && <Link label="Full spec (YAML)" on={() => toggle("yaml")} id="yaml" />}
-            {(draft.facts?.length ?? 0) > 0 && <Link label="Facts and evidence" on={() => toggle("facts")} id="facts" />}
-            {rounds.length > 0 && <Link label="Review rounds" on={() => toggle("rounds")} id="rounds" />}
+            {draft.yaml && <Link label={t("dialog.row.fullSpec")} on={() => toggle("yaml")} id="yaml" />}
+            {(draft.facts?.length ?? 0) > 0 && <Link label={t("dialog.row.facts")} on={() => toggle("facts")} id="facts" />}
+            {rounds.length > 0 && <Link label={t("dialog.row.rounds")} on={() => toggle("rounds")} id="rounds" />}
           </div>
           {fold === "yaml" && <pre data-testid="turn-row-yaml">{draft.yaml}</pre>}
           {fold === "facts" && (

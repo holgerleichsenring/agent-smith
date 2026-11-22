@@ -6,6 +6,9 @@ import { turnProposalOf } from "../turnProposal";
 import { DialogDecisionBar, decides } from "../DialogDecisionBar";
 import { approvalDecision } from "../approvalDecision";
 import type { SpecDialogGraphTicket, SpecDialogProposalPush, SpecDialogQuestionPush } from "@/types/spec-dialog";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-10-14-dbcek: a proposed list of tickets — the pane shows the ticket texts in merge order with what each waits
 // for, the conversation card names them, and the approval card counts them; in a ticket's own conversation no list is
@@ -120,13 +123,13 @@ describe("A proposed list of tickets", () => {
 
   // 2026-11-19-1b72c: the approval card left both pages; the decision counts the list as the card did.
   it("ApprovalDecision_TicketsKind_SummarySaysHowManyHaveNothingToWaitFor", () => {
-    expect(approvalDecision(question, list)!.summary).toMatch(
+    expect(approvalDecision(en, question, list)!.summary).toMatch(
       /^File these 3 tickets\? 1 has nothing to wait for; the rest wait until what they require is merged\.$/);
   });
 
   it("ApprovalDecision_TicketsKindInBoundConversation_NotApprovableAndSaysWhereAListIsFiled", () => {
     const effect = { summary: "Approving is refused: the proposed cut has no order its specs can run in.", approvable: true };
-    const decision = approvalDecision(question, list, effect, true)!;
+    const decision = approvalDecision(en, question, list, effect, true)!;
 
     expect(decision.approvable).toBe(false);
     expect(decision.summary).toMatch(
@@ -136,7 +139,7 @@ describe("A proposed list of tickets", () => {
   // 2026-11-12-92e9d: the composer's decision holds the same guard as the card's Approve.
   // 2026-11-19-7c42b: a decision that cannot be approved is not put at all — the composer stays.
   it("DecisionBar_TicketsKindInBoundConversation_IsNotPut", () => {
-    const decision = approvalDecision(question, list, null, true)!;
+    const decision = approvalDecision(en, question, list, null, true)!;
 
     expect(decides(decision, null, "p-1")).toBe(false);
     expect(decision.summary).toMatch(/^A list of tickets is filed from Work it out/);
@@ -144,7 +147,7 @@ describe("A proposed list of tickets", () => {
 
   it("DecisionBar_UnboundList_CreateSendsApprove", () => {
     const onApprove = vi.fn();
-    render(<DialogDecisionBar decision={approvalDecision(question, list)!} onApprove={onApprove} onKeepChatting={vi.fn()} />);
+    render(<DialogDecisionBar decision={approvalDecision(en, question, list)!} onApprove={onApprove} onKeepChatting={vi.fn()} />);
 
     expect(screen.getByTestId("dialog-file")).toHaveTextContent(/^Create 3 tickets$/);
     screen.getByTestId("dialog-file").click();

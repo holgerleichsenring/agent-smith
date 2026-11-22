@@ -5,6 +5,9 @@ import { DialogPane } from "../DialogPane";
 import { statusOf } from "../DialogPaneTabs";
 import { ApiResponseError } from "@/lib/apiResponse";
 import type { FiledWork, SpecDialogSession } from "@/types/spec-dialog";
+import { translator } from "@/lib/i18n/translate";
+
+const en = translator("en");
 
 // 2026-10-08-e8b9h: every upload of the conversation in one tab — with what it holds against the
 // cap — removed only after the page's own confirmation, and never one an approval cites.
@@ -169,7 +172,7 @@ describe("DialogPane uploads tab", () => {
       focus={{ tab: "uploads" }} onFocus={() => {}} dialogId="d-1" onRefresh={async () => {}} />);
 
     expect(screen.getByRole("tab", { name: /Uploads/ })).toHaveAttribute("aria-selected", "true");
-    expect(statusOf("uploads", null, null, null)).toBe("");
+    expect(statusOf(en, "uploads", null, null, null)).toBe("");
     expect(screen.getByTestId("dialog-uploads")).toBeInTheDocument();
   });
 

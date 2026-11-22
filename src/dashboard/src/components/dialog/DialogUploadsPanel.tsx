@@ -1,7 +1,9 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import type { ReactNode } from "react";
 import { useDialogUploads, momentOf, type DialogUpload } from "@/hooks/useDialogUploads";
+import type { T } from "@/lib/i18n/translate";
 import { specDialogImageUrl } from "@/lib/specDialogApi";
 import type { FiledWork, SpecDialogSession } from "@/types/spec-dialog";
 import { AuthedImage } from "./AuthedImage";
@@ -32,6 +34,7 @@ export function DialogUploadsPanel({
   onRefresh: () => Promise<void>;
   focusSetId?: string | null;
 }) {
+  const t = useT();
   const { remove, removeFile, note, dialog } = useDialogUploads(dialogId, onRefresh);
   const used = session.uploadBytes ?? 0;
   const cap = session.uploadCapBytes ?? 0;
@@ -39,11 +42,11 @@ export function DialogUploadsPanel({
     <div data-testid="dialog-uploads">
       {cap > 0 && (
         <p className="ec-sub mb-2" data-testid="dialog-uploads-usage">
-          {`${sizeOf(used)} of ${sizeOf(cap)} used, ${sizeOf(Math.max(0, cap - used))} left`}
+          {t("dialog.uploads.usage", { used: sizeOf(used), cap: sizeOf(cap), left: sizeOf(Math.max(0, cap - used)) })}
         </p>
       )}
-      {notSeen(session) && (
-        <p className="ec-sub mb-2" data-testid="dialog-uploads-not-seen">{notSeen(session)}</p>
+      {notSeen(t, session) && (
+        <p className="ec-sub mb-2" data-testid="dialog-uploads-not-seen">{notSeen(t, session)}</p>
       )}
       <ul className="dl-upload-rows">
         {uploadsOf(session).map((upload) => (
@@ -74,22 +77,23 @@ export function DialogUploadsPanel({
 function UploadRow({ upload, approved, onRemove, body }: {
   upload: DialogUpload; approved: boolean; onRemove: () => void; body: (actions: ReactNode) => ReactNode;
 }) {
+  const t = useT();
   const cited = upload.kind === "set" ? !!upload.set.cited : !!upload.image.cited;
   const id = upload.kind === "set" ? upload.set.setId : String(upload.image.id);
   return (
     <li data-testid={`dialog-upload-${id}`} className="dl-upload-row">
       {body(cited ? (
-        <span className="ec-sub" data-testid={`dialog-upload-cited-${id}`}>cited by an approval</span>
+        <span className="ec-sub" data-testid={`dialog-upload-cited-${id}`}>{t("dialog.uploads.cited")}</span>
       ) : (
         <button type="button" className="d-link" data-testid={`dialog-upload-remove-${id}`} onClick={onRemove}>
-          remove
+          {t("dialog.uploads.remove")}
         </button>
       ))}
       {/* The approval froze the list it cites — sets and, since 2026-10-08-e8b9k, images; one
           uploaded later reaches a run only when the ticket is approved again. */}
       {!cited && approved && (
         <p className="ec-sub px-3 pb-2" data-testid={`dialog-upload-later-${id}`}>
-          not in the approval — a run carries it after the ticket is approved again
+          {t("dialog.uploads.later")}
         </p>
       )}
     </li>
@@ -97,10 +101,11 @@ function UploadRow({ upload, approved, onRemove, body }: {
 }
 
 function ImageSummary({ upload }: { upload: Extract<DialogUpload, { kind: "image" }> }) {
+  const t = useT();
   const { image } = upload;
   return (
     <>
-      <AuthedImage path={specDialogImageUrl(image.id)} alt="Attached by you" className="max-h-12 max-w-24" />
+      <AuthedImage path={specDialogImageUrl(image.id)} alt={t("common.attachedByYou")} className="max-h-12 max-w-24" />
       <span className="ec-sub min-w-0 flex-1">{momentOf(image.at)}</span>
       {image.bytes != null && <span className="ec-sub">{sizeOf(image.bytes)}</span>}
     </>
@@ -109,13 +114,11 @@ function ImageSummary({ upload }: { upload: Extract<DialogUpload, { kind: "image
 
 /** 2026-10-08-e8b9j: said when the conversation's model cannot see what was attached — the
  *  model is told already; the person attaching a screenshot is the one who would wait. */
-export function notSeen(session: SpecDialogSession): string | null {
+export function notSeen(t: T, session: SpecDialogSession): string | null {
   const all = session.imageCount ?? 0;
-  if (session.seesImages === false && all > 0)
-    return `This project's model does not see images; ${all} stored image(s) are not shown to it.`;
+  if (session.seesImages === false && all > 0) return t("dialog.uploads.notSeenImages", { count: all });
   const inSets = all - (session.images?.length ?? 0);
-  if (session.seesUploadedImages === false && inSets > 0)
-    return `This project's model is not shown images inside uploads; ${inSets} image file(s) in sets are not shown to it.`;
+  if (session.seesUploadedImages === false && inSets > 0) return t("dialog.uploads.notSeenInSets", { count: inSets });
   return null;
 }
 
