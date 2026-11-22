@@ -3,7 +3,8 @@ using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Tools;
 
-/// <summary>2026-11-18-9c1cd: the coding master's run_command (run_gate_stage), log_decision (decide_by_default) and finish_spec (hand_forward).</summary>
+/// <summary>2026-11-18-9c1cd: the coding master's run_command (run_gate_stage) and log_decision (decide_by_default).
+/// 2026-11-22-96c8a: the closing tool (with hand_forward folded in) is gone — the master ends on its report.</summary>
 public static partial class MergedTools
 {
     /// <summary>run_command with run_gate_stage folded in: a shell command, or a declared verify stage by label.</summary>
@@ -54,40 +55,4 @@ public static partial class MergedTools
             "log_decision",
             "Records a key architectural, tooling, implementation or trade-off decision on the run. With overrulable: "
             + "true it is a default a person may overrule later — recorded for ratification once, not logged twice.");
-
-
-    /// <summary>finish_spec with hand_forward's build note folded in.</summary>
-    public static AIFunction FinishSpec(FinishSpecToolHost finish, HandForwardToolHost? forward) =>
-        AIFunctionFactory.Create(
-            async ([Description("green | no-tests | failed | blocked.")] string status,
-                   [Description("One line: what this spec delivered.")] string summary,
-                   [Description("Test ids failing after the change.")] string[]? failing_tests = null,
-                   [Description("Test ids that already failed before the change.")] string[]? baseline_failing_tests = null,
-                   [Description("Proposed follow-up specs, each a one-line goal and why it was left out.")] FinishSpecFollowUp[]? follow_ups = null,
-                   [Description("What stops the work; required when status is blocked.")] string? blocker = null,
-                   [Description("Ticket instructions you refused, each quoted.")] string[]? ignored_instructions = null,
-                   [Description("Build note: names this spec renamed, each '<old> -> <new>'.")] string[]? renamed = null,
-                   [Description("Build note: files or members moved, each '<old> -> <new>'.")] string[]? moved = null,
-                   [Description("Build note: what this spec persisted that a later spec reads (tables, columns, files, keys).")] string[]? persisted = null,
-                   [Description("Build note: where this spec deviated from its text, and why.")] string[]? deviations = null,
-                   [Description("The stored memories this spec acted on, each 'slug' or 'repository/slug' ('@project/slug' for a project memory).")] string[]? relied_on = null,
-                   CancellationToken ct = default) =>
-            {
-                // A call that names no build-note field leaves the note an earlier call recorded.
-                if (forward is not null && (renamed ?? moved ?? persisted ?? deviations ?? relied_on) is not null)
-                {
-                    var note = await forward.HandForward(renamed, moved, persisted, deviations, relied_on, ct);
-                    if (note.StartsWith("Error", StringComparison.Ordinal)) return note.Replace("hand_forward", "finish_spec", StringComparison.Ordinal);
-                    var finished = finish.FinishSpec(status, summary, failing_tests, baseline_failing_tests, follow_ups, blocker, ignored_instructions);
-                    return finished.StartsWith("Error", StringComparison.Ordinal) ? finished : $"{note}\n{finished}";
-                }
-                return finish.FinishSpec(status, summary, failing_tests, baseline_failing_tests, follow_ups, blocker, ignored_instructions);
-            },
-            FinishSpecToolHost.Name,
-            "Ends this spec for the pipeline. Call it in the same reply as your report: the reply's text is the markdown "
-            + "report for the person, shown as written and never parsed; this call carries what the pipeline acts on: status 'green' (build clean, tests pass), 'no-tests' (build clean, no automated tests), 'failed', or "
-            + "'blocked' with its blocker; summary; failing and baseline-failing test ids; follow_ups; ignored_instructions. "
-            + "The build note for the next spec of the series rides along: renamed and moved ('<old> -> <new>'), persisted, "
-            + "deviations (at most 20 entries of 300 characters each), and relied_on, the memories you acted on — a memory "
-            + "is a hint with a track record, and what becomes of this spec becomes its record. A second call replaces the first.");
 }

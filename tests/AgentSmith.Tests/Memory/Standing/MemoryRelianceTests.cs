@@ -50,7 +50,7 @@ public sealed class MemoryRelianceTests
         Repo("api", "build-order", "no-shims");
         var pipeline = new PipelineContext();
 
-        var answer = await new HandForwardToolHost(pipeline, Spec, Memory(pipeline))
+        var answer = await new SpecHandForward(pipeline, Spec, Memory(pipeline))
             .HandForward(persisted: ["table T"], relied_on: ["build-order", "api/no-shims", "[[build-order]]"]);
 
         answer.Should().Contain("relied on 2 memories");
@@ -71,10 +71,10 @@ public sealed class MemoryRelianceTests
         Repo("web", "build-order");
         var pipeline = new PipelineContext();
 
-        var answer = await new HandForwardToolHost(pipeline, Spec, Memory(pipeline))
+        var answer = await new SpecHandForward(pipeline, Spec, Memory(pipeline))
             .HandForward(persisted: ["table T"], relied_on: ["made-up", "build-order", "cli/build-order"]);
 
-        answer.Should().StartWith("Error: hand_forward refused, nothing was recorded")
+        answer.Should().StartWith("Error: the build note was refused, nothing was recorded")
             .And.Contain("'made-up' is no stored memory")
             .And.Contain("'build-order' is stored in [api, web] — name it as 'repository/slug'")
             .And.Contain("'cli/build-order' names no repository of this run");
@@ -104,7 +104,7 @@ public sealed class MemoryRelianceTests
     {
         Repo("api", "build-order");
         var pipeline = new PipelineContext();
-        await new HandForwardToolHost(pipeline, Spec, Memory(pipeline)).HandForward(relied_on: ["build-order"]);
+        await new SpecHandForward(pipeline, Spec, Memory(pipeline)).HandForward(relied_on: ["build-order"]);
         var serializer = new AgentSmith.Application.Services.Resume.PipelineContextSerializer(
             NullLogger<AgentSmith.Application.Services.Resume.PipelineContextSerializer>.Instance);
 

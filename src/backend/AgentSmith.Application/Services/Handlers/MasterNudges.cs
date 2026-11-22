@@ -15,30 +15,18 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// The prompts the run sends BACK to a master that stopped short — the verdict
-/// nudge, the apply nudge, the re-engagement nudge and the in-pass reminder. Pure
-/// text over ledger + verification state; p0403 lifted them out of the handler.
+/// The prompts the run sends BACK to a master that stopped short — the apply nudge,
+/// the re-engagement nudge and the in-pass reminder. Pure
+/// text over ledger state; p0403 lifted them out of the handler.
 /// </summary>
 internal static class MasterNudges
 {
-    // p0263: the focused second-shot prompt when the master edited source but emitted
-    // no verdict. 2026-11-22-6fd7a: over a done checklist the check already ran — the lead says only what is missing.
-    internal static string BuildVerdictNudge(string originalUserPrompt, ProgressLedger ledger) =>
-        (MasterFinishLead.Due(ledger, null) ? MasterFinishLead.Text
-        : "Your previous pass changed source and did not call finish_spec, so the spec cannot be reported. "
-        + "The change is made; what is missing is its check. Build the project and run the tests "
-        + "the way the repository defines them, then close with one reply whose text is your report for the person "
-        + "and which calls finish_spec with the real outcome (status: green | no-tests | failed | blocked).\n\n")
-        + LedgerNudgeSection(ledger)
-        + "Original task:\n" + originalUserPrompt;
-
     // p0255: the focused second-shot prompt when the master planned but edited
     // nothing — the plan is not the deliverable, the edited source is.
     internal static string BuildApplyNudge(string originalUserPrompt, ProgressLedger ledger) =>
         "You wrote a plan and have not made the changes it names yet. The plan is not the "
-        + "deliverable; the change is. Make those edits, build and run the tests, then close with one reply whose text "
-        + "is your report for the person and which calls finish_spec with the real outcome. If an edit cannot be made, "
-        + "finish_spec's blocker says what blocks it.\n\n"
+        + "deliverable; the change is. Make those edits, build and run the tests, then close with your report for the "
+        + "person. If an edit cannot be made, the report says what is missing and why. " + ReportAgain + "\n\n"
         + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
 
@@ -55,30 +43,29 @@ internal static class MasterNudges
     // the sandboxes, so re-orientation is an answer the pass opens with.
     internal static string BuildReengageNudge(
         string originalUserPrompt, ProgressLedger ledger,
-        IReadOnlyList<PlanDecision> decisions, MasterVerification? verification,
+        IReadOnlyList<PlanDecision> decisions,
         IReadOnlyList<string>? changedPaths = null,
         IReadOnlyList<string>? stagedRegistries = null) =>
-        // p0363: a red verdict with open checklist items gets an explicit persistence
-        // lead-in — the failing build IS the current step, not a reason to stop.
-        (verification?.Status == VerificationStatus.Failed
-            ? "Your last verification came back red, and your checklist still holds the steps "
-              + "that fix it — the failing build or tests are the current step. Keep working "
-              + "them and mark each done when it passes; stop only when you can say why no "
-              + "remaining step can succeed.\n\n"
-            : "")
         // p0341f: the instruction to "resume from where you left off, do not restart from
         // scratch" is gone. It was asked of a pass that had been handed no left-off, so the
         // only way to obey it was to re-derive — 34 passes of the same greps on run 98b9.
         // The transcript now arrives with the request; the nudge names the next turn.
-        // 2026-11-22-6fd7a: a done checklist without a verdict is told what is missing, not that steps are open.
-        + (MasterFinishLead.Due(ledger, verification) ? MasterFinishLead.Text
-        : "These checklist steps are still open. Do the ones that hold work you have not done, "
+        // 2026-11-22-96c8a: a re-drive happens only over open steps; what it ends on is added to the report.
+        "These checklist steps are still open. Do the ones that hold work you have not done, "
         + "and mark a step done or remove it when it holds none. If a step needs a decision "
         + "only the operator can make, ask_human posts it; this pass ends and the next starts with "
-        + "the answer.\n\n")
+        + "the answer. " + ReportAgain + "\n\n"
         + LedgerNudgeSection(ledger)
-        + WorkingStateSection.Build(decisions, verification, changedPaths, stagedRegistries)
+        + WorkingStateSection.Build(decisions, changedPaths, stagedRegistries)
         + "Original task:\n" + originalUserPrompt;
+
+    /// <summary>2026-11-22-96c8a: what a pass ends on is added to the report — say what this pass did.</summary>
+    internal const string ReportAgain =
+        "Close with your report of what this pass did; it is added to what you reported before.";
+
+    /// <summary>2026-11-22-96c8a: the one drive a step gets when none of its passes ended on text (the old verdict
+    /// nudge's place) — a worker's empty closing turn, a final reply that was only a call.</summary>
+    internal const string AskForReport = "Your last reply had no text. Write your report for the person as your reply.";
 
     // p0341c/p0359: the in-pass reminder, injected when the ledger went STALE (N
     // iterations without an update_progress call) or on drift. Styled after an
@@ -103,10 +90,10 @@ internal static class MasterNudges
             // already recorded is not work, it is the run being finished.
             return "<system-reminder>\n"
                 + "Every step in the progress ledger is marked done. If the work is truly "
-                + "complete, verify (build + tests) and close with one reply whose text is your report and which calls finish_spec. Add a step only for "
+                + "complete, verify (build + tests) and close with your report as your reply's text. Add a step only for "
                 + "work you have not done yet and that the checklist does not cover — a step "
                 + "that would only re-read or re-confirm evidence you already recorded is not "
-                + "remaining work, it means you are done: close with the report as your reply's text and finish_spec in that reply.\n"
+                + "remaining work, it means you are done: close with your report as your reply's text.\n"
                 + "</system-reminder>";
         return "<system-reminder>\n"
             + "The update_progress tool has not been used recently. If you completed steps, mark "

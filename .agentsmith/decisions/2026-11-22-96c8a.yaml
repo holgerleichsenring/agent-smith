@@ -1,0 +1,166 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-96c8a
+
+decisions:
+  - category: Architecture
+    chose: "Remove finish_spec from the coding master; its written report is how it ends (operator decision, 2026-11-22)"
+    over: "Keeping finish_spec and nudging harder, or forcing it with a required tool choice"
+    reason: >-
+      Measured on 13 live specs: about half end text-only although the skill, the tool description and every
+      nudge ask for the call in the same reply; 3 of 13 failed for that alone with green stages. 6fd7a already
+      rewrote the texts, and the forced tool choice was rejected by the operator then. The operator decided to
+      remove the ceremony. This reverses 98fa's 'the report is never parsed' for the structured fields only:
+      the report is still shown exactly as written.
+    alternatives:
+      - "Required tool choice on the last turn — rejected in 6fd7a; it fights the model on every provider and the Copilot session has no tool_choice."
+      - "Parse the markdown with code — rejected: headings are free text and a parser per shape is the language-specific parsing the project avoids."
+
+  - category: Implementation
+    chose: "The report is read per pass: the final message of a pass that ended on its own (assistant, text, no call) replaces the standing report; a cut pass leaves it"
+    over: "Keeping MasterReport.Of's 'text up to the last finish_spec call', or 'the last assistant text in the thread'"
+    reason: >-
+      Without the call there is nothing to anchor on. The last text in the thread can be a mid-work sentence of a pass
+      the budget or the iteration ceiling cut; only a pass that ended on its own ended on its answer. A re-drive that
+      ends on its own replaces the report, so its nudge says "Close with your whole report again; your last reply
+      replaces the earlier one."
+
+  - category: Architecture
+    chose: "Delivery: stages green (unchanged order) and a report present -> Done; red -> StageRepair or Failed (unchanged); no report -> Failed (NoReport)"
+    over: "Stages alone, with no condition on the report; or a rule on what the report says about its outcome"
+    reason: >-
+      The stages say the build and tests are green, not that the spec's done lines were worked; since 98fa the
+      master's word is the only account of them. A spec with done lines and no written word stays undelivered
+      (NoReport replaces NoFinish, with the same Retry advice). What the report says about its own outcome is shown,
+      never acted on — as today, where Status is never read by VerifySpec (operator: no new rules).
+
+  - category: Tooling
+    chose: "One structured read per master step end: GetResponseAsync<MasterReportExtract> with a JSON schema on the summarization role"
+    over: "A forced tool call to a 'record' function, or free-text JSON parsed by hand"
+    reason: >-
+      Microsoft.Extensions.AI 10.3 puts the schema into response_format only with useJsonSchemaResponseFormat: true
+      (OpenAI/Azure enforce it; Anthropic.SDK 5.10 carries an OutputFormat mapping) and deserializes the answer.
+      Copilot, the external worker and possibly Gemini (GenerativeAI.Microsoft) and Ollama (OllamaSharp) ignore it, so
+      the reader's own prompt states the JSON shape on every provider as well, every answer is validated by
+      deserialization, and a failure is just 'not read'. The summarization role inherits primary when unset, so the default cost is one
+      primary call over a few thousand tokens per spec pass; models.summarization already moves it to a cheaper model
+      — no new config key, no new limit, no retry.
+
+  - category: Implementation
+    chose: "Test results come from the stages; failing_tests, baseline_failing_tests, status green/no-tests and the build/test booleans are dropped"
+    over: "Extracting them from the report"
+    reason: >-
+      None has had a reader since c8e2c made the keystone mechanical. The stage's own output already reaches the
+      operator in VerifySpec's failure tail and the StageRepair item. No baseline run exists, so there is no measured
+      baseline to keep; a stage already red before the change fails the spec, as today.
+
+  - category: Architecture
+    chose: "A question goes through ask_human everywhere (the clarification host is chosen for ParksMasterQuestions || spec-derive); SpecDerivationGate hands the derivation's question back; a report saying the work is not done is shown and the stages decide"
+    over: "Reading 'blocked' out of the report for the derivation's hand-back"
+    reason: >-
+      ask_human is the existing path for 'only a person can answer' (code runs park on it). The derivation lacked it
+      only because its block has no MasterOpenQuestions step, which made finish_spec blocked its one door. Extending
+      the existing capture to the derivation replaces that door instead of adding a second one.
+
+  - category: Implementation
+    chose: "HandForward stays the one writer of the build note and memory reliance; the tool surface goes and the class is renamed SpecHandForward"
+    over: "Offering hand_forward again as a standalone tool, or a second writer in the reader"
+    reason: >-
+      A standalone tool would be another closing call the model skips. The recorder hands the read to
+      SpecHandForward.RecordReadAsync, which admits entries through HandForward's own checks (first 20 per list, at most
+      300 characters, '<old> -> <new>', each relied_on resolved alone), logs what it dropped and the series-contract
+      conflict text nobody reads in a tool result any more, and writes only when a build-note field is named — keeping
+      the 'a call that names none leaves the earlier note' rule for repair passes.
+
+  - category: Implementation
+    chose: "On a repair pass the reader is given the follow-ups proposed so far and asked only for new ones"
+    over: "Keeping only the later non-empty list"
+    reason: "MasterReportAccount already merges both passes distinct; asking only for new ones keeps that merge and stops a repair report's restated follow-ups from duplicating."
+
+  - category: Implementation
+    chose: "Re-engagement: open actionable steps re-drive once ('unfinished'), then stop 'steps-open'; the verdict nudge and the red lead go"
+    over: "Re-driving open steps until progress stops"
+    reason: >-
+      Today the open-checklist re-drive is the 'no verdict' re-drive: once. The spend shifts in two named ways: a green
+      finish_spec with open actionable steps used to stop (nothing-left) and now re-drives once; a text-only end over a
+      drained ledger used to get the verdict nudge plus one re-drive and now gets none. The red-with-open-steps
+      persistence relied on the model's own red claim; StageRepair is the mechanical replacement. 'steps-open' replaces
+      'verdictless' for new passes; stored words stay mapped. Both shifts are pinned in ReengageReasonPolicyTests.
+
+  - category: Scope
+    chose: "Keep the MasterVerification type name and pipeline key; update their docs"
+    over: "Renaming to MasterReport* across Application and tests"
+    reason: "The key is read in eight places; a rename widens a diff that gets an independent review without changing behaviour."
+
+  - category: Scope
+    chose: "No nudge asks for a missing report; such a spec fails NoReport with Retry"
+    over: "A one-time 'write your report' nudge"
+    reason: "A loop that ends on its own ends on text; an end with no text at all is rare, and a nudge for it would bring back the closing ceremony this spec removes."
+
+  - category: Tooling
+    chose: "Ship the skill text in agent-smith-skills (coding-agent-master 3.5.0, branch fix/coding-master-report-only) and pin it after the coordinator's release"
+    over: "Waiting with the code until the skill is released"
+    reason: >-
+      The code is safe on the old catalog: an unknown finish_spec call, once or repeated, is answered 'not found'
+      without an exception and the report is still read. Skill-text assertions stay on 3.4.1 until the pin. The reverse (new catalog on an old server) fails as today, so the server deploys
+      before a catalog override.
+
+  - category: Scope
+    chose: "A master that changes nothing and ends on a report is delivered on that report, as one that called finish_spec green with no diff was"
+    over: "A no-diff rule for code specs (p0421 deleted it) or reading the report's outcome"
+    reason: >-
+      Since p0421 no rule fails a spec for an empty diff and since 98fa the master's word is the account; the only
+      no-change end that failed was the text-only one NoFinish caught. The operator ruled out new rules, so
+      FixBug_MasterReportsNoChangeNeeded_IsDeliveredOnItsReport pins the consequence instead of hiding it.
+
+  - category: Implementation
+    chose: "Build the JSON-schema response format from the abstractions (ChatResponseFormat.ForJsonSchema + AIJsonUtilities.CreateJsonSchema) and deserialize the answer"
+    over: "ChatClientStructuredOutputExtensions.GetResponseAsync<T>"
+    reason: "GetResponseAsync<T> lives in the Microsoft.Extensions.AI package, which the Application layer does not reference; the two calls send the same format, and reading the outermost {…} also accepts the fenced answer of a provider that ignored the format."
+
+  - category: Implementation
+    chose: "The hard-coded-limits baseline row of HandForwardToolHost.cs moves with the file to SpecHandForward.cs; the read admission and the reader's answer shape live in partial files"
+    over: "Adding a new baseline row, or a file over the 120-line ratchet"
+    reason: "MaxEntries (20) and MaxEntryChars (300) are the same two pre-existing limits, now also applied entry by entry to the read; renaming the file is no new limit. The partials keep both classes under the line ratchet without moving responsibilities to a second type."
+
+  # --- code review of 2026-11-22 (3 reviewers); entries below supersede the per-pass "replaces" rule and the
+  # "only new follow-ups" repair read above.
+
+  - category: Architecture
+    chose: "The report is every pass's ending text within one master step, in order, joined by a blank line, an identical text once; a pass's ending text is the text of its final assistant message, beside a tool call only there"
+    over: "The final message of the last pass that ended on its own replacing the report"
+    reason: "A re-drive's one-liner ('Marked the remaining steps done.') replaced a full report, and text beside a call was lost. Joining keeps everything the master said as it closed a pass, with no heuristic; the reader reads the joined text, so pass-0 follow-ups survive."
+
+  - category: Implementation
+    chose: "A step whose passes ended on no text at all is driven once with 'Your last reply had no text. Write your report for the person as your reply.'"
+    over: "No ask at all (NoReport on a drained ledger)"
+    reason: "WorkerReplyTranslator.EmptyTurn is a measured, recurring silent final turn of the worker transport; this is the old verdict nudge's place and one drive, not a new rule. Then the run decides as always."
+
+  - category: Implementation
+    chose: "The whole record-and-read is in one try/catch (cancellation excepted): any failure is a read problem, logged; delivery stays the stages'"
+    over: "Catching only the model call"
+    reason: "The memory resolver and the stores run after the work is done; their exception failed the step before VerifySpec."
+
+  - category: Architecture
+    chose: "Follow-ups add up per spec in ContextKeys.SpecFollowUps (one per goal, ignoring case) after every read; refused instructions add up per run in ContextKeys.RunIgnoredInstructions (one per quote)"
+    over: "Two verdict slots (before/after repair) and telling the repair read which follow-ups exist"
+    reason: "A structure correction and a second stage repair overwrote the slots, and a read told what exists is steered. One list per spec and one per run never lose an entry; MasterReportAccount and WriteRunResult read them; a failed read adds nothing and clears nothing."
+
+  - category: Implementation
+    chose: "A read overwrites only the build-note fields it names; relied_on joins the spec's earlier reliance and an empty list records nothing"
+    over: "A read replacing the whole note and the reliance"
+    reason: "A repair report that names only what it persisted must not erase what the first pass renamed; the evidence projection replaces per run and spec, so the union is the record."
+
+  - category: Tooling
+    chose: "Keep the JSON-schema format for Claude, strict-compatible (closed objects, all properties required, no nullable arrays)"
+    over: "Not setting the format for Claude and relying on the prompt"
+    reason: "Pinned through the Claude builder with a recording HttpMessageHandler: Anthropic.SDK 5.10 sends output_config.format json_schema with the structured-outputs-2025-11-13 beta header."
+
+  - category: Scope
+    chose: "The pin ships in the same release as this server change; the compat note stays, no extra code"
+    over: "Code for a server running an older catalog"
+    reason: "Coordinator: old catalog and new server never meet outside a skills override, which the done line rules out."
+
+  - category: Implementation
+    chose: "A later master step of the same spec (stage repair, structure correction, review fix) adds its report after the spec's earlier one, an identical text once"
+    over: "The later step's report replacing the spec's report"
+    reason: "A repair that ends on one line ('Fixed the missing semicolon.') replaced the full report the person reads; the read still reads only the new step's text, and its follow-ups, refusals and note fields add up as before."

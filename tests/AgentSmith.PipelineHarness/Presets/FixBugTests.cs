@@ -36,7 +36,7 @@ public sealed class FixBugTests
         harness.ChatClient
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
-            .EnqueueFinish(summary: "patched");
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -97,7 +97,7 @@ public sealed class FixBugTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-            .EnqueueFinish(summary: "fixed");
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -118,13 +118,12 @@ public sealed class FixBugTests
     }
 
     [Fact]
-    public async Task FixBug_MasterReturnsZeroChanges_FailsKeystone()
+    public async Task FixBug_MasterReportsNoChangeNeeded_IsDeliveredOnItsReport()
     {
-        // p0241: the EXACT incident from ticket 18838 — the master loops with 0
-        // changes (no tool calls, single text response) and the run used to be
-        // reported as a hollow "success". The keystone now refuses it: a bug fix
-        // that ships no code is a FAILURE. The pipeline must still not crash —
-        // downstream handlers tolerate an empty CodeChanges list and finalize.
+        // p0241: ticket 18838 — the master answers with 0 changes. p0421 deleted the no-diff rule and 98fa left the
+        // master's word as the spec's account; 2026-11-22-96c8a: its word is its report, so a master that says no change
+        // is needed is delivered on that report, as one that called finish_spec green was. The stages had nothing to
+        // run. The pipeline must still not crash — downstream handlers tolerate an empty CodeChanges list.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
         // Slot 1 feeds the (unstubbed) analyzer a benign JSON; slot 2 the
         // derivation; the master then answers with no tool calls = no changes.
@@ -135,8 +134,7 @@ public sealed class FixBugTests
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
 
-        result.IsSuccess.Should().BeFalse("a bug fix that changed no source must not be a success");
-        result.Message.Should().Contain("did not report its result");
+        result.IsSuccess.Should().BeTrue(result.Message);
         harness.ChatClient.ToolCalls.Should().BeEmpty("the master made no tool calls");
     }
 
@@ -201,7 +199,7 @@ public sealed class FixBugTests
     }
 
     [Fact]
-    public async Task FixBug_RealChangeButNoVerdict_FailsKeystone()
+    public async Task FixBug_RealChange_TextOnlyReport_IsDelivered()
     {
         // p0239 keystone outcome 3 (unverified-fail): the master ships a real
         // change but its final answer carries NO parseable verification verdict.
@@ -218,10 +216,8 @@ public sealed class FixBugTests
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
 
-        // 2026-11-18-98fa: a master that ends without finish_spec — however its text reads — reported nothing the
-        // pipeline acts on, so the spec is not delivered and says why.
-        result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("did not report its result");
+        // 2026-11-22-96c8a: the master's last words are its report; the stages are green, so the spec is delivered.
+        result.IsSuccess.Should().BeTrue(result.Message);
         harness.ChatClient.LastScriptedMessages.Should().NotBeEmpty();
     }
 
@@ -235,7 +231,7 @@ public sealed class FixBugTests
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
-            .EnqueueFinish("failed", summary: "two tests fail");
+            .EnqueueReport("## Red\n- two tests fail");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -263,7 +259,7 @@ public sealed class FixBugTests
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueToolCall("write_file", """{"path":"primary/.agentsmith/runs/run/plan.md","content":"# Plan"}""")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
-            .EnqueueFinish(summary: "fixed");
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

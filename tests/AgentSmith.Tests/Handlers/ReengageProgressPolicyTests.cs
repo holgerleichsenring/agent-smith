@@ -2,7 +2,6 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Progress;
 using AgentSmith.Domain.Entities;
-using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 
@@ -20,51 +19,27 @@ public sealed class ReengageProgressPolicyTests
 
     [Fact]
     public void Decide_EmptyPassNoToolCall_StopsIdle() =>
-        ReengageProgressPolicy.Decide(toolCallsInPass: 0, block: null, passEndedOnException: false)
+        ReengageProgressPolicy.Decide(toolCallsInPass: 0, passEndedOnException: false)
             .Should().Be(ReengageOutcome.StopIdle);
 
     [Fact]
     public void Decide_PassWithToolCalls_Continues() =>
-        ReengageProgressPolicy.Decide(toolCallsInPass: 5, block: null, passEndedOnException: false)
+        ReengageProgressPolicy.Decide(toolCallsInPass: 5, passEndedOnException: false)
             .Should().Be(ReengageOutcome.Continue);
 
     [Fact]
     public void Decide_VerifyOnlyPassWithOneToolCall_Continues() =>
         // The exact 4c32 regression: a pass whose only act was running the tests (one tool call,
         // zero file changes). It is productive, not idle — must keep driving.
-        ReengageProgressPolicy.Decide(toolCallsInPass: 1, block: null, passEndedOnException: false)
+        ReengageProgressPolicy.Decide(toolCallsInPass: 1, passEndedOnException: false)
             .Should().Be(ReengageOutcome.Continue);
 
     [Fact]
     public void Decide_PassEndedOnException_ContinuesAsRecovery() =>
-        ReengageProgressPolicy.Decide(toolCallsInPass: 0, block: null, passEndedOnException: true)
+        ReengageProgressPolicy.Decide(toolCallsInPass: 0, passEndedOnException: true)
             .Should().Be(ReengageOutcome.Continue);
 
-    // ---- Blocked claim: "can't" needs a concrete blocker, like "done" needs a diff ----
-
-    [Fact]
-    public void Decide_HonestBlockedConcreteBlocker_StopsBlocked() =>
-        ReengageProgressPolicy.Decide(
-            toolCallsInPass: 3,
-            block: new MasterBlockedClaim(true, "broker connection string absent from config"),
-            passEndedOnException: false)
-            .Should().Be(ReengageOutcome.StopBlocked);
-
-    [Fact]
-    public void Decide_FakeImpossibleNoBlocker_ContinuesReDriven() =>
-        // "too complex" with no concrete blocker is the can't-side of faking-green — re-driven.
-        ReengageProgressPolicy.Decide(
-            toolCallsInPass: 2, block: new MasterBlockedClaim(true, "   "), passEndedOnException: false)
-            .Should().Be(ReengageOutcome.Continue);
-
-    [Fact]
-    public void ShouldRespectBlock_ConcreteBlocker_True() =>
-        ReengageProgressPolicy.ShouldRespectBlock(new MasterBlockedClaim(true, "missing NuGet feed credentials"))
-            .Should().BeTrue();
-
-    [Fact]
-    public void ShouldRespectBlock_EmptyBlocker_False() =>
-        ReengageProgressPolicy.ShouldRespectBlock(new MasterBlockedClaim(true, null)).Should().BeFalse();
+    // ---- 2026-11-22-96c8a: no claim of the model stops the loop; a question goes through ask_human ----
 
     // ---- CountToolCalls: reads FunctionCallContent across the returned conversation ----
 
@@ -99,7 +74,7 @@ public sealed class ReengageProgressPolicyTests
     {
         for (var i = 0; i < toolCallsPerPass.Length; i++)
         {
-            var outcome = ReengageProgressPolicy.Decide(toolCallsPerPass[i], block: null, passEndedOnException: false);
+            var outcome = ReengageProgressPolicy.Decide(toolCallsPerPass[i], passEndedOnException: false);
             if (outcome != ReengageOutcome.Continue) return (i + 1, outcome);
         }
         return (toolCallsPerPass.Length, ReengageOutcome.Continue);
@@ -128,29 +103,16 @@ public sealed class ReengageProgressPolicyTests
         result.passes.Should().Be(3);
     }
 
-    // ---- Lazy-done: a done step whose target is absent from the diff re-drives ----
+    // ---- Lazy-done: a done step whose target is absent from the diff does not re-drive ----
 
     [Fact]
-    public void Reengage_GreenDoneWithoutDiff_Stops()
+    public void Reengage_DoneWithoutDiff_Stops()
     {
         var ledger = new ProgressLedger(new[]
         {
             new ProgressLedgerEntry("1", "update server", ProgressStatus.Done, Target: "src/Server.cs"),
         });
-        var green = new MasterVerification(VerificationStatus.Green, true, true, true, true, "green");
-        ReengageReasonPolicy.Decide("code", ledger, green, budgetExhausted: false, System.Array.Empty<CodeChange>(),
-            reengagePass: 1).Reengage.Should().BeFalse(); // 2026-11-19-9c6e
-    }
-
-    // ---- 2026-11-18-98fa: finish_spec's blocker is the blocked claim ----
-
-    [Fact]
-    public void BlockedClaim_FromFinishSpecsBlocker()
-    {
-        var blocked = new MasterVerification(VerificationStatus.Failed, false, false, false, false, "s",
-            Blocker: "missing NuGet feed credentials");
-        blocked.BlockedClaim.Should().Be(new MasterBlockedClaim(true, "missing NuGet feed credentials"));
-        ReengageProgressPolicy.ShouldRespectBlock(blocked.BlockedClaim).Should().BeTrue();
-        new MasterVerification(VerificationStatus.Green, true, true, true, true, "s").BlockedClaim.Should().BeNull();
+        ReengageReasonPolicy.Decide("code", ledger, budgetExhausted: false, reengagePass: 1)
+            .Reengage.Should().BeFalse(); // 2026-11-19-9c6e
     }
 }

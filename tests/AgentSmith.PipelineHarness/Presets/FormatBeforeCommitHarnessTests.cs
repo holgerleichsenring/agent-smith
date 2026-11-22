@@ -37,7 +37,7 @@ public sealed class FormatBeforeCommitHarnessTests
         harness.ChatClient
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Handler.cs","content":"class Handler {}\n"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         await new PipelineRunner(harness.Services).RunAsync("code");
 
@@ -65,7 +65,7 @@ public sealed class FormatBeforeCommitHarnessTests
         harness.ChatClient
             .EnqueueText("Planning: I will add the handler.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Handler.cs","content":"class Handler {}\n"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");

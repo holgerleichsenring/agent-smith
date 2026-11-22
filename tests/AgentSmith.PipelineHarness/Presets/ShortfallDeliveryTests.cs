@@ -39,7 +39,7 @@ public sealed class ShortfallDeliveryTests
             // spec 1: green, verified, accounted, recorded
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
-            .EnqueueFinish()
+            .EnqueueReport()
             // spec 2: the master dies on the money fence before it does anything
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 

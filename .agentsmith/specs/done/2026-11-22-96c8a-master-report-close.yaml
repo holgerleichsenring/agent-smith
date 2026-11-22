@@ -1,0 +1,319 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-96c8a
+goal: "A coding master ends on its written report, with no finish_spec: the verify stages decide delivery, and one structured read of the report carries what the tool carried."
+
+applies_to: "default (Application master loop, spec account and VerifySpec; Infrastructure chat stack; dashboard flow words; skills catalog + pin)"
+
+requires: [2026-11-18-98fa, 2026-11-22-6fd7a, 2026-11-22-6fd7b]
+
+invariant: >-
+  A spec's delivery never depends on the master calling a closing tool: the verify stages and the presence of a
+  written report decide it. Every value finish_spec carried still reaches its consumer, or is named below as
+  dropped together with what the operator sees change. A failed or unreadable read of the report never changes a
+  delivery the stages decided, and nothing read off the report is invented: a refused instruction is kept only when
+  its quote appears in the report or the master's decision lines, and a memory it names is resolved against the store.
+
+facts:
+  # --- the problem, measured ---
+  - claim: "Measured over 13 live specs (2026-11-19..22, agent-smith 0.196.0, skills v5.41.3, gpt-5.6-terra): about half end with a text-only markdown report and no finish_spec call, although the skill, the tool description and the nudges all say the reply whose text is the report calls finish_spec; 3 of 13 failed for that alone while every verify stage was green."
+    evidence: "observed: 2026-11-22, live runs relayed by the coordinator (845e on ticket 19655 is the reference shape)"
+  - claim: "Operator decision: remove the ceremony. The master writes its report and ends; nothing depends on it calling a closing tool, and the result must still work meaningfully for every consumer."
+    evidence: "observed: 2026-11-22, operator decision relayed by the coordinator"
+
+  # --- where finish_spec lives ---
+  - claim: "finish_spec is built only for a coding master that executes a spec (spec present and codingMaster)."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MasterRecordToolHosts.cs:51"
+  - claim: "codingMaster is !isScanMaster && !isSpecDialog; scan and pr-review masters (output_schema observation) and the design partner never get it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:239"
+  - claim: "The coding master's surface adds MergedTools.FinishSpec, which folds hand_forward's build note (renamed, moved, persisted, deviations, relied_on) into finish_spec; hand_forward is offered standalone nowhere in production (MasterRecordTools.SpecTools has no production caller)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.Coding.cs:34; src/backend/AgentSmith.Application/Services/Tools/MergedTools.Coding.cs:59-92; src/backend/AgentSmith.Application/Services/Tools/MasterRecordToolHosts.cs:94-97"
+  - claim: "A build-note call is forwarded to HandForwardToolHost only when one of its fields is named; a call naming none leaves the note an earlier call recorded."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MergedTools.Coding.cs:76-84"
+  - claim: "FinishSpecToolHost validates status (green | no-tests | failed | blocked), a non-empty summary, a blocker when blocked and a goal per follow-up, and records a MasterVerification; ignored_instructions arrive as quotes only (Reason is string.Empty)."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FinishSpecToolHost.cs:40-79"
+  - claim: "MasterVerification carries Status, BuildRan/BuildPassed/TestsRan/TestsPassed, Summary, FailingTests, BaselineFailingTests, IgnoredInstructions, FollowUps, Blocker, Report, and derives BlockedClaim from Blocker."
+    evidence: "src/backend/AgentSmith.Domain/Models/MasterVerification.cs:24-43"
+
+  # --- the report today (refines the brief: MasterReport.Of does NOT read a text-only end) ---
+  - claim: "MasterReport.Of returns null unless the thread holds a finish_spec call: it takes the last assistant text up to that call, else the text after it. A text-only end therefore has no report today, and MasterReport.Standing is null without a recorded call."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterReport.cs:15-27"
+
+  # --- how delivery is decided today ---
+  - claim: "VerifySpec order: tree sync and spec-sandbox resolution failures fail; the stages run per repository (a red build stops that repo); a red aggregate goes to StageRepair or fails with the failing command and an 800-char output tail; delivered work no command ran over fails as unverified; then MasterReportAccount.Missing fails the spec; else the account is the master's report and the spec is Done."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:72-176"
+  - claim: "MasterReportAccount.Missing fails a spec with done lines when neither MasterVerification nor MasterVerificationBeforeRepair is set, with the NoFinish sentence; it never reads Status, so a finish_spec 'failed' or 'blocked' with green stages is delivered today."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/MasterReportAccount.cs:15-17; src/backend/AgentSmith.Application/Services/Specs/MasterReportAccount.cs:32-38"
+  - claim: "The run keystone is mechanical: CommitAndPR asks RunDeliveryGate.Mechanical over the run's accounts and the criteria count; it reads no MasterVerification field."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:221-223"
+  - claim: "VerifySpec records the spec Done or Failed through ISpecProgressRecorder (the per-spec table and the SpecStateChanged stream), the failure's first line as its note."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:184-202"
+  - claim: "A red stage goes back to the master as one outstanding item (StageRepair.ItemPrefix + the stage's output tail) while repairs make progress; the verdict before the first repair is kept as MasterVerificationBeforeRepair."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/StageRepair.cs:27-48"
+  - claim: "Both verdict keys are cleared when the next spec begins."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecRepairScope.cs:22-23"
+  - claim: "No pre-change baseline run exists: VerifySpec selects stages by what the branch changed and runs them once over the result."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:101-136"
+
+  # --- every consumer of every field ---
+  - claim: "FailingTests and BaselineFailingTests have no production reader (grep over src/backend outside tests finds only the record and FinishSpecToolHost); the doc on MasterVerification still says the keystone gates on regressions, which c8e2c ended."
+    evidence: "src/backend/AgentSmith.Domain/Models/MasterVerification.cs:12-23; src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:221-223"
+  - claim: "BuildRan, BuildPassed, TestsRan and TestsPassed have no production reader."
+    evidence: "observed: 2026-11-22, grep '\\.(BuildRan|BuildPassed|TestsRan|TestsPassed)\\b' over src/backend excluding tests returns nothing"
+  - claim: "Status readers: ReengageReasonPolicy (Failed -> red-with-open-steps or red-accepted), MasterLoopStop (RedDrained), the re-engage nudge's red lead, WorkingStateSection's 'Last build/test' line, MasterPassEnd's GateLine, and two log lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageReasonPolicy.cs:32-35; src/backend/AgentSmith.Application/Services/Handlers/MasterLoopStop.cs:18,29; src/backend/AgentSmith.Application/Services/Handlers/MasterNudges.cs:63-68; src/backend/AgentSmith.Application/Services/Handlers/WorkingStateSection.cs:27-31; src/backend/AgentSmith.Application/Services/Passes/MasterPassEnd.cs:23; src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:604-607; src/backend/AgentSmith.Application/Services/Handlers/ReengagePass.cs:35-37"
+  - claim: "Summary readers: WorkingStateSection (the re-engage nudge's 'Last build/test' line) and SpecDerivationGate's 'It reported:' sentence when a derivation master wrote no spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WorkingStateSection.cs:27-31; src/backend/AgentSmith.Application/Services/SpecExecution/SpecDerivationGate.cs:37-39"
+  - claim: "Blocker readers: ReengageReasonPolicy and MasterLoopStop stop the open loop on it; ReengagePass passes BlockedClaim to ReengageProgressPolicy.Decide (StopBlocked); SpecDerivationGate turns it into SpecHandback(Question) on a spec derivation. In a code run a blocked finish_spec only stops the loop; VerifySpec then decides as for any other status."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageReasonPolicy.cs:31; src/backend/AgentSmith.Application/Services/Handlers/MasterLoopStop.cs:17,27; src/backend/AgentSmith.Application/Services/Handlers/ReengagePass.cs:54,83; src/backend/AgentSmith.Application/Services/Handlers/ReengageProgressPolicy.cs:45-47,97-98; src/backend/AgentSmith.Application/Services/SpecExecution/SpecDerivationGate.cs:30-36"
+  - claim: "FollowUps readers: MasterReportAccount merges both passes' follow-ups into the SpecAccount; AcceptanceSnapshot puts them (and the reports) into the stored AcceptanceJson; the server's TicketSeriesSpecComposer and TicketFollowUpAct (filing one) read them back; VerifySpec's OK message counts them; SpecAccountRenderer prints them."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/MasterReportAccount.cs:19-28; src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:64,77-81; src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesSpecComposer.cs:42-43; src/backend/AgentSmith.Server/Services/Tickets/FollowUps/TicketFollowUpAct.cs:45; src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:175-176; src/backend/AgentSmith.Application/Services/Specs/SpecAccountRenderer.cs:65"
+  - claim: "Report readers: MasterReportAccount -> SpecAccount.Report -> AcceptanceSnapshot.Reports (stored) -> the ticket page's 'reported' tally and check body, the run page's VerifySummary badge and the run log's check section. An account with no criteria rows and no report is listed as unmeasured ('not measured')."
+    evidence: "src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:49-75; src/dashboard/src/components/tickets/detail/reportWords.ts:46-55; src/dashboard/src/components/tickets/detail/RunInlineLog.tsx:39-60; src/dashboard/src/components/jobs/story/VerifySummary.tsx:110-117; src/dashboard/src/components/jobs/runlog/runSections.ts:78-86"
+  - claim: "IgnoredInstructions readers: WriteRunResult publishes one TicketInstructionIgnoredEvent per entry and writes the 'Ignored ticket instructions' section of result.md; both read only the CURRENT MasterVerification, i.e. the last spec's master."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:69-87,282-288; src/backend/AgentSmith.Application/Services/Handlers/RunContractSections.cs:40-52"
+  - claim: "The build note is written by HandForwardToolHost into ContextKeys.SpecBuildNotes (the spec record reads it in SpecRecordBody, the next spec's prompt in PrecedingSpecs); its relied_on is resolved against the stores and recorded by MasterMemoryUse into ContextKeys.MemoryReliance and a MemoryUseRecordedEvent."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/HandForwardToolHost.cs:48-76; src/backend/AgentSmith.Application/Services/Specs/SpecRecordBody.cs:42; src/backend/AgentSmith.Application/Services/Specs/PrecedingSpecs.cs:46; src/backend/AgentSmith.Application/Services/Tools/MasterMemoryUse.cs:26-34"
+  - claim: "HandForward refuses the WHOLE call on any list over 20 entries, any entry over 300 characters, a renamed/moved entry without ' -> ' or an unresolved relied_on; on success it appends the series-contract conflict text (BuildNoteContractCheck) to its result, which only the calling model ever read."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/HandForwardToolHost.cs:21-22,61-65,78-109"
+  - claim: "Memory ledger evidence is taken at run end from MemoryReliance and each spec's final SpecRunState (Done confirms, Failed strains); it reads no MasterVerification field."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryOutcomeRecorder.cs:18-46"
+  - claim: "MasterPassEndedEvent carries VerdictEmitted (the pass called finish_spec) and GateLine ('finish_spec: <Status>' / 'finish_spec not called'), projected into RunPass columns and served by RunPassesReader; the dashboard declares both fields and renders neither."
+    evidence: "src/backend/AgentSmith.Application/Services/Passes/MasterPassEnd.cs:19,23; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPassProjection.cs:19-21; src/backend/AgentSmith.Server/Services/Passes/RunPassesReader.cs:63-64; src/dashboard/src/types/hub-events.ts:659-663"
+  - claim: "The series master and series-verify read FilingReport, not MasterVerification or finish_spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/OpenSeriesRunHandler.cs:21"
+
+  # --- nudges and texts that ask for finish_spec ---
+  - claim: "After pass 0 the handler sends the verdict nudge once when ShouldNudgeForVerdict (no verdict, a code pipeline), opening with MasterFinishLead over a done checklist."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:554-574; src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementPolicy.cs:36-39; src/backend/AgentSmith.Application/Services/Handlers/MasterFinishLead.cs:14-22; src/backend/AgentSmith.Application/Services/Handlers/MasterNudges.cs:26-33"
+  - claim: "The apply nudge, the re-engage nudge (finish lead) and the in-pass reminder over a done ledger ask for finish_spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterNudges.cs:37-43,74-78,104-110"
+  - claim: "Re-engagement today: budget stops; a blocker stops; Failed with actionable steps re-drives, without stops (red-accepted); no verdict re-drives once (unfinished) and then stops verdictless; a recorded green stops (nothing-left) even with open steps. So the open-checklist re-drive is the 'no verdict' re-drive."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageReasonPolicy.cs:24-47"
+  - claim: "Other prompt texts that name finish_spec: the coding closing (also served to spec-less coding runs, which have no finish_spec), the context-pressure finalize instruction, the spec contract, the declared-gate block, the stand-in and write-only blocks, and remember's description."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterClosing.cs:14-16; src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ContextPressureFinalizingChatClient.cs:29-34; src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:86-89; src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:63; src/backend/AgentSmith.Application/Services/SpecWritingPromptBlocks.cs:31,57-58; src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:39"
+  - claim: "Docs and comments that still describe finish_spec as the verdict: MasterReengagementLoop's class doc, ReengageStopLog's verdictless line and its Stopped(…, MasterBlockedClaim?), the methodology page and the generated hub-events comment."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementLoop.cs:18; src/backend/AgentSmith.Application/Services/Handlers/ReengageStopLog.cs:14-35; src/backend/AgentSmith.Domain/Models/MasterBlockedClaim.cs:11; docs/how-it-works/methodology.md:26; src/dashboard/src/types/hub-events.ts:988"
+  - claim: "Pass-reason words: red-accepted, verdictless, blocked, red-with-open-steps and unfinished are finish_spec-era words; the ticket graph maps each stored word to plain text."
+    evidence: "src/backend/AgentSmith.Contracts/Passes/MasterPassReasons.cs:13-29; src/dashboard/src/components/tickets/detail/flowWords.ts:8-31"
+
+  # --- blocked: how a master asks ---
+  - claim: "ask_human on a ticket run is TicketClarificationToolHost when the preset runs MasterOpenQuestions; the handler then parks (MasterOpenQuestions set, pass ended with 'question')."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:253-258,452-464,583-595; src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:29-30"
+  - claim: "A spec derivation splices SelectSpec, AgenticMaster, SpecGate — no MasterOpenQuestions — so its master's ask_human is the dialogue-transport host that answers 'not configured'; finish_spec blocked is its only way to ask today."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDerive.cs:64-73; src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:244-258; src/backend/AgentSmith.Application/Services/SpecWritingPromptBlocks.cs:51-59"
+  - claim: "A derivation master's follow-ups reach nothing today: the derivation block has no VerifySpec, the only place a SpecAccount is built."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDerive.cs:64-69; src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:169-172"
+  - claim: "SpecHandback on a derivation asks on the ticket and ends (it parks nothing)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:61-63"
+
+  # --- the chat stack for one structured read ---
+  - claim: "One-shot model calls in the repo use chatClientFactory.Create(agent, role), costTracker.BeginCall and runContext.BeginCallScope, and treat a failed call as 'no answer' without failing the step (FindingRefuter)."
+    evidence: "src/backend/AgentSmith.Application/Services/Scans/FindingRefuter.cs:44-71"
+  - claim: "The summarization role is a declared slot that inherits primary when unset, and is built on the non-tool path."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelRoleSlots.cs:18; src/backend/AgentSmith.Contracts/Models/Configuration/ModelRoleChain.cs:6-13; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:76-83,220"
+  - claim: "Microsoft.Extensions.AI 10.3.0 is referenced; it offers GetResponseAsync<T>, which sends ChatResponseFormat.ForJsonSchema and deserializes the answer. No production code sets a ResponseFormat today."
+    evidence: "src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:16; observed: 2026-11-22, grep 'ChatResponseFormat|ForJsonSchema|GetResponseAsync<' over src/backend finds only WorkerOptionsMapper"
+  - claim: "Per provider: OpenAI/Azure go through Microsoft.Extensions.AI.OpenAI (AsIChatClient), which maps a JSON-schema format to response_format json_schema; Claude goes through Anthropic.SDK 5.10.0's native IChatClient, whose assembly carries OutputFormat and a ChatResponseFormatJson reference (mapping to be pinned by a test, not assumed); Gemini goes through the GenerativeAI.Microsoft community adapter and Ollama through OllamaSharp's OllamaApiClient, neither verified to honour a schema; the Copilot session client has no ResponseFormat handling; the external worker renders the schema as text into its request. Microsoft.Extensions.AI puts the schema into ResponseFormat only with useJsonSchemaResponseFormat: true, otherwise it appends the schema to the prompt — so the reader's own prompt states the JSON shape on every provider AND sets the format."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:58-70; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs:12-13,62; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/GeminiChatClientBuilder.cs:10,29; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OllamaChatClientBuilder.cs:8-10,25; observed: 2026-11-22, strings of ~/.nuget/packages/anthropic.sdk/5.10.0/lib/net10.0/Anthropic.SDK.dll; observed: 2026-11-22, grep ResponseFormat under ChatClientBuilders/Copilot returns nothing; src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerOptionsMapper.cs:24,37-41"
+  - claim: "A tool loop survives three consecutive failing tool iterations; an exception counts, which is why an unknown tool name must be checked separately (Microsoft.Extensions.AI answers it with a not-found result instead of throwing)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ToolLoopErrorTolerance.cs:12-34"
+
+  # --- skills catalog and pin ---
+  - claim: "coding-agent-master 3.4.1 names finish_spec in its ticket-instructions refusal line, step 7, the memory paragraph and the whole 'Your report' section (status, summary, failing/baseline tests, follow_ups, ignored_instructions, and the closing done sentence)."
+    evidence: "agent-smith-skills/skills/_masters/coding-agent-master/SKILL.md:40,104-105,127,133-157"
+  - claim: "The shared memory reference says a spec's finish_spec names relied_on."
+    evidence: "agent-smith-skills/references/memory-discipline.md:21-23"
+  - claim: "The embedded catalog is pinned in Infrastructure.Core by SkillsCatalogVersion v5.41.3 and its sha256, the tarball checked in under Resources/."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-58"
+  - claim: "Docs and the site describe finish_spec as the master's closing call."
+    evidence: "docs/how-it-works/delivery-account.md:20; docs/how-it-works/lifecycle.md:82; docs/reference/pipelines/fix-and-feature.md:101; website/src/llms.txt.njk:27"
+
+  # --- tests that script finish_spec ---
+  - claim: "The harness and worker test doubles script a master's end as report text plus a finish_spec call."
+    evidence: "tests/AgentSmith.PipelineHarness/Llm/ScriptedChatClient.cs:65-83; tests/AgentSmith.PipelineHarness/Presets/SpecWritingScript.cs:9,50; tests/AgentSmith.Tests/TestHelpers/ScriptedWorkerProcessRunner.cs:32-35"
+
+assumptions:
+  - "The final reply of a loop that ended on its own is an assistant message without a function call (the function-invocation loop stops when the model answers without one); a pass cut by the iteration ceiling ends on a call. Pinned by the 845e-shape and ceiling tests, not taken on trust."
+
+scope:
+  in: >-
+    The coding master on every spec whose block is PipelinePresets.CodeSpecBlock (the code preset and its aliases
+    fix-bug, add-feature, …; its stage-repair and review-fix passes; worker mode; every provider) ends on its report.
+    finish_spec is removed: FinishSpecToolHost, FinishSpecFollowUp, MergedTools.FinishSpec,
+    MasterRecordTools.FinishSpec and every text that asks for it (MasterClosing.Coding, the verdict nudge,
+    MasterFinishLead, the apply and re-engage nudges, the in-pass reminder, ContextPressureFinalizingChatClient,
+    the spec contract, the declared-gate block, the stand-in and write-only blocks, remember's description) and the
+    docs that describe it. The report is read per pass. One structured read of the report (MasterReportReader,
+    summarization role, JSON schema) yields follow-ups, refused instructions with reasons, the build note and
+    relied_on. VerifySpec's rule becomes stages + report present. Re-engagement keeps one re-drive for open
+    checklist steps; the verdict nudge goes. A spec derivation asks through ask_human and SpecDerivationGate hands
+    that question back. Pass words, the coding-agent-master skill text (3.5.0) and, after its release, the pin.
+  out: >-
+    Scan, pr-review, design-partner, mad-discussion, legal-analysis, admin and series masters: they never had
+    finish_spec and stay as they are (only the shared closing/context-pressure texts lose the finish_spec
+    sentence). The spec-derive block: its master writes a spec and gets no reader. Renaming the MasterVerification
+    type and its pipeline key (doc updated instead). A pre-change baseline test run (none exists; named as dropped
+    below). Any rule acting on what the report says about its own outcome. The stored AcceptanceJson/RunPass shapes
+    and the MasterPassEndedEvent contract (unchanged, values reworded). A per-done-line judge (retired in 98fa). More
+    than one ask for a missing report. Releasing the skills change and the pin
+    commit (the coordinator's).
+
+decisions:
+  - key: "THE REPORT IS WHAT THE PASSES ENDED ON: a pass's ending text is the text of its final assistant message (text beside a tool call counts only there); within one master step the report is every pass's ending text in order, joined with a blank line, an identical text once — a re-drive's one-liner adds, never replaces. A step whose passes ended on no text at all is asked ONCE (the old verdict nudge's place): 'Your last reply had no text. Write your report for the person as your reply.'"
+  - key: "DELIVERY RULE: stages green (existing order) + a report -> Done; red -> StageRepair or Failed with the failing output (unchanged); no report -> Failed (NoReport, replaces NoFinish). What the report says about its own outcome is shown, never acted on — as today."
+  - key: "ONE READ, STRUCTURED, NEVER BLOCKING: a JSON-schema ResponseFormat (what GetResponseAsync<T> with useJsonSchemaResponseFormat: true sends) on the summarization role, and the reader's own prompt states the JSON shape, so a provider that ignores ResponseFormat still answers the shape; deserialized and validated on every provider; any failure leaves the report and no extracted fields."
+  - key: "FACTS FROM THE PIPELINE, NOT THE MODEL: test results come from the stages, so failing/baseline test ids and the green/no-tests/failed status are dropped rather than re-extracted."
+  - key: "A QUESTION IS ask_human: it parks (code) or is handed back (derivation); a report saying the work is not done is shown as written and the stages decide, as today."
+  - key: "HandForward STAYS THE ONE WRITER of the build note and memory reliance (class renamed SpecHandForward); the read is admitted through its own checks entry by entry."
+  - key: "RE-ENGAGEMENT SPEND SHIFTS, named: a green finish with open actionable steps used to stop (nothing-left) and now re-drives once; a text-only end over a drained ledger used to get the verdict nudge and one re-drive and now gets none."
+  - key: "NO-CHANGE SPECS, named: a master that changes nothing and ends on a report ('No changes needed.') is delivered on that report — as one that called finish_spec green with no diff was; only the text-only end NoFinish used to fail changes. No new rule acts on it (operator)."
+  - key: "AN APPLY DRIVE'S ENDING TEXT JOINS THE REPORT: in a stage-repair step the builder keeps the first step's write log, so the repair step's own log is empty and the apply drive asks once more; what it ends on is added (identical text once)."
+  - key: "NOTHING THE RECORDING DOES FAILS THE STEP: the read, the memory stores, the note — any exception (cancellation excepted) is a read problem, logged; the stages decide."
+  - key: "ANTHROPIC CARRIES THE FORMAT: pinned through the Claude builder's IChatClient — output_config.format json_schema under structured-outputs-2025-11-13; the schema is strict-compatible (closed objects, every property required, no nullable arrays), so the format stays set for Claude."
+  - key: "THE SPEC'S REPORT ADDS UP OVER ITS STEPS: a stage repair, structure correction or review fix adds its report after the spec's earlier one (MasterReport.After; identical text once), so a repair's one-liner never replaces the full report."
+  - key: "See .agentsmith/decisions/2026-11-22-96c8a.yaml."
+
+field_map:
+  # what each finish_spec value becomes — the invariant's checklist
+  - "Report (markdown) -> MasterReport.Append per pass, MasterReport.Join per step -> MasterVerification.Report -> SpecAccount.Report -> AcceptanceJson.Reports -> ticket 'reported' chip, run badge, check section (unchanged chain). The reader reads that joined report, so pass-0 follow-ups are never lost."
+  - "follow_ups -> MasterReportReader.follow_ups [{goal, why}] -> appended to the spec's merged list ContextKeys.SpecFollowUps (one per goal, ignoring case) after every read — first pass, structure correction, each stage repair -> MasterReportAccount reads that list -> AcceptanceJson.FollowUps -> ticket follow-up filing (unchanged). The reader is never told which follow-ups exist."
+  - "ignored_instructions -> reader.ignored_instructions [{quote, reason}] read from the report and the master's log_decision lines; kept only when the quote appears in the report or a decision line -> appended to the run-level ContextKeys.RunIgnoredInstructions (one per quote, across specs and passes; a failed read clears nothing) -> TicketInstructionIgnoredEvent + result.md section (WriteRunResult reads the run list); gains the reason finish_spec dropped."
+  - "renamed / moved / persisted / deviations -> reader lists -> SpecHandForward.RecordReadAsync: first 20 per list, entries over 300 characters and renamed/moved entries without ' -> ' dropped and logged; a read overwrites only the fields it names (the rest of the note stands) -> HandForward -> SpecBuildNotes -> spec record + next spec's prompt (unchanged readers)."
+  - "series-contract conflicts (HandForward's answer text, HandForwardToolHost.cs:78-85) -> LOGGED by the recorder; the model that once read them in the tool result is no longer in the loop when the note is written."
+  - "relied_on -> reader.relied_on, given the memory index the master was shown -> each entry resolved alone; unresolved dropped and logged -> united with the spec's earlier reliance (an empty list never replaces one) -> MemoryReliance + MemoryUseRecordedEvent (the projection replaces per run and spec, so the union is the record) -> MemoryOutcomeRecorder at run end (unchanged)."
+  - "status blocked + blocker -> a question: ask_human (code: parks via MasterOpenQuestions; derivation: SpecDerivationGate hands it back). A non-question -> DROPPED as a field: the report says it, shown as written. Operator-visible: the open loop no longer stops on a blocked/red claim (it stops on its own rules: budget, open steps after one re-drive, idle, self-refilled, cap)."
+  - "status failed -> DROPPED: no rule acts on it today but the loop's red-with-open-steps re-drive; open steps re-drive once on their own and the stages repair red mechanically."
+  - "status green / no-tests -> DROPPED: the stages are the build/test truth. Operator-visible: the pass GateLine says 'report written' / 'no report' instead of 'finish_spec: Green'; log lines drop the status."
+  - "summary -> DROPPED as a field: the derivation's 'It reported:' sentence quotes the report's first non-empty line; the re-engage working-state block loses its 'Last build/test' line (the master's transcript, carried in PriorMessages, holds its command outputs)."
+  - "failing_tests / baseline_failing_tests -> DROPPED: no reader since c8e2c; the failing output reaches the operator from the stage (VerifySpec failure tail, StageRepair item). No baseline exists; a stage already red before the change fails the spec, as it does today."
+  - "BuildRan / BuildPassed / TestsRan / TestsPassed -> DROPPED: no reader."
+  - "VerdictEmitted / GateLine (MasterPassEndedEvent, RunPass columns) -> 'the pass wrote a report' and 'report written' / 'no report'; contract and columns unchanged, stored rows keep their old text."
+
+steps:
+  - id: model
+    action: >-
+      MasterVerification becomes (Report, FollowUps, IgnoredInstructions, ReadProblem): drop Status, the four
+      build/test booleans, Summary, FailingTests, BaselineFailingTests, Blocker and BlockedClaim; delete
+      VerificationStatus and MasterBlockedClaim; update the record's and ContextKeys.MasterVerification's docs.
+      MasterReport.OfPass(response): the final message's text when it is an assistant message with text (beside a call
+      or not), else null; MasterReport.Append adds a pass's ending text unless identical text is already there, and
+      MasterReport.Join makes the step's report. MasterReport.Of and Standing are deleted.
+  - id: reader
+    action: >-
+      MasterReportReader (Application/Services/Specs/Reports): one call per master step end on a CodeSpecBlock spec, skipped
+      when the cost budget is spent or the report is null. Input: the report, the master's decision lines, the
+      memory index section, the follow-ups proposed so far. Output MasterReportExtract {follow_ups[{goal,why}],
+      ignored_instructions[{quote,reason}], renamed[], moved[], persisted[], deviations[], relied_on[]} with
+      ChatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema(AIJsonUtilities.CreateJsonSchema(typeof(MasterReportExtract)), strict transform: closed objects, every property required)
+      — what GetResponseAsync<T>(useJsonSchemaResponseFormat: true) sends, built from Microsoft.Extensions.AI.Abstractions,
+      which the Application layer already references (GetResponseAsync<T> lives in the Microsoft.Extensions.AI package,
+      which it does not) — on chatClientFactory.Create(agent, TaskType.Summarization), cost-tracked as role
+      'report-reader' like FindingRefuter. The system prompt states the JSON shape itself, and the answer is
+      deserialized from its outermost {…}, so a fenced or prefaced answer still parses. Any exception (cancellation excepted), an
+      unparseable or null result -> a read problem, warning logged.
+  - id: recorder
+    action: >-
+      MasterReportRecorder (all of it inside one try/catch: any failure is a read problem): builds MasterVerification
+      from the joined report and the read — follow-ups with a goal,
+      ignored instructions whose quote appears in the report or a decision line — and hands the build-note lists and
+      relied_on to SpecHandForward.RecordReadAsync, which admits them through HandForward's own checks (first 20, ≤300
+      characters, '<old> -> <new>', each relied_on resolved alone), logs what it dropped and the conflict text, and
+      writes only when a build-note field is named.
+  - id: tools
+    action: >-
+      Delete FinishSpecToolHost, FinishSpecFollowUp and MergedTools.FinishSpec; HandForwardToolHost loses its tool
+      surface and becomes SpecHandForward; MasterRecordTools loses FinishSpec and SpecTools; MasterToolComposition.Coding
+      stops adding it; ReengageSession loses Finish.
+  - id: loop
+    action: >-
+      AgenticMasterHandler: delete the verdict nudge and MasterReengagementPolicy.ShouldNudgeForVerdict; track the
+      ending texts over pass 0, the apply drive, the one ask for a report (when none ended on text) and the
+      re-engagement; after the loop, on a spec, set
+      MasterVerification through MasterReportRecorder (CodeSpecBlock) or with the report alone (spec-derive); a
+      repair or review-fix step that wrote no report leaves the spec's standing MasterVerification as it was.
+      ReengageReasonPolicy.Decide: off a code pipeline null; budget -> budget; actionable steps -> drive 'unfinished'
+      on pass 1, else stop 'steps-open'; else 'nothing-left'. MasterLoopStop/MasterStopKind: Verdictless -> StepsOpen,
+      RedDrained and Blocker removed. ReengagePass: no finish counting; a pass's ending text is appended; ReengageProgressPolicy.Decide loses the block parameter, ReengageOutcome loses
+      StopBlocked. MasterPassState carries ReportWritten (pass) and HasReport (standing); MasterPassEnd writes
+      VerdictEmitted and GateLine from them. MasterPassReasons gains StepsOpen = "steps-open"; red-accepted, verdictless,
+      blocked and red-with-open-steps stay as words of stored rows; flowWords gains 'steps-open'. ReengageStopLog and
+      MasterReengagementLoop docs follow.
+  - id: verify
+    action: >-
+      MasterReportAccount: NoFinish -> NoReport ("The agent ended without writing a report, so the spec was not
+      delivered; anything it changed stays on the branch. Retry unchanged gives it another attempt."), Missing reads
+      Report of both keys. VerifySpec's OK message adds "; its report could not be read: <problem>" when the read
+      failed.
+  - id: derive
+    action: >-
+      AgenticMasterHandler chooses TicketClarificationToolHost when PipelinePresets.ParksMasterQuestions(name) ||
+      name == SpecDeriveName (ParksMasterQuestions keeps meaning 'has MasterOpenQuestions'). SpecDerivationGate.AfterMaster
+      reads ContextKeys.MasterOpenQuestions (the first question's text) instead of Blocker, and quotes the report's first
+      non-empty line instead of Summary. WriteOnlyContract: "ask it with ask_human; it is posted on the ticket.
+      Otherwise report what you wrote and why."
+  - id: texts
+    action: >-
+      MasterClosing.Coding ("Your last reply is your report, shown as you write it — or, when you asked with
+      ask_human, the pipeline acts on the question."); BuildApplyNudge and BuildReengageNudge close with "Close with
+      your report of what this pass did; it is added to what you reported before."; the ask-for-report text "Your last
+      reply had no text. Write your report for the person as your reply."; MasterFinishLead and the red lead deleted;
+      the in-pass reminder; ContextPressureFinalizingChatClient.FinalizeInstruction loses its finish_spec sentence; the
+      spec contract ("Before you write your report, look at EACH done criterion… Your report also names what you renamed
+      and moved (`<old> -> <new>`), persisted and deviated from, the memories you relied on, and the follow-ups you
+      propose."); DeclaredGate ("before your report"); StandIn ("a follow-up your report proposes"); remember's
+      description. WorkingStateSection loses the verification parameter and its 'Last build/test' line. Docs:
+      delivery-account.md, lifecycle.md, methodology.md, fix-and-feature.md, llms.txt.njk; dashboard comments.
+  - id: skills
+    action: >-
+      agent-smith-skills branch fix/coding-master-report-only (uncommitted), coding-agent-master 3.5.0: line 40 ->
+      refusal named, quoted, under Ignored instructions in the report; step 7 -> close with the report as the last
+      reply, naming renamed/moved/persisted/deviations; line 127 -> name in the report the memories acted on; 'Your
+      report' -> the report is the last reply and nothing else closes the spec; a reader takes follow-ups, ignored
+      instructions, the build note and memories from it, each under its own heading; "When the work cannot be done,
+      the report says what is missing and why; a question only a person can answer goes through ask_human."; the
+      framework runs the build and test stages after you. references/memory-discipline.md -> the report names the
+      memories. scripts/validate-skills.sh green.
+  - id: pin
+    action: >-
+      After the coordinator releases the skills change: SkillsCatalogVersion and SkillsCatalogSha256 to the new tag
+      (csproj 54-55), the tarball swapped, and the skill-text assertions (CodingMasterLeadPromptTests,
+      SeriesSkillRulesTests) moved from the 3.4.1 text to the 3.5.0 text. Until then they assert 3.4.1, so the suite
+      stays green on v5.41.3.
+  - id: compat
+    action: >-
+      Older catalog (v5.41.3 or a skills override): the model may call finish_spec, once or repeatedly; Microsoft.Extensions.AI
+      answers 'not found' without an exception, so the error tolerance does not end the loop; the report is the last
+      pass-ending text. Newer catalog on an older server fails NoFinish as about half do today — deploy the server
+      before any override.
+
+tests:
+  - "845e/4351b shape — every step done, report as text only, stages green -> Done with that report, no prompt names finish_spec, no re-drive, the read gets a JSON-schema format (MasterReportCloseTests.TextOnlyReport_AllStepsDone_StagesGreen_IsDelivered; FixBugTests.FixBug_RealChange_TextOnlyReport_IsDelivered)."
+  - "Report says blocked/failed, stages green -> Done, report shown as written (MasterReportCloseTests.ReportSaysBlocked_StagesGreen_IsDelivered_ReportShownAsWritten; FixBugTests.FixBug_RealChangeButFailedVerdict_FailsKeystone, which asserts success)."
+  - "Stages red -> StageRepair with the stage output, the repair's last report stands (VerifySpecStageRepairTests; SpecExecutionTests.SpecExecution_MasterLeadsChildren_SendsWorkBack_ResolvesARedBuild_NamesAFollowUp)."
+  - "Iteration ceiling on a tool call, ledger drained, stages green -> Failed NoReport (MasterReportCloseTests.IterationCeilingOnAToolCall_LedgerDrained_StagesGreen_FailsNoReport); no text in any pass -> NoReport (AddFeatureTests.AddFeature_MasterEndsWithoutAReport_FailsNoReport, FixNoTestTests.FixNoTest_MasterEndsWithoutAReport_FailsNoReport, MasterReportAccountTests.Missing_DoneLinesAndNoReport_SaysSo_AReportOrNoDoneList_IsNotMissing, MasterReportHandlerTests.AMasterWhosePassesAreCutOnACall_PublishesNoReport_AndTheSpecSaysWhy)."
+  - "The read yields follow-ups, ignored instructions with reasons, build note and relied_on (MasterReportRecorderTests.Read_RecordsFollowUpsIgnoredBuildNoteAndReliance; MasterReportHandlerTests.AMasterThatEndsOnItsReport_PublishesTheReport_WithTheReadsFollowUps; BuildNoteHarnessTests.Harness_TwoSpecSeries_SpecTwoMasterPromptCarriesMemoryRememberedInSpecOne; harness follow-up and ignored-instruction presets via EnqueueReport)."
+  - "(d) Ignored-instruction quote in neither report nor decisions -> dropped and logged (MasterReportRecorderTests.IgnoredInstruction_QuoteNotInReportOrDecisions_IsDropped)."
+  - "(e) Over-count / over-length / unarrowed build-note entries and an unresolved relied_on -> trimmed and logged (MasterReportRecorderTests.BuildNote_OverCountOverLengthUnarrowed_TrimmedAndLogged, MasterReportRecorderTests.ReliedOn_UnresolvedDropped_ResolvedRecorded)."
+  - "A stage repair's one-line report follows the original, which stays first (MasterReportHandlerTests.AStageRepairsOneLineReport_KeepsTheOriginalReportFirst; SpecExecutionTests.SpecExecution_MasterLeadsChildren_SendsWorkBack_ResolvesARedBuild_NamesAFollowUp)."
+  - "Follow-ups across a structure correction and two stage repairs are all kept, one per goal ignoring case (MasterReportRecorderTests.FollowUps_AcrossAStructureCorrectionAndTwoStageRepairs_AllKept; MasterReportAccountTests.For_AfterAStageRepair_TheRepairsReportStands_AndBothPassesFollowUpsAreKept)."
+  - "A read overwrites only the note fields it names; a relied_on-only read leaves the note; reliance is a union and an empty list records nothing (MasterReportRecorderTests.BuildNote_AReadOverwritesOnlyTheFieldsItNames_AReliedOnOnlyReadLeavesTheNote, ReliedOn_UnionAcrossReads_AndAReadNamingNoneRecordsNothing)."
+  - "Refused instructions add up for the run; a failed read clears nothing (MasterReportRecorderTests.IgnoredInstructions_AccumulateForTheRun_AFailedReadClearsNothing)."
+  - "A recording that throws (a memory store) leaves the report and names the problem (MasterReportRecorderTests.RecordingFails_TheReportStands_AndTheProblemIsNamed)."
+  - "Anthropic gets the format as strict structured output (ChatAdapterWireTests.Anthropic_ReportReadFormat_IsSentAsStrictStructuredOutput)."
+  - "No ending text at all -> asked once; the answer is the report (MasterReportHandlerTests.AMasterEndingOnNoText_IsAskedOnceForItsReport_AndItsAnswerIsTheReport; ExternalWorkerTicketTests.Harness_WorkerEmptyClosingTurn_IsAskedOnceForItsReport_AndDelivered)."
+  - "Read throws / non-JSON / budget spent -> delivered by the stages, the report stands, the problem is named (MasterReportCloseTests.ReaderFails_DeliveredByTheStages_TheReportStands; MasterReportHandlerTests.ReadFails_TheReportStands_AndTheProblemIsNamed; MasterReportRecorderTests.BudgetSpent_SkipsTheRead_AndTheReportStands; MasterReportReaderTests.Read_AnAnswerThatIsNotTheExtract_IsAProblem, Read_AFailingCall_IsAProblem_NotAThrow)."
+  - "(c) The reader sends a JSON-schema ResponseFormat on the summarization role and states the shape in its prompt; a client that ignores the format and wraps its answer is still parsed (MasterReportReaderTests.Read_SendsAJsonSchemaFormat_OnTheSummarizationRole_AndStatesTheShapeInItsPrompt, Read_AClientThatIgnoresTheFormat_AndWrapsItsAnswer_IsStillParsed)."
+  - "Report = every pass's ending text, joined, an identical text once; a cut pass adds nothing (MasterReportTests; MasterReengagementLoopTests.ReengagedPass_EndingOnText_AppendsToTheReport_AndTheGateLineSaysSo, ReengagedPass_Cut_KeepsTheEarlierReport, NoReportAnywhere_TheGateLineSaysNoReport; MasterReportHandlerTests.AReportOnOneDrive_ThenADriveCutOnACall_KeepsTheReport, ALaterDriveThatEndsOnText_IsAddedToTheReport; MasterReportTests.Append_AddsEachPassesEndingText_InOrder_AnIdenticalTextOnce)."
+  - "Blocked as a question: a derivation hands ask_human's question back (SpecDerivationGateTests.AfterMaster_AQuestionAskedWithAskHuman_BecomesTheQuestionTheHandbackStepAsks; the spec-derive harness presets via SpecWritingScript.AsksFirst); a code run parks on ask_human (existing harness question presets)."
+  - "Older catalog: finish_spec called twice, answered not found each time, then the report -> delivered with that report (MasterReportCloseTests.OlderCatalog_CallsFinishSpecTwice_EndsOnItsReport)."
+  - "Spend shift pinned: open steps -> one re-drive 'unfinished' -> 'steps-open'; drained ledger -> 'nothing-left' (ReengageReasonPolicyTests.Reengage_SpendShift_OpenStepsReDriveOnce_WhereAGreenFinishOnceStopped, Reengage_SpendShift_TextOnlyEndOverADrainedLedger_GetsNoReDrive, Reengage_OpenSteps_DrivesOnce_ThenStopsStepsOpen)."
+  - "No master surface holds finish_spec or hand_forward (MasterToolSurfaceTests.CodingMaster_FullestConfiguration_AtMostTwentyUniqueTools; HandForwardSurfaceTests.MasterToolComposition_CodingMasterWithSpec_CarriesNoClosingTool, MasterToolComposition_NoSurface_CarriesNoClosingTool); no master-facing text names it (MasterTextsNameNoFinishSpecTests)."
+  - "No change, a report -> delivered on it, the named consequence (FixBugTests.FixBug_MasterReportsNoChangeNeeded_IsDeliveredOnItsReport)."
+  - "(f) Skill text: CodingMasterLeadPromptTests.PackagedCodingMaster_ReportsInMarkdown_AsTheTextOfItsClosingReply and SeriesSkillRulesTests.EmbeddedSkills_CodingAgentMaster_EndsEachSpecWithHandForward assert the pinned 3.4.1 text; the pin step moves them to 3.5.0."
+  - "Dashboard: flowWords maps 'steps-open' and 'unfinished' ('driven once more', true for old and new rows) (flowWords.test.ts passEndWords_StepsOpen_AndUnfinished_AreNamed)."
+
+done:
+  - "The invariant holds under the tests above; every finish_spec field is in field_map with its new source or named as dropped."
+  - "No production code or prompt text names finish_spec, FinishSpecToolHost or MasterFinishLead."
+  - "coding-agent-master 3.5.0 validated on its branch; after release and pin, no deployment keeps a skills override older than the new release."
+  - "Build, full suite and dashboard tests green."

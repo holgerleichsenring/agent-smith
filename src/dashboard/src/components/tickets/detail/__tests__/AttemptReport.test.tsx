@@ -128,7 +128,7 @@ describe("AttemptReport", () => {
     expect(screen.getByTestId("thread-run-1")).toHaveAttribute("href", "/jobs/r-1");
   });
 
-  // 2026-11-18-98fa: the check of a run whose master ended with finish_spec is its report and its follow-ups.
+  // 2026-11-18-98fa: the check of a run whose master ended on its report is its report and its follow-ups.
   it("AttemptReport_CheckSection_ShowsTheMastersReportAsMarkdown_AndItsFollowUpsToFile", async () => {
     runSteps.rows = [row(1, "AgenticMaster", "Run master skill", { specId: "s1", status: "success" })];
     api.run.mockImplementationOnce(() => Promise.resolve({ runId: "r-1", status: "success",

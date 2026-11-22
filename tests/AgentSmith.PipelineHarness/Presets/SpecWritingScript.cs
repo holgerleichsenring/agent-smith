@@ -6,7 +6,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// 2026-11-19-6b0ba: the coding master on a stand-in, scripted — it re-emits the spec its prompt carries with a goal of
-/// its own and records it with revise_spec, then reports and calls finish_spec; or it finishes blocked on a question.
+/// its own and records it with revise_spec, then ends on its report; or (2026-11-22-96c8a) it asks with ask_human first.
 /// </summary>
 internal static class SpecWritingScript
 {
@@ -15,12 +15,11 @@ internal static class SpecWritingScript
     public static void WritesTheSpec(RealCompositionHarness harness) =>
         harness.ChatClient
             .EnqueueDeferred(() => Revise(harness))
-            .EnqueueDeferred(() => Finish("## Written\nThe spec now says what the work is.", "no-tests", blocker: null))
-            .EnqueueText(string.Empty);
+            .EnqueueText("## Written\nThe spec now says what the work is.");
 
     public static void AsksFirst(RealCompositionHarness harness, string question) =>
         harness.ChatClient
-            .EnqueueDeferred(() => Finish($"## Blocked\n{question}", "blocked", question))
+            .EnqueueToolCall("ask_human", System.Text.Json.JsonSerializer.Serialize(new { question }))
             .EnqueueText(string.Empty);
 
     // The stub counts every written file as staged; the published stand-in is a commit in a real checkout, so the
@@ -40,13 +39,5 @@ internal static class SpecWritingScript
         };
         return new ChatResponse(new ChatMessage(ChatRole.Assistant,
             [new FunctionCallContent("call_revise", ReviseSpecToolHost.Name, args)]));
-    }
-
-    private static ChatResponse Finish(string report, string status, string? blocker)
-    {
-        var args = new Dictionary<string, object?> { ["status"] = status, ["summary"] = "the spec" };
-        if (blocker is not null) args["blocker"] = blocker;
-        return new ChatResponse(new ChatMessage(ChatRole.Assistant,
-            [new TextContent(report), new FunctionCallContent("call_finish", "finish_spec", args)]));
     }
 }

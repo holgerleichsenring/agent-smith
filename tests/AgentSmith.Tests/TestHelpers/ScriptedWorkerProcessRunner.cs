@@ -29,11 +29,9 @@ public sealed class ScriptedWorkerProcessRunner : IWorkerProcessRunner
         EnqueueReply(new WorkerReply(ToolCalls:
             [new WorkerToolCall(name, JsonDocument.Parse(argumentsJson).RootElement)]));
 
-    /// <summary>2026-11-18-98fa: a spec's master ends with its markdown report and finish_spec, then an empty answer.</summary>
-    public ScriptedWorkerProcessRunner EnqueueFinish(string status = "green", string report = "## Delivered\n- the change") =>
-        EnqueueReply(new WorkerReply(Text: report, ToolCalls:
-            [new WorkerToolCall("finish_spec", JsonDocument.Parse($$"""{"status":"{{status}}","summary":"done"}""").RootElement)]))
-            .EnqueueText("Done.");
+    /// <summary>2026-11-22-96c8a: a spec's master ends with its markdown report as a reply that calls no tool.</summary>
+    public ScriptedWorkerProcessRunner EnqueueReport(string report = "## Delivered\n- the change") =>
+        EnqueueText(report);
 
     public ScriptedWorkerProcessRunner EnqueueReply(WorkerReply reply) =>
         EnqueueRaw(_json.Serialize(reply));

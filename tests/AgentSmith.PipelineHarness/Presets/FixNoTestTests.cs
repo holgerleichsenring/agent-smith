@@ -36,7 +36,7 @@ public sealed class FixNoTestTests
     }
 
     [Fact]
-    public async Task FixNoTest_MasterReturnsZeroChanges_FailsKeystone()
+    public async Task FixNoTest_MasterEndsWithoutAReport_FailsNoReport()
     {
         // p0241: this scenario skips the test gate, but it still runs a code-changing
         // preset — a run that ships nothing is a failure, not a hollow success.
@@ -44,14 +44,14 @@ public sealed class FixNoTestTests
         harness.ChatClient
             // Call 1 is AnalyzeCode's project analyzer — this harness does not stub it.
             .EnqueueText("{}")
-            .EnqueueText("No changes needed.");
+            .EnqueueText(string.Empty).EnqueueText(string.Empty).EnqueueText(string.Empty).EnqueueText(string.Empty);
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
 
-        // 2026-11-19-6b0ba: the stand-in carries the ticket's own criteria, and a master that ends without
-        // finish_spec reported no outcome for them — the run delivered nothing and says so.
-        result.IsSuccess.Should().BeFalse("a code run that ships nothing is a failure, not a hollow success");
-        result.Message.Should().Contain("finish_spec");
+        // 2026-11-19-6b0ba: the stand-in carries the ticket's own criteria; 2026-11-22-96c8a: a master that wrote no
+        // report left nobody's word on them — the run delivered nothing and says so.
+        result.IsSuccess.Should().BeFalse("a code run nobody reported on is a failure, not a hollow success");
+        result.Message.Should().Contain("ended without writing a report");
     }
 }

@@ -56,7 +56,7 @@ public static class BuildNoteContractCheck
         a.Count == 0 || b.Count == 0 || a.Intersect(b, StringComparer.Ordinal).Any();
 
     private static string Side(string entry, int side) =>
-        entry.Split(HandForwardToolHost.Arrow, 2) is [var old, var to] ? (side == 0 ? old : to).Trim() : side == 0 ? entry : string.Empty;
+        entry.Split(SpecHandForward.Arrow, 2) is [var old, var to] ? (side == 0 ? old : to).Trim() : side == 0 ? entry : string.Empty;
 
     private static bool Names(string text, string term) =>
         term.Trim().Length > 0

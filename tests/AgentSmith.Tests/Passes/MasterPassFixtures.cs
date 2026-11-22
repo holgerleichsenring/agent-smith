@@ -28,17 +28,15 @@ internal static class MasterPassFixtures
     internal const string RunId = "2026-10-13T0900-pass";
     internal const string Spec = "2026-10-13-1234a";
 
-    /// <summary>2026-11-18-98fa: a pass that ends with its report and a finish_spec call.</summary>
-    internal static Func<AgenticLoopResult> Finish(string status, string? blocker = null, int toolCalls = 1) => () =>
-    {
-        var args = new Dictionary<string, object?> { ["status"] = status, ["summary"] = "s" };
-        if (blocker is not null) args["blocker"] = blocker;
-        var messages = Enumerable.Range(0, toolCalls)
-            .Select(i => new ChatMessage(ChatRole.Assistant, [new FunctionCallContent($"c{i}", "read_file")]))
-            .Append(new ChatMessage(ChatRole.Assistant, [new TextContent("## Report\n" + status), new FunctionCallContent("f", FinishSpecToolHost.Name, args)]))
-            .ToList();
-        return new AgenticLoopResult(new ChatResponse(messages), TimeSpan.FromSeconds(1));
-    };
+    /// <summary>2026-11-22-96c8a: a pass that ends on its own, on its report — a reply that calls no tool.</summary>
+    internal static Func<AgenticLoopResult> Report(string report = "## Report\ndone", int toolCalls = 1) =>
+        ScriptedPasses.Text(report, toolCalls);
+
+    /// <summary>2026-11-22-96c8a: a pass cut on a tool call (the iteration ceiling): no ending text of its own.</summary>
+    internal static Func<AgenticLoopResult> CutOnACall(int toolCalls = 1) => () =>
+        new AgenticLoopResult(new ChatResponse([.. Enumerable.Range(0, toolCalls)
+            .Select(i => new ChatMessage(ChatRole.Assistant, [new FunctionCallContent($"c{i}", "read_file")]))]),
+            TimeSpan.FromSeconds(1));
 
     internal static PipelineContext SpecPipeline(params string[] done)
     {
@@ -80,17 +78,8 @@ internal sealed class ScriptedPasses(params Func<AgenticLoopResult>[] script) : 
 
     public int Calls => _call;
 
-    // 2026-11-18-98fa: a finish_spec call in the scripted answer is invoked on the request's tool, as the
-    // function-invoking client does.
-    public async Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
-    {
-        var result = script[Math.Min(_call++, script.Length - 1)]();
-        foreach (var call in result.Response.Messages.SelectMany(m => m.Contents.OfType<FunctionCallContent>())
-                     .Where(c => c.Name == FinishSpecToolHost.Name))
-            if (request.Tools?.OfType<AIFunction>().FirstOrDefault(t => t.Name == call.Name) is { } tool)
-                await tool.InvokeAsync(new AIFunctionArguments(call.Arguments), cancellationToken);
-        return result;
-    }
+    public Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken) =>
+        Task.FromResult(script[Math.Min(_call++, script.Length - 1)]());
 
     internal static Func<AgenticLoopResult> Text(string text, int toolCalls = 1) => () =>
     {
@@ -117,10 +106,10 @@ internal sealed class LoopRig
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, sandboxes);
         var context = MasterHandlerFixture.BuildContext("coding-agent-master") with { Pipeline = pipeline };
         Session = new ReengageSession(context,
-            new AgenticLoopRequest(new AgentConfig(), TaskType.Primary, "system", "user", [.. Finish.GetTools(null, null)]),
+            new AgenticLoopRequest(new AgentConfig(), TaskType.Primary, "system", "user", []),
             "user", PipelinePresets.CodeName, Progress, new FilesystemToolHost(sandboxes, "default", "/work"),
             new LogDecisionToolHost(new MasterHandlerFixture.NoOpDecisionLogger(), null),
-            PipelineCostTracker.GetOrCreate(pipeline), _ => { }, Clarifications, Conversation, _ => { }, Finish: Finish);
+            PipelineCostTracker.GetOrCreate(pipeline), _ => { }, Clarifications, Conversation, _ => { });
     }
 
     public PipelineContext Pipeline { get; }
@@ -130,17 +119,21 @@ internal sealed class LoopRig
     public MasterPassRecorder Recorder { get; }
     public TicketClarificationToolHost Clarifications { get; }
     public ReengageSession Session { get; }
-    public FinishSpecToolHost Finish { get; } = new();
     public MasterConversation Conversation { get; } = new();
 
-    /// <summary>Opens pass 0 as the handler does, then hands it to the loop with the verdict it emitted.</summary>
-    public async Task RunAsync(AgentSmith.Domain.Models.MasterVerification? passZeroVerdict)
+    /// <summary>The standing report after the loop.</summary>
+    public string? Report { get; private set; }
+
+    /// <summary>Opens pass 0 as the handler does, then hands it to the loop with the report it ended on.</summary>
+    public async Task RunAsync(string? passZeroReport = null)
     {
         var pass0 = Recorder.Open(Pipeline, passInStep: 0);
         pass0?.Dispose();
         var loop = MasterHandlerFixture.Reengagement(Runner, Recorder);
-        await loop.RunAsync(Session,
-            new ReengageState(new AgenticLoopResult(new ChatResponse(), TimeSpan.Zero), [], passZeroVerdict),
-            pass0, passZeroVerdict, CancellationToken.None);
+        var state = await loop.RunAsync(Session,
+            new ReengageState(new AgenticLoopResult(new ChatResponse(), TimeSpan.Zero), [],
+                passZeroReport is null ? [] : [passZeroReport]),
+            pass0, passZeroReport is not null, CancellationToken.None);
+        Report = MasterReport.Join(state.Reports);
     }
 }

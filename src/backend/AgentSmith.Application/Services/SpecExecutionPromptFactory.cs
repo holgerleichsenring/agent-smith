@@ -83,10 +83,11 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
         Take a choice a person might overrule with log_decision overrulable: true; log every other non-obvious choice via log_decision
         as you go. Where the spec names tests, write them; run the repository's build and automated tests as usual.
         {SpecExecutionPromptBlocks.DoneCriteria(draft)}
-        Before you call finish_spec, look at EACH done criterion above — your report says what you
+        Before you write your report, look at EACH done criterion above — your report says what you
         saw for each, and one you leave says why and where it goes, never dropped silently.
-        finish_spec also carries the build note: what you renamed and moved (each
-        `<old> -> <new>`), persisted and deviated from: the next spec's master reads it.
+        Your report also names what you renamed and moved (each `<old> -> <new>`), persisted and
+        deviated from, the memories you relied on, and the follow-ups you propose: the next spec's
+        master reads the build note taken from it.
         When you are genuinely blocked on missing input, call ask_human once: the
         question is posted to the ticket and this run pauses for the answer.
         The operator may write to you while you work; such a message arrives after a tool result. Adjust your

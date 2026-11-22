@@ -56,7 +56,7 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         .EnqueueToolCall("write_file", """{"path":"primary/src/Sample/PriceCalculator.cs","content":"// >= boundary fix"}""")
         .EnqueueToolCall("run_command", """{"command":"dotnet test tests/Sample.Tests/Sample.Tests.csproj","repo":"primary"}""")
         .EnqueueToolCall("update_progress", """{"items":[{"id":"boundary","activity":"Include the 100.00 boundary in the discount check","status":"done"}]}""")
-        .EnqueueFinish(summary: "boundary fixed");
+        .EnqueueReport();
 
     private Task<string> MaterializeAsync() => new DemoWorkspaceMaterializer(
             new EmbeddedDemoSample(),

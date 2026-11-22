@@ -3,7 +3,6 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Passes;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -21,25 +20,23 @@ public sealed class ReengagePass(
         ReengageSession s, ReengageState state, CancellationToken ct)
     {
         var skill = s.Context.MasterSkillName;
-        var (loopResult, changes, verification) = state;
-        MasterVerification? emitted = null;
+        var (loopResult, changes, reports) = state;
+        var reportWritten = false;
         var passThrew = false;
-        MasterBlockedClaim? blockedClaim = null;
         var toolCallsInPass = 0;
         // p0391: the ids the checklist carried INTO this pass — a pass that ends with only ids it invented
         // itself, having written nothing, refilled its own work.
         var ledgerIdsAtPassStart = s.Progress.GetLedger().Entries.Select(e => e.Id).ToHashSet(StringComparer.Ordinal);
         var changesAtPassStart = changes;
-        var finishCallsAtPassStart = s.Finish?.Calls ?? 0; // 2026-11-18-98fa: a pass emits a verdict by calling finish_spec
 
         logger.LogInformation(
-            "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK; finish_spec: {Finished}",
-            skill, s.Progress.GetLedger().ActionablePending.Count, verification?.Status.ToString() ?? "not called");
+            "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK; report: {Report}",
+            skill, s.Progress.GetLedger().ActionablePending.Count, reports.Count == 0 ? "none yet" : "written");
         try
         {
             // p0411: the working tree, read once per pass, so the nudge opens with the changed paths.
             var nudge = MasterNudges.BuildReengageNudge(
-                s.UserPrompt, s.Progress.GetLedger(), s.Log.GetDecisions(), verification,
+                s.UserPrompt, s.Progress.GetLedger(), s.Log.GetDecisions(),
                 await ReadChangedPathsAsync(s.Context.Pipeline, ct), MasterPipelineFacts.StagedRegistries(s.Context.Pipeline));
             var reengaged = await loopRunner.RunAsync(
                 s.Request with { UserPrompt = nudge, PriorMessages = s.Conversation.Thread() }, ct);
@@ -49,9 +46,9 @@ public sealed class ReengagePass(
             s.TrackMasterResponse(reengaged.Response);
             loopResult = reengaged;
             changes = s.Fs.GetChanges();
-            if (s.Finish is { } finish && finish.Calls > finishCallsAtPassStart)
-                verification = emitted = MasterReport.Standing(finish, s.Conversation.Thread());
-            blockedClaim = emitted?.BlockedClaim;
+            // 2026-11-22-96c8a: the text this pass ended on is added to the step's report.
+            reportWritten = MasterReport.OfPass(reengaged.Response) is not null;
+            reports = MasterReport.Append(reports, reengaged.Response);
             toolCallsInPass = ReengageProgressPolicy.CountToolCalls(reengaged.Response);
         }
         catch (MasterBudgetExhaustedException budgetEx)
@@ -60,10 +57,7 @@ public sealed class ReengagePass(
             logger.LogWarning(
                 "Master '{Skill}' hit the cost budget mid re-engagement — stopping (partial work preserved): {Reason}",
                 skill, budgetEx.Message);
-            // 2026-11-18-98fa: a finish_spec the budget-ended drive recorded still stands; its report is the thread's.
-            if (s.Finish is { } spent && spent.Calls > finishCallsAtPassStart)
-                verification = emitted = MasterReport.Standing(spent, s.Conversation.Thread());
-            return new(new(loopResult, changes, verification), emitted, MasterPassReasons.Budget);
+            return new(new(loopResult, changes, reports), false, MasterPassReasons.Budget);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
@@ -71,24 +65,21 @@ public sealed class ReengagePass(
             passThrew = true;
         }
 
-        var after = new ReengageState(loopResult, changes, verification);
+        var after = new ReengageState(loopResult, changes, reports);
         if (s.TicketClarifications?.Captured is not null)
-            return new(after, emitted, MasterPassReasons.Question); // asked during the pass — the caller parks
+            return new(after, reportWritten, MasterPassReasons.Question); // asked during the pass — the caller parks
 
         // p0365: a pass that called NO tool is the one reliable idle signal; p0391: a pass that only
         // re-invented its own checklist and wrote nothing is stopped mechanically.
         var selfRefilled = ReengageProgressPolicy.IsSelfRefilled(
             ledgerIdsAtPassStart, s.Progress.GetLedger(),
             ReengageProgressPolicy.ProducedNewWork(changesAtPassStart, changes));
-        var outcome = ReengageProgressPolicy.Decide(toolCallsInPass, blockedClaim, passThrew, selfRefilled);
-        if (outcome == ReengageOutcome.Continue) return new(after, emitted, null);
-        stopLog.Stopped(skill, outcome, blockedClaim);
-        return new(after, emitted, outcome switch
-        {
-            ReengageOutcome.StopBlocked => MasterPassReasons.Blocked,
-            ReengageOutcome.StopSelfRefilled => MasterPassReasons.SelfRefilled,
-            _ => MasterPassReasons.Idle,
-        }, outcome, blockedClaim);
+        var outcome = ReengageProgressPolicy.Decide(toolCallsInPass, passThrew, selfRefilled);
+        if (outcome == ReengageOutcome.Continue) return new(after, reportWritten, null);
+        stopLog.Stopped(skill, outcome);
+        return new(after, reportWritten,
+            outcome == ReengageOutcome.StopSelfRefilled ? MasterPassReasons.SelfRefilled : MasterPassReasons.Idle,
+            outcome);
     }
 
     // p0411: the run's changed paths, repo-prefixed as the master addresses them.

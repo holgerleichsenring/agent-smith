@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-96c8b
+goal: "The embedded skills catalog is pinned to v5.42.0: coding-agent-master 3.5.0 ends on its report as its last reply and names no finish_spec."
+
+applies_to: "default (Infrastructure.Core skills pin)"
+
+requires: [2026-11-22-96c8a]
+
+facts:
+  - claim: "The pin is SkillsCatalogVersion v5.41.3 with its sha256, and the tarball is checked in under Resources/."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-58"
+  - claim: "The v5.42.0 release tarball hashes to 1015f4d837973505eba0364d59c65a24fe85c30de4e1e2d9bacc04c6cec09b6a; its coding-agent-master is 3.5.0, closes 'with your report as your last reply' and adds a later pass's report to the earlier one."
+    evidence: "observed: 2026-11-22, shasum -a 256 and the extracted skills/_masters/coding-agent-master/SKILL.md of agentsmith-skills-v5.42.0.tar.gz"
+  - claim: "Three tests assert the pinned 3.4.1 coding-master text: the closing-reply sentence, the build-note step and the catalog version."
+    evidence: "tests/AgentSmith.Tests/Prompts/CodingMasterLeadPromptTests.cs:40-49; tests/AgentSmith.Tests/Skills/SeriesSkillRulesTests.cs:50-57; tests/AgentSmith.Tests/Services/Skills/EmbeddedCatalogReferencesTests.cs:128"
+
+scope:
+  in: "SkillsCatalogVersion v5.42.0 and its sha256; the v5.41.3 tarball replaced; the three skill-text assertions moved to the 3.5.0 text."
+  out: "Any skill text change (released as agent-smith-skills v5.42.0); the server change it pairs with (2026-11-22-96c8a)."
+
+upgrade_impact: "A deployment on the embedded catalog loads coding-agent-master 3.5.0. It ships in the same release as 96c8a, so the old catalog never meets the server without finish_spec outside a skills override."
+
+steps:
+  - id: pin
+    action: "Bump the version and sha256; swap the tarball."
+  - id: texts
+    action: "CodingMasterLeadPromptTests, SeriesSkillRulesTests and EmbeddedCatalogReferencesTests assert the 3.5.0 text and that the coding master names no finish_spec."
+
+tests:
+  - "The packaged catalog validates at build; the Skills, Prompts and catalog test classes stay green (CodingMasterLeadPromptTests.PackagedCodingMaster_ReportsInMarkdown_AsItsLastReply_AndNamesNoFinishSpec, SeriesSkillRulesTests.EmbeddedSkills_CodingAgentMaster_EndsEachSpecWithHandForward, EmbeddedCatalogReferencesTests.EmbeddedCatalog_HasNoSpecDerivationMaster_AndTheCodingMasterWritesAStandInsSpec)."
+
+done:
+  - "Build and the full suite are green on the v5.42.0 pin."

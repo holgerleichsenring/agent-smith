@@ -428,7 +428,7 @@ public partial class CommitAndPRHandlerTests
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
         pipeline.Set(ContextKeys.MasterVerification,
-            new MasterVerification(VerificationStatus.Green, true, true, true, true, "fixed"));
+            new MasterVerification("fixed"));
         var context = CreateContext(pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -459,7 +459,7 @@ public partial class CommitAndPRHandlerTests
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
         pipeline.Set(ContextKeys.MasterVerification,
-            new MasterVerification(VerificationStatus.Green, true, true, true, true, "fixed"));
+            new MasterVerification("fixed"));
         pipeline.Set(ContextKeys.FailureReason, "per-pipeline cost budget exhausted");
         var context = CreateContext(pipeline);
 
@@ -590,7 +590,7 @@ public partial class CommitAndPRHandlerTests
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
         pipeline.Set(ContextKeys.MasterVerification,
-            new MasterVerification(VerificationStatus.Failed, true, false, true, false, "build failed"));
+            new MasterVerification("build failed"));
         pipeline.Set(ContextKeys.CurrentSpec, SpecWithOneCriterion());
         var context = CreateContext(pipeline);
 

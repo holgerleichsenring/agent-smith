@@ -79,7 +79,7 @@ public sealed class SpecExecutionTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Widget.cs","content":"// widget endpoint"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"impl","activity":"Add the widget endpoint + handler","status":"done"}]}""")
-            .EnqueueFinish(summary: "widget endpoint shipped");
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -165,7 +165,7 @@ public sealed class SpecExecutionTests
         RedForTheSecondSpec(harness);
         ScriptSpec(harness, "primary/src/Widget.cs", "impl");
         ScriptSpec(harness, "primary/src/WidgetStore.cs", "store");
-        harness.ChatClient.EnqueueFinish();
+        harness.ChatClient.EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("code");
@@ -224,7 +224,7 @@ public sealed class SpecExecutionTests
             .EnqueueToolCall("send_message", """{"agent_id":"WidgetBuilder","text":"The done list asks for the 404 to be tested; add that test."}""")
             .EnqueueToolCall("send_message", """{"wait":true}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"impl","activity":"the work","status":"done"}]}""")
-            .EnqueueFinish(summary: "the widget endpoint", report: "## Delivered\n- GET /widget returns the widget (`src/Widget.cs`), its 404 tested");
+            .EnqueueReport(report: "## Delivered\n- GET /widget returns the widget (`src/Widget.cs`), its 404 tested");
         chat.EnqueueForToolCall("WidgetBuilder", "write_file", """{"path":"primary/src/Widget.cs","content":"// endpoint"}""")
             .EnqueueForText("WidgetBuilder", "Built the endpoint in src/Widget.cs. No test yet.")
             .EnqueueForToolCall("WidgetBuilder", "write_file", """{"path":"primary/tests/WidgetTests.cs","content":"// 404 test"}""")
@@ -233,12 +233,14 @@ public sealed class SpecExecutionTests
         chat.EnqueueToolCall("spawn_agents", Spawn("StoreBuilder", "build the widget store"))
             .EnqueueToolCall("send_message", """{"wait":true}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"store","activity":"the work","status":"done"}]}""")
-            .EnqueueFinish(summary: "the widget store",
-                report: "## Delivered\n- POST /widget stores the widget (`src/WidgetStore.cs`)\n\n## Open\n- CSV export needs a paging contract first",
+            .EnqueueReport(report: "## Delivered\n- POST /widget stores the widget (`src/WidgetStore.cs`)\n\n## Open\n- CSV export needs a paging contract first",
                 followUps: [("Stored widgets are exported as CSV over paging", "the paging contract is its own design")])
             .EnqueueToolCall("send_message", """{"agent_id":"StoreBuilder","text":"The build is red: error CS1002. Fix it."}""")
             .EnqueueToolCall("send_message", """{"wait":true}""")
-            .EnqueueFinish(summary: "the widget store, build fixed", report: "## Fixed\n- the missing semicolon (`src/WidgetStoreFix.cs`); the build is green");
+            .EnqueueReport(report: "## Fixed\n- the missing semicolon (`src/WidgetStoreFix.cs`); the build is green")
+            // 2026-11-22-96c8a: the repair step's own write log is empty (the builder kept the first step's), so the apply
+            // drive asks once more; the master closes with its whole report again, and that last reply stands.
+            .EnqueueText("## Fixed\n- the missing semicolon (`src/WidgetStoreFix.cs`); the build is green");
         chat.EnqueueForToolCall("StoreBuilder", "write_file", """{"path":"primary/src/WidgetStore.cs","content":"// store"}""")
             .EnqueueForText("StoreBuilder", "Built the store in src/WidgetStore.cs.")
             .EnqueueForToolCall("StoreBuilder", "write_file", """{"path":"primary/src/WidgetStoreFix.cs","content":"// fixed"}""")
@@ -255,10 +257,11 @@ public sealed class SpecExecutionTests
         chat.AgentCalls("StoreBuilder").Last().Should().Contain(m => m.Text.Contains("The build is red"));
         var accounts = AgentSmith.Application.Services.Specs.RunAccountLedger.Current(runner.LastContext!);
         accounts.All.SelectMany(a => a.FollowUps ?? []).Should().ContainSingle().Which.Goal.Should().Be("Stored widgets are exported as CSV over paging");
-        // 2026-11-18-98fa: the account is the master's markdown — the repair's report stands, nothing is judged per line.
+        // 2026-11-18-98fa: the account is the master's markdown, nothing is judged per line. 2026-11-22-96c8a: the
+        // repair's report follows the spec's first one, which stays first.
         var second = accounts.Specs.Single(s => s.SpecId == LeadSecond).Accounts.Single();
         second.Criteria.Should().BeEmpty();
-        second.Report.Should().StartWith("## Fixed");
+        second.Report.Should().StartWith("## Delivered\n- POST /widget stores the widget").And.Contain("\n\n## Fixed\n- the missing semicolon");
         accounts.Specs.Single(s => s.SpecId != LeadSecond).Accounts.Single().Report.Should().Contain("its 404 tested");
     }
 
@@ -295,7 +298,7 @@ public sealed class SpecExecutionTests
         harness.ChatClient
             .EnqueueToolCall("write_file", $$"""{"path":"{{path}}","content":"// work"}""")
             .EnqueueToolCall("update_progress", $$"""{"items":[{"id":"{{step}}","activity":"the work","status":"done"}]}""")
-            .EnqueueFinish(summary: "done");
+            .EnqueueReport();
 
     // 2026-11-18-c8e2c: b fails on a red stage — red at its verification and again after its one repair pass.
     private static void RedForTheSecondSpec(RealCompositionHarness harness) =>

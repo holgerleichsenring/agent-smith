@@ -34,7 +34,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class AgenticMasterHandler(
     IAgenticLoopRunner loopRunner,
     IPromptCatalog prompts,
-    MasterRecordToolHosts recordHosts, // 2026-10-13-8762m: log_decision, recall, remember, hand_forward
+    MasterRecordToolHosts recordHosts, // 2026-10-13-8762m: log_decision, recall, remember, the build-note writer
     IContextYamlSerializer contextYamlSerializer,
     ContextDocumentGate contextDocumentGate, // 2026-08-25-c9c7: judges write_context_yaml's document
     SandboxContextYamlWriter contextYamlWriter, // 2026-08-26-364f: preserves what the document omits
@@ -57,6 +57,7 @@ public sealed class AgenticMasterHandler(
     Memory.MemoryIndexReader memoryIndex, // 2026-10-13-8762m: re-read at every spec-execution start
     IDialogueTransport? dialogueTransport,
     MasterToolComposition composition, // which tool surface this master gets
+    Specs.Reports.MasterReportRecorder reportRecorder, // 2026-11-22-96c8a: the report and what is read off it
     TurnActivityTools reportingTools, MidTurnMessageTools midTurn, // 042ee: steps reported; a1fa: messages handed on
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -250,9 +251,16 @@ public sealed class AgenticMasterHandler(
         // is never handed a door the run cannot open: without this, ask_human fell through
         // to the transport host and answered "Dialogue transport not configured" on every
         // fix-bug / add-feature / fix-no-test run.
-        var parksMasterQuestions = pipelineName is not null
-            && PipelinePresets.ParksMasterQuestions(pipelineName) && ticket is not null;
-        var ticketClarifications = parksMasterQuestions ? new TicketClarificationToolHost() : null;
+        // 2026-11-22-96c8a: and on a spec derivation, whose SpecGate hands the captured question back on the ticket.
+        var parksMasterQuestions = pipelineName is not null && ticket is not null
+            && (PipelinePresets.ParksMasterQuestions(pipelineName)
+                || string.Equals(pipelineName, PipelinePresets.SpecDeriveName, StringComparison.OrdinalIgnoreCase));
+        var ticketClarifications = parksMasterQuestions
+            ? new TicketClarificationToolHost
+            {
+                Derivation = string.Equals(pipelineName, PipelinePresets.SpecDeriveName, StringComparison.OrdinalIgnoreCase),
+            }
+            : null;
         IToolHost human = ticketClarifications is not null
             ? ticketClarifications
             : new HumanToolHost(dialogueTransport, dialogueJobId);
@@ -386,11 +394,11 @@ public sealed class AgenticMasterHandler(
 
         // p0341f: every drive below continues THIS conversation instead of opening a new one.
         var conversation = new MasterConversation();
-        // 2026-10-13-9a59f: pass 0 — the first loop with its apply drive and verdict nudge — is a pass
+        // 2026-10-13-9a59f: pass 0 — the first loop with its apply drive — is a pass
         // of the spec; opened here, synchronously, so every call it makes carries it.
         var pass0 = passes.Open(context.Pipeline, passInStep: 0);
         Task EndPass0(string reason) => passes.EndAsync(context.Pipeline, pass0, reason, null,
-            new Passes.MasterPassState(progress.GetLedger(), fs.GetChanges(), null, null));
+            new Passes.MasterPassState(progress.GetLedger(), fs.GetChanges(), false, false));
         AgenticLoopResult loopResult;
         try
         {
@@ -486,6 +494,8 @@ public sealed class AgenticMasterHandler(
             loopResult = await dialogTurn.ConcludeAsync(context, loopResult, cancellationToken);
 
         var changes = fs.GetChanges();
+        // 2026-11-22-96c8a: the report is what the step's passes ended on.
+        var reports = MasterReport.Append([], loopResult.Response);
 
         // p0255: the master sometimes writes a plan/decisions but applies NO source
         // edits — the recurring "investigated, planned, then stopped" run that ships
@@ -508,7 +518,8 @@ public sealed class AgenticMasterHandler(
                 await team.StopAsync();
                 conversation.Continued(applyNudge, applyResult.Response);
                 TrackMasterResponse(applyResult.Response);
-                loopResult = applyResult; // the verdict comes from the apply pass
+                loopResult = applyResult;
+                reports = MasterReport.Append(reports, applyResult.Response);
                 changes = fs.GetChanges();
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -516,6 +527,29 @@ public sealed class AgenticMasterHandler(
                 // The apply retry failed on its own — keep the first pass; the
                 // keystone records the run as FAILED with a concrete reason.
                 logger.LogWarning(ex, "Apply re-prompt failed for master '{Skill}'", context.MasterSkillName);
+            }
+        }
+
+        // 2026-11-22-96c8a: the p0263 verdict nudge's place — a spec's master whose passes ended on no text at all (a
+        // worker's empty closing turn, a final reply that was only a call) is asked once for its report.
+        if (MasterReengagementPolicy.ShouldAskForReport(pipelineName, isSpecExecution && !isScanMaster && !isSpecDialog, reports.Count > 0))
+        {
+            logger.LogWarning("Master '{Skill}' ended on no text — asking once for its report", context.MasterSkillName);
+            try
+            {
+                var asked = await loopRunner.RunAsync(
+                    request with { UserPrompt = MasterNudges.AskForReport, PriorMessages = conversation.Thread() },
+                    cancellationToken);
+                await team.StopAsync();
+                conversation.Continued(MasterNudges.AskForReport, asked.Response);
+                TrackMasterResponse(asked.Response);
+                loopResult = asked;
+                reports = MasterReport.Append(reports, asked.Response);
+                changes = fs.GetChanges();
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "The report drive failed for master '{Skill}'", context.MasterSkillName);
             }
         }
 
@@ -540,46 +574,13 @@ public sealed class AgenticMasterHandler(
         context.Pipeline.Set(ContextKeys.MasterSystemPromptChars, masterBody.Length);
         context.Pipeline.Set(ContextKeys.MasterTurnsUsed, MasterTurnCount.From(loopResult.Response));
 
-        // p0241: the master's verification verdict, published for the keystone. The model owns running the
-        // build/tests and declaring the result; the framework only enforces that an unverified/red run is never
-        // reported as success. 2026-11-18-98fa: it is what finish_spec recorded, with the master's report beside it.
-        var verification = MasterReport.Standing(records.FinishSpec, conversation.Thread());
-
-        // p0263: the master changed source but did not call finish_spec (2026-11-18-98fa; was: a verdict block) — a
-        // model-fitness miss (gpt-4.1-class models do the work yet skip the closing
-        // artifact, sinking the run at the keystone). Sibling to the p0255 apply-drive:
-        // when a verdict is EXPECTED (a green-tests pipeline) and none was parsed,
-        // re-prompt the master ONCE to verify (no further edits) and emit ONLY the
-        // verdict, then re-parse. Bounded; the git + verdict keystone still gates.
-        if (MasterReengagementPolicy.ShouldNudgeForVerdict(pipelineName, verification))
-        {
-            logger.LogWarning(
-                "Master '{Skill}' changed code but emitted no verdict — re-prompting once for it",
-                context.MasterSkillName);
-            try
-            {
-                var verdictNudge = MasterNudges.BuildVerdictNudge(userPrompt, progress.GetLedger());
-                var verdictResult = await loopRunner.RunAsync(
-                    request with { UserPrompt = verdictNudge, PriorMessages = conversation.Thread() },
-                    cancellationToken);
-                await team.StopAsync();
-                conversation.Continued(verdictNudge, verdictResult.Response);
-                TrackMasterResponse(verdictResult.Response);
-                verification = MasterReport.Standing(records.FinishSpec, conversation.Thread());
-            }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                logger.LogWarning(ex, "Verdict re-prompt failed for master '{Skill}'", context.MasterSkillName);
-            }
-        }
-
         // p0341c: the OPEN loop's re-engagement — MasterReengagementLoop; it ends pass 0 with its first decision.
         pass0?.Dispose();
-        (loopResult, changes, verification) = await reengagement.RunAsync(
+        (loopResult, changes, reports) = await reengagement.RunAsync(
             new ReengageSession(context, request, userPrompt, pipelineName, progress, fs, records.Log,
-                costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p, records.Decisions, team,
-                records.FinishSpec),
-            new ReengageState(loopResult, changes, verification), pass0, verification, cancellationToken);
+                costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p, records.Decisions, team),
+            new ReengageState(loopResult, changes, reports), pass0, reports.Count > 0, cancellationToken);
+        var report = MasterReport.Join(reports);
         if (ticketClarifications?.Captured is { } reengageQuestion)
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, changes);
@@ -598,21 +599,26 @@ public sealed class AgenticMasterHandler(
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
 
-        if (verification is not null)
+        // p0241 / 2026-11-22-96c8a: what a spec's coding master leaves — its report, and on a spec it builds what one
+        // read takes off it. A derivation's master writes a spec; its report alone is kept. Nothing here decides delivery.
+        // A repair, correction or review-fix step of the same spec adds its report after the spec's earlier one (an
+        // identical text once); one that wrote no report leaves the spec's standing one as it was.
+        var standing = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var held) ? held : null;
+        if (isSpecExecution && !isScanMaster && !isSpecDialog && !(report is null && standing?.Report is not null))
         {
+            var verification = SpecWritingPromptBlocks.IsWriteOnly(context.Pipeline)
+                ? new MasterVerification(report)
+                : await reportRecorder.RecordAsync(
+                    context.Pipeline, context.AgentConfig, report, records.Log.GetDecisions(), records.HandForward, cancellationToken);
+            verification = verification with { Report = MasterReport.After(standing?.Report, reports) };
             context.Pipeline.Set(ContextKeys.MasterVerification, verification);
-            logger.LogInformation(
-                "Master '{Skill}' finished: {Status}, {FollowUps} follow-up(s), report {ReportChars} chars",
-                context.MasterSkillName, verification.Status, verification.FollowUps?.Count ?? 0,
-                verification.Report?.Length ?? 0);
-        }
-        else if (!isScanMaster && !isSpecDialog)
-        {
-            // p0278: a scan/review master never emits a build/test verdict — only a
-            // coding master is expected to, so don't warn about its absence on a scan.
-            // p0315b: same for the design-partner conversation — it ships no code.
-            logger.LogWarning(
-                "Master '{Skill}' ended without finish_spec", context.MasterSkillName);
+            if (report is null)
+                logger.LogWarning("Master '{Skill}' ended without a report", context.MasterSkillName);
+            else
+                logger.LogInformation(
+                    "Master '{Skill}' ended on its report ({ReportChars} chars), {FollowUps} follow-up(s){Problem}",
+                    context.MasterSkillName, report.Length, verification.FollowUps?.Count ?? 0,
+                    verification.ReadProblem is { } problem ? $"; not read: {problem}" : string.Empty);
         }
 
         if (decisions.Count > 0)

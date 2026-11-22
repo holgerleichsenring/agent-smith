@@ -36,9 +36,8 @@ public sealed class MasterPassCostTests
     {
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), Project);
         harness.ChatClient
-            .EnqueueDeferred(() => PricedFinish("failed"))
-            .EnqueueDeferred(() => Priced(string.Empty))
             .EnqueueDeferred(() => Priced(Red))
+            .EnqueueDeferred(() => Priced(string.Empty))
             .EnqueueThrow(new MasterBudgetExhaustedException("per-pipeline cost budget exhausted"));
 
         var runner = new PipelineRunner(harness.Services).WithSeries(new HarnessSeries.Member("Introduce the empty-payload guard", "An empty request body is answered with 400."));
@@ -52,9 +51,9 @@ public sealed class MasterPassCostTests
 
         var passes = view.Specs.Should().ContainSingle().Subject.Passes;
         passes.Take(2).Select(p => (p.PassInSpec, p.OpenedBecause, p.EndedBecause, p.ReengageReason)).Should().Equal(
-            (1, MasterPassReasons.First, MasterPassReasons.Reengaged, MasterPassReasons.RedWithOpenSteps),
-            (2, MasterPassReasons.RedWithOpenSteps, MasterPassReasons.Budget, null));
-        passes[0].Calls.Should().Be(2, "the first loop — its finish_spec call and the answer after it — was the first pass");
+            (1, MasterPassReasons.First, MasterPassReasons.Reengaged, MasterPassReasons.Unfinished),
+            (2, MasterPassReasons.Unfinished, MasterPassReasons.Budget, null));
+        passes[0].Calls.Should().Be(2, "the first loop — its report and the apply drive after it — was the first pass");
         passes[0].CostUsd.Should().BeGreaterThan(0m).And.Be(calls.Where(c => c.MasterPass == passes[0].Ordinal).Sum(c => c.CostUsd));
         calls.Should().OnlyContain(c => c.SpecId == view.Specs[0].SpecId);
         view.NotAttributed.Calls.Should().Be(0);
@@ -68,12 +67,6 @@ public sealed class MasterPassCostTests
             .Select(c => new RunPassCall(c.EventSeq, c.StepIndex, c.SpecId, c.MasterPass, c.CostUsd)).ToListAsync(),
         await uow.Set<RunStep>().AsNoTracking().Where(s => s.RunId == runId)
             .Select(s => new RunPassStep(s.EventSeq, s.StepIndex, s.CommandName)).ToListAsync());
-
-    // 2026-11-18-98fa: the master reports red through finish_spec.
-    private static ChatResponse PricedFinish(string status) =>
-        new(new ChatMessage(ChatRole.Assistant, [new TextContent(Red), new FunctionCallContent("f1", "finish_spec",
-            new Dictionary<string, object?> { ["status"] = status, ["summary"] = "the build is red" })]))
-        { Usage = new UsageDetails { InputTokenCount = 1000, OutputTokenCount = 200 } };
 
     private static ChatResponse Priced(string text) =>
         new(new ChatMessage(ChatRole.Assistant, text)) { Usage = new UsageDetails { InputTokenCount = 1000, OutputTokenCount = 200 } };

@@ -45,7 +45,7 @@ public sealed class SpecWritingPromptBlocksTests
 
         SpecWritingPromptBlocks.IsWriteOnly(pipeline).Should().BeTrue();
         SpecWritingPromptBlocks.WriteOnlyContract(StandInSets.Draft)
-            .Should().Contain("builds nothing").And.Contain("status blocked").And.NotContain("ask_human");
+            .Should().Contain("builds nothing").And.Contain("with ask_human; it is posted on the ticket").And.NotContain("finish_spec");
     }
 
     [Fact]

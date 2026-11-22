@@ -308,6 +308,9 @@ public sealed class VerifySpecHandlerTests
             [new AgentSmith.Contracts.Specs.DerivedSpec(draft, "p1", string.Empty, [])],
             AgentSmith.Contracts.Specs.SpecAccounting.Empty, [], AgentSmith.Contracts.Specs.SpecSource.Derived));
         context.Pipeline.Set(ContextKeys.MasterVerification, Report("## Delivered\nthe handler; exports stream left for a follow-up"));
+        // 2026-11-22-96c8a: the spec's follow-ups add up over its reads.
+        AgentSmith.Application.Services.Specs.Reports.MasterReportFacts.AddFollowUps(context.Pipeline, "p1",
+            context.Pipeline.Get<MasterVerification>(ContextKeys.MasterVerification).FollowUps!);
         var events = AgentSmith.Tests.TestHelpers.EventTestStubs.Recording();
 
         var result = await Handler(events).ExecuteAsync(context, CancellationToken.None);
@@ -321,8 +324,8 @@ public sealed class VerifySpecHandlerTests
     }
 
     private static MasterVerification Report(string markdown) =>
-        new(VerificationStatus.Green, true, true, true, true, "s",
-            FollowUps: [new MasterFollowUp("Exports stream over paging", "paging is its own design")], Report: markdown);
+        new(markdown,
+            FollowUps: [new MasterFollowUp("Exports stream over paging", "paging is its own design")]);
 
     /// <summary>2026-10-17-a196a: a server spec in a two-repository run is built, accounted and handed
     /// back over the server alone — the worker belongs to the spec that names it.</summary>

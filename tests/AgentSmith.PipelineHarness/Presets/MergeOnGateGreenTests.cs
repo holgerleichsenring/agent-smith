@@ -81,7 +81,7 @@ public sealed class MergeOnGateGreenTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Feature.cs","content":"public class Feature {}"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-            .EnqueueFinish(summary: "feature implemented");
+            .EnqueueReport();
         var runner = new PipelineRunner(harness.Services) { MergeOverride = merge };
         return await runner.RunAsync("code");
     }

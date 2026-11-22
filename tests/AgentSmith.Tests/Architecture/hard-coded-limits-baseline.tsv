@@ -137,7 +137,7 @@
 5	AgentSmith.Application/Services/Tools/DefaultDecisionToolHost.cs
 4	AgentSmith.Application/Services/Tools/DesignReadToolHost.cs
 1	AgentSmith.Application/Services/Tools/GuardedRedirectHandler.cs
-2	AgentSmith.Application/Services/Tools/HandForwardToolHost.cs
+2	AgentSmith.Application/Services/Tools/SpecHandForward.cs
 2	AgentSmith.Application/Services/Tools/HumanToolHost.cs
 1	AgentSmith.Application/Services/Tools/MemoryDisputeToolHost.cs
 1	AgentSmith.Application/Services/Tools/PriorRunLedgerSeeder.cs

@@ -139,7 +139,7 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
         foreach (var (path, content) in files)
             harness.ChatClient.EnqueueToolCall("write_file", JsonSerializer.Serialize(
                 new { path = "primary/" + path, content }));
-        harness.ChatClient.EnqueueFinish();
+        harness.ChatClient.EnqueueReport();
     }
 
     /// <summary>Every file of a defect variant, as repo-relative path + content.</summary>

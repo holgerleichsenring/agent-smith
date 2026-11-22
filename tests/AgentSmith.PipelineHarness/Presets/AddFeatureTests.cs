@@ -30,7 +30,7 @@ public sealed class AddFeatureTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Feature.cs","content":"public class Feature {}"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-            .EnqueueFinish(summary: "feature implemented");
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
@@ -39,7 +39,7 @@ public sealed class AddFeatureTests
     }
 
     [Fact]
-    public async Task AddFeature_MasterReturnsZeroChanges_FailsKeystone()
+    public async Task AddFeature_MasterEndsWithoutAReport_FailsNoReport()
     {
         // p0239: the preset this scenario runs is in CodeChangingPresets, so the
         // keystone refuses a run that ships nothing — exactly like fixing a bug. The
@@ -54,13 +54,14 @@ public sealed class AddFeatureTests
         // derivation; the master then answers with no tool calls = no changes.
         harness.ChatClient.EnqueueText("{}")
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
-            .EnqueueText("Already implemented.");
+            // 2026-11-22-96c8a: no pass ends on any text — the first loop, its apply drive, the one ask for the report and
+            // the re-drive alike.
+            .EnqueueText(string.Empty).EnqueueText(string.Empty).EnqueueText(string.Empty).EnqueueText(string.Empty);
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("code");
 
-        result.IsSuccess.Should().BeFalse(
-            "a feature run that changed no source must not be a success");
-        result.Message.Should().Contain("did not report its result");
+        result.IsSuccess.Should().BeFalse("a spec with done lines and nobody's word on them is not delivered");
+        result.Message.Should().Contain("ended without writing a report");
     }
 }

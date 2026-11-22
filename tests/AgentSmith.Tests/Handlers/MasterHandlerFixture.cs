@@ -37,7 +37,8 @@ internal static class MasterHandlerFixture
         AgentSmith.Contracts.Events.IRunContextAccessor? runContext = null,
         IDecisionLogger? decisions = null,
         AgentSmith.Contracts.Events.IEventPublisher? recordEvents = null,
-        AgentSmith.Contracts.Memory.IProjectMemoryRepository? projectMemory = null) =>
+        AgentSmith.Contracts.Memory.IProjectMemoryRepository? projectMemory = null,
+        AgentSmith.Contracts.Services.IChatClientFactory? reportReads = null) =>
         new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger(), recordEvents, projectMemory),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
@@ -83,8 +84,17 @@ internal static class MasterHandlerFixture
             AgentSmith.Tests.TestHelpers.MemoryStandings.IndexReader(Repositories()),
             dialogueTransport: null,
             Composition(maxSubAgents, subAgents, limits, figma, render),
+            ReportRecorder(reportReads ?? new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory()),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(), new AgentSmith.Application.Services.Turns.MidTurnMessageTools(),
             NullLogger<AgenticMasterHandler>.Instance);
+
+    /// <summary>2026-11-22-96c8a: the report recorder over a chat factory that answers the report's read.</summary>
+    internal static AgentSmith.Application.Services.Specs.Reports.MasterReportRecorder ReportRecorder(
+        AgentSmith.Contracts.Services.IChatClientFactory reads) =>
+        new(new AgentSmith.Application.Services.Specs.Reports.MasterReportReader(
+                reads, new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(),
+                NullLogger<AgentSmith.Application.Services.Specs.Reports.MasterReportReader>.Instance),
+            NullLogger<AgentSmith.Application.Services.Specs.Reports.MasterReportRecorder>.Instance);
 
     /// <summary>The dialog turn's prompt and reply handling: both prompt contracts and the mechanical checks on the
     /// master's draft (2026-11-18-9c1ca: no review after the turn).</summary>

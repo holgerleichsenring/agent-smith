@@ -6,8 +6,8 @@ using FluentAssertions;
 
 namespace AgentSmith.Tests.Specs;
 
-/// <summary>2026-11-18-98fa: a spec's account is its master's markdown report and the follow-ups finish_spec carried —
-/// no rows, nothing judged per done line.</summary>
+/// <summary>2026-11-18-98fa: a spec's account is its master's markdown report and (2026-11-22-96c8a) every follow-up the
+/// reads of its passes took off it — no rows, nothing judged per done line.</summary>
 public sealed class MasterReportAccountTests
 {
     private static readonly string[] Done = ["GET /orders/{id} returns 404", "Exports stream CSV"];
@@ -15,7 +15,10 @@ public sealed class MasterReportAccountTests
     [Fact]
     public void For_AFinishedSpec_CarriesTheReportAndFollowUpsAndNoRows()
     {
-        var account = MasterReportAccount.For(Pipeline(Finished("## Delivered\n- the 404", "Exports stream CSV over paging")), ["api"]);
+        var pipeline = Pipeline(Finished("## Delivered\n- the 404", "Exports stream CSV over paging"));
+        AgentSmith.Application.Services.Specs.Reports.MasterReportFacts.AddFollowUps(pipeline, "s1",
+            [new MasterFollowUp("Exports stream CSV over paging", "its own design")]);
+        var account = MasterReportAccount.For(pipeline, ["api"]);
 
         account.RepoKey.Should().Be("api");
         account.Criteria.Should().BeEmpty();
@@ -28,6 +31,8 @@ public sealed class MasterReportAccountTests
     {
         var pipeline = Pipeline(Finished("repair report", "second"));
         pipeline.Set(ContextKeys.MasterVerificationBeforeRepair, Finished("first report", "first"));
+        AgentSmith.Application.Services.Specs.Reports.MasterReportFacts.AddFollowUps(pipeline, "s1", [new MasterFollowUp("first", "its own design")]);
+        AgentSmith.Application.Services.Specs.Reports.MasterReportFacts.AddFollowUps(pipeline, "s1", [new MasterFollowUp("second", "its own design")]);
 
         var account = MasterReportAccount.For(pipeline, ["api"]);
 
@@ -36,9 +41,11 @@ public sealed class MasterReportAccountTests
     }
 
     [Fact]
-    public void Missing_DoneLinesAndNoFinishSpec_SaysSo_AFinishOrNoDoneList_IsNotMissing()
+    public void Missing_DoneLinesAndNoReport_SaysSo_AReportOrNoDoneList_IsNotMissing()
     {
-        MasterReportAccount.Missing(Pipeline(null)).Should().Be(MasterReportAccount.NoFinish).And.Contain("Retry unchanged");
+        MasterReportAccount.Missing(Pipeline(null)).Should().Be(MasterReportAccount.NoReport).And.Contain("Retry unchanged");
+        MasterReportAccount.Missing(Pipeline(new MasterVerification(null))).Should().Be(MasterReportAccount.NoReport,
+            "2026-11-22-96c8a: a master that wrote no report has nobody's word on the spec");
         MasterReportAccount.Missing(Pipeline(Finished("r", "f"))).Should().BeNull();
         MasterReportAccount.Missing(new PipelineContext()).Should().BeNull();
     }
@@ -52,6 +59,6 @@ public sealed class MasterReportAccountTests
     }
 
     private static MasterVerification Finished(string report, string followUp) =>
-        new(VerificationStatus.Green, true, true, true, true, "s",
-            FollowUps: [new MasterFollowUp(followUp, "its own design")], Report: report);
+        new(report,
+            FollowUps: [new MasterFollowUp(followUp, "its own design")]);
 }

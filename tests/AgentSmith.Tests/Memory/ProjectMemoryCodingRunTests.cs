@@ -128,14 +128,13 @@ public sealed class ProjectMemoryCodingRunTests
     public async Task HandForward_ReliedOnAtProjectSlug_RecordsUnderTheProjectKey()
     {
         var pipeline = Run();
-        var hand = new HandForwardToolHost(pipeline, Spec, Memory(pipeline, Rows("contracts-first")));
+        var hand = new SpecHandForward(pipeline, Spec, Memory(pipeline, Rows("contracts-first")));
 
         var answer = await hand.HandForward(relied_on: ["@project/contracts-first"]);
 
         answer.Should().Contain("relied on 1 memories");
         _events.Events.OfType<MemoryUseRecordedEvent>().Single().Relied.Should().Equal(
             new MemoryCitation(ProjectMemorySource.Label, "project-memory:42", "contracts-first"));
-        hand.GetTools(null, null).OfType<AIFunction>().Single().Description.Should().Contain("'@project/slug'");
     }
 
     [Fact]

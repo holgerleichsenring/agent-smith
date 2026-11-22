@@ -28,21 +28,48 @@ public sealed class ExternalWorkerTicketTests
     private const string ScopeEstimateReply =
         """{"repos":[{"name":"csharp-fixture","affected":true,"confidence":0.95}],"complexity":"small","shape":"deterministic","shape_reason":"one guard clause, checked by building and testing"}""";
 
-    private const string AttackBuild = """{"verdict": "BUILD", "cuts": [], "findings": []}""";
-
     private static ScriptedWorkerProcessRunner MechanicalTicketWorker() =>
         new ScriptedWorkerProcessRunner()
             // p0413a: ScopeRepos estimates every ticketed run — one repository has
             // nothing to scope, but its size and shape are still asked for, and in
             // worker mode the worker answers that call like every other.
             .EnqueueText(ScopeEstimateReply)
-            // 2026-10-13-8762g: ReviewSpecs asks spec_review.reviewers (2) fresh reviewers before the master.
-            .EnqueueText(AttackBuild).EnqueueText(AttackBuild)
+            // 2026-11-22-96c8a: no reviewer is asked before the master any more (3e10); the two replies once scripted
+            // for them were answered by the master's verdict nudges, which are gone with finish_spec.
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress",
                 """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-            .EnqueueFinish();
+            .EnqueueReport();
+
+    /// <summary>2026-11-22-96c8a: a worker's empty closing turn (WorkerReplyTranslator.EmptyTurn) leaves no report; the
+    /// master is asked once for it, answers, and the spec is delivered on that report.</summary>
+    [Fact]
+    public async Task Harness_WorkerEmptyClosingTurn_IsAskedOnceForItsReport_AndDelivered()
+    {
+        const string report = "## Delivered\n- Patch.cs answers an empty body with 400";
+        var worker = new ScriptedWorkerProcessRunner()
+            .EnqueueText(ScopeEstimateReply)
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
+            .EnqueueToolCall("update_progress",
+                """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
+            .EnqueueRaw(string.Empty)
+            .EnqueueText(report);
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default),
+            services =>
+            {
+                HarnessProjectAnalyzerStub.Register(services);
+                ExternalWorkerHarness.DrivenBy(worker)(services);
+            });
+
+        var runner = new PipelineRunner(harness.Services) { AgentOverride = ExternalWorkerHarness.Agent() };
+        var result = await runner.RunAsync("code");
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        AgentSmith.Application.Services.Specs.RunAccountLedger.Current(runner.LastContext!).Specs.Single().Accounts.Single()
+            .Report.Should().Be(report);
+    }
 
     [Fact]
     public async Task Harness_MechanicalTicket_DrivenExternally_EndsGreen()

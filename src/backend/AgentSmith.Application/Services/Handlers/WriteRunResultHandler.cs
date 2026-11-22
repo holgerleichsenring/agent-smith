@@ -69,8 +69,8 @@ public sealed class WriteRunResultHandler(
     private async Task PublishIgnoredInstructionsAsync(
         WriteRunResultContext context, string runId, CancellationToken ct)
     {
-        if (!context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
-            || mv?.IgnoredInstructions is not { Count: > 0 } ignored)
+        // 2026-11-22-96c8a: every spec's and pass's refusals, kept for the run.
+        if (Specs.Reports.MasterReportFacts.Ignored(context.Pipeline) is not { Count: > 0 } ignored)
             return;
         foreach (var i in ignored)
         {
@@ -279,9 +279,7 @@ public sealed class WriteRunResultHandler(
         // (failureReason) is computed once in WriteSingleAsync and passed in, so
         // result.md never claims success for a run that changed no real source /
         // failed verification — and the p0380 narrative twin gates on the same value.
-        var ignoredInstructions = context.Pipeline.TryGet<MasterVerification>(
-            ContextKeys.MasterVerification, out var mv) && mv?.IgnoredInstructions is { Count: > 0 } ii
-            ? ii : null;
+        var ignoredInstructions = Specs.Reports.MasterReportFacts.Ignored(context.Pipeline) is { Count: > 0 } ii ? ii : null;
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket!, context.Plan, repoChanges, runId, duration, cost, trail, decisions, trend,
             dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName, failureReason,

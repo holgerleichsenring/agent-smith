@@ -26,6 +26,9 @@ public sealed class TicketClarificationToolHost : IToolHost
     /// </summary>
     private const string TicketQuestionLabel = "1";
 
+    /// <summary>2026-11-22-96c8a: true on a spec derivation, whose question is handed back and ends the run.</summary>
+    public bool Derivation { get; init; }
+
     /// <summary>The first question the master asked this run, if any.</summary>
     public PlanOpenQuestion? Captured { get; private set; }
 
@@ -56,9 +59,13 @@ public sealed class TicketClarificationToolHost : IToolHost
         {
             RecommendedIndex = recommended_index is { } i && choices is not null && i >= 0 && i < choices.Count ? i : null,
         };
-        return "This run cannot receive a live answer. Your question will be posted to the "
-            + "ticket and the run pauses until the operator answers; it then continues with "
-            + "the answer in your input. STOP now: make no further changes, emit no verdict, "
-            + "and end your reply with a one-line note that you are waiting for the answer.";
+        return Derivation
+            // 2026-11-22-96c8a: a spec derivation ends on the question; the answer starts a new run.
+            ? "Your question will be posted to the ticket and this derivation ends; it resumes with the answer as a "
+              + "new run. STOP now: make no further changes, and end your reply with a one-line note that you asked."
+            : "This run cannot receive a live answer. Your question will be posted to the "
+              + "ticket and the run pauses until the operator answers; it then continues with "
+              + "the answer in your input. STOP now: make no further changes, "
+              + "and end your reply with a one-line note that you are waiting for the answer.";
     }
 }

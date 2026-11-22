@@ -42,7 +42,7 @@ public sealed class ProjectMapIsolationTests
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
-            .EnqueueFinish(summary: "fixed");
+            .EnqueueReport();
 
         var result = await new PipelineRunner(harness.Services).RunAsync("code");
 

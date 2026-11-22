@@ -114,7 +114,7 @@ public sealed class BuildNoteContractCheckTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SpecSet, Set(Owned));
 
-        var answer = await new HandForwardToolHost(pipeline, B).HandForward(persisted: ["table RunDefaults"]);
+        var answer = await new SpecHandForward(pipeline, B).HandForward(persisted: ["table RunDefaults"]);
 
         answer.Should().StartWith($"Build note for {B} recorded").And.Contain("conflicts with the series contract")
             .And.Contain($"\"table RunDefaults\" persists 'RunDefaults', which the contract gives to {A} (not declared in your deviations)");

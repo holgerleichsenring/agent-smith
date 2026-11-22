@@ -26,7 +26,7 @@ public sealed class SpecBuildNoteTests
     public async Task HandForward_SecondCall_ReplacesTheNote()
     {
         var pipeline = new PipelineContext();
-        var host = new HandForwardToolHost(pipeline, First);
+        var host = new SpecHandForward(pipeline, First);
 
         await host.HandForward(renamed: ["Bus -> MessageBus"], persisted: ["table RunDefaults"]);
         var answer = await host.HandForward(moved: ["src/A.cs -> src/Bus/A.cs"]);
@@ -42,7 +42,7 @@ public sealed class SpecBuildNoteTests
     public async Task HandForward_OverBound_IsRefusedByName()
     {
         var pipeline = new PipelineContext();
-        var host = new HandForwardToolHost(pipeline, First);
+        var host = new SpecHandForward(pipeline, First);
 
         var tooMany = await host.HandForward(persisted: [.. Enumerable.Range(1, 21).Select(i => $"table T{i}")]);
         var tooLong = await host.HandForward(deviations: [new string('x', 301)]);
@@ -57,7 +57,7 @@ public sealed class SpecBuildNoteTests
     {
         var pipeline = new PipelineContext();
 
-        var answer = await new HandForwardToolHost(pipeline, First)
+        var answer = await new SpecHandForward(pipeline, First)
             .HandForward(renamed: ["Bus -> MessageBus", "Bus became MessageBus"], moved: ["a ->b"]);
 
         answer.Should().StartWith("Error")
@@ -107,7 +107,7 @@ public sealed class SpecBuildNoteTests
     public async Task SpecBuildNoteReader_ExecutedSpecYaml_ReadsTheNote()
     {
         var pipeline = Pipeline(executed: []);
-        await new HandForwardToolHost(pipeline, First).HandForward(renamed: ["Bus -> MessageBus"], deviations: ["no retry"]);
+        await new SpecHandForward(pipeline, First).HandForward(renamed: ["Bus -> MessageBus"], deviations: ["no retry"]);
 
         var read = SpecBuildNoteReader.Read(SpecRecordBody.For(Draft(First), pipeline), First);
 
@@ -127,7 +127,7 @@ public sealed class SpecBuildNoteTests
         var pipeline = Pipeline(executed: [First], firstYaml: recorded, withThird: true);
         pipeline.Set(ContextKeys.SpecSequenceProgress, SpecSequenceProgress.ForSet(pipeline.Get<SpecSet>(ContextKeys.SpecSet))
             .With(Second, SpecRunState.Done));
-        await new HandForwardToolHost(pipeline, Second).HandForward(persisted: ["column Runs.Note"]);
+        await new SpecHandForward(pipeline, Second).HandForward(persisted: ["column Runs.Note"]);
 
         var notes = PrecedingSpecs.NotesOf(pipeline, Third);
 
@@ -136,7 +136,7 @@ public sealed class SpecBuildNoteTests
         notes[0].DoneFile.Should().Be($"{SeriesPaths.Done}/{First}-first.yaml");
         notes[1].Note!.Persisted.Should().Equal("column Runs.Note");
 
-        await new HandForwardToolHost(pipeline, First).HandForward(renamed: ["Context -> Wins"]);
+        await new SpecHandForward(pipeline, First).HandForward(renamed: ["Context -> Wins"]);
         PrecedingSpecs.NotesOf(pipeline, Third)[0].Note!.Renamed.Should().Equal("Context -> Wins");
 
         var bare = Pipeline(executed: [First], withThird: true);
@@ -166,7 +166,7 @@ public sealed class SpecBuildNoteTests
         var pipeline = Pipeline(executed: []);
         pipeline.Set(ContextKeys.SpecSequenceProgress, SpecSequenceProgress.ForSet(pipeline.Get<SpecSet>(ContextKeys.SpecSet))
             .With(First, SpecRunState.Done));
-        await new HandForwardToolHost(pipeline, First).HandForward(renamed: ["Bus -> MessageBus"]);
+        await new SpecHandForward(pipeline, First).HandForward(renamed: ["Bus -> MessageBus"]);
         pipeline.Set(ContextKeys.CurrentSpec, Draft(Second));
         pipeline.Set(ContextKeys.MemoryIndex, "- [bus-name](bus-name.md) — the bus is MessageBus now");
 
@@ -177,7 +177,7 @@ public sealed class SpecBuildNoteTests
         prompt.Should().Contain(SpecBuildNoteSection.Heading).And.Contain($"### {First}")
             .And.Contain("- renamed: Bus -> MessageBus")
             .And.Contain("## Experiential memory index").And.Contain("bus-name")
-            .And.Contain("finish_spec also carries the build note");
+            .And.Contain("Your report also names what you renamed and moved").And.NotContain("finish_spec");
     }
 
     internal static SpecDraft Draft(string id, string? yaml = null) =>

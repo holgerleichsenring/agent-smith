@@ -29,14 +29,10 @@ internal static class MasterReengagementPolicy
         && PipelinePresets.ExpectsCodeChanges(pipelineName)
         && !changes.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
 
-    // p0263: re-prompt the master to EMIT ITS VERDICT when it changed source but
-    // emitted no parseable verdict ("Your verdict") and a verdict is expected. Model-fitness
-    // salvage — the skill instructs "Your verdict"; some models skip the closing artifact.
-    // Pure + testable. Mirrors ShouldDriveApply.
-    internal static bool ShouldNudgeForVerdict(string? pipelineName, MasterVerification? verification) =>
-        verification is null
-        && !string.IsNullOrEmpty(pipelineName)
-        && PipelinePresets.ExpectsCodeChanges(pipelineName);
+    // 2026-11-22-96c8a: a spec's coding master whose passes ended on no text at all is asked once for its report — the
+    // place the p0263 verdict nudge had. Then the run decides as always.
+    internal static bool ShouldAskForReport(string? pipelineName, bool specExecution, bool hasReport) =>
+        !hasReport && specExecution && !string.IsNullOrEmpty(pipelineName) && PipelinePresets.ExpectsCodeChanges(pipelineName);
 
     // p0341e: the ratified acceptance criteria for this run (empty when nothing was negotiated —
     // fix-bug self-planning, ticketless runs). Same source the keystone reads.

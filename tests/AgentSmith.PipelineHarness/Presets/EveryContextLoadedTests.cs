@@ -37,7 +37,7 @@ public sealed class EveryContextLoadedTests
             .EnqueueScopeReply(ScopeReply)
             .EnqueueText("Planning: raise both floors.")
             .EnqueueToolCall("write_file", """{"path":"primary/backend/package.json","content":"{}"}""")
-            .EnqueueFinish();
+            .EnqueueReport();
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
         var result = await runner.RunAsync("code");

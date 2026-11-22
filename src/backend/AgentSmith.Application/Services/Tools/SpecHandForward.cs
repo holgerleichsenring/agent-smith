@@ -3,47 +3,26 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
-using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
 /// 2026-10-13-8762m: hand_forward — the build note the master leaves for the next spec of its series:
-/// what it renamed, moved, persisted and deviated from. A call replaces the current spec's note (the
-/// last call wins). The record step writes it into the spec's record, the only place it is kept.
+/// what it renamed, moved, persisted and deviated from. The record step writes it into the spec's record, the only
+/// place it is kept. 2026-11-22-96c8a: <see cref="RecordReadAsync"/> merges per field — a read replaces only the
+/// fields it names — and hands <see cref="HandForward"/> the merged note.
 /// 2026-10-25-9324b: and which memories the spec acted on, each checked against its store and published, so a
 /// memory's standing can be traced to the work that used it. 2026-11-10-fcd7c: a project memory is relied on as
-/// '@project/slug' where the composition keeps one.
+/// '@project/slug' where the composition keeps one. 2026-11-22-96c8a: no tool any more — the master names these in
+/// its report and <see cref="RecordReadAsync"/> writes what the report's read admits; this stays the one writer.
 /// </summary>
-public sealed class HandForwardToolHost(PipelineContext pipeline, string specId, MasterMemoryUse? memory = null) : IToolHost
+public sealed partial class SpecHandForward(
+    PipelineContext pipeline, string specId, MasterMemoryUse? memory = null, ILogger? logger = null)
 {
-    public const string Name = "hand_forward";
     public const int MaxEntries = 20;
     public const int MaxEntryChars = 300;
     public const string Arrow = " -> ";
-
-    public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? stage, string? investigatorMode)
-    {
-        _ = stage;
-        _ = investigatorMode;
-        return [AIFunctionFactory.Create(HandForward, new AIFunctionFactoryOptions
-        {
-            Name = Name, Description = memory?.OffersProject == true ? Described + ProjectForm : Described,
-        })];
-    }
-
-    private const string Described =
-        "Hands a build note to the next spec of this series; call it once, before finish_spec. List " +
-        "what this spec RENAMED and MOVED (each entry '<old> -> <new>': the old name or path, a space, " +
-        "the arrow '->', a space, the new one), what it PERSISTED (tables, columns, files, keys a later " +
-        "spec reads) and where it DEVIATED from the spec text and why. At most 20 entries per list and " +
-        "300 characters per entry; an empty list is fine. A second call replaces the first. The note is " +
-        "written into this spec's record and shown to the next spec's master. In RELIED_ON name the stored " +
-        "memories this spec acted on ('slug', or 'repository/slug' when several repositories store it): a " +
-        "memory is a hint with a track record, never a rule, and what becomes of this spec becomes its record.";
-
-    // 2026-11-10-fcd7c: named only where a project store exists, built at runtime rather than in an attribute.
-    private const string ProjectForm = " A memory the project keeps is named '@project/slug'.";
 
     public async Task<string> HandForward(
         [Description("Renamed names, each '<old> -> <new>'.")] string[]? renamed = null,
@@ -59,10 +38,11 @@ public sealed class HandForwardToolHost(PipelineContext pipeline, string specId,
             ("persisted", Clean(persisted), false), ("deviations", Clean(deviations), false),
         };
         var refusals = lists.SelectMany(Refusals).ToList();
-        var relied = memory is null ? null : await memory.ResolveAsync(Clean(relied_on), ct);
+        // 2026-11-22-96c8a: no relied_on named, no reliance recorded — an empty list never replaces an earlier one.
+        var relied = memory is null || relied_on is not { Length: > 0 } ? null : await memory.ResolveAsync(Clean(relied_on), ct);
         refusals.AddRange(relied?.Problems.Select(p => $"relied_on {p}") ?? []);
         if (refusals.Count > 0)
-            return $"Error: hand_forward refused, nothing was recorded: {string.Join("; ", refusals)}.";
+            return $"Error: the build note was refused, nothing was recorded: {string.Join("; ", refusals)}.";
 
         var notes = pipeline.TryGet<IReadOnlyDictionary<string, SpecBuildNote>>(ContextKeys.SpecBuildNotes, out var held)
             && held is not null ? new Dictionary<string, SpecBuildNote>(held, StringComparer.Ordinal)
@@ -72,7 +52,7 @@ public sealed class HandForwardToolHost(PipelineContext pipeline, string specId,
         if (relied is not null) await memory!.RecordReliedAsync(specId, relied.Citations, ct);
         return $"Build note for {specId} recorded ({lists.Sum(l => l.Entries.Count)} entries"
             + (relied is null ? string.Empty : $", relied on {relied.Citations.Count} memories")
-            + "); a later call replaces it." + Conflicts(note);
+            + "); a later read replaces only the fields it names." + Conflicts(note);
     }
 
     // 2026-10-13-8762n: what the note does against the series contract — shown, never refused.

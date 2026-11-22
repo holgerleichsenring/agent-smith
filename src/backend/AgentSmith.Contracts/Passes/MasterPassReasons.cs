@@ -10,8 +10,11 @@ public static class MasterPassReasons
     public const string Reengaged = "re-engaged";
     public const string NothingLeft = "nothing-left";
     public const string Budget = "budget";
+    /// <summary>2026-11-22-96c8a: words of stored passes only — no pass ends on a closing-tool verdict any more.</summary>
     public const string RedAccepted = "red-accepted";
     public const string Verdictless = "verdictless";
+    /// <summary>2026-11-22-96c8a: actionable checklist steps were still open after their one re-drive.</summary>
+    public const string StepsOpen = "steps-open";
     public const string Idle = "idle";
     public const string Blocked = "blocked";
     public const string SelfRefilled = "self-refilled";
@@ -23,9 +26,10 @@ public static class MasterPassReasons
     public const string Unknown = "unknown";
 
     // Re-engaged because — also what the next pass opened because.
+    /// <summary>2026-11-22-96c8a: a word of stored passes only.</summary>
     public const string RedWithOpenSteps = "red-with-open-steps";
     public const string UnbackedDone = "unbacked-done";
-    /// <summary>2026-11-18-98fa: the spec's master ended without finish_spec; it is driven once more for it.</summary>
+    /// <summary>2026-11-22-96c8a: the master ended with actionable checklist steps open; it is driven once more for them.</summary>
     public const string Unfinished = "unfinished";
 
     // Opened because, for a pass that is not a re-engagement.

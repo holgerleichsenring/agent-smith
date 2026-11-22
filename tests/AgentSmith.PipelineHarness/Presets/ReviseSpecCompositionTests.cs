@@ -96,11 +96,14 @@ public sealed class ReviseSpecCompositionTests
             .EnqueueDeferred(() =>
             {
                 harness.StubSandboxFactory!.GitAnswers.Remove(StagedNames);
-                return new ChatResponse(new ChatMessage(ChatRole.Assistant, [new TextContent(verdict),
-                    new FunctionCallContent("call_finish", "finish_spec",
-                        new Dictionary<string, object?> { ["status"] = "green", ["summary"] = "done" })]));
+                // 2026-11-22-96c8a: the master marks its checklist done, then ends on its report.
+                return new ChatResponse(new ChatMessage(ChatRole.Assistant,
+                    [new FunctionCallContent("call_progress", "update_progress", new Dictionary<string, object?>
+                    {
+                        ["items"] = System.Text.Json.JsonSerializer.SerializeToElement(new[] { new { id = "guard", activity = "the guard", status = "done" } }),
+                    })]));
             })
-            .EnqueueText(string.Empty);
+            .EnqueueText(verdict);
 
     // The master re-emits the spec its prompt carries, with the operator's criterion added.
     private static ChatResponse ReviseCall(RealCompositionHarness harness)

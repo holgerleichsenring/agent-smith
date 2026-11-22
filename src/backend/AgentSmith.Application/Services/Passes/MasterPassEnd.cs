@@ -5,8 +5,8 @@ using AgentSmith.Contracts.Passes;
 namespace AgentSmith.Application.Services.Passes;
 
 /// <summary>
-/// 2026-10-13-9a59f: the end of one pass as the event carries it. 2026-11-18-98fa: a pass's verdict is its own
-/// finish_spec call; nothing is counted per done line, and the gate line names the standing finish_spec status.
+/// 2026-10-13-9a59f: the end of one pass as the event carries it. 2026-11-22-96c8a: VerdictEmitted says the pass
+/// ended on a report of its own, and the gate line whether a report stands; nothing is counted per done line.
 /// </summary>
 internal static class MasterPassEnd
 {
@@ -16,11 +16,11 @@ internal static class MasterPassEnd
         return new MasterPassEndedEvent(
             pass.RunId, at, pass.SpecId, pass.Ordinal, pass.PassInStep, pass.OpenedBecause, endedBecause,
             endedBecause == MasterPassReasons.Reengaged ? reengageReason : null,
-            VerdictEmitted: state.Emitted is not null,
+            VerdictEmitted: state.ReportWritten,
             CriteriaMet: null,
             CriteriaTotal: null,
             Criteria: null,
-            GateLine: state.Standing is { } standing ? $"finish_spec: {standing.Status}" : "finish_spec not called",
+            GateLine: state.HasReport ? "report written" : "no report",
             ActionablePending: state.Ledger.ActionablePending.Count,
             UnbackedDone: ProgressLedgerCoverage.UnbackedDoneSteps(state.Ledger, state.Changes).Count);
     }

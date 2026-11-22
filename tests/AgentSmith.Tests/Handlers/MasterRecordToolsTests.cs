@@ -38,9 +38,8 @@ public sealed class MasterRecordToolsTests
         records.Recall.GetTools(null, null).Should().ContainSingle();
 
         pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft("2026-10-14-5678a", "goal", "spec: 2026-10-14-5678a\n", []));
-        MasterHandlerFixture.RecordHosts(decisions).Create(pipeline, "/work").HandForward
-            .Should().NotBeNull().And.Subject.As<HandForwardToolHost>().GetTools(null, null).Single().Name
-            .Should().Be(HandForwardToolHost.Name);
+        // 2026-11-22-96c8a: the spec's build-note writer, no tool — the report's read hands it what it names.
+        MasterHandlerFixture.RecordHosts(decisions).Create(pipeline, "/work").HandForward.Should().NotBeNull();
     }
 
     [Fact]
@@ -74,13 +73,10 @@ public sealed class MasterRecordToolsTests
         var pipeline = TwoRepositories();
 
         hosts.Create(pipeline, "/work", codingMaster: true).ReviseSpec.Should().BeNull("no spec is current");
-        hosts.Create(pipeline, "/work", codingMaster: true).FinishSpec.Should().BeNull("2026-11-18-98fa: nor finish_spec");
         pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft("2026-10-14-5678a", "goal", "spec: 2026-10-14-5678a\n", []));
         hosts.Create(pipeline, "/work", codingMaster: false).ReviseSpec.Should().BeNull("a scan master revises nothing");
-        hosts.Create(pipeline, "/work", codingMaster: false).FinishSpec.Should().BeNull("nor finishes a spec");
-        hosts.Create(pipeline, "/work", codingMaster: true).SpecTools.Select(t => t.Name)
-            .Should().Equal(HandForwardToolHost.Name, AgentSmith.Application.Services.Specs.Revision.ReviseSpecToolHost.Name,
-                FinishSpecToolHost.Name);
+        hosts.Create(pipeline, "/work", codingMaster: true).ReviseSpec.Should().NotBeNull();
+        hosts.Create(pipeline, "/work", codingMaster: true).HandForward.Should().NotBeNull("the report's build note has its writer");
     }
 
     [Fact]

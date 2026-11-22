@@ -44,7 +44,7 @@ public sealed class SpecEntryGrounding(
     /// <summary>The revision's cause: each old and new citation, at most <see cref="NamedInCause"/> named.</summary>
     public static string Cause(string specId, IReadOnlyList<SpecCitationMove> moves) =>
         $"{SpecRevisionCause.CitationsRegrounded} {specId}: "
-        + string.Join("; ", moves.Take(NamedInCause).Select(m => m.Old + Tools.HandForwardToolHost.Arrow + m.New))
+        + string.Join("; ", moves.Take(NamedInCause).Select(m => m.Old + Tools.SpecHandForward.Arrow + m.New))
         + (moves.Count > NamedInCause ? $" and {moves.Count - NamedInCause} more" : string.Empty);
 
     private async Task<(DerivedSpec Spec, string? Failure)> PublishAsync(
