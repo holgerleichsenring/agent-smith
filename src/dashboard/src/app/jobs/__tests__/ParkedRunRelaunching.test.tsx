@@ -89,7 +89,8 @@ describe("The run page of a parked run", () => {
 
     // 1. the status sentence — 2026-11-16-6877b: the default view's one line, no question card.
     expect(await screen.findByTestId("run-now-line")).toHaveTextContent("Answered, place 3 in line. Nothing for you to do.");
-    expect(screen.getByTestId("run-meta-state")).toHaveTextContent("resuming, place 3");
+    // 2026-11-22-7103a: the state word is the run's status head.
+    expect(screen.getByTestId("run-meta-state")).toHaveTextContent("Resuming, place 3");
     expect(screen.getByTestId("run-meta-state")).toHaveAttribute("data-tone", "run");
     expect(screen.queryByTestId("run-question")).not.toBeInTheDocument();
     // 2026-11-17-6d9ed: the graph view's wrapper, banner, side rail and story spine are gone; the page says it once.
@@ -101,8 +102,9 @@ describe("The run page of a parked run", () => {
     renderPage(parked());
 
     expect(await screen.findByTestId("run-now-label")).toHaveTextContent("Waiting for your answer");
-    expect(screen.getByTestId("run-meta-state")).toHaveTextContent("needs you");
-    expect(screen.getByTestId("run-meta-state")).toHaveAttribute("data-tone", "amber");
+    // 2026-11-22-7103a: the state word is the run's status head — a person's move, blue.
+    expect(screen.getByTestId("run-meta-state")).toHaveTextContent("Waits for your answer");
+    expect(screen.getByTestId("run-meta-state")).toHaveAttribute("data-tone", "person");
   });
 });
 

@@ -1,9 +1,8 @@
-import { summaryLine } from "@/lib/formatRunSummary";
+import { attemptStatus, statusRest, type RunStatusLine } from "@/components/jobs/runlog/runStatusLine";
 import type { TicketAttempt, TicketDerivation } from "@/types/tickets";
 import { money } from "../ticketFormat";
-import { attemptWords, outcomeTone, type OutcomeTone } from "./attemptOutcome";
+import type { StatusTone as OutcomeTone } from "@/components/jobs/runlog/runStatusLine";
 import { elapsed } from "./flowWords";
-import { reportText } from "./reportWords";
 import { derivationWords, type ThreadItem } from "./threadItems";
 
 // 2026-11-17-8d1cb: What happened as lines (TicketRail mock) — each run, derivation and folded repeat in one line:
@@ -23,16 +22,16 @@ export interface StoryLine {
   tone: OutcomeTone;
 }
 
-/** One attempt as a line. */
-export function runStoryLine(attempt: TicketAttempt): StoryLine {
-  const live = attempt.status === "running" || attempt.status === "queued" || attempt.status === "waiting_for_input";
+/** One attempt as a line. 2026-11-22-7103a: its outcome is the run's status head and its text the status line's
+ *  clauses and next step (runStatusLine), so the row is the run's one status sentence. */
+export function runStoryLine(attempt: TicketAttempt, status: RunStatusLine = attemptStatus(attempt, null)): StoryLine {
   return {
     at: attempt.finishedAt ?? attempt.startedAt,
     who: `Run ${attempt.number}`,
-    outcome: live ? null : attemptWords(attempt),
-    text: live ? reportText(attempt) : summaryLine(attempt.summary) ?? reportText(attempt),
+    outcome: status.head,
+    text: statusRest(status),
     meta: elapsed(attempt.startedAt, attempt.finishedAt),
-    tone: outcomeTone(attempt),
+    tone: status.tone,
   };
 }
 
@@ -50,14 +49,15 @@ export function derivationStoryLine(derivation: TicketDerivation): StoryLine {
   };
 }
 
-/** A folded run of equal repeats: "Runs 3–6 · 4× same cause", or "Derivations · 3×". */
-export function foldStoryLine(items: ThreadItem[]): StoryLine {
+/** A folded run of equal repeats: "Runs 3–6 · 4× same cause", or "Derivations · 3×". 2026-11-22-7103a: the line is the
+ *  LAST run's status line (`status`, with its next step when the page passes one). */
+export function foldStoryLine(items: ThreadItem[], status?: RunStatusLine): StoryLine {
   const reports = items.flatMap((i) => (i.kind === "report" ? [i.attempt] : []));
   const derivations = items.flatMap((i) => (i.kind === "derivation" ? [i.derivation] : []));
   if (reports.length > 0) {
     const first = reports[0];
     const last = reports[reports.length - 1];
-    const line = runStoryLine(first);
+    const line = runStoryLine(last, status);
     return { ...line, at: last.finishedAt ?? last.startedAt, who: `Runs ${first.number}–${last.number}`, meta: `${reports.length}× same cause` };
   }
   const line = derivationStoryLine(derivations[0]);

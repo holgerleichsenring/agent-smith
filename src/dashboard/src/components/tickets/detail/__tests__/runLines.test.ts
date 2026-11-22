@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TicketDerivation } from "@/types/tickets";
+import { attemptStatusInput, runStatus } from "@/components/jobs/runlog/runStatusLine";
 import { attemptListLine, deployListLine, derivationListLine, mergeListLine, runListLines } from "../runLines";
 import { attempt } from "./detailFixtures";
 
@@ -11,10 +12,21 @@ const derivation = (over: Partial<TicketDerivation> = {}): TicketDerivation => (
 });
 
 describe("runLines", () => {
-  it("attemptListLine_NamesOutcomeEndKindFirstLineDurationCostAndTheRun", () => {
-    const line = attemptListLine(attempt({ status: "failed", endKind: "bootstrap-missing", summary: "Pipeline aborted\nmore", cost: 0.71 }));
-    expect(line).toMatchObject({ who: "Run 1", outcome: "failed · bootstrap missing", text: "Pipeline aborted", tone: "bad", href: "/jobs/r-1" });
+  // 2026-11-22-7103a: the outcome and text are the run's status line — its head and its clauses.
+  it("attemptListLine_NamesTheStatusHeadDurationCostAndTheRun", () => {
+    const line = attemptListLine(attempt({ status: "failed", summary: "Pipeline aborted\nmore", cost: 0.71 }));
+    expect(line).toMatchObject({ who: "Run 1", outcome: "Failed: Pipeline aborted", text: "", tone: "bad", href: "/jobs/r-1" });
     expect(line.meta).toMatch(/ · 30m 0s · \$0\.71$/);
+  });
+
+  it("AttemptListLine_Shortfall_SameHeadAndToneAsTheStatusLine", () => {
+    const a = attempt({ status: "shortfall", executedSpecs: [
+      { specId: "s1", ordinal: 1, title: "one", status: "done", verdict: null },
+      { specId: "s2", ordinal: 2, title: "two", status: "failed", verdict: "No report was written. Retry." }] });
+    const line = attemptListLine(a);
+    const status = runStatus(attemptStatusInput(a));
+    expect(line).toMatchObject({ outcome: status.head, tone: status.tone });
+    expect(line).toMatchObject({ outcome: "1 of 2 specs delivered", text: "s2: No report was written.", tone: "bad" });
   });
 
   it("derivationListLine_SaysWhatCameOfIt_SoFarWhileRunning", () => {
@@ -44,5 +56,14 @@ describe("runLines", () => {
     expect(deployListLine(deploy)).toMatchObject({ who: "Deploy", outcome: "delivered", tone: "ok", href: "/jobs/dp-1" });
     const lines = runListLines([attempt({ startedAt: "2026-09-04T10:00:00Z" })], [], [deploy]);
     expect(lines.map((l) => l.runId)).toEqual(["dp-1", "r-1"]);
+  });
+
+  it("RunListLines_NewestAttempt_CarriesTheNextStep_AnOlderOnePointsAtTheLatest", () => {
+    const one = attempt({ number: 1, runId: "r-1", status: "failed", summary: "Pod did not start" });
+    const two = attempt({ number: 2, runId: "r-2", status: "failed", summary: "Pod did not start", startedAt: "2026-09-04T15:00:00Z" });
+    const move = { tone: "bad", title: "Stopped", text: "", detail: null, act: null, why: true, question: false, next: "Reply below" } as const;
+    const [newest, older] = runListLines([one, two], [], [], { move, latest: two, canRetry: true });
+    expect(newest.text).toBe("→ Reply below.");
+    expect(older.text).toBe("→ See run 2, the latest.");
   });
 });

@@ -6,7 +6,8 @@ import type { AcceptanceCriterion, RunAcceptance } from "@/types/hub-events";
 import type { VerifyFallbackView } from "./verifyFallback";
 import { CriterionJudgementControl } from "./CriterionJudgementControl";
 import { UnmeasuredAccounts } from "./UnmeasuredAccounts";
-import { BlockText } from "@/components/jobs/runlog/LogText";
+import { MasterReport } from "@/components/jobs/runlog/LogText";
+import { reportCount, unmeasuredWords } from "@/components/jobs/runlog/runSections";
 import type { CriterionDisposition, CriterionJudgement } from "@/lib/judgementsApi";
 
 // p0344b: the Verify beat's surface. Preferred source is the run's PERSISTED
@@ -109,16 +110,17 @@ const CRIT_STAT: Record<AcceptanceCriterion["status"], string> = {
 // 2026-10-12-6bfad: an unmeasured account is never one of the N; it makes the badge bad
 // and says so after the count, or alone when there is nothing to count.
 function badgeFor(acceptance: RunAcceptance): { cls: string; label: string } {
-  // 2026-11-18-98fa / 2026-11-22-96c8a: a run whose masters ended on their report judged no line — the badge says it reported.
-  if (acceptance.reports != null && acceptance.criteria.length === 0 && !acceptance.unmeasured?.length) {
-    const followUps = acceptance.followUps?.length ?? 0;
-    return { cls: "ok", label: followUps > 0 ? `reported · ${followUps} follow-up${followUps === 1 ? "" : "s"}` : "reported" };
+  const unmeasured = acceptance.unmeasured?.length ?? 0;
+  // 2026-11-22-7103a: a run whose masters wrote reports judged no line — the badge counts the reports, never "reported".
+  if (acceptance.reports != null && acceptance.criteria.length === 0) {
+    const count = reportCount(acceptance);
+    return unmeasured > 0 ? { cls: "bad", label: `${count} · ${unmeasuredWords(unmeasured)}` } : { cls: "", label: count };
   }
   const counted = criteriaBadge(acceptance);
-  if (!acceptance.unmeasured?.length) return counted;
+  if (unmeasured === 0) return counted;
   return {
     cls: "bad",
-    label: acceptance.criteria.length > 0 ? `${counted.label} · not measured` : "not measured",
+    label: acceptance.criteria.length > 0 ? `${counted.label} · ${unmeasuredWords(unmeasured)}` : unmeasuredWords(unmeasured),
   };
 }
 
@@ -189,8 +191,7 @@ function AcceptanceVerify({
         {unmeasured.length > 0 && <UnmeasuredAccounts accounts={unmeasured} />}
         {reports.map((r, i) => (
           <div key={i} data-testid="verify-report" style={{ marginTop: i > 0 ? 12 : 0 }}>
-            {reports.length > 1 && r.specId && <p className="hint"><b>Spec {r.specId}</b></p>}
-            <BlockText text={r.markdown} />
+            <MasterReport text={r.markdown} spec={r.specId ? `Spec ${r.specId}` : null} testId="verify-report-text" folded={reports.length > 1} />
           </div>
         ))}
         {acceptance.criteria.length === 0 ? (

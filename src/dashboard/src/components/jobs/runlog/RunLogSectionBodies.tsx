@@ -25,7 +25,7 @@ import {
 import { CitedList } from "./CitedList";
 import { decisionParts } from "./decisionParts";
 import { shortTargets } from "./logPaths";
-import { BlockText, InlineText } from "./LogText";
+import { BlockText, InlineText, LogDoc } from "./LogText";
 import { parseSpecRecord } from "./specRecord";
 import { SpecRecordView } from "./SpecRecordView";
 import { clockOf, pullRequestLinks } from "./runNowLines";
@@ -36,14 +36,7 @@ import type { RunTicket } from "./useRunTicket";
 // spec it executed; the criteria with their overrule; the pull requests and the run report. Long documents sit behind
 // a one-line disclosure so the log stays a log.
 
-function Doc({ label, testId, children }: { label: string; testId: string; children: React.ReactNode }) {
-  return (
-    <details className="rl-doc" data-testid={testId}>
-      <summary>{label}</summary>
-      <div className="rl-doc-body">{children}</div>
-    </details>
-  );
-}
+const Doc = LogDoc;
 
 export function TicketBody({ snapshot, events, ticket }: { snapshot: RunSnapshot | null; events: RunEvent[]; ticket: RunTicket | null }) {
   const fetched = useMemo(() => {
@@ -168,6 +161,12 @@ export function SpecBody({ runId, spec }: { runId: string; spec: RunSpecRow | un
   if (!spec) return null;
   return (
     <div className="rl-body" data-testid={`spec-body-${spec.specId}`}>
+      {/* 2026-11-22-7103a: why a stopped spec was not delivered, as the server wrote it, whole. */}
+      {spec.verdict && (spec.status === "failed" || spec.status === "handed_back") && (
+        <div className="rl-body-line rl-bad" data-testid={`spec-body-verdict-${spec.specId}`}>
+          {spec.status === "handed_back" ? "Handed back" : "Not delivered"}: {spec.verdict}
+        </div>
+      )}
       {spec.decisions.length > 0 ? (
         <Doc label={spec.decisions.length === 1 ? "1 decision" : `${spec.decisions.length} decisions`} testId={`spec-decisions-${spec.specId}`}>
           {spec.decisions.map((d, i) => <DecisionLine key={`${d.name}-${i}`} name={d.name} reason={d.reason} />)}

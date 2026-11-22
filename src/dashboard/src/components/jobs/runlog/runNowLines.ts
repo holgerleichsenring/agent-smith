@@ -1,4 +1,3 @@
-import { instruction, stuckTitle } from "@/components/tickets/detail/yourMove";
 import { isRelaunching, relaunchPlace } from "@/components/jobs/runStatus";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { hasPullRequest } from "@/lib/prStatus";
@@ -21,7 +20,7 @@ import { commandKey } from "./runSections";
 // has ended: how (status, pull requests, criteria, cost), what the review and the last verify pass said, and why it
 // stopped with what to do about it. SandboxCommand is not read: the live hub never sends it, only a reload's replay.
 
-export type NowTone = "now" | "text" | "dim" | "ok" | "run" | "bad";
+export type NowTone = "now" | "text" | "dim" | "ok" | "run" | "person" | "bad";
 
 export interface NowLine {
   key: string;
@@ -179,42 +178,24 @@ function firstLine(text: string | null | undefined): string | null {
 }
 
 export interface EndedView {
+  /** The review and verify lines; the status line above them says how it ended (2026-11-22-7103a). */
   lines: NowLine[];
   /** The last verify pass as data, drawn per repository under the lines. */
   verify: VerifyPassRecordedEvent | null;
   /** The setting that lifts a stop, when the end named one. */
   settingsPath: string | null;
+  /** The run's own end text, behind "The run's own words"; null when it left none. */
+  said: string | null;
 }
 
-/** How a finished run ended: outcome, review, verify, and for a stop why and what to do. */
+/** 2026-11-22-7103a: what a finished run's How it ended adds under its status line — the review and the last verify
+ *  pass, the setting that lifts a stop, and the run's own end text. The outcome, why, stopped-at and to-do lines are
+ *  the status line now (runStatusLine). */
 export function endedView(snapshot: RunSnapshot, steps: RunStepRow[], events: RunEvent[], attempt: TicketAttempt | null): EndedView {
   const status = (snapshot.status ?? "").toLowerCase();
-  const at = clockOf(snapshot.finishedAt);
-  const prs = pullRequestLinks(snapshot);
-  const criteria = snapshot.acceptance?.criteria ?? [];
   const stopped = status !== "success" && status !== "shortfall" && status !== "cancelled";
-  const head = status === "success" ? "Done" : status === "shortfall" ? "Done, with a shortfall" : status === "cancelled" ? "Cancelled" : stuckTitle(attempt);
-  const parts = [head];
-  if (status !== "cancelled" || prs.length > 0) {
-    parts.push(prs.length === 0 ? "no pull request opened" : prs.length === 1 ? "pull request opened" : `${prs.length} pull requests opened`);
-  }
-  if (criteria.length > 0) parts.push(`${criteria.filter((c) => c.status === "met").length} of ${criteria.length} criteria proven`);
-  if (snapshot.costUsd > 0) parts.push(`$${snapshot.costUsd.toFixed(2)}`);
-  const tone: NowTone = status === "success" ? "ok" : status === "shortfall" ? "run" : status === "cancelled" ? "dim" : "bad";
-  const lines: NowLine[] = [{ key: "outcome", at, kind: "outcome", text: parts.join(" · "), tone }];
-
+  const lines: NowLine[] = [];
   const summary = snapshot.summary ? stripUrls(formatRunSummary(snapshot.summary)).trim() : "";
-  if (summary) lines.push({ key: "said", at: null, kind: stopped || status === "cancelled" ? "why" : "said", text: summary, tone: stopped ? "bad" : "text" });
-  if (stopped) {
-    const failedStep = [...steps].reverse().find((s) => s.status === "failed" || s.status === "error");
-    if (failedStep) {
-      const said = firstLine(failedStep.resultMessage);
-      lines.push({ key: "stopped-at", at: null, kind: "stopped at", text: said ? `${stepLabel(failedStep)}: ${said}` : stepLabel(failedStep), tone: "bad" });
-    }
-    const todo = attempt?.endDetail ? instruction(attempt.endDetail) : null;
-    if (todo) lines.push({ key: "todo", at: null, kind: "to do", text: todo, tone: "text" });
-  }
-
   const reached = steps.filter((s) => !s.planned && s.status);
   const review = [...reached].reverse().find((s) => REVIEW.has(commandKey(s)));
   if (review) {
@@ -229,5 +210,5 @@ export function endedView(snapshot: RunSnapshot, steps: RunStepRow[], events: Ru
     const step = [...reached].reverse().find((s) => VERIFY.has(commandKey(s)));
     if (step) lines.push({ key: "verify", at: null, kind: "verify", text: firstLine(step.resultMessage) ?? step.status ?? "", tone: step.status === "failed" ? "bad" : "text" });
   }
-  return { lines, verify, settingsPath: stopped ? attempt?.endDetail?.settingsPath ?? null : null };
+  return { lines, verify, settingsPath: stopped ? attempt?.endDetail?.settingsPath ?? null : null, said: summary || null };
 }

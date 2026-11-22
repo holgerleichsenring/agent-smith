@@ -9,7 +9,8 @@ import { useSandboxActivity } from "@/hooks/useSandboxActivity";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { runPath, runTracePath } from "@/lib/runPath";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
-import { endedView, liveLines, nowLabel, nowMode, pullRequestLinks, waitLines, type NowLine } from "./runNowLines";
+import { clockOf, endedView, liveLines, nowLabel, nowMode, pullRequestLinks, waitLines, type NowLine } from "./runNowLines";
+import { statusJoin, statusRest, type RunStatusLine } from "./runStatusLine";
 import type { RunTicket } from "./useRunTicket";
 import { VerifyPassLines } from "./VerifyPassLines";
 
@@ -22,20 +23,22 @@ import { VerifyPassLines } from "./VerifyPassLines";
 interface Props {
   runId: string;
   snapshot: RunSnapshot | null;
+  /** 2026-11-22-7103a: the run's status line, How it ended's first line. */
+  status?: RunStatusLine | null;
   events: RunEvent[];
   steps: RunStepRow[];
   ticket: RunTicket | null;
 }
 
-export function RunNow({ runId, snapshot, events, steps, ticket }: Props) {
+export function RunNow({ runId, snapshot, status, events, steps, ticket }: Props) {
   const beat = useSandboxActivity(snapshot?.runId ?? null);
   const follow = useRetryFollow(runId, ticket);
   const mode = snapshot ? nowMode(snapshot) : null;
   const view = useMemo(() => {
     if (!snapshot || !mode) return null;
     if (mode === "ended") return endedView(snapshot, steps, events, ticket?.attempt ?? null);
-    if (mode === "live") return { lines: liveLines(snapshot, events, steps, beat), verify: null, settingsPath: null };
-    return { lines: waitLines(snapshot), verify: null, settingsPath: null };
+    if (mode === "live") return { lines: liveLines(snapshot, events, steps, beat), verify: null, settingsPath: null, said: null };
+    return { lines: waitLines(snapshot), verify: null, settingsPath: null, said: null };
   }, [snapshot, mode, steps, events, ticket?.attempt, beat]);
   if (!snapshot || !view || !mode) return null;
   const question = mode === "waiting" ? snapshot.pendingQuestion ?? null : null;
@@ -43,7 +46,14 @@ export function RunNow({ runId, snapshot, events, steps, ticket }: Props) {
   return (
     <section className="rl-now" data-testid="run-now" data-mode={mode} aria-live="polite">
       <span className="rl-lbl" data-testid="run-now-label">{nowLabel(snapshot)}</span>
+      {mode === "ended" && status && <StatusLine line={status} at={clockOf(snapshot.finishedAt)} />}
       {view.lines.map((l) => <Line key={l.key} line={l} />)}
+      {view.said && (
+        <details className="rl-doc" data-testid="run-now-said">
+          <summary>The run&apos;s own words</summary>
+          <div className="rl-doc-body rl-said">{view.said}</div>
+        </details>
+      )}
       {view.verify && (
         <div className="rl-now-line" data-testid="run-now-verify">
           <span className="rl-at" />
@@ -87,9 +97,24 @@ function useRetryFollow(runId: string, ticket: RunTicket | null): (settled: Retr
   return (settled) => (settled === "requested" ? setRequested(true) : ticket?.reread());
 }
 
-function Line({ line }: { line: NowLine }) {
+/** 2026-11-22-7103a: How it ended's first line — the head in the run's colour, the clauses and next step in plain ink. */
+function StatusLine({ line, at }: { line: RunStatusLine; at: string | null }) {
+  const rest = statusRest(line);
   return (
-    <div className="rl-now-line" data-testid="run-now-line" data-kind={line.kind} data-tone={line.tone}>
+    <div className="rl-now-line rl-status" data-testid="run-status-line" data-kind="outcome">
+      <span className="rl-at">{at ?? ""}</span>
+      <span className="rl-kind">outcome</span>
+      <span className="rl-text">
+        <span className="rl-status-head" data-testid="run-status-head" data-tone={line.tone}>{line.head}</span>
+        {rest && `${statusJoin(line.head)}${rest}`}
+      </span>
+    </div>
+  );
+}
+
+function Line({ line, testId = "run-now-line" }: { line: NowLine; testId?: string }) {
+  return (
+    <div className="rl-now-line" data-testid={testId} data-kind={line.kind} data-tone={line.tone}>
       <span className="rl-at">{line.at ?? ""}</span>
       <span className="rl-kind" title={line.kind}>{line.kind}</span>
       <span className="rl-text">{line.text}</span>

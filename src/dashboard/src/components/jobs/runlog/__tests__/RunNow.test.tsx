@@ -14,6 +14,7 @@ const retryAttempt = vi.fn().mockResolvedValue({ kind: "requested" });
 vi.mock("@/lib/ticketsApi", async (original) => ({ ...(await original<object>()), retryAttempt: (id: string) => retryAttempt(id) }));
 
 const { RunNow } = await import("../RunNow");
+const { snapshotStatus } = await import("../runStatusLine");
 
 function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
   return {
@@ -30,7 +31,7 @@ const decision = (chose: string, timestamp: string): RunEvent =>
 const attempt = { number: 2, runId: "r1", status: "failed", finishedAt: "2026-10-13T07:00:00Z", handedBack: false,
   endedOnInfrastructure: false } as unknown as TicketAttempt;
 const reread = vi.fn();
-const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt, newest: true, latest: attempt, reread };
+const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt, newest: true, latest: attempt, move: null, reread };
 const third = { ...attempt, number: 3, runId: "r3", status: "running", finishedAt: null } as unknown as TicketAttempt;
 const ended = () => snap({ status: "failed", finishedAt: "2026-10-13T07:00:00Z" });
 
@@ -62,9 +63,10 @@ describe("RunNow", () => {
   });
 
   it("RunNow_StoppedNewestAttempt_OffersRetryAndTheTicket", async () => {
-    render(<RunNow runId="r1" snapshot={snap({ status: "failed", finishedAt: "2026-10-13T07:00:00Z", summary: "The build failed." })}
-      events={[]} steps={[]} ticket={ticket} />);
-    expect(screen.getAllByTestId("run-now-line")[0]).toHaveTextContent("Stopped · no pull request opened");
+    const stopped = snap({ status: "failed", finishedAt: "2026-10-13T07:00:00Z", summary: "The build failed." });
+    render(<RunNow runId="r1" snapshot={stopped} status={snapshotStatus(stopped, [], [], ticket)} events={[]} steps={[]} ticket={ticket} />);
+    // 2026-11-22-7103a: How it ended opens with the run's status line.
+    expect(screen.getByTestId("run-status-line")).toHaveTextContent(/^\d{2}:\d{2}:\d{2}outcomeFailed · The build failed\.$/);
     expect(screen.getByTestId("run-now-ticket")).toHaveAttribute("href", "/tickets/shop/13");
     fireEvent.click(screen.getByTestId("ticket-retry"));
     await waitFor(() => expect(retryAttempt).toHaveBeenCalledWith("r1"));
@@ -97,5 +99,32 @@ describe("RunNow", () => {
     fireEvent.click(screen.getByTestId("ticket-retry"));
     await waitFor(() => expect(reread).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId("ticket-retry-refused")).toHaveTextContent("only the latest attempt is retried");
+  });
+
+  // 2026-11-22-7103a: the status line is How it ended's first line; outcome, why, stopped-at and to-do lines are gone.
+  it("RunNow_EndedShortfall_StatusLineReplacesOutcomeWhyStoppedAtAndToDo", () => {
+    const short = snap({ status: "shortfall", finishedAt: "2026-10-13T07:00:00Z", prUrl: "https://example.test/server/pull/2",
+      summary: "Delivered 1 of 2 spec(s); not delivered: s2 — the agent ended without writing a report." });
+    const specs = [
+      { specId: "s1", ordinal: 1, title: "one", status: "done", startedAt: null, endedAt: null, verdict: null, decisions: [], steps: [] },
+      { specId: "s2", ordinal: 2, title: "two", status: "failed", startedAt: null, endedAt: null, verdict: "The agent ended without writing a report. More.", decisions: [], steps: [] },
+    ];
+    const failedStep = { stepIndex: 5, stepName: "VerifySpec", displayName: "Build and test", commandName: "VerifySpecCommand", status: "failed", resultMessage: "no report" } as never;
+    render(<RunNow runId="r1" snapshot={short} status={snapshotStatus(short, specs, [failedStep], null)} events={[]} steps={[failedStep]} ticket={null} />);
+    // The head in the run's colour, the rest in the line's ink (2026-11-22-7103a review).
+    expect(screen.getByTestId("run-status-line")).toHaveTextContent(/^\d{2}:\d{2}:\d{2}outcome1 of 2 specs delivered · s2: The agent ended without writing a report\.$/);
+    expect(screen.getByTestId("run-status-head")).toHaveTextContent(/^1 of 2 specs delivered$/);
+    expect(screen.getByTestId("run-status-head")).toHaveAttribute("data-tone", "bad");
+    expect(screen.queryAllByTestId("run-now-line").map((l) => l.getAttribute("data-kind"))).not.toEqual(
+      expect.arrayContaining(["outcome", "why", "said", "stopped at", "to do"]));
+  });
+
+  it("RunNow_EndedWithSummary_KeepsTheSummaryBehindTheRunsOwnWords", () => {
+    const done = snap({ status: "success", finishedAt: "2026-10-13T07:00:00Z", summary: "Merged the retry policy." });
+    render(<RunNow runId="r1" snapshot={done} status={snapshotStatus(done, [], [], null)} events={[]} steps={[]} ticket={null} />);
+    const said = screen.getByTestId("run-now-said");
+    expect(said).not.toHaveAttribute("open");
+    expect(said).toHaveTextContent("The run's own words");
+    expect(said).toHaveTextContent("Merged the retry policy.");
   });
 });

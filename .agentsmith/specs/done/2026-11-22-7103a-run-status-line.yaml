@@ -1,0 +1,216 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-7103a
+goal: "Every run block, on the ticket page and the run page, opens with one status line (what happened, then the next step); the indicators that contradict it go, and the master's report folds."
+
+applies_to: "dashboard (ticket page Now/Conversation/Runs, run page head/How it ended/log, spec cards, master's report)"
+
+requires: [2026-11-22-4321a, 2026-11-18-d6d2e, 2026-11-18-98fa, 2026-11-19-1b72c]
+
+invariant: >-
+  A reader sees one sentence that says the run's state and the next step, and nothing on the page
+  contradicts it: every other place that states the same run's outcome uses that sentence's words
+  and colour, and each colour means one thing — green delivered or passed, amber working, blue
+  waits for a person, red stopped or not delivered, grey nothing to judge.
+
+facts:
+  # --- Where a run's state is rendered today (ticket page) ---
+  - claim: "Now draws the Your move box, the lead, then the current run as AttemptReport opened with its log, then the newest entry."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketNow.tsx:57-68"
+  - claim: "The Your move box's tones: needs_you amber, working quiet (grey), a cancelled head in the failed bucket bad (red)."
+    evidence: "src/dashboard/src/components/tickets/detail/yourMove.ts:48-62; src/dashboard/src/components/tickets/detail/ticketState.ts:130-132; src/dashboard/src/styles/ticket-thread.css:138-141"
+  - claim: "The Your move box is ticket-level: one title, ticketState's sentence, at most one act, and for a stopped ticket the run's verbatim summary behind Why."
+    evidence: "src/dashboard/src/components/tickets/detail/YourMoveBox.tsx:28-56,93-108; src/dashboard/src/components/tickets/detail/yourMove.ts:45-66"
+  - claim: "The act a stopped ticket offers is chosen by failureAct from endKind, endedOnInfrastructure and endDetail; Your move's review act (one open PR) is computed in YourMoveBox, not in yourMove."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketState.ts:74-105; src/dashboard/src/components/tickets/detail/YourMoveBox.tsx:33-36"
+  - claim: "The run's row (StoryRow head) shows outcome words in the tone colour, then the summary's first line: for a shortfall 'shortfall · Delivered 1 of 2 spec(s); not delivered: <id> — <reason>'."
+    evidence: "src/dashboard/src/components/tickets/detail/storyLines.ts:27-37; src/dashboard/src/components/tickets/detail/StoryRow.tsx:29-34; src/backend/AgentSmith.Contracts/Specs/RunShortfall.cs:24-26"
+  - claim: "A shortfall is amber (the 'working' colour) in the row, the Runs line and the run page; amber is the working colour by ticketDot's own palette."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptOutcome.ts:9,46-48; src/dashboard/src/components/jobs/runlog/runMetaWords.ts:22; src/dashboard/src/components/jobs/runlog/runNowLines.ts:203; src/dashboard/src/components/tickets/ticketDot.ts:3-5"
+  - claim: "The ticket list dot and the section bar draw an IDLE ticket whose last attempt was a shortfall green (ticketDot's ended fallback), and the attempt marks map shortfall to ok; a ticket in review is waiting_on_review and its dot is grey."
+    evidence: "src/dashboard/src/components/tickets/ticketDot.ts:36-42; src/dashboard/src/components/tickets/TicketAttemptMarks.tsx:23-26; src/dashboard/src/components/tickets/detail/TicketSectionBar.tsx:33; src/dashboard/src/components/tickets/TicketRow.tsx:48"
+  - claim: "The report body (AttemptBody) draws the run summary (tk-said) when it differs from the row, the spec cards, PR links, a pending question, the inline log, Retry unchanged and the 'Run n · time · cost' link; Now, Conversation (no log) and an opened Runs line all draw it."
+    evidence: "src/dashboard/src/components/tickets/detail/ThreadMessages.tsx:76-104; src/dashboard/src/components/tickets/detail/ThreadItemList.tsx:41; src/dashboard/src/components/tickets/detail/TicketRunsSection.tsx:53-57"
+  - claim: "A spec card's head says 'reported' (green) for a spec with a master's report and 'n of m done criteria met' (amber unless all met) for one with verdicts; its open body draws the master's report in full."
+    evidence: "src/dashboard/src/components/tickets/detail/reportWords.ts:46-58; src/dashboard/src/components/tickets/detail/SpecCard.tsx:31-35; src/dashboard/src/styles/ticket-thread.css:116-118"
+  - claim: "The Runs section draws one line per attempt with attemptWords and the summary's first line, in outcomeTone."
+    evidence: "src/dashboard/src/components/tickets/detail/runLines.ts:28-41; src/dashboard/src/components/tickets/detail/TicketRunsSection.tsx:36-43"
+  - claim: "The section bar's state word is the ticket bucket's title; the series runway shows budget and chain only, no run outcome."
+    evidence: "src/dashboard/src/components/tickets/detail/sectionBarWords.ts:9-12; src/dashboard/src/components/tickets/detail/SeriesRunway.tsx:21-50"
+  - claim: "The Specs tab draws one cell per attempt per spec (✓ done, ✗ failed, ▶ live) and the spec document a state pill (done / not done / working)."
+    evidence: "src/dashboard/src/components/tickets/detail/specWords.ts:9-16,61-81"
+  - claim: "The Acceptance tab draws every spec's master's report in full, always."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketAcceptanceTab.tsx:46"
+  - claim: "The ticket list row says 'last attempt done with a shortfall' in its activity line."
+    evidence: "src/dashboard/src/components/tickets/TicketActivity.tsx:50; src/dashboard/src/components/tickets/ticketFormat.ts:78-82"
+  # --- Where a run's state is rendered today (run log, both pages) ---
+  - claim: "The sectioned log is one component on both pages; a spec section's meta is its steps count followed by the RunSpec verdict ('4 of 5 steps done · … · The agent did not report its result…'), red and cut at the line's end."
+    evidence: "src/dashboard/src/components/jobs/runlog/runLogSections.ts:156-163; src/dashboard/src/styles/run-log.css:28-29,87"
+  - claim: "The check section is titled 'The master's report' with meta 'reported' (green), or red with '· not measured' when an account went unmeasured."
+    evidence: "src/dashboard/src/components/jobs/runlog/runSections.ts:74-95; src/dashboard/src/components/jobs/runlog/runLogSections.ts:167-168"
+  - claim: "A section without steps (the check) does not start open; once opened, the ticket page's check body draws each report in full and the run page's draws VerifySummary, whose badge says 'reported' and whose reports render in full."
+    evidence: "src/dashboard/src/components/jobs/runlog/runLogSections.ts:177-180; src/dashboard/src/components/tickets/detail/RunInlineLog.tsx:41-63; src/dashboard/src/components/jobs/story/VerifySummary.tsx:111-116,161,189-194"
+  - claim: "On the ticket page the same report is drawn twice in one run block: in the spec card's body and in the check section."
+    evidence: "src/dashboard/src/components/tickets/detail/SpecCard.tsx:35; src/dashboard/src/components/tickets/detail/RunInlineLog.tsx:54"
+  - claim: "In the operator's run one cause is shown in three places: the shortfall summary's reason, the RunSpec verdict and an unmeasured account — VerifySpec records the missing-report text as both the failing command and the account's problem."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:161-167,193-197; src/backend/AgentSmith.Contracts/Specs/RunShortfall.cs:24-26"
+  # --- Run page ---
+  - claim: "The run page head's meta line starts with stateWords: 'done' green, 'done, with a shortfall' amber, 'failed' red."
+    evidence: "src/dashboard/src/components/jobs/runlog/runMetaWords.ts:13-27; src/dashboard/src/components/jobs/runlog/RunPageHead.tsx:74-83"
+  - claim: "The run page's How it ended draws an outcome line ('Done, with a shortfall · pull request opened · $x'), the summary as 'said'/'why', the failed step as 'stopped at', the end detail as 'to do', a review line and a verify line, then the acts (PRs, Retry unchanged on the newest, the latest attempt, the setting, the ticket, why)."
+    evidence: "src/dashboard/src/components/jobs/runlog/runNowLines.ts:190-233; src/dashboard/src/components/jobs/runlog/RunNow.tsx:43-77"
+  - claim: "The run page reads the whole ticket detail for its attempt but keeps only the attempt, its number and the latest attempt."
+    evidence: "src/dashboard/src/components/jobs/runlog/useRunTicket.ts:56-68"
+  # --- Data the line is derived from ---
+  - claim: "Both pages hold the same per-spec standing: the RunSpec projection's status and terminal verdict — TicketAttempt.executedSpecs on the ticket page, /api/runs/{id}/specs on the run page."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkRunsReader.cs:100-118; src/dashboard/src/types/tickets.ts:223-229; src/dashboard/src/lib/runSpecsApi.ts:18-31"
+  - claim: "Each verify pass is an event with per-repository results and stages, published in the verify step (originStepIndex); StepStarted names the step's specId, so a pass maps to its spec from events alone."
+    evidence: "src/dashboard/src/types/hub-events.ts:139-150,786-808"
+  - claim: "VerifySpec publishes the verify pass before it decides delivery, so a spec can be build-and-tests green and still not delivered."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:146-167"
+  - claim: "Run events come from one shared per-run store; a second reader of the same run adds no fetch."
+    evidence: "src/dashboard/src/hooks/useRunEvents.ts:7-27"
+  # --- Markdown ---
+  - claim: "BlockText is the log's markdown renderer (react-markdown + remark-gfm + rehype-sanitize) and the master's report's only one; a GFM table, even one interrupting a paragraph, renders as <table><thead><th>."
+    evidence: "src/dashboard/src/components/jobs/runlog/LogText.tsx:29-40; observed: 2026-11-22, renderToStaticMarkup of BlockText's plugin set over '…\\n| Check | Result |\\n|---|---|\\n| build | green |' gives <table><thead><tr><th>Check</th><th>Result</th>…"
+  - claim: "The .rl-md rules give lists and pre but no table rule, set overflow-wrap:anywhere, and apply only under .mock-viewer or .tk-runlog — never on the Acceptance tab or a spec card."
+    evidence: "src/dashboard/src/styles/run-log.css:1,208-213"
+  - claim: "The global break-word rule names td but not th, so header cells inherit overflow-wrap:anywhere from .rl-md / .rl-body-line, their min-content collapses to one character and a header such as 'Result' wraps as 'Res ult'."
+    evidence: "src/dashboard/src/app/globals.css:188-193; src/dashboard/src/styles/run-log.css:107,208"
+  - claim: "Inside the log the report inherits the log's monospace 12px; .rl-doc-body (the log's existing disclosure) sets the sans face."
+    evidence: "src/dashboard/src/styles/run-log.css:78,124-127"
+  - claim: "The log already folds long documents behind a one-line disclosure (Doc: details + summary), local to RunLogSectionBodies."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunLogSectionBodies.tsx:39-46"
+  - claim: "A second markdown renderer exists (ui/Markdown, Tailwind light-theme classes, font-mono tables) for documents (ResultDocument); the master's report does not use it."
+    evidence: "src/dashboard/src/components/ui/Markdown.tsx:39-63; src/dashboard/src/components/jobs/ResultTab.tsx:93-108"
+  # --- finish_spec / 'reported' wording that reaches the UI ---
+  - claim: "Dashboard strings in the tool's sense: 'reported' / 'reported · n follow-ups' on the spec card, the check section meta and VerifySummary's badge."
+    evidence: "src/dashboard/src/components/tickets/detail/reportWords.ts:52; src/dashboard/src/components/jobs/runlog/runSections.ts:84; src/dashboard/src/components/jobs/story/VerifySummary.tsx:115"
+  - claim: "Dashboard strings that use 'report' as the text, not the tool, and stay true after the tool goes: 'The master's report' (check title, VerifySummary heading), 'see the master's report' (criterion row), VerifySummary's hints 'What each spec's master reported…' and 'Each done line as the spec's master reported it…' (pre-98fa runs)."
+    evidence: "src/dashboard/src/components/jobs/runlog/runSections.ts:95; src/dashboard/src/components/jobs/story/VerifySummary.tsx:161,170,174; src/dashboard/src/components/tickets/detail/specWords.ts:91"
+  - claim: "Code comments naming finish_spec: reportWords.ts:49, RunInlineLog.tsx:39, runSections.ts:81, VerifySummary.tsx:112, hub-events.ts:988."
+    evidence: "observed: 2026-11-22, grep -rn finish_spec src/dashboard/src (no other hit)"
+  - claim: "Server text naming finish_spec that reaches the UI: MasterReportAccount.NoFinish ('The agent did not report its result (finish_spec)…') as the RunSpec verdict, the shortfall reason and the unmeasured account; MasterPassEnd's gateLine 'finish_spec: …' is served in RunPass but rendered nowhere."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/MasterReportAccount.cs:15-17; src/backend/AgentSmith.Application/Services/Passes/MasterPassEnd.cs:23; observed: 2026-11-22, grep gateLine src/dashboard/src finds only the type"
+  - claim: "Operator, 2026-11-22, run 2026-11-22T14-46-18-c8e0 (shortfall, 1 of 2 delivered): 'Where does it say: this is the status?' — run line orange, spec cards 'reported' green and '0 of 3 done criteria met' orange, spec step row red and cut, 'The master's report · reported · not measured' red; the report a wall of text with a broken table; 'not display-worthy by default — show it when someone wants to know'."
+    evidence: "observed: operator feedback on the ticket page Now section and the run page, 2026-11-22"
+  - claim: "A parallel backend spec retires finish_spec: the master's report becomes its plain last reply, delivery is decided by the verify stages, structured fields are extracted from the report. It has no id on any branch yet."
+    evidence: "observed: 2026-11-22, operator brief; no spec under .agentsmith/specs on main or the 2026-11-22 branches names it"
+
+scope:
+  in: >-
+    One status line per run (head in its colour, the per-spec clauses, '→ next step') drawn as the run's
+    row on the ticket page (Now, Conversation, Runs) and as the first line of How it ended on the run page;
+    the run page head's state word for every state; the Your move box's tones (needs_you blue, working
+    amber, cancelled grey); the spec card head; the spec and check sections' meta; the
+    VerifySummary badge; shortfall's colour in stateWords, How it ended, ticketDot and the attempt marks;
+    outcomePill/attemptWords/outcomeTone (attemptOutcome.ts) and reportText retired, their words and tone
+    now the status line's; the master's report folded under 'Master's report' wherever it renders (ticket check body,
+    run page VerifySummary, Acceptance tab) and gone from the spec card; BlockText tables and the .rl-md /
+    .rl-doc rules outside the log's two scopes.
+  out: >-
+    Server text and data (the NoFinish verdict, RunShortfall.Summary, the unmeasured account — the
+    parallel backend spec's); the finish_spec tool itself; ui/Markdown and ResultDocument; the runs list
+    (RunRow, StatusIcon), home, overview cards and mission control, which count runs and state no next
+    step; DeliveryTimeline's .mock-delivery .bar.shortfall; TicketActivity's 'last attempt done with a
+    shortfall' (the ticket list, another page; words, not a colour); the Specs tab's cells and pill; the
+    Your move box's own title and sentence; live runs' Now lines on the run page; step finding marks
+    (runSections hasFinding amber, How it ended's review line) — they mark a step's finding, not the run's
+    or a spec's outcome, and amber there means 'a finding still open'.
+
+steps:
+  - id: mock
+    action: "Render the four fixtures (shortfall, delivered-in-review, failed, waiting) and How it ended as an artifact mock (an HTML file in the scratchpad; not published); a fresh reviewer checks it against the invariant and done; the build continues on its BUILD. No operator wait."
+  - id: words
+    action: "runStatusLine.ts (components/jobs/runlog): runStatus(input) → {tone, head, clauses[], next} from the run's status, endKind, endDetail, hand-back, infrastructure end, waiting question, queue place, its RunSpec rows (status + verdict only: executedSpecs on the ticket page, /api/runs/{id}/specs on the run page), its pull requests, summary and failed step; no events. The next step is the Your move act's label (actLabel, shared with the box; yourMove carries the one-open-PR review act and its words), 'Run n is the latest' for an older attempt, none without a move; cases in decisions."
+  - id: ticket
+    action: "AttemptReport and the Runs line: outcome = the status head, text = the clauses then '→ next'; foldStoryLine follows; AttemptBody's tk-said goes."
+  - id: cards
+    action: "SpecCard head reads this attempt's executedSpecs row and the attempt's status: delivered (green), verified, not delivered (red), not delivered (red), working (amber), not started (grey), handed back (blue), carried (green); a recorded criteria count stays after it, dim; the report leaves the card."
+  - id: runpage
+    action: "How it ended: the status line replaces the outcome, said/why, stopped-at and to-do lines; the run's own end text sits behind 'The run's own words'; review, verify and acts stay. RunPageHead's state word is the status head in its tone for every state. useRunTicket keeps the detail's move."
+  - id: log
+    action: "Spec section meta drops the verdict; the spec section body opens with 'Not delivered: <verdict>' in red, whole. Check meta and VerifySummary badge say '1 report', '2 reports · 3 follow-ups', '· 1 account not measured'; 'reported' goes."
+  - id: colour
+    action: "Shortfall is red in stateWords, How it ended, ticketDot's ended fallback and a new 'shortfall' attempt-mark kind (red class, title 'shortfall'); Your move tones: needs_you person, working run, cancelled quiet. outcomePill, attemptWords, outcomeTone and reportText have no caller left once the rows read the status line, and are removed with their test (outcomePill.test.ts)."
+  - id: report
+    action: "MasterReport (LogText.tsx): the log's Doc disclosure exported as LogDoc, labelled 'Master's report' (with 'Spec n · id' when a run has several), closed by default; MasterReportText (Acceptance tab), the ticket check body and VerifySummary render through it."
+  - id: markdown
+    action: "BlockText maps table to a horizontally scrolling wrapper; .rl-md and .rl-doc rules apply wherever they render; .rl-md takes the sans face, th and td get a border, padding, top alignment and overflow-wrap:break-word."
+  - id: strings
+    action: "Rewrite the finish_spec code comments; no string the dashboard writes says finish_spec or 'reported' as a state; server-written verdicts are shown as written (the backend's NoFinish text, or its successor NoReport text, either way)."
+  - id: old-tests
+    action: "Rewrite the assertions that pin today's words and colours to the new ones — ticketDot.test.ts:21, runMetaWords.test.ts:40, runNowLines.test.ts, runSections.test.ts, VerifySummary.test.tsx ('reported'), AttemptReport.test.tsx and TicketThread.test.tsx (thread-report-text / tk-said), and the story/run line and outcome tests whose words the status line replaces — no other test changes."
+
+tests:
+  - RunStatus_ShortfallOneOfTwo_HeadCountsDeliveredAndClauseNamesSpecAndVerdict
+  - RunStatus_SuccessWithOpenPullRequest_SaysDeliveredAndNextReviewsThePullRequest
+  - RunStatus_ShortfallInReview_NextReviewsAndNamesRetryForTheUndeliveredSpec
+  - RunStatus_FailedWithSpecVerdict_HeadIsFailedWithTheVerdictsFirstSentence
+  - RunStatus_FailedWithEndDetail_UsesTheDetailSentence
+  - RunStatus_FailedBeforeAnySpec_NamesTheSummaryNotAttemptFailed
+  - RunStatus_FailedWithNoCause_SaysFailedAlone
+  - RunStatus_EndedOnInfrastructure_SaysTheHostWasLost
+  - RunStatus_WaitingForInput_IsBlue
+  - RunStatus_RunningOrQueued_IsAmber
+  - RunStatus_CancelledSupersededOrPaused_IsGrey
+  - RunStatus_HandedBack_IsBlue
+  - RunStatus_DoneSpecsOnStoppedRun_SaysVerifiedNotDelivered
+  - RunStatus_SuccessWithoutSpecRows_SaysDone
+  - RunStatus_NoMove_OmitsTheNextStep
+  - RunStatus_AnyCase_OwnWordsNeverSayFinishSpecOrReported
+  - NextStep_OlderAttempt_NamesTheLatestRun
+  - NextStep_NoAct_SaysNothingForYouToDo
+  - ActLabel_EachActKind_MatchesTheYourMoveButtonText
+  - YourMove_OneOpenPullRequestInReview_CarriesTheReviewAct
+  - YourMove_Tones_FollowThePalette
+  - RunStoryLine_Shortfall_OutcomeIsTheStatusHeadAndToneBad
+  - AttemptListLine_Shortfall_SameHeadAndToneAsTheStatusLine
+  - AttemptBody_Shortfall_DrawsNoSaidText
+  - SpecCard_DoneSpecOfShortfall_SaysDeliveredGreen
+  - SpecCard_FailedSpec_SaysNotDeliveredRed_CriteriaCountDim
+  - SpecCard_HandedBackAndCarried_SayTheirWords
+  - SpecCard_Opened_HasNoMasterReport
+  - TicketNow_ShortfallFixture_NoOutcomeElementIsAmberOrSaysReported
+  - TicketAcceptanceTab_Report_IsClosedUnderMastersReport
+  - RunNow_EndedShortfall_StatusLineReplacesOutcomeWhyStoppedAtAndToDo
+  - RunNow_EndedWithSummary_KeepsTheSummaryBehindTheRunsOwnWords
+  - RunPageHead_AnyState_StateWordIsTheStatusHeadInItsTone
+  - RunLogSections_FailedSpec_MetaCarriesNoVerdict
+  - SpecBody_FailedSpec_FirstLineIsNotDeliveredWithTheWholeVerdict
+  - CheckOf_Reports_MetaCountsReports
+  - CheckOf_ReportsWithUnmeasured_IsBadAndCountsTheAccount
+  - VerifySummary_Reports_BadgeCountsReportsAndReportsAreClosed
+  - MasterReport_Default_ClosedUnderMastersReport_OpensOnClick
+  - MasterReport_SeveralSpecs_LabelsEachWithItsSpec
+  - BlockText_Table_RendersHeaderCellsInsideAScrollWrapper
+  - RunLogCss_MdRules_ApplyOutsideTheLogScopes_CellsBreakWordBorderAndSans
+  - DashboardSource_NoFinishSpecOutsideGenerated
+  - TicketDot_IdleShortfall_IsBad
+  - MarkKind_Shortfall_IsShortfallRed
+  - StateWords_Shortfall_IsBad
+  - RunStatus_ShortfallWithoutSpecRows_SaysNotEverythingWasDelivered
+  - RunStatus_EndKinds_SayWhyWithoutTheAttemptNumber
+  - RunStatus_AnsweredAndWaitingForItsPlace_IsResuming
+  - NextStep_RetryForAReaderWithoutRunsControl_IsNotNamed
+  - RunListLines_NewestAttempt_CarriesTheNextStep_AnOlderOnePointsAtTheLatest
+  - FoldStoryLine_ReadsTheLastRunsStatusLine
+  - SpecCard_NotStartedInAnEndedAttempt_SaysNotStartedNotDelivered
+  - StoryRow_HeadEndingInPunctuation_IsFollowedByASpace
+  - RunPageHead_FailedWithACause_StateWordIsTheShortHeadInItsTone
+  - MasterReport_Unfolded_IsShownWholeInTheReportFace
+  - TicketBarCss_NeedsYou_IsThePersonColour
+  - RunLogCss_StatusLine_ColoursOnlyItsHead
+  - RunStatus_CauseThatSaysWhatFailed_FollowsABareFailed
+
+done:
+  - given: "the shortfall run of the operator's report (spec A done, spec B failed with a verdict, one PR open, ticket in review)"
+    when: "Now renders it"
+    then: "its row reads '1 of 2 specs delivered' in red, then 'B: <verdict's first sentence> → Review the pull request; Retry unchanged gives B another attempt.', and no element that states the run's or a spec's outcome is amber or says 'reported'"
+  - given: "the same run"
+    when: "the run page renders it"
+    then: "the head's state word and How it ended's first line carry the same head and colour, and the spec section meta carries no verdict"
+  - given: "a run whose master's report holds a GFM table"
+    when: "the check section, the Acceptance tab or VerifySummary renders it"
+    then: "the report is closed under 'Master's report'; opened, the table's cells carry a border, padding, the sans face and break-word, inside a wrapper that scrolls sideways"
+  - "No string the dashboard itself writes says finish_spec or 'reported' as a state; server-written verdicts are shown as written."
+  - "cd src/dashboard && pnpm test and pnpm build green."

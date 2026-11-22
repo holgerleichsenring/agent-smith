@@ -4,6 +4,9 @@ import type { StateAct, TicketStateView } from "./ticketState";
 // 2026-11-16-6877a: the Your move box's words, read off ticketState's view. ticketState decides the state, the
 // sentence and the one act; this mapper only picks the box's colour and its one-line title. A stuck ticket's title
 // comes from the head attempt's endKind today; once the server sends an end detail, the same function reads it.
+// 2026-11-22-7103a: the move carries its next step in words (`next`, the act's own label) so a run's status line names
+// the same act the box offers; the one-open-PR review act lives here, not in the box. Tones follow the palette — a
+// question or a hand-back is a person's (blue), working is amber, a cancelled head is grey.
 
 /** amber = needs you, person = in review or waiting on a person, ok = passed, bad = stopped, quiet = nothing to do. */
 export type MoveTone = "amber" | "person" | "ok" | "bad" | "quiet";
@@ -28,6 +31,10 @@ export interface YourMove {
   act: StateAct | null;
   /** Only a stopped ticket offers the run's own end text behind "Why". */
   why: boolean;
+  /** A run waits on a question: the conversation act answers it. */
+  question: boolean;
+  /** 2026-11-22-7103a: the next step in words — the act's label, else what the state asks of nobody. */
+  next: string;
 }
 
 const STUCK_TITLES: Record<string, string> = {
@@ -40,21 +47,48 @@ const STUCK_TITLES: Record<string, string> = {
 export function yourMove(
   view: TicketStateView, bucket: TicketServerBucket, kind: string | null, endDetail?: EndDetail | null,
 ): YourMove {
+  const move = moveOf(view, bucket, kind, endDetail);
+  const question = bucket === "needs_you" && kind === "question";
+  const next = move.act ? actLabel(move.act, question) : bucket === "waiting_on_review" ? "Review the pull requests" : NOTHING;
+  return { ...move, question, next };
+}
+
+export const NOTHING = "Nothing for you to do";
+
+/** The words a move's act is drawn with — the box's button and a run's next step say the same. */
+export function actLabel(act: StateAct, question: boolean): string {
+  switch (act.kind) {
+    case "retry": return "Retry unchanged";
+    case "init": return "Initialize the project";
+    case "link": return act.label;
+    case "tab": return question ? "Answer the question" : "Reply below";
+  }
+}
+
+type Move = Omit<YourMove, "question" | "next">;
+
+function moveOf(view: TicketStateView, bucket: TicketServerBucket, kind: string | null, endDetail?: EndDetail | null): Move {
   const base = { text: view.sentence, detail: view.detail, detailFormat: view.detailFormat, act: view.act, why: false };
   switch (bucket) {
     case "needs_you":
-      return { ...base, tone: "amber", title: kind === "question" ? "Your move: answer the question" : "Your move: the ticket came back to you" };
-    case "waiting_on_review":
-      return { ...base, tone: "person", title: "Your move: review the pull request" };
+      return { ...base, tone: "person", title: kind === "question" ? "Your move: answer the question" : "Your move: the ticket came back to you" };
+    case "waiting_on_review": {
+      const open = view.pullRequests.filter((pr) => pr.state === "open");
+      const act: StateAct | null = open.length === 1 ? { kind: "link", label: "Review the pull request", href: open[0].url } : base.act;
+      return { ...base, act, tone: "person", title: "Your move: review the pull request" };
+    }
     case "failed":
     case "stuck":
+      // 2026-11-22-7103a: a start its paused series held, and a head a person cancelled, are no fault — grey.
+      if (view.attempt?.endKind === RUN_END_KINDS.seriesPaused) return { ...base, tone: "quiet", title: "Paused with its series" };
+      if (view.attempt?.status === "cancelled") return { ...stuck(view, base, endDetail ?? null), tone: "quiet", title: "Cancelled" };
       return stuck(view, base, endDetail ?? null);
     case "pr_closed":
       return { ...base, tone: "bad", title: "Stopped: the pull requests were closed", why: true };
     case "done":
       return { ...base, tone: "ok", title: "Done" };
     case "working":
-      return { ...base, tone: "quiet", title: workingTitle(view.attempt) };
+      return { ...base, tone: "amber", title: workingTitle(view.attempt) };
     case "closed":
       return { ...base, tone: "quiet", title: "Closed" };
     default:
@@ -63,7 +97,7 @@ export function yourMove(
 }
 
 /** The stopped box: the end detail's subject when the server sent one, else the head attempt's end kind. */
-export function stuck(view: TicketStateView, base: Omit<YourMove, "tone" | "title">, endDetail: EndDetail | null): YourMove {
+export function stuck(view: TicketStateView, base: Omit<Move, "tone" | "title">, endDetail: EndDetail | null): Move {
   if (endDetail?.subject) {
     return { ...base, tone: "bad", why: true, title: `Stuck: ${endDetail.subject}`, text: instruction(endDetail) ?? base.text,
       act: endDetail.settingsPath ? { kind: "link", label: "Open the setting", href: endDetail.settingsPath } : base.act };

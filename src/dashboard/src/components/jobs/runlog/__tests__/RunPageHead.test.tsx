@@ -15,7 +15,7 @@ function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
   };
 }
 
-const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt: null, newest: true, latest: null, reread: () => {} };
+const ticket = { label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 2, of: 2, attempt: null, newest: true, latest: null, move: null, reread: () => {} };
 const head = (over: Partial<RunSnapshot> = {}, t: typeof ticket | null = ticket) =>
   render(<RunPageHead runId="run-abc" snapshot={snap(over)} ticket={t} repoNames={["server"]} stepCount={5} onDeleted={() => {}} />);
 
@@ -78,5 +78,16 @@ describe("RunPageHead", () => {
       await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/runs/run-abc/cancel", expect.objectContaining({ method: "POST" })));
       expect(screen.getByTestId("run-header-actions")).toContainElement(screen.getByTestId("delete-run-run-abc"));
     });
+  });
+});
+
+// 2026-11-22-7103a: the meta line's state word is the status line's short head — never its cause.
+describe("RunPageHead state word", () => {
+  it("RunPageHead_FailedWithACause_StateWordIsTheShortHeadInItsTone", async () => {
+    const { runStatus } = await import("../runStatusLine");
+    const line = runStatus({ status: "failed", specs: [], pullRequests: [], summary: "Checkout failed: the branch is gone." });
+    render(<RunPageHead runId="run-abc" snapshot={snap({ status: "failed" })} line={line} ticket={ticket} repoNames={["server"]} stepCount={5} onDeleted={() => {}} />);
+    expect(screen.getByTestId("run-meta-state")).toHaveTextContent(/^Failed$/);
+    expect(screen.getByTestId("run-meta-state")).toHaveAttribute("data-tone", "bad");
   });
 });

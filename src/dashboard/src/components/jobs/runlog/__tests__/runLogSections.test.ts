@@ -61,11 +61,12 @@ describe("runLogSections", () => {
     expect(initiallyOpen(sections)).toEqual(new Set([`spec:${SPEC}`]));
   });
 
-  it("runLogSections_AHandedBackSpec_IsRed_AndSaysWhy", () => {
+  it("runLogSections_AHandedBackSpec_IsRed_AndItsMetaCarriesNoVerdict", () => {
     const specs = [{ specId: SPEC, ordinal: 1, title: "t", status: "handed_back", startedAt: null, endedAt: null, verdict: "premise false", decisions: [], steps: [] }] as RunSpecRow[];
     const spec = runLogSections(steps.slice(0, 4), specs, snap(), null)[3];
     expect(spec.state).toBe("bad");
-    expect(spec.meta).toBe("handed back · 1 step · 2 llm · $0.02 · 5s · premise false");
+    // 2026-11-22-7103a: the verdict opens the section's body, whole (SpecBody), and is no longer cut into the meta.
+    expect(spec.meta).toBe("handed back · 1 step · 2 llm · $0.02 · 5s");
   });
 
   it("runLogSections_FinishedWithAPullRequest_DeliveredSaysSo", () => {
@@ -79,5 +80,14 @@ describe("runLogSections", () => {
     expect(stepTime(266)).toBe("4m 26s");
     expect(stepTime(null)).toBe("");
     expect(stepsMeta([row(1, "A")])).toBe("1 step · 10s");
+  });
+
+  // 2026-11-22-7103a: the verdict is not cut into the meta; SpecBody opens with it whole.
+  it("RunLogSections_FailedSpec_MetaCarriesNoVerdict", () => {
+    const specs = [{ specId: SPEC, ordinal: 1, title: "t", status: "failed", startedAt: null, endedAt: null,
+      verdict: "The agent ended without writing a report.", decisions: [], steps: [] }] as RunSpecRow[];
+    const spec = runLogSections(steps.slice(0, 4), specs, snap(), null)[3];
+    expect(spec.state).toBe("bad");
+    expect(spec.meta).not.toContain("report");
   });
 });

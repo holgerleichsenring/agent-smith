@@ -4,12 +4,14 @@ import type { TicketAttemptMark } from "@/types/tickets";
 // ended (endedOnInfrastructure) is drawn stopped, never failed: the work did not fail, the
 // machine under it did.
 
-export type MarkKind = "handed-back" | "asked" | "failed" | "ok" | "running" | "queued" | "stopped";
+export type MarkKind = "handed-back" | "asked" | "failed" | "shortfall" | "ok" | "running" | "queued" | "stopped";
 
 const MARK_CLASS: Record<MarkKind, string> = {
   "handed-back": "hb",
   asked: "hb",
   failed: "bad",
+  // 2026-11-22-7103a: a shortfall stopped before its contract — red like the run's status line, its own kind and title.
+  shortfall: "bad",
   ok: "ok",
   running: "run",
   queued: "",
@@ -21,8 +23,9 @@ export function markKind(mark: TicketAttemptMark): MarkKind {
   if (mark.endedOnInfrastructure) return "stopped";
   switch (mark.status) {
     case "success":
-    case "shortfall":
       return "ok";
+    case "shortfall":
+      return "shortfall";
     case "failed":
       return "failed";
     case "running":

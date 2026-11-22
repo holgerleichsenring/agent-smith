@@ -220,11 +220,13 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("thread-run-3")).toHaveTextContent(/^Run 3 · .* · \$\d+\.\d\d · open the run ›$/);
     cleanup();
     // 2026-11-17-8d1cb: every run says how it ended and why in words, not only the newest.
+    // 2026-11-22-7103a: in its status line — the head, then the next step; an older run points at the latest.
     nav.search = "section=conversation";
     await open();
-    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("failed · image not trusted · Image not trusted");
-    expect(screen.getByTestId("thread-report-2")).toHaveTextContent("superseded · Run 2 was cancelled.");
-    expect(screen.getByTestId("thread-report-3")).toHaveTextContent("Pod did not start");
+    expect(screen.getByTestId("thread-report-1-head")).toHaveTextContent(
+      /^[A-Z][a-z]{2} \d+ \d\d:\d\dRun 1Stopped before any work: a context names a container image outside the trusted registries · → See run 3, the latest\.30m 0s▸$/);
+    expect(screen.getByTestId("thread-report-2-head")).toHaveTextContent(/Run 2Superseded · → See run 3, the latest\.30m 0s▸$/);
+    expect(screen.getByTestId("thread-report-3-head")).toHaveTextContent(/Run 3Failed: Pod did not start · → [^.]+\.30m 0s▸$/);
     expect(screen.queryByTestId("thread-run-1")).toBeNull();
   });
 
@@ -307,16 +309,17 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Closed");
   });
 
-  it("YourMove_AQuestionWaits_IsAmber_AndItsActBringsTheQuestionCardIntoView", async () => {
+  // 2026-11-22-7103a: a question waits on a person — blue.
+  it("YourMove_AQuestionWaits_IsBlue_AndItsActBringsTheQuestionCardIntoView", async () => {
     const question = { questionId: "q", type: "FreeText", text: "Keep the outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
     world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);
     world.detail.summary = { ...world.detail.summary, bucket: "needs_you", kind: "question", pendingQuestion: { runId: "r-1", question } };
     const scrolled = vi.fn();
     Element.prototype.scrollIntoView = scrolled;
     await open();
-    expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "amber");
+    expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "person");
     expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: answer the question");
-    expect(screen.getByTestId("thread-report-1")).toHaveTextContent("Run 1 is waiting for your answer.");
+    expect(screen.getByTestId("thread-report-1-head")).toHaveTextContent("Waits for your answer · → Answer the question.");
     scrolled.mockClear();
     fireEvent.click(screen.getByTestId("ticket-state-act"));
     expect(screen.getByTestId("ticket-state-act")).toHaveClass("primary");
@@ -332,7 +335,7 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Review the pull request");
   });
 
-  it("YourMove_Done_IsGreenWithNoAct_Running_IsQuiet", async () => {
+  it("YourMove_Done_IsGreenWithNoAct_Running_IsAmber", async () => {
     world.detail = detail([attempt()]);
     world.detail.summary = { ...world.detail.summary, bucket: "done", landing: "merged", pullRequests: [pr({ state: "merged" })] };
     await open();
@@ -342,7 +345,7 @@ describe("Ticket page", () => {
     world.detail = detail([attempt({ status: "running", finishedAt: null })]);
     world.detail.summary = { ...world.detail.summary, bucket: "working" };
     await open();
-    expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "quiet");
+    expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "amber");
     expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Working. Nothing for you to do.");
   });
 
@@ -466,5 +469,48 @@ describe("Ticket page", () => {
     await open();
     fireEvent.click(screen.getByTestId("series-go-defaults"));
     expect(nav.replace).toHaveBeenCalledWith("/tickets/shop/101?section=defaults", { scroll: false });
+  });
+});
+
+// 2026-11-22-7103a: the operator's shortfall — one status line that says what happened and what to do, and nothing in the
+// run block that states an outcome contradicts it (no amber, no "reported").
+describe("Ticket page status line", () => {
+  const NO_REPORT = "The agent ended without writing a report, so the spec was not delivered; anything it changed stays on the branch. Retry unchanged gives it another attempt.";
+  const shortfall = () => {
+    world.detail = detail([attempt({ status: "shortfall",
+      summary: `Delivered 1 of 2 spec(s); not delivered: s2 — ${NO_REPORT}`,
+      pullRequests: [{ repo: "server", status: "opened", url: "https://example.test/pr/809", reason: null, openedAt: "2026-09-04T14:30:00Z" }],
+      executedSpecs: [{ specId: "s1", ordinal: 1, title: "one", status: "done", verdict: null },
+        { specId: "s2", ordinal: 2, title: "two", status: "failed", verdict: NO_REPORT }] })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "waiting_on_review", pullRequests: [pr({ state: "open" })] };
+    world.series.default = series("r-1", [
+      spec({ report: "## Done\n\n| Check | Result |\n|---|---|\n| build | green |" }),
+      spec({ specId: "s2", ordinal: 2, done: [1, 2, 3].map((n) => ({ text: `c${n}`, verdict: "unmet", note: null, citation: null, overrule: null })) })]);
+  };
+
+  it("TicketNow_ShortfallFixture_NoOutcomeElementIsAmberOrSaysReported", async () => {
+    shortfall();
+    await open();
+    const now = screen.getByTestId("now-run");
+    expect(within(now).getByTestId("thread-report-1-head")).toHaveTextContent(new RegExp("^[A-Z][a-z]{2} \\d+ \\d\\d:\\d\\dRun 1"
+      + "1 of 2 specs delivered · s2: The agent ended without writing a report, so the spec was not delivered; anything it changed stays on the branch\\. "
+      + "→ Review the pull request; Retry unchanged gives s2 another attempt\\.30m 0s▾$"));
+    expect(within(now).getByTestId("thread-report-1")).toHaveClass("bad");
+    const outcomes = [within(now).getByTestId("thread-report-1"), ...within(now).getAllByTestId("spec-card-delivery")];
+    for (const el of outcomes) expect(el.className).not.toMatch(/\b(run|amber)\b/);
+    expect(within(now).getAllByTestId("spec-card-delivery").map((d) => d.textContent)).toEqual(["delivered", "not delivered"]);
+    expect(now).not.toHaveTextContent(/reported/);
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: review the pull request");
+  });
+
+  it("TicketAcceptanceTab_Report_IsClosedUnderMastersReport", async () => {
+    shortfall();
+    nav.search = "section=acceptance";
+    await open();
+    const report = screen.getByTestId("master-report-s1");
+    expect(report.tagName).toBe("DETAILS");
+    expect(report).not.toHaveAttribute("open");
+    expect(report.querySelector("summary")).toHaveTextContent(/^Master's report$/);
+    expect(report.querySelector(".rl-md-table th")).toHaveTextContent("Check");
   });
 });

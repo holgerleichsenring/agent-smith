@@ -4,35 +4,41 @@ import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
 import { postDefaultVerdicts } from "@/lib/ticketsApi";
 import { useTicketDefaults, useTicketDetail } from "@/lib/tickets/TicketPageStore";
-import type { TicketDefault, TicketSeriesCriterion, TicketSeriesSpec } from "@/types/tickets";
+import type { TicketAttempt, TicketDefault, TicketSeriesCriterion, TicketSeriesSpec } from "@/types/tickets";
 import { RUNS_CONTROL } from "./RetryUnchanged";
-import { criteriaTally } from "./reportWords";
-import { MasterReportText } from "./TicketFollowUps";
+import { criteriaTally, specDelivery } from "./reportWords";
 import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-11-16-6877a: the spec an attempt delivered, as a card inside its report. Closed it names the spec and how many
 // done criteria were met (a spec stored with verdicts) or that its master reported — nothing when neither (1b72c);
 // open it lists every criterion with its verdict and what the run cited, and the choices the run took without asking
 // ("Decided for you"), each kept or changed with the Defaults tab's own verdicts.
+// 2026-11-22-7103a: the head says what came of the spec in THIS attempt (its RunSpec row and the attempt's status) in the
+// status line's colours, a recorded criteria count dim after it; the master's report sits once in the run's check.
 
-export function SpecCard({ spec, runId }: { spec: TicketSeriesSpec; runId: string }) {
+export function SpecCard({ spec, attempt }: { spec: TicketSeriesSpec; attempt: TicketAttempt }) {
+  const runId = attempt.runId;
   const [open, setOpen] = useState(false);
   const address = useTicketTabGo();
   const defaults = (useTicketDefaults().data?.entries ?? []).filter((d) => d.specId === spec.specId && d.runId === runId);
   const tally = criteriaTally(spec);
+  const delivery = specDelivery(attempt.executedSpecs.find((s) => s.specId === spec.specId), attempt);
   const bodyId = `spec-card-${runId}-${spec.specId}`;
   return (
     <div className="tk-spec" data-testid={`spec-card-${spec.specId}`}>
       <button type="button" className="tk-spec-head" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}>
         <span className="tk-chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
         <span className="tk-spec-name">Spec <span className="mono">{spec.specId}</span></span>
-        {tally && <span className={`tk-spec-tally ${tally.all ? "ok" : "amber"}`} data-testid="spec-card-tally">{tally.words}</span>}
+        <span className="tk-spec-tally">
+          {delivery && <span className={`tk-spec-delivery ${delivery.tone}`} data-testid="spec-card-delivery">{delivery.words}</span>}
+          {delivery && tally && " · "}
+          {tally && <span className="tk-dim" data-testid="spec-card-tally">{tally}</span>}
+        </span>
       </button>
       {open && (
         <div className="tk-spec-body" id={bodyId}>
           <div className="tk-spec-goal">{spec.goal}</div>
           {spec.done.map((c, i) => <Criterion key={i} criterion={c} />)}
-          <MasterReportText spec={spec} />
           {defaults.map((d) => <Decided key={d.id} entry={d} />)}
           <button type="button" className="tk-link" onClick={() => address.go("specs", { [SPEC_PARAM]: spec.specId })}
             data-testid="spec-card-open">Open the whole spec</button>

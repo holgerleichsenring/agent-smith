@@ -35,11 +35,22 @@ describe("runMetaWords", () => {
 
   it("stateWords_EveryState", () => {
     expect(stateWords(snap({ status: "queued", queuePosition: 2 }))).toEqual({ text: "queued, place 2", tone: "run" });
-    expect(stateWords(snap({ status: "waiting_for_input" }))).toEqual({ text: "needs you", tone: "amber" });
+    expect(stateWords(snap({ status: "waiting_for_input" }))).toEqual({ text: "waits for your answer", tone: "person" });
     expect(stateWords(snap({ status: "waiting_for_input", queuePosition: 3 }))).toEqual({ text: "resuming, place 3", tone: "run" });
-    expect(stateWords(snap({ status: "shortfall" })).tone).toBe("amber");
     expect(stateWords(snap({ status: "failed" }))).toEqual({ text: "failed", tone: "bad" });
     expect(stateWords(snap({ status: "cancelled" })).tone).toBe("quiet");
+  });
+
+  // 2026-11-22-7103a: a shortfall stopped before its contract — red, as the status line draws it.
+  it("StateWords_Shortfall_IsBad", () => {
+    expect(stateWords(snap({ status: "shortfall" }))).toEqual({ text: "done, with a shortfall", tone: "bad" });
+  });
+
+  it("RunPageHead_AnyState_StateWordIsTheStatusHeadInItsTone", () => {
+    for (const line of [{ text: "Working on spec 1 of 2", tone: "run" as const }, { text: "1 of 2 specs delivered", tone: "bad" as const },
+      { text: "Waits for your answer", tone: "person" as const }]) {
+      expect(metaParts(snap(), 1, NOW, line)[0]).toEqual({ key: "state", ...line });
+    }
   });
 
   it("spanWords_And_elapsedWords", () => {

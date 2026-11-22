@@ -12,6 +12,7 @@ import { RUNS_PATH } from "@/lib/RunBucketFilter";
 import type { RunSnapshot } from "@/types/hub-events";
 import { computeOf } from "./runFactWords";
 import { detailLines, metaParts } from "./runMetaWords";
+import type { RunStatusLine } from "./runStatusLine";
 import type { RunTicket } from "./useRunTicket";
 
 // 2026-11-16-6877b: the run page's header — the way back, the title and the run's own acts: cancel while it can be
@@ -26,6 +27,8 @@ const CANCELLABLE = new Set(["running", "queued", "waiting_for_input"]);
 interface Props {
   runId: string;
   snapshot: RunSnapshot | null;
+  /** 2026-11-22-7103a: the run's status line; its head is the meta line's state word in every state. */
+  line?: RunStatusLine | null;
   ticket: RunTicket | null;
   repoNames: string[];
   /** Steps the run reached, for the meta line once it has ended. */
@@ -35,11 +38,11 @@ interface Props {
   onDeleted: () => void;
 }
 
-export function RunPageHead({ runId, snapshot, ticket, repoNames, stepCount, connectionState, onDeleted }: Props) {
+export function RunPageHead({ runId, snapshot, line, ticket, repoNames, stepCount, connectionState, onDeleted }: Props) {
   const status = (snapshot?.status ?? "").toLowerCase();
   const title = snapshot?.ticketTitle ?? snapshot?.pipeline ?? "run";
   const beat = useSandboxActivity(snapshot?.runId ?? null);
-  const parts = snapshot ? metaParts(snapshot, stepCount) : [];
+  const parts = snapshot ? metaParts(snapshot, stepCount, Date.now(), line ? { text: line.short, tone: line.tone } : undefined) : [];
   const details = snapshot ? detailLines(snapshot, repoNames, beat) : [];
   const pods = snapshot ? computeOf(snapshot) : null;
   return (
