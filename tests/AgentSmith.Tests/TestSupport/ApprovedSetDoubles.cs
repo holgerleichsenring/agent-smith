@@ -23,14 +23,15 @@ internal static class ApprovedSetDoubles
     internal static ISpecApprovalStore Store() => new InMemorySpecApprovalStore();
 
     /// <summary>2026-11-22-a720b: the approved revision's ticket text rewrite over <paramref name="trackers"/>.</summary>
-    internal static ApprovedTicketText TicketText(AgentSmith.Contracts.Providers.ITicketProviderFactory? trackers = null)
+    internal static ApprovedTicketText TicketText(
+        AgentSmith.Contracts.Providers.ITicketProviderFactory? trackers = null, AgentSmith.Contracts.Events.IEventPublisher? events = null)
     {
         var factory = trackers ?? Moq.Mock.Of<AgentSmith.Contracts.Providers.ITicketProviderFactory>();
         return new ApprovedTicketText(
             new AgentSmith.Application.Services.TicketActs.ApprovedSetRegion(new SeriesTicketRegion(new SpecTicketRenderer())),
             new AgentSmith.Application.Services.TicketActs.TicketDescriptionRewrite(
                 factory, NullLogger<AgentSmith.Application.Services.TicketActs.TicketDescriptionRewrite>.Instance),
-            factory, NullLogger<ApprovedTicketText>.Instance);
+            factory, events ?? Moq.Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), NullLogger<ApprovedTicketText>.Instance);
     }
 
     /// <summary>2026-10-06-03c7c: the series minting a filing and an amendment use.</summary>

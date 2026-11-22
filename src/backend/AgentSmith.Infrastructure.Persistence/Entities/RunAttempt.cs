@@ -25,6 +25,10 @@ public sealed class RunAttempt : EntityBase
     public string? SourceDetail { get; set; }
 
     public string? TicketFingerprint { get; set; }
+
+    /// <summary>2026-11-22-e812: the fingerprint of the ticket text this run wrote into the tracker, when it rewrote it
+    /// from the approved specs; the text the attempt left behind, which the next attempt's fetch compares with.</summary>
+    public string? LeftTicketFingerprint { get; set; }
     public string? TrackerState { get; set; }
     public string? WebUrl { get; set; }
 

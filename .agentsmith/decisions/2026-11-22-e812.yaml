@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-e812
+
+decisions:
+  - category: Architecture
+    chose: "A TicketTextRewrittenEvent published from ApprovedTicketText right after its read-back, feeding a new RunAttempt.LeftTicketFingerprint and a ticket-rewritten conversation entry"
+    over: "Reading the published set's TicketFingerprint, or a context key carried on SpecSetPublishedEvent"
+    reason: "On a run that does not rewrite, the set's fingerprint is carried forward from an older revision, so a kept person's edit would vanish from the page; an event at the rewrite itself is recorded even when the branch write after it fails, and its text lets the diff show only what a person changed (spec review)."
+  - category: Implementation
+    chose: "One nullable column through a plain AddColumn migration in each provider set (shared SQLite/MySQL, SQL Server, PostgreSQL), no backfill"
+    over: "Raw SQL or a C# backfill"
+    reason: "Provider-agnostic as the operator asked; no run rewrote a ticket before 2026-11-22-a720b, so no old row needs the value."
+    decider: operator
+  - category: Implementation
+    chose: "The left fingerprint is the last rewrite's and is never cleared; the edit chain still starts only at attempts with a fetched fingerprint"
+    over: "First write wins"
+    reason: "A resumed run publishes again without rewriting; the text it left behind is still the rewrite's."
+  - category: Implementation
+    chose: "Known small windows named, not closed: the replaced-text comment compares the run's fetched copy, so an edit made during the run is overwritten without it; an edit between the rewrite and its read-back counts as agent-smith's; the diff's text and the compared fingerprint come from two projections of one event"
+    over: "Re-reading the tracker right before the rewrite"
+    reason: "Each window is seconds wide inside a run that holds the ticket; closing the first needs a second tracker read per approved revision (code review)."

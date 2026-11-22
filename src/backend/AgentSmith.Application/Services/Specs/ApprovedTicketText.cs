@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.TicketActs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
@@ -16,10 +17,12 @@ namespace AgentSmith.Application.Services.Specs;
 /// fingerprint of the ticket as the tracker stored it, label note stripped as the next run's fetch reads it. A text a
 /// person edited since agent-smith last wrote it is replaced only by that newer approval, and never silently: the ticket
 /// is told what it said. A refused rewrite costs the tracker text, never the run.
+/// 2026-11-22-e812: the stored text is announced as <see cref="TicketTextRewrittenEvent"/> at once, so the attempt keeps
+/// what it left behind even when the branch write after it fails.
 /// </summary>
 public sealed class ApprovedTicketText(
     ApprovedSetRegion regions, TicketDescriptionRewrite descriptions, ITicketProviderFactory trackers,
-    ILogger<ApprovedTicketText> logger)
+    IEventPublisher events, ILogger<ApprovedTicketText> logger)
 {
     /// <summary>The head line of the comment that keeps a replaced edit.</summary>
     public const string ReplacedHeading = "Agent Smith — the ticket text was rewritten from the approved specs";
@@ -43,7 +46,9 @@ public sealed class ApprovedTicketText(
             await KeepReplacedAsync(tracker, ticket, ct);
         if (await ReadBackAsync(tracker, ticket.Id, ct) is not { } stored) return set;
         pipeline.Set(ContextKeys.Ticket, stored);
-        return set with { TicketFingerprint = TicketTextFingerprint.Of(stored) };
+        var fingerprint = TicketTextFingerprint.Of(stored);
+        await AnnounceAsync(pipeline, stored, fingerprint, ct);
+        return set with { TicketFingerprint = fingerprint };
     }
 
     // A demand re-cut, a kept edit, a rework or a status-back revision carries no new approval from a conversation; a
@@ -61,6 +66,20 @@ public sealed class ApprovedTicketText(
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "The edited text ticket {Ticket} had before its rewrite could not be kept as a comment", ticket.Id.Value);
+        }
+    }
+
+    private async Task AnnounceAsync(PipelineContext pipeline, Ticket stored, string fingerprint, CancellationToken ct)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId)) return;
+        try
+        {
+            await events.PublishAsync(new TicketTextRewrittenEvent(runId, stored.Id.Value, TicketHtmlConverter.ToText(stored.Description),
+                fingerprint, DateTimeOffset.UtcNow, stored.AcceptanceCriteria is { } criteria ? TicketHtmlConverter.ToText(criteria) : null), ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "The rewrite of ticket {Ticket} could not be announced; its next attempt reads it as edited", stored.Id.Value);
         }
     }
 

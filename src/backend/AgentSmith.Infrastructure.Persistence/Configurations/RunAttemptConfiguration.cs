@@ -21,6 +21,7 @@ public sealed class RunAttemptConfiguration : IEntityTypeConfiguration<RunAttemp
         builder.Property(a => a.CauseChannel).HasMaxLength(Short);
         builder.Property(a => a.SourceKind).HasMaxLength(Short);
         builder.Property(a => a.TicketFingerprint).HasMaxLength(PersistenceLimits.Sha256Hex);
+        builder.Property(a => a.LeftTicketFingerprint).HasMaxLength(PersistenceLimits.Sha256Hex); // 2026-11-22-e812
         builder.Property(a => a.SeriesId).HasMaxLength(PersistenceLimits.IndexedString);
     }
 }

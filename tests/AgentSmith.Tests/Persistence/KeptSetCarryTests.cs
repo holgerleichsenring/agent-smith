@@ -95,6 +95,16 @@ public sealed class KeptSetCarryTests : IDisposable
     }
 
     [Fact]
+    public async Task Rewrite_RecordsTheLeftFingerprint_AndALaterPublishKeepsIt()
+    {
+        // 2026-11-22-e812
+        await ApplyAsync(new TicketTextRewrittenEvent(Retry, "42", "Goal 1", new string('b', 64), T));
+        await ApplyAsync(Kept(Retry, carried: Ids[..2]));
+
+        (await AttemptsAsync()).Single().LeftTicketFingerprint.Should().Be(new string('b', 64));
+    }
+
+    [Fact]
     public async Task Backfill_RowWithoutCarriedIds_IsFilledFromItsKeptPublish_AndASecondPassChangesNothing()
     {
         await StoreAsync(Kept(Retry, carried: Ids[..2]), carriedJson: null);

@@ -25,6 +25,7 @@ public sealed class ApprovedTicketTextTests
     private readonly Mock<ITicketRewriter> _rewriter = new();
     private readonly Mock<ITicketProvider> _tracker = new();
     private readonly Mock<ITicketProviderFactory> _factory = new();
+    private readonly Mock<AgentSmith.Contracts.Events.IEventPublisher> _events = new();
 
     public ApprovedTicketTextTests()
     {
@@ -47,6 +48,9 @@ public sealed class ApprovedTicketTextTests
         followed.TicketFingerprint.Should().Be(TicketTextFingerprint.Of(TicketLabelNoteStripper.Strip(Stored())),
             "the next run fetches the ticket with the label note stripped and must read no edit");
         pipeline.Get<Ticket>(ContextKeys.Ticket).Description.Should().NotContain(TicketLabelNote.BeginIdentifier);
+        _events.Verify(e => e.PublishAsync(It.Is<AgentSmith.Contracts.Events.TicketTextRewrittenEvent>(r =>
+            r.RunId == "run-1" && r.TicketFingerprint == followed.TicketFingerprint), It.IsAny<CancellationToken>()), Times.Once,
+            "the attempt keeps the text it left behind (2026-11-22-e812)");
     }
 
     [Fact]
@@ -114,12 +118,13 @@ public sealed class ApprovedTicketTextTests
         followed.Should().BeSameAs(set);
     }
 
-    private ApprovedTicketText Text() => ApprovedSetDoubles.TicketText(_factory.Object);
+    private ApprovedTicketText Text() => ApprovedSetDoubles.TicketText(_factory.Object, _events.Object);
 
     private static PipelineContext Pipeline()
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Ticket, new Ticket(new TicketId("42"), "Widget", "Old text", null, "Open", "GitHub"));
+        pipeline.Set(ContextKeys.RunId, "run-1");
         return pipeline;
     }
 

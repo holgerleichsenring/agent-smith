@@ -1676,6 +1676,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("LeftTicketFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("RevisionCause")
                         .HasColumnType("text");
 

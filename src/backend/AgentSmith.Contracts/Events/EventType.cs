@@ -49,12 +49,9 @@ public enum EventType
     // p0200: an operator or watchdog cancel, landed on the run stream so late-subscribing dashboards
     // see it was asked; RunFinished follows once the executor returns.
     RunCancelRequested = 70,
-    // p0201: sandbox container died unexpectedly (docker daemon lost it,
-    // OOM kill, manual rm, network partition). SandboxLivenessWatcher
-    // publishes after the docker-inspect probe confirms the container is
-    // truly gone, just before signalling the per-run CTS. Trail shows
-    // ContainerState so the operator distinguishes "Exited(137)" from
-    // "container missing".
+    // p0201: sandbox container died unexpectedly (docker daemon lost it, OOM kill, manual rm, network partition).
+    // SandboxLivenessWatcher publishes after the docker-inspect probe confirms the container is truly gone, just
+    // before signalling the per-run CTS. ContainerState tells "Exited(137)" from "container missing".
     SandboxVanished = 71,
     // p0327: a run parked on a DialogQuestion past the hot-wait threshold. Carries the serialized checkpoint (pending
     // question + step cursor + pipeline context) so the server-side projector can persist it — the event stream is
@@ -117,4 +114,6 @@ public enum EventType
     VerifyPassRecorded = 91,
     // 2026-11-18-3863f: a deploy's pull request or pipeline run, followed by the server.
     DeployDelivered = 92,
+    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs.
+    TicketTextRewritten = 93,
 }

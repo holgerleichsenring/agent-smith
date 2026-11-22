@@ -54,6 +54,14 @@ public sealed class RunAttemptProjection(IUniqueViolationTranslator? violations 
         await uow.SaveChangesAsync(ct);
     }
 
+    /// <summary>2026-11-22-e812: the text the run wrote into the tracker; a later rewrite in the run wins.</summary>
+    public async Task ApplyRewriteAsync(IUnitOfWork uow, TicketTextRewrittenEvent e, CancellationToken ct)
+    {
+        var row = await RowAsync(uow, e.RunId, ct);
+        row.LeftTicketFingerprint = e.TicketFingerprint;
+        await uow.SaveChangesAsync(ct);
+    }
+
     private async Task<RunAttempt> RowAsync(IUnitOfWork uow, string runId, CancellationToken ct)
     {
         if (await FindAsync(uow, runId, ct) is { } found) return found;
