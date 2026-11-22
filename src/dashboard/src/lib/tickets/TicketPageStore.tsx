@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { HubConnectionState } from "@microsoft/signalr";
 import { getJobsHubClient, type JobsHubClient } from "@/lib/JobsHubClient";
 import { HUB_URL } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
@@ -14,6 +13,7 @@ import type {
 import {
   TicketPageReads, type PerRunRead, type Read, type TicketPageApi, type TicketPageSnapshot,
 } from "./TicketPageReads";
+import { connectedListener } from "./connectedAgain";
 import { useApprovalPreview } from "./useApprovalPreview";
 
 // 2026-10-13-9a59q: the ONE store of a ticket page. Every ticket-level read lives here, so the Summary
@@ -66,11 +66,14 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
       setActivity((n) => n + 1);
     });
     const offRuns = hub.runsChanged.add((runId) => reads.runChanged(runId));
-    const offConn = hub.connectionState.add((state) => {
-      if (state !== HubConnectionState.Connected) return;
-      reads.ticketChanged();
-      setActivity((n) => n + 1);
-    });
+    // 2026-11-23-1e76a: everything again only after a drop; the first connect reads the detail alone.
+    const offConn = hub.connectionState.add(connectedListener(hub.state(), {
+      first: () => reads.connected(),
+      again: () => {
+        reads.ticketChanged();
+        setActivity((n) => n + 1);
+      },
+    }));
     let leave: (() => Promise<void>) | null = null;
     let left = false;
     hub.subscribeOverview()

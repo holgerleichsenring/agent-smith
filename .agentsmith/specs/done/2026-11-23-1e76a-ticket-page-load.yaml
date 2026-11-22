@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-1e76a
+goal: "A ticket page opens fast: the detail read asks no tracker and runs its reads side by side, the series read fans out, and reconnects and refresh nudges stop repeating reads and writes."
+
+applies_to: "default (TicketDetailReader, TicketPullRequestReader, SubSeriesFiles, TicketBranchSeries; dashboard TicketPageStore, TicketListProvider)"
+
+requires: [2026-10-13-9a59h, 2026-10-13-9a59p, 2026-10-13-9a59q, 2026-11-17-a0b6a]
+
+invariant: "Opening a ticket page waits on its own database reads only, never on the tracker, and those reads do not wait on each other."
+
+facts:
+  - claim: "The page shows 'Reading the ticket…' until the detail read answers."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:32-41, src/dashboard/src/components/tickets/detail/TicketPage.tsx:85"
+  - claim: "The detail read awaits its reads one after another and runs the between-attempts check inline."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:39-57"
+  - claim: "The check reads the tracker (ticket, comments, status history) when the last attempt failed and its stored check is five minutes old."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketBetweenAttemptsChecker.cs:41-49, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketTrackerObserver.cs:34-42"
+  - claim: "The list already offers failed tickets to a kick queue throttled per ticket for five minutes; a worker runs the check, whose changed result nudges the ticket's views."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:67-68, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckKicks.cs:25-37, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckKickWorker.cs:26-36, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketBetweenAttemptsChecker.cs:48-52"
+  - claim: "Each store the detail read uses opens its own scope (its own DbContext) per call; the live-state stores are singletons that do the same."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketRunsQuery.cs:18, src/backend/AgentSmith.Server/Services/Tickets/TicketDerivations.cs:25, src/backend/AgentSmith.Server/Services/Tickets/TicketAttemptRecords.cs:21, src/backend/AgentSmith.Server/Services/Tickets/TicketLaunchEnds.cs:22, src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:57, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkRunsReader.cs:55, src/backend/AgentSmith.Server/Services/Tickets/TicketStandings.cs:66-75, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckStore.cs:23, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbCapacityQueue.cs:38-42, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbActiveRunLease.cs:41-45, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbRunCheckpointStore.cs:27-36, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:89-131"
+  - claim: "The page store starts six ticket-level reads at once and re-reads everything on every Connected, the first one included; the list provider re-reads on every Connected too. Connected is a plain subject that does not replay."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:134-147, src/dashboard/src/lib/tickets/TicketPageStore.tsx:69-73, src/dashboard/src/lib/tickets/TicketListProvider.tsx:71-73, src/dashboard/src/lib/JobsHubClient.ts:412-440"
+  - claim: "The kick queue marks a ticket kicked before writing, and its DropWrite channel answers TryWrite true while dropping, so a full queue silences a ticket for five minutes."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckKicks.cs:19-20, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckKicks.cs:32-34"
+  - claim: "The manifest finder reads every manifest under series/ one after another; the directory grows by one per derived series."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifestFinder.cs:24-32"
+  - claim: "The list provider counts /tickets/{project}/{id} as the ticket list, so a RunsChanged re-reads the whole list within 2 s on a ticket page."
+    evidence: "src/dashboard/src/lib/tickets/TicketListProvider.tsx:41, src/dashboard/src/lib/tickets/TicketListProvider.tsx:69-70"
+  - claim: "The branch series read finds the manifest, lists three state directories and reads each spec one after another, per repository in turn."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SubSeriesFiles.cs:21-58, src/backend/AgentSmith.Application/Services/Specs/TicketBranchSeries.cs:31-33"
+  - claim: "A run's checkout reads through a channel that runs one step at a time, so reading it concurrently only queues."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxRedisChannel.cs:43-56"
+  - claim: "The detail GET enqueues a refresh nudge (a database upsert) on every read while a record is over five minutes old or a pull request has none."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:60-62, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:25-26"
+  - claim: "No new hard-coded bound may join the backend; TicketPullRequestReader holds one (its five-minute staleness)."
+    evidence: "tests/AgentSmith.Tests/Architecture/hard-coded-limits-baseline.tsv:411"
+
+scope:
+  in: >-
+    (a) The detail read offers a failed head to TicketCheckKicks instead of running the check, so the detail (and the
+    admin assistant's ticket tool) shows the stored check until the kicked one lands and nudges TicketActivityChanged;
+    TicketCheckKicks gives a claim back when its Wait channel refuses the write (DropWrite answered true while dropping); the checker's run-rows overload loses its last caller
+    and goes private. (b) The detail read's reads after the run query run under one Task.WhenAll (about seven pooled
+    connections at once). (c) TicketPageStore and TicketListProvider re-read everything on Connected only after a
+    Reconnecting or Disconnected, or when the hub was reconnecting at mount; the first Connected re-reads the detail alone
+    (the page) or schedules the list in its RunsChanged window (the list), covering events sent before the overview group
+    was joined. (d) The list provider's 2 s RunsChanged window holds on /tickets only; a ticket page uses the 15 s one
+    (only the rail's counts and the top bar read the list there). (e) SubSeriesFiles reads the three listings side by side and then every spec side by side, the first failure taken
+    in manifest order; TicketBranchSeries reads its repositories side by side. (f) TicketPullRequestReader (list and
+    detail) enqueues a refresh per ticket and reason (stale, or the set of unrecorded pull requests) at most once per its
+    existing five-minute StaleAfter, kept in the memory cache once the enqueue succeeded.
+  out: "A cache of the detail, the series or the configuration (each detail read still loads the configuration once; the page still reads the branch once per attempt's series); a throttle on the fan-out; the manifest scan, which stays sequential (an unbounded fan-out over a growing directory, against host rate limits); the server's startup, hosted services and migrations; rendering the header from the list row (the list's first page need not hold the ticket)."
+
+steps:
+  - id: detail
+    action: "TicketDetailReader: kick instead of check; the reads after the run query in one Task.WhenAll."
+  - id: nudge
+    action: "TicketPullRequestReader: the refresh nudge throttled per ticket and reason by StaleAfter."
+  - id: series
+    action: "SubSeriesFiles and TicketBranchSeries read side by side, results kept in their order."
+  - id: dashboard
+    action: "A dropped-then-connected rule shared by the page store and the list provider; the 2 s window on /tickets only."
+
+tests:
+  - "A failed head's detail read creates no tracker and leaves one kick; the stuck tests drain the kicks through the worker and keep their answers; a full queue does not silence a ticket."
+  - "Over a file store with a connection per context and every command delayed, the detail read has more than one command in flight and its view equals the undelayed one."
+  - "SubSeriesFiles over a source whose reads are answered newest first keeps the manifest order and names the first failure in it."
+  - "Two detail reads of a stale record enqueue one refresh; a second missing pull request still enqueues."
+  - "The first Connected re-reads the detail only (page) and schedules the list in its window; Reconnecting then Connected re-reads everything (page store and list)."
+  - "On /tickets/p/1 a RunsChanged waits 15 s; on /tickets 2 s; going from a ticket page to /tickets flushes a held read."
+
+done:
+  - "Build, the full suite and the dashboard tests green."
+  - "The detail read's wall time measured before and after over the test store with 5 ms per database command and 150 ms per tracker call, a failed head with a five-minute-old check (not committed: timing)."

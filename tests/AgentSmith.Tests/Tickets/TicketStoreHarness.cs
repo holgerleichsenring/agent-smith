@@ -34,11 +34,20 @@ internal sealed class TicketStoreHarness : IDisposable
 {
     public static readonly DateTimeOffset T = DateTimeOffset.Parse("2026-10-13T09:00:00Z");
 
-    private readonly SqliteConnection _connection = MigratedStoreTemplate.OpenCopy();
+    private readonly SqliteConnection? _connection;
+    private readonly string? _file;
     private readonly ServiceProvider _provider;
 
-    public TicketStoreHarness(Action<IServiceCollection>? configure = null)
+    /// <param name="connectionPerContext">2026-11-23-1e76a: the store as a file, each context on a connection of its own as
+    /// in production, so reads may overlap; otherwise one in-memory connection that all contexts share.</param>
+    public TicketStoreHarness(Action<IServiceCollection>? configure = null, bool connectionPerContext = false)
     {
+        if (connectionPerContext)
+        {
+            _file = Path.Combine(Path.GetTempPath(), $"ticket-store-{Guid.NewGuid():N}.db");
+            MigratedStoreTemplate.CopyToFile(_file);
+        }
+        else _connection = MigratedStoreTemplate.OpenCopy();
         Lease.Setup(l => l.GetByTicketAsync(It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => HeldLease);
         Queue.Setup(q => q.GetPositionsByRunIdAsync(It.IsAny<CancellationToken>()))
@@ -109,6 +118,8 @@ internal sealed class TicketStoreHarness : IDisposable
     public StaleLease? HeldLease { get; set; }
     /// <summary>2026-11-22-9719d: every database command the readers send.</summary>
     public CountingCommands Commands { get; } = new();
+    /// <summary>2026-11-23-1e76a: holds the commands while a test says so.</summary>
+    public HeldCommands Held { get; } = new();
 
     public AgentSmithConfig Config { get; } = new()
     {
@@ -134,6 +145,13 @@ internal sealed class TicketStoreHarness : IDisposable
     public TicketBetweenAttemptsChecker Checker => _provider.GetRequiredService<TicketBetweenAttemptsChecker>();
     public TicketCheckKicks Kicks => _provider.GetRequiredService<TicketCheckKicks>();
     public IServiceProvider Services => _provider;
+
+    /// <summary>2026-11-23-1e76a: runs the checks the reads kicked, one by one, as <see cref="TicketCheckKickWorker"/> does.</summary>
+    public async Task RunKickedChecksAsync()
+    {
+        var worker = ActivatorUtilities.CreateInstance<TicketCheckKickWorker>(_provider);
+        while (Kicks.Reader.TryRead(out var kick)) await worker.RunAsync(kick, CancellationToken.None);
+    }
 
     public async Task AddAsync(params object[] rows)
     {
@@ -202,11 +220,18 @@ internal sealed class TicketStoreHarness : IDisposable
     public void Dispose()
     {
         _provider.Dispose();
-        _connection.Dispose();
+        _connection?.Dispose();
+        if (_file is null) return;
+        SqliteConnection.ClearAllPools();
+        File.Delete(_file);
     }
 
-    private DbContextOptions<AgentSmithDbContext> Options() =>
-        new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).AddInterceptors(Commands).Options;
+    private DbContextOptions<AgentSmithDbContext> Options()
+    {
+        var builder = new DbContextOptionsBuilder<AgentSmithDbContext>();
+        var store = _connection is not null ? builder.UseSqlite(_connection) : builder.UseSqlite($"Data Source={_file}");
+        return store.AddInterceptors(Commands, Held).Options;
+    }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {

@@ -106,6 +106,7 @@ export class TicketPageReads {
   private readonly inFlight = new Set<string>();
   private readonly again = new Set<string>();
   private readonly ticketTick = new CoalescedRefetch(() => this.readTicket());
+  private readonly detailTick = new CoalescedRefetch(() => this.readDetail()); // 2026-11-23-1e76a
   private readonly conversationTick = new CoalescedRefetch(() => this.readConversation());
   private readonly reviews = new TicketOwnRead((signal) => this.api.reviews(this.project, this.ticketId, signal),
     () => this.snap.reviews, (reviews) => this.publish({ ...this.snap, reviews })); // 2026-10-13-8762l
@@ -152,6 +153,7 @@ export class TicketPageReads {
     this.inFlight.clear();
     this.again.clear();
     this.ticketTick.cancel();
+    this.detailTick.cancel();
     this.conversationTick.cancel();
     this.reviews.dispose();
     this.defaults.dispose();
@@ -168,6 +170,11 @@ export class TicketPageReads {
     this.defaults.within(TICKET_READ_MS);
     this.text.within(TICKET_READ_MS);
     this.requires.within(TICKET_READ_MS);
+  }
+
+  /** (i) 2026-11-23-1e76a: the hub's first connect — the detail alone, for a nudge sent before the page joined. */
+  connected(): void {
+    this.detailTick.within(TICKET_READ_MS);
   }
 
   /** (h) 2026-11-17-dd05d: the window came back into focus — the operator may have edited the ticket in its tracker,
@@ -240,13 +247,18 @@ export class TicketPageReads {
   }
 
   private readTicket(): void {
-    void this.read("detail", () => this.api.detail(this.project, this.ticketId, this.abort.signal),
-      (detail) => this.detailLanded(detail));
+    this.detailTick.cancel();
+    this.readDetail();
     void this.read("series", () => this.api.series(this.project, this.ticketId, null, this.abort.signal));
     for (const key of this.wanted) {
       const [kind, runId] = splitKey(key);
       if (this.isLive(runId)) this.readPerRun(kind, runId);
     }
+  }
+
+  private readDetail(): void {
+    void this.read("detail", () => this.api.detail(this.project, this.ticketId, this.abort.signal),
+      (detail) => this.detailLanded(detail));
   }
 
   private readConversation(): void {

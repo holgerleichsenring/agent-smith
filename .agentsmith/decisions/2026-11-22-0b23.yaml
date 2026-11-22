@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-0b23
+
+decisions:
+  - category: Design
+    chose: "A failed refresh-nudge write is caught (not a cancellation of the read), logged as a warning naming the ticket, and the read answers"
+    over: "Let the failure fail the GET, as before"
+    reason: "Operator: a read must not fail because of its side-effect nudge write. The limiter marks a nudge only after it was written, so the next read tries again."
+    decider: operator

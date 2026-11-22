@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-0b23
+goal: "A ticket read whose refresh-nudge write fails still answers: the failure is logged as a warning naming the ticket, and the next read tries the nudge again."
+
+applies_to: "default (TicketPullRequestReader)"
+
+requires: [2026-11-23-1e76a]
+
+invariant: "A ticket read never fails because of the nudge it writes on the side."
+
+facts:
+  - claim: "The list and detail reads await the refresh nudge's enqueue, so a failed write fails the whole GET."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:48-50, src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:66-69, src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:79-85"
+  - claim: "The nudge is marked in the cache only after the enqueue succeeded, so a failed one is tried on the next read."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:83-84"
+  - claim: "The operator decided a read must not fail on its nudge write."
+    evidence: "observed: operator message, 2026-11-23"
+
+scope:
+  in: "TicketPullRequestReader.NudgeAsync catches a failed enqueue (not a cancellation of the read), logs a warning naming project and ticket, and returns."
+  out: "Other side-effect writes of reads; the check kicks (in-memory, cannot fail this way)."
+
+steps:
+  - id: catch
+    action: "Catch and log in NudgeAsync; ILogger injected."
+
+tests:
+  - "An enqueue that throws: the detail read answers, and the next read enqueues again."
+
+done:
+  - "Build, the full suite and the dashboard tests green."
