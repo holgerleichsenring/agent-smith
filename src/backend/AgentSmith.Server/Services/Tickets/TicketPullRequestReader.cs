@@ -7,6 +7,7 @@ using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Tickets;
 
@@ -18,10 +19,12 @@ namespace AgentSmith.Server.Services.Tickets;
 /// Reads only nudge — the nudge worker is the only writer.
 /// <para>2026-11-23-1e76a: a nudge is an upsert, and the page re-reads every two seconds during a live run, so each ticket
 /// is nudged at most once per <see cref="StaleAfter"/> for each reason — a stale record, or the same set of pull requests
-/// without one — on this replica, as <see cref="Checks.TicketCheckKicks"/> throttles its kicks.</para>
+/// without one — on this replica, as <see cref="Checks.TicketCheckKicks"/> throttles its kicks. 2026-11-22-0b23: a nudge that cannot be
+/// written is logged, and the read answers anyway.</para>
 /// </summary>
 public sealed class TicketPullRequestReader(
-    IServiceScopeFactory scopes, IReworkNudges nudges, TicketReviewState review, TimeProvider clock, IMemoryCache nudged)
+    IServiceScopeFactory scopes, IReworkNudges nudges, TicketReviewState review, TimeProvider clock, IMemoryCache nudged,
+    ILogger<TicketPullRequestReader> logger)
 {
     private const string Stale = "stale";
 
@@ -80,7 +83,16 @@ public sealed class TicketPullRequestReader(
     {
         var key = $"pr-refresh-nudge:{reason}:{project}/{ticketId}";
         if (nudged.TryGetValue(key, out _)) return;
-        await nudges.EnqueueAsync(new ReworkNudgeRequest(project, ticketId, ReworkNudgeOrigin.Refresh), ct);
+        try
+        {
+            await nudges.EnqueueAsync(new ReworkNudgeRequest(project, ticketId, ReworkNudgeOrigin.Refresh), ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested) // 2026-11-22-0b23: the read answers without its nudge
+        {
+            logger.LogWarning(ex, "The refresh nudge of ticket {Ticket} in {Project} was not written; the next read tries again",
+                ticketId, project);
+            return;
+        }
         nudged.Set(key, true, StaleAfter); // marked once enqueued, so a failed write is tried again on the next read
     }
 }

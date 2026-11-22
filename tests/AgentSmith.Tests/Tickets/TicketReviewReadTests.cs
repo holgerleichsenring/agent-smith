@@ -154,4 +154,19 @@ public sealed class TicketReviewReadTests : IDisposable
 
         _h.Nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r => r.TicketId == "42"), default), Times.Exactly(2));
     }
+
+    // 2026-11-22-0b23: a read never fails on the nudge it writes on the side.
+    [Fact]
+    public async Task TicketDetail_RefreshNudgeWriteFails_AnswersAndTriesAgainOnTheNextRead()
+    {
+        await _h.AddAsync(WithPr(Run("r-42", "42")), Step("r-42"));
+        _h.Nudges.SetupSequence(n => n.EnqueueAsync(It.IsAny<ReworkNudgeRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("store down")).Returns(Task.CompletedTask);
+
+        var detail = await _h.Detail.ReadAsync("alpha", "42", default);
+        await _h.Detail.ReadAsync("alpha", "42", default);
+
+        detail!.Attempts.Should().ContainSingle().Which.PullRequests.Should().ContainSingle();
+        _h.Nudges.Verify(n => n.EnqueueAsync(It.IsAny<ReworkNudgeRequest>(), default), Times.Exactly(2));
+    }
 }
