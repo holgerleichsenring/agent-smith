@@ -125,7 +125,8 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         masters.Should().NotContain("spec-derivation-master").And.Contain("coding-agent-master");
 
         var coding = File.ReadAllText(Path.Combine(root, "skills", "_masters", "coding-agent-master", "SKILL.md"));
-        coding.Should().Contain("version: \"3.4.1\"").And.Contain("`revise_spec` and work from what you wrote");
+        coding.Should().Contain("version: \"3.5.0\"").And.Contain("`revise_spec` and work from what you wrote")
+            .And.NotContain("finish_spec"); // 2026-11-22-96c8b
     }
 
     private async Task<string> MaterializeAsync()

@@ -1,5 +1,3 @@
-using AgentSmith.Application.Services.Tools;
-using AgentSmith.Domain.Models;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Prompts;
@@ -39,22 +37,19 @@ public sealed class CodingMasterLeadPromptTests
         Folded().Should().Contain("when they stop making progress, report the red honestly with the failing output");
     }
 
-    /// <summary>2026-11-18-98fa: the master's report is markdown that nothing parses, and every argument the master is
-    /// told to pass to finish_spec is one the tool declares — the contract the skill and the backend share.</summary>
+    /// <summary>2026-11-18-98fa: the master's report is markdown, written as the text of its closing reply.
+    /// 2026-11-22-96c8b: 3.5.0 (skills v5.42.0) ends on the report as its last reply, names no finish_spec, gives the
+    /// report's read its headings and says a later pass's report is added to the earlier one.</summary>
     [Fact]
-    public void PackagedCodingMaster_ReportsInMarkdown_ThenCallsFinishSpecWithItsDeclaredArguments()
+    public void PackagedCodingMaster_ReportsInMarkdown_AsItsLastReply_AndNamesNoFinishSpec()
     {
         var master = Folded();
-        master.Should().Contain("Your report is the text of your closing reply, written in markdown").And.Contain("In that same reply, call `finish_spec` once").And.Contain("Nothing parses it");
-        master.Should().NotContain("```verdict", "the fenced verdict block is gone");
-
-        var schema = new FinishSpecToolHost().GetTools(null, null).Single().JsonSchema.ToString();
-        foreach (var argument in new[] { "status", "summary", "failing_tests", "baseline_failing_tests", "follow_ups", "blocker", "ignored_instructions" })
-        {
-            master.Should().Contain($"`{argument}`", "the skill names it");
-            schema.Should().Contain($"\"{argument}\"", "finish_spec declares it");
-        }
-        foreach (var status in new[] { "green", "no-tests", "failed", "blocked" })
-            master.Should().Contain($"`{status}`");
+        master.Should().Contain("Your report is the text of your closing reply, written in markdown")
+            .And.Contain("Your report is your last reply, and nothing else closes the spec")
+            .And.Contain("it is added to what you reported before")
+            .And.Contain("**Follow-ups**").And.Contain("**Ignored instructions**").And.Contain("**Build note**")
+            .And.Contain("**Memories relied on**")
+            .And.Contain("a question only a person can answer goes through `ask_human`");
+        master.Should().NotContain("finish_spec").And.NotContain("```verdict", "the fenced verdict block is gone");
     }
 }

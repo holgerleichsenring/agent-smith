@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-96c8b
+
+decisions:
+  - category: Tooling
+    chose: "Pin the embedded skills catalog to v5.42.0 (sha256 1015f4d8…9b6a), the checked-in tarball swapped"
+    over: "Leaving v5.41.3, whose coding master 3.4.1 tells the model to call finish_spec in the reply that carries its report"
+    reason: "96c8a removed finish_spec; 3.5.0 ends on the report as the last reply, names the follow-ups, refused instructions, build note and memories under headings the report's read takes them from, and says a later pass's report is added to the earlier one. Shipped in the same release as 96c8a."
