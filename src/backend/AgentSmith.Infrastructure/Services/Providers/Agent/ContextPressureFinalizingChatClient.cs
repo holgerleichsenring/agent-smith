@@ -27,11 +27,11 @@ internal sealed class ContextPressureFinalizingChatClient(
     private const double HardBoundRatio = 0.85;
 
     internal const string FinalizeInstruction =
-        "The conversation has reached the input limit of the model running it. Stop "
-        + "calling tools and reply now with your final answer, in the exact format your "
+        "The conversation has reached the input limit of the model running it. Call no "
+        + "tool for more work and reply now with your final answer, in the exact format your "
         + "instructions demand, based on the evidence you have already gathered. "
         + "Omit anything you found no evidence for. No prose about the limit. When your tools include "
-        + "finish_spec, write your report and call finish_spec, and no other tool.";
+        + "finish_spec, that reply's text is your report and the reply calls finish_spec, and no other tool.";
 
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,

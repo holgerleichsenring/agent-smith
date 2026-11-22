@@ -22,7 +22,7 @@ public sealed class CodingRunTextTests
     public void MasterClosing_Coding_EndsOnTheReportAndFinishSpec()
     {
         MasterClosing.For("coding-agent-master", new PipelineContext()).Should()
-            .Contain("Your last message is your report").And.Contain("finish_spec").And.NotContain("summarise what changed");
+            .Contain("Your last reply is your report").And.Contain("finish_spec").And.NotContain("summarise what changed");
     }
 
     [Fact]

@@ -45,7 +45,7 @@ public sealed class FinishSpecHandlerTests
 
         context.Pipeline.Has(ContextKeys.MasterVerification).Should().BeFalse("no text is parsed");
         loop.Prompts.Should().Contain(p => p.Contains("did not call finish_spec"), "it was asked for it once");
-        MasterReportAccount.Missing(context.Pipeline).Should().Contain("ended without finish_spec");
+        MasterReportAccount.Missing(context.Pipeline).Should().Be(MasterReportAccount.NoFinish).And.Contain("did not report its result");
     }
 
     [Fact]

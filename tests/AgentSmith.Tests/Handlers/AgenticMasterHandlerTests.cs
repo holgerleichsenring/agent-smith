@@ -126,7 +126,7 @@ public sealed class AgenticMasterHandlerTests
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
         tools.Should().Contain("write_file").And.Contain("run_command").And.Contain("ask_human");
-        loop.SeenRequests[0].UserPrompt.Should().Contain("Your last message is your report");
+        loop.SeenRequests[0].UserPrompt.Should().Contain("Your last reply is your report");
     }
 
     [Fact]

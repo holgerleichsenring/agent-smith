@@ -17,9 +17,8 @@ public sealed class FinishSpecToolHost : IToolHost
     public const string Name = "finish_spec";
 
     private const string Described =
-        "Ends this spec for the pipeline; call it once, after your report. Your report is the markdown message you " +
-        "write for the person just before this call — it is shown as you wrote it and never parsed. Pass what the " +
-        "pipeline acts on: status 'green' (build clean, tests pass), 'no-tests' (build clean, no automated tests), " +
+        "Ends this spec for the pipeline. Call it in the same reply as your report: the reply's text is the markdown " +
+        "report for the person, shown as written and never parsed; this call carries what the pipeline acts on: status 'green' (build clean, tests pass), 'no-tests' (build clean, no automated tests), " +
         "'failed', or 'blocked' with a concrete blocker; summary, one line on what this spec delivered; failing_tests " +
         "and baseline_failing_tests, the test ids failing after and already before the change; follow_ups, each a " +
         "one-line goal and its why; ignored_instructions, ticket instructions you refused, quoted. A second call " +
@@ -63,8 +62,8 @@ public sealed class FinishSpecToolHost : IToolHost
             FollowUps: [.. (follow_ups ?? []).Select(f => new MasterFollowUp(f.Goal!.Trim(), f.Why?.Trim() ?? string.Empty))],
             Blocker: blocked ? blocker!.Trim() : null);
         Calls++;
-        return $"Recorded: {kind}, {Verification.FollowUps!.Count} follow-up(s). Your report is the message you wrote "
-            + "before this call; end your turn now.";
+        return $"Recorded: {kind}, {Verification.FollowUps!.Count} follow-up(s). Your report is the text of the reply "
+            + "that made this call, or your last text before it when that reply had none.";
     }
 
     private static IEnumerable<string> Refusals(
