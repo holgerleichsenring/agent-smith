@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
 import type { TicketSummary } from "@/types/tickets";
@@ -71,11 +72,21 @@ function RowLink({ ticket }: { ticket: TicketSummary }) {
   );
 }
 
+// 2026-11-22-6d85d: when only merges remain, the row names exactly the merges that unblock the ticket.
+function StartsOnceMerged({ keys }: { keys: string[] }) {
+  const t = useT();
+  const named = keys.length <= 1 ? keys.join("") : `${keys.slice(0, -1).join(", ")} ${t("tickets.row.and")} ${keys[keys.length - 1]}`;
+  return <>{t("tickets.row.startsOnceMerged", { keys: named, count: keys.length })}</>;
+}
+
 function NoRun({ ticket }: { ticket: TicketSummary }) {
   const waits = ticket.waitsFor ?? [];
+  const merges = waits.filter((w) => w.startsOnMerge).map((w) => w.key);
   return (
     <div className="norun hidesm" data-testid="ticket-norun">
-      {waits.length > 0 ? (
+      {merges.length > 0 ? (
+        <StartsOnceMerged keys={merges} />
+      ) : waits.length > 0 ? (
         <>
           waits for{" "}
           {waits.map((w, i) => (

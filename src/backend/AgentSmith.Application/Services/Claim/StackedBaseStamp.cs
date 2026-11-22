@@ -25,7 +25,7 @@ public static class StackedBaseStamp
         var hold = await requirements.ForStartAsync(project, key, ct);
         if (hold.Unmet.Count > 0)
             return (request, ClaimResult.Rejected(ClaimRejectionReason.TicketRequiresUnmet,
-                RequiresUnmetGate.Sentence(hold.Unmet, hold.GreenLifts)));
+                RequiresUnmetGate.Sentence(hold)));
         var context = new Dictionary<string, object>(request.InitialContext ?? []);
         var carried = context.Remove(ContextKeys.StackedOnTicket);
         if (hold.StackedOn is { } tip) context[ContextKeys.StackedOnTicket] = tip.RequiredTicketId;

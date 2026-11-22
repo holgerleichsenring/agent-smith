@@ -50,5 +50,9 @@ public sealed record SeriesTicketFact(SeriesTicket Ticket)
     /// <inheritdoc cref="Interrupted"/>
     public bool Restarting { get; init; }
 
+    /// <summary>2026-11-22-6d85d: the ticket ids whose merges unblock this held ticket — every prerequisite is green and
+    /// none carries the rest; empty when anything else holds it.</summary>
+    public IReadOnlyList<string> StartsOnceMerged { get; init; } = [];
+
     public bool Landed => LandedAt is not null;
 }

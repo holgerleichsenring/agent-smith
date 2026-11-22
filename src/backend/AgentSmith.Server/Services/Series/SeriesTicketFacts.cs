@@ -14,7 +14,8 @@ namespace AgentSmith.Server.Services.Series;
 public sealed class SeriesTicketFacts(
     TicketProjects projects, ITicketLandingStore landings, ITicketRequirementStore requirements,
     TicketRunsQuery runs, IPreviousAttemptReader attempts, SeriesParkedQuestion parked, SeriesTicketCi ci,
-    Preconditions.InterruptedRestartWindow? restart = null) : ISeriesTicketFacts // 2026-11-22-6d85c
+    Preconditions.InterruptedRestartWindow? restart = null, // 2026-11-22-6d85c
+    Application.Services.Claim.UnmetTicketRequirements? unmet = null) : ISeriesTicketFacts // 2026-11-22-6d85d
 {
     public async Task<IReadOnlyList<SeriesTicketFact>> ReadAsync(
         string project, IReadOnlyList<SeriesTicket> tickets, CancellationToken cancellationToken)
@@ -23,11 +24,20 @@ public sealed class SeriesTicketFacts(
         if (projects.Of(project) is not { } resolved) return [.. tickets.Select(t => new SeriesTicketFact(t))];
         var landed = (await landings.LandedAsync(resolved.Tracker.Name, [.. tickets.Select(t => Key(resolved, t))], cancellationToken))
             .ToDictionary(l => l.TicketId, l => l.LandedAt, StringComparer.Ordinal);
+        var merges = await MergesAsync(resolved, tickets, cancellationToken);
         var facts = new List<SeriesTicketFact>();
         foreach (var ticket in tickets)
-            facts.Add(await ReadOneAsync(resolved, ticket, LandedAt(landed, ticket.TicketId), cancellationToken));
+            facts.Add(await ReadOneAsync(resolved, ticket, LandedAt(landed, ticket.TicketId), cancellationToken)
+                with { StartsOnceMerged = merges.GetValueOrDefault(Key(resolved, ticket)) ?? [] });
         return facts;
     }
+
+    // 2026-11-22-6d85d: the merges that unblock each held ticket, read set-based by the rule a start reads.
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> MergesAsync(
+        ResolvedProject project, IReadOnlyList<SeriesTicket> tickets, CancellationToken ct) =>
+        unmet is null || project.RequiresStart != RequiresStart.OnGreenPush ? new Dictionary<string, IReadOnlyList<string>>()
+            : (await unmet.ForStartManyAsync(project, [.. tickets.Select(t => Key(project, t)).Distinct()], ct))
+                .ToDictionary(p => p.Key, p => (IReadOnlyList<string>)[.. p.Value.MergesToStart.Select(e => e.RequiredTicketId)]);
 
     private async Task<SeriesTicketFact> ReadOneAsync(
         ResolvedProject project, SeriesTicket ticket, DateTimeOffset? landedAt, CancellationToken ct)

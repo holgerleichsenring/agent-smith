@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-6d85d
+
+decisions:
+  - category: Implementation
+    chose: "Name the fewest green prerequisites whose merge leaves one whose requirement chain reaches the rest (the GreenReads tip rule, inverted)"
+    over: "Name every unmet prerequisite; name the merges only on the series row"
+    reason: "The start rule (GreenReads.TipAsync) lets a dependent stack on a tip once the remaining unlanded prerequisites have one; the merges that unblock it are exactly those the best candidate tip does not carry. The same answer feeds the claim refusal, the series row and the ticket list, so the three never disagree."
+  - category: Scope
+    chose: "on_green_push projects only"
+    over: "Also on_merge"
+    reason: "Spec review: under on_merge the refusal already says every prerequisite must be merged first; repeating it as 'starts once' adds nothing."
+  - category: Implementation
+    chose: "RequiresUnmetGate.Sentence(RequirementHold) as a new overload, used by the gate, StackedBaseStamp, SeriesTicketActs, ConversationAttemptStart and OperatorStart; the (unmet, greenLifts) form stays"
+    over: "Changing the existing signature; only the gate"
+    reason: "WaitingTicketStart (another agent's area) keeps the old form; code review: the series master's start act is where the named merge matters most."
+  - category: Implementation
+    chose: "Name each named prerequisite's unlanded bases first, read through the requirement store and the landings"
+    over: "The tip rule's set alone"
+    reason: "Code review (diamond: two siblings stacked on an unlanded base): a merge onto a base's branch lands only with that base (2026-11-22-6d85b), so naming the sibling alone would name a merge that does not unblock the ticket."
+  - category: Implementation
+    chose: "The series facts read the holds once per series through UnmetTicketRequirements.ForStartManyAsync; a prerequisite outside the series is named by its id"
+    over: "A hold read per ticket inside ReadOneAsync"
+    reason: "Spec review: the series sweeper reads the facts every scan; the set-based read is a few queries for the whole series."
+  - category: Design
+    chose: "The series row's words stay a server sentence (English); the ticket list row's words are dictionary keys in English and German (du-form not needed: 'startet, sobald … gemergt ist/sind')"
+    over: "Translating the series state words"
+    reason: "2026-11-22-5485a decided series state words are server sentences that are not translated; new dashboard text goes through the dictionary."

@@ -20,9 +20,17 @@ public static class SeriesTicketState
         ArgumentNullException.ThrowIfNull(fact);
         if (fact.Landed) return ("landed", Landed);
         if (fact.LatestStatus is { } status) return OfAttempt(fact, status);
+        if (fact.StartsOnceMerged.Count > 0) return (StartsOnce(fact.StartsOnceMerged, all), Held); // 2026-11-22-6d85d
         var unmet = fact.Requires.Select(id => all.FirstOrDefault(f => f.Ticket.TicketId == id))
             .Where(f => f is { Landed: false }).Select(f => f!.Ticket.Key).ToList();
         return unmet.Count > 0 ? ($"waits on {string.Join(", ", unmet)}", Held) : ("not started", NotStarted);
+    }
+
+    // 2026-11-22-6d85d: "starts once SCRUM-44 and SCRUM-45 are merged" — a member by its key, another by its id.
+    private static string StartsOnce(IReadOnlyList<string> ids, IReadOnlyList<SeriesTicketFact> all)
+    {
+        var names = ids.Select(id => all.FirstOrDefault(f => f.Ticket.TicketId == id)?.Ticket.Key ?? $"#{id}").ToList();
+        return $"starts once {Claim.RequiresUnmetGate.MergesNamed(names)} {(names.Count == 1 ? "is" : "are")} merged";
     }
 
     // 2026-11-17-0207d: a green run's pull requests as the CI loop's records see them — the CI loop fixes a red one.

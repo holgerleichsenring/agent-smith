@@ -32,7 +32,7 @@ public sealed class ConversationAttemptStart(
         var services = scope.ServiceProvider;
         var key = TicketLandingRecorder.KeyOf(project, ticketId);
         var hold = await services.GetRequiredService<UnmetTicketRequirements>().ForStartAsync(project, key, cancellationToken);
-        if (hold.Unmet.Count > 0) return RequiresUnmetGate.Sentence(hold.Unmet, hold.GreenLifts) + NothingQueued; // 2026-11-17-9a39a
+        if (hold.Unmet.Count > 0) return RequiresUnmetGate.Sentence(hold) + NothingQueued; // 2026-11-17-9a39a
         if (await services.GetRequiredService<PendingSeriesEditReader>().ReadAsync(project, ticketId, cancellationToken) is { } pending)
             return await services.GetRequiredService<PendingEditStart>()
                 .StartAsync(project, ticketId, pending, conversation, poster, cancellationToken);
