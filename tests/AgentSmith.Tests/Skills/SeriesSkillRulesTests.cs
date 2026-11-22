@@ -52,7 +52,7 @@ public sealed class SeriesSkillRulesTests
         // 2026-11-18-4f3e: coding-agent-master 3.0.0 states it as its last step before the report.
         PackagedMaster.Folded("coding-agent-master").Should().Contain(
             // 2026-11-18-9c1cd: 3.2.0 hands the build note forward through finish_spec.
-            "call `finish_spec`, naming there what this spec renamed, moved, persisted and deviated from (`<old> -> <new>`)",
+            "its text is your report, naming what this spec renamed, moved, persisted and deviated from (`<old> -> <new>`), and it calls `finish_spec`",
             Because("the hand-forward rule"));
 
     [Fact]
