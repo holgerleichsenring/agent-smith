@@ -321,7 +321,8 @@
 .mock-tickets .act .aq { color: var(--person); font-weight: 600; }
 .mock-tickets .act .ab { color: var(--bad); font-weight: 600; }
 /* attempt marks */
-.mock-tickets .attempts { display: flex; gap: 5px; align-items: center; }
+.mock-tickets .attempts { display: flex; gap: 5px; align-items: center; justify-content: flex-end; min-width: 0; overflow: hidden; }
+.mock-tickets .attempts .al-more { color: var(--ink-3); font-size: 11px; white-space: nowrap; }
 .mock-tickets .attempts i { width: 9px; height: 9px; border-radius: 2px; background: var(--panel-2); border: 1px solid var(--line); }
 .mock-tickets .attempts i.ok { background: var(--ok); border-color: var(--ok); }
 .mock-tickets .attempts i.bad { background: var(--bad); border-color: var(--bad); }

@@ -58,6 +58,25 @@ public sealed class ModelRunGateTests
     }
 
     [Fact]
+    public async Task AFrameworkRun_PassesWhileAnotherRunHoldsTheOnePlace_AndTakesNone()
+    {
+        // 2026-11-22-9719a: a series beat is the framework's own short call; it never waits behind a coding run.
+        var fixture = new ModelGateFixture();
+        var agent = ModelGateFixture.Agent(limit: 1);
+        using (fixture.RunContext.BeginScope("run-a")) await fixture.CallAsync(agent);
+
+        fixture.Signal.Exempt("series-beat");
+        using (fixture.RunContext.BeginScope("series-beat"))
+            await fixture.CallAsync(agent).OrHang("the series beat passes although run-a holds the one place");
+
+        fixture.Provider.Arrived.Should().Be(2);
+        fixture.ReportedWaiting.Should().BeFalse("nobody waited");
+        await fixture.Slots.ReleaseAsync("run-a", CancellationToken.None);
+        (await fixture.Slots.AcquireAsync(ModelRunSlotKey.For(agent), 1, "run-c", CancellationToken.None))
+            .Should().BeTrue("the series beat took no place, so the freed one is there");
+    }
+
+    [Fact]
     public async Task TwoAgentsOnDifferentDeployments_DoNotBlockEachOther()
     {
         var fixture = new ModelGateFixture();

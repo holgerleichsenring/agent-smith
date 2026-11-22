@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-9719a
+
+decisions:
+  - category: Scope
+    chose: "Exempt series-run and series-verify from agent.max_concurrent_runs by pipeline name, marked after the prologue and forgotten on the run's release"
+    over: "Counting every run (24bd's rule), or a config list of exempt pipelines"
+    reason: "Operator 2026-11-22: the framework's calls are small and short and a status must not wait 75 minutes behind a coding run. The two beats are the framework's own pipelines; no operator content names them, so a config list would be a knob nobody needs."
+    decider: operator
