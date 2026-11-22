@@ -7,26 +7,20 @@ using AgentSmith.Contracts.Models.Configuration;
 namespace AgentSmith.Infrastructure.Services.RateLimiting;
 
 /// <summary>
-/// p0493: how long a retried provider call waits, and why it waited that long.
+/// p0493: how long a retried provider call waits, and why. A dropped connection is worth retrying in seconds; an
+/// Azure throughput window is sixty seconds wide, so a rate limit waits the server's OWN Retry-After when one is sent,
+/// and its own ladder when none is. One wait is bounded: a Retry-After above <see cref="Ceiling"/> is honoured up to
+/// it, the clamp is stated, and the server is asked again after it.
 /// <para>
-/// A mid-stream socket fault and a rate limit are not the same kind of waiting. A dropped
-/// connection is worth retrying in seconds; an Azure throughput window is SIXTY seconds
-/// wide, so the configured network ladder (4s, 8s, 16s, 32s, 60s — about two minutes) is an
-/// order of magnitude too impatient for a 429 and spends five attempts learning nothing.
-/// </para>
-/// <para>
-/// So a rate limit waits the server's OWN Retry-After when one is sent, and its own ladder
-/// when none is. Bounded either way: a Retry-After above <see cref="Ceiling"/> is honoured up
-/// to it and the clamp is stated rather than swallowed, because a provider that asks for an
-/// hour is naming a quota no run can wait out, and parking on it turns a legible failure into
-/// a silent hang.
+/// 2026-11-22-66e4a: a throughput refusal is waited out by RateLimitingChatClient with no attempt cap — the
+/// operator's decision; cancellation and the run watchdog end it — so the ceiling bounds one wait, not the call.
 /// </para>
 /// </summary>
 internal readonly record struct RetryWait(TimeSpan Delay, string Reason)
 {
     /// <summary>Twice Azure's sixty-second refill window: long enough for a server that is
-    /// queueing rather than refusing, short enough that five waits at the ceiling stay well
-    /// inside the 1800-second default run watchdog.</summary>
+    /// queueing rather than refusing, short enough that the server is asked again within two
+    /// minutes.</summary>
     internal static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(120);
 
     /// <summary>What a 429 that sent no header is worth waiting at minimum — a quarter of the
@@ -65,19 +59,23 @@ internal readonly record struct RetryWait(TimeSpan Delay, string Reason)
         return false;
     }
 
-    /// <summary>The interval the server itself named, when the refusal carries one. Only
-    /// <see cref="ClientResultException"/> reaches its response headers; the exception the
-    /// Anthropic path throws carries no response to read.</summary>
+    /// <summary>The interval the server itself named, when the refusal carries one: the response
+    /// headers of a <see cref="ClientResultException"/>, or the rate limits the Anthropic SDK
+    /// read into its <see cref="Anthropic.SDK.RateLimitsExceeded"/> (2026-11-22-66e4a).</summary>
     internal static TimeSpan? RetryAfter(Exception ex)
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
         {
             if (e is ClientResultException client && client.GetRawResponse() is { } response)
                 return FromHeaders(response.Headers);
+            if (e is Anthropic.SDK.RateLimitsExceeded anthropic) return AnthropicRetryAfter(anthropic);
         }
 
         return null;
     }
+
+    private static TimeSpan? AnthropicRetryAfter(Anthropic.SDK.RateLimitsExceeded refusal) =>
+        refusal.RateLimits?.RetryAfter;
 
     /// <summary>Both spellings a provider uses: OpenAI answers in milliseconds, Azure in
     /// seconds or as an absolute HTTP date.</summary>

@@ -276,8 +276,6 @@
 1	AgentSmith.Infrastructure/Services/Providers/Tickets/LockedTicketStatusTransitioner.cs
 1	AgentSmith.Infrastructure/Services/Providers/Tickets/TicketNumberPrefix.cs
 1	AgentSmith.Infrastructure/Services/Queue/RedisJobQueue.cs
-4	AgentSmith.Infrastructure/Services/RateLimiting/LlmRateLimiter.cs
-1	AgentSmith.Infrastructure/Services/RateLimiting/RateLimitingChatClient.cs
 2	AgentSmith.Infrastructure/Services/RateLimiting/RetryWait.cs
 4	AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs
 1	AgentSmith.Infrastructure/Services/Sandbox/InProcessStepEnvironment.cs

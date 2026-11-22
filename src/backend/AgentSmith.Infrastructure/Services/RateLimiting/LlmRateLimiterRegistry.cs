@@ -5,33 +5,50 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.RateLimiting;
 
 /// <summary>
-/// p0188: keyed cache of <see cref="ILlmRateLimiter"/> instances. One limiter
-/// per (provider, model) pair, lazily created on first use, lives for the
-/// process lifetime. Two call sites referencing the same provider+model share
-/// a single budget — which is the whole point of the abstraction.
+/// p0188: keyed cache of <see cref="ILlmRateLimiter"/> instances, lazily created on first use and kept for the
+/// process lifetime. 2026-11-22-66e4a: keyed by deployment (<see cref="ModelQuotaScope"/>), so every call to one
+/// deployment shares one budget whatever model name its role carries; the read-out lists each one's quota.
 /// </summary>
-internal sealed class LlmRateLimiterRegistry : ILlmRateLimiterRegistry
+internal sealed class LlmRateLimiterRegistry(ILogger<LlmRateLimiterRegistry> logger)
+    : ILlmRateLimiterRegistry, ILlmQuotaReader
 {
-    private readonly ConcurrentDictionary<string, ILlmRateLimiter> _limiters = new(StringComparer.Ordinal);
-    private readonly ILogger<LlmRateLimiterRegistry> _logger;
+    private readonly ConcurrentDictionary<string, Entry> _limiters = new(StringComparer.Ordinal);
 
-    public LlmRateLimiterRegistry(ILogger<LlmRateLimiterRegistry> logger)
+    public ILlmRateLimiter GetOrCreate(ModelQuotaScope scope, LlmRateLimitOptions options)
     {
-        _logger = logger;
-    }
-
-    public ILlmRateLimiter GetOrCreate(string providerType, string model, LlmRateLimitOptions options)
-    {
-        var key = BuildKey(providerType, model);
-        return _limiters.GetOrAdd(key, _ =>
+        ArgumentNullException.ThrowIfNull(scope);
+        var entry = _limiters.GetOrAdd(scope.Key, _ =>
         {
-            _logger.LogInformation(
+            logger.LogInformation(
                 "Created LLM rate limiter for {Key}: {Rpm} req/min, {Tpm} tokens/min",
-                key, options.RequestsPerMinute, options.InputTokensPerMinute);
-            return new LlmRateLimiter(options);
+                scope.Key, options.RequestsPerMinute, options.InputTokensPerMinute);
+            return new Entry(scope, new LlmRateLimiter(options)) { Options = options };
         });
+        Adopt(entry, options);
+        return entry.Limiter;
     }
 
-    private static string BuildKey(string providerType, string model) =>
-        $"{providerType.ToLowerInvariant()}::{model.ToLowerInvariant()}";
+    // 2026-11-22-66e4b: a budget changed in the configuration reaches the deployment when its next client is built.
+    private void Adopt(Entry entry, LlmRateLimitOptions options)
+    {
+        lock (entry)
+        {
+            if (entry.Options == options) return;
+            entry.Limiter.Adopt(options);
+            entry.Options = options;
+        }
+        logger.LogInformation("LLM rate limiter for {Key} now {Rpm} req/min, {Tpm} tokens/min",
+            entry.Scope.Key, options.RequestsPerMinute, options.InputTokensPerMinute);
+    }
+
+    public IReadOnlyList<LlmQuotaSnapshot> Read() =>
+        _limiters.Values
+            .Select(e => e.Limiter.Snapshot(e.Scope))
+            .OrderBy(s => s.Deployment, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private sealed record Entry(ModelQuotaScope Scope, LlmRateLimiter Limiter)
+    {
+        public required LlmRateLimitOptions Options { get; set; }
+    }
 }

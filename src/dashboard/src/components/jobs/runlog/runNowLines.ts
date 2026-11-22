@@ -96,11 +96,22 @@ function currentStep(events: RunEvent[], steps: RunStepRow[]): { label: string; 
  *  the run's next model call starts, which is the wait ending. */
 const MODEL_WAIT_ORIGIN = "model-slot";
 
+/** 2026-11-22-66e4a: the throttle's line while the run's calls wait for model quota. Its call started before it, and a
+ *  sibling's call may start or finish meanwhile, so it ends at its own over line — or at the next step, so a wait whose
+ *  over line was lost (a restart mid-wait) cannot outlive its step. */
+const QUOTA_WAIT_ORIGIN = "model-quota";
+const QUOTA_OVER_ORIGIN = "model-quota-over";
+
 function modelWait(events: RunEvent[]): RunEvent | null {
+  let callStarted = false;
   for (let i = events.length - 1; i >= 0; i--) {
     const e = events[i];
-    if (e.type === EventType.LlmCallStarted) return null;
-    if (e.type === EventType.L1StepDetail && e.origin === MODEL_WAIT_ORIGIN) return e;
+    if (e.type === EventType.StepStarted) return null;
+    if (e.type === EventType.LlmCallStarted) callStarted = true;
+    if (e.type !== EventType.L1StepDetail) continue;
+    if (e.origin === QUOTA_OVER_ORIGIN) return null;
+    if (e.origin === QUOTA_WAIT_ORIGIN) return e;
+    if (e.origin === MODEL_WAIT_ORIGIN) return callStarted ? null : e;
   }
   return null;
 }

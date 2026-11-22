@@ -525,6 +525,9 @@ export interface StudioAgent {
   /** 2026-11-20-24bd: runs that may use the primary deployment at once (agent.max_concurrent_runs); absent or null
    *  is no limit, and a save without it lifts the limit. */
   maxConcurrentRuns?: number | null;
+  /** 2026-11-22-66e4b: the per-deployment budget (agent.rate_limit); a null number is the provider default, and a
+   *  save without the section restores the default. */
+  rateLimit?: { requestsPerMinute: number | null; inputTokensPerMinute: number | null } | null;
   /** 2026-09-30-62bab: entry name → the model it declares. */
   catalog: Record<string, AgentCatalogModel>;
   /** Role key → catalog entry name; an absent role (or "") inherits. */

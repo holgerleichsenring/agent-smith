@@ -65,6 +65,23 @@ describe("runNowLines", () => {
     expect(liveLines(snap(), [...events, callStarted], [], null)[0].text).toBe("reading the router");
   });
 
+  // 2026-11-22-66e4a: a quota wait comes after its call's start, and a sibling's call may start meanwhile; the line
+  // stays until the throttle's own over line.
+  it("liveLines_WaitingForModelQuota_KeepsTheLineThroughASiblingCall_UntilTheOverLine", () => {
+    const sentence = "Waiting 8 s for model quota on dep: the provider refused the call";
+    const call = (at: string) => ({ ...base, type: EventType.LlmCallStarted, timestamp: at, model: "dep", role: "master", promptHash: "h", repoName: null }) as unknown as RunEvent;
+    const detail = (origin: string, text: string, at: string): RunEvent => ({ ...base, type: EventType.L1StepDetail, timestamp: at, stepIndex: 4, origin, detail: text });
+    const events = [started(4, "Run master skill", "2026-10-13T13:40:00Z"), tool("reading the router", "2026-10-13T13:40:30Z"),
+      call("2026-10-13T13:41:00Z"), detail("model-quota", sentence, "2026-10-13T13:41:01Z"), call("2026-10-13T13:41:02Z")];
+    expect(liveLines(snap(), events, [], null)[0]).toMatchObject({ kind: "Run master skill", text: sentence, tone: "now" });
+
+    const over = [...events, detail("model-quota-over", "Model quota free again on dep", "2026-10-13T13:41:09Z")];
+    expect(liveLines(snap(), over, [], null)[0].text).toBe("reading the router");
+
+    const nextStep = [...events, started(5, "Verify", "2026-10-13T13:42:00Z")];
+    expect(liveLines(snap(), nextStep, [], null)[0].text).not.toBe(sentence);
+  });
+
   it("liveLines_ANewHubEvent_MovesToTheTop", () => {
     const events = [started(4, "Run master skill", "2026-10-13T13:40:00Z"), decision("first", "2026-10-13T13:41:00Z")];
     expect(liveLines(snap(), events, [], null)[1].text).toBe("first");

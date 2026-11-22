@@ -39,7 +39,14 @@ public static class AgentProviderExtensions
         // p0416: the external-worker bridge — an agent CLI answers the model calls.
         // Registered always, selected only by an agent whose type says so.
         services.AddExternalWorkerBridge();
-        services.AddSingleton<ILlmRateLimiterRegistry, LlmRateLimiterRegistry>();
+        // 2026-11-22-66e4a: one registry serves the limiters and the quota read-out; the headers box and the
+        // waiting line are what the throttle shares with the builder and the run.
+        services.AddSingleton<LlmRateLimiterRegistry>();
+        services.AddSingleton<ILlmRateLimiterRegistry>(sp => sp.GetRequiredService<LlmRateLimiterRegistry>());
+        services.AddSingleton<ILlmQuotaReader>(sp => sp.GetRequiredService<LlmRateLimiterRegistry>());
+        services.AddSingleton<RateLimiting.ProviderQuotaHeaders>();
+        services.AddSingleton<RateLimiting.ModelQuotaWaitLine>();
+        services.AddSingleton<RateLimiting.DeploymentRateBudget>(); // 2026-11-22-66e4b
         // p0401: the throttle-wait box the limiter fills and the event emitter reads.
         services.AddSingleton<RateLimiting.ThrottleWaitReporter>();
         // 2026-11-20-24bd: the run's place on a model deployment; a host with a database replaces the in-process store.

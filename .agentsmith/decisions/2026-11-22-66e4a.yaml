@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-66e4a
+
+decisions:
+  - category: Architecture
+    chose: "Fix the existing per-deployment limiter (RateLimitingChatClient over LlmRateLimiter) to throttle every caller; no second throttle"
+    over: "A separate quota gate beside the limiter, or per-run budgets"
+    reason: |
+      decider: operator, 2026-11-22. Every call through ChatClientFactory already passes RateLimitingChatClient, so
+      the master, its sub-agents, compaction and any other task on the deployment already share one limiter once it is
+      keyed by deployment. No second path: the limiter, its key and its wait report (ThrottleWaitReporter) are the
+      existing ones, generalised.
+  - category: Architecture
+    chose: "Key the limiter by type|endpoint|deployment on Azure and type|endpoint|model elsewhere (ModelQuotaKey)"
+    over: "provider::model (the p0188 key); ModelRunSlotKey's deployment form for every provider"
+    reason: |
+      Azure counts quota on the deployment a request names, so two roles carrying different model names on one
+      deployment drew on two budgets and one model on two endpoints shared one. Plain OpenAI is sent the model name
+      (OpenAiChatClientBuilder sends assignment.Model), so keying it by EffectiveDeployment would merge models
+      through a stray agent.deployment — review finding 12.
+  - category: Implementation
+    chose: "A bucket of our own (QuotaBucket: continuous capacity/60 refill, debt allowed, cap, wait estimate) replacing TokenBucketRateLimiter"
+    over: "Keep System.Threading.RateLimiting's TokenBucketRateLimiter"
+    reason: |
+      Settling after the call, running into debt, capping at the provider's reading, pausing and saying in advance
+      how long a wait will be are all impossible on TokenBucketRateLimiter (review finding 3). The p0188 property —
+      over budget at second 10 waits only for the missing share — holds: the refill is continuous. The p0188 floor of
+      one unit per second is kept so a 5-request OAuth budget does not slow to one request per 12 s. The p0350 clamp
+      stays: a reservation is capped at the bucket, so an oversize call waits for a full bucket and proceeds.
+  - category: Implementation
+    chose: "Count what the provider counts: settle each call to its usage under a per-provider rule; Azure/OpenAI count cached prompt tokens fully and keep max_tokens; Anthropic counts uncached + cache writes + 0.1 x cache reads"
+    over: "Reserve chars/4 with a 0.1 cache discount for every provider and never reconcile (p0188/p0374)"
+    reason: |
+      Measured 2026-11-22: 250k-440k fresh+cached input tokens a minute against a 250k TPM Azure deployment while the
+      limiter believed it was under budget (ThrottleWaitMs 0 on every call). Azure's TPM admission estimate counts the
+      prompt (cached tokens included) plus the request's max_tokens and is not reconciled to the completion, so the
+      max_tokens share is reserved and kept rather than refunded to actual output (review finding 1; the agentic loop
+      sends MaxOutputTokens, default 8192). Anthropic's ITPM counts uncached input and cache creation, not cache
+      reads on current models; p0374's 0.1 stays there as headroom, and cache creation, which p0374 left out, now
+      counts. Other providers count every input token and not the output cap.
+  - category: Implementation
+    chose: "One learned ratio of counted to estimated input (InputCostRatio) replaces p0374's cache-share EWMA"
+    over: "Keep the cache-share EWMA and add a second correction for the chars/4 error"
+    reason: |
+      chars/4 read ~18k where Azure counted ~50k; a warm Anthropic loop counts a small fraction of its re-sent context.
+      Both are the same quantity — counted per estimated token — so one average carries the estimate's error and the
+      provider's discount. It starts at 1 (the estimate as it stands) and adapts in two to three calls, as before.
+  - category: Implementation
+    chose: "Cap both buckets at x-ratelimit-remaining-tokens/-requests plus the refill over the call's duration, read by a PipelinePolicy into a per-call box"
+    over: "Cap at the bare reading; set the level to the reading; read headers from ChatResponse"
+    reason: |
+      MEAI.OpenAI 10.3.0 keeps the ChatCompletion and never the raw response, so a PipelinePolicy (per try, the SDK's
+      retries are off) is the only reader; an AsyncLocal set inside the pipeline never flows up, so the client plants
+      a box per call as ThrottleWaitReporter does (review finding 4). Whether the reading is as of admission or of the
+      answer is unmeasured; adding the refill over the call's duration is never stricter than the truth under either,
+      and the local count still bounds it from above (min, never raised). The reading is the one count that also sees
+      other callers of the deployment — another replica or another tool.
+  - category: Architecture
+    chose: "A throughput 429 is owned by RateLimitingChatClient: the deployment's bucket empties, the refused call is owed from the refill, every caller pauses for the server's interval, and the refused call is resent on its lease with no attempt cap"
+    over: "TransientRetryChatClient retrying the 429 within max_retries (p0477/p0493)"
+    reason: |
+      decider: operator, 2026-11-22 — no attempt cap and no total-wait limit for a 429; cancellation and the run
+      watchdog bound it. This reverses p0493's bound of five waits inside the 1800 s watchdog, deliberately. Measured:
+      28 server-asked waits in four minutes, each lost because siblings took the refilled budget, calls dead after
+      25-46 s. Resending on the same lease keeps one debit per admitted call; emptying the bucket and owing the
+      refused call means the siblings wait for refill beyond the pause instead of rushing in. RetryWait keeps its
+      interval (Retry-After up to 120 s per wait, 15 s floor without one) and now also reads the Anthropic SDK's
+      RateLimitsExceeded.RateLimits.RetryAfter. A 429 whose body names insufficient_quota (spent credit) is not
+      waited for (review finding 2). Network faults, 408 and 5xx keep agent.retry and max_retries unchanged.
+  - category: Implementation
+    chose: "One waiting line per run while any of its calls waits (origin model-quota), ended by a line of its own (model-quota-over); the turn shows Waiting, then Thinking"
+    over: "End the line at the next LlmCallStarted, as the 24bd model-slot line does"
+    reason: |
+      LlmCallStarted is published above the limiter, so the waiting call's own start precedes its line, and a sibling's
+      start or finish would end it while the call still waits (review finding 7). A refusal pauses every call of a run,
+      so the line is per run, not per call. It names the deployment, the wait and the reason (budget spent, or the
+      provider refused). The text is run narration from the backend in English, like the 24bd line; the dashboard's
+      own texts (the quota panel) go through the i18n dictionary.
+  - category: Architecture
+    chose: "GET /api/diagnostics/model-quota (diagnostics.read) over the in-process registry, naming its replica; a Model quota section on the connection check"
+    over: "A field on the agent drawer; a cross-replica shared budget"
+    reason: |
+      The connection check answers "does it work right now", which is what free quota is. State is per process: each
+      replica counts its own calls, so the answer names the replica (Environment.MachineName) and the panel says "on
+      this server". A budget shared across replicas is not built here; the provider's remaining-quota headers are the
+      cross-replica signal (2026-11-20-a52f orders model places, not tokens).
+  - category: Scope
+    chose: "Supersede and delete planned 2026-08-24-19d0 (rate-limit-own-settings); its studio fields move to planned 2026-11-22-66e4b"
+    over: "Keep 19d0 beside this spec"
+    reason: |
+      decider: operator, 2026-11-22. 19d0 rejected counting accurately because "the provider's admission formula is not
+      published" — but Azure and OpenAI state what is left on every response, which this spec follows. Its 429 ladder
+      of its own (five attempts, 345 s) is replaced by waiting without a cap; its cache-discount confinement is built
+      here; its exhaustion report has no site left, since a throughput 429 is never given up. Its one remaining part —
+      agent.rate_limit as a studio field — is minted with this spec as 66e4b, not deferred silently.
+  - category: Implementation
+    chose: "Code-review fixes: a call refused again owes its reservation once (give back, cap at 0, take again); a resent call also waits out a sibling's later pause; the ratio averages counted and estimated tokens apart (size-weighted) and the estimate counts the tool definitions; a zero budget is refused at construction naming agent.rate_limit"
+    over: "Cap-then-take on every refusal; resend after the call's own interval; a per-call ratio sample; clamping the ratio to fixed bounds"
+    reason: |
+      Review of the diff found that a call refused five times left about four reservations of extra debt; that N
+      refused calls resent inside a later sibling's pause; and that a small first turn dominated by tool schemas
+      taught a 5-10x ratio that made the next large call wait for a full bucket. Size weighting and counting what is
+      sent remove the cause instead of bounding the symptom with new constants. A zero budget would now wait forever
+      where TokenBucketRateLimiter used to throw, so it is refused with the value and the key. The bare reading plus
+      refill over the call's duration may credit the refill twice if Azure's value is as of the answer; it only ever
+      lowers the local count, so it cannot over-admit — unmeasured, left as is. A streamed call is admitted and
+      reserved but not settled or resent; no caller streams.
+  - category: Implementation
+    chose: "Second review: refused calls not yet resent are tracked as owed (sum and count); each refusal sets the level to min(free without them, 0) minus all of them; settling or ending a lease releases its share; owed calls count as waiting in the read-out; a resend clears the header reading first; an admission wait during a refusal pause names the pause"
+    over: "Give back, cap at 0 and take again per call (first review fix)"
+    reason: |
+      The second reviewer showed that per-call cap-then-take wiped a sibling's debt when two calls were refused in one
+      burst, leaving only the larger owed instead of both — exactly the production case of a master and parallel
+      sub-agents refused together. The ledger of owed calls makes one refusal and many concurrent refusals both owe each
+      call once. A stale refusal reading could otherwise stand for the answer's headers.
