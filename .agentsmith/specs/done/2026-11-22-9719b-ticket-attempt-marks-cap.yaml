@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-9719b
+goal: "A ticket row draws at most its 6 newest attempt marks and folds the rest into +N, so a long history keeps its column."
+
+applies_to: "dashboard (ticket list)"
+
+requires: []
+
+facts:
+  - claim: "TicketAttemptMarks drew one mark per attempt with no bound."
+    evidence: "src/dashboard/src/components/tickets/TicketAttemptMarks.tsx:42"
+  - claim: "The marks strip is a flex row with no overflow rule, in a 76px column."
+    evidence: "src/dashboard/src/styles/mock-parity.css:324"
+  - claim: "A ticket with 43 attempts drew its marks over the cost and age columns."
+    evidence: "observed: 2026-11-22, ticket list screenshot, ticket 19443"
+
+scope:
+  in: "MAX_MARKS 6, a +N fold with a title, the strip right-aligned with overflow hidden so any clip takes the oldest end."
+  out: "The ticket page's runs section."
+
+steps:
+  - id: cap
+    action: "Slice to the newest 6, fold the rest."
+
+tests:
+  - "43 attempts draw 6 marks and +37; a few attempts fold nothing."
+
+done:
+  - "Dashboard tests green."

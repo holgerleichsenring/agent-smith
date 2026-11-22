@@ -19,6 +19,13 @@ public static partial class PipelinePresets
     /// into the series through the filing run's own steps.</summary>
     public const string SeriesVerifyName = "series-verify";
 
+    /// <summary>2026-11-22-9719a: whether a run of this pipeline takes a model place under agent.max_concurrent_runs. The
+    /// series' own beats (series-run, series-verify) make short framework calls and do not count: a status update must
+    /// not wait behind a coding run that holds the one place.</summary>
+    public static bool CountsAgainstModelLimit(string pipelineName) =>
+        !string.Equals(pipelineName, SeriesRunName, StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(pipelineName, SeriesVerifyName, StringComparison.OrdinalIgnoreCase);
+
     public static readonly IReadOnlyList<string> SeriesVerify =
     [
         CommandNames.LoadCatalog,

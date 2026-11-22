@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-9719b
+
+decisions:
+  - category: Implementation
+    chose: "Draw the newest 6 marks (the 76px column holds about that many) and fold the older ones into +N"
+    over: "Shrinking marks to fit, or wrapping to a second line"
+    reason: "The newest attempts carry the state that matters; the count beside the strip still says the whole number."
