@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.198.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.197.0...v0.198.0) (2026-11-22)
+
+
+### Features
+
+* **dashboard:** German and English from one dictionary, Work it out translated (2026-11-22-5485a) ([d465f4a](https://github.com/holgerleichsenring/agent-smith/commit/d465f4aef7b0bbf65da067642cc054c1eae9eb65))
+* **dashboard:** German or English from one dictionary; Work it out translated (2026-11-22-5485a) ([5d19ec6](https://github.com/holgerleichsenring/agent-smith/commit/5d19ec697ef67711033c1d996abf5308cb279436))
+
 ## [0.197.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.196.0...v0.197.0) (2026-11-22)
 
 
