@@ -21,10 +21,13 @@ public static partial class PipelinePresets
 
     /// <summary>2026-11-22-9719a: whether a run of this pipeline takes a model place under agent.max_concurrent_runs. The
     /// series' own beats (series-run, series-verify) make short framework calls and do not count: a status update must
-    /// not wait behind a coding run that holds the one place.</summary>
+    /// not wait behind a coding run that holds the one place. 2026-11-22-6d85e: nor does a conversation turn (spec-dialog) —
+    /// a person must not wait behind a coding run for an answer; its tokens still pass the shared rate limiter, and every
+    /// run it starts opens its own run scope and takes its own place.</summary>
     public static bool CountsAgainstModelLimit(string pipelineName) =>
         !string.Equals(pipelineName, SeriesRunName, StringComparison.OrdinalIgnoreCase)
-        && !string.Equals(pipelineName, SeriesVerifyName, StringComparison.OrdinalIgnoreCase);
+        && !string.Equals(pipelineName, SeriesVerifyName, StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(pipelineName, SpecDialogName, StringComparison.OrdinalIgnoreCase);
 
     public static readonly IReadOnlyList<string> SeriesVerify =
     [

@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-6d85e
+goal: "Conversation turns (spec-dialog) take no model place, so a person never waits behind a coding run for an answer; runs a turn starts still take theirs."
+
+applies_to: "default (pipeline presets, model gate)"
+
+requires: [2026-11-22-9719a]
+
+invariant: "A spec-dialog run never waits on the model limit and never holds a place; every run it starts is gated under its own run id."
+
+facts:
+  - claim: "The exemption is a set of run ids, filled after the prologue for pipelines that do not count, and cleared on the run's release."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SeriesRun.cs:22-27, src/backend/AgentSmith.Application/Services/ModelPlaceRelease.cs:16-19, src/backend/AgentSmith.Contracts/Services/ModelRunSlotSignal.cs:18-23"
+  - claim: "The gate keys a call on the ambient run id and passes an exempt one."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/ModelRunGate.cs:45-47"
+  - claim: "Every run, a design turn's and one it starts in-process alike, opens its own run scope in ExecutePipelineUseCase."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:50-52, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:99"
+  - claim: "Only the gate's wait shows the model-waiting line and writes a wait row."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/ModelRunGate.cs:82-88"
+
+scope:
+  in: "CountsAgainstModelLimit answers false for spec-dialog; SeriesTicketMessage routes without the beat's ExecutionContext; tests that a run started inside a turn's scope is gated, and that an exempt turn writes no wait and does not stand in the a52f queue."
+  out: "The shared rate limiter (2026-11-22-66e4a protects the quota); exempting admin, scan or coding runs."
+
+decisions:
+  - key: "OPERATOR 2026-11-22: a person must never wait about 40 minutes behind a coding run for an answer; the quota is protected by the rate limiter, not by the place."
+
+steps:
+  - id: exempt
+    action: "Add spec-dialog to the pipelines CountsAgainstModelLimit excludes."
+
+tests:
+  - "Only series-run, series-verify and spec-dialog are exempt."
+  - "A turn passes while another run holds the one place; a run scope opened inside the turn's waits for its place."
+  - "An exempt run writes no wait row and does not hold up an older-first admission."
+
+done:
+  - "Build, the full suite and the dashboard tests green."
