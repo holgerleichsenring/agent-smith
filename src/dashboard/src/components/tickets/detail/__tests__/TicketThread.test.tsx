@@ -682,18 +682,6 @@ describe("Ticket thread", () => {
     expect(dialogApi.post).not.toHaveBeenCalled();
   });
 
-  it("DivergenceDiscuss_SetsTheDecisionAside_AndFocusesTheTextField", async () => {
-    nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
-    api.text.mockImplementation(() => Promise.resolve({ ...ticketText(), divergence: { specs: 2, unsaid: ["Retry with backoff"] } }));
-    world.conversation = { ...conversation([]), sessionId: "s-1", openDialogId: "d-open", proposal: PROPOSAL };
-    await open();
-    expect(screen.getByTestId("dialog-decision")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("divergence-discuss"));
-    await settle();
-    expect(screen.queryByTestId("dialog-decision")).toBeNull();
-    expect(document.activeElement).toBe(input());
-  });
-
   it("RetryUnchanged_AfterAnInfrastructureEnd_A409ShowsItsReasonText", async () => {
     nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);

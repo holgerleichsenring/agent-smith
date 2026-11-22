@@ -3,6 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ConnectionsView } from "../ConnectionsView";
 import * as api from "@/lib/diagnosticsApi";
 
+vi.mock("@/lib/modelQuotaApi", () => ({
+  fetchModelQuota: vi.fn().mockResolvedValue({ replica: "test", deployments: [] }),
+}));
+
 vi.mock("@/lib/diagnosticsApi", () => ({
   fetchConnections: vi.fn(),
   probeConnection: vi.fn(),

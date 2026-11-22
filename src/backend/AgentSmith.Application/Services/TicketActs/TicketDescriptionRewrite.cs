@@ -26,21 +26,23 @@ public sealed class TicketDescriptionRewrite(ITicketProviderFactory trackers, IL
     public async Task<string> WriteAsync(
         ResolvedProject project, TicketId id, string region, SpecApprovalRecord? previous, CancellationToken ct)
     {
-        var rewrite = await RewriteAsync(project, id, region, previous, ct);
+        ArgumentNullException.ThrowIfNull(project);
+        var rewrite = await RewriteAsync(project.Tracker, id, region, previous, ct);
         return rewrite.Rewritten ? "The ticket's description now says what it says."
             : $"The ticket's description was not rewritten: {rewrite.Reason}";
     }
 
-    /// <summary>2026-11-17-dd05b: the tracker's answer itself, for a caller that acts on it; a throw is a failure.</summary>
+    /// <summary>2026-11-17-dd05b: the tracker's answer itself, for a caller that acts on it; a throw is a failure.
+    /// 2026-11-22-a720b: keyed by the tracker, so a code run's step writes it as the amend run does.</summary>
     /// <param name="placement">The caller's placement; null decides it from the labels and the previous record.</param>
     public async Task<TicketRewriteResult> RewriteAsync(
-        ResolvedProject project, TicketId id, string region, SpecApprovalRecord? previous, CancellationToken ct,
+        TrackerConnection tracker, TicketId id, string region, SpecApprovalRecord? previous, CancellationToken ct,
         RegionPlacement? placement = null)
     {
         try
         {
-            placement ??= await PlacementAsync(project, id, previous, ct);
-            return await trackers.CreateRewriter(project.Tracker).RewriteRegionAsync(id, region, placement.Value, ct);
+            placement ??= await PlacementAsync(tracker, id, previous, ct);
+            return await trackers.CreateRewriter(tracker).RewriteRegionAsync(id, region, placement.Value, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
@@ -50,11 +52,11 @@ public sealed class TicketDescriptionRewrite(ITicketProviderFactory trackers, IL
     }
 
     private async Task<RegionPlacement> PlacementAsync(
-        ResolvedProject project, TicketId id, SpecApprovalRecord? previous, CancellationToken ct)
+        TrackerConnection tracker, TicketId id, SpecApprovalRecord? previous, CancellationToken ct)
     {
         if (previous is { TicketText: false }) return RegionPlacement.ReplaceOnly;
-        var labels = (await trackers.Create(project.Tracker).GetTicketAsync(id, ct)).Labels ?? [];
-        return FiledTicketLabels.CarriesApprovedSet(labels, TicketLabelVocabulary.For(project.Tracker))
+        var labels = (await trackers.Create(tracker).GetTicketAsync(id, ct)).Labels ?? [];
+        return FiledTicketLabels.CarriesApprovedSet(labels, TicketLabelVocabulary.For(tracker))
             || FiledTicketLabels.IsEpicRecord(new IncomingTicketEnvelope { Labels = labels })
             ? RegionPlacement.ReplaceOnly : RegionPlacement.ReplaceOrAppend;
     }

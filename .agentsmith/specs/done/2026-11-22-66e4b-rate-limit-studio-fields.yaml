@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-66e4b
+goal: "agent.rate_limit (requests and tokens per minute) is a field of the agent drawer, refused below 1, and reaches the deployment's limiter when its next client is built."
+
+applies_to: "default (ConfigStudio AgentEntity, studio patch/mapper/validation, startup validation, limiter registry) + dashboard (AgentProviderTab)"
+
+requires: [2026-11-22-66e4a]
+
+facts:
+  - claim: "AgentEntity carries retry, cache, compaction and max_concurrent_runs but no rate_limit, so the pacing budget is only editable in YAML."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/AgentEntity.cs:14-29"
+  - claim: "AgentConfig.RateLimit is the operator override LlmRateBudget reads before the provider tier."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateBudget.cs:22"
+  - claim: "max_concurrent_runs is always written by the studio patch; null lifts it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawConfigPatch.cs:25"
+  - claim: "Its startup finding is raised over the catalog agents only."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/AgentConcurrencyConfigValidator.cs:13"
+  - claim: "LlmRateBudget falls back per number, so one number set alone is a working configuration today."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateBudget.cs:25-26"
+  - claim: "ConfiguredAgents.LimitFor takes the lowest max_concurrent_runs any configured agent on a deployment sets."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ConfiguredAgents.cs:20-26"
+  - claim: "ValidateAgent refuses a bad max_concurrent_runs before it is stored."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ConfigStudioCapabilities.cs:194"
+  - claim: "A limiter is created once per deployment with the options of its first client and kept for the process lifetime."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateLimiterRegistry.cs:20"
+  - claim: "The provider tab already edits the agent's runs at a time as a number field."
+    evidence: "src/dashboard/src/components/config/agent/AgentProviderTab.tsx:60-67"
+
+scope:
+  in: >-
+    AgentEntity.RateLimit (requests_per_minute, input_tokens_per_minute), appended to the constructor, always written
+    (an old writer that leaves it out restores the default, as with max_concurrent_runs); each number may stay unset
+    (the provider default for that number); a number below 1 is refused in the studio and as a blocking startup
+    finding over every configured agent, naming the key; two number fields on the provider tab whose placeholder says
+    the provider default applies; per number, the lowest any configured agent on the deployment states, else the
+    building agent's default (the max_concurrent_runs rule); the registry adopts a changed budget when the
+    deployment's next client is built, keeping what is free, owed and paused, and a waiter reserved under a larger
+    budget is clamped to the new one.
+  out: "Showing the provider tier's numbers in the form (they depend on the key); translating the provider tab's older fields (2026-11-22-5485b); a budget shared across replicas."
+
+steps:
+  - id: contract
+    action: "AgentRateLimitSettings (two nullable numbers) appended to AgentEntity; AgentConfig.RateLimitProblem as the one rule."
+  - id: studio
+    action: "RawConfigPatch writes it, ConfigCatalogMapper reads it, ValidateAgent and a startup validator refuse it."
+  - id: live
+    action: "DeploymentRateBudget takes the lowest stated number over ConfiguredAgents on the deployment; LlmRateLimiterRegistry adopts changed options; DeploymentQuota resizes and clamps queued demand."
+  - id: form
+    action: "Two fields on AgentProviderTab, texts via messages.ts en+de."
+
+tests:
+  - "rate_limit round-trips the studio's write and read; null restores the provider default."
+  - "A number below 1 is refused in the studio and at startup (a project agent too) naming agent.rate_limit."
+  - "Two agents on one deployment take the lowest stated number; a silent agent never lowers it to its default."
+  - "A changed budget reaches the deployment's limiter when the next client for it is built, and a shrink strands no waiter."
+  - "Dashboard: the drawer edits both numbers; clearing both writes null."
+
+done:
+  - "build green, full suite and dashboard tests green"

@@ -45,7 +45,7 @@ public sealed class TicketSummaryComposer(
             state.Bucket, state.Kind, state.Since, ordered.Count, codeRows.Sum(r => r.Run.CostTotalUsd) + derivationCost,
             head.Id, head.Status, state.LastOutcome, state.QueuePlace, Question(head, state),
             headSpecs.Count(s => s == DoneSpec), headSpecs.Count,
-            [.. ordered.Select(a => marker.Mark(a.Run, live, specStatuses, launches))], pullRequests,
+            [.. ordered.Select(a => marker.Mark(a.Run, live, specStatuses, launches, records?.GetValueOrDefault(a.Run.Id)))], pullRequests,
             record?.Cause, record?.TrackerState, record?.WebUrl,
             UnchangedSinceLastAttempt: unchanged, CheckedAt: check?.CheckedAt, Landing: state.Landing,
             Closed: TicketClosedView.Of(closed));

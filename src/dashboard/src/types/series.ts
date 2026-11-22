@@ -5,7 +5,7 @@ export interface SeriesTicketRow {
   ticket: string;
   what: string;
   state: string;
-  /** landed · running · green · red · waiting · held · not started */
+  /** landed · running · model wait (2026-11-22-d434b) · green · red · waiting · held · not started */
   kind: string;
   cost: string;
   time: string;

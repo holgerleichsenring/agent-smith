@@ -12,7 +12,10 @@ internal sealed class FakeResponse(int status, params (string Name, string Value
     public override int Status => status;
     public override string ReasonPhrase => "test";
     public override Stream? ContentStream { get => null; set { } }
-    public override BinaryData Content => BinaryData.FromString(string.Empty);
+    /// <summary>2026-11-22-66e4a: the refusal's JSON body, empty unless a test gives one.</summary>
+    public string Body { get; init; } = string.Empty;
+
+    public override BinaryData Content => BinaryData.FromString(Body);
     protected override PipelineResponseHeaders HeadersCore { get; } = new FakeHeaders(headers);
     public override BinaryData BufferContent(CancellationToken ct = default) => Content;
     public override ValueTask<BinaryData> BufferContentAsync(CancellationToken ct = default) =>

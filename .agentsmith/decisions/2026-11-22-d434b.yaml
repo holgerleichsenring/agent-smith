@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-d434b
+
+decisions:
+  - category: Implementation
+    chose: "The open ModelRunWaits row (24bd) is the fact; ModelRunWaitClock answers it for the series"
+    over: "Parsing the run log's waiting line as the dashboard does (50d7a)"
+    reason: "The row is what the waiting line is written from and what both wall-time clocks already read; the server reads the store, the page reads the log. No new storage."
+  - category: Implementation
+    chose: "A kind of its own (ModelWait), counted with Running for ordering and the opening, left out of Stalled"
+    over: "Keeping it Running and filtering in Stalled"
+    reason: "The table says what the ticket does ('waiting for its model place'), so the master reads the truth instead of 'coding'."

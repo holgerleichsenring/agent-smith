@@ -70,6 +70,22 @@ public sealed class TicketStuckTests : IDisposable
     }
 
     [Fact]
+    public async Task TicketStuck_FailedAttemptRewroteTheText_ReadsTheRewrittenTextAsUnchanged()
+    {
+        // 2026-11-22-e812: the run fetched an older text and wrote Text from the approved specs before it failed.
+        var run = Run("r-1", "42", status: "failed");
+        run.ActsReadAt = T;
+        await _h.AddAsync(run, Step("r-1"), new RunAttempt
+        {
+            RunId = "r-1", TicketFingerprint = new string('0', 64), LeftTicketFingerprint = TicketTextFingerprint.Of(Text),
+        });
+
+        await _h.Detail.ReadAsync("alpha", "42", default);
+
+        (await RowAsync()).UnchangedSinceLastAttempt.Should().BeTrue("the text the attempt wrote is not a person's edit");
+    }
+
+    [Fact]
     public async Task TicketTrackerObserver_LabelNoteOnAnOtherwiseUnchangedTicket_ReadsUnchanged()
     {
         await FailedAsync();

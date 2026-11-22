@@ -13,6 +13,8 @@ import type { StateAct } from "./ticketState";
 import { useTicketTabGo } from "./useTicketTabGo";
 import { useYourMove } from "./useYourMove";
 import { actLabel, type YourMove } from "./yourMove";
+import { useT } from "@/hooks/useT";
+import { waitClock } from "@/components/jobs/runlog/modelWaitWords";
 
 // 2026-11-16-6877a: the one box above the composer that says what is next — a coloured dot, one title, ticketState's
 // sentence, at most one bright act, and for a stopped ticket the run's own end text behind "Why". It takes the
@@ -27,9 +29,17 @@ interface Props {
 }
 
 export function YourMoveBox({ detail, onReply, onAnswer }: Props) {
+  const t = useT();
   const read = useYourMove(detail);
   if (!read) return null;
-  const { view, move } = read;
+  const { view } = read;
+  // 2026-11-22-50d7a: a working run that waits for its model place says so, with since when, instead of "Working".
+  const wait = view.modelWait;
+  const move: YourMove = wait && view.attempt ? {
+    ...read.move,
+    title: t("run.modelWait.title"),
+    text: t("run.modelWait.sentence", { n: view.attempt.number, at: waitClock(wait.since) }),
+  } : read.move;
   return (
     <section className={`tk-move ${move.tone}`} data-testid="ticket-state" data-tone={move.tone} aria-live="polite">
       <span className="tk-move-dot" aria-hidden="true" />

@@ -87,6 +87,10 @@ public static class SpecDerivationRegistrations
     services.AddTransient<FiledTicketSpecGate>();
     // 2026-09-17-0e79b: an approved set is never re-cut — the input is reported instead.
     services.AddTransient<ApprovedSetKeptNotice>();
+    // 2026-11-22-a720b: an approved revision rewrites the ticket's text from its specs, inside the run.
+    services.AddTransient<ApprovedTicketText>().TryAddTransient<TicketActs.ApprovedSetRegion>();
+    services.TryAddScoped<TicketActs.TicketDescriptionRewrite>();
+    services.TryAddTransient<SpecDialog.SeriesTicketRegion>(); services.TryAddTransient<SpecDialog.SpecTicketRenderer>();
     // 2026-09-17-042eh: where a spec began, which its diff and the shortfall read.
     services.AddTransient<SpecStartHeads>();
         return services;

@@ -20,4 +20,8 @@ public sealed class ModelRunWaitClock(IUnitOfWork unitOfWork)
         var waited = waits.ToDictionary(w => w.RunId, w => w.Waited(now), StringComparer.Ordinal);
         return [.. running.Where(r => now - r.StartedAt - waited.GetValueOrDefault(r.Id) > maxWallTime)];
     }
+
+    /// <summary>2026-11-22-d434b: whether <paramref name="runId"/> waits for its model place now — its wait row is open.</summary>
+    public Task<bool> IsWaitingAsync(string runId, CancellationToken ct) =>
+        unitOfWork.Set<ModelRunWait>().AsNoTracking().AnyAsync(w => w.RunId == runId && w.WaitingSince != null, ct);
 }

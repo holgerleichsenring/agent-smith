@@ -1,8 +1,10 @@
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Filing;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Services.Acts;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,7 +45,8 @@ public sealed class WaitingTicketStart(
     public async Task<WaitingStart> StartAsync(ResolvedProject project, string ticketId, bool onlyWithRequirements, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(project);
-        if (await HeldAsync(project, ticketId, onlyWithRequirements, ct) is { } held) return new(false, $"Ticket {ticketId} is held: {held}.");
+        if (await HeldAsync(project, ticketId, onlyWithRequirements, ct) is { } held)
+            return new(false, $"Ticket {ticketId} is held: {held.Why}.", held.Pending);
         if (!await hold.OpenAsync(project, ticketId, ct)) return new(false, $"Ticket {ticketId} is closed, or the tracker could not be read.");
         (FiledWorkStart? Start, string? Ended) run;
         await using (var scope = scopes.CreateAsyncScope())
@@ -60,7 +63,9 @@ public sealed class WaitingTicketStart(
     }
 
     // What keeps the ticket from its start, or null. An unmet requirement is silent for the wake: its landing wakes it again.
-    private async Task<string?> HeldAsync(ResolvedProject project, string ticketId, bool onlyWithRequirements, CancellationToken ct)
+    // 2026-11-22-d434a: a requirement a green branch lifts gets no landing, so while a prerequisite's newest attempt has not
+    // ended the hold is pending and the wake asks again; one that ended red is spent until a landing or a green end.
+    private async Task<(string Why, bool Pending)?> HeldAsync(ResolvedProject project, string ticketId, bool onlyWithRequirements, CancellationToken ct)
     {
         var tracker = project.Tracker.Name;
         var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
@@ -68,19 +73,34 @@ public sealed class WaitingTicketStart(
         // A ticket without requirements is no wake's to start — unless a running series whose approver may start runs owns
         // it (a resume handed it to the nudge when its lock was busy), read when the nudge is served.
         if (edges.Count == 0 && onlyWithRequirements && await unmet.RunningSeriesAsync(project.Name, ticketId, ct) is not { MayStartRuns: true })
-            return "it requires nothing, so no landing starts it";
-        if (await UnderWayAsync(project.Name, ticketId, ct) is { } underWay) return underWay;
-        if (await hold.MarkedAsync(project, ticketId, ct)) return "it was marked done by hand or closed";
-        if (await unmet.PausedSeriesAsync(project.Name, ticketId, ct) is { } paused) return $"series {paused.Id} is paused";
+            return ("it requires nothing, so no landing starts it", false);
+        if (await UnderWayAsync(project.Name, ticketId, ct) is { } underWay) return (underWay, false);
+        if (await hold.MarkedAsync(project, ticketId, ct)) return ("it was marked done by hand or closed", false);
+        if (await unmet.PausedSeriesAsync(project.Name, ticketId, ct) is { } paused) return ($"series {paused.Id} is paused", false);
         if (edges.Count == 0) return null;
-        if ((await unmet.ForStartAsync(project, key, ct)).Unmet is { Count: > 0 } open) return RequiresUnmetGate.Sentence(open).TrimEnd('.');
-        if (!await unmet.FiledCompletelyAsync(tracker, key, ct))
-        {
-            logger.LogWarning("Ticket {Project}/{Ticket}'s filing is incomplete; not started", project.Name, ticketId);
-            return "its filing did not finish";
-        }
+        if ((await unmet.ForStartAsync(project, key, ct)).Unmet is { Count: > 0 } open)
+            return (RequiresUnmetGate.Sentence(open).TrimEnd('.'), await InFlightAsync(project, open, ct));
+        if (!await unmet.FiledCompletelyAsync(tracker, key, ct)) return Incomplete(project.Name, ticketId);
         if (edges.All(e => e.StartsWhenMet)) return null;
         logger.LogInformation("Ticket {Project}/{Ticket}'s requirements landed; it waits for a start by name", project.Name, ticketId);
-        return "it waits for a start by name";
+        return ("it waits for a start by name", false);
+    }
+
+    private (string Why, bool Pending) Incomplete(string project, string ticketId)
+    {
+        logger.LogWarning("Ticket {Project}/{Ticket}'s filing is incomplete; not started", project, ticketId);
+        return ("its filing did not finish", false);
+    }
+
+    // Only a green end lifts a requirement before its landing (on_green_push); a prerequisite parked on a question has
+    // nothing ending it but a person, so it is not waited on.
+    private async Task<bool> InFlightAsync(ResolvedProject project, IReadOnlyList<TicketRequirementEdge> open, CancellationToken ct)
+    {
+        if (project.RequiresStart != RequiresStart.OnGreenPush) return false;
+        foreach (var edge in open)
+            if (await attempts.HasQueuedAsync(project.Name, edge.RequiredTicketId, ct)
+                || await attempts.LatestAsync(project.Name, edge.RequiredTicketId, null, ct)
+                    is { Finished: false, Status: not RunStatuses.WaitingForInput }) return true;
+        return false;
     }
 }

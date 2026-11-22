@@ -6,5 +6,5 @@ namespace AgentSmith.Server.Contracts;
 /// for the callers that are not the endpoint: the interrupted restart asks it as agent-smith.</summary>
 public interface IRunRetry
 {
-    Task<RunRetryResult> RetryAsync(string runId, string principal, RetryOrigin origin, CancellationToken ct);
+    Task<RunRetryResult> RetryAsync(string runId, string principal, string? name, RetryOrigin origin, CancellationToken ct);
 }

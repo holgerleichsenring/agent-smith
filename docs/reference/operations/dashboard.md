@@ -168,7 +168,7 @@ Beside the section's heading stand **Cancel run n** while an attempt runs, and *
 
 **What happened** is the ticket's conversation, one line per event: tracker comments and text edits, run questions and answers, pull-request reviews, the spec cut, each run with its outcome and how it ended. Equal stops fold into one line ("Runs 3–5 · 3× same cause"). A run opens its sectioned log in place. When something waits for you, a **Your move** line sits on top and names it. At the bottom, the composer: a reply asks for a change and starts the next run; while a run is working, a message from someone with `runs.control` reaches that run instead. A ticket waiting for others lists them first under **Waits for**.
 
-When the tracker's text no longer states what the approved specs say, a notice names the goals it lost and offers **Discuss in the conversation** or **Overwrite the tracker from the specs** (a `ticket-body` run).
+With approved specs, the ticket's text in the tracker is written from them: each run that applies a newly approved revision rewrites it first. If someone edits that text in the tracker afterwards, agent-smith doesn't overwrite it. It posts the change into the ticket's conversation and asks whether it should go into the specs. Your reply works like any other, and once the new revision is approved, the text is written from the specs again.
 
 **Specs** shows the ticket's specs as they are on its branch: per spec its goal, the steps as worked, **Done when** with each criterion's state, its build note and its revisions. It's read-only. A spec changes through the conversation, never by hand, and a filed ticket that never ran shows the set on its branch. The section ends with the derivations, their duration, and **Derive again**.
 

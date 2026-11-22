@@ -8,6 +8,8 @@ namespace AgentSmith.Server.Services.Tickets.Checks;
 /// nothing until someone opens each detail. The list offers its page's failed tickets and never waits:
 /// at most ten per read, each ticket at most once per five minutes on this replica, queued to
 /// <see cref="TicketCheckKickWorker"/>. The check's own five-minute reuse bounds it across replicas.
+/// 2026-11-22-a720b: a kick names its check — the between-attempts check, or the ticket text read's edit check — and
+/// each kind is throttled on its own.
 /// </summary>
 public sealed class TicketCheckKicks(IMemoryCache cache)
 {
@@ -26,7 +28,7 @@ public sealed class TicketCheckKicks(IMemoryCache cache)
         foreach (var ticket in tickets)
         {
             if (kicked == PerRead) break;
-            var key = $"ticket-check-kick:{ticket.Project}/{ticket.TicketId}";
+            var key = $"ticket-check-kick:{ticket.Kind}:{ticket.Project}/{ticket.TicketId}";
             if (cache.TryGetValue(key, out _)) continue;
             cache.Set(key, true, PerTicket);
             if (_queue.Writer.TryWrite(ticket)) kicked++;
@@ -35,5 +37,5 @@ public sealed class TicketCheckKicks(IMemoryCache cache)
     }
 }
 
-/// <summary>2026-10-13-9a59h: one ticket offered to the between-attempts check.</summary>
-public sealed record TicketCheckKick(string Project, string TicketId);
+/// <summary>2026-10-13-9a59h: one ticket offered to the between-attempts check; 2026-11-22-a720b: or to the text edit check.</summary>
+public sealed record TicketCheckKick(string Project, string TicketId, TicketCheckKind Kind = TicketCheckKind.BetweenAttempts);

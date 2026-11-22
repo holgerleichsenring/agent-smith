@@ -39,20 +39,15 @@ public sealed class SeriesRunwayReader(
         var tried = attempts.Of(code).Select(r => r.Run).ToList();
         var newest = code.Where(r => r.Run.Status != RunStatuses.Queued).MaxBy(r => r.Run.Id, StringComparer.Ordinal)?.Run;
         var records = await recordsReader.ReadAsync([.. tried.Select(r => r.Id)], full: false, ct);
-        var cut = TicketSeriesCuts.LatestWithSpecs(TicketSeriesCuts.Ordered(records.Cuts));
-        var entries = cut is null ? [] : TicketSeriesCuts.Entries(cut);
-        var finished = cut is null ? [] : records.Specs
-            .Where(s => s.Status == Done && string.CompareOrdinal(s.RunId, cut.RunId) >= 0).Select(s => s.SpecId)
-            .Concat(TicketSeriesCuts.Carried(records, cut.RunId)).ToHashSet(StringComparer.Ordinal);
-        var left = entries.Count(e => !finished.Contains(e.SpecId));
+        var left = TicketSeriesCuts.Left(records);
         var (watermark, refused, closed) = await MarksAsync(project, ticketId, newest?.Id, ct);
         var current = settings.Current();
         var facts = new SeriesRunwayFacts(tried,
             records.Attempts.ToDictionary(a => a.Key, a => a.Value.CauseChannel, StringComparer.Ordinal),
-            newest, code.Any(r => r.Run.Status == RunStatuses.Queued), cut is not null, left,
+            newest, code.Any(r => r.Run.Status == RunStatuses.Queued), left.Cut is not null, left.Count,
             newest is not null && records.Specs.Any(s => s.RunId == newest.Id && s.Status == Done),
             await holds.PendingAsync(project, ticketId, ct), watermark, refused, closed, current);
-        return new SeriesRunwayRead(SeriesRunway.Judge(facts, clock.GetUtcNow()), newest?.Id, left, entries.Count,
+        return new SeriesRunwayRead(SeriesRunway.Judge(facts, clock.GetUtcNow()), newest?.Id, left.Count, left.Entries.Count,
             SeriesRunway.Chain(facts).Count, current);
     }
 

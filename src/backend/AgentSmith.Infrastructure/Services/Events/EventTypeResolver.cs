@@ -65,6 +65,7 @@ public static class EventTypeResolver
         EventType.DialogActivity => typeof(DialogActivityEvent), // 2026-11-10-d854c
         EventType.VerifyPassRecorded => typeof(VerifyPassRecordedEvent), // 2026-11-17-d6fbc
         EventType.DeployDelivered => typeof(DeployDeliveredEvent), // 2026-11-18-3863f
+        EventType.TicketTextRewritten => typeof(TicketTextRewrittenEvent), // 2026-11-22-e812
         _ => null
     };
 

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-a720b
+
+decisions:
+  - category: Design
+    chose: "With spec:approved the ticket text is a transcript of the approved specs: agent-smith rewrites it on every approved revision, and a person's later edit is put to the ticket conversation as a question"
+    over: "The dd05d notice with Discuss and Overwrite buttons"
+    reason: "Operator decision 2026-11-22, not reopened here."
+    decider: operator
+  - category: Architecture
+    chose: "The code run rewrites the text in its DeriveSpec step, before the branch write, as the amend run does (ApprovedTicketText); the 'ticket-body' act and its overwrite endpoint are removed"
+    over: "Launching the 'ticket-body' run after the approval (the operator's suggested mechanism)"
+    reason: "A worked ticket's approval only records; its revision is written by the next code run, which holds the ticket branch. The 'ticket-body' run is refused under a run (TicketBodyOverwrite) and its stamp commits to that branch from the host, racing the run's own push. Inside the run the tracker write is still a step with a run id (Everything is a pipeline). No second path: the in-run rewrite replaces the 'ticket-body' act, which had no other launcher."
+  - category: Implementation
+    chose: "Rewrite only when the revision is caused by an approval given in a conversation that is newer than the branch set's; skip a demand re-cut, a first hand-off, a preview and an inline ticket; let the labels decide the region placement"
+    over: "Rewriting on every revision of an approved set, or forcing ReplaceOrAppend"
+    reason: "A kept ticket edit, a rework or a status-back revision carries the old approval, and a demand re-cut keeps the specs for the master to amend from the edited text; rewriting there would overwrite the person's edit (code review finding). A first hand-off was filed or amended from the same set. ReplaceOrAppend was justified by a person asking; unasked, the labels' ReplaceOnly protects framework-rendered bodies."
+  - category: Implementation
+    chose: "When the newer approval replaces a text a person edited since agent-smith last wrote it, the run keeps the replaced text as agent-smith's comment on the ticket"
+    over: "Skipping the rewrite, or replacing silently"
+    reason: "The approval is the person's later decision, so it wins, but never silently (operator rule 2); skipping would leave the text unrewritten for good, because the edit stays different from the branch fingerprint."
+  - category: Implementation
+    chose: "The set carries the fingerprint of the ticket read back after the rewrite, label note stripped"
+    over: "The unstripped read-back the retired stamp used"
+    reason: "The next run's fetch strips the note; an unstripped fingerprint made it report the ticket as edited once (review finding)."
+  - category: Implementation
+    chose: "A person's edit is detected by the branch set's fingerprint differing from the tracker's text, checked on the check worker after a ticket-text read (TicketCheckKind.TextEdit), reading the tracker past its cache, and never while a run holds the ticket"
+    over: "Computing it inside GET .../text, or a stored fingerprint of our last write"
+    reason: "The branch fingerprint is the text agent-smith last wrote (filing, amend, approved revision). A GET with runs.read must not write a conversation turn or launch a run, and the cache could compare a stale read with a just-written set; a run (or the amend run) writes the tracker before the branch, so a held ticket is not judged and the next read asks again (review findings). Extends the existing kick channel rather than a second worker."
+  - category: Implementation
+    chose: "Once per edit: the ticket's ledger key 'ticket-text-edited|<fingerprint>', spent before posting"
+    over: "Posting on every read"
+    reason: "The ledger already dedupes the worker's speech; a failed post is logged and not repeated, as ReworkSpeech does."
+  - category: Implementation
+    chose: "The question goes to the ticket's open conversation through ISeriesConversation; without one, agent-smith's comment through a 'comment' run"
+    over: "Opening a conversation server-side, or posting nothing"
+    reason: "A session needs an owner and a dialog id only a person's page has; a tracker comment shows in the ticket conversation and a reply from the composer opens the conversation, whose turn already gets the divergence. ISeriesConversation is the existing writer of a kept Notice turn."
+  - category: Implementation
+    chose: "The message says the text changed, names the goals it no longer states when any, and quotes the text now"
+    over: "A character diff"
+    reason: "The fingerprint changes on any edit, so 'changed' is always true; the goal comparison is the one coarse diff that survives tracker conversions (TicketSetDivergence)."
+  - category: Implementation
+    chose: "Known gaps named, not fixed here: our own in-run rewrite reads as a person's 'edited' entry between attempts and in the between-attempts check (2026-11-22-e812); the run's kept-edit tracker notice can arrive beside the conversation question; a rewrite done before a branch write that then fails leaves the tracker ahead until the next run repeats it"
+    over: "Widening this spec"
+    reason: "The first needs a second fingerprint on the attempt row and a migration on every provider; the others are existing behaviour or self-healing."

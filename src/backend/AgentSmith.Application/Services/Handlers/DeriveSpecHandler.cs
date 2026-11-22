@@ -17,6 +17,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// once, on a branch that carries nothing at the path. A filed ticket whose branch carries no readable set PARKS.
 /// </para>
 /// <para>2026-11-17-7c9ba: a plain re-trigger over the branch set as it is writes no revision and says nothing.</para>
+/// <para>2026-11-22-a720b: a revision a newer approval caused rewrites the ticket's text from it before it is written.</para>
 /// <para>
 /// 2026-11-19-6b0ba: no model cuts the ticket here. A ticket with no spec to build gets stand-ins
 /// (<see cref="SpecStandIns"/>) and its coding master writes the real spec as its first work; an input over a set
@@ -34,7 +35,7 @@ public sealed class DeriveSpecHandler(
     ApprovedSetKeptNotice keptNotice,
     UnansweredQuestionPin questionPin,
     UnansweredQuestionNotice questionNotice, SeriesResolver seriesOf, ForeignCommitProbe expiry,
-    SpecSetUnchanged unchanged)
+    SpecSetUnchanged unchanged, ApprovedTicketText ticketText) // 2026-11-22-a720b
     : ICommandHandler<DeriveSpecContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -77,8 +78,8 @@ public sealed class DeriveSpecHandler(
                 context.Pipeline.Flag(ContextKeys.SpecDerivationPreview)))
             return await publisher.KeepAsync(context.Pipeline, branch.Scope,
                 finalized with { Revisions = previous!.Set.Revisions }, previous.LastCommitSha, cancellationToken);
-        var result = await publisher.PublishAsync(
-            context.Pipeline, project, branch.Scope, finalized, [], cancellationToken);
+        var result = await publisher.PublishAsync(context.Pipeline, project, branch.Scope, // a720b: the text first
+            await ticketText.FollowAsync(context.Pipeline, context.Tracker, finalized, previous?.Set, cancellationToken), [], cancellationToken);
         if (!finalized.IsHandedBack)
             await AnnounceAsync(context, finalized, unanswered, cancellationToken);
         return result;

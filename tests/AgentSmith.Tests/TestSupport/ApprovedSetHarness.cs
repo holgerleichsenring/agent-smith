@@ -96,7 +96,7 @@ internal sealed class ApprovedSetHarness
             new UnansweredQuestionNotice(cuts, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
-            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())));
+            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.TicketText(Notices.Factory()));
     }
 
     /// <summary>The real publisher: the writer, the pointer recorder and the draft pull request.</summary>

@@ -48,6 +48,7 @@ GET	/api/config/settings/{type}	config.read	-
 GET	/api/config/trackers	config.read	-
 GET	/api/delivery	runs.read	across
 GET	/api/diagnostics/connections	diagnostics.read	-
+GET	/api/diagnostics/model-quota	diagnostics.read	-
 GET	/api/identity	identity.read	-
 GET	/api/openapi.json	anonymous	-
 GET	/api/projects	runs.read	across
@@ -134,7 +135,6 @@ POST	/api/spec-dialog/messages	dialog.write	body
 POST	/api/spec-dialog/references	dialog.write	dialog
 POST	/api/spec-dialog/{dialogId}/series/{act}	dialog.write,runs.control	dialog
 POST	/api/teams/messages	anonymous	-
-POST	/api/tickets/{project}/{ticketId}/body	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/close	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/follow-ups	runs.control	route:project

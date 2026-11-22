@@ -3,6 +3,7 @@ using System.ClientModel.Primitives;
 using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Services.RateLimiting;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.AI;
 using OpenAI;
@@ -10,17 +11,14 @@ using OpenAI;
 namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 
 /// <summary>
-/// Builds an IChatClient for OpenAI, an OpenAI-compatible server (type openai with an
-/// endpoint) or Azure OpenAI. All produce IChatClient via Microsoft.Extensions.AI.OpenAI's
-/// AsIChatClient extension on the SDK's chat-client object. Azure routes via deployment
-/// name, OpenAI by model name.
-///
-/// p0239c: an optional <paramref name="testTransport"/> lets a wire-level test
-/// fake the HTTP transport one level below the SDK (the SDK's ClientPipeline is
-/// pointed at an HttpClient wrapping the handler), so request shaping + response
-/// parsing are observable. Production passes null → the SDK's real transport.
+/// Builds an IChatClient for OpenAI, an OpenAI-compatible server (type openai with an endpoint) or Azure OpenAI, all
+/// via Microsoft.Extensions.AI.OpenAI's AsIChatClient. Azure routes via deployment name, OpenAI by model name.
+/// p0239c: an optional <paramref name="testTransport"/> fakes the HTTP transport one level below the SDK, so request
+/// shaping and response parsing are observable; production passes null. 2026-11-22-66e4a: with
+/// <paramref name="quotaHeaders"/>, every response's remaining-quota headers reach the rate limiter.
 /// </summary>
-public sealed class OpenAiChatClientBuilder(ICredentialResolver credentials, HttpMessageHandler? testTransport = null)
+public sealed class OpenAiChatClientBuilder(
+    ICredentialResolver credentials, HttpMessageHandler? testTransport = null, ProviderQuotaHeaders? quotaHeaders = null)
     : IChatClientBuilder
 {
     // p0235: the SDK defaults NetworkTimeout to 100s. A large completion exceeds
@@ -54,6 +52,7 @@ public sealed class OpenAiChatClientBuilder(ICredentialResolver credentials, Htt
 
             var azureOptions = new AzureOpenAIClientOptions { NetworkTimeout = timeout };
             OwnTheRetries(azureOptions);
+            ReadTheQuota(azureOptions);
             ApplyTestTransport(azureOptions);
             var azure = new AzureOpenAIClient(
                 new Uri(endpoint ?? throw new InvalidOperationException("Azure OpenAI requires AgentConfig.Endpoint.")),
@@ -65,22 +64,25 @@ public sealed class OpenAiChatClientBuilder(ICredentialResolver credentials, Htt
         var openAiOptions = new OpenAIClientOptions { NetworkTimeout = timeout };
         if (endpoint is not null) openAiOptions.Endpoint = new Uri(endpoint);
         OwnTheRetries(openAiOptions);
+        ReadTheQuota(openAiOptions);
         ApplyTestTransport(openAiOptions);
         var openAi = new OpenAIClient(credential, openAiOptions);
         return openAi.GetChatClient(assignment.Model).AsIChatClient();
     }
 
     /// <summary>
-    /// p0493: the SDK does not retry — TransientRetryChatClient does, one layer up, where the
-    /// wait is logged, bounded and re-acquires throttle capacity. Measured through the test
-    /// transport below, not assumed: the default policy spent three further attempts on a
-    /// 429, honoured Retry-After exactly and with NO ceiling (20s asked → 20s, 20s, 20s), and
-    /// waited nothing at all when the header was absent. Stacked under the outer loop that is
-    /// up to 24 provider calls for one logical call, in silence, and an hour-long Retry-After
-    /// would park the run for three.
+    /// p0493: the SDK does not retry — TransientRetryChatClient and RateLimitingChatClient do, one layer up, where the
+    /// wait is logged and re-acquires throttle capacity. Measured through the test transport: the default policy spent
+    /// three further attempts on a 429, honoured Retry-After with no ceiling and waited nothing without the header.
     /// </summary>
     private static void OwnTheRetries(ClientPipelineOptions options) =>
         options.RetryPolicy = new ClientRetryPolicy(maxRetries: 0);
+
+    // 2026-11-22-66e4a: per try, so with the SDK's retries off it sees exactly the response our layer sees.
+    private void ReadTheQuota(ClientPipelineOptions options)
+    {
+        if (quotaHeaders is not null) options.AddPolicy(new ProviderQuotaHeaderPolicy(quotaHeaders), PipelinePosition.PerTry);
+    }
 
     // Point the SDK's client pipeline at the fake handler when a test supplies one.
     private void ApplyTestTransport(ClientPipelineOptions options)

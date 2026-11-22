@@ -26,7 +26,10 @@ public sealed record AgentEntity(
     AgentRetrySettings? Retry,
     // 2026-11-20-24bd: runs that may use the primary deployment at once; null is no limit, and the value is always
     // written, so clearing it in the form lifts the limit.
-    int? MaxConcurrentRuns = null)
+    int? MaxConcurrentRuns = null,
+    // 2026-11-22-66e4b: the per-deployment budget (agent.rate_limit); a number left null is the provider default, and
+    // the section is always written, so clearing both numbers in the form restores the default.
+    AgentRateLimitSettings? RateLimit = null)
 {
     public AgentEntity() : this(
         string.Empty, string.Empty, null, null, null, null,
@@ -61,6 +64,9 @@ public sealed record AgentCompactionSettings(
     double? MaxContextTokensTriggerRatio = null,
     double? FoldTargetRatio = null,
     double? SummaryBudgetRatio = null);
+
+/// <summary>2026-11-22-66e4b: the per-minute budget (mirrors <c>rate_limit:</c>); a null number is the provider default.</summary>
+public sealed record AgentRateLimitSettings(int? RequestsPerMinute, int? InputTokensPerMinute);
 
 /// <summary>Transient-failure retry settings (mirrors <c>retry:</c> on the raw agent).</summary>
 public sealed record AgentRetrySettings(

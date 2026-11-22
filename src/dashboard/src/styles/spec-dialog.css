@@ -130,7 +130,7 @@
 .mock-dialog .dl-series-what { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mock-dialog .dl-series-ticket-state { flex: 0 1 auto; min-width: 0; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
 .mock-dialog .dl-series-num { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
-.mock-dialog .dl-series-row:is([data-kind="running"], [data-kind="green"]) .dl-series-ticket-state { color: var(--run); }
+.mock-dialog .dl-series-row:is([data-kind="running"], [data-kind="model wait"], [data-kind="green"]) .dl-series-ticket-state { color: var(--run); }
 .mock-dialog .dl-series-row[data-kind="red"] .dl-series-ticket-state { color: var(--bad); }
 .mock-dialog .dl-series-row[data-kind="landed"] .dl-series-ticket-state { color: var(--ok); }
 .mock-dialog .dl-series-head { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; max-width: 100%; }

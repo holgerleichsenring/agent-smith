@@ -33,6 +33,7 @@ public sealed class TicketListQuery(IServiceScopeFactory scopes)
                 Id = r.Id, Project = r.Project, Pipeline = r.Pipeline, TicketId = r.TicketId,
                 TicketTitle = r.TicketTitle, Platform = r.Platform, Status = r.Status, StartedAt = r.StartedAt,
                 FinishedAt = r.FinishedAt, ActsReadAt = r.ActsReadAt, CostTotalUsd = r.CostTotalUsd, CancelReason = r.CancelReason,
+                EndKind = r.EndKind, // 2026-11-22-50d7a: an attempt mark says why its run ended
             }, steps.Any(s => s.RunId == r.Id)))
             .ToListAsync(ct);
         return new TicketListRows([.. rows.Take(Ceiling)], rows.Count > Ceiling, await DerivationCostsAsync(uow, project, ct));

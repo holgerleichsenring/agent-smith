@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-ab45
+
+decisions:
+  - category: Scope
+    chose: "Say once that a call cannot fit a minute's quota, with the numbers and the config key; keep waiting as 66e4a decided"
+    over: "A cap or a failure for such a call"
+    reason: "decider: operator, 2026-11-22 — not loop silently, no new cap."
+  - category: Implementation
+    chose: "Classify only on structured signals: the unclamped reservation, the settled count, a Retry-After above the 120 s ceiling; quote error.message as display text"
+    over: "Matching 'daily' or 'monthly' in the refusal's message"
+    reason: |
+      Spec review: OpenAI writes 'tokens per day (TPD)', never 'daily', and Azure's daily cap arrives as a ~24 h
+      Retry-After header; classifying on prose is the fragility the principles ban for exception messages. A quote
+      changes no control flow, so it cannot mislead behaviour.
+  - category: Implementation
+    chose: "Say the oversize case before the wait (OnShortfall from the reservation) and again from the settled count"
+    over: "A shortfall on the lease only, known after the wait for a full bucket"
+    reason: |
+      The lease exists only after admission, up to a minute later. The estimate can under-read (chars/4 read 2.7x low on
+      Azure before the ratio learns), so the settled count is the exact second check.
+  - category: Implementation
+    chose: "A step line of its own (model-quota-cannot-fit) once per run and deployment, and the reason on every waiting line of the call"
+    over: "A second waiting line in the Now block; a set of every run told"
+    reason: |
+      The waiting line is what the Now block shows, so carrying the numbers as its reason puts them where the operator
+      looks without a second open line that nothing would close. 'Once' keeps the 32 most recent runs per deployment
+      (RecentlyToldRuns), so runs taking turns are each told once and the memory stays bounded.
+  - category: Implementation
+    chose: "Code-review fixes: a call outside a run (design turn) is told per call and its turn shows it; the settled-count case has its own words (the call passed; calls its size wait a full minute) and never fails the answer it follows; the pause starts before the notice is published; max_tokens is named only where the provider counts it; a waiting line adds the reason to its own"
+    over: "Deduping callers outside a run under one empty run id; one wording for all cases"
+    reason: |
+      Every design turn shares an empty run id, so one told turn silenced all later ones on the deployment. A notice
+      awaited with the caller's token after the answer could turn a paid answer into a cancellation. Publishing before
+      the refusal paused the deployment let siblings send into the 429 meanwhile.

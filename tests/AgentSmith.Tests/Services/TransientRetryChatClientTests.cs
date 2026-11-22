@@ -22,19 +22,18 @@ public sealed class TransientRetryChatClientTests
     private static TransientRetryChatClient Wrap(IChatClient inner, RetryConfig retry) =>
         new(inner, retry, "test", NullLogger.Instance);
 
-    // p0477: the Azure and OpenAI SDKs report a status refusal as ClientResultException,
-    // which the predicate could not see. A live run died on HTTP 429 sixty-two minutes in,
-    // with twelve of fourteen ledger items done and both pull requests already open.
+    // p0477 retried a 429 here; 2026-11-22-66e4a moved it one layer down, where the throttle pauses the whole
+    // deployment and waits the refusal out. A 429 that reaches this layer is one no wait cures, so it is not
+    // retried and agent.retry.max_retries counts network faults only.
     [Fact]
-    public async Task TransientRetry_ClientResultException429_IsRetried()
+    public async Task TransientRetry_ClientResultException429_IsLeftToTheThrottle()
     {
         var inner = new ScriptedChatClient(RateLimited());
         var client = Wrap(inner, FastRetry());
 
-        var response = await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
-
-        response.Text.Should().Be("ok");
-        inner.Attempts.Should().Be(2, "a rate limit says the call arrived too soon, not that it is wrong");
+        await FluentActions.Awaiting(() => client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]))
+            .Should().ThrowAsync<ClientResultException>();
+        inner.Attempts.Should().Be(1, "the throttle below owns every 429");
     }
 
     [Fact]
@@ -62,38 +61,6 @@ public sealed class TransientRetryChatClientTests
 
     private static ClientResultException RateLimited() =>
         new("rate_limit_exceeded", new FakeResponse(429));
-
-    /// <summary>
-    /// p0493: the warning has to name what actually happened. Since p0477 a 429 was logged as
-    /// "Transient LLM network error", which sends whoever reads the run trail hunting a socket
-    /// fault that was never there — and it said nothing about how long it then waited.
-    /// </summary>
-    [Fact]
-    public async Task TransientRetry_ARateLimit_LogsTheWaitAndItsReason()
-    {
-        var logger = new CapturingLogger();
-        var inner = new ScriptedChatClient(
-            new ClientResultException("rate_limit_exceeded", new FakeResponse(429, ("Retry-After", "0.01"))));
-        var client = new TransientRetryChatClient(inner, FastRetry(), "test", logger);
-
-        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
-
-        logger.Warnings.Should().ContainSingle().Which
-            .Should().Contain("rate limit").And.Contain("asked for")
-            .And.NotContain("network error");
-    }
-
-    private sealed class CapturingLogger : ILogger
-    {
-        public List<string> Warnings { get; } = [];
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-        public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (logLevel == LogLevel.Warning) Warnings.Add(formatter(state, exception));
-        }
-    }
 
     [Fact]
     public async Task GetResponseAsync_TransientThenSuccess_RetriesAndReturns()

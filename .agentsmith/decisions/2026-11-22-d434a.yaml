@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-d434a
+
+decisions:
+  - category: Implementation
+    chose: "Reschedule the RequirementsMet nudge while an unmet prerequisite's newest attempt is queued or live; spend it once that attempt ended"
+    over: "A landing-style recovery for green wakes, or re-reading 'green' over older attempts"
+    reason: "The existing nudge backoff is the mechanism (operator: minimal fix in the existing mechanism); green stays the newest attempt's, as 9a39a defines it. A red end is spent as before — its next green end wakes the dependents again through StackedDependentsWake."
+    decider: operator
+  - category: Implementation
+    chose: "Pending only under requires_start on_green_push, and not while the prerequisite is parked on a question; no cap on the retries"
+    over: "Pending under every setting, or a retry cap"
+    reason: "Under on_merge only a landing lifts the requirement, and a landing wakes again; a parked run has nothing but a person to end it. A live run ends or is ended by the liveness reaper, and the backoff grows to 15 minutes, so the retries stop with the run (code review). Known limit: a later attempt of the prerequisite that ends Success without a pull request of its own (a rework pushing to the open one) is not green by 9a39a's rule, so its dependents still wait for the landing."

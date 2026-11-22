@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-d434b
+goal: "A series ticket whose live run waits for its model place reads as waiting for the model, and the stall judgement no longer counts it as stuck."
+
+applies_to: "default (SeriesTicketFacts, SeriesTicketState, SeriesJudgement, ModelRunWaitClock)"
+
+requires: [2026-11-20-24bd, 2026-11-17-0207b]
+
+facts:
+  - claim: "The stall judgement asks the series master whether a ticket is stuck when the table did not change for a status period while any row is Running."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesJudgement.cs:17-24, src/backend/AgentSmith.Application/Services/Series/ReadSeriesHandler.cs:33"
+  - claim: "Every live attempt not parked on a question read as Running ('coding')."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesTicketState.cs:36-41"
+  - claim: "A run waiting for its model place has an open ModelRunWaits row (WaitingSince set) until the place is taken."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ModelRunWait.cs:3-13, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbModelRunSlots.cs:66-70"
+  - claim: "Measured 2026-11-22 19:37-20:17: every 15-minute beat said nothing moved and the master told a waiting ticket to resume."
+    evidence: "observed: 2026-11-22, live series audit by the coordinator"
+  - claim: "The ticket page reads the same wait from the run's own waiting line (2026-11-22-50d7a, on its own branch)."
+    evidence: "observed: 2026-11-22, origin/spec/2026-11-22-50d7a adds modelWaitWords and runNowLines in the dashboard run log"
+
+scope:
+  in: "SeriesTicketFact.WaitingForModel, set by SeriesTicketFacts from ModelRunWaitClock.IsWaitingAsync for a live newest attempt; SeriesTicketState reads it as 'waiting for its model place' of kind ModelWait, which Stalled leaves out, the opening counts as started and the status orders with running."
+  out: "The dashboard's run-log reading of the wait (50d7a). A series master prompt change."
+
+steps:
+  - id: fact
+    action: "ModelRunWaitClock.IsWaitingAsync, registered scoped beside the server state repositories; SeriesTicketFacts sets WaitingForModel."
+  - id: state
+    action: "SeriesTicketState.ModelWait; SeriesOpening and SeriesStatusText take it with Running."
+
+tests:
+  - "SeriesReportTests: the only live ticket waiting for its model place asks no stall question and reads as model wait"
+  - "ModelRunWaitClockTests: an open wait is waiting, an ended or missing one is not"
+
+done:
+  - "A series whose tickets wait on the model gate is not told they are stuck."

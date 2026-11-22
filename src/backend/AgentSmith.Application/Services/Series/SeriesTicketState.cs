@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Series;
 public static class SeriesTicketState
 {
     public const string Landed = "landed", Running = "running", Red = "red", Waiting = "waiting", Held = "held",
-        NotStarted = "not started", Green = "green";
+        NotStarted = "not started", Green = "green", ModelWait = "model wait"; // d434b
 
     public static (string State, string Kind) Of(SeriesTicketFact fact, IReadOnlyList<SeriesTicketFact> all)
     {
@@ -45,6 +45,8 @@ public static class SeriesTicketState
     private static (string State, string Kind) OfAttempt(SeriesTicketFact fact, string status)
     {
         if (status == RunStatuses.Queued) return ("queued", Running);
+        // 2026-11-22-d434b: a live attempt waiting for its model place is another run's turn on the deployment, not a stall.
+        if (!fact.LatestFinished && fact.WaitingForModel) return ("waiting for its model place", ModelWait);
         if (!fact.LatestFinished && status != RunStatuses.WaitingForInput) return ("coding", Running);
         if (status == RunStatuses.WaitingForInput)
             return (fact.PendingQuestion is null ? "waiting for input" : "question", Waiting);

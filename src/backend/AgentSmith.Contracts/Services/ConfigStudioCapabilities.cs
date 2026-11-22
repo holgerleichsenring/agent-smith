@@ -193,6 +193,8 @@ public static class ConfigStudioCapabilities
         // 2026-11-20-24bd: a limit no run could ever take a place under is never stored.
         if (AgentConfig.ConcurrencyProblem(agent.MaxConcurrentRuns, agent.Id) is { } concurrency)
             throw new ConfigurationException(concurrency);
+        if (AgentConfig.RateLimitProblem(agent.RateLimit?.RequestsPerMinute, agent.RateLimit?.InputTokensPerMinute, agent.Id)
+            is { } budget) throw new ConfigurationException(budget); // 2026-11-22-66e4b
         var overrides = (agent.Pricing?.Models.Keys ?? Enumerable.Empty<string>())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, entry) in agent.Catalog)

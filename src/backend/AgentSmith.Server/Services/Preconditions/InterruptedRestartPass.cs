@@ -34,7 +34,7 @@ public sealed class InterruptedRestartPass(
     {
         using var scope = scopes.CreateScope();
         var result = await scope.ServiceProvider.GetRequiredService<IRunRetry>()
-            .RetryAsync(attempt.RunId, AttemptChannels.RestartActor, RetryOrigin.Restart, ct);
+            .RetryAsync(attempt.RunId, AttemptChannels.RestartActor, AttemptChannels.RestartActor, RetryOrigin.Restart, ct);
         if (result.Kind == RunRetryResultKind.Requested) return true;
         logger.LogInformation("Attempt {RunId} of {Project}/{Ticket} was interrupted and not restarted: {Why}",
             attempt.RunId, attempt.Project, attempt.TicketId, result.Text ?? result.Kind.ToString());

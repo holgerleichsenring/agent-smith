@@ -103,7 +103,7 @@ public sealed class DeriveSpecAppendTests
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
-            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())));
+            new SpecSetUnchanged(new SeriesFiles(new SeriesManifest())), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.TicketText());
     }
 
     private static DeriveSpecContext Context(IReadOnlyList<TicketComment> thread, ReworkAct? act = null)

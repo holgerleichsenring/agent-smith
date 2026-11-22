@@ -51,6 +51,10 @@ export interface TicketAttemptMark {
   status: string;
   endedOnInfrastructure: boolean;
   handedBack: boolean;
+  /** 2026-11-22-50d7a: why the attempt began; absent or null where the list did not read its record */
+  cause?: AttemptCause | null;
+  /** 2026-11-22-50d7a: why its run ended (RUN_END_KINDS); null when unclassified */
+  endKind?: string | null;
 }
 
 /** One pull request of a ticket, as its review record says. */
@@ -525,14 +529,6 @@ export interface TicketText {
   runId?: string | null;
   attempt?: number | null;
   reason?: TicketTextReason | null;
-  /** 2026-11-17-dd05d: on a live read, the approved spec goals the ticket's text no longer states; null when it states them. */
-  divergence?: TicketTextDivergence | null;
-}
-
-/** 2026-11-17-dd05d: how many specs the ticket's approved set holds, and the goals its tracker text does not state. */
-export interface TicketTextDivergence {
-  specs: number;
-  unsaid: string[];
 }
 
 export interface TicketConversationEntry {

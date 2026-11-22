@@ -41,6 +41,49 @@ export const messages = {
   "shell.profile.menuLabel": { en: "{name}, settings and account", de: "{name}, Einstellungen und Konto" },
   "shell.profile.language": { en: "Language", de: "Sprache" },
 
+  // --- system: model quota on the connection check (2026-11-22-66e4a) ---
+  "quota.title": { en: "Model quota", de: "Modell-Kontingent" },
+  "quota.sub": {
+    en: "What each model deployment has left of its minute on this server ({replica}). Every call to a deployment draws on one budget.",
+    de: "Was jedem Modell-Deployment von seiner Minute auf diesem Server ({replica}) bleibt. Jeder Aufruf eines Deployments zieht aus einem Budget.",
+  },
+  "quota.subPlain": {
+    en: "What each model deployment has left of its minute on this server.",
+    de: "Was jedem Modell-Deployment von seiner Minute auf diesem Server bleibt.",
+  },
+  "quota.loading": { en: "Reading the model quota…", de: "Modell-Kontingent wird gelesen…" },
+  "quota.failed": { en: "Could not read the model quota: {message}", de: "Das Modell-Kontingent ließ sich nicht lesen: {message}" },
+  "quota.none": {
+    en: "No model has been called on this server since it started.",
+    de: "Seit dem Start dieses Servers wurde noch kein Modell aufgerufen.",
+  },
+  "quota.free": { en: "{deployment}: {free} of {limit} tokens free", de: "{deployment}: {free} von {limit} Tokens frei" },
+  "quota.requests": { en: "{free} of {limit} requests free", de: "{free} von {limit} Requests frei" },
+  "quota.fullIn": { en: "full again in {seconds} s", de: "in {seconds} s wieder voll" },
+  "quota.full": { en: "full", de: "voll" },
+  "quota.paused": {
+    en: "paused {seconds} s more: the provider refused a call",
+    de: "noch {seconds} s pausiert: der Provider hat einen Aufruf abgelehnt",
+  },
+  "quota.waiting": {
+    en: { one: "1 call waiting", other: "{count} calls waiting" },
+    de: { one: "1 Aufruf wartet", other: "{count} Aufrufe warten" },
+  },
+  "quota.providerSays": { en: "the provider last said {tokens} tokens left", de: "laut Provider zuletzt {tokens} Tokens übrig" },
+
+  // --- config: the agent's per-minute budget (2026-11-22-66e4b) ---
+  "config.agent.rateLimit.tokens": { en: "input tokens per minute", de: "Input-Tokens pro Minute" },
+  "config.agent.rateLimit.requests": { en: "requests per minute", de: "Requests pro Minute" },
+  "config.agent.rateLimit.default": { en: "provider default", de: "Standard des Providers" },
+  "config.agent.rateLimit.tokensHelp": {
+    en: "agent.rate_limit.input_tokens_per_minute: the deployment's quota (on Azure its TPM). Every call to the deployment draws on it, on each server. Empty: the provider default.",
+    de: "agent.rate_limit.input_tokens_per_minute: das Kontingent des Deployments (auf Azure seine TPM). Jeder Aufruf des Deployments zieht daraus, auf jedem Server. Leer: der Standard des Providers.",
+  },
+  "config.agent.rateLimit.requestsHelp": {
+    en: "agent.rate_limit.requests_per_minute: the deployment's request quota (on Azure its RPM). Empty: the provider default.",
+    de: "agent.rate_limit.requests_per_minute: das Request-Kontingent des Deployments (auf Azure seine RPM). Leer: der Standard des Providers.",
+  },
+
   // --- dialog: the decision and what approving does ---
   "dialog.decision.keepChatting": { en: "Keep chatting", de: "Weiter chatten" },
   "dialog.approval.boundList": {
@@ -658,6 +701,80 @@ export const messages = {
     de: { one: "startet, sobald {keys} gemergt ist", other: "startet, sobald {keys} gemergt sind" },
   },
   "tickets.row.and": { en: "and", de: "und" },
+  // --- tickets: a list row's starter, attempt marks and strip (2026-11-22-50d7a) ---
+  "tickets.start.ticket_comment": { en: "started by a ticket comment", de: "gestartet durch einen Ticket-Kommentar" },
+  "tickets.start.pull_request": { en: "started by a pull-request review", de: "gestartet durch ein Pull-Request-Review" },
+  "tickets.start.status_move": { en: "started by a status move", de: "gestartet durch einen Statuswechsel" },
+  "tickets.start.requested": { en: "started on request", de: "auf Anfrage gestartet" },
+  "tickets.start.retrigger": { en: "started again", de: "erneut gestartet" },
+  "tickets.start.pickup": { en: "picked up", de: "aufgenommen" },
+  "tickets.start.operator": { en: "started by an approval in the conversation", de: "gestartet durch eine Freigabe in der Unterhaltung" },
+  "tickets.start.retry": { en: "restarted", de: "neu gestartet" },
+  "tickets.start.overrule": { en: "started by an overruled default", de: "gestartet durch eine überstimmte Vorgabe" },
+  "tickets.start.series": { en: "started by the series", de: "von der Serie gestartet" },
+  "tickets.start.precondition": { en: "restarted once the precondition held", de: "neu gestartet, sobald die Vorbedingung erfüllt war" },
+  "tickets.start.ci": { en: "started by red CI on the pull request", de: "gestartet durch rote CI am Pull Request" },
+  "tickets.start.other": { en: "started via {channel}", de: "gestartet über {channel}" },
+  "tickets.start.into": { en: "{start} to {status}", de: "{start} auf {status}" },
+  "tickets.start.pickupInto": { en: "picked up in {status}", de: "aufgenommen in {status}" },
+  "tickets.start.by": { en: "{start} by {actor}", de: "{start} von {actor}" },
+  "tickets.start.someone": { en: "someone", de: "jemandem" },
+  "tickets.start.ago": { en: "{when} ago", de: "vor {when}" },
+  "tickets.start.justNow": { en: "just now", de: "gerade eben" },
+  "tickets.outcome.ok": { en: "delivered", de: "geliefert" },
+  "tickets.outcome.failed": { en: "failed", de: "fehlgeschlagen" },
+  "tickets.outcome.shortfall": { en: "done with a shortfall", de: "mit Lücken fertig" },
+  "tickets.outcome.running": { en: "running", de: "läuft" },
+  "tickets.outcome.queued": { en: "queued", de: "in der Warteschlange" },
+  "tickets.outcome.handed-back": { en: "handed back", de: "zurückgegeben" },
+  "tickets.outcome.asked": { en: "waiting for an answer", de: "wartet auf eine Antwort" },
+  "tickets.outcome.stopped": { en: "stopped", de: "gestoppt" },
+  "tickets.outcome.infrastructure": { en: "stopped by the infrastructure, not the work", de: "von der Infrastruktur gestoppt, nicht von der Arbeit" },
+  "tickets.outcome.because": { en: "{outcome}: {reason}", de: "{outcome}: {reason}" },
+  "tickets.endKind.preflight": { en: "a precondition did not hold", de: "eine Vorbedingung war nicht erfüllt" },
+  "tickets.endKind.image-untrusted": { en: "an image registry is not trusted", de: "einer Image-Registry wird nicht vertraut" },
+  "tickets.endKind.bootstrap-missing": { en: "a repository has no bootstrap", de: "einem Repository fehlt der Bootstrap" },
+  "tickets.endKind.readiness-unknown": { en: "a repository host could not be read", de: "ein Repository-Host war nicht lesbar" },
+  "tickets.endKind.criteria-unmet": { en: "a done criterion was not accepted", de: "ein Fertig-Kriterium wurde nicht akzeptiert" },
+  "tickets.endKind.superseded": { en: "a newer attempt took over", de: "ein neuerer Versuch hat übernommen" },
+  "tickets.endKind.series-paused": { en: "its series is paused", de: "seine Serie ist pausiert" },
+  "tickets.marks.attempt": { en: "Attempt {n}", de: "Versuch {n}" },
+  "tickets.marks.label": {
+    en: { one: "1 attempt, one square each, oldest first", other: "{count} attempts, one square each, oldest first" },
+    de: { one: "1 Versuch, ein Quadrat pro Versuch, ältester zuerst", other: "{count} Versuche, ein Quadrat pro Versuch, ältester zuerst" },
+  },
+  "tickets.marks.folded": {
+    en: { one: "1 older attempt", other: "{count} older attempts" },
+    de: { one: "1 älterer Versuch", other: "{count} ältere Versuche" },
+  },
+  "tickets.marks.labelFolded": {
+    en: "{count} attempts, the newest {shown} as squares, oldest first; the {folded} older ones are in +{folded}",
+    de: "{count} Versuche, die neuesten {shown} als Quadrate, ältester zuerst; die {folded} älteren stecken in +{folded}",
+  },
+  "tickets.strip.label": {
+    en: "Progress: the spec cut, then one square per spec of the current series, then one per pull request of the ticket",
+    de: "Fortschritt: der Spec-Schnitt, dann ein Quadrat pro Spec der aktuellen Serie, dann eins pro Pull Request des Tickets",
+  },
+  "tickets.strip.derive": { en: "Spec cut · {state}", de: "Spec-Schnitt · {state}" },
+  "tickets.strip.derive.cut": { en: "cut", de: "geschnitten" },
+  "tickets.strip.derive.deriving": { en: "being cut", de: "wird geschnitten" },
+  "tickets.strip.derive.handed_back": { en: "handed back", de: "zurückgegeben" },
+  "tickets.strip.derive.none": { en: "not cut", de: "nicht geschnitten" },
+  "tickets.strip.cell": { en: "{spec} · {state}", de: "{spec} · {state}" },
+  "tickets.strip.cell.done": { en: "done", de: "fertig" },
+  "tickets.strip.cell.carried": { en: "carried from an earlier attempt", de: "aus einem früheren Versuch übernommen" },
+  "tickets.strip.cell.live": { en: "being built", de: "wird gebaut" },
+  "tickets.strip.cell.asked": { en: "asking a question", de: "stellt eine Frage" },
+  "tickets.strip.cell.failed": { en: "failed", de: "fehlgeschlagen" },
+  "tickets.strip.cell.handed_back": { en: "handed back", de: "zurückgegeben" },
+  "tickets.strip.cell.not_started": { en: "not started", de: "nicht gestartet" },
+  // --- runs: a run waiting for its model place, on the ticket page and the run page (2026-11-22-50d7a) ---
+  "run.modelWait.head": { en: "Waiting for the model since {at}", de: "Wartet seit {at} auf das Modell" },
+  "run.modelWait.title": { en: "Waiting for the model. Nothing for you to do.", de: "Wartet auf das Modell. Für dich gibt es nichts zu tun." },
+  "run.modelWait.sentence": {
+    en: "Attempt {n} has waited since {at} for a place on the model; other runs hold every place.",
+    de: "Versuch {n} wartet seit {at} auf einen Platz am Modell; andere Runs belegen alle Plätze.",
+  },
 } satisfies Record<string, MessageEntry>;
 
 export type MessageKey = keyof typeof messages;

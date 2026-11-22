@@ -78,7 +78,7 @@ public sealed class InterruptedRestartTests : IDisposable
         reader.Setup(r => r.ListAsync(It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new InterruptedAttempt("p", "1", "run-1"), new InterruptedAttempt("gone", "2", "run-2")]);
         var retry = new Mock<IRunRetry>();
-        retry.Setup(r => r.RetryAsync("run-1", AttemptChannels.RestartActor, RetryOrigin.Restart, It.IsAny<CancellationToken>()))
+        retry.Setup(r => r.RetryAsync("run-1", AttemptChannels.RestartActor, AttemptChannels.RestartActor, RetryOrigin.Restart, It.IsAny<CancellationToken>()))
             .ReturnsAsync(RunRetryResult.Requested("1"));
         var services = new ServiceCollection().AddScoped(_ => retry.Object).BuildServiceProvider();
         var pass = new InterruptedRestartPass(reader.Object, services.GetRequiredService<IServiceScopeFactory>(),
@@ -87,7 +87,7 @@ public sealed class InterruptedRestartTests : IDisposable
         var asked = await pass.RunAsync(new AgentSmithConfig { Projects = { ["p"] = new ResolvedProject { Name = "p" } } }, default);
 
         asked.Should().Be(1);
-        retry.Verify(r => r.RetryAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<RetryOrigin>(), It.IsAny<CancellationToken>()), Times.Once);
+        retry.Verify(r => r.RetryAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<RetryOrigin>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
