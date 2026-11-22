@@ -14,7 +14,7 @@ internal sealed class QuotaBucket
 
     public QuotaBucket(int capacity, TimeProvider clock)
     {
-        Capacity = capacity;
+        Capacity = capacity; // 2026-11-22-66e4b: Resize sets it again when the budget changes
         // p0188 refilled at least one unit a second (TokensPerPeriod could not be 0); kept, so a five-request budget
         // does not slow to one request every twelve seconds.
         PerSecond = Math.Max(1.0, capacity / 60.0);
@@ -23,9 +23,18 @@ internal sealed class QuotaBucket
         _stamp = clock.GetTimestamp();
     }
 
-    public int Capacity { get; }
+    public int Capacity { get; private set; }
 
-    public double PerSecond { get; }
+    public double PerSecond { get; private set; }
+
+    /// <summary>2026-11-22-66e4b: a changed budget; what is free stays, never above the new size.</summary>
+    public void Resize(int capacity)
+    {
+        Refill();
+        Capacity = capacity;
+        PerSecond = Math.Max(1.0, capacity / 60.0);
+        _level = Math.Min(_level, capacity);
+    }
 
     /// <summary>What is free now; negative is a debt the refill pays first.</summary>
     public double Level

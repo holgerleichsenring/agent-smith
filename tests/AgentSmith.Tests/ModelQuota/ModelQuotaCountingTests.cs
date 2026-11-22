@@ -121,7 +121,7 @@ public sealed class ModelQuotaCountingTests
     {
         var create = () => new LlmRateLimiter(new LlmRateLimitOptions(0, 250_000));
 
-        create.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage("*agent.rate_limit*at least 1*");
+        create.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage("*at least 1*agent.rate_limit*");
     }
 
     [Fact]

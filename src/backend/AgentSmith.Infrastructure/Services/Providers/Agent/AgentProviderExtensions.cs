@@ -46,6 +46,7 @@ public static class AgentProviderExtensions
         services.AddSingleton<ILlmQuotaReader>(sp => sp.GetRequiredService<LlmRateLimiterRegistry>());
         services.AddSingleton<RateLimiting.ProviderQuotaHeaders>();
         services.AddSingleton<RateLimiting.ModelQuotaWaitLine>();
+        services.AddSingleton<RateLimiting.DeploymentRateBudget>(); // 2026-11-22-66e4b
         // p0401: the throttle-wait box the limiter fills and the event emitter reads.
         services.AddSingleton<RateLimiting.ThrottleWaitReporter>();
         // 2026-11-20-24bd: the run's place on a model deployment; a host with a database replaces the in-process store.

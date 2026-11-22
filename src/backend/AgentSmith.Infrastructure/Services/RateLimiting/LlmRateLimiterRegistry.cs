@@ -17,13 +17,28 @@ internal sealed class LlmRateLimiterRegistry(ILogger<LlmRateLimiterRegistry> log
     public ILlmRateLimiter GetOrCreate(ModelQuotaScope scope, LlmRateLimitOptions options)
     {
         ArgumentNullException.ThrowIfNull(scope);
-        return _limiters.GetOrAdd(scope.Key, _ =>
+        var entry = _limiters.GetOrAdd(scope.Key, _ =>
         {
             logger.LogInformation(
                 "Created LLM rate limiter for {Key}: {Rpm} req/min, {Tpm} tokens/min",
                 scope.Key, options.RequestsPerMinute, options.InputTokensPerMinute);
-            return new Entry(scope, new LlmRateLimiter(options));
-        }).Limiter;
+            return new Entry(scope, new LlmRateLimiter(options)) { Options = options };
+        });
+        Adopt(entry, options);
+        return entry.Limiter;
+    }
+
+    // 2026-11-22-66e4b: a budget changed in the configuration reaches the deployment when its next client is built.
+    private void Adopt(Entry entry, LlmRateLimitOptions options)
+    {
+        lock (entry)
+        {
+            if (entry.Options == options) return;
+            entry.Limiter.Adopt(options);
+            entry.Options = options;
+        }
+        logger.LogInformation("LLM rate limiter for {Key} now {Rpm} req/min, {Tpm} tokens/min",
+            entry.Scope.Key, options.RequestsPerMinute, options.InputTokensPerMinute);
     }
 
     public IReadOnlyList<LlmQuotaSnapshot> Read() =>
@@ -32,5 +47,8 @@ internal sealed class LlmRateLimiterRegistry(ILogger<LlmRateLimiterRegistry> log
             .OrderBy(s => s.Deployment, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    private sealed record Entry(ModelQuotaScope Scope, LlmRateLimiter Limiter);
+    private sealed record Entry(ModelQuotaScope Scope, LlmRateLimiter Limiter)
+    {
+        public required LlmRateLimitOptions Options { get; set; }
+    }
 }

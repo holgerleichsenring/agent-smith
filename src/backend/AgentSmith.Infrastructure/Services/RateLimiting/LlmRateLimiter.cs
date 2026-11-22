@@ -21,6 +21,7 @@ internal sealed class LlmRateLimiter : ILlmRateLimiter
     private readonly object _queueLock = new();
     private readonly TimeProvider _clock;
     private readonly DeploymentQuota _quota;
+    private TaskCompletionSource _resized = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private double _queuedTokens;
     private int _queuedCalls;
 
@@ -48,6 +49,13 @@ internal sealed class LlmRateLimiter : ILlmRateLimiter
         return new LlmQuotaLease(_quota, demand.EstimatedInputTokens, reserved, _clock);
     }
 
+    /// <summary>2026-11-22-66e4b: the configured budget changed.</summary>
+    internal void Adopt(LlmRateLimitOptions options)
+    {
+        _quota.Resize(options);
+        Interlocked.Exchange(ref _resized, new(TaskCreationOptions.RunContinuationsAsynchronously)).TrySetResult();
+    }
+
     internal LlmQuotaSnapshot Snapshot(ModelQuotaScope scope)
     {
         int waiting;
@@ -73,16 +81,22 @@ internal sealed class LlmRateLimiter : ILlmRateLimiter
         lock (_queueLock) { _queuedTokens -= tokens; _queuedCalls--; }
     }
 
-    // Oldest first: one caller at a time waits at the head for the refill; the head re-checks after every wait.
+    // Oldest first: one caller at a time waits at the head for the refill; the head re-checks after every wait, and a
+    // changed budget (66e4b) wakes it at once.
     private async Task WaitYourTurnAsync(int tokens, CancellationToken cancellationToken)
     {
         await _turn.WaitAsync(cancellationToken);
         try
         {
-            for (var wait = _quota.TakeOrWait(1, tokens, take: true);
-                 wait > TimeSpan.Zero;
-                 wait = _quota.TakeOrWait(1, tokens, take: true))
-                await Task.Delay(wait, _clock, cancellationToken);
+            while (true)
+            {
+                // Taken BEFORE asking, so a budget changed in between still wakes this wait.
+                var resized = Volatile.Read(ref _resized).Task;
+                var wait = _quota.TakeOrWait(1, tokens, take: true);
+                if (wait <= TimeSpan.Zero) return;
+                await Task.WhenAny(Task.Delay(wait, _clock, cancellationToken), resized);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
         }
         finally
         {

@@ -19,7 +19,7 @@ public static class ModelQuotaKey
         ArgumentNullException.ThrowIfNull(assignment);
         var type = providerType.Trim().ToLowerInvariant();
         var endpoint = (assignment.EffectiveEndpoint(agent) ?? string.Empty).Trim().TrimEnd('/').ToLowerInvariant();
-        var sent = type == Azure ? assignment.EffectiveDeployment(agent) : Sent(agent, assignment);
+        var sent = (type == Azure ? assignment.EffectiveDeployment(agent) : Sent(agent, assignment)) ?? string.Empty;
         return new ModelQuotaScope($"{type}|{endpoint}|{sent.Trim().ToLowerInvariant()}", type, sent);
     }
 

@@ -71,6 +71,19 @@ export const messages = {
   },
   "quota.providerSays": { en: "the provider last said {tokens} tokens left", de: "laut Provider zuletzt {tokens} Tokens übrig" },
 
+  // --- config: the agent's per-minute budget (2026-11-22-66e4b) ---
+  "config.agent.rateLimit.tokens": { en: "input tokens per minute", de: "Input-Tokens pro Minute" },
+  "config.agent.rateLimit.requests": { en: "requests per minute", de: "Requests pro Minute" },
+  "config.agent.rateLimit.default": { en: "provider default", de: "Standard des Providers" },
+  "config.agent.rateLimit.tokensHelp": {
+    en: "agent.rate_limit.input_tokens_per_minute: the deployment's quota (on Azure its TPM). Every call to the deployment draws on it, on each server. Empty: the provider default.",
+    de: "agent.rate_limit.input_tokens_per_minute: das Kontingent des Deployments (auf Azure seine TPM). Jeder Aufruf des Deployments zieht daraus, auf jedem Server. Leer: der Standard des Providers.",
+  },
+  "config.agent.rateLimit.requestsHelp": {
+    en: "agent.rate_limit.requests_per_minute: the deployment's request quota (on Azure its RPM). Empty: the provider default.",
+    de: "agent.rate_limit.requests_per_minute: das Request-Kontingent des Deployments (auf Azure seine RPM). Leer: der Standard des Providers.",
+  },
+
   // --- dialog: the decision and what approving does ---
   "dialog.decision.keepChatting": { en: "Keep chatting", de: "Weiter chatten" },
   "dialog.approval.boundList": {
