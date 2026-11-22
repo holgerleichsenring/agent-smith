@@ -44,7 +44,7 @@ export function TicketCostTab() {
       <SeriesRunway budget={series.data?.budget} attempts={attempts} onDefaults={() => address.go("defaults")} />
       <h2 className="tk-sub-head" data-testid="compute-pod-time">Compute · {duration(totals.podMinutes * 60000)} pod time</h2>
       <ComputeTiles totals={totals} />
-      <WaitingBanner totals={totals} onRead={() => address.go("happened", { [CAUSE_PARAM]: null })} />
+      <WaitingBanner totals={totals} onRead={(runId) => address.go("conversation", { [CAUSE_PARAM]: runId })} />
     </>
   );
 }

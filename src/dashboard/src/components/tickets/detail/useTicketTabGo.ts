@@ -3,12 +3,13 @@
 import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TICKETS_PATH } from "@/lib/TicketBucketFilter";
-import { SECTION_PARAM, TAB_PARAM, sectionIdOf } from "./ticketSectionNames";
+import { DEFAULT_SECTION, SECTION_PARAM, TAB_PARAM, sectionIdOf } from "./ticketSectionNames";
 
 // 2026-10-13-9a59r: the ticket page's address beyond the route — the section, the selected spec (?spec=) and the
-// attempt whose cause What happened scrolls to (?causeOf=). Every cross-link (read, Open specs, Open the spec,
+// attempt whose cause the Conversation scrolls to (?causeOf=). Every cross-link (read, Open specs, Open the spec,
 // Discuss) goes through go(). 2026-11-17-8d1ca: go() writes ?section= and drops the older ?tab=; a name the section
-// table does not know (an old tab id such as "conversation") is written as the section it lands on.
+// table does not know (an old tab id such as "attempts") is written as the section it lands on. 2026-11-22-4321a:
+// the default section, left out of the query, is Now.
 
 export { SECTION_PARAM, TAB_PARAM } from "./ticketSectionNames";
 export const SPEC_PARAM = "spec";
@@ -16,16 +17,16 @@ export const CAUSE_PARAM = "causeOf";
 
 export interface TicketAddress {
   param: (name: string) => string | null;
-  /** Shows a section, or What happened (null); `extra` sets (a string) or clears (null) further parameters. */
+  /** Shows a section, or Now (null); `extra` sets (a string) or clears (null) further parameters. */
   go: (section: string | null, extra?: Record<string, string | null>) => void;
 }
 
-/** The query a go() writes: the section first (What happened is the default and left out), never ?tab=, then the
+/** The query a go() writes: the section first (Now is the default and left out), never ?tab=, then the
  *  other parameters as they were with `extra` applied. */
 export function addressQuery(search: string, section: string | null, extra: Record<string, string | null> = {}): string {
   const next = new URLSearchParams();
   const name = sectionIdOf(section);
-  if (name !== "happened") next.set(SECTION_PARAM, name);
+  if (name !== DEFAULT_SECTION) next.set(SECTION_PARAM, name);
   for (const [key, value] of new URLSearchParams(search)) {
     if (key !== TAB_PARAM && key !== SECTION_PARAM) next.append(key, value);
   }

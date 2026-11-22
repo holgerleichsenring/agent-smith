@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { TICKETS_PATH } from "@/lib/TicketBucketFilter";
-import { useTicketDefaults, useTicketSeries } from "@/lib/tickets/TicketPageStore";
+import { useTicketConversation, useTicketDefaults, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketDetail } from "@/types/tickets";
 import { ticketDot } from "../ticketDot";
 import { ticketLabel } from "../ticketFormat";
@@ -20,7 +20,7 @@ interface Props {
 }
 
 export function TicketSectionBar({ detail, current, onSelect }: Props) {
-  const reads = { series: useTicketSeries().data, defaults: useTicketDefaults().data };
+  const reads = { series: useTicketSeries().data, defaults: useTicketDefaults().data, conversation: useTicketConversation().data ?? null };
   const { summary, branch } = detail;
   const state = stateWord(summary);
   const tracker = trackerFact(summary);

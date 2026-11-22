@@ -340,7 +340,10 @@ describe("Mock parity", () => {
       // 2026-11-17-8d1cb: What happened (TicketRail mock): the Your move line, one line per event, the composer.
       // 2026-11-18-d6d2d: the composer's action row draws only while an approval waits (Retry left it), so no .cp-actions here.
       // 2026-11-18-d6d2e: the reply field sits in New work's .chat-box, not the mock's .cp-input.
-      ["", [".tk-move", ".thread", ".tk-line", ".tk-line-head", ".tk-at", ".tk-dot", ".tk-who", ".tk-text", ".tk-entry", ".tk-entry.internal", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".composer"]],
+      // 2026-11-22-4321a: Now holds the Your move line, the current run, the newest entry, the proposal and the composer;
+      // the conversation section holds every entry, the internal one and the ticket edit's diff included.
+      ["", [".tk-move", ".thread", ".tk-line", ".tk-line-head", ".tk-at", ".tk-dot", ".tk-who", ".tk-text", ".tk-entry", ".where", ".mb", ".proposal", ".ph", ".pb", ".conv-dock", ".composer"]],
+      ["conversation", [".thread", ".tk-line", ".tk-line-head", ".tk-entry", ".tk-entry.internal", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".conv-dock", ".composer"]],
       ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv",
         // 2026-10-13-8762l: the review rounds block and the series contract review, composed from mock classes.
         ".spdoc .blk .crit .ci .pill.amber", ".section-head .cnt", ".blk .crit .ci .pill.bad"]],
@@ -354,7 +357,8 @@ describe("Mock parity", () => {
         </TicketPageStore>,
       );
       if (tab) await screen.findByTestId(`ticket-section-${tab}`);
-      await screen.findByText(tab === "" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "" ? ".mb [data-testid='tracker-text']" : "h2" });
+      const thread = tab === "" || tab === "conversation";
+      await screen.findByText(thread ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: thread ? ".mb [data-testid='tracker-text']" : "h2" });
       const root = screen.getByTestId("ticket-page");
       for (const cls of classes) {
         expect(root.querySelector(cls), `ticket ${tab || "thread"} missing ${cls}`).not.toBeNull();

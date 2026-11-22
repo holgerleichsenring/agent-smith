@@ -108,18 +108,35 @@ describe("Ticket runs section", () => {
     expect(screen.getAllByTestId(/^run-line-/)[0]).toBe(screen.getByTestId("run-line-d-1"));
   });
 
-  it("ReadOnACommentCausedChange_OpensTheConversationAtThatCause_OnAStatusMoveTheTabOnly", async () => {
+  // 2026-11-22-4321a: the read goes to the Conversation section, where the cause entry is.
+  it("ReadOnACommentCausedChange_OpensTheConversationAtThatCause_OnAStatusMoveTheSectionOnly", async () => {
     await open();
     const anchored = screen.getByTestId("attempt-change-read-3");
-    expect(anchored).toHaveAttribute("href", "/tickets/shop/101?causeOf=r-3");
+    expect(anchored).toHaveAttribute("href", "/tickets/shop/101?section=conversation&causeOf=r-3");
     fireEvent.click(anchored);
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?causeOf=r-3", { scroll: false });
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?section=conversation&causeOf=r-3", { scroll: false });
     expect(screen.getByTestId("attempt-change-3")).toHaveTextContent("Started by pull-request review");
     expect(screen.getByTestId("attempt-change-3")).toHaveTextContent("m.reviewer on #813");
     expect(screen.getByTestId("attempt-change-2")).toHaveTextContent("Started by status move to Ready · h.operator on the ticket");
     fireEvent.click(screen.getByTestId("attempt-change-read-2"));
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101", { scroll: false });
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?section=conversation", { scroll: false });
     expect(screen.getByTestId("attempt-change-1")).toHaveTextContent("Started by status move to Ready");
+  });
+
+  // 2026-11-22-4321a: an older run's log is read in Runs — its line opens the report body, the run link stays.
+  it("RunLogToggle_OpensTheAttemptsReportBody_UnderItsLine_TheLineStillLinksTheRun", async () => {
+    await open();
+    expect(screen.getByTestId("run-link-r-1")).toHaveAttribute("href", "/jobs/r-1");
+    expect(screen.queryByTestId("run-body-1")).toBeNull();
+    const toggle = screen.getByTestId("run-log-toggle-1");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAccessibleName("Run log");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("run-line-1")).toContainElement(screen.getByTestId("run-body-1"));
+    expect(screen.getByTestId("thread-run-1")).toHaveAttribute("href", "/jobs/r-1");
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId("run-body-1")).toBeNull();
   });
 });
 
@@ -185,6 +202,9 @@ describe("Ticket cost and compute tab", () => {
     await open();
     expect(screen.getByTestId("compute-banner")).toHaveTextContent("a question parked attempt 2 for 3h 12m");
     expect(screen.getByTestId("compute-waiting")).toHaveClass("hot");
+    // 2026-11-22-4321a: the read opens the conversation at the waiting attempt, so it unfolds and scrolls there.
+    fireEvent.click(screen.getByTestId("compute-banner-read"));
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?section=conversation&causeOf=r-2", { scroll: false });
     cleanup();
     world.compute["r-2"] = compute("r-2", { segments: [{ ...parked, modelMs: 4 * 3600000 }] });
     await open();

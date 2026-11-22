@@ -212,11 +212,12 @@ describe("Ticket specs and acceptance tabs", () => {
     expect(screen.getByTestId("spec-doc-goal")).toHaveTextContent("Replace the consumers");
   });
 
-  it("Discuss_GoesToWhatHappened", async () => {
+  // 2026-11-22-4321a: Discuss in conversation goes to the Conversation section.
+  it("Discuss_GoesToTheConversation", async () => {
     nav.search = "tab=specs&spec=s1";
     await open();
     fireEvent.click(screen.getByTestId("spec-discuss"));
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?spec=s1", { scroll: false });
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?section=conversation&spec=s1", { scroll: false });
   });
 });
 

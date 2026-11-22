@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-4321a
+
+decisions:
+  - category: Design
+    chose: "Now and Conversation as two sections of the existing section table, addressed by the existing ?section= (now is the default and left out of the query)"
+    over: "A hash anchor, or tabs inside What happened"
+    reason: "The page already addresses its sections with ?section= through go(); a second addressing scheme would be a second path. Operator approved the section split (mock 2026-11-22)."
+    decider: operator
+  - category: Implementation
+    chose: "Old names land on the new sections: happened and summary on Now, ?tab=conversation on Conversation, and an address with only ?causeOf= on Conversation"
+    over: "Dropping the old names, or landing ?causeOf= on Now"
+    reason: "Older links and bookmarks keep working; the entry a ?causeOf= names lives in the conversation now, Now shows only the newest one."
+  - category: Implementation
+    chose: "Now shows the attempt whose question waits, else the newest attempt, open with its run log; a running derivation beside it (the newest derivation when there is no attempt)"
+    over: "Only the newest attempt, or the newest run of any kind by start time"
+    reason: "A waiting question is what the reader has to act on, and Retry unchanged stays on the newest attempt, so picking a newer derivation over it would hide the act."
+  - category: Implementation
+    chose: "Conversation folds by top-level thread items (newest 5 shown, 'N earlier entries' unfolds the rest), and unfolds by itself when the ?causeOf= entry is among the earlier ones"
+    over: "Counting only conversation entries, or paging"
+    reason: "The thread mixes entries, run lines and derivations in one order; folding the same list keeps that order, and the target rule keeps every 'read' link landing on its entry."
+  - category: Implementation
+    chose: "Reports in Conversation keep their line and body (said text, spec cards, pull requests, question, run link) without the run log; Runs lines gain a 'Run log' toggle opening the same body with the log"
+    over: "One-line rows with no body in Conversation, or replacing the Runs link lines with thread rows"
+    reason: "Every report body stays reachable in place, the run log moves to Now (current run) and Runs (all runs) as approved, and Runs keeps its line, its run link and its cause line with their test ids."
+  - category: Implementation
+    chose: "Specs' 'Discuss in conversation' and Cost's waiting-banner read go to Conversation (label 'Read in the conversation')"
+    over: "Sending them to Now"
+    reason: "Both point at past conversation (a spec to discuss, past waits on a person); the composer is at the bottom of Conversation too."
+  - category: Implementation
+    chose: "Now and Conversation are drawn by the page, not as panes, and each passes its own approval-preview read into the shared ConversationDock"
+    over: "Making them panes inside .tk-pane, or reading the preview inside the dock"
+    reason: ".tk-pane restyles every .btn as a link (ticket-thread.css:207), which would strip the composer; and each useTicketApprovalPreview is a read of its own, so reading it twice per section doubled the preview requests."
+  - category: Implementation
+    chose: "One composer: TicketTalk renders the section first and the dock after it, so React keeps the dock (draft, queued send, Keep chatting) mounted between Now and Conversation; the reply focus and the approval preview are read once there"
+    over: "Lifting draft, queued send and chattingOn into the page store"
+    reason: "Review 2026-11-22: each section had its own composer, so a switch dropped the local state; keeping one mounted needs no new store state. Leaving to a pane section still unmounts it, as before this spec."
+  - category: Implementation
+    chose: "When an older attempt's question is Now's current run, the newest attempt's Retry unchanged sits on its own line under it (unless the Your move box carries it)"
+    over: "Making the newest attempt Now's run whenever it is retriable"
+    reason: "Review 2026-11-22: Retry was on no section in that case; the question stays the run the reader acts on."
+  - category: Implementation
+    chose: "A ticket with no attempt and no derivation shows 'No coding run yet.' and a link to its newest run on Now"
+    over: "An empty run box"
+    reason: "Review 2026-11-22: a deploy- or merge-only ticket drew a blank Now."
+  - category: Implementation
+    chose: "The fold boundary is the key of the first shown item when the section first reads the conversation; the toggle says 'N earlier entries and M runs', counting into repeats; it is an aria-expanded toggle, and the earlier items open above the role=log region, not inside it"
+    over: "A sliding newest-5 window, an item count labelled entries, a one-way button inside the log"
+    reason: "Review 2026-11-22: arrivals pushed shown items into the fold, the label disagreed with the entry counts of the bar and Now's link, and unfolding inside the live log re-announced the history."
+  - category: Implementation
+    chose: "The Cost banner's read passes the first wait's attempt as ?causeOf=; a ?causeOf= naming an attempt shows the whole thread and scrolls to its cause entry, else to that attempt's report line (it was the end)"
+    over: "Landing at the end of a folded thread, or a new address parameter for a wait"
+    reason: "Review 2026-11-22: the read landed at the end while the waits were folded. The attempt's report line sits right after its questions, so the existing parameter reaches the wait without a second path."
