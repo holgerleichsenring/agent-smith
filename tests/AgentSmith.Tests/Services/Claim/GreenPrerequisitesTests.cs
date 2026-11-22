@@ -16,7 +16,7 @@ namespace AgentSmith.Tests.Services.Claim;
 public sealed class GreenPrerequisitesTests
 {
     private readonly InMemoryTicketFacts _facts = new();
-    private readonly Mock<IPreviousAttemptReader> _attempts = new();
+    private readonly Mock<IPreviousAttemptReader> _attempts = new() { CallBase = true }; // 9719d: the set reads loop LatestAsync
 
     public static TheoryData<string, bool, bool, bool> Attempts => new()
     {

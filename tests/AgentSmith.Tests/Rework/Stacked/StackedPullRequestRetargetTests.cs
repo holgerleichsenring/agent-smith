@@ -28,7 +28,7 @@ public sealed class StackedPullRequestRetargetTests
     private const string DependentPr = "https://git.test/o/api/pull/8";
     private const string PrerequisitePr = "https://git.test/o/api/pull/7";
     private readonly InMemoryTicketFacts _facts = new();
-    private readonly Mock<IPreviousAttemptReader> _attempts = new();
+    private readonly Mock<IPreviousAttemptReader> _attempts = new() { CallBase = true }; // 9719d: the set reads loop LatestAsync
     private readonly Mock<IActiveRunLease> _leases = new();
     private readonly Mock<ISourceProvider> _provider = new();
     private AgentSmith.Domain.Models.TicketId? _shownOn;

@@ -43,6 +43,7 @@ public sealed class TicketListReader(
     /// <summary>Every run-bearing ticket with its rows and summary, and every never-run ticket's summary.</summary>
     public async Task<TicketListAll> AllAsync(ProjectScope project, CancellationToken ct)
     {
+        var configured = projects.All(); // 2026-11-22-9719d: one configuration load per read
         var read = await query.ReadAsync(project, ct);
         var tickets = read.Rows.GroupBy(r => (r.Run.Project, r.Run.TicketId)).Select(g => g.ToList()).ToList();
         var heads = tickets.Select(t => attempts.Head(t).Run).ToList();
@@ -53,10 +54,10 @@ public sealed class TicketListReader(
         var runs = tickets.Select(t => (Rows: t, Summary: composer.Compose(
                 t, state, NoSpecs, pullRequests.Views(prRecords[Key(t)]), null, standing, derivationCost: costs.GetValueOrDefault(Key(t)))))
             .OrderByDescending(t => t.Summary.NewestRunId, StringComparer.Ordinal).ToList();
-        var neverRun = (await filed.ListAsync(project, ct))
+        var neverRun = (await filed.ListAsync(project, configured, ct))
             .Select(s => s with { Cost = s.Cost + costs.GetValueOrDefault((s.Project, s.TicketId)) }).ToList();
         return ClosedRequirements.Apply(
-            new TicketListAll(runs, neverRun, state, prRecords, standing, read.Truncated, costs), projects.Of);
+            new TicketListAll(runs, neverRun, state, prRecords, standing, read.Truncated, costs), p => configured.GetValueOrDefault(p));
     }
 
     public async Task<TicketListView> ReadAsync(TicketListRequest request, CancellationToken ct)

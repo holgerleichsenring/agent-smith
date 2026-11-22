@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-9719d
+
+decisions:
+  - category: Architecture
+    chose: "ForStartAsync is the one-key form of a new ForStartManyAsync; the list asks ForStartManyAsync once per project"
+    over: "A separate list-only readiness evaluator, or keeping ForStartAsync per filing with only lighter reads"
+    reason: |
+      b34ec's rule is that a never-run dependent reads ready on the list by the rule a start reads. With one code path
+      serving every start caller and the list, the two cannot drift apart; a list-only evaluator would be a second copy
+      of the rule. Per-filing calls with lighter reads would still cost several round trips per filing.
+  - category: Performance
+    chose: "GreenReads memoizes each prerequisite's newest attempt end, close mark and requirement edges for one read, seeded with the edges the batch already read"
+    over: "Reading LatestAsync, the close marks and RequiredOfAsync per dependent as before"
+    reason: |
+      Dependents in a series share prerequisites, so the same end and chain were read once per dependent. The answers
+      are unchanged: green still means no closed mark and every unlanded prerequisite's newest attempt IsGreen, and
+      the tip is still the candidate whose chain reaches every other.
+  - category: Performance
+    chose: "IPreviousAttemptReader.LatestEndsAsync: the newest attempt's own end only (run row plus one RunSpec existence read), set-based"
+    over: "The full LatestAsync (about eight queries in its own scope) per prerequisite"
+    reason: |
+      IsGreen reads only Finished, Status, StoppedAtBoundary and OpenedPullRequest. The end-only read fills those from
+      the same rows (PreviousAttemptRows) and the same "opened" rule, which moved to AttemptPullRequests so both reads
+      share it; AttemptSetReadTests pins that the two agree.
+  - category: Architecture
+    chose: "Set reads as default interface methods that loop the single reads (AttemptedAsync, LatestEndsAsync, RequiredOfManyAsync), overridden by the database implementations"
+    over: "New reader ports beside IPreviousAttemptReader and ITicketRequirementStore"
+    reason: |
+      Every existing implementer and test double keeps working unchanged and answers by its own single read, so the
+      batch cannot disagree with it; only the database implementations override for the round-trip saving. Moq doubles
+      need CallBase to reach the default bodies, set in the six test classes that compose GreenPrerequisites.
+  - category: Performance
+    chose: "TicketListReader, TicketRequiresReader and FiledTicketRows load the configuration once per read and look projects up in that dictionary"
+    over: "TicketProjects.Of per lookup, or a cache on TicketProjects or the loader"
+    reason: |
+      TicketGraphReader already follows this pattern. A cache would need invalidation on config edits and is a new
+      storage location; a per-read load keeps every read on the configuration as it is now. TicketStandings keeps its
+      own single load (out of scope), so a list read loads twice, independent of the ticket count.
+  - category: Testing
+    chose: "A DbCommandInterceptor counter on the ticket store harness, plus a counting attempt reader"
+    over: "Asserting on query text or timing"
+    reason: |
+      Counts are deterministic and show the property directly: on the harness, 12 never-run dependents of a green
+      prerequisite took 164 commands, 15 configuration loads and 24 full LatestAsync reads before, and take 27 commands
+      (the same as for 2 dependents), 2 loads and 0 full reads after.
+  - category: Implementation
+    chose: "Key the batched attempt and requirement reads by ticket id and key ignoring case"
+    over: "Ordinal keys"
+    reason: "The single reads compared in SQL, where SQL Server's default collation ignores case; the batched reads look results up in memory, so OrdinalIgnoreCase keeps a case-only difference matching as it did before (review finding)."

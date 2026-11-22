@@ -39,16 +39,44 @@ public sealed class UnmetTicketRequirements(
     /// <summary>
     /// What holds the ticket from a start in this project. A dependent that already has a code attempt was stacked
     /// once and is not held again — its rework is never refused while a prerequisite reworks — and stacks on the
-    /// chain's tip when there is one.
+    /// chain's tip when there is one. 2026-11-22-9719d: the one-key form of <see cref="ForStartManyAsync"/>.
     /// </summary>
-    public async Task<RequirementHold> ForStartAsync(ResolvedProject project, string ticketKey, CancellationToken cancellationToken)
+    public async Task<RequirementHold> ForStartAsync(ResolvedProject project, string ticketKey, CancellationToken cancellationToken) =>
+        (await ForStartManyAsync(project, [ticketKey], cancellationToken))[ticketKey];
+
+    /// <summary>
+    /// 2026-11-22-9719d: <see cref="ForStartAsync"/> for every key of one project, its inputs read set-based — one
+    /// edge read, one landing read, one attempt-existence read, and each prerequisite's end and close mark once — so
+    /// the ticket list reads the rule a start reads at the cost of a few queries. Every asked key is answered.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, RequirementHold>> ForStartManyAsync(
+        ResolvedProject project, IReadOnlyCollection<string> ticketKeys, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);
-        var (has, unmet) = await OfAsync(project.Tracker.Name, ticketKey, cancellationToken);
-        if (unmet.Count == 0 || project.RequiresStart != RequiresStart.OnGreenPush || green is null) return new(has, unmet);
-        var started = await green.StartedAsync(project.Name, unmet[0].TicketId, cancellationToken);
-        var tip = await green.TipAsync(project.Name, unmet, requireGreen: !started, cancellationToken);
-        return tip is not null || started ? new(has, [], tip, GreenLifts: true) : new(has, unmet, GreenLifts: true);
+        var tracker = project.Tracker.Name;
+        var edges = await requirements.RequiredOfManyAsync(tracker, ticketKeys, cancellationToken);
+        var required = edges.Values.SelectMany(e => e).Select(e => e.RequiredTicketKey).Distinct(StringComparer.Ordinal).ToList();
+        var landed = required.Count == 0 ? [] : (await landings.LandedAsync(tracker, [.. required], cancellationToken))
+            .Select(l => l.TicketKey).ToHashSet(StringComparer.Ordinal);
+        var open = edges.ToDictionary(p => p.Key, p => (IReadOnlyList<TicketRequirementEdge>)
+            [.. p.Value.Where(e => !landed.Contains(e.RequiredTicketKey))], StringComparer.Ordinal);
+        if (project.RequiresStart != RequiresStart.OnGreenPush || green is null)
+            return open.ToDictionary(p => p.Key, p => new RequirementHold(edges[p.Key].Count > 0, p.Value), StringComparer.Ordinal);
+        var held = open.Values.Where(u => u.Count > 0).ToList();
+        var started = held.Count == 0 ? new HashSet<string>()
+            : await green.StartedAsync(project.Name, [.. held.Select(u => u[0].TicketId).Distinct(StringComparer.Ordinal)], cancellationToken);
+        var reads = green.Reads(project.Name, edges.Select(p => KeyValuePair.Create((tracker, p.Key), p.Value)));
+        await reads.PrefetchAsync(held.Where(u => !started.Contains(u[0].TicketId)).SelectMany(u => u), cancellationToken);
+        var holds = new Dictionary<string, RequirementHold>(StringComparer.Ordinal);
+        foreach (var (key, unmet) in open)
+        {
+            var has = edges[key].Count > 0;
+            if (unmet.Count == 0) { holds[key] = new(has, unmet); continue; }
+            var wasStarted = started.Contains(unmet[0].TicketId);
+            var tip = await reads.TipAsync(unmet, requireGreen: !wasStarted, cancellationToken);
+            holds[key] = tip is not null || wasStarted ? new(has, [], tip, GreenLifts: true) : new(has, unmet, GreenLifts: true);
+        }
+        return holds;
     }
 
     /// <summary>
