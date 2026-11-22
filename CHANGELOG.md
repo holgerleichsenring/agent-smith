@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.196.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.195.2...v0.196.0) (2026-11-22)
+
+
+### Features
+
+* **dashboard:** the ticket page opens on Now — state, waits-for and the current run; the conversation and the runs get sections of their own (2026-11-22-4321a) ([7acc79f](https://github.com/holgerleichsenring/agent-smith/commit/7acc79f5367eae4094725e05967bc1f83a90a266))
+* **dashboard:** the ticket page opens on Now; conversation and runs get their own sections (2026-11-22-4321a) ([2eb243b](https://github.com/holgerleichsenring/agent-smith/commit/2eb243bca5f245ef0468111232fb195beaa7e77d))
+* **models:** series beats take no model place, so a series status never waits behind a coding run (2026-11-22-9719a) ([182239b](https://github.com/holgerleichsenring/agent-smith/commit/182239bb178f66cc796f46db435e46bf9ea3223b))
+
+
+### Bug Fixes
+
+* **dashboard:** a ticket row draws its 6 newest attempt marks and folds the rest into +N (2026-11-22-9719b) ([0083e60](https://github.com/holgerleichsenring/agent-smith/commit/0083e60c34532f1916032619b624ae315c17a171))
+* **dashboard:** gated acts share one identity read, so the ticket list sends one request instead of about 200 (2026-11-22-9719c) ([5b3d749](https://github.com/holgerleichsenring/agent-smith/commit/5b3d7496cd33ea02a703ea1e89a4a23f09a0d44a))
+* series beats skip the model limit; ticket rows fold old attempt marks; one identity read per page (9719a-c) ([819c8a0](https://github.com/holgerleichsenring/agent-smith/commit/819c8a09b5c80497052fdd77ffe78c1030dd503a))
+
+
+### Performance Improvements
+
+* **tickets:** the ticket list loads its configuration once and reads readiness in batches (2026-11-22-9719d) ([c9d30b8](https://github.com/holgerleichsenring/agent-smith/commit/c9d30b8b5648d8500ff3249a9bfa34d22df7f59e))
+* **tickets:** the ticket list loads its configuration once and reads readiness in batches, by the rule every start uses (2026-11-22-9719d) ([8aa7c26](https://github.com/holgerleichsenring/agent-smith/commit/8aa7c26f672d11ccb9f9e724daf6a489292694c4))
+
 ## [0.195.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.195.1...v0.195.2) (2026-11-20)
 
 
