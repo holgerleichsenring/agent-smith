@@ -58,8 +58,8 @@ function row(stepIndex: number, command: string, displayName: string, over: Reco
 
 const settle = (ms = 0) => act(() => vi.advanceTimersByTimeAsync(ms));
 
-async function report(a: TicketAttempt = attempt({ summary: "Done on branch agent-smith/GH-101." }), initiallyOpen = true) {
-  render(<TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={api}><AttemptReport attempt={a} initiallyOpen={initiallyOpen} /></TicketPageStore>);
+async function report(a: TicketAttempt = attempt({ summary: "Done on branch agent-smith/GH-101." }), initiallyOpen = true, log = true) {
+  render(<TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={api}><AttemptReport attempt={a} initiallyOpen={initiallyOpen} log={log} /></TicketPageStore>);
   await settle();
 }
 
@@ -118,6 +118,14 @@ describe("AttemptReport", () => {
     // The stopped spec opens by itself; the planned one stays closed.
     expect(within(log).getByTestId("run-step-2")).toHaveAttribute("id", "r-r-1-step-2");
     expect(within(log).queryByTestId("run-step-3")).toBeNull();
+  });
+
+  // 2026-11-22-4321a: the Conversation section draws a report without the run log; the body and the run link stay.
+  it("AttemptReport_WithoutTheLog_OpensItsBodyWithNoRunLog", async () => {
+    runSteps.rows = [row(0, "CheckoutSource", "Check out", { status: "success" })];
+    await report(attempt({ status: "failed" }), true, false);
+    expect(screen.queryByTestId("thread-runlog-1")).toBeNull();
+    expect(screen.getByTestId("thread-run-1")).toHaveAttribute("href", "/jobs/r-1");
   });
 
   // 2026-11-18-98fa: the check of a run whose master ended with finish_spec is its report and its follow-ups.

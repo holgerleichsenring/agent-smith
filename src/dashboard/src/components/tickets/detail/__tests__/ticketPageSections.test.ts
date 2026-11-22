@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attempt, defaultEntry, defaults, detail, series, spec } from "./detailFixtures";
+import { attempt, conversation, defaultEntry, defaults, detail, entry, series, spec } from "./detailFixtures";
 import { sectionIdOf, sectionOf, ticketSections, type TicketSectionReads } from "../ticketPageSections";
 import { addressQuery } from "../useTicketTabGo";
 
@@ -8,12 +8,20 @@ import { addressQuery } from "../useTicketTabGo";
 // older ?tab= lands on the section that holds what that tab held.
 
 const section = (id: string) => ticketSections.find((t) => t.id === id)!;
-const reads = (over: Partial<TicketSectionReads>): TicketSectionReads => ({ series: null, defaults: null, ...over });
+const reads = (over: Partial<TicketSectionReads>): TicketSectionReads => ({ series: null, defaults: null, conversation: null, ...over });
 
 describe("ticketSections", () => {
-  it("ticketSections_AreWhatHappenedSpecsAcceptanceRunsCostDefaults_InThatOrder", () => {
-    expect(ticketSections.map((s) => s.label)).toEqual(["What happened", "Specs", "Acceptance", "Runs", "Cost", "Defaults"]);
-    expect(section("happened").Pane).toBeNull();
+  // 2026-11-22-4321a: Now takes What happened's place; the conversation is the section after it.
+  it("ticketSections_AreNowConversationSpecsAcceptanceRunsCostDefaults_InThatOrder", () => {
+    expect(ticketSections.map((s) => s.label)).toEqual(["Now", "Conversation", "Specs", "Acceptance", "Runs", "Cost", "Defaults"]);
+    expect(section("now").Pane).toBeNull();
+    expect(section("conversation").Pane).toBeNull();
+  });
+
+  it("ticketSections_ConversationCounter_CountsEntries_NothingBeforeTheRead", () => {
+    const read = conversation([entry({ id: "a" }), entry({ id: "b" }), entry({ id: "c" })]);
+    expect(section("conversation").counter!(detail([attempt()]), reads({ conversation: read }))).toEqual({ text: "3" });
+    expect(section("conversation").counter!(detail([attempt()]), reads({}))).toBeNull();
   });
 
   it("ticketSections_DefaultsCounter_CountsPending_HotOnlyWhenOneHoldsTheSeries", () => {
@@ -39,21 +47,31 @@ describe("ticketSections", () => {
     expect(section("acceptance").counter!(detail([attempt()]), reads({ series: met }))).toEqual({ text: "1/1", ok: true });
   });
 
-  it("sectionOf_SectionWinsOverTab_EveryOlderTabLandsOnItsSection_UnknownIsWhatHappened", () => {
+  it("sectionOf_SectionWinsOverTab_EveryOlderNameLandsOnItsSection_UnknownIsNow", () => {
     expect(sectionOf("cost", "specs").id).toBe("cost");
-    expect(sectionOf(null, "summary").id).toBe("happened");
-    expect(sectionOf(null, "conversation").id).toBe("happened");
+    expect(sectionOf(null, "summary").id).toBe("now");
+    expect(sectionOf("happened", null).id).toBe("now");
+    expect(sectionOf(null, "conversation").id).toBe("conversation");
     expect(sectionOf(null, "attempts").id).toBe("runs");
     expect(sectionOf(null, "defaults").id).toBe("defaults");
-    expect(sectionOf(null, null).id).toBe("happened");
-    expect(sectionIdOf("nonsense")).toBe("happened");
+    expect(sectionOf(null, null).id).toBe("now");
+    expect(sectionIdOf("nonsense")).toBe("now");
+  });
+
+  // 2026-11-22-4321a: an older "read" link carried only ?causeOf=; its entry is in the Conversation section now.
+  it("sectionOf_ABareCauseOf_LandsOnTheConversation_ANamedSectionWins", () => {
+    expect(sectionOf(null, null, "r-1").id).toBe("conversation");
+    expect(sectionOf("runs", null, "r-1").id).toBe("runs");
+    expect(sectionOf(null, "summary", "r-1").id).toBe("now");
   });
 });
 
 describe("addressQuery", () => {
-  it("addressQuery_WritesTheSectionFirst_DropsTheTab_AndLeavesWhatHappenedOut", () => {
+  it("addressQuery_WritesTheSectionFirst_DropsTheTab_AndLeavesNowOut", () => {
     expect(addressQuery("tab=specs&spec=s1", "specs", { spec: "s2" })).toBe("section=specs&spec=s2");
-    expect(addressQuery("section=runs&causeOf=r-1", "conversation", { causeOf: "r-3" })).toBe("causeOf=r-3");
+    expect(addressQuery("section=runs&causeOf=r-1", "conversation", { causeOf: "r-3" })).toBe("section=conversation&causeOf=r-3");
+    expect(addressQuery("section=runs", "happened")).toBe("");
+    expect(addressQuery("section=conversation", "now")).toBe("");
     expect(addressQuery("section=runs", "attempts")).toBe("section=runs");
     expect(addressQuery("tab=cost&causeOf=r-1", null, { causeOf: null })).toBe("");
   });

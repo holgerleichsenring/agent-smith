@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-4321a
+goal: "A ticket page opens on Now (state, waits-for, the current run with its log, the latest entry, the composer); the whole conversation and every run each get a section of their own."
+
+applies_to: "dashboard (ticket page)"
+
+requires: [2026-11-17-8d1ca, 2026-11-17-8d1cb, 2026-11-17-8d1cc, 2026-11-18-d6d2e]
+
+invariant: >-
+  Every entry, report, derivation, run log, question, proposal and act reachable on the ticket page
+  today stays reachable from some section, and the current run is visible without scrolling past
+  the conversation: on Now it sits under the state line and what the ticket waits for, above every
+  conversation entry.
+
+facts:
+  - claim: "A ticket with a run shows one section; a section without a pane is What happened, drawn as TicketThread with TicketWaitsFor and TicketTextDivergence as its lead."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:71-77"
+  - claim: "What happened renders the Your move box (the state line), the lead, the ticket text, every thread item, the open proposal, then the dock with the composer."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketThread.tsx:70-112"
+  - claim: "The thread lists the entries before the first attempt, then every attempt and derivation block by start time, then the ticket conversation of now, so the newest run ends up below older entries."
+    evidence: "src/dashboard/src/components/tickets/detail/threadItems.ts:27-41"
+  - claim: "Each attempt's report row opens its body: said text, spec cards, pull requests, the pending question, the run's inline log, Retry unchanged on the newest, and the run link; the newest and the asking one open by themselves."
+    evidence: "src/dashboard/src/components/tickets/detail/ThreadMessages.tsx:52-82"
+  - claim: "The thread also draws the ticket text first, spec derivations and folded repeats."
+    evidence: "src/dashboard/src/components/tickets/detail/ThreadMessages.tsx:28-40,104-125"
+  - claim: "What happened opens at its end, at the waiting question, or at the ?causeOf= entry, and scrolls again when ?causeOf= changes."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketThread.tsx:54-64"
+  - claim: "The sections are one table: What happened (no pane), Specs, Acceptance, Runs (counter = attempts), Cost, Defaults."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketPageSections.ts:40-68"
+  - claim: "?section= names the section, an older ?tab= lands on its section (conversation and summary on What happened), an unknown name is What happened."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketSectionNames.ts:10-18"
+  - claim: "go() writes ?section= and leaves the default section out of the query."
+    evidence: "src/dashboard/src/components/tickets/detail/useTicketTabGo.ts:25-37"
+  - claim: "The section bar draws every section of the table with its counter; it reads the series and the defaults for counters."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketSectionBar.tsx:23,36-46"
+  - claim: "The Runs section draws one link line per run (no run log), and under an attempt its cause, whose read link goes to What happened with ?causeOf=."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketRunsSection.tsx:17-62"
+  - claim: "Cross-links into What happened: Specs' Discuss in conversation, Cost's waiting banner read, the divergence's Discuss (through TicketReplyContext), the Your move act (reply or answer)."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketSpecsTab.tsx:69; src/dashboard/src/components/tickets/detail/TicketCostTab.tsx:47; src/dashboard/src/components/tickets/detail/TicketTextDivergence.tsx:57; src/dashboard/src/components/tickets/detail/YourMoveBox.tsx:79-87"
+  - claim: "Links from outside the page carry no section and no anchor: the ticket list, Needs you, Home, a run row, the run page, the graph, Delivery, Waits for and the recent places all use the bare ticket path."
+    evidence: "src/dashboard/src/components/tickets/TicketRow.tsx:22; src/dashboard/src/components/tickets/TicketNeedsYou.tsx:36; src/dashboard/src/components/home/HomeView.tsx:73; src/dashboard/src/components/jobs/RunRow.tsx:64; src/dashboard/src/components/jobs/runlog/useRunTicket.ts:76; src/dashboard/src/components/tickets/graph/TicketGraph.tsx:48; src/dashboard/src/components/delivery/DeliveryTickets.tsx:33; src/dashboard/src/components/delivery/DeliveryTimeline.tsx:37; src/dashboard/src/components/tickets/detail/TicketWaitsFor.tsx:57; src/dashboard/src/hooks/useRecentPlaces.ts:24"
+  - claim: "The backend writes no ticket-page link with ?tab=, ?section= or ?causeOf=."
+    evidence: "observed: 2026-11-22, grep -rnE '\\?tab=|causeOf=|\\?section=' src/backend --include='*.cs' finds nothing"
+  - claim: "A pane's wrapper restyles every .btn into an underlined link, so the composer must not sit inside .tk-pane."
+    evidence: "src/dashboard/src/styles/ticket-thread.css:207"
+
+scope:
+  in: "Sections Now (default, replaces What happened) and Conversation; Now = Your move, waits-for, divergence, the current run open with its log, a running derivation, the latest entry, the proposal, a link to Conversation, the composer; Conversation = the thread with all but the newest 5 items folded behind 'N earlier entries', reports without the run log, the composer; Runs lines open an attempt's report body with its log; counters for Conversation and Runs; old names land on the new sections."
+  out: "Specs, Acceptance, Cost and Defaults; the run page; server data; i18n."
+
+steps:
+  - id: names
+    action: "Section ids now and conversation; happened and summary land on now, conversation on conversation, a bare ?causeOf= on conversation; now is the default and left out of the query."
+  - id: table
+    action: "The section table gains Now and Conversation (no pane) with a Conversation counter of entries; the bar reads the conversation."
+  - id: report
+    action: "AttemptReport splits its body into AttemptBody with a log switch; Conversation draws reports without the log."
+  - id: now
+    action: "TicketNow: the Now section; nowRun picks the asking attempt, else the newest; a running derivation, or the newest one without attempts, beside it."
+  - id: conversation
+    action: "TicketConversationSection: the thread, folded by foldEarlier to the newest 5 items unless the ?causeOf= target is earlier, the end/target scroll and the Newest button."
+  - id: runs
+    action: "A Runs line of an attempt gains a 'Run log' toggle opening AttemptBody; its cause's read goes to Conversation with ?causeOf=."
+  - id: review
+    action: "Review fixes: one composer (TicketTalk) under Now and Conversation; Retry for the newest attempt on Now when an older one asks; 'No coding run yet' line; fold boundary fixed at opening, counted in entries and runs, a toggle outside the live log; Cost's read carries ?causeOf=."
+  - id: links
+    action: "Specs' Discuss and Cost's waiting-banner read go to Conversation (its label 'Read in the conversation')."
+
+tests:
+  - "ticketPageSections: the labels are Now, Conversation, Specs, Acceptance, Runs, Cost, Defaults; old names land on their new section; a bare causeOf lands on Conversation; the Conversation counter counts entries."
+  - "addressQuery leaves Now out and writes section=conversation."
+  - "conversationFold: foldEarlier keeps the newest N, unfolds when the target is earlier; latestEntry finds the newest entry inside a fold; nowRun picks asking, else newest, plus a running derivation."
+  - "TicketPage: Now shows the state, the current run open with its log above the latest entry, only the latest entry, the conversation link with its count and the composer; the link switches to Conversation."
+  - "TicketThread: Conversation folds earlier entries behind a button that unfolds them; a ?causeOf= target in the folded part is shown; reports there carry no run log."
+  - "Review: Now_AnOlderAttemptAsks_TheNewestFailed_RetryStaysOnNow; Composer_ADraftAndAQueuedSend_SurviveSwitchingFromNowToTheConversation; Now_WithOnlyADeployRun_SaysNoCodingRunYet_AndLinksTheNewestRun; Fold_AnEntryArrivingWhileFolded_PushesNoShownItemIntoTheFold; the waiting banner's read carries causeOf."
+  - "Runs: an attempt line opens its run log; the cause read goes to Conversation. Specs' Discuss goes to Conversation."
+
+done:
+  - "cd src/dashboard && pnpm test and pnpm build green."

@@ -23,6 +23,7 @@ import { TicketTextSection } from "./TicketTextSection";
 // and the line to the run), a spec derivation, and a folded repeat.
 // 2026-11-17-8d1cb: each is one line of What happened (StoryRow); its body opens under it. A run's body adds the run's
 // sectioned log (RunInlineLog). The newest run and a run that waits on a question open by themselves.
+// 2026-11-22-4321a: the body is AttemptBody, which the Runs section opens under a run's line too.
 
 /** The ticket first: its first sentence, the whole ticket as written when opened. */
 export function TicketTextMessage() {
@@ -41,26 +42,46 @@ export function TicketTextMessage() {
 
 interface ReportProps {
   attempt: TicketAttempt;
-  /** Opened at first: the newest run, or the one whose question waits. */
+  /** Opened at first: the current run, or the one whose question waits. */
   initiallyOpen: boolean;
   /** 2026-11-18-d6d2d: this report offers Retry unchanged on its attempt (the ticket's newest). */
   retry?: boolean;
   /** Set on the attempt whose question waits: the card is scrolled to on open. */
   questionRef?: RefObject<HTMLDivElement | null>;
+  /** 2026-11-22-4321a: the run's sectioned log in the body; the Conversation section draws reports without it. */
+  log?: boolean;
 }
 
-export function AttemptReport({ attempt, initiallyOpen, retry, questionRef }: ReportProps) {
-  const { project } = useTicketDetail();
-  const series = useTicketSeries().data;
+export function AttemptReport({ attempt, initiallyOpen, retry, questionRef, log = true }: ReportProps) {
   const [open, setOpen] = useState(initiallyOpen || !!attempt.pendingQuestion);
-  const specs = specsOf(attempt, series);
-  const prs = attempt.pullRequests.filter((p) => p.url);
   const line = runStoryLine(attempt);
-  const said = reportText(attempt);
   return (
     <StoryRow line={line} open={open} onToggle={() => setOpen(!open)} testId={`thread-report-${attempt.number}`}
       className={reportStopped(attempt) ? "stopped" : undefined}>
-      {said !== line.text && <div className="tk-said" data-testid="thread-report-text">{said}</div>}
+      <AttemptBody attempt={attempt} retry={retry} questionRef={questionRef} log={log} lineText={line.text} />
+    </StoryRow>
+  );
+}
+
+interface BodyProps {
+  attempt: TicketAttempt;
+  retry?: boolean;
+  questionRef?: RefObject<HTMLDivElement | null>;
+  log: boolean;
+  /** The text of the line above the body: the report's own words are drawn only when they say more. */
+  lineText?: string;
+}
+
+/** 2026-11-22-4321a: a report's body — under its thread line, or under a Runs line. */
+export function AttemptBody({ attempt, retry, questionRef, log, lineText }: BodyProps) {
+  const { project } = useTicketDetail();
+  const series = useTicketSeries().data;
+  const specs = specsOf(attempt, series);
+  const prs = attempt.pullRequests.filter((p) => p.url);
+  const said = reportText(attempt);
+  return (
+    <>
+      {said !== lineText && <div className="tk-said" data-testid="thread-report-text">{said}</div>}
       {specs.map((spec) => <SpecCard key={spec.specId} spec={spec} runId={attempt.runId} />)}
       {prs.length > 0 && (
         <div className="tk-prs">
@@ -72,14 +93,15 @@ export function AttemptReport({ attempt, initiallyOpen, retry, questionRef }: Re
         </div>
       )}
       {attempt.pendingQuestion && <div ref={questionRef}><PendingQuestion attempt={attempt} project={project} /></div>}
-      <RunInlineLog attempt={attempt} />
+      {log && <RunInlineLog attempt={attempt} />}
       {retry && retriable(attempt) && <div className="cp-actions" data-testid={`thread-retry-${attempt.number}`}><RetryUnchanged attempt={attempt} project={project} /></div>}
       <Link className="tk-runline" href={runPath(attempt.runId)} data-testid={`thread-run-${attempt.number}`}>
         {runLine(attempt)} · open the run ›
       </Link>
-    </StoryRow>
+    </>
   );
 }
+
 function PendingQuestion({ attempt, project }: { attempt: TicketAttempt; project: string }) {
   const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [answered, setAnswered] = useState(false);
