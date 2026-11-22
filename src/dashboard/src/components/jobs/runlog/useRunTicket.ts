@@ -7,7 +7,9 @@ import { getJobsHubClient } from "@/lib/JobsHubClient";
 import { fetchTicketDetail } from "@/lib/ticketsApi";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { RunSnapshot } from "@/types/hub-events";
-import type { TicketAttempt } from "@/types/tickets";
+import { ticketState } from "@/components/tickets/detail/ticketState";
+import { yourMove, type YourMove } from "@/components/tickets/detail/yourMove";
+import type { TicketAttempt, TicketDetail } from "@/types/tickets";
 
 // 2026-11-16-6877b: the ticket a run belongs to, for the breadcrumb: its key, its page, and which of its runs this is
 // ("Run 2 of 2"). Read once per run from the ticket page's own endpoint; a run without a project or ticket has none,
@@ -30,6 +32,8 @@ export interface RunTicket {
   newest: boolean;
   /** The ticket's latest attempt, once read; this run's own when it is the newest. */
   latest: TicketAttempt | null;
+  /** 2026-11-22-7103a: the ticket's Your move, as its page would draw it — the run's status line names its act. */
+  move: YourMove | null;
   /** Reads the ticket again now. */
   reread: () => void;
 }
@@ -42,6 +46,7 @@ interface Read {
   of: number | null;
   attempt: TicketAttempt | null;
   latest: TicketAttempt | null;
+  move: YourMove | null;
 }
 
 export function useRunTicket(runId: string, snapshot: RunSnapshot | null): RunTicket | null {
@@ -61,7 +66,7 @@ export function useRunTicket(runId: string, snapshot: RunSnapshot | null): RunTi
         const latest = detail.attempts.reduce<TicketAttempt | null>((top, a) => (!top || a.number > top.number ? a : top), null);
         setRead({
           key, ticketKey: detail.summary.ticketKey ?? null, label: detail.summary.ticketKey ?? ticketId,
-          number: at?.number ?? null, of: at ? detail.attempts.length : null, attempt: at, latest,
+          number: at?.number ?? null, of: at ? detail.attempts.length : null, attempt: at, latest, move: moveOf(detail),
         });
       })
       .catch(() => { /* the breadcrumb keeps the plain id */ });
@@ -75,8 +80,14 @@ export function useRunTicket(runId: string, snapshot: RunSnapshot | null): RunTi
   return {
     label: known?.label ?? ticketId, href: ticketPath(project, ticketId), project,
     number: known?.number ?? null, of: known?.of ?? null, attempt,
-    newest: attempt !== null && latest !== null && attempt.number === latest.number, latest, reread,
+    newest: attempt !== null && latest !== null && attempt.number === latest.number, latest, move: known?.move ?? null, reread,
   };
+}
+
+/** The ticket's move from its detail alone: a finished run's page has no live events or series to add. */
+function moveOf(detail: TicketDetail): YourMove | null {
+  const view = ticketState({ detail, liveEvents: [], series: null });
+  return view ? yourMove(view, detail.summary.bucket, detail.summary.kind, view.attempt?.endDetail) : null;
 }
 
 /** The ticket page's own re-read triggers (TicketPageStore): the ticket's nudge, a reconnect, the window's focus. */

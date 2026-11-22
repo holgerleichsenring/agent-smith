@@ -49,6 +49,7 @@
 /* 2026-11-17-6d9ea: the approved mock's head and Now block — hairlines and text colour only, no boxes. */
 :is(.mock-viewer, .tk-runlog) .rl-mono { font-family: var(--mono); font-size: 12px; }
 :is(.mock-viewer, .tk-runlog) .rl-meta [data-tone="ok"] { color: var(--ok); }
+:is(.mock-viewer, .tk-runlog) .rl-meta [data-tone="person"] { color: var(--person); }
 :is(.mock-viewer, .tk-runlog) .rl-meta [data-tone="run"], :is(.mock-viewer, .tk-runlog) .rl-meta [data-tone="amber"], :is(.mock-viewer, .tk-runlog) .rl-meta [data-tone="near"] { color: var(--run); }
 :is(.mock-viewer, .tk-runlog) .rl-meta [data-tone="bad"], :is(.mock-viewer, .tk-runlog) .rl-meta [data-tone="over"] { color: var(--bad); }
 :is(.mock-viewer, .tk-runlog) .rl-details { font-size: 13px; color: var(--ink-3); display: flex; flex-direction: column; gap: 2px; }
@@ -66,6 +67,15 @@
 :is(.mock-viewer, .tk-runlog) .rl-now-line[data-tone="ok"] .rl-text { color: var(--ok); }
 :is(.mock-viewer, .tk-runlog) .rl-now-line[data-tone="run"] .rl-text { color: var(--run); }
 :is(.mock-viewer, .tk-runlog) .rl-now-line[data-tone="bad"] .rl-text { color: var(--bad); }
+:is(.mock-viewer, .tk-runlog) .rl-now-line[data-tone="person"] .rl-text { color: var(--person); }
+/* 2026-11-22-7103a: the status line — its head in the run's colour, the rest in the line's own ink, as on the ticket row. */
+:is(.mock-viewer, .tk-runlog) .rl-status .rl-text { color: var(--ink-2); }
+:is(.mock-viewer, .tk-runlog) .rl-status-head { color: var(--ink); }
+:is(.mock-viewer, .tk-runlog) .rl-status-head[data-tone="ok"] { color: var(--ok); }
+:is(.mock-viewer, .tk-runlog) .rl-status-head[data-tone="run"] { color: var(--run); }
+:is(.mock-viewer, .tk-runlog) .rl-status-head[data-tone="person"] { color: var(--person); }
+:is(.mock-viewer, .tk-runlog) .rl-status-head[data-tone="bad"] { color: var(--bad); }
+:is(.mock-viewer, .tk-runlog) .rl-status-head[data-tone="quiet"] { color: var(--ink-3); }
 :is(.mock-viewer, .tk-runlog) .rl-now-acts { display: flex; gap: 6px 18px; flex-wrap: wrap; align-items: baseline; padding-top: 6px; font-size: 13px; }
 :is(.mock-viewer, .tk-runlog) .rl-now-acts a, :is(.mock-viewer, .tk-runlog) .rl-now-acts button { color: var(--ink-2); background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; cursor: pointer; }
 :is(.mock-viewer, .tk-runlog) .rl-now-acts button:disabled { color: var(--ink-3); cursor: default; }
@@ -83,6 +93,8 @@
 :is(.mock-viewer, .tk-runlog) .rl-log .rl-sec.warn .rl-sec-mark, :is(.mock-viewer, .tk-runlog) .rl-log .rl-sec.running .rl-sec-mark { background: var(--run); }
 :is(.mock-viewer, .tk-runlog) .rl-log .rl-sec.bad .rl-sec-mark { background: var(--bad); }
 :is(.mock-viewer, .tk-runlog) .rl-log .rl-sec.pending .rl-sec-mark { background: transparent; border: 1.5px solid var(--line); }
+/* 2026-11-22-7103a: nothing to judge (a report, not a verdict) — grey. */
+:is(.mock-viewer, .tk-runlog) .rl-log .rl-sec.quiet .rl-sec-mark { background: var(--ink-3); }
 :is(.mock-viewer, .tk-runlog) .rl-log .rl-sec-title { flex: 1 1 0; min-width: 0; font-family: var(--sans, inherit); font-size: 14px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :is(.mock-viewer, .tk-runlog) .rl-log .rl-sec-sum { flex: 0 1 auto; max-width: 70%; text-align: right; }
 :is(.mock-viewer, .tk-runlog) .rl-log .rl-sec-body { padding: 0 0 8px 24px; background: none; gap: 0; }
@@ -121,10 +133,12 @@
 :is(.mock-viewer, .tk-runlog) .rl-ledger-tag { color: var(--ink-3); }
 :is(.mock-viewer, .tk-runlog) .rl-ledger.done .rl-ledger-tag { color: var(--ok); }
 :is(.mock-viewer, .tk-runlog) .rl-ledger.in_progress .rl-ledger-tag { color: var(--run); }
-:is(.mock-viewer, .tk-runlog) .rl-doc > summary { cursor: pointer; color: var(--ink-3); }
-:is(.mock-viewer, .tk-runlog) .rl-doc > summary:hover { color: var(--ink-2); }
-:is(.mock-viewer, .tk-runlog) .rl-doc-body { padding: 6px 0 8px 14px; font-family: var(--sans, inherit); font-size: 13px; line-height: 1.55; color: var(--ink-2); }
-:is(.mock-viewer, .tk-runlog) .rl-doc-body pre { border: 0; background: none; padding: 0; }
+/* 2026-11-22-7103a: the disclosure (LogDoc) folds the master's report on the ticket page's tabs too, so it is not scoped. */
+.rl-doc > summary { cursor: pointer; color: var(--ink-3); }
+.rl-doc > summary:hover { color: var(--ink-2); }
+.rl-doc-body { padding: 6px 0 8px 14px; font-family: var(--sans, inherit); font-size: 13px; line-height: 1.55; color: var(--ink-2); }
+.rl-doc-body pre { border: 0; background: none; padding: 0; }
+.rl-said { white-space: pre-wrap; overflow-wrap: anywhere; }
 :is(.mock-viewer, .tk-runlog) .rl-plain .card { border: 0; background: none; box-shadow: none; border-radius: 0; }
 :is(.mock-viewer, .tk-runlog) .rl-plain .card-h { padding: 0 0 4px; border: 0; background: none; gap: 12px; }
 :is(.mock-viewer, .tk-runlog) .rl-plain .card-h h3 { font-size: 12px; font-weight: 500; color: var(--ink-2); }
@@ -205,12 +219,23 @@
 :is(.mock-viewer, .tk-runlog) .rl-p + .rl-p::before { content: " "; }
 :is(.mock-viewer, .tk-runlog) .rl-code { font-family: var(--mono); font-size: 0.95em; color: var(--ink); }
 :is(.mock-viewer, .tk-runlog) .rl-log strong { font-weight: 600; color: var(--ink); }
-:is(.mock-viewer, .tk-runlog) .rl-md { color: var(--ink-2); max-width: 100ch; overflow-wrap: anywhere; }
-:is(.mock-viewer, .tk-runlog) .rl-md p { margin: 0 0 6px; }
-:is(.mock-viewer, .tk-runlog) .rl-md ul, :is(.mock-viewer, .tk-runlog) .rl-md ol { margin: 0 0 6px; padding-left: 20px; }
-:is(.mock-viewer, .tk-runlog) .rl-md ul { list-style: disc; }
-:is(.mock-viewer, .tk-runlog) .rl-md ol { list-style: decimal; }
-:is(.mock-viewer, .tk-runlog) .rl-md pre { margin: 0 0 6px; white-space: pre-wrap; }
+/* 2026-11-22-7103a: BlockText reads the same wherever it renders (the log, the Acceptance tab, the run page's card): the
+   sans face, not the log's mono; a table in a wrapper that scrolls sideways, its cells bordered and padded, and every
+   cell — th too, which the global break-word list misses — breaking words only when they do not fit, so a header never
+   collapses to one letter per line. */
+.rl-md { color: var(--ink-2); max-width: 100ch; overflow-wrap: anywhere; }
+/* The sans face where a report is read (its fold, or shown whole); a decision's reason keeps the log's own type. */
+.rl-doc-body .rl-md, .rl-report .rl-md { font-family: var(--sans, inherit); font-size: 13px; line-height: 1.55; }
+.rl-md p { margin: 0 0 6px; }
+.rl-md ul, .rl-md ol { margin: 0 0 6px; padding-left: 20px; }
+.rl-md ul { list-style: disc; }
+.rl-md ol { list-style: decimal; }
+.rl-md pre { margin: 0 0 6px; white-space: pre-wrap; }
+.rl-md h1, .rl-md h2, .rl-md h3, .rl-md h4 { margin: 8px 0 4px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.rl-md-table { max-width: 100%; overflow-x: auto; margin: 0 0 8px; }
+.rl-md table { border-collapse: collapse; }
+.rl-md th, .rl-md td { border: 1px solid var(--line); padding: 3px 8px; text-align: left; vertical-align: top; overflow-wrap: break-word; }
+.rl-md th { font-weight: 600; color: var(--ink); }
 :is(.mock-viewer, .tk-runlog) .rl-decision { font-family: var(--mono); font-size: 12px; line-height: 22px; }
 :is(.mock-viewer, .tk-runlog) .rl-decision-line { width: 100%; display: flex; gap: 8px; align-items: baseline; padding: 0; border: 0; background: none; font: inherit; color: var(--ink-2); text-align: left; cursor: pointer; white-space: nowrap; }
 :is(.mock-viewer, .tk-runlog) .rl-decision-line:disabled { cursor: default; }

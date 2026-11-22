@@ -16,7 +16,7 @@
 .mock-tickets .tk-bar-key { font-size: 12px; color: var(--ink-3); }
 .mock-tickets .tk-bar-title { font-weight: 500; line-height: 20px; overflow-wrap: anywhere; }
 .mock-tickets .tk-bar-state { font-size: 12px; color: var(--ink-3); }
-.mock-tickets .tk-bar-state.need { color: var(--run); }
+.mock-tickets .tk-bar-state.need { color: var(--person); } /* 2026-11-22-7103a: needs you is a person's move */
 .mock-tickets .tk-bar-state.run, .mock-tickets .tk-bar-state.queued { color: var(--run); }
 .mock-tickets .tk-bar-state.human, .mock-tickets .tk-bar-state.blocked { color: var(--person); }
 .mock-tickets .tk-bar-state.ok { color: var(--ok); }
@@ -114,8 +114,11 @@
 .mock-tickets .tk-spec-head { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 0; background: var(--panel); color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .mock-tickets .tk-spec-name { font-weight: 600; }
 .mock-tickets .tk-spec-tally { flex: 1; text-align: right; font-size: 12.5px; color: var(--ink-3); }
-.mock-tickets .tk-spec-tally.ok { color: var(--ok); }
-.mock-tickets .tk-spec-tally.amber { color: var(--run); }
+/* 2026-11-22-7103a: the spec's delivery word in the status line's colours; the criteria count beside it stays dim. */
+.mock-tickets .tk-spec-delivery.ok { color: var(--ok); }
+.mock-tickets .tk-spec-delivery.run { color: var(--run); }
+.mock-tickets .tk-spec-delivery.person { color: var(--person); }
+.mock-tickets .tk-spec-delivery.bad { color: var(--bad); }
 .mock-tickets .tk-spec-body { border-top: 1px solid var(--line); padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.5; }
 .mock-tickets .tk-spec-goal { color: var(--ink-2); }
 .mock-tickets .tk-crit { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; }

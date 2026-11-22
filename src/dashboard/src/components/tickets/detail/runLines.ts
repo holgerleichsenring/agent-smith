@@ -1,10 +1,9 @@
-import { summaryLine } from "@/lib/formatRunSummary";
+import { attemptStatus, statusRest, type StatusContext } from "@/components/jobs/runlog/runStatusLine";
 import { runPath } from "@/lib/runPath";
 import type { TicketAttempt, TicketDerivation, TicketOtherRun } from "@/types/tickets";
 import { money } from "../ticketFormat";
-import { attemptWords, outcomeTone, type OutcomeTone } from "./attemptOutcome";
+import type { StatusTone as OutcomeTone } from "@/components/jobs/runlog/runStatusLine";
 import { clock, elapsed } from "./flowWords";
-import { reportText } from "./reportWords";
 import { derivationWords } from "./threadItems";
 
 // 2026-11-17-8d1cc: the Runs section (TicketRail mock) — every attempt and every spec derivation of the ticket in one
@@ -25,14 +24,16 @@ export interface RunListLine {
   startedAt: string;
 }
 
-export function attemptListLine(attempt: TicketAttempt): RunListLine {
+/** 2026-11-22-7103a: an attempt's outcome and text are its status line's head and clauses, as its row on Now says. */
+export function attemptListLine(attempt: TicketAttempt, ctx: StatusContext | null = null, queuePlace: number | null = null): RunListLine {
+  const status = attemptStatus(attempt, ctx, queuePlace);
   return {
     runId: attempt.runId,
     who: `Run ${attempt.number}`,
-    outcome: attemptWords(attempt),
-    text: summaryLine(attempt.summary) ?? reportText(attempt),
+    outcome: status.head,
+    text: statusRest(status),
     meta: [clock(attempt.startedAt), elapsed(attempt.startedAt, attempt.finishedAt), money(attempt.cost)].filter(Boolean).join(" · "),
-    tone: outcomeTone(attempt),
+    tone: status.tone,
     href: runPath(attempt.runId),
     attempt,
     startedAt: attempt.startedAt,
@@ -91,8 +92,8 @@ export function deployListLine(run: TicketOtherRun): RunListLine {
 
 /** Every attempt, derivation, merge-green and deploy run, newest start first. */
 export function runListLines(attempts: readonly TicketAttempt[], derivations: readonly TicketDerivation[],
-  otherRuns: readonly TicketOtherRun[] = []): RunListLine[] {
-  return [...attempts.map(attemptListLine), ...derivations.map(derivationListLine),
+  otherRuns: readonly TicketOtherRun[] = [], ctx: StatusContext | null = null, queuePlace: number | null = null): RunListLine[] {
+  return [...attempts.map((a) => attemptListLine(a, ctx, queuePlace)), ...derivations.map(derivationListLine),
     ...otherRuns.filter((r) => r.pipeline === "merge-green").map(mergeListLine),
     ...otherRuns.filter((r) => r.pipeline === "deploy").map(deployListLine)]
     .sort((l, r) => Date.parse(r.startedAt) - Date.parse(l.startedAt) || (l.runId < r.runId ? 1 : -1));

@@ -8,7 +8,9 @@ import type { TicketAttempt } from "@/types/tickets";
 import { DeployFollowBlock } from "../deploying/DeployFollowBlock";
 import { causeLabel, causeWhere } from "./attemptStory";
 import { clock } from "./flowWords";
+import { statusJoin } from "@/components/jobs/runlog/runStatusLine";
 import { runListLines, type RunListLine } from "./runLines";
+import { useStatusContext } from "./useAttemptStatus";
 import { AttemptBody } from "./ThreadMessages";
 import { addressQuery, CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
@@ -20,7 +22,9 @@ import { addressQuery, CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 export function TicketRunsSection() {
   const detail = useTicketDetail();
-  const lines = runListLines(detail.data?.attempts ?? [], detail.data?.derivations ?? [], detail.data?.otherRuns ?? []);
+  // 2026-11-22-7103a: each attempt's line is its status line, with the next step the ticket page names.
+  const { ctx, queuePlace } = useStatusContext();
+  const lines = runListLines(detail.data?.attempts ?? [], detail.data?.derivations ?? [], detail.data?.otherRuns ?? [], ctx, queuePlace);
   if (lines.length === 0) return <div className="msub">No run is recorded.</div>;
   return (
     <div className="tk-runs" data-testid="runs-list">
@@ -37,7 +41,7 @@ function RunLine({ line, project, ticketId }: { line: RunListLine; project: stri
       <Link className="tk-run-line" href={line.href} data-testid={`run-link-${line.runId}`}>
         <span className="tk-dot" aria-hidden="true" />
         <span className="tk-who">{line.who}</span>
-        <span className="tk-text"><span className="tk-outcome">{line.outcome}</span> · {line.text}</span>
+        <span className="tk-text"><span className="tk-outcome">{line.outcome}</span>{line.text && <>{statusJoin(line.outcome)}{line.text}</>}</span>
         <span className="tk-meta mono">{line.meta}</span>
         <span className="tk-chev" aria-hidden="true">›</span>
       </Link>

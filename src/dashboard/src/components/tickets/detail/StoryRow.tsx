@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { statusJoin } from "@/components/jobs/runlog/runStatusLine";
 import { clock } from "./flowWords";
 import type { StoryLine } from "./storyLines";
 
@@ -28,7 +29,7 @@ export function StoryRow({ line, open, onToggle, testId, className, children }: 
         <span className="tk-who">{line.who}</span>
         <span className="tk-text">
           {line.outcome && <span className="tk-outcome">{line.outcome}</span>}
-          {line.outcome && " · "}
+          {line.outcome && line.text && statusJoin(line.outcome)}
           {line.text}
         </span>
         <span className="tk-meta">{line.meta}</span>

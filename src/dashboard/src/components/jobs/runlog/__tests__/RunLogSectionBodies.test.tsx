@@ -12,7 +12,7 @@ vi.mock("@/hooks/useRunDecisions", () => ({
   useRunDecisions: () => [{ stepIndex: 2, name: "Use the outbox", reason: "at-least-once", category: "Architecture", recordedAt: "2026-10-13T06:10:00Z" }],
 }));
 
-const { CheckBody, DeliveredBody, PlanBody, TicketBody, ledgerCount } = await import("../RunLogSectionBodies");
+const { CheckBody, DeliveredBody, PlanBody, SpecBody, TicketBody, ledgerCount } = await import("../RunLogSectionBodies");
 
 function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
   return {
@@ -30,7 +30,7 @@ const fetched = {
 
 describe("RunLogSectionBodies", () => {
   it("TicketBody_SaysTheTicketAndLinksTheTrackerAndThePage", () => {
-    render(<TicketBody snapshot={snap()} events={[fetched]} ticket={{ label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 1, of: 1, attempt: null, newest: true, latest: null, reread: () => {} }} />);
+    render(<TicketBody snapshot={snap()} events={[fetched]} ticket={{ label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 1, of: 1, attempt: null, newest: true, latest: null, move: null, reread: () => {} }} />);
     expect(screen.getByTestId("ticket-body-title")).toHaveTextContent("13 · Upgrade");
     expect(screen.getByTestId("ticket-body-facts")).toHaveTextContent("Active · GitHub · labels agent · 2 attachments");
     expect(screen.getByTestId("ticket-body-tracker")).toHaveAttribute("href", "https://example.test/issues/13");
@@ -44,7 +44,7 @@ describe("RunLogSectionBodies", () => {
       { text: "Every package is current", status: "met" as const, reason: null, citation: null },
       { text: "The build passes", status: "met" as const, reason: null, citation: null },
     ], outcome: null, ratifiedBy: null };
-    render(<TicketBody snapshot={snap({ acceptance })} events={[]} ticket={{ label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 1, of: 1, attempt: null, newest: true, latest: null, reread: () => {} }} />);
+    render(<TicketBody snapshot={snap({ acceptance })} events={[]} ticket={{ label: "GH-13", href: "/tickets/shop/13", project: "shop", number: 1, of: 1, attempt: null, newest: true, latest: null, move: null, reread: () => {} }} />);
     expect(screen.getByTestId("ticket-body-title")).toHaveTextContent("13 · Upgrade");
     expect(screen.getAllByTestId("ticket-body-criterion").map((li) => li.textContent)).toEqual(["1.Every package is current", "2.The build passes"]);
     expect(screen.getByTestId("ticket-body-empty")).toHaveTextContent("body not recorded on this run — open the ticket");
@@ -102,5 +102,15 @@ describe("RunLogSectionBodies", () => {
   it("DeliveredBody_AnOldRunWithOnlyPrUrl_StillLinksIt", () => {
     render(<DeliveredBody runId="r1" snapshot={snap({ prUrl: "https://example.test/server/pull/2" })} />);
     expect(screen.getByTestId("delivered-pr").querySelector("a")).toHaveAttribute("href", "https://example.test/server/pull/2");
+  });
+
+  // 2026-11-22-7103a: why a stopped spec was not delivered opens its section's body, whole and red.
+  it("SpecBody_FailedSpec_FirstLineIsNotDeliveredWithTheWholeVerdict", () => {
+    const verdict = "The agent ended without writing a report, so the spec was not delivered; anything it changed stays on the branch.";
+    render(<SpecBody runId="r1" spec={{ specId: "s2", ordinal: 2, title: "t", status: "failed", startedAt: null, endedAt: null, verdict, decisions: [], steps: [] }} />);
+    const line = screen.getByTestId("spec-body-verdict-s2");
+    expect(line).toHaveTextContent(`Not delivered: ${verdict}`);
+    expect(line).toHaveClass("rl-bad");
+    expect(screen.getByTestId("spec-body-s2").firstElementChild).toBe(line);
   });
 });

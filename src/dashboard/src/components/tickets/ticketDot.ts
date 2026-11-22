@@ -20,8 +20,10 @@ export function ticketDot(t: TicketSummary): TicketDotClass {
       return t.status === "running" ? "run" : "queued";
     case "waiting_on_review":
       return "human";
-    case "stuck":
     case "failed":
+      // 2026-11-22-7103a: a head a person cancelled is no fault — grey, as its status line is.
+      return t.lastOutcome === "cancelled" ? "idle" : "bad";
+    case "stuck":
     case "pr_closed":
       return "bad";
     case "closed":
@@ -38,7 +40,8 @@ export function ticketDot(t: TicketSummary): TicketDotClass {
 }
 
 function outcomeDot(outcome: string | null): TicketDotClass {
-  if (outcome === "success" || outcome === "shortfall") return "ok";
-  if (outcome === "failed" || outcome === "cancelled") return "bad";
+  // 2026-11-22-7103a: a shortfall left a spec undelivered — red, as the run's status line draws it; a cancel is grey.
+  if (outcome === "success") return "ok";
+  if (outcome === "failed" || outcome === "shortfall") return "bad";
   return "idle";
 }

@@ -5,7 +5,7 @@ import { budgetShare, computeOf, isTerminal, timeSplitWords } from "./runFactWor
 // 2026-11-17-6d9ea: the run page's one meta line and the details behind it. The meta line says the state, the steps,
 // the time, the cost against its cap, the compute and the shape; every other fact the run recorded is a details line.
 
-export type StateTone = "ok" | "run" | "amber" | "bad" | "quiet";
+export type StateTone = "ok" | "run" | "amber" | "person" | "bad" | "quiet";
 
 /** The state word the meta line starts with, and its colour. */
 export function stateWords(snapshot: RunSnapshot): { text: string; tone: StateTone } {
@@ -17,9 +17,11 @@ export function stateWords(snapshot: RunSnapshot): { text: string; tone: StateTo
   switch (status) {
     case "running": return { text: "running", tone: "run" };
     case "queued": return { text: snapshot.queuePosition ? `queued, place ${snapshot.queuePosition}` : "queued", tone: "run" };
-    case "waiting_for_input": return { text: "needs you", tone: "amber" };
+    // 2026-11-22-7103a: a question waits on a person — the status line's words and colour.
+    case "waiting_for_input": return { text: "waits for your answer", tone: "person" };
     case "success": return { text: "done", tone: "ok" };
-    case "shortfall": return { text: "done, with a shortfall", tone: "amber" };
+    // 2026-11-22-7103a: a shortfall stopped before its contract — red, as the status line draws it.
+    case "shortfall": return { text: "done, with a shortfall", tone: "bad" };
     case "cancelled": return { text: "cancelled", tone: "quiet" };
     case "failed": case "error": return { text: "failed", tone: "bad" };
     case "": return { text: "reading", tone: "quiet" };
@@ -54,8 +56,11 @@ export interface MetaPart {
 }
 
 /** The meta line: state · steps · elapsed · cost of cap · pods · mem · shape, each only when recorded. */
-export function metaParts(snapshot: RunSnapshot, stepCount: number, nowMs: number = Date.now()): MetaPart[] {
-  const state = stateWords(snapshot);
+export function metaParts(
+  snapshot: RunSnapshot, stepCount: number, nowMs: number = Date.now(), status?: { text: string; tone: StateTone },
+): MetaPart[] {
+  // 2026-11-22-7103a: the run page passes the status line's head, so the state word and How it ended say one thing.
+  const state = status ?? stateWords(snapshot);
   const parts: MetaPart[] = [{ key: "state", text: state.text, tone: state.tone }];
   if (!isTerminal(snapshot) && snapshot.totalSteps > 0) parts.push({ key: "steps", text: `step ${snapshot.stepIndex} of ${snapshot.totalSteps}` });
   else if (stepCount > 0) parts.push({ key: "steps", text: stepCount === 1 ? "1 step" : `${stepCount} steps` });

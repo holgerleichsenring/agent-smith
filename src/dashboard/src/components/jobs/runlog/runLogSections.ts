@@ -158,7 +158,7 @@ export function runLogSections(
     const forced = row ? SPEC_STATE[row.status] : undefined;
     if (forced) section.state = forced;
     if (row?.status === "handed_back") section.meta = `handed back · ${section.meta}`;
-    if (row?.verdict) section.meta = `${section.meta} · ${row.verdict}`;
+    // 2026-11-22-7103a: the verdict is no longer cut into the meta; the section's body opens with it, whole.
     sections.push(section);
   }
   if (rowsOf("work").length > 0) sections.push(stepSection("work", "work", "The work"));

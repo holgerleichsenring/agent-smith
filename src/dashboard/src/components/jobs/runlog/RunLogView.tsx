@@ -4,6 +4,9 @@ import Link from "next/link";
 import type { HubConnectionState } from "@microsoft/signalr";
 import type { RunJudgements } from "@/components/jobs/story/useRunJudgements";
 import { DeployFollowBlock } from "@/components/tickets/deploying/DeployFollowBlock";
+import { RUNS_CONTROL } from "@/components/tickets/detail/RetryUnchanged";
+import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { useRunSpecs } from "@/hooks/useRunSpecs";
 import { isRunLive } from "@/lib/runLiveness";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { runTracePath } from "@/lib/runPath";
@@ -12,6 +15,7 @@ import { CheckBody, TicketBody } from "./RunLogSectionBodies";
 import { RunNow } from "./RunNow";
 import { RunPageHead } from "./RunPageHead";
 import { RunSectionedLog } from "./RunSectionedLog";
+import { snapshotStatus } from "./runStatusLine";
 import { useRunTicket } from "./useRunTicket";
 import { useStepAddress } from "./useStepAddress";
 
@@ -39,12 +43,16 @@ export function RunLogView({ runId, snapshot, events, steps, repoNames, connecti
   const ticket = useRunTicket(runId, snapshot);
   const [openStep, setOpenStep] = useStepAddress();
   const stepCount = steps.filter((s) => !s.planned).length;
+  // 2026-11-22-7103a: the run's one status line — the head's state word and How it ended's first line.
+  const specs = useRunSpecs(runId, events.length);
+  const canRetry = !useLacksPermission(RUNS_CONTROL, ticket?.project ?? snapshot?.project ?? undefined);
+  const status = snapshot ? snapshotStatus(snapshot, specs, steps, ticket, canRetry) : null;
 
   return (
     <div className="rl-page" data-testid="run-log">
-      <RunPageHead runId={runId} snapshot={snapshot} ticket={ticket} repoNames={repoNames} stepCount={stepCount}
+      <RunPageHead runId={runId} snapshot={snapshot} line={status} ticket={ticket} repoNames={repoNames} stepCount={stepCount}
         connectionState={connectionState} onDeleted={onDeleted} />
-      <RunNow runId={runId} snapshot={snapshot} events={events} steps={steps} ticket={ticket} />
+      <RunNow runId={runId} snapshot={snapshot} status={status} events={events} steps={steps} ticket={ticket} />
       {snapshot?.pipeline === "deploy" && !isRunLive(snapshot.status) && <DeployFollowBlock runId={runId} />}
       <RunSectionedLog runId={runId} snapshot={snapshot} events={events} steps={steps} openStep={openStep} onOpenStep={setOpenStep}
         ticketBody={<TicketBody snapshot={snapshot} events={events} ticket={ticket} />}

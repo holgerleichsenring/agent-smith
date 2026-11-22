@@ -43,7 +43,7 @@ export function commandKey(row: RunStepRow): string {
 }
 
 /** done = green, warn = a finding or running (amber), bad = a step failed (red), pending = hollow. */
-export type SectionState = "done" | "warn" | "running" | "bad" | "pending";
+export type SectionState = "done" | "warn" | "running" | "bad" | "pending" | "quiet";
 
 export function stepState(row: RunStepRow): SectionState {
   if (row.status === "failed" || row.status === "error") return "bad";
@@ -72,17 +72,30 @@ export interface RunCheck {
  *  per-criterion verdict was retired (2026-11-18-98fa), so such a run has no check to show, not a "no verdict" line. */
 export function checkOf(acceptance: RunAcceptance | null | undefined): RunCheck | null {
   const check = recordedCheck(acceptance);
-  if (!acceptance?.unmeasured?.length) return check;
-  return { state: "bad", summary: check ? `${check.summary} · not measured` : "not measured", title: check?.title ?? CHECK_TITLE };
+  const unmeasured = acceptance?.unmeasured?.length ?? 0;
+  if (unmeasured === 0) return check;
+  return { state: "bad", summary: check ? `${check.summary} · ${unmeasuredWords(unmeasured)}` : unmeasuredWords(unmeasured), title: check?.title ?? CHECK_TITLE };
+}
+
+/** 2026-11-22-7103a: "1 report", "2 reports · 3 follow-ups" — what the masters wrote, counted; never "reported", which
+ *  read as a verdict. */
+export function reportCount(acceptance: RunAcceptance): string {
+  const n = acceptance.reports?.length ?? 0;
+  const follow = acceptance.followUps?.length ?? 0;
+  const reports = n === 0 ? "no report" : n === 1 ? "1 report" : `${n} reports`;
+  return follow > 0 ? `${reports} · ${follow} follow-up${follow === 1 ? "" : "s"}` : reports;
+}
+
+/** "1 account not measured". */
+export function unmeasuredWords(n: number): string {
+  return n === 1 ? "1 account not measured" : `${n} accounts not measured`;
 }
 
 function recordedCheck(acceptance: RunAcceptance | null | undefined): RunCheck | null {
   const criteria = acceptance?.criteria ?? [];
-  // 2026-11-18-98fa: masters that ended with finish_spec judged no line — the section is their report.
-  if (criteria.length === 0 && acceptance?.reports?.length) {
-    const n = acceptance.followUps?.length ?? 0;
-    return { state: "done", summary: n > 0 ? `reported · ${n} follow-up${n === 1 ? "" : "s"}` : "reported", title: REPORT_TITLE };
-  }
+  // 2026-11-18-98fa: masters that wrote a report judged no line — the section is their report.
+  // 2026-11-22-7103a: a report is no verdict — grey, never the green of a pass.
+  if (criteria.length === 0 && acceptance?.reports?.length) return { state: "quiet", summary: reportCount(acceptance), title: REPORT_TITLE };
   if (criteria.length === 0) return null;
   // A run stored before 98fa keeps its recorded verdicts and their count (98fa: "Runs stored before keep their counts").
   const met = criteria.filter((c) => c.status === "met").length;
