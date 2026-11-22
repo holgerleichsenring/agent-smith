@@ -31,7 +31,7 @@ spec:
       # string, or run your own idempotent-SQL pipeline instead.
       initContainers:
         - name: migrate
-          image: holgerleichsenring/agent-smith-cli:0.195.2  # x-release-please-version
+          image: holgerleichsenring/agent-smith-cli:0.196.0  # x-release-please-version
           imagePullPolicy: IfNotPresent
           # p0348: call the DLL directly. The image ENTRYPOINT is a gosu
           # privilege-drop shim (docker-entrypoint.sh); under this pod's hardened
@@ -66,7 +66,7 @@ spec:
               mountPath: /var/lib/agentsmith
       containers:
         - name: server
-          image: holgerleichsenring/agent-smith-server:0.195.2  # x-release-please-version
+          image: holgerleichsenring/agent-smith-server:0.196.0  # x-release-please-version
           imagePullPolicy: IfNotPresent  # prod: Always
           ports:
             - name: http
