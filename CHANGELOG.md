@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.197.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.196.0...v0.197.0) (2026-11-22)
+
+
+### Features
+
+* **dashboard:** every run opens with one status line and its next step; the master's report folds (2026-11-22-7103a) ([367dc76](https://github.com/holgerleichsenring/agent-smith/commit/367dc76899a99b24f3eccd9d8a5aa5a96c11fb4d))
+* **dashboard:** every run opens with one status line and its next step; the master's report folds and its tables render (2026-11-22-7103a) ([d623e79](https://github.com/holgerleichsenring/agent-smith/commit/d623e799b5295d51b61c023594f19c36ad2d98e0))
+
 ## [0.196.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.195.2...v0.196.0) (2026-11-22)
 
 
