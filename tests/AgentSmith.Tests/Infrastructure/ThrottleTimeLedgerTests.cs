@@ -51,8 +51,8 @@ public sealed class ThrottleTimeLedgerTests
     {
         var inner = new EchoChatClient();
         var sut = new RateLimitingChatClient(
-            inner, new DelayingLimiter(delayMs: 60), "test", _reporter,
-            NullLogger<RateLimitingChatClient>.Instance);
+            inner, new DelayingLimiter(delayMs: 60), "test", new AgentSmith.Contracts.Models.Configuration.RetryConfig(),
+            _reporter, NullLogger<RateLimitingChatClient>.Instance);
 
         using var scope = _reporter.Begin();
         await sut.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
@@ -78,16 +78,13 @@ public sealed class ThrottleTimeLedgerTests
 
     private sealed class DelayingLimiter(int delayMs) : ILlmRateLimiter
     {
-        public async Task<IDisposable> AcquireAsync(int estimatedInputTokens, CancellationToken cancellationToken)
+        public async Task<ILlmQuotaLease> AcquireAsync(LlmQuotaDemand demand, CancellationToken cancellationToken)
         {
             await Task.Delay(delayMs, cancellationToken);
             return new Noop();
         }
 
-        private sealed class Noop : IDisposable
-        {
-            public void Dispose() { }
-        }
+        private sealed class Noop : ILlmQuotaLease;
     }
 
     private sealed class EchoChatClient : IChatClient

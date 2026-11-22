@@ -41,6 +41,36 @@ export const messages = {
   "shell.profile.menuLabel": { en: "{name}, settings and account", de: "{name}, Einstellungen und Konto" },
   "shell.profile.language": { en: "Language", de: "Sprache" },
 
+  // --- system: model quota on the connection check (2026-11-22-66e4a) ---
+  "quota.title": { en: "Model quota", de: "Modell-Kontingent" },
+  "quota.sub": {
+    en: "What each model deployment has left of its minute on this server ({replica}). Every call to a deployment draws on one budget.",
+    de: "Was jedem Modell-Deployment von seiner Minute auf diesem Server ({replica}) bleibt. Jeder Aufruf eines Deployments zieht aus einem Budget.",
+  },
+  "quota.subPlain": {
+    en: "What each model deployment has left of its minute on this server.",
+    de: "Was jedem Modell-Deployment von seiner Minute auf diesem Server bleibt.",
+  },
+  "quota.loading": { en: "Reading the model quota…", de: "Modell-Kontingent wird gelesen…" },
+  "quota.failed": { en: "Could not read the model quota: {message}", de: "Das Modell-Kontingent ließ sich nicht lesen: {message}" },
+  "quota.none": {
+    en: "No model has been called on this server since it started.",
+    de: "Seit dem Start dieses Servers wurde noch kein Modell aufgerufen.",
+  },
+  "quota.free": { en: "{deployment}: {free} of {limit} tokens free", de: "{deployment}: {free} von {limit} Tokens frei" },
+  "quota.requests": { en: "{free} of {limit} requests free", de: "{free} von {limit} Requests frei" },
+  "quota.fullIn": { en: "full again in {seconds} s", de: "in {seconds} s wieder voll" },
+  "quota.full": { en: "full", de: "voll" },
+  "quota.paused": {
+    en: "paused {seconds} s more: the provider refused a call",
+    de: "noch {seconds} s pausiert: der Provider hat einen Aufruf abgelehnt",
+  },
+  "quota.waiting": {
+    en: { one: "1 call waiting", other: "{count} calls waiting" },
+    de: { one: "1 Aufruf wartet", other: "{count} Aufrufe warten" },
+  },
+  "quota.providerSays": { en: "the provider last said {tokens} tokens left", de: "laut Provider zuletzt {tokens} Tokens übrig" },
+
   // --- dialog: the decision and what approving does ---
   "dialog.decision.keepChatting": { en: "Keep chatting", de: "Weiter chatten" },
   "dialog.approval.boundList": {

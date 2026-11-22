@@ -115,13 +115,11 @@ public sealed class ToolBearingTaskAgreementTests
     /// <summary>No budget to queue against — this test builds clients, it never calls one.</summary>
     private sealed class UnlimitedRateLimiters : ILlmRateLimiterRegistry, ILlmRateLimiter
     {
-        public ILlmRateLimiter GetOrCreate(
-            string providerType, string model, LlmRateLimitOptions options) => this;
+        public ILlmRateLimiter GetOrCreate(ModelQuotaScope scope, LlmRateLimitOptions options) => this;
 
-        public Task<IDisposable> AcquireAsync(
-            int estimatedInputTokens, CancellationToken cancellationToken) =>
-            Task.FromResult<IDisposable>(new Lease());
+        public Task<ILlmQuotaLease> AcquireAsync(LlmQuotaDemand demand, CancellationToken cancellationToken) =>
+            Task.FromResult<ILlmQuotaLease>(new Lease());
 
-        private sealed class Lease : IDisposable { public void Dispose() { } }
+        private sealed class Lease : ILlmQuotaLease;
     }
 }

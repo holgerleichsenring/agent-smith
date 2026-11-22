@@ -1,119 +1,92 @@
-using System.Threading.RateLimiting;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Infrastructure.Services.RateLimiting;
 
 /// <summary>
-/// p0188: composite limiter over two token buckets — one counts requests
-/// (acquire 1 per call), the other counts input tokens (acquire N per call).
-/// A call only proceeds when both buckets have capacity. Buckets refill at
-/// the per-minute rate the operator configured.
+/// p0188: admission to one deployment. A call proceeds when its requests and tokens fit (<see cref="DeploymentQuota"/>);
+/// callers queue oldest first, and the head of the queue waits for the refill.
+/// <para>
+/// 2026-11-22-66e4a: it counts what the provider counts — a call reserves its learned-ratio estimate plus, where the
+/// provider's admission counts it, its max_tokens (<see cref="QuotaReservation"/>), and its lease settles to the
+/// provider's own count. A call that will wait a second or more says so first, with the wait the queue ahead of it
+/// needs; the head re-checks after every wait, so a refusal that pauses the deployment holds it too.
+/// </para>
 /// </summary>
 internal sealed class LlmRateLimiter : ILlmRateLimiter
 {
-    private readonly TokenBucketRateLimiter _requests;
-    private readonly TokenBucketRateLimiter _tokens;
-    private readonly int _tokenBucketCapacity;
+    /// <summary>A wait shorter than this is not announced.</summary>
+    internal static readonly TimeSpan AnnounceFrom = TimeSpan.FromSeconds(1); // not a limit: below a second a wait is not worth a line on the run
 
-    // p0374: a cache-read token still costs the provider something, but far less
-    // than a fresh one — reserve cached tokens at this fraction of their size so a
-    // 99%-cached call doesn't drain the per-minute budget like a fully-fresh one.
-    // Leaves headroom: if the provider does throttle harder than this assumes, the
-    // 429/Retry-After path (SDK + TransientRetryChatClient) self-corrects.
-    private const double CacheWeight = 0.1;
-    private const double RatioAlpha = 0.4;   // EWMA responsiveness — adapts in ~2-3 calls
+    private readonly SemaphoreSlim _turn = new(1, 1);
+    private readonly object _queueLock = new();
+    private readonly TimeProvider _clock;
+    private readonly DeploymentQuota _quota;
+    private double _queuedTokens;
+    private int _queuedCalls;
 
-    private readonly object _ratioLock = new();
-    private double _cachedFraction;          // EWMA of cached / (fresh + cached); 0 = all fresh
-    private bool _hasSample;
-
-    public LlmRateLimiter(LlmRateLimitOptions options)
+    public LlmRateLimiter(LlmRateLimitOptions options, TimeProvider? clock = null)
     {
-        // p0350: the token bucket's total capacity. A single acquire larger than
-        // this can NEVER be satisfied, and .NET's TokenBucketRateLimiter answers
-        // that with a hard ArgumentOutOfRangeException ("{n} token(s) exceeds the
-        // token limit of {limit}"), NOT a wait — so the per-minute THROTTLE
-        // silently doubled as an un-queueable per-call CEILING and crashed a run
-        // that had done all its work (opened its PRs, 21/22 steps). We clamp the
-        // acquire to this capacity below so an over-budget single call waits for a
-        // full bucket and proceeds, instead of killing the run.
-        _tokenBucketCapacity = options.InputTokensPerMinute;
-        // ReplenishmentPeriod is 1 second so the bucket trickles continuously
-        // instead of refilling once per minute (which would push every caller
-        // into a synchronized 60s wait). Per-second refill = limit/60.
-        var requestsPerSecond = Math.Max(1, options.RequestsPerMinute / 60);
-        var tokensPerSecond = Math.Max(1, options.InputTokensPerMinute / 60);
-        _requests = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
-        {
-            TokenLimit = options.RequestsPerMinute,
-            TokensPerPeriod = requestsPerSecond,
-            ReplenishmentPeriod = TimeSpan.FromSeconds(1),
-            QueueLimit = int.MaxValue,
-            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-            AutoReplenishment = true,
-        });
-        _tokens = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
-        {
-            TokenLimit = options.InputTokensPerMinute,
-            TokensPerPeriod = tokensPerSecond,
-            ReplenishmentPeriod = TimeSpan.FromSeconds(1),
-            QueueLimit = int.MaxValue,
-            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-            AutoReplenishment = true,
-        });
+        _clock = clock ?? TimeProvider.System;
+        _quota = new DeploymentQuota(options, _clock);
     }
 
-    public async Task<IDisposable> AcquireAsync(int estimatedInputTokens, CancellationToken cancellationToken)
+    public async Task<ILlmQuotaLease> AcquireAsync(LlmQuotaDemand demand, CancellationToken cancellationToken)
     {
-        // p0350: clamp to the bucket capacity — a single call larger than the
-        // whole per-minute budget still WAITS for a full bucket and proceeds
-        // (throttled), rather than throwing and losing the run. The per-minute
-        // accounting under-counts such a giant call, which is the right trade:
-        // the bucket's job is to pace frequency, not to be a hard size wall.
-        // p0374: scale the char-based estimate down by the observed cache share so
-        // the reservation reflects the FRESH load, not the whole re-sent context.
-        double cachedFraction;
-        lock (_ratioLock) cachedFraction = _cachedFraction;
-        var tokensToConsume = Math.Clamp(EffectiveTokens(estimatedInputTokens, cachedFraction), 1, _tokenBucketCapacity);
-        // Acquire both leases. Order doesn't matter for correctness; doing
-        // requests first means a TPM-starved burst still consumes its RPM slot
-        // promptly, which keeps the queue order intuitive for an operator
-        // reading the log.
-        var reqLease = await _requests.AcquireAsync(1, cancellationToken);
-        var tokLease = await _tokens.AcquireAsync(tokensToConsume, cancellationToken);
-        return new CompositeLease(reqLease, tokLease);
-    }
-
-    // The reservation size for a call, discounted by the observed cache share. Runs
-    // from the full estimate (all fresh) down to CacheWeight × estimate (all cached).
-    internal static int EffectiveTokens(int estimatedInputTokens, double cachedFraction)
-    {
-        var discount = 1.0 - Math.Clamp(cachedFraction, 0.0, 1.0) * (1.0 - CacheWeight);
-        return Math.Max(1, (int)Math.Ceiling(estimatedInputTokens * discount));
-    }
-
-    // The current EWMA cache share — for tests + diagnostics.
-    internal double ObservedCachedFraction { get { lock (_ratioLock) return _cachedFraction; } }
-
-    public void RecordUsage(long freshInputTokens, long cachedInputTokens)
-    {
-        var total = freshInputTokens + cachedInputTokens;
-        if (total <= 0) return;
-        var fraction = (double)cachedInputTokens / total;
-        lock (_ratioLock)
+        ArgumentNullException.ThrowIfNull(demand);
+        var reserved = _quota.Reserve(demand);
+        var expected = Enqueue(reserved.Total);
+        try
         {
-            // Seed on the first observation, then blend so a burst of uncached calls
-            // (e.g. scope/analyze) doesn't instantly undo a warmed cache ratio.
-            _cachedFraction = _hasSample ? (RatioAlpha * fraction) + ((1 - RatioAlpha) * _cachedFraction) : fraction;
-            _hasSample = true;
+            if (expected >= AnnounceFrom && demand.OnWait is { } onWait)
+                await onWait(expected, _quota.Paused() > TimeSpan.Zero, cancellationToken);
+            await WaitYourTurnAsync(reserved.Total, cancellationToken);
         }
+        finally
+        {
+            Dequeue(reserved.Total);
+        }
+        return new LlmQuotaLease(_quota, demand.EstimatedInputTokens, reserved, _clock);
     }
 
-    private sealed class CompositeLease : IDisposable
+    internal LlmQuotaSnapshot Snapshot(ModelQuotaScope scope)
     {
-        private readonly System.Threading.RateLimiting.RateLimitLease _a;
-        private readonly System.Threading.RateLimiting.RateLimitLease _b;
-        public CompositeLease(System.Threading.RateLimiting.RateLimitLease a, System.Threading.RateLimiting.RateLimitLease b) { _a = a; _b = b; }
-        public void Dispose() { _a.Dispose(); _b.Dispose(); }
+        int waiting;
+        lock (_queueLock) waiting = _queuedCalls;
+        return _quota.Snapshot(scope, waiting);
+    }
+
+    // Joins the queue and says how long the queue ahead, this call included, needs to fit.
+    private TimeSpan Enqueue(int tokens)
+    {
+        double queuedTokens;
+        int queuedCalls;
+        lock (_queueLock)
+        {
+            queuedTokens = _queuedTokens += tokens;
+            queuedCalls = ++_queuedCalls;
+        }
+        return _quota.TakeOrWait(queuedCalls, queuedTokens, take: false);
+    }
+
+    private void Dequeue(int tokens)
+    {
+        lock (_queueLock) { _queuedTokens -= tokens; _queuedCalls--; }
+    }
+
+    // Oldest first: one caller at a time waits at the head for the refill; the head re-checks after every wait.
+    private async Task WaitYourTurnAsync(int tokens, CancellationToken cancellationToken)
+    {
+        await _turn.WaitAsync(cancellationToken);
+        try
+        {
+            for (var wait = _quota.TakeOrWait(1, tokens, take: true);
+                 wait > TimeSpan.Zero;
+                 wait = _quota.TakeOrWait(1, tokens, take: true))
+                await Task.Delay(wait, _clock, cancellationToken);
+        }
+        finally
+        {
+            _turn.Release();
+        }
     }
 }

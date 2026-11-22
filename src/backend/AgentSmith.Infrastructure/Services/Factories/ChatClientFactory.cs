@@ -36,7 +36,8 @@ public sealed class ChatClientFactory(
     ILoggerFactory loggerFactory,
     ICredentialResolver credentials, // 2026-11-18-9ae8
     Contracts.Prompts.IPromptRecorder? prompts = null, // 2026-11-09-0620a
-    ModelRunGate? runGate = null) // 2026-11-20-24bd
+    ModelRunGate? runGate = null, // 2026-11-20-24bd
+    ProviderQuotaHeaders? quotaHeaders = null, ModelQuotaWaitLine? quotaWaitLine = null) // 2026-11-22-66e4a
     : IChatClientFactory
 {
     private const int MaxIterationsPerRequest = 25;
@@ -129,9 +130,9 @@ public sealed class ChatClientFactory(
 
         // p0374: retry a transient network drop (a connection that dies mid-body —
         // HttpIOException "response ended prematurely") one layer OUTSIDE the throttle,
-        // so each attempt re-acquires capacity. The SDK retries 429/5xx status codes
-        // but not a mid-stream socket fault, which otherwise fails the whole run. Sits
-        // BELOW EventPublishing so a retried call still emits exactly one LlmCall pair.
+        // so each attempt re-acquires capacity. It retries no 429: the throttle waits those
+        // out (2026-11-22-66e4a). Sits BELOW EventPublishing so a retried call still emits
+        // exactly one LlmCall pair.
         var resilient = new TransientRetryChatClient(
             rateLimited, agent.Retry, assignment.Model ?? effectiveType,
             loggerFactory.CreateLogger<TransientRetryChatClient>());
@@ -230,12 +231,11 @@ public sealed class ChatClientFactory(
         IChatClient bare, AgentConfig agent, ModelAssignment assignment, string providerType)
     {
         var options = LlmRateBudget.For(agent, providerType, () => ClaudeChatClientBuilder.ResolveApiKey(credentials, agent));
-        var modelKey = string.IsNullOrEmpty(assignment.Model) ? new ModelRoleChain(agent).PrimaryModel : assignment.Model;
-        var limiter = rateLimiterRegistry.GetOrCreate(providerType, modelKey ?? "default", options);
-        var label = $"{providerType}/{modelKey}";
+        var scope = ModelQuotaKey.For(agent, assignment, providerType); // 2026-11-22-66e4a: one budget per deployment
+        var limiter = rateLimiterRegistry.GetOrCreate(scope, options);
         return new RateLimitingChatClient(
-            bare, limiter, label, waitReporter,
-            loggerFactory.CreateLogger<RateLimitingChatClient>());
+            bare, limiter, scope.Deployment, agent.Retry, waitReporter,
+            loggerFactory.CreateLogger<RateLimitingChatClient>(), quotaHeaders, quotaWaitLine);
     }
 
     public Task EnterRunAsync(AgentConfig agent, CancellationToken cancellationToken) =>

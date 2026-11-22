@@ -1,81 +1,103 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.RateLimiting;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Tests.Services;
 
 /// <summary>
-/// p0374: the rate limiter reserves against the FRESH input share, not the whole
-/// re-sent context. Prompt caching (p0374) makes a read-heavy master loop ~99%
-/// cache-read, so the old char-estimate throttled a near-free call as if it spent
-/// its full ~45k context — one call/minute on the oat token's 20k budget.
+/// p0374, 2026-11-22-66e4a: the limiter reserves what the provider will COUNT. Prompt caching makes a read-heavy
+/// Anthropic loop ~99% cache reads, which its input limit does not count, so a near-free call must not reserve its
+/// whole re-sent context. Azure and OpenAI DO count cached prompt tokens, so there a warm cache discounts nothing.
+/// One learned ratio of counted to estimated input carries both.
 /// </summary>
 public sealed class LlmRateLimiterCacheAwareTests
 {
-    // ── the pure discount ───────────────────────────────────────────────────
-    [Fact]
-    public void EffectiveTokens_AllFresh_ReservesTheFullEstimate()
-        => LlmRateLimiter.EffectiveTokens(45_000, cachedFraction: 0.0).Should().Be(45_000);
+    private static readonly ProviderQuotaRule Anthropic = LlmRateBudget.RuleFor("claude");
+    private static readonly ProviderQuotaRule Azure = LlmRateBudget.RuleFor("azure_openai");
 
     [Fact]
-    public void EffectiveTokens_AllCached_ReservesOnlyTheCacheWeightTenth()
-        => LlmRateLimiter.EffectiveTokens(45_000, cachedFraction: 1.0).Should().Be(4_500);
-
-    [Fact]
-    public void EffectiveTokens_HalfCached_ReservesTheBlend()
-        // 45000 * (1 - 0.5*0.9) = 45000 * 0.55 = 24750 (±1 for Ceiling/FP)
-        => LlmRateLimiter.EffectiveTokens(45_000, cachedFraction: 0.5).Should().BeCloseTo(24_750, 1);
-
-    [Fact]
-    public void EffectiveTokens_NeverBelowOne()
-        => LlmRateLimiter.EffectiveTokens(1, cachedFraction: 1.0).Should().BeGreaterThanOrEqualTo(1);
-
-    // ── the learned ratio ───────────────────────────────────────────────────
-    private static LlmRateLimiter New() => new(new LlmRateLimitOptions(RequestsPerMinute: 60, InputTokensPerMinute: 20_000));
-
-    [Fact]
-    public void RecordUsage_FirstCachedCall_SeedsTheFractionHigh()
+    public void CountedInput_AnthropicWarmCache_CountsATenthOfTheReads()
     {
-        var limiter = New();
-        limiter.ObservedCachedFraction.Should().Be(0.0, "no observation yet → assume all fresh (conservative)");
+        var usage = AnthropicUsage(uncached: 2, cacheReads: 45_000, cacheWrites: 100);
 
-        limiter.RecordUsage(freshInputTokens: 2, cachedInputTokens: 45_000);
-
-        limiter.ObservedCachedFraction.Should().BeApproximately(0.99996, 0.001);
+        LlmQuotaLease.CountedInput(usage, Anthropic).Should().BeApproximately(2 + 100 + 4_500, 0.01,
+            "Anthropic counts uncached input and cache writes, and the tenth of the reads is headroom");
     }
 
     [Fact]
-    public void RecordUsage_AfterCachedWarmup_ReservationCollapses()
+    public void CountedInput_AzureWarmCache_CountsEveryPromptToken()
     {
-        var limiter = New();
-        // A master-loop steady state: tiny fresh, big cached, a few turns.
-        for (var i = 0; i < 5; i++) limiter.RecordUsage(2, 45_000);
+        var usage = new UsageDetails { InputTokenCount = 50_000, CachedInputTokenCount = 45_000, OutputTokenCount = 200 };
 
-        var reserve = LlmRateLimiter.EffectiveTokens(45_000, limiter.ObservedCachedFraction);
-        reserve.Should().BeLessThan(6_000,
-            "a 99%-cached call should reserve ~a tenth, not the full 45k that caused 55s waits");
+        LlmQuotaLease.CountedInput(usage, Azure).Should().Be(50_000,
+            "Azure's TPM counts the cached prompt tokens the usage reports inside the input count");
     }
 
     [Fact]
-    public void RecordUsage_UncachedBurst_BlendsBackTowardFresh()
+    public async Task Reservation_AfterAWarmAnthropicCall_CollapsesToTheCountedShare()
     {
-        var limiter = New();
-        limiter.RecordUsage(2, 45_000);                 // warm cache
-        for (var i = 0; i < 5; i++) limiter.RecordUsage(30_000, 0);  // a run of fresh calls
+        var limiter = new LlmRateLimiter(new LlmRateLimitOptions(60, 200_000, Anthropic));
+        var registry = Snapshotting(limiter);
+        var lease = await limiter.AcquireAsync(new LlmQuotaDemand(45_000, 0), CancellationToken.None);
+        lease.Settle(AnthropicUsage(uncached: 2, cacheReads: 45_000, cacheWrites: 0), null, TimeSpan.Zero);
+        var afterFirst = registry().FreeTokens;
 
-        limiter.ObservedCachedFraction.Should().BeLessThan(0.3,
-            "the EWMA blends back so a genuinely fresh workload is throttled again");
+        await limiter.AcquireAsync(new LlmQuotaDemand(45_000, 0), CancellationToken.None);
+
+        (afterFirst - registry().FreeTokens).Should().BeLessThan(6_000,
+            "a 99%-cached call reserves about a tenth, not the full 45k that once caused 55 s waits");
     }
 
     [Fact]
-    public void RecordUsage_EmptyUsage_IsIgnored()
+    public async Task Reservation_AfterAnUnderestimatedAzureCall_GrowsToTheCountedSize()
     {
-        var limiter = New();
-        limiter.RecordUsage(2, 45_000);
-        var before = limiter.ObservedCachedFraction;
+        var limiter = new LlmRateLimiter(new LlmRateLimitOptions(250, 250_000, Azure));
+        var registry = Snapshotting(limiter);
+        var lease = await limiter.AcquireAsync(new LlmQuotaDemand(18_000, 0), CancellationToken.None);
+        lease.Settle(new UsageDetails { InputTokenCount = 50_000, CachedInputTokenCount = 40_000 }, null, TimeSpan.Zero);
+        var afterFirst = registry().FreeTokens;
 
-        limiter.RecordUsage(0, 0);
+        await limiter.AcquireAsync(new LlmQuotaDemand(18_000, 0), CancellationToken.None);
 
-        limiter.ObservedCachedFraction.Should().Be(before, "a zero-token usage report must not move the ratio");
+        (afterFirst - registry().FreeTokens).Should().BeGreaterThan(45_000,
+            "chars/4 read 18k where Azure counted 50k; the next call reserves what Azure will count");
     }
+
+    [Fact]
+    public void InputCostRatio_IgnoresAnEmptySample()
+    {
+        var ratio = new InputCostRatio();
+        ratio.Observe(counted: 100, estimated: 1_000);
+
+        ratio.Observe(counted: 0, estimated: 1_000);
+
+        ratio.Value.Should().Be(0.1, "a call without usage must not move the ratio");
+    }
+
+    [Fact]
+    public void InputCostRatio_ASmallCallThatMissedByAFactor_BarelyMovesALargeCallsRatio()
+    {
+        var ratio = new InputCostRatio();
+        ratio.Observe(counted: 50_000, estimated: 40_000);
+
+        ratio.Observe(counted: 5_000, estimated: 500);
+
+        ratio.Value.Should().BeLessThan(1.4,
+            "counted and estimated tokens are averaged apart, so a tool-schema-heavy first turn of 500 estimated "
+            + "tokens cannot make the next 40k call reserve ten times its size");
+    }
+
+    internal static UsageDetails AnthropicUsage(long uncached, long cacheReads, long cacheWrites) => new()
+    {
+        InputTokenCount = uncached,
+        AdditionalCounts = new AdditionalPropertiesDictionary<long>
+        {
+            ["CacheReadInputTokens"] = cacheReads,
+            ["CacheCreationInputTokens"] = cacheWrites,
+        },
+    };
+
+    private static Func<LlmQuotaSnapshot> Snapshotting(LlmRateLimiter limiter) =>
+        () => limiter.Snapshot(new ModelQuotaScope("k", "p", "d"));
 }

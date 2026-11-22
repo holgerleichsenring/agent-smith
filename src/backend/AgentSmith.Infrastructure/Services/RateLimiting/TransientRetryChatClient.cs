@@ -27,6 +27,11 @@ namespace AgentSmith.Infrastructure.Services.RateLimiting;
 /// they re-acquired no throttle capacity, and an hour-long Retry-After parked the run for
 /// three hours where no bound of ours could reach it. <see cref="RetryWait"/> decides how
 /// long each attempt waits and says why.
+///
+/// 2026-11-22-66e4a: a 429 is no longer retried here. RateLimitingChatClient, one layer down,
+/// owns it: it pauses the whole deployment and waits the refusal out without an attempt cap.
+/// What reaches this layer as a 429 is a refusal no wait cures (a spent credit), so
+/// <see cref="RetryConfig.MaxRetries"/> counts network faults, timeouts and 5xx only.
 /// </summary>
 internal sealed class TransientRetryChatClient(
     IChatClient inner, RetryConfig retry, string label, ILogger logger) : DelegatingChatClient(inner)
@@ -46,6 +51,7 @@ internal sealed class TransientRetryChatClient(
             catch (Exception ex) when (
                 attempt < retry.MaxRetries
                 && !cancellationToken.IsCancellationRequested
+                && !RetryWait.IsRateLimit(ex)
                 && IsTransientNetwork(ex))
             {
                 // p0493: what it waited and WHY. Since p0477 this said "network error" for a
@@ -61,9 +67,9 @@ internal sealed class TransientRetryChatClient(
 
     // A connection-level failure — a send error or a response body that ended
     // prematurely. HttpIOException derives from IOException; HttpRequestException
-    // covers the send side. A response STATUS error surfaces as a different type
-    // and is left to the SDK's own 429/5xx retry. Walks the inner-exception chain
-    // because the SDK often wraps the socket fault.
+    // covers the send side; a status refusal is read by its status below. Walks the
+    // inner-exception chain because the SDK often wraps the socket fault. A 429 passes
+    // this predicate but is excluded where it is used: the throttle owns it (66e4a).
     internal static bool IsTransientNetwork(Exception ex)
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
@@ -99,8 +105,8 @@ internal sealed class TransientRetryChatClient(
         return false;
     }
 
-    /// <summary>A status worth waiting for: too-many-requests, request-timeout, or anything
-    /// the server admits is its own.</summary>
+    /// <summary>A status worth waiting for: too-many-requests (waited out by the throttle since
+    /// 2026-11-22-66e4a), request-timeout, or anything the server admits is its own.</summary>
     internal static bool IsRetryableStatus(int status) =>
         status is 408 or 429 || status >= 500;
 

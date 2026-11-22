@@ -25,8 +25,8 @@ public sealed class RateLimitInputEstimateTests
                 new List<AIContent> { new FunctionResultContent("call-1", new string('x', 4000)) }),
         };
 
-        var textEstimate = RateLimitingChatClient.EstimateInputTokens(textOnly);
-        var toolEstimate = RateLimitingChatClient.EstimateInputTokens(withToolResult);
+        var textEstimate = MessageTokenEstimate.Of(textOnly);
+        var toolEstimate = MessageTokenEstimate.Of(withToolResult);
 
         // 4000 chars / 4 chars-per-token ≈ 1000 tokens the old estimator ignored.
         toolEstimate.Should().BeGreaterThan(textEstimate + 900,
@@ -40,7 +40,7 @@ public sealed class RateLimitInputEstimateTests
             new Dictionary<string, object?> { ["command"] = new string('y', 2000) });
         var messages = new[] { new ChatMessage(ChatRole.Assistant, new List<AIContent> { call }) };
 
-        RateLimitingChatClient.EstimateInputTokens(messages)
+        MessageTokenEstimate.Of(messages)
             .Should().BeGreaterThan(400, "the 2000-char command argument must be counted");
     }
 
@@ -55,10 +55,21 @@ public sealed class RateLimitInputEstimateTests
 
         var acquire = async () =>
         {
-            using var lease = await limiter.AcquireAsync(5000, CancellationToken.None);
+            await limiter.AcquireAsync(new LlmQuotaDemand(5000, 0), CancellationToken.None);
         };
 
         await acquire.Should().NotThrowAsync(
             "an over-budget single call must wait for the bucket, never crash the run");
+    }
+
+    // 2026-11-22-66e4a: a sub-agent's first turn is mostly its tool schemas, which are sent with every call.
+    [Fact]
+    public void EstimateInputTokens_IncludesTheToolDefinitions()
+    {
+        var messages = new[] { new ChatMessage(ChatRole.User, "hi") };
+        var tool = AIFunctionFactory.Create((string path) => path, "read_file", new string('d', 4000));
+
+        MessageTokenEstimate.Of(messages, new ChatOptions { Tools = [tool] })
+            .Should().BeGreaterThan(MessageTokenEstimate.Of(messages) + 900, "the 4000-char tool description is sent too");
     }
 }

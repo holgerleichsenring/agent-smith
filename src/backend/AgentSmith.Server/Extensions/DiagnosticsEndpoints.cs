@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Services;
+using AgentSmith.Server.Models;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Diagnostics;
 
@@ -26,6 +28,11 @@ internal static class DiagnosticsEndpoints
                 var status = await diagnostics.ProbeAsync(name, ct);
                 return status is null ? Results.NotFound() : Results.Ok(status);
             }).Needs(Permissions.DiagnosticsProbe);
+
+        // 2026-11-22-66e4a: what each model deployment has left in this process — read from memory, no provider call.
+        app.MapGet("/api/diagnostics/model-quota",
+            (ILlmQuotaReader quota) => Results.Ok(new ModelQuotaView(Environment.MachineName, quota.Read())))
+           .Needs(Permissions.DiagnosticsRead);
 
         return app;
     }

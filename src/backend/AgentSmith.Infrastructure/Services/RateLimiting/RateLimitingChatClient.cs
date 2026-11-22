@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -5,119 +7,104 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.RateLimiting;
 
 /// <summary>
-/// p0188: <see cref="IChatClient"/> decorator that blocks the call until the
-/// shared <see cref="ILlmRateLimiter"/> has capacity for one request and the
-/// estimated input-token budget. Input tokens are estimated from the message
-/// characters at chars/4 (rough Latin-script approximation; conservative
-/// enough for both Anthropic and OpenAI tokenisation).
+/// p0188: holds a call until its deployment's shared <see cref="ILlmRateLimiter"/> has room for one request and the
+/// call's reservation. p0363: the wait is reported to <see cref="ThrottleWaitReporter"/> for the call's time split.
+/// <para>
+/// 2026-11-22-66e4a: the one owner of a deployment's quota. The lease settles to what the provider counted and to its
+/// remaining-quota headers. A throughput 429 pauses every caller for the interval <see cref="RetryWait"/> reads, and
+/// the refused call is resent on its lease for as long as the server refuses — no attempt cap (the operator's
+/// decision); cancellation and the run watchdog end it. Network faults stay one layer up.
+/// </para>
 /// </summary>
-internal sealed class RateLimitingChatClient : DelegatingChatClient
+internal sealed class RateLimitingChatClient(
+    IChatClient inner,
+    ILlmRateLimiter limiter,
+    string label,
+    RetryConfig retry,
+    ThrottleWaitReporter waitReporter,
+    ILogger<RateLimitingChatClient> logger,
+    ProviderQuotaHeaders? quotaHeaders = null,
+    ModelQuotaWaitLine? waitLine = null) : DelegatingChatClient(inner)
 {
-    private const int CharsPerToken = 4;
+    private const string BudgetReason = "its per-minute budget is spent (agent.rate_limit)";
+    private const string PauseReason = "the provider refused a call and paused the deployment";
 
-    private readonly ILlmRateLimiter _limiter;
-    private readonly string _label;
-    private readonly ILogger<RateLimitingChatClient> _logger;
-    private readonly ThrottleWaitReporter _waitReporter;
-
-    public RateLimitingChatClient(
-        IChatClient inner,
-        ILlmRateLimiter limiter,
-        string label,
-        ThrottleWaitReporter waitReporter,
-        ILogger<RateLimitingChatClient> logger) : base(inner)
-    {
-        _limiter = limiter;
-        _label = label;
-        _waitReporter = waitReporter;
-        _logger = logger;
-    }
+    private readonly ThroughputRefusalWait _refusal = new(retry, label, waitReporter, waitLine, logger);
 
     public override async Task<ChatResponse> GetResponseAsync(
-        IEnumerable<ChatMessage> messages,
-        ChatOptions? options = null,
-        CancellationToken cancellationToken = default)
+        IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
     {
         var materialised = messages as IReadOnlyCollection<ChatMessage> ?? messages.ToList();
-        var estimated = EstimateInputTokens(materialised);
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        using var lease = await _limiter.AcquireAsync(estimated, cancellationToken);
-        // p0363: the wait is real spend of the operator's wall-time — report it
-        // upward for the per-call time split instead of only logging it.
-        _waitReporter.Report(sw.ElapsedMilliseconds);
-        if (sw.ElapsedMilliseconds > 500)
+        var lease = await AdmitAsync(materialised, options, cancellationToken);
+        try
         {
-            _logger.LogInformation(
-                "Rate-limited {Label}: waited {WaitMs}ms before sending (~{Tokens} tokens estimated)",
-                _label, sw.ElapsedMilliseconds, estimated);
+            return await SendUntilAcceptedAsync(materialised, options, lease, cancellationToken);
         }
-        var response = await base.GetResponseAsync(materialised, options, cancellationToken);
-        RecordActualUsage(response.Usage);
-        return response;
+        finally
+        {
+            lease.Release();
+        }
     }
 
-    // p0374: feed the ACTUAL fresh/cached input split back to the shared limiter so
-    // it learns this model's cache profile and stops throttling near-fully-cached
-    // calls on their full re-sent size. ReadCacheCounts handles the two providers'
-    // differing usage shapes; fresh = provider input minus any INCLUDED cached subset.
-    private void RecordActualUsage(Microsoft.Extensions.AI.UsageDetails? usage)
+    private async Task<ChatResponse> SendUntilAcceptedAsync(
+        IReadOnlyCollection<ChatMessage> messages, ChatOptions? options, ILlmQuotaLease lease, CancellationToken cancellationToken)
     {
-        if (usage is null) return;
-        var cache = Events.LlmCallCostCalculator.ReadCacheCounts(usage);
-        var fresh = Math.Max(0, (usage.InputTokenCount ?? 0) - cache.InclusiveRead);
-        var cached = cache.ExclusiveRead + cache.InclusiveRead;
-        _limiter.RecordUsage(fresh, cached);
+        using var headers = quotaHeaders?.Begin();
+        for (var refusals = 0; ; refusals++)
+        {
+            headers?.Clear();
+            var sent = Stopwatch.GetTimestamp();
+            try
+            {
+                var response = await base.GetResponseAsync(messages, options, cancellationToken);
+                lease.Settle(response.Usage, headers?.Reading, Stopwatch.GetElapsedTime(sent));
+                return response;
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested && _refusal.Applies(ex))
+            {
+                await _refusal.OutwaitAsync(lease, ex, refusals, cancellationToken);
+            }
+        }
     }
 
+    // No caller streams today: a streamed call is admitted and reserved, but not settled or resent on a refusal.
     public override async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
-        IEnumerable<ChatMessage> messages,
-        ChatOptions? options = null,
+        IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var materialised = messages as IReadOnlyCollection<ChatMessage> ?? messages.ToList();
-        var estimated = EstimateInputTokens(materialised);
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        using var lease = await _limiter.AcquireAsync(estimated, cancellationToken);
-        _waitReporter.Report(sw.ElapsedMilliseconds);
+        await AdmitAsync(materialised, options, cancellationToken);
         await foreach (var update in base.GetStreamingResponseAsync(materialised, options, cancellationToken))
-        {
             yield return update;
-        }
     }
 
-    // Internal for direct unit testing of the estimate.
-    internal static int EstimateInputTokens(IEnumerable<ChatMessage> messages)
+    private async Task<ILlmQuotaLease> AdmitAsync(
+        IReadOnlyCollection<ChatMessage> messages, ChatOptions? options, CancellationToken cancellationToken)
     {
-        var chars = 0;
-        foreach (var m in messages)
+        var estimated = MessageTokenEstimate.Of(messages, options);
+        var announced = false;
+        var demand = new LlmQuotaDemand(estimated, options?.MaxOutputTokens ?? 0, (wait, paused, token) =>
         {
-            if (m.Contents is null) continue;
-            foreach (var c in m.Contents)
-                chars += EstimateContentChars(c);
+            announced = waitLine is not null;
+            return waitLine?.WaitingAsync(label, wait, paused ? PauseReason : BudgetReason, token) ?? Task.CompletedTask;
+        });
+        var waited = Stopwatch.StartNew();
+        try
+        {
+            return await limiter.AcquireAsync(demand, cancellationToken);
         }
-        return Math.Max(1, chars / CharsPerToken);
+        finally
+        {
+            waitReporter.Report(waited.ElapsedMilliseconds);
+            if (announced) await waitLine!.OverAsync(label, CancellationToken.None);
+            LogWait(waited.ElapsedMilliseconds, estimated);
+        }
     }
 
-    // An agentic loop re-sends the WHOLE conversation each turn, and the bulk of
-    // it is tool traffic — the model's function calls and, above all, the tool
-    // RESULTS (grep output, file reads). Counting only TextContent undercounted
-    // the input ~7x on a large coding run (25k estimated vs ~190k actual), so the
-    // limiter throttled on a fiction while the real per-minute load blew past the
-    // provider quota. Count every content kind by its rendered length.
-    private static int EstimateContentChars(AIContent content) => content switch
+    private void LogWait(long waitedMs, int estimated)
     {
-        TextContent t => t.Text?.Length ?? 0,
-        FunctionCallContent call => (call.Name?.Length ?? 0) + ArgumentsLength(call.Arguments),
-        FunctionResultContent result => result.Result?.ToString()?.Length ?? 0,
-        _ => 0,
-    };
-
-    private static int ArgumentsLength(IDictionary<string, object?>? arguments)
-    {
-        if (arguments is null) return 0;
-        var chars = 0;
-        foreach (var (key, value) in arguments)
-            chars += key.Length + (value?.ToString()?.Length ?? 0);
-        return chars;
+        if (waitedMs > 500) // not a limit: below half a second a wait is not worth a log line
+            logger.LogInformation("Rate-limited {Label}: waited {WaitMs}ms before sending (~{Tokens} tokens estimated)",
+                label, waitedMs, estimated);
     }
 }

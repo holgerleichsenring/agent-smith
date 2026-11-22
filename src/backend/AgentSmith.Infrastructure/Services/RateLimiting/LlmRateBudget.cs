@@ -23,8 +23,23 @@ public static class LlmRateBudget
         var defaults = DefaultFor(providerType, anthropicKey);
         return new LlmRateLimitOptions(
             RequestsPerMinute: operatorOverride?.RequestsPerMinute ?? defaults.RequestsPerMinute,
-            InputTokensPerMinute: operatorOverride?.InputTokensPerMinute ?? defaults.InputTokensPerMinute);
+            InputTokensPerMinute: operatorOverride?.InputTokensPerMinute ?? defaults.InputTokensPerMinute,
+            Rule: RuleFor(providerType));
     }
+
+    /// <summary>
+    /// 2026-11-22-66e4a: how the provider counts a call. Azure and OpenAI count cached prompt tokens toward TPM and
+    /// add the request's max_tokens to their admission estimate; Anthropic's ITPM counts uncached input and cache
+    /// writes, not cache reads — the tenth p0374 reserved for them stays as headroom. Every other provider counts
+    /// every input token.
+    /// </summary>
+    public static ProviderQuotaRule RuleFor(string providerType) =>
+        providerType.ToLowerInvariant() switch
+        {
+            "claude" or "anthropic" => new ProviderQuotaRule(CachedReadWeight: 0.1, CountsMaxOutput: false),
+            "openai" or "azure_openai" or "azure-openai" => new ProviderQuotaRule(CachedReadWeight: 1.0, CountsMaxOutput: true),
+            _ => ProviderQuotaRule.EveryToken,
+        };
 
     // p0188: a subscription / OAuth token gets a tight budget; the API-key tier defaults to
     // the published Tier 1 numbers. Local / community providers are effectively unlimited.
