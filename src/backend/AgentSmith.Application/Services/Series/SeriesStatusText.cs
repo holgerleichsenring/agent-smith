@@ -25,7 +25,7 @@ public static class SeriesStatusText
 
     private static int Order(string kind) => kind switch
     {
-        SeriesTicketState.Running => 0, SeriesTicketState.Green => 1, SeriesTicketState.Landed => 2,
+        SeriesTicketState.Running or SeriesTicketState.ModelWait => 0, SeriesTicketState.Green => 1, SeriesTicketState.Landed => 2,
         SeriesTicketState.Red => 3, SeriesTicketState.Waiting => 4, SeriesTicketState.Held => 5, _ => 6,
     };
 

@@ -23,6 +23,9 @@ public sealed record SeriesTicketFact(SeriesTicket Ticket)
 
     public bool LatestFinished { get; init; }
 
+    /// <summary>2026-11-22-d434b: the newest attempt is live and waits for its model place (2026-11-20-24bd) — not stuck.</summary>
+    public bool WaitingForModel { get; init; }
+
     public bool OpenedPullRequest { get; init; }
 
     /// <summary>Why the newest attempt ended, when it ended other than green.</summary>

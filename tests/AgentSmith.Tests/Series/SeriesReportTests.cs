@@ -69,6 +69,18 @@ public sealed class SeriesReportTests
     }
 
     [Fact]
+    public void Stalled_TheOnlyLiveTicketWaitsForItsModelPlace_AsksNothing()
+    {
+        // 2026-11-22-d434b: measured — every beat said "nothing moved" while #43 waited on the model gate.
+        SeriesTicketFact[] facts = [Facts()[0] with { WaitingForModel = true }, .. Facts()[1..]];
+        var beat = new SeriesBeat(SeriesRecords.Running(), facts, SeriesRecords.T.AddMinutes(15));
+        beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = beat.Table };
+
+        SeriesJudgement.Stalled(beat, 15).Should().BeEmpty("a run waiting for its model place is not stuck");
+        SeriesTicketState.Of(facts[0], facts).Should().Be(("waiting for its model place", SeriesTicketState.ModelWait));
+    }
+
+    [Fact]
     public void Policy_Line_NamesMergeStartAndQuestionDefault() =>
         SeriesPolicy.Line(Project, Dialogue).Should().Be(
             "merge on green gate · start on green push · questions default to the recommendation after 2 h 00 min");
