@@ -1,3 +1,4 @@
+import type { T } from "@/lib/i18n/translate";
 import type { AttemptCause, TicketAttempt, TicketAttemptMark, TicketDerivation, TicketPullRequest, TicketSummary } from "@/types/tickets";
 
 // 2026-10-13-9a59p: the words a ticket row is written in, from recorded fields only.
@@ -63,12 +64,38 @@ export function channelWords(channel: string): string {
   return CHANNEL_WORDS[channel] ?? channel;
 }
 
-/** Why the newest attempt began: the channel, the status it moved into, and who acted. */
-export function causeWords(cause: AttemptCause): string {
-  const channel = channelWords(cause.channel);
-  const detail = cause.source?.detail ? ` to ${cause.source.detail}` : "";
-  const actor = cause.actor ? ` by ${cause.actor}` : "";
-  return `${channel}${detail}${actor}`;
+/** 2026-11-22-50d7a: the channels with a start phrase of their own in the dictionary. */
+const START_CHANNELS = [
+  "ticket_comment", "pull_request", "status_move", "requested", "retrigger", "pickup", "operator", "retry", "overrule",
+  "series", "precondition", "ci",
+] as const;
+type StartChannel = (typeof START_CHANNELS)[number];
+
+/** 2026-11-22-50d7a: the channels a person always acts on — one without a recorded actor reads "by someone". */
+const PERSON_CHANNELS: ReadonlySet<string> = new Set(["ticket_comment", "pull_request", "status_move", "operator", "retry", "overrule"]);
+
+function isStartChannel(channel: string): channel is StartChannel {
+  return (START_CHANNELS as readonly string[]).includes(channel);
+}
+
+function startPhrase(t: T, cause: AttemptCause): string {
+  const status = cause.source?.detail;
+  if (cause.channel === "pickup" && status) return t("tickets.start.pickupInto", { status });
+  const start = isStartChannel(cause.channel)
+    ? t(`tickets.start.${cause.channel}`)
+    : t("tickets.start.other", { channel: cause.channel });
+  return status ? t("tickets.start.into", { start, status }) : start;
+}
+
+/**
+ * How an attempt began, as a person reads it: "restarted by Ada", "started by the series". A person channel with no
+ * recorded actor names "someone", never an id; the series' own actor is the series itself.
+ */
+export function causeWords(t: T, cause: AttemptCause): string {
+  const start = startPhrase(t, cause);
+  if (cause.channel === "series") return start;
+  const actor = cause.actor || (PERSON_CHANNELS.has(cause.channel) ? t("tickets.start.someone") : null);
+  return actor ? t("tickets.start.by", { start, actor }) : start;
 }
 
 export function failedAttempts(marks: TicketAttemptMark[]): number {

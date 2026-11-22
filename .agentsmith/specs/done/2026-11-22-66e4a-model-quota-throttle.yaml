@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-66e4a
+goal: "One throttle per model deployment counts what the provider counts, follows its quota headers, pauses every caller on a 429 until the server's time, and shows waits and free quota."
+
+applies_to: "default (Infrastructure RateLimiting + OpenAI/Azure builder, Server diagnostics endpoint) + dashboard (connection check)"
+
+requires: [p0188, p0374, p0493, 2026-10-16-9641, 2026-11-20-24bd]
+
+invariant: >-
+  Every model call through ChatClientFactory to one deployment (provider type + endpoint + deployment) draws from ONE
+  bucket; after a call the bucket holds what the provider counted, not what chars/4 guessed; a 429 stops every caller
+  of that deployment until the server's Retry-After, and the refused call is retried for as long as the server refuses,
+  ended only by cancellation; a network fault keeps agent.retry.max_retries.
+
+facts:
+  - claim: "The token bucket refills per second at limit/60, so an over-budget call waits only for the missing share."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateLimiter.cs:58"
+  - claim: "Cached tokens are reserved at 10% for every provider."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateLimiter.cs:23"
+  - claim: "Azure/OpenAI count cached prompt tokens and the request's max_tokens toward the TPM admission estimate; Anthropic counts uncached input and cache writes toward ITPM, not cache reads."
+    evidence: "observed: 2026-11-22, provider quota documentation (Azure OpenAI quota, OpenAI rate limits, Anthropic rate limits); measured 250k-440k fresh+cached tokens per minute met a 250k TPM refusal"
+  - claim: "The reservation is chars/4 of the messages and is never reconciled; actual usage only feeds a cache-share EWMA."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RateLimitingChatClient.cs:42-55"
+  - claim: "A 429 waits the server's Retry-After and counts against MaxRetries; only the refused call waits."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/TransientRetryChatClient.cs:47-57"
+  - claim: "Limiters are keyed provider::model, so two roles naming different models on one Azure deployment get two budgets."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateLimiterRegistry.cs:25-36"
+  - claim: "The Azure/OpenAI client options are built in one place where a pipeline policy can be added beside the retry policy and the test transport."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:55-57"
+  - claim: "The agentic loop sends MaxOutputTokens on every call; a role's MaxTokens defaults to 8192."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:55"
+  - claim: "Anthropic's fresh count leaves cache creation out, although Anthropic counts it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RateLimitingChatClient.cs:67"
+  - claim: "RetryWait reads Retry-After only from ClientResultException; the Anthropic RateLimitsExceeded carries RateLimits.RetryAfter and is not read."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RetryWait.cs:68-79"
+  - claim: "LlmCallStarted is published above the rate limiter, so a quota wait happens after its call's start event."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:59-63"
+  - claim: "The run's waiting line for a model place is a step detail with origin model-slot, also a design-turn waiting step."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/ModelRunWaitLine.cs:20"
+  - claim: "The limiter's wait reaches the call's time split through ThrottleWaitReporter."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RateLimitingChatClient.cs:47"
+  - claim: "In production one run fired 28 server-asked 429 waits in 4 minutes, sent 250k-440k input tokens per minute against 250k, and ThrottleWaitMs was 0 on every call."
+    evidence: "observed: 2026-11-22, server log and LlmCallFinished rows of one coding run on a 250k TPM Azure deployment"
+
+scope:
+  in: >-
+    The existing limiter, fixed, on a bucket of its own (level, per-second refill, debt allowed, pause, wait estimate),
+    replacing TokenBucketRateLimiter, keeping the p0350 clamp of one call at capacity: keyed by type|endpoint|deployment
+    on Azure and type|endpoint|model elsewhere; reservation = learned-ratio input estimate plus max output tokens where
+    the admission counts it; settle to the provider's count (Azure/OpenAI: prompt incl. cached plus max_tokens, kept;
+    Anthropic: uncached + cache writes + 0.1 x cache reads); cap at x-ratelimit-remaining-tokens/-requests (plus refill
+    over the call's duration) read by a pipeline policy into a box planted per call; a throughput 429 pauses the
+    deployment's bucket, the refused call waits and resends on its lease without an attempt cap, a 429 insufficient_quota
+    fails at once; the wait counts in ThrottleWaitMs; one waiting line per run while any of its calls waits, ended by a
+    line of its own; GET /api/diagnostics/model-quota naming its replica and a Model quota section on the connection
+    check; supersede and delete planned 2026-08-24-19d0.
+  out: >-
+    A shared budget across replicas: state is per process and the provider's remaining-headers are the cross-replica
+    signal (a52f orders model places, not tokens); quota headers on the Anthropic success path, Gemini, Copilot and
+    Ollama; the OAuth handler's own 429 retry on the subscription path; a 429 inside a streaming call (no caller streams); editing agent.rate_limit in the studio
+    (2026-11-22-66e4b); changing the network retry ladder.
+
+steps:
+  - id: key
+    action: "ModelQuotaKey.For(agent, assignment, type): type|endpoint|deployment on Azure, type|endpoint|model elsewhere; the registry keys by it and the snapshot names provider and deployment."
+  - id: count
+    action: "QuotaBucket replaces TokenBucketRateLimiter; a lease per call reserves the learned-ratio estimate plus max output where counted and settles to the provider's count; the per-provider rule lives in LlmRateBudget."
+  - id: headers
+    action: "ProviderQuotaHeaders plants a box per call (the ThrottleWaitReporter pattern) that a PipelinePolicy on the Azure/OpenAI options fills; the limiter caps both buckets at remaining plus refill over the call's duration."
+  - id: refusal
+    action: "RateLimitingChatClient owns a throughput 429: pause the bucket for RetryWait's interval (Anthropic's RetryAfter read too), wait, resend on the same lease, no cap, wait reported to ThrottleWaitReporter; insufficient_quota fails at once; TransientRetryChatClient no longer retries a 429."
+  - id: visible
+    action: "ModelRunWaitLine shows 'Waiting N s for model quota on <deployment>' (origin model-quota) once per run when its first call must wait a second or more, and 'Model quota free again' (origin model-quota-over) when its last waiting call goes on; the Now block shows the first until the second."
+  - id: readout
+    action: "ILlmQuotaReader over the registry, GET /api/diagnostics/model-quota (diagnostics.read), dashboard ModelQuotaPanel via the i18n dictionary."
+
+tests:
+  - "A 429 with Retry-After on one caller makes a concurrent second caller on the same deployment wait too."
+  - "Settling debits the actual input incl. cached tokens on Azure; Anthropic keeps the cached discount."
+  - "A 429 is retried beyond agent.retry.max_retries and its wait counts in ThrottleWaitMs; a network fault still stops at it; a 429 insufficient_quota is not retried."
+  - "A single call larger than the bucket waits for a full bucket instead of throwing (p0350); a call refused twice owes its reservation once; a zero budget is refused naming agent.rate_limit."
+  - "The Anthropic RateLimitsExceeded waits the RetryAfter the SDK read."
+  - "Dashboard: the Now block keeps the quota line while a sibling call starts and finishes, and drops it at the over line."
+  - "Through the builder's test transport, x-ratelimit-remaining-tokens on a success caps the bucket."
+  - "Two roles with different model names on one Azure deployment share one limiter."
+  - "Dashboard: the Model quota section shows free tokens of the limit and the refill time."
+
+done:
+  - "every behaviour in tests is pinned by a test; build green, full suite and dashboard tests green"
+  - "2026-08-24-19d0 deleted, its supersession recorded in decisions/2026-11-22-66e4a.yaml"

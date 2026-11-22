@@ -274,6 +274,27 @@ describe("AgentForm runs at a time (2026-11-20-24bd)", () => {
   });
 });
 
+// 2026-11-22-66e4b: the provider tab carries the per-minute budget; one number may stay empty, both empty write none.
+describe("AgentForm per-minute budget (2026-11-22-66e4b)", () => {
+  it("ProviderTab_RateLimit_WritesEachNumber_AndClearingBothWritesNone", async () => {
+    render(<Harness />);
+    openTab("provider");
+    const tokens = screen.getByTestId("form-field-rateLimit-inputTokensPerMinute");
+    const requests = screen.getByTestId("form-field-rateLimit-requestsPerMinute");
+    expect(tokens).toHaveValue(null);
+    expect(tokens).toHaveAttribute("placeholder", "provider default");
+
+    fireEvent.change(tokens, { target: { value: "250000" } });
+    expect(latest.rateLimit).toEqual({ requestsPerMinute: null, inputTokensPerMinute: 250000 });
+    fireEvent.change(requests, { target: { value: "250" } });
+    expect(latest.rateLimit).toEqual({ requestsPerMinute: 250, inputTokensPerMinute: 250000 });
+
+    fireEvent.change(tokens, { target: { value: "" } });
+    fireEvent.change(requests, { target: { value: "" } });
+    expect(latest.rateLimit).toBeNull();
+  });
+});
+
 describe("AgentForm model id ranking (2026-10-12-6bfae)", () => {
   // An Anthropic agent was handed the Bedrock spelling: the list holds 17 "sonnet-5-5" ids and
   // the one its API accepts was ninth, past the eight the picker showed.

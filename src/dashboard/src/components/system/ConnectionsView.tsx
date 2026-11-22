@@ -15,6 +15,7 @@ import { PageHead } from "./PageHead";
 import { cn } from "@/lib/utils";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { ModelQuotaPanel } from "./ModelQuotaPanel";
 
 // p0292/p0293: the System → Connections view. The static ConfigView answers "how
 // is it wired"; this answers "does it actually work right now". Every runtime
@@ -127,6 +128,7 @@ export function ConnectionsView() {
               onTest={probe}
             />
           ))}
+          <ModelQuotaPanel />
           <WebhookPanel webhooks={data.webhooks} />
         </>
       )}

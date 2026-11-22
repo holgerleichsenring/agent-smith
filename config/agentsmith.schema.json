@@ -538,7 +538,7 @@
         },
         "retry": {
           "type": "object",
-          "description": "Transient-failure retry.",
+          "description": "Transient-failure retry: dropped connections, 408 and 5xx. A 429 is waited out without counting against max_retries.",
           "additionalProperties": false,
           "properties": {
             "max_retries": { "type": "integer", "description": "Default 5." },
@@ -615,7 +615,7 @@
         },
         "rate_limit": {
           "type": "object",
-          "description": "Per-model throttle. Unset: the built-in budget for the provider.",
+          "description": "Per-deployment throttle shared by every caller of the deployment; set the deployment's real quota (Azure: its TPM and RPM). Unset: the built-in budget for the provider.",
           "additionalProperties": false,
           "properties": {
             "requests_per_minute": { "type": "integer" },

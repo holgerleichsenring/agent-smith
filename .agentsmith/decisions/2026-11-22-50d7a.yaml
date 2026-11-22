@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-50d7a
+
+decisions:
+  - category: Implementation
+    chose: "A Retry records the asker's token display name (name, preferred_username, upn) as RequestedBy, and an empty string when the token has none; the attempt cause then has no actor and the dashboard says 'someone' for a person channel. The principal stays in the log line."
+    over: "Keep the sub (the opaque id the operator saw); DisplayName ?? principal as the close/text endpoints do; a new Name column beside RequestedBy"
+    reason: "The operator asked for the person's name and 'someone' rather than an id. RequestedBy is attribution only — nothing compares it to an identity (RetryAct, the starting refusal and the cause actor are its readers). A column would need a migration on three providers for no reader."
+  - category: Implementation
+    chose: "Retries from Slack/Teams turns (no display name passed) and from tokens with only a sub record no one; a retry by the series master is recorded as 'series master', as its messages are"
+    over: "Store the chat user id; leave the series master unnamed"
+    reason: "A chat user id is the same opaque-id problem; the series master is a known actor with an existing name (SeriesTicketMessage.Author)."
+  - category: Scope
+    chose: "Rows stored before this, and approval (operator) and overrule causes, keep the principal they recorded"
+    over: "A read-time sub→name lookup through ObservedCallers; changing the approval and default-verdict writers too"
+    reason: "ObservedCallers stores the installation's name claim, which defaults to sub, so it cannot name anyone on a default install; approval and verdict principals are written by other flows whose readers were not reviewed here. Named as an open question to the operator."
+  - category: Architecture
+    chose: "The list mark carries the attempt's cause (from the attempt record the page already reads) and the run's EndKind (added to the list query's light projection)"
+    over: "A per-mark title text composed on the server"
+    reason: "Recorded fields only, worded by the dashboard dictionary in the reader's language."
+  - category: Architecture
+    chose: "The ticket page reads a model-place wait with the run log's own reader (currentModelWait, exported from runNowLines: the gate's model-slot step line until the next model call) off the live attempt's events; ticketState carries it, the Your move box, the attempt status line and the run page head word it"
+    over: "Reading ModelRunWaits.WaitingSince through a new server field; naming the holder from ModelRunSlots"
+    reason: "The coordinator asked for no second source. The holder is not in the gate's line, so 'behind #N' would need a new server read; left out and named as a follow-up question."
+  - category: Implementation
+    chose: "The conversation entry body drops its 72ch cap; pre blocks and links wrap inside it"
+    over: "A wider cap (e.g. 110ch)"
+    reason: "The operator asked for the column width; the page keeps its 1600px cap."

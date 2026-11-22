@@ -17,7 +17,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// Each ask runs in its own scope, apart from the turn's unit of work; a ticket waiting for an unlanded one queues nothing.
 /// </summary>
 public sealed class ConversationAttemptStart(
-    IServiceScopeFactory scopes, ResolvedProject project, string ticketId, string conversation, string poster,
+    IServiceScopeFactory scopes, ResolvedProject project, string ticketId, string conversation, TurnPoster poster,
     ILogger<ConversationAttemptStart> logger) : IAttemptStart
 {
     public const string Requested =
@@ -27,7 +27,7 @@ public sealed class ConversationAttemptStart(
     public async Task<string> StartNextAsync(string reason, CancellationToken cancellationToken)
     {
         logger.LogInformation("Next attempt of {Project}/#{Ticket} asked by {Poster} in conversation {Conversation}: {Reason}",
-            project.Name, ticketId, poster, conversation, reason);
+            project.Name, ticketId, poster.Id, conversation, reason);
         await using var scope = scopes.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var key = TicketLandingRecorder.KeyOf(project, ticketId);
@@ -35,11 +35,11 @@ public sealed class ConversationAttemptStart(
         if (hold.Unmet.Count > 0) return RequiresUnmetGate.Sentence(hold.Unmet, hold.GreenLifts) + NothingQueued; // 2026-11-17-9a39a
         if (await services.GetRequiredService<PendingSeriesEditReader>().ReadAsync(project, ticketId, cancellationToken) is { } pending)
             return await services.GetRequiredService<PendingEditStart>()
-                .StartAsync(project, ticketId, pending, conversation, poster, cancellationToken);
+                .StartAsync(project, ticketId, pending, conversation, poster.Id, cancellationToken);
         var latest = await services.GetRequiredService<IPreviousAttemptReader>().LatestAsync(project.Name, ticketId, null, cancellationToken);
         if (latest is null) return $"Ticket {ticketId} has no attempt to continue; nothing was requested.";
         var result = await services.GetRequiredService<RunRetry>()
-            .RetryAsync(latest.RunId, poster, RetryOrigin.Conversation, cancellationToken);
+            .RetryAsync(latest.RunId, poster.Id, poster.Name, RetryOrigin.Conversation, cancellationToken);
         return Say(result);
     }
 

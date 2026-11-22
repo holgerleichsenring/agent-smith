@@ -16,6 +16,9 @@ import { RunNow } from "./RunNow";
 import { RunPageHead } from "./RunPageHead";
 import { RunSectionedLog } from "./RunSectionedLog";
 import { snapshotStatus } from "./runStatusLine";
+import { modelWaitHead } from "./modelWaitWords";
+import { currentModelWait } from "./runNowLines";
+import { useT } from "@/hooks/useT";
 import { useRunTicket } from "./useRunTicket";
 import { useStepAddress } from "./useStepAddress";
 
@@ -46,7 +49,9 @@ export function RunLogView({ runId, snapshot, events, steps, repoNames, connecti
   // 2026-11-22-7103a: the run's one status line — the head's state word and How it ended's first line.
   const specs = useRunSpecs(runId, events.length);
   const canRetry = !useLacksPermission(RUNS_CONTROL, ticket?.project ?? snapshot?.project ?? undefined);
-  const status = snapshot ? snapshotStatus(snapshot, specs, steps, ticket, canRetry) : null;
+  const t = useT();
+  const wait = modelWaitHead(t, currentModelWait(events)); // 2026-11-22-50d7a: the head says the run waits for the model
+  const status = snapshot ? snapshotStatus(snapshot, specs, steps, ticket, canRetry, wait) : null;
 
   return (
     <div className="rl-page" data-testid="run-log">

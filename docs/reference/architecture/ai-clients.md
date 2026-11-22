@@ -25,8 +25,8 @@ Which tasks get a tool loop is stated once, in `ChatClientFactory.ToolBearingTas
 | Layer | What it does |
 |---|---|
 | Provider client | The SDK's own `IChatClient`. The OpenAI and Azure SDKs have their retry policy set to zero attempts, so retries happen in one place. |
-| `RateLimitingChatClient` | Token buckets per (provider, model) on requests and estimated input tokens. |
-| `TransientRetryChatClient` | Retries dropped connections, 408 and 429 within `retry.max_retries`, honouring `Retry-After` up to 120 s. Every wait is logged with its reason. |
+| `RateLimitingChatClient` | One budget per model deployment on requests and tokens, shared by every caller. Settles each call to the provider's count and its remaining-quota headers; a 429 pauses the deployment for the server's `Retry-After` (up to 120 s per wait) and the call is resent until it passes. |
+| `TransientRetryChatClient` | Retries dropped connections, 408 and 5xx within `retry.max_retries`. Every wait is logged with its reason. |
 | `EventPublishingChatClient` | One `LlmCall` started/finished pair per provider call, priced from the agent's pricing table. |
 | `RecordingChatClient` | Only when tracing is on: writes each prompt and answer to the run's trace. |
 | `SensitiveToolHistoryScrubChatClient` | Replaces earlier results of credential tools, so the provider sees a secret once. |

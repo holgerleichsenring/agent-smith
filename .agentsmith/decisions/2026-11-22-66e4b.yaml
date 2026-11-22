@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-66e4b
+
+decisions:
+  - category: Scope
+    chose: "Build agent.rate_limit as a drawer field in the same series as 66e4a"
+    over: "Leave it planned"
+    reason: "decider: operator, 2026-11-22 — every setting gets a dashboard field in the same series, not later."
+  - category: Implementation
+    chose: "Each number nullable on its own (null = the provider default for that number); only a number below 1 is refused"
+    over: "Both numbers or neither (the first cut)"
+    reason: |
+      LlmRateBudget falls back per number, so a YAML that sets only input_tokens_per_minute runs today; refusing it as
+      half-set would have turned a working config into a blocking startup finding (spec review finding 1).
+  - category: Architecture
+    chose: "Per number, the lowest any configured agent on the deployment states, else the building agent's provider default (DeploymentRateBudget over ConfiguredAgents)"
+    over: "The newest built client's options win"
+    reason: |
+      One deployment is reached by several agents (catalog, project, pipeline override). Newest-wins made a silent
+      agent's 60k default and another's 250k take turns, each flip down capping what is free. The lowest stated number
+      is the rule max_concurrent_runs already follows (ConfiguredAgents.LimitFor), and the configuration is read as it
+      stands now, so a studio edit reaches the deployment when its next client is built.
+  - category: Implementation
+    chose: "The section is always written, appended to AgentEntity's constructor; null restores the default"
+    over: "Patch semantics that preserve the stored section when the entity leaves it null"
+    reason: |
+      With preserve semantics a cleared form could never remove an override. The trade-off — an old writer that omits
+      the field clears it — is the one max_concurrent_runs already accepted; the 'rate limits survive untouched'
+      comments in RawConfigPatch and ConfigCatalogMapper were updated.
+  - category: Implementation
+    chose: "A budget change resizes the deployment's buckets in place, keeping what is free (capped), owed and paused; queued demand is clamped to the current capacity"
+    over: "Replacing the limiter"
+    reason: |
+      A replaced limiter would forget the debt and the pause of a refusal; a waiter that reserved under a larger
+      budget would never fit a smaller bucket and would hold the queue head forever (spec review finding 2).
+  - category: Implementation
+    chose: "The startup finding covers every configured agent (catalog, project, pipeline)"
+    over: "Catalog agents only, as the max_concurrent_runs finding does"
+    reason: "A project or pipeline agent's budget below 1 would otherwise surface only when its limiter is built."
+  - category: Implementation
+    chose: "Code-review fixes: the building agent's own budget counts only when no configured agent is on the deployment; a call reserved before a shrink waits for at most the bucket but is taken whole; a changed budget wakes the queue's head; a key is built for an agent without a model"
+    over: "Always adding the building agent; clamping what is taken; re-checking only after the old wait"
+    reason: |
+      A run started before an edit carries its old AgentConfig, so adding it to the minimum pulled a raised budget back
+      on every client it built. Taking a clamped amount while the lease settles against its full reservation left the
+      bucket short of what the provider counted. A head that slept a wait computed under the old budget ignored the
+      edit for up to a minute. One remaining alternation is accepted: two agents on one Claude deployment that set no
+      rate_limit and carry different key tiers (OAuth vs API key) take turns with their provider defaults; the
+      operator's fix is to state rate_limit.

@@ -1,6 +1,8 @@
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
@@ -29,6 +31,24 @@ public sealed class TicketListReaderTests : IDisposable
         row.AttemptCount.Should().Be(2);
         row.Attempts.Select(a => a.RunId).Should().Equal(R1, R2);
         row.NewestRunId.Should().Be(R2);
+    }
+
+    [Fact]
+    public async Task TicketList_AttemptMarks_CarryTheirCauseAndEndKind()
+    {
+        // 2026-11-22-50d7a: a mark says who started its attempt and why the run ended, so its title can.
+        var refused = Run(R1, status: "failed");
+        refused.EndKind = RunEndKinds.Preflight;
+        await _store.AddAsync(refused, Step(R1), Run(R2), Step(R2),
+            new RunAttempt { RunId = R1, CauseChannel = AttemptChannels.Series, CauseActor = AttemptChannels.SeriesActor },
+            new RunAttempt { RunId = R2, CauseChannel = AttemptChannels.Retry, CauseActor = "Ada" });
+
+        var row = (await ListAsync()).Tickets.Single();
+
+        row.Attempts[0].Cause!.Channel.Should().Be(AttemptChannels.Series);
+        row.Attempts[0].EndKind.Should().Be(RunEndKinds.Preflight);
+        row.Attempts[1].Cause.Should().BeEquivalentTo(new AttemptCause(AttemptChannels.Retry, "Ada"));
+        row.Attempts[1].EndKind.Should().BeNull();
     }
 
     [Fact]

@@ -27,7 +27,7 @@ internal static class ConfigCatalogMapper
     // p0345c: the FULL raw agent surface. 2026-09-30-62bab: models surface in catalog form —
     // AgentCatalogProjection turns inline roles and the agent's own model into entries — and
     // each role the operator SET names its entry; an unset role inherits and is absent.
-    // Sections not surfaced here (parallelism, rate limit, loop tuning) survive upsert
+    // Sections not surfaced here (parallelism, loop tuning) survive upsert
     // untouched via the patch builders.
     private static AgentEntity ToAgent(string id, AgentConfig agent)
     {
@@ -63,7 +63,9 @@ internal static class ConfigCatalogMapper
                 agent.Retry.InitialDelayMs,
                 agent.Retry.BackoffMultiplier,
                 agent.Retry.MaxDelayMs),
-            agent.MaxConcurrentRuns); // 2026-11-20-24bd
+            agent.MaxConcurrentRuns, // 2026-11-20-24bd
+            agent.RateLimit is { } budget // 2026-11-22-66e4b
+                ? new AgentRateLimitSettings(budget.RequestsPerMinute, budget.InputTokensPerMinute) : null);
     }
 
     // p0345c: full tracker surface — identity + tracker-owned workflow + polling.

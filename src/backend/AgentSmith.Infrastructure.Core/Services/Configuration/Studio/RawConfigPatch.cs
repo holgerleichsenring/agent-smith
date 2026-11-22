@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// <summary>
 /// p0349: the studio-entity -&gt; raw-config patch builders, shared by every store
 /// (file + DB). A patch PRESERVES the sections the entity leaves null on the
-/// existing raw entry (parallelism, rate limits, the compaction token-ratio
+/// existing raw entry (parallelism, the compaction token-ratio
 /// trigger, deployment overrides), so an export still round-trips through the real
 /// loader whichever store applied the edit. Extracted from FileConfigStore so the
 /// DB store applies the identical semantics — not a second, drifting copy.
@@ -23,6 +23,7 @@ public static class RawConfigPatch
         agent.ApiVersion = entity.ApiVersion;
         if (entity.NetworkTimeoutSeconds is { } timeout) agent.NetworkTimeoutSeconds = timeout;
         agent.MaxConcurrentRuns = entity.MaxConcurrentRuns; // 2026-11-20-24bd: null lifts the limit
+        agent.RateLimit = RateLimit(entity.RateLimit); // 2026-11-22-66e4b: always written; null is the provider default
 
         RawAgentModelPatch.Apply(entity, agent);
         if (entity.Pricing is { } pricing)
@@ -161,4 +162,9 @@ public static class RawConfigPatch
         var normalized = value.Replace("_", string.Empty);
         return Enum.TryParse<TEnum>(normalized, ignoreCase: true, out var parsed) ? parsed : fallback;
     }
+
+    private static RateLimitConfig? RateLimit(AgentRateLimitSettings? budget) =>
+        budget is null || (budget.RequestsPerMinute is null && budget.InputTokensPerMinute is null)
+            ? null
+            : new RateLimitConfig { RequestsPerMinute = budget.RequestsPerMinute, InputTokensPerMinute = budget.InputTokensPerMinute };
 }
