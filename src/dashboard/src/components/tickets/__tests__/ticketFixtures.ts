@@ -1,3 +1,4 @@
+import { HubConnectionState } from "@microsoft/signalr";
 import type { JobsHubClient } from "@/lib/JobsHubClient";
 import type { TicketCounts, TicketListView, TicketPullRequest, TicketSummary } from "@/types/tickets";
 
@@ -88,6 +89,7 @@ export function fakeHub() {
     ticketActivityChanged: subject<{ project: string; ticketKey: string }>(),
     runsChanged: subject<string>(),
     connectionState: subject<number>(),
+    state: () => HubConnectionState.Disconnected, // 2026-11-23-1e76a: what the hub was at mount
     subscribeOverview: () => Promise.resolve(() => Promise.resolve()),
   };
   return { hub, client: hub as unknown as JobsHubClient };

@@ -6,7 +6,8 @@ import { list } from "@/components/tickets/__tests__/ticketFixtures";
 // 2026-10-13-9a59p: the ticket list is computed from up to 5000 runs per request, and RunsChanged
 // fires on every step and LLM call. These pin the store's reads: a ticket nudge within 2 s, a
 // RunsChanged burst within 2 s on a ticket route and 15 s elsewhere, one read for both when they
-// meet, and nothing at all on a configuration route. The nudges arrive through the real
+// meet, and nothing at all on a configuration route. 2026-11-23-1e76a: a ticket page counts as elsewhere, and only a
+// Connected after a drop reads at once. The nudges arrive through the real
 // JobsHubClient, by the hub message names the server sends.
 
 type Handler = (...args: unknown[]) => void;
@@ -111,7 +112,46 @@ describe("TicketListProvider", () => {
     const { client } = await mounted("/tickets");
     hoisted.fetch.mockClear();
 
+    await act(() => client.connectionState.emit(HubConnectionState.Reconnecting));
     await act(() => client.connectionState.emit(HubConnectionState.Connected));
+    await wait(0);
+    expect(hoisted.fetch).toHaveBeenCalledTimes(1);
+    await wait(20000);
+    expect(hoisted.fetch).toHaveBeenCalledTimes(1); // it replaced the first connect's held read
+  });
+
+  // 2026-11-23-1e76a: the page's own read is current, so the first connect only schedules one like a RunsChanged.
+  it("FirstConnected_DoesNotRereadAtOnce_ButWithinTheRouteWindow", async () => {
+    await mounted("/tickets/shop/101");
+    expect(hoisted.fetch).toHaveBeenCalledTimes(1);
+
+    await wait(14999);
+    expect(hoisted.fetch).toHaveBeenCalledTimes(1);
+    await wait(1);
+    expect(hoisted.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("OnATicketPage_RunsChanged_WaitsFifteenSeconds", async () => {
+    await mounted("/tickets/shop/101");
+    await wait(15000); // the first connect's read
+    hoisted.fetch.mockClear();
+
+    await send("RunsChanged", "r-1");
+    await wait(2000);
+    expect(hoisted.fetch).not.toHaveBeenCalled();
+    await wait(13000);
+    expect(hoisted.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("FromATicketPageToTheList_AHeldReadIsDueAtOnce", async () => {
+    const { client, view } = await mounted("/tickets/shop/101");
+    await wait(15000);
+    hoisted.fetch.mockClear();
+    await send("RunsChanged", "r-1");
+
+    hoisted.pathname = "/tickets";
+    view.rerender(<TicketListProvider client={client}>{null}</TicketListProvider>);
+    await wait(0);
     expect(hoisted.fetch).toHaveBeenCalledTimes(1);
   });
 });

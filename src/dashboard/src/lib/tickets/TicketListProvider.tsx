@@ -2,7 +2,6 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { HubConnectionState } from "@microsoft/signalr";
 import { getJobsHubClient, type JobsHubClient } from "@/lib/JobsHubClient";
 import { HUB_URL } from "@/hooks/useJobsHub";
 import { isSilentReturnFrame } from "@/lib/auth/silentReturnFrame";
@@ -11,12 +10,16 @@ import { fetchTickets } from "@/lib/ticketsApi";
 import { TICKETS_PATH } from "@/lib/TicketBucketFilter";
 import type { TicketListView } from "@/types/tickets";
 import { CoalescedRefetch } from "./CoalescedRefetch";
+import { connectedListener } from "./connectedAgain";
 
 // 2026-10-13-9a59p: the ONE read of the ticket list that the rail and the list share — the
 // unfiltered first page and the counts. The list is computed from up to 5000 runs per request with
 // no cache, and RunsChanged fires on every step and LLM call, so reads coalesce by route: a ticket
 // nudge within 2 s, RunsChanged within 2 s while a ticket route is shown and within 15 s elsewhere
 // (only the rail's counts read it there). Configuration routes show no ticket and fetch nothing.
+// 2026-11-23-1e76a: a ticket page is "elsewhere" — only the rail's counts and the top bar read the list there, and its
+// own store follows the ticket. A Connected reads the list at once only after a drop; the first one schedules it like a
+// RunsChanged, for a nudge sent before the overview group was joined.
 
 export const TICKET_NUDGE_MS = 2000;
 export const RUNS_NUDGE_ON_TICKETS_MS = 2000;
@@ -38,7 +41,7 @@ const Ctx = createContext<TicketListState>(EMPTY);
 export function TicketListProvider({ children, client }: { children: ReactNode; client?: JobsHubClient }) {
   const pathname = usePathname() ?? "/";
   const configMode = pathname.startsWith("/config");
-  const onTickets = pathname === TICKETS_PATH || pathname.startsWith(`${TICKETS_PATH}/`);
+  const onTickets = pathname === TICKETS_PATH;
   const hub = useMemo(() => client ?? getJobsHubClient(HUB_URL), [client]);
   const [state, setState] = useState<Omit<TicketListState, "reread">>(EMPTY);
   const onTicketsRef = useRef(onTickets);
@@ -66,11 +69,12 @@ export function TicketListProvider({ children, client }: { children: ReactNode; 
     const refetch = new CoalescedRefetch(fetchNow);
     refetchRef.current = refetch;
     const offTicket = hub.ticketActivityChanged.add(() => refetch.within(TICKET_NUDGE_MS));
-    const offRuns = hub.runsChanged.add(() =>
-      refetch.within(onTicketsRef.current ? RUNS_NUDGE_ON_TICKETS_MS : RUNS_NUDGE_ELSEWHERE_MS));
-    const offConn = hub.connectionState.add((s) => {
-      if (s === HubConnectionState.Connected) fetchNow();
-    });
+    const runsWindow = () => (onTicketsRef.current ? RUNS_NUDGE_ON_TICKETS_MS : RUNS_NUDGE_ELSEWHERE_MS);
+    const offRuns = hub.runsChanged.add(() => refetch.within(runsWindow()));
+    const offConn = hub.connectionState.add(connectedListener(hub.state(), {
+      first: () => refetch.within(runsWindow()),
+      again: () => refetch.within(0), // replaces a held read rather than adding one
+    }));
     let leave: (() => Promise<void>) | null = null;
     hub.subscribeOverview()
       .then((cancel) => (cancelled ? void cancel() : (leave = cancel)))
@@ -88,7 +92,7 @@ export function TicketListProvider({ children, client }: { children: ReactNode; 
     };
   }, [hub, configMode]);
 
-  // Arriving on a ticket route from elsewhere: a read held for the 15 s window is due now.
+  // Arriving on the ticket list from elsewhere (a ticket page included): a read held for the 15 s window is due now.
   const wasOnTickets = useRef(onTickets);
   useEffect(() => {
     if (onTickets && !wasOnTickets.current) refetchRef.current?.within(0);

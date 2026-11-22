@@ -126,4 +126,32 @@ public sealed class TicketReviewReadTests : IDisposable
         _h.Nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r => r.TicketId == "42" && r.Origin == ReworkNudgeOrigin.Refresh), default), Times.Once);
         _h.Nudges.VerifyNoOtherCalls();
     }
+
+    // 2026-11-23-1e76a: the page re-reads every two seconds during a live run; each read's nudge is an upsert.
+    [Fact]
+    public async Task TicketDetail_StaleRecordReadTwice_EnqueuesOneRefresh()
+    {
+        await _h.AddAsync(WithPr(Run("r-42", "42")), Step("r-42"), Record("42", PrReviewStates.Open, T, checkedAt: T.AddHours(3).AddMinutes(-10)));
+
+        await _h.Detail.ReadAsync("alpha", "42", default);
+        await _h.Detail.ReadAsync("alpha", "42", default);
+
+        _h.Nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r => r.TicketId == "42"), default), Times.Once);
+    }
+
+    [Fact]
+    public async Task TicketDetail_AnotherUnrecordedPullRequest_EnqueuesAgain()
+    {
+        await _h.AddAsync(WithPr(Run("r-42", "42")), Step("r-42"));
+        await _h.Detail.ReadAsync("alpha", "42", default);
+        await _h.Detail.ReadAsync("alpha", "42", default);
+
+        var second = Run("r-43", "42");
+        second.PullRequestsJson = RunStoryJson.Serialize(new List<RunPullRequestView>
+            { new("api", PullRequestStatuses.Opened, Url("99"), null, T) });
+        await _h.AddAsync(second, Step("r-43"));
+        await _h.Detail.ReadAsync("alpha", "42", default);
+
+        _h.Nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r => r.TicketId == "42"), default), Times.Exactly(2));
+    }
 }
