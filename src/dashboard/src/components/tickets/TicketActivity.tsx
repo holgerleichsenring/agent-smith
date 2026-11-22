@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import { TICKET_CLOSED_TRACKER, type TicketPullRequest, type TicketSummary } from "@/types/tickets";
 import { age, causeWords, failedAttempts, outcomeWords } from "./ticketFormat";
 
@@ -9,7 +11,8 @@ import { age, causeWords, failedAttempts, outcomeWords } from "./ticketFormat";
 const UNTRUSTED = "not a trusted reviewer";
 
 export function TicketActivity({ ticket }: { ticket: TicketSummary }) {
-  const parts = partsOf(ticket).filter((p): p is ReactNode => p !== null && p !== false);
+  const t = useT();
+  const parts = partsOf(t, ticket).filter((p): p is ReactNode => p !== null && p !== false);
   if (parts.length === 0) return null;
   return (
     <div className="act" data-testid="ticket-activity">
@@ -23,7 +26,7 @@ export function TicketActivity({ ticket }: { ticket: TicketSummary }) {
   );
 }
 
-function partsOf(t: TicketSummary): Array<ReactNode | null | false> {
+function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
   const attempt = `attempt ${t.attemptCount}`;
   const failed = failedAttempts(t.attempts);
   switch (t.bucket) {
@@ -31,10 +34,10 @@ function partsOf(t: TicketSummary): Array<ReactNode | null | false> {
       return [
         <span key="q" className="aq">{t.kind === "handback" ? `handed back in ${attempt}` : `question in ${attempt}`}</span>,
         specs(t),
-        cause(t),
+        cause(tr, t),
       ];
     case "working":
-      return [attempt, t.status === "running" ? null : queued(t), specs(t), cause(t)];
+      return [attempt, t.status === "running" ? null : queued(t), specs(t), cause(tr, t)];
     case "waiting_on_review":
     case "done":
       return pullRequests(t);
@@ -77,10 +80,12 @@ function specs(t: TicketSummary): ReactNode | null {
   return t.specsTotal > 0 ? <b>{`${t.specsDone} of ${t.specsTotal} specs done`}</b> : null;
 }
 
-function cause(t: TicketSummary): ReactNode | null {
+/** 2026-11-22-50d7a: "restarted by Ada 2h ago" — the person by name, "someone" where none is recorded. */
+function cause(tr: T, t: TicketSummary): ReactNode | null {
   if (!t.cause) return null;
   const when = age(t.cause.at);
-  return <>started by <b>{causeWords(t.cause)}</b>{when ? ` ${when} ago` : ""}</>;
+  const ago = when === "now" ? tr("tickets.start.justNow") : when ? tr("tickets.start.ago", { when }) : null;
+  return <><b>{causeWords(tr, t.cause)}</b>{ago ? ` ${ago}` : ""}</>;
 }
 
 function checked(t: TicketSummary): string | null {

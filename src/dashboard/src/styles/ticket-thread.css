@@ -77,7 +77,11 @@
 .mock-tickets .tk-fold-body .tk-line:last-child { border-bottom: 0; }
 .mock-tickets .tk-said { white-space: pre-wrap; max-width: 80ch; overflow-wrap: anywhere; line-height: 1.55; color: var(--ink-2); }
 .mock-tickets .tk-entry .where { display: block; font-size: 12px; line-height: 19px; color: var(--ink-3); }
-.mock-tickets .tk-entry .mb { font-size: 14px; max-width: 72ch; }
+/* 2026-11-22-50d7a: an entry's body takes the column's width — a long ticket comment at 72ch was a narrow, tall strip
+   beside 900px of nothing. Code blocks and long links wrap inside the body; a table keeps its own scrolling wrapper. */
+.mock-tickets .tk-entry .mb { font-size: 14px; min-width: 0; }
+.mock-tickets .tk-entry .mb pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.mock-tickets .tk-entry .mb a { overflow-wrap: anywhere; }
 .mock-tickets .tk-entry .mb .file { display: block; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 .mock-tickets .tk-entry .mb .cut { display: block; font-size: 12px; color: var(--ink-3); }
 .mock-tickets .tk-entry .mb h1, .mock-tickets .tk-entry .mb h2, .mock-tickets .tk-entry .mb h3 { font-size: inherit; line-height: 1.5; font-weight: 600; color: inherit; margin: 6px 0 2px; letter-spacing: normal; }

@@ -22,6 +22,7 @@ namespace AgentSmith.Tests.Rework.Retry;
 public sealed class AttemptStartTests : IDisposable
 {
     private const string Poster = "ops-2";
+    private const string PosterName = "Ada Ops"; // 2026-11-22-50d7a: a Retry names the person, never the principal
     private const string Key = "github-42";
 
     private readonly RetryHarness _h = new();
@@ -40,7 +41,7 @@ public sealed class AttemptStartTests : IDisposable
         _h.Launch.Verify(l => l.LaunchAsync("alpha", "42", "code", It.IsAny<CancellationToken>()), Times.Once);
         var cause = await _h.CauseOfNextAttemptAsync("r-2");
         cause.Channel.Should().Be(AttemptChannels.Retry);
-        cause.Actor.Should().Be(Poster);
+        cause.Actor.Should().Be(PosterName);
     }
 
     [Fact]
@@ -74,7 +75,7 @@ public sealed class AttemptStartTests : IDisposable
 
         (await SayGoOnAsync()).Should().Be(ConversationAttemptStart.Requested);
 
-        (await _h.RequestsAsync()).Should().ContainSingle().Which.RequestedBy.Should().Be(Poster);
+        (await _h.RequestsAsync()).Should().ContainSingle().Which.RequestedBy.Should().Be(PosterName);
         (await _h.Approvals.GetAsync("gh", Key, default))!.Continuation!.StartsAttempt.Should().BeFalse();
     }
 
@@ -120,7 +121,7 @@ public sealed class AttemptStartTests : IDisposable
     // The tool the master calls, over the port the bound turn is seeded with.
     private async Task<string> SayGoOnAsync()
     {
-        var port = await _h.StartPortAsync(new TurnPoster(Poster, MayStartRuns: true));
+        var port = await _h.StartPortAsync(new TurnPoster(Poster, MayStartRuns: true, PosterName));
         port.Should().NotBeNull();
         var tool = new StartNextAttemptToolHost(port!).GetTools(null, null).Single();
         var answer = await tool.InvokeAsync(new AIFunctionArguments { ["reason"] = "the registry is added, go on" });

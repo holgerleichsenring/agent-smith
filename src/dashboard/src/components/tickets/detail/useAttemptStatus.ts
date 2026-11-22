@@ -2,7 +2,10 @@
 
 import { attemptStatus, latestAttempt, type RunStatusLine, type StatusContext } from "@/components/jobs/runlog/runStatusLine";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
-import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
+import { modelWaitHead } from "@/components/jobs/runlog/modelWaitWords";
+import { currentModelWait } from "@/components/jobs/runlog/runNowLines";
+import { useT } from "@/hooks/useT";
+import { useLiveAttempt, useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt } from "@/types/tickets";
 import { RUNS_CONTROL } from "./RetryUnchanged";
 import { useYourMove } from "./useYourMove";
@@ -21,5 +24,9 @@ export function useStatusContext(): { ctx: StatusContext; queuePlace: number | n
 
 export function useAttemptStatus(attempt: TicketAttempt): RunStatusLine {
   const { ctx, queuePlace } = useStatusContext();
-  return attemptStatus(attempt, ctx, queuePlace);
+  // 2026-11-22-50d7a: the live attempt's model wait, read off its events as the run log reads it.
+  const t = useT();
+  const live = useLiveAttempt();
+  const wait = live.attempt?.runId === attempt.runId ? currentModelWait(live.events) : null;
+  return attemptStatus(attempt, ctx, queuePlace, modelWaitHead(t, wait));
 }

@@ -1,5 +1,6 @@
 import { EventType, type RunEvent, type StepStartedEvent } from "@/types/hub-events";
 import { RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketPullRequest, type TicketSeries, type TicketSummary } from "@/types/tickets";
+import { currentModelWait, type ModelWait } from "@/components/jobs/runlog/runNowLines";
 import { closedWords } from "../TicketActivity";
 import { liveSpec } from "./attemptStory";
 
@@ -31,6 +32,8 @@ export interface TicketStateView {
   quiet: boolean;
   /** 2026-10-16-7ed3a: every pull request of the ticket while the state is not quiet — a failed head keeps them. */
   pullRequests: TicketPullRequest[];
+  /** 2026-11-22-50d7a: the live attempt waits for its model place (the run log's own reading); absent otherwise. */
+  modelWait?: ModelWait | null;
 }
 
 export interface TicketStateInput {
@@ -189,7 +192,10 @@ function working(detail: TicketDetail, head: TicketAttempt, events: RunEvent[], 
   if (head.status === "waiting_for_input") {
     return { ...base(head), quiet: true, tone: "amber", pill: "Resuming", sentence: `Attempt ${head.number} is resuming${at}.` };
   }
-  return { ...base(head), quiet: true, tone: "amber", pill: "Working", sentence: progress(head, series), detail: liveLine(events) };
+  // 2026-11-22-50d7a: a run behind another run's model place is not working — the gate's line replaces "Now: <step>".
+  const modelWait = currentModelWait(events);
+  return { ...base(head), quiet: true, tone: "amber", pill: "Working", sentence: progress(head, series),
+    detail: modelWait?.line ?? liveLine(events), modelWait };
 }
 
 /** "Spec n of m, step k of s: <action>" from the attempt's own cut, else what it is doing before it has one. */

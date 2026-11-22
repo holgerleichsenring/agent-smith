@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-50d7a
+goal: "The ticket page uses the column width for a comment and says when a run waits for the model; a ticket row's marks and starter say who started each attempt and how it ended."
+
+applies_to: "dashboard (tickets list row, ticket page conversation); server (ticket attempt mark, Retry attribution)"
+
+requires: []
+
+facts:
+  - claim: "A conversation entry's body is capped at 72ch (about 650px at 14px) while the page column grows to 1600px."
+    evidence: "src/dashboard/src/styles/ticket-thread.css:80"
+  - claim: "An attempt mark's only description is its run id and kind word; the marks group and the strip group carry no label."
+    evidence: "src/dashboard/src/components/tickets/TicketAttemptMarks.tsx:53"
+  - claim: "The strip of the newest attempt (spec cut, specs, pull requests) has no label either."
+    evidence: "src/dashboard/src/components/tickets/TicketStrip.tsx:52"
+  - claim: "A list mark carries run id, status and two flags only; no cause, no end kind."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketAttemptMark.cs:6-7"
+  - claim: "The Retry button records the caller's principal — the opaque sub — as the request's author, which becomes the attempt's cause actor."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RetryEndpoints.cs:24"
+  - claim: "Other person acts on a ticket record the token's display name (name, preferred_username, upn)."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketCloseEndpoints.cs:27"
+  - claim: "A design turn knows its poster's display name but its TurnPoster carries only the principal."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:58"
+  - claim: "The run log reads a model-place wait off the run's events (the gate's model-slot step line until the next model call)."
+    evidence: "src/dashboard/src/components/jobs/runlog/runNowLines.ts:99"
+  - claim: "The ticket page's working state ignored that wait: 'Working. Nothing for you to do.' with 'Now: <step>'."
+    evidence: "src/dashboard/src/components/tickets/detail/yourMove.ts:125"
+  - claim: "Run 2026-11-22T19-37-04-bd3e waited 40 minutes behind another ticket's run while the ticket page said Working."
+    evidence: "observed: 2026-11-22, operator report"
+
+scope:
+  in: >
+    Conversation entry bodies lose the 72ch cap (code and long URLs still wrap). TicketAttemptMark gains the attempt's
+    cause and end kind. A Retry records the person's display name, from the button and from the conversation, and no
+    name when the token has none; the dashboard says "someone" for a person channel without an actor. Each attempt
+    mark gets a title and aria-label (attempt number, how it started and by whom, how it ended); the marks group and
+    the strip get a label. A run waiting for its model place (read off its events as the run log reads it) makes the
+    Your move box, its status line on the ticket page and the run page's head say "Waiting for the model since 19:37"
+    with the gate's line. All new texts through the 5485a dictionary, en and de.
+  out: >
+    Rows written before this keep the principal they stored. Approval (operator) and overrule causes keep their
+    principal. The detail page's attempt words (channelWords) and TicketTextDivergence. Naming the run or ticket that
+    holds the model place (the gate's line does not carry it) and the wait on the tickets list (it reads no events).
+
+steps:
+  - id: width
+    action: "Drop the .tk-entry .mb max-width; pre and code wrap inside it."
+  - id: server
+    action: "Mark gains Cause and EndKind; Retry takes the display name; TurnPoster carries it to the conversation retry."
+  - id: words
+    action: "Dictionary keys for start phrases, outcomes, end reasons and group labels; causeWords takes t."
+  - id: marks
+    action: "Titles and aria-labels on attempt marks, the strip and both groups."
+  - id: wait
+    action: "Export the run log's wait reader; ticketState, the status line and the run page head say the wait."
+  - id: look
+    action: "Render list row and conversation at 1600px and 390px, light and dark, and read the screenshots."
+
+tests:
+  - "An attempt mark's title reads 'Attempt 3 · restarted by Ada · delivered' and 'Attempt 1 · started by the series · failed: a precondition did not hold'."
+  - "A retry with no actor reads 'restarted by someone'; German reads 'neu gestartet von jemandem'."
+  - "The strip and the marks group carry an aria-label."
+  - "The conversation body rule has no max-width."
+  - "Retry from a token with a name claim records that name as the cause actor; a token with only sub records none."
+  - "The list mark carries the attempt's cause and end kind."
+  - "A run with a model-slot line and no later model call: the box says 'Waiting for the model', the status line 'Waiting for the model since HH:MM', German alike; after the call it is Working again."
+
+done:
+  - "Dashboard tests and build green; backend suite green; screenshots read at 1600px and 390px in both themes."

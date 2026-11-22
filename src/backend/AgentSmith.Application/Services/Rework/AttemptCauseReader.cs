@@ -80,7 +80,9 @@ public sealed class AttemptCauseReader(
         }
     }
 
-    private static AttemptCause Of(ReworkAct act) => new(Channel(act.Channel), act.Author, act.At, act.Source);
+    // 2026-11-22-50d7a: an act recorded without a name (a Retry from a token with no display name) has no actor.
+    private static AttemptCause Of(ReworkAct act) =>
+        new(Channel(act.Channel), string.IsNullOrEmpty(act.Author) ? null : act.Author, act.At, act.Source);
 
     private static string Channel(ReworkChannel channel) => channel switch
     {

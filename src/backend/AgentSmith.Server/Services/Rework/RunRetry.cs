@@ -20,6 +20,8 @@ namespace AgentSmith.Server.Services.Rework;
 /// entry like every other act; the stored request stays a pending act until an attempt starts after it.
 /// <para>2026-11-20-9936a: the request is a row of the run the gate names (<see cref="RetryCheck.RecordOn"/>) — the
 /// rework worker's latest, which is the asked run or a person's queued cancel that followed it.</para>
+/// <para>2026-11-22-50d7a: the request records who asked by the name a person reads them by — the token's display name —
+/// and nothing when the token carries none; the principal stays in the log. The attempt's cause names that person.</para>
 /// </summary>
 public sealed class RunRetry(
     RunRepository runs,
@@ -34,7 +36,9 @@ public sealed class RunRetry(
     TimeProvider clock,
     ILogger<RunRetry> logger)
 {
-    public async Task<RunRetryResult> RetryAsync(string runId, string principal, RetryOrigin origin, CancellationToken ct)
+    /// <param name="name">The asker's display name; null when their token carries none.</param>
+    public async Task<RunRetryResult> RetryAsync(
+        string runId, string principal, string? name, RetryOrigin origin, CancellationToken ct)
     {
         var run = await runs.GetRunDetailAsync(runId, ct);
         if (run is null) return RunRetryResult.UnknownRun;
@@ -62,7 +66,7 @@ public sealed class RunRetry(
             return RunRetryResult.Refused(new(RetryRefusals.ClosedForWork, RetryRefusals.ClosedForWorkText, project.Name, ticketId));
         if (await StartingAsync(project.Name, ticketId, recordOn, ct) is { } starting)
             return RunRetryResult.Refused(new(RetryRefusals.Starting, starting, project.Name, ticketId));
-        await requests.UpsertAsync(recordOn, principal, clock.GetUtcNow(), ct);
+        await requests.UpsertAsync(recordOn, name ?? string.Empty, clock.GetUtcNow(), ct);
         await nudges.EnqueueAsync(new ReworkNudgeRequest(
             project.Name, ticketId, ReworkNudgeOrigin.Operator, Channel: ReworkChannel.Retry), ct);
         logger.LogInformation("Retry of run {RunId} (recorded on {RecordOn}) of {Project}/#{Ticket} requested by {Principal} from the {Origin}",
@@ -76,7 +80,9 @@ public sealed class RunRetry(
         if (await leases.GetByTicketAsync(project, new TicketId(ticketId), ct) is null
             && !await attempts.HasQueuedAsync(project, ticketId, ct)) return null;
         return await requests.ForRunAsync(runId, ct) is { } first
-            ? $"an attempt is already starting — {first.RequestedBy} retried this run at {first.RequestedAt:u}"
+            ? $"an attempt is already starting — {AskerOf(first.RequestedBy)} retried this run at {first.RequestedAt:u}"
             : RetryRefusals.StartingText;
     }
+
+    private static string AskerOf(string requestedBy) => string.IsNullOrEmpty(requestedBy) ? "someone" : requestedBy;
 }
