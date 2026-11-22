@@ -25,11 +25,14 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
     public Task<IReadOnlyList<PrReviewRecordView>> ByRepoKeyAsync(string repoKey, CancellationToken ct) =>
         ReadAsync(Records().Where(r => r.RepoKey == repoKey), standingOnly: false, ct);
 
-    /// <summary>2026-10-14-dbceg: webhook projects' open and all named projects' unread records; oldest check first, no entries.</summary>
+    /// <summary>2026-10-14-dbceg: webhook projects' open and all named projects' unread records; oldest check first, no entries.
+    /// 2026-11-22-6d85a: and every named project's open record whose CI was last read pending — a build finishing changes no
+    /// pull request, so neither a webhook nor the PR sweep would read it again.</summary>
     public Task<IReadOnlyList<PrReviewRecordView>> OpenUncheckedAsync(IReadOnlyCollection<string> webhookProjects,
         IReadOnlyCollection<string> projects, long checkedBeforeTicks, int take, CancellationToken ct) =>
         OldestAsync(Records().Where(r => r.CheckedAtTicks < checkedBeforeTicks
-            && ((r.State == PrReviewStates.Open && webhookProjects.Contains(r.Project))
+            && ((r.State == PrReviewStates.Open
+                    && (webhookProjects.Contains(r.Project) || (r.CiState == CiStates.Pending && projects.Contains(r.Project))))
                 || (r.State == PrReviewStates.Unread && projects.Contains(r.Project)))), take, ct);
 
     /// <summary>2026-10-14-dbceg: merged records of an ended ticket the tracker never landed; oldest check first, no entries.</summary>

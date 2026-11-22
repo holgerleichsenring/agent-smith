@@ -58,7 +58,7 @@ public sealed class PrRecordReReadTests : IDisposable
 
     private static string Url(string project, string number) => $"https://github.com/o/{project}/pull/{number}";
 
-    private async Task SeedAsync(string project, string ticket, string number, string state, TimeSpan checkedAgo)
+    private async Task SeedAsync(string project, string ticket, string number, string state, TimeSpan checkedAgo, string? ci = null)
     {
         await using var db = _h.Store.Context();
         db.Add(new PrReviewRecord
@@ -66,6 +66,7 @@ public sealed class PrRecordReReadTests : IDisposable
             PrKey = PrKey.Of(Url(project, number)), Url = Url(project, number), Repo = "api", Number = number, Project = project,
             TicketId = ticket, RunId = "run-1", State = state, CheckedAtTicks = (Now - checkedAgo).UtcTicks,
             StateAtTicks = PrReviewStates.IsEnded(state) ? (Now - checkedAgo).UtcTicks : null,
+            CiState = ci, CiHeadSha = ci is null ? null : "abc", HeadSha = ci is null ? null : "abc",
         });
         await db.SaveChangesAsync();
     }
@@ -175,6 +176,20 @@ public sealed class PrRecordReReadTests : IDisposable
         await SeedAsync("poll", "1", "1", PrReviewStates.Open, Stale);
 
         (await CycleAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task PrRecordReRead_OpenRecordOfAPollingTrackerWithCiPending_IsReRead()
+    {
+        // 2026-11-22-6d85a: a build finishing changes no pull request; the PR sweep would never read the record again.
+        await SeedAsync("poll", "1", "1", PrReviewStates.Open, Stale, CiStates.Pending);
+        await SeedAsync("poll", "2", "2", PrReviewStates.Open, Stale, CiStates.Green);
+        await SeedAsync("poll", "3", "3", PrReviewStates.Open, TimeSpan.FromMinutes(10), CiStates.Pending);
+
+        (await CycleAsync()).Should().Be(1);
+
+        _nudged.Should().ContainSingle().Which.Should().Be(
+            new ReworkNudgeRequest("poll", "1", ReworkNudgeOrigin.Refresh, Url("poll", "1")));
     }
 
     [Fact]

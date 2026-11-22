@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-6d85a
+goal: "An open pull request whose CI was last read pending is read again by the periodic PR re-read, in polling mode too, so a finished build reaches its record."
+
+applies_to: "default (PR record re-read, PrReviewRecordRepository)"
+
+requires: [2026-11-17-3435b]
+
+invariant: "Every open pull-request record whose CI was read pending is named again by the periodic re-read once it is tickets.pr_reread_stale_seconds old, oldest first under tickets.pr_reread_open_cap; a host that answers the CI read updates it."
+
+facts:
+  - claim: "A record's CI is read only inside a refresh of that record; a build finishing changes no pull request, so no event or listing nudges one."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrRecordCiRead.cs:17-36, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:78"
+  - claim: "The periodic re-read names open records of webhook-mode projects only; polling mode's open records are left to the PR sweep."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:29-33, src/backend/AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs:72-73"
+  - claim: "The PR sweep nudges a record only when it was merged, closed, reopened or its head moved."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepRecordNudge.cs:24-36"
+  - claim: "The CI loop reads a pending head only for on_ci_green projects and only within merge.ci_pending_seconds; after that it relies on 'the five-minute re-read', which polling mode does not have."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:46-51, src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:49-53"
+  - claim: "The series row reads the record's CI: a pending one shows 'green · CI running'."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesTicketState.cs:28-34"
+  - claim: "A record was pending for 71 hours while its build had finished."
+    evidence: "observed: 2026-11-22, read-only audit of live data"
+
+scope:
+  in: "OpenUncheckedAsync also names an open record of any configured project whose CI state is pending, under the same staleness bound, cap and oldest-first order."
+  out: "A new sweep or interval setting; reading CI of merged or closed records; the CI loop's on_ci_green cadence."
+
+steps:
+  - id: select
+    action: "PrReviewRecordRepository.OpenUncheckedAsync: an open record counts for a webhook-mode project, or for any listed project while its CiState is pending."
+  - id: doc
+    action: "The re-read's and CiPendingSeconds' summaries say the pending re-read covers polling mode."
+
+tests:
+  - "OpenUncheckedAsync names a polling project's open record with CI pending and unchecked past the bound; not one with CI green, nor one checked recently."
+  - "ReReadOnceAsync nudges a Refresh for that ticket."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

@@ -48,7 +48,8 @@ public sealed class MergePolicyConfig
 
     /// <summary>
     /// 2026-11-17-3435b: after how long a head still pending is no longer read every ci_poll_seconds (a manual job or
-    /// a stuck queue would poll forever); the five-minute re-read still sees it move. An hour outlasts a slow suite.
+    /// a stuck queue would poll forever); the periodic PR re-read still sees it move (2026-11-22-6d85a: in polling mode too,
+    /// every tickets.pr_reread_stale_seconds). An hour outlasts a slow suite.
     /// </summary>
     public int CiPendingSeconds { get; set; } = 3600;
 

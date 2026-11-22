@@ -19,6 +19,8 @@ namespace AgentSmith.Server.Services.Sweep;
 /// write. A named record is re-read, so its check time advances and it goes to the back of the list.
 /// 2026-10-14-dbceh: then it recovers a lost wake of the tickets the day's landings freed.
 /// Collaborators resolve at run time, as <see cref="ChangeSweepHostedService"/>'s do.
+/// <para>2026-11-22-6d85a: open records whose CI was last read pending are named for every project, polling mode's too —
+/// the PR sweep sees no change when a build finishes. They share tickets.pr_reread_open_cap with the rest.</para>
 /// <para>2026-11-17-3435b: the CI loop rides on it — it ticks at the smallest merge.ci_poll_seconds of the on_ci_green
 /// projects (<see cref="CiWatchSelection"/>), nudges their CI-due records every tick and runs the rest at its interval.
 /// 2026-11-18-3863f: every tick also runs the deploy follow, and ticks at its cadence while a deploy is unsettled.</para>
