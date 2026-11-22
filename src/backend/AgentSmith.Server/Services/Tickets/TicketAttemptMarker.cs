@@ -15,10 +15,11 @@ public sealed class TicketAttemptMarker(InfrastructureEnd infrastructure)
     public const string HandedBackSpec = "handed_back";
 
     /// <param name="launches">2026-10-13-9a59n: the runs' last launches; null where they are not read.</param>
+    /// <param name="record">2026-11-22-50d7a: the attempt's record, whose cause the mark names; null where it is not read.</param>
     public TicketAttemptMark Mark(Run run, TicketLiveState live, ILookup<string, string> specStatuses,
-        IReadOnlyDictionary<string, RunLastLaunch>? launches = null) =>
+        IReadOnlyDictionary<string, RunLastLaunch>? launches = null, TicketAttemptRecord? record = null) =>
         new(run.Id, run.Status, infrastructure.Holds(run, launches?.GetValueOrDefault(run.Id)),
-            IsHandedBack(run, live, specStatuses));
+            IsHandedBack(run, live, specStatuses), record?.Cause, run.EndKind);
 
     public bool IsHandedBack(Run run, TicketLiveState live, ILookup<string, string> specStatuses) =>
         (run.Status == RunStatuses.WaitingForInput && !live.Pending.ContainsKey(run.Id))

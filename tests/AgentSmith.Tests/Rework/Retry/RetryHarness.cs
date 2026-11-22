@@ -125,21 +125,25 @@ internal sealed class RetryHarness : IDisposable
         await ctx.SaveChangesAsync();
     }
 
-    /// <summary>POST /api/runs/{runId}/retry as <paramref name="principal"/>.</summary>
-    public async Task<IResult> RetryAsync(string runId, string principal = Principal)
+    /// <summary>POST /api/runs/{runId}/retry as <paramref name="principal"/>, whose token names them by the same text.</summary>
+    public Task<IResult> RetryAsync(string runId, string principal = Principal) =>
+        RetryAsAsync(runId, new Claim("sub", principal), new Claim("name", principal));
+
+    /// <summary>2026-11-22-50d7a: POST /api/runs/{runId}/retry with a token of exactly these claims.</summary>
+    public async Task<IResult> RetryAsAsync(string runId, params Claim[] claims)
     {
         await using var scope = _provider.CreateAsyncScope();
         var http = new DefaultHttpContext
         {
-            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", principal)], "test")),
+            User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test")),
             RequestServices = scope.ServiceProvider,
         };
         return await RetryEndpoints.RetryAsync(runId, http, scope.ServiceProvider.GetRequiredService<RunRetry>(), default);
     }
 
-    /// <summary>2026-10-14-da5ed: a Retry asked in the ticket's conversation.</summary>
+    /// <summary>2026-10-14-da5ed: a Retry asked in the ticket's conversation, by a person shown as <paramref name="principal"/>.</summary>
     public Task<RunRetryResult> ConversationRetryAsync(string runId, string principal = Principal) =>
-        InScopeAsync(sp => sp.GetRequiredService<RunRetry>().RetryAsync(runId, principal, RetryOrigin.Conversation, default));
+        InScopeAsync(sp => sp.GetRequiredService<RunRetry>().RetryAsync(runId, principal, principal, RetryOrigin.Conversation, default));
 
     /// <summary>2026-10-14-da5ed: the start port a bound turn of conversation "s-1" on ticket 42 is seeded with.</summary>
     public Task<IAttemptStart?> StartPortAsync(TurnPoster poster) =>

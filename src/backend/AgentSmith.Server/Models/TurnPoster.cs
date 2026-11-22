@@ -7,4 +7,5 @@ namespace AgentSmith.Server.Models;
 /// </summary>
 /// <param name="Id">The poster's principal — the dashboard caller, or the chat user id.</param>
 /// <param name="MayStartRuns">Whether the poster holds runs.control; a chat message carries none.</param>
-public sealed record TurnPoster(string Id, bool MayStartRuns);
+/// <param name="Name">2026-11-22-50d7a: the poster's display name, which an act the turn makes is attributed to; null when none is known.</param>
+public sealed record TurnPoster(string Id, bool MayStartRuns, string? Name = null);

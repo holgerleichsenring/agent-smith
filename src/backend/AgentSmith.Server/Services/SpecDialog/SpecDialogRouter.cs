@@ -55,7 +55,7 @@ public sealed class SpecDialogRouter(
     {
         if (parser.Parse(text) is not { } command)
             return await ContinueThreadAsync(text, userId, channelId, threadId, platform,
-                new TurnPoster(userId, mayStartRuns), author, proposalId, sentAt, ct);
+                new TurnPoster(userId, mayStartRuns, author), author, proposalId, sentAt, ct);
         if (threadId is null)
         {
             logger.LogWarning("/spec received without a thread context on {Platform}, ignoring", platform);

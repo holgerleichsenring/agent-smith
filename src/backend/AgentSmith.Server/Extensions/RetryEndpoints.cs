@@ -21,7 +21,8 @@ internal static class RetryEndpoints
     {
         ArgumentNullException.ThrowIfNull(ctx);
         var result = await retry.RetryAsync(
-            runId, SpecDialogOwnership.PrincipalOf(ctx.User), RetryOrigin.Button, cancellationToken);
+            runId, SpecDialogOwnership.PrincipalOf(ctx.User), Security.DisplayName.Of(ctx.User), RetryOrigin.Button,
+            cancellationToken);
         return result.Kind switch
         {
             RunRetryResultKind.UnknownRun => Results.NotFound(),

@@ -105,6 +105,19 @@ function modelWait(events: RunEvent[]): RunEvent | null {
   return null;
 }
 
+/** 2026-11-22-50d7a: the run's model wait going on — since when, and the gate's line naming model, limit and config key —
+ *  read the way the Now block reads it, so the ticket page and the run page's status line say the same; null when the run
+ *  is not waiting. */
+export interface ModelWait {
+  since: string;
+  line: string;
+}
+
+export function currentModelWait(events: RunEvent[]): ModelWait | null {
+  const e = modelWait(events);
+  return e && e.type === EventType.L1StepDetail ? { since: e.timestamp, line: e.detail } : null;
+}
+
 /** While the run works: the step with its newest narration, the sandbox beat, then the newest `max` acts. */
 export function liveLines(
   snapshot: RunSnapshot, events: RunEvent[], steps: RunStepRow[],
