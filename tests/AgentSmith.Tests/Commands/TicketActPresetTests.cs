@@ -15,7 +15,6 @@ public sealed class TicketActPresetTests
         { PipelinePresets.StartName, CommandNames.StartTicket },
         { PipelinePresets.AmendName, CommandNames.AmendTicket },
         { PipelinePresets.CommentName, CommandNames.PostTicketComments },
-        { PipelinePresets.TicketBodyName, CommandNames.RenderTicketBody }, // 2026-11-17-dd05b
         { PipelinePresets.RetargetName, CommandNames.RetargetPullRequests }, // 2026-11-17-9a39c
         { PipelinePresets.MergeGreenName, CommandNames.CompletePullRequests }, // 2026-11-17-3435b
     };

@@ -28,11 +28,6 @@ public static partial class PipelinePresets
 
     public static readonly IReadOnlyList<string> Comment = [CommandNames.PostTicketComments];
 
-    /// <summary>2026-11-17-dd05b: preset name of a body render — the ticket's body re-rendered from the specs on its branch.</summary>
-    public const string TicketBodyName = "ticket-body";
-
-    public static readonly IReadOnlyList<string> TicketBody = [CommandNames.RenderTicketBody];
-
     /// <summary>2026-11-17-9a39c: preset name of a retarget — a stacked dependent's pull requests leave a landed branch.</summary>
     public const string RetargetName = "retarget";
 
@@ -50,7 +45,6 @@ public static partial class PipelinePresets
     private static readonly Dictionary<string, IReadOnlyList<string>> HostActSteps = new(StringComparer.OrdinalIgnoreCase)
     {
         [CloseName] = Close, [ReopenName] = Reopen, [StartName] = Start, [AmendName] = Amend, [CommentName] = Comment,
-        [TicketBodyName] = TicketBody, // 2026-11-17-dd05b
         [RetargetName] = Retarget, // 2026-11-17-9a39c
         [MergeGreenName] = MergeGreen, // 2026-11-17-3435b
     };

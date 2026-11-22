@@ -27,7 +27,6 @@ public static partial class PipelinePresets
             [FileName] = string.Empty, // 2026-11-17-5701b: a filing runs no master
             [CloseName] = string.Empty, // 2026-11-17-e061a: an act on a filed ticket runs no master
             [ReopenName] = string.Empty, [StartName] = string.Empty, [AmendName] = string.Empty, [CommentName] = string.Empty,
-            [TicketBodyName] = string.Empty, // 2026-11-17-dd05b
             [RetargetName] = string.Empty, // 2026-11-17-9a39c
             [AdminTurnName] = AdminAssistantMaster, [ConfigName] = string.Empty, [SecretName] = string.Empty, // f3a8a, f3a8c, f3a8d
             [SeriesRunName] = "series-master", [SeriesVerifyName] = "series-verify-master", // 0207a, 0207d: embedded bodies

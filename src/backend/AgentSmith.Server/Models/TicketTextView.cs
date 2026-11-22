@@ -28,8 +28,7 @@ public sealed record TicketTextView(
     DateTimeOffset? At,
     string? RunId = null,
     int? Attempt = null,
-    string? Reason = null,
-    SetDivergence? Divergence = null)
+    string? Reason = null)
 {
     public static TicketTextView FromTracker(Ticket ticket, DateTimeOffset at) =>
         new(TicketTextSources.Tracker, ticket.Title, ticket.Description, ticket.DescriptionFormat,

@@ -15,7 +15,7 @@ import { useNewestJump } from "./useNewestJump";
 
 interface Props {
   conversation: boolean;
-  /** What Now draws under its Your move line: what the ticket waits for and the divergence notice. */
+  /** What Now draws under its Your move line: what the ticket waits for (2026-11-22-a720b: a person's edit of the text is a conversation entry, not a notice). */
   lead?: ReactNode;
 }
 

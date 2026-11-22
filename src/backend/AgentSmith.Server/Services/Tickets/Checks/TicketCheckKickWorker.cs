@@ -28,13 +28,16 @@ public sealed class TicketCheckKickWorker(
         try
         {
             await using var scope = scopes.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<TicketBetweenAttemptsChecker>()
-                .CheckAsync(kick.Project, kick.TicketId, ct);
+            if (kick.Kind == TicketCheckKind.TextEdit) // 2026-11-22-a720b
+                await scope.ServiceProvider.GetRequiredService<Text.TicketTextEditNotice>().CheckAsync(kick.Project, kick.TicketId, ct);
+            else
+                await scope.ServiceProvider.GetRequiredService<TicketBetweenAttemptsChecker>()
+                    .CheckAsync(kick.Project, kick.TicketId, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "The between-attempts check of ticket {Ticket} in {Project} failed",
-                kick.TicketId, kick.Project);
+            logger.LogWarning(ex, "The {Kind} check of ticket {Ticket} in {Project} failed",
+                kick.Kind, kick.TicketId, kick.Project);
         }
     }
 }

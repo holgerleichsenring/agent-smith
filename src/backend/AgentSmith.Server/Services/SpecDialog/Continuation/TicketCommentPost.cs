@@ -37,7 +37,8 @@ public sealed class TicketCommentPost(IActRun acts)
             : new($"The comment was not posted on ticket {ticketId}: {error}. Approve again to retry.", false);
     }
 
-    /// <summary>The comment in the HTML subset every tracker's comment post takes: lines escaped and joined by breaks.</summary>
-    internal static string Render(string comment) => $"{Heading}<br/><br/>"
+    /// <summary>The comment in the HTML subset every tracker's comment post takes: lines escaped and joined by breaks.
+    /// 2026-11-22-a720b: under the caller's own head line, which must start with "Agent Smith —".</summary>
+    internal static string Render(string comment, string heading = Heading) => $"{heading}<br/><br/>"
         + string.Join("<br/>", comment.Replace("\r\n", "\n").Split('\n').Select(WebUtility.HtmlEncode));
 }

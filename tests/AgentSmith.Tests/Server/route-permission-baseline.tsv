@@ -134,7 +134,6 @@ POST	/api/spec-dialog/messages	dialog.write	body
 POST	/api/spec-dialog/references	dialog.write	dialog
 POST	/api/spec-dialog/{dialogId}/series/{act}	dialog.write,runs.control	dialog
 POST	/api/teams/messages	anonymous	-
-POST	/api/tickets/{project}/{ticketId}/body	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/close	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/follow-ups	runs.control	route:project

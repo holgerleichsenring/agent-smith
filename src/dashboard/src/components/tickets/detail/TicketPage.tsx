@@ -14,15 +14,14 @@ import { sectionOf } from "./ticketPageSections";
 import { TicketSectionBar } from "./TicketSectionBar";
 import { TicketWaitsFor } from "./TicketWaitsFor";
 import { TicketSpecsTab } from "./TicketSpecsTab";
-import { TicketTextDivergence } from "./TicketTextDivergence";
 import { CAUSE_PARAM, SECTION_PARAM, TAB_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the ticket detail under .mock-shell.mock-tickets like the list.
 // 2026-10-14-dbcen: a ticket with no run on record has nothing derived, attempted or spent — no thread:
 // its header, what it waits for, what waits for it and the filed line (ticket-graph.html, never-run-page).
 // 2026-11-17-dd05c: and its specs as its branch holds them, then its derivations (the Specs section's pane).
-// 2026-11-17-dd05d: a tracker text that no longer states the approved specs is named on top of What happened (and of a
-// never-run ticket's page), with its two remedies.
+// 2026-11-22-a720b: the dd05d notice is gone — agent-smith writes the text from approved specs itself, and a person's
+// edit of it reaches the ticket conversation as a question.
 // 2026-11-17-8d1ca: a ticket with a run has its section bar beside the main area, which shows ONE section — What
 // happened (what it waits for, the thread, Your move and the composer) unless ?section= names another. The heading
 // carries the section's name, Cancel for a live attempt in plain sight, and the ··· menu.
@@ -48,7 +47,6 @@ export function TicketPage() {
           <TicketHeader detail={detail.data} />
           <TicketWaitsFor project={detail.project} />
           <TicketNeverRun summary={detail.data.summary} />
-          <TicketTextDivergence />
           <TicketSpecsTab />
         </main>
       </div>
@@ -76,7 +74,7 @@ function TicketSections({ detail, project }: { detail: TicketDetail; project: st
           </section>
         ) : (
           <TicketTalk conversation={section.id === "conversation"}
-            lead={<><TicketWaitsFor project={project} /><TicketTextDivergence /></>} />
+            lead={<TicketWaitsFor project={project} />} />
         )}
       </main>
     </div>

@@ -5,8 +5,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// 2026-11-17-dd05b: the region of a series as its specs say it, through the filing's one renderer — a lone spec as a
-/// filed spec, several as their series under its goal. What a list ticket is filed with and what a 'ticket-body' run
-/// re-renders from the branch, so a ticket body is never a free-text copy of what its specs say.
+/// filed spec, several as their series under its goal. What a list ticket is filed with and what an approved revision (2026-11-22-a720b)
+/// rewrites the text from, so a ticket body is never a free-text copy of what its specs say.
 /// </summary>
 public sealed class SeriesTicketRegion(SpecTicketRenderer renderer)
 {

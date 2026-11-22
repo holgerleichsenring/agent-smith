@@ -68,10 +68,11 @@ internal static class TicketReadExtensions
             .AddTransient<TicketConversationReader>()
             .AddSingleton<TicketTrackerTextReader>()
             .AddTransient<TicketTextSnapshotReader>()
-            .AddTransient<TicketTextReader>().AddTransient<TicketTextDivergence>() // 2026-11-17-dd05d
+            .AddTransient<TicketTextReader>()
+            .AddScoped<TicketTextEditNotice>().AddScoped<TicketTextEditPost>() // 2026-11-22-a720b
             .AddTransient<TicketCloseAct>() // 2026-10-15-114fa; e061a: its acts are close and reopen runs
             .AddMemoryCache();
-        services.TryAddTransient<ApprovedSetDivergence>(); // 2026-11-17-dd05d: the ticket text's divergence, as the dialog asks it
+        services.TryAddTransient<FiledWorkTrackerProjects>(); // 2026-11-22-a720b: the text edit check skips a held ticket
         return services;
     }
 }
