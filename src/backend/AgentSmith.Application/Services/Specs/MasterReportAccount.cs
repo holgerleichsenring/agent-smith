@@ -13,7 +13,8 @@ public static class MasterReportAccount
 {
     /// <summary>Why a spec with done lines is not delivered when its master never called finish_spec.</summary>
     public const string NoFinish =
-        "The spec's master ended without finish_spec, so nothing reported this spec's outcome — not delivered.";
+        "The agent did not report its result (finish_spec), so the spec was not delivered; anything it changed stays on "
+        + "the branch. Retry unchanged gives it another attempt.";
 
     public static SpecAccount For(PipelineContext pipeline, IEnumerable<string> repoKeys)
     {

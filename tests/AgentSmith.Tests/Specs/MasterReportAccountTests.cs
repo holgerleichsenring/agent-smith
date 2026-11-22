@@ -38,7 +38,7 @@ public sealed class MasterReportAccountTests
     [Fact]
     public void Missing_DoneLinesAndNoFinishSpec_SaysSo_AFinishOrNoDoneList_IsNotMissing()
     {
-        MasterReportAccount.Missing(Pipeline(null)).Should().Be(MasterReportAccount.NoFinish).And.Contain("without finish_spec");
+        MasterReportAccount.Missing(Pipeline(null)).Should().Be(MasterReportAccount.NoFinish).And.Contain("Retry unchanged");
         MasterReportAccount.Missing(Pipeline(Finished("r", "f"))).Should().BeNull();
         MasterReportAccount.Missing(new PipelineContext()).Should().BeNull();
     }

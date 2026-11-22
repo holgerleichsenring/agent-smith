@@ -136,7 +136,7 @@ public sealed class FixBugTests
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse("a bug fix that changed no source must not be a success");
-        result.Message.Should().Contain("ended without finish_spec");
+        result.Message.Should().Contain("did not report its result");
         harness.ChatClient.ToolCalls.Should().BeEmpty("the master made no tool calls");
     }
 
@@ -221,7 +221,7 @@ public sealed class FixBugTests
         // 2026-11-18-98fa: a master that ends without finish_spec — however its text reads — reported nothing the
         // pipeline acts on, so the spec is not delivered and says why.
         result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("ended without finish_spec");
+        result.Message.Should().Contain("did not report its result");
         harness.ChatClient.LastScriptedMessages.Should().NotBeEmpty();
     }
 

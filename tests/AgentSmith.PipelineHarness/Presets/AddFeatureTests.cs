@@ -61,6 +61,6 @@ public sealed class AddFeatureTests
 
         result.IsSuccess.Should().BeFalse(
             "a feature run that changed no source must not be a success");
-        result.Message.Should().Contain("ended without finish_spec");
+        result.Message.Should().Contain("did not report its result");
     }
 }

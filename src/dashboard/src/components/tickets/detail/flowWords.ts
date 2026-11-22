@@ -10,7 +10,7 @@ const PASS_WORDS: Record<string, string> = {
   "nothing-left": "nothing left to do",
   budget: "budget spent",
   "red-accepted": "red verdict accepted",
-  verdictless: "ended without a verdict",
+  verdictless: "ended without reporting its result",
   idle: "went idle",
   blocked: "blocked",
   "self-refilled": "refilled its own steps",

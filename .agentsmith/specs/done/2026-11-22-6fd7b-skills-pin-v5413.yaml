@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-6fd7b
+goal: "The embedded skills catalog is pinned to v5.41.3: coding-agent-master 3.4.1 closes with one reply that carries the report and the finish_spec call."
+
+applies_to: "default (Infrastructure.Core skills pin)"
+
+requires: [2026-11-22-6fd7a]
+
+facts:
+  - claim: "The pin is SkillsCatalogVersion v5.41.2 with its sha256, and the tarball is checked in under Resources/."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-58"
+  - claim: "The v5.41.3 release tarball hashes to bfbcd3e6cbb2185186db5d04b25d80fc584eabf05d26592e7d9002df1c764893, equal to the release's .sha256 asset."
+    evidence: "observed: 2026-11-22, shasum -a 256 of the released agentsmith-skills-v5.41.3.tar.gz"
+
+scope:
+  in: "SkillsCatalogVersion v5.41.3 and its sha256; the v5.41.2 tarball replaced."
+  out: "Any skill text change (agent-smith-skills #307)."
+
+upgrade_impact: "A deployment on the embedded catalog loads coding-agent-master 3.4.1."
+
+steps:
+  - id: pin
+    action: "Bump the version and sha256; swap the tarball."
+
+tests:
+  - "The packaged catalog validates at build; the Skills and prompt tests stay green."
+
+done:
+  - "Build and the full suite are green on the v5.41.3 pin."

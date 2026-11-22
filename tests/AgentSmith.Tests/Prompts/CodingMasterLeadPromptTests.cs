@@ -45,7 +45,7 @@ public sealed class CodingMasterLeadPromptTests
     public void PackagedCodingMaster_ReportsInMarkdown_ThenCallsFinishSpecWithItsDeclaredArguments()
     {
         var master = Folded();
-        master.Should().Contain("Your report is your last message, written in markdown").And.Contain("Nothing parses it");
+        master.Should().Contain("Your report is the text of your closing reply, written in markdown").And.Contain("In that same reply, call `finish_spec` once").And.Contain("Nothing parses it");
         master.Should().NotContain("```verdict", "the fenced verdict block is gone");
 
         var schema = new FinishSpecToolHost().GetTools(null, null).Single().JsonSchema.ToString();

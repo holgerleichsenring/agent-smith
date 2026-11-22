@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-6fd7a
+goal: "finish_spec is described as called in the reply that carries the report, a done master is told exactly what is missing, and a verdictless end says what to do."
+
+applies_to: "default (Application master nudges and spec account; dashboard flow words)"
+
+requires: [2026-11-18-98fa]
+
+invariant: >-
+  A master whose work is done (a non-empty checklist with no actionable step, no finish_spec recorded) is told
+  exactly what is missing — the report as the text of one reply and the finish_spec call in that same reply —
+  and never that steps are open; a verdictless end tells the operator in plain words what happened and what to do.
+
+facts:
+  - claim: "Live run 2026-11-22T12-15-37-845e (ticket 19655, gpt-5.6-terra on Azure OpenAI; same on 19654 run b236): all 6 ledger steps done, build and 41 tests green, the master answered its report as text twice and never called finish_spec; VerifySpec failed and the work landed only as a draft PR."
+    evidence: "observed: 2026-11-22, run 2026-11-22T12-15-37-845e"
+  - claim: "Root cause (operator): the coding-agent-master skill says the report is the last message and then to call finish_spec, so a text-only last message ended the turn; the skill text is fixed separately in the skills repository."
+    evidence: "observed: 2026-11-22, operator finding relayed by the coordinator"
+  - claim: "The strongest cause is the finish_spec tool text itself: 'call it once, after your report. Your report is the markdown message you write for the person just before this call' reads as two turns, and a text-only reply ends the turn. The coding master is given the MergedTools copy of that text."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MergedTools.Coding.cs:87-88"
+  - claim: "FinishSpecToolHost carries the same description and a result that says 'Your report is the message you wrote before this call'."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FinishSpecToolHost.cs:20-21"
+  - claim: "The coding run's closing line said 'Your last message is your report', the same two-turn reading."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterClosing.cs:15"
+  - claim: "The apply nudge said 'write your report and call finish_spec'."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterNudges.cs:37-39"
+  - claim: "Place 1 a master ends without finish_spec: pass 0 returns; the verdict nudge then drives once when ShouldNudgeForVerdict (no verdict, a code pipeline)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:554-574"
+  - claim: "Place 2: the apply nudge drives when no source was edited (work not done)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:497-519"
+  - claim: "Place 3: the open-loop re-engagement drives the master once more for finish_spec (reason unfinished) and stops verdictless after that one re-drive."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageReasonPolicy.cs:36-39"
+  - claim: "The re-engagement nudge always opened with 'These checklist steps are still open', even when the ledger had no actionable step."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterNudges.cs:75"
+  - claim: "The in-pass reminder already says 'call finish_spec' when every step is done; it is text inside a running pass."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterNudges.cs:98-110"
+  - claim: "Stage repair and review-fix passes re-run the whole master handler, so they reach the same verdict nudge and re-engagement."
+    evidence: "src/backend/AgentSmith.Application/Services/Passes/MasterPassRecorder.cs:56-58"
+  - claim: "The master's report is read from the last assistant text before the finish_spec call, across drives."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterReport.cs:18-27"
+  - claim: "The operator saw 'The spec's master ended without finish_spec, so nothing reported this spec's outcome — not delivered.', produced once in MasterReportAccount.NoFinish and returned by VerifySpec."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/MasterReportAccount.cs:15-16"
+  - claim: "The ticket page names a verdictless pass end 'ended without a verdict'."
+    evidence: "src/dashboard/src/components/tickets/detail/flowWords.ts:13"
+
+scope:
+  in: >-
+    The finish_spec tool description (both surfaces) and its result say it is called in the same reply as the report;
+    the coding closing line says the last reply is the report and calls finish_spec; MasterFinishLead (Due over
+    ledger + verification, the lead text); BuildVerdictNudge and BuildReengageNudge open with it over a done
+    checklist; the verdict and apply nudges close with one reply whose text is the report and which calls
+    finish_spec; plain operator wording for MasterReportAccount.NoFinish and the verdictless flow word.
+  out: "Forcing finish_spec through a required tool choice (rejected by the operator); the skill text (skills repository); the in-pass reminder."
+
+decisions:
+  - key: "NO FORCED TOOL CHOICE: the operator found the cause in the skill text; the nudge says what is missing instead."
+  - key: "THE LEAD ONLY OVER A DONE CHECKLIST: open steps or an empty checklist keep the existing texts."
+
+steps:
+  - id: tool
+    action: "finish_spec description in FinishSpecToolHost and MergedTools.FinishSpec: 'Call it in the same reply as your report: the reply's text is the markdown report …; this call carries what the pipeline acts on'; result: 'Your report is the text of the reply that made this call; end your turn now.'; MasterClosing.Coding likewise."
+  - id: lead
+    action: "MasterFinishLead.Due and Text; both nudges open with Text when Due; the verdict and apply nudges close with 'one reply whose text is your report for the person and which calls finish_spec'."
+  - id: words
+    action: "MasterReportAccount.NoFinish and flowWords verdictless say what happened and that Retry unchanged lets it finish."
+
+tests:
+  - "845e shape: pass 0 answers text with every step done → the verdict nudge opens with the lead (same reply, no build instruction) → finish_spec recorded → spec reported (MasterFinishLeadTests.AllStepsDone_ReportAsText_TheVerdictNudgeSaysWhatIsMissing_AndTheSpecIsReported)."
+  - "A master that answers the verdict nudge as text again gets the lead on re-engagement too, never 'still open'."
+  - "Re-engage nudge over an all-done ledger with no verdict names finish_spec in the same reply and does not say steps are open; open steps keep the old text."
+  - "Both finish_spec descriptions start 'Ends this spec for the pipeline. Call it in the same reply as your report' and no longer say 'after your report'; the result names the reply that made the call."
+  - "The apply nudge closes with one reply carrying the report and the call."
+  - "NoFinish says the result was not reported, whatever changed is on the branch, and Retry unchanged lets it finish."
+
+done:
+  - "The invariant holds under the tests above; build, full suite and dashboard tests green."

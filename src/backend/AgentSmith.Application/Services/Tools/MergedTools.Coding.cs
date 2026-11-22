@@ -84,9 +84,8 @@ public static partial class MergedTools
                 return finish.FinishSpec(status, summary, failing_tests, baseline_failing_tests, follow_ups, blocker, ignored_instructions);
             },
             FinishSpecToolHost.Name,
-            "Ends this spec for the pipeline; call it once, after your report. Your report is the markdown message you "
-            + "write for the person just before this call — shown as written, never parsed. Pass what the pipeline acts "
-            + "on: status 'green' (build clean, tests pass), 'no-tests' (build clean, no automated tests), 'failed', or "
+            "Ends this spec for the pipeline. Call it in the same reply as your report: the reply's text is the markdown "
+            + "report for the person, shown as written and never parsed; this call carries what the pipeline acts on: status 'green' (build clean, tests pass), 'no-tests' (build clean, no automated tests), 'failed', or "
             + "'blocked' with its blocker; summary; failing and baseline-failing test ids; follow_ups; ignored_instructions. "
             + "The build note for the next spec of the series rides along: renamed and moved ('<old> -> <new>'), persisted, "
             + "deviations (at most 20 entries of 300 characters each), and relied_on, the memories you acted on — a memory "

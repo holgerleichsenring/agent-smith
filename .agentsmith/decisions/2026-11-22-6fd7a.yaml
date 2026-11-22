@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-6fd7a
+
+decisions:
+  - category: Architecture
+    chose: "Tell the master what is missing in the nudge text; no forced tool choice"
+    over: "Drive the close turn with ChatToolMode.RequireSpecific(finish_spec) through AgenticLoopRequest into ChatOptions (built and wire-tested for OpenAI, Azure OpenAI and Anthropic, then removed)"
+    decider: operator
+    reason: |
+      The operator found the root cause in the coding-agent-master skill: it says the report is the last message and
+      then to call finish_spec, so a text-only last message ends the turn and the model obeyed. That is fixed in the
+      skill text in the skills repository. Forcing would paper over a prompt defect with a provider-dependent
+      mechanism (Copilot cannot force a named tool) and forbid any build or test call in that turn.
+  - category: Implementation
+    chose: "MasterFinishLead.Due = no verdict AND a non-empty checklist AND no actionable step; both the verdict and the re-engagement nudge open with the lead then"
+    over: "Due on an empty checklist too; a lead only on re-engagement"
+    reason: |
+      An empty checklist says nothing about whether the work is done, so it keeps the existing texts. The verdict
+      nudge over a done checklist used to ask to build and test again; on run 845e both had already run green.
+  - category: Implementation
+    chose: "One wording everywhere the master is told how to close — the finish_spec description (FinishSpecToolHost and MergedTools.FinishSpec), its result, MasterClosing.Coding, the verdict and apply nudges and the done-checklist lead: one reply whose text is the report and which calls finish_spec"
+    over: "'call it once, after your report … the message you write just before this call', 'Your last message is your report', 'write your report, then call finish_spec'"
+    reason: |
+      Every one of those reads as two turns — the report first, the call after — and a text-only reply ends the turn,
+      so the model obeyed and never made the call (845e, b236). The tool description is the text the model reads at
+      the moment it decides, so it is the strongest of them; MasterClosing carried the same sentence and is changed
+      with it. The report is still read the same way (MasterReport.Of: the last assistant text up to the call).
+  - category: Implementation
+    chose: "NoFinish reads 'The agent did not report its result (finish_spec), so the spec was not delivered; whatever it changed is on the branch. Retry unchanged lets it finish.'; the verdictless flow word reads 'ended without reporting its result'"
+    over: "Keeping 'ended without finish_spec … not delivered' and 'ended without a verdict'"
+    reason: |
+      The operator reads it on the ticket page; it now says what happened and names the act (Retry unchanged) that
+      lets the master finish. It does not claim work is on the branch, since a master with no changes reaches the same line. finish_spec stays in parentheses so the log is still greppable.
+  - category: Scope
+    chose: "After review: the in-pass reminder and the context-pressure finalizer use the same one-reply wording; the done-checklist lead drops 'Change nothing else'; the tool result names the fallback when the reply had no text; the failure text promises another attempt, not a finish"
+    over: "Leaving those surfaces with the two-turn wording, or keeping an added instruction"
+    reason: "The operator wants no new rules, only the existing texts consistent. 'Change nothing else' would have been a new instruction and blocked a master whose checklist is done but unverified from running the check; 'lets it finish' overclaims when the master changed nothing."
+    decider: operator

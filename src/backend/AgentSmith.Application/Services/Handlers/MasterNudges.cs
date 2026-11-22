@@ -22,12 +22,13 @@ namespace AgentSmith.Application.Services.Handlers;
 internal static class MasterNudges
 {
     // p0263: the focused second-shot prompt when the master edited source but emitted
-    // no verdict — verify only (no further edits) and emit ONLY the verdict block.
+    // no verdict. 2026-11-22-6fd7a: over a done checklist the check already ran — the lead says only what is missing.
     internal static string BuildVerdictNudge(string originalUserPrompt, ProgressLedger ledger) =>
-        "Your previous pass changed source and did not call finish_spec, so the spec cannot be reported. "
+        (MasterFinishLead.Due(ledger, null) ? MasterFinishLead.Text
+        : "Your previous pass changed source and did not call finish_spec, so the spec cannot be reported. "
         + "The change is made; what is missing is its check. Build the project and run the tests "
-        + "the way the repository defines them, write your report for the person, then call "
-        + "finish_spec with the real outcome (status: green | no-tests | failed | blocked).\n\n"
+        + "the way the repository defines them, then close with one reply whose text is your report for the person "
+        + "and which calls finish_spec with the real outcome (status: green | no-tests | failed | blocked).\n\n")
         + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
 
@@ -35,8 +36,9 @@ internal static class MasterNudges
     // nothing — the plan is not the deliverable, the edited source is.
     internal static string BuildApplyNudge(string originalUserPrompt, ProgressLedger ledger) =>
         "You wrote a plan and have not made the changes it names yet. The plan is not the "
-        + "deliverable; the change is. Make those edits, then build, run the tests, write your "
-        + "report and call finish_spec. If an edit cannot be made, finish_spec's blocker says what blocks it.\n\n"
+        + "deliverable; the change is. Make those edits, build and run the tests, then close with one reply whose text "
+        + "is your report for the person and which calls finish_spec with the real outcome. If an edit cannot be made, "
+        + "finish_spec's blocker says what blocks it.\n\n"
         + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
 
@@ -68,10 +70,12 @@ internal static class MasterNudges
         // scratch" is gone. It was asked of a pass that had been handed no left-off, so the
         // only way to obey it was to re-derive — 34 passes of the same greps on run 98b9.
         // The transcript now arrives with the request; the nudge names the next turn.
-        + "These checklist steps are still open. Do the ones that hold work you have not done, "
+        // 2026-11-22-6fd7a: a done checklist without a verdict is told what is missing, not that steps are open.
+        + (MasterFinishLead.Due(ledger, verification) ? MasterFinishLead.Text
+        : "These checklist steps are still open. Do the ones that hold work you have not done, "
         + "and mark a step done or remove it when it holds none. If a step needs a decision "
         + "only the operator can make, ask_human posts it; this pass ends and the next starts with "
-        + "the answer.\n\n"
+        + "the answer.\n\n")
         + LedgerNudgeSection(ledger)
         + WorkingStateSection.Build(decisions, verification, changedPaths, stagedRegistries)
         + "Original task:\n" + originalUserPrompt;
@@ -99,10 +103,10 @@ internal static class MasterNudges
             // already recorded is not work, it is the run being finished.
             return "<system-reminder>\n"
                 + "Every step in the progress ledger is marked done. If the work is truly "
-                + "complete, verify (build + tests), write your report and call finish_spec. Add a step only for "
+                + "complete, verify (build + tests) and close with one reply whose text is your report and which calls finish_spec. Add a step only for "
                 + "work you have not done yet and that the checklist does not cover — a step "
                 + "that would only re-read or re-confirm evidence you already recorded is not "
-                + "remaining work, it means you are done: write the report and call finish_spec.\n"
+                + "remaining work, it means you are done: close with the report as your reply's text and finish_spec in that reply.\n"
                 + "</system-reminder>";
         return "<system-reminder>\n"
             + "The update_progress tool has not been used recently. If you completed steps, mark "

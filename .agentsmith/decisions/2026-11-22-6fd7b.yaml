@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-6fd7b
+
+decisions:
+  - category: Dependencies
+    chose: "Pin the embedded skills catalog to v5.41.3 (sha256 bfbcd3e6…4893), the checked-in tarball swapped"
+    over: "Leaving v5.41.2, whose coding master says the report is the last message and then finish_spec"
+    reason: "A text-only last message ends the tool loop; 3.4.1 says the report is the text of the reply that calls finish_spec, matching the tool description changed in 6fd7a."
