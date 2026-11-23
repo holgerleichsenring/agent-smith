@@ -1,0 +1,9 @@
+/* 2026-11-23-8df6a: the Deployments page — the Pull requests page's rows plus a span switch drawn like Delivery's. */
+.mock-deployments .m-head { justify-content: space-between; }
+.mock-deployments .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.mock-deployments .seg button { font: inherit; font-size: 12.5px; border: 0; background: none; color: var(--ink-2); padding: 6px 12px; cursor: pointer; }
+.mock-deployments .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.mock-deployments section + section { margin-top: 28px; }
+.mock-deployments .deployments-deploy { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.mock-deployments .deployments-deploy .deploy-follow { flex: 1; min-width: 0; }
+.mock-deployments .deployments-deploy .prog { padding-top: 10px; white-space: nowrap; }

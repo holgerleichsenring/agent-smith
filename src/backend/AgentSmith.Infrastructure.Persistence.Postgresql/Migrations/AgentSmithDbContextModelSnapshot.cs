@@ -1021,6 +1021,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<bool>("IsDraft")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("MergeSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(191)

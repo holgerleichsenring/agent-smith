@@ -45,4 +45,7 @@ public sealed record PrReviewRecordView(
 
     /// <summary>2026-11-23-8d16: the newest successful read saw it still a draft.</summary>
     public bool IsDraft { get; init; }
+
+    /// <summary>2026-11-23-8df6a: the commit a merged pull request landed as; null when no read since the upgrade named it.</summary>
+    public string? MergeSha { get; init; }
 }

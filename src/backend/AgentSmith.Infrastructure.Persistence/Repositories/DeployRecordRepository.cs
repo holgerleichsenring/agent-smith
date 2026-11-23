@@ -17,6 +17,14 @@ public sealed class DeployRecordRepository(IUnitOfWork unitOfWork)
         await unitOfWork.Set<DeployRecord>().AsNoTracking().FirstOrDefaultAsync(r => r.RunId == runId, ct) is { } record
             ? View(record) : null;
 
+    /// <summary>2026-11-23-8df6a: the scope's records delivered after <paramref name="since"/>, newest delivery first.</summary>
+    public async Task<IReadOnlyList<DeployRecordView>> DeliveredSinceAsync(ProjectScope scope, DateTimeOffset since, CancellationToken ct)
+    {
+        var after = since.UtcTicks;
+        return [.. (await unitOfWork.Set<DeployRecord>().AsNoTracking().Within(scope).Where(r => r.DeliveredAtTicks > after)
+            .OrderByDescending(r => r.DeliveredAtTicks).ToListAsync(ct)).Select(View)];
+    }
+
     /// <summary>The unsettled records, least recently checked first, at most <paramref name="cap"/>.</summary>
     public async Task<IReadOnlyList<DeployRecord>> UnsettledAsync(int cap, CancellationToken ct) =>
         await unitOfWork.Set<DeployRecord>().Where(r => r.SettledAtTicks == null)

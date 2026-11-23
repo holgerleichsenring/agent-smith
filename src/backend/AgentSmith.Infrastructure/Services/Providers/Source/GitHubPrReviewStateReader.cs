@@ -18,7 +18,7 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAd
 {
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
-        + "number state isDraft createdAt mergedAt closedAt headRefOid author{login} "
+        + "number state isDraft createdAt mergedAt closedAt headRefOid mergeCommit{oid} author{login} "
         + "latestReviews(first:100){nodes{id state body author{__typename login} submittedAt}}}}}";
 
     public async Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken)
@@ -37,11 +37,15 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAd
             [.. pr.GetProperty("latestReviews").GetProperty("nodes").EnumerateArray()
                 .Select(Decision).OfType<PrReviewDecision>()
                 .Where(d => !d.IsBot && d.Author!.AuthorId != author && !string.Equals(d.Author.AuthorId, viewer, StringComparison.OrdinalIgnoreCase))],
-            Str(pr, "headRefOid"))
+            Str(pr, "headRefOid"), state == PrReviewStates.Merged ? MergeCommit(pr) : null)
         {
             IsDraft = pr.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True, // 2026-11-23-8d16
         };
     }
+
+    // 2026-11-23-8df6a: the commit the merge landed as — read only for a merged pull request.
+    private static string? MergeCommit(JsonElement pr) =>
+        pr.TryGetProperty("mergeCommit", out var c) && c.ValueKind == JsonValueKind.Object ? Str(c, "oid") : null;
 
     private PrReviewDecision? Decision(JsonElement review)
     {

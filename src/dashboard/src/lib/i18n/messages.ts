@@ -1206,6 +1206,37 @@ export const messages = {
     en: "The branch of {ticket} could not be read, so its changes are missing: {why}",
     de: "Der Branch von {ticket} ließ sich nicht lesen, seine Änderungen fehlen daher: {why}",
   },
+  // --- deployments page (2026-11-23-8df6a) ---
+  "deployments.nav": { en: "Deployments", de: "Deployments" },
+  "deployments.title": { en: "Deployments", de: "Deployments" },
+  "deployments.sub": {
+    en: "Merged pull requests with the commit each merge became, and the deploys agent smith ran.",
+    de: "Gemergte Pull Requests mit dem Commit, der aus jedem Merge wurde, und die Deploys, die agent smith gestartet hat.",
+  },
+  "deployments.window": { en: "{count} days", de: "{count} Tage" },
+  "deployments.windowLabel": { en: "Time span", de: "Zeitraum" },
+  "deployments.loading": { en: "Reading deployments…", de: "Deployments werden gelesen…" },
+  "deployments.failed": { en: "Could not read deployments: {message}", de: "Die Deployments ließen sich nicht lesen: {message}" },
+  "deployments.surface": { en: "the deployments", de: "die Deployments" },
+  "deployments.empty": {
+    en: "Nothing merged or deployed in this time span.",
+    de: "In diesem Zeitraum wurde nichts gemergt oder deployt.",
+  },
+  "deployments.merged.title": { en: "Merged", de: "Gemergt" },
+  "deployments.merged.sub": { en: "pull requests of tickets, newest merge first", de: "Pull Requests von Tickets, neuester Merge zuerst" },
+  "deployments.merged.into": { en: "into {branch}", de: "nach {branch}" },
+  "deployments.merged.notRead": { en: "merge commit not read", de: "Merge-Commit nicht gelesen" },
+  "deployments.merged.notReadTip": {
+    en: "Merged before this was recorded. A later read of the pull request may still fill it in.",
+    de: "Gemergt, bevor das erfasst wurde. Ein späteres Lesen des Pull Requests kann ihn noch nachtragen.",
+  },
+  "deployments.deploys.title": { en: "Deploys by agent smith", de: "Deploys durch agent smith" },
+  "deployments.deploys.sub": { en: "newest first", de: "neueste zuerst" },
+  "deployments.run": { en: "run ›", de: "Run ›" },
+  "deployments.ago.justNow": { en: "just now", de: "gerade eben" },
+  "deployments.ago.minutes": { en: "{count}m ago", de: "vor {count} Min." },
+  "deployments.ago.hours": { en: "{count}h ago", de: "vor {count} Std." },
+  "deployments.ago.days": { en: "{count}d ago", de: "vor {count} T." },
 } satisfies Record<string, MessageEntry>;
 
 export type MessageKey = keyof typeof messages;

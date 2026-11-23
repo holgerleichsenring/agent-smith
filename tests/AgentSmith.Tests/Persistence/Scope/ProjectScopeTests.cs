@@ -119,6 +119,22 @@ public sealed class ProjectScopeTests : IDisposable
         (await ctx.Set<PrReviewRecord>().AsNoTracking().Within(ProjectScope.Everything).CountAsync()).Should().Be(2);
     }
 
+    // 2026-11-23-8df6a: a deploy record is project-owned, so the Deployments page hides what every list hides.
+    [Fact]
+    public async Task ProjectScopeQueries_DeployRecord_HiddenProjectLeftOut()
+    {
+        await using (var seed = Context())
+        {
+            foreach (var project in new[] { "alpha", InstallationScope.Name })
+                seed.Add(new DeployRecord { RunId = $"run-{project}", Project = project, Context = "api", Environment = "test" });
+            await seed.SaveChangesAsync();
+        }
+        await using var ctx = Context();
+
+        (await ctx.Set<DeployRecord>().AsNoTracking().Within(ProjectScope.EverythingBut(InstallationScope.Name))
+            .Select(r => r.Project).ToListAsync()).Should().Equal("alpha");
+    }
+
     [Fact]
     public void ProjectScopeQueries_PrRecords_EverythingIsTheQueryAndOneNameTodaysEquality()
     {

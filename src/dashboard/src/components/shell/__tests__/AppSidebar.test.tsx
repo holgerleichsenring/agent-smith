@@ -81,9 +81,19 @@ describe("AppSidebar", () => {
   it("Sidebar_EveryDestination_InTheApprovedOrder", () => {
     renderAt("/");
     const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/series", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
+    expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/series", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/deployments", "/overview", "/delivery"]);
     expect(screen.getByTestId("sidebar-group-Insight")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-group-Recent")).not.toBeInTheDocument();
+  });
+
+  // 2026-11-23-8df6a
+  it("Sidebar_Deployments_SitsRightAfterPullRequests_AndIsActiveUnderItsPath", () => {
+    renderAt("/deployments", "?days=30");
+    const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
+    expect(hrefs[hrefs.indexOf("/pull-requests") + 1]).toBe("/deployments");
+    expect(screen.getByTestId("sidebar-deployments")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("sidebar-deployments")).toHaveTextContent("Deployments");
+    expect(screen.getByTestId("sidebar-pull-requests")).not.toHaveAttribute("aria-current");
   });
 
   it("Sidebar_Counts_ComeFromTheTicketListTheHubAndThePullRequests", async () => {
