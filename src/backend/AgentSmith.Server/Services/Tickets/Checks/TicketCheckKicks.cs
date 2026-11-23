@@ -9,15 +9,17 @@ namespace AgentSmith.Server.Services.Tickets.Checks;
 /// at most ten per read, each ticket at most once per five minutes on this replica, queued to
 /// <see cref="TicketCheckKickWorker"/>. The check's own five-minute reuse bounds it across replicas.
 /// 2026-11-22-a720b: a kick names its check — the between-attempts check, or the ticket text read's edit check — and
-/// each kind is throttled on its own.
+/// each kind is throttled on its own. 2026-11-23-1e76a: the detail read offers its failed head here too.
 /// </summary>
 public sealed class TicketCheckKicks(IMemoryCache cache)
 {
     public const int PerRead = 10;
     public static readonly TimeSpan PerTicket = TimeSpan.FromMinutes(5);
 
+    // 2026-11-23-1e76a: Wait, not DropWrite — a full queue's TryWrite then answers false (DropWrite answers true and drops),
+    // and TryWrite never waits.
     private readonly Channel<TicketCheckKick> _queue = Channel.CreateBounded<TicketCheckKick>(
-        new BoundedChannelOptions(100) { FullMode = BoundedChannelFullMode.DropWrite, SingleReader = true });
+        new BoundedChannelOptions(100) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
 
     internal ChannelReader<TicketCheckKick> Reader => _queue.Reader;
 
@@ -32,6 +34,7 @@ public sealed class TicketCheckKicks(IMemoryCache cache)
             if (cache.TryGetValue(key, out _)) continue;
             cache.Set(key, true, PerTicket);
             if (_queue.Writer.TryWrite(ticket)) kicked++;
+            else cache.Remove(key); // 2026-11-23-1e76a: a full queue silences nobody
         }
         return kicked;
     }

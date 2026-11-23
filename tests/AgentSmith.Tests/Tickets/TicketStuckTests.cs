@@ -20,6 +20,7 @@ namespace AgentSmith.Tests.Tickets;
 /// 2026-10-13-9a59h: Stuck is observed, never assumed — the between-attempts check reads the tracker only
 /// after a failed attempt and at most every five minutes, the list reads the stored row and only kicks the
 /// check, and a person's act on the tracker or the pull request takes a ticket out of stuck.
+/// 2026-11-23-1e76a: the detail kicks the check as the list does; the tests run what was kicked as the worker would.
 /// </summary>
 public sealed class TicketStuckTests : IDisposable
 {
@@ -62,6 +63,7 @@ public sealed class TicketStuckTests : IDisposable
         await FailedAsync();
 
         await _h.Detail.ReadAsync("alpha", "42", default);
+        await _h.RunKickedChecksAsync();
         var list = await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default);
 
         var row = list.Tickets.Single();
@@ -81,6 +83,7 @@ public sealed class TicketStuckTests : IDisposable
         });
 
         await _h.Detail.ReadAsync("alpha", "42", default);
+        await _h.RunKickedChecksAsync();
 
         (await RowAsync()).UnchangedSinceLastAttempt.Should().BeTrue("the text the attempt wrote is not a person's edit");
     }
@@ -94,6 +97,7 @@ public sealed class TicketStuckTests : IDisposable
         _h.Tracker.Setup(t => t.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(noted);
 
         await _h.Detail.ReadAsync("alpha", "42", default);
+        await _h.RunKickedChecksAsync();
 
         (await RowAsync()).UnchangedSinceLastAttempt.Should().BeTrue("our own label note is not an edit of the ticket");
     }
@@ -106,6 +110,7 @@ public sealed class TicketStuckTests : IDisposable
 
         _h.Tracker.Setup(t => t.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ThrowsAsync(new HttpRequestException("down"));
         await _h.Detail.ReadAsync("alpha", "42", default);
+        await _h.RunKickedChecksAsync();
 
         (await ChecksAsync()).Should().Be(0, "a failed read writes nothing");
         (await RowAsync()).Bucket.Should().Be(TicketBucket.Failed);
@@ -140,8 +145,23 @@ public sealed class TicketStuckTests : IDisposable
         await _h.AddAsync(Run("r-1", status: "running"), Step("r-1"));
 
         await _h.Detail.ReadAsync("alpha", "42", default);
+        await _h.RunKickedChecksAsync();
 
         _h.Trackers.Verify(f => f.Create(It.IsAny<AgentSmith.Contracts.Models.Configuration.TrackerConnection>()), Times.Never);
+    }
+
+    // 2026-11-23-1e76a: opening a failed ticket waits on no tracker; the check is the worker's.
+    [Fact]
+    public async Task TicketDetail_FailedAttempt_KicksTheCheckAndReadsNoTracker()
+    {
+        await FailedAsync();
+
+        await _h.Detail.ReadAsync("alpha", "42", default);
+
+        _h.Trackers.Verify(f => f.Create(It.IsAny<AgentSmith.Contracts.Models.Configuration.TrackerConnection>()), Times.Never);
+        _h.Kicks.Reader.TryRead(out var kick).Should().BeTrue();
+        kick.Should().Be(new TicketCheckKick("alpha", "42"));
+        _h.Kicks.Reader.Count.Should().Be(0);
     }
 
     [Fact]
@@ -266,6 +286,7 @@ public sealed class TicketStuckTests : IDisposable
             .ReturnsAsync([Comment("c-1", "carol", 50, "Try again with main.")]);
 
         await _h.Detail.ReadAsync("alpha", "42", default);
+        await _h.RunKickedChecksAsync();
 
         var row = await RowAsync();
         (row.Bucket, row.UnchangedSinceLastAttempt).Should().Be((TicketBucket.Failed, (bool?)false));

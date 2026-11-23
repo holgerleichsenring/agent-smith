@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.199.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.199.0...v0.199.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **lifecycle:** fair model queue, conversations without a model place, CI re-read, landing target, interrupted restart, unblocking merges (2026-11-22-6d85a) ([0add482](https://github.com/holgerleichsenring/agent-smith/commit/0add4829d2155f4b8335790f9c6e211d6eaafb24))
+* **runs:** a run the server's stop broke off ends interrupted, not failed; its series row is not red and a code attempt is retried once (2026-11-22-6d85c) ([e5b48e6](https://github.com/holgerleichsenring/agent-smith/commit/e5b48e678d0070a415b44eead079cbb1d810a774))
+* **tickets:** a held ticket names the merges that unblock it on its series row, list row and refusal (2026-11-22-6d85d) ([60d7ff5](https://github.com/holgerleichsenring/agent-smith/commit/60d7ff5fc7473d3612f041f23f0d191e0f1f1826))
+
 ## [0.199.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.198.0...v0.199.0) (2026-11-22)
 
 

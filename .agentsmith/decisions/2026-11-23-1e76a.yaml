@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-1e76a
+
+decisions:
+  - category: Design
+    chose: "The detail read offers a failed head to the existing TicketCheckKicks queue; the check runs only in TicketCheckKickWorker"
+    over: "Keep the inline check; a second, detail-only check path"
+    reason: "Operator-approved. The inline check made the page wait on three to six tracker calls in a row; the kick queue already serves the list, its changed result already nudges TicketActivityChanged, and the page re-reads on that. The admin assistant's ticket tool now sees the stored check too."
+    decider: operator
+  - category: Implementation
+    chose: "TicketCheckKicks on a Wait channel, so a refused write is known"
+    over: "DropWrite with the mark set before the write"
+    reason: "Spec review found the mark-before-write order; the test then showed DropWrite answers TryWrite true while dropping, so the order alone fixed nothing. With Wait, TryWrite never waits and answers false when full, so a full queue silences no ticket for five minutes."
+  - category: Implementation
+    chose: "The detail's reads after the run query under one Task.WhenAll, unthrottled"
+    over: "A concurrency limit; a scope per branch added by the reader"
+    reason: "Every store already opens its own scope per call (the live-state singletons too), so the branches share nothing; about seven pooled connections per read is well inside a default pool, and a throttle would be a new limit needing config. Measured over the file-backed test store with 5 ms per command: 139 ms to 52 ms with a fresh check, 464 ms to 52 ms with a stale one (150 ms per tracker call)."
+  - category: Implementation
+    chose: "Test concurrency on a file-backed store with a connection per context, commands held by an interceptor until the read sends no more"
+    over: "A delaying interceptor on the shared in-memory connection; wall-clock assertions"
+    reason: "One shared SQLite connection cannot take overlapping commands, and the suite forbids Task.Delay and timing assertions (WallClockRuleTests); holding commands proves overlap without a clock, and the sequential reader fails it."
+  - category: Design
+    chose: "Re-read everything on Connected only after Reconnecting or Disconnected, or when the hub was reconnecting at mount; the first Connected reads the detail alone (page) or schedules the list in its RunsChanged window"
+    over: "Nothing at all on the first Connected (the operator's wording)"
+    reason: "Spec review: Connected does not replay, and a nudge sent between the page's own reads and joining the overview group would be lost; a single detail read covers it at a fraction of the six-read refetch. The list's read is held to its window rather than fired at once."
+  - category: Implementation
+    chose: "The list provider's 2 s RunsChanged window on /tickets only; a ticket page uses the 15 s one"
+    over: "Every /tickets/… route at 2 s"
+    reason: "Operator-approved. On a ticket page only the rail's counts and the top bar's needs-you badge read the list; the page's own store follows the ticket. Going back to /tickets still flushes a held read at once."
+    decider: operator
+  - category: Implementation
+    chose: "The state listings, specs and repositories of the branch series read side by side, unthrottled, answers kept in their order; the manifest scan stays sequential"
+    over: "Sequential reads; the manifests side by side too; a parallelism constant as in RepositoryLayoutReader"
+    reason: "Each is a host round trip; a checkout's channel runs steps one at a time anyway (SandboxRedisChannel), so the sandbox side only queues. A series has a handful of specs and a pointer a few repositories; series/ grows by one manifest per derived series, so code review kept that scan sequential rather than fan out without bound against host rate limits; a constant would be a new hard-coded limit."
+  - category: Implementation
+    chose: "TicketCheckKicks claims a ticket before the write and gives the claim back when the write is refused"
+    over: "Marking after a successful write"
+    reason: "Code review: the page's detail read and the rail's list read now offer the same failed ticket at once; claiming first keeps two offers from both queuing it."
+  - category: Implementation
+    chose: "Refresh nudges throttled per ticket and reason — stale, or the sorted set of unrecorded pull requests — by the existing StaleAfter, marked in the memory cache after the enqueue succeeded, for the list and the detail"
+    over: "Throttle per ticket only; a new window constant"
+    reason: "Spec review: a newly opened pull request without a record must still nudge, so the unrecorded set is part of the key. A record checked within StaleAfter is fresh, so a nudge within it is redundant; reusing the constant adds no limit (HardCodedLimitRatchet keeps the file at one)."
+  - category: Scope
+    chose: "No cache of the configuration, the detail or the series; no header from the list row"
+    over: "Caching the per-request configuration load and the per-attempt series walks; rendering the list row's header while the detail loads"
+    reason: "The operator asked for no new caches. Each detail read still loads the configuration once (TicketStandings), and the Specs and Cost tabs still walk the branch once per attempt; both are named as open questions. The list's first page need not hold the ticket, so the header could not always come from it."

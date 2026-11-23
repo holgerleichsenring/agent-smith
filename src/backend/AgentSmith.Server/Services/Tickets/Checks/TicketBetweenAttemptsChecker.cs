@@ -15,7 +15,7 @@ namespace AgentSmith.Server.Services.Tickets.Checks;
 /// webhook mode, so Stuck is OBSERVED here: only when the last attempt is terminal and failed, and never
 /// again while its check is under five minutes old, the tracker is read once (ticket, comments, status
 /// history) and the result stored; a changed result nudges the ticket's views. A live attempt reads no
-/// tracker; a failed read writes nothing.
+/// tracker; a failed read writes nothing. 2026-11-23-1e76a: run only by <see cref="TicketCheckKickWorker"/>, never inside a read.
 /// </summary>
 public sealed class TicketBetweenAttemptsChecker(
     TicketRunsQuery runs,
@@ -35,8 +35,8 @@ public sealed class TicketBetweenAttemptsChecker(
     public async Task CheckAsync(string project, string ticketId, CancellationToken ct) =>
         await CheckAsync([.. (await runs.ForTicketAsync(project, ticketId, ct)).Where(r => r.Run.Pipeline == PipelinePresets.CodeName)], ct);
 
-    /// <param name="code">The ticket's code-pipeline runs, as the detail read already holds them.</param>
-    public async Task CheckAsync(IReadOnlyList<TicketRunRow> code, CancellationToken ct)
+    // The ticket's code-pipeline runs. 2026-11-23-1e76a: the detail read no longer checks inline — it kicks, as the list does.
+    private async Task CheckAsync(IReadOnlyList<TicketRunRow> code, CancellationToken ct)
     {
         if (code.Count == 0 || attempts.Head(code).Run is not { Status: RunStatuses.Failed } last) return;
         var (project, ticketId) = (last.Project, last.TicketId);

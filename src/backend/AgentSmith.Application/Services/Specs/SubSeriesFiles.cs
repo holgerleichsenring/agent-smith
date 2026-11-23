@@ -8,6 +8,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// handed — a run's checkout or the ticket branch on the host. The manifest is found by ticket key
 /// and every spec it lists is read across planned/, done/ and active/ of the same source. The
 /// revision sha is the caller's: git knows it in a checkout, the pointer on the host.
+/// <para>2026-11-23-1e76a: the three listings, then every spec, are read side by side — on the host each is a round trip
+/// of its own, and a checkout's channel runs them one at a time anyway. The answer keeps the manifest's order, and the
+/// first spec that fails in that order is the one named.</para>
 /// </summary>
 public sealed class SubSeriesFiles(
     SeriesManifestFinder finder,
@@ -36,11 +39,11 @@ public sealed class SubSeriesFiles(
         ISandboxFileReader files, SeriesManifestDocument doc, CancellationToken ct)
     {
         var listed = await ListStatesAsync(files, ct);
+        var all = await Task.WhenAll(doc.Specs.Select(id => specs.ReadAsync(files, listed, id, doc, ct)));
         var read = new List<DerivedSpec>(doc.Specs.Count);
         var executed = new List<string>();
-        foreach (var id in doc.Specs)
+        foreach (var spec in all)
         {
-            var spec = await specs.ReadAsync(files, listed, id, doc, ct);
             if (spec.Spec is null) return ([], [], spec.Why);
             read.Add(spec.Spec);
             if (spec.Executed) executed.Add(spec.Spec.SpecId);
@@ -49,9 +52,8 @@ public sealed class SubSeriesFiles(
     }
 
     private static async Task<IReadOnlyList<string>> ListStatesAsync(ISandboxFileReader files, CancellationToken ct) =>
-        [.. await ListAsync(files, SeriesPaths.Planned, ct),
-            .. await ListAsync(files, SeriesPaths.Done, ct),
-            .. await ListAsync(files, SeriesPaths.Active, ct)];
+        [.. (await Task.WhenAll(new[] { SeriesPaths.Planned, SeriesPaths.Done, SeriesPaths.Active }
+            .Select(directory => ListAsync(files, directory, ct)))).SelectMany(l => l)];
 
     private static async Task<IReadOnlyList<string>> ListAsync(
         ISandboxFileReader files, string directory, CancellationToken ct) =>

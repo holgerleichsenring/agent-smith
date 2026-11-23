@@ -1,5 +1,6 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HubConnectionState } from "@microsoft/signalr";
 import { fakeHub, ticket } from "@/components/tickets/__tests__/ticketFixtures";
 import { attempt, conversation, defaults, detail, passes, reviews, series, ticketText } from "@/components/tickets/detail/__tests__/detailFixtures";
 import { EventType, type RunEvent } from "@/types/hub-events";
@@ -208,6 +209,30 @@ describe("TicketPageStore", () => {
     await settle(2000);
     expect(reads(api.detail)).toBe(2);
     expect(reads(api.conversation)).toBe(2);
+  });
+
+  // 2026-11-23-1e76a: the first connect re-reads the detail alone; only a Connected after a drop re-reads everything.
+  it("FirstConnected_RereadsTheDetailAlone_ConnectedAfterADrop_RereadsEverything", async () => {
+    const { hub } = await mount();
+    act(() => hub.connectionState.emit(HubConnectionState.Connecting));
+    act(() => hub.connectionState.emit(HubConnectionState.Connected));
+    await settle(2000);
+    expect([reads(api.detail), reads(api.series), reads(api.conversation), reads(api.text)]).toEqual([2, 1, 1, 1]);
+
+    act(() => hub.connectionState.emit(HubConnectionState.Reconnecting));
+    act(() => hub.connectionState.emit(HubConnectionState.Connected));
+    await settle(2000);
+    expect([reads(api.detail), reads(api.series), reads(api.conversation), reads(api.text)]).toEqual([3, 2, 2, 2]);
+  });
+
+  it("MountedWhileTheHubReconnects_ItsConnected_RereadsEverything", async () => {
+    const { hub, client } = fakeHub();
+    hub.state = () => HubConnectionState.Reconnecting;
+    render(<TicketPageStore project="shop" ticketId="101" client={client} api={api}>{null}</TicketPageStore>);
+    await settle(0);
+    act(() => hub.connectionState.emit(HubConnectionState.Connected));
+    await settle(2000);
+    expect([reads(api.detail), reads(api.conversation), reads(api.text)]).toEqual([2, 2, 2]);
   });
 });
 

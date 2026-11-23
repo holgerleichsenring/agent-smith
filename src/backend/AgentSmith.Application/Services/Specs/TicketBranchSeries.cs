@@ -28,9 +28,8 @@ public sealed class TicketBranchSeries(
         var pointer = await pointers.GetAsync(project.Name, ticket.Value, cancellationToken);
         if (pointer is null) return SpecSetOnBranch.Nothing;
         var branch = TicketBranchNamer.Compose(ticketId);
-        var reads = new List<SubSeriesRead>();
-        foreach (var name in RepoNames(pointer))
-            reads.Add(await ReadAsync(project, name, pointer, ticket, branch, cancellationToken));
+        // 2026-11-23-1e76a: the repositories side by side, in the pointer's order.
+        var reads = await Task.WhenAll(RepoNames(pointer).Select(name => ReadAsync(project, name, pointer, ticket, branch, cancellationToken)));
         return composer.Compose(ticket, pointer.CarryingRepo, reads);
     }
 
