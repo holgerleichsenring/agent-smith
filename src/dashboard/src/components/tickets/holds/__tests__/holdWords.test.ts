@@ -7,14 +7,14 @@ import {
   countsFor, holdActLabel, holdAsk, holdRowAct, holdSentence, holdTag, isPersons, isYourMove, namesOf, sinceClock, toldOf,
   waitClause, yourMoveCount,
 } from "../holdWords";
-import { holdSeriesHref, isAsked } from "../holdRoutes";
+import { holdPullRequestHref, holdSeriesHref, isAsked } from "../holdRoutes";
 
 // 2026-11-23-31dcg: a hold's words, the same on every surface, in both languages.
 
 const CASES: TicketHoldCase[] = [
   "image_untrusted", "bootstrap_missing", "preflight", "question", "question_plan", "question_environment", "handback", "readiness_unknown", "infrastructure", "interrupted",
   "criteria_unmet", "failed", "shortfall", "text_edited", "merge_next", "starts_on_merge", "working", "model_wait", "queued", "resuming",
-  "restarting", "merge_after", "retarget", "prerequisite",
+  "restarting", "merge_after", "retarget", "prerequisite", "merge_ready", "ci_failed", "ci_running",
 ];
 
 describe("holdWords", () => {
@@ -128,5 +128,27 @@ describe("holdWords", () => {
     expect(sinceClock(new Date(2026, 10, 23, 0, 12).toISOString(), now)).toBe("00:12");
     expect(sinceClock(new Date(2026, 10, 21, 9, 5).toISOString(), now)).toBe("21 Nov 09:05");
     expect(sinceClock("not a date", now)).toBe("not a date");
+  });
+  // 2026-11-23-d60d: an open pull request's holds — it merges now, its CI failed on named checks, its CI still runs.
+  it("holdSentence_AnOpenPullRequest_MergesNow_NamesItsFailedChecks_SaysSinceWhenCiRuns", () => {
+    const de = translator("de");
+    const open = { kind: "pull_request" as const, target: "https://example.test/pr/1" };
+    expect(holdSentence(hold("merge_ready", { act: open }))).toBe("Its pull request can be merged now.");
+    expect(holdSentence(hold("merge_ready", { act: open }), de)).toBe("Sein Pull Request kann jetzt gemergt werden.");
+    expect(holdSentence(hold("ci_failed", { names: ["build", "lint"] }))).toBe("CI failed: build and lint.");
+    expect(holdSentence(hold("ci_failed", { names: ["build"] }), de)).toBe("Die CI ist fehlgeschlagen: build.");
+    expect(holdSentence(hold("ci_failed"))).toBe("CI failed on its pull request.");
+    const now = new Date(2026, 10, 23, 9, 30);
+    const since = new Date(2026, 10, 23, 9, 12).toISOString();
+    expect(holdSentence(hold("ci_running", { since }), translator("en"), now)).toBe("CI has been running since 09:12. Nothing for you to do.");
+    expect(holdSentence(hold("ci_running", { since }), de, now)).toBe("Die CI läuft seit 09:12. Für dich gibt es nichts zu tun.");
+    expect(holdSentence(hold("ci_running"))).toBe("CI is running on its pull request. Nothing for you to do.");
+    expect(holdActLabel(hold("merge_ready", { act: open }), de)).toBe("Pull Request öffnen");
+    expect(holdActLabel(hold("merge_ready", { act: { kind: "pull_request", target: null } }))).toBeNull();
+    expect(holdRowAct(hold("ci_failed", { act: open }))).toBe("Open the pull request");
+    expect(holdPullRequestHref(hold("merge_ready", { act: open }))).toBe("https://example.test/pr/1");
+    expect(holdPullRequestHref(hold("merge_next", { act: { kind: "merge", target: "sr-1" } }))).toBeNull();
+    expect(isPersons(hold("merge_ready"))).toBe(true);
+    expect(isPersons(hold("ci_running"))).toBe(false);
   });
 });

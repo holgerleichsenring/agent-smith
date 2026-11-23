@@ -17,9 +17,8 @@ export function ticketDot(t: TicketSummary): TicketDotClass {
     case "needs_you":
       return "need";
     case "working":
+      // 2026-11-23-d60d: a pull request that waits (CI, another merge) is working too, drawn as a wait.
       return t.status === "running" ? "run" : "queued";
-    case "waiting_on_review":
-      return "human";
     case "failed":
       // 2026-11-22-7103a: a head a person cancelled is no fault — grey, as its status line is.
       return t.lastOutcome === "cancelled" ? "idle" : "bad";

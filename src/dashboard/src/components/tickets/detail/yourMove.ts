@@ -10,8 +10,10 @@ import type { StateAct, TicketStateView } from "./ticketState";
 // question or a hand-back is a person's (blue), working is amber, a cancelled head is grey.
 // 2026-11-23-31dcg: a held ticket's title, colour and act are its hold's — the bucket and the question kind no longer
 // decide who acts; what remains here are the titles of the states nothing holds.
+// 2026-11-23-d60d: no in-review state — a pull request that can merge is a merge hold, red CI a decision, and one that
+// waits is working with its hold's sentence.
 
-/** amber = needs you, person = in review or waiting on a person, ok = passed, bad = stopped, quiet = nothing to do. */
+/** amber = needs you or working, person = waiting on a person, ok = passed, bad = stopped, quiet = nothing to do. */
 export type MoveTone = "amber" | "person" | "ok" | "bad" | "quiet";
 
 /** The structured end of a run stopped on a precondition, when the server sends one. */
@@ -54,12 +56,16 @@ export function yourMove(
   const move = hold && hold.addressee !== "nobody" ? heldMove(view, hold, endDetail ?? null, t) : moveOf(view, bucket, t);
   // 2026-11-23-31dch: a plan question's act opens the series' conversation; the others answer here.
   const question = hold?.case === "question" || hold?.case === "question_environment";
+  // 2026-11-23-d60d: several open pull requests name no single one — the block's rows under the box are the way on.
   const next = move.act ? actLabel(move.act, question, t)
-    : bucket === "waiting_on_review" && !hold ? "Review the pull requests" : NOTHING;
+    : hold?.act?.kind === "pull_request" ? t("hold.act.pull_requests") : NOTHING;
   return { ...move, question, next };
 }
 
 export const NOTHING = "Nothing for you to do";
+
+/** The statuses of an attempt still at work — running, queued, or relaunching. */
+const LIVE = new Set(["running", "queued", "waiting_for_input"]);
 
 /** The words a move's act is drawn with — the box's button and a run's next step say the same. */
 export function actLabel(act: StateAct, question: boolean, t: T = translator("en")): string {
@@ -86,6 +92,8 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
     case "text_edited": return { ...base, tone: "person", title: t("hold.title.text_edited") };
     case "merge_next": return { ...base, tone: "person", title: t("hold.title.merge_next") };
     case "starts_on_merge": return { ...base, tone: "person", title: t("hold.title.starts_on_merge") };
+    case "merge_ready": return { ...base, tone: "person", title: t("hold.title.merge_ready") };
+    case "ci_failed": return { ...base, tone: "bad", title: t("hold.title.ci_failed") };
   }
   // 2026-11-23-31dci: a wait that outlasted the configured minutes is no stop — the admin was told, nothing failed.
   if (hold.escalation) return { ...base, tone: "amber", title: t("hold.title.escalated") };
@@ -99,12 +107,6 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
 function moveOf(view: TicketStateView, bucket: TicketServerBucket, t: T): Move {
   const base = { text: view.sentence, detail: view.detail, detailFormat: view.detailFormat, act: view.act, why: false };
   switch (bucket) {
-    case "waiting_on_review": {
-      if (view.hold) return { ...base, tone: "person", title: t("hold.title.nobody") };
-      const open = view.pullRequests.filter((pr) => pr.state === "open");
-      const act: StateAct | null = open.length === 1 ? { kind: "link", label: "Review the pull request", href: open[0].url } : base.act;
-      return { ...base, act, tone: "person", title: "Your move: review the pull request" };
-    }
     case "failed":
     case "stuck":
       // 2026-11-22-7103a: a start its paused series held, a head a person cancelled, and one the restart takes up are no fault.
@@ -116,6 +118,8 @@ function moveOf(view: TicketStateView, bucket: TicketServerBucket, t: T): Move {
     case "done":
       return { ...base, tone: "ok", title: "Done" };
     case "working":
+      // 2026-11-23-d60d: an ended attempt whose pull request waits — CI, another merge — is nothing for you to do.
+      if (view.hold && !LIVE.has(view.attempt?.status ?? "")) return { ...base, tone: "amber", title: t("hold.title.nobody") };
       return { ...base, tone: "amber", title: workingTitle(view.attempt) };
     case "closed":
       return { ...base, tone: "quiet", title: "Closed" };

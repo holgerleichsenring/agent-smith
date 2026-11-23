@@ -97,7 +97,7 @@ describe("Places", () => {
 
   // 2026-10-13-9a59p: a bucket is a query of one place, and a ticket's own page is matched like a run's.
   it("Places_TicketList_AndItsBuckets_AreOnePlace_AndATicketIsAPlace", () => {
-    for (const bucket of ["needs-you", "working", "waiting-on-review", "stuck", "ended", "done"]) {
+    for (const bucket of ["needs-you", "working", "stuck", "ended", "done"]) {
       expect(placeForPath(`/tickets?bucket=${bucket}`)).toBe("Tickets");
     }
     expect(placeForPath("/tickets")).toBe("Tickets");

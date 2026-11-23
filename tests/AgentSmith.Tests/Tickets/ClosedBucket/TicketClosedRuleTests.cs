@@ -66,7 +66,7 @@ public sealed class TicketClosedRuleTests : IDisposable
             Entry("1", "c1", ClosedAt.AddMinutes(1), system: true, decision: PrReviewDecisions.Approved));
         await _h.CloseAsync(ClosedAt);
 
-        (await _h.RowAsync()).Bucket.Should().Be(TicketBucket.WaitingOnReview, "a decision a host wrote as a system note is a person's review");
+        (await _h.RowAsync()).Bucket.Should().Be(TicketBucket.NeedsYou, "a decision a host wrote as a system note is a person's review");
     }
 
     [Fact]

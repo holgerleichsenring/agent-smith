@@ -59,9 +59,33 @@ public sealed class TicketHoldListTests : IDisposable
             new TicketHoldAct(TicketHoldActs.Merge, "sr-1")));
         var after = list.Tickets.Single(t => t.TicketId == "2");
         (after.Bucket, after.Hold!.Addressee, after.Hold.Case).Should().Be(
-            (TicketBucket.WaitingOnReview, TicketHoldAddressees.Nobody, TicketHoldCases.MergeAfter));
+            (TicketBucket.Working, TicketHoldAddressees.Nobody, TicketHoldCases.MergeAfter));
         after.Hold.Names.Should().Equal("SCRUM-1");
         list.Counts.NeedsYou.Should().Be(1, "only the merge that comes next is Your move");
+    }
+
+    [Fact]
+    public async Task List_APullRequestOutsideASeries_MergesNowOrWaitsWithItsReason_RedCiIsADecision()
+    {
+        await _h.AddAsync(Run("r-1", "1"), Step("r-1"), Record("1", CiStates.Green),
+            Run("r-2", "2"), Step("r-2"), Record("2", CiStates.Green), Requires("2", "1"),
+            Run("r-3", "3"), Step("r-3"), Record("3", CiStates.Pending),
+            Run("r-4", "4"), Step("r-4"), Record("4", CiStates.Red));
+
+        var list = await ListAsync();
+        var row = list.Tickets.ToDictionary(t => t.TicketId);
+
+        (row["1"].Bucket, row["1"].Hold!.Case, row["1"].Hold!.Act).Should().Be((TicketBucket.NeedsYou, TicketHoldCases.MergeReady,
+            new TicketHoldAct(TicketHoldActs.PullRequest, "https://github.com/o/api/pull/1")));
+        (row["2"].Bucket, row["2"].Hold!.Case).Should().Be((TicketBucket.Working, TicketHoldCases.MergeAfter));
+        row["2"].Hold!.Names.Should().Equal("#1");
+        (row["3"].Bucket, row["3"].Hold!.Case, row["3"].Hold!.Since).Should().Be((TicketBucket.Working, TicketHoldCases.CiRunning, (DateTimeOffset?)T));
+        (row["4"].Bucket, row["4"].Hold!.Addressee, row["4"].Hold!.Case).Should().Be((TicketBucket.NeedsYou, TicketHoldAddressees.Decide, TicketHoldCases.CiFailed));
+        row["4"].Hold!.Names.Should().Equal("build");
+        (list.Counts.NeedsYou, list.Counts.Working, list.Counts.Running, list.Counts.Queued).Should().Be((2, 2, 0, 0),
+            "every ticket is in one bucket, and a pull request that waits is neither running nor queued");
+        var page = (await _h.Detail.ReadAsync("alpha", "2", default))!.Summary;
+        page.Hold.Should().BeEquivalentTo(row["2"].Hold, "the ticket page names the hold the list names");
     }
 
     [Fact]
@@ -96,7 +120,7 @@ public sealed class TicketHoldListTests : IDisposable
         await _h.Services.GetRequiredService<TicketTextEditAnswers>().AnsweredAsync("alpha", "gh", "github-42", default);
 
         var answered = (await ListAsync()).Tickets.Single();
-        (answered.Bucket, answered.Hold).Should().Be((TicketBucket.WaitingOnReview, (TicketHold?)null));
+        (answered.Bucket, answered.Hold!.Case).Should().Be((TicketBucket.NeedsYou, TicketHoldCases.MergeReady));
     }
 
     [Fact]
@@ -208,6 +232,16 @@ public sealed class TicketHoldListTests : IDisposable
             Project = "alpha", TicketId = ticket, RunId = $"r-{ticket}", State = PrReviewStates.Open, HeadSha = "abc",
             CheckedAtTicks = T.UtcTicks,
         };
+    }
+
+    private static PrReviewRecord Record(string ticket, string ci)
+    {
+        var record = Record(ticket);
+        record.CiState = ci;
+        record.CiHeadSha = record.HeadSha;
+        record.CiAtTicks = T.UtcTicks;
+        record.CiFailuresJson = ci == CiStates.Red ? PrRecordCiJson.Failures([new CiFailure("build", null, "exit 1")]) : null;
+        return record;
     }
 
     private static TicketRequirement Requires(string ticket, string required) => new()

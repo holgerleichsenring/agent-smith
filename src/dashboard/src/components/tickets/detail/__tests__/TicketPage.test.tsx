@@ -349,13 +349,15 @@ describe("Ticket page", () => {
     expect(scrolled.mock.instances[0]).toBe(screen.getByTestId("conv-question").parentElement);
   });
 
-  it("YourMove_InReviewWithOneOpenPullRequest_ItsBrightActOpensThePullRequest", async () => {
+  it("YourMove_AMergeReadyPullRequest_ItsBrightActOpensThePullRequest", async () => {
     world.detail = detail([attempt()]);
-    world.detail.summary = { ...world.detail.summary, bucket: "waiting_on_review", pullRequests: [pr({ state: "open" })] };
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", pullRequests: [pr({ state: "open" })],
+      hold: hold("merge_ready", { act: { kind: "pull_request", target: "https://example.test/pr/809" } }) };
     await open();
     expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "person");
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: merge the pull request");
     expect(screen.getByTestId("ticket-state-act")).toHaveAttribute("href", "https://example.test/pr/809");
-    expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Review the pull request");
+    expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Open the pull request");
   });
 
   it("YourMove_Done_IsGreenWithNoAct_Running_IsAmber", async () => {
@@ -392,7 +394,7 @@ describe("Ticket page", () => {
 
   it("Header_OneMergedOneOpen_NamesBoth", async () => {
     world.detail = detail([attempt()]);
-    world.detail.summary = { ...world.detail.summary, bucket: "waiting_on_review",
+    world.detail.summary = { ...world.detail.summary, bucket: "working",
       pullRequests: [pr({ state: "merged" }), pr({ number: "810", state: "open" })] };
     await open();
     expect(screen.getByTestId("ticket-pr-fate")).toHaveTextContent("1 PR merged, 1 open");
@@ -506,7 +508,8 @@ describe("Ticket page status line", () => {
       pullRequests: [{ repo: "server", status: "opened", url: "https://example.test/pr/809", reason: null, openedAt: "2026-09-04T14:30:00Z" }],
       executedSpecs: [{ specId: "s1", ordinal: 1, title: "one", status: "done", verdict: null },
         { specId: "s2", ordinal: 2, title: "two", status: "failed", verdict: NO_REPORT }] })]);
-    world.detail.summary = { ...world.detail.summary, bucket: "waiting_on_review", pullRequests: [pr({ state: "open" })] };
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", pullRequests: [pr({ state: "open" })],
+      hold: hold("merge_ready", { act: { kind: "pull_request", target: "https://example.test/pr/809" } }) };
     world.series.default = series("r-1", [
       spec({ report: "## Done\n\n| Check | Result |\n|---|---|\n| build | green |" }),
       spec({ specId: "s2", ordinal: 2, done: [1, 2, 3].map((n) => ({ text: `c${n}`, verdict: "unmet", note: null, citation: null, overrule: null })) })]);
@@ -518,13 +521,13 @@ describe("Ticket page status line", () => {
     const now = screen.getByTestId("now-run");
     expect(within(now).getByTestId("thread-report-1-head")).toHaveTextContent(new RegExp("^[A-Z][a-z]{2} \\d+ \\d\\d:\\d\\dRun 1"
       + "1 of 2 specs delivered · s2: The agent ended without writing a report, so the spec was not delivered; anything it changed stays on the branch\\. "
-      + "→ Review the pull request; Retry unchanged gives s2 another attempt\\.30m 0s▾$"));
+      + "→ Open the pull request; Retry unchanged gives s2 another attempt\\.30m 0s▾$"));
     expect(within(now).getByTestId("thread-report-1")).toHaveClass("bad");
     const outcomes = [within(now).getByTestId("thread-report-1"), ...within(now).getAllByTestId("spec-card-delivery")];
     for (const el of outcomes) expect(el.className).not.toMatch(/\b(run|amber)\b/);
     expect(within(now).getAllByTestId("spec-card-delivery").map((d) => d.textContent)).toEqual(["delivered", "not delivered"]);
     expect(now).not.toHaveTextContent(/reported/);
-    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: review the pull request");
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: merge the pull request");
   });
 
   it("TicketAcceptanceTab_Report_IsClosedUnderMastersReport", async () => {

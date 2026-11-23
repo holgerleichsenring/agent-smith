@@ -49,7 +49,7 @@ export function sinceClock(iso: string, now: Date = new Date()): string {
 }
 
 // 2026-11-23-31dci: the waits that say since when; a wait without a since keeps its plain sentence.
-const WAITS = new Set<TicketHold["case"]>(["model_wait", "queued", "resuming", "restarting", "prerequisite"]);
+const WAITS = new Set<TicketHold["case"]>(["model_wait", "queued", "resuming", "restarting", "prerequisite", "ci_running"]);
 
 /** 2026-11-23-31dci: a wait's clause with its since — "Waiting for the model since 00:12"; null when the hold is no wait
  *  or carries no since. */
@@ -59,7 +59,7 @@ export function waitClause(hold: TicketHold, t: T = EN, now: Date = new Date()):
   const n = hold.attempt ?? 0;
   return hold.case === "prerequisite"
     ? t("hold.wait.prerequisite", { names: namesOf(hold.names, t), count: hold.names.length, at })
-    : t(`hold.wait.${hold.case as "model_wait" | "queued" | "resuming" | "restarting"}`, { n, at });
+    : t(`hold.wait.${hold.case as "model_wait" | "queued" | "resuming" | "restarting" | "ci_running"}`, { n, at });
 }
 
 /** The hold's one sentence, from the hold alone — the same words on every surface; a stop quotes what it recorded.
@@ -83,6 +83,9 @@ export function holdSentence(hold: TicketHold, t: T = EN, now: Date = new Date()
       return why ? t("hold.sentence.readiness_unknown_why", { n, why }) : t("hold.sentence.readiness_unknown", { n });
     }
     case "failed": return said ? t("hold.sentence.failed_told", { n, told: said }) : t("hold.sentence.failed", { n });
+    // 2026-11-23-d60d: red CI names its failed checks; a red read that recorded none says only that it failed.
+    case "ci_failed":
+      return hold.names.length > 0 ? t("hold.sentence.ci_failed", { names, count: hold.names.length }) : t("hold.sentence.ci_failed_bare");
     case "starts_on_merge":
     case "merge_after":
     case "prerequisite":
@@ -102,6 +105,7 @@ export function holdActLabel(hold: TicketHold, t: T = EN): string | null {
     case "merge_next": return t("hold.act.merge_next");
     case "settings": return hold.case === "image_untrusted" && !hold.detail?.settingsPath ? t("hold.act.trust") : t("hold.act.settings");
     case "init": return t("hold.act.init");
+    case "pull_request": return hold.act.target ? t("hold.act.pull_request") : null;
   }
 }
 

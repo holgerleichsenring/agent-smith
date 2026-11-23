@@ -6,7 +6,7 @@ import { seriesRunPath } from "@/lib/seriesRunAddress";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { holdRowAct, holdSentence, holdTag } from "../../tickets/holds/holdWords";
-import { holdSeriesHref } from "../../tickets/holds/holdRoutes";
+import { holdPullRequestHref, holdSeriesHref } from "../../tickets/holds/holdRoutes";
 import { SeriesChangesNotes } from "./SeriesChangesNotes";
 
 // 2026-11-23-31dcg: what holds the series' tickets that are not merging next — each ticket whose hold names someone, with
@@ -50,7 +50,7 @@ function SeriesHolds({ detail }: { detail: SeriesRunDetail }) {
 function HeldRow({ detail, ticket }: { detail: SeriesRunDetail; ticket: SeriesRunTicket }) {
   const t = useT();
   const hold = ticket.hold!;
-  const href = holdSeriesHref(hold, seriesRunPath) ?? ticketPath(detail.project, ticket.ticketId);
+  const href = holdSeriesHref(hold, seriesRunPath) ?? holdPullRequestHref(hold) ?? ticketPath(detail.project, ticket.ticketId); // d60d
   return (
     <li className={hold.addressee} data-testid={`series-hold-${ticket.ticketId}`} data-addressee={hold.addressee}>
       <div className="sr-holds-head">

@@ -106,6 +106,7 @@ public sealed class TicketSummaryComposer(
             Interrupted = interrupted, Restarting = interrupted && inputs.Restarts(head.FinishedAt),
             SeriesId = inputs.SeriesOf(head.Project, head.TicketId), SeriesActive = inputs.InActiveSeries(head.Project, head.TicketId),
             MergeStep = inputs.StepOf(head.Project, head.TicketId),
+            OpenPullRequests = inputs.OpenOf(head.Project, head.TicketId), // 2026-11-23-d60d
             TextEdited = inputs.EditedOpen(head.Project, head.TicketId),
             // 2026-11-23-31dci: since when it waits on nobody — a queued row is written when its entry enters the queue.
             WaitingForModelSince = head.Status == RunStatuses.Running ? inputs.ModelWaitOf(head.Id) : null,

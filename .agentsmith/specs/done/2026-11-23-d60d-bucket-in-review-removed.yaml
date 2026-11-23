@@ -11,6 +11,10 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:48, .agentsmith/decisions/2026-11-23-31dcg.yaml"
   - claim: "waiting_on_review is a bucket of its own, counted and shown as In review."
     evidence: "src/backend/AgentSmith.Server/Models/TicketBucket.cs:18,51, src/backend/AgentSmith.Server/Services/Tickets/TicketCounts.cs:35"
+  - claim: "An open pull request's target branch is stored only after a merge, so a stacked one is told by its unlanded requirement."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrReviewRecordView.cs:43-44, src/backend/AgentSmith.Server/Services/Series/SeriesRunTickets.cs:11"
+  - claim: "A record's stored CI names the head it was read for and a red head's failed checks."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrRecordCiView.cs:7,13"
 
 decisions_in_brief:
   - "Operator 2026-11-23: In review is a system state, not a task; a mergeable PR is the person's move, a waiting PR is nobody's."
@@ -22,6 +26,8 @@ scope:
     not stacked behind an open PR; otherwise nobody with the reason ("CI is running since …", "Merges after #X",
     "CI failed: <check>" is decide). The waiting_on_review bucket, its count and its list section are removed; existing
     callers and the dashboard type mirror move to needs_you / working. Ticket graph legend and dots follow.
+    The CI rule holds for a series' next merge too (it waits while CI runs, decides on red); a stacked pull request is one
+    whose requirement has not landed (its open target is not stored); a CI wait is not escalated to the admin.
   out: "Reading the host's assigned reviewers ('waiting on X's review') — a later spec if wanted."
 
 tests:

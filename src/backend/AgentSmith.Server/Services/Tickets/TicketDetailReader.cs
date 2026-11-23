@@ -38,7 +38,8 @@ public sealed class TicketDetailReader(
     FiledTicketRows filed,
     TicketDerivations derivations, // 2026-10-26-bdd0f
     Series.TicketSeriesRunLink seriesRun, // 2026-11-23-31dcc
-    TicketProjects projects, Holds.TicketHoldInputsReader holdInputs) // 2026-11-23-31dcg: the hold reads what the list reads
+    TicketProjects projects, Holds.TicketHoldInputsReader holdInputs, // 2026-11-23-31dcg: the hold reads what the list reads
+    Holds.TicketOpenPullRequestsReader openPullRequests) // 2026-11-23-d60d
 {
     /// <summary>2026-10-14-dbcen: with no code run, the pair's never-run row with no attempts; null when neither exists.</summary>
     public async Task<TicketDetailView?> ReadAsync(string project, string ticketId, CancellationToken ct)
@@ -58,7 +59,11 @@ public sealed class TicketDetailReader(
             .ToLookup(s => s.RunId, s => s.Status, StringComparer.Ordinal);
         return new TicketDetailView(
             composer.Compose(code, read.State, specs, read.PrViews, read.Records, read.Standing, read.Launches, read.Derived.Sum(d => d.Cost),
-                await inputs),
+                (await inputs) with
+                {
+                    OpenPullRequests = await openPullRequests.ReadAsync(
+                        read.PrRecords.ToLookup(r => (r.Project, r.TicketId)), config.Projects, ct),
+                }),
             Branch(ticketId),
             [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, read.Runs[i], marker.Mark(a.Run, read.State, specs, read.Launches),
                 read.Records.GetValueOrDefault(a.Run.Id)))],

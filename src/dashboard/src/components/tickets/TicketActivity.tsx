@@ -11,6 +11,9 @@ import { holdSentence, holdTag } from "./holds/holdWords";
 
 const UNTRUSTED = "not a trusted reviewer";
 
+/** The statuses of an attempt still at work — running, queued, or relaunching. */
+const LIVE = new Set(["running", "queued", "waiting_for_input"]);
+
 export function TicketActivity({ ticket }: { ticket: TicketSummary }) {
   const t = useT();
   const parts = partsOf(t, ticket).filter((p): p is ReactNode => p !== null && p !== false);
@@ -40,10 +43,13 @@ function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
         </span>,
         specs(t),
         cause(tr, t),
+        // 2026-11-23-d60d: a pull request to merge, or one whose CI failed, keeps its review decision in sight.
+        ...(t.hold?.act?.kind === "pull_request" ? pullRequests(t) : []),
       ];
     case "working":
+      // 2026-11-23-d60d: an ended attempt whose pull request waits says what it waits for, beside its pull requests.
+      if (!LIVE.has(t.status)) return [t.hold ? <span key="w">{holdSentence(t.hold, tr)}</span> : null, ...pullRequests(t)];
       return [attempt, t.status === "running" ? null : queued(t), specs(t), cause(tr, t)];
-    case "waiting_on_review":
     case "done":
       return pullRequests(t);
     case "blocked":

@@ -22,12 +22,13 @@ public sealed class TicketCountsTests
     {
         var counts = new TicketCounts(TimeProvider.System).Of([
             Row("1", TicketBucket.NeedsYou, Hold(TicketHoldAddressees.Merge, TicketHoldCases.MergeNext), T.AddHours(2)),
-            Row("2", TicketBucket.WaitingOnReview, Hold(TicketHoldAddressees.Nobody, TicketHoldCases.MergeAfter)),
+            Row("2", TicketBucket.Working, Hold(TicketHoldAddressees.Nobody, TicketHoldCases.MergeAfter)),
             Row("3", TicketBucket.Stuck, Hold(TicketHoldAddressees.Admin, TicketHoldCases.ImageUntrusted)),
             Row("4", TicketBucket.NeedsYou, Hold(TicketHoldAddressees.Decide, TicketHoldCases.Failed), T.AddHours(1)),
         ], 0m, false);
 
-        (counts.NeedsYou, counts.AdminHolds, counts.Stuck, counts.WaitingOnReview).Should().Be((2, 1, 1, 1));
+        (counts.NeedsYou, counts.AdminHolds, counts.Stuck, counts.Working, counts.Queued).Should().Be((2, 1, 1, 1, 0),
+            "a pull request that waits is working, and neither running nor queued");
         counts.OldestNeedsYouSince.Should().Be(T.AddHours(1));
     }
 }

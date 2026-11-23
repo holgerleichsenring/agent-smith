@@ -113,17 +113,19 @@ describe("TicketList", () => {
   });
 
   it("PillsAndSections_CountsComeFromOneResponse", async () => {
-    serve(list([ticket()], { needsYou: 0, working: 3, running: 2, queued: 1, waitingOnReview: 2, stuck: 1, idle: 4, done: 14 }));
+    serve(list([ticket()], { needsYou: 0, working: 3, running: 2, queued: 1, stuck: 1, idle: 4, done: 14 }));
     renderTickets();
     await screen.findByTestId("ticket-list");
 
     expect(hoisted.fetch).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("ticket-pills-all-count")).toHaveTextContent("24");
-    for (const [section, n] of [["working", "3"], ["waiting-on-review", "2"], ["stuck", "1"], ["ended", "4"], ["done", "14"]]) {
+    expect(screen.getByTestId("ticket-pills-all-count")).toHaveTextContent("22");
+    expect(screen.queryByTestId("ticket-section-waiting-on-review")).toBeNull();
+    for (const [section, n] of [["working", "3"], ["stuck", "1"], ["ended", "4"], ["done", "14"]]) {
       expect(screen.getByTestId(`ticket-pills-${section}-count`)).toHaveTextContent(n);
       expect(screen.getByTestId(`ticket-section-${section}-count`)).toHaveTextContent(n);
     }
-    expect(screen.getByTestId("ticket-pills-waiting-on-review")).toHaveTextContent("In review");
+    expect(screen.queryByTestId("ticket-pills-waiting-on-review")).toBeNull();
+    expect(screen.queryByTestId("ticket-metric-review")).toBeNull();
     expect(screen.getByTestId("ticket-pills-needs-you-count").className).not.toContain("needs");
     expect(screen.getByTestId("ticket-metric-working")).toHaveTextContent("2 running · 1 queued");
   });
@@ -260,7 +262,7 @@ describe("TicketList", () => {
       pr({ url: "u8", state: "unsupported" }),
       pr({ url: "u9", state: "unread" }),
     ];
-    serve(list([ticket({ bucket: "waiting_on_review", status: "success", pullRequests: prs })], { waitingOnReview: 1 }));
+    serve(list([ticket({ bucket: "working", status: "success", pullRequests: prs })], { working: 1 }));
     renderTickets();
 
     const row = await screen.findByTestId("ticket-row-shop-101");
@@ -339,6 +341,24 @@ describe("TicketList", () => {
     renderTickets();
     expect(await screen.findByTestId("ticket-needs-you-shop-7")).toHaveTextContent("Talk about the plan");
     expect(within(screen.getByTestId("ticket-section-needs-you")).getByTestId("ticket-hold-act")).toHaveAttribute("href", "/series/sr-1?section=talk");
+  });
+
+  // 2026-11-23-d60d: no In review section — a pull request that can merge is Your move and opens on its host, one that
+  // waits for its CI is Working and says since when.
+  it("NeedsYou_AMergeReadyPullRequest_OpensOnItsHost_AWaitingOneIsWorking", async () => {
+    const ready = ticket({ ticketId: "8", bucket: "needs_you", status: "success", pullRequests: [pr({ state: "open" })],
+      hold: hold("merge_ready", { act: { kind: "pull_request", target: "https://example.test/pr/809" } }) });
+    const waiting = ticket({ ticketId: "9", bucket: "working", status: "success", pullRequests: [pr({ state: "open", url: "u9" })],
+      hold: hold("ci_running") });
+    serve(list([ready, waiting], { needsYou: 1, working: 1 }));
+    renderTickets();
+    expect(await screen.findByTestId("ticket-needs-you-shop-8")).toHaveTextContent("Its pull request can be merged now.");
+    const act = within(screen.getByTestId("ticket-section-needs-you")).getByTestId("ticket-hold-act");
+    expect(act).toHaveAttribute("href", "https://example.test/pr/809");
+    expect(act).toHaveTextContent("Open the pull request");
+    expect(within(screen.getByTestId("ticket-section-working")).getByTestId("ticket-row-shop-9"))
+      .toHaveTextContent("CI is running on its pull request. Nothing for you to do.");
+    expect(screen.queryByTestId("ticket-section-waiting-on-review")).toBeNull();
   });
 
   it("NeedsYou_IsTheHolds_AnAdminsHoldMovesThereOnlyForAnAdmin", async () => {

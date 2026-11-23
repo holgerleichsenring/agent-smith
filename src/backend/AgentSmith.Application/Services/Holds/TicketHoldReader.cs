@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Runs;
+using static AgentSmith.Application.Services.Holds.TicketHoldOf;
 
 namespace AgentSmith.Application.Services.Holds;
 
@@ -11,6 +12,7 @@ namespace AgentSmith.Application.Services.Holds;
 /// <para>2026-11-23-31dci: a nobody hold says since when it waits, and a wait on something outside the run (the model place,
 /// sandbox capacity, the restart) that outlasts <see cref="TicketHoldFacts.EscalateAfterMinutes"/> is the admin's
 /// (<see cref="TicketHoldEscalations"/>) — decided when the hold is read, so nothing runs in the background or is stored.</para>
+/// <para>2026-11-23-d60d: an open pull request always holds (<see cref="TicketPullRequestHold"/>); no in-review state.</para>
 /// </summary>
 public sealed class TicketHoldReader
 {
@@ -42,7 +44,8 @@ public sealed class TicketHoldReader
         };
     }
 
-    /// <summary>A parked question or hand-back, or a newest attempt that failed or fell short and that no restart takes up.</summary>
+    /// <summary>A parked question or hand-back, or a newest attempt that failed or fell short and that no restart takes up.
+    /// 2026-11-23-d60d: or red CI on an open pull request of a ticket not at work.</summary>
     public TicketHold? Decide(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
@@ -55,7 +58,7 @@ public sealed class TicketHoldReader
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Interrupted, retry, facts.EndedAt);
         if (facts.HeadStatus == RunStatuses.Shortfall)
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Shortfall, new(TicketHoldActs.Conversation), facts.EndedAt);
-        if (facts.HeadStatus != RunStatuses.Failed) return null;
+        if (facts.HeadStatus != RunStatuses.Failed) return TicketPullRequestHold.CiFailed(facts);
         var rework = new TicketHoldAct(TicketHoldActs.Conversation);
         if (facts.EndKind == RunEndKinds.ReadinessUnknown)
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.ReadinessUnknown, retry, facts.EndedAt);
@@ -78,22 +81,24 @@ public sealed class TicketHoldReader
     }
 
     /// <summary>The ticket's pull request merges next in its series, or a never-run ticket starts once others are merged. A
-    /// ticket at work is not held by its pull request; one outside any series has no merge order and stays in review.</summary>
+    /// ticket at work is not held by its pull request. 2026-11-23-d60d: nor one whose CI still runs; one outside any series'
+    /// merge order merges now when nothing it requires is unlanded, by opening the pull request.</summary>
     public TicketHold? Merge(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
         if (facts.StartsOnceMerged.Count > 0)
             return Hold(facts, TicketHoldAddressees.Merge, TicketHoldCases.StartsOnMerge,
                 facts.SeriesId is { } series ? new(TicketHoldActs.MergeNext, series) : null, null) with { Names = facts.StartsOnceMerged };
-        if (AtWork(facts)) return null;
+        if (AtWork(facts) || TicketPullRequestHold.CiHolds(facts)) return null;
         return facts.MergeStep is { Wait: SeriesRunMergeWaits.Ready } && facts.SeriesId is { } id
             ? Hold(facts, TicketHoldAddressees.Merge, TicketHoldCases.MergeNext, new(TicketHoldActs.Merge, id), facts.EndedAt)
-            : null;
+            : TicketPullRequestHold.Ready(facts);
     }
 
     /// <summary>The ticket moves on by itself: it works or waits for its model place (31dci), waits in the queue or resumes,
     /// the restart takes it up, its pull request merges after another, or what it requires is still worked. 31dci: a wait
-    /// says since when — the model wait's start, the queue arrival, the interruption's end, the specs' approval.</summary>
+    /// says since when — the model wait's start, the queue arrival, the interruption's end, the specs' approval.
+    /// 2026-11-23-d60d: and a pull request that waits on nobody says why (<see cref="TicketPullRequestHold.Waiting"/>).</summary>
     public TicketHold? Nobody(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
@@ -107,19 +112,9 @@ public sealed class TicketHoldReader
         }
         if (facts.Interrupted && facts.Restarting) return none(TicketHoldCases.Restarting, facts.EndedAt);
         if (facts.MergeStep is { Wait: SeriesRunMergeWaits.After } after)
-            return none(TicketHoldCases.MergeAfter, null) with { Names = after.After };
-        if (facts.MergeStep is { Wait: SeriesRunMergeWaits.Retarget }) return none(TicketHoldCases.Retarget, null);
+            return none(TicketHoldCases.MergeAfter, facts.EndedAt) with { Names = after.After };
+        if (facts.MergeStep is { Wait: SeriesRunMergeWaits.Retarget }) return none(TicketHoldCases.Retarget, facts.EndedAt);
+        if (TicketPullRequestHold.Waiting(facts) is { } waits) return waits;
         return facts.WaitsFor.Count > 0 ? none(TicketHoldCases.Prerequisite, facts.FiledAt) with { Names = facts.WaitsFor } : null;
     }
-
-    private static bool AtWork(TicketHoldFacts facts) =>
-        facts.HeadStatus is RunStatuses.Running or RunStatuses.Queued || (facts.HeadStatus == RunStatuses.WaitingForInput && !facts.Parked);
-
-    // A stop's hold quotes what the stop recorded; a parked or a moving ticket's names no end.
-    internal static TicketHold Hold(TicketHoldFacts facts, string addressee, string @case, TicketHoldAct? act, DateTimeOffset? since) =>
-        new(addressee, @case, act, since)
-        {
-            Attempt = facts.Attempt,
-            Detail = addressee is TicketHoldAddressees.Admin or TicketHoldAddressees.Decide && !facts.Parked ? facts.EndDetail : null,
-        };
 }

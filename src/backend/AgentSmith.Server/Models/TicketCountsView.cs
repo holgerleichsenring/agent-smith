@@ -4,6 +4,8 @@ namespace AgentSmith.Server.Models;
 /// 2026-10-13-9a59a: the ticket list's counts, over every ticket of the filtered project(s) —
 /// never only the page. Working splits into running and queued; a parked run whose relaunch
 /// holds a place or a fresh lease counts as queued.
+/// <para>2026-11-23-d60d: no in-review count — a ticket whose open pull request waits is working (neither running nor
+/// queued), one that can merge or whose CI is red is a person's move.</para>
 /// </summary>
 /// <param name="MonthCost">Every run of the filtered project(s) started this month.</param>
 /// <param name="Truncated">The read ceiling cut older tickets off.</param>
@@ -23,7 +25,6 @@ public sealed record TicketCountsView(
     DateTimeOffset? OldestNeedsYouSince,
     decimal MonthCost,
     bool Truncated,
-    int WaitingOnReview,
     int Done,
     int OpenPullRequests,
     TicketDoneCount DoneThisMonth,

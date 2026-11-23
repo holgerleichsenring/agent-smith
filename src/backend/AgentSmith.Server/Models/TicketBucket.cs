@@ -8,14 +8,14 @@ namespace AgentSmith.Server.Models;
 public static class TicketBucket
 {
     /// <summary>2026-11-23-31dcg: a person's hold — merge, plan or decide: a parked question or hand-back, a failed or short
-    /// attempt no restart takes up, a changed ticket text, or a pull request that merges next.</summary>
+    /// attempt no restart takes up, a changed ticket text, or a pull request that merges next. 2026-11-23-d60d: or an open
+    /// pull request that can merge now or whose CI is red.</summary>
     public const string NeedsYou = "needs_you";
 
-    /// <summary>The newest attempt runs, waits in the capacity queue, or is being relaunched — and no person's hold lies on it.</summary>
+    /// <summary>The newest attempt runs, waits in the capacity queue, or is being relaunched — and no person's hold lies on it.
+    /// 2026-11-23-d60d: or it ended with a pull request open that waits on nobody — CI running, behind another pull request.
+    /// "In review" (waiting_on_review) is gone: a pull request is a system state, its hold says whose move it is.</summary>
     public const string Working = "working";
-
-    /// <summary>2026-10-13-9a59b: a pull request is open and no attempt runs, waits or needs a person.</summary>
-    public const string WaitingOnReview = "waiting_on_review";
 
     /// <summary>
     /// 2026-10-13-9a59h: the last attempt failed and a check under a day old saw the ticket unchanged and
@@ -48,6 +48,6 @@ public static class TicketBucket
     /// <summary>Every bucket the list accepts as a filter.</summary>
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
-        NeedsYou, Working, WaitingOnReview, Stuck, Done, Idle, Blocked, Filed, Closed, PrClosed, Failed,
+        NeedsYou, Working, Stuck, Done, Idle, Blocked, Filed, Closed, PrClosed, Failed,
     };
 }

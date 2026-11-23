@@ -12,15 +12,17 @@ namespace AgentSmith.Server.Services.Tickets;
 /// 2026-10-13-9a59a: what state a ticket is in, from its newest attempt. 2026-11-23-31dcg: who must act next is no longer
 /// decided here — <see cref="Held"/> lays the ticket's hold (<see cref="TicketHoldReader"/>) over the state: a person's hold
 /// is needs_you, an admin's is stuck. A parked attempt is working here; its hold decides whether a person answers it.
-/// <para>Precedence is working > closed > waiting_on_review > done > closed (tracker) > stuck > pr_closed > failed (or cancelled) > done (delivered, no pull request) > idle;
-/// the pull requests' records decide waiting on review, done and the landing every arm carries.</para>
+/// <para>Precedence is working > closed > working (pull request open) > done > closed (tracker) > stuck > pr_closed > failed (or cancelled) > done (delivered, no pull request) > idle;
+/// the pull requests' records decide the open arm, done and the landing every arm carries.</para>
 /// <para>2026-10-13-9a59h: stuck is the stuck rule's observation, passed in — never assumed here. A landed
 /// merge outranks it: a person merged what the failed attempt opened.</para>
 /// <para>2026-10-15-114fb: a close mark answers closed while <see cref="TicketClosedRule"/> holds it in force.</para>
 /// <para>2026-10-15-114fc: a failed attempt whose own check saw a person's tracker close answers closed (tracker)
 /// after done and before stuck.</para>
-/// <para>2026-10-16-7ed3a: an open pull request answers waiting on review only while the newest attempt did not fail;
+/// <para>2026-10-16-7ed3a: an open pull request answers its arm only while the newest attempt did not fail;
 /// a failed head carries its open pull requests into stuck or failed, and a tracker close does not hide them.</para>
+/// <para>2026-11-23-d60d: that arm is working, since the attempt ended — there is no in-review bucket. The hold decides who
+/// moves it (<see cref="Held"/>): a pull request that can merge now or whose CI is red is needs_you, one that waits stays.</para>
 /// <para>2026-11-16-f3fbb: a failed head whose end kind is a precondition is stuck by itself, whatever the check saw —
 /// 2026-11-23-31dcg: through its admin hold (<see cref="Held"/>), the one reading of a precondition stop.</para>
 /// <para>2026-11-17-f9b0a (contract Q2, ratified by the operator 2026-11-17): a cancelled head is failed, and a delivered
@@ -45,7 +47,7 @@ public sealed class TicketBucketRule
         if (closed is not null && TicketClosedRule.InForce(closed, newest, pullRequests, doneAt))
             return new(TicketBucket.Closed, TicketClosedKinds.ByHand, closed.ClosedAt, newest.Status, null, null, landing);
         if (AnyOpen(pullRequests) && newest.Status != RunStatuses.Failed)
-            return new(TicketBucket.WaitingOnReview, null, newest.FinishedAt, null, null, null, landing);
+            return new(TicketBucket.Working, null, newest.FinishedAt, null, null, null, landing);
         if (doneAt is { } at && newest.StartedAt <= at)
             return new(TicketBucket.Done, null, at, null, null, null, landing);
         return Ended(newest, landing, stuck, trackerClosed && landedAt is null && !AnyOpen(pullRequests));

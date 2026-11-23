@@ -51,9 +51,15 @@ describe("yourMove", () => {
     expect(move).toMatchObject({ tone: "person", title: "Your move: the ticket came back to you", detail: "Which header?", next: "Reply below" });
   });
 
-  it("yourMove_InReview_IsBlue", () => {
-    const move = moveOf("waiting_on_review", attempt(), { pullRequests: [pr({ state: "open" })] });
-    expect(move).toMatchObject({ tone: "person", title: "Your move: review the pull request", text: "Waiting on review: 1 pull request is open." });
+  // 2026-11-23-d60d: no in-review state — a pull request that can merge is a merge hold, red CI a decision.
+  it("yourMove_AMergeReadyPullRequest_IsBlue_RedCi_IsRedAndNamesTheCheck", () => {
+    const ready = moveOf("needs_you", attempt(), { pullRequests: [pr({ state: "open" })],
+      hold: hold("merge_ready", { act: { kind: "pull_request", target: "https://example.test/pr/809" } }) });
+    expect(ready).toMatchObject({ tone: "person", title: "Your move: merge the pull request", text: "Its pull request can be merged now.",
+      act: { kind: "link", label: "Open the pull request", href: "https://example.test/pr/809" }, next: "Open the pull request" });
+    const red = moveOf("needs_you", attempt(), { pullRequests: [pr({ state: "open" })],
+      hold: hold("ci_failed", { names: ["build"], act: { kind: "pull_request", target: "https://example.test/pr/809" } }) });
+    expect(red).toMatchObject({ tone: "bad", title: "Your move: CI failed", text: "CI failed: build." });
   });
 
   it("yourMove_AMergeAndAChangedText_AreAPersonsMove", () => {
@@ -101,13 +107,10 @@ describe("yourMove", () => {
     expect(moveOf("pr_closed")).toMatchObject({ tone: "bad", title: "Stopped: the pull requests were closed", why: true });
   });
 
-  it("YourMove_OneOpenPullRequestInReview_CarriesTheReviewAct", () => {
-    const one = moveOf("waiting_on_review", attempt(), { pullRequests: [pr({ state: "open" })] });
-    expect(one.act).toMatchObject({ kind: "link", label: "Review the pull request" });
-    expect(one.next).toBe("Review the pull request");
-    const two = moveOf("waiting_on_review", attempt(), { pullRequests: [pr({ state: "open" }), pr({ state: "open", url: "https://example.test/pr/2" })] });
-    expect(two.act).toBeNull();
-    expect(two.next).toBe("Review the pull requests");
+  it("YourMove_SeveralOpenPullRequestsReadyToMerge_DrawNoSingleAct", () => {
+    const two = moveOf("needs_you", attempt(), { pullRequests: [pr({ state: "open" }), pr({ state: "open", url: "https://example.test/pr/2" })],
+      hold: hold("merge_ready", { act: { kind: "pull_request", target: null } }) });
+    expect(two).toMatchObject({ act: null, next: "Open the pull requests below", title: "Your move: merge the pull request" });
   });
 
   it("YourMove_ACancelledHeadWaitingToMerge_StaysCancelled", () => {
@@ -118,8 +121,11 @@ describe("yourMove", () => {
   });
 
   it("YourMove_AMergeAfterAnother_IsNothingForYouYet", () => {
-    const after = moveOf("waiting_on_review", attempt(), { pullRequests: [pr({ state: "open" })], hold: hold("merge_after", { names: ["SCRUM-1"] }) });
-    expect(after).toMatchObject({ title: "Nothing for you to do", act: null, next: "Nothing for you to do" });
+    const after = moveOf("working", attempt(), { pullRequests: [pr({ state: "open" })], hold: hold("merge_after", { names: ["SCRUM-1"] }) });
+    expect(after).toMatchObject({ tone: "amber", title: "Nothing for you to do", act: null, next: "Nothing for you to do" });
+    const ci = moveOf("working", attempt(), { pullRequests: [pr({ state: "open" })], hold: hold("ci_running", { since: new Date().toISOString() }) });
+    expect(ci.title).toBe("Nothing for you to do");
+    expect(ci.text).toMatch(/^CI has been running since \d\d:\d\d\. Nothing for you to do\.$/);
   });
 
   it("YourMove_Tones_FollowThePalette", () => {

@@ -149,19 +149,23 @@ describe("ticketState", () => {
     expect(state(running).sentence).toBe("Attempt 1 is deriving the series.");
   });
 
-  it("ticketState_WaitingOnReview_HasNoActAndCarriesThePullRequests", () => {
+  // 2026-11-23-d60d: a pull request that can merge opens on its host; one that waits is working in its hold's words.
+  it("ticketState_AMergeReadyPullRequest_OpensItAndCarriesThePullRequests", () => {
     const d = detail([attempt()]);
-    d.summary = { ...d.summary, bucket: "waiting_on_review", pullRequests: [pr({ state: "merged" }), pr({ number: "810", state: "open", url: "https://github.com/o/api/pull/810" })] };
+    d.summary = { ...d.summary, bucket: "needs_you", hold: hold("merge_ready", { act: { kind: "pull_request", target: "https://github.com/o/api/pull/810" } }),
+      pullRequests: [pr({ state: "merged" }), pr({ number: "810", state: "open", url: "https://github.com/o/api/pull/810" })] };
     const view = state(d);
-    expect(view.sentence).toBe("Waiting on review: 1 pull request is open.");
-    expect(view.act).toBeNull();
+    expect(view).toMatchObject({ tone: "person", sentence: "Its pull request can be merged now.",
+      act: { kind: "link", label: "Open the pull request", href: "https://github.com/o/api/pull/810" } });
     expect(view.pullRequests.map((p) => p.number)).toEqual(["809", "810"]);
   });
 
-  it("ticketState_InReviewAfterAnotherMerge_SaysItFromItsHold", () => {
+  it("ticketState_AWaitingPullRequestAfterAnotherMerge_IsWorkingInItsHoldsWords", () => {
     const d = detail([attempt()]);
-    d.summary = { ...d.summary, bucket: "waiting_on_review", hold: hold("merge_after", { names: ["SCRUM-1"] }), pullRequests: [pr()] };
-    expect(state(d)).toMatchObject({ sentence: "Merges after SCRUM-1. Nothing for you to do yet.", act: null });
+    d.summary = { ...d.summary, bucket: "working", hold: hold("merge_after", { names: ["SCRUM-1"] }), pullRequests: [pr()] };
+    const view = state(d);
+    expect(view).toMatchObject({ tone: "amber", pill: "Waiting", sentence: "Merges after SCRUM-1. Nothing for you to do yet.", act: null });
+    expect(view.pullRequests).toHaveLength(1);
   });
 
   it("ticketState_FailedWithOpenPullRequests_LeadsWithTheFailureAndCarriesThePullRequests", () => {

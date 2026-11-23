@@ -7,6 +7,7 @@ import { age, ticketLabel } from "@/components/tickets/ticketFormat";
 import { ticketBucketHref, TICKETS_PATH } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
 import { holdAsk, holdRowAct, yourMoveCount } from "@/components/tickets/holds/holdWords";
+import { holdPullRequestHref } from "@/components/tickets/holds/holdRoutes";
 import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
 import { useT } from "@/hooks/useT";
 import type { TicketSummary } from "@/types/tickets";
@@ -78,7 +79,8 @@ function MoveRow({ ticket }: { ticket: TicketSummary }) {
         <div className="home-ask">{holdAsk(ticket, t)}</div>
       </div>
       <span className="home-age">{age(ticket.since) ?? ""}</span>
-      <Link className="home-act" href={ticketHref(ticket)} data-testid="home-move-act">{act}</Link>
+      {/* 2026-11-23-d60d: a pull request a person merges or whose CI failed opens on its host. */}
+      <Link className="home-act" href={holdPullRequestHref(ticket.hold) ?? ticketHref(ticket)} data-testid="home-move-act">{act}</Link>
     </div>
   );
 }

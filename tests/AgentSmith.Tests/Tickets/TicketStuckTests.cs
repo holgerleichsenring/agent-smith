@@ -238,7 +238,7 @@ public sealed class TicketStuckTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketBucket_FailedWithOpenReview_IsADecisionNotWaitingOnReview()
+    public async Task TicketBucket_FailedWithAnOpenPullRequest_IsADecisionOnTheFailure()
     {
         await FailedAsync();
         await _h.AddAsync(Check(Now), Record("7", PrReviewStates.Open));

@@ -14,7 +14,8 @@ import { liveSpec } from "./attemptStory";
 // 2026-10-16-7ed3b: no other options — the Conversation tab is one click away) and which run the sentence is about, so the way to it and to its verbatim cause
 // stays in sight. 2026-11-23-31dcg: who acts and the act are the ticket's hold, read on the server — a held ticket's view
 // is the hold's sentence (holdWords) and its one act; this module keeps only the states nothing holds: the live run's
-// progress line, done, closed, ended, a cancelled or paused head and a pull request in review outside any series.
+// progress line, done, closed, ended, a cancelled or paused head. 2026-11-23-d60d: and a pull request that waits on nobody
+// (CI running, behind another pull request) under working, in its hold's words — there is no in-review state.
 
 export type StateTone = "ok" | "bad" | "amber" | "person" | "q";
 
@@ -75,7 +76,6 @@ function stateOf({ detail, liveEvents, series, t = translator("en") }: TicketSta
   if (!head) return null;
   switch (summary.bucket) {
     case "working": return working(detail, head, liveEvents, series, t);
-    case "waiting_on_review": return review(detail, head, hold, t);
     case "failed":
     case "stuck":
       return ended(head, hold, t);
@@ -152,6 +152,8 @@ function holdAct(detail: TicketDetail, head: TicketAttempt | null, hold: TicketH
     case "merge": return act.target ? { kind: "merge", seriesId: act.target, ticketId: detail.summary.ticketId } : null;
     case "merge_next":
       return act.target ? { kind: "link", label: t("hold.act.merge_next"), href: `${seriesRunPath(act.target)}?section=next` } : null;
+    // 2026-11-23-d60d: the one open pull request on its host; several are drawn as the block's rows instead.
+    case "pull_request": return act.target ? { kind: "link", label: t("hold.act.pull_request"), href: act.target } : null;
   }
 }
 
@@ -180,6 +182,9 @@ function working(
   const at = place != null ? ` — place ${place} in line` : "";
   // 2026-11-23-31dci: a queued or resuming attempt says since when it waits, from its hold; its place goes under it.
   const hold = detail.summary.hold;
+  // 2026-11-23-d60d: an ended attempt whose pull request waits says what it waits for; its pull requests draw under it.
+  if (hold && !["running", "queued", "waiting_for_input"].includes(head.status))
+    return { ...base(head), tone: "amber", pill: "Waiting", sentence: holdSentence(hold, t), hold };
   const waiting = hold?.since && (hold.case === "queued" || hold.case === "resuming") ? holdSentence(hold, t) : null;
   const placeLine = waiting && place != null ? `Place ${place} in line.` : null;
   if (head.status === "queued") {
@@ -207,15 +212,6 @@ export function progress(head: TicketAttempt, series: TicketSeries | null): stri
 export function liveLine(events: RunEvent[]): string | null {
   const started = events.filter((e): e is StepStartedEvent => e.type === EventType.StepStarted).at(-1);
   return started ? `Now: ${started.displayName ?? started.stepName}` : null;
-}
-
-/** The pull requests themselves are the way on: the block draws one row each. 2026-11-23-31dcg: one that merges after
- *  another in its series says so, from its hold. */
-function review(detail: TicketDetail, head: TicketAttempt, hold: TicketHold | null, t: T): TicketStateView {
-  if (hold) return { ...base(head), tone: "person", pill: "In review", sentence: holdSentence(hold, t), hold };
-  const open = (detail.summary.pullRequests ?? []).filter((pr) => pr.state === "open").length;
-  const count = open === 1 ? "1 pull request is" : `${open} pull requests are`;
-  return { ...base(head), tone: "person", pill: "In review", sentence: `Waiting on review: ${count} open.` };
 }
 
 function endedSentence(head: TicketAttempt): string {

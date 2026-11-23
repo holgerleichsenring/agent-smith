@@ -15,14 +15,15 @@ import { layoutTicketGraph, NODE_H, NODE_W } from "./ticketGraphLayout";
 // to what it requires, each node in its state (ticket-graph.html, graph-view). A node with a page opens it; a
 // page-less one opens its requires panel with the act. Hand-drawn SVG over a pure layout, like the flow graph.
 // 2026-10-15-114fd: failed, PR-closed and closed nodes carry their own words, style and legend entry.
+// 2026-11-23-d60d: a ticket whose pull request waits (CI, another merge) is a waiting node, not a running one.
 
 type Load = { kind: "loading" } | { kind: "failed"; refusal: ApiRefusal | null } | { kind: "read"; graph: Graph };
 
 const STATE_WORDS: Record<string, string> = {
-  "done-by-hand": "done by hand", waiting_on_review: "waiting on review", needs_you: "needs you", pr_closed: "PR closed",
+  "done-by-hand": "done by hand", needs_you: "needs you", pr_closed: "PR closed",
 };
 const LEGEND: ReadonlyArray<readonly [string, string]> = [
-  ["merged", "merged or done by hand"], ["running", "running"], ["blocked", "blocked"], ["ready", "ready"], ["idle", "no run, no page"],
+  ["merged", "merged or done by hand"], ["running", "running"], ["blocked", "blocked"], ["ready", "ready"], ["waiting", "PR waiting"], ["idle", "no run, no page"],
   ["failed", "failed"], ["pr_closed", "PR closed"], ["closed", "closed"],
 ];
 

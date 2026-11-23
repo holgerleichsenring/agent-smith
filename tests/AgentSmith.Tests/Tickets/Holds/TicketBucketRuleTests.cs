@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.Tickets.Holds;
 public sealed class TicketBucketRuleTests
 {
     private static readonly DateTimeOffset T = DateTimeOffset.Parse("2026-11-23T09:00:00Z");
-    private static readonly TicketBucketState Review = new(TicketBucket.WaitingOnReview, null, T, null, null, null, null);
+    private static readonly TicketBucketState Review = new(TicketBucket.Working, null, T, null, null, null, null);
 
     private static TicketHold Hold(string addressee, string @case, DateTimeOffset? since = null) => new(addressee, @case, null, since);
 

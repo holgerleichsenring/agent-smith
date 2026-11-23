@@ -9,7 +9,7 @@ import { useT } from "@/hooks/useT";
 import type { TicketSummary } from "@/types/tickets";
 import { seriesRunPath } from "@/lib/seriesRunAddress";
 import { holdRowAct, holdSentence } from "./holds/holdWords";
-import { holdSeriesHref } from "./holds/holdRoutes";
+import { holdPullRequestHref, holdSeriesHref } from "./holds/holdRoutes";
 import { TicketRow, ticketHref } from "./TicketRow";
 import { age } from "./ticketFormat";
 
@@ -35,12 +35,18 @@ export function TicketNeedsYou({ ticket }: { ticket: TicketSummary }) {
 function HoldLine({ ticket }: { ticket: TicketSummary }) {
   const t = useT();
   if (!ticket.hold) return null;
+  // 2026-11-23-d60d: a pull request that can merge or whose CI failed opens on its host.
+  const pullRequest = holdPullRequestHref(ticket.hold);
   return (
     <>
       <div className="hint-line" data-testid="ticket-hold-sentence">{holdSentence(ticket.hold, t)}</div>
-      <Link className="btn primary" href={holdSeriesHref(ticket.hold, seriesRunPath) ?? ticketHref(ticket)} data-testid="ticket-hold-act">
+      {pullRequest ? (
+        <a className="btn primary" href={pullRequest} target="_blank" rel="noreferrer" data-testid="ticket-hold-act">
+          {holdRowAct(ticket.hold, t)}
+        </a>
+      ) : <Link className="btn primary" href={holdSeriesHref(ticket.hold, seriesRunPath) ?? ticketHref(ticket)} data-testid="ticket-hold-act">
         {holdRowAct(ticket.hold, t)}
-      </Link>
+      </Link>}
     </>
   );
 }

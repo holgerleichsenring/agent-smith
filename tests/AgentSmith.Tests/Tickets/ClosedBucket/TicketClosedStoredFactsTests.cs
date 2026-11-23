@@ -42,7 +42,7 @@ public sealed class TicketClosedStoredFactsTests : IDisposable
 
         var row = await _h.RowAsync();
 
-        (row.Bucket, row.PullRequests.Single().HeadMovedAt).Should().Be((TicketBucket.WaitingOnReview, (DateTimeOffset?)ClosedAt.AddMinutes(1)));
+        (row.Bucket, row.PullRequests.Single().HeadMovedAt).Should().Be((TicketBucket.NeedsYou, (DateTimeOffset?)ClosedAt.AddMinutes(1)));
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class TicketClosedStoredFactsTests : IDisposable
 
         var row = await _h.RowAsync();
 
-        (row.Bucket, row.PullRequests.Single().ReopenedAt).Should().Be((TicketBucket.WaitingOnReview, (DateTimeOffset?)ClosedAt.AddMinutes(1)));
+        (row.Bucket, row.PullRequests.Single().ReopenedAt).Should().Be((TicketBucket.NeedsYou, (DateTimeOffset?)ClosedAt.AddMinutes(1)));
     }
 
     [Fact]

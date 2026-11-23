@@ -20,13 +20,11 @@ namespace AgentSmith.Server.Services.Tickets;
 /// <para>2026-10-15-114fb: a waits-for entry says its required ticket is closed; a row closed by hand is not checked.</para>
 /// <para>2026-10-26-af69: every row's cost counts the ticket's spec derivations, a never-run row's included.</para>
 /// <para>2026-11-23-31dcg: every row carries its hold, read from the inputs one read gathers for all of them
-/// (<see cref="Holds.TicketHoldInputsReader"/>); the needs-you filter takes admin holds too when the request asks for them.</para>
+/// (<see cref="Holds.TicketHoldInputsReader"/>, d60d: its open pull requests from the records read here); the needs-you
+/// filter takes admin holds too when the request asks for them.</para>
 /// </summary>
 public sealed class TicketListReader(
-    TicketListQuery query,
-    TicketAttempts attempts,
-    TicketLiveStateReader live,
-    TicketSummaryComposer composer,
+    TicketListQuery query, TicketAttempts attempts, TicketLiveStateReader live, TicketSummaryComposer composer,
     TicketSpecStatuses specs,
     TicketMonthCost monthCost,
     TicketCounts counts,
@@ -38,22 +36,22 @@ public sealed class TicketListReader(
     TicketLaunchEnds launchEnds,
     FiledTicketRows filed,
     TicketProjects projects,
-    Holds.TicketHoldInputsReader holdInputs)
+    Holds.TicketHoldInputsReader holdInputs, Holds.TicketOpenPullRequestsReader openPullRequests)
 {
-    private static readonly ILookup<string, string> NoSpecs =
-        Array.Empty<string>().ToLookup(s => s, StringComparer.Ordinal);
+    private static readonly ILookup<string, string> NoSpecs = Array.Empty<string>().ToLookup(s => s, StringComparer.Ordinal);
 
     /// <summary>Every run-bearing ticket with its rows and summary, and every never-run ticket's summary.</summary>
     public async Task<TicketListAll> AllAsync(ProjectScope project, CancellationToken ct)
     {
         var config = projects.Config(); // 2026-11-22-9719d: one configuration load per read
         var configured = config.Projects;
-        var inputs = await holdInputs.ReadAsync(project, configured, config.Preconditions, config.Holds, null, ct);
+        var held = await holdInputs.ReadAsync(project, configured, config.Preconditions, config.Holds, null, ct);
         var read = await query.ReadAsync(project, ct);
         var tickets = read.Rows.GroupBy(r => (r.Run.Project, r.Run.TicketId)).Select(g => g.ToList()).ToList();
         var heads = tickets.Select(t => attempts.Head(t).Run).ToList();
         var state = await live.ReadAsync(heads, ct);
         var prRecords = await pullRequests.AllAsync(project, ct);
+        var inputs = held with { OpenPullRequests = await openPullRequests.ReadAsync(prRecords, configured, ct) };
         var standing = await standings.ReadAsync(heads, ct);
         var headLaunches = await launchEnds.ForAsync([.. heads.Select(h => h.Id)], ct); // 31dcg: a lost sandbox holds a retry here too
         var costs = read.DerivationCosts;

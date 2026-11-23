@@ -573,6 +573,8 @@
 .mock-tickets .tg-node.blocked .tg-state { fill: var(--person); }
 .mock-tickets .tg-node.ready rect { stroke: var(--ink-3); }
 .mock-tickets .tg-node.ready .tg-state { fill: var(--ink-2); }
+.mock-tickets .tg-node.waiting rect { stroke: var(--run); stroke-dasharray: 4 3; }
+.mock-tickets .tg-node.waiting .tg-state { fill: var(--run); }
 .mock-tickets .tg-node.idle rect { stroke: var(--idle); stroke-dasharray: 2 3; }
 .mock-tickets .tg-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-3); margin-top: 10px; }
 .mock-tickets .tg-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1.5px solid var(--line); }

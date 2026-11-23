@@ -17,7 +17,7 @@ public static class TicketQuestionHold
         ArgumentNullException.ThrowIfNull(facts);
         if (!Waiting(facts) || !facts.Answerers.Contains(QuestionAnswerers.Environment)) return null;
         var act = PlanInSeries(facts) ? new TicketHoldAct(TicketHoldActs.Conversation, facts.SeriesId) : new(TicketHoldActs.Answer);
-        return TicketHoldReader.Hold(facts, TicketHoldAddressees.Admin, TicketHoldCases.QuestionEnvironment, act, facts.ParkedAt);
+        return TicketHoldOf.Hold(facts, TicketHoldAddressees.Admin, TicketHoldCases.QuestionEnvironment, act, facts.ParkedAt);
     }
 
     /// <summary>The parked question is the ticket's own: answered on it. Null for a park its series settles.</summary>
@@ -25,7 +25,7 @@ public static class TicketQuestionHold
     {
         ArgumentNullException.ThrowIfNull(facts);
         return Waiting(facts) && !PlanInSeries(facts)
-            ? TicketHoldReader.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Question, new(TicketHoldActs.Answer), facts.ParkedAt)
+            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Question, new(TicketHoldActs.Answer), facts.ParkedAt)
             : null;
     }
 
@@ -34,7 +34,7 @@ public static class TicketQuestionHold
     {
         ArgumentNullException.ThrowIfNull(facts);
         return Waiting(facts) && PlanInSeries(facts)
-            ? TicketHoldReader.Hold(facts, TicketHoldAddressees.Plan, TicketHoldCases.QuestionPlan,
+            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Plan, TicketHoldCases.QuestionPlan,
                 new(TicketHoldActs.Conversation, facts.SeriesId), facts.ParkedAt)
             : null;
     }

@@ -32,7 +32,7 @@ public sealed class TicketClosedListTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketList_ClosedTicketWithALaterPersonReview_IsBackInWaitingOnReview()
+    public async Task TicketList_ClosedTicketWithALaterPersonReview_IsBackInYourMoveToMerge()
     {
         await _h.AddAsync(Run("r-1"), Step("r-1"), Record("1", PrReviewStates.Open),
             Entry("1", "r1", ClosedAt.AddMinutes(10), decision: PrReviewDecisions.ChangesRequested));
@@ -40,7 +40,7 @@ public sealed class TicketClosedListTests : IDisposable
 
         var row = await _h.RowAsync();
 
-        (row.Bucket, row.Kind, row.Closed?.At).Should().Be((TicketBucket.WaitingOnReview, null, ClosedAt));
+        (row.Bucket, row.Kind, row.Closed?.At).Should().Be((TicketBucket.NeedsYou, null, ClosedAt));
         row.PullRequests.Single().PersonActivityAt.Should().Be(ClosedAt.AddMinutes(10));
     }
 

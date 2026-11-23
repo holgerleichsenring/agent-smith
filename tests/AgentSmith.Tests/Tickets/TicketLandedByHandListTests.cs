@@ -55,12 +55,12 @@ public sealed class TicketLandedByHandListTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketBucketRule_LandedByHandWithAnOpenPullRequest_StaysWaitingOnReview()
+    public async Task TicketBucketRule_LandedByHandWithAnOpenPullRequest_IsStillAMergeForAPerson()
     {
         await _h.AddAsync(Run("r-1"), Step("r-1"), Record("1", PrReviewStates.Open));
         await ByHandAsync(T.AddHours(2));
 
-        (await RowAsync()).Bucket.Should().Be(TicketBucket.WaitingOnReview);
+        (await RowAsync()).Bucket.Should().Be(TicketBucket.NeedsYou);
     }
 
     [Fact]

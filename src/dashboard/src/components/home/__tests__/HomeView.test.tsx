@@ -119,6 +119,18 @@ describe("HomeView", () => {
     await waitFor(() => expect(hoisted.fetchSpecDialog).toHaveBeenCalled());
   });
 
+  // 2026-11-23-d60d: a pull request that can merge opens on its host from Your move.
+  it("Home_YourMove_AMergeReadyPullRequest_OpensOnItsHost", async () => {
+    const ready = ticket({ ticketId: "7", bucket: "needs_you", since: ago(5),
+      hold: hold("merge_ready", { act: { kind: "pull_request", target: "https://example.test/pr/7" } }) });
+    hoisted.list = list([ready], { needsYou: 1 });
+    render(<HomeView />);
+    expect(screen.getByTestId("home-move-shop-7")).toHaveTextContent("Its pull request can be merged now.");
+    expect(screen.getByTestId("home-move-act")).toHaveAttribute("href", "https://example.test/pr/7");
+    expect(screen.getByTestId("home-move-act")).toHaveTextContent("Open the pull request");
+    await waitFor(() => expect(hoisted.fetchSpecDialog).toHaveBeenCalled());
+  });
+
   it("Home_RecentTickets_ListTheOthers", async () => {
     hoisted.list = list([waiting("1", 10), ticket({ ticketId: "9", title: "Fix the export" })], { needsYou: 1 });
     render(<HomeView />);

@@ -4,7 +4,7 @@ import type { TicketCounts } from "@/types/tickets";
 import { age, money } from "./ticketFormat";
 
 // 2026-10-13-9a59p: the ticket list's six tiles, every value from the server's counts — over every
-// ticket read, never only the page.
+// ticket read, never only the page. 2026-11-23-d60d: no In review tile — the open pull requests are counted on their own.
 
 interface Tile {
   label: string;
@@ -20,7 +20,7 @@ function tilesOf(c: TicketCounts): Tile[] {
   return [
     { label: "Needs you", value: c.needsYou, small: oldest ? `oldest ${oldest}` : null, hot: c.needsYou > 0, testId: "ticket-metric-needs-you" },
     { label: "Working", value: c.working, small: `${c.running} running · ${c.queued} queued`, testId: "ticket-metric-working" },
-    { label: "In review", value: c.waitingOnReview, small: `${c.openPullRequests} PRs open`, testId: "ticket-metric-review" },
+    { label: "PRs open", value: c.openPullRequests, small: "merge or wait under their ticket", testId: "ticket-metric-prs" },
     { label: "Stuck", value: c.stuck, small: "no one acted since", testId: "ticket-metric-stuck" },
     {
       label: "Done this month",

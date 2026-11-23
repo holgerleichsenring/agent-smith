@@ -43,6 +43,15 @@ describe("SeriesHoldsSection", () => {
     expect(screen.getByTestId("series-holds-moving")).toHaveTextContent("2 more");
   });
 
+  // 2026-11-23-d60d: red CI on a series ticket's pull request is a decision whose act opens the pull request.
+  it("SeriesHolds_RedCi_NamesTheFailedCheck_AndOpensThePullRequest", () => {
+    const red = hold("ci_failed", { names: ["build"], act: { kind: "pull_request", target: "https://example.test/pr/64" } });
+    render(<SeriesHoldsSection detail={seriesDetail({ tickets: [seriesTicket({ ticketId: "64", hold: red, isHeld: true })] })} />);
+    expect(screen.getByTestId("series-hold-sentence-64")).toHaveTextContent("CI failed: build.");
+    expect(screen.getByTestId("series-hold-act-64")).toHaveAttribute("href", "https://example.test/pr/64");
+    expect(screen.getByTestId("series-hold-act-64")).toHaveTextContent("Open the pull request");
+  });
+
   it("SeriesHolds_TheSentence_IsTheTicketBoxsText_ForAPlanAndForAnAdminStopWithItsDetail", () => {
     const endDetail = { subject: "Image node:22", repos: ["web"], control: "Trusted image registries", setTo: "ghcr.io/", settingsPath: "/x" };
     const image = hold("image_untrusted", { act: { kind: "settings", target: "/x" }, detail: endDetail });

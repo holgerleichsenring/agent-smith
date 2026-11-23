@@ -999,6 +999,22 @@ export const messages = {
     en: "Its pull request is next in the series' merge order.",
     de: "Sein Pull Request ist in der Merge-Reihenfolge der Serie als Nächstes dran.",
   },
+  // 2026-11-23-d60d: an open pull request outside a series' merge order, and the CI on any open one.
+  "hold.sentence.merge_ready": { en: "Its pull request can be merged now.", de: "Sein Pull Request kann jetzt gemergt werden." },
+  "hold.sentence.ci_failed": {
+    en: { one: "CI failed: {names}.", other: "CI failed: {names}." },
+    de: { one: "Die CI ist fehlgeschlagen: {names}.", other: "Die CI ist fehlgeschlagen: {names}." },
+  },
+  "hold.sentence.ci_failed_bare": { en: "CI failed on its pull request.", de: "Die CI ist auf seinem Pull Request fehlgeschlagen." },
+  "hold.sentence.ci_running": {
+    en: "CI is running on its pull request. Nothing for you to do.",
+    de: "Auf seinem Pull Request läuft die CI. Für dich gibt es nichts zu tun.",
+  },
+  "hold.wait.ci_running": { en: "CI has been running since {at}", de: "Die CI läuft seit {at}" },
+  "hold.title.merge_ready": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
+  "hold.title.ci_failed": { en: "Your move: CI failed", de: "Du bist dran: die CI ist fehlgeschlagen" },
+  "hold.act.pull_request": { en: "Open the pull request", de: "Pull Request öffnen" },
+  "hold.act.pull_requests": { en: "Open the pull requests below", de: "Öffne die Pull Requests unten" },
   "hold.sentence.starts_on_merge": {
     en: { one: "Starts once {names} is merged.", other: "Starts once {names} are merged, in that order." },
     de: { one: "Startet, sobald {names} gemergt ist.", other: "Startet, sobald {names} gemergt sind, in dieser Reihenfolge." },

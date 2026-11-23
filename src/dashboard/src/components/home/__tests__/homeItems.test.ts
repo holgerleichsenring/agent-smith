@@ -38,7 +38,7 @@ describe("homeItems", () => {
   });
 
   it("stateWords_NamesTheTicketListSection", () => {
-    expect(stateWords(ticket({ bucket: "waiting_on_review" }))).toBe("In review");
+    expect(stateWords(ticket({ bucket: "stuck" }))).toBe("Stuck");
     expect(stateWords(ticket({ bucket: "working" }))).toBe("Working");
   });
 });

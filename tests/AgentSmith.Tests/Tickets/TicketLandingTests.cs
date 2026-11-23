@@ -63,7 +63,7 @@ public sealed class TicketLandingTests : IDisposable
     public async Task TicketBuckets_OnePrOpen_LandingNull()
     {
         await _h.AddAsync(Run("r-1"), Step("r-1"), Record("1", PrReviewStates.Merged), Record("2", PrReviewStates.Open));
-        (await RowAsync()).Should().Match<TicketSummaryView>(r => r.Bucket == TicketBucket.WaitingOnReview && r.Landing == null);
+        (await RowAsync()).Should().Match<TicketSummaryView>(r => r.Bucket == TicketBucket.NeedsYou && r.Landing == null);
     }
 
     [Fact]

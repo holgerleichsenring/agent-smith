@@ -9,6 +9,8 @@ namespace AgentSmith.Server.Services.Tickets.Holds;
 /// series runs are still active, so a plan question goes to a conversation a series still reads.
 /// <para>2026-11-23-31dci: and since when each run waits for its model place and each ticket for sandbox capacity, the
 /// minutes a wait on nobody may last before it is the admin's, and the time the read is made at.</para>
+/// <para>2026-11-23-d60d: and every ticket's open pull requests (<see cref="TicketOpenPullRequestsReader"/>), added by the
+/// read that holds the pull-request records.</para>
 /// </summary>
 public sealed record TicketHoldInputs(
     IReadOnlyDictionary<(string Project, string TicketId), string> Series,
@@ -33,6 +35,13 @@ public sealed record TicketHoldInputs(
 
     /// <summary>2026-11-23-31dci: when the read was made; null where no read was.</summary>
     public DateTimeOffset? Now { get; init; }
+
+    /// <summary>2026-11-23-d60d: the open pull requests by (project, ticket id); a ticket with none open is absent.</summary>
+    public IReadOnlyDictionary<(string Project, string TicketId), AgentSmith.Application.Services.Holds.TicketOpenPullRequests> OpenPullRequests
+    { get; init; } = new Dictionary<(string, string), AgentSmith.Application.Services.Holds.TicketOpenPullRequests>();
+
+    public AgentSmith.Application.Services.Holds.TicketOpenPullRequests? OpenOf(string project, string ticketId) =>
+        OpenPullRequests.GetValueOrDefault((project, ticketId));
 
     public DateTimeOffset? ModelWaitOf(string runId) => ModelWaits.TryGetValue(runId, out var since) ? since : null;
 

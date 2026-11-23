@@ -60,6 +60,9 @@ public sealed record TicketHoldFacts(string Project, string TicketId)
     /// <summary>The ticket's place in that series' merge order; null when no pull request of it waits there.</summary>
     public SeriesRunMergeStep? MergeStep { get; init; }
 
+    /// <summary>2026-11-23-d60d: the ticket's open pull requests; null when none is open.</summary>
+    public TicketOpenPullRequests? OpenPullRequests { get; init; }
+
     /// <summary>A never-run ticket starts once these are merged (2026-11-22-6d85d).</summary>
     public IReadOnlyList<string> StartsOnceMerged { get; init; } = [];
 
