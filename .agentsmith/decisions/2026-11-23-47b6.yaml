@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-47b6
+
+decisions:
+  - category: Implementation
+    chose: "One generic Within over an IProjectOwned interface (Run, PrReviewRecord, ApprovedSeries) carrying the Run overload's rule; the per-type copies are deleted"
+    over: "Adding the Hidden branch to the PrReviewRecord overload (and the ApprovedSeries one)"
+    reason: "The gap exists because each overload was a copy of the Run rule made before f3a8a added Hidden; a third copy of the fix would drift the same way. One rule makes a hidden project hidden on every project-owned row."
+  - category: Scope
+    chose: "ApprovedSeries joins the shared rule in this spec"
+    over: "Fixing the PrReviewRecord overload alone"
+    reason: "It had the same gap on the same read (the ticket list's never-run rows), and unlike the PR records an installation filing WOULD render as a row."
+  - category: Scope
+    chose: "SpecDialogSession keeps its own overload"
+    over: "Folding it into the generic rule"
+    reason: "Its rule differs on purpose (an ungrounded conversation stays its owner's), and every caller filters by the owner first, so Hidden has nothing to hide there."
+  - category: Implementation
+    chose: "Background PR readers stay unscoped"
+    over: "Passing ProjectScope.Everything through them"
+    reason: "The sweep, re-read, CI watch, landing and rework reads already name their projects, repo key, PR key or ticket and never take a ProjectScope; the change cannot reach them, and a test pins that one still reads an installation record."

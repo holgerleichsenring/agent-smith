@@ -5,7 +5,7 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// (p0156 ISO-8601 + hex). Holds the run-level facts the dashboard reads; the
 /// child collections carry the trail. 1—N to every child; 1—1 to ActiveRun.
 /// </summary>
-public sealed class Run : EntityBase
+public sealed class Run : EntityBase, IProjectOwned
 {
     public string Id { get; set; } = string.Empty;
     public string Project { get; set; } = string.Empty;
