@@ -30,7 +30,7 @@ The full tour is on [The Config studio](../configure-it/config-studio.md); what 
 
 deployment:
   registry: holgerleichsenring
-  version: 0.204.1
+  version: 0.204.2
 
 agents:
   azure-openai-default:
