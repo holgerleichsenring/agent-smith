@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.205.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.204.2...v0.205.0) (2026-11-23)
+
+
+### Features
+
+* **dashboard:** Config Studio speaks the chosen language (2026-11-23-5669d) ([1e2365c](https://github.com/holgerleichsenring/agent-smith/commit/1e2365cc71cf250ceb5d7d71895ec5359b5924fa))
+* **dashboard:** Delivery and the last dates in Work it out and the series bar speak the chosen language (2026-11-23-5669f) ([87c7d74](https://github.com/holgerleichsenring/agent-smith/commit/87c7d74a21675345d22daa2b5a11375be0746770))
+* **dashboard:** System, Access and identity speak the chosen language (2026-11-23-5669e) ([fbea4dd](https://github.com/holgerleichsenring/agent-smith/commit/fbea4dd6ff10da43842556436a011a317b6571d8))
+* **dashboard:** the closing sweep — every helper takes the lookup, the last hook and lib texts move, the search names config pages in German (2026-11-22-5485b) ([c2f1f44](https://github.com/holgerleichsenring/agent-smith/commit/c2f1f449a942939e20473f0fbab00886b7662119))
+* **dashboard:** the dictionary takes one module per area, dates follow the chosen language, and the shell, home and overview speak German (2026-11-23-5669a) ([0b9e589](https://github.com/holgerleichsenring/agent-smith/commit/0b9e5896a1b52f80de2ab1cb232b5f133c1e0c5b))
+* **dashboard:** the run list and run page speak the chosen language (2026-11-23-5669c) ([b42065d](https://github.com/holgerleichsenring/agent-smith/commit/b42065d02401bb2333cec752032deb3fa089e857))
+* **dashboard:** the ticket list and ticket page speak the chosen language (2026-11-23-5669b) ([d310009](https://github.com/holgerleichsenring/agent-smith/commit/d310009b4c26e621bfec4e26803dbc274ea2f76a))
+* **dashboard:** the whole dashboard speaks German when German is chosen (2026-11-22-5485b, 2026-11-23-5669a..f) ([4de4437](https://github.com/holgerleichsenring/agent-smith/commit/4de4437c4bffbafe14af60bb8c15792dbe73b769))
+
 ## [0.204.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.204.1...v0.204.2) (2026-11-23)
 
 
