@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.201.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.201.0...v0.201.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **merge:** a person's merge starts its run in a scope; an Azure build policy with build 0 reads as no build (2026-11-23-c785) ([e5a315f](https://github.com/holgerleichsenring/agent-smith/commit/e5a315ff1be35292c9fa51c21a7da0d5b9d0f826))
+* **merge:** a person's merge starts; Azure build 0 reads as no build (2026-11-23-c785) ([77a9e27](https://github.com/holgerleichsenring/agent-smith/commit/77a9e2768e1582cac98266fe6694398fc743bc6c))
+
 ## [0.201.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.200.0...v0.201.0) (2026-11-23)
 
 
