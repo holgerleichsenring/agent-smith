@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-d60d
+goal: "The In review bucket goes: an open PR that can merge now is a merge hold in Your move, one that waits (CI running, behind another PR) is nobody's move under Working with its reason."
+
+applies_to: "default (TicketBucket, TicketBucketRule, TicketCounts, the 31dcg hold reader, dashboard ticket list sections, Your move, ticket graph legend)"
+
+requires: [2026-11-23-31dcg, 2026-11-23-31dce]
+
+facts:
+  - claim: "An open PR without a series merge order carries no hold and lands in the waiting_on_review bucket."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:48, .agentsmith/decisions/2026-11-23-31dcg.yaml"
+  - claim: "waiting_on_review is a bucket of its own, counted and shown as In review."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketBucket.cs:18,51, src/backend/AgentSmith.Server/Services/Tickets/TicketCounts.cs:35"
+  - claim: "An open pull request's target branch is stored only after a merge, so a stacked one is told by its unlanded requirement."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrReviewRecordView.cs:43-44, src/backend/AgentSmith.Server/Services/Series/SeriesRunTickets.cs:11"
+  - claim: "A record's stored CI names the head it was read for and a red head's failed checks."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrRecordCiView.cs:7,13"
+
+decisions_in_brief:
+  - "Operator 2026-11-23: In review is a system state, not a task; a mergeable PR is the person's move, a waiting PR is nobody's."
+
+scope:
+  in: >-
+    Every ticket with an open PR gets a hold from the 31dcg reader: merge (act: merge through the 31dce act when the
+    ticket is in a series, else open the PR) when it can merge now — CI green or none, no unlanded requirement (97c2a),
+    not stacked behind an open PR; otherwise nobody with the reason ("CI is running since …", "Merges after #X",
+    "CI failed: <check>" is decide). The waiting_on_review bucket, its count and its list section are removed; existing
+    callers and the dashboard type mirror move to needs_you / working. Ticket graph legend and dots follow.
+    The CI rule holds for a series' next merge too (it waits while CI runs, decides on red); a stacked pull request is one
+    whose requirement has not landed (its open target is not stored); a CI wait is not escalated to the admin.
+  out: "Reading the host's assigned reviewers ('waiting on X's review') — a later spec if wanted."
+
+tests:
+  - "A non-series PR with green CI: merge hold in Your move with an open-PR act."
+  - "A series PR next in merge order: merge hold with the series merge act (unchanged from 31dcg)."
+  - "A PR behind another open PR, or with CI running: nobody, Working, reason sentence."
+  - "Red CI: decide hold with the failing check."
+  - "No ticket reports waiting_on_review; counts sum as before; the ticket list has no In review section."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

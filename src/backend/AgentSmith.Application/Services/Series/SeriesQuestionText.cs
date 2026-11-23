@@ -6,10 +6,13 @@ namespace AgentSmith.Application.Services.Series;
 /// recommendation and when it is taken by default — and how its default is said.</summary>
 public static class SeriesQuestionText
 {
-    public static string Asked(SeriesQuestion question, string? ticketKey)
+    /// <summary>The relayed or own question as the conversation reads it; 2026-11-23-31dch: a plan question says so.</summary>
+    public static string Asked(SeriesQuestion question, string? ticketKey, bool aboutThePlan = false)
     {
         ArgumentNullException.ThrowIfNull(question);
-        var text = (ticketKey is null ? "One decision only you can make:" : $"{ticketKey} asks a decision only you can make:")
+        var text = (ticketKey is null ? "One decision only you can make:"
+                : aboutThePlan ? $"{ticketKey} asks about the plan — a decision only you can make:"
+                : $"{ticketKey} asks a decision only you can make:")
             + $"\n\n**{question.Text}**";
         if (question.Choices.Count > 0) text += $"\n\nChoices: {string.Join(" · ", question.Choices)}";
         if (question.Recommended is { } recommended) text += $"\n\nRecommended: {recommended}";

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchTicketGraph, fetchTicketRequires, markLandedByHand } from "../ticketGraphApi";
+import { fetchTicketRequires, markLandedByHand } from "../ticketGraphApi";
 
 // 2026-10-14-dbcen: the graph and requires reads, and a mark whose every non-200 answer is the server's plain sentence.
 
@@ -42,16 +42,12 @@ describe("ticketGraphApi", () => {
     await expect(markLandedByHand("shop", "41", "shipped")).rejects.toBeTruthy();
   });
 
-  it("fetchTicketGraph_AndFetchTicketRequires_ReadTheirRoutes", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(text(JSON.stringify({ nodes: [], edges: [] }), 200));
+  it("fetchTicketRequires_ReadsItsRoute", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(text(JSON.stringify({ requires: [], requiredBy: [] }), 200));
     vi.stubGlobal("fetch", fetchMock);
 
-    await fetchTicketGraph("shop");
-    await fetchTicketGraph();
     await fetchTicketRequires("shop", "team/41");
     expect(fetchMock.mock.calls.map((c) => String(c[0]))).toEqual([
-      expect.stringContaining("/api/tickets/graph?project=shop"),
-      expect.stringMatching(/\/api\/tickets\/graph$/),
       expect.stringContaining("/api/tickets/shop/team%2F41/requires"),
     ]);
   });

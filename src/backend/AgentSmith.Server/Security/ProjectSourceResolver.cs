@@ -22,6 +22,7 @@ internal sealed class ProjectSourceResolver(ResourceProjectReader reader)
         {
             ProjectSourceKind.Route => value is null ? RouteProjects.Missing : RouteProjects.Of([TicketQueryEndpoints.Decoded(value)]),
             ProjectSourceKind.Run => value is null ? RouteProjects.Missing : RunOf(await reader.RunAsync(value, ct)),
+            ProjectSourceKind.SeriesRun => value is null ? RouteProjects.Missing : RunOf(await reader.SeriesRunAsync(value, ct)), // 31dcb
             ProjectSourceKind.Session => value is null ? RouteProjects.Missing : RouteProjects.Stored(await reader.SessionAsync(Platform, value, ct)),
             ProjectSourceKind.Image => long.TryParse(value, out var image)
                 ? RouteProjects.Stored(await reader.ImageAsync(Platform, image, ct)) : RouteProjects.Missing,

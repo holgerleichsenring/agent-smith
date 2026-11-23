@@ -12,6 +12,8 @@ namespace AgentSmith.Domain.Models;
 /// <param name="Branch">2026-11-16-f3fbc: the run's branch a bootstrap read covered; null when it had none.</param>
 /// <param name="ParentTicketId">2026-11-16-f3fbc: the parent ticket a slice's base was read from; null for
 /// every other run. With <paramref name="Branch"/> it lets a release read the repositories as the run does.</param>
+/// <param name="ParentsPerRepo">2026-11-23-31dca: each repository's parent, where a stacked run's repos are cut from different
+/// branches; a repo without an entry reads <paramref name="ParentTicketId"/>, which a detail recorded before carries.</param>
 public sealed record EndDetail(
     string Subject,
     IReadOnlyList<string> Repos,
@@ -19,4 +21,10 @@ public sealed record EndDetail(
     string? SetTo = null,
     string? SettingsPath = null,
     string? Branch = null,
-    string? ParentTicketId = null);
+    string? ParentTicketId = null,
+    IReadOnlyDictionary<string, string>? ParentsPerRepo = null)
+{
+    /// <summary>2026-11-23-31dca: the parent this repository's base was read from; null when it had none.</summary>
+    public string? ParentOf(string repo) =>
+        ParentsPerRepo is not null && ParentsPerRepo.TryGetValue(repo, out var parent) ? parent : ParentTicketId;
+}

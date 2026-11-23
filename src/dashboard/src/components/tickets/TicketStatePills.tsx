@@ -11,13 +11,12 @@ import { TICKET_SECTIONS, totalTickets } from "./ticketSections";
 // bucket items, so every bucket stays reachable: the ones a person checks daily always show, the
 // rest while they hold a ticket or are the one chosen.
 
-const DAILY: readonly TicketBucket[] = ["needs-you", "working", "waiting-on-review", "stuck", "blocked", "done", "closed"];
+const DAILY: readonly TicketBucket[] = ["needs-you", "working", "stuck", "blocked", "done", "closed"];
 const OCCASIONAL: readonly TicketBucket[] = ["filed", "pr-closed", "failed", "ended"];
 
 const TONE: Partial<Record<TicketBucket, StateTone>> = {
   "needs-you": "needs",
   working: "proven",
-  "waiting-on-review": "person",
   stuck: "stopped",
   "pr-closed": "stopped",
   failed: "stopped",

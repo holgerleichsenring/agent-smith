@@ -9,6 +9,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// 2026-11-17-3435a: a pull request's build-validation policies as checks. An evaluation counts for the head only when
 /// its build ran the head (the build's pr.sourceSha, else its source version) and has not expired; otherwise the head
 /// waits for its build and the check is pending. A blocking policy is required.
+/// 2026-11-23-c785: a build id of 0 (Azure's "no build behind this evaluation") names no build — asking for build 0 threw
+/// and left a stale CI standing for days; with no build to compare, the evaluation's own status is the check.
 /// </summary>
 public static class AzureReposCiPolicies
 {
@@ -35,9 +37,10 @@ public static class AzureReposCiPolicies
     {
         var name = Text(evaluation.Configuration?.Settings, "displayName") ?? Text(evaluation.Context, "buildDefinitionName") ?? "build policy";
         var buildId = evaluation.Context?["buildId"]?.Type == JTokenType.Integer ? evaluation.Context["buildId"]!.Value<int>() : (int?)null;
+        if (buildId <= 0) buildId = null;
         var expired = evaluation.Context?["isExpired"]?.Type == JTokenType.Boolean && evaluation.Context["isExpired"]!.Value<bool>();
         var build = buildId is { } id ? await builds.GetBuildAsync(projectId, id, cancellationToken: ct) : null;
-        var current = !expired && build is not null && RanHead(build, head);
+        var current = !expired && (build is null ? buildId is null : RanHead(build, head));
         var outcome = !current ? CiCheckOutcome.Pending : evaluation.Status switch
         {
             PolicyEvaluationStatus.Approved => CiCheckOutcome.Passed,

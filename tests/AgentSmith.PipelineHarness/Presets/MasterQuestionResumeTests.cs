@@ -117,7 +117,7 @@ public sealed class MasterQuestionResumeTests
             await DurableDialogueHarness.MigrateAsync(first);
             first.ChatClient
                 // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
-                .EnqueueToolCall("ask_human", $$"""{"question":"{{Question}}"}""")
+                .EnqueueToolCall("ask_human", $$"""{"question":"{{Question}}","answerer":"target"}""")
                 .EnqueueText("Waiting for the operator's answer.");
             var result = await DurableDialogueHarness.ExecuteAsync(first, Fixture, Request());
             result.IsSuccess.Should().BeTrue("a clarification park is an incomplete run, not a failure");

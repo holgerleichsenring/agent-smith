@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -50,6 +51,23 @@ internal sealed class PreviousAttemptEnds(IServiceScopeFactory scopes)
             StoppedAtBoundary = stopped.Contains(r.Id),
             FinishedAt = r.FinishedAt, EndKind = r.EndKind, CancelReason = r.CancelReason,
         }, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>2026-11-23-97c2b: the repos each ticket has a standing pull request in over its code runs — one query.</summary>
+    public async Task<IReadOnlyDictionary<string, IReadOnlySet<string>>> PullRequestReposAsync(
+        string project, IReadOnlyCollection<string> ticketIds, CancellationToken ct)
+    {
+        var ids = Named(project, ticketIds);
+        if (ids.Count == 0) return new Dictionary<string, IReadOnlySet<string>>(StringComparer.OrdinalIgnoreCase);
+        using var scope = scopes.CreateScope();
+        var rows = await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<Run>().AsNoTracking()
+            .Where(r => r.Project == project && ids.Contains(r.TicketId) && r.Pipeline == PipelinePresets.CodeName && r.PullRequestsJson != null)
+            .Select(r => new { r.TicketId, r.PullRequestsJson }).ToListAsync(ct);
+        return rows.GroupBy(r => r.TicketId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => (g.Key, Repos: g.SelectMany(r => RunStoryJson.TryDeserialize<List<RunPullRequestView>>(r.PullRequestsJson!) ?? [])
+                .Where(AttemptPullRequests.Stands).Select(p => p.Repo).ToHashSet(StringComparer.Ordinal)))
+            .Where(t => t.Repos.Count > 0)
+            .ToDictionary(t => t.Key, t => (IReadOnlySet<string>)t.Repos, StringComparer.OrdinalIgnoreCase);
     }
 
     private static List<string> Named(string project, IReadOnlyCollection<string> ticketIds) =>

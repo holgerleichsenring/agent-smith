@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Tools;
@@ -36,14 +37,21 @@ public sealed class HumanToolHost : IToolHost
         [Description("Optional context block shown alongside the question.")] string? context = null,
         [Description("Optional list of choices. Each entry is {label, description?}.")] IReadOnlyList<AskHumanChoice>? choices = null,
         [Description("Optional 0-based index into choices identifying the recommended option.")] int? recommended_index = null,
+        [Description("Optional. Who can answer: 'target' (the default) — what the code being changed should do; 'plan' — the plan across tickets; 'environment' — the environment the run works in, reported to the admin.")] string? answerer = null,
         CancellationToken ct = default)
     {
+        // 2026-11-23-31dch: optional here; a value that names no answerer is refused with the values it may name.
+        var who = answerer is null ? QuestionAnswerers.Target : QuestionAnswerers.Parse(answerer);
+        if (who is null) return QuestionAnswerers.Refusal(answerer);
         if (_dialogueTransport is null || _jobId is null)
             return "Error: Dialogue transport not configured.";
         var qid = Guid.NewGuid().ToString("N");
         var rich = choices?.Select(c => new DialogChoice(c.label, c.description)).ToList();
         var qType = rich is { Count: > 0 } ? QuestionType.Choice : QuestionType.FreeText;
-        var dq = new DialogQuestion(qid, qType, question, context, rich, "", TimeSpan.FromMinutes(5), recommended_index);
+        var dq = new DialogQuestion(qid, qType, question, context, rich, "", TimeSpan.FromMinutes(5), recommended_index)
+        {
+            Answerers = [who],
+        };
         await _dialogueTransport.PublishQuestionAsync(_jobId, dq, ct);
         var answer = await _dialogueTransport.WaitForAnswerAsync(_jobId, qid, TimeSpan.FromMinutes(5), ct);
         return answer is null ? "Answer (timeout): " : $"Answer: {answer.Answer}";

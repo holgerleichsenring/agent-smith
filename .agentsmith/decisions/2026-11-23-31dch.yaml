@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dch
+
+decisions:
+  - category: Implementation
+    decider: operator
+    chose: "The required ask_human field is named 'answerer'"
+    over: "audience, addressee"
+    reason: "Operator, 2026-11-23."
+  - category: Scope
+    decider: claude
+    chose: "One open question per answerer replaces one question per run"
+    over: "Keeping one question per run, which forces mixed concerns into one question"
+    reason: "The observed failure was one question carrying a plan gap and an environment fault; they need different people."
+  - category: Scope
+    decider: claude
+    chose: "A missing answerer is refused with one teaching message; skills ship before the server pin; optional on HumanToolHost"
+    over: "Defaulting a missing answerer silently"
+    reason: "Three refused calls end a run, so one refusal must carry everything needed to retry; a silent default would route plan questions as code questions again."
+  - category: Implementation
+    decider: claude
+    chose: "answerer is a nullable C# parameter described as required; QuestionAnswerers.Refusal is the one refusal for a missing or unknown value"
+    over: "A non-defaulted parameter the schema marks required"
+    reason: "A missing required argument fails in Microsoft.Extensions.AI's binder with a generic error before the host runs; only our own refusal can name the three values so one retry posts."
+  - category: Architecture
+    decider: claude
+    chose: "The answerers ride on PlanOpenQuestion.Answerer and DialogQuestion.Answerers (the checkpoint's question JSON); a missing value reads as target"
+    over: "A new checkpoint column"
+    reason: "No migration; the checkpoint already stores the question as JSON, and an old row deserializes with Answerers null, which AnswerersOrTarget reads as target."
+  - category: Scope
+    decider: claude
+    chose: "A park that asks about the plan in an active series is answered in the series conversation as a whole (plan hold, or the admin hold's act when it also asks the environment); the ticket page shows the question as text with a link there"
+    over: "One checkpoint slot per answerer; a decide hold for a target+plan park"
+    reason: "Review finding: one park has one answer slot covering every question, so offering the ticket's answer for a park with a plan question breaks the invariant; per-answerer slots would be a second resume path."
+  - category: Scope
+    decider: claude
+    chose: "The series relays a plan question before a target one and names it as the plan's; an environment-only question is not relayed; the answer carries the turn's poster and goes through the existing inbox"
+    over: "Relaying every parked question; a new answer endpoint for the series"
+    reason: "The environment's question is the admin's; the inbox the ticket's answer uses is the one resume path, read in-run by MasterAnswerIntake unchanged."
+  - category: Scope
+    decider: claude
+    chose: "A plan question whose series run is no longer active (done, stopped) holds as a target question on the ticket"
+    over: "A plan hold pointing at a conversation no series beat reads"
+    reason: "Review finding; the spec treats a ticket outside a series as target, and a series that ended reads no conversation."
+  - category: Scope
+    decider: claude
+    chose: "A spec derivation still takes one question; a second is refused"
+    over: "Accepting one per answerer on a derivation"
+    reason: "Review finding: SpecDerivationGate hands back only the first question, so a second would be dropped silently."
+  - category: Implementation
+    decider: claude
+    chose: "The skills change (coding-agent-master 3.6.0) is prepared on the skills repo branch feat/ask-who-can-answer; it must be released before the server pin"
+    over: "Shipping the server first"
+    reason: "Without the skill naming the field, every question of a ticket run is refused once before the retry."

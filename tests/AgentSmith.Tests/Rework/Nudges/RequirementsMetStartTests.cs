@@ -422,7 +422,7 @@ public sealed class RequirementsMetStartTests : IDisposable
         _scopes = new ServiceCollection().AddScoped(_ => ActSteps.Start(config, FiledWorkDoubles.Move(config), _tracker)).BuildServiceProvider();
         return new WaitingTicketStart(_facts, new TicketStartHold(_facts, _facts, _tracker, NullLogger<TicketStartHold>.Instance),
             new AgentSmith.Application.Services.Claim.UnmetTicketRequirements(_facts, _facts, _approvals,
-                new AgentSmith.Application.Services.Claim.GreenPrerequisites(_facts, _attempts.Object, _facts), _series),
+                new AgentSmith.Application.Services.Claim.GreenPrerequisites(_facts, _attempts.Object, _facts, _facts), _series),
             _scopes.GetRequiredService<IServiceScopeFactory>(), Fallback(config), _attempts.Object, _leases.Object,
             NullLogger<WaitingTicketStart>.Instance);
     }

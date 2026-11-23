@@ -19,6 +19,10 @@ internal sealed class InMemorySeriesRunStore : ISeriesRunStore
     public Task<SeriesRunRecord?> ActiveForConversationAsync(string conversation, CancellationToken cancellationToken) =>
         Task.FromResult(Records.Values.LastOrDefault(r => r.Conversation == conversation && r.IsActive));
 
+    public Task<IReadOnlyList<SeriesRunRecord>> ListAsync(IReadOnlyCollection<string>? projects, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<SeriesRunRecord>>([.. Records.Values.Where(r => projects is null || projects.Contains(r.Project))
+            .OrderByDescending(r => r.LastActivityAt)]);
+
     public Task<IReadOnlyList<SeriesRunRecord>> ActiveAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<SeriesRunRecord>>([.. Records.Values.Where(r => r.IsActive)]);
 
@@ -32,6 +36,9 @@ internal sealed class InMemorySeriesRunStore : ISeriesRunStore
     public Task<SeriesRunRecord?> RunningWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
         Task.FromResult(Records.Values.FirstOrDefault(r => r.State is SeriesRunStates.Running or SeriesRunStates.Verifying
             && r.Project == project && r.Tickets.Any(t => t.TicketId == ticketId)));
+
+    public Task<SeriesRunRecord?> ForTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        Task.FromResult(Records.Values.LastOrDefault(r => r.Project == project && r.Tickets.Any(t => t.TicketId == ticketId)));
 
     public Task<SeriesRunRecord?> UpdateAsync(string id, Func<SeriesRunRecord, SeriesRunRecord> change, CancellationToken cancellationToken)
     {

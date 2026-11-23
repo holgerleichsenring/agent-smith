@@ -122,6 +122,6 @@ public sealed class TicketTrackerClosedTests : IDisposable
         _h.Tracker.Verify(t => t.TransitionToAsync(new TicketId("42"), "Won't Do", CancellationToken.None), Times.Once);
         (await CheckAsync(closedOnTheTracker, add: false)).Should().BeFalse();
 
-        (await _h.RowAsync()).Bucket.Should().Be(TicketBucket.Failed);
+        (await _h.RowAsync()).Bucket.Should().Be(TicketBucket.NeedsYou, "reopened, the failed attempt is a person's decision again (2026-11-23-31dcg)");
     }
 }

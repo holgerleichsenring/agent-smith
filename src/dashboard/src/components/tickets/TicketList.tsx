@@ -9,17 +9,23 @@ import { SERVER_BUCKET, TICKET_BUCKETS, type TicketBucket, type TicketListView }
 import { TicketMetricStrip } from "./TicketMetricStrip";
 import { TicketSection } from "./TicketSection";
 import { TICKET_SECTIONS, totalTickets } from "./ticketSections";
+import { countsFor, isYourMove } from "./holds/holdWords";
+import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
 
 // 2026-10-13-9a59p: every ticket agent-smith has worked, grouped by who has to act next. The
 // unfiltered view reads the shared first page the rail reads too; a bucket view pages its own.
 // 2026-11-12-aedda: the unfiltered view pages on from the shared page with Load more.
+// 2026-11-23-31dcg: Needs you is Your move — the tickets a person's hold lies on, and for an admin the admin holds too,
+// which then leave Stuck; the counts are read the same way, so a section and its count agree.
 
 export function TicketList() {
   const { filter } = useTicketBucketFilter();
   const shared = useTicketList();
   const bucket = filter === "all" ? null : filter;
-  const page = useTicketBucketPage(bucket);
-  const list = shared.list ?? page.first;
+  const admin = useHoldsAdmin();
+  const page = useTicketBucketPage(bucket, admin);
+  const read = shared.list ?? page.first;
+  const list = read ? { ...read, counts: countsFor(read.counts, admin) } : null;
   const refusal = shared.refusal ?? page.refusal;
 
   if (!list && refusal) return <RefusalSurface refusal={refusal} surface="the ticket list" />;
@@ -36,12 +42,12 @@ export function TicketList() {
           The list stopped at the server&apos;s read ceiling; older tickets are not counted.
         </div>
       )}
-      {bucket ? <BucketView bucket={bucket} list={list} page={page} /> : <AllSections list={list} page={page} />}
+      {bucket ? <BucketView bucket={bucket} list={list} page={page} admin={admin} /> : <AllSections list={list} page={page} admin={admin} />}
     </div>
   );
 }
 
-function AllSections({ list, page }: { list: TicketListView; page: TicketBucketPage }) {
+function AllSections({ list, page, admin }: { list: TicketListView; page: TicketBucketPage; admin: boolean }) {
   const shown = TICKET_BUCKETS.filter((b) => b === "needs-you" || TICKET_SECTIONS[b].count(list.counts) > 0);
   return (
     <>
@@ -50,7 +56,7 @@ function AllSections({ list, page }: { list: TicketListView; page: TicketBucketP
           key={b}
           bucket={b}
           counts={list.counts}
-          rows={page.rows.filter((t) => t.bucket === SERVER_BUCKET[b])}
+          rows={page.rows.filter((t) => (b === "needs-you" ? isYourMove(t, admin) : t.bucket === SERVER_BUCKET[b] && !isYourMove(t, admin)))}
           first={i === 0}
           chosen={false}
         />
@@ -60,8 +66,10 @@ function AllSections({ list, page }: { list: TicketListView; page: TicketBucketP
   );
 }
 
-function BucketView({ bucket, list, page }: { bucket: TicketBucket; list: TicketListView; page: TicketBucketPage }) {
-  return <TicketSection bucket={bucket} counts={list.counts} rows={page.rows} first chosen footer={<LoadMore page={page} />} />;
+function BucketView({ bucket, list, page, admin }: { bucket: TicketBucket; list: TicketListView; page: TicketBucketPage; admin: boolean }) {
+  // An admin's admin holds are Your move's; the Stuck view leaves them out, as its count does.
+  const rows = bucket === "needs-you" ? page.rows : page.rows.filter((t) => !isYourMove(t, admin));
+  return <TicketSection bucket={bucket} counts={list.counts} rows={rows} first chosen footer={<LoadMore page={page} />} />;
 }
 
 function LoadMore({ page }: { page: TicketBucketPage }) {

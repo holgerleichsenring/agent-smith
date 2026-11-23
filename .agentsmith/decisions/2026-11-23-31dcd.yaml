@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dcd
+
+decisions:
+  - category: Implementation
+    decider: claude
+    chose: "The series page reuses the ticket page's frame (tk-shell, tk-bar, tk-page in ticket-thread.css) and the list's progress bar; only the Tickets table and the bar's counts line are new CSS"
+    over: "Porting the mock's CSS"
+    reason: "The operator asked for the dashboard's tokens and styles; the mock's rail and bar are the ticket page's anatomy already."
+  - category: Implementation
+    decider: claude
+    chose: "The Conversation section starts Work it out's own hook (useSpecDialog) ON the conversation's thread through a dialog id source that seeds that thread and never holds it, with its transcript and composer; a closed one links to Work it out to be continued there"
+    over: "Resuming a closed conversation when the section is viewed; a second conversation component"
+    reason: "Going to an open thread reads and writes nothing; resuming writes, and the ticket page already holds that viewing writes nothing. Work it out's address (?open=) is the existing way to continue one."
+  - category: Implementation
+    decider: claude
+    chose: "The detail carries the thread id and whether the conversation is open (GetBySessionIdAsync), the repos its tickets touch and its cost (one run read plus the master's own cost)"
+    over: "Deriving repos and cost in the browser from separate reads"
+    reason: "The invariant of 31dcb: the page reads one model."
+  - category: Scope
+    decider: claude
+    chose: "Merge next, What holds the rest and Order and branches are named in the section ids and the table's comment and listed once 31dce, 31dcg and 31dcf add their panes; Tickets is the default section until then"
+    over: "Listing empty sections"
+    reason: "The spec: declared here, not listed until filled; an empty section would promise content that is not there."
+  - category: Implementation
+    decider: claude
+    chose: "Review fixes: the thread is the hook's seed (an open() after the seed lost the thread under StrictMode's second effect pass, proven with the real hook); a failed read or post is said; a proposal waiting for a decision hides the composer and links to Work it out, where the decision card is; the state word is coloured by state; every run status has a word"
+    over: "open(sessionId, threadId) from an effect behind a ref; the composer always shown"
+    reason: "Adversarial review findings, each confirmed; a person may not decide on a proposal the page does not show."

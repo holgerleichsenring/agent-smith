@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dcf
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "SeriesRunEdges asks GreenReads.StackPerRepoAsync and NotGreenAsync per dependent through ONE read set for the series, seeded with the project's edges and prefetched; the edge kind is read off that stack"
+    over: "A layout-side rule in the browser (same repo = solid), as the mock drew it; reading UnmetTicketRequirements.ForStartManyAsync's holds"
+    reason: "No second derivation: the stack is what a start stamps (31dca). ForStartManyAsync answers holds, not per-edge kinds — a started dependent carries no merges and a not-green one carries no stack — so the per-edge answer needs the stack itself. The spec's TipPerRepoAsync was replaced by StackPerRepoAsync in 31dca."
+  - category: Implementation
+    decider: claude
+    chose: "Unknown, for a dependent that never started, when the prerequisite or an unlanded one its chain reaches is not green; merge when the prerequisite or one its chain reaches is among the stack's merges; else stacked; landed once it merged. A started dependent (one attempt-existence read) is never unknown"
+    over: "Three kinds only, with a landed edge drawn as stacked or unknown; greenness of the direct prerequisite only"
+    reason: "A landed requirement is met by the default branch and gets its own quiet line. Review finding: RequirementHoldRule holds a never-started dependent on a deeper prerequisite that is not green and never holds a started one, so the edge reads the same two facts."
+  - category: Implementation
+    decider: claude
+    chose: "A project under requires_start: on_merge answers merge for every unlanded edge, with no stack read"
+    over: "Reading the per-repo stack in every mode"
+    reason: "Outside on_green_push a dependent never starts before its requirements land (UnmetTicketRequirements answers landings there), so every requirement is met only by a merge."
+  - category: Implementation
+    decider: claude
+    chose: "A ticket with no pull request yet sits in a last lane 'No pull request yet'"
+    over: "Guessing its repo from its title or specs"
+    reason: "Its repos are not known until it opens a pull request; the detail's repos are the pull requests' repos (31dcd)."
+  - category: Implementation
+    decider: claude
+    chose: "Order and branches is listed before Tickets, as the section table declares, so it is the default section until Merge next (31dce) is listed; the 31dcd tests address the Tickets section by name instead of relying on the default"
+    over: "Listing it after Tickets to keep Tickets the default"
+    reason: "31dcd's table fixes the order Merge next, What holds the rest, Order and branches, Tickets, Conversation; the tests no longer break whichever section is listed first."
+  - category: Implementation
+    decider: claude
+    chose: "Node frames from the dashboard's tokens: PR waiting and merge next in the accent (merge next with a ring), a question in the waits-for-a-person colour, not started dashed, merged in ok; the legend shows swatches, not colour words"
+    over: "The mock's 'blue frame / glow' words and its CSS"
+    reason: "The operator asked for the dashboard's tokens; the tokens differ between light and dark, so a colour word in the legend would be wrong in one of them."
+  - category: Implementation
+    decider: claude
+    chose: "With two independent prerequisites in one repo, only the edge to the one the stack's fewest merges names is dashed; the other stays solid"
+    over: "Dashing every edge of a held dependent (review finding 1b)"
+    reason: "The invariant draws each edge as what it means for the branches: once the named one merges, the dependent is cut from the other's branch. Dashing both would hide which pull request to merge."
+  - category: Implementation
+    decider: claude
+    chose: "The edge view carries no repos; a node's accessible name is its key, title and state"
+    over: "A repos list per stacked edge that nothing renders (review finding)"
+    reason: "Nothing on the page reads it; a field without a reader is a second copy that drifts."
+  - category: TradeOff
+    decider: claude
+    chose: "The edge kinds are read per dependent through one GreenReads set (edges seeded, ends prefetched), like ForStartManyAsync"
+    over: "A fixed query count regardless of chain shape"
+    reason: "Review finding: chain levels and repos are read for ids not read yet, so the count grows with the chain's depth, not the series' size; it is the start path's own read shape and only the series page asks it."

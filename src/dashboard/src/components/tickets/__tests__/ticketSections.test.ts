@@ -12,14 +12,15 @@ describe("ticketSections", () => {
     expect([SERVER_BUCKET["pr-closed"], SERVER_BUCKET.failed, SERVER_BUCKET.closed, SERVER_BUCKET.ended])
       .toEqual(["pr_closed", "failed", "closed", "idle"]);
 
-    const c = counts({ needsYou: 1, working: 2, waitingOnReview: 3, stuck: 4, blocked: 5, filed: 6, prClosed: 7, failed: 8, idle: 9, done: 10, closed: 11 });
+    const c = counts({ needsYou: 1, working: 2, stuck: 4, blocked: 5, filed: 6, prClosed: 7, failed: 8, idle: 9, done: 10, closed: 11 });
     expect(TICKET_SECTIONS["pr-closed"]).toMatchObject({ title: "PR closed", sub: "every pull request was closed without a merge", tone: "red" });
     expect(TICKET_SECTIONS.failed).toMatchObject({ title: "Failed", sub: "the last attempt failed", tone: "red" });
     expect(TICKET_SECTIONS.closed).toMatchObject({ title: "Closed", sub: "a person stopped work on it; later activity brings it back" });
     expect(TICKET_SECTIONS.closed.tone).toBeUndefined();
     expect(TICKET_SECTIONS.ended.sub).toBe("cancelled, or finished without a pull request");
     expect([TICKET_SECTIONS["pr-closed"], TICKET_SECTIONS.failed, TICKET_SECTIONS.closed].map((s) => s.count(c))).toEqual([7, 8, 11]);
-    expect(totalTickets(c)).toBe(66);
+    expect(totalTickets(c)).toBe(63);
+    expect(Object.keys(TICKET_SECTIONS)).not.toContain("waiting-on-review");
     expect(totalTickets(counts({ idle: 2 }))).toBe(2);
   });
 });

@@ -45,9 +45,9 @@ public sealed class BranchStateCheck(SandboxBaseLadder ladder, ILogger<BranchSta
             return RunPreflightFinding.Pass(Name, "no sandboxes in this run — no branch to read");
 
         var carried = new List<string>();
-        var parent = RunParentTicket.Of(pipeline);
         foreach (var (key, sandbox) in sandboxes)
         {
+            var parent = RunParentTicket.ForRepo(pipeline, RunParentTicket.RepoOfSandbox(pipeline, key)); // 2026-11-23-31dca
             var commits = await CountFrameworkCommitsAsync(sandbox, parent, cancellationToken);
             if (commits > 0) carried.Add($"{key}: {commits}");
         }

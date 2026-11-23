@@ -10,7 +10,8 @@ import { useTicketList } from "./TicketListProvider";
 // so a section filtered from it would show fewer rows than its count. The first page is reread
 // whenever the shared list lands (the shared store already coalesced the nudges); pages loaded
 // past it are kept and paged on with the server's cursor. 2026-11-12-aedda: the unfiltered list pages
-// too — its first page is the shared one, so only the pages past it are read here.
+// too — its first page is the shared one, so only the pages past it are read here. 2026-11-23-31dcg: an admin's needs-you
+// view asks for the admin holds too, so it lists what an admin's Your move counts.
 
 export interface TicketBucketPage {
   first: TicketListView | null;
@@ -21,7 +22,8 @@ export interface TicketBucketPage {
   loadMore: () => void;
 }
 
-export function useTicketBucketPage(bucket: TicketBucket | null): TicketBucketPage {
+export function useTicketBucketPage(bucket: TicketBucket | null, admin = false): TicketBucketPage {
+  const adminHolds = admin && bucket === "needs-you";
   const { version, list: shared } = useTicketList();
   const [own, setOwn] = useState<TicketListView | null>(null);
   const [older, setOlder] = useState<{ rows: TicketSummary[]; next: string | null } | null>(null);
@@ -36,7 +38,7 @@ export function useTicketBucketPage(bucket: TicketBucket | null): TicketBucketPa
   useEffect(() => {
     if (bucket === null) return;
     const ctrl = new AbortController();
-    fetchTickets({ bucket: SERVER_BUCKET[bucket] }, ctrl.signal)
+    fetchTickets({ bucket: SERVER_BUCKET[bucket], ...(adminHolds ? { adminHolds } : {}) }, ctrl.signal)
       .then((page) => {
         setOwn(page);
         setRefusal(null);
@@ -45,18 +47,18 @@ export function useTicketBucketPage(bucket: TicketBucket | null): TicketBucketPa
         if (!ctrl.signal.aborted) setRefusal(refusalIn(thrown));
       });
     return () => ctrl.abort();
-  }, [bucket, version]);
+  }, [bucket, version, adminHolds]);
 
   const first = bucket === null ? shared : own;
   const next = older ? older.next : first?.nextCursor ?? null;
   const loadMore = useCallback(() => {
     if (next === null || loadingMore) return;
     setLoadingMore(true);
-    fetchTickets(bucket === null ? { cursor: next } : { bucket: SERVER_BUCKET[bucket], cursor: next })
+    fetchTickets(bucket === null ? { cursor: next } : { bucket: SERVER_BUCKET[bucket], cursor: next, ...(adminHolds ? { adminHolds } : {}) })
       .then((page) => setOlder((prev) => ({ rows: [...(prev?.rows ?? []), ...page.tickets], next: page.nextCursor })))
       .catch(() => setOlder((prev) => ({ rows: prev?.rows ?? [], next: null })))
       .finally(() => setLoadingMore(false));
-  }, [bucket, next, loadingMore]);
+  }, [bucket, next, loadingMore, adminHolds]);
 
   const rows = useMemo(() => unique([...(first?.tickets ?? []), ...(older?.rows ?? [])]), [first, older]);
   return { first, rows, hasMore: next !== null, loadingMore, refusal, loadMore };

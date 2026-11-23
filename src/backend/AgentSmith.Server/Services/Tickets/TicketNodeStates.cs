@@ -7,6 +7,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// <summary>
 /// 2026-10-14-dbcen: a graph node's and a requires entry's state, from the list's own summaries — a landing
 /// outranks everything because it is permanent, then running, blocked and ready, then the list bucket.
+/// 2026-11-23-d60d: a working ticket whose attempt ended waits on its pull request (CI, another merge) — waiting, not running.
 /// </summary>
 internal static class TicketNodeStates
 {
@@ -14,13 +15,15 @@ internal static class TicketNodeStates
     public const string DoneByHand = "done-by-hand";
     public const string Running = "running";
     public const string Ready = "ready";
+    public const string Waiting = "waiting";
 
     public static string Of(TicketLandingFact? landing, TicketSummaryView? summary) =>
         landing is not null ? (landing.Kind == TicketLandingKinds.ByHand ? DoneByHand : Merged)
         : summary is null ? TicketBucket.Idle
         : summary.Bucket switch
         {
-            TicketBucket.Working => Running,
+            TicketBucket.Working => summary.Status is AgentSmith.Contracts.Runs.RunStatuses.Running or AgentSmith.Contracts.Runs.RunStatuses.Queued
+                or AgentSmith.Contracts.Runs.RunStatuses.WaitingForInput ? Running : Waiting,
             TicketBucket.Filed => Ready,
             var bucket => bucket,
         };

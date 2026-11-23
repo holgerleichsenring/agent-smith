@@ -14,6 +14,7 @@ import { chooseLanguage } from "@/lib/i18n/language";
 import { LANGUAGES, type Language, type TextKey } from "@/lib/i18n/translate";
 import type { SessionEndReason } from "@/lib/auth/AccessTokenStore";
 import { useRuntimeSettings } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
+import { useAdminHoldCount } from "@/hooks/useAdminHoldCount";
 import { signIn, signOut } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
@@ -138,13 +139,16 @@ function Foot({ collapsed, name, role, connected, note, children }: FootProps) {
     };
   }, [open]);
   const status = note ?? [t(connected ? "shell.profile.connected" : "shell.profile.offline"), role].filter(Boolean).join(" · ");
+  // 2026-11-23-31dci: an admin sees how many admin holds wait under System → Needs attention, on System and on the foot.
+  const adminHolds = useAdminHoldCount();
 
   return (
     <div className="sb-foot" ref={root} data-testid="profile">
       {open && anchor && createPortal(
         <div className="sb-menu" role="menu" ref={menu} style={anchor} data-testid="profile-menu" onClick={() => setOpen(false)}>
           {SETTINGS.map((item) => (
-            <MenuLink key={item.href} icon={item.icon} label={t(item.label)} href={item.href} testId={`profile-${item.id}`} />
+            <MenuLink key={item.href} icon={item.icon} label={t(item.label)} href={item.href} testId={`profile-${item.id}`}
+              count={item.id === "system" ? adminHolds : undefined} />
           ))}
           <div className="sb-menu-rule" role="separator" />
           <LanguageSwitch />
@@ -165,6 +169,7 @@ function Foot({ collapsed, name, role, connected, note, children }: FootProps) {
         data-testid="profile-button"
       >
         <span className="sb-avatar" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
+        {(adminHolds ?? 0) > 0 && <span className="sb-dot" data-testid="profile-attention-dot" aria-hidden="true" />}
         {!collapsed && (
           <span className="sb-who-text">
             <span className="sb-who-name" data-testid="profile-name">{name}</span>
@@ -204,11 +209,14 @@ function LanguageSwitch() {
   );
 }
 
-function MenuLink({ icon: Icon, label, href, testId }: { icon: LucideIcon; label: string; href: string; testId: string }) {
+function MenuLink({ icon: Icon, label, href, testId, count }: {
+  icon: LucideIcon; label: string; href: string; testId: string; count?: number;
+}) {
   return (
     <Link href={href} role="menuitem" data-testid={testId}>
       <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
       {label}
+      {count !== undefined && <span className={cn("sb-count", count > 0 && "hot")} data-testid={`${testId}-count`}>{count}</span>}
     </Link>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import type { BranchCleanupSetting, PreconditionsSetting, SettingValue } from "@/lib/configApi";
+import type { BranchCleanupSetting, HoldsSetting, PreconditionsSetting, SettingValue } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
 import { CheckField, NumberField, keep, patcher } from "./formFields";
 
@@ -36,5 +36,17 @@ export function BranchCleanupForm({ value, onChange }: { value: BranchCleanupSet
         testId="setting-branch-cleanup-interval"
         help="seconds between two branch-cleanup runs of a project; each run spends host API calls" />
     </>
+  );
+}
+
+/** 2026-11-23-31dci: holds.escalate_after_minutes — the minutes a wait on nobody may last before it is the admin's; 0 never. */
+export function HoldsForm({ value, onChange }: { value: HoldsSetting; onChange: (v: SettingValue) => void }) {
+  const set = patcher(value, onChange);
+  const t = useT();
+  return (
+    <NumberField label={t("config.holds.escalate.label")} value={value.escalateAfterMinutes}
+      onChange={(v) => set({ escalateAfterMinutes: keep(v, value.escalateAfterMinutes) })}
+      testId="setting-holds-escalate"
+      help={t("config.holds.escalate.help")} />
   );
 }

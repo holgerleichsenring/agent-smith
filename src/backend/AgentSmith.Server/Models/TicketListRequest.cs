@@ -11,4 +11,7 @@ public sealed record TicketListRequest(ProjectScope Projects, string? Bucket, st
 
     /// <summary>The page size, clamped so a bad or huge limit cannot widen the page.</summary>
     public int PageSize => Math.Clamp(Limit ?? DefaultLimit, 1, MaxLimit);
+
+    /// <summary>2026-11-23-31dcg: the needs-you filter takes admin holds too — Your move as an admin reads it.</summary>
+    public bool AdminHolds { get; init; }
 }

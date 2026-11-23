@@ -37,6 +37,15 @@ public sealed class SeriesRunRepository(IServiceScopeFactory scopeFactory) : ISe
     public Task<SeriesRunRecord?> LatestForConversationAsync(string conversation, CancellationToken cancellationToken) =>
         FirstAsync(q => q.Where(s => s.SessionId == conversation).OrderByDescending(s => s.Id), cancellationToken);
 
+    // 2026-11-23-31dcb: one read; the activity order is the record's, so it is applied after the rows are read.
+    public async Task<IReadOnlyList<SeriesRunRecord>> ListAsync(IReadOnlyCollection<string>? projects, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var rows = scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<SeriesRun>().AsNoTracking();
+        if (projects is not null) rows = rows.Where(s => projects.Contains(s.Project));
+        return [.. (await rows.ToListAsync(cancellationToken)).Select(Record).OrderByDescending(r => r.LastActivityAt).ThenByDescending(r => r.Id, StringComparer.Ordinal)];
+    }
+
     public async Task<IReadOnlyList<SeriesRunRecord>> ActiveAsync(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
@@ -50,6 +59,15 @@ public sealed class SeriesRunRepository(IServiceScopeFactory scopeFactory) : ISe
 
     public Task<SeriesRunRecord?> RunningWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
         WithTicketAsync([SeriesRunStates.Running, SeriesRunStates.Verifying], project, ticketId, cancellationToken);
+
+    // 2026-11-23-31dcc: the members live in the content JSON, so the project's rows are read and the newest holder kept.
+    public async Task<SeriesRunRecord?> ForTicketAsync(string project, string ticketId, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var rows = await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<SeriesRun>().AsNoTracking()
+            .Where(s => s.Project == project).OrderByDescending(s => s.Id).ToListAsync(cancellationToken);
+        return rows.Select(Record).FirstOrDefault(r => r.Tickets.Any(t => t.TicketId == ticketId));
+    }
 
     public async Task<SeriesRunRecord?> UpdateAsync(
         string id, Func<SeriesRunRecord, SeriesRunRecord> change, CancellationToken cancellationToken)

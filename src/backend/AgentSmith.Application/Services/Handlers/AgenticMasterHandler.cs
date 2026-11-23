@@ -457,13 +457,13 @@ public sealed class AgenticMasterHandler(
         // p0315d: the master asked mid-run — pause the run instead of nudging it
         // on. Publish the partial work + the question; MasterOpenQuestions posts
         // it to the ticket and parks, the executor short-circuits the rest.
-        if (ticketClarifications?.Captured is { } masterQuestion)
+        if (ticketClarifications is { HasAsked: true })
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
             var partial = records.Log.GetDecisions();
             if (partial.Count > 0) context.Pipeline.AppendDecisions(partial);
             context.Pipeline.Set<IReadOnlyList<Domain.Entities.PlanOpenQuestion>>(
-                ContextKeys.MasterOpenQuestions, [masterQuestion]);
+                ContextKeys.MasterOpenQuestions, [.. ticketClarifications.Asked]);
             logger.LogInformation(
                 "Master '{Skill}' asked for clarification mid-run — pausing for the ticket answer",
                 context.MasterSkillName);
@@ -581,13 +581,13 @@ public sealed class AgenticMasterHandler(
                 costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p, records.Decisions, team),
             new ReengageState(loopResult, changes, reports), pass0, reports.Count > 0, cancellationToken);
         var report = MasterReport.Join(reports);
-        if (ticketClarifications?.Captured is { } reengageQuestion)
+        if (ticketClarifications is { HasAsked: true })
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, changes);
             var partialQ = records.Log.GetDecisions();
             if (partialQ.Count > 0) context.Pipeline.AppendDecisions(partialQ);
             context.Pipeline.Set<IReadOnlyList<Domain.Entities.PlanOpenQuestion>>(
-                ContextKeys.MasterOpenQuestions, [reengageQuestion]);
+                ContextKeys.MasterOpenQuestions, [.. ticketClarifications.Asked]);
             context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
             logger.LogInformation(
                 "Master '{Skill}' asked for clarification during re-engagement — pausing for the ticket answer",

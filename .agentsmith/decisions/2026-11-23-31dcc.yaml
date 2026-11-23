@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dcc
+
+decisions:
+  - category: Implementation
+    decider: claude
+    chose: "'Held' on the list is a count the server adds to SeriesRunCounts: not merged, nothing waiting to merge, the newest attempt stopped short (asking, failed, cancelled, shortfall)"
+    over: "Deriving held in the browser; waiting for 31dcg's TicketHold"
+    reason: "The spec's progress bar and held count need it now; it is read from the same set-based facts, and 31dcg's hold reader replaces this count with its addressees (no second classifier stays)."
+  - category: Implementation
+    decider: claude
+    chose: "The next-step sentence is composed in the dashboard from the one row (question, ready merge, stuck count, end state, else working)"
+    over: "A server-built sentence"
+    reason: "Every input is a field of the same row, so nothing is joined from separate reads; 31dcg moves who-acts sentences to the server for tickets, and the series row can follow it there."
+  - category: Implementation
+    decider: claude
+    chose: "The sidebar count is read again on every page change, no timer"
+    over: "A polling interval"
+    reason: "A timer would be a new limit needing a config key; navigation already marks when a person looks again."
+  - category: Implementation
+    decider: claude
+    chose: "TicketSeriesRunLink reads the store and the name on scopes of their own and runs beside the ticket page's other reads"
+    over: "Reading on the request scope after them"
+    reason: "TicketDetailReader is transient and runs its reads side by side, each on its own scope; the link follows the same rule."
+  - category: Implementation
+    decider: claude
+    chose: "ForTicketAsync reads the project's series rows and keeps the newest that lists the ticket"
+    over: "A ticket column or JSON query on SeriesRun"
+    reason: "Members live in the content JSON, as PausedWithTicketAsync already reads them; a column needs a migration and a second writer."
+  - category: Implementation
+    decider: claude
+    chose: "Review fixes: the list waits for the remembered project before its first read and drops an aborted answer; an ended series' row says it ended before any merge or stuck sentence; a boundary stop is not held; the ticket page's series read is awaited on every path; the progress bar wraps under the name at phone width"
+    over: "Shipping as first built"
+    reason: "Adversarial review findings, each confirmed against the code."
+  - category: Scope
+    decider: claude
+    chose: "Links to /series/{id} ship here though the page is 31dcd's"
+    over: "Holding the links back until 31dcd"
+    reason: "31dcd is built next on the same branch and lands in the same pull request; no release carries the links without the page."

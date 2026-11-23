@@ -14,6 +14,7 @@ const hoisted = vi.hoisted(() => ({
   overview: null as OverviewSnapshot | null,
   tickets: null as TicketListView | null,
   prs: vi.fn(),
+  seriesCount: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
   usePathname: () => hoisted.pathname,
@@ -22,8 +23,11 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/hooks/useJobsHub", () => ({
   useJobsHub: () => ({ client: {}, connectionState: HubConnectionState.Connected, overview: hoisted.overview, systemActivity: null }),
 }));
+const holds = vi.hoisted(() => ({ admin: false }));
+vi.mock("@/hooks/useHoldsAdmin", () => ({ useHoldsAdmin: () => holds.admin }));
 vi.mock("@/lib/tickets/TicketListProvider", () => ({ useTicketList: () => ({ list: hoisted.tickets }) }));
 vi.mock("@/lib/pullRequestsApi", () => ({ fetchPullRequests: (...a: unknown[]) => hoisted.prs(...a) }));
+vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRunCount: (...a: unknown[]) => hoisted.seriesCount(...a) }));
 
 import { AppSidebar } from "../AppSidebar";
 import { TicketBucketFilterProvider } from "@/lib/TicketBucketFilter";
@@ -70,13 +74,14 @@ beforeEach(() => {
   hoisted.overview = { active: [snap("r-1", "running"), snap("r-2", "queued")], recent: [snap("r-3", "success")], systemActivity: null };
   hoisted.tickets = list([], { needsYou: 3, working: 2, done: 7 });
   hoisted.prs.mockReset().mockResolvedValue([{ status: "opened" }, { status: "opened" }, { status: "merged" }]);
+  hoisted.seriesCount.mockReset().mockResolvedValue({ running: 4 });
 });
 
 describe("AppSidebar", () => {
   it("Sidebar_EveryDestination_InTheApprovedOrder", () => {
     renderAt("/");
     const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
+    expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/series", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
     expect(screen.getByTestId("sidebar-group-Insight")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-group-Recent")).not.toBeInTheDocument();
   });
@@ -90,6 +95,19 @@ describe("AppSidebar", () => {
     expect(await screen.findByTestId("sidebar-pull-requests-count")).toHaveTextContent("2");
   });
 
+  // 2026-11-23-31dcc: Series sits directly below Work it out, counts the running series and is marked under /series.
+  it("Sidebar_Series_CountsTheRunningSeries_AndIsActiveUnderSeries", async () => {
+    const list = renderAt("/series");
+    expect(await screen.findByTestId("sidebar-series-count")).toHaveTextContent("4");
+    expect(screen.getByTestId("sidebar-series")).toHaveAttribute("aria-current", "page");
+    list.unmount();
+
+    renderAt("/series/sr-1");
+    expect(screen.getByTestId("sidebar-series")).toHaveAttribute("aria-current", "page");
+    await waitFor(() => expect(hoisted.seriesCount).toHaveBeenCalledTimes(2)); // read again on the page change
+    expect(screen.getByTestId("sidebar-work-it-out")).not.toHaveAttribute("aria-current");
+  });
+
   // 2026-11-17-d6fbe: restored from the deleted AppRail suite — only a non-zero waiting count is hot; zero stays calm,
   // and a count that asks for no answer (Tickets) is never hot.
   it("Sidebar_YourMoveZero_StaysCalm_AndTicketsIsNeverHot", () => {
@@ -98,6 +116,36 @@ describe("AppSidebar", () => {
     expect(screen.getByTestId("sidebar-your-move-count")).toHaveTextContent("0");
     expect(screen.getByTestId("sidebar-your-move-count").className).not.toContain("hot");
     expect(screen.getByTestId("sidebar-tickets-count").className).not.toContain("hot");
+  });
+
+  // 2026-11-23-31dcg: Your move counts the holds the server counted — an admin's also the admin holds.
+  it("Sidebar_YourMove_AddsTheAdminHolds_OnlyForAnAdmin", () => {
+    hoisted.tickets = list([], { needsYou: 3, adminHolds: 2, stuck: 2 });
+    holds.admin = false;
+    const plain = renderAt("/");
+    expect(screen.getByTestId("sidebar-your-move-count")).toHaveTextContent("3");
+    plain.unmount();
+    holds.admin = true;
+    renderAt("/");
+    expect(screen.getByTestId("sidebar-your-move-count")).toHaveTextContent("5");
+    holds.admin = false;
+  });
+
+  // 2026-11-23-31dci: System → Needs attention's count sits on System in the profile menu, for an admin only.
+  it("Sidebar_SystemCountsTheAdminHolds_OnlyForAnAdmin", () => {
+    hoisted.tickets = list([], { needsYou: 0, adminHolds: 2, stuck: 2 });
+    holds.admin = true;
+    const admin = renderAt("/");
+    expect(screen.getByTestId("profile-attention-dot")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("profile-button"));
+    expect(screen.getByTestId("profile-system-count")).toHaveTextContent("2");
+    expect(screen.getByTestId("profile-system-count").className).toContain("hot");
+    admin.unmount();
+    holds.admin = false;
+    renderAt("/");
+    expect(screen.queryByTestId("profile-attention-dot")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("profile-button"));
+    expect(screen.queryByTestId("profile-system-count")).not.toBeInTheDocument();
   });
 
   it("Sidebar_UnknownCounts_ShowNoNumber", () => {

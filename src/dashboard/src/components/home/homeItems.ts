@@ -1,34 +1,25 @@
 import { TICKET_SECTIONS } from "@/components/tickets/ticketSections";
+import { isYourMove } from "@/components/tickets/holds/holdWords";
 import { SERVER_BUCKET, TICKET_BUCKETS, type TicketSummary } from "@/types/tickets";
 
 // 2026-11-17-d6fba: what the home page lists under its composer, from the one ticket-list read the sidebar counts from.
-// Your move is the needs-you bucket — the same bucket the sidebar's count is — oldest first, at most three; recent
-// tickets are the newest of the rest.
+// Your move oldest first, at most three; recent tickets are the newest of the rest. 2026-11-23-31dcg: Your move is the
+// tickets a person's hold lies on — and an admin's for an admin — as the server read them; what each row says and
+// offers is its hold's (holdWords), not a who-acts rule of its own.
 
 export const MOVES_SHOWN = 3;
 export const RECENT_SHOWN = 8;
 
 const since = (t: TicketSummary): number => (t.since ? Date.parse(t.since) || 0 : 0);
 
-/** The tickets waiting on a person, longest waiting first, at most three. */
-export function yourMoves(tickets: readonly TicketSummary[]): TicketSummary[] {
-  return tickets.filter((t) => t.bucket === "needs_you").sort((l, r) => since(l) - since(r)).slice(0, MOVES_SHOWN);
+/** The tickets waiting on the viewer, longest waiting first, at most three. */
+export function yourMoves(tickets: readonly TicketSummary[], admin = false): TicketSummary[] {
+  return tickets.filter((t) => isYourMove(t, admin)).sort((l, r) => since(l) - since(r)).slice(0, MOVES_SHOWN);
 }
 
-/** The tickets that moved last and are not waiting on a person, newest first. */
-export function recentTickets(tickets: readonly TicketSummary[]): TicketSummary[] {
-  return tickets.filter((t) => t.bucket !== "needs_you").sort((l, r) => since(r) - since(l)).slice(0, RECENT_SHOWN);
-}
-
-/** What a waiting ticket asks of the operator, in one line. */
-export function moveAsk(t: TicketSummary): string {
-  if (t.kind === "handback") return t.handback?.text?.split(/\r?\n/)[0] ?? "The ticket came back to you.";
-  return t.pendingQuestion?.question.text.split(/\r?\n/)[0] ?? "A run waits for your answer.";
-}
-
-/** The act a waiting ticket's row offers. */
-export function moveAct(t: TicketSummary): string {
-  return t.kind === "handback" ? "Reply" : "Answer";
+/** The tickets that moved last and are not waiting on the viewer, newest first. */
+export function recentTickets(tickets: readonly TicketSummary[], admin = false): TicketSummary[] {
+  return tickets.filter((t) => !isYourMove(t, admin)).sort((l, r) => since(r) - since(l)).slice(0, RECENT_SHOWN);
 }
 
 /** "Nothing waits on you." / "One thing waits on you." / "4 things wait on you." */

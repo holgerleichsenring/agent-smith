@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dce
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "A merge a person asks for from the series page runs under merge: manual"
+    over: "The button disabled under merge: manual"
+    reason: "Operator, 2026-11-23: the click is the manual merge. merge: manual keeps meaning 'agent-smith does not merge on its own'."
+  - category: Architecture
+    decider: claude
+    chose: "The merge-green run re-reads each pull request's base from the host and refuses a non-default target; the outcome returns through an ActSlot"
+    over: "Trusting the UI's 'ready'; the run answering only whether it ran"
+    reason: "The ready state can go stale between render and run, and a stacked pull request merged into a prerequisite's branch is not a landing (6d85b)."
+  - category: Architecture
+    decider: claude
+    chose: "PullRequestMergeSequence answers a PullRequestMergeLine per repo carrying PullRequestCompletionOutcome; a repo never tried counts as refused"
+    over: "A new outcome kind for the page (not attempted, held); the slot carrying the result sentence only"
+    reason: "No second path: the host's three outcomes already name what a merge can do, and the run's sentence stays the one text both the result and the row show."
+  - category: Architecture
+    decider: claude
+    chose: "The base guard refuses a hosted pull request whose base cannot be read; a local repository is passed"
+    over: "Treating an unreadable base as not wrong, as ReadPullRequestBaseAsync's contract does for a retarget"
+    reason: "The providers answer null on any failed read, so a transient host error would let a stacked pull request merge into a prerequisite's branch; for a merge, unknown must mean no (review finding)."
+  - category: Architecture
+    decider: claude
+    chose: "With no default_branch configured, only a base that is an agent-smith work branch is refused"
+    over: "Reading the host's default branch; refusing every base when none is configured"
+    reason: "ISourceProvider has no public default-branch read; a prerequisite's branch is always a work branch, which is the case the guard exists for."
+  - category: Implementation
+    decider: claude
+    chose: "A base refusal keeps the attempt's pull request awaiting CI (as 97c2a's hold); a refusal of a person's merge is marked on its own run only"
+    over: "Marking every refusal completion_refused on the attempt, as 3435b does for the CI watch's own host refusals"
+    reason: "A retarget fixes the base, so the CI merge should ask again; a click that the host refused must not end an on_ci_green attempt's wait (review finding)."
+  - category: Architecture
+    decider: claude
+    chose: "The act answers through TicketCloseResult (200 body or a refusal sentence with its status)"
+    over: "A new result record for the merge act"
+    reason: "It is already the server's act answer shape, and its body is untyped; a second record would be the same thing under another name."

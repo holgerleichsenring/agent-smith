@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { mergeSeriesTicket } from "@/lib/seriesRunsApi";
 import { ProjectInitAction } from "@/components/system/ProjectInitAction";
 import { TrackerText } from "@/components/ui/TrackerText";
 import { formatRunSummary } from "@/lib/formatRunSummary";
@@ -8,7 +11,7 @@ import { runPath, runTracePath } from "@/lib/runPath";
 import { shortRepo } from "@/lib/shortRepo";
 import type { TicketAttempt, TicketDetail, TicketPullRequest } from "@/types/tickets";
 import { prNumber } from "./conversationWords";
-import { RetryUnchanged } from "./RetryUnchanged";
+import { RetryUnchanged, RUNS_CONTROL } from "./RetryUnchanged";
 import type { StateAct } from "./ticketState";
 import { useTicketTabGo } from "./useTicketTabGo";
 import { useYourMove } from "./useYourMove";
@@ -19,6 +22,7 @@ import { waitClock } from "@/components/jobs/runlog/modelWaitWords";
 // 2026-11-16-6877a: the one box above the composer that says what is next — a coloured dot, one title, ticketState's
 // sentence, at most one bright act, and for a stopped ticket the run's own end text behind "Why". It takes the
 // place of the state block under the header (2026-10-16-86e6c); the information is the same, the place is new.
+// 2026-11-23-31dcg: what the box says and offers is the ticket's hold; a merge hold's act merges through the series.
 
 interface Props {
   detail: TicketDetail;
@@ -70,8 +74,10 @@ interface ActProps {
 
 function Act({ act, project, onReply, onAnswer, question }: ActProps) {
   const address = useTicketTabGo();
+  const t = useT();
   if (!act) return null;
   switch (act.kind) {
+    case "merge": return <span className="tk-move-act"><MergeAct seriesId={act.seriesId} ticketId={act.ticketId} project={project} /></span>;
     case "retry": return <span className="tk-move-act"><RetryUnchanged attempt={act.attempt} project={project} /></span>;
     case "init": return <span className="tk-move-act" data-testid="ticket-state-init"><ProjectInitAction project={act.project} /></span>;
     case "link":
@@ -86,12 +92,43 @@ function Act({ act, project, onReply, onAnswer, question }: ActProps) {
       return (
         <span className="tk-move-act">
           <button type="button" className={question ? "btn primary" : "btn"} data-testid="ticket-state-act" onClick={go}>
-            {actLabel(act, question)}
+            {actLabel(act, question, t)}
           </button>
         </span>
       );
     }
   }
+}
+
+/** 2026-11-23-31dcg: the merge a merge hold offers — the series' merge run (31dce); what it did, or why it refused, stays
+ *  under the button. Hidden from a caller known to lack runs.control. */
+function MergeAct({ seriesId, ticketId, project }: { seriesId: string; ticketId: string; project: string }) {
+  const t = useT();
+  const lacks = useLacksPermission(RUNS_CONTROL, project);
+  const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState<string | null>(null);
+  if (lacks) return null;
+  const merge = async () => {
+    setBusy(true);
+    setSaid(null);
+    try {
+      const result = await mergeSeriesTicket(seriesId, ticketId);
+      setSaid(result.kind === "said" ? result.text
+        : result.answer.pullRequests.map((pr) => (pr.outcome === "merged" ? `${pr.repo}: ${t("series.merge.outcome.merged")}` : pr.text)).join(" · "));
+    } catch (error: unknown) {
+      setSaid(t("hold.act.mergeFailed", { message: error instanceof Error ? error.message : String(error) }));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <button type="button" className="btn primary" disabled={busy} onClick={() => void merge()} data-testid="ticket-state-act">
+        {busy ? t("hold.act.merging") : t("hold.act.merge")}
+      </button>
+      {said && <span className="tk-dim" role="status" data-testid="ticket-state-merge-said">{said}</span>}
+    </>
+  );
 }
 
 function Why({ move, attempt }: { move: YourMove; attempt: TicketAttempt | null }) {

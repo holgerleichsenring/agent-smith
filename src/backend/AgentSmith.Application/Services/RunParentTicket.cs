@@ -1,6 +1,8 @@
 using System.Text.Json;
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Services;
@@ -23,32 +25,62 @@ namespace AgentSmith.Application.Services;
 /// 2026-11-17-9a39b: a STACKED run answers its unlanded prerequisite first — the claim stamped it, and its pushed
 /// branch is this run's rung. It wins over a label parent: the prerequisite's branch was cut from that rung already.
 /// </para>
+/// <para>
+/// 2026-11-23-31dca: the stamp is per repo, so every answer is for ONE repo: its stacked prerequisite, else the label
+/// parent. A repo the stamp has no entry for cuts from the base it would have unstacked.
+/// </para>
 /// </summary>
 public static class RunParentTicket
 {
-    /// <summary>The ticket whose branch this run is cut from, or null when it cuts from its own base.</summary>
-    public static string? Of(PipelineContext pipeline)
+    /// <summary>The ticket whose branch this repo of the run is cut from, or null when it cuts from its own base.</summary>
+    public static string? ForRepo(PipelineContext pipeline, string? repo) =>
+        Stacked(pipeline)?.For(repo) ?? LabelParent(pipeline);
+
+    /// <summary>Whether this repo's answer is a prerequisite's branch — a rung nobody may publish, only find.</summary>
+    public static bool IsStackedIn(PipelineContext pipeline, string? repo) => Stacked(pipeline)?.For(repo) is not null;
+
+    /// <summary>The repository a sandbox of the run serves, from the coordinator's key -> repo map; the run's only repo when
+    /// there is no map; null when neither names one.</summary>
+    public static string? RepoOfSandbox(PipelineContext pipeline, string sandboxKey)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        if (StackedOn(pipeline) is { } stacked) return stacked;
+        if (pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, out var owners) && owners is not null
+            && owners.TryGetValue(sandboxKey, out var owner)) return owner;
+        return pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var repos) && repos is { Count: 1 }
+            ? repos[0].Name : null;
+    }
+
+    /// <summary>The epic parent the ticket's labels name, the same for every repo; null for everything filed now.</summary>
+    public static string? LabelParent(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
         return pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) && ticket is not null
             ? FiledTicketLabels.ParentId(ticket.Labels)
             : null;
     }
 
-    /// <summary>Whether the answer is a prerequisite's branch — a rung nobody may publish, only find.</summary>
-    public static bool IsStacked(PipelineContext pipeline) => StackedOn(pipeline) is not null;
-
-    private static string? StackedOn(PipelineContext pipeline)
+    /// <summary>The claim's stamp — a repo map, in process or as a JSON object after a round-trip, or the old single id
+    /// (a string or JSON string) for every repo; null when the run is not stacked.</summary>
+    public static StackedBases? Stacked(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<object>(ContextKeys.StackedOnTicket, out var value)) return null;
-        var id = value switch
+        var bases = value switch
         {
-            string text => text,
-            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
+            string text => Every(text),
+            JsonElement { ValueKind: JsonValueKind.String } element => Every(element.GetString()),
+            JsonElement { ValueKind: JsonValueKind.Object } element => PerRepo(element.EnumerateObject()
+                .Where(p => p.Value.ValueKind == JsonValueKind.String).Select(p => KeyValuePair.Create(p.Name, p.Value.GetString()))),
+            IReadOnlyDictionary<string, string> map => PerRepo(map.Select(p => KeyValuePair.Create(p.Key, (string?)p.Value))),
             _ => null,
         };
-        return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
+        return bases is { PerRepo.Count: 0, EveryRepo: null } ? null : bases;
     }
+
+    private static StackedBases Every(string? id) =>
+        new(new Dictionary<string, string>(), string.IsNullOrWhiteSpace(id) ? null : id.Trim());
+
+    private static StackedBases PerRepo(IEnumerable<KeyValuePair<string, string?>> entries) =>
+        new(entries.Where(p => !string.IsNullOrWhiteSpace(p.Value))
+            .ToDictionary(p => p.Key, p => p.Value!.Trim(), StringComparer.Ordinal));
 }

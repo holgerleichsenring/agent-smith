@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
+import { seriesRunPath } from "@/lib/seriesRunAddress";
 import { TICKETS_PATH } from "@/lib/TicketBucketFilter";
 import { useTicketConversation, useTicketDefaults, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketDetail } from "@/types/tickets";
@@ -24,6 +26,7 @@ export function TicketSectionBar({ detail, current, onSelect }: Props) {
   const { summary, branch } = detail;
   const state = stateWord(summary);
   const tracker = trackerFact(summary);
+  const t = useT();
   return (
     <aside className="tk-bar" aria-label="This ticket" data-testid="ticket-section-bar">
       <Link className="tk-bar-back" href={TICKETS_PATH} data-testid="ticket-back">← Tickets</Link>
@@ -50,6 +53,12 @@ export function TicketSectionBar({ detail, current, onSelect }: Props) {
         {tracker && <span data-testid="ticket-tracker-fact">{tracker}</span>}
         {branch && <span className="mono" data-testid="ticket-branch">{branch}</span>}
         <span data-testid="ticket-pr-fate">{pullRequestFact(summary, detail.attempts)}</span>
+        {/* 2026-11-23-31dcc: the series that holds the ticket, also once it ended — one click to its page. */}
+        {detail.seriesRun && (
+          <Link href={seriesRunPath(detail.seriesRun.id)} data-testid="ticket-series-run">
+            {t("series.partOf", { name: detail.seriesRun.name })}
+          </Link>
+        )}
       </div>
     </aside>
   );

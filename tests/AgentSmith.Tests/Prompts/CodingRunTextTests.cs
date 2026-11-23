@@ -31,8 +31,8 @@ public sealed class CodingRunTextTests
     {
         var host = new TicketClarificationToolHost();
 
-        host.AskHuman("Which store?", choices: [new("SQL"), new("Blob")], recommended_index: 1);
+        host.AskHuman("Which store?", answerer: "target", choices: [new("SQL"), new("Blob")], recommended_index: 1);
 
-        host.Captured!.Question.Should().EndWith("Recommended: Blob");
+        host.Asked[0].Question.Should().EndWith("Recommended: Blob");
     }
 }
