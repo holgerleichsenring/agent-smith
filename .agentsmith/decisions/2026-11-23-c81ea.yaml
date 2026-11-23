@@ -53,3 +53,35 @@ decisions:
     chose: "pocs.gitops.max_folder_files (500) stays, with the harm it prevents as its reason: more files than a template renders means foreign files, and deleting them all is one oversized commit request"
     over: "Dropping the limit and relying on folder-scoped truncation"
     reason: "Folder scoping bounds GitHub's read, not Azure's or GitLab's paginated listing nor the size of the delete commit. Over the limit the caller refuses naming count, value and key; raising the key lets the folder through."
+  - category: Scope
+    chose: "PocGitOpsConfig ships as a model with Problems() here; attaching it to PocsConfig, the schema entries and the settings fields with German strings move to 2026-11-23-c81eb's config step"
+    over: "Creating PocsConfig and the PoCs settings form here; leaving the config step out silently"
+    reason: "Built under 'zieh durch' before 2026-11-23-933da: neither PocsConfig nor the PoCs settings form exists on this branch, and building them here would duplicate 933da's settings step and collide with it. c81eb is the first reader of pocs.gitops and builds after 933da, so the wiring lands where it is first used; the spec text and c81eb's step and tests say so."
+  - category: Implementation
+    chose: "Local's deletion probe is 'git ls-tree --name-only <parent> -- <path>' (named = present, empty = absent, a non-zero exit throws)"
+    over: "git cat-file -e <parent>:<path> with exit 128 and 'does not exist' as absent"
+    reason: "A test showed cat-file refuses an absent path with a different sentence when the working tree still holds it ('exists on disk, but not in <rev>'), which a checkout-free commit leaves behind. ls-tree answers absence as an empty listing with exit 0, so no git sentence is parsed."
+  - category: Implementation
+    chose: "The factory for the all-absent answer is BranchWriteResult.HeldAlready(notes); the flag is the property AlreadyHeld"
+    over: "A static AlreadyHeld(notes) beside an AlreadyHeld property"
+    reason: "C# forbids a method and a property of one name on one type; the spec's flag name is kept and the factory renamed."
+  - category: Implementation
+    chose: "A GitHub ApiValidationException (422) from the ref update or create is Conflict; Azure's VssServiceException carrying TF401028 is Conflict; GitLab's 400 whose body holds 'Could not update refs/heads/' is Conflict; Local's update-ref stderr holding 'but expected' or 'reference already exists' is Conflict"
+    over: "Matching GitHub's message text; a typed Azure exception"
+    reason: "On GitHub the type is enough because the catch wraps only the ref call, where a 422 means the ref moved or appeared. The Azure SDK (19.225.2) has no typed stale-ref exception — only the GitRefUpdateStatus.StaleOldObjectId enum on another call — so the TF code is the narrowest signal, as AzureReposBranchRead's not-found rule already reads messages. GitLab and git name the race only in text."
+  - category: Implementation
+    chose: "The absence rule lives once in AbsentDeletionFilter (Infrastructure), fed a per-provider probe that answers false only for the host's not-found and throws otherwise; writes are never probed by it"
+    over: "Four copies of the drop-and-note loop"
+    reason: "One rule for four providers, so a transient-failure-drops-a-delete bug cannot come back in one of them. The existing add-or-edit probes on Azure and GitLab stay lenient, so filing's requests are unchanged."
+  - category: Implementation
+    chose: "Provider classes stay under their length ceilings by new types: GitHubTreeRequest, GitHubFolderFiles, AzureReposPushChanges, AzureReposFolderFiles, GitLabFileProbe, GitLabFolderFiles, LocalIndexStaging, LocalPathProbe"
+    over: "Growing the branch-write classes and providers past 120 lines"
+    reason: "Coding principles: 120 lines per class, and providers already over it may only shrink."
+  - category: Implementation
+    chose: "LocalPathProbe is unsealed with a virtual probe and LocalBranchCommit takes it in a second constructor, so a test moves the branch between the head read and update-ref against real git"
+    over: "A concurrent-writers test that races by chance; no local Conflict test"
+    reason: "The only deterministic way to stage the race on real git; the production constructor keeps building its own probe."
+  - category: Implementation
+    chose: "LocalSourceProvider takes an optional logger, which SourceProviderFactory now passes"
+    over: "A null logger inside the local branch write"
+    reason: "The deletion filter logs a failed probe before failing the write; the local provider had no logger to give it."

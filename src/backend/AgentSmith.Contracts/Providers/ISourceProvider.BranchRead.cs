@@ -32,4 +32,19 @@ public partial interface ISourceProvider
     /// </summary>
     Task<IReadOnlyList<string>> ListDirectoryAsync(
         string path, BranchName branch, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-11-23-c81ea: every FILE under <paramref name="path"/> on <paramref name="branch"/>, at any depth, as
+    /// repo-relative paths; empty when the folder is not there. At most <paramref name="maxFiles"/> of them, and
+    /// <see cref="RepoFileListing.Truncated"/> when more exist or the host cut its answer. The read is scoped to the
+    /// folder, never the whole branch. Auth and transport errors propagate.
+    /// </summary>
+    Task<RepoFileListing> ListFilesUnderAsync(
+        string path, BranchName branch, int maxFiles, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-11-23-c81ea: the branch the default-branch reads use — the repository's own default where the host
+    /// names one, else the configured branch, else 'main'.
+    /// </summary>
+    Task<BranchName> GetDefaultBranchAsync(CancellationToken cancellationToken);
 }

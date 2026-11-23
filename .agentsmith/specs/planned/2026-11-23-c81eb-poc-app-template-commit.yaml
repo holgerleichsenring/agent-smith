@@ -151,7 +151,7 @@ steps:
   - id: model
     action: "Poc.ReadinessPath; migrations x3; PocDesiredState + ContextKeys.PocDesiredState, PocCommitSha."
   - id: config
-    action: "PocIngressConfig, PocAuthConfig, PocNetworkConfig, PocQuotaConfig, PocContainerConfig with PocQuantity parsing and Problems(); the shared-repo load finding; schema, example."
+    action: "PocIngressConfig, PocAuthConfig, PocNetworkConfig, PocQuotaConfig, PocContainerConfig with PocQuantity parsing and Problems(); the shared-repo load finding; schema, example. Also, moved from 2026-11-23-c81ea (built before 2026-11-23-933da's PocsConfig existed): PocsConfig.GitOps (PocGitOpsConfig: commit_attempts 3, max_folder_files 500) with its Problems() joined into PocsConfig.Problems(), its schema entries, and the pocs.gitops fields in the PoCs settings form with German strings."
   - id: template
     action: "Default template files as embedded resources; PocTargetInstallHandler writes the absent ones."
   - id: render
@@ -178,6 +178,7 @@ tests:
   - "PocTargetConfig.Problems: enabled without auth annotations refused naming key and reason; both proxy forms set refused; quota.memory 512Mi with memory_limit 512Mi refused naming the rolling-update reason; quota.ephemeral_storage below twice ephemeral_limit refused"
   - "Shared-repo load finding: one target's deploy_root equal to another's root, and two targets sharing a template_path, are each a blocking finding naming both targets"
   - "PocTargetInstallHandler: writes the six template files once; an operator-edited file is never overwritten"
+  - "PocsConfig: pocs.gitops absent reads commit_attempts 3 and max_folder_files 500; commit_attempts 0 refused through PocsConfig.Problems() naming pocs.gitops.commit_attempts; the PoCs settings form round-trips both fields"
   - "GitOpsCommitHandler: commits the folder once and records desired state and SealFingerprint after the commit; a retry commits nothing, publishes PocDeployedEvent again and the projection inserts no second entry; a run that crashed after the row write publishes on its retry; a Conflict re-plans; a failed write leaves the row unchanged; a Truncated deploy-folder listing fails naming pocs.gitops.max_folder_files"
   - "GitOpsCommitHandler in poc-deploy: a stopped PoC (row Replicas 0) commits the new revision with replicas 0"
   - "PocDeployedEvent projection: one PocAuditEntry 'deployed'; a replay or a second event of the same run inserts none (existence check before 933da's unique (RunId, Act) index)"

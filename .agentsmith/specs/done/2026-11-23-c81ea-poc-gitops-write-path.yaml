@@ -6,7 +6,7 @@ applies_to: "default (RepoFile delete form on four providers, BranchWriteResult.
 
 requires: [2026-11-23-933db, 2026-11-23-933dc, 2026-11-18-3863c, 2026-09-22-b6ad]
 
-upgrade_impact: "No behaviour change for existing callers: filing (FiledSeriesWrite) and the deploy run (GitOpsDelivery.DeliverAsync, pull-request mode) send no deletes and keep their exact requests; a GitHub write without a delete still goes through Octokit's typed tree call; GitOpsOrder is untouched. BranchWriteResult gains Conflict (true only for a moved head: GitHub's non-fast-forward, Azure's stale OldObjectId, Local's refused update-ref, GitLab's 'Could not update refs/heads' refusal; Written was already false for each) and AlreadyHeld (true only for a write whose every entry was a deletion of an absent path, which no existing caller sends). GitLab writes are unchanged apart from the new delete action, which only a delete sends; no last_commit_id is added. ISourceProvider gains ListFilesUnderAsync and GetDefaultBranchAsync in the BranchRead partial on all four providers and on the eight test implementers. A new pocs.gitops block (commit_attempts 3, max_folder_files 500) reads its defaults when absent. Nothing needs Redis."
+upgrade_impact: "No behaviour change for existing callers: filing (FiledSeriesWrite) and the deploy run (GitOpsDelivery.DeliverAsync, pull-request mode) send no deletes and keep their exact requests; a GitHub write without a delete still goes through Octokit's typed tree call; GitOpsOrder is untouched. BranchWriteResult gains Conflict (true only for a moved head: GitHub's non-fast-forward, Azure's stale OldObjectId, Local's refused update-ref, GitLab's 'Could not update refs/heads' refusal; Written was already false for each) and AlreadyHeld (true only for a write whose every entry was a deletion of an absent path, which no existing caller sends). GitLab writes are unchanged apart from the new delete action, which only a delete sends; no last_commit_id is added. ISourceProvider gains ListFilesUnderAsync and GetDefaultBranchAsync in the BranchRead partial on all four providers and on the eight test implementers. PocGitOpsConfig (commit_attempts 3, max_folder_files 500) is a model only; 2026-11-23-c81eb attaches it to the pocs block, where absent values read these defaults. Nothing needs Redis."
 
 facts:
   - claim: "RepoFile is a text-only REPLACE (path + whole content); BranchWriteResult knows only Ok(sha) and Failed(reason), and a write that names no sha must be Failed."
@@ -76,11 +76,11 @@ scope:
     last_commit_id anywhere; create/update unchanged). Local: update-index --force-remove <path> on the scratch index.
     ABSENT AT THE BASE: each provider probes a deletion's path at the parent it commits on — GitHub a
     Repository.Content.GetAllContentsByRef at the parent sha, Azure GetItemAsync at the base commit, GitLab the files
-    HEAD at the branch, Local git cat-file -e <parent>:<path> — and for a DELETION only the host's NotFound (GitHub
-    NotFoundException, Azure a VssServiceException read by AzureReposBranchRead's not-found rule, GitLab 404, cat-file
-    exit 128 saying the path does not exist) counts as absent; any other probe failure fails the write (Failed, naming the path), so
+    HEAD at the branch, Local git ls-tree --name-only <parent> -- <path> — and for a DELETION only the host's NotFound (GitHub
+    NotFoundException, Azure a VssServiceException read by AzureReposBranchRead's not-found rule, GitLab 404, ls-tree
+    naming nothing) counts as absent; any other probe failure fails the write (Failed, naming the path), so
     a transient error never turns a required delete into a note. A deletion of an absent path is dropped and said in
-    BranchWriteResult.Notes. A write whose every entry was such a deletion answers BranchWriteResult.AlreadyHeld(notes)
+    BranchWriteResult.Notes. A write whose every entry was such a deletion answers BranchWriteResult.HeldAlready(notes)
     (Written false, Error 'every deletion was already absent', AlreadyHeld true) instead of committing; an empty write
     still answers Failed('no files to write'). CONFLICT: BranchWriteResult gains Conflict (bool) and
     Conflicted(reason); GitHubBranchWrite maps the ref update's non-fast-forward refusal, AzureReposBranchWrite the
@@ -115,8 +115,10 @@ scope:
     at least 1; reason 'a deploy folder is rendered from the app template and holds a handful of manifests; more
     means files someone else put there, and planning their deletion would send every path in one commit request' —
     over it the caller refuses naming the count, the value and the key, and raising the key lets the folder through).
-    PocsConfig.Problems() refuses each out-of-range value naming value, reason and key. pocs.gitops fields in the PoCs
-    settings form with German strings; schema entries.
+    PocGitOpsConfig.Problems() refuses each out-of-range value naming value, reason and key. Attaching it to PocsConfig
+    (PocsConfig.GitOps, its Problems() joined into PocsConfig.Problems()), the schema entries and the pocs.gitops fields
+    in the PoCs settings form with German strings belong to 2026-11-23-c81eb: PocsConfig and the PoCs settings form are
+    2026-11-23-933da's and were not built when this spec was.
   out: "The DeployRecordProjection DeliveredAtTicks fix (2026-11-23-af60 owns it). GitLab last_commit_id (dropped: it would refuse ordinary updates and change filing's writes). Binary files in the branch write. Changing GitOpsOrder or DeliverAsync. Rendering PoC folders and the GitOps commit step (2026-11-23-c81eb). Following a rollout (2026-11-23-c81ec)."
 
 steps:
@@ -127,7 +129,7 @@ steps:
   - id: gitops
     action: "GitOpsCommitOrder; GitOpsDelivery.CommitAsync with the default-branch read and the re-plan loop."
   - id: config
-    action: "PocGitOpsConfig (commit_attempts, max_folder_files) on PocsConfig with Problems(); schema; settings fields; i18n."
+    action: "PocGitOpsConfig (commit_attempts, max_folder_files) with Problems(); attaching it to PocsConfig, schema, settings fields and i18n moved to 2026-11-23-c81eb."
 
 tests:
   - "GitHubBranchWrite_Delete_PostsRawTreeWithNullSha (captured body holds \"sha\":null and base_tree); _NoDelete_TypedBodyUnchanged (characterisation of today's body)"
@@ -135,9 +137,10 @@ tests:
   - "AzureReposBranchWrite_Delete_ChangeTypeDelete; GitLabBranchWrite_Delete_ActionDelete_NoLastCommitId; LocalBranchCommit_Delete_RemovesPathKeepsOthers"
   - "Every provider: deleting an absent path (host NotFound) is dropped with a note; a probe failing with a 5xx or transport error fails the write naming the path; all entries dropped -> AlreadyHeld, not Failed"
   - "ListFilesUnderAsync per provider: nested files returned with full repo-relative paths, folders left out; absent path -> empty; GitHub reads the folder's own tree sha, not the branch head's (captured request); GitHub truncated -> Truncated true; more than maxFiles -> Truncated true with maxFiles entries"
+  - "Commit mode on a local repository through the real SourceProviderFactory: writes and deletes land as one commit on the default branch; the same delete retried after it landed answers committed without a sha"
   - "GetDefaultBranchAsync per provider answers the resolver's branch (Local: configured, else main)"
   - "GitOpsDelivery_CommitMode_ConflictThenSuccess_WritesTwice; _ReplanAnswersNull_StopsCommitted; _AttemptsExhausted_SentenceNamesKey; _WritesOntoTheDefaultBranchRead; _AlreadyHeld_AnswersCommittedWithoutSha; DeliverAsync unchanged (characterisation)"
-  - "PocGitOpsConfig.Problems: commit_attempts 0 and max_folder_files 0 refused naming value, reason and key"
+  - "PocGitOpsConfig.Problems: commit_attempts 0 and max_folder_files 0 refused naming value, reason and key; defaults 3 and 500"
   - "FiledSeriesWrite tests stay green unchanged"
 
 done:

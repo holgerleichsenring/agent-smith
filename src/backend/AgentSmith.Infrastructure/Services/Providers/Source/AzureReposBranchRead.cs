@@ -81,7 +81,8 @@ public sealed class AzureReposBranchRead(
     private static GitVersionDescriptor At(string branch) =>
         new() { Version = branch, VersionType = GitVersionType.Branch };
 
-    private static bool IsNotFound(VssServiceException ex) =>
+    /// <summary>2026-11-23-c81ea: also the branch write's rule for a deletion's absence probe.</summary>
+    internal static bool IsNotFound(VssServiceException ex) =>
         ex.Message.Contains("could not be found", StringComparison.OrdinalIgnoreCase)
         || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
 
