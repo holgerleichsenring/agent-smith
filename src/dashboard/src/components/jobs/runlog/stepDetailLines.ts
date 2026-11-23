@@ -3,6 +3,7 @@ import { pullRequestStatusLabel } from "@/lib/prStatus";
 import { extractUrls, stripUrls } from "@/lib/prUrls";
 import { EventType, type PullRequestStatus, type RunEvent } from "@/types/hub-events";
 import { clockOf } from "./runNowLines";
+import { translator } from "@/lib/i18n/translate";
 
 // 2026-11-17-6d9ec: one step's events as terminal lines, what the graph's step panel drew as an event drawer, a command
 // timeline, LLM rows, per-repository sandbox boxes, PR outcomes and the ticket/catalog bodies. Every line carries a time,
@@ -167,7 +168,7 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
       case EventType.PullRequestOutcome: {
         const url = e.url ?? extractUrls(e.reason)[0];
         const reason = e.reason ? ` — ${stripUrls(e.reason)}` : "";
-        add(e.timestamp, "pr", `${e.repo} ${pullRequestStatusLabel(e.status as PullRequestStatus)}${reason}`, null,
+        add(e.timestamp, "pr", `${e.repo} ${pullRequestStatusLabel(e.status as PullRequestStatus, translator("en"))}${reason}`, null,
           e.status === "failed" ? "bad" : e.status === "no_changes" ? "dim" : "ok", "", url ?? undefined);
         break;
       }

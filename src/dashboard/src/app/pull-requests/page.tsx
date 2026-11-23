@@ -11,6 +11,8 @@ import { hasPullRequest, isOpenPullRequest, pullRequestStatusLabel } from "@/lib
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { NoProjectReach } from "@/components/shell/NoProjectReach";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // p0347: agent-smith's OUTPUT gets its own surface. The Pull Requests page lists
 // every PR the agent opened — per repo, so multi-repo runs keep all their PRs —
@@ -21,17 +23,17 @@ import { NoProjectReach } from "@/components/shell/NoProjectReach";
 // runs-list.html mock's .mock-shell/.mock-runs vocabulary — .health strip,
 // .section-head rules, .rows of .rrow rows, .pill status chips. No new dialect.
 
-function relativeAgo(iso: string): string {
+function relativeAgo(iso: string, t: T): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
   const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (seconds < 45) return "just now";
+  if (seconds < 45) return t("pullRequests.ago.now");
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t("pullRequests.ago.minutes", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t("pullRequests.ago.hours", { count: hours });
   const days = Math.round(hours / 24);
-  return `${days}d ago`;
+  return t("pullRequests.ago.days", { count: days });
 }
 
 function isToday(iso: string): boolean {
@@ -76,6 +78,7 @@ export default function PullRequestsPage() {
   );
 
   const refusal = refusalIn(error);
+  const t = useT();
   const stillOpen = opened.filter((p) => isOpenPullRequest(p.status));
   const openToday = stillOpen.filter((p) => isToday(p.openedAt)).length;
   const openWeek = stillOpen.filter((p) => withinDays(p.openedAt, 7)).length;
@@ -85,10 +88,8 @@ export default function PullRequestsPage() {
       <main className="main">
         <div className="m-head">
           <div>
-            <h1>Pull requests</h1>
-            <div className="msub">
-              Every PR agent-smith opened — per repo, linked out and back to its run.
-            </div>
+            <h1>{t("shell.nav.pullRequests")}</h1>
+            <div className="msub">{t("pullRequests.sub")}</div>
           </div>
         </div>
 
@@ -98,18 +99,18 @@ export default function PullRequestsPage() {
           data-testid="pr-metric-strip"
           style={{ gridTemplateColumns: "repeat(3, 1fr)" }}
         >
-          <Metric label="Open today" value={openToday} testId="pr-metric-today" />
-          <Metric label="Open this week" value={openWeek} testId="pr-metric-week" />
-          <Metric label="Total open" value={stillOpen.length} testId="pr-metric-total" />
+          <Metric label={t("pullRequests.metric.today")} value={openToday} testId="pr-metric-today" />
+          <Metric label={t("pullRequests.metric.week")} value={openWeek} testId="pr-metric-week" />
+          <Metric label={t("pullRequests.metric.total")} value={stillOpen.length} testId="pr-metric-total" />
         </div>
 
         {prs === null ? (
           refusal ? (
-            <RefusalSurface refusal={refusal} surface="the pull requests" />
+            <RefusalSurface refusal={refusal} surface={t("pullRequests.surface")} />
           ) : error ? (
             <div className="rows" data-testid="pr-error">
               <div className="rrow" style={{ cursor: "default", justifyContent: "center", display: "flex" }}>
-                Couldn’t load pull requests. Retry from the rail once the API is reachable.
+                {t("pullRequests.loadFailed")}
               </div>
             </div>
           ) : (
@@ -129,7 +130,7 @@ export default function PullRequestsPage() {
                   className="rrow"
                   style={{ cursor: "default", justifyContent: "center", display: "flex" }}
                 >
-                  <NoProjectReach>No pull requests yet. When a run commits changes, its PR shows up here.</NoProjectReach>
+                  <NoProjectReach>{t("pullRequests.empty")}</NoProjectReach>
                 </div>
               </div>
             )}
@@ -151,15 +152,16 @@ function Metric({ label, value, testId }: { label: string; value: number; testId
 
 // The HEADLINE: opened PRs as .rrow rows, each linking OUT and BACK.
 function OpenedSection({ opened }: { opened: PullRequest[] }) {
+  const t = useT();
   if (opened.length === 0) return null;
   return (
     <section data-testid="pr-opened-section" className="scroll-mt-6">
       <div className="section-head">
-        <h2>Opened</h2>
+        <h2>{t("pullRequests.opened.title")}</h2>
         <span className="cnt" data-testid="pr-opened-count">
           {opened.length}
         </span>
-        <span className="sh-sub">what the agent actually shipped — click ↗ to review</span>
+        <span className="sh-sub">{t("pullRequests.opened.sub")}</span>
       </div>
       <div style={{ height: 14 }} />
       <div className="rows">
@@ -172,6 +174,7 @@ function OpenedSection({ opened }: { opened: PullRequest[] }) {
 }
 
 function OpenedRow({ pr }: { pr: PullRequest }) {
+  const t = useT();
   const tick = pr.ticketId ? `#${pr.ticketId}` : `#${shortRunId(pr.runId)}`;
   const title = pr.ticketTitle ?? pr.pipeline;
   return (
@@ -199,10 +202,10 @@ function OpenedRow({ pr }: { pr: PullRequest }) {
         className={cn("pill", pr.status === "completion_refused" ? "q" : "ok")}
         data-testid={`pr-row-${pr.runId}-${pr.repo}-status`}
       >
-        {pullRequestStatusLabel(pr.status)}
+        {pullRequestStatusLabel(pr.status, t)}
       </span>
 
-      <span className="prog hidesm">{relativeAgo(pr.openedAt)}</span>
+      <span className="prog hidesm">{relativeAgo(pr.openedAt, t)}</span>
 
       {pr.url ? (
         /* p0372: the ONE PrButton — the same component every other surface
@@ -218,7 +221,7 @@ function OpenedRow({ pr }: { pr: PullRequest }) {
         data-testid={`pr-row-${pr.runId}-${pr.repo}-run`}
         style={{ cursor: "pointer" }}
       >
-        run ›
+        {t("pullRequests.runLink")}
       </Link>
     </div>
   );
@@ -227,15 +230,16 @@ function OpenedRow({ pr }: { pr: PullRequest }) {
 // The honest MUTED section: no_changes / failed attempts — where a run produced
 // NO pr, and why. Each row links back to its run.
 function AttemptsSection({ attempts }: { attempts: PullRequest[] }) {
+  const t = useT();
   if (attempts.length === 0) return null;
   return (
     <section data-testid="pr-attempts-section" className="scroll-mt-6" style={{ opacity: 0.85 }}>
       <div className="section-head">
-        <h2>No PR</h2>
+        <h2>{t("pullRequests.attempts.title")}</h2>
         <span className="cnt" data-testid="pr-attempts-count">
           {attempts.length}
         </span>
-        <span className="sh-sub">runs that produced no pull request — and why</span>
+        <span className="sh-sub">{t("pullRequests.attempts.sub")}</span>
       </div>
       <div style={{ height: 14 }} />
       <div className="rows">
@@ -248,10 +252,11 @@ function AttemptsSection({ attempts }: { attempts: PullRequest[] }) {
 }
 
 function AttemptRow({ pr }: { pr: PullRequest }) {
+  const t = useT();
   const tick = pr.ticketId ? `#${pr.ticketId}` : `#${shortRunId(pr.runId)}`;
   const failed = pr.status === "failed";
   const reason =
-    pr.reason ?? (pr.status === "no_changes" ? "No changes to commit" : "PR could not be opened");
+    pr.reason ?? (pr.status === "no_changes" ? t("pullRequests.attempts.noChanges") : t("pullRequests.attempts.notOpened"));
   return (
     <Link
       className={cn("rrow", failed ? "st-bad" : "st-q")}
@@ -273,7 +278,7 @@ function AttemptRow({ pr }: { pr: PullRequest }) {
         className={cn("pill", failed ? "bad" : "q")}
         data-testid={`pr-attempt-${pr.runId}-${pr.repo}-status`}
       >
-        {failed ? "failed" : "no changes"}
+        {failed ? t("pullRequests.status.failed") : t("pullRequests.status.noChanges")}
       </span>
       <span className="chev">›</span>
     </Link>

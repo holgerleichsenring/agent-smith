@@ -34,9 +34,9 @@ scope:
 
 steps:
   - id: plan
-    action: "Count the literals per area, cut the work into one slice per area if it is too large for one review."
-  - id: translate
-    action: "Area by area: keys with en and de, components switched to useT, tests stay English by default."
+    action: "Count the literals per area and cut the work into one slice per area: about 1000 literals over 14 areas became the series 2026-11-23-5669a..f."
+  - id: sweep
+    action: "Once the series has landed, search the whole dashboard for literal UI text left outside the dictionary and move what remains."
 
 tests:
   - "The dictionary completeness and placeholder tests of 5485a stay green over every new key."

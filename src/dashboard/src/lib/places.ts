@@ -1,5 +1,6 @@
 import { ENTITY_KINDS, ENTITY_LABEL } from "@/components/config/entities";
 import { SETTING_KEYS, SETTING_LABEL } from "@/components/config/settings";
+import type { TextKey } from "@/lib/i18n/translate";
 
 // 2026-08-27-1ed6: the header says WHERE YOU ARE, and this is the one table it reads.
 // A second list of names beside the rail's would drift on the first rename, so the rail
@@ -25,7 +26,7 @@ const FIXED_PLACES: Record<string, string> = {
   // 2026-10-13-9a59p: the ticket list; its six bucket views are ?bucket= queries of one place.
   "/tickets": "Tickets",
   "/pull-requests": "Pull requests",
-  // 2026-11-23-31dcc: every series a conversation filed (English like every place here until 5485b moves the table).
+  // 2026-11-23-31dcc: every series a conversation filed (the search names it in the chosen language through PLACE_KEYS).
   "/series": "Series",
   // 2026-09-15-cb3e: where the work is DESIGNED — a peer of the two above, not a
   // diagnostic under /system.
@@ -65,6 +66,29 @@ function settingsPlaces(): Record<string, string> {
     SETTING_KEYS.map((key) => [`/config/settings/${key}`, SETTING_LABEL[key]]),
   );
 }
+
+/** 2026-11-23-5669a: the dictionary key of each fixed place, so the search names it in the chosen language. */
+export const PLACE_KEYS: Readonly<Record<string, TextKey>> = {
+  "/": "shell.place.home",
+  "/runs": "shell.nav.runs",
+  "/tickets": "shell.nav.tickets",
+  "/pull-requests": "shell.nav.pullRequests",
+  "/series": "series.nav",
+  "/spec-dialog": "shell.nav.workItOut",
+  "/spec-dialog/conversations": "shell.place.conversations",
+  "/overview": "shell.nav.overview",
+  "/delivery": "shell.nav.delivery",
+  "/identity": "shell.place.identity",
+  "/system": "shell.place.system",
+  "/system/chat": "shell.place.chat",
+  "/system/config": "shell.place.configReads",
+  "/system/catalog": "shell.place.catalog",
+  "/system/attention": "shell.place.attention",
+  "/config/access": "shell.place.permissions",
+  "/config/changes": "shell.place.changes",
+  "/config/installation": "shell.place.installation",
+  "/config/connection-check": "shell.place.connectionCheck",
+};
 
 /** Every path the header can name, and what it names it. */
 export const PLACES: Readonly<Record<string, string>> = Object.freeze({

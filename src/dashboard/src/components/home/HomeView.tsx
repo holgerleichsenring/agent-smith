@@ -27,26 +27,27 @@ export function HomeView() {
   const waiting = yourMoveCount(list?.counts, admin) ?? 0;
   const moves = yourMoves(tickets, admin);
   const recent = recentTickets(tickets, admin);
+  const t = useT();
   return (
     <div className="home" data-testid="home">
       <NewWorkHead />
       <HomeComposer />
       {moves.length > 0 && (
         <section className="home-sec" aria-labelledby="home-moves" data-testid="home-your-move">
-          <h2 id="home-moves">Your move</h2>
-          {moves.map((t) => <MoveRow key={`${t.project}/${t.ticketId}`} ticket={t} />)}
+          <h2 id="home-moves">{t("shell.nav.yourMove")}</h2>
+          {moves.map((m) => <MoveRow key={`${m.project}/${m.ticketId}`} ticket={m} />)}
           {waiting > MOVES_SHOWN && (
             <Link className="home-more" href={ticketBucketHref("needs-you")} data-testid="home-your-move-all">
-              All {waiting} that wait on you
+              {t("home.allWaiting", { count: waiting })}
             </Link>
           )}
         </section>
       )}
       {recent.length > 0 && (
         <section className="home-sec" aria-labelledby="home-recent" data-testid="home-recent">
-          <h2 id="home-recent">Recent tickets</h2>
-          {recent.map((t) => <RecentRow key={`${t.project}/${t.ticketId}`} ticket={t} />)}
-          <Link className="home-more" href={TICKETS_PATH}>All tickets</Link>
+          <h2 id="home-recent">{t("home.recentTickets")}</h2>
+          {recent.map((r) => <RecentRow key={`${r.project}/${r.ticketId}`} ticket={r} />)}
+          <Link className="home-more" href={TICKETS_PATH}>{t("home.allTickets")}</Link>
         </section>
       )}
     </div>
@@ -57,10 +58,11 @@ export function HomeView() {
 export function NewWorkHead() {
   const { list } = useTicketList();
   const admin = useHoldsAdmin();
+  const t = useT();
   return (
     <header className="home-head">
-      <h1>What should we work on?</h1>
-      {list && <p className="home-sub" data-testid="home-waiting">{waitingSentence(yourMoveCount(list.counts, admin) ?? 0)}</p>}
+      <h1>{t("home.question")}</h1>
+      {list && <p className="home-sub" data-testid="home-waiting">{waitingSentence(t, yourMoveCount(list.counts, admin) ?? 0)}</p>}
     </header>
   );
 }

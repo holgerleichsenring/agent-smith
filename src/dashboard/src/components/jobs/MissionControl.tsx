@@ -204,7 +204,7 @@ function RowList({ runs }: { runs: Parameters<typeof RunRow>[0]["snapshot"][] })
   return (
     <div className="rows">
       {runs.map((run) => (
-        <RenderBoundary key={run.runId} surface={`run ${run.runId}`}>
+        <RenderBoundary key={run.runId} surface="shell.surface.run" surfaceParams={{ run: run.runId }}>
           <RunRow snapshot={run} />
         </RenderBoundary>
       ))}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { messages, type MessageEntry } from "../messages";
+import { messageModules, messages, type MessageEntry } from "../messages";
+import { dateLocale } from "../dates";
 import { fill, translator } from "../translate";
 
 // 2026-11-22-5485a: the dictionary is complete in both languages — every key has English and German, a plural has both
@@ -33,6 +34,24 @@ describe("messages", () => {
   it("Messages_APluralEntry_IsPluralInBothLanguages", () => {
     const mixed = entries.filter(([, entry]) => (typeof entry.en === "string") !== (typeof entry.de === "string"));
     expect(mixed).toEqual([]);
+  });
+
+  it("Messages_AKeyTwoModulesDefine_IsReported", () => {
+    // 2026-11-23-5669a: the spread keeps the later module's text silently, so a shared key is caught here.
+    const owner = new Map<string, string>();
+    const shared: string[] = [];
+    for (const [name, module] of Object.entries(messageModules)) {
+      for (const key of Object.keys(module)) {
+        if (owner.has(key)) shared.push(`${key} (${owner.get(key)}, ${name})`);
+        else owner.set(key, name);
+      }
+    }
+    expect(shared).toEqual([]);
+  });
+
+  it("DateLocale_FollowsTheChosenLanguage", () => {
+    expect(dateLocale("de")).toBe("de-DE");
+    expect(dateLocale("en")).toBe("en-GB");
   });
 
   it("Messages_AKeyWithoutGerman_DoesNotCompile", () => {

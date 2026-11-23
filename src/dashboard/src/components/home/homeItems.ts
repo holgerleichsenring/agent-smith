@@ -1,6 +1,7 @@
 import { TICKET_SECTIONS } from "@/components/tickets/ticketSections";
 import { isYourMove } from "@/components/tickets/holds/holdWords";
 import { SERVER_BUCKET, TICKET_BUCKETS, type TicketSummary } from "@/types/tickets";
+import type { T } from "@/lib/i18n/translate";
 
 // 2026-11-17-d6fba: what the home page lists under its composer, from the one ticket-list read the sidebar counts from.
 // Your move oldest first, at most three; recent tickets are the newest of the rest. 2026-11-23-31dcg: Your move is the
@@ -23,9 +24,9 @@ export function recentTickets(tickets: readonly TicketSummary[], admin = false):
 }
 
 /** "Nothing waits on you." / "One thing waits on you." / "4 things wait on you." */
-export function waitingSentence(count: number): string {
-  if (count <= 0) return "Nothing waits on you.";
-  return count === 1 ? "One thing waits on you." : `${count} things wait on you.`;
+export function waitingSentence(t: T, count: number): string {
+  if (count <= 0) return t("home.waiting.none");
+  return t("home.waiting.some", { count });
 }
 
 /** The ticket's state as the ticket list's section names it: "Working", "In review", "Stuck". */

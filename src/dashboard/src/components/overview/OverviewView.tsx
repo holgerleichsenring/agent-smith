@@ -13,6 +13,7 @@ import { RunOutcomeCard } from "@/components/overview/RunOutcomeCard";
 import { CriteriaMetCard } from "@/components/overview/CriteriaMetCard";
 import { SpendBreakdownPanel } from "@/components/overview/SpendBreakdownPanel";
 import { ExpectationMetricsView } from "@/components/system/ExpectationMetricsView";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-27-7463: the Overview — spend, what came back, and how often runs met
 // what was asked of them, on one page. It replaces three rollup pages of three
@@ -43,13 +44,14 @@ export function OverviewView() {
   );
   const outcomes = useMemo(() => deriveRunOutcomes(runs), [runs]);
   const ready = overview !== null;
+  const t = useT();
 
   return (
     <div className="mock-shell mock-system mock-overview" data-testid="overview-page">
       <main className="main">
         <PageHead
-          title="Overview"
-          sub="What the week cost, what came back, and how often a run met what was asked of it."
+          title={t("shell.nav.overview")}
+          sub={t("overview.sub")}
         />
         <div className="ov-cards" data-testid="overview-cards">
           <SpendCard cost={cost} ready={ready} />

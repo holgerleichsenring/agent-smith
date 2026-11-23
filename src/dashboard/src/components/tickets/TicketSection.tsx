@@ -49,7 +49,7 @@ function Rows({ bucket, rows }: { bucket: TicketBucket; rows: TicketSummary[] })
   return (
     <div className="rows">
       {rows.map((t) => (
-        <RenderBoundary key={`${t.project}/${t.ticketId}`} surface={`ticket ${t.ticketId}`}>
+        <RenderBoundary key={`${t.project}/${t.ticketId}`} surface="shell.surface.ticket" surfaceParams={{ ticket: t.ticketId }}>
           {bucket === "needs-you" ? <TicketNeedsYou ticket={t} />
             // 2026-11-23-849e: a ticket waiting on its series' merges carries "Open the series" at its right too.
             : <TicketRow ticket={t} act={t.hold?.act?.kind === "series" ? <TicketHoldAct ticket={t} /> : undefined} />}

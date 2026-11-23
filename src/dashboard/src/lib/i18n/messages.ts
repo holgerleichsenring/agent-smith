@@ -1,3 +1,11 @@
+import { accessMessages } from "./areas/access";
+import { configMessages } from "./areas/config";
+import { deliveryMessages } from "./areas/delivery";
+import { runsMessages } from "./areas/runs";
+import { shellMessages } from "./areas/shell";
+import { systemMessages } from "./areas/system";
+import { ticketsMessages } from "./areas/tickets";
+
 // 2026-11-22-5485a: the dashboard's one dictionary. Every UI text is a key with its English and its German text side
 // by side, so a key without German does not compile and a reviewer reads both at once. {name} is filled from the
 // lookup's params; a plural entry has a one and an other form, picked by params.count. Product nouns stay as the
@@ -10,7 +18,8 @@ type Forms = { one: string; other: string };
 /** One text in both languages, or one plural in both. */
 export type MessageEntry = { en: string; de: string } | { en: Forms; de: Forms };
 
-export const messages = {
+/** The keys written in this file; the area modules hold the rest (2026-11-23-5669a). */
+export const coreMessages = {
   // --- shared ---
   "common.cancel": { en: "Cancel", de: "Abbrechen" },
   "common.send": { en: "Send", de: "Senden" },
@@ -1185,5 +1194,28 @@ export const messages = {
     de: "Der Branch von {ticket} ließ sich nicht lesen, seine Änderungen fehlen daher: {why}",
   },
 } satisfies Record<string, MessageEntry>;
+
+/** Every module of the dictionary, by name; a key two of them define is a test failure. */
+export const messageModules = {
+  core: coreMessages,
+  shell: shellMessages,
+  tickets: ticketsMessages,
+  runs: runsMessages,
+  config: configMessages,
+  system: systemMessages,
+  access: accessMessages,
+  delivery: deliveryMessages,
+} as const;
+
+export const messages = {
+  ...coreMessages,
+  ...shellMessages,
+  ...ticketsMessages,
+  ...runsMessages,
+  ...configMessages,
+  ...systemMessages,
+  ...accessMessages,
+  ...deliveryMessages,
+};
 
 export type MessageKey = keyof typeof messages;

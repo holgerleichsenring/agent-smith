@@ -30,6 +30,7 @@ import { parseSpecRecord } from "./specRecord";
 import { SpecRecordView } from "./SpecRecordView";
 import { clockOf, pullRequestLinks } from "./runNowLines";
 import type { RunTicket } from "./useRunTicket";
+import { translator } from "@/lib/i18n/translate";
 
 // 2026-11-17-6d9eb: what a log section holds besides its steps, drawn plain: the ticket as the run read it; the work
 // spec, the agreed plan, the progress ledger and (for a run without specs) its decisions; a spec's decisions and the
@@ -222,7 +223,7 @@ export function DeliveredBody({ runId, snapshot }: { runId: string; snapshot: Ru
         const status = statuses.get(p.url);
         return (
           <div key={p.url} className="rl-body-line" data-testid="delivered-pr">
-            {p.repo ? `${p.repo} · ` : ""}{status ? `${pullRequestStatusLabel(status as PullRequestStatus)} · ` : ""}
+            {p.repo ? `${p.repo} · ` : ""}{status ? `${pullRequestStatusLabel(status as PullRequestStatus, translator("en"))} · ` : ""}
             <a href={p.url} target="_blank" rel="noreferrer">{p.isDraft ? "draft pull request" : "pull request"} ↗</a>
           </div>
         );
