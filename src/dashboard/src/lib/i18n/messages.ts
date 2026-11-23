@@ -789,6 +789,28 @@ export const messages = {
     en: "an attempt a stopped server left unfinished is retried once by itself if it ended at most this many minutes before the server started; 0 turns it off",
     de: "ein Versuch, den ein gestoppter Server unfertig hinterlassen hat, wird einmal von selbst wiederholt, wenn er höchstens so viele Minuten vor dem Serverstart endete; 0 schaltet das ab",
   },
+  // --- config: a secret's value on create and its source on the card (2026-11-23-78d7) ---
+  "config.secret.newValue.label": { en: "Value (optional)", de: "Wert (optional)" },
+  "config.secret.newValue.placeholder": { en: "enter the value", de: "Wert eingeben" },
+  "config.secret.newValue.help": {
+    en: "Stored encrypted when you create the secret, and never shown again. Leave it empty to use only an environment variable.",
+    de: "Wird beim Anlegen verschlüsselt gespeichert und nie wieder angezeigt. Lass es leer, wenn nur eine Umgebungsvariable gelten soll.",
+  },
+  "config.secret.newValue.noKey": {
+    en: "No master key is configured, so no value can be stored here.",
+    de: "Es ist kein Master-Key eingerichtet, daher lässt sich hier kein Wert speichern.",
+  },
+  "config.secret.source.stored": { en: "stored, set by {by} on {date}", de: "gespeichert, gesetzt von {by} am {date}" },
+  "config.secret.source.unreadable": {
+    en: "stored, but the current master key cannot open it",
+    de: "gespeichert, aber der aktuelle Master-Key kann den Wert nicht öffnen",
+  },
+  "config.secret.source.environment": { en: "from the environment (${variable})", de: "aus der Umgebung (${variable})" },
+  "config.secret.source.environmentWins": {
+    en: "from the environment (${variable}), which wins over the stored value",
+    de: "aus der Umgebung (${variable}), die Vorrang vor dem gespeicherten Wert hat",
+  },
+  "config.secret.source.none": { en: "no value yet", de: "noch kein Wert" },
 } satisfies Record<string, MessageEntry>;
 
 export type MessageKey = keyof typeof messages;

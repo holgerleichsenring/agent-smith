@@ -18,6 +18,9 @@ import type { ConfigCatalog } from "./useConfigCatalog";
 import { resolves, resolveRepoRef, unfinishedTemplates } from "./integrity";
 import { ProjectInitAction } from "@/components/system/ProjectInitAction";
 import { ProjectGraph } from "./ProjectGraph";
+import type { SecretValueState } from "@/lib/secretValuesApi";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // p0345/p0343c (pixel identity): one entity card in the config-studio.html
 // .ecard DOM — .ec-top (icon block, mono id, sub line, type badge + "edit ›"),
@@ -32,6 +35,7 @@ export function EntityCard({
   catalog,
   onEdit,
   registries = [],
+  secretState = null,
 }: {
   kind: ConfigEntityKind;
   entity: StudioEntity;
@@ -39,6 +43,8 @@ export function EntityCard({
   onEdit: () => void;
   /** 2026-11-18-dafc: the registries setting, so a secret card can name the feeds using it. */
   registries?: RegistryEntry[];
+  /** 2026-11-23-78d7: where this secret's value comes from; null while unknown or when the read failed. */
+  secretState?: SecretValueState | null;
 }) {
   // 2026-09-16-942a: a project card expands into the graph of what it is wired to.
   // 2026-09-16-d7c3: and the ROW is what expands it. The card used to be one big edit
@@ -87,7 +93,7 @@ export function EntityCard({
             <span className="ec-ic">{ENTITY_ICON[kind]}</span>
             <span className="ec-id row">
               <span className="ec-name">{entity.id}</span>
-              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} />
+              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} secretState={secretState} />
             </span>
           </button>
         ) : (
@@ -95,7 +101,7 @@ export function EntityCard({
             <div className="ec-ic">{ENTITY_ICON[kind]}</div>
             <div className="ec-id">
               <div className="ec-name">{entity.id}</div>
-              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} />
+              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} secretState={secretState} />
             </div>
           </>
         )}
@@ -164,12 +170,15 @@ function SubLine({
   entity,
   catalog,
   registries,
+  secretState,
 }: {
   kind: ConfigEntityKind;
   entity: StudioEntity;
   catalog: ConfigCatalog;
   registries: RegistryEntry[];
+  secretState: SecretValueState | null;
 }) {
+  const t = useT();
   switch (kind) {
     case "agents": {
       const a = entity as StudioAgent;
@@ -200,14 +209,33 @@ function SubLine({
     case "secrets": {
       const s = entity as StudioSecret;
       const used = secretUsers(catalog, registries, s.id);
+      const source = secretState ? secretSource(t, secretState) : null;
       return (
         <div className="ec-sub" data-testid={`config-secret-redaction-${s.id}`}>
-          {used.length > 0 ? `used by ${used.join(", ")}` : "not referenced yet"} · value from the environment
-          or stored encrypted, never shown
+          {used.length > 0 ? `used by ${used.join(", ")}` : "not referenced yet"}
+          {source && <span data-testid={`config-secret-source-${s.id}`}> · {source}</span>}
         </div>
       );
     }
   }
+}
+
+// 2026-11-23-78d7: the card says where the value comes from, read from the secret-values state. A set, non-empty
+// environment variable wins over a stored value, the same rule the resolver applies.
+export function secretSource(t: T, state: SecretValueState): string {
+  if (state.fromEnvironment) {
+    return t(state.stored ? "config.secret.source.environmentWins" : "config.secret.source.environment", {
+      variable: state.variable,
+    });
+  }
+  if (state.stored) {
+    if (!state.stored.readable) return t("config.secret.source.unreadable");
+    return t("config.secret.source.stored", {
+      by: state.stored.setBy,
+      date: new Date(state.stored.setAt).toLocaleDateString(),
+    });
+  }
+  return t("config.secret.source.none");
 }
 
 // Which catalog entries reference this secret's env-name — real, client-derived

@@ -13,6 +13,7 @@ import { useConfigCatalogContext } from "./ConfigCatalogProvider";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { ConfirmDialog, useConfirmDialog } from "@/components/dialog/ConfirmDialog";
+import { fetchSecretValues, type SecretValueState } from "@/lib/secretValuesApi";
 
 // p0345: the Configuration studio — the catalog of the editable entity kinds
 // plus the Changes audit view. It loads the whole catalog once (the FK pickers
@@ -98,6 +99,7 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
             loading={loading}
             catalog={catalog}
             onEdit={(entity) => openEdit(section, entity)}
+            drawerOpen={drawer !== null}
           />
         )}
 
@@ -251,14 +253,17 @@ function EntityCatalog({
   loading,
   catalog,
   onEdit,
+  drawerOpen,
 }: {
   kind: ConfigEntityKind;
   loading: boolean;
   catalog: ReturnType<typeof useConfigCatalogContext>["catalog"];
   onEdit: (entity: StudioEntity) => void;
+  drawerOpen: boolean;
 }) {
   const items = catalog[kind];
   const registries = useSecretRegistries(kind === "secrets");
+  const secretStates = useSecretValueStates(kind === "secrets", catalog.secrets, drawerOpen);
   const cards = loading ? (
     <div className="empty">Loading…</div>
   ) : items.length === 0 ? (
@@ -275,6 +280,7 @@ function EntityCatalog({
         catalog={catalog}
         onEdit={() => onEdit(entity)}
         registries={registries}
+        secretState={kind === "secrets" ? stateOf(secretStates, entity.id) : null}
       />
     ))
   );
@@ -317,6 +323,25 @@ function EntityCatalog({
 // 2026-11-18-dafc: a registry token references a secret too; the secrets list reads the
 // registries setting once so each card can say which feed uses it. A failed read leaves
 // the cards as they were — the label is a convenience, not a gate.
+// 2026-11-23-78d7: the secrets list reads where each value comes from once, not per card, and again when the
+// catalog reloads or the drawer closes (a value set in the drawer changes it). A failed read leaves the source out.
+function useSecretValueStates(active: boolean, secrets: unknown, drawerOpen: boolean): SecretValueState[] {
+  const [states, setStates] = useState<SecretValueState[]>([]);
+  useEffect(() => {
+    if (!active || drawerOpen) return;
+    const ctl = new AbortController();
+    fetchSecretValues(ctl.signal)
+      .then((view) => setStates(view.secrets))
+      .catch(() => {});
+    return () => ctl.abort();
+  }, [active, secrets, drawerOpen]);
+  return states;
+}
+
+function stateOf(states: SecretValueState[], id: string): SecretValueState | null {
+  return states.find((s) => s.name.toLowerCase() === id.toLowerCase()) ?? null;
+}
+
 function useSecretRegistries(active: boolean): RegistryEntry[] {
   const [registries, setRegistries] = useState<RegistryEntry[]>([]);
   useEffect(() => {

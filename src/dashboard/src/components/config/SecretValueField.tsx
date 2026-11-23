@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   deleteSecretValue, fetchSecretValues, rewrapSecretValues, setSecretValue, type SecretValuesView,
 } from "@/lib/secretValuesApi";
+import { useT } from "@/hooks/useT";
 
 // 2026-11-17-f3a8d: a secret's value, set in the admin area. The field is a password input whose text goes straight
 // into the request and is cleared whatever the answer; the page never holds a stored value, because the server never
@@ -57,6 +58,31 @@ export function SecretValueField({ name }: { name: string }) {
         )}
       </div>
       {line && <p data-testid="secret-value-line" className="ec-sub">{line}</p>}
+    </div>
+  );
+}
+
+// 2026-11-23-78d7: a new secret's value, typed before the secret exists. The drawer holds it outside the entity draft
+// and sends it with Create through the same secret run; nothing here talks to the server but the master-key check.
+export function NewSecretValueInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const t = useT();
+  const [keyPresent, setKeyPresent] = useState<boolean | null>(null);
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetchSecretValues(ctl.signal).then((v) => setKeyPresent(v.masterKeyPresent)).catch(() => setKeyPresent(null));
+    return () => ctl.abort();
+  }, []);
+  return (
+    <div data-testid="secret-new-value" className="flex flex-col gap-2">
+      <label className="dsh-label" htmlFor="secret-new-value-input">{t("config.secret.newValue.label")}</label>
+      <input
+        id="secret-new-value-input" type="password" autoComplete="new-password" data-testid="secret-new-value-input"
+        className="d-input mono max-w-md" value={value} disabled={keyPresent === false}
+        placeholder={t("config.secret.newValue.placeholder")} onChange={(e) => onChange(e.target.value)}
+      />
+      <p className="ec-sub" data-testid="secret-new-value-help">
+        {keyPresent === false ? t("config.secret.newValue.noKey") : t("config.secret.newValue.help")}
+      </p>
     </div>
   );
 }

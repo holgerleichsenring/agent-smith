@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-78d7
+
+decisions:
+  - category: Implementation
+    chose: "Create with a value runs only the secret run (PUT /api/config/secret-values/{name}), which adds the catalog secret itself; Create without a value posts the catalog secret as before"
+    over: "Posting the catalog secret first and then setting the value"
+    reason: "SecretWrite refuses a short value and a missing master key before it adds the catalog name, so a refused value creates nothing. Two requests would leave a secret without its value when the second is refused, and the drawer would have closed on the first. A secret entity is only its id, so the run's catalog entry is the same one the form would post."
+  - category: Implementation
+    chose: "The new value lives in drawer state beside the draft, never in the StudioEntity the catalog client posts, and is cleared as soon as it is sent"
+    over: "A value field on the secret draft"
+    reason: "The draft is the catalog body and travels to the change log; a value there would be a second place it could leak. Clearing before the answer arrives matches SecretValueField."
+  - category: Implementation
+    chose: "The secrets list reads GET secret-values once in ConfigStudio and passes each card its state; it reads again when the catalog reloads or the drawer closes"
+    over: "Each card or SecretValueField loading the state for itself"
+    reason: "One request per list, as the registries read already does (2026-11-18-dafc). A value set or deleted in the drawer does not reload the catalog, so closing the drawer is the signal."
+  - category: Implementation
+    chose: "When the state read fails or has not arrived, the card names no source"
+    over: "Printing a default such as 'no value yet'"
+    reason: "A default would be a claim the page cannot back; the drawer's own field already says why the values cannot be read."
+  - category: Implementation
+    chose: "The context.yaml index line goes into the default context's state.done"
+    over: "A new state section in the dashboard context"
+    reason: "The dashboard context has no state section; every dashboard spec so far (2026-11-18-dafc, 2026-11-22-4321a) is recorded in the default context."
