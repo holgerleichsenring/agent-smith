@@ -23,6 +23,7 @@ public static class RunStoreRepairExtensions
         services.AddSingleton<RunCostRecomputer>();
         services.AddSingleton<RunDuplicateRepair>();
         services.AddSingleton<KeptSetCarryBackfill>(); // 2026-11-22-a720a
+        services.AddSingleton<DeployDeliveredAtBackfill>(); // 2026-11-23-af60
         services.AddSingleton<SchemaWatermark>(); // 2026-11-22-747da: data migrations, run once and recorded
         services.AddSingleton<DataMigrationLedger>();
         services.AddSingleton<DataMigrationRunner>();
@@ -31,6 +32,7 @@ public static class RunStoreRepairExtensions
         // In this order: the rewrite moves names first, the backfill reads events in today's shape.
         services.AddSingleton<IDataMigration>(sp => sp.GetRequiredService<StoredSpecNameRewrite>());
         services.AddSingleton<IDataMigration>(sp => sp.GetRequiredService<KeptSetCarryBackfill>());
+        services.AddSingleton<IDataMigration>(sp => sp.GetRequiredService<DeployDeliveredAtBackfill>());
         return services;
     }
 
