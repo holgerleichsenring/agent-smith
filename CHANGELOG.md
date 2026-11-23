@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.202.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.201.1...v0.202.0) (2026-11-23)
+
+
+### Features
+
+* **config:** a new secret takes its value on create, and each secret card says where its value comes from (2026-11-23-78d7) ([2911ab1](https://github.com/holgerleichsenring/agent-smith/commit/2911ab17760aa754f24999730aec72e97134a384))
+
+
+### Bug Fixes
+
+* **deploy:** a deploy record carries its delivery time again (2026-11-23-af60) ([f60e784](https://github.com/holgerleichsenring/agent-smith/commit/f60e784852642b653a7f332475b9ef2312b79862))
+* **scope:** one ProjectScope rule hides the installation on runs, PR records and filings (2026-11-23-47b6) ([c570533](https://github.com/holgerleichsenring/agent-smith/commit/c570533acfa6266dc3cc218ea6bd0d86ba35ea51))
+
 ## [0.201.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.201.0...v0.201.1) (2026-11-23)
 
 
