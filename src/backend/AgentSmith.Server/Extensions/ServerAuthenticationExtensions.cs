@@ -54,7 +54,7 @@ internal static class ServerAuthenticationExtensions
             AuthorityReachabilityProbe.ComposedAuthorityKey, auth);
         services.AddSingleton<IAuthorityReachability, AuthorityReachabilityProbe>();
         services.AddSingleton<AuthorityAwareChallenge>();
-        services.AddHostedService<AuthorityProbeHostedService>();
+        services.AddWorker<AuthorityProbeHostedService>();
         return services;
     }
 

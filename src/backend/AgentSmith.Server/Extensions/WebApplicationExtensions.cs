@@ -9,9 +9,13 @@ internal static class WebApplicationExtensions
 {
     internal static WebApplication MapHealthEndpoints(this WebApplication app)
     {
-        // /health always answers 200: it is the liveness probe, and a degraded server must still
-        // report itself. The body carries the startup preflight verdict and every registered
-        // subsystem's state with its reason. GetService (not Required) keeps the endpoint working
+        // 2026-11-22-747db: liveness. The process answers; it resolves no service and reads nothing, so a probe of it
+        // never builds a worker or waits on a dependency. Startup and liveness probes point here.
+        app.MapGet("/health/live", () => Results.Ok(new { status = "live" }))
+            .Anonymous("a liveness probe cannot authenticate");
+        // /health always answers 200: a degraded server must still report itself. Probes use /health/live and
+        // /health/ready; this one resolves the subsystem states and may build a worker on request. The body
+        // carries the startup preflight verdict and every registered subsystem's state with its reason. GetService (not Required) keeps the endpoint working
         // in hosts that don't register the preflight (tests building a partial app).
         app.MapGet("/health", (HttpContext ctx) =>
         {

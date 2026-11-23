@@ -2,7 +2,7 @@ using System.Text.Json.Nodes;
 using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 
-namespace AgentSmith.Server.Services.Startup;
+namespace AgentSmith.Infrastructure.Migration.Services.ConfigDocuments;
 
 /// <summary>
 /// 2026-09-25-e5b1: rewrites the retired coding-preset names out of ONE stored config document.

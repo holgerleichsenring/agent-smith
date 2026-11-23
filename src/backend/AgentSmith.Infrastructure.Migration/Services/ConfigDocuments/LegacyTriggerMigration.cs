@@ -1,20 +1,23 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Services;
+using Microsoft.Extensions.Logging;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 
-namespace AgentSmith.Server.Services.Startup;
+namespace AgentSmith.Infrastructure.Migration.Services.ConfigDocuments;
 
 /// <summary>
 /// 2026-10-29-6bd3a: writes <see cref="LegacyTriggerFold"/> into the stored configuration once, so the
 /// studio shows the routing that runs and no stored project carries a trigger block any more.
 /// <para>
 /// Nothing waits for it: every load folds the same blocks before it builds a trigger, so the write
-/// changes what is shown, never what runs. That is why it runs after the server listens, and why a
-/// stale version — another replica or a studio save got there first — is skipped rather than
-/// reported: the next start, or the next load, still sees the block.
+/// changes what is shown, never what runs. That is why a stale version — a studio save got there
+/// first — is skipped rather than reported: every load still sees the block.
 /// </para>
 /// <para>
 /// Trackers are saved before projects, and a project's block is cleared only once its tracker
@@ -22,33 +25,43 @@ namespace AgentSmith.Server.Services.Startup;
 /// A document the fold did not change is not re-saved: every save bumps a version, and a standing
 /// unmoved-ticket record is dropped with it.
 /// </para>
+/// <para>
+/// 2026-11-22-747da: a data migration of `database migrate`, no longer run after the server listens. It is recorded
+/// once it ran, even when a stale version left a block: every load still folds what is left.
+/// </para>
 /// </summary>
-internal sealed class LegacyTriggerMigration(
-    IConfigDocumentStore documents,
-    ConfigDocumentAssembler assembler,
-    IStartupFindings findings,
-    ILogger<LegacyTriggerMigration> logger)
+public sealed class LegacyTriggerMigration(
+    ConfigDocumentAssembler assembler, ILogger<LegacyTriggerMigration> logger) : IDataMigration
 {
     private const string Actor = "trigger-block-migration";
     private const string Note = "per-project trigger block moved onto the project's resolution and its tracker";
 
-    /// <summary>How many documents were rewritten. Zero is the steady state.</summary>
-    public int Run()
+    public string Id => "2026-10-29-6bd3a-trigger-blocks";
+
+    public string? ShippedWith => null;
+
+    public Task<bool> RunAsync(AgentSmithDbContext db, CancellationToken ct) =>
+        Task.FromResult(TryRewrite(new ContextConfigDocumentStore(db)));
+
+    /// <summary>Rewrite that logs a failure instead of throwing; false when it did not complete.</summary>
+    public bool TryRewrite(IConfigDocumentStore documents)
     {
         try
         {
-            return Rewrite();
+            Rewrite(documents);
+            return true;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "The stored trigger blocks could not be moved onto their trackers");
-            findings.Record(Unmigrated(ex));
-            return 0;
+            return false;
         }
     }
 
-    private int Rewrite()
+    /// <summary>How many documents were rewritten. Zero is the steady state.</summary>
+    public int Rewrite(IConfigDocumentStore documents)
     {
+        ArgumentNullException.ThrowIfNull(documents);
         var rows = documents.LoadAll();
         var raw = assembler.Assemble(rows);
         var carrying = raw.Projects.Where(p => HasBlock(p.Value)).Select(p => p.Key).ToHashSet(StringComparer.Ordinal);
@@ -62,7 +75,7 @@ internal sealed class LegacyTriggerMigration(
 
         var unsaved = new HashSet<string>(ConfigNames.Comparer);
         foreach (var tracker in Docs(raw, ConfigDocTypes.Tracker).Where(d => before.GetValueOrDefault(d.Id) != d.Doc))
-            if (!TrySave(tracker, versions)) unsaved.Add(tracker.Id);
+            if (!TrySave(documents, tracker, versions)) unsaved.Add(tracker.Id);
 
         var projects = Docs(raw, ConfigDocTypes.Project).ToDictionary(d => d.Id);
 
@@ -70,14 +83,15 @@ internal sealed class LegacyTriggerMigration(
         foreach (var name in carrying)
         {
             if (unsaved.Contains(raw.Projects[name].Tracker)) continue;
-            if (TrySave(projects[name], versions)) rewritten++;
+            if (TrySave(documents, projects[name], versions)) rewritten++;
         }
         logger.LogInformation(
             "Moved the trigger blocks of {Count} project(s) onto their resolution and tracker", rewritten);
         return rewritten;
     }
 
-    private bool TrySave(DecomposedConfigDoc doc, IReadOnlyDictionary<(string, string), int> versions)
+    private bool TrySave(
+        IConfigDocumentStore documents, DecomposedConfigDoc doc, IReadOnlyDictionary<(string, string), int> versions)
     {
         try
         {
@@ -90,7 +104,7 @@ internal sealed class LegacyTriggerMigration(
         catch (StaleConfigVersionException)
         {
             logger.LogInformation(
-                "Config document {Type}/{Id} changed while its trigger block was being moved; left for the next start",
+                "Config document {Type}/{Id} changed while its trigger block was being moved; left as it is; every load folds it",
                 doc.Type, doc.Id);
             return false;
         }
@@ -102,12 +116,4 @@ internal sealed class LegacyTriggerMigration(
     private static bool HasBlock(RawProjectEntry p) =>
         p.LegacyJiraTrigger is not null || p.LegacyGithubTrigger is not null
         || p.LegacyGitlabTrigger is not null || p.LegacyAzuredevopsTrigger is not null;
-
-    private static StartupFinding Unmigrated(Exception ex) => new(
-        StartupSubsystems.Configuration,
-        StartupFindingSeverity.Advisory,
-        "The stored per-project trigger blocks could not be moved onto their projects and trackers. "
-        + "They are still folded at every load, so routing is unaffected; the studio shows the tracker "
-        + $"fields without them until a later start succeeds. Cause: {ex.Message}",
-        Field: "projects");
 }

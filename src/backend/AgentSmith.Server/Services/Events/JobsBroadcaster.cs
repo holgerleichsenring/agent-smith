@@ -17,6 +17,8 @@ namespace AgentSmith.Server.Services.Events;
 /// from the two pointer indices (active SET + recent LIST), never KEYS /
 /// SCAN. SandboxOutput L3 events fan out only when an ExpandSandbox group
 /// is active for (runId, repo).
+/// 2026-11-22-747db: the cold start ran in StartAsync, before the port was bound (823 ms for fifty streams of 3000
+/// entries, measured); it now heads ExecuteAsync once Redis is connected, and <see cref="Warm"/> says when it is done.
 /// </summary>
 public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
     IRunEventFanout fanout,
@@ -27,57 +29,52 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
     IRunTerminalReconciler? reconciler = null,
     // 2026-08-24-ca23: the store's unfinished runs — a run that waited through a restart.
     IUnfinishedRunSource? unfinishedRuns = null,
-    TimeProvider? timeProvider = null) : IHostedService, IAsyncDisposable
+    TimeProvider? timeProvider = null) : BackgroundService
 {
     private const int RecentCapacity = EventStreamKeys.RecentRunsCap;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(200);
     // 2026-10-02-5ab2c: how often the store, not only the active set, names the runs to track.
     public static readonly TimeSpan DatabaseDiscoveryInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan ConnectionPoll = TimeSpan.FromSeconds(1); // not a limit: how often it looks again
     private DateTimeOffset _nextDatabaseDiscovery = DateTimeOffset.MinValue;
 
     private readonly ConcurrentDictionary<string, RunSnapshot> _active = new(StringComparer.Ordinal);
     private readonly RecentRunsRingBuffer _recent = new(RecentCapacity);
     private readonly RunStreamCursors _cursors = new();
     private readonly SystemEventStream _system = new(fanout, envelopes);
-    private CancellationTokenSource? _cts;
-    private Task? _loop;
+    private readonly TaskCompletionSource _warm = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public IReadOnlyDictionary<string, RunSnapshot> Active => _active;
     public IReadOnlyList<RunSnapshot> Recent => _recent.Snapshot();
     public IReadOnlyList<SystemEvent> SystemRecent => _system.Recent;
     public SystemActivitySnapshot GetSystemActivity() => _system.Activity();
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    /// <summary>Completes once the cold start has read what it could; the snapshots are warm from then on.</summary>
+    public Task Warm => _warm.Task;
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var started = System.Diagnostics.Stopwatch.GetTimestamp(); // 2026-10-29-7f2d: the host binds after it
-        await ColdStartAsync(cancellationToken);
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        // Run the async loop directly — no Task.Run threadpool hop. RunLoopAsync
-        // yields at its first await (SetMembersAsync), so StartAsync still returns
-        // promptly; StopAsync cancels _cts and awaits _loop for graceful teardown.
-        _loop = RunLoopAsync(_cts.Token);
-        logger.LogInformation("JobsBroadcaster started: {ActiveCount} active runs, {RecentCount} recent runs after a {ElapsedMs} ms cold start",
+        await Task.Yield();
+        await ConnectedAsync(stoppingToken);
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        await ColdStartAsync(stoppingToken);
+        _warm.TrySetResult();
+        logger.LogInformation("JobsBroadcaster warm: {ActiveCount} active runs, {RecentCount} recent runs after a {ElapsedMs} ms cold start",
             _active.Count, _recent.Count, (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        await RunLoopAsync(stoppingToken);
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken)
+    // A read on a disconnected multiplexer waits out its backlog timeout (2026-08-24-035a): wait for the connection.
+    private async Task ConnectedAsync(CancellationToken ct)
     {
-        if (_cts is null) return;
-        _cts.Cancel();
-        try { if (_loop is not null) await _loop; }
-        catch (OperationCanceledException) { }
-        _cts.Dispose();
-        _cts = null;
-        _loop = null;
+        if (redis.IsConnected) return;
+        logger.LogWarning("JobsBroadcaster waits for Redis before its cold start");
+        while (!redis.IsConnected) await Task.Delay(ConnectionPoll, timeProvider ?? TimeProvider.System, ct);
     }
 
-    public ValueTask DisposeAsync() => new(StopAsync(CancellationToken.None));
-
-    // p0391a: rehydration is a nicety; a cold start that cannot read starts empty and says so. 2026-08-24-035a: the
-    // host binds after this, and a read on a disconnected multiplexer waits out its backlog timeout first.
+    // p0391a: rehydration is a nicety; a cold start that cannot read starts empty and says so.
     private async Task ColdStartAsync(CancellationToken ct)
     {
-        if (!redis.IsConnected) { logger.LogWarning("JobsBroadcaster cold start skipped: Redis is not connected — starting empty"); return; }
         try
         {
             var db = redis.GetDatabase();

@@ -61,7 +61,7 @@ internal static class TicketReadExtensions
             .AddTransient<TicketTrackerObserver>()
             .AddTransient<TicketBetweenAttemptsChecker>()
             .AddSingleton<TicketCheckKicks>()
-            .AddHostedService<TicketCheckKickWorker>()
+            .AddWorker<TicketCheckKickWorker>()
             .AddTransient<ConversationRunRecords>()
             .AddSingleton<TicketThreadReader>()
             .AddTransient<TicketTranscriptReader>()

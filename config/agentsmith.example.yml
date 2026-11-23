@@ -684,6 +684,10 @@ series:
 # rate-limits. Default shown.
 preconditions:
   recheck_interval_seconds: 300
+  # An attempt a stopped server left unfinished is retried once by itself when it ended at
+  # most this many minutes before this server started. 0 turns the automatic restart off;
+  # negative is refused. Default shown.
+  interrupted_restart_window_minutes: 60
 
 # 2026-11-17-713ec: the server starts a branch-cleanup run per project on this interval. It
 # deletes every agent-smith/ branch whose pull request merged or closed and that has not moved

@@ -112,9 +112,17 @@ The relational store behind run records, projections, the configuration and the 
 
 ---
 
+## Infrastructure.Migration
+
+**Project:** `AgentSmith.Infrastructure.Migration` | **References:** Application, Infrastructure.Core, Infrastructure.Persistence(.SqlServer, .Postgresql)
+
+`database migrate`: `StoreMigrateRun` applies the schema, then every data migration the store has not had, each once and recorded in `DataMigrationHistory` (`IDataMigration`, `DataMigrationRunner` in Persistence). It also holds the data migrations of the stored configuration (role mapping import, retired preset names, legacy trigger blocks), which need the configuration model. The CLI verb and the server image both run this one body; the server itself never migrates.
+
+---
+
 ## CLI
 
-**Project:** `AgentSmith.Cli` | **References:** Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql)
+**Project:** `AgentSmith.Cli` | **References:** Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql), Infrastructure.Migration
 
 The console tool: one run, then exit. It reads its whole configuration from `agentsmith.yml` and runs its sandbox in-process.
 
@@ -135,7 +143,7 @@ Supporting types: `ConfigDiscovery` (where the config file is found), `ServicePr
 
 ## Server
 
-**Project:** `AgentSmith.Server` | **References:** Contracts, Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql)
+**Project:** `AgentSmith.Server` | **References:** Contracts, Application, Infrastructure, Infrastructure.Persistence(.SqlServer, .Postgresql), Infrastructure.Migration
 
 The long-running deployment: one ASP.NET Core process with one DI tree.
 
@@ -143,7 +151,7 @@ The long-running deployment: one ASP.NET Core process with one DI tree.
 |------|---------------------|
 | Webhooks | `POST /webhook` and `/webhook/{github,gitlab,jira}`; `WebhookRequestProcessor` detects the platform, verifies the signature and dispatches to one of the `IWebhookHandler`s |
 | Dashboard API | `/api/...` endpoints and the SignalR hub `JobsHub` at `/hub/jobs` |
-| Health | `GET /health`: liveness, the startup preflight verdict and every background subsystem's state (`SubsystemHealthSection`) |
+| Health | `GET /health/live` (liveness, touches nothing), `GET /health/ready` (the first probe pass settled), `GET /health`: the startup preflight verdict and every background subsystem's state (`SubsystemHealthSection`) |
 | Hosted services | `QueueConsumerHostedService`, `PollerLeaderHostedService`, `HousekeepingLeaderHostedService`, `CapacityQueuePumpHostedService`, `ActiveRunReaperHostedService`, `ConfigStoreReloadHostedService`, `SkillsCatalogReloadHostedService`, `RunRetentionHostedService`, `RepoDiscoveryRefreshHostedService` |
 | Sandboxes | `DockerSandboxFactory`, `KubernetesSandboxFactory` |
 | Chat | `IPlatformAdapter` with `SlackAdapter`, `TeamsAdapter`, `DashboardAdapter`; `IntentEngine` and `ChatIntentParser` turn a message into an intent |

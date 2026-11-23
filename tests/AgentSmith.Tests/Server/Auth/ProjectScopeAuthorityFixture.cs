@@ -50,8 +50,6 @@ public class ProjectScopeAuthorityFixture : AuthorityFixture
         services.AddSingleton<IDispatchedWork>(_dispatched);
     };
 
-    protected override void Booted() => Server.Services.GetRequiredService<RoleMappingSource>().AdoptStore();
-
     protected override string AuthYaml(string authority) => $"""
         auth:
           authority: {authority}

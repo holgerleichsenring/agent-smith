@@ -23,8 +23,10 @@ public sealed class InterruptedRestartPass(
     public async Task<int> RunAsync(AgentSmithConfig config, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(config);
+        // 2026-11-22-747dc: preconditions.interrupted_restart_window_minutes = 0 turns the automatic restart off.
+        if (window.Since(config.Preconditions) is not { } since) return 0;
         var asked = 0;
-        foreach (var attempt in await interrupted.ListAsync(window.Since, ct))
+        foreach (var attempt in await interrupted.ListAsync(since, ct))
             if (config.Projects.ContainsKey(attempt.Project) && await RetryAsync(attempt, ct)) asked++;
         if (asked > 0) logger.LogInformation("{Count} attempt(s) a lost process ended were retried unchanged", asked);
         return asked;

@@ -1,3 +1,4 @@
+using AgentSmith.Server.Services.Startup;
 using System.Net.Http.Json;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -43,8 +44,11 @@ public sealed class UnusableAuthBlockTests(UnusableAuthorityFixture fixture)
     }
 
     [Fact]
-    public void Startup_AuthBlockPresentButUnusable_DisablesNoTrigger()
+    public async Task Startup_AuthBlockPresentButUnusable_DisablesNoTrigger()
     {
+        // 2026-11-22-747da: the bootstrap read that records it happens in the probe pass after the listener binds,
+        // no longer in a startup migration before it.
+        await fixture.Server.Services.GetRequiredService<StartupProbePass>().WaitAsync(StartupProbePass.ReadBudget, CancellationToken.None);
         var findings = fixture.Server.Services.GetRequiredService<IStartupFindings>();
 
         findings.All.Should().Contain(f => f.Subsystem == StartupSubsystems.Auth,

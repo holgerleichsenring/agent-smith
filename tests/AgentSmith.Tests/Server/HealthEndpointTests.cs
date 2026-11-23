@@ -41,6 +41,21 @@ public sealed class HealthEndpointTests : IDisposable
         redis.GetProperty("reason").GetString().Should().NotBeNullOrWhiteSpace();
     }
 
+    [Fact]
+    public async Task LiveEndpoint_RedisDown_Answers200AndTouchesNothing()
+    {
+        // 2026-11-22-747db: the startup and liveness probes' endpoint — no subsystem, no worker, no dependency.
+        var configPath = Temp(".yml");
+        File.WriteAllText(configPath, $"persistence:\n  provider: sqlite\n  connection_string: Data Source={Temp(".db")}\n");
+        await using var server = await BootedServer.StartAsync(
+            new BootPlan(configPath) { UnreachableRedis = BootPlan.NothingAnswers });
+
+        var response = await server.Client.GetAsync("/health/live");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("live");
+    }
+
     private string Temp(string extension)
     {
         var path = Path.Combine(Path.GetTempPath(), $"agentsmith-health-{Guid.NewGuid():N}{extension}");

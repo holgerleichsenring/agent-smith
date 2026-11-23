@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Services.DataMigrations;
 using AgentSmith.Infrastructure.Persistence.Services.Repair;
 using AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,8 +23,15 @@ public static class RunStoreRepairExtensions
         services.AddSingleton<RunCostRecomputer>();
         services.AddSingleton<RunDuplicateRepair>();
         services.AddSingleton<KeptSetCarryBackfill>(); // 2026-11-22-a720a
+        services.AddSingleton<SchemaWatermark>(); // 2026-11-22-747da: data migrations, run once and recorded
+        services.AddSingleton<DataMigrationLedger>();
+        services.AddSingleton<DataMigrationRunner>();
         services.AddSingleton<RunStoreMigrator>();
-        return services.AddStoredSpecNameRewrite();
+        services.AddStoredSpecNameRewrite();
+        // In this order: the rewrite moves names first, the backfill reads events in today's shape.
+        services.AddSingleton<IDataMigration>(sp => sp.GetRequiredService<StoredSpecNameRewrite>());
+        services.AddSingleton<IDataMigration>(sp => sp.GetRequiredService<KeptSetCarryBackfill>());
+        return services;
     }
 
     // 2026-10-12-967ab: the one-time rewrite of rows stored in the pre-rename names, run by the migrator.

@@ -775,6 +775,20 @@ export const messages = {
     en: "Attempt {n} has waited since {at} for a place on the model; other runs hold every place.",
     de: "Versuch {n} wartet seit {at} auf einen Platz am Modell; andere Runs belegen alle Plätze.",
   },
+  // --- config: the preconditions block (2026-11-22-747dc) ---
+  "config.preconditions.recheck.label": { en: "Recheck interval (seconds)", de: "Prüfintervall (Sekunden)" },
+  "config.preconditions.recheck.help": {
+    en: "seconds between two passes over the tickets stuck on a precondition; at least 60",
+    de: "Sekunden zwischen zwei Durchläufen über die Tickets, die an einer Vorbedingung hängen; mindestens 60",
+  },
+  "config.preconditions.restartWindow.label": {
+    en: "Restart interrupted runs (minutes before start)",
+    de: "Unterbrochene Runs neu starten (Minuten vor dem Start)",
+  },
+  "config.preconditions.restartWindow.help": {
+    en: "an attempt a stopped server left unfinished is retried once by itself if it ended at most this many minutes before the server started; 0 turns it off",
+    de: "ein Versuch, den ein gestoppter Server unfertig hinterlassen hat, wird einmal von selbst wiederholt, wenn er höchstens so viele Minuten vor dem Serverstart endete; 0 schaltet das ab",
+  },
 } satisfies Record<string, MessageEntry>;
 
 export type MessageKey = keyof typeof messages;

@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-747da
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "Starting the server changes nothing: the three config-document migrations leave the server for `database migrate`"
+    over: "Keeping them at startup (two before app.Run(), one after ApplicationStarted)"
+    reason: "Operator rule: no migration, data adjustment or repair runs in-process at startup; it can fail and then nothing works. They are kept, not deleted: this is self-hosted software and no evidence says every installation has booted since 2026-08-25 / 09-25 / 10-29, so each now runs once per store."
+  - category: Architecture
+    chose: "A DataMigrationHistory table (id, applied-at, proven) in all three migration sets, and a runner that applies an unrecorded IDataMigration once, then records it"
+    over: "Raw-SQL EF migrations per repair; marker rows inserted by the table's own migration"
+    reason: "The repairs are C# over JSON payloads, identical on every provider; an EF migration cannot run them. A seed in the table's migration cannot tell an up-to-date store from one upgrading across many versions, because EF applies every pending migration before it."
+  - category: Architecture
+    chose: "A watermark: a data migration shipped with a schema migration is recorded without running when the store's applied list, read BEFORE this migrate, holds an id whose 14-digit timestamp is at or after it"
+    over: "Running every existing repair once more on every store; name matching"
+    reason: "Every migrate since the schema migration shipped ran the repair, so such a store has had it. Timestamps order all three sets alike (the SQL Server twin is seconds later, the PostgreSQL set starts 2026-10-28, after 967ab, and never held old names); name matching would rerun the spec-name rewrite on every PostgreSQL store. Accepted hole: a migrate that applied the watermark migration and then failed inside the repair, retried by a newer build, records it unrun; the init container would have failed and shown it."
+  - category: Implementation
+    chose: "Spec-name rewrite: watermark AddRunSpecIdColumns. Kept-set backfill: no watermark, runs once. Duplicate repair: runs only while AddRunRecordIdentity is unapplied"
+    over: "Watermark AddRunAttemptLeftTicketFingerprint for the backfill (reviewer: that migration is e812's and was on main before the backfill)"
+    reason: "The unique trail index proves no duplicate exists once applied, so the GROUP BY over every RunEvent stops. The backfill is a paged pass over the NULL attempt rows, run once; on the production store it runs one last time."
+  - category: Implementation
+    chose: "A store this migrate created runs and records no data migration"
+    over: "Recording every migration as applied on a fresh store"
+    reason: "It holds no rows to change, and an empty ledger keeps it an empty `archive import` target (EmptyTargetCheck refuses any table with rows). The archive carries the source's ledger; without an import the next migrate runs them once over the new rows, which are already in today's shape."
+  - category: Implementation
+    chose: "Every data migration is idempotent and a duplicate key on recording counts as applied"
+    over: "A lock around the data migrations"
+    reason: "Each replica's init container migrates; EF locks only the schema step. The repairs converge on a second pass and the config-document ones check versions, so two at once is safe; the second insert meets the first row, which says the same."
+  - category: Implementation
+    chose: "A config-document migration that throws is logged and left unrecorded; it never fails the migrate. A store repair that throws fails it (exit non-zero), as before"
+    over: "Failing the init container on any data migration"
+    reason: "The code's own reasoning: the configuration it could not move is the configuration the operator needs the server up to fix. The next migrate tries again; the server's loads still fold trigger blocks, and the validator names a retired preset's replacement."
+  - category: Implementation
+    chose: "RoleMappingSource reads store-else-seed always; AdoptStore removed"
+    over: "A flag set by a startup migration"
+    reason: "Once adopted the read was already store-else-seed, and an unreadable store already yields null, so the seed governs. The import now decides only what the studio shows. The admin-reachable check of the server's store wrapper is not applied to the imported copy: the seed in force has the same content."
+  - category: Implementation
+    chose: "New project AgentSmith.Infrastructure.Migration holds StoreMigrateRun (the one migrate body) and the config-document migrations; IDataMigration, the runner and the ledger stay in Persistence"
+    over: "Putting them in Persistence (reviewer: it references only Domain and Contracts, layers.md:109)"
+    reason: "They need Infrastructure.Core and Application together with the store; the CLI and the server image both reference the new project, so there is one body."
+  - category: Implementation
+    chose: "RunStoreMigrator runs only the store data migrations; the config-document ones are passed in by StoreMigrateRun"
+    over: "Registering them all as IDataMigration"
+    reason: "CliRunRecordingSchema migrates the CLI's local store through RunStoreMigrator; it has no role-mapping seed and no studio, and must not need their composition."
+  - category: Implementation
+    chose: "The studio's config import applies the trigger-block fold and the preset-name rewrite to the file it was handed"
+    over: "Relying on the next server start (gone) to heal an imported file"
+    reason: "Reviewer: retired names in a later import would otherwise stay until a person fixed them. The CLI `config import` path is unchanged; its validator names the replacement."
+  - category: Implementation
+    chose: "The ledger is cleared by the server's restore bookkeeping reset like the other self-written tables"
+    over: "Excluding it from the archive"
+    reason: "Which data migrations a store had belongs to its rows; a restore replaces both."
+  - category: TradeOff
+    chose: "Accepted: a store migrated twice before any import holds ledger rows, so a CLI `archive import` into it refuses (DataMigrationHistory holds rows) with its usual message"
+    over: "Ignoring the ledger in EmptyTargetCheck"
+    reason: "The archive carries its own ledger under the same keys, so ignoring the table would collide on them instead. Before this change a server start had already written rows; the window is a migrate run twice into an empty store, and the remedy is the one the message gives: an empty database."
+  - category: Implementation
+    chose: "The runner clears the context's change tracker before and after each data migration; each config-document migration has a Try* form that logs and answers false, used by migrate and by the studio import"
+    over: "One shared tracker across migrations; letting the import endpoint throw after its import committed"
+    reason: "Code review: a save that failed left its rows tracked, and the next migration would flush them and fail too; an exception after the import committed skipped the reload and the change signal."

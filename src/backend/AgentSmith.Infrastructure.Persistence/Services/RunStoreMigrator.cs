@@ -1,6 +1,7 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Models;
+using AgentSmith.Infrastructure.Persistence.Services.DataMigrations;
 using AgentSmith.Infrastructure.Persistence.Services.Repair;
-using AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -17,20 +18,34 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// the ordering is a property of the code rather than of a runbook.
 /// </para>
 /// <para>
-/// 2026-10-12-967ab: and the stored-name rewrite last, because it reads and writes the columns
-/// the migration adds — rows written in the pre-rename names are rewritten in the spec names.
+/// 2026-11-22-747da: the repair runs only while that migration is still pending — once the index exists no duplicate
+/// can, and grouping every trail row on every deploy was a full scan for nothing. After the schema, the data
+/// migrations the store has not had (the spec-name rewrite of 2026-10-12-967ab, the kept-set backfill of
+/// 2026-11-22-a720a, and whatever the caller adds) run once each and are recorded.
 /// </para>
-/// <para>2026-11-22-a720a: then attempt rows a kept spec set left without their carried ids are filled from their events.</para>
 /// </summary>
 public sealed class RunStoreMigrator(
-    RunDuplicateRepair repair, StoredSpecNameRewrite specNames, KeptSetCarryBackfill carried, ILogger<RunStoreMigrator> logger)
+    RunDuplicateRepair repair, IEnumerable<IDataMigration> storeMigrations, DataMigrationRunner dataMigrations,
+    SchemaWatermark watermark, ILogger<RunStoreMigrator> logger)
 {
-    public async Task MigrateAsync(AgentSmithDbContext db, CancellationToken ct)
+    /// <summary>The timestamp of AddRunRecordIdentity, the migration whose unique index the repair prepares.</summary>
+    public const string UniqueTrailMigration = "20260825085711";
+
+    public Task MigrateAsync(AgentSmithDbContext db, CancellationToken ct) => MigrateAsync(db, [], ct);
+
+    /// <summary>Repair if needed, schema, then the store's data migrations followed by <paramref name="more"/>.</summary>
+    public async Task MigrateAsync(AgentSmithDbContext db, IEnumerable<IDataMigration> more, CancellationToken ct)
     {
-        await RepairAsync(db, ct);
+        ArgumentNullException.ThrowIfNull(db);
+        var before = (await db.Database.GetAppliedMigrationsAsync(ct)).ToList();
+        if (!watermark.Reached(before, UniqueTrailMigration)) await RepairAsync(db, ct);
         await db.Database.MigrateAsync(ct);
-        await specNames.RewriteAsync(db, ct);
-        await carried.RepairAsync(db, ct); // 2026-11-22-a720a
+        if (before.Count == 0)
+        {
+            logger.LogInformation("Data migrations: none applied to a store this migrate created, it holds no rows to change");
+            return;
+        }
+        await dataMigrations.RunAsync(db, before, storeMigrations.Concat(more), ct);
     }
 
     public async Task<RunRepairReport> RepairAsync(AgentSmithDbContext db, CancellationToken ct)

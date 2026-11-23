@@ -112,7 +112,6 @@ public sealed class RoleMappingInTheStoreTests
         var auth = new TokenAuthorityConfig();
         var stored = new StoredMappingStub(new RoleMappingConfig());
         var source = new RoleMappingSource(stored, auth);
-        source.AdoptStore();
         var resolver = ResolverUnderTest.Resolver(
             source, ResolverUnderTest.Grant("sub:locked-out", asked));
 

@@ -21,8 +21,8 @@ internal static class RunLivenessExtensions
         services.RemoveAll<IRunHeartbeat>();
         services.AddSingleton<IRunHeartbeat, DbRunHeartbeat>();
         services.AddSingleton<RunLivenessReaper>();
-        services.AddHostedService<ActiveRunReaperHostedService>();
-        services.AddHostedService<RunLivenessReaperHostedService>();
+        services.AddWorker<ActiveRunReaperHostedService>();
+        services.AddWorker<RunLivenessReaperHostedService>();
         // 2026-10-02-5ab2b: a queued request kept on its row, claimed at the pop, swept when lost.
         services.AddScoped<QueuedRunRepository>();
         services.RemoveAll<IRunStartClaim>();

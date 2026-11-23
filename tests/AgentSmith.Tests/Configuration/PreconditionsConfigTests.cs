@@ -57,4 +57,22 @@ public sealed class PreconditionsConfigTests : IDisposable
     [Fact]
     public void Preconditions_Exactly60_Passes() =>
         new PreconditionsConfig { RecheckIntervalSeconds = 60 }.Problems().Should().BeEmpty();
+
+    [Fact]
+    public void RestartWindow_Default_Is60AndBindsFromYaml()
+    {
+        Load("projects: {}\n").Preconditions.InterruptedRestartWindowMinutes.Should().Be(60);
+        Load("projects: {}\npreconditions:\n  interrupted_restart_window_minutes: 15\n")
+            .Preconditions.InterruptedRestartWindowMinutes.Should().Be(15);
+    }
+
+    [Fact]
+    public void RestartWindow_Zero_IsOffAndValid() =>
+        new PreconditionsConfig { InterruptedRestartWindowMinutes = 0 }.Problems().Should().BeEmpty();
+
+    [Fact]
+    public void RestartWindow_Negative_RefusedNamingValueReasonAndKey() =>
+        new PreconditionsConfig { InterruptedRestartWindowMinutes = -1 }.Problems().Should().ContainSingle()
+            .Which.Should().Contain("preconditions.interrupted_restart_window_minutes").And.Contain("is -1")
+            .And.Contain("no automatic restart");
 }

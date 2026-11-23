@@ -16,9 +16,9 @@
 #
 #   The bare `build` (no profile) builds the `agentsmith` (CLI), `migrate` and
 #   `server` services. Note:
-#     - `migrate` builds the SAME agentsmith-cli image as `agentsmith`
-#       (init-container pattern, runs `database migrate`); its own build block
-#       exists so `up --build` rebuilds it too.
+#     - `migrate` builds the SAME agentsmith-server image as `server`
+#       (init-container pattern, runs `database migrate`, 2026-11-22-747db);
+#       its own build block exists so `up --build` rebuilds it too.
 #     - `sandbox-agent` is profile-gated (`build-only`) because it is spawned
 #       per-run by the server, not started by compose — the bare `build` skips
 #       it on purpose. Build it explicitly before the first pipeline runs.
@@ -129,23 +129,26 @@ services:
   # For an external DB (Postgres/SQLServer), point persistence.connection_string
   # in agentsmith.yml at it — this same job migrates it.
   migrate:
-    # Mirrors the agentsmith (CLI) build: without its own build block,
-    # `up --build` would run a stale pinned image against a newer schema.
+    # Mirrors the server build: without its own build block, `up --build` would
+    # run a stale pinned image against a newer schema. 2026-11-22-747db: the
+    # server image migrates (`AgentSmith.Server.dll database migrate`), so the
+    # deploy needs one image, not the SDK-based CLI image as well.
     build:
       context: ..
-      dockerfile: src/backend/AgentSmith.Cli/Dockerfile
+      dockerfile: src/backend/AgentSmith.Server/Dockerfile
       args:
         AGENTSMITH_BUILD_REVISION:
         AGENTSMITH_RELEASE_VERSION:
-    image: agentsmith-cli:${AGENTSMITH_VERSION:-0.199.1}  # x-release-please-version
+    image: agentsmith-server:${AGENTSMITH_VERSION:-0.199.1}  # x-release-please-version
     restart: "no"
+    user: root  # the same user as the server below, which writes the same SQLite files
     env_file:
       # 2026-09-04-102b: both services read ../.env, so AGENTSMITH_PERSISTENCE_PROVIDER
       # and AGENTSMITH_PERSISTENCE_CONNECTION set there reach this container AND the
       # server together — set as a pair they replace the config file's persistence
       # block, and one without the other is refused with a startup finding.
       - ../.env
-    command: ["database", "migrate", "--config", "/app/config/agentsmith.yml"]
+    command: ["database", "migrate", "--config", "/app/config/agentsmith.yml"]  # the server image's ENTRYPOINT is `dotnet AgentSmith.Server.dll`
     volumes:
       - /path/to/your/agentsmith/config:/app/config   # REPLACE — same path as the agentsmith service above
       - agentsmith-db:/var/lib/agentsmith
@@ -209,9 +212,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - agentsmith-db:/var/lib/agentsmith              # the SQLite system-of-record (migrated by the migrate job)
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
-      interval: 30s
-      timeout: 5s
+      # 2026-11-22-747db: liveness — answers once the port is bound and touches nothing.
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health/live"]
+      interval: 10s
+      timeout: 2s
       retries: 3
       start_period: 15s
 

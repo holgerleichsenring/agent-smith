@@ -10,6 +10,8 @@
          them as the MigrationsAssembly). Referenced so they are present at runtime. -->
     <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence.SqlServer\AgentSmith.Infrastructure.Persistence.SqlServer.csproj" />
     <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence.Postgresql\AgentSmith.Infrastructure.Persistence.Postgresql.csproj" />
+    <!-- 2026-11-22-747da: `database migrate`, the one body both entry points run. -->
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Migration\AgentSmith.Infrastructure.Migration.csproj" />
   </ItemGroup>
 
   <ItemGroup>

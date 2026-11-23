@@ -4,7 +4,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
-using AgentSmith.Server.Services.Startup;
+using AgentSmith.Infrastructure.Migration.Services.ConfigDocuments;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -24,7 +24,7 @@ public sealed class LegacyTriggerMigrationTests
         using var harness = new DbConfigTestHarness();
         harness.Import(Yaml);
 
-        Migration(harness.DocStore, harness).Run().Should().Be(1);
+        Migration(harness).Rewrite(harness.DocStore).Should().Be(1);
 
         var tracker = Json(harness, ConfigDocTypes.Tracker, "board");
         tracker.GetProperty("CommentKeyword").GetString().Should().Be("@agent-smith");
@@ -33,7 +33,7 @@ public sealed class LegacyTriggerMigrationTests
         project.GetProperty("JiraTrigger").ValueKind.Should().Be(JsonValueKind.Null);
         project.GetProperty("Resolution").GetProperty("tag").GetString().Should().Be("alpha");
 
-        Migration(harness.DocStore, harness).Run().Should().Be(0, "nothing carries a block any more");
+        Migration(harness).Rewrite(harness.DocStore).Should().Be(0, "nothing carries a block any more");
         Version(harness, ConfigDocTypes.Project, "alpha").Should().Be(2);
         Version(harness, ConfigDocTypes.Tracker, "board").Should().Be(2);
     }
@@ -49,7 +49,7 @@ public sealed class LegacyTriggerMigrationTests
                   assignee_name: Bot
             """, "    resolution: { tag: alpha }\n"));
 
-        Migration(harness.DocStore, harness).Run().Should().Be(0);
+        Migration(harness).Rewrite(harness.DocStore).Should().Be(0);
 
         Version(harness, ConfigDocTypes.Tracker, "board").Should().Be(1,
             "a tracker the fold did not touch differs from its stored document only in fields added since");
@@ -70,13 +70,13 @@ public sealed class LegacyTriggerMigrationTests
             saved.Add(write.Id);
         });
 
-        Migration(store.Object, harness).Run().Should().Be(0);
+        Migration(harness).Rewrite(store.Object).Should().Be(0);
 
         saved.Should().BeEmpty("clearing the block without the tracker holding its values would lose them");
     }
 
-    private static LegacyTriggerMigration Migration(IConfigDocumentStore store, DbConfigTestHarness harness) =>
-        new(store, harness.Assembler, new StartupFindings(), NullLogger<LegacyTriggerMigration>.Instance);
+    private static LegacyTriggerMigration Migration(DbConfigTestHarness harness) =>
+        new(harness.Assembler, NullLogger<LegacyTriggerMigration>.Instance);
 
     private static JsonElement Json(DbConfigTestHarness harness, string type, string id) =>
         JsonDocument.Parse(harness.DocStore.LoadAll().Single(r => r.Type == type && r.Id == id).Doc).RootElement.Clone();

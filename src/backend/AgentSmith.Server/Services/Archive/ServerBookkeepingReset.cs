@@ -30,6 +30,8 @@ public sealed class ServerBookkeepingReset(ILogger<ServerBookkeepingReset> logge
         var clarifications = await db.Set<PendingClarification>().ExecuteDeleteAsync(cancellationToken);
         // 2026-10-02-5ab2e: what reached this server, not what reached the archive's.
         var webhooks = await db.Set<WebhookLastSeen>().ExecuteDeleteAsync(cancellationToken);
+        // 2026-11-22-747da: which data migrations the store had travels with the rows they changed.
+        var dataMigrations = await db.Set<DataMigrationRecord>().ExecuteDeleteAsync(cancellationToken);
         // The reference edges point at the entities, so they go first.
         var refs = await db.ConfigRefs.ExecuteDeleteAsync(cancellationToken);
         var versions = await db.ConfigEntityVersions.ExecuteDeleteAsync(cancellationToken);
@@ -37,7 +39,8 @@ public sealed class ServerBookkeepingReset(ILogger<ServerBookkeepingReset> logge
         logger.LogInformation(
             "Cleared this server's own bookkeeping before a restore: {Callers} observed caller(s), "
             + "{Discoveries} connection discovery row(s), {Clarifications} pending clarification(s), "
-            + "{Webhooks} webhook last-seen row(s), {Entities} config entity/entities, {Versions} version(s), {Refs} reference(s).",
-            callers, discoveries, clarifications, webhooks, entities, versions, refs);
+            + "{Webhooks} webhook last-seen row(s), {DataMigrations} data migration record(s), {Entities} config "
+            + "entity/entities, {Versions} version(s), {Refs} reference(s).",
+            callers, discoveries, clarifications, webhooks, dataMigrations, entities, versions, refs);
     }
 }

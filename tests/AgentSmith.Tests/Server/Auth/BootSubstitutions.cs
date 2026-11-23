@@ -50,6 +50,7 @@ internal static class BootSubstitutions
     /// </summary>
     private static void SelectHostedServices(BootPlan plan, IServiceCollection services)
     {
+        if (plan.ProductWorkers) return;
         foreach (var descriptor in services.Where(IsProductHostedService).ToList())
             services.Remove(descriptor);
         foreach (var type in plan.HostedServices)

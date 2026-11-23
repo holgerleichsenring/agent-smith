@@ -31,14 +31,13 @@ spec:
       # string, or run your own idempotent-SQL pipeline instead.
       initContainers:
         - name: migrate
-          image: holgerleichsenring/agent-smith-cli:0.199.1  # x-release-please-version
+          # 2026-11-22-747db: the SERVER image, which carries the same migrate body as the CLI
+          # (StoreMigrateRun) — the kubelet pulls one image for both containers instead of the
+          # ~1 GB SDK-based CLI image. Migrate applies the schema and every data migration the
+          # store has not had, each once and recorded, then exits; the server itself never migrates.
+          image: holgerleichsenring/agent-smith-server:0.199.1  # x-release-please-version
           imagePullPolicy: IfNotPresent
-          # p0348: call the DLL directly. The image ENTRYPOINT is a gosu
-          # privilege-drop shim (docker-entrypoint.sh); under this pod's hardened
-          # securityContext (runAsNonRoot/runAsUser 1000) gosu cannot drop
-          # privileges, and there is no `agentsmith` executable on PATH — the k8s
-          # `command:` overrides the ENTRYPOINT, so the shim never runs anyway.
-          command: ["dotnet", "AgentSmith.Cli.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
+          command: ["dotnet", "AgentSmith.Server.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
           # 2026-09-04-102b: the database, for an installation that keeps it out of the
           # shared ConfigMap. THE SAME PAIR MUST BE ON THE SERVER BELOW — this container
           # migrates whatever it is pointed at, and a pair set here alone would migrate a
@@ -204,20 +203,33 @@ spec:
               mountPath: /var/lib/agentsmith/skills
             - name: persistence
               mountPath: /var/lib/agentsmith
+          # 2026-11-22-747db: live and ready are two questions. /health/live answers once the port is
+          # bound and touches nothing, so the startup and liveness probes never wait on Redis, the
+          # database or a worker. /health/ready is 503 until the first startup probe pass settled (or
+          # its 15 s budget passed) and 200 from then on, degraded or not — the pod that reports a
+          # fault must stay in the service. Nothing but the init container's migrate blocks the listener.
+          # The first request builds the dashboard API's request delegates (~1.6 s on a debug build,
+          # measured), so the timeout leaves room for it.
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: 8081
+            periodSeconds: 1
+            timeoutSeconds: 3
+            failureThreshold: 60
           livenessProbe:
             httpGet:
-              path: /health
+              path: /health/live
               port: 8081
-            initialDelaySeconds: 15
-            periodSeconds: 30
-            timeoutSeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /health
+              path: /health/ready
               port: 8081
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: 0
+            periodSeconds: 2
             timeoutSeconds: 3
             failureThreshold: 3
           resources:

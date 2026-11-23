@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 2026-11-22-747da: `database migrate` — the one body the CLI and the server image both run. It needs the store
+       (Persistence, with the provider migration sets it applies) and the configuration model (Infrastructure.Core,
+       Application) the config-document migrations rewrite, which no lower project sees together. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgentSmith.Application\AgentSmith.Application.csproj" />
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Core\AgentSmith.Infrastructure.Core.csproj" />
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence\AgentSmith.Infrastructure.Persistence.csproj" />
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence.SqlServer\AgentSmith.Infrastructure.Persistence.SqlServer.csproj" />
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence.Postgresql\AgentSmith.Infrastructure.Persistence.Postgresql.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentSmith.Tests" />
+  </ItemGroup>
+
+</Project>

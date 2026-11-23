@@ -25,7 +25,7 @@ internal static class ServerPreflightExtensions
         services.AddSignInCheck(auth);
         services.AddSingleton<IPreflightInfraProbe, InfraConnectivityProbe>();
         services.AddSingleton<PreflightReportStore>();
-        services.AddHostedService<PreflightStartupService>();
+        services.AddWorker<PreflightStartupService>();
         return services;
     }
 

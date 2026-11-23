@@ -1,13 +1,9 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
-using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Persistence;
-using AgentSmith.Infrastructure.Persistence.Extensions;
-using AgentSmith.Infrastructure.Persistence.Interceptors;
-using AgentSmith.Infrastructure.Persistence.Models;
-using AgentSmith.Infrastructure.Persistence.Services;
-using Microsoft.EntityFrameworkCore;
+using AgentSmith.Infrastructure.Migration.Extensions;
+using AgentSmith.Infrastructure.Migration.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Cli.Commands;
 
@@ -18,6 +14,7 @@ namespace AgentSmith.Cli.Commands;
 /// between replicas, surprises operators), so the server never does it; this is
 /// the single, deliberate entry point. Runs programmatically via
 /// Database.MigrateAsync — no `dotnet ef` / .NET SDK needed at the run site.
+/// 2026-11-22-747da: the body is <see cref="StoreMigrateRun"/>, the same one the server image runs.
 /// </summary>
 internal static class DatabaseCommand
 {
@@ -41,52 +38,14 @@ internal static class DatabaseCommand
 
     private static async Task<int> RunAsync(string configPath, bool verbose, CancellationToken ct)
     {
-        await using var services = ServiceProviderFactory.Build(configPath, verbose, headless: true);
-        var persistence = services.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath).Persistence;
-
-        if (!Enum.TryParse<PersistenceProvider>(persistence.Provider, ignoreCase: true, out var provider))
+        var services = new ServiceCollection().AddLogging(builder =>
         {
-            Console.Error.WriteLine(
-                $"Unknown persistence.provider '{persistence.Provider}' (expected sqlite | postgresql | mysql | sqlserver).");
-            return 1;
-        }
-
-        var options = new PersistenceOptions { Provider = provider, ConnectionString = persistence.ConnectionString };
-        var builder = new DbContextOptionsBuilder<AgentSmithDbContext>();
-        builder.UseProvider(options);
-        // The shared migration set's model snapshot is generated under SQLite (the
-        // design-time default). Under another provider that runs it the runtime model
-        // gains provider annotations the snapshot lacks, which EF 9 misreads as
-        // "pending model changes" — suppress the warning there. PostgreSQL's set is
-        // generated against the current model (2026-10-28-ebb0), so like SQLite it
-        // keeps the warning as a real forgotten-migration guard.
-        if (provider is not (PersistenceProvider.Sqlite or PersistenceProvider.Postgresql))
-            builder.ConfigureWarnings(w =>
-                w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
-        await using var db = new AgentSmithDbContext(builder.Options);
-
-        // p0348: leave the SQLite file in WAL before the server ever opens it.
-        // Without this the migrate one-shot leaves the file in DELETE journal mode
-        // and the first server connection must perform the WAL conversion under
-        // boot contention — the intermittent "database is locked" at startup. WAL
-        // persists in the file header, so applying it here carries over to the
-        // server. Runs on the context's own connection so the mode is set before
-        // MigrateAsync opens its transactions.
-        if (provider == PersistenceProvider.Sqlite)
-        {
-            var connection = db.Database.GetDbConnection();
-            await connection.OpenAsync(ct);
-            await using var pragma = connection.CreateCommand();
-            pragma.CommandText = SqliteTuningInterceptor.TunePragmas;
-            await pragma.ExecuteNonQueryAsync(ct);
-        }
-
-        // Don't log the connection string — it may carry Postgres/MySQL credentials.
-        Console.WriteLine($"Applying relational-persistence migrations (provider={persistence.Provider})...");
-        // 2026-08-25-61f1: repair before migrate. The migrator owns that order because a
-        // uniqueness migration cannot be applied over the rows it would reject.
-        await services.GetRequiredService<RunStoreMigrator>().MigrateAsync(db, ct);
-        Console.WriteLine("Done — schema is up to date.");
-        return 0;
+            builder.AddConsoleFormatter<ShortCategoryFormatter, ShortCategoryFormatterOptions>();
+            builder.AddConsole(options => options.FormatterName = "short");
+            builder.SetMinimumLevel(verbose ? LogLevel.Debug : LogLevel.Information);
+            if (!verbose) builder.AddFilter(ServiceProviderFactory.EfCoreCategory, LogLevel.Warning);
+        });
+        await using var provider = services.AddStoreMigrate(configPath).BuildServiceProvider();
+        return await provider.GetRequiredService<StoreMigrateRun>().RunAsync(ct);
     }
 }

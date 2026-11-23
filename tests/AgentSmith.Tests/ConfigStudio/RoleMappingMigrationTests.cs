@@ -4,7 +4,9 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Server.Security;
-using AgentSmith.Server.Services.Startup;
+using AgentSmith.Infrastructure.Migration.Services.ConfigDocuments;
+using AgentSmith.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -24,7 +26,7 @@ public sealed class RoleMappingMigrationTests
         using var harness = new DbConfigTestHarness();
         var auth = FileMapping();
 
-        Migration(harness, auth).Run();
+        Migration(auth).Import(harness.DocStore);
 
         Stored(harness)!.Roles.Should().ContainKey("auditor");
         Stored(harness)!.GroupRoles.Should().ContainKey("platform-admins");
@@ -40,7 +42,7 @@ public sealed class RoleMappingMigrationTests
             Roles = new Dictionary<string, List<string>> { ["studio-role"] = ["runs.read"] },
         });
 
-        Migration(harness, FileMapping()).Run();
+        Migration(FileMapping()).Import(harness.DocStore);
 
         var stored = Stored(harness)!;
         stored.Roles.Should().ContainKey("studio-role");
@@ -52,25 +54,28 @@ public sealed class RoleMappingMigrationTests
     {
         using var harness = new DbConfigTestHarness();
 
-        Migration(harness, new TokenAuthorityConfig()).Run();
+        Migration(new TokenAuthorityConfig()).Import(harness.DocStore);
 
         harness.DocStore.LoadAll().Should().NotContain(row => row.Type == ConfigDocTypes.RoleMapping,
             "a file that declares no mapping has nothing to preserve");
     }
 
     [Fact]
-    public void Migration_StoreUnreachable_RecordsAFindingAndLeavesTheFileInForce()
+    public void Source_StoreUnreadable_LeavesTheFileInForce()
     {
-        using var harness = new DbConfigTestHarness();
-        var auth = FileMapping();
-        var source = new RoleMappingSource(new UnreadableStoredMapping(), auth);
-        var findings = new StartupFindings();
-        new RoleMappingMigration(
-            new UnreachableDocuments(), auth, source, new ConfigDocJson(), findings,
-            NullLogger<RoleMappingMigration>.Instance).Run();
+        var source = new RoleMappingSource(new UnreadableStoredMapping(), FileMapping());
 
-        findings.All.Should().ContainSingle().Which.Reason.Should().Contain("role mapping");
         source.Current().Mapping.Roles.Should().ContainKey("auditor");
+    }
+
+    [Fact]
+    public async Task Migration_StoreUnreachable_IsNotCompleteSoTheNextMigrateTriesAgain()
+    {
+        var options = new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite("Data Source=:memory:").Options;
+        await using var db = new AgentSmithDbContext(options);
+
+        (await Migration(FileMapping()).RunAsync(db, CancellationToken.None)).Should().BeFalse(
+            "a store without the schema cannot take the mapping, and the migration is not recorded");
     }
 
     [Fact]
@@ -92,7 +97,6 @@ public sealed class RoleMappingMigrationTests
         var auth = new TokenAuthorityConfig();
         var source = new RoleMappingSource(
             new StoredRoleMapping(harness.Store, NullLogger<StoredRoleMapping>.Instance), auth);
-        source.AdoptStore();
         var resolver = Server.Auth.ResolverUnderTest.Resolver(
             source, Server.Auth.ResolverUnderTest.Grant(null));
         var caller = Server.Auth.ResolverUnderTest.Caller(auth, ("roles", "auditor"));
@@ -107,11 +111,8 @@ public sealed class RoleMappingMigrationTests
             "the same process, no restart, one call later");
     }
 
-    private static RoleMappingMigration Migration(DbConfigTestHarness harness, TokenAuthorityConfig auth) =>
-        new(harness.DocStore, auth,
-            new RoleMappingSource(
-                new StoredRoleMapping(harness.Store, NullLogger<StoredRoleMapping>.Instance), auth),
-            new ConfigDocJson(), new StartupFindings(), NullLogger<RoleMappingMigration>.Instance);
+    private static RoleMappingMigration Migration(TokenAuthorityConfig auth) =>
+        new(auth, new ConfigDocJson(), NullLogger<RoleMappingMigration>.Instance);
 
     private static RoleMappingConfig? Stored(DbConfigTestHarness harness)
     {

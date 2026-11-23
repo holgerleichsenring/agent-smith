@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Migration.Services.ConfigDocuments;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Startup;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,8 +25,8 @@ internal static class StartupProbeExtensions
         services.AddSingleton<IStartupAnnouncer, StartupAnnouncer>();
         services.AddSingleton<IStartupProbeRunner, StartupProbeRunner>();
         services.AddSingleton<StartupProbePass>(); // 2026-10-29-7f2d
-        // 2026-09-25-e5b1: not a probe — it WRITES. It is registered here because it is
-        // startup work that reports through the same findings list when it cannot run.
+        // 2026-11-22-747da: not startup work any more (`database migrate` runs them); the studio's import applies
+        // both to the file it was handed.
         services.AddSingleton<PipelineAliasMigration>();
         services.AddSingleton<LegacyTriggerMigration>(); // 2026-10-29-6bd3a
         return services;

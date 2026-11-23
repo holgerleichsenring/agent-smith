@@ -5,7 +5,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Server.Security;
-using AgentSmith.Server.Services.Startup;
+using AgentSmith.Infrastructure.Migration.Services.ConfigDocuments;
 using Microsoft.AspNetCore.Mvc;
 using static AgentSmith.Server.Services.Config.ConfigStudioWriteGuard;
 
@@ -35,7 +35,7 @@ internal static class ConfigTransferEndpoints
             async (HttpRequest req, [FromServices] IConfigDocumentStore docStore, IConfigStore store,
                 [FromServices] ConfigImportPlanner planner,
                 [FromServices] ConfigChangedSignal signal, HttpContext ctx,
-                [FromServices] LegacyTriggerMigration? triggerBlocks) =>
+                [FromServices] LegacyTriggerMigration? triggerBlocks, [FromServices] PipelineAliasMigration? aliases) =>
             {
                 var force = req.Query["force"] == "true";
                 using var reader = new StreamReader(req.Body);
@@ -53,8 +53,11 @@ internal static class ConfigTransferEndpoints
                             d.Type, d.Id, d.Doc, ExpectedVersion: null, d.Edges, Attribution(ctx).Actor))
                         .ToList();
                     docStore.Import(writes, force);
-                    // 2026-10-29-6bd3a: an imported file may still carry per-project trigger blocks.
-                    triggerBlocks?.Run();
+                    // 2026-10-29-6bd3a: an imported file may still carry per-project trigger blocks. 2026-11-22-747da:
+                    // and retired preset names, which no start rewrites any more.
+                    // Both log what they cannot do: the import itself is committed either way.
+                    triggerBlocks?.TryRewrite(docStore);
+                    aliases?.TryRewrite(docStore);
                     store.Load();
                     return Results.Ok(new { imported = writes.Count, dropped = plan.Dropped });
                 });

@@ -60,7 +60,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         // Arrange: process A drains the run's early events, then goes down while
         // the drain cursor still lags a stream that gains the terminal event.
         var processA = NewServerProcess();
-        await processA.StartAsync(CancellationToken.None);
+        await processA.StartWarmAsync();
         await PublishStartAsync();
         await PublishGatesAsync(120);
         (await WaitForRowAsync())
@@ -71,7 +71,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
 
         // Act: process B cold-starts over the same Redis + DB.
         var processB = NewServerProcess();
-        await processB.StartAsync(CancellationToken.None);
+        await processB.StartWarmAsync();
         var persisted = await WaitForTerminalRowAsync();
         await processB.StopAsync(CancellationToken.None);
 
@@ -92,7 +92,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         // Arrange: one continuously running process; the stream outruns the
         // count:100-per-cycle drain by several cycles before quiescing.
         var process = NewServerProcess();
-        await process.StartAsync(CancellationToken.None);
+        await process.StartWarmAsync();
         await PublishStartAsync();
         (await WaitForRowAsync())
             .Should().BeTrue("the run must be discovered and tracked first");
@@ -121,7 +121,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
     {
         // Arrange: a fully drained + persisted run …
         var processA = NewServerProcess();
-        await processA.StartAsync(CancellationToken.None);
+        await processA.StartWarmAsync();
         await PublishStartAsync();
         (await WaitForRowAsync())
             .Should().BeTrue("the run must be discovered and tracked first");
@@ -135,7 +135,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
 
         // Act: … then a restart rehydrates the terminal run from the stream.
         var processB = NewServerProcess();
-        await processB.StartAsync(CancellationToken.None);
+        await processB.StartWarmAsync();
         // Several drain passes in which a wrong re-processing would show, counted from the
         // drain's own discoveries. 2026-09-22-3f7c: half a second was several passes on the
         // machine that wrote it and part of one on the runner that failed this class.

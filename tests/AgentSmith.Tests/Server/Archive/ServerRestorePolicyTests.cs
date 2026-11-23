@@ -106,6 +106,19 @@ public sealed class ServerRestorePolicyTests : IDisposable
     }
 
     [Fact]
+    public async Task ServerBookkeepingReset_Restore_ClearsTheDataMigrationLedger()
+    {
+        await using var db = MigratedStoreTemplate.Context(_store);
+        db.Add(new DataMigrationRecord { Id = "2026-11-22-a720a-kept-set-carry", AppliedAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+
+        await Policy().EnforceAsync(db, Tables(db), CancellationToken.None);
+
+        (await db.Set<DataMigrationRecord>().CountAsync()).Should().Be(0,
+            "the archive's ledger says which data migrations ITS rows had");
+    }
+
+    [Fact]
     public async Task Policy_ARunThatWasRecorded_LeavesTheBookkeepingAlone()
     {
         await using var db = MigratedStoreTemplate.Context(_store);

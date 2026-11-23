@@ -8,11 +8,11 @@ namespace AgentSmith.Server.Security;
 /// in singleton readers, so a team that changed cost a pod restart — while p0349 had put the
 /// configuration in the database and p0353 had made it apply live.
 /// <para>
-/// Until the migration has spoken, the bootstrap SEED governs: an installation whose mapping
-/// is still in its file must keep the mapping it has, or the upgrade locks out everyone that
-/// mapping let in. <see cref="AdoptStore"/> is how the migration says the store now holds the
-/// answer; from then on the store is the only one, so a mapping cleared in the studio stays
-/// cleared instead of being resurrected from the file.
+/// The store answers; while it holds no mapping, or cannot be read, the bootstrap SEED does — an
+/// installation whose mapping is still in its file keeps the mapping it has. 2026-11-22-747da: the
+/// import that copies the seed into the store is a data migration of `database migrate`; it used to
+/// run at startup and switch this source over (AdoptStore), and the switch changed nothing the
+/// store-else-seed read does not already do.
 /// </para>
 /// </summary>
 internal sealed class RoleMappingSource(IStoredRoleMapping stored, TokenAuthorityConfig auth)
@@ -20,11 +20,7 @@ internal sealed class RoleMappingSource(IStoredRoleMapping stored, TokenAuthorit
     private readonly RoleMappingConfig _seed = RoleMappingConfig.From(auth);
     private readonly object _gate = new();
 
-    private volatile bool _adopted;
     private ResolvedRoleMapping? _view;
-
-    /// <summary>The store holds the mapping now — the seed has done its job and steps aside.</summary>
-    public void AdoptStore() => _adopted = true;
 
     /// <summary>
     /// The mapping and its readers. The store hands back the same instance until a write
@@ -45,6 +41,5 @@ internal sealed class RoleMappingSource(IStoredRoleMapping stored, TokenAuthorit
         }
     }
 
-    private RoleMappingConfig InForce() =>
-        _adopted ? stored.Read() ?? _seed : _seed;
+    private RoleMappingConfig InForce() => stored.Read() ?? _seed;
 }

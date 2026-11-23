@@ -46,7 +46,6 @@ internal static class CallerIdentityExtensions
         // Registered whether or not an authority is, because the anonymous requirements
         // route reads it and that route is mapped unconditionally.
         services.AddSingleton<RefusedToken>();
-        services.AddSingleton<RoleMappingMigration>();
         return services.AddProjectScope(); // 2026-10-15-4a4db
     }
 }

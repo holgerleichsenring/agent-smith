@@ -27,9 +27,10 @@ public sealed class SeriesTicketFacts(
         var landed = (await landings.LandedAsync(resolved.Tracker.Name, [.. tickets.Select(t => Key(resolved, t))], cancellationToken))
             .ToDictionary(l => l.TicketId, l => l.LandedAt, StringComparer.Ordinal);
         var merges = await MergesAsync(resolved, tickets, cancellationToken);
+        var preconditions = restart?.InForce(); // 2026-11-22-747dc: the restart window's setting, once per read
         var facts = new List<SeriesTicketFact>();
         foreach (var ticket in tickets)
-            facts.Add(await ReadOneAsync(resolved, ticket, LandedAt(landed, ticket.TicketId), cancellationToken)
+            facts.Add(await ReadOneAsync(resolved, ticket, LandedAt(landed, ticket.TicketId), preconditions, cancellationToken)
                 with { StartsOnceMerged = merges.GetValueOrDefault(Key(resolved, ticket)) ?? [] });
         return facts;
     }
@@ -42,7 +43,7 @@ public sealed class SeriesTicketFacts(
                 .ToDictionary(p => p.Key, p => (IReadOnlyList<string>)[.. p.Value.MergesToStart.Select(e => e.RequiredTicketId)]);
 
     private async Task<SeriesTicketFact> ReadOneAsync(
-        ResolvedProject project, SeriesTicket ticket, DateTimeOffset? landedAt, CancellationToken ct)
+        ResolvedProject project, SeriesTicket ticket, DateTimeOffset? landedAt, PreconditionsConfig? preconditions, CancellationToken ct)
     {
         var edges = await requirements.RequiredOfAsync(project.Tracker.Name, Key(project, ticket), ct);
         var rows = await runs.ForTicketAsync(project.Name, ticket.TicketId, ct);
@@ -54,11 +55,11 @@ public sealed class SeriesTicketFacts(
             CostUsd = rows.Sum(r => r.Run.CostTotalUsd),
         };
         if (latest is null) return fact;
-        var attempt = Attempt(fact, latest) with { WaitingForModel = !latest.Finished && await waits.IsWaitingAsync(latest.RunId, ct) };
+        var attempt = Attempt(fact, latest, preconditions) with { WaitingForModel = !latest.Finished && await waits.IsWaitingAsync(latest.RunId, ct) };
         return await ci.WithAsync(await parked.WithAsync(attempt, latest, ct), project.Name, ct);
     }
 
-    private SeriesTicketFact Attempt(SeriesTicketFact fact, PreviousAttempt latest) => fact with
+    private SeriesTicketFact Attempt(SeriesTicketFact fact, PreviousAttempt latest, PreconditionsConfig? preconditions) => fact with
     {
         LatestRunId = latest.RunId, LatestStatus = latest.Status, LatestFinished = latest.Finished,
         OpenedPullRequest = latest.OpenedPullRequest, PullRequests = [.. latest.PullRequestUrls.Values],
@@ -67,7 +68,7 @@ public sealed class SeriesTicketFacts(
         Interrupted = latest is { Finished: true, Status: LeftInPlaceEnd.Cancelled } && OwedWorkCancel.IsOwed(latest.CancelReason),
         // the restart retries it once, within its window; otherwise the row is red for a person
         Restarting = !(latest.CauseChannel == AttemptChannels.Retry && latest.CauseActor == AttemptChannels.RestartActor)
-            && restart?.Covers(latest.FinishedAt) == true,
+            && preconditions is not null && restart?.Covers(latest.FinishedAt, preconditions) == true,
     };
 
     // 2026-11-18: a ticket with no landing has no landing time; GetValueOrDefault on a non-nullable value handed back

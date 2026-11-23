@@ -58,7 +58,7 @@ public sealed class ColdStartUnreadTailTests : IDisposable
     public async Task ColdStart_AnUnfinishedRunWhoseTailIsNotTerminal_IsLeftAlone()
     {
         var processA = _harness.NewServerProcess();
-        await processA.StartAsync(CancellationToken.None);
+        await processA.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync()).Should().BeTrue();
         await AwaitTheFirstProcessTrailAsync();
         await processA.StopAsync(CancellationToken.None);
@@ -101,7 +101,7 @@ public sealed class ColdStartUnreadTailTests : IDisposable
     public async Task ColdStart_ARunAlreadyRepairedFromTheRecentList_IsUnchangedBySecondReconciliation()
     {
         var processA = _harness.NewServerProcess();
-        await processA.StartAsync(CancellationToken.None);
+        await processA.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync()).Should().BeTrue();
         await AwaitTheFirstProcessTrailAsync();
         await processA.StopAsync(CancellationToken.None);
@@ -124,7 +124,7 @@ public sealed class ColdStartUnreadTailTests : IDisposable
     private async Task ARunLeftUnfinishedWithAnUnreadTailAsync(string? status, string? project = null)
     {
         var processA = _harness.NewServerProcess();
-        await processA.StartAsync(CancellationToken.None);
+        await processA.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync(project)).Should().BeTrue();
         await AwaitTheFirstProcessTrailAsync();
         await processA.StopAsync(CancellationToken.None);
@@ -155,7 +155,7 @@ public sealed class ColdStartUnreadTailTests : IDisposable
     private async Task ColdStartAsync()
     {
         var processB = _harness.NewServerProcess(_repairs.Wrapping);
-        await processB.StartAsync(CancellationToken.None);
+        await processB.StartWarmAsync();
         (await _harness.AwaitDrainPassesAsync(processB, 3)).Should().BeTrue();
         await processB.StopAsync(CancellationToken.None);
     }

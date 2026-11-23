@@ -82,7 +82,7 @@ public sealed class InterruptedRestartTests : IDisposable
             .ReturnsAsync(RunRetryResult.Requested("1"));
         var services = new ServiceCollection().AddScoped(_ => retry.Object).BuildServiceProvider();
         var pass = new InterruptedRestartPass(reader.Object, services.GetRequiredService<IServiceScopeFactory>(),
-            new InterruptedRestartWindow(TimeProvider.System), NullLogger<InterruptedRestartPass>.Instance);
+            Window(), NullLogger<InterruptedRestartPass>.Instance);
 
         var asked = await pass.RunAsync(new AgentSmithConfig { Projects = { ["p"] = new ResolvedProject { Name = "p" } } }, default);
 
@@ -91,14 +91,43 @@ public sealed class InterruptedRestartTests : IDisposable
     }
 
     [Fact]
-    public void Window_CoversAnEndWithinTheHorizonBeforeTheProcessStarted_NotOlderOnes()
+    public void Window_CoversAnEndWithinTheSettingBeforeTheProcessStarted_NotOlderOnes()
     {
-        var window = new InterruptedRestartWindow(TimeProvider.System);
+        var window = Window();
+        var hour = new PreconditionsConfig();
+        var since = window.Since(hour)!.Value;
 
-        window.Covers(window.Since).Should().BeTrue();
-        window.Covers(window.Since.AddSeconds(-1)).Should().BeFalse("an interruption from before the restart existed is a person's");
-        window.Covers(null).Should().BeFalse();
+        since.Should().Be(T0.AddHours(-1), "the default is sixty minutes before the process started");
+        window.Covers(since, hour).Should().BeTrue();
+        window.Covers(since.AddSeconds(-1), hour).Should().BeFalse("an interruption from before the restart existed is a person's");
+        window.Covers(null, hour).Should().BeFalse();
     }
+
+    [Fact]
+    public void Window_FollowsTheSetting_AndZeroTurnsItOff()
+    {
+        var window = Window();
+
+        window.Since(new PreconditionsConfig { InterruptedRestartWindowMinutes = 10 }).Should().Be(T0.AddMinutes(-10));
+        window.Since(new PreconditionsConfig { InterruptedRestartWindowMinutes = 0 }).Should().BeNull();
+        window.Covers(T0, new PreconditionsConfig { InterruptedRestartWindowMinutes = 0 }).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Pass_WindowOff_RetriesNothing()
+    {
+        var reader = new Mock<IInterruptedAttemptReader>();
+        var services = new ServiceCollection().BuildServiceProvider();
+        var pass = new InterruptedRestartPass(reader.Object, services.GetRequiredService<IServiceScopeFactory>(),
+            Window(), NullLogger<InterruptedRestartPass>.Instance);
+        var config = new AgentSmithConfig { Preconditions = new PreconditionsConfig { InterruptedRestartWindowMinutes = 0 } };
+
+        (await pass.RunAsync(config, default)).Should().Be(0);
+        reader.Verify(r => r.ListAsync(It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static InterruptedRestartWindow Window() =>
+        new(Mock.Of<IConfigurationLoader>(), new ServerContext("agentsmith.yml"), T0);
 
     private async Task<IReadOnlyList<InterruptedAttempt>> ListAsync(DateTimeOffset since, params Run[] rows)
     {

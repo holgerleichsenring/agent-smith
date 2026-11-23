@@ -1,6 +1,7 @@
 "use client";
 
 import type { BranchCleanupSetting, PreconditionsSetting, SettingValue } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
 import { CheckField, NumberField, keep, patcher } from "./formFields";
 
 // 2026-11-17-b34eb: the two server sweeps' settings — the stuck-on-precondition recheck (2026-11-16-f3fbc) and the
@@ -8,11 +9,19 @@ import { CheckField, NumberField, keep, patcher } from "./formFields";
 
 export function PreconditionsForm({ value, onChange }: { value: PreconditionsSetting; onChange: (v: SettingValue) => void }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
-    <NumberField label="Recheck interval (seconds)" value={value.recheckIntervalSeconds}
-      onChange={(v) => set({ recheckIntervalSeconds: keep(v, value.recheckIntervalSeconds) })}
-      testId="setting-preconditions-interval"
-      help="seconds between two passes over the tickets stuck on a precondition; at least 60" />
+    <>
+      <NumberField label={t("config.preconditions.recheck.label")} value={value.recheckIntervalSeconds}
+        onChange={(v) => set({ recheckIntervalSeconds: keep(v, value.recheckIntervalSeconds) })}
+        testId="setting-preconditions-interval"
+        help={t("config.preconditions.recheck.help")} />
+      {/* 2026-11-22-747dc: the interrupted-run restart window, preconditions.interrupted_restart_window_minutes */}
+      <NumberField label={t("config.preconditions.restartWindow.label")} value={value.interruptedRestartWindowMinutes}
+        onChange={(v) => set({ interruptedRestartWindowMinutes: keep(v, value.interruptedRestartWindowMinutes) })}
+        testId="setting-preconditions-restart-window"
+        help={t("config.preconditions.restartWindow.help")} />
+    </>
   );
 }
 

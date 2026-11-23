@@ -104,5 +104,7 @@ public sealed class SandboxReaperActivationTests : IDisposable
     private static IEnumerable<Type> HostedServices(IServiceCollection services) =>
         services
             .Where(d => d.ServiceType == typeof(IHostedService))
-            .Select(d => d.ImplementationType ?? typeof(object));
+            .Select(d => d.ImplementationType ?? typeof(object))
+            // 2026-11-22-747db: a worker is registered behind its launcher; the launcher names it.
+            .Select(t => t.IsGenericType ? t.GetGenericArguments()[0] : t);
 }

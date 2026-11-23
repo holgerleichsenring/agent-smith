@@ -1,6 +1,9 @@
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Startup;
 
+// 2026-11-22-747db: the init container's mode — migrate and exit, before anything of the server is built.
+if (DatabaseMigrateMode.Matches(args)) return await new DatabaseMigrateMode().RunAsync(args);
+
 DispatcherBanner.Print();
 
 // p0391a: aborting the startup is never justifiable. A dead process reports nothing; a
@@ -10,5 +13,6 @@ DispatcherBanner.Print();
 // report through.
 var app = await ServerHostFactory.CreateAsync(args);
 app.Run();
+return 0;
 
 public partial class Program;

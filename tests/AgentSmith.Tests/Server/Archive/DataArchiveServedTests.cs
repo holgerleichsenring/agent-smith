@@ -1,3 +1,4 @@
+using AgentSmith.Server.Services.Startup;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Json;
@@ -209,7 +210,7 @@ public sealed class DataArchiveServedTests : IDisposable
         return path;
     }
 
-    private Task<BootedServer> BootAsync(string databasePath)
+    private async Task<BootedServer> BootAsync(string databasePath)
     {
         var configPath = Temporary("yml");
         File.WriteAllText(configPath, $"""
@@ -218,7 +219,11 @@ public sealed class DataArchiveServedTests : IDisposable
               connection_string: Data Source={databasePath}
 
             """);
-        return BootedServer.StartAsync(configPath);
+        var server = await BootedServer.StartAsync(configPath);
+        // 2026-11-22-747db: the configuration is first loaded by the probe pass after the listener binds, no longer by
+        // a startup migration before it; a restore posted while that first load reads would be overwritten by it.
+        await server.Services.GetRequiredService<StartupProbePass>().WaitAsync(StartupProbePass.ReadBudget, CancellationToken.None);
+        return server;
     }
 
     private string Temporary(string extension)

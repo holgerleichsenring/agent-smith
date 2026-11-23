@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-747db
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "Every product worker is registered through AddWorker<T>: a launcher whose StartAsync returns at once and which builds and starts the worker on the thread pool after ApplicationStarted; HostedServiceRegistrationRuleTests fails any other registration"
+    over: "`await Task.Yield()` at the head of each ExecuteAsync by convention"
+    reason: "Operator: structural, not by convention. Measured on .NET 10: BackgroundService already runs all of ExecuteAsync off the start path (a 3 s synchronous prelude delayed ApplicationStarted by nothing, 94 ms), so a Yield changes nothing there. What still held the port shut was CONSTRUCTION — the host resolves every hosted service before Kestrel, and a constructor graph reaching the multiplexer ran its synchronous connect (5.8 s refused, 15.8 s blackholed) — and the two direct IHostedService types (JobsBroadcaster's cold start). The launcher defers all three. Audit: 27 hosted services in AgentSmith.Server, every AddHostedService moved; none is left."
+  - category: Implementation
+    chose: "The launcher resolves the registered singleton when there is one (GetServiceOrCreateInstance) and logs a start failure and a faulted ExecuteTask"
+    over: "ActivatorUtilities.CreateInstance; leaving faults to the host"
+    reason: "Twelve workers are singletons other code reads (JobsBroadcaster from the hub and the endpoints); a second copy would never warm. Behind a launcher the host cannot see a dead loop, and BackgroundServiceExceptionBehavior.Ignore would leave no trace."
+  - category: Implementation
+    chose: "Without an IHostApplicationLifetime (a composition test) the launcher starts the worker at once, still off the StartAsync call"
+    over: "Requiring the lifetime"
+    reason: "Several compositions validate the server's registrations without a host; they never call StartAsync, and one that does gets the old behaviour minus the blocking."
+  - category: Implementation
+    chose: "JobsBroadcaster is a BackgroundService: wait for Redis, cold start, then the loop; Warm completes when the cold start read what it could"
+    over: "Skipping the cold start when Redis is not connected at StartAsync"
+    reason: "Moved behind the listener it can wait for the connection instead of starting empty forever. Its terminal reconcile writes to the store: that is a worker's write after the listener, not a startup repair. The dashboard composes its run list from the store, so nothing waits on Warm except tests."
+  - category: Scope
+    chose: "No asynchronous multiplexer factory"
+    over: "A lazy proxy around IConnectionMultiplexer"
+    reason: "Nothing on the way to the listener resolves it any more (ListenFirstBootTests: a 4 s multiplexer factory, every product worker, the server listens before it). A proxy over a 60-member interface is a shim. Accepted: /health (diagnostic body, no probe uses it) resolves the subsystem states and may build a worker, and so connect, on its first request."
+  - category: Implementation
+    chose: "/health/live resolves nothing; startup and liveness probes use it, readiness uses /health/ready from 0 s every 2 s; /health keeps its body; compose's healthcheck uses /health/live"
+    over: "One /health for both"
+    reason: "Operator rule. Timeouts are 3 s because the first request builds the dashboard API's request delegates (measured 1.6-2.0 s on a debug build with the UI API on, 0.38 s off) — CPU, not a dependency."
+  - category: Architecture
+    decider: operator
+    chose: "The server image runs `database migrate` (DatabaseMigrateMode, read before CreateBuilder) through the same StoreMigrateRun as the CLI; the k8s init containers (8-deployment-server, examples airgap and path-mode) and the compose migrate service use the server image; the CLI verb stays for local and CI use"
+    over: "A runtime stage of the CLI image published as a new image"
+    reason: "Operator's brief offered the server image. A deploy then pulls one image (the server container needs it anyway) instead of the ~1 GB SDK-based CLI, which keeps the SDK for in-process sandbox builds. One body, two entry points; no new image to publish. The compose migrate service runs as root like the compose server, which writes the same SQLite files; the server image now pre-creates /var/lib/agentsmith for a fresh named volume."
+  - category: Implementation
+    chose: "Each launch builds its worker on a dedicated (LongRunning) thread; a worker whose start ends after StopAsync gave up is stopped by the launch itself; a worker the launcher built (not a registered singleton) is disposed by it"
+    over: "Task.Run on the pool"
+    reason: "Code review: some thirty constructors at once, several waiting on the multiplexer's synchronous connect or the DI lock around it, would starve the pool threads Kestrel answers /health/live on."
+  - category: Implementation
+    chose: "StoreMigrateRun logs a failed migrate and answers exit code 1; the image HEALTHCHECK uses /health/live"
+    over: "An unhandled exception out of the server's migrate mode; /health in the image"
+    reason: "Code review: migrate mode has no command-line framework to turn an exception into an exit code, and an aborted process may not flush its log."
+  - category: TradeOff
+    chose: "DataArchiveServedTests waits for the startup probe pass before it restores"
+    over: "Changing the restore"
+    reason: "Gate run: once in the env-2 shard a restore posted right after boot read back no agents. The configuration's first load used to happen in the startup migrations before the listener; it now happens in the probe pass after it, and a restore racing that pass lost. Waiting for ready is what a deployment does (readiness on /health/ready); the race itself is noted as an open question rather than fixed here."

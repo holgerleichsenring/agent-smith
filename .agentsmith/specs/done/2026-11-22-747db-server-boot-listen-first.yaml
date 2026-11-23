@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-747db
+goal: "The server binds its port before any worker is built or started; Redis, cold start and probes run after, and k8s probes split live from ready."
+
+applies_to: "default (hosted-service registration, JobsBroadcaster, health endpoints, k8s manifests, server Program)"
+
+requires: [2026-11-22-747da, 2026-10-29-7f2d, 2026-08-24-035a, p0391a]
+
+facts:
+  - claim: "JobsBroadcaster.StartAsync awaits a cold start (full XRANGE of every active and recent run stream, store reconcile) before the host binds (measured: 823 ms for 50 recent streams of 3000 entries)."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:50-61,78-97,176-195"
+  - claim: "The multiplexer is created with a synchronous Connect when first resolved, and the host resolves every hosted service, so the multiplexer, before Kestrel starts (measured: 5.8 s to 'Now listening' with Redis refused, 15.8 s blackholed, 0.8 s reachable)."
+    evidence: "src/backend/AgentSmith.Server/Services/RedisExtensions.cs:37-38,73-78"
+  - claim: "Worker constructors take Redis- and store-backed services, and several read the configuration before their first await."
+    evidence: "src/backend/AgentSmith.Server/Services/Hosting/QueueConsumerHostedService.cs:23-26, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:21-23, src/backend/AgentSmith.Server/Services/Hosting/ConfigStoreReloadHostedService.cs:17-19"
+  - claim: "/health enumerates subsystem states and serves liveness and readiness in the manifest; /health/ready exists."
+    evidence: "src/backend/AgentSmith.Server/Extensions/WebApplicationExtensions.cs:16-28,32-44, deploy/k8s/8-deployment-server.yaml:207-222"
+  - claim: "The init container pulls the CLI image, built on the SDK because CLI sandboxes build in-process."
+    evidence: "deploy/k8s/8-deployment-server.yaml:34, src/backend/AgentSmith.Cli/Dockerfile:41-43"
+
+scope:
+  in: "Every product hosted service is registered through AddWorker<T> (ImplementationType WorkerLauncher<T>): a launcher whose StartAsync returns at once and which, once ApplicationStarted fired, resolves the registered singleton (GetServiceOrCreateInstance, never a second copy) and starts it on the thread pool, logs a worker's start or ExecuteTask fault, and stops it on StopAsync (nothing when it never started); a rule test fails a product IHostedService registered any other way. (.NET 10 already runs ExecuteAsync off the start path, measured; what still blocked was construction and the two direct IHostedService types.) JobsBroadcaster becomes a BackgroundService: wait for Redis, cold start, then the loop; Warm completes when it is done. Resolving the multiplexer is off the startup path (test: a slow multiplexer factory does not delay StartAsync). /health/live answers without touching any service; /health keeps its diagnostic body (it resolves subsystem states, so it may build a worker on request; probes no longer use it); /health/ready unchanged. Manifests: startupProbe and liveness on /health/live, readiness on /health/ready (initialDelay 0, period 2). The server image runs `database migrate` (StoreMigrateRun, parsed before CreateBuilder); the k8s init containers (8-deployment-server, examples airgap and path-mode) and the compose migrate service use it; compose's healthcheck uses /health/live. The CLI `database migrate` stays, the same body, for local and CI use (operator-approved in the brief). The cold start's terminal reconcile is a write after the listener by a worker, not a startup repair."
+  out: "The probe pass itself (already after the listener). A non-blocking multiplexer factory: nothing on the startup path resolves it any more."
+
+steps:
+  - id: launcher
+    action: "WorkerLauncher<T> + AddWorker<T>; every AddHostedService in the server moves to it."
+  - id: broadcaster
+    action: "JobsBroadcaster: BackgroundService, cold start inside ExecuteAsync once connected, IsWarm."
+  - id: health
+    action: "/health/live; manifests and docs."
+  - id: migrate-image
+    action: "Program: `database migrate [--config path]` runs StoreMigrateRun and exits; manifests and compose use the server image."
+
+tests:
+  - "WorkerLauncherTests: StartAsync returns while the worker's constructor and StartAsync block; the worker starts after ApplicationStarted; StopAsync stops it."
+  - "HostedServiceRegistrationRuleTests: every product IHostedService descriptor in the server composition is a launcher."
+  - "Boot test: real composition with every product worker and a slow multiplexer factory finishes StartAsync promptly; /health/live is 200."
+  - "JobsBroadcasterTests: StartAsync returns before the cold start; snapshots are warm afterwards."
+  - "Updated: ChatRunBindingWatcherTests, TicketLandingCompositionTests, SandboxReaperActivationTests, BootSubstitutions read the launcher's worker type."
+
+done:
+  - "Measured locally: 'Now listening' no longer waits for Redis (refused, blackholed) nor for the cold start."

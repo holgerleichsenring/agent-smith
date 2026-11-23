@@ -33,6 +33,12 @@ public sealed record BootPlan(string ConfigPath)
     public IReadOnlyList<Type> HostedServices { get; init; } = [];
 
     /// <summary>
+    /// 2026-11-22-747db: every worker the product registers, as composed — for the case whose subject is that none
+    /// of them holds the listener back.
+    /// </summary>
+    public bool ProductWorkers { get; init; }
+
+    /// <summary>
     /// 2026-08-25-8c97: the clock this case asserts on, or null for the system one. Named
     /// only by a case whose subject is a duration the server measures — a build difference
     /// is withheld for as long as a rolling update could still be in flight, and no test
