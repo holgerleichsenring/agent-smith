@@ -78,7 +78,7 @@ export const PLACES: Readonly<Record<string, string>> = Object.freeze({
  */
 export function placeForPath(pathname: string | null | undefined): string | null {
   const path = normalisePath(pathname);
-  return PLACES[path] ?? runPlace(path) ?? ticketPlace(path);
+  return PLACES[path] ?? runPlace(path) ?? ticketPlace(path) ?? seriesPlace(path);
 }
 
 // A run's id is minted per run, so the two run views are the one pair of places the table
@@ -95,6 +95,12 @@ function runPlace(path: string): string | null {
 function ticketPlace(path: string): string | null {
   const segments = path.split("/").filter((segment) => segment.length > 0);
   return segments[0] === "tickets" && segments.length === 3 ? TICKET_PLACE : null;
+}
+
+// 2026-11-23-31dcd: a series' id is minted per series, so its page is matched like a ticket's.
+function seriesPlace(path: string): string | null {
+  const segments = path.split("/").filter((segment) => segment.length > 0);
+  return segments[0] === "series" && segments.length === 2 ? "Series" : null;
 }
 
 // A query is a view of a place, never a place of its own; a trailing slash is the same

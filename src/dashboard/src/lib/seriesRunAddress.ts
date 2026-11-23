@@ -3,6 +3,11 @@
 
 export const SERIES_PATH = "/series";
 
+/** 2026-11-23-31dcd: whether a path is one series' page (/series/<id>), not the list. */
+export function isSeriesRunPage(pathname: string): boolean {
+  return /^\/series\/[^/]+/.test(pathname);
+}
+
 export function seriesRunPath(id: string): string {
   return `${SERIES_PATH}/${encodeURIComponent(id)}`;
 }

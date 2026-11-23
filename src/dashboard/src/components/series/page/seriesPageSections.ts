@@ -1,0 +1,37 @@
+import type { ComponentType } from "react";
+import type { TextKey } from "@/lib/i18n/translate";
+import type { SeriesRunDetail } from "@/types/seriesRuns";
+import { SeriesConversationSection } from "./SeriesConversationSection";
+import { SeriesTicketsSection } from "./SeriesTicketsSection";
+
+// 2026-11-23-31dcd: the series page's sections, ONE table, in the bar's order — Merge next, What holds the rest, Order
+// and branches, Tickets, Conversation — each with the count the bar shows beside it; the page shows one at a time and
+// ?section= names it. Merge next (31dce), What holds the rest (31dcg) and Order and branches (31dcf) are named here and
+// listed once their pane exists; until then the first listed section is the default.
+
+export type SeriesSectionId = "next" | "held" | "course" | "tickets" | "talk";
+
+export const SERIES_SECTION_PARAM = "section";
+
+export interface SeriesSectionCounter {
+  text: string;
+  /** Drawn in the waits-for-a-person colour. */
+  hot?: boolean;
+}
+
+export interface SeriesSection {
+  id: SeriesSectionId;
+  label: TextKey;
+  counter: (detail: SeriesRunDetail) => SeriesSectionCounter | null;
+  Pane: ComponentType<{ detail: SeriesRunDetail }>;
+}
+
+export const seriesSections: SeriesSection[] = [
+  { id: "tickets", label: "series.section.tickets", Pane: SeriesTicketsSection, counter: (d) => ({ text: String(d.tickets.length) }) },
+  { id: "talk", label: "series.section.conversation", Pane: SeriesConversationSection, counter: () => ({ text: "↗" }) },
+];
+
+/** The section an address names; a missing or unlisted name is the first listed section. */
+export function seriesSectionOf(name: string | null): SeriesSection {
+  return seriesSections.find((section) => section.id === name) ?? seriesSections[0];
+}

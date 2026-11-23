@@ -86,4 +86,12 @@ export interface SeriesRunDetail {
   /** In depth order, then series order. */
   tickets: SeriesRunTicket[];
   mergeOrder: SeriesRunMergeStep[];
+  /** 2026-11-23-31dcd: the repos its tickets have pull requests in, in the project's repo order. */
+  repos: string[];
+  /** 2026-11-23-31dcd: every run of its tickets plus the master's own loops. */
+  costUsd: number;
+  /** 2026-11-23-31dcd: the conversation's dashboard thread (its dialog id); null when the session is gone. */
+  threadId: string | null;
+  /** 2026-11-23-31dcd: whether the conversation is open on that thread. */
+  conversationOpen: boolean;
 }

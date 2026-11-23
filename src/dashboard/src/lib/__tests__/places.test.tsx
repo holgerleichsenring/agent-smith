@@ -105,6 +105,13 @@ describe("Places", () => {
     expect(placeForPath("/tickets/shop")).toBeNull();
   });
 
+  // 2026-11-23-31dcd: the series list is a place, and one series' page is matched like a ticket's.
+  it("Places_SeriesList_AndASeries_ArePlaces", () => {
+    expect(placeForPath("/series")).toBe("Series");
+    expect(placeForPath("/series/sr-1")).toBe("Series");
+    expect(placeForPath("/series/sr-1/more")).toBeNull();
+  });
+
   it("Places_WorkItOut_IsATopLevelDestination", () => {
     expect(placeForPath("/spec-dialog")).toBe("Work it out");
   });

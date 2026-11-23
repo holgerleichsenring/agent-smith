@@ -98,6 +98,55 @@ public sealed class SeriesRunReadersTests : IDisposable
     }
 
     [Fact]
+    public async Task Detail_CarriesTheConversationsThreadReposAndCost()
+    {
+        await OpenAsync("sr-1", Tickets("1", "2"));
+        await _h.AddAsync(Record("1", "web", CiStates.Green), Record("2", "api", CiStates.Green),
+            TicketStoreHarness.Run("run-1", ticket: "1", cost: 1.25m), TicketStoreHarness.Run("run-9", ticket: "9", cost: 7m),
+            new SpecDialogSession
+            {
+                SessionId = "conv-sr-1", Platform = "dashboard", ChannelId = "c", ThreadId = "d-thread1", UserId = "u", LastActivityAt = T,
+            });
+
+        var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
+
+        detail.ThreadId.Should().Be("d-thread1");
+        detail.ConversationOpen.Should().BeTrue();
+        detail.Repos.Should().Equal(["api", "web"], "the project's repo order, not the tickets'");
+        detail.CostUsd.Should().Be(1.25m, "ticket 9 is not of the series");
+    }
+
+    [Fact]
+    public async Task Detail_AClosedConversation_IsNotOpen_AndAMissingOneHasNoThread()
+    {
+        await OpenAsync("sr-1", Tickets("1"));
+        await OpenAsync("sr-2", Tickets("2"));
+        await _h.AddAsync(new SpecDialogSession
+        {
+            SessionId = "conv-sr-1", Platform = "dashboard", ChannelId = "c", ThreadId = "d-closed", UserId = "u", IsOpen = false,
+            LastActivityAt = T,
+        });
+
+        var closed = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
+        var gone = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-2", default)))!;
+
+        (closed.ThreadId, closed.ConversationOpen).Should().Be(("d-closed", false));
+        (gone.ThreadId, gone.ConversationOpen).Should().Be(((string?)null, false));
+        gone.CostUsd.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task SeriesRunCosts_SumsTheNamedTicketsOfTheProjectOnly()
+    {
+        await _h.AddAsync(TicketStoreHarness.Run("run-1", ticket: "1", cost: 1.5m), TicketStoreHarness.Run("run-2", ticket: "1", cost: 2m),
+            TicketStoreHarness.Run("run-3", ticket: "2", cost: 4m), TicketStoreHarness.Run("run-4", ticket: "1", project: "beta", cost: 8m));
+
+        var cost = await ReadAsync(s => s.GetRequiredService<SeriesRunCosts>().OfAsync("alpha", ["1"], default));
+
+        cost.Should().Be(3.5m);
+    }
+
+    [Fact]
     public async Task Detail_UnknownSeries_IsNull()
     {
         (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("none", default))).Should().BeNull();
@@ -150,7 +199,7 @@ public sealed class SeriesRunReadersTests : IDisposable
     {
         services.AddSingleton<ISeriesRunStore, SeriesRunRepository>().AddTransient<SeriesRunOrder>();
         services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>();
-        services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>()
+        services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
             .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
     }
 

@@ -20,6 +20,7 @@ public static class SeriesRunExtensions
         services.AddSingleton<SeriesRunSweeper>().AddScoped<SeriesRunViewReader>(); // 0207e: the panel's read
         services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>(); // 2026-11-23-31dcb: the series page's reads
         services.TryAddScoped<SeriesRunNames>();
+        services.AddScoped<SeriesRunCosts>(); // 2026-11-23-31dcd
         services.AddScoped<SeriesRunProjectReads>()
             .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
         return services;

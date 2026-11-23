@@ -14,3 +14,20 @@
 .mock-tickets .sr-filter { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); }
 .mock-tickets .sr-filter select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 5px 8px; max-width: 220px; }
 .mock-tickets .sr-empty { padding: 28px 16px; text-align: center; color: var(--ink-3); background: var(--panel); border: 1px dashed var(--line); border-radius: var(--r); }
+/* 2026-11-23-31dcd: one series' page in the ticket page's frame (ticket-thread.css) — the bar's progress and counts
+   line, the Tickets table and the embedded conversation. */
+.mock-tickets .sr-bar-head { padding: 0 8px 6px; }
+.mock-tickets .sr-bar-counts { padding: 0 8px 12px; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.mock-tickets .sr-tickets { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mock-tickets .sr-tickets th { text-align: left; font-weight: 500; font-size: 12px; color: var(--ink-3); padding: 6px 8px; border-bottom: 1px solid var(--line-2); }
+.mock-tickets .sr-tickets td { padding: 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; overflow-wrap: anywhere; }
+.mock-tickets .sr-tickets tbody tr { cursor: pointer; }
+.mock-tickets .sr-tickets tbody tr:hover { background: var(--panel-2); }
+.mock-tickets .sr-tickets a { color: var(--ink-2); text-decoration: none; }
+.mock-tickets .sr-state { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.mock-tickets .sr-state.ok { color: var(--ok); }
+.mock-tickets .sr-state.run { color: var(--run); }
+.mock-tickets .sr-state.need { color: var(--person); }
+.mock-tickets .sr-state.bad { color: var(--bad); }
+.mock-tickets .sr-talk { display: flex; flex-direction: column; gap: 12px; min-width: 0; background: transparent; }
+@media (max-width: 640px) { .mock-tickets .sr-tickets th:nth-child(2), .mock-tickets .sr-tickets td:nth-child(2) { display: none; } }
