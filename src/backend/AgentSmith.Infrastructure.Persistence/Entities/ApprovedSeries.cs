@@ -16,7 +16,7 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// read back into a record, because a second parse of one fact is a second answer waiting to disagree.
 /// </para>
 /// </summary>
-public sealed class ApprovedSeries : EntityBase
+public sealed class ApprovedSeries : EntityBase, IProjectOwned
 {
     public long Id { get; set; }
 
