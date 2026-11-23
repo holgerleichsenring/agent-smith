@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dch
+goal: "The master's question names who can answer it — the target code, the plan, or the environment — and a plan question goes to the series conversation, an environment one to the admin."
+
+applies_to: "default (TicketClarificationToolHost, HumanToolHost, PlanOpenQuestion, question checkpoint, TicketHold)"
+
+requires: [2026-11-23-31dcg]
+
+invariant: "A question about the plan is never answered as a code question on one ticket; the series conversation sees it."
+
+facts:
+  - claim: "ask_human takes question, context, choices and a recommended index — nothing says who can answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketClarificationToolHost.cs:42-61, src/backend/AgentSmith.Application/Services/Tools/HumanToolHost.cs:33-38"
+  - claim: "A parked master question is answered through one intake."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/MasterAnswerIntake.cs:20"
+  - claim: "One question mixed a missing contract between two tickets with an unreachable sibling repo, posted as a yes/no on one ticket."
+    evidence: "observed: 2026-11-23, parked question of a Worker ticket in a three-repo series"
+
+scope:
+  in: >-
+    ask_human gains a required 'answerer' (target / plan / environment) described by what each means, one answerer per
+    question (two concerns are two questions; the tool says so when asked twice). It is stored with the question.
+    target: as today. plan: the question is also posted into the series' conversation as the series master's message
+    with the ticket named, and the hold is 'plan' with the act 'Talk in the conversation'; the answer is delivered to the parked run through
+    the existing answer path (MasterAnswerIntake), not a second one. environment: the hold is 'admin'; the person sees 'reported to the admin'. A ticket
+    outside a series treats plan as target. Skill text for the master names the field in capability terms.
+  out: "Rewriting the series from the answer (the conversation does that with edit_series as today)."
+
+steps:
+  - id: tool
+    action: "Answerer parameter in both ask_human hosts, carried in PlanOpenQuestion and the checkpoint."
+  - id: route
+    action: "Plan questions mirrored into the series conversation and answered from there; environment questions flagged admin."
+  - id: hold
+    action: "TicketHoldReader maps the answerer."
+
+tests:
+  - "Missing answerer is refused with the three options; each answerer maps to its hold."
+  - "A plan answer in the conversation resumes the parked run with that answer."
+  - "No series: plan behaves as target."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

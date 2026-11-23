@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dci
+goal: "A ticket nobody needs to act on says so and since when; past a configured duration it becomes an admin hold with the value, the reason and the config key."
+
+applies_to: "default + dashboard (TicketHold nobody cases, new config key, Config Studio field)"
+
+requires: [2026-11-23-31dcg, 2026-11-22-d434b, 2026-11-20-9936a, 2026-11-22-6d85c, 2026-11-22-747dc]
+
+invariant: "No ticket waits silently: either it says nothing is needed and since when, or it is someone's hold."
+
+facts:
+  - claim: "Model waits and the interrupted restart are on the series facts; capacity queueing has its own queue."
+    evidence: "src/backend/AgentSmith.Contracts/Series/SeriesTicketFact.cs:26-27,49-54, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ModelRunWaitClock.cs:11, src/backend/AgentSmith.Contracts/Services/ICapacityQueue.cs:13"
+  - claim: "A setting with a dashboard field follows the restart-window shape: config property, validation naming the key, a Config Studio field."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PreconditionsConfig.cs:21,31-32"
+  - claim: "A run waited 20 minutes for its model place and read as stuck; another sat in the capacity queue until a person cancelled it."
+    evidence: "observed: 2026-11-22/23 run events of a three-repo series"
+
+scope:
+  in: >-
+    Nobody holds carry a sentence and since: 'Waiting for the model since 00:12', 'Waiting for sandbox capacity since …',
+    'Restarts after the server stopped', 'Starts when #x finishes'; each ends 'Nothing for you to do'. A nobody hold
+    older than holds.escalate_after_minutes (default 60, 0 = never; reason: a wait that long means something outside the
+    run is wrong) becomes an admin hold whose sentence names the wait, the value and the key. Config Studio field for it.
+  out: "Fixing the cause of a long wait."
+
+steps:
+  - id: words
+    action: "Nobody sentences with since in TicketHoldReader."
+  - id: config
+    action: "HoldsConfig.EscalateAfterMinutes with validation and the Config Studio field."
+  - id: escalate
+    action: "The reader turns an over-age nobody hold into admin."
+
+tests:
+  - "Each nobody case renders its sentence with since."
+  - "At 59 minutes nobody, at 61 admin with value and key; 0 never escalates."
+  - "The field saves and validates a negative value with the key named."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

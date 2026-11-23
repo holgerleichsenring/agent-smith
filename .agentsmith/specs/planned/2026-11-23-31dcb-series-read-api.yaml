@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dcb
+goal: "The server answers every series a person may see, and one series with its tickets' order, repos, pull requests with CI, merge order and what holds each ticket."
+
+applies_to: "default (Series read model, SeriesTicketFacts, new GET endpoints)"
+
+requires: [2026-11-17-0207a, 2026-11-17-0207e, 2026-11-23-31dca]
+
+invariant: "The series page reads one model; nothing the page shows is derived in the browser from separate reads."
+
+facts:
+  - claim: "A series is stored per conversation with its member tickets and state."
+    evidence: "src/backend/AgentSmith.Contracts/Series/ISeriesRunStore.cs:7-27"
+  - claim: "Today a series is read only through the conversation it came from."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunViewReader.cs:15-22, src/dashboard/src/lib/specDialogApi.ts:43-45"
+  - claim: "Per ticket the facts already hold requires, landing, newest attempt, pull requests, CI state and failure, parked question, restart and merges-to-start."
+    evidence: "src/backend/AgentSmith.Contracts/Series/SeriesTicketFact.cs:7-61"
+  - claim: "SeriesTicketFacts reads each ticket one after another."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesTicketFacts.cs:30-34"
+
+scope:
+  in: >-
+    GET /api/series (every series of the projects the caller can see: id, title from the conversation name, project,
+    state, counts landed / pull requests waiting / held / not started, the one next step) with a project filter, and
+    GET /api/series/{id} (tickets with depth = longest requires path, repos, pull requests per repo with CI state and link,
+    landed, newest status; the merge order = open pull requests in depth order with 'ready' only where every
+    prerequisite landed and the pull request targets the default branch; the hold of each ticket from 31dcg once it
+    exists, until then MergesToStart and the parked question). Same permission and project scope as the ticket list.
+    Ticket facts of one series read side by side, not in a loop of awaits.
+  out: "Any page; acts; the holds model (31dcg)."
+
+steps:
+  - id: model
+    action: "SeriesOverview and SeriesDetail records in Contracts; a reader per record composing ISeriesRunStore, ISeriesTicketFacts and the requires store."
+  - id: order
+    action: "Depth and merge order computed in one small type with unit tests."
+  - id: api
+    action: "The two endpoints with Needs(...)/InProject like the ticket list; TypeScript types and a client in the dashboard."
+
+tests:
+  - "Depth: a chain, a diamond, a ticket with no requires (depth 0)."
+  - "Merge order: only the lowest open pull request whose prerequisites landed is ready; a stacked one is 'after #x'."
+  - "A caller without the project sees neither the series in the list nor the detail (404)."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

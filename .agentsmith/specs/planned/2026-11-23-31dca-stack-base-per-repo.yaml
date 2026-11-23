@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dca
+goal: "A stacked run's base is chosen per repo; a prerequisite in another repo, or two independent ones in the same repo, holds the ticket until merged — never a silent cut from main."
+
+applies_to: "default (GreenReads, UnmetTicketRequirements, StackedBaseStamp, RunParentTicket, SandboxBaseLadder, SandboxWorkBranchCheckout)"
+
+requires: [2026-11-17-9a39a, 2026-11-17-9a39b, 2026-11-22-6d85d]
+
+invariant: "Every repo of a stacked run is cut from the branch of the nearest unlanded prerequisite that has work in that repo, or from its own base when no unlanded prerequisite has work there."
+
+facts:
+  - claim: "The stack tip is chosen per ticket: the one unlanded prerequisite whose chain reaches all others."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/GreenReads.cs:49-57"
+  - claim: "The claim stamps only that one ticket id as the run's base."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/StackedBaseStamp.cs:30-31, src/backend/AgentSmith.Application/Services/RunParentTicket.cs:33,40"
+  - claim: "Each repo looks only for that one ticket's branch; when it is missing the ladder falls through to the clone's own base."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxBaseLadder.cs:44-58,67-70"
+  - claim: "A fallen-through stacked repo is cut and its pull request targets the default branch without a word."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:76-77,83-104"
+  - claim: "A prerequisite's work per repo is known: its attempt's pull requests are keyed by repo."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:16"
+  - claim: "A Worker-repo dependent stacked on a Server-only prerequisite was cut from Worker main, missing a Worker change of a deeper prerequisite in the same chain."
+    evidence: "observed: 2026-11-23, run events of a three-repo series (rev-parse of the tip's branch exit 1 in Worker and Client, 0 in Server)"
+
+scope:
+  in: >-
+    Stackable means same repo: a prerequisite whose green attempt has no pull request in any repo the dependent's approved
+    specs name is a cross-repo requirement and holds the dependent until it lands (it joins MergesToStart, with its unlanded
+    bases first as 6d85d does). The tip is computed over the remaining same-repo prerequisites. The stamp carries the
+    chain (tip first, then its unlanded prerequisites in requires order) instead of one id; the ladder walks it per repo and
+    takes the first branch that exists. A stacked run whose repo finds no candidate while a chain member has a pull
+    request in that repo stops with a sentence naming the missing branch; with no chain member in that repo it cuts from
+    its own base as before. The pull request target per repo follows the same answer.
+  out: "UI (31dcb..31dcg read the hold); merging; retarget rules of 9a39c beyond following the per-repo base."
+
+steps:
+  - id: repos
+    action: "A read of each prerequisite's repos (its newest green attempt's PullRequestUrls keys) and the dependent's repos (its approved spec set), batched in GreenReads."
+  - id: hold
+    action: "UnmetTicketRequirements: cross-repo unlanded prerequisites hold and are named in MergesToStart; the tip is taken over same-repo ones."
+  - id: stamp
+    action: "StackedOnTicket carries the ordered chain; RunParentTicket answers it; the old single-id value still reads (a queued request's round-trip)."
+  - id: ladder
+    action: "SandboxBaseLadder.Candidates yields the chain's branches in order; SandboxWorkBranchCheckout stops instead of falling through when a chain member has work in the repo."
+
+tests:
+  - "Dependent in repo W requiring S-only prerequisites: held, MergesToStart names them, bases first."
+  - "Chain S1<-S2(W too)<-S3(S only), dependent in W and S: S stacks on S3's branch, W on S2's branch."
+  - "Two independent same-repo prerequisites: held with both named, as before."
+  - "Stamp written as a single id by an older queued request still resolves."
+  - "A chain member with a pull request in the repo but no branch: the run stops with the sentence; no chain member there: own base."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

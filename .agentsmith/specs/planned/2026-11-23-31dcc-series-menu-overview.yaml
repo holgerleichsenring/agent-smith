@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dcc
+goal: "A Series item in the sidebar opens a list of every series with progress and its next step, filterable by project; ticket pages and conversations link to their series."
+
+applies_to: "dashboard (AppSidebar, new /series route, TicketSectionBar facts, conversation series panel)"
+
+requires: [2026-11-23-31dcb, 2026-11-17-8d1ca, 2026-11-22-5485a]
+
+invariant: "Every ticket that belongs to a series and every conversation that filed one reaches that series in one click."
+
+facts:
+  - claim: "The sidebar lists Work it out, Your move, Tickets, Runs and Pull requests."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:106-150"
+  - claim: "The ticket page's bar ends in a facts block (project, tracker, branch, pull requests)."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketSectionBar.tsx:48-53"
+  - claim: "New UI text is a dictionary key with English and German."
+    evidence: ".agentsmith/contexts/dashboard/principles.md:9-11"
+
+scope:
+  in: >-
+    Sidebar item 'Series' directly below Work it out with the count of running series; /series lists one row per
+    series (name, project, progress bar landed / waiting / held, the next step sentence, held count) newest activity
+    first, a project filter remembered per browser; the ticket bar's facts gain 'Part of series <name>' as a link; the
+    conversation's series panel gains 'Open the series'.
+  out: "The series page itself (31dcd)."
+
+steps:
+  - id: nav
+    action: "SidebarItem 'Series' with its count from GET /api/series."
+  - id: list
+    action: "app/series/page.tsx with the rows and the project filter."
+  - id: links
+    action: "Ticket facts and conversation panel link to /series/{id}."
+
+tests:
+  - "Sidebar shows Series with the running count; active under /series."
+  - "The list filters by project; an empty list says what fills it ('A series appears when a conversation files its tickets')."
+  - "A ticket in a series shows the link; one outside shows none."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dcj
+goal: "When a series' specs are changed by agent-smith itself — appended, recut or dropped — the series page shows one line saying what changed and why."
+
+applies_to: "default + dashboard (EditSeriesToolHost, series detail, What holds the rest)"
+
+requires: [2026-11-23-31dcb, 2026-11-23-31dcg]
+
+invariant: "No spec of a series changes without a line on the series page."
+
+facts:
+  - claim: "edit_series recuts, drops or appends specs and answers each disposition; it is called from ticket conversations, also on the series master's message."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/EditSeriesToolHost.cs:22-33"
+  - claim: "Two rework specs were appended on the series master's message without the operator seeing it outside the ticket conversation."
+    evidence: "observed: 2026-11-20/22 ticket conversations of a three-repo series"
+
+scope:
+  in: >-
+    Every recorded edit_series disposition is stored as a series note (ticket, spec id, kind, the one-line reason the
+    caller gave, who asked: a person or the series master, at). The series detail returns the notes newest first; the
+    'What holds the rest' section lists them under 'Changed by agent-smith' as information without an act.
+  out: "Undoing an edit."
+
+steps:
+  - id: record
+    action: "edit_series takes a required one-line reason and writes the note when a disposition is recorded."
+  - id: show
+    action: "Series detail and the section render the notes."
+
+tests:
+  - "An append writes one note with reason and asker; a refused edit writes none."
+  - "The section lists notes newest first."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

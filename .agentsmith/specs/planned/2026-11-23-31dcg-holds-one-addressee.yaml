@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dcg
+goal: "Every ticket that is not simply working carries one hold — nobody, you merge, you talk about the plan, you decide, or admin — with one sentence and one act, shown alike everywhere."
+
+applies_to: "default + dashboard (new TicketHold read, TicketBucket, Your move, ticket Your move box, series What holds the rest)"
+
+requires: [2026-11-23-31dcb, 2026-11-23-31dcd, 2026-11-16-6877a]
+
+invariant: "Your move, the series page and the ticket box name the same hold for a ticket, from one server read."
+
+facts:
+  - claim: "Your move lists only needs_you tickets, which are parked questions and hand-backs."
+    evidence: "src/dashboard/src/components/home/homeItems.ts:14-15, src/backend/AgentSmith.Server/Models/TicketBucket.cs:10-11"
+  - claim: "A ticket with open pull requests says only 'Review the pull requests', with no order."
+    evidence: "src/dashboard/src/components/tickets/detail/yourMove.ts:52"
+  - claim: "The ticket box picks its words in the browser from the attempt's end kind."
+    evidence: "src/dashboard/src/components/tickets/detail/yourMove.ts:1-10,47-53"
+  - claim: "Merges that unblock a held ticket are known on the server."
+    evidence: "src/backend/AgentSmith.Contracts/Series/SeriesTicketFact.cs:56-58"
+
+scope:
+  in: >-
+    A TicketHold record (addressee: nobody / merge / plan / decide / admin; sentence; act with target; since) read on
+    the server from what is already stored: merge = the ticket is next in its series' merge order or MergesToStart is
+    non-empty; plan = a parked question whose answerer is the plan (31dch) or a person-edited ticket text (a720b);
+    decide = a failed or shortfall newest attempt that no automatic restart (6d85c) will take up; admin = end kinds that name configuration,
+    credentials, images or capacity, and an answerer 'environment' (31dch); nobody = model wait, capacity queue,
+    restart pending, prerequisite running (31dci words). The ticket list row and detail carry the hold; Your move lists
+    every hold whose addressee is the viewer (merge, plan, decide; admin only for admins) instead of only needs_you;
+    the ticket box and the series section 'What holds the rest' render the same record.
+  out: "The answerer field itself (31dch); escalation (31dci)."
+
+steps:
+  - id: read
+    action: "TicketHoldReader in Application with one method per source, unit-tested per addressee."
+  - id: carry
+    action: "Ticket summary, ticket detail and series detail carry the hold; TypeScript mirror."
+  - id: show
+    action: "Your move, the ticket box and the series section render TicketHold; yourMove.ts reads it instead of deriving."
+
+tests:
+  - "One case per addressee from stored facts; precedence when two apply (decide over merge, plan over nobody)."
+  - "Your move lists a merge hold and a plan hold, not a nobody hold; admin holds only for an admin."
+  - "The ticket box and the series section show the identical sentence for one ticket."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

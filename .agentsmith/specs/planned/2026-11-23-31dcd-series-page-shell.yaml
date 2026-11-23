@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dcd
+goal: "A series opens on a page built like the ticket page: a bar with name, state, progress, sections with counts and facts, and one section shown at a time."
+
+applies_to: "dashboard (new /series/[id] page, SeriesSectionBar, Tickets and Conversation sections)"
+
+requires: [2026-11-23-31dcc, 2026-11-17-8d1ca]
+
+invariant: "The series page shows one section at a time; its bar always says the series' state and what needs a person."
+
+facts:
+  - claim: "The ticket page is a section bar beside the icon sidebar and one section pane, sections declared in one list with counters."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketPageSections.ts:36-70, src/dashboard/src/components/tickets/detail/TicketPage.tsx:64, src/dashboard/src/components/tickets/detail/TicketSectionBar.tsx:35-53"
+  - claim: "The agreed mock: rail, series bar (back, name, state, progress, sections Merge next / What holds the rest / Order and branches / Tickets / Conversation, facts), one pane."
+    evidence: "observed: 2026-11-23 operator approval of the series mock artifact"
+
+scope:
+  in: >-
+    /series/[id] with SeriesSectionBar (← Series, name, state word, progress bar, counts line, sections with counters,
+    facts: project, repos, source conversation link, started, cost) and a sections list like ticketPageSections. This spec
+    ships the Tickets section (rows in depth order: key, title, repo, state; click opens the ticket page) and the
+    Conversation section (the source conversation's thread and composer, reusing the Work it out conversation component).
+    The other three sections are declared here and filled by 31dce, 31dcf and 31dcg; until then they are not listed.
+  out: "Merge, graph and holds content."
+
+steps:
+  - id: shell
+    action: "Page, bar and sections list; the selected section in the URL hash."
+  - id: tickets
+    action: "Tickets section from GET /api/series/{id}."
+  - id: talk
+    action: "Conversation section embedding the existing conversation thread for the series' session."
+
+tests:
+  - "The bar renders name, state, counters; selecting a section shows only its pane and sets the hash."
+  - "Tickets rows sort by depth and link to the ticket page."
+  - "The Conversation section posts to the series' own conversation."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

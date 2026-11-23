@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dce
+goal: "The series page lists pull requests in merge order with CI state and link, and merges the next one from there through a merge run, saying why when it cannot."
+
+applies_to: "default + dashboard (merge-green run, CompletePullRequestsHandler, new operator merge act, Merge next section)"
+
+requires: [2026-11-23-31dcd, 2026-11-17-3435a, 2026-11-17-3435b, 2026-11-17-9a39c]
+
+invariant: "A merge from the dashboard is a run with a run id; a pull request that is not next is never merged out of order."
+
+facts:
+  - claim: "A merge-green run already merges a ticket's pull requests in order, approving where the host needs it."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/CiGreenMerge.cs:18-38, src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:10-14"
+  - claim: "Under merge: manual the handler merges nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CompletePullRequestsHandler.cs:25-26"
+  - claim: "Providers answer a merge as Merged, Armed or Refused with the host's reason; nothing throws."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.Merge.cs:8-17, src/backend/AgentSmith.Contracts/Providers/PullRequestCompletion.cs:9-28"
+  - claim: "A stacked dependent's pull requests are retargeted by a retarget run once a prerequisite lands."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/StackedPullRequestRetarget.cs:17-25, src/backend/AgentSmith.Server/Services/Acts/PullRequestRetargetRun.cs:12-24"
+  - claim: "CI state and the first failure per pull request are read already."
+    evidence: "src/backend/AgentSmith.Contracts/Series/SeriesTicketFact.cs:36-41"
+
+scope:
+  in: >-
+    Merge next section: the merge order from 31dcb, each row with CI state (green / pending / red with the failing check
+    and its log link), the pull request link, and on the ready row a Merge button (runs.control). The act starts the
+    existing merge-green run for that ticket's open pull requests, marked as asked by a person so merge: manual does not
+    skip it; the project's branch_protection mode applies. Refused or armed outcomes come back as the row's sentence
+    with the host's reason; a merged one triggers the existing retarget, and the next row becomes ready when its target
+    is the default branch. Not-ready rows say what they wait for ('after #x', 'CI running', 'retarget pending').
+  out: "Merging several in one click (a merge train); approving reviews on the person's behalf beyond what 3435b does."
+
+steps:
+  - id: request
+    action: "CiGreenMergeRequest gains who asked; CompletePullRequestsHandler merges a person-asked request under any MergeWhen."
+  - id: act
+    action: "POST /api/series/{id}/tickets/{ticketId}/merge — Needs runs.control, refuses unless the ticket is ready in the merge order, starts IMergeGreenRun, answers the outcome."
+  - id: pane
+    action: "Merge next section with rows, CI chips, links and the button; outcome sentence on the row."
+
+tests:
+  - "A ready ticket merges through a merge-green run; the run lists on the ticket page."
+  - "A not-ready ticket is refused with the sentence naming what comes first."
+  - "merge: manual project: a person-asked merge runs; the automatic CI-green path still does not."
+  - "A refused completion shows the host's reason on the row."
+
+done:
+  - "Build, the full suite and the dashboard tests green."
