@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLanguage, useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { SERIES_PATH } from "@/lib/seriesRunAddress";
 import { conversationHref } from "@/components/dialog/conversationHref";
 import { money } from "@/components/tickets/ticketFormat";
@@ -25,8 +25,8 @@ interface Props {
 export function SeriesSectionBar({ detail, current, onSelect }: Props) {
   const lacks = useLacksPermission(RUNS_CONTROL, detail.project); // 2026-11-23-8071
   const t = useT();
-  const language = useLanguage();
-  const started = new Date(detail.startedAt).toLocaleDateString(language === "de" ? "de-DE" : "en-GB", { day: "numeric", month: "short" });
+  const locale = useDateLocale();
+  const started = new Date(detail.startedAt).toLocaleDateString(locale, { day: "numeric", month: "short" });
   return (
     <aside className="tk-bar" aria-label={detail.name} data-testid="series-section-bar">
       <Link className="tk-bar-back" href={SERIES_PATH} data-testid="series-back">{t("series.page.back")}</Link>

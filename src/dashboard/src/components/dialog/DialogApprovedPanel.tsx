@@ -1,6 +1,6 @@
 "use client";
 
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type { ApprovedSetView } from "@/types/spec-dialog";
 
 // 2026-09-25-8e51d: the specification a person APPROVED for the ticket this conversation belongs
@@ -10,11 +10,12 @@ import type { ApprovedSetView } from "@/types/spec-dialog";
 
 export function DialogApprovedPanel({ approved }: { approved: ApprovedSetView }) {
   const t = useT();
+  const locale = useDateLocale();
   return (
     <div className="flex flex-col gap-4" data-testid="dialog-approved-panel">
       <p className="dsh-body text-body" data-testid="dialog-approved-approval">
         {approved.approvedAt
-          ? t("dialog.approved.at", { when: new Date(approved.approvedAt).toLocaleString() }) +
+          ? t("dialog.approved.at", { when: new Date(approved.approvedAt).toLocaleString(locale) }) +
             (approved.approvedBy ? t("dialog.approved.by", { who: approved.approvedBy }) : "") +
             t("dialog.approved.tail")
           : t("dialog.approved.noDate")}

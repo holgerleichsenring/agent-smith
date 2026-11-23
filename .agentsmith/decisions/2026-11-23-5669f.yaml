@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-5669f
+
+decisions:
+  - category: Implementation
+    chose: "Delivery's format helpers take a Wording ({ t, locale }); decimals via Intl.NumberFormat without grouping, so English reads as before and German gets a decimal comma"
+    over: "toFixed() with a dot in both languages"
+    reason: "1.5 h is wrong in German; the locale has to reach the helper that writes the number."
+  - category: Implementation
+    chose: "Each Delivery figure has a stable id, and its test id is built from the id"
+    over: "Test ids built from the English label"
+    reason: "A test id must not change with the language."
+  - category: Scope
+    chose: "The ticket rows' outcome pill keeps reading the ticket list's section titles"
+    over: "A second set of outcome words for Delivery"
+    reason: "One set of words for a ticket's state; it turns German with the tickets slice (2026-11-23-5669b)."

@@ -1,6 +1,6 @@
 "use client";
 
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { projectLabel } from "@/lib/installation";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -152,6 +152,7 @@ function Row({
   onDelete: (conversation: SpecDialogSessionSummary) => void;
 }) {
   const t = useT();
+  const locale = useDateLocale();
   const filed = outcomeLabel(t, conversation);
   // 2026-09-21-f237a: the row says what the conversation is ABOUT; the delete says what the
   // person wrote. Opposite preferences over the same two strings, the same way the panel's row
@@ -179,7 +180,7 @@ function Row({
             </span>
           )}
           <span>{t("dialog.conversations.turns", { count: conversation.turns })}</span>
-          <span>{lastActive(t, conversation.lastActivityAt)}</span>
+          <span>{lastActive(t, locale, conversation.lastActivityAt)}</span>
           {conversation.openDialogId && <span data-testid="conversations-open-mark">{t("dialog.conversations.openMark")}</span>}
           {filed && <span className="ec-mark filed">{filed}</span>}
         </span>

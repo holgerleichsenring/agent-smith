@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { JobsHubClient } from "@/lib/JobsHubClient";
 import type { DeliveryPeriod } from "@/lib/deliveryApi";
 import { useDelivery } from "@/hooks/useDelivery";
+import { useT } from "@/hooks/useT";
 import { PageHead } from "@/components/system/PageHead";
 import { DeliveryChips, DeliveryPeriodNav, DeliveryPeriodSwitch } from "./DeliveryScope";
 import { DeliveryKpis } from "./DeliveryKpis";
@@ -18,6 +19,7 @@ import { DeliveryTickets } from "./DeliveryTickets";
 // 2026-11-12-aeddb: previous / next step through past periods; choosing a period returns to its current one.
 
 export function DeliveryView({ client }: { client?: JobsHubClient }) {
+  const t = useT();
   const [period, setPeriod] = useState<DeliveryPeriod>("week");
   const [offset, setOffset] = useState(0);
   const [off, setOff] = useState<ReadonlySet<string>>(new Set());
@@ -40,7 +42,7 @@ export function DeliveryView({ client }: { client?: JobsHubClient }) {
       <main className="main">
         <PageHead
           title="Delivery"
-          sub="The tickets the agent worked on in this period. Each row is a ticket and each bar is one attempt. Hover a bar for its duration, cost and why it ended."
+          sub={t("delivery.page.sub")}
           right={
             <div className="head-right">
               {view && <DeliveryPeriodNav period={view.period} offset={offset} from={view.from} to={view.to} onOffset={setOffset} />}
@@ -48,8 +50,8 @@ export function DeliveryView({ client }: { client?: JobsHubClient }) {
             </div>
           }
         />
-        {failed && !view && <p className="sub" data-testid="delivery-failed">The delivery overview could not be read.</p>}
-        {!view && !failed && <p className="sub">Reading the period.</p>}
+        {failed && !view && <p className="sub" data-testid="delivery-failed">{t("delivery.page.failed")}</p>}
+        {!view && !failed && <p className="sub">{t("delivery.page.reading")}</p>}
         {view && (
           <>
             <DeliveryChips projects={view.projects} off={off} onToggle={toggle} />
