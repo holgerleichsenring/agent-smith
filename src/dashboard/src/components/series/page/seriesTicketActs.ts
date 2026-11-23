@@ -35,10 +35,10 @@ const RETRIES = new Set(["failed", "shortfall", "cancelled"]);
 /** Why the ticket has its colour, in one or two sentences. */
 export function seriesNodeSentence(ticket: SeriesRunTicket, detail: SeriesRunDetail, kind: SeriesNodeKind, t: T): string {
   if (kind === "merged") return t("series.node.merged");
-  const said = ticket.hold ? holdSentence(ticket.hold, t) : t("series.node.notStarted");
+  const said = ticket.hold ? holdSentence(t, ticket.hold) : t("series.node.notStarted");
   const draft = kind === "now" && waitingPullRequests(ticket.pullRequests).some((pr) => pr.isDraft) ? t("series.merge.draftFirst") : null;
   const needed = detail.mergeOrder.find((step) => step.ticketId === ticket.ticketId)?.neededBy ?? [];
-  const lead = kind === "needed" ? t("series.merge.needed", { names: namesOf(needed, t), count: needed.length }) : null;
+  const lead = kind === "needed" ? t("series.merge.needed", { names: namesOf(t, needed), count: needed.length }) : null;
   return [lead, said, draft].filter(Boolean).join(" ");
 }
 
@@ -56,7 +56,7 @@ export function seriesTicketActs(ticket: SeriesRunTicket, detail: SeriesRunDetai
   if (kind === "question") {
     const hold = ticket.hold!;
     const href = holdSeriesHref(hold, seriesRunPath) ?? holdPullRequestHref(hold) ?? ticketPath(detail.project, ticket.ticketId);
-    acts.push({ id: "answer", kind: href.startsWith("http") ? "external" : "link", href, label: holdRowAct(hold, t), tone: "ask" });
+    acts.push({ id: "answer", kind: href.startsWith("http") ? "external" : "link", href, label: holdRowAct(t, hold), tone: "ask" });
     if (href !== talk) acts.push(conversation);
   }
   if (kind === "failed") acts.push(...failedActs(ticket, detail, lacks, conversation, t));
@@ -76,7 +76,7 @@ export function seriesTicketActs(ticket: SeriesRunTicket, detail: SeriesRunDetai
 function failedActs(ticket: SeriesRunTicket, detail: SeriesRunDetail, lacks: boolean, series: SeriesAct, t: T): SeriesAct[] {
   const hold = ticket.hold;
   const page = ticketPath(detail.project, ticket.ticketId);
-  if (hold?.addressee === "admin") return [{ id: "act", kind: "link", href: page, label: holdRowAct(hold, t), tone: "bad" }];
+  if (hold?.addressee === "admin") return [{ id: "act", kind: "link", href: page, label: holdRowAct(t, hold), tone: "bad" }];
   const acts: SeriesAct[] = [];
   const run = hold?.act?.kind === "retry" && hold.act.target ? hold.act.target : ticket.runId ?? null;
   const retriable = hold?.act?.kind === "retry" || (RETRIES.has(ticket.status ?? "") && hold?.case !== "handback");

@@ -351,7 +351,7 @@ export const coreMessages = {
   },
   "dialog.pick.sending": { en: "Sending {files}, {size}", de: "{files}, {size} werden gesendet" },
   "dialog.pick.overSet": { en: "{size} over the 25 MB a set may hold", de: "{size} über den 25 MB, die ein Set fassen darf" },
-  "dialog.pick.overFiles": { en: "{count} files over the {max} a set may hold", de: "{count} Dateien über den {max}, die ein Set fassen darf" },
+  "dialog.pick.overFiles": { en: "{count} files over the {max} a set may hold", de: "{count} Dateien zu viel – ein Set fasst höchstens {max}" },
   "dialog.pick.overLeft": { en: "{size} where the conversation has {left} left", de: "{size}, wo die Unterhaltung nur noch {left} hat" },
   "dialog.pick.unticked": { en: "unticked", de: "nicht ausgewählt" },
   "dialog.pick.under": { en: "{files} under {name} ({reason})", de: "{files} unter {name} ({reason})" },

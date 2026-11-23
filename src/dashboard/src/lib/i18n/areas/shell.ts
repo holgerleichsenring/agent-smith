@@ -18,6 +18,10 @@ export const shellMessages = {
   "shell.nav.insight": { en: "Insight", de: "Auswertung" },
   "shell.nav.overview": { en: "Overview", de: "Übersicht" },
   "shell.nav.delivery": { en: "Delivery", de: "Delivery" },
+  "shell.nav.backToWork": { en: "Back to work", de: "Zurück zur Arbeit" },
+  "shell.nav.dot.attention": { en: "needs attention", de: "braucht Aufmerksamkeit" },
+  "shell.nav.dot.live": { en: "live", de: "live" },
+  "shell.nav.dot.idle": { en: "idle", de: "inaktiv" },
   "shell.nav.recent": { en: "Recent", de: "Zuletzt geöffnet" },
 
   // --- the top bar ---
@@ -149,6 +153,7 @@ export const shellMessages = {
   "shell.surface.pullRequests": { en: "pull requests", de: "Pull Requests" },
   "shell.surface.ticketList": { en: "ticket list", de: "Ticketliste" },
   "shell.surface.delivery": { en: "delivery overview", de: "Delivery-Übersicht" },
+  "shell.surface.workItOut": { en: "Work it out page", de: "Work-it-out-Seite" },
   "shell.surface.page": { en: "page", de: "Seite" },
   "shell.surface.run": { en: "run {run}", de: "Run {run}" },
   "shell.surface.ticket": { en: "ticket {ticket}", de: "Ticket {ticket}" },

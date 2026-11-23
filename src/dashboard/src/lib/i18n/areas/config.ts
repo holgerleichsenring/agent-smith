@@ -938,7 +938,7 @@ export const configMessages = {
     en: "sandbox agent image tag for this project — {provenance}",
     de: "Image-Tag des Sandbox-Agents für dieses Projekt — {provenance}",
   },
-  "config.sandbox.hold.label": { en: "sandbox hold (seconds)", de: "Sandbox halten (Sekunden)" },
+  "config.sandbox.hold.label": { en: "Sandbox hold (seconds)", de: "Sandbox halten (Sekunden)" },
   "config.sandbox.hold.help": {
     en: "how long this project's design conversations hold their source sandboxes between turns — {provenance}; applies to the next turn of a design conversation and reaches a reaper scan without a server restart; 0 holds nothing",
     de: "wie lange die Design-Gespräche dieses Projekts ihre Quell-Sandboxes zwischen den Turns halten — {provenance}; gilt ab dem nächsten Turn eines Design-Gesprächs und erreicht einen Reaper-Durchlauf ohne Neustart des Servers; 0 hält nichts",
@@ -1018,6 +1018,7 @@ export const configMessages = {
     en: "Overwrite the current config?\n\n{message}",
     de: "Die aktuelle Konfiguration überschreiben?\n\n{message}",
   },
+  "config.import.notEmpty": { en: "Config store is not empty.", de: "Der Config-Speicher ist nicht leer." },
   "config.import.overwrite": { en: "Overwrite", de: "Überschreiben" },
   "config.import.keep": { en: "Keep current", de: "Aktuelle behalten" },
   "config.import.failed": { en: "import failed: {message}", de: "Import fehlgeschlagen: {message}" },

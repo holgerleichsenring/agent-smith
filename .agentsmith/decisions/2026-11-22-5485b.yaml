@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-5485b
+
+decisions:
+  - category: Scope
+    chose: "Cut the rest of the dashboard into the series 2026-11-23-5669a..f, one slice per area, built in parallel and closed by this sweep"
+    over: "One spec over about 1000 literals in 14 areas"
+    reason: "Too large for one review; per-area modules let the slices run side by side without touching one file."
+  - category: Implementation
+    chose: "The sweep made every helper's lookup and locale required and fixed each caller"
+    over: "Keeping the optional English default the slices used to avoid touching each other's callers"
+    reason: "5485a rejected a default English lookup; making it required showed callers that rendered English in a German page (SpecCard, ThreadMessages, useRunTicket among them)."
+  - category: Implementation
+    chose: "API helpers return an empty reason and the component words the fallback"
+    over: "English fallback sentences built in lib/*Api.ts"
+    reason: "A lib has no language; the component that renders the reason does."
+  - category: Scope
+    chose: "The section-nav and sidebar-group test ids keep reading the label, so they are German in a German page"
+    over: "A stable id prop on SectionNavItem, SectionNavGroup and SidebarGroup"
+    reason: "Only unit tests read them, and those run in English; about 40 test lines would change for no user-visible difference. Delivery and connection groups, built later, carry stable ids."
+  - category: Scope
+    chose: "Refusal and unreadable-body sentences built in lib/apiResponse.ts stay English"
+    over: "Translating them in the lib"
+    reason: "They are error messages a surface quotes as err.message, like server text; the refusal panel around them is translated."

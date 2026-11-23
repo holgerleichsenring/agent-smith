@@ -21,14 +21,14 @@ describe("holdWords", () => {
   it("holdSentence_EveryCase_HasASentenceInBothLanguages_NamingTheAttemptAndTheTickets", () => {
     for (const c of CASES) {
       for (const language of ["en", "de"] as const) {
-        const said = holdSentence(hold(c, { attempt: 3, names: ["#7"] }), translator(language));
+        const said = holdSentence(translator(language), hold(c, { attempt: 3, names: ["#7"] }));
         expect(said, `${c} ${language}`).not.toMatch(/\{|hold\.sentence/);
         expect(said.length, `${c} ${language}`).toBeGreaterThan(10);
       }
     }
-    expect(holdSentence(hold("failed", { attempt: 3 }))).toBe("Attempt 3 failed.");
-    expect(holdSentence(hold("merge_after", { names: ["SCRUM-1", "SCRUM-2"] }))).toBe("Merges after SCRUM-1 and SCRUM-2. Nothing for you to do yet.");
-    expect(holdSentence(hold("starts_on_merge", { addressee: "nobody", names: ["#1"] }), translator("de")))
+    expect(holdSentence(translator("en"), hold("failed", { attempt: 3 }))).toBe("Attempt 3 failed.");
+    expect(holdSentence(translator("en"), hold("merge_after", { names: ["SCRUM-1", "SCRUM-2"] }))).toBe("Merges after SCRUM-1 and SCRUM-2. Nothing for you to do yet.");
+    expect(holdSentence(translator("de"), hold("starts_on_merge", { addressee: "nobody", names: ["#1"] })))
       .toBe("Wartet auf einen Merge: #1. Für dich gibt es nichts zu tun.");
   });
 
@@ -36,63 +36,63 @@ describe("holdWords", () => {
   // says how many it waits for and which is next; a CI that ran past the minutes says how long and what to check.
   it("holdSentence_TheSeriesMerge_TheMergesAStartWaitsFor_AndAHungCi", () => {
     const merge = hold("merge_next", { next: "#19649", names: ["#19662", "#19665"], approves: true });
-    expect(holdSentence(merge)).toBe("Its pull request is next in the series' merge order. #19649 is next after it. Needed so "
+    expect(holdSentence(translator("en"), merge)).toBe("Its pull request is next in the series' merge order. #19649 is next after it. Needed so "
       + "#19662 and #19665 can start. Merging approves the pull request where its host requires a review, as agent-smith's "
       + "configured identity, and asks the host to complete it once its rules pass.");
-    expect(mergeTail(hold("merge_next", { next: "#2" }))).toBe("#2 is next after it.");
+    expect(mergeTail(translator("en"), hold("merge_next", { next: "#2" }))).toBe("#2 is next after it.");
     // 2026-11-23-f562: the ticket page says the needed-merge wording, not "erst nach weiteren Merges".
-    expect(mergeTail(hold("merge_next", { names: ["#9"] }), translator("de"))).toBe("Nötig, damit #9 starten kann.");
-    expect(mergeTail(hold("merge_next", { next: "#2", names: ["#9"] }), translator("de"))).toBe("Danach ist #2 dran. Nötig, damit #9 starten kann.");
-    expect(mergeTail(hold("merge_next"))).toBeNull();
+    expect(mergeTail(translator("de"), hold("merge_next", { names: ["#9"] }))).toBe("Nötig, damit #9 starten kann.");
+    expect(mergeTail(translator("de"), hold("merge_next", { next: "#2", names: ["#9"] }))).toBe("Danach ist #2 dran. Nötig, damit #9 starten kann.");
+    expect(mergeTail(translator("en"), hold("merge_next"))).toBeNull();
     const waits = hold("starts_on_merge", { addressee: "nobody", names: ["#19653"], merges: 5, next: "#19648" });
-    expect(holdSentence(waits)).toBe("Waits for 5 merges, next #19648. Nothing for you to do.");
-    expect(holdSentence(waits, translator("de"))).toBe("Wartet auf 5 Merges, als Nächstes #19648. Für dich gibt es nichts zu tun.");
+    expect(holdSentence(translator("en"), waits)).toBe("Waits for 5 merges, next #19648. Nothing for you to do.");
+    expect(holdSentence(translator("de"), waits)).toBe("Wartet auf 5 Merges, als Nächstes #19648. Für dich gibt es nichts zu tun.");
     const now = new Date("2026-11-23T12:00:00Z");
     const hung = hold("ci_running", { addressee: "admin", since: "2026-11-23T07:00:00Z", escalation: { afterMinutes: 60, key: "holds.escalate_after_minutes" } });
-    expect(holdSentence(hung, translator("en"), now))
+    expect(holdSentence(translator("en"), hung, now))
       .toBe("CI has been running for 5 h: check the pipeline. Longer than 60 minutes (holds.escalate_after_minutes), reported to the admin.");
     expect([durationOf("2026-11-23T11:15:00Z", now), durationOf("2026-11-20T12:00:00Z", now)]).toEqual(["45 min", "3 d"]);
   });
 
   it("holdSentence_AStop_QuotesWhatItRecorded_FromTheHoldAlone", () => {
     const detail = { subject: "Image node:22", repos: [], control: "Trusted image registries", setTo: "ghcr.io/", settingsPath: "/x" };
-    expect(holdSentence(hold("image_untrusted", { detail }))).toBe("Image node:22 is not trusted: set Trusted image registries to ghcr.io/.");
-    expect(holdSentence(hold("failed", { attempt: 2, detail: { ...detail, subject: "The agent" } })))
+    expect(holdSentence(translator("en"), hold("image_untrusted", { detail }))).toBe("Image node:22 is not trusted: set Trusted image registries to ghcr.io/.");
+    expect(holdSentence(translator("en"), hold("failed", { attempt: 2, detail: { ...detail, subject: "The agent" } })))
       .toBe("Attempt 2 failed: The agent: set Trusted image registries to ghcr.io/.");
-    expect(holdSentence(hold("image_untrusted", { detail }), translator("de")))
+    expect(holdSentence(translator("de"), hold("image_untrusted", { detail })))
       .toBe("Image node:22 ist nicht vertraut: setze Trusted image registries auf ghcr.io/.");
   });
 
   it("namesOf_AndToldOf", () => {
-    expect([namesOf([]), namesOf(["#1"]), namesOf(["#1", "#2", "#3"])]).toEqual(["", "#1", "#1, #2 and #3"]);
-    expect(toldOf(attempt({ endKind: "bootstrap-missing", endDetail: { subject: "s", repos: ["api"], control: null, setTo: null, settingsPath: null } })))
+    expect([namesOf(translator("en"), []), namesOf(translator("en"), ["#1"]), namesOf(translator("en"), ["#1", "#2", "#3"])]).toEqual(["", "#1", "#1, #2 and #3"]);
+    expect(toldOf(translator("en"), attempt({ endKind: "bootstrap-missing", endDetail: { subject: "s", repos: ["api"], control: null, setTo: null, settingsPath: null } })))
       .toBe("api has no agent-smith bootstrap.");
-    expect(toldOf(attempt())).toBeNull();
+    expect(toldOf(translator("en"), attempt())).toBeNull();
   });
 
   it("holdActLabel_AndRowAct_NameTheAct", () => {
-    expect(holdActLabel(hold("image_untrusted", { act: { kind: "settings", target: "/x" } }))).toBe("Trust the registry in Settings");
-    expect(holdActLabel(hold("preflight", { act: { kind: "settings", target: "/x" } }))).toBe("Open the setting");
-    expect(holdActLabel(hold("merge_next", { act: { kind: "merge", target: "sr-1" } }))).toBe("Merge");
-    expect(holdActLabel(hold("working"))).toBeNull();
-    expect(holdRowAct(hold("text_edited", { act: { kind: "conversation", target: null } }))).toBe("Discuss in the conversation");
-    expect(holdRowAct(hold("working"))).toBe("Open the ticket");
-    expect(holdTag(hold("text_edited"))).toBe("plan gap");
+    expect(holdActLabel(translator("en"), hold("image_untrusted", { act: { kind: "settings", target: "/x" } }))).toBe("Trust the registry in Settings");
+    expect(holdActLabel(translator("en"), hold("preflight", { act: { kind: "settings", target: "/x" } }))).toBe("Open the setting");
+    expect(holdActLabel(translator("en"), hold("merge_next", { act: { kind: "merge", target: "sr-1" } }))).toBe("Merge");
+    expect(holdActLabel(translator("en"), hold("working"))).toBeNull();
+    expect(holdRowAct(translator("en"), hold("text_edited", { act: { kind: "conversation", target: null } }))).toBe("Discuss in the conversation");
+    expect(holdRowAct(translator("en"), hold("working"))).toBe("Open the ticket");
+    expect(holdTag(translator("en"), hold("text_edited"))).toBe("plan gap");
   });
 
   // 2026-11-23-31dch: a plan question's act is the series' conversation, in both languages.
   it("aPlanQuestion_TalksAboutThePlanInTheSeriesConversation", () => {
     const plan = hold("question_plan", { act: { kind: "conversation", target: "sr-1" } });
-    expect([holdActLabel(plan), holdRowAct(plan), holdRowAct(plan, translator("de"))])
+    expect([holdActLabel(translator("en"), plan), holdRowAct(translator("en"), plan), holdRowAct(translator("de"), plan)])
       .toEqual(["Talk about the plan", "Talk about the plan", "Über den Plan sprechen"]);
     const path = (id: string) => `/series/${id}`;
     expect(holdSeriesHref(plan, path)).toBe("/series/sr-1?section=talk");
     expect(holdSeriesHref(hold("starts_on_merge", { act: { kind: "series", target: "sr-1" } }), path)).toBe("/series/sr-1");
-    expect(holdActLabel(hold("starts_on_merge", { act: { kind: "series", target: "sr-1" } }), translator("de"))).toBe("Serie öffnen");
+    expect(holdActLabel(translator("de"), hold("starts_on_merge", { act: { kind: "series", target: "sr-1" } }))).toBe("Serie öffnen");
     expect(holdSeriesHref(hold("text_edited", { act: { kind: "conversation", target: null } }), path)).toBeNull();
     expect([isAsked(plan), isAsked(hold("question_environment")), isAsked(hold("question")), isAsked(hold("handback"))])
       .toEqual([true, true, true, false]);
-    expect(holdTag(hold("question_environment"))).toBe("needs an admin");
+    expect(holdTag(translator("en"), hold("question_environment"))).toBe("needs an admin");
   });
 
   it("isYourMove_APersonsHold_AndAnAdminsForAnAdmin", () => {
@@ -112,10 +112,10 @@ describe("holdWords", () => {
   it("holdAsk_TheQuestionOrHandbackItself_ElseTheSentence", () => {
     const asked = ticket({ hold: hold("question"), pendingQuestion: { runId: "r", question: {
       questionId: "q", type: "FreeText", text: "Keep it?\nmore", context: null, choices: [], defaultAnswer: null, askedAt: "", answerDeadlineAt: null } } as never });
-    expect(holdAsk(asked)).toBe("Keep it?");
-    expect(holdAsk({ ...asked, hold: hold("question_plan") })).toBe("Keep it?");
-    expect(holdAsk(ticket({ hold: hold("handback"), handback: { text: "Which tenant?", at: "" } }))).toBe("Which tenant?");
-    expect(holdAsk(ticket({ hold: hold("merge_next") }))).toBe("Its pull request is next in the series' merge order.");
+    expect(holdAsk(translator("en"), asked)).toBe("Keep it?");
+    expect(holdAsk(translator("en"), { ...asked, hold: hold("question_plan") })).toBe("Keep it?");
+    expect(holdAsk(translator("en"), ticket({ hold: hold("handback"), handback: { text: "Which tenant?", at: "" } }))).toBe("Which tenant?");
+    expect(holdAsk(translator("en"), ticket({ hold: hold("merge_next") }))).toBe("Its pull request is next in the series' merge order.");
   });
 
   // 2026-11-23-31dci: a wait on nobody says since when and that nothing is to be done, in both languages.
@@ -125,51 +125,51 @@ describe("holdWords", () => {
     const en = translator("en");
     const de = translator("de");
     const of = (c: TicketHoldCase) => hold(c, { since, attempt: 2, names: ["#7"] });
-    expect(holdSentence(of("model_wait"), en, now)).toBe("Waiting for the model since 00:12. Nothing for you to do.");
-    expect(holdSentence(of("queued"), en, now)).toBe("Waiting for sandbox capacity since 00:12. Nothing for you to do.");
-    expect(holdSentence(of("resuming"), en, now))
+    expect(holdSentence(en, of("model_wait"), now)).toBe("Waiting for the model since 00:12. Nothing for you to do.");
+    expect(holdSentence(en, of("queued"), now)).toBe("Waiting for sandbox capacity since 00:12. Nothing for you to do.");
+    expect(holdSentence(en, of("resuming"), now))
       .toBe("Attempt 2 has been waiting for sandbox capacity to resume since 00:12. Nothing for you to do.");
-    expect(holdSentence(of("restarting"), en, now)).toBe("Restarts after the server stopped at 00:12. Nothing for you to do.");
-    expect(holdSentence(of("prerequisite"), en, now)).toBe("Starts when #7 finishes, waiting since 00:12. Nothing for you to do.");
-    expect(holdSentence(of("model_wait"), de, now)).toBe("Wartet seit 00:12 auf das Modell. Für dich gibt es nichts zu tun.");
-    expect(holdSentence(of("queued"), de, now)).toBe("Wartet seit 00:12 auf Sandbox-Kapazität. Für dich gibt es nichts zu tun.");
-    expect(holdSentence(hold("model_wait", { attempt: 2 }), en)).toBe("Attempt 2 is waiting for the model. Nothing for you to do.");
-    expect(waitClause(hold("working", { since }), en, now)).toBeNull();
+    expect(holdSentence(en, of("restarting"), now)).toBe("Restarts after the server stopped at 00:12. Nothing for you to do.");
+    expect(holdSentence(en, of("prerequisite"), now)).toBe("Starts when #7 finishes, waiting since 00:12. Nothing for you to do.");
+    expect(holdSentence(de, of("model_wait"), now)).toBe("Wartet seit 00:12 auf das Modell. Für dich gibt es nichts zu tun.");
+    expect(holdSentence(de, of("queued"), now)).toBe("Wartet seit 00:12 auf Sandbox-Kapazität. Für dich gibt es nichts zu tun.");
+    expect(holdSentence(en, hold("model_wait", { attempt: 2 }))).toBe("Attempt 2 is waiting for the model. Nothing for you to do.");
+    expect(waitClause(en, hold("working", { since }), now)).toBeNull();
   });
 
   it("holdSentence_AnEscalatedWait_NamesTheMinutesAndTheKey_AndThatTheAdminWasTold", () => {
     const now = new Date(2026, 10, 23, 9, 0);
     const since = new Date(2026, 10, 23, 0, 12).toISOString();
     const escalated = hold("model_wait", { addressee: "admin", since, escalation: { afterMinutes: 60, key: "holds.escalate_after_minutes" } });
-    expect(holdSentence(escalated, translator("en"), now))
+    expect(holdSentence(translator("en"), escalated, now))
       .toBe("Waiting for the model since 00:12, longer than 60 minutes (holds.escalate_after_minutes). Reported to the admin.");
-    expect(holdSentence(escalated, translator("de"), now))
+    expect(holdSentence(translator("de"), escalated, now))
       .toBe("Wartet seit 00:12 auf das Modell, länger als 60 Minuten (holds.escalate_after_minutes). An den Admin gemeldet.");
   });
 
   it("sinceClock_TodayIsATime_AnOlderDayCarriesItsDate", () => {
     const now = new Date(2026, 10, 23, 9, 0);
-    expect(sinceClock(new Date(2026, 10, 23, 0, 12).toISOString(), now)).toBe("00:12");
-    expect(sinceClock(new Date(2026, 10, 21, 9, 5).toISOString(), now)).toBe("21 Nov 09:05");
-    expect(sinceClock("not a date", now)).toBe("not a date");
+    expect(sinceClock(new Date(2026, 10, 23, 0, 12).toISOString(), "en-GB", now)).toBe("00:12");
+    expect(sinceClock(new Date(2026, 10, 21, 9, 5).toISOString(), "en-GB", now)).toBe("21 Nov 09:05");
+    expect(sinceClock("not a date", "en-GB", now)).toBe("not a date");
   });
   // 2026-11-23-d60d: an open pull request's holds — it merges now, its CI failed on named checks, its CI still runs.
   it("holdSentence_AnOpenPullRequest_MergesNow_NamesItsFailedChecks_SaysSinceWhenCiRuns", () => {
     const de = translator("de");
     const open = { kind: "pull_request" as const, target: "https://example.test/pr/1" };
-    expect(holdSentence(hold("merge_ready", { act: open }))).toBe("Its pull request can be merged now.");
-    expect(holdSentence(hold("merge_ready", { act: open }), de)).toBe("Sein Pull Request kann jetzt gemergt werden.");
-    expect(holdSentence(hold("ci_failed", { names: ["build", "lint"] }))).toBe("CI failed: build and lint.");
-    expect(holdSentence(hold("ci_failed", { names: ["build"] }), de)).toBe("Die CI ist fehlgeschlagen: build.");
-    expect(holdSentence(hold("ci_failed"))).toBe("CI failed on its pull request.");
+    expect(holdSentence(translator("en"), hold("merge_ready", { act: open }))).toBe("Its pull request can be merged now.");
+    expect(holdSentence(de, hold("merge_ready", { act: open }))).toBe("Sein Pull Request kann jetzt gemergt werden.");
+    expect(holdSentence(translator("en"), hold("ci_failed", { names: ["build", "lint"] }))).toBe("CI failed: build and lint.");
+    expect(holdSentence(de, hold("ci_failed", { names: ["build"] }))).toBe("Die CI ist fehlgeschlagen: build.");
+    expect(holdSentence(translator("en"), hold("ci_failed"))).toBe("CI failed on its pull request.");
     const now = new Date(2026, 10, 23, 9, 30);
     const since = new Date(2026, 10, 23, 9, 12).toISOString();
-    expect(holdSentence(hold("ci_running", { since }), translator("en"), now)).toBe("CI has been running since 09:12. Nothing for you to do.");
-    expect(holdSentence(hold("ci_running", { since }), de, now)).toBe("Die CI läuft seit 09:12. Für dich gibt es nichts zu tun.");
-    expect(holdSentence(hold("ci_running"))).toBe("CI is running on its pull request. Nothing for you to do.");
-    expect(holdActLabel(hold("merge_ready", { act: open }), de)).toBe("Pull Request öffnen");
-    expect(holdActLabel(hold("merge_ready", { act: { kind: "pull_request", target: null } }))).toBeNull();
-    expect(holdRowAct(hold("ci_failed", { act: open }))).toBe("Open the pull request");
+    expect(holdSentence(translator("en"), hold("ci_running", { since }), now)).toBe("CI has been running since 09:12. Nothing for you to do.");
+    expect(holdSentence(de, hold("ci_running", { since }), now)).toBe("Die CI läuft seit 09:12. Für dich gibt es nichts zu tun.");
+    expect(holdSentence(translator("en"), hold("ci_running"))).toBe("CI is running on its pull request. Nothing for you to do.");
+    expect(holdActLabel(de, hold("merge_ready", { act: open }))).toBe("Pull Request öffnen");
+    expect(holdActLabel(translator("en"), hold("merge_ready", { act: { kind: "pull_request", target: null } }))).toBeNull();
+    expect(holdRowAct(translator("en"), hold("ci_failed", { act: open }))).toBe("Open the pull request");
     expect(holdPullRequestHref(hold("merge_ready", { act: open }))).toBe("https://example.test/pr/1");
     expect(holdPullRequestHref(hold("merge_next", { act: { kind: "merge", target: "sr-1" } }))).toBeNull();
     expect(isPersons(hold("merge_ready"))).toBe(true);

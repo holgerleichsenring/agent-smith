@@ -107,7 +107,7 @@ function NewestRetry({ attempt, project }: { attempt: TicketAttempt; project: st
 function NoCodingRun({ detail }: { detail: TicketDetail }) {
   const t = useT();
   const locale = useDateLocale();
-  const newest = runListLines(detail.attempts, detail.derivations ?? [], detail.otherRuns ?? [], null, null, t, locale)[0] ?? null;
+  const newest = runListLines(t, locale, detail.attempts, detail.derivations ?? [], detail.otherRuns ?? [], null, null)[0] ?? null;
   return (
     <div className="msub" data-testid="now-no-run">
       {t("tickets.now.noCodingRun")}

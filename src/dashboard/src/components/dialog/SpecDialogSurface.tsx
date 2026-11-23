@@ -376,7 +376,7 @@ export function SpecDialogSurface() {
       />
       {fresh ? (
         <main className="main dl-page mock-home" data-testid="dialog-new-work">
-          {dialog.failure && <FailedSurface surface={`${WORK_IT_OUT} page`} error={dialog.failure} />}
+          {dialog.failure && <FailedSurface surface={t("shell.surface.workItOut")} error={dialog.failure} />}
           <div className="home">
             <NewWorkHead />
             <NewWorkComposer
@@ -401,7 +401,7 @@ export function SpecDialogSurface() {
       <main className="main dl-page">
         {/* A refusal reads as one here: FailedSurface branches on it, so a caller who
             may not hold spec dialogs is told that rather than shown a stack. */}
-        {dialog.failure && <FailedSurface surface={`${WORK_IT_OUT} page`} error={dialog.failure} />}
+        {dialog.failure && <FailedSurface surface={t("shell.surface.workItOut")} error={dialog.failure} />}
         {/* 2026-11-17-d762b: the exchange is plain text in a reading column, no card — the ticket page's What
             happened (8d1cb): the heading as lines, the turns, and the composer under one hairline. */}
         <section className="dl-exchange" data-testid="dialog-exchange">

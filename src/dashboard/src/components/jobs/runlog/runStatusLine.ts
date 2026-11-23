@@ -1,7 +1,7 @@
 import { isRelaunching, relaunchPlace } from "@/components/jobs/runStatus";
 import { retriable } from "@/components/tickets/detail/RetryUnchanged";
 import { endCauseHead } from "@/components/tickets/detail/ticketState";
-import { NOTHING, type YourMove } from "@/components/tickets/detail/yourMove";
+import type { YourMove } from "@/components/tickets/detail/yourMove";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import type { T } from "@/lib/i18n/translate";
 import type { RunSpecRow } from "@/lib/runSpecsApi";
@@ -82,7 +82,7 @@ function bare(text: string): string {
 function failedHead(t: T, input: StatusInput): { head: string; clause: string | null } {
   const failed = input.specs.find((s) => s.status === "failed" && s.verdict);
   const verdict = failed ? firstSentence(failed.verdict) : null;
-  const ended = !verdict && input.attempt ? endCauseHead(input.attempt) : null;
+  const ended = !verdict && input.attempt ? endCauseHead(t, input.attempt) : null;
   if (ended) return { head: ended, clause: null };
   const why = verdict ?? said(input) ?? firstSentence(input.failedStep);
   if (!why) return { head: t("runs.log.line.failed"), clause: null };
@@ -211,7 +211,7 @@ export function nextStep(t: T, ctx: StatusContext | null, attempt: TicketAttempt
   if (!ctx?.move || !attempt) return null;
   if (ctx.latest && ctx.latest.number !== attempt.number) return t("runs.log.line.seeLatest", { number: ctx.latest.number });
   if (ctx.move.act?.kind === "retry" && !ctx.canRetry) return null;
-  return ctx.move.next || NOTHING;
+  return ctx.move.next || t("hold.title.nobody");
 }
 
 /** Whether the line adds Retry for a shortfall: the newest attempt, retriable by its own rule, a reader who may retry,

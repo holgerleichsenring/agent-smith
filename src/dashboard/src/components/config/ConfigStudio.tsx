@@ -181,7 +181,7 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
         if (err instanceof ConfigStoreNotEmptyError) {
           // Not busy while the person decides; busy again only once they chose to overwrite.
           setImporting(false);
-          const overwrite = await confirmation.ask(t("config.import.overwriteQuestion", { message: err.message }), {
+          const overwrite = await confirmation.ask(t("config.import.overwriteQuestion", { message: err.message || t("config.import.notEmpty") }), {
             confirmLabel: t("config.import.overwrite"), cancelLabel: t("config.import.keep"),
           });
           if (!overwrite) return;

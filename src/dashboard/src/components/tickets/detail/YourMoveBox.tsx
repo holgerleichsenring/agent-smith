@@ -94,7 +94,7 @@ function Act({ act, project, onReply, onAnswer, question }: ActProps) {
       return (
         <span className="tk-move-act">
           <button type="button" className={question ? "btn primary" : "btn"} data-testid="ticket-state-act" onClick={go}>
-            {actLabel(act, question, t)}
+            {actLabel(t, act, question)}
           </button>
         </span>
       );

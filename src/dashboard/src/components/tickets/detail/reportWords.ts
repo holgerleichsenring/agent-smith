@@ -1,4 +1,4 @@
-import { translator, type T } from "@/lib/i18n/translate";
+import type { T } from "@/lib/i18n/translate";
 import type { TicketAttempt, TicketExecutedSpec, TicketSeries, TicketSeriesSpec } from "@/types/tickets";
 import { money } from "../ticketFormat";
 import { elapsed } from "./flowWords";
@@ -8,8 +8,8 @@ import { elapsed } from "./flowWords";
 // the outcome pill it was drawn with are retired.
 
 /** "Run 2 · 5m 55s · $0.42" — time and cost so far while it runs. */
-export function runLine(attempt: TicketAttempt, t: T = translator("en")): string {
-  const took = elapsed(attempt.startedAt, attempt.finishedAt, t);
+export function runLine(t: T, attempt: TicketAttempt): string {
+  const took = elapsed(t, attempt.startedAt, attempt.finishedAt);
   return [t("tickets.story.run", { n: attempt.number }), took, money(attempt.cost)].filter(Boolean).join(" · ");
 }
 
@@ -28,7 +28,7 @@ export function specsOf(attempt: TicketAttempt, series: TicketSeries | null): Ti
 /** "5 of 5 done criteria met" for a spec stored with recorded verdicts; null for a spec without — 2026-11-19-1b72c: the
  *  card then shows no count at all. 2026-11-22-7103a: a spec with a master's report counts nothing (the report judged no
  *  line), and the count is drawn dim beside the spec's delivery word, never in a verdict colour. */
-export function criteriaTally(spec: TicketSeriesSpec, t: T = translator("en")): string | null {
+export function criteriaTally(t: T, spec: TicketSeriesSpec): string | null {
   if (spec.report || spec.verdictRecorded === false || spec.done.length === 0) return null;
   const met = spec.done.filter((c) => c.verdict === "met").length;
   return t("tickets.report.criteriaMet", { met, total: spec.done.length });
@@ -39,7 +39,7 @@ export type DeliveryTone = "ok" | "run" | "person" | "bad" | "quiet";
 /** 2026-11-22-7103a: what came of one spec in one attempt, from that attempt's RunSpec row and the attempt's status —
  *  the words and colour its card heads with, and the status line agrees with. Null without a row. */
 export function specDelivery(
-  row: TicketExecutedSpec | undefined, attempt: TicketAttempt, t: T = translator("en"),
+  t: T, row: TicketExecutedSpec | undefined, attempt: TicketAttempt,
 ): { tone: DeliveryTone; words: string } | null {
   if (!row) return null;
   const live = attempt.status === "running" || attempt.status === "queued" || attempt.status === "waiting_for_input";

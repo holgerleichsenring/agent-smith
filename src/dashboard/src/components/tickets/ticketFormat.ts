@@ -7,17 +7,23 @@ import type { AttemptCause, TicketAttempt, TicketAttemptMark, TicketDerivation, 
  * A compact age, "41m" or "3h" — the mock's .when column; "now" under a minute. With a lookup the unit is the chosen
  * language's ("41 Min."); "now" stays the marker callers word themselves (2026-11-23-5669b).
  */
-export function age(iso: string | null | undefined, t?: T): string | null {
+export function age(iso: string | null | undefined, t: T): string | null {
   if (!iso) return null;
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return null;
   const minutes = Math.max(0, Math.round((Date.now() - then) / 60000));
   if (minutes < 1) return "now";
-  if (minutes < 60) return t ? t("tickets.age.minutes", { n: minutes }) : `${minutes}m`;
+  if (minutes < 60) return t("tickets.age.minutes", { n: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return t ? t("tickets.age.hours", { n: hours }) : `${hours}h`;
+  if (hours < 24) return t("tickets.age.hours", { n: hours });
   const days = Math.round(hours / 24);
-  return t ? t("tickets.age.days", { n: days }) : `${days}d`;
+  return t("tickets.age.days", { n: days });
+}
+
+/** A compact age for a column — the "now" marker worded too, so it never reaches the page as the English marker. */
+export function compactAge(t: T, iso: string | null | undefined): string | null {
+  const when = age(iso, t);
+  return when === "now" ? t("tickets.age.now") : when;
 }
 
 /** 2026-11-23-5669b: how long ago, as a phrase — "just now", "3h ago"; null where no time is recorded. */

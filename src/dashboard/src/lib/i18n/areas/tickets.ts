@@ -7,7 +7,8 @@ export const ticketsMessages = {
   // --- tickets: shared row words (ticketFormat) ---
   "tickets.age.minutes": { en: "{n}m", de: "{n} Min." },
   "tickets.age.hours": { en: "{n}h", de: "{n} Std." },
-  "tickets.age.days": { en: "{n}d", de: "{n} T." },
+  "tickets.age.days": { en: "{n}d", de: "{n} Tg." },
+  "tickets.age.now": { en: "now", de: "jetzt" },
   "tickets.attempts": {
     en: { one: "1 attempt", other: "{count} attempts" },
     de: { one: "1 Versuch", other: "{count} Versuche" },
@@ -124,8 +125,8 @@ export const ticketsMessages = {
   "tickets.activity.specsDone": { en: "{done} of {total} specs done", de: "{done} von {total} Specs fertig" },
   "tickets.activity.unchanged": { en: "unchanged since the last attempt", de: "unverändert seit dem letzten Versuch" },
   "tickets.activity.unchangedChecked": {
-    en: "unchanged since the last attempt, checked {when} ago",
-    de: "unverändert seit dem letzten Versuch, geprüft vor {when}",
+    en: "unchanged since the last attempt, checked {when}",
+    de: "unverändert seit dem letzten Versuch, geprüft {when}",
   },
   "tickets.activity.notChecked": { en: "not checked since {when} ago", de: "seit {when} nicht geprüft" },
   "tickets.activity.pr": { en: "PR #{number} {state}", de: "PR #{number} {state}" },

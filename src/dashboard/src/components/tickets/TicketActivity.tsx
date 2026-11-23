@@ -37,11 +37,11 @@ function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
       return [
         <span key="q" className="aq">
           {t.hold?.case === "handback" ? tr("tickets.activity.handedBackIn", { attempt }) : t.hold?.case === "question" ? tr("tickets.activity.questionIn", { attempt })
-            : t.hold ? holdTag(t.hold, tr) : null}
+            : t.hold ? holdTag(tr, t.hold) : null}
         </span>,
         // 2026-11-23-849e: the hold's words sit in the row now that no block under it carries them — the question, the
         // hand-back or the sentence (a series' merge says what it unblocks).
-        t.hold ? <span key="s">{holdAsk(t, tr)}</span> : null,
+        t.hold ? <span key="s">{holdAsk(tr, t)}</span> : null,
         specs(tr, t),
         cause(tr, t),
         // 2026-11-23-d60d: a pull request to merge, or one whose CI failed, keeps its review decision in sight.
@@ -49,13 +49,13 @@ function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
       ];
     case "working":
       // 2026-11-23-d60d: an ended attempt whose pull request waits says what it waits for, beside its pull requests.
-      if (!LIVE.has(t.status)) return [t.hold ? <span key="w">{holdSentence(t.hold, tr)}</span> : null, ...pullRequests(tr, t)];
+      if (!LIVE.has(t.status)) return [t.hold ? <span key="w">{holdSentence(tr, t.hold)}</span> : null, ...pullRequests(tr, t)];
       return [attempt, t.status === "running" ? null : queued(tr, t), specs(tr, t), cause(tr, t)];
     case "done":
       return pullRequests(tr, t);
     case "blocked":
       // 2026-11-23-849e: a ticket that starts once others merge says how many merges it waits for and which comes next.
-      if (t.hold?.case === "starts_on_merge") return [<span key="m">{holdSentence(t.hold, tr)}</span>];
+      if (t.hold?.case === "starts_on_merge") return [<span key="m">{holdSentence(tr, t.hold)}</span>];
       return [filedWords(tr, t.since)];
     case "filed":
       return [filedWords(tr, t.since)];
@@ -63,7 +63,7 @@ function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
       return [closedWords(tr, t)];
     case "stuck":
       // 2026-11-23-31dci: a wait reported to the admin failed nothing — the row says what it waits for and that the admin knows.
-      if (t.hold?.escalation) return [<span key="e" className="aq">{holdSentence(t.hold, tr)}</span>];
+      if (t.hold?.escalation) return [<span key="e" className="aq">{holdSentence(tr, t.hold)}</span>];
       return [<span key="f" className="ab">{tr("tickets.activity.attemptsFailed", { count: failed })}</span>, checked(tr, t), ...pullRequests(tr, t)];
     default:
       return [
@@ -110,9 +110,11 @@ function cause(tr: T, t: TicketSummary): ReactNode | null {
 function checked(tr: T, t: TicketSummary): string | null {
   const when = age(t.checkedAt, tr);
   if (t.unchangedSinceLastAttempt === true) {
-    return when ? tr("tickets.activity.unchangedChecked", { when }) : tr("tickets.activity.unchanged");
+    const checkedAgo = ago(tr, t.checkedAt);
+    return checkedAgo ? tr("tickets.activity.unchangedChecked", { when: checkedAgo }) : tr("tickets.activity.unchanged");
   }
-  return t.unchangedSinceLastAttempt == null && when ? tr("tickets.activity.notChecked", { when }) : null;
+  // A check under a minute old is no news: "not checked since now" says nothing.
+  return t.unchangedSinceLastAttempt == null && when && when !== "now" ? tr("tickets.activity.notChecked", { when }) : null;
 }
 
 function pullRequests(tr: T, t: TicketSummary): ReactNode[] {
@@ -124,13 +126,13 @@ const PR_STATE_KEYS: Record<string, TextKey> = {
 };
 
 function PullRequestWords({ tr, pr }: { tr: T; pr: TicketPullRequest }) {
-  const when = age(pr.lastActivityAt, tr);
+  const when = ago(tr, pr.lastActivityAt);
   const state = PR_STATE_KEYS[pr.state] ? tr(PR_STATE_KEYS[pr.state]) : pr.state;
   return (
     <>
       {tr("tickets.activity.pr", { number: pr.number, state })}
       <Decision tr={tr} pr={pr} />
-      {when ? ` · ${tr("tickets.start.ago", { when })}` : ""}
+      {when ? ` · ${when}` : ""}
     </>
   );
 }

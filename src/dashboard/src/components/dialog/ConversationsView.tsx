@@ -86,7 +86,7 @@ export function ConversationsView() {
             offers Work it out to every caller, so a caller without it must be told which
             permission is missing rather than shown a page that looks like an empty history. */}
         {refusal
-          ? <RefusalSurface refusal={refusal} surface="Conversations" />
+          ? <RefusalSurface refusal={refusal} surface={t("dialog.conversations.label")} />
           : <Listed rows={rows} total={total} failure={failure} onDelete={remove} />}
       </main>
       <ConfirmDialog {...confirmation.dialog} />

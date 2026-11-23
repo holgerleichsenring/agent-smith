@@ -123,7 +123,7 @@ function Actions() {
     try {
       setRestored(await restoreArchive(file));
     } catch (err) {
-      if (err instanceof ArchiveRefusedError) setRefused(err.message);
+      if (err instanceof ArchiveRefusedError) setRefused(err.message || t("system.archive.refusedNoCause"));
       else setFailure(err as Error);
     } finally {
       setBusy(null);

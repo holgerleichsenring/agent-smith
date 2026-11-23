@@ -31,8 +31,8 @@ vi.mock("../useYourMove", () => ({ useYourMove: () => current }));
 vi.mock("../useTicketTabGo", () => ({ useTicketTabGo: () => ({ go: () => {} }) }));
 let current: ReturnType<typeof read> | null = null;
 function read(events: RunEvent[]) {
-  const view = ticketState({ detail: workingDetail(), liveEvents: events, series: null })!;
-  return { view, move: yourMove(view, "working", null) };
+  const view = ticketState({ detail: workingDetail(), liveEvents: events, series: null, t: en })!;
+  return { view, move: yourMove(en, view, "working", null) };
 }
 
 describe("model wait", () => {
@@ -42,10 +42,10 @@ describe("model wait", () => {
   });
 
   it("TicketState_WaitingRun_CarriesTheWaitAndTheGateLine_NotTheStep", () => {
-    const view = ticketState({ detail: workingDetail(), liveEvents: [started, waiting], series: null })!;
+    const view = ticketState({ detail: workingDetail(), liveEvents: [started, waiting], series: null, t: en })!;
     expect(view.modelWait).toEqual({ since: SINCE, line: LINE });
     expect(view.detail).toBe(LINE);
-    const after = ticketState({ detail: workingDetail(), liveEvents: [started, waiting, callStarted], series: null })!;
+    const after = ticketState({ detail: workingDetail(), liveEvents: [started, waiting, callStarted], series: null, t: en })!;
     expect(after.modelWait).toBeNull();
     expect(after.detail).toBe("Now: Analyze codebase");
   });

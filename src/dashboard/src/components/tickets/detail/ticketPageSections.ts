@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { translator, type T, type TextKey } from "@/lib/i18n/translate";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type { TicketConversation, TicketDefaults, TicketDetail, TicketSeries } from "@/types/tickets";
 import { money, ticketCost } from "../ticketFormat";
 import { specsCounter, acceptanceTally } from "./specWords";
@@ -37,7 +37,7 @@ export interface TicketSection {
   id: TicketSectionId;
   /** 2026-11-23-5669b: a dictionary key; the page looks it up in the chosen language. */
   label: TextKey;
-  counter?: (detail: TicketDetail, reads: TicketSectionReads, t?: T) => TicketSectionCounter | null;
+  counter?: (detail: TicketDetail, reads: TicketSectionReads, t: T) => TicketSectionCounter | null;
   /** The section's pane; Now and Conversation are drawn by the page itself (each holds the composer). */
   Pane: ComponentType | null;
 }
@@ -50,7 +50,7 @@ export const ticketSections: TicketSection[] = [
   },
   {
     id: "specs", label: "tickets.pageSection.specs", Pane: TicketSpecsTab,
-    counter: (detail, { series }, t = translator("en")) => {
+    counter: (detail, { series }, t) => {
       const text = specsCounter(t, detail, series);
       return text ? { text } : null;
     },

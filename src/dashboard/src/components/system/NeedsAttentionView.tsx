@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { fetchAdminHolds } from "@/lib/holdsApi";
 import { refusalIn } from "@/lib/apiResponse";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
@@ -62,6 +62,7 @@ export function NeedsAttentionView() {
 
 function HoldRow({ item }: { item: AdminHoldItem }) {
   const t = useT();
+  const locale = useDateLocale();
   const { hold } = item;
   const id = `${item.project}-${item.ticketId}`;
   const settings = hold.escalation ? HOLDS_SETTINGS_PATH : hold.act?.kind === "settings" ? hold.act.target : null;
@@ -74,11 +75,11 @@ function HoldRow({ item }: { item: AdminHoldItem }) {
           </Link>
           <div className="ec-sub">
             {item.project}
-            {item.since && <> · {t("attention.since", { at: sinceClock(item.since) })}</>}
+            {item.since && <> · {t("attention.since", { at: sinceClock(item.since, locale) })}</>}
           </div>
         </div>
       </div>
-      <div className="hint-line" data-testid={`needs-attention-sentence-${id}`}>{holdSentence(hold, t)}</div>
+      <div className="hint-line" data-testid={`needs-attention-sentence-${id}`}>{holdSentence(t, hold)}</div>
       {hold.escalation && (
         <div className="ec-sub" data-testid={`needs-attention-limit-${id}`}>
           {t("attention.limit", { minutes: hold.escalation.afterMinutes, key: hold.escalation.key })}

@@ -3,7 +3,7 @@ import { useDateLocale, useT } from "@/hooks/useT";
 import type { T } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 import type { TicketCounts } from "@/types/tickets";
-import { age, money } from "./ticketFormat";
+import { compactAge, money } from "./ticketFormat";
 
 // 2026-10-13-9a59p: the ticket list's six tiles, every value from the server's counts — over every
 // ticket read, never only the page. 2026-11-23-d60d: no In review tile — the open pull requests are counted on their own.
@@ -17,7 +17,7 @@ interface Tile {
 }
 
 function tilesOf(t: T, locale: string, c: TicketCounts): Tile[] {
-  const oldest = age(c.oldestNeedsYouSince, t);
+  const oldest = compactAge(t, c.oldestNeedsYouSince);
   const done = c.doneThisMonth;
   return [
     { label: t("tickets.metric.needsYou"), value: c.needsYou, small: oldest ? t("tickets.metric.oldest", { age: oldest }) : null, hot: c.needsYou > 0, testId: "ticket-metric-needs-you" },

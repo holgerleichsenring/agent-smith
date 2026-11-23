@@ -1,5 +1,5 @@
 import { isRunLive } from "@/lib/runLiveness";
-import { translator, type T, type TextKey } from "@/lib/i18n/translate";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type {
   RunComputePark, RunPasses, TicketAttempt, TicketConversationEntry, TicketSeries, TicketSeriesSpec,
 } from "@/types/tickets";
@@ -21,8 +21,8 @@ export interface AttemptStoryInput {
   cutEntries: TicketConversationEntry[];
   /** The series read for this attempt: the default cut for the live one, ?runId= for a handed-back one. */
   cut: TicketSeries | null;
-  /** 2026-11-23-5669b: the language the story is told in; English when none is given. */
-  t?: T;
+  /** 2026-11-23-5669b: the language the story is told in. */
+  t: T;
 }
 
 export interface AttemptStory {
@@ -117,14 +117,14 @@ function failedSentence(attempt: TicketAttempt, passes: RunPasses | null, t: T):
   const own = passes?.specs.find((p) => p.specId === failing.specId)?.passes ?? [];
   const last = [...own].sort((l, r) => l.ordinal - r.ordinal).at(-1);
   const count = own.length > 0 ? t("tickets.story.afterPasses", { count: own.length }) : "";
-  const reason = last && last.endedBecause !== "unknown" ? t("tickets.story.lastPass", { why: passEndWords(last.endedBecause, t) }) : "";
+  const reason = last && last.endedBecause !== "unknown" ? t("tickets.story.lastPass", { why: passEndWords(t, last.endedBecause) }) : "";
   return { lead: t("tickets.story.failedColon"), rest: t("tickets.story.notDone", { ordinal: failing.ordinal, count, reason }) };
 }
 
 function ended(attempt: TicketAttempt, passes: RunPasses | null, cut: TicketSeries | null, t: T): AttemptStory["ended"] {
   if (attempt.handedBack) {
     const handback = cut?.handback?.runId === attempt.runId ? cut.handback : null;
-    return { lead: handback ? t("tickets.story.handedBackAs", { case: handbackCaseWords(handback.case, t) }) : t("tickets.story.handedBack"), rest: null };
+    return { lead: handback ? t("tickets.story.handedBackAs", { case: handbackCaseWords(t, handback.case) }) : t("tickets.story.handedBack"), rest: null };
   }
   if (isRunLive(attempt.status)) return null;
   switch (attempt.status) {
@@ -135,7 +135,7 @@ function ended(attempt: TicketAttempt, passes: RunPasses | null, cut: TicketSeri
   }
 }
 
-export function attemptStory({ attempt, passes, cutEntries, cut, t = translator("en") }: AttemptStoryInput): AttemptStory {
+export function attemptStory({ attempt, passes, cutEntries, cut, t }: AttemptStoryInput): AttemptStory {
   const live = isRunLive(attempt.status) && !attempt.handedBack;
   if (live) return { doing: doing(attempt, cut, t), did: null, ended: null };
   const did = [...cutLines(cutEntries, t), prLine(attempt, t), ...specLines(attempt, passes, t)].filter((l): l is string => !!l);
@@ -143,7 +143,7 @@ export function attemptStory({ attempt, passes, cutEntries, cut, t = translator(
 }
 
 /** Where a cause came from: "#813" for a pull request, "the ticket" for a comment or a status move. */
-export function causeWhere(attempt: TicketAttempt, t: T = translator("en")): string | null {
+export function causeWhere(t: T, attempt: TicketAttempt): string | null {
   const source = attempt.cause?.source;
   const pr = prNumber(source?.url);
   if (pr) return `#${pr}`;
@@ -152,7 +152,7 @@ export function causeWhere(attempt: TicketAttempt, t: T = translator("en")): str
 }
 
 /** The cause's label: its channel, and for a status move the status it moved into. */
-export function causeLabel(attempt: TicketAttempt, t: T = translator("en")): string | null {
+export function causeLabel(t: T, attempt: TicketAttempt): string | null {
   const cause = attempt.cause;
   if (!cause) return null;
   const into = cause.channel === "status_move" && cause.source?.detail ? t("tickets.story.into", { status: cause.source.detail }) : "";

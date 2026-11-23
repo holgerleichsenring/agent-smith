@@ -1,4 +1,4 @@
-import { translator, type T, type TextKey } from "@/lib/i18n/translate";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import { RUN_END_KINDS, type TicketAttempt, type TicketHold, type TicketServerBucket } from "@/types/tickets";
 import type { StateAct, TicketStateView } from "./ticketState";
 
@@ -50,26 +50,23 @@ const STUCK_TITLES: Record<string, TextKey> = {
 };
 
 export function yourMove(
-  view: TicketStateView, bucket: TicketServerBucket, endDetail?: EndDetail | null, t: T = translator("en"),
+  t: T, view: TicketStateView, bucket: TicketServerBucket, endDetail?: EndDetail | null,
 ): YourMove {
   const hold = view.hold ?? null;
   const move = hold && hold.addressee !== "nobody" ? heldMove(view, hold, endDetail ?? null, t) : moveOf(view, bucket, t);
   // 2026-11-23-31dch: a plan question's act opens the series' conversation; the others answer here.
   const question = hold?.case === "question" || hold?.case === "question_environment";
   // 2026-11-23-d60d: several open pull requests name no single one — the block's rows under the box are the way on.
-  const next = move.act ? actLabel(move.act, question, t)
+  const next = move.act ? actLabel(t, move.act, question)
     : hold?.act?.kind === "pull_request" ? t("hold.act.pull_requests") : t("hold.title.nobody");
   return { ...move, question, next };
 }
-
-/** The English next step of a state that asks nobody; the box words it with the lookup (hold.title.nobody). */
-export const NOTHING = "Nothing for you to do";
 
 /** The statuses of an attempt still at work — running, queued, or relaunching. */
 const LIVE = new Set(["running", "queued", "waiting_for_input"]);
 
 /** The words a move's act is drawn with — the box's button and a run's next step say the same. */
-export function actLabel(act: StateAct, question: boolean, t: T = translator("en")): string {
+export function actLabel(t: T, act: StateAct, question: boolean): string {
   switch (act.kind) {
     case "retry": return t("hold.act.retry");
     case "init": return t("hold.act.init");
@@ -100,8 +97,8 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
   // The hold's sentence stays the text, as on every surface; the setting's instruction goes under it.
   if (hold.addressee === "admin" && endDetail?.subject)
     return { ...base, tone: "bad", why: true, title: t("hold.title.stuckOn", { subject: endDetail.subject }),
-      detail: instruction(endDetail, t) ?? base.detail, detailFormat: undefined };
-  return { ...base, tone: "bad", why: true, title: stuckTitle(view.attempt, t) };
+      detail: instruction(t, endDetail) ?? base.detail, detailFormat: undefined };
+  return { ...base, tone: "bad", why: true, title: stuckTitle(t, view.attempt) };
 }
 
 function moveOf(view: TicketStateView, bucket: TicketServerBucket, t: T): Move {
@@ -129,13 +126,13 @@ function moveOf(view: TicketStateView, bucket: TicketServerBucket, t: T): Move {
 }
 
 /** 2026-11-17-6d9ea: exported for the run page's How it ended, which names a stop the way the ticket page does. */
-export function stuckTitle(head: TicketAttempt | null, t: T = translator("en")): string {
+export function stuckTitle(t: T, head: TicketAttempt | null): string {
   if (head?.endedOnInfrastructure) return t("tickets.move.stuck.infrastructure");
   const key = head?.endKind ? STUCK_TITLES[head.endKind] : undefined;
   return key ? t(key) : t("tickets.move.stopped");
 }
 
-export function instruction(detail: EndDetail, t: T = translator("en")): string | null {
+export function instruction(t: T, detail: EndDetail): string | null {
   if (!detail.control) return null;
   const to = detail.setTo ? t("tickets.move.setTo", { value: detail.setTo }) : "";
   const where = detail.settingsPath ? t("tickets.move.setUnder", { path: detail.settingsPath }) : "";

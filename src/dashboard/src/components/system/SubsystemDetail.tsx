@@ -5,6 +5,7 @@ import { EventDrawer, type DrawerEvent, type EventKind } from "@/components/exec
 import { describeSystemEvent, type SubsystemActivity } from "@/hooks/useSubsystemActivity";
 import { cn } from "@/lib/utils";
 import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // p0209b: the detail pane of the rail-driven System master/detail. Renders one
 // subsystem's stream in full — section rule + active/idle pill + freshness +
@@ -48,7 +49,7 @@ export function SubsystemDetail({
       )}
 
       {activity.events.length > 0 ? (
-        <EventDrawer events={toDrawerEvents(activity.events)} />
+        <EventDrawer events={toDrawerEvents(t, activity.events)} />
       ) : (
         <div data-testid="subsystem-detail-empty" className="empty">
           <div className="ei" aria-hidden>
@@ -61,9 +62,9 @@ export function SubsystemDetail({
   );
 }
 
-function toDrawerEvents(events: SystemEvent[]): DrawerEvent[] {
+function toDrawerEvents(t: T, events: SystemEvent[]): DrawerEvent[] {
   return events.map((e, idx) => {
-    const text = describeSystemEvent(e);
+    const text = describeSystemEvent(t, e);
     return {
       id: `${e.type}-${e.timestamp}-${idx}`,
       timestamp: shortTime(e.timestamp),

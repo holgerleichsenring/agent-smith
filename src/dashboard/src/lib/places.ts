@@ -1,5 +1,5 @@
-import { ENTITY_KINDS, ENTITY_LABEL } from "@/components/config/entities";
-import { SETTING_KEYS, SETTING_LABEL } from "@/components/config/settings";
+import { ENTITY_KINDS, ENTITY_LABEL, ENTITY_LABEL_KEY } from "@/components/config/entities";
+import { SETTING_KEYS, SETTING_LABEL, SETTING_LABEL_KEY } from "@/components/config/settings";
 import type { TextKey } from "@/lib/i18n/translate";
 
 // 2026-08-27-1ed6: the header says WHERE YOU ARE, and this is the one table it reads.
@@ -67,7 +67,8 @@ function settingsPlaces(): Record<string, string> {
   );
 }
 
-/** 2026-11-23-5669a: the dictionary key of each fixed place, so the search names it in the chosen language. */
+/** 2026-11-23-5669a: the dictionary key of each place, so the search names it in the chosen language. 2026-11-22-5485b:
+ *  the catalog and settings places too, from the keys the config rail and the studio render. */
 export const PLACE_KEYS: Readonly<Record<string, TextKey>> = {
   "/": "shell.place.home",
   "/runs": "shell.nav.runs",
@@ -80,6 +81,8 @@ export const PLACE_KEYS: Readonly<Record<string, TextKey>> = {
   "/delivery": "shell.nav.delivery",
   "/identity": "shell.place.identity",
   "/system": "shell.place.system",
+  "/system/tracker": "system.stream.trackerTitle",
+  "/system/webhooks": "system.stream.webhooksTitle",
   "/system/chat": "shell.place.chat",
   "/system/config": "shell.place.configReads",
   "/system/catalog": "shell.place.catalog",
@@ -88,6 +91,10 @@ export const PLACE_KEYS: Readonly<Record<string, TextKey>> = {
   "/config/changes": "shell.place.changes",
   "/config/installation": "shell.place.installation",
   "/config/connection-check": "shell.place.connectionCheck",
+  "/config": ENTITY_LABEL_KEY[ENTITY_KINDS[0]],
+  "/config/settings": SETTING_LABEL_KEY[SETTING_KEYS[0]],
+  ...Object.fromEntries(ENTITY_KINDS.map((kind) => [`/config/${kind}`, ENTITY_LABEL_KEY[kind]])),
+  ...Object.fromEntries(SETTING_KEYS.map((key) => [`/config/settings/${key}`, SETTING_LABEL_KEY[key]])),
 };
 
 /** Every path the header can name, and what it names it. */

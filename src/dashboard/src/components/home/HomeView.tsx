@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ticketHref } from "@/components/tickets/TicketRow";
 import { ticketDot } from "@/components/tickets/ticketDot";
-import { age, ticketLabel } from "@/components/tickets/ticketFormat";
+import { compactAge, ticketLabel } from "@/components/tickets/ticketFormat";
 import { ticketBucketHref, TICKETS_PATH } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
 import { holdAsk, holdRowAct, yourMoveCount } from "@/components/tickets/holds/holdWords";
@@ -69,7 +69,7 @@ export function NewWorkHead() {
 
 function MoveRow({ ticket }: { ticket: TicketSummary }) {
   const t = useT();
-  const act = holdRowAct(ticket.hold, t);
+  const act = holdRowAct(t, ticket.hold);
   return (
     <div className="home-row" data-testid={`home-move-${ticket.project}-${ticket.ticketId}`}>
       <span className={`home-dot ${ticketDot(ticket)}`} aria-hidden="true" />
@@ -78,9 +78,9 @@ function MoveRow({ ticket }: { ticket: TicketSummary }) {
           <span className="home-key">{ticketLabel(ticket)}</span>
           <span className="home-title">{ticket.title ?? ticket.ticketId}</span>
         </div>
-        <div className="home-ask">{holdAsk(ticket, t)}</div>
+        <div className="home-ask">{holdAsk(t, ticket)}</div>
       </div>
-      <span className="home-age">{age(ticket.since) ?? ""}</span>
+      <span className="home-age">{compactAge(t, ticket.since) ?? ""}</span>
       {/* 2026-11-23-d60d: a pull request a person merges or whose CI failed opens on its host. */}
       <Link className="home-act" href={holdPullRequestHref(ticket.hold) ?? ticketHref(ticket)} data-testid="home-move-act">{act}</Link>
     </div>
@@ -95,7 +95,7 @@ function RecentRow({ ticket }: { ticket: TicketSummary }) {
       <span className="home-key">{ticketLabel(ticket)}</span>
       <span className="home-title grow">{ticket.title ?? ticket.ticketId}</span>
       <span className="home-state">{stateWords(ticket, t)}</span>
-      <span className="home-age">{age(ticket.since) ?? ""}</span>
+      <span className="home-age">{compactAge(t, ticket.since) ?? ""}</span>
     </Link>
   );
 }

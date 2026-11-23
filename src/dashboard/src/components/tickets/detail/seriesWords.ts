@@ -60,7 +60,7 @@ export function chainOf(attempts: TicketAttempt[], chainFrom: number): ChainLink
     .map((a) => ({ number: a.number, auto: a.cause?.channel === "series" }));
 }
 
-export function hours(h: number, locale = "en-GB"): string {
+export function hours(h: number, locale: string): string {
   return `${Number.isInteger(h) ? h : h.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h`;
 }
 

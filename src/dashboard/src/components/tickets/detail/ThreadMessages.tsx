@@ -38,7 +38,7 @@ export function TicketTextMessage() {
   const [open, setOpen] = useState(false);
   if (!text || text.source === "unavailable" || !summary) return null;
   const line = { at: text.at, who: summary.platform ? platformWords(t, summary.platform) : t("tickets.thread.theTicket"), outcome: null,
-    text: ticketLead(text.description), meta: "", tone: "person" as const };
+    text: ticketLead(t, text.description), meta: "", tone: "person" as const };
   return (
     <StoryRow line={line} open={open} onToggle={() => setOpen(!open)} testId="thread-ticket" className="tk-ticket">
       <TicketTextSection />
@@ -59,9 +59,10 @@ interface ReportProps {
 }
 
 export function AttemptReport({ attempt, initiallyOpen, retry, questionRef, log = true }: ReportProps) {
+  const t = useT();
   const [open, setOpen] = useState(initiallyOpen || !!attempt.pendingQuestion);
   // 2026-11-22-7103a: the row is the run's status line — what happened, then the next step.
-  const line = runStoryLine(attempt, useAttemptStatus(attempt));
+  const line = runStoryLine(t, attempt, useAttemptStatus(attempt));
   return (
     <StoryRow line={line} open={open} onToggle={() => setOpen(!open)} testId={`thread-report-${attempt.number}`}
       className={reportStopped(attempt) ? "stopped" : undefined}>
@@ -101,7 +102,7 @@ export function AttemptBody({ attempt, retry, questionRef, log }: BodyProps) {
       {log && <RunInlineLog attempt={attempt} />}
       {retry && retriable(attempt) && <div className="cp-actions" data-testid={`thread-retry-${attempt.number}`}><RetryUnchanged attempt={attempt} project={project} /></div>}
       <Link className="tk-runline" href={runPath(attempt.runId)} data-testid={`thread-run-${attempt.number}`}>
-        {runLine(attempt)} · {t("tickets.thread.openRun")}
+        {runLine(t, attempt)} · {t("tickets.thread.openRun")}
       </Link>
     </>
   );
@@ -137,7 +138,7 @@ export function DerivationMessage({ derivation }: { derivation: TicketDerivation
   const t = useT();
   const [open, setOpen] = useState(false);
   return (
-    <StoryRow line={derivationStoryLine(derivation)} open={open} onToggle={() => setOpen(!open)}
+    <StoryRow line={derivationStoryLine(t, derivation)} open={open} onToggle={() => setOpen(!open)}
       testId={`spec-derivation-${derivation.runId}`} className={derivation.outcome === "not-finished" ? "stopped" : undefined}>
       <div className="tk-said" data-testid={`spec-derivation-outcome-${derivation.runId}`}>{t("tickets.thread.derivation", { words: derivationWords(t, derivation) })}</div>
       {derivation.summary && <div className="tk-said tk-dim">{derivation.summary}</div>}
@@ -156,7 +157,7 @@ export function RepeatLine({ items, testId, children }: { items: ThreadItem[]; t
   const t = useT();
   const status = last ? attemptStatus(t, last, ctx, queuePlace) : undefined;
   return (
-    <StoryRow line={foldStoryLine(items, status)} open={open} onToggle={() => setOpen(!open)} testId={testId} className="tk-fold">
+    <StoryRow line={foldStoryLine(t, items, status)} open={open} onToggle={() => setOpen(!open)} testId={testId} className="tk-fold">
       <div className="tk-fold-body">{children}</div>
     </StoryRow>
   );

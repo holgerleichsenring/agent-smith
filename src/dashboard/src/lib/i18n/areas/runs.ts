@@ -596,7 +596,7 @@ export const runsMessages = {
 
   // --- runs: the event filter rail ---
   "runs.filter.l1": { en: "L1 topology", de: "L1 Topologie" },
-  "runs.filter.l2": { en: "L2 decisions", de: "L2 Entscheidungen" },
+  "runs.filter.l2": { en: "L2 decisions", de: "L2-Entscheidungen" },
   "runs.filter.l3": { en: "L3 sandbox", de: "L3 Sandbox" },
   "runs.filter.agent": { en: "Agent", de: "Agent" },
   "runs.filter.sandbox": { en: "Sandbox", de: "Sandbox" },
@@ -799,7 +799,7 @@ export const runsMessages = {
   "runs.why.prompt.loading": { en: "Loading the prompt of call {index}…", de: "Prompt von Aufruf {index} wird geladen…" },
   "runs.why.prompt.sent": {
     en: "Call {index} was sent {blocks} blocks and offered {tools} tools.",
-    de: "Aufruf {index} wurden {blocks} Blöcke geschickt und {tools} Tools angeboten.",
+    de: "An Aufruf {index} wurden {blocks} Blöcke geschickt und {tools} Tools angeboten.",
   },
   "runs.why.prompt.retention": { en: " Its earliest blocks were removed by retention.", de: " Seine frühesten Blöcke hat die Aufbewahrung entfernt." },
   "runs.why.prompt.tools": { en: "tools", de: "Tools" },

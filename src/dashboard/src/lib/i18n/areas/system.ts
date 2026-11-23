@@ -171,6 +171,11 @@ export const systemMessages = {
     en: "The initialization could not be started.",
     de: "Die Initialisierung ließ sich nicht starten.",
   },
+  "system.init.alreadyRunning": { en: "An initialization is already running.", de: "Eine Initialisierung läuft bereits." },
+  "system.init.couldNotStartStatus": {
+    en: "Could not start the initialization (HTTP {status}).",
+    de: "Die Initialisierung ließ sich nicht starten (HTTP {status}).",
+  },
   "system.init.unreachable": { en: "The server could not be reached.", de: "Der Server war nicht erreichbar." },
   "system.init.initializing": { en: "Initializing…", de: "Wird initialisiert…" },
   "system.init.initialize": { en: "Initialize", de: "Initialisieren" },
@@ -321,6 +326,10 @@ export const systemMessages = {
   },
 
   // --- the data archive ---
+  "system.archive.refusedNoCause": {
+    en: "The server refused the restore and named no cause.",
+    de: "Der Server hat die Wiederherstellung abgelehnt und keinen Grund genannt.",
+  },
   "system.archive.title": { en: "Data archive", de: "Datenarchiv" },
   "system.archive.rows": { en: "{rows} rows", de: "{rows} Zeilen" },
   "system.archive.schema": { en: "schema {schema}", de: "Schema {schema}" },
@@ -427,4 +436,33 @@ export const systemMessages = {
   "system.webhooks.tag": { en: "webhook", de: "Webhook" },
   "system.webhooks.actioned": { en: "actioned", de: "verarbeitet" },
   "system.webhooks.skipped": { en: "skipped", de: "übersprungen" },
+
+  // --- the subsystem streams' freshness and event lines (2026-11-22-5485b) ---
+  "system.ago.now": { en: "now", de: "jetzt" },
+  "system.ago.seconds": { en: "{count}s ago", de: "vor {count} s" },
+  "system.ago.minutes": { en: "{count}m ago", de: "vor {count} min" },
+  "system.ago.hours": { en: "{count}h ago", de: "vor {count} h" },
+  "system.event.actioned": { en: "actioned", de: "verarbeitet" },
+  "system.event.skipped": { en: "skipped: {reason}", de: "übersprungen: {reason}" },
+  "system.event.pollStart": { en: "poll start · {tracker} · every {seconds}s", de: "Poll-Start · {tracker} · alle {seconds} s" },
+  "system.event.pollDone": {
+    en: "poll done · {tracker} · {polled} polled · {matched} matched · {spawned} spawned · {ms}ms",
+    de: "Poll fertig · {tracker} · {polled} abgefragt · {matched} passend · {spawned} gestartet · {ms} ms",
+  },
+  "system.event.scan": { en: "scan · {tracker}/#{ticket}{labels}", de: "Scan · {tracker}/#{ticket}{labels}" },
+  "system.event.skip": { en: "skip · {tracker}/#{ticket} · {detail}", de: "übersprungen · {tracker}/#{ticket} · {detail}" },
+  "system.event.trigger": {
+    en: "trigger · {tracker}/#{ticket} → {project} / {pipeline} ({outcome})",
+    de: "ausgelöst · {tracker}/#{ticket} → {project} / {pipeline} ({outcome})",
+  },
+  "system.event.configRead": { en: "read {path} ({bytes}B)", de: "{path} gelesen ({bytes} B)" },
+  "system.event.catalog": {
+    en: "catalog {version} · {loaded} loaded · {dropped} dropped · {ms}ms",
+    de: "Katalog {version} · {loaded} geladen · {dropped} verworfen · {ms} ms",
+  },
+  "system.event.vocabulary": { en: "vocabulary · {count} concepts · {ms}ms", de: "Vokabular · {count} Konzepte · {ms} ms" },
+  "system.event.configChange": { en: "config change {epoch} pending · by {actor}", de: "Config-Änderung {epoch} ausstehend · von {actor}" },
+  "system.event.configReload": { en: "config reload {epoch} applied · {count} trackers", de: "Config-Reload {epoch} übernommen · {count} Tracker" },
+  "system.event.landed": { en: "landed · {ticket} · {kind}", de: "gelandet · {ticket} · {kind}" },
+  "system.event.landedBy": { en: "landed · {ticket} · {kind} by {by}", de: "gelandet · {ticket} · {kind} von {by}" },
 } satisfies Record<string, MessageEntry>;

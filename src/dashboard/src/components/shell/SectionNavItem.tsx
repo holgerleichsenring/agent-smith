@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
 import { cn } from "@/lib/utils";
 
 // p0209a: one row of a navigation list. Prop-driven so it has no knowledge of
@@ -33,6 +34,7 @@ export interface SectionNavItemProps {
 }
 
 export function SectionNavItem(props: SectionNavItemProps) {
+  const t = useT();
   const fresh = props.freshness && props.freshness !== "—" ? props.freshness : null;
   return (
     <Link
@@ -56,7 +58,7 @@ export function SectionNavItem(props: SectionNavItemProps) {
                 ? "bg-[var(--ok)]"
                 : "bg-[var(--idle)]",
             )}
-            aria-label={props.hot ? "needs attention" : props.live ? "live" : "idle"}
+            aria-label={props.hot ? t("shell.nav.dot.attention") : props.live ? t("shell.nav.dot.live") : t("shell.nav.dot.idle")}
           />
         )}
       </span>

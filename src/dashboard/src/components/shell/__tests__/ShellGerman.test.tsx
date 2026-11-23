@@ -35,6 +35,13 @@ describe("the shell in German", () => {
     expect(placeForQuery("Overview", places)).toBe("/overview");
   });
 
+  // 2026-11-22-5485b: the config catalog and settings pages are named in German too.
+  it("PlaceForQuery_German_FindsConfigCatalogAndSettingsPages", () => {
+    const places = searchablePlaces(translator("de"));
+    expect(placeForQuery("Verbindungen", places)).toBe("/config/connections");
+    expect(placeForQuery("Warteschlange", places)).toBe("/config/settings/queue");
+  });
+
   it("WaitingSentence_German_CountsInGerman", () => {
     const de = translator("de");
     expect(waitingSentence(de, 0)).toBe("Nichts wartet auf dich.");

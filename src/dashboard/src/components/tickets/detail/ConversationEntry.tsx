@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type { T } from "@/lib/i18n/translate";
 import type { TicketConversationEntry } from "@/types/tickets";
 import { TrackerText } from "@/components/ui/TrackerText";
@@ -30,6 +30,7 @@ interface Props {
 
 export function ConversationEntry({ entry, attemptNumber, started, target = false }: Props) {
   const t = useT();
+  const locale = useDateLocale();
   const internal = entry.source === "spec-cut";
   const pill = decisionPill(t, entry);
   const startedNothing = entry.kind === "command-answer"
@@ -39,7 +40,7 @@ export function ConversationEntry({ entry, attemptNumber, started, target = fals
     <div className={["tk-line", "tk-entry", toneOf(entry), internal && "internal", target && "target"].filter(Boolean).join(" ")}
       data-entry-id={entry.id} data-testid="conv-entry" data-source={entry.source} data-target={target || undefined}>
       <div className="tk-line-head">
-        <span className="tk-at mono">{clock(entry.at)}</span>
+        <span className="tk-at mono">{clock(entry.at, locale)}</span>
         <span className="tk-dot" aria-hidden="true" />
         <span className="tk-who">{nameOf(t, entry)}</span>
         <div className="tk-text">

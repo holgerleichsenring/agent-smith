@@ -55,7 +55,9 @@ export function ProjectInitAction({ project }: { project: string }) {
       if (!launch.runId) {
         setState({
           kind: "refused",
-          reason: launch.reason ?? t("system.init.couldNotStart"),
+          reason: launch.reason
+            ?? (launch.outcome === "already-running" ? t("system.init.alreadyRunning") : null)
+            ?? (launch.status ? t("system.init.couldNotStartStatus", { status: launch.status }) : t("system.init.couldNotStart")),
         });
         void refresh();
         return;

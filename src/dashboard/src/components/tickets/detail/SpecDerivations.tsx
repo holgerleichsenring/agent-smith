@@ -49,7 +49,7 @@ export function outcomeWords(t: T, d: TicketDerivation): string {
 
 /** " · 4m 10s" — how long it took, or has taken so far while it derives. */
 function took(t: T, d: TicketDerivation): string {
-  const span = elapsed(d.startedAt, d.finishedAt, t);
+  const span = elapsed(t, d.startedAt, d.finishedAt);
   return span ? ` · ${d.finishedAt ? span : t("tickets.cost.soFar", { amount: span })}` : "";
 }
 

@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { HUB_URL } from "@/hooks/useJobsHub";
+import { useT } from "@/hooks/useT";
 import { getJobsHubClient } from "@/lib/JobsHubClient";
 import { fetchTicketDetail } from "@/lib/ticketsApi";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { RunSnapshot } from "@/types/hub-events";
 import { ticketState } from "@/components/tickets/detail/ticketState";
 import { yourMove, type YourMove } from "@/components/tickets/detail/yourMove";
+import type { T } from "@/lib/i18n/translate";
 import type { TicketAttempt, TicketDetail } from "@/types/tickets";
 
 // 2026-11-16-6877b: the ticket a run belongs to, for the breadcrumb: its key, its page, and which of its runs this is
@@ -46,13 +48,15 @@ interface Read {
   of: number | null;
   attempt: TicketAttempt | null;
   latest: TicketAttempt | null;
-  move: YourMove | null;
+  /** The ticket as read; its move is drawn at render, in the language in force. */
+  detail: TicketDetail;
 }
 
 export function useRunTicket(runId: string, snapshot: RunSnapshot | null): RunTicket | null {
   const project = snapshot?.project ?? null;
   const ticketId = snapshot?.ticketId ?? null;
   const status = snapshot?.status ?? null;
+  const t = useT();
   const [read, setRead] = useState<Read | null>(null);
   const [tick, setTick] = useState(0);
   const reread = useCallback(() => setTick((n) => n + 1), []);
@@ -66,7 +70,7 @@ export function useRunTicket(runId: string, snapshot: RunSnapshot | null): RunTi
         const latest = detail.attempts.reduce<TicketAttempt | null>((top, a) => (!top || a.number > top.number ? a : top), null);
         setRead({
           key, ticketKey: detail.summary.ticketKey ?? null, label: detail.summary.ticketKey ?? ticketId,
-          number: at?.number ?? null, of: at ? detail.attempts.length : null, attempt: at, latest, move: moveOf(detail),
+          number: at?.number ?? null, of: at ? detail.attempts.length : null, attempt: at, latest, detail,
         });
       })
       .catch(() => { /* the breadcrumb keeps the plain id */ });
@@ -80,14 +84,14 @@ export function useRunTicket(runId: string, snapshot: RunSnapshot | null): RunTi
   return {
     label: known?.label ?? ticketId, href: ticketPath(project, ticketId), project,
     number: known?.number ?? null, of: known?.of ?? null, attempt,
-    newest: attempt !== null && latest !== null && attempt.number === latest.number, latest, move: known?.move ?? null, reread,
+    newest: attempt !== null && latest !== null && attempt.number === latest.number, latest, move: known ? moveOf(t, known.detail) : null, reread,
   };
 }
 
 /** The ticket's move from its detail alone: a finished run's page has no live events or series to add. */
-function moveOf(detail: TicketDetail): YourMove | null {
-  const view = ticketState({ detail, liveEvents: [], series: null });
-  return view ? yourMove(view, detail.summary.bucket, view.attempt?.endDetail) : null;
+function moveOf(t: T, detail: TicketDetail): YourMove | null {
+  const view = ticketState({ detail, liveEvents: [], series: null, t });
+  return view ? yourMove(t, view, detail.summary.bucket, view.attempt?.endDetail) : null;
 }
 
 /** The ticket page's own re-read triggers (TicketPageStore): the ticket's nudge, a reconnect, the window's focus. */

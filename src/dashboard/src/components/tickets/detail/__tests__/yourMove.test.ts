@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { translator } from "@/lib/i18n/translate";
 import type { TicketHold, TicketServerBucket } from "@/types/tickets";
 import { ticketState } from "../ticketState";
 import { actLabel, yourMove } from "../yourMove";
@@ -16,8 +17,8 @@ const QUESTION = {
 function moveOf(bucket: TicketServerBucket, head = attempt(), over: Partial<ReturnType<typeof detail>["summary"]> = {}) {
   const d = detail([head]);
   d.summary = { ...d.summary, bucket, ...over };
-  const view = ticketState({ detail: d, liveEvents: [], series: null })!;
-  return yourMove(view, bucket, view.attempt?.endDetail);
+  const view = ticketState({ detail: d, liveEvents: [], series: null, t: translator("en") })!;
+  return yourMove(translator("en"), view, bucket, view.attempt?.endDetail);
 }
 
 const failedHold = (h: TicketHold) => ({ hold: h });
@@ -87,8 +88,8 @@ describe("yourMove", () => {
       setTo: "ghcr.example/tools", settingsPath: "/config/settings/sandbox" };
     const d = detail([attempt({ status: "failed", endKind: "preflight", endDetail })]);
     d.summary = { ...d.summary, bucket: "stuck", hold: hold("preflight", { act: { kind: "settings", target: "/config/settings/sandbox" }, detail: endDetail }) };
-    const view = ticketState({ detail: d, liveEvents: [], series: null })!;
-    const move = yourMove(view, "stuck", endDetail);
+    const view = ticketState({ detail: d, liveEvents: [], series: null, t: translator("en") })!;
+    const move = yourMove(translator("en"), view, "stuck", endDetail);
     expect(move.title).toBe("Stuck: registry ghcr.example/tools is not trusted");
     expect(move.text).toBe(view.sentence);
     expect(move.detail).toBe("Set Trusted image registries to ghcr.example/tools under /config/settings/sandbox. It restarts by itself once you save.");
@@ -139,12 +140,12 @@ describe("yourMove", () => {
   });
 
   it("ActLabel_EachActKind_MatchesTheYourMoveButtonText", () => {
-    expect(actLabel({ kind: "retry", attempt: attempt() }, false)).toBe("Retry unchanged");
-    expect(actLabel({ kind: "init", project: "shop" }, false)).toBe("Initialize the project");
-    expect(actLabel({ kind: "merge", seriesId: "sr-1", ticketId: "101" }, false)).toBe("Merge");
-    expect(actLabel({ kind: "link", label: "Open the setting", href: "/x" }, false)).toBe("Open the setting");
-    expect(actLabel({ kind: "tab", label: "Continue in conversation", tab: "conversation" }, true)).toBe("Answer the question");
-    expect(actLabel({ kind: "tab", label: "Continue in conversation", tab: "conversation" }, false)).toBe("Reply below");
+    expect(actLabel(translator("en"), { kind: "retry", attempt: attempt() }, false)).toBe("Retry unchanged");
+    expect(actLabel(translator("en"), { kind: "init", project: "shop" }, false)).toBe("Initialize the project");
+    expect(actLabel(translator("en"), { kind: "merge", seriesId: "sr-1", ticketId: "101" }, false)).toBe("Merge");
+    expect(actLabel(translator("en"), { kind: "link", label: "Open the setting", href: "/x" }, false)).toBe("Open the setting");
+    expect(actLabel(translator("en"), { kind: "tab", label: "Continue in conversation", tab: "conversation" }, true)).toBe("Answer the question");
+    expect(actLabel(translator("en"), { kind: "tab", label: "Continue in conversation", tab: "conversation" }, false)).toBe("Reply below");
   });
 
   // 2026-11-23-31dci: a wait reported to the admin is no stop — amber, titled so, with the hold's sentence.

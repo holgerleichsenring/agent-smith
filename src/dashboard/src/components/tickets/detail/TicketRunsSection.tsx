@@ -27,8 +27,8 @@ export function TicketRunsSection() {
   const { ctx, queuePlace } = useStatusContext();
   const t = useT();
   const locale = useDateLocale();
-  const lines = runListLines(detail.data?.attempts ?? [], detail.data?.derivations ?? [], detail.data?.otherRuns ?? [], ctx, queuePlace,
-    t, locale);
+  const lines = runListLines(t, locale, detail.data?.attempts ?? [], detail.data?.derivations ?? [], detail.data?.otherRuns ?? [], ctx,
+    queuePlace);
   if (lines.length === 0) return <div className="msub">{t("tickets.runs.none")}</div>;
   return (
     <div className="tk-runs" data-testid="runs-list">
@@ -72,9 +72,9 @@ function ChangeEvent({ attempt, project, ticketId }: { attempt: TicketAttempt; p
   const address = useTicketTabGo();
   const t = useT();
   const locale = useDateLocale();
-  const label = causeLabel(attempt, t);
+  const label = causeLabel(t, attempt);
   if (!label) return null;
-  const who = [attempt.cause?.actor, causeWhere(attempt, t)].filter(Boolean).join(t("tickets.runs.on"));
+  const who = [attempt.cause?.actor, causeWhere(t, attempt)].filter(Boolean).join(t("tickets.runs.on"));
   const anchored = !!attempt.cause?.source?.id;
   const extra = { [CAUSE_PARAM]: anchored ? attempt.runId : null };
   const query = addressQuery("", "conversation", extra);

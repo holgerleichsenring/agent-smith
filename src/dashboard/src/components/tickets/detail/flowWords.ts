@@ -1,4 +1,4 @@
-import { translator, type T, type TextKey } from "@/lib/i18n/translate";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type { TicketConversationEntry } from "@/types/tickets";
 
 // 2026-10-13-9a59q: the words the ticket graph and its node detail are written in, from recorded
@@ -34,7 +34,7 @@ const PASS_WORDS: Record<string, TextKey> = {
   "structure-correction": "tickets.flow.pass.structureCorrection",
 };
 
-export function passEndWords(reason: string, t: T = translator("en")): string {
+export function passEndWords(t: T, reason: string): string {
   return PASS_WORDS[reason] ? t(PASS_WORDS[reason]) : reason;
 }
 
@@ -50,7 +50,7 @@ const CASE_WORDS: Record<string, TextKey> = {
   ReviewObjection: "tickets.flow.case.reviewObjection", // 2026-10-13-8762l
 };
 
-export function handbackCaseWords(handbackCase: string, t: T = translator("en")): string {
+export function handbackCaseWords(t: T, handbackCase: string): string {
   return CASE_WORDS[handbackCase] ? t(CASE_WORDS[handbackCase]) : handbackCase;
 }
 
@@ -72,7 +72,7 @@ export function refusedReviews(entries: TicketConversationEntry[]): number {
 
 /** "Sep 4 14:26" — a calendar day and a 24-hour clock. 2026-11-23-5669b: in `locale` (useDateLocale) when it is not
  *  English — "4. Sept. 14:26"; English keeps "Sep 4". */
-export function clock(iso: string | null | undefined, locale?: string): string | null {
+export function clock(iso: string | null | undefined, locale: string): string | null {
   if (!iso) return null;
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return null;
@@ -83,7 +83,7 @@ export function clock(iso: string | null | undefined, locale?: string): string |
 }
 
 /** "6m 12s", "5h 17m" — wall time between two instants, or until now while it runs. */
-export function elapsed(fromIso: string, toIso: string | null, t: T = translator("en")): string {
+export function elapsed(t: T, fromIso: string, toIso: string | null): string {
   const ms = Math.max(0, (toIso ? Date.parse(toIso) : Date.now()) - Date.parse(fromIso));
   if (Number.isNaN(ms)) return "";
   const seconds = Math.round(ms / 1000);
@@ -104,6 +104,6 @@ const STATUS_WORDS: Record<string, TextKey> = {
   cancelled: "tickets.flow.status.cancelled",
 };
 
-export function statusWords(status: string, t: T = translator("en")): string {
+export function statusWords(t: T, status: string): string {
   return STATUS_WORDS[status] ? t(STATUS_WORDS[status]) : status;
 }

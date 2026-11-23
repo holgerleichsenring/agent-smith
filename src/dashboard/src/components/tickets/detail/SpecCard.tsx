@@ -25,8 +25,8 @@ export function SpecCard({ spec, attempt }: { spec: TicketSeriesSpec; attempt: T
   const [open, setOpen] = useState(false);
   const address = useTicketTabGo();
   const defaults = (useTicketDefaults().data?.entries ?? []).filter((d) => d.specId === spec.specId && d.runId === runId);
-  const tally = criteriaTally(spec);
-  const delivery = specDelivery(attempt.executedSpecs.find((s) => s.specId === spec.specId), attempt);
+  const tally = criteriaTally(t, spec);
+  const delivery = specDelivery(t, attempt.executedSpecs.find((s) => s.specId === spec.specId), attempt);
   const bodyId = `spec-card-${runId}-${spec.specId}`;
   return (
     <div className="tk-spec" data-testid={`spec-card-${spec.specId}`}>
