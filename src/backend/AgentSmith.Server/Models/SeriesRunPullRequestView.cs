@@ -5,4 +5,8 @@ namespace AgentSmith.Server.Models;
 /// with its log link.</summary>
 /// <param name="Target">The branch it targets when known; the records hold it only once merged.</param>
 public sealed record SeriesRunPullRequestView(
-    string Repo, string Number, string Url, string State, string? Ci, string? CiFailure, string? CiLog, string? Target);
+    string Repo, string Number, string Url, string State, string? Ci, string? CiFailure, string? CiLog, string? Target)
+{
+    /// <summary>2026-11-23-8d16: the newest read saw it still a draft; a person's merge takes it out of draft first.</summary>
+    public bool IsDraft { get; init; }
+}

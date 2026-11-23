@@ -35,6 +35,7 @@ public sealed class SeriesRunPullRequests
         var ci = record.Ci is { } read && read.IsOn(record.HeadSha) ? read : null;
         var failed = ci?.State == CiStates.Red ? ci.Failures.FirstOrDefault() : null;
         return new SeriesRunPullRequestView(record.Repo, record.Number, record.Url, record.State, ci?.State,
-            failed is null ? null : $"{failed.Name}: {failed.Excerpt.Split('\n', 2)[0].Trim()}", failed?.Url, record.TargetBranch);
+            failed is null ? null : $"{failed.Name}: {failed.Excerpt.Split('\n', 2)[0].Trim()}", failed?.Url, record.TargetBranch)
+            { IsDraft = record.IsDraft }; // 2026-11-23-8d16
     }
 }

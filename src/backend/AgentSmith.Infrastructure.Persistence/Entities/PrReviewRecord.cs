@@ -65,4 +65,7 @@ public sealed class PrReviewRecord : EntityBase, IProjectOwned
     /// <summary>2026-11-22-6d85b: the branch a merged pull request merged into, read once after the merge; null before
     /// one was read (an open record, an older row, a host that did not say).</summary>
     public string? TargetBranch { get; set; }
+
+    /// <summary>2026-11-23-8d16: the newest successful read saw the pull request still a draft.</summary>
+    public bool IsDraft { get; set; }
 }

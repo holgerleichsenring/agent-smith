@@ -10,6 +10,7 @@ import "@/styles/series.css";
 import { SERIES_SECTION_PARAM, seriesSectionOf, seriesSections } from "./seriesPageSections";
 import { SeriesSectionBar } from "./SeriesSectionBar";
 import { SeriesYourStep } from "./SeriesYourStep";
+import { useSeriesMerge } from "./useSeriesMerge";
 import { useSeriesRunDetail } from "./useSeriesRunDetail";
 
 // 2026-11-23-31dcd: one series, built like the ticket page — its bar beside the icon-only sidebar and ONE section
@@ -40,6 +41,7 @@ function SeriesSections({ detail, reload }: { detail: SeriesRunDetail; reload: (
   const router = useRouter();
   const pathname = usePathname() ?? SERIES_PATH;
   const section = seriesSectionOf(params?.get(SERIES_SECTION_PARAM) ?? null);
+  const merge = useSeriesMerge(detail.id, reload); // 2026-11-23-8d16: one merge act for Your next step and Merge next
   const select = (next: string) => {
     const query = new URLSearchParams(params?.toString() ?? "");
     if (next === seriesSections[0].id) query.delete(SERIES_SECTION_PARAM);
@@ -51,10 +53,10 @@ function SeriesSections({ detail, reload }: { detail: SeriesRunDetail; reload: (
     <div className="mock-shell mock-tickets tk-shell" data-testid="series-page">
       <SeriesSectionBar detail={detail} current={section} onSelect={select} />
       <main className="main tk-page" data-section={section.id}>
-        <SeriesYourStep detail={detail} />
+        <SeriesYourStep detail={detail} reload={reload} merge={merge} />
         <div className="tk-heading"><h1 data-testid="series-section-title">{t(section.label)}</h1></div>
         <section className="tk-pane" data-testid={`series-pane-${section.id}`}>
-          <section.Pane detail={detail} reload={reload} />
+          <section.Pane detail={detail} reload={reload} merge={merge} />
         </section>
       </main>
     </div>

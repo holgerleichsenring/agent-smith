@@ -30,8 +30,22 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
         var tickets = record.Tickets.Select((t, index) => (View: View(t, ordered[index], depths, facts, prs[t.TicketId])
                 with { Hold = holds?.GetValueOrDefault(t.TicketId) }, index))
             .OrderBy(x => x.View.Depth).ThenBy(x => x.index).Select(x => x.View).ToList();
-        var merges = order.MergeOrder(ordered, facts.Landed);
+        var merges = Needed(order.MergeOrder(ordered, facts.Landed), tickets, holds);
         return new SeriesRunTicketsShape(tickets, Counts(tickets, facts), merges) { NextMerge = NextMerge(merges, holds) };
+    }
+
+    /// <summary>2026-11-23-8d16: each step with the keys of the series' tickets that start only once it merged — read from
+    /// their starts_on_merge holds by the rule the hold's merge count reads, so the page marks what the hold counts.</summary>
+    internal static IReadOnlyList<SeriesRunMergeStep> Needed(IReadOnlyList<SeriesRunMergeStep> merges,
+        IReadOnlyList<SeriesRunTicketView> tickets, IReadOnlyDictionary<string, AgentSmith.Application.Services.Holds.TicketHold>? holds)
+    {
+        if (holds is null) return merges;
+        var by = merges.ToDictionary(s => s.TicketId, _ => new List<string>(), StringComparer.Ordinal);
+        foreach (var ticket in tickets)
+            if (holds.GetValueOrDefault(ticket.TicketId) is { Case: AgentSmith.Application.Services.Holds.TicketHoldCases.StartsOnMerge } hold)
+                foreach (var step in AgentSmith.Application.Services.Holds.TicketSeriesMergeHold.Needed(merges, hold.Names))
+                    by[step.TicketId].Add(ticket.Key);
+        return [.. merges.Select(s => by[s.TicketId].Count == 0 ? s : s with { NeededBy = by[s.TicketId] })];
     }
 
     /// <summary>2026-11-23-849e: the ready step's key while it is the person's merge — the one rule the series page, its

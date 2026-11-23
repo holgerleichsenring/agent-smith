@@ -42,4 +42,7 @@ public sealed record PrReviewRecordView(
 
     /// <summary>2026-11-22-6d85b: the branch a merged pull request merged into; null when it was not read.</summary>
     public string? TargetBranch { get; init; }
+
+    /// <summary>2026-11-23-8d16: the newest successful read saw it still a draft.</summary>
+    public bool IsDraft { get; init; }
 }
