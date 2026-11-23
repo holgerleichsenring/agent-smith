@@ -104,3 +104,19 @@
 .mock-tickets .sr-you-title { font-weight: 650; }
 .mock-tickets .sr-you-line { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .mock-tickets .sr-you-merges { color: var(--ink-2); }
+
+/* 2026-11-23-8d16: the acts beside a merge are buttons — the pane's rule (ticket-thread.css) draws every .btn as underlined
+   text, so the merge rows and the next-step block draw theirs again: the merge now in the accent, the rest outlined, a
+   disabled one visibly greyed. A merge others start on carries the person colour on its left edge. */
+.mock-tickets .sr-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
+.mock-tickets .tk-pane .sr-acts .btn, .mock-tickets .sr-you .sr-acts .btn {
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px; border-radius: 9px;
+  font-size: 12.5px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.mock-tickets .tk-pane .sr-acts .btn.primary, .mock-tickets .sr-you .sr-acts .btn.primary {
+  background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.mock-tickets .tk-pane .sr-acts .btn:disabled, .mock-tickets .sr-you .sr-acts .btn:disabled {
+  background: var(--panel-2); border-color: var(--line-2); color: var(--ink-3); opacity: 0.6; cursor: not-allowed; }
+.mock-tickets .sr-queue > li.needed { box-shadow: inset 3px 0 0 var(--person); }
+.mock-tickets .sr-queue-need { font-size: 12px; color: var(--person); font-weight: 600; }
+.mock-tickets .sr-you-said { flex-basis: 100%; }
+@media (max-width: 640px) { .mock-tickets .sr-queue > li .sr-acts { grid-column: 2; justify-content: flex-start; } }

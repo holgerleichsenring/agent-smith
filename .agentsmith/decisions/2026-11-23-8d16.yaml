@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-8d16
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "Your next step's Merge runs the same merge as the Merge next row (one useSeriesMerge act per page), enabled exactly when the row's is, showing the same outcome or refusal and reading the series again"
+    over: "A link to ?section=next"
+    reason: "Operator, 2026-11-23: clicking the link on Merge next did nothing visible."
+  - category: Scope
+    decider: operator
+    chose: "The merge rows' and the next-step block's acts are drawn as buttons in series.css (.sr-acts): the merge now in the accent, the rest outlined, a disabled one greyed"
+    over: "Changing ticket-thread.css's pane rule that draws every .btn as underlined text"
+    reason: "Operator, 2026-11-23: the buttons read as text links; the ticket page keeps its plain panes."
+  - category: Scope
+    decider: operator
+    chose: "Every row and the next-step merge line carry an 'Open pull request #N' button per open pull request, always enabled, in a new tab"
+    over: "Only the PR number link inside the row"
+    reason: "Operator, 2026-11-23: the person reviews ahead of the merge order."
+  - category: Scope
+    decider: operator
+    chose: "The series detail's merge steps carry neededBy — the tickets that start only once the step merged — from their starts_on_merge holds through TicketSeriesMergeHold.Needed, the rule the hold's merge count now reads; the rows show a person-coloured marker and 'Needed so #… can start', Your next step counts the marked merges"
+    over: "Deriving the chain in the browser; the vague 'merges are needed before … can start'"
+    reason: "Operator, 2026-11-23. One rule on the server keeps the page and the hold from disagreeing. The line counts the marked steps; a needed merge with no pull request open yet is in no order and is counted by the hold only."
+  - category: Scope
+    decider: operator
+    chose: "The host's draft flag is read with the PR state (Azure IsDraft, GitHub isDraft, GitLab draft) into PrReviewRecord.IsDraft; the row says Draft; a person's merge takes a pull request the host reads as a draft out of draft before approving and completing; the CI merge never does"
+    over: "Leaving a draft for the person to undraft on the host"
+    reason: "Operator, 2026-11-23: Azure DevOps cannot complete a draft. A draft the run left is the run's word that it is not ready, so only the person's click lifts it in the merge."
+  - category: Scope
+    decider: claude
+    chose: "The PR record refresh only records the draft flag; taking a green run's leftover draft out of draft automatically is left out and named as the operator's open choice"
+    over: "Marking it ready from the refresh, once per green run (built first, with a DraftReadyRunId column)"
+    reason: "The refresh runs in the server, and ServerWritesRatchetTests with CLAUDE.md 'everything is a pipeline' forbid a new server file that writes to a repository; adding it to the baseline would grow the debt. A pipeline step for it is a new path the operator decides. Meanwhile a person's Merge lifts the draft inside the merge-green run, which covers PR 9935."
+  - category: Implementation
+    decider: claude
+    chose: "The draft step reads the host's state first and marks only a draft (asking anyway when the state cannot be read); a host that keeps the draft refuses the merge with that reason"
+    over: "Marking every pull request on every person's merge"
+    reason: "Review finding: the Azure and GitLab updaters write unconditionally, so a failed write refused merges of pull requests that were never drafts."
+  - category: Scope
+    decider: operator
+    chose: "The series bar's question reads the holds: a question relayed from a ticket waits only while that ticket's hold is a question (question, plan or environment case); the master's own question and a read without holds keep the record"
+    over: "The record's unanswered question, cleared only at the next master beat"
+    reason: "Operator, 2026-11-23: the bar said '1 question for you' after it was answered. Review findings: a project with no held ticket reads as no holds, and a park relayed for its plan answerer holds as an environment question."
+  - category: Scope
+    decider: operator
+    chose: "A merge hold's tag reads 'merge' / 'Merge'"
+    over: "'needs merges' / 'braucht Merges'"
+    reason: "Operator, 2026-11-23: the mergeable row in Your move is the merge itself."

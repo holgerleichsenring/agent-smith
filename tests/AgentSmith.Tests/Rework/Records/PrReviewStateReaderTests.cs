@@ -13,9 +13,9 @@ public sealed class PrReviewStateReaderTests
 {
     private const string GitLabMr = "https://gitlab.example/o/r/-/merge_requests/3";
 
-    private static string GitHubReply(string state, string reviews) => $$"""
+    private static string GitHubReply(string state, string reviews, bool draft = false) => $$"""
         { "data": { "viewer": { "login": "agent" }, "repository": { "pullRequest": {
-          "number": 4, "state": "{{state}}", "createdAt": "2026-10-01T08:00:00Z", "mergedAt": {{(state == "MERGED" ? "\"2026-10-09T08:00:00Z\"" : "null")}}, "closedAt": null,
+          "number": 4, "state": "{{state}}", "isDraft": {{(draft ? "true" : "false")}}, "createdAt": "2026-10-01T08:00:00Z", "mergedAt": {{(state == "MERGED" ? "\"2026-10-09T08:00:00Z\"" : "null")}}, "closedAt": null,
           "author": { "login": "agent" },
           "latestReviews": { "nodes": [ {{reviews}} ] } } } } }
         """;
@@ -26,12 +26,12 @@ public sealed class PrReviewStateReaderTests
     private static Task<PrReviewState> ReadGitHub(string reply) =>
         new GitHubPrReviewStateReader(GitHubReplying(reply), GitHubRepoAddress.Parse("https://github.com/o/r")).ReadAsync("https://github.com/o/r/pull/4", CancellationToken.None);
 
-    private static Task<PrReviewState> ReadGitLab(string notes) =>
+    private static Task<PrReviewState> ReadGitLab(string notes, bool draft = false) =>
         new GitLabMrStateReader("https://gitlab.example", "o%2Fr", "t", "https://gitlab.example/o/r", GitLabAnswering(path =>
                 path.EndsWith("/api/v4/user") ? """{ "id": 1 }"""
                 : path.Contains("/users/") ? """{ "bot": false }"""
                 : path.EndsWith("/notes") ? notes
-                : """{ "iid": 3, "state": "opened", "created_at": "2026-10-01T08:00:00Z", "author": { "id": 2 } }"""), NullLogger.Instance)
+                : $$"""{ "iid": 3, "state": "opened", "draft": {{(draft ? "true" : "false")}}, "created_at": "2026-10-01T08:00:00Z", "author": { "id": 2 } }"""), NullLogger.Instance)
             .ReadAsync(GitLabMr, CancellationToken.None);
 
     private static string Note(long id, long author, string body, string at) =>
@@ -110,5 +110,20 @@ public sealed class PrReviewStateReaderTests
         dismissed.Decisions.Should().BeEmpty("GitHub: a dismissed review is no decision");
         reset.Decisions.Should().BeEmpty("Azure DevOps: a vote reset to 0 decides nothing");
         unapproved.Decisions.Should().BeEmpty("GitLab: the newest note withdrew the approval");
+    }
+
+    // 2026-11-23-8d16
+    [Fact]
+    public async Task PrReviewState_EachHost_ReadsTheDraftFlag()
+    {
+        var azure = AzurePr(PullRequestStatus.Active);
+        azure.IsDraft = true;
+
+        (await ReadGitHub(GitHubReply("OPEN", string.Empty, draft: true))).IsDraft.Should().BeTrue();
+        (await ReadGitHub(GitHubReply("OPEN", string.Empty))).IsDraft.Should().BeFalse();
+        (await ReadGitLab("[]", draft: true)).IsDraft.Should().BeTrue();
+        (await ReadGitLab("[]")).IsDraft.Should().BeFalse();
+        AzureReposVoteDecisions.Read(azure, [], "self", "u").IsDraft.Should().BeTrue();
+        AzureReposVoteDecisions.Read(AzurePr(PullRequestStatus.Active), [], "self", "u").IsDraft.Should().BeFalse();
     }
 }

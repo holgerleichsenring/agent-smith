@@ -22,10 +22,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// branch is refused (<see cref="PullRequestBaseGuard"/>) and, like an unlanded requirement, keeps the attempt's pull request
 /// awaiting CI; every repo answers a <see cref="PullRequestMergeLine"/>. A merge a person asked for (<paramref name="asked"/>)
 /// marks a refusal on its own run only, so a click never ends the attempt's wait for the CI merge.</para>
+/// <para>2026-11-23-8d16: a merge a person asked for takes each pull request out of draft before approving it
+/// (<see cref="PullRequestDraftStep"/>); the CI merge never does — a draft is the run's word that it is not ready.</para>
 /// </summary>
 public sealed class PullRequestMergeSequence(
     PullRequestCompleter completer, PullRequestApprovalStep approvals, PullRequestBaseGuard bases,
-    ILogger<PullRequestMergeSequence> logger, UnmetTicketRequirements? requirements = null)
+    ILogger<PullRequestMergeSequence> logger, UnmetTicketRequirements? requirements = null, PullRequestDraftStep? drafts = null)
 {
     public async Task<IReadOnlyList<PullRequestMergeLine>> RunAsync(CompletePullRequestsContext context,
         IReadOnlyList<OpenedPullRequest> entries, BranchName branch, string? attemptRunId, CancellationToken ct, bool asked = false)
@@ -37,18 +39,20 @@ public sealed class PullRequestMergeSequence(
         foreach (var entry in entries)
             lines.Add(lines.Any(l => l.Outcome == PullRequestCompletionOutcome.Refused)
                 ? Refused(entry, "not attempted, an earlier repository was not merged")
-                : await OneAsync(context, entry, branch, attemptRunId, mark, ct));
+                : await OneAsync(context, entry, branch, attemptRunId, mark, asked, ct));
         return lines;
     }
 
     private async Task<PullRequestMergeLine> OneAsync(CompletePullRequestsContext context, OpenedPullRequest entry,
-        BranchName branch, string? attemptRunId, string? mark, CancellationToken ct)
+        BranchName branch, string? attemptRunId, string? mark, bool asked, CancellationToken ct)
     {
         if (context.Configs.FirstOrDefault(r => r.Name == entry.RepoName) is not { } repo)
             return Refused(entry, "not merged, the repository is not in this run");
         if (RungRefusal(context.Pipeline, repo.Name) is { } rung) return await RefuseAsync(context, entry, mark, rung, ct);
         if (attemptRunId is not null && await bases.RefusalAsync(repo, entry.Url!, ct) is { } offMain)
             return await HoldAsync(context, entry, mark, offMain, ct);
+        if (asked && drafts is not null && await drafts.RefusalAsync(repo, entry.Url!, ct) is { } draft)
+            return await RefuseAsync(context, entry, mark, draft, ct);
         if (attemptRunId is not null
             && await approvals.ApproveAsync(repo, entry.Url!, context.Policy, ct) is { Outcome: PullRequestApprovalOutcome.Refused } no)
             return await RefuseAsync(context, entry, mark, no.Reason!, ct);
