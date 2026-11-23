@@ -33,7 +33,8 @@ public sealed class StoreMigrateRunTests : IDisposable
         (await RunAsync(config, third)).Should().Be(0);
 
         (await RecordedAsync(store)).Should().BeEquivalentTo(
-            "2026-10-12-967ab-spec-names", "2026-11-22-a720a-kept-set-carry", "2026-08-25-1806-role-mapping-import",
+            "2026-10-12-967ab-spec-names", "2026-11-22-a720a-kept-set-carry", "2026-11-23-af60-deploy-delivered-at",
+            "2026-08-25-1806-role-mapping-import",
             "2026-09-25-e5b1-preset-aliases", "2026-10-29-6bd3a-trigger-blocks");
         third.Entries.Should().NotContain(e => e.Message.StartsWith("Data migration", StringComparison.Ordinal),
             "every data migration was recorded by the second migrate, so the third looks at none");

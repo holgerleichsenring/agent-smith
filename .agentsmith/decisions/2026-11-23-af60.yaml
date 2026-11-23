@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-af60
+
+decisions:
+  - category: Implementation
+    chose: "Restore DeliveredAtTicks = e.Timestamp.UtcTicks as code and put the 3863h marker on its own line above PromotesTo"
+    over: "Keeping the trailing marker comment at the end of the PromotesTo line"
+    reason: "A trailing comment on an initializer line is what swallowed the assignment; a marker on its own line cannot hide code."
+  - category: Implementation
+    chose: "Fill stored rows holding DeliveredAtTicks 0 once, with a data migration (DeployDeliveredAtBackfill) run by database migrate, from the run's first DeployDelivered event on the trail"
+    over: "Leaving old rows as they are; a repair at server start"
+    reason: "Unsettled rows still matter: an open pull request would settle as timed out on the first read after its merge, and every pending read runs at the slow cadence. Startup changes nothing, so the repair is a recorded data migration, like KeptSetCarryBackfill."
+  - category: Scope
+    chose: "A row whose DeployDelivered event is gone keeps 0; settled rows are not reopened"
+    over: "Falling back to the run's start time; reopening wrongly settled deploys so they are followed and promoted"
+    reason: "No heuristic for missing data. Reopening days later would promote an old version into the next environment on its own; an operator redeploys instead."
+  - category: Implementation
+    chose: "The regression tests project a real event into a migrated store and judge the stored record with DeployFollowVerdict"
+    over: "Only a DeployFollowVerdict test over a hand-built record"
+    reason: "The existing verdict tests set DeliveredAtTicks by hand, which is why the bug passed them."
