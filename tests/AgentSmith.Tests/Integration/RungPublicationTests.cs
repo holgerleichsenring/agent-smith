@@ -154,7 +154,7 @@ public sealed class RungPublicationTests
         PullRequestTargets.For(pipeline, "server")!.Value.Should().Be(Rung);
     }
 
-    private static SandboxRepoCloner Cloner()
+    internal static SandboxRepoCloner Cloner()
     {
         var provider = new Mock<ISourceProvider>();
         provider.SetupGet(p => p.ProviderType).Returns("github");

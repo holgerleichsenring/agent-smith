@@ -37,53 +37,33 @@ public sealed class GreenPrerequisitesTests
         GreenPrerequisites.IsGreen(new PreviousAttempt("r", RunStatuses.Success, default, Finished: false) { OpenedPullRequest = true })
             .Should().BeFalse();
 
+    // 2026-11-23-31dca: greenness is asked apart from the stack, which is per repo (GreenReadsStackPerRepoTests).
     [Fact]
-    public async Task TipAsync_OneGreenPrerequisite_IsTheTip()
-    {
-        Green("41");
-
-        var tip = await Green().TipAsync(Project, [Edge("42", "41")], requireGreen: true, default);
-
-        tip!.RequiredTicketId.Should().Be("41");
-    }
-
-    [Fact]
-    public async Task TipAsync_AChain_StacksOnItsLastLink()
-    {
-        _facts.Edges.Add(Edge("41", "40"));
-        Green("40");
-        Green("41");
-
-        var tip = await Green().TipAsync(Project, [Edge("42", "40"), Edge("42", "41")], requireGreen: true, default);
-
-        tip!.RequiredTicketId.Should().Be("41", "41's branch was cut from 40's and carries it");
-    }
-
-    [Fact]
-    public async Task TipAsync_TwoIndependentPrerequisites_HasNoTip()
+    public async Task NotGreenAsync_GreenPrerequisites_NameNone()
     {
         Green("40");
         Green("41");
 
-        (await Green().TipAsync(Project, [Edge("42", "40"), Edge("42", "41")], requireGreen: true, default)).Should().BeNull();
+        (await Green().Reads(Project).NotGreenAsync([Edge("42", "40"), Edge("42", "41")], default)).Should().BeEmpty();
     }
 
     [Fact]
-    public async Task TipAsync_APrerequisiteNotGreen_HasNoTipUnlessGreenIsNotRequired()
+    public async Task NotGreenAsync_APrerequisiteNotGreen_IsNamed()
     {
+        Green("40");
         _attempts.Setup(a => a.LatestAsync(Project, "41", null, default)).ReturnsAsync(Attempt(RunStatuses.Failed));
 
-        (await Green().TipAsync(Project, [Edge("42", "41")], requireGreen: true, default)).Should().BeNull();
-        (await Green().TipAsync(Project, [Edge("42", "41")], requireGreen: false, default))!.RequiredTicketId.Should().Be("41");
+        (await Green().Reads(Project).NotGreenAsync([Edge("42", "40"), Edge("42", "41")], default))
+            .Select(e => e.RequiredTicketId).Should().Equal("41");
     }
 
     [Fact]
-    public async Task TipAsync_AClosedPrerequisite_IsNotGreen()
+    public async Task NotGreenAsync_AClosedPrerequisite_IsNotGreen()
     {
         Green("41");
         _facts.Closed.Add(new TicketClosedMark(Tracker, "jira-41", "41", Project, DateTimeOffset.UnixEpoch, "sample.user", null, [], false));
 
-        (await Green().TipAsync(Project, [Edge("42", "41")], requireGreen: true, default)).Should().BeNull();
+        (await Green().Reads(Project).NotGreenAsync([Edge("42", "41")], default)).Should().ContainSingle();
     }
 
     private GreenPrerequisites Green() => new(_facts, _attempts.Object, _facts, _facts);

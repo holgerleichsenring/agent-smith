@@ -131,6 +131,25 @@ public sealed class DeliveryDiffTests
                 "accounting a slice against the default branch credits it with its predecessors' work");
     }
 
+    // 2026-11-23-31dca: a stacked run's repos are accounted against their own prerequisite's branch.
+    [Fact]
+    public async Task DeliveryDiff_AStackedRun_ComputesEachRepoAgainstItsOwnParent()
+    {
+        var pipeline = new AgentSmith.Contracts.Commands.PipelineContext();
+        pipeline.Set<object>(AgentSmith.Contracts.Commands.ContextKeys.StackedOnTicket,
+            new Dictionary<string, string> { ["server"] = ParentTicket });
+        pipeline.Set<IReadOnlyDictionary<string, string>>(AgentSmith.Contracts.Commands.ContextKeys.SandboxRepos,
+            new Dictionary<string, string> { ["server"] = "server", ["client"] = "client" });
+
+        var server = await Diff().ForBranchAsync(new GitSandbox(hasRemote: true, runCommitted: false, hasRung: true),
+            DeliveryBasis.ForSandbox(pipeline, "server"), CancellationToken.None);
+        var client = await Diff().ForBranchAsync(new GitSandbox(hasRemote: true, runCommitted: false, hasRung: true),
+            DeliveryBasis.ForSandbox(pipeline, "client"), CancellationToken.None);
+
+        server.BaseRef.Should().Be($"origin/{Rung}");
+        client.BaseRef.Should().Be("origin/main", "client has no prerequisite with work there");
+    }
+
     [Fact]
     public async Task DeliveryDiff_RungEqualsCloneBase_OutputUnchangedFromToday()
     {

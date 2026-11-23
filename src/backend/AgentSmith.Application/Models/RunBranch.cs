@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Models;
 /// merge into one of those would land in a contributor's branch.
 /// </para>
 /// <para>
-/// 2026-09-13-5cdf: <see cref="ParentTicketId"/> is where the run sits in the cut, not
+/// 2026-09-13-5cdf: <see cref="LabelParentId"/> is where the run sits in the cut, not
 /// part of the branch's own name. The base is RESOLVED from it against the clone, never
 /// parsed back out of a branch name — a feature segment in the name would rename the
 /// branch of every ticket that already has one, and a pull request is found by its head
@@ -25,9 +25,17 @@ namespace AgentSmith.Application.Models;
 /// an earlier one left there.
 /// </para>
 /// <para>
-/// 2026-11-17-9a39b: <see cref="Stacked"/> says <see cref="ParentTicketId"/> is an unlanded prerequisite whose pushed
-/// branch is the rung — found, never published: a missing one falls through to the clone's base.
+/// 2026-11-17-9a39b: <see cref="Stacked"/> names the unlanded prerequisites whose pushed branches are the rungs — found,
+/// never published. 2026-11-23-31dca: one per repo (<see cref="ParentFor"/>); a missing one stops the run instead of
+/// falling through to the clone's base, and a repo with no entry takes the label parent, as an unstacked run does.
 /// </para>
 /// </summary>
 public sealed record RunBranch(
-    BranchName Name, bool ComposedFromTicket, string? ParentTicketId = null, bool CutFresh = false, bool Stacked = false);
+    BranchName Name, bool ComposedFromTicket, string? LabelParentId = null, bool CutFresh = false, StackedBases? Stacked = null)
+{
+    /// <summary>The ticket whose branch this repo is cut from: its stacked prerequisite, else the label parent.</summary>
+    public string? ParentFor(string? repo) => Stacked?.For(repo) ?? LabelParentId;
+
+    /// <summary>Whether this repo is cut from a stacked prerequisite's branch.</summary>
+    public bool IsStackedIn(string? repo) => Stacked?.For(repo) is not null;
+}

@@ -99,9 +99,8 @@ public sealed class VerifySpecHandler(
         // comparable base ref — the shallow clone, the freshly-onboarded repo — through the
         // branch that passes without checking anything.
         var diffs = new Dictionary<string, DeliveryDiff.DiffResult>(StringComparer.Ordinal);
-        var basis = DeliveryBasis.For(context.Pipeline);
-        foreach (var (key, sandbox) in sandboxes)
-            diffs[key] = await deliveryDiff.ForBranchAsync(sandbox, basis, cancellationToken);
+        foreach (var (key, sandbox) in sandboxes) // 2026-11-23-31dca: each against its own repository's rung
+            diffs[key] = await deliveryDiff.ForBranchAsync(sandbox, DeliveryBasis.ForSandbox(context.Pipeline, key), cancellationToken);
         var delivered = DeliveredWork.Of(diffs);
         var changes = await relevance.ReadAsync(context.Pipeline, sandboxes, diffs, cancellationToken);
 

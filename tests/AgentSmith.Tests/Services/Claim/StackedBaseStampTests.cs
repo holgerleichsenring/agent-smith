@@ -32,7 +32,26 @@ public sealed class StackedBaseStampTests
         var (request, refusal) = await StackedBaseStamp.ApplyAsync(Request(), Config(RequiresStart.OnGreenPush), Read(), default);
 
         refusal.Should().BeNull();
-        request.InitialContext![ContextKeys.StackedOnTicket].Should().Be("41");
+        request.InitialContext![ContextKeys.StackedOnTicket].Should()
+            .BeEquivalentTo(new Dictionary<string, string> { ["api"] = "41" });
+    }
+
+    // 2026-11-23-31dca: the stamp is one base per repo, each repo's nearest prerequisite with work there.
+    [Fact]
+    public async Task ApplyAsync_APrerequisiteChainAcrossRepos_StampsEachRepo()
+    {
+        _facts.Edges.Add(Edge("41", "40"));
+        Prerequisite(RunStatuses.Success, "server");
+        _attempts.Setup(a => a.LatestAsync(Project, "40", null, default))
+            .ReturnsAsync(new PreviousAttempt("run-40", RunStatuses.Success, DateTimeOffset.UnixEpoch, Finished: true)
+            {
+                OpenedPullRequest = true, PullRequestUrls = new Dictionary<string, string> { ["server"] = "https://x/s/40", ["worker"] = "https://x/w/40" },
+            });
+
+        var (request, _) = await StackedBaseStamp.ApplyAsync(Request(), Config(RequiresStart.OnGreenPush), Read(), default);
+
+        request.InitialContext![ContextKeys.StackedOnTicket].Should()
+            .BeEquivalentTo(new Dictionary<string, string> { ["server"] = "41", ["worker"] = "40" });
     }
 
     [Fact]
@@ -71,9 +90,12 @@ public sealed class StackedBaseStampTests
     private UnmetTicketRequirements Read() =>
         new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts));
 
-    private void Prerequisite(string status) =>
+    private void Prerequisite(string status, string repo = "api") =>
         _attempts.Setup(a => a.LatestAsync(Project, "41", null, default))
-            .ReturnsAsync(new PreviousAttempt("run-41", status, DateTimeOffset.UnixEpoch, Finished: true) { OpenedPullRequest = true });
+            .ReturnsAsync(new PreviousAttempt("run-41", status, DateTimeOffset.UnixEpoch, Finished: true)
+            {
+                OpenedPullRequest = true, PullRequestUrls = new Dictionary<string, string> { [repo] = $"https://x/{repo}/41" },
+            });
 
     private static ClaimRequest Request() => new("jira", Project, new TicketId("42"), PipelinePresets.CodeName);
 

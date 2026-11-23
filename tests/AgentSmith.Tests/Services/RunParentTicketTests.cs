@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -11,6 +12,7 @@ namespace AgentSmith.Tests.Services;
 /// 2026-09-13-5cdf: the parent stamp 2026-09-13-a72a puts on an epic child reaches BOTH
 /// consumers of the base ladder from one read — the branch the run cuts and the basis its
 /// delivery is accounted against. Two readers would be two chances to disagree.
+/// 2026-11-23-31dca: every answer is for one repo — a stacked run's repos are cut from their own prerequisites.
 /// </summary>
 public sealed class RunParentTicketTests
 {
@@ -24,19 +26,20 @@ public sealed class RunParentTicketTests
     }
 
     [Fact]
-    public void RunParentTicket_TheChildCarriesItsParentStamp_IsRead()
+    public void ForRepo_TheChildCarriesItsParentStamp_IsReadForEveryRepo()
     {
         var pipeline = WithTicket(FiledTicketLabels.ParentStamp("4711"));
 
-        RunParentTicket.Of(pipeline).Should().Be("4711");
+        RunParentTicket.ForRepo(pipeline, "api").Should().Be("4711");
+        RunParentTicket.LabelParent(pipeline).Should().Be("4711");
     }
 
     [Fact]
-    public void RunParentTicket_ATicketThatIsNotASlice_NamesNoParent()
+    public void ForRepo_ATicketThatIsNotASlice_NamesNoParent()
     {
-        RunParentTicket.Of(WithTicket(FiledTicketLabels.ApprovedSetStamp)).Should()
+        RunParentTicket.ForRepo(WithTicket(FiledTicketLabels.ApprovedSetStamp), "api").Should()
             .BeNull("only the parent prefix names an ancestor — cutting from anything else would be wrong");
-        RunParentTicket.Of(new PipelineContext()).Should()
+        RunParentTicket.ForRepo(new PipelineContext(), "api").Should()
             .BeNull("a run with no ticket at all has no place in a cut");
     }
 
@@ -46,7 +49,7 @@ public sealed class RunParentTicketTests
         var branch = RunBranchResolver.Resolve(WithTicket(FiledTicketLabels.ParentStamp("4711")));
 
         branch.Should().NotBeNull();
-        branch!.ParentTicketId.Should().Be("4711");
+        branch!.ParentFor("api").Should().Be("4711");
         branch.Name.Value.Should().Be("agent-smith/19106",
             "a feature segment in the name would abandon the open pull request of every "
             + "ticket that already has one");
@@ -57,41 +60,85 @@ public sealed class RunParentTicketTests
     {
         var pipeline = WithTicket(FiledTicketLabels.ParentStamp("4711"));
         pipeline.Set(ContextKeys.RunId, "run-5cdf");
+        pipeline.Set<object>(ContextKeys.StackedOnTicket, new Dictionary<string, string> { ["server"] = "41" });
 
-        var basis = DeliveryBasis.For(pipeline);
+        var basis = DeliveryBasis.For(pipeline, "server");
 
         basis.RunId.Should().Be("run-5cdf");
-        basis.ParentTicketId.Should().Be(RunBranchResolver.Resolve(pipeline)!.ParentTicketId,
+        basis.ParentTicketId.Should().Be(RunBranchResolver.Resolve(pipeline)!.ParentFor("server"),
             "the account resolves the base the cut used, not a base of its own");
-    }
-
-    // 2026-11-17-9a39b: the claim's stamp wins over a label parent, in both shapes the context carries it.
-    [Fact]
-    public void RunParentTicket_AStackedRun_AnswersItsPrerequisite()
-    {
-        var pipeline = WithTicket(FiledTicketLabels.ParentStamp("4711"));
-        pipeline.Set<object>(ContextKeys.StackedOnTicket, "41");
-
-        RunParentTicket.Of(pipeline).Should().Be("41");
-        RunParentTicket.IsStacked(pipeline).Should().BeTrue();
-        RunBranchResolver.Resolve(pipeline)!.Stacked.Should().BeTrue();
+        DeliveryBasis.For(pipeline, "client").ParentTicketId.Should().Be("4711", "client has no stacked entry");
     }
 
     [Fact]
-    public void RunParentTicket_AStampAfterTheQueuesRoundTrip_IsRead()
+    public void DeliveryBasis_ForSandbox_ReadsTheRepoTheSandboxServes()
     {
         var pipeline = WithTicket();
-        pipeline.Set<object>(ContextKeys.StackedOnTicket, System.Text.Json.JsonDocument.Parse("\"41\"").RootElement);
+        pipeline.Set<object>(ContextKeys.StackedOnTicket, new Dictionary<string, string> { ["server"] = "41" });
+        pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,
+            new Dictionary<string, string> { ["server-dotnet"] = "server", ["client"] = "client" });
 
-        RunParentTicket.Of(pipeline).Should().Be("41");
+        DeliveryBasis.ForSandbox(pipeline, "server-dotnet").ParentTicketId.Should().Be("41");
+        DeliveryBasis.ForSandbox(pipeline, "client").ParentTicketId.Should().BeNull();
     }
 
     [Fact]
-    public void RunParentTicket_NoStamp_IsNotStacked()
+    public void RepoOfSandbox_WithoutAMap_IsTheRunsOnlyRepo()
+    {
+        var pipeline = WithTicket();
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [new RepoConnection { Name = "api" }]);
+
+        RunParentTicket.RepoOfSandbox(pipeline, "anything").Should().Be("api");
+        RunParentTicket.RepoOfSandbox(WithTicket(), "anything").Should().BeNull();
+    }
+
+    // 2026-11-17-9a39b: the claim's stamp wins over a label parent, in every shape the context carries it.
+    [Fact]
+    public void ForRepo_AStackedRepo_AnswersItsPrerequisite_ARepoWithoutAnEntryItsLabelParent()
+    {
+        var pipeline = WithTicket(FiledTicketLabels.ParentStamp("4711"));
+        pipeline.Set<object>(ContextKeys.StackedOnTicket, new Dictionary<string, string> { ["server"] = "41" });
+
+        RunParentTicket.ForRepo(pipeline, "server").Should().Be("41");
+        RunParentTicket.IsStackedIn(pipeline, "server").Should().BeTrue();
+        RunParentTicket.ForRepo(pipeline, "client").Should().Be("4711");
+        RunParentTicket.IsStackedIn(pipeline, "client").Should().BeFalse();
+        RunBranchResolver.Resolve(pipeline)!.IsStackedIn("server").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Stacked_AMapAfterTheQueuesRoundTrip_IsRead()
+    {
+        var pipeline = WithTicket();
+        pipeline.Set<object>(ContextKeys.StackedOnTicket,
+            System.Text.Json.JsonDocument.Parse("""{"server":"41","worker":"40"}""").RootElement);
+
+        RunParentTicket.ForRepo(pipeline, "server").Should().Be("41");
+        RunParentTicket.ForRepo(pipeline, "worker").Should().Be("40");
+        RunParentTicket.ForRepo(pipeline, "client").Should().BeNull();
+    }
+
+    // A parked run stamped before 2026-11-23-31dca carries one id, which meant every repo.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Stacked_TheOldSingleIdStamp_NamesThatIdForEveryRepo(bool asJson)
+    {
+        var pipeline = WithTicket();
+        pipeline.Set<object>(ContextKeys.StackedOnTicket,
+            asJson ? System.Text.Json.JsonDocument.Parse("\"41\"").RootElement : "41");
+
+        RunParentTicket.ForRepo(pipeline, "server").Should().Be("41");
+        RunParentTicket.ForRepo(pipeline, "client").Should().Be("41");
+        RunParentTicket.IsStackedIn(pipeline, "client").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Stacked_NoStamp_IsNotStacked()
     {
         var pipeline = WithTicket(FiledTicketLabels.ParentStamp("4711"));
 
-        RunParentTicket.IsStacked(pipeline).Should().BeFalse();
-        RunBranchResolver.Resolve(pipeline)!.Stacked.Should().BeFalse();
+        RunParentTicket.Stacked(pipeline).Should().BeNull();
+        RunBranchResolver.Resolve(pipeline)!.IsStackedIn("api").Should().BeFalse();
     }
 }

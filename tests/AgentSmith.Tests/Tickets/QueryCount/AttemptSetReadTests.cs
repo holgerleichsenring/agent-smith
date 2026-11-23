@@ -67,7 +67,7 @@ public sealed class AttemptSetReadTests : IDisposable
     public async Task PullRequestReposAsync_AnswersEachTicketsReposInOneQuery_ATicketWithoutOneAbsent()
     {
         var older = Run("r-1a", "1", status: RunStatuses.Failed);
-        older.PullRequestsJson = """[{"repo":"worker","status":"completion_refused","url":"https://git/w/1"},{"repo":"client","status":"completed","url":"https://git/c/1"}]""";
+        older.PullRequestsJson = """[{"repo":"worker","status":"completion_refused","url":"https://git/w/1"},{"repo":"client","status":"completed","url":"https://git/c/1"},{"repo":"docs","status":"completion_armed","url":"https://git/d/1"}]""";
         var newer = Run("r-1b", "1");
         newer.PullRequestsJson = """[{"repo":"server","status":"opened","url":"https://git/s/1"},{"repo":"client","status":"no_changes"}]""";
         var other = Run("r-2", "2");
@@ -79,7 +79,8 @@ public sealed class AttemptSetReadTests : IDisposable
 
         _h.Commands.Count.Should().Be(1);
         repos.Keys.Should().BeEquivalentTo(["1", "2"], "3 opened no pull request and 4 has no attempt");
-        repos["1"].Should().BeEquivalentTo(["worker", "server"], "every code run's standing pull request counts; a merged one, whose branch a host may delete, does not");
+        repos["1"].Should().BeEquivalentTo(["worker", "server", "docs"],
+            "every code run's standing pull request counts, an armed one too; a merged one, whose branch a host may delete, does not");
         repos["2"].Should().BeEquivalentTo(["server"]);
     }
 

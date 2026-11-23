@@ -10,6 +10,7 @@ namespace AgentSmith.Application.Services.Claim;
 /// answer into the run: still held refuses with the gate's words, so a requirement that turned unmet between the gate
 /// and the lock never cuts the dependent from the default branch; a stack tip is stamped as the run's base; none
 /// removes a stamp a queued request carried from an earlier read.
+/// <para>2026-11-23-31dca: the stamp is a map repo -> prerequisite ticket id, one base per repo (<see cref="RequirementHold.StackedPerRepo"/>).</para>
 /// </summary>
 public static class StackedBaseStamp
 {
@@ -28,7 +29,8 @@ public static class StackedBaseStamp
                 RequiresUnmetGate.Sentence(hold)));
         var context = new Dictionary<string, object>(request.InitialContext ?? []);
         var carried = context.Remove(ContextKeys.StackedOnTicket);
-        if (hold.StackedOn is { } tip) context[ContextKeys.StackedOnTicket] = tip.RequiredTicketId;
+        if (hold.StackedPerRepo.Count > 0)
+            context[ContextKeys.StackedOnTicket] = new Dictionary<string, string>(hold.StackedPerRepo, StringComparer.Ordinal);
         else if (!carried) return (request, null);
         return (request with { InitialContext = context.Count > 0 ? context : null }, null);
     }

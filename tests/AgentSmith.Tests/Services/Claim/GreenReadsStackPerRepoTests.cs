@@ -11,14 +11,14 @@ namespace AgentSmith.Tests.Services.Claim;
 /// <summary>
 /// 2026-11-23-97c2b: the stack tip per repo — among the unlanded prerequisites of a ticket's chain with a pull request in a
 /// repo, the one whose chain reaches every other one with work there. Chain S1 &lt;- S2(server, worker) &lt;- S3(server);
-/// the dependent D requires S3 only.
+/// the dependent D requires S3 only. 2026-11-23-31dca: a repo with two independent ones names the merges that leave one.
 /// </summary>
-public sealed class GreenReadsTipPerRepoTests
+public sealed class GreenReadsStackPerRepoTests
 {
     private readonly InMemoryTicketFacts _facts = new();
     private readonly Mock<IPreviousAttemptReader> _attempts = new() { CallBase = true }; // the default set read loops LatestAsync
 
-    public GreenReadsTipPerRepoTests()
+    public GreenReadsStackPerRepoTests()
     {
         _facts.Edges.AddRange([Edge("s2", "s1"), Edge("s3", "s2"), Edge("d", "s3")]);
         Worked("s1", "server", "worker");
@@ -27,37 +27,37 @@ public sealed class GreenReadsTipPerRepoTests
     }
 
     [Fact]
-    public async Task TipPerRepoAsync_EachRepoStacksOnTheNearestPrerequisiteWithWorkThere()
+    public async Task StackPerRepoAsync_EachRepoStacksOnTheNearestPrerequisiteWithWorkThere()
     {
-        var tips = await Reads().TipPerRepoAsync([Edge("d", "s3")], default);
+        var stack = await Reads().StackPerRepoAsync([Edge("d", "s3")], default);
 
-        tips.Should().HaveCount(2);
-        tips["server"]!.RequiredTicketId.Should().Be("S3");
-        tips["worker"]!.RequiredTicketId.Should().Be("S2", "S3 has no worker branch; S2's carries S1's worker work");
+        stack.Bases.Should().Equal(new Dictionary<string, string> { ["server"] = "S3", ["worker"] = "S2" },
+            "S3 has no worker branch; S2's carries S1's worker work");
+        stack.Merges.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task TipPerRepoAsync_ALandedPrerequisite_IsLeftOut()
+    public async Task StackPerRepoAsync_ALandedPrerequisite_IsLeftOut()
     {
         _facts.Land("s2");
         _facts.Land("s1");
 
-        var tips = await Reads().TipPerRepoAsync([Edge("d", "s3")], default);
+        var stack = await Reads().StackPerRepoAsync([Edge("d", "s3")], default);
 
-        tips.Keys.Should().Equal("server");
-        tips["server"]!.RequiredTicketId.Should().Be("S3");
+        stack.Bases.Should().Equal(new Dictionary<string, string> { ["server"] = "S3" });
     }
 
     [Fact]
-    public async Task TipPerRepoAsync_TwoIndependentPrerequisitesWithWorkInOneRepo_HaveNoTipThere()
+    public async Task StackPerRepoAsync_TwoIndependentPrerequisitesWithWorkInOneRepo_NameTheMergeThatLeavesOne()
     {
         _facts.Edges.Add(Edge("d", "x"));
         Worked("x", "worker");
 
-        var tips = await Reads().TipPerRepoAsync([Edge("d", "s3"), Edge("d", "x")], default);
+        var stack = await Reads().StackPerRepoAsync([Edge("d", "s3"), Edge("d", "x")], default);
 
-        tips["server"]!.RequiredTicketId.Should().Be("S3");
-        tips.Should().ContainKey("worker").WhoseValue.Should().BeNull("X and S2 both worked there and neither carries the other");
+        stack.Bases.Should().Equal(new Dictionary<string, string> { ["server"] = "S3" },
+            "X and S2 both worked in worker and neither carries the other");
+        stack.Merges.Select(e => e.RequiredTicketId).Should().Equal("X");
     }
 
     [Fact]

@@ -47,7 +47,7 @@ public sealed class StackedPullRequestRetarget(
         var reads = green.Reads(project.Name);
         var (landed, unmet) = await ChainAsync(reads, project.Tracker.Name, edges, ct);
         if (landed.Count == 0) return 0;
-        var tips = unmet.Count == 0 ? new Dictionary<string, TicketRequirementEdge?>() : await reads.TipPerRepoAsync(unmet, ct);
+        var tips = unmet.Count == 0 ? new Dictionary<string, string>() : (await reads.StackPerRepoAsync(unmet, ct)).Bases;
         var moves = new List<PullRequestMove>();
         foreach (var (repo, url) in attempt.PullRequestUrls)
             if (await MoveOfAsync(project, repo, url, landed, tips.GetValueOrDefault(repo), ct) is { } move) moves.Add(move);
@@ -74,12 +74,12 @@ public sealed class StackedPullRequestRetarget(
     }
 
     private async Task<PullRequestMove?> MoveOfAsync(ResolvedProject project, string repo, string url,
-        IReadOnlyDictionary<string, TicketRequirementEdge> landed, TicketRequirementEdge? tip, CancellationToken ct)
+        IReadOnlyDictionary<string, TicketRequirementEdge> landed, string? tip, CancellationToken ct)
     {
         if (project.Repos.FirstOrDefault(r => r.Name == repo) is not { } connection) return null;
         var provider = sources.Create(connection);
         if (await provider.ReadPullRequestBaseAsync(url, ct) is not { } current || !landed.TryGetValue(current, out var edge)) return null;
-        var to = tip is not null ? TicketBranchNamer.Compose(new TicketId(tip.RequiredTicketId)).Value
+        var to = tip is not null ? TicketBranchNamer.Compose(new TicketId(tip)).Value
             : await LandedOnAsync(project.Name, edge, repo, provider, ct) ?? connection.DefaultBranch;
         if (!string.IsNullOrWhiteSpace(to) && to != current) return new PullRequestMove(repo, url, current, to);
         logger.LogWarning("{Url} sits on the landed branch '{Current}' but no base to move it to was found (no pull request "

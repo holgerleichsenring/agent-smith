@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Sandbox;
@@ -29,6 +30,8 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// also why <see cref="RepoConnection"/> is threaded in: a push needs the platform token,
 /// and nothing on this path carried one.
 /// </para>
+/// <para>2026-11-23-31dca: each repo asks for its own parent; a stacked repo whose prerequisite's branch is missing stops
+/// the run with a sentence naming the branch instead of cutting from the clone's own base.</para>
 /// </summary>
 public sealed class SandboxWorkBranchCheckout(
     SandboxRungPublisher rungs,
@@ -66,7 +69,8 @@ public sealed class SandboxWorkBranchCheckout(
                 branch);
             return WorkBranchPlacement.On(null);
         }
-        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentTicketId, ct, publish: !requested.Stacked);
+        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentFor(config.Name), ct, publish: !requested.IsStackedIn(config.Name));
+        if (MissingStack(requested, config, resolved) is { } missing) return WorkBranchPlacement.Stop(missing);
         var problem = report.Describe(branch, await merger.MergeIntoCurrentAsync(sandbox, resolved, ct));
         return problem is null ? Placed(resolved) : WorkBranchPlacement.Stop(problem);
     }
@@ -76,11 +80,20 @@ public sealed class SandboxWorkBranchCheckout(
     private static WorkBranchPlacement Placed(ResolvedBase resolved) =>
         WorkBranchPlacement.On(resolved.FellThrough ? null : resolved.Name);
 
+    // 2026-11-23-31dca: a stacked repo whose prerequisite's branch is not readable stops — its own base would lack that work.
+    private static string? MissingStack(RunBranch requested, RepoConnection config, ResolvedBase resolved) =>
+        requested.Stacked?.Names(config.Name) == true && resolved.FellThrough
+            ? $"'{TicketBranchNamer.Compose(new TicketId(requested.ParentFor(config.Name)!)).Value}' is the base of {config.Name} — "
+              + $"the branch of #{requested.ParentFor(config.Name)}, an unlanded prerequisite with work there — but it is not readable "
+              + "in this clone; cutting from the repository's own base would lose that work."
+            : null;
+
     private async Task<WorkBranchPlacement> CreateAsync(
         ISandbox sandbox, RepoConnection config, RunBranch requested, CancellationToken ct)
     {
         var branch = requested.Name.Value;
-        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentTicketId, ct, publish: !requested.Stacked);
+        var resolved = await rungs.EnsureAsync(sandbox, config, requested.ParentFor(config.Name), ct, publish: !requested.IsStackedIn(config.Name));
+        if (MissingStack(requested, config, resolved) is { } missing) return WorkBranchPlacement.Stop(missing);
         // A ladder that FELL THROUGH names the clone's own base, which is where a fresh
         // clone's HEAD already stands — checking it out would be a no-op dressed as a
         // decision, and on a tree some other step positioned it would silently move the
