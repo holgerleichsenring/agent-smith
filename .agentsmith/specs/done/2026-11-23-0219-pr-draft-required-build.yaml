@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-0219
+goal: "A green stacked run takes its PR out of draft; a required build that never started reads as not started and is re-queued; a running CI offers Merge when green; a refused merge stays on the row."
+
+applies_to: "default (CommitAndPR, Azure Repos PR + CI reads, merge-green run, retarget run, series detail, series Overview)"
+
+requires: [2026-11-23-31dce, 2026-11-23-849e, 2026-11-23-8d16, 2026-11-23-c785, 2026-11-23-f562]
+
+facts:
+  - claim: "Azure's open-PR lookup filters on the default branch as target, so a stacked PR (opened as a draft at the spec commit against its prerequisite's branch) is never found by CommitAndPR."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:283; src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:85"
+  - claim: "Not found, CommitAndPR creates the PR (isDraft false); Azure answers TF401179 and the provider returns the existing draft's URL, so the run reports the PR and never marks it ready or logs the reuse line."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:321; src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:361; src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:135; observed: coordinator, 2026-11-23, prod log — no ready line for the stacked runs of PRs 9986, 9988, 9991 (still Draft), 'ready for review: True' on the unstacked reuse of 9990"
+  - claim: "GitHub and GitLab find the open PR by source branch alone."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:142; src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:170"
+  - claim: "A build-policy evaluation that is expired or queued without a build on the head reads as pending, the same as a running build."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiPolicies.cs:43"
+  - claim: "Nothing re-queues a build-policy evaluation after a PR is published or retargeted."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RetargetPullRequestsHandler.cs:46; src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:361"
+  - claim: "The series merge act refuses while CI is pending; under respect_branch_protection the merge-green run already approves and arms auto-complete."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesMergeNextAct.cs:64; src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:59; src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPullRequestUpdater.cs:83"
+  - claim: "A person's merge refusal is recorded only on the merge-green run's own repo row; the series page shows it only in the click's transient state."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:36; src/backend/AgentSmith.Infrastructure/Persistence/Services/RunPullRequestProjection.cs:34; src/dashboard/src/components/series/page/useSeriesMerge.ts:18"
+  - claim: "A writing server file is debt that may only shrink."
+    evidence: "tests/AgentSmith.Tests/Architecture/ServerWritesRatchetTests.cs:16"
+
+scope:
+  in: >-
+    Azure FindOpenPullRequestAsync by source branch only; the already-exists path of CreatePullRequestAsync takes the found
+    PR out of draft when the caller asked for a ready one. CommitAndPR logs a failed mark-ready as a warning. CiStates.NotStarted
+    ('not_started') and CiCheckOutcome.NotStarted: an expired evaluation, or a queued one with no build on the head; CiVerdict
+    orders red, not started, pending, green. IPullRequestBuildRequeuer (Azure: requeue each not-started build-policy evaluation)
+    and PullRequestBuildRequeue, called after CommitAndPR or SpecOnlyPullRequests marks a PR ready, after the retarget run moves
+    one, and in a person's merge after the draft step. Every pending reader treats not_started as waiting (holds, poll rule,
+    series CI, record precedence); the hold case ci_not_started escalates like ci_running. SeriesMergeNextAct: red refuses; a
+    pending or not-started CI merges under respect_branch_protection (approve + arm), else refuses naming the key and
+    Config → Project → Merge. The series detail carries MergeArms and per pull request the newest merge-green run's refusal or
+    arm (MergeSaid). Overview: per-ticket badges Draft, Build not started, CI running, CI red; Merge when CI is green on a
+    ready step whose CI waits; the stored merge refusal in the ticket's sentence. i18n en + de.
+  out: >-
+    Changing whether a spec a person stopped counts as delivered (c8e2c: the report's outcome is shown, never acted on — PR 9990
+    was marked ready by that rule; an operator choice). A server-side re-queue from the CI loop (no new writing server path).
+    GitHub/GitLab re-queue (their CI starts on push and un-draft).
+
+tests:
+  - "CommitAndPRStackedDraftTests: through the real handler and the Azure provider over a Git client that answers as Azure does — a stacked draft is found and marked ready (fails on the old provider); the already-exists path marks the found draft ready; a published PR's not-started builds are re-queued."
+  - "AzureReposCiReaderTests: expired, queued without a build and queued with an older head's build are not_started; a queued head build is pending; the re-queue queues only not-started evaluations."
+  - "CiVerdictTests, TicketOpenPullRequestHoldTests, SeriesMergeNextActCiTests, PullRequestBuildRequeueTests, RetargetPullRequestsHandlerTests, CompletePullRequestsHandlerTests: verdict order, ci_not_started hold, Merge when green under Respect and the key without it, re-queue in the retarget run and a person's merge only."
+  - "PullRequestMergeSaidReaderTests and SeriesRunReadersTests: the newest merge run's refusal per URL, MergeArms, none after a head move."
+  - "Dashboard seriesCiState, SeriesOverviewSection, holdWords, sectionBarWords: badges, Merge when CI is green enabled under arming and disabled naming the key without it, the stored refusal in the sentence, the escalated sentence."
+
+done:
+  - "Build, the full suite and the dashboard tests green; the spec gate passed."

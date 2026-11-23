@@ -38,6 +38,7 @@ public static class SeriesTicketState
     {
         CiStates.Red => ($"CI red · {fact.CiFailure ?? "a check failed"}", Red),
         CiStates.Pending => ("green · CI running", Green),
+        CiStates.NotStarted => ("green · build not started", Green), // 2026-11-23-0219
         CiStates.Green => ("green · CI green", Green),
         _ => (fact.OpenedPullRequest ? "green · PR open" : "green", Green),
     };

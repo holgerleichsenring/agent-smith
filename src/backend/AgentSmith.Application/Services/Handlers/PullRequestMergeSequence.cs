@@ -10,10 +10,9 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// 2026-11-17-3435b: merges a run's pull requests in order, extracted from 023fa's CompletePullRequestsHandler so a
-/// code run (on_gate_green) and a merge-green run (on_ci_green) merge the same way: a pull request opened against a rung
-/// is left open, the first refusal stops the rest, every outcome is recorded per repo. A merge-green run approves first
-/// where the host needs it and records each outcome on the attempt whose pull request waited for CI as well.
+/// 2026-11-17-3435b: merges a run's pull requests in order, extracted from 023fa's CompletePullRequestsHandler so a code run
+/// (on_gate_green) and a merge-green run (on_ci_green) merge the same way: a pull request opened against a rung is left open, the
+/// first refusal stops the rest, every outcome is recorded per repo (on a merge-green run, on the attempt that waited for CI too).
 /// <para>2026-11-23-97c2a: no path lands a ticket before a ticket it requires — while one has not landed, every pull request
 /// is refused (a rung's own refusal still names its rung), whichever path asked; a merge-green run's attempt keeps its pull
 /// requests awaiting CI, so the CI merge asks again once the required ticket landed. Without the requirement reader (a process
@@ -22,12 +21,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// branch is refused (<see cref="PullRequestBaseGuard"/>) and, like an unlanded requirement, keeps the attempt's pull request
 /// awaiting CI; every repo answers a <see cref="PullRequestMergeLine"/>. A merge a person asked for (<paramref name="asked"/>)
 /// marks a refusal on its own run only, so a click never ends the attempt's wait for the CI merge.</para>
-/// <para>2026-11-23-8d16: a merge a person asked for takes each pull request out of draft before approving it
-/// (<see cref="PullRequestDraftStep"/>); the CI merge never does — a draft is the run's word that it is not ready.</para>
+/// <para>2026-11-23-8d16: a person's merge takes each out of draft (<see cref="PullRequestDraftStep"/>) and (0219) queues its
+/// not-started builds (<see cref="PullRequestBuildRequeue"/>) before approving; the CI merge does neither.</para>
 /// </summary>
 public sealed class PullRequestMergeSequence(
     PullRequestCompleter completer, PullRequestApprovalStep approvals, PullRequestBaseGuard bases,
-    ILogger<PullRequestMergeSequence> logger, UnmetTicketRequirements? requirements = null, PullRequestDraftStep? drafts = null)
+    ILogger<PullRequestMergeSequence> logger, UnmetTicketRequirements? requirements = null, PullRequestDraftStep? drafts = null, PullRequestBuildRequeue? requeue = null)
 {
     public async Task<IReadOnlyList<PullRequestMergeLine>> RunAsync(CompletePullRequestsContext context,
         IReadOnlyList<OpenedPullRequest> entries, BranchName branch, string? attemptRunId, CancellationToken ct, bool asked = false)
@@ -53,6 +52,7 @@ public sealed class PullRequestMergeSequence(
             return await HoldAsync(context, entry, mark, offMain, ct);
         if (asked && drafts is not null && await drafts.RefusalAsync(repo, entry.Url!, ct) is { } draft)
             return await RefuseAsync(context, entry, mark, draft, ct);
+        if (asked && requeue is not null) await requeue.RequeueAsync(repo, entry.Url!, ct);
         if (attemptRunId is not null
             && await approvals.ApproveAsync(repo, entry.Url!, context.Policy, ct) is { Outcome: PullRequestApprovalOutcome.Refused } no)
             return await RefuseAsync(context, entry, mark, no.Reason!, ct);

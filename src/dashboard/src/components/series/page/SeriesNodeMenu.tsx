@@ -5,6 +5,7 @@ import type { SeriesRunTicket } from "@/types/seriesRuns";
 import { SeriesActButtons, type SeriesActHandlers } from "./SeriesActButtons";
 import type { SeriesNodeKind } from "./seriesNodeKind";
 import type { SeriesAct } from "./seriesTicketActs";
+import { SeriesTicketBadges } from "./SeriesTicketBadges";
 import { seriesNodeId } from "./seriesOrderLayout";
 
 // 2026-11-23-f562: the small menu a click on a graph node opens — the ticket, one sentence why it has its colour, and its
@@ -40,7 +41,7 @@ export function SeriesNodeMenu({ ticket, kind, sentence, acts, handlers, at, onC
   return (
     <div ref={ref} className={`sr-menu ${kind}`} style={at} role="dialog" aria-label={`${ticket.key} ${ticket.title}`}
       data-testid={`series-menu-${ticket.ticketId}`}>
-      <div className="sr-menu-title">{ticket.key} {ticket.title}</div>
+      <div className="sr-menu-title">{ticket.key} {ticket.title} <SeriesTicketBadges ticket={ticket} /></div>
       <div className="sr-menu-why" data-testid={`series-menu-say-${ticket.ticketId}`}>{sentence}</div>
       <SeriesActButtons ticket={ticket} acts={acts} handlers={handlers} testId="series-menu" />
     </div>

@@ -7,6 +7,7 @@ namespace AgentSmith.Application.Services.Holds;
 /// system state, not a task. Red CI is a person's decision naming the failed checks; one outside any series' merge order that
 /// can merge now (CI green or none, nothing it requires unlanded) is a merge hold that opens it; one that waits is nobody's —
 /// behind the unlanded tickets it requires, or while its CI runs. A series' next merge keeps the series' own act.
+/// 2026-11-23-0219: a required build that has not started holds as ci_not_started, apart from one that runs.
 /// </summary>
 public static class TicketPullRequestHold
 {
@@ -19,11 +20,11 @@ public static class TicketPullRequestHold
             : null;
     }
 
-    /// <summary>The CI of an open pull request still runs or failed: no merge is offered.</summary>
+    /// <summary>The CI of an open pull request still runs, has not started, or failed: no merge is offered now.</summary>
     public static bool CiHolds(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        return facts.OpenPullRequests is { Ci: CiStates.Pending or CiStates.Red };
+        return facts.OpenPullRequests is { Ci: CiStates.Pending or CiStates.NotStarted or CiStates.Red };
     }
 
     /// <summary>An open pull request outside any series' merge order with nothing it requires unlanded: merge it now, since
@@ -44,8 +45,9 @@ public static class TicketPullRequestHold
         if (facts.MergeStep is null && facts.OpenPullRequests is { Unlanded.Count: > 0 } stacked)
             return TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody, TicketHoldCases.MergeAfter, null, facts.EndedAt)
                 with { Names = stacked.Unlanded };
-        return facts.OpenPullRequests is { Ci: CiStates.Pending } running
-            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody, TicketHoldCases.CiRunning, null, running.CiSince)
+        return facts.OpenPullRequests is { Ci: CiStates.Pending or CiStates.NotStarted } waits
+            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody,
+                waits.Ci == CiStates.NotStarted ? TicketHoldCases.CiNotStarted : TicketHoldCases.CiRunning, null, waits.CiSince)
             : null;
     }
 

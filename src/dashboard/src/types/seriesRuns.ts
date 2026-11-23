@@ -39,7 +39,7 @@ export interface SeriesRunPullRequest {
   url: string;
   /** open · merged · closed · unread · unsupported */
   state: string;
-  /** none · pending · green · red, read on the pull request's head; null before a CI read. */
+  /** none · pending · not_started (2026-11-23-0219) · green · red, read on the pull request's head; null before a CI read. */
   ci: string | null;
   /** A red head's first failed check and its first line. */
   ciFailure: string | null;
@@ -48,6 +48,8 @@ export interface SeriesRunPullRequest {
   target: string | null;
   /** 2026-11-23-8d16: the newest read saw it still a draft; a person's merge takes it out of draft first. */
   isDraft?: boolean;
+  /** 2026-11-23-0219: the newest merge run's refusal or armed auto-complete on it; null when none said one. */
+  mergeSaid?: SeriesMergeSaid | null;
 }
 
 export interface SeriesRunTicket {
@@ -67,6 +69,14 @@ export interface SeriesRunTicket {
   hold?: TicketHold | null;
   /** 2026-11-23-f562: the newest attempt's run id — Retry, See why and See run act on it; null before any. */
   runId?: string | null;
+}
+
+/** 2026-11-23-0219: what a merge run said about a pull request it did not merge (PullRequestMergeSaid). */
+export interface SeriesMergeSaid {
+  /** completion_refused · completion_armed */
+  status: string;
+  reason: string | null;
+  at: string;
 }
 
 /** ready: merge this one now · after: the tickets in `after` land first · retarget: its target moves to main first. */
@@ -112,6 +122,8 @@ export interface SeriesRunDetail {
   conversationOpen: boolean;
   /** 2026-11-23-31dcf: every requires edge between two of its tickets. */
   edges: SeriesRunEdge[];
+  /** 2026-11-23-0219: the project merges with respect_branch_protection: true, so a Merge while CI waits arms auto-complete. */
+  mergeArms?: boolean;
 }
 
 /** 2026-11-23-31dce: what a merge from the series page did to one repo's pull request. */

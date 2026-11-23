@@ -169,6 +169,8 @@ export type TicketHoldCase =
   | "merge_next" | "starts_on_merge"
   /** 2026-11-23-d60d: an open pull request that can merge now, red CI on one, and CI still running on one */
   | "merge_ready" | "ci_failed" | "ci_running"
+  /** 2026-11-23-0219: a required build that has not started on an open pull request's head */
+  | "ci_not_started"
   | "working" | "model_wait" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite";
 
 /** 2026-11-23-31dcg: the one act of a hold; the target is a run id (retry), a series id (merge, series), a path

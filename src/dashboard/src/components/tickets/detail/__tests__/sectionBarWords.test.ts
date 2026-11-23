@@ -33,6 +33,9 @@ describe("sectionBarWords", () => {
     const red = { state: "red", headSha: "abc", at: null, failures: [{ name: "build", url: null, excerpt: "x" }, { name: "lint", url: null, excerpt: "y" }] };
     expect(pullRequestFact(ticket({ pullRequests: [pr({ state: "open", ci: red })] }))).toBe("1 PR open · CI red: build, lint");
     expect(ciWords([pr({ state: "open", ci: { state: "pending", headSha: "abc", at: null, failures: [] } })])).toBe("CI pending");
+    // 2026-11-23-0219: a required build that never started is neither green nor running.
+    expect(ciWords([pr({ state: "open", ci: { state: "not_started", headSha: "abc", at: null, failures: [] } }),
+      pr({ state: "open", ci: { state: "pending", headSha: "abc", at: null, failures: [] } })])).toBe("build not started");
     expect(ciWords([pr({ state: "open", ci: { state: "green", headSha: "abc", at: null, failures: [] } })])).toBe("CI green");
     expect(ciWords([pr({ state: "open", ci: { state: "none", headSha: "abc", at: null, failures: [] } })])).toBeNull();
     expect(ciWords([pr({ state: "merged", ci: red })])).toBeNull();

@@ -11,6 +11,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// waits for its build and the check is pending. A blocking policy is required.
 /// 2026-11-23-c785: a build id of 0 (Azure's "no build behind this evaluation") names no build — asking for build 0 threw
 /// and left a stale CI standing for days; with no build to compare, the evaluation's own status is the check.
+/// 2026-11-23-0219: an expired evaluation, or one queued with no build on the head, is not started (<see cref="Outcome"/>).
 /// </summary>
 public static class AzureReposCiPolicies
 {
@@ -40,16 +41,29 @@ public static class AzureReposCiPolicies
         if (buildId <= 0) buildId = null;
         var expired = evaluation.Context?["isExpired"]?.Type == JTokenType.Boolean && evaluation.Context["isExpired"]!.Value<bool>();
         var build = buildId is { } id ? await builds.GetBuildAsync(projectId, id, cancellationToken: ct) : null;
-        var current = !expired && (build is null ? buildId is null : RanHead(build, head));
-        var outcome = !current ? CiCheckOutcome.Pending : evaluation.Status switch
+        var onHead = build is null ? buildId is null : RanHead(build, head);
+        var at = evaluation.CompletedDate is { } done ? new DateTimeOffset(DateTime.SpecifyKind(done, DateTimeKind.Utc)) : (DateTimeOffset?)null;
+        return new AzureReposCiItem(new CiCheck(name, Outcome(evaluation.Status, expired, buildId is not null, onHead),
+                evaluation.Configuration?.IsBlocking == true, at), buildId,
+            buildId is { } b ? $"{orgUrl}/{projectId}/_build/results?buildId={b}" : null, null) { EvaluationId = evaluation.EvaluationId };
+    }
+
+    /// <summary>
+    /// 2026-11-23-0219: how one build-policy evaluation stands on the head. Expired, or queued with no build on the head (none
+    /// behind it, or one that ran another head), is not started — Azure queues nothing on a draft, and a published or retargeted
+    /// pull request may wait so for good. A verdict on the head decides; anything else (a running build, a queued build of the
+    /// head, a verdict on an older head about to be re-run) still runs.
+    /// </summary>
+    internal static CiCheckOutcome Outcome(PolicyEvaluationStatus? status, bool expired, bool hasBuild, bool onHead)
+    {
+        if (expired || (status == PolicyEvaluationStatus.Queued && !(hasBuild && onHead))) return CiCheckOutcome.NotStarted;
+        if (!onHead) return CiCheckOutcome.Pending;
+        return status switch
         {
             PolicyEvaluationStatus.Approved => CiCheckOutcome.Passed,
             PolicyEvaluationStatus.Rejected or PolicyEvaluationStatus.Broken => CiCheckOutcome.Failed,
             _ => CiCheckOutcome.Pending,
         };
-        var at = evaluation.CompletedDate is { } done ? new DateTimeOffset(DateTime.SpecifyKind(done, DateTimeKind.Utc)) : (DateTimeOffset?)null;
-        return new AzureReposCiItem(new CiCheck(name, outcome, evaluation.Configuration?.IsBlocking == true, at), buildId,
-            buildId is { } b ? $"{orgUrl}/{projectId}/_build/results?buildId={b}" : null, null);
     }
 
     private static bool RanHead(Build build, string head) =>

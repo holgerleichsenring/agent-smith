@@ -20,7 +20,8 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class SpecOnlyPullRequests(
     ISourceProviderFactory sourceFactory,
     PullRequestOutcomePublisher outcomes,
-    ILogger<SpecOnlyPullRequests> logger)
+    ILogger<SpecOnlyPullRequests> logger,
+    PullRequestBuildRequeue? requeue = null)
 {
     /// <summary>
     /// Replaces each series repository's skipped outcome in <paramref name="opened"/> by its spec PR,
@@ -62,6 +63,7 @@ public sealed class SpecOnlyPullRequests(
             var provider = sourceFactory.Create(repo);
             var updated = await provider.UpdatePullRequestBodyAsync(url, body, ct);
             var promoted = ready && await provider.MarkPullRequestReadyAsync(url, ct);
+            if (promoted && requeue is not null) await requeue.RequeueAsync(provider, url, ct); // 2026-11-23-0219
             logger.LogInformation(
                 "{Repo}: the spec PR {Url} is kept as the run's work (body updated: {Updated}, ready for review: {Ready})",
                 repo.Name, url, updated, promoted);
