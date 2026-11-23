@@ -22,7 +22,7 @@ public static partial class CommandBeats
         [CommandNames.PrCrossLink] = RunBeat.Outcome,
         [CommandNames.InitComplete] = RunBeat.Outcome,
         [CommandNames.CompletePullRequests] = RunBeat.Outcome, [CommandNames.RefreshBranchBase] = RunBeat.Outcome, [CommandNames.DeployToEnvironment] = RunBeat.Outcome, // 023fa, 023fb, 3863c
-        [CommandNames.PocIntake] = RunBeat.Outcome, // 2026-11-23-933db
+        [CommandNames.PocIntake] = RunBeat.Outcome, [CommandNames.PocCodeScan] = RunBeat.Outcome, [CommandNames.PocSourceCommit] = RunBeat.Outcome, // 933db, 933dc
         [CommandNames.CleanupWorkBranches] = RunBeat.Outcome, // 2026-11-17-713ec
         [CommandNames.PersistWorkBranch] = RunBeat.Outcome,
         [CommandNames.CollectSpecDialogReply] = RunBeat.Outcome,

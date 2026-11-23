@@ -329,6 +329,18 @@
             "mismatch_file_limit": { "type": "integer", "minimum": 1, "description": "An import asks whether the archive is really the same PoC when more than this many files differ AND more than mismatch_ratio_percent do. Default 100." }
           }
         },
+        "scan": {
+          "type": "object",
+          "description": "How an upload is scanned before it is committed: a high or critical secret pattern of enough confidence blocks and can never be overruled; a dependency vulnerability with CVSS 9.0 or more blocks and can be overruled (pocs.overrule); everything else is a note. Absent reads as the defaults.",
+          "additionalProperties": false,
+          "properties": {
+            "osv_image": { "type": "string", "description": "The OSV-Scanner image, pinned by digest ('...@sha256:<64 hex>'); a tag is refused. Required while PoCs are enabled. The scan downloads its databases from osv-vulnerabilities.storage.googleapis.com through the sandbox egress." },
+            "timeout_seconds": { "type": "integer", "minimum": 1, "description": "How long the dependency scan may take, the database download included. Default 300." },
+            "unfixed_critical_block": { "type": "boolean", "description": "Whether a critical vulnerability with no fixed version blocks (overrulable) like one with a fix; false makes it a note. Default true." },
+            "secret_min_confidence": { "type": "integer", "minimum": 1, "maximum": 10, "description": "A secret pattern of severity high or critical blocks at this catalog confidence or above; below it the finding is a note. Default 8." }
+          }
+        },
+        "blocked_retention_days": { "type": "integer", "minimum": 1, "description": "How many days a blocked upload is kept before it is purged. Default 7." },
         "targets": {
           "type": "array",
           "description": "Where PoCs are hosted. One for now; required while enabled.",

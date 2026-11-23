@@ -8,7 +8,7 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// <summary>
 /// 2026-11-23-933db: what a poc-deploy run's intake reads and writes — the revision the seeds name and its PoC, the
 /// stored archive, and the outcome. A revision already validated or refused is never written again, and a refused one
-/// turns a PoC that is still importing (never ready) refused.
+/// turns a PoC that never reached ready (importing, or 2026-11-23-933dc: blocked) refused.
 /// </summary>
 public sealed class PocIntakeRepository(IUnitOfWork unitOfWork, ReferenceSetRepository uploads)
 {
@@ -36,7 +36,7 @@ public sealed class PocIntakeRepository(IUnitOfWork unitOfWork, ReferenceSetRepo
                 .SetProperty(r => r.Entrypoint, outcome.Entrypoint).SetProperty(r => r.BaseImage, outcome.BaseImage)
                 .SetProperty(r => r.Reason, outcome.Reason), ct);
         if (written > 0 && outcome.State == PocRevisionStates.Refused)
-            await unitOfWork.Set<Poc>().Where(p => p.Id == outcome.PocId && p.State == PocStates.Importing)
+            await unitOfWork.Set<Poc>().Where(p => p.Id == outcome.PocId && (p.State == PocStates.Importing || p.State == PocStates.Blocked))
                 .ExecuteUpdateAsync(set => set.SetProperty(p => p.State, PocStates.Refused), ct);
     }
 }

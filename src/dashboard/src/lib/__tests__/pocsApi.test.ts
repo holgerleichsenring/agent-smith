@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError } from "../apiResponse";
-import { fetchPocs, importPocUpload, uploadPocZip } from "../pocsApi";
+import { fetchPocs, getPocRevision, importPocUpload, overrulePocRevision, uploadPocZip } from "../pocsApi";
 
 // 2026-11-23-933da: GET /api/pocs is the feature switch too — 200 is the list, 404 off, 403 not permitted.
 
@@ -111,5 +111,72 @@ describe("importPocUpload", () => {
 
     expect((thrown as ApiResponseError).status).toBe(404);
     expect((thrown as ApiResponseError).reason).toBeNull();
+  });
+});
+
+// 2026-11-23-933dc: a revision is read by its PoC and number; a foreign PoC or a caller who may not read its runs gets
+// an empty 404, read as not found. The overrule posts a reason; its refusals are plain sentences, carried whole.
+
+const REVISION = {
+  pocId: 4, name: "doc-search", revision: 3, latestRevision: 3, state: "blocked", runId: "r-9", commitSha: null,
+  verdict: { blocks: [], notes: [], isBlocked: true, overrulable: true }, explanation: null, mayOverrule: true, whyNot: null,
+};
+
+describe("getPocRevision", () => {
+  it("getPocRevision_200_ReadsTheRevision", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(answer(200, REVISION));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getPocRevision(4, 3)).resolves.toEqual(REVISION);
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/api\/pocs\/4\/revisions\/3$/);
+  });
+
+  it("getPocRevision_404Empty_IsNotFound", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(plain(404, "")));
+
+    await expect(getPocRevision(4, 3)).resolves.toBeNull();
+  });
+
+  it("getPocRevision_500_Throws", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(answer(500)));
+
+    await expect(getPocRevision(4, 3)).rejects.toThrow("/api/pocs/4/revisions/3");
+  });
+});
+
+describe("overrulePocRevision", () => {
+  it("overrulePocRevision_PostsTheReasonAsJson_AndReadsTheRun", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(answer(201, { pocId: 4, revision: 3, runId: "r-12" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(overrulePocRevision(4, 3, "demo tomorrow")).resolves.toEqual({ pocId: 4, revision: 3, runId: "r-12" });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/pocs\/4\/revisions\/3\/overrule$/);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ reason: "demo tomorrow" });
+  });
+
+  it("overrulePocRevision_TextRefusal_ThrowsTheSentenceWhole", async () => {
+    const sentence = "a secret cannot be overruled: remove it and upload again";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(plain(400, sentence)));
+
+    const thrown = await overrulePocRevision(4, 3, "demo").catch((err: unknown) => err);
+
+    expect(thrown).toBeInstanceOf(ApiResponseError);
+    expect((thrown as ApiResponseError).status).toBe(400);
+    expect((thrown as ApiResponseError).reason).toBe(sentence);
+  });
+
+  it("overrulePocRevision_409And410_CarryTheirSentences", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(plain(409, "a run of doc-search is in progress"))
+      .mockResolvedValueOnce(plain(410, "the upload of r3 was purged after 7 days (pocs.blocked_retention_days)")));
+
+    const busy = await overrulePocRevision(4, 3, "x").catch((err: unknown) => err) as ApiResponseError;
+    const gone = await overrulePocRevision(4, 3, "x").catch((err: unknown) => err) as ApiResponseError;
+
+    expect([busy.status, busy.reason]).toEqual([409, "a run of doc-search is in progress"]);
+    expect([gone.status, gone.reason]).toEqual([410, "the upload of r3 was purged after 7 days (pocs.blocked_retention_days)"]);
   });
 });

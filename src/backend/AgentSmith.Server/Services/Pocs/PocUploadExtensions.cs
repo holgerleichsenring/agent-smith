@@ -8,5 +8,6 @@ internal static class PocUploadExtensions
     internal static IServiceCollection AddPocImports(this IServiceCollection services) =>
         services.AddSingleton<PocUploadBody>().AddScoped<PocUploadStore>().AddScoped<PocIdentity>().AddScoped<PocUploadAdmission>()
             .AddScoped<PocProjectProvisioner>().AddScoped<PocRunGate>().AddScoped<PocImportChoice>().AddScoped<PocImportLauncher>()
-            .AddSingleton<PocPrefixFindings>();
+            .AddSingleton<PocPrefixFindings>().AddSingleton<PocSandboxFinding>()
+            .AddSingleton<Revisions.PocOverruleRule>().AddScoped<Revisions.PocRevisionReader>().AddScoped<Revisions.PocOverruleLauncher>();
 }

@@ -996,6 +996,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("FindingIdsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<long>("PocId")
                         .HasColumnType("bigint");
 
@@ -1038,10 +1041,17 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("CommitSha")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Entrypoint")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Explanation")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ManifestJson")
@@ -1049,6 +1059,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<int>("Number")
                         .HasColumnType("int");
+
+                    b.Property<string>("OverruledIdsJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<long>("PocId")
                         .HasColumnType("bigint");
@@ -1080,6 +1093,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("VerdictJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 

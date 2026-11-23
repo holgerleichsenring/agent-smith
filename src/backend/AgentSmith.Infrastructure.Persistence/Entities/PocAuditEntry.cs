@@ -21,4 +21,7 @@ public sealed class PocAuditEntry : EntityBase
     public string? Reason { get; set; }
 
     public string? RunId { get; set; }
+
+    /// <summary>2026-11-23-933dc: the finding ids an 'overruled' entry lifted (a JSON array), null for every other act.</summary>
+    public string? FindingIdsJson { get; set; }
 }

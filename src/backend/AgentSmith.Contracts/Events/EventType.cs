@@ -19,9 +19,8 @@ public enum EventType
     ToolCall = 23,
     ToolResult = 24,
     L1StepDetail = 25,
-    // p0184: ticket detail event (L1Run tier). Carries title, description,
-    // state, labels, attachment count — fills the empty Fetch-ticket step
-    // body and feeds RunSnapshot.TicketTitle for the runs-page card.
+    // p0184: ticket detail event (L1Run tier): title, description, state, labels, attachment
+    // count — fills the Fetch-ticket step body and feeds RunSnapshot.TicketTitle.
     TicketFetched = 26,
     // p0205: per-run catalog binding (version/source/url/counts/from-cache),
     // emitted by the visible LoadCatalog step. Distinct from the system-scoped
@@ -114,7 +113,8 @@ public enum EventType
     VerifyPassRecorded = 91,
     // 2026-11-18-3863f: a deploy's pull request or pipeline run, followed by the server.
     DeployDelivered = 92,
-    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs; 2026-11-23-933db: a poc-deploy run validated a PoC revision.
+    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs; 933db: a poc-deploy run validated a PoC revision; 933dc: one lifted a block.
     TicketTextRewritten = 93,
     PocImported = 94,
+    PocOverruled = 95,
 }

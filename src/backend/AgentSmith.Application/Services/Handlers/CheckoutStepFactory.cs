@@ -32,6 +32,10 @@ internal static class CheckoutStepFactory
     public static Step BuildScopeCloneStep(RepoConnection config, GitCredential credential) =>
         Clone(config, credential, ["--depth", "1", "--single-branch"]);
 
+    /// <summary>2026-11-23-933dc: a PoC folder write's clone — no checkout, sparse, no blobs until read, one branch.</summary>
+    public static Step BuildSparseCloneStep(RepoConnection config, GitCredential credential, string? branch) =>
+        Clone(config, credential, ["--no-checkout", "--sparse", "--filter=blob:none", "--single-branch", .. branch is null ? [] : new[] { "--branch", branch }]);
+
     private static Step Clone(RepoConnection config, GitCredential credential, string[] narrowing) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
@@ -41,8 +45,7 @@ internal static class CheckoutStepFactory
             TimeoutSeconds: CloneTimeoutSeconds);
 
     /// <summary>
-    /// 2026-09-13-9802: asks the host for one revision by name, when a checkout has already
-    /// failed. Against the run's full clone that is a sha reachable from no branch and no
+    /// 2026-09-13-9802: asks the host for one revision by name, when a checkout has already failed. Against the run's full clone that is a sha reachable from no branch and no
     /// tag; against a scope's shallow clone (2026-09-22-b41d) it is the ordinary case, and
     /// the depth rung that follows runs when this one lands nothing. It carries the
     /// credential the plain checkout does not, because it talks to the remote.

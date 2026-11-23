@@ -35,6 +35,12 @@ describe("runSections", () => {
     expect(commandSection(step("PocIntakeCommand"))).toBe("verify");
   });
 
+  // 2026-11-23-933dc: the code scan gate verifies; the commit to the source repo delivers.
+  it("commandSection_PocCodeScanVerifies_PocSourceCommitDelivers", () => {
+    expect(commandSection(step("PocCodeScanCommand"))).toBe("verify");
+    expect(commandSection(step("PocSourceCommitCommand"))).toBe("deliver");
+  });
+
   it("commandSection_AnUnknownCommand_NamesNone", () => {
     expect(commandSection(step("SomethingNew"))).toBeUndefined();
   });

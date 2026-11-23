@@ -118,3 +118,64 @@ decisions:
     chose: "pocs.scan.unfixed_critical_block defaults to true: a critical vulnerability without an available fix blocks and can be overruled"
     over: "Unfixed criticals as notes by default"
     reason: "Operator ruling, round 4, 2026-11-23: ratifies the default recorded above."
+  # --- Build decisions (2026-11-23, implementation) ---
+  - category: Implementation
+    chose: "Assumption checked against ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4 (v2.2.4, Alpine): the binary is /osv-scanner, 'scan source --offline --download-offline-databases --format json --output <file> -L <file>' exits 0 (no vulnerabilities), 1 (found) and 128 (no packages found), and go.mod is read (go.sum is not); OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY moves the database cache under /work; it runs as non-root"
+    over: "Building on the assumption unchecked"
+    reason: "The spec's one assumption asked for exactly this check before building; every point held, so PocLockfiles and the exit handling are as specified. --offline (not only --offline-vulnerabilities) also turns off deps.dev transitive resolution, so the only egress is the database host."
+  - category: Implementation
+    chose: "The scanner writes its JSON report to a file; the report is split in the sandbox into 4000-line parts (busybox split in the scanner image) and the parts are read in order and joined"
+    over: "Reading the report from stdout or with one file read"
+    reason: "A single old django pin already gives a 600 KB report and two lockfiles 1.1 MB, while one sandbox read and the captured stdout stop at 1 MB; a cut report would fail every larger PoC. A part that cannot be read fails the scan rather than parse half a report."
+  - category: Implementation
+    chose: "Lockfiles are written under 'lockfiles/' in the scanner sandbox, not 'scan/'"
+    over: "The spec's 'scan/'"
+    reason: "With a 'scan' folder in the working directory osv-scanner warns that 'scan' is both its subcommand and a file and guesses which is meant; a name it never parses removes the ambiguity. The marker is still never passed to the scanner (each lockfile is named by -L)."
+  - category: Implementation
+    chose: "A vulnerability's fix is the 'fixed' versions of the advisory's affected ranges for that package ('Upgrade django to 3.1.13 or 3.2.5 or later'); none means no fix; its title is the advisory's summary (else the first line of its details); aliases are the group's aliases and ids minus the group id"
+    over: "Comparing versions per ecosystem to pick the one fixed version above the installed one"
+    reason: "Ecosystem version ordering is the scanner's job; naming every fixed version is correct for any branch line and needs no per-ecosystem parser."
+  - category: Implementation
+    chose: "A second match of one secret rule on one line gets the ordinal in its id hash ('sec:' + sha256(rule|file|line|n)); the first keeps the spec's sha256(rule|file|line)"
+    over: "Two findings with the same id"
+    reason: "The spec asks for two findings for two AKIA keys on one line, and an id names exactly one finding (the page keys on it); the re-scan of one revision still yields the same ids."
+  - category: Implementation
+    chose: "The overrule route claims the PoC's run gate and queues poc-deploy seeded with the reason and the blocking ids (PocOverrule, PocOverruleReason, PocOverruleIds); the RUN appends the ids under 'code' of OverruledIdsJson before it re-scans; the reason and actor reach the audit trail through PocOverruledEvent"
+    over: "The route writing OverruledIdsJson itself before queueing"
+    reason: "Everything is a pipeline: the server accepts the request and starts a run; the write to the revision belongs to the run with its run id. The semantics are the spec's: appended under the stage's key, never replacing another stage or an earlier overrule."
+  - category: Implementation
+    chose: "PocAuditEntries gains FindingIdsJson; the 'overruled' entry keeps the reason in Reason and the lifted ids there"
+    over: "Folding the ids into Reason"
+    reason: "Reason is 500 characters, the bound the overrule's reason is held to; reason plus ids would not fit, and the test asks the entry to carry who, why and the ids. Added in the same migration as the PocRevisions columns."
+  - category: Implementation
+    chose: "why_not is checked in this order: not blocked, not the latest revision, a secret block, then the caller lacks pocs.overrule"
+    over: "The spec's listed order (permission first)"
+    reason: "With the permission first an unblocked or older revision answered 'a holder of pocs.overrule … can lift this block', which is false; the route and the page share one rule (PocOverruleRule), so they always say the same."
+  - category: Implementation
+    chose: "PocSourceCommit ends the run FAILED naming 'revision <n> is older than r<latest>' and changes nothing"
+    over: "Ending successfully"
+    reason: "933dd appends its build after the commit; a successful end would let a retried old upload be built. Failing stops the run where the spec says it ends."
+  - category: Implementation
+    chose: "The sparse clone passes --branch only when the repo names default_branch; otherwise it clones the remote's HEAD (its default branch) and reads the branch name from the clone. The sparse set is no-cone '/<folder>/', so not even root files are checked out; every command that may fetch blobs (checkout, fetch, rebase) carries the repo's credential"
+    over: "Asking the host's API for the default branch; cone mode"
+    reason: "A single-branch clone of the remote HEAD is the default branch without a provider call; cone mode always checks out root files, against 'no other folder is in the work tree'; a blob-less clone fetches the folder's blobs lazily, which needs the credential."
+  - category: Implementation
+    chose: "The commit's git commands and the report split run with the sandbox step's default timeout"
+    over: "Hard-coded per-command timeouts"
+    reason: "A new limit earns its place in config; the step default (and the backend's configured step cap) already bounds them."
+  - category: Implementation
+    chose: "PocSandboxFinding names a server on the in-process backend while PoCs are on, republished with the poc- prefix findings each branch-cleanup epoch; the scan itself reads SandboxContainerRuntime and fails closed"
+    over: "A one-off check at boot"
+    reason: "Startup changes nothing: findings are republished by the existing leader pass, the PocPrefixFindings pattern."
+  - category: Implementation
+    chose: "A failed explanation call leaves PocRevision.Explanation null; the reason is named in the run's result message and logged; an overruled revision keeps the explanation its block was given"
+    over: "Storing the failure text as the explanation"
+    reason: "The explanation column holds the agent's words only; the run message is where a step says what went wrong."
+  - category: Implementation
+    chose: "The PoC list answer gains latestRevision so a blocked PoC's card links to its revision page"
+    over: "No link from the list"
+    reason: "The blocked page is keyed by poc id and revision; without the number nothing leads a person to it."
+  - category: Implementation
+    chose: "The catalog step (aws-secret-key accepting a quoted value, connection-string-password at confidence 8, a skills release and the SkillsCatalogVersion pin bump) is NOT in this commit; the patch is prepared for the skills repo"
+    over: "Shipping it with this commit"
+    reason: "It needs a push and a release of the skills repository, which this build may not do (no push). Until the pin moves, a quoted AWS secret key and a connection string with a password are notes, not blocks — the AWS access key id case (done criterion 1) blocks with the pinned catalog. The release and pin bump are the open follow-up, named in the hand-over."

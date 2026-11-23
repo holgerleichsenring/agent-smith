@@ -24,10 +24,17 @@ public class PocsAuthorityFixture : AuthorityFixture
     public const string Readers = "readers";
     public const string Admins = "admins";
 
+    /// <summary>2026-11-23-933dc: hold pocs.overrule (and pocs.read), and runs.read only in poc-bob.</summary>
+    public const string Overrulers = "overrulers";
+
+    /// <summary>2026-11-23-933dc: hold pocs.overrule and the global reader role.</summary>
+    public const string ReadingOverrulers = "reading-overrulers";
+
     internal PocsConfig Pocs { get; } = new()
     {
         Enabled = true, ProjectAgent = "claude", ProjectTracker = "issues",
         Targets = [new PocTargetConfig { Name = "main", SourceRepo = "gh/poc-src", DomainPattern = "{app}.poc.example.internal" }],
+        Scan = new PocScanConfig { OsvImage = PocsConfigTests.PinnedOsvImage },
     };
 
     protected virtual bool Enforce => true;
@@ -79,11 +86,14 @@ public class PocsAuthorityFixture : AuthorityFixture
         {
             [Admins] = [BuiltInRoles.Admin], [Operators] = [BuiltInRoles.Operator], [Readers] = [BuiltInRoles.Reader],
             [Ann] = [BuiltInRoles.Poc], [Bob] = [BuiltInRoles.Poc],
+            [Overrulers] = ["overruler"], [ReadingOverrulers] = ["overruler", BuiltInRoles.Reader],
         },
+        Roles = new() { ["overruler"] = [Permissions.PocsOverrule, Permissions.PocsRead] },
         ProjectBindings =
         [
             new() { Project = "poc-ann", Groups = [Ann], Roles = [BuiltInRoles.Reader] },
             new() { Project = "poc-bob", Groups = [Bob], Roles = [BuiltInRoles.Reader] },
+            new() { Project = "poc-bob", Groups = [Overrulers], Roles = [BuiltInRoles.Reader] },
         ],
     };
 }

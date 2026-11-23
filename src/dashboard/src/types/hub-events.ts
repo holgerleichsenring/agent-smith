@@ -58,6 +58,7 @@ export enum EventType {
   DeployDelivered = 92,
   TicketTextRewritten = 93,
   PocImported = 94,
+  PocOverruled = 95,
 }
 
 interface RunEventBase {
@@ -828,6 +829,18 @@ export interface PocImportedEvent extends RunEventBase {
   actor: string;
 }
 
+/** 2026-11-23-933dc: a holder of pocs.overrule lifted a revision's scan block; the run committed it. Mirrors C#
+ *  PocOverruledEvent. */
+export interface PocOverruledEvent extends RunEventBase {
+  type: EventType.PocOverruled;
+  pocId: number;
+  revision: number;
+  stage: string;
+  actor: string;
+  reason: string;
+  findingIds: string[];
+}
+
 /** 2026-11-18-3863f: a deploy delivered — its pull request, or the pipeline run it started (null id: the host did
  *  not name it). Mirrors C# DeployDeliveredEvent. */
 export interface DeployDeliveredEvent extends RunEventBase {
@@ -938,7 +951,8 @@ export type RunEvent =
   | VerifyPassRecordedEvent
   | DeployDeliveredEvent
   | TicketTextRewrittenEvent
-  | PocImportedEvent;
+  | PocImportedEvent
+  | PocOverruledEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

@@ -23,7 +23,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// 2026-11-23-933db, real server composition: a person without a project uploads a PoC ZIP and starts it as a new PoC —
 /// the server writes their binding and their poc- project through the real configuration store, the Poc row and its
 /// revision, and queues poc-deploy; the run, built from the queued seeds, takes the archive in to a validated revision
-/// with its port and files and commits nothing.
+/// with its port and files; 2026-11-23-933dc: then scans it and commits it to the source repo.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class PocDeployCompositionTests
@@ -34,14 +34,10 @@ public sealed class PocDeployCompositionTests
     [Fact]
     public async Task FirstImport_ProvisionsTheProject_AndPocDeployValidatesTheRevision()
     {
-        var queued = new List<PipelineRequest>();
-        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Pocs), services =>
-        {
-            var queue = new Mock<IRedisJobQueue>();
-            queue.Setup(q => q.EnqueueAsync(It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()))
-                .Callback<PipelineRequest, CancellationToken>((r, _) => queued.Add(r)).Returns(Task.CompletedTask);
-            services.RemoveAll<IRedisJobQueue>().AddSingleton(queue.Object);
-        });
+        await using var repo = await PocHarnessRepo.CreateAsync(); // 2026-11-23-933dc: the run now scans and commits
+        if (repo is null) return;
+        var queued = repo.Queued;
+        await using var harness = RealCompositionHarness.Build(repo.Fixture(), repo.Override);
         await using var scope = harness.Services.CreateAsyncScope();
         var sp = scope.ServiceProvider;
 
@@ -57,7 +53,7 @@ public sealed class PocDeployCompositionTests
         var request = JsonSerializer.Deserialize<PipelineRequest>(JsonSerializer.Serialize(queued.Single()))!;
         (request.ProjectName, request.PipelineName).Should().Be(("poc-lee", PipelinePresets.PocDeployName));
 
-        var runner = new PipelineRunner(harness.Services);
+        var runner = new PipelineRunner(harness.Services) { RepoOverride = repo.Repo };
         foreach (var (key, value) in request.Context!) runner.RequestContext[key] = value;
         var result = await runner.RunAsync(PipelinePresets.PocDeployName);
 
@@ -65,19 +61,16 @@ public sealed class PocDeployCompositionTests
         var revision = await sp.GetRequiredService<AgentSmithDbContext>().Set<PocRevision>().AsNoTracking().SingleAsync(r => r.PocId == started!.PocId);
         (revision.State, revision.Port).Should().Be((PocRevisionStates.Validated, 8000));
         revision.ManifestJson.Should().Contain("app.py");
+        revision.CommitSha.Should().Be(await repo.OriginAsync("rev-parse", "main"), "933dc: a clean revision is committed");
     }
 
     [Fact]
     public async Task ActRun_AGivenRunId_IsTheRunsId_AndAnotherPresetIsRefusedInThePocProject()
     {
-        var queued = new List<PipelineRequest>();
-        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Pocs), services =>
-        {
-            var queue = new Mock<IRedisJobQueue>();
-            queue.Setup(q => q.EnqueueAsync(It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()))
-                .Callback<PipelineRequest, CancellationToken>((r, _) => queued.Add(r)).Returns(Task.CompletedTask);
-            services.RemoveAll<IRedisJobQueue>().AddSingleton(queue.Object);
-        });
+        await using var repo = await PocHarnessRepo.CreateAsync(); // 2026-11-23-933dc: the run now scans and commits
+        if (repo is null) return;
+        var queued = repo.Queued;
+        await using var harness = RealCompositionHarness.Build(repo.Fixture(), repo.Override);
         await using var scope = harness.Services.CreateAsyncScope();
         var sp = scope.ServiceProvider;
         var (upload, _) = await sp.GetRequiredService<PocUploadAdmission>().AdmitAsync(Lee, new PocUpload("todo.zip", Zip(), null), default);

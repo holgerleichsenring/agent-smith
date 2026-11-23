@@ -48,6 +48,20 @@ public sealed class PocStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task LatestRevisionsAsync_NamesEachPocsHighestRevision()
+    {
+        var todo = await PocRows.AddAsync(_db, PocRows.Poc("todo", "poc-ann"));
+        var shop = await PocRows.AddAsync(_db, PocRows.Poc("shop", "poc-ann"));
+        foreach (var n in new[] { 1, 2, 3 })
+            _db.Add(new AgentSmith.Infrastructure.Persistence.Entities.PocRevision { PocId = todo.Id, Number = n, UploadSession = "s", UploadId = $"u{n}", State = "validated", Actor = "a" });
+        await _db.SaveChangesAsync(_ct);
+
+        var latest = await new PocRepository(_db).LatestRevisionsAsync([todo.Id, shop.Id], _ct);
+
+        latest.Should().ContainSingle().Which.Should().Be(new KeyValuePair<long, int>(todo.Id, 3));
+    }
+
+    [Fact]
     public async Task FindAsync_KnownAndUnknownId_RowOrNull()
     {
         var poc = await PocRows.AddAsync(_db, PocRows.Poc("todo", "poc-ann"));

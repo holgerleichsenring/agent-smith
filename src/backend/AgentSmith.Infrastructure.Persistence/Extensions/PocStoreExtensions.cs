@@ -9,5 +9,6 @@ namespace AgentSmith.Infrastructure.Persistence.Extensions;
 public static class PocStoreExtensions
 {
     public static IServiceCollection AddPocStores(this IServiceCollection services) =>
-        services.AddSingleton<IPocProjects, DbPocProjects>().AddSingleton<IPocIntakeStore, DbPocIntakeStore>();
+        services.AddSingleton<IPocProjects, DbPocProjects>().AddSingleton<IPocIntakeStore, DbPocIntakeStore>()
+            .AddSingleton<IPocScanStore, DbPocScanStore>(); // 2026-11-23-933dc
 }

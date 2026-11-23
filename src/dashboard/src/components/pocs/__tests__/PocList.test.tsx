@@ -8,8 +8,11 @@ import { PocList } from "../PocList";
 
 const TARGETS = [{ name: "main", sourceRepo: "github/poc-source", root: "pocs" }];
 
-function poc(id: number, name: string, state: string, lastRunId: string | null = null): PocRow {
-  return { id, name, project: "poc-ann", target: "main", host: `${name}.poc.example.internal`, state, ownerName: "Ann", lastRunId };
+function poc(id: number, name: string, state: string, lastRunId: string | null = null, latestRevision: number | null = null): PocRow {
+  return {
+    id, name, project: "poc-ann", target: "main", host: `${name}.poc.example.internal`, state, ownerName: "Ann", lastRunId,
+    latestRevision,
+  };
 }
 
 function list(pocs: PocRow[], mayImport = true): PocListAnswer {
@@ -53,5 +56,13 @@ describe("PocList", () => {
 
     expect(screen.queryByTestId("poc-card-1")).not.toBeInTheDocument();
     expect(screen.getByTestId("poc-card-2")).toBeInTheDocument();
+  });
+
+  // 2026-11-23-933dc: a blocked PoC links to its latest revision, which says why; any other state does not.
+  it("PocList_BlockedCard_LinksToItsLatestRevision", () => {
+    render(<PocList list={list([poc(4, "doc-search", "blocked", "r-1", 3), poc(5, "shift-planner", "ready", null, 2)])} showSettings />);
+    expect(screen.getByTestId("poc-card-4-why")).toHaveAttribute("href", "/pocs/4/revisions/3");
+    expect(screen.getByTestId("poc-card-4-why")).toHaveTextContent("See why it is blocked");
+    expect(screen.queryByTestId("poc-card-5-why")).not.toBeInTheDocument();
   });
 });

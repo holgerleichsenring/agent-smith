@@ -12,4 +12,16 @@ public static partial class ContextKeys
 
     /// <summary>The principal of the person who started the import.</summary>
     public const string PocActor = "PocActor";
+
+    /// <summary>2026-11-23-933dc: "true" when the run lifts a blocked revision (pocs.overrule).</summary>
+    public const string PocOverrule = "PocOverrule";
+
+    /// <summary>2026-11-23-933dc: why the overruler lifted the block.</summary>
+    public const string PocOverruleReason = "PocOverruleReason";
+
+    /// <summary>2026-11-23-933dc: the blocking finding ids the overrule lifts, a JSON array of strings.</summary>
+    public const string PocOverruleIds = "PocOverruleIds";
+
+    /// <summary>2026-11-23-933dc: the source-repo commit that holds the revision's files — what 933dd builds.</summary>
+    public const string PocSourceCommitSha = "PocSourceCommitSha";
 }

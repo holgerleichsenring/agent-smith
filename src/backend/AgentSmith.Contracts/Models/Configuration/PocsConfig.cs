@@ -23,6 +23,14 @@ public sealed class PocsConfig
     /// app; an absent block reads as the defaults.</summary>
     public PocArchiveLimits Archive { get; set; } = new();
 
+    /// <summary>2026-11-23-933dc: how an upload is scanned before it is committed.</summary>
+    public PocScanConfig Scan { get; set; } = new();
+
+    public const string BlockedRetentionDaysKey = "pocs.blocked_retention_days";
+
+    /// <summary>2026-11-23-933dc: how many days a blocked upload is kept; 2026-11-23-c81ee purges it after them.</summary>
+    public int BlockedRetentionDays { get; set; } = 7;
+
     /// <summary>What is wrong with these values, one sentence each naming the key, the value and the reason; empty
     /// when nothing is. The ONE rule — the load and the settings store refuse what this names.</summary>
     public IReadOnlyList<string> Problems()
@@ -33,6 +41,10 @@ public sealed class PocsConfig
                 + "because a PoC names its target by it");
         problems.AddRange(Targets.SelectMany(t => t.Problems()));
         problems.AddRange(Archive.Problems());
+        problems.AddRange(Scan.Problems(Enabled));
+        if (BlockedRetentionDays < 1)
+            problems.Add($"{BlockedRetentionDaysKey} is {BlockedRetentionDays}; it must be 1 or more, because 0 or less would "
+                + "purge a blocked upload before anyone could read why it was blocked");
         return problems;
     }
 

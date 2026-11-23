@@ -59,7 +59,7 @@ internal sealed class PocImportLauncher(
     private async Task<(PocImportAnswer?, PocRefusal?)> RetryAsync(
         ClaimsPrincipal user, PocRevision earlier, string session, CancellationToken ct)
     {
-        if (await uploads.ReadAsync(session, earlier.UploadId, ct) is null) return (null, PocImportRefusals.Purged(earlier.Number));
+        if (await uploads.ReadAsync(session, earlier.UploadId, ct) is null) return (null, PocImportRefusals.Purged(earlier.Number, projects.Config().Pocs.BlockedRetentionDays));
         if (await pocs.FindAsync(earlier.PocId, ct) is not { } poc) return (null, PocRefusal.NotFound);
         if (earlier.RunId is { } runId) return (new PocImportAnswer(poc.Id, earlier.Number, runId), null);
         return await QueueAsync(poc, earlier, SpecDialogOwnership.PrincipalOf(user), false, ct);

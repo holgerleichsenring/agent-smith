@@ -56,7 +56,7 @@ public static partial class CommandDisplayNames
         [CommandNames.CommitAndPR] = "Create pull request",
         [CommandNames.InitCommit] = "Commit init files",
         [CommandNames.PrCrossLink] = "Cross-link sibling pull requests",
-        [CommandNames.InitComplete] = "Complete the init pull requests", [CommandNames.CompletePullRequests] = "Merge the pull requests", [CommandNames.RefreshBranchBase] = "Merge the landed base", [CommandNames.DeployToEnvironment] = "Deliver the version to the environment", [CommandNames.PocIntake] = "Check the PoC archive", // 023fa, 023fb, 3863c, 933db
+        [CommandNames.InitComplete] = "Complete the init pull requests", [CommandNames.CompletePullRequests] = "Merge the pull requests", [CommandNames.RefreshBranchBase] = "Merge the landed base", [CommandNames.DeployToEnvironment] = "Deliver the version to the environment", [CommandNames.PocIntake] = "Check the PoC archive", [CommandNames.PocCodeScan] = "Scan the PoC for secrets and vulnerabilities", [CommandNames.PocSourceCommit] = "Commit the PoC to its source folder", // 023fa, 023fb, 3863c, 933db, 933dc
         [CommandNames.CleanupWorkBranches] = "Remove finished branches", // 2026-11-17-713ec
         [CommandNames.GenerateTests] = "Generate tests",
         [CommandNames.GenerateDocs] = "Generate docs",

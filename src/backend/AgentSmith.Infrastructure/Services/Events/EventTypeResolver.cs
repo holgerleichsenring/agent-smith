@@ -67,6 +67,7 @@ public static class EventTypeResolver
         EventType.DeployDelivered => typeof(DeployDeliveredEvent), // 2026-11-18-3863f
         EventType.TicketTextRewritten => typeof(TicketTextRewrittenEvent), // 2026-11-22-e812
         EventType.PocImported => typeof(PocImportedEvent), // 2026-11-23-933db
+        EventType.PocOverruled => typeof(PocOverruledEvent), // 2026-11-23-933dc
         _ => null
     };
 

@@ -1115,6 +1115,19 @@ export interface PocsSetting {
   targets: PocTargetSetting[];
   /** 2026-11-23-933db: the bounds an imported ZIP is checked against, and when a replace asks first. */
   archive: PocArchiveSetting;
+  /** 2026-11-23-933dc: the code scan gate an upload passes before it is committed. */
+  scan: PocScanSetting;
+  /** 2026-11-23-933dc: how many days a blocked upload is kept before it is purged. */
+  blockedRetentionDays: number;
+}
+
+/** 2026-11-23-933dc: agentsmith.yml pocs.scan — the OSV-Scanner image pinned by digest and what blocks. */
+export interface PocScanSetting {
+  osvImage: string;
+  timeoutSeconds: number;
+  unfixedCriticalBlock: boolean;
+  /** 1..10: high or critical secret patterns at or above it block and cannot be overruled. */
+  secretMinConfidence: number;
 }
 
 /** 2026-11-23-933db: agentsmith.yml pocs.archive — sizes in MB/KB as named, the ratio as n:1. */

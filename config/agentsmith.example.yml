@@ -738,6 +738,15 @@ pocs:
   #   max_dockerfile_kb: 64
   #   mismatch_ratio_percent: 50
   #   mismatch_file_limit: 100
+  # 2026-11-23-933dc: how an upload is scanned before it is committed. osv_image is required while
+  # PoCs are enabled and must be pinned by digest; the scan fetches its databases from
+  # osv-vulnerabilities.storage.googleapis.com through the sandbox egress.
+  # scan:
+  #   osv_image: ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4
+  #   timeout_seconds: 300
+  #   unfixed_critical_block: true
+  #   secret_min_confidence: 8
+  # blocked_retention_days: 7
 
 # p0128c data-flow gating.
 pipeline_data_flow:

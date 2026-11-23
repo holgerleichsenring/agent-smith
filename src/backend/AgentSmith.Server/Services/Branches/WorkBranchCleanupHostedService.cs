@@ -66,7 +66,11 @@ public sealed class WorkBranchCleanupHostedService(
     // 2026-11-23-933db: the poc-* projects no Poc row names, republished with every pass.
     private async Task ReportPocPrefixesAsync(AgentSmithConfig config, CancellationToken ct)
     {
-        try { await services.GetRequiredService<Pocs.PocPrefixFindings>().ReportAsync(config, ct); }
+        try
+        {
+            await services.GetRequiredService<Pocs.PocPrefixFindings>().ReportAsync(config, ct);
+            services.GetRequiredService<Pocs.PocSandboxFinding>().Report(config); // 2026-11-23-933dc
+        }
         catch (Exception ex) when (!ct.IsCancellationRequested) { logger.LogWarning(ex, "The poc- prefix findings could not be read"); }
     }
 }

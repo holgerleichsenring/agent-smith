@@ -23,9 +23,10 @@ internal sealed class PocListReader(
         var config = projects.Config();
         var scope = scopes.For(user, Permissions.RunsRead, config.Projects.Keys);
         var rows = await pocs.ListAsync(scope, ct);
+        var latest = await pocs.LatestRevisionsAsync([.. rows.Select(p => p.Id)], ct);
         var mayImport = !access.Enforcing || access.HoldsEverywhere(user, Write);
         return new PocListAnswer(
-            [.. rows.Select(poc => Item(poc, config.Pocs))], mayImport,
+            [.. rows.Select(poc => Item(poc, config.Pocs) with { LatestRevision = latest.TryGetValue(poc.Id, out var n) ? n : null })], mayImport,
             [.. config.Pocs.Targets.Select(t => new PocTargetView(t.Name, t.SourceRepo, t.Root))]);
     }
 

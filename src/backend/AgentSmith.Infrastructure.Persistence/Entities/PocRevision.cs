@@ -4,7 +4,8 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// 2026-11-23-933db: one uploaded archive of a PoC, numbered per PoC. The import writes it admitted, naming where the
 /// archive is stored (the ReferenceFile byte store under <see cref="UploadSession"/> and set <see cref="UploadId"/>);
 /// the poc-deploy run's intake records it validated (with its manifest, port, entrypoint and base image) or refused
-/// (with the reason), once. A retried Start of the same upload finds its revision by <see cref="UploadId"/>.
+/// (with the reason), once; 2026-11-23-933dc: the code scan records it blocked or overruled with its verdict, and the
+/// commit its sha. A retried Start of the same upload finds its revision by <see cref="UploadId"/>.
 /// </summary>
 public sealed class PocRevision : EntityBase
 {
@@ -41,4 +42,16 @@ public sealed class PocRevision : EntityBase
 
     /// <summary>Why the intake refused it.</summary>
     public string? Reason { get; set; }
+
+    /// <summary>2026-11-23-933dc: the code scan's verdict (PocScanVerdict JSON: blocks and notes, masked snippets only).</summary>
+    public string? VerdictJson { get; set; }
+
+    /// <summary>2026-11-23-933dc: the agent's explanation of a blocked verdict — untrusted text no rule reads.</summary>
+    public string? Explanation { get; set; }
+
+    /// <summary>2026-11-23-933dc: the finding ids overrules lifted, keyed by stage ({"code": [...], "image": [...]}).</summary>
+    public string? OverruledIdsJson { get; set; }
+
+    /// <summary>2026-11-23-933dc: the source-repo commit holding the revision's files.</summary>
+    public string? CommitSha { get; set; }
 }

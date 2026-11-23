@@ -85,3 +85,44 @@
 .mock-pocs .poc-go { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
 .mock-pocs .poc-go .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 .mock-pocs a.btn { text-decoration: none; }
+
+/* 2026-11-23-933dc: a revision's page — the state badge, the step strip, each blocking finding in the bad colour with
+   its masked line, the notes folded, the agent's explanation as plain text, and the overrule box or the sentence why
+   not. A blocked card links here. */
+.mock-pocs .poc-why { font-size: 13px; color: var(--bad); text-decoration: none; }
+.mock-pocs .poc-why:hover { text-decoration: underline; }
+.mock-pocs .poc-rev-title { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.mock-pocs .poc-badge { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 13px; font-weight: 500; }
+.mock-pocs .poc-badge.bad { background: var(--bad-wash); color: var(--bad); }
+.mock-pocs .poc-badge.ok { background: var(--ok-wash); color: var(--ok); }
+.mock-pocs .poc-badge.run { background: var(--run-wash); color: var(--run); }
+.mock-pocs .poc-badge-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.mock-pocs .mono { font-family: var(--mono); font-size: 12.5px; }
+.mock-pocs .poc-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 22px; padding: 0; list-style: none; }
+.mock-pocs .poc-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); font-size: 13px; color: var(--ink-2); }
+.mock-pocs .poc-chip.done svg { color: var(--ok); }
+.mock-pocs .poc-chip.blocked { border-color: color-mix(in srgb, var(--bad) 45%, var(--bg)); background: var(--bad-wash); color: var(--bad); }
+.mock-pocs .poc-chip.pending { color: var(--ink-3); }
+.mock-pocs .poc-find { background: var(--panel); border: 1px solid color-mix(in srgb, var(--bad) 35%, var(--line-2)); border-radius: var(--r); overflow: hidden; }
+.mock-pocs .poc-find-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 18px; }
+.mock-pocs .poc-find-head h2 { font-size: 15px; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+.mock-pocs .poc-place { margin-left: auto; color: var(--ink-3); overflow-wrap: anywhere; }
+.mock-pocs .poc-sev, .mock-pocs .poc-kind { flex: none; font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; padding: 2px 8px; border-radius: 5px; }
+.mock-pocs .poc-sev { background: var(--bad-wash); color: var(--bad); }
+.mock-pocs .poc-kind { background: var(--panel-2); color: var(--ink-2); }
+.mock-pocs .poc-find-body { display: flex; flex-direction: column; gap: 10px; padding: 0 18px 16px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mock-pocs .poc-code { margin: 0; padding: 10px 14px; border-radius: var(--r-s); background: var(--bg); border: 1px solid var(--line-2); font-family: var(--mono); font-size: 12.5px; line-height: 1.8; color: var(--ink); overflow-x: auto; white-space: pre; }
+.mock-pocs .poc-fix { color: var(--ink); font-size: 13.5px; }
+.mock-pocs .poc-fix b { font-weight: 600; }
+.mock-pocs .poc-notes summary { cursor: pointer; list-style: none; }
+.mock-pocs .poc-notes summary::-webkit-details-marker { display: none; }
+.mock-pocs .poc-notes summary h2 { display: inline; margin: 0; }
+.mock-pocs .poc-notes ul { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; }
+.mock-pocs .poc-notes li { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mock-pocs .poc-notes li > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mock-pocs .poc-agent { margin-top: 10px; color: var(--ink-2); font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mock-pocs .poc-overrule { display: flex; flex-direction: column; gap: 10px; }
+.mock-pocs .poc-overrule h2 { margin: 0; }
+.mock-pocs .poc-overrule textarea { width: 100%; box-sizing: border-box; min-height: 72px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; resize: vertical; }
+.mock-pocs .poc-overrule .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.mock-pocs .poc-why-not { padding: 12px 16px; border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink-2); font-size: 13.5px; }

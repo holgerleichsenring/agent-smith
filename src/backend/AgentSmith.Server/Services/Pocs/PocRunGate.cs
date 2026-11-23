@@ -22,18 +22,27 @@ internal sealed class PocRunGate(
     /// <summary>Claims <paramref name="poc"/>'s slot for a poc-deploy run of <paramref name="revision"/> and queues it;
     /// the run id, or null with the run that holds the slot.</summary>
     public async Task<(string? RunId, string? HeldBy)> QueueDeployAsync(
-        Poc poc, PocRevision revision, string actor, CancellationToken ct, string? handover = null)
+        Poc poc, PocRevision revision, string actor, CancellationToken ct, string? handover = null,
+        IReadOnlyDictionary<string, object>? extraSeeds = null)
     {
         ArgumentNullException.ThrowIfNull(poc);
         ArgumentNullException.ThrowIfNull(revision);
         var runId = RunIdGenerator.Generate(clock.GetUtcNow());
         var claim = await gate.ClaimAsync(new PocClaimRequest(poc.Id, runId, poc.Project, PipelinePresets.PocDeployName, [],
-            $"starting — checking revision {revision.Number} of {poc.Name}", RunLivenessReaper.StaleAfter, revision.Id, handover), ct);
+            $"starting — {(extraSeeds is null ? "checking" : "overruling")} revision {revision.Number} of {poc.Name}",
+            RunLivenessReaper.StaleAfter, revision.Id, handover), ct);
         if (!claim.Won) return (null, claim.LiveRunId);
         await dispatch.DispatchAsync(new PipelineRequest(poc.Project, PipelinePresets.PocDeployName, TicketId: null, Headless: true,
-            RunId: runId, Context: Seeds(poc.Id, revision.Number, actor)), ct);
+            RunId: runId, Context: With(Seeds(poc.Id, revision.Number, actor), extraSeeds)), ct);
         logger.LogInformation("poc-deploy of PoC {PocId} revision {Revision} queued (run {RunId})", poc.Id, revision.Number, runId);
         return (runId, null);
+    }
+
+    // 2026-11-23-933dc: an overrule run carries its reason and the lifted ids beside the common seeds.
+    private static Dictionary<string, object> With(Dictionary<string, object> seeds, IReadOnlyDictionary<string, object>? extra)
+    {
+        foreach (var (key, value) in extra ?? new Dictionary<string, object>()) seeds[key] = value;
+        return seeds;
     }
 
     /// <summary>The run's seeds — strings only, so the request survives the queue.</summary>

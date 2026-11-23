@@ -19,6 +19,8 @@ export interface PocRow {
   state: string;
   ownerName: string;
   lastRunId: string | null;
+  /** 2026-11-23-933dc: the PoC's newest revision, which a blocked PoC's card links to; null before the first one. */
+  latestRevision: number | null;
 }
 
 export interface PocTarget {
@@ -119,6 +121,82 @@ export async function importPocUpload(uploadId: string, body: PocImportBody, sig
   });
   if (!res.ok) throw await refusedAsSaid(res, path);
   return readJson<PocImported>(res, path);
+}
+
+// 2026-11-23-933dc: one revision of a PoC as the scan gate left it — what blocks, what is only a note, the agent's
+// explanation, and whether the caller may overrule it. A foreign PoC or a caller who may not read its runs gets an
+// empty 404, read here as "not found".
+
+/** The states a revision carries. */
+export type PocRevisionState = "admitted" | "validated" | "refused" | "blocked" | "overruled";
+
+export type PocFindingKind = "secret" | "vulnerability" | "note";
+
+export interface PocScanFinding {
+  id: string;
+  kind: PocFindingKind | string;
+  ruleId: string;
+  file: string;
+  line: number | null;
+  title: string;
+  detail: string;
+  /** The line with the secret masked; never the value itself. */
+  maskedSnippet: string | null;
+  fix: string | null;
+  aliases: string[];
+}
+
+export interface PocScanVerdict {
+  blocks: PocScanFinding[];
+  notes: PocScanFinding[];
+  isBlocked: boolean;
+  overrulable: boolean;
+}
+
+export interface PocRevisionView {
+  pocId: number;
+  name: string;
+  revision: number;
+  latestRevision: number;
+  state: PocRevisionState | string;
+  runId: string | null;
+  commitSha: string | null;
+  verdict: PocScanVerdict | null;
+  /** The agent's explanation of a blocked verdict: untrusted text, rendered as text only. */
+  explanation: string | null;
+  mayOverrule: boolean;
+  /** The server's sentence why the caller may not overrule; null when they may. */
+  whyNot: string | null;
+}
+
+export interface PocOverruled {
+  pocId: number;
+  revision: number;
+  runId: string;
+}
+
+export function pocRevisionPath(pocId: number, revision: number): string {
+  return `${POCS_PATH}/${encodeURIComponent(String(pocId))}/revisions/${encodeURIComponent(String(revision))}`;
+}
+
+/** One revision, or null when the server answers it is not there (a foreign PoC answers the same empty 404). */
+export async function getPocRevision(pocId: number, n: number, signal?: AbortSignal): Promise<PocRevisionView | null> {
+  const path = pocRevisionPath(pocId, n);
+  const res = await apiFetch(path, { signal });
+  if (res.status === 404) return null;
+  if (!res.ok) throw await refused(res, path);
+  return readJson<PocRevisionView>(res, path);
+}
+
+/** Lift a revision's vulnerability block with a reason; the answer names the run that commits it. A refusal throws with
+ *  the server's sentence as its reason. */
+export async function overrulePocRevision(pocId: number, n: number, reason: string, signal?: AbortSignal): Promise<PocOverruled> {
+  const path = `${pocRevisionPath(pocId, n)}/overrule`;
+  const res = await apiFetch(path, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }), signal,
+  });
+  if (!res.ok) throw await refusedAsSaid(res, path);
+  return readJson<PocOverruled>(res, path);
 }
 
 // The upload routes answer a refusal as one plain sentence that names the file, the value and the config key; it is

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { PocArchiveSetting, PocsSetting, PocTargetSetting, SettingValue, StudioEntity } from "@/lib/configApi";
+import type {
+  PocArchiveSetting, PocScanSetting, PocsSetting, PocTargetSetting, SettingValue, StudioEntity,
+} from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
 import { CheckField, DrawerSection, NumberField, RefSelect, TextField, keep } from "./formFields";
@@ -26,6 +28,16 @@ export const POC_ARCHIVE_DEFAULTS: PocArchiveSetting = {
   maxDockerfileKb: 64, mismatchRatioPercent: 50, mismatchFileLimit: 100,
 };
 
+/** 2026-11-23-933dc: the server's scan defaults (PocScanConfig). The image has none: it is required while PoCs are on,
+ *  pinned by digest. Like archive, scan and blockedRetentionDays are always sent back. */
+export const POC_SCAN_DEFAULTS: PocScanSetting = {
+  osvImage: "", timeoutSeconds: 300, unfixedCriticalBlock: true, secretMinConfidence: 8,
+};
+
+export const POC_BLOCKED_RETENTION_DAYS_DEFAULT = 7;
+
+export const OSV_IMAGE_PLACEHOLDER = "ghcr.io/google/osv-scanner@sha256:…";
+
 /** A new target carries the server's defaults; the address has none, only a placeholder. */
 export function newPocTarget(): PocTargetSetting {
   return {
@@ -39,7 +51,9 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
 }) {
   const t = useT();
   const archive = value.archive ?? POC_ARCHIVE_DEFAULTS;
-  const set = (patch: Partial<PocsSetting>) => onChange({ ...value, archive, ...patch });
+  const scan = value.scan ?? POC_SCAN_DEFAULTS;
+  const blockedRetentionDays = value.blockedRetentionDays ?? POC_BLOCKED_RETENTION_DAYS_DEFAULT;
+  const set = (patch: Partial<PocsSetting>) => onChange({ ...value, archive, scan, blockedRetentionDays, ...patch });
   const targets = value.targets ?? [];
   const setAt = (i: number, patch: Partial<PocTargetSetting>) =>
     set({ targets: targets.map((target, j) => (j === i ? { ...target, ...patch } : target)) });
@@ -71,6 +85,12 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
         <span className="help">{t("config.pocs.archive.help")}</span>
         <PocArchiveFields archive={archive} onChange={(patch) => set({ archive: { ...archive, ...patch } })} />
       </DrawerSection>
+      <DrawerSection title={t("config.pocs.scan.title")} testId="setting-pocs-scan">
+        <span className="help" data-testid="setting-pocs-scan-secret-fixed">{t("config.pocs.scan.secretFixed")}</span>
+        <PocScanFields scan={scan} blockedRetentionDays={blockedRetentionDays}
+          onScan={(patch) => set({ scan: { ...scan, ...patch } })}
+          onRetention={(days) => set({ blockedRetentionDays: days })} />
+      </DrawerSection>
     </>
   );
 }
@@ -97,6 +117,31 @@ function PocArchiveFields({ archive, onChange }: { archive: PocArchiveSetting; o
         <NumberField key={key} label={t(label)} value={archive[key]} help={t(help)} testId={`setting-pocs-archive-${key}`}
           onChange={(v) => onChange({ [key]: keep(v, archive[key]) })} />
       ))}
+    </>
+  );
+}
+
+function PocScanFields({ scan, blockedRetentionDays, onScan, onRetention }: {
+  scan: PocScanSetting; blockedRetentionDays: number;
+  onScan: (patch: Partial<PocScanSetting>) => void; onRetention: (days: number) => void;
+}) {
+  const t = useT();
+  return (
+    <>
+      <TextField label={t("config.pocs.scan.osvImage")} value={scan.osvImage} mono testId="setting-pocs-scan-osvImage"
+        placeholder={OSV_IMAGE_PLACEHOLDER} help={t("config.pocs.scan.osvImage.help")}
+        onChange={(v) => onScan({ osvImage: v })} />
+      <NumberField label={t("config.pocs.scan.timeoutSeconds")} value={scan.timeoutSeconds} testId="setting-pocs-scan-timeoutSeconds"
+        help={t("config.pocs.scan.timeoutSeconds.help")} onChange={(v) => onScan({ timeoutSeconds: keep(v, scan.timeoutSeconds) })} />
+      <CheckField label={t("config.pocs.scan.unfixedCriticalBlock")} value={scan.unfixedCriticalBlock}
+        testId="setting-pocs-scan-unfixedCriticalBlock" help={t("config.pocs.scan.unfixedCriticalBlock.help")}
+        onChange={(v) => onScan({ unfixedCriticalBlock: v })} />
+      <NumberField label={t("config.pocs.scan.secretMinConfidence")} value={scan.secretMinConfidence}
+        testId="setting-pocs-scan-secretMinConfidence" help={t("config.pocs.scan.secretMinConfidence.help")}
+        onChange={(v) => onScan({ secretMinConfidence: keep(v, scan.secretMinConfidence) })} />
+      <NumberField label={t("config.pocs.blockedRetentionDays")} value={blockedRetentionDays}
+        testId="setting-pocs-blockedRetentionDays" help={t("config.pocs.blockedRetentionDays.help")}
+        onChange={(v) => onRetention(keep(v, blockedRetentionDays))} />
     </>
   );
 }

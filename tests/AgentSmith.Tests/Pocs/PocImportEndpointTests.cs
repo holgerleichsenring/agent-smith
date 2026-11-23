@@ -88,7 +88,8 @@ public sealed class PocImportEndpointTests(PocImportFixture fixture) : IClassFix
         var counts = await CountsAsync();
         var purged = await _client.StartAsync(Ann, upload, new { choice = "new", name = "retry-app" });
         purged.StatusCode.Should().Be(HttpStatusCode.Gone);
-        (await purged.Content.ReadAsStringAsync()).Should().Contain("revision 1").And.Contain("pocs.blocked_retention_days");
+        (await purged.Content.ReadAsStringAsync()).Should().Contain("revision 1").And.Contain("after 7 days")
+            .And.Contain("pocs.blocked_retention_days");
         (await CountsAsync()).Should().Be(counts);
     }
 

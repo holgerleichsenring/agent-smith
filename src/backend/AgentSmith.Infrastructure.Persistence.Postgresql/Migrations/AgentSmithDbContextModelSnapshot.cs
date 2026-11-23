@@ -995,6 +995,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("FindingIdsJson")
+                        .HasColumnType("text");
+
                     b.Property<long>("PocId")
                         .HasColumnType("bigint");
 
@@ -1036,10 +1039,17 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
+                    b.Property<string>("CommitSha")
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Entrypoint")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Explanation")
                         .HasColumnType("text");
 
                     b.Property<string>("ManifestJson")
@@ -1047,6 +1057,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
                     b.Property<int>("Number")
                         .HasColumnType("integer");
+
+                    b.Property<string>("OverruledIdsJson")
+                        .HasColumnType("text");
 
                     b.Property<long>("PocId")
                         .HasColumnType("bigint");
@@ -1078,6 +1091,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
+
+                    b.Property<string>("VerdictJson")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

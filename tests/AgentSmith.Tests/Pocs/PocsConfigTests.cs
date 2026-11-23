@@ -105,7 +105,8 @@ public sealed class PocsConfigTests : IDisposable
     {
         var empty = new PocsConfig { Enabled = true };
 
-        empty.Problems().Should().HaveCount(3).And.Contain(p => p.StartsWith("pocs.targets is empty"))
+        empty.Problems().Should().HaveCount(4).And.Contain(p => p.StartsWith("pocs.targets is empty"))
+            .And.Contain(p => p.StartsWith("pocs.scan.osv_image is empty")) // 2026-11-23-933dc
             .And.Contain(p => p.StartsWith("pocs.project_agent is empty")).And.Contain(p => p.StartsWith("pocs.project_tracker is empty"));
         new PocsConfig().Problems().Should().BeEmpty("an off block may be filled in before the switch is");
     }
@@ -124,7 +125,7 @@ public sealed class PocsConfigTests : IDisposable
     {
         var config = new AgentSmithConfig { Pocs = new PocsConfig { Enabled = true } };
 
-        PocsConfigValidator.Findings(config).Should().HaveCount(3).And.OnlyContain(f => f.IsBlocking && f.Field == "pocs");
+        PocsConfigValidator.Findings(config).Should().HaveCount(4).And.OnlyContain(f => f.IsBlocking && f.Field == "pocs");
         new AgentSmithConfigValidator(new SkillsConfigValidator()).Validate(config).Should().Contain(r => r.Contains("pocs.project_agent"));
     }
 
@@ -132,7 +133,11 @@ public sealed class PocsConfigTests : IDisposable
     {
         Enabled = true, ProjectAgent = "claude", ProjectTracker = "issues",
         Targets = [new PocTargetConfig { Name = "main", SourceRepo = "gh/poc-src", DomainPattern = "{app}.poc.example.internal" }],
+        Scan = new PocScanConfig { OsvImage = PinnedOsvImage },
     };
+
+    internal const string PinnedOsvImage =
+        "ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4";
 
     private AgentSmithConfig Load(string yaml)
     {

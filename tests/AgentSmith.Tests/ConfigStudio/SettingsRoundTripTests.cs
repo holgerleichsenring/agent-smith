@@ -96,7 +96,8 @@ public sealed class SettingsRoundTripTests
 
         h.Store.SaveSetting("pocs", Doc("""
             {"enabled":true,"projectAgent":"a","projectTracker":"t","targets":[{"name":"main","sourceRepo":"gh/poc-src",
-            "domainPattern":"{app}.poc.example.internal","reminderDays":[7,1],"perPersonLimit":2}]}
+            "domainPattern":"{app}.poc.example.internal","reminderDays":[7,1],"perPersonLimit":2}],
+            "scan":{"osvImage":"ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4"}}
             """), new ChangeAttribution("op"));
 
         var pocs = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs;
@@ -121,6 +122,24 @@ public sealed class SettingsRoundTripTests
 
         h.Store.SaveSetting("pocs", Doc("""{"enabled":false}"""), new ChangeAttribution("op"));
         h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs.Archive.MaxZipMb.Should().Be(25);
+    }
+
+    // 2026-11-23-933dc: the scan settings and the blocked retention ride in the pocs singleton too.
+    [Fact]
+    public void SaveSetting_PocsScan_RoundTripsItsValues_AndItsAbsenceReadsAsTheDefaults()
+    {
+        using var h = new DbConfigTestHarness();
+
+        h.Store.SaveSetting("pocs", Doc("""{"enabled":false,"blockedRetentionDays":3,"scan":{"timeoutSeconds":120,"unfixedCriticalBlock":false,"secretMinConfidence":9}}"""),
+            new ChangeAttribution("op"));
+        var pocs = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs;
+        (pocs.BlockedRetentionDays, pocs.Scan.TimeoutSeconds, pocs.Scan.UnfixedCriticalBlock, pocs.Scan.SecretMinConfidence)
+            .Should().Be((3, 120, false, 9));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("scan").GetProperty("secretMinConfidence").GetInt32().Should().Be(9);
+
+        h.Store.SaveSetting("pocs", Doc("""{"enabled":false}"""), new ChangeAttribution("op"));
+        var defaults = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs;
+        (defaults.BlockedRetentionDays, defaults.Scan.SecretMinConfidence).Should().Be((7, 8));
     }
 
     [Fact]

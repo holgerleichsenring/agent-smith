@@ -31,9 +31,9 @@ internal static class PocImportRefusals
     public static PocRefusal NotLive(Poc poc) =>
         PocRefusal.Conflict($"'{poc.Name}' is {poc.State}; import the ZIP as a new PoC instead.");
 
-    public static PocRefusal Purged(int revision) =>
-        new(StatusCodes.Status410Gone, $"The upload of revision {revision} was purged after the upload retention "
-            + "(pocs.blocked_retention_days); upload the ZIP again.");
+    public static PocRefusal Purged(int revision, int days) =>
+        new(StatusCodes.Status410Gone, $"The upload of revision {revision} was purged after {days} days "
+            + $"({PocsConfig.BlockedRetentionDaysKey}); import the ZIP again.");
 
     public static PocRefusal BadChoice { get; } = PocRefusal.BadRequest("An import's choice is 'new' or 'replace'.");
 }

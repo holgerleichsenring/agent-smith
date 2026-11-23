@@ -49,7 +49,7 @@ public sealed class PocIntakeHandlerTests
         var result = await Handler().ExecuteAsync(Context(7, 1), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue(result.Message);
-        result.Message.Should().Contain("Nothing was committed");
+        result.Message.Should().Contain("The code scan comes next");
         var outcome = _store.Outcomes.Should().ContainSingle().Subject;
         outcome.State.Should().Be(PocRevisionStates.Validated);
         outcome.Port.Should().Be(8000);
@@ -95,6 +95,19 @@ public sealed class PocIntakeHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         _store.Outcomes.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(PocRevisionStates.Blocked)]
+    [InlineData(PocRevisionStates.Overruled)]
+    public async Task Intake_ABlockedOrOverruledRevision_IsNotEvaluatedAgain(string state)
+    {
+        _store.RevisionState = state;
+
+        var result = await Handler().ExecuteAsync(Context(7, 1), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _store.Outcomes.Should().BeEmpty("2026-11-23-933dc: an overrule run or a retry never rewrites it validated");
     }
 
     [Fact]
