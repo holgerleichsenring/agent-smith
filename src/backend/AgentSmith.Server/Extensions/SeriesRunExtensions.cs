@@ -18,13 +18,15 @@ public static class SeriesRunExtensions
         services.AddScoped<ISeriesConversation, SeriesConversation>().AddScoped<ISeriesRunLaunch, SeriesRunLaunch>();
         services.AddScoped<ISeriesRecordReads, SeriesRecordReads>(); // 0207e: the admin assistant's run reads, lent
         services.AddSingleton<SeriesRunSweeper>().AddScoped<SeriesRunViewReader>(); // 0207e: the panel's read
-        services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>(); // 2026-11-23-31dcb: the series page's reads
+        services.TryAddTransient<SeriesRunPullRequests>(); // 2026-11-23-31dcb: the series page's reads
+        services.TryAddTransient<SeriesRunTickets>();
         services.TryAddScoped<SeriesRunNames>();
         services.AddScoped<SeriesRunCosts>(); // 2026-11-23-31dcd
         services.AddScoped<SeriesRunEdges>(); // 2026-11-23-31dcf
         services.AddScoped<SeriesMergeNextAct>(); // 2026-11-23-31dce: the series page's merge
-        services.AddScoped<SeriesRunProjectReads>()
-            .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
+        services.TryAddScoped<SeriesRunProjectReads>();
+        services.AddTransient<SeriesRunHolds>(); // 2026-11-23-31dcg
+        services.AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
         return services;
     }
 }

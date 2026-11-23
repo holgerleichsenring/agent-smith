@@ -155,6 +155,40 @@ export interface TicketSummary {
   ticketText?: boolean | null;
   /** 2026-10-15-114fd: the stored close mark, in force or not — drawn only while the bucket is closed */
   closed?: TicketClosed | null;
+  /** 2026-11-23-31dcg: what holds the ticket and who moves it, read on the server; null when nothing holds it */
+  hold?: TicketHold | null;
+}
+
+/** 2026-11-23-31dcg: who moves a held ticket — admin > decide > plan > merge > nobody when several apply (TicketHoldAddressees). */
+export type TicketHoldAddressee = "admin" | "decide" | "plan" | "merge" | "nobody";
+
+/** 2026-11-23-31dcg: the case a hold was read from; it names the hold's sentence (TicketHoldCases). */
+export type TicketHoldCase =
+  | "image_untrusted" | "bootstrap_missing" | "preflight"
+  | "question" | "handback" | "readiness_unknown" | "infrastructure" | "interrupted" | "criteria_unmet" | "failed" | "shortfall"
+  | "text_edited"
+  | "merge_next" | "starts_on_merge"
+  | "working" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite";
+
+/** 2026-11-23-31dcg: the one act of a hold; the target is a run id (retry), a series id (merge, merge_next), a path
+ *  (settings) or the project (init) (TicketHoldActs). */
+export interface TicketHoldAct {
+  kind: "answer" | "conversation" | "retry" | "merge" | "merge_next" | "settings" | "init";
+  target: string | null;
+}
+
+/** 2026-11-23-31dcg: one ticket's hold (TicketHold). */
+export interface TicketHold {
+  addressee: TicketHoldAddressee;
+  case: TicketHoldCase;
+  act: TicketHoldAct | null;
+  since: string | null;
+  /** The attempt the sentence names, from 1. */
+  attempt: number | null;
+  /** The tickets the sentence names. */
+  names: string[];
+  /** What a stop recorded about its cause, quoted by the sentence; null otherwise. */
+  detail?: EndDetail | null;
 }
 
 /** 2026-10-15-114fd: a person's close of a ticket as the server stored it (TicketClosedView). */
@@ -204,6 +238,8 @@ export interface TicketCounts {
   closed?: number;
   failed?: number;
   prClosed?: number;
+  /** 2026-11-23-31dcg: the tickets an admin's hold lies on — Your move adds them for an admin */
+  adminHolds?: number;
 }
 
 export interface TicketListView {

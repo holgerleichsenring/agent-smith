@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { list, ticket } from "@/components/tickets/__tests__/ticketFixtures";
+import { hold, list, ticket } from "@/components/tickets/__tests__/ticketFixtures";
 import type { TicketListView } from "@/types/tickets";
 
 // 2026-11-17-d6fba: home is input — the composer hands its message to Work it out, Your move shows at most three
@@ -10,7 +10,9 @@ const hoisted = vi.hoisted(() => ({
   list: null as TicketListView | null,
   push: vi.fn(),
   fetchSpecDialog: vi.fn(),
+  admin: false,
 }));
+vi.mock("@/hooks/useHoldsAdmin", () => ({ useHoldsAdmin: () => hoisted.admin }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: hoisted.push }), usePathname: () => "/" }));
 vi.mock("@/lib/tickets/TicketListProvider", () => ({
   useTicketList: () => ({ list: hoisted.list, refusal: null, failed: false, version: 1, reread: () => {} }),
@@ -23,13 +25,14 @@ const { takeHandover } = await import("@/lib/workItOutHandover");
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60000).toISOString();
 const waiting = (id: string, minutes: number) =>
   ticket({ ticketId: id, ticketKey: `GH-${id}`, bucket: "needs_you", kind: "handback", since: ago(minutes),
-    handback: { text: `question ${id}`, at: ago(minutes) } });
+    handback: { text: `question ${id}`, at: ago(minutes) }, hold: hold("handback", { act: { kind: "conversation", target: null } }) });
 const project = (name: string) => ({ name, repos: [], templates: [] });
 
 beforeEach(() => {
   hoisted.push.mockReset();
   hoisted.fetchSpecDialog.mockReset().mockResolvedValue({ projects: [project("shop"), project("api")], session: null });
   hoisted.list = list([], { needsYou: 0 });
+  hoisted.admin = false;
   takeHandover();
 });
 
@@ -94,6 +97,25 @@ describe("HomeView", () => {
     expect(screen.getByTestId("home-move-shop-4").querySelector("a")).toHaveAttribute("href", "/tickets/shop/4");
     expect(screen.getByTestId("home-your-move-all")).toHaveAttribute("href", "/tickets?bucket=needs-you");
     expect(screen.getByTestId("home-waiting")).toHaveTextContent("4 things wait on you.");
+    await waitFor(() => expect(hoisted.fetchSpecDialog).toHaveBeenCalled());
+  });
+
+  // 2026-11-23-31dcg: Your move is the holds — a merge says its sentence and act; an admin's hold only for an admin.
+  it("Home_YourMove_IsTheHolds_AnAdminHoldOnlyForAnAdmin", async () => {
+    const merge = ticket({ ticketId: "5", bucket: "needs_you", since: ago(5), hold: hold("merge_next", { act: { kind: "merge", target: "sr-1" } }) });
+    const admin = ticket({ ticketId: "6", bucket: "stuck", since: ago(50), hold: hold("image_untrusted", { act: { kind: "settings", target: "/x" } }) });
+    hoisted.list = list([merge, admin], { needsYou: 1, adminHolds: 1, stuck: 1 });
+    const { unmount } = render(<HomeView />);
+    expect(screen.getByTestId("home-move-shop-5")).toHaveTextContent("Its pull request is next in the series' merge order.");
+    expect(screen.getByTestId("home-move-shop-5")).toHaveTextContent("Merge");
+    expect(screen.queryByTestId("home-move-shop-6")).not.toBeInTheDocument();
+    expect(screen.getByTestId("home-waiting")).toHaveTextContent("One thing waits on you.");
+    unmount();
+
+    hoisted.admin = true;
+    render(<HomeView />);
+    expect(screen.getByTestId("home-move-shop-6")).toHaveTextContent("Trust the registry in Settings");
+    expect(screen.getByTestId("home-waiting")).toHaveTextContent("2 things wait on you.");
     await waitFor(() => expect(hoisted.fetchSpecDialog).toHaveBeenCalled());
   });
 

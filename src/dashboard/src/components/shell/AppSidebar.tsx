@@ -21,6 +21,8 @@ import { useTicketList } from "@/lib/tickets/TicketListProvider";
 import { hasSectionBar } from "@/lib/sectionBarPage";
 import { SERIES_PATH } from "@/lib/seriesRunAddress";
 import { cn } from "@/lib/utils";
+import { yourMoveCount } from "@/components/tickets/holds/holdWords";
+import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
 import { ProfileMenu } from "./ProfileMenu";
 import { SidebarGroup, SidebarItem } from "./SidebarItem";
 
@@ -46,6 +48,7 @@ export function AppSidebar() {
   const ownBar = hasSectionBar(pathname);
   const collapsed = chosen || ownBar;
   const tickets = useTicketList().list?.counts;
+  const yourMoves = yourMoveCount(tickets, useHoldsAdmin()); // 2026-11-23-31dcg: an admin's Your move adds the admin holds
   const ticketFilter = useTicketBucketFilter();
   const runFilter = useRunBucketFilter();
   const { overview } = useJobsHub();
@@ -134,7 +137,7 @@ export function AppSidebar() {
         icon={Inbox}
         active={yourMoveActive}
         collapsed={collapsed}
-        count={tickets?.needsYou}
+        count={yourMoves}
         attention
         onClick={chooseTickets("needs-you")}
         testId="sidebar-your-move"

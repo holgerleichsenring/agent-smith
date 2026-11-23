@@ -66,8 +66,9 @@ public sealed class TicketClosedListTests : IDisposable
 
         var counts = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Counts;
 
-        // 2026-11-17-f9b0a: the cancelled r-4 is failed, the delivered r-5 without a pull request is done.
-        (counts.Closed, counts.Failed, counts.PrClosed, counts.Done, counts.Idle).Should().Be((1, 2, 1, 1, 0));
+        // 2026-11-17-f9b0a: the cancelled r-4 is failed, the delivered r-5 without a pull request is done. 2026-11-23-31dcg:
+        // the failed r-2 is a person's decision, so Your move.
+        (counts.Closed, counts.Failed, counts.PrClosed, counts.Done, counts.Idle, counts.NeedsYou).Should().Be((1, 1, 1, 1, 0, 1));
     }
 
     [Fact]

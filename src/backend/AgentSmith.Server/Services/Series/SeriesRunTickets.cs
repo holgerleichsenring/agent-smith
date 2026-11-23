@@ -9,10 +9,13 @@ namespace AgentSmith.Server.Services.Series;
 /// 2026-11-23-31dcb: a series run's tickets from its project's facts — each with its depth, repos, pull requests per repo
 /// and newest status — its progress counts and its merge order (<see cref="SeriesRunOrder"/>). An open pull request's
 /// target is not stored, so it counts as the default branch here; the merge itself reads the host's base.
+/// <para>2026-11-23-31dcg: each ticket carries its hold, read where the ticket list reads it, and the held count is the
+/// tickets What holds the rest lists — none when no holds were read (the merge order alone needs none).</para>
 /// </summary>
 public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests pullRequests)
 {
-    public SeriesRunTicketsShape Of(SeriesRunRecord record, SeriesRunProjectFacts facts)
+    public SeriesRunTicketsShape Of(SeriesRunRecord record, SeriesRunProjectFacts facts,
+        IReadOnlyDictionary<string, AgentSmith.Application.Services.Holds.TicketHold>? holds = null)
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(facts);
@@ -24,7 +27,8 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
             TargetsElsewhere = prs[t.TicketId].Any(p => SeriesRunPullRequests.Waits(p) && pullRequests.TargetsElsewhere(p, facts.Project)),
         }).ToList();
         var depths = order.Depths(ordered);
-        var tickets = record.Tickets.Select((t, index) => (View: View(t, ordered[index], depths, facts, prs[t.TicketId]), index))
+        var tickets = record.Tickets.Select((t, index) => (View: View(t, ordered[index], depths, facts, prs[t.TicketId])
+                with { Hold = holds?.GetValueOrDefault(t.TicketId) }, index))
             .OrderBy(x => x.View.Depth).ThenBy(x => x.index).Select(x => x.View).ToList();
         return new SeriesRunTicketsShape(tickets, Counts(tickets, facts), order.MergeOrder(ordered, facts.Landed));
     }
@@ -39,9 +43,7 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
     {
         var open = tickets.Where(t => !t.Landed).ToList();
         var waiting = open.Where(t => t.PullRequests.Any(SeriesRunPullRequests.Waits)).ToList();
-        return new(tickets.Count, tickets.Count - open.Count, waiting.Count,
-            open.Except(waiting).Count(t => t.Status is not (null or RunStatuses.Running or RunStatuses.Success)
-                && facts.Attempts.GetValueOrDefault(t.TicketId)?.StoppedAtBoundary != true), // a boundary stop continues
+        return new(tickets.Count, tickets.Count - open.Count, waiting.Count, tickets.Count(t => SeriesRunTicketView.Held(t.Hold)),
             open.Count(t => t.PullRequests.Count == 0 && !facts.Attempts.ContainsKey(t.TicketId)));
     }
 }

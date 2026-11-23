@@ -11,6 +11,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// tickets done this calendar month (UTC) with the attempts they took, and the last one done.</para>
 /// <para>2026-10-13-9a59h: and the stuck ones. 2026-10-14-dbcen: and the blocked and filed never-run ones.
 /// 2026-10-15-114fb: and the closed, failed and PR-closed ones; idle keeps the rest.</para>
+/// <para>2026-11-23-31dcg: Your move counts holds, not a bucket of its own — a person's hold, and apart from it an admin's.</para>
 /// </summary>
 public sealed class TicketCounts(TimeProvider clock)
 {
@@ -21,13 +22,14 @@ public sealed class TicketCounts(TimeProvider clock)
         var working = tickets.Where(t => t.Bucket == TicketBucket.Working).ToList();
         var running = working.Count(t => t.Status == Running);
         var done = tickets.Where(t => t.Bucket == TicketBucket.Done && t.Since is not null).ToList();
+        var yours = tickets.Where(t => t.Hold?.IsPersons == true).ToList();
         return new TicketCountsView(
-            tickets.Count(t => t.Bucket == TicketBucket.NeedsYou),
+            yours.Count,
             working.Count,
             running,
             working.Count - running,
             tickets.Count(t => t.Bucket == TicketBucket.Idle),
-            tickets.Where(t => t.Bucket == TicketBucket.NeedsYou).Min(t => t.Since),
+            yours.Min(t => t.Since),
             monthCost,
             truncated,
             tickets.Count(t => t.Bucket == TicketBucket.WaitingOnReview),
@@ -40,7 +42,8 @@ public sealed class TicketCounts(TimeProvider clock)
             tickets.Count(t => t.Bucket == TicketBucket.Filed),
             tickets.Count(t => t.Bucket == TicketBucket.Closed),
             tickets.Count(t => t.Bucket == TicketBucket.Failed),
-            tickets.Count(t => t.Bucket == TicketBucket.PrClosed));
+            tickets.Count(t => t.Bucket == TicketBucket.PrClosed),
+            tickets.Count(t => t.Hold?.Addressee == AgentSmith.Application.Services.Holds.TicketHoldAddressees.Admin));
     }
 
     private TicketDoneCount DoneThisMonth(IReadOnlyList<TicketSummaryView> done)

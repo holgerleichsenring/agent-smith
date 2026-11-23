@@ -38,7 +38,7 @@ public sealed class TicketLandedByHandListTests : IDisposable
         await _h.AddAsync(Run("r-1", status: "failed"), Step("r-1"));
         await ByHandAsync(T.AddHours(-1));
 
-        (await RowAsync()).Bucket.Should().Be(TicketBucket.Failed, "an attempt started after the landing is that attempt's ticket");
+        (await RowAsync()).Bucket.Should().Be(TicketBucket.NeedsYou, "an attempt started after the landing is that attempt's ticket, a failed one a decision");
     }
 
     [Fact]

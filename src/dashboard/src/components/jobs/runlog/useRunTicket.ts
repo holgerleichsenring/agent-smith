@@ -87,7 +87,7 @@ export function useRunTicket(runId: string, snapshot: RunSnapshot | null): RunTi
 /** The ticket's move from its detail alone: a finished run's page has no live events or series to add. */
 function moveOf(detail: TicketDetail): YourMove | null {
   const view = ticketState({ detail, liveEvents: [], series: null });
-  return view ? yourMove(view, detail.summary.bucket, detail.summary.kind, view.attempt?.endDetail) : null;
+  return view ? yourMove(view, detail.summary.bucket, view.attempt?.endDetail) : null;
 }
 
 /** The ticket page's own re-read triggers (TicketPageStore): the ticket's nudge, a reconnect, the window's focus. */

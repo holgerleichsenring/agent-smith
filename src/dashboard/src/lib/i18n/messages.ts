@@ -813,12 +813,12 @@ export const messages = {
     en: "{landed} of {total} merged · {waiting} PRs waiting · {notStarted} not started",
     de: "{landed} von {total} gemergt · {waiting} PRs warten · {notStarted} nicht gestartet",
   },
-  "series.held": { en: { one: "1 stuck", other: "{count} stuck" }, de: { one: "1 hängt", other: "{count} hängen" } },
+  "series.held": { en: { one: "1 held", other: "{count} held" }, de: { one: "1 wartet auf jemanden", other: "{count} warten auf jemanden" } },
   "series.next.question": { en: "A question is waiting for you", de: "Eine Frage wartet auf dich" },
   "series.next.merge": { en: "Merge {key} next", de: "Als Nächstes {key} mergen" },
   "series.next.held": {
-    en: { one: "1 ticket is stuck", other: "{count} tickets are stuck" },
-    de: { one: "1 Ticket hängt", other: "{count} Tickets hängen" },
+    en: { one: "1 ticket waits on someone", other: "{count} tickets wait on someone" },
+    de: { one: "1 Ticket wartet auf jemanden", other: "{count} Tickets warten auf jemanden" },
   },
   "series.next.working": { en: "Working. Nothing for you to do.", de: "Läuft. Für dich gibt es nichts zu tun." },
   "series.next.done": { en: "Every ticket is merged.", de: "Alle Tickets sind gemergt." },
@@ -910,6 +910,134 @@ export const messages = {
   "series.merge.outcome.armed": { en: "merges once the host's rules pass", de: "wird gemergt, sobald die Regeln des Hosts erfüllt sind" },
   "series.merge.outcome.refused": { en: "not merged", de: "nicht gemergt" },
   "series.merge.failed": { en: "The merge failed: {message}", de: "Der Merge ist fehlgeschlagen: {message}" },
+
+  // --- holds: who moves a held ticket, one sentence and one act (2026-11-23-31dcg) ---
+  "hold.sentence.image_untrusted": {
+    en: "Attempt {n} stopped before any work: a context names a container image outside the trusted registries.",
+    de: "Versuch {n} hat vor jeder Arbeit angehalten: ein Kontext nennt ein Container-Image außerhalb der vertrauten Registries.",
+  },
+  "hold.sentence.bootstrap_missing": {
+    en: "Attempt {n} stopped before any work: a repository has no agent-smith bootstrap.",
+    de: "Versuch {n} hat vor jeder Arbeit angehalten: einem Repository fehlt der agent-smith-Bootstrap.",
+  },
+  "hold.sentence.preflight": {
+    en: "Attempt {n} stopped before any work: a precondition did not hold.",
+    de: "Versuch {n} hat vor jeder Arbeit angehalten: eine Vorbedingung war nicht erfüllt.",
+  },
+  "hold.told.image": { en: "{subject} is not trusted{lever}.", de: "{subject} ist nicht vertraut{lever}." },
+  "hold.told.bootstrap": {
+    en: { one: "{repos} has no agent-smith bootstrap{lift}.", other: "{repos} have no agent-smith bootstrap{lift}." },
+    de: { one: "{repos} fehlt der agent-smith-Bootstrap{lift}.", other: "{repos} fehlt der agent-smith-Bootstrap{lift}." },
+  },
+  "hold.told.lever": { en: ": set {control} to {setTo}", de: ": setze {control} auf {setTo}" },
+  "hold.told.lift": { en: ": {control} project {setTo}", de: ": {control} Projekt {setTo}" },
+  "hold.told.subject": { en: "{subject}{lever}.", de: "{subject}{lever}." },
+  "hold.sentence.question": { en: "Attempt {n} is waiting for your answer.", de: "Versuch {n} wartet auf deine Antwort." },
+  "hold.sentence.handback": { en: "Attempt {n} handed the ticket back.", de: "Versuch {n} hat das Ticket zurückgegeben." },
+  "hold.sentence.readiness_unknown": {
+    en: "Attempt {n} could not read the repositories' bootstrap from the host.",
+    de: "Versuch {n} konnte den Bootstrap der Repositories nicht vom Host lesen.",
+  },
+  "hold.sentence.readiness_unknown_why": {
+    en: "Attempt {n} could not read the repositories' bootstrap from the host: {why}",
+    de: "Versuch {n} konnte den Bootstrap der Repositories nicht vom Host lesen: {why}",
+  },
+  "hold.sentence.infrastructure": {
+    en: "Attempt {n} ended on infrastructure: the sandbox or host was lost, not the work.",
+    de: "Versuch {n} endete an der Infrastruktur: Sandbox oder Host gingen verloren, nicht die Arbeit.",
+  },
+  "hold.sentence.interrupted": {
+    en: "Attempt {n} stopped with its server, and the automatic restart will not pick it up.",
+    de: "Versuch {n} hat mit seinem Server angehalten, und der automatische Neustart nimmt ihn nicht wieder auf.",
+  },
+  "hold.sentence.criteria_unmet": {
+    en: "Attempt {n} failed: the verifier of that time did not accept a criterion.",
+    de: "Versuch {n} ist fehlgeschlagen: der damalige Prüfer hat ein Kriterium nicht akzeptiert.",
+  },
+  "hold.sentence.failed": { en: "Attempt {n} failed.", de: "Versuch {n} ist fehlgeschlagen." },
+  "hold.sentence.failed_told": { en: "Attempt {n} failed: {told}", de: "Versuch {n} ist fehlgeschlagen: {told}" },
+  "hold.sentence.shortfall": {
+    en: "Attempt {n} delivered only part of what its specs ask for.",
+    de: "Versuch {n} hat nur einen Teil dessen geliefert, was seine Specs verlangen.",
+  },
+  "hold.sentence.text_edited": {
+    en: "Someone changed the ticket text in the tracker after its specs were approved. Settle it in the conversation.",
+    de: "Jemand hat den Tickettext im Tracker geändert, nachdem seine Specs freigegeben waren. Kläre das im Gespräch.",
+  },
+  "hold.sentence.merge_next": {
+    en: "Its pull request is next in the series' merge order.",
+    de: "Sein Pull Request ist in der Merge-Reihenfolge der Serie als Nächstes dran.",
+  },
+  "hold.sentence.starts_on_merge": {
+    en: { one: "Starts once {names} is merged.", other: "Starts once {names} are merged, in that order." },
+    de: { one: "Startet, sobald {names} gemergt ist.", other: "Startet, sobald {names} gemergt sind, in dieser Reihenfolge." },
+  },
+  "hold.sentence.working": { en: "Attempt {n} is working. Nothing for you to do.", de: "Versuch {n} arbeitet. Für dich gibt es nichts zu tun." },
+  "hold.sentence.queued": {
+    en: "Attempt {n} waits in the queue. Nothing for you to do.",
+    de: "Versuch {n} wartet in der Warteschlange. Für dich gibt es nichts zu tun.",
+  },
+  "hold.sentence.resuming": { en: "Attempt {n} is resuming. Nothing for you to do.", de: "Versuch {n} läuft wieder an. Für dich gibt es nichts zu tun." },
+  "hold.sentence.restarting": {
+    en: "Restarts after the server stopped. Nothing for you to do.",
+    de: "Startet neu, nachdem der Server angehalten hat. Für dich gibt es nichts zu tun.",
+  },
+  "hold.sentence.merge_after": {
+    en: { one: "Merges after {names}. Nothing for you to do yet.", other: "Merges after {names}. Nothing for you to do yet." },
+    de: { one: "Wird nach {names} gemergt. Für dich gibt es noch nichts zu tun.", other: "Wird nach {names} gemergt. Für dich gibt es noch nichts zu tun." },
+  },
+  "hold.sentence.retarget": {
+    en: "Its pull request moves onto the default branch first. Nothing for you to do.",
+    de: "Sein Pull Request zieht zuerst auf den Default-Branch um. Für dich gibt es nichts zu tun.",
+  },
+  "hold.sentence.prerequisite": {
+    en: { one: "Starts when {names} finishes. Nothing for you to do.", other: "Starts when {names} finish. Nothing for you to do." },
+    de: { one: "Startet, wenn {names} fertig ist. Für dich gibt es nichts zu tun.", other: "Startet, wenn {names} fertig sind. Für dich gibt es nichts zu tun." },
+  },
+  "hold.and": { en: "{first} and {last}", de: "{first} und {last}" },
+  "hold.title.question": { en: "Your move: answer the question", de: "Du bist dran: beantworte die Frage" },
+  "hold.title.handback": { en: "Your move: the ticket came back to you", de: "Du bist dran: das Ticket ist zu dir zurückgekommen" },
+  "hold.title.text_edited": { en: "Your move: the ticket text changed", de: "Du bist dran: der Tickettext hat sich geändert" },
+  "hold.title.merge_next": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
+  "hold.title.starts_on_merge": { en: "Your move: merge what it waits for", de: "Du bist dran: merge, worauf es wartet" },
+  "hold.title.nobody": { en: "Nothing for you to do", de: "Für dich gibt es nichts zu tun" },
+  "hold.title.stuckOn": { en: "Stuck: {subject}", de: "Hängt: {subject}" },
+  "hold.act.answer": { en: "Answer the question", de: "Frage beantworten" },
+  "hold.act.answerTab": { en: "Answer in the conversation", de: "Im Gespräch antworten" },
+  "hold.act.conversation": { en: "Reply below", de: "Unten antworten" },
+  "hold.act.discuss": { en: "Discuss in the conversation", de: "Im Gespräch klären" },
+  "hold.act.retry": { en: "Retry unchanged", de: "Unverändert wiederholen" },
+  "hold.act.merge": { en: "Merge", de: "Mergen" },
+  "hold.act.merging": { en: "Merging…", de: "Wird gemergt…" },
+  "hold.act.merge_next": { en: "Open Merge next", de: "Als Nächstes mergen öffnen" },
+  "hold.act.trust": { en: "Trust the registry in Settings", de: "Registry in den Einstellungen vertrauen" },
+  "hold.act.trustNote": {
+    en: "Add the image's registry to the sandbox's trusted registries, then start the next attempt.",
+    de: "Nimm die Registry des Images in die vertrauten Registries der Sandbox auf und starte dann den nächsten Versuch.",
+  },
+  "hold.act.settings": { en: "Open the setting", de: "Einstellung öffnen" },
+  "hold.act.init": { en: "Initialize the project", de: "Projekt initialisieren" },
+  "hold.act.open": { en: "Open the ticket", de: "Ticket öffnen" },
+  "hold.act.mergeFailed": { en: "The merge could not start: {message}", de: "Der Merge ließ sich nicht starten: {message}" },
+  "hold.tag.admin": { en: "needs an admin", de: "braucht einen Admin" },
+  "hold.tag.decide": { en: "your decision", de: "deine Entscheidung" },
+  "hold.tag.plan": { en: "plan gap", de: "Lücke im Plan" },
+  "hold.tag.merge": { en: "needs merges", de: "braucht Merges" },
+  "hold.tag.nobody": { en: "start on their own", de: "starten von selbst" },
+  "series.section.held": { en: "What holds the rest", de: "Was den Rest aufhält" },
+  "series.holds.sub": {
+    en: "Tickets that will not move on by themselves, and who has to move each one. The next merge is under Merge next.",
+    de: "Tickets, die nicht von selbst weiterkommen, und wer sie jeweils bewegen muss. Der nächste Merge steht unter Als Nächstes mergen.",
+  },
+  "series.holds.empty": {
+    en: "Nothing holds the rest: each ticket merges next or moves on by itself.",
+    de: "Nichts hält den Rest auf: jedes Ticket wird als Nächstes gemergt oder kommt von selbst weiter.",
+  },
+  "series.holds.more": { en: { one: "1 more", other: "{count} more" }, de: { one: "1 weiteres", other: "{count} weitere" } },
+  "series.holds.moreSub": {
+    en: "They move on by themselves. Nobody needs to do anything.",
+    de: "Sie kommen von selbst weiter. Niemand muss etwas tun.",
+  },
 } satisfies Record<string, MessageEntry>;
 
 export type MessageKey = keyof typeof messages;

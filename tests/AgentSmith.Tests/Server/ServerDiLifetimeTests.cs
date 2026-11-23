@@ -57,6 +57,21 @@ public sealed class ServerDiLifetimeTests
         provider.GetServices<IWebhookHandler>().Should().HaveCount(20, "all 20 webhook handlers (13 ticket-event + 2 2026-10-08-e8b9c pr-review + 1 2026-10-08-f147 GitLab review + 1 2026-10-08-2123 Jira status + 3 pull-request state) register from a single AddWebhookHandlers call; 2026-10-13-0b82a removed the 3 pr-event handlers");
     }
 
+    // 2026-11-23-31dcg: a person's turn answers the text edits put to its conversation — the admission gets the marker.
+    [Fact]
+    public void ServerDi_TheAnswerAdmission_ReachesTheTextEditAnswers()
+    {
+        using var provider = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices()).AddDashboardApi()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetService<AgentSmith.Server.Services.Tickets.Text.TicketTextEditAnswers>().Should().NotBeNull();
+        var admission = scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogAnswerAdmission>();
+        admission.GetType().GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .Select(f => f.GetValue(admission)).OfType<AgentSmith.Server.Services.Tickets.Text.TicketTextEditAnswers>()
+            .Should().ContainSingle("the optional marker is resolved, not left null");
+    }
+
     // 2026-10-13-0b82a: opening or pushing to a pull request is a change, not an assignment —
     // no registered handler takes the delivery, on any host, for a repository a project owns.
     [Theory]

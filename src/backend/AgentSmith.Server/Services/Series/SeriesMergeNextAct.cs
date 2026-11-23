@@ -25,7 +25,7 @@ public sealed class SeriesMergeNextAct(
 {
     public async Task<TicketCloseResult> MergeAsync(string seriesId, string ticketId, string askedBy, CancellationToken ct)
     {
-        if (await details.ReadAsync(seriesId, ct) is not { } series || projects.Of(series.Project) is not { } project)
+        if (await details.ReadAsync(seriesId, ct, withHolds: false) is not { } series || projects.Of(series.Project) is not { } project)
             return TicketCloseResult.Refuse(Status404NotFound, $"There is no series {seriesId}.");
         if (series.Tickets.FirstOrDefault(t => t.TicketId == ticketId) is not { } ticket)
             return TicketCloseResult.Refuse(Status404NotFound, $"{ticketId} is not a ticket of this series.");

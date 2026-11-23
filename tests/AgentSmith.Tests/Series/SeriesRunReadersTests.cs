@@ -228,6 +228,7 @@ public sealed class SeriesRunReadersTests : IDisposable
         services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
             .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
         services.AddSingleton<AgentSmith.Application.Services.Claim.GreenPrerequisites>().AddScoped<SeriesRunEdges>(); // 31dcf
+        services.AddTransient<SeriesRunHolds>(); // 31dcg
     }
 
     private async Task<TResult> ReadAsync<TResult>(Func<IServiceProvider, Task<TResult>> read)

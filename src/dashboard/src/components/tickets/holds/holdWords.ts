@@ -1,0 +1,117 @@
+import { translator, type T } from "@/lib/i18n/translate";
+import type { EndDetail } from "@/types/hub-events";
+import type { TicketAttempt, TicketCounts, TicketHold, TicketSummary } from "@/types/tickets";
+import { RUN_END_KINDS } from "@/types/tickets";
+
+// 2026-11-23-31dcg: the words of a hold. The server reads the hold — its addressee, its case, its one act — and every
+// surface (Your move on home and in the sidebar, the ticket's Your move box, the series' What holds the rest) renders it
+// through these functions, so a ticket says the same sentence everywhere and nothing here decides who acts. The end
+// detail a run recorded is quoted where it names the cause.
+
+const EN = translator("en");
+
+/** "#1", "#1 and #2", "#1, #2 and #3". */
+export function namesOf(names: readonly string[], t: T = EN): string {
+  if (names.length <= 1) return names.join("");
+  return t("hold.and", { first: names.slice(0, -1).join(", "), last: names[names.length - 1] });
+}
+
+/** A run's recorded end detail as one clause — what the refusal is about and the setting that lifts it; null without one. */
+export function toldOf(head: TicketAttempt | null | undefined, t: T = EN): string | null {
+  return told(head?.endKind ?? null, head?.endDetail ?? null, t);
+}
+
+// The subject, the repositories and the setting are the recorded words; the clause around them is the viewer's language.
+function told(endKind: string | null, d: EndDetail | null, t: T): string | null {
+  if (!d) return null;
+  const set = d.control && d.setTo ? { control: d.control, setTo: d.setTo } : null;
+  const lever = set ? t("hold.told.lever", set) : "";
+  switch (endKind) {
+    case RUN_END_KINDS.imageUntrusted: return t("hold.told.image", { subject: d.subject, lever });
+    case RUN_END_KINDS.bootstrapMissing:
+      return t("hold.told.bootstrap", { repos: d.repos.join(", "), lift: set ? t("hold.told.lift", set) : "", count: d.repos.length });
+    default: return lever ? t("hold.told.subject", { subject: d.subject, lever }) : null;
+  }
+}
+
+const KIND_OF_CASE: Partial<Record<TicketHold["case"], string>> = {
+  image_untrusted: RUN_END_KINDS.imageUntrusted, bootstrap_missing: RUN_END_KINDS.bootstrapMissing, preflight: RUN_END_KINDS.preflight,
+};
+
+/** The hold's one sentence, from the hold alone — the same words on every surface; a stop quotes what it recorded. */
+export function holdSentence(hold: TicketHold, t: T = EN): string {
+  const n = hold.attempt ?? 0;
+  const names = namesOf(hold.names, t);
+  const said = told(KIND_OF_CASE[hold.case] ?? null, hold.detail ?? null, t);
+  switch (hold.case) {
+    case "image_untrusted":
+    case "bootstrap_missing":
+    case "preflight":
+      return said ?? t(`hold.sentence.${hold.case}`, { n });
+    case "readiness_unknown": {
+      const why = hold.detail?.subject;
+      return why ? t("hold.sentence.readiness_unknown_why", { n, why }) : t("hold.sentence.readiness_unknown", { n });
+    }
+    case "failed": return said ? t("hold.sentence.failed_told", { n, told: said }) : t("hold.sentence.failed", { n });
+    case "starts_on_merge":
+    case "merge_after":
+    case "prerequisite":
+      return t(`hold.sentence.${hold.case}`, { names, count: hold.names.length });
+    default: return t(`hold.sentence.${hold.case}`, { n });
+  }
+}
+
+/** The words a hold's act is drawn with on a button or a link. */
+export function holdActLabel(hold: TicketHold, t: T = EN): string | null {
+  switch (hold.act?.kind) {
+    case undefined: return null;
+    case "answer": return t("hold.act.answer");
+    case "conversation": return t("hold.act.conversation");
+    case "retry": return t("hold.act.retry");
+    case "merge": return t("hold.act.merge");
+    case "merge_next": return t("hold.act.merge_next");
+    case "settings": return hold.case === "image_untrusted" && !hold.detail?.settingsPath ? t("hold.act.trust") : t("hold.act.settings");
+    case "init": return t("hold.act.init");
+  }
+}
+
+/** The act a Your move row or a series row names — it opens the ticket, where the act is; talk is "discuss" there. */
+export function holdRowAct(hold: TicketHold | null | undefined, t: T = EN): string {
+  if (!hold?.act) return t("hold.act.open");
+  return hold.act.kind === "conversation" ? t("hold.act.discuss") : holdActLabel(hold, t) ?? t("hold.act.open");
+}
+
+/** A person's move: merge, plan or decide. */
+export function isPersons(hold: TicketHold | null | undefined): boolean {
+  return hold?.addressee === "merge" || hold?.addressee === "plan" || hold?.addressee === "decide";
+}
+
+/** Whether a ticket is in Your move — a person's hold, and an admin's for a viewer who is an admin. */
+export function isYourMove(ticket: TicketSummary, admin: boolean): boolean {
+  return isPersons(ticket.hold) || (admin && ticket.hold?.addressee === "admin");
+}
+
+/** Your move's count as the server counted it — with the admin holds for an admin. */
+export function yourMoveCount(counts: TicketCounts | null | undefined, admin: boolean): number | undefined {
+  if (!counts) return undefined;
+  return counts.needsYou + (admin ? counts.adminHolds ?? 0 : 0);
+}
+
+/** The list's counts as this viewer reads them: for an admin the admin holds are Your move's and no longer Stuck's. */
+export function countsFor(counts: TicketCounts, admin: boolean): TicketCounts {
+  const holds = admin ? counts.adminHolds ?? 0 : 0;
+  return holds === 0 ? counts : { ...counts, needsYou: counts.needsYou + holds, stuck: Math.max(0, counts.stuck - holds) };
+}
+
+/** The line a Your move row says: the question or the hand-back itself when the hold is one, else the hold's sentence. */
+export function holdAsk(ticket: TicketSummary, t: T = EN): string {
+  const hold = ticket.hold;
+  if (hold?.case === "question" && ticket.pendingQuestion) return ticket.pendingQuestion.question.text.split(/\r?\n/)[0];
+  if (hold?.case === "handback" && ticket.handback?.text) return ticket.handback.text.split(/\r?\n/)[0];
+  return hold ? holdSentence(hold, t) : "";
+}
+
+/** The series section's tag for a hold — whose it is. */
+export function holdTag(hold: TicketHold, t: T = EN): string {
+  return t(`hold.tag.${hold.addressee}`);
+}

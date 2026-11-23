@@ -17,7 +17,7 @@ export interface TicketSectionSpec {
 export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> = {
   "needs-you": {
     title: "Needs you",
-    sub: "a person has to answer before the ticket moves",
+    sub: "a person moves it next: an answer, a decision, a merge or the plan",
     tone: "amber",
     empty: "Nothing waits on you.",
     count: (c) => c.needsYou,

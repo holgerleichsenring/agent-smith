@@ -44,7 +44,7 @@ describe("SeriesRunsHome", () => {
     expect(shown).toHaveTextContent("shop · running");
     expect(screen.getByTestId("series-next")).toHaveTextContent("Merge #48 next");
     expect(shown).toHaveTextContent("2 of 25 merged · 15 PRs waiting · 7 not started");
-    expect(screen.getByTestId("series-held")).toHaveTextContent("1 stuck");
+    expect(screen.getByTestId("series-held")).toHaveTextContent("1 held");
   });
 
   it("SeriesList_ProjectFilter_AsksTheServerForThatProject_AndIsRemembered", async () => {

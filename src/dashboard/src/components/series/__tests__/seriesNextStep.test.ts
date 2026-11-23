@@ -15,7 +15,7 @@ describe("seriesNextStep", () => {
   it.each([
     [{ question: "Keep it?", nextMerge: "#1" }, "A question is waiting for you"],
     [{ nextMerge: "#1" }, "Merge #1 next"],
-    [{ counts: { ...base.counts, held: 2 } }, "2 tickets are stuck"],
+    [{ counts: { ...base.counts, held: 2 } }, "2 tickets wait on someone"],
     [{ state: "done" }, "Every ticket is merged."],
     [{ state: "stopped", nextMerge: "#1" }, "Stopped."],
     [{}, "Working. Nothing for you to do."],

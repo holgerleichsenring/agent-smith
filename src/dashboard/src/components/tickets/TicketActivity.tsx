@@ -3,6 +3,7 @@ import { useT } from "@/hooks/useT";
 import type { T } from "@/lib/i18n/translate";
 import { TICKET_CLOSED_TRACKER, type TicketPullRequest, type TicketSummary } from "@/types/tickets";
 import { age, causeWords, failedAttempts, outcomeWords } from "./ticketFormat";
+import { holdTag } from "./holds/holdWords";
 
 // 2026-10-13-9a59p: the mock's .act line — what the ticket is doing and why, written only from
 // fields the row carries. No step or pass (the spec ledger is per run), no "sandboxes released",
@@ -31,8 +32,12 @@ function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
   const failed = failedAttempts(t.attempts);
   switch (t.bucket) {
     case "needs_you":
+      // 2026-11-23-31dcg: whose move it is, by the hold's tag; a question or hand-back names the attempt it came from.
       return [
-        <span key="q" className="aq">{t.kind === "handback" ? `handed back in ${attempt}` : `question in ${attempt}`}</span>,
+        <span key="q" className="aq">
+          {t.hold?.case === "handback" ? `handed back in ${attempt}` : t.hold?.case === "question" ? `question in ${attempt}`
+            : t.hold ? holdTag(t.hold, tr) : null}
+        </span>,
         specs(t),
         cause(tr, t),
       ];

@@ -1,13 +1,15 @@
 // 2026-11-23-31dcb: the series runs as the server answers them — GET /api/series-runs (the list), /count (the sidebar)
 // and /{id} (one series' page). Named series runs to stay apart from a ticket's spec series (types/tickets.ts).
 
+import type { TicketHold } from "@/types/tickets";
+
 /** Progress of one series: its tickets, the landed ones, the ones whose pull request waits, the held ones and the
  *  ones never started. The rest are at work, so the four need not add up to the total. */
 export interface SeriesRunCounts {
   total: number;
   landed: number;
   waiting: number;
-  /** 2026-11-23-31dcc: not merged, nothing waiting to merge, the newest attempt stopped short. */
+  /** 2026-11-23-31dcg: the tickets What holds the rest lists — a hold names someone and is not the next merge. */
   held: number;
   notStarted: number;
 }
@@ -59,6 +61,10 @@ export interface SeriesRunTicket {
   /** The newest attempt's status; null before any. */
   status: string | null;
   pullRequests: SeriesRunPullRequest[];
+  /** 2026-11-23-31dcg: the ticket's hold, as its ticket page and the ticket list read it. */
+  hold?: TicketHold | null;
+  /** 2026-11-23-31dcg: What holds the rest lists it — what the series' held count counts. */
+  isHeld?: boolean;
 }
 
 /** ready: merge this one now · after: the tickets in `after` land first · retarget: its target moves to main first. */

@@ -17,3 +17,58 @@ decisions:
     chose: "The list read is viewer-independent; only Your move adds admin holds for an admin"
     over: "Filtering the list by viewer"
     reason: "Counts and caching stay the same for every viewer."
+  - category: Architecture
+    decider: claude
+    chose: "TicketHoldReader (Application) reads plain TicketHoldFacts; the ticket summary composer gathers them for the list and the detail alike and TicketBucketRule.Held lays the hold over the state rule's bucket"
+    over: "A hold reader over Server types; a second composition for the ticket page"
+    reason: "The facts come from Server-side reads (live state, standing, run rows) and Application cannot name them; one composer means the list row, the ticket page and the series page carry one hold."
+  - category: Implementation
+    decider: claude
+    chose: "The server sends the hold's case, attempt, names, end detail and act; the dashboard words each case in en and de (holdWords) and decides nothing"
+    over: "A server-built English sentence"
+    reason: "The dashboard is bilingual (5485a); the case is the decision, the words are its rendering, so every surface renders one function over one record."
+  - category: Scope
+    decider: claude
+    chose: "A parked question and a hand-back are decide holds (answer, reply); an interrupted attempt the restart does not take up is a decide hold with retry; one it takes up is nobody's (restarting)"
+    over: "A sixth addressee for questions; leaving interruptions without a hold"
+    reason: "The spec's five addressees; a question is a person's decision until 31dch names its answerer, and 6d85c already calls an interruption outside the window red for a person."
+  - category: Scope
+    decider: claude
+    chose: "A failed head a person decides on is needs_you even after the day-old check saw it unchanged; the check's observation stays on the row (UnchangedSinceLastAttempt) and Stuck holds the admin holds"
+    over: "Keeping the day-old Stuck ahead of the decide hold"
+    reason: "Spec: needs_you = merge, plan or decide; the count, Your move and the list must name one bucket per hold. The state rule keeps its stuck arm, now reached only where no person's hold lies."
+  - category: Scope
+    decider: claude
+    chose: "A pull request outside any series run carries no hold and stays In review with its review link"
+    over: "A merge hold for every open pull request"
+    reason: "The spec names merge holds only from a series' merge order and MergesToStart; making every open pull request Your move would empty In review, a product change the spec does not make. Open for the operator."
+  - category: Implementation
+    decider: claude
+    chose: "The answered mark is a second ledger key (ticket-text-answered|<fingerprint>) written when a person's turn is admitted into the ticket's bound conversation"
+    over: "A new ledger column; matching the conversation transcript at read time"
+    reason: "No migration, the edit's key and its answer sit on the same row; the admission is the one place every channel's person turn passes."
+  - category: Implementation
+    decider: claude
+    chose: "Merge holds read the series runs once per read and the series page's own facts and merge order (SeriesRunProjectReads, SeriesRunTickets) once per project; the newest series run that lists a ticket decides its step"
+    over: "Reading TicketSeriesRunLink per ticket"
+    reason: "The spec's once-per-project read, and the merge order the series page shows is the one the hold names."
+  - category: Implementation
+    decider: claude
+    chose: "The list read is viewer-independent; ?holds=admin widens the needs-you filter by the admin holds, and the dashboard asks for it, adds counts.adminHolds to Your move and takes them out of Stuck for a viewer holding config.write"
+    over: "Filtering by the caller's permissions on the server"
+    reason: "Counts and caching stay one read; config.write is the permission that saves the setting an admin hold names."
+  - category: Implementation
+    decider: claude
+    chose: "The series page's held count and What holds the rest read the holds through the ticket list read (SeriesRunHolds over TicketListReader.AllAsync); 31dcc's interim held count is gone"
+    over: "A second hold derivation over the series facts"
+    reason: "No third classifier: the series page names the hold the ticket page names."
+  - category: Implementation
+    decider: claude
+    chose: "Review fixes: the list read passes the heads' last launches, so a lost sandbox holds the same retry on every surface; a short delivery without a pull request is a decide hold; the state rule's precondition arm is gone (the admin hold is the one reading); the box keeps the hold's sentence and puts an admin setting's instruction under it; the Stuck view of an admin leaves out what Your move lists; the series page reads the server's isHeld; a closed requirement is named by no 'starts when it finishes'; the edit marker never throws; the merge act reads no holds"
+    over: "Shipping as first built"
+    reason: "Adversarial review findings, each confirmed against the code and pinned by a test."
+  - category: TradeOff
+    decider: claude
+    chose: "The series list and page read the holds through the full ticket-list read of their projects"
+    over: "A lean hold read for series tickets only"
+    reason: "One read keeps the hold identical on every surface; its cost grows with the project's tickets, not the series, which is named here as the follow-up once a series page read is measured slow."

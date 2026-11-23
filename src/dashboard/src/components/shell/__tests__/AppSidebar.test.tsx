@@ -23,6 +23,8 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/hooks/useJobsHub", () => ({
   useJobsHub: () => ({ client: {}, connectionState: HubConnectionState.Connected, overview: hoisted.overview, systemActivity: null }),
 }));
+const holds = vi.hoisted(() => ({ admin: false }));
+vi.mock("@/hooks/useHoldsAdmin", () => ({ useHoldsAdmin: () => holds.admin }));
 vi.mock("@/lib/tickets/TicketListProvider", () => ({ useTicketList: () => ({ list: hoisted.tickets }) }));
 vi.mock("@/lib/pullRequestsApi", () => ({ fetchPullRequests: (...a: unknown[]) => hoisted.prs(...a) }));
 vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRunCount: (...a: unknown[]) => hoisted.seriesCount(...a) }));
@@ -114,6 +116,19 @@ describe("AppSidebar", () => {
     expect(screen.getByTestId("sidebar-your-move-count")).toHaveTextContent("0");
     expect(screen.getByTestId("sidebar-your-move-count").className).not.toContain("hot");
     expect(screen.getByTestId("sidebar-tickets-count").className).not.toContain("hot");
+  });
+
+  // 2026-11-23-31dcg: Your move counts the holds the server counted — an admin's also the admin holds.
+  it("Sidebar_YourMove_AddsTheAdminHolds_OnlyForAnAdmin", () => {
+    hoisted.tickets = list([], { needsYou: 3, adminHolds: 2, stuck: 2 });
+    holds.admin = false;
+    const plain = renderAt("/");
+    expect(screen.getByTestId("sidebar-your-move-count")).toHaveTextContent("3");
+    plain.unmount();
+    holds.admin = true;
+    renderAt("/");
+    expect(screen.getByTestId("sidebar-your-move-count")).toHaveTextContent("5");
+    holds.admin = false;
   });
 
   it("Sidebar_UnknownCounts_ShowNoNumber", () => {

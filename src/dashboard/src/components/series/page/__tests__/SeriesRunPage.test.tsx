@@ -21,7 +21,6 @@ vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRun: (...a: unknown[]) => hoi
 vi.mock("@/hooks/useSpecDialog", () => ({ useSpecDialog: () => hoisted.dialog }));
 
 import { SeriesRunPage } from "../SeriesRunPage";
-import { seriesSections } from "../seriesPageSections";
 
 beforeEach(() => {
   hoisted.search = "";

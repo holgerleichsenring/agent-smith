@@ -11,7 +11,7 @@ import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 import TicketsPage from "@/app/tickets/page";
 import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
-import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
+import { fakeHub, hold, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
 import { TicketPage } from "@/components/tickets/detail/TicketPage";
 import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
 import { TicketGraph } from "@/components/tickets/graph/TicketGraph";
@@ -232,7 +232,7 @@ describe("Mock parity", () => {
     tickets.fetch.mockResolvedValue(list(
       [
         ticket({
-          bucket: "needs_you", kind: "question", status: "waiting_for_input", ticketId: "7",
+          bucket: "needs_you", kind: "question", hold: hold("question"), status: "waiting_for_input", ticketId: "7",
           pendingQuestion: { runId: "r-101", question: { questionId: "q1", type: "Freeform", text: "Which header style?", context: null, choices: ["IETF draft"], defaultAnswer: null, askedAt: "2026-07-17T10:01:00Z", answerDeadlineAt: "2026-07-17T12:00:00Z" } },
           seriesStrip: { derive: "cut", cells: [{ specId: "s1", state: "done" }, { specId: "s2", state: "asked" }] },
         }),

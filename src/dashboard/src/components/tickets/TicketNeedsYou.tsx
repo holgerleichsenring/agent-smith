@@ -5,7 +5,9 @@ import { TrackerText } from "@/components/ui/TrackerText";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { useParkedQuestion } from "@/hooks/useParkedQuestion";
 import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
+import { useT } from "@/hooks/useT";
 import type { TicketSummary } from "@/types/tickets";
+import { holdRowAct, holdSentence } from "./holds/holdWords";
 import { TicketRow, ticketHref } from "./TicketRow";
 import { age } from "./ticketFormat";
 
@@ -13,15 +15,29 @@ import { age } from "./ticketFormat";
 // is the run viewer's own PendingQuestionCard — the answer resumes the same attempt. A hand-back
 // has no paused run to resume: its reply belongs in the ticket's conversation, which Work it out
 // opens, resumes or binds from the ticket and project and where dialog.write is enforced.
+// 2026-11-23-31dcg: every other hold — a decision, a merge, a changed text, an admin's stop — says its sentence and opens
+// the ticket, where its act is.
 
 export function TicketNeedsYou({ ticket }: { ticket: TicketSummary }) {
   return (
     <div className="rgroup" data-testid={`ticket-needs-you-${ticket.project}-${ticket.ticketId}`}>
       <TicketRow ticket={ticket} />
       <div className="answer">
-        {ticket.kind === "handback" ? <HandbackReply ticket={ticket} /> : <QuestionAnswer ticket={ticket} />}
+        {ticket.hold?.case === "handback" ? <HandbackReply ticket={ticket} />
+          : ticket.hold?.case === "question" ? <QuestionAnswer ticket={ticket} /> : <HoldLine ticket={ticket} />}
       </div>
     </div>
+  );
+}
+
+function HoldLine({ ticket }: { ticket: TicketSummary }) {
+  const t = useT();
+  if (!ticket.hold) return null;
+  return (
+    <>
+      <div className="hint-line" data-testid="ticket-hold-sentence">{holdSentence(ticket.hold, t)}</div>
+      <Link className="btn primary" href={ticketHref(ticket)} data-testid="ticket-hold-act">{holdRowAct(ticket.hold, t)}</Link>
+    </>
   );
 }
 

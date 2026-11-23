@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeHub } from "../../__tests__/ticketFixtures";
+import { fakeHub, hold } from "../../__tests__/ticketFixtures";
 import { attempt, conversation, defaults, detail, entry, reviews, series, spec, ticketText } from "./detailFixtures";
 import { ApiResponseError } from "@/lib/apiResponse";
 import type { RunEvent } from "@/types/hub-events";
@@ -744,7 +744,7 @@ describe("Ticket thread", () => {
   it("RetryUnchanged_AnInfrastructureEnd_OffersOneRetry_InTheYourMoveBox", async () => {
     nav.search = ""; // 2026-11-22-4321a: on Now, with the Your move line and the current run
     world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);
-    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", hold: hold("infrastructure", { act: { kind: "retry", target: "r-1" } }) };
     await open();
     expect(screen.getAllByTestId("ticket-retry")).toHaveLength(1);
     expect(within(screen.getByTestId("ticket-state")).getByTestId("ticket-retry")).toBeInTheDocument();

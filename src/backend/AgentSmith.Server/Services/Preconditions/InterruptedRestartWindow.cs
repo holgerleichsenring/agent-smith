@@ -30,6 +30,8 @@ public sealed class InterruptedRestartWindow(
     public PreconditionsConfig InForce() => configLoader.LoadConfig(serverContext.ConfigPath).Preconditions;
 
     /// <summary>Whether an interruption that ended at <paramref name="finishedAt"/> is restarted under <paramref name="preconditions"/>.</summary>
-    public bool Covers(DateTimeOffset? finishedAt, PreconditionsConfig preconditions) =>
-        finishedAt is { } at && Since(preconditions) is { } since && at >= since;
+    public bool Covers(DateTimeOffset? finishedAt, PreconditionsConfig preconditions) => Covers(finishedAt, Since(preconditions));
+
+    /// <summary>2026-11-23-31dcg: the same question against a <see cref="Since"/> read once for a whole read.</summary>
+    public static bool Covers(DateTimeOffset? finishedAt, DateTimeOffset? since) => finishedAt is { } at && since is { } from && at >= from;
 }

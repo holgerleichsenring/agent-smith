@@ -24,6 +24,21 @@ public sealed class TicketTextEditNotice(
     /// <summary>The ledger key prefix one edit is spent under.</summary>
     public const string KeyPrefix = "ticket-text-edited|";
 
+    /// <summary>2026-11-23-31dcg: the mark beside an edit's key once the conversation answered it, under the same fingerprint.</summary>
+    public const string AnsweredPrefix = "ticket-text-answered|";
+
+    /// <summary>2026-11-23-31dcg: the fingerprints of the edits the ticket's spent <paramref name="keys"/> put to the
+    /// conversation and that no answered mark settles yet.</summary>
+    public static IReadOnlyList<string> Open(IEnumerable<string> keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        var all = keys.ToList();
+        var answered = all.Where(k => k.StartsWith(AnsweredPrefix, StringComparison.Ordinal))
+            .Select(k => k[AnsweredPrefix.Length..]).ToHashSet(StringComparer.Ordinal);
+        return [.. all.Where(k => k.StartsWith(KeyPrefix, StringComparison.Ordinal)).Select(k => k[KeyPrefix.Length..])
+            .Where(fingerprint => !answered.Contains(fingerprint)).Distinct(StringComparer.Ordinal)];
+    }
+
     public async Task CheckAsync(string project, string ticketId, CancellationToken ct)
     {
         if (projects.Of(project) is not { } resolved || await HeldAsync(project, ticketId, ct)) return;

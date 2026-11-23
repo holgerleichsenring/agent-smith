@@ -41,6 +41,18 @@ public sealed class ReworkLedgerRepository(IUnitOfWork uow, IUniqueViolationTran
         (await uow.Set<ReworkLedger>().AsNoTracking().Where(l => l.Project == project && l.TicketId == ticket)
             .Select(l => l.SpokenKeys).FirstOrDefaultAsync(ct))?.Split('\n').Contains(key, StringComparer.Ordinal) == true;
 
+    /// <summary>2026-11-23-31dcg: the spoken keys of every ticket that holds one starting with <paramref name="prefix"/>, in one
+    /// read — of the named projects, or of every project when <paramref name="projects"/> is null; one ticket when named.</summary>
+    public async Task<IReadOnlyList<(string Project, string TicketId, IReadOnlyList<string> Keys)>> WithKeyPrefixAsync(
+        string prefix, IReadOnlyCollection<string>? projects, string? ticketId, CancellationToken ct)
+    {
+        var rows = uow.Set<ReworkLedger>().AsNoTracking().Where(l => l.SpokenKeys.Contains(prefix));
+        if (projects is not null) rows = rows.Where(l => projects.Contains(l.Project));
+        if (ticketId is not null) rows = rows.Where(l => l.TicketId == ticketId);
+        return [.. (await rows.Select(l => new { l.Project, l.TicketId, l.SpokenKeys }).ToListAsync(ct))
+            .Select(l => (l.Project, l.TicketId, (IReadOnlyList<string>)l.SpokenKeys.Split('\n', StringSplitOptions.RemoveEmptyEntries)))];
+    }
+
     public async Task<bool> TryMarkSpokenAsync(string project, string ticket, string key, CancellationToken ct)
     {
         var row = await uow.Set<ReworkLedger>().FirstOrDefaultAsync(l => l.Project == project && l.TicketId == ticket, ct);
