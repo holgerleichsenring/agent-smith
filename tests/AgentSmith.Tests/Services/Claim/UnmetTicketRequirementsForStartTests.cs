@@ -152,7 +152,7 @@ public sealed class UnmetTicketRequirementsForStartTests
         RequiresUnmetGate.MergesNamed(["#1", "#2", "#3"]).Should().Be("#1, #2 and #3");
 
     private UnmetTicketRequirements Read() =>
-        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts));
+        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts));
 
     private void Attempt(string ticket, string status) =>
         _attempts.Setup(a => a.LatestAsync(TicketRequirementEdges.Project, ticket, null, default))

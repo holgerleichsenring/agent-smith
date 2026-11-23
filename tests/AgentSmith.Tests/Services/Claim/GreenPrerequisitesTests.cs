@@ -86,7 +86,7 @@ public sealed class GreenPrerequisitesTests
         (await Green().TipAsync(Project, [Edge("42", "41")], requireGreen: true, default)).Should().BeNull();
     }
 
-    private GreenPrerequisites Green() => new(_facts, _attempts.Object, _facts);
+    private GreenPrerequisites Green() => new(_facts, _attempts.Object, _facts, _facts);
 
     private void Green(string ticket) =>
         _attempts.Setup(a => a.LatestAsync(Project, ticket.ToUpperInvariant(), null, default)).ReturnsAsync(Attempt(RunStatuses.Success));

@@ -75,27 +75,19 @@ public sealed class UnmetTicketRequirements(
             var wasStarted = started.Contains(unmet[0].TicketId);
             var tip = await reads.TipAsync(unmet, requireGreen: !wasStarted, cancellationToken);
             holds[key] = tip is not null || wasStarted ? new(has, [], tip, GreenLifts: true)
-                : new(has, unmet, GreenLifts: true) { MergesToStart = await WithBasesAsync(tracker, await reads.MergesToStartAsync(unmet, cancellationToken), cancellationToken) }; // 6d85d
+                : new(has, unmet, GreenLifts: true) { MergesToStart = await WithBasesAsync(reads, await reads.MergesToStartAsync(unmet, cancellationToken), cancellationToken) }; // 6d85d
         }
         return holds;
     }
 
     // 2026-11-22-6d85d: a named prerequisite stacked on an unlanded ticket lands only with that base, so its base's merge is
-    // named too, first — the chain walked through the requirement store, landings read once.
-    private async Task<IReadOnlyList<TicketRequirementEdge>> WithBasesAsync(
-        string tracker, IReadOnlyList<TicketRequirementEdge>? merges, CancellationToken ct)
+    // named too, first — 2026-11-23-97c2b: the chain walked by the reads, landings read once.
+    private static async Task<IReadOnlyList<TicketRequirementEdge>> WithBasesAsync(
+        GreenReads reads, IReadOnlyList<TicketRequirementEdge>? merges, CancellationToken ct)
     {
         if (merges is not { Count: > 0 }) return [];
-        var bases = new List<TicketRequirementEdge>();
-        var seen = merges.Select(e => e.RequiredTicketKey).ToHashSet(StringComparer.Ordinal);
-        var frontier = new Queue<string>(seen);
-        while (frontier.TryDequeue(out var key))
-            foreach (var edge in await requirements.RequiredOfAsync(tracker, key, ct))
-                if (seen.Add(edge.RequiredTicketKey)) { bases.Add(edge); frontier.Enqueue(edge.RequiredTicketKey); }
-        if (bases.Count == 0) return merges;
-        var landed = (await landings.LandedAsync(tracker, [.. bases.Select(e => e.RequiredTicketKey)], ct))
-            .Select(l => l.TicketKey).ToHashSet(StringComparer.Ordinal);
-        return [.. bases.Where(e => !landed.Contains(e.RequiredTicketKey)).Reverse(), .. merges];
+        var chain = await reads.UnlandedChainAsync(merges, ct);
+        return [.. chain.Skip(merges.Count).Reverse(), .. merges];
     }
 
     /// <summary>
