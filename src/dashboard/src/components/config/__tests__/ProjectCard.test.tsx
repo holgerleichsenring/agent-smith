@@ -235,7 +235,7 @@ describe("ProjectCard wiring graph", () => {
     expect(container.querySelector(".ec-disclosure")).toBeNull();
     expect(container.querySelector(".ec-id.row")).toBeNull();
     expect(screen.getByTestId("config-secret-redaction-AZDO_PAT").textContent)
-      .toContain("value from the environment or stored encrypted, never shown");
+      .toContain("used by azdo"); // 2026-11-23-78d7: the fixed source sentence became the per-secret source
     expect(container.querySelector(".edit-hint")).not.toBeNull();
 
     fireEvent.click(root);

@@ -1,6 +1,6 @@
 "use client";
 
-import { SecretValueField } from "./SecretValueField";
+import { NewSecretValueInput, SecretValueField } from "./SecretValueField";
 import { OrphanedSecretValues } from "./OrphanedSecretValues";
 import type {
   ConfigCapabilities,
@@ -28,8 +28,9 @@ import type { ConfigCatalog } from "./useConfigCatalog";
 // p0345: the create/edit form body, dispatched by entity kind. The `id` is
 // editable only when new (it is the primary key). Every reference field is a
 // RefSelect/MultiRefSelect bound to a catalog list — the project form is the
-// relational heart and gets its own five-tab file (2026-09-16-74a2). The secret form is
-// deliberately id-only with a redaction bar: no value input exists anywhere.
+// relational heart and gets its own five-tab file (2026-09-16-74a2). The secret form's
+// value inputs are write-only password fields; no stored value is ever shown (2026-11-17-f3a8d,
+// 2026-11-23-78d7).
 // 2026-10-06-cea8: the tracker form is tabbed in its own file, like the project and agent.
 // p0345c: tracker/connection/agent forms are CAPABILITIES-driven — type and
 // provider are dropdowns from the backend descriptor, and the field set below
@@ -46,6 +47,8 @@ export function EntityForm({
   inheritedSandbox = null,
   isNew,
   findings = [],
+  newSecretValue = "",
+  onNewSecretValue,
 }: {
   kind: ConfigEntityKind;
   draft: StudioEntity;
@@ -57,6 +60,9 @@ export function EntityForm({
   isNew: boolean;
   /** p0392: what the server says about this unsaved draft, from its own rules. */
   findings?: ConfigFinding[];
+  /** 2026-11-23-78d7: a new secret's value, held by the drawer outside the draft and sent with Create. */
+  newSecretValue?: string;
+  onNewSecretValue?: (value: string) => void;
 }) {
   const idField = (
     <TextField
@@ -209,7 +215,9 @@ export function EntityForm({
               A value set here is stored encrypted and never shown again; an environment variable of the same name wins.
             </span>
           </div>
-          {!isNew && <SecretValueField name={draft.id} />}
+          {isNew
+            ? onNewSecretValue && <NewSecretValueInput value={newSecretValue} onChange={onNewSecretValue} />
+            : <SecretValueField name={draft.id} />}
           <OrphanedSecretValues />
         </div>
       );

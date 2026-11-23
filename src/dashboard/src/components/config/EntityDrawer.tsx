@@ -20,6 +20,7 @@ import { trackerTabFor, trackerTabTitle } from "./trackerTabs";
 import { projectIntegrity } from "./integrity";
 import { unfinishedTemplates } from "./integrity";
 import { cn } from "@/lib/utils";
+import { setSecretValue as storeSecretValue } from "@/lib/secretValuesApi";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // p0345: the slide-over create/edit drawer. Owns the draft, persists via the
@@ -52,6 +53,7 @@ export function EntityDrawer({
   const [draft, setDraft] = useState<StudioEntity>(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newSecretValue, setNewSecretValue] = useState("");
 
   // p0392: the server's own rules over the unsaved draft. p0391a made the server report
   // what is missing once it is running; a configuration that would disable a unit is
@@ -78,7 +80,13 @@ export function EntityDrawer({
     setError(null);
     try {
       const client = ENTITY_CLIENT[kind];
-      if (isNew) await client.create(draft);
+      // 2026-11-23-78d7: a new secret with a value is one secret run, which adds the catalog secret itself; a refused
+      // value creates nothing. The field is cleared once the value is sent, whatever the answer.
+      if (kind === "secrets" && isNew && newSecretValue !== "") {
+        const value = newSecretValue;
+        setNewSecretValue("");
+        await storeSecretValue(draft.id, value);
+      } else if (isNew) await client.create(draft);
       else await client.update(draft.id, draft);
       onSaved();
     } catch (err) {
@@ -140,6 +148,8 @@ export function EntityDrawer({
             inheritedSandbox={inheritedSandbox}
             isNew={isNew}
             findings={findings}
+            newSecretValue={newSecretValue}
+            onNewSecretValue={setNewSecretValue}
           />
           {error && (
             <p data-testid="config-drawer-error" style={{ color: "var(--bad)", fontSize: "12.5px" }}>
