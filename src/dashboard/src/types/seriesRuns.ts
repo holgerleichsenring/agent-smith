@@ -9,7 +9,7 @@ export interface SeriesRunCounts {
   total: number;
   landed: number;
   waiting: number;
-  /** 2026-11-23-31dcg: the tickets What holds the rest (849e: Who moves next) lists — a hold names someone and is not the next merge. */
+  /** 2026-11-23-31dcg: the tickets whose hold names someone and is not the next merge. */
   held: number;
   notStarted: number;
 }
@@ -65,8 +65,8 @@ export interface SeriesRunTicket {
   pullRequests: SeriesRunPullRequest[];
   /** 2026-11-23-31dcg: the ticket's hold, as its ticket page and the ticket list read it. */
   hold?: TicketHold | null;
-  /** 2026-11-23-31dcg: What holds the rest (849e: Who moves next) lists it — what the series' held count counts. */
-  isHeld?: boolean;
+  /** 2026-11-23-f562: the newest attempt's run id — Retry, See why and See run act on it; null before any. */
+  runId?: string | null;
 }
 
 /** ready: merge this one now · after: the tickets in `after` land first · retarget: its target moves to main first. */
@@ -82,16 +82,10 @@ export interface SeriesRunMergeStep {
   neededBy?: string[];
 }
 
-/** 2026-11-23-31dcf: what a requires edge means for the branches, from the per-repo stack a start is decided by.
- *  stacked: cut from the prerequisite's branch (or one carrying it) · merge: met only by a merge · unknown: the
- *  prerequisite has no green attempt, so its repos are not known · landed: the prerequisite merged. */
-export type SeriesRunEdgeKind = "stacked" | "merge" | "unknown" | "landed";
-
-/** 2026-11-23-31dcf: one requires edge between two tickets of the series. */
+/** 2026-11-23-31dcf: one requires edge between two tickets of the series (2026-11-23-f562: without a kind). */
 export interface SeriesRunEdge {
   ticketId: string;
   requiredTicketId: string;
-  kind: SeriesRunEdgeKind;
 }
 
 export interface SeriesRunDetail {

@@ -5,7 +5,7 @@ import { seriesSectionOf, seriesSections } from "../seriesPageSections";
 import { seriesDetail } from "./seriesFixtures";
 
 // 2026-11-23-31dcd: the series bar — back to the list, name, state with the question, counts, the sections with their
-// counters, and the facts at its foot.
+// counters, and the facts at its foot. 2026-11-23-f562: Overview, Tickets, Conversation.
 
 describe("SeriesSectionBar", () => {
   it("SeriesSectionBar_RendersNameStateCountersAndFacts", () => {
@@ -18,7 +18,8 @@ describe("SeriesSectionBar", () => {
     expect(screen.getByTestId("series-counts")).toHaveTextContent("1 of 3 merged · 1 PRs waiting · 1 not started");
     expect(screen.getByTestId("series-section-tickets")).toHaveTextContent("Tickets3");
     expect(screen.getByTestId("series-section-tickets")).toHaveAttribute("aria-current", "page");
-    expect(screen.getByTestId("series-section-next")).toHaveTextContent("Merge next0");
+    expect(screen.getByTestId("series-section-overview")).toHaveTextContent("Overview0"); // 2026-11-23-f562: nothing is yours
+    expect(screen.queryByTestId("series-section-next")).toBeNull();
     expect(screen.getByTestId("series-repos")).toHaveTextContent("server · worker");
     expect(screen.getByTestId("series-conversation-link")).toHaveAttribute("href", "/spec-dialog?open=conv-1&on=d-thread1");
     expect(screen.getByTestId("series-facts")).toHaveTextContent("$41.20 so far");

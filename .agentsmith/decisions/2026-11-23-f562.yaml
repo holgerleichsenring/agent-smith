@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-f562
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "The series page has three sections — Overview (default: summary chips, the order graph with a menu per ticket, the action list below), Tickets, Conversation — as the approved mock (series-graph-mock, artifact v3) draws it"
+    over: "Five sections (Merge next, Who moves next, Order and branches, Tickets, Conversation) with Your next step above each"
+    reason: "Operator, 2026-11-23: one picture of the series with the acts where the tickets are."
+  - category: Scope
+    decider: operator
+    chose: "Delete what became redundant: Merge next, Who moves next, Order and branches, Your next step, seriesNodeFrame, seriesStepLines, SeriesMergeActs, their CSS, tests and i18n keys; the retired ?section=next|held|course names land on the Overview through the existing fallback"
+    over: "Keeping the old sections beside the Overview"
+    reason: "Operator, 2026-11-23: 'lösch die anderen dinge, die dann redundant sind'."
+  - category: Implementation
+    decider: claude
+    chose: "A ticket's colour is read in one function (seriesNodeKind) from server fields only — landed, the hold's addressee and case, the merge step's wait and neededBy — and the chips, graph, action list and the bar's counter all count from it"
+    over: "Keeping seriesNodeFrame's own rule (status and pull-request states) beside the hold"
+    reason: "The operator asked for no second derivation; one function makes the counts agree by construction."
+  - category: Implementation
+    decider: claude
+    chose: "Remove the edge kind (SeriesRunEdgeKinds and the per-repo stack read in SeriesRunEdges) and the per-ticket IsHeld flag; SeriesRunEdges becomes a projection of the facts already read"
+    over: "Keeping them on the wire unused, or drawing edge kinds against the mock"
+    reason: "Operator: remove server code only when nothing uses it — the approved Overview draws neutral orthogonal edges with the needed chain highlighted, and only Who moves next read IsHeld. The detail read also stops paying the stack reads."
+  - category: Implementation
+    decider: claude
+    chose: "SeriesRunTicketView carries RunId, the newest attempt's run id; Retry posts the ticket page's retryAttempt on it (or on the hold's retry act's run), See why opens its trace, See run the run"
+    over: "Sending the person to the ticket page for every failure"
+    reason: "The operator asked for a real Retry, See why and See run in the menu; the newest attempt is already read for the status."
+  - category: Implementation
+    decider: claude
+    chose: "A failed ticket's acts follow its hold: an admin's hold leads with its own act on the ticket page and is never retried; Retry where the hold's act is retry or the ticket page's rule offers it (finished, not a success, not handed back); a conversation act without a series opens the ticket's own conversation"
+    over: "Retry and the series conversation for every red ticket"
+    reason: "Review finding: an untrusted image or missing bootstrap fails the same way on a retry, and a rework conversation is the ticket's, not the series'."
+  - category: Implementation
+    decider: claude
+    chose: "The node menu renders in the graph panel, outside the sideways-scrolling box, positioned under the node from its measured rect; scrolling the box closes it; Escape (with focus in the menu or on its node) and any act give focus back to the node"
+    over: "Rendering it inside the scrolling box with a fixed height guess"
+    reason: "Review finding: overflow-x makes the box clip vertically, so small graphs cut the menu off."
+  - category: Implementation
+    decider: claude
+    chose: "One merge outcome and one retry outcome at the top of the Overview; Changed in this series (31dcj) moves under the Tickets table"
+    over: "The outcome on each surface that started it; dropping Changed in this series with Who moves next"
+    reason: "Operator: a merge result shows once. The change notes are information about tickets and lose nothing under Tickets."
+  - category: Implementation
+    decider: claude
+    chose: "The ticket page's merge tail uses the needed-merge wording ('Needed so #… can start' / 'Nötig, damit … starten kann/können'), plural by the names"
+    over: "'merges are needed before … can start' / 'erst nach weiteren Merges können … starten'"
+    reason: "Operator: an 8d16 leftover; the series page and the ticket page now say the same."

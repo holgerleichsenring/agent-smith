@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-f562
+goal: "A series page opens on one Overview: summary chips, the order graph coloured by each ticket's hold with a real act menu per node, and the action list below; three sections remain."
+
+applies_to: "dashboard (series page), default (series detail read)"
+
+requires: [2026-11-23-31dcd, 2026-11-23-31dce, 2026-11-23-31dcf, 2026-11-23-31dcg, 2026-11-23-849e, 2026-11-23-8d16]
+
+facts:
+  - claim: "The series page has five sections — Merge next, Who moves next, Order and branches, Tickets, Conversation — and Your next step leads every one of them."
+    evidence: "src/dashboard/src/components/series/page/seriesPageSections.ts:40; src/dashboard/src/components/series/page/SeriesRunPage.tsx:56"
+  - claim: "An unknown ?section= name falls back to the first listed section."
+    evidence: "src/dashboard/src/components/series/page/seriesPageSections.ts:53"
+  - claim: "A merge's outcome is drawn by Your next step and again by its Merge next row, both on screen together."
+    evidence: "src/dashboard/src/components/series/page/SeriesYourStep.tsx:57; src/dashboard/src/components/series/page/SeriesMergeNextSection.tsx:70"
+  - claim: "The Order graph frames a ticket by a browser-side rule of its own (seriesNodeFrame) and draws edges as curves."
+    evidence: "src/dashboard/src/components/series/page/seriesNodeFrame.ts:11; src/dashboard/src/components/series/page/seriesOrderLayout.ts:101"
+  - claim: "The merge hold's tail on the ticket page says 'erst nach weiteren Merges können … starten', not the needed-merge wording of 8d16."
+    evidence: "src/dashboard/src/lib/i18n/messages.ts:1061; src/dashboard/src/lib/i18n/messages.ts:960"
+  - claim: "Each edge's kind (stacked, merge, unknown, landed) is read from the per-repo stack on every series detail read; only the Order section draws it."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunEdges.cs:27; src/dashboard/src/components/series/page/SeriesOrderSection.tsx:49"
+  - claim: "IsHeld is sent per ticket and read only by Who moves next."
+    evidence: "src/backend/AgentSmith.Server/Models/SeriesRunTicketView.cs:17; src/dashboard/src/components/series/page/SeriesHoldsSection.tsx:28"
+  - claim: "The ticket page retries with retryAttempt(runId); a series ticket carries its newest attempt's status but not its run id."
+    evidence: "src/dashboard/src/components/tickets/detail/RetryUnchanged.tsx:35; src/backend/AgentSmith.Server/Models/SeriesRunTicketView.cs:10"
+
+scope:
+  in: >-
+    Sections: Overview (default), Tickets, Conversation; ?section=next|held|course land on Overview. Overview: one merge
+    outcome line, summary chips (merge now, needed merges and the tickets they let start, questions, failed, running), the
+    graph (repo lanes, depth columns, orthogonal edges with rounded corners, the needed chain highlighted, legend, the course
+    select) with one colour per ticket read from the server's hold, merge order, neededBy and landed (seriesNodeKind); a
+    click opens a menu (sentence + real acts: Merge via useSeriesMerge, Open pull request, Open ticket, Show chain, Answer,
+    Open conversation, Retry via retryAttempt, See why/See run via runPath; an admin's hold leads with its own act) rendered
+    outside the scrolling box, closing on outside click and Escape; below, the
+    action list (You're up, Needed next, Runs by itself) in the same colours, a row's hover or focus lighting its chain.
+    Server: SeriesRunTicketView.RunId (newest attempt). Changed in this series moves under Tickets. Ticket page merge
+    tail uses the needed wording. REMOVED: Merge next, Who moves next, Order and branches, Your next step, seriesNodeFrame,
+    seriesStepLines, SeriesMergeActs, their CSS, tests and i18n keys; the edge kind (SeriesRunEdgeKinds and the stack read
+    in SeriesRunEdges); IsHeld.
+  out: >-
+    The series list page; the merge order and hold rules on the server; the Tickets table; the conversation pane.
+
+tests:
+  - "seriesNodeKind: every kind from hold/merge order/neededBy/landed; counts agree with the list groups."
+  - "seriesGraphLayout: lanes, columns, orthogonal paths without curves, needed-chain edges."
+  - "SeriesOverview: each menu action triggers its real act or route (merge post, retry post, hrefs), disabled Merge carries its reason, Escape and outside click close the menu, a merge outcome shows once, row hover dims other nodes."
+  - "SeriesRunPage: three sections; next/held/course land on Overview; Changed in this series reads under Tickets."
+  - "SeriesRunEdgesTests and SeriesRunReadersTests: edges inside the series without kinds; the detail carries the newest run id."
+
+done:
+  - "Build, the affected tests, the full suite and the dashboard tests green; the spec gate passed."

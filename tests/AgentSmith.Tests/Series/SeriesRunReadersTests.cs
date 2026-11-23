@@ -149,27 +149,17 @@ public sealed class SeriesRunReadersTests : IDisposable
     }
 
     [Fact]
-    public async Task Detail_CarriesEachEdgesKind_FromThePerRepoStack()
+    public async Task Detail_CarriesTheEdgesBetweenItsTickets_AndEachTicketsNewestRunId()
     {
         await OpenAsync("sr-1", Tickets("1", "2", "3", "4"));
         await _h.AddAsync(Requires("2", "1"), Requires("4", "3"), Landed("3"), WithPr(TicketStoreHarness.Run("run-1", ticket: "1")),
             TicketStoreHarness.Run("run-9", ticket: "9", status: "running"));
 
-        var edges = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!.Edges;
+        var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
 
-        edges.Should().BeEquivalentTo(
-            [new SeriesRunEdgeView("2", "1", SeriesRunEdgeKinds.Stacked), new SeriesRunEdgeView("4", "3", SeriesRunEdgeKinds.Landed)]);
-    }
-
-    [Fact]
-    public async Task Detail_APrerequisiteWithoutAGreenAttempt_IsAnUnknownEdge()
-    {
-        await OpenAsync("sr-1", Tickets("1", "2"));
-        await _h.AddAsync(Requires("2", "1"), TicketStoreHarness.Run("run-1", ticket: "1", status: "running"));
-
-        var edges = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!.Edges;
-
-        edges.Should().ContainSingle().Which.Kind.Should().Be(SeriesRunEdgeKinds.Unknown);
+        detail.Edges.Should().BeEquivalentTo([new SeriesRunEdgeView("2", "1"), new SeriesRunEdgeView("4", "3")]);
+        detail.Tickets.Single(t => t.TicketId == "1").RunId.Should().Be("run-1", "the Overview retries and opens the newest run");
+        detail.Tickets.Single(t => t.TicketId == "2").RunId.Should().BeNull();
     }
 
     [Fact]
@@ -227,7 +217,6 @@ public sealed class SeriesRunReadersTests : IDisposable
         services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>();
         services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
             .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
-        services.AddSingleton<AgentSmith.Application.Services.Claim.GreenPrerequisites>().AddScoped<SeriesRunEdges>(); // 31dcf
         services.AddTransient<SeriesRunHolds>(); // 31dcg
     }
 

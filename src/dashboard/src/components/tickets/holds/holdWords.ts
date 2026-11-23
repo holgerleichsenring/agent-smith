@@ -5,7 +5,7 @@ import { RUN_END_KINDS } from "@/types/tickets";
 import { isAsked } from "./holdRoutes";
 
 // 2026-11-23-31dcg: the words of a hold. The server reads the hold — its addressee, its case, its one act — and every
-// surface (Your move on home and in the sidebar, the ticket's Your move box, the series' What holds the rest) renders it
+// surface (Your move on home and in the sidebar, the ticket's Your move box, the series' Overview) renders it
 // through these functions, so a ticket says the same sentence everywhere and nothing here decides who acts. The end
 // detail a run recorded is quoted where it names the cause.
 
@@ -119,12 +119,13 @@ export function holdActLabel(hold: TicketHold, t: T = EN): string | null {
 }
 
 /** 2026-11-23-849e: what merging the series' next merge unblocks — the step after it and the tickets that start only on
- *  merges; null when it names neither. */
+ *  merges; null when it names neither. 2026-11-23-f562: in the needed-merge wording of the series page. */
 export function mergeTail(hold: TicketHold, t: T = EN): string | null {
   const names = namesOf(hold.names, t);
-  if (hold.next && hold.names.length > 0) return t("hold.merge.tail.both", { next: hold.next, names });
+  const count = hold.names.length;
+  if (hold.next && count > 0) return t("hold.merge.tail.both", { next: hold.next, names, count });
   if (hold.next) return t("hold.merge.tail.next", { next: hold.next });
-  return hold.names.length > 0 ? t("hold.merge.tail.names", { names }) : null;
+  return count > 0 ? t("hold.merge.tail.names", { names, count }) : null;
 }
 
 /** 2026-11-23-849e: how long since an instant — "45 min", "5 h", "3 d"; the units read the same in both languages. */

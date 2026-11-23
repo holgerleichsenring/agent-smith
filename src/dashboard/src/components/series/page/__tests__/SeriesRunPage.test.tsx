@@ -4,7 +4,8 @@ import { ApiResponseError } from "@/lib/apiResponse";
 import { seriesDetail } from "./seriesFixtures";
 
 // 2026-11-23-31dcd: the series page shows one section at a time, named by ?section=; its Tickets rows run by depth and
-// open the ticket page; its Conversation posts to the series' own conversation.
+// open the ticket page; its Conversation posts to the series' own conversation. 2026-11-23-f562: three sections, the
+// Overview first; the retired names land on it; Changed in this series is read under Tickets.
 
 const hoisted = vi.hoisted(() => ({
   search: "", replace: vi.fn(), push: vi.fn(), fetch: vi.fn(), changes: vi.fn(),
@@ -38,8 +39,10 @@ beforeEach(() => {
 describe("SeriesRunPage", () => {
   it("SeriesPage_SelectingASection_ShowsOnlyItsPane_AndSetsTheSectionParam", async () => {
     render(<SeriesRunPage id="sr-1" />);
-    expect(await screen.findByTestId("series-pane-next")).toBeInTheDocument();
+    expect(await screen.findByTestId("series-pane-overview")).toBeInTheDocument();
     expect(screen.queryByTestId("series-pane-talk")).toBeNull();
+    expect(screen.getAllByTestId(/^series-section-(overview|tickets|talk)$/)).toHaveLength(3);
+    expect(screen.queryByTestId("series-your-step")).toBeNull();
 
     fireEvent.click(screen.getByTestId("series-section-talk"));
 
@@ -55,13 +58,23 @@ describe("SeriesRunPage", () => {
     expect(screen.getByTestId("series-section-title")).toHaveTextContent("Conversation");
   });
 
-  it("SeriesPage_ChangedInThisSeries_IsReadOnlyOnceWhatHoldsTheRestOpens", async () => {
+  it("SeriesPage_RetiredSectionNames_LandOnTheOverview", async () => {
+    for (const name of ["next", "held", "course"]) {
+      hoisted.search = `section=${name}`;
+      const page = render(<SeriesRunPage id="sr-1" />);
+      expect(await screen.findByTestId("series-pane-overview")).toBeInTheDocument();
+      expect(screen.getByTestId("series-section-title")).toHaveTextContent("Overview");
+      page.unmount();
+    }
+  });
+
+  it("SeriesPage_ChangedInThisSeries_IsReadOnlyOnceTicketsOpens", async () => {
     const first = render(<SeriesRunPage id="sr-1" />);
-    expect(await screen.findByTestId("series-pane-next")).toBeInTheDocument();
+    expect(await screen.findByTestId("series-pane-overview")).toBeInTheDocument();
     expect(hoisted.changes).not.toHaveBeenCalled();
     first.unmount();
 
-    hoisted.search = "section=held";
+    hoisted.search = "section=tickets";
     render(<SeriesRunPage id="sr-1" />);
 
     expect(await screen.findByTestId("series-changes-empty")).toBeInTheDocument();
