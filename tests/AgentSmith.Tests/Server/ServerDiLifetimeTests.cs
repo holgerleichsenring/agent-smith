@@ -72,6 +72,22 @@ public sealed class ServerDiLifetimeTests
             .Should().ContainSingle("the optional marker is resolved, not left null");
     }
 
+    // 2026-11-23-c785: the singleton merge-green run starts its pipeline in a scope of its own — the executor needs scoped
+    // services, so from the root it fails before the run starts (every merge a person asked for failed that way).
+    [Fact]
+    public void ServerDi_ThePipelineUseCase_ResolvesInAScope_NotFromTheRoot()
+    {
+        using var provider = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices()).AddDashboardApi()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        using var scope = provider.GetRequiredService<IServiceScopeFactory>().CreateScope();
+        var inScope = () => scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.ExecutePipelineUseCase>();
+        inScope.Should().NotThrow<InvalidOperationException>("a scope satisfies the executor's scoped services");
+        var fromRoot = () => provider.GetRequiredService<AgentSmith.Application.Services.ExecutePipelineUseCase>();
+        fromRoot.Should().Throw<InvalidOperationException>("this is why MergeGreenRun must not resolve it from the root")
+            .WithMessage("*scoped service*");
+    }
+
     // 2026-10-13-0b82a: opening or pushing to a pull request is a change, not an assignment —
     // no registered handler takes the delivery, on any host, for a repository a project owns.
     [Theory]

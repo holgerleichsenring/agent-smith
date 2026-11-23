@@ -51,6 +51,6 @@ public sealed class MergeGreenRunTests
     }
 
     // No pipeline executor is registered, so the start throws — the path a run that ends before its step takes.
-    private MergeGreenRun Run() => new(new ServiceCollection().BuildServiceProvider(), new ServerContext("config.yml"), _leases.Object,
+    private MergeGreenRun Run() => new(new ServiceCollection().BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(), new ServerContext("config.yml"), _leases.Object,
         NullLogger<MergeGreenRun>.Instance);
 }
