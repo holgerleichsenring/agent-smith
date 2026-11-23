@@ -165,13 +165,13 @@ export type TicketHoldAddressee = "admin" | "decide" | "plan" | "merge" | "nobod
 /** 2026-11-23-31dcg: the case a hold was read from; it names the hold's sentence (TicketHoldCases). */
 export type TicketHoldCase =
   | "image_untrusted" | "bootstrap_missing" | "preflight"
-  | "question" | "handback" | "readiness_unknown" | "infrastructure" | "interrupted" | "criteria_unmet" | "failed" | "shortfall"
+  | "question" | "question_plan" | "question_environment" | "handback" | "readiness_unknown" | "infrastructure" | "interrupted" | "criteria_unmet" | "failed" | "shortfall"
   | "text_edited"
   | "merge_next" | "starts_on_merge"
   | "working" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite";
 
 /** 2026-11-23-31dcg: the one act of a hold; the target is a run id (retry), a series id (merge, merge_next), a path
- *  (settings) or the project (init) (TicketHoldActs). */
+ *  (settings) or the project (init) (TicketHoldActs). 2026-11-23-31dch: a conversation with a series id is that series'. */
 export interface TicketHoldAct {
   kind: "answer" | "conversation" | "retry" | "merge" | "merge_next" | "settings" | "init";
   target: string | null;

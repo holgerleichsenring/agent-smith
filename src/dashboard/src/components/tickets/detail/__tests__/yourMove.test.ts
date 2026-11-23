@@ -32,6 +32,19 @@ describe("yourMove", () => {
     expect(move.act).toMatchObject({ kind: "tab", tab: "conversation" });
   });
 
+  // 2026-11-23-31dch: a plan question is talked through in the series' conversation; an environment one is the admin's.
+  it("yourMove_APlanQuestion_OpensTheSeriesConversation_AnEnvironmentOne_IsReportedToTheAdmin", () => {
+    const head = attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: QUESTION });
+    const pending = { kind: "question" as const, pendingQuestion: { runId: "r-1", question: QUESTION } };
+    const plan = moveOf("needs_you", head, { ...pending, hold: hold("question_plan", { act: { kind: "conversation", target: "sr-1" } }) });
+    expect(plan).toMatchObject({ tone: "person", title: "Your move: talk about the plan", detail: "Keep the outbox?", question: false,
+      next: "Talk about the plan" });
+    expect(plan.act).toMatchObject({ kind: "link", href: "/series/sr-1?section=talk" });
+    const env = moveOf("stuck", head, { ...pending, hold: hold("question_environment", { act: { kind: "answer", target: null } }) });
+    expect(env).toMatchObject({ tone: "bad", title: "Reported to the admin", detail: "Keep the outbox?", question: true });
+    expect(env.text).toBe("Attempt 1 asked about its environment. It is reported to the admin.");
+  });
+
   it("yourMove_HandedBack_IsBlue", () => {
     const move = moveOf("needs_you", attempt({ handedBack: true }), { kind: "handback", handback: { text: "Which header?", at: "2026-09-04T14:00:00Z" },
       hold: hold("handback", { act: { kind: "conversation", target: null } }) });

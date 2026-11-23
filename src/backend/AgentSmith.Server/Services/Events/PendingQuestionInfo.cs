@@ -20,6 +20,9 @@ public sealed record PendingQuestionInfo(
     DateTimeOffset AskedAt,
     DateTimeOffset AnswerDeadlineAt)
 {
+    /// <summary>2026-11-23-31dch: who can answer it; a question stored before the field existed is the target's.</summary>
+    public IReadOnlyList<string> Answerers { get; init; } = [AgentSmith.Domain.Models.QuestionAnswerers.Target];
+
     /// <summary>
     /// 2026-09-17-042ej: a stored question that cannot be deserialized is ABSENT, not an
     /// exception. One malformed row used to take down whichever read joined it — and on the
@@ -50,6 +53,6 @@ public sealed record PendingQuestionInfo(
             question.Choices?.Select(c => c.Label).ToList() ?? [],
             question.DefaultAnswer,
             checkpoint.AskedAt,
-            checkpoint.AnswerDeadlineAt);
+            checkpoint.AnswerDeadlineAt) { Answerers = question.AnswerersOrTarget };
     }
 }

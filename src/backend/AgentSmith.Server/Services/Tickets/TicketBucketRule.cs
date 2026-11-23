@@ -85,7 +85,7 @@ public sealed class TicketBucketRule
         if (!hold.IsPersons) return state;
         var kind = hold.Case switch
         {
-            TicketHoldCases.Question => TicketNeedsYouKind.Question,
+            TicketHoldCases.Question or TicketHoldCases.QuestionPlan => TicketNeedsYouKind.Question, // 31dch: a plan question too
             TicketHoldCases.Handback => TicketNeedsYouKind.Handback,
             _ => null,
         };

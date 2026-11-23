@@ -331,6 +331,16 @@ describe("TicketList", () => {
   });
   // 2026-11-23-31dcg: Needs you is Your move — a merge and a decision say their sentence and open the ticket; an admin's
   // hold is Stuck for anyone else and Your move for an admin, whose needs-you view asks the server for it too.
+  // 2026-11-23-31dch: a plan question's row leads to its series' conversation.
+  it("NeedsYou_APlanQuestion_LeadsToTheSeriesConversation", async () => {
+    const plan = ticket({ ticketId: "7", bucket: "needs_you", status: "waiting_for_input",
+      hold: hold("question_plan", { act: { kind: "conversation", target: "sr-1" } }) });
+    serve(list([plan], { needsYou: 1 }));
+    renderTickets();
+    expect(await screen.findByTestId("ticket-needs-you-shop-7")).toHaveTextContent("Talk about the plan");
+    expect(within(screen.getByTestId("ticket-section-needs-you")).getByTestId("ticket-hold-act")).toHaveAttribute("href", "/series/sr-1?section=talk");
+  });
+
   it("NeedsYou_IsTheHolds_AnAdminsHoldMovesThereOnlyForAnAdmin", async () => {
     const merge = ticket({ ticketId: "5", bucket: "needs_you", status: "success", hold: hold("merge_next", { act: { kind: "merge", target: "sr-1" } }) });
     const admin = ticket({ ticketId: "6", bucket: "stuck", status: "failed", hold: hold("preflight", { act: { kind: "conversation", target: null } }) });

@@ -750,6 +750,17 @@ describe("Ticket thread", () => {
     expect(within(screen.getByTestId("ticket-state")).getByTestId("ticket-retry")).toBeInTheDocument();
   });
 
+  // 2026-11-23-31dch: a park that asks about the plan is answered in its series' conversation, not on the ticket.
+  it("APlanQuestion_ShowsAsText_AndLeadsToTheSeriesConversation", async () => {
+    const question = { questionId: "q", type: "FreeText", text: "Which payload does the Worker read?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
+    world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", hold: hold("question_plan", { act: { kind: "conversation", target: "sr-1" } }) };
+    await open();
+    expect(screen.getByTestId("conv-question-text")).toHaveTextContent("Which payload does the Worker read?");
+    expect(screen.getByTestId("conv-question-series")).toHaveAttribute("href", "/series/sr-1?section=talk");
+    expect(screen.queryByTestId("pending-question-card")).toBeNull();
+  });
+
   it("WithoutRunsControl_ThePendingQuestionShowsAsTextWithNoAnswerCard", async () => {
     const question = { questionId: "q", type: "FreeText", text: "Keep the Postgres outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
     world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);

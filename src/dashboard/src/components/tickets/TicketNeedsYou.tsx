@@ -7,7 +7,9 @@ import { useParkedQuestion } from "@/hooks/useParkedQuestion";
 import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
 import { useT } from "@/hooks/useT";
 import type { TicketSummary } from "@/types/tickets";
+import { seriesRunPath } from "@/lib/seriesRunAddress";
 import { holdRowAct, holdSentence } from "./holds/holdWords";
+import { holdSeriesHref } from "./holds/holdRoutes";
 import { TicketRow, ticketHref } from "./TicketRow";
 import { age } from "./ticketFormat";
 
@@ -36,7 +38,9 @@ function HoldLine({ ticket }: { ticket: TicketSummary }) {
   return (
     <>
       <div className="hint-line" data-testid="ticket-hold-sentence">{holdSentence(ticket.hold, t)}</div>
-      <Link className="btn primary" href={ticketHref(ticket)} data-testid="ticket-hold-act">{holdRowAct(ticket.hold, t)}</Link>
+      <Link className="btn primary" href={holdSeriesHref(ticket.hold, seriesRunPath) ?? ticketHref(ticket)} data-testid="ticket-hold-act">
+        {holdRowAct(ticket.hold, t)}
+      </Link>
     </>
   );
 }

@@ -2,6 +2,7 @@ import { translator, type T } from "@/lib/i18n/translate";
 import type { EndDetail } from "@/types/hub-events";
 import type { TicketAttempt, TicketCounts, TicketHold, TicketSummary } from "@/types/tickets";
 import { RUN_END_KINDS } from "@/types/tickets";
+import { isAsked } from "./holdRoutes";
 
 // 2026-11-23-31dcg: the words of a hold. The server reads the hold — its addressee, its case, its one act — and every
 // surface (Your move on home and in the sidebar, the ticket's Your move box, the series' What holds the rest) renders it
@@ -66,7 +67,7 @@ export function holdActLabel(hold: TicketHold, t: T = EN): string | null {
   switch (hold.act?.kind) {
     case undefined: return null;
     case "answer": return t("hold.act.answer");
-    case "conversation": return t("hold.act.conversation");
+    case "conversation": return hold.act.target ? t("hold.act.plan") : t("hold.act.conversation");
     case "retry": return t("hold.act.retry");
     case "merge": return t("hold.act.merge");
     case "merge_next": return t("hold.act.merge_next");
@@ -78,7 +79,8 @@ export function holdActLabel(hold: TicketHold, t: T = EN): string | null {
 /** The act a Your move row or a series row names — it opens the ticket, where the act is; talk is "discuss" there. */
 export function holdRowAct(hold: TicketHold | null | undefined, t: T = EN): string {
   if (!hold?.act) return t("hold.act.open");
-  return hold.act.kind === "conversation" ? t("hold.act.discuss") : holdActLabel(hold, t) ?? t("hold.act.open");
+  if (hold.act.kind === "conversation") return hold.act.target ? t("hold.act.plan") : t("hold.act.discuss");
+  return holdActLabel(hold, t) ?? t("hold.act.open");
 }
 
 /** A person's move: merge, plan or decide. */
@@ -106,7 +108,7 @@ export function countsFor(counts: TicketCounts, admin: boolean): TicketCounts {
 /** The line a Your move row says: the question or the hand-back itself when the hold is one, else the hold's sentence. */
 export function holdAsk(ticket: TicketSummary, t: T = EN): string {
   const hold = ticket.hold;
-  if (hold?.case === "question" && ticket.pendingQuestion) return ticket.pendingQuestion.question.text.split(/\r?\n/)[0];
+  if (isAsked(hold) && ticket.pendingQuestion) return ticket.pendingQuestion.question.text.split(/\r?\n/)[0];
   if (hold?.case === "handback" && ticket.handback?.text) return ticket.handback.text.split(/\r?\n/)[0];
   return hold ? holdSentence(hold, t) : "";
 }

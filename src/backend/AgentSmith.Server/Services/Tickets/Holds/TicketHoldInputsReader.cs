@@ -26,21 +26,23 @@ public sealed class TicketHoldInputsReader(IServiceScopeFactory scopes, Interrup
         ArgumentNullException.ThrowIfNull(scope);
         ArgumentNullException.ThrowIfNull(configured);
         using var services = scopes.CreateScope();
-        var (series, steps) = await SeriesAsync(services.ServiceProvider, scope, configured, ct);
+        var (series, steps, active) = await SeriesAsync(services.ServiceProvider, scope, configured, ct);
         var edited = await EditedAsync(services.ServiceProvider, scope, ticketId, ct);
         var since = preconditions is null || restart is null ? null : restart.Since(preconditions);
-        return new TicketHoldInputs(series, steps, edited, since);
+        return new TicketHoldInputs(series, steps, edited, since, active);
     }
 
     // The newest series run that lists a ticket decides its series and its step; older ones it was in say nothing.
-    private static async Task<(Dictionary<(string, string), string>, Dictionary<(string, string), SeriesRunMergeStep>)> SeriesAsync(
+    private static async Task<(Dictionary<(string, string), string>, Dictionary<(string, string), SeriesRunMergeStep>,
+        HashSet<(string, string)>)> SeriesAsync(
         IServiceProvider services, ProjectScope scope, IReadOnlyDictionary<string, ResolvedProject> configured, CancellationToken ct)
     {
         var series = new Dictionary<(string, string), string>();
         var steps = new Dictionary<(string, string), SeriesRunMergeStep>();
+        var active = new HashSet<(string, string)>();
         var records = (await services.GetRequiredService<ISeriesRunStore>().ListAsync(scope.Only, ct))
             .Where(r => scope.Admits(r.Project) && configured.ContainsKey(r.Project)).ToList();
-        if (records.Count == 0) return (series, steps);
+        if (records.Count == 0) return (series, steps, active);
         var reads = services.GetRequiredService<SeriesRunProjectReads>();
         var tickets = services.GetRequiredService<SeriesRunTickets>();
         foreach (var project in records.GroupBy(r => r.Project, StringComparer.Ordinal))
@@ -53,12 +55,13 @@ public sealed class TicketHoldInputsReader(IServiceScopeFactory scopes, Interrup
                 {
                     var key = (project.Key, ticket.TicketId);
                     series[key] = record.Id;
+                    if (record.IsActive) active.Add(key); else active.Remove(key);
                     if (order.TryGetValue(ticket.TicketId, out var step)) steps[key] = step;
                     else steps.Remove(key);
                 }
             }
         }
-        return (series, steps);
+        return (series, steps, active);
     }
 
     private static async Task<HashSet<(string, string)>> EditedAsync(

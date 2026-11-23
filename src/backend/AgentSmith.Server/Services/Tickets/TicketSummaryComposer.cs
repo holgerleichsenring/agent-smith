@@ -100,10 +100,11 @@ public sealed class TicketSummaryComposer(
             EndedOnInfrastructure = onInfrastructure, EndDetail = EndDetailJson.Read(head.EndDetailJson),
             EndedAt = head.FinishedAt,
             Parked = head.Status == RunStatuses.WaitingForInput && state.QueuePlace is null,
-            Asked = question is not null,
+            Asked = question is not null, Answerers = question?.Answerers ?? [],
             ParkedAt = question?.AskedAt ?? standing?.Handbacks.GetValueOrDefault(head.Id)?.At,
             Interrupted = interrupted, Restarting = interrupted && inputs.Restarts(head.FinishedAt),
-            SeriesId = inputs.SeriesOf(head.Project, head.TicketId), MergeStep = inputs.StepOf(head.Project, head.TicketId),
+            SeriesId = inputs.SeriesOf(head.Project, head.TicketId), SeriesActive = inputs.InActiveSeries(head.Project, head.TicketId),
+            MergeStep = inputs.StepOf(head.Project, head.TicketId),
             TextEdited = inputs.EditedOpen(head.Project, head.TicketId),
         };
     }

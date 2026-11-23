@@ -142,4 +142,49 @@ public sealed class TicketHoldReaderTests
         new[] { TicketHoldAddressees.Merge, TicketHoldAddressees.Plan, TicketHoldAddressees.Decide, TicketHoldAddressees.Admin, TicketHoldAddressees.Nobody }
             .Select(a => new TicketHold(a, "x", null, null).IsPersons).Should().Equal(true, true, true, false, false);
     }
+
+    // 2026-11-23-31dch: a parked question holds by who can answer it.
+    private static TicketHoldFacts AskedOf(string? series, params string[] answerers) =>
+        Facts(RunStatuses.WaitingForInput) with
+        {
+            Parked = true, Asked = true, ParkedAt = T, SeriesId = series, SeriesActive = series is not null, Answerers = answerers,
+        };
+
+    [Fact]
+    public void Question_ThePlansInASeries_IsAPlanHold_TalkedThroughInTheSeriesConversation()
+    {
+        _reader.Of(AskedOf("sr-1", "plan"))!.Should().BeEquivalentTo(new TicketHold(TicketHoldAddressees.Plan,
+            TicketHoldCases.QuestionPlan, new TicketHoldAct(TicketHoldActs.Conversation, "sr-1"), T) { Attempt = 2 });
+    }
+
+    [Fact]
+    public void Question_ThePlansOutsideASeries_AndTheTargets_AreAnsweredOnTheTicket()
+    {
+        _reader.Of(AskedOf(null, "plan"))!.Should().Match<TicketHold>(h =>
+            h.Addressee == TicketHoldAddressees.Decide && h.Case == TicketHoldCases.Question && h.Act!.Kind == TicketHoldActs.Answer);
+        _reader.Of(AskedOf("sr-1", "target"))!.Case.Should().Be(TicketHoldCases.Question);
+        _reader.Of(AskedOf("sr-1", "plan") with { SeriesActive = false })!.Case
+            .Should().Be(TicketHoldCases.Question, "a series that ended reads no conversation");
+    }
+
+    [Fact]
+    public void Question_APark_AlsoAskingThePlan_IsAnsweredInTheSeriesConversation_NeverOnTheTicket()
+    {
+        // One answer covers every question of a park, so a park that asks the plan is the series' to answer.
+        _reader.Of(AskedOf("sr-1", "target", "plan"))!.Should().Match<TicketHold>(h =>
+            h.Addressee == TicketHoldAddressees.Plan && h.Act == new TicketHoldAct(TicketHoldActs.Conversation, "sr-1"));
+        _reader.Of(AskedOf("sr-1", "plan", "environment"))!.Should().Match<TicketHold>(h =>
+            h.Addressee == TicketHoldAddressees.Admin && h.Act == new TicketHoldAct(TicketHoldActs.Conversation, "sr-1"));
+    }
+
+    [Fact]
+    public void Question_TheEnvironments_IsReportedToTheAdmin_BeforeAnyOther()
+    {
+        var hold = _reader.Of(AskedOf(null, "plan", "environment"))!;
+
+        hold.Should().Match<TicketHold>(h => h.Addressee == TicketHoldAddressees.Admin && h.Case == TicketHoldCases.QuestionEnvironment
+            && h.Act!.Kind == TicketHoldActs.Answer && h.Since == T && h.Detail == null);
+        _reader.Of(Facts(RunStatuses.Failed) with { Answerers = ["environment"] })!.Addressee
+            .Should().Be(TicketHoldAddressees.Decide, "only a parked question is the environment's");
+    }
 }

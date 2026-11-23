@@ -52,7 +52,8 @@ export function yourMove(
 ): YourMove {
   const hold = view.hold ?? null;
   const move = hold && hold.addressee !== "nobody" ? heldMove(view, hold, endDetail ?? null, t) : moveOf(view, bucket, t);
-  const question = hold?.case === "question";
+  // 2026-11-23-31dch: a plan question's act opens the series' conversation; the others answer here.
+  const question = hold?.case === "question" || hold?.case === "question_environment";
   const next = move.act ? actLabel(move.act, question, t)
     : bucket === "waiting_on_review" && !hold ? "Review the pull requests" : NOTHING;
   return { ...move, question, next };
@@ -79,6 +80,8 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
   const base = { text: view.sentence, detail: view.detail, detailFormat: view.detailFormat, act: view.act, why: false };
   switch (hold.case) {
     case "question": return { ...base, tone: "person", title: t("hold.title.question") };
+    case "question_plan": return { ...base, tone: "person", title: t("hold.title.question_plan") };
+    case "question_environment": return { ...base, tone: "bad", title: t("hold.title.question_environment") };
     case "handback": return { ...base, tone: "person", title: t("hold.title.handback") };
     case "text_edited": return { ...base, tone: "person", title: t("hold.title.text_edited") };
     case "merge_next": return { ...base, tone: "person", title: t("hold.title.merge_next") };

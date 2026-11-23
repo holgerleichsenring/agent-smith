@@ -38,6 +38,10 @@ public sealed record TicketHoldFacts(string Project, string TicketId)
     /// <summary>A pending question holds the parked attempt; without one its work was handed back.</summary>
     public bool Asked { get; init; }
 
+    /// <summary>2026-11-23-31dch: who can answer the pending question (<see cref="AgentSmith.Domain.Models.QuestionAnswerers"/>);
+    /// empty without one, the target's for a question stored before the field existed.</summary>
+    public IReadOnlyList<string> Answerers { get; init; } = [];
+
     /// <summary>When the question was asked or the work handed back.</summary>
     public DateTimeOffset? ParkedAt { get; init; }
 
@@ -49,6 +53,9 @@ public sealed record TicketHoldFacts(string Project, string TicketId)
 
     /// <summary>The newest series run that lists the ticket; null outside any.</summary>
     public string? SeriesId { get; init; }
+
+    /// <summary>2026-11-23-31dch: that series run is still active, so its conversation reads a plan question's answer.</summary>
+    public bool SeriesActive { get; init; }
 
     /// <summary>The ticket's place in that series' merge order; null when no pull request of it waits there.</summary>
     public SeriesRunMergeStep? MergeStep { get; init; }

@@ -32,7 +32,7 @@ export function ticket(over: Partial<TicketSummary> = {}): TicketSummary {
 /** 2026-11-23-31dcg: a hold as the server sends it; the addressee is the case's, as TicketHoldReader reads it. */
 const ADDRESSEE: Record<TicketHoldCase, TicketHold["addressee"]> = {
   image_untrusted: "admin", bootstrap_missing: "admin", preflight: "admin",
-  question: "decide", handback: "decide", readiness_unknown: "decide", infrastructure: "decide", interrupted: "decide",
+  question: "decide", question_plan: "plan", question_environment: "admin", handback: "decide", readiness_unknown: "decide", infrastructure: "decide", interrupted: "decide",
   criteria_unmet: "decide", failed: "decide", shortfall: "decide",
   text_edited: "plan", merge_next: "merge", starts_on_merge: "merge",
   working: "nobody", queued: "nobody", resuming: "nobody", restarting: "nobody", merge_after: "nobody", retarget: "nobody",

@@ -6,6 +6,7 @@ import { seriesRunPath } from "@/lib/seriesRunAddress";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { holdRowAct, holdSentence, holdTag } from "../../tickets/holds/holdWords";
+import { holdSeriesHref } from "../../tickets/holds/holdRoutes";
 
 // 2026-11-23-31dcg: what holds the series' tickets that are not merging next — each ticket whose hold names someone, with
 // whose it is, the hold's sentence (the one its ticket page says) and its act; the ones nobody needs to move are one line
@@ -38,8 +39,7 @@ export function SeriesHoldsSection({ detail }: { detail: SeriesRunDetail }) {
 function HeldRow({ detail, ticket }: { detail: SeriesRunDetail; ticket: SeriesRunTicket }) {
   const t = useT();
   const hold = ticket.hold!;
-  const href = hold.act?.kind === "merge_next" && hold.act.target
-    ? `${seriesRunPath(hold.act.target)}?section=next` : ticketPath(detail.project, ticket.ticketId);
+  const href = holdSeriesHref(hold, seriesRunPath) ?? ticketPath(detail.project, ticket.ticketId);
   return (
     <li className={hold.addressee} data-testid={`series-hold-${ticket.ticketId}`} data-addressee={hold.addressee}>
       <div className="sr-holds-head">

@@ -53,6 +53,12 @@ public static class TicketHoldCases
     public const string BootstrapMissing = "bootstrap_missing";
     public const string Preflight = "preflight";
     public const string Question = "question";
+
+    /// <summary>2026-11-23-31dch: a parked question about the plan, settled in the series conversation.</summary>
+    public const string QuestionPlan = "question_plan";
+
+    /// <summary>2026-11-23-31dch: a parked question about the environment, reported to the admin.</summary>
+    public const string QuestionEnvironment = "question_environment";
     public const string Handback = "handback";
     public const string ReadinessUnknown = "readiness_unknown";
     public const string Infrastructure = "infrastructure";
@@ -78,7 +84,8 @@ public static class TicketHoldActs
     /// <summary>Answer the parked question in the conversation.</summary>
     public const string Answer = "answer";
 
-    /// <summary>Talk it through in the ticket's conversation: a reply to a hand-back, a rework, a changed text.</summary>
+    /// <summary>Talk it through in the ticket's conversation: a reply to a hand-back, a rework, a changed text. 2026-11-23-31dch:
+    /// with a target, the series' conversation — the target is the series id.</summary>
     public const string Conversation = "conversation";
 
     /// <summary>Retry the attempt unchanged; the target is its run id.</summary>

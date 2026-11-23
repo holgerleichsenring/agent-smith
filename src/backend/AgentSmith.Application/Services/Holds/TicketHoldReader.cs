@@ -7,6 +7,7 @@ namespace AgentSmith.Application.Services.Holds;
 /// 2026-11-23-31dcg: the one hold of a ticket, read from its stored facts — one method per source, and when several apply
 /// the most blocking wins: admin, then decide, then plan, then merge, then nobody. A finished ticket has none, and so has a
 /// ticket nothing waits on (a filed one, a cancelled one, one whose pull requests all closed).
+/// 2026-11-23-31dch: a parked question holds by who can answer it (<see cref="TicketQuestionHold"/>).
 /// </summary>
 public sealed class TicketHoldReader
 {
@@ -20,10 +21,12 @@ public sealed class TicketHoldReader
         return Admin(facts) ?? Decide(facts) ?? Plan(facts) ?? Merge(facts) ?? Nobody(facts);
     }
 
-    /// <summary>A precondition stopped the newest attempt: an image, a bootstrap or another configured precondition.</summary>
+    /// <summary>A precondition stopped the newest attempt — an image, a bootstrap or another configured precondition — or
+    /// the parked question names the environment.</summary>
     public TicketHold? Admin(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
+        if (TicketQuestionHold.Environment(facts) is { } reported) return reported;
         if (facts.HeadStatus != RunStatuses.Failed || !RunEndKinds.IsPrecondition(facts.EndKind)) return null;
         return facts.EndKind switch
         {
@@ -42,7 +45,7 @@ public sealed class TicketHoldReader
         ArgumentNullException.ThrowIfNull(facts);
         if (facts.Parked)
             return facts.Asked
-                ? Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Question, new(TicketHoldActs.Answer), facts.ParkedAt)
+                ? TicketQuestionHold.Target(facts)
                 : Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Handback, new(TicketHoldActs.Conversation), facts.ParkedAt);
         var retry = new TicketHoldAct(TicketHoldActs.Retry, facts.HeadRunId);
         if (facts.Interrupted && !facts.Restarting)
@@ -60,10 +63,12 @@ public sealed class TicketHoldReader
             : Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Failed, rework, facts.EndedAt);
     }
 
-    /// <summary>A person edited the ticket's text after its specs were approved, and the conversation has not answered it.</summary>
+    /// <summary>A plan question its series settles, or a person edited the ticket's text after its specs were approved and
+    /// the conversation has not answered it.</summary>
     public TicketHold? Plan(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
+        if (TicketQuestionHold.Plan(facts) is { } plan) return plan;
         return facts.TextEdited
             ? Hold(facts, TicketHoldAddressees.Plan, TicketHoldCases.TextEdited, new(TicketHoldActs.Conversation), null)
             : null;
@@ -105,7 +110,7 @@ public sealed class TicketHoldReader
         facts.HeadStatus is RunStatuses.Running or RunStatuses.Queued || (facts.HeadStatus == RunStatuses.WaitingForInput && !facts.Parked);
 
     // A stop's hold quotes what the stop recorded; a parked or a moving ticket's names no end.
-    private static TicketHold Hold(TicketHoldFacts facts, string addressee, string @case, TicketHoldAct? act, DateTimeOffset? since) =>
+    internal static TicketHold Hold(TicketHoldFacts facts, string addressee, string @case, TicketHoldAct? act, DateTimeOffset? since) =>
         new(addressee, @case, act, since)
         {
             Attempt = facts.Attempt,

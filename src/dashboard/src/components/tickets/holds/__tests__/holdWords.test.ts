@@ -6,11 +6,12 @@ import { attempt } from "../../detail/__tests__/detailFixtures";
 import {
   countsFor, holdActLabel, holdAsk, holdRowAct, holdSentence, holdTag, isPersons, isYourMove, namesOf, toldOf, yourMoveCount,
 } from "../holdWords";
+import { holdSeriesHref, isAsked } from "../holdRoutes";
 
 // 2026-11-23-31dcg: a hold's words, the same on every surface, in both languages.
 
 const CASES: TicketHoldCase[] = [
-  "image_untrusted", "bootstrap_missing", "preflight", "question", "handback", "readiness_unknown", "infrastructure", "interrupted",
+  "image_untrusted", "bootstrap_missing", "preflight", "question", "question_plan", "question_environment", "handback", "readiness_unknown", "infrastructure", "interrupted",
   "criteria_unmet", "failed", "shortfall", "text_edited", "merge_next", "starts_on_merge", "working", "queued", "resuming",
   "restarting", "merge_after", "retarget", "prerequisite",
 ];
@@ -55,6 +56,20 @@ describe("holdWords", () => {
     expect(holdTag(hold("text_edited"))).toBe("plan gap");
   });
 
+  // 2026-11-23-31dch: a plan question's act is the series' conversation, in both languages.
+  it("aPlanQuestion_TalksAboutThePlanInTheSeriesConversation", () => {
+    const plan = hold("question_plan", { act: { kind: "conversation", target: "sr-1" } });
+    expect([holdActLabel(plan), holdRowAct(plan), holdRowAct(plan, translator("de"))])
+      .toEqual(["Talk about the plan", "Talk about the plan", "Über den Plan sprechen"]);
+    const path = (id: string) => `/series/${id}`;
+    expect(holdSeriesHref(plan, path)).toBe("/series/sr-1?section=talk");
+    expect(holdSeriesHref(hold("starts_on_merge", { act: { kind: "merge_next", target: "sr-1" } }), path)).toBe("/series/sr-1?section=next");
+    expect(holdSeriesHref(hold("text_edited", { act: { kind: "conversation", target: null } }), path)).toBeNull();
+    expect([isAsked(plan), isAsked(hold("question_environment")), isAsked(hold("question")), isAsked(hold("handback"))])
+      .toEqual([true, true, true, false]);
+    expect(holdTag(hold("question_environment"))).toBe("needs an admin");
+  });
+
   it("isYourMove_APersonsHold_AndAnAdminsForAnAdmin", () => {
     expect([isPersons(hold("merge_next")), isPersons(hold("text_edited")), isPersons(hold("failed")), isPersons(hold("preflight")),
       isPersons(hold("working")), isPersons(null)]).toEqual([true, true, true, false, false, false]);
@@ -73,6 +88,7 @@ describe("holdWords", () => {
     const asked = ticket({ hold: hold("question"), pendingQuestion: { runId: "r", question: {
       questionId: "q", type: "FreeText", text: "Keep it?\nmore", context: null, choices: [], defaultAnswer: null, askedAt: "", answerDeadlineAt: null } } as never });
     expect(holdAsk(asked)).toBe("Keep it?");
+    expect(holdAsk({ ...asked, hold: hold("question_plan") })).toBe("Keep it?");
     expect(holdAsk(ticket({ hold: hold("handback"), handback: { text: "Which tenant?", at: "" } }))).toBe("Which tenant?");
     expect(holdAsk(ticket({ hold: hold("merge_next") }))).toBe("Its pull request is next in the series' merge order.");
   });

@@ -933,6 +933,14 @@ export const messages = {
   "hold.told.lift": { en: ": {control} project {setTo}", de: ": {control} Projekt {setTo}" },
   "hold.told.subject": { en: "{subject}{lever}.", de: "{subject}{lever}." },
   "hold.sentence.question": { en: "Attempt {n} is waiting for your answer.", de: "Versuch {n} wartet auf deine Antwort." },
+  "hold.sentence.question_plan": {
+    en: "Attempt {n} asks about the plan. Answer it in the series conversation.",
+    de: "Versuch {n} hat eine Frage zum Plan. Beantworte sie im Gespräch der Serie.",
+  },
+  "hold.sentence.question_environment": {
+    en: "Attempt {n} asked about its environment. It is reported to the admin.",
+    de: "Versuch {n} hat eine Frage zu seiner Umgebung. Sie ist an den Admin gemeldet.",
+  },
   "hold.sentence.handback": { en: "Attempt {n} handed the ticket back.", de: "Versuch {n} hat das Ticket zurückgegeben." },
   "hold.sentence.readiness_unknown": {
     en: "Attempt {n} could not read the repositories' bootstrap from the host.",
@@ -996,6 +1004,8 @@ export const messages = {
   },
   "hold.and": { en: "{first} and {last}", de: "{first} und {last}" },
   "hold.title.question": { en: "Your move: answer the question", de: "Du bist dran: beantworte die Frage" },
+  "hold.title.question_plan": { en: "Your move: talk about the plan", de: "Du bist dran: sprich über den Plan" },
+  "hold.title.question_environment": { en: "Reported to the admin", de: "An den Admin gemeldet" },
   "hold.title.handback": { en: "Your move: the ticket came back to you", de: "Du bist dran: das Ticket ist zu dir zurückgekommen" },
   "hold.title.text_edited": { en: "Your move: the ticket text changed", de: "Du bist dran: der Tickettext hat sich geändert" },
   "hold.title.merge_next": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
@@ -1005,6 +1015,7 @@ export const messages = {
   "hold.act.answer": { en: "Answer the question", de: "Frage beantworten" },
   "hold.act.answerTab": { en: "Answer in the conversation", de: "Im Gespräch antworten" },
   "hold.act.conversation": { en: "Reply below", de: "Unten antworten" },
+  "hold.act.plan": { en: "Talk about the plan", de: "Über den Plan sprechen" },
   "hold.act.discuss": { en: "Discuss in the conversation", de: "Im Gespräch klären" },
   "hold.act.retry": { en: "Retry unchanged", de: "Unverändert wiederholen" },
   "hold.act.merge": { en: "Merge", de: "Mergen" },
