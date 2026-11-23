@@ -16,6 +16,11 @@ public sealed class ResourceProjectReader(IUnitOfWork unitOfWork)
         unitOfWork.Set<Run>().AsNoTracking()
             .Where(r => r.Id == runId).Select(r => (string?)r.Project).FirstOrDefaultAsync(ct);
 
+    /// <summary>2026-11-23-31dcb: a series run's project.</summary>
+    public Task<string?> SeriesRunAsync(string seriesRunId, CancellationToken ct) =>
+        unitOfWork.Set<SeriesRun>().AsNoTracking()
+            .Where(s => s.SeriesRunId == seriesRunId).Select(s => (string?)s.Project).FirstOrDefaultAsync(ct);
+
     public Task<string?> SessionAsync(string platform, string sessionId, CancellationToken ct) =>
         Sessions(platform)
             .Where(s => s.SessionId == sessionId).Select(s => (string?)s.Project).FirstOrDefaultAsync(ct);

@@ -12,3 +12,48 @@ decisions:
     chose: "Set-based reads and a separate active count for the sidebar"
     over: "Task.WhenAll over per-ticket facts; the sidebar counting from the full list"
     reason: "The scoped unit of work forbids parallel reads on one scope, and the sidebar polls."
+  - category: TradeOff
+    decider: claude
+    chose: "Built without 31dca: an open pull request's target is read from the PR review record (stored only once merged), so it is unknown today and counts as the default branch for 'ready'; 'retarget pending' fires only for a known non-default target"
+    over: "Reading each pull request's base from the host on every page read; waiting for 31dca's per-repo stack"
+    reason: "31dca is built in parallel and its per-repo stack is its own; a host read per pull request per page load is a call per row. The merge run of 31dce reads the host base and refuses a non-default target, so a stale 'ready' cannot merge into a prerequisite's branch; the per-repo edge kind (stacked / merge / unknown) is 31dcf's."
+  - category: Implementation
+    decider: claude
+    chose: "One step 'ready' at a time: the lowest open pull request whose requirements landed and that targets the default branch; a later mergeable one waits 'after' it; one with unlanded requirements names them"
+    over: "Every mergeable step ready at once (the mock's queue)"
+    reason: "The spec's test asks for only the lowest; merging several in one click is out of scope (31dce), and one ready row says what to do next."
+  - category: Implementation
+    decider: claude
+    chose: "'Not started' is a ticket with no attempt and no pull request, read with IPreviousAttemptReader.LatestEndsAsync once per project"
+    over: "The four reads the spec named only (counting a running ticket without a pull request as not started)"
+    reason: "Without the attempt read a ticket at work would read as never started; the read is set-based, so the query count stays fixed."
+  - category: Implementation
+    decider: claude
+    chose: "The detail reads the same set-based project facts as the list (SeriesRunProjectReads), not ISeriesTicketFacts per ticket"
+    over: "Reusing the panel's per-ticket facts read"
+    reason: "One model for the list row and the page, a fixed number of queries, and the per-repo CI the panel's merged CI state lacks."
+  - category: Implementation
+    decider: claude
+    chose: "ISeriesRunStore.ListAsync takes project names (null for every project); the reader filters with ProjectScope.Admits for the hidden installation scope"
+    over: "Passing ProjectScope into the Contracts store"
+    reason: "ProjectScope lives in Persistence; Contracts cannot name it. Names cover every scoped caller; Admits covers a global holder who may not see the installation."
+  - category: Implementation
+    decider: claude
+    chose: "A series' name is its conversation's subject, else its first ticket's title, else its id; its activity time is the newest of finish, last status post and start"
+    over: "A new name or activity column on the series run"
+    reason: "Both exist already; a column would need a migration and a writer for no new fact."
+  - category: TradeOff
+    decider: claude
+    chose: "The list reads every series run of the caller's projects with its whole content JSON, unbounded"
+    over: "A take or ended-since window (a new limit, which needs a config key and the operator's reason); a lean column for the list (a migration)"
+    reason: "Review finding: the content carries the master's thread, so the read grows with ended series. There is one series per filing conversation, so the count is small today; a lean list column is the follow-up once a measured list read is slow — named here, not built."
+  - category: Implementation
+    decider: claude
+    chose: "PrReviewRecordRepository.ByTicketsAsync: the series tickets' records without entries, one query"
+    over: "ForListAsync over the whole project (every record and its standing entries)"
+    reason: "Review finding: the series reads need repo, number, state, head, CI and target, none of the entries."
+  - category: Implementation
+    decider: claude
+    chose: "An unread pull-request record (opened, host read failed) waits like an open one; the sidebar count leaves out a project no longer configured, as the list does"
+    over: "Open only; the count over every active series"
+    reason: "Review findings: an unread record otherwise dropped out of every view and handed 'next' to a later ticket; the count disagreed with the list."

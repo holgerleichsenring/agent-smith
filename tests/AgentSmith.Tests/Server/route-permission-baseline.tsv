@@ -161,3 +161,6 @@ PUT	/api/config/secret-values/{name}	secrets.write	-
 PUT	/api/config/secrets/{id}	secrets.write	-
 PUT	/api/config/settings/{type}	config.write	-
 PUT	/api/config/trackers/{id}	config.write	-
+GET	/api/series-runs	runs.read	across
+GET	/api/series-runs/count	runs.read	across
+GET	/api/series-runs/{id}	runs.read	seriesrun

@@ -11,6 +11,10 @@ public interface ISeriesRunStore
     /// <summary>The conversation's running or verifying series, if it has one.</summary>
     Task<SeriesRunRecord?> ActiveForConversationAsync(string conversation, CancellationToken cancellationToken);
 
+    /// <summary>2026-11-23-31dcb: every series run of the named projects (null: of every project), active and ended,
+    /// newest activity first — the newest of its finish, its last status post and its start.</summary>
+    Task<IReadOnlyList<SeriesRunRecord>> ListAsync(IReadOnlyCollection<string>? projects, CancellationToken cancellationToken);
+
     /// <summary>Every running or verifying series.</summary>
     Task<IReadOnlyList<SeriesRunRecord>> ActiveAsync(CancellationToken cancellationToken);
 

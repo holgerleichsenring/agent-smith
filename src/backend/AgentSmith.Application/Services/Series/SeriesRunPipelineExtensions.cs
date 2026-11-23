@@ -13,6 +13,7 @@ public static class SeriesRunPipelineExtensions
     {
         services.AddScoped<SeriesBeatDemand>().AddScoped<SeriesQuestions>().AddScoped<ISeriesCriteria, SeriesCriteria>().AddScoped<SeriesProgress>();
         services.AddScoped<SeriesPause>(); // 2026-11-19-1b72a: the master's pause and the head's buttons
+        services.AddTransient<SeriesRunOrder>(); // 2026-11-23-31dcb: depth and merge order of the series page
         services.AddTransient<ICommandHandler<VerifySeriesContext>, VerifySeriesHandler>(); // 0207d
         services.AddTransient<ICommandHandler<OpenSeriesRunContext>, OpenSeriesRunHandler>();
         services.AddTransient<ICommandHandler<ReadSeriesContext>, ReadSeriesHandler>();

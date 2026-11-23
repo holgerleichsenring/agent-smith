@@ -11,4 +11,5 @@ internal enum ProjectSourceKind
     Body,
     AcrossProjects,
     Hub,
+    SeriesRun, // 2026-11-23-31dcb
 }
