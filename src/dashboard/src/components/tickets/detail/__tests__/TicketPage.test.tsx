@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeHub, pr } from "../../__tests__/ticketFixtures";
+import { fakeHub, hold, pr } from "../../__tests__/ticketFixtures";
 import { attempt, budget, conversation, defaults, detail, entry, passes, reviews, series, spec, ticketText } from "./detailFixtures";
 import { EventType, type RunEvent } from "@/types/hub-events";
 import type { RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
@@ -34,6 +34,12 @@ vi.mock("@/lib/specDialogApi", async (original) => ({
 
 const { TicketPageStore } = await import("@/lib/tickets/TicketPageStore");
 const { TicketPage } = await import("../TicketPage");
+
+const merges = vi.hoisted(() => ({ merge: vi.fn() }));
+vi.mock("@/lib/seriesRunsApi", async (original) => ({
+  ...(await original<typeof import("@/lib/seriesRunsApi")>()),
+  mergeSeriesTicket: (...a: unknown[]) => merges.merge(...a),
+}));
 
 const world = {
   detail: null as unknown as TicketDetail,
@@ -126,7 +132,8 @@ describe("Ticket page", () => {
   it("TicketStateBlock_Failed_ShowsSentenceRunLinkActAndClosedWhy", async () => {
     world.detail = detail([attempt({ status: "failed" }), attempt({ number: 2, runId: "r-2", status: "failed",
       endKind: "criteria-unmet", summary: "1 criterion(s) of the ratified spec are not satisfied by the branch" })]);
-    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you",
+      hold: hold("criteria_unmet", { attempt: 2, act: { kind: "conversation", target: null } }) };
     await open();
     const block = screen.getByTestId("ticket-state");
     expect(block).toHaveAttribute("data-tone", "bad");
@@ -140,7 +147,7 @@ describe("Ticket page", () => {
   it("YourMove_Why_HoldsTheVerbatimSummaryRunAndTraceLink_TheActFocusesTheComposer", async () => {
     const cause = "Sandbox pod agentsmith-sandbox-1 could not start: ";
     world.detail = detail([attempt({ status: "failed", summary: cause })]);
-    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", hold: hold("failed", { act: { kind: "conversation", target: null } }) };
     await open();
     expect(screen.getByTestId("ticket-state-cause").textContent).toBe(cause);
     expect(screen.getByTestId("ticket-state-run")).toHaveAttribute("href", "/jobs/r-1");
@@ -153,7 +160,8 @@ describe("Ticket page", () => {
     world.detail = detail([attempt({ status: "failed", endKind: "image-untrusted", endDetail: {
       subject: "Image node:22-bookworm (context default)", repos: ["web"], control: "Trusted image registries",
       setTo: "ghcr.io/, docker.io/library/", settingsPath: "/config/settings/sandbox" } })]);
-    world.detail.summary = { ...world.detail.summary, bucket: "stuck" };
+    world.detail.summary = { ...world.detail.summary, bucket: "stuck", hold: hold("image_untrusted", {
+      act: { kind: "settings", target: "/config/settings/sandbox" }, detail: world.detail.attempts[0].endDetail }) };
     await open();
     expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Stuck: Image node:22-bookworm (context default)");
     expect(screen.getByTestId("ticket-state-sentence")).toHaveTextContent("Trusted image registries");
@@ -310,10 +318,25 @@ describe("Ticket page", () => {
   });
 
   // 2026-11-22-7103a: a question waits on a person — blue.
+  // 2026-11-23-31dcg: a merge hold's act merges through the series (31dce) and says what the merge did.
+  it("YourMove_AMergeHold_MergesThroughTheSeries_AndSaysWhatItDid", async () => {
+    world.detail = detail([attempt()]);
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", hold: hold("merge_next", { act: { kind: "merge", target: "sr-1" } }) };
+    merges.merge.mockResolvedValue({ kind: "said", text: "101 is not next: #99 merges first." });
+    await open();
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: merge the pull request");
+    expect(screen.getByTestId("ticket-state-sentence")).toHaveTextContent("Its pull request is next in the series' merge order.");
+    fireEvent.click(screen.getByTestId("ticket-state-act"));
+    await settle();
+    expect(screen.getByTestId("ticket-state-merge-said")).toHaveTextContent("101 is not next: #99 merges first.");
+    expect(merges.merge).toHaveBeenCalledWith("sr-1", "101");
+  });
+
   it("YourMove_AQuestionWaits_IsBlue_AndItsActBringsTheQuestionCardIntoView", async () => {
     const question = { questionId: "q", type: "FreeText", text: "Keep the outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
     world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);
-    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", kind: "question", pendingQuestion: { runId: "r-1", question } };
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", kind: "question", pendingQuestion: { runId: "r-1", question },
+      hold: hold("question", { act: { kind: "answer", target: null } }) };
     const scrolled = vi.fn();
     Element.prototype.scrollIntoView = scrolled;
     await open();
@@ -326,13 +349,15 @@ describe("Ticket page", () => {
     expect(scrolled.mock.instances[0]).toBe(screen.getByTestId("conv-question").parentElement);
   });
 
-  it("YourMove_InReviewWithOneOpenPullRequest_ItsBrightActOpensThePullRequest", async () => {
+  it("YourMove_AMergeReadyPullRequest_ItsBrightActOpensThePullRequest", async () => {
     world.detail = detail([attempt()]);
-    world.detail.summary = { ...world.detail.summary, bucket: "waiting_on_review", pullRequests: [pr({ state: "open" })] };
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", pullRequests: [pr({ state: "open" })],
+      hold: hold("merge_ready", { act: { kind: "pull_request", target: "https://example.test/pr/809" } }) };
     await open();
     expect(screen.getByTestId("ticket-state")).toHaveAttribute("data-tone", "person");
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: merge the pull request");
     expect(screen.getByTestId("ticket-state-act")).toHaveAttribute("href", "https://example.test/pr/809");
-    expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Review the pull request");
+    expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Open the pull request");
   });
 
   it("YourMove_Done_IsGreenWithNoAct_Running_IsAmber", async () => {
@@ -369,7 +394,7 @@ describe("Ticket page", () => {
 
   it("Header_OneMergedOneOpen_NamesBoth", async () => {
     world.detail = detail([attempt()]);
-    world.detail.summary = { ...world.detail.summary, bucket: "waiting_on_review",
+    world.detail.summary = { ...world.detail.summary, bucket: "working",
       pullRequests: [pr({ state: "merged" }), pr({ number: "810", state: "open" })] };
     await open();
     expect(screen.getByTestId("ticket-pr-fate")).toHaveTextContent("1 PR merged, 1 open");
@@ -404,6 +429,7 @@ describe("Ticket page", () => {
   it("TicketStateBlock_Handback_RendersMarkdownWithMentionAsText", async () => {
     world.detail = detail([attempt({ status: "waiting_for_input", handedBack: true, finishedAt: null })]);
     world.detail.summary = { ...world.detail.summary, bucket: "needs_you", kind: "handback",
+      hold: hold("handback", { act: { kind: "conversation", target: null } }),
       handback: { text: "## Handed back\n\n<a href=\"#\" data-vss-mention=\"version:2.0,abc\">@Ada Example</a> please decide.", at: "2026-09-04T14:30:00Z" } };
     await open();
     const shown = screen.getByTestId("ticket-state-detail");
@@ -482,7 +508,8 @@ describe("Ticket page status line", () => {
       pullRequests: [{ repo: "server", status: "opened", url: "https://example.test/pr/809", reason: null, openedAt: "2026-09-04T14:30:00Z" }],
       executedSpecs: [{ specId: "s1", ordinal: 1, title: "one", status: "done", verdict: null },
         { specId: "s2", ordinal: 2, title: "two", status: "failed", verdict: NO_REPORT }] })]);
-    world.detail.summary = { ...world.detail.summary, bucket: "waiting_on_review", pullRequests: [pr({ state: "open" })] };
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", pullRequests: [pr({ state: "open" })],
+      hold: hold("merge_ready", { act: { kind: "pull_request", target: "https://example.test/pr/809" } }) };
     world.series.default = series("r-1", [
       spec({ report: "## Done\n\n| Check | Result |\n|---|---|\n| build | green |" }),
       spec({ specId: "s2", ordinal: 2, done: [1, 2, 3].map((n) => ({ text: `c${n}`, verdict: "unmet", note: null, citation: null, overrule: null })) })]);
@@ -494,13 +521,13 @@ describe("Ticket page status line", () => {
     const now = screen.getByTestId("now-run");
     expect(within(now).getByTestId("thread-report-1-head")).toHaveTextContent(new RegExp("^[A-Z][a-z]{2} \\d+ \\d\\d:\\d\\dRun 1"
       + "1 of 2 specs delivered · s2: The agent ended without writing a report, so the spec was not delivered; anything it changed stays on the branch\\. "
-      + "→ Review the pull request; Retry unchanged gives s2 another attempt\\.30m 0s▾$"));
+      + "→ Open the pull request; Retry unchanged gives s2 another attempt\\.30m 0s▾$"));
     expect(within(now).getByTestId("thread-report-1")).toHaveClass("bad");
     const outcomes = [within(now).getByTestId("thread-report-1"), ...within(now).getAllByTestId("spec-card-delivery")];
     for (const el of outcomes) expect(el.className).not.toMatch(/\b(run|amber)\b/);
     expect(within(now).getAllByTestId("spec-card-delivery").map((d) => d.textContent)).toEqual(["delivered", "not delivered"]);
     expect(now).not.toHaveTextContent(/reported/);
-    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: review the pull request");
+    expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Your move: merge the pull request");
   });
 
   it("TicketAcceptanceTab_Report_IsClosedUnderMastersReport", async () => {

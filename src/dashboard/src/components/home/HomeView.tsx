@@ -6,21 +6,27 @@ import { ticketDot } from "@/components/tickets/ticketDot";
 import { age, ticketLabel } from "@/components/tickets/ticketFormat";
 import { ticketBucketHref, TICKETS_PATH } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
+import { holdAsk, holdRowAct, yourMoveCount } from "@/components/tickets/holds/holdWords";
+import { holdPullRequestHref } from "@/components/tickets/holds/holdRoutes";
+import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
+import { useT } from "@/hooks/useT";
 import type { TicketSummary } from "@/types/tickets";
 import { HomeComposer } from "./HomeComposer";
-import { MOVES_SHOWN, moveAct, moveAsk, recentTickets, stateWords, waitingSentence, yourMoves } from "./homeItems";
+import { MOVES_SHOWN, recentTickets, stateWords, waitingSentence, yourMoves } from "./homeItems";
 import "@/styles/home.css";
 
 // 2026-11-17-d6fba: the home page is input. One question and the composer that answers it, then what waits on the
 // operator — at most three, the rest one click away on the ticket list — then the tickets that moved last. Both lists
 // come from the ticket-list read the sidebar counts from, so the page and the Your move count cannot disagree.
+// 2026-11-23-31dcg: each row says its hold's sentence (the question or hand-back itself where the hold is one) and its act.
 
 export function HomeView() {
   const { list } = useTicketList();
+  const admin = useHoldsAdmin();
   const tickets = list?.tickets ?? [];
-  const waiting = list?.counts.needsYou ?? 0;
-  const moves = yourMoves(tickets);
-  const recent = recentTickets(tickets);
+  const waiting = yourMoveCount(list?.counts, admin) ?? 0;
+  const moves = yourMoves(tickets, admin);
+  const recent = recentTickets(tickets, admin);
   return (
     <div className="home" data-testid="home">
       <NewWorkHead />
@@ -50,15 +56,18 @@ export function HomeView() {
 /** 2026-11-17-76f1: the question and the line under it — the home page's and a new Work it out conversation's. */
 export function NewWorkHead() {
   const { list } = useTicketList();
+  const admin = useHoldsAdmin();
   return (
     <header className="home-head">
       <h1>What should we work on?</h1>
-      {list && <p className="home-sub" data-testid="home-waiting">{waitingSentence(list.counts.needsYou ?? 0)}</p>}
+      {list && <p className="home-sub" data-testid="home-waiting">{waitingSentence(yourMoveCount(list.counts, admin) ?? 0)}</p>}
     </header>
   );
 }
 
 function MoveRow({ ticket }: { ticket: TicketSummary }) {
+  const t = useT();
+  const act = holdRowAct(ticket.hold, t);
   return (
     <div className="home-row" data-testid={`home-move-${ticket.project}-${ticket.ticketId}`}>
       <span className={`home-dot ${ticketDot(ticket)}`} aria-hidden="true" />
@@ -67,10 +76,11 @@ function MoveRow({ ticket }: { ticket: TicketSummary }) {
           <span className="home-key">{ticketLabel(ticket)}</span>
           <span className="home-title">{ticket.title ?? ticket.ticketId}</span>
         </div>
-        <div className="home-ask">{moveAsk(ticket)}</div>
+        <div className="home-ask">{holdAsk(ticket, t)}</div>
       </div>
       <span className="home-age">{age(ticket.since) ?? ""}</span>
-      <Link className="home-act" href={ticketHref(ticket)} data-testid="home-move-act">{moveAct(ticket)}</Link>
+      {/* 2026-11-23-d60d: a pull request a person merges or whose CI failed opens on its host. */}
+      <Link className="home-act" href={holdPullRequestHref(ticket.hold) ?? ticketHref(ticket)} data-testid="home-move-act">{act}</Link>
     </div>
   );
 }

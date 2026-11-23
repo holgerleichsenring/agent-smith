@@ -546,6 +546,11 @@ public sealed class ConfigStudioApiSmokeTests
     public Task ConfigSettings_BranchCleanupZeroInterval_Is400AndNotSaved() =>
         RefusedAndNotSavedAsync("branch_cleanup", """{"intervalSeconds":0}""", "branch_cleanup.interval_seconds");
 
+    // 2026-11-23-31dci: a negative escalation is refused on save as it is at load, naming the key.
+    [Fact]
+    public Task ConfigSettings_HoldsNegativeEscalation_Is400AndNotSaved() =>
+        RefusedAndNotSavedAsync("holds", """{"escalateAfterMinutes":-1}""", "holds.escalate_after_minutes");
+
     private static async Task RefusedAndNotSavedAsync(string type, string body, params string[] fields)
     {
         var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-refused-{Guid.NewGuid():N}.yml");

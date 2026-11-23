@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dcf
+goal: "The series page draws its tickets in repo lanes by order, stacked branches solid and merge-needing requirements dashed, and narrows to one ticket's course on a click."
+
+applies_to: "default + dashboard (edge kind on the series-run detail, Order and branches section)"
+
+requires: [2026-11-23-31dcb, 2026-11-23-31dcd, 2026-11-23-31dca]
+
+invariant: "Every line in the graph is a requires edge, drawn as what it means for the branches: stacked in one repo or met only by a merge."
+
+facts:
+  - claim: "The tickets page graph draws every requires edge across all projects with no project filter and no notion of stacking."
+    evidence: "observed: 2026-11-23 operator screenshot of the Tickets graph"
+  - claim: "Whether a requirement stacks is decided per repo from the prerequisite's green attempt's repos."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/GreenReads.cs:49-57 (the per-repo form lands in 97c2b)"
+
+scope:
+  in: >-
+    Lanes per repo, columns by depth, a ticket in more than one repo drawn in its first and marked; solid edge = same-repo
+    stack, dashed = needs a merge, dotted grey = not known yet (the prerequisite has no green attempt, so its repos are
+    unknown), from the edge kind the series detail carries; node frame by state (pull request
+    waiting, merge next, question, not started, landed); 'Show the course from' select and node click show the ticket's
+    upstream and downstream only; 'Show everything' resets. Horizontal scroll inside the pane only.
+  out: "A project filter on the Tickets page graph (kept as it is)."
+
+steps:
+  - id: edges
+    action: "Series-run detail carries each edge's kind (stacked / merge / unknown) from GreenReads.StackPerRepoAsync (which replaced 97c2b's TipPerRepoAsync), the rule 31dca holds by."
+  - id: draw
+    action: "SVG graph component with layout from depth and lane; course filter."
+
+tests:
+  - "Layout: same depth = same column; lanes ordered Server-first by the project's repo order."
+  - "Course from a ticket dims everything outside its up- and downstream."
+  - "An edge with a per-repo tip is solid, one the ticket is held on is dashed, one whose prerequisite has no green attempt is dotted."
+
+done:
+  - "Build, the full suite and the dashboard tests green; the tests above in the detail reader and the graph component test classes."

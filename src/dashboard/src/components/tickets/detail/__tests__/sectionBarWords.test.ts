@@ -8,7 +8,7 @@ import { attempt } from "./detailFixtures";
 
 describe("sectionBarWords", () => {
   it("stateWord_NamesTheBucketAsTheListDoes", () => {
-    expect(stateWord(ticket({ bucket: "waiting_on_review" }))).toBe("In review");
+    expect(stateWord(ticket({ bucket: "working" }))).toBe("Working");
     expect(stateWord(ticket({ bucket: "stuck" }))).toBe("Stuck");
     expect(stateWord(ticket({ bucket: "idle" }))).toBe("Ended");
     expect(stateWord(ticket({ bucket: "unheard-of" as never }))).toBeNull();

@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dca
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "A prerequisite with work only in other repos does not hold the dependent; the dependent reads those repos at that prerequisite's branch"
+    over: "Every cross-repo requirement holds until merged (the first draft)"
+    reason: "Every repo of a run is checked out anyway, so a per-repo base gives the dependent the prerequisite's state without a merge; holding would have parked e.g. a Client ticket on a Server merge for no reason. Order of merges is enforced by 97c2a, not by holding starts."
+  - category: Architecture
+    decider: claude
+    chose: "The stamp is a repo -> ticket id map computed at the claim in GreenReads"
+    over: "An ordered chain walked by the ladder in the sandbox"
+    reason: "The sandbox can test whether a branch exists but not whether a chain member has a pull request in that repo, so the stop rule ('work there but no branch') is only decidable with the map."
+  - category: Architecture
+    decider: claude
+    chose: "Prerequisites that are not green keep holding; a started dependent is never held again"
+    over: "Deciding holds only from known repos"
+    reason: "A prerequisite without a green attempt has no known repos; treating it as cross-repo would cut the dependent from main, the regression the spec exists to remove."
+  - category: Implementation
+    decider: claude
+    chose: "The ticket-level tip (GreenReads.TipAsync, GreenPrerequisites.TipAsync, MergesToStartAsync, RequirementHold.StackedOn) is replaced by GreenReads.StackPerRepoAsync and RequirementHold.StackedPerRepo; the retarget reads the same bases"
+    over: "Keeping the ticket-level tip beside the per-repo one"
+    reason: "No second path: one stack answers the start hold, the stamp, the merges to start and the retarget. The fewest-merges and tip-among walks moved into RequirementChain so GreenReads stays under the file limit."
+  - category: Implementation
+    decider: claude
+    chose: "A repo with no stamp entry takes the label parent (an epic child's rung), the base it would have unstacked"
+    over: "Always the clone's own base for a repo without an entry"
+    reason: "Spec 'no entry: own base' read against the code: a repo's own base IS its label parent for a legacy epic child; before this spec a stacked run's single id replaced the label for every repo, which a per-repo map no longer needs."
+  - category: Implementation
+    decider: claude
+    chose: "A started dependent stamps the per-repo bases the stack has, a repo with two independent prerequisites getting no entry"
+    over: "Holding a started dependent on such a repo"
+    reason: "The spec keeps 'a started dependent is never held again'; its rework then merges that repo's own base, as a started dependent without a tip did before."
+  - category: Implementation
+    decider: claude
+    chose: "Readers that work per sandbox (VerifySpecHandler's delivery diff, BranchStateCheck) find the repo through the coordinator's ContextKeys.SandboxRepos map, else the run's only repo"
+    over: "Decoding the sandbox key's naming scheme"
+    reason: "SandboxTargets documents the map as the authoritative owner of every key; string decoding is the bug class it replaced."
+  - category: Implementation
+    decider: claude
+    chose: "EndDetail gains ParentsPerRepo (and ParentOf), written by BootstrapPresenceCheck and read by RepoReadinessPass; ParentTicketId stays for details recorded before"
+    over: "One parent for every repo of a refused run"
+    reason: "A release must read each repository at the base its run read it at; a stored detail without the map still reads its one parent."
+  - category: Implementation
+    decider: claude
+    chose: "A checkout of a handed branch (review webhook, scan target) also reads the stamp per repo and never publishes a stacked rung"
+    over: "Today's handed-branch rule, which took the stacked id as an ordinary parent and could publish it"
+    reason: "9a39b's reason applies to every checkout: a landed prerequisite's deleted branch must not come back at the clone's base."
+  - category: Implementation
+    decider: claude
+    chose: "An armed pull request (completion_armed) counts as standing on its branch for the per-repo stack"
+    over: "97c2b's rule, which left armed pull requests out with completed ones"
+    reason: "Review finding: an armed pull request has not merged yet, so its branch carries the work; leaving it out let a green, unlanded prerequisite drop out of the stack and the dependent cut from main again. If it merges before its landing is read, the stamp names a branch that may be gone and the run stops with the sentence: the safe direction."
+  - category: Implementation
+    decider: claude
+    chose: "Only a repo the claim named itself stops when its branch is missing; the old single-id stamp of a parked run never publishes the rung but falls through where it is missing"
+    over: "Stopping for the legacy stamp too"
+    reason: "Review finding: the checkpoint's context is restored after the claim's, so a run parked before this deploy keeps its single id; that id meant every repo and was a fall-through in repos the prerequisite never touched."
+  - category: Implementation
+    decider: claude
+    chose: "A dependent that never started is held while any unlanded prerequisite of its chain that could be a base is not green; the hold names the direct ones when one of them is not green (as before), else the deeper ones"
+    over: "Checking greenness of the direct prerequisites only"
+    reason: "Review finding against the invariant ('nearest unlanded green prerequisite'): the per-repo stack can name a deeper prerequisite as a repo's base, and that base must be a green branch."
+  - category: Implementation
+    decider: claude
+    chose: "A repo opened mid-run (ensure_repo_sandbox) whose stacked branch is missing answers the master with the stop sentence and keeps the repo out of the run, as every failed escalation does"
+    over: "A new mechanism for a tool host to end the run"
+    reason: "No such mechanism exists; the repo is never cut from main, which is the invariant. Ending the run from a tool would be a new path beyond this spec; the gap is named in the hand-back."
+  - category: Implementation
+    decider: claude
+    chose: "The checkout tests for the per-repo ladder and the stop live in Integration/StackedCheckoutTests, against real git through SandboxRepoCloner"
+    over: "New mock-based SandboxBaseLadder and SandboxWorkBranchCheckout test classes as the done list names"
+    reason: "The ladder's signature did not change (it takes the one id the caller passes); the behaviour that changed is the checkout's, and real git is what the stop is about."

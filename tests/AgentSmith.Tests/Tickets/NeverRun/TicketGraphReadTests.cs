@@ -70,7 +70,7 @@ public sealed class TicketGraphReadTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketGraph_RunBearingNode_HasTheListRowsBucketIncludingStuck()
+    public async Task TicketGraph_RunBearingNode_HasTheListRowsBucketIncludingAHold()
     {
         var text = new Ticket(new TicketId("58"), "Ticket 58", "Export it.", "In a second.", "Open", "github");
         var run = Run("r-1", "58", status: "failed");
@@ -84,7 +84,8 @@ public sealed class TicketGraphReadTests : IDisposable
         var node = await NodeAsync("58");
         var row = (await _h.ListAsync()).Tickets.Single(t => t.TicketId == "58");
 
-        (node.State, node.Bucket, node.HasPage).Should().Be((TicketBucket.Stuck, TicketBucket.Stuck, true));
+        // 2026-11-23-31dcg: the failed head the check saw unchanged is a person's decision, on the graph as on the list.
+        (node.State, node.Bucket, node.HasPage).Should().Be((TicketBucket.NeedsYou, TicketBucket.NeedsYou, true));
         node.Bucket.Should().Be(row.Bucket);
     }
 

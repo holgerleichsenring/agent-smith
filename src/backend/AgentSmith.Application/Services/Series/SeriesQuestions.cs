@@ -9,6 +9,9 @@ namespace AgentSmith.Application.Services.Series;
 /// a master question is relayed into the conversation when none waits; an operator message answers the waiting one;
 /// past its deadline a question with a recommendation takes it, and the conversation says so. A relayed answer goes to
 /// the parked run's inbox, which the resume sweep picks up; the master's own answer goes to the master.
+/// <para>2026-11-23-31dch: a plan question is relayed first and says it is about the plan; a question only the environment
+/// can answer is the admin's and is not relayed. The answer is the poster's, delivered through the same inbox the ticket's
+/// answer uses, so the resume and the in-run intake stay the one path.</para>
 /// </summary>
 public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox inbox)
 {
@@ -23,7 +26,7 @@ public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox 
     {
         SeriesQuestion answered;
         if (beat.Messages.Count > 0)
-            answered = waiting with { Answer = beat.Messages[0].Text, AnsweredAt = beat.Messages[0].At };
+            answered = waiting with { Answer = beat.Messages[0].Text, AnsweredAt = beat.Messages[0].At, AnsweredBy = beat.Messages[0].Author };
         else if (waiting.Recommended is { } recommended && waiting.DeadlineAt <= beat.Now)
         {
             answered = waiting with { Answer = recommended, AnsweredAt = beat.Now, ByDefault = true };
@@ -37,7 +40,7 @@ public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox 
     {
         if (answered.DialogueJobId is { } job && answered.CheckpointQuestionId is { } id)
         {
-            await inbox.TryDeliverAsync(job, new DialogAnswer(id, answered.Answer!, null, beat.Now, beat.Record.Principal), ct);
+            await inbox.TryDeliverAsync(job, new DialogAnswer(id, answered.Answer!, null, beat.Now, answered.AnsweredBy ?? beat.Record.Principal), ct);
             beat.Said.Add($"Passed the answer to {Key(beat, answered.TicketId)}'s run; it goes on with it.");
         }
         else beat.Reasons.Add($"Your question \"{answered.Text}\" is answered{(answered.ByDefault ? " by default" : string.Empty)}: {answered.Answer}");
@@ -46,15 +49,16 @@ public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox 
 
     private async Task RelayAsync(SeriesBeat beat, int defaultMinutes, CancellationToken ct)
     {
-        var parked = beat.Facts.FirstOrDefault(f => f.PendingQuestion is { } q && f.DialogueJobId is not null
-            && q.QuestionId != beat.Record.Question?.CheckpointQuestionId);
+        var parked = beat.Facts.Where(f => f.PendingQuestion is { } q && f.DialogueJobId is not null
+                && q.QuestionId != beat.Record.Question?.CheckpointQuestionId && IsRelayed(q))
+            .OrderByDescending(f => IsPlan(f.PendingQuestion!)).FirstOrDefault();
         if (parked?.PendingQuestion is not { } question) return;
         var choices = question.Choices?.Select(c => c.Label).ToList() ?? [];
         var relayed = Ask(question.Text, choices, question.RecommendedIndex, beat.Now, defaultMinutes) with
         {
             TicketId = parked.Ticket.TicketId, DialogueJobId = parked.DialogueJobId, CheckpointQuestionId = question.QuestionId,
         };
-        beat.Said.Add(SeriesQuestionText.Asked(relayed, parked.Ticket.Key));
+        beat.Said.Add(SeriesQuestionText.Asked(relayed, parked.Ticket.Key, IsPlan(question)));
         await KeepAsync(beat, relayed, ct);
     }
 
@@ -65,6 +69,13 @@ public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox 
         return new SeriesQuestion(Guid.NewGuid().ToString("N"), text, choices, valid, now,
             valid is null ? null : now.AddMinutes(defaultMinutes));
     }
+
+    // 2026-11-23-31dch: the environment's question is the admin's; every other one a person in the conversation can answer.
+    private static bool IsRelayed(DialogQuestion question) =>
+        question.AnswerersOrTarget.Any(a => a != Domain.Models.QuestionAnswerers.Environment);
+
+    private static bool IsPlan(DialogQuestion question) =>
+        question.AnswerersOrTarget.Contains(Domain.Models.QuestionAnswerers.Plan);
 
     private static string Key(SeriesBeat beat, string? ticketId) =>
         beat.Facts.FirstOrDefault(f => f.Ticket.TicketId == ticketId)?.Ticket.Key ?? ticketId ?? "the ticket";

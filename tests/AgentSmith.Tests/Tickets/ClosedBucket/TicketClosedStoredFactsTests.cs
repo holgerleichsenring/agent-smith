@@ -42,7 +42,7 @@ public sealed class TicketClosedStoredFactsTests : IDisposable
 
         var row = await _h.RowAsync();
 
-        (row.Bucket, row.PullRequests.Single().HeadMovedAt).Should().Be((TicketBucket.WaitingOnReview, (DateTimeOffset?)ClosedAt.AddMinutes(1)));
+        (row.Bucket, row.PullRequests.Single().HeadMovedAt).Should().Be((TicketBucket.NeedsYou, (DateTimeOffset?)ClosedAt.AddMinutes(1)));
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class TicketClosedStoredFactsTests : IDisposable
 
         var row = await _h.RowAsync();
 
-        (row.Bucket, row.PullRequests.Single().ReopenedAt).Should().Be((TicketBucket.WaitingOnReview, (DateTimeOffset?)ClosedAt.AddMinutes(1)));
+        (row.Bucket, row.PullRequests.Single().ReopenedAt).Should().Be((TicketBucket.NeedsYou, (DateTimeOffset?)ClosedAt.AddMinutes(1)));
     }
 
     [Fact]
@@ -88,6 +88,6 @@ public sealed class TicketClosedStoredFactsTests : IDisposable
         await _h.AddAsync(Run("r-1", status: "failed"), Step("r-1"), newer, Step("r-2"),
             new TicketBetweenAttemptsCheck { RunId = "r-1", CheckedAt = T.AddHours(3), ClosedForWork = true });
 
-        (await _h.RowAsync()).Bucket.Should().Be(TicketBucket.Failed, "only the newest attempt's own check decides");
+        (await _h.RowAsync()).Bucket.Should().Be(TicketBucket.NeedsYou, "only the newest attempt's own check decides; it failed (2026-11-23-31dcg)");
     }
 }

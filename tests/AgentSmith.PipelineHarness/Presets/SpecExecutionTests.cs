@@ -129,7 +129,7 @@ public sealed class SpecExecutionTests
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
             // p0394a: no plan slot — the master consumes first.
-            .EnqueueToolCall("ask_human", """{"question":"Which auth scheme should the widget endpoint use?"}""")
+            .EnqueueToolCall("ask_human", """{"question":"Which auth scheme should the widget endpoint use?","answerer":"target"}""")
             .EnqueueText("Waiting for the operator's answer.");
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "Question" };

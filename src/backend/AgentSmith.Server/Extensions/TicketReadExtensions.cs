@@ -23,6 +23,7 @@ internal static class TicketReadExtensions
     {
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddTransient<SpecDraftReader>();
+        services.TryAddScoped<Services.Series.SeriesRunNames>(); // 2026-11-23-31dcc: the ticket's series run is named
         services.AddBranchSeriesRead(); // 2026-11-17-a0b6b
         services.TryAddTransient<SpecRecordReader>();
         services.AddTransient<TicketAttempts>()
@@ -40,6 +41,7 @@ internal static class TicketReadExtensions
             .AddTransient<TicketListReader>()
             .AddTransient<FiledTicketRows>().AddTransient<TicketGraphReader>().AddTransient<TicketRequiresReader>() // 2026-10-14-dbcen
             .AddTransient<TicketDetailReader>().AddTransient<TicketDerivations>() // 2026-10-26-bdd0f
+            .AddTransient<Services.Series.TicketSeriesRunLink>() // 2026-11-23-31dcc: the ticket's series run
             .AddTransient<TicketReviewState>() // 2026-10-13-9a59b
             .AddTransient<TicketPullRequestReader>()
             .AddTransient<TicketAttemptRecords>() // 2026-10-13-9a59d
@@ -70,9 +72,19 @@ internal static class TicketReadExtensions
             .AddTransient<TicketTextSnapshotReader>()
             .AddTransient<TicketTextReader>()
             .AddScoped<TicketTextEditNotice>().AddScoped<TicketTextEditPost>() // 2026-11-22-a720b
+            .AddTransient<TicketTextEditAnswers>() // 2026-11-23-31dcg: a person's turn answers the edit
+            .AddTransient<AgentSmith.Application.Services.Holds.TicketHoldReader>() // 2026-11-23-31dcg
+            .AddTransient<Services.Tickets.Holds.TicketHoldInputsReader>()
+            .AddTransient<Services.Tickets.Holds.TicketOpenPullRequestsReader>() // 2026-11-23-d60d
+            .AddTransient<Services.Tickets.Holds.AdminHoldsReader>() // 2026-11-23-31dci
             .AddTransient<TicketCloseAct>() // 2026-10-15-114fa; e061a: its acts are close and reopen runs
             .AddMemoryCache();
         services.TryAddTransient<FiledWorkTrackerProjects>(); // 2026-11-22-a720b: the text edit check skips a held ticket
+        // 2026-11-23-31dcg: a merge hold reads the series page's own merge order.
+        services.TryAddTransient<AgentSmith.Application.Services.Series.SeriesRunOrder>();
+        services.TryAddTransient<Services.Series.SeriesRunPullRequests>();
+        services.TryAddTransient<Services.Series.SeriesRunTickets>();
+        services.TryAddScoped<Services.Series.SeriesRunProjectReads>();
         return services;
     }
 }

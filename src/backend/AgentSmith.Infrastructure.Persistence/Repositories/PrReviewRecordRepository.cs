@@ -19,6 +19,12 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
     public Task<IReadOnlyList<PrReviewRecordView>> ForListAsync(ProjectScope project, CancellationToken ct) =>
         ReadAsync(Records().Within(project), standingOnly: true, ct);
 
+    /// <summary>2026-11-23-31dcb: the records of the named tickets of one project, without entries — one query.</summary>
+    public async Task<IReadOnlyList<PrReviewRecordView>> ByTicketsAsync(
+        string project, IReadOnlyCollection<string> ticketIds, CancellationToken ct) =>
+        [.. (await Records().Where(r => r.Project == project && ticketIds.Contains(r.TicketId)).OrderBy(r => r.Id).ToListAsync(ct))
+            .Select(r => View(r, null, []))];
+
     public async Task<PrReviewRecordView?> ByPrKeyAsync(string prKey, CancellationToken ct) =>
         (await ReadAsync(Records().Where(r => r.PrKey == prKey), standingOnly: false, ct)).SingleOrDefault();
 

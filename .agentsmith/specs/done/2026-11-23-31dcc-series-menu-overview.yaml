@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dcc
+goal: "A Series item in the sidebar opens a list of every series with progress and its next step, filterable by project; ticket pages and conversations link to their series."
+
+applies_to: "default + dashboard (ticket detail series-run field, AppSidebar, new /series route, TicketSectionBar facts, conversation series panel)"
+
+requires: [2026-11-23-31dcb, 2026-11-17-8d1ca, 2026-11-22-5485a]
+
+invariant: "Every ticket that belongs to a series and every conversation that filed one reaches that series in one click."
+
+facts:
+  - claim: "The sidebar lists Work it out, Your move, Tickets, Runs and Pull requests."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:106-150"
+  - claim: "The ticket page's bar ends in a facts block (project, tracker, branch, pull requests)."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketSectionBar.tsx:48-53"
+  - claim: "The store finds a ticket's series run only while it runs or is paused; an ended one is not found from the ticket."
+    evidence: "src/backend/AgentSmith.Contracts/Series/ISeriesRunStore.cs:21-24"
+  - claim: "New UI text is a dictionary key with English and German."
+    evidence: ".agentsmith/contexts/dashboard/principles.md:9-11"
+
+scope:
+  in: >-
+    Sidebar item 'Series' directly below Work it out with the count of running series (GET /api/series-runs/count, not the list); /series lists one row per
+    series (name, project, progress bar landed / waiting / held, the next step sentence, held count) newest activity
+    first, a project filter remembered per browser; the ticket detail gains seriesRun {id, name} from a new ISeriesRunStore.ForTicketAsync(project, ticketId) that finds the newest series run holding the ticket, ended ones included, and the ticket bar's facts show 'Part of series <name>' as a link; the
+    conversation's series panel gains 'Open the series'.
+  out: "The series page itself (31dcd)."
+
+steps:
+  - id: field
+    action: "ISeriesRunStore.ForTicketAsync and TicketDetail.SeriesRun, tested on both providers with an ended series."
+  - id: nav
+    action: "SidebarItem 'Series' with its count from GET /api/series-runs/count."
+  - id: list
+    action: "app/series/page.tsx with the rows and the project filter."
+  - id: links
+    action: "Ticket facts and conversation panel link to /series/{id}."
+
+tests:
+  - "Sidebar shows Series with the running count; active under /series."
+  - "The list filters by project; an empty list says what fills it ('A series appears when a conversation files its tickets')."
+  - "A ticket in a series shows the link, also after the series ended; one outside shows none."
+
+done:
+  - "Build, the full suite and the dashboard tests green; the tests above in the store, AppSidebar, series list page and TicketSectionBar test classes."

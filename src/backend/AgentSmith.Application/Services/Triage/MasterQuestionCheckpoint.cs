@@ -84,6 +84,10 @@ public sealed class MasterQuestionCheckpoint(
         return new DialogQuestion(
             askId, choices is null ? QuestionType.FreeText : QuestionType.Choice,
             text, Context: null, choices, DefaultAnswer: null, Patience,
-            RecommendedIndex: choices is null ? null : first.RecommendedIndex); // 0207c: a series relaying it may take it
+            RecommendedIndex: choices is null ? null : first.RecommendedIndex) // 0207c: a series relaying it may take it
+        {
+            // 2026-11-23-31dch: who can answer it rides with the checkpoint, where the hold and the series read it.
+            Answerers = [.. questions.Select(q => q.Answerer).Distinct(StringComparer.Ordinal)],
+        };
     }
 }

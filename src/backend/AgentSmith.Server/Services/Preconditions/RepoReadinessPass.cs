@@ -18,10 +18,10 @@ public sealed class RepoReadinessPass(RepoReadiness readiness)
     {
         ArgumentNullException.ThrowIfNull(repo);
         ArgumentNullException.ThrowIfNull(detail);
-        var key = (repo.Name, detail.Branch, detail.ParentTicketId);
+        var key = (repo.Name, detail.Branch, detail.ParentOf(repo.Name)); // 2026-11-23-31dca: the repo's own parent
         if (_verdicts.TryGetValue(key, out var known)) return known;
         var branch = string.IsNullOrWhiteSpace(detail.Branch) ? null : new BranchName(detail.Branch);
-        var read = readiness.ReadForRunAsync(repo, branch, detail.ParentTicketId, ct);
+        var read = readiness.ReadForRunAsync(repo, branch, key.Item3, ct);
         _verdicts[key] = read;
         return read;
     }

@@ -1,6 +1,6 @@
 import { HubConnectionState } from "@microsoft/signalr";
 import type { JobsHubClient } from "@/lib/JobsHubClient";
-import type { TicketCounts, TicketListView, TicketPullRequest, TicketSummary } from "@/types/tickets";
+import type { TicketCounts, TicketHold, TicketHoldCase, TicketListView, TicketPullRequest, TicketSummary } from "@/types/tickets";
 
 // 2026-10-13-9a59p: ticket-list test data in the server's JSON shape.
 
@@ -29,6 +29,20 @@ export function ticket(over: Partial<TicketSummary> = {}): TicketSummary {
   };
 }
 
+/** 2026-11-23-31dcg: a hold as the server sends it; the addressee is the case's, as TicketHoldReader reads it. */
+const ADDRESSEE: Record<TicketHoldCase, TicketHold["addressee"]> = {
+  image_untrusted: "admin", bootstrap_missing: "admin", preflight: "admin",
+  question: "decide", question_plan: "plan", question_environment: "admin", handback: "decide", readiness_unknown: "decide", infrastructure: "decide", interrupted: "decide",
+  criteria_unmet: "decide", failed: "decide", shortfall: "decide",
+  text_edited: "plan", merge_next: "merge", starts_on_merge: "merge", merge_ready: "merge", ci_failed: "decide", ci_running: "nobody",
+  working: "nobody", model_wait: "nobody", queued: "nobody", resuming: "nobody", restarting: "nobody", merge_after: "nobody", retarget: "nobody",
+  prerequisite: "nobody",
+};
+
+export function hold(holdCase: TicketHoldCase, over: Partial<TicketHold> = {}): TicketHold {
+  return { addressee: ADDRESSEE[holdCase], case: holdCase, act: null, since: null, attempt: 1, names: [], detail: null, ...over };
+}
+
 export function pr(over: Partial<TicketPullRequest> = {}): TicketPullRequest {
   return {
     number: "809",
@@ -54,7 +68,6 @@ export function counts(over: Partial<TicketCounts> = {}): TicketCounts {
     oldestNeedsYouSince: null,
     monthCost: 0,
     truncated: false,
-    waitingOnReview: 0,
     done: 0,
     openPullRequests: 0,
     doneThisMonth: { tickets: 0, attempts: 0 },

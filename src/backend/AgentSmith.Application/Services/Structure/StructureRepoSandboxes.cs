@@ -25,7 +25,7 @@ public sealed class StructureRepoSandboxes(
         for (var i = 0; i < sandboxes.Count; i++)
         {
             var (key, sandbox) = (sandboxes[i].Key, sandboxes[i].Value);
-            var baseRev = i == 0 ? primaryBase : await SecondaryBaseAsync(pipeline, sandbox, ct);
+            var baseRev = i == 0 ? primaryBase : await SecondaryBaseAsync(pipeline, repoName, sandbox, ct);
             var judged = baseRev is null
                 ? StructureGateVerdict.NotJudged($"{repoName}: sandbox {key} has no comparable base")
                 : await JudgeChangedAsync(repoName, sandbox, baseRev, claims, rules, ct);
@@ -35,8 +35,8 @@ public sealed class StructureRepoSandboxes(
         return verdict with { Findings = Distinct(verdict.Findings), JudgedContexts = rules.Count };
     }
 
-    private async Task<string?> SecondaryBaseAsync(PipelineContext pipeline, ISandbox sandbox, CancellationToken ct) =>
-        await mergeBase.ResolveAsync(sandbox, DeliveryBasis.For(pipeline), ct) is (_, string commit) ? commit : null;
+    private async Task<string?> SecondaryBaseAsync(PipelineContext pipeline, string repoName, ISandbox sandbox, CancellationToken ct) =>
+        await mergeBase.ResolveAsync(sandbox, DeliveryBasis.For(pipeline, repoName), ct) is (_, string commit) ? commit : null;
 
     private async Task<StructureGateVerdict> JudgeChangedAsync(
         string repoName, ISandbox sandbox, string baseRev, IReadOnlyList<StructureClaim> claims,

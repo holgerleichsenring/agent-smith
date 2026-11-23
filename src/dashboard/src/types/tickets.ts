@@ -5,11 +5,11 @@ import type { SpecDialogOpenQuestion, SpecDialogProposalFinding, SpecDialogRevie
 // under it in AgentSmith.Server/Models, camelCase). Fields a later member of the series added are
 // optional: an older server omits them, and the list draws nothing rather than a guess.
 
-/** The server's buckets, exactly as TicketBucket spells them. */
+/** The server's buckets, exactly as TicketBucket spells them. 2026-11-23-d60d: no in-review bucket — an open pull request
+ *  that can merge or whose CI is red is needs_you, one that waits is working. */
 export type TicketServerBucket =
   | "needs_you"
   | "working"
-  | "waiting_on_review"
   | "stuck"
   | "idle"
   | "done"
@@ -26,7 +26,7 @@ export type TicketServerBucket =
 
 /** The buckets as the URL spells them (?bucket=), in the order the list shows them. */
 export const TICKET_BUCKETS = [
-  "needs-you", "working", "waiting-on-review", "stuck", "blocked", "filed", "pr-closed", "failed", "ended", "done", "closed",
+  "needs-you", "working", "stuck", "blocked", "filed", "pr-closed", "failed", "ended", "done", "closed",
 ] as const;
 export type TicketBucket = (typeof TICKET_BUCKETS)[number];
 
@@ -34,7 +34,6 @@ export type TicketBucket = (typeof TICKET_BUCKETS)[number];
 export const SERVER_BUCKET: Readonly<Record<TicketBucket, TicketServerBucket>> = {
   "needs-you": "needs_you",
   working: "working",
-  "waiting-on-review": "waiting_on_review",
   stuck: "stuck",
   blocked: "blocked",
   filed: "filed",
@@ -155,6 +154,66 @@ export interface TicketSummary {
   ticketText?: boolean | null;
   /** 2026-10-15-114fd: the stored close mark, in force or not — drawn only while the bucket is closed */
   closed?: TicketClosed | null;
+  /** 2026-11-23-31dcg: what holds the ticket and who moves it, read on the server; null when nothing holds it */
+  hold?: TicketHold | null;
+}
+
+/** 2026-11-23-31dcg: who moves a held ticket — admin > decide > plan > merge > nobody when several apply (TicketHoldAddressees). */
+export type TicketHoldAddressee = "admin" | "decide" | "plan" | "merge" | "nobody";
+
+/** 2026-11-23-31dcg: the case a hold was read from; it names the hold's sentence (TicketHoldCases). */
+export type TicketHoldCase =
+  | "image_untrusted" | "bootstrap_missing" | "preflight"
+  | "question" | "question_plan" | "question_environment" | "handback" | "readiness_unknown" | "infrastructure" | "interrupted" | "criteria_unmet" | "failed" | "shortfall"
+  | "text_edited"
+  | "merge_next" | "starts_on_merge"
+  /** 2026-11-23-d60d: an open pull request that can merge now, red CI on one, and CI still running on one */
+  | "merge_ready" | "ci_failed" | "ci_running"
+  | "working" | "model_wait" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite";
+
+/** 2026-11-23-31dcg: the one act of a hold; the target is a run id (retry), a series id (merge, merge_next), a path
+ *  (settings) or the project (init) (TicketHoldActs). 2026-11-23-31dch: a conversation with a series id is that series'.
+ *  2026-11-23-d60d: pull_request opens the one open pull request (its URL; null when several are open). */
+export interface TicketHoldAct {
+  kind: "answer" | "conversation" | "retry" | "merge" | "merge_next" | "settings" | "init" | "pull_request";
+  target: string | null;
+}
+
+/** 2026-11-23-31dcg: one ticket's hold (TicketHold). */
+export interface TicketHold {
+  addressee: TicketHoldAddressee;
+  case: TicketHoldCase;
+  act: TicketHoldAct | null;
+  since: string | null;
+  /** The attempt the sentence names, from 1. */
+  attempt: number | null;
+  /** The tickets the sentence names. */
+  names: string[];
+  /** What a stop recorded about its cause, quoted by the sentence; null otherwise. */
+  detail?: EndDetail | null;
+  /** 2026-11-23-31dci: a wait on nobody that outlasted the configured minutes and is the admin's now (TicketHoldEscalation). */
+  escalation?: TicketHoldEscalation | null;
+}
+
+/** 2026-11-23-31dci: why a wait is the admin's — it lasted longer than afterMinutes, the value of the config key `key`. */
+export interface TicketHoldEscalation {
+  afterMinutes: number;
+  key: string;
+}
+
+/** 2026-11-23-31dci: one ticket an admin's hold lies on, as System → Needs attention lists it (AdminHoldView). */
+export interface AdminHoldItem {
+  project: string;
+  ticketId: string;
+  ticketKey: string | null;
+  title: string | null;
+  since: string | null;
+  hold: TicketHold;
+}
+
+/** 2026-11-23-31dci: every admin hold across the projects the admin sees, the longest held first (AdminHoldsView). */
+export interface AdminHolds {
+  holds: AdminHoldItem[];
 }
 
 /** 2026-10-15-114fd: a person's close of a ticket as the server stored it (TicketClosedView). */
@@ -191,7 +250,6 @@ export interface TicketCounts {
   oldestNeedsYouSince: string | null;
   monthCost: number;
   truncated: boolean;
-  waitingOnReview: number;
   done: number;
   openPullRequests: number;
   doneThisMonth: { tickets: number; attempts: number };
@@ -204,6 +262,8 @@ export interface TicketCounts {
   closed?: number;
   failed?: number;
   prClosed?: number;
+  /** 2026-11-23-31dcg: the tickets an admin's hold lies on — Your move adds them for an admin */
+  adminHolds?: number;
 }
 
 export interface TicketListView {
@@ -317,6 +377,8 @@ export interface TicketDetail {
   otherRuns: TicketOtherRun[];
   actedSince?: TicketActedSince[] | null;
   derivations?: TicketDerivation[] | null;
+  /** 2026-11-23-31dcc: the newest series run holding the ticket, ended ones included; null outside any. */
+  seriesRun?: { id: string; name: string } | null;
 }
 
 export interface TicketSpecStep {

@@ -19,7 +19,7 @@ internal static class SpecWritingScript
 
     public static void AsksFirst(RealCompositionHarness harness, string question) =>
         harness.ChatClient
-            .EnqueueToolCall("ask_human", System.Text.Json.JsonSerializer.Serialize(new { question }))
+            .EnqueueToolCall("ask_human", System.Text.Json.JsonSerializer.Serialize(new { question, answerer = "target" }))
             .EnqueueText(string.Empty);
 
     // The stub counts every written file as staged; the published stand-in is a commit in a real checkout, so the

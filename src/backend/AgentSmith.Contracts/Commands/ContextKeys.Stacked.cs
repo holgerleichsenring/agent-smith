@@ -5,6 +5,7 @@ public static partial class ContextKeys
 {
     /// <summary>2026-11-17-9a39b: the id of the unlanded prerequisite ticket whose pushed branch this run is cut from
     /// and opens its pull request against (string, or a JSON string after the capacity queue's round-trip). Stamped by
-    /// the claim under its lock; read through RunParentTicket.</summary>
+    /// the claim under its lock; read through RunParentTicket. 2026-11-23-31dca: a map repo -> ticket id (a JSON object after
+    /// the round-trip), one base per repo; the old single-id string still reads as that id for every repo.</summary>
     public const string StackedOnTicket = "StackedOnTicket";
 }

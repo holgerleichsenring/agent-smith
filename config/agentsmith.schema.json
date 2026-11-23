@@ -304,6 +304,14 @@
         "pr_reread_merged_cap": { "type": "integer", "minimum": 1, "description": "The most merged records without a landing one re-read pass names, over all trackers. Default 50." }
       }
     },
+    "holds": {
+      "type": "object",
+      "description": "How long a ticket may wait on nobody - for its model place, for sandbox capacity, for the restart after a stopped server - before its hold is reported to the admin. Read when a hold is read; nothing runs in the background. Global.",
+      "additionalProperties": false,
+      "properties": {
+        "escalate_after_minutes": { "type": "integer", "minimum": 0, "description": "Minutes a ticket's wait on nobody may last before it becomes an admin hold, listed under System - Needs attention: a wait that long means something outside the run is wrong. 0 never reports a wait. Negative is refused. Default 60." }
+      }
+    },
     "dialogue": {
       "type": "object",
       "description": "How a run waits for a person, and where that person answers.",

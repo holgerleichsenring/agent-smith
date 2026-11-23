@@ -17,11 +17,16 @@ namespace AgentSmith.Application.Services;
 /// <param name="ParentTicketId">The epic record this run is a slice of, or null.</param>
 public sealed record DeliveryBasis(string? RunId, string? ParentTicketId)
 {
-    public static DeliveryBasis For(PipelineContext pipeline)
+    /// <summary>2026-11-23-31dca: the basis of one repository — a stacked run's repos are cut from different rungs.</summary>
+    public static DeliveryBasis For(PipelineContext pipeline, string? repo)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        return new DeliveryBasis(pipeline.RunId(), RunParentTicket.Of(pipeline));
+        return new DeliveryBasis(pipeline.RunId(), RunParentTicket.ForRepo(pipeline, repo));
     }
+
+    /// <summary>2026-11-23-31dca: the basis of the repository a sandbox serves (<see cref="RunParentTicket.RepoOfSandbox"/>).</summary>
+    public static DeliveryBasis ForSandbox(PipelineContext pipeline, string sandboxKey) =>
+        For(pipeline, RunParentTicket.RepoOfSandbox(pipeline, sandboxKey));
 
     /// <summary>A run with no place in a cut — every run before an epic was filed.</summary>
     public static DeliveryBasis OfRun(string? runId) => new(runId, ParentTicketId: null);

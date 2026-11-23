@@ -33,9 +33,8 @@ public sealed class RemoteContextInventoryBuilder(
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(repos);
         var inventory = new Dictionary<string, IReadOnlyList<RemoteContextDiscovery>>(StringComparer.Ordinal);
-        var branches = ContextReadBranches.For(pipeline);
-        foreach (var repo in repos)
-            inventory[repo.Name ?? string.Empty] = await languageResolver.ResolveAllAsync(repo, branches, ct);
+        foreach (var repo in repos) // 2026-11-23-31dca: each repo read at its own rung
+            inventory[repo.Name ?? string.Empty] = await languageResolver.ResolveAllAsync(repo, ContextReadBranches.For(pipeline, repo.Name), ct);
 
         var contextOverride = pipeline.TryGet<string>(ContextKeys.SourceContext, out var ctx)
             && !string.IsNullOrWhiteSpace(ctx);

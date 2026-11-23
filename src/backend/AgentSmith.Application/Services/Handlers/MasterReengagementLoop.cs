@@ -40,7 +40,7 @@ public sealed class MasterReengagementLoop(ReengagePass passes, MasterPassRecord
                 var kind = MasterLoopStop.ClassifyTop(s.CostTracker.IsBudgetExhausted, s.Progress.GetLedger(), n + 1);
                 return await StopAsync(s, kind, pass, decision.Reason ?? MasterPassReasons.NothingLeft, state, reportWritten, ct);
             }
-            if (s.TicketClarifications?.Captured is not null) // an operator question short-circuits — the caller parks
+            if (s.TicketClarifications?.HasAsked == true) // an operator question short-circuits — the caller parks
                 return await StopAsync(s, MasterStopKind.Question, pass, MasterPassReasons.Question, state, reportWritten, ct);
 
             await EndAsync(s, pass, MasterPassReasons.Reengaged, decision.Reason, state, reportWritten);

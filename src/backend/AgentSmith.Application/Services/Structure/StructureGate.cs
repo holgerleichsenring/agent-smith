@@ -64,7 +64,7 @@ public sealed class StructureGate(
         var owned = targets.SandboxesForRepo(pipeline, repo);
         if (owned.Count == 0) return StructureGateVerdict.NotJudged($"{repo.Name}: no sandbox");
         var primary = owned[0].Value;
-        if (await mergeBase.ResolveAsync(primary, DeliveryBasis.For(pipeline), ct) is not (string rung, string commit))
+        if (await mergeBase.ResolveAsync(primary, DeliveryBasis.For(pipeline, repo.Name), ct) is not (string rung, string commit))
         {
             logger.LogInformation("Structure gate passes {Repo}: no base rung gives a merge-base", repo.Name);
             return StructureGateVerdict.NotJudged($"{repo.Name}: no comparable base");

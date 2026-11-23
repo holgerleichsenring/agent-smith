@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ProjectMergeSection } from "../ProjectMergeSection";
-import { BranchCleanupForm, PreconditionsForm } from "../SweepSettingsForms";
+import { BranchCleanupForm, HoldsForm, PreconditionsForm } from "../SweepSettingsForms";
 import { AgentTuningTab } from "../agent/AgentTuningTab";
 import { SETTING_KEYS } from "../settings";
 import type { ConfigCapabilities, StudioAgent, StudioProject } from "@/lib/configApi";
@@ -110,5 +110,17 @@ describe("agent compaction ratios", () => {
     fireEvent.click(screen.getByTestId("agent-section-compaction").querySelector("button, summary") as Element);
     fireEvent.change(screen.getByTestId("form-field-compaction-foldTargetRatio"), { target: { value: "0.25" } });
     expect(onChange.mock.calls.at(-1)?.[0].compaction.foldTargetRatio).toBe(0.25);
+  });
+});
+
+// 2026-11-23-31dci: holds.escalate_after_minutes has its field, 0 turning the report off.
+describe("holds setting", () => {
+  it("holds patches its escalation minutes", () => {
+    const onChange = vi.fn();
+    render(<HoldsForm value={{ escalateAfterMinutes: 60 }} onChange={onChange} />);
+    expect(screen.getByText("Report a wait to the admin after (minutes)")).toBeTruthy();
+    fireEvent.change(screen.getByTestId("setting-holds-escalate"), { target: { value: "0" } });
+    expect(onChange).toHaveBeenLastCalledWith({ escalateAfterMinutes: 0 });
+    expect(SETTING_KEYS).toContain("holds");
   });
 });

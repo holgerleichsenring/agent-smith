@@ -24,6 +24,9 @@ internal sealed record ProjectFrom(ProjectSourceKind Kind, string Parameter)
     /// <summary>The conversation an image named by <c>{imageId}</c> belongs to.</summary>
     internal static ProjectFrom Image { get; } = new(ProjectSourceKind.Image, "imageId");
 
+    /// <summary>2026-11-23-31dcb: the series run named by <c>{id}</c>: its stored project.</summary>
+    internal static ProjectFrom SeriesRun { get; } = new(ProjectSourceKind.SeriesRun, "id");
+
     /// <summary>The handler reads the project from the body — POST /api/spec-dialog/messages alone.</summary>
     internal static ProjectFrom Body { get; } = new(ProjectSourceKind.Body, string.Empty);
 

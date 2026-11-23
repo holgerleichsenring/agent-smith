@@ -88,8 +88,8 @@ public sealed class SpecExecutionPromptFactory(Specs.ISeriesSettingsReader serie
         Your report also names what you renamed and moved (each `<old> -> <new>`), persisted and
         deviated from, the memories you relied on, and the follow-ups you propose: the next spec's
         master reads the build note taken from it.
-        When you are genuinely blocked on missing input, call ask_human once: the
-        question is posted to the ticket and this run pauses for the answer.
+        When you are genuinely blocked on missing input, call ask_human with the answerer who can settle it —
+        the ticket's target code, the plan across tickets, or the environment; this run pauses for the answer.
         The operator may write to you while you work; such a message arrives after a tool result. Adjust your
         work to it. When it changes what this spec must make true — its goal, steps or done criteria — revise the
         spec with revise_spec: the text is checked against the spec schema and written to the ticket branch, and its

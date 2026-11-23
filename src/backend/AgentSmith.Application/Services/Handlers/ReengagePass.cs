@@ -66,7 +66,7 @@ public sealed class ReengagePass(
         }
 
         var after = new ReengageState(loopResult, changes, reports);
-        if (s.TicketClarifications?.Captured is not null)
+        if (s.TicketClarifications?.HasAsked == true)
             return new(after, reportWritten, MasterPassReasons.Question); // asked during the pass — the caller parks
 
         // p0365: a pass that called NO tool is the one reliable idle signal; p0391: a pass that only

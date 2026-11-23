@@ -40,6 +40,19 @@ public interface IPreviousAttemptReader
         return ends;
     }
 
+    /// <summary>2026-11-23-97c2b: the repos each of <paramref name="ticketIds"/> has a pull request standing on its branch in, over
+    /// its code runs — the repos it worked in; a ticket without one is absent. One read for many; this default reads only the
+    /// open pull requests <see cref="PreviousAttempt.PullRequestUrls"/> holds.</summary>
+    async Task<IReadOnlyDictionary<string, IReadOnlySet<string>>> PullRequestReposAsync(
+        string project, IReadOnlyCollection<string> ticketIds, CancellationToken cancellationToken)
+    {
+        var repos = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
+        foreach (var id in ticketIds)
+            if (await LatestAsync(project, id, null, cancellationToken) is { PullRequestUrls.Count: > 0 } attempt)
+                repos[id] = attempt.PullRequestUrls.Keys.ToHashSet(StringComparer.Ordinal);
+        return repos;
+    }
+
     /// <summary>2026-10-08-0781: whether a code run for the ticket waits in the capacity queue — a
     /// run that will start, and whose end will check the ticket again.</summary>
     Task<bool> HasQueuedAsync(string project, string ticketId, CancellationToken cancellationToken) =>

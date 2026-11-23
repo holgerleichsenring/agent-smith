@@ -63,4 +63,5 @@ public sealed class RawAgentSmithConfig
     public PreconditionsConfig Preconditions { get; set; } = new(); // 2026-11-16-f3fbc
     public BranchCleanupConfig BranchCleanup { get; set; } = new(); // 2026-11-17-713ec
     public TicketsConfig Tickets { get; set; } = new(); // 2026-11-17-f9b0d
+    public HoldsConfig Holds { get; set; } = new(); // 2026-11-23-31dci
 }

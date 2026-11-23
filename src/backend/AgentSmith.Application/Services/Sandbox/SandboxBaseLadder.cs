@@ -23,9 +23,10 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// push, so what a slice cuts from stays a fact read off the clone.
 /// </para>
 /// <para>
-/// TWO rungs, not three: an epic child carries exactly one ancestor stamp, its parent
-/// (<c>FiledTicketLabels.ParentId</c>). A third rung would need a second ancestor name
-/// that exists nowhere in a run.
+/// TWO rungs, not three: the caller names one parent per repository — an epic child's label parent
+/// (<c>FiledTicketLabels.ParentId</c>), or 2026-11-23-31dca a stacked run's entry for THIS repository, chosen at the
+/// claim from the chain of unlanded prerequisites with work there. The ladder walks no chain: the claim did. A
+/// stacked rung that is missing here is the caller's stop, not a fall-through (<see cref="SandboxWorkBranchCheckout"/>).
 /// </para>
 /// </summary>
 public sealed class SandboxBaseLadder(
