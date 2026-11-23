@@ -24,10 +24,11 @@ const YOURS: SeriesNodeKind[] = ["now", "question", "failed"];
 
 export function SeriesActionList({ detail, lacks, handlers, onChain }: Props) {
   const t = useT();
-  const counts = seriesOverviewCounts(detail);
+  const counts = seriesOverviewCounts(detail, !lacks);
   const of = (kinds: SeriesNodeKind[]) => kinds.flatMap((kind) => detail.tickets.filter((ticket) => seriesNodeKind(ticket, detail) === kind));
-  const yours = of(YOURS);
-  const needed = of(["needed"]);
+  // 2026-11-23-8071: without runs.control the merge now is not the viewer's move — it leads Needed next, Merge disabled.
+  const yours = of(lacks ? YOURS.filter((kind) => kind !== "now") : YOURS);
+  const needed = of(lacks ? ["now", "needed"] : ["needed"]);
   const row = (ticket: SeriesRunTicket) => (
     <Row key={ticket.ticketId} detail={detail} ticket={ticket} lacks={lacks} handlers={handlers} onChain={onChain} />
   );

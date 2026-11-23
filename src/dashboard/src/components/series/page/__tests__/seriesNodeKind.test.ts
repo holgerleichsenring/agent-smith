@@ -41,6 +41,10 @@ describe("seriesOverviewCounts", () => {
     expect(counts.quiet).toBe(3);
     expect(counts.yours + counts.kinds.needed + counts.quiet + counts.kinds.merged).toBe(overviewDetail().tickets.length);
   });
+
+  it("SeriesOverviewCounts_WithoutMergeRight_TheMergeNowIsNotYours", () => {
+    expect(seriesOverviewCounts(overviewDetail(), false).yours).toBe(2);
+  });
 });
 
 describe("seriesNeededChain", () => {
