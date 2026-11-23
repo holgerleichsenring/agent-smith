@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-47b6
+goal: "Every project-owned row a ProjectScope filters (run, pull-request record, filed series) leaves out the scope's hidden projects through one shared rule."
+
+applies_to: "default (ProjectScopeQueries, IProjectOwned, Run, PrReviewRecord, ApprovedSeries)"
+
+requires: [2026-10-15-4a4dd, 2026-11-17-f3a8a]
+
+facts:
+  - claim: "Hidden means the installation label '@agent-smith': a global holder without admin.assistant gets EverythingBut(InstallationScope.Name); a bound caller gets Of(projects), whose Hidden is empty."
+    evidence: "src/backend/AgentSmith.Server/Security/CallerProjectScope.cs:17-23, src/backend/AgentSmith.Infrastructure.Persistence/Contracts/ProjectScope.cs:12-22"
+  - claim: "The Run overload drops Hidden projects; the PrReviewRecord and ApprovedSeries overloads copy its Only branches and return the query unchanged when Only is null, Hidden or not."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Contracts/ProjectScopeQueries.cs:12-32"
+  - claim: "The PrReviewRecord overload has one caller chain: ForListAsync <- TicketPullRequestReader.AllAsync <- TicketListReader.AllAsync, which serves the ticket list, the ticket graph, the requires read and the delivery page."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:19-20, src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:34-39, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:44-61, src/backend/AgentSmith.Server/Services/Tickets/TicketGraphReader.cs:35, src/backend/AgentSmith.Server/Services/Tickets/TicketRequiresReader.cs:31, src/backend/AgentSmith.Server/Services/Delivery/DeliveryReader.cs:36-37"
+  - claim: "/api/pull-requests does not read PR records: it flattens runs read through the Run overload, so it already hides the installation."
+    evidence: "src/backend/AgentSmith.Server/Extensions/PullRequestQueryEndpoints.cs:29-46"
+  - claim: "The ApprovedSeries overload has one caller, the never-run rows of the same ticket list read."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:33-35, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:57"
+  - claim: "What leaks today: for a global holder without admin.assistant, the ticket list read loads every '@agent-smith' PR record into the TicketListAll lookup and PageAsync's dictionary keys; nothing renders them, because every view looks them up by a ticket taken from scoped runs. A bound (Of) caller gets nothing extra."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:51-55,73-77, src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:54-55, src/backend/AgentSmith.Server/Services/Delivery/DeliveryTicketComposer.cs:15-18"
+  - claim: "No writer produces an '@agent-smith' PR record today: records come from code runs' named pull requests and configured projects' sweeps, and a configured project may not start with '@'. The gap is latent; never-run rows from an '@agent-smith' filing WOULD render."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/NamedPullRequestReader.cs:25, src/backend/AgentSmith.Application/Services/Configuration/ProjectNameConfigValidator.cs:12-19, src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:54"
+  - claim: "Background PR readers (sweep, re-read, CI watch, landing, rework) never take a ProjectScope: they name projects, a repo key, a PR key or a ticket."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:15-54"
+
+scope:
+  in: "An IProjectOwned interface (string Project) on Run, PrReviewRecord and ApprovedSeries; ProjectScopeQueries keeps ONE generic Within over IProjectOwned with the Run overload's rule (Hidden dropped, one name equality, several a collection, Everything the query itself) and drops the three per-type copies. SpecDialogSession keeps its own overload: a conversation is its owner's, and an ungrounded one stays listed."
+  out: "Any change to who is given which scope; background readers, which take no scope and stay as they are."
+
+steps:
+  - id: rule
+    action: "IProjectOwned on the three entities; one generic Within; delete the copies."
+  - id: tests
+    action: "Scope tests over PR records and filings; the ticket list read for a hidden PR record; Everything still sees it; a sweep read still sees it."
+
+tests:
+  - "ProjectScopeTests: EverythingBut hides a PR record and a filing of the hidden project; Everything keeps the query instance; one name stays today's equality SQL."
+  - "TicketPullRequestReader / ticket list: a global reader's scope holds no '@agent-smith' PR record; an admin's does."
+  - "PrReviewRecordRepository background read (OpenUncheckedAsync) still returns the record."
+
+done:
+  - "A caller who may not see the installation reads no row of it through any ProjectScope filter, and the existing 4a4d and f3a8a tests stay green."

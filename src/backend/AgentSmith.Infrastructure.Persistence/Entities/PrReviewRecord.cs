@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// ticks: SQLite cannot compare a DateTimeOffset, and the refresh's compare-and-set on
 /// <see cref="CheckedAtTicks"/> runs in SQL.
 /// </summary>
-public sealed class PrReviewRecord : EntityBase
+public sealed class PrReviewRecord : EntityBase, IProjectOwned
 {
     public long Id { get; set; }
 

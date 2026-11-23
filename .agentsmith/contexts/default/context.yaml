@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-23-47b6: "SCOPE HIDDEN PROJECTS (ProjectScopeQueries, IProjectOwned). One generic Within over Run, PrReviewRecord and ApprovedSeries drops a scope's hidden projects, so a global reader without admin.assistant reads no installation PR record or filing on the ticket list either. -> .agentsmith/specs/done/2026-11-23-47b6-scope-hidden-projects.yaml"
     2026-11-22-747dc: "RESTART WINDOW SETTING (PreconditionsConfig, InterruptedRestartWindow, PreconditionsForm). preconditions.interrupted_restart_window_minutes (default 60, 0 off) bounds the automatic restart of interrupted attempts, measured from process start; a field in the settings UI, en + de. -> .agentsmith/specs/done/2026-11-22-747dc-restart-window-setting.yaml"
     2026-11-22-747db: "SERVER BOOT LISTEN FIRST (WorkerLauncher/AddWorker, JobsBroadcaster, /health/live, DatabaseMigrateMode, k8s+compose). The port binds first; every worker is built and started after it; probes split live/ready; the init container migrates from the server image. -> .agentsmith/specs/done/2026-11-22-747db-server-boot-listen-first.yaml"
     2026-11-22-747da: "DATA MIGRATION RUN ONCE (DataMigrationRunner, DataMigrationHistory, RunStoreMigrator, Infrastructure.Migration StoreMigrateRun). `database migrate` applies each data migration once and records it; the duplicate repair only while its index is pending; the three config-document migrations left the server start. -> .agentsmith/specs/done/2026-11-22-747da-data-migration-run-once.yaml"
