@@ -91,7 +91,7 @@ public sealed class UnmetTicketRequirementsForStartManyTests
     [Fact]
     public async Task GreenPrerequisites_StartedAsync_NamesTheTicketsWithAnAttempt()
     {
-        var started = await new GreenPrerequisites(_facts, _attempts.Object, _facts).StartedAsync(TicketRequirementEdges.Project, ["14", "10"], default);
+        var started = await new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts).StartedAsync(TicketRequirementEdges.Project, ["14", "10"], default);
 
         started.Should().BeEquivalentTo(["14"]);
     }
@@ -99,7 +99,7 @@ public sealed class UnmetTicketRequirementsForStartManyTests
     [Fact]
     public async Task GreenReads_PrefetchAsync_ReadsEachPrerequisiteOnce()
     {
-        var reads = new GreenPrerequisites(_facts, _attempts.Object, _facts).Reads(TicketRequirementEdges.Project);
+        var reads = new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts).Reads(TicketRequirementEdges.Project);
 
         await reads.PrefetchAsync([Edge("10", "1"), Edge("15", "1")], default);
         await reads.PrefetchAsync([Edge("16", "1")], default);
@@ -110,7 +110,7 @@ public sealed class UnmetTicketRequirementsForStartManyTests
     }
 
     private UnmetTicketRequirements Read() =>
-        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts));
+        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts));
 
     private void Attempt(string ticket, string status) =>
         _attempts.Setup(a => a.LatestAsync(TicketRequirementEdges.Project, ticket, null, default))

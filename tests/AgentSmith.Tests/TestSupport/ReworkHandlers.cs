@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Claim;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Contracts;
@@ -37,7 +38,7 @@ internal static class ReworkHandlers
         var unmet = TicketRequirementDoubles.Of(facts);
         return new(new StackedDependentsWake(facts, facts, unmet, attempts, leases, Mock.Of<IReworkNudges>(),
                 NullLogger<StackedDependentsWake>.Instance),
-            new StackedPullRequestRetarget(facts, facts, unmet, attempts, leases, Mock.Of<ISourceProviderFactory>(),
+            new StackedPullRequestRetarget(facts, facts, new GreenPrerequisites(facts, attempts, facts, facts), attempts, leases, Mock.Of<ISourceProviderFactory>(),
                 Mock.Of<IServiceScopeFactory>(), NullLogger<StackedPullRequestRetarget>.Instance));
     }
 

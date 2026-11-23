@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Claim;
 /// and edges once for many dependents; whether a dependent started is one existence read for all of them.</para>
 /// </summary>
 public sealed class GreenPrerequisites(
-    ITicketRequirementStore requirements, IPreviousAttemptReader attempts, ITicketClosedMarkStore closed)
+    ITicketRequirementStore requirements, IPreviousAttemptReader attempts, ITicketClosedMarkStore closed, ITicketLandingStore landings)
 {
     /// <summary>Whether this attempt pushed a green branch with a pull request.</summary>
     public static bool IsGreen(PreviousAttempt? attempt) =>
@@ -35,5 +35,5 @@ public sealed class GreenPrerequisites(
     /// <summary>A read set for the dependents of one project, seeded with requirement edges already read.</summary>
     public GreenReads Reads(
         string project, IEnumerable<KeyValuePair<(string Tracker, string Key), IReadOnlyList<TicketRequirementEdge>>>? known = null) =>
-        new(requirements, attempts, closed, project, known);
+        new(new RequirementChain(requirements, landings, known), attempts, closed, project);
 }

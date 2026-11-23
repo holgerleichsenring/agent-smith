@@ -69,7 +69,7 @@ public sealed class StackedBaseStampTests
     }
 
     private UnmetTicketRequirements Read() =>
-        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts));
+        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts));
 
     private void Prerequisite(string status) =>
         _attempts.Setup(a => a.LatestAsync(Project, "41", null, default))
