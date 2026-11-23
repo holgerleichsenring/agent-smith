@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-c785
+goal: "A merge a person asks for starts: the merge-green run resolves its pipeline in a scope; an Azure build-policy evaluation with buildId 0 reads as no build instead of a stale CI."
+
+applies_to: "default (MergeGreenRun, AzureReposCiPolicies)"
+
+requires: [2026-11-23-31dce, 2026-11-17-3435a]
+
+facts:
+  - claim: "MergeGreenRun is a singleton and resolved ExecutePipelineUseCase from the root; the executor needs the scoped DataFlowReadGate, so every merge failed before its run started."
+    evidence: "observed: 2026-11-23, prod log 15:30:37 'The merge-green run of …/#19649 failed to start: Cannot resolve PipelineExecutor from root provider because it requires scoped service DataFlowReadGate'; src/backend/AgentSmith.Server/Extensions/ReworkNudgeWorkerExtensions.cs:25"
+  - claim: "Azure files a build-policy evaluation with buildId 0; asking for build 0 threw and the stored CI stood for days."
+    evidence: "observed: 2026-11-23, prod log 15:31:41 'The CI of …/pullrequest/9935 could not be read; the stored CI stands: BuildNotFoundException: The requested build 0 could not be found'"
+
+scope:
+  in: "MergeGreenRun takes IServiceScopeFactory and runs the pipeline in its own scope; AzureReposCiPolicies treats buildId <= 0 as no build, and with no build the evaluation's own status is the check."
+  out: "The series page buttons, draft PRs (follow-up spec)."
+
+tests:
+  - "ServerDiLifetimeTests: the pipeline use case resolves in a scope and throws from the root."
+  - "AzureReposCiReaderTests: buildId 0 with an approved evaluation is green and build 0 is never fetched."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

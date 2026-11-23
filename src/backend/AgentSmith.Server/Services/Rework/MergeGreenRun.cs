@@ -19,9 +19,11 @@ namespace AgentSmith.Server.Services.Rework;
 /// host changed and nothing recorded. Answers whether it ran; a lease another run holds is a no.
 /// <para>2026-11-23-31dce: a merge a person asks for seeds an outcome slot, which the run's merge step fills per repo; a
 /// run that ended before the step leaves it unset.</para>
+/// <para>2026-11-23-c785: the run is resolved in a scope of its own — this class is a singleton, and the pipeline's
+/// executor needs scoped services (DataFlowReadGate); resolving it from the root failed every merge before it started.</para>
 /// </summary>
 public sealed class MergeGreenRun(
-    IServiceProvider services, ServerContext server, IActiveRunLease leases, ILogger<MergeGreenRun> logger) : IMergeGreenRun
+    IServiceScopeFactory scopes, ServerContext server, IActiveRunLease leases, ILogger<MergeGreenRun> logger) : IMergeGreenRun
 {
     public async Task<bool> RunAsync(ResolvedProject project, CiGreenMergeRequest request, CancellationToken ct,
         ActSlot<IReadOnlyList<PullRequestMergeLine>>? outcome = null)
@@ -34,7 +36,8 @@ public sealed class MergeGreenRun(
         {
             var seeds = new Dictionary<string, object> { [ContextKeys.CiGreenMerge] = request };
             if (outcome is not null) seeds[ContextKeys.ActOutcome] = outcome;
-            var result = await services.GetRequiredService<ExecutePipelineUseCase>().ExecuteAsync(
+            using var scope = scopes.CreateScope();
+            var result = await scope.ServiceProvider.GetRequiredService<ExecutePipelineUseCase>().ExecuteAsync(
                 new PipelineRequest(project.Name, PipelinePresets.MergeGreenName, TicketId: ticket, Headless: true, Context: seeds),
                 server.ConfigPath, CancellationToken.None);
             logger.LogInformation("{Why} on {Project}/#{Ticket}: merge-green {Outcome}: {Message}",

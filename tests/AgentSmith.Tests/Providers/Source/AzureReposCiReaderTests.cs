@@ -90,6 +90,19 @@ public sealed class AzureReposCiReaderTests
         ci.Failures.Single().Excerpt.Should().Be("lint broke");
     }
 
+    // 2026-11-23-c785: Azure files an evaluation with buildId 0 when no build stands behind it; build 0 is never asked for,
+    // and the evaluation's own status is the check (asking threw and kept a stale "running" for days).
+    [Fact]
+    public async Task BuildIdZero_IsNoBuild_TheEvaluationStatusDecides()
+    {
+        var approved = Evaluation(PolicyEvaluationStatus.Approved);
+        approved.Context!["buildId"] = 0;
+        Evaluations(approved);
+
+        (await ReadAsync()).State.Should().Be(CiStates.Green);
+        _build.Verify(c => c.GetBuildAsync(ProjectId, 0, It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task NoPolicyNoStatus_IsNone() => (await ReadAsync()).State.Should().Be(CiStates.None);
 
