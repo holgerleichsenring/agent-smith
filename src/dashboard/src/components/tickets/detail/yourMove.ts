@@ -91,7 +91,6 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
     case "handback": return { ...base, tone: "person", title: t("hold.title.handback") };
     case "text_edited": return { ...base, tone: "person", title: t("hold.title.text_edited") };
     case "merge_next": return { ...base, tone: "person", title: t("hold.title.merge_next") };
-    case "starts_on_merge": return { ...base, tone: "person", title: t("hold.title.starts_on_merge") };
     case "merge_ready": return { ...base, tone: "person", title: t("hold.title.merge_ready") };
     case "ci_failed": return { ...base, tone: "bad", title: t("hold.title.ci_failed") };
   }

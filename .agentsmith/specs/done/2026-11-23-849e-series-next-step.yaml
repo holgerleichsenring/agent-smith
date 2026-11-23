@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-849e
+goal: "A series has ONE person merge hold, on its next merge, naming what it unblocks; tickets that start on merges wait on nobody; CI waits re-read and escalate; the series page says your next step."
+
+applies_to: "default (TicketHoldReader, hold inputs, CI loop, series readers) and dashboard (holdWords, series page, ticket list, Tickets home)"
+
+requires: [2026-11-23-31dcg, 2026-11-23-31dce, 2026-11-23-31dci, 2026-11-23-d60d]
+
+facts:
+  - claim: "A never-run ticket that starts once others merge is a merge hold with a Merge-next act, whatever its place in the merge order."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketHoldReader.cs:89-91"
+  - claim: "The series' next merge is a merge_next hold that names nothing it unblocks."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketHoldReader.cs:93-94"
+  - claim: "A running CI is a nobody hold that never escalates; the series page calls a ready step ready from the merge order alone."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketPullRequestHold.cs:47-48, src/backend/AgentSmith.Application/Services/Holds/TicketHoldEscalations.cs:14-15, src/dashboard/src/components/series/page/SeriesMergeNextSection.tsx:64-66, src/backend/AgentSmith.Server/Services/Series/SeriesRunOverviewReader.cs:38"
+  - claim: "The CI loop re-reads only on_ci_green projects' open pull requests; others wait for the periodic re-read."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/CiWatchSelection.cs:14-15, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:55"
+  - claim: "A merge run approves a pull request whose host requires a review, as the repo's identity or merge.approval_auth, unless the protection is bypassed."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestApprovalStep.cs:18-21"
+  - claim: "The Tickets page carries a List/Graph switch over GET /api/tickets/graph; Needs-you rows expand into an answer block."
+    evidence: "src/dashboard/src/components/tickets/TicketsHome.tsx:45-53, src/backend/AgentSmith.Server/Extensions/TicketGraphEndpoints.cs:15, src/dashboard/src/components/tickets/TicketNeedsYou.tsx:25-30"
+  - claim: "The series section held is labelled What holds the rest."
+    evidence: "src/dashboard/src/lib/i18n/messages.ts:1102"
+
+decisions_in_brief:
+  - "Operator 2026-11-23: one 'you merge' hold per series, the rest wait on nobody; same CI rule on every surface, a long CI wait escalates; a next-step block; inline acts; no Graph view; 'Who moves next'."
+
+scope:
+  in: >-
+    (1) The merge_next hold names the series' tickets that start only on merges and the step after it in the merge order;
+    a never-run ticket that starts once others merge is a nobody hold (Waits on another) naming the merges it waits for and
+    the next one, acting by opening the series. (2) The series page and list call a step ready only when its hold is the
+    merge (CI running or red is not ready, and the merge act refuses it); ci_running escalates after
+    holds.escalate_after_minutes; the CI loop re-reads every project's pending CI at the same poll and pending bound; a
+    merge hold says merging approves where the host requires a review. (3) A "Your next step" block on the series
+    page from its holds. (4) Needs-you rows carry their act inline. (5) The Graph view, its endpoint and their tests go.
+    (6) "What holds the rest" is "Who moves next", section id held kept.
+  out: "Reading why a host's build evaluation stays pending (no prod access); reviewer assignment."
+
+tests:
+  - "Hold reader: merge_next names unblocked tickets and the next step; starts_on_merge is nobody with merges count, next and a series act; ci_running escalates past the minutes."
+  - "CI selection: a non-on_ci_green project's pending record is due, its green record is not."
+  - "Dashboard: holdWords sentences, the series next-step block, the merge row not ready under ci_running, inline act on a Needs-you row, no Graph switch."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

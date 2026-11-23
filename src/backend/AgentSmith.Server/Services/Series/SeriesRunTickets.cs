@@ -30,7 +30,19 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
         var tickets = record.Tickets.Select((t, index) => (View: View(t, ordered[index], depths, facts, prs[t.TicketId])
                 with { Hold = holds?.GetValueOrDefault(t.TicketId) }, index))
             .OrderBy(x => x.View.Depth).ThenBy(x => x.index).Select(x => x.View).ToList();
-        return new SeriesRunTicketsShape(tickets, Counts(tickets, facts), order.MergeOrder(ordered, facts.Landed));
+        var merges = order.MergeOrder(ordered, facts.Landed);
+        return new SeriesRunTicketsShape(tickets, Counts(tickets, facts), merges) { NextMerge = NextMerge(merges, holds) };
+    }
+
+    /// <summary>2026-11-23-849e: the ready step's key while it is the person's merge — the one rule the series page, its
+    /// list row and the ticket's hold share; without holds the merge order alone decides.</summary>
+    internal static string? NextMerge(IReadOnlyList<SeriesRunMergeStep> merges,
+        IReadOnlyDictionary<string, AgentSmith.Application.Services.Holds.TicketHold>? holds)
+    {
+        var ready = merges.FirstOrDefault(s => s.Wait == SeriesRunMergeWaits.Ready);
+        if (ready is null) return null;
+        return holds is null || holds.GetValueOrDefault(ready.TicketId)?.Case == AgentSmith.Application.Services.Holds.TicketHoldCases.MergeNext
+            ? ready.Key : null;
     }
 
     private static SeriesRunTicketView View(SeriesTicket ticket, SeriesRunOrderTicket ordered, IReadOnlyDictionary<string, int> depths,

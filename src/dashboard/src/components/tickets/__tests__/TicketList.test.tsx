@@ -197,28 +197,19 @@ describe("TicketList", () => {
     expect(marks).toEqual(["handed-back", "failed", "stopped", "ok", "running"]);
   });
 
-  it("AParkedTicket_AnswersThroughPendingQuestionCard_LabelledWithItsAttempt", async () => {
+  // 2026-11-23-849e: a Needs-you row carries its act inline at its right — no answer block under it; the row opens the ticket.
+  it("AParkedTicket_ActsInline_TheRowOpensTheTicket", async () => {
     const question = { questionId: "q1", type: "Freeform", text: "Which header style?", context: null, choices: ["IETF draft"], defaultAnswer: null, askedAt: ago(41), answerDeadlineAt: ago(-60) };
-    serve(list([ticket({ bucket: "needs_you", kind: "question", hold: hold("question"), status: "waiting_for_input", attemptCount: 2, newestRunId: "r-q", pendingQuestion: { runId: "r-q", question }, seriesStrip: { derive: "cut", cells: [{ specId: "s1", state: "done" }, { specId: "s2", state: "asked" }] } })], { needsYou: 1 }));
+    serve(list([ticket({ bucket: "needs_you", kind: "question", hold: hold("question", { act: { kind: "answer", target: null } }), status: "waiting_for_input", attemptCount: 2, newestRunId: "r-q", pendingQuestion: { runId: "r-q", question } })], { needsYou: 1 }));
     renderTickets();
 
-    const send = await screen.findByRole("button", { name: "Send & resume attempt 2" });
-    fireEvent.change(screen.getByTestId("pending-question-input"), { target: { value: "IETF draft" } });
-    fireEvent.click(send);
-    await waitFor(() => expect(hoisted.apiFetch).toHaveBeenCalledWith("/api/runs/r-q/answer", expect.objectContaining({ method: "POST" })));
-    expect(screen.getByTestId("ticket-section-needs-you")).toHaveTextContent("Asked in spec 2");
+    const act = await screen.findByTestId("ticket-hold-act");
+    expect(act).toHaveTextContent("Answer the question");
+    expect(act).toHaveAttribute("href", "/tickets/shop/101");
+    expect(act.closest(".trow-act")).not.toBeNull();
+    expect(screen.queryByTestId("pending-question-input")).toBeNull();
+    expect(document.querySelector(".rgroup .answer")).toBeNull();
     expect(hoisted.fetchRun).not.toHaveBeenCalled();
-  });
-
-  it("TicketNeedsYou_Handback_RendersMarkdown", async () => {
-    serve(list([ticket({ bucket: "needs_you", kind: "handback", hold: hold("handback"), status: "waiting_for_input",
-      handback: { text: "## Handed back\n\n<a href=\"#\" data-vss-mention=\"version:2.0,abc\">@Ada Example</a> decide.", at: ago(5) } })], { needsYou: 1 }));
-    renderTickets();
-
-    const card = await screen.findByTestId("ticket-handback");
-    expect(card).toHaveTextContent("@Ada Example decide.");
-    expect(card.textContent).not.toContain("##");
-    expect(card.innerHTML).not.toContain("data-vss-mention");
   });
 
   it("AHandedBackTicket_ShowsTheRowsWords_WithoutAConversationFetch_AndLinksIntoTheConversation", async () => {
@@ -226,8 +217,9 @@ describe("TicketList", () => {
     serve(list([ticket({ ticketId: "45/1", bucket: "needs_you", kind: "handback", hold: hold("handback"), status: "waiting_for_input", handback: { text: "No such table exists.", at: ago(180) } })], { needsYou: 1 }));
     renderTickets();
 
-    expect((await screen.findByTestId("ticket-handback"))).toHaveTextContent("No such table exists.");
-    expect(screen.getByTestId("ticket-handback-reply")).toHaveAttribute("href", "/spec-dialog?ticket=45%2F1&project=shop");
+    const reply = await screen.findByTestId("ticket-handback-reply");
+    expect(reply).toHaveAttribute("href", "/spec-dialog?ticket=45%2F1&project=shop");
+    expect(reply).toHaveTextContent("Reply in the conversation");
     // 2026-10-13-9a59q: the Needs-you row itself opens the ticket's page.
     expect(screen.getByTestId("ticket-row-shop-45/1")).toHaveAttribute("href", "/tickets/shop/45%2F1");
     expect(hoisted.fetch.mock.calls.every(([query]) => !("conversation" in query))).toBe(true);

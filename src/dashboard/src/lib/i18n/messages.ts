@@ -1015,9 +1015,27 @@ export const messages = {
   "hold.title.ci_failed": { en: "Your move: CI failed", de: "Du bist dran: die CI ist fehlgeschlagen" },
   "hold.act.pull_request": { en: "Open the pull request", de: "Pull Request öffnen" },
   "hold.act.pull_requests": { en: "Open the pull requests below", de: "Öffne die Pull Requests unten" },
+  // 2026-11-23-849e: a ticket that starts once others merge waits on nobody; the series' one merge says what it unblocks.
   "hold.sentence.starts_on_merge": {
-    en: { one: "Starts once {names} is merged.", other: "Starts once {names} are merged, in that order." },
-    de: { one: "Startet, sobald {names} gemergt ist.", other: "Startet, sobald {names} gemergt sind, in dieser Reihenfolge." },
+    en: { one: "Waits for one merge: {next}. Nothing for you to do.", other: "Waits for {count} merges, next {next}. Nothing for you to do." },
+    de: {
+      one: "Wartet auf einen Merge: {next}. Für dich gibt es nichts zu tun.",
+      other: "Wartet auf {count} Merges, als Nächstes {next}. Für dich gibt es nichts zu tun.",
+    },
+  },
+  "hold.merge.tail.both": {
+    en: "{next} is next after it; merges are needed before {names} can start.",
+    de: "Danach ist {next} dran; erst nach weiteren Merges können {names} starten.",
+  },
+  "hold.merge.tail.next": { en: "{next} is next after it.", de: "Danach ist {next} dran." },
+  "hold.merge.tail.names": { en: "Merges are needed before {names} can start.", de: "Erst nach Merges können {names} starten." },
+  "hold.merge.approves": {
+    en: "Merging approves the pull request where its host requires a review, as agent-smith's configured identity, and asks the host to complete it once its rules pass.",
+    de: "Mergen genehmigt den Pull Request, wo sein Host ein Review verlangt, als die in agent-smith konfigurierte Identität, und lässt ihn vom Host abschließen, sobald dessen Regeln erfüllt sind.",
+  },
+  "hold.escalated.ci_running": {
+    en: "CI has been running for {duration}: check the pipeline. Longer than {minutes} minutes ({key}), reported to the admin.",
+    de: "Die CI läuft seit {duration}: prüf die Pipeline. Länger als {minutes} Minuten ({key}), an den Admin gemeldet.",
   },
   "hold.sentence.working": { en: "Attempt {n} is working. Nothing for you to do.", de: "Versuch {n} arbeitet. Für dich gibt es nichts zu tun." },
   // 2026-11-23-31dci: a wait on nobody says since when; one past holds.escalate_after_minutes is reported to the admin.
@@ -1073,7 +1091,6 @@ export const messages = {
   "hold.title.handback": { en: "Your move: the ticket came back to you", de: "Du bist dran: das Ticket ist zu dir zurückgekommen" },
   "hold.title.text_edited": { en: "Your move: the ticket text changed", de: "Du bist dran: der Tickettext hat sich geändert" },
   "hold.title.merge_next": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
-  "hold.title.starts_on_merge": { en: "Your move: merge what it waits for", de: "Du bist dran: merge, worauf es wartet" },
   "hold.title.nobody": { en: "Nothing for you to do", de: "Für dich gibt es nichts zu tun" },
   "hold.title.stuckOn": { en: "Stuck: {subject}", de: "Hängt: {subject}" },
   "hold.act.answer": { en: "Answer the question", de: "Frage beantworten" },
@@ -1081,10 +1098,11 @@ export const messages = {
   "hold.act.conversation": { en: "Reply below", de: "Unten antworten" },
   "hold.act.plan": { en: "Talk about the plan", de: "Über den Plan sprechen" },
   "hold.act.discuss": { en: "Discuss in the conversation", de: "Im Gespräch klären" },
+  "hold.act.reply": { en: "Reply in the conversation", de: "Im Gespräch antworten" },
   "hold.act.retry": { en: "Retry unchanged", de: "Unverändert wiederholen" },
   "hold.act.merge": { en: "Merge", de: "Mergen" },
   "hold.act.merging": { en: "Merging…", de: "Wird gemergt…" },
-  "hold.act.merge_next": { en: "Open Merge next", de: "Als Nächstes mergen öffnen" },
+  "hold.act.series": { en: "Open the series", de: "Serie öffnen" },
   "hold.act.trust": { en: "Trust the registry in Settings", de: "Registry in den Einstellungen vertrauen" },
   "hold.act.trustNote": {
     en: "Add the image's registry to the sandbox's trusted registries, then start the next attempt.",
@@ -1099,15 +1117,29 @@ export const messages = {
   "hold.tag.plan": { en: "plan gap", de: "Lücke im Plan" },
   "hold.tag.merge": { en: "needs merges", de: "braucht Merges" },
   "hold.tag.nobody": { en: "start on their own", de: "starten von selbst" },
-  "series.section.held": { en: "What holds the rest", de: "Was den Rest aufhält" },
+  "series.section.held": { en: "Who moves next", de: "Wer ist dran" },
   "series.holds.sub": {
-    en: "Tickets that will not move on by themselves, and who has to move each one. The next merge is under Merge next.",
-    de: "Tickets, die nicht von selbst weiterkommen, und wer sie jeweils bewegen muss. Der nächste Merge steht unter Als Nächstes mergen.",
+    en: "Who moves each ticket that will not move on by itself. The next merge is under Merge next.",
+    de: "Wer jedes Ticket bewegt, das nicht von selbst weiterkommt. Der nächste Merge steht unter Als Nächstes mergen.",
   },
   "series.holds.empty": {
-    en: "Nothing holds the rest: each ticket merges next or moves on by itself.",
-    de: "Nichts hält den Rest auf: jedes Ticket wird als Nächstes gemergt oder kommt von selbst weiter.",
+    en: "Nobody has to move anything: each ticket merges next or moves on by itself.",
+    de: "Niemand muss etwas bewegen: jedes Ticket wird als Nächstes gemergt oder kommt von selbst weiter.",
   },
+  // 2026-11-23-849e: the series page's first lines — what the person does next, read from the holds.
+  "series.you.title": { en: "Your next step", de: "Dein nächster Schritt" },
+  "series.you.merge": { en: "Review and merge {prs} ({key}).", de: "Prüf und merge {prs} ({key})." },
+  "series.you.nothing": { en: "Nothing for you to do now.", de: "Gerade gibt es für dich nichts zu tun." },
+  "series.you.without": {
+    en: { one: "1 ticket continues without merging", other: "{count} tickets continue without merging" },
+    de: { one: "1 Ticket geht ohne Merge weiter", other: "{count} Tickets gehen ohne Merge weiter" },
+  },
+  "series.you.need": {
+    en: { one: "1 needs merges to start ({names})", other: "{count} need merges to start ({names})" },
+    de: { one: "1 braucht Merges, um zu starten ({names})", other: "{count} brauchen Merges, um zu starten ({names})" },
+  },
+  "series.you.needNone": { en: "none needs a merge to start", de: "keines braucht einen Merge, um zu starten" },
+  "series.you.merges": { en: "{without}; {need}.", de: "{without}; {need}." },
   "series.holds.more": { en: { one: "1 more", other: "{count} more" }, de: { one: "1 weiteres", other: "{count} weitere" } },
   "series.holds.moreSub": {
     en: "They move on by themselves. Nobody needs to do anything.",

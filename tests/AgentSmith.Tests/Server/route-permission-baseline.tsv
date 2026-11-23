@@ -98,7 +98,6 @@ GET	/api/spec-dialog/{dialogId}	dialog.write	dialog
 GET	/api/spec-dialog/{dialogId}/filed-work	dialog.write,runs.read	dialog
 GET	/api/spec-dialog/{dialogId}/series	dialog.write,runs.read	dialog
 GET	/api/tickets	runs.read	across
-GET	/api/tickets/graph	runs.read	across
 GET	/api/tickets/{project}/{ticketId}	runs.read	route:project
 GET	/api/tickets/{project}/{ticketId}/approval-preview	dialog.write	route:project
 GET	/api/tickets/{project}/{ticketId}/conversation	runs.read	route:project

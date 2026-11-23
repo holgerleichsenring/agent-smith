@@ -4,7 +4,7 @@ import type { TicketHoldCase } from "@/types/tickets";
 import { hold, list, ticket } from "../../__tests__/ticketFixtures";
 import { attempt } from "../../detail/__tests__/detailFixtures";
 import {
-  countsFor, holdActLabel, holdAsk, holdRowAct, holdSentence, holdTag, isPersons, isYourMove, namesOf, sinceClock, toldOf,
+  countsFor, durationOf, holdActLabel, holdAsk, holdRowAct, holdSentence, holdTag, isPersons, isYourMove, mergeTail, namesOf, sinceClock, toldOf,
   waitClause, yourMoveCount,
 } from "../holdWords";
 import { holdPullRequestHref, holdSeriesHref, isAsked } from "../holdRoutes";
@@ -28,7 +28,28 @@ describe("holdWords", () => {
     }
     expect(holdSentence(hold("failed", { attempt: 3 }))).toBe("Attempt 3 failed.");
     expect(holdSentence(hold("merge_after", { names: ["SCRUM-1", "SCRUM-2"] }))).toBe("Merges after SCRUM-1 and SCRUM-2. Nothing for you to do yet.");
-    expect(holdSentence(hold("starts_on_merge", { names: ["#1"] }), translator("de"))).toBe("Startet, sobald #1 gemergt ist.");
+    expect(holdSentence(hold("starts_on_merge", { addressee: "nobody", names: ["#1"] }), translator("de")))
+      .toBe("Wartet auf einen Merge: #1. Für dich gibt es nichts zu tun.");
+  });
+
+  // 2026-11-23-849e: the series' one merge says what merging unblocks and that it approves; a ticket that starts on merges
+  // says how many it waits for and which is next; a CI that ran past the minutes says how long and what to check.
+  it("holdSentence_TheSeriesMerge_TheMergesAStartWaitsFor_AndAHungCi", () => {
+    const merge = hold("merge_next", { next: "#19649", names: ["#19662", "#19665"], approves: true });
+    expect(holdSentence(merge)).toBe("Its pull request is next in the series' merge order. #19649 is next after it; merges are needed "
+      + "before #19662 and #19665 can start. Merging approves the pull request where its host requires a review, as agent-smith's "
+      + "configured identity, and asks the host to complete it once its rules pass.");
+    expect(mergeTail(hold("merge_next", { next: "#2" }))).toBe("#2 is next after it.");
+    expect(mergeTail(hold("merge_next", { names: ["#9"] }), translator("de"))).toBe("Erst nach Merges können #9 starten.");
+    expect(mergeTail(hold("merge_next"))).toBeNull();
+    const waits = hold("starts_on_merge", { addressee: "nobody", names: ["#19653"], merges: 5, next: "#19648" });
+    expect(holdSentence(waits)).toBe("Waits for 5 merges, next #19648. Nothing for you to do.");
+    expect(holdSentence(waits, translator("de"))).toBe("Wartet auf 5 Merges, als Nächstes #19648. Für dich gibt es nichts zu tun.");
+    const now = new Date("2026-11-23T12:00:00Z");
+    const hung = hold("ci_running", { addressee: "admin", since: "2026-11-23T07:00:00Z", escalation: { afterMinutes: 60, key: "holds.escalate_after_minutes" } });
+    expect(holdSentence(hung, translator("en"), now))
+      .toBe("CI has been running for 5 h: check the pipeline. Longer than 60 minutes (holds.escalate_after_minutes), reported to the admin.");
+    expect([durationOf("2026-11-23T11:15:00Z", now), durationOf("2026-11-20T12:00:00Z", now)]).toEqual(["45 min", "3 d"]);
   });
 
   it("holdSentence_AStop_QuotesWhatItRecorded_FromTheHoldAlone", () => {
@@ -64,7 +85,8 @@ describe("holdWords", () => {
       .toEqual(["Talk about the plan", "Talk about the plan", "Über den Plan sprechen"]);
     const path = (id: string) => `/series/${id}`;
     expect(holdSeriesHref(plan, path)).toBe("/series/sr-1?section=talk");
-    expect(holdSeriesHref(hold("starts_on_merge", { act: { kind: "merge_next", target: "sr-1" } }), path)).toBe("/series/sr-1?section=next");
+    expect(holdSeriesHref(hold("starts_on_merge", { act: { kind: "series", target: "sr-1" } }), path)).toBe("/series/sr-1");
+    expect(holdActLabel(hold("starts_on_merge", { act: { kind: "series", target: "sr-1" } }), translator("de"))).toBe("Serie öffnen");
     expect(holdSeriesHref(hold("text_edited", { act: { kind: "conversation", target: null } }), path)).toBeNull();
     expect([isAsked(plan), isAsked(hold("question_environment")), isAsked(hold("question")), isAsked(hold("handback"))])
       .toEqual([true, true, true, false]);

@@ -23,7 +23,8 @@ namespace AgentSmith.Server.Services.Sweep;
 /// the PR sweep sees no change when a build finishes. They share tickets.pr_reread_open_cap with the rest.</para>
 /// <para>2026-11-17-3435b: the CI loop rides on it — it ticks at the smallest merge.ci_poll_seconds of the on_ci_green
 /// projects (<see cref="CiWatchSelection"/>), nudges their CI-due records every tick and runs the rest at its interval.
-/// 2026-11-18-3863f: every tick also runs the deploy follow, and ticks at its cadence while a deploy is unsettled.</para>
+/// 2026-11-18-3863f: every tick also runs the deploy follow, and ticks at its cadence while a deploy is unsettled.
+/// 2026-11-23-849e: every project's open pull requests, whatever its merge mode — their holds read the CI.</para>
 /// </summary>
 public sealed class PrRecordReReadHostedService(
     IServiceProvider services,
@@ -88,7 +89,7 @@ public sealed class PrRecordReReadHostedService(
         return count;
     }
 
-    /// <summary>2026-11-17-3435b: a CI tick between full re-reads — only the on_ci_green projects' CI-due records.</summary>
+    /// <summary>2026-11-17-3435b: a CI tick between full re-reads — only the CI-due records (2026-11-23-849e: of every project).</summary>
     public async Task<int> CiOnceAsync(CancellationToken ct) =>
         await NudgeAsync(await CiDueAsync([.. configLoader.LoadConfig(serverContext.ConfigPath).Projects.Values], ct), ct);
 

@@ -69,7 +69,6 @@ public sealed class ProjectScopeTicketTests(ProjectScopeAuthorityFixture fixture
     [Theory]
     [InlineData("/api/tickets")]
     [InlineData("/api/runs")]
-    [InlineData("/api/tickets/graph")]
     public async Task ProjectScope_AcrossProjectsRoute_ProjectOnlyCaller_IsAdmittedAndFiltered(string path)
     {
         var response = await SendAsync(AlphaTeam, HttpMethod.Get, path);

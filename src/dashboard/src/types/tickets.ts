@@ -171,11 +171,12 @@ export type TicketHoldCase =
   | "merge_ready" | "ci_failed" | "ci_running"
   | "working" | "model_wait" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite";
 
-/** 2026-11-23-31dcg: the one act of a hold; the target is a run id (retry), a series id (merge, merge_next), a path
+/** 2026-11-23-31dcg: the one act of a hold; the target is a run id (retry), a series id (merge, series), a path
  *  (settings) or the project (init) (TicketHoldActs). 2026-11-23-31dch: a conversation with a series id is that series'.
- *  2026-11-23-d60d: pull_request opens the one open pull request (its URL; null when several are open). */
+ *  2026-11-23-d60d: pull_request opens the one open pull request (its URL; null when several are open).
+ *  2026-11-23-849e: series opens the series' page (it replaced merge_next, which offered a merge nobody could make). */
 export interface TicketHoldAct {
-  kind: "answer" | "conversation" | "retry" | "merge" | "merge_next" | "settings" | "init" | "pull_request";
+  kind: "answer" | "conversation" | "retry" | "merge" | "series" | "settings" | "init" | "pull_request";
   target: string | null;
 }
 
@@ -193,6 +194,12 @@ export interface TicketHold {
   detail?: EndDetail | null;
   /** 2026-11-23-31dci: a wait on nobody that outlasted the configured minutes and is the admin's now (TicketHoldEscalation). */
   escalation?: TicketHoldEscalation | null;
+  /** 2026-11-23-849e: the series' merge after this one (merge_next) or the merge that comes first (starts_on_merge). */
+  next?: string | null;
+  /** 2026-11-23-849e: how many merges a starts_on_merge hold waits for. */
+  merges?: number | null;
+  /** 2026-11-23-849e: the merge act approves the pull request where its host requires a review. */
+  approves?: boolean;
 }
 
 /** 2026-11-23-31dci: why a wait is the admin's — it lasted longer than afterMinutes, the value of the config key `key`. */
@@ -843,40 +850,17 @@ export interface RunCompute {
   unattributedCalls: number;
 }
 
-// 2026-10-14-dbcen: the requires graph (GET /api/tickets/graph) and one ticket's requires
-// (GET /api/tickets/{project}/{ticketId}/requires).
+// 2026-10-14-dbcen: one ticket's requires (GET /api/tickets/{project}/{ticketId}/requires). 2026-11-23-849e: the
+// requires graph and its view are gone; the series page draws its order and branches.
 
 /** merged | done-by-hand | running | blocked | ready, else the list bucket (idle without a page). */
-export type TicketGraphState = string;
-
-export interface TicketGraphNode {
-  /** The tracker connection and the ticket key — what the edges name. */
-  id: string;
-  project: string;
-  ticketId: string;
-  key: string;
-  title: string;
-  state: TicketGraphState;
-  bucket: TicketServerBucket;
-  hasPage: boolean;
-}
-
-/** from (the dependent) requires to. */
-export interface TicketGraphEdge {
-  from: string;
-  to: string;
-}
-
-export interface TicketGraph {
-  nodes: TicketGraphNode[];
-  edges: TicketGraphEdge[];
-}
+export type TicketRequirementState = string;
 
 export interface TicketRequirement {
   ticketId: string;
   key: string;
   title: string;
-  state: TicketGraphState;
+  state: TicketRequirementState;
   hasPage: boolean;
   /** merged | by-hand */
   landedKind?: string | null;

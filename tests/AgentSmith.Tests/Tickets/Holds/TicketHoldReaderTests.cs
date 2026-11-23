@@ -66,14 +66,60 @@ public sealed class TicketHoldReaderTests
     }
 
     [Fact]
-    public void Merge_TheNextInTheSeriesOrder_OrAStartAfterMerges()
+    public void Merge_TheNextInTheSeriesOrder()
     {
         _reader.Of(Facts(RunStatuses.Success) with { SeriesId = "sr-1", MergeStep = Step(SeriesRunMergeWaits.Ready) })!
             .Should().BeEquivalentTo(new TicketHold(TicketHoldAddressees.Merge, TicketHoldCases.MergeNext,
                 new TicketHoldAct(TicketHoldActs.Merge, "sr-1"), T) { Attempt = 2 });
-        _reader.Of(new TicketHoldFacts("alpha", "43") { SeriesId = "sr-1", StartsOnceMerged = ["#42"] })!
-            .Should().Match<TicketHold>(h => h.Case == TicketHoldCases.StartsOnMerge && h.Names.Single() == "#42"
-                && h.Act!.Kind == TicketHoldActs.MergeNext && h.Act.Target == "sr-1");
+    }
+
+    // 2026-11-23-849e: the series' one merge hold names the step after it and what waits on merges to start, and whether
+    // merging approves; a ticket that starts only on merges waits on nobody for them, the series' next first.
+    private static readonly SeriesRunMergeStep[] Order =
+    [
+        new("42", "#42", 0, SeriesRunMergeWaits.Ready, []), new("44", "#44", 1, SeriesRunMergeWaits.After, ["#42"]),
+        new("45", "#45", 2, SeriesRunMergeWaits.After, ["#44"]),
+    ];
+
+    [Fact]
+    public void Merge_TheSeriesNextMerge_NamesWhatItUnblocksAndTheNextStep()
+    {
+        var hold = _reader.Of(Facts(RunStatuses.Success) with
+        {
+            SeriesId = "sr-1", MergeStep = Order[0], SeriesMergeOrder = Order, SeriesStartsOnMerge = ["#50", "#51"], MergeApproves = true,
+        })!;
+
+        (hold.Addressee, hold.Case, hold.Next, hold.Approves).Should().Be((TicketHoldAddressees.Merge, TicketHoldCases.MergeNext, "#44", true));
+        hold.Names.Should().Equal("#50", "#51");
+    }
+
+    [Fact]
+    public void Nobody_ANeverRunTicketThatStartsOnMerges_WaitsForThemWithTheSeriesNextFirst()
+    {
+        var hold = _reader.Of(new TicketHoldFacts("alpha", "50")
+        {
+            SeriesId = "sr-1", SeriesMergeOrder = Order, StartsOnceMerged = ["#45"], FiledAt = T,
+        })!;
+
+        (hold.Addressee, hold.Case, hold.Merges, hold.Next, hold.Since).Should()
+            .Be((TicketHoldAddressees.Nobody, TicketHoldCases.StartsOnMerge, (int?)3, "#42", (DateTimeOffset?)T));
+        hold.Act.Should().Be(new TicketHoldAct(TicketHoldActs.Series, "sr-1"));
+        hold.Names.Should().Equal("#45");
+        _reader.Of(new TicketHoldFacts("alpha", "51") { StartsOnceMerged = ["#60"] })!
+            .Should().Match<TicketHold>(h => h.Merges == 1 && h.Next == "#60" && h.Act == null, "outside any series' order it waits for its own merges");
+        _reader.Of(new TicketHoldFacts("alpha", "52") { SeriesId = "sr-1", SeriesMergeOrder = Order, StartsOnceMerged = ["#61"] })!
+            .Should().Match<TicketHold>(h => h.Merges == 1 && h.Next == "#61", "a merge it needs has no pull request in the order yet");
+    }
+
+    [Fact]
+    public void Escalation_ACiRunningLongerThanTheMinutes_IsTheAdmins()
+    {
+        var open = new TicketOpenPullRequests(AgentSmith.Contracts.Reviews.CiStates.Pending, T);
+        var facts = Facts(RunStatuses.Success) with { OpenPullRequests = open, EscalateAfterMinutes = 60 };
+
+        _reader.Of(facts with { Now = T.AddHours(5) })!.Should().Match<TicketHold>(h =>
+            h.Addressee == TicketHoldAddressees.Admin && h.Case == TicketHoldCases.CiRunning && h.Escalation!.AfterMinutes == 60);
+        _reader.Of(facts with { Now = T.AddMinutes(30) })!.Addressee.Should().Be(TicketHoldAddressees.Nobody);
     }
 
     [Fact]
@@ -124,9 +170,12 @@ public sealed class TicketHoldReaderTests
     [Fact]
     public void Precedence_MergeOverNobody()
     {
-        var facts = new TicketHoldFacts("alpha", "43") { SeriesId = "sr-1", StartsOnceMerged = ["#42"], WaitsFor = ["#41"] };
+        var facts = Facts(RunStatuses.Success) with { SeriesId = "sr-1", MergeStep = Step(SeriesRunMergeWaits.Ready), WaitsFor = ["#41"] };
         _reader.Nobody(facts).Should().NotBeNull();
         _reader.Of(facts)!.Addressee.Should().Be(TicketHoldAddressees.Merge);
+        // 2026-11-23-849e: a start on merges is nobody's, ahead of a requirement still worked.
+        _reader.Of(new TicketHoldFacts("alpha", "43") { StartsOnceMerged = ["#42"], WaitsFor = ["#41"] })!.Case
+            .Should().Be(TicketHoldCases.StartsOnMerge);
     }
 
     [Fact]

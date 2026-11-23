@@ -16,14 +16,14 @@ import { seriesDetail, seriesTicket } from "./seriesFixtures";
 vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRunChanges: async () => ({ changes: [], unread: [] }) }));
 
 const edited = hold("text_edited", { act: { kind: "conversation", target: null } });
-const startsOnMerge = hold("starts_on_merge", { names: ["#49"], act: { kind: "merge_next", target: "sr-1" } });
+const startsOnMerge = hold("starts_on_merge", { names: ["#49"], merges: 1, next: "#49", act: { kind: "series", target: "sr-1" } });
 
 const detail = () => seriesDetail({
   counts: { total: 5, landed: 0, waiting: 1, held: 2, notStarted: 1 },
   tickets: [
     seriesTicket({ ticketId: "49", key: "#49", title: "Domain", hold: hold("merge_next", { act: { kind: "merge", target: "sr-1" } }) }),
     seriesTicket({ ticketId: "61", key: "#61", title: "Callbacks", hold: edited, isHeld: true }),
-    seriesTicket({ ticketId: "58", key: "#58", title: "Admin dashboard", hold: startsOnMerge, isHeld: true }),
+    seriesTicket({ ticketId: "58", key: "#58", title: "Admin dashboard", hold: startsOnMerge }),
     seriesTicket({ ticketId: "62", key: "#62", title: "Sources", hold: hold("working") }),
     seriesTicket({ ticketId: "63", key: "#63", title: "Docs", hold: hold("prerequisite", { names: ["#62"] }) }),
   ],
@@ -38,9 +38,9 @@ describe("SeriesHoldsSection", () => {
     expect(screen.getByTestId("series-hold-sentence-61")).toHaveTextContent("Settle it in the conversation.");
     expect(screen.getByTestId("series-hold-act-61")).toHaveAttribute("href", "/tickets/shop/61");
     expect(screen.getByTestId("series-hold-act-61")).toHaveTextContent("Discuss in the conversation");
-    expect(screen.getByTestId("series-hold-sentence-58")).toHaveTextContent("Starts once #49 is merged.");
-    expect(screen.getByTestId("series-hold-act-58")).toHaveAttribute("href", "/series/sr-1?section=next");
-    expect(screen.getByTestId("series-holds-moving")).toHaveTextContent("2 more");
+    // 2026-11-23-849e: a ticket that starts on merges is nobody's — counted with the ones that move on by themselves.
+    expect(screen.queryByTestId("series-hold-58")).toBeNull();
+    expect(screen.getByTestId("series-holds-moving")).toHaveTextContent("3 more");
   });
 
   // 2026-11-23-d60d: red CI on a series ticket's pull request is a decision whose act opens the pull request.

@@ -80,25 +80,21 @@ public sealed class TicketHoldReader
             : null;
     }
 
-    /// <summary>The ticket's pull request merges next in its series, or a never-run ticket starts once others are merged. A
-    /// ticket at work is not held by its pull request. 2026-11-23-d60d: nor one whose CI still runs; one outside any series'
-    /// merge order merges now when nothing it requires is unlanded, by opening the pull request.</summary>
+    /// <summary>The ticket's pull request merges next in its series (2026-11-23-849e: the series' one merge hold,
+    /// <see cref="TicketSeriesMergeHold"/>). A ticket at work is not held by its pull request. 2026-11-23-d60d: nor one whose
+    /// CI still runs; one outside any series' merge order merges now when nothing it requires is unlanded.</summary>
     public TicketHold? Merge(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        if (facts.StartsOnceMerged.Count > 0)
-            return Hold(facts, TicketHoldAddressees.Merge, TicketHoldCases.StartsOnMerge,
-                facts.SeriesId is { } series ? new(TicketHoldActs.MergeNext, series) : null, null) with { Names = facts.StartsOnceMerged };
         if (AtWork(facts) || TicketPullRequestHold.CiHolds(facts)) return null;
-        return facts.MergeStep is { Wait: SeriesRunMergeWaits.Ready } && facts.SeriesId is { } id
-            ? Hold(facts, TicketHoldAddressees.Merge, TicketHoldCases.MergeNext, new(TicketHoldActs.Merge, id), facts.EndedAt)
-            : TicketPullRequestHold.Ready(facts);
+        return TicketSeriesMergeHold.Next(facts) ?? TicketPullRequestHold.Ready(facts);
     }
 
     /// <summary>The ticket moves on by itself: it works or waits for its model place (31dci), waits in the queue or resumes,
     /// the restart takes it up, its pull request merges after another, or what it requires is still worked. 31dci: a wait
     /// says since when — the model wait's start, the queue arrival, the interruption's end, the specs' approval.
-    /// 2026-11-23-d60d: and a pull request that waits on nobody says why (<see cref="TicketPullRequestHold.Waiting"/>).</summary>
+    /// 2026-11-23-d60d: and a pull request that waits on nobody says why (<see cref="TicketPullRequestHold.Waiting"/>).
+    /// 2026-11-23-849e: and a never-run ticket that starts once others merge waits for them.</summary>
     public TicketHold? Nobody(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
@@ -115,6 +111,7 @@ public sealed class TicketHoldReader
             return none(TicketHoldCases.MergeAfter, facts.EndedAt) with { Names = after.After };
         if (facts.MergeStep is { Wait: SeriesRunMergeWaits.Retarget }) return none(TicketHoldCases.Retarget, facts.EndedAt);
         if (TicketPullRequestHold.Waiting(facts) is { } waits) return waits;
+        if (TicketSeriesMergeHold.StartsOnMerge(facts) is { } merges) return merges; // 2026-11-23-849e: nobody's, not a merge
         return facts.WaitsFor.Count > 0 ? none(TicketHoldCases.Prerequisite, facts.FiledAt) with { Names = facts.WaitsFor } : null;
     }
 }

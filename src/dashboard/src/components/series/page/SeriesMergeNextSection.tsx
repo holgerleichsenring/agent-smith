@@ -8,11 +8,14 @@ import { mergeSeriesTicket, type SeriesMergeResult } from "@/lib/seriesRunsApi";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunDetail, SeriesRunMergeStep, SeriesRunPullRequest } from "@/types/seriesRuns";
 import { RUNS_CONTROL } from "../../tickets/detail/RetryUnchanged";
+import { holdSentence } from "../../tickets/holds/holdWords";
+import { mergesNow } from "./seriesStepLines";
 
 // 2026-11-23-31dce: the series' open pull requests in merge order — per ticket each repo's pull request with its link and
 // CI (a red one with its failing check and log), why it waits, and on the ready row a Merge button (runs.control) that
 // starts a merge run. Only the ready row's button is enabled; the others say what comes first. What the run did, or why it
-// refused, stays on the row; the series is read again afterwards.
+// refused, stays on the row; the series is read again afterwards. 2026-11-23-849e: a ready step is the one to merge only while
+// its ticket's hold is that merge (mergesNow), the rule Your move and the series list read.
 
 type Outcome = { ticketId: string; result: SeriesMergeResult } | { ticketId: string; failed: string };
 
@@ -61,8 +64,10 @@ interface RowProps {
 function MergeRow({ detail, step, lacks, busy, onMerge, outcome }: RowProps) {
   const t = useT();
   const ticket = detail.tickets.find((candidate) => candidate.ticketId === step.ticketId);
-  const ready = step.wait === "ready";
-  const why = ready ? t("series.merge.ready")
+  // 2026-11-23-849e: ready only while the ticket's hold is the merge — a running or red CI says its hold's sentence instead.
+  const ready = mergesNow(detail, step);
+  const why = ready ? [t("series.merge.ready"), ticket?.hold?.approves ? t("hold.merge.approves") : null].filter(Boolean).join(" ")
+    : step.wait === "ready" && ticket?.hold ? holdSentence(ticket.hold, t)
     : step.wait === "retarget" ? t("series.merge.retarget") : t("series.merge.after", { keys: step.after.join(", ") });
   const waiting = (ticket?.pullRequests ?? []).filter((pr) => pr.state === "open" || pr.state === "unread");
   return (

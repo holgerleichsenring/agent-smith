@@ -23,6 +23,17 @@ public sealed record TicketHold(string Addressee, string Case, TicketHoldAct? Ac
     /// for every other hold. The case stays the wait's, so the sentence still says what it waits for.</summary>
     public TicketHoldEscalation? Escalation { get; init; }
 
+    /// <summary>2026-11-23-849e: the series' next merge after this one (a merge_next hold), or the merge to come first (a
+    /// starts_on_merge hold); null when none.</summary>
+    public string? Next { get; init; }
+
+    /// <summary>2026-11-23-849e: how many merges a starts_on_merge hold waits for; null for every other hold.</summary>
+    public int? Merges { get; init; }
+
+    /// <summary>2026-11-23-849e: the merge act approves the pull request where its host requires a review (the project
+    /// respects branch protection), as the repo's identity or merge.approval_auth.</summary>
+    public bool Approves { get; init; }
+
     /// <summary>A person's move: merge, plan or decide. An admin hold is the admin's, nobody's is no one's.</summary>
     [JsonIgnore]
     public bool IsPersons => Addressee is TicketHoldAddressees.Merge or TicketHoldAddressees.Plan or TicketHoldAddressees.Decide;

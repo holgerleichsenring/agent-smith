@@ -150,8 +150,8 @@ function holdAct(detail: TicketDetail, head: TicketAttempt | null, hold: TicketH
         ? { kind: "link", label: t("hold.act.trust"), href: act.target, note: t("hold.act.trustNote") }
         : { kind: "link", label: t("hold.act.settings"), href: act.target };
     case "merge": return act.target ? { kind: "merge", seriesId: act.target, ticketId: detail.summary.ticketId } : null;
-    case "merge_next":
-      return act.target ? { kind: "link", label: t("hold.act.merge_next"), href: `${seriesRunPath(act.target)}?section=next` } : null;
+    // 2026-11-23-849e: a ticket that waits on its series' merges opens the series.
+    case "series": return act.target ? { kind: "link", label: t("hold.act.series"), href: seriesRunPath(act.target) } : null;
     // 2026-11-23-d60d: the one open pull request on its host; several are drawn as the block's rows instead.
     case "pull_request": return act.target ? { kind: "link", label: t("hold.act.pull_request"), href: act.target } : null;
   }

@@ -9,7 +9,7 @@ export interface SeriesRunCounts {
   total: number;
   landed: number;
   waiting: number;
-  /** 2026-11-23-31dcg: the tickets What holds the rest lists — a hold names someone and is not the next merge. */
+  /** 2026-11-23-31dcg: the tickets What holds the rest (849e: Who moves next) lists — a hold names someone and is not the next merge. */
   held: number;
   notStarted: number;
 }
@@ -63,7 +63,7 @@ export interface SeriesRunTicket {
   pullRequests: SeriesRunPullRequest[];
   /** 2026-11-23-31dcg: the ticket's hold, as its ticket page and the ticket list read it. */
   hold?: TicketHold | null;
-  /** 2026-11-23-31dcg: What holds the rest lists it — what the series' held count counts. */
+  /** 2026-11-23-31dcg: What holds the rest (849e: Who moves next) lists it — what the series' held count counts. */
   isHeld?: boolean;
 }
 

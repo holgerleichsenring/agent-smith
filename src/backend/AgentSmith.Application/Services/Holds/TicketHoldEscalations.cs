@@ -10,9 +10,11 @@ namespace AgentSmith.Application.Services.Holds;
 public static class TicketHoldEscalations
 {
     /// <summary>The nobody cases that wait on something outside the run. A working attempt is bounded by its own wall time;
-    /// a merge or a requirement still worked carries its own hold.</summary>
+    /// a merge or a requirement still worked carries its own hold. 2026-11-23-849e: a CI that runs that long is a hung
+    /// pipeline (or a lost read), the same "something outside the run is wrong".</summary>
     public static bool Escalating(string @case) =>
-        @case is TicketHoldCases.ModelWait or TicketHoldCases.Queued or TicketHoldCases.Resuming or TicketHoldCases.Restarting;
+        @case is TicketHoldCases.ModelWait or TicketHoldCases.Queued or TicketHoldCases.Resuming or TicketHoldCases.Restarting
+            or TicketHoldCases.CiRunning;
 
     /// <summary>A nobody hold whose escalating wait has lasted longer than the configured minutes is the admin's, its case
     /// still the wait's and its escalation naming the value and the key; any other hold, a wait with no since, a read with

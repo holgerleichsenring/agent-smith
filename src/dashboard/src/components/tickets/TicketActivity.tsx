@@ -3,7 +3,7 @@ import { useT } from "@/hooks/useT";
 import type { T } from "@/lib/i18n/translate";
 import { TICKET_CLOSED_TRACKER, type TicketPullRequest, type TicketSummary } from "@/types/tickets";
 import { age, causeWords, failedAttempts, outcomeWords } from "./ticketFormat";
-import { holdSentence, holdTag } from "./holds/holdWords";
+import { holdAsk, holdSentence, holdTag } from "./holds/holdWords";
 
 // 2026-10-13-9a59p: the mock's .act line — what the ticket is doing and why, written only from
 // fields the row carries. No step or pass (the spec ledger is per run), no "sandboxes released",
@@ -41,6 +41,9 @@ function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
           {t.hold?.case === "handback" ? `handed back in ${attempt}` : t.hold?.case === "question" ? `question in ${attempt}`
             : t.hold ? holdTag(t.hold, tr) : null}
         </span>,
+        // 2026-11-23-849e: the hold's words sit in the row now that no block under it carries them — the question, the
+        // hand-back or the sentence (a series' merge says what it unblocks).
+        t.hold ? <span key="s">{holdAsk(t, tr)}</span> : null,
         specs(t),
         cause(tr, t),
         // 2026-11-23-d60d: a pull request to merge, or one whose CI failed, keeps its review decision in sight.
@@ -53,6 +56,9 @@ function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
     case "done":
       return pullRequests(t);
     case "blocked":
+      // 2026-11-23-849e: a ticket that starts once others merge says how many merges it waits for and which comes next.
+      if (t.hold?.case === "starts_on_merge") return [<span key="m">{holdSentence(t.hold, tr)}</span>];
+      return [filedWords(t.since)];
     case "filed":
       return [filedWords(t.since)];
     case "closed":

@@ -69,6 +69,9 @@ export function holdSentence(hold: TicketHold, t: T = EN, now: Date = new Date()
   const n = hold.attempt ?? 0;
   const names = namesOf(hold.names, t);
   const wait = waitClause(hold, t, now);
+  // 2026-11-23-849e: a CI that ran past the minutes is a hung pipeline — the sentence says how long and what to check.
+  if (hold.case === "ci_running" && hold.escalation && hold.since)
+    return t("hold.escalated.ci_running", { duration: durationOf(hold.since, now), minutes: hold.escalation.afterMinutes, key: hold.escalation.key });
   if (wait && hold.escalation)
     return t("hold.escalated", { wait, minutes: hold.escalation.afterMinutes, key: hold.escalation.key });
   if (wait) return t("hold.nobody", { wait });
@@ -86,7 +89,13 @@ export function holdSentence(hold: TicketHold, t: T = EN, now: Date = new Date()
     // 2026-11-23-d60d: red CI names its failed checks; a red read that recorded none says only that it failed.
     case "ci_failed":
       return hold.names.length > 0 ? t("hold.sentence.ci_failed", { names, count: hold.names.length }) : t("hold.sentence.ci_failed_bare");
-    case "starts_on_merge":
+    // 2026-11-23-849e: the series' one merge says what it unblocks and, where it does, that merging approves.
+    case "merge_next": return [t("hold.sentence.merge_next"), mergeTail(hold, t), hold.approves ? t("hold.merge.approves") : null]
+      .filter(Boolean).join(" ");
+    case "starts_on_merge": {
+      const count = hold.merges ?? hold.names.length;
+      return t("hold.sentence.starts_on_merge", { count, next: hold.next ?? names });
+    }
     case "merge_after":
     case "prerequisite":
       return t(`hold.sentence.${hold.case}`, { names, count: hold.names.length });
@@ -102,11 +111,28 @@ export function holdActLabel(hold: TicketHold, t: T = EN): string | null {
     case "conversation": return hold.act.target ? t("hold.act.plan") : t("hold.act.conversation");
     case "retry": return t("hold.act.retry");
     case "merge": return t("hold.act.merge");
-    case "merge_next": return t("hold.act.merge_next");
+    case "series": return t("hold.act.series");
     case "settings": return hold.case === "image_untrusted" && !hold.detail?.settingsPath ? t("hold.act.trust") : t("hold.act.settings");
     case "init": return t("hold.act.init");
     case "pull_request": return hold.act.target ? t("hold.act.pull_request") : null;
   }
+}
+
+/** 2026-11-23-849e: what merging the series' next merge unblocks — the step after it and the tickets that start only on
+ *  merges; null when it names neither. */
+export function mergeTail(hold: TicketHold, t: T = EN): string | null {
+  const names = namesOf(hold.names, t);
+  if (hold.next && hold.names.length > 0) return t("hold.merge.tail.both", { next: hold.next, names });
+  if (hold.next) return t("hold.merge.tail.next", { next: hold.next });
+  return hold.names.length > 0 ? t("hold.merge.tail.names", { names }) : null;
+}
+
+/** 2026-11-23-849e: how long since an instant — "45 min", "5 h", "3 d"; the units read the same in both languages. */
+export function durationOf(iso: string, now: Date = new Date()): string {
+  const minutes = Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / 60000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? `${hours} h` : `${Math.floor(hours / 24)} d`;
 }
 
 /** The act a Your move row or a series row names — it opens the ticket, where the act is; talk is "discuss" there. */

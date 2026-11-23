@@ -28,12 +28,13 @@ public sealed class SeriesRunOverviewReader(
         {
             var facts = await reads.ReadAsync(projects.Of(project.Key)!, [.. project.SelectMany(r => r.Tickets)], ct);
             foreach (var record in project)
-                rows[record.Id] = Row(record, called[record.Id], tickets.Of(record, facts, held.GetValueOrDefault(project.Key)));
+                rows[record.Id] = Row(record, called[record.Id], tickets.Of(record, facts, // 849e: read holds, none is no merge
+                    held.GetValueOrDefault(project.Key) ?? new Dictionary<string, AgentSmith.Application.Services.Holds.TicketHold>()));
         }
         return [.. records.Select(r => rows[r.Id])];
     }
 
     private static SeriesRunRow Row(SeriesRunRecord record, string name, SeriesRunTicketsShape shape) => new(
         record.Id, name, record.Project, record.State, shape.Counts,
-        shape.MergeOrder.FirstOrDefault(s => s.Wait == SeriesRunMergeWaits.Ready)?.Key, SeriesRunQuestion.Of(record), record.LastActivityAt);
+        shape.NextMerge, SeriesRunQuestion.Of(record), record.LastActivityAt); // 2026-11-23-849e: the hold's rule
 }
