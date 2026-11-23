@@ -12,6 +12,7 @@ import {
   setBindingPeople,
   setBindingRoles,
 } from "./projectBindings";
+import { useT } from "@/hooks/useT";
 
 // 2026-10-15-4a4df: Access → Projects. Roles held in ONE project, beside the global grants the
 // other panes edit. A project may carry several bindings — "team A operates, team B reads" is
@@ -27,6 +28,7 @@ export function ProjectsPane({
   draft: AccessDocument;
   onChange: (next: AccessDocument) => void;
 }) {
+  const t = useT();
   const rows = projectsOf(view, draft);
   const people = peopleOf(view, draft)
     .filter((person) => person.nameClaim === view.nameClaim)
@@ -36,20 +38,20 @@ export function ProjectsPane({
     <PagedRows
       rows={rows}
       testId="access-projects"
-      searchLabel="Search projects"
-      searchPlaceholder="Search by project name"
+      searchLabel={t("access.projects.search")}
+      searchPlaceholder={t("access.projects.searchPlaceholder")}
       matchesQuery={(row, query) => row.name.toLowerCase().includes(query)}
       filters={[
-        { key: "all", label: "All", matches: () => true },
-        { key: "bound", label: "Bound", matches: (row) => row.bindings.length > 0 },
-        { key: "unbound", label: "Unbound", matches: (row) => row.bindings.length === 0 },
-        { key: "unconfigured", label: "Not configured", matches: (row) => !row.configured },
+        { key: "all", label: t("access.filter.all"), matches: () => true },
+        { key: "bound", label: t("access.projects.bound"), matches: (row) => row.bindings.length > 0 },
+        { key: "unbound", label: t("access.projects.unbound"), matches: (row) => row.bindings.length === 0 },
+        { key: "unconfigured", label: t("access.projects.notConfiguredFilter"), matches: (row) => !row.configured },
       ]}
-      emptyText="No project matches that."
+      emptyText={t("access.projects.empty")}
       header={
         <tr>
-          <th>Project</th>
-          <th>Bindings · roles held in this project only</th>
+          <th>{t("access.projects.project")}</th>
+          <th>{t("access.projects.bindings")}</th>
         </tr>
       }
       renderRow={(row) => (
@@ -58,7 +60,7 @@ export function ProjectsPane({
             <div className="who-name">{row.name}</div>
             {!row.configured && (
               <span className="unconfigured" data-testid={`access-project-${row.name}-unconfigured`}>
-                not configured
+                {t("access.projects.notConfigured")}
               </span>
             )}
           </td>
@@ -83,7 +85,7 @@ export function ProjectsPane({
                 data-testid={`access-project-${row.name}-add`}
                 onClick={() => onChange(addBinding(draft, row.name))}
               >
-                Add binding
+                {t("access.projects.addBinding")}
               </button>
             </div>
           </td>

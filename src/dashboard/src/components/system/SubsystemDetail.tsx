@@ -4,6 +4,7 @@ import { SystemEventType, type SystemEvent } from "@/types/system-events";
 import { EventDrawer, type DrawerEvent, type EventKind } from "@/components/execution/EventDrawer";
 import { describeSystemEvent, type SubsystemActivity } from "@/hooks/useSubsystemActivity";
 import { cn } from "@/lib/utils";
+import { useT } from "@/hooks/useT";
 
 // p0209b: the detail pane of the rail-driven System master/detail. Renders one
 // subsystem's stream in full — section rule + active/idle pill + freshness +
@@ -22,16 +23,17 @@ export function SubsystemDetail({
   activity: SubsystemActivity;
   heading?: string;
 }) {
+  const t = useT();
   const live = activity.live;
   return (
     <section data-testid={`subsystem-detail-${activity.id}`}>
       <div className="section-head">
         <h2 data-testid="subsystem-detail-title">{heading ?? activity.label}</h2>
         <span data-testid="subsystem-detail-pill" className={cn("cnt", live && "live")}>
-          {live ? "active" : "idle"}
+          {live ? t("system.subsystem.active") : t("system.subsystem.idle")}
         </span>
         <span data-testid="subsystem-detail-freshness" className="sh-sub mono">
-          {activity.freshness === "—" ? "no recent activity" : activity.freshness}
+          {activity.freshness === "—" ? t("system.subsystem.noRecent") : activity.freshness}
         </span>
       </div>
 
@@ -52,8 +54,7 @@ export function SubsystemDetail({
           <div className="ei" aria-hidden>
             ◌
           </div>
-          No activity in the freshness window. This subsystem is event-driven and
-          idle right now.
+          {t("system.subsystem.empty")}
         </div>
       )}
     </section>

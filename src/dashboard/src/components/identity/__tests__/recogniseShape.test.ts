@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { recogniseShape } from "../recogniseShape";
 import type { AuthRequirements } from "@/lib/authRequirementsApi";
+import { translator } from "@/lib/i18n/translate";
 
 // 2026-09-14-c72e: the shortcut, never the diagnosis. A shape nobody here recognises still
 // leaves the comparison standing, so these cases are allowed to be a closed and short list.
 
 const SIGN_IN_CLIENT = "bc3fea88-the-dashboard";
 const API = "047bfc13-the-api";
+const en = translator("en");
 
 const refused = (over: Partial<AuthRequirements> = {}): AuthRequirements => ({
   enforced: true,
@@ -24,6 +26,7 @@ describe("recogniseShape", () => {
     const recognition = recogniseShape(
       refused({ presentedAudience: `api://${API}`, presentedTokenVersion: "1.0" }),
       SIGN_IN_CLIENT,
+      en,
     );
 
     expect(recognition).not.toBeNull();
@@ -44,6 +47,7 @@ describe("recogniseShape", () => {
         presentedTokenVersion: "2.0",
       }),
       SIGN_IN_CLIENT,
+      en,
     );
 
     expect(recognition!.shape).toContain("version 2 access token");
@@ -54,6 +58,7 @@ describe("recogniseShape", () => {
     const recognition = recogniseShape(
       refused({ presentedAudience: SIGN_IN_CLIENT }),
       SIGN_IN_CLIENT,
+      en,
     );
 
     expect(recognition!.shape).toContain("issued for the sign-in client");
@@ -64,19 +69,20 @@ describe("recogniseShape", () => {
     const recognition = recogniseShape(
       refused({ presentedAudience: "some-entirely-other-service" }),
       SIGN_IN_CLIENT,
+      en,
     );
 
     expect(recognition).toBeNull();
   });
 
   it("Recognition_NothingCouldBeDecoded_IsNotGuessedAt", () => {
-    expect(recogniseShape(refused(), SIGN_IN_CLIENT)).toBeNull();
+    expect(recogniseShape(refused(), SIGN_IN_CLIENT, en)).toBeNull();
   });
 
   it("Recognition_NoSignInClientConfigured_DoesNotMatchAnEmptyAudience", () => {
     // An installation with no client id must not have every token read as "issued for the
     // sign-in client" because two empty strings are equal.
-    expect(recogniseShape(refused({ presentedAudience: "" }), "")).toBeNull();
+    expect(recogniseShape(refused({ presentedAudience: "" }), "", en)).toBeNull();
   });
 
   it("Recognition_AppIdUriWithAScopeAppended_IsNotTheSameResource", () => {
@@ -85,6 +91,7 @@ describe("recogniseShape", () => {
     const recognition = recogniseShape(
       refused({ presentedAudience: `api://${API}/WebApp`, presentedTokenVersion: "1.0" }),
       SIGN_IN_CLIENT,
+      en,
     );
 
     expect(recognition).toBeNull();

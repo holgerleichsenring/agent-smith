@@ -11,6 +11,8 @@ import { BUILD_REVISION, RELEASE_VERSION } from "@/lib/buildIdentity";
 import { PageHead } from "./PageHead";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // 2026-08-27-729e: "what am I running", asked calmly. It is NOT in the banner stack above
 // every route — those name what is WRONG, and a permanent panel among them becomes
@@ -21,10 +23,8 @@ import { RefusalSurface } from "@/components/shell/RefusalSurface";
 // release is this bundle's own constant, labelled as its own, because it cannot reach the
 // server — the findings request carries the revision only.
 
-const NOT_STATED = "not stated by this build";
-const NO_VERSION = "no version stated";
-
 export function InstallationIdentityView() {
+  const t = useT();
   const [data, setData] = useState<InstallationIdentity | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
@@ -43,19 +43,19 @@ export function InstallationIdentityView() {
   return (
     <div data-testid="installation-view">
       <PageHead
-        title="Installation"
-        sub="Which build of agent-smith this installation runs — server, dashboard and sandbox agent — the database behind them, and the skill catalog they run on. Server, dashboard and agent are published together; a release they do not share is a redeploy waiting to happen."
+        title={t("system.installation.title")}
+        sub={t("system.installation.sub")}
       />
 
       {refusal ? (
-        <RefusalSurface refusal={refusal} surface="the installation report" />
+        <RefusalSurface refusal={refusal} surface={t("system.installation.surface")} />
       ) : error ? (
         <div className="stateline err" data-testid="installation-error">
-          Failed to read the installation report: {error.message}
+          {t("system.installation.failed", { message: error.message })}
         </div>
       ) : !data ? (
         <div className="stateline" data-testid="installation-loading">
-          Reading the installation report…
+          {t("system.installation.loading")}
         </div>
       ) : (
         <>
@@ -69,39 +69,42 @@ export function InstallationIdentityView() {
 }
 
 function Components({ data }: { data: InstallationIdentity }) {
+  const t = useT();
+  const notStated = t("system.installation.notStated");
+  const noRevision = t("system.installation.noRevision");
   return (
     <section data-testid="installation-components">
       <div className="section-head">
-        <h2>Components</h2>
+        <h2>{t("system.installation.components")}</h2>
         <span className="cnt">{2 + data.agents.length}</span>
       </div>
       <div style={{ height: 14 }} />
       <div className="list">
         <Row
           testId="installation-server"
-          name="Server"
-          value={data.serverRelease ?? NOT_STATED}
-          sub={data.serverRevision ? `revision ${short(data.serverRevision)}` : "no revision stamped"}
+          name={t("system.installation.server")}
+          value={data.serverRelease ?? notStated}
+          sub={data.serverRevision ? t("system.installation.revision", { revision: short(data.serverRevision) }) : noRevision}
         />
         {/* Read locally: this bundle's own stamp, never something the server told us. */}
         <Row
           testId="installation-dashboard"
-          name="Dashboard"
-          value={RELEASE_VERSION || NOT_STATED}
-          sub={BUILD_REVISION ? `revision ${short(BUILD_REVISION)}` : "no revision stamped"}
+          name={t("system.installation.dashboard")}
+          value={RELEASE_VERSION || notStated}
+          sub={BUILD_REVISION ? t("system.installation.revision", { revision: short(BUILD_REVISION) }) : noRevision}
         />
         {data.agents.map((agent) => (
           <Row
             key={agent.project}
             testId={`installation-agent-${agent.project}`}
-            name={`Sandbox agent · ${agent.project}`}
-            value={agent.version ?? NOT_STATED}
-            sub={agentSub(agent)}
+            name={t("system.installation.agent", { project: agent.project })}
+            value={agent.version ?? notStated}
+            sub={agentSub(agent, t)}
           />
         ))}
         {data.agents.length === 0 && (
           <div className="stateline" data-testid="installation-no-projects">
-            No project is configured, so no sandbox agent is spawned.
+            {t("system.installation.noProjects")}
           </div>
         )}
       </div>
@@ -115,71 +118,74 @@ function Components({ data }: { data: InstallationIdentity }) {
 // answer. A catalog that would not resolve still says what was configured, because that
 // is the moment this page is being read.
 function Catalog({ data }: { data: InstallationIdentity }) {
+  const t = useT();
   const { catalog } = data;
   return (
     <section data-testid="installation-catalog">
       <div className="section-head">
-        <h2>Skill catalog</h2>
+        <h2>{t("system.installation.catalog")}</h2>
       </div>
       <div style={{ height: 14 }} />
       <div className="list">
         <Row
           testId="installation-catalog-binding"
-          name="Bound to"
-          value={bindingValue(catalog)}
-          sub={
-            catalog.resolved
-              ? "resolved by this server"
-              : "configured — this catalog did not resolve"
-          }
+          name={t("system.installation.boundTo")}
+          value={bindingValue(catalog, t)}
+          sub={catalog.resolved ? t("system.installation.resolved") : t("system.installation.unresolved")}
         />
         <Row
           testId="installation-catalog-floor"
-          name="Embedded floor"
-          value={data.embeddedCatalogVersion ?? NOT_STATED}
-          sub="the catalog version this binary was built against"
+          name={t("system.installation.floor")}
+          value={data.embeddedCatalogVersion ?? t("system.installation.notStated")}
+          sub={t("system.installation.floorSub")}
         />
       </div>
     </section>
   );
 }
 
-function bindingValue(catalog: CatalogBinding): string {
-  const base = `${catalog.source} ${catalog.version ?? NO_VERSION}`;
-  return catalog.overlay ? `${base} + overlay ${catalog.overlay}` : base;
+function bindingValue(catalog: CatalogBinding, t: T): string {
+  const base = `${catalog.source} ${catalog.version ?? t("system.installation.noVersion")}`;
+  return catalog.overlay ? t("system.installation.overlay", { base, overlay: catalog.overlay }) : base;
 }
 
 function Database({ data }: { data: InstallationIdentity }) {
+  const t = useT();
   const { provider, reachable, pendingMigrations, error } = data.database;
   return (
     <section data-testid="installation-database">
       <div className="section-head">
-        <h2>Database</h2>
+        <h2>{t("system.installation.database")}</h2>
       </div>
       <div style={{ height: 14 }} />
       <div className="list">
-        <Row testId="installation-provider" name="Provider" value={provider} sub="from the configuration" />
+        <Row
+          testId="installation-provider"
+          name={t("system.installation.provider")}
+          value={provider}
+          sub={t("system.installation.fromConfig")}
+        />
         <Row
           testId="installation-migrations"
-          name="Migrations"
-          value={migrationValue(reachable, pendingMigrations)}
-          sub={error ?? "the schema this server records runs into"}
+          name={t("system.installation.migrations")}
+          value={migrationValue(reachable, pendingMigrations, t)}
+          sub={error ?? t("system.installation.schemaSub")}
         />
       </div>
     </section>
   );
 }
 
-function migrationValue(reachable: boolean, pending: number): string {
-  if (!reachable) return "unknown — the database did not answer";
-  if (pending === 0) return "up to date";
-  return `${pending} pending — run 'agentsmith database migrate'`;
+function migrationValue(reachable: boolean, pending: number, t: T): string {
+  if (!reachable) return t("system.installation.dbUnknown");
+  if (pending === 0) return t("system.installation.upToDate");
+  return t("system.installation.pending", { count: pending });
 }
 
-function agentSub(agent: SandboxAgentRelease): string {
-  if (agent.source === "pinned") return "pinned — this project names its own tag";
-  if (agent.source === "derived") return "derived — the tag follows this server's release";
-  return "underivable — this build carries no release to derive a tag from";
+function agentSub(agent: SandboxAgentRelease, t: T): string {
+  if (agent.source === "pinned") return t("system.installation.pinned");
+  if (agent.source === "derived") return t("system.installation.derived");
+  return t("system.installation.underivable");
 }
 
 function short(revision: string): string {

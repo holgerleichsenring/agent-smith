@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { ModelQuotaPanel } from "./ModelQuotaPanel";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 
 // p0292/p0293: the System → Connections view. The static ConfigView answers "how
 // is it wired"; this answers "does it actually work right now". Every runtime
@@ -33,14 +35,15 @@ import { ModelQuotaPanel } from "./ModelQuotaPanel";
 // Display order + labels for the connection categories the backend emits. The
 // agent group carries a cost note: unlike the read-only probes, an agent test
 // spends a tiny LLM call.
-const CATEGORY_GROUPS: Array<{ key: string; label: string; note?: string }> = [
-  { key: "service", label: "Repositories & trackers" },
-  { key: "agent", label: "Agents", note: "Each test spends a minimal (1-token) LLM call." },
-  { key: "infra", label: "Infrastructure" },
-  { key: "chat", label: "Chat" },
+const CATEGORY_GROUPS: Array<{ key: string; label: TextKey; note?: TextKey }> = [
+  { key: "service", label: "system.connections.service" },
+  { key: "agent", label: "system.connections.agent", note: "system.connections.agentNote" },
+  { key: "infra", label: "system.connections.infra" },
+  { key: "chat", label: "system.connections.chat" },
 ];
 
 export function ConnectionsView() {
+  const t = useT();
   const [data, setData] = useState<ConnectionDiagnostics | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [results, setResults] = useState<Record<string, ConnectionStatus>>({});
@@ -81,8 +84,8 @@ export function ConnectionsView() {
   return (
     <div data-testid="connections-view">
       <PageHead
-        title="Connections"
-        sub="Test whether every runtime connection — repositories, trackers, agents, and infrastructure — actually answers with its credentials. Probes are read-only and run only when you ask."
+        title={t("system.connections.title")}
+        sub={t("system.connections.sub")}
         right={
           data && data.connections.length > 0 ? (
             <button
@@ -91,21 +94,21 @@ export function ConnectionsView() {
               onClick={probeAll}
               data-testid="connections-test-all"
             >
-              Test all
+              {t("system.connections.testAll")}
             </button>
           ) : undefined
         }
       />
 
       {refusal ? (
-        <RefusalSurface refusal={refusal} surface="the connections" />
+        <RefusalSurface refusal={refusal} surface={t("system.connections.surface")} />
       ) : error ? (
         <div className="stateline err" data-testid="connections-error">
-          Failed to load connections: {error.message}
+          {t("system.connections.failed", { message: error.message })}
         </div>
       ) : !data ? (
         <div className="stateline" data-testid="connections-loading">
-          Loading connections…
+          {t("system.connections.loading")}
         </div>
       ) : (
         <>
@@ -114,14 +117,15 @@ export function ConnectionsView() {
               <div className="ei" aria-hidden>
                 ◳
               </div>
-              No connections configured.
+              {t("system.connections.empty")}
             </div>
           )}
           {CATEGORY_GROUPS.map((group) => (
             <ConnectionGroup
               key={group.key}
-              label={group.label}
-              note={group.note}
+              id={group.key}
+              label={t(group.label)}
+              note={group.note && t(group.note)}
               connections={data.connections.filter((c) => c.category === group.key)}
               results={results}
               probing={probing}
@@ -142,6 +146,7 @@ function statusFor(result: ConnectionStatus | null): ProviderStatus {
 }
 
 function ConnectionGroup({
+  id,
   label,
   note,
   connections,
@@ -149,6 +154,7 @@ function ConnectionGroup({
   probing,
   onTest,
 }: {
+  id: string;
   label: string;
   note?: string;
   connections: ConnectionDescriptor[];
@@ -158,7 +164,7 @@ function ConnectionGroup({
 }) {
   if (connections.length === 0) return null;
   return (
-    <section data-testid={`connection-group-${label}`}>
+    <section data-testid={`connection-group-${id}`}>
       <div className="section-head">
         <h2>{label}</h2>
         <span className="cnt">{connections.length}</span>
@@ -191,6 +197,7 @@ function ConnectionRow({
   probing: boolean;
   onTest: () => void;
 }) {
+  const t = useT();
   return (
     <div className="ecard" data-testid={`connection-row-${connection.name}`}>
       <div className="ec-top">
@@ -203,7 +210,7 @@ function ConnectionRow({
         </div>
         <div className="ec-right">
           {result?.ok && (
-            <span className="edit-hint mono num">{result.latencyMs} ms</span>
+            <span className="edit-hint mono num">{t("system.connections.latency", { ms: result.latencyMs })}</span>
           )}
           <button
             type="button"
@@ -212,7 +219,7 @@ function ConnectionRow({
             disabled={probing}
             data-testid={`connection-test-${connection.name}`}
           >
-            {probing ? "Testing…" : "Test"}
+            {probing ? t("system.connections.testing") : t("system.connections.test")}
           </button>
         </div>
       </div>
@@ -228,18 +235,17 @@ function ConnectionRow({
 }
 
 function WebhookPanel({ webhooks }: { webhooks: WebhookStatus[] }) {
+  const t = useT();
+  const locale = useDateLocale();
   return (
     <section data-testid="webhook-panel">
       <div className="section-head">
-        <h2>Webhooks</h2>
+        <h2>{t("system.connections.webhooks")}</h2>
         <span className="cnt">{webhooks.length}</span>
-        <span className="sh-sub">inbound — cannot be actively tested from here</span>
+        <span className="sh-sub">{t("system.connections.webhooksSub")}</span>
       </div>
       <div className="msub" style={{ marginTop: 10 }}>
-        A webhook is inbound, so it cannot be actively tested from here — trigger a
-        real event on the platform to see a delivery. These are the facts we can
-        show: whether a signing secret is configured, and when the last delivery
-        arrived.
+        {t("system.connections.webhooksNote")}
       </div>
       <div style={{ height: 12 }} />
       <div className="rows">
@@ -248,19 +254,19 @@ function WebhookPanel({ webhooks }: { webhooks: WebhookStatus[] }) {
             <span className="id">{w.platform}</span>
             <span>
               <span className={cn("tybadge", w.secretConfigured && "ok")}>
-                {w.secretConfigured ? "secret configured" : "no secret"}
+                {w.secretConfigured ? t("system.connections.secretConfigured") : t("system.connections.noSecret")}
               </span>
             </span>
             <span className="meta">
               {w.lastReceivedUtc
-                ? `last seen ${new Date(w.lastReceivedUtc).toLocaleString()}`
-                : "never seen"}
+                ? t("system.connections.lastSeen", { at: new Date(w.lastReceivedUtc).toLocaleString(locale) })
+                : t("system.connections.neverSeen")}
             </span>
             {/* p0506: the conjunction neither fact states on its own. A deployment that
                 never received a delivery says nothing here. */}
             {w.acceptedUnsignedDelivery && (
               <span className="tybadge bad" data-testid={`webhook-unsigned-${w.platform}`}>
-                accepted an unsigned delivery
+                {t("system.connections.unsigned")}
               </span>
             )}
           </div>

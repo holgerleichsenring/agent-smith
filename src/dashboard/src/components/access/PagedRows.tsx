@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-26-7a51: the toolbar-and-tally shared by the People and Groups panes — a search
 // box, a few quick filters, twelve rows, "Showing 12 of 143" and a show-more button.
@@ -40,6 +41,7 @@ export function PagedRows<T>({
   emptyText: string;
   toolbarExtra?: ReactNode;
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState(filters[0]?.key ?? "");
   const [shown, setShown] = useState(PAGE);
@@ -103,7 +105,7 @@ export function PagedRows<T>({
       </div>
       <div className="more">
         <span className="tally" data-testid={`${testId}-tally`}>
-          {matching.length > 0 ? `Showing ${page.length} of ${matching.length}` : ""}
+          {matching.length > 0 ? t("access.paged.showing", { shown: page.length, total: matching.length }) : ""}
         </span>
         {page.length < matching.length && (
           <button
@@ -112,7 +114,7 @@ export function PagedRows<T>({
             data-testid={`${testId}-more`}
             onClick={() => setShown(shown + MORE)}
           >
-            Show {Math.min(MORE, matching.length - page.length)} more
+            {t("access.paged.more", { count: Math.min(MORE, matching.length - page.length) })}
           </button>
         )}
       </div>

@@ -12,6 +12,8 @@ import { RolesPane } from "./RolesPane";
 import { groupsOf, peopleOf } from "./derive";
 import { projectsOf } from "./projectBindings";
 import { useAccess } from "./useAccess";
+import { withValues } from "./withValues";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-26-7a51: who may do what — People, Groups, Roles and the claim names, four panes
 // over ONE document. Edited as a draft and saved whole, which is the Config Studio's own
@@ -21,6 +23,7 @@ import { useAccess } from "./useAccess";
 type Pane = "people" | "groups" | "roles" | "projects" | "claims";
 
 export function AccessStudio() {
+  const t = useT();
   const { view, loading, error, saving, saveError, save, forget } = useAccess();
   const [pane, setPane] = useState<Pane>("people");
   const [draft, setDraft] = useState<AccessDocument | null>(null);
@@ -30,9 +33,9 @@ export function AccessStudio() {
   useEffect(() => setDraft(view?.document ?? null), [view]);
 
   const loadRefusal = refusalIn(error);
-  if (loadRefusal) return <RefusalSurface refusal={loadRefusal} surface="the access settings" />;
+  if (loadRefusal) return <RefusalSurface refusal={loadRefusal} surface={t("access.surface")} />;
   if (loading || view === null || draft === null)
-    return <div className="mock-shell mock-config mock-access empty">Loading…</div>;
+    return <div className="mock-shell mock-config mock-access empty">{t("access.loading")}</div>;
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(view.document);
   const roles = view.roles.map((role) => role.name);
@@ -45,8 +48,8 @@ export function AccessStudio() {
       <main className="main">
         <div className="m-head">
           <div className="mt">
-            <h1>Who may do what</h1>
-            <div className="msub">people, groups, roles and the claims they are read from</div>
+            <h1>{t("access.title")}</h1>
+            <div className="msub">{t("access.sub")}</div>
           </div>
           <button
             type="button"
@@ -55,27 +58,25 @@ export function AccessStudio() {
             disabled={!dirty || saving}
             onClick={() => void save(draft)}
           >
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? t("access.saving") : t("access.save")}
           </button>
         </div>
 
         <p className="legend">
           <span className="chip chip-directory">
-            <span className="src">group</span>operator
+            <span className="src">{t("access.legend.group")}</span>operator
           </span>{" "}
-          from your directory
+          {t("access.legend.fromDirectory")}
           <span className="sep">·</span>
           <span className="chip chip-here">
-            <span className="src">granted</span>admin
+            <span className="src">{t("access.chips.granted")}</span>admin
           </span>{" "}
-          granted here
+          {t("access.legend.grantedHere")}
         </p>
 
         {view.nameClaimIsSelfAsserted && (
           <p className="warn" data-testid="access-nameclaim-warning">
-            Callers are named by <b>{view.nameClaim}</b>, not <b>sub</b>. A value like that is
-            self-asserted in common directory configurations — somebody who can change their
-            own can claim a grant written for someone else.
+            {withValues(t("access.nameClaimWarning"), { claim: <b>{view.nameClaim}</b>, sub: <b>sub</b> })}
           </p>
         )}
         {saveError && (
@@ -89,12 +90,12 @@ export function AccessStudio() {
           </p>
         ))}
 
-        <div className="tabs" role="tablist" aria-label="Access settings">
-          <Tab id="people" pane={pane} onSelect={setPane} label="People" count={people.length} />
-          <Tab id="groups" pane={pane} onSelect={setPane} label="Groups" count={groups.length} />
-          <Tab id="roles" pane={pane} onSelect={setPane} label="Roles" count={view.roles.length} />
-          <Tab id="projects" pane={pane} onSelect={setPane} label="Projects" count={bound} />
-          <Tab id="claims" pane={pane} onSelect={setPane} label="Claim names" />
+        <div className="tabs" role="tablist" aria-label={t("access.tabs")}>
+          <Tab id="people" pane={pane} onSelect={setPane} label={t("access.tab.people")} count={people.length} />
+          <Tab id="groups" pane={pane} onSelect={setPane} label={t("access.tab.groups")} count={groups.length} />
+          <Tab id="roles" pane={pane} onSelect={setPane} label={t("access.tab.roles")} count={view.roles.length} />
+          <Tab id="projects" pane={pane} onSelect={setPane} label={t("access.tab.projects")} count={bound} />
+          <Tab id="claims" pane={pane} onSelect={setPane} label={t("access.tab.claims")} />
         </div>
 
         {pane === "people" && (

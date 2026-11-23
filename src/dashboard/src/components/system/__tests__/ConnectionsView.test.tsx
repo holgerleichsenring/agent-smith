@@ -64,7 +64,7 @@ describe("ConnectionsView", () => {
     render(<ConnectionsView />);
 
     expect(await screen.findByTestId("connection-row-claude-default")).toBeInTheDocument();
-    expect(screen.getByTestId("connection-group-Agents")).toHaveTextContent("minimal (1-token) LLM call");
+    expect(screen.getByTestId("connection-group-agent")).toHaveTextContent("minimal (1-token) LLM call");
     expect(screen.getByTestId("connection-row-redis")).toBeInTheDocument();
   });
 

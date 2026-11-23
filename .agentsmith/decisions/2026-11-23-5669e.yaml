@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-5669e
+
+decisions:
+  - category: Implementation
+    chose: "A sentence with a bold count or a mono value inside is one dictionary text whose placeholders withValues draws as elements"
+    over: "Cutting the sentence into fragments around each value"
+    reason: "German puts the value at a different place in the sentence; fragments would fix the English word order."
+  - category: Implementation
+    chose: "A connection group's test id is built from its kind, not from its English label"
+    over: "Keeping the label-built id"
+    reason: "A test id must not change with the language."
+  - category: Scope
+    chose: "Role, permission and claim names, server refusal reasons and the skip-reason codes stay as written"
+    over: "Translating them"
+    reason: "They are identifiers or server text; the operator compares them with configuration and logs."

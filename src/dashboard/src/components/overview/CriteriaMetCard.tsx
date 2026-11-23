@@ -40,7 +40,7 @@ function criteriaReading(t: T, { data, error }: ExpectationRead): CriteriaReadin
   return {
     value: percentOrDash(counts.share),
     share: counts.share,
-    detail: `${judgedSentence(counts)} · ${t("overview.criteria.runs", { count: data.runs })}`,
+    detail: `${judgedSentence(counts, t)} · ${t("overview.criteria.runs", { count: data.runs })}`,
   };
 }
 
