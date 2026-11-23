@@ -4,6 +4,8 @@ using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Persistence.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Rework;
@@ -14,6 +16,8 @@ namespace AgentSmith.Server.Services.Rework;
 /// would admit it. Called by <see cref="TicketLandingRecorder"/> after a WON insert only, so one replica wakes.
 /// <para>A wake lost to a crash or a failed enqueue is recovered, not trusted: the periodic re-read asks
 /// <see cref="RecoverAsync"/>, which re-derives it from the requirement and landing rows.</para>
+/// <para>2026-11-23-97c2a: a dependent whose CI-green merge was refused while this ticket had not landed is asked again — its
+/// CI merge marks are cleared before its nudge, whose refresh then merges it when nothing else it requires is unlanded.</para>
 /// </summary>
 public sealed class DependentsWake(
     ITicketRequirementStore requirements,
@@ -24,7 +28,8 @@ public sealed class DependentsWake(
     IActiveRunLease leases,
     IReworkNudges nudges,
     TimeProvider clock,
-    ILogger<DependentsWake> logger)
+    ILogger<DependentsWake> logger,
+    IServiceScopeFactory scopes)
 {
     /// <summary>Nudges every distinct dependent of the landed ticket; answers how many. A failure is logged — the recovery retries it.</summary>
     public async Task<int> WakeAsync(TicketLandingFact landed, CancellationToken ct)
@@ -34,7 +39,11 @@ public sealed class DependentsWake(
         {
             var dependents = (await requirements.DependentsOfAsync(landed.Tracker, landed.TicketKey, ct))
                 .DistinctBy(e => e.TicketKey, StringComparer.Ordinal).ToList();
-            foreach (var edge in dependents) await NudgeAsync(edge, ct);
+            foreach (var edge in dependents)
+            {
+                await ClearMergeMarksAsync(edge, ct);
+                await NudgeAsync(edge, ct);
+            }
             if (dependents.Count > 0)
                 logger.LogInformation("The landing of {Project}/{Ticket} woke {Count} waiting ticket(s)", landed.Project, landed.TicketId, dependents.Count);
             return dependents.Count;
@@ -78,6 +87,12 @@ public sealed class DependentsWake(
             && await attempts.LatestAsync(edge.Project, edge.TicketId, null, ct) is null // 2026-11-19-1b72a: a dropped start is none
             && !await attempts.HasQueuedAsync(edge.Project, edge.TicketId, ct)
             && await leases.GetByTicketAsync(edge.Project, new TicketId(edge.TicketId), ct) is null;
+    }
+
+    private async Task ClearMergeMarksAsync(TicketRequirementEdge edge, CancellationToken ct)
+    {
+        using var scope = scopes.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<PrReviewRecordWriter>().ClearCiMergeMarksAsync(edge.Project, edge.TicketId, ct);
     }
 
     private Task NudgeAsync(TicketRequirementEdge edge, CancellationToken ct) =>
