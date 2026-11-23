@@ -22,6 +22,7 @@ public static class SeriesRunExtensions
         services.TryAddScoped<SeriesRunNames>();
         services.AddScoped<SeriesRunCosts>(); // 2026-11-23-31dcd
         services.AddScoped<SeriesRunEdges>(); // 2026-11-23-31dcf
+        services.AddScoped<SeriesMergeNextAct>(); // 2026-11-23-31dce: the series page's merge
         services.AddScoped<SeriesRunProjectReads>()
             .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
         return services;

@@ -18,6 +18,7 @@ describe("SeriesSectionBar", () => {
     expect(screen.getByTestId("series-counts")).toHaveTextContent("1 of 3 merged · 1 PRs waiting · 1 not started");
     expect(screen.getByTestId("series-section-tickets")).toHaveTextContent("Tickets3");
     expect(screen.getByTestId("series-section-tickets")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("series-section-next")).toHaveTextContent("Merge next0");
     expect(screen.getByTestId("series-repos")).toHaveTextContent("server · worker");
     expect(screen.getByTestId("series-conversation-link")).toHaveAttribute("href", "/spec-dialog?open=conv-1&on=d-thread1");
     expect(screen.getByTestId("series-facts")).toHaveTextContent("$41.20 so far");

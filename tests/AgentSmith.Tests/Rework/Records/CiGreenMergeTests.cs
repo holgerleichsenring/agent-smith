@@ -24,8 +24,8 @@ public sealed class CiGreenMergeTests : IDisposable
     {
         _h.Provider.As<IPrReviewStateReader>().Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string url, CancellationToken _) => new PrReviewState(url.Split('/')[^1], PrReviewStates.Open, PrReviewRefreshHarness.T, [], "abc"));
-        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>()))
-            .Callback<ResolvedProject, CiGreenMergeRequest, CancellationToken>((_, r, _) => _launched.Add(r)).ReturnsAsync(true);
+        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>(), It.IsAny<AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>()))
+            .Callback<ResolvedProject, CiGreenMergeRequest, CancellationToken, AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>((_, r, _, _) => _launched.Add(r)).ReturnsAsync(true);
         Attempt(RunStatuses.Success, PrReviewRefreshHarness.Pr1);
     }
 
@@ -120,7 +120,7 @@ public sealed class CiGreenMergeTests : IDisposable
     [Fact]
     public async Task ALeaseHeldByAnother_MarksNothing_SoTheNextRefreshTriesAgain()
     {
-        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>(), It.IsAny<AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>())).ReturnsAsync(false);
         Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
         await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
 

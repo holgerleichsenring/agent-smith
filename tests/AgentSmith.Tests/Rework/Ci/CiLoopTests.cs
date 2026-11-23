@@ -34,8 +34,8 @@ public sealed class CiLoopTests : IDisposable
             .ReturnsAsync(() => new PrReviewState("1", _state, PrReviewRefreshHarness.T, [], _head));
         _h.Provider.As<IPullRequestCiReader>().Setup(c => c.ReadCiAsync(PrReviewRefreshHarness.Pr1, It.IsAny<CiReadRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _ci);
-        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>()))
-            .Callback<ResolvedProject, CiGreenMergeRequest, CancellationToken>((_, r, _) => _merges.Add(r)).ReturnsAsync(true);
+        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>(), It.IsAny<AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>()))
+            .Callback<ResolvedProject, CiGreenMergeRequest, CancellationToken, AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>((_, r, _, _) => _merges.Add(r)).ReturnsAsync(true);
     }
 
     [Fact]

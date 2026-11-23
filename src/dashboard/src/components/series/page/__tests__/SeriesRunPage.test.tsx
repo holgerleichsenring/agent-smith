@@ -35,7 +35,7 @@ beforeEach(() => {
 describe("SeriesRunPage", () => {
   it("SeriesPage_SelectingASection_ShowsOnlyItsPane_AndSetsTheSectionParam", async () => {
     render(<SeriesRunPage id="sr-1" />);
-    expect(await screen.findByTestId(`series-pane-${seriesSections[0].id}`)).toBeInTheDocument(); // the first listed
+    expect(await screen.findByTestId("series-pane-next")).toBeInTheDocument();
     expect(screen.queryByTestId("series-pane-talk")).toBeNull();
 
     fireEvent.click(screen.getByTestId("series-section-talk"));
