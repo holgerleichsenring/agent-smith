@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-af60
+goal: "A deploy record carries its delivery time again, so a pending deploy is followed for merge.ci_pending_seconds instead of settling as timed out on its first read."
+
+applies_to: "default (DeployRecordProjection, DeployFollowVerdict, data migrations)"
+
+requires: [2026-11-18-3863f, 2026-11-18-3863h, 2026-11-22-747da]
+
+facts:
+  - claim: "Since 2026-11-18-3863h the assignment DeliveredAtTicks = e.Timestamp.UtcTicks sits inside the trailing line comment after PromotesTo, so every record is inserted with DeliveredAtTicks 0 (0001-01-01). 3863f had it as code; the 3863h diff appended PromotesTo before it and turned it into comment text."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DeployRecordProjection.cs:26; git show 2c025aa17 (3863h) against 54283312c (3863f) on that file"
+  - claim: "PendingTooLong measures now minus DeliveredAtTicks against merge.ci_pending_seconds; with 0 it is true for every record at every read."
+    evidence: "src/backend/AgentSmith.Server/Services/Deployment/DeployFollowVerdict.cs:50-51"
+  - claim: "Pipeline delivery: the first read that sees the run still pending settles it with the note 'still pending after merge.ci_pending_seconds = N s, so it is no longer followed'; the run's real outcome is never read and, since Succeeded needs Green, its PromotesTo environments are never deployed."
+    evidence: "src/backend/AgentSmith.Server/Services/Deployment/DeployFollowVerdict.cs:21-26,31-37; src/backend/AgentSmith.Server/Services/Deployment/DeployFollow.cs:34-36; src/backend/AgentSmith.Server/Services/Deployment/DeployPromotion.cs:22"
+  - claim: "Pull-request delivery: an open pull request is unaffected until it ends; the first read after a merge whose CI is still pending settles it as timed out, so it never promotes. While its CI is pending it is read every tickets.pr_reread_interval_seconds instead of merge.ci_poll_seconds, because the fast cadence also asks PendingTooLong."
+    evidence: "src/backend/AgentSmith.Server/Services/Deployment/DeployFollowVerdict.cs:22,41-47"
+  - claim: "The run and ticket pages show the delivery as 0001-01-01."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/DeployRecordRepository.cs:52,56"
+  - claim: "The verdict tests build records with DeliveredAtTicks set by hand and the store tests never read the field, so nothing caught it."
+    evidence: "tests/AgentSmith.Tests/Deployment/DeployFollowVerdictTests.cs:51-60; tests/AgentSmith.Tests/Deployment/DeployRecordStoreTests.cs"
+  - claim: "Stored rows can be repaired once: the DeployDelivered event stays in RunEvents with its Timestamp, and a data migration runs once in database migrate, never at boot."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunEvent.cs:14; src/backend/AgentSmith.Infrastructure.Persistence/Contracts/IDataMigration.cs; src/backend/AgentSmith.Infrastructure.Persistence/Extensions/RunStoreRepairExtensions.cs:25-34"
+
+scope:
+  in: "Restore the assignment, the spec marker on its own line. A data migration DeployDeliveredAtBackfill fills DeliveredAtTicks on every row that holds 0 from its run's first DeployDelivered event timestamp; a row without that event keeps 0. Settled rows are not reopened."
+  out: "Reopening or re-promoting deploys that settled wrongly; an operator redeploys those."
+
+steps:
+  - id: projection
+    action: "DeliveredAtTicks = e.Timestamp.UtcTicks back as code."
+  - id: backfill
+    action: "DeployDeliveredAtBackfill : IDataMigration, registered after KeptSetCarryBackfill."
+  - id: tests
+    action: "Store, verdict and backfill tests."
+
+tests:
+  - "DeployRecordStoreTests: a projected record carries the event's timestamp ticks."
+  - "DeployRecordStoreTests: a record projected from a fresh event and read pending five minutes later is not settled; read past ci_pending_seconds it is."
+  - "DeployRecordStoreTests: the backfill gives a 0 row its event's ticks, leaves a filled row, keeps 0 without an event, and a second pass changes nothing."
+
+done:
+  - "A pending deploy is followed until it settles or merge.ci_pending_seconds after its delivery; stored rows carry their delivery time after database migrate."
