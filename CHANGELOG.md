@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.199.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.199.1...v0.199.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* **migrate:** every data migration runs once in database migrate and is recorded; the server start runs none (2026-11-22-747da) ([0f7081a](https://github.com/holgerleichsenring/agent-smith/commit/0f7081a23c088b5808adaa3ac5ff3fbd3f7b5fb5))
+* **preconditions:** the interrupted-run restart window is the setting preconditions.interrupted_restart_window_minutes with a settings field (2026-11-22-747dc) ([a92f2e1](https://github.com/holgerleichsenring/agent-smith/commit/a92f2e1dee3b09e71075f0a559f374958cd995fe))
+* **server:** startup changes nothing — data migrations run once in migrate, port first, restart window setting (2026-11-22-747da) ([8aa418c](https://github.com/holgerleichsenring/agent-smith/commit/8aa418c0430d39deb49bc4d1c94173a92415e41f))
+* **server:** the port binds before any worker is built or started; probes split live from ready; the init container migrates from the server image (2026-11-22-747db) ([c68b753](https://github.com/holgerleichsenring/agent-smith/commit/c68b753f28639b21985bd663e3f20e44e6952e85))
+* **tickets:** a ticket read answers when its refresh-nudge write fails; the failure is logged and retried on the next read (2026-11-22-0b23) ([35ab677](https://github.com/holgerleichsenring/agent-smith/commit/35ab6774a5cccba01689fdbd956d645dfb9b40d1))
+* **tickets:** the ticket page opens without waiting on the tracker; detail reads side by side, series files fan out, reconnects and refresh nudges stop repeating (2026-11-23-1e76a) ([295540f](https://github.com/holgerleichsenring/agent-smith/commit/295540f60a6f1a6f73680932dadfdcb20eac5bd2))
+* **tickets:** the ticket page reads in parallel and never waits on the tracker (2026-11-23-1e76a) ([7c22b64](https://github.com/holgerleichsenring/agent-smith/commit/7c22b64cd9eb714d5320bb63f2750b5e351c4f6e))
+
 ## [0.199.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.199.0...v0.199.1) (2026-11-22)
 
 
