@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-5669b
+
+decisions:
+  - category: Implementation
+    chose: "The ticket section titles are dictionary keys; stateWords and bucketLabel take the lookup"
+    over: "A second set of state words for home and Delivery"
+    reason: "One set of words for a ticket's state, read by every page that shows it."
+  - category: Implementation
+    chose: "RunListLine carries kind and running; the runs section decides on the deploy block from them"
+    over: "Comparing the displayed words to 'Deploy' and 'running'"
+    reason: "Display words change with the language; a decision must not read them."
+  - category: Scope
+    chose: "Duration units (45 min, 5 h, 3 d) and money ($1.23) stay as written"
+    over: "Localising them"
+    reason: "An earlier spec chose units that read the same in both languages; money has no locale in this dashboard yet."
