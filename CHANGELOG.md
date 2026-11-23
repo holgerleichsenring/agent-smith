@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.204.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.203.0...v0.204.0) (2026-11-23)
+
+
+### Features
+
+* **series:** graph overview with colour per ticket, node menu and action list (2026-11-23-f562) ([ffe2afe](https://github.com/holgerleichsenring/agent-smith/commit/ffe2afe2d163523d5aa4fb463ee29125fb52c516))
+* **series:** the series page opens on one Overview - chips, the order graph coloured by each ticket's hold with a real act menu per node, the action list below; Merge next, Who moves next, Order and branches, Your next step, edge kinds and IsHeld removed (2026-11-23-f562) ([59f77be](https://github.com/holgerleichsenring/agent-smith/commit/59f77be092b2df4ca0b28f20c85ca94cbbdbc8db))
+
 ## [0.203.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.202.0...v0.203.0) (2026-11-23)
 
 
