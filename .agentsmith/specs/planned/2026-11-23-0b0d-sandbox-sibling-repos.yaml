@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-0b0d
+goal: "A run's other repos are reachable beside /work as an IDE lays them out, so a repo script that reads or builds a sibling repo works; opt-in per project, today's layout stays default."
+
+applies_to: "default (IPipelineSandboxCoordinator, SandboxSpecBuilder, PodSpecBuilder, DockerContainerSpecBuilder, InProcessSandbox, capacity probe, reaper)"
+
+requires: [2026-11-23-31dca]
+
+status_note: "Planned, not built. Two designs are open; the operator chooses before the cut (see decide)."
+
+facts:
+  - claim: "Each repo of a run gets its own sandbox; /work holds only that repo."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IPipelineSandboxCoordinator.cs:8-14, src/backend/AgentSmith.Domain/Entities/Repository.cs:16"
+  - claim: "46 backend files assume /work as the one repo root."
+    evidence: "grep SandboxWorkPath src/backend, 2026-11-23"
+  - claim: "A worker repo's client-generation script expected ../<server repo> and failed in its sandbox."
+    evidence: "observed: 2026-11-22, a three-repo series, question of the worker ticket's run"
+
+designs:
+  shared_pod:
+    what: "The run's sandboxes become containers of ONE pod (docker: one shared named volume) mounting /workspace/<repo>; /work stays each container's own repo; every repo is checked out once."
+    breaks_or_risks:
+      - "Lazy start is lost: a pod cannot gain a container later, so every repo's toolchain starts with the run even when one repo is touched."
+      - "Capacity is the SUM of the containers' requests on one node; the capacity probe and queue read per sandbox today and must read per run, or runs sit Pending unseen."
+      - "Node pressure evicts the whole pod; today it evicts one sandbox."
+      - "Sandbox lifecycle is per repo today: agent channel, reaper, held sandbox on a parked run, surrender, retry. All of it changes to per run."
+      - "Two containers building the same repo write the same bin/obj; a sibling build can break the owner's build or its test result."
+      - "A sibling's files are writable; verification of repo A can run on files repo B's agent changed. Pushes stay limited to the ticket's repos, but the verdict can be contaminated."
+      - "Git credentials must never land in .git/config on the shared volume; today they live per sandbox."
+      - "Shared localhost: two containers opening the same port collide."
+      - "Three runtimes (k8s, docker, in-process) each need the shared layout."
+  sibling_on_demand:
+    what: "No topology change: a tool clones a named sibling repo of the run into the asking sandbox at ../<repo>, at that repo's per-repo base from 31dca, only when the agent asks for it."
+    breaks_or_risks:
+      - "A second checkout of the sibling (the duplication the operator named), only for runs that need it."
+      - "The sibling must build with the asking sandbox's toolchain; a Node sandbox cannot build a .NET sibling (then the agent runs that part in the sibling's own sandbox and carries the file over: a further tool)."
+      - "Writes to the sibling are never pushed; the sandbox discards them."
+
+decide:
+  - "Which design, or neither: the operator. The shared pod is a second sandbox topology, so CLAUDE.md's 'no second path' asks for the operator's approval in decisions/2026-11-23-0b0d.yaml; as an option it stays a second path for good."
+  - "Default: today's layout. The project config gains the switch only when one design is chosen (with a dashboard field)."
+
+done:
+  - "Nothing until a design is chosen; then this spec is rewritten for that design before any code."
