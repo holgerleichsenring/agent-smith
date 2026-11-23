@@ -39,6 +39,8 @@ facts:
     evidence: "observed: 2026-11-23, operator (PoC concept, agreed)"
   - claim: "Operator round 2: every PoC is behind auth; a namespace per PoC with a quota; image pull through an imagePullSecret per PoC namespace; the app template and ApplicationSet live in the PoC source repo."
     evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a new upload to a stopped PoC starts it."
+    evidence: "observed: 2026-11-23, operator"
   - claim: "Operator round 3: plain variables go to a ConfigMap and secret variables to a Secret, both through envFrom, and a checksum annotation over both restarts the pod on change; desired state lives on the Poc row, every render reads it, acts change only that state and commit."
     evidence: "observed: 2026-11-23, operator"
 
@@ -53,8 +55,9 @@ scope:
     DESIRED STATE: the render reads PocDesiredState (Replicas, Revision, ImageDigest from 933da, ReadinessPath added here:
     null = tcpSocket on the port, a path = httpGet on it) from ContextKeys.PocDesiredState when an earlier step of the run
     set it (the acts of c81ed), else from the row; in poc-deploy GitOpsCommit itself takes the run's built revision and
-    its Digest and keeps the row's Replicas and ReadinessPath, so a new upload to a stopped PoC (Replicas 0) commits the
-    new revision stopped, and c81ec's follow settles it stopped. The row's desired state is written ONLY by GitOpsCommit,
+    its Digest, sets Replicas 1 and keeps the row's ReadinessPath, so a new upload to a stopped PoC (Replicas 0) starts
+    it (operator ruling, round 4) and c81ec's follow settles it ready; the one exception, an expired PoC, is added by
+    2026-11-23-c81ee, whose Start refusal it mirrors. The row's desired state is written ONLY by GitOpsCommit,
     after its commit landed or the branch already held the render, so a failed commit never leaves a desired state git
     does not hold. NAMES: 933dg's PocNamespace and PocSecretNames only; the deploy folder is <deploy_root>/<Name>/, apart
     from every source folder; the Argo Application is named like the namespace (c81ec); {app} in domain_pattern is Name.
@@ -179,7 +182,7 @@ tests:
   - "Shared-repo load finding: one target's deploy_root equal to another's root, and two targets sharing a template_path, are each a blocking finding naming both targets"
   - "PocTargetInstallHandler: writes the six template files once; an operator-edited file is never overwritten"
   - "GitOpsCommitHandler: commits the folder once and records desired state and SealFingerprint after the commit; a retry commits nothing, publishes PocDeployedEvent again and the projection inserts no second entry; a run that crashed after the row write publishes on its retry; a Conflict re-plans; a failed write leaves the row unchanged; a Truncated deploy-folder listing fails naming pocs.gitops.max_folder_files"
-  - "GitOpsCommitHandler in poc-deploy: a stopped PoC (row Replicas 0) commits the new revision with replicas 0"
+  - "GitOpsCommitHandler in poc-deploy: a stopped PoC (row Replicas 0) commits the new revision with replicas 1, and the row holds Replicas 1 after the commit"
   - "PocDeployedEvent projection: one PocAuditEntry 'deployed'; a replay or a second event of the same run inserts none (existence check before 933da's unique (RunId, Act) index)"
   - "Migration parity on SQL Server and PostgreSQL"
   - "pnpm gen:hub-events passes with PocDeployedEvent"
@@ -187,7 +190,3 @@ tests:
 
 done:
   - "A built PoC revision's run commits <deploy_root>/<name>/ to the source repo's default branch: Namespace, quota, hardened Deployment with the digest, Service, Ingress with the auth annotations, NetworkPolicy, poc-config and the sealed files; the Poc row holds the committed desired state and seal fingerprint, and the audit list says 'deployed'."
-
-open_questions:
-  - id: upload-to-stopped-poc
-    question: "Round-2 review, cut 3: a new upload to a stopped PoC keeps the row's Replicas (0), so it lands stopped and the owner presses Start. Is that the wanted behaviour, or should an upload start a stopped PoC (Replicas 1)? An expired stopped PoC (c81ee) would then be stopped again by the next lifetime pass. The text now states the rule it already implied (replicas from the row)."

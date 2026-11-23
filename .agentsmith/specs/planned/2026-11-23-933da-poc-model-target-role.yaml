@@ -81,6 +81,8 @@ facts:
     evidence: "observed: 2026-11-23, operator"
   - claim: "Operator ruling, round 3: 933df and 933dh are withdrawn; the write path, the template and GitOps commit, Argo CD and the rollout, the lifecycle acts with the detail page, and lifetime/reminders/extend/purge are 2026-11-23-c81ea..e."
     evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a blocked PoC that never deployed is removed when its upload is purged (7 days)."
+    evidence: "observed: 2026-11-23, operator"
   - claim: "Operator 2026-11-23: name PoCs; one target now, model open for several; every setting gets a dashboard field; foreign = empty 404 like 4a4d."
     evidence: "observed: 2026-11-23, operator (PoC concept)"
   - claim: "Operator ruling A: PoCs are optional — a config switch (pocs.enabled, default off) with a dashboard field; off = no sidebar item, PoC routes answer 404, no hosted services act."
@@ -116,7 +118,9 @@ scope:
     set, constants only, later slices write them: importing and refused (933db), blocked (933dc), ready and failed
     (2026-11-23-c81ec), stopped and deleted (2026-11-23-c81ed); PocStates.IsLive = not refused and not deleted, so
     importing, ready, blocked, stopped and failed are live — the one definition the per-person limit and the name check
-    read), DESIRED STATE read by every render
+    read; a blocked PoC that never deployed stays live, holding its name and a per_person_limit slot, until
+    2026-11-23-c81ee removes it through c81ed's poc-delete once its upload is purged after pocs.blocked_retention_days
+    (7), so no second definition and no second way to free a name exist), DESIRED STATE read by every render
     and changed only by the acts of 2026-11-23-c81ea..e: Replicas (int, default 1), Revision (int?, the revision the
     GitOps manifest names), ImageDigest (string? 'sha256:<64 hex>', 71); ExpiresAtTicks (nullable; written ONLY by the
     extend run of 2026-11-23-c81ee, null meaning CreatedAt + the target's lifetime_days), LastRunId. PocAuditEntry — Id, PocId, AtTicks, Actor, Act (PocActs: imported, overruled,
@@ -213,7 +217,7 @@ tests:
   - "PermissionCatalogServedTests: catalog includes the four names; built-in roles admin, operator, reader, poc; operator holds pocs.read and no other pocs.*"
   - "Poc index: a second PoC with the same LiveName on a target is refused; two rows with LiveName null are not (SQLite, SQL Server, PostgreSQL)"
   - "PocAuditEntry index: a second row with the same RunId and Act is refused; two rows with RunId null are not (SQLite, SQL Server, PostgreSQL)"
-  - "PocStates.IsLive: importing, ready, blocked, stopped and failed are live; refused and deleted are not"
+  - "PocStates.IsLive: importing, ready, blocked, stopped and failed are live; refused and deleted are not (a blocked PoC counts toward per_person_limit until c81ee's removal sets it deleted)"
   - "Migration parity on SQL Server and Postgres; sqlite migration applies"
   - "Schema coverage passes with pocs"
   - "Dashboard: sidebarItems shows only PoCs for a PoC-only identity (no New work, no Recent group), hides Work it out for an identity without dialog.write anywhere, no PoCs item when GET /api/pocs answers 404, PoCs after Deployments when both exist, all items for an unknown identity; places.test passes with '/pocs'; / redirects a PoC-only caller to /pocs; the empty state and the target strip render; PocsSettingsForm round-trips the switch and a target"

@@ -90,3 +90,18 @@ decisions:
     chose: "Azure DevOps and GitLab check out with checkout: none / GIT_STRATEGY: none and a depth-1 fetch of the sha with a sparse checkout of the folder; GitLab's build and push jobs use a docker:dind service on a privileged runner, documented"
     over: "Changing PipelineRunOrder to carry a source version"
     reason: "Review round 2, 2026-11-23: Azure's StartAsync sets only SourceBranch and GitLab creates a pipeline on a ref, so the sha has to be fetched inside the job; GitLab has no daemon in a plain job."
+  - category: Security
+    decider: operator
+    chose: "At the image stage a Trivy secret of severity HIGH or CRITICAL blocks when its rule maps to a catalog pattern of confidence >= pocs.scan.secret_min_confidence (933dc's key, default 8); every other secret is a note; a secret block is never overrulable"
+    over: "Round 3's gate on Trivy severity CRITICAL for secrets"
+    reason: "Operator ruling, round 4, 2026-11-23: high and critical secrets block when the pattern is high-confidence, for Trivy's secrets too. Trivy's rules carry no confidence, so PocTrivySecretRules maps them to the catalog patterns whose confidence 933dc reads; the step passes the blocking rule ids as the secret_rules input, so both stages block the same secrets under one key."
+  - category: Security
+    decider: operator
+    chose: "At the image stage a vulnerability is critical when the highest CVSS v3 score Trivy lists for it is >= 9.0; no score is a note; the gate decides through a Rego --ignore-policy instead of --severity CRITICAL"
+    over: "Trivy's severity label (--severity CRITICAL)"
+    reason: "Operator ruling, round 4, 2026-11-23: critical = CVSS >= 9.0, no score = note. Trivy's label for an OS package is the distribution's rating, which can say LOW for a CVE NVD scores 9.8 and CRITICAL for one scored 7.5, so the label cannot carry the ruling; the Rego policy and TrivyReportParser read the same scores, so the gate and the parser agree. Whether the pinned Trivy feeds CVSS and RuleID to the policy is an assumption checked before building."
+  - category: Security
+    decider: operator
+    chose: "A critical vulnerability without a fix blocks by default (ignore_unfixed = not pocs.scan.unfixed_critical_block, default true) and can be overruled like any vulnerability block"
+    over: "Trivy's --ignore-unfixed by default"
+    reason: "Operator ruling, round 4, 2026-11-23: ratifies the shared default with 933dc."

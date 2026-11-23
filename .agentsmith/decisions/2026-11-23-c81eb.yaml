@@ -64,3 +64,8 @@ decisions:
     chose: "pull_mode pull_secret is refused by a blocking load finding when no master key is configured; the message names pocs.targets[].registry.pull_mode, the reason and AGENTSMITH_SECRET_MASTER_KEY (built by 933dg as PocSealKeyFindings)"
     over: "Accepting a re-seal, commit and pod restart on every run and stating it in upgrade_impact"
     reason: "The seal fingerprint is an HMAC under a key derived from the master key; without it no fingerprint exists, so every deploy and act would re-seal poc-pull with new ciphertext and restart the pod, and a retried run would never find the folder equal (open question pull-secret-without-master-key, closed)."
+  - category: Architecture
+    decider: operator
+    chose: "poc-deploy's GitOpsCommit commits Replicas 1: a new upload to a stopped PoC starts it"
+    over: "Keeping the row's Replicas, so the upload lands stopped and the owner presses Start (open question upload-to-stopped-poc, closed)"
+    reason: "Operator ruling, round 4, 2026-11-23. The row's Replicas is still written only by GitOpsCommit after its commit, so git and the row agree; an expired PoC is the exception c81ee adds, because its Start is refused there too and the next lifetime pass would stop it again."

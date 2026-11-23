@@ -99,3 +99,22 @@ decisions:
     chose: "OverruledIdsJson is an object keyed by stage ({\"code\": [...], \"image\": [...]}) and an overrule appends under its stage's key; the code re-scan reads 'code'"
     over: "One flat list replaced by each overrule"
     reason: "Sibling contract from the 933dd round-2 work, 2026-11-23: an image-stage overrule would otherwise erase the code-stage ids, and the next code re-scan would block again."
+  - category: Security
+    decider: operator
+    chose: "A secret blocks when its pattern is high or critical AND its confidence is at least pocs.scan.secret_min_confidence (8, config key with a settings field); a blocking secret is never overrulable; a high or critical secret below the confidence, generic assignments, placeholders and publishable keys are notes"
+    over: "Round 3's 'only critical secrets block'"
+    reason: "Operator ruling, round 4, 2026-11-23 (\"ich folge deinen Empfehlungen\"): high-confidence high patterns such as a Google API key or a connection string with a password are real credentials, while low-confidence ones stop PoCs on false positives. The threshold lives in config because it trades missed secrets against false blocks; its message names the value, the reason and the key. Round 3's 'a critical secret cannot be overruled' carries over to every blocking secret."
+  - category: Security
+    chose: "The catalog's connection-string-password pattern is raised from confidence 7 to 8 in the skills release this spec pins; the threshold stays 8"
+    over: "Lowering the threshold to 7"
+    reason: "The ruling names connection strings with a password among the high-confidence patterns, but the pinned catalog rates the pattern 7 (verified at ee350e3). A threshold of 7 would also block jwt-token, twilio-api-key and mailchimp-api-key, which the ruling did not name."
+  - category: Security
+    decider: operator
+    chose: "A vulnerability is critical when its CVSS score is >= 9.0; a vulnerability with no score is a note"
+    over: "Database-specific severities, or treating a missing score as critical"
+    reason: "Operator ruling, round 4, 2026-11-23: ratifies the author choice recorded above."
+  - category: Security
+    decider: operator
+    chose: "pocs.scan.unfixed_critical_block defaults to true: a critical vulnerability without an available fix blocks and can be overruled"
+    over: "Unfixed criticals as notes by default"
+    reason: "Operator ruling, round 4, 2026-11-23: ratifies the default recorded above."

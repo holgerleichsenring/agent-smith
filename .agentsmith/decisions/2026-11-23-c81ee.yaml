@@ -48,3 +48,21 @@ decisions:
     chose: "Expiry, backoff and purge ages are computed in memory over loaded rows, as RunRetentionService does; no ticks column"
     over: "Query-side DateTimeOffset comparisons; a CreatedAtTicks column on Poc"
     reason: "SQLite cannot translate a DateTimeOffset comparison; the live PoCs and the uploads are few enough to load (coordinator note relaying 933da)."
+  - category: Implementation
+    decider: operator
+    chose: "An expired PoC stopped for an unseen reminder is deleted pocs.lifetime.unseen_delete_after_days (30, config key with a settings field) after its recorded expiry stop, unless extended; the audit Reason names the value, the reason and the key"
+    over: "Ruling H's 'stays stopped; nothing deletes it later'"
+    reason: "Operator ruling, round 4, 2026-11-23. The limit is config because it trades an owner's time to react against keeping abandoned PoCs; Problems() refuses 0 because it would delete before the owner could see the banner."
+  - category: Implementation
+    chose: "The 30 days count from the PoC's latest 'expired' audit entry at or after ExpiresAt, and every unseen expiry gets one recorded poc-stop run, also at Replicas 0 (GitOpsCommit commits nothing and still publishes the event)"
+    over: "Counting from ExpiresAt, or a new timestamp column"
+    reason: "Counting from ExpiresAt would delete on the upgrade PoCs that expired more than 30 days before this ships, whose owners never had a reminder; the audit entry already exists with a long AtTicks (no DateTimeOffset in the query) and needs no migration. An owner-stopped PoC gets the same recorded stop, so its owner gets the same 30 days and the same banner date."
+  - category: Architecture
+    decider: operator
+    chose: "A blocked PoC that never deployed is removed once its upload is purged: the lifetime pass launches c81ed's poc-delete for it, which commits nothing and settles deleted with LiveName null"
+    over: "The purge run setting the PoC deleted itself, or a separate removal act"
+    reason: "Operator ruling, round 4, 2026-11-23. No second path: poc-delete already admits a PoC with Revision null and is the one writer of deleted and LiveName; one run per PoC keeps 933da's unique (RunId, Act) audit index valid, which one purge run removing several PoCs would break."
+  - category: Implementation
+    chose: "A new upload to an expired stopped PoC is deployed but kept stopped (poc-deploy keeps the row's Replicas), the outcome naming the expiry date and Extend"
+    over: "Starting it per ruling 5, or refusing the import"
+    reason: "Round 4 ruled that an upload starts a stopped PoC, and ruling H plus this spec refuse Start on an expired PoC: starting it would be undone by the next pass's stop, so the upload does not do what Start may not. Refusing the import would lose the owner's upload; kept stopped, Extend and Start bring it up."

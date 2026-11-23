@@ -116,3 +116,8 @@ decisions:
     chose: "Work it out is gated on dialog.write anywhere; New work and Recent are hidden for a PoC-only caller"
     over: "Gating Work it out on runs.read; leaving New work and Recent ungated"
     reason: "Round-2 review 2026-11-23: Work it out's routes need dialog.write (route-permission-baseline.tsv:79); a PoC-only caller is redirected away from home, so New work and Recent lead nowhere."
+  - category: Architecture
+    decider: operator
+    chose: "A blocked PoC that never deployed stays live (name held, per_person_limit slot counted) until it is removed with its purged upload after pocs.blocked_retention_days (7); the removal is c81ed's poc-delete launched by c81ee, which sets deleted and clears LiveName"
+    over: "A blocked PoC holding its name and slot until its owner deletes it, or a new state or a second way to clear LiveName"
+    reason: "Operator ruling, round 4, 2026-11-23. IsLive and the one LiveName writer stay as defined here; only the time a blocked PoC stays live is now bounded."

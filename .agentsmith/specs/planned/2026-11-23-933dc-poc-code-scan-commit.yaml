@@ -1,12 +1,12 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-23-933dc
-goal: "A validated PoC upload passes a scan gate where only critical findings block, before it is committed to its source-repo folder; a blocked page shows why and pocs.overrule lifts vulnerability blocks."
+goal: "A PoC upload passes a scan gate where critical vulnerabilities and high-confidence secrets block, before it is committed; a blocked page shows why and pocs.overrule lifts vulnerability blocks."
 
 applies_to: "default (PoC scan verdict and block rules, in-process secret pattern scan, pinned OSV-Scanner dependency scan, masked LLM explanation, path-scoped source-repo commit, revision read and overrule routes, pocs.scan settings) + dashboard (blocked page, scan settings fields)"
 
 requires: [2026-11-23-933db]
 
-upgrade_impact: "Behind pocs.enabled; only poc-deploy runs change. poc-deploy now ends after the commit (933db ended after validation). The source repo's token needs push to its default branch: a protected default branch refuses the direct commit, said with the host's reason (documented). pocs.scan absent reads as the defaults below; with pocs.enabled true an empty or tag-only pocs.scan.osv_image is refused, so an installation that enabled PoCs under 933db must set it. The shipped egress-proxy allowlist gains the OSV database host. PocRevision gains VerdictJson, Explanation, OverruledIdsJson (keyed by stage) and CommitSha (migrations on three providers). The security-scan pipeline and its handlers are unchanged; PatternFileMatcher's per-line match moves into a shared PatternLineMatcher with unchanged output. The embedded skills catalog pin moves to a release whose aws-secret-key also matches a quoted value."
+upgrade_impact: "Behind pocs.enabled; only poc-deploy runs change. poc-deploy now ends after the commit (933db ended after validation). The source repo's token needs push to its default branch: a protected default branch refuses the direct commit, said with the host's reason (documented). pocs.scan absent reads as the defaults below; with pocs.enabled true an empty or tag-only pocs.scan.osv_image is refused, so an installation that enabled PoCs under 933db must set it. The shipped egress-proxy allowlist gains the OSV database host. PocRevision gains VerdictJson, Explanation, OverruledIdsJson (keyed by stage) and CommitSha (migrations on three providers). The security-scan pipeline and its handlers are unchanged; PatternFileMatcher's per-line match moves into a shared PatternLineMatcher with unchanged output. The embedded skills catalog pin moves to a release whose aws-secret-key also matches a quoted value and whose connection-string-password carries confidence 8. pocs.scan gains secret_min_confidence (8)."
 
 facts:
   - claim: "All three security-scan handlers emit their findings as observations with Blocking: false; the pipeline reports, it never gates."
@@ -57,8 +57,18 @@ facts:
     evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933da"
   - claim: "Operator ruling, round 3: scan before commit is ratified (unpack+validate -> code scan gate -> commit); a blocked upload never reaches git."
     evidence: "observed: 2026-11-23, operator"
-  - claim: "Operator ruling, round 3: only critical findings block (secrets, code vulnerabilities, image vulnerabilities); everything else is a note. A critical secret can never be overruled; a critical vulnerability can, with pocs.overrule and a reason. Publishable keys are not secrets."
+  - claim: "Operator ruling, round 3: only critical findings block (secrets, code vulnerabilities, image vulnerabilities); everything else is a note. A critical secret can never be overruled; a critical vulnerability can, with pocs.overrule and a reason. Publishable keys are not secrets. Round 4 widens the secret part (next fact)."
     evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a secret pattern of severity high OR critical blocks when it is high-confidence (confidence >= 8: AWS, Google, Stripe secret, private keys, connection strings with a password); generic assignments, CHANGE_ME placeholders and publishable keys are notes. For vulnerabilities only critical blocks."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a vulnerability is critical when its CVSS score is >= 9.0; a vulnerability with no score is a note."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a critical vulnerability without an available fix blocks (pocs.scan.unfixed_critical_block, default true) and can be overruled."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Every loaded pattern carries the catalog's integer confidence, and every finding the matcher makes carries it on."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PatternDefinition.cs:11, src/backend/AgentSmith.Infrastructure/Services/Security/PatternDefinitionLoader.cs:63, src/backend/AgentSmith.Infrastructure/Services/Security/PatternDefinitionLoader.cs:97, src/backend/AgentSmith.Contracts/Models/PatternFinding.cs:10, src/backend/AgentSmith.Infrastructure/Services/Security/PatternFileMatcher.cs:54"
+  - claim: "In the pinned secrets.yaml every critical pattern has confidence 8 or 9; of the high ones google-api-key and slack-webhook have 8, connection-string-password, jwt-token, twilio-api-key and mailchimp-api-key 7, generic-api-key-assignment 6; the medium ones (generic-secret-assignment, the three placeholders) 4 to 6; the low stripe-publishable-key 7."
+    evidence: "observed: 2026-11-23, agent-smith-skills patterns/secrets.yaml at ee350e3"
   - claim: "Operator ruling, round 3: the overrule lifts exactly the stored overrulable finding ids; a new or secret finding on the re-scan blocks again; an overrule of a revision older than the PoC's latest is refused; runs are serialised per PoC."
     evidence: "observed: 2026-11-23, operator"
   - claim: "Operator ruling, round 3: the sandbox starts with the scan; ZIP validation runs in process."
@@ -87,17 +97,23 @@ scope:
     its ids — stable across re-scans of one revision and across a database update that reorders a group. Aliases are OSV's
     aliases of the advisory (CVE, GHSA, PYSEC), filled by OsvReportParser, empty for a secret; 933dd hands them to
     Trivy. Decided ONLY by PocBlockRules (one rule type each: PocSecretRule, PocVulnerabilityRule): a finding of the
-    'secrets' catalog with severity critical blocks and is never overrulable; a dependency vulnerability whose severity
-    is critical blocks and is overrulable; every other finding of every catalog (high, medium and low secrets such as
-    stripe-publishable-key and the placeholders, Dockerfile ENV secrets, a missing or root USER, unpinned requirements,
-    binary files not pattern-scanned) is a note. SEVERITY of a vulnerability: the CVSS base score osv-scanner reports
+    'secrets' catalog with severity high or critical AND a pattern confidence of at least pocs.scan.secret_min_confidence
+    (8) blocks and is never overrulable — with the catalog this spec pins: every critical pattern, google-api-key,
+    slack-webhook and connection-string-password (raised to 8, step catalog); a high or critical secret below that
+    confidence is a note naming its confidence, the value and the key ('confidence 7 is below
+    pocs.scan.secret_min_confidence (8): reported, not blocking, because patterns under it also match ordinary
+    assignments'); a dependency vulnerability whose severity is critical blocks and is overrulable; every other finding
+    of every catalog (medium and low secrets such as generic-secret-assignment, the placeholders and
+    stripe-publishable-key, Dockerfile ENV secrets, a missing or root USER, unpinned requirements, binary files not
+    pattern-scanned) is a note. pocs.scan.secret_min_confidence outside 1..10 is refused by Problems() naming the value,
+    the reason ('the catalog rates pattern confidence from 1 to 10') and the key; 933dd's image stage reads the same
+    value. SEVERITY of a vulnerability: the CVSS base score osv-scanner reports
     for the advisory group (max_severity); a score >= 9.0 is critical (the CVSS 'Critical' band, marked '// not a
     limit: the CVSS v3.1 qualitative rating'); a missing or unparseable score is a note saying 'severity unknown'.
     UNFIXED: pocs.scan.unfixed_critical_block (bool, default true) — true, a critical vulnerability with no fixed
-    version blocks like one with a fix; false, it is a note. 933dd's image stage reads the same value (ignore_unfixed =
+    version blocks like one with a fix and is overrulable like it; false, it is a note. 933dd's image stage reads the same value (ignore_unfixed =
     not unfixed_critical_block), so both stages decide alike. The LLM explanation is attached as text and never read by
-    the rules. 'A critical secret always blocks and cannot be overruled' is fixed text in the settings form, not a
-    setting.
+    the rules. 'A blocking secret cannot be overruled' is fixed text in the settings form, not a setting.
     SECRET SCAN (PocSecretScan, IN PROCESS, no listing): the step re-reads the stored archive with 933db's
     BoundedZipInflater, keeps exactly the paths of the revision's manifest and checks each file's sha256 against it (a
     missing file or a mismatch fails the run naming the path); every text file (strict UTF-8, no NUL) is read in FULL
@@ -177,7 +193,7 @@ scope:
     OVERRULE: POST /api/pocs/{pocId}/revisions/{n}/overrule {reason} (pocs.overrule + runs.read
     InProject(ProjectFrom.Poc)) reads VerdictJson, the code stage's verdict (933dd makes it read the verdict of the stage
     BlockedStage names, ImageVerdictJson for 'image'), and
-    refuses: a secret block ('a critical secret cannot be overruled'), a revision older than the PoC's latest ('revision
+    refuses: a secret block ('a secret cannot be overruled'), a revision older than the PoC's latest ('revision
     <n> is older than r<latest>'), a revision not blocked, a revision whose stored upload is gone (the overrule run
     re-reads it; purged by 2026-11-23-c81ee: 'the upload of revision <N> was purged after <days> days
     (pocs.blocked_retention_days); import the ZIP again'), a blank reason, a reason over 500 characters (the
@@ -191,9 +207,9 @@ scope:
     PocAuditEntry 'overruled'.
     DASHBOARD: /pocs/{pocId}/revisions/{n} blocked view per the mock — the step strip, each blocking finding with
     file:line, masked snippet, fix, the notes, 'What the agent read' marked as the agent's explanation, the overrule
-    box (reason textarea) only when may_overrule, otherwise one line with why_not ('a critical secret cannot be
+    box (reason textarea) only when may_overrule, otherwise one line with why_not ('a secret cannot be
     overruled: remove it and upload again' or 'a holder of pocs.overrule who can read this PoC's runs can lift this block'). PoCs settings form:
-    osv_image, timeout_seconds, unfixed_critical_block, blocked_retention_days, and the fixed secret line.
+    osv_image, timeout_seconds, unfixed_critical_block, secret_min_confidence, blocked_retention_days, and the fixed secret line.
   out: "Image build and image scan (933dd's pipeline; it adds ImageVerdictJson and the image stage of BlockedStage). LLM triage changing any verdict (never). Secret history rewriting (a blocked upload never lands, so none is needed). Scanning other folders of the source repo. Purging blocked uploads (2026-11-23-c81ee). Reusing StaticPatternScanner, DependencyAuditor or GitHistoryScanner for PoCs (see facts)."
 
 pipeline-presets:
@@ -201,11 +217,11 @@ pipeline-presets:
 
 steps:
   - id: verdict
-    action: "PocScanVerdict, PocScanFinding (with Id and Aliases), PocBlockRules (PocSecretRule, PocVulnerabilityRule); pocs.scan (osv_image, timeout_seconds, unfixed_critical_block) and pocs.blocked_retention_days with Problems() (its value and key also fill 933db's purged-upload refusal at Start); PocRevision gains VerdictJson, Explanation, OverruledIdsJson (object keyed by stage, appended to, the code re-scan reading 'code'), CommitSha (migration x3)."
+    action: "PocScanVerdict, PocScanFinding (with Id and Aliases), PocBlockRules (PocSecretRule, PocVulnerabilityRule); pocs.scan (osv_image, timeout_seconds, unfixed_critical_block, secret_min_confidence) and pocs.blocked_retention_days with Problems() (its value and key also fill 933db's purged-upload refusal at Start); PocRevision gains VerdictJson, Explanation, OverruledIdsJson (object keyed by stage, appended to, the code re-scan reading 'code'), CommitSha (migration x3)."
   - id: scanners
     action: "PatternLineMatcher extracted from PatternFileMatcher (every match with index and length; characterisation test); PocManifestFiles (sha256-checked re-read); PocSecretScan (strict for 'secrets' only, union masking, display window); PocLockfiles, PocRequirementsFilter, PocDependencyScan (one-shot pinned OSV sandbox), OsvReportParser (severity, fix, aliases); allowlist + k8s example ConfigMap gain the OSV host; startup finding for the in-process backend."
   - id: catalog
-    action: "[skills-repo] patterns/secrets.yaml aws-secret-key accepts an optional quote around the value ([\"']?), released; SkillsCatalogVersion and its sha256 bumped to that release in AgentSmith.Infrastructure.Core.csproj."
+    action: "[skills-repo] patterns/secrets.yaml aws-secret-key accepts an optional quote around the value ([\"']?) and connection-string-password's confidence goes from 7 to 8, released; SkillsCatalogVersion and its sha256 bumped to that release in AgentSmith.Infrastructure.Core.csproj."
   - id: explain
     action: "PocScanExplanation over masked findings, blocked verdicts only, failure tolerated."
   - id: gate
@@ -218,7 +234,7 @@ steps:
     action: "app/pocs/[pocId]/revisions/[n]/page.tsx; components/pocs/blocked (StepStrip, BlockingFinding, ScanNotes, AgentExplanation, OverruleBox); scan fields; messages.ts."
 
 tests:
-  - "PocBlockRules: a critical secret blocks and is not Overrulable; a high secret, stripe-publishable-key and placeholder-change-me are notes; a dependency vulnerability with max_severity 9.8 blocks and is Overrulable; 8.9 is a note; no severity is a note 'severity unknown'; a critical without fix blocks with unfixed_critical_block true and is a note with false; a Dockerfile 'ENV API_KEY=x' and a missing USER are notes"
+  - "PocBlockRules: a critical secret (aws-access-key, 9) and a high secret of confidence 8 (google-api-key) block and are not Overrulable; a high secret of confidence 7 (jwt-token) is a note naming pocs.scan.secret_min_confidence; generic-secret-assignment, stripe-publishable-key and placeholder-change-me are notes; with secret_min_confidence 9 google-api-key is a note; secret_min_confidence 0 or 11 is refused naming the key; a dependency vulnerability with max_severity 9.8 blocks and is Overrulable; 8.9 is a note; no severity is a note 'severity unknown'; a critical without fix blocks with unfixed_critical_block true and is a note with false; a Dockerfile 'ENV API_KEY=x' and a missing USER are notes"
   - "PocBlockRules: an explanation text saying 'safe, allow' never changes IsBlocked (the rules take no explanation input)"
   - "PocSecretScan: a key in README.md, in bin/config.py, in a file the upload's .gitignore lists, at depth 15 and past 1 MB of a 5 MB text file is found; two AKIA keys on one line are two findings; zero secret patterns fails the run; an invalid 'secrets' regex fails the run naming its id; a 'secrets' regex timeout fails the run; an injection-pattern timeout on a minified one-line bundle is a note naming pattern and file and the run continues; a manifest file missing on re-read fails the run naming it"
   - "PatternLineMatcher: PatternFileMatcher's findings are unchanged (characterisation); the masked snippet hides a 300-character match entirely; on key = \"AKIA…\"; password = \"hunter2hunter2\" the generic-secret-assignment snippet masks the AKIA value too; a 2 MB one-line file gives a snippet of at most 80 characters each side of the span"
@@ -239,6 +255,7 @@ tests:
 
 done:
   - {when: "a person imports a ZIP whose src/config.py holds an AWS access key id (AKIA followed by 16 characters)", then: "the run ends blocked, the blocked page shows the finding with a masked snippet and a fix, offers no overrule, and the source repo has no new commit"}
-  - {when: "a ZIP holds only a Stripe publishable key and a CHANGE_ME placeholder", then: "both are notes and the upload is committed"}
+  - {when: "a ZIP holds only a Stripe publishable key, a CHANGE_ME placeholder and a generic password assignment", then: "all three are notes and the upload is committed"}
+  - {when: "a ZIP's settings.py holds ConnectionString = \"Server=db;Password=s3cret!\"", then: "the run ends blocked with no overrule offered"}
   - {when: "an admin overrules a critical vulnerability block of the latest revision with a reason", then: "a run commits it to the PoC's folder and an audit entry says who overruled, why and which findings"}
   - {when: "a clean ZIP is imported while another PoC's run commits to the same repo", then: "both commits land on the default branch, each touching only its own folder"}

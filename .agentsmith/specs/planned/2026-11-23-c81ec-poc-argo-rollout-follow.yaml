@@ -97,8 +97,8 @@ scope:
     value and key and saying that the previous version keeps serving (maxUnavailable 0). Each poll's reading is one
     step progress line (sync, health, template image, checksum match, generation, replicas), so the run page shows
     it live. OUTCOME for poc-deploy: settled -> PocRevision.RolloutState healthy + RolloutAtTicks for the rendered
-    revision, and Poc.State from the desired Replicas (more than 0: ready; 0: stopped — an upload to a stopped PoC,
-    c81eb); failed -> RolloutState failed, and Poc.State stays as it was when an earlier revision is healthy (the old
+    revision, and Poc.State from the desired Replicas (more than 0: ready; 0: stopped — an upload to an expired stopped
+    PoC, 2026-11-23-c81ee); failed -> RolloutState failed, and Poc.State stays as it was when an earlier revision is healthy (the old
     pods still serve), else 933da's PocStates.failed (a live state). The acts' outcomes are c81ed's table. Idempotent
     as a read: a retried follow reads again and settles at once when the cluster already holds the state. WALL TIME
     (own budget, not the shared one): PipelinePresets.RunKindOf answers RegisteredRunKind.Poc for every preset in

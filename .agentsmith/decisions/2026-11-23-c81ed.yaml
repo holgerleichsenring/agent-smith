@@ -47,3 +47,8 @@ decisions:
     chose: "A tri-state readiness seed on apply: absent keeps, 'tcp' clears, a '/'-path bounded by pocs.readiness_path_max_chars sets"
     over: "{readiness_path | null}"
     reason: "Null had to mean 'keep' for the variable route's apply, so TCP could never be restored once a path was set (round-2 review)."
+  - category: Architecture
+    decider: operator
+    chose: "A new upload to a stopped PoC starts it: poc-deploy commits Replicas 1 (c81eb) and the follow's state table settles it ready; Start stays the act for a stopped PoC without a new upload"
+    over: "An upload landing stopped until the owner presses Start"
+    reason: "Operator ruling, round 4, 2026-11-23. No act changes: the state table already derives State from the desired Replicas."

@@ -27,6 +27,8 @@ facts:
     evidence: "observed: 2026-11-23, operator (PoC concept, agreed)"
   - claim: "Operator ruling I: rollback is a git commit of an older digest, never the Argo rollback API; ruling J: every act is a chained command preset, every step idempotent."
     evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a new upload to a stopped PoC starts it."
+    evidence: "observed: 2026-11-23, operator"
   - claim: "Operator round 3: desired state lives on the Poc row; every render reads it; acts change only that state and commit."
     evidence: "observed: 2026-11-23, operator"
 
@@ -68,7 +70,8 @@ scope:
     follow fails is still audited 'deleted' (the commit is in git and Argo prunes once it syncs), and the detail page
     shows the pending state. STATES after the follow (c81ec's step, extended here), the one table every act and
     poc-deploy follow: on a settled follow State comes from the desired Replicas — more than 0: ready, 0: stopped —
-    and a settled delete (the Application answers 404) sets deleted and LiveName null. For desired Replicas 0 the
+    and a settled delete (the Application answers 404) sets deleted and LiveName null. poc-deploy commits Replicas 1
+    (c81eb, operator ruling round 4), so a new upload to a stopped PoC settles ready. For desired Replicas 0 the
     settle rule is c81ec's this-render reading (pod-template image, checksum, spec.replicas 0, observed generation)
     plus Synced + Healthy + ReadyReplicas 0 or absent; no pod image is checked, since a Deployment at 0 has no pods.
     ROLLOUT STATE: for an act the follow writes PocRevision.RolloutState only when the act changed the digest
