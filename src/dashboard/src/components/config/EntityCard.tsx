@@ -19,7 +19,7 @@ import { resolves, resolveRepoRef, unfinishedTemplates } from "./integrity";
 import { ProjectInitAction } from "@/components/system/ProjectInitAction";
 import { ProjectGraph } from "./ProjectGraph";
 import type { SecretValueState } from "@/lib/secretValuesApi";
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type { T } from "@/lib/i18n/translate";
 
 // p0345/p0343c (pixel identity): one entity card in the config-studio.html
@@ -53,6 +53,7 @@ export function EntityCard({
   // labelled "wiring" that nobody would click. The row is a real button now, .ec-right is
   // its sibling, and Edit is the only route into the editor. The other six kinds keep the
   // whole-card click: their sub-line is prose, not a mark row, and nothing asked for it.
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const isProject = kind === "projects";
   const graphId = `config-card-graph-panel-${entity.id}`;
@@ -116,7 +117,7 @@ export function EntityCard({
               otherwise carry. */}
           {!isProject && (
             <span className="tybadge" data-testid={`config-card-badge-${entity.id}`}>
-              {typeBadge(kind, entity)}
+              {typeBadge(t, kind, entity)}
             </span>
           )}
           <button
@@ -128,7 +129,7 @@ export function EntityCard({
               onEdit();
             }}
           >
-            {isProject ? "Edit" : "edit ›"}
+            {isProject ? t("config.card.edit") : t("config.card.editHint")}
           </button>
         </div>
       </div>
@@ -142,26 +143,26 @@ export function EntityCard({
   );
 }
 
-function typeBadge(kind: ConfigEntityKind, entity: StudioEntity): string {
+function typeBadge(t: T, kind: ConfigEntityKind, entity: StudioEntity): string {
   switch (kind) {
     case "agents":
-      return (entity as StudioAgent).provider || ENTITY_BADGE.agents;
+      return (entity as StudioAgent).provider || t(ENTITY_BADGE.agents);
     case "trackers":
-      return (entity as StudioTracker).type || ENTITY_BADGE.trackers;
+      return (entity as StudioTracker).type || t(ENTITY_BADGE.trackers);
     case "connections":
-      return (entity as StudioConnection).type || ENTITY_BADGE.connections;
+      return (entity as StudioConnection).type || t(ENTITY_BADGE.connections);
     case "repos": {
       const r = entity as StudioRepo;
-      return r.branch ? `branch ${r.branch}` : ENTITY_BADGE.repos;
+      return r.branch ? t("config.branch", { branch: r.branch }) : t(ENTITY_BADGE.repos);
     }
     case "projects":
-      return ENTITY_BADGE.projects; // unreachable: a project card renders no badge (b706)
+      return t(ENTITY_BADGE.projects); // unreachable: a project card renders no badge (b706)
     case "mcp-servers":
-      return (entity as StudioMcpServer).transport || ENTITY_BADGE["mcp-servers"];
+      return (entity as StudioMcpServer).transport || t(ENTITY_BADGE["mcp-servers"]);
     case "design-sources":
-      return (entity as StudioDesignSource).vendor || ENTITY_BADGE["design-sources"];
+      return (entity as StudioDesignSource).vendor || t(ENTITY_BADGE["design-sources"]);
     case "secrets":
-      return "env-name";
+      return t("config.card.envName");
   }
 }
 
@@ -179,18 +180,19 @@ function SubLine({
   secretState: SecretValueState | null;
 }) {
   const t = useT();
+  const locale = useDateLocale();
   switch (kind) {
     case "agents": {
       const a = entity as StudioAgent;
-      return <div className="ec-sub">{a.keySecret ? `secret ${a.keySecret}` : "no key secret"}</div>;
+      return <div className="ec-sub">{a.keySecret ? t("config.card.secret", { secret: a.keySecret }) : t("config.card.noKeySecret")}</div>;
     }
     case "trackers": {
-      const t = entity as StudioTracker;
-      return <div className="ec-sub">auth {t.authSecret || "—"}</div>;
+      const tracker = entity as StudioTracker;
+      return <div className="ec-sub">{t("config.card.auth", { secret: tracker.authSecret || "—" })}</div>;
     }
     case "connections": {
       const c = entity as StudioConnection;
-      return <div className="ec-sub">auth {c.authSecret || "—"}</div>;
+      return <div className="ec-sub">{t("config.card.auth", { secret: c.authSecret || "—" })}</div>;
     }
     case "repos": {
       const r = entity as StudioRepo;
@@ -208,11 +210,11 @@ function SubLine({
     }
     case "secrets": {
       const s = entity as StudioSecret;
-      const used = secretUsers(catalog, registries, s.id);
-      const source = secretState ? secretSource(t, secretState) : null;
+      const used = secretUsers(t, catalog, registries, s.id);
+      const source = secretState ? secretSource(t, locale, secretState) : null;
       return (
         <div className="ec-sub" data-testid={`config-secret-redaction-${s.id}`}>
-          {used.length > 0 ? `used by ${used.join(", ")}` : "not referenced yet"}
+          {used.length > 0 ? t("config.card.usedBy", { users: used.join(", ") }) : t("config.card.notReferenced")}
           {source && <span data-testid={`config-secret-source-${s.id}`}> · {source}</span>}
         </div>
       );
@@ -222,7 +224,7 @@ function SubLine({
 
 // 2026-11-23-78d7: the card says where the value comes from, read from the secret-values state. A set, non-empty
 // environment variable wins over a stored value, the same rule the resolver applies.
-export function secretSource(t: T, state: SecretValueState): string {
+export function secretSource(t: T, locale: string, state: SecretValueState): string {
   if (state.fromEnvironment) {
     return t(state.stored ? "config.secret.source.environmentWins" : "config.secret.source.environment", {
       variable: state.variable,
@@ -232,7 +234,7 @@ export function secretSource(t: T, state: SecretValueState): string {
     if (!state.stored.readable) return t("config.secret.source.unreadable");
     return t("config.secret.source.stored", {
       by: state.stored.setBy,
-      date: new Date(state.stored.setAt).toLocaleDateString(),
+      date: new Date(state.stored.setAt).toLocaleDateString(locale),
     });
   }
   return t("config.secret.source.none");
@@ -241,16 +243,16 @@ export function secretSource(t: T, state: SecretValueState): string {
 // Which catalog entries reference this secret's env-name — real, client-derived
 // from the same catalog the pickers use — plus the registries whose token names it
 // (2026-11-18-dafc), as ${id} or the bare id, the way the loader resolves it.
-export function secretUsers(catalog: ConfigCatalog, registries: RegistryEntry[], id: string): string[] {
+export function secretUsers(t: T, catalog: ConfigCatalog, registries: RegistryEntry[], id: string): string[] {
   const used: string[] = [];
   for (const a of catalog.agents) if (a.keySecret === id) used.push(a.id);
-  for (const t of catalog.trackers) if (t.authSecret === id) used.push(t.id);
+  for (const tracker of catalog.trackers) if (tracker.authSecret === id) used.push(tracker.id);
   for (const c of catalog.connections) if (c.authSecret === id) used.push(c.id);
   for (const m of catalog["mcp-servers"]) if (m.authSecret === id) used.push(m.id);
   for (const d of catalog["design-sources"]) if (d.authSecret === id) used.push(d.id);
   for (const r of registries) {
     const token = r.token.trim();
-    if (token === id || token === `\${${id}}`) used.push(`registry ${r.host}`);
+    if (token === id || token === `\${${id}}`) used.push(t("config.card.registry", { host: r.host }));
   }
   return used;
 }
@@ -264,6 +266,7 @@ function CardBody({
   entity: StudioEntity;
   catalog: ConfigCatalog;
 }) {
+  const t = useT();
   switch (kind) {
     case "agents": {
       const a = entity as StudioAgent;
@@ -277,7 +280,7 @@ function CardBody({
             const entry = a.catalog?.[name];
             return (
               <div className="f" key={role} data-testid={`config-card-model-${a.id}-${role}`}>
-                <span className="fl">{role} model</span>
+                <span className="fl">{t("config.card.roleModel", { role })}</span>
                 <span className={i === 0 ? "fv link" : "fv"}>
                   {entry ? entry.model : name}
                   {entry?.deployment ? ` (${entry.deployment})` : ""}
@@ -288,7 +291,7 @@ function CardBody({
           <div className="f" data-testid={`config-card-key-${a.id}`}
             data-resolved={!a.keySecret || resolves(catalog, "secrets", a.keySecret) ? "true" : "false"}
           >
-            <span className="fl">key secret</span>
+            <span className="fl">{t("config.agent.keySecret")}</span>
             <span
               className="fv"
               style={
@@ -304,20 +307,20 @@ function CardBody({
       );
     }
     case "trackers": {
-      const t = entity as StudioTracker;
+      const tracker = entity as StudioTracker;
       // p0345c: tracker fields are per-type — show what the entry carries.
       return (
         <div className="fields">
-          <FieldBlock label="Organisation">{t.organization || "—"}</FieldBlock>
-          <FieldBlock label="Project">{t.project || "—"}</FieldBlock>
-          {t.url && <FieldBlock label="Url">{t.url}</FieldBlock>}
-          <div className="f" data-resolved={resolves(catalog, "secrets", t.authSecret) ? "true" : "false"}>
-            <span className="fl">Auth</span>
+          <FieldBlock label={t("config.card.organisation")}>{tracker.organization || "—"}</FieldBlock>
+          <FieldBlock label={t("config.card.project")}>{tracker.project || "—"}</FieldBlock>
+          {tracker.url && <FieldBlock label={t("config.card.url")}>{tracker.url}</FieldBlock>}
+          <div className="f" data-resolved={resolves(catalog, "secrets", tracker.authSecret) ? "true" : "false"}>
+            <span className="fl">{t("config.card.authLabel")}</span>
             <span
               className="fv"
-              style={!resolves(catalog, "secrets", t.authSecret) ? { color: "var(--bad)" } : undefined}
+              style={!resolves(catalog, "secrets", tracker.authSecret) ? { color: "var(--bad)" } : undefined}
             >
-              {t.authSecret || "—"}
+              {tracker.authSecret || "—"}
             </span>
           </div>
         </div>
@@ -327,15 +330,15 @@ function CardBody({
       const c = entity as StudioConnection;
       return (
         <div className="fields">
-          <FieldBlock label="Organisation">{c.organization || "—"}</FieldBlock>
-          <FieldBlock label="Project">{c.project || "—"}</FieldBlock>
-          <FieldBlock label="Default branch">{c.defaultBranch || "—"}</FieldBlock>
+          <FieldBlock label={t("config.card.organisation")}>{c.organization || "—"}</FieldBlock>
+          <FieldBlock label={t("config.card.project")}>{c.project || "—"}</FieldBlock>
+          <FieldBlock label={t("config.card.defaultBranch")}>{c.defaultBranch || "—"}</FieldBlock>
           <div
             className="f"
             data-testid={`config-card-connection-auth-${c.id}`}
             data-resolved={resolves(catalog, "secrets", c.authSecret) ? "true" : "false"}
           >
-            <span className="fl">Auth</span>
+            <span className="fl">{t("config.card.authLabel")}</span>
             <span
               className="fv"
               style={!resolves(catalog, "secrets", c.authSecret) ? { color: "var(--bad)" } : undefined}
@@ -358,9 +361,9 @@ function CardBody({
       const m = entity as StudioMcpServer;
       return (
         <div className="fields">
-          <FieldBlock label="Transport">{m.transport || "—"}</FieldBlock>
+          <FieldBlock label={t("config.card.transport")}>{m.transport || "—"}</FieldBlock>
           <div className="f" data-resolved={resolves(catalog, "secrets", m.authSecret) ? "true" : "false"}>
-            <span className="fl">Auth</span>
+            <span className="fl">{t("config.card.authLabel")}</span>
             <span
               className="fv"
               style={!resolves(catalog, "secrets", m.authSecret) ? { color: "var(--bad)" } : undefined}
@@ -376,13 +379,13 @@ function CardBody({
       const d = entity as StudioDesignSource;
       return (
         <div className="fields">
-          <FieldBlock label="Vendor">{d.vendor || "—"}</FieldBlock>
+          <FieldBlock label={t("config.card.vendor")}>{d.vendor || "—"}</FieldBlock>
           <div
             className="f"
             data-testid={`config-card-design-source-auth-${d.id}`}
             data-resolved={resolves(catalog, "secrets", d.authSecret) ? "true" : "false"}
           >
-            <span className="fl">Auth</span>
+            <span className="fl">{t("config.card.authLabel")}</span>
             <span
               className="fv"
               style={!resolves(catalog, "secrets", d.authSecret) ? { color: "var(--bad)" } : undefined}
@@ -410,9 +413,10 @@ function CardBody({
  * ticket reaches the project, the repository count, and whether anything is unresolved.
  */
 function ProjectSubLine({ project, catalog }: { project: StudioProject; catalog: ConfigCatalog }) {
+  const t = useT();
   const templates = project.templates ?? [];
-  const targets = [...new Set(templates.map((t) => t.project).filter(Boolean))];
-  const pipeline = project.defaultPipeline || project.pipeline || "none declared";
+  const targets = [...new Set(templates.map((tpl) => tpl.project).filter(Boolean))];
+  const pipeline = project.defaultPipeline || project.pipeline || "";
   const unresolved = unresolvedRefs(project, catalog);
   const unfinished = unfinishedTemplates(project).length;
   return (
@@ -424,7 +428,7 @@ function ProjectSubLine({ project, catalog }: { project: StudioProject; catalog:
     // whose content model is phrasing.
     <span className="ec-sub ec-marks">
       <span className="ec-mark" data-testid={`config-project-pipeline-${project.id}`}>
-        {pipeline === "none declared" ? "no default pipeline" : `default · ${pipeline}`}
+        {pipeline === "" ? t("config.card.noDefaultPipeline") : t("config.card.defaultPipeline", { pipeline })}
       </span>
       {project.resolution ? (
         <span className="ec-mark" data-testid={`config-project-resolution-${project.id}`}>
@@ -432,11 +436,11 @@ function ProjectSubLine({ project, catalog }: { project: StudioProject; catalog:
         </span>
       ) : null}
       <span className="ec-mark" data-testid={`config-project-repos-${project.id}`}>
-        {project.repos.length} {project.repos.length === 1 ? "repository" : "repositories"}
+        {t("config.card.repositories", { count: project.repos.length })}
       </span>
       {targets.length > 0 ? (
         <span className="ec-mark" data-testid={`config-project-templates-${project.id}`}>
-          built after {targets.join(", ")}
+          {t("config.card.builtAfter", { targets: targets.join(", ") })}
         </span>
       ) : null}
       {/* Two different problems with two different fixes: a reference names a catalog entry
@@ -444,12 +448,12 @@ function ProjectSubLine({ project, catalog }: { project: StudioProject; catalog:
           as one number, neither could be acted on. */}
       {unfinished > 0 ? (
         <span className="ec-mark warn" data-testid={`config-project-unfinished-${project.id}`}>
-          {unfinished} template{unfinished === 1 ? "" : "s"} unfinished
+          {t("config.card.templatesUnfinished", { count: unfinished })}
         </span>
       ) : null}
       {unresolved > 0 ? (
         <span className="ec-mark bad" data-testid={`config-project-unresolved-${project.id}`}>
-          {unresolved} unresolved
+          {t("config.card.unresolved", { count: unresolved })}
         </span>
       ) : null}
     </span>

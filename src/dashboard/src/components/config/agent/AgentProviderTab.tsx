@@ -6,7 +6,7 @@ import { NumberField, RefSelect, SelectField, TextField } from "../formFields";
 import { useT } from "@/hooks/useT";
 
 // The agent's own connection: provider, key, endpoint, api version, timeout, runs at a time (2026-11-20-24bd), the
-// per-minute budget (2026-11-22-66e4b; its texts read from the dictionary, the older fields move over in 5485b). A catalog
+// per-minute budget (2026-11-22-66e4b). A catalog
 // entry answers here unless it names a provider or endpoint of its own.
 
 export function AgentProviderTab({
@@ -31,23 +31,23 @@ export function AgentProviderTab({
   return (
     <>
       <SelectField
-        label="provider"
+        label={t("config.agent.provider")}
         value={draft.provider}
         options={capabilities?.agentProviders ?? []}
         required
-        help={capabilities ? undefined : "capabilities unavailable"}
+        help={capabilities ? undefined : t("config.capabilitiesUnavailable")}
         testId="form-field-provider"
         onChange={(v) => onChange({ ...draft, provider: v })}
       />
       <RefSelect
-        label="key secret"
+        label={t("config.agent.keySecret")}
         value={draft.keySecret ?? ""}
         options={catalog.secrets}
         testId="form-ref-keySecret"
         onChange={(v) => onChange({ ...draft, keySecret: v || null })}
       />
       <TextField
-        label="endpoint"
+        label={t("config.agent.endpoint")}
         value={draft.endpoint ?? ""}
         mono
         testId="form-field-endpoint"
@@ -55,23 +55,23 @@ export function AgentProviderTab({
         onChange={(v) => onChange({ ...draft, endpoint: v || undefined })}
       />
       <TextField
-        label="api version"
+        label={t("config.agent.apiVersion")}
         value={draft.apiVersion ?? ""}
         mono
         testId="form-field-apiVersion"
         onChange={(v) => onChange({ ...draft, apiVersion: v || undefined })}
       />
       <NumberField
-        label="network timeout (seconds)"
+        label={t("config.agent.networkTimeout")}
         value={draft.networkTimeoutSeconds}
         testId="form-field-networkTimeoutSeconds"
         onChange={(v) => onChange({ ...draft, networkTimeoutSeconds: v })}
       />
       <NumberField
-        label="runs at a time on this model"
+        label={t("config.agent.maxConcurrentRuns.label")}
         value={draft.maxConcurrentRuns ?? undefined}
-        placeholder="no limit"
-        help="max_concurrent_runs: a run and all its sub-agents count once; other runs wait. Set 1 for a shared deployment whose quota one run fills."
+        placeholder={t("config.agent.maxConcurrentRuns.placeholder")}
+        help={t("config.agent.maxConcurrentRuns.help")}
         testId="form-field-maxConcurrentRuns"
         onChange={(v) => onChange({ ...draft, maxConcurrentRuns: v ?? null })}
       />

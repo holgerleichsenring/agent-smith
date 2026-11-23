@@ -1,3 +1,4 @@
+import type { T } from "@/lib/i18n/translate";
 import type { RunPasses } from "@/types/tickets";
 import { money } from "../ticketFormat";
 
@@ -21,7 +22,7 @@ export function specLabel(specId: string, ordinals: Readonly<Record<string, numb
   return ordinal ? `S${ordinal}` : specId;
 }
 
-export function costBuckets(passes: RunPasses | null, ordinals: Readonly<Record<string, number>>): CostBucket[] {
+export function costBuckets(t: T, passes: RunPasses | null, ordinals: Readonly<Record<string, number>>): CostBucket[] {
   if (!passes) return [];
   const specs = [...passes.specs]
     .sort((l, r) => (ordinals[l.specId] ?? Infinity) - (ordinals[r.specId] ?? Infinity))
@@ -32,22 +33,22 @@ export function costBuckets(passes: RunPasses | null, ordinals: Readonly<Record<
       passes: spec.passes.length,
     }));
   const buckets: CostBucket[] = [
-    { kind: "derive", label: "derive", usd: passes.derive.costUsd },
+    { kind: "derive", label: t("tickets.cost.derive"), usd: passes.derive.costUsd },
     ...specs,
-    { kind: "pr", label: "PRs", usd: passes.pr.costUsd },
-    { kind: "other", label: "other", usd: passes.other.costUsd },
-    { kind: "unattributed", label: "not attributed", usd: passes.notAttributed.costUsd },
+    { kind: "pr", label: t("tickets.cost.prs"), usd: passes.pr.costUsd },
+    { kind: "other", label: t("tickets.cost.other"), usd: passes.other.costUsd },
+    { kind: "unattributed", label: t("tickets.cost.unattributed"), usd: passes.notAttributed.costUsd },
   ];
   return buckets.filter((b) => b.usd > 0);
 }
 
 /** "derive $0.90 · S3 $1.70 (2 passes) · PRs $0.45 · S1, S2 carried $0" — carried specs cost this attempt nothing. */
-export function costParts(buckets: CostBucket[], carried: string[], live: boolean): string {
+export function costParts(t: T, buckets: CostBucket[], carried: string[], live: boolean): string {
   const parts = buckets.map((b) => {
-    const passes = b.passes && b.passes > 1 ? ` (${b.passes} passes)` : "";
+    const passes = b.passes && b.passes > 1 ? ` (${t("tickets.cost.passes", { count: b.passes })})` : "";
     return `${b.label} ${money(b.usd)}${passes}`;
   });
-  if (carried.length > 0) parts.push(`${carried.join(", ")} carried $0`);
-  if (live && parts.length > 0) parts.push("so far");
+  if (carried.length > 0) parts.push(t("tickets.cost.carried", { specs: carried.join(", ") }));
+  if (live && parts.length > 0) parts.push(t("tickets.cost.soFarWord"));
   return parts.join(" · ");
 }

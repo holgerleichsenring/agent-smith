@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { useT } from "@/hooks/useT";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import { useTicketConversation, useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import type { TicketApprovalPreview } from "@/types/tickets";
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export function TicketThread({ preview, endRef }: Props) {
+  const t = useT();
   const detail = useTicketDetail();
   const conversation = useTicketConversation();
   const address = useTicketTabGo();
@@ -45,7 +47,7 @@ export function TicketThread({ preview, endRef }: Props) {
   const scrolledFor = useRef<string | null | undefined>(undefined);
   /** The fold's boundary, fixed when the conversation is first read here. */
   const boundary = useRef<string | null | undefined>(undefined);
-  const items = data && detail.data ? threadItems(data, detail.data) : [];
+  const items = data && detail.data ? threadItems(t, data, detail.data) : [];
   if (data && detail.data && boundary.current === undefined) boundary.current = foldBoundary(items, NEWEST_SHOWN);
 
   useEffect(() => {
@@ -70,21 +72,21 @@ export function TicketThread({ preview, endRef }: Props) {
         <TicketTextMessage />
         {!data && (
           <div className="msub" data-testid="conv-unread">
-            {conversation.loading ? "Reading the conversation…" : "The conversation could not be read."}
+            {conversation.loading ? t("tickets.conversation.reading") : t("tickets.conversation.unread")}
           </div>
         )}
         {data?.threadUnavailable && (
-          <div className="msub note" data-testid="conv-thread-unavailable">The ticket&apos;s own comments could not be read from its tracker.</div>
+          <div className="msub note" data-testid="conv-thread-unavailable">{t("tickets.conversation.threadUnavailable")}</div>
         )}
         {folded.earlier.length > 0 && causeAttempt === null && (
           <button type="button" className="tk-link tk-earlier" aria-expanded={unfolded} aria-controls="conv-earlier-items"
             onClick={() => setUnfolded(!unfolded)} data-testid="conv-earlier">
-            {unfolded ? "Fold the earlier ones" : earlierWords(countItems(folded.earlier))}
+            {unfolded ? t("tickets.conversation.fold") : earlierWords(t, countItems(folded.earlier))}
           </button>
         )}
         <div id="conv-earlier-items">{unfolded && list(folded.earlier)}</div>
       </div>
-      <div className="thread" role="log" aria-label="Conversation" data-testid="conv">
+      <div className="thread" role="log" aria-label={t("tickets.conversation.label")} data-testid="conv">
         {list(logItems)}
         {data?.proposal && !data.transcriptHidden && <ProposalBlock proposal={data.proposal} preview={preview.data} />}
       </div>

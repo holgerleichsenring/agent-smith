@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useT } from "@/hooks/useT";
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
 import { useLiveAttempt, useTicketEdited, useTicketRequires } from "@/lib/tickets/TicketPageStore";
 import { EventType } from "@/types/hub-events";
@@ -18,13 +19,14 @@ import { DeployAct } from "../deploying/DeployAct";
 // header share it; Cancel for a live attempt left the menu and stands beside it (LiveAttemptCancel).
 
 export function TicketMoreMenu({ summary }: { summary: TicketSummary }) {
+  const t = useT();
   const requires = useTicketRequires();
   const edited = useTicketEdited();
   return (
     <MoreMenu>
       {summary.webUrl && (
         <a className="tk-menu-item" href={summary.webUrl} target="_blank" rel="noreferrer" data-testid="ticket-open-tracker">
-          Open in {platformWords(summary.platform)} ↗
+          {t("tickets.more.openIn", { tracker: platformWords(t, summary.platform) })}
         </a>
       )}
       <DoneByHandAct project={summary.project} ticketId={summary.ticketId} label={ticketLabel(summary)}
@@ -40,17 +42,19 @@ export function TicketMoreMenu({ summary }: { summary: TicketSummary }) {
 
 /** The live attempt's Cancel, in plain sight; nothing while no attempt is live. */
 export function LiveAttemptCancel() {
+  const t = useT();
   const live = useLiveAttempt();
   if (!live.attempt) return null;
   const cancelling = live.events.some((e) => e.type === EventType.RunCancelRequested);
   return (
     <span className="tk-cancel">
-      <CancelRunButton runId={live.attempt.runId} cancelRequested={cancelling} label={`Cancel run ${live.attempt.number}`} />
+      <CancelRunButton runId={live.attempt.runId} cancelRequested={cancelling} label={t("tickets.more.cancelRun", { n: live.attempt.number })} />
     </span>
   );
 }
 
 function MoreMenu({ children }: { children: ReactNode }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -65,9 +69,9 @@ function MoreMenu({ children }: { children: ReactNode }) {
   }, [open]);
   return (
     <div className="t-act tk-more">
-      <button ref={button} type="button" className="tk-more-btn" aria-label="More actions" aria-expanded={open}
+      <button ref={button} type="button" className="tk-more-btn" aria-label={t("tickets.more.label")} aria-expanded={open}
         aria-controls="ticket-more" onClick={() => setOpen(!open)} data-testid="ticket-more">···</button>
-      <div className="tk-menu" id="ticket-more" role="group" aria-label="More actions" hidden={!open} data-testid="ticket-more-menu">
+      <div className="tk-menu" id="ticket-more" role="group" aria-label={t("tickets.more.label")} hidden={!open} data-testid="ticket-more-menu">
         {children}
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { SystemActivitySnapshot } from "@/types/hub-events";
+import { useT } from "@/hooks/useT";
 
 interface Props {
   activity: SystemActivitySnapshot | null;
@@ -16,6 +17,7 @@ interface Row {
 // local ring buffer (no time window, capped at 500 events).
 
 export function ChannelBreakdown({ activity }: Props) {
+  const t = useT();
   const rows: Row[] = activity
     ? Object.entries(activity.eventsPerSource)
         .map(([source, count]) => ({ source, count }))
@@ -28,10 +30,10 @@ export function ChannelBreakdown({ activity }: Props) {
       className="rounded-lg border border-stone-200 bg-white p-4"
       data-testid="channel-breakdown"
     >
-      <h2 className="mb-3 text-sm font-medium text-stone-700">By source</h2>
+      <h2 className="mb-3 text-sm font-medium text-stone-700">{t("system.sources.title")}</h2>
       {rows.length === 0 ? (
         <p className="text-sm text-stone-500" data-testid="channel-breakdown-empty">
-          No system events yet.
+          {t("system.sources.empty")}
         </p>
       ) : (
         <ul className="space-y-1.5 text-sm">

@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+
 // p0173f: render one sub-agent in the trail tree — Name badge, Activity
 // one-liner, four decision-anchor count chips, status indicator. Counts
 // come from SubAgentCompletedEvent (terminal) or accrue from the
@@ -30,6 +32,7 @@ export function SubAgentTreeNode({
   onSelect,
   isSelected = false,
 }: SubAgentTreeNodeProps) {
+  const t = useT();
   return (
     <button
       type="button"
@@ -54,10 +57,10 @@ export function SubAgentTreeNode({
       >
         {activity}
       </span>
-      <CountChip label="obs" value={observationsCount} testId={`chip-obs-${subAgentId}`} />
-      <CountChip label="find" value={findingsCount} testId={`chip-findings-${subAgentId}`} />
-      <CountChip label="files" value={filesWrittenCount} testId={`chip-files-${subAgentId}`} />
-      <CountChip label="tools" value={toolCalls} testId={`chip-tools-${subAgentId}`} />
+      <CountChip label={t("runs.subagent.chip.obs")} value={observationsCount} testId={`chip-obs-${subAgentId}`} />
+      <CountChip label={t("runs.subagent.chip.find")} value={findingsCount} testId={`chip-findings-${subAgentId}`} />
+      <CountChip label={t("runs.subagent.chip.files")} value={filesWrittenCount} testId={`chip-files-${subAgentId}`} />
+      <CountChip label={t("runs.subagent.chip.tools")} value={toolCalls} testId={`chip-tools-${subAgentId}`} />
       <StatusIndicator status={status} testId={`status-${subAgentId}`} />
     </button>
   );
@@ -86,6 +89,7 @@ interface StatusIndicatorProps {
 }
 
 function StatusIndicator({ status, testId }: StatusIndicatorProps) {
+  const t = useT();
   const className = status === "Succeeded"
     ? "bg-emerald-500"
     : status === "Failed"
@@ -95,7 +99,7 @@ function StatusIndicator({ status, testId }: StatusIndicatorProps) {
     <span
       data-testid={testId}
       className={`inline-block h-2 w-2 rounded-full ${className}`}
-      aria-label={status}
+      aria-label={t(`runs.subagent.state.${status}`)}
     />
   );
 }

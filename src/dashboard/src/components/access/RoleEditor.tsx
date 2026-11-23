@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { AccessDocument } from "@/lib/accessApi";
 import { permissionAreas } from "./derive";
+import { useT } from "@/hooks/useT";
 
 // 2026-09-14-91ad: composing a role out of the permission catalog, which until now was a
 // refusal at the save and a config import as the only way in.
@@ -25,6 +26,7 @@ export function RoleEditor({
   permissions: string[];
   onChange: (next: AccessDocument) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState("");
   const configured = Object.keys(draft.roles).sort();
   const typed = name.trim();
@@ -55,11 +57,8 @@ export function RoleEditor({
 
   return (
     <section data-testid="access-role-editor">
-      <h3>Roles configured here</h3>
-      <p className="help">
-        A role composed here stands beside the built-in three and never replaces one. Removing
-        it is refused while anybody this installation can see still holds it.
-      </p>
+      <h3>{t("access.roles.configuredHere")}</h3>
+      <p className="help">{t("access.roles.help")}</p>
       {configured.map((role) => (
         <div key={role} className="rolecard" data-testid={`access-role-edit-${role}`}>
           <div className="rolehead">
@@ -70,7 +69,7 @@ export function RoleEditor({
               data-testid={`access-role-remove-${role}`}
               onClick={() => remove(role)}
             >
-              Remove
+              {t("access.roles.remove")}
             </button>
           </div>
           {permissionAreas(permissions).map(([area, names]) => (
@@ -95,8 +94,8 @@ export function RoleEditor({
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="new role name"
-          aria-label="new role name"
+          placeholder={t("access.roles.newName")}
+          aria-label={t("access.roles.newName")}
           data-testid="access-role-new-name"
         />
         <button
@@ -106,7 +105,7 @@ export function RoleEditor({
           disabled={typed === "" || typed in draft.roles}
           onClick={add}
         >
-          Add role
+          {t("access.roles.add")}
         </button>
       </div>
     </section>

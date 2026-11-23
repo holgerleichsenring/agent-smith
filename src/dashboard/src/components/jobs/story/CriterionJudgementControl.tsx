@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { CriterionDisposition, CriterionJudgement } from "@/lib/judgementsApi";
+import { useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 
 /**
  * 2026-08-25-e257: where the operator says a criterion's disposition was wrong.
@@ -14,18 +16,18 @@ import type { CriterionDisposition, CriterionJudgement } from "@/lib/judgementsA
  * The reason is required, because a label nobody can audit later is worse than no label.
  */
 
-const DISPOSITIONS: { value: CriterionDisposition; label: string }[] = [
-  { value: "met", label: "it was met" },
-  { value: "unmet", label: "it was not met" },
-  { value: "not_applicable", label: "it did not apply" },
-  { value: "unproven", label: "nothing measured it" },
+const DISPOSITIONS: { value: CriterionDisposition; label: TextKey }[] = [
+  { value: "met", label: "runs.story.judge.met" },
+  { value: "unmet", label: "runs.story.judge.unmet" },
+  { value: "not_applicable", label: "runs.story.judge.not_applicable" },
+  { value: "unproven", label: "runs.story.judge.unproven" },
 ];
 
-const STATUS_LABEL: Record<CriterionDisposition, string> = {
-  met: "met",
-  unmet: "not met",
-  not_applicable: "not applicable",
-  unproven: "unproven",
+const STATUS_LABEL: Record<CriterionDisposition, TextKey> = {
+  met: "runs.story.judgeStatus.met",
+  unmet: "runs.story.judgeStatus.unmet",
+  not_applicable: "runs.story.judgeStatus.not_applicable",
+  unproven: "runs.story.judgeStatus.unproven",
 };
 
 interface Props {
@@ -45,6 +47,7 @@ export function CriterionJudgementControl({
   onWithdraw,
   busy,
 }: Props) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [humanStatus, setHumanStatus] = useState<CriterionDisposition>(
     machineStatus === "met" ? "unmet" : "met",
@@ -54,7 +57,7 @@ export function CriterionJudgementControl({
   if (judgement) {
     return (
       <div className="c-proof" data-testid="criterion-judgement">
-        <b>{judgement.author} says: {STATUS_LABEL[judgement.humanStatus]}</b> — {judgement.reason}
+        <b>{t("runs.story.judge.says", { author: judgement.author, status: t(STATUS_LABEL[judgement.humanStatus]) })}</b> — {judgement.reason}
         <button
           type="button"
           className="btn-link"
@@ -62,7 +65,7 @@ export function CriterionJudgementControl({
           disabled={busy}
           onClick={onWithdraw}
         >
-          withdraw
+          {t("runs.story.judge.withdraw")}
         </button>
       </div>
     );
@@ -76,7 +79,7 @@ export function CriterionJudgementControl({
         data-testid="criterion-judgement-open"
         onClick={() => setOpen(true)}
       >
-        this verdict is wrong
+        {t("runs.story.judge.open")}
       </button>
     );
   }
@@ -85,7 +88,7 @@ export function CriterionJudgementControl({
   return (
     <div className="c-proof" data-testid="criterion-judgement-form">
       <label>
-        Actually:{" "}
+        {t("runs.story.judge.actually")}{" "}
         <select
           data-testid="criterion-judgement-status"
           value={humanStatus}
@@ -93,20 +96,19 @@ export function CriterionJudgementControl({
         >
           {DISPOSITIONS.filter((d) => d.value !== machineStatus).map((d) => (
             <option key={d.value} value={d.value}>
-              {d.label}
+              {t(d.label)}
             </option>
           ))}
         </select>
       </label>
       <textarea
         data-testid="criterion-judgement-reason"
-        placeholder="Why — what the account missed, and where to see it"
+        placeholder={t("runs.story.judge.reason")}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
       />
       <div className="hint">
-        This records a judgement about <i>{criterion.slice(0, 60)}…</i>. It changes nothing
-        about the run.
+        {t("runs.story.judge.records.a")}<i>{criterion.slice(0, 60)}…</i>{t("runs.story.judge.records.b")}
       </div>
       <button
         type="button"
@@ -114,10 +116,10 @@ export function CriterionJudgementControl({
         disabled={!canSave || busy}
         onClick={() => onRecord(humanStatus, reason.trim())}
       >
-        record
+        {t("runs.story.judge.record")}
       </button>
       <button type="button" className="btn-link" onClick={() => setOpen(false)}>
-        cancel
+        {t("runs.story.judge.cancel")}
       </button>
     </div>
   );

@@ -7,6 +7,7 @@ import {
   type PullCycleEntry,
 } from "@/hooks/usePullCycleLog";
 import { TicketSkipReason, type SystemEvent } from "@/types/system-events";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 interface Props {
   events: readonly SystemEvent[];
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function PullCycleLog({ events, limit = 50 }: Props) {
+  const t = useT();
   const cycles = usePullCycleLog(events, limit);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -32,12 +34,12 @@ export function PullCycleLog({ events, limit = 50 }: Props) {
       data-testid="pull-cycle-log"
     >
       <header className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-sm font-medium text-stone-700">Pull cycles</h2>
-        <span className="text-xs text-stone-500">{cycles.length} most recent</span>
+        <h2 className="text-sm font-medium text-stone-700">{t("system.pull.title")}</h2>
+        <span className="text-xs text-stone-500">{t("system.recent", { count: cycles.length })}</span>
       </header>
       {cycles.length === 0 ? (
         <p className="text-sm text-stone-500" data-testid="pull-cycle-empty">
-          No pull cycles observed yet.
+          {t("system.pull.empty")}
         </p>
       ) : (
         <ul className="space-y-1.5">
@@ -68,6 +70,8 @@ function CycleRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const t = useT();
+  const locale = useDateLocale();
   const inFlight = cycle.finishedAt === null;
   const accent = inFlight
     ? "border-amber-200 bg-amber-50"
@@ -87,16 +91,16 @@ function CycleRow({
       >
         <span className="flex items-center gap-2">
           <span className="rounded bg-stone-800 px-1.5 py-0.5 font-mono dsh-label uppercase tracking-wide text-stone-50">
-            pull
+            {t("system.pull.tag")}
           </span>
           <span className="font-medium text-stone-800">{cycle.tracker}</span>
           <span className="font-mono text-xs text-stone-500">{cycle.source}</span>
         </span>
         <span className="flex items-center gap-3 text-xs">
           <DurationBadge durationMs={cycle.durationMs} />
-          <CountChip label="scanned" count={cycle.ticketsPolled} tone="neutral" />
+          <CountChip text={t("system.pull.scanned", { count: cycle.ticketsPolled })} tone="neutral" />
           {cycle.triggered > 0 && (
-            <CountChip label="triggered" count={cycle.triggered} tone="ok" />
+            <CountChip text={t("system.pull.triggeredCount", { count: cycle.triggered })} tone="ok" />
           )}
           {cycle.skippedTotal > 0 && (
             <SkippedHistogram skipped={cycle.skippedByReason} total={cycle.skippedTotal} />
@@ -109,16 +113,16 @@ function CycleRow({
       {expanded ? (
         <div className="border-t border-stone-200 px-3 py-2" data-testid="pull-cycle-detail">
           <p className="mb-1 dsh-label uppercase tracking-wide text-stone-500">
-            started {new Date(cycle.startedAt).toLocaleString()}
-            {cycle.finishedAt && ` · finished ${new Date(cycle.finishedAt).toLocaleTimeString()}`}
+            {t("system.pull.started", { at: new Date(cycle.startedAt).toLocaleString(locale) })}
+            {cycle.finishedAt && t("system.pull.finished", { at: new Date(cycle.finishedAt).toLocaleTimeString(locale) })}
           </p>
           {cycle.triggeredEntries.length > 0 && (
             <div className="mb-1">
-              <p className="text-xs text-emerald-700">Triggered:</p>
+              <p className="text-xs text-emerald-700">{t("system.pull.triggered")}</p>
               <ul className="ml-3 list-disc text-xs text-stone-700">
-                {cycle.triggeredEntries.map((t) => (
-                  <li key={t.ticketId}>
-                    {t.ticketId} → {t.project}/{t.pipeline} ({t.outcome})
+                {cycle.triggeredEntries.map((entry) => (
+                  <li key={entry.ticketId}>
+                    {entry.ticketId} → {entry.project}/{entry.pipeline} ({entry.outcome})
                   </li>
                 ))}
               </ul>
@@ -126,7 +130,7 @@ function CycleRow({
           )}
           {cycle.skippedEntries.length > 0 && (
             <div>
-              <p className="text-xs text-stone-600">Skipped:</p>
+              <p className="text-xs text-stone-600">{t("system.pull.skipped")}</p>
               <ul className="ml-3 list-disc text-xs text-stone-600">
                 {cycle.skippedEntries.slice(0, 20).map((s, idx) => (
                   <li key={`${s.ticketId}-${idx}`}>
@@ -135,7 +139,7 @@ function CycleRow({
                   </li>
                 ))}
                 {cycle.skippedEntries.length > 20 && (
-                  <li className="text-stone-400">… {cycle.skippedEntries.length - 20} more</li>
+                  <li className="text-stone-400">{t("system.pull.more", { count: cycle.skippedEntries.length - 20 })}</li>
                 )}
               </ul>
             </div>
@@ -147,9 +151,10 @@ function CycleRow({
 }
 
 function DurationBadge({ durationMs }: { durationMs: number | null }) {
+  const t = useT();
   if (durationMs === null) {
     return (
-      <span className="text-amber-700" data-testid="duration-in-flight">in-flight…</span>
+      <span className="text-amber-700" data-testid="duration-in-flight">{t("system.pull.inFlight")}</span>
     );
   }
   const seconds = (durationMs / 1000).toFixed(1);
@@ -161,12 +166,10 @@ function DurationBadge({ durationMs }: { durationMs: number | null }) {
 }
 
 function CountChip({
-  label,
-  count,
+  text,
   tone,
 }: {
-  label: string;
-  count: number;
+  text: string;
   tone: "neutral" | "ok";
 }) {
   const cls =
@@ -175,7 +178,7 @@ function CountChip({
       : "bg-stone-100 text-stone-600";
   return (
     <span className={`rounded px-1.5 py-0.5 text-xs ${cls}`}>
-      {count} {label}
+      {text}
     </span>
   );
 }
@@ -187,6 +190,7 @@ function SkippedHistogram({
   skipped: Record<TicketSkipReason, number>;
   total: number;
 }) {
+  const t = useT();
   const reasons = (Object.entries(skipped) as [string, number][])
     .filter(([, c]) => c > 0)
     .sort((a, b) => b[1] - a[1])
@@ -194,7 +198,7 @@ function SkippedHistogram({
   return (
     <span className="flex items-center gap-1 text-xs">
       <span className="rounded bg-stone-100 px-1.5 py-0.5 text-stone-600">
-        {total} skipped
+        {t("system.pull.skippedCount", { count: total })}
       </span>
       {reasons.map(([reason, count]) => (
         <span

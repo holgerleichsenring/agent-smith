@@ -1,4 +1,7 @@
+"use client";
+
 import type { CatalogOrigin } from "@/lib/catalogApi";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { CatalogSourceNote } from "./CatalogSourceNote";
 
 // 2026-09-18-84be: what the page is showing, in the server's own words. The phrase is
@@ -7,6 +10,8 @@ import { CatalogSourceNote } from "./CatalogSourceNote";
 // unknown age would be the next false witness rather than the cure for the last one.
 
 export function CatalogOriginLine({ origin }: { origin: CatalogOrigin | null }) {
+  const t = useT();
+  const locale = useDateLocale();
   if (origin === null) return null;
   return (
     <div className="originline" data-testid="catalog-origin">
@@ -14,7 +19,7 @@ export function CatalogOriginLine({ origin }: { origin: CatalogOrigin | null }) 
         {origin.phrase}
       </span>
       <span data-testid="catalog-origin-read-at">
-        read {new Date(origin.readAt).toLocaleString()}
+        {t("system.catalog.readAt", { at: new Date(origin.readAt).toLocaleString(locale) })}
       </span>
       <CatalogSourceNote overlayPath={origin.overlayPath} testId="catalog-origin-source" />
     </div>

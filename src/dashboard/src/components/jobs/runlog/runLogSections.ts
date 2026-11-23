@@ -1,3 +1,4 @@
+import type { T } from "@/lib/i18n/translate";
 import type { RunSpecRow } from "@/lib/runSpecsApi";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { isStoryRow, splitSpecPrefix } from "@/lib/runStepRail";
@@ -87,8 +88,8 @@ export function stepTime(seconds: number | null | undefined): string {
   return `${m}m ${Math.round(seconds - m * 60)}s`;
 }
 
-export function llmWords(calls: number | null | undefined): string {
-  return calls ? `${calls} llm` : "";
+export function llmWords(t: T, calls: number | null | undefined): string {
+  return calls ? t("runs.log.llm", { count: calls }) : "";
 }
 
 export function costWords(usd: number | null | undefined): string {
@@ -96,14 +97,14 @@ export function costWords(usd: number | null | undefined): string {
 }
 
 /** "7 steps · 88 llm · $0.08 · 4m 52s", or "3 of 5 steps done · …" while some are not. */
-export function stepsMeta(rows: RunStepRow[]): string {
+export function stepsMeta(t: T, rows: RunStepRow[]): string {
   const reached = rows.filter((r) => !r.planned && r.status);
   const done = reached.filter((r) => r.status === "success").length;
-  const parts = [done === rows.length ? (rows.length === 1 ? "1 step" : `${rows.length} steps`) : `${done} of ${rows.length} steps done`];
+  const parts = [done === rows.length ? t("runs.log.steps", { count: rows.length }) : t("runs.log.stepsDone", { done, total: rows.length })];
   const llm = rows.reduce((n, r) => n + (r.llmCalls ?? 0), 0);
   const cost = rows.reduce((n, r) => n + (r.costUsd ?? 0), 0);
   const seconds = rows.reduce((n, r) => n + (r.durationSeconds ?? 0), 0);
-  if (llm > 0) parts.push(llmWords(llm));
+  if (llm > 0) parts.push(llmWords(t, llm));
   if (cost > 0) parts.push(costWords(cost));
   const span = spanWords(seconds);
   if (span) parts.push(span);
@@ -112,63 +113,63 @@ export function stepsMeta(rows: RunStepRow[]): string {
 
 const SPEC_STATE: Record<string, SectionState | undefined> = { failed: "bad", handed_back: "bad" };
 
-function ledgerMeta(ledger: ProgressLedgerEntry[] | null): { state: SectionState; meta: string } {
-  if (!ledger || ledger.length === 0) return { state: "pending", meta: "the work spec and the agreed plan" };
+function ledgerMeta(t: T, ledger: ProgressLedgerEntry[] | null): { state: SectionState; meta: string } {
+  if (!ledger || ledger.length === 0) return { state: "pending", meta: t("runs.log.plan.none") };
   const done = ledger.filter((e) => e.status === "done").length;
   const state: SectionState = done === ledger.length ? "done" : ledger.some((e) => e.status === "in_progress") ? "running" : "pending";
-  return { state, meta: `${done} of ${ledger.length} plan steps done` };
+  return { state, meta: t("runs.log.plan.stepsDone", { done, total: ledger.length }) };
 }
 
-function deliverMeta(snapshot: RunSnapshot | null, rows: RunStepRow[]): string {
+function deliverMeta(t: T, snapshot: RunSnapshot | null, rows: RunStepRow[]): string {
   const status = (snapshot?.status ?? "").toLowerCase();
   const prs = snapshot ? pullRequestLinks(snapshot).length : 0;
   const finished = status === "success" || status === "shortfall" || status === "failed" || status === "error" || status === "cancelled";
-  const words = prs === 1 ? "pull request opened" : prs > 1 ? `${prs} pull requests opened` : finished ? "no pull request opened" : "not reached yet";
-  const steps = rows.length > 0 ? stepsMeta(rows) : "";
+  const words = prs > 0 ? t("runs.log.deliver.prs", { count: prs }) : t(finished ? "runs.log.deliver.none" : "runs.log.deliver.notYet");
+  const steps = rows.length > 0 ? stepsMeta(t, rows) : "";
   return steps ? `${words} · ${steps}` : words;
 }
 
 export function runLogSections(
-  steps: RunStepRow[], specs: RunSpecRow[], snapshot: RunSnapshot | null, ledger: ProgressLedgerEntry[] | null,
+  t: T, steps: RunStepRow[], specs: RunSpecRow[], snapshot: RunSnapshot | null, ledger: ProgressLedgerEntry[] | null,
 ): LogSection[] {
   const placed = placeLogSteps(steps);
   const rowsOf = (key: string) => placed.filter((p) => p.key === key).map((p) => p.row);
   const stepSection = (key: string, kind: LogSectionKind, title: string, specId: string | null = null): LogSection => {
     const rows = rowsOf(key);
-    return { id: key, kind, title, specId, state: sectionState(rows), meta: rows.length > 0 ? stepsMeta(rows) : "nothing ran here", steps: rows.map(toStep) };
+    return { id: key, kind, title, specId, state: sectionState(rows), meta: rows.length > 0 ? stepsMeta(t, rows) : t("runs.log.section.nothingRan"), steps: rows.map(toStep) };
   };
 
   const sections: LogSection[] = [];
   // 2026-11-18-e06ba: the head names the ticket by id; its title opens the section's body, where it has the room.
   const ticketId = snapshot?.ticketId ?? null;
-  sections.push({ id: "ticket", kind: "ticket", title: "Ticket", specId: null, state: ticketId || snapshot?.ticketTitle ? "done" : "pending",
-    meta: ticketId ?? "the ticket as the run read it", steps: [] });
+  sections.push({ id: "ticket", kind: "ticket", title: t("runs.log.section.ticket"), specId: null, state: ticketId || snapshot?.ticketTitle ? "done" : "pending",
+    meta: ticketId ?? t("runs.log.section.ticketMeta"), steps: [] });
   // 2026-11-19-6b0be: the old title read as the work being ready; the section holds every step before the first spec —
   // checkout and sandboxes, but also code analysis and deriving the specs — so it says where it sits.
-  sections.push(stepSection("ready", "ready", "Before the work"));
-  const plan = ledgerMeta(ledger);
-  sections.push({ id: "plan", kind: "plan", title: "The plan", specId: null, state: plan.state, meta: plan.meta, steps: [] });
+  sections.push(stepSection("ready", "ready", t("runs.log.section.ready")));
+  const plan = ledgerMeta(t, ledger);
+  sections.push({ id: "plan", kind: "plan", title: t("runs.log.section.plan"), specId: null, state: plan.state, meta: plan.meta, steps: [] });
 
   const specKeys = [...new Set(placed.map((p) => p.key).filter((k) => k.startsWith("spec:")))];
   for (const spec of specs) if (!specKeys.includes(`spec:${spec.specId}`)) specKeys.push(`spec:${spec.specId}`);
   for (const key of specKeys) {
     const specId = key.slice("spec:".length);
     const row = specs.find((s) => s.specId === specId);
-    const section = stepSection(key, "spec", row?.title ? `Spec ${specId} · ${row.title}` : `Spec ${specId}`, specId);
+    const section = stepSection(key, "spec", row?.title ? t("runs.log.section.specTitled", { spec: specId, title: row.title }) : t("runs.log.section.spec", { spec: specId }), specId);
     const forced = row ? SPEC_STATE[row.status] : undefined;
     if (forced) section.state = forced;
-    if (row?.status === "handed_back") section.meta = `handed back · ${section.meta}`;
+    if (row?.status === "handed_back") section.meta = t("runs.log.section.handedBack", { meta: section.meta });
     // 2026-11-22-7103a: the verdict is no longer cut into the meta; the section's body opens with it, whole.
     sections.push(section);
   }
-  if (rowsOf("work").length > 0) sections.push(stepSection("work", "work", "The work"));
+  if (rowsOf("work").length > 0) sections.push(stepSection("work", "work", t("runs.log.section.work")));
 
   // 2026-11-19-1b72c: a run that recorded no verdict, no report and no unmeasured account has no check section.
-  const check = checkOf(snapshot?.acceptance);
+  const check = checkOf(t, snapshot?.acceptance);
   if (check) sections.push({ id: "check", kind: "check", title: check.title, specId: null, state: check.state, meta: check.summary, steps: [] });
 
-  const deliver = stepSection("deliver", "deliver", "Delivered");
-  deliver.meta = deliverMeta(snapshot, rowsOf("deliver"));
+  const deliver = stepSection("deliver", "deliver", t("runs.log.section.deliver"));
+  deliver.meta = deliverMeta(t, snapshot, rowsOf("deliver"));
   sections.push(deliver);
   return sections;
 }

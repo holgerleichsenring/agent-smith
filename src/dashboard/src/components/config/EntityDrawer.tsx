@@ -12,7 +12,7 @@ import type {
   StudioProject,
   StudioTracker,
 } from "@/lib/configApi";
-import { ENTITY_CLIENT, ENTITY_ICON, ENTITY_SINGULAR } from "./entities";
+import { ENTITY_CLIENT, ENTITY_ICON, ENTITY_SINGULAR_KEY } from "./entities";
 import { EntityForm } from "./EntityForm";
 import { requiredFieldsFilled } from "./capabilityFields";
 import { blockingFindings, useDraftFindings } from "./useDraftFindings";
@@ -22,6 +22,8 @@ import { unfinishedTemplates } from "./integrity";
 import { cn } from "@/lib/utils";
 import { setSecretValue as storeSecretValue } from "@/lib/secretValuesApi";
 import type { ConfigCatalog } from "./useConfigCatalog";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // p0345: the slide-over create/edit drawer. Owns the draft, persists via the
 // entity's CRUD client, and gates Save on validity: a project cannot be saved
@@ -50,6 +52,7 @@ export function EntityDrawer({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState<StudioEntity>(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +114,7 @@ export function EntityDrawer({
     <div data-testid="config-drawer">
       <button
         type="button"
-        aria-label="Close drawer"
+        aria-label={t("config.drawer.closeDrawer")}
         data-testid="config-drawer-scrim"
         className="dbg open"
         onClick={onClose}
@@ -122,15 +125,15 @@ export function EntityDrawer({
           applied for a project and not for a secret. */}
       <aside
         className={cn("drawer open", kind === "projects" && "wide-project")}
-        aria-label="Create or edit"
+        aria-label={t("config.drawer.label")}
       >
         <div className="dh">
           <div className="dh-ic">{ENTITY_ICON[kind]}</div>
-          <h2>{isNew ? `New ${ENTITY_SINGULAR[kind]}` : `Edit ${ENTITY_SINGULAR[kind]}`}</h2>
+          <h2>{t(isNew ? "config.drawer.new" : "config.drawer.edit", { kind: t(ENTITY_SINGULAR_KEY[kind]) })}</h2>
           <button
             type="button"
             className="x"
-            aria-label="Close"
+            aria-label={t("config.drawer.close")}
             onClick={onClose}
             data-testid="config-drawer-close"
           >
@@ -169,17 +172,17 @@ export function EntityDrawer({
           >
             {canSave
               ? isNew
-                ? "Ready to create"
-                : "Ready to save"
+                ? t("config.drawer.readyCreate")
+                : t("config.drawer.readySave")
               : blocking.length > 0
-              ? blockedMessage(kind, blocking[0], capabilities, draft)
+              ? blockedMessage(t, kind, blocking[0], capabilities, draft)
               : kind === "projects" && !projectOk
-              ? "resolve all references to save"
+              ? t("config.drawer.resolveRefs")
               : unfinished.length > 0
-              ? `template ${unfinished[0] + 1} is unfinished — give it a context, a project, a repo and a template context`
+              ? t("config.drawer.templateUnfinished", { n: unfinished[0] + 1 })
               : !typedOk
-              ? "pick a type and fill its required fields"
-              : "Fill the required fields"}
+              ? t("config.drawer.pickType")
+              : t("config.drawer.fillRequired")}
           </span>
           {!isNew && (
             <button
@@ -190,11 +193,11 @@ export function EntityDrawer({
               data-testid="config-drawer-delete"
               style={{ color: "var(--bad)" }}
             >
-              Delete
+              {t("common.delete")}
             </button>
           )}
           <button type="button" className="btn" onClick={onClose} data-testid="config-drawer-cancel">
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="button"
@@ -203,7 +206,7 @@ export function EntityDrawer({
             disabled={!canSave}
             data-testid="config-drawer-save"
           >
-            {isNew ? "Create" : "Save changes"}
+            {isNew ? t("config.drawer.create") : t("config.saveChanges")}
           </button>
         </div>
       </aside>
@@ -244,13 +247,14 @@ function typedEntityOk(
 // requiredness, and it read "type is required" on a tracker whose type was set. On the
 // tabbed tracker form it also names the tab the field is on.
 function blockedMessage(
+  t: T,
   kind: ConfigEntityKind,
   finding: ConfigFinding,
   capabilities: ConfigCapabilities | null,
   draft: StudioEntity,
 ): string {
   if (kind !== "trackers" || !finding.field) return finding.reason;
-  const t = draft as StudioTracker;
-  const fields = capabilities?.trackerTypes.find((d) => d.type === t.type)?.fields ?? [];
-  return `${finding.reason} (${trackerTabTitle(trackerTabFor(finding.field, fields))} tab)`;
+  const tracker = draft as StudioTracker;
+  const fields = capabilities?.trackerTypes.find((d) => d.type === tracker.type)?.fields ?? [];
+  return t("config.drawer.blockedOnTab", { reason: finding.reason, tab: trackerTabTitle(t, trackerTabFor(finding.field, fields)) });
 }

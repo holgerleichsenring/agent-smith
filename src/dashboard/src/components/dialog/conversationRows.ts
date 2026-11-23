@@ -26,10 +26,10 @@ export function outcomeLabel(t: T, { outcome }: SpecDialogSessionSummary): strin
 }
 
 /** The time of day a conversation from today was last active; nothing for an older one. */
-function timeOfDay(lastActivityAt: string, now: Date = new Date()): string | null {
+function timeOfDay(lastActivityAt: string, now: Date, locale: string): string | null {
   const at = new Date(lastActivityAt);
   if (calendarDaysBetween(at, now) !== 0) return null;
-  return at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return at.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 }
 
 /**
@@ -38,9 +38,9 @@ function timeOfDay(lastActivityAt: string, now: Date = new Date()): string | nul
  * 2026-09-21-f237c, every row in the panel too. Today's rows keep the clock time, because on the
  * day you are working "14:20" is what tells two of them apart.
  */
-export function lastActive(t: T, at: string, now: Date = new Date()): string {
+export function lastActive(t: T, locale: string, at: string, now: Date = new Date()): string {
   const days = calendarDaysBetween(new Date(at), now);
-  if (days <= 0) return timeOfDay(at, now) ?? t("dialog.when.today");
+  if (days <= 0) return timeOfDay(at, now, locale) ?? t("dialog.when.today");
   if (days === 1) return t("dialog.when.yesterday");
   if (days < 7) return t("dialog.when.daysAgo", { count: days });
   if (days < 30) return t("dialog.when.weeksAgo", { count: Math.floor(days / 7) });

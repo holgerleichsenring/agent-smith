@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { TICKET_DOT_CLASSES, ticketDot } from "../ticketDot";
+import { translator } from "@/lib/i18n/translate";
 import { pullRequestFate } from "../ticketFormat";
+
+const EN = translator("en");
 import { pr, ticket } from "./ticketFixtures";
 
 const css = readFileSync("src/styles/mock-parity.css", "utf8");
@@ -61,10 +64,10 @@ describe("ticketDot", () => {
 
 describe("pullRequestFate", () => {
   it("counts merged, open and closed unmerged in that order and leaves unsupported and unread out", () => {
-    expect(pullRequestFate([pr({ state: "merged" }), pr({ state: "merged" })])).toBe("2 PRs merged");
-    expect(pullRequestFate([pr({ state: "open" }), pr({ state: "unread" }), pr({ state: "merged" })])).toBe("1 PR merged, 1 open");
-    expect(pullRequestFate([pr({ state: "closed" }), pr({ state: "closed" }), pr({ state: "closed" })])).toBe("3 PRs closed unmerged");
-    expect(pullRequestFate([pr({ state: "unsupported" })])).toBeNull();
-    expect(pullRequestFate([])).toBeNull();
+    expect(pullRequestFate(EN, [pr({ state: "merged" }), pr({ state: "merged" })])).toBe("2 PRs merged");
+    expect(pullRequestFate(EN, [pr({ state: "open" }), pr({ state: "unread" }), pr({ state: "merged" })])).toBe("1 PR merged, 1 open");
+    expect(pullRequestFate(EN, [pr({ state: "closed" }), pr({ state: "closed" }), pr({ state: "closed" })])).toBe("3 PRs closed unmerged");
+    expect(pullRequestFate(EN, [pr({ state: "unsupported" })])).toBeNull();
+    expect(pullRequestFate(EN, [])).toBeNull();
   });
 });

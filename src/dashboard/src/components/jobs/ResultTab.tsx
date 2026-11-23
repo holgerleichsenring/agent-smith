@@ -6,6 +6,7 @@ import { usePlanMarkdown } from "@/hooks/usePlanMarkdown";
 import { PrButton } from "@/components/jobs/PrButton";
 import { Markdown } from "@/components/ui/Markdown";
 import { splitFrontmatter } from "@/lib/frontmatter";
+import { useT } from "@/hooks/useT";
 
 interface Props {
   runId: string;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function ResultTab({ runId, prUrl }: Props) {
+  const t = useT();
   const { content, loading, error } = useResultMarkdown(runId);
   // p0235: plan.md is best-effort — render it above the result when present,
   // never block the result view on its load/error.
@@ -33,7 +35,7 @@ export function ResultTab({ runId, prUrl }: Props) {
   if (loading) {
     return (
       <p className="text-sm text-stone-500" data-testid="result-loading">
-        Loading result…
+        {t("runs.result.loading")}
       </p>
     );
   }
@@ -41,7 +43,7 @@ export function ResultTab({ runId, prUrl }: Props) {
   if (error) {
     return (
       <p className="text-sm text-rose-700" data-testid="result-error">
-        Failed to load result: {error}
+        {t("runs.result.failed", { error })}
       </p>
     );
   }
@@ -65,14 +67,14 @@ export function ResultTab({ runId, prUrl }: Props) {
       )}
       <section className="space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-stone-500">result.md (cache)</span>
+          <span className="text-stone-500">{t("runs.result.cache")}</span>
           <button
             type="button"
             onClick={copy}
             className="rounded border border-stone-300 bg-white px-2 py-1 text-stone-600 hover:bg-stone-100"
             data-testid="result-copy"
           >
-            {copied ? "Copied" : "Copy markdown"}
+            {copied ? t("runs.result.copied") : t("runs.result.copy")}
           </button>
         </div>
         <article
@@ -108,6 +110,7 @@ export function ResultDocument({ content }: { content: string }) {
 }
 
 function ResultEmptyState({ prUrl }: { prUrl: string | null }) {
+  const t = useT();
   return (
     <div
       className="rounded-lg border border-dashed border-stone-300 bg-white p-6 text-sm text-stone-600"
@@ -115,15 +118,15 @@ function ResultEmptyState({ prUrl }: { prUrl: string | null }) {
     >
       {prUrl !== null ? (
         <>
-          <p className="mb-2 font-medium text-stone-800">Result not in cache.</p>
-          <p className="mb-2">Live cache expires after 24h. The full result is in the PR:</p>
+          <p className="mb-2 font-medium text-stone-800">{t("runs.result.notCached")}</p>
+          <p className="mb-2">{t("runs.result.inPr")}</p>
           {/* p0372: the PR reference is the ONE PrButton, not an inline link. */}
           <PrButton url={prUrl} testId="result-pr-link" />
         </>
       ) : (
         <>
-          <p className="mb-2 font-medium text-stone-800">No result yet.</p>
-          <p>The result becomes visible when the run finishes.</p>
+          <p className="mb-2 font-medium text-stone-800">{t("runs.result.none")}</p>
+          <p>{t("runs.result.whenFinished")}</p>
         </>
       )}
     </div>

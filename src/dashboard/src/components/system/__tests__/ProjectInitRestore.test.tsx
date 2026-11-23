@@ -74,7 +74,7 @@ describe("ProjectInitAction restores the live run", () => {
 
   it("Press_ShowsTheServersAnswerForTheStartedRun", async () => {
     api.fetchProjectInit.mockResolvedValueOnce(null);
-    api.startProjectInit.mockResolvedValue({ outcome: "started", runId: RUN, reason: null });
+    api.startProjectInit.mockResolvedValue({ outcome: "started", runId: RUN, reason: null, status: null });
     render(<ProjectInitAction project="sample" />);
     await waitFor(() => expect(api.fetchProjectInit).toHaveBeenCalledTimes(1));
 
@@ -86,7 +86,7 @@ describe("ProjectInitAction restores the live run", () => {
 
   it("Press_WhenTheReReadFails_StillLinksTheStartedRun", async () => {
     api.fetchProjectInit.mockRejectedValue(new Error("403"));
-    api.startProjectInit.mockResolvedValue({ outcome: "started", runId: RUN, reason: null });
+    api.startProjectInit.mockResolvedValue({ outcome: "started", runId: RUN, reason: null, status: null });
     render(<ProjectInitAction project="sample" />);
 
     fireEvent.click(screen.getByTestId("project-init-sample"));

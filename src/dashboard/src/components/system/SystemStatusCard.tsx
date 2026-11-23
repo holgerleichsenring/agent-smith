@@ -3,6 +3,7 @@
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import type { SystemEvent } from "@/types/system-events";
 import { StatusPill } from "./StatusPill";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 interface Props {
   events: readonly SystemEvent[];
@@ -10,16 +11,18 @@ interface Props {
 
 export function SystemStatusCard({ events }: Props) {
   const status = useSystemStatus(events);
+  const t = useT();
+  const locale = useDateLocale();
 
   return (
     <section
       className="rounded-lg border border-stone-200 bg-white p-4"
       data-testid="system-status-card"
     >
-      <h2 className="mb-3 text-sm font-medium text-stone-700">Providers</h2>
+      <h2 className="mb-3 text-sm font-medium text-stone-700">{t("system.providers.title")}</h2>
       {status.length === 0 ? (
         <p className="text-sm text-stone-500" data-testid="system-status-empty">
-          No poll cycles observed yet. Waiting for the polling loop.
+          {t("system.providers.empty")}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -35,7 +38,7 @@ export function SystemStatusCard({ events }: Props) {
                 <span className="font-mono text-xs text-stone-500">{row.source}</span>
               </span>
               <span className="text-xs text-stone-500">
-                next poll {row.nextEtaAt !== null ? new Date(row.nextEtaAt).toLocaleTimeString() : "—"}
+                {t("system.providers.nextPoll", { at: row.nextEtaAt !== null ? new Date(row.nextEtaAt).toLocaleTimeString(locale) : "—" })}
               </span>
             </li>
           ))}

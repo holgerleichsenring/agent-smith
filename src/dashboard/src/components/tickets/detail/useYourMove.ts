@@ -15,5 +15,5 @@ export function useYourMove(detail: TicketDetail | null): { view: TicketStateVie
   const t = useT();
   const view = detail ? ticketState({ detail, liveEvents: live.events, series, t }) : null;
   if (!detail || !view) return null;
-  return { view, move: yourMove(view, detail.summary.bucket, view.attempt?.endDetail, t) };
+  return { view, move: yourMove(t, view, detail.summary.bucket, view.attempt?.endDetail) };
 }

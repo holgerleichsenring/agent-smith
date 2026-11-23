@@ -2,6 +2,7 @@
 
 import type { RunCommandPoint } from "@/lib/runStoryApi";
 import { formatChars, formatMs } from "./callSeries";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 // p0423b: the commands a spec ran, WITH their exit codes. "Verification failed" is a
 // summary; `dotnet test` returning 1 after 9 seconds and producing 400k characters of
@@ -12,10 +13,12 @@ const CELL: React.CSSProperties = { padding: "4px 8px", textAlign: "right", whit
 const HEAD: React.CSSProperties = { ...CELL, color: "var(--ink-3)", fontWeight: 600 };
 
 export function CommandTable({ commands }: { commands: RunCommandPoint[] }) {
+  const t = useT();
+  const locale = useDateLocale();
   if (commands.length === 0) {
     return (
       <p className="hint" data-testid="command-table-empty">
-        This spec ran no sandbox command.
+        {t("runs.why.commands.none")}
       </p>
     );
   }
@@ -24,11 +27,11 @@ export function CommandTable({ commands }: { commands: RunCommandPoint[] }) {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
         <thead>
           <tr>
-            <th style={{ ...HEAD, textAlign: "left" }} scope="col">Command</th>
-            <th style={HEAD} scope="col">Exit</th>
-            <th style={HEAD} scope="col">Took</th>
-            <th style={HEAD} scope="col">Output</th>
-            <th style={HEAD} scope="col">Delivered</th>
+            <th style={{ ...HEAD, textAlign: "left" }} scope="col">{t("runs.why.commands.command")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.commands.exit")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.spec.took")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.commands.output")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.commands.delivered")}</th>
           </tr>
         </thead>
         <tbody>
@@ -53,8 +56,8 @@ export function CommandTable({ commands }: { commands: RunCommandPoint[] }) {
                 </span>
               </td>
               <td style={CELL} className="mono">{formatMs(command.durationMs)}</td>
-              <td style={CELL} className="mono">{formatChars(command.outputChars)}</td>
-              <td style={CELL} className="mono">{formatChars(command.deliveredChars)}</td>
+              <td style={CELL} className="mono">{formatChars(command.outputChars, locale)}</td>
+              <td style={CELL} className="mono">{formatChars(command.deliveredChars, locale)}</td>
             </tr>
           ))}
         </tbody>

@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ConfigChange } from "@/lib/configApi";
 import { fetchChanges, revertChange } from "@/lib/configApi";
-import { CHANGE_KIND_SINGULAR } from "./entities";
+import { CHANGE_KIND_SINGULAR_KEY } from "./entities";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { useDateLocale, useT } from "@/hooks/useT";
+
 
 // p0345: the Changes view — the attributed, revertible audit trail that is THE
 // argument for a DB-backed config over a hand-edited map. Each row carries who /
@@ -15,6 +17,8 @@ import { RefusalSurface } from "@/components/shell/RefusalSurface";
 // the sub line, the change id as the type badge and "revert ↺" as the edit hint.
 
 export function ChangesView({ onReverted }: { onReverted?: () => void }) {
+  const t = useT();
+  const locale = useDateLocale();
   const [changes, setChanges] = useState<ConfigChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -52,9 +56,9 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
     }
   }
 
-  if (loading) return <div className="empty">Loading changes…</div>;
+  if (loading) return <div className="empty">{t("config.changes.loading")}</div>;
   const refusal = refusalIn(error);
-  if (refusal) return <RefusalSurface refusal={refusal} surface="the change history" />;
+  if (refusal) return <RefusalSurface refusal={refusal} surface={t("config.changes.surface")} />;
   if (error)
     return (
       <div data-testid="config-changes-error" className="empty" style={{ color: "var(--bad)" }}>
@@ -67,7 +71,7 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
       {changes.length === 0 && (
         <div data-testid="config-changes-empty" className="empty">
           <div className="ei">◔</div>
-          No changes recorded yet.
+          {t("config.changes.empty")}
         </div>
       )}
       {changes.map((c) => (
@@ -93,8 +97,8 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
                 )}
               </div>
               <div className="ec-sub">
-                {CHANGE_KIND_SINGULAR[c.entityKind]} / {c.entityId} · by{" "}
-                <b data-testid={`config-change-who-${c.id}`}>{c.actor}</b> · {formatWhen(c.timestampUtc)}
+                {t(CHANGE_KIND_SINGULAR_KEY[c.entityKind])} / {c.entityId} · {t("config.changes.by")}{" "}
+                <b data-testid={`config-change-who-${c.id}`}>{c.actor}</b> · {formatWhen(c.timestampUtc, locale)}
               </div>
             </div>
             <div className="ec-right">
@@ -103,7 +107,7 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
               </span>
               {c.reverted ? (
                 <span className="edit-hint" data-testid={`config-change-reverted-${c.id}`}>
-                  reverted
+                  {t("config.changes.reverted")}
                 </span>
               ) : (
                 <button
@@ -113,7 +117,7 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
                   disabled={reverting === c.id}
                   data-testid={`config-change-revert-${c.id}`}
                 >
-                  {reverting === c.id ? "reverting…" : "revert ↺"}
+                  {reverting === c.id ? t("config.changes.reverting") : t("config.changes.revert")}
                 </button>
               )}
             </div>
@@ -124,8 +128,8 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
   );
 }
 
-function formatWhen(iso: string): string {
+function formatWhen(iso: string, locale: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return d.toLocaleString(locale);
 }

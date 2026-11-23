@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import type { CatalogConcept } from "@/lib/catalogApi";
+import { useT } from "@/hooks/useT";
 
 // p0343d: the concept vocabulary as the mock's .lrow log rows behind its filter input.
 
 export function CatalogConceptSection({ concepts }: { concepts: CatalogConcept[] }) {
+  const t = useT();
   const [filter, setFilter] = useState("");
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -19,9 +21,9 @@ export function CatalogConceptSection({ concepts }: { concepts: CatalogConcept[]
   return (
     <section data-testid="catalog-concepts">
       <div className="section-head">
-        <h2>Concepts</h2>
+        <h2>{t("system.catalog.concepts")}</h2>
         <span className="cnt">{concepts.length}</span>
-        <span className="sh-sub">the vocabulary skills declare their findings in</span>
+        <span className="sh-sub">{t("system.catalog.conceptsSub")}</span>
       </div>
       <div style={{ height: 14 }} />
       <input
@@ -30,12 +32,12 @@ export function CatalogConceptSection({ concepts }: { concepts: CatalogConcept[]
         type="text"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        placeholder="filter concepts…"
+        placeholder={t("system.catalog.filterPlaceholder")}
       />
       <div style={{ height: 12 }} />
       {shown.length === 0 ? (
         <div className="stateline" data-testid="catalog-concepts-nomatch">
-          No concept matches “{filter.trim()}”.
+          {t("system.catalog.noMatch", { query: filter.trim() })}
         </div>
       ) : (
         <div className="rows">

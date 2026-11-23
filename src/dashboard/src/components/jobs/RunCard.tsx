@@ -6,6 +6,7 @@ import { CancelRunButton } from "./CancelRunButton";
 import { CancelRequestedBadge } from "./CancelRequestedBadge";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { isRunLive } from "@/lib/runLiveness";
+import { useDateLocale, useT } from "@/hooks/useT";
 // 2026-09-17-042ef: the status words live beside the glyph mapping that reads the same column,
 // because the Work it out page reads them too and a second copy would disagree.
 import { runStatusWord } from "./runStatus";
@@ -36,8 +37,8 @@ function statusTone(status: string | null | undefined): BadgeTone {
 // p0370: the list showed only relative duration ("47m"); the operator needs the
 // absolute wall-clock start so runs are placeable in time. Short form in the row,
 // full localized timestamp in the title tooltip.
-function formatStarted(startedAt: string): string {
-  return new Date(startedAt).toLocaleString(undefined, {
+function formatStarted(startedAt: string, locale: string): string {
+  return new Date(startedAt).toLocaleString(locale, {
     month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
@@ -53,14 +54,16 @@ function formatElapsed(startedAt: string, finishedAt: string | null): string {
 }
 
 export function RunCard({ snapshot }: Props) {
+  const t = useT();
+  const locale = useDateLocale();
   // 2026-08-25-39ab: read what the server sent, not what the type promised. A
   // snapshot answered without repos or without a status renders the absence.
   const repos = snapshot.repos ?? [];
   const reposLabel = repos.length === 0
-    ? "no repos"
+    ? t("runs.card.noRepos")
     : repos.length === 1
       ? repos[0]
-      : `${repos.length} repos`;
+      : t("runs.card.repos", { count: repos.length });
   return (
     <Link
       href={`/jobs/${encodeURIComponent(snapshot.runId)}`}
@@ -87,23 +90,23 @@ export function RunCard({ snapshot }: Props) {
             cancelRequested={snapshot.cancelRequested}
           />
           <Badge tone={statusTone(snapshot.status)} className="flex-none">
-            {runStatusWord(snapshot.status) || "unknown"}
+            {runStatusWord(t, snapshot.status) || t("runs.card.unknown")}
           </Badge>
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs text-stone-500">
         <span>
           {snapshot.totalSteps > 0
-            ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}`
-            : "idle"}
+            ? t("runs.card.step", { index: snapshot.stepIndex, total: snapshot.totalSteps })
+            : t("runs.card.idle")}
         </span>
         <span className="flex items-center gap-2">
           <span
             className="text-stone-400"
-            title={new Date(snapshot.startedAt).toLocaleString()}
+            title={new Date(snapshot.startedAt).toLocaleString(locale)}
             data-testid={`run-card-started-${snapshot.runId}`}
           >
-            {formatStarted(snapshot.startedAt)}
+            {formatStarted(snapshot.startedAt, locale)}
           </span>
           <span>{formatElapsed(snapshot.startedAt, snapshot.finishedAt)}</span>
           {isRunLive(snapshot.status) && (

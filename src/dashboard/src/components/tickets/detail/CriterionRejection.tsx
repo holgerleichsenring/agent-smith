@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
 import { runPath } from "@/lib/runPath";
 import type { TicketSeriesCriterion } from "@/types/tickets";
 import { rejectionOf } from "./specWords";
@@ -15,12 +16,13 @@ interface Props {
 }
 
 export function CriterionRejection({ criterion, judgedBy }: Props) {
+  const t = useT();
   const reason = rejectionOf(criterion);
   if (!reason) return null;
   return (
     <span className="reject" data-testid="criterion-rejection">
-      <span><b>Not met:</b> {reason}</span>
-      {judgedBy && <Link className="btn sm" href={runPath(judgedBy)} data-testid="criterion-overrule">Open the run</Link>}
+      <span><b>{t("tickets.rejection.notMet")}</b> {reason}</span>
+      {judgedBy && <Link className="btn sm" href={runPath(judgedBy)} data-testid="criterion-overrule">{t("tickets.rejection.openRun")}</Link>}
     </span>
   );
 }

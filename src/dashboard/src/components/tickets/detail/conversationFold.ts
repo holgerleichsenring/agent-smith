@@ -1,3 +1,4 @@
+import type { T } from "@/lib/i18n/translate";
 import type { TicketConversationEntry } from "@/types/tickets";
 import type { ThreadItem } from "./threadItems";
 
@@ -69,15 +70,14 @@ export function latestEntry(items: ThreadItem[]): TicketConversationEntry | null
 }
 
 /** "3 earlier entries and 2 runs", "1 earlier entry", "2 earlier runs". */
-export function earlierWords({ entries, runs }: ItemCount): string {
-  const entryWords = entries === 1 ? "1 earlier entry" : `${entries} earlier entries`;
-  const runWords = runs === 1 ? "1 run" : `${runs} runs`;
+export function earlierWords(t: T, { entries, runs }: ItemCount): string {
+  const entryWords = t("tickets.conversation.earlierEntries", { count: entries });
   if (runs === 0) return entryWords;
-  if (entries === 0) return runs === 1 ? "1 earlier run" : `${runs} earlier runs`;
-  return `${entryWords} and ${runWords}`;
+  if (entries === 0) return t("tickets.conversation.earlierRuns", { count: runs });
+  return t("tickets.conversation.entriesAndRuns", { entries: entryWords, runs: t("tickets.conversation.runs", { count: runs }) });
 }
 
 /** "Whole conversation · 12 entries →" */
-export function wholeConversationWords(entries: number): string {
-  return `Whole conversation · ${entries === 1 ? "1 entry" : `${entries} entries`} →`;
+export function wholeConversationWords(t: T, entries: number): string {
+  return t("tickets.conversation.whole", { entries: t("tickets.conversation.entries", { count: entries }) });
 }

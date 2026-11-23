@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeTotals, type AttemptMachine } from "../computeTotals";
+import { translator } from "@/lib/i18n/translate";
 import { costBuckets, costParts } from "../costScale";
 import { attempt, compute, pass, passes, runDetail, segment, spawn } from "./detailFixtures";
 
@@ -8,13 +9,15 @@ import { attempt, compute, pass, passes, runDetail, segment, spawn } from "./det
 const NOW = Date.parse("2026-09-05T00:00:00Z");
 const min = (n: number) => n * 60000;
 
+const en = translator("en");
+
 describe("costBuckets", () => {
   it("CarriedSpecs_AreWrittenAtZero_AndAddNothingToTheBar", () => {
     const read = passes("r-3", { s3: [pass({ costUsd: 1.2 }), pass({ ordinal: 2, passInSpec: 2, costUsd: 0.5 })] }, 0.9);
-    const buckets = costBuckets(read, { s1: 1, s2: 2, s3: 3 });
+    const buckets = costBuckets(en, read, { s1: 1, s2: 2, s3: 3 });
     expect(buckets.map((b) => b.label)).toEqual(["derive", "S3"]);
     expect(buckets.reduce((sum, b) => sum + b.usd, 0)).toBeCloseTo(2.6);
-    expect(costParts(buckets, ["S1", "S2"], false)).toBe("derive $0.90 · S3 $1.70 (2 passes) · S1, S2 carried $0");
+    expect(costParts(en, buckets, ["S1", "S2"], false)).toBe("derive $0.90 · S3 $1.70 (2 passes) · S1, S2 carried $0");
   });
 });
 

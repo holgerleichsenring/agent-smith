@@ -1,6 +1,13 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import type { RunSnapshot } from "@/types/hub-events";
-import { budgetShare, computeOf, timeSplitWords } from "../runFactWords";
+import { budgetShare, computeOf as computeOfIn, timeSplitWords as timeSplitWordsIn } from "../runFactWords";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const computeOf = (...args: DropLead<Parameters<typeof computeOfIn>, 1>) => computeOfIn(en, ...args);
+const timeSplitWords = (...args: DropLead<Parameters<typeof timeSplitWordsIn>, 1>) => timeSplitWordsIn(en, ...args);
 
 // 2026-11-17-d6fbb: the graph view's side-rail facts, said in words for the run log.
 

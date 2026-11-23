@@ -3,6 +3,7 @@
 import { shortRunId } from "@/lib/runId";
 import Link from "next/link";
 import type { RunSnapshot } from "@/types/hub-events";
+import { useT } from "@/hooks/useT";
 
 // p0341h: the same header the run itself wears — a back link, the ticket as the heading,
 // and the joined identity strip. It used to be a bare h1 with a button beside it, which
@@ -11,6 +12,7 @@ import type { RunSnapshot } from "@/types/hub-events";
 // and the phrase differ, because that is all that actually differs.
 
 export function RunWhyHeader({ runId, snapshot }: { runId: string; snapshot: RunSnapshot | null }) {
+  const t = useT();
   const repoNames = snapshot?.repos ?? [];
   return (
     <header>
@@ -24,45 +26,45 @@ export function RunWhyHeader({ runId, snapshot }: { runId: string; snapshot: Run
             strokeLinejoin="round"
           />
         </svg>
-        Back to the run
+        {t("runs.why.back")}
       </Link>
       <div className="head-row">
         <div className="head-main">
-          <h1 data-testid="run-why-heading" title={snapshot?.ticketTitle ?? "Why this run did that"}>
-            {snapshot?.ticketTitle ?? "Why this run did that"}
+          <h1 data-testid="run-why-heading" title={snapshot?.ticketTitle ?? t("runs.why.title")}>
+            {snapshot?.ticketTitle ?? t("runs.why.title")}
           </h1>
           <div className="statusline">
-            <span className="phrase">Why this run did that</span>
+            <span className="phrase">{t("runs.why.title")}</span>
           </div>
         </div>
         <div className="ident" data-testid="run-why-ident">
           <div className="f">
-            <span className="fl">Run</span>
+            <span className="fl">{t("runs.why.ident.run")}</span>
             <span className="fv" title={runId}>
               #{shortRunId(runId)}
             </span>
           </div>
           {snapshot?.ticketId && (
             <div className="f">
-              <span className="fl">Ticket</span>
+              <span className="fl">{t("runs.why.ident.ticket")}</span>
               <span className="fv">{snapshot.ticketId}</span>
             </div>
           )}
           {snapshot?.pipeline && (
             <div className="f">
-              <span className="fl">Pipeline</span>
+              <span className="fl">{t("runs.why.ident.pipeline")}</span>
               <span className="fv">{snapshot.pipeline}</span>
             </div>
           )}
           {snapshot?.agentName && (
             <div className="f">
-              <span className="fl">Agent</span>
+              <span className="fl">{t("runs.why.ident.agent")}</span>
               <span className="fv">{snapshot.agentName}</span>
             </div>
           )}
           {repoNames.length > 0 && (
             <div className="f">
-              <span className="fl">Repositories</span>
+              <span className="fl">{t("runs.why.ident.repositories")}</span>
               <span className="fv" title={repoNames.join(", ")}>
                 {repoNames.length === 1
                   ? repoNames[0]

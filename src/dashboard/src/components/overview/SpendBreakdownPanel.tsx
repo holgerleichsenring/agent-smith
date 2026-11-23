@@ -3,6 +3,7 @@
 import type { SpendSlice } from "@/hooks/useSpendBreakdown";
 import { SectionHead } from "@/components/system/SectionHead";
 import { SpendSlices } from "@/components/overview/SpendSlices";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-27-7463: where the trailing week's money went, grouped out of the run
 // list the page already holds.
@@ -17,12 +18,13 @@ export function SpendBreakdownPanel({
   slices: SpendSlice[];
   ready: boolean;
 }) {
+  const t = useT();
   return (
     <section className="ov-panel" data-testid="overview-spend">
       <SectionHead
-        title="Where the money went"
+        title={t("overview.spend.whereTitle")}
         count={ready ? slices.length : undefined}
-        sub="trailing 7 days · sums to the 7-day figure"
+        sub={t("overview.spend.whereSub")}
       />
       <div style={{ height: 14 }} />
       <SpendSlices slices={slices} ready={ready} />

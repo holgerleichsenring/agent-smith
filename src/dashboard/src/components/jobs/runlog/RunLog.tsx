@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, type ReactNode } from "react";
+import { useT } from "@/hooks/useT";
 import { EventType, type RunEvent, type VerifyPassRecordedEvent } from "@/types/hub-events";
 import { costWords, llmWords, stepTime, type LogSection, type LogStep } from "./runLogSections";
 import { VerifyPassLines } from "./VerifyPassLines";
@@ -64,6 +65,7 @@ export function RunLog(props: RunLogProps) {
 
 function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggleMechanics, detail, idPrefix = "" }:
   RunLogProps & { section: LogSection; passes: Map<number, VerifyPassRecordedEvent[]> }) {
+  const t = useT();
   const hidden = section.steps.filter((s) => !s.story);
   const holdsOpen = hidden.some((s) => s.row.stepIndex === openStep);
   const showAll = mechanicsOpen.has(section.id) || holdsOpen;
@@ -76,7 +78,7 @@ function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggl
             <button type="button" className="rl-mech" data-testid={`run-mechanics-${section.id}`} aria-expanded={showAll}
               onClick={() => onToggleMechanics(section.id)}>
               <span className="rl-chev" aria-hidden="true">{showAll ? "▾" : "▸"}</span>
-              {showAll ? "hide the mechanics" : hidden.length === 1 ? "1 mechanics step" : `${hidden.length} mechanics steps`}
+              {showAll ? t("runs.log.mechanics.hide") : t("runs.log.mechanics.count", { count: hidden.length })}
             </button>
           )}
           {(step.story || showAll) && (
@@ -92,13 +94,14 @@ function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggl
 function StepLine({ step, open, onToggle, passes, detail, id }: {
   step: LogStep; open: boolean; onToggle: () => void; passes: VerifyPassRecordedEvent[]; detail: (step: LogStep) => ReactNode; id: string;
 }) {
+  const t = useT();
   const { row } = step;
   return (
     <div className={`rl-step ${step.state}`} data-testid={`run-step-${row.stepIndex}`} data-state={step.state} id={id}>
       <button type="button" className="rl-step-line" aria-expanded={open} onClick={onToggle} data-testid="run-log-line">
         <span className="rl-chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
         <span className="rl-step-name">{step.label}</span>
-        <span className="rl-step-llm">{llmWords(row.llmCalls)}</span>
+        <span className="rl-step-llm">{llmWords(t, row.llmCalls)}</span>
         <span className="rl-step-cost">{costWords(row.costUsd)}</span>
         <span className="rl-step-time">{row.planned ? "" : stepTime(row.durationSeconds)}</span>
       </button>

@@ -1,4 +1,5 @@
 import { callActivity, pairLlmCalls } from "@/hooks/execution-tree/llmPairing";
+import type { T } from "@/lib/i18n/translate";
 import { EventType, type RunEvent } from "@/types/hub-events";
 import { shortMs } from "./stepDetailLines";
 
@@ -27,14 +28,16 @@ function between(events: RunEvent[], from: string | null, to: string | null): Ru
   return events.filter((e) => (from === null || e.timestamp >= from) && (to === null || e.timestamp < to));
 }
 
-function fedFallback(events: RunEvent[]): string | null {
+function fedFallback(t: T, locale: string, events: RunEvent[]): string | null {
   const words: string[] = [];
   for (const e of events) {
     if (e.type !== EventType.ToolResult) continue;
-    words.push(e.ok ? `${e.tool} result, ${e.resultLength.toLocaleString("en-US")} chars` : `${e.tool} failed${e.errorMessage ? `: ${e.errorMessage}` : ""}`);
+    words.push(e.ok
+      ? t("runs.log.call.result", { tool: e.tool, chars: e.resultLength.toLocaleString(locale) })
+      : `${t("runs.log.tool.failed", { tool: e.tool })}${e.errorMessage ? `: ${e.errorMessage}` : ""}`);
   }
   if (words.length === 0) return null;
-  return words.length > 1 ? `${words[words.length - 1]} (+${words.length - 1} more)` : words[0];
+  return words.length > 1 ? t("runs.log.call.more", { last: words[words.length - 1], count: words.length - 1 }) : words[0];
 }
 
 function decidedFallback(events: RunEvent[]): string | null {
@@ -44,7 +47,7 @@ function decidedFallback(events: RunEvent[]): string | null {
 }
 
 /** @param total the step's llm call count; @param complete every event of the step is loaded. */
-export function callSequence(events: RunEvent[], total: number | null, complete: boolean): SequenceCall[] {
+export function callSequence(t: T, locale: string, events: RunEvent[], total: number | null, complete: boolean): SequenceCall[] {
   const pairs = [...pairLlmCalls(events).pairs].sort((l, r) => l.startedAt.localeCompare(r.startedAt));
   const number = (i: number): number | null => {
     if (complete) return i + 1;
@@ -57,24 +60,26 @@ export function callSequence(events: RunEvent[], total: number | null, complete:
       key: p.id, n: number(i), activity: callActivity(p), model: p.model,
       tokensIn: p.tokensIn, cachedIn: p.cachedTokensIn, tokensOut: p.tokensOut, costUsd: p.costUsd, durationMs: p.durationMs,
       finished: p.finishedAt !== null, promptId: p.promptId,
-      fed: fedFallback(between(events, previous?.finishedAt ?? null, p.startedAt)),
+      fed: fedFallback(t, locale, between(events, previous?.finishedAt ?? null, p.startedAt)),
       decided: p.finishedAt === null ? null : decidedFallback(between(events, p.finishedAt, next?.startedAt ?? null)),
     };
   });
 }
 
-function count(n: number | null): string {
-  return n === null ? "?" : n.toLocaleString("en-US");
+function count(n: number | null, locale: string): string {
+  return n === null ? "?" : n.toLocaleString(locale);
 }
 
 /** "12,400 in (9,800 cache) / 410 out". */
-export function tokenWords(c: SequenceCall): string {
-  const cache = c.cachedIn ? ` (${count(c.cachedIn)} cache)` : "";
-  return `${count(c.tokensIn)} in${cache} / ${count(c.tokensOut)} out`;
+export function tokenWords(t: T, locale: string, c: SequenceCall): string {
+  const tokens = { in: count(c.tokensIn, locale), out: count(c.tokensOut, locale) };
+  return c.cachedIn
+    ? t("runs.log.call.tokensCached", { ...tokens, cache: count(c.cachedIn, locale) })
+    : t("runs.log.call.tokens", tokens);
 }
 
 /** "$0.031 · 4.2s", or "in flight" / "ended" for a call with no finish. */
-export function spendWords(c: SequenceCall, runEnded: boolean): string {
-  if (!c.finished) return runEnded ? "ended" : "in flight";
+export function spendWords(t: T, c: SequenceCall, runEnded: boolean): string {
+  if (!c.finished) return t(runEnded ? "runs.log.call.ended" : "runs.log.call.inFlight");
   return [c.costUsd !== null ? `$${c.costUsd.toFixed(3)}` : "", shortMs(c.durationMs)].filter(Boolean).join(" · ");
 }

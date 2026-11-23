@@ -28,7 +28,7 @@ export function ticketDecision(
   preview: TicketApprovalPreview | null,
   watched: WatchedApproval | null,
 ): TicketDecision | null {
-  const effect = preview ? ticketApprovalEffect(preview) : null;
+  const effect = preview ? ticketApprovalEffect(t, preview) : null;
   if (watched) {
     if (!isOpenApproval(watched.question)) return null;
     const card = approvalProposal(watched.question, watched.awaiting);

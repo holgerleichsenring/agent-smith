@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import { useTicketReviews } from "@/lib/tickets/TicketPageStore";
 import type { TicketReviewCut, TicketReviewFinding, TicketReviewRound, TicketReviews } from "@/types/tickets";
 import { clock } from "./flowWords";
@@ -11,25 +13,26 @@ import { clock } from "./flowWords";
 // wording still standing, the evidence problems and the revision it produced. Composed from the mock's
 // .blk/.crit/.ci/.pill classes; the ratified mock has no review surface.
 
-export const CONVERSATION_HEADING = "Reviewed in the conversation before approval";
-
-const VERDICT: Record<string, [string, string]> = {
-  build: ["ok", "build"],
-  "build-with-cuts": ["amber", "build with cuts"],
-  refuse: ["bad", "refuse"],
+const VERDICT: Record<string, [string, TextKey]> = {
+  build: ["ok", "tickets.review.verdict.build"],
+  "build-with-cuts": ["amber", "tickets.review.verdict.build-with-cuts"],
+  refuse: ["bad", "tickets.review.verdict.refuse"],
 };
 
 const MARK: Record<string, string> = { build: "ok", refuse: "bad" };
 
 export function VerdictPill({ verdict }: { verdict: string | null }) {
-  const [cls, words] = verdict ? VERDICT[verdict] ?? ["q", verdict] : ["q", "not taken"];
+  const t = useT();
+  const known = verdict ? VERDICT[verdict] : undefined;
+  const [cls, words] = known ? [known[0], t(known[1])] : ["q", verdict ?? t("tickets.review.notTaken")];
   return <span className={`pill ${cls}`} data-testid="review-verdict">{words}</span>;
 }
 
 export function CutLine({ cut, member }: { cut: TicketReviewCut; member?: ReactNode }) {
+  const t = useT();
   return (
     <div data-testid="review-cut">
-      {member}{cut.register} · “{cut.quote}” → {cut.replacement ? `“${cut.replacement}”` : "removed"}
+      {member}{cut.register} · {t("common.quoted", { text: cut.quote })} → {cut.replacement ? t("common.quoted", { text: cut.replacement }) : t("tickets.review.removed")}
       <span className="dim-line mono"> {cut.evidence}</span>
     </div>
   );
@@ -41,24 +44,27 @@ export function FindingLine({ finding }: { finding: TicketReviewFinding }) {
 
 function RoundBody({ round }: { round: TicketReviewRound }) {
   const { cuts, findings, residues } = roundLists(round);
+  const t = useT();
   const problems = round.reviewers.flatMap((r) => r.evidenceProblems);
   return (
     <span>
       <VerdictPill verdict={round.verdict} />
-      <span className="dim-line"> reviewers: {round.reviewers.map((r) => r.verdict ?? "not taken").join(", ") || "none"}</span>
+      <span className="dim-line"> {t("tickets.review.reviewers", { list: round.reviewers.map((r) => r.verdict ?? t("tickets.review.notTaken")).join(", ") || t("tickets.review.none") })}</span>
       {cuts.map((cut, i) => <CutLine key={`c${i}`} cut={cut} />)}
       {findings.map((finding, i) => <FindingLine key={`f${i}`} finding={finding} />)}
       {residues.map((residue, i) => (
-        <div key={`r${i}`} data-testid="review-residue">{residue.register} · “{residue.quote}” <span className="pill amber">still stands</span></div>
+        <div key={`r${i}`} data-testid="review-residue">{residue.register} · {t("common.quoted", { text: residue.quote })} <span className="pill amber">{t("tickets.review.stillStands")}</span></div>
       ))}
       {[...new Map(problems.map((p) => [`${p.claim}|${p.problem}`, p])).values()].map((p, i) => (
-        <div key={`p${i}`} className="dim-line" data-testid="review-evidence-problem">evidence: {p.claim} — {p.problem}</div>
+        <div key={`p${i}`} className="dim-line" data-testid="review-evidence-problem">{t("tickets.review.evidence", { claim: p.claim, problem: p.problem })}</div>
       ))}
     </span>
   );
 }
 
 function RoundRows({ rounds, label }: { rounds: TicketReviewRound[]; label: string }) {
+  const t = useT();
+  const locale = useDateLocale();
   return (
     <div className="crit" data-testid="review-group">
       <div className="dim-line">{label}</div>
@@ -66,7 +72,7 @@ function RoundRows({ rounds, label }: { rounds: TicketReviewRound[]; label: stri
         <div key={`${round.scope}-${round.round}`} className="ci" data-testid="review-round">
           <span className={`m ${MARK[round.verdict] ?? "q"}`}>{round.round}</span>
           <RoundBody round={round} />
-          <span className="cw">{round.revisionNumber != null ? `rev ${round.revisionNumber}` : clock(round.at) ?? ""}</span>
+          <span className="cw">{round.revisionNumber != null ? t("tickets.specs.rev", { n: round.revisionNumber }) : clock(round.at, locale) ?? ""}</span>
         </div>
       ))}
     </div>
@@ -80,15 +86,16 @@ export interface RoundGroup {
 
 /** Rounds by where they were taken — each attempt that took one, then the design conversation. */
 export function roundGroups(
-  reviews: TicketReviews | null, ofRun: (r: TicketReviewRound) => boolean, ofConversation: (r: TicketReviewRound) => boolean,
+  t: T, locale: string, reviews: TicketReviews | null, ofRun: (r: TicketReviewRound) => boolean, ofConversation: (r: TicketReviewRound) => boolean,
 ): RoundGroup[] {
   const groups = (reviews?.attempts ?? [])
-    .map((a) => ({ label: `Attempt ${a.number}`, rounds: a.rounds.filter(ofRun) }))
+    .map((a) => ({ label: t("tickets.review.attempt", { n: a.number }), rounds: a.rounds.filter(ofRun) }))
     .filter((g) => g.rounds.length > 0);
   const approved = reviews?.conversation?.rounds.filter(ofConversation) ?? [];
   if (approved.length > 0) {
-    const at = clock(reviews?.conversation?.approvalAt);
-    groups.push({ label: `${CONVERSATION_HEADING}${at ? ` · approved ${at}` : ""}`, rounds: approved });
+    const at = clock(reviews?.conversation?.approvalAt, locale);
+    const heading = t("tickets.review.conversation");
+    groups.push({ label: at ? t("tickets.review.conversationApproved", { heading, at }) : heading, rounds: approved });
   }
   return groups;
 }
@@ -104,13 +111,15 @@ export function roundLists(round: TicketReviewRound) {
 }
 
 export function ReviewRounds({ specId }: { specId: string }) {
+  const t = useT();
+  const locale = useDateLocale();
   const reviews = useTicketReviews();
-  const groups = roundGroups(reviews.data, (r) => r.scope === "spec" && r.specId === specId, (r) => r.specId === specId);
+  const groups = roundGroups(t, locale, reviews.data, (r) => r.scope === "spec" && r.specId === specId, (r) => r.specId === specId);
   return (
     <div className="blk" data-testid="review-rounds">
-      <h4>Review before build</h4>
+      <h4>{t("tickets.review.title")}</h4>
       {groups.length === 0
-        ? <div className="dim-line" data-testid="review-rounds-none">{reviews.loading ? "Reading the review rounds…" : "no review round was recorded"}</div>
+        ? <div className="dim-line" data-testid="review-rounds-none">{reviews.loading ? t("tickets.review.reading") : t("tickets.review.noneRecorded")}</div>
         : groups.map((group) => <RoundRows key={group.label} rounds={group.rounds} label={group.label} />)}
     </div>
   );

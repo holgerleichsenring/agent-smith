@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { translator } from "@/lib/i18n/translate";
 import { approvalEffectLabel } from "../approvalEffect";
+
+const t = translator("en");
 
 // 2026-10-13-9a59r: every 9a59l effect and every 9a59m start arm has a label of its own, from one table.
 
@@ -8,15 +11,15 @@ const ARMS = ["start-now", "wait-for-run", "refused-question-pending", "recorded
 
 describe("approvalEffectLabel", () => {
   it("EachEffect_RendersItsOwnLabel", () => {
-    const labels = EFFECTS.map((effect) => approvalEffectLabel({ effect }).effect);
+    const labels = EFFECTS.map((effect) => approvalEffectLabel(t, { effect }).effect);
     expect(new Set(labels).size).toBe(EFFECTS.length);
     for (let i = 0; i < EFFECTS.length; i++) expect(labels[i]).not.toBe(`Approving ${EFFECTS[i]}.`);
   });
 
   it("EachStartArm_RendersItsOwnLabel_AndOnlyQuestionPendingWithholdsApprove", () => {
-    const labels = ARMS.map((kind) => approvalEffectLabel({ effect: "continue", start: { kind } }));
+    const labels = ARMS.map((kind) => approvalEffectLabel(t, { effect: "continue", start: { kind } }));
     expect(new Set(labels.map((l) => l.start)).size).toBe(ARMS.length);
     expect(labels.filter((l) => !l.approvable).map((l) => l.start)).toEqual([labels[2].start]);
-    expect(approvalEffectLabel({ effect: "continue" }).start).toBeNull();
+    expect(approvalEffectLabel(t, { effect: "continue" }).start).toBeNull();
   });
 });

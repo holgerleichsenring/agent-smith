@@ -6,10 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { RetryUnchanged, type RetrySettled } from "@/components/tickets/detail/RetryUnchanged";
 import { useSandboxActivity } from "@/hooks/useSandboxActivity";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { runPath, runTracePath } from "@/lib/runPath";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
-import { clockOf, endedView, liveLines, nowLabel, nowMode, pullRequestLinks, waitLines, type NowLine } from "./runNowLines";
+import { clockOf, endedView, kindWord, liveLines, nowLabel, nowMode, pullRequestLinks, waitLines, type NowLine } from "./runNowLines";
 import { statusJoin, statusRest, type RunStatusLine } from "./runStatusLine";
 import type { RunTicket } from "./useRunTicket";
 import { VerifyPassLines } from "./VerifyPassLines";
@@ -31,33 +32,35 @@ interface Props {
 }
 
 export function RunNow({ runId, snapshot, status, events, steps, ticket }: Props) {
+  const t = useT();
+  const locale = useDateLocale();
   const beat = useSandboxActivity(snapshot?.runId ?? null);
   const follow = useRetryFollow(runId, ticket);
   const mode = snapshot ? nowMode(snapshot) : null;
   const view = useMemo(() => {
     if (!snapshot || !mode) return null;
-    if (mode === "ended") return endedView(snapshot, steps, events, ticket?.attempt ?? null);
-    if (mode === "live") return { lines: liveLines(snapshot, events, steps, beat), verify: null, settingsPath: null, said: null };
-    return { lines: waitLines(snapshot), verify: null, settingsPath: null, said: null };
-  }, [snapshot, mode, steps, events, ticket?.attempt, beat]);
+    if (mode === "ended") return endedView(t, snapshot, steps, events, ticket?.attempt ?? null);
+    if (mode === "live") return { lines: liveLines(t, locale, snapshot, events, steps, beat), verify: null, settingsPath: null, said: null };
+    return { lines: waitLines(t, locale, snapshot), verify: null, settingsPath: null, said: null };
+  }, [t, locale, snapshot, mode, steps, events, ticket?.attempt, beat]);
   if (!snapshot || !view || !mode) return null;
   const question = mode === "waiting" ? snapshot.pendingQuestion ?? null : null;
   const prs = mode === "ended" ? pullRequestLinks(snapshot) : [];
   return (
     <section className="rl-now" data-testid="run-now" data-mode={mode} aria-live="polite">
-      <span className="rl-lbl" data-testid="run-now-label">{nowLabel(snapshot)}</span>
-      {mode === "ended" && status && <StatusLine line={status} at={clockOf(snapshot.finishedAt)} />}
+      <span className="rl-lbl" data-testid="run-now-label">{nowLabel(t, snapshot)}</span>
+      {mode === "ended" && status && <StatusLine line={status} at={clockOf(snapshot.finishedAt, locale)} />}
       {view.lines.map((l) => <Line key={l.key} line={l} />)}
       {view.said && (
         <details className="rl-doc" data-testid="run-now-said">
-          <summary>The run&apos;s own words</summary>
+          <summary>{t("runs.log.now.ownWords")}</summary>
           <div className="rl-doc-body rl-said">{view.said}</div>
         </details>
       )}
       {view.verify && (
         <div className="rl-now-line" data-testid="run-now-verify">
           <span className="rl-at" />
-          <span className="rl-kind">verify</span>
+          <span className="rl-kind">{kindWord(t, "verify")}</span>
           <VerifyPassLines pass={view.verify} />
         </div>
       )}
@@ -70,18 +73,18 @@ export function RunNow({ runId, snapshot, status, events, steps, ticket }: Props
         <div className="rl-now-acts" data-testid="run-now-acts">
           {prs.map((p) => (
             <a key={p.url} href={p.url} target="_blank" rel="noreferrer" data-testid="run-now-pr">
-              {p.isDraft ? "draft pull request" : "pull request"}{prs.length > 1 && p.repo ? ` ${p.repo}` : ""} ↗
+              {t(p.isDraft ? "runs.log.pr.draft" : "runs.log.pr.ready")}{prs.length > 1 && p.repo ? ` ${p.repo}` : ""} ↗
             </a>
           ))}
           {ticket?.newest && <RetryUnchanged attempt={ticket.attempt} project={ticket.project} onAnswer={follow} />}
           {ticket && !ticket.newest && ticket.latest && ticket.latest.runId !== runId && (
             <Link href={runPath(ticket.latest.runId)} data-testid="run-now-latest">
-              attempt {ticket.latest.number} is the latest ›
+              {t("runs.log.now.latest", { number: ticket.latest.number })}
             </Link>
           )}
-          {view.settingsPath && <Link href={view.settingsPath} data-testid="run-now-setting">open the setting</Link>}
-          {ticket && <Link href={ticket.href} data-testid="run-now-ticket">the ticket</Link>}
-          <Link href={runTracePath(runId)} data-testid="run-now-why">why it went this way</Link>
+          {view.settingsPath && <Link href={view.settingsPath} data-testid="run-now-setting">{t("runs.log.now.setting")}</Link>}
+          {ticket && <Link href={ticket.href} data-testid="run-now-ticket">{t("runs.log.now.ticket")}</Link>}
+          <Link href={runTracePath(runId)} data-testid="run-now-why">{t("runs.log.now.why")}</Link>
         </div>
       )}
     </section>
@@ -99,11 +102,12 @@ function useRetryFollow(runId: string, ticket: RunTicket | null): (settled: Retr
 
 /** 2026-11-22-7103a: How it ended's first line — the head in the run's colour, the clauses and next step in plain ink. */
 function StatusLine({ line, at }: { line: RunStatusLine; at: string | null }) {
+  const t = useT();
   const rest = statusRest(line);
   return (
     <div className="rl-now-line rl-status" data-testid="run-status-line" data-kind="outcome">
       <span className="rl-at">{at ?? ""}</span>
-      <span className="rl-kind">outcome</span>
+      <span className="rl-kind">{kindWord(t, "outcome")}</span>
       <span className="rl-text">
         <span className="rl-status-head" data-testid="run-status-head" data-tone={line.tone}>{line.head}</span>
         {rest && `${statusJoin(line.head)}${rest}`}
@@ -113,10 +117,11 @@ function StatusLine({ line, at }: { line: RunStatusLine; at: string | null }) {
 }
 
 function Line({ line, testId = "run-now-line" }: { line: NowLine; testId?: string }) {
+  const t = useT();
   return (
     <div className="rl-now-line" data-testid={testId} data-kind={line.kind} data-tone={line.tone}>
       <span className="rl-at">{line.at ?? ""}</span>
-      <span className="rl-kind" title={line.kind}>{line.kind}</span>
+      <span className="rl-kind" title={kindWord(t, line.kind)}>{kindWord(t, line.kind)}</span>
       <span className="rl-text">{line.text}</span>
     </div>
   );

@@ -3,6 +3,8 @@
 import type { StudioProject, TemplateReference } from "@/lib/configApi";
 import { isTemplateUnfinished, resolveRepoRef, resolves } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
+import { useT } from "@/hooks/useT";
+import type { T, TextKey } from "@/lib/i18n/translate";
 
 // 2026-09-16-942a: what a project is wired to, drawn from what is STORED.
 //
@@ -46,12 +48,12 @@ const COL = {
   ctxX: 720, ctxW: 118, ctxH: 40,
   tplX: 882, tplW: 196, tplH: 44,
 };
-const HEADERS: { key: string; x: number; text: string }[] = [
-  { key: "agent", x: COL.leftX, text: "AGENT · TRACKER" },
-  { key: "project", x: COL.projX, text: "PROJECT" },
-  { key: "repositories", x: COL.repoX, text: "REPOSITORIES" },
-  { key: "contexts", x: COL.ctxX, text: "CONTEXTS" },
-  { key: "built-after", x: COL.tplX, text: "BUILT AFTER" },
+const HEADERS: { key: string; x: number; text: TextKey }[] = [
+  { key: "agent", x: COL.leftX, text: "config.graph.header.agent" },
+  { key: "project", x: COL.projX, text: "config.graph.header.project" },
+  { key: "repositories", x: COL.repoX, text: "config.graph.header.repositories" },
+  { key: "contexts", x: COL.ctxX, text: "config.graph.header.contexts" },
+  { key: "built-after", x: COL.tplX, text: "config.graph.header.builtAfter" },
 ];
 
 interface ContextNode {
@@ -76,7 +78,8 @@ export function ProjectGraph({
   project: StudioProject;
   catalog: ConfigCatalog;
 }) {
-  const groups = layout(project, catalog);
+  const t = useT();
+  const groups = layout(t, project, catalog);
   // One ROW per (repository, context) pair, one for a repository no template names, and one
   // per reason a template could not be placed. The height follows that count — 942a's was a
   // sum of block chrome — and the caption counts what the project DECLARES, not rows.
@@ -90,10 +93,7 @@ export function ProjectGraph({
   const trackerY = midY + 11;
   const projY = midY - COL.projH / 2;
   const arrow = `arrow-${project.id}`;
-  const claim =
-    `How ${project.id} is wired: its agent and tracker, its ${project.repos.length} ` +
-    `${project.repos.length === 1 ? "repository" : "repositories"}, the contexts its own ` +
-    `templates name, and the template each of those is built after.`;
+  const claim = t("config.graph.claim", { project: project.id, count: project.repos.length });
 
   let row = 0;
   return (
@@ -125,26 +125,26 @@ export function ProjectGraph({
             opacity={0.55}
             fill="currentColor"
           >
-            {h.text}
+            {t(h.text)}
           </text>
         ))}
         <line x1={0} y1={25} x2={W} y2={25} stroke="currentColor" strokeOpacity={0.16} />
 
         <Node
           x={COL.leftX} y={agentY} w={COL.leftW} h={COL.leftH} fontSize={12.5}
-          label={project.agent || "no agent"} caption="agent"
+          label={project.agent || t("config.graph.noAgent")} caption={t("config.graph.caption.agent")}
           bad={!resolves(catalog, "agents", project.agent)}
           testId={`graph-node-agent-${project.id}`}
         />
         <Node
           x={COL.leftX} y={trackerY} w={COL.leftW} h={COL.leftH} fontSize={12.5}
-          label={project.tracker || "no tracker"} caption="tracker"
+          label={project.tracker || t("config.graph.noTracker")} caption={t("config.graph.caption.tracker")}
           bad={!resolves(catalog, "trackers", project.tracker)}
           testId={`graph-node-tracker-${project.id}`}
         />
         <Node
           x={COL.projX} y={projY} w={COL.projW} h={COL.projH} fontSize={13} labelDy={37}
-          accent bold label={project.id} caption="project"
+          accent bold label={project.id} caption={t("config.graph.caption.project")}
           testId={`graph-node-project-${project.id}`}
         />
 
@@ -166,7 +166,7 @@ export function ProjectGraph({
               />
               <Node
                 x={COL.repoX} y={repoY} w={COL.repoW} h={COL.repoH} fontSize={12.5}
-                label={group.label} caption="repository"
+                label={group.label} caption={t("config.graph.caption.repository")}
                 bad={!group.resolved}
                 testId={`graph-node-repo-${project.id}-${group.ref}`}
               />
@@ -180,7 +180,7 @@ export function ProjectGraph({
                   <Node
                     x={COL.ctxX} y={mid - COL.ctxH / 2} w={COL.ctxW} h={COL.ctxH}
                     fontSize={12} labelDy={33} captionDy={17} rx={6} faint
-                    label={ctx.context || "no context"} caption="context"
+                    label={ctx.context || t("config.graph.noContext")} caption={t("config.graph.caption.context")}
                     bad={ctx.unfinished}
                     testId={`graph-node-context-${project.id}-${ctx.key}`}
                   />
@@ -191,7 +191,7 @@ export function ProjectGraph({
                   />
                   <Node
                     x={COL.tplX} y={mid - COL.tplH / 2} w={COL.tplW} h={COL.tplH} fontSize={12}
-                    label={ctx.target} caption="built after"
+                    label={ctx.target} caption={t("config.graph.caption.builtAfter")}
                     bad={ctx.unfinished || ctx.unresolved}
                     testId={`graph-node-template-${project.id}-${ctx.key}`}
                   />
@@ -217,28 +217,28 @@ export function ProjectGraph({
  * — uncoloured, because an unstated repo is allowed. A contextRepo naming a repository this
  * project does not declare is a different reason, gets its own row, and IS coloured.
  */
-function layout(project: StudioProject, catalog: ConfigCatalog): RepoGroup[] {
+function layout(t: T, project: StudioProject, catalog: ConfigCatalog): RepoGroup[] {
   const templates = project.templates ?? [];
   const sole = project.repos.length === 1 ? project.repos[0] : null;
-  const home = (t: TemplateReference) => t.contextRepo || sole || "";
+  const home = (tpl: TemplateReference) => tpl.contextRepo || sole || "";
   const declared = new Set(project.repos);
 
   const groups: RepoGroup[] = project.repos.map((ref) => ({
     ref,
     label: ref,
     resolved: resolveRepoRef(catalog, ref).ok,
-    contexts: templates.filter((t) => home(t) === ref).map((t, i) => node(t, i, catalog)),
+    contexts: templates.filter((tpl) => home(tpl) === ref).map((tpl, i) => node(tpl, i, catalog)),
   }));
 
-  const strays = templates.filter((t) => !declared.has(home(t)));
-  const unnamed = strays.filter((t) => !t.contextRepo);
-  const undeclared = strays.filter((t) => !!t.contextRepo);
+  const strays = templates.filter((tpl) => !declared.has(home(tpl)));
+  const unnamed = strays.filter((tpl) => !tpl.contextRepo);
+  const undeclared = strays.filter((tpl) => !!tpl.contextRepo);
   const reasons = [
-    { ref: "—", label: "repository not named", resolved: true, of: unnamed },
-    { ref: "—undeclared", label: "repository not declared here", resolved: false, of: undeclared },
+    { ref: "—", label: t("config.graph.repoNotNamed"), resolved: true, of: unnamed },
+    { ref: "—undeclared", label: t("config.graph.repoNotDeclared"), resolved: false, of: undeclared },
   ];
   for (const { of, ...group } of reasons)
-    if (of.length > 0) groups.push({ ...group, contexts: of.map((t, i) => node(t, i, catalog)) });
+    if (of.length > 0) groups.push({ ...group, contexts: of.map((tpl, i) => node(tpl, i, catalog)) });
   return groups;
 }
 

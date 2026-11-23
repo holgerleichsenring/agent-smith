@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { useT } from "@/hooks/useT";
 import { RUNS_CONTROL } from "../detail/RetryUnchanged";
 import { DoneByHandDialog } from "./DoneByHandDialog";
 
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function DoneByHandAct({ project, ticketId, label, landed, onLanded, small }: Props) {
+  const t = useT();
   const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [open, setOpen] = useState(false);
   if (lacks || landed) return null;
@@ -25,7 +27,7 @@ export function DoneByHandAct({ project, ticketId, label, landed, onLanded, smal
     <>
       <button type="button" className={small ? "btn sm" : "btn"} onClick={() => setOpen(true)}
         data-testid={`done-by-hand-${ticketId}`}>
-        Mark done by hand
+        {t("tickets.landing.act")}
       </button>
       {open && (
         <DoneByHandDialog project={project} ticketId={ticketId} label={label} onClose={() => setOpen(false)} onLanded={onLanded} />

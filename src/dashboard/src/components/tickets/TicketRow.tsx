@@ -41,7 +41,8 @@ export function TicketRow({ ticket, act }: { ticket: TicketSummary; act?: ReactN
 }
 
 function RowLink({ ticket }: { ticket: TicketSummary }) {
-  const when = age(ticket.since);
+  const t = useT();
+  const when = age(ticket.since, t);
   return (
     <Link
       href={ticketHref(ticket)}
@@ -65,11 +66,11 @@ function RowLink({ ticket }: { ticket: TicketSummary }) {
           <TicketAttemptMarks marks={ticket.attempts} count={ticket.attemptCount} />
           <div className="cost hidesm">
             {money(ticket.cost)}
-            <small>{attempts(ticket.attemptCount)}</small>
+            <small>{attempts(t, ticket.attemptCount)}</small>
           </div>
         </>
       )}
-      <div className="when hidesm">{when ?? ""}</div>
+      <div className="when hidesm">{when === "now" ? t("tickets.start.justNow") : when ?? ""}</div>
       <span className="chev">›</span>
     </Link>
   );
@@ -83,6 +84,7 @@ function StartsOnceMerged({ keys }: { keys: string[] }) {
 }
 
 function NoRun({ ticket }: { ticket: TicketSummary }) {
+  const t = useT();
   const waits = ticket.waitsFor ?? [];
   const merges = waits.filter((w) => w.startsOnMerge).map((w) => w.key);
   return (
@@ -91,17 +93,17 @@ function NoRun({ ticket }: { ticket: TicketSummary }) {
         <StartsOnceMerged keys={merges} />
       ) : waits.length > 0 ? (
         <>
-          waits for{" "}
+          {t("tickets.row.waitsFor")}{" "}
           {waits.map((w, i) => (
             <span key={w.ticketId}>
               {i > 0 && ", "}
               <b>{w.key}</b>
-              {w.closed && " (closed)"}
+              {w.closed && t("tickets.row.closed")}
             </span>
           ))}
         </>
       ) : (
-        "no run on record"
+        t("tickets.row.noRun")
       )}
     </div>
   );

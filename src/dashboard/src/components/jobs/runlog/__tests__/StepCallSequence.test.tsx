@@ -1,3 +1,4 @@
+import { translator } from "@/lib/i18n/translate";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunStepRow } from "@/lib/runStepsApi";
@@ -18,9 +19,16 @@ vi.mock("@/hooks/useRunStepEvents", () => ({ useRunStepEvents: () => page }));
 vi.mock("@/hooks/useAnalyzeMarkdown", () => ({ useAnalyzeMarkdown: () => ({ content: null, loading: false }) }));
 vi.mock("@/hooks/useSandboxEvents", () => ({ useSandboxEvents: () => ({ outputs: [] }) }));
 
-const { callSequence, tokenWords, spendWords } = await import("../callSequence");
+const { callSequence: callSequenceIn, tokenWords: tokenWordsIn, spendWords: spendWordsIn } = await import("../callSequence");
 const { StepCallSequence } = await import("../StepCallSequence");
 const { RunStepDetail } = await import("../RunStepDetail");
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const callSequence = (...args: DropLead<Parameters<typeof callSequenceIn>, 2>) => callSequenceIn(en, "en-GB", ...args);
+const tokenWords = (...args: DropLead<Parameters<typeof tokenWordsIn>, 2>) => tokenWordsIn(en, "en-GB", ...args);
+const spendWords = (...args: DropLead<Parameters<typeof spendWordsIn>, 1>) => spendWordsIn(en, ...args);
 
 const ev = (o: Record<string, unknown>): RunEvent => ({ runId: "r1", ...o }) as unknown as RunEvent;
 const at = (s: number) => new Date(Date.UTC(2026, 10, 18, 10, 0, s)).toISOString();

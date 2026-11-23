@@ -1,6 +1,7 @@
 "use client";
 
 import type { ImageTrustBoundary } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
 
 // 2026-10-12-6bfab: the boundary the NEXT stack.image decision is judged against, as the
 // server reads it — never re-derived here, so the panel and the decision cannot disagree.
@@ -15,20 +16,21 @@ export function ImageTrustInForce({
   error: Error | null;
   dirty: boolean;
 }) {
+  const t = useT();
   if (error)
     return (
       <p className="help" data-testid="setting-sandbox-trust-inforce-error" style={{ color: "var(--bad)" }}>
-        The boundary in force could not be read: {error.message}
+        {t("config.imageTrust.readFailed", { message: error.message })}
       </p>
     );
-  if (!boundary) return <p className="help">Reading the boundary in force…</p>;
+  if (!boundary) return <p className="help">{t("config.imageTrust.reading")}</p>;
   return (
     <div className="field" data-testid="setting-sandbox-trust-inforce">
       <label>
-        In force now
+        {t("config.imageTrust.inForce")}
         {dirty && (
           <span className="help" data-testid="setting-sandbox-trust-unsaved">
-            unsaved changes — this is what runs use until you save
+            {t("config.imageTrust.unsaved")}
           </span>
         )}
       </label>
@@ -39,8 +41,8 @@ export function ImageTrustInForce({
       </ul>
       <p className="help" data-testid="setting-sandbox-trust-inforce-registries">
         {boundary.registriesAreDefault
-          ? "the built-in default — no registry is named"
-          : "the registries named here, replacing the built-in default"}
+          ? t("config.imageTrust.default")
+          : t("config.imageTrust.named")}
       </p>
     </div>
   );

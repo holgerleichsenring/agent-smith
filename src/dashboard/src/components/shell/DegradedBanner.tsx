@@ -1,6 +1,7 @@
 "use client";
 
 import { useFindings } from "@/lib/useFindings";
+import { useT } from "@/hooks/useT";
 
 /**
  * p0391a: names what is down and why, above every route. The server no longer refuses to
@@ -9,6 +10,7 @@ import { useFindings } from "@/lib/useFindings";
  */
 export function DegradedBanner() {
   const findings = useFindings();
+  const t = useT();
   if (findings === null || !findings.degraded) return null;
 
   const blocking = findings.findings.filter((f) => f.severity === "blocking");
@@ -19,8 +21,7 @@ export function DegradedBanner() {
       className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
     >
       <p className="font-medium">
-        Running degraded — {blocking.length} blocking finding
-        {blocking.length === 1 ? "" : "s"}. Everything not named below still runs.
+        {t("shell.degraded.title", { count: blocking.length })}
       </p>
       <ul className="mt-2 space-y-1">
         {blocking.map((f, i) => (

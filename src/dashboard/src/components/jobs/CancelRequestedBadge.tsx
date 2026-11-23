@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { Badge } from "@/components/ui/Badge";
 
 // p0330: cancelRequested is durable state on the run row, rendered INDEPENDENT
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function CancelRequestedBadge({ status, cancelRequested, className }: Props) {
+  const t = useT();
   if (!cancelRequested) return null;
   const s = (status ?? "").toLowerCase();
   if (s === "cancelled") return null;
@@ -28,13 +30,13 @@ export function CancelRequestedBadge({ status, cancelRequested, className }: Pro
         data-testid="cancel-requested-hint"
         className={`dsh-label text-stone-400 ${className ?? ""}`}
       >
-        cancel was requested
+        {t("runs.cancel.wasRequested")}
       </span>
     );
   }
   return (
     <Badge tone="amber" testId="cancel-requested-badge" className={className}>
-      cancelling…
+      {t("runs.cancel.cancelling")}
     </Badge>
   );
 }

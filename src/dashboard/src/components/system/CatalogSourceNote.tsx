@@ -1,3 +1,7 @@
+"use client";
+
+import { useT } from "@/hooks/useT";
+
 // 2026-09-18-84be: the ONE composition of "where a change to this text is made". The
 // origin line and every expanded SKILL.md render this same component, so the page cannot
 // say it two ways — and the overlay case is a different sentence, not a hedge on the
@@ -11,22 +15,21 @@ export function CatalogSourceNote({
   overlayPath: string | null;
   testId: string;
 }) {
+  const t = useT();
   if (overlayPath !== null) {
+    // The path sits inside the sentence in mono, so the text is cut at its placeholder.
+    const [before, after] = t("system.catalog.overlay").split("{path}");
     return (
       <span className="msub" data-testid={testId}>
-        An overlay from <span className="mono">{overlayPath}</span> is layered over the catalog
-        source, so this text may be the operator&apos;s own file rather than the source&apos;s.
-        That directory lives on the server and is not on the Skills settings form — no setting
-        in this dashboard changes it, and nothing here edits it.
+        {before}
+        <span className="mono">{overlayPath}</span>
+        {after}
       </span>
     );
   }
   return (
     <span className="msub" data-testid={testId}>
-      The catalog source is the Skills setting in this dashboard — Settings → Skills, which
-      needs configuration access. A saved change shows here once the server resolves the
-      catalog again: the next pipeline run does that, while the background refresh re-pulls
-      only a changed release version. No catalog text is edited here.
+      {t("system.catalog.source")}
     </span>
   );
 }

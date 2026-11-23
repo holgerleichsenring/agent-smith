@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-5669b
+goal: "The ticket list and ticket page speak German when German is chosen, the approval summary included."
+
+applies_to: "dashboard (components/tickets, lib/tickets)"
+
+requires: [2026-11-22-5485a, 2026-11-23-5669a]
+
+facts:
+  - claim: "The ticket list's section titles are English literals."
+    evidence: "src/dashboard/src/components/tickets/ticketSections.ts:21"
+
+scope:
+  in: >
+    Every literal UI text under components/tickets/** and lib/tickets/** (approvalEffect's summary included) moves to keys in lib/i18n/areas/tickets.ts.
+  out: >
+    Text the model writes, server-sent messages and refusal reasons; product nouns (Work it out, Spec, Ticket, Run,
+    Turn, Review). Follows 2026-11-22-5485b, which cut the rest of the dashboard into this series.
+
+steps:
+  - id: translate
+    action: "Every literal UI text in the area moves to keys in the area's dictionary module, German beside English; components call useT, pure helpers that word text take the lookup; dates use the chosen language."
+  - id: tests
+    action: "Existing tests stay green in English; one component of the area renders German when German is chosen."
+
+done:
+  - "No literal UI text is left under components/tickets and lib/tickets."
+  - "Dashboard tests and build green."

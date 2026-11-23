@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Chip } from "@/components/ui/Chip";
+import { useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 
 // p0183: typed-event drawer that lives inside an ExecutionNode body.
 // Filter chips per event-kind bucket, newest-first sort by default with
@@ -26,13 +28,13 @@ interface EventDrawerProps {
   defaultCap?: number;
 }
 
-const KIND_LABEL: Record<EventKind, string> = {
-  obs: "obs",
-  find: "finding",
-  tool: "tool",
-  llm: "llm",
-  file: "file",
-  dec: "decision",
+const KIND_LABEL: Record<EventKind, TextKey> = {
+  obs: "execution.kind.obs",
+  find: "execution.kind.find",
+  tool: "execution.kind.tool",
+  llm: "execution.kind.llm",
+  file: "execution.kind.file",
+  dec: "execution.kind.dec",
 };
 
 const KIND_TAG_COLOR: Record<EventKind, string> = {
@@ -44,17 +46,18 @@ const KIND_TAG_COLOR: Record<EventKind, string> = {
   dec: "text-stone-900",
 };
 
-const FILTER_BUTTONS: Array<{ key: EventKind | "all"; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "find", label: "Findings" },
-  { key: "obs", label: "Obs" },
-  { key: "tool", label: "Tools" },
-  { key: "llm", label: "LLM" },
-  { key: "file", label: "Files" },
-  { key: "dec", label: "Decisions" },
+const FILTER_BUTTONS: Array<{ key: EventKind | "all"; label: TextKey }> = [
+  { key: "all", label: "execution.filter.all" },
+  { key: "find", label: "execution.filter.find" },
+  { key: "obs", label: "execution.filter.obs" },
+  { key: "tool", label: "execution.filter.tool" },
+  { key: "llm", label: "execution.filter.llm" },
+  { key: "file", label: "execution.filter.file" },
+  { key: "dec", label: "execution.filter.dec" },
 ];
 
 export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
+  const t = useT();
   const [active, setActive] = useState<Set<EventKind | "all">>(new Set(["all"]));
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"new" | "old">("new");
@@ -104,7 +107,7 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
           <Chip
             key={key}
             testId={`event-drawer-chip-${key}`}
-            label={label}
+            label={t(label)}
             selected={active.has(key)}
             onClick={() => toggleChip(key)}
           />
@@ -115,21 +118,21 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
           onClick={() => setSort((s) => (s === "new" ? "old" : "new"))}
           className="rounded-full border border-stone-200 bg-white px-2 py-1 dsh-label text-stone-500"
         >
-          {sort === "new" ? "newest ↓" : "oldest ↑"}
+          {sort === "new" ? t("execution.sort.newest") : t("execution.sort.oldest")}
         </button>
         <span className="ml-auto">
           <input
             data-testid="event-drawer-search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="filter content…"
+            placeholder={t("execution.filterPlaceholder")}
             className="w-40 rounded-full border border-stone-200 px-3 py-1 dsh-mono text-stone-700 outline-none focus:border-emerald-500"
           />
         </span>
       </div>
       <div className="mt-1" data-testid="event-drawer-list">
         {shown.length === 0 ? (
-          <div className="py-3 text-center dsh-mono text-stone-400">No matching events.</div>
+          <div className="py-3 text-center dsh-mono text-stone-400">{t("execution.noMatch")}</div>
         ) : (
           shown.map((e) => (
             <div
@@ -147,7 +150,7 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
               <span
                 className={`w-20 flex-none pt-0.5 font-mono dsh-body font-semibold uppercase ${KIND_TAG_COLOR[e.kind]}`}
               >
-                {KIND_LABEL[e.kind]}
+                {t(KIND_LABEL[e.kind])}
               </span>
               <span className="flex-1 text-stone-600">{e.body}</span>
             </div>
@@ -161,7 +164,7 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
           onClick={() => setShowAll((s) => !s)}
           className="mt-1 inline-flex items-center gap-1.5 py-1 dsh-mono font-medium text-emerald-700 hover:underline"
         >
-          {showAll ? "▴ show fewer" : `▾ show all ${filtered.length} events`}
+          {showAll ? t("execution.showFewer") : t("execution.showAll", { count: filtered.length })}
         </button>
       )}
     </div>

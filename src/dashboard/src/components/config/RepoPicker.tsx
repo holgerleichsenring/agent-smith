@@ -6,6 +6,8 @@ import { isRule, patternMatches, refMatches } from "@/lib/repoRefs";
 import { type ConnectionRepos, type DiscoveredRepo, type StudioEntity } from "@/lib/configApi";
 import { DiscoveryStatus } from "./DiscoveryStatus";
 import { useConnectionDiscovery } from "./useConnectionDiscovery";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // p0345c: the REAL repo picker for connection-scoped project refs. Pick a
 // connection → its discovery cache (GET /connections/{id}/repos) lists the
@@ -37,6 +39,7 @@ export function RepoPicker({
   onChange: (v: string[]) => void;
   testId?: string;
 }) {
+  const t = useT();
   const [connection, setConnection] = useState("");
   const [filter, setFilter] = useState("");
   const [shown, setShown] = useState(WINDOW);
@@ -54,7 +57,7 @@ export function RepoPicker({
 
   const rules = values.filter(isRule);
   const ruleFor = (name: string) => rules.find((r) => refMatches(r, connection, name));
-  const offer = buildOffer(connection, query, values, matches.length, discovered?.discoveredAt != null);
+  const offer = buildOffer(t, connection, query, values, matches.length, discovered?.discoveredAt != null);
 
   const retype = (v: string) => {
     setFilter(v);
@@ -83,14 +86,14 @@ export function RepoPicker({
       <SelectedRefs testId={testId} values={values} connection={connection} repos={repos} onChange={onChange} />
 
       <div className="field">
-        <label>connection</label>
+        <label>{t("config.repoPicker.connection")}</label>
         <select
           data-testid={`${testId}-connection`}
           value={connection}
           onChange={(e) => setConnection(e.target.value)}
           className="mono"
         >
-          <option value="">— pick —</option>
+          <option value="">{t("config.pick")}</option>
           {connections.map((c) => (
             <option key={c.id} value={c.id}>
               {c.id}
@@ -101,7 +104,7 @@ export function RepoPicker({
 
       {connection && (
         <div className="field">
-          <label>discovered repos</label>
+          <label>{t("config.repoPicker.discovered")}</label>
           {!loading && !error && (
             <DiscoveryStatus
               testId={testId}
@@ -116,8 +119,8 @@ export function RepoPicker({
               {filterBox}
               <div className="repo-head">
                 <span className="help" data-testid={`${testId}-count`}>
-                  showing {rows.length} of {matches.length} matched · {repos.length} discovered
-                  {hidden > 0 ? ` · ${hidden} hidden` : ""}
+                  {t("config.repoPicker.count", { shown: rows.length, matched: matches.length, discovered: repos.length })}
+                  {hidden > 0 ? t("config.repoPicker.hidden", { hidden }) : ""}
                 </span>
                 {matches.length > 0 && (
                   <button
@@ -127,14 +130,14 @@ export function RepoPicker({
                     onClick={selectAllFiltered}
                   >
                     {query !== "" && isRule(query)
-                      ? `select all ${matches.length} as rule ${connection}/${query}`
-                      : `select all ${matches.length}`}
+                      ? t("config.repoPicker.selectAllRule", { count: matches.length, rule: `${connection}/${query}` })
+                      : t("config.repoPicker.selectAll", { count: matches.length })}
                   </button>
                 )}
               </div>
               {matches.length === 0 ? (
                 <span className="help" data-testid={`${testId}-nomatch`}>
-                  no discovered repo matches “{query}”
+                  {t("config.repoPicker.noMatch", { query })}
                 </span>
               ) : (
                 <RepoRows
@@ -153,7 +156,7 @@ export function RepoPicker({
                   data-testid={`${testId}-more`}
                   onClick={() => setShown(shown + WINDOW)}
                 >
-                  show {Math.min(WINDOW, hidden)} more
+                  {t("config.repoPicker.more", { count: Math.min(WINDOW, hidden) })}
                 </button>
               )}
             </>
@@ -178,6 +181,7 @@ function matchesQuery(repoName: string, query: string): boolean {
 
 /** What the filter box currently offers to add — a rule when it reads as one, a pick otherwise. */
 function buildOffer(
+  t: T,
   connection: string,
   query: string,
   values: string[],
@@ -187,8 +191,12 @@ function buildOffer(
   if (!connection || query === "") return null;
   const ref = `${connection}/${query}`;
   if (values.includes(ref)) return null;
-  if (!isRule(query)) return { ref, kind: "pick", label: `add ${ref}` };
-  return { ref, kind: "rule", label: `add rule ${ref}${counted ? ` · ${matchCount} match` : ""}` };
+  if (!isRule(query)) return { ref, kind: "pick", label: t("config.repoPicker.add", { ref }) };
+  return {
+    ref,
+    kind: "rule",
+    label: counted ? t("config.repoPicker.addRuleCounted", { ref, count: matchCount }) : t("config.repoPicker.addRule", { ref }),
+  };
 }
 
 /** The refs already on the project: a rule carries its live match count, a pick does not. */
@@ -205,10 +213,11 @@ function SelectedRefs({
   repos: DiscoveredRepo[];
   onChange: (v: string[]) => void;
 }) {
+  const t = useT();
   const covers = (ref: string) => repos.filter((r) => refMatches(ref, connection, r.name)).length;
   return (
     <div className="picks">
-      {values.length === 0 && <span className="help">no connection-scoped repos</span>}
+      {values.length === 0 && <span className="help">{t("config.repoPicker.noneSelected")}</span>}
       {values.map((ref) => (
         <span
           key={ref}
@@ -219,12 +228,12 @@ function SelectedRefs({
           {ref}
           {isRule(ref) && ref.startsWith(`${connection}/`) && repos.length > 0 && (
             <span className="rk" data-testid={`${testId}-rulecount-${ref}`}>
-              {covers(ref)} match
+              {t("config.repoPicker.match", { count: covers(ref) })}
             </span>
           )}
           <button
             type="button"
-            aria-label={`Remove ${ref}`}
+            aria-label={t("config.repoPicker.removeAria", { ref })}
             data-testid={`${testId}-remove-${ref}`}
             onClick={() => onChange(values.filter((v) => v !== ref))}
             style={{ background: "none", border: 0, cursor: "pointer", color: "inherit", font: "inherit" }}
@@ -249,28 +258,29 @@ function DiscoveryNotice({
   error: Error | null;
   discovered: ConnectionRepos | null;
 }) {
+  const t = useT();
   if (loading)
     return (
       <span className="help" data-testid={`${testId}-loading`}>
-        loading discovery cache…
+        {t("config.repoPicker.loading")}
       </span>
     );
   if (error)
     return (
       <span className="help" data-testid={`${testId}-error`} style={{ color: "var(--bad)" }}>
-        discovery cache unavailable: {error.message}
+        {t("config.repoPicker.unavailable", { message: error.message })}
       </span>
     );
   if (discovered?.discoveredAt === null)
     return (
       <span className="help" data-testid={`${testId}-undiscovered`}>
-        {discovered.discovering ? "discovering…" : "not discovered yet — Refresh now or type a name below"}
+        {discovered.discovering ? t("config.discovery.discovering") : t("config.repoPicker.notYet")}
       </span>
     );
   if (discovered && discovered.repos.length === 0)
     return (
       <span className="help" data-testid={`${testId}-none`}>
-        discovery ran but found no repos in this connection
+        {t("config.repoPicker.none")}
       </span>
     );
   return null;
@@ -292,6 +302,7 @@ function RepoRows({
   ruleFor: (name: string) => string | undefined;
   onToggle: (ref: string) => void;
 }) {
+  const t = useT();
   return (
     <div className="repo-rows" data-testid={`${testId}-rows`}>
       {rows.map((r) => {
@@ -323,7 +334,7 @@ function RepoRows({
             <span className="rr-branch">{r.defaultBranch ?? "—"}</span>
             {rule && (
               <span className="rr-rule" data-testid={`${testId}-covered-${r.name}`}>
-                covered by {rule}
+                {t("config.repoPicker.coveredBy", { rule })}
               </span>
             )}
           </div>
@@ -347,14 +358,15 @@ function FilterBox({
   onFilter: (v: string) => void;
   onAdd: () => void;
 }) {
+  const t = useT();
   return (
     <div className="repo-filter">
       <input
         type="text"
         data-testid={`${testId}-filter`}
-        aria-label="filter discovered repos"
+        aria-label={t("config.repoPicker.filterAria")}
         value={filter}
-        placeholder="filter — or a wildcard, e.g. Sample.*"
+        placeholder={t("config.repoPicker.filterPlaceholder")}
         className="mono"
         onChange={(e) => onFilter(e.target.value)}
       />
@@ -366,7 +378,7 @@ function FilterBox({
         onClick={onAdd}
         style={!offer ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
       >
-        {offer ? offer.label : "Add"}
+        {offer ? offer.label : t("config.repoPicker.addButton")}
       </button>
     </div>
   );

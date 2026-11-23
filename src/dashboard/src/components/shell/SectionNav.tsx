@@ -3,17 +3,19 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useT } from "@/hooks/useT";
 
 // 2026-11-16-0440c: the list a settings area keeps beside its pages. The sidebar carries only the
 // work; configuration and the running system are reached through the profile, and each brings
 // its own sections plus the way back to the work.
 
 export function SectionNav({ label, testId, children }: { label: string; testId: string; children: ReactNode }) {
+  const t = useT();
   return (
     <nav aria-label={label} data-testid={testId} className="mock-shell section-nav">
       <Link href="/" className="sn-back" data-testid={`${testId}-back`}>
         <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
-        Back to work
+        {t("shell.nav.backToWork")}
       </Link>
       {children}
     </nav>

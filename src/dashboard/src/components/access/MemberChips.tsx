@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/hooks/useT";
 
 // 2026-10-15-4a4df: the members of a project binding — chips withdrawn with a click, a select
 // offering the values this installation knows, and a typed value for one it does not, the way
@@ -23,6 +24,7 @@ export function MemberChips({
   onAdd: (value: string) => void;
   onRemove: (value: string) => void;
 }) {
+  const t = useT();
   const [typed, setTyped] = useState("");
   const open = offered.filter((value) => !members.includes(value));
 
@@ -41,7 +43,7 @@ export function MemberChips({
           {member}
           <button
             type="button"
-            aria-label={`Remove ${member}`}
+            aria-label={t("access.members.remove", { member })}
             data-testid={`${testId}-remove-${member}`}
             onClick={() => onRemove(member)}
           >
@@ -52,12 +54,12 @@ export function MemberChips({
       {open.length > 0 && (
         <select
           className="grant"
-          aria-label={`Add to ${label}`}
+          aria-label={t("access.members.addTo", { label })}
           data-testid={`${testId}-pick`}
           value=""
           onChange={(e) => e.target.value !== "" && onAdd(e.target.value)}
         >
-          <option value="">+ pick</option>
+          <option value="">{t("access.members.pick")}</option>
           {open.map((value) => (
             <option key={value} value={value}>
               {value}
@@ -68,14 +70,14 @@ export function MemberChips({
       <input
         className="member-field"
         type="text"
-        aria-label={`Type a value for ${label}`}
+        aria-label={t("access.members.typeFor", { label })}
         placeholder={placeholder}
         data-testid={`${testId}-value`}
         value={typed}
         onChange={(e) => setTyped(e.target.value)}
       />
       <button type="button" className="member-add" data-testid={`${testId}-add`} onClick={add}>
-        Add
+        {t("access.members.add")}
       </button>
     </div>
   );

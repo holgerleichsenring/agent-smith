@@ -1,8 +1,17 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 import type { TicketAttempt } from "@/types/tickets";
-import { endedView, liveLines, nowLabel, nowMode, pullRequestLinks, waitLines } from "../runNowLines";
+import { endedView as endedViewIn, liveLines as liveLinesIn, nowLabel as nowLabelIn, nowMode, pullRequestLinks, waitLines as waitLinesIn } from "../runNowLines";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const endedView = (...args: DropLead<Parameters<typeof endedViewIn>, 1>) => endedViewIn(en, ...args);
+const liveLines = (...args: DropLead<Parameters<typeof liveLinesIn>, 2>) => liveLinesIn(en, "en-GB", ...args);
+const nowLabel = (...args: DropLead<Parameters<typeof nowLabelIn>, 1>) => nowLabelIn(en, ...args);
+const waitLines = (...args: DropLead<Parameters<typeof waitLinesIn>, 2>) => waitLinesIn(en, "en-GB", ...args);
 
 // 2026-11-17-6d9ea: the Now block's lines — live from the run's hub events, and how a finished run ended.
 

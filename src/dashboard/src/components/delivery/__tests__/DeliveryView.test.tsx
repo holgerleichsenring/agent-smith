@@ -29,8 +29,8 @@ describe("DeliveryView", () => {
     const kpis = await shown();
 
     expect(within(kpis).getAllByText(/vs last week/)).toHaveLength(8);
-    expect(screen.getByTestId("delivery-kpi-Merge rate")).toHaveTextContent("50%");
-    expect(screen.getByTestId("delivery-kpi-Tickets worked")).toHaveTextContent("+1");
+    expect(screen.getByTestId("delivery-kpi-mergeRate")).toHaveTextContent("50%");
+    expect(screen.getByTestId("delivery-kpi-ticketsWorked")).toHaveTextContent("+1");
     const row = screen.getByTestId("delivery-row-GH-102");
     expect(within(row).getAllByRole("button")).toHaveLength(2);
     expect(screen.getByTestId("delivery-bar-GH-102-r2").className).toContain("rework");
@@ -60,7 +60,7 @@ describe("DeliveryView", () => {
     }));
     await shown();
 
-    expect(screen.getByTestId("delivery-kpi-Merge rate")).toHaveTextContent(/^Merge rate-/);
+    expect(screen.getByTestId("delivery-kpi-mergeRate")).toHaveTextContent(/^Merge rate-/);
     expect(screen.getByText("No attempt ended in this period.")).toBeInTheDocument();
     expect(screen.getByText("No ticket was worked on in this period.")).toBeInTheDocument();
   });
@@ -69,7 +69,7 @@ describe("DeliveryView", () => {
     fetchDelivery.mockResolvedValue(delivery({ truncated: true }));
     await shown();
 
-    expect(screen.getByTestId("delivery-kpi-Tickets worked")).not.toHaveTextContent("+1");
+    expect(screen.getByTestId("delivery-kpi-ticketsWorked")).not.toHaveTextContent("+1");
   });
 
   it("Chips_AreTheAnswersProjects_OffReadsWithout_TheLastStaysOn", async () => {

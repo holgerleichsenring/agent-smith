@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
 import type { TicketSummary } from "@/types/tickets";
 import { conversationHref } from "../TicketNeedsYou";
 
@@ -8,14 +9,12 @@ import { conversationHref } from "../TicketNeedsYou";
 // specs its first run derives; a filed spec or epic already has them, so it says only what is known. Either way
 // the specs can be settled first in the ticket's own Work it out conversation.
 
-export const FILED_TICKET_TEXT = "Filed, no run on record — its specs are derived when its first run starts";
-export const FILED_PLAIN = "Filed, no run on record";
-
 export function TicketNeverRun({ summary }: { summary: TicketSummary }) {
+  const t = useT();
   return (
     <div className="filed-line" data-testid="ticket-filed-line">
-      <span>{summary.ticketText ? FILED_TICKET_TEXT : FILED_PLAIN}</span>
-      <Link href={conversationHref(summary)} data-testid="ticket-settle-specs">Settle its specs first in Work it out →</Link>
+      <span>{summary.ticketText ? t("tickets.neverRun.text") : t("tickets.neverRun.plain")}</span>
+      <Link href={conversationHref(summary)} data-testid="ticket-settle-specs">{t("tickets.neverRun.settle")}</Link>
     </div>
   );
 }

@@ -24,25 +24,25 @@ interface Props {
 export function TicketSectionBar({ detail, current, onSelect }: Props) {
   const reads = { series: useTicketSeries().data, defaults: useTicketDefaults().data, conversation: useTicketConversation().data ?? null };
   const { summary, branch } = detail;
-  const state = stateWord(summary);
-  const tracker = trackerFact(summary);
   const t = useT();
+  const state = stateWord(t, summary);
+  const tracker = trackerFact(t, summary);
   return (
-    <aside className="tk-bar" aria-label="This ticket" data-testid="ticket-section-bar">
-      <Link className="tk-bar-back" href={TICKETS_PATH} data-testid="ticket-back">← Tickets</Link>
+    <aside className="tk-bar" aria-label={t("tickets.bar.label")} data-testid="ticket-section-bar">
+      <Link className="tk-bar-back" href={TICKETS_PATH} data-testid="ticket-back">{t("tickets.bar.back")}</Link>
       <div className="tk-bar-id" data-testid="ticket-head">
         <span className="mono tk-bar-key">{ticketLabel(summary)}</span>
         <span className="tk-bar-title">{summary.title ?? summary.ticketId}</span>
         {state && <span className={`tk-bar-state ${ticketDot(summary)}`} data-testid="ticket-state-word">{state}</span>}
       </div>
-      <nav className="tk-bar-sections" aria-label="Ticket sections">
+      <nav className="tk-bar-sections" aria-label={t("tickets.bar.sections")}>
         {ticketSections.map((section) => {
-          const counter = section.counter?.(detail, reads) ?? null;
+          const counter = section.counter?.(detail, reads, t) ?? null;
           const tone = counter?.hot ? " hot" : counter?.ok ? " ok" : "";
           return (
             <button key={section.id} type="button" className="tk-bar-sec" aria-current={section.id === current.id ? "page" : undefined}
               onClick={() => onSelect(section.id)} data-testid={`ticket-section-${section.id}`}>
-              <span className="tk-bar-label">{section.label}</span>
+              <span className="tk-bar-label">{t(section.label)}</span>
               {counter && <span className={`tk-bar-count${tone}`}>{counter.text}</span>}
             </button>
           );
@@ -52,7 +52,7 @@ export function TicketSectionBar({ detail, current, onSelect }: Props) {
         <span>{summary.project}</span>
         {tracker && <span data-testid="ticket-tracker-fact">{tracker}</span>}
         {branch && <span className="mono" data-testid="ticket-branch">{branch}</span>}
-        <span data-testid="ticket-pr-fate">{pullRequestFact(summary, detail.attempts)}</span>
+        <span data-testid="ticket-pr-fate">{pullRequestFact(t, summary, detail.attempts)}</span>
         {/* 2026-11-23-31dcc: the series that holds the ticket, also once it ended — one click to its page. */}
         {detail.seriesRun && (
           <Link href={seriesRunPath(detail.seriesRun.id)} data-testid="ticket-series-run">

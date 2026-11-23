@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { useT } from "@/hooks/useT";
 import type { TicketSummary } from "@/types/tickets";
 import { RUNS_CONTROL } from "../detail/RetryUnchanged";
 import { platformWords, ticketLabel } from "../ticketFormat";
@@ -14,6 +15,7 @@ import { TicketCloseDialog } from "./TicketCloseDialog";
 const NOT_CLOSABLE = new Set(["done", "working", "needs_you", "closed"]);
 
 export function TicketCloseAct({ ticket, onClosed, small }: { ticket: TicketSummary; onClosed: () => void; small?: boolean }) {
+  const t = useT();
   const lacks = useLacksPermission(RUNS_CONTROL, ticket.project);
   const [open, setOpen] = useState(false);
   if (lacks || NOT_CLOSABLE.has(ticket.bucket)) return null;
@@ -21,11 +23,11 @@ export function TicketCloseAct({ ticket, onClosed, small }: { ticket: TicketSumm
   return (
     <>
       <button type="button" className={small ? "btn sm" : "btn"} onClick={() => setOpen(true)} data-testid={`ticket-close-${ticket.ticketId}`}>
-        {small ? "Close" : "Close ticket"}
+        {small ? t("tickets.close.act") : t("tickets.close.actLong")}
       </button>
       {open && (
         <TicketCloseDialog project={ticket.project} ticketId={ticket.ticketId} label={ticketLabel(ticket)}
-          tracker={platformWords(ticket.platform)} openPullRequests={openPullRequests} onClose={() => setOpen(false)} onClosed={onClosed} />
+          tracker={platformWords(t, ticket.platform)} openPullRequests={openPullRequests} onClose={() => setOpen(false)} onClosed={onClosed} />
       )}
     </>
   );

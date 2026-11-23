@@ -17,6 +17,8 @@ import { PageHead } from "@/components/system/PageHead";
 import { SystemMetricStrip, type MetricCell } from "@/components/system/SystemMetricStrip";
 import type { SystemActivitySnapshot } from "@/types/hub-events";
 import type { HubConnectionState } from "@microsoft/signalr";
+import { useT } from "@/hooks/useT";
+import type { T, TextKey } from "@/lib/i18n/translate";
 
 // p0209b: the System master/detail body. The selected subsystem comes from the
 // route slug (resolved by app/system/[[...slug]]/page.tsx), so selection is
@@ -43,22 +45,14 @@ const DEFAULT_SUBSYSTEM: SubsystemId = "tracker";
 // a reading OF the system, not a part of it, and three of them make one page.
 // Page voice for the three event-stream subsystems (config/catalog carry their
 // own heads below).
-const STREAM_META: Record<"tracker" | "webhooks" | "chat", { title: string; sub: string }> = {
-  tracker: {
-    title: "Tracker",
-    sub: "Ticket polling — every cycle the watch loop scans, matches, and spawns.",
-  },
-  webhooks: {
-    title: "Webhooks",
-    sub: "Inbound deliveries from your platforms — actioned or skipped, with the reason.",
-  },
-  chat: {
-    title: "Chat dispatchers",
-    sub: "Messages from connected chat channels — actioned or skipped, with the reason.",
-  },
+const STREAM_META: Record<"tracker" | "webhooks" | "chat", { title: TextKey; sub: TextKey }> = {
+  tracker: { title: "system.stream.trackerTitle", sub: "system.stream.trackerSub" },
+  webhooks: { title: "system.stream.webhooksTitle", sub: "system.stream.webhooksSub" },
+  chat: { title: "system.stream.chatTitle", sub: "system.stream.chatSub" },
 };
 
 export function SystemView({ segment }: { segment: string | null }) {
+  const t = useT();
   const { connectionState, systemActivity, refusal } = useJobsHub();
 
   const subsystem: SubsystemId =
@@ -79,8 +73,8 @@ export function SystemView({ segment }: { segment: string | null }) {
           // catalog's actual contents, not just its load-event stream.
           <>
             <PageHead
-              title="Skill catalog & vocabulary"
-              sub="The resolved catalog the masters actually load — masters, skills, and the concept vocabulary."
+              title={t("system.stream.catalogTitle")}
+              sub={t("system.stream.catalogSub")}
             />
             <CatalogBrowser />
           </>
@@ -89,8 +83,8 @@ export function SystemView({ segment }: { segment: string | null }) {
           // config-time "how it's wired" view) above its read-events stream.
           <>
             <PageHead
-              title="Config file reads"
-              sub="How agent-smith is wired, and every config file the runtime actually read. Secrets are never sent to the dashboard."
+              title={t("system.stream.configTitle")}
+              sub={t("system.stream.configSub")}
               right={<ConnectionState state={connectionState} refusal={refusal} />}
             />
             <ConfigView activity={activity[subsystem]} />
@@ -125,17 +119,18 @@ function SubsystemPage({
   connectionState: HubConnectionState;
   refusal: ApiRefusal | null;
 }) {
+  const t = useT();
   const meta = STREAM_META[id];
-  const cells = streamKpis(id, snapshot);
+  const cells = streamKpis(id, snapshot, t);
   return (
     <>
       <PageHead
-        title={meta.title}
-        sub={meta.sub}
+        title={t(meta.title)}
+        sub={t(meta.sub)}
         right={<ConnectionState state={connectionState} refusal={refusal} />}
       />
       {cells && <SystemMetricStrip testId={`system-kpis-${id}`} cells={cells} />}
-      <SubsystemDetail activity={activity} heading="Event stream" />
+      <SubsystemDetail activity={activity} heading={t("system.stream.eventStream")} />
     </>
   );
 }
@@ -144,20 +139,21 @@ function SubsystemPage({
 function streamKpis(
   id: "tracker" | "webhooks" | "chat",
   snapshot: SystemActivitySnapshot | null,
+  t: T,
 ): MetricCell[] | null {
   const v = (n: number) => (snapshot ? n : "—");
   switch (id) {
     case "tracker":
       return [
-        { label: "Tickets scanned", value: v(snapshot?.ticketsScanned ?? 0), testId: "sys-metric-tickets-scanned" },
-        { label: "Tickets triggered", value: v(snapshot?.ticketsTriggered ?? 0), testId: "sys-metric-tickets-triggered" },
-        { label: "Tickets skipped", value: v(snapshot?.ticketsSkipped ?? 0), testId: "sys-metric-tickets-skipped" },
-        { label: "Poll cycles", value: v(snapshot?.pollCyclesFinished ?? 0), small: "24h", testId: "sys-metric-poll-cycles" },
+        { label: t("system.stream.ticketsScanned"), value: v(snapshot?.ticketsScanned ?? 0), testId: "sys-metric-tickets-scanned" },
+        { label: t("system.stream.ticketsTriggered"), value: v(snapshot?.ticketsTriggered ?? 0), testId: "sys-metric-tickets-triggered" },
+        { label: t("system.stream.ticketsSkipped"), value: v(snapshot?.ticketsSkipped ?? 0), testId: "sys-metric-tickets-skipped" },
+        { label: t("system.stream.pollCycles"), value: v(snapshot?.pollCyclesFinished ?? 0), small: t("system.stream.day"), testId: "sys-metric-poll-cycles" },
       ];
     case "webhooks":
       return [
-        { label: "Received", value: v(snapshot?.webhooksReceived ?? 0), small: "24h", testId: "sys-metric-webhooks-received" },
-        { label: "Actioned", value: v(snapshot?.webhooksActioned ?? 0), small: "24h", testId: "sys-metric-webhooks-actioned" },
+        { label: t("system.stream.received"), value: v(snapshot?.webhooksReceived ?? 0), small: t("system.stream.day"), testId: "sys-metric-webhooks-received" },
+        { label: t("system.stream.actioned"), value: v(snapshot?.webhooksActioned ?? 0), small: t("system.stream.day"), testId: "sys-metric-webhooks-actioned" },
       ];
     case "chat":
       // No server-truth chat counters on the snapshot — no strip is honest.

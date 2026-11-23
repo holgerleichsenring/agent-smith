@@ -1,6 +1,8 @@
 "use client";
 
 import { HubConnectionState } from "@microsoft/signalr";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import type { ApiRefusal } from "@/lib/apiResponse";
 
 // 2026-09-21-291b: "offline" is a claim about the SERVER, and a server that
@@ -19,12 +21,13 @@ interface Props {
 }
 
 export function ConnectionState({ state, refusal = null }: Props) {
+  const t = useT();
   const refused = state === HubConnectionState.Connected ? null : refusal;
-  const label = refused !== null ? refusedLabel(refused)
-    : state === HubConnectionState.Connected ? "connected"
-    : state === HubConnectionState.Connecting ? "connecting…"
-    : state === HubConnectionState.Reconnecting ? "reconnecting…"
-    : "offline";
+  const label = refused !== null ? refusedLabel(t, refused)
+    : state === HubConnectionState.Connected ? t("runs.connection.connected")
+    : state === HubConnectionState.Connecting ? t("runs.connection.connecting")
+    : state === HubConnectionState.Reconnecting ? t("runs.connection.reconnecting")
+    : t("runs.connection.offline");
   const dotClass = state === HubConnectionState.Connected ? "bg-green-500"
     : refused !== null ? "bg-amber-500"
     : state === HubConnectionState.Reconnecting || state === HubConnectionState.Connecting ? "bg-amber-500"
@@ -37,6 +40,6 @@ export function ConnectionState({ state, refusal = null }: Props) {
   );
 }
 
-function refusedLabel(refusal: ApiRefusal): string {
-  return refusal.kind === "sign-in" ? "signed out" : "not allowed";
+function refusedLabel(t: T, refusal: ApiRefusal): string {
+  return refusal.kind === "sign-in" ? t("runs.connection.signedOut") : t("runs.connection.notAllowed");
 }

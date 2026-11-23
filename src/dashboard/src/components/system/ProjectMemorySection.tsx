@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { deleteProjectMemory, fetchProjectMemories, type ProjectMemory } from "@/lib/projectMemoryApi";
+import { useT } from "@/hooks/useT";
 
 // 2026-11-10-fcd7d: what the project's conversations and runs kept on the project — newest first, because
 // entries reach later prompts unreviewed and the newest are the ones a person most needs to check. Each shows
@@ -14,6 +15,7 @@ import { deleteProjectMemory, fetchProjectMemories, type ProjectMemory } from "@
 type Load = { kind: "loading" } | { kind: "refused" } | { kind: "loaded"; memories: ProjectMemory[] };
 
 export function ProjectMemorySection({ project }: { project: string }) {
+  const t = useT();
   const [load, setLoad] = useState<Load>({ kind: "loading" });
 
   useEffect(() => {
@@ -35,12 +37,12 @@ export function ProjectMemorySection({ project }: { project: string }) {
 
   return (
     <section className="mt-4 border-t border-stone-100 pt-4" data-testid="project-memory-section">
-      <SectionLabel>Project memory</SectionLabel>
+      <SectionLabel>{t("system.memory.title")}</SectionLabel>
       <div className="mt-2">
-        {load.kind === "loading" && <span className="dsh-label text-stone-400">loading…</span>}
-        {load.kind === "refused" && <span className="dsh-label text-stone-400">not available</span>}
+        {load.kind === "loading" && <span className="dsh-label text-stone-400">{t("system.memory.loading")}</span>}
+        {load.kind === "refused" && <span className="dsh-label text-stone-400">{t("system.memory.unavailable")}</span>}
         {load.kind === "loaded" && load.memories.length === 0 && (
-          <span className="dsh-label text-stone-400" data-testid="project-memory-empty">nothing kept yet</span>
+          <span className="dsh-label text-stone-400" data-testid="project-memory-empty">{t("system.memory.empty")}</span>
         )}
         {load.kind === "loaded" && load.memories.length > 0 && (
           <ul className="space-y-2">
@@ -53,6 +55,7 @@ export function ProjectMemorySection({ project }: { project: string }) {
 }
 
 function MemoryRow({ memory, onDelete }: { memory: ProjectMemory; onDelete: () => void }) {
+  const t = useT();
   return (
     <li className="rounded-md border border-stone-100 px-3 py-2" data-testid={`project-memory-${memory.slug}`}>
       <div className="flex items-center gap-2">
@@ -64,17 +67,17 @@ function MemoryRow({ memory, onDelete }: { memory: ProjectMemory; onDelete: () =
         <button
           type="button"
           className="ml-auto dsh-label text-stone-500 hover:text-rose-700"
-          aria-label={`Delete memory ${memory.slug}`}
+          aria-label={t("system.memory.deleteLabel", { slug: memory.slug })}
           data-testid={`project-memory-delete-${memory.slug}`}
           onClick={onDelete}
         >
-          Delete
+          {t("common.delete")}
         </button>
       </div>
       <div className="mt-1 dsh-body text-stone-700">{memory.description}</div>
       {/* The text later prompts quote, folded until a person opens it to check what it says. */}
       <details className="mt-1" data-testid={`project-memory-body-${memory.slug}`}>
-        <summary className="cursor-pointer dsh-label text-stone-500">Full text</summary>
+        <summary className="cursor-pointer dsh-label text-stone-500">{t("system.memory.fullText")}</summary>
         <p className="mt-1 whitespace-pre-wrap dsh-body text-stone-700">{memory.body}</p>
       </details>
       <div className="mt-1 flex flex-wrap gap-x-4 dsh-label text-stone-400">
@@ -86,14 +89,22 @@ function MemoryRow({ memory, onDelete }: { memory: ProjectMemory; onDelete: () =
 }
 
 function Source({ memory }: { memory: ProjectMemory }) {
-  const by = memory.author ? `, by ${memory.author}` : "";
+  const t = useT();
+  const by = memory.author ? t("system.memory.by", { author: memory.author }) : "";
   if (memory.sourceKind === "run") {
+    // The run id is a link inside the sentence, so the text is cut at its placeholder.
+    const [before, after] = t("system.memory.fromRun").split("{run}");
     return (
       <>
-        from run <Link href={`/jobs/${encodeURIComponent(memory.sourceId)}`}>{memory.sourceId}</Link>
-        {memory.sourceRef ? `, spec ${memory.sourceRef}` : ""}{by}
+        {before}<Link href={`/jobs/${encodeURIComponent(memory.sourceId)}`}>{memory.sourceId}</Link>{after}
+        {memory.sourceRef ? t("system.memory.spec", { ref: memory.sourceRef }) : ""}{by}
       </>
     );
   }
-  return <>from conversation {memory.sourceId}{memory.sourceRef ? `, turn ${memory.sourceRef}` : ""}{by}</>;
+  return (
+    <>
+      {t("system.memory.fromConversation", { id: memory.sourceId })}
+      {memory.sourceRef ? t("system.memory.turn", { ref: memory.sourceRef }) : ""}{by}
+    </>
+  );
 }

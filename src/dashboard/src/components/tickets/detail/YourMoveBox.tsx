@@ -16,7 +16,8 @@ import type { StateAct } from "./ticketState";
 import { useTicketTabGo } from "./useTicketTabGo";
 import { useYourMove } from "./useYourMove";
 import { actLabel, type YourMove } from "./yourMove";
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 import { waitClock } from "@/components/jobs/runlog/modelWaitWords";
 
 // 2026-11-16-6877a: the one box above the composer that says what is next — a coloured dot, one title, ticketState's
@@ -34,6 +35,7 @@ interface Props {
 
 export function YourMoveBox({ detail, onReply, onAnswer }: Props) {
   const t = useT();
+  const locale = useDateLocale();
   const read = useYourMove(detail);
   if (!read) return null;
   const { view } = read;
@@ -42,7 +44,7 @@ export function YourMoveBox({ detail, onReply, onAnswer }: Props) {
   const move: YourMove = wait && view.attempt ? {
     ...read.move,
     title: t("run.modelWait.title"),
-    text: t("run.modelWait.sentence", { n: view.attempt.number, at: waitClock(wait.since) }),
+    text: t("run.modelWait.sentence", { n: view.attempt.number, at: waitClock(wait.since, locale) }),
   } : read.move;
   return (
     <section className={`tk-move ${move.tone}`} data-testid="ticket-state" data-tone={move.tone} aria-live="polite">
@@ -92,7 +94,7 @@ function Act({ act, project, onReply, onAnswer, question }: ActProps) {
       return (
         <span className="tk-move-act">
           <button type="button" className={question ? "btn primary" : "btn"} data-testid="ticket-state-act" onClick={go}>
-            {actLabel(act, question, t)}
+            {actLabel(t, act, question)}
           </button>
         </span>
       );
@@ -132,24 +134,34 @@ function MergeAct({ seriesId, ticketId, project }: { seriesId: string; ticketId:
 }
 
 function Why({ move, attempt }: { move: YourMove; attempt: TicketAttempt | null }) {
+  const t = useT();
   if (!move.why || !attempt) return null;
   return (
     <details className="tk-move-why" data-testid="ticket-state-why">
-      <summary>Why</summary>
+      <summary>{t("tickets.move.why")}</summary>
       <div className="tk-move-why-body">
         {attempt.summary
           ? <pre className="ts-cause" data-testid="ticket-state-cause">{formatRunSummary(attempt.summary)}</pre>
-          : <span className="tk-dim">The run recorded no end text.</span>}
+          : <span className="tk-dim">{t("tickets.move.noEndText")}</span>}
         <span className="ts-links">
-          <Link className="btn sm" href={runPath(attempt.runId)} data-testid="ticket-state-run">Run {attempt.number}</Link>
-          <Link className="btn sm" href={runTracePath(attempt.runId)} data-testid="ticket-state-trace">Trace</Link>
+          <Link className="btn sm" href={runPath(attempt.runId)} data-testid="ticket-state-run">{t("tickets.move.run", { n: attempt.number })}</Link>
+          <Link className="btn sm" href={runTracePath(attempt.runId)} data-testid="ticket-state-trace">{t("tickets.move.trace")}</Link>
         </span>
       </div>
     </details>
   );
 }
 
+const PR_STATES: Record<string, TextKey> = {
+  open: "tickets.activity.prState.open", merged: "tickets.activity.prState.merged", closed: "tickets.activity.prState.closed",
+};
+const PR_DECISIONS: Record<string, TextKey> = {
+  approved: "tickets.activity.approved", "changes-requested": "tickets.activity.changesRequested", rejected: "tickets.activity.rejected",
+};
+
 function PullRequests({ prs }: { prs: TicketPullRequest[] }) {
+  const t = useT();
+  const word = (keys: Record<string, TextKey>, value: string, raw: string) => (keys[value] ? t(keys[value]) : raw);
   return (
     <ul className="tk-move-prs" data-testid="ticket-state-prs">
       {prs.map((pr) => (
@@ -157,7 +169,7 @@ function PullRequests({ prs }: { prs: TicketPullRequest[] }) {
           <a href={pr.url} target="_blank" rel="noreferrer" title={pr.repo} data-testid="ticket-state-pr">
             <span className="mono">{shortRepo(pr.repo)}</span> #{prNumber(pr.url) ?? pr.number}
           </a>
-          <span className="tk-dim"> {pr.state}{pr.decision !== "none" ? ` · ${pr.decision.replace(/-/g, " ")}` : ""}</span>
+          <span className="tk-dim"> {word(PR_STATES, pr.state, pr.state)}{pr.decision !== "none" ? ` · ${word(PR_DECISIONS, pr.decision, pr.decision.replace(/-/g, " "))}` : ""}</span>
         </li>
       ))}
     </ul>

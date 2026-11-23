@@ -1,6 +1,7 @@
 "use client";
 
 import type { SpendSlice } from "@/hooks/useSpendBreakdown";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-27-559e: a run over several repositories names every one of them on
 // its work line, and that line used to set the row's width. It is truncated
@@ -13,10 +14,11 @@ import type { SpendSlice } from "@/hooks/useSpendBreakdown";
 // page waits on, and a missing one costs its own box, not the page.
 
 export function SpendSlices({ slices, ready }: { slices: SpendSlice[]; ready: boolean }) {
+  const t = useT();
   if (!ready) {
     return (
       <div className="stateline" data-testid="overview-spend-loading">
-        Reading the run ledger…
+        {t("overview.spend.reading")}
       </div>
     );
   }
@@ -26,7 +28,7 @@ export function SpendSlices({ slices, ready }: { slices: SpendSlice[]; ready: bo
         <div className="ei" aria-hidden>
           ◍
         </div>
-        No LLM spend recorded in the last 7 days.
+        {t("overview.spend.empty")}
       </div>
     );
   }

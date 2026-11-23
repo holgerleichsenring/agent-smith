@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { CatalogEntry } from "@/lib/catalogApi";
 import { Markdown } from "@/components/ui/Markdown";
 import { CatalogSourceNote } from "./CatalogSourceNote";
+import { useT } from "@/hooks/useT";
 
 // p0221 / p0343d: one inventory card — the mock's .ecard, whose whole top row toggles and
 // whose SKILL.md body is fetched lazily on expand.
@@ -21,6 +22,7 @@ export function CatalogEntryCard({
   loadBody: (name: string) => Promise<string | null>;
   overlayPath: string | null;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -58,17 +60,17 @@ export function CatalogEntryCard({
         </div>
         <div className="ec-right">
           <span className="tybadge">{entry.role}</span>
-          <span className="ec-open">{open ? "close ▴" : "open ▾"}</span>
+          <span className="ec-open">{open ? t("system.catalog.close") : t("system.catalog.open")}</span>
         </div>
       </button>
       {open && (
         <div className="ec-body" data-testid={`catalog-entry-body-${entry.name}`}>
           {loading ? (
-            <span className="msub mono">loading…</span>
+            <span className="msub mono">{t("system.catalog.bodyLoading")}</span>
           ) : body ? (
             <Markdown>{body}</Markdown>
           ) : (
-            <span className="msub mono">No SKILL.md body.</span>
+            <span className="msub mono">{t("system.catalog.noBody")}</span>
           )}
           <CatalogSourceNote
             overlayPath={overlayPath}

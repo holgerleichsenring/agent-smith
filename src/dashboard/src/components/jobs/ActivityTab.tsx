@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useRunEvents } from "@/hooks/useRunEvents";
+import { useT } from "@/hooks/useT";
 import {
   ALL_PILLS,
   isEventVisible,
@@ -25,6 +26,7 @@ interface Props {
 const WINDOW = 200;
 
 export function ActivityTab({ runId }: Props) {
+  const t = useT();
   const events = useRunEvents(runId);
   const router = useRouter();
   const pathname = usePathname();
@@ -89,7 +91,7 @@ export function ActivityTab({ runId }: Props) {
           data-testid="activity-debug-toggle"
           aria-expanded={showDebugFilters}
         >
-          {showDebugFilters ? "Hide event types" : "Show event types"}
+          {showDebugFilters ? t("runs.activity.hideTypes") : t("runs.activity.showTypes")}
         </button>
         {showDebugFilters ? (
           <div className="mt-2 rounded border border-dashed border-stone-300 p-3" data-testid="activity-debug-rail">
@@ -99,7 +101,7 @@ export function ActivityTab({ runId }: Props) {
       </div>
       {visible.length === 0 ? (
         <p className="text-sm text-stone-500" data-testid="activity-empty">
-          No matching activity yet.
+          {t("runs.activity.empty")}
         </p>
       ) : (
         <div className="space-y-1">
@@ -110,7 +112,7 @@ export function ActivityTab({ runId }: Props) {
               className="text-xs text-stone-500 hover:text-stone-700 hover:underline"
               data-testid="activity-show-earlier"
             >
-              Show {windowStart} earlier event{windowStart === 1 ? "" : "s"}
+              {t("runs.activity.showEarlier", { count: windowStart })}
             </button>
           ) : null}
           {windowed.map((event, i) => {

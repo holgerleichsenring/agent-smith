@@ -11,18 +11,18 @@ const de = translator("de");
 
 describe("ticketFormat", () => {
   it("channelWords_Overrule_IsOverruledDefault", () => {
-    expect(channelWords("overrule")).toBe("overruled default");
+    expect(channelWords(en, "overrule")).toBe("overruled default");
     expect(causeWords(en, { channel: "overrule", actor: "m.reviewer", source: null })).toBe("started by an overruled default by m.reviewer");
   });
 
   it("ChannelWords_Series_IsAutomaticSeriesStart", () => {
-    expect(channelWords("series")).toBe("series, started automatically");
+    expect(channelWords(en, "series")).toBe("series, started automatically");
     expect(causeWords(en, { channel: "series", actor: "agent-smith", source: null })).toBe("started by the series");
   });
 
   // 2026-11-16-f3fbc: an attempt agent-smith started once the precondition its predecessor stopped on held.
   it("ChannelWords_Precondition_IsRestartOncePreconditionHeld", () => {
-    expect(channelWords("precondition")).toBe("restarted once the precondition held");
+    expect(channelWords(en, "precondition")).toBe("restarted once the precondition held");
     expect(causeWords(en, { channel: "precondition", actor: null, source: null })).toBe("restarted once the precondition held");
   });
 

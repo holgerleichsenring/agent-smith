@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { fetchSeriesRunChanges } from "@/lib/seriesRunsApi";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunChanges, SeriesRunDetail } from "@/types/seriesRuns";
@@ -15,6 +15,7 @@ type ChangesRead = { kind: "loading" } | { kind: "failed" } | { kind: "read"; ch
 
 export function SeriesChangesNotes({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
+  const locale = useDateLocale();
   const [read, setRead] = useState<ChangesRead>({ kind: "loading" });
   useEffect(() => {
     const controller = new AbortController();
@@ -42,7 +43,7 @@ export function SeriesChangesNotes({ detail }: { detail: SeriesRunDetail }) {
               <span className="rc">
                 <Link className="mono" href={ticketPath(detail.project, change.ticketId)}>{keyOf(change.ticketId)}</Link> {change.cause}
               </span>
-              <span className="rw">{clock(change.at)}</span>
+              <span className="rw">{clock(change.at, locale)}</span>
             </div>
           ))}
           {read.changes.unread.map((unread) => (

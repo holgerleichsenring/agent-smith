@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type MutableRefObject, type ReactNode, type RefObject } from "react";
+import { useT } from "@/hooks/useT";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import { useTicketConversation, useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import type { TicketApprovalPreview } from "@/types/tickets";
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function ConversationDock({ focus, preview, dockRef, above }: Props) {
+  const t = useT();
   const detail = useTicketDetail();
   const data = useTicketConversation().data;
   return (
@@ -43,7 +45,7 @@ export function ConversationDock({ focus, preview, dockRef, above }: Props) {
           {data.transcriptHidden ? (
             <div className="composer hidden-note" data-testid="conv-hidden">
               <div className="cp-head">
-                <span className="sh-sub">The ticket conversation needs dialog.write: its turns and proposal are not shown.</span>
+                <span className="sh-sub">{t("tickets.conversation.hidden")}</span>
               </div>
             </div>
           ) : (

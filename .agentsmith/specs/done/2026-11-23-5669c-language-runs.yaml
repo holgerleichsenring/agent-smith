@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-5669c
+goal: "The run list and run page speak German when German is chosen, the shared run status words included."
+
+applies_to: "dashboard (components/jobs)"
+
+requires: [2026-11-22-5485a, 2026-11-23-5669a]
+
+facts:
+  - claim: "A run's status word comes from one English map shared by the run pages and the filed work in Work it out."
+    evidence: "src/dashboard/src/components/jobs/runStatus.ts:7-9"
+
+scope:
+  in: >
+    Every literal UI text under components/jobs/** (runStatus's status words included, which the filed work in Work it out shares) moves to keys in lib/i18n/areas/runs.ts.
+  out: >
+    Text the model writes, server-sent messages and refusal reasons; product nouns (Work it out, Spec, Ticket, Run,
+    Turn, Review). Follows 2026-11-22-5485b, which cut the rest of the dashboard into this series.
+
+steps:
+  - id: translate
+    action: "Every literal UI text in the area moves to keys in the area's dictionary module, German beside English; components call useT, pure helpers that word text take the lookup; dates use the chosen language."
+  - id: tests
+    action: "Existing tests stay green in English; one component of the area renders German when German is chosen."
+
+done:
+  - "No literal UI text is left under components/jobs."
+  - "Dashboard tests and build green."

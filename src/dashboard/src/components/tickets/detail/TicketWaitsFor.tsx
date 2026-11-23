@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
 import { useTicketRequires } from "@/lib/tickets/TicketPageStore";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { TicketRequirement } from "@/types/tickets";
@@ -13,6 +14,7 @@ import { dependentWords, isLanded, landedByWords, waitWords } from "../landing/r
 // re-reads this page's requires and detail at once.
 
 export function TicketWaitsFor({ project }: { project: string }) {
+  const t = useT();
   const requires = useTicketRequires();
   const view = requires.data;
   if (!view) return null;
@@ -20,10 +22,10 @@ export function TicketWaitsFor({ project }: { project: string }) {
     <>
       {view.requires.length > 0 && (
         <div className="waits" data-testid="ticket-waits-for">
-          <div className="wf-h">Waits for</div>
+          <div className="wf-h">{t("tickets.waits.for")}</div>
           {view.requires.map((r) => (
             <div key={r.ticketId} className="wf-row" data-testid={`ticket-waits-${r.ticketId}`}>
-              <Entry project={project} entry={r} words={waitWords(r)} landed={isLanded(r)} />
+              <Entry project={project} entry={r} words={waitWords(t, r)} landed={isLanded(r)} />
               <DoneByHandAct project={project} ticketId={r.ticketId} label={r.key} landed={isLanded(r)}
                 onLanded={requires.landed} small />
             </div>
@@ -32,10 +34,10 @@ export function TicketWaitsFor({ project }: { project: string }) {
       )}
       {view.requiredBy.length > 0 && (
         <div className="waits" data-testid="ticket-required-by">
-          <div className="wf-h">Required by</div>
+          <div className="wf-h">{t("tickets.waits.requiredBy")}</div>
           {view.requiredBy.map((r) => (
             <div key={r.ticketId} className="wf-row">
-              <Entry project={project} entry={r} words={dependentWords(r)} landed={false} />
+              <Entry project={project} entry={r} words={dependentWords(t, r)} landed={false} />
             </div>
           ))}
         </div>
@@ -45,7 +47,8 @@ export function TicketWaitsFor({ project }: { project: string }) {
 }
 
 function Entry({ project, entry, words, landed }: { project: string; entry: TicketRequirement; words: string; landed: boolean }) {
-  const by = landedByWords(entry);
+  const t = useT();
+  const by = landedByWords(t, entry);
   const name = (
     <>
       <span className="wk">{entry.key}</span>

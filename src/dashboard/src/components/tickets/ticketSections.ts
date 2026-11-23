@@ -1,3 +1,4 @@
+import type { TextKey } from "@/lib/i18n/translate";
 import type { TicketBucket, TicketCounts } from "@/types/tickets";
 
 // 2026-10-13-9a59p: the list's sections in the order it shows them — who acts next, then the
@@ -7,81 +8,82 @@ import type { TicketBucket, TicketCounts } from "@/types/tickets";
 // 2026-11-23-d60d: no In review section — a pull request that can merge or whose CI failed is Needs you, one that waits
 // (CI running, behind another pull request) is Working.
 
+/** 2026-11-23-5669b: title, sub and empty are dictionary keys; the reader looks them up in the chosen language. */
 export interface TicketSectionSpec {
-  title: string;
-  sub: string;
+  title: TextKey;
+  sub: TextKey;
   /** The mock's .cnt colour, applied while the section holds any ticket. */
   tone?: "amber" | "red" | "green" | "person";
-  empty: string;
+  empty: TextKey;
   count: (counts: TicketCounts) => number;
 }
 
 export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> = {
   "needs-you": {
-    title: "Needs you",
-    sub: "a person moves it next: an answer, a decision, a merge or the plan",
+    title: "tickets.section.needsYou.title",
+    sub: "tickets.section.needsYou.sub",
     tone: "amber",
-    empty: "Nothing waits on you.",
+    empty: "tickets.section.needsYou.empty",
     count: (c) => c.needsYou,
   },
   working: {
-    title: "Working",
-    sub: "an attempt is running or waiting for capacity, or its pull request waits for CI or another merge",
-    empty: "No attempt is running or queued, and no pull request waits.",
+    title: "tickets.section.working.title",
+    sub: "tickets.section.working.sub",
+    empty: "tickets.section.working.empty",
     count: (c) => c.working,
   },
   stuck: {
-    title: "Stuck",
-    sub: "the last attempt failed and no one has acted on the ticket since",
+    title: "tickets.section.stuck.title",
+    sub: "tickets.section.stuck.sub",
     tone: "red",
-    empty: "No ticket is stuck.",
+    empty: "tickets.section.stuck.empty",
     count: (c) => c.stuck,
   },
   // 2026-10-14-dbcen: filed tickets with no run on record (ticket-graph.html, list-buckets).
   blocked: {
-    title: "Waits on another",
-    sub: "filed, held until what it requires is merged or marked done by hand",
+    title: "tickets.section.blocked.title",
+    sub: "tickets.section.blocked.sub",
     tone: "person",
-    empty: "No filed ticket waits for another.",
+    empty: "tickets.section.blocked.empty",
     count: (c) => c.blocked ?? 0,
   },
   filed: {
-    title: "Filed, no run on record",
-    sub: "filed here, nothing it requires is open, no run recorded",
-    empty: "No filed ticket is without a run.",
+    title: "tickets.section.filed.title",
+    sub: "tickets.section.filed.sub",
+    empty: "tickets.section.filed.empty",
     count: (c) => c.filed ?? 0,
   },
   "pr-closed": {
-    title: "PR closed",
-    sub: "every pull request was closed without a merge",
+    title: "tickets.section.prClosed.title",
+    sub: "tickets.section.prClosed.sub",
     tone: "red",
-    empty: "No ticket's pull requests all closed unmerged.",
+    empty: "tickets.section.prClosed.empty",
     count: (c) => c.prClosed ?? 0,
   },
   failed: {
-    title: "Failed",
-    sub: "the last attempt failed",
+    title: "tickets.section.failed.title",
+    sub: "tickets.section.failed.sub",
     tone: "red",
-    empty: "No ticket's last attempt failed.",
+    empty: "tickets.section.failed.empty",
     count: (c) => c.failed ?? 0,
   },
   ended: {
-    title: "Ended",
-    sub: "cancelled, or finished without a pull request",
-    empty: "No ticket has ended without a next step.",
+    title: "tickets.section.ended.title",
+    sub: "tickets.section.ended.sub",
+    empty: "tickets.section.ended.empty",
     count: (c) => c.idle,
   },
   done: {
-    title: "Done",
-    sub: "a pull request merged, every one ended",
+    title: "tickets.section.done.title",
+    sub: "tickets.section.done.sub",
     tone: "green",
-    empty: "No ticket is done yet.",
+    empty: "tickets.section.done.empty",
     count: (c) => c.done,
   },
   closed: {
-    title: "Closed",
-    sub: "a person stopped work on it; later activity brings it back",
-    empty: "No ticket is closed.",
+    title: "tickets.section.closed.title",
+    sub: "tickets.section.closed.sub",
+    empty: "tickets.section.closed.empty",
     count: (c) => c.closed ?? 0,
   },
 };

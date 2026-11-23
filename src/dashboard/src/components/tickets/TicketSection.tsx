@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
 import { cn } from "@/lib/utils";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { ticketBucketHref, useTicketBucketFilter } from "@/lib/TicketBucketFilter";
@@ -27,18 +28,19 @@ interface Props {
 }
 
 export function TicketSection({ bucket, counts, rows, first, chosen, footer }: Props) {
+  const t = useT();
   const spec = TICKET_SECTIONS[bucket];
   const count = spec.count(counts);
   return (
     <section data-testid={`ticket-section-${bucket}`}>
       <div className={cn("section-head", first && "first")}>
-        <h2>{spec.title}</h2>
+        <h2>{t(spec.title)}</h2>
         <span className={cn("cnt", count > 0 && spec.tone)} data-testid={`ticket-section-${bucket}-count`}>
           {count}
         </span>
-        <span className="sh-sub">{spec.sub}</span>
+        <span className="sh-sub">{t(spec.sub)}</span>
       </div>
-      {rows.length === 0 ? <div className="msub">{spec.empty}</div> : <Rows bucket={bucket} rows={rows} />}
+      {rows.length === 0 ? <div className="msub">{t(spec.empty)}</div> : <Rows bucket={bucket} rows={rows} />}
       {!chosen && count > rows.length && <ShowAll bucket={bucket} count={count} />}
       {footer}
     </section>
@@ -49,7 +51,7 @@ function Rows({ bucket, rows }: { bucket: TicketBucket; rows: TicketSummary[] })
   return (
     <div className="rows">
       {rows.map((t) => (
-        <RenderBoundary key={`${t.project}/${t.ticketId}`} surface={`ticket ${t.ticketId}`}>
+        <RenderBoundary key={`${t.project}/${t.ticketId}`} surface="shell.surface.ticket" surfaceParams={{ ticket: t.ticketId }}>
           {bucket === "needs-you" ? <TicketNeedsYou ticket={t} />
             // 2026-11-23-849e: a ticket waiting on its series' merges carries "Open the series" at its right too.
             : <TicketRow ticket={t} act={t.hold?.act?.kind === "series" ? <TicketHoldAct ticket={t} /> : undefined} />}
@@ -60,6 +62,7 @@ function Rows({ bucket, rows }: { bucket: TicketBucket; rows: TicketSummary[] })
 }
 
 function ShowAll({ bucket, count }: { bucket: TicketBucket; count: number }) {
+  const t = useT();
   const { select } = useTicketBucketFilter();
   return (
     <Link
@@ -72,7 +75,7 @@ function ShowAll({ bucket, count }: { bucket: TicketBucket; count: number }) {
         select(bucket);
       }}
     >
-      Show all {count} ›
+      {t("tickets.list.showAll", { count })}
     </Link>
   );
 }

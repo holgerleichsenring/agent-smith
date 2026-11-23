@@ -1,6 +1,7 @@
 "use client";
 
 import type { ConfigCapabilities, ProjectMerge, StudioEntity, StudioProject } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
 import { CheckField, SelectField } from "./formFields";
 import { MergeCiFields } from "./MergeCiFields";
 
@@ -22,39 +23,40 @@ export function ProjectMergeSection({
   /** 2026-11-17-3435d: the catalog's secrets, for the approval identity. */
   secrets?: StudioEntity[];
 }) {
+  const t = useT();
   const merge = project.merge ?? NO_MERGE;
   const setMerge = (patch: Partial<ProjectMerge>) => onChange({ ...project, merge: { ...merge, ...patch } });
   return (
     <>
       <SelectField
-        label="requires start"
+        label={t("config.merge.requiresStart.label")}
         value={project.requiresStart ?? ""}
         options={capabilities?.requiresStart ?? []}
-        placeholder="— default (on_green_push) —"
-        help="when a ticket that requires another may start: once each prerequisite pushed a green branch, or once each merged"
+        placeholder={t("config.merge.requiresStart.placeholder")}
+        help={t("config.merge.requiresStart.help")}
         testId="form-field-requiresStart"
         onChange={(v) => onChange({ ...project, requiresStart: v })}
       />
       <SelectField
-        label="merge when"
+        label={t("config.merge.when.label")}
         value={merge.when}
         options={capabilities?.mergeWhen ?? []}
-        placeholder="— pick —"
-        help="whether a green code run merges its own pull requests"
+        placeholder={t("config.pick")}
+        help={t("config.merge.when.help")}
         testId="form-field-merge-when"
         onChange={(v) => setMerge({ when: v || "manual" })}
       />
       <CheckField
-        label="respect branch protection"
+        label={t("config.merge.respectProtection.label")}
         value={merge.respectBranchProtection}
-        help="on: arm the host's auto-complete or auto-merge and let its rules decide; off: merge past them, which needs the token's bypass permission"
+        help={t("config.merge.respectProtection.help")}
         testId="form-field-merge-respectBranchProtection"
         onChange={(v) => setMerge({ respectBranchProtection: v })}
       />
       <CheckField
-        label="refresh open pull requests"
+        label={t("config.merge.refreshOpen.label")}
         value={merge.refreshOpenPullRequests}
-        help="when a ticket lands, merge its base into the other open agent-smith pull requests on that repository and base"
+        help={t("config.merge.refreshOpen.help")}
         testId="form-field-merge-refreshOpenPullRequests"
         onChange={(v) => setMerge({ refreshOpenPullRequests: v })}
       />

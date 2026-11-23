@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
 import { TICKETS_PATH } from "@/lib/TicketBucketFilter";
 import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import type { TicketDetail } from "@/types/tickets";
@@ -56,6 +57,7 @@ export function TicketPage() {
 }
 
 function TicketSections({ detail, project }: { detail: TicketDetail; project: string }) {
+  const t = useT();
   const address = useTicketTabGo();
   const section = sectionOf(address.param(SECTION_PARAM), address.param(TAB_PARAM), address.param(CAUSE_PARAM));
   const select = (id: string) => address.go(id, { [CAUSE_PARAM]: null });
@@ -64,7 +66,7 @@ function TicketSections({ detail, project }: { detail: TicketDetail; project: st
       <TicketSectionBar detail={detail} current={section} onSelect={select} />
       <main className="main tk-page" data-section={section.id}>
         <div className="tk-heading">
-          <h1 data-testid="ticket-section-title">{section.label}</h1>
+          <h1 data-testid="ticket-section-title">{t(section.label)}</h1>
           <LiveAttemptCancel />
           <TicketMoreMenu summary={detail.summary} />
         </div>
@@ -82,11 +84,12 @@ function TicketSections({ detail, project }: { detail: TicketDetail; project: st
 }
 
 function TicketUnread({ notFound, failed }: { notFound: boolean; failed: boolean }) {
-  if (!notFound && !failed) return <div className="msub" data-testid="ticket-loading">Reading the ticket…</div>;
+  const t = useT();
+  if (!notFound && !failed) return <div className="msub" data-testid="ticket-loading">{t("tickets.header.reading")}</div>;
   return (
     <div className="msub" data-testid="ticket-unread">
-      {notFound ? "No attempt at this ticket is recorded." : "The ticket could not be read."}{" "}
-      <Link href={TICKETS_PATH}>Back to the tickets</Link>
+      {notFound ? t("tickets.header.notFound") : t("tickets.header.unread")}{" "}
+      <Link href={TICKETS_PATH}>{t("tickets.header.back")}</Link>
     </div>
   );
 }

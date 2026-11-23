@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
 import { isRunLive } from "@/lib/runLiveness";
 import { runPath } from "@/lib/runPath";
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
@@ -25,19 +26,20 @@ interface Props {
 }
 
 export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: Props) {
-  const [pill, word] = specStatePill(spec.state);
+  const t = useT();
+  const [pill, word] = specStatePill(t, spec.state);
   const live = attempts.some((a) => a.runId === spec.executedBy && isRunLive(a.status));
-  const recordNote = recordNoteWords(spec);
+  const recordNote = recordNoteWords(t, spec);
   return (
     <div className="spdoc" aria-live="polite" data-testid="spec-doc">
       <div className="sh">
         <div className="meta">
-          <span className="mono">spec {spec.ordinal}</span>
+          <span className="mono">{t("tickets.spec.ordinal", { n: spec.ordinal })}</span>
           <span className={`pill ${pill}`}>{word}</span>
           {spec.repos.length > 0 && <span className="mono">{spec.repos.join(", ")}</span>}
           {spec.executedByAttempt != null && spec.executedBy
-            ? <Link href={runPath(spec.executedBy)} data-testid="spec-doc-executed">executed in A{spec.executedByAttempt}</Link>
-            : <span>not executed yet</span>}
+            ? <Link href={runPath(spec.executedBy)} data-testid="spec-doc-executed">{t("tickets.spec.executedIn", { n: spec.executedByAttempt })}</Link>
+            : <span>{t("tickets.spec.notExecuted")}</span>}
         </div>
         <h3 data-testid="spec-doc-goal">{spec.goal}</h3>
         {spec.fileStem && <div className="meta" data-testid="spec-doc-stem"><span className="mono">{spec.fileStem}.yaml</span></div>}
@@ -45,14 +47,14 @@ export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: P
       </div>
       <div className="sb">
         <div className="blk">
-          <h4>Steps · as worked</h4>
+          <h4>{t("tickets.spec.steps")}</h4>
           <div className="steps">
             {spec.steps.map((step, i) => {
               const worked = spec.worked?.find((w) => w.stepId === step.id);
               const cls = worked?.state === "done" ? (spec.state === "carried" ? "carried" : "done")
                 : live && worked?.state ? "live" : "idle";
               const where = worked?.doneByAttempt != null
-                ? `A${worked.doneByAttempt}${worked.doneInPass != null ? ` · pass ${worked.doneInPass}` : ""}` : "";
+                ? `A${worked.doneByAttempt}${worked.doneInPass != null ? ` · ${t("tickets.spec.pass", { n: worked.doneInPass })}` : ""}` : "";
               return (
                 <div key={step.id} className={`stp ${cls}`} data-testid={`spec-step-${step.id}`}>
                   <span className="sk">{cls === "done" ? "✓" : ""}</span>
@@ -65,11 +67,11 @@ export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: P
           </div>
         </div>
         <div className="blk">
-          <h4>Done when</h4>
+          <h4>{t("common.doneWhen")}</h4>
           <div className="crit">
             {spec.done.map((criterion) => {
-              const row = criterionRow(criterion, spec);
-              const overruled = overruleWords(criterion);
+              const row = criterionRow(t, criterion, spec);
+              const overruled = overruleWords(t, criterion);
               return (
                 <div key={criterion.text} className="ci">
                   <span className={`m ${row.mark}`}>{row.glyph}</span>
@@ -87,8 +89,8 @@ export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: P
         <ReviewRounds specId={spec.specId} />
         {!runRecord && (
           <div className="ro-note">
-            <span>Read-only. A spec changes only through the ticket conversation, and an executed spec never changes.</span>
-            {onDiscuss && <button className="btn sm" type="button" onClick={onDiscuss} data-testid="spec-discuss">Discuss in conversation</button>}
+            <span>{t("tickets.spec.readOnly")}</span>
+            {onDiscuss && <button className="btn sm" type="button" onClick={onDiscuss} data-testid="spec-discuss">{t("tickets.spec.discuss")}</button>}
           </div>
         )}
       </div>

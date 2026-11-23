@@ -1,6 +1,15 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import type { RunSnapshot } from "@/types/hub-events";
-import { detailLines, elapsedWords, metaParts, spanWords, stateWords } from "../runMetaWords";
+import { detailLines as detailLinesIn, elapsedWords as elapsedWordsIn, metaParts as metaPartsIn, spanWords, stateWords as stateWordsIn } from "../runMetaWords";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const detailLines = (...args: DropLead<Parameters<typeof detailLinesIn>, 2>) => detailLinesIn(en, "en-GB", ...args);
+const elapsedWords = (...args: DropLead<Parameters<typeof elapsedWordsIn>, 1>) => elapsedWordsIn(en, ...args);
+const metaParts = (...args: DropLead<Parameters<typeof metaPartsIn>, 1>) => metaPartsIn(en, ...args);
+const stateWords = (...args: DropLead<Parameters<typeof stateWordsIn>, 1>) => stateWordsIn(en, ...args);
 
 // 2026-11-17-6d9ea: the run page's one meta line and its details.
 

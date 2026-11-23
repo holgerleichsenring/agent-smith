@@ -24,7 +24,7 @@ function endedTicket(over: Parameters<typeof attempt>[0] = {}): TicketDetail {
 }
 
 const state = (d: TicketDetail, liveEvents: RunEvent[] = [], cut = null as Parameters<typeof ticketState>[0]["series"]) =>
-  ticketState({ detail: d, liveEvents, series: cut })!;
+  ticketState({ detail: d, liveEvents, series: cut, t: translator("en") })!;
 
 describe("ticketState", () => {
   // 2026-11-19-1b72a: a head its paused series held offers nothing to continue — the resume starts it.

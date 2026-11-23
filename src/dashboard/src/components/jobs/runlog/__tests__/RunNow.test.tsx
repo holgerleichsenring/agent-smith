@@ -1,3 +1,4 @@
+import { translator } from "@/lib/i18n/translate";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
@@ -14,7 +15,12 @@ const retryAttempt = vi.fn().mockResolvedValue({ kind: "requested" });
 vi.mock("@/lib/ticketsApi", async (original) => ({ ...(await original<object>()), retryAttempt: (id: string) => retryAttempt(id) }));
 
 const { RunNow } = await import("../RunNow");
-const { snapshotStatus } = await import("../runStatusLine");
+const { snapshotStatus: snapshotStatusIn } = await import("../runStatusLine");
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const snapshotStatus = (...args: DropLead<Parameters<typeof snapshotStatusIn>, 1>) => snapshotStatusIn(en, ...args);
 
 function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
   return {

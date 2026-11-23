@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { startAuthSession } from "@/lib/auth/session";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-25-2de1: where the authority returns to — the route redirectPath names,
 // which existed nowhere until this spec. The code exchange is the boot's own
@@ -15,6 +16,7 @@ import { startAuthSession } from "@/lib/auth/session";
 export default function SignInCallbackPage() {
   const router = useRouter();
   const [refusal, setRefusal] = useState<string | null>(null);
+  const t = useT();
 
   useEffect(() => {
     let live = true;
@@ -36,7 +38,7 @@ export default function SignInCallbackPage() {
 
   return (
     <div className="p-8 text-sm text-[var(--color-ink-mid)]">
-      {refusal ? `The authority did not complete the sign-in: ${refusal}` : "Signing in…"}
+      {refusal ? t("shell.signIn.callbackRefused", { refusal }) : t("shell.signIn.signingIn")}
     </div>
   );
 }

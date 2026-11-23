@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 import { splitOnUrls } from "@/lib/prUrls";
 import { composeTimeBadge } from "@/lib/runStepRail";
 import type { LogStep } from "./runLogSections";
@@ -7,18 +9,21 @@ import type { LogStep } from "./runLogSections";
 // 2026-11-17-6d9eb: the first line of an open step — its status in words, where its time went, and what it said when
 // it ended, with any link in that message clickable. What the graph's step panel showed above its body.
 
-const STATUS_WORDS: Record<string, string> = {
-  success: "done", failed: "failed", error: "failed", running: "running", cancelled: "cancelled", waiting_for_input: "waiting for an answer",
+const STATUS_WORDS: Record<string, TextKey> = {
+  success: "runs.log.step.done", failed: "runs.log.step.failed", error: "runs.log.step.failed", running: "runs.log.step.running",
+  cancelled: "runs.log.step.cancelled", waiting_for_input: "runs.log.step.waiting",
 };
 
 export function RunStepHead({ step }: { step: LogStep }) {
+  const t = useT();
   const { row } = step;
-  if (row.planned) return <div className="rl-detail-head rl-dim" data-testid="step-head-planned">The run has not reached this step yet.</div>;
-  const parts = [STATUS_WORDS[row.status ?? ""] ?? (row.status ?? "").replace(/_/g, " ")];
+  if (row.planned) return <div className="rl-detail-head rl-dim" data-testid="step-head-planned">{t("runs.log.step.notReached")}</div>;
+  const word = STATUS_WORDS[row.status ?? ""];
+  const parts = [word ? t(word) : (row.status ?? "").replace(/_/g, " ")];
   const time = composeTimeBadge(row);
   if (time) parts.push(time);
-  if (row.sandboxCommands) parts.push(row.sandboxCommands === 1 ? "1 sandbox command" : `${row.sandboxCommands} sandbox commands`);
-  if (row.subAgents) parts.push(row.subAgents === 1 ? "1 sub-agent" : `${row.subAgents} sub-agents`);
+  if (row.sandboxCommands) parts.push(t("runs.log.step.sandboxCommands", { count: row.sandboxCommands }));
+  if (row.subAgents) parts.push(t("runs.log.step.subAgents", { count: row.subAgents }));
   return (
     <div className="rl-detail-head" data-testid="step-head">
       <div className={`rl-detail-status ${step.state}`}>{parts.filter(Boolean).join(" · ")}</div>

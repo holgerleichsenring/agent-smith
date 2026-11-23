@@ -5,12 +5,14 @@ import { fetchCatalogContents, fetchSkillBody, type CatalogContents } from "@/li
 import { CatalogBrowserView } from "./CatalogBrowserView";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { useT } from "@/hooks/useT";
 
 // p0221: catalog browser container — the System "Skill catalog & vocabulary"
 // page. Fetches the resolved catalog's contents once on mount; the view fetches
 // each SKILL.md body lazily on expand.
 
 export function CatalogBrowser() {
+  const t = useT();
   const [contents, setContents] = useState<CatalogContents | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
@@ -25,21 +27,21 @@ export function CatalogBrowser() {
   }, []);
 
   const refusal = refusalIn(error);
-  if (refusal) return <RefusalSurface refusal={refusal} surface="the skill catalog" />;
+  if (refusal) return <RefusalSurface refusal={refusal} surface={t("system.catalog.surface")} />;
 
   // p0343d: states in the parity vocabulary — quiet .stateline for loading /
   // errors, the mock .empty state for a catalog that has not bound yet.
   if (error) {
     return (
       <div className="stateline err" data-testid="catalog-browser-error">
-        Failed to load catalog: {error.message}
+        {t("system.catalog.failed", { message: error.message })}
       </div>
     );
   }
   if (!contents) {
     return (
       <div className="stateline" data-testid="catalog-browser-loading">
-        Loading catalog…
+        {t("system.catalog.loading")}
       </div>
     );
   }
@@ -49,7 +51,7 @@ export function CatalogBrowser() {
         <div className="ei" aria-hidden>
           ✦
         </div>
-        Catalog not loaded yet — it binds when the first pipeline runs.
+        {t("system.catalog.unready")}
       </div>
     );
   }

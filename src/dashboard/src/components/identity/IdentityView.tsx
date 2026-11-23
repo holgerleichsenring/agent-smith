@@ -11,6 +11,7 @@ import { PageHead } from "@/components/system/PageHead";
 import { ClaimFacts } from "./ClaimFacts";
 import { ScopeRemark } from "./ScopeRemark";
 import { TokenRefused } from "./TokenRefused";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-25-4530: the surface p0503d built its endpoint for. The case it exists
 // for is a caller with NO roles — the first login of an installation that has
@@ -24,6 +25,7 @@ import { TokenRefused } from "./TokenRefused";
 // as an accepted token with nothing mapped — the same empty lists, the wrong remedy.
 
 export function IdentityView() {
+  const t = useT();
   const { auth } = useRuntimeSettings();
   // With no authority configured nothing signs in, so the read is not attempted:
   // a refused request is a poor way to learn that there is nobody to describe.
@@ -38,8 +40,8 @@ export function IdentityView() {
     <div className="mock-shell mock-runs" data-testid="identity-view">
       <main className="main">
         <PageHead
-          title="Your identity"
-          sub="What your token carried, and what this installation made of it."
+          title={t("identity.title")}
+          sub={t("identity.sub")}
         />
         {/* 2026-09-14-d4e8: before the chain, because it is the one thing that speaks when
             nothing else has anything to say yet. It renders nothing at all unless an
@@ -50,14 +52,14 @@ export function IdentityView() {
         ) : requirements?.tokenRefusal ? (
           <TokenRefused requirements={requirements} />
         ) : refusal ? (
-          <RefusalSurface refusal={refusal} surface="your identity" />
+          <RefusalSurface refusal={refusal} surface={t("identity.surface")} />
         ) : failure ? (
-          <FailedSurface surface="identity" error={failure} />
+          <FailedSurface surface={t("identity.failedSurface")} error={failure} />
         ) : identity ? (
           <ClaimFacts identity={identity} />
         ) : (
           <p className="text-sm text-[var(--color-ink-mid)]">
-            {loading ? "Reading your identity…" : "Nothing has been read yet."}
+            {loading ? t("identity.reading") : t("identity.nothingRead")}
           </p>
         )}
       </main>
@@ -69,10 +71,10 @@ export function IdentityView() {
 // nobody in, so there is no token to describe. Whether the server accepts an
 // anonymous caller is the server's half, and the banner above says so.
 function Unconfigured() {
+  const t = useT();
   return (
     <p data-testid="identity-unconfigured" className="text-sm text-[var(--color-ink-mid)]">
-      This dashboard has no authority configured, so nothing signs in and every call it makes
-      is anonymous.
+      {t("identity.unconfigured")}
     </p>
   );
 }

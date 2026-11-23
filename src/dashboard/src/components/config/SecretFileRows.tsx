@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import type { SandboxSecretFile } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
+
 
 // 2026-09-22-6c46: a list of three-field rows — the mount path, the Kubernetes Secret and
 // the key taken from it. No field primitive in this form vocabulary holds a list of records
@@ -14,9 +16,9 @@ import type { SandboxSecretFile } from "@/lib/configApi";
 type Row = SandboxSecretFile & { id: number };
 
 const FIELDS = [
-  { key: "mount", label: "mount path", placeholder: "/secrets/server.key" },
-  { key: "secret", label: "secret name", placeholder: "sf-creds" },
-  { key: "key", label: "key in the secret", placeholder: "jwt-key" },
+  { key: "mount", label: "config.secretFiles.mount", placeholder: "/secrets/server.key" },
+  { key: "secret", label: "config.secretFiles.secret", placeholder: "sf-creds" },
+  { key: "key", label: "config.secretFiles.key", placeholder: "jwt-key" },
 ] as const;
 
 export function SecretFileRows({
@@ -34,6 +36,7 @@ export function SecretFileRows({
 }) {
   // The rows are the state, not a view of the value: a row being typed is incomplete and
   // could not survive a round trip through the emitted list. Same reasoning as MapField.
+  const t = useT();
   const [rows, setRows] = useState<Row[]>(() => values.map((f, id) => ({ ...f, id })));
   const nextId = useRef(rows.length);
 
@@ -53,7 +56,7 @@ export function SecretFileRows({
   return (
     <div className="field" data-testid={testId}>
       <label>
-        {label} <span className="help">{help ?? "mount path, secret name and key — no value"}</span>
+        {label} <span className="help">{help ?? t("config.secretFiles.help")}</span>
       </label>
       <div className="maprows">
         {rows.map((row, i) => (
@@ -63,7 +66,7 @@ export function SecretFileRows({
                 key={f.key}
                 type="text"
                 className="mono"
-                aria-label={`${label} ${f.label} ${i + 1}`}
+                aria-label={`${label} ${t(f.label)} ${i + 1}`}
                 data-testid={`${testId}-${f.key}-${i}`}
                 placeholder={f.placeholder}
                 value={row[f.key]}
@@ -73,7 +76,7 @@ export function SecretFileRows({
             <button
               type="button"
               className="pick"
-              aria-label={`Remove ${label} row ${i + 1}`}
+              aria-label={t("config.removeRow", { label, n: i + 1 })}
               data-testid={`${testId}-remove-${i}`}
               onClick={() => apply(rows.filter((r) => r.id !== row.id))}
             >
@@ -81,7 +84,7 @@ export function SecretFileRows({
             </button>
           </div>
         ))}
-        {rows.length === 0 && <span className="help">no mounted secret files</span>}
+        {rows.length === 0 && <span className="help">{t("config.secretFiles.none")}</span>}
       </div>
       <button
         type="button"
@@ -91,7 +94,7 @@ export function SecretFileRows({
           setRows([...rows, { id: nextId.current++, mount: "", secret: "", key: "" }])
         }
       >
-        + add file mount
+        {t("config.secretFiles.add")}
       </button>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import Link from "next/link";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type { TicketAttempt, TicketSeriesBudget } from "@/types/tickets";
 import { money } from "../ticketFormat";
 import { SERIES_SETTINGS_PATH, chainOf, heldWords, hours, nextWords, share } from "./seriesWords";
@@ -20,23 +21,25 @@ interface Props {
 }
 
 export function SeriesRunway({ budget, attempts, onDefaults }: Props) {
+  const t = useT();
+  const locale = useDateLocale();
   if (!budget || budget.heldBecause === "off") return null;
   const links = chainOf(attempts, budget.chainFrom);
-  const held = budget.next === "hold" ? heldWords(budget.heldBecause) : null;
+  const held = budget.next === "hold" ? heldWords(t, budget.heldBecause) : null;
   return (
     <div className="sr" data-testid="series-runway" data-next={budget.next}>
-      <span className="sr-k">Series</span>
+      <span className="sr-k">{t("tickets.series.label")}</span>
       <Meter testId="series-spend" value={budget.spentUsd} cap={budget.capUsd}
-        text={`${money(budget.spentUsd)} of ${money(budget.capUsd)}`} />
+        text={t("tickets.series.spend", { spent: money(budget.spentUsd), cap: money(budget.capUsd) })} />
       <Meter testId="series-time" value={budget.elapsedHours} cap={budget.capHours}
-        text={`${hours(budget.elapsedHours)} of ${hours(budget.capHours)} run time`} />
+        text={t("tickets.series.time", { elapsed: hours(budget.elapsedHours, locale), cap: hours(budget.capHours, locale) })} />
       {links.length > 0 && (
         <span className="sr-chain" data-testid="series-chain">
           {links.map((link, i) => (
             <Fragment key={link.number}>
               {i > 0 && (
                 <span className="sr-arrow" data-auto={link.auto ? "true" : undefined}>
-                  {" → "}{link.auto && <i className="sr-auto">auto</i>}
+                  {" → "}{link.auto && <i className="sr-auto">{t("tickets.series.auto")}</i>}
                 </span>
               )}
               <span data-testid={`series-chain-a${link.number}`}>A{link.number}</span>
@@ -45,7 +48,7 @@ export function SeriesRunway({ budget, attempts, onDefaults }: Props) {
         </span>
       )}
       <span className={`sr-next ${budget.next}`} data-testid="series-next">
-        {nextWords(budget)}
+        {nextWords(t, budget)}
         {held && <>. <GoOn words={held} onDefaults={onDefaults} /></>}
       </span>
     </div>

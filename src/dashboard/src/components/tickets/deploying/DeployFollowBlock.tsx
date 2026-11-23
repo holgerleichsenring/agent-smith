@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/hooks/useT";
 import { getDeployRecord, type DeployRecordView } from "@/lib/deploymentsApi";
 import "@/styles/deploy-follow.css";
 import { deployHeadline, deployStanding, deployTone } from "./deployRecordWords";
@@ -10,6 +11,7 @@ import { deployHeadline, deployStanding, deployTone } from "./deployRecordWords"
 // under the deploy's line on its ticket. A run that delivered nothing shows nothing.
 
 export function DeployFollowBlock({ runId }: { runId: string }) {
+  const t = useT();
   const [record, setRecord] = useState<DeployRecordView | null>(null);
   useEffect(() => {
     const abort = new AbortController();
@@ -20,9 +22,9 @@ export function DeployFollowBlock({ runId }: { runId: string }) {
   return (
     <div className={`deploy-follow ${deployTone(record)}`} data-testid="deploy-follow">
       <div className="deploy-follow-head">
-        <a href={record.url} target="_blank" rel="noreferrer" data-testid="deploy-follow-link">{deployHeadline(record)} ↗</a>
+        <a href={record.url} target="_blank" rel="noreferrer" data-testid="deploy-follow-link">{deployHeadline(t, record)} ↗</a>
         {" · "}
-        <span data-testid="deploy-follow-standing">{deployStanding(record)}</span>
+        <span data-testid="deploy-follow-standing">{deployStanding(t, record)}</span>
       </div>
       {record.note && <div className="msub" data-testid="deploy-follow-note">{record.note}</div>}
       {record.failures.map((f) => (

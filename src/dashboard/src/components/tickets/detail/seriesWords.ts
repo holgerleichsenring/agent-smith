@@ -1,9 +1,11 @@
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type { TicketAttempt, TicketSeriesBudget } from "@/types/tickets";
 
 // 2026-10-13-8762w: the words of the series strip. The server decides next and heldBecause; these say them. No
 // sentence names Retry — Retry refuses every end a series hold follows.
 
-export const GO_ON = "A comment on the ticket or an approval in its conversation starts the next attempt.";
+/** 2026-11-23-5669b: the go-on sentence's dictionary key. */
+export const GO_ON: TextKey = "tickets.series.goOn";
 export const SERIES_SETTINGS_PATH = "/config/settings/series";
 
 /** What holds the series, how a person goes on, and where that sentence points when it points anywhere. */
@@ -13,31 +15,36 @@ export interface HeldWords {
   to?: "defaults" | "settings";
 }
 
-const HELD_WORDS: Record<string, HeldWords> = {
-  misconfigured: {
-    reason: "the series settings are invalid (the ticket comment names the field)",
-    goOn: "Fix them in the Series settings in Config Studio.", to: "settings",
-  },
-  "handed-back": { reason: "the last attempt handed the work back", goOn: GO_ON },
-  cancelled: { reason: "the last attempt was cancelled", goOn: GO_ON },
-  incomplete: { reason: "the last attempt ended without finishing", goOn: GO_ON },
-  "no-progress": { reason: "the last attempt finished no spec", goOn: GO_ON },
-  "budget-usd": { reason: "the chain of attempts has spent the series budget", goOn: GO_ON },
-  "wall-clock": { reason: "the chain of attempts has used the series run time", goOn: GO_ON },
-  "default-pending": { reason: "a default waits for a person", goOn: "Ratify it in the Defaults tab.", to: "defaults" },
-  refused: { reason: "the last automatic start was refused", goOn: GO_ON },
-  closed: { reason: "a person closed the ticket", goOn: GO_ON },
+interface HeldKeys {
+  reason: TextKey;
+  goOn: TextKey;
+  to?: "defaults" | "settings";
+}
+
+const HELD_WORDS: Record<string, HeldKeys> = {
+  misconfigured: { reason: "tickets.series.held.misconfigured", goOn: "tickets.series.goOnSettings", to: "settings" },
+  "handed-back": { reason: "tickets.series.held.handed-back", goOn: GO_ON },
+  cancelled: { reason: "tickets.series.held.cancelled", goOn: GO_ON },
+  incomplete: { reason: "tickets.series.held.incomplete", goOn: GO_ON },
+  "no-progress": { reason: "tickets.series.held.no-progress", goOn: GO_ON },
+  "budget-usd": { reason: "tickets.series.held.budget-usd", goOn: GO_ON },
+  "wall-clock": { reason: "tickets.series.held.wall-clock", goOn: GO_ON },
+  "default-pending": { reason: "tickets.series.held.default-pending", goOn: "tickets.series.goOnDefaults", to: "defaults" },
+  refused: { reason: "tickets.series.held.refused", goOn: GO_ON },
+  closed: { reason: "tickets.series.held.closed", goOn: GO_ON },
 };
 
-export function heldWords(code: string | null): HeldWords {
-  return (code && HELD_WORDS[code]) || { reason: code ?? "held", goOn: GO_ON };
+export function heldWords(t: T, code: string | null): HeldWords {
+  const keys = code ? HELD_WORDS[code] : undefined;
+  if (!keys) return { reason: code ?? t("tickets.series.held"), goOn: t(GO_ON) };
+  return { reason: t(keys.reason), goOn: t(keys.goOn), ...(keys.to ? { to: keys.to } : {}) };
 }
 
 /** The next attempt in one phrase: by itself, held, or nothing left. */
-export function nextWords(budget: TicketSeriesBudget): string {
-  if (budget.next === "start") return "the next attempt starts by itself";
-  if (budget.next === "complete") return "the series is complete";
-  return `held — ${heldWords(budget.heldBecause).reason}`;
+export function nextWords(t: T, budget: TicketSeriesBudget): string {
+  if (budget.next === "start") return t("tickets.series.next.start");
+  if (budget.next === "complete") return t("tickets.series.next.complete");
+  return t("tickets.series.next.held", { reason: heldWords(t, budget.heldBecause).reason });
 }
 
 export interface ChainLink {
@@ -53,8 +60,8 @@ export function chainOf(attempts: TicketAttempt[], chainFrom: number): ChainLink
     .map((a) => ({ number: a.number, auto: a.cause?.channel === "series" }));
 }
 
-export function hours(h: number): string {
-  return `${Number.isInteger(h) ? h : h.toFixed(1)} h`;
+export function hours(h: number, locale: string): string {
+  return `${Number.isInteger(h) ? h : h.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h`;
 }
 
 /** The share of a cap used, 0..1; a zero cap is full. */

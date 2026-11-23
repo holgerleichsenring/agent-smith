@@ -5,6 +5,8 @@ import Link from "next/link";
 import { startProjectInit, type LiveInitRun } from "@/lib/projectInitApi";
 import { useProjectInitRun } from "@/hooks/useProjectInitRun";
 import { CHIP, InitOptionChip } from "./InitOptionChip";
+import { useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 
 // p0489: the operator's Initialize affordance for one project. Two failures,
 // two places, and this must not invent a third: a REFUSED launch answers inline
@@ -41,6 +43,7 @@ type InitState =
   | { kind: "refused"; reason: string };
 
 export function ProjectInitAction({ project }: { project: string }) {
+  const t = useT();
   const [state, setState] = useState<InitState>({ kind: "idle" });
   const [refreshPrinciples, setRefreshPrinciples] = useState(false);
   const { live, refresh } = useProjectInitRun(project);
@@ -52,7 +55,9 @@ export function ProjectInitAction({ project }: { project: string }) {
       if (!launch.runId) {
         setState({
           kind: "refused",
-          reason: launch.reason ?? "The initialization could not be started.",
+          reason: launch.reason
+            ?? (launch.outcome === "already-running" ? t("system.init.alreadyRunning") : null)
+            ?? (launch.status ? t("system.init.couldNotStartStatus", { status: launch.status }) : t("system.init.couldNotStart")),
         });
         void refresh();
         return;
@@ -61,7 +66,7 @@ export function ProjectInitAction({ project }: { project: string }) {
       // run this press started is the best knowledge there is.
       setState((await refresh()) ? { kind: "idle" } : { kind: "started", runId: launch.runId });
     } catch {
-      setState({ kind: "refused", reason: "The server could not be reached." });
+      setState({ kind: "refused", reason: t("system.init.unreachable") });
     }
   }
 
@@ -83,20 +88,20 @@ export function ProjectInitAction({ project }: { project: string }) {
           }}
           style={{ ...CHIP, ...(starting ? { opacity: 0.5, cursor: "not-allowed" } : null) }}
         >
-          {starting ? "Initializing…" : "Initialize"}
+          {starting ? t("system.init.initializing") : t("system.init.initialize")}
         </button>
         {/* The options belong to the launch: one labelled group beside the button. */}
         <div
           role="group"
-          aria-label="Initialization options"
+          aria-label={t("system.init.options")}
           className="flex flex-wrap items-center gap-1.5"
           data-testid={`project-init-options-${project}`}
         >
           <InitOptionChip
             testId={`project-init-refresh-principles-${project}`}
             boxTestId={`project-init-refresh-principles-box-${project}`}
-            title="Regenerate principles.md from the catalog: core, language delta and framework overlays. The Project Specifics section is kept."
-            label="Refresh principles"
+            title={t("system.init.refreshTitle")}
+            label={t("system.init.refreshLabel")}
             checked={refreshPrinciples}
             disabled={starting}
             onChange={setRefreshPrinciples}
@@ -138,15 +143,16 @@ function shownRun(state: InitState, live: LiveInitRun | null): LiveInitRun | nul
   return null;
 }
 
-const RUN_LABEL: Record<LiveInitRun["state"], string> = {
-  running: "Initializing — view run",
-  queued: "Waiting for a slot — view run",
-  cancelling: "Cancelling — view run",
+const RUN_LABEL: Record<LiveInitRun["state"], TextKey> = {
+  running: "system.init.running",
+  queued: "system.init.queued",
+  cancelling: "system.init.cancelling",
 };
 
 // While the init is live the affordance IS the way to it — the run page carries
 // the ledger, the cost and the cancel, exactly like a polled run.
 function RunningLink({ project, run }: { project: string; run: LiveInitRun }) {
+  const t = useT();
   return (
     <Link
       href={`/jobs/${encodeURIComponent(run.runId)}`}
@@ -160,7 +166,7 @@ function RunningLink({ project, run }: { project: string; run: LiveInitRun }) {
       data-state={run.state}
       onClick={(e) => e.stopPropagation()}
     >
-      {RUN_LABEL[run.state] ?? RUN_LABEL.running}
+      {t(RUN_LABEL[run.state] ?? RUN_LABEL.running)}
     </Link>
   );
 }

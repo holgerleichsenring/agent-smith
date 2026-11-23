@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useT } from "@/hooks/useT";
 import rehypeSanitize from "rehype-sanitize";
 
 // 2026-11-18-e06bb: the log's text is written by agents in markdown. InlineText draws one line of it — bold, emphasis,
@@ -56,9 +57,10 @@ export function LogDoc({ label, testId, children }: { label: ReactNode; testId: 
  *  id · Master's report" where several share a place. Unfolded (`folded={false}`) it is shown whole, for a place that is
  *  itself a fold holding only this report. */
 export function MasterReport({ text, spec, testId, folded = true }: { text: string; spec?: string | null; testId?: string; folded?: boolean }) {
+  const t = useT();
   if (!folded) return <div className="rl-report" data-testid={testId ?? "master-report"}><BlockText text={text} /></div>;
   return (
-    <LogDoc label={spec ? `${spec} · Master's report` : "Master's report"} testId={testId ?? "master-report"}>
+    <LogDoc label={spec ? t("runs.log.reportOf", { spec }) : t("runs.log.report")} testId={testId ?? "master-report"}>
       <BlockText text={text} />
     </LogDoc>
   );

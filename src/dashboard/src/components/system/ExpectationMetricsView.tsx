@@ -9,6 +9,8 @@ import { percentOrDash } from "@/lib/expectationTotals";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { NoProjectReach } from "@/components/shell/NoProjectReach";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // The criteria finished coding runs were judged on, overall and per project, with the
 // operator's overrules applied. It takes the read rather than making it — the Criteria
@@ -17,23 +19,24 @@ import { NoProjectReach } from "@/components/shell/NoProjectReach";
 // not the bottom half of the page.
 
 export function ExpectationMetricsView({ data, error }: ExpectationRead) {
+  const t = useT();
   const refusal = refusalIn(error);
   return (
     <section className="ov-panel" data-testid="expectations-view">
       <SectionHead
-        title="Criteria outcomes"
-        sub="met of met, unmet and unproven; not applicable counts in neither"
+        title={t("system.criteria.title")}
+        sub={t("system.criteria.sub")}
       />
       <div style={{ height: 14 }} />
       {refusal ? (
-        <RefusalSurface refusal={refusal} surface="the criteria outcomes" />
+        <RefusalSurface refusal={refusal} surface={t("system.criteria.surface")} />
       ) : error ? (
         <div className="stateline err" data-testid="expectations-error">
-          Failed to load criteria outcomes: {error.message}
+          {t("system.criteria.failed", { message: error.message })}
         </div>
       ) : !data ? (
         <div className="stateline" data-testid="expectations-loading">
-          Loading criteria outcomes…
+          {t("system.criteria.loading")}
         </div>
       ) : data.runs === 0 ? (
         <NoProjectReach><EmptyCriteria /></NoProjectReach>
@@ -45,26 +48,27 @@ export function ExpectationMetricsView({ data, error }: ExpectationRead) {
 }
 
 function EmptyCriteria() {
+  const t = useT();
   return (
     <div className="empty" data-testid="expectations-empty">
       <div className="ei" aria-hidden>
         ✓
       </div>
-      No coding run has been judged on its criteria yet. Outcomes appear once a code run finishes
-      with an acceptance account.
+      {t("system.criteria.empty")}
     </div>
   );
 }
 
 function PopulatedCriteria({ data }: { data: CriteriaMet }) {
+  const t = useT();
   return (
     <>
-      <SystemMetricStrip testId="expectations-kpis" cells={overallCells(data)} />
+      <SystemMetricStrip testId="expectations-kpis" cells={overallCells(data, t)} />
       <section>
         <SectionHead
-          title="Per project"
+          title={t("system.criteria.perProject")}
           count={data.projects.length}
-          sub="a share never renders as 0% without a measurement"
+          sub={t("system.criteria.perProjectSub")}
         />
         <div style={{ height: 14 }} />
         <div className="list">
@@ -78,25 +82,25 @@ function PopulatedCriteria({ data }: { data: CriteriaMet }) {
 }
 
 // The overall counts come from the server, summed over the same runs as the projects.
-function overallCells({ runs, counts }: CriteriaMet): MetricCell[] {
+function overallCells({ runs, counts }: CriteriaMet, t: T): MetricCell[] {
   return [
-    { label: "Runs", value: runs, testId: "exp-metric-runs" },
+    { label: t("system.criteria.runs"), value: runs, testId: "exp-metric-runs" },
     {
-      label: "Met",
+      label: t("system.criteria.met"),
       value: percentOrDash(counts.share),
-      small: `${counts.met} of ${counts.judged}`,
+      small: t("system.criteria.metOf", { met: counts.met, judged: counts.judged }),
       testId: "exp-metric-share",
     },
     {
-      label: "Unproven",
+      label: t("system.criteria.unproven"),
       value: counts.unproven,
-      small: `${counts.unmet} unmet`,
+      small: t("system.criteria.unmetCount", { count: counts.unmet }),
       testId: "exp-metric-unproven",
     },
     {
-      label: "Overruled",
+      label: t("system.criteria.overruled"),
       value: counts.overruled,
-      small: counts.staleOverrules > 0 ? `${counts.staleOverrules} stale` : undefined,
+      small: counts.staleOverrules > 0 ? t("system.criteria.staleCount", { count: counts.staleOverrules }) : undefined,
       hot: counts.staleOverrules > 0,
       testId: "exp-metric-overruled",
     },

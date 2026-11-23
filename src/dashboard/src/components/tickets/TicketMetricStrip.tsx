@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import { cn } from "@/lib/utils";
 import type { TicketCounts } from "@/types/tickets";
-import { age, money } from "./ticketFormat";
+import { compactAge, money } from "./ticketFormat";
 
 // 2026-10-13-9a59p: the ticket list's six tiles, every value from the server's counts — over every
 // ticket read, never only the page. 2026-11-23-d60d: no In review tile — the open pull requests are counted on their own.
@@ -14,28 +16,32 @@ interface Tile {
   testId: string;
 }
 
-function tilesOf(c: TicketCounts): Tile[] {
-  const oldest = age(c.oldestNeedsYouSince);
+function tilesOf(t: T, locale: string, c: TicketCounts): Tile[] {
+  const oldest = compactAge(t, c.oldestNeedsYouSince);
   const done = c.doneThisMonth;
   return [
-    { label: "Needs you", value: c.needsYou, small: oldest ? `oldest ${oldest}` : null, hot: c.needsYou > 0, testId: "ticket-metric-needs-you" },
-    { label: "Working", value: c.working, small: `${c.running} running · ${c.queued} queued`, testId: "ticket-metric-working" },
-    { label: "PRs open", value: c.openPullRequests, small: "merge or wait under their ticket", testId: "ticket-metric-prs" },
-    { label: "Stuck", value: c.stuck, small: "no one acted since", testId: "ticket-metric-stuck" },
+    { label: t("tickets.metric.needsYou"), value: c.needsYou, small: oldest ? t("tickets.metric.oldest", { age: oldest }) : null, hot: c.needsYou > 0, testId: "ticket-metric-needs-you" },
+    { label: t("tickets.metric.working"), value: c.working, small: t("tickets.metric.workingSmall", { running: c.running, queued: c.queued }), testId: "ticket-metric-working" },
+    { label: t("tickets.metric.prs"), value: c.openPullRequests, small: t("tickets.metric.prsSmall"), testId: "ticket-metric-prs" },
+    { label: t("tickets.metric.stuck"), value: c.stuck, small: t("tickets.metric.stuckSmall"), testId: "ticket-metric-stuck" },
     {
-      label: "Done this month",
+      label: t("tickets.metric.done"),
       value: done.tickets,
-      small: done.tickets > 0 ? `${(done.attempts / done.tickets).toFixed(1)} attempts each` : null,
+      small: done.tickets > 0
+        ? t("tickets.metric.doneSmall", { n: (done.attempts / done.tickets).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
+        : null,
       testId: "ticket-metric-done",
     },
-    { label: "Spent this month", value: money(c.monthCost), small: "all runs", testId: "ticket-metric-spent" },
+    { label: t("tickets.metric.spent"), value: money(c.monthCost), small: t("tickets.metric.spentSmall"), testId: "ticket-metric-spent" },
   ];
 }
 
 export function TicketMetricStrip({ counts }: { counts: TicketCounts }) {
+  const t = useT();
+  const locale = useDateLocale();
   return (
     <div className="health" data-testid="ticket-metric-strip">
-      {tilesOf(counts).map((tile) => (
+      {tilesOf(t, locale, counts).map((tile) => (
         <div key={tile.testId} className={cn("metric", tile.hot && "hot")} data-testid={tile.testId}>
           <span className="k">{tile.label}</span>
           <span className="v">

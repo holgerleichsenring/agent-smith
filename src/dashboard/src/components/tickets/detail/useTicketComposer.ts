@@ -24,8 +24,9 @@ export type ComposerAct =
 export type ResumeRefusal =
   | { kind: "question-pending" }
   | { kind: "turn-running" }
-  | { kind: "forbidden"; reason: string }
-  | { kind: "not-found"; reason: string };
+  /** The server's reason; null when it gave none and the composer words its own (2026-11-23-5669b). */
+  | { kind: "forbidden"; reason: string | null }
+  | { kind: "not-found"; reason: string | null };
 
 export interface TicketComposerState {
   dialog: SpecDialogState;
@@ -115,6 +116,6 @@ export function resumeRefusalOf(failure: Error | null): ResumeRefusal | null {
   if (error.status === 409) {
     return error.reason?.includes(QUESTION_WAITING) ? { kind: "question-pending" } : { kind: "turn-running" };
   }
-  if (error.status === 403) return { kind: "forbidden", reason: error.reason ?? "this conversation is not yours to open here" };
-  return { kind: "not-found", reason: error.reason ?? "the ticket's conversation was not found" };
+  if (error.status === 403) return { kind: "forbidden", reason: error.reason ?? null };
+  return { kind: "not-found", reason: error.reason ?? null };
 }

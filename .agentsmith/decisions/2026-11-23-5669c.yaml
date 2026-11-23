@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-5669c
+
+decisions:
+  - category: Implementation
+    chose: "Run-log helpers take the lookup first and a locale where they write times or numbers"
+    over: "Formatting in the components only"
+    reason: "Most run text is built in pure helpers (stepDetailLines, callSequence, runNowLines); the language has to be their input."
+  - category: Implementation
+    chose: "A line's kind (decision, tool, verify) stays recorded in English as data-kind; only the shown word is translated"
+    over: "Translating the kind itself"
+    reason: "Filters, tests and styling read the kind; a shown word must not drive behaviour."
+  - category: Scope
+    chose: "Step, tool, command and event-type names, a pending question's approve/reject answers and file names stay as written"
+    over: "Translating them"
+    reason: "They are identifiers or answers sent back to the server."

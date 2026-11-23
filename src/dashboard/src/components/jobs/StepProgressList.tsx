@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+
 export interface StepRow {
   index: number;
   name: string;
@@ -22,8 +24,9 @@ function formatDuration(ms: number | null): string {
 }
 
 export function StepProgressList({ steps }: { steps: StepRow[] }) {
+  const t = useT();
   if (steps.length === 0) {
-    return <p className="text-sm text-stone-500" data-testid="steps-empty">Waiting for first step…</p>;
+    return <p className="text-sm text-stone-500" data-testid="steps-empty">{t("runs.step.waitingFirst")}</p>;
   }
   return (
     <ol className="space-y-1" data-testid="step-progress-list">

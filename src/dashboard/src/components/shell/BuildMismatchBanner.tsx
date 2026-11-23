@@ -2,6 +2,7 @@
 
 import { BUILD_SUBSYSTEM } from "@/lib/buildIdentity";
 import { useFindings } from "@/lib/useFindings";
+import { useT } from "@/hooks/useT";
 
 /**
  * 2026-08-25-8c97: says that this page and the server it is talking to came from different
@@ -17,6 +18,7 @@ import { useFindings } from "@/lib/useFindings";
  */
 export function BuildMismatchBanner() {
   const findings = useFindings();
+  const t = useT();
   const mismatch = findings?.findings.find((f) => f.subsystem === BUILD_SUBSYSTEM);
   if (!mismatch) return null;
 
@@ -32,7 +34,7 @@ export function BuildMismatchBanner() {
         onClick={() => window.location.reload()}
         className="rounded border border-sky-400 bg-white px-3 py-1 font-medium text-sky-900 hover:bg-sky-100"
       >
-        Reload
+        {t("shell.build.reload")}
       </button>
     </aside>
   );

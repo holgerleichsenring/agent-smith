@@ -47,10 +47,10 @@ export function areaPath(points: PlotPoint[], height: number): string {
 }
 
 /** Compact character counts — "357k", "3,886", "0". Sizes are read, not summed. */
-export function formatChars(chars: number): string {
+export function formatChars(chars: number, locale: string): string {
   if (chars >= 1_000_000) return `${(chars / 1_000_000).toFixed(1)}M`;
   if (chars >= 10_000) return `${Math.round(chars / 1000)}k`;
-  return chars.toLocaleString("en-US");
+  return chars.toLocaleString(locale);
 }
 
 export function formatMs(ms: number): string {

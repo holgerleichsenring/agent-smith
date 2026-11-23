@@ -1,5 +1,6 @@
 import type { RunOutcomes } from "@/lib/runOutcomes";
 import { OverviewCard } from "@/components/overview/OverviewCard";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-27-559e: what came back — the total as the headline, with the
 // finished runs split by how they ended beneath it. The in-flight buckets the
@@ -8,9 +9,10 @@ import { OverviewCard } from "@/components/overview/OverviewCard";
 // rejected as a rail count restated.
 
 export function RunOutcomeCard({ outcomes, ready }: { outcomes: RunOutcomes; ready: boolean }) {
+  const t = useT();
   return (
     <OverviewCard
-      label="Runs"
+      label={t("shell.nav.runs")}
       value={ready ? <span data-testid="kcard-runs-total">{outcomes.total}</span> : "—"}
       detail={ready ? <OutcomeDetail outcomes={outcomes} /> : <LoadingDetail />}
       testId="overview-runs-card"
@@ -19,16 +21,18 @@ export function RunOutcomeCard({ outcomes, ready }: { outcomes: RunOutcomes; rea
 }
 
 function OutcomeDetail({ outcomes }: { outcomes: RunOutcomes }) {
+  const t = useT();
   return (
     <>
-      <span data-testid="kcard-runs-succeeded">{outcomes.succeeded}</span> succeeded ·{" "}
-      <span data-testid="kcard-runs-shortfall">{outcomes.shortfall}</span> with a shortfall ·{" "}
-      <span data-testid="kcard-runs-failed">{outcomes.failed}</span> failed ·{" "}
-      <span data-testid="kcard-runs-cancelled">{outcomes.cancelled}</span> cancelled
+      <span data-testid="kcard-runs-succeeded">{outcomes.succeeded}</span> {t("overview.runs.succeeded")} ·{" "}
+      <span data-testid="kcard-runs-shortfall">{outcomes.shortfall}</span> {t("overview.runs.shortfall")} ·{" "}
+      <span data-testid="kcard-runs-failed">{outcomes.failed}</span> {t("overview.runs.failed")} ·{" "}
+      <span data-testid="kcard-runs-cancelled">{outcomes.cancelled}</span> {t("overview.runs.cancelled")}
     </>
   );
 }
 
 function LoadingDetail() {
-  return <span data-testid="overview-runs-loading">Reading the run list…</span>;
+  const t = useT();
+  return <span data-testid="overview-runs-loading">{t("overview.runs.reading")}</span>;
 }

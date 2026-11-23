@@ -1,8 +1,15 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import type { RunSpecRow } from "@/lib/runSpecsApi";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import type { RunSnapshot } from "@/types/hub-events";
-import { initiallyOpen, placeLogSteps, runLogSections, stepsMeta, stepTime } from "../runLogSections";
+import { initiallyOpen, placeLogSteps, runLogSections as runLogSectionsIn, stepsMeta as stepsMetaIn, stepTime } from "../runLogSections";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const runLogSections = (...args: DropLead<Parameters<typeof runLogSectionsIn>, 1>) => runLogSectionsIn(en, ...args);
+const stepsMeta = (...args: DropLead<Parameters<typeof stepsMetaIn>, 1>) => stepsMetaIn(en, ...args);
 
 // 2026-11-17-6d9eb: the log sectioned by work — Before the work, a section per spec, Delivered — with per-section counts.
 

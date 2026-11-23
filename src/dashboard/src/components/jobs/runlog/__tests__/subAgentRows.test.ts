@@ -1,6 +1,13 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import { EventType, type RunEvent } from "@/types/hub-events";
-import { rowSummary, subAgentRows } from "../subAgentRows";
+import { rowSummary as rowSummaryIn, subAgentRows as subAgentRowsIn } from "../subAgentRows";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const rowSummary = (...args: DropLead<Parameters<typeof rowSummaryIn>, 1>) => rowSummaryIn(en, ...args);
+const subAgentRows = (...args: DropLead<Parameters<typeof subAgentRowsIn>, 2>) => subAgentRowsIn(en, "en-GB", ...args);
 
 // 2026-11-19-687eb: an open step's sub-agents, one row each, read from the step's events.
 

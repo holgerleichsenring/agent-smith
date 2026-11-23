@@ -4,6 +4,7 @@ import type { CatalogContents, CatalogEntry } from "@/lib/catalogApi";
 import { CatalogOriginLine } from "./CatalogOriginLine";
 import { CatalogEntryCard } from "./CatalogEntryCard";
 import { CatalogConceptSection } from "./CatalogConceptSection";
+import { useT } from "@/hooks/useT";
 
 // p0221: the catalog browser's presentational layer. Masters/skills render as
 // cards whose SKILL.md body is fetched lazily on expand; concepts render as
@@ -24,19 +25,20 @@ interface CatalogBrowserViewProps {
 }
 
 export function CatalogBrowserView({ contents, loadBody }: CatalogBrowserViewProps) {
+  const t = useT();
   const overlayPath = contents.origin?.overlayPath ?? null;
   return (
     <div data-testid="catalog-browser">
       <CatalogOriginLine origin={contents.origin} />
       <EntrySection
-        label="Masters"
+        label={t("system.catalog.masters")}
         icon="✦"
         entries={contents.masters}
         loadBody={loadBody}
         overlayPath={overlayPath}
       />
       <EntrySection
-        label="Skills"
+        label={t("system.catalog.skills")}
         icon="◆"
         entries={contents.skills}
         loadBody={loadBody}
@@ -60,13 +62,14 @@ function EntrySection({
   loadBody: (name: string) => Promise<string | null>;
   overlayPath: string | null;
 }) {
+  const t = useT();
   if (entries.length === 0) return null;
   return (
     <section>
       <div className="section-head">
         <h2>{label}</h2>
         <span className="cnt">{entries.length}</span>
-        <span className="sh-sub">expand a card to read its SKILL.md</span>
+        <span className="sh-sub">{t("system.catalog.expandHint")}</span>
       </div>
       <div style={{ height: 14 }} />
       <div className="list">

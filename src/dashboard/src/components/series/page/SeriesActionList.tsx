@@ -44,7 +44,7 @@ export function SeriesActionList({ detail, lacks, handlers, onChain }: Props) {
       {needed.length > 0 && (
         <>
           <div className="sr-list-group" data-testid="series-list-needed">
-            {t("series.todo.needed", { names: namesOf(counts.neededFor, t), count: counts.neededFor.length })}
+            {t("series.todo.needed", { names: namesOf(t, counts.neededFor), count: counts.neededFor.length })}
           </div>
           {needed.map(row)}
         </>

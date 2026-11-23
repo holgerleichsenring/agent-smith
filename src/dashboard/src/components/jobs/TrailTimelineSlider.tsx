@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/hooks/useT";
 
 interface Props {
   startMs: number;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function TrailTimelineSlider({ startMs, endMs, value, onChange }: Props) {
+  const t = useT();
   const [playing, setPlaying] = useState(false);
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
@@ -52,7 +54,7 @@ export function TrailTimelineSlider({ startMs, endMs, value, onChange }: Props) 
         className="rounded bg-stone-800 px-2 py-1 text-xs text-white hover:bg-stone-700"
         data-testid="timeline-play-button"
       >
-        {playing ? "pause" : "play"}
+        {playing ? t("runs.trail.pause") : t("runs.trail.play")}
       </button>
       <input
         type="range"
