@@ -45,13 +45,14 @@ export interface SeriesOverviewCounts {
   quiet: number;
 }
 
-/** Every count the Overview shows — the chips, the list's groups and the bar's — from the same kinds, so they agree. */
-export function seriesOverviewCounts(detail: SeriesRunDetail): SeriesOverviewCounts {
+/** Every count the Overview shows — the chips, the list's groups and the bar's — from the same kinds, so they agree.
+ *  2026-11-23-8071: the merge now is the viewer's only when they may merge (runs.control); otherwise it is nobody's here. */
+export function seriesOverviewCounts(detail: SeriesRunDetail, canMerge = true): SeriesOverviewCounts {
   const kinds = Object.fromEntries(SERIES_NODE_KINDS.map((kind) => [kind, 0])) as Record<SeriesNodeKind, number>;
   detail.tickets.forEach((ticket) => { kinds[seriesNodeKind(ticket, detail)] += 1; });
   const needed = new Set(detail.tickets.filter((t) => seriesNodeKind(t, detail) === "needed").map((t) => t.ticketId));
   const neededFor = [...new Set(detail.mergeOrder.filter((s) => needed.has(s.ticketId)).flatMap((s) => s.neededBy ?? []))];
-  return { kinds, neededFor, yours: kinds.now + kinds.question + kinds.failed, quiet: kinds.running + kinds.pr + kinds.waiting };
+  return { kinds, neededFor, yours: (canMerge ? kinds.now : 0) + kinds.question + kinds.failed, quiet: kinds.running + kinds.pr + kinds.waiting };
 }
 
 /** The tickets on a needed-merge chain: every one whose merge others start on. An edge between two of them is lit. */

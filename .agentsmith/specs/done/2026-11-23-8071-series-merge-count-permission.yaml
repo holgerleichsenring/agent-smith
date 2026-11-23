@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-8071
+goal: "On the series Overview the merge now counts as the viewer's move only when they may merge (runs.control): chips, You're up and the section counter leave it out otherwise."
+
+applies_to: "default (dashboard series Overview)"
+
+requires: [2026-11-23-f562]
+
+facts:
+  - claim: "The Overview counted the merge now as the viewer's move for everyone; a viewer without runs.control saw '1 merge now' and no Merge button."
+    evidence: "observed: 2026-11-23, f562 report; src/dashboard/src/components/series/page/seriesNodeKind.ts seriesOverviewCounts"
+
+decisions_in_brief:
+  - "Operator 2026-11-23: count it only for people who can merge."
+
+scope:
+  in: "seriesOverviewCounts takes canMerge; the chips drop the merge-now chip, You're up moves the merge now to the head of Needed next (Merge disabled), and the section counter leaves it out when the viewer lacks runs.control."
+  out: "Your move across projects (its list read is viewer-independent by 31dcg)."
+
+tests:
+  - "seriesNodeKind.test: without merge right the merge now is not yours."
+  - "SeriesOverviewSection.test: no merge-now chip, the merge now leads Needed next, the counter says 2."
+
+done:
+  - "Build, the full suite and the dashboard tests green."

@@ -68,6 +68,17 @@ describe("SeriesOverviewSection", () => {
     expect(screen.getByTestId("series-section-overview")).toHaveTextContent("3");
   });
 
+  // 2026-11-23-8071: a viewer who may not merge — the merge now is not their move anywhere on the Overview.
+  it("WithoutMergeRight_TheMergeNow_IsNotTheViewersMove", async () => {
+    hoisted.lacks = true;
+    render(<SeriesRunPage id="sr-1" />);
+    const chips = await screen.findByTestId("series-chips");
+
+    expect(within(chips).queryByTestId("series-chip-now")).toBeNull();
+    expect(screen.getAllByTestId(/^series-row-\d+$/).map((r) => r.dataset.kind)).toEqual(["question", "failed", "now", "needed", "needed"]);
+    expect(screen.getByTestId("series-section-overview")).toHaveTextContent("2");
+  });
+
   it("Menu_MergeNow_PostsTheSeriesMerge_AndItsOutcomeShowsOnce", async () => {
     render(<SeriesRunPage id="sr-1" />);
     const menu = await open("50");

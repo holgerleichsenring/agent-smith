@@ -62,7 +62,7 @@ export function SeriesOverviewSection({ detail, reload, merge: shared }: Props) 
             : t("series.act.retryRequested", { key: keyOf(retry.outcome.ticketId) })}
         </div>
       )}
-      <SeriesChips detail={detail} />
+      <SeriesChips detail={detail} canMerge={!lacks} />
       <SeriesGraph detail={detail} lit={lit} from={from} onFrom={setFrom} openId={openId} onClose={close}
         onNode={(id) => setOpenId((open) => (open === id ? null : id))}
         menu={(ticket, at) => {
@@ -78,10 +78,11 @@ export function SeriesOverviewSection({ detail, reload, merge: shared }: Props) 
 
 const CHIPS: SeriesNodeKind[] = ["now", "needed", "question", "failed", "running"];
 
-function SeriesChips({ detail }: { detail: SeriesRunDetail }) {
+function SeriesChips({ detail, canMerge }: { detail: SeriesRunDetail; canMerge: boolean }) {
   const t = useT();
-  const counts = seriesOverviewCounts(detail);
-  const shown = CHIPS.filter((kind) => counts.kinds[kind] > 0);
+  const counts = seriesOverviewCounts(detail, canMerge);
+  // 2026-11-23-8071: a viewer who may not merge sees no merge-now chip; the merge is not their move.
+  const shown = CHIPS.filter((kind) => counts.kinds[kind] > 0 && (canMerge || kind !== "now"));
   if (shown.length === 0) return null; // You're up says there is nothing to do
   return (
     <div className="sr-chips" data-testid="series-chips">

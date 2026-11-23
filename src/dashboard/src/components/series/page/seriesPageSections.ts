@@ -25,7 +25,8 @@ export interface SeriesSectionCounter {
 export interface SeriesSection {
   id: SeriesSectionId;
   label: TextKey;
-  counter: (detail: SeriesRunDetail) => SeriesSectionCounter | null;
+  /** 2026-11-23-8071: canMerge — whether the viewer may merge (runs.control) in the series' project. */
+  counter: (detail: SeriesRunDetail, canMerge: boolean) => SeriesSectionCounter | null;
   /** reload reads the series again, after an act the pane started; merge is the page's one merge act (8d16). */
   Pane: ComponentType<{ detail: SeriesRunDetail; reload: () => void; merge?: SeriesMerge }>;
 }
@@ -33,7 +34,7 @@ export interface SeriesSection {
 export const seriesSections: SeriesSection[] = [
   {
     id: "overview", label: "series.section.overview", Pane: SeriesOverviewSection,
-    counter: (d) => { const yours = seriesOverviewCounts(d).yours; return { text: String(yours), hot: yours > 0 }; },
+    counter: (d, canMerge) => { const yours = seriesOverviewCounts(d, canMerge).yours; return { text: String(yours), hot: yours > 0 }; },
   },
   { id: "tickets", label: "series.section.tickets", Pane: SeriesTicketsSection, counter: (d) => ({ text: String(d.tickets.length) }) },
   { id: "talk", label: "series.section.conversation", Pane: SeriesConversationSection, counter: () => ({ text: "↗" }) },
