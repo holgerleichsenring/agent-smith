@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dcj
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "Notes are read from SpecSet.Revisions of the member tickets"
+    over: "A new note store written by edit_series with a required reason"
+    reason: "The revision history already holds number, cause and time for every change, whoever made it; a note store would be a second storage location and would miss in-run revisions and proposals."
+  - category: Architecture
+    decider: claude
+    chose: "GET /api/series-runs/{id}/changes reads each member ticket through TicketBranchSpecs side by side and is fetched by the What holds the rest pane on mount"
+    over: "Carrying the notes on GET /api/series-runs/{id}"
+    reason: "The branch read is one host round trip per ticket and repo; the detail is re-read after every act, the notes only matter when the section is open. TicketBranchSpecs is safe to fan out: the pointer store opens a scope per call and a provider is built per read."
+  - category: Implementation
+    decider: claude
+    chose: "A note says what the revision's cause says (ticket, number, cause, time); kind and spec ids come only from the cause text"
+    over: "Deriving appended/recut/dropped spec ids by diffing revisions, or reading the pending approval record's continuation"
+    reason: "A revision stores no spec list, so a diff needs a new store, which the spec rules out; the approval record is a second source the spec did not name. An edit_series change therefore shows once the attempt that applies it writes its revision, under 'approved in design conversation <id>'. An amendment re-filed before any attempt restarts the branch history at revision 1 (FiledSpecBranch), so it shows nothing."
+  - category: Implementation
+    decider: claude
+    chose: "Tickets whose branch could not be read are returned as unread and named on the page"
+    over: "Dropping them silently"
+    reason: "The invariant says every stored revision shows; a silent drop would read as 'nothing changed'."

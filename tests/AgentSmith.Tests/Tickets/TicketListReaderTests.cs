@@ -139,7 +139,10 @@ public sealed class TicketListReaderTests : IDisposable
     [Fact]
     public async Task TicketList_QueuedReservation_IsWorkingAndAnAttempt()
     {
-        await _store.AddAsync(Run(R1, status: "failed"), Step(R1), Run(R2, status: "queued"));
+        // 2026-11-23-31dci: queued minutes ago — a reservation older than holds.escalate_after_minutes is the admin's.
+        var queued = Run(R2, status: "queued");
+        queued.StartedAt = T.AddHours(3).AddMinutes(-5);
+        await _store.AddAsync(Run(R1, status: "failed"), Step(R1), queued);
 
         var result = await ListAsync();
 

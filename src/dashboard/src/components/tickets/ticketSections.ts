@@ -4,6 +4,8 @@ import type { TicketBucket, TicketCounts } from "@/types/tickets";
 // tickets no one has to act on. Ended is the server's idle: a cancelled attempt or a success without a
 // pull request. Done is a merged pull request with every other one ended. 2026-10-15-114fd: PR closed
 // and Failed split out of Ended; Closed — a person stopped work on it — is last and grey.
+// 2026-11-23-d60d: no In review section — a pull request that can merge or whose CI failed is Needs you, one that waits
+// (CI running, behind another pull request) is Working.
 
 export interface TicketSectionSpec {
   title: string;
@@ -17,22 +19,16 @@ export interface TicketSectionSpec {
 export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> = {
   "needs-you": {
     title: "Needs you",
-    sub: "a person has to answer before the ticket moves",
+    sub: "a person moves it next: an answer, a decision, a merge or the plan",
     tone: "amber",
     empty: "Nothing waits on you.",
     count: (c) => c.needsYou,
   },
   working: {
     title: "Working",
-    sub: "an attempt is running or waiting for capacity",
-    empty: "No attempt is running or queued.",
+    sub: "an attempt is running or waiting for capacity, or its pull request waits for CI or another merge",
+    empty: "No attempt is running or queued, and no pull request waits.",
     count: (c) => c.working,
-  },
-  "waiting-on-review": {
-    title: "In review",
-    sub: "agent-smith is done; a person owns the next move",
-    empty: "No pull request waits on a review.",
-    count: (c) => c.waitingOnReview,
   },
   stuck: {
     title: "Stuck",
@@ -92,6 +88,6 @@ export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> 
 
 /** Every ticket the counts cover: each ticket is in exactly one bucket. */
 export function totalTickets(c: TicketCounts): number {
-  return c.needsYou + c.working + c.waitingOnReview + c.stuck + (c.blocked ?? 0) + (c.filed ?? 0)
+  return c.needsYou + c.working + c.stuck + (c.blocked ?? 0) + (c.filed ?? 0)
     + (c.prClosed ?? 0) + (c.failed ?? 0) + c.idle + c.done + (c.closed ?? 0);
 }

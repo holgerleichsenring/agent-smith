@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-97c2a
+goal: "No merge path lands a ticket's pull request while a ticket it requires has not landed; the refusal names that ticket and is recorded like any merge outcome."
+
+applies_to: "default (PullRequestMergeSequence, CompletePullRequestsHandler, CiGreenMerge, UnmetTicketRequirements)"
+
+requires: [2026-11-17-3435b, 2026-11-17-9a39c, 2026-11-22-6d85b]
+
+follows: "Split off the 2026-11-23-31dc series after its review: 31dca stops holding a dependent on a cross-repo prerequisite, and without this guard the automatic merges could land the dependent first."
+
+invariant: "A pull request of a ticket with an unlanded requirement is never merged by agent-smith, on any path."
+
+facts:
+  - claim: "One sequence merges for both the code run (on_gate_green) and the merge-green run (on_ci_green); it already leaves a pull request on a rung open."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:10-14,37-40"
+  - claim: "on_ci_green merges every awaited pull request once CI is green, with no requirement check."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/CiGreenMerge.cs:21-38"
+  - claim: "on_gate_green merges at the end of the code run, with no requirement check."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CompletePullRequestsHandler.cs:30-36"
+  - claim: "Whether a ticket's requirements landed is one read."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:28-36"
+
+scope:
+  in: >-
+    PullRequestMergeSequence asks UnmetTicketRequirements.OfAsync for the run's ticket before its first merge; with an
+    unlanded requirement it merges nothing and records each pull request as refused with 'not merged: #<id> it requires
+    has not landed' (the same per-repo record and line as a rung refusal). Applies to on_gate_green, on_ci_green and a
+    person-asked merge (31dce) alike, because all three go through the sequence. A ticket without requirement rows is
+    not read further.
+  out: "Merging the prerequisite first (the merge order of 31dcb/31dce shows it; nothing merges it automatically out of turn)."
+
+steps:
+  - id: guard
+    action: "PullRequestMergeSequence.RunAsync takes the ticket key and refuses when OfAsync answers unmet edges."
+  - id: wire
+    action: "CompletePullRequestsHandler passes the ticket key on both paths; the CI acted-mark is still written so the refusal is not retried every refresh, and it is cleared when the requirement lands (the landing nudge re-reads)."
+
+tests:
+  - "on_gate_green, ticket requires an unlanded one: nothing merged, each repo records the refusal sentence naming it."
+  - "on_ci_green, CI green, requirement unlanded: refused once; after the requirement lands the next refresh merges."
+  - "No requirement rows: merges as today (one requirement read, no landing read)."
+  - "A rung refusal still wins for a pull request opened against a prerequisite's branch."
+
+done:
+  - "Build, the full suite and the dashboard tests green; PullRequestMergeSequence, CompletePullRequestsHandler and CiGreenMerge tests cover the four cases above."

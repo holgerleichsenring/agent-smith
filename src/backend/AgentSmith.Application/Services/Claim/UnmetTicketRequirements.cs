@@ -21,6 +21,8 @@ public sealed class UnmetTicketRequirements(
     ITicketRequirementStore requirements, ITicketLandingStore landings, ISpecApprovalStore approvals,
     GreenPrerequisites? green = null, ISeriesRunStore? series = null)
 {
+    private readonly RequirementHoldRule _rule = new(); // 2026-11-23-31dca: the hold of one dependent under on_green_push
+
     /// <summary>
     /// Whether the ticket has requirement rows, and the edges whose required ticket has not landed, in the
     /// stored order. Without rows it answers (false, []) after the one requirement read and reads no landing,
@@ -38,8 +40,8 @@ public sealed class UnmetTicketRequirements(
 
     /// <summary>
     /// What holds the ticket from a start in this project. A dependent that already has a code attempt was stacked
-    /// once and is not held again — its rework is never refused while a prerequisite reworks — and stacks on the
-    /// chain's tip when there is one. 2026-11-22-9719d: the one-key form of <see cref="ForStartManyAsync"/>.
+    /// once and is not held again — its rework is never refused while a prerequisite reworks — and stacks per repo on the
+    /// chain's tip there when there is one. 2026-11-22-9719d: the one-key form of <see cref="ForStartManyAsync"/>.
     /// </summary>
     public async Task<RequirementHold> ForStartAsync(ResolvedProject project, string ticketKey, CancellationToken cancellationToken) =>
         (await ForStartManyAsync(project, [ticketKey], cancellationToken))[ticketKey];
@@ -69,33 +71,9 @@ public sealed class UnmetTicketRequirements(
         await reads.PrefetchAsync(held.Where(u => !started.Contains(u[0].TicketId)).SelectMany(u => u), cancellationToken);
         var holds = new Dictionary<string, RequirementHold>(StringComparer.Ordinal);
         foreach (var (key, unmet) in open)
-        {
-            var has = edges[key].Count > 0;
-            if (unmet.Count == 0) { holds[key] = new(has, unmet); continue; }
-            var wasStarted = started.Contains(unmet[0].TicketId);
-            var tip = await reads.TipAsync(unmet, requireGreen: !wasStarted, cancellationToken);
-            holds[key] = tip is not null || wasStarted ? new(has, [], tip, GreenLifts: true)
-                : new(has, unmet, GreenLifts: true) { MergesToStart = await WithBasesAsync(tracker, await reads.MergesToStartAsync(unmet, cancellationToken), cancellationToken) }; // 6d85d
-        }
+            holds[key] = unmet.Count == 0 ? new(edges[key].Count > 0, unmet)
+                : await _rule.HoldAsync(reads, unmet, started.Contains(unmet[0].TicketId), cancellationToken);
         return holds;
-    }
-
-    // 2026-11-22-6d85d: a named prerequisite stacked on an unlanded ticket lands only with that base, so its base's merge is
-    // named too, first — the chain walked through the requirement store, landings read once.
-    private async Task<IReadOnlyList<TicketRequirementEdge>> WithBasesAsync(
-        string tracker, IReadOnlyList<TicketRequirementEdge>? merges, CancellationToken ct)
-    {
-        if (merges is not { Count: > 0 }) return [];
-        var bases = new List<TicketRequirementEdge>();
-        var seen = merges.Select(e => e.RequiredTicketKey).ToHashSet(StringComparer.Ordinal);
-        var frontier = new Queue<string>(seen);
-        while (frontier.TryDequeue(out var key))
-            foreach (var edge in await requirements.RequiredOfAsync(tracker, key, ct))
-                if (seen.Add(edge.RequiredTicketKey)) { bases.Add(edge); frontier.Enqueue(edge.RequiredTicketKey); }
-        if (bases.Count == 0) return merges;
-        var landed = (await landings.LandedAsync(tracker, [.. bases.Select(e => e.RequiredTicketKey)], ct))
-            .Select(l => l.TicketKey).ToHashSet(StringComparer.Ordinal);
-        return [.. bases.Where(e => !landed.Contains(e.RequiredTicketKey)).Reverse(), .. merges];
     }
 
     /// <summary>

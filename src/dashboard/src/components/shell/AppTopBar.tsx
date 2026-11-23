@@ -1,5 +1,7 @@
 "use client";
 
+import { yourMoveCount } from "@/components/tickets/holds/holdWords";
+import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,7 +32,7 @@ export function AppTopBar() {
   const router = useRouter();
   const field = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const needsYou = useTicketList().list?.counts.needsYou ?? 0;
+  const needsYou = yourMoveCount(useTicketList().list?.counts, useHoldsAdmin()) ?? 0; // 2026-11-23-31dcg
 
   useEffect(() => {
     const focus = (event: KeyboardEvent) => {

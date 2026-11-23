@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useT } from "@/hooks/useT";
+import { seriesRunPath } from "@/lib/seriesRunAddress";
 import type { SeriesRunView } from "@/types/series";
 
 // 2026-11-17-0207e: the series a filing runs as, in the right column — progress, spend and the estimated finish,
@@ -15,6 +17,10 @@ export function DialogSeriesPanel({ series }: { series: SeriesRunView }) {
     <div data-testid="dialog-series" className="flex flex-col gap-4">
       <section className="flex flex-col gap-1">
         <p className="dsh-label text-mute">{t("dialog.series.label")}</p>
+        {/* 2026-11-23-31dcc: the conversation that filed the series reaches its page in one click. */}
+        <Link href={seriesRunPath(series.id)} className="dl-series-act dsh-body self-start" data-testid="dialog-series-open">
+          {t("series.open")}
+        </Link>
         <p className="dsh-body text-ink" data-testid="dialog-series-progress">
           {t("dialog.series.progress", { landed: series.landed, total: series.total, elapsed: series.elapsed })}
         </p>

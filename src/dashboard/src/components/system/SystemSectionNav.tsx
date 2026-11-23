@@ -5,6 +5,9 @@ import { useSystemBacklog } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, type SubsystemActivity, type SubsystemId } from "@/hooks/useSubsystemActivity";
 import { SectionNav, SectionNavGroup } from "@/components/shell/SectionNav";
 import { SectionNavItem } from "@/components/shell/SectionNavItem";
+import { useAdminHoldCount } from "@/hooks/useAdminHoldCount";
+import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
+import { useT } from "@/hooks/useT";
 
 // p0209a: the running system's parts, each with its liveness. 2026-11-16-0440c: moved out of the
 // app rail into the /system layout, beside its pages. A bare /system shows the tracker.
@@ -17,15 +20,31 @@ const SUBSYSTEM_ITEMS: ReadonlyArray<{ id: SubsystemId; label: string; href: str
   { id: "catalog", label: "Skill catalog & vocabulary", href: "/system/catalog" },
 ];
 
+export const NEEDS_ATTENTION_PATH = "/system/attention";
+
 export function SystemSectionNav() {
   const pathname = usePathname() ?? "";
   // Liveness for EVERY subsystem, so it reads the full shared backlog.
   const activity = useSubsystemActivity(useSystemBacklog());
   const trackerLabel = trackerLabelFor(activity.tracker);
+  // 2026-11-23-31dci: the admin's page of every admin hold, with its count; a viewer known not to be an admin has none.
+  const admin = useHoldsAdmin();
+  const adminHolds = useAdminHoldCount();
+  const t = useT();
 
   return (
     <SectionNav label="System" testId="system-nav">
       <SectionNavGroup label="System" />
+      {admin && (
+        <SectionNavItem
+          label={t("attention.nav")}
+          href={NEEDS_ATTENTION_PATH}
+          icon="⚠"
+          count={adminHolds}
+          hot={(adminHolds ?? 0) > 0}
+          active={pathname === NEEDS_ATTENTION_PATH}
+        />
+      )}
       {SUBSYSTEM_ITEMS.map((s) => (
         <SectionNavItem
           key={s.id}

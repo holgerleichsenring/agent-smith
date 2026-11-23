@@ -552,39 +552,6 @@
 .mock-tickets .cnt.person { background: var(--person-wash); color: var(--person); }
 .mock-tickets .trow .norun { grid-column: span 3; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mock-tickets .trow .norun b { font-family: var(--mono); font-weight: 500; color: var(--person); }
-.mock-tickets .viewsw { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; margin-left: auto; }
-.mock-tickets .viewsw .vs { font: inherit; font-size: 12.5px; font-weight: 560; padding: 6px 14px; border: 0; background: var(--bg); color: var(--ink-2); cursor: pointer; }
-.mock-tickets .viewsw .vs[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
-.mock-tickets .tgraph { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: 14px; overflow-x: auto; }
-.mock-tickets .tg-canvas { display: block; }
-.mock-tickets .tg-edge { fill: none; stroke: var(--ink-3); stroke-width: 1.4; }
-.mock-tickets .tg-arrow { fill: var(--ink-3); }
-.mock-tickets .tg-node { cursor: pointer; outline: none; }
-.mock-tickets .tg-node rect { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; }
-.mock-tickets .tg-node:focus-visible rect { stroke: var(--accent); stroke-width: 2; }
-.mock-tickets .tg-node .tg-key { font-family: var(--mono); font-size: 11px; fill: var(--ink-3); }
-.mock-tickets .tg-node .tg-title { font-size: 12px; font-weight: 600; fill: var(--ink); }
-.mock-tickets .tg-node .tg-state { font-size: 10.5px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; fill: var(--ink-3); }
-.mock-tickets .tg-node.merged rect, .mock-tickets .tg-node.done-by-hand rect { stroke: var(--ok); fill: var(--ok-wash); }
-.mock-tickets .tg-node.merged .tg-state, .mock-tickets .tg-node.done-by-hand .tg-state { fill: var(--ok); }
-.mock-tickets .tg-node.running rect { stroke: var(--run); fill: var(--run-wash); }
-.mock-tickets .tg-node.running .tg-state { fill: var(--run); }
-.mock-tickets .tg-node.blocked rect { stroke: var(--person); stroke-dasharray: 4 3; }
-.mock-tickets .tg-node.blocked .tg-state { fill: var(--person); }
-.mock-tickets .tg-node.ready rect { stroke: var(--ink-3); }
-.mock-tickets .tg-node.ready .tg-state { fill: var(--ink-2); }
-.mock-tickets .tg-node.idle rect { stroke: var(--idle); stroke-dasharray: 2 3; }
-.mock-tickets .tg-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-3); margin-top: 10px; }
-.mock-tickets .tg-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1.5px solid var(--line); }
-.mock-tickets .tg-legend i.merged { background: var(--ok-wash); border-color: var(--ok); }
-.mock-tickets .tg-legend i.running { background: var(--run-wash); border-color: var(--run); }
-.mock-tickets .tg-legend i.blocked { border: 1.5px dashed var(--person); }
-.mock-tickets .tg-legend i.ready { border-color: var(--ink-3); }
-.mock-tickets .tg-legend i.idle { border: 1.5px dashed var(--idle); }
-.mock-tickets .tg-panel { border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 12px 14px; margin-top: 12px; display: flex; flex-direction: column; gap: 6px; max-width: 520px; }
-.mock-tickets .tg-panel .key { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
-.mock-tickets .tg-panel .pt { font-size: 14px; font-weight: 640; }
-.mock-tickets .tg-panel .pr { font-size: 12px; color: var(--ink-2); }
 .mock-tickets .waits { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); margin-top: 14px; overflow: hidden; }
 .mock-tickets .waits .wf-h { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; padding: 10px 14px 6px; }
 .mock-tickets .waits .wf-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--line-2); font-size: 12.5px; }
@@ -628,11 +595,6 @@
 .mock-tickets .dbh .dbh-out { padding-left: 10px; border-left: 3px solid var(--line); color: var(--ink-2); }
 .mock-tickets .dbh .dbh-out.closed { border-left-color: var(--ok); }
 .mock-tickets .dbh .dbh-out.kept { border-left-color: var(--bad); }
-.mock-tickets .tg-node.failed rect, .mock-tickets .tg-node.pr_closed rect { stroke: var(--bad); fill: var(--bad-wash); }
-.mock-tickets .tg-node.failed .tg-state, .mock-tickets .tg-node.pr_closed .tg-state { fill: var(--bad); }
-.mock-tickets .tg-node.closed rect { stroke: var(--ink-3); stroke-dasharray: 4 3; }
-.mock-tickets .tg-legend i.failed, .mock-tickets .tg-legend i.pr_closed { background: var(--bad-wash); border-color: var(--bad); }
-.mock-tickets .tg-legend i.closed { border: 1.5px dashed var(--ink-3); }
 
 /* =========================================================================
    TICKET DETAIL — ticket-view.html, Conversation, Specs and Acceptance tabs (2026-10-13-9a59r)

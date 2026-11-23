@@ -8,6 +8,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets.Checks;
+using AgentSmith.Application.Services.Holds;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -67,8 +68,10 @@ public sealed class TicketStuckTests : IDisposable
         var list = await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default);
 
         var row = list.Tickets.Single();
-        (row.Bucket, row.UnchangedSinceLastAttempt, row.CheckedAt).Should().Be((TicketBucket.Stuck, (bool?)true, (DateTimeOffset?)Now));
-        list.Counts.Stuck.Should().Be(1);
+        // 2026-11-23-31dcg: the check's observation stays on the row; a failed head is a person's decision, so Your move.
+        (row.Bucket, row.UnchangedSinceLastAttempt, row.CheckedAt).Should().Be((TicketBucket.NeedsYou, (bool?)true, (DateTimeOffset?)Now));
+        row.Hold!.Case.Should().Be(TicketHoldCases.Failed);
+        (list.Counts.Stuck, list.Counts.NeedsYou).Should().Be((0, 1));
     }
 
     [Fact]
@@ -106,14 +109,14 @@ public sealed class TicketStuckTests : IDisposable
     public async Task TicketStuck_NoCheckOrTrackerDown_IsUnknownNotStuck()
     {
         await FailedAsync();
-        (await RowAsync()).Should().Match<TicketSummaryView>(r => r.Bucket == TicketBucket.Failed && r.UnchangedSinceLastAttempt == null);
+        (await RowAsync()).Should().Match<TicketSummaryView>(r => r.Bucket == TicketBucket.NeedsYou && r.UnchangedSinceLastAttempt == null);
 
         _h.Tracker.Setup(t => t.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ThrowsAsync(new HttpRequestException("down"));
         await _h.Detail.ReadAsync("alpha", "42", default);
         await _h.RunKickedChecksAsync();
 
         (await ChecksAsync()).Should().Be(0, "a failed read writes nothing");
-        (await RowAsync()).Bucket.Should().Be(TicketBucket.Failed);
+        (await RowAsync()).UnchangedSinceLastAttempt.Should().BeNull();
     }
 
     [Fact]
@@ -125,7 +128,7 @@ public sealed class TicketStuckTests : IDisposable
         var row = await RowAsync();
         var detail = await _h.Detail.ReadAsync("alpha", "42", default);
 
-        (row.Bucket, row.UnchangedSinceLastAttempt).Should().Be((TicketBucket.Failed, (bool?)false));
+        (row.Bucket, row.UnchangedSinceLastAttempt).Should().Be((TicketBucket.NeedsYou, (bool?)false));
         detail!.ActedSince.Should().ContainSingle().Which.Should().Be(new TicketActedSinceView("pr-review", "bob", T.AddMinutes(40), PrUrl("7")));
     }
 
@@ -135,7 +138,7 @@ public sealed class TicketStuckTests : IDisposable
         await FailedAsync();
         await _h.AddAsync(Check(Now.AddMinutes(-30)));
 
-        (await RowAsync()).Bucket.Should().Be(TicketBucket.Stuck);
+        (await RowAsync()).UnchangedSinceLastAttempt.Should().BeTrue();
         _h.Trackers.Verify(f => f.Create(It.IsAny<AgentSmith.Contracts.Models.Configuration.TrackerConnection>()), Times.Never);
     }
 
@@ -235,12 +238,13 @@ public sealed class TicketStuckTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketBucket_FailedWithOpenReview_IsStuckNotWaitingOnReview()
+    public async Task TicketBucket_FailedWithAnOpenPullRequest_IsADecisionOnTheFailure()
     {
         await FailedAsync();
         await _h.AddAsync(Check(Now), Record("7", PrReviewStates.Open));
 
-        (await RowAsync()).Bucket.Should().Be(TicketBucket.Stuck, "an unchanged check of a failed head is stuck, open pull requests or not");
+        // 2026-11-23-31dcg: a failed head is a person's decision, open pull requests or not.
+        (await RowAsync()).Should().Match<TicketSummaryView>(r => r.Bucket == TicketBucket.NeedsYou && r.Hold!.Addressee == TicketHoldAddressees.Decide);
     }
 
     [Fact]
@@ -289,7 +293,7 @@ public sealed class TicketStuckTests : IDisposable
         await _h.RunKickedChecksAsync();
 
         var row = await RowAsync();
-        (row.Bucket, row.UnchangedSinceLastAttempt).Should().Be((TicketBucket.Failed, (bool?)false));
+        (row.Bucket, row.UnchangedSinceLastAttempt).Should().Be((TicketBucket.NeedsYou, (bool?)false));
         (await _h.Detail.ReadAsync("alpha", "42", default))!.ActedSince.Should().ContainSingle()
             .Which.Should().Be(new TicketActedSinceView(TicketTrackerAct.Comment, "carol", T.AddMinutes(50)));
     }

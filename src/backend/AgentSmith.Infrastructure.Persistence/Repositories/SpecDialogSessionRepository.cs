@@ -102,7 +102,7 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
                     SessionId = s.SessionId,
                     Project = s.Project,
                     IsOpen = s.IsOpen,
-                    LastActivityAt = s.LastActivityAt
+                    LastActivityAt = s.LastActivityAt, Subject = s.Subject, // 2026-11-23-31dcb: a series' name
                 })
                 .ToListAsync(ct);
 

@@ -50,7 +50,7 @@ public sealed class TicketReviewReadTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketBuckets_MergedPr_IsDone_LiveAttemptBeatsWaitingOnReview()
+    public async Task TicketBuckets_MergedPr_IsDone_LiveAttemptBeatsTheMergeHold()
     {
         await _h.AddAsync(WithPr(Run("r-42", "42")), WithPr(Run("r-43", "43", status: "running")), WithPr(Run("r-44", "44")),
             Step("r-42"), Step("r-43"), Step("r-44"),
@@ -60,8 +60,9 @@ public sealed class TicketReviewReadTests : IDisposable
 
         tickets["42"].Bucket.Should().Be(TicketBucket.Done);
         tickets["42"].Since.Should().Be(T.AddHours(1));
-        tickets["43"].Bucket.Should().Be(TicketBucket.Working, "a live attempt outranks a pull request waiting on review");
-        tickets["44"].Bucket.Should().Be(TicketBucket.WaitingOnReview);
+        tickets["43"].Bucket.Should().Be(TicketBucket.Working, "a live attempt outranks a pull request that can merge");
+        tickets["43"].Hold!.Case.Should().Be(AgentSmith.Application.Services.Holds.TicketHoldCases.Working);
+        tickets["44"].Bucket.Should().Be(TicketBucket.NeedsYou);
         tickets["44"].PullRequests.Single().Should().Match<TicketPullRequestView>(p =>
             p.Number == "44" && p.State == PrReviewStates.Open && p.Decision == TicketReviewDecisions.None && p.Repo == "api");
     }
@@ -73,7 +74,7 @@ public sealed class TicketReviewReadTests : IDisposable
 
         var ticket = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Tickets.Single();
 
-        ticket.Bucket.Should().Be(TicketBucket.Failed, "an attempt started after the merge is that attempt's ticket");
+        ticket.Bucket.Should().Be(TicketBucket.NeedsYou, "an attempt started after the merge is that attempt's ticket, a failed one a decision");
     }
 
     [Fact]
@@ -95,7 +96,7 @@ public sealed class TicketReviewReadTests : IDisposable
         var counts = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Counts;
 
         counts.OpenPullRequests.Should().Be(1);
-        counts.WaitingOnReview.Should().Be(1);
+        counts.NeedsYou.Should().Be(1, "the open pull request with no CI can merge");
         counts.Done.Should().Be(1);
         counts.DoneThisMonth.Should().Be(new TicketDoneCount(1, 2));
         counts.LastDone.Should().Be(new TicketLastDone("alpha", "41", T.AddHours(2)));

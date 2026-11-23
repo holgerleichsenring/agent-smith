@@ -25,6 +25,8 @@ const FIXED_PLACES: Record<string, string> = {
   // 2026-10-13-9a59p: the ticket list; its six bucket views are ?bucket= queries of one place.
   "/tickets": "Tickets",
   "/pull-requests": "Pull requests",
+  // 2026-11-23-31dcc: every series a conversation filed (English like every place here until 5485b moves the table).
+  "/series": "Series",
   // 2026-09-15-cb3e: where the work is DESIGNED — a peer of the two above, not a
   // diagnostic under /system.
   "/spec-dialog": "Work it out",
@@ -43,6 +45,7 @@ const FIXED_PLACES: Record<string, string> = {
   "/system/chat": "Chat dispatchers",
   "/system/config": "Config file reads",
   "/system/catalog": "Skill catalog & vocabulary",
+  "/system/attention": "Needs attention", // 2026-11-23-31dci
   // The configuration subtree. A bare /config serves the first catalog kind, so it is
   // that kind's place — the header names what is on screen, not the area it belongs to.
   "/config": ENTITY_LABEL[ENTITY_KINDS[0]],
@@ -76,7 +79,7 @@ export const PLACES: Readonly<Record<string, string>> = Object.freeze({
  */
 export function placeForPath(pathname: string | null | undefined): string | null {
   const path = normalisePath(pathname);
-  return PLACES[path] ?? runPlace(path) ?? ticketPlace(path);
+  return PLACES[path] ?? runPlace(path) ?? ticketPlace(path) ?? seriesPlace(path);
 }
 
 // A run's id is minted per run, so the two run views are the one pair of places the table
@@ -93,6 +96,12 @@ function runPlace(path: string): string | null {
 function ticketPlace(path: string): string | null {
   const segments = path.split("/").filter((segment) => segment.length > 0);
   return segments[0] === "tickets" && segments.length === 3 ? TICKET_PLACE : null;
+}
+
+// 2026-11-23-31dcd: a series' id is minted per series, so its page is matched like a ticket's.
+function seriesPlace(path: string): string | null {
+  const segments = path.split("/").filter((segment) => segment.length > 0);
+  return segments[0] === "series" && segments.length === 2 ? "Series" : null;
 }
 
 // A query is a view of a place, never a place of its own; a trailing slash is the same

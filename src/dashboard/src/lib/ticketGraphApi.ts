@@ -1,16 +1,11 @@
-// 2026-10-14-dbcen: the requires graph, one ticket's requires (runs.read) and marking a ticket done by hand
+// 2026-10-14-dbcen: one ticket's requires (runs.read; 2026-11-23-849e: the graph read is gone) and marking a ticket done by hand
 // (runs.control). Every non-200 answer of the mark is a plain sentence the server wrote — a missing note, an
 // unknown project or ticket, a landing that already stands, an unreachable tracker — shown as is; a non-2xx
 // without a sentence throws.
 
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
-import type { TicketGraph, TicketRequires } from "@/types/tickets";
-
-export function fetchTicketGraph(project?: string | null, signal?: AbortSignal): Promise<TicketGraph> {
-  const query = project ? `?project=${encodeURIComponent(project)}` : "";
-  return getJson<TicketGraph>(`/api/tickets/graph${query}`, signal);
-}
+import type { TicketRequires } from "@/types/tickets";
 
 export function fetchTicketRequires(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketRequires> {
   return getJson<TicketRequires>(`/api${ticketPath(project, ticketId)}/requires`, signal);

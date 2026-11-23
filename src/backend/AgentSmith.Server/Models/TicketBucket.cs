@@ -1,24 +1,26 @@
 namespace AgentSmith.Server.Models;
 
 /// <summary>
-/// 2026-10-13-9a59a: who must act next on a ticket — the words the ticket list is filtered by.
-/// Later members of the series insert buckets between these; the order the rule asks in is
-/// needs_you, working, waiting_on_review, (stuck), done, then everything else.
+/// 2026-10-13-9a59a: the words the ticket list is filtered by. Later members of the series insert buckets between these.
+/// 2026-11-23-31dcg: who acts next is the ticket's hold (<c>TicketHold</c>): a person's hold makes it needs_you whatever
+/// state it is in, an admin's makes it stuck; every other bucket is the state the newest attempt leaves it in.
 /// </summary>
 public static class TicketBucket
 {
-    /// <summary>The newest attempt is parked and no relaunch is under way: a person must answer.</summary>
+    /// <summary>2026-11-23-31dcg: a person's hold — merge, plan or decide: a parked question or hand-back, a failed or short
+    /// attempt no restart takes up, a changed ticket text, or a pull request that merges next. 2026-11-23-d60d: or an open
+    /// pull request that can merge now or whose CI is red.</summary>
     public const string NeedsYou = "needs_you";
 
-    /// <summary>The newest attempt runs, waits in the capacity queue, or is being relaunched.</summary>
+    /// <summary>The newest attempt runs, waits in the capacity queue, or is being relaunched — and no person's hold lies on it.
+    /// 2026-11-23-d60d: or it ended with a pull request open that waits on nobody — CI running, behind another pull request.
+    /// "In review" (waiting_on_review) is gone: a pull request is a system state, its hold says whose move it is.</summary>
     public const string Working = "working";
-
-    /// <summary>2026-10-13-9a59b: a pull request is open and no attempt runs, waits or needs a person.</summary>
-    public const string WaitingOnReview = "waiting_on_review";
 
     /// <summary>
     /// 2026-10-13-9a59h: the last attempt failed and a check under a day old saw the ticket unchanged and
     /// untouched since — no tracker act, no person's pull-request entry. Never assumed: unchecked is idle.
+    /// 2026-11-23-31dcg: an admin's hold is stuck; a failed attempt a person decides on is needs_you, even once the check saw it.
     /// </summary>
     public const string Stuck = "stuck";
 
@@ -46,6 +48,6 @@ public static class TicketBucket
     /// <summary>Every bucket the list accepts as a filter.</summary>
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
-        NeedsYou, Working, WaitingOnReview, Stuck, Done, Idle, Blocked, Filed, Closed, PrClosed, Failed,
+        NeedsYou, Working, Stuck, Done, Idle, Blocked, Filed, Closed, PrClosed, Failed,
     };
 }

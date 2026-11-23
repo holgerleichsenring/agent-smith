@@ -26,7 +26,8 @@ public sealed class SpecDialogAnswerAdmission(
     SpecDialogSessionManager sessions,
     SpecDialogPendingQuestions pendingQuestions,
     IDialogueTransport dialogueTransport,
-    SpecDialogProposalState? proposals = null) // 2026-11-11-205fe
+    SpecDialogProposalState? proposals = null, // 2026-11-11-205fe
+    Tickets.Text.TicketTextEditAnswers? edits = null) // 2026-11-23-31dcg: a person's turn answers the text edits put to it
 {
     /// <summary>The stored message and whether it answered; null when the thread has no open session.
     /// The author is the poster's display name, recorded on the stored turn. 2026-11-11-205fe: a decided turn names the
@@ -45,6 +46,7 @@ public sealed class SpecDialogAnswerAdmission(
         var state = await sessions.AppendTurnAsync(
             platform, threadId, TranscriptRole.User, text, null, decision, ct, author, decisionProposalId: named);
         if (state is null) return null;
+        if (edits is not null) await edits.AnsweredAsync(state.Project, state.Tracker, state.TicketKey, ct); // never throws
         if (asked is null) return new(state, Answered: false, decision);
         if (!pendingQuestions.TryTake(state.JobId, asked))
             return new(await UndecideAsync(state, ct), Answered: false);

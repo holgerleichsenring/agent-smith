@@ -26,7 +26,7 @@ public sealed class TicketBucketRuleSplitTests
         new TicketBucketRule().Of(Run("r-1", status: status), Live, prs, stuck, closed: mark).Bucket;
 
     [Fact]
-    public void TicketBucketRule_MarkInForceWithAnOpenPullRequest_IsClosedNotWaitingOnReview() =>
+    public void TicketBucketRule_MarkInForceWithAnOpenPullRequest_IsClosedNotWorking() =>
         Bucket("success", [Pr(PrReviewStates.Open)], Mark).Should().Be(TicketBucket.Closed);
 
     [Fact]
@@ -54,8 +54,8 @@ public sealed class TicketBucketRuleSplitTests
         Bucket("failed", [Pr(PrReviewStates.Open)]).Should().Be(TicketBucket.Failed);
 
     [Fact]
-    public void TicketBucketRule_SucceededHeadWithAnOpenPullRequest_StaysWaitingOnReview() =>
-        Bucket("success", [Pr(PrReviewStates.Open)]).Should().Be(TicketBucket.WaitingOnReview);
+    public void TicketBucketRule_SucceededHeadWithAnOpenPullRequest_IsWorkingUntilItsHoldSaysWhoseMoveItIs() =>
+        Bucket("success", [Pr(PrReviewStates.Open)]).Should().Be(TicketBucket.Working);
 
     [Fact]
     public void TicketBucketRule_FailedHeadOpenPullRequestStuck_IsStuck() =>

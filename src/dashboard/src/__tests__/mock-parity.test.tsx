@@ -11,10 +11,9 @@ import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 import TicketsPage from "@/app/tickets/page";
 import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
-import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
+import { fakeHub, hold, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
 import { TicketPage } from "@/components/tickets/detail/TicketPage";
 import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
-import { TicketGraph } from "@/components/tickets/graph/TicketGraph";
 import { DeliveryView } from "@/components/delivery/DeliveryView";
 import { delivery } from "@/components/delivery/__tests__/deliveryFixtures";
 import {
@@ -95,10 +94,9 @@ vi.mock("@/lib/ticketsApi", () => ({
     specs: [{ specId: "s1", goal: "Port", disposition: "kept" }], start: { kind: "start-now" },
   }),
 }));
-// 2026-10-14-dbcen: the requires graph, a ticket's requires and the done-by-hand mark.
-const graphApi = vi.hoisted(() => ({ graph: vi.fn(), requires: vi.fn() }));
+// 2026-10-14-dbcen: a ticket's requires and the done-by-hand mark (2026-11-23-849e: the graph read is gone).
+const graphApi = vi.hoisted(() => ({ requires: vi.fn() }));
 vi.mock("@/lib/ticketGraphApi", () => ({
-  fetchTicketGraph: (...args: unknown[]) => graphApi.graph(...args),
   fetchTicketRequires: (...args: unknown[]) => graphApi.requires(...args),
   markLandedByHand: vi.fn(),
 }));
@@ -232,7 +230,7 @@ describe("Mock parity", () => {
     tickets.fetch.mockResolvedValue(list(
       [
         ticket({
-          bucket: "needs_you", kind: "question", status: "waiting_for_input", ticketId: "7",
+          bucket: "needs_you", kind: "question", hold: hold("question"), status: "waiting_for_input", ticketId: "7",
           pendingQuestion: { runId: "r-101", question: { questionId: "q1", type: "Freeform", text: "Which header style?", context: null, choices: ["IETF draft"], defaultAnswer: null, askedAt: "2026-07-17T10:01:00Z", answerDeadlineAt: "2026-07-17T12:00:00Z" } },
           seriesStrip: { derive: "cut", cells: [{ specId: "s1", state: "done" }, { specId: "s2", state: "asked" }] },
         }),
@@ -245,9 +243,11 @@ describe("Mock parity", () => {
     expect(ticketsRoot.className).toContain("mock-shell");
     expect(ticketsRoot.className).toContain("mock-tickets");
     await screen.findByTestId("ticket-list");
-    for (const cls of [".main", ".m-head", ".health", ".metric", ".section-head", ".cnt", ".rows", ".rgroup", ".trow", ".sd", ".rmain", ".tick", ".ttl", ".act", ".strip", ".attempts", ".cost", ".when", ".chev", ".answer", ".q-item", ".q-opt", ".n-answer"]) {
+    for (const cls of [".main", ".m-head", ".health", ".metric", ".section-head", ".cnt", ".rows", ".rgroup", ".trow", ".sd", ".rmain", ".tick", ".ttl", ".act", ".strip", ".attempts", ".cost", ".when", ".chev", ".trow-act"]) {
       expect(ticketsRoot.querySelector(cls), `ticket list missing ${cls}`).not.toBeNull();
     }
+    // 2026-11-23-849e: a Needs-you row carries its act inline; the answer block under it is gone.
+    for (const cls of [".answer", ".q-item", ".n-answer"]) expect(ticketsRoot.querySelector(cls), `ticket list still carries ${cls}`).toBeNull();
     ticketView.unmount();
 
     // ---- ticket detail (2026-11-17-8d1ca: TicketRail mock — the section bar beside one section) ----
@@ -413,7 +413,7 @@ describe("Mock parity", () => {
     search.current = "";
   });
 
-  // 2026-10-14-dbcen: ticket-graph.html's list buckets, graph view, never-run page and done-by-hand dialog.
+  // 2026-10-14-dbcen: ticket-graph.html's list buckets, never-run page and done-by-hand dialog (2026-11-23-849e: no graph view).
   it("MockParity_TicketGraphSurfaces_CarryTicketGraphHtmlsStructuralClasses", async () => {
     const mock = readFileSync("design/mockups/ticket-graph.html", "utf8");
     const drawn = (root: Element, surface: string, classes: string[]) => {
@@ -431,23 +431,10 @@ describe("Mock parity", () => {
     const listView = render(<TicketListProvider client={fakeHub().client}><TicketsPage /></TicketListProvider>);
     await screen.findByTestId("ticket-list");
     drawn(screen.getByTestId("tickets-home"), "list buckets",
-      [".m-head", ".viewsw", ".vs", ".section-head", ".cnt.person", ".rows", ".trow", ".sd.blocked", ".sd.filed", ".rmain", ".tick", ".ttl", ".act", ".norun", ".when", ".chev"]);
+      [".m-head", ".section-head", ".cnt.person", ".rows", ".trow", ".sd.blocked", ".sd.filed", ".rmain", ".tick", ".ttl", ".act", ".norun", ".when", ".chev"]);
     listView.unmount();
 
-    graphApi.graph.mockResolvedValue({
-      nodes: [
-        { id: "a", project: "shop", ticketId: "59", key: "#59", title: "UI", state: "blocked", bucket: "blocked", hasPage: true },
-        { id: "b", project: "shop", ticketId: "41", key: "#41", title: "#41", state: "idle", bucket: "idle", hasPage: false },
-      ],
-      edges: [{ from: "a", to: "b" }],
-    });
-    const graphView = render(<div className="mock-shell mock-tickets" data-testid="graph-root"><TicketGraph /></div>);
-    await screen.findByTestId("ticket-graph");
-    fireEvent.click(screen.getByTestId("ticket-graph-node-41"));
-    drawn(screen.getByTestId("graph-root"), "graph view",
-      [".tgraph", ".tg-canvas", ".tg-edge", ".tg-node.blocked", ".tg-node.idle", ".tg-key", ".tg-title", ".tg-state", ".tg-legend", ".tg-panel", ".pt", ".pr"]);
-    graphView.unmount();
-
+    // 2026-11-23-849e: the graph view is gone with the Tickets page's List | Graph switch.
     graphApi.requires.mockResolvedValue({
       requires: [{ ticketId: "58", key: "#58", title: "API", state: "ready", hasPage: true }],
       requiredBy: [{ ticketId: "60", key: "#60", title: "Export", state: "blocked", hasPage: true }],
@@ -535,16 +522,6 @@ describe("Mock parity", () => {
     drawn(screen.getByTestId("ticket-page"), "closed header", [".t-head", ".ticon.closed", ".tt", ".tsub", ".closed-line", ".t-act"]);
     pageView.unmount();
 
-    const node = (ticketId: string, state: string) =>
-      ({ id: ticketId, project: "shop", ticketId, key: `#${ticketId}`, title: "T", state, bucket: "idle" as const, hasPage: true });
-    graphApi.graph.mockResolvedValue({
-      nodes: [node("60", "blocked"), node("61", "failed"), node("62", "pr_closed"), node("63", "closed")],
-      edges: ["61", "62", "63"].map((to) => ({ from: "60", to })),
-    });
-    render(<div className="mock-shell mock-tickets" data-testid="graph-root"><TicketGraph /></div>);
-    await screen.findByTestId("ticket-graph");
-    drawnIn("ticket-graph.html")(screen.getByTestId("graph-root"), "graph states",
-      [".tg-node.failed", ".tg-node.pr_closed", ".tg-node.closed", ".tg-legend i.failed", ".tg-legend i.pr_closed", ".tg-legend i.closed"]);
   });
 
   // 2026-10-25-0099c: delivery-overview.html's scope bar, tiles, timeline, breakdowns and tables.

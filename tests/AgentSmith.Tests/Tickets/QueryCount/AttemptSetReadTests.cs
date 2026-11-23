@@ -62,6 +62,28 @@ public sealed class AttemptSetReadTests : IDisposable
         ends["3"].StoppedAtBoundary.Should().BeTrue();
     }
 
+    // 2026-11-23-97c2b
+    [Fact]
+    public async Task PullRequestReposAsync_AnswersEachTicketsReposInOneQuery_ATicketWithoutOneAbsent()
+    {
+        var older = Run("r-1a", "1", status: RunStatuses.Failed);
+        older.PullRequestsJson = """[{"repo":"worker","status":"completion_refused","url":"https://git/w/1"},{"repo":"client","status":"completed","url":"https://git/c/1"},{"repo":"docs","status":"completion_armed","url":"https://git/d/1"}]""";
+        var newer = Run("r-1b", "1");
+        newer.PullRequestsJson = """[{"repo":"server","status":"opened","url":"https://git/s/1"},{"repo":"client","status":"no_changes"}]""";
+        var other = Run("r-2", "2");
+        other.PullRequestsJson = """[{"repo":"server","status":"awaiting_ci","url":"https://git/s/2"}]""";
+        await _h.AddAsync(older, Step("r-1a"), newer, Step("r-1b"), other, Step("r-2"), Run("r-3", "3"), Step("r-3"));
+        _h.Commands.Reset();
+
+        var repos = await Attempts.PullRequestReposAsync("alpha", ["1", "2", "3", "4"], default);
+
+        _h.Commands.Count.Should().Be(1);
+        repos.Keys.Should().BeEquivalentTo(["1", "2"], "3 opened no pull request and 4 has no attempt");
+        repos["1"].Should().BeEquivalentTo(["worker", "server", "docs"],
+            "every code run's standing pull request counts, an armed one too; a merged one, whose branch a host may delete, does not");
+        repos["2"].Should().BeEquivalentTo(["server"]);
+    }
+
     [Fact]
     public async Task RequiredOfManyAsync_AnswersEachKeyAsRequiredOfAsync()
     {

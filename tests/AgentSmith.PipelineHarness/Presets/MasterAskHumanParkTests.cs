@@ -36,7 +36,7 @@ public sealed class MasterAskHumanParkTests
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueToolCall("ask_human",
-                """{"question":"Should the refresh window be 5 or 15 minutes?"}""")
+                """{"question":"Should the refresh window be 5 or 15 minutes?","answerer":"target"}""")
             .EnqueueText("Waiting for the operator's answer.");
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "Question" };
@@ -66,7 +66,7 @@ public sealed class MasterAskHumanParkTests
             // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueToolCall("ask_human",
-                """{"question":"Which export format is authoritative, CSV or XLSX?"}""")
+                """{"question":"Which export format is authoritative, CSV or XLSX?","answerer":"target"}""")
             .EnqueueText("Parked on the operator's answer.");
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "Question" };
@@ -85,6 +85,28 @@ public sealed class MasterAskHumanParkTests
             .Should().NotContain(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
                 && s.Path != null && s.Path.Contains("result.md", StringComparison.Ordinal),
                 "a run parked for clarification must not write a run record or open a PR");
+    }
+
+    /// <summary>2026-11-23-31dch: a question without its answerer is refused once with the values, the retry posts, and a
+    /// second answerer's question parks the run together with it — one park, both questions.</summary>
+    [Fact]
+    public async Task AskHuman_RefusedWithoutAnswerer_ThenTwoAnswerers_ParkTheRunOnceWithBoth()
+    {
+        var tickets = new RecordingTicketProvider();
+        await using var harness = BuildHarness(tickets);
+        harness.ChatClient
+            .EnqueueToolCall("ask_human", """{"question":"Which payload does the Worker read?"}""")
+            .EnqueueToolCall("ask_human", """{"question":"Which payload does the Worker read?","answerer":"plan"}""")
+            .EnqueueToolCall("ask_human", """{"question":"Is the sibling repository's token scoped?","answerer":"environment"}""")
+            .EnqueueText("Waiting for both answers.");
+
+        var result = await new PipelineRunner(harness.Services) { NeedsClarificationStatus = "Question" }.RunAsync("code");
+
+        result.Message.Should().Contain("awaiting_user_input");
+        var park = tickets.Finalized.Should().ContainSingle("the run parks once").Subject;
+        park.Comment.Should().Contain("Q1:").And.Contain("Which payload does the Worker read?")
+            .And.Contain("Q2:").And.Contain("Is the sibling repository's token scoped?")
+            .And.NotContain("Q3:", "the question without an answerer was refused, not posted");
     }
 
     private static RealCompositionHarness BuildHarness(RecordingTicketProvider tickets) =>

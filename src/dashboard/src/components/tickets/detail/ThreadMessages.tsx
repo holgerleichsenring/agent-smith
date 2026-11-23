@@ -5,6 +5,8 @@ import Link from "next/link";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
 import { runPath } from "@/lib/runPath";
+import { seriesRunPath } from "@/lib/seriesRunAddress";
+import { holdSeriesHref, isAsked } from "../holds/holdRoutes";
 import { shortRepo } from "@/lib/shortRepo";
 import { useTicketDetail, useTicketSeries, useTicketText } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketDerivation } from "@/types/tickets";
@@ -105,13 +107,17 @@ export function AttemptBody({ attempt, retry, questionRef, log }: BodyProps) {
 function PendingQuestion({ attempt, project }: { attempt: TicketAttempt; project: string }) {
   const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [answered, setAnswered] = useState(false);
+  // 2026-11-23-31dch: a park that asks about the plan is answered in its series' conversation, never here.
+  const hold = useTicketDetail().data?.summary.hold;
+  const talk = isAsked(hold) ? holdSeriesHref(hold, seriesRunPath) : null;
   const question = attempt.pendingQuestion;
   if (!question) return null;
-  if (lacks) {
+  if (lacks || talk) {
     return (
       <div className="q-item q-head" data-testid="conv-question-text">
         <div className="qt">{question.text}</div>
-        <div className="qm">Run {attempt.number} waits for this answer; answering needs runs.control.</div>
+        <div className="qm">{talk ? <Link href={talk} data-testid="conv-question-series">Answer it in the series conversation ›</Link>
+          : `Run ${attempt.number} waits for this answer; answering needs runs.control.`}</div>
       </div>
     );
   }

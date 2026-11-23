@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Holds;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Server.Models;
@@ -19,7 +20,10 @@ public sealed class TicketBucketPreconditionTests
     {
         var run = Run("r-1", status: status);
         run.EndKind = kind;
-        return new TicketBucketRule().Of(run, Live, [], stuck: false).Bucket;
+        var rule = new TicketBucketRule();
+        // 2026-11-23-31dcg: the stop is Stuck through its admin hold, read as the composer reads it.
+        var hold = new TicketHoldReader().Of(new TicketHoldFacts("alpha", "42") { HeadStatus = status, EndKind = kind, Attempt = 1 });
+        return rule.Held(rule.Of(run, Live, [], stuck: false), hold).Bucket;
     }
 
     [Theory]
@@ -33,8 +37,8 @@ public sealed class TicketBucketPreconditionTests
     [InlineData(RunEndKinds.ReadinessUnknown)]
     [InlineData(RunEndKinds.CriteriaUnmet)]
     [InlineData(null)]
-    public void TicketBucketRule_OtherFailure_StaysFailed(string? kind) =>
-        Bucket(RunStatuses.Failed, kind).Should().Be(TicketBucket.Failed);
+    public void TicketBucketRule_OtherFailure_IsAPersonsDecision(string? kind) =>
+        Bucket(RunStatuses.Failed, kind).Should().Be(TicketBucket.NeedsYou);
 
     [Fact]
     public void TicketBucketRule_PreconditionKindOnACancelledAttempt_IsFailed() =>

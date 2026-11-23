@@ -699,6 +699,13 @@ branch_cleanup:
   enabled: true
   interval_seconds: 86400
 
+# 2026-11-23-31dci: a ticket that waits on nobody - for its model place, for sandbox capacity,
+# for the restart after a stopped server - becomes an admin hold once the wait lasts this many
+# minutes, listed under System > Needs attention: a wait that long means something outside the
+# run is wrong. 0 never reports a wait; negative is refused. Default shown.
+holds:
+  escalate_after_minutes: 60
+
 # p0128c data-flow gating.
 pipeline_data_flow:
   enforce: false

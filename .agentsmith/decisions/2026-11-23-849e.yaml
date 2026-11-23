@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-849e
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "Per series ONE person merge hold, on the ticket whose pull request is next in the merge order, saying what merging unblocks; a never-run ticket that starts once others merge is a nobody hold under Waits on another ('Waits for N merges, next #X') whose act opens the series"
+    over: "Every ticket that starts on a merge listed in Needs you with 'Open Merge next', a merge the person could not make"
+    reason: "Operator, 2026-11-23: on a 25-ticket series Needs you listed four merge holds behind #19653 while only #19648 could merge."
+  - category: Scope
+    decider: operator
+    chose: "One rule for 'can merge now' on every surface — a ready step whose CI runs or is red is not ready (series page row, its counter, the series list's next merge, the merge act); ci_running escalates past holds.escalate_after_minutes"
+    over: "The series page reading the merge order alone (31dce) while the hold read CI (d60d); d60d's 'a CI wait is not escalated'"
+    reason: "Operator, 2026-11-23: #19648 said 'CI läuft' on its ticket and 'Bereit zum Mergen' on the series page; a CI running for hours means something outside the run is wrong, the escalation's own reason."
+  - category: Scope
+    decider: operator
+    chose: "The CI loop re-reads every project's pending CI at merge.ci_poll_seconds up to merge.ci_pending_seconds, not only on_ci_green projects; no new key"
+    over: "Re-reading only on_ci_green projects (3435b), others only through the periodic PR re-read"
+    reason: "Operator (coordinator, 2026-11-23): since d60d every open pull request's hold reads its CI in all merge modes, so the CI must stay fresh in all of them."
+  - category: Implementation
+    decider: claude
+    chose: "A project not on on_ci_green keeps only a pending CI within the bound due; unread, moved-head and unacted records stay on_ci_green's; Config Studio shows the poll and pending keys for every mode"
+    over: "The whole on_ci_green due rule for every project"
+    reason: "Nothing acts on another mode's verdict, so it would be read every poll forever; review finding: a moved-head arm without a bound polls a record whose CI read keeps failing forever. All config in the UI: the two keys now act in every mode."
+  - category: Scope
+    decider: operator
+    chose: "The merge hold and the series merge row say that merging approves the pull request where the host requires a review, as agent-smith's configured identity (merge.approval_auth or the repo's token), and asks the host to complete it"
+    over: "Saying nothing; the coordinator's 'approves in your name'"
+    reason: "Operator (coordinator): the pull request says 'At least 1 reviewer must approve' and a merge-green run approves it (PullRequestApprovalStep, AzureReposApprovalVote). The vote is cast as the configured identity, not the viewer, and under respect_branch_protection the host completes it once its rules pass, so the sentence says that; only projects that respect protection carry the flag."
+  - category: Scope
+    decider: operator
+    chose: "A 'Your next step' block at the top of every series section, from the holds: each person's hold with its act, then '<n> tickets continue without merging; <m> need merges to start (list)', or 'Nothing for you to do now.'"
+    over: "Making the person read Merge next and Who moves next to work it out"
+    reason: "Operator, 2026-11-23."
+  - category: Scope
+    decider: operator
+    chose: "Needs-you rows carry their act inline at the row's right; the answer and hand-back blocks under the row are gone, the row opens the ticket and its hold's words move into the row's activity line"
+    over: "Expanded sub-rows with a big button and an inline question card"
+    reason: "Operator, 2026-11-23. The sentence moved into the row so the list still says what merging unblocks."
+  - category: Scope
+    decider: operator
+    chose: "The Tickets page's List | Graph switch, the TicketGraph view, GET /api/tickets/graph, TicketGraphReader and their tests and CSS are removed; the requires read and Mark done by hand under Waits for stay"
+    over: "Keeping the graph beside the series page's Order and branches"
+    reason: "Operator, 2026-11-23: the series page's graph replaces it; no shim. The node-state precedence the graph tests pinned is pinned on the requires view instead."
+  - category: Scope
+    decider: operator
+    chose: "'What holds the rest' is 'Who moves next' / 'Wer ist dran'; the section id stays held"
+    over: "Keeping the label"
+    reason: "Operator, 2026-11-23; links with ?section=held keep working."
+  - category: Architecture
+    decider: claude
+    chose: "The series facts the merge holds need — each series' merge order and its never-run tickets that start on merges (UnmetTicketRequirements.ForStartManyAsync, the rule FiledTicketRows reads) — are read once per project in TicketHoldInputsReader (TicketHoldSeriesRead) and joined to the facts by TicketHoldInputs.WithSeries; TicketSeriesMergeHold builds both holds"
+    over: "A post-pass over the list's summaries linking holds across tickets"
+    reason: "The ticket page reads one ticket's hold and would miss a cross-ticket pass; reading the plan with the inputs keeps the list, the ticket page and the series page naming one hold, at one extra set-based read per project."
+  - category: Implementation
+    decider: claude
+    chose: "The act kind merge_next is replaced by series (open the series' page)"
+    over: "A second act kind beside merge_next"
+    reason: "No second path: merge_next's only user was the starts-on-merge hold, which now opens the series."
+  - category: Implementation
+    decider: claude
+    chose: "Review fixes: a start on merges names as next the series' ready merge only when it comes before what it needs, else the first it needs; the merge act refuses a ready step whose CI runs or is red; the series list reads 'no holds' as no next merge; 'continue without merging' leaves out tickets whose pull request waits; 'is next after it'; the approval sentence says the host completes it"
+    over: "Shipping as first built"
+    reason: "Fresh-reviewer findings, each confirmed against the code and pinned by a test. Left as named: the series conversation's merge: manual beat still says each green ticket 'waits for your merge'; the CI loop now ticks at the smallest poll (60 s by default) on every install."

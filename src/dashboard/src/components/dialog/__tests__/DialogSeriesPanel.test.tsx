@@ -21,6 +21,14 @@ const series: SeriesRunView = {
 };
 
 describe("DialogSeriesPanel", () => {
+  // 2026-11-23-31dcc
+  it("SeriesPanel_OpenTheSeries_LinksTheSeriesPage", () => {
+    render(<DialogSeriesPanel series={series} />);
+
+    expect(screen.getByTestId("dialog-series-open")).toHaveAttribute("href", "/series/sr-1");
+    expect(screen.getByTestId("dialog-series-open")).toHaveTextContent("Open the series");
+  });
+
   it("SeriesPanel_RunningSeries_ShowsProgressNowPathAndPolicy", () => {
     render(<DialogSeriesPanel series={series} />);
 

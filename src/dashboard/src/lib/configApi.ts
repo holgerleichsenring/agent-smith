@@ -918,7 +918,8 @@ export type SettingKey =
   | "series"
   | "preconditions"
   | "branch_cleanup"
-  | "tickets";
+  | "tickets"
+  | "holds";
 
 export interface OrchestratorSetting {
   maxRunWallTimeSeconds: number;
@@ -1087,6 +1088,11 @@ export interface PreconditionsSetting {
   interruptedRestartWindowMinutes: number;
 }
 
+/** 2026-11-23-31dci: how long a wait on nobody lasts before it is reported to the admin (agentsmith.yml holds:); 0 = never. */
+export interface HoldsSetting {
+  escalateAfterMinutes: number;
+}
+
 /** 2026-11-17-713ec: the branch-cleanup sweep (agentsmith.yml branch_cleanup:). */
 export interface BranchCleanupSetting {
   enabled: boolean;
@@ -1112,6 +1118,7 @@ export interface SettingShapes {
   preconditions: PreconditionsSetting;
   branch_cleanup: BranchCleanupSetting;
   tickets: TicketsSetting;
+  holds: HoldsSetting;
 }
 
 export type SettingValue = SettingShapes[SettingKey];

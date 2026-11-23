@@ -115,7 +115,7 @@ public sealed class MasterReengagementLoopTests
             MasterPassReasons.Budget => ScriptedPasses.Throws(new MasterBudgetExhaustedException("budget")),
             MasterPassReasons.Question => () =>
             {
-                rig!.Clarifications.AskHuman("Which branch?");
+                rig!.Clarifications.AskHuman("Which branch?", answerer: "target");
                 return Report()();
             },
             _ => Report(),

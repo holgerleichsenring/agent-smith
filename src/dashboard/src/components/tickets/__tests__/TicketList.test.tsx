@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TicketListView } from "@/types/tickets";
-import { counts, fakeHub, list, pr, ticket } from "./ticketFixtures";
+import { counts, fakeHub, hold, list, pr, ticket } from "./ticketFixtures";
 
 // 2026-10-13-9a59p: the ticket list against the server's JSON — sections and state pills from one read,
 // bucket views paging their own, the row anatomy, and answering from the list.
@@ -13,6 +13,9 @@ const hoisted = vi.hoisted(() => ({
   fetchRun: vi.fn(),
   push: vi.fn(),
 }));
+
+const holds = vi.hoisted(() => ({ admin: false }));
+vi.mock("@/hooks/useHoldsAdmin", () => ({ useHoldsAdmin: () => holds.admin }));
 
 // 2026-10-15-4a4de: whether this sign-in reaches a project is useProjectReach's question; here it is an answer.
 const reach = vi.hoisted(() => ({ value: "unknown" as "none" | "unknown" }));
@@ -55,6 +58,7 @@ function renderTickets(search = "") {
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60000).toISOString();
 
 beforeEach(() => {
+  holds.admin = false;
   reach.value = "unknown";
   hoisted.pathname = "/tickets";
   hoisted.fetch.mockReset();
@@ -109,17 +113,19 @@ describe("TicketList", () => {
   });
 
   it("PillsAndSections_CountsComeFromOneResponse", async () => {
-    serve(list([ticket()], { needsYou: 0, working: 3, running: 2, queued: 1, waitingOnReview: 2, stuck: 1, idle: 4, done: 14 }));
+    serve(list([ticket()], { needsYou: 0, working: 3, running: 2, queued: 1, stuck: 1, idle: 4, done: 14 }));
     renderTickets();
     await screen.findByTestId("ticket-list");
 
     expect(hoisted.fetch).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("ticket-pills-all-count")).toHaveTextContent("24");
-    for (const [section, n] of [["working", "3"], ["waiting-on-review", "2"], ["stuck", "1"], ["ended", "4"], ["done", "14"]]) {
+    expect(screen.getByTestId("ticket-pills-all-count")).toHaveTextContent("22");
+    expect(screen.queryByTestId("ticket-section-waiting-on-review")).toBeNull();
+    for (const [section, n] of [["working", "3"], ["stuck", "1"], ["ended", "4"], ["done", "14"]]) {
       expect(screen.getByTestId(`ticket-pills-${section}-count`)).toHaveTextContent(n);
       expect(screen.getByTestId(`ticket-section-${section}-count`)).toHaveTextContent(n);
     }
-    expect(screen.getByTestId("ticket-pills-waiting-on-review")).toHaveTextContent("In review");
+    expect(screen.queryByTestId("ticket-pills-waiting-on-review")).toBeNull();
+    expect(screen.queryByTestId("ticket-metric-review")).toBeNull();
     expect(screen.getByTestId("ticket-pills-needs-you-count").className).not.toContain("needs");
     expect(screen.getByTestId("ticket-metric-working")).toHaveTextContent("2 running · 1 queued");
   });
@@ -191,37 +197,29 @@ describe("TicketList", () => {
     expect(marks).toEqual(["handed-back", "failed", "stopped", "ok", "running"]);
   });
 
-  it("AParkedTicket_AnswersThroughPendingQuestionCard_LabelledWithItsAttempt", async () => {
+  // 2026-11-23-849e: a Needs-you row carries its act inline at its right — no answer block under it; the row opens the ticket.
+  it("AParkedTicket_ActsInline_TheRowOpensTheTicket", async () => {
     const question = { questionId: "q1", type: "Freeform", text: "Which header style?", context: null, choices: ["IETF draft"], defaultAnswer: null, askedAt: ago(41), answerDeadlineAt: ago(-60) };
-    serve(list([ticket({ bucket: "needs_you", kind: "question", status: "waiting_for_input", attemptCount: 2, newestRunId: "r-q", pendingQuestion: { runId: "r-q", question }, seriesStrip: { derive: "cut", cells: [{ specId: "s1", state: "done" }, { specId: "s2", state: "asked" }] } })], { needsYou: 1 }));
+    serve(list([ticket({ bucket: "needs_you", kind: "question", hold: hold("question", { act: { kind: "answer", target: null } }), status: "waiting_for_input", attemptCount: 2, newestRunId: "r-q", pendingQuestion: { runId: "r-q", question } })], { needsYou: 1 }));
     renderTickets();
 
-    const send = await screen.findByRole("button", { name: "Send & resume attempt 2" });
-    fireEvent.change(screen.getByTestId("pending-question-input"), { target: { value: "IETF draft" } });
-    fireEvent.click(send);
-    await waitFor(() => expect(hoisted.apiFetch).toHaveBeenCalledWith("/api/runs/r-q/answer", expect.objectContaining({ method: "POST" })));
-    expect(screen.getByTestId("ticket-section-needs-you")).toHaveTextContent("Asked in spec 2");
+    const act = await screen.findByTestId("ticket-hold-act");
+    expect(act).toHaveTextContent("Answer the question");
+    expect(act).toHaveAttribute("href", "/tickets/shop/101");
+    expect(act.closest(".trow-act")).not.toBeNull();
+    expect(screen.queryByTestId("pending-question-input")).toBeNull();
+    expect(document.querySelector(".rgroup .answer")).toBeNull();
     expect(hoisted.fetchRun).not.toHaveBeenCalled();
-  });
-
-  it("TicketNeedsYou_Handback_RendersMarkdown", async () => {
-    serve(list([ticket({ bucket: "needs_you", kind: "handback", status: "waiting_for_input",
-      handback: { text: "## Handed back\n\n<a href=\"#\" data-vss-mention=\"version:2.0,abc\">@Ada Example</a> decide.", at: ago(5) } })], { needsYou: 1 }));
-    renderTickets();
-
-    const card = await screen.findByTestId("ticket-handback");
-    expect(card).toHaveTextContent("@Ada Example decide.");
-    expect(card.textContent).not.toContain("##");
-    expect(card.innerHTML).not.toContain("data-vss-mention");
   });
 
   it("AHandedBackTicket_ShowsTheRowsWords_WithoutAConversationFetch_AndLinksIntoTheConversation", async () => {
     const network = vi.spyOn(globalThis, "fetch");
-    serve(list([ticket({ ticketId: "45/1", bucket: "needs_you", kind: "handback", status: "waiting_for_input", handback: { text: "No such table exists.", at: ago(180) } })], { needsYou: 1 }));
+    serve(list([ticket({ ticketId: "45/1", bucket: "needs_you", kind: "handback", hold: hold("handback"), status: "waiting_for_input", handback: { text: "No such table exists.", at: ago(180) } })], { needsYou: 1 }));
     renderTickets();
 
-    expect((await screen.findByTestId("ticket-handback"))).toHaveTextContent("No such table exists.");
-    expect(screen.getByTestId("ticket-handback-reply")).toHaveAttribute("href", "/spec-dialog?ticket=45%2F1&project=shop");
+    const reply = await screen.findByTestId("ticket-handback-reply");
+    expect(reply).toHaveAttribute("href", "/spec-dialog?ticket=45%2F1&project=shop");
+    expect(reply).toHaveTextContent("Reply in the conversation");
     // 2026-10-13-9a59q: the Needs-you row itself opens the ticket's page.
     expect(screen.getByTestId("ticket-row-shop-45/1")).toHaveAttribute("href", "/tickets/shop/45%2F1");
     expect(hoisted.fetch.mock.calls.every(([query]) => !("conversation" in query))).toBe(true);
@@ -256,7 +254,7 @@ describe("TicketList", () => {
       pr({ url: "u8", state: "unsupported" }),
       pr({ url: "u9", state: "unread" }),
     ];
-    serve(list([ticket({ bucket: "waiting_on_review", status: "success", pullRequests: prs })], { waitingOnReview: 1 }));
+    serve(list([ticket({ bucket: "working", status: "success", pullRequests: prs })], { working: 1 }));
     renderTickets();
 
     const row = await screen.findByTestId("ticket-row-shop-101");
@@ -324,5 +322,66 @@ describe("TicketList", () => {
     serve({ tickets: [], nextCursor: null, counts: counts() });
     renderTickets();
     expect(await screen.findByTestId("tickets-empty")).toBeInTheDocument();
+  });
+  // 2026-11-23-31dcg: Needs you is Your move — a merge and a decision say their sentence and open the ticket; an admin's
+  // hold is Stuck for anyone else and Your move for an admin, whose needs-you view asks the server for it too.
+  // 2026-11-23-31dch: a plan question's row leads to its series' conversation.
+  it("NeedsYou_APlanQuestion_LeadsToTheSeriesConversation", async () => {
+    const plan = ticket({ ticketId: "7", bucket: "needs_you", status: "waiting_for_input",
+      hold: hold("question_plan", { act: { kind: "conversation", target: "sr-1" } }) });
+    serve(list([plan], { needsYou: 1 }));
+    renderTickets();
+    expect(await screen.findByTestId("ticket-needs-you-shop-7")).toHaveTextContent("Talk about the plan");
+    expect(within(screen.getByTestId("ticket-section-needs-you")).getByTestId("ticket-hold-act")).toHaveAttribute("href", "/series/sr-1?section=talk");
+  });
+
+  // 2026-11-23-d60d: no In review section — a pull request that can merge is Your move and opens on its host, one that
+  // waits for its CI is Working and says since when.
+  it("NeedsYou_AMergeReadyPullRequest_OpensOnItsHost_AWaitingOneIsWorking", async () => {
+    const ready = ticket({ ticketId: "8", bucket: "needs_you", status: "success", pullRequests: [pr({ state: "open" })],
+      hold: hold("merge_ready", { act: { kind: "pull_request", target: "https://example.test/pr/809" } }) });
+    const waiting = ticket({ ticketId: "9", bucket: "working", status: "success", pullRequests: [pr({ state: "open", url: "u9" })],
+      hold: hold("ci_running") });
+    serve(list([ready, waiting], { needsYou: 1, working: 1 }));
+    renderTickets();
+    expect(await screen.findByTestId("ticket-needs-you-shop-8")).toHaveTextContent("Its pull request can be merged now.");
+    const act = within(screen.getByTestId("ticket-section-needs-you")).getByTestId("ticket-hold-act");
+    expect(act).toHaveAttribute("href", "https://example.test/pr/809");
+    expect(act).toHaveTextContent("Open the pull request");
+    expect(within(screen.getByTestId("ticket-section-working")).getByTestId("ticket-row-shop-9"))
+      .toHaveTextContent("CI is running on its pull request. Nothing for you to do.");
+    expect(screen.queryByTestId("ticket-section-waiting-on-review")).toBeNull();
+  });
+
+  it("NeedsYou_IsTheHolds_AnAdminsHoldMovesThereOnlyForAnAdmin", async () => {
+    const merge = ticket({ ticketId: "5", bucket: "needs_you", status: "success", hold: hold("merge_next", { act: { kind: "merge", target: "sr-1" } }) });
+    const admin = ticket({ ticketId: "6", bucket: "stuck", status: "failed", hold: hold("preflight", { act: { kind: "conversation", target: null } }) });
+    serve(list([merge, admin], { needsYou: 1, adminHolds: 1, stuck: 1 }));
+    const plain = renderTickets();
+    expect(await screen.findByTestId("ticket-needs-you-shop-5")).toHaveTextContent("Its pull request is next in the series' merge order.");
+    expect(within(screen.getByTestId("ticket-section-needs-you")).getByTestId("ticket-hold-act")).toHaveAttribute("href", "/tickets/shop/5");
+    expect(within(screen.getByTestId("ticket-section-stuck")).getByTestId("ticket-row-shop-6")).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-section-needs-you-count")).toHaveTextContent("1");
+    plain.unmount();
+
+    holds.admin = true;
+    renderTickets();
+    expect(await screen.findByTestId("ticket-needs-you-shop-6")).toBeInTheDocument();
+    expect(screen.getByTestId("ticket-section-needs-you-count")).toHaveTextContent("2");
+    expect(screen.queryByTestId("ticket-section-stuck")).toBeNull();
+
+    hoisted.fetch.mockClear();
+    renderTickets("?bucket=needs-you");
+    await waitFor(() => expect(hoisted.fetch).toHaveBeenCalledWith({ bucket: "needs_you", adminHolds: true }, expect.anything()));
+  });
+
+  it("StuckView_ForAnAdmin_LeavesOutTheAdminHoldsYourMoveLists", async () => {
+    holds.admin = true;
+    const admin = ticket({ ticketId: "6", bucket: "stuck", status: "failed", hold: hold("preflight") });
+    serve(list([admin], { adminHolds: 1, stuck: 1 }), { stuck: [list([admin], { adminHolds: 1, stuck: 1 })] });
+    renderTickets("?bucket=stuck");
+    await waitFor(() => expect(hoisted.fetch).toHaveBeenCalledWith({ bucket: "stuck" }, expect.anything()));
+    expect(screen.queryByTestId("ticket-row-shop-6")).toBeNull();
+    expect(screen.getByTestId("ticket-section-stuck-count")).toHaveTextContent("0");
   });
 });

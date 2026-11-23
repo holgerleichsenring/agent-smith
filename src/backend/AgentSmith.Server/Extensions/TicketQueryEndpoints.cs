@@ -12,6 +12,8 @@ namespace AgentSmith.Server.Extensions;
 /// </summary>
 internal static class TicketQueryEndpoints
 {
+    private const string AdminHolds = "admin";
+
     internal static WebApplication MapTicketQueryEndpoints(this WebApplication app)
     {
         app.MapGet("/api/tickets", ListAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
@@ -23,13 +25,16 @@ internal static class TicketQueryEndpoints
     // Internal so the endpoint tests drive the real readers without a host.
     internal static async Task<IResult> ListAsync(
         string? project, string? bucket, string? cursor, int? limit,
-        TicketListReader reader, ClaimsPrincipal user, CallerProjectScope scopes, CancellationToken cancellationToken)
+        TicketListReader reader, ClaimsPrincipal user, CallerProjectScope scopes, CancellationToken cancellationToken,
+        string? holds = null)
     {
         if (!string.IsNullOrEmpty(bucket) && !TicketBucket.All.Contains(bucket))
             return Results.BadRequest(new { error = $"Unknown bucket '{bucket}'." });
         // 2026-10-15-4a4dd: a project the caller may not read answers as an unknown one does — empty.
         var projects = scopes.For(user, Permissions.RunsRead).Narrowed(project);
-        return Results.Ok(await reader.ReadAsync(new TicketListRequest(projects, bucket, cursor, limit), cancellationToken));
+        // 2026-11-23-31dcg: ?holds=admin — the needs-you filter with the admin holds, as an admin's Your move reads it.
+        return Results.Ok(await reader.ReadAsync(
+            new TicketListRequest(projects, bucket, cursor, limit) { AdminHolds = holds == AdminHolds }, cancellationToken));
     }
 
     internal static async Task<IResult> DetailAsync(

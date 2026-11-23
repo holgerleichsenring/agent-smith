@@ -25,6 +25,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="WaitsFor">2026-10-14-dbcen: a never-run ticket's unlanded requirements; null on a run-bearing row.</param>
 /// <param name="TicketText">2026-10-14-dbcen: a never-run ticket's filing was a ticket text; null on a run-bearing row.</param>
 /// <param name="Closed">2026-10-15-114fb: the stored close mark, in force or not; null when none is stored.</param>
+/// <param name="Hold">2026-11-23-31dcg: what holds the ticket and who moves it; null when nothing does.</param>
 public sealed record TicketSummaryView(
     string Project,
     string TicketId,
@@ -55,4 +56,5 @@ public sealed record TicketSummaryView(
     string? Landing = null,
     IReadOnlyList<TicketWaitsForView>? WaitsFor = null,
     bool? TicketText = null,
-    TicketClosedView? Closed = null);
+    TicketClosedView? Closed = null,
+    AgentSmith.Application.Services.Holds.TicketHold? Hold = null);

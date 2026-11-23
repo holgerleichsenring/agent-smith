@@ -15,4 +15,8 @@ public sealed record TicketListAll(
     ILookup<(string Project, string TicketId), PrReviewRecordView> PrRecords,
     TicketStanding Standing,
     bool Truncated,
-    IReadOnlyDictionary<(string Project, string TicketId), decimal> DerivationCosts);
+    IReadOnlyDictionary<(string Project, string TicketId), decimal> DerivationCosts)
+{
+    /// <summary>2026-11-23-31dcg: what the read's holds were read from, so the page's rows are composed with the same.</summary>
+    public Holds.TicketHoldInputs Inputs { get; init; } = Holds.TicketHoldInputs.None;
+}

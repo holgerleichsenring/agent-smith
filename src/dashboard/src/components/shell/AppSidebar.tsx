@@ -4,10 +4,12 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarDays, ChartColumn, CirclePlay, Clock, GitPullRequest, Inbox, MessagesSquare, PanelLeft, Plus, Ticket, Terminal,
+  CalendarDays, ChartColumn, CirclePlay, Clock, GitFork, GitPullRequest, Inbox, MessagesSquare, PanelLeft, Plus, Ticket, Terminal,
 } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useOpenPrCount } from "@/hooks/useOpenPrCount";
+import { useSeriesRunCount } from "@/hooks/useSeriesRunCount";
+import { useT } from "@/hooks/useT";
 import { useRecentPlaces } from "@/hooks/useRecentPlaces";
 import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
@@ -17,7 +19,10 @@ import { bucketHref, RUNS_PATH, useRunBucketFilter } from "@/lib/RunBucketFilter
 import { TICKETS_PATH, ticketBucketHref, useTicketBucketFilter, type TicketBucketFilter } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
 import { hasSectionBar } from "@/lib/sectionBarPage";
+import { SERIES_PATH } from "@/lib/seriesRunAddress";
 import { cn } from "@/lib/utils";
+import { yourMoveCount } from "@/components/tickets/holds/holdWords";
+import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
 import { ProfileMenu } from "./ProfileMenu";
 import { SidebarGroup, SidebarItem } from "./SidebarItem";
 
@@ -43,10 +48,13 @@ export function AppSidebar() {
   const ownBar = hasSectionBar(pathname);
   const collapsed = chosen || ownBar;
   const tickets = useTicketList().list?.counts;
+  const yourMoves = yourMoveCount(tickets, useHoldsAdmin()); // 2026-11-23-31dcg: an admin's Your move adds the admin holds
   const ticketFilter = useTicketBucketFilter();
   const runFilter = useRunBucketFilter();
   const { overview } = useJobsHub();
   const openPrs = useOpenPrCount();
+  const runningSeries = useSeriesRunCount(pathname); // 2026-11-23-31dcc
+  const t = useT();
   const recent = useRecentPlaces(pathname);
 
   // The same merge and bucketing the runs list renders, so the count matches it.
@@ -112,6 +120,16 @@ export function AppSidebar() {
         collapsed={collapsed}
         testId="sidebar-work-it-out"
       />
+      {/* 2026-11-23-31dcc: every series a conversation filed, directly below the conversations that file them. */}
+      <SidebarItem
+        label={t("series.nav")}
+        href={SERIES_PATH}
+        icon={GitFork}
+        active={under(SERIES_PATH)}
+        collapsed={collapsed}
+        count={runningSeries ?? undefined}
+        testId="sidebar-series"
+      />
 
       <SidebarItem
         label="Your move"
@@ -119,7 +137,7 @@ export function AppSidebar() {
         icon={Inbox}
         active={yourMoveActive}
         collapsed={collapsed}
-        count={tickets?.needsYou}
+        count={yourMoves}
         attention
         onClick={chooseTickets("needs-you")}
         testId="sidebar-your-move"

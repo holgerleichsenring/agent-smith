@@ -29,7 +29,7 @@ public sealed class UnmetTicketRequirementsForStartTests
         var hold = await Read().ForStartAsync(Project(RequiresStart.OnMerge), "jira-42", default);
 
         hold.Unmet.Select(e => e.RequiredTicketId).Should().Equal("41");
-        hold.StackedOn.Should().BeNull();
+        hold.StackedPerRepo.Should().BeEmpty();
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class UnmetTicketRequirementsForStartTests
         var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
 
         hold.Unmet.Should().BeEmpty();
-        hold.StackedOn!.RequiredTicketId.Should().Be("41");
+        hold.StackedPerRepo.Should().Equal(new Dictionary<string, string> { ["api"] = "41" });
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class UnmetTicketRequirementsForStartTests
         var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
 
         hold.Unmet.Should().BeEmpty();
-        hold.StackedOn!.RequiredTicketId.Should().Be("41", "it was cut from 41's branch and keeps building on it");
+        hold.StackedPerRepo["api"].Should().Be("41", "it was cut from 41's branch and keeps building on it");
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class UnmetTicketRequirementsForStartTests
         var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
 
         hold.Unmet.Should().BeEmpty();
-        hold.StackedOn.Should().BeNull();
+        hold.StackedPerRepo.Should().BeEmpty();
     }
 
     [Fact]
@@ -147,16 +147,87 @@ public sealed class UnmetTicketRequirementsForStartTests
         RequiresUnmetGate.Sentence(hold).Should().StartWith("This ticket starts once #39 and #40 are merged, in that order");
     }
 
+    // 2026-11-23-31dca: chain S1 <- S2(server, worker) <- S3(server); the dependent requires S3 only.
+    [Fact]
+    public async Task ForStartAsync_AChainAcrossRepos_StacksEachRepoOnItsNearestPrerequisite()
+    {
+        _facts.Edges.Clear();
+        _facts.Edges.AddRange([Edge("42", "s3"), Edge("s3", "s2"), Edge("s2", "s1")]);
+        Attempt("S1", RunStatuses.Success, "server", "worker");
+        Attempt("S2", RunStatuses.Success, "server", "worker");
+        Attempt("S3", RunStatuses.Success, "server");
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.Unmet.Should().BeEmpty("no repo has two independent prerequisites");
+        hold.StackedPerRepo.Should().Equal(new Dictionary<string, string> { ["server"] = "S3", ["worker"] = "S2" });
+    }
+
+    [Fact]
+    public async Task ForStartAsync_APrerequisiteWithWorkOnlyInAnotherRepo_DoesNotHold_AndLeavesTheOwnRepoUnstamped()
+    {
+        Attempt("41", RunStatuses.Success, "server");
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.Unmet.Should().BeEmpty();
+        hold.StackedPerRepo.Should().Equal(new Dictionary<string, string> { ["server"] = "41" },
+            "server is read at 41's branch; client, where the dependent works, cuts from its own base");
+    }
+
+    [Fact]
+    public async Task ForStartAsync_TwoIndependentGreenPrerequisitesInDifferentRepos_DoNotHold()
+    {
+        _facts.Edges.Add(Edge("42", "40"));
+        Attempt("41", RunStatuses.Success, "server");
+        Attempt("40", RunStatuses.Success, "worker");
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.Unmet.Should().BeEmpty();
+        hold.StackedPerRepo.Should().Equal(new Dictionary<string, string> { ["server"] = "41", ["worker"] = "40" });
+    }
+
+    [Fact]
+    public async Task ForStartAsync_ADeeperPrerequisiteOfTheChainNotGreen_HoldsNamingIt()
+    {
+        _facts.Edges.Clear();
+        _facts.Edges.AddRange([Edge("42", "s3"), Edge("s3", "s2")]);
+        Attempt("S3", RunStatuses.Success, "server");
+        Attempt("S2", RunStatuses.Failed, "worker");
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.Unmet.Select(e => e.RequiredTicketId).Should().Equal(["S2"], "S2's worker branch would be a base, and it is not green");
+    }
+
+    [Fact]
+    public async Task ForStartAsync_APrerequisiteNotGreenYet_HoldsEvenWithItsReposUnknown()
+    {
+        _attempts.Setup(a => a.LatestAsync(TicketRequirementEdges.Project, "41", null, default))
+            .ReturnsAsync(new PreviousAttempt("run-41", RunStatuses.Running, DateTimeOffset.UnixEpoch, Finished: false));
+
+        var hold = await Read().ForStartAsync(Project(RequiresStart.OnGreenPush), "jira-42", default);
+
+        hold.Unmet.Select(e => e.RequiredTicketId).Should().Equal("41");
+        hold.StackedPerRepo.Should().BeEmpty();
+    }
+
     [Fact]
     public void MergesNamed_JoinsWithCommasAndAnd() =>
         RequiresUnmetGate.MergesNamed(["#1", "#2", "#3"]).Should().Be("#1, #2 and #3");
 
     private UnmetTicketRequirements Read() =>
-        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts));
+        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts));
 
-    private void Attempt(string ticket, string status) =>
+    // 2026-11-23-31dca: the attempt's pull requests name the repos it worked in; one shared repo unless told otherwise.
+    private void Attempt(string ticket, string status, params string[] repos) =>
         _attempts.Setup(a => a.LatestAsync(TicketRequirementEdges.Project, ticket, null, default))
-            .ReturnsAsync(new PreviousAttempt("run-" + ticket, status, DateTimeOffset.UnixEpoch, Finished: true) { OpenedPullRequest = true });
+            .ReturnsAsync(new PreviousAttempt("run-" + ticket, status, DateTimeOffset.UnixEpoch, Finished: true)
+            {
+                OpenedPullRequest = true,
+                PullRequestUrls = (repos.Length == 0 ? ["api"] : repos).ToDictionary(r => r, r => $"https://git.test/o/{r}/pull/{ticket}"),
+            });
 
     private static ResolvedProject Project(RequiresStart mode) => new()
     {

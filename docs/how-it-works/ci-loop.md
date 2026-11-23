@@ -28,7 +28,7 @@ Where the host requires an approval, `approval_auth` names the secret of a secon
 
 ## Reading CI
 
-Every open pull request's CI is read with its record and shown on the ticket page: `none`, `pending`, `green` or `red`. One rule for every host: where checks are marked required, only those count; any failed check is red; otherwise anything running is pending; otherwise green.
+Every open pull request's CI is read with its record and shown on the ticket page: `none`, `pending`, `green` or `red`. A pending CI is read again every `ci_poll_seconds` for up to `ci_pending_seconds`, whatever the project's merge mode, because who acts next on a pull request depends on its CI. A CI still running after `holds.escalate_after_minutes` is reported to the admin. One rule for every host: where checks are marked required, only those count; any failed check is red; otherwise anything running is pending; otherwise green.
 
 For a red head, codeably stores which checks failed, with a bounded excerpt of the evidence (the host's summary and annotations, then the end of the log) and a link. GitHub check runs and statuses, Azure DevOps build policies and statuses, and GitLab head pipelines are all read. The token needs read access to checks and logs on GitHub, Build (read) on Azure DevOps and `read_api` on GitLab.
 
