@@ -64,28 +64,27 @@ public sealed class TicketSummaryComposer(
         return standing?.Apply(summary) ?? summary;
     }
 
-    /// <summary>2026-11-23-31dcg: a never-run row under its hold — a ticket that starts once others merge is a person's move,
-    /// one whose requirements are still worked waits on nobody.</summary>
+    /// <summary>2026-11-23-31dcg: a never-run row under its hold. 2026-11-23-849e: one that starts once others merge waits on
+    /// nobody (Waits on another) for its series' merges, as one whose requirements are still worked does.</summary>
     public TicketSummaryView HeldNeverRun(TicketSummaryView row, TicketHoldInputs inputs)
     {
         ArgumentNullException.ThrowIfNull(row);
         ArgumentNullException.ThrowIfNull(inputs);
         var waits = row.WaitsFor ?? [];
-        var hold = holds.Of(new TicketHoldFacts(row.Project, row.TicketId)
+        var hold = holds.Of(inputs.WithSeries(new TicketHoldFacts(row.Project, row.TicketId)
         {
             Finished = row.Bucket is TicketBucket.Done or TicketBucket.Closed,
-            SeriesId = inputs.SeriesOf(row.Project, row.TicketId),
             StartsOnceMerged = [.. waits.Where(w => w.StartsOnMerge).Select(w => w.Key)],
             // A closed requirement never finishes: it is named by no "starts when it finishes".
             WaitsFor = [.. waits.Where(w => !w.StartsOnMerge && !w.Closed).Select(w => w.Key)],
             TextEdited = inputs.EditedOpen(row.Project, row.TicketId),
             FiledAt = row.Since, EscalateAfterMinutes = inputs.EscalateAfterMinutes, Now = inputs.Now, // 31dci
-        });
+        }));
         var state = buckets.Held(new TicketBucketState(row.Bucket, row.Kind, row.Since, null, null, null, row.Landing), hold);
         return row with { Bucket = state.Bucket, Kind = state.Kind, Since = state.Since, Hold = hold };
     }
 
-    // The stored facts the hold is read from: the newest attempt, what parks it, the restart, the series and the text edit.
+    // The stored facts the hold is read from: the newest attempt, what parks it, the restart, the series (WithSeries) and the text edit.
     private static TicketHoldFacts Facts(Run head, int number, TicketBucketState state, TicketLiveState live,
         TicketStanding? standing, bool onInfrastructure, TicketHoldInputs inputs)
     {
@@ -93,7 +92,7 @@ public sealed class TicketSummaryComposer(
         var interrupted = head.Status == LeftInPlaceEnd.Cancelled && OwedWorkCancel.IsOwed(head.CancelReason);
         // Done by its delivery alone — no merge, no landing by hand — leaves a short delivery to a person's decision.
         var delivered = state.Bucket == TicketBucket.Done && state.Landing != TicketLanding.Merged && standing?.LandedAt(head) is null;
-        return new TicketHoldFacts(head.Project, head.TicketId)
+        return inputs.WithSeries(new TicketHoldFacts(head.Project, head.TicketId)
         {
             Finished = state.Bucket == TicketBucket.Closed
                 || (state.Bucket == TicketBucket.Done && !(delivered && head.Status == RunStatuses.Shortfall)),
@@ -104,15 +103,13 @@ public sealed class TicketSummaryComposer(
             Asked = question is not null, Answerers = question?.Answerers ?? [],
             ParkedAt = question?.AskedAt ?? standing?.Handbacks.GetValueOrDefault(head.Id)?.At,
             Interrupted = interrupted, Restarting = interrupted && inputs.Restarts(head.FinishedAt),
-            SeriesId = inputs.SeriesOf(head.Project, head.TicketId), SeriesActive = inputs.InActiveSeries(head.Project, head.TicketId),
-            MergeStep = inputs.StepOf(head.Project, head.TicketId),
             OpenPullRequests = inputs.OpenOf(head.Project, head.TicketId), // 2026-11-23-d60d
             TextEdited = inputs.EditedOpen(head.Project, head.TicketId),
             // 2026-11-23-31dci: since when it waits on nobody — a queued row is written when its entry enters the queue.
             WaitingForModelSince = head.Status == RunStatuses.Running ? inputs.ModelWaitOf(head.Id) : null,
             EnqueuedAt = inputs.EnqueuedOf(head.Project, head.TicketId) ?? (head.Status == RunStatuses.Queued ? head.StartedAt : null),
             EscalateAfterMinutes = inputs.EscalateAfterMinutes, Now = inputs.Now,
-        };
+        });
     }
 
     private static TicketPendingQuestion? Question(Run head, TicketBucketState state) =>

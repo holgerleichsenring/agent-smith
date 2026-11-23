@@ -16,8 +16,9 @@ public static class TicketHoldActs
     /// <summary>Merge the ticket's pull requests through the series' merge (2026-11-23-31dce); the target is the series id.</summary>
     public const string Merge = "merge";
 
-    /// <summary>Open the series' Merge next; the target is the series id.</summary>
-    public const string MergeNext = "merge_next";
+    /// <summary>2026-11-23-849e: open the series' page — a ticket that starts on merges waits for its merge order there;
+    /// the target is the series id. Replaces the former merge_next act, which offered a merge the person could not make.</summary>
+    public const string Series = "series";
 
     /// <summary>2026-11-23-d60d: open the pull request on its host; the target is its URL, null when several are open.</summary>
     public const string PullRequest = "pull_request";

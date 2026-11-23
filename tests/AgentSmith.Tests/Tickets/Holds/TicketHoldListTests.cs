@@ -62,14 +62,36 @@ public sealed class TicketHoldListTests : IDisposable
             (TicketBucket.Working, TicketHoldAddressees.Nobody, TicketHoldCases.MergeAfter));
         after.Hold.Names.Should().Equal("SCRUM-1");
         list.Counts.NeedsYou.Should().Be(1, "only the merge that comes next is Your move");
+        (next.Hold.Next, next.Hold.Approves).Should().Be(("SCRUM-2", false), "2026-11-23-849e: the step after it; alpha bypasses protection");
+    }
+
+    // 2026-11-23-849e: the series page, its list row and the ticket's hold share one rule — a ready step whose CI still runs
+    // is no merge for a person, and the next merge is named only while the hold is that merge.
+    [Fact]
+    public async Task SeriesPage_AReadyStepWithCiRunning_IsNotTheNextMerge()
+    {
+        await SeriesAsync("sr-1", "1", "2");
+        await _h.AddAsync(Run("r-1", "1"), Step("r-1"), Record("1", CiStates.Pending), Run("r-2", "2"), Step("r-2"), Record("2"),
+            Requires("2", "1"));
+        await using var scope = _h.Services.CreateAsyncScope();
+
+        var series = (await scope.ServiceProvider.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default))!;
+
+        series.MergeOrder.First().Wait.Should().Be(AgentSmith.Application.Services.Series.SeriesRunMergeWaits.Ready);
+        series.Tickets.Single(t => t.TicketId == "1").Hold!.Case.Should().Be(TicketHoldCases.CiRunning);
+        var holds = series.Tickets.Where(t => t.Hold is not null).ToDictionary(t => t.TicketId, t => t.Hold!);
+        SeriesRunTickets.NextMerge(series.MergeOrder, holds).Should().BeNull();
+        SeriesRunTickets.NextMerge(series.MergeOrder, null).Should().Be("SCRUM-1", "without holds the merge order alone decides");
     }
 
     [Fact]
     public async Task List_APullRequestOutsideASeries_MergesNowOrWaitsWithItsReason_RedCiIsADecision()
     {
+        var running = Record("3", CiStates.Pending);
+        running.CiAtTicks = T.AddMinutes(170).UtcTicks; // 2026-11-23-849e: ten minutes before the clock, short of the escalation
         await _h.AddAsync(Run("r-1", "1"), Step("r-1"), Record("1", CiStates.Green),
             Run("r-2", "2"), Step("r-2"), Record("2", CiStates.Green), Requires("2", "1"),
-            Run("r-3", "3"), Step("r-3"), Record("3", CiStates.Pending),
+            Run("r-3", "3"), Step("r-3"), running,
             Run("r-4", "4"), Step("r-4"), Record("4", CiStates.Red));
 
         var list = await ListAsync();
@@ -79,7 +101,7 @@ public sealed class TicketHoldListTests : IDisposable
             new TicketHoldAct(TicketHoldActs.PullRequest, "https://github.com/o/api/pull/1")));
         (row["2"].Bucket, row["2"].Hold!.Case).Should().Be((TicketBucket.Working, TicketHoldCases.MergeAfter));
         row["2"].Hold!.Names.Should().Equal("#1");
-        (row["3"].Bucket, row["3"].Hold!.Case, row["3"].Hold!.Since).Should().Be((TicketBucket.Working, TicketHoldCases.CiRunning, (DateTimeOffset?)T));
+        (row["3"].Bucket, row["3"].Hold!.Case, row["3"].Hold!.Since).Should().Be((TicketBucket.Working, TicketHoldCases.CiRunning, (DateTimeOffset?)T.AddMinutes(170)));
         (row["4"].Bucket, row["4"].Hold!.Addressee, row["4"].Hold!.Case).Should().Be((TicketBucket.NeedsYou, TicketHoldAddressees.Decide, TicketHoldCases.CiFailed));
         row["4"].Hold!.Names.Should().Equal("build");
         (list.Counts.NeedsYou, list.Counts.Working, list.Counts.Running, list.Counts.Queued).Should().Be((2, 2, 0, 0),
@@ -186,7 +208,7 @@ public sealed class TicketHoldListTests : IDisposable
     }
 
     [Fact]
-    public void HeldNeverRun_AStartAfterAMerge_IsYourMove_ARunningRequirement_IsNot()
+    public void HeldNeverRun_AStartAfterAMerge_AndARunningRequirement_WaitOnAnother()
     {
         var composer = _h.Services.GetRequiredService<TicketSummaryComposer>();
         var row = new TicketSummaryView("alpha", "60", null, null, null, TicketBucket.Blocked, null, T, 0, 0m, "", "", null, null, null,
@@ -195,7 +217,9 @@ public sealed class TicketHoldListTests : IDisposable
         var merge = composer.HeldNeverRun(row, TicketHoldInputs.None);
         var running = composer.HeldNeverRun(row with { WaitsFor = [new TicketWaitsForView("58", "alpha", "#58", "Orders")] }, TicketHoldInputs.None);
 
-        (merge.Bucket, merge.Hold!.Case, merge.Hold.Names.Single()).Should().Be((TicketBucket.NeedsYou, TicketHoldCases.StartsOnMerge, "#58"));
+        // 2026-11-23-849e: a ticket that starts once others merge is nobody's move — the series has one merge, its next.
+        (merge.Bucket, merge.Hold!.Addressee, merge.Hold.Case, merge.Hold.Names.Single(), merge.Hold.Merges).Should()
+            .Be((TicketBucket.Blocked, TicketHoldAddressees.Nobody, TicketHoldCases.StartsOnMerge, "#58", (int?)1));
         (running.Bucket, running.Hold!.Case).Should().Be((TicketBucket.Blocked, TicketHoldCases.Prerequisite));
     }
 

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SeriesRunMergeStep, SeriesRunPullRequest } from "@/types/seriesRuns";
+import { hold } from "@/components/tickets/__tests__/ticketFixtures";
 import { seriesDetail, seriesTicket } from "./seriesFixtures";
 
 // 2026-11-23-31dce: Merge next — rows in merge order with each repo's pull request, its CI and link; only the ready row's
@@ -23,7 +24,7 @@ const step = (ticketId: string, wait: SeriesRunMergeStep["wait"], after: string[
 
 const detail = () => seriesDetail({
   tickets: [
-    seriesTicket({ ticketId: "49", key: "#49", title: "Domain", pullRequests: [
+    seriesTicket({ ticketId: "49", key: "#49", title: "Domain", hold: hold("merge_next", { act: { kind: "merge", target: "sr-1" } }), pullRequests: [
       pr(), pr({ repo: "worker", number: "12", ci: "red", ciFailure: "build: error CS1002", ciLog: "https://ci/log/7" }),
       pr({ repo: "client", number: "3", state: "closed" })] }),
     seriesTicket({ ticketId: "50", key: "#50", title: "Lifecycle", pullRequests: [pr({ number: "9940" })] }),
@@ -60,6 +61,23 @@ describe("SeriesMergeNextSection", () => {
     expect(screen.getByTestId("series-merge-button-51")).toBeDisabled();
     expect(screen.getByTestId("series-merge-why-50")).toHaveTextContent("Merge #49 first.");
     expect(screen.getByTestId("series-merge-why-51")).toHaveTextContent("moved onto the default branch");
+  });
+
+  // 2026-11-23-849e: the hold decides — a ready step whose CI still runs is no merge and says its hold's sentence; a merge
+  // that approves says so beside the button.
+  it("MergeNext_AReadyStepWithCiRunning_IsNotMergeable_AndAnApprovingOneSaysSo", () => {
+    const running = detail();
+    running.tickets[0] = { ...running.tickets[0], hold: hold("ci_running") };
+    const { unmount } = render(<SeriesMergeNextSection detail={running} reload={() => {}} />);
+    expect(screen.getByTestId("series-merge-button-49")).toBeDisabled();
+    expect(screen.getByTestId("series-merge-why-49")).toHaveTextContent("CI is running on its pull request.");
+    unmount();
+
+    const approving = detail();
+    approving.tickets[0] = { ...approving.tickets[0], hold: hold("merge_next", { approves: true, act: { kind: "merge", target: "sr-1" } }) };
+    render(<SeriesMergeNextSection detail={approving} reload={() => {}} />);
+    expect(screen.getByTestId("series-merge-button-49")).toBeEnabled();
+    expect(screen.getByTestId("series-merge-why-49")).toHaveTextContent("Merging approves the pull request where its host requires a review");
   });
 
   it("MergeNext_Merge_ShowsWhatTheRunDid_AndReadsTheSeriesAgain", async () => {

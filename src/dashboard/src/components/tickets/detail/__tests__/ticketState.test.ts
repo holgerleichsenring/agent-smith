@@ -108,16 +108,16 @@ describe("ticketState", () => {
     expect(view.act).toEqual({ kind: "tab", label: "Answer in the conversation", tab: "conversation" });
   });
 
-  // 2026-11-23-31dcg: the merge a series holds the ticket for, and the series' Merge next a start waits for.
-  it("ticketState_AMergeHold_OffersTheSeriesMerge_AStartAfterMerges_OpensMergeNext", () => {
+  // 2026-11-23-31dcg: the merge a series holds the ticket for. 2026-11-23-849e: a start that waits on merges opens the series.
+  it("ticketState_AMergeHold_OffersTheSeriesMerge_AStartAfterMerges_OpensTheSeries", () => {
     const d = detail([attempt()]);
     d.summary = { ...d.summary, bucket: "needs_you", hold: hold("merge_next", { act: { kind: "merge", target: "sr-1" } }) };
     expect(state(d)).toMatchObject({ tone: "person", sentence: "Its pull request is next in the series' merge order.",
       act: { kind: "merge", seriesId: "sr-1", ticketId: "101" } });
     const never = detail([]);
-    never.summary = { ...never.summary, bucket: "needs_you", hold: hold("starts_on_merge", { names: ["#1", "#2"], act: { kind: "merge_next", target: "sr-1" } }) };
-    expect(state(never)).toMatchObject({ sentence: "Starts once #1 and #2 are merged, in that order.",
-      act: { kind: "link", href: "/series/sr-1?section=next" } });
+    never.summary = { ...never.summary, bucket: "blocked",
+      hold: hold("starts_on_merge", { names: ["#2"], merges: 2, next: "#1", act: { kind: "series", target: "sr-1" } }) };
+    expect(state(never)).toBeNull(); // nobody's: the never-run page says what it waits for under Waits for
   });
 
   it("ticketState_AHold_SpeaksTheViewersLanguage", () => {

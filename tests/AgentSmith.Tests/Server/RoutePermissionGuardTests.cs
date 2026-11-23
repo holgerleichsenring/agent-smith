@@ -175,11 +175,10 @@ public sealed class RoutePermissionGuardTests
         Declaration("POST", "/api/tickets/{project}/{ticketId}/reopen").Should().Equal(Permissions.RunsControl);
     }
 
-    // 2026-10-14-dbcen: the graph and a ticket's requires are ticket state, read like the list.
+    // 2026-10-14-dbcen: a ticket's requires are ticket state, read like the list (2026-11-23-849e: the graph route is gone).
     [Fact]
-    public void RoutePermissionGuard_TicketGraphAndRequires_NeedRunsRead()
+    public void RoutePermissionGuard_TicketRequires_NeedRunsRead()
     {
-        Declaration("GET", "/api/tickets/graph").Should().Equal(Permissions.RunsRead);
         Declaration("GET", "/api/tickets/{project}/{ticketId}/requires").Should().Equal(Permissions.RunsRead);
     }
 

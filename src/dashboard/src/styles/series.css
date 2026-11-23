@@ -98,3 +98,9 @@
 .mock-tickets .sr-changes .revs { margin-top: 10px; }
 .mock-tickets .sr-changes .rv { grid-template-columns: auto minmax(0, 1fr) auto; overflow-wrap: anywhere; }
 .mock-tickets .sr-changes .rc a.mono { color: var(--ink-2); }
+
+/* 2026-11-23-849e: the series page's "Your next step" — above the section, one line per person's hold with its act. */
+.mock-tickets .sr-you { display: grid; gap: 6px; margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--person); border-radius: var(--r-s); background: var(--person-wash); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.mock-tickets .sr-you-title { font-weight: 650; }
+.mock-tickets .sr-you-line { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.mock-tickets .sr-you-merges { color: var(--ink-2); }

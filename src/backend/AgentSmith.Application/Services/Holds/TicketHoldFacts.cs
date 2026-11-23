@@ -63,6 +63,15 @@ public sealed record TicketHoldFacts(string Project, string TicketId)
     /// <summary>2026-11-23-d60d: the ticket's open pull requests; null when none is open.</summary>
     public TicketOpenPullRequests? OpenPullRequests { get; init; }
 
+    /// <summary>2026-11-23-849e: the merge order of the ticket's newest series; empty outside any.</summary>
+    public IReadOnlyList<SeriesRunMergeStep> SeriesMergeOrder { get; init; } = [];
+
+    /// <summary>2026-11-23-849e: the keys of that series' tickets that start only once others merge.</summary>
+    public IReadOnlyList<string> SeriesStartsOnMerge { get; init; } = [];
+
+    /// <summary>2026-11-23-849e: a merge of the project approves where the host requires a review.</summary>
+    public bool MergeApproves { get; init; }
+
     /// <summary>A never-run ticket starts once these are merged (2026-11-22-6d85d).</summary>
     public IReadOnlyList<string> StartsOnceMerged { get; init; } = [];
 

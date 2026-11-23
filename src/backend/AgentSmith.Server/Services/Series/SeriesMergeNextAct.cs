@@ -31,7 +31,7 @@ public sealed class SeriesMergeNextAct(
             return TicketCloseResult.Refuse(Status404NotFound, $"{ticketId} is not a ticket of this series.");
         if (series.MergeOrder.FirstOrDefault(s => s.TicketId == ticketId) is not { } step)
             return TicketCloseResult.Refuse(Status409Conflict, $"{ticket.Key} has no open pull request to merge.");
-        if (NotNext(step) is { } why) return TicketCloseResult.Refuse(Status409Conflict, why);
+        if ((NotNext(step) ?? CiHolds(ticket)) is { } why) return TicketCloseResult.Refuse(Status409Conflict, why);
         if (await attempts.LatestAsync(project.Name, ticketId, null, ct) is not { } attempt)
             return TicketCloseResult.Refuse(Status409Conflict, $"{ticket.Key} has no attempt whose pull requests could merge.");
         return await RunAsync(project, ticket, Request(ticket, attempt.RunId, askedBy), ct);
@@ -52,6 +52,17 @@ public sealed class SeriesMergeNextAct(
         return slot.Value is { } lines
             ? TicketCloseResult.Ok(new SeriesMergeAnswer(ticket.TicketId, [.. lines.Select(View)]))
             : TicketCloseResult.Refuse(Status500InternalServerError, $"{ticket.Key} was not merged: the merge run ended before its merge step.");
+    }
+
+    /// <summary>2026-11-23-849e: the ready step's CI still runs or is red — the hold's rule (no merge offered), so the act
+    /// refuses what the page no longer offers; null when every waiting pull request's CI is green, none or unread.</summary>
+    internal static string? CiHolds(SeriesRunTicketView ticket)
+    {
+        ArgumentNullException.ThrowIfNull(ticket);
+        var waiting = ticket.PullRequests.Where(SeriesRunPullRequests.Waits).ToList();
+        if (waiting.Any(p => p.Ci == AgentSmith.Contracts.Reviews.CiStates.Red)) return $"{ticket.Key} is not merged: its CI is red.";
+        return waiting.Any(p => p.Ci == AgentSmith.Contracts.Reviews.CiStates.Pending)
+            ? $"{ticket.Key} is not merged yet: its CI is still running." : null;
     }
 
     /// <summary>Why a step of the merge order is not the one to merge now; null when it is.</summary>

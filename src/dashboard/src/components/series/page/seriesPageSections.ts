@@ -6,12 +6,14 @@ import { SeriesOrderSection } from "./SeriesOrderSection";
 import { SeriesMergeNextSection } from "./SeriesMergeNextSection";
 import { SeriesHoldsSection } from "./SeriesHoldsSection";
 import { SeriesTicketsSection } from "./SeriesTicketsSection";
+import { mergesNow } from "./seriesStepLines";
 
 // 2026-11-23-31dcd: the series page's sections, ONE table, in the bar's order — Merge next, What holds the rest, Order
 // and branches, Tickets, Conversation — each with the count the bar shows beside it; the page shows one at a time and
 // ?section= names it. Merge next (31dce), What holds the rest (31dcg) and Order and branches (31dcf) are named here and
 // listed once their pane exists; the first listed section is the default. 2026-11-23-31dce: Merge next is listed.
-// 2026-11-23-31dcg: and What holds the rest, counted by the server's held count.
+// 2026-11-23-31dcg: and What holds the rest, counted by the server's held count. 2026-11-23-849e: renamed Who moves next
+// (the id stays held, so links keep working).
 
 export type SeriesSectionId = "next" | "held" | "course" | "tickets" | "talk";
 
@@ -34,7 +36,7 @@ export interface SeriesSection {
 export const seriesSections: SeriesSection[] = [
   {
     id: "next", label: "series.section.next", Pane: SeriesMergeNextSection,
-    counter: (d) => ({ text: String(d.mergeOrder.length), hot: d.mergeOrder.some((step) => step.wait === "ready") }),
+    counter: (d) => ({ text: String(d.mergeOrder.length), hot: d.mergeOrder.some((step) => mergesNow(d, step)) }), // 849e
   },
   {
     id: "held", label: "series.section.held", Pane: SeriesHoldsSection,

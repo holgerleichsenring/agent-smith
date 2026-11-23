@@ -16,7 +16,7 @@ public sealed record SeriesRunTicketView(
     /// sent so the page lists what the held count counts.</summary>
     public bool IsHeld => Held(Hold);
 
-    /// <summary>2026-11-23-31dcg: whether What holds the rest lists it as held — a hold names someone and is not the merge
+    /// <summary>2026-11-23-31dcg: whether What holds the rest (2026-11-23-849e: Who moves next) lists it as held — a hold names someone and is not the merge
     /// that comes next.</summary>
     public static bool Held(AgentSmith.Application.Services.Holds.TicketHold? hold) =>
         hold is not null && hold.Addressee != AgentSmith.Application.Services.Holds.TicketHoldAddressees.Nobody

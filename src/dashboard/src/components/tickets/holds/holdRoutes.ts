@@ -1,7 +1,7 @@
 import type { TicketHold } from "@/types/tickets";
 
 // 2026-11-23-31dch: where a hold sends a person — a parked question of any answerer, and the series page a hold's act
-// names: its conversation for a park that asks about the plan, its Merge next for a merge.
+// names: its conversation for a park that asks about the plan, its page for a ticket waiting on its merges.
 
 /** 2026-11-23-31dch: a parked question holds it — the ticket's own, the plan's or the environment's. */
 export function isAsked(hold: TicketHold | null | undefined): boolean {
@@ -13,10 +13,11 @@ export function holdPullRequestHref(hold: TicketHold | null | undefined): string
   return hold?.act?.kind === "pull_request" ? hold.act.target : null;
 }
 
-/** 2026-11-23-31dch: where a hold's row leads — a series' conversation for a plan question, its Merge next, else null. */
+/** 2026-11-23-31dch: where a hold's row leads — a series' conversation for a plan question, the series' page for a
+ *  ticket waiting on its merges (2026-11-23-849e, the act that replaced Merge next), else null. */
 export function holdSeriesHref(hold: TicketHold | null | undefined, seriesPath: (id: string) => string): string | null {
   const act = hold?.act;
   if (!act?.target) return null;
-  if (act.kind === "merge_next") return `${seriesPath(act.target)}?section=next`;
+  if (act.kind === "series") return seriesPath(act.target);
   return act.kind === "conversation" ? `${seriesPath(act.target)}?section=talk` : null;
 }

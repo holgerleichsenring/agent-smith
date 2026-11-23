@@ -39,7 +39,7 @@ internal static class TicketReadExtensions
             .AddTransient<TicketMonthCost>()
             .AddTransient<TicketCounts>()
             .AddTransient<TicketListReader>()
-            .AddTransient<FiledTicketRows>().AddTransient<TicketGraphReader>().AddTransient<TicketRequiresReader>() // 2026-10-14-dbcen
+            .AddTransient<FiledTicketRows>().AddTransient<TicketRequiresReader>() // 2026-10-14-dbcen
             .AddTransient<TicketDetailReader>().AddTransient<TicketDerivations>() // 2026-10-26-bdd0f
             .AddTransient<Services.Series.TicketSeriesRunLink>() // 2026-11-23-31dcc: the ticket's series run
             .AddTransient<TicketReviewState>() // 2026-10-13-9a59b

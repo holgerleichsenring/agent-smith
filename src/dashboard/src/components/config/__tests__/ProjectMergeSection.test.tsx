@@ -37,9 +37,13 @@ describe("ProjectMergeSection", () => {
     expect(onChange.mock.calls.at(-1)![0].merge.approvalAuth).toBe("approver");
   });
 
-  it("hides the CI cadence for another mode but keeps the evidence bounds", () => {
+  // 2026-11-23-849e: the poll and the pending bound re-read every project's pending CI, so they show for every mode.
+  it("hides the merge-on-green keys for another mode but keeps the poll and the evidence bounds", () => {
     render(<ProjectMergeSection project={project} onChange={() => {}} capabilities={capabilities} />);
-    expect(screen.queryByTestId("form-field-merge-ciPollSeconds")).toBeNull();
+    expect(screen.queryByTestId("form-field-merge-ciFixAttempts")).toBeNull();
+    expect(screen.queryByTestId("form-field-merge-ciSettleSeconds")).toBeNull();
+    expect(screen.getByTestId("form-field-merge-ciPollSeconds")).toBeTruthy();
+    expect(screen.getByTestId("form-field-merge-ciPendingSeconds")).toBeTruthy();
     expect(screen.getByTestId("form-field-merge-ciExcerptChars")).toBeTruthy();
   });
 
