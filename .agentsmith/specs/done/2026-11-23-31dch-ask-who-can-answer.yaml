@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dch
+goal: "The master's question names who can answer it — the target code, the plan, or the environment — and a plan question goes to the series conversation, an environment one to the admin."
+
+applies_to: "default (TicketClarificationToolHost, HumanToolHost, PlanOpenQuestion, question checkpoint, series conversation turn, resume act, TicketHoldReader)"
+
+requires: [2026-11-23-31dcg]
+
+invariant: "A question about the plan is never answered as a code question on one ticket; the series conversation sees it and its answer reaches the parked run through the one resume path."
+
+facts:
+  - claim: "ask_human takes question, context, choices and a recommended index, and refuses a second question in the same run."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketClarificationToolHost.cs:42-51"
+  - claim: "The dialogue transport's ask_human is a separate host serving other pipelines."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/HumanToolHost.cs:15,33-38"
+  - claim: "After resume the master reads its answer through one intake, matched by question text."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/MasterAnswerIntake.cs:20"
+  - claim: "One question mixed a missing contract between two tickets with an unreachable sibling repo, posted as a yes/no on one ticket."
+    evidence: "observed: 2026-11-23, parked question of a Worker ticket in a three-repo series"
+  - claim: "Three refused tool calls end a run."
+    evidence: "observed: 2026-09-20, runs ended after the same refused tool call three times"
+
+scope:
+  in: >-
+    TicketClarificationToolHost.ask_human gains a required 'answerer' (target / plan / environment), described by what
+    each means. One OPEN question per answerer replaces 'one question per run': a second question to the same answerer
+    is refused as today, one to another answerer is posted too, and the run parks once with all of them. A missing
+    answerer is refused with one message that names the three values and what each means, so one retry fixes it.
+    HumanToolHost takes 'answerer' as optional (default target). Stored with the question (PlanOpenQuestion and the
+    checkpoint). target: as today. plan: the question is posted into the series run's conversation as the series
+    master's message naming the ticket; the next conversation turn whose poster answers it hands the answer to the
+    existing resume act for the parked run's DialogueJobId, the same act an answer on the ticket uses, and the
+    in-run MasterAnswerIntake reads it unchanged. environment: the hold is admin; the person sees 'reported to the
+    admin'. A ticket outside a series treats plan as target. TicketHoldReader maps plan to a plan hold and
+    environment to an admin hold. Deploy order: the skills release naming the field ships before the server pin.
+  out: "Rewriting the series from the answer (the conversation does that with edit_series as today)."
+
+steps:
+  - id: tool
+    action: "Answerer parameter on both hosts (required / optional), one open question per answerer, the teaching refusal."
+  - id: store
+    action: "Answerer on PlanOpenQuestion and the checkpoint; old checkpoints read as target."
+  - id: route
+    action: "Plan questions posted to the series run's conversation; a conversation turn answering one calls the existing resume act with the parked DialogueJobId."
+  - id: hold
+    action: "TicketHoldReader maps the answerer."
+  - id: skill
+    action: "Skills repo: the master's skill names the field in capability terms; released before the server pin."
+
+tests:
+  - "Missing answerer: refused once with the three values; the retry with one posts."
+  - "Two questions to two answerers park the run once with both; a second question to one answerer is refused."
+  - "A plan answer in the series conversation resumes the parked run, and MasterAnswerIntake reads it."
+  - "No series: plan behaves as target. HumanToolHost without answerer: target."
+  - "A checkpoint written before this spec resumes as target."
+
+done:
+  - "Build, the full suite and the dashboard tests green; the tests above in TicketClarificationToolHost, HumanToolHost, checkpoint, conversation turn and TicketHoldReader test classes; skills release tagged before the pin."

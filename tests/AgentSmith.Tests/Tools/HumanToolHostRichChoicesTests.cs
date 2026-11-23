@@ -48,4 +48,23 @@ public sealed class HumanToolHostRichChoicesTests
         published!.Type.Should().Be(QuestionType.FreeText);
         published.RecommendedIndex.Should().BeNull();
     }
+
+    [Fact]
+    public async Task AskHuman_WithoutAnswerer_IsTheTargets_AndAnUnknownOneIsRefused()
+    {
+        var transport = new Mock<IDialogueTransport>();
+        DialogQuestion? published = null;
+        transport.Setup(t => t.PublishQuestionAsync(It.IsAny<string>(), It.IsAny<DialogQuestion>(), It.IsAny<CancellationToken>()))
+            .Callback<string, DialogQuestion, CancellationToken>((_, q, _) => published = q);
+        var host = new HumanToolHost(transport.Object, jobId: "job-1");
+
+        await host.AskHuman("Anything to add?");
+        published!.Answerers.Should().Equal(AgentSmith.Domain.Models.QuestionAnswerers.Target);
+        await host.AskHuman("Which payload?", answerer: "plan");
+        published.Answerers.Should().Equal(AgentSmith.Domain.Models.QuestionAnswerers.Plan);
+        published = null;
+
+        (await host.AskHuman("Proceed?", answerer: "boss")).Should().Contain("'boss' is not an answerer");
+        published.Should().BeNull("a refused question is not published");
+    }
 }

@@ -31,6 +31,7 @@ public sealed class SettingsRoundTripTests
             "preconditions", // 2026-11-16-f3fbc
             "branch_cleanup", // 2026-11-17-713ec
             "tickets", // 2026-11-17-f9b0d
+            "holds", // 2026-11-23-31dci
         });
         h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret");
     }
@@ -72,6 +73,18 @@ public sealed class SettingsRoundTripTests
         change.Actor.Should().Be("alice");
         change.Operation.Should().Be(ConfigChangeOperation.Create);
         change.AfterJson.Should().Contain("5400");
+    }
+
+    // 2026-11-23-31dci: the escalation's field saves and the runtime reads the saved minutes.
+    [Fact]
+    public void SaveSetting_Holds_RoundTripsTheEscalationMinutes()
+    {
+        using var h = new DbConfigTestHarness();
+
+        h.Store.SaveSetting("holds", Doc("""{"escalateAfterMinutes":0}"""), new ChangeAttribution("op"));
+
+        h.Assembler.Assemble(h.DocStore.LoadAll()).Holds.EscalateAfterMinutes.Should().Be(0);
+        Wire(h.Store.GetSetting("holds")).GetProperty("escalateAfterMinutes").GetInt32().Should().Be(0);
     }
 
     [Fact]

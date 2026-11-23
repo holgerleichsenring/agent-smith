@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-d60d
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "In review is a system state, not a task: the waiting_on_review bucket, its count, its list section and its pill go; an open pull request that can merge now (CI green or none, no unlanded requirement, not behind an open pull request) is a merge hold in Your move, one that waits is a nobody hold under Working with its reason and since, red CI is a decide hold naming the failing check"
+    over: "Keeping In review beside the holds (31dcg's interim: a pull request outside any series carried no hold)"
+    reason: "Operator, 2026-11-23. Who acts next is the hold; a bucket that says 'a person owns the next move' without naming the move is the second classifier 31dcg removed."
+  - category: Architecture
+    decider: claude
+    chose: "TicketPullRequestHold reads TicketOpenPullRequests (on TicketHoldFacts) inside the existing TicketHoldReader precedence: red CI in Decide, merge_ready in Merge after a series' next merge, merge_after/ci_running in Nobody"
+    over: "A review rule in TicketBucketRule; a fifth hold source with its own precedence"
+    reason: "No second path: the hold reader is the one answer to who acts; the bucket rule only says the arm is working and Held lays the hold over it."
+  - category: Implementation
+    decider: claude
+    chose: "TicketOpenPullRequestsReader builds the facts from the pull-request records the list and the detail already read (CI per record checked against its own head), with one requirement read and one landing read per project for the tickets with one open"
+    over: "Reading the records again in TicketHoldInputsReader; reading CI off TicketPullRequestView"
+    reason: "One record read per request; the view carries no head sha. A CI read for an older head counts as pending since the head moved (review finding: dropping it read as 'no CI' and offered Merge right after a push)."
+  - category: Scope
+    decider: claude
+    chose: "'Stacked behind an open pull request' is read as an unlanded requirement (merge_after naming it); the non-series retarget case is not read"
+    over: "Comparing each open pull request's target with the default branch"
+    reason: "PrReviewRecord.TargetBranch is written only after a merge (6d85b), so an open pull request's target is unknown; a stacked pull request always has the requirement whose branch it sits on unlanded."
+  - category: Scope
+    decider: claude
+    chose: "The CI rule holds for a series' next merge as well: CI running is ci_running (nobody), red is ci_failed (decide), green or none keeps the 31dce series merge act"
+    over: "Leaving series merge holds blind to CI"
+    reason: "The operator's 'can merge now' is CI green or none; offering Merge on a red or running head would be the merge the host refuses."
+  - category: Implementation
+    decider: claude
+    chose: "A new act kind pull_request whose target is the one open pull request's URL (null when several are open, the block's rows are the way on); Your move rows open it on the host"
+    over: "Reusing the old 'Review the pull request' link built in the browser"
+    reason: "The server names the act (31dcg); the dashboard decides nothing."
+  - category: Implementation
+    decider: claude
+    chose: "A ticket whose head ended with a pull request open counts as working but neither running nor queued; queued now counts queued and relaunching heads only"
+    over: "Keeping queued = working - running"
+    reason: "A waiting pull request is no capacity wait; the Working tile's 'n running · m queued' must not count it as queued. Sidebar, Your move and the list keep reading the one counts record."
+  - category: Scope
+    decider: claude
+    chose: "ci_running is not escalated to the admin; merge_after and retarget now carry the attempt's end as their since"
+    over: "Adding CI waits to holds.escalate_after_minutes"
+    reason: "31dci escalates only waits outside the run on agent-smith's side; a slow CI is the repository's, and the operator asked for since, not escalation."
+  - category: Implementation
+    decider: claude
+    chose: "TicketHoldActs and the shared Hold/AtWork helpers moved to their own files"
+    over: "A baseline entry for the longer files"
+    reason: "FileLengthRatchetTests: max 120 lines, split instead of listing."
+  - category: Implementation
+    decider: claude
+    chose: "Review fixes: an interruption the restart takes up is at work, so its pull request holds nothing (restarting stays); a working ticket whose attempt ended is a 'waiting' graph and requires node, not 'running'; several open pull requests say 'Open the pull requests below' as the next step; Home and the series page open a pull_request act on its host; a merge or red-CI row keeps its pull requests' review words"
+    over: "Shipping as first built"
+    reason: "Adversarial review findings, each confirmed against the code and pinned by a test. Left as named: a closed requirement keeps a pull request merge_after (97c2a's merge guard refuses it as well), and a waiting pull request draws the amber queued dot."

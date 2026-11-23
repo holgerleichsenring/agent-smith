@@ -23,6 +23,10 @@ public sealed record SeriesQuestion(
 
     public DateTimeOffset? AnsweredAt { get; init; }
 
+    /// <summary>2026-11-23-31dch: who answered it — the poster of the conversation turn; null for a default or a turn that
+    /// recorded no author.</summary>
+    public string? AnsweredBy { get; init; }
+
     /// <summary>True when the recommendation was taken at the deadline.</summary>
     public bool ByDefault { get; init; }
 

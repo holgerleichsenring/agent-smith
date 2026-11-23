@@ -92,26 +92,89 @@ public sealed class StackedPullRequestRetargetTests
         _provider.Verify(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), default), Times.Never);
     }
 
+    // 2026-11-23-97c2b: chain S1 <- S2(api, worker) <- S3(api); the dependent 42 requires all three and sat on S1's branch.
+    [Fact]
+    public async Task RetargetAsync_S1Lands_EachRepoMovesToItsOwnNextTip()
+    {
+        StackOnS1();
+
+        (await Retarget().RetargetAsync(Of("worker"), "42", Attempt(DependentPr, (Worker, DependentWorkerPr)), default)).Should().Be(2);
+
+        _moved.Should().BeEquivalentTo([new PullRequestMove("api", DependentPr, "agent-smith/S1", "agent-smith/S3"),
+            new PullRequestMove(Worker, DependentWorkerPr, "agent-smith/S1", "agent-smith/S2")]);
+    }
+
+    [Fact]
+    public async Task RetargetAsync_ARepoNoUnlandedPrerequisiteTouched_MovesToTheDefaultBranch()
+    {
+        StackOnS1();
+
+        (await Retarget().RetargetAsync(Of("client"), "42", Attempt(DependentPr, ("client", ClientPr)), default)).Should().Be(2);
+
+        _moved.Should().ContainSingle(m => m.Repo == "client").Which.To.Should().Be("main", "no unlanded prerequisite has a client branch");
+    }
+
+    [Fact]
+    public async Task RetargetAsync_APullRequestOnADeeperLandedPrerequisitesBranch_IsMovedToo()
+    {
+        _facts.Edges.Clear();
+        _facts.Landed.Clear();
+        _facts.Edges.AddRange([Edge("s2", "s1"), Edge("s3", "s2"), Edge("42", "s3")]);
+        _facts.Land("s2");
+        _facts.Land("s1");
+        Worked("s2", Worker);
+        _provider.Setup(p => p.ReadPullRequestBaseAsync(DependentWorkerPr, default)).ReturnsAsync("agent-smith/S2");
+        _provider.Setup(p => p.ReadPullRequestBaseAsync($"https://git.test/o/{Worker}/pull/s2", default)).ReturnsAsync("main");
+
+        (await Retarget().RetargetAsync(Of(Worker), "42", Attempt(DependentWorkerPr, (Worker, DependentWorkerPr)), default)).Should().Be(1);
+
+        _moved.Should().Equal(new PullRequestMove(Worker, DependentWorkerPr, "agent-smith/S2", "main"));
+    }
+
+    private const string Worker = "worker";
+    private const string DependentWorkerPr = "https://git.test/o/worker/pull/8";
+    private const string ClientPr = "https://git.test/o/client/pull/8";
+
+    private void StackOnS1()
+    {
+        _facts.Edges.Clear();
+        _facts.Landed.Clear();
+        _facts.Edges.AddRange([Edge("s2", "s1"), Edge("s3", "s2"), Edge("42", "s1"), Edge("42", "s2"), Edge("42", "s3")]);
+        _facts.Land("s1");
+        Worked("s1", "api", Worker);
+        Worked("s2", "api", Worker);
+        Worked("s3", "api");
+        foreach (var pr in new[] { DependentPr, DependentWorkerPr, ClientPr })
+            _provider.Setup(p => p.ReadPullRequestBaseAsync(pr, default)).ReturnsAsync("agent-smith/S1");
+    }
+
+    private void Worked(string ticket, params string[] repos) =>
+        _attempts.Setup(a => a.LatestAsync(Project, ticket.ToUpperInvariant(), null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PreviousAttempt($"run-{ticket}", RunStatuses.Success, DateTimeOffset.UnixEpoch, Finished: true)
+            {
+                OpenedPullRequest = true,
+                PullRequestUrls = repos.ToDictionary(r => r, r => $"https://git.test/o/{r}/pull/{ticket}"),
+            });
+
     private StackedPullRequestRetarget Retarget()
     {
         var sources = new Mock<ISourceProviderFactory>();
         sources.Setup(s => s.Create(It.IsAny<RepoConnection>())).Returns(_provider.Object);
         var scopes = new ServiceCollection().AddScoped(_ => _runs.Object).AddScoped<PullRequestRetargetRun>()
             .BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
-        return new(_facts, _facts, new UnmetTicketRequirements(_facts, _facts, new InMemorySpecApprovalStore(),
-                new GreenPrerequisites(_facts, _attempts.Object, _facts)),
-            _attempts.Object, _leases.Object, sources.Object, scopes, NullLogger<StackedPullRequestRetarget>.Instance);
+        return new(_facts, _facts, new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts), _attempts.Object, _leases.Object, sources.Object, scopes, NullLogger<StackedPullRequestRetarget>.Instance);
     }
 
-    private static PreviousAttempt Attempt(string url) =>
+    private static PreviousAttempt Attempt(string url, params (string Repo, string Url)[] more) =>
         new("run", RunStatuses.Success, DateTimeOffset.UnixEpoch, Finished: true)
         {
-            OpenedPullRequest = true, PullRequestUrls = new Dictionary<string, string> { ["api"] = url },
+            OpenedPullRequest = true,
+            PullRequestUrls = more.Append(("api", url)).ToDictionary(p => p.Item1, p => p.Item2),
         };
 
-    private static ResolvedProject Of() => new()
+    private static ResolvedProject Of(params string[] more) => new()
     {
         Name = Project, Tracker = new TrackerConnection { Name = Tracker, Type = TrackerType.Jira },
-        Repos = [new RepoConnection { Name = "api" }],
+        Repos = [new RepoConnection { Name = "api" }, .. more.Select(r => new RepoConnection { Name = r, DefaultBranch = "main" })],
     };
 }

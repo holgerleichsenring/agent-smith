@@ -35,7 +35,8 @@ public sealed class TicketClosedRuleTests : IDisposable
 
         var row = await _h.RowAsync();
 
-        (row.Bucket, row.Closed!.At).Should().Be((TicketBucket.Failed, T.AddHours(-1)), "the mark stays stored while it is not in force");
+        // 2026-11-23-31dcg: not closed, so the failed attempt is a person's decision.
+        (row.Bucket, row.Closed!.At).Should().Be((TicketBucket.NeedsYou, T.AddHours(-1)), "the mark stays stored while it is not in force");
     }
 
     [Fact]
@@ -65,7 +66,7 @@ public sealed class TicketClosedRuleTests : IDisposable
             Entry("1", "c1", ClosedAt.AddMinutes(1), system: true, decision: PrReviewDecisions.Approved));
         await _h.CloseAsync(ClosedAt);
 
-        (await _h.RowAsync()).Bucket.Should().Be(TicketBucket.WaitingOnReview, "a decision a host wrote as a system note is a person's review");
+        (await _h.RowAsync()).Bucket.Should().Be(TicketBucket.NeedsYou, "a decision a host wrote as a system note is a person's review");
     }
 
     [Fact]

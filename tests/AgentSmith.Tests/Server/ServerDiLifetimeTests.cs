@@ -57,6 +57,37 @@ public sealed class ServerDiLifetimeTests
         provider.GetServices<IWebhookHandler>().Should().HaveCount(20, "all 20 webhook handlers (13 ticket-event + 2 2026-10-08-e8b9c pr-review + 1 2026-10-08-f147 GitLab review + 1 2026-10-08-2123 Jira status + 3 pull-request state) register from a single AddWebhookHandlers call; 2026-10-13-0b82a removed the 3 pr-event handlers");
     }
 
+    // 2026-11-23-31dcg: a person's turn answers the text edits put to its conversation — the admission gets the marker.
+    [Fact]
+    public void ServerDi_TheAnswerAdmission_ReachesTheTextEditAnswers()
+    {
+        using var provider = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices()).AddDashboardApi()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetService<AgentSmith.Server.Services.Tickets.Text.TicketTextEditAnswers>().Should().NotBeNull();
+        var admission = scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogAnswerAdmission>();
+        admission.GetType().GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .Select(f => f.GetValue(admission)).OfType<AgentSmith.Server.Services.Tickets.Text.TicketTextEditAnswers>()
+            .Should().ContainSingle("the optional marker is resolved, not left null");
+    }
+
+    // 2026-11-23-c785: the singleton merge-green run starts its pipeline in a scope of its own — the executor needs scoped
+    // services, so from the root it fails before the run starts (every merge a person asked for failed that way).
+    [Fact]
+    public void ServerDi_ThePipelineUseCase_ResolvesInAScope_NotFromTheRoot()
+    {
+        using var provider = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices()).AddDashboardApi()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        using var scope = provider.GetRequiredService<IServiceScopeFactory>().CreateScope();
+        var inScope = () => scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.ExecutePipelineUseCase>();
+        inScope.Should().NotThrow<InvalidOperationException>("a scope satisfies the executor's scoped services");
+        var fromRoot = () => provider.GetRequiredService<AgentSmith.Application.Services.ExecutePipelineUseCase>();
+        fromRoot.Should().Throw<InvalidOperationException>("this is why MergeGreenRun must not resolve it from the root")
+            .WithMessage("*scoped service*");
+    }
+
     // 2026-10-13-0b82a: opening or pushing to a pull request is a change, not an assignment —
     // no registered handler takes the delivery, on any host, for a repository a project owns.
     [Theory]

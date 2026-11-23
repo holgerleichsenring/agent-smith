@@ -76,7 +76,6 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         return [.. ids.Select(id => byRun.GetValueOrDefault(id))];
     }
 
-    // 2026-10-08-0781: a queued code reservation will run, and its end checks the ticket again.
     /// <summary>2026-11-19-1b72a: whether the ticket has an attempt, as <see cref="LatestAsync"/> counts one — one EXISTS.</summary>
     public async Task<bool> HasAttemptAsync(string project, string ticketId, CancellationToken cancellationToken)
     {
@@ -92,7 +91,10 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, I
         string project, IReadOnlyCollection<string> ticketIds, CancellationToken cancellationToken) =>
         _ends.LatestAsync(project, ticketIds, cancellationToken); // 2026-11-22-9719d
 
-    public async Task<bool> HasQueuedAsync(string project, string ticketId, CancellationToken cancellationToken)
+    public Task<IReadOnlyDictionary<string, IReadOnlySet<string>>> PullRequestReposAsync(string project, IReadOnlyCollection<string> ticketIds,
+        CancellationToken cancellationToken) => _ends.PullRequestReposAsync(project, ticketIds, cancellationToken); // 2026-11-23-97c2b
+
+    public async Task<bool> HasQueuedAsync(string project, string ticketId, CancellationToken cancellationToken) // 2026-10-08-0781: a queued code reservation will run, and its end checks the ticket again.
     {
         using var scope = scopeFactory.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<Run>().AsNoTracking()

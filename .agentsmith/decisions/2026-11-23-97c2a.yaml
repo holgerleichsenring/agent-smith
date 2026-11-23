@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-97c2a
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "The prerequisite-landed check lives in PullRequestMergeSequence, so every merge path (on_gate_green, on_ci_green, a person's merge) passes it"
+    over: "Ordering only in the UI's merge list; a check per caller (CiGreenMerge, CompletePullRequestsHandler, the 31dce act)"
+    reason: "Review of 2026-11-23-31dc: once cross-repo prerequisites stop holding a dependent (31dca), its pull request targets the default branch and the automatic paths would merge it before its prerequisite. The sequence is the one place all three paths share; a display-only order guards nothing."
+  - category: Architecture
+    decider: claude
+    chose: "A new number (97c2) for the guard and the per-repo retarget"
+    over: "Appending letters k and l to the 31dc series"
+    reason: "CLAUDE.md: a series is minted in one go; a spec that turns up later gets its own number and says what it follows."
+  - category: Implementation
+    decider: claude
+    chose: "The ticket key and tracker ride on CompletePullRequestsContext (its builder spells the key as the requirement rows do); the sequence reads them there"
+    over: "A ticket-key parameter on RunAsync passed separately by the handler; reading the pipeline bag inside the sequence"
+    reason: "Both handler paths already hand the sequence the context, so carrying the key there passes it on both without a second argument that could disagree with it; the builder already holds the project, which spells the key."
+  - category: Implementation
+    decider: claude
+    chose: "DependentsWake clears the dependent's CI merge marks (green or no-CI records only) right before its RequirementsMet nudge"
+    over: "An ITicketLandedSubscriber that clears them; clearing every mark of the dependent"
+    reason: "The subscriber runs after the wake's nudge is enqueued, so the nudge's refresh could read the old mark first. A red record's mark is CiRedNudge's; clearing it would start a second CI fix on a landing."
+  - category: Implementation
+    decider: claude
+    chose: "The requirement reader is an optional constructor dependency of PullRequestMergeSequence"
+    over: "A required dependency"
+    reason: "The CLI composes the merge step without ticket stores (UnmetTicketRequirements is registered by the server only); a process with no requirement rows has nothing to guard, the same pattern UnmetTicketRequirements uses for its green reader."
+  - category: Implementation
+    decider: claude
+    chose: "On a merge-green run the unlanded refusal is recorded as refused on the run itself, while the attempt's pull request stays awaiting_ci with the refusal sentence as its reason"
+    over: "Recording completion_refused on the attempt too, as a rung refusal does"
+    reason: "Review finding: the attempt's awaiting_ci rows are what CiGreenMerge and CiAct read; refused there, the pull request would never be merged after the requirement lands, nor fixed on a later red CI."

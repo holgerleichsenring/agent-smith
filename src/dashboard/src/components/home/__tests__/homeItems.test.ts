@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ticket } from "@/components/tickets/__tests__/ticketFixtures";
-import { moveAct, moveAsk, recentTickets, stateWords, waitingSentence, yourMoves } from "../homeItems";
+import { hold, ticket } from "@/components/tickets/__tests__/ticketFixtures";
+import { recentTickets, stateWords, waitingSentence, yourMoves } from "../homeItems";
 
-// 2026-11-17-d6fba: what the home page lists under its composer.
+// 2026-11-17-d6fba: what the home page lists under its composer. 2026-11-23-31dcg: Your move is the holds.
 
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60000).toISOString();
 const waiting = (id: string, minutes: number) =>
-  ticket({ ticketId: id, bucket: "needs_you", kind: "question", since: ago(minutes) });
+  ticket({ ticketId: id, bucket: "needs_you", kind: "question", since: ago(minutes), hold: hold("question") });
 
 describe("homeItems", () => {
   it("yourMoves_FourWaiting_ShowsTheThreeWaitingLongestOldestFirst", () => {
@@ -14,20 +14,21 @@ describe("homeItems", () => {
     expect(moves.map((t) => t.ticketId)).toEqual(["c", "b", "a"]);
   });
 
+  it("yourMoves_AMergeOrADecisionIsYourMove_NobodysIsNot_AnAdminsOnlyForAnAdmin", () => {
+    const tickets = [
+      ticket({ ticketId: "m", since: ago(4), hold: hold("merge_next") }),
+      ticket({ ticketId: "f", since: ago(3), hold: hold("failed") }),
+      ticket({ ticketId: "n", since: ago(2), hold: hold("merge_after") }),
+      ticket({ ticketId: "x", since: ago(1), hold: hold("preflight") }),
+    ];
+    expect(yourMoves(tickets).map((t) => t.ticketId)).toEqual(["m", "f"]);
+    expect(yourMoves(tickets, true).map((t) => t.ticketId)).toEqual(["m", "f", "x"]);
+    expect(recentTickets(tickets).map((t) => t.ticketId)).toEqual(["x", "n"]);
+  });
+
   it("recentTickets_ExcludesWaitingTickets_NewestFirst", () => {
     const recent = recentTickets([ticket({ ticketId: "old", since: ago(90) }), waiting("a", 1), ticket({ ticketId: "new", since: ago(2) })]);
     expect(recent.map((t) => t.ticketId)).toEqual(["new", "old"]);
-  });
-
-  it("moveAsk_QuestionAndHandback_SayWhatIsAsked", () => {
-    const asked = ticket({ bucket: "needs_you", kind: "question", pendingQuestion: { runId: "r", question: {
-      questionId: "q", type: "Freeform", text: "Keep the outbox?\nmore", context: null, choices: [], defaultAnswer: null,
-      askedAt: ago(1), answerDeadlineAt: null } } as never });
-    expect(moveAsk(asked)).toBe("Keep the outbox?");
-    expect(moveAct(asked)).toBe("Answer");
-    const back = ticket({ bucket: "needs_you", kind: "handback", handback: { text: "Which tenant?", at: ago(3) } });
-    expect(moveAsk(back)).toBe("Which tenant?");
-    expect(moveAct(back)).toBe("Reply");
   });
 
   it("waitingSentence_CountsInWords", () => {
@@ -37,7 +38,7 @@ describe("homeItems", () => {
   });
 
   it("stateWords_NamesTheTicketListSection", () => {
-    expect(stateWords(ticket({ bucket: "waiting_on_review" }))).toBe("In review");
+    expect(stateWords(ticket({ bucket: "stuck" }))).toBe("Stuck");
     expect(stateWords(ticket({ bucket: "working" }))).toBe("Working");
   });
 });

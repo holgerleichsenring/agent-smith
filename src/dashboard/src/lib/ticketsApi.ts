@@ -25,6 +25,8 @@ export interface TicketListQuery {
   bucket?: TicketServerBucket;
   cursor?: string | null;
   limit?: number;
+  /** 2026-11-23-31dcg: the needs-you filter with the admin holds, as an admin's Your move reads it. */
+  adminHolds?: boolean;
 }
 
 export function ticketListPath(query: TicketListQuery = {}): string {
@@ -32,6 +34,7 @@ export function ticketListPath(query: TicketListQuery = {}): string {
   if (query.bucket) params.set("bucket", query.bucket);
   if (query.cursor) params.set("cursor", query.cursor);
   if (query.limit) params.set("limit", String(query.limit));
+  if (query.adminHolds) params.set("holds", "admin");
   const search = params.toString();
   return search ? `/api/tickets?${search}` : "/api/tickets";
 }

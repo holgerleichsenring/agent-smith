@@ -12,4 +12,8 @@ public sealed record TicketDetailView(
     IReadOnlyList<TicketAttemptView> Attempts,
     IReadOnlyList<TicketOtherRunView> OtherRuns,
     IReadOnlyList<TicketActedSinceView>? ActedSince = null,
-    IReadOnlyList<TicketDerivationView>? Derivations = null);
+    IReadOnlyList<TicketDerivationView>? Derivations = null)
+{
+    /// <summary>2026-11-23-31dcc: the newest series run that holds the ticket, ended ones included; null outside any.</summary>
+    public SeriesRunLinkView? SeriesRun { get; init; }
+}

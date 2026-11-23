@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useLiveAttempt, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketDetail } from "@/types/tickets";
 import { ticketState, type TicketStateView } from "./ticketState";
@@ -11,7 +12,8 @@ import { yourMove, type YourMove } from "./yourMove";
 export function useYourMove(detail: TicketDetail | null): { view: TicketStateView; move: YourMove } | null {
   const live = useLiveAttempt();
   const series = useTicketSeries().data;
-  const view = detail ? ticketState({ detail, liveEvents: live.events, series }) : null;
+  const t = useT();
+  const view = detail ? ticketState({ detail, liveEvents: live.events, series, t }) : null;
   if (!detail || !view) return null;
-  return { view, move: yourMove(view, detail.summary.bucket, detail.summary.kind, view.attempt?.endDetail) };
+  return { view, move: yourMove(view, detail.summary.bucket, view.attempt?.endDetail, t) };
 }

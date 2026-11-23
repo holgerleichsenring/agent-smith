@@ -3,12 +3,16 @@ import { useT } from "@/hooks/useT";
 import type { T } from "@/lib/i18n/translate";
 import { TICKET_CLOSED_TRACKER, type TicketPullRequest, type TicketSummary } from "@/types/tickets";
 import { age, causeWords, failedAttempts, outcomeWords } from "./ticketFormat";
+import { holdAsk, holdSentence, holdTag } from "./holds/holdWords";
 
 // 2026-10-13-9a59p: the mock's .act line — what the ticket is doing and why, written only from
 // fields the row carries. No step or pass (the spec ledger is per run), no "sandboxes released",
 // no author where none is recorded.
 
 const UNTRUSTED = "not a trusted reviewer";
+
+/** The statuses of an attempt still at work — running, queued, or relaunching. */
+const LIVE = new Set(["running", "queued", "waiting_for_input"]);
 
 export function TicketActivity({ ticket }: { ticket: TicketSummary }) {
   const t = useT();
@@ -31,22 +35,37 @@ function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
   const failed = failedAttempts(t.attempts);
   switch (t.bucket) {
     case "needs_you":
+      // 2026-11-23-31dcg: whose move it is, by the hold's tag; a question or hand-back names the attempt it came from.
       return [
-        <span key="q" className="aq">{t.kind === "handback" ? `handed back in ${attempt}` : `question in ${attempt}`}</span>,
+        <span key="q" className="aq">
+          {t.hold?.case === "handback" ? `handed back in ${attempt}` : t.hold?.case === "question" ? `question in ${attempt}`
+            : t.hold ? holdTag(t.hold, tr) : null}
+        </span>,
+        // 2026-11-23-849e: the hold's words sit in the row now that no block under it carries them — the question, the
+        // hand-back or the sentence (a series' merge says what it unblocks).
+        t.hold ? <span key="s">{holdAsk(t, tr)}</span> : null,
         specs(t),
         cause(tr, t),
+        // 2026-11-23-d60d: a pull request to merge, or one whose CI failed, keeps its review decision in sight.
+        ...(t.hold?.act?.kind === "pull_request" ? pullRequests(t) : []),
       ];
     case "working":
+      // 2026-11-23-d60d: an ended attempt whose pull request waits says what it waits for, beside its pull requests.
+      if (!LIVE.has(t.status)) return [t.hold ? <span key="w">{holdSentence(t.hold, tr)}</span> : null, ...pullRequests(t)];
       return [attempt, t.status === "running" ? null : queued(t), specs(t), cause(tr, t)];
-    case "waiting_on_review":
     case "done":
       return pullRequests(t);
     case "blocked":
+      // 2026-11-23-849e: a ticket that starts once others merge says how many merges it waits for and which comes next.
+      if (t.hold?.case === "starts_on_merge") return [<span key="m">{holdSentence(t.hold, tr)}</span>];
+      return [filedWords(t.since)];
     case "filed":
       return [filedWords(t.since)];
     case "closed":
       return [closedWords(t)];
     case "stuck":
+      // 2026-11-23-31dci: a wait reported to the admin failed nothing — the row says what it waits for and that the admin knows.
+      if (t.hold?.escalation) return [<span key="e" className="aq">{holdSentence(t.hold, tr)}</span>];
       return [<span key="f" className="ab">{failed === 1 ? "1 attempt failed" : `${failed} attempts failed`}</span>, checked(t), ...pullRequests(t)];
     default:
       return [

@@ -12,6 +12,9 @@ public sealed class TicketProjects(IConfigurationLoader configLoader, ServerCont
     public ResolvedProject? Of(string project) =>
         configLoader.LoadConfig(serverContext.ConfigPath).Projects.TryGetValue(project, out var resolved) ? resolved : null;
 
+    /// <summary>2026-11-23-31dcg: the whole configuration, for a read that needs more than the projects from one load.</summary>
+    public AgentSmithConfig Config() => configLoader.LoadConfig(serverContext.ConfigPath);
+
     /// <summary>2026-10-14-dbcen: every configured project, by name.</summary>
     public IReadOnlyDictionary<string, ResolvedProject> All() => configLoader.LoadConfig(serverContext.ConfigPath).Projects;
 }

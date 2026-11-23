@@ -13,7 +13,7 @@ import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 export function conversationHref({
   sessionId,
   openDialogId,
-}: SpecDialogSessionSummary): string {
+}: Pick<SpecDialogSessionSummary, "sessionId" | "openDialogId">): string {
   const params = new URLSearchParams({ open: sessionId });
   if (openDialogId) params.set("on", openDialogId);
   return `/spec-dialog?${params.toString()}`;

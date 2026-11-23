@@ -4,6 +4,8 @@ namespace AgentSmith.Server.Models;
 /// 2026-10-13-9a59a: the ticket list's counts, over every ticket of the filtered project(s) —
 /// never only the page. Working splits into running and queued; a parked run whose relaunch
 /// holds a place or a fresh lease counts as queued.
+/// <para>2026-11-23-d60d: no in-review count — a ticket whose open pull request waits is working (neither running nor
+/// queued), one that can merge or whose CI is red is a person's move.</para>
 /// </summary>
 /// <param name="MonthCost">Every run of the filtered project(s) started this month.</param>
 /// <param name="Truncated">The read ceiling cut older tickets off.</param>
@@ -12,6 +14,8 @@ namespace AgentSmith.Server.Models;
 /// <param name="Blocked">2026-10-14-dbcen: never-run tickets held by a ticket they require.</param>
 /// <param name="Filed">2026-10-14-dbcen: never-run tickets nothing holds.</param>
 /// <param name="Closed">2026-10-15-114fb: closed tickets; Failed and PrClosed split what Idle counted before.</param>
+/// <param name="NeedsYou">2026-11-23-31dcg: the tickets a person's hold lies on (merge, plan or decide).</param>
+/// <param name="AdminHolds">2026-11-23-31dcg: the tickets an admin's hold lies on — Your move adds them for an admin.</param>
 public sealed record TicketCountsView(
     int NeedsYou,
     int Working,
@@ -21,7 +25,6 @@ public sealed record TicketCountsView(
     DateTimeOffset? OldestNeedsYouSince,
     decimal MonthCost,
     bool Truncated,
-    int WaitingOnReview,
     int Done,
     int OpenPullRequests,
     TicketDoneCount DoneThisMonth,
@@ -31,4 +34,5 @@ public sealed record TicketCountsView(
     int Filed = 0,
     int Closed = 0,
     int Failed = 0,
-    int PrClosed = 0);
+    int PrClosed = 0,
+    int AdminHolds = 0);

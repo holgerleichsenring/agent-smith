@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Services.Rework;
 using FluentAssertions;
 using Moq;
@@ -23,8 +24,8 @@ public sealed class CiGreenMergeTests : IDisposable
     {
         _h.Provider.As<IPrReviewStateReader>().Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string url, CancellationToken _) => new PrReviewState(url.Split('/')[^1], PrReviewStates.Open, PrReviewRefreshHarness.T, [], "abc"));
-        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>()))
-            .Callback<ResolvedProject, CiGreenMergeRequest, CancellationToken>((_, r, _) => _launched.Add(r)).ReturnsAsync(true);
+        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>(), It.IsAny<AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>()))
+            .Callback<ResolvedProject, CiGreenMergeRequest, CancellationToken, AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>((_, r, _, _) => _launched.Add(r)).ReturnsAsync(true);
         Attempt(RunStatuses.Success, PrReviewRefreshHarness.Pr1);
     }
 
@@ -119,13 +120,57 @@ public sealed class CiGreenMergeTests : IDisposable
     [Fact]
     public async Task ALeaseHeldByAnother_MarksNothing_SoTheNextRefreshTriesAgain()
     {
-        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>(), It.IsAny<AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>())).ReturnsAsync(false);
         Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
         await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
 
         await RefreshAsync();
 
         _h.Records().Single().CiActed.Should().BeNull();
+    }
+
+    // 2026-11-23-97c2a: the merge-green run refuses while a required ticket has not landed (CompletePullRequestsHandlerTests);
+    // its mark keeps the refusal from repeating on every refresh, and the required ticket's landing asks once more.
+    [Fact]
+    public async Task ARefusedMerge_IsNotRetried_UntilTheRequiredTicketLands()
+    {
+        await RequiresAsync("7", "5");
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await RefreshAsync();
+        await RefreshAsync();
+        _launched.Should().ContainSingle();
+
+        await _h.Recorder().RecordByHandAsync(_project, "5", "ops", "merged elsewhere", CancellationToken.None);
+        _h.Records().Single().CiActed.Should().BeNull("the landing cleared the mark");
+        await RefreshAsync();
+
+        _launched.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ALanding_KeepsARedVerdictsMark()
+    {
+        await RequiresAsync("7", "5");
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Red);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await RefreshAsync();
+        var red = _h.Records().Single().CiActed;
+
+        await _h.Recorder().RecordByHandAsync(_project, "5", "ops", "merged elsewhere", CancellationToken.None);
+
+        _h.Records().Single().CiActed.Should().Be(red).And.Be("abc:red", "the fix nudge acted on it and a landing changes nothing about it");
+    }
+
+    private async Task RequiresAsync(string dependent, string required)
+    {
+        await using var db = _h.Store.Context();
+        db.Add(new TicketRequirement
+        {
+            Tracker = "gh-tracker", TicketKey = $"github-{dependent}", TicketId = dependent, Project = "p",
+            RequiredTicketKey = $"github-{required}", RequiredTicketId = required, StartsWhenMet = true, FiledInConversation = "s-1",
+        });
+        await db.SaveChangesAsync();
     }
 
     private Task RefreshAsync() => _h.Refresh().RefreshAsync(_project, "7", null, CancellationToken.None);

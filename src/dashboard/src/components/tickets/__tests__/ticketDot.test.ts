@@ -13,7 +13,7 @@ describe("ticketDot", () => {
       [ticket({ bucket: "needs_you" }), "need"],
       [ticket({ bucket: "working", status: "running" }), "run"],
       [ticket({ bucket: "working", status: "queued" }), "queued"],
-      [ticket({ bucket: "waiting_on_review" }), "human"],
+      [ticket({ bucket: "working", status: "success" }), "queued"],
       [ticket({ bucket: "stuck" }), "bad"],
       [ticket({ bucket: "done", lastOutcome: null, landing: "merged" }), "ok"],
       [ticket({ bucket: "idle", lastOutcome: "success", landing: "unmerged" }), "bad"],

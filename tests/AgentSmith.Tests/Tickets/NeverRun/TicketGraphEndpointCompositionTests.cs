@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Tickets.NeverRun;
 
-/// <summary>2026-10-14-dbcen: the server composition resolves what the graph and requires routes and the never-run
+/// <summary>2026-10-14-dbcen: the server composition resolves what the requires route (2026-11-23-849e: the graph route is gone) and the never-run
 /// rows are handed.</summary>
 [Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
@@ -25,7 +25,6 @@ public sealed class TicketGraphEndpointCompositionTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var sp = scope.ServiceProvider;
-        sp.GetRequiredService<TicketGraphReader>().Should().NotBeNull();
         sp.GetRequiredService<TicketRequiresReader>().Should().NotBeNull();
         sp.GetRequiredService<FiledTicketRows>().Should().NotBeNull();
         sp.GetRequiredService<TicketListReader>().Should().NotBeNull();

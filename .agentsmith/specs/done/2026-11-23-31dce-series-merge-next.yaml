@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-31dce
+goal: "The series page lists pull requests in merge order with CI state and link, and merges the next one from there through a merge run, saying why when it cannot."
+
+applies_to: "default + dashboard (CiGreenMergeRequest, CompletePullRequestsHandler, MergeGreenRun, new merge act endpoint, Merge next section)"
+
+requires: [2026-11-23-97c2a, 2026-11-23-31dcb, 2026-11-23-31dcd, 2026-11-17-3435a, 2026-11-17-3435b, 2026-11-17-9a39c]
+
+invariant: "A merge from the dashboard is a run with a run id; no merge path lands a pull request whose ticket has an unlanded requirement (97c2a) or that targets a prerequisite's branch."
+
+facts:
+  - claim: "A merge-green run merges a ticket's pull requests in order, approving where the host needs it; it answers only whether it ran."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/MergeGreenRun.cs:15-43, src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:10-14"
+  - claim: "Under merge: manual the handler merges nothing, before it looks at a merge-green request."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CompletePullRequestsHandler.cs:25-28"
+  - claim: "The sequence refuses a pull request against a rung only from checkout context, which a merge-green run does not record."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:37-40"
+  - claim: "An act run hands its outcome back through an ActSlot."
+    evidence: "src/backend/AgentSmith.Server/Services/Acts/PullRequestRetargetRun.cs:12-23"
+  - claim: "Providers answer a merge as Merged, Armed or Refused with the host's reason, and can read a pull request's base."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/PullRequestCompletion.cs:9-28, src/backend/AgentSmith.Server/Services/Rework/StackedPullRequestRetarget.cs:72"
+
+scope:
+  in: >-
+    Merge next section: the merge order of 31dcb, each row with CI state per repo (green / pending / red with the
+    failing check and its log link), the pull request link, and on the ready row a Merge button (runs.control).
+    POST /api/series-runs/{id}/tickets/{ticketId}/merge re-reads the merge order, refuses a not-ready ticket with the
+    sentence naming what comes first, and starts the merge-green run for the ticket's OPEN pull requests (the newest per
+    repo, filtered by the PR review records' open state, whatever the project's merge.when). The request carries
+    'asked by a person'; CompletePullRequestsHandler lets such a request pass merge: manual (operator decision). Inside
+    the run every pull request's base is read from the host and one that targets anything but the repo's default branch
+    is refused, so a stale 'ready' in the UI cannot merge into a prerequisite's branch. The run's outcome comes back
+    through an ActSlot: merged / armed / refused per repo with the host's reason, or 'another run holds this ticket'
+    when the lease is taken; the row shows it. A merge triggers the existing retarget (97c2b per repo).
+  out: "Merging several in one click (a merge train); approving reviews beyond what 3435b does."
+
+steps:
+  - id: request
+    action: "CiGreenMergeRequest gains AskedBy; CompletePullRequestsHandler lets an asked-by request pass Manual; decision recorded."
+  - id: base
+    action: "PullRequestMergeSequence reads each pull request's base from the host on a merge-green request and refuses a non-default target."
+  - id: slot
+    action: "MergeGreenRun takes an optional ActSlot and answers the outcome per repo; a held lease answers its sentence."
+  - id: act
+    action: "The endpoint with Needs(runs.control) and the series-run project scope."
+  - id: pane
+    action: "Merge next section with rows, CI chips, links, the button and the outcome sentence."
+
+tests:
+  - "A ready ticket merges through a merge-green run listed on the ticket page; the row shows 'merged'."
+  - "A not-ready ticket is refused with the sentence naming what comes first; nothing starts."
+  - "merge: manual: a person-asked merge runs; CiGreenMerge's automatic path still does not."
+  - "A pull request whose host base is a prerequisite's branch is refused inside the run even when the request said ready."
+  - "A host refusal shows its reason on the row; a held lease answers 'another run holds this ticket'."
+  - "A closed pull request of an earlier attempt is not merged."
+
+done:
+  - "Build, the full suite and the dashboard tests green; the tests above in CompletePullRequestsHandler, PullRequestMergeSequence, MergeGreenRun, endpoint and Merge next section test classes."

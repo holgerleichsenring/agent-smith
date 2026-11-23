@@ -58,7 +58,7 @@ public sealed class StackedDependentsWakeTests
     }
 
     private StackedDependentsWake Wake() =>
-        new(_facts, _facts, new UnmetTicketRequirements(_facts, _facts, _approvals, new GreenPrerequisites(_facts, _attempts.Object, _facts)),
+        new(_facts, _facts, new UnmetTicketRequirements(_facts, _facts, _approvals, new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts)),
             _attempts.Object, Mock.Of<IActiveRunLease>(), _nudges.Object, NullLogger<StackedDependentsWake>.Instance);
 
     private static PreviousAttempt Green() =>

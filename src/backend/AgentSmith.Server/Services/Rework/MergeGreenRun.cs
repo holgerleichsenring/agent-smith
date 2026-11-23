@@ -1,4 +1,6 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.TicketActs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -15,11 +17,16 @@ namespace AgentSmith.Server.Services.Rework;
 /// the ticket, so it is one of the ticket's runs, and the lease keeps a rework off the ticket while it merges; the run
 /// leaves the ticket's status alone (LeavesTicketAlone). It runs on no token: a merge broken off halfway would leave a
 /// host changed and nothing recorded. Answers whether it ran; a lease another run holds is a no.
+/// <para>2026-11-23-31dce: a merge a person asks for seeds an outcome slot, which the run's merge step fills per repo; a
+/// run that ended before the step leaves it unset.</para>
+/// <para>2026-11-23-c785: the run is resolved in a scope of its own — this class is a singleton, and the pipeline's
+/// executor needs scoped services (DataFlowReadGate); resolving it from the root failed every merge before it started.</para>
 /// </summary>
 public sealed class MergeGreenRun(
-    IServiceProvider services, ServerContext server, IActiveRunLease leases, ILogger<MergeGreenRun> logger) : IMergeGreenRun
+    IServiceScopeFactory scopes, ServerContext server, IActiveRunLease leases, ILogger<MergeGreenRun> logger) : IMergeGreenRun
 {
-    public async Task<bool> RunAsync(ResolvedProject project, CiGreenMergeRequest request, CancellationToken ct)
+    public async Task<bool> RunAsync(ResolvedProject project, CiGreenMergeRequest request, CancellationToken ct,
+        ActSlot<IReadOnlyList<PullRequestMergeLine>>? outcome = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(request);
@@ -27,12 +34,15 @@ public sealed class MergeGreenRun(
         if (await leases.TryClaimAsync(project.Name, ticket, ct) != LeaseClaimOutcome.Claimed) return false;
         try
         {
-            var result = await services.GetRequiredService<ExecutePipelineUseCase>().ExecuteAsync(
-                new PipelineRequest(project.Name, PipelinePresets.MergeGreenName, TicketId: ticket, Headless: true,
-                    Context: new Dictionary<string, object> { [ContextKeys.CiGreenMerge] = request }),
+            var seeds = new Dictionary<string, object> { [ContextKeys.CiGreenMerge] = request };
+            if (outcome is not null) seeds[ContextKeys.ActOutcome] = outcome;
+            using var scope = scopes.CreateScope();
+            var result = await scope.ServiceProvider.GetRequiredService<ExecutePipelineUseCase>().ExecuteAsync(
+                new PipelineRequest(project.Name, PipelinePresets.MergeGreenName, TicketId: ticket, Headless: true, Context: seeds),
                 server.ConfigPath, CancellationToken.None);
-            logger.LogInformation("CI green on {Project}/#{Ticket}: merge-green {Outcome}: {Message}",
-                project.Name, request.TicketId, result.IsSuccess ? "ran" : "failed", result.Message);
+            logger.LogInformation("{Why} on {Project}/#{Ticket}: merge-green {Outcome}: {Message}",
+                request.AskedBy is null ? "CI green" : $"Asked by {request.AskedBy}", project.Name, request.TicketId,
+                result.IsSuccess ? "ran" : "failed", result.Message);
         }
         catch (Exception ex)
         {

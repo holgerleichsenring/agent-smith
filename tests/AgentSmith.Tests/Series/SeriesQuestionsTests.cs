@@ -92,4 +92,58 @@ public sealed class SeriesQuestionsTests
         composed.RecommendedIndex.Should().Be(1);
         composed.DefaultAnswer.Should().BeNull("outside a series nothing changes: it still waits for a person");
     }
+
+    // 2026-11-23-31dch: a plan question is relayed first and named so, the environment's is not relayed, and the poster's
+    // answer reaches the parked run through the inbox the ticket's answer uses — where the resumed master reads it.
+    private static SeriesTicketFact Parked(string ticket, string text, params string[] answerers) =>
+        SeriesRecords.Fact(ticket, "waiting_for_input") with
+        {
+            DialogueJobId = $"job-{ticket}",
+            PendingQuestion = new DialogQuestion($"q-{ticket}", QuestionType.FreeText, text, null, null, null, TimeSpan.FromDays(14))
+            {
+                Answerers = answerers,
+            },
+        };
+
+    [Fact]
+    public async Task PlanQuestion_IsRelayedBeforeATargetOne_NamedAsThePlans_AndTheEnvironmentsIsNot()
+    {
+        var beat = await BeatAsync(null, SeriesRecords.T,
+            [Parked("50", "Token scope?", "environment"), Parked("51", "Which branch?", "target"), Parked("52", "Which payload?", "plan")]);
+
+        beat.Said.Should().ContainSingle().Which.Should().Contain("SCRUM-52 asks about the plan").And.Contain("Which payload?");
+        _store.Records.Clear();
+        (await BeatAsync(null, SeriesRecords.T, [Parked("50", "Token scope?", "environment")])).Said
+            .Should().BeEmpty("the environment's question is reported to the admin, not asked in the conversation");
+    }
+
+    [Fact]
+    public async Task PlanAnswer_InTheConversation_ResumesTheParkedRun_AndTheMasterReadsIt()
+    {
+        var questions = new[] { new PlanOpenQuestion("1", "Which payload does the Worker read?", []) { Answerer = "plan" } };
+        var parkedOn = MasterQuestionCheckpoint.Compose(questions, "ask-9");
+        var fact = SeriesRecords.Fact("52", "waiting_for_input") with { DialogueJobId = "job-52", PendingQuestion = parkedOn };
+        await BeatAsync(null, SeriesRecords.T, [fact]);
+        var relayed = _store.Records["sr-1"].Question!;
+        _store.Records.Clear();
+        DialogAnswer? delivered = null;
+        _inbox.Setup(i => i.TryDeliverAsync("job-52", It.IsAny<DialogAnswer>(), It.IsAny<CancellationToken>()))
+            .Callback<string, DialogAnswer, CancellationToken>((_, a, _) => delivered = a).ReturnsAsync(true);
+
+        var record = SeriesRecords.Running() with { Question = relayed };
+        await _store.OpenAsync(record, default);
+        var beat = new SeriesBeat(record, [fact], SeriesRecords.T.AddMinutes(3));
+        beat.Messages.Add(new SeriesOperatorMessage(11, "the v2 payload", SeriesRecords.T.AddMinutes(2), "Dana"));
+        await Questions.SettleAsync(beat, 120, default);
+
+        delivered!.Should().Match<DialogAnswer>(a => a.QuestionId == "ask-9" && a.Answer == "the v2 payload" && a.AnsweredBy == "Dana");
+        var pipeline = new AgentSmith.Contracts.Commands.PipelineContext();
+        pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.ResumedDialogueAnswer, delivered);
+        pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.DialogueQuestion, parkedOn);
+        var intake = new MasterAnswerIntake(Mock.Of<IDialogueTrail>(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<MasterAnswerIntake>.Instance);
+        (await intake.TryDeliverAsync(pipeline, questions))!.Answer.Should().Be("the v2 payload");
+        pipeline.Get<Dictionary<string, string>>(AgentSmith.Contracts.Commands.ContextKeys.PlanAnswers)["1"]
+            .Should().Be("Which payload does the Worker read? — the v2 payload");
+    }
 }

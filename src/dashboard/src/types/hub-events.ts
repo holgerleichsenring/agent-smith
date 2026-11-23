@@ -115,6 +115,8 @@ export interface EndDetail {
   branch?: string | null;
   /** 2026-11-16-f3fbc: the parent ticket a slice's base was read from; absent or null for every other run. */
   parentTicketId?: string | null;
+  /** 2026-11-23-31dca: each repository's parent where a stacked run's repos are cut from different branches. */
+  parentsPerRepo?: Record<string, string> | null;
 }
 
 export interface SandboxCreatedEvent extends RunEventBase {

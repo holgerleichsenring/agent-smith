@@ -62,14 +62,14 @@ public sealed class TicketClosedNeverRunTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketGraph_ClosedTicket_HasTheClosedNodeState()
+    public async Task TicketRequires_ClosedTicket_HasTheClosedState()
     {
         await _h.AddAsync(Filing("58"), Filing("59"));
         await _h.RequiresAsync("59", "58");
         await _h.CloseAsync(T.AddHours(1), ticket: "58");
 
-        var graph = await _h.Services.GetRequiredService<TicketGraphReader>().ReadAsync(ProjectScope.Single("alpha"), default);
+        var view = await _h.Services.GetRequiredService<TicketRequiresReader>().ReadAsync("alpha", "59", default);
 
-        graph.Nodes.Single(n => n.TicketId == "58").State.Should().Be(TicketBucket.Closed);
+        view!.Requires.Single(r => r.TicketId == "58").State.Should().Be(TicketBucket.Closed);
     }
 }

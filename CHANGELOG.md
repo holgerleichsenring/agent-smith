@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.201.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.201.0...v0.201.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **merge:** a person's merge starts its run in a scope; an Azure build policy with build 0 reads as no build (2026-11-23-c785) ([e5a315f](https://github.com/holgerleichsenring/agent-smith/commit/e5a315ff1be35292c9fa51c21a7da0d5b9d0f826))
+* **merge:** a person's merge starts; Azure build 0 reads as no build (2026-11-23-c785) ([77a9e27](https://github.com/holgerleichsenring/agent-smith/commit/77a9e2768e1582cac98266fe6694398fc743bc6c))
+
+## [0.201.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.200.0...v0.201.0) (2026-11-23)
+
+
+### Features
+
+* **holds:** one merge hold per series, your next step on the series page, CI read in every merge mode, ticket graph removed (2026-11-23-849e) ([7ab4053](https://github.com/holgerleichsenring/agent-smith/commit/7ab40531658abbc57cb8d2fe2383afdefbbf23d4))
+* **holds:** one merge hold per series, your next step, CI read in every merge mode (2026-11-23-849e) ([c6f8e53](https://github.com/holgerleichsenring/agent-smith/commit/c6f8e537e2640c4564d50dbe9f8dad3edc4710a3))
+
+## [0.200.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.199.2...v0.200.0) (2026-11-23)
+
+
+### Features
+
+* **holds:** a quiet ticket says since when, a long wait becomes an admin hold on System Needs attention (2026-11-23-31dci) ([f4f5319](https://github.com/holgerleichsenring/agent-smith/commit/f4f53196de9f38a1f6b6737d0afb6192cb73737b))
+* **holds:** In review is gone — an open pull request that can merge is Your move, one that waits is Working with its reason, red CI is a decision (2026-11-23-d60d) ([51889d9](https://github.com/holgerleichsenring/agent-smith/commit/51889d9d7e3d69e13a96611eb5bc824a3f3118e4))
+* **holds:** one hold per ticket with one addressee, sentence and act, read once on the server (2026-11-23-31dcg) ([a4898cb](https://github.com/holgerleichsenring/agent-smith/commit/a4898cb97e4ce301fd20e224db9ed0c0df6c1dfb))
+* **questions:** the master's question names who can answer it, and a plan question goes to the series conversation (2026-11-23-31dch) ([8df0e03](https://github.com/holgerleichsenring/agent-smith/commit/8df0e036ed86c51ad0ba30c666d0a847b194ff31))
+* series page, one addressee per hold, stacking per repo (2026-11-23-31dc, 97c2, d60d) ([0c82b98](https://github.com/holgerleichsenring/agent-smith/commit/0c82b9827a927c29576538bc53dd0c345ef9c58c))
+* **series:** Changed in this series lists every spec-set revision after a ticket's first, read lazily off the ticket branches (2026-11-23-31dcj) ([343f972](https://github.com/holgerleichsenring/agent-smith/commit/343f972831bbeef62456bb2acdab1ac239297424))
+* **series:** merge the next ticket from the series page through a merge-green run (2026-11-23-31dce) ([36447b3](https://github.com/holgerleichsenring/agent-smith/commit/36447b38094086bda8782390665f93498df75887))
+* **series:** order and branches graph with edge kinds from the per-repo stack (2026-11-23-31dcf) ([64b50d5](https://github.com/holgerleichsenring/agent-smith/commit/64b50d5b3ddc3a86acff8b5d17d353fb25f477fe))
+* **series:** series page with its section bar, tickets and conversation (2026-11-23-31dcd) ([40d1399](https://github.com/holgerleichsenring/agent-smith/commit/40d1399cb4467ecc4cc378057d5463f403a27933))
+* **series:** series run list, count and detail reads (2026-11-23-31dcb) ([453a8b1](https://github.com/holgerleichsenring/agent-smith/commit/453a8b1cf3b4c35ad5b70f51cbe0f908d5c2e55f))
+* **series:** series sidebar item, series list and links from tickets and conversations (2026-11-23-31dcc) ([91afe4f](https://github.com/holgerleichsenring/agent-smith/commit/91afe4f976e88fa80947cac0227ac8a520af9091))
+
+
+### Bug Fixes
+
+* **stacking:** cut each repo of a stacked run from its own prerequisite (2026-11-23-31dca) ([4f42a21](https://github.com/holgerleichsenring/agent-smith/commit/4f42a21e024deede5a2e6d0c5d6fd56d7e60ba56))
+* **stacking:** no merge lands a ticket before a ticket it requires (2026-11-23-97c2a) ([4edb3e3](https://github.com/holgerleichsenring/agent-smith/commit/4edb3e38cdeafef1c2747a65c9f89750c2d0ad8c))
+* **stacking:** retarget a stacked pull request per repo (2026-11-23-97c2b) ([8dd0975](https://github.com/holgerleichsenring/agent-smith/commit/8dd09753db2d4ca5a73cd505db06906623e9a7f7))
+
 ## [0.199.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.199.1...v0.199.2) (2026-11-23)
 
 

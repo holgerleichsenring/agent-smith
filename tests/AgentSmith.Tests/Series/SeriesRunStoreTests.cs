@@ -2,6 +2,10 @@ using AgentSmith.Contracts.Series;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
+using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Tests.Series;
 
@@ -67,6 +71,77 @@ public sealed class SeriesRunStoreTests : IDisposable
 
         await Store.UpdateAsync("sr-1", r => r with { State = SeriesRunStates.Running, PausedFrom = null }, default);
         (await Store.RunningWithTicketAsync("sample", "44", default))!.Id.Should().Be("sr-1");
+    }
+
+    [Fact]
+    public async Task ListAsync_NamedProjects_AnswersActiveAndEndedNewestActivityFirst()
+    {
+        await Store.OpenAsync(SeriesRecords.Running("sr-old", "conv-1"), default);
+        await Store.OpenAsync(SeriesRecords.Running("sr-new", "conv-2") with { StartedAt = SeriesRecords.T.AddHours(1) }, default);
+        await Store.OpenAsync(SeriesRecords.Running("sr-other", "conv-3") with { Project = "other" }, default);
+        await Store.UpdateAsync("sr-old", r => r with
+        {
+            State = SeriesRunStates.Done, FinishedAt = SeriesRecords.T.AddHours(2),
+        }, default);
+
+        (await Store.ListAsync(["sample"], default)).Select(r => r.Id).Should().Equal(["sr-old", "sr-new"],
+            "the ended series moved last; another project's series is not listed");
+        (await Store.ListAsync(null, default)).Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task ForTicketAsync_AnEndedSeries_IsStillFound_TheNewestHolderWins()
+    {
+        await Store.OpenAsync(SeriesRecords.Running("sr-1", "conv-1"), default);
+        await Store.UpdateAsync("sr-1", r => r with { State = SeriesRunStates.Done }, default);
+        (await Store.ForTicketAsync("sample", "44", default))!.Id.Should().Be("sr-1", "an ended series still holds its tickets");
+
+        await Store.OpenAsync(SeriesRecords.Running("sr-2", "conv-2"), default);
+
+        (await Store.ForTicketAsync("sample", "44", default))!.Id.Should().Be("sr-2");
+        (await Store.ForTicketAsync("sample", "99", default)).Should().BeNull("no series holds it");
+        (await Store.ForTicketAsync("other", "44", default)).Should().BeNull("another project's ticket 44");
+    }
+
+    [RequiresPostgresFact]
+    public async Task ForTicketAsync_OnPostgres_FindsAnEndedSeries()
+    {
+        await using var db = await ScratchPostgres.MigratedAsync(RequiresPostgresFactAttribute.ConnectionString!, "series");
+        try
+        {
+            var options = ScratchPostgres.Options(db.Database.GetConnectionString()!);
+            await using var provider = new ServiceCollection()
+                .AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(options)).BuildServiceProvider();
+            var store = new SeriesRunRepository(provider.GetRequiredService<IServiceScopeFactory>());
+            await store.OpenAsync(SeriesRecords.Running("sr-1", "conv-1") with { State = SeriesRunStates.Stopped }, default);
+
+            (await store.ForTicketAsync("sample", "44", default))!.Id.Should().Be("sr-1");
+        }
+        finally
+        {
+            await db.Database.EnsureDeletedAsync();
+        }
+    }
+
+    [RequiresPostgresFact]
+    public async Task ListAsync_OnPostgres_FiltersByProject()
+    {
+        await using var db = await ScratchPostgres.MigratedAsync(RequiresPostgresFactAttribute.ConnectionString!, "series");
+        try
+        {
+            var options = ScratchPostgres.Options(db.Database.GetConnectionString()!);
+            await using var provider = new ServiceCollection()
+                .AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(options)).BuildServiceProvider();
+            var store = new SeriesRunRepository(provider.GetRequiredService<IServiceScopeFactory>());
+            await store.OpenAsync(SeriesRecords.Running("sr-1", "conv-1"), default);
+            await store.OpenAsync(SeriesRecords.Running("sr-2", "conv-2") with { Project = "other" }, default);
+
+            (await store.ListAsync(["sample"], default)).Should().ContainSingle().Which.Id.Should().Be("sr-1");
+        }
+        finally
+        {
+            await db.Database.EnsureDeletedAsync();
+        }
     }
 
     public void Dispose() => _store.Dispose();

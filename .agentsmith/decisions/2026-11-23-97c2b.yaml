@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-97c2b
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "The per-repo tip is computed over the whole unlanded requirement chain (direct edges plus every unlanded prerequisite they reach), not over the direct edges alone"
+    over: "Choosing among the dependent's direct unmet edges only, as the ticket-level TipAsync does"
+    reason: "A dependent requiring only S3 in S1<-S2(S,W)<-S3(S) has no direct prerequisite with work in W; the W base it needs is S2's, reachable only through the chain. Direct edges alone reproduce the fall-through to main the series exists to remove."
+  - category: Architecture
+    decider: claude
+    chose: "The retarget treats a landed prerequisite anywhere in the chain as a branch to move off, not only a direct requirement"
+    over: "Today's direct-edge landed set"
+    reason: "Spec adjusted against the code: once bases are stamped per repo (31dca), a pull request may sit on a deeper prerequisite's branch; with the direct set only, that pull request would stay on a branch that already merged and its later merge would land nowhere."
+  - category: Implementation
+    decider: claude
+    chose: "TipPerRepoAsync does not ask greenness; the retarget uses it as is, and 31dca's start asks greenness separately"
+    over: "A green-only per-repo tip as the spec's scope sentence reads"
+    reason: "Spec adjusted against the code: the retarget runs for a dependent that already started, whose ticket-level tip today is read with requireGreen: false; a prerequisite with a pull request in the repo has a branch there whether or not its newest attempt is green, which is what the invariant needs."
+  - category: Implementation
+    decider: claude
+    chose: "Extract the edge cache and walks out of GreenReads into an internal RequirementChain; UnmetTicketRequirements' 6d85d base walk now goes through it"
+    over: "A second chain walk beside the existing one; growing GreenReads past the 120-line limit"
+    reason: "One walk over one edge cache answers the tip, the merges to start, their bases and the per-repo tips; the file-length ratchet forbids growing GreenReads."
+  - category: Implementation
+    decider: claude
+    chose: "StackedPullRequestRetarget takes GreenPrerequisites instead of UnmetTicketRequirements"
+    over: "A per-repo method on UnmetTicketRequirements"
+    reason: "The retarget needs the chain and the per-repo tip, both GreenReads answers; UnmetTicketRequirements only forwarded ForStartAsync's ticket-level tip, which this spec replaces."
+  - category: Implementation
+    decider: claude
+    chose: "A repo counts as worked by a prerequisite when one of its code runs has a pull request there still standing on its branch: opened, awaiting CI, or left open by a refused completion"
+    over: "Any pull request the run recorded, merged and armed ones included; only the newest open one per repo (PreviousAttempt.PullRequestUrls)"
+    reason: "Review finding: Azure Repos completes with DeleteSourceBranch, so a prerequisite merged into a rung may have no branch left in that repo; dropping it there lets the walk pick the deeper prerequisite whose branch now carries its work. Older runs count too, so a repo an earlier attempt worked in is not forgotten."
+  - category: Implementation
+    decider: claude
+    chose: "The retarget computes per-repo tips in every requires_start mode"
+    over: "Gating them on requires_start: on_green_push as ForStartAsync's ticket-level tip effectively did"
+    reason: "Outside on_green_push a dependent never starts before its requirements land, so its pull requests never sit on a prerequisite branch; only a project that switched modes is affected, and for it the per-repo tip is still the branch that carries the work."
+  - category: Implementation
+    decider: claude
+    chose: "The chain walk reads one level of edges per query (RequiredOfManyAsync), and the retarget checks the lease before walking"
+    over: "One edge read per prerequisite on every nudge"
+    reason: "Review finding: the retarget runs on every nudge of a ticket with an attempt, and the chain includes its landed history."

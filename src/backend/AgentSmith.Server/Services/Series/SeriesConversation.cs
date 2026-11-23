@@ -32,6 +32,6 @@ public sealed class SeriesConversation(SpecDialogSessionRepository sessions, Spe
         return [.. SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson).Select((turn, index) => (turn, index))
             .Where(t => t.index > afterIndex && t.turn.Role == TranscriptRole.User
                 && string.Equals(t.turn.SeriesRunId, seriesRunId, StringComparison.Ordinal))
-            .Select(t => new SeriesOperatorMessage(t.index, t.turn.Text, t.turn.At))];
+            .Select(t => new SeriesOperatorMessage(t.index, t.turn.Text, t.turn.At, t.turn.Author))];
     }
 }

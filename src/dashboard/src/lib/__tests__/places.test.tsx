@@ -97,12 +97,19 @@ describe("Places", () => {
 
   // 2026-10-13-9a59p: a bucket is a query of one place, and a ticket's own page is matched like a run's.
   it("Places_TicketList_AndItsBuckets_AreOnePlace_AndATicketIsAPlace", () => {
-    for (const bucket of ["needs-you", "working", "waiting-on-review", "stuck", "ended", "done"]) {
+    for (const bucket of ["needs-you", "working", "stuck", "ended", "done"]) {
       expect(placeForPath(`/tickets?bucket=${bucket}`)).toBe("Tickets");
     }
     expect(placeForPath("/tickets")).toBe("Tickets");
     expect(placeForPath("/tickets/shop/GH-101")).toBe("Ticket");
     expect(placeForPath("/tickets/shop")).toBeNull();
+  });
+
+  // 2026-11-23-31dcd: the series list is a place, and one series' page is matched like a ticket's.
+  it("Places_SeriesList_AndASeries_ArePlaces", () => {
+    expect(placeForPath("/series")).toBe("Series");
+    expect(placeForPath("/series/sr-1")).toBe("Series");
+    expect(placeForPath("/series/sr-1/more")).toBeNull();
   });
 
   it("Places_WorkItOut_IsATopLevelDestination", () => {

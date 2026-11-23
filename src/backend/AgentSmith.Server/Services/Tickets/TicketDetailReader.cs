@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Models;
@@ -35,15 +36,21 @@ public sealed class TicketDetailReader(
     Checks.TicketStuckRule stuck,
     TicketLaunchEnds launchEnds,
     FiledTicketRows filed,
-    TicketDerivations derivations) // 2026-10-26-bdd0f
+    TicketDerivations derivations, // 2026-10-26-bdd0f
+    Series.TicketSeriesRunLink seriesRun, // 2026-11-23-31dcc
+    TicketProjects projects, Holds.TicketHoldInputsReader holdInputs, // 2026-11-23-31dcg: the hold reads what the list reads
+    Holds.TicketOpenPullRequestsReader openPullRequests) // 2026-11-23-d60d
 {
     /// <summary>2026-10-14-dbcen: with no code run, the pair's never-run row with no attempts; null when neither exists.</summary>
     public async Task<TicketDetailView?> ReadAsync(string project, string ticketId, CancellationToken ct)
     {
+        var series = seriesRun.ForAsync(project, ticketId, ct); // 2026-11-23-31dcc: its own scopes, beside the rest
+        var config = projects.Config();
+        var inputs = holdInputs.ReadAsync(ProjectScope.Single(project), config.Projects, config.Preconditions, config.Holds, ticketId, ct);
         var rows = await runQuery.ForTicketAsync(project, ticketId, ct);
         var code = rows.Where(r => r.Run.Pipeline == PipelinePresets.CodeName).ToList();
         var derived = derivations.OfAsync(rows.Select(r => r.Run), ct);
-        if (code.Count == 0) return await NeverRunAsync(project, ticketId, derived, ct);
+        if (code.Count == 0) return await NeverRunAsync(project, ticketId, derived, series, inputs, ct);
         var ordered = attempts.Of(code);
         var head = attempts.Head(code).Run;
         if (head.Status == RunStatuses.Failed) kicks.Offer([new Checks.TicketCheckKick(project, ticketId)]);
@@ -51,21 +58,29 @@ public sealed class TicketDetailReader(
         var specs = read.Runs.SelectMany(r => r.Specs.Select(s => (r.RunId, s.Status)))
             .ToLookup(s => s.RunId, s => s.Status, StringComparer.Ordinal);
         return new TicketDetailView(
-            composer.Compose(code, read.State, specs, read.PrViews, read.Records, read.Standing, read.Launches, read.Derived.Sum(d => d.Cost)),
+            composer.Compose(code, read.State, specs, read.PrViews, read.Records, read.Standing, read.Launches, read.Derived.Sum(d => d.Cost),
+                (await inputs) with
+                {
+                    OpenPullRequests = await openPullRequests.ReadAsync(
+                        read.PrRecords.ToLookup(r => (r.Project, r.TicketId)), config.Projects, ct),
+                }),
             Branch(ticketId),
             [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, read.Runs[i], marker.Mark(a.Run, read.State, specs, read.Launches),
                 read.Records.GetValueOrDefault(a.Run.Id)))],
             [.. rows.Where(r => !attempts.IsAttempt(r)).Select(Other)],
-            stuck.ActedSince(head, read.Standing.CheckOf(head.Id), read.PrRecords), read.Derived);
+            stuck.ActedSince(head, read.Standing.CheckOf(head.Id), read.PrRecords), read.Derived) { SeriesRun = await series };
     }
 
     private async Task<TicketDetailView?> NeverRunAsync(
-        string project, string ticketId, Task<IReadOnlyList<TicketDerivationView>> derived, CancellationToken ct)
+        string project, string ticketId, Task<IReadOnlyList<TicketDerivationView>> derived, Task<SeriesRunLinkView?> series,
+        Task<Holds.TicketHoldInputs> inputs, CancellationToken ct)
     {
         var row = filed.OneAsync(project, ticketId, ct);
-        await Task.WhenAll(derived, row);
+        await Task.WhenAll(derived, row, series, inputs); // the series read is awaited on every path, so it never outlives the request
         return await row is { } neverRun
-            ? new TicketDetailView(neverRun with { Cost = (await derived).Sum(d => d.Cost) }, Branch(ticketId), [], [], Derivations: await derived)
+            ? new TicketDetailView(composer.HeldNeverRun(neverRun with { Cost = (await derived).Sum(d => d.Cost) }, await inputs),
+                Branch(ticketId), [], [], Derivations: await derived)
+                { SeriesRun = await series }
             : null;
     }
 

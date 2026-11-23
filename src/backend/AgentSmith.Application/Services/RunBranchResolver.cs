@@ -19,15 +19,15 @@ public static class RunBranchResolver
     public static RunBranch? Resolve(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        var parent = RunParentTicket.Of(pipeline);
+        var parent = RunParentTicket.LabelParent(pipeline);
         if (pipeline.TryGet<string>(ContextKeys.CheckoutBranch, out var handed)
             && !string.IsNullOrWhiteSpace(handed))
             return new RunBranch(new BranchName(handed), ComposedFromTicket: false, parent,
-                CutFresh: InitRunSeed.IsInitRun(pipeline)); // 2026-11-17-713ea
+                CutFresh: InitRunSeed.IsInitRun(pipeline), Stacked: RunParentTicket.Stacked(pipeline)); // 2026-11-17-713ea
 
         return pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) && ticketId is not null
             ? new RunBranch(TicketBranchNamer.Compose(ticketId), ComposedFromTicket: true, parent,
-                Stacked: RunParentTicket.IsStacked(pipeline)) // 2026-11-17-9a39b
+                Stacked: RunParentTicket.Stacked(pipeline)) // 2026-11-17-9a39b, 2026-11-23-31dca: per repo
             : null;
     }
 }

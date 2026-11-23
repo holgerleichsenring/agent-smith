@@ -51,4 +51,8 @@ public sealed record SeriesRunRecord(
     public int Version { get; init; }
 
     public bool IsActive => SeriesRunStates.IsActive(State);
+
+    /// <summary>2026-11-23-31dcb: when the series last moved — the newest of its finish, its last status post and its start.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DateTimeOffset LastActivityAt => new[] { FinishedAt, LastStatusAt, StartedAt }.Max() ?? StartedAt;
 }

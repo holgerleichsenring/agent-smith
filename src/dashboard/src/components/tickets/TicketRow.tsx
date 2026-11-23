@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useT } from "@/hooks/useT";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
@@ -24,12 +25,14 @@ export function ticketHref(t: TicketSummary): string {
   return ticketPath(t.project, t.ticketId);
 }
 
-export function TicketRow({ ticket }: { ticket: TicketSummary }) {
+/** 2026-11-23-849e: `act` is a held row's one act, drawn small at the row's right beside Close or Reopen. */
+export function TicketRow({ ticket, act }: { ticket: TicketSummary; act?: ReactNode }) {
   const { reread } = useTicketList();
   return (
     <div className="trow-wrap">
       <RowLink ticket={ticket} />
       <div className="trow-act">
+        {act}
         <TicketCloseAct ticket={ticket} onClosed={reread} small />
         <TicketReopenAct ticket={ticket} onReopened={reread} small />
       </div>
