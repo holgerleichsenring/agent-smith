@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import type { TicketConversationEntry } from "@/types/tickets";
 import { TrackerText } from "@/components/ui/TrackerText";
 import { decisionPill, isQuote, nameOf, whereOf } from "./conversationWords";
@@ -27,8 +29,9 @@ interface Props {
 }
 
 export function ConversationEntry({ entry, attemptNumber, started, target = false }: Props) {
+  const t = useT();
   const internal = entry.source === "spec-cut";
-  const pill = decisionPill(entry);
+  const pill = decisionPill(t, entry);
   const startedNothing = entry.kind === "command-answer"
     && (entry.detail as { startedNothing?: unknown } | null | undefined)?.startedNothing === true;
   const footer = pill || started !== null || startedNothing;
@@ -38,16 +41,16 @@ export function ConversationEntry({ entry, attemptNumber, started, target = fals
       <div className="tk-line-head">
         <span className="tk-at mono">{clock(entry.at)}</span>
         <span className="tk-dot" aria-hidden="true" />
-        <span className="tk-who">{nameOf(entry)}</span>
+        <span className="tk-who">{nameOf(t, entry)}</span>
         <div className="tk-text">
-          <span className="where">{whereOf(entry, attemptNumber)}</span>
-          <Body entry={entry} />
-          <DetailBlock entry={entry} />
+          <span className="where">{whereOf(t, entry, attemptNumber)}</span>
+          <Body t={t} entry={entry} />
+          <DetailBlock t={t} entry={entry} />
           {footer && (
             <div className="mf">
               {pill && <span className={`tk-decision ${pill[0]}`}>{pill[1]}</span>}
-              {startedNothing && <span>command answered, no attempt</span>}
-              {started !== null && <span className="eff run" data-testid="conv-started">started run {started}</span>}
+              {startedNothing && <span>{t("tickets.conversation.commandNoAttempt")}</span>}
+              {started !== null && <span className="eff run" data-testid="conv-started">{t("tickets.conversation.startedRun", { n: started })}</span>}
             </div>
           )}
         </div>
@@ -63,11 +66,11 @@ function toneOf(entry: TicketConversationEntry): string {
   return "quiet";
 }
 
-function Body({ entry }: { entry: TicketConversationEntry }) {
+function Body({ t, entry }: { t: T; entry: TicketConversationEntry }) {
   if (entry.kind === "edited") {
-    return <div className="mb">The ticket text differs from what the attempt before read.</div>;
+    return <div className="mb">{t("tickets.conversation.textDiffers")}</div>;
   }
-  const where = entry.file ? `${entry.file}${entry.line != null ? ` · line ${entry.line}` : ""}` : null;
+  const where = entry.file ? `${entry.file}${entry.line != null ? ` · ${t("tickets.conversation.line", { line: entry.line })}` : ""}` : null;
   if (!entry.text && !where) return null;
   const truncated = entry.source === "pr-review"
     && (entry.detail as { truncated?: unknown } | null | undefined)?.truncated === true;
@@ -75,7 +78,7 @@ function Body({ entry }: { entry: TicketConversationEntry }) {
     <div className={isQuote(entry) ? "mb quote" : "mb"}>
       {where && <span className="file" data-testid="conv-file">{where}</span>}
       {entry.text && <TrackerText text={entry.text} format={entry.format} />}
-      {truncated && <span className="cut" data-testid="conv-cut">… (cut at {PR_BODY_CAP} characters)</span>}
+      {truncated && <span className="cut" data-testid="conv-cut">{t("tickets.conversation.cutAt", { cap: PR_BODY_CAP })}</span>}
     </div>
   );
 }
@@ -83,15 +86,20 @@ function Body({ entry }: { entry: TicketConversationEntry }) {
 interface EditedField { before?: string | null; after?: string | null }
 interface Finding { specId?: string; criterion?: string; problem?: string; cites?: unknown }
 
-function DetailBlock({ entry }: { entry: TicketConversationEntry }) {
+const FIELD_KEYS = {
+  title: "tickets.conversation.field.title", description: "tickets.conversation.field.description",
+  criteria: "tickets.conversation.field.criteria",
+} as const;
+
+function DetailBlock({ t, entry }: { t: T; entry: TicketConversationEntry }) {
   const detail = (entry.detail ?? null) as Record<string, unknown> | null;
   if (!detail) return null;
   const rows: ReactNode[] = [];
   if (entry.kind === "edited") {
-    for (const field of ["title", "description", "criteria"]) {
+    for (const field of ["title", "description", "criteria"] as const) {
       const change = detail[field] as EditedField | undefined;
       if (!change) continue;
-      rows.push(<div key={`${field}-h`} className="dim-line">{field}</div>);
+      rows.push(<div key={`${field}-h`} className="dim-line">{t(FIELD_KEYS[field])}</div>);
       if (change.before) rows.push(<div key={`${field}-rm`} className="rm">− {change.before}</div>);
       if (change.after) rows.push(<div key={`${field}-ad`} className="ad">+ {change.after}</div>);
     }
@@ -99,7 +107,7 @@ function DetailBlock({ entry }: { entry: TicketConversationEntry }) {
     rows.push(<div key="quote">{detail.quote}</div>);
   } else if (entry.kind === "cut-review" && Array.isArray(detail.findings)) {
     (detail.findings as Finding[]).forEach((f, i) => {
-      const head = [f.specId ? `spec ${f.specId}` : null, f.criterion].filter(Boolean).join(" · ");
+      const head = [f.specId ? t("tickets.conversation.specId", { id: f.specId }) : null, f.criterion].filter(Boolean).join(" · ");
       rows.push(<div key={`f-${i}`}>{head ? `${head} — ` : ""}{f.problem}</div>);
       for (const cite of Array.isArray(f.cites) ? f.cites : []) {
         if (typeof cite === "string") rows.push(<div key={`f-${i}-${cite}`} className="dim-line">{cite}</div>);

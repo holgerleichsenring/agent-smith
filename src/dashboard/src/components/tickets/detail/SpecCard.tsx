@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { useT } from "@/hooks/useT";
 import { postDefaultVerdicts } from "@/lib/ticketsApi";
 import { useTicketDefaults, useTicketDetail } from "@/lib/tickets/TicketPageStore";
+import type { T } from "@/lib/i18n/translate";
 import type { TicketAttempt, TicketDefault, TicketSeriesCriterion, TicketSeriesSpec } from "@/types/tickets";
 import { RUNS_CONTROL } from "./RetryUnchanged";
 import { criteriaTally, specDelivery } from "./reportWords";
+import { humanStatusWords } from "./specWords";
 import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-11-16-6877a: the spec an attempt delivered, as a card inside its report. Closed it names the spec and how many
@@ -17,6 +20,7 @@ import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // status line's colours, a recorded criteria count dim after it; the master's report sits once in the run's check.
 
 export function SpecCard({ spec, attempt }: { spec: TicketSeriesSpec; attempt: TicketAttempt }) {
+  const t = useT();
   const runId = attempt.runId;
   const [open, setOpen] = useState(false);
   const address = useTicketTabGo();
@@ -28,7 +32,7 @@ export function SpecCard({ spec, attempt }: { spec: TicketSeriesSpec; attempt: T
     <div className="tk-spec" data-testid={`spec-card-${spec.specId}`}>
       <button type="button" className="tk-spec-head" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}>
         <span className="tk-chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
-        <span className="tk-spec-name">Spec <span className="mono">{spec.specId}</span></span>
+        <span className="tk-spec-name">{t("tickets.spec.card")} <span className="mono">{spec.specId}</span></span>
         <span className="tk-spec-tally">
           {delivery && <span className={`tk-spec-delivery ${delivery.tone}`} data-testid="spec-card-delivery">{delivery.words}</span>}
           {delivery && tally && " · "}
@@ -41,7 +45,7 @@ export function SpecCard({ spec, attempt }: { spec: TicketSeriesSpec; attempt: T
           {spec.done.map((c, i) => <Criterion key={i} criterion={c} />)}
           {defaults.map((d) => <Decided key={d.id} entry={d} />)}
           <button type="button" className="tk-link" onClick={() => address.go("specs", { [SPEC_PARAM]: spec.specId })}
-            data-testid="spec-card-open">Open the whole spec</button>
+            data-testid="spec-card-open">{t("tickets.spec.openWhole")}</button>
         </div>
       )}
     </div>
@@ -51,12 +55,15 @@ export function SpecCard({ spec, attempt }: { spec: TicketSeriesSpec; attempt: T
 const MARKS: Record<string, [string, string]> = { met: ["ok", "✓"], unmet: ["bad", "✗"] };
 
 function Criterion({ criterion }: { criterion: TicketSeriesCriterion }) {
+  const t = useT();
   const [tone, mark] = MARKS[criterion.verdict ?? ""] ?? ["q", "○"];
-  const said = criterion.overrule ? `${criterion.overrule.author} judged it ${criterion.overrule.humanStatus.replace(/_/g, " ")}: ${criterion.overrule.reason}`
+  const said = criterion.overrule ? t("tickets.spec.judged", {
+    author: criterion.overrule.author, status: humanStatusWords(t, criterion.overrule.humanStatus), reason: criterion.overrule.reason,
+  })
     : criterion.note ?? criterion.citation;
   return (
     <div className="tk-crit" data-testid="spec-card-criterion" data-verdict={criterion.verdict ?? "none"}>
-      <span className={`tk-mark ${tone}`} aria-label={criterion.verdict ?? "no verdict"}>{mark}</span>
+      <span className={`tk-mark ${tone}`} aria-label={criterion.verdict ?? t("tickets.spec.noVerdict")}>{mark}</span>
       <div>
         <div>{criterion.text}</div>
         {said && <div className="tk-dim">{said}</div>}
@@ -70,6 +77,7 @@ type Sent = { kind: "idle" } | { kind: "sending" } | { kind: "said"; text: strin
 /** One default: what was chosen and why; Keep ratifies it, Change overrules it. A design conversation's default is
  *  changed in that conversation, so it offers Keep only. */
 function Decided({ entry }: { entry: TicketDefault }) {
+  const t = useT();
   const { project, ticketId } = useTicketDetail();
   const defaults = useTicketDefaults();
   const lacks = useLacksPermission(RUNS_CONTROL, project);
@@ -88,22 +96,28 @@ function Decided({ entry }: { entry: TicketDefault }) {
   return (
     <div className="tk-decided" data-testid={`spec-card-default-${entry.id}`}>
       <div>
-        <span className="tk-dim">Decided for you: </span>
-        {entry.chosen ?? entry.question ?? "a choice without its text"}
+        <span className="tk-dim">{t("tickets.defaults.decidedForYou")} </span>
+        {entry.chosen ?? entry.question ?? t("tickets.defaults.noText")}
         {entry.why && <span className="tk-dim"> {entry.why}</span>}
       </div>
       {pending && !lacks && (
         <span className="tk-decided-acts">
           <button type="button" className="btn sm" disabled={sent.kind === "sending"} onClick={() => void send("ratified")}
-            data-testid={`spec-card-keep-${entry.id}`}>Keep</button>
+            data-testid={`spec-card-keep-${entry.id}`}>{t("tickets.defaults.keep")}</button>
           {!entry.conversation && (
             <button type="button" className="btn sm" disabled={sent.kind === "sending"} onClick={() => void send("overruled")}
-              data-testid={`spec-card-change-${entry.id}`}>Change</button>
+              data-testid={`spec-card-change-${entry.id}`}>{t("tickets.defaults.change")}</button>
           )}
         </span>
       )}
-      {!pending && <span className="tk-dim" data-testid={`spec-card-verdict-${entry.id}`}>{entry.verdict === "ratified" ? "kept" : "changed"}{entry.verdictBy ? ` by ${entry.verdictBy}` : ""}</span>}
+      {!pending && <span className="tk-dim" data-testid={`spec-card-verdict-${entry.id}`}>{verdictWords(t, entry.verdict === "ratified", entry.verdictBy)}</span>}
       {sent.kind === "said" && <span className="cp-note bad">{sent.text}</span>}
     </div>
   );
+}
+
+/** "kept", "changed by Ada" — the verdict a default got. */
+function verdictWords(t: T, kept: boolean, by: string | null | undefined): string {
+  if (by) return kept ? t("tickets.defaults.keptBy", { by }) : t("tickets.defaults.changedBy", { by });
+  return kept ? t("tickets.defaults.kept") : t("tickets.defaults.changed");
 }

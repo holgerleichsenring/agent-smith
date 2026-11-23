@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { TicketAttempt } from "@/types/tickets";
@@ -24,8 +25,11 @@ export function TicketRunsSection() {
   const detail = useTicketDetail();
   // 2026-11-22-7103a: each attempt's line is its status line, with the next step the ticket page names.
   const { ctx, queuePlace } = useStatusContext();
-  const lines = runListLines(detail.data?.attempts ?? [], detail.data?.derivations ?? [], detail.data?.otherRuns ?? [], ctx, queuePlace);
-  if (lines.length === 0) return <div className="msub">No run is recorded.</div>;
+  const t = useT();
+  const locale = useDateLocale();
+  const lines = runListLines(detail.data?.attempts ?? [], detail.data?.derivations ?? [], detail.data?.otherRuns ?? [], ctx, queuePlace,
+    t, locale);
+  if (lines.length === 0) return <div className="msub">{t("tickets.runs.none")}</div>;
   return (
     <div className="tk-runs" data-testid="runs-list">
       {lines.map((line) => <RunLine key={line.runId} line={line} project={detail.project} ticketId={detail.ticketId} />)}
@@ -34,6 +38,7 @@ export function TicketRunsSection() {
 }
 
 function RunLine({ line, project, ticketId }: { line: RunListLine; project: string; ticketId: string }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const attempt = line.attempt;
   return (
@@ -49,7 +54,7 @@ function RunLine({ line, project, ticketId }: { line: RunListLine; project: stri
       {attempt && (
         <button type="button" className="tk-link tk-run-open" aria-expanded={open} onClick={() => setOpen(!open)}
           data-testid={`run-log-toggle-${attempt.number}`}>
-          <span aria-hidden="true">{open ? "▾" : "▸"}</span> Run log
+          <span aria-hidden="true">{open ? "▾" : "▸"}</span> {t("tickets.runs.log")}
         </button>
       )}
       {attempt && open && (
@@ -57,7 +62,7 @@ function RunLine({ line, project, ticketId }: { line: RunListLine; project: stri
           <AttemptBody attempt={attempt} log />
         </div>
       )}
-      {line.who === "Deploy" && line.outcome !== "running" && <DeployFollowBlock runId={line.runId} />}
+      {line.kind === "deploy" && !line.running && <DeployFollowBlock runId={line.runId} />}
     </div>
   );
 }
@@ -65,23 +70,25 @@ function RunLine({ line, project, ticketId }: { line: RunListLine; project: stri
 /** The change that started `attempt`, under its line. */
 function ChangeEvent({ attempt, project, ticketId }: { attempt: TicketAttempt; project: string; ticketId: string }) {
   const address = useTicketTabGo();
-  const label = causeLabel(attempt);
+  const t = useT();
+  const locale = useDateLocale();
+  const label = causeLabel(attempt, t);
   if (!label) return null;
-  const who = [attempt.cause?.actor, causeWhere(attempt)].filter(Boolean).join(" on ");
+  const who = [attempt.cause?.actor, causeWhere(attempt, t)].filter(Boolean).join(t("tickets.runs.on"));
   const anchored = !!attempt.cause?.source?.id;
   const extra = { [CAUSE_PARAM]: anchored ? attempt.runId : null };
   const query = addressQuery("", "conversation", extra);
   return (
     <div className="tk-run-cause" data-testid={`attempt-change-${attempt.number}`}>
-      Started by {label}
+      {t("tickets.runs.startedBy", { label })}
       {who && <> · {who}</>}
-      {attempt.cause?.at && <> · {clock(attempt.cause.at)}</>}
+      {attempt.cause?.at && <> · {clock(attempt.cause.at, locale)}</>}
       {" · "}
       <a href={query ? `${ticketPath(project, ticketId)}?${query}` : ticketPath(project, ticketId)} data-testid={`attempt-change-read-${attempt.number}`}
         onClick={(e) => {
           e.preventDefault();
           address.go("conversation", extra);
-        }}>read</a>
+        }}>{t("tickets.runs.read")}</a>
     </div>
   );
 }

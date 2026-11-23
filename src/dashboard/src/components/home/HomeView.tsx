@@ -88,12 +88,13 @@ function MoveRow({ ticket }: { ticket: TicketSummary }) {
 }
 
 function RecentRow({ ticket }: { ticket: TicketSummary }) {
+  const t = useT();
   return (
     <Link className="home-row link" href={ticketHref(ticket)} data-testid={`home-recent-${ticket.project}-${ticket.ticketId}`}>
       <span className={`home-dot ${ticketDot(ticket)}`} aria-hidden="true" />
       <span className="home-key">{ticketLabel(ticket)}</span>
       <span className="home-title grow">{ticket.title ?? ticket.ticketId}</span>
-      <span className="home-state">{stateWords(ticket)}</span>
+      <span className="home-state">{stateWords(ticket, t)}</span>
       <span className="home-age">{age(ticket.since) ?? ""}</span>
     </Link>
   );

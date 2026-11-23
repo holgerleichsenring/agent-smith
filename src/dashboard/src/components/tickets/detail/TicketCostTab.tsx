@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { useAttemptMachines, useTicketDetail, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import { SeriesRunway } from "./SeriesRunway";
 import type { TicketAttempt, TicketSeries } from "@/types/tickets";
@@ -23,6 +24,7 @@ function ordinalsOf(attempts: TicketAttempt[], series: TicketSeries | null): Rec
 }
 
 export function TicketCostTab() {
+  const t = useT();
   const detail = useTicketDetail();
   const series = useTicketSeries();
   const address = useTicketTabGo();
@@ -42,7 +44,7 @@ export function TicketCostTab() {
       <CostSection attempts={attempts} derivations={detail.data?.derivations ?? []} machines={reads}
         ordinals={ordinalsOf(attempts, series.data)} budget={series.data?.budget} />
       <SeriesRunway budget={series.data?.budget} attempts={attempts} onDefaults={() => address.go("defaults")} />
-      <h2 className="tk-sub-head" data-testid="compute-pod-time">Compute · {duration(totals.podMinutes * 60000)} pod time</h2>
+      <h2 className="tk-sub-head" data-testid="compute-pod-time">{t("tickets.compute.head", { span: duration(totals.podMinutes * 60000, t) })}</h2>
       <ComputeTiles totals={totals} />
       <WaitingBanner totals={totals} onRead={(runId) => address.go("conversation", { [CAUSE_PARAM]: runId })} />
     </>

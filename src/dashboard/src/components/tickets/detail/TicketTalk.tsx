@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type ReactNode, type RefObject } from "react";
+import { useT } from "@/hooks/useT";
 import { useTicketApprovalPreview, useTicketConversation } from "@/lib/tickets/TicketPageStore";
 import { ConversationDock, useReplyFocus } from "./ConversationDock";
 import { TicketReplyContext } from "./ticketReply";
@@ -46,12 +47,13 @@ interface JumpProps {
 
 /** 2026-10-17-e730f: "↓ Newest" while the reader is away from the conversation's end, with how many entries arrived. */
 function NewestJumpButton({ sentinel, dock, end }: JumpProps) {
+  const t = useT();
   const entries = useTicketConversation().data?.entries ?? null;
   const jump = useNewestJump(entries, sentinel, dock, end);
   if (!jump.away) return null;
   return (
     <button type="button" className="chip conv-newest" onClick={jump.jump} data-testid="conv-newest">
-      ↓ Newest{jump.count > 0 ? ` · ${jump.count} new` : ""}
+      {jump.count > 0 ? t("tickets.conversation.newestCount", { count: jump.count }) : t("tickets.conversation.newest")}
     </button>
   );
 }

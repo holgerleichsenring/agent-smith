@@ -37,7 +37,7 @@ export function DeliveryTickets({ tickets }: { tickets: DeliveryTicket[] }) {
                 onClick={() => router.push(ticketPath(ticket.project, ticket.ticketId))}>
                 <td><Link href={ticketPath(ticket.project, ticket.ticketId)} onClick={(e) => e.stopPropagation()}><b>{ticket.ticketId}</b> {ticket.title}</Link></td>
                 <td className="mono">{ticket.project}</td>
-                <td><span className={`pill ${bucketTone(ticket.bucket)}`}>{bucketLabel(ticket.bucket)}</span></td>
+                <td><span className={`pill ${bucketTone(ticket.bucket)}`}>{bucketLabel(t, ticket.bucket)}</span></td>
                 <td className="did">{formatWork(t, ticket.specTitles, ticket.repos)}</td>
                 <td className="num">{ticket.attempts.length}</td>
                 <td className="num">{ticket.specsDone}/{ticket.specsTotal}</td>

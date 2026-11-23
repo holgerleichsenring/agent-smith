@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useT } from "@/hooks/useT";
 import { runPath } from "@/lib/runPath";
 import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketSeriesCriterion, TicketSeriesUnattributed } from "@/types/tickets";
@@ -18,29 +19,31 @@ import { acceptanceTally, criterionRow, isRunRecord, overruleWords, rejectionOf,
 // text link to the run that judged it; recording the overrule stays on the run page.
 
 export function TicketAcceptanceTab() {
+  const t = useT();
   const series = useTicketSeries();
   const tally = acceptanceTally(series.data);
   const specs = [...(series.data?.specs ?? [])].sort((l, r) => l.ordinal - r.ordinal);
   const unrecorded = tally && tally.unrecorded > 0
-    ? ` · ${tally.unrecorded} spec${tally.unrecorded === 1 ? "" : "s"} without a recorded verdict` : "";
+    ? ` · ${t("tickets.acceptance.unrecorded", { count: tally.unrecorded })}` : "";
   return (
     <>
       <div className="section-head first">
-        <h2>Acceptance</h2>
-        {tally && <span className="cnt" data-testid="acceptance-tally">{tally.verified} of {tally.total} verified{unrecorded}</span>}
-        <span className="sh-sub">each spec&apos;s done criteria · the attempt that verified them</span>
+        <h2>{t("tickets.acceptance.title")}</h2>
+        {tally && <span className="cnt" data-testid="acceptance-tally">{t("tickets.acceptance.verified", { verified: tally.verified, total: tally.total })}{unrecorded}</span>}
+        <span className="sh-sub">{t("tickets.acceptance.sub")}</span>
       </div>
-      {isRunRecord(series.data) && specs.length > 0 && <div className="msub" data-testid="acceptance-run-record">{RUN_RECORD_LINE}</div>}
-      {specs.length === 0 && <div className="msub">{series.loading ? "Reading the series…" : "No spec has been cut for this ticket."}</div>}
+      {isRunRecord(series.data) && specs.length > 0 && <div className="msub" data-testid="acceptance-run-record">{t(RUN_RECORD_LINE)}</div>}
+      {specs.length === 0 && <div className="msub">{series.loading ? t("tickets.specs.reading") : t("tickets.specs.none")}</div>}
       <div className="acc-list">
         {specs.map((spec) => {
-          const standing = spec.state === "in_progress" ? " · working" : spec.state === "not_started" ? " · not started" : "";
+          const standing = spec.state === "in_progress" ? ` · ${t("tickets.spec.state.in_progress")}`
+            : spec.state === "not_started" ? ` · ${t("tickets.spec.state.not_started")}` : "";
           return (
             <div key={spec.specId} className="doc" data-testid={`acceptance-spec-${spec.specId}`}>
-              <h5>Spec {spec.ordinal}{spec.repos.length > 0 ? ` · ${spec.repos.join(", ")}` : ""}{standing}</h5>
+              <h5>{t("tickets.acceptance.spec", { n: spec.ordinal })}{spec.repos.length > 0 ? ` · ${spec.repos.join(", ")}` : ""}{standing}</h5>
               <div className="crit">
                 {spec.done.map((criterion) => (
-                  <CriterionLine key={criterion.text} criterion={criterion} row={criterionRow(criterion, spec)} judgedBy={spec.judgedBy} />
+                  <CriterionLine key={criterion.text} criterion={criterion} row={criterionRow(t, criterion, spec)} judgedBy={spec.judgedBy} />
                 ))}
               </div>
               <MasterReportText spec={spec} />
@@ -55,18 +58,19 @@ export function TicketAcceptanceTab() {
 }
 
 function RunCriteria({ run }: { run: TicketSeriesUnattributed }) {
+  const t = useT();
   const by = `A${run.attempt}`;
   return (
     <div className="doc" data-testid={`acceptance-run-${run.runId}`}>
-      <h5>Run criteria, not tied to a spec · attempt {run.attempt}</h5>
+      <h5>{t("tickets.acceptance.runCriteria", { n: run.attempt })}</h5>
       <div className="crit">
         {run.criteria.map((criterion) => (
-          <CriterionLine key={criterion.text} criterion={criterion} row={verdictRow(criterion, by, "")} judgedBy={run.runId} />
+          <CriterionLine key={criterion.text} criterion={criterion} row={verdictRow(t, criterion, by, "")} judgedBy={run.runId} />
         ))}
         {run.unmeasured.map((account) => (
           <div key={account.repositories} className="ci" data-testid="acceptance-unmeasured">
             <span className="m q">·</span>
-            <span>{account.repositories} could not be measured{account.reason ? ` — ${account.reason}` : ""}</span>
+            <span>{t("tickets.acceptance.unmeasured", { repositories: account.repositories })}{account.reason ? ` — ${account.reason}` : ""}</span>
             <span className="cw">{by}</span>
           </div>
         ))}
@@ -82,7 +86,8 @@ interface LineProps {
 }
 
 function CriterionLine({ criterion, row, judgedBy }: LineProps) {
-  const overruled = overruleWords(criterion);
+  const t = useT();
+  const overruled = overruleWords(t, criterion);
   const rejected = rejectionOf(criterion) !== null;
   return (
     <div className="ci" data-testid="acceptance-criterion">
@@ -96,7 +101,7 @@ function CriterionLine({ criterion, row, judgedBy }: LineProps) {
       <span className="cw">
         {row.who}
         {judgedBy && criterion.verdict && !overruled && !rejected && (
-          <Link className="tk-overrule" href={runPath(judgedBy)} data-testid="acceptance-overrule">overrule</Link>
+          <Link className="tk-overrule" href={runPath(judgedBy)} data-testid="acceptance-overrule">{t("tickets.acceptance.overrule")}</Link>
         )}
       </span>
     </div>

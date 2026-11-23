@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { useT } from "@/hooks/useT";
 import { retryAttempt } from "@/lib/ticketsApi";
 import type { TicketAttempt } from "@/types/tickets";
 
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function RetryUnchanged({ attempt, project, onAnswer }: Props) {
+  const t = useT();
   const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [outcome, setOutcome] = useState<Outcome>({ kind: "idle" });
   if (!attempt || !retriable(attempt) || lacks) return null;
@@ -44,11 +46,11 @@ export function RetryUnchanged({ attempt, project, onAnswer }: Props) {
     <>
       <button type="button" className="btn" onClick={() => void retry()}
         disabled={outcome.kind === "sending" || outcome.kind === "requested"} data-testid="ticket-retry">
-        Retry unchanged
+        {t("tickets.retry.button")}
       </button>
       {outcome.kind === "requested" && (
         <span className="cp-note" data-testid="ticket-retry-requested">
-          Retry requested — attempt {attempt.number + 1} starts through the queue.
+          {t("tickets.retry.requested", { n: attempt.number + 1 })}
         </span>
       )}
       {outcome.kind === "said" && <span className="cp-note bad" data-testid="ticket-retry-refused">{outcome.text}</span>}

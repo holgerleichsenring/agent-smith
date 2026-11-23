@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { useT } from "@/hooks/useT";
 import { reopenTicket } from "@/lib/ticketCloseApi";
 import { TICKET_CLOSED_TRACKER, type TicketSummary } from "@/types/tickets";
 import { RUNS_CONTROL } from "../detail/RetryUnchanged";
@@ -11,6 +12,7 @@ import { RUNS_CONTROL } from "../detail/RetryUnchanged";
 // reopened first) is the server's sentence as is.
 
 export function TicketReopenAct({ ticket, onReopened, small }: { ticket: TicketSummary; onReopened: () => void; small?: boolean }) {
+  const t = useT();
   const lacks = useLacksPermission(RUNS_CONTROL, ticket.project);
   const [sending, setSending] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function TicketReopenAct({ ticket, onReopened, small }: { ticket: TicketS
       {said && <span className="msub" role="status" data-testid={`ticket-reopen-said-${ticket.ticketId}`}>{said}</span>}
       <button type="button" className={small ? "btn sm" : "btn"} onClick={() => void reopen()} disabled={sending}
         data-testid={`ticket-reopen-${ticket.ticketId}`}>
-        Reopen
+        {t("tickets.reopen.act")}
       </button>
     </>
   );

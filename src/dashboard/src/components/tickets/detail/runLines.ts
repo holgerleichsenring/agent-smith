@@ -1,4 +1,5 @@
 import { attemptStatus, statusRest, type StatusContext } from "@/components/jobs/runlog/runStatusLine";
+import { translator, type T, type TextKey } from "@/lib/i18n/translate";
 import { runPath } from "@/lib/runPath";
 import type { TicketAttempt, TicketDerivation, TicketOtherRun } from "@/types/tickets";
 import { money } from "../ticketFormat";
@@ -10,6 +11,11 @@ import { derivationWords } from "./threadItems";
 // line, newest first: how it ended with its end kind, its own first line, when it started, how long, what it cost, and
 // the run it opens. Replaces the attempt cards; the run page holds each run's whole story.
 
+/** 2026-11-23-5669b: a finished derivation's outcome as the row words it; an unknown one is shown as recorded. */
+const DERIVATION_OUTCOMES: Record<string, TextKey> = {
+  derived: "tickets.runs.derived", asked: "tickets.runs.asked",
+};
+
 export interface RunListLine {
   runId: string;
   who: string;
@@ -18,38 +24,49 @@ export interface RunListLine {
   /** "Nov 13 06:05 · 5m 55s · $1.13" */
   meta: string;
   tone: OutcomeTone;
+  /** Still running: a deploy's delivery is drawn only once it ended. */
+  running: boolean;
   href: string;
+  /** 2026-11-23-5669b: what the line is, so a check never reads its (translated) words. */
+  kind: "attempt" | "derivation" | "merge" | "deploy";
   /** Set for an attempt: what started it is drawn under its line. */
   attempt: TicketAttempt | null;
   startedAt: string;
 }
 
 /** 2026-11-22-7103a: an attempt's outcome and text are its status line's head and clauses, as its row on Now says. */
-export function attemptListLine(attempt: TicketAttempt, ctx: StatusContext | null = null, queuePlace: number | null = null): RunListLine {
+export function attemptListLine(
+  attempt: TicketAttempt, ctx: StatusContext | null = null, queuePlace: number | null = null, t: T = translator("en"), locale?: string,
+): RunListLine {
   const status = attemptStatus(attempt, ctx, queuePlace);
   return {
     runId: attempt.runId,
-    who: `Run ${attempt.number}`,
+    kind: "attempt",
+    who: t("tickets.story.run", { n: attempt.number }),
     outcome: status.head,
     text: statusRest(status),
-    meta: [clock(attempt.startedAt), elapsed(attempt.startedAt, attempt.finishedAt), money(attempt.cost)].filter(Boolean).join(" · "),
+    meta: [clock(attempt.startedAt, locale), elapsed(attempt.startedAt, attempt.finishedAt, t), money(attempt.cost)].filter(Boolean).join(" · "),
     tone: status.tone,
+    running: attempt.finishedAt === null,
     href: runPath(attempt.runId),
     attempt,
     startedAt: attempt.startedAt,
   };
 }
 
-export function derivationListLine(derivation: TicketDerivation): RunListLine {
+export function derivationListLine(derivation: TicketDerivation, t: T = translator("en"), locale?: string): RunListLine {
   const running = derivation.outcome === "running";
   return {
     runId: derivation.runId,
-    who: "Derivation",
-    outcome: running ? "running" : derivation.outcome === "not-finished" ? "not finished" : derivation.outcome,
-    text: `Spec derivation ${derivationWords(derivation)}.`,
-    meta: [clock(derivation.startedAt), elapsed(derivation.startedAt, derivation.finishedAt),
-      running ? `${money(derivation.cost)} so far` : money(derivation.cost)].filter(Boolean).join(" · "),
+    kind: "derivation",
+    who: t("tickets.story.derivation"),
+    outcome: running ? t("tickets.runs.running") : derivation.outcome === "not-finished" ? t("tickets.runs.notFinished")
+      : DERIVATION_OUTCOMES[derivation.outcome] ? t(DERIVATION_OUTCOMES[derivation.outcome]) : derivation.outcome,
+    text: t("tickets.story.derivationText", { words: derivationWords(t, derivation) }),
+    meta: [clock(derivation.startedAt, locale), elapsed(derivation.startedAt, derivation.finishedAt, t),
+      running ? t("tickets.story.soFar", { cost: money(derivation.cost) }) : money(derivation.cost)].filter(Boolean).join(" · "),
     tone: running ? "run" : derivation.outcome === "not-finished" ? "bad" : derivation.outcome === "asked" ? "person" : "ok",
+    running,
     href: runPath(derivation.runId),
     attempt: null,
     startedAt: derivation.startedAt,
@@ -57,16 +74,18 @@ export function derivationListLine(derivation: TicketDerivation): RunListLine {
 }
 
 /** 2026-11-17-3435b: a merge-green run — the CI loop merging the attempt's pull requests once CI was green. */
-export function mergeListLine(run: TicketOtherRun): RunListLine {
+export function mergeListLine(run: TicketOtherRun, t: T = translator("en"), locale?: string): RunListLine {
   const running = run.finishedAt === null;
   const ok = run.status === "success";
   return {
     runId: run.runId,
-    who: "Merge",
-    outcome: running ? "running" : ok ? "done" : "not finished",
-    text: "CI was green; merge the pull requests.",
-    meta: [clock(run.startedAt), elapsed(run.startedAt, run.finishedAt), money(run.cost)].filter(Boolean).join(" · "),
+    kind: "merge",
+    who: t("tickets.runs.merge"),
+    outcome: running ? t("tickets.runs.running") : ok ? t("tickets.runs.done") : t("tickets.runs.notFinished"),
+    text: t("tickets.runs.mergeText"),
+    meta: [clock(run.startedAt, locale), elapsed(run.startedAt, run.finishedAt, t), money(run.cost)].filter(Boolean).join(" · "),
     tone: running ? "run" : ok ? "ok" : "bad",
+    running,
     href: runPath(run.runId),
     attempt: null,
     startedAt: run.startedAt,
@@ -74,16 +93,18 @@ export function mergeListLine(run: TicketOtherRun): RunListLine {
 }
 
 /** 2026-11-18-3863f: a deploy run started from this ticket; where its delivery stands is drawn under it. */
-export function deployListLine(run: TicketOtherRun): RunListLine {
+export function deployListLine(run: TicketOtherRun, t: T = translator("en"), locale?: string): RunListLine {
   const running = run.finishedAt === null;
   const ok = run.status === "success";
   return {
     runId: run.runId,
-    who: "Deploy",
-    outcome: running ? "running" : ok ? "delivered" : "not delivered",
-    text: "Deploy to an environment.",
-    meta: [clock(run.startedAt), elapsed(run.startedAt, run.finishedAt), money(run.cost)].filter(Boolean).join(" · "),
+    kind: "deploy",
+    who: t("tickets.runs.deploy"),
+    outcome: running ? t("tickets.runs.running") : ok ? t("tickets.report.delivered") : t("tickets.report.notDelivered"),
+    text: t("tickets.runs.deployText"),
+    meta: [clock(run.startedAt, locale), elapsed(run.startedAt, run.finishedAt, t), money(run.cost)].filter(Boolean).join(" · "),
     tone: running ? "run" : ok ? "ok" : "bad",
+    running,
     href: runPath(run.runId),
     attempt: null,
     startedAt: run.startedAt,
@@ -92,9 +113,10 @@ export function deployListLine(run: TicketOtherRun): RunListLine {
 
 /** Every attempt, derivation, merge-green and deploy run, newest start first. */
 export function runListLines(attempts: readonly TicketAttempt[], derivations: readonly TicketDerivation[],
-  otherRuns: readonly TicketOtherRun[] = [], ctx: StatusContext | null = null, queuePlace: number | null = null): RunListLine[] {
-  return [...attempts.map((a) => attemptListLine(a, ctx, queuePlace)), ...derivations.map(derivationListLine),
-    ...otherRuns.filter((r) => r.pipeline === "merge-green").map(mergeListLine),
-    ...otherRuns.filter((r) => r.pipeline === "deploy").map(deployListLine)]
+  otherRuns: readonly TicketOtherRun[] = [], ctx: StatusContext | null = null, queuePlace: number | null = null,
+  t: T = translator("en"), locale?: string): RunListLine[] {
+  return [...attempts.map((a) => attemptListLine(a, ctx, queuePlace, t, locale)), ...derivations.map((d) => derivationListLine(d, t, locale)),
+    ...otherRuns.filter((r) => r.pipeline === "merge-green").map((r) => mergeListLine(r, t, locale)),
+    ...otherRuns.filter((r) => r.pipeline === "deploy").map((r) => deployListLine(r, t, locale))]
     .sort((l, r) => Date.parse(r.startedAt) - Date.parse(l.startedAt) || (l.runId < r.runId ? 1 : -1));
 }

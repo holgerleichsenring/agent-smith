@@ -1,4 +1,5 @@
 import { isRunLive } from "@/lib/runLiveness";
+import { translator, type T, type TextKey } from "@/lib/i18n/translate";
 import type {
   RunComputePark, RunPasses, TicketAttempt, TicketConversationEntry, TicketSeries, TicketSeriesSpec,
 } from "@/types/tickets";
@@ -20,6 +21,8 @@ export interface AttemptStoryInput {
   cutEntries: TicketConversationEntry[];
   /** The series read for this attempt: the default cut for the live one, ?runId= for a handed-back one. */
   cut: TicketSeries | null;
+  /** 2026-11-23-5669b: the language the story is told in; English when none is given. */
+  t?: T;
 }
 
 export interface AttemptStory {
@@ -27,8 +30,6 @@ export interface AttemptStory {
   did: string[] | null;
   ended: { lead: string; rest: string | null } | null;
 }
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The spec the live attempt is on, from its OWN cut — null while the read's cut is another attempt's. */
 export function liveSpec(attempt: TicketAttempt, cut: TicketSeries | null): {
@@ -47,108 +48,115 @@ export function liveSpec(attempt: TicketAttempt, cut: TicketSeries | null): {
   };
 }
 
-function doing(attempt: TicketAttempt, cut: TicketSeries | null): string[] {
-  if (attempt.status === "queued") return ["Waiting in the queue for capacity"];
+function doing(attempt: TicketAttempt, cut: TicketSeries | null, t: T): string[] {
+  if (attempt.status === "queued") return [t("tickets.story.queued")];
   const live = liveSpec(attempt, cut);
-  if (!live) return ["Deriving the series"];
+  if (!live) return [t("tickets.story.deriving")];
   const { spec, step, rest } = live;
   const action = step !== null ? spec.steps[step - 1]?.action : null;
-  const lines = [action ? `Spec ${spec.ordinal}, step ${step}: ${action}` : `Spec ${spec.ordinal}: ${spec.goal}`];
-  if (rest.length > 0) lines.push(`Next: ${rest.map((s) => `spec ${s.ordinal}`).join(", then ")}`);
+  const lines = [action ? t("tickets.story.specStep", { ordinal: spec.ordinal, step: step!, action })
+    : t("tickets.story.spec", { ordinal: spec.ordinal, goal: spec.goal })];
+  if (rest.length > 0) {
+    const next = rest.map((s) => t("tickets.story.specRef", { ordinal: s.ordinal })).join(t("tickets.story.then"));
+    lines.push(t("tickets.story.next", { next }));
+  }
   return lines;
 }
 
-function cutLines(entries: TicketConversationEntry[]): string[] {
+function cutLines(entries: TicketConversationEntry[], t: T): string[] {
   return entries.map((entry, i) => {
     const detail = (entry.detail ?? {}) as CutReviewDetail;
     const n = typeof detail.attempt === "number" ? detail.attempt : i + 1;
     if (detail.deliverable === "refused") {
       const findings = detail.findings?.length ?? 0;
-      return `Cut ${n}: refused by the reviewer${findings > 0 ? ` (${plural(findings, "finding")})` : ""}`;
+      const counted = findings > 0 ? t("tickets.story.findings", { count: findings }) : "";
+      return t("tickets.story.cutRefused", { n, findings: counted });
     }
-    if (detail.deliverable === "accepted") return `Cut ${n}: accepted by the reviewer`;
-    return `Cut ${n}: reviewed`;
+    if (detail.deliverable === "accepted") return t("tickets.story.cutAccepted", { n });
+    return t("tickets.story.cutReviewed", { n });
   });
 }
 
-function prLine(attempt: TicketAttempt): string | null {
+function prLine(attempt: TicketAttempt, t: T): string | null {
   const opened = attempt.pullRequests.filter((pr) => pr.status === "opened" || pr.status === "awaiting_ci"); // 3435b
   if (opened.length === 0) return null;
   const names = opened.map((pr) => {
     const n = prNumber(pr.url);
     return n ? `#${n} (${pr.repo})` : pr.repo;
   });
-  return `Opened ${names.length === 1 ? "the PR" : "the PRs"} ${names.join(" and ")}`;
+  return t("tickets.story.opened", { count: names.length, names: names.join(t("tickets.story.and")) });
 }
 
-const SPEC_OUTCOME: Record<string, string> = {
-  done: "done", failed: "not done", in_progress: "not finished", handed_back: "handed back",
+const SPEC_OUTCOME: Record<string, TextKey> = {
+  done: "tickets.story.outcome.done", failed: "tickets.story.outcome.failed", in_progress: "tickets.story.outcome.inProgress",
+  handed_back: "tickets.story.outcome.handedBack",
 };
 
-function specLines(attempt: TicketAttempt, passes: RunPasses | null): string[] {
+function specLines(attempt: TicketAttempt, passes: RunPasses | null, t: T): string[] {
   return [...attempt.executedSpecs]
     .filter((s) => s.status !== "not_started")
     .sort((l, r) => l.ordinal - r.ordinal)
     .map((s) => {
       const own = passes?.specs.find((p) => p.specId === s.specId)?.passes ?? null;
-      const clauses = [`Spec ${s.ordinal}: ${SPEC_OUTCOME[s.status] ?? s.status.replace(/_/g, " ")}`];
-      if (own && own.length > 0) clauses[0] += own.length === 1 ? " in one pass" : ` in ${own.length} passes`;
+      const outcome = SPEC_OUTCOME[s.status] ? t(SPEC_OUTCOME[s.status]) : s.status.replace(/_/g, " ");
+      const clauses = [t("tickets.story.specOutcome", { ordinal: s.ordinal, outcome })];
+      if (own && own.length > 0) clauses[0] += t("tickets.story.inPasses", { count: own.length });
       const asked = own?.filter((p) => p.endedBecause === "question").length ?? 0;
       const resumed = own?.filter((p) => p.openedBecause === "after-answer").length ?? 0;
-      if (asked > 0) clauses.push(`asked ${plural(asked, "question")}`);
-      if (resumed > 0) clauses.push(`resumed ${resumed === 1 ? "once" : `${resumed} times`} after an answer`);
+      if (asked > 0) clauses.push(t("tickets.story.asked", { count: asked }));
+      if (resumed > 0) clauses.push(t("tickets.story.resumed", { count: resumed }));
       return clauses.join(", ");
     });
 }
 
-function failedSentence(attempt: TicketAttempt, passes: RunPasses | null): { lead: string; rest: string | null } {
-  if (attempt.endedOnInfrastructure) return { lead: "Ended on infrastructure.", rest: "The sandbox or host was lost, not the work." };
+function failedSentence(attempt: TicketAttempt, passes: RunPasses | null, t: T): { lead: string; rest: string | null } {
+  if (attempt.endedOnInfrastructure) return { lead: t("tickets.story.infrastructure"), rest: t("tickets.story.infrastructureRest") };
   const failing = [...attempt.executedSpecs].sort((l, r) => l.ordinal - r.ordinal)
     .find((s) => s.status === "failed") ?? attempt.executedSpecs.find((s) => s.status === "in_progress");
-  if (!failing) return { lead: "Failed.", rest: null };
+  if (!failing) return { lead: t("tickets.story.failed"), rest: null };
   const own = passes?.specs.find((p) => p.specId === failing.specId)?.passes ?? [];
   const last = [...own].sort((l, r) => l.ordinal - r.ordinal).at(-1);
-  const count = own.length > 0 ? ` after ${plural(own.length, "pass", "passes")}` : "";
-  const reason = last && last.endedBecause !== "unknown" ? ` — the last pass ${passEndWords(last.endedBecause)}` : "";
-  return { lead: "Failed:", rest: `spec ${failing.ordinal} not done${count}${reason}.` };
+  const count = own.length > 0 ? t("tickets.story.afterPasses", { count: own.length }) : "";
+  const reason = last && last.endedBecause !== "unknown" ? t("tickets.story.lastPass", { why: passEndWords(last.endedBecause, t) }) : "";
+  return { lead: t("tickets.story.failedColon"), rest: t("tickets.story.notDone", { ordinal: failing.ordinal, count, reason }) };
 }
 
-function ended(attempt: TicketAttempt, passes: RunPasses | null, cut: TicketSeries | null): AttemptStory["ended"] {
+function ended(attempt: TicketAttempt, passes: RunPasses | null, cut: TicketSeries | null, t: T): AttemptStory["ended"] {
   if (attempt.handedBack) {
     const handback = cut?.handback?.runId === attempt.runId ? cut.handback : null;
-    return { lead: handback ? `Handed back as ${handbackCaseWords(handback.case)}.` : "Handed back.", rest: null };
+    return { lead: handback ? t("tickets.story.handedBackAs", { case: handbackCaseWords(handback.case, t) }) : t("tickets.story.handedBack"), rest: null };
   }
   if (isRunLive(attempt.status)) return null;
   switch (attempt.status) {
-    case "success": return { lead: "Finished.", rest: null };
-    case "shortfall": return { lead: "Finished with a shortfall.", rest: null };
-    case "cancelled": return { lead: "Cancelled.", rest: null };
-    default: return failedSentence(attempt, passes);
+    case "success": return { lead: t("tickets.story.finished"), rest: null };
+    case "shortfall": return { lead: t("tickets.story.shortfall"), rest: null };
+    case "cancelled": return { lead: t("tickets.story.cancelled"), rest: null };
+    default: return failedSentence(attempt, passes, t);
   }
 }
 
-export function attemptStory({ attempt, passes, cutEntries, cut }: AttemptStoryInput): AttemptStory {
+export function attemptStory({ attempt, passes, cutEntries, cut, t = translator("en") }: AttemptStoryInput): AttemptStory {
   const live = isRunLive(attempt.status) && !attempt.handedBack;
-  if (live) return { doing: doing(attempt, cut), did: null, ended: null };
-  const did = [...cutLines(cutEntries), prLine(attempt), ...specLines(attempt, passes)].filter((l): l is string => !!l);
-  return { doing: null, did: did.length > 0 ? did : null, ended: ended(attempt, passes, cut) };
+  if (live) return { doing: doing(attempt, cut, t), did: null, ended: null };
+  const did = [...cutLines(cutEntries, t), prLine(attempt, t), ...specLines(attempt, passes, t)].filter((l): l is string => !!l);
+  return { doing: null, did: did.length > 0 ? did : null, ended: ended(attempt, passes, cut, t) };
 }
 
 /** Where a cause came from: "#813" for a pull request, "the ticket" for a comment or a status move. */
-export function causeWhere(attempt: TicketAttempt): string | null {
+export function causeWhere(attempt: TicketAttempt, t: T = translator("en")): string | null {
   const source = attempt.cause?.source;
   const pr = prNumber(source?.url);
   if (pr) return `#${pr}`;
-  if (attempt.cause?.channel === "ticket_comment" || attempt.cause?.channel === "status_move") return "the ticket";
+  if (attempt.cause?.channel === "ticket_comment" || attempt.cause?.channel === "status_move") return t("tickets.story.theTicket");
   return null;
 }
 
 /** The cause's label: its channel, and for a status move the status it moved into. */
-export function causeLabel(attempt: TicketAttempt): string | null {
+export function causeLabel(attempt: TicketAttempt, t: T = translator("en")): string | null {
   const cause = attempt.cause;
   if (!cause) return null;
-  const into = cause.channel === "status_move" && cause.source?.detail ? ` to ${cause.source.detail}` : "";
-  return `${channelWords(cause.channel)}${into}`;
+  const into = cause.channel === "status_move" && cause.source?.detail ? t("tickets.story.into", { status: cause.source.detail }) : "";
+  return `${channelWords(t, cause.channel)}${into}`;
 }
 
 /** The question parks of one attempt: how many, and how long they waited in total. */

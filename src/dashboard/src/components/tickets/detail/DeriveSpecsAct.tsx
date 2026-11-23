@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 import { deriveSpecs, type DeriveMode } from "@/lib/ticketsApi";
 import { useTicketDerivations } from "@/lib/tickets/TicketPageStore";
 import { RUNS_CONTROL } from "./RetryUnchanged";
@@ -10,14 +12,15 @@ import { RUNS_CONTROL } from "./RetryUnchanged";
 // the branch (with a draft spec pull request) or Preview only (nothing written). Hidden from a caller known to lack
 // runs.control; a refusal is shown as the server wrote it.
 
-export const DERIVE_MODES: { mode: DeriveMode; label: string }[] = [
-  { mode: "branch", label: "Store on the branch" },
-  { mode: "preview", label: "Preview only" },
+export const DERIVE_MODES: { mode: DeriveMode; label: TextKey }[] = [
+  { mode: "branch", label: "tickets.derive.mode.branch" },
+  { mode: "preview", label: "tickets.derive.mode.preview" },
 ];
 
 type Outcome = { kind: "idle" } | { kind: "sending" } | { kind: "started" } | { kind: "said"; text: string };
 
-export function DeriveSpecsAct({ project, ticketId, label = "Derive specs" }: { project: string; ticketId: string; label?: string }) {
+export function DeriveSpecsAct({ project, ticketId, label }: { project: string; ticketId: string; label?: string }) {
+  const t = useT();
   const lacks = useLacksPermission(RUNS_CONTROL, project);
   const { started } = useTicketDerivations();
   const [mode, setMode] = useState<DeriveMode>("branch");
@@ -37,13 +40,13 @@ export function DeriveSpecsAct({ project, ticketId, label = "Derive specs" }: { 
 
   return (
     <span className="derive-act" data-testid="derive-specs">
-      <select aria-label="Where the specs go" value={mode} onChange={(e) => setMode(e.target.value as DeriveMode)}
+      <select aria-label={t("tickets.derive.where")} value={mode} onChange={(e) => setMode(e.target.value as DeriveMode)}
         data-testid="derive-specs-mode">
-        {DERIVE_MODES.map((m) => <option key={m.mode} value={m.mode}>{m.label}</option>)}
+        {DERIVE_MODES.map((m) => <option key={m.mode} value={m.mode}>{t(m.label)}</option>)}
       </select>
       <button type="button" className="btn" onClick={() => void derive()} disabled={outcome.kind === "sending"}
-        data-testid="derive-specs-start">{label}</button>
-      {outcome.kind === "started" && <span className="cp-note" data-testid="derive-specs-started">Spec derivation started.</span>}
+        data-testid="derive-specs-start">{label ?? t("tickets.derive.start")}</button>
+      {outcome.kind === "started" && <span className="cp-note" data-testid="derive-specs-started">{t("tickets.derive.started")}</span>}
       {outcome.kind === "said" && <span className="cp-note bad" data-testid="derive-specs-refused">{outcome.text}</span>}
     </span>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/hooks/useT";
 import { markLandedByHand } from "@/lib/ticketGraphApi";
 
 // 2026-10-14-dbcen: ticket-graph.html's done-by-hand dialog — a note is required, and every answer that is not a
@@ -19,6 +20,7 @@ interface Props {
 type State = { kind: "editing" } | { kind: "sending" } | { kind: "said"; text: string };
 
 export function DoneByHandDialog({ project, ticketId, label, onClose, onLanded }: Props) {
+  const t = useT();
   const [note, setNote] = useState("");
   const [state, setState] = useState<State>({ kind: "editing" });
   const field = useRef<HTMLTextAreaElement>(null);
@@ -41,16 +43,16 @@ export function DoneByHandDialog({ project, ticketId, label, onClose, onLanded }
     <div className="dbh-back" onClick={(e) => e.target === e.currentTarget && onClose()} data-testid="done-by-hand-backdrop">
       <div className="dbh" role="dialog" aria-modal="true" aria-labelledby={`dbh-${ticketId}`} data-testid="done-by-hand-dialog"
         onKeyDown={(e) => e.key === "Escape" && onClose()}>
-        <h3 id={`dbh-${ticketId}`}>Mark {label} done by hand</h3>
-        <div className="dbh-sub">Tickets that wait for {label} stop waiting. This cannot be undone.</div>
-        <textarea ref={field} value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note"
-          placeholder="Why does this ticket count as landed?" data-testid="done-by-hand-note" />
+        <h3 id={`dbh-${ticketId}`}>{t("tickets.landing.title", { label })}</h3>
+        <div className="dbh-sub">{t("tickets.landing.sub", { label })}</div>
+        <textarea ref={field} value={note} onChange={(e) => setNote(e.target.value)} aria-label={t("tickets.landing.note")}
+          placeholder={t("tickets.landing.placeholder")} data-testid="done-by-hand-note" />
         {state.kind === "said" && <div className="dbh-said" data-testid="done-by-hand-said">{state.text}</div>}
         <div className="dbh-acts">
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn" onClick={onClose}>{t("common.cancel")}</button>
           <button type="button" className="btn primary" onClick={() => void send()} data-testid="done-by-hand-send"
             disabled={note.trim() === "" || state.kind === "sending"}>
-            Mark done
+            {t("tickets.landing.send")}
           </button>
         </div>
       </div>

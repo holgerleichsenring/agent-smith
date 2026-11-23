@@ -7,6 +7,7 @@ import { DialogQuestionCard } from "@/components/dialog/DialogQuestionCard";
 import { DialogWorking } from "@/components/dialog/DialogWorking";
 import { approvalProposal } from "@/components/dialog/approvalProposal";
 import { useT } from "@/hooks/useT";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import type { TicketApprovalPreview, TicketConversation } from "@/types/tickets";
 import { ticketDecision } from "./ticketDecision";
@@ -35,12 +36,17 @@ interface Props {
   replyRef?: MutableRefObject<TicketReply | null>;
 }
 
-const REFUSAL_WORDS: Record<ResumeRefusal["kind"], string> = {
-  "question-pending": "A question is waiting in this conversation: answer the waiting question first.",
-  "turn-running": "A reply is being written; try again when it lands.",
-  forbidden: "",
-  "not-found": "",
+const REFUSAL_WORDS: Record<ResumeRefusal["kind"], TextKey> = {
+  "question-pending": "tickets.composer.refusal.questionPending",
+  "turn-running": "tickets.composer.refusal.turnRunning",
+  forbidden: "tickets.composer.refusal.forbidden",
+  "not-found": "tickets.composer.refusal.notFound",
 };
+
+/** The refusal in words: the server's reason where it gave one, else the dashboard's. */
+function refusalWords(t: T, refusal: ResumeRefusal): string {
+  return "reason" in refusal && refusal.reason ? refusal.reason : t(REFUSAL_WORDS[refusal.kind]);
+}
 
 export function TicketComposer({ conversation, project, ticketId, preview, inputRef, replyRef }: Props) {
   const t = useT();
@@ -87,13 +93,13 @@ export function TicketComposer({ conversation, project, ticketId, preview, input
           )}
           {refusal && (
             <div className="cp-effect person" data-testid={`ticket-resume-${refusal.kind}`}>
-              <span>{REFUSAL_WORDS[refusal.kind] || ("reason" in refusal ? refusal.reason : "")}</span>
-              <button type="button" className="btn sm" onClick={composer.retry}>Try again</button>
+              <span>{refusalWords(t, refusal)}</span>
+              <button type="button" className="btn sm" onClick={composer.retry}>{t("tickets.composer.tryAgain")}</button>
             </div>
           )}
           {composer.missed && (
             <div className="cp-effect person" data-testid="ticket-approval-gone">
-              <span>The approval question is no longer waiting — write below to ask for the proposal again.</span>
+              <span>{t("tickets.composer.approvalGone")}</span>
             </div>
           )}
         </div>
@@ -123,10 +129,10 @@ export function TicketComposer({ conversation, project, ticketId, preview, input
             onSend={(text) => composer.act({ kind: "send", text })}
             onAttach={(file) => setAttachFirst(!composer.attach(file))}
             note={attachFirst
-              ? { tone: "refused", text: "Send a message first: it is what binds the conversation to this ticket." }
+              ? { tone: "refused", text: t("tickets.composer.sendFirst") }
               : dialog.uploadNote}
             disabled={refusal !== null}
-            placeholder="Reply to ask for a change. A reply starts the next run."
+            placeholder={t("tickets.composer.placeholder")}
           />
         </div>
       )}

@@ -1,7 +1,7 @@
+import type { T } from "@/lib/i18n/translate";
 import { TICKET_SECTIONS } from "@/components/tickets/ticketSections";
 import { isYourMove } from "@/components/tickets/holds/holdWords";
 import { SERVER_BUCKET, TICKET_BUCKETS, type TicketSummary } from "@/types/tickets";
-import type { T } from "@/lib/i18n/translate";
 
 // 2026-11-17-d6fba: what the home page lists under its composer, from the one ticket-list read the sidebar counts from.
 // Your move oldest first, at most three; recent tickets are the newest of the rest. 2026-11-23-31dcg: Your move is the
@@ -30,7 +30,7 @@ export function waitingSentence(t: T, count: number): string {
 }
 
 /** The ticket's state as the ticket list's section names it: "Working", "In review", "Stuck". */
-export function stateWords(t: TicketSummary): string {
+export function stateWords(t: TicketSummary, tr: T): string {
   const bucket = TICKET_BUCKETS.find((b) => SERVER_BUCKET[b] === t.bucket);
-  return bucket ? TICKET_SECTIONS[bucket].title : t.bucket.replace(/_/g, " ");
+  return bucket ? tr(TICKET_SECTIONS[bucket].title) : t.bucket.replace(/_/g, " ");
 }

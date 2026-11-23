@@ -1,3 +1,4 @@
+import { translator, type T, type TextKey } from "@/lib/i18n/translate";
 import type { TicketConversationEntry } from "@/types/tickets";
 
 // 2026-10-13-9a59q: the words the ticket graph and its node detail are written in, from recorded
@@ -5,52 +6,52 @@ import type { TicketConversationEntry } from "@/types/tickets";
 
 export { money } from "../ticketFormat";
 
-const PASS_WORDS: Record<string, string> = {
-  "re-engaged": "re-engaged",
-  "nothing-left": "nothing left to do",
-  budget: "budget spent",
-  "red-accepted": "red verdict accepted",
-  verdictless: "ended without reporting its result",
-  idle: "went idle",
-  blocked: "blocked",
-  "self-refilled": "refilled its own steps",
-  cap: "pass cap reached",
-  question: "asked a question",
-  failed: "failed",
-  unknown: "no end recorded",
-  "red-with-open-steps": "verdict red with open steps",
+const PASS_WORDS: Record<string, TextKey> = {
+  "re-engaged": "tickets.flow.pass.reEngaged",
+  "nothing-left": "tickets.flow.pass.nothingLeft",
+  budget: "tickets.flow.pass.budget",
+  "red-accepted": "tickets.flow.pass.redAccepted",
+  verdictless: "tickets.flow.pass.verdictless",
+  idle: "tickets.flow.pass.idle",
+  blocked: "tickets.flow.pass.blocked",
+  "self-refilled": "tickets.flow.pass.selfRefilled",
+  cap: "tickets.flow.pass.cap",
+  question: "tickets.flow.pass.question",
+  failed: "tickets.flow.pass.failed",
+  unknown: "tickets.flow.pass.unknown",
+  "red-with-open-steps": "tickets.flow.pass.redWithOpenSteps",
   // 2026-11-22-96c8a: no verdict any more — open checklist steps get one re-drive, then the loop stops.
-  unfinished: "driven once more",
-  "steps-open": "ended with checklist steps still open",
-  "unbacked-done": "steps marked done that the diff does not back",
-  "gate-unsatisfied": "acceptance gate unsatisfied",
-  "unresolved-claims": "met claims cite nothing that changed or ran", // 2026-10-17-a196c
-  challenged: "challenged on its own stop",
-  first: "first pass",
-  "after-answer": "after the answer",
-  repair: "repair",
-  "review-fix": "review fix",
-  "structure-correction": "structure correction",
+  unfinished: "tickets.flow.pass.unfinished",
+  "steps-open": "tickets.flow.pass.stepsOpen",
+  "unbacked-done": "tickets.flow.pass.unbackedDone",
+  "gate-unsatisfied": "tickets.flow.pass.gateUnsatisfied",
+  "unresolved-claims": "tickets.flow.pass.unresolvedClaims", // 2026-10-17-a196c
+  challenged: "tickets.flow.pass.challenged",
+  first: "tickets.flow.pass.first",
+  "after-answer": "tickets.flow.pass.afterAnswer",
+  repair: "tickets.flow.pass.repair",
+  "review-fix": "tickets.flow.pass.reviewFix",
+  "structure-correction": "tickets.flow.pass.structureCorrection",
 };
 
-export function passEndWords(reason: string): string {
-  return PASS_WORDS[reason] ?? reason;
+export function passEndWords(reason: string, t: T = translator("en")): string {
+  return PASS_WORDS[reason] ? t(PASS_WORDS[reason]) : reason;
 }
 
-const CASE_WORDS: Record<string, string> = {
-  RequirementsContradictRepository: "contradiction",
-  NotImplementable: "not implementable",
-  Refused: "refused",
-  Question: "question",
-  SpecificationMissingFromBranch: "spec missing from the branch",
-  ScopeUnassigned: "scope unassigned",
-  SeriesOutOfStep: "series out of step",
-  CiFixBudgetSpent: "CI still red", // 2026-11-17-3435c
-  ReviewObjection: "review objection", // 2026-10-13-8762l
+const CASE_WORDS: Record<string, TextKey> = {
+  RequirementsContradictRepository: "tickets.flow.case.requirementsContradictRepository",
+  NotImplementable: "tickets.flow.case.notImplementable",
+  Refused: "tickets.flow.case.refused",
+  Question: "tickets.flow.case.question",
+  SpecificationMissingFromBranch: "tickets.flow.case.specificationMissingFromBranch",
+  ScopeUnassigned: "tickets.flow.case.scopeUnassigned",
+  SeriesOutOfStep: "tickets.flow.case.seriesOutOfStep",
+  CiFixBudgetSpent: "tickets.flow.case.ciFixBudgetSpent", // 2026-11-17-3435c
+  ReviewObjection: "tickets.flow.case.reviewObjection", // 2026-10-13-8762l
 };
 
-export function handbackCaseWords(handbackCase: string): string {
-  return CASE_WORDS[handbackCase] ?? handbackCase;
+export function handbackCaseWords(handbackCase: string, t: T = translator("en")): string {
+  return CASE_WORDS[handbackCase] ? t(CASE_WORDS[handbackCase]) : handbackCase;
 }
 
 export interface CutReviewDetail {
@@ -69,38 +70,40 @@ export function refusedReviews(entries: TicketConversationEntry[]): number {
   return cutReviews(entries).filter((r) => r.detail.deliverable === "refused").length;
 }
 
-/** "Sep 4 14:26" — a calendar day and a 24-hour clock. */
-export function clock(iso: string | null | undefined): string | null {
+/** "Sep 4 14:26" — a calendar day and a 24-hour clock. 2026-11-23-5669b: in `locale` (useDateLocale) when it is not
+ *  English — "4. Sept. 14:26"; English keeps "Sep 4". */
+export function clock(iso: string | null | undefined, locale?: string): string | null {
   if (!iso) return null;
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return null;
-  const day = at.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const time = at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const foreign = locale && !locale.startsWith("en") ? locale : null;
+  const day = at.toLocaleDateString(foreign ?? "en-US", { month: "short", day: "numeric" });
+  const time = at.toLocaleTimeString(foreign ?? "en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
   return `${day} ${time}`;
 }
 
 /** "6m 12s", "5h 17m" — wall time between two instants, or until now while it runs. */
-export function elapsed(fromIso: string, toIso: string | null): string {
+export function elapsed(fromIso: string, toIso: string | null, t: T = translator("en")): string {
   const ms = Math.max(0, (toIso ? Date.parse(toIso) : Date.now()) - Date.parse(fromIso));
   if (Number.isNaN(ms)) return "";
   const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return t("tickets.flow.seconds", { s: seconds });
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  if (minutes < 60) return t("tickets.flow.minutes", { m: minutes, s: seconds % 60 });
+  return t("tickets.flow.hours", { h: Math.floor(minutes / 60), m: minutes % 60 });
 }
 
-const STATUS_WORDS: Record<string, string> = {
-  running: "running",
-  queued: "queued",
-  waiting_for_input: "waiting for an answer",
-  success: "succeeded",
-  shortfall: "done with a shortfall",
-  failed: "failed",
-  error: "failed",
-  cancelled: "cancelled",
+const STATUS_WORDS: Record<string, TextKey> = {
+  running: "tickets.flow.status.running",
+  queued: "tickets.flow.status.queued",
+  waiting_for_input: "tickets.flow.status.waitingForInput",
+  success: "tickets.flow.status.success",
+  shortfall: "tickets.flow.status.shortfall",
+  failed: "tickets.flow.status.failed",
+  error: "tickets.flow.status.error",
+  cancelled: "tickets.flow.status.cancelled",
 };
 
-export function statusWords(status: string): string {
-  return STATUS_WORDS[status] ?? status;
+export function statusWords(status: string, t: T = translator("en")): string {
+  return STATUS_WORDS[status] ? t(STATUS_WORDS[status]) : status;
 }

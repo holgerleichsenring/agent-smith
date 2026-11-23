@@ -1,5 +1,5 @@
 import { EventType, type RunEvent, type StepStartedEvent } from "@/types/hub-events";
-import { translator, type T } from "@/lib/i18n/translate";
+import { translator, type T, type TextKey } from "@/lib/i18n/translate";
 import { seriesRunPath } from "@/lib/seriesRunAddress";
 import {
   RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketHold, type TicketPullRequest, type TicketSeries, type TicketSummary,
@@ -80,35 +80,36 @@ function stateOf({ detail, liveEvents, series, t = translator("en") }: TicketSta
     case "stuck":
       return ended(head, hold, t);
     case "pr_closed":
-      return { ...base(head), tone: "bad", pill: "PR closed", sentence: "Every pull request was closed without a merge.", act: CONTINUE };
-    case "done": return { ...base(head), quiet: true, tone: "ok", pill: "Done", sentence: doneSentence(summary, head) };
-    case "closed": return { ...base(head), quiet: true, tone: "q", pill: "Closed", sentence: capital(closedWords(summary)) };
-    case "idle": return { ...base(head), quiet: true, tone: "q", pill: "Ended", sentence: endedSentence(head) };
+      return { ...base(head), tone: "bad", pill: "PR closed", sentence: t("tickets.state.prClosed"), act: CONTINUE };
+    case "done": return { ...base(head), quiet: true, tone: "ok", pill: "Done", sentence: doneSentence(summary, head, t) };
+    case "closed": return { ...base(head), quiet: true, tone: "q", pill: "Closed", sentence: capital(closedWords(t, summary)) };
+    case "idle": return { ...base(head), quiet: true, tone: "q", pill: "Ended", sentence: endedSentence(head, t) };
     default: return null;
   }
 }
 
 /** 2026-11-22-7103a: why an attempt stopped before any work, by its end kind, without the attempt's number — a run's
  *  status line says the same words. */
-const STOP_WORDS: Record<string, string> = {
-  [RUN_END_KINDS.imageUntrusted]: "a context names a container image outside the trusted registries",
-  [RUN_END_KINDS.bootstrapMissing]: "a repository has no agent-smith bootstrap",
-  [RUN_END_KINDS.preflight]: "a precondition did not hold",
+const STOP_WORDS: Record<string, TextKey> = {
+  [RUN_END_KINDS.imageUntrusted]: "tickets.state.stop.imageUntrusted",
+  [RUN_END_KINDS.bootstrapMissing]: "tickets.state.stop.bootstrapMissing",
+  [RUN_END_KINDS.preflight]: "tickets.state.stop.preflight",
 };
 
 /** 2026-11-22-7103a: a stopped run's status head from its end kind and detail — "Stopped before any work: …" or
  *  "Failed: …" with no attempt number and no closing full stop; null when the end names no cause. */
-export function endCauseHead(head: TicketAttempt): string | null {
+export function endCauseHead(head: TicketAttempt, t: T = translator("en")): string | null {
   const told = toldOf(head)?.replace(/[.!?]$/, "") ?? null;
   const kind = head.endKind ?? "";
-  if (STOP_WORDS[kind]) return `Stopped before any work: ${told ?? STOP_WORDS[kind]}`;
+  if (STOP_WORDS[kind]) return t("tickets.state.stoppedBefore", { why: told ?? t(STOP_WORDS[kind]) });
   switch (kind) {
     case RUN_END_KINDS.readinessUnknown: {
       const why = head.endDetail?.subject;
-      return `Stopped before any work: the repositories' bootstrap could not be read from the host${why ? `: ${why}` : ""}`;
+      const unread = t("tickets.state.stop.readinessUnknown");
+      return t("tickets.state.stoppedBefore", { why: why ? `${unread}: ${why}` : unread });
     }
-    case RUN_END_KINDS.criteriaUnmet: return "Failed: the verifier of that time did not accept a criterion";
-    default: return told ? `Failed: ${told}` : null;
+    case RUN_END_KINDS.criteriaUnmet: return t("tickets.state.failed", { why: t("tickets.state.stop.criteriaUnmet") });
+    default: return told ? t("tickets.state.failed", { why: told }) : null;
   }
 }
 
@@ -161,63 +162,63 @@ function holdAct(detail: TicketDetail, head: TicketAttempt | null, hold: TicketH
 function ended(head: TicketAttempt, hold: TicketHold | null, t: T): TicketStateView {
   // 2026-11-19-1b72a: a start its paused series held is not a failure and has nothing to continue — the resume starts it.
   if (head.endKind === RUN_END_KINDS.seriesPaused)
-    return { ...base(head), tone: "q", pill: "Paused", sentence: "Its series is paused; it starts again when the series resumes." };
+    return { ...base(head), tone: "q", pill: "Paused", sentence: t("tickets.state.seriesPaused") };
   if (hold?.case === "restarting") return { ...base(head), quiet: true, tone: "amber", pill: "Restarting", sentence: holdSentence(hold, t), hold };
   // 2026-11-17-f9b0a: a cancelled head is in the failed bucket and says it was cancelled; 2026-11-22-7103a: grey.
-  return { ...base(head), tone: "q", pill: "Cancelled", sentence: `Attempt ${head.number} was cancelled.`, act: CONTINUE };
+  return { ...base(head), tone: "q", pill: "Cancelled", sentence: t("tickets.state.cancelled", { n: head.number }), act: CONTINUE };
 }
 
 /** 2026-11-17-f9b0a: done without a pull request is an attempt delivered without one, or a landing marked by hand. */
-function doneSentence(summary: TicketSummary, head: TicketAttempt): string {
-  if ((summary.pullRequests ?? []).length > 0) return "Done — the pull requests are merged.";
+function doneSentence(summary: TicketSummary, head: TicketAttempt, t: T): string {
+  if ((summary.pullRequests ?? []).length > 0) return t("tickets.state.doneMerged");
   return head.status === "success" || head.status === "shortfall"
-    ? `Done — attempt ${head.number} finished without a pull request.`
-    : "Done — marked done by hand.";
+    ? t("tickets.state.doneWithoutPr", { n: head.number })
+    : t("tickets.state.doneByHand");
 }
 
 function working(
   detail: TicketDetail, head: TicketAttempt, events: RunEvent[], series: TicketSeries | null, t: T,
 ): TicketStateView {
   const place = detail.summary.queuePlace;
-  const at = place != null ? ` — place ${place} in line` : "";
+  const at = place != null ? t("tickets.state.placeSuffix", { place }) : "";
   // 2026-11-23-31dci: a queued or resuming attempt says since when it waits, from its hold; its place goes under it.
   const hold = detail.summary.hold;
   // 2026-11-23-d60d: an ended attempt whose pull request waits says what it waits for; its pull requests draw under it.
   if (hold && !["running", "queued", "waiting_for_input"].includes(head.status))
     return { ...base(head), tone: "amber", pill: "Waiting", sentence: holdSentence(hold, t), hold };
   const waiting = hold?.since && (hold.case === "queued" || hold.case === "resuming") ? holdSentence(hold, t) : null;
-  const placeLine = waiting && place != null ? `Place ${place} in line.` : null;
+  const placeLine = waiting && place != null ? t("tickets.state.placeLine", { place }) : null;
   if (head.status === "queued") {
-    return { ...base(head), quiet: true, tone: "amber", pill: "Queued", sentence: waiting ?? `Attempt ${head.number} waits in the queue${at}.`, detail: placeLine };
+    return { ...base(head), quiet: true, tone: "amber", pill: "Queued", sentence: waiting ?? t("tickets.state.queued", { n: head.number, at }), detail: placeLine };
   }
   if (head.status === "waiting_for_input") {
-    return { ...base(head), quiet: true, tone: "amber", pill: "Resuming", sentence: waiting ?? `Attempt ${head.number} is resuming${at}.`, detail: placeLine };
+    return { ...base(head), quiet: true, tone: "amber", pill: "Resuming", sentence: waiting ?? t("tickets.state.resuming", { n: head.number, at }), detail: placeLine };
   }
   // 2026-11-22-50d7a: a run behind another run's model place is not working — the gate's line replaces "Now: <step>".
   const modelWait = currentModelWait(events);
-  return { ...base(head), quiet: true, tone: "amber", pill: "Working", sentence: progress(head, series),
-    detail: modelWait?.line ?? liveLine(events), modelWait };
+  return { ...base(head), quiet: true, tone: "amber", pill: "Working", sentence: progress(head, series, t),
+    detail: modelWait?.line ?? liveLine(events, t), modelWait };
 }
 
 /** "Spec n of m, step k of s: <action>" from the attempt's own cut, else what it is doing before it has one. */
-export function progress(head: TicketAttempt, series: TicketSeries | null): string {
+export function progress(head: TicketAttempt, series: TicketSeries | null, t: T = translator("en")): string {
   const on = liveSpec(head, series);
-  if (!on) return `Attempt ${head.number} is deriving the series.`;
+  if (!on) return t("tickets.state.deriving", { n: head.number });
   const action = on.step !== null ? on.spec.steps[on.step - 1]?.action : null;
-  const step = on.step !== null ? `, step ${on.step} of ${on.steps}` : "";
-  return `Spec ${on.spec.ordinal} of ${on.of}${step}: ${action ?? on.spec.goal}`;
+  const step = on.step !== null ? t("tickets.state.stepOf", { step: on.step, steps: on.steps }) : "";
+  return t("tickets.state.progress", { ordinal: on.spec.ordinal, of: on.of, step, action: action ?? on.spec.goal });
 }
 
 /** The newest step the live run started, as its display name says. */
-export function liveLine(events: RunEvent[]): string | null {
+export function liveLine(events: RunEvent[], t: T = translator("en")): string | null {
   const started = events.filter((e): e is StepStartedEvent => e.type === EventType.StepStarted).at(-1);
-  return started ? `Now: ${started.displayName ?? started.stepName}` : null;
+  return started ? t("tickets.state.now", { step: started.displayName ?? started.stepName }) : null;
 }
 
-function endedSentence(head: TicketAttempt): string {
-  if (head.status === "cancelled") return `Attempt ${head.number} was cancelled.`;
-  if (head.status === "success" || head.status === "shortfall") return `Attempt ${head.number} finished without a pull request.`;
-  return `Attempt ${head.number} ended.`;
+function endedSentence(head: TicketAttempt, t: T): string {
+  if (head.status === "cancelled") return t("tickets.state.cancelled", { n: head.number });
+  if (head.status === "success" || head.status === "shortfall") return t("tickets.state.finishedWithoutPr", { n: head.number });
+  return t("tickets.state.ended", { n: head.number });
 }
 
 function capital(words: string): string {

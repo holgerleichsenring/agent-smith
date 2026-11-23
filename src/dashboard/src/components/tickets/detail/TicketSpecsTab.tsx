@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { runPath } from "@/lib/runPath";
 
 import { useAttemptReads, useTicketDetail, useTicketSeries } from "@/lib/tickets/TicketPageStore";
@@ -21,6 +22,7 @@ import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // close the section, with when, how long, what came of each and Derive again — also on a ticket that has runs.
 
 export function TicketSpecsTab() {
+  const t = useT();
   const detail = useTicketDetail();
   const series = useTicketSeries();
   const address = useTicketTabGo();
@@ -31,7 +33,7 @@ export function TicketSpecsTab() {
     return (
       <>
         <SpecsHead specs={specs} />
-        <div className="msub" data-testid="specs-none">{series.loading ? "Reading the series…" : "No spec has been cut for this ticket."}</div>
+        <div className="msub" data-testid="specs-none">{series.loading ? t("tickets.specs.reading") : t("tickets.specs.none")}</div>
         <SpecDerivations />
       </>
     );
@@ -41,14 +43,14 @@ export function TicketSpecsTab() {
   return (
     <>
       <SpecsHead specs={specs} />
-      {runRecord && <div className="msub" data-testid="specs-run-record">{RUN_RECORD_LINE}</div>}
+      {runRecord && <div className="msub" data-testid="specs-run-record">{t(RUN_RECORD_LINE)}</div>}
       {series.data?.branchUnread && (
         <div className="msub" data-testid="specs-branch-unread">
-          The spec text lives on the ticket branch, which could not be read: {series.data.branchUnread}
+          {t("tickets.specs.branchUnread", { reason: series.data.branchUnread })}
         </div>
       )}
       <div className="sp-grid">
-        <div className="sp-list" aria-label="Specs of this ticket" data-testid="specs-list">
+        <div className="sp-list" aria-label={t("tickets.specs.listLabel")} data-testid="specs-list">
           {specs.map((spec) => (
             <div key={spec.specId} className="sp-entry">
               <button type="button" className="sp-item" aria-current={spec.specId === selected?.specId}
@@ -58,7 +60,7 @@ export function TicketSpecsTab() {
               <span className="si-cells">
                 {attempts.map((attempt) => (
                   <SpecCell key={attempt.runId} specId={spec.specId} attempt={attempt}
-                    cell={attemptCell(spec.specId, attempt, reads.series[attempt.runId], reads.passes[attempt.runId])} />
+                    cell={attemptCell(t, spec.specId, attempt, reads.series[attempt.runId], reads.passes[attempt.runId])} />
                 ))}
                 <span className="al mono">{spec.repos.join(", ")}</span>
               </span>
@@ -86,17 +88,20 @@ function SpecCell({ specId, attempt, cell }: { specId: string; attempt: TicketAt
 }
 
 function SpecsHead({ specs }: { specs: TicketSeriesSpec[] }) {
+  const t = useT();
   const done = specs.filter((s) => s.state === "done" || s.state === "carried").length;
   return (
     <div className="section-head first">
-      <h2>Specs</h2>
-      {specs.length > 0 && <span className="cnt green" data-testid="specs-done">{done} of {specs.length} done</span>}
-      <span className="sh-sub">the series as it is being worked · read-only, changed only through the conversation</span>
+      <h2>{t("tickets.specs.title")}</h2>
+      {specs.length > 0 && <span className="cnt green" data-testid="specs-done">{t("tickets.specs.done", { done, total: specs.length })}</span>}
+      <span className="sh-sub">{t("tickets.specs.sub")}</span>
     </div>
   );
 }
 
 function Revisions({ attempts }: { attempts: TicketAttempt[] }) {
+  const t = useT();
+  const locale = useDateLocale();
   const seen = new Set<number>();
   const rows = attempts.filter((a) => {
     if (!a.revision || seen.has(a.revision.number)) return false;
@@ -107,15 +112,15 @@ function Revisions({ attempts }: { attempts: TicketAttempt[] }) {
   return (
     <>
       <div className="section-head">
-        <h2>Revisions</h2><span className="cnt">{rows.length}</span>
-        <span className="sh-sub">why the series changed · executed specs are never cut again</span>
+        <h2>{t("tickets.specs.revisions")}</h2><span className="cnt">{rows.length}</span>
+        <span className="sh-sub">{t("tickets.specs.revisionsSub")}</span>
       </div>
       <div className="revs" data-testid="specs-revisions">
         {rows.map((a) => (
           <div key={a.revision!.number} className="rv">
-            <span className="rn">rev {a.revision!.number}</span>
-            <span className="rc">{a.revision!.cause ?? "no cause recorded"}</span>
-            <span className="rw">A{a.number}{a.revision!.approvalAt ? ` · approved ${clock(a.revision!.approvalAt)}` : ""}</span>
+            <span className="rn">{t("tickets.specs.rev", { n: a.revision!.number })}</span>
+            <span className="rc">{a.revision!.cause ?? t("tickets.specs.noCause")}</span>
+            <span className="rw">A{a.number}{a.revision!.approvalAt ? ` · ${t("tickets.specs.approvedAt", { at: clock(a.revision!.approvalAt, locale) ?? "" })}` : ""}</span>
           </div>
         ))}
       </div>

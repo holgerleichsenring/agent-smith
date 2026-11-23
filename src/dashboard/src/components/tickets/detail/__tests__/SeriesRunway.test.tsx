@@ -2,7 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { TicketAttempt, TicketSeriesBudget } from "@/types/tickets";
 import { SeriesRunway } from "../SeriesRunway";
-import { GO_ON } from "../seriesWords";
+import { translator } from "@/lib/i18n/translate";
+import { GO_ON as GO_ON_KEY } from "../seriesWords";
+
+const GO_ON = translator("en")(GO_ON_KEY);
 import { attempt, budget } from "./detailFixtures";
 
 // 2026-10-13-8762w: the series strip says what the server decided — spend and run time against the caps, the

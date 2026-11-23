@@ -39,7 +39,7 @@ describe("homeItems", () => {
   });
 
   it("stateWords_NamesTheTicketListSection", () => {
-    expect(stateWords(ticket({ bucket: "stuck" }))).toBe("Stuck");
-    expect(stateWords(ticket({ bucket: "working" }))).toBe("Working");
+    expect(stateWords(ticket({ bucket: "stuck" }), translator("en"))).toBe("Stuck");
+    expect(stateWords(ticket({ bucket: "working" }), translator("en"))).toBe("Working");
   });
 });

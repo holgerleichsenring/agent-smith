@@ -1,3 +1,4 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import { attempt, conversation, defaultEntry, defaults, detail, entry, series, spec } from "./detailFixtures";
 import { sectionIdOf, sectionOf, ticketSections, type TicketSectionReads } from "../ticketPageSections";
@@ -13,7 +14,7 @@ const reads = (over: Partial<TicketSectionReads>): TicketSectionReads => ({ seri
 describe("ticketSections", () => {
   // 2026-11-22-4321a: Now takes What happened's place; the conversation is the section after it.
   it("ticketSections_AreNowConversationSpecsAcceptanceRunsCostDefaults_InThatOrder", () => {
-    expect(ticketSections.map((s) => s.label)).toEqual(["Now", "Conversation", "Specs", "Acceptance", "Runs", "Cost", "Defaults"]);
+    expect(ticketSections.map((s) => translator("en")(s.label))).toEqual(["Now", "Conversation", "Specs", "Acceptance", "Runs", "Cost", "Defaults"]);
     expect(section("now").Pane).toBeNull();
     expect(section("conversation").Pane).toBeNull();
   });

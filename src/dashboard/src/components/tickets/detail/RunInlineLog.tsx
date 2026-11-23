@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useT } from "@/hooks/useT";
 import { RunSectionedLog } from "@/components/jobs/runlog/RunSectionedLog";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunSteps } from "@/hooks/useRunSteps";
@@ -41,27 +42,28 @@ export function RunInlineLog({ attempt }: { attempt: TicketAttempt }) {
 // 2026-11-22-7103a: the check section is itself a fold — one report is shown whole in it; several each fold under
 // "Spec n · id · Master's report".
 function CheckBody({ attempt, specs }: { attempt: TicketAttempt; specs: TicketSeriesSpec[] }) {
+  const t = useT();
   const reported = specs.filter((s) => s.report);
   if (reported.length === 0)
     return (
       <div className="rl-body-line rl-dim" data-testid={`thread-runlog-check-${attempt.number}`}>
-        <Link href={runPath(attempt.runId)}>Open the run</Link> to read each verdict and overrule one.
+        <Link href={runPath(attempt.runId)}>{t("tickets.rejection.openRun")}</Link>{t("tickets.runs.toReadVerdicts")}
       </div>
     );
   return (
     <div className="rl-body-line" data-testid={`thread-runlog-check-${attempt.number}`}>
       {reported.map((spec) => (
         <div key={spec.specId} data-testid={`thread-runlog-report-${spec.specId}`}>
-          <MasterReportText spec={spec} label={`Spec ${spec.ordinal} · ${spec.specId}`} folded={reported.length > 1} />
+          <MasterReportText spec={spec} label={t("tickets.runs.specLabel", { ordinal: spec.ordinal, id: spec.specId })} folded={reported.length > 1} />
         </div>
       ))}
       {specs.some((s) => (s.followUps ?? []).length > 0) && (
         <div data-testid={`thread-runlog-follow-ups-${attempt.number}`}>
-          <div className="rl-dim">Proposed follow-ups</div>
+          <div className="rl-dim">{t("tickets.runs.followUps")}</div>
           <FollowUpList specs={specs} />
         </div>
       )}
-      <div className="rl-dim"><Link href={runPath(attempt.runId)}>Open the run</Link> for its steps and calls.</div>
+      <div className="rl-dim"><Link href={runPath(attempt.runId)}>{t("tickets.rejection.openRun")}</Link>{t("tickets.runs.forSteps")}</div>
     </div>
   );
 }

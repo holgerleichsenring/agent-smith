@@ -1,5 +1,7 @@
 "use client";
 
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import { useTicketDerivations, useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import type { TicketDerivation } from "@/types/tickets";
 import { money } from "../ticketFormat";
@@ -12,21 +14,23 @@ import { clock, elapsed } from "./flowWords";
 // ticket with runs as well; its duration reads like a run's ("4m 10s").
 
 export function SpecDerivations() {
+  const t = useT();
+  const locale = useDateLocale();
   const { project, ticketId } = useTicketDetail();
   const { derivations } = useTicketDerivations();
   if (derivations.length === 0) return null;
   return (
     <section className="derivations" data-testid="spec-derivations">
       <div className="section-head">
-        <h2>Spec derivations</h2><span className="cnt">{derivations.length}</span>
-        <span className="sh-sub">derived and reviewed without an attempt</span>
+        <h2>{t("tickets.derive.title")}</h2><span className="cnt">{derivations.length}</span>
+        <span className="sh-sub">{t("tickets.derive.sub")}</span>
       </div>
       {derivations.map((d, i) => (
         <div key={d.runId} className="filed-line" data-testid={`spec-derivation-${d.runId}`}>
-          <span><b>Spec derivation</b> · {clock(d.startedAt)}{took(d)} · <span data-testid={`spec-derivation-cost-${d.runId}`}>{cost(d)}</span></span>
-          <span data-testid={`spec-derivation-outcome-${d.runId}`}>{outcomeWords(d)}</span>
-          {d.pullRequests.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer">spec pull request ↗</a>)}
-          {i === 0 && d.outcome === "not-finished" && <DeriveSpecsAct project={project} ticketId={ticketId} label="Derive again" />}
+          <span><b>{t("tickets.derive.one")}</b> · {clock(d.startedAt, locale)}{took(t, d)} · <span data-testid={`spec-derivation-cost-${d.runId}`}>{cost(t, d)}</span></span>
+          <span data-testid={`spec-derivation-outcome-${d.runId}`}>{outcomeWords(t, d)}</span>
+          {d.pullRequests.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer">{t("tickets.derive.pullRequest")}</a>)}
+          {i === 0 && d.outcome === "not-finished" && <DeriveSpecsAct project={project} ticketId={ticketId} label={t("tickets.derive.again")} />}
         </div>
       ))}
     </section>
@@ -34,22 +38,22 @@ export function SpecDerivations() {
 }
 
 /** What the line says came of the derivation. */
-export function outcomeWords(d: TicketDerivation): string {
+export function outcomeWords(t: T, d: TicketDerivation): string {
   switch (d.outcome) {
-    case "running": return "deriving…";
-    case "derived": return d.summary ?? `${d.specCount} ${d.specCount === 1 ? "spec" : "specs"} derived`;
-    case "asked": return d.summary ?? "stopped on a question, asked on the ticket";
-    default: return `not finished${d.summary ? `: ${d.summary}` : ""}`;
+    case "running": return t("tickets.derive.deriving");
+    case "derived": return d.summary ?? t("tickets.derive.derived", { count: d.specCount });
+    case "asked": return d.summary ?? t("tickets.derive.asked");
+    default: return d.summary ? t("tickets.derive.notFinishedBecause", { reason: d.summary }) : t("tickets.derive.notFinished");
   }
 }
 
 /** " · 4m 10s" — how long it took, or has taken so far while it derives. */
-function took(d: TicketDerivation): string {
-  const span = elapsed(d.startedAt, d.finishedAt);
-  return span ? ` · ${span}${d.finishedAt ? "" : " so far"}` : "";
+function took(t: T, d: TicketDerivation): string {
+  const span = elapsed(d.startedAt, d.finishedAt, t);
+  return span ? ` · ${d.finishedAt ? span : t("tickets.cost.soFar", { amount: span })}` : "";
 }
 
 /** The derivation run's cost; "so far" while it is still deriving. */
-function cost(d: TicketDerivation): string {
-  return d.outcome === "running" ? `${money(d.cost)} so far` : money(d.cost);
+function cost(t: T, d: TicketDerivation): string {
+  return d.outcome === "running" ? t("tickets.cost.soFar", { amount: money(d.cost) }) : money(d.cost);
 }

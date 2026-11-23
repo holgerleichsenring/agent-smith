@@ -1,18 +1,30 @@
-import type { T } from "@/lib/i18n/translate";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type { AttemptCause, TicketAttempt, TicketAttemptMark, TicketDerivation, TicketPullRequest, TicketSummary } from "@/types/tickets";
 
 // 2026-10-13-9a59p: the words a ticket row is written in, from recorded fields only.
 
-/** A compact age, "41m" or "3h" — the mock's .when column. */
-export function age(iso: string | null | undefined): string | null {
+/**
+ * A compact age, "41m" or "3h" — the mock's .when column; "now" under a minute. With a lookup the unit is the chosen
+ * language's ("41 Min."); "now" stays the marker callers word themselves (2026-11-23-5669b).
+ */
+export function age(iso: string | null | undefined, t?: T): string | null {
   if (!iso) return null;
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return null;
   const minutes = Math.max(0, Math.round((Date.now() - then) / 60000));
   if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return t ? t("tickets.age.minutes", { n: minutes }) : `${minutes}m`;
   const hours = Math.round(minutes / 60);
-  return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+  if (hours < 24) return t ? t("tickets.age.hours", { n: hours }) : `${hours}h`;
+  const days = Math.round(hours / 24);
+  return t ? t("tickets.age.days", { n: days }) : `${days}d`;
+}
+
+/** 2026-11-23-5669b: how long ago, as a phrase — "just now", "3h ago"; null where no time is recorded. */
+export function ago(t: T, iso: string | null | undefined): string | null {
+  const when = age(iso, t);
+  if (when === null) return null;
+  return when === "now" ? t("tickets.start.justNow") : t("tickets.start.ago", { when });
 }
 
 export function money(usd: number): string {
@@ -24,8 +36,8 @@ export function ticketCost(attempts: readonly TicketAttempt[], derivations: read
   return attempts.reduce((sum, a) => sum + a.cost, 0) + derivations.reduce((sum, d) => sum + d.cost, 0);
 }
 
-export function attempts(n: number): string {
-  return n === 1 ? "1 attempt" : `${n} attempts`;
+export function attempts(t: T, n: number): string {
+  return t("tickets.attempts", { count: n });
 }
 
 /** 2026-10-14-dbcen: a filed ticket with no run on record — no attempt and no newest run. */
@@ -41,27 +53,28 @@ export function ticketLabel(t: TicketSummary): string {
 const PLATFORM_WORDS: Record<string, string> = { github: "GitHub", gitlab: "GitLab", jira: "Jira", azuredevops: "Azure DevOps" };
 
 /** The tracker's name as a person reads it — "GitHub", "Azure DevOps"; "the tracker" when none is recorded. */
-export function platformWords(platform: string | null): string {
-  return platform ? PLATFORM_WORDS[platform.toLowerCase()] ?? platform : "the tracker";
+export function platformWords(t: T, platform: string | null): string {
+  return platform ? PLATFORM_WORDS[platform.toLowerCase()] ?? platform : t("tickets.theTracker");
 }
 
-const CHANNEL_WORDS: Record<string, string> = {
-  ticket_comment: "ticket comment",
-  pull_request: "pull-request review",
-  status_move: "status move",
-  requested: "request",
-  retrigger: "retrigger",
-  pickup: "pickup",
-  operator: "approval in the conversation",
-  retry: "retry",
-  overrule: "overruled default",
-  series: "series, started automatically",
-  precondition: "restarted once the precondition held",
-  ci: "red CI on the pull request", // 2026-11-17-3435c
-};
+const CHANNEL_KEYS = {
+  ticket_comment: "tickets.channel.ticket_comment",
+  pull_request: "tickets.channel.pull_request",
+  status_move: "tickets.channel.status_move",
+  requested: "tickets.channel.requested",
+  retrigger: "tickets.channel.retrigger",
+  pickup: "tickets.channel.pickup",
+  operator: "tickets.channel.operator",
+  retry: "tickets.channel.retry",
+  overrule: "tickets.channel.overrule",
+  series: "tickets.channel.series",
+  precondition: "tickets.channel.precondition",
+  ci: "tickets.channel.ci", // 2026-11-17-3435c
+} as const satisfies Record<string, TextKey>;
 
-export function channelWords(channel: string): string {
-  return CHANNEL_WORDS[channel] ?? channel;
+export function channelWords(t: T, channel: string): string {
+  const key = (CHANNEL_KEYS as Record<string, TextKey>)[channel];
+  return key ? t(key) : channel;
 }
 
 /** 2026-11-22-50d7a: the channels with a start phrase of their own in the dictionary. */
@@ -102,30 +115,31 @@ export function failedAttempts(marks: TicketAttemptMark[]): number {
   return marks.filter((m) => m.status === "failed" && !m.endedOnInfrastructure).length;
 }
 
-const OUTCOME_WORDS: Record<string, string> = {
-  success: "succeeded",
-  shortfall: "done with a shortfall",
-  failed: "failed",
-  cancelled: "cancelled",
+const OUTCOME_KEYS: Record<string, TextKey> = {
+  success: "tickets.lastOutcome.success",
+  shortfall: "tickets.lastOutcome.shortfall",
+  failed: "tickets.lastOutcome.failed",
+  cancelled: "tickets.lastOutcome.cancelled",
 };
 
-export function outcomeWords(outcome: string): string {
-  return OUTCOME_WORDS[outcome] ?? outcome;
+export function outcomeWords(t: T, outcome: string): string {
+  const key = OUTCOME_KEYS[outcome];
+  return key ? t(key) : outcome;
 }
 
 /** The order the pull requests' fate is told in; unsupported and unread say nothing about it. */
-const FATE_ORDER: ReadonlyArray<readonly [string, string]> = [
-  ["merged", "merged"],
-  ["open", "open"],
-  ["closed", "closed unmerged"],
+const FATE_ORDER: ReadonlyArray<readonly [string, TextKey]> = [
+  ["merged", "tickets.fate.merged"],
+  ["open", "tickets.fate.open"],
+  ["closed", "tickets.fate.closed"],
 ];
 
 /** How the pull requests ended so far — "1 PR merged, 1 open"; null when none has a known state. */
-export function pullRequestFate(pullRequests: TicketPullRequest[]): string | null {
-  const parts = FATE_ORDER.map(([state, words]) => [pullRequests.filter((p) => p.state === state).length, words] as const)
+export function pullRequestFate(t: T, pullRequests: TicketPullRequest[]): string | null {
+  const parts = FATE_ORDER.map(([state, key]) => [pullRequests.filter((p) => p.state === state).length, t(key)] as const)
     .filter(([n]) => n > 0);
   if (parts.length === 0) return null;
   const [[first, firstWords], ...rest] = parts;
-  const head = `${first} ${first === 1 ? "PR" : "PRs"} ${firstWords}`;
+  const head = t("tickets.fate.head", { count: first, words: firstWords });
   return [head, ...rest.map(([n, words]) => `${n} ${words}`)].join(", ");
 }

@@ -4,6 +4,7 @@ import { useState, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { useT } from "@/hooks/useT";
 import { runPath } from "@/lib/runPath";
 import { seriesRunPath } from "@/lib/seriesRunAddress";
 import { holdSeriesHref, isAsked } from "../holds/holdRoutes";
@@ -31,11 +32,12 @@ import { useAttemptStatus, useStatusContext } from "./useAttemptStatus";
 
 /** The ticket first: its first sentence, the whole ticket as written when opened. */
 export function TicketTextMessage() {
+  const t = useT();
   const { data: text } = useTicketText();
   const summary = useTicketDetail().data?.summary;
   const [open, setOpen] = useState(false);
   if (!text || text.source === "unavailable" || !summary) return null;
-  const line = { at: text.at, who: summary.platform ? platformWords(summary.platform) : "The ticket", outcome: null,
+  const line = { at: text.at, who: summary.platform ? platformWords(t, summary.platform) : t("tickets.thread.theTicket"), outcome: null,
     text: ticketLead(text.description), meta: "", tone: "person" as const };
   return (
     <StoryRow line={line} open={open} onToggle={() => setOpen(!open)} testId="thread-ticket" className="tk-ticket">
@@ -78,6 +80,7 @@ interface BodyProps {
 /** 2026-11-22-4321a: a report's body — under its thread line, or under a Runs line. 2026-11-22-7103a: the line above it
  *  is the status line, so the body no longer repeats the run's end text (Your move's Why and the run page keep it). */
 export function AttemptBody({ attempt, retry, questionRef, log }: BodyProps) {
+  const t = useT();
   const { project } = useTicketDetail();
   const series = useTicketSeries().data;
   const specs = specsOf(attempt, series);
@@ -89,7 +92,7 @@ export function AttemptBody({ attempt, retry, questionRef, log }: BodyProps) {
         <div className="tk-prs">
           {prs.map((p) => (
             <a key={p.url} href={p.url!} target="_blank" rel="noreferrer" title={p.repo}>
-              Pull request in {shortRepo(p.repo)} ↗
+              {t("tickets.thread.pullRequestIn", { repo: shortRepo(p.repo) })}
             </a>
           ))}
         </div>
@@ -98,13 +101,14 @@ export function AttemptBody({ attempt, retry, questionRef, log }: BodyProps) {
       {log && <RunInlineLog attempt={attempt} />}
       {retry && retriable(attempt) && <div className="cp-actions" data-testid={`thread-retry-${attempt.number}`}><RetryUnchanged attempt={attempt} project={project} /></div>}
       <Link className="tk-runline" href={runPath(attempt.runId)} data-testid={`thread-run-${attempt.number}`}>
-        {runLine(attempt)} · open the run ›
+        {runLine(attempt)} · {t("tickets.thread.openRun")}
       </Link>
     </>
   );
 }
 
 function PendingQuestion({ attempt, project }: { attempt: TicketAttempt; project: string }) {
+  const t = useT();
   const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [answered, setAnswered] = useState(false);
   // 2026-11-23-31dch: a park that asks about the plan is answered in its series' conversation, never here.
@@ -116,28 +120,29 @@ function PendingQuestion({ attempt, project }: { attempt: TicketAttempt; project
     return (
       <div className="q-item q-head" data-testid="conv-question-text">
         <div className="qt">{question.text}</div>
-        <div className="qm">{talk ? <Link href={talk} data-testid="conv-question-series">Answer it in the series conversation ›</Link>
-          : `Run ${attempt.number} waits for this answer; answering needs runs.control.`}</div>
+        <div className="qm">{talk ? <Link href={talk} data-testid="conv-question-series">{t("tickets.thread.answerInSeries")}</Link>
+          : t("tickets.thread.answerNeedsControl", { n: attempt.number })}</div>
       </div>
     );
   }
   return (
     <div className="q-head" data-testid="conv-question">
       <PendingQuestionCard runId={attempt.runId} question={question} answered={answered}
-        onAnswered={() => setAnswered(true)} label={`Send and resume run ${attempt.number}`} />
+        onAnswered={() => setAnswered(true)} label={t("tickets.thread.sendAndResume", { n: attempt.number })} />
     </div>
   );
 }
 
 export function DerivationMessage({ derivation }: { derivation: TicketDerivation }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <StoryRow line={derivationStoryLine(derivation)} open={open} onToggle={() => setOpen(!open)}
       testId={`spec-derivation-${derivation.runId}`} className={derivation.outcome === "not-finished" ? "stopped" : undefined}>
-      <div className="tk-said" data-testid={`spec-derivation-outcome-${derivation.runId}`}>Spec derivation {derivationWords(derivation)}.</div>
+      <div className="tk-said" data-testid={`spec-derivation-outcome-${derivation.runId}`}>{t("tickets.thread.derivation", { words: derivationWords(t, derivation) })}</div>
       {derivation.summary && <div className="tk-said tk-dim">{derivation.summary}</div>}
-      {derivation.pullRequests.map((url) => <a key={url} className="tk-link" href={url} target="_blank" rel="noreferrer">Spec pull request ↗</a>)}
-      <Link className="tk-runline" href={runPath(derivation.runId)}>Derivation · {money(derivation.cost)} · open the run ›</Link>
+      {derivation.pullRequests.map((url) => <a key={url} className="tk-link" href={url} target="_blank" rel="noreferrer">{t("tickets.thread.specPullRequest")}</a>)}
+      <Link className="tk-runline" href={runPath(derivation.runId)}>{t("tickets.thread.derivationRun", { cost: money(derivation.cost) })}</Link>
     </StoryRow>
   );
 }

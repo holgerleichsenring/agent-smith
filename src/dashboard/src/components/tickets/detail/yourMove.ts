@@ -1,4 +1,4 @@
-import { translator, type T } from "@/lib/i18n/translate";
+import { translator, type T, type TextKey } from "@/lib/i18n/translate";
 import { RUN_END_KINDS, type TicketAttempt, type TicketHold, type TicketServerBucket } from "@/types/tickets";
 import type { StateAct, TicketStateView } from "./ticketState";
 
@@ -42,11 +42,11 @@ export interface YourMove {
   next: string;
 }
 
-const STUCK_TITLES: Record<string, string> = {
-  [RUN_END_KINDS.imageUntrusted]: "Stuck: an image registry is not trusted",
-  [RUN_END_KINDS.bootstrapMissing]: "Stuck: a repository has no bootstrap",
-  [RUN_END_KINDS.preflight]: "Stuck: a precondition did not hold",
-  [RUN_END_KINDS.criteriaUnmet]: "Stopped: a done criterion was not accepted",
+const STUCK_TITLES: Record<string, TextKey> = {
+  [RUN_END_KINDS.imageUntrusted]: "tickets.move.stuck.imageUntrusted",
+  [RUN_END_KINDS.bootstrapMissing]: "tickets.move.stuck.bootstrapMissing",
+  [RUN_END_KINDS.preflight]: "tickets.move.stuck.preflight",
+  [RUN_END_KINDS.criteriaUnmet]: "tickets.move.stuck.criteriaUnmet",
 };
 
 export function yourMove(
@@ -58,10 +58,11 @@ export function yourMove(
   const question = hold?.case === "question" || hold?.case === "question_environment";
   // 2026-11-23-d60d: several open pull requests name no single one — the block's rows under the box are the way on.
   const next = move.act ? actLabel(move.act, question, t)
-    : hold?.act?.kind === "pull_request" ? t("hold.act.pull_requests") : NOTHING;
+    : hold?.act?.kind === "pull_request" ? t("hold.act.pull_requests") : t("hold.title.nobody");
   return { ...move, question, next };
 }
 
+/** The English next step of a state that asks nobody; the box words it with the lookup (hold.title.nobody). */
 export const NOTHING = "Nothing for you to do";
 
 /** The statuses of an attempt still at work — running, queued, or relaunching. */
@@ -99,8 +100,8 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
   // The hold's sentence stays the text, as on every surface; the setting's instruction goes under it.
   if (hold.addressee === "admin" && endDetail?.subject)
     return { ...base, tone: "bad", why: true, title: t("hold.title.stuckOn", { subject: endDetail.subject }),
-      detail: instruction(endDetail) ?? base.detail, detailFormat: undefined };
-  return { ...base, tone: "bad", why: true, title: stuckTitle(view.attempt) };
+      detail: instruction(endDetail, t) ?? base.detail, detailFormat: undefined };
+  return { ...base, tone: "bad", why: true, title: stuckTitle(view.attempt, t) };
 }
 
 function moveOf(view: TicketStateView, bucket: TicketServerBucket, t: T): Move {
@@ -109,41 +110,42 @@ function moveOf(view: TicketStateView, bucket: TicketServerBucket, t: T): Move {
     case "failed":
     case "stuck":
       // 2026-11-22-7103a: a start its paused series held, a head a person cancelled, and one the restart takes up are no fault.
-      if (view.attempt?.endKind === RUN_END_KINDS.seriesPaused) return { ...base, tone: "quiet", title: "Paused with its series" };
+      if (view.attempt?.endKind === RUN_END_KINDS.seriesPaused) return { ...base, tone: "quiet", title: t("tickets.move.paused") };
       if (view.hold?.case === "restarting") return { ...base, tone: "amber", title: t("hold.title.nobody") };
-      return { ...base, tone: "quiet", title: "Cancelled" };
+      return { ...base, tone: "quiet", title: t("tickets.move.cancelled") };
     case "pr_closed":
-      return { ...base, tone: "bad", title: "Stopped: the pull requests were closed", why: true };
+      return { ...base, tone: "bad", title: t("tickets.move.prClosed"), why: true };
     case "done":
-      return { ...base, tone: "ok", title: "Done" };
+      return { ...base, tone: "ok", title: t("tickets.move.done") };
     case "working":
       // 2026-11-23-d60d: an ended attempt whose pull request waits — CI, another merge — is nothing for you to do.
       if (view.hold && !LIVE.has(view.attempt?.status ?? "")) return { ...base, tone: "amber", title: t("hold.title.nobody") };
-      return { ...base, tone: "amber", title: workingTitle(view.attempt) };
+      return { ...base, tone: "amber", title: workingTitle(view.attempt, t) };
     case "closed":
-      return { ...base, tone: "quiet", title: "Closed" };
+      return { ...base, tone: "quiet", title: t("tickets.move.closed") };
     default:
-      return { ...base, tone: "quiet", title: "Nothing to do" };
+      return { ...base, tone: "quiet", title: t("tickets.move.nothing") };
   }
 }
 
 /** 2026-11-17-6d9ea: exported for the run page's How it ended, which names a stop the way the ticket page does. */
-export function stuckTitle(head: TicketAttempt | null): string {
-  if (head?.endedOnInfrastructure) return "Stopped: the sandbox or host was lost";
-  return (head?.endKind && STUCK_TITLES[head.endKind]) || "Stopped";
+export function stuckTitle(head: TicketAttempt | null, t: T = translator("en")): string {
+  if (head?.endedOnInfrastructure) return t("tickets.move.stuck.infrastructure");
+  const key = head?.endKind ? STUCK_TITLES[head.endKind] : undefined;
+  return key ? t(key) : t("tickets.move.stopped");
 }
 
-export function instruction(detail: EndDetail): string | null {
+export function instruction(detail: EndDetail, t: T = translator("en")): string | null {
   if (!detail.control) return null;
-  const to = detail.setTo ? ` to ${detail.setTo}` : "";
-  const where = detail.settingsPath ? ` under ${detail.settingsPath}` : "";
-  return `Set ${detail.control}${to}${where}. It restarts by itself once you save.`;
+  const to = detail.setTo ? t("tickets.move.setTo", { value: detail.setTo }) : "";
+  const where = detail.settingsPath ? t("tickets.move.setUnder", { path: detail.settingsPath }) : "";
+  return t("tickets.move.set", { control: detail.control, to, where });
 }
 
-function workingTitle(head: TicketAttempt | null): string {
+function workingTitle(head: TicketAttempt | null, t: T): string {
   switch (head?.status) {
-    case "queued": return "Queued. Nothing for you to do.";
-    case "waiting_for_input": return "Resuming. Nothing for you to do.";
-    default: return "Working. Nothing for you to do.";
+    case "queued": return t("tickets.move.queued");
+    case "waiting_for_input": return t("tickets.move.resuming");
+    default: return t("tickets.move.working");
   }
 }

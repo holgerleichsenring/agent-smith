@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { translator, type T, type TextKey } from "@/lib/i18n/translate";
 import type { TicketConversation, TicketDefaults, TicketDetail, TicketSeries } from "@/types/tickets";
 import { money, ticketCost } from "../ticketFormat";
 import { specsCounter, acceptanceTally } from "./specWords";
@@ -34,40 +35,41 @@ export interface TicketSectionReads {
 
 export interface TicketSection {
   id: TicketSectionId;
-  label: string;
-  counter?: (detail: TicketDetail, reads: TicketSectionReads) => TicketSectionCounter | null;
+  /** 2026-11-23-5669b: a dictionary key; the page looks it up in the chosen language. */
+  label: TextKey;
+  counter?: (detail: TicketDetail, reads: TicketSectionReads, t?: T) => TicketSectionCounter | null;
   /** The section's pane; Now and Conversation are drawn by the page itself (each holds the composer). */
   Pane: ComponentType | null;
 }
 
 export const ticketSections: TicketSection[] = [
-  { id: "now", label: "Now", Pane: null },
+  { id: "now", label: "tickets.pageSection.now", Pane: null },
   {
-    id: "conversation", label: "Conversation", Pane: null,
+    id: "conversation", label: "tickets.pageSection.conversation", Pane: null,
     counter: (_detail, { conversation }) => (conversation ? { text: String(conversation.entries.length) } : null),
   },
   {
-    id: "specs", label: "Specs", Pane: TicketSpecsTab,
-    counter: (detail, { series }) => {
-      const text = specsCounter(detail, series);
+    id: "specs", label: "tickets.pageSection.specs", Pane: TicketSpecsTab,
+    counter: (detail, { series }, t = translator("en")) => {
+      const text = specsCounter(t, detail, series);
       return text ? { text } : null;
     },
   },
   {
-    id: "acceptance", label: "Acceptance", Pane: TicketAcceptanceTab,
+    id: "acceptance", label: "tickets.pageSection.acceptance", Pane: TicketAcceptanceTab,
     counter: (_detail, { series }) => {
       const tally = acceptanceTally(series);
       return tally ? { text: `${tally.verified}/${tally.total}`, ok: tally.total > 0 && tally.verified === tally.total } : null;
     },
   },
-  { id: "runs", label: "Runs", Pane: TicketRunsSection, counter: (detail) => ({ text: String(detail.attempts.length) }) },
+  { id: "runs", label: "tickets.pageSection.runs", Pane: TicketRunsSection, counter: (detail) => ({ text: String(detail.attempts.length) }) },
   {
-    id: "cost", label: "Cost", Pane: TicketCostTab,
+    id: "cost", label: "tickets.pageSection.cost", Pane: TicketCostTab,
     counter: (detail) => ({ text: money(ticketCost(detail.attempts, detail.derivations ?? [])) }),
   },
   {
     // 2026-10-13-8762q: hot only while a pending default holds the series (a pending one never blocks).
-    id: "defaults", label: "Defaults", Pane: TicketDefaultsTab,
+    id: "defaults", label: "tickets.pageSection.defaults", Pane: TicketDefaultsTab,
     counter: (_detail, { defaults }) => defaults && defaults.entries.length > 0
       ? { text: String(defaults.pending), hot: defaults.pendingHoldingSeries > 0 }
       : null,

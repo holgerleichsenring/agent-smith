@@ -203,7 +203,7 @@ export function SpecDialogSurface() {
     enabled: bound !== null && dialog.question?.kind === "approval",
     nudge: dialog.proposal?.at ?? "",
   });
-  const ticketEffect = bound && preview.data ? ticketApprovalEffect(preview.data) : null;
+  const ticketEffect = bound && preview.data ? ticketApprovalEffect(t, preview.data) : null;
   // 2026-11-10-d854b: Answer on a turn result puts its question into the composer.
   const {
     pending: pendingTicket,

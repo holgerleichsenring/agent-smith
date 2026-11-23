@@ -1,4 +1,5 @@
-import { translator, type T } from "@/lib/i18n/translate";
+import { dateLocale } from "@/lib/i18n/dates";
+import { LANGUAGES, translator, type T } from "@/lib/i18n/translate";
 import type { EndDetail } from "@/types/hub-events";
 import type { TicketAttempt, TicketCounts, TicketHold, TicketSummary } from "@/types/tickets";
 import { RUN_END_KINDS } from "@/types/tickets";
@@ -10,6 +11,11 @@ import { isAsked } from "./holdRoutes";
 // detail a run recorded is quoted where it names the cause.
 
 const EN = translator("en");
+
+/** 2026-11-23-5669b: the locale of the language a lookup speaks — each language has one lookup, so it names the language. */
+function localeOf(t: T): string {
+  return dateLocale(LANGUAGES.find((language) => translator(language) === t) ?? "en");
+}
 
 /** "#1", "#1 and #2", "#1, #2 and #3". */
 export function namesOf(names: readonly string[], t: T = EN): string {
@@ -39,13 +45,14 @@ const KIND_OF_CASE: Partial<Record<TicketHold["case"], string>> = {
   image_untrusted: RUN_END_KINDS.imageUntrusted, bootstrap_missing: RUN_END_KINDS.bootstrapMissing, preflight: RUN_END_KINDS.preflight,
 };
 
-/** 2026-11-23-31dci: "00:12" for a wait that began today, "21 Nov 00:12" for an older one — in the reader's clock. */
-export function sinceClock(iso: string, now: Date = new Date()): string {
+/** 2026-11-23-31dci: "00:12" for a wait that began today, "21 Nov 00:12" for an older one — in the reader's clock and,
+ *  2026-11-23-5669b, the chosen language's locale. */
+export function sinceClock(iso: string, now: Date = new Date(), locale: string = dateLocale("en")): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return iso;
-  const time = at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const time = at.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hour12: false });
   if (at.toDateString() === now.toDateString()) return time;
-  return `${at.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
+  return `${at.toLocaleDateString(locale, { day: "numeric", month: "short" })} ${time}`;
 }
 
 // 2026-11-23-31dci: the waits that say since when; a wait without a since keeps its plain sentence.
@@ -55,7 +62,7 @@ const WAITS = new Set<TicketHold["case"]>(["model_wait", "queued", "resuming", "
  *  or carries no since. */
 export function waitClause(hold: TicketHold, t: T = EN, now: Date = new Date()): string | null {
   if (!hold.since || !WAITS.has(hold.case)) return null;
-  const at = sinceClock(hold.since, now);
+  const at = sinceClock(hold.since, now, localeOf(t));
   const n = hold.attempt ?? 0;
   return hold.case === "prerequisite"
     ? t("hold.wait.prerequisite", { names: namesOf(hold.names, t), count: hold.names.length, at })
