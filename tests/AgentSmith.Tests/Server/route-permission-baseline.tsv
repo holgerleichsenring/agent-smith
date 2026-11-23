@@ -47,6 +47,7 @@ GET	/api/config/settings	config.read	-
 GET	/api/config/settings/{type}	config.read	-
 GET	/api/config/trackers	config.read	-
 GET	/api/delivery	runs.read	across
+GET	/api/deployments	runs.read	across
 GET	/api/diagnostics/connections	diagnostics.read	-
 GET	/api/diagnostics/model-quota	diagnostics.read	-
 GET	/api/holds/admin	config.write	-

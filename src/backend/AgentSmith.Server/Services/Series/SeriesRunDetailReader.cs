@@ -23,13 +23,15 @@ public sealed class SeriesRunDetailReader(
     {
         if (await store.GetAsync(id, ct) is not { } record || projects.Of(record.Project) is not { } project) return null;
         var facts = await reads.ReadAsync(project, record.Tickets, ct);
-        var held = withHolds ? (await holds.ReadAsync(ProjectScope.Single(record.Project), ct)).GetValueOrDefault(record.Project) : null;
+        // 2026-11-23-8d16: a project with no held ticket reads as no holds, not as holds unread (the merge act's null).
+        var held = withHolds ? (await holds.ReadAsync(ProjectScope.Single(record.Project), ct)).GetValueOrDefault(record.Project)
+            ?? new Dictionary<string, AgentSmith.Application.Services.Holds.TicketHold>() : null;
         var shape = tickets.Of(record, facts, held);
         var name = (await names.OfAsync([record], ct))[record.Id];
         var spent = await costs.OfAsync(record.Project, [.. record.Tickets.Select(t => t.TicketId)], ct);
         var session = await sessions.GetBySessionIdAsync(record.Conversation, ct);
         return new SeriesRunDetailView(record.Id, name, record.Project, record.State, record.Conversation, record.StartedAt,
-            record.FinishedAt, shape.Counts, SeriesRunQuestion.Of(record), shape.Tickets, shape.MergeOrder)
+            record.FinishedAt, shape.Counts, SeriesRunQuestion.Of(record, held), shape.Tickets, shape.MergeOrder)
         {
             Repos = Repos(project, shape.Tickets), CostUsd = spent + record.MasterCostUsd,
             ThreadId = session?.ThreadId, ConversationOpen = session?.IsOpen == true,

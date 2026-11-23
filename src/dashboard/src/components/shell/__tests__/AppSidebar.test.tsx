@@ -87,18 +87,19 @@ describe("AppSidebar", () => {
   it("Sidebar_EveryDestination_InTheApprovedOrder", () => {
     renderAt("/");
     const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/series", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
+    expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/series", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/deployments", "/overview", "/delivery"]);
     expect(screen.getByTestId("sidebar-group-Insight")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-group-Recent")).not.toBeInTheDocument();
   });
 
-  // 2026-11-23-933da: PoCs shows when GET /api/pocs answers 200, right after Pull requests.
-  it("Sidebar_PocsOn_ShowsPocsAfterPullRequests", async () => {
+  // 2026-11-23-933da + 8df6a: PoCs shows when GET /api/pocs answers 200; the order is Pull requests, Deployments, PoCs.
+  it("Sidebar_PocsOn_OrdersPullRequestsDeploymentsPocs", async () => {
     access.pocs.mockResolvedValue({ status: "on", list: { pocs: [], mayImport: false, targets: [] } });
     renderAt("/pocs");
     expect(await screen.findByTestId("sidebar-pocs")).toHaveAttribute("aria-current", "page");
     const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
-    expect(hrefs.indexOf("/pocs")).toBe(hrefs.indexOf("/pull-requests") + 1);
+    const at = hrefs.indexOf("/pull-requests");
+    expect(hrefs.slice(at, at + 3)).toEqual(["/pull-requests", "/deployments", "/pocs"]);
   });
 
   // 2026-11-23-933da: a known PoC-only caller sees PoCs alone — no New work, no Recent, no Insight.
@@ -115,6 +116,16 @@ describe("AppSidebar", () => {
     expect(hrefs).toEqual(["/", "/pocs"]); // the brand's way home, then PoCs
     expect(screen.queryByTestId("sidebar-new-work")).not.toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-group-Insight")).not.toBeInTheDocument();
+  });
+
+  // 2026-11-23-8df6a
+  it("Sidebar_Deployments_SitsRightAfterPullRequests_AndIsActiveUnderItsPath", () => {
+    renderAt("/deployments", "?days=30");
+    const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
+    expect(hrefs[hrefs.indexOf("/pull-requests") + 1]).toBe("/deployments");
+    expect(screen.getByTestId("sidebar-deployments")).toHaveAttribute("aria-current", "page");
+    expect(screen.getByTestId("sidebar-deployments")).toHaveTextContent("Deployments");
+    expect(screen.getByTestId("sidebar-pull-requests")).not.toHaveAttribute("aria-current");
   });
 
   it("Sidebar_Counts_ComeFromTheTicketListTheHubAndThePullRequests", async () => {

@@ -1109,6 +1109,13 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsDraft")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MergeSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(191)

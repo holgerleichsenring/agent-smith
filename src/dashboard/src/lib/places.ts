@@ -25,6 +25,8 @@ const FIXED_PLACES: Record<string, string> = {
   // 2026-10-13-9a59p: the ticket list; its six bucket views are ?bucket= queries of one place.
   "/tickets": "Tickets",
   "/pull-requests": "Pull requests",
+  // 2026-11-23-8df6a: merged pull requests and agent smith's deploys, below Pull requests.
+  "/deployments": "Deployments",
   // 2026-11-23-933da: the PoCs list, shown when the feature is on and the caller may read it.
   "/pocs": "PoCs",
   // 2026-11-23-31dcc: every series a conversation filed (English like every place here until 5485b moves the table).

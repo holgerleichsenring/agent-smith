@@ -23,9 +23,9 @@ public sealed class PrReviewRecordHeadTests : IDisposable
 
     public void Dispose() => _h.Dispose();
 
-    private void Read(string state, string? sha) =>
+    private void Read(string state, string? sha, string? mergeSha = null) =>
         _h.Provider.As<IPrReviewStateReader>().Setup(s => s.ReadAsync(Pr1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PrReviewState("1", state, T, [], sha));
+            .ReturnsAsync(new PrReviewState("1", state, T, [], sha, mergeSha));
 
     private async Task<PrReviewRecord> RefreshAsync(TimeSpan later)
     {
@@ -151,5 +151,37 @@ public sealed class PrReviewRecordHeadTests : IDisposable
 
         (record.State, record.HeadSha, record.HeadMovedAtTicks, record.ReopenedAtTicks)
             .Should().Be((PrReviewStates.Closed, "h1", (long?)null, (long?)null));
+    }
+
+    // 2026-11-23-8df6a: the merge commit rides on every merged state read, like the head.
+    [Fact]
+    public async Task PrReviewRecordRefresh_MergedRead_StoresTheMergeSha()
+    {
+        await _h.RunAsync("run-1", Pr1);
+        Read(PrReviewStates.Merged, "h1", "m1");
+
+        (await RefreshAsync(TimeSpan.Zero)).MergeSha.Should().Be("m1");
+    }
+
+    [Fact]
+    public async Task PrReviewRecordRefresh_ReadWithoutAMergeSha_KeepsTheStoredOne()
+    {
+        await _h.RunAsync("run-1", Pr1);
+        Read(PrReviewStates.Merged, "h1", "m1");
+        await RefreshAsync(TimeSpan.Zero);
+        Read(PrReviewStates.Merged, "h1");
+
+        var record = await RefreshAsync(TimeSpan.FromMinutes(1));
+
+        (record.MergeSha, record.CheckedAtTicks).Should().Be(("m1", _h.Clock.Now.UtcTicks));
+    }
+
+    [Fact]
+    public async Task PrReviewRecordRefresh_OpenRead_StoresNoMergeSha()
+    {
+        await _h.RunAsync("run-1", Pr1);
+        Read(PrReviewStates.Open, "h1", "m1");
+
+        (await RefreshAsync(TimeSpan.Zero)).MergeSha.Should().BeNull("only a merge lands as a commit");
     }
 }

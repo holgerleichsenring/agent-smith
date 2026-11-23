@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.203.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.202.0...v0.203.0) (2026-11-23)
+
+
+### Features
+
+* **series:** every Merge runs the merge, real buttons with Open pull request, merges others start on marked, drafts read and lifted by a person's merge, question and tag follow holds (2026-11-23-8d16) ([a93a42a](https://github.com/holgerleichsenring/agent-smith/commit/a93a42abfb2ee5f3f902032f60c88a5ca57a7ccd))
+* **series:** real merge buttons, open-PR buttons, needed merges marked, drafts handled (2026-11-23-8d16) ([dfc6e2e](https://github.com/holgerleichsenring/agent-smith/commit/dfc6e2e94329d289a911124455718785ae190fd4))
+
 ## [0.202.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.201.1...v0.202.0) (2026-11-23)
 
 

@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({ lacks: false }));
 vi.mock("@/hooks/useLacksPermission", () => ({ useLacksPermission: () => hoisted.lacks }));
-vi.mock("@/lib/deploymentsApi", () => ({ listDeployments: vi.fn(), startDeploy: vi.fn() }));
+vi.mock("@/lib/deploymentsApi", () => ({ listDeploymentBindings: vi.fn(), startDeploy: vi.fn() }));
 
-const { listDeployments, startDeploy } = await import("@/lib/deploymentsApi");
+const { listDeploymentBindings, startDeploy } = await import("@/lib/deploymentsApi");
 const { DeployAct } = await import("../DeployAct");
 
 const binding = {
@@ -17,7 +17,7 @@ const binding = {
 
 beforeEach(() => {
   hoisted.lacks = false;
-  vi.mocked(listDeployments).mockReset().mockResolvedValue([binding]);
+  vi.mocked(listDeploymentBindings).mockReset().mockResolvedValue([binding]);
   vi.mocked(startDeploy).mockReset();
 });
 
@@ -26,13 +26,13 @@ describe("DeployAct", () => {
     hoisted.lacks = true;
     render(<DeployAct project="shop" ticketId="7" onStarted={() => {}} />);
     expect(screen.queryByTestId("deploy-act")).toBeNull();
-    expect(listDeployments).not.toHaveBeenCalled();
+    expect(listDeploymentBindings).not.toHaveBeenCalled();
   });
 
   it("DeployAct_NoDeploymentBinding_IsHidden", async () => {
-    vi.mocked(listDeployments).mockResolvedValue([]);
+    vi.mocked(listDeploymentBindings).mockResolvedValue([]);
     render(<DeployAct project="shop" ticketId="7" onStarted={() => {}} />);
-    await waitFor(() => expect(listDeployments).toHaveBeenCalled());
+    await waitFor(() => expect(listDeploymentBindings).toHaveBeenCalled());
     expect(screen.queryByTestId("deploy-act")).toBeNull();
   });
 

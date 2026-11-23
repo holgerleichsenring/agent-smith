@@ -13,9 +13,9 @@ public sealed class PrReviewStateReaderTests
 {
     private const string GitLabMr = "https://gitlab.example/o/r/-/merge_requests/3";
 
-    private static string GitHubReply(string state, string reviews) => $$"""
+    private static string GitHubReply(string state, string reviews, bool draft = false) => $$"""
         { "data": { "viewer": { "login": "agent" }, "repository": { "pullRequest": {
-          "number": 4, "state": "{{state}}", "createdAt": "2026-10-01T08:00:00Z", "mergedAt": {{(state == "MERGED" ? "\"2026-10-09T08:00:00Z\"" : "null")}}, "closedAt": null,
+          "number": 4, "state": "{{state}}", "isDraft": {{(draft ? "true" : "false")}}, "createdAt": "2026-10-01T08:00:00Z", "mergedAt": {{(state == "MERGED" ? "\"2026-10-09T08:00:00Z\"" : "null")}}, "closedAt": null,
           "author": { "login": "agent" },
           "latestReviews": { "nodes": [ {{reviews}} ] } } } } }
         """;
@@ -26,13 +26,32 @@ public sealed class PrReviewStateReaderTests
     private static Task<PrReviewState> ReadGitHub(string reply) =>
         new GitHubPrReviewStateReader(GitHubReplying(reply), GitHubRepoAddress.Parse("https://github.com/o/r")).ReadAsync("https://github.com/o/r/pull/4", CancellationToken.None);
 
-    private static Task<PrReviewState> ReadGitLab(string notes) =>
+    private static Task<PrReviewState> ReadGitLab(string notes, bool draft = false, string? mr = null) =>
         new GitLabMrStateReader("https://gitlab.example", "o%2Fr", "t", "https://gitlab.example/o/r", GitLabAnswering(path =>
                 path.EndsWith("/api/v4/user") ? """{ "id": 1 }"""
                 : path.Contains("/users/") ? """{ "bot": false }"""
                 : path.EndsWith("/notes") ? notes
-                : """{ "iid": 3, "state": "opened", "created_at": "2026-10-01T08:00:00Z", "author": { "id": 2 } }"""), NullLogger.Instance)
+                : mr ?? $$"""{ "iid": 3, "state": "opened", "draft": {{(draft ? "true" : "false")}}, "created_at": "2026-10-01T08:00:00Z", "author": { "id": 2 } }"""), NullLogger.Instance)
             .ReadAsync(GitLabMr, CancellationToken.None);
+
+    // 2026-11-23-8df6a: a merge request as GitLab answers it, with the commit fields a merge may carry.
+    private static string GitLabMrJson(string state, string commits) =>
+        $$"""{ "iid": 3, "state": "{{state}}", "sha": "head1", {{commits}} "created_at": "2026-10-01T08:00:00Z", "merged_at": "2026-10-09T08:00:00Z", "author": { "id": 2 } }""";
+
+    private static string GitHubMergeReply(string state) => $$"""
+        { "data": { "viewer": { "login": "agent" }, "repository": { "pullRequest": {
+          "number": 4, "state": "{{state}}", "createdAt": "2026-10-01T08:00:00Z", "mergedAt": "2026-10-09T08:00:00Z", "closedAt": null,
+          "headRefOid": "head1", "mergeCommit": { "oid": "merge1" }, "author": { "login": "agent" },
+          "latestReviews": { "nodes": [] } } } } }
+        """;
+
+    private static GitPullRequest AzureWithCommits(PullRequestStatus status)
+    {
+        var pr = AzurePr(status);
+        pr.LastMergeSourceCommit = new GitCommitRef { CommitId = "head1" };
+        pr.LastMergeCommit = new GitCommitRef { CommitId = "merge1" };
+        return pr;
+    }
 
     private static string Note(long id, long author, string body, string at) =>
         $$"""{ "id": {{id}}, "body": "{{body}}", "system": true, "created_at": "{{at}}", "author": { "id": {{author}}, "username": "u{{author}}" } }""";
@@ -110,5 +129,79 @@ public sealed class PrReviewStateReaderTests
         dismissed.Decisions.Should().BeEmpty("GitHub: a dismissed review is no decision");
         reset.Decisions.Should().BeEmpty("Azure DevOps: a vote reset to 0 decides nothing");
         unapproved.Decisions.Should().BeEmpty("GitLab: the newest note withdrew the approval");
+    }
+
+    // 2026-11-23-8d16
+    [Fact]
+    public async Task PrReviewState_EachHost_ReadsTheDraftFlag()
+    {
+        var azure = AzurePr(PullRequestStatus.Active);
+        azure.IsDraft = true;
+
+        (await ReadGitHub(GitHubReply("OPEN", string.Empty, draft: true))).IsDraft.Should().BeTrue();
+        (await ReadGitHub(GitHubReply("OPEN", string.Empty))).IsDraft.Should().BeFalse();
+        (await ReadGitLab("[]", draft: true)).IsDraft.Should().BeTrue();
+        (await ReadGitLab("[]")).IsDraft.Should().BeFalse();
+        AzureReposVoteDecisions.Read(azure, [], "self", "u").IsDraft.Should().BeTrue();
+        AzureReposVoteDecisions.Read(AzurePr(PullRequestStatus.Active), [], "self", "u").IsDraft.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PrReviewState_GitHub_MergedNamesMergeCommit()
+    {
+        var state = await ReadGitHub(GitHubMergeReply("MERGED"));
+
+        (state.HeadSha, state.MergeSha).Should().Be(("head1", "merge1"));
+    }
+
+    [Fact]
+    public async Task PrReviewState_GitHub_Open_NamesNoMergeSha()
+    {
+        (await ReadGitHub(GitHubMergeReply("OPEN"))).MergeSha.Should().BeNull();
+    }
+
+    [Fact]
+    public void PrReviewState_AzureDevOps_CompletedNamesLastMergeCommit()
+    {
+        var state = AzureReposVoteDecisions.Read(AzureWithCommits(PullRequestStatus.Completed), [], "self", "u");
+
+        (state.HeadSha, state.MergeSha).Should().Be(("head1", "merge1"));
+    }
+
+    [Fact]
+    public void PrReviewState_AzureDevOps_Active_NamesNoMergeSha()
+    {
+        AzureReposVoteDecisions.Read(AzureWithCommits(PullRequestStatus.Active), [], "self", "u").MergeSha
+            .Should().BeNull("an active pull request's last merge commit is the test merge");
+    }
+
+    [Fact]
+    public async Task PrReviewState_GitLab_MergedWithMergeCommit_NamesIt()
+    {
+        var state = await ReadGitLab("[]", mr: GitLabMrJson("merged", """ "merge_commit_sha": "merge1", "squash_commit_sha": "squash1", """));
+
+        state.MergeSha.Should().Be("merge1");
+    }
+
+    [Fact]
+    public async Task PrReviewState_GitLab_MergedSquashOnly_NamesSquashCommit()
+    {
+        var state = await ReadGitLab("[]", mr: GitLabMrJson("merged", """ "merge_commit_sha": null, "squash_commit_sha": "squash1", """));
+
+        state.MergeSha.Should().Be("squash1");
+    }
+
+    [Fact]
+    public async Task PrReviewState_GitLab_MergedFastForward_NamesHeadSha()
+    {
+        (await ReadGitLab("[]", mr: GitLabMrJson("merged", ""))).MergeSha.Should().Be("head1");
+    }
+
+    [Fact]
+    public async Task PrReviewState_GitLab_Open_NamesNoMergeSha()
+    {
+        var state = await ReadGitLab("[]", mr: GitLabMrJson("opened", """ "merge_commit_sha": "merge1", """));
+
+        (state.HeadSha, state.MergeSha).Should().Be(("head1", (string?)null));
     }
 }

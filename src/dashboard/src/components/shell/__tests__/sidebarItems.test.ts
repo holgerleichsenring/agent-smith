@@ -12,7 +12,7 @@ function identity(permissions: string[], projectPermissions?: Record<string, str
 }
 
 const EVERYTHING = [
-  "new-work", "work-it-out", "series", "your-move", "tickets", "runs", "pull-requests",
+  "new-work", "work-it-out", "series", "your-move", "tickets", "runs", "pull-requests", "deployments",
   "insight", "overview", "delivery", "recent",
 ];
 
@@ -21,9 +21,16 @@ describe("sidebarItems", () => {
     expect(sidebarItems(null, "unknown")).toEqual(EVERYTHING);
   });
 
-  it("sidebarItems_PocsOn_PutsPocsRightAfterPullRequests", () => {
+  // 2026-11-23-8df6a + 933da: Pull requests, Deployments, then PoCs.
+  it("sidebarItems_PocsOn_OrdersPullRequestsDeploymentsPocs", () => {
     const items = sidebarItems(null, "on");
-    expect(items.indexOf("pocs")).toBe(items.indexOf("pull-requests") + 1);
+    const at = items.indexOf("pull-requests");
+    expect(items.slice(at, at + 3)).toEqual(["pull-requests", "deployments", "pocs"]);
+  });
+
+  it("sidebarItems_DeploymentsGatedLikePullRequests", () => {
+    expect(sidebarItems(identity(["runs.read"]), "unknown")).toContain("deployments");
+    expect(sidebarItems(identity(["config.read"]), "unknown")).not.toContain("deployments");
   });
 
   it("sidebarItems_PocsOffOrForbidden_ShowsNoPocsItem", () => {

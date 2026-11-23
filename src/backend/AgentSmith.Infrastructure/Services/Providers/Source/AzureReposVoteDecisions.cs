@@ -29,8 +29,10 @@ public static class AzureReposVoteDecisions
             PullRequestStatus.Abandoned => (PrReviewStates.Closed, Utc(pr.ClosedDate)),
             _ => (PrReviewStates.Open, created),
         };
+        // 2026-11-23-8df6a: on an active pull request LastMergeCommit is the test merge, so only a completed one names it.
         return new PrReviewState(pr.PullRequestId.ToString(CultureInfo.InvariantCulture), state, at, decisions,
-            pr.LastMergeSourceCommit?.CommitId);
+            pr.LastMergeSourceCommit?.CommitId, state == PrReviewStates.Merged ? pr.LastMergeCommit?.CommitId : null)
+            { IsDraft = pr.IsDraft == true }; // 2026-11-23-8d16
     }
 
     private static PrReviewDecision Decision(

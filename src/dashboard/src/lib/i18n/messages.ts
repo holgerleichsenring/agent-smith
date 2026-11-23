@@ -955,6 +955,17 @@ export const messages = {
   "series.merge.outcome.armed": { en: "merges once the host's rules pass", de: "wird gemergt, sobald die Regeln des Hosts erfüllt sind" },
   "series.merge.outcome.refused": { en: "not merged", de: "nicht gemergt" },
   "series.merge.failed": { en: "The merge failed: {message}", de: "Der Merge ist fehlgeschlagen: {message}" },
+  // 2026-11-23-8d16: the acts beside a merge, the merges others start on, and a draft.
+  "series.merge.openPr": { en: "Open pull request #{number}", de: "Pull Request #{number} öffnen" },
+  "series.merge.needed": {
+    en: { one: "Needed so {names} can start.", other: "Needed so {names} can start." },
+    de: { one: "Nötig, damit {names} startet.", other: "Nötig, damit {names} starten." },
+  },
+  "series.merge.draft": { en: "Draft", de: "Entwurf" },
+  "series.merge.draftFirst": {
+    en: "It is still a draft; merging takes it out of draft first.",
+    de: "Er ist noch ein Entwurf; der Merge nimmt ihn zuerst aus dem Entwurf.",
+  },
 
   // --- holds: who moves a held ticket, one sentence and one act (2026-11-23-31dcg) ---
   "hold.sentence.image_untrusted": {
@@ -1137,7 +1148,7 @@ export const messages = {
   "hold.tag.admin": { en: "needs an admin", de: "braucht einen Admin" },
   "hold.tag.decide": { en: "your decision", de: "deine Entscheidung" },
   "hold.tag.plan": { en: "plan gap", de: "Lücke im Plan" },
-  "hold.tag.merge": { en: "needs merges", de: "braucht Merges" },
+  "hold.tag.merge": { en: "merge", de: "Merge" }, // 2026-11-23-8d16: the merge itself
   "hold.tag.nobody": { en: "start on their own", de: "starten von selbst" },
   "series.section.held": { en: "Who moves next", de: "Wer ist dran" },
   "series.holds.sub": {
@@ -1159,6 +1170,18 @@ export const messages = {
   "series.you.need": {
     en: { one: "1 needs merges to start ({names})", other: "{count} need merges to start ({names})" },
     de: { one: "1 braucht Merges, um zu starten ({names})", other: "{count} brauchen Merges, um zu starten ({names})" },
+  },
+  // 2026-11-23-8d16: the merges the server marked under Merge next, by count, and the tickets they let start, by count.
+  "series.you.neededMerges": {
+    en: { one: "1 merge is", other: "{count} merges are" },
+    de: { one: "1 Merge ist", other: "{count} Merges sind" },
+  },
+  "series.you.neededFor": {
+    en: { one: "{merges} needed before {names} can start (marked under Merge next)", other: "{merges} needed before {names} can start (marked under Merge next)" },
+    de: {
+      one: "{merges} nötig, damit {names} starten kann (markiert unter Als Nächstes mergen)",
+      other: "{merges} nötig, damit {names} starten können (markiert unter Als Nächstes mergen)",
+    },
   },
   "series.you.needNone": { en: "none needs a merge to start", de: "keines braucht einen Merge, um zu starten" },
   "series.you.merges": { en: "{without}; {need}.", de: "{without}; {need}." },
@@ -1252,6 +1275,37 @@ export const messages = {
   "config.pocs.target.reminders.help": { en: "comma-separated, e.g. 14, 7, 1", de: "durch Kommas getrennt, z. B. 14, 7, 1" },
   "config.pocs.target.limit": { en: "PoCs per person", de: "PoCs pro Person" },
   "config.pocs.target.limit.help": { en: "admins have no limit", de: "für Admins gilt keine Grenze" },
+  // --- deployments page (2026-11-23-8df6a) ---
+  "deployments.nav": { en: "Deployments", de: "Deployments" },
+  "deployments.title": { en: "Deployments", de: "Deployments" },
+  "deployments.sub": {
+    en: "Merged pull requests with the commit each merge became, and the deploys agent smith ran.",
+    de: "Gemergte Pull Requests mit dem Commit, der aus jedem Merge wurde, und die Deploys, die agent smith gestartet hat.",
+  },
+  "deployments.window": { en: "{count} days", de: "{count} Tage" },
+  "deployments.windowLabel": { en: "Time span", de: "Zeitraum" },
+  "deployments.loading": { en: "Reading deployments…", de: "Deployments werden gelesen…" },
+  "deployments.failed": { en: "Could not read deployments: {message}", de: "Die Deployments ließen sich nicht lesen: {message}" },
+  "deployments.surface": { en: "the deployments", de: "die Deployments" },
+  "deployments.empty": {
+    en: "Nothing merged or deployed in this time span.",
+    de: "In diesem Zeitraum wurde nichts gemergt oder deployt.",
+  },
+  "deployments.merged.title": { en: "Merged", de: "Gemergt" },
+  "deployments.merged.sub": { en: "pull requests of tickets, newest merge first", de: "Pull Requests von Tickets, neuester Merge zuerst" },
+  "deployments.merged.into": { en: "into {branch}", de: "nach {branch}" },
+  "deployments.merged.notRead": { en: "merge commit not read", de: "Merge-Commit nicht gelesen" },
+  "deployments.merged.notReadTip": {
+    en: "Merged before this was recorded. A later read of the pull request may still fill it in.",
+    de: "Gemergt, bevor das erfasst wurde. Ein späteres Lesen des Pull Requests kann ihn noch nachtragen.",
+  },
+  "deployments.deploys.title": { en: "Deploys by agent smith", de: "Deploys durch agent smith" },
+  "deployments.deploys.sub": { en: "newest first", de: "neueste zuerst" },
+  "deployments.run": { en: "run ›", de: "Run ›" },
+  "deployments.ago.justNow": { en: "just now", de: "gerade eben" },
+  "deployments.ago.minutes": { en: "{count}m ago", de: "vor {count} Min." },
+  "deployments.ago.hours": { en: "{count}h ago", de: "vor {count} Std." },
+  "deployments.ago.days": { en: "{count}d ago", de: "vor {count} T." },
 } satisfies Record<string, MessageEntry>;
 
 export type MessageKey = keyof typeof messages;

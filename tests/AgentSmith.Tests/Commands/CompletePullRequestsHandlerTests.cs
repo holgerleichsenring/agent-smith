@@ -32,6 +32,9 @@ public sealed class CompletePullRequestsHandlerTests
     private readonly Mock<ITicketRequirementStore> _edges = new();
     private readonly Mock<ITicketLandingStore> _landings = new();
     private readonly Dictionary<string, string?> _bases = new();
+    private readonly List<string> _calls = []; // 2026-11-23-8d16: ready, approve and merge in the order they were asked
+    private bool _ready = true;
+    private bool _draft = true;
 
     public CompletePullRequestsHandlerTests()
     {
@@ -304,6 +307,47 @@ public sealed class CompletePullRequestsHandlerTests
             "a: still open — the branch policy requires an approval"));
     }
 
+    // 2026-11-23-8d16
+    [Fact]
+    public async Task MergeGreen_APersonAskedMerge_TakesEachOutOfDraft_BeforeItApprovesAndMerges()
+    {
+        await RunAsync(new MergePolicyConfig { RespectBranchProtection = true }, passed: null, Green("a", askedBy: "Dana"));
+
+        _calls.Should().Equal("ready https://x/a/pull/1", "approve https://x/a/pull/1", "merge https://x/a/pull/1");
+    }
+
+    [Fact]
+    public async Task MergeGreen_ADraftTheHostKeeps_IsRefused_AndNothingMerges()
+    {
+        _ready = false;
+        var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
+
+        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", "b", askedBy: "Dana", slot: slot));
+
+        _merged.Should().BeEmpty();
+        result.Message.Should().Contain("a: still a draft: the host did not take it out of draft").And.Contain("b: not attempted");
+        slot.Value!.Should().AllSatisfy(l => l.Outcome.Should().Be(PullRequestCompletionOutcome.Refused));
+    }
+
+    [Fact]
+    public async Task MergeGreen_APersonAskedMerge_LeavesAPullRequestThatIsNoDraft_Alone()
+    {
+        _draft = false;
+
+        await RunAsync(new MergePolicyConfig(), passed: null, Green("a", askedBy: "Dana"));
+
+        _calls.Should().Equal("merge https://x/a/pull/1");
+    }
+
+    [Fact]
+    public async Task OnCiGreen_TheCiWatchsMerge_NeverTakesADraftOut()
+    {
+        await RunAsync(OnCi(), passed: null, Green("a"));
+
+        _calls.Should().NotContain(c => c.StartsWith("ready", StringComparison.Ordinal));
+        _merged.Should().ContainSingle();
+    }
+
     private void Requires(params string[] required) =>
         _edges.Setup(e => e.RequiredOfAsync("gh", "github-42", It.IsAny<CancellationToken>())).ReturnsAsync([.. required.Select(r =>
             new TicketRequirementEdge("gh", "github-42", "42", "p", $"github-{r}", r, true, DateTimeOffset.UnixEpoch, "c-1"))]);
@@ -343,16 +387,27 @@ public sealed class CompletePullRequestsHandlerTests
             .Returns<string, CancellationToken>((url, _) =>
             {
                 _approved.Add(url);
+                _calls.Add($"approve {url}");
                 return Task.FromResult(_approval);
             });
         provider.Setup(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()))
             .Returns<string, BranchName, BranchProtection, CancellationToken>((url, _, mode, _) =>
             {
                 _merged.Add((url, mode));
+                _calls.Add($"merge {url}");
                 return Task.FromResult(_answers.GetValueOrDefault(url) ?? PullRequestCompletion.Merged());
             });
         provider.Setup(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string url, CancellationToken _) => _bases.TryGetValue(url, out var at) ? at : "main");
+        provider.As<AgentSmith.Contracts.Reviews.IPrReviewStateReader>().Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string url, CancellationToken _) =>
+                new AgentSmith.Contracts.Reviews.PrReviewState("1", "open", DateTimeOffset.UnixEpoch, []) { IsDraft = _draft });
+        provider.Setup(p => p.MarkPullRequestReadyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((url, _) =>
+            {
+                _calls.Add($"ready {url}");
+                return Task.FromResult(_ready);
+            });
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
         var events = new Mock<IEventPublisher>();
@@ -362,7 +417,8 @@ public sealed class CompletePullRequestsHandlerTests
         var completer = new PullRequestCompleter(factory.Object, events.Object, NullLogger<PullRequestCompleter>.Instance);
         var handler = new CompletePullRequestsHandler(new PullRequestMergeSequence(completer, new PullRequestApprovalStep(factory.Object),
             new PullRequestBaseGuard(factory.Object), NullLogger<PullRequestMergeSequence>.Instance,
-            new UnmetTicketRequirements(_edges.Object, _landings.Object, Mock.Of<ISpecApprovalStore>())), completer);
+            new UnmetTicketRequirements(_edges.Object, _landings.Object, Mock.Of<ISpecApprovalStore>()),
+            new PullRequestDraftStep(factory.Object)), completer);
         return await handler.ExecuteAsync(new CompletePullRequestsContext(policy, new BranchName("agent-smith/42"), repos, pipeline,
             "gh", "github-42"), CancellationToken.None);
     }

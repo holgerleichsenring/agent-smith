@@ -107,6 +107,25 @@ public sealed class DeployRecordStoreTests : IDisposable
         (await RecordAsync("r-3")).DeliveredAtTicks.Should().Be(0, "a row whose event is gone has nothing to read");
     }
 
+    // 2026-11-23-8df6a: the Deployments page's read — the scope's records delivered inside the window, newest first.
+    [Fact]
+    public async Task DeliveredSinceAsync_Scoped_ReturnsAdmittedOnly()
+    {
+        await using (var db = MigratedStoreTemplate.Context(_connection))
+        {
+            var other = Row("r-other", At.UtcTicks);
+            other.Project = "other";
+            db.AddRange(Row("r-1", At.UtcTicks), Row("r-2", At.AddHours(1).UtcTicks), Row("r-old", At.AddDays(-10).UtcTicks), other);
+            await db.SaveChangesAsync();
+        }
+        await using var ctx = MigratedStoreTemplate.Context(_connection);
+
+        var listed = await new DeployRecordRepository(ctx).DeliveredSinceAsync(
+            AgentSmith.Infrastructure.Persistence.Contracts.ProjectScope.Single("shop"), At.AddDays(-1), default);
+
+        listed.Select(r => r.RunId).Should().Equal("r-2", "r-1");
+    }
+
     public void Dispose() => _connection.Dispose();
 
     private static readonly DateTimeOffset At = DateTimeOffset.Parse("2026-11-18T10:00:00Z");

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarDays, ChartColumn, CirclePlay, Clock, GitFork, GitPullRequest, Inbox, LayoutGrid, MessagesSquare, PanelLeft, Plus, Ticket, Terminal,
+  CalendarDays, ChartColumn, CirclePlay, Clock, GitFork, GitPullRequest, Inbox, LayoutGrid, MessagesSquare, PanelLeft, Plus, Rocket, Ticket, Terminal,
 } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useOpenPrCount } from "@/hooks/useOpenPrCount";
@@ -176,6 +176,15 @@ export function AppSidebar() {
         collapsed={collapsed}
         count={openPrs ?? undefined}
         testId="sidebar-pull-requests"
+      />}
+      {/* 2026-11-23-8df6a: what merged and what agent smith deployed, right below Pull requests (PoCs follow it). */}
+      {show("deployments") && <SidebarItem
+        label={t("deployments.nav")}
+        href="/deployments"
+        icon={Rocket}
+        active={under("/deployments")}
+        collapsed={collapsed}
+        testId="sidebar-deployments"
       />}
 
       {/* 2026-11-23-933da: Pull requests, Deployments (2026-11-23-8df6a), then PoCs. */}

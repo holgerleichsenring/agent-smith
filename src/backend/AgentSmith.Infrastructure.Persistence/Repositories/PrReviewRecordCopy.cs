@@ -23,7 +23,9 @@ internal static class PrReviewRecordCopy
         stored.State = read.State;
         stored.StateAtTicks = read.StateAtTicks;
         stored.HeadSha = read.HeadSha ?? stored.HeadSha;
+        stored.IsDraft = read.IsDraft; // 2026-11-23-8d16
         stored.TargetBranch = read.TargetBranch ?? stored.TargetBranch; // 2026-11-22-6d85b: read once, after the merge
+        stored.MergeSha = read.MergeSha ?? stored.MergeSha; // 2026-11-23-8df6a: a read that names none keeps the known one
         Ci(read, stored);
     }
 

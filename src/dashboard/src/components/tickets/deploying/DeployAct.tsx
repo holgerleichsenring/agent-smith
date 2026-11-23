@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
-import { listDeployments, type DeploymentBindingView } from "@/lib/deploymentsApi";
+import { listDeploymentBindings, type DeploymentBindingView } from "@/lib/deploymentsApi";
 import { RUNS_CONTROL } from "../detail/RetryUnchanged";
 import { DeployForm } from "./DeployForm";
 
@@ -17,7 +17,7 @@ export function DeployAct({ project, ticketId, onStarted }: { project: string; t
   useEffect(() => {
     if (lacks) return;
     const abort = new AbortController();
-    listDeployments(project, abort.signal).then(setBindings).catch(() => setBindings([]));
+    listDeploymentBindings(project, abort.signal).then(setBindings).catch(() => setBindings([]));
     return () => abort.abort();
   }, [project, lacks]);
   if (lacks || bindings.length === 0) return null;
