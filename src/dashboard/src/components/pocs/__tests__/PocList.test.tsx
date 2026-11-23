@@ -32,9 +32,10 @@ describe("PocList", () => {
     expect(screen.queryByTestId("pocs-target-settings")).not.toBeInTheDocument();
   });
 
-  it("PocList_ImportButton_IsDisabledUntilImportArrives_AndOnlyForWhoMayImport", () => {
+  it("PocList_ImportButton_OpensTheImportPage_AndOnlyForWhoMayImport", () => {
     const view = render(<PocList list={list([])} showSettings />);
-    expect(screen.getByTestId("pocs-import")).toBeDisabled();
+    expect(screen.getByTestId("pocs-import")).toHaveAttribute("href", "/pocs/import");
+    expect(screen.getByTestId("pocs-import")).not.toHaveAttribute("aria-disabled");
     view.unmount();
     render(<PocList list={list([], false)} showSettings />);
     expect(screen.queryByTestId("pocs-import")).not.toBeInTheDocument();

@@ -30,6 +30,11 @@ describe("runSections", () => {
     expect(commandSection(step("RunConfigPreflightCommand"))).toBe("ready");
   });
 
+  // 2026-11-23-933db: a PoC import's intake checks the archive again.
+  it("commandSection_PocIntake_Verifies", () => {
+    expect(commandSection(step("PocIntakeCommand"))).toBe("verify");
+  });
+
   it("commandSection_AnUnknownCommand_NamesNone", () => {
     expect(commandSection(step("SomethingNew"))).toBeUndefined();
   });

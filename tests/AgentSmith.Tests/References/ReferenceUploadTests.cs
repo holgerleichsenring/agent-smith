@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AgentSmith.Application.Services.Archives;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -239,7 +240,7 @@ public sealed class ReferenceUploadTests : IDisposable
         var paths = new ReferencePathRule();
         var ignore = new ReferenceIgnoreList();
         var upload = new ReferenceSetUpload(
-            new ReferenceZipReader(paths, ignore, new ZipEntryChecksum()),
+            new ReferenceZipReader(paths, ignore, new BoundedZipInflater(new ZipEntryChecksum())),
             new ReferenceSetValidator(paths, ignore), new ReferenceFileTypes(),
             new SpecDialogConversationResolver(_sessions, _ownership, Commands()),
             new ReferenceSetRepository(_context), TestUploads.Admission(_context), NullLogger<ReferenceSetUpload>.Instance);

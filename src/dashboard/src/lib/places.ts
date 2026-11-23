@@ -29,6 +29,8 @@ const FIXED_PLACES: Record<string, string> = {
   "/deployments": "Deployments",
   // 2026-11-23-933da: the PoCs list, shown when the feature is on and the caller may read it.
   "/pocs": "PoCs",
+  // 2026-11-23-933db: importing a PoC ZIP.
+  "/pocs/import": "Import a PoC",
   // 2026-11-23-31dcc: every series a conversation filed (English like every place here until 5485b moves the table).
   "/series": "Series",
   // 2026-09-15-cb3e: where the work is DESIGNED — a peer of the two above, not a

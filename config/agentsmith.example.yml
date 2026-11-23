@@ -724,6 +724,20 @@ pocs:
   #    lifetime_days: 90
   #    reminder_days: [14, 7, 1]
   #    per_person_limit: 3
+  # 2026-11-23-933db: what an uploaded PoC archive is held to (defaults shown), and when an import
+  # asks whether a ZIP is really the same PoC: more than mismatch_ratio_percent of the files AND
+  # more than mismatch_file_limit of them differ, or the port or the entrypoint changed.
+  # archive:
+  #   max_zip_mb: 25
+  #   max_unpacked_mb: 100
+  #   max_entries: 2000
+  #   max_ratio: 100
+  #   max_path_chars: 240
+  #   max_file_mb: 10
+  #   max_binary_mb: 20
+  #   max_dockerfile_kb: 64
+  #   mismatch_ratio_percent: 50
+  #   mismatch_file_limit: 100
 
 # p0128c data-flow gating.
 pipeline_data_flow:

@@ -59,6 +59,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.VerifyPassRecorded]: "VerifyPassRecorded", // 2026-11-17-d6fbc
   [EventType.DeployDelivered]: "DeployDelivered", // 2026-11-18-3863f
   [EventType.TicketTextRewritten]: "TicketTextRewritten", // 2026-11-22-e812
+  [EventType.PocImported]: "PocImported", // 2026-11-23-933db
 };
 
 interface FilterRailProps {

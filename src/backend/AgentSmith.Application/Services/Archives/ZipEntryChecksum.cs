@@ -1,4 +1,4 @@
-namespace AgentSmith.Server.Services.References;
+namespace AgentSmith.Application.Services.Archives;
 
 /// <summary>
 /// 2026-10-01-283db: the CRC-32 a ZIP directory records for every entry, recomputed over the bytes

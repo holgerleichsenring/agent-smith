@@ -40,6 +40,19 @@ public sealed class ConfigImportPlannerTests
         import.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage("*pocs.project_agent is empty*");
     }
 
+    // 2026-11-23-933db: an import refuses a pocs.archive value the load would refuse, naming the key.
+    [Fact]
+    public void ConfigImportPlanner_InvalidPocsArchive_IsRefused()
+    {
+        var import = () => Planner.Plan("""
+            pocs:
+              archive:
+                max_ratio: 0
+            """, "test.yml");
+
+        import.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage("*pocs.archive.max_ratio is 0*");
+    }
+
     [Fact]
     public void Plan_MisspeltKey_IsNamed()
     {

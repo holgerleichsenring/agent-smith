@@ -312,6 +312,23 @@
         "enabled": { "type": "boolean", "description": "Whether the PoCs area exists. Default false." },
         "project_agent": { "type": ["string", "null"], "description": "The agent every poc-<person> project names; required while enabled." },
         "project_tracker": { "type": ["string", "null"], "description": "The tracker every poc-<person> project names; required while enabled." },
+        "archive": {
+          "type": "object",
+          "description": "What an uploaded PoC archive is held to, and when an import asks whether it is another app. Every refusal names the value, the reason and the key. Absent reads as the defaults.",
+          "additionalProperties": false,
+          "properties": {
+            "max_zip_mb": { "type": "integer", "minimum": 1, "description": "The uploaded ZIP's size; the upload body is bounded at it. Default 25." },
+            "max_unpacked_mb": { "type": "integer", "minimum": 1, "description": "What the archive unpacks to, all files together. Default 100." },
+            "max_entries": { "type": "integer", "minimum": 1, "description": "How many files the archive may hold. Default 2000." },
+            "max_ratio": { "type": "integer", "minimum": 1, "description": "How many times its compressed size one file, and the whole archive, may unpack to; stops a ZIP bomb. Default 100." },
+            "max_path_chars": { "type": "integer", "minimum": 1, "maximum": 240, "description": "The longest path inside the archive, at most the store's 240-character path column. Default 240." },
+            "max_file_mb": { "type": "integer", "minimum": 1, "description": "One file's unpacked size. Default 10." },
+            "max_binary_mb": { "type": "integer", "minimum": 1, "description": "The files a NUL byte in their first 8000 bytes marks as binary, together; checked when the import runs. Default 20." },
+            "max_dockerfile_kb": { "type": "integer", "minimum": 1, "description": "The root Dockerfile's size. Default 64." },
+            "mismatch_ratio_percent": { "type": "integer", "minimum": 1, "maximum": 100, "description": "An import asks whether the archive is really the same PoC when more than this share of files differs AND more than mismatch_file_limit do. Default 50." },
+            "mismatch_file_limit": { "type": "integer", "minimum": 1, "description": "An import asks whether the archive is really the same PoC when more than this many files differ AND more than mismatch_ratio_percent do. Default 100." }
+          }
+        },
         "targets": {
           "type": "array",
           "description": "Where PoCs are hosted. One for now; required while enabled.",

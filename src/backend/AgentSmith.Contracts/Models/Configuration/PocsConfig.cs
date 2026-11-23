@@ -19,6 +19,10 @@ public sealed class PocsConfig
     /// <summary>Where PoCs are hosted; one for now, the model open for several.</summary>
     public List<PocTargetConfig> Targets { get; set; } = [];
 
+    /// <summary>2026-11-23-933db: what an uploaded PoC archive is held to, and when an import asks whether it is another
+    /// app; an absent block reads as the defaults.</summary>
+    public PocArchiveLimits Archive { get; set; } = new();
+
     /// <summary>What is wrong with these values, one sentence each naming the key, the value and the reason; empty
     /// when nothing is. The ONE rule — the load and the settings store refuse what this names.</summary>
     public IReadOnlyList<string> Problems()
@@ -28,6 +32,7 @@ public sealed class PocsConfig
             problems.Add($"pocs.targets[].name '{duplicate.Key}' is used {duplicate.Count()} times; it must be unique, "
                 + "because a PoC names its target by it");
         problems.AddRange(Targets.SelectMany(t => t.Problems()));
+        problems.AddRange(Archive.Problems());
         return problems;
     }
 

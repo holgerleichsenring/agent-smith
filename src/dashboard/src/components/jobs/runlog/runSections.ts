@@ -24,6 +24,7 @@ const SECTION_OF: Record<string, StepSectionId> = {
   SkillRound: "build", FilterRound: "build", SwitchSkill: "build", RunFinalPhase: "build", GenerateTests: "build",
   GenerateDocs: "build", CompileDiscussion: "build", CommitSpecWork: "build",
   VerifySpec: "verify", RunVerifyPhase: "verify", ConvergenceCheck: "verify",
+  PocIntake: "verify", // 2026-11-23-933db: the imported archive checked again
   ReviewSpecDiff: "review", RunReviewPhase: "review",
   WriteSpecRecord: "deliver", WriteRunResult: "deliver", CommitAndPR: "deliver", PrCrossLink: "deliver",
   PersistWorkBranch: "deliver", DeliverOutput: "deliver", InitCommit: "deliver", InitComplete: "deliver", CompletePullRequests: "deliver", RefreshBranchBase: "deliver", DeployToEnvironment: "deliver",

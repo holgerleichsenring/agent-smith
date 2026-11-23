@@ -1,4 +1,4 @@
-namespace AgentSmith.Server.Services.References;
+namespace AgentSmith.Application.Services.Archives;
 
 /// <summary>
 /// 2026-10-01-283db: the files an operating system leaves in a folder that nobody put there. They

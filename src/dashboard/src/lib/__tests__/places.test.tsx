@@ -97,6 +97,7 @@ describe("Places", () => {
 
   it("Places_Pocs_IsPocs", () => {
     expect(placeForPath("/pocs")).toBe("PoCs");
+    expect(placeForPath("/pocs/import")).toBe("Import a PoC");
   });
 
   it("Places_Delivery_IsDelivery", () => {

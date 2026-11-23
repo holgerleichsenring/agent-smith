@@ -42,8 +42,8 @@ public sealed class StackedPullRequestRetargetTests
         _attempts.Setup(a => a.LatestAsync(Project, "41", null, default)).ReturnsAsync(Attempt(PrerequisitePr));
         _provider.Setup(p => p.ReadPullRequestBaseAsync(PrerequisitePr, default)).ReturnsAsync("main");
         _runs.Setup(r => r.RunAsync(Project, PipelinePresets.RetargetName, It.IsAny<IReadOnlyDictionary<string, object>>(),
-                It.IsAny<AgentSmith.Domain.Models.TicketId?>()))
-            .Callback<string, string, IReadOnlyDictionary<string, object>, AgentSmith.Domain.Models.TicketId?>((_, _, seeds, shown) =>
+                It.IsAny<AgentSmith.Domain.Models.TicketId?>(), It.IsAny<string?>()))
+            .Callback<string, string, IReadOnlyDictionary<string, object>, AgentSmith.Domain.Models.TicketId?, string?>((_, _, seeds, shown, _) =>
             {
                 _shownOn = shown;
                 _moved.AddRange(((RetargetPullRequestsRequest)seeds[ContextKeys.RetargetPullRequestsRequest]).Moves);

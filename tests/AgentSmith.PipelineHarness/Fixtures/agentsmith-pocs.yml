@@ -1,0 +1,42 @@
+# 2026-11-23-933db harness fixture: PoCs switched on with one target; no project yet — a person's first import creates
+# their poc- project.
+agents:
+  openai-default:
+    type: openai
+    api_key: dummy
+    models:
+      primary:
+        model: gpt-4
+        max_tokens: 4096
+
+trackers:
+  github-fixture:
+    type: github
+    url: https://github.com/agent-smith-fixtures/repo
+    auth: gh_token
+
+repos:
+  poc-src:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    url: https://stub.test/poc-src
+    auth: ""
+
+pocs:
+  enabled: true
+  project_agent: openai-default
+  project_tracker: github-fixture
+  targets:
+    - name: main
+      source_repo: poc-src
+
+secrets:
+  gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
+
+skills:
+  source: default
+  version: v3.5.0
+  cache_dir: /tmp/agentsmith-harness/skills
+
+sandbox:
+  agent_version: "0.0.0-harness"

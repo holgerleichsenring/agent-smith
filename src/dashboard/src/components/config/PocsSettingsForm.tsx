@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { PocsSetting, PocTargetSetting, SettingValue, StudioEntity } from "@/lib/configApi";
+import type { PocArchiveSetting, PocsSetting, PocTargetSetting, SettingValue, StudioEntity } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
-import { CheckField, DrawerSection, NumberField, RefSelect, TextField, keep, patcher } from "./formFields";
+import type { TextKey } from "@/lib/i18n/translate";
+import { CheckField, DrawerSection, NumberField, RefSelect, TextField, keep } from "./formFields";
 
 // 2026-11-23-933da: the PoCs settings (agentsmith.yml pocs:) — the switch first, then the agent and tracker every
 // person's poc- project names, then the targets. Every field stays editable while the switch is off, so a target can
@@ -18,6 +19,13 @@ export interface PocsCatalog {
 
 export const DOMAIN_PLACEHOLDER = "{app}.poc.example.internal";
 
+/** 2026-11-23-933db: the server's archive defaults (PocArchiveLimits). A value read without archive is given these, and
+ *  every change sends archive back, because a save without it would reset the limits. */
+export const POC_ARCHIVE_DEFAULTS: PocArchiveSetting = {
+  maxZipMb: 25, maxUnpackedMb: 100, maxEntries: 2000, maxRatio: 100, maxPathChars: 240, maxFileMb: 10, maxBinaryMb: 20,
+  maxDockerfileKb: 64, mismatchRatioPercent: 50, mismatchFileLimit: 100,
+};
+
 /** A new target carries the server's defaults; the address has none, only a placeholder. */
 export function newPocTarget(): PocTargetSetting {
   return {
@@ -30,7 +38,8 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
   value: PocsSetting; onChange: (v: SettingValue) => void; catalog: PocsCatalog;
 }) {
   const t = useT();
-  const set = patcher(value, onChange);
+  const archive = value.archive ?? POC_ARCHIVE_DEFAULTS;
+  const set = (patch: Partial<PocsSetting>) => onChange({ ...value, archive, ...patch });
   const targets = value.targets ?? [];
   const setAt = (i: number, patch: Partial<PocTargetSetting>) =>
     set({ targets: targets.map((target, j) => (j === i ? { ...target, ...patch } : target)) });
@@ -58,6 +67,36 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
         onClick={() => set({ targets: [...targets, newPocTarget()] })}>
         {t("config.pocs.target.add")}
       </button>
+      <DrawerSection title={t("config.pocs.archive.title")} testId="setting-pocs-archive">
+        <span className="help">{t("config.pocs.archive.help")}</span>
+        <PocArchiveFields archive={archive} onChange={(patch) => set({ archive: { ...archive, ...patch } })} />
+      </DrawerSection>
+    </>
+  );
+}
+
+// Each field: its wire name, its label and the one-line reason the bound exists.
+const ARCHIVE_FIELDS: { key: keyof PocArchiveSetting; label: TextKey; help: TextKey }[] = [
+  { key: "maxZipMb", label: "config.pocs.archive.maxZipMb", help: "config.pocs.archive.maxZipMb.help" },
+  { key: "maxUnpackedMb", label: "config.pocs.archive.maxUnpackedMb", help: "config.pocs.archive.maxUnpackedMb.help" },
+  { key: "maxEntries", label: "config.pocs.archive.maxEntries", help: "config.pocs.archive.maxEntries.help" },
+  { key: "maxRatio", label: "config.pocs.archive.maxRatio", help: "config.pocs.archive.maxRatio.help" },
+  { key: "maxPathChars", label: "config.pocs.archive.maxPathChars", help: "config.pocs.archive.maxPathChars.help" },
+  { key: "maxFileMb", label: "config.pocs.archive.maxFileMb", help: "config.pocs.archive.maxFileMb.help" },
+  { key: "maxBinaryMb", label: "config.pocs.archive.maxBinaryMb", help: "config.pocs.archive.maxBinaryMb.help" },
+  { key: "maxDockerfileKb", label: "config.pocs.archive.maxDockerfileKb", help: "config.pocs.archive.maxDockerfileKb.help" },
+  { key: "mismatchRatioPercent", label: "config.pocs.archive.mismatchRatioPercent", help: "config.pocs.archive.mismatchRatioPercent.help" },
+  { key: "mismatchFileLimit", label: "config.pocs.archive.mismatchFileLimit", help: "config.pocs.archive.mismatchFileLimit.help" },
+];
+
+function PocArchiveFields({ archive, onChange }: { archive: PocArchiveSetting; onChange: (patch: Partial<PocArchiveSetting>) => void }) {
+  const t = useT();
+  return (
+    <>
+      {ARCHIVE_FIELDS.map(({ key, label, help }) => (
+        <NumberField key={key} label={t(label)} value={archive[key]} help={t(help)} testId={`setting-pocs-archive-${key}`}
+          onChange={(v) => onChange({ [key]: keep(v, archive[key]) })} />
+      ))}
     </>
   );
 }

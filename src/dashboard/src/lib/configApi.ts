@@ -1113,6 +1113,22 @@ export interface PocsSetting {
   projectAgent: string | null;
   projectTracker: string | null;
   targets: PocTargetSetting[];
+  /** 2026-11-23-933db: the bounds an imported ZIP is checked against, and when a replace asks first. */
+  archive: PocArchiveSetting;
+}
+
+/** 2026-11-23-933db: agentsmith.yml pocs.archive — sizes in MB/KB as named, the ratio as n:1. */
+export interface PocArchiveSetting {
+  maxZipMb: number;
+  maxUnpackedMb: number;
+  maxEntries: number;
+  maxRatio: number;
+  maxPathChars: number;
+  maxFileMb: number;
+  maxBinaryMb: number;
+  maxDockerfileKb: number;
+  mismatchRatioPercent: number;
+  mismatchFileLimit: number;
 }
 
 /** 2026-11-17-713ec: the branch-cleanup sweep (agentsmith.yml branch_cleanup:). */

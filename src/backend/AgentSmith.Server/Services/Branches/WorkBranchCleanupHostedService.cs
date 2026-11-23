@@ -40,6 +40,7 @@ public sealed class WorkBranchCleanupHostedService(
         ArgumentNullException.ThrowIfNull(config);
         if (!config.BranchCleanup.Enabled)
         {
+            await ReportPocPrefixesAsync(config, ct); // 2026-11-23-933db: once per epoch while the sweep is off
             logger.LogInformation("Branch cleanup is off (branch_cleanup.enabled)");
             await Task.Delay(Timeout.Infinite, ct);
             return;
@@ -55,9 +56,17 @@ public sealed class WorkBranchCleanupHostedService(
 
     private async Task LaunchAllAsync(AgentSmithConfig config, CancellationToken ct)
     {
+        await ReportPocPrefixesAsync(config, ct);
         await using var scope = services.CreateAsyncScope();
         var launcher = scope.ServiceProvider.GetRequiredService<WorkBranchCleanupLauncher>();
         foreach (var project in config.Projects.Values)
             await launcher.LaunchAsync(project, ct);
+    }
+
+    // 2026-11-23-933db: the poc-* projects no Poc row names, republished with every pass.
+    private async Task ReportPocPrefixesAsync(AgentSmithConfig config, CancellationToken ct)
+    {
+        try { await services.GetRequiredService<Pocs.PocPrefixFindings>().ReportAsync(config, ct); }
+        catch (Exception ex) when (!ct.IsCancellationRequested) { logger.LogWarning(ex, "The poc- prefix findings could not be read"); }
     }
 }

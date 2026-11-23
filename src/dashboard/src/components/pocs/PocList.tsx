@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useT } from "@/hooks/useT";
 import type { PocList as PocListAnswer } from "@/lib/pocsApi";
@@ -11,9 +12,11 @@ import { PocTargetStrip } from "./PocTargetStrip";
 import { pocDot, statesPresent } from "./pocStates";
 
 // 2026-11-23-933da: the PoCs a caller may see, as cards, with a pill per state present to narrow them, and the target
-// strip below. Import ZIP is shown to whoever may import and stays disabled until import arrives (2026-11-23-933db).
+// strip below. Import ZIP is shown to whoever may import and opens the import page (2026-11-23-933db).
 
 const ALL = "";
+
+export const POCS_IMPORT_PATH = "/pocs/import";
 
 export function PocList({ list, showSettings }: { list: PocListAnswer; showSettings: boolean }) {
   const t = useT();
@@ -29,10 +32,9 @@ export function PocList({ list, showSettings }: { list: PocListAnswer; showSetti
           <div className="msub">{t("pocs.sub")}</div>
         </div>
         {list.mayImport && (
-          <button type="button" className="btn primary poc-import" disabled title={t("pocs.importLater")}
-            data-testid="pocs-import">
+          <Link className="btn primary poc-import" href={POCS_IMPORT_PATH} data-testid="pocs-import">
             {t("pocs.import")}
-          </button>
+          </Link>
         )}
       </div>
       {list.pocs.length > 0 && (

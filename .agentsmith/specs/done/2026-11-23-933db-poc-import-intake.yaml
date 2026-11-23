@@ -10,11 +10,11 @@ upgrade_impact: "Additive and behind pocs.enabled: one new preset, two routes un
 
 facts:
   - claim: "The one ZIP reader today unpacks on the server counting inflated bytes (a lying declared length stops at the bound), checks each entry's CRC, and refuses hostile paths before inflating; nothing of the archive executes."
-    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceZipReader.cs:6-21, src/backend/AgentSmith.Server/Services/References/ReferenceZipReader.cs:55-90, src/backend/AgentSmith.Server/Services/References/ZipEntryChecksum.cs:3-14"
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceZipReader.cs:7-21, src/backend/AgentSmith.Application/Services/Archives/BoundedZipInflater.cs:5-40, src/backend/AgentSmith.Application/Services/Archives/ZipEntryChecksum.cs:3-14"
   - claim: "The reader drops OS litter (__MACOSX, ._ files, .DS_Store, Thumbs.db) BEFORE any check, so a Finder-made ZIP is not refused for it."
-    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceIgnoreList.cs:3-23, src/backend/AgentSmith.Server/Services/References/ReferenceZipReader.cs:33-35"
-  - claim: "The hostile-path rule refuses NUL, absolute, drive and '..' paths and empty segments, normalising backslashes to slashes first; a case-insensitive seen set refuses a second file under one path; its length check reads ReferenceUploadLimits, a Server class."
-    evidence: "src/backend/AgentSmith.Server/Services/References/ReferencePathRule.cs:11-43, src/backend/AgentSmith.Server/Services/References/ReferenceSetValidator.cs:28-30"
+    evidence: "src/backend/AgentSmith.Application/Services/Archives/ReferenceIgnoreList.cs:3-23, src/backend/AgentSmith.Server/Services/References/ReferenceZipReader.cs:32-34"
+  - claim: "The hostile-path rule refuses NUL, absolute, drive and '..' paths and empty segments, normalising backslashes to slashes first; a case-insensitive seen set refuses a second file under one path; its length bound is the caller's argument (the reference caller passes ReferenceUploadLimits.MaxPathChars), since this spec moved it to Application."
+    evidence: "src/backend/AgentSmith.Application/Services/Archives/ReferencePathRule.cs:13-52, src/backend/AgentSmith.Server/Services/References/ReferenceSetValidator.cs:29-31"
   - claim: "Application references only Contracts and Domain; the 240-character path bound also exists in Contracts as ReferenceSetLimits.MaxPathChars."
     evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:4-5, src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs:17-18"
   - claim: "Reference limits are code constants (500 files, 25 MB set, 240-character path), which predate the limits rule and are listed debt; the hard-coded-limits ratchet admits no new file, and ReferenceZipReader's ChunkBytes is on that list."

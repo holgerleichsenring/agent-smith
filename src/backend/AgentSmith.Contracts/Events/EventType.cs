@@ -114,6 +114,7 @@ public enum EventType
     VerifyPassRecorded = 91,
     // 2026-11-18-3863f: a deploy's pull request or pipeline run, followed by the server.
     DeployDelivered = 92,
-    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs.
+    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs; 2026-11-23-933db: a poc-deploy run validated a PoC revision.
     TicketTextRewritten = 93,
+    PocImported = 94,
 }

@@ -129,6 +129,8 @@ POST	/api/config/trackers	config.write	-
 POST	/api/config/trackers/check	config.write,diagnostics.probe	-
 POST	/api/config/trackers/validate	config.write	-
 POST	/api/diagnostics/connections/{name}/probe	diagnostics.probe	-
+POST	/api/pocs/uploads	pocs.write	-
+POST	/api/pocs/uploads/{uploadId}/import	pocs.write	-
 POST	/api/projects/{name}/init	projects.init	route:name
 POST	/api/projects/{project}/deployments	runs.control	route:project
 POST	/api/runs/{runId}/answer	runs.control	run

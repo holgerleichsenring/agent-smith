@@ -107,6 +107,22 @@ public sealed class SettingsRoundTripTests
         Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("sourceRepo").GetString().Should().Be("gh/poc-src");
     }
 
+    // 2026-11-23-933db: the archive limits ride in the pocs singleton; a block without them reads as the defaults.
+    [Fact]
+    public void SaveSetting_PocsArchive_RoundTripsItsLimits_AndItsAbsenceReadsAsTheDefaults()
+    {
+        using var h = new DbConfigTestHarness();
+
+        h.Store.SaveSetting("pocs", Doc("""{"enabled":false,"archive":{"maxZipMb":30,"mismatchFileLimit":7}}"""),
+            new ChangeAttribution("op"));
+        var archive = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs.Archive;
+        (archive.MaxZipMb, archive.MismatchFileLimit, archive.MaxEntries).Should().Be((30, 7, 2000));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("archive").GetProperty("maxZipMb").GetInt32().Should().Be(30);
+
+        h.Store.SaveSetting("pocs", Doc("""{"enabled":false}"""), new ChangeAttribution("op"));
+        h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs.Archive.MaxZipMb.Should().Be(25);
+    }
+
     [Fact]
     public void Revert_SettingsChange_RestoresPriorDoc_AndBumpsVersion()
     {

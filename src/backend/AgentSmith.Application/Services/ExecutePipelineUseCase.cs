@@ -36,7 +36,7 @@ public sealed class ExecutePipelineUseCase(
     IProgressReporter progressReporter,
     IPipelineErrorHandler errorHandler,
     ILogger<ExecutePipelineUseCase> logger, ModelPlaceRelease? modelPlaces = null, // 2026-11-20-24bd
-    Lifecycle.ServerStopEnd? serverStop = null) // 2026-11-22-6d85c
+    Lifecycle.ServerStopEnd? serverStop = null, Pocs.PocProjectPresetGuard? pocPresets = null) // 2026-11-22-6d85c, 933db
 {
     // p0242: the single-run lease is CLAIMED by the poller at enqueue; this use
     // case owns the rest of its lifecycle — ATTACH the run id on start, RENEW the
@@ -266,8 +266,8 @@ public sealed class ExecutePipelineUseCase(
         var catalogResolution = await catalogResolver.EnsureResolvedAsync(config.Skills, cancellationToken);
         var projectConfig = ResolveProject(request, config);
         var repos = ResolveRepos(projectConfig, request.Context);
-        var commands = PipelinePresets.TryResolve(request.PipelineName)
-            ?? throw new ConfigurationException(RetiredPipelineNames.Refusal(request.PipelineName));
+        var commands = PipelinePresets.TryResolve(request.PipelineName) ?? throw new ConfigurationException(RetiredPipelineNames.Refusal(request.PipelineName));
+        await (pocPresets?.CheckAsync(projectConfig.Name, request.PipelineName, cancellationToken) ?? Task.CompletedTask); // 933db
         var resolved = pipelineConfigResolver.Resolve(projectConfig, request.PipelineName);
 
         var pipeline = new PipelineContext();

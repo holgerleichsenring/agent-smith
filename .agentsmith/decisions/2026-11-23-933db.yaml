@@ -130,3 +130,61 @@ decisions:
     chose: "A retried Start of a purged upload is refused 410 before any row is written, naming the revision, the days and pocs.blocked_retention_days"
     over: "An empty 404 or a failure inside the run"
     reason: "Coordinator request 2026-11-23: c81ee's purge deletes the bytes a retry needs; a defined refusal tells the owner to upload again instead of starting a run that cannot read its archive."
+  # Build 2026-11-23 (operator: "zieh durch" — open questions take the spec's stated assumption)
+  - category: Architecture
+    decider: operator
+    chose: "Open questions taken as the spec assumed: the poc- preset guard holds whether pocs.enabled is on or off (guard-when-off); the admitted archive is stored in the ReferenceFile byte store under 'poc-upload:<16 hex>' (upload-store); the different-app question is answered at admission and recomputed at Start (guard-moment)"
+    over: "Lifting the guard while PoCs are off, a run-material store, a parked run asking the person"
+    reason: "Operator accepted every recommendation and asked to build through without questions."
+  - category: Implementation
+    chose: "The hostile-path check runs on the raw entry paths BEFORE the top-folder strip; every later rule and the manifest see the stripped path"
+    over: "Strictly ignore list, strip, then all rules"
+    reason: "Stripping first could hide a leading '..' segment; the order the spec names still holds for every rule a strip can change."
+  - category: Implementation
+    chose: "ReferencePathRule.RefusalOf names a setting only when the caller passes its key; BoundedZipInflater answers a record with a fault (over bound, checksum mismatch)"
+    over: "One wording for both callers; null for over-bound and the CRC check in each reader"
+    reason: "Reference refusals keep their exact text (characterisation); the CRC check lives in one place."
+  - category: Implementation
+    chose: "An unreadable ZIP is refused under check 'paths'; unix mode 0 counts as a plain entry; forbidden names match any path segment case-insensitively; the whole-archive ratio divides by the uploaded ZIP's length and is shown rounded up"
+    over: "A new check key, refusing mode 0, last-segment matching, rounding down"
+    reason: "Windows-made ZIPs carry no unix mode; a .git folder or secret file at any depth must be caught; a refused ratio must never read as equal to its bound."
+  - category: Implementation
+    chose: "Dockerfile directives are the leading '# key=value' lines only; '# escape=' is honoured when joining continuations; RUN flags are read from the leading '--' tokens; exactly one TCP port across the final stage's EXPOSE tokens; ENTRYPOINT and CMD of the final stage form the comparable entrypoint; a Dockerfile without FROM is refused"
+    over: "Any '# syntax=' comment, a fixed backslash continuation, one EXPOSE instruction"
+    reason: "Matches how BuildKit parses; an escape directive would otherwise bypass the blocklist across continuations."
+  - category: Implementation
+    chose: "The upload answer carries the passed check keys (paths, kinds, bounds, forbidden, dockerfile, expose) and the dashboard translates them; a refusal is a text/plain sentence with 422"
+    over: "Per-check objects with server-side labels"
+    reason: "The server's refusal sentence already names file, value and key; labels belong to the dashboard's en+de messages."
+  - category: Implementation
+    chose: "PocImportLauncher serialises imports within the process (one lock), the per-person count is pre-checked before provisioning and re-checked after the insert in the same transaction"
+    over: "Only the after-insert re-check"
+    reason: "A refused import must not create a project first; the in-process lock makes concurrent Starts of one upload and the limit race deterministic on one replica, the transaction covers the cross-replica case."
+  - category: Implementation
+    chose: "The claim transaction also stamps the revision's RunId; a retried Start answers a revision that has a run as is, and continues one without"
+    over: "Reading the run only from Poc.LastRunId"
+    reason: "The revision names its own run, so a retry cannot confuse it with a later run of the PoC; a revision without one is exactly the stopped-midway case the retry contract covers."
+  - category: Implementation
+    chose: "The 410 for a purged upload names the revision and pocs.blocked_retention_days but no day count"
+    over: "Inventing the number before 933dc adds the key"
+    reason: "933dc wires the days into this message when it adds the key (spec)."
+  - category: Implementation
+    chose: "IPocProjects and IPocIntakeStore (Contracts) with no-database defaults in Application and DB implementations registered by AddPocStores in the relational persistence"
+    over: "Making the guard and the intake depend on Persistence"
+    reason: "Application references only Contracts and Domain (the IRunCheckpointStore pattern); the CLI composition keeps working with nothing a PoC project."
+  - category: Implementation
+    chose: "PocPrefixFindings runs on each branch-cleanup pass, and once per epoch while the sweep is off; a failure to read it is logged, never ends the pass"
+    over: "Only while branch cleanup is on"
+    reason: "An installation with the sweep off would otherwise never be told about its poc-* project."
+  - category: Implementation
+    chose: "IActRun.RunAsync takes an optional trailing runId; the one Moq setup of it and the test double were updated"
+    over: "A second overload"
+    reason: "No second path; a single optional parameter keeps every caller as it was."
+  - category: Implementation
+    chose: "PoC import services are registered beside the access surface in ServerCompositionBuilder (AddPocImports)"
+    over: "Registering them with the project scope"
+    reason: "The provisioner saves through AccessGrantWriter, which only the access surface registers; the DI validation test composes the scope without it."
+  - category: Implementation
+    chose: "Dashboard: Start stays disabled on an 'ask' verdict until 'Replace anyway'; 'Import as a new app' switches to new with the proposal; the compared panel shows counts, percentage, port and entrypoint change but no per-file list; PocIntake sits in the 'verify' run section"
+    over: "The mock's per-file list; DeployToEnvironment's 'deliver' section"
+    reason: "The contract carries counts only; the intake checks and delivers nothing."

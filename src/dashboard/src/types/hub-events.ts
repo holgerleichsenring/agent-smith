@@ -57,6 +57,7 @@ export enum EventType {
   // 2026-11-18-3863f: a deploy delivered its pull request or started its pipeline.
   DeployDelivered = 92,
   TicketTextRewritten = 93,
+  PocImported = 94,
 }
 
 interface RunEventBase {
@@ -819,6 +820,14 @@ export interface TicketTextRewrittenEvent extends RunEventBase {
   acceptanceCriteria?: string | null;
 }
 
+/** 2026-11-23-933db: a poc-deploy run validated a revision of a PoC. Mirrors C# PocImportedEvent. */
+export interface PocImportedEvent extends RunEventBase {
+  type: EventType.PocImported;
+  pocId: number;
+  revision: number;
+  actor: string;
+}
+
 /** 2026-11-18-3863f: a deploy delivered — its pull request, or the pipeline run it started (null id: the host did
  *  not name it). Mirrors C# DeployDeliveredEvent. */
 export interface DeployDeliveredEvent extends RunEventBase {
@@ -928,7 +937,8 @@ export type RunEvent =
   | DialogActivityEvent
   | VerifyPassRecordedEvent
   | DeployDeliveredEvent
-  | TicketTextRewrittenEvent;
+  | TicketTextRewrittenEvent
+  | PocImportedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

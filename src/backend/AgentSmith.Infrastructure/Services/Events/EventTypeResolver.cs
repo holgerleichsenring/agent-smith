@@ -66,6 +66,7 @@ public static class EventTypeResolver
         EventType.VerifyPassRecorded => typeof(VerifyPassRecordedEvent), // 2026-11-17-d6fbc
         EventType.DeployDelivered => typeof(DeployDeliveredEvent), // 2026-11-18-3863f
         EventType.TicketTextRewritten => typeof(TicketTextRewrittenEvent), // 2026-11-22-e812
+        EventType.PocImported => typeof(PocImportedEvent), // 2026-11-23-933db
         _ => null
     };
 
