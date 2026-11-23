@@ -126,7 +126,10 @@ restart reaps the in-flight run.
 ## The CLI init-container fails under a hardened `securityContext`
 
 The CLI image's entrypoint drops privileges with gosu, which a read-only, non-root
-`securityContext` refuses. Call `dotnet AgentSmith.Cli.dll …` directly as the command.
+`securityContext` refuses. Call `dotnet AgentSmith.Cli.dll …` directly as the command, or
+migrate from the server image as the shipped manifests do
+(`dotnet AgentSmith.Server.dll database migrate --config …`), which runs as a non-root user
+already.
 
 ## The server can't reach the Kubernetes API from Docker Desktop
 

@@ -47,7 +47,7 @@ internal static class DashboardApiExtensions
         });
         services.AddSingleton<SandboxExpansionRegistry>();
         services.AddSingleton<JobsBroadcaster>();
-        services.AddHostedService(sp => sp.GetRequiredService<JobsBroadcaster>());
+        services.AddWorker<JobsBroadcaster>();
         services.AddRunEventPipeline();
         services.AddDashboardReaders();
         services.AddTicketReaders(); // 2026-10-13-9a59a: GET /api/tickets
@@ -80,7 +80,7 @@ internal static class DashboardApiExtensions
             sp.GetRequiredService<ProjectionLeadership>(), sp.GetRequiredService<RunProjectionCatchUp>()));
         services.AddSingleton<IRunEventPersistence>(sp => sp.GetService<RunDbProjector>() is null
             ? sp.GetRequiredService<RunDbEventPersistence>() : sp.GetRequiredService<LeaderGatedRunEventPersistence>());
-        services.AddSingleton<ProjectionLeader>().AddHostedService<ProjectionLeaderHostedService>();
+        services.AddSingleton<ProjectionLeader>().AddWorker<ProjectionLeaderHostedService>();
         services.AddSingleton<SandboxDetailEventClassifier>();
         services.AddSingleton<SandboxActivityCoalescer>();
         services.AddSingleton<FiledWorkNudge>();

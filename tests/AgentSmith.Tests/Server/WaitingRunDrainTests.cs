@@ -24,7 +24,7 @@ public sealed class WaitingRunDrainTests : IDisposable
     public async Task Park_TheCursorAdvancesPastTheParkEventSoItIsNeverReprocessed()
     {
         var process = _harness.NewServerProcess();
-        await process.StartAsync(CancellationToken.None);
+        await process.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync()).Should().BeTrue();
         await _harness.PublishGatesAsync(5);
         await _harness.PublishParkAsync();
@@ -45,7 +45,7 @@ public sealed class WaitingRunDrainTests : IDisposable
     public async Task Park_ThenResume_NoHistoricalEventIsWrittenToTheTrailTwice()
     {
         var process = _harness.NewServerProcess();
-        await process.StartAsync(CancellationToken.None);
+        await process.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync()).Should().BeTrue();
         await _harness.PublishGatesAsync(20);
         await _harness.PublishParkAsync();
@@ -67,7 +67,7 @@ public sealed class WaitingRunDrainTests : IDisposable
     public async Task WaitingRun_ARestartDuringAWait_ResumesWithoutADeadline()
     {
         var processA = _harness.NewServerProcess();
-        await processA.StartAsync(CancellationToken.None);
+        await processA.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync()).Should().BeTrue();
         await _harness.PublishGatesAsync(10);
         await _harness.PublishParkAsync();
@@ -76,7 +76,7 @@ public sealed class WaitingRunDrainTests : IDisposable
 
         // A new process holds no position in memory — only the stored one can save it.
         var processB = _harness.NewServerProcess();
-        await processB.StartAsync(CancellationToken.None);
+        await processB.StartWarmAsync();
         (await _harness.RelaunchAsync(processB)).Should().BeTrue("the new process discovers the run");
         await _harness.PublishGatesAsync(2);
         await _harness.PublishParkAsync();
@@ -93,7 +93,7 @@ public sealed class WaitingRunDrainTests : IDisposable
     public async Task Restart_DuringAWait_TheStoredPositionIsGone_TheDrainStartsFreshWithoutFailing()
     {
         var processA = _harness.NewServerProcess();
-        await processA.StartAsync(CancellationToken.None);
+        await processA.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync()).Should().BeTrue();
         await _harness.PublishGatesAsync(4);
         await _harness.PublishParkAsync();
@@ -102,7 +102,7 @@ public sealed class WaitingRunDrainTests : IDisposable
         _harness.Redis.KeyDelete($"run:{WaitingRunHarness.RunId}:cursor"); // e.g. a Redis flush
 
         var processB = _harness.NewServerProcess();
-        await processB.StartAsync(CancellationToken.None);
+        await processB.StartWarmAsync();
         (await _harness.AwaitDrainPassesAsync(processB, 3)).Should().BeTrue();
         await processB.StopAsync(CancellationToken.None);
 
@@ -113,7 +113,7 @@ public sealed class WaitingRunDrainTests : IDisposable
     public async Task TrailSequence_AcrossManyLegs_IsStrictlyIncreasing()
     {
         var process = _harness.NewServerProcess();
-        await process.StartAsync(CancellationToken.None);
+        await process.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync()).Should().BeTrue();
         await _harness.PublishGatesAsync(6);
         await _harness.PublishParkAsync();

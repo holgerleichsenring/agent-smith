@@ -30,8 +30,8 @@ internal static class AccessSurfaceExtensions
         // the request path, the other enforces the retention window. Registered beside the
         // surface rather than beside the database, because they depend on the mapping in
         // force — and against the empty store they are simply no-ops.
-        services.AddHostedService<CallerObservationFlushHostedService>();
-        services.AddHostedService<ObservedCallerRetentionHostedService>();
+        services.AddWorker<CallerObservationFlushHostedService>();
+        services.AddWorker<ObservedCallerRetentionHostedService>();
         return services;
     }
 }

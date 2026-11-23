@@ -57,7 +57,7 @@ public sealed class ActiveRunSetFlushTests : IDisposable
     public async Task JobsBroadcaster_ParkedRunWithoutCursor_IsNotTracked()
     {
         var first = _harness.NewServerProcess();
-        await first.StartAsync(CancellationToken.None);
+        await first.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync()).Should().BeTrue();
         await _harness.PublishParkAsync();
         (await TestWaits.ReachedAsync(() => _harness.RunStatus() == "waiting_for_input")).Should().BeTrue();
@@ -65,7 +65,7 @@ public sealed class ActiveRunSetFlushTests : IDisposable
         _harness.FlushRedis();
         var clock = new SettableClock();
         var drain = _harness.NewServerProcess(clock: clock);
-        await drain.StartAsync(CancellationToken.None);
+        await drain.StartWarmAsync();
 
         await _harness.PublishGatesAsync(3); // a stream for the parked run, and no stored position
         clock.Now += JobsBroadcaster.DatabaseDiscoveryInterval;
@@ -81,12 +81,12 @@ public sealed class ActiveRunSetFlushTests : IDisposable
     private async Task<JobsBroadcaster> ServerUpAfterFlushAsync(SettableClock clock)
     {
         var first = _harness.NewServerProcess();
-        await first.StartAsync(CancellationToken.None);
+        await first.StartWarmAsync();
         (await _harness.StartAndAwaitDiscoveryAsync()).Should().BeTrue("the row must exist");
         await first.StopAsync(CancellationToken.None);
         _harness.FlushRedis();
         var drain = _harness.NewServerProcess(clock: clock);
-        await drain.StartAsync(CancellationToken.None);
+        await drain.StartWarmAsync();
         (await _harness.AwaitDrainPassesAsync(drain, 2)).Should().BeTrue();
         return drain;
     }

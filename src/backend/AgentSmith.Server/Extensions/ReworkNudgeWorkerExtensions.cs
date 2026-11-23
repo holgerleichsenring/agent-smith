@@ -33,6 +33,6 @@ internal static class ReworkNudgeWorkerExtensions
         services.AddSingleton<TicketStartHold>().AddSingleton<PreconditionRelease>(); // 2026-11-16-f3fbc
         services.AddSingleton<ReworkNoActTail>().AddSingleton<ISeriesAutoStart, SeriesAutoStart>(); // 2026-10-13-8762v
         services.AddSingleton<ReworkNudgeWorker>();
-        return services.AddHostedService(sp => sp.GetRequiredService<ReworkNudgeWorker>());
+        return services.AddWorker<ReworkNudgeWorker>();
     }
 }

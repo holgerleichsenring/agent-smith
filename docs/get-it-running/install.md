@@ -103,7 +103,7 @@ The server needs:
 - A `Service` of type `ClusterIP` (you'll front it with whatever ingress your cluster uses).
 - A `Secret` with your AI provider key and your tracker token, and `AGENTSMITH_SECRET_MASTER_KEY` if admins should store tokens in the studio ([Secrets](../configure-it/secrets.md)).
 - A `ConfigMap` mounted at `/app/config/agentsmith.yml`, carrying the bootstrap slice (`persistence:` and `secrets:`). The catalog lives in the database.
-- An init-container (the CLI image) running `agentsmith database migrate` — the server never migrates its own database on startup, by design.
+- An init-container (the server image) running `database migrate` — the server never migrates its own database on startup, by design.
 
 ## Pinning versions
 

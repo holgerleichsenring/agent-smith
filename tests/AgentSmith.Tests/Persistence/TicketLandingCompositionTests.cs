@@ -1,3 +1,4 @@
+using AgentSmith.Server.Services.Hosting;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Services;
@@ -31,7 +32,8 @@ public sealed class TicketLandingCompositionTests
         provider.GetRequiredService<TicketLandingRecorder>().Should().NotBeNull();
         provider.GetRequiredService<PrReviewRecordRefresh>().Should().NotBeNull();
         var reread = provider.GetRequiredService<PrRecordReReadHostedService>();
-        provider.GetServices<IHostedService>().Should().Contain(reread);
+        provider.GetServices<IHostedService>().OfType<WorkerLauncher<PrRecordReReadHostedService>>().Should().ContainSingle(
+            "2026-11-22-747db: it reaches the host through its launcher, which starts that same singleton");
         provider.GetServices<ISubsystemHealth>().Select(h => h.Name).Should().Contain("pr-record-reread");
     }
 }

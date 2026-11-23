@@ -151,7 +151,7 @@ The long-running deployment: one ASP.NET Core process with one DI tree.
 |------|---------------------|
 | Webhooks | `POST /webhook` and `/webhook/{github,gitlab,jira}`; `WebhookRequestProcessor` detects the platform, verifies the signature and dispatches to one of the `IWebhookHandler`s |
 | Dashboard API | `/api/...` endpoints and the SignalR hub `JobsHub` at `/hub/jobs` |
-| Health | `GET /health`: liveness, the startup preflight verdict and every background subsystem's state (`SubsystemHealthSection`) |
+| Health | `GET /health/live` (liveness, touches nothing), `GET /health/ready` (the first probe pass settled), `GET /health`: the startup preflight verdict and every background subsystem's state (`SubsystemHealthSection`) |
 | Hosted services | `QueueConsumerHostedService`, `PollerLeaderHostedService`, `HousekeepingLeaderHostedService`, `CapacityQueuePumpHostedService`, `ActiveRunReaperHostedService`, `ConfigStoreReloadHostedService`, `SkillsCatalogReloadHostedService`, `RunRetentionHostedService`, `RepoDiscoveryRefreshHostedService` |
 | Sandboxes | `DockerSandboxFactory`, `KubernetesSandboxFactory` |
 | Chat | `IPlatformAdapter` with `SlackAdapter`, `TeamsAdapter`, `DashboardAdapter`; `IntentEngine` and `ChatIntentParser` turn a message into an intent |

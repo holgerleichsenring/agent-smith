@@ -25,7 +25,7 @@ internal static class ChatRunBindingExtensions
         services.AddTransient<ChatRunQuestionRelay>();
         services.AddTransient<ChatRunFollower>();
         services.AddTransient<ChatRunAnswerRouter>();
-        services.AddHostedService<ChatRunBindingWatcher>();
+        services.AddWorker<ChatRunBindingWatcher>();
         return services;
     }
 }

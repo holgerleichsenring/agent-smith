@@ -93,13 +93,13 @@ internal static class DockerSandboxRegistrations
         services.AddSingleton(activation);
         if (!activation.ShouldRun)
         {
-            services.AddHostedService<SandboxReaperStandDownNotice>();
+            services.AddWorker<SandboxReaperStandDownNotice>();
             return;
         }
         // p0391b: the reaper takes IDockerClient by constructor, so the host builds it
         // before it starts anything — which is why a malformed DOCKER_HOST used to kill
         // the whole server rather than the Docker backend.
-        services.AddHostedService<SandboxOrphanReaper>();
+        services.AddWorker<SandboxOrphanReaper>();
     }
 
     // The relational lease is registered before AddSandbox (see ServerCompositionBuilder),

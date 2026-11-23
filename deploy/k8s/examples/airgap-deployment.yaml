@@ -61,15 +61,14 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
       # Apply relational-persistence migrations BEFORE the server starts (see
-      # 8-deployment-server.yaml for the full rationale). In airgap, mirror the
-      # CLI image into the internal registry alongside the server image.
+      # 8-deployment-server.yaml for the full rationale). The init container
+      # runs the server image, so airgap mirrors only that one.
       initContainers:
         - name: migrate
-          image: holgerleichsenring/agent-smith-cli:0.199.0  # x-release-please-version
+          # 2026-11-22-747db: the server image runs `database migrate` — one image for both containers.
+          image: holgerleichsenring/agent-smith-server:0.199.0  # x-release-please-version
           imagePullPolicy: IfNotPresent
-          # p0348: call the DLL directly — the image ENTRYPOINT is a gosu shim
-          # that cannot drop privileges under this hardened securityContext.
-          command: ["dotnet", "AgentSmith.Cli.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
+          command: ["dotnet", "AgentSmith.Server.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
           volumeMounts:
             - name: config
               mountPath: /app/config

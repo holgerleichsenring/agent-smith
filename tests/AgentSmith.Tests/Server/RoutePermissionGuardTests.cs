@@ -258,7 +258,7 @@ public sealed class RoutePermissionGuardTests
         var anonymous = WholeTable().Where(fact => fact.AnonymousReason is not null).ToList();
 
         anonymous.Select(fact => fact.Pattern).Should().BeEquivalentTo([
-            "/health", "/health/ready", "/api/config/findings", "/api/openapi.json",
+            "/health", "/health/live", "/health/ready", "/api/config/findings", "/api/openapi.json", // 747db: + live
             // 2026-08-27-729e: which build this installation runs, read by an operator
             // whose authority, database or configuration is the thing not answering.
             "/api/config/installation",
@@ -281,7 +281,7 @@ public sealed class RoutePermissionGuardTests
         gated.Select(fact => fact.Pattern).Should().NotContain("/api/runs");
         gated.Select(fact => fact.Pattern).Should().Contain("/health");
         gated.Should().OnlyContain(fact => fact.AnonymousReason != null);
-        gated.Should().HaveCount(14,
+        gated.Should().HaveCount(15, // 2026-11-22-747db: + /health/live
             "everything left with the dashboard off is a machine caller, a probe, or a "
             + "read-out that must survive the subsystems it reports on");
     }

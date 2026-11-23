@@ -53,7 +53,7 @@ internal sealed class ProjectingReplica : IAsyncDisposable
             NullLogger<ProjectionLeader>.Instance);
         replica._leading = new LeaderElectedHostedService(ProjectionLeader.LeaseKey, leader.LeadAsync, lease,
             NullLogger<LeaderElectedHostedService>.Instance).RunAsync(replica._stop.Token);
-        await drain.StartAsync(CancellationToken.None);
+        await drain.StartWarmAsync();
         return replica;
     }
 

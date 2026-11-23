@@ -64,11 +64,19 @@ Liveness. It answers `200` whenever the listener is alive, needs no token, and c
 }
 ```
 
-`preflight.status` is `pending` until the startup run finished, then `pass` or `fail`. The checks are the same ones `agent-smith doctor` runs, plus the server-only ones such as `sign-in`. Point liveness probes here: Kubernetes and Docker should not restart the pod because Redis is briefly gone. The shipped manifests do exactly that (`deploy/k8s/8-deployment-server.yaml`, the compose healthcheck).
+`preflight.status` is `pending` until the startup run finished, then `pass` or `fail`. The checks are the same ones `agent-smith doctor` runs, plus the server-only ones such as `sign-in`. Don't point probes here: reading the subsystem states can build a background worker on the spot, and that waits on Redis when Redis is gone.
 
 `subsystems` lists each background subsystem the server runs (below) with its state, the reason it is not up, and when that last changed. `status` is `degraded` while any of them is `down` or `degraded`, and `ok` otherwise; a `disabled` subsystem was switched off on purpose and does not count against it. The code stays `200` either way.
 
-There is no separate readiness endpoint: this server is the only pod that can report the fault, and a readiness probe would take it out of the service exactly when it has something to say. For alerting, watch `degraded` on `/api/config/findings`, and `status` and `preflight.status` on `/health`.
+## Probes: `/health/live` and `/health/ready`
+
+`GET /health/live` answers `200` as soon as the port is bound. It reads nothing and resolves nothing, so the startup and liveness probes point here: Kubernetes and Docker should not restart the pod because Redis or the database is briefly gone.
+
+`GET /health/ready` answers `503` until the first startup probe pass has finished, or 15 seconds have passed since the server started, and `200` from then on, degraded or not. This server is the only pod that can report the fault, so it is never taken out of the service for having one.
+
+The server binds its port before anything else happens. Starting it changes no data: schema and data migrations belong to `database migrate`, which runs before it (the init container, the compose `migrate` service). Background workers are built and started once the listener is up, and the startup probes run after that. The shipped manifests use both endpoints (`deploy/k8s/8-deployment-server.yaml`: a startup and a liveness probe on `/health/live`, a readiness probe on `/health/ready` every 2 seconds from 0; the compose healthcheck on `/health/live`).
+
+For alerting, watch `degraded` on `/api/config/findings`, and `status` and `preflight.status` on `/health`.
 
 ## The Redis-backed subsystems
 

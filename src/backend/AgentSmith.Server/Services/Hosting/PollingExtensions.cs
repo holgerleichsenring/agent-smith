@@ -16,27 +16,27 @@ internal static class PollingExtensions
     internal static IServiceCollection AddLongRunningServices(this IServiceCollection services)
     {
         services.AddSingleton<QueueConsumerHostedService>();
-        services.AddHostedService(sp => sp.GetRequiredService<QueueConsumerHostedService>());
+        services.AddWorker<QueueConsumerHostedService>();
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<QueueConsumerHostedService>().Health);
 
         // 2026-10-02-5ab2c: one of the housekeeping leader's loops.
         services.AddSingleton<AgentSmith.Server.Services.Events.ActiveRunSetReseeder>();
         services.AddSingleton<HousekeepingLeaderHostedService>();
-        services.AddHostedService(sp => sp.GetRequiredService<HousekeepingLeaderHostedService>());
+        services.AddWorker<HousekeepingLeaderHostedService>();
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<HousekeepingLeaderHostedService>().Health);
 
         services.AddSingleton<LeaderEpochLoop>(); // 2026-10-08-9e6e
         services.AddSingleton<PollerLeaderHostedService>();
-        services.AddHostedService(sp => sp.GetRequiredService<PollerLeaderHostedService>());
+        services.AddWorker<PollerLeaderHostedService>();
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<PollerLeaderHostedService>().Health);
 
         // 2026-10-08-9e6e: polling mode's change sweep, under its own leader lease.
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<AgentSmith.Server.Services.Sweep.ChangeSweepHostedService>();
-        services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.ChangeSweepHostedService>());
+        services.AddWorker<AgentSmith.Server.Services.Sweep.ChangeSweepHostedService>();
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<AgentSmith.Server.Services.Sweep.ChangeSweepHostedService>().Health);
 
@@ -44,7 +44,7 @@ internal static class PollingExtensions
         services.AddSingleton<AgentSmith.Server.Services.Deployment.DeployFollow>().AddSingleton<AgentSmith.Server.Services.Deployment.DeployFollowPass>() // 2026-11-18-3863f
             .AddScoped<AgentSmith.Server.Services.Deployment.DeployPromotion>(); // 2026-11-18-3863h
         services.TryAddScoped<AgentSmith.Server.Services.Deployment.DeployLauncher>(); // what a promotion launches through
-        services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>());
+        services.AddWorker<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>();
         services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>().Health);
 
         // 2026-11-16-f3fbc: tickets stuck on a precondition start by themselves once it holds — leader-elected,
@@ -54,7 +54,7 @@ internal static class PollingExtensions
         services.AddSingleton<AgentSmith.Server.Services.Preconditions.InterruptedRestartPass>(); // 2026-11-22-6d85c
         services.TryAddSingleton<AgentSmith.Server.Services.Preconditions.InterruptedRestartWindow>();
         services.AddSingleton<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>();
-        services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>());
+        services.AddWorker<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>();
         services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Preconditions.PreconditionReleaseHostedService>().Health);
 
         // 2026-11-17-713ec: a branch-cleanup run per project every branch_cleanup.interval_seconds — leader-elected,
@@ -62,19 +62,19 @@ internal static class PollingExtensions
         services.TryAddScoped<AgentSmith.Infrastructure.Persistence.Repositories.InitRunRepository>();
         services.AddScoped<AgentSmith.Server.Services.Branches.WorkBranchCleanupLauncher>();
         services.AddSingleton<AgentSmith.Server.Services.Branches.WorkBranchCleanupHostedService>();
-        services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Branches.WorkBranchCleanupHostedService>());
+        services.AddWorker<AgentSmith.Server.Services.Branches.WorkBranchCleanupHostedService>();
         services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Branches.WorkBranchCleanupHostedService>().Health);
 
         // p0281a: keep the connection repo snapshot warm (warm-on-start + interval).
-        services.AddHostedService<RepoDiscoveryRefreshHostedService>();
+        services.AddWorker<RepoDiscoveryRefreshHostedService>();
 
         // p0358: a skills.version change on config reload pulls + logs immediately
         // (every replica — the skills cache is per-pod, unlike the leader-only pollers).
-        services.AddHostedService<SkillsCatalogReloadHostedService>();
+        services.AddWorker<SkillsCatalogReloadHostedService>();
 
         // 2026-08-25-1806: the config store's assembled document is per-pod, so a save on
         // one replica has to reach the others for a role mapping to apply without a restart.
-        services.AddHostedService<ConfigStoreReloadHostedService>();
+        services.AddWorker<ConfigStoreReloadHostedService>();
 
         services.AddSingleton<RedisConnectionHealth>();
         services.AddSingleton<ISubsystemHealth>(sp =>

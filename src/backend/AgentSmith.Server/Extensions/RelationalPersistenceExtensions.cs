@@ -104,7 +104,7 @@ internal static class RelationalPersistenceExtensions
         services.RemoveAll<ICapacityQueue>();
         services.AddSingleton<ICapacityQueue, DbCapacityQueue>();
         services.AddSingleton<CapacityQueuePumpHostedService>();
-        services.AddHostedService(sp => sp.GetRequiredService<CapacityQueuePumpHostedService>());
+        services.AddWorker<CapacityQueuePumpHostedService>();
         services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<CapacityQueuePumpHostedService>().Health);
 
         // p0336: the DB-backed capacity budget replaces the no-op — the app-owned
@@ -175,10 +175,10 @@ internal static class RelationalPersistenceExtensions
         // in the deployment pipeline — NEVER on app startup (replica races + operator
         // surprise). The server assumes the schema is already current.
         services.AddRunLiveness(); // the lease and run-row reapers (2026-10-02-5f89e)
-        services.AddHostedService<RunRetentionHostedService>();
+        services.AddWorker<RunRetentionHostedService>();
         // p0376: keep the UI trail live — drain partial trail buffers on a short timer
         // so a sparse or paused run's events don't sit dark until the batch threshold.
-        services.AddHostedService<Services.Events.RunTrailFlusherHostedService>();
+        services.AddWorker<Services.Events.RunTrailFlusherHostedService>();
         return services.AddAccessPersistence();
     }
 

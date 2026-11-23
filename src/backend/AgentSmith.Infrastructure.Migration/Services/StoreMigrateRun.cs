@@ -26,6 +26,21 @@ public sealed class StoreMigrateRun(
             logger.LogError("{Refusal}", refusal);
             return 1;
         }
+        try
+        {
+            await MigrateAsync(ct);
+            return 0;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // 2026-11-22-747db: the server image's migrate mode has no command-line framework around it.
+            logger.LogError(ex, "The database could not be migrated; the server must not start on it");
+            return 1;
+        }
+    }
+
+    private async Task MigrateAsync(CancellationToken ct)
+    {
         var options = new PersistenceOptions
         {
             Provider = Enum.Parse<PersistenceProvider>(bootstrap.Persistence.Provider, ignoreCase: true),
@@ -36,7 +51,6 @@ public sealed class StoreMigrateRun(
         logger.LogInformation("Applying relational-persistence migrations (provider={Provider})...", options.Provider);
         await migrator.MigrateAsync(db, [roles, aliases, triggers], ct);
         logger.LogInformation("Done — schema and data are up to date.");
-        return 0;
     }
 
     private string? Refusal()

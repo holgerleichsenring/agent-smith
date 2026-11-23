@@ -84,8 +84,10 @@ ENV AGENTSMITH_RELEASE_VERSION=$AGENTSMITH_RELEASE_VERSION
 # Config is NOT baked into the image (p0107a). Mount agentsmith.yml at
 # /app/config/agentsmith.yml via a K8s ConfigMap volume or a Docker bind-mount.
 # If the file is missing, Server fails fast at startup with a clear error.
-RUN mkdir -p /app/config /tmp/agentsmith && \
-    chown -R dispatcher:dispatcher /app/config /tmp/agentsmith /home/dispatcher
+# 2026-11-22-747db: /var/lib/agentsmith too — this image also runs `database migrate`, and a fresh named
+# volume mounted there takes the directory's owner.
+RUN mkdir -p /app/config /tmp/agentsmith /var/lib/agentsmith && \
+    chown -R dispatcher:dispatcher /app/config /tmp/agentsmith /var/lib/agentsmith /home/dispatcher
 
 # 2026-09-07-d5f2: the GitHub Copilot CLI runtime, OPT-IN.
 # The SDK's build targets would fetch a ~175 MB bundle before every build; the repository
@@ -127,7 +129,8 @@ EXPOSE 8081
 ENV ASPNETCORE_URLS=http://+:8081
 ENV ASPNETCORE_ENVIRONMENT=Production
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD curl -f http://localhost:8081/health || exit 1
+# 2026-11-22-747db: liveness — answers once the port is bound and touches nothing.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+  CMD curl -f http://localhost:8081/health/live || exit 1
 
 ENTRYPOINT ["dotnet", "AgentSmith.Server.dll"]
