@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Providers;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
@@ -15,12 +16,21 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// </para>
 /// <para>
 /// <c>update-ref</c> is given the value it expects the ref to hold, so a ref that moved under us
-/// is refused rather than rewound — the no-force rule the remote providers keep.
+/// is refused rather than rewound — the no-force rule the remote providers keep. 2026-11-23-c81ea: that refusal
+/// is a <see cref="BranchWriteResult.Conflict"/>, and a deletion is removed from the scratch index.
 /// </para>
 /// </summary>
-public sealed class LocalBranchCommit
+public sealed class LocalBranchCommit(ILogger logger, LocalPathProbe probe)
 {
     private const string ZeroOid = "0000000000000000000000000000000000000000";
+
+    // 2026-11-23-c81ea: update-ref's words for a ref that moved ("is at X but expected Y") or appeared meanwhile.
+    private static readonly string[] MovedMarkers = ["but expected", "reference already exists"];
+
+    private readonly LocalIndexStaging _staging = new();
+    private readonly AbsentDeletionFilter _deletions = new(logger);
+
+    public LocalBranchCommit(ILogger logger) : this(logger, new LocalPathProbe()) { }
 
     public async Task<BranchWriteResult> WriteAsync(
         string repoPath, string branch, string defaultBranch, IReadOnlyList<RepoFile> files,
@@ -51,11 +61,14 @@ public sealed class LocalBranchCommit
     {
         var head = await RevParseAsync(repoPath, $"refs/heads/{branch}", ct);
         var parent = head ?? await RevParseAsync(repoPath, $"refs/heads/{defaultBranch}", ct);
+        var filtered = await _deletions.FilterAsync(
+            files, (path, c) => probe.ExistsAtAsync(repoPath, parent, path, c), ct);
+        if (filtered.Refusal is { } refusal) return refusal;
         var seed = parent is null
             ? await Git(repoPath, index, null, ct, "read-tree", "--empty")
             : await Git(repoPath, index, null, ct, "read-tree", parent);
         if (seed.Exit != 0) return BranchWriteResult.Failed(seed.Reason("read-tree"));
-        if (await StageAsync(repoPath, index, files, ct) is { } staging) return staging;
+        if (await _staging.StageAsync(repoPath, index, filtered.Files, ct) is { } staging) return staging;
 
         var tree = await Git(repoPath, index, null, ct, "write-tree");
         if (tree.Exit != 0) return BranchWriteResult.Failed(tree.Reason("write-tree"));
@@ -67,25 +80,10 @@ public sealed class LocalBranchCommit
         var sha = commit.Out.Trim();
         var update = await Git(
             repoPath, index, null, ct, "update-ref", $"refs/heads/{branch}", sha, head ?? ZeroOid);
-        return update.Exit == 0
-            ? BranchWriteResult.Ok(sha)
+        if (update.Exit == 0) return filtered.WithNotes(BranchWriteResult.Ok(sha));
+        return MovedMarkers.Any(m => update.Error.Contains(m, StringComparison.Ordinal))
+            ? BranchWriteResult.Conflicted(update.Reason("update-ref"))
             : BranchWriteResult.Failed(update.Reason("update-ref"));
-    }
-
-    /// <summary>Every file into the scratch index; the failure of any one of them, or null.</summary>
-    private async Task<BranchWriteResult?> StageAsync(
-        string repoPath, string index, IReadOnlyList<RepoFile> files, CancellationToken ct)
-    {
-        foreach (var file in files)
-        {
-            var blob = await Git(repoPath, index, file.Content, ct, "hash-object", "-w", "--stdin");
-            if (blob.Exit != 0) return BranchWriteResult.Failed(blob.Reason("hash-object"));
-            var add = await Git(
-                repoPath, index, null, ct,
-                "update-index", "--add", "--cacheinfo", $"100644,{blob.Out.Trim()},{file.Path}");
-            if (add.Exit != 0) return BranchWriteResult.Failed(add.Reason("update-index"));
-        }
-        return null;
     }
 
     private async Task<string?> RevParseAsync(string repoPath, string reference, CancellationToken ct)

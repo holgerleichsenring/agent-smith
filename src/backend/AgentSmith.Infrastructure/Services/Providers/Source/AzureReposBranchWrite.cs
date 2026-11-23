@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.VisualStudio.Services.Common;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
@@ -13,17 +14,18 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// The ref update's <c>OldObjectId</c> is what makes this safe on both paths: for an existing
 /// branch it is that branch's head, so a concurrent commit makes the server refuse the push
 /// rather than rewind it; for an absent branch it is the default branch's head, which is the base
-/// the new branch is cut at.
-/// </para>
-/// <para>
-/// Each change is an ADD or an EDIT depending on whether that path already exists at the base —
-/// Azure Repos refuses an add for a path that is there and an edit for one that is not.
+/// the new branch is cut at. 2026-11-23-c81ea: that refusal (TF401028, the stale old object id) is a
+/// <see cref="BranchWriteResult.Conflict"/>.
 /// </para>
 /// </summary>
 public sealed class AzureReposBranchWrite(
     string project, string repoName, IAzDoClientFactory clientFactory,
     string organizationUrl, string personalAccessToken, ILogger logger)
 {
+    private const string StaleRefCode = "TF401028";
+    private readonly AzureReposPushChanges _changes = new(project, repoName, logger);
+    private readonly AbsentDeletionFilter _deletions = new(logger);
+
     public async Task<BranchWriteResult> WriteAsync(
         string branch, string defaultBranch, IReadOnlyList<RepoFile> files, string message,
         CancellationToken cancellationToken)
@@ -38,16 +40,10 @@ public sealed class AzureReposBranchWrite(
             if (baseSha is null)
                 return BranchWriteResult.Failed(
                     $"neither '{branch}' nor the default branch '{defaultBranch}' has a head to commit on");
-            var push = await client.CreatePushAsync(
-                await ComposeAsync(client, branch, baseSha, files, message, cancellationToken),
-                project, repoName, cancellationToken: cancellationToken);
-            var sha = push?.Commits?.FirstOrDefault()?.CommitId;
-            if (string.IsNullOrWhiteSpace(sha))
-                return BranchWriteResult.Failed("Azure Repos accepted the push but named no commit");
-            logger.LogInformation(
-                "{Project}/{Repo}: {Count} file(s) committed as {Sha} on {Branch}",
-                project, repoName, files.Count, sha, branch);
-            return BranchWriteResult.Ok(sha!);
+            var filtered = await _deletions.FilterAsync(
+                files, (path, ct) => _changes.ExistsStrictAsync(client, baseSha, path, ct), cancellationToken);
+            if (filtered.Refusal is { } refusal) return refusal;
+            return filtered.WithNotes(await PushAsync(client, branch, baseSha, filtered.Files, message, cancellationToken));
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -56,31 +52,28 @@ public sealed class AzureReposBranchWrite(
         }
     }
 
-    private async Task<GitPush> ComposeAsync(
-        GitHttpClient client, string branch, string baseSha, IReadOnlyList<RepoFile> files,
-        string message, CancellationToken ct)
+    private async Task<BranchWriteResult> PushAsync(
+        GitHttpClient client, string branch, string baseSha, IReadOnlyList<RepoFile> files, string message,
+        CancellationToken ct)
     {
-        var changes = new List<GitChange>(files.Count);
-        foreach (var file in files)
-            changes.Add(new GitChange
-            {
-                ChangeType = await ExistsAsync(client, baseSha, file.Path, ct)
-                    ? VersionControlChangeType.Edit : VersionControlChangeType.Add,
-                Item = new GitItem { Path = "/" + file.Path.TrimStart('/') },
-                NewContent = new ItemContent
-                {
-                    Content = file.Content,
-                    ContentType = ItemContentType.RawText,
-                },
-            });
-        return new GitPush
+        var push = new GitPush
         {
-            RefUpdates =
-            [
-                new GitRefUpdate { Name = $"refs/heads/{branch}", OldObjectId = baseSha },
-            ],
-            Commits = [new GitCommitRef { Comment = message, Changes = changes }],
+            RefUpdates = [new GitRefUpdate { Name = $"refs/heads/{branch}", OldObjectId = baseSha }],
+            Commits = [new GitCommitRef { Comment = message, Changes = await _changes.ComposeAsync(client, baseSha, files, ct) }],
         };
+        GitPush? pushed;
+        try { pushed = await client.CreatePushAsync(push, project, repoName, cancellationToken: ct); }
+        catch (VssServiceException ex) when (ex.Message.Contains(StaleRefCode, StringComparison.Ordinal))
+        {
+            logger.LogInformation(ex, "{Project}/{Repo}: {Branch} moved under the push", project, repoName, branch);
+            return BranchWriteResult.Conflicted($"`{branch}` moved while the commit was made: {ex.Message.Split('\n', 2)[0].Trim()}");
+        }
+        var sha = pushed?.Commits?.FirstOrDefault()?.CommitId;
+        if (string.IsNullOrWhiteSpace(sha))
+            return BranchWriteResult.Failed("Azure Repos accepted the push but named no commit");
+        logger.LogInformation(
+            "{Project}/{Repo}: {Count} file(s) committed as {Sha} on {Branch}", project, repoName, files.Count, sha, branch);
+        return BranchWriteResult.Ok(sha!);
     }
 
     private async Task<string?> HeadOfAsync(GitHttpClient client, string branch, CancellationToken ct)
@@ -89,28 +82,5 @@ public sealed class AzureReposBranchWrite(
             project, repoName, filter: $"heads/{branch}", cancellationToken: ct);
         return refs?.FirstOrDefault(
             r => string.Equals(r.Name, $"refs/heads/{branch}", StringComparison.Ordinal))?.ObjectId;
-    }
-
-    private async Task<bool> ExistsAsync(
-        GitHttpClient client, string baseSha, string path, CancellationToken ct)
-    {
-        try
-        {
-            var item = await client.GetItemAsync(
-                project: project,
-                repositoryId: repoName,
-                path: path,
-                versionDescriptor: new GitVersionDescriptor
-                {
-                    Version = baseSha,
-                    VersionType = GitVersionType.Commit,
-                },
-                cancellationToken: ct);
-            return item is not null;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-        {
-            return false;
-        }
     }
 }
