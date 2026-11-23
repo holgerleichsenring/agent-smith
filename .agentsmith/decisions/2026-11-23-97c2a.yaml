@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-97c2a
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "The prerequisite-landed check lives in PullRequestMergeSequence, so every merge path (on_gate_green, on_ci_green, a person's merge) passes it"
+    over: "Ordering only in the UI's merge list; a check per caller (CiGreenMerge, CompletePullRequestsHandler, the 31dce act)"
+    reason: "Review of 2026-11-23-31dc: once cross-repo prerequisites stop holding a dependent (31dca), its pull request targets the default branch and the automatic paths would merge it before its prerequisite. The sequence is the one place all three paths share; a display-only order guards nothing."
+  - category: Architecture
+    decider: claude
+    chose: "A new number (97c2) for the guard and the per-repo retarget"
+    over: "Appending letters k and l to the 31dc series"
+    reason: "CLAUDE.md: a series is minted in one go; a spec that turns up later gets its own number and says what it follows."

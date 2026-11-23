@@ -1,47 +1,62 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-23-31dcg
-goal: "Every ticket that is not simply working carries one hold — nobody, you merge, you talk about the plan, you decide, or admin — with one sentence and one act, shown alike everywhere."
+goal: "Every ticket that is not simply working carries one hold — nobody, merge, plan, decide or admin — with one sentence and one act, read once on the server and shown alike everywhere."
 
-applies_to: "default + dashboard (new TicketHold read, TicketBucket, Your move, ticket Your move box, series What holds the rest)"
+applies_to: "default + dashboard (new TicketHoldReader, TicketBucketRule, TicketCounts, ticket summary/detail and series-run detail, Your move, ticket Your move box, series What holds the rest)"
 
-requires: [2026-11-23-31dcb, 2026-11-23-31dcd, 2026-11-16-6877a]
+requires: [2026-11-23-31dcb, 2026-11-23-31dcd, 2026-11-23-31dce, 2026-11-16-6877a, 2026-11-22-a720b]
 
-invariant: "Your move, the series page and the ticket box name the same hold for a ticket, from one server read."
+invariant: "Your move, its count, the series page and the ticket box name the same hold for a ticket, from one server read; no who-acts-next sentence is derived in the browser."
 
 facts:
-  - claim: "Your move lists only needs_you tickets, which are parked questions and hand-backs."
-    evidence: "src/dashboard/src/components/home/homeItems.ts:14-15, src/backend/AgentSmith.Server/Models/TicketBucket.cs:10-11"
+  - claim: "Who acts next is decided twice today: the server bucket (needs_you = parked question or hand-back) and the browser's ticketState/yourMove sentence and act."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketBucket.cs:4-11, src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:42,79-82, src/dashboard/src/components/tickets/detail/ticketState.ts:52,101, src/dashboard/src/components/tickets/detail/yourMove.ts:1-10,47-53"
+  - claim: "Your move and its sidebar count are the needs_you bucket."
+    evidence: "src/dashboard/src/components/home/homeItems.ts:14-15, src/backend/AgentSmith.Server/Services/Tickets/TicketCounts.cs:25,30, src/dashboard/src/components/shell/AppSidebar.tsx:122"
   - claim: "A ticket with open pull requests says only 'Review the pull requests', with no order."
     evidence: "src/dashboard/src/components/tickets/detail/yourMove.ts:52"
-  - claim: "The ticket box picks its words in the browser from the attempt's end kind."
-    evidence: "src/dashboard/src/components/tickets/detail/yourMove.ts:1-10,47-53"
-  - claim: "Merges that unblock a held ticket are known on the server."
-    evidence: "src/backend/AgentSmith.Contracts/Series/SeriesTicketFact.cs:56-58"
+  - claim: "A precondition stop and a held ticket are Stuck by what ended them."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:69-71"
+  - claim: "A person's edit of a ticket text is posted as a question and spent under a ledger key; nothing records whether it was answered."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Text/TicketTextEditNotice.cs:20-25"
 
 scope:
   in: >-
-    A TicketHold record (addressee: nobody / merge / plan / decide / admin; sentence; act with target; since) read on
-    the server from what is already stored: merge = the ticket is next in its series' merge order or MergesToStart is
-    non-empty; plan = a parked question whose answerer is the plan (31dch) or a person-edited ticket text (a720b);
-    decide = a failed or shortfall newest attempt that no automatic restart (6d85c) will take up; admin = end kinds that name configuration,
-    credentials, images or capacity, and an answerer 'environment' (31dch); nobody = model wait, capacity queue,
-    restart pending, prerequisite running (31dci words). The ticket list row and detail carry the hold; Your move lists
-    every hold whose addressee is the viewer (merge, plan, decide; admin only for admins) instead of only needs_you;
-    the ticket box and the series section 'What holds the rest' render the same record.
-  out: "The answerer field itself (31dch); escalation (31dci)."
+    TicketHold {addressee: nobody / merge / plan / decide / admin; sentence; act with target; since} read by
+    TicketHoldReader from stored facts, one case per source, precedence admin > decide > plan > merge > nobody when
+    several apply. merge = the ticket's pull request is next in its series run's merge order (act: Merge, the 31dce
+    endpoint) or MergesToStart is non-empty (act: open the series' Merge next). plan = a person-edited ticket text whose
+    conversation question is open: the edit notice's ledger entry gains an answered mark, set when the conversation
+    answers it (act: talk in the conversation). decide = a failed or shortfall newest attempt that no automatic restart
+    (6d85c) takes up (acts: retry unchanged, rework, stop). admin = end kinds naming configuration, credentials, images
+    or capacity (the precondition-stop cases of TicketBucketRule). nobody = model wait, capacity queue, restart pending,
+    prerequisite running. Answerer-based cases are added by 31dch, escalation by 31dci.
+    It REPLACES: TicketBucketRule's needs_you rule (needs_you = addressee merge, plan or decide; an admin hold is
+    Stuck, so a ticket is never both stuck and an admin hold), TicketCounts.NeedsYou, homeItems.yourMoves / moveAsk /
+    moveAct, and ticketState's and yourMove's who-acts sentence and act (ticketState keeps the live-run progress line).
+    The list read stays viewer-independent; Your move adds admin holds for a viewer with the admin permission, counted
+    the same way. Merge holds read the merge order once per project, not per ticket.
+  out: "The answerer field (31dch); escalation and the admin page (31dci)."
 
 steps:
   - id: read
-    action: "TicketHoldReader in Application with one method per source, unit-tested per addressee."
+    action: "TicketHoldReader in Application with one method per source and the precedence, unit-tested per addressee; series-run order shared from 31dcb."
+  - id: ledger
+    action: "Answered mark on the edit notice's ledger entry, written when the conversation answers the edit question."
+  - id: bucket
+    action: "TicketBucketRule and TicketCounts take the hold; TicketBucket docs updated."
   - id: carry
-    action: "Ticket summary, ticket detail and series detail carry the hold; TypeScript mirror."
+    action: "Ticket summary, ticket detail and series-run detail carry the hold; TypeScript mirror."
   - id: show
-    action: "Your move, the ticket box and the series section render TicketHold; yourMove.ts reads it instead of deriving."
+    action: "Your move, the ticket box and the series section render TicketHold; homeItems and yourMove read it, the replaced derivations are deleted."
 
 tests:
-  - "One case per addressee from stored facts; precedence when two apply (decide over merge, plan over nobody)."
-  - "Your move lists a merge hold and a plan hold, not a nobody hold; admin holds only for an admin."
+  - "One case per addressee from stored facts; each precedence pair (admin over decide, decide over plan, plan over merge, merge over nobody)."
+  - "A merge hold puts the ticket in needs_you and the Your move count; a nobody hold does not."
+  - "An admin hold is Stuck and listed in Your move only for an admin viewer; the list read is the same for both viewers."
+  - "An edited-text plan hold clears when its conversation question is answered."
   - "The ticket box and the series section show the identical sentence for one ticket."
+  - "The list over 25 tickets reads the merge order once per project."
 
 done:
-  - "Build, the full suite and the dashboard tests green."
+  - "Build, the full suite and the dashboard tests green; the tests above in TicketHoldReader, TicketBucketRule, TicketCounts, homeItems and yourMove test classes; no test of a deleted derivation is left skipped."

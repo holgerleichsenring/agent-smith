@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dcb
+
+decisions:
+  - category: Implementation
+    decider: claude
+    chose: "SeriesRun types and /api/series-runs routes"
+    over: "/api/series"
+    reason: "'Series' already names a ticket's spec series (/api/tickets/{project}/{ticketId}/series, SeriesId on revisions); two meanings under one word would be read wrong."
+  - category: TradeOff
+    decider: claude
+    chose: "Set-based reads and a separate active count for the sidebar"
+    over: "Task.WhenAll over per-ticket facts; the sidebar counting from the full list"
+    reason: "The scoped unit of work forbids parallel reads on one scope, and the sidebar polls."

@@ -2,9 +2,9 @@
 spec: 2026-11-23-31dcd
 goal: "A series opens on a page built like the ticket page: a bar with name, state, progress, sections with counts and facts, and one section shown at a time."
 
-applies_to: "dashboard (new /series/[id] page, SeriesSectionBar, Tickets and Conversation sections)"
+applies_to: "default + dashboard (thread id on the series-run detail, new /series/[id] page, SeriesSectionBar, Tickets and Conversation sections)"
 
-requires: [2026-11-23-31dcc, 2026-11-17-8d1ca]
+requires: [2026-11-23-31dcb, 2026-11-23-31dcc, 2026-11-17-8d1ca]
 
 invariant: "The series page shows one section at a time; its bar always says the series' state and what needs a person."
 
@@ -13,6 +13,10 @@ facts:
     evidence: "src/dashboard/src/components/tickets/detail/ticketPageSections.ts:36-70, src/dashboard/src/components/tickets/detail/TicketPage.tsx:64, src/dashboard/src/components/tickets/detail/TicketSectionBar.tsx:35-53"
   - claim: "The agreed mock: rail, series bar (back, name, state, progress, sections Merge next / What holds the rest / Order and branches / Tickets / Conversation, facts), one pane."
     evidence: "observed: 2026-11-23 operator approval of the series mock artifact"
+  - claim: "The ticket page addresses its section with ?section=."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:25-29"
+  - claim: "A conversation's session is found by its id, which carries the thread the conversation component opens."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:40"
 
 scope:
   in: >-
@@ -25,16 +29,16 @@ scope:
 
 steps:
   - id: shell
-    action: "Page, bar and sections list; the selected section in the URL hash."
+    action: "Page, bar and sections list; the selected section in ?section= as on the ticket page."
   - id: tickets
     action: "Tickets section from GET /api/series/{id}."
   - id: talk
-    action: "Conversation section embedding the existing conversation thread for the series' session."
+    action: "Series detail (31dcb) carries the conversation's thread id from GetBySessionIdAsync; the Conversation section embeds the existing conversation thread for it."
 
 tests:
-  - "The bar renders name, state, counters; selecting a section shows only its pane and sets the hash."
+  - "The bar renders name, state, counters; selecting a section shows only its pane and sets ?section=."
   - "Tickets rows sort by depth and link to the ticket page."
   - "The Conversation section posts to the series' own conversation."
 
 done:
-  - "Build, the full suite and the dashboard tests green."
+  - "Build, the full suite and the dashboard tests green; the tests above in the series page and section bar test classes, and the detail reader carries the thread id."

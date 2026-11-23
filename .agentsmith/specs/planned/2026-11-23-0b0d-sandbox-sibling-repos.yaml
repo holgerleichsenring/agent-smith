@@ -12,7 +12,7 @@ facts:
   - claim: "Each repo of a run gets its own sandbox; /work holds only that repo."
     evidence: "src/backend/AgentSmith.Contracts/Services/IPipelineSandboxCoordinator.cs:8-14, src/backend/AgentSmith.Domain/Entities/Repository.cs:16"
   - claim: "46 backend files assume /work as the one repo root."
-    evidence: "grep SandboxWorkPath src/backend, 2026-11-23"
+    evidence: "observed: 2026-11-23, grep SandboxWorkPath over src/backend lists 46 files"
   - claim: "A worker repo's client-generation script expected ../<server repo> and failed in its sandbox."
     evidence: "observed: 2026-11-22, a three-repo series, question of the worker ticket's run"
 

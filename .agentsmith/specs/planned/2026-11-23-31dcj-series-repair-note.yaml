@@ -1,35 +1,43 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-11-23-31dcj
-goal: "When a series' specs are changed by agent-smith itself — appended, recut or dropped — the series page shows one line saying what changed and why."
+goal: "When a ticket's specs in a series run are appended, recut or dropped, the series page lists the change with its ticket, kind and why, read from the revisions already stored."
 
-applies_to: "default + dashboard (EditSeriesToolHost, series detail, What holds the rest)"
+applies_to: "default + dashboard (series-run detail reader, What holds the rest)"
 
 requires: [2026-11-23-31dcb, 2026-11-23-31dcg]
 
-invariant: "No spec of a series changes without a line on the series page."
+invariant: "Every stored revision of a member ticket's spec set shows on the series page; nothing is stored twice for it."
 
 facts:
-  - claim: "edit_series recuts, drops or appends specs and answers each disposition; it is called from ticket conversations, also on the series master's message."
-    evidence: "src/backend/AgentSmith.Application/Services/Tools/EditSeriesToolHost.cs:22-33"
-  - claim: "Two rework specs were appended on the series master's message without the operator seeing it outside the ticket conversation."
+  - claim: "edit_series edits one ticket's spec series (recut, drop, append), offered to the bound turn's poster."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/EditSeriesToolHost.cs:9-11,22-33"
+  - claim: "A ticket's spec set carries its full revision history (number, cause, at); the ticket page reads the set from the ticket branch."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:29,91,105, src/backend/AgentSmith.Server/Extensions/TicketSeriesEndpoints.cs:14"
+  - claim: "An attempt records only the revision it worked from, so a change between attempts is not on the attempts."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketAttemptRecords.cs:36-38"
+  - claim: "Two rework specs were appended without the operator seeing it outside the ticket conversation."
     evidence: "observed: 2026-11-20/22 ticket conversations of a three-repo series"
 
 scope:
   in: >-
-    Every recorded edit_series disposition is stored as a series note (ticket, spec id, kind, the one-line reason the
-    caller gave, who asked: a person or the series master, at). The series detail returns the notes newest first; the
-    'What holds the rest' section lists them under 'Changed by agent-smith' as information without an act.
-  out: "Undoing an edit."
+    GET /api/series-runs/{id}/changes reads each member ticket's spec set through the existing ticket-series read (the
+    one the ticket page uses, fanned out as 1e76a does) and returns every revision after the first, newest first, as a
+    note: ticket, revision number, cause and when. Every change that writes a revision shows, whoever caused it
+    (edit_series in a conversation turn, an in-run revision, an approved proposal). Read only when the section opens,
+    not with the detail. 'What holds the rest' lists them under 'Changed in this series' as information without an act. No new
+    store; no reason field is added to edit_series.
+  out: "Undoing a change; asking edit_series callers for a reason."
 
 steps:
-  - id: record
-    action: "edit_series takes a required one-line reason and writes the note when a disposition is recorded."
+  - id: read
+    action: "The changes endpoint maps member tickets' SpecSet.Revisions to notes."
   - id: show
-    action: "Series detail and the section render the notes."
+    action: "The section renders the notes."
 
 tests:
-  - "An append writes one note with reason and asker; a refused edit writes none."
-  - "The section lists notes newest first."
+  - "An append through edit_series and an in-run revision both appear as notes with their cause."
+  - "A refused edit writes no revision and shows no note."
+  - "Notes sort newest first."
 
 done:
-  - "Build, the full suite and the dashboard tests green."
+  - "Build, the full suite and the dashboard tests green; the tests above in the changes reader and section test classes."

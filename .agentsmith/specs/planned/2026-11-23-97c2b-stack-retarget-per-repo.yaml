@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-97c2b
+goal: "The base a stacked pull request moves to when a prerequisite lands is chosen per repo: the next unlanded prerequisite with work in that repo, else the default branch."
+
+applies_to: "default (GreenReads, IPreviousAttemptReader, StackedPullRequestRetarget)"
+
+requires: [2026-11-23-97c2a, 2026-11-17-9a39c, 2026-11-22-9719d]
+
+follows: "Split off the 2026-11-23-31dc series after its review; it introduces the per-repo read 31dca stamps from."
+
+invariant: "A retarget never moves a pull request onto a branch that does not exist in its repo."
+
+facts:
+  - claim: "The retarget moves every repo's pull request onto one ticket-level tip."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/StackedPullRequestRetarget.cs:44,70-75"
+  - claim: "The batched end read carries no pull request urls, so the repos a prerequisite worked in are not read set-based today."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IPreviousAttemptReader.cs:31-40"
+  - claim: "PullRequestUrls hold the newest pull request per repo across the ticket's code runs."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:16"
+
+scope:
+  in: >-
+    A set-based read IPreviousAttemptReader.PullRequestReposAsync(project, ticketIds) answering each ticket's repos with a
+    pull request (one query). GreenReads.TipPerRepoAsync(unmet) answers, per repo, the unlanded green prerequisite with
+    work there whose chain reaches every other one with work there, or none. StackedPullRequestRetarget moves each repo's
+    pull request to that repo's tip, else to the landed prerequisite's own landing base, else the default branch. The
+    start hold stays as today here; 31dca turns the per-repo rule on for starts.
+  out: "The start hold and the checkout (31dca)."
+
+steps:
+  - id: read
+    action: "PullRequestReposAsync in IPreviousAttemptReader and its repository, one query over the newest code attempts."
+  - id: tip
+    action: "GreenReads.TipPerRepoAsync with unit tests; the ticket-level TipAsync stays for the start until 31dca."
+  - id: retarget
+    action: "StackedPullRequestRetarget.MoveOfAsync takes the repo's own tip."
+
+tests:
+  - "Chain S1<-S2(S,W)<-S3(S): when S1 lands, the dependent's W pull request moves to S2's branch, its S pull request to S3's."
+  - "A repo no unlanded prerequisite touched moves to the default branch, never to a branch missing there."
+  - "PullRequestReposAsync answers several tickets in one query; a ticket with no attempt is absent."
+
+done:
+  - "Build, the full suite and the dashboard tests green; StackedPullRequestRetarget and GreenReads tests cover the cases above."

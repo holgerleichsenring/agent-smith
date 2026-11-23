@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dca
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "A prerequisite with work only in other repos does not hold the dependent; the dependent reads those repos at that prerequisite's branch"
+    over: "Every cross-repo requirement holds until merged (the first draft)"
+    reason: "Every repo of a run is checked out anyway, so a per-repo base gives the dependent the prerequisite's state without a merge; holding would have parked e.g. a Client ticket on a Server merge for no reason. Order of merges is enforced by 97c2a, not by holding starts."
+  - category: Architecture
+    decider: claude
+    chose: "The stamp is a repo -> ticket id map computed at the claim in GreenReads"
+    over: "An ordered chain walked by the ladder in the sandbox"
+    reason: "The sandbox can test whether a branch exists but not whether a chain member has a pull request in that repo, so the stop rule ('work there but no branch') is only decidable with the map."
+  - category: Architecture
+    decider: claude
+    chose: "Prerequisites that are not green keep holding; a started dependent is never held again"
+    over: "Deciding holds only from known repos"
+    reason: "A prerequisite without a green attempt has no known repos; treating it as cross-repo would cut the dependent from main, the regression the spec exists to remove."

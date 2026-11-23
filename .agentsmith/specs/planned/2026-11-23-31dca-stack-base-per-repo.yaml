@@ -2,55 +2,61 @@
 spec: 2026-11-23-31dca
 goal: "A stacked run's base is chosen per repo from the chain of unlanded prerequisites; only two independent ones with work in one repo hold the ticket until merged; no silent cut from main."
 
-applies_to: "default (GreenReads, UnmetTicketRequirements, StackedBaseStamp, RunParentTicket, SandboxBaseLadder, SandboxWorkBranchCheckout)"
+applies_to: "default (UnmetTicketRequirements, GreenReads, StackedBaseStamp, RunParentTicket, RunBranch, SandboxBaseLadder, SandboxWorkBranchCheckout, SandboxRungPublisher and the single-parent readers listed below)"
 
-requires: [2026-11-17-9a39a, 2026-11-17-9a39b, 2026-11-22-6d85d]
+requires: [2026-11-23-97c2a, 2026-11-23-97c2b, 2026-11-17-9a39a, 2026-11-17-9a39b, 2026-11-22-6d85d]
 
-invariant: "Every repo of a stacked run is cut from the branch of the nearest unlanded prerequisite that has work in that repo, or from its own base when no unlanded prerequisite has work there."
+invariant: "Every repo of a stacked run is cut from (or read at) the branch of the nearest unlanded green prerequisite with work in that repo, or from its own base when none has; never from main while such a branch is missing."
 
 facts:
   - claim: "The stack tip is chosen per ticket: the one unlanded prerequisite whose chain reaches all others."
     evidence: "src/backend/AgentSmith.Application/Services/Claim/GreenReads.cs:49-57"
-  - claim: "The claim stamps only that one ticket id as the run's base."
-    evidence: "src/backend/AgentSmith.Application/Services/Claim/StackedBaseStamp.cs:30-31, src/backend/AgentSmith.Application/Services/RunParentTicket.cs:33,40"
-  - claim: "Each repo looks only for that one ticket's branch; when it is missing the ladder falls through to the clone's own base."
-    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxBaseLadder.cs:44-58,67-70"
-  - claim: "A fallen-through stacked repo is cut and its pull request targets the default branch without a word."
-    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:76-77,83-104"
-  - claim: "A prerequisite's work per repo is known: its attempt's pull requests are keyed by repo."
-    evidence: "src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:16"
-  - claim: "A Worker-repo dependent stacked on a Server-only prerequisite was cut from Worker main, missing a Worker change of a deeper prerequisite in the same chain."
+  - claim: "The claim re-stamps the request under its lock with that one ticket id."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/StackedBaseStamp.cs:29-31"
+  - claim: "The stamp is read as a string or a JSON string (a parked run's round-trip)."
+    evidence: "src/backend/AgentSmith.Application/Services/RunParentTicket.cs:43-51"
+  - claim: "Each repo looks only for that one ticket's branch and falls through to the clone's base when it is missing; the ladder is documented as two rungs."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxBaseLadder.cs:26-29,44-58"
+  - claim: "A dependent that started once is never held again; an unlanded prerequisite holds unless green."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:74-77"
+  - claim: "A Worker-repo dependent stacked on a Server-only prerequisite was cut from Worker main, missing a deeper prerequisite's Worker change."
     evidence: "observed: 2026-11-23, run events of a three-repo series (rev-parse of the tip's branch exit 1 in Worker and Client, 0 in Server)"
 
 scope:
   in: >-
-    Every repo of a stacked run, the repos it only reads included, is checked out at its own base: the nearest unlanded
-    prerequisite in the chain with work in that repo (its green attempt has a pull request there), else the repo's own
-    base. A prerequisite in another repo does NOT hold the dependent: the dependent reads that repo at the prerequisite's
-    branch, and the merge order (31dcb) keeps the merges in requires order. A ticket is held only when one repo carries
-    work of two unlanded prerequisites neither of whose chains reaches the other; those join MergesToStart (bases first,
-    as 6d85d). The stamp carries the ordered chain (nearest first) instead of one id; the ladder walks it per repo and
-    takes the first branch that exists. A repo where a chain member has a pull request but no branch is readable stops
-    the run with a sentence naming the branch; a repo no chain member touched cuts from its own base as before. The pull
-    request target per repo follows the same answer.
-  out: "UI (31dcb..31dcg read the hold); merging; retarget rules of 9a39c beyond following the per-repo base."
+    Start hold: every unlanded prerequisite that is not green still holds (requireGreen as today); a started dependent
+    is never held again (as today). For green ones the per-repo tip of 97c2b decides: a prerequisite with work only in
+    other repos does not hold, the dependent reads those repos at that repo's tip; a repo whose unlanded green
+    prerequisites have no per-repo tip holds the ticket, and the uncovered ones join MergesToStart (bases first, 6d85d).
+    Stamp: StackedOnTicket carries a map repo -> ticket id computed in GreenReads at the claim; a parked run's old
+    single-id string still reads as 'that id for every repo'. The ladder takes the repo's entry, no walk; a repo whose
+    entry names a ticket whose branch is not readable stops the run with a sentence naming the branch; a repo with no
+    entry cuts from its own base. The pull request target per repo follows the same entry (97c2b keeps it there).
+    Every reader of the single parent id reads the repo's entry instead: RunBranch.ParentTicketId,
+    SandboxRungPublisher.EnsureAsync, ContextReadBranches, DeliveryDiff, DeliveryBasis, BranchChangedFiles,
+    StructureMergeBase, ForeignCommitProbe, BranchStateCheck, BootstrapPresenceCheck, RepoReadinessPass. An epic
+    parent label (EpicParentRead) stays one id for every repo.
+  out: "UI (31dcb onward); merging (97c2a guards it); retarget (97c2b)."
 
 steps:
-  - id: repos
-    action: "A read of each unlanded prerequisite's repos (its newest green attempt's PullRequestUrls keys), batched in GreenReads."
-  - id: tip
-    action: "GreenReads: the per-repo tip is the chain member with work in that repo whose chain reaches every other one with work there; no per-repo tip for a repo holds the ticket and names the uncovered ones in MergesToStart."
+  - id: hold
+    action: "UnmetTicketRequirements.ForStartManyAsync holds by the per-repo tips of 97c2b; non-green and started rules unchanged."
   - id: stamp
-    action: "StackedOnTicket carries the ordered chain; RunParentTicket answers it; the old single-id value still reads (a queued request's round-trip)."
+    action: "StackedBaseStamp writes the repo map; RunParentTicket answers ForRepo(pipeline, repo) and reads the old string form."
   - id: ladder
-    action: "SandboxBaseLadder.Candidates yields the chain's branches in order; SandboxWorkBranchCheckout stops instead of falling through when a chain member has work in the repo."
+    action: "SandboxBaseLadder takes one candidate per repo from the map; SandboxWorkBranchCheckout stops instead of falling through; ladder doc updated."
+  - id: readers
+    action: "RunBranch carries the per-repo parent; the eleven readers listed ask for their repo's entry."
 
 tests:
-  - "Chain S1<-S2(S and W)<-S3(S only), dependent in W: S is read at S3's branch, W is cut from S2's branch; the dependent is not held."
-  - "Dependent in C requiring an S-only green prerequisite: not held, S read at the prerequisite's branch, C cut from its own base."
-  - "Two independent unlanded prerequisites with work in the same repo: held with both named, bases first."
-  - "Stamp written as a single id by an older queued request still resolves."
-  - "A chain member with a pull request in the repo but no readable branch: the run stops with the sentence; no chain member there: own base."
+  - "Chain S1<-S2(S,W)<-S3(S), dependent in W: S read at S3's branch, W cut from S2's branch; not held."
+  - "Dependent in C requiring an S-only green prerequisite: not held, S read at its branch, C from its own base."
+  - "Two independent green prerequisites with work in one repo: held, both named, bases first."
+  - "A prerequisite that is not green yet: held as today, even when its repos are unknown."
+  - "A dependent that started once: not held again under the new rule."
+  - "Resume of a parked run whose context holds the old single-id JSON string: every repo resolves to that id."
+  - "A repo whose entry's branch is not readable: the run stops with the sentence; no entry: own base."
+  - "DeliveryDiff and BranchStateCheck compare against the repo's own parent, one test each."
 
 done:
-  - "Build, the full suite and the dashboard tests green."
+  - "Build, the full suite and the dashboard tests green; the tests above pass in UnmetTicketRequirements, StackedBaseStamp, RunParentTicket, SandboxBaseLadder and SandboxWorkBranchCheckout test classes."

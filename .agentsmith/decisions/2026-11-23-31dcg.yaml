@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dcg
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "TicketHold replaces the needs_you rule, TicketCounts.NeedsYou and the browser's who-acts sentence and act"
+    over: "A third classifier beside TicketBucket and ticketState/yourMove"
+    reason: "CLAUDE.md 'no second path': who acts next was already decided twice; the hold becomes the one answer and the others read it."
+  - category: Scope
+    decider: claude
+    chose: "Precedence admin > decide > plan > merge > nobody; an admin hold is Stuck"
+    over: "Partial precedence; admin holds in needs_you"
+    reason: "The most blocking cause wins; a product owner should not see an environment fault as their move, and Stuck already means 'nothing moves without help'."
+  - category: Scope
+    decider: claude
+    chose: "The list read is viewer-independent; only Your move adds admin holds for an admin"
+    over: "Filtering the list by viewer"
+    reason: "Counts and caching stay the same for every viewer."

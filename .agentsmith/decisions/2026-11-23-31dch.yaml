@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dch
+
+decisions:
+  - category: Implementation
+    decider: operator
+    chose: "The required ask_human field is named 'answerer'"
+    over: "audience, addressee"
+    reason: "Operator, 2026-11-23."
+  - category: Scope
+    decider: claude
+    chose: "One open question per answerer replaces one question per run"
+    over: "Keeping one question per run, which forces mixed concerns into one question"
+    reason: "The observed failure was one question carrying a plan gap and an environment fault; they need different people."
+  - category: Scope
+    decider: claude
+    chose: "A missing answerer is refused with one teaching message; skills ship before the server pin; optional on HumanToolHost"
+    over: "Defaulting a missing answerer silently"
+    reason: "Three refused calls end a run, so one refusal must carry everything needed to retry; a silent default would route plan questions as code questions again."

@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dci
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "holds.escalate_after_minutes, default 60, 0 = never, with a Config Studio field"
+    over: "No escalation; a fixed duration"
+    reason: "Operator, 2026-11-23. A wait that long means something outside the run is wrong; the key and value are named in the admin hold's sentence."
+  - category: Scope
+    decider: claude
+    chose: "Admin holds on a System → Needs attention page with an admin-only sidebar count, besides Your move"
+    over: "Your move only"
+    reason: "An admin needs every admin hold across projects in one place, with the config key, not mixed into their own moves."

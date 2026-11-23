@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-31dcj
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "Notes are read from SpecSet.Revisions of the member tickets"
+    over: "A new note store written by edit_series with a required reason"
+    reason: "The revision history already holds number, cause and time for every change, whoever made it; a note store would be a second storage location and would miss in-run revisions and proposals."
