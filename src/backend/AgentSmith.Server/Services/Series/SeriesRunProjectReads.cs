@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Series;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Services.Tickets;
@@ -20,14 +21,16 @@ public sealed class SeriesRunProjectReads(
     {
         ArgumentNullException.ThrowIfNull(project);
         var ids = tickets.Select(t => t.TicketId).Distinct(StringComparer.Ordinal).ToHashSet(StringComparer.Ordinal);
-        var requires = (await requirements.ByProjectAsync(project.Name, ct)).Where(e => ids.Contains(e.TicketId))
+        var edges = (await requirements.ByProjectAsync(project.Name, ct)).Where(e => ids.Contains(e.TicketId))
             .GroupBy(e => e.TicketId, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)[.. g.Select(e => e.RequiredTicketId).Distinct(StringComparer.Ordinal)], StringComparer.Ordinal);
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<TicketRequirementEdge>)[.. g], StringComparer.Ordinal);
+        var requires = edges.ToDictionary(p => p.Key,
+            p => (IReadOnlyList<string>)[.. p.Value.Select(e => e.RequiredTicketId).Distinct(StringComparer.Ordinal)], StringComparer.Ordinal);
         var asked = ids.Concat(requires.Values.SelectMany(r => r)).Distinct(StringComparer.Ordinal).Select(id => Key(project, id)).ToList();
         var landed = (await landings.LandedAsync(project.Tracker.Name, asked, ct)).Select(l => l.TicketId).ToHashSet(StringComparer.Ordinal);
         var prs = (await records.ByTicketsAsync(project.Name, ids, ct)).ToLookup(r => r.TicketId, StringComparer.Ordinal);
         var newest = await attempts.LatestEndsAsync(project.Name, ids, ct);
-        return new SeriesRunProjectFacts(project, requires, landed, prs, newest);
+        return new SeriesRunProjectFacts(project, requires, landed, prs, newest) { Edges = edges };
     }
 
     private static string Key(ResolvedProject project, string ticketId) =>

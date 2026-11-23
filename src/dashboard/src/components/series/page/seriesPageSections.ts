@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import type { TextKey } from "@/lib/i18n/translate";
 import type { SeriesRunDetail } from "@/types/seriesRuns";
 import { SeriesConversationSection } from "./SeriesConversationSection";
+import { SeriesOrderSection } from "./SeriesOrderSection";
 import { SeriesTicketsSection } from "./SeriesTicketsSection";
 
 // 2026-11-23-31dcd: the series page's sections, ONE table, in the bar's order — Merge next, What holds the rest, Order
@@ -27,6 +28,7 @@ export interface SeriesSection {
 }
 
 export const seriesSections: SeriesSection[] = [
+  { id: "course", label: "series.section.order", Pane: SeriesOrderSection, counter: (d) => ({ text: String(d.tickets.length) }) }, // 31dcf
   { id: "tickets", label: "series.section.tickets", Pane: SeriesTicketsSection, counter: (d) => ({ text: String(d.tickets.length) }) },
   { id: "talk", label: "series.section.conversation", Pane: SeriesConversationSection, counter: () => ({ text: "↗" }) },
 ];

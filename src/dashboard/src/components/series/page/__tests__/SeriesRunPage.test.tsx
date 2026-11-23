@@ -21,6 +21,7 @@ vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRun: (...a: unknown[]) => hoi
 vi.mock("@/hooks/useSpecDialog", () => ({ useSpecDialog: () => hoisted.dialog }));
 
 import { SeriesRunPage } from "../SeriesRunPage";
+import { seriesSections } from "../seriesPageSections";
 
 beforeEach(() => {
   hoisted.search = "";
@@ -34,7 +35,7 @@ beforeEach(() => {
 describe("SeriesRunPage", () => {
   it("SeriesPage_SelectingASection_ShowsOnlyItsPane_AndSetsTheSectionParam", async () => {
     render(<SeriesRunPage id="sr-1" />);
-    expect(await screen.findByTestId("series-pane-tickets")).toBeInTheDocument();
+    expect(await screen.findByTestId(`series-pane-${seriesSections[0].id}`)).toBeInTheDocument(); // the first listed
     expect(screen.queryByTestId("series-pane-talk")).toBeNull();
 
     fireEvent.click(screen.getByTestId("series-section-talk"));
@@ -52,6 +53,7 @@ describe("SeriesRunPage", () => {
   });
 
   it("SeriesPage_TicketsRows_SortByDepth_AndOpenTheTicketPage", async () => {
+    hoisted.search = "section=tickets";
     render(<SeriesRunPage id="sr-1" />);
     const table = await screen.findByTestId("series-tickets");
 

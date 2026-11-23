@@ -72,6 +72,18 @@ export interface SeriesRunMergeStep {
   after: string[];
 }
 
+/** 2026-11-23-31dcf: what a requires edge means for the branches, from the per-repo stack a start is decided by.
+ *  stacked: cut from the prerequisite's branch (or one carrying it) · merge: met only by a merge · unknown: the
+ *  prerequisite has no green attempt, so its repos are not known · landed: the prerequisite merged. */
+export type SeriesRunEdgeKind = "stacked" | "merge" | "unknown" | "landed";
+
+/** 2026-11-23-31dcf: one requires edge between two tickets of the series. */
+export interface SeriesRunEdge {
+  ticketId: string;
+  requiredTicketId: string;
+  kind: SeriesRunEdgeKind;
+}
+
 export interface SeriesRunDetail {
   id: string;
   name: string;
@@ -94,4 +106,6 @@ export interface SeriesRunDetail {
   threadId: string | null;
   /** 2026-11-23-31dcd: whether the conversation is open on that thread. */
   conversationOpen: boolean;
+  /** 2026-11-23-31dcf: every requires edge between two of its tickets. */
+  edges: SeriesRunEdge[];
 }

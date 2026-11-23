@@ -21,6 +21,7 @@ public static class SeriesRunExtensions
         services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>(); // 2026-11-23-31dcb: the series page's reads
         services.TryAddScoped<SeriesRunNames>();
         services.AddScoped<SeriesRunCosts>(); // 2026-11-23-31dcd
+        services.AddScoped<SeriesRunEdges>(); // 2026-11-23-31dcf
         services.AddScoped<SeriesRunProjectReads>()
             .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
         return services;

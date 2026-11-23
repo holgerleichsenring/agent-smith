@@ -20,6 +20,6 @@ export function seriesDetail(over: Partial<SeriesRunDetail> = {}): SeriesRunDeta
       seriesTicket({ ticketId: "49", key: "#49", title: "Domain", depth: 1,
         pullRequests: [{ repo: "server", number: "9935", url: "u", state: "open", ci: "green", ciFailure: null, ciLog: null, target: null }] }),
     ],
-    mergeOrder: [], repos: ["server", "worker"], costUsd: 41.2, threadId: "d-thread1", conversationOpen: true, ...over,
+    mergeOrder: [], repos: ["server", "worker"], costUsd: 41.2, threadId: "d-thread1", conversationOpen: true, edges: [], ...over,
   };
 }

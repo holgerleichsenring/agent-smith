@@ -1,11 +1,13 @@
 using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Series;
 using AgentSmith.Tests.Tickets;
 using FluentAssertions;
@@ -147,6 +149,30 @@ public sealed class SeriesRunReadersTests : IDisposable
     }
 
     [Fact]
+    public async Task Detail_CarriesEachEdgesKind_FromThePerRepoStack()
+    {
+        await OpenAsync("sr-1", Tickets("1", "2", "3", "4"));
+        await _h.AddAsync(Requires("2", "1"), Requires("4", "3"), Landed("3"), WithPr(TicketStoreHarness.Run("run-1", ticket: "1")),
+            TicketStoreHarness.Run("run-9", ticket: "9", status: "running"));
+
+        var edges = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!.Edges;
+
+        edges.Should().BeEquivalentTo(
+            [new SeriesRunEdgeView("2", "1", SeriesRunEdgeKinds.Stacked), new SeriesRunEdgeView("4", "3", SeriesRunEdgeKinds.Landed)]);
+    }
+
+    [Fact]
+    public async Task Detail_APrerequisiteWithoutAGreenAttempt_IsAnUnknownEdge()
+    {
+        await OpenAsync("sr-1", Tickets("1", "2"));
+        await _h.AddAsync(Requires("2", "1"), TicketStoreHarness.Run("run-1", ticket: "1", status: "running"));
+
+        var edges = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!.Edges;
+
+        edges.Should().ContainSingle().Which.Kind.Should().Be(SeriesRunEdgeKinds.Unknown);
+    }
+
+    [Fact]
     public async Task Detail_UnknownSeries_IsNull()
     {
         (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("none", default))).Should().BeNull();
@@ -201,6 +227,7 @@ public sealed class SeriesRunReadersTests : IDisposable
         services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>();
         services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
             .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
+        services.AddSingleton<AgentSmith.Application.Services.Claim.GreenPrerequisites>().AddScoped<SeriesRunEdges>(); // 31dcf
     }
 
     private async Task<TResult> ReadAsync<TResult>(Func<IServiceProvider, Task<TResult>> read)
@@ -225,6 +252,13 @@ public sealed class SeriesRunReadersTests : IDisposable
             Project = "alpha", TicketId = ticket, RunId = $"run-{ticket}", State = PrReviewStates.Open, HeadSha = "abc",
             CheckedAtTicks = T.UtcTicks, CiState = ci, CiHeadSha = "abc", CiFailuresJson = PrRecordCiJson.Failures(failures ?? []),
         };
+    }
+
+    private static Run WithPr(Run run)
+    {
+        run.PullRequestsJson = RunStoryJson.Serialize(new List<RunPullRequestView>
+            { new("api", PullRequestStatuses.Opened, $"https://github.com/o/api/pull/{run.TicketId}", null, T) });
+        return run;
     }
 
     private static TicketRequirement Requires(string ticket, string required) => new()

@@ -864,6 +864,26 @@ export const messages = {
   "series.ticket.cancelled": { en: "cancelled", de: "abgebrochen" },
   "series.ticket.shortfall": { en: "fell short", de: "unvollständig" },
   "series.ticket.ended": { en: "ended", de: "beendet" },
+  // 2026-11-23-31dcf: the Order and branches section
+  "series.section.order": { en: "Order and branches", de: "Reihenfolge und Branches" },
+  "series.order.sub": {
+    en: "Columns are the order in which work can happen, one band per repo. A solid line is a branch stacked on another in the same repo, a dashed one is met only by a merge, a dotted one is not known yet.",
+    de: "Die Spalten zeigen, in welcher Reihenfolge die Arbeit passieren kann, ein Band je Repo. Eine durchgezogene Linie ist ein Branch, der im selben Repo auf einem anderen aufsetzt, eine gestrichelte wird erst durch einen Merge erfüllt, eine gepunktete ist noch unbekannt.",
+  },
+  "series.order.from": { en: "Show the course from", de: "Zeig den Weg von" },
+  "series.order.all": { en: { one: "the 1 ticket", other: "all {count} tickets" }, de: { one: "dem 1 Ticket", other: "allen {count} Tickets" } },
+  "series.order.reset": { en: "Show everything", de: "Zeig alles" },
+  "series.order.edge.stacked": { en: "stacked branch", de: "gestapelter Branch" },
+  "series.order.edge.merge": { en: "needs a merge", de: "braucht einen Merge" },
+  "series.order.edge.unknown": { en: "not known yet", de: "noch unbekannt" },
+  "series.order.edge.landed": { en: "already merged", de: "schon gemergt" },
+  "series.order.frame.waiting": { en: "PR waiting", de: "PR wartet" },
+  "series.order.frame.next": { en: "merge next", de: "als Nächstes mergen" },
+  "series.order.frame.question": { en: "asks a question", de: "stellt eine Frage" },
+  "series.order.frame.notStarted": { en: "not started", de: "nicht gestartet" },
+  "series.order.frame.merged": { en: "merged", de: "gemergt" },
+  "series.order.noRepo": { en: "No pull request yet", de: "Noch kein Pull Request" },
+  "series.order.alsoIn": { en: "+ {repos}", de: "+ {repos}" },
   "series.conversation.gone": { en: "The conversation that filed this series no longer exists.", de: "Das Gespräch, das diese Serie angelegt hat, gibt es nicht mehr." },
 } satisfies Record<string, MessageEntry>;
 

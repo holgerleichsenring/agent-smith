@@ -22,4 +22,7 @@ public sealed record SeriesRunDetailView(
 
     /// <summary>2026-11-23-31dcd: whether the conversation is open on that thread; a closed one is resumed in Work it out.</summary>
     public bool ConversationOpen { get; init; }
+
+    /// <summary>2026-11-23-31dcf: every requires edge between two of its tickets, with what it means for the branches.</summary>
+    public IReadOnlyList<SeriesRunEdgeView> Edges { get; init; } = [];
 }

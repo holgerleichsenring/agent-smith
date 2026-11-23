@@ -25,7 +25,7 @@ scope:
 
 steps:
   - id: edges
-    action: "Series-run detail carries each edge's kind (stacked / merge / unknown) from GreenReads.TipPerRepoAsync, the rule 31dca holds by."
+    action: "Series-run detail carries each edge's kind (stacked / merge / unknown) from GreenReads.StackPerRepoAsync (which replaced 97c2b's TipPerRepoAsync), the rule 31dca holds by."
   - id: draw
     action: "SVG graph component with layout from depth and lane; course filter."
 

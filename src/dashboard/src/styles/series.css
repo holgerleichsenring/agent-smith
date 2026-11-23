@@ -31,3 +31,37 @@
 .mock-tickets .sr-state.bad { color: var(--bad); }
 .mock-tickets .sr-talk { display: flex; flex-direction: column; gap: 12px; min-width: 0; background: transparent; }
 @media (max-width: 640px) { .mock-tickets .sr-tickets th:nth-child(2), .mock-tickets .sr-tickets td:nth-child(2) { display: none; } }
+/* 2026-11-23-31dcf: the Order and branches graph — repo lanes, depth columns, ticket frames by state and edges by what
+   they mean for the branches; the graph scrolls sideways inside its own box, never the page. */
+.mock-tickets .sr-order-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-3); }
+.mock-tickets .sr-order-tools select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-s); padding: 5px 8px; max-width: 100%; }
+.mock-tickets .sr-order-reset { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-s); padding: 5px 10px; cursor: pointer; }
+.mock-tickets .sr-order-reset:hover { background: var(--panel-2); }
+.mock-tickets .sr-order-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-3); }
+.mock-tickets .sr-order-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.mock-tickets .sr-edge-key { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--ink-2); }
+.mock-tickets .sr-edge-key.merge { border-top-style: dashed; border-top-color: var(--run); }
+.mock-tickets .sr-edge-key.unknown { border-top-style: dotted; border-top-color: var(--ink-3); }
+.mock-tickets .sr-edge-key.landed { border-top-color: var(--ok); }
+.mock-tickets .sr-frame-key { display: inline-block; width: 14px; height: 10px; border-radius: 3px; border: 1px solid var(--line); background: var(--panel); }
+.mock-tickets .sr-order-box { overflow-x: auto; border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--bg); max-width: 100%; }
+.mock-tickets .sr-order-graph { position: relative; }
+.mock-tickets .sr-order-graph svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+.mock-tickets .sr-lane { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line-2); }
+.mock-tickets .sr-lane:first-child { border-top: 0; }
+.mock-tickets .sr-lane span { position: absolute; left: 10px; top: 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.mock-tickets .sr-node { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 5px 8px; font: inherit; text-align: left; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-s); cursor: pointer; transition: opacity .15s; }
+.mock-tickets .sr-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mock-tickets .sr-node-id { max-width: 100%; font-family: var(--mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mock-tickets .sr-node-name { max-width: 100%; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mock-tickets .sr-node.waiting, .mock-tickets .sr-frame-key.waiting { border-color: var(--accent); }
+.mock-tickets .sr-node.next, .mock-tickets .sr-frame-key.next { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.mock-tickets .sr-node.question, .mock-tickets .sr-frame-key.question { border-color: var(--person); background: var(--person-wash); }
+.mock-tickets .sr-node.notStarted, .mock-tickets .sr-frame-key.notStarted { border-style: dashed; }
+.mock-tickets .sr-node.merged, .mock-tickets .sr-frame-key.merged { border-color: var(--ok); color: var(--ink-2); }
+.mock-tickets .sr-node.dim { opacity: .18; }
+.mock-tickets .sr-edge { fill: none; stroke-width: 1.6; stroke: var(--ink-2); opacity: .6; transition: opacity .15s; }
+.mock-tickets .sr-edge.merge { stroke: var(--run); stroke-dasharray: 5 4; opacity: .85; }
+.mock-tickets .sr-edge.unknown { stroke: var(--ink-3); stroke-dasharray: 1.5 4; stroke-linecap: round; }
+.mock-tickets .sr-edge.landed { stroke: var(--ok); opacity: .45; }
+.mock-tickets .sr-edge.dim { opacity: .06; }
