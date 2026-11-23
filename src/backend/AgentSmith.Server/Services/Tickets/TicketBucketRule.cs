@@ -81,7 +81,10 @@ public sealed class TicketBucketRule
     {
         ArgumentNullException.ThrowIfNull(state);
         if (hold is null) return state;
-        if (hold.Addressee == TicketHoldAddressees.Admin) return state with { Bucket = TicketBucket.Stuck, QueuePlace = null };
+        // 2026-11-23-31dci: an escalated wait is stuck since its wait began, the one Stuck it is — the day-old check reads
+        // only a failed head, and a wait's head has not failed.
+        if (hold.Addressee == TicketHoldAddressees.Admin)
+            return state with { Bucket = TicketBucket.Stuck, Since = hold.Since ?? state.Since, QueuePlace = null };
         if (!hold.IsPersons) return state;
         var kind = hold.Case switch
         {

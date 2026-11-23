@@ -87,6 +87,8 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
     case "merge_next": return { ...base, tone: "person", title: t("hold.title.merge_next") };
     case "starts_on_merge": return { ...base, tone: "person", title: t("hold.title.starts_on_merge") };
   }
+  // 2026-11-23-31dci: a wait that outlasted the configured minutes is no stop — the admin was told, nothing failed.
+  if (hold.escalation) return { ...base, tone: "amber", title: t("hold.title.escalated") };
   // The hold's sentence stays the text, as on every surface; the setting's instruction goes under it.
   if (hold.addressee === "admin" && endDetail?.subject)
     return { ...base, tone: "bad", why: true, title: t("hold.title.stuckOn", { subject: endDetail.subject }),

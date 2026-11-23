@@ -131,6 +131,23 @@ describe("AppSidebar", () => {
     holds.admin = false;
   });
 
+  // 2026-11-23-31dci: System → Needs attention's count sits on System in the profile menu, for an admin only.
+  it("Sidebar_SystemCountsTheAdminHolds_OnlyForAnAdmin", () => {
+    hoisted.tickets = list([], { needsYou: 0, adminHolds: 2, stuck: 2 });
+    holds.admin = true;
+    const admin = renderAt("/");
+    expect(screen.getByTestId("profile-attention-dot")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("profile-button"));
+    expect(screen.getByTestId("profile-system-count")).toHaveTextContent("2");
+    expect(screen.getByTestId("profile-system-count").className).toContain("hot");
+    admin.unmount();
+    holds.admin = false;
+    renderAt("/");
+    expect(screen.queryByTestId("profile-attention-dot")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("profile-button"));
+    expect(screen.queryByTestId("profile-system-count")).not.toBeInTheDocument();
+  });
+
   it("Sidebar_UnknownCounts_ShowNoNumber", () => {
     hoisted.tickets = null;
     hoisted.overview = null;

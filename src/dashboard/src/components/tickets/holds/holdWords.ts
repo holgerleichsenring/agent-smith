@@ -39,10 +39,39 @@ const KIND_OF_CASE: Partial<Record<TicketHold["case"], string>> = {
   image_untrusted: RUN_END_KINDS.imageUntrusted, bootstrap_missing: RUN_END_KINDS.bootstrapMissing, preflight: RUN_END_KINDS.preflight,
 };
 
-/** The hold's one sentence, from the hold alone — the same words on every surface; a stop quotes what it recorded. */
-export function holdSentence(hold: TicketHold, t: T = EN): string {
+/** 2026-11-23-31dci: "00:12" for a wait that began today, "21 Nov 00:12" for an older one — in the reader's clock. */
+export function sinceClock(iso: string, now: Date = new Date()): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  const time = at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (at.toDateString() === now.toDateString()) return time;
+  return `${at.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} ${time}`;
+}
+
+// 2026-11-23-31dci: the waits that say since when; a wait without a since keeps its plain sentence.
+const WAITS = new Set<TicketHold["case"]>(["model_wait", "queued", "resuming", "restarting", "prerequisite"]);
+
+/** 2026-11-23-31dci: a wait's clause with its since — "Waiting for the model since 00:12"; null when the hold is no wait
+ *  or carries no since. */
+export function waitClause(hold: TicketHold, t: T = EN, now: Date = new Date()): string | null {
+  if (!hold.since || !WAITS.has(hold.case)) return null;
+  const at = sinceClock(hold.since, now);
+  const n = hold.attempt ?? 0;
+  return hold.case === "prerequisite"
+    ? t("hold.wait.prerequisite", { names: namesOf(hold.names, t), count: hold.names.length, at })
+    : t(`hold.wait.${hold.case as "model_wait" | "queued" | "resuming" | "restarting"}`, { n, at });
+}
+
+/** The hold's one sentence, from the hold alone — the same words on every surface; a stop quotes what it recorded.
+ *  2026-11-23-31dci: a wait says since when and that nothing is to be done, and one that waited too long names the minutes
+ *  and the key it outlasted and that it was reported to the admin. */
+export function holdSentence(hold: TicketHold, t: T = EN, now: Date = new Date()): string {
   const n = hold.attempt ?? 0;
   const names = namesOf(hold.names, t);
+  const wait = waitClause(hold, t, now);
+  if (wait && hold.escalation)
+    return t("hold.escalated", { wait, minutes: hold.escalation.afterMinutes, key: hold.escalation.key });
+  if (wait) return t("hold.nobody", { wait });
   const said = told(KIND_OF_CASE[hold.case] ?? null, hold.detail ?? null, t);
   switch (hold.case) {
     case "image_untrusted":

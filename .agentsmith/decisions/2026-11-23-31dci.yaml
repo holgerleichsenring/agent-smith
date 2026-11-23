@@ -12,3 +12,33 @@ decisions:
     chose: "Admin holds on a System → Needs attention page with an admin-only sidebar count, besides Your move"
     over: "Your move only"
     reason: "An admin needs every admin hold across projects in one place, with the config key, not mixed into their own moves."
+  - category: Scope
+    decider: claude
+    chose: "Only the waits on something outside the run escalate: model_wait, queued, resuming (in the capacity queue) and restarting"
+    over: "Every nobody hold, working and prerequisite included"
+    reason: "The operator's reason is 'a wait that long means something outside the run is wrong'. A working attempt is bounded by its own wall time, a running prerequisite and a merge-after carry their own holds; escalating them would list every blocked series ticket as the admin's."
+  - category: Implementation
+    decider: claude
+    chose: "An escalated hold keeps its wait's case and gains escalation {afterMinutes, key}; one sentence names the wait, the minutes, the key and 'reported to the admin' for the admin and the person alike"
+    over: "A new escalated case; separate sentences per audience"
+    reason: "The case is what the ticket waits for; the escalation is why the admin holds it. One record, one sentence on every surface (31dcg)."
+  - category: Architecture
+    decider: claude
+    chose: "TicketHoldInputsReader reads the open model waits (ModelRunWaitClock.WaitingSinceAsync) and the capacity queue's arrivals (QueuedTicketRepository.EnqueuedAtAsync) once per read, with holds.escalate_after_minutes and the clock"
+    over: "A per-ticket read; a background job that stores escalations"
+    reason: "Both tables hold only what runs or waits now, so one read each stays bounded; escalation at read time needs no job and changes nothing at startup."
+  - category: Implementation
+    decider: claude
+    chose: "System → Needs attention reads the ticket list's AllAsync (GET /api/holds/admin, config.write, over the caller's runs.read projects); the count is the list's counts.adminHolds for an admin, on System in the profile menu, a dot on the avatar and the System nav"
+    over: "A second hold read; a separate count endpoint"
+    reason: "The page, Your move and the ticket row name one hold from one read; config.write is the admin permission 31dcg chose. System lives in the profile menu, so the dot is what makes the count visible without opening it."
+  - category: Implementation
+    decider: claude
+    chose: "A new top-level holds: block with its own Config Studio settings page"
+    over: "A field inside preconditions: or tickets:"
+    reason: "The spec names the key holds.escalate_after_minutes; a hold is neither a precondition nor a ticket-sync setting."
+  - category: Implementation
+    decider: claude
+    chose: "Review fixes: the route declares no project (config.write is global-only) and joins the route baseline; the ticket row and its dot show an escalated wait as a wait (its sentence, amber) instead of 'attempts failed' in red; the escalation moved to TicketHoldEscalations under the file-length rule; the holds block is a required ReadAsync argument; a reservation test queues minutes ago instead of three hours"
+    over: "Shipping as first built"
+    reason: "Adversarial review findings, each confirmed against the code or the suite. Left as named: a restart wait is aged from the server's stop, the counts refresh on the next hub event or read, and dates older than today read '21 Nov' in both languages."

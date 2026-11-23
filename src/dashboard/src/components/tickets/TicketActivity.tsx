@@ -3,7 +3,7 @@ import { useT } from "@/hooks/useT";
 import type { T } from "@/lib/i18n/translate";
 import { TICKET_CLOSED_TRACKER, type TicketPullRequest, type TicketSummary } from "@/types/tickets";
 import { age, causeWords, failedAttempts, outcomeWords } from "./ticketFormat";
-import { holdTag } from "./holds/holdWords";
+import { holdSentence, holdTag } from "./holds/holdWords";
 
 // 2026-10-13-9a59p: the mock's .act line — what the ticket is doing and why, written only from
 // fields the row carries. No step or pass (the spec ledger is per run), no "sandboxes released",
@@ -52,6 +52,8 @@ function partsOf(tr: T, t: TicketSummary): Array<ReactNode | null | false> {
     case "closed":
       return [closedWords(t)];
     case "stuck":
+      // 2026-11-23-31dci: a wait reported to the admin failed nothing — the row says what it waits for and that the admin knows.
+      if (t.hold?.escalation) return [<span key="e" className="aq">{holdSentence(t.hold, tr)}</span>];
       return [<span key="f" className="ab">{failed === 1 ? "1 attempt failed" : `${failed} attempts failed`}</span>, checked(t), ...pullRequests(t)];
     default:
       return [

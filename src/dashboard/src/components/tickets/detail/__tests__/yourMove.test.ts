@@ -140,4 +140,17 @@ describe("yourMove", () => {
     expect(actLabel({ kind: "tab", label: "Continue in conversation", tab: "conversation" }, true)).toBe("Answer the question");
     expect(actLabel({ kind: "tab", label: "Continue in conversation", tab: "conversation" }, false)).toBe("Reply below");
   });
+
+  // 2026-11-23-31dci: a wait reported to the admin is no stop — amber, titled so, with the hold's sentence.
+  it("YourMove_AnEscalatedWait_SaysItWasReportedToTheAdmin", () => {
+    const head = attempt({ status: "running", finishedAt: null });
+    const escalated = hold("queued", { addressee: "admin", since: "2026-11-23T00:12:00Z",
+      escalation: { afterMinutes: 60, key: "holds.escalate_after_minutes" } });
+    const move = moveOf("stuck", head, { hold: escalated });
+    expect(move.tone).toBe("amber");
+    expect(move.title).toBe("Reported to the admin");
+    expect(move.why).toBe(false);
+    expect(move.text).toContain("Reported to the admin.");
+    expect(move.text).toContain("holds.escalate_after_minutes");
+  });
 });

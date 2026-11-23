@@ -62,6 +62,8 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>().AddTransient<TicketRunEndingsReader>();
         services.AddScoped<PrReviewRecordRepository>().AddScoped<NamedPullRequestReader>();
         services.AddScoped<ReworkLedgerRepository>(); // 2026-10-13-8762v: the runway reads the ledger
+        // 2026-11-23-31dci: a hold reads since when a run waits for its model place and a ticket for sandbox capacity.
+        services.AddScoped<ModelRunWaitClock>().AddScoped<QueuedTicketRepository>();
         services.AddSingleton(Nudges.Object);
         // 2026-10-13-9a59h: the tracker, the configuration loader and the activity nudge are the check's and the
         // conversation's substitutes; the session store and the pull-request read port are real.

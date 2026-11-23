@@ -168,7 +168,7 @@ export type TicketHoldCase =
   | "question" | "question_plan" | "question_environment" | "handback" | "readiness_unknown" | "infrastructure" | "interrupted" | "criteria_unmet" | "failed" | "shortfall"
   | "text_edited"
   | "merge_next" | "starts_on_merge"
-  | "working" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite";
+  | "working" | "model_wait" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite";
 
 /** 2026-11-23-31dcg: the one act of a hold; the target is a run id (retry), a series id (merge, merge_next), a path
  *  (settings) or the project (init) (TicketHoldActs). 2026-11-23-31dch: a conversation with a series id is that series'. */
@@ -189,6 +189,29 @@ export interface TicketHold {
   names: string[];
   /** What a stop recorded about its cause, quoted by the sentence; null otherwise. */
   detail?: EndDetail | null;
+  /** 2026-11-23-31dci: a wait on nobody that outlasted the configured minutes and is the admin's now (TicketHoldEscalation). */
+  escalation?: TicketHoldEscalation | null;
+}
+
+/** 2026-11-23-31dci: why a wait is the admin's — it lasted longer than afterMinutes, the value of the config key `key`. */
+export interface TicketHoldEscalation {
+  afterMinutes: number;
+  key: string;
+}
+
+/** 2026-11-23-31dci: one ticket an admin's hold lies on, as System → Needs attention lists it (AdminHoldView). */
+export interface AdminHoldItem {
+  project: string;
+  ticketId: string;
+  ticketKey: string | null;
+  title: string | null;
+  since: string | null;
+  hold: TicketHold;
+}
+
+/** 2026-11-23-31dci: every admin hold across the projects the admin sees, the longest held first (AdminHoldsView). */
+export interface AdminHolds {
+  holds: AdminHoldItem[];
 }
 
 /** 2026-10-15-114fd: a person's close of a ticket as the server stored it (TicketClosedView). */

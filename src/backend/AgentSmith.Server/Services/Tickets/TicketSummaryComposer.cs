@@ -79,6 +79,7 @@ public sealed class TicketSummaryComposer(
             // A closed requirement never finishes: it is named by no "starts when it finishes".
             WaitsFor = [.. waits.Where(w => !w.StartsOnMerge && !w.Closed).Select(w => w.Key)],
             TextEdited = inputs.EditedOpen(row.Project, row.TicketId),
+            FiledAt = row.Since, EscalateAfterMinutes = inputs.EscalateAfterMinutes, Now = inputs.Now, // 31dci
         });
         var state = buckets.Held(new TicketBucketState(row.Bucket, row.Kind, row.Since, null, null, null, row.Landing), hold);
         return row with { Bucket = state.Bucket, Kind = state.Kind, Since = state.Since, Hold = hold };
@@ -106,6 +107,10 @@ public sealed class TicketSummaryComposer(
             SeriesId = inputs.SeriesOf(head.Project, head.TicketId), SeriesActive = inputs.InActiveSeries(head.Project, head.TicketId),
             MergeStep = inputs.StepOf(head.Project, head.TicketId),
             TextEdited = inputs.EditedOpen(head.Project, head.TicketId),
+            // 2026-11-23-31dci: since when it waits on nobody — a queued row is written when its entry enters the queue.
+            WaitingForModelSince = head.Status == RunStatuses.Running ? inputs.ModelWaitOf(head.Id) : null,
+            EnqueuedAt = inputs.EnqueuedOf(head.Project, head.TicketId) ?? (head.Status == RunStatuses.Queued ? head.StartedAt : null),
+            EscalateAfterMinutes = inputs.EscalateAfterMinutes, Now = inputs.Now,
         };
     }
 

@@ -45,6 +45,7 @@ const FIXED_PLACES: Record<string, string> = {
   "/system/chat": "Chat dispatchers",
   "/system/config": "Config file reads",
   "/system/catalog": "Skill catalog & vocabulary",
+  "/system/attention": "Needs attention", // 2026-11-23-31dci
   // The configuration subtree. A bare /config serves the first catalog kind, so it is
   // that kind's place — the header names what is on screen, not the area it belongs to.
   "/config": ENTITY_LABEL[ENTITY_KINDS[0]],

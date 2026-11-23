@@ -24,6 +24,9 @@ export function ticketDot(t: TicketSummary): TicketDotClass {
       // 2026-11-22-7103a: a head a person cancelled is no fault — grey, as its status line is.
       return t.lastOutcome === "cancelled" ? "idle" : "bad";
     case "stuck":
+      // 2026-11-23-31dci: a wait reported to the admin is still a wait — amber, running or queued, not stopped red.
+      if (t.hold?.escalation) return t.status === "running" ? "run" : "queued";
+      return "bad";
     case "pr_closed":
       return "bad";
     case "closed":

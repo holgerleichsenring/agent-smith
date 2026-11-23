@@ -35,7 +35,7 @@ const ADDRESSEE: Record<TicketHoldCase, TicketHold["addressee"]> = {
   question: "decide", question_plan: "plan", question_environment: "admin", handback: "decide", readiness_unknown: "decide", infrastructure: "decide", interrupted: "decide",
   criteria_unmet: "decide", failed: "decide", shortfall: "decide",
   text_edited: "plan", merge_next: "merge", starts_on_merge: "merge",
-  working: "nobody", queued: "nobody", resuming: "nobody", restarting: "nobody", merge_after: "nobody", retarget: "nobody",
+  working: "nobody", model_wait: "nobody", queued: "nobody", resuming: "nobody", restarting: "nobody", merge_after: "nobody", retarget: "nobody",
   prerequisite: "nobody",
 };
 

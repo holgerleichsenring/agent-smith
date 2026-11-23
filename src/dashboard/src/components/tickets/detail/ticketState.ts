@@ -74,7 +74,7 @@ function stateOf({ detail, liveEvents, series, t = translator("en") }: TicketSta
   if (hold && hold.addressee !== "nobody") return held(detail, head, hold, t);
   if (!head) return null;
   switch (summary.bucket) {
-    case "working": return working(detail, head, liveEvents, series);
+    case "working": return working(detail, head, liveEvents, series, t);
     case "waiting_on_review": return review(detail, head, hold, t);
     case "failed":
     case "stuck":
@@ -121,7 +121,7 @@ function held(detail: TicketDetail, head: TicketAttempt | null, hold: TicketHold
   const asking = asked && pending ? detail.attempts.find((a) => a.runId === pending.runId) ?? head : head;
   const person = hold.addressee === "merge" || hold.addressee === "plan" || hold.case === "question" || hold.case === "handback";
   const view: TicketStateView = {
-    ...base(asking), tone: person ? "person" : "bad", pill: hold.addressee, hold,
+    ...base(asking), tone: person ? "person" : hold.escalation ? "amber" : "bad", pill: hold.addressee, hold,
     sentence: holdSentence(hold, t), act: holdAct(detail, head, hold, t),
   };
   if (asked && pending) return { ...view, detail: pending.question.text };
@@ -173,14 +173,20 @@ function doneSentence(summary: TicketSummary, head: TicketAttempt): string {
     : "Done — marked done by hand.";
 }
 
-function working(detail: TicketDetail, head: TicketAttempt, events: RunEvent[], series: TicketSeries | null): TicketStateView {
+function working(
+  detail: TicketDetail, head: TicketAttempt, events: RunEvent[], series: TicketSeries | null, t: T,
+): TicketStateView {
   const place = detail.summary.queuePlace;
   const at = place != null ? ` — place ${place} in line` : "";
+  // 2026-11-23-31dci: a queued or resuming attempt says since when it waits, from its hold; its place goes under it.
+  const hold = detail.summary.hold;
+  const waiting = hold?.since && (hold.case === "queued" || hold.case === "resuming") ? holdSentence(hold, t) : null;
+  const placeLine = waiting && place != null ? `Place ${place} in line.` : null;
   if (head.status === "queued") {
-    return { ...base(head), quiet: true, tone: "amber", pill: "Queued", sentence: `Attempt ${head.number} waits in the queue${at}.` };
+    return { ...base(head), quiet: true, tone: "amber", pill: "Queued", sentence: waiting ?? `Attempt ${head.number} waits in the queue${at}.`, detail: placeLine };
   }
   if (head.status === "waiting_for_input") {
-    return { ...base(head), quiet: true, tone: "amber", pill: "Resuming", sentence: `Attempt ${head.number} is resuming${at}.` };
+    return { ...base(head), quiet: true, tone: "amber", pill: "Resuming", sentence: waiting ?? `Attempt ${head.number} is resuming${at}.`, detail: placeLine };
   }
   // 2026-11-22-50d7a: a run behind another run's model place is not working — the gate's line replaces "Now: <step>".
   const modelWait = currentModelWait(events);

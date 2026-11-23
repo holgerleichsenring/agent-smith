@@ -75,6 +75,11 @@ public sealed class QueuedTicketRepository(
             .ToDictionary(x => x.runId!, x => x.Position);
     }
 
+    /// <summary>2026-11-23-31dci: each queued ticket's arrival in the capacity queue (a retry keeps it), by (project, ticket id).</summary>
+    public async Task<IReadOnlyDictionary<(string Project, string TicketId), DateTimeOffset>> EnqueuedAtAsync(CancellationToken ct) =>
+        (await unitOfWork.Set<QueuedTicket>().AsNoTracking().Select(q => new { q.Project, q.TicketId, q.EnqueuedAt }).ToListAsync(ct))
+            .ToDictionary(q => (q.Project, q.TicketId), q => q.EnqueuedAt);
+
     private Task<QueuedTicket?> FindAsync(string project, string ticketId, CancellationToken ct) =>
         unitOfWork.Set<QueuedTicket>()
             .FirstOrDefaultAsync(q => q.Project == project && q.TicketId == ticketId, ct);

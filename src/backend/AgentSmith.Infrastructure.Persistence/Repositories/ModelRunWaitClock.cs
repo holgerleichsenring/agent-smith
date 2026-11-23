@@ -24,4 +24,13 @@ public sealed class ModelRunWaitClock(IUnitOfWork unitOfWork)
     /// <summary>2026-11-22-d434b: whether <paramref name="runId"/> waits for its model place now — its wait row is open.</summary>
     public Task<bool> IsWaitingAsync(string runId, CancellationToken ct) =>
         unitOfWork.Set<ModelRunWait>().AsNoTracking().AnyAsync(w => w.RunId == runId && w.WaitingSince != null, ct);
+
+    /// <summary>2026-11-23-31dci: since when each run waiting for its model place now has waited, by run id. A wait row
+    /// lives only while its run does, so the read is bounded by the running runs.</summary>
+    public async Task<IReadOnlyDictionary<string, DateTimeOffset>> WaitingSinceAsync(CancellationToken ct)
+    {
+        var open = await unitOfWork.Set<ModelRunWait>().AsNoTracking().Where(w => w.WaitingSince != null)
+            .Select(w => new { w.RunId, w.WaitingSince }).ToListAsync(ct);
+        return open.ToDictionary(w => w.RunId, w => w.WaitingSince!.Value, StringComparer.Ordinal);
+    }
 }

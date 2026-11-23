@@ -22,10 +22,11 @@ import type {
   SkillsSetting,
   SpecReviewSetting,
   TicketsSetting,
+  HoldsSetting,
 } from "@/lib/configApi";
 import { CheckField, DrawerSection, NumberField, TextField, keep, patcher } from "./formFields";
 import { SeriesForm, SpecReviewForm } from "./SeriesSettingsForms";
-import { BranchCleanupForm, PreconditionsForm } from "./SweepSettingsForms";
+import { BranchCleanupForm, HoldsForm, PreconditionsForm } from "./SweepSettingsForms";
 import { TicketsForm } from "./TicketsSettingsForm";
 import { SandboxImageTrustFields } from "./SandboxImageTrustFields";
 
@@ -109,6 +110,8 @@ export function SettingsForm({
       return <BranchCleanupForm value={value as BranchCleanupSetting} onChange={onChange} />;
     case "tickets":
       return <TicketsForm value={value as TicketsSetting} onChange={onChange} />;
+    case "holds":
+      return <HoldsForm value={value as HoldsSetting} onChange={onChange} />;
   }
 }
 

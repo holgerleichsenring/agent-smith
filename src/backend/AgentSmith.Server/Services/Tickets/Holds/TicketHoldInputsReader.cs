@@ -15,13 +15,17 @@ namespace AgentSmith.Server.Services.Tickets.Holds;
 /// read for the scope, and per project the series page's own set-based facts (<see cref="SeriesRunProjectReads"/>) and its
 /// merge order (<see cref="SeriesRunTickets"/>), so a ticket's merge hold is the order the series page shows; one ledger
 /// read for the open text edits. On a scope of its own: the readers that call it are transient.
+/// <para>2026-11-23-31dci: and one read each of the open model waits and the capacity queue's arrivals, both bounded by
+/// what runs or waits now, with <c>holds.escalate_after_minutes</c> and the clock the waits are aged by.</para>
 /// </summary>
-public sealed class TicketHoldInputsReader(IServiceScopeFactory scopes, InterruptedRestartWindow? restart = null)
+public sealed class TicketHoldInputsReader(
+    IServiceScopeFactory scopes, InterruptedRestartWindow? restart = null, TimeProvider? clock = null)
 {
+    /// <param name="holds">2026-11-23-31dci: the holds block; null reports no wait to the admin.</param>
     /// <param name="ticketId">One ticket's inputs (the ticket page); null for every ticket of the scope.</param>
     public async Task<TicketHoldInputs> ReadAsync(
         ProjectScope scope, IReadOnlyDictionary<string, ResolvedProject> configured, PreconditionsConfig? preconditions,
-        string? ticketId, CancellationToken ct)
+        HoldsConfig? holds, string? ticketId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(scope);
         ArgumentNullException.ThrowIfNull(configured);
@@ -29,7 +33,13 @@ public sealed class TicketHoldInputsReader(IServiceScopeFactory scopes, Interrup
         var (series, steps, active) = await SeriesAsync(services.ServiceProvider, scope, configured, ct);
         var edited = await EditedAsync(services.ServiceProvider, scope, ticketId, ct);
         var since = preconditions is null || restart is null ? null : restart.Since(preconditions);
-        return new TicketHoldInputs(series, steps, edited, since, active);
+        var waits = await services.ServiceProvider.GetRequiredService<ModelRunWaitClock>().WaitingSinceAsync(ct);
+        var enqueued = await services.ServiceProvider.GetRequiredService<QueuedTicketRepository>().EnqueuedAtAsync(ct);
+        return new TicketHoldInputs(series, steps, edited, since, active)
+        {
+            ModelWaits = waits, Enqueued = enqueued, EscalateAfterMinutes = holds?.EscalateAfterMinutes ?? 0,
+            Now = (clock ?? TimeProvider.System).GetUtcNow(),
+        };
     }
 
     // The newest series run that lists a ticket decides its series and its step; older ones it was in say nothing.
