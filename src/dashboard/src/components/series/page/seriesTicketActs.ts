@@ -5,6 +5,7 @@ import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { holdPullRequestHref, holdSeriesHref } from "../../tickets/holds/holdRoutes";
 import { holdRowAct, holdSentence, namesOf } from "../../tickets/holds/holdWords";
+import { mergesWhenGreen, seriesMergeSaid } from "./seriesCiState";
 import { waitingPullRequests, type SeriesNodeKind } from "./seriesNodeKind";
 
 // 2026-11-23-f562: what the Overview says about one ticket and what can be done with it — the sentence why it has its
@@ -39,7 +40,19 @@ export function seriesNodeSentence(ticket: SeriesRunTicket, detail: SeriesRunDet
   const draft = kind === "now" && waitingPullRequests(ticket.pullRequests).some((pr) => pr.isDraft) ? t("series.merge.draftFirst") : null;
   const needed = detail.mergeOrder.find((step) => step.ticketId === ticket.ticketId)?.neededBy ?? [];
   const lead = kind === "needed" ? t("series.merge.needed", { names: namesOf(t, needed), count: needed.length }) : null;
-  return [lead, said, draft].filter(Boolean).join(" ");
+  // 2026-11-23-0219: what the last merge run said when it did not merge, and why Merge when green cannot arm here.
+  const told = seriesMergeSaid(ticket);
+  const mergeSaid = told?.status === "completion_refused" ? t("series.merge.said.refused", { reason: told.reason ?? "" })
+    : told?.status === "completion_armed" ? t("series.merge.said.armed") : null;
+  const arms = mergesWhenGreen(detail, ticket) && !detail.mergeArms ? t("series.merge.whenGreenNeeds") : null;
+  return [lead, said, draft, mergeSaid, arms].filter(Boolean).join(" ");
+}
+
+// 2026-11-23-0219: a ready step whose CI runs or has not started merges once green — the run re-queues a build that has not
+// started and arms the host's auto-complete, which needs respect_branch_protection; without it the act names the key.
+function whenGreenAct(detail: SeriesRunDetail, t: T): SeriesAct {
+  return { id: "merge", kind: "merge", label: t("series.merge.whenGreen"), tone: "primary",
+    disabledBy: detail.mergeArms ? undefined : t("series.merge.whenGreenNeeds") };
 }
 
 /** The ticket's acts by its colour, in the order they are drawn. lacks: the viewer has no runs.control (no Merge, no Retry). */
@@ -50,7 +63,10 @@ export function seriesTicketActs(ticket: SeriesRunTicket, detail: SeriesRunDetai
   const conversation: SeriesAct = { id: "conversation", kind: "link", href: talk, label: t("series.act.conversation") };
   const run = ticket.runId ?? null;
   const acts: SeriesAct[] = [];
-  if ((kind === "now" || kind === "needed" || kind === "pr") && !lacks)
+  const ciWaitHold = ticket.hold?.case === "ci_running" || ticket.hold?.case === "ci_not_started";
+  const whenGreen = (kind === "pr" || kind === "needed" || (kind === "failed" && ciWaitHold)) && mergesWhenGreen(detail, ticket);
+  if (whenGreen && !lacks) acts.push(whenGreenAct(detail, t));
+  else if ((kind === "now" || kind === "needed" || kind === "pr") && !lacks)
     acts.push({ id: "merge", kind: "merge", label: t("series.merge.button"), tone: kind === "now" ? "primary" : undefined,
       disabledBy: kind === "now" ? undefined : seriesNodeSentence(ticket, detail, kind, t) });
   if (kind === "question") {

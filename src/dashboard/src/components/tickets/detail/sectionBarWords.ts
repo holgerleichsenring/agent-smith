@@ -42,5 +42,7 @@ export function ciWords(t: T, pullRequests: readonly TicketPullRequest[]): strin
     const names = red.flatMap((c) => c.failures.map((f) => f.name));
     return names.length > 0 ? t("tickets.bar.ciRedNames", { names: [...new Set(names)].join(", ") }) : t("tickets.bar.ciRed");
   }
+  // 2026-11-23-0219: a required build that never started is no green CI and no running one.
+  if (read.some((c) => c.state === "not_started")) return t("tickets.bar.buildNotStarted");
   return read.some((c) => c.state === "pending") ? t("tickets.bar.ciPending") : t("tickets.bar.ciGreen");
 }

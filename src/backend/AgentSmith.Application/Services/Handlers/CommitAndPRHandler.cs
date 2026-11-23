@@ -40,7 +40,8 @@ public sealed class CommitAndPRHandler(
     Structure.StructureDivergencePublisher divergences,
     CodePullRequestBanner banners,
     SeriesChunkStop chunkStop,
-    ILogger<CommitAndPRHandler> logger)
+    ILogger<CommitAndPRHandler> logger,
+    PullRequestBuildRequeue? requeue = null)
     : ICommandHandler<CommitAndPRContext>
 {
     // p0234: the run record (plan.md / result.md / decisions.md / context.yaml)
@@ -359,6 +360,11 @@ public sealed class CommitAndPRHandler(
         // verified. Only a complete, green run takes it out of draft — a stopped sequence
         // stays unmergeable by construction, which is the whole point of opening it early.
         var ready = !isDraft && await provider.MarkPullRequestReadyAsync(prUrl, ct);
+        // 2026-11-23-0219: a green run whose pull request stays a draft is a delivery nobody can merge — said loudly, and a
+        // published one gets the required builds the host did not start on the draft (Azure runs none on a draft).
+        if (!isDraft && !ready)
+            logger.LogWarning("{Repo}: {Url} stays a draft — the host did not take it out of draft", repoName, prUrl);
+        if (ready && requeue is not null) await requeue.RequeueAsync(provider, prUrl, ct);
         logger.LogInformation(
             "{Repo}: reusing the PR opened earlier on this branch {Url} "
             + "(body updated: {Updated}, ready for review: {Ready})",

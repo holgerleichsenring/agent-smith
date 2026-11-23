@@ -77,6 +77,9 @@ export function holdSentence(t: T, hold: TicketHold, now: Date = new Date()): st
   // 2026-11-23-849e: a CI that ran past the minutes is a hung pipeline — the sentence says how long and what to check.
   if (hold.case === "ci_running" && hold.escalation && hold.since)
     return t("hold.escalated.ci_running", { duration: durationOf(hold.since, now), minutes: hold.escalation.afterMinutes, key: hold.escalation.key });
+  // 2026-11-23-0219: a required build that never started, past the minutes, is reported the same way.
+  if (hold.case === "ci_not_started" && hold.escalation && hold.since)
+    return t("hold.escalated.ci_not_started", { duration: durationOf(hold.since, now), minutes: hold.escalation.afterMinutes, key: hold.escalation.key });
   if (wait && hold.escalation)
     return t("hold.escalated", { wait, minutes: hold.escalation.afterMinutes, key: hold.escalation.key });
   if (wait) return t("hold.nobody", { wait });

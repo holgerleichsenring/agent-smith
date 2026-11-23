@@ -30,6 +30,20 @@ public sealed class RetargetPullRequestsHandlerTests
         _provider.Verify(p => p.RetargetPullRequestAsync(Url, new BranchName("main"), default), Times.Once);
     }
 
+    // 2026-11-23-0219: the new base's required build may not start by itself — a moved pull request's not-started builds
+    // are queued again; one left where it is is not touched.
+    [Fact]
+    public async Task Retarget_AMovedPullRequest_RequeuesItsNotStartedBuilds()
+    {
+        var requeuer = _provider.As<AgentSmith.Contracts.Reviews.IPullRequestBuildRequeuer>();
+        _provider.Setup(p => p.ReadPullRequestBaseAsync(Url, default)).ReturnsAsync("agent-smith/41");
+        _provider.Setup(p => p.RetargetPullRequestAsync(Url, new BranchName("main"), default)).ReturnsAsync(true);
+
+        await RunAsync();
+
+        requeuer.Verify(r => r.RequeueNotStartedAsync(Url, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task Retarget_APullRequestSomeoneMovedMeanwhile_IsLeft()
     {
@@ -60,6 +74,7 @@ public sealed class RetargetPullRequestsHandlerTests
         pipeline.Set(ContextKeys.ActOutcome, slot);
         var sources = new Mock<ISourceProviderFactory>();
         sources.Setup(s => s.Create(It.IsAny<RepoConnection>())).Returns(_provider.Object);
-        return (await new RetargetPullRequestsHandler(sources.Object).ExecuteAsync(new RetargetPullRequestsContext(pipeline, _project), default), slot);
+        var requeue = new PullRequestBuildRequeue(sources.Object, Microsoft.Extensions.Logging.Abstractions.NullLogger<PullRequestBuildRequeue>.Instance);
+        return (await new RetargetPullRequestsHandler(sources.Object, requeue).ExecuteAsync(new RetargetPullRequestsContext(pipeline, _project), default), slot);
     }
 }

@@ -9,6 +9,14 @@ public static class CiStates
     /// <summary>Something still runs and nothing has failed.</summary>
     public const string Pending = "pending";
 
+    /// <summary>2026-11-23-0219: nothing failed, and a deciding build has not started on the head and will not by itself — it
+    /// has to be queued again.</summary>
+    public const string NotStarted = "not_started";
+
+    /// <summary>2026-11-23-0219: the CI has no verdict yet — it runs (<see cref="Pending"/>) or has not started
+    /// (<see cref="NotStarted"/>).</summary>
+    public static bool Waits(string? state) => state is Pending or NotStarted;
+
     /// <summary>Every deciding check passed.</summary>
     public const string Green = "green";
 

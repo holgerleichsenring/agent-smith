@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-0219
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "Azure's open-PR lookup searches by source branch alone, as GitHub and GitLab do; the TF401179 already-exists path takes the found draft out of draft when the caller asked for a ready PR"
+    over: "Searching by the run's target; marking ready from the PR record refresh (8d16's open choice)"
+    reason: "Proven cause of the stuck drafts: the lookup filtered on the default branch, a stacked draft targets its prerequisite's branch, so CommitAndPR re-created it, got the draft's URL back and never asked ready (prod: no ready line for the stacked runs of PRs 9986, 9988, 9991; CommitAndPRStackedDraftTests fails on the old provider). A refresh-side mark would be a server write."
+  - category: Scope
+    decider: claude
+    chose: "A spec a person stopped but whose run otherwise delivers keeps marking its PR ready (run 2026-11-22T22-58-27-c7db, PR 9990) — left as it is and named for the operator"
+    over: "Treating a stopped spec as not delivered in CommitAndPR"
+    reason: "c8e2c decided the master's report outcome is shown, never acted on; changing it is the operator's choice, not this fix's. Not proven from the run's trail (no prod access)."
+  - category: Architecture
+    decider: claude
+    chose: "A CI state not_started (CiStates.NotStarted, CiCheckOutcome.NotStarted) for an expired build-policy evaluation or one queued with no build on the head; red > not_started > pending > green; every pending reader treats it as waiting (CiStates.Waits)"
+    over: "A flag beside pending; counting NotApplicable as not started"
+    reason: "It replaces part of what pending meant, so no second path: the same column and verdict, one more value. NotApplicable means the policy does not apply (path filter) and would block merges forever. A verdict on an older head stays pending: Azure is about to re-run it."
+  - category: Architecture
+    decider: claude
+    chose: "IPullRequestBuildRequeuer (Azure: RequeuePolicyEvaluation of each required not-started evaluation, by the CI read's own rule) through PullRequestBuildRequeue, called only inside pipeline steps: CommitAndPR and SpecOnlyPullRequests after marking ready, the retarget run after a move, a person's merge after the draft step"
+    over: "Re-queuing from the server's CI loop"
+    reason: "Everything that writes is a pipeline step (ServerWritesRatchetTests). Known risk named: right after a publish Azure may not have attached its own build yet, so a re-queue can start a second build; a duplicate build is cheaper than a build that never runs."
+  - category: Scope
+    decider: operator
+    chose: "While CI runs or has not started, the series Merge is 'Merge when CI is green': the merge-green run re-queues, approves and arms auto-complete under respect_branch_protection; without it the act and the row name merge.respect_branch_protection and Config → Project → Merge; red stays refused"
+    over: "849e's Merge disabled while CI is pending"
+    reason: "Operator, 2026-11-23. Bypass would complete past a running CI, so only Respect arms."
+  - category: Implementation
+    decider: claude
+    chose: "The hold case ci_not_started: nobody's, escalating like ci_running, with its own sentence and escalated sentence; the series node keeps its colour and gains badges (Draft, Build not started, CI running, CI red)"
+    over: "A person's hold for a build that never started"
+    reason: "Outside a series nothing can merge while CI waits; the series row offers the act. A wait past holds.escalate_after_minutes reaches the admin as a hung CI does."
+  - category: Scope
+    decider: operator
+    chose: "A merge the host refused stays on the series Overview: the detail reads the newest merge-green run's repo row per PR URL (PullRequestMergeSaidReader) — refused with its reason, or armed — hidden once the PR's head moved after it"
+    over: "Only the click's transient answer; a new column on the PR record"
+    reason: "Operator, 2026-11-23: the Overview showed nothing after the click. A person's refusal is marked on its own run only (31dce), and that row already holds it; no migration."
+  - category: Implementation
+    decider: claude
+    chose: "Review fixes: the ticket bar says 'build not started'; the escalated ci_not_started sentence; deploy follow waits on not_started; only required evaluations re-queued; Merge when green only on pr/needed nodes or an escalated CI wait; the action list's quiet count leaves out the when-green rows and their header follows mergeArms; a refusal before a head move is not shown; German wording"
+    over: "Shipping as first built"
+    reason: "Fresh-reviewer findings confirmed against the code. Left as named: the lookup takes the first active PR from the branch when several exist; the create path's TF401179 mark-ready does not re-queue."

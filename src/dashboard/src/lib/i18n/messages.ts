@@ -932,6 +932,26 @@ export const coreMessages = {
     en: { one: "Needed so {names} can start.", other: "Needed so {names} can start." },
     de: { one: "Nötig, damit {names} starten kann.", other: "Nötig, damit {names} starten können." },
   },
+  // 2026-11-23-0219: what the host says about a ticket's pull requests, Merge when CI is green, and the last merge run's word.
+  "series.badge.draft": { en: "Draft", de: "Entwurf" },
+  "series.badge.ciNotStarted": { en: "Build not started", de: "Build nicht gestartet" },
+  "series.badge.ciRunning": { en: "CI running", de: "CI läuft" },
+  "series.badge.ciRed": { en: "CI red", de: "CI rot" },
+  "series.merge.whenGreen": { en: "Merge when CI is green", de: "Mergen, sobald die CI grün ist" },
+  "series.merge.whenGreenNeeds": {
+    en: "Merging before CI is green arms the host's auto-complete, which needs merge.respect_branch_protection: true (Config → Project → Merge).",
+    de: "Mergen vor grüner CI aktiviert das Auto-Complete des Hosts, und das braucht merge.respect_branch_protection: true (Config → Project → Merge).",
+  },
+  "series.merge.said.refused": { en: "The last merge was refused: {reason}", de: "Der letzte Merge wurde abgelehnt: {reason}" },
+  "series.merge.said.armed": {
+    en: "The merge is armed: the host completes it once CI is green.",
+    de: "Der Merge ist vorgemerkt: der Host schließt ihn ab, sobald die CI grün ist.",
+  },
+  "series.todo.whenGreen": {
+    en: "Ready once CI is green — merge now and the host completes it",
+    de: "Bereit, sobald die CI grün ist — merge jetzt, der Host schließt ab",
+  },
+  "series.todo.whenGreenUnarmed": { en: "Ready once CI is green", de: "Bereit, sobald die CI grün ist" },
   "series.merge.draftFirst": {
     en: "It is still a draft; merging takes it out of draft first.",
     de: "Er ist noch ein Entwurf; der Merge nimmt ihn zuerst aus dem Entwurf.",
@@ -1067,6 +1087,15 @@ export const coreMessages = {
     de: "Auf seinem Pull Request läuft die CI. Für dich gibt es nichts zu tun.",
   },
   "hold.wait.ci_running": { en: "CI has been running since {at}", de: "Die CI läuft seit {at}" },
+  // 2026-11-23-0219: a required build that never started is no wait — it does not start by itself.
+  "hold.sentence.ci_not_started": {
+    en: "The required build has not started on its pull request and will not start by itself: queue it on the host, or merge it from its series once CI is green.",
+    de: "Der Pflicht-Build ist auf seinem Pull Request nicht gestartet und startet nicht von selbst: stoß ihn auf dem Host an oder merge ihn aus seiner Serie, sobald die CI grün ist.",
+  },
+  "hold.escalated.ci_not_started": {
+    en: "The required build has not started for {duration}: queue it on the host. Longer than {minutes} minutes ({key}), reported to the admin.",
+    de: "Der Pflicht-Build ist seit {duration} nicht gestartet: stoß ihn auf dem Host an. Länger als {minutes} Minuten ({key}), an den Admin gemeldet.",
+  },
   "hold.title.merge_ready": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
   "hold.title.ci_failed": { en: "Your move: CI failed", de: "Du bist dran: die CI ist fehlgeschlagen" },
   "hold.act.pull_request": { en: "Open the pull request", de: "Pull Request öffnen" },

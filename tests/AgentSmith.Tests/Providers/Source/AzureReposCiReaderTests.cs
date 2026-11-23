@@ -79,6 +79,55 @@ public sealed class AzureReposCiReaderTests
         (await ReadAsync()).State.Should().Be(CiStates.Pending);
     }
 
+    // 2026-11-23-0219: Azure queues nothing on a draft, and a published or retargeted pull request may wait so — an expired
+    // evaluation or one queued with no build on the head has not started; a running build, or a queued build of the head, runs.
+    [Fact]
+    public async Task ExpiredOrQueuedWithoutABuild_IsNotStarted_ARunningOrQueuedHeadBuild_IsPending()
+    {
+        var expired = Evaluation(PolicyEvaluationStatus.Approved);
+        expired.Context!["isExpired"] = true;
+        Evaluations(expired);
+        (await ReadAsync()).State.Should().Be(CiStates.NotStarted);
+
+        var queued = Evaluation(PolicyEvaluationStatus.Queued);
+        queued.Context!.Remove("buildId");
+        Evaluations(queued);
+        (await ReadAsync()).State.Should().Be(CiStates.NotStarted);
+
+        Evaluations(Evaluation(PolicyEvaluationStatus.Queued));
+        (await ReadAsync()).State.Should().Be(CiStates.Pending, "build 55 ran the head and is queued in the pool");
+    }
+
+    [Fact]
+    public async Task QueuedWithABuildOfAnOlderHead_IsNotStarted()
+    {
+        _build.Setup(c => c.GetBuildAsync(ProjectId, 55, It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Build { Id = 55, TriggerInfo = { ["pr.sourceSha"] = "older" } });
+        Evaluations(Evaluation(PolicyEvaluationStatus.Queued));
+
+        (await ReadAsync()).State.Should().Be(CiStates.NotStarted);
+    }
+
+    [Fact]
+    public async Task Requeue_QueuesOnlyTheEvaluationsThatHaveNotStarted()
+    {
+        var notStarted = Evaluation(PolicyEvaluationStatus.Queued);
+        notStarted.Context!.Remove("buildId");
+        notStarted.EvaluationId = Guid.NewGuid();
+        var running = Evaluation(PolicyEvaluationStatus.Running);
+        running.EvaluationId = Guid.NewGuid();
+        Evaluations(notStarted, running);
+        var queued = new List<Guid>();
+
+        var count = await new AzureReposBuildRequeue(_ => Task.FromResult(_git.Object), (_, _, _) => Task.FromResult(_evaluations),
+                (_, id, _) => { queued.Add(id); return Task.CompletedTask; }, _ => Task.FromResult(_build.Object),
+                "demo", "sample-server", "https://dev.azure.com/example", Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance)
+            .RequeueAsync(PrUrl, CancellationToken.None);
+
+        count.Should().Be(1);
+        queued.Should().Equal(notStarted.EvaluationId);
+    }
+
     [Fact]
     public async Task FailedStatusOfTheLatestIteration_IsRed_AnOlderIterationsIsIgnored()
     {

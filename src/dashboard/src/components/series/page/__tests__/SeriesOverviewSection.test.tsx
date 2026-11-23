@@ -41,6 +41,26 @@ const open = async (ticketId: string) => {
 };
 
 describe("SeriesOverviewSection", () => {
+  // 2026-11-23-0219: a ready merge whose required build has not started is listed with its badges and Merge when CI is green,
+  // which posts the one merge; the draft badge shows on a draft.
+  it("Overview_ABuildNotStarted_ListsMergeWhenGreen_WithItsBadges_AndMergePostsTheMerge", async () => {
+    const detail = { ...overviewDetail(), mergeArms: true };
+    const at = detail.tickets.findIndex((ticket) => ticket.ticketId === "50");
+    detail.tickets[at] = { ...detail.tickets[at], hold: { ...detail.tickets[at].hold!, case: "ci_not_started", addressee: "nobody", act: null },
+      pullRequests: detail.tickets[at].pullRequests.map((pr) => ({ ...pr, ci: "not_started", isDraft: true })) };
+    detail.mergeOrder = detail.mergeOrder.map((step) => (step.ticketId === "50" ? { ...step, neededBy: [] } : step));
+    hoisted.fetch.mockResolvedValue(detail);
+    render(<SeriesRunPage id="sr-1" />);
+
+    const row = await screen.findByTestId("series-row-50");
+    expect(screen.getByTestId("series-list-when-green")).toBeTruthy();
+    expect([...within(row).getByTestId("series-badges-50").querySelectorAll("[data-badge]")].map((b) => b.textContent))
+      .toEqual(["Draft", "Build not started"]);
+    fireEvent.click(within(row).getByTestId("series-row-merge-50"));
+    await waitFor(() => expect(hoisted.merge).toHaveBeenCalledWith("sr-1", "50"));
+    expect(within(row).getByTestId("series-row-merge-50").textContent).not.toBe("Merge");
+  });
+
   it("Overview_EachNode_HasOneColour_AndTheLegendNamesEveryColour", async () => {
     render(<SeriesRunPage id="sr-1" />);
     const kinds = Object.fromEntries((await screen.findAllByTestId(/^series-node-/)).map((n) => [n.dataset.testid, n.dataset.kind]));

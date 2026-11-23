@@ -35,6 +35,18 @@ public sealed class TicketOpenPullRequestHoldTests
         _reader.Of(Facts(Open(CiStates.None)))!.Case.Should().Be(TicketHoldCases.MergeReady);
     }
 
+    // 2026-11-23-0219: a required build that has not started is its own wait, apart from one that runs, and escalates alike.
+    [Fact]
+    public void Of_ABuildNotStarted_IsNobodysCiNotStarted_NotAMerge()
+    {
+        var hold = _reader.Of(Facts(Open(CiStates.NotStarted, T.AddMinutes(3))))!;
+
+        (hold.Addressee, hold.Case, hold.Since).Should().Be(
+            (TicketHoldAddressees.Nobody, TicketHoldCases.CiNotStarted, (DateTimeOffset?)T.AddMinutes(3)));
+        TicketHoldEscalations.Escalating(TicketHoldCases.CiNotStarted).Should().BeTrue();
+        TicketPullRequestHold.CiHolds(Facts(Open(CiStates.NotStarted))).Should().BeTrue();
+    }
+
     [Fact]
     public void Of_ASeriesPullRequestNextInOrder_KeepsTheSeriesMerge()
     {

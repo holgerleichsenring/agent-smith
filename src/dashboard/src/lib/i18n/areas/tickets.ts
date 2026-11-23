@@ -5,6 +5,8 @@ import type { MessageEntry } from "../messages";
 
 export const ticketsMessages = {
   // --- tickets: shared row words (ticketFormat) ---
+  "tickets.deploy.buildNotStarted": { en: "build not started", de: "Build nicht gestartet" },
+  "tickets.bar.buildNotStarted": { en: "build not started", de: "Build nicht gestartet" },
   "tickets.age.minutes": { en: "{n}m", de: "{n} Min." },
   "tickets.age.hours": { en: "{n}h", de: "{n} Std." },
   "tickets.age.days": { en: "{n}d", de: "{n} Tg." },

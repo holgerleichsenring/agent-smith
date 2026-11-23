@@ -61,6 +61,7 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton(Config);
         services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>().AddTransient<TicketRunEndingsReader>();
         services.AddScoped<PrReviewRecordRepository>().AddScoped<NamedPullRequestReader>();
+        services.AddScoped<PullRequestMergeSaidReader>(); // 2026-11-23-0219: the series detail reads the merge runs' word
         services.AddScoped<ReworkLedgerRepository>(); // 2026-10-13-8762v: the runway reads the ledger
         // 2026-11-23-31dci: a hold reads since when a run waits for its model place and a ticket for sandbox capacity.
         services.AddScoped<ModelRunWaitClock>().AddScoped<QueuedTicketRepository>();

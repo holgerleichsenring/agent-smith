@@ -3,6 +3,8 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Series;
 using AgentSmith.Application.Services.TicketActs;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -31,7 +33,7 @@ public sealed class SeriesMergeNextAct(
             return TicketCloseResult.Refuse(Status404NotFound, $"{ticketId} is not a ticket of this series.");
         if (series.MergeOrder.FirstOrDefault(s => s.TicketId == ticketId) is not { } step)
             return TicketCloseResult.Refuse(Status409Conflict, $"{ticket.Key} has no open pull request to merge.");
-        if ((NotNext(step) ?? CiHolds(ticket)) is { } why) return TicketCloseResult.Refuse(Status409Conflict, why);
+        if ((NotNext(step) ?? CiHolds(ticket, project.Merge)) is { } why) return TicketCloseResult.Refuse(Status409Conflict, why);
         if (await attempts.LatestAsync(project.Name, ticketId, null, ct) is not { } attempt)
             return TicketCloseResult.Refuse(Status409Conflict, $"{ticket.Key} has no attempt whose pull requests could merge.");
         return await RunAsync(project, ticket, Request(ticket, attempt.RunId, askedBy), ct);
@@ -54,15 +56,20 @@ public sealed class SeriesMergeNextAct(
             : TicketCloseResult.Refuse(Status500InternalServerError, $"{ticket.Key} was not merged: the merge run ended before its merge step.");
     }
 
-    /// <summary>2026-11-23-849e: the ready step's CI still runs or is red — the hold's rule (no merge offered), so the act
-    /// refuses what the page no longer offers; null when every waiting pull request's CI is green, none or unread.</summary>
-    internal static string? CiHolds(SeriesRunTicketView ticket)
+    /// <summary>2026-11-23-849e: the ready step's CI is red — the act refuses what the page does not offer. 2026-11-23-0219: a
+    /// CI that runs or has not started merges when green — the merge-green run re-queues a build that has not started, approves
+    /// and arms the host's auto-complete, which only <c>respect_branch_protection: true</c> does; without it the act refuses and
+    /// names the key. Null when the merge may go ahead.</summary>
+    internal static string? CiHolds(SeriesRunTicketView ticket, MergePolicyConfig merge)
     {
         ArgumentNullException.ThrowIfNull(ticket);
+        ArgumentNullException.ThrowIfNull(merge);
         var waiting = ticket.PullRequests.Where(SeriesRunPullRequests.Waits).ToList();
-        if (waiting.Any(p => p.Ci == AgentSmith.Contracts.Reviews.CiStates.Red)) return $"{ticket.Key} is not merged: its CI is red.";
-        return waiting.Any(p => p.Ci == AgentSmith.Contracts.Reviews.CiStates.Pending)
-            ? $"{ticket.Key} is not merged yet: its CI is still running." : null;
+        if (waiting.Any(p => p.Ci == CiStates.Red)) return $"{ticket.Key} is not merged: its CI is red.";
+        if (merge.RespectBranchProtection || !waiting.Any(p => CiStates.Waits(p.Ci))) return null;
+        var why = waiting.Any(p => p.Ci == CiStates.NotStarted) ? "its required build has not started" : "its CI is still running";
+        return $"{ticket.Key} is not merged yet: {why}, and merging once it is green arms the host's auto-complete, which needs "
+            + $"merge.{BypassRefusal.Key}: true (Config → Project → Merge).";
     }
 
     /// <summary>Why a step of the merge order is not the one to merge now; null when it is.</summary>

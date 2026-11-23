@@ -23,7 +23,8 @@ export function deployStanding(t: T, r: DeployRecordView): string {
   const where = r.delivery === "pipeline_trigger" ? ci
     : t("tickets.deploy.prStanding", {
       pr: PR_STATE[pr] ? t(PR_STATE[pr]) : pr,
-      ci: CI_STATE[r.ciState] ? t(CI_STATE[r.ciState]) : r.ciState,
+      ci: r.ciState === "not_started" ? t("tickets.deploy.buildNotStarted") // 2026-11-23-0219
+        : CI_STATE[r.ciState] ? t(CI_STATE[r.ciState]) : r.ciState,
     });
   return r.settledAt ? t("tickets.deploy.settled", { where }) : t("tickets.deploy.followed", { where });
 }
