@@ -15,6 +15,7 @@ const CASES: TicketHoldCase[] = [
   "image_untrusted", "bootstrap_missing", "preflight", "question", "question_plan", "question_environment", "handback", "readiness_unknown", "infrastructure", "interrupted",
   "criteria_unmet", "failed", "shortfall", "text_edited", "merge_next", "starts_on_merge", "working", "model_wait", "queued", "resuming",
   "restarting", "merge_after", "retarget", "prerequisite", "merge_ready", "ci_failed", "ci_running",
+  "ci_not_started",
 ];
 
 describe("holdWords", () => {
@@ -34,6 +35,14 @@ describe("holdWords", () => {
 
   // 2026-11-23-849e: the series' one merge says what merging unblocks and that it approves; a ticket that starts on merges
   // says how many it waits for and which is next; a CI that ran past the minutes says how long and what to check.
+  // 2026-11-23-0219: a required build that never started, past the minutes, names how long and the key.
+  it("holdSentence_ABuildNotStartedPastTheMinutes_IsReportedWithTheKey", () => {
+    const since = new Date(Date.now() - 3 * 3600_000).toISOString();
+    const said = holdSentence(hold("ci_not_started", { addressee: "admin", since, escalation: { afterMinutes: 60, key: "holds.escalate_after_minutes" } }));
+    expect(said).toContain("The required build has not started for");
+    expect(said).toContain("holds.escalate_after_minutes");
+  });
+
   it("holdSentence_TheSeriesMerge_TheMergesAStartWaitsFor_AndAHungCi", () => {
     const merge = hold("merge_next", { next: "#19649", names: ["#19662", "#19665"], approves: true });
     expect(holdSentence(merge)).toBe("Its pull request is next in the series' merge order. #19649 is next after it. Needed so "

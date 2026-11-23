@@ -3,7 +3,8 @@ namespace AgentSmith.Contracts.Reviews;
 /// <summary>
 /// 2026-11-17-3435a: the one rule every provider decides a head by. Where the host marks checks required, only those
 /// decide, so a failing optional check never starts a fix; any failed check is red even while others run, so a fix
-/// starts on the first evidence; else anything running is pending; else any check is green; no check is none.
+/// starts on the first evidence; else a build that has not started is not_started (2026-11-23-0219: nothing finishes it by itself);
+/// else anything running is pending; else any check is green; no check is none.
 /// </summary>
 public static class CiVerdict
 {
@@ -13,6 +14,7 @@ public static class CiVerdict
         var deciding = Deciding(checks);
         if (deciding.Count == 0) return CiStates.None;
         if (deciding.Any(c => c.Outcome == CiCheckOutcome.Failed)) return CiStates.Red;
+        if (deciding.Any(c => c.Outcome == CiCheckOutcome.NotStarted)) return CiStates.NotStarted; // 2026-11-23-0219
         return deciding.Any(c => c.Outcome == CiCheckOutcome.Pending) ? CiStates.Pending : CiStates.Green;
     }
 

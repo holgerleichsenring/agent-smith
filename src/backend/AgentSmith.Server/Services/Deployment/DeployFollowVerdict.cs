@@ -20,7 +20,7 @@ public static class DeployFollowVerdict
         ArgumentNullException.ThrowIfNull(merge);
         var ended = record.PipelineRunId is not null || PrReviewStates.IsEnded(record.PullRequestState ?? string.Empty);
         if (!ended) return (false, null);
-        if (record.CiState != CiStates.Pending) return (true, null);
+        if (!CiStates.Waits(record.CiState)) return (true, null); // 2026-11-23-0219: a build not started waits as pending does
         return PendingTooLong(record, merge, now)
             ? (true, $"still pending after merge.ci_pending_seconds = {merge.CiPendingSeconds} s, so it is no longer followed; see {record.Url}")
             : (false, null);
@@ -42,7 +42,7 @@ public static class DeployFollowVerdict
     {
         ArgumentNullException.ThrowIfNull(record);
         if (record.CheckedAtTicks is not { } checkedAt) return true;
-        var fast = record.CiState == CiStates.Pending && !PendingTooLong(record, merge, now);
+        var fast = CiStates.Waits(record.CiState) && !PendingTooLong(record, merge, now);
         var every = TimeSpan.FromSeconds(fast ? merge.CiPollSeconds : tickets.PrRereadIntervalSeconds);
         return now - new DateTimeOffset(checkedAt, TimeSpan.Zero) >= every;
     }

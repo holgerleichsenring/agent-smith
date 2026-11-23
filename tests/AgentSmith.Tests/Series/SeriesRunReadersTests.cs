@@ -47,6 +47,48 @@ public sealed class SeriesRunReadersTests : IDisposable
         detail.Tickets.Select(t => (t.TicketId, t.Depth)).Should().Equal([("1", 0), ("2", 1)]);
     }
 
+    // 2026-11-23-0219: a person's merge the host refused is said on its own merge run only; the detail carries it on the pull
+    // request, and whether a merge asked while CI waits arms auto-complete.
+    [Fact]
+    public async Task Detail_AWaitingPullRequest_CarriesTheNewestMergeRunsRefusal_AndMergeArms()
+    {
+        _h.Config.Projects["alpha"].Merge.RespectBranchProtection = true;
+        await OpenAsync("sr-1", Tickets("1"));
+        await _h.AddAsync(Record("1", "api", CiStates.NotStarted), TicketStoreHarness.Run("run-1", ticket: "1"),
+            TicketStoreHarness.Run("merge-1", ticket: "1", pipeline: "merge-green"),
+            new AgentSmith.Infrastructure.Persistence.Entities.RunRepo
+            {
+                RunId = "merge-1", RepoName = "api", PrUrl = "https://github.com/o/api/pull/1",
+                PrStatus = AgentSmith.Contracts.Runs.PullRequestStatuses.CompletionRefused, Reason = "cannot bypass branch policies",
+            });
+
+        var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
+
+        detail.MergeArms.Should().BeTrue();
+        var pr = detail.Tickets.Single().PullRequests.Single();
+        (pr.Ci, pr.MergeSaid?.Status, pr.MergeSaid?.Reason).Should().Be((CiStates.NotStarted,
+            AgentSmith.Contracts.Runs.PullRequestStatuses.CompletionRefused, "cannot bypass branch policies"));
+    }
+
+    // A push after the refusal makes it a word about an older change: it is not shown.
+    [Fact]
+    public async Task Detail_ARefusalBeforeTheHeadMoved_IsNotShown()
+    {
+        await OpenAsync("sr-1", Tickets("1"));
+        var record = Record("1", "api", CiStates.Pending);
+        record.HeadMovedAtTicks = T.AddHours(1).UtcTicks;
+        await _h.AddAsync(record, TicketStoreHarness.Run("run-1", ticket: "1"), TicketStoreHarness.Run("merge-1", ticket: "1", pipeline: "merge-green"),
+            new AgentSmith.Infrastructure.Persistence.Entities.RunRepo
+            {
+                RunId = "merge-1", RepoName = "api", PrUrl = "https://github.com/o/api/pull/1",
+                PrStatus = AgentSmith.Contracts.Runs.PullRequestStatuses.CompletionRefused, Reason = "still a draft",
+            });
+
+        var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
+
+        detail.Tickets.Single().PullRequests.Single().MergeSaid.Should().BeNull();
+    }
+
     [Fact]
     public async Task Detail_MergeOrder_ReadyOnlyWhereEveryRequirementLanded()
     {

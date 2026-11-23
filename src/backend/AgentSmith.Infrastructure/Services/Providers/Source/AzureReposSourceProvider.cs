@@ -21,7 +21,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -132,7 +132,7 @@ public sealed class AzureReposSourceProvider(
         }
         catch (Exception ex) when (ex.Message.Contains("TF401179") || ex.Message.Contains("already exists"))
         {
-            return await FindExistingPrUrlAsync(client, src, tgt, cancellationToken);
+            return await FindExistingPrUrlAsync(client, src, tgt, isDraft, cancellationToken);
         }
     }
 
@@ -269,6 +269,9 @@ public sealed class AzureReposSourceProvider(
 
     // p0390: the same search the already-exists path uses, exposed so CommitAndPR
     // can reuse the draft PR the work-spec commit already opened on this branch.
+    // 2026-11-23-0219: by source branch alone, as GitHub and GitLab look it up — a stacked
+    // pull request targets its prerequisite's branch, and a lookup on the default branch
+    // never found it, so CommitAndPR re-created it and left the spec commit's draft a draft.
     public async Task<string?> FindOpenPullRequestAsync(
         Repository repository, CancellationToken cancellationToken)
     {
@@ -276,11 +279,9 @@ public sealed class AzureReposSourceProvider(
         try
         {
             var client = await CreateConnectionAsync(cancellationToken);
-            var target = await GetDefaultBranchAsync(cancellationToken);
             var criteria = new GitPullRequestSearchCriteria
             {
                 SourceRefName = $"refs/heads/{repository.CurrentBranch.Value}",
-                TargetRefName = $"refs/heads/{target}",
                 Status = PullRequestStatus.Active,
             };
             var existing = (await client.GetPullRequestsAsync(
@@ -294,16 +295,20 @@ public sealed class AzureReposSourceProvider(
         }
     }
 
+    // 2026-11-23-0219: a caller that asked for a ready pull request gets the found one out of draft — the
+    // spec commit opened it as a draft, and handing its URL back as "created" left it a draft for good.
     private async Task<string> FindExistingPrUrlAsync(
-        GitHttpClient client, string src, string tgt, CancellationToken cancellationToken)
+        GitHttpClient client, string src, string tgt, bool isDraft, CancellationToken cancellationToken)
     {
         var criteria = new GitPullRequestSearchCriteria
             { SourceRefName = src, TargetRefName = tgt, Status = PullRequestStatus.Active };
         var existing = (await client.GetPullRequestsAsync(
             _project, _repoName, criteria, cancellationToken: cancellationToken)).FirstOrDefault()
             ?? throw new ProviderException(ProviderType, "PR already exists but could not be found.");
-        logger.LogInformation("Found existing pull request: {Url}", BuildPrUrl(existing.PullRequestId));
-        return BuildPrUrl(existing.PullRequestId);
+        var url = BuildPrUrl(existing.PullRequestId);
+        logger.LogInformation("Found existing pull request: {Url}", url);
+        if (!isDraft && existing.IsDraft == true) await _pullRequests.MarkReadyAsync(url, cancellationToken);
+        return url;
     }
 
     // 2026-10-08-e8b9d/e8b9c: the review and the standing votes, read by a collaborator.
@@ -333,6 +338,15 @@ public sealed class AzureReposSourceProvider(
                 .GetPolicyEvaluationsAsync(projectId, artifact, cancellationToken: c),
             c => clientFactory.CreateBuildClientAsync(_organizationUrl, _personalAccessToken, c),
             _project, _repoName, _organizationUrl).ReadAsync(prUrl, request, ct);
+    // 2026-11-23-0219: the build-policy evaluations that have not started on the head, queued again.
+    public Task<int> RequeueNotStartedAsync(string prUrl, CancellationToken ct) =>
+        new AzureReposBuildRequeue(CreateConnectionAsync,
+            async (projectId, artifact, c) => await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
+                .GetPolicyEvaluationsAsync(projectId, artifact, cancellationToken: c),
+            async (projectId, evaluationId, c) => await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
+                .RequeuePolicyEvaluationAsync(projectId, evaluationId, cancellationToken: c),
+            c => clientFactory.CreateBuildClientAsync(_organizationUrl, _personalAccessToken, c),
+            _project, _repoName, _organizationUrl, logger).RequeueAsync(prUrl, ct);
     public Task CloseAsync(string prUrl, CancellationToken ct) => new AzureReposPullRequestClose(_project, _repoName, clientFactory, _organizationUrl, _personalAccessToken).CloseAsync(prUrl, ct);
 
     // 2026-11-17-713ec: the branch-cleanup run's reads and delete.

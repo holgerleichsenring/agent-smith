@@ -10,7 +10,7 @@ export function deployHeadline(r: DeployRecordView): string {
 export function deployStanding(r: DeployRecordView): string {
   const ci = r.ciState === "red" ? "failed" : r.ciState === "green" ? "green" : r.ciState === "none" ? "no CI" : "running";
   const where = r.delivery === "pipeline_trigger" ? ci
-    : `${r.pullRequestState ?? "opened"} · CI ${r.ciState === "red" ? "red" : r.ciState}`;
+    : `${r.pullRequestState ?? "opened"} · ${r.ciState === "not_started" ? "build not started" : `CI ${r.ciState}`}`; // 2026-11-23-0219
   return r.settledAt ? `${where} · settled` : `${where} · followed`;
 }
 

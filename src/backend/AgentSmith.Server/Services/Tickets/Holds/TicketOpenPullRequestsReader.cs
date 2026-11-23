@@ -16,7 +16,8 @@ namespace AgentSmith.Server.Services.Tickets.Holds;
 /// </summary>
 public sealed class TicketOpenPullRequestsReader(ITicketRequirementStore requirements, ITicketLandingStore landings)
 {
-    private static readonly string[] Precedence = [CiStates.Red, CiStates.Pending, CiStates.Green, CiStates.None];
+    // 2026-11-23-0219: a build that never started outranks one that runs — nothing finishes it by itself.
+    private static readonly string[] Precedence = [CiStates.Red, CiStates.NotStarted, CiStates.Pending, CiStates.Green, CiStates.None];
 
     public async Task<IReadOnlyDictionary<(string Project, string TicketId), TicketOpenPullRequests>> ReadAsync(
         ILookup<(string Project, string TicketId), PrReviewRecordView> records, IReadOnlyDictionary<string, ResolvedProject> configured,
@@ -46,7 +47,7 @@ public sealed class TicketOpenPullRequestsReader(ITicketRequirementStore require
         var state = Precedence.FirstOrDefault(s => ci.Any(c => c.State == s));
         var inState = ci.Where(c => c.State == state).ToList();
         // A wait or a failure holds since its first read; a green or quiet set since the last of them turned so.
-        var since = state is CiStates.Red or CiStates.Pending ? inState.Min(c => c.At) : inState.Max(c => c.At);
+        var since = state is CiStates.Red or CiStates.Pending or CiStates.NotStarted ? inState.Min(c => c.At) : inState.Max(c => c.At);
         return new TicketOpenPullRequests(state, since)
         {
             FailedChecks = [.. inState.Where(c => c.State == CiStates.Red).SelectMany(c => c.Failures).Select(f => f.Name)

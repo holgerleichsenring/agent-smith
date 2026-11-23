@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -12,10 +13,11 @@ namespace AgentSmith.Server.Services.Series;
 /// or its project is no longer configured. 2026-11-23-31dcd: and the bar's facts — the repos it touches, what it cost,
 /// and its conversation's thread, so the page can carry that conversation. 2026-11-23-31dcf: and the requires edges
 /// between its tickets (<see cref="SeriesRunEdges"/>; 2026-11-23-f562: without kinds). One read after another on the request's
-/// unit of work. 2026-11-23-31dcg: and each ticket's hold, as the ticket list reads it (<see cref="SeriesRunHolds"/>).</summary>
+/// unit of work. 2026-11-23-31dcg: and each ticket's hold, as the ticket list reads it (<see cref="SeriesRunHolds"/>).
+/// 2026-11-23-0219: and whether a merge arms auto-complete, and per waiting pull request the newest merge run's refusal or arm.</summary>
 public sealed class SeriesRunDetailReader(
     ISeriesRunStore store, TicketProjects projects, SeriesRunProjectReads reads, SeriesRunTickets tickets, SeriesRunNames names,
-    SeriesRunCosts costs, SpecDialogSessionRepository sessions, SeriesRunHolds holds)
+    SeriesRunCosts costs, SpecDialogSessionRepository sessions, SeriesRunHolds holds, PullRequestMergeSaidReader mergeSaid)
 {
     /// <param name="withHolds">2026-11-23-31dcg: false for a reader that needs the merge order only (the merge act), which
     /// then pays no ticket-list read.</param>
@@ -27,16 +29,32 @@ public sealed class SeriesRunDetailReader(
         var held = withHolds ? (await holds.ReadAsync(ProjectScope.Single(record.Project), ct)).GetValueOrDefault(record.Project)
             ?? new Dictionary<string, AgentSmith.Application.Services.Holds.TicketHold>() : null;
         var shape = tickets.Of(record, facts, held);
+        var shown = withHolds ? await WithMergeSaidAsync(shape.Tickets, facts, ct) : shape.Tickets;
         var name = (await names.OfAsync([record], ct))[record.Id];
         var spent = await costs.OfAsync(record.Project, [.. record.Tickets.Select(t => t.TicketId)], ct);
         var session = await sessions.GetBySessionIdAsync(record.Conversation, ct);
         return new SeriesRunDetailView(record.Id, name, record.Project, record.State, record.Conversation, record.StartedAt,
-            record.FinishedAt, shape.Counts, SeriesRunQuestion.Of(record, held), shape.Tickets, shape.MergeOrder)
+            record.FinishedAt, shape.Counts, SeriesRunQuestion.Of(record, held), shown, shape.MergeOrder)
         {
-            Repos = Repos(project, shape.Tickets), CostUsd = spent + record.MasterCostUsd,
+            Repos = Repos(project, shape.Tickets), MergeArms = project.Merge.RespectBranchProtection, CostUsd = spent + record.MasterCostUsd,
             ThreadId = session?.ThreadId, ConversationOpen = session?.IsOpen == true,
             Edges = SeriesRunEdges.Of(facts, [.. record.Tickets.Select(t => t.TicketId)]),
         };
+    }
+
+    // 2026-11-23-0219: each waiting pull request with what the newest merge run said about it when it did not merge it — unless
+    // its head moved since, which makes the word one about an older change.
+    private async Task<IReadOnlyList<SeriesRunTicketView>> WithMergeSaidAsync(
+        IReadOnlyList<SeriesRunTicketView> shown, SeriesRunProjectFacts facts, CancellationToken ct)
+    {
+        var said = await mergeSaid.NewestAsync(
+            [.. shown.SelectMany(t => t.PullRequests).Where(SeriesRunPullRequests.Waits).Select(p => p.Url).Distinct(StringComparer.Ordinal)], ct);
+        if (said.Count == 0) return shown;
+        var moved = facts.PullRequests.SelectMany(g => g).Where(r => r.HeadMovedAt is not null)
+            .GroupBy(r => r.Url, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Max(r => r.HeadMovedAt!.Value), StringComparer.Ordinal);
+        bool Current(string url, PullRequestMergeSaid s) => !moved.TryGetValue(url, out var at) || s.At >= at;
+        return [.. shown.Select(t => t with { PullRequests = [.. t.PullRequests.Select(p =>
+            SeriesRunPullRequests.Waits(p) && said.TryGetValue(p.Url, out var s) && Current(p.Url, s) ? p with { MergeSaid = s } : p)] })];
     }
 
     // The repos the series' tickets have pull requests in, in the project's repo order.

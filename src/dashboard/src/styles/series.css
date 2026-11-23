@@ -29,6 +29,9 @@
 .mock-tickets .sr-state.run { color: var(--run); }
 .mock-tickets .sr-state.need { color: var(--person); }
 .mock-tickets .sr-state.bad { color: var(--bad); }
+/* 2026-11-23-0219: a ticket's host badges — Draft, Build not started, CI running, CI red. */
+.mock-tickets .sr-badges { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 4px; font-weight: 400; }
+.mock-tickets .sr-badges .sr-state { border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; font-size: 11px; }
 .mock-tickets .sr-talk { display: flex; flex-direction: column; gap: 12px; min-width: 0; background: transparent; }
 @media (max-width: 640px) { .mock-tickets .sr-tickets th:nth-child(2), .mock-tickets .sr-tickets td:nth-child(2) { display: none; } }
 /* 2026-11-23-f562: the Overview — summary chips, the order graph (repo lanes, depth columns, one colour per ticket by its

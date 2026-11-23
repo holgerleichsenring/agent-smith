@@ -10,9 +10,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-11-17-9a39c: the step of a 'retarget' run — moves each of a stacked dependent's pull requests that is still
 /// based on a landed prerequisite's branch onto the base the server chose, and puts the count moved into the outcome
 /// slot. A pull request someone moved meanwhile is left; one the provider refuses to move (closed, a deleted base) is
-/// named in the result. Only missing seeds fail the step.
+/// named in the result. Only missing seeds fail the step. 2026-11-23-0219: a moved one's not-started required builds are
+/// queued again (<see cref="PullRequestBuildRequeue"/>).
 /// </summary>
-public sealed class RetargetPullRequestsHandler(ISourceProviderFactory sources) : ICommandHandler<RetargetPullRequestsContext>
+public sealed class RetargetPullRequestsHandler(ISourceProviderFactory sources, PullRequestBuildRequeue? requeue = null)
+    : ICommandHandler<RetargetPullRequestsContext>
 {
     public async Task<CommandResult> ExecuteAsync(RetargetPullRequestsContext context, CancellationToken cancellationToken)
     {
@@ -43,8 +45,10 @@ public sealed class RetargetPullRequestsHandler(ISourceProviderFactory sources) 
         var current = await provider.ReadPullRequestBaseAsync(move.Url, CancellationToken.None);
         if (!string.Equals(current, move.From, StringComparison.Ordinal))
             return $"{move.Url} is based on '{current ?? "an unreadable base"}', not '{move.From}'; left";
-        return await provider.RetargetPullRequestAsync(move.Url, new BranchName(move.To), CancellationToken.None)
-            ? null
-            : $"{move.Url}: the provider refused the move from '{move.From}' to '{move.To}' (closed, or the base is gone)";
+        if (!await provider.RetargetPullRequestAsync(move.Url, new BranchName(move.To), CancellationToken.None))
+            return $"{move.Url}: the provider refused the move from '{move.From}' to '{move.To}' (closed, or the base is gone)";
+        // 2026-11-23-0219: the new base's required build may not start by itself; queue the ones that have not.
+        if (requeue is not null) await requeue.RequeueAsync(provider, move.Url, CancellationToken.None);
+        return null;
     }
 }

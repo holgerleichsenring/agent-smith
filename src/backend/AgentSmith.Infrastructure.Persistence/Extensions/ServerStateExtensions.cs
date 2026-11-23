@@ -25,6 +25,7 @@ public static class ServerStateExtensions
         services.AddScoped<PrSweepStore>(); // 2026-10-08-10b0
         // 2026-10-13-9a59b: the pull-request review records.
         services.AddScoped<PrReviewRecordRepository>().AddScoped<PrReviewRecordWriter>().AddScoped<NamedPullRequestReader>();
+        services.AddScoped<PullRequestMergeSaidReader>(); // 2026-11-23-0219
         services.AddScoped<AgentSmith.Contracts.Reviews.IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
         services.AddScoped<RunRetryRequestRepository>(); // 2026-10-13-9a59n
         services.AddScoped<DeployRecordRepository>(); // 2026-11-18-3863f

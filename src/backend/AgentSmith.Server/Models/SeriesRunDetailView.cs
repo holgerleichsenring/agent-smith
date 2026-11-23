@@ -25,4 +25,8 @@ public sealed record SeriesRunDetailView(
 
     /// <summary>2026-11-23-31dcf: every requires edge between two of its tickets, with what it means for the branches.</summary>
     public IReadOnlyList<SeriesRunEdgeView> Edges { get; init; } = [];
+
+    /// <summary>2026-11-23-0219: the project merges with respect_branch_protection: true, so a merge asked while CI runs or has
+    /// not started arms the host's auto-complete and completes once it is green.</summary>
+    public bool MergeArms { get; init; }
 }
