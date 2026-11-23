@@ -95,3 +95,18 @@ export interface SeriesRunDetail {
   /** 2026-11-23-31dcd: whether the conversation is open on that thread. */
   conversationOpen: boolean;
 }
+
+/** 2026-11-23-31dce: what a merge from the series page did to one repo's pull request. */
+export interface SeriesMergeOutcome {
+  repo: string;
+  /** merged · armed (the host merges once its rules pass) · refused */
+  outcome: "merged" | "armed" | "refused";
+  /** The merge run's sentence for it, naming the repo and the host's or guard's reason. */
+  text: string;
+}
+
+/** 2026-11-23-31dce: the 200 answer of POST /api/series-runs/{id}/tickets/{ticketId}/merge. */
+export interface SeriesMergeAnswer {
+  ticketId: string;
+  pullRequests: SeriesMergeOutcome[];
+}

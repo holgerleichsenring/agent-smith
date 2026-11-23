@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.TicketActs;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
@@ -30,6 +31,7 @@ public sealed class CompletePullRequestsHandlerTests
     private PullRequestApproval _approval = PullRequestApproval.Approved;
     private readonly Mock<ITicketRequirementStore> _edges = new();
     private readonly Mock<ITicketLandingStore> _landings = new();
+    private readonly Dictionary<string, string?> _bases = new();
 
     public CompletePullRequestsHandlerTests()
     {
@@ -214,12 +216,110 @@ public sealed class CompletePullRequestsHandlerTests
         result.Message.Should().Contain("a: opened against 'agent-smith/41'").And.Contain("b: not merged: #41 it requires has not landed");
     }
 
+    // 2026-11-23-31dce
+    [Fact]
+    public async Task Manual_APersonAskedMerge_Runs_AndFillsTheOutcomeSlot()
+    {
+        var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
+
+        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", "b", askedBy: "Dana", slot: slot));
+
+        _merged.Should().HaveCount(2);
+        result.Message.Should().StartWith("asked by Dana").And.Contain("a: merged");
+        slot.Value!.Select(l => (l.Repo, l.Outcome)).Should().Equal(
+            ("a", PullRequestCompletionOutcome.Merged), ("b", PullRequestCompletionOutcome.Merged));
+    }
+
+    [Fact]
+    public async Task Manual_TheCiWatchsMergeGreenRequest_StillMergesNothing()
+    {
+        var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
+
+        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", slot: slot));
+
+        result.Message.Should().Contain("merge: manual");
+        _merged.Should().BeEmpty();
+        slot.IsSet.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task MergeGreen_ABaseOnAPrerequisitesBranch_IsRefusedInsideTheRun_AndStopsTheRest()
+    {
+        _bases["https://x/a/pull/1"] = "agent-smith/41";
+        var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
+
+        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", "b", askedBy: "Dana", slot: slot));
+
+        _merged.Should().BeEmpty();
+        result.Message.Should().Contain("a: targets 'agent-smith/41', not the default branch").And.Contain("b: not attempted");
+        slot.Value!.Should().AllSatisfy(l => l.Outcome.Should().Be(PullRequestCompletionOutcome.Refused));
+        _outcomes.Select(o => (o.RunId, o.Status)).Should().Equal([("run-1", PullRequestStatuses.CompletionRefused)],
+            "a person's refused merge leaves the attempt's record as it was");
+    }
+
+    [Fact]
+    public async Task OnCiGreen_TheCiWatchsMerge_ABaseOffTheDefaultBranch_KeepsTheAttemptAwaitingCi()
+    {
+        _bases["https://x/a/pull/1"] = "agent-smith/41";
+
+        await RunAsync(OnCi(), passed: null, Green("a"));
+
+        _merged.Should().BeEmpty();
+        _outcomes.Select(o => (o.RunId, o.Status)).Should().Equal(
+            ("run-1", PullRequestStatuses.CompletionRefused), ("attempt-1", PullRequestStatuses.AwaitingCi));
+    }
+
+    [Fact]
+    public async Task MergeGreen_AnUnreadableHostedBase_IsRefused()
+    {
+        _bases["https://x/a/pull/1"] = null;
+
+        var result = await RunAsync(OnCi(), passed: null, Green("a"));
+
+        _merged.Should().BeEmpty();
+        result.Message.Should().Contain("a: its base could not be read from the host");
+    }
+
+    [Fact]
+    public async Task Manual_APersonAskedMerge_StillMeetsTheUnlandedRequirementGuard()
+    {
+        Requires("41");
+
+        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", askedBy: "Dana"));
+
+        _merged.Should().BeEmpty();
+        result.Message.Should().Contain("a: not merged: #41 it requires has not landed");
+        _outcomes.Should().ContainSingle().Which.RunId.Should().Be("run-1");
+    }
+
+    [Fact]
+    public async Task MergeGreen_AHostRefusal_CarriesTheHostsReasonIntoTheSlot()
+    {
+        _answers["https://x/a/pull/1"] = PullRequestCompletion.Refused("the branch policy requires an approval");
+        var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
+
+        await RunAsync(new MergePolicyConfig(), passed: null, Green("a", askedBy: "Dana", slot: slot));
+
+        slot.Value!.Single().Should().Be(new PullRequestMergeLine("a", PullRequestCompletionOutcome.Refused,
+            "a: still open — the branch policy requires an approval"));
+    }
+
     private void Requires(params string[] required) =>
         _edges.Setup(e => e.RequiredOfAsync("gh", "github-42", It.IsAny<CancellationToken>())).ReturnsAsync([.. required.Select(r =>
             new TicketRequirementEdge("gh", "github-42", "42", "p", $"github-{r}", r, true, DateTimeOffset.UnixEpoch, "c-1"))]);
 
-    private static Action<PipelineContext> Green(params string[] repos) => pipeline => pipeline.Set(ContextKeys.CiGreenMerge,
-        new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42", [.. repos.Select(r => new CiGreenPullRequest(r, $"https://x/{r}/pull/1"))]));
+    private static Action<PipelineContext> Green(string repo, string? askedBy = null, ActSlot<IReadOnlyList<PullRequestMergeLine>>? slot = null) =>
+        Green([repo], askedBy, slot);
+
+    private static Action<PipelineContext> Green(string first, string second, string? askedBy = null,
+        ActSlot<IReadOnlyList<PullRequestMergeLine>>? slot = null) => Green([first, second], askedBy, slot);
+
+    private static Action<PipelineContext> Green(string[] repos, string? askedBy, ActSlot<IReadOnlyList<PullRequestMergeLine>>? slot) => pipeline =>
+    {
+        pipeline.Set(ContextKeys.CiGreenMerge, new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42",
+            [.. repos.Select(r => new CiGreenPullRequest(r, $"https://x/{r}/pull/1"))]) { AskedBy = askedBy });
+        if (slot is not null) pipeline.Set(ContextKeys.ActOutcome, slot);
+    };
 
     private static MergePolicyConfig OnCi(bool respect = false) =>
         new() { When = MergeWhen.OnCiGreen, RespectBranchProtection = respect };
@@ -251,6 +351,8 @@ public sealed class CompletePullRequestsHandlerTests
                 _merged.Add((url, mode));
                 return Task.FromResult(_answers.GetValueOrDefault(url) ?? PullRequestCompletion.Merged());
             });
+        provider.Setup(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string url, CancellationToken _) => _bases.TryGetValue(url, out var at) ? at : "main");
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
         var events = new Mock<IEventPublisher>();
@@ -259,7 +361,7 @@ public sealed class CompletePullRequestsHandlerTests
             .Returns(Task.CompletedTask);
         var completer = new PullRequestCompleter(factory.Object, events.Object, NullLogger<PullRequestCompleter>.Instance);
         var handler = new CompletePullRequestsHandler(new PullRequestMergeSequence(completer, new PullRequestApprovalStep(factory.Object),
-            NullLogger<PullRequestMergeSequence>.Instance,
+            new PullRequestBaseGuard(factory.Object), NullLogger<PullRequestMergeSequence>.Instance,
             new UnmetTicketRequirements(_edges.Object, _landings.Object, Mock.Of<ISpecApprovalStore>())), completer);
         return await handler.ExecuteAsync(new CompletePullRequestsContext(policy, new BranchName("agent-smith/42"), repos, pipeline,
             "gh", "github-42"), CancellationToken.None);

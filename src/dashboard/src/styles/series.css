@@ -31,3 +31,18 @@
 .mock-tickets .sr-state.bad { color: var(--bad); }
 .mock-tickets .sr-talk { display: flex; flex-direction: column; gap: 12px; min-width: 0; background: transparent; }
 @media (max-width: 640px) { .mock-tickets .sr-tickets th:nth-child(2), .mock-tickets .sr-tickets td:nth-child(2) { display: none; } }
+/* 2026-11-23-31dce: Merge next — the open pull requests in merge order, numbered; the ready row is framed in the accent,
+   the rest dimmed. Each row: ticket, a line per repo's pull request with its CI, why it waits, what a merge did. */
+.mock-tickets .sr-queue { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; counter-reset: srq; }
+.mock-tickets .sr-queue > li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--panel); font-size: 13px; }
+.mock-tickets .sr-queue > li::before { counter-increment: srq; content: counter(srq); color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
+.mock-tickets .sr-queue > li.now { border-color: var(--accent); background: var(--accent-wash); }
+.mock-tickets .sr-queue > li.later .sr-queue-main { opacity: 0.72; }
+.mock-tickets .sr-queue-main { min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
+.mock-tickets .sr-queue a { color: var(--ink-2); }
+.mock-tickets .sr-queue-pr { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--ink-3); }
+.mock-tickets .sr-queue-fail { color: var(--bad); }
+.mock-tickets .sr-queue-why { font-size: 12px; color: var(--ink-3); }
+.mock-tickets .sr-queue-said { margin-top: 4px; font-size: 12px; color: var(--ink-2); }
+.mock-tickets .sr-queue-said.bad { color: var(--bad); }
+@media (max-width: 640px) { .mock-tickets .sr-queue > li { grid-template-columns: 20px minmax(0, 1fr); } .mock-tickets .sr-queue > li .btn { grid-column: 2; justify-self: start; } }

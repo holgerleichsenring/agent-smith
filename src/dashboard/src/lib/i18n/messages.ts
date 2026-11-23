@@ -865,6 +865,31 @@ export const messages = {
   "series.ticket.shortfall": { en: "fell short", de: "unvollständig" },
   "series.ticket.ended": { en: "ended", de: "beendet" },
   "series.conversation.gone": { en: "The conversation that filed this series no longer exists.", de: "Das Gespräch, das diese Serie angelegt hat, gibt es nicht mehr." },
+  "series.section.next": { en: "Merge next", de: "Als Nächstes mergen" },
+  "series.merge.sub": {
+    en: "Merge from the top. After each merge, the next pull request is moved onto the default branch if it was stacked on the one before.",
+    de: "Von oben nach unten mergen. Nach jedem Merge wird der nächste Pull Request auf den Standard-Branch umgehängt, falls er auf dem vorigen aufgebaut war.",
+  },
+  "series.merge.empty": { en: "No pull request is waiting to be merged.", de: "Kein Pull Request wartet auf einen Merge." },
+  "series.merge.ready": { en: "Targets the default branch. Ready to merge.", de: "Zielt auf den Standard-Branch. Bereit zum Mergen." },
+  "series.merge.after": { en: "Merge {keys} first.", de: "Zuerst {keys} mergen." },
+  "series.merge.retarget": {
+    en: "Waits until its pull request is moved onto the default branch.",
+    de: "Wartet, bis sein Pull Request auf den Standard-Branch umgehängt ist.",
+  },
+  "series.merge.button": { en: "Merge", de: "Mergen" },
+  "series.merge.busy": { en: "Merging…", de: "Wird gemergt…" },
+  "series.merge.pr": { en: "PR #{number}", de: "PR #{number}" },
+  "series.merge.ci.green": { en: "CI green", de: "CI grün" },
+  "series.merge.ci.pending": { en: "CI running", de: "CI läuft" },
+  "series.merge.ci.red": { en: "CI red", de: "CI rot" },
+  "series.merge.ci.none": { en: "no CI checks", de: "keine CI-Checks" },
+  "series.merge.ci.unread": { en: "CI not read yet", de: "CI noch nicht gelesen" },
+  "series.merge.log": { en: "log", de: "Log" },
+  "series.merge.outcome.merged": { en: "merged", de: "gemergt" },
+  "series.merge.outcome.armed": { en: "merges once the host's rules pass", de: "wird gemergt, sobald die Regeln des Hosts erfüllt sind" },
+  "series.merge.outcome.refused": { en: "not merged", de: "nicht gemergt" },
+  "series.merge.failed": { en: "The merge failed: {message}", de: "Der Merge ist fehlgeschlagen: {message}" },
 } satisfies Record<string, MessageEntry>;
 
 export type MessageKey = keyof typeof messages;

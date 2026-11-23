@@ -34,7 +34,7 @@ beforeEach(() => {
 describe("SeriesRunPage", () => {
   it("SeriesPage_SelectingASection_ShowsOnlyItsPane_AndSetsTheSectionParam", async () => {
     render(<SeriesRunPage id="sr-1" />);
-    expect(await screen.findByTestId("series-pane-tickets")).toBeInTheDocument();
+    expect(await screen.findByTestId("series-pane-next")).toBeInTheDocument();
     expect(screen.queryByTestId("series-pane-talk")).toBeNull();
 
     fireEvent.click(screen.getByTestId("series-section-talk"));
@@ -52,6 +52,7 @@ describe("SeriesRunPage", () => {
   });
 
   it("SeriesPage_TicketsRows_SortByDepth_AndOpenTheTicketPage", async () => {
+    hoisted.search = "section=tickets";
     render(<SeriesRunPage id="sr-1" />);
     const table = await screen.findByTestId("series-tickets");
 

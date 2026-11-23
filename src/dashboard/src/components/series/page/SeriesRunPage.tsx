@@ -15,7 +15,7 @@ import { useSeriesRunDetail } from "./useSeriesRunDetail";
 // beside it, the one ?section= names (the first listed one without it). Selecting a section rewrites the address.
 
 export function SeriesRunPage({ id }: { id: string }) {
-  const read = useSeriesRunDetail(id);
+  const { read, reload } = useSeriesRunDetail(id);
   const t = useT();
   if (read.kind !== "read") {
     return (
@@ -29,10 +29,10 @@ export function SeriesRunPage({ id }: { id: string }) {
       </div>
     );
   }
-  return <SeriesSections detail={read.detail} />;
+  return <SeriesSections detail={read.detail} reload={reload} />;
 }
 
-function SeriesSections({ detail }: { detail: SeriesRunDetail }) {
+function SeriesSections({ detail, reload }: { detail: SeriesRunDetail; reload: () => void }) {
   const t = useT();
   const params = useSearchParams();
   const router = useRouter();
@@ -51,7 +51,7 @@ function SeriesSections({ detail }: { detail: SeriesRunDetail }) {
       <main className="main tk-page" data-section={section.id}>
         <div className="tk-heading"><h1 data-testid="series-section-title">{t(section.label)}</h1></div>
         <section className="tk-pane" data-testid={`series-pane-${section.id}`}>
-          <section.Pane detail={detail} />
+          <section.Pane detail={detail} reload={reload} />
         </section>
       </main>
     </div>
