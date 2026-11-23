@@ -71,7 +71,7 @@ spec:
       initContainers:
         - name: migrate
           # 2026-11-22-747db: the server image runs `database migrate` — one image for both containers.
-          image: holgerleichsenring/agent-smith-server:0.199.1  # x-release-please-version
+          image: holgerleichsenring/agent-smith-server:0.199.2  # x-release-please-version
           imagePullPolicy: IfNotPresent
           command: ["dotnet", "AgentSmith.Server.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
           volumeMounts:
@@ -82,7 +82,7 @@ spec:
               mountPath: /var/lib/agentsmith
       containers:
         - name: server
-          image: holgerleichsenring/agent-smith-server:0.199.1  # x-release-please-version
+          image: holgerleichsenring/agent-smith-server:0.199.2  # x-release-please-version
           ports:
             - containerPort: 8081
           env:
