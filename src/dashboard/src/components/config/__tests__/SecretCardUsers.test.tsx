@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { EntityCard, secretUsers } from "../EntityCard";
 import type { ConfigCatalog } from "../useConfigCatalog";
+import { translator } from "@/lib/i18n/translate";
 
 // 2026-11-18-dafc: a secret named by a registry token is in use.
 const CATALOG = {
@@ -22,16 +23,16 @@ const REGISTRIES = [
 
 describe("secretUsers", () => {
   it("names a registry whose token is ${id} or the bare id", () => {
-    expect(secretUsers(CATALOG, REGISTRIES, "FEED_TOKEN")).toEqual(["registry npm.example.com"]);
-    expect(secretUsers(CATALOG, REGISTRIES, "PLAIN_TOKEN")).toEqual(["registry nuget.example.com"]);
+    expect(secretUsers(translator("en"), CATALOG, REGISTRIES, "FEED_TOKEN")).toEqual(["registry npm.example.com"]);
+    expect(secretUsers(translator("en"), CATALOG, REGISTRIES, "PLAIN_TOKEN")).toEqual(["registry nuget.example.com"]);
   });
 
   it("does not match a secret whose id is only part of a token", () => {
-    expect(secretUsers(CATALOG, REGISTRIES, "FEED")).toEqual([]);
+    expect(secretUsers(translator("en"), CATALOG, REGISTRIES, "FEED")).toEqual([]);
   });
 
   it("keeps the catalog users", () => {
-    expect(secretUsers(CATALOG, REGISTRIES, "JIRA_TOKEN")).toEqual(["jira"]);
+    expect(secretUsers(translator("en"), CATALOG, REGISTRIES, "JIRA_TOKEN")).toEqual(["jira"]);
   });
 });
 
@@ -52,7 +53,7 @@ describe("secret card", () => {
 
   it("names who stored the value and when", () => {
     expect(source({ name: "DEPLOY_TOKEN", variable: "DEPLOY_TOKEN", fromEnvironment: false, stored })).toBe(
-      ` · stored, set by ada on ${new Date(stored.setAt).toLocaleDateString()}`,
+      ` · stored, set by ada on ${new Date(stored.setAt).toLocaleDateString("en-GB")}`,
     );
   });
 

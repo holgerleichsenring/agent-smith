@@ -6,6 +6,8 @@ import { useProjectContexts } from "./useProjectContexts";
 import { Unreadable } from "./templateContextField";
 import { TemplateRow } from "./TemplateRow";
 import type { ConfigCatalog } from "./useConfigCatalog";
+import { useT } from "@/hooks/useT";
+
 
 // 2026-09-14-620e: a context of THIS project is built after a context of another
 // project's repository, at a revision.
@@ -28,6 +30,7 @@ export function TemplateBindings({
   onChange: (templates: TemplateReference[]) => void;
   testId?: string;
 }) {
+  const t = useT();
   const templates = project.templates ?? [];
   const local = useProjectContexts(project.id, project.repos);
   // The open row is a VIEW, never a write: the value stays project.templates, so
@@ -46,7 +49,7 @@ export function TemplateBindings({
   const [open, setOpen] = useState<number | null>(null);
 
   const set = (index: number, next: TemplateReference) =>
-    onChange(templates.map((t, i) => (i === index ? next : t)));
+    onChange(templates.map((tpl, i) => (i === index ? next : tpl)));
 
   const remove = (index: number) => {
     setOpen(null);
@@ -61,16 +64,17 @@ export function TemplateBindings({
   return (
     <div className="field" data-testid={testId}>
       <label>
-        templates
+        {t("config.templates.label")}
         <span className="help">
-          what each context of this project is built after
-          {templates.length > 0 && ` — ${templates.length} declared`}
+          {templates.length > 0
+            ? t("config.templates.helpDeclared", { count: templates.length })
+            : t("config.templates.help")}
         </span>
       </label>
 
       {templates.length === 0 && (
         <span className="help" data-testid={`${testId}-none`}>
-          this project declares no template
+          {t("config.templates.none")}
         </span>
       )}
 
@@ -99,11 +103,11 @@ export function TemplateBindings({
         </div>
       )}
 
-      <Unreadable testId={`${testId}-local`} subject="this project" lines={local.unreadable} />
+      <Unreadable testId={`${testId}-local`} subject={t("config.templates.thisProject")} lines={local.unreadable} />
 
       <div className="picks">
         <button type="button" className="pick" data-testid={`${testId}-add`} onClick={add}>
-          Add template
+          {t("config.templates.add")}
         </button>
       </div>
     </div>

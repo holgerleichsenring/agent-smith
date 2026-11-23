@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import type { ListedModelPrice } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
 import { rankModelMatches } from "./modelIdRanking";
 
 // 2026-09-30-62bab: the model id as a search over the public price list. The id stays
@@ -22,6 +23,7 @@ export function ModelIdSearch({
   preferredProviders?: readonly string[];
   onChange: (model: string) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const listId = useId();
   const query = value.trim().toLowerCase();
@@ -31,9 +33,9 @@ export function ModelIdSearch({
   return (
     <div className="field">
       <label htmlFor={`${listId}-input`}>
-        model it runs
-        <span className="req">required</span>
-        <span className="help">search the price list; the deployment name is separate</span>
+        {t("config.model.id.label")}
+        <span className="req">{t("config.required")}</span>
+        <span className="help">{t("config.model.id.help")}</span>
       </label>
       <input
         id={`${listId}-input`}
@@ -46,7 +48,7 @@ export function ModelIdSearch({
         autoComplete="off"
         data-testid="agent-model-id"
         value={value}
-        placeholder="e.g. gpt-4.1"
+        placeholder={t("config.model.id.placeholder")}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
           setOpen(true);
@@ -57,7 +59,7 @@ export function ModelIdSearch({
         }}
       />
       {matches.length > 0 && (
-        <div className="repo-rows" id={listId} role="listbox" aria-label="price list matches" data-testid="agent-model-id-matches">
+        <div className="repo-rows" id={listId} role="listbox" aria-label={t("config.model.id.matchesAria")} data-testid="agent-model-id-matches">
           {matches.map((m) => (
             <button
               key={m.id}

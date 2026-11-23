@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useT } from "@/hooks/useT";
 import { SelectField, TextField } from "./formFields";
 import type { useProjectContexts } from "./useProjectContexts";
 
@@ -9,7 +10,7 @@ import type { useProjectContexts } from "./useProjectContexts";
 // editor's own read both want them and neither owns the other.
 
 /** Where a context list comes from, said on the field rather than left to be assumed. */
-const FROM_DEFAULT_BRANCH = "read from the repository's default branch";
+const FROM_DEFAULT_BRANCH = "config.context.fromDefaultBranch";
 
 /** Why a list is missing, never instead of the field — the name stays typeable. */
 export function Unreadable({
@@ -21,10 +22,11 @@ export function Unreadable({
   subject: string;
   testId: string;
 }) {
+  const t = useT();
   if (lines.length === 0) return null;
   return (
     <span className="help" data-testid={`${testId}-unreadable`}>
-      could not read {subject}: {lines.join("; ")}
+      {t("config.context.unreadable", { subject, lines: lines.join("; ") })}
     </span>
   );
 }
@@ -61,7 +63,8 @@ export function LocalContextField({
   testId: string;
   onChange: (name: string, repo: string | null) => void;
 }) {
-  const subject = "this project's repositories";
+  const t = useT();
+  const subject = t("config.context.subjectProjectRepos");
   // A stored name with no repository that exactly one repository declares has an origin,
   // not a guess: fill it in once the list arrives, so the draft changes and one save places
   // it. A name two repositories declare stays as stored for the operator to pick again.
@@ -76,15 +79,15 @@ export function LocalContextField({
   if (state.origins.length === 0)
     return (
       <TextField
-        label="context"
+        label={t("config.context.label")}
         value={value}
         mono
         help={
           state.loading
-            ? `reading ${subject}...`
+            ? t("config.context.reading", { subject })
             : state.unreadable.length > 0
-              ? "no list to pick from - type the name"
-              : `${subject} declare no context - type the name`
+              ? t("config.context.noList")
+              : t("config.context.reposDeclareNone", { subject })
         }
         testId={testId}
         onChange={(v) => onChange(v, null)}
@@ -102,10 +105,10 @@ export function LocalContextField({
 
   return (
     <SelectField
-      label="context"
+      label={t("config.context.label")}
       value={encode(value, contextRepo)}
       options={options}
-      help={FROM_DEFAULT_BRANCH}
+      help={t(FROM_DEFAULT_BRANCH)}
       testId={testId}
       onChange={(v) => {
         const picked = decode(v);
@@ -135,19 +138,20 @@ export function ContextField({
   testId: string;
   onChange: (v: string) => void;
 }) {
+  const t = useT();
   const shared = state.origins.filter((o) => o.repos.length > 1);
   const help = state.loading
-    ? `reading ${subject}...`
+    ? t("config.context.reading", { subject })
     : state.origins.length > 0
       ? shared.length > 0
         // The stored reference is a bare name, and the run keys its scopes by that bare
         // name — so a name two repositories declare opens one scope both match. Said here
         // because the picker cannot resolve it and must not pretend to.
-        ? `${FROM_DEFAULT_BRANCH} — ${shared.map((o) => o.name).join(", ")} declared by more than one`
-        : FROM_DEFAULT_BRANCH
+        ? t("config.context.sharedNames", { names: shared.map((o) => o.name).join(", ") })
+        : t(FROM_DEFAULT_BRANCH)
       : state.unreadable.length > 0
-        ? "no list to pick from - type the name"
-        : `${subject} declares no context - type the name`;
+        ? t("config.context.noList")
+        : t("config.context.repoDeclaresNone", { subject });
 
   return state.origins.length > 0 ? (
     <SelectField

@@ -1,6 +1,8 @@
 "use client";
 
 import type { InheritedResources, ResourceSummary, SandboxResourceLayer } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // 2026-09-22-6c46: the cpu/memory group. Its resolution has FOUR layers — the project's own
 // block, a light profile forced on every pipeline that changes no code, resources an LLM
@@ -15,34 +17,29 @@ import type { InheritedResources, ResourceSummary, SandboxResourceLayer } from "
 // to say "inherit" is to switch the whole group off.
 
 const FIELDS = [
-  { key: "cpuRequest", label: "cpu request" },
-  { key: "cpuLimit", label: "cpu limit" },
-  { key: "memoryRequest", label: "memory request" },
-  { key: "memoryLimit", label: "memory limit" },
+  { key: "cpuRequest", label: "config.resources.cpuRequest" },
+  { key: "cpuLimit", label: "config.resources.cpuLimit" },
+  { key: "memoryRequest", label: "config.resources.memoryRequest" },
+  { key: "memoryLimit", label: "config.resources.memoryLimit" },
 ] as const;
 
 // 2026-10-12-006d: the layer is the answer for a run that CHANGES CODE. A project's runs take
 // their pipeline per run — a ticket's labels, a trigger's default, the CLI — so its own
 // pipeline field decides nothing, and the light profile a run that changes no code is held to
 // is named beside it rather than in place of it.
-const LAYER_SENTENCE: Record<SandboxResourceLayer, string> = {
-  "project-override": "this project's own block answers",
-  "light-profile":
-    "a run of this pipeline changes no code, so the fixed light profile answers — the process-wide default never reaches it",
-  "context-document":
-    "a run that changes code gets the resources the repository's context document names, clamped to the operator ceiling",
-  "global-default":
-    "a run that changes code gets the process-wide sandbox default, unless the repository's context document names resources for that run",
-};
+const LAYER_SENTENCE = {
+  "project-override": "config.resources.layer.projectOverride",
+  "light-profile": "config.resources.layer.lightProfile",
+  "context-document": "config.resources.layer.contextDocument",
+  "global-default": "config.resources.layer.globalDefault",
+} as const satisfies Record<SandboxResourceLayer, string>;
 
-const NO_CODE_SENTENCE =
-  "a run whose pipeline changes no code is held to the fixed light profile";
-const PER_RUN_SENTENCE = "each run's own pipeline decides which applies";
-
-function layerSentence(inherited: InheritedResources): string {
-  const own = `${LAYER_SENTENCE[inherited.layer]} (${summarise(inherited.values)})`;
+function layerSentence(t: T, inherited: InheritedResources): string {
+  const own = t("config.resources.layer.own", {
+    sentence: t(LAYER_SENTENCE[inherited.layer]), values: summarise(t, inherited.values),
+  });
   if (inherited.layer !== "global-default" && inherited.layer !== "context-document") return own;
-  return `${own}; ${NO_CODE_SENTENCE} (${summarise(inherited.noCodeValues)}) — ${PER_RUN_SENTENCE}`;
+  return t("config.resources.layer.withNoCode", { own, values: summarise(t, inherited.noCodeValues) });
 }
 
 export function SandboxResourceGroup({
@@ -54,6 +51,7 @@ export function SandboxResourceGroup({
   inherited: InheritedResources | undefined;
   onChange: (next: ResourceSummary | undefined) => void;
 }) {
+  const t = useT();
   const given = value ?? null;
   const fallback = inherited?.values;
 
@@ -66,14 +64,14 @@ export function SandboxResourceGroup({
   return (
     <div className="field" data-testid="form-field-sandbox-resources">
       <label>
-        cpu &amp; memory
+        {t("config.resources.label")}
         <span className="help">
-          all four quantities or none — a partial override is not a shape this product has
+          {t("config.resources.help")}
         </span>
       </label>
 
       <p className="help" data-testid="form-sandbox-resources-layer">
-        {inherited ? layerSentence(inherited) : "the layer that would answer could not be read"}
+        {inherited ? layerSentence(t, inherited) : t("config.resources.layerUnreadable")}
       </p>
 
       {/* With no inherited values there is nothing to seed all four from, and this group
@@ -88,8 +86,8 @@ export function SandboxResourceGroup({
           onClick={() => fallback && onChange({ ...fallback })}
         >
           {fallback === undefined
-            ? "cannot size this project while the inherited values are unreadable"
-            : "+ size this project myself"}
+            ? t("config.resources.cannotSize")
+            : t("config.resources.sizeMyself")}
         </button>
       ) : (
         <>
@@ -99,13 +97,13 @@ export function SandboxResourceGroup({
                 <input
                   type="text"
                   className="mono"
-                  aria-label={f.label}
+                  aria-label={t(f.label)}
                   data-testid={`form-field-sandbox-resources-${f.key}`}
                   value={given[f.key]}
                   placeholder={fallback?.[f.key]}
                   onChange={(e) => set(f.key, e.target.value)}
                 />
-                <span className="help">{f.label}</span>
+                <span className="help">{t(f.label)}</span>
               </div>
             ))}
           </div>
@@ -115,7 +113,7 @@ export function SandboxResourceGroup({
             data-testid="form-field-sandbox-resources-inherit"
             onClick={() => onChange(undefined)}
           >
-            × hand the whole group back to what it inherits
+            {t("config.resources.inherit")}
           </button>
         </>
       )}
@@ -124,5 +122,5 @@ export function SandboxResourceGroup({
 }
 
 
-const summarise = (r: ResourceSummary) =>
-  `cpu ${r.cpuRequest}/${r.cpuLimit}, memory ${r.memoryRequest}/${r.memoryLimit}`;
+const summarise = (t: T, r: ResourceSummary) =>
+  t("config.resources.summary", { cpuRequest: r.cpuRequest, cpuLimit: r.cpuLimit, memoryRequest: r.memoryRequest, memoryLimit: r.memoryLimit });

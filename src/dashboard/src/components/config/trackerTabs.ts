@@ -1,4 +1,5 @@
 import type { CapabilityField } from "@/lib/configApi";
+import type { T } from "@/lib/i18n/translate";
 import { camelCase } from "./capabilityFields";
 
 // 2026-10-06-cea8: the server says what a tracker field decides (its group); this is the one
@@ -32,6 +33,14 @@ export function trackerTabFor(field: string, fields: CapabilityField[]): Tracker
   return trackerTabOf(fields.find((f) => f.key === key));
 }
 
-export function trackerTabTitle(tab: TrackerTab): string {
-  return tab[0].toUpperCase() + tab.slice(1);
+const TAB_TITLE = {
+  connection: "config.tracker.tab.connection",
+  intake: "config.tracker.tab.intake",
+  outcomes: "config.tracker.tab.outcomes",
+  routing: "config.tracker.tab.routing",
+  filing: "config.tracker.tab.filing",
+} as const satisfies Record<TrackerTab, string>;
+
+export function trackerTabTitle(t: T, tab: TrackerTab): string {
+  return t(TAB_TITLE[tab]);
 }

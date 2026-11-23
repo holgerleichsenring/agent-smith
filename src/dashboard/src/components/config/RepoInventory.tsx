@@ -4,6 +4,8 @@ import { refMatches } from "@/lib/repoRefs";
 import { type StudioConnection, type StudioProject } from "@/lib/configApi";
 import { DiscoveryStatus } from "./DiscoveryStatus";
 import { useConnectionDiscovery } from "./useConnectionDiscovery";
+import { useDateLocale, useT } from "@/hooks/useT";
+
 
 // p0345c: the DISCOVERED half of the Repositories page — one section per
 // connection listing what the discovery cache actually found there, read-only,
@@ -20,11 +22,12 @@ export function RepoInventory({
   connections: StudioConnection[];
   projects: StudioProject[];
 }) {
+  const t = useT();
   if (connections.length === 0) {
     return (
       <div className="empty" data-testid="repo-inventory-empty">
         <div className="ei">◳</div>
-        No connections configured — discovered inventory appears per connection.
+        {t("config.inventory.empty")}
       </div>
     );
   }
@@ -44,6 +47,8 @@ function ConnectionInventory({
   connection: StudioConnection;
   projects: StudioProject[];
 }) {
+  const t = useT();
+  const locale = useDateLocale();
   const { discovered: snapshot, error, refreshing, refreshError, refresh } = useConnectionDiscovery(connection.id);
 
   return (
@@ -54,12 +59,12 @@ function ConnectionInventory({
           <div className="ec-name">{connection.id}</div>
           <div className="ec-sub">
             {snapshot?.discoveredAt
-              ? `discovered ${new Date(snapshot.discoveredAt).toLocaleString()}`
-              : "discovery cache"}
+              ? t("config.inventory.discoveredAt", { at: new Date(snapshot.discoveredAt).toLocaleString(locale) })
+              : t("config.inventory.cache")}
           </div>
         </div>
         <div className="ec-right">
-          <span className="tybadge">{connection.type || "connection"}</span>
+          <span className="tybadge">{connection.type || t("config.badge.connection")}</span>
         </div>
       </div>
       <DiscoveryStatus
@@ -72,25 +77,25 @@ function ConnectionInventory({
       {error ? (
         <div className="fields">
           <div className="f" data-testid={`repo-inventory-error-${connection.id}`}>
-            <span className="fl">discovery</span>
+            <span className="fl">{t("config.inventory.discovery")}</span>
             <span className="fv" style={{ color: "var(--bad)" }}>
-              unavailable: {error.message}
+              {t("config.inventory.unavailable", { message: error.message })}
             </span>
           </div>
         </div>
       ) : snapshot === null ? (
         <div className="fields">
           <div className="f">
-            <span className="fl">discovery</span>
-            <span className="fv">loading…</span>
+            <span className="fl">{t("config.inventory.discovery")}</span>
+            <span className="fv">{t("config.inventory.loading")}</span>
           </div>
         </div>
       ) : snapshot.discoveredAt === null ? (
         <div className="fields">
           <div className="f" data-testid={`repo-inventory-undiscovered-${connection.id}`}>
-            <span className="fl">discovery</span>
+            <span className="fl">{t("config.inventory.discovery")}</span>
             <span className="fv">
-              {snapshot.discovering ? "discovering…" : "not discovered yet — Refresh now, or type a name on the project"}
+              {snapshot.discovering ? t("config.discovery.discovering") : t("config.inventory.notYet")}
             </span>
           </div>
         </div>
@@ -98,8 +103,8 @@ function ConnectionInventory({
         <div className="fields" style={{ flexDirection: "column", alignItems: "stretch" }}>
           {snapshot.repos.length === 0 && (
             <div className="f" data-testid={`repo-inventory-none-${connection.id}`}>
-              <span className="fl">discovery</span>
-              <span className="fv">ran, but found no repos in this connection</span>
+              <span className="fl">{t("config.inventory.discovery")}</span>
+              <span className="fv">{t("config.inventory.none")}</span>
             </div>
           )}
           {[...snapshot.repos].sort((a, b) => a.name.localeCompare(b.name)).map((r) => {
@@ -114,14 +119,14 @@ function ConnectionInventory({
                 data-testid={`repo-inventory-${connection.id}-${r.name}`}
               >
                 <span className="fv">{r.name}</span>
-                {r.defaultBranch && <span className="fl">branch {r.defaultBranch}</span>}
+                {r.defaultBranch && <span className="fl">{t("config.branch", { branch: r.defaultBranch })}</span>}
                 {referencedBy.map((projectId) => (
                   <span
                     key={projectId}
                     className="tybadge"
                     data-testid={`repo-referenced-${connection.id}-${r.name}-${projectId}`}
                   >
-                    referenced by {projectId}
+                    {t("config.inventory.referencedBy", { project: projectId })}
                   </span>
                 ))}
               </div>

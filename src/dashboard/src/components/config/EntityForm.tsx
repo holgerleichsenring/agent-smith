@@ -16,7 +16,9 @@ import type {
   StudioRepo,
   StudioTracker,
 } from "@/lib/configApi";
-import { ENTITY_SINGULAR } from "./entities";
+import { ENTITY_SINGULAR_KEY } from "./entities";
+import { useT } from "@/hooks/useT";
+
 import { TextField, SelectField, RefSelect } from "./formFields";
 import { CapabilityFieldInputs, pruneToType } from "./capabilityFields";
 import { AgentForm } from "./AgentForm";
@@ -64,14 +66,15 @@ export function EntityForm({
   newSecretValue?: string;
   onNewSecretValue?: (value: string) => void;
 }) {
+  const t = useT();
   const idField = (
     <TextField
-      label={`${ENTITY_SINGULAR[kind]} id`}
+      label={t("config.form.id", { kind: t(ENTITY_SINGULAR_KEY[kind]) })}
       value={draft.id}
       mono
       disabled={!isNew}
       testId="form-field-id"
-      placeholder={kind === "secrets" ? "ENV_VAR_NAME" : "unique-id"}
+      placeholder={kind === "secrets" ? "ENV_VAR_NAME" : t("config.form.idPlaceholder")}
       onChange={(v) => onChange({ ...draft, id: v })}
     />
   );
@@ -108,11 +111,11 @@ export function EntityForm({
         <div className="flex flex-col gap-4">
           {idField}
           <SelectField
-            label="type"
+            label={t("config.type")}
             value={c.type}
             options={capabilities?.connectionTypes.map((d) => d.type) ?? []}
             required
-            help={capabilities ? undefined : "capabilities unavailable"}
+            help={capabilities ? undefined : t("config.capabilitiesUnavailable")}
             testId="form-field-type"
             onChange={(v) => onChange(pruneToType(c, capabilities?.connectionTypes ?? [], v))}
           />
@@ -135,8 +138,8 @@ export function EntityForm({
       return (
         <div className="flex flex-col gap-4">
           {idField}
-          <TextField label="name" value={r.name} testId="form-field-name" onChange={(v) => onChange({ ...r, name: v })} />
-          <TextField label="branch" value={r.branch} testId="form-field-branch" onChange={(v) => onChange({ ...r, branch: v })} />
+          <TextField label={t("config.form.name")} value={r.name} testId="form-field-name" onChange={(v) => onChange({ ...r, name: v })} />
+          <TextField label={t("config.form.branch")} value={r.branch} testId="form-field-branch" onChange={(v) => onChange({ ...r, branch: v })} />
         </div>
       );
     }
@@ -157,10 +160,10 @@ export function EntityForm({
       return (
         <div className="flex flex-col gap-4">
           {idField}
-          <TextField label="transport" value={m.transport} testId="form-field-transport" onChange={(v) => onChange({ ...m, transport: v })} />
-          <TextField label="url" value={m.url} testId="form-field-url" onChange={(v) => onChange({ ...m, url: v })} />
+          <TextField label={t("config.form.transport")} value={m.transport} testId="form-field-transport" onChange={(v) => onChange({ ...m, transport: v })} />
+          <TextField label={t("config.form.url")} value={m.url} testId="form-field-url" onChange={(v) => onChange({ ...m, url: v })} />
           <RefSelect
-            label="auth secret"
+            label={t("config.form.authSecret")}
             value={m.authSecret}
             options={catalog.secrets}
             testId="form-ref-authSecret"
@@ -177,7 +180,7 @@ export function EntityForm({
         <div className="flex flex-col gap-4">
           {idField}
           <SelectField
-            label="vendor"
+            label={t("config.form.vendor")}
             value={d.vendor}
             options={DESIGN_VENDORS}
             required
@@ -185,14 +188,14 @@ export function EntityForm({
             onChange={(v) => onChange({ ...d, vendor: v })}
           />
           <RefSelect
-            label="auth secret"
+            label={t("config.form.authSecret")}
             value={d.authSecret}
             options={catalog.secrets}
             testId="form-ref-authSecret"
             onChange={(v) => onChange({ ...d, authSecret: v })}
           />
           <TextField
-            label="display name"
+            label={t("config.form.displayName")}
             value={d.displayName ?? ""}
             testId="form-field-displayName"
             onChange={(v) => onChange({ ...d, displayName: v || null })}
@@ -209,10 +212,10 @@ export function EntityForm({
             className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2"
           >
             <span className="dsh-label font-semibold uppercase tracking-wide text-amber-700">
-              value redacted
+              {t("config.form.secret.redacted")}
             </span>
             <span className="dsh-body text-amber-700">
-              A value set here is stored encrypted and never shown again; an environment variable of the same name wins.
+              {t("config.form.secret.redactedNote")}
             </span>
           </div>
           {isNew

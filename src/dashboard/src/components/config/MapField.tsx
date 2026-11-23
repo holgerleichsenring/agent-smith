@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useT } from "@/hooks/useT";
+
 
 // p0499: a string->string map, edited as one ROW PER ENTRY — a key input and a value
 // input, never a line of text. The previous control was a textarea of `key: value`
@@ -36,6 +38,7 @@ export function MapField({
   // ticket can route to. The key side never is: it is the operator's own word on their board.
   valueChoices?: string[];
 }) {
+  const t = useT();
   const [rows, setRows] = useState<Row[]>(() => toRows(values));
   const nextId = useRef(rows.length);
   const emitted = useRef<Record<string, string> | null>(null);
@@ -64,7 +67,7 @@ export function MapField({
   return (
     <div className="field" data-testid={testId}>
       <label>
-        {label} <span className="help">{help ?? "one key and one value per row"}</span>
+        {label} <span className="help">{help ?? t("config.map.help")}</span>
       </label>
       <div className="maprows">
         {rows.map((row, i) => {
@@ -74,7 +77,7 @@ export function MapField({
             <input
               type="text"
               className="mono"
-              aria-label={`${label} key ${i + 1}`}
+              aria-label={t("config.map.keyAria", { label, n: i + 1 })}
               data-testid={testId && `${testId}-key-${i}`}
               value={row.key}
               onChange={(e) => edit(row.id, { key: e.target.value })}
@@ -82,7 +85,7 @@ export function MapField({
             {valueChoices && valueChoices.length > 0 ? (
               <select
                 className="mono"
-                aria-label={`${label} value ${i + 1}`}
+                aria-label={t("config.map.valueAria", { label, n: i + 1 })}
                 data-testid={testId && `${testId}-value-${i}`}
                 value={row.value}
                 onChange={(e) => edit(row.id, { value: e.target.value })}
@@ -103,7 +106,7 @@ export function MapField({
               <input
                 type="text"
                 className="mono"
-                aria-label={`${label} value ${i + 1}`}
+                aria-label={t("config.map.valueAria", { label, n: i + 1 })}
                 data-testid={testId && `${testId}-value-${i}`}
                 placeholder={hint.placeholder}
                 value={row.value}
@@ -113,7 +116,7 @@ export function MapField({
             <button
               type="button"
               className="pick"
-              aria-label={`Remove ${label} row ${i + 1}`}
+              aria-label={t("config.removeRow", { label, n: i + 1 })}
               data-testid={testId && `${testId}-remove-${i}`}
               onClick={() => apply(rows.filter((r) => r.id !== row.id))}
             >
@@ -127,7 +130,7 @@ export function MapField({
           </div>
           );
         })}
-        {rows.length === 0 && <span className="help">no entries</span>}
+        {rows.length === 0 && <span className="help">{t("config.map.none")}</span>}
       </div>
       <button
         type="button"
@@ -135,7 +138,7 @@ export function MapField({
         data-testid={testId && `${testId}-add`}
         onClick={() => setRows([...rows, { id: nextId.current++, key: "", value: "" }])}
       >
-        + add entry
+        {t("config.map.add")}
       </button>
     </div>
   );

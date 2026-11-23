@@ -7,13 +7,14 @@ import { EntityCard } from "./EntityCard";
 import { EntityDrawer } from "./EntityDrawer";
 import { ChangesView } from "./ChangesView";
 import { RepoInventory } from "./RepoInventory";
-import { blankEntity, ENTITY_ICON, ENTITY_LABEL, ENTITY_SINGULAR, ENTITY_SUBTITLE } from "./entities";
+import { blankEntity, ENTITY_EMPTY_KEY, ENTITY_ICON, ENTITY_LABEL_KEY, ENTITY_SINGULAR_KEY, ENTITY_SUBTITLE } from "./entities";
 import { useCapabilities } from "./useCapabilities";
 import { useConfigCatalogContext } from "./ConfigCatalogProvider";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { ConfirmDialog, useConfirmDialog } from "@/components/dialog/ConfirmDialog";
 import { fetchSecretValues, type SecretValueState } from "@/lib/secretValuesApi";
+import { useT } from "@/hooks/useT";
 
 // p0345: the Configuration studio — the catalog of the editable entity kinds
 // plus the Changes audit view. It loads the whole catalog once (the FK pickers
@@ -35,6 +36,7 @@ interface DrawerState {
 export function ConfigStudio({ section }: { section: StudioSection }) {
   // p0353: the SHARED catalog instance (provided in the shell layout) — reload()
   // here also refreshes the left rail's count badges, not just this pane.
+  const t = useT();
   const { catalog, inheritedSandbox, loading, error, reload } = useConfigCatalogContext();
   // p0345c: the capabilities descriptor is loaded ONCE (module-cached) and
   // feeds every type/provider/strategy dropdown in the drawer forms.
@@ -57,11 +59,11 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
       <main className="main">
         <div className="m-head">
           <div className="mt">
-            <h1>{section === "changes" ? "Changes" : ENTITY_LABEL[section]}</h1>
+            <h1>{section === "changes" ? t("config.nav.changes") : t(ENTITY_LABEL_KEY[section])}</h1>
             <div className="msub">
               {section === "changes"
-                ? "Every config edit — who, when, what — revertible. The audit trail a hand-edited config map never had."
-                : ENTITY_SUBTITLE[section]}
+                ? t("config.changes.sub")
+                : t(ENTITY_SUBTITLE[section])}
             </div>
           </div>
           {section !== "changes" && (
@@ -74,7 +76,7 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
-              New {ENTITY_SINGULAR[section]}
+              {t("config.drawer.new", { kind: t(ENTITY_SINGULAR_KEY[section]) })}
             </button>
           )}
         </div>
@@ -82,11 +84,11 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
         <ThesisNote reload={reload} />
 
         {refusal ? (
-          <RefusalSurface refusal={refusal} surface="the configuration catalog" />
+          <RefusalSurface refusal={refusal} surface={t("config.catalog.surface")} />
         ) : (
           error && (
             <p data-testid="config-load-error" className="msub" style={{ color: "var(--bad)" }}>
-              Failed to load configuration: {error.message}
+              {t("config.catalog.loadFailed", { message: error.message })}
             </p>
           )
         )}
@@ -125,6 +127,7 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
 // p0352: the import is the inverse — upload an agentsmith.yml straight into the
 // DB store (guarded: a non-empty store confirms an overwrite first).
 function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
+  const t = useT();
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<Error | null>(null);
   const [importing, setImporting] = useState(false);
@@ -157,8 +160,8 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
     const notKept = dropped.map((d) => `${d.path} (${d.reason})`).join("; ");
     setImportMsg(
       dropped.length === 0
-        ? `Imported ${imported} config entities.`
-        : `Imported ${imported} config entities. Not imported: ${notKept}.`,
+        ? t("config.import.done", { count: imported })
+        : t("config.import.doneWithDropped", { count: imported, dropped: notKept }),
     );
     await reload();
   };
@@ -178,8 +181,8 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
         if (err instanceof ConfigStoreNotEmptyError) {
           // Not busy while the person decides; busy again only once they chose to overwrite.
           setImporting(false);
-          const overwrite = await confirmation.ask(`Overwrite the current config?\n\n${err.message}`, {
-            confirmLabel: "Overwrite", cancelLabel: "Keep current",
+          const overwrite = await confirmation.ask(t("config.import.overwriteQuestion", { message: err.message }), {
+            confirmLabel: t("config.import.overwrite"), cancelLabel: t("config.import.keep"),
           });
           if (!overwrite) return;
           setImporting(true);
@@ -199,17 +202,16 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
     <div className="yaml-note" data-testid="config-thesis-note">
       <span>◇</span>
       <div>
-        The source of truth is this catalog — refs are picked, never typed, so a project can’t
-        point at an agent that doesn’t exist. <b>No hand-edited config map.</b>
+        {t("config.thesis.text")} <b>{t("config.thesis.bold")}</b>
       </div>
       {exportError && (
         <span data-testid="config-export-error" style={{ color: "var(--bad)" }}>
-          export failed: {exportError.message}
+          {t("config.export.failed", { message: exportError.message })}
         </span>
       )}
       {importError && (
         <span data-testid="config-import-error" style={{ color: "var(--bad)" }}>
-          import failed: {importError.message}
+          {t("config.import.failed", { message: importError.message })}
         </span>
       )}
       {importMsg && (
@@ -232,7 +234,7 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
         disabled={importing}
         data-testid="config-import-yml"
       >
-        {importing ? "Importing…" : "Import agentsmith.yml ↥"}
+        {importing ? t("config.import.running") : t("config.import.button")}
       </button>
       <button
         type="button"
@@ -241,7 +243,7 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
         disabled={exporting}
         data-testid="config-export-yml"
       >
-        {exporting ? "Exporting…" : "Export agentsmith.yml ↧"}
+        {exporting ? t("config.export.running") : t("config.export.button")}
       </button>
       <ConfirmDialog {...confirmation.dialog} />
     </div>
@@ -261,15 +263,16 @@ function EntityCatalog({
   onEdit: (entity: StudioEntity) => void;
   drawerOpen: boolean;
 }) {
+  const t = useT();
   const items = catalog[kind];
   const registries = useSecretRegistries(kind === "secrets");
   const secretStates = useSecretValueStates(kind === "secrets", catalog.secrets, drawerOpen);
   const cards = loading ? (
-    <div className="empty">Loading…</div>
+    <div className="empty">{t("config.loading")}</div>
   ) : items.length === 0 ? (
     <div className="empty" data-testid={`config-empty-${kind}`}>
       <div className="ei">{ENTITY_ICON[kind]}</div>
-      No {ENTITY_LABEL[kind].toLowerCase()} yet. Create your first one.
+      {t(ENTITY_EMPTY_KEY[kind])}
     </div>
   ) : (
     items.map((entity) => (
@@ -293,19 +296,19 @@ function EntityCatalog({
       <div data-testid="config-catalog-repos">
         <section>
           <div className="section-head">
-            <h2>Discovered per connection</h2>
-            <span className="sh-sub">what the discovery cache actually found — wire these as conn/Name</span>
+            <h2>{t("config.repos.discovered.title")}</h2>
+            <span className="sh-sub">{t("config.repos.discovered.sub")}</span>
           </div>
           {loading ? (
-            <div className="empty">Loading…</div>
+            <div className="empty">{t("config.loading")}</div>
           ) : (
             <RepoInventory connections={catalog.connections} projects={catalog.projects} />
           )}
         </section>
         <section>
           <div className="section-head">
-            <h2>Standalone catalog</h2>
-            <span className="sh-sub">individually registered repos — the legacy world</span>
+            <h2>{t("config.repos.standalone.title")}</h2>
+            <span className="sh-sub">{t("config.repos.standalone.sub")}</span>
           </div>
           <div className="list">{cards}</div>
         </section>

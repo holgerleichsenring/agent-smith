@@ -5,6 +5,8 @@ import { TemplateEditor } from "./TemplateEditor";
 import type { useProjectContexts } from "./useProjectContexts";
 import { isTemplateUnfinished } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
+import { useT } from "@/hooks/useT";
+
 
 // 2026-09-15-a2d0: one declared template as a ROW that carries all five of its values,
 // with the field set of 2026-09-14-620e opening underneath it. A list that hid a value
@@ -39,6 +41,7 @@ export function TemplateRow({
   onRemove: () => void;
   testId: string;
 }) {
+  const t = useT();
   const context = template.context || MISSING;
   return (
     <div className="tpl-row" role="listitem" data-open={open ? "true" : "false"} data-testid={`${testId}-row`}>
@@ -47,7 +50,7 @@ export function TemplateRow({
           type="button"
           className="tpl-open"
           aria-expanded={open}
-          aria-label={open ? `Collapse template ${index + 1}` : `Edit template ${index + 1}`}
+          aria-label={t(open ? "config.templateRow.collapse" : "config.templateRow.edit", { n: index + 1 })}
           aria-controls={`${testId}-editor`}
           data-testid={`${testId}-open`}
           onClick={onToggle}
@@ -60,23 +63,23 @@ export function TemplateRow({
               There is no save here on purpose: the drawer saves the project. */}
           {isTemplateUnfinished(template) ? (
             <span className="tpl-todo" data-testid={`${testId}-unfinished`}>
-              not finished
+              {t("config.templateRow.unfinished")}
             </span>
           ) : (
             <span className="tpl-done" data-testid={`${testId}-complete`}>
-              complete
+              {t("config.templateRow.complete")}
             </span>
           )}
           {open && (
             <span className="tpl-close" data-testid={`${testId}-close`}>
-              done — collapse
+              {t("config.templateRow.close")}
             </span>
           )}
         </button>
         <button
           type="button"
           className="pick"
-          aria-label={`Remove template ${index + 1}`}
+          aria-label={t("config.templateRow.remove", { n: index + 1 })}
           data-testid={`${testId}-remove`}
           onClick={onRemove}
         >
@@ -85,17 +88,17 @@ export function TemplateRow({
       </div>
       <div className="tpl-target" data-testid={`${testId}-target`}>
         {/* 2026-11-18-3863a: a deployment binding says how the context is delivered, and where to. */}
-        {template.kind === "deployment" ? "delivered after" : "built after"} {template.project || MISSING} / {template.repo || MISSING} ·{" "}
+        {template.kind === "deployment" ? t("config.templateRow.deliveredAfter") : t("config.templateRow.builtAfter")} {template.project || MISSING} / {template.repo || MISSING} ·{" "}
         {template.templateContext || MISSING}{" "}
         {/* An absent revision lands on the TARGET repository's own default branch: the
             clone carries no -b and the revision is only landed on when one is declared,
             so the catalog repo entry's branch never reaches this path and is not shown. */}
         <span className="tpl-rev">
-          {template.revision ? `@ ${template.revision}` : "@ its default branch"}
+          {template.revision ? `@ ${template.revision}` : t("config.templateRow.defaultBranch")}
         </span>
         {template.kind === "deployment" && (
           <span className="tpl-envs" data-testid={`${testId}-envs`}>
-            {" "}→ {(template.environments ?? []).map((e) => e.name || MISSING).join(", ") || "no environment yet"}
+            {" "}→ {(template.environments ?? []).map((e) => e.name || MISSING).join(", ") || t("config.templateRow.noEnvironment")}
           </span>
         )}
       </div>

@@ -5,10 +5,12 @@ import type { SettingKey, SettingValue } from "@/lib/configApi";
 import { SettingsForm } from "./SettingsForm";
 import { useSetting } from "./useSetting";
 import { useCapabilities } from "./useCapabilities";
-import { SETTING_ICON, SETTING_LABEL, SETTING_SUBTITLE } from "./settings";
+import { SETTING_ICON, SETTING_LABEL_KEY, SETTING_SUBTITLE } from "./settings";
 import { settingRefusal } from "./settingsRefusal";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { useT } from "@/hooks/useT";
+
 
 // p0353: the Settings pane — one typed form per global settings singleton, sitting
 // inside the config studio shell next to the entity catalog. It loads the doc, edits
@@ -17,6 +19,7 @@ import { RefusalSurface } from "@/components/shell/RefusalSurface";
 // can't fire a no-op write.
 
 export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
+  const t = useT();
   const { value, loading, error, saving, saveError, save } = useSetting(settingKey);
   const { capabilities } = useCapabilities();
   const [draft, setDraft] = useState<SettingValue | null>(null);
@@ -30,7 +33,7 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
   const dirty = draft !== null && value !== null && JSON.stringify(draft) !== JSON.stringify(value);
   // p0495: a draft the server would only ever contradict is refused here, in both its
   // numbers, instead of being saved and silently outranked at the sandbox boundary.
-  const refusal = draft === null ? null : settingRefusal(settingKey, draft);
+  const refusal = draft === null ? null : settingRefusal(t, settingKey, draft);
   const loadRefusal = refusalIn(error);
 
   async function onSave() {
@@ -51,9 +54,9 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
               <span aria-hidden="true" style={{ marginRight: 8 }}>
                 {SETTING_ICON[settingKey]}
               </span>
-              {SETTING_LABEL[settingKey]}
+              {t(SETTING_LABEL_KEY[settingKey])}
             </h1>
-            <div className="msub">{SETTING_SUBTITLE[settingKey]}</div>
+            <div className="msub">{t(SETTING_SUBTITLE[settingKey])}</div>
           </div>
           <button
             type="button"
@@ -62,16 +65,16 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
             disabled={!dirty || saving || refusal !== null}
             data-testid="settings-save"
           >
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? t("config.saving") : t("config.saveChanges")}
           </button>
         </div>
 
         {loadRefusal ? (
-          <RefusalSurface refusal={loadRefusal} surface="these settings" />
+          <RefusalSurface refusal={loadRefusal} surface={t("config.settings.surface")} />
         ) : (
           error && (
             <p data-testid="settings-load-error" className="msub" style={{ color: "var(--bad)" }}>
-              Failed to load these settings: {error.message}
+              {t("config.settings.loadFailed", { message: error.message })}
             </p>
           )
         )}
@@ -82,13 +85,13 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
         )}
         {saveError && (
           <p data-testid="settings-save-error" className="msub" style={{ color: "var(--bad)" }}>
-            Save failed: {saveError.message}
+            {t("config.saveFailed", { message: saveError.message })}
           </p>
         )}
 
         <div className="db" data-testid="settings-form">
           {loading || draft === null ? (
-            <div className="empty">Loading…</div>
+            <div className="empty">{t("config.loading")}</div>
           ) : (
             <SettingsForm
               settingKey={settingKey}

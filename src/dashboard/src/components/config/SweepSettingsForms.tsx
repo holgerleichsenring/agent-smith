@@ -27,14 +27,15 @@ export function PreconditionsForm({ value, onChange }: { value: PreconditionsSet
 
 export function BranchCleanupForm({ value, onChange }: { value: BranchCleanupSetting; onChange: (v: SettingValue) => void }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
     <>
-      <CheckField label="Run branch cleanup" value={value.enabled}
+      <CheckField label={t("config.branchCleanup.enabled")} value={value.enabled}
         onChange={(v) => set({ enabled: v })} testId="setting-branch-cleanup-enabled" />
-      <NumberField label="Interval (seconds)" value={value.intervalSeconds}
+      <NumberField label={t("config.branchCleanup.interval.label")} value={value.intervalSeconds}
         onChange={(v) => set({ intervalSeconds: keep(v, value.intervalSeconds) })}
         testId="setting-branch-cleanup-interval"
-        help="seconds between two branch-cleanup runs of a project; each run spends host API calls" />
+        help={t("config.branchCleanup.interval.help")} />
     </>
   );
 }

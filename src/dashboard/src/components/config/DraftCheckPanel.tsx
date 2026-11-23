@@ -8,6 +8,8 @@ import {
   type StudioConnection,
   type StudioTracker,
 } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
+
 
 // 2026-10-02-5f89b: the Test action on the connection and tracker forms. It checks the UNSAVED
 // draft against its host and renders the server's steps as they came — each with its mark, the
@@ -20,6 +22,7 @@ type Props =
   | { kind: "trackers"; draft: StudioTracker };
 
 export function DraftCheckPanel(props: Props) {
+  const t = useT();
   const [report, setReport] = useState<DraftCheckReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -55,11 +58,11 @@ export function DraftCheckPanel(props: Props) {
   return (
     <div className="field" data-testid="draft-check">
       <label>
-        test <span className="help">checks this unsaved draft against its host; nothing is saved</span>
+        {t("config.draftCheck.label")} <span className="help">{t("config.draftCheck.help")}</span>
       </label>
       <div className="picks">
         <button type="button" className="pick" disabled={running} onClick={run} data-testid="draft-check-run">
-          {running ? "Testing…" : "Test"}
+          {running ? t("config.draftCheck.running") : t("config.draftCheck.run")}
         </button>
       </div>
       {error && (
@@ -77,7 +80,7 @@ export function DraftCheckPanel(props: Props) {
               data-ok={step.ok}
               style={{ color: step.ok ? undefined : "var(--bad)" }}
             >
-              <span aria-label={step.ok ? "passed" : "failed"}>{step.ok ? "✓" : "✗"}</span>{" "}
+              <span aria-label={step.ok ? t("config.draftCheck.passed") : t("config.draftCheck.failed")}>{step.ok ? "✓" : "✗"}</span>{" "}
               <strong>{step.label}</strong> — {step.detail}
             </li>
           ))}

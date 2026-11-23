@@ -6,13 +6,15 @@ import { useProjectContexts } from "./useProjectContexts";
 import { ContextField, LocalContextField, Unreadable } from "./templateContextField";
 import type { ConfigCatalog } from "./useConfigCatalog";
 import { DeploymentEnvironments } from "./DeploymentEnvironments";
+import { useT } from "@/hooks/useT";
+
 
 // 2026-11-18-3863a: a binding is a code template (how the context is built) or a deployment template (how it is
 // delivered, with its environments).
-export const TEMPLATE_KINDS = [
-  { value: "code", label: "code — how this context is built" },
-  { value: "deployment", label: "deployment — how this context is delivered" },
-];
+const TEMPLATE_KINDS = [
+  { value: "code", label: "config.template.kind.code" },
+  { value: "deployment", label: "config.template.kind.deployment" },
+] as const;
 
 // 2026-09-14-620e: the five fields of one template binding. Four are PICKED — the target
 // project and its repo from the catalog the studio already holds, both context names from
@@ -37,6 +39,7 @@ export function TemplateEditor({
 }) {
   // ProjectTemplateRules refuses a repo the target project does not carry, so the repo
   // options are that project's own refs — not the repos catalog, which is a superset.
+  const t = useT();
   const target = catalog.projects.find((p) => p.id === template.project);
   const targetRepos = target?.repos ?? [];
   // One authenticated read into the target repository, made while this row is open. A
@@ -46,9 +49,9 @@ export function TemplateEditor({
   return (
     <div className="tpl-editor" id={`${testId}-editor`} data-testid={`${testId}-editor`}>
       <SelectField
-        label="kind"
+        label={t("config.template.kind.label")}
         value={template.kind ?? "code"}
-        options={TEMPLATE_KINDS}
+        options={TEMPLATE_KINDS.map((k) => ({ value: k.value, label: t(k.label) }))}
         testId={`${testId}-kind`}
         // A code binding carries no environments; leaving deployment drops them.
         onChange={(v) => onChange({ ...template, kind: v === "deployment" ? v : null,
@@ -62,7 +65,7 @@ export function TemplateEditor({
         onChange={(name, repo) => onChange({ ...template, context: name, contextRepo: repo })}
       />
       <SelectField
-        label="built after project"
+        label={t("config.template.project.label")}
         value={template.project}
         options={catalog.projects.map((p) => p.id)}
         testId={`${testId}-project`}
@@ -70,29 +73,29 @@ export function TemplateEditor({
         onChange={(v) => onChange({ ...template, project: v, repo: "", templateContext: "" })}
       />
       <SelectField
-        label="its repo"
+        label={t("config.template.repo.label")}
         value={template.repo}
         options={targetRepos}
-        help={template.project ? undefined : "pick a project first"}
+        help={template.project ? undefined : t("config.template.repo.pickProject")}
         testId={`${testId}-repo`}
         onChange={(v) => onChange({ ...template, repo: v, templateContext: "" })}
       />
       <ContextField
-        label="its context"
+        label={t("config.template.context.label")}
         value={template.templateContext}
         state={targetContexts}
-        subject="that repository"
+        subject={t("config.template.context.subject")}
         testId={`${testId}-templateContext`}
         onChange={(v) => onChange({ ...template, templateContext: v })}
       />
       <TextField
-        label="revision"
+        label={t("config.template.revision.label")}
         value={template.revision ?? ""}
         mono
-        placeholder="a tag, a branch or a commit"
+        placeholder={t("config.template.revision.placeholder")}
         // Typed, and said so: no source provider enumerates refs, so there is nothing to
         // pick from. The name is verified where the template is fetched.
-        help="typed, not picked — nothing lists refs; it is verified where the template is fetched"
+        help={t("config.template.revision.help")}
         testId={`${testId}-revision`}
         onChange={(v) => onChange({ ...template, revision: v === "" ? null : v })}
       />
@@ -100,7 +103,7 @@ export function TemplateEditor({
         <DeploymentEnvironments environments={template.environments ?? []} catalog={catalog} testId={testId}
           onChange={(environments) => onChange({ ...template, environments })} />
       )}
-      <Unreadable testId={testId} subject="the target repository" lines={targetContexts.unreadable} />
+      <Unreadable testId={testId} subject={t("config.template.targetRepo")} lines={targetContexts.unreadable} />
     </div>
   );
 }

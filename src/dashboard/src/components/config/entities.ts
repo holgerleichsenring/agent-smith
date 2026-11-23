@@ -4,6 +4,7 @@ import type {
   CrudClient,
   StudioEntity,
 } from "@/lib/configApi";
+import type { TextKey } from "@/lib/i18n/translate";
 import {
   agentsApi,
   trackersApi,
@@ -42,36 +43,61 @@ export const ENTITY_LABEL: Record<ConfigEntityKind, string> = {
   secrets: "Secrets",
 };
 
-export const ENTITY_SINGULAR: Record<ConfigEntityKind, string> = {
-  agents: "Agent",
-  trackers: "Tracker",
-  connections: "Connection",
-  repos: "Repository",
-  projects: "Project",
-  "mcp-servers": "MCP server",
-  "design-sources": "Design source",
-  secrets: "Secret",
-};
+// 2026-11-23-5669d: the kinds' names as dictionary keys, for what the studio renders. ENTITY_LABEL stays in English for
+// the header's place table (lib/places.ts), which reads strings. CHANGE_KIND_SINGULAR_KEY adds the settings singletons
+// for the change feed (p0353).
+export const ENTITY_LABEL_KEY = {
+  agents: "config.kind.agents",
+  trackers: "config.kind.trackers",
+  connections: "config.kind.connections",
+  repos: "config.kind.repos",
+  projects: "config.kind.projects",
+  "mcp-servers": "config.kind.mcpServers",
+  "design-sources": "config.kind.designSources",
+  secrets: "config.kind.secrets",
+} as const satisfies Record<ConfigEntityKind, TextKey>;
 
-// p0353: singular label for any change-feed row, including the settings singletons
-// (which have no catalog nav of their own). The Changes view keys off this.
-export const CHANGE_KIND_SINGULAR: Record<ConfigChangeKind, string> = {
-  ...ENTITY_SINGULAR,
-  settings: "Settings",
-};
+export const ENTITY_SINGULAR_KEY = {
+  agents: "config.kind.agent",
+  trackers: "config.kind.tracker",
+  connections: "config.kind.connection",
+  repos: "config.kind.repo",
+  projects: "config.kind.project",
+  "mcp-servers": "config.kind.mcpServer",
+  "design-sources": "config.kind.designSource",
+  secrets: "config.kind.secret",
+} as const satisfies Record<ConfigEntityKind, TextKey>;
+
+/** The catalog's empty state, one sentence per kind. */
+export const ENTITY_EMPTY_KEY = {
+  agents: "config.kind.agents.empty",
+  trackers: "config.kind.trackers.empty",
+  connections: "config.kind.connections.empty",
+  repos: "config.kind.repos.empty",
+  projects: "config.kind.projects.empty",
+  "mcp-servers": "config.kind.mcpServers.empty",
+  "design-sources": "config.kind.designSources.empty",
+  secrets: "config.kind.secrets.empty",
+} as const satisfies Record<ConfigEntityKind, TextKey>;
+
+export const CHANGE_KIND_SINGULAR_KEY = {
+  ...ENTITY_SINGULAR_KEY,
+  settings: "config.kind.settings",
+} as const satisfies Record<ConfigChangeKind, TextKey>;
+
 
 // p0343b: the one-line subtitle under each entity title in the studio content
 // area (the mock's title row: entity title + subtitle + green New button).
-export const ENTITY_SUBTITLE: Record<ConfigEntityKind, string> = {
-  agents: "LLM providers and their per-role models",
-  trackers: "ticket sources — polling and webhook triggers",
-  connections: "repo-discovery scopes — org/project + auth",
-  repos: "individual repositories the pipelines work on",
-  projects: "the wiring — agent → project ← tracker · repos",
-  "mcp-servers": "external MCP tool servers",
-  "design-sources": "design tools projects read designs from — token by secret name",
-  secrets: "env-names only — values stay in the runtime store",
-};
+export const ENTITY_SUBTITLE = {
+  agents: "config.kind.agents.sub",
+  trackers: "config.kind.trackers.sub",
+  connections: "config.kind.connections.sub",
+  repos: "config.kind.repos.sub",
+  projects: "config.kind.projects.sub",
+  "mcp-servers": "config.kind.mcpServers.sub",
+  "design-sources": "config.kind.designSources.sub",
+  secrets: "config.kind.secrets.sub",
+} as const satisfies Record<ConfigEntityKind, TextKey>;
 
 // p0343c: the mock's per-entity glyphs (rail .ni + card .ec-ic + drawer .dh-ic).
 export const ENTITY_ICON: Record<ConfigEntityKind, string> = {
@@ -86,16 +112,16 @@ export const ENTITY_ICON: Record<ConfigEntityKind, string> = {
 };
 
 // The type badge shown on each entity card.
-export const ENTITY_BADGE: Record<ConfigEntityKind, string> = {
-  agents: "agent",
-  trackers: "tracker",
-  connections: "connection",
-  repos: "repo",
-  projects: "project",
-  "mcp-servers": "mcp",
-  "design-sources": "design",
-  secrets: "secret",
-};
+export const ENTITY_BADGE = {
+  agents: "config.badge.agent",
+  trackers: "config.badge.tracker",
+  connections: "config.badge.connection",
+  repos: "config.badge.repo",
+  projects: "config.badge.project",
+  "mcp-servers": "config.badge.mcp",
+  "design-sources": "config.badge.design",
+  secrets: "config.badge.secret",
+} as const satisfies Record<ConfigEntityKind, TextKey>;
 
 // A single typed client per kind, indexable by kind. The `unknown`-narrowing at
 // the boundary keeps the map homogeneous while callers keep their concrete type.

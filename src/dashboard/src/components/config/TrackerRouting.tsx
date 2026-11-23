@@ -1,6 +1,8 @@
 "use client";
 
 import type { StudioTracker } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // 2026-09-16-74a2: the label map belongs to the TRACKER, so the project's pipeline
 // section renders it read-only and says where it is edited. The sentence underneath is
@@ -24,19 +26,20 @@ export function TrackerRouting({
   trackerId: string;
   testId?: string;
 }) {
+  const t = useT();
   const labels = Object.entries(tracker?.pipelineFromLabel ?? {});
   return (
     <div className="field" data-testid={testId}>
       <label>
-        how a ticket reaches a pipeline
+        {t("config.trackerRouting.title")}
         <span className="help">
-          {tracker ? `owned by tracker ${trackerId} — edit it there` : "pick a tracker first"}
+          {tracker ? t("config.trackerRouting.ownedBy", { tracker: trackerId }) : t("config.trackerRouting.pickTracker")}
         </span>
       </label>
 
       {!tracker && (
         <span className="help" data-testid={`${testId}-no-tracker`}>
-          this project names no tracker yet, so nothing routes to it
+          {t("config.trackerRouting.noTracker")}
         </span>
       )}
 
@@ -53,17 +56,17 @@ export function TrackerRouting({
       {tracker && (
         <span className="help" data-testid={`${testId}-fallback`}>
           {labels.length > 0
-            ? "a ticket whose label matches none of these is not routed to this project at all."
-            : fallbackSentence(tracker)}
+            ? t("config.trackerRouting.noMatch")
+            : fallbackSentence(t, tracker)}
         </span>
       )}
     </div>
   );
 }
 
-function fallbackSentence(tracker: StudioTracker): string {
+function fallbackSentence(t: T, tracker: StudioTracker): string {
   const declared = tracker.defaultPipeline;
   return declared
-    ? `this tracker maps no label, so every ticket it routes here runs ${declared} — what this tracker declares.`
-    : `this tracker maps no label and declares no default, so every ticket it routes here runs ${UNDECLARED_FALLBACK} — nothing declares that; set a default pipeline on the tracker.`;
+    ? t("config.trackerRouting.declared", { pipeline: declared })
+    : t("config.trackerRouting.undeclared", { pipeline: UNDECLARED_FALLBACK });
 }
