@@ -89,6 +89,40 @@ public sealed class SeriesRunStoreTests : IDisposable
         (await Store.ListAsync(null, default)).Should().HaveCount(3);
     }
 
+    [Fact]
+    public async Task ForTicketAsync_AnEndedSeries_IsStillFound_TheNewestHolderWins()
+    {
+        await Store.OpenAsync(SeriesRecords.Running("sr-1", "conv-1"), default);
+        await Store.UpdateAsync("sr-1", r => r with { State = SeriesRunStates.Done }, default);
+        (await Store.ForTicketAsync("sample", "44", default))!.Id.Should().Be("sr-1", "an ended series still holds its tickets");
+
+        await Store.OpenAsync(SeriesRecords.Running("sr-2", "conv-2"), default);
+
+        (await Store.ForTicketAsync("sample", "44", default))!.Id.Should().Be("sr-2");
+        (await Store.ForTicketAsync("sample", "99", default)).Should().BeNull("no series holds it");
+        (await Store.ForTicketAsync("other", "44", default)).Should().BeNull("another project's ticket 44");
+    }
+
+    [RequiresPostgresFact]
+    public async Task ForTicketAsync_OnPostgres_FindsAnEndedSeries()
+    {
+        await using var db = await ScratchPostgres.MigratedAsync(RequiresPostgresFactAttribute.ConnectionString!, "series");
+        try
+        {
+            var options = ScratchPostgres.Options(db.Database.GetConnectionString()!);
+            await using var provider = new ServiceCollection()
+                .AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(options)).BuildServiceProvider();
+            var store = new SeriesRunRepository(provider.GetRequiredService<IServiceScopeFactory>());
+            await store.OpenAsync(SeriesRecords.Running("sr-1", "conv-1") with { State = SeriesRunStates.Stopped }, default);
+
+            (await store.ForTicketAsync("sample", "44", default))!.Id.Should().Be("sr-1");
+        }
+        finally
+        {
+            await db.Database.EnsureDeletedAsync();
+        }
+    }
+
     [RequiresPostgresFact]
     public async Task ListAsync_OnPostgres_FiltersByProject()
     {

@@ -57,7 +57,7 @@ public sealed class SeriesRunReadersTests : IDisposable
         detail.MergeOrder.Select(s => (s.Key, s.Wait)).Should().Equal(
             [("SCRUM-1", SeriesRunMergeWaits.Ready), ("SCRUM-2", SeriesRunMergeWaits.After)]);
         detail.MergeOrder[1].After.Should().Equal(["SCRUM-1"]);
-        detail.Counts.Should().Be(new AgentSmith.Server.Models.SeriesRunCounts(3, 1, 2, 0));
+        detail.Counts.Should().Be(new AgentSmith.Server.Models.SeriesRunCounts(3, 1, 2, 0, 0));
     }
 
     [Fact]
@@ -83,6 +83,18 @@ public sealed class SeriesRunReadersTests : IDisposable
 
         read.Should().ContainSingle().Which.Ci!.State.Should().Be(CiStates.Green);
         (await ReadAsync(s => s.GetRequiredService<PrReviewRecordRepository>().ByTicketsAsync("beta", ["1"], default))).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Detail_AStoppedAttemptWithNothingToMerge_IsHeld()
+    {
+        await OpenAsync("sr-1", Tickets("1", "2", "3"));
+        await _h.AddAsync(TicketStoreHarness.Run("run-1", ticket: "1", status: "failed"),
+            TicketStoreHarness.Run("run-2", ticket: "2", status: "running"));
+
+        var counts = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!.Counts;
+
+        counts.Should().Be(new AgentSmith.Server.Models.SeriesRunCounts(3, 0, 0, 1, 1), "1 failed is held, 2 works, 3 never started");
     }
 
     [Fact]

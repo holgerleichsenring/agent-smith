@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Series;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Server.Models;
 
@@ -34,8 +35,13 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
             [.. prs.Select(p => p.Repo).Distinct(StringComparer.Ordinal)], facts.Landed.Contains(ticket.TicketId),
             facts.Attempts.GetValueOrDefault(ticket.TicketId)?.Status, prs);
 
-    private static SeriesRunCounts Counts(IReadOnlyList<SeriesRunTicketView> tickets, SeriesRunProjectFacts facts) => new(
-        tickets.Count, tickets.Count(t => t.Landed),
-        tickets.Count(t => !t.Landed && t.PullRequests.Any(SeriesRunPullRequests.Waits)),
-        tickets.Count(t => !t.Landed && t.PullRequests.Count == 0 && !facts.Attempts.ContainsKey(t.TicketId)));
+    private static SeriesRunCounts Counts(IReadOnlyList<SeriesRunTicketView> tickets, SeriesRunProjectFacts facts)
+    {
+        var open = tickets.Where(t => !t.Landed).ToList();
+        var waiting = open.Where(t => t.PullRequests.Any(SeriesRunPullRequests.Waits)).ToList();
+        return new(tickets.Count, tickets.Count - open.Count, waiting.Count,
+            open.Except(waiting).Count(t => t.Status is not (null or RunStatuses.Running or RunStatuses.Success)
+                && facts.Attempts.GetValueOrDefault(t.TicketId)?.StoppedAtBoundary != true), // a boundary stop continues
+            open.Count(t => t.PullRequests.Count == 0 && !facts.Attempts.ContainsKey(t.TicketId)));
+    }
 }

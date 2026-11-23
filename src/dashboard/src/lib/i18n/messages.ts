@@ -789,6 +789,42 @@ export const messages = {
     en: "an attempt a stopped server left unfinished is retried once by itself if it ended at most this many minutes before the server started; 0 turns it off",
     de: "ein Versuch, den ein gestoppter Server unfertig hinterlassen hat, wird einmal von selbst wiederholt, wenn er höchstens so viele Minuten vor dem Serverstart endete; 0 schaltet das ab",
   },
+  // --- series: the sidebar item, the list and the links to one series (2026-11-23-31dcc) ---
+  "series.nav": { en: "Series", de: "Serien" },
+  "series.list.title": { en: "Series", de: "Serien" },
+  "series.list.sub": {
+    en: "Each series is the set of tickets one conversation filed. Newest activity first.",
+    de: "Eine Serie umfasst die Tickets, die ein Gespräch angelegt hat. Zuletzt aktive zuerst.",
+  },
+  "series.list.empty": {
+    en: "A series appears when a conversation files its tickets.",
+    de: "Eine Serie erscheint, sobald ein Gespräch seine Tickets anlegt.",
+  },
+  "series.list.loading": { en: "Reading the series…", de: "Serien werden gelesen…" },
+  "series.list.failed": { en: "Could not read the series: {message}", de: "Die Serien ließen sich nicht lesen: {message}" },
+  "series.list.project": { en: "Project", de: "Projekt" },
+  "series.list.allProjects": { en: "All projects", de: "Alle Projekte" },
+  "series.state.running": { en: "running", de: "läuft" },
+  "series.state.verifying": { en: "checking on main", de: "prüft auf main" },
+  "series.state.paused": { en: "paused", de: "pausiert" },
+  "series.state.done": { en: "done", de: "fertig" },
+  "series.state.stopped": { en: "stopped", de: "gestoppt" },
+  "series.counts": {
+    en: "{landed} of {total} merged · {waiting} PRs waiting · {notStarted} not started",
+    de: "{landed} von {total} gemergt · {waiting} PRs warten · {notStarted} nicht gestartet",
+  },
+  "series.held": { en: { one: "1 stuck", other: "{count} stuck" }, de: { one: "1 hängt", other: "{count} hängen" } },
+  "series.next.question": { en: "A question is waiting for you", de: "Eine Frage wartet auf dich" },
+  "series.next.merge": { en: "Merge {key} next", de: "Als Nächstes {key} mergen" },
+  "series.next.held": {
+    en: { one: "1 ticket is stuck", other: "{count} tickets are stuck" },
+    de: { one: "1 Ticket hängt", other: "{count} Tickets hängen" },
+  },
+  "series.next.working": { en: "Working. Nothing for you to do.", de: "Läuft. Für dich gibt es nichts zu tun." },
+  "series.next.done": { en: "Every ticket is merged.", de: "Alle Tickets sind gemergt." },
+  "series.next.stopped": { en: "Stopped.", de: "Gestoppt." },
+  "series.partOf": { en: "Part of series {name}", de: "Teil der Serie {name}" },
+  "series.open": { en: "Open the series", de: "Serie öffnen" },
 } satisfies Record<string, MessageEntry>;
 
 export type MessageKey = keyof typeof messages;

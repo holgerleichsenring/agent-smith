@@ -25,6 +25,8 @@ const FIXED_PLACES: Record<string, string> = {
   // 2026-10-13-9a59p: the ticket list; its six bucket views are ?bucket= queries of one place.
   "/tickets": "Tickets",
   "/pull-requests": "Pull requests",
+  // 2026-11-23-31dcc: every series a conversation filed (English like every place here until 5485b moves the table).
+  "/series": "Series",
   // 2026-09-15-cb3e: where the work is DESIGNED — a peer of the two above, not a
   // diagnostic under /system.
   "/spec-dialog": "Work it out",

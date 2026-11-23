@@ -317,6 +317,8 @@ export interface TicketDetail {
   otherRuns: TicketOtherRun[];
   actedSince?: TicketActedSince[] | null;
   derivations?: TicketDerivation[] | null;
+  /** 2026-11-23-31dcc: the newest series run holding the ticket, ended ones included; null outside any. */
+  seriesRun?: { id: string; name: string } | null;
 }
 
 export interface TicketSpecStep {

@@ -37,6 +37,9 @@ internal sealed class InMemorySeriesRunStore : ISeriesRunStore
         Task.FromResult(Records.Values.FirstOrDefault(r => r.State is SeriesRunStates.Running or SeriesRunStates.Verifying
             && r.Project == project && r.Tickets.Any(t => t.TicketId == ticketId)));
 
+    public Task<SeriesRunRecord?> ForTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        Task.FromResult(Records.Values.LastOrDefault(r => r.Project == project && r.Tickets.Any(t => t.TicketId == ticketId)));
+
     public Task<SeriesRunRecord?> UpdateAsync(string id, Func<SeriesRunRecord, SeriesRunRecord> change, CancellationToken cancellationToken)
     {
         if (!Records.TryGetValue(id, out var record)) return Task.FromResult<SeriesRunRecord?>(null);

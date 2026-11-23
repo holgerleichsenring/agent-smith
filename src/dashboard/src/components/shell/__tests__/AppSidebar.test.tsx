@@ -14,6 +14,7 @@ const hoisted = vi.hoisted(() => ({
   overview: null as OverviewSnapshot | null,
   tickets: null as TicketListView | null,
   prs: vi.fn(),
+  seriesCount: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
   usePathname: () => hoisted.pathname,
@@ -24,6 +25,7 @@ vi.mock("@/hooks/useJobsHub", () => ({
 }));
 vi.mock("@/lib/tickets/TicketListProvider", () => ({ useTicketList: () => ({ list: hoisted.tickets }) }));
 vi.mock("@/lib/pullRequestsApi", () => ({ fetchPullRequests: (...a: unknown[]) => hoisted.prs(...a) }));
+vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRunCount: (...a: unknown[]) => hoisted.seriesCount(...a) }));
 
 import { AppSidebar } from "../AppSidebar";
 import { TicketBucketFilterProvider } from "@/lib/TicketBucketFilter";
@@ -70,13 +72,14 @@ beforeEach(() => {
   hoisted.overview = { active: [snap("r-1", "running"), snap("r-2", "queued")], recent: [snap("r-3", "success")], systemActivity: null };
   hoisted.tickets = list([], { needsYou: 3, working: 2, done: 7 });
   hoisted.prs.mockReset().mockResolvedValue([{ status: "opened" }, { status: "opened" }, { status: "merged" }]);
+  hoisted.seriesCount.mockReset().mockResolvedValue({ running: 4 });
 });
 
 describe("AppSidebar", () => {
   it("Sidebar_EveryDestination_InTheApprovedOrder", () => {
     renderAt("/");
     const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
+    expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/series", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
     expect(screen.getByTestId("sidebar-group-Insight")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-group-Recent")).not.toBeInTheDocument();
   });
@@ -88,6 +91,19 @@ describe("AppSidebar", () => {
     expect(screen.getByTestId("sidebar-tickets-count")).toHaveTextContent("12");
     expect(screen.getByTestId("sidebar-runs-count")).toHaveTextContent("2");
     expect(await screen.findByTestId("sidebar-pull-requests-count")).toHaveTextContent("2");
+  });
+
+  // 2026-11-23-31dcc: Series sits directly below Work it out, counts the running series and is marked under /series.
+  it("Sidebar_Series_CountsTheRunningSeries_AndIsActiveUnderSeries", async () => {
+    const list = renderAt("/series");
+    expect(await screen.findByTestId("sidebar-series-count")).toHaveTextContent("4");
+    expect(screen.getByTestId("sidebar-series")).toHaveAttribute("aria-current", "page");
+    list.unmount();
+
+    renderAt("/series/sr-1");
+    expect(screen.getByTestId("sidebar-series")).toHaveAttribute("aria-current", "page");
+    await waitFor(() => expect(hoisted.seriesCount).toHaveBeenCalledTimes(2)); // read again on the page change
+    expect(screen.getByTestId("sidebar-work-it-out")).not.toHaveAttribute("aria-current");
   });
 
   // 2026-11-17-d6fbe: restored from the deleted AppRail suite — only a non-zero waiting count is hot; zero stays calm,

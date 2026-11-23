@@ -1,12 +1,14 @@
 // 2026-11-23-31dcb: the series runs as the server answers them — GET /api/series-runs (the list), /count (the sidebar)
 // and /{id} (one series' page). Named series runs to stay apart from a ticket's spec series (types/tickets.ts).
 
-/** Progress of one series: its tickets, the landed ones, the ones whose pull request waits, the ones never started.
- *  The rest are at work or held, so the three need not add up to the total. */
+/** Progress of one series: its tickets, the landed ones, the ones whose pull request waits, the held ones and the
+ *  ones never started. The rest are at work, so the four need not add up to the total. */
 export interface SeriesRunCounts {
   total: number;
   landed: number;
   waiting: number;
+  /** 2026-11-23-31dcc: not merged, nothing waiting to merge, the newest attempt stopped short. */
+  held: number;
   notStarted: number;
 }
 

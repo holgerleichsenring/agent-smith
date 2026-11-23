@@ -60,6 +60,15 @@ public sealed class SeriesRunRepository(IServiceScopeFactory scopeFactory) : ISe
     public Task<SeriesRunRecord?> RunningWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
         WithTicketAsync([SeriesRunStates.Running, SeriesRunStates.Verifying], project, ticketId, cancellationToken);
 
+    // 2026-11-23-31dcc: the members live in the content JSON, so the project's rows are read and the newest holder kept.
+    public async Task<SeriesRunRecord?> ForTicketAsync(string project, string ticketId, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var rows = await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<SeriesRun>().AsNoTracking()
+            .Where(s => s.Project == project).OrderByDescending(s => s.Id).ToListAsync(cancellationToken);
+        return rows.Select(Record).FirstOrDefault(r => r.Tickets.Any(t => t.TicketId == ticketId));
+    }
+
     public async Task<SeriesRunRecord?> UpdateAsync(
         string id, Func<SeriesRunRecord, SeriesRunRecord> change, CancellationToken cancellationToken)
     {

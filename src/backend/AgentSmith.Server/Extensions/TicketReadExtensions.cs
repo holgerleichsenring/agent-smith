@@ -23,6 +23,7 @@ internal static class TicketReadExtensions
     {
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddTransient<SpecDraftReader>();
+        services.TryAddScoped<Services.Series.SeriesRunNames>(); // 2026-11-23-31dcc: the ticket's series run is named
         services.AddBranchSeriesRead(); // 2026-11-17-a0b6b
         services.TryAddTransient<SpecRecordReader>();
         services.AddTransient<TicketAttempts>()
@@ -40,6 +41,7 @@ internal static class TicketReadExtensions
             .AddTransient<TicketListReader>()
             .AddTransient<FiledTicketRows>().AddTransient<TicketGraphReader>().AddTransient<TicketRequiresReader>() // 2026-10-14-dbcen
             .AddTransient<TicketDetailReader>().AddTransient<TicketDerivations>() // 2026-10-26-bdd0f
+            .AddTransient<Services.Series.TicketSeriesRunLink>() // 2026-11-23-31dcc: the ticket's series run
             .AddTransient<TicketReviewState>() // 2026-10-13-9a59b
             .AddTransient<TicketPullRequestReader>()
             .AddTransient<TicketAttemptRecords>() // 2026-10-13-9a59d

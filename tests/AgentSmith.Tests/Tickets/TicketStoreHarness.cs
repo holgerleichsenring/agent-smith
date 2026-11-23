@@ -89,6 +89,7 @@ internal sealed class TicketStoreHarness : IDisposable
             .AddSingleton<AgentSmith.Contracts.Services.IDecidedDefaults, AgentSmith.Infrastructure.Persistence.Services.DecidedDefaults>()
             .AddSingleton<AgentSmith.Contracts.Services.IPreviousAttemptReader,
                 AgentSmith.Infrastructure.Persistence.Services.DbPreviousAttemptReader>();
+        services.AddSingleton<AgentSmith.Contracts.Series.ISeriesRunStore, SeriesRunRepository>(); // 2026-11-23-31dcc
         services.AddTicketReaders();
         // 2026-11-17-e061a: the close act's 'close' and 'reopen' runs, their real steps in process.
         AgentSmith.Application.Services.TicketActs.TicketActPipelineExtensions.AddTicketActPipelines(services);
