@@ -8,6 +8,7 @@ import { CancelRequestedBadge } from "@/components/jobs/CancelRequestedBadge";
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
 import { DeleteRunButton } from "@/components/jobs/DeleteRunButton";
 import { useSandboxActivity } from "@/hooks/useSandboxActivity";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { RUNS_PATH } from "@/lib/RunBucketFilter";
 import type { RunSnapshot } from "@/types/hub-events";
 import { computeOf } from "./runFactWords";
@@ -39,26 +40,28 @@ interface Props {
 }
 
 export function RunPageHead({ runId, snapshot, line, ticket, repoNames, stepCount, connectionState, onDeleted }: Props) {
+  const t = useT();
+  const locale = useDateLocale();
   const status = (snapshot?.status ?? "").toLowerCase();
-  const title = snapshot?.ticketTitle ?? snapshot?.pipeline ?? "run";
+  const title = snapshot?.ticketTitle ?? snapshot?.pipeline ?? t("runs.log.head.run");
   const beat = useSandboxActivity(snapshot?.runId ?? null);
-  const parts = snapshot ? metaParts(snapshot, stepCount, Date.now(), line ? { text: line.short, tone: line.tone } : undefined) : [];
-  const details = snapshot ? detailLines(snapshot, repoNames, beat) : [];
-  const pods = snapshot ? computeOf(snapshot) : null;
+  const parts = snapshot ? metaParts(t, snapshot, stepCount, Date.now(), line ? { text: line.short, tone: line.tone } : undefined) : [];
+  const details = snapshot ? detailLines(t, locale, snapshot, repoNames, beat) : [];
+  const pods = snapshot ? computeOf(t, snapshot) : null;
   return (
     <header className="rl-head" data-testid="run-head">
-      <nav className="rl-crumb" aria-label="Breadcrumb">
-        <Link href={RUNS_PATH}>Runs</Link>
+      <nav className="rl-crumb" aria-label={t("runs.log.head.breadcrumb")}>
+        <Link href={RUNS_PATH}>{t("runs.log.head.runs")}</Link>
         <span aria-hidden="true">/</span>
         <span className="rl-mono" data-testid="run-crumb-run" title={runId}>{runId}</span>
         {ticket && (
           <>
             <span aria-hidden="true">·</span>
-            <Link href={ticket.href} data-testid="run-crumb-ticket">ticket {ticket.label}</Link>
+            <Link href={ticket.href} data-testid="run-crumb-ticket">{t("runs.log.head.ticket", { label: ticket.label })}</Link>
             {ticket.number !== null && ticket.of !== null && (
               <>
                 <span aria-hidden="true">·</span>
-                <span data-testid="run-crumb-count">Run {ticket.number} of {ticket.of}</span>
+                <span data-testid="run-crumb-count">{t("runs.log.head.count", { number: ticket.number, of: ticket.of })}</span>
               </>
             )}
           </>
@@ -86,7 +89,7 @@ export function RunPageHead({ runId, snapshot, line, ticket, repoNames, stepCoun
       )}
       {details.length > 0 && (
             <details className="rl-details" data-testid="run-details">
-              <summary>details</summary>
+              <summary>{t("runs.log.head.details")}</summary>
               {details.map((d) => <div key={d} data-testid="run-detail-line">{d}</div>)}
               {pods && pods.pods.length > 0 && (
                 <>

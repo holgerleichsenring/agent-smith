@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useT } from "@/hooks/useT";
 import { useEventFilter } from "@/lib/EventFilterContext";
 import { pairToolEvents } from "@/lib/ToolEventPairer";
 import { isAllowed } from "@/lib/eventFilterQuery";
@@ -23,6 +24,7 @@ interface Props {
 // rendering.
 
 export function RunToolsPanel({ events }: Props) {
+  const t = useT();
   const { state: filterState } = useEventFilter();
 
   const filtered = useMemo(
@@ -42,7 +44,7 @@ export function RunToolsPanel({ events }: Props) {
   if (l3Off) {
     return (
       <section className="space-y-2 text-xs text-app-mute" data-testid="run-tools-panel-l3-off">
-        L3 events hidden. Toggle ToolCall / ToolResult in the filter rail to view tool activity.
+        {t("runs.tools.l3Off")}
       </section>
     );
   }
@@ -50,7 +52,7 @@ export function RunToolsPanel({ events }: Props) {
   if (rows.length === 0) {
     return (
       <section className="space-y-2 text-xs text-app-mute" data-testid="run-tools-panel-empty">
-        No tool events yet.
+        {t("runs.tools.empty")}
       </section>
     );
   }
@@ -58,7 +60,7 @@ export function RunToolsPanel({ events }: Props) {
   return (
     <section className="space-y-2 rounded-lg border border-app-line bg-app-panel p-3" data-testid="run-tools-panel">
       <header className="flex items-center justify-between text-xs">
-        <h2 className="font-medium text-app-text">Tools</h2>
+        <h2 className="font-medium text-app-text">{t("runs.tools.title")}</h2>
         <ToolCountChip count={callCount} />
       </header>
       <div className="space-y-1 font-mono">

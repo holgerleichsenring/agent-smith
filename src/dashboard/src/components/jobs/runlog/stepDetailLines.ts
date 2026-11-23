@@ -1,9 +1,9 @@
 import { callActivity, pairLlmCalls } from "@/hooks/execution-tree/llmPairing";
+import type { T } from "@/lib/i18n/translate";
 import { pullRequestStatusLabel } from "@/lib/prStatus";
 import { extractUrls, stripUrls } from "@/lib/prUrls";
 import { EventType, type PullRequestStatus, type RunEvent } from "@/types/hub-events";
-import { clockOf } from "./runNowLines";
-import { translator } from "@/lib/i18n/translate";
+import { clockOf, gateWords } from "./runNowLines";
 
 // 2026-11-17-6d9ec: one step's events as terminal lines, what the graph's step panel drew as an event drawer, a command
 // timeline, LLM rows, per-repository sandbox boxes, PR outcomes and the ticket/catalog bodies. Every line carries a time,
@@ -54,8 +54,8 @@ export function shortMs(ms: number | null | undefined): string {
   return `${m}m ${Math.round(s - m * 60)}s`;
 }
 
-function tokens(n: number | null): string {
-  return n === null ? "?" : n.toLocaleString("en-US");
+function tokens(n: number | null, locale: string): string {
+  return n === null ? "?" : n.toLocaleString(locale);
 }
 
 interface Command {
@@ -93,16 +93,16 @@ function commandsOf(events: RunEvent[]): Command[] {
   return out;
 }
 
-function commandOutcome(c: Command): { meta: string; tone: DetailTone } {
+function commandOutcome(t: T, c: Command): { meta: string; tone: DetailTone } {
   const took = c.durationMs !== null ? ` · ${shortMs(c.durationMs)}` : "";
-  if (c.exitCode === null) return { meta: "running…", tone: "run" };
-  if (c.timedOut) return { meta: `timed out${took}${c.limit ? ` (limit ${c.limit}s)` : ""}`, tone: "bad" };
-  if (c.exitCode === 0) return { meta: `exit 0${took}`, tone: c.write ? "ok" : "text" };
-  if (c.exitCode === -1) return { meta: `not run${took}`, tone: "dim" };
-  return { meta: `exit ${c.exitCode}${took}`, tone: "bad" };
+  if (c.exitCode === null) return { meta: t("runs.log.cmd.running"), tone: "run" };
+  if (c.timedOut) return { meta: `${t("runs.log.cmd.timedOut")}${took}${c.limit ? t("runs.log.cmd.limit", { seconds: c.limit }) : ""}`, tone: "bad" };
+  if (c.exitCode === 0) return { meta: `${t("runs.log.cmd.exit", { code: 0 })}${took}`, tone: c.write ? "ok" : "text" };
+  if (c.exitCode === -1) return { meta: `${t("runs.log.cmd.notRun")}${took}`, tone: "dim" };
+  return { meta: `${t("runs.log.cmd.exit", { code: c.exitCode })}${took}`, tone: "bad" };
 }
 
-export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDetailView {
+export function stepDetailLines(t: T, locale: string, events: RunEvent[], runEnded: boolean): StepDetailView {
   const lines: DetailLine[] = [];
   const names = new Map<string, string>();
   for (const e of events) if (e.type === EventType.SubAgentSpawned) names.set(e.subAgentId, e.name);
@@ -111,43 +111,43 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
   const children = new Set(names.values());
   const by = (role: string | null) => (role && children.has(role) ? `${role}: ` : "");
   const add = (ts: string, kind: string, text: string, filter: DetailFilter | null, tone: DetailTone = "text", meta = "", href?: string) =>
-    lines.push({ key: `${lines.length}`, ts, at: clockOf(ts) ?? "", kind, text, meta, filter, tone, href });
+    lines.push({ key: `${lines.length}`, ts, at: clockOf(ts, locale) ?? "", kind, text, meta, filter, tone, href });
 
   const llm = pairLlmCalls(events);
   for (const call of llm.pairs) {
-    const cache = call.cachedTokensIn ? ` · cache ${tokens(call.cachedTokensIn)}` : "";
+    const cache = call.cachedTokensIn ? t("runs.log.call.cache", { count: tokens(call.cachedTokensIn, locale) }) : "";
     const meta = call.finishedAt === null
-      ? runEnded ? "ended" : "in flight"
+      ? t(runEnded ? "runs.log.call.ended" : "runs.log.call.inFlight")
       : [call.costUsd !== null ? `$${call.costUsd.toFixed(3)}` : "", shortMs(call.durationMs)].filter(Boolean).join(" · ");
-    add(call.startedAt, "llm", `${callActivity(call)} · ${call.model} · ${tokens(call.tokensIn)} in / ${tokens(call.tokensOut)} out${cache}`,
+    add(call.startedAt, "llm", `${callActivity(call)} · ${call.model} · ${t("runs.log.call.tokens", { in: tokens(call.tokensIn, locale), out: tokens(call.tokensOut, locale) })}${cache}`,
       "llm", call.finishedAt === null && !runEnded ? "run" : "dim", meta);
   }
 
   const commands = commandsOf(events);
   for (const c of commands) {
-    const outcome = commandOutcome(c);
+    const outcome = commandOutcome(t, c);
     add(c.ts, c.write ? "write" : "tool", `${c.repo} ${c.verb}${c.summary ? `  ${c.summary}` : ""}`, c.write ? "file" : "tool", outcome.tone, outcome.meta);
   }
 
   for (const e of events) {
     switch (e.type) {
       case EventType.ToolCall:
-        add(e.timestamp, "tool", `${by(e.role)}${e.tool}${e.summary ? `  ${e.summary}` : ""}`, "tool", "text", e.repeat && e.repeat > 1 ? `repeat ${e.repeat}` : "");
+        add(e.timestamp, "tool", `${by(e.role)}${e.tool}${e.summary ? `  ${e.summary}` : ""}`, "tool", "text", e.repeat && e.repeat > 1 ? t("runs.log.repeat", { count: e.repeat }) : "");
         break;
       case EventType.ToolResult:
-        if (!e.ok) add(e.timestamp, "tool", `${e.tool} failed${e.errorMessage ? `: ${e.errorMessage}` : ""}`, "tool", "bad");
+        if (!e.ok) add(e.timestamp, "tool", `${t("runs.log.tool.failed", { tool: e.tool })}${e.errorMessage ? `: ${e.errorMessage}` : ""}`, "tool", "bad");
         break;
       case EventType.SubAgentFileWritten:
-        add(e.timestamp, "write", `${who(e.subAgentId)}${e.path}`, "file", "ok", `${e.bytes} bytes`);
+        add(e.timestamp, "write", `${who(e.subAgentId)}${e.path}`, "file", "ok", t("runs.log.bytes", { bytes: e.bytes }));
         break;
       case EventType.DecisionLogged:
-        add(e.timestamp, "decision", `${e.chose}${e.over ? ` over ${e.over}` : ""}${e.reason ? ` — ${e.reason}` : ""}`, "dec", "text", e.category);
+        add(e.timestamp, "decision", `${e.over ? t("runs.log.decision.over", { chose: e.chose, over: e.over }) : e.chose}${e.reason ? ` — ${e.reason}` : ""}`, "dec", "text", e.category);
         break;
       case EventType.GateChecked:
-        add(e.timestamp, "gate", `${e.gate} ${e.passed ? "passed" : "failed"}${e.reason ? `: ${e.reason}` : ""}`, "dec", e.passed ? "dim" : "bad");
+        add(e.timestamp, "gate", gateWords(t, e.gate, e.passed, e.reason), "dec", e.passed ? "dim" : "bad");
         break;
       case EventType.TicketInstructionIgnored:
-        add(e.timestamp, "decision", `ignored a ticket instruction "${e.quote}" — ${e.reason}`, "dec", "run");
+        add(e.timestamp, "decision", t("runs.log.ignored", { quote: e.quote, reason: e.reason }), "dec", "run");
         break;
       case EventType.SubAgentFinding: {
         const high = /^(high|critical)$/i.test(e.severity);
@@ -162,13 +162,13 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
         break;
       // 2026-11-19-687eb: a child's start, end and tool calls are its row above the list (StepSubAgents), not lines here.
       case EventType.SubAgentMessaged:
-        add(e.timestamp, "sub-agent", `${e.continued ? "sent back to" : "to"} ${names.get(e.subAgentId) ?? e.subAgentId}: ${e.text}`, "obs",
+        add(e.timestamp, "sub-agent", t(e.continued ? "runs.log.sentBack" : "runs.log.sentTo", { name: names.get(e.subAgentId) ?? e.subAgentId, text: e.text }), "obs",
           e.continued ? "run" : "text");
         break;
       case EventType.PullRequestOutcome: {
         const url = e.url ?? extractUrls(e.reason)[0];
         const reason = e.reason ? ` — ${stripUrls(e.reason)}` : "";
-        add(e.timestamp, "pr", `${e.repo} ${pullRequestStatusLabel(e.status as PullRequestStatus, translator("en"))}${reason}`, null,
+        add(e.timestamp, "pr", `${e.repo} ${pullRequestStatusLabel(e.status as PullRequestStatus, t)}${reason}`, null,
           e.status === "failed" ? "bad" : e.status === "no_changes" ? "dim" : "ok", "", url ?? undefined);
         break;
       }
@@ -176,7 +176,7 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
         add(e.timestamp, "ticket", `#${e.ticketId} — ${e.title}`, null, "text", e.state, e.webUrl ?? undefined);
         break;
       case EventType.CatalogLoaded:
-        add(e.timestamp, "catalog", `${e.version} from ${e.source.toLowerCase()} · ${e.conceptCount} concepts · ${e.skillsLoaded} skills · ${e.mastersCount} masters${e.fromCache ? " · warm cache" : ""}`,
+        add(e.timestamp, "catalog", `${t("runs.log.catalog", { version: e.version, source: e.source.toLowerCase(), concepts: e.conceptCount, skills: e.skillsLoaded, masters: e.mastersCount })}${e.fromCache ? t("runs.log.catalog.warm") : ""}`,
           null, "text", `${e.durationMs}ms`, "/system/catalog");
         break;
       case EventType.CatalogIssue:
@@ -202,26 +202,26 @@ export function stepDetailLines(events: RunEvent[], runEnded: boolean): StepDeta
 }
 
 /** 2026-11-19-1b72d: the Build and tests heading's count — "2 of 3 repositories green", "1 of 1 repository green". */
-export function repoGreenCount(repos: RepoOutcome[]): string {
+export function repoGreenCount(t: T, repos: RepoOutcome[]): string {
   const green = repos.filter((r) => r.exitCode === 0).length;
-  return `${green} of ${repos.length} ${repos.length === 1 ? "repository" : "repositories"} green`;
+  return t("runs.log.reposGreen", { count: repos.length, green });
 }
 
 /** "passed · 41.0s", "failed (exit 2)", "not run", "running…". */
-export function repoOutcomeWords(r: RepoOutcome): string {
-  if (r.exitCode === null) return "running…";
-  if (r.exitCode === -1) return "not run";
+export function repoOutcomeWords(t: T, r: RepoOutcome): string {
+  if (r.exitCode === null) return t("runs.log.cmd.running");
+  if (r.exitCode === -1) return t("runs.log.cmd.notRun");
   const took = r.durationMs !== null ? ` · ${shortMs(r.durationMs)}` : "";
-  return r.exitCode === 0 ? `passed${took}` : `failed (exit ${r.exitCode})${took}`;
+  return r.exitCode === 0 ? `${t("runs.log.cmd.passed")}${took}` : `${t("runs.log.cmd.failedExit", { code: r.exitCode })}${took}`;
 }
 
 /** 2026-11-18-c8e2d: how a child's pass ended, in the run log's words. */
-export function childEnd(status: string): string {
+export function childEnd(t: T, status: string): string {
   switch (status) {
-    case "Succeeded": return "finished";
-    case "Failed": return "failed";
-    case "Empty": return "finished with no answer";
-    case "Stopped": return "stopped with its master's loop";
+    case "Succeeded": return t("runs.log.child.finished");
+    case "Failed": return t("runs.log.child.failed");
+    case "Empty": return t("runs.log.child.empty");
+    case "Stopped": return t("runs.log.child.stopped");
     default: return status.toLowerCase();
   }
 }

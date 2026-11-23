@@ -10,6 +10,7 @@ import { TicketStatistics } from "./TicketStatistics";
 import { SpecAccount } from "./SpecAccount";
 import { TraceReader } from "./TraceReader";
 import { RunWhyHeader } from "./RunWhyHeader";
+import { useT } from "@/hooks/useT";
 
 // p0423b: THE STORY VIEW — why did this run do that. It is opened deliberately, per run,
 // and it is the only screen carrying statistics: the live view answers "what is happening"
@@ -21,6 +22,7 @@ import { RunWhyHeader } from "./RunWhyHeader";
 // and the calls with their sizes — and, when the run was traced, the conversation itself.
 
 export function RunWhy({ runId }: { runId: string }) {
+  const t = useT();
   const snapshot = useRunDetailSnapshot(runId, null);
   const { statistics, loading, error } = useRunStatistics(runId);
   const refusal = refusalIn(error);
@@ -31,15 +33,15 @@ export function RunWhy({ runId }: { runId: string }) {
         <RunWhyHeader runId={runId} snapshot={snapshot} />
 
         {refusal ? (
-          <RefusalSurface refusal={refusal} surface="this run&rsquo;s record" />
+          <RefusalSurface refusal={refusal} surface={t("runs.why.surface")} />
         ) : (
           error && (
             <p className="hint" data-testid="run-why-error">
-              The run&rsquo;s record could not be read: {error.message}
+              {t("runs.why.error", { message: error.message })}
             </p>
           )
         )}
-        {loading && !statistics && <p className="hint">Reading the run&rsquo;s record…</p>}
+        {loading && !statistics && <p className="hint">{t("runs.why.loading")}</p>}
 
         {statistics && (
           <div className="stage">
@@ -56,15 +58,13 @@ export function RunWhy({ runId }: { runId: string }) {
               />
             ) : (
               <p className="hint" data-testid="run-why-no-acceptance">
-                No acceptance criteria were ratified on this run, so there is nothing to
-                account for against.
+                {t("runs.why.noAcceptance")}
               </p>
             )}
 
             {statistics.specs.length === 0 ? (
               <p className="hint" data-testid="run-why-no-specs">
-                This run recorded no step, so there is no spec to account for. Runs older
-                than the durable record can look like this.
+                {t("runs.why.noSpecs")}
               </p>
             ) : (
               statistics.specs.map((spec) => (
@@ -80,7 +80,7 @@ export function RunWhy({ runId }: { runId: string }) {
 
             <section className="card" data-testid="run-why-trace">
               <div className="card-h">
-                <h3>The recorded conversation</h3>
+                <h3>{t("runs.why.trace")}</h3>
               </div>
               <div className="card-b">
                 <TraceReader runId={runId} />

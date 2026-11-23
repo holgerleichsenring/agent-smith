@@ -1,6 +1,14 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import { EventType, type RunEvent } from "@/types/hub-events";
-import { repoGreenCount, repoOutcomeWords, stepDetailLines } from "../stepDetailLines";
+import { repoGreenCount as repoGreenCountIn, repoOutcomeWords as repoOutcomeWordsIn, stepDetailLines as stepDetailLinesIn } from "../stepDetailLines";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const repoGreenCount = (...args: DropLead<Parameters<typeof repoGreenCountIn>, 1>) => repoGreenCountIn(en, ...args);
+const repoOutcomeWords = (...args: DropLead<Parameters<typeof repoOutcomeWordsIn>, 1>) => repoOutcomeWordsIn(en, ...args);
+const stepDetailLines = (...args: DropLead<Parameters<typeof stepDetailLinesIn>, 2>) => stepDetailLinesIn(en, "en-GB", ...args);
 
 // 2026-11-17-6d9ec: a step's events as terminal lines, with the summary the command timeline counted.
 

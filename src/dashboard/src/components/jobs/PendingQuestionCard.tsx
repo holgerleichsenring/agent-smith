@@ -13,6 +13,7 @@ import type { PendingQuestionInfo } from "@/types/hub-events";
 // .need cards AND inside the run viewer's dialogue drawer.
 
 import { apiFetch } from "@/lib/apiResponse";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 interface Props {
   runId: string;
@@ -29,6 +30,8 @@ interface Props {
 }
 
 export function PendingQuestionCard({ runId, question, answered, onAnswered, label }: Props) {
+  const t = useT();
+  const locale = useDateLocale();
   const [text, setText] = useState("");
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +51,9 @@ export function PendingQuestionCard({ runId, question, answered, onAnswered, lab
         onAnswered?.();
       } else setError(`HTTP ${res.status}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "request failed");
+      setError(err instanceof Error ? err.message : t("runs.common2.requestFailed"));
     }
-  }, [runId, sent, onAnswered]);
+  }, [runId, sent, onAnswered, t]);
 
   const quick = question.type === "Approval" ? ["approve", "reject"] : question.choices;
 
@@ -61,8 +64,10 @@ export function PendingQuestionCard({ runId, question, answered, onAnswered, lab
         {question.context && <div className="qm">{question.context}</div>}
         {question.defaultAnswer && !sent && (
           <div className="qm">
-            No answer by {new Date(question.answerDeadlineAt).toLocaleString()} applies the
-            default: “{question.defaultAnswer}”.
+            {t("runs.question.default", {
+              deadline: new Date(question.answerDeadlineAt).toLocaleString(locale),
+              answer: question.defaultAnswer,
+            })}
           </div>
         )}
         {!sent && quick.length > 0 && (
@@ -82,7 +87,7 @@ export function PendingQuestionCard({ runId, question, answered, onAnswered, lab
         )}
         {sent && (
           <div className="qm" data-testid="pending-question-sent">
-            Answer sent — the run resumes shortly.
+            {t("runs.question.sent")}
           </div>
         )}
         {error && (
@@ -100,7 +105,7 @@ export function PendingQuestionCard({ runId, question, answered, onAnswered, lab
             onKeyDown={(e) => {
               if (e.key === "Enter") submit(text);
             }}
-            placeholder="Add context for the agent (optional)"
+            placeholder={t("runs.question.placeholder")}
             data-testid="pending-question-input"
           />
           <button
@@ -109,7 +114,7 @@ export function PendingQuestionCard({ runId, question, answered, onAnswered, lab
             data-testid="pending-question-submit"
             onClick={() => submit(text)}
           >
-            {label ?? "Send & resume run"}
+            {label ?? t("runs.question.send")}
           </button>
         </div>
       )}

@@ -5,6 +5,7 @@ import { formatChars, formatMs } from "./callSeries";
 import { CallSizePlot } from "./CallSizePlot";
 import { CallTable } from "./CallTable";
 import { CommandTable } from "./CommandTable";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 // p0423b: one spec, accounted for. What it cost, what it ran and how each command ended,
 // and the shape of every model call inside it. A spec that failed names the command that
@@ -19,22 +20,23 @@ export interface SpecAccountProps {
 }
 
 export function SpecAccount({ runId, spec, calls, commands }: SpecAccountProps) {
+  const t = useT();
   const failed = spec.failedCommands > 0 || spec.calls.failedCalls > 0;
   return (
     <section className="card" data-testid="spec-account" data-spec={spec.specId ?? ""}>
       <div className="card-h">
-        <h3>{spec.specId ? `Spec ${spec.specId}` : "Steps outside any spec"}</h3>
+        <h3>{spec.specId ? t("runs.why.spec.title", { spec: spec.specId }) : t("runs.why.spec.outside")}</h3>
         <span className={failed ? "badge bad" : "badge neu"} data-testid="spec-verdict">
-          {failed ? "something did not pass" : "nothing failed"}
+          {failed ? t("runs.why.spec.didNotPass") : t("runs.why.spec.nothingFailed")}
         </span>
       </div>
       <div className="card-b">
         <SpecNumbers spec={spec} />
-        <h4 style={HEADING}>Calls — prompt against answer, in call order</h4>
+        <h4 style={HEADING}>{t("runs.why.spec.callsHeading")}</h4>
         <CallSizePlot calls={calls} />
-        <h4 style={HEADING}>Commands and how they ended</h4>
+        <h4 style={HEADING}>{t("runs.why.spec.commandsHeading")}</h4>
         <CommandTable commands={commands} />
-        <h4 style={HEADING}>The calls in full</h4>
+        <h4 style={HEADING}>{t("runs.why.spec.callsInFull")}</h4>
         <CallTable runId={runId} calls={calls} />
       </div>
     </section>
@@ -51,33 +53,35 @@ const HEADING: React.CSSProperties = {
 };
 
 function SpecNumbers({ spec }: { spec: RunSpecStatistics }) {
+  const t = useT();
+  const locale = useDateLocale();
   const stats = spec.calls;
   return (
     <div className="health health-plain" data-testid="spec-numbers">
-      <Metric label="Steps" value={String(spec.steps)} />
-      <Metric label="Took" value={formatMs(spec.durationMs)} />
+      <Metric label={t("runs.why.spec.steps")} value={String(spec.steps)} />
+      <Metric label={t("runs.why.spec.took")} value={formatMs(spec.durationMs)} />
       <Metric
-        label="Calls"
+        label={t("runs.why.cost.calls")}
         value={String(stats.calls)}
-        note={stats.failedCalls > 0 ? `${stats.failedCalls} did not end well` : undefined}
+        note={stats.failedCalls > 0 ? t("runs.why.cost.didNotEndWell", { count: stats.failedCalls }) : undefined}
       />
-      <Metric label="Largest prompt" value={formatChars(stats.largestPromptChars)} />
-      <Metric label="Smallest answer" value={formatChars(stats.smallestResponseChars)} />
+      <Metric label={t("runs.why.cost.largestPrompt")} value={formatChars(stats.largestPromptChars, locale)} />
+      <Metric label={t("runs.why.spec.smallestAnswer")} value={formatChars(stats.smallestResponseChars, locale)} />
       <Metric
-        label="Commands"
+        label={t("runs.why.spec.commands")}
         value={String(spec.commands)}
-        note={spec.failedCommands > 0 ? `${spec.failedCommands} non-zero` : undefined}
+        note={spec.failedCommands > 0 ? t("runs.why.spec.nonZero", { count: spec.failedCommands }) : undefined}
       />
       <Metric
-        label="Tool output"
-        value={formatChars(stats.toolOutputChars)}
+        label={t("runs.why.spec.toolOutput")}
+        value={formatChars(stats.toolOutputChars, locale)}
         note={
           stats.toolCharsNeverDelivered > 0
-            ? `${formatChars(stats.toolCharsNeverDelivered)} never reached the model`
+            ? t("runs.why.spec.neverReached", { chars: formatChars(stats.toolCharsNeverDelivered, locale) })
             : undefined
         }
       />
-      <Metric label="Retries" value={String(stats.retries)} />
+      <Metric label={t("runs.why.cost.retries")} value={String(stats.retries)} />
     </div>
   );
 }

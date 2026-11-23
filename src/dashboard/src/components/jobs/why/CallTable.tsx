@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { RunCallPoint } from "@/lib/runStoryApi";
 import { CallPrompt } from "./CallPrompt";
 import { formatChars, formatMs } from "./callSeries";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 // p0423b: the plot's table view. It exists for two reasons and both are required: a chart
 // whose series colour sits under 3:1 against the surface owes the reader a labelled
@@ -19,6 +20,8 @@ const HEAD: React.CSSProperties = { ...CELL, color: "var(--ink-3)", fontWeight: 
 
 // 2026-11-09-0620a: a call whose prompt was stored opens it below the table from its prompt cell.
 export function CallTable({ runId, calls }: { runId?: string; calls: RunCallPoint[] }) {
+  const t = useT();
+  const locale = useDateLocale();
   const [open, setOpen] = useState<RunCallPoint | null>(null);
   if (calls.length === 0) return null;
   return (
@@ -26,18 +29,18 @@ export function CallTable({ runId, calls }: { runId?: string; calls: RunCallPoin
     <div style={{ maxHeight: 260, overflow: "auto" }} data-testid="call-table">
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
         <caption className="hint" style={{ captionSide: "top", textAlign: "left" }}>
-          Every model call of this spec, in call order.
+          {t("runs.why.calls.caption")}
         </caption>
         <thead>
           <tr>
-            <th style={{ ...HEAD, textAlign: "left" }} scope="col">Call</th>
-            <th style={HEAD} scope="col">Prompt</th>
-            <th style={HEAD} scope="col">Tools</th>
-            <th style={HEAD} scope="col">Cached</th>
-            <th style={HEAD} scope="col">Answer</th>
-            <th style={HEAD} scope="col">Took</th>
-            <th style={HEAD} scope="col">Throttled</th>
-            <th style={{ ...HEAD, textAlign: "left" }} scope="col">Outcome</th>
+            <th style={{ ...HEAD, textAlign: "left" }} scope="col">{t("runs.why.calls.call")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.calls.prompt")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.calls.tools")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.calls.cached")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.calls.answer")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.spec.took")}</th>
+            <th style={HEAD} scope="col">{t("runs.why.calls.throttled")}</th>
+            <th style={{ ...HEAD, textAlign: "left" }} scope="col">{t("runs.why.calls.outcome")}</th>
           </tr>
         </thead>
         <tbody>
@@ -51,7 +54,7 @@ export function CallTable({ runId, calls }: { runId?: string; calls: RunCallPoin
               <th scope="row" style={{ ...CELL, textAlign: "left", fontWeight: 400 }} className="mono">
                 {call.index}
                 {call.attempt > 1 && (
-                  <small style={{ color: "var(--ink-3)" }}> · attempt {call.attempt}</small>
+                  <small style={{ color: "var(--ink-3)" }}>{t("runs.why.calls.attempt", { n: call.attempt })}</small>
                 )}
               </th>
               <td style={CELL} className="mono">
@@ -64,13 +67,13 @@ export function CallTable({ runId, calls }: { runId?: string; calls: RunCallPoin
                     aria-expanded={open?.index === call.index}
                     onClick={() => setOpen(open?.index === call.index ? null : call)}
                   >
-                    {formatChars(call.promptChars)}
+                    {formatChars(call.promptChars, locale)}
                   </button>
-                ) : formatChars(call.promptChars)}
+                ) : formatChars(call.promptChars, locale)}
               </td>
               <td style={CELL} className="mono">{call.toolCount ? call.toolCount : "—"}</td>
               <td style={CELL} className="mono">{cachedShare(call)}</td>
-              <td style={CELL} className="mono">{formatChars(call.answerChars)}</td>
+              <td style={CELL} className="mono">{formatChars(call.answerChars, locale)}</td>
               <td style={CELL} className="mono">{formatMs(call.durationMs)}</td>
               <td style={CELL} className="mono">
                 {call.throttleWaitMs > 0 ? formatMs(call.throttleWaitMs) : "—"}

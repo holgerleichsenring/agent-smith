@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+
 import type { ToolCallEvent, ToolResultEvent } from "@/types/hub-events";
 import { MetadataTooltip } from "./ToolCallRow";
 
@@ -9,6 +11,7 @@ interface Props {
 }
 
 export function ToolPairCard({ call, result }: Props) {
+  const t = useT();
   const okClass = result.ok ? "text-app-proven" : "text-app-stopped";
   return (
     <div className="rounded border border-app-line-strong bg-app-raised px-2 py-1 text-xs" data-testid="tool-pair-card">
@@ -20,14 +23,14 @@ export function ToolPairCard({ call, result }: Props) {
             {call.summary}
           </span>
         ) : (
-          <span className="text-app-mute">({call.argsLength}B args)</span>
+          <span className="text-app-mute">{t("runs.tools.argsBytes", { bytes: call.argsLength })}</span>
         )}
         <MetadataTooltip />
       </div>
       <div className="mt-0.5 flex items-center gap-2 text-app-mute">
         <span className="text-app-mute">←</span>
-        <span className={okClass}>{result.ok ? "ok" : "fail"}</span>
-        <span className="text-app-mute">({result.resultLength}B result)</span>
+        <span className={okClass}>{result.ok ? t("runs.tools.ok") : t("runs.tools.fail")}</span>
+        <span className="text-app-mute">{t("runs.tools.resultBytes", { bytes: result.resultLength })}</span>
       </div>
     </div>
   );

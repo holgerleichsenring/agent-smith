@@ -1,8 +1,15 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import type { RunStepRow } from "@/lib/runStepsApi";
-import { checkOf, commandKey, commandSection, sectionState, stepState } from "../runSections";
-import { runLogSections } from "../runLogSections";
+import { checkOf as checkOfIn, commandKey, commandSection, sectionState, stepState } from "../runSections";
+import { runLogSections as runLogSectionsIn } from "../runLogSections";
 import type { RunSnapshot } from "@/types/hub-events";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const checkOf = (...args: DropLead<Parameters<typeof checkOfIn>, 1>) => checkOfIn(en, ...args);
+const runLogSections = (...args: DropLead<Parameters<typeof runLogSectionsIn>, 1>) => runLogSectionsIn(en, ...args);
 
 // 2026-11-16-6877b: which section a step's command reads under, and the states a step and a section read in.
 // 2026-11-18-d6d2e: the seven fixed sections are gone; the command table and the states stay.

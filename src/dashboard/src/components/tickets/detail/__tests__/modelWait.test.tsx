@@ -51,11 +51,11 @@ describe("model wait", () => {
   });
 
   it("AttemptStatus_WaitingRun_HeadSaysItWaitsForTheModel", () => {
-    const head = modelWaitHead(en, currentModelWait([waiting]));
-    expect(head).toBe(`Waiting for the model since ${waitClock(SINCE)}`);
-    expect(attemptStatus(attempt({ status: "running", finishedAt: null }), null, null, head).head).toBe(head);
-    expect(attemptStatus(attempt({ status: "running", finishedAt: null }), null).head).toBe("Working");
-    expect(modelWaitHead(translator("de"), currentModelWait([waiting]))).toBe(`Wartet seit ${waitClock(SINCE)} auf das Modell`);
+    const head = modelWaitHead(en, currentModelWait([waiting]), "en-GB");
+    expect(head).toBe(`Waiting for the model since ${waitClock(SINCE, "en-GB")}`);
+    expect(attemptStatus(en, attempt({ status: "running", finishedAt: null }), null, null, head).head).toBe(head);
+    expect(attemptStatus(en, attempt({ status: "running", finishedAt: null }), null).head).toBe("Working");
+    expect(modelWaitHead(translator("de"), currentModelWait([waiting]), "de-DE")).toBe(`Wartet seit ${waitClock(SINCE, "de-DE")} auf das Modell`);
   });
 
   it("YourMoveBox_WaitingRun_SaysWaitingForTheModel", () => {
@@ -63,7 +63,7 @@ describe("model wait", () => {
     render(<YourMoveBox detail={workingDetail()} onReply={() => {}} onAnswer={() => {}} />);
     expect(screen.getByTestId("ticket-move-title")).toHaveTextContent("Waiting for the model. Nothing for you to do.");
     expect(screen.getByTestId("ticket-state-sentence"))
-      .toHaveTextContent(`Attempt 1 has waited since ${waitClock(SINCE)} for a place on the model; other runs hold every place.`);
+      .toHaveTextContent(`Attempt 1 has waited since ${waitClock(SINCE, "en-GB")} for a place on the model; other runs hold every place.`);
     expect(screen.getByTestId("ticket-state-detail")).toHaveTextContent(LINE);
   });
 });

@@ -6,6 +6,8 @@ import { useSystemBacklog } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity } from "@/hooks/useSubsystemActivity";
 import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { cn } from "@/lib/utils";
+import { useT } from "@/hooks/useT";
+import { relativeAgo } from "../RunStats";
 
 // p0343b: the mock's INFLOW pill on the runs-home header row. Everything on it
 // is real: "last pickup" is the NEWEST run in the same merged list the sections
@@ -15,6 +17,7 @@ import { cn } from "@/lib/utils";
 // p0343c: emits the mock's .inflow DOM verbatim.
 
 export function InflowPill() {
+  const t = useT();
   const { overview } = useJobsHub();
   const events = useSystemBacklog();
   const activity = useSubsystemActivity(events);
@@ -31,10 +34,10 @@ export function InflowPill() {
   return (
     <div className="inflow" data-testid="inflow-pill" data-live={live ? "true" : "false"}>
       <span className={cn("id", !live && "idle")} />
-      {live ? "inflow live" : "inflow idle"} · last pickup{" "}
+      {live ? t("runs.mission.inflowLive") : t("runs.mission.inflowIdle")} · {t("runs.mission.lastPickup")}{" "}
       <b data-testid="inflow-pill-pickup">
         {newest.ticketId ? `#${newest.ticketId} · ` : ""}
-        {relativeAgo(newest.startedAt, nowMs)}
+        {relativeAgo(t, newest.startedAt, nowMs)}
       </b>
     </div>
   );
@@ -47,14 +50,4 @@ function useNowTick(intervalMs: number): number {
     return () => clearInterval(id);
   }, [intervalMs]);
   return now;
-}
-
-function relativeAgo(iso: string, nowMs: number): string {
-  const seconds = Math.max(0, Math.round((nowMs - new Date(iso).getTime()) / 1000));
-  if (seconds < 45) return "just now";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { areaPath, formatChars, linePath, scaleSeries, type PlotPoint } from "./callSeries";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 // p0423b: ONE measure of the call series, on its own panel with its own scale. Two panels
 // stacked and sharing the call order on x is what replaces a dual-axis chart: a 357k prompt
@@ -26,6 +27,8 @@ export interface CallSizePanelProps {
 export function CallSizePanel({
   title, values, color, wash, max, marked = [], hovered, onHover, testId,
 }: CallSizePanelProps) {
+  const t = useT();
+  const locale = useDateLocale();
   const points = scaleSeries(values, WIDTH, HEIGHT, max);
   const slotWidth = WIDTH / Math.max(1, values.length);
 
@@ -45,14 +48,14 @@ export function CallSizePanel({
           {title}
         </span>
         <span className="mono" style={{ fontSize: "11px", color: "var(--ink-3)" }}>
-          peak {formatChars(max)}
+          {t("runs.why.plot.peak", { chars: formatChars(max, locale) })}
         </span>
       </figcaption>
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         style={{ width: "100%", height: "auto", display: "block", marginTop: 4 }}
         role="img"
-        aria-label={`${title}. ${values.length} calls, peak ${formatChars(max)} characters.`}
+        aria-label={t("runs.why.plot.label", { title, count: values.length, chars: formatChars(max, locale) })}
         onMouseLeave={() => onHover(null)}
       >
         <line x1="0" y1={HEIGHT - 0.5} x2={WIDTH} y2={HEIGHT - 0.5} stroke="var(--line)" strokeWidth="1" />

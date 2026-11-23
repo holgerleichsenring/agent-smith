@@ -22,13 +22,16 @@ interface Props {
 }
 
 import { apiFetch } from "@/lib/apiResponse";
+import { useT } from "@/hooks/useT";
 
-export function CancelRunButton({ runId, cancelRequested, label: idleLabel = "cancel" }: Props) {
+export function CancelRunButton({ runId, cancelRequested, label }: Props) {
+  const t = useT();
+  const idleLabel = label ?? t("runs.cancel.idle");
   const [armed, setArmed] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const disabled = pending || cancelRequested;
-  const label = disabled ? "cancelling…" : armed ? "confirm cancel" : idleLabel;
+  const shown = disabled ? t("runs.cancel.cancelling") : armed ? t("runs.cancel.confirm") : idleLabel;
 
   const onClick = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -47,11 +50,11 @@ export function CancelRunButton({ runId, cancelRequested, label: idleLabel = "ca
         setPending(false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "request failed");
+      setError(err instanceof Error ? err.message : t("runs.common2.requestFailed"));
       setArmed(false);
       setPending(false);
     }
-  }, [armed, disabled, runId]);
+  }, [armed, disabled, runId, t]);
 
   const armedTone = armed
     ? "border-rose-300 bg-rose-50 text-rose-700"
@@ -64,10 +67,10 @@ export function CancelRunButton({ runId, cancelRequested, label: idleLabel = "ca
       onMouseLeave={() => !pending && setArmed(false)}
       disabled={disabled}
       data-testid={`cancel-run-${runId}`}
-      title={error ?? "Cancel this run"}
+      title={error ?? t("runs.cancel.title")}
       className={`inline-flex flex-none items-center rounded px-2 py-0.5 text-xs font-medium border transition disabled:cursor-not-allowed disabled:opacity-60 ${armedTone}`}
     >
-      {label}
+      {shown}
     </button>
   );
 }

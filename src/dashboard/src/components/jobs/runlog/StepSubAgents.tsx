@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type { RunEvent } from "@/types/hub-events";
 import { minutesAndSeconds } from "@/components/dialog/DialogElapsed";
 import { StepPart } from "./StepPart";
@@ -19,7 +20,9 @@ interface Props {
 }
 
 export function StepSubAgents({ events, live, hasOlder, loading, loadOlder }: Props) {
-  const rows = useMemo(() => subAgentRows(events, { runEnded: !live, hasOlder }), [events, live, hasOlder]);
+  const t = useT();
+  const locale = useDateLocale();
+  const rows = useMemo(() => subAgentRows(t, locale, events, { runEnded: !live, hasOlder }), [t, locale, events, live, hasOlder]);
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   if (rows.length === 0) return null;
   const toggle = (id: string) => setOpen((held) => {
@@ -29,7 +32,7 @@ export function StepSubAgents({ events, live, hasOlder, loading, loadOlder }: Pr
     return next;
   });
   return (
-    <StepPart title="Sub-agents" testId="step-part-subagents">
+    <StepPart title={t("runs.log.part.subAgents")} testId="step-part-subagents">
       <div className="rl-subs" data-testid="step-sub-agents">
         {rows.map((row) => (
           <div key={row.id} className="rl-sub" data-testid="step-sub-agent" data-running={row.running}>
@@ -38,8 +41,8 @@ export function StepSubAgents({ events, live, hasOlder, loading, loadOlder }: Pr
               <span className="rl-sub-mark" aria-hidden="true">{open.has(row.id) ? "▾" : "▸"}</span>
               <span className="rl-sub-name">{row.name}</span>
               <span className={row.failed ? "rl-bad" : row.running ? "rl-sub-run" : "rl-dim"} data-testid="step-sub-agent-status">
-                {rowSummary(row)}
-                {row.thinkingSince && <> · thinking · <Since iso={row.thinkingSince} /></>}
+                {rowSummary(t, row)}
+                {row.thinkingSince && <>{t("runs.log.sub.thinking")}<Since iso={row.thinkingSince} /></>}
               </span>
             </button>
             {open.has(row.id) && <SubAgentBody row={row} hasOlder={hasOlder} loading={loading} loadOlder={loadOlder} />}
@@ -51,6 +54,7 @@ export function StepSubAgents({ events, live, hasOlder, loading, loadOlder }: Pr
 }
 
 function SubAgentBody({ row, hasOlder, loading, loadOlder }: { row: SubAgentRow; hasOlder: boolean; loading: boolean; loadOlder: () => void }) {
+  const t = useT();
   return (
     <div className="rl-sub-body" data-testid="step-sub-agent-body">
       <div className="rl-sub-brief" data-testid="step-sub-agent-brief">{row.brief}</div>
@@ -62,10 +66,10 @@ function SubAgentBody({ row, hasOlder, loading, loadOlder }: { row: SubAgentRow;
           <span className="rl-meta-col" />
         </div>
       ))}
-      {row.calls.length === 0 && !row.partial && <div className="rl-detail-line rl-dim">no tool calls recorded</div>}
+      {row.calls.length === 0 && !row.partial && <div className="rl-detail-line rl-dim">{t("runs.log.sub.noCalls")}</div>}
       {row.partial && hasOlder && (
         <button type="button" className="rl-filter" disabled={loading} onClick={loadOlder} data-testid="step-sub-agent-older">
-          {loading ? "loading…" : "load older calls"}
+          {t(loading ? "runs.log.loading" : "runs.log.loadOlderCalls")}
         </button>
       )}
     </div>

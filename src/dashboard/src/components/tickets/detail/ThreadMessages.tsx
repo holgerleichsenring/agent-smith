@@ -153,7 +153,8 @@ export function RepeatLine({ items, testId, children }: { items: ThreadItem[]; t
   // 2026-11-22-7103a: the fold reads as its last run's status line, with that run's next step.
   const { ctx, queuePlace } = useStatusContext();
   const last = items.flatMap((i) => (i.kind === "report" ? [i.attempt] : [])).at(-1);
-  const status = last ? attemptStatus(last, ctx, queuePlace) : undefined;
+  const t = useT();
+  const status = last ? attemptStatus(t, last, ctx, queuePlace) : undefined;
   return (
     <StoryRow line={foldStoryLine(items, status)} open={open} onToggle={() => setOpen(!open)} testId={testId} className="tk-fold">
       <div className="tk-fold-body">{children}</div>

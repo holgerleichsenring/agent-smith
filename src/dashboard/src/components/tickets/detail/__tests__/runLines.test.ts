@@ -1,8 +1,14 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import type { TicketDerivation } from "@/types/tickets";
-import { attemptStatusInput, runStatus } from "@/components/jobs/runlog/runStatusLine";
+import { attemptStatusInput, runStatus as runStatusIn } from "@/components/jobs/runlog/runStatusLine";
 import { attemptListLine, deployListLine, derivationListLine, mergeListLine, runListLines } from "../runLines";
 import { attempt } from "./detailFixtures";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const runStatus = (...args: DropLead<Parameters<typeof runStatusIn>, 1>) => runStatusIn(en, ...args);
 
 // 2026-11-17-8d1cc: the Runs section's lines from recorded fields — every attempt says how it ended with its end kind.
 

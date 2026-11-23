@@ -5,6 +5,8 @@ import { fetchRunTraceEntry, type RunTraceEntryHeader } from "@/lib/runStoryApi"
 import { useRunTrace } from "@/hooks/useRunTrace";
 import { formatChars } from "./callSeries";
 import { cn } from "@/lib/utils";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { T, TextKey } from "@/lib/i18n/translate";
 
 // p0423b: a traced run's conversation, readable entry by entry in call order — what was
 // asked, what came back, and what the tools returned AS THE MODEL RECEIVED IT. A run that
@@ -14,29 +16,35 @@ import { cn } from "@/lib/utils";
 // One entry is fetched at a time. The list carries sizes only, because a recorded prompt
 // reaches megabytes and nobody asked to download the run to see that it exists.
 
-const LABEL_TITLE: Record<string, string> = {
-  prompt: "Prompt",
-  answer: "Answer",
-  tool: "Tool result",
+const LABEL_TITLE: Record<string, TextKey> = {
+  prompt: "runs.why.trace.label.prompt",
+  answer: "runs.why.trace.label.answer",
+  tool: "runs.why.trace.label.tool",
 };
 
+function labelTitle(t: T, label: string): string {
+  const key = LABEL_TITLE[label];
+  return key ? t(key) : label;
+}
+
 export function TraceReader({ runId }: { runId: string }) {
+  const t = useT();
+  const locale = useDateLocale();
   const { entries, loading } = useRunTrace(runId);
   const [selected, setSelected] = useState<RunTraceEntryHeader | null>(null);
 
-  if (loading) return <p className="hint">Looking for a recorded conversation…</p>;
+  if (loading) return <p className="hint">{t("runs.why.trace.looking")}</p>;
   if (entries.length === 0) {
     return (
       <p className="hint" data-testid="trace-reader-absent">
-        This run was not traced, so there are no answers or tool results to read. Every
-        call&apos;s prompt is kept anyway — open it from the prompt size in the call table.
+        {t("runs.why.trace.absent")}
       </p>
     );
   }
 
   return (
     <div className="trace-grid" data-testid="trace-reader" data-entries={entries.length}>
-      <nav className="nav" aria-label="Recorded conversation">
+      <nav className="nav" aria-label={t("runs.why.trace.nav")}>
         {entries.map((entry) => (
           <button
             key={`${entry.sequence}.${entry.label}`}
@@ -48,8 +56,8 @@ export function TraceReader({ runId }: { runId: string }) {
             onClick={() => setSelected(entry)}
           >
             <span className="mono">{entry.sequence.toString().padStart(4, "0")}</span>{" "}
-            {LABEL_TITLE[entry.label] ?? entry.label}
-            <small style={{ color: "var(--ink-3)" }}> · {formatChars(entry.chars)}</small>
+            {labelTitle(t, entry.label)}
+            <small style={{ color: "var(--ink-3)" }}> · {formatChars(entry.chars, locale)}</small>
           </button>
         ))}
       </nav>
@@ -59,6 +67,8 @@ export function TraceReader({ runId }: { runId: string }) {
 }
 
 function TraceEntryBody({ runId, entry }: { runId: string; entry: RunTraceEntryHeader | null }) {
+  const t = useT();
+  const locale = useDateLocale();
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
@@ -78,17 +88,17 @@ function TraceEntryBody({ runId, entry }: { runId: string; entry: RunTraceEntryH
   if (!entry) {
     return (
       <p className="hint" data-testid="trace-entry-none">
-        Pick an entry to read what the model saw at that point in the run.
+        {t("runs.why.trace.pick")}
       </p>
     );
   }
-  if (error) return <p className="hint">Could not read that entry: {error.message}</p>;
+  if (error) return <p className="hint">{t("runs.why.trace.failed", { message: error.message })}</p>;
 
   return (
     <div data-testid="trace-entry-body" data-sequence={entry.sequence}>
       <div className="kv" style={{ marginBottom: 8 }}>
         <span className="mono">{entry.sequence.toString().padStart(4, "0")}</span>{" "}
-        {LABEL_TITLE[entry.label] ?? entry.label} · {formatChars(entry.chars)} characters
+        {labelTitle(t, entry.label)} · {t("runs.why.trace.characters", { chars: formatChars(entry.chars, locale) })}
       </div>
       <pre
         className="mono"
@@ -98,7 +108,7 @@ function TraceEntryBody({ runId, entry }: { runId: string; entry: RunTraceEntryH
           padding: 12, fontSize: "12px", margin: 0,
         }}
       >
-        {content ?? "Loading…"}
+        {content ?? t("runs.why.trace.loading")}
       </pre>
     </div>
   );

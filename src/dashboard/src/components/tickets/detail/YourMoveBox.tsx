@@ -16,7 +16,7 @@ import type { StateAct } from "./ticketState";
 import { useTicketTabGo } from "./useTicketTabGo";
 import { useYourMove } from "./useYourMove";
 import { actLabel, type YourMove } from "./yourMove";
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
 import { waitClock } from "@/components/jobs/runlog/modelWaitWords";
 
@@ -35,6 +35,7 @@ interface Props {
 
 export function YourMoveBox({ detail, onReply, onAnswer }: Props) {
   const t = useT();
+  const locale = useDateLocale();
   const read = useYourMove(detail);
   if (!read) return null;
   const { view } = read;
@@ -43,7 +44,7 @@ export function YourMoveBox({ detail, onReply, onAnswer }: Props) {
   const move: YourMove = wait && view.attempt ? {
     ...read.move,
     title: t("run.modelWait.title"),
-    text: t("run.modelWait.sentence", { n: view.attempt.number, at: waitClock(wait.since) }),
+    text: t("run.modelWait.sentence", { n: view.attempt.number, at: waitClock(wait.since, locale) }),
   } : read.move;
   return (
     <section className={`tk-move ${move.tone}`} data-testid="ticket-state" data-tone={move.tone} aria-live="polite">

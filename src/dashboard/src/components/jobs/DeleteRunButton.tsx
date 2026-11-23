@@ -14,8 +14,10 @@ interface Props {
 }
 
 import { apiFetch } from "@/lib/apiResponse";
+import { useT } from "@/hooks/useT";
 
 export function DeleteRunButton({ runId, onDeleted }: Props) {
+  const t = useT();
   const [armed, setArmed] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,13 +36,13 @@ export function DeleteRunButton({ runId, onDeleted }: Props) {
       setArmed(false);
       setPending(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "request failed");
+      setError(err instanceof Error ? err.message : t("runs.common2.requestFailed"));
       setArmed(false);
       setPending(false);
     }
-  }, [armed, pending, runId, onDeleted]);
+  }, [armed, pending, runId, onDeleted, t]);
 
-  const label = pending ? "deleting…" : armed ? "confirm delete" : "delete";
+  const label = pending ? t("runs.delete.deleting") : armed ? t("runs.delete.confirm") : t("runs.delete.idle");
   const armedTone = armed
     ? "border-rose-300 bg-rose-50 text-rose-700"
     : "border-stone-200 bg-white text-stone-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700";
@@ -52,7 +54,7 @@ export function DeleteRunButton({ runId, onDeleted }: Props) {
       onMouseLeave={() => !pending && setArmed(false)}
       disabled={pending}
       data-testid={`delete-run-${runId}`}
-      title={error ?? "Delete this run and everything it left behind"}
+      title={error ?? t("runs.delete.title")}
       className={`inline-flex flex-none items-center rounded px-2 py-0.5 text-xs font-medium border transition disabled:cursor-not-allowed disabled:opacity-60 ${armedTone}`}
     >
       {label}

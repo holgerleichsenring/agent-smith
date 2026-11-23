@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+
 // p0372: THE pull-request button. Every surface that shows a PR reference —
 // the pull-requests list rows, the Outcome beat, the result view and the
 // full-pipeline trace — renders this one component, so clickability, draft
@@ -14,6 +16,7 @@ interface PrButtonProps {
 }
 
 export function PrButton({ url, repo, isDraft = false, testId }: PrButtonProps) {
+  const t = useT();
   return (
     <a
       className={isDraft ? "pr-btn draft" : "pr-btn"}
@@ -25,7 +28,7 @@ export function PrButton({ url, repo, isDraft = false, testId }: PrButtonProps) 
       onClick={(e) => e.stopPropagation()}
     >
       {repo ? <span className="pr-btn-repo">{repo}:</span> : null}
-      <span>{isDraft ? "Draft pull request" : "Pull request"} ↗</span>
+      <span>{isDraft ? t("runs.pr.draft") : t("runs.pr.ready")} ↗</span>
     </a>
   );
 }

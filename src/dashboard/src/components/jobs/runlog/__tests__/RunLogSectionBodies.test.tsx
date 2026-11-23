@@ -1,3 +1,4 @@
+import { translator } from "@/lib/i18n/translate";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
@@ -12,7 +13,12 @@ vi.mock("@/hooks/useRunDecisions", () => ({
   useRunDecisions: () => [{ stepIndex: 2, name: "Use the outbox", reason: "at-least-once", category: "Architecture", recordedAt: "2026-10-13T06:10:00Z" }],
 }));
 
-const { CheckBody, DeliveredBody, PlanBody, SpecBody, TicketBody, ledgerCount } = await import("../RunLogSectionBodies");
+const { CheckBody, DeliveredBody, PlanBody, SpecBody, TicketBody, ledgerCount: ledgerCountIn } = await import("../RunLogSectionBodies");
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const ledgerCount = (...args: DropLead<Parameters<typeof ledgerCountIn>, 1>) => ledgerCountIn(en, ...args);
 
 function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
   return {

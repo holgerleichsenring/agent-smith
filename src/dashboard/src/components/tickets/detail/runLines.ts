@@ -38,7 +38,7 @@ export interface RunListLine {
 export function attemptListLine(
   attempt: TicketAttempt, ctx: StatusContext | null = null, queuePlace: number | null = null, t: T = translator("en"), locale?: string,
 ): RunListLine {
-  const status = attemptStatus(attempt, ctx, queuePlace);
+  const status = attemptStatus(t, attempt, ctx, queuePlace);
   return {
     runId: attempt.runId,
     kind: "attempt",

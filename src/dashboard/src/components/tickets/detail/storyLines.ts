@@ -26,7 +26,7 @@ export interface StoryLine {
 /** One attempt as a line. 2026-11-22-7103a: its outcome is the run's status head and its text the status line's
  *  clauses and next step (runStatusLine), so the row is the run's one status sentence. */
 export function runStoryLine(
-  attempt: TicketAttempt, status: RunStatusLine = attemptStatus(attempt, null), t: T = translator("en"),
+  attempt: TicketAttempt, status: RunStatusLine = attemptStatus(translator("en"), attempt, null), t: T = translator("en"),
 ): StoryLine {
   return {
     at: attempt.finishedAt ?? attempt.startedAt,

@@ -17,6 +17,8 @@ import { useRunBucketFilter, type RunBucket } from "@/lib/RunBucketFilter";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { NoProjectReach } from "@/components/shell/NoProjectReach";
+import { useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 
 // p0343: mission control — the home screen ranks runs by what needs the
 // operator: Waiting for input → Running → Queued → Finished.
@@ -31,14 +33,15 @@ import { NoProjectReach } from "@/components/shell/NoProjectReach";
 // empty or not — omitting it would answer the operator's click with a blank page.
 
 // What each bucket says when the operator asked for it and it holds nothing.
-const EMPTY_LINE: Record<RunBucket, string> = {
-  "needs-you": "No run is waiting for input.",
-  running: "Nothing is running right now.",
-  queued: "Nothing is queued.",
-  finished: "No run has finished yet.",
+const EMPTY_LINE: Record<RunBucket, TextKey> = {
+  "needs-you": "runs.mission.empty.needsYou",
+  running: "runs.mission.empty.running",
+  queued: "runs.mission.empty.queued",
+  finished: "runs.mission.empty.finished",
 };
 
 export function MissionControl() {
+  const t = useT();
   const { filter } = useRunBucketFilter();
   const { connectionState, overview, refusal } = useJobsHub();
   // p0355: the runs list is no longer hard-capped. `older` holds runs paged in
@@ -81,7 +84,7 @@ export function MissionControl() {
     return (
       <div className="space-y-4" data-testid="mission-refused">
         <ConnectionState state={connectionState} refusal={refusal} />
-        <RefusalSurface refusal={refusal} surface="your runs" />
+        <RefusalSurface refusal={refusal} surface={t("runs.mission.yourRuns")} />
       </div>
     );
   }
@@ -105,7 +108,7 @@ export function MissionControl() {
         <ConnectionState state={connectionState} refusal={refusal} />
         <div className="rows">
           <div className="rrow" style={{ cursor: "default", justifyContent: "center", display: "flex" }}>
-            <NoProjectReach>No runs yet. Trigger one via the CLI, a webhook, or a poller.</NoProjectReach>
+            <NoProjectReach>{t("runs.mission.noRuns")}</NoProjectReach>
           </div>
         </div>
       </div>
@@ -121,14 +124,14 @@ export function MissionControl() {
 
       {shows("needs-you") && (
         <Section
-          title="Waiting for input"
+          title={t("runs.mission.needsYou")}
           id="needs-you"
           count={buckets.needsYou.length}
           amber={buckets.needsYou.length > 0}
           testId="section-needs-you"
-          hint="a run is parked on a question — open it to answer"
+          hint={t("runs.mission.hint.needsYou")}
           alwaysShow
-          emptyLine={EMPTY_LINE["needs-you"]}
+          emptyLine={t(EMPTY_LINE["needs-you"])}
         >
           <RowList runs={buckets.needsYou} />
         </Section>
@@ -136,15 +139,15 @@ export function MissionControl() {
 
       {shows("running") && (
         <Section
-          title="Running"
+          title={t("runs.mission.running")}
           id="running"
           count={buckets.running.length}
           testId="section-running"
           // p0343b: the spine hint is honest — it only shows when the running
           // runs actually carry server-computed beats (pre-beats rows don't).
-          hint={buckets.running.some((run) => run.beats) ? "live · spine shows the beat" : undefined}
+          hint={buckets.running.some((run) => run.beats) ? t("runs.mission.hint.running") : undefined}
           alwaysShow={filter === "running"}
-          emptyLine={EMPTY_LINE.running}
+          emptyLine={t(EMPTY_LINE.running)}
         >
           <RowList runs={buckets.running} />
         </Section>
@@ -152,13 +155,13 @@ export function MissionControl() {
 
       {shows("queued") && (
         <Section
-          title="Queued"
+          title={t("runs.mission.queued")}
           id="queued"
           count={buckets.queued.length}
           testId="section-queued"
-          hint="admission is capacity-checked — no run starts it can’t finish"
+          hint={t("runs.mission.hint.queued")}
           alwaysShow={filter === "queued"}
-          emptyLine={EMPTY_LINE.queued}
+          emptyLine={t(EMPTY_LINE.queued)}
         >
           <RowList runs={buckets.queued} />
         </Section>
@@ -166,13 +169,13 @@ export function MissionControl() {
 
       {shows("finished") && (
         <Section
-          title="Finished"
+          title={t("runs.mission.finished")}
           id="finished"
           count={buckets.finished.length}
           testId="section-finished"
           action={buckets.finished.length > 0 ? <ClearTerminalRunsButton /> : undefined}
           alwaysShow={filter === "finished"}
-          emptyLine={EMPTY_LINE.finished}
+          emptyLine={t(EMPTY_LINE.finished)}
         >
           <RowList runs={buckets.finished} />
           {!exhausted && buckets.finished.length > 0 && (
@@ -183,15 +186,14 @@ export function MissionControl() {
               onClick={loadMore}
               disabled={loadingMore}
             >
-              {loadingMore ? "Loading…" : "Load more"}
+              {loadingMore ? t("runs.mission.loading") : t("runs.mission.loadMore")}
             </button>
           )}
         </Section>
       )}
 
       <footer>
-        Row click opens the run’s story view · a ticket’s questions are answered on Tickets, any
-        other run’s in its run view.
+        {t("runs.mission.footer")}
       </footer>
     </div>
   );

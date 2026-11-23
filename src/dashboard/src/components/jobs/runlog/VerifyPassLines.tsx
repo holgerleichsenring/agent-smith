@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import type { VerifyPassRecordedEvent, VerifyRepositoryPass } from "@/types/hub-events";
 
 // 2026-11-17-d6fbc: a verify pass under its "Build and test" line, from the pass's own data: one line per repository
@@ -9,19 +11,20 @@ import type { VerifyPassRecordedEvent, VerifyRepositoryPass } from "@/types/hub-
 const PASSED = "passed";
 
 /** "install · build · test", a skipped stage marked, a red one with its exit code. */
-export function stageWords(repo: VerifyRepositoryPass): string {
+export function stageWords(t: T, repo: VerifyRepositoryPass): string {
   return repo.stages
-    .map((s) => (s.skipped ? `${s.stage} skipped` : s.exitCode !== 0 ? `${s.stage} exited ${s.exitCode}` : s.stage))
+    .map((s) => (s.skipped ? t("runs.log.verify.skipped", { stage: s.stage })
+      : s.exitCode !== 0 ? t("runs.log.verify.exited", { stage: s.stage, code: s.exitCode }) : s.stage))
     .join(" · ");
 }
 
 /** "2 contexts derived their verify steps from files that changed since; the stages ran as declared". */
-export function staleWords(count: number): string {
-  const contexts = count === 1 ? "1 context" : `${count} contexts`;
-  return `${contexts} derived ${count === 1 ? "its" : "their"} verify steps from files that changed since; the stages ran as declared`;
+export function staleWords(t: T, count: number): string {
+  return t("runs.log.verify.stale", { count });
 }
 
 export function VerifyPassLines({ pass }: { pass: VerifyPassRecordedEvent }) {
+  const t = useT();
   const stale = pass.staleDerivations ?? [];
   return (
     <div className="rl-pass" data-testid="verify-pass">
@@ -29,15 +32,15 @@ export function VerifyPassLines({ pass }: { pass: VerifyPassRecordedEvent }) {
         const ok = repo.result === PASSED;
         return (
           <div key={repo.repository} className={`rl-pass-repo ${ok ? "done" : "bad"}`} data-testid="verify-pass-repo">
-            <span className="rl-pass-mark" aria-label={ok ? "passed" : "failed"}>{ok ? "✓" : "✗"}</span>
+            <span className="rl-pass-mark" aria-label={t(ok ? "runs.log.cmd.passed" : "runs.log.child.failed")}>{ok ? "✓" : "✗"}</span>
             <span className="rl-pass-name">{repo.repository}</span>
-            <span className="rl-dim">{stageWords(repo)}</span>
+            <span className="rl-dim">{stageWords(t, repo)}</span>
           </div>
         );
       })}
       {stale.length > 0 && (
         <details className="rl-pass-stale" data-testid="verify-pass-stale">
-          <summary>{staleWords(stale.length)}</summary>
+          <summary>{staleWords(t, stale.length)}</summary>
           {stale.map((s) => (
             <div key={`${s.repository}/${s.context}`} className="rl-dim" data-testid="verify-pass-stale-context">
               {s.repository} / {s.context}: {s.files.join(", ")}

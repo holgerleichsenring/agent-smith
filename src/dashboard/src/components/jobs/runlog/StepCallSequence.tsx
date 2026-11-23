@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CallPrompt } from "@/components/jobs/why/CallPrompt";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { fetchPromptDigest, type PromptDigestView } from "@/lib/runStoryApi";
 import type { RunEvent } from "@/types/hub-events";
 import { callSequence, spendWords, tokenWords, type SequenceCall } from "./callSequence";
@@ -24,7 +25,9 @@ interface Props {
 }
 
 export function StepCallSequence({ runId, events, total, hasOlder, loading, loadOlder, runEnded }: Props) {
-  const calls = useMemo(() => callSequence(events, total, !hasOlder), [events, total, hasOlder]);
+  const t = useT();
+  const locale = useDateLocale();
+  const calls = useMemo(() => callSequence(t, locale, events, total, !hasOlder), [t, locale, events, total, hasOlder]);
   const [shown, setShown] = useState(SEQUENCE_PAGE);
   const [open, setOpen] = useState<string | null>(null);
   const visible = calls.slice(Math.max(0, calls.length - shown));
@@ -36,13 +39,13 @@ export function StepCallSequence({ runId, events, total, hasOlder, loading, load
   };
 
   if (calls.length === 0) {
-    return <div className="rl-detail-line rl-dim" data-testid="step-calls-empty">{loading ? "reading the step…" : "no model call recorded here"}</div>;
+    return <div className="rl-detail-line rl-dim" data-testid="step-calls-empty">{t(loading ? "runs.log.readingStep" : "runs.log.calls.none")}</div>;
   }
   return (
     <div className="rl-calls" data-testid="step-calls">
       {(hidden > 0 || hasOlder) && (
         <button type="button" className="rl-filter rl-more-lines" disabled={loading} onClick={showEarlier} data-testid="step-calls-earlier">
-          {loading ? "loading…" : hidden > 0 ? `show earlier (${hidden} more)` : "show earlier"}
+          {loading ? t("runs.log.loading") : hidden > 0 ? t("runs.log.calls.earlierMore", { count: hidden }) : t("runs.log.calls.earlier")}
         </button>
       )}
       {visible.map((c) => (
@@ -56,16 +59,18 @@ export function StepCallSequence({ runId, events, total, hasOlder, loading, load
 function Call({ call, runId, runEnded, said, open, onToggle }: {
   call: SequenceCall; runId: string; runEnded: boolean; said: PromptDigestView | undefined; open: boolean; onToggle: () => void;
 }) {
+  const t = useT();
+  const locale = useDateLocale();
   const fed = said?.fed ?? call.fed;
   const decided = said?.decided ?? call.decided;
   return (
     <div className="rl-call" data-testid="step-call" data-n={call.n ?? ""}>
       <button type="button" className="rl-call-line" aria-expanded={open} disabled={!call.promptId} onClick={onToggle}
-        title={call.promptId ? "open the prompt" : "this call's prompt was not stored"}>
+        title={t(call.promptId ? "runs.log.calls.openPrompt" : "runs.log.calls.notStored")}>
         <span className="rl-call-n">#{call.n ?? "?"}</span>
         <span className="rl-call-what">{call.activity} · {call.model}</span>
-        <span className="rl-call-tokens">{tokenWords(call)}</span>
-        <span className="rl-call-spend">{spendWords(call, runEnded)}</span>
+        <span className="rl-call-tokens">{tokenWords(t, locale, call)}</span>
+        <span className="rl-call-spend">{spendWords(t, call, runEnded)}</span>
       </button>
       {fed && <div className="rl-call-io" data-testid="step-call-fed" title={fed}>← {fed}</div>}
       {decided && <div className="rl-call-io" data-testid="step-call-decided" title={decided}>→ {decided}</div>}

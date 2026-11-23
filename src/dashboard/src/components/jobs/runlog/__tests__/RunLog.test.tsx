@@ -1,11 +1,17 @@
+import { translator } from "@/lib/i18n/translate";
 import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import type { RunSnapshot } from "@/types/hub-events";
 import { RunLog } from "../RunLog";
-import { runLogSections } from "../runLogSections";
+import { runLogSections as runLogSectionsIn } from "../runLogSections";
 import { RunStepHead } from "../RunStepHead";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const runLogSections = (...args: DropLead<Parameters<typeof runLogSectionsIn>, 1>) => runLogSectionsIn(en, ...args);
 
 // 2026-11-17-6d9eb: the sectioned log as a person meets it — section and step lines with llm · cost · time, a section
 // toggles, the mechanics open in place, a step opens its head in place.

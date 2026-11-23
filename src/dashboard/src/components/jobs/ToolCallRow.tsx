@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+
 import type { ToolCallEvent } from "@/types/hub-events";
 
 interface Props {
@@ -7,6 +9,7 @@ interface Props {
 }
 
 export function ToolCallRow({ event }: Props) {
+  const t = useT();
   return (
     <div className="flex flex-col gap-0.5 text-xs text-app-text-soft" data-testid="tool-call-row">
       <div className="flex items-center gap-2">
@@ -18,7 +21,7 @@ export function ToolCallRow({ event }: Props) {
             {event.summary}
           </span>
         ) : (
-          <span className="text-app-mute">({event.argsLength}B args)</span>
+          <span className="text-app-mute">{t("runs.tools.argsBytes", { bytes: event.argsLength })}</span>
         )}
         <MetadataTooltip />
       </div>
@@ -33,10 +36,11 @@ export function ToolCallRow({ event }: Props) {
 }
 
 export function MetadataTooltip() {
+  const t = useT();
   return (
     <span
       className="cursor-help text-app-mute"
-      title="Tool inputs/outputs are metadata-only — full payloads stay in result.md per p0169e security boundary."
+      title={t("runs.tools.metadataOnly")}
       data-testid="metadata-tooltip"
     >
       ⓘ

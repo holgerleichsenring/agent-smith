@@ -2,6 +2,7 @@
 
 import { Check, X, Loader2, Circle, Ban, Clock, MessageCircleQuestion, ListChecks, type LucideIcon } from "lucide-react";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
+import { useT } from "@/hooks/useT";
 
 // p0259: lighter status glyph — a soft-tint circle with an outline lucide icon,
 // replacing the saturated filled circles + bold white unicode glyphs (which read
@@ -45,12 +46,13 @@ function toneClass(status: NodeStatus): string {
 }
 
 export function StatusIcon({ status }: { status: NodeStatus }) {
+  const t = useT();
   const Icon = ICON[status];
   return (
     <span
       data-testid={`status-icon-${status}`}
       role="img"
-      aria-label={status}
+      aria-label={t(`runs.step.node.${status}`)}
       className={`flex h-6 w-6 flex-none items-center justify-center rounded-full ${toneClass(status)}`}
     >
       <Icon

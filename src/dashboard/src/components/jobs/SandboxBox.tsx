@@ -1,6 +1,8 @@
 "use client";
 
 import { useSandboxEvents } from "@/hooks/useSandboxEvents";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import { useEventFilter } from "@/lib/EventFilterContext";
 import { isAllowed } from "@/lib/eventFilterQuery";
 import { EventType, type SandboxCommandEvent } from "@/types/hub-events";
@@ -36,6 +38,7 @@ export function SandboxBox({
   runId, repo, expanded, onToggle, ignoreL3Filter = false,
   operatingSubAgentName = null, finishedDurationMs = null,
 }: Props) {
+  const t = useT();
   const feed = useSandboxEvents(runId, repo, expanded);
   const { state: filterState } = useEventFilter();
   const command = feed.command as SandboxCommandEvent | null;
@@ -61,7 +64,7 @@ export function SandboxBox({
              data-testid={`sandbox-output-${repo}`}>
           {visibleOutputs.length === 0 ? (
             <p className="text-stone-500">
-              {placeholderText(stdoutAllowed, finishedDurationMs)}
+              {placeholderText(t, stdoutAllowed, finishedDurationMs)}
             </p>
           ) : (
             visibleOutputs.map((o, idx) => (
@@ -86,6 +89,7 @@ function SandboxHeader({
   finishedDurationMs: number | null;
   onToggle: () => void;
 }) {
+  const t = useT();
   return (
     <button
       type="button"
@@ -106,25 +110,25 @@ function SandboxHeader({
         {command && (
           <span className="font-mono dsh-body text-stone-500">
             {command.command}
-            {command.summary ? ` ${command.summary}` : ` (${command.argsLength}B args)`}
+            {command.summary ? ` ${command.summary}` : ` ${t("runs.tools.argsBytes", { bytes: command.argsLength })}`}
           </span>
         )}
       </span>
       <span data-testid={`sandbox-toggle-${repo}`} className="text-xs text-stone-400">
         {expanded
-          ? "− collapse"
+          ? t("runs.sandbox.collapse")
           : finishedDurationMs !== null
-            ? `+ expand (${formatStepDuration(finishedDurationMs)})`
-            : "+ expand"}
+            ? t("runs.sandbox.expandAfter", { duration: formatStepDuration(finishedDurationMs) })
+            : t("runs.sandbox.expand")}
       </span>
     </button>
   );
 }
 
-function placeholderText(stdoutAllowed: boolean, finishedDurationMs: number | null): string {
-  if (!stdoutAllowed) return "stdout filtered off";
-  if (finishedDurationMs === null) return "waiting for stdout…";
-  return `step ran for ${formatStepDuration(finishedDurationMs)} (stdout hidden, click to expand)`;
+function placeholderText(t: T, stdoutAllowed: boolean, finishedDurationMs: number | null): string {
+  if (!stdoutAllowed) return t("runs.sandbox.filtered");
+  if (finishedDurationMs === null) return t("runs.sandbox.waiting");
+  return t("runs.sandbox.ranFor", { duration: formatStepDuration(finishedDurationMs) });
 }
 
 function formatStepDuration(ms: number): string {

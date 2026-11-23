@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { runLedger } from "@/components/jobs/story/runLedger";
 import { useRunSpecs } from "@/hooks/useRunSpecs";
+import { useT } from "@/hooks/useT";
 import { isRunLive } from "@/lib/runLiveness";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
@@ -44,12 +45,13 @@ function flip(set: ReadonlySet<string>, id: string): Set<string> {
 }
 
 export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOpenStep, idPrefix = "", ticketBody, checkBody, passes }: Props) {
+  const t = useT();
   const specs = useRunSpecs(runId, events.length);
   const ledger = useMemo(() => runLedger(snapshot, events), [snapshot, events]);
   const sections = useMemo(() => {
-    const all = runLogSections(steps, specs, snapshot, ledger);
+    const all = runLogSections(t, steps, specs, snapshot, ledger);
     return ticketBody === undefined ? all.filter((s) => s.kind !== "ticket") : all;
-  }, [steps, specs, snapshot, ledger, ticketBody]);
+  }, [t, steps, specs, snapshot, ledger, ticketBody]);
   const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
   const [mechanics, setMechanics] = useState<ReadonlySet<string>>(new Set());
   const initial = initiallyOpen(sections);
@@ -85,7 +87,7 @@ export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOp
   };
 
   return (
-    <RunLog sections={sections} events={events} open={open} onToggle={(id) => setToggled((t) => flip(t, id))} idPrefix={idPrefix}
+    <RunLog sections={sections} events={events} open={open} onToggle={(id) => setToggled((held) => flip(held, id))} idPrefix={idPrefix}
       openStep={openStep} onToggleStep={(i) => { scrolled.current = true; stepClicked.current = true; onOpenStep(openStep === i ? null : i); }}
       mechanicsOpen={mechanics} onToggleMechanics={(id) => setMechanics((m) => flip(m, id))}
       body={body} detail={(step) => <RunStepDetail runId={runId} step={step} live={isRunLive(snapshot?.status)} ledger={ledger} ledgerSpecId={ledgerSpecId} passes={passes} />} />

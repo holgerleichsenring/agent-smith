@@ -9,6 +9,8 @@ import { UnmeasuredAccounts } from "./UnmeasuredAccounts";
 import { MasterReport } from "@/components/jobs/runlog/LogText";
 import { reportCount, unmeasuredWords } from "@/components/jobs/runlog/runSections";
 import type { CriterionDisposition, CriterionJudgement } from "@/lib/judgementsApi";
+import { useT } from "@/hooks/useT";
+import type { T, TextKey } from "@/lib/i18n/translate";
 
 // p0344b: the Verify beat's surface. Preferred source is the run's PERSISTED
 // per-criterion acceptance dispositions (snapshot.acceptance — the p0340
@@ -19,13 +21,19 @@ import type { CriterionDisposition, CriterionJudgement } from "@/lib/judgementsA
 // a .card with the "Verify against the ratified acceptance" header and .crit
 // rows (pass/fail/wait) with c-mark, c-txt, c-proof and c-stat.
 
-const OUTCOME_LABEL: Record<string, string> = {
-  verbatim: "Ratified verbatim",
-  edited: "Ratified with edits",
-  rejected: "Rejected",
-  unratified: "Unratified",
-  none: "No ratified contract",
+const OUTCOME_LABEL: Record<string, TextKey> = {
+  verbatim: "runs.story.outcome.verbatim",
+  edited: "runs.story.outcome.edited",
+  rejected: "runs.story.outcome.rejected",
+  unratified: "runs.story.outcome.unratified",
+  none: "runs.story.outcome.none",
 };
+
+/** An outcome in words; one this map does not carry is shown as the server wrote it. */
+function outcomeLabel(t: T, outcome: string): string | undefined {
+  const key = OUTCOME_LABEL[outcome];
+  return key ? t(key) : undefined;
+}
 
 const CHECK = (
   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">
@@ -100,38 +108,38 @@ const CRIT_CLASS: Record<AcceptanceCriterion["status"], "pass" | "fail" | "wait"
   unproven: "wait",
 };
 
-const CRIT_STAT: Record<AcceptanceCriterion["status"], string> = {
-  met: "proven",
-  unmet: "failed",
-  not_applicable: "n/a",
-  unproven: "unproven",
+const CRIT_STAT: Record<AcceptanceCriterion["status"], TextKey> = {
+  met: "runs.story.stat.met",
+  unmet: "runs.story.stat.unmet",
+  not_applicable: "runs.story.stat.not_applicable",
+  unproven: "runs.story.stat.unproven",
 };
 
 // 2026-10-12-6bfad: an unmeasured account is never one of the N; it makes the badge bad
 // and says so after the count, or alone when there is nothing to count.
-function badgeFor(acceptance: RunAcceptance): { cls: string; label: string } {
+function badgeFor(t: T, acceptance: RunAcceptance): { cls: string; label: string } {
   const unmeasured = acceptance.unmeasured?.length ?? 0;
   // 2026-11-22-7103a: a run whose masters wrote reports judged no line — the badge counts the reports, never "reported".
   if (acceptance.reports != null && acceptance.criteria.length === 0) {
-    const count = reportCount(acceptance);
-    return unmeasured > 0 ? { cls: "bad", label: `${count} · ${unmeasuredWords(unmeasured)}` } : { cls: "", label: count };
+    const count = reportCount(t, acceptance);
+    return unmeasured > 0 ? { cls: "bad", label: `${count} · ${unmeasuredWords(t, unmeasured)}` } : { cls: "", label: count };
   }
-  const counted = criteriaBadge(acceptance);
+  const counted = criteriaBadge(t, acceptance);
   if (unmeasured === 0) return counted;
   return {
     cls: "bad",
-    label: acceptance.criteria.length > 0 ? `${counted.label} · ${unmeasuredWords(unmeasured)}` : unmeasuredWords(unmeasured),
+    label: acceptance.criteria.length > 0 ? `${counted.label} · ${unmeasuredWords(t, unmeasured)}` : unmeasuredWords(t, unmeasured),
   };
 }
 
-function criteriaBadge(acceptance: RunAcceptance): { cls: string; label: string } {
+function criteriaBadge(t: T, acceptance: RunAcceptance): { cls: string; label: string } {
   const total = acceptance.criteria.length;
-  if (total === 0) return { cls: "neu", label: OUTCOME_LABEL[acceptance.outcome ?? "none"] ?? "no criteria" };
+  if (total === 0) return { cls: "neu", label: outcomeLabel(t, acceptance.outcome ?? "none") ?? t("runs.story.badge.noCriteria") };
   const met = acceptance.criteria.filter((c) => c.status === "met").length;
   const unmet = acceptance.criteria.filter((c) => c.status === "unmet").length;
-  if (unmet > 0) return { cls: "bad", label: `${met} of ${total} · ${unmet} failed` };
-  if (met === total) return { cls: "ok", label: `${met} of ${total} proven` };
-  return { cls: "neu", label: `${met} of ${total} proven` };
+  if (unmet > 0) return { cls: "bad", label: t("runs.story.badge.failed", { met, total, unmet }) };
+  if (met === total) return { cls: "ok", label: t("runs.story.badge.proven", { met, total }) };
+  return { cls: "neu", label: t("runs.story.badge.proven", { met, total }) };
 }
 
 function AcceptanceVerify({
@@ -151,7 +159,8 @@ function AcceptanceVerify({
   onWithdrawJudgement?: VerifySummaryProps["onWithdrawJudgement"];
   judgementBusy?: boolean;
 }) {
-  const badge = badgeFor(acceptance);
+  const t = useT();
+  const badge = badgeFor(t, acceptance);
   const unmeasured = acceptance.unmeasured ?? [];
   // 2026-11-18-c8e2d: a run whose rows are its masters' reports carries the report's lists (maybe empty).
   const report = acceptance.fixedInPassing != null || acceptance.followUps != null || acceptance.reports != null;
@@ -160,7 +169,7 @@ function AcceptanceVerify({
   return (
     <section className="card" data-testid="verify-summary" data-source="acceptance">
       <div className="card-h">
-        <h3>{report ? "The master's report" : "Verify against the ratified acceptance"}</h3>
+        <h3>{report ? t("runs.story.title.report") : t("runs.story.title.verify")}</h3>
         <span className={cn("badge", badge.cls)} data-testid="verify-outcome-badge">
           {badge.label}
         </span>
@@ -169,35 +178,32 @@ function AcceptanceVerify({
         <div className="hint" style={{ marginBottom: 6 }} data-testid="verify-source">
           {reports.length > 0 || (acceptance.reports != null && acceptance.criteria.length === 0) ? (
             <>
-              What <b>each spec&apos;s master reported</b> after looking at what its sub-agent built, in its own words.
+              {t("runs.story.source.reports.a")}<b>{t("runs.story.source.reports.b")}</b>{t("runs.story.source.reports.c")}
             </>
           ) : report ? (
             <>
-              Each done line as <b>the spec&apos;s master reported it</b> after looking at what its sub-agent built —
-              met, not applicable, or left with its why.
+              {t("runs.story.source.report.a")}<b>{t("runs.story.source.report.b")}</b>{t("runs.story.source.report.c")}
             </>
           ) : acceptance.source === "master_verification" ? (
             <>
-              Each criterion the requester agreed to, as <b>the agent reported on its own
-              work</b>. This is not the independent read the gate uses.
+              {t("runs.story.source.master.a")}<b>{t("runs.story.source.master.b")}</b>{t("runs.story.source.master.c")}
             </>
           ) : (
             <>
-              Each ratified criterion, checked against the <b>real diff and test run</b> by a
-              reader with no account of the work — this is what the gate decided on.
+              {t("runs.story.source.gate.a")}<b>{t("runs.story.source.gate.b")}</b>{t("runs.story.source.gate.c")}
             </>
           )}
         </div>
         {unmeasured.length > 0 && <UnmeasuredAccounts accounts={unmeasured} />}
         {reports.map((r, i) => (
           <div key={i} data-testid="verify-report" style={{ marginTop: i > 0 ? 12 : 0 }}>
-            <MasterReport text={r.markdown} spec={r.specId ? `Spec ${r.specId}` : null} testId="verify-report-text" folded={reports.length > 1} />
+            <MasterReport text={r.markdown} spec={r.specId ? t("runs.story.spec", { spec: r.specId }) : null} testId="verify-report-text" folded={reports.length > 1} />
           </div>
         ))}
         {acceptance.criteria.length === 0 ? (
           unmeasured.length === 0 && acceptance.reports == null && (
             <p className="hint" data-testid="verify-empty">
-              No acceptance criteria were recorded on this run — nothing has been proven green.
+              {t("runs.story.empty")}
             </p>
           )
         ) : (
@@ -223,7 +229,7 @@ function AcceptanceVerify({
                     )}
                     {criterion.citation && (
                       <div className="c-proof" data-testid="verify-criterion-citation">
-                        cited: {renderCitation ? renderCitation(criterion.citation) : criterion.citation}
+                        {t("runs.story.cited")}{renderCitation ? renderCitation(criterion.citation) : criterion.citation}
                       </div>
                     )}
                     {onRecordJudgement && onWithdrawJudgement && (
@@ -240,7 +246,7 @@ function AcceptanceVerify({
                       />
                     )}
                   </div>
-                  <div className="c-stat">{CRIT_STAT[criterion.status]}</div>
+                  <div className="c-stat">{t(CRIT_STAT[criterion.status])}</div>
                 </div>
               );
             })}
@@ -249,8 +255,7 @@ function AcceptanceVerify({
         {acceptance.declined && acceptance.declined.length > 0 && (
           <div data-testid="verify-declined">
             <p className="hint" style={{ marginTop: 12 }}>
-              <b>Declined by the agent</b> — criteria it judged no work in this repository
-              could make true, each with the evaluated meaning of not doing it:
+              <b>{t("runs.story.declined.head")}</b>{t("runs.story.declined.sub")}
             </p>
             {acceptance.declined.map((declined, i) => (
               <div
@@ -266,7 +271,7 @@ function AcceptanceVerify({
                   </div>
                 </div>
                 <div className="c-stat">
-                  {declined.spec ? `declined · ${declined.spec}` : "declined"}
+                  {declined.spec ? t("runs.story.declined.spec", { spec: declined.spec }) : t("runs.story.declined")}
                 </div>
               </div>
             ))}
@@ -275,7 +280,7 @@ function AcceptanceVerify({
         {report && <ReportLists acceptance={acceptance} />}
         {acceptance.ratifiedBy && (
           <p className="hint" style={{ marginTop: 12 }} data-testid="verify-ratified-by">
-            ratified by {acceptance.ratifiedBy}
+            {t("runs.story.ratifiedBy", { who: acceptance.ratifiedBy })}
           </p>
         )}
       </div>
@@ -285,28 +290,29 @@ function AcceptanceVerify({
 
 /** 2026-11-18-c8e2d: the rest of the masters' reports — what they fixed in passing and the follow-ups they propose. */
 function ReportLists({ acceptance }: { acceptance: RunAcceptance }) {
+  const t = useT();
   const fixed = acceptance.fixedInPassing ?? [];
   const followUps = acceptance.followUps ?? [];
   return (
     <>
       {fixed.length > 0 && (
         <div data-testid="verify-fixed-in-passing">
-          <p className="hint" style={{ marginTop: 12 }}><b>Fixed in passing</b></p>
+          <p className="hint" style={{ marginTop: 12 }}><b>{t("runs.story.fixedInPassing")}</b></p>
           {fixed.map((line, i) => (
-            <div key={i} className="crit pass"><div className="c-mark">+</div><div><div className="c-txt">{line}</div></div><div className="c-stat">fixed</div></div>
+            <div key={i} className="crit pass"><div className="c-mark">+</div><div><div className="c-txt">{line}</div></div><div className="c-stat">{t("runs.story.fixed")}</div></div>
           ))}
         </div>
       )}
       {followUps.length > 0 && (
         <div data-testid="verify-follow-ups">
           <p className="hint" style={{ marginTop: 12 }}>
-            <b>Proposed follow-ups</b> — work a master judged not worth holding its spec for; file one from the ticket page.
+            <b>{t("runs.story.followUps.head")}</b>{t("runs.story.followUps.sub")}
           </p>
           {followUps.map((f, i) => (
             <div key={i} className="crit wait" data-testid="verify-follow-up">
               <div className="c-mark">→</div>
               <div><div className="c-txt">{f.goal}</div>{f.why && <div className="c-proof">{f.why}</div>}</div>
-              <div className="c-stat">{f.specId ? `follow-up · ${f.specId}` : "follow-up"}</div>
+              <div className="c-stat">{f.specId ? t("runs.story.followUp.spec", { spec: f.specId }) : t("runs.story.followUp")}</div>
             </div>
           ))}
         </div>
@@ -324,13 +330,14 @@ function fallbackBadgeClass(view: VerifyFallbackView): string {
 }
 
 function FallbackVerify({ view }: { view: VerifyFallbackView }) {
+  const t = useT();
   const cls = view.ratified ? "pass" : view.tone === "rose" ? "fail" : "wait";
   return (
     <section className="card" data-testid="verify-summary" data-source="event-fallback">
       <div className="card-h">
-        <h3>Verify — the ratified contract</h3>
+        <h3>{t("runs.story.fallback.title")}</h3>
         <span className={cn("badge", fallbackBadgeClass(view))} data-testid="verify-outcome-badge">
-          {OUTCOME_LABEL[view.outcome] ?? view.outcome}
+          {outcomeLabel(t, view.outcome) ?? view.outcome}
           {view.outcome === "edited" && view.editDistance > 0 ? ` · Δ${view.editDistance}` : ""}
         </span>
       </div>
@@ -338,8 +345,8 @@ function FallbackVerify({ view }: { view: VerifyFallbackView }) {
         {!view.expectation || view.expectation.expected.length === 0 ? (
           <p className="hint" data-testid="verify-empty">
             {view.outcome === "none"
-              ? "No ratified acceptance contract on this run yet — nothing has been proven green."
-              : "The expectation was not ratified as a contract; its criteria are not shown as proven."}
+              ? t("runs.story.fallback.none")
+              : t("runs.story.fallback.notRatified")}
           </p>
         ) : (
           <div data-testid="verify-criteria">
@@ -349,14 +356,13 @@ function FallbackVerify({ view }: { view: VerifyFallbackView }) {
                 <div>
                   <div className="c-txt">{criterion}</div>
                 </div>
-                <div className="c-stat">{view.ratified ? "ratified" : view.outcome}</div>
+                <div className="c-stat">{view.ratified ? t("runs.story.fallback.ratified") : view.outcome}</div>
               </div>
             ))}
           </div>
         )}
         <p className="hint" style={{ marginTop: 12 }}>
-          This run predates persisted per-criterion dispositions — criteria reflect the ratified
-          contract, not keystone proof against the diff.
+          {t("runs.story.fallback.legacy")}
         </p>
       </div>
     </section>

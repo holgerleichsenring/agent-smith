@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { RunCallPoint } from "@/lib/runStoryApi";
 import { formatChars, formatMs, niceMax } from "./callSeries";
 import { CallSizePanel } from "./CallSizePanel";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 // p0423b: the centrepiece of the story view. In the run that named the wall, the prompt
 // grew 151k -> 216k -> 278k -> 341k -> 357k while the answer shrank 3,886 -> 2,750 -> 969
@@ -19,12 +20,13 @@ const ANSWER_COLOR = "var(--accent)";
 const ANSWER_WASH = "var(--accent-wash)";
 
 export function CallSizePlot({ calls }: { calls: RunCallPoint[] }) {
+  const t = useT();
   const [hovered, setHovered] = useState<number | null>(null);
 
   if (calls.length === 0) {
     return (
       <p className="hint" data-testid="call-size-plot-empty">
-        No model call was recorded for this spec.
+        {t("runs.why.plot.none")}
       </p>
     );
   }
@@ -40,7 +42,7 @@ export function CallSizePlot({ calls }: { calls: RunCallPoint[] }) {
     <div data-testid="call-size-plot" data-calls={calls.length}>
       <Readout call={focus} pinned={hovered == null} />
       <CallSizePanel
-        title="Prompt sent"
+        title={t("runs.why.plot.promptSent")}
         values={prompts}
         color={PROMPT_COLOR}
         wash={PROMPT_WASH}
@@ -50,7 +52,7 @@ export function CallSizePlot({ calls }: { calls: RunCallPoint[] }) {
         testId="call-size-prompt"
       />
       <CallSizePanel
-        title="Answer returned"
+        title={t("runs.why.plot.answerReturned")}
         values={answers}
         color={ANSWER_COLOR}
         wash={ANSWER_WASH}
@@ -66,14 +68,13 @@ export function CallSizePlot({ calls }: { calls: RunCallPoint[] }) {
           fontSize: "11px", color: "var(--ink-3)", marginTop: 2,
         }}
       >
-        <span>call {calls[0].index}</span>
-        <span>call order →</span>
-        <span>call {calls[calls.length - 1].index}</span>
+        <span>{t("runs.why.plot.call", { index: calls[0].index })}</span>
+        <span>{t("runs.why.plot.callOrder")}</span>
+        <span>{t("runs.why.plot.call", { index: calls[calls.length - 1].index })}</span>
       </div>
       {silent.length > 0 && (
         <p className="hint" data-testid="call-size-silent">
-          {silent.length === 1 ? "One call" : `${silent.length} calls`} returned nothing —
-          marked on the answer panel.
+          {t("runs.why.plot.silent", { count: silent.length })}
         </p>
       )}
     </div>
@@ -83,6 +84,8 @@ export function CallSizePlot({ calls }: { calls: RunCallPoint[] }) {
 // The shared tooltip: one row naming the call both panels are showing. It reads the LAST
 // call until the operator hovers, so the plot arrives already pointing at the run's end.
 function Readout({ call, pinned }: { call: RunCallPoint; pinned: boolean }) {
+  const t = useT();
+  const locale = useDateLocale();
   return (
     <div
       className="kv"
@@ -91,13 +94,13 @@ function Readout({ call, pinned }: { call: RunCallPoint; pinned: boolean }) {
       style={{ fontSize: "12px", color: "var(--ink-2)", marginBottom: 6 }}
     >
       <span className="mono">
-        call {call.index}
-        {pinned ? " (latest)" : ""}
+        {t("runs.why.plot.call", { index: call.index })}
+        {pinned ? t("runs.why.plot.latest") : ""}
       </span>
       {" · "}
-      <span>prompt {formatChars(call.promptChars)}</span>
+      <span>{t("runs.why.plot.prompt", { chars: formatChars(call.promptChars, locale) })}</span>
       {" · "}
-      <span>answer {formatChars(call.answerChars)}</span>
+      <span>{t("runs.why.plot.answer", { chars: formatChars(call.answerChars, locale) })}</span>
       {" · "}
       <span>{formatMs(call.durationMs)}</span>
       {call.role && <span> · {call.role}</span>}

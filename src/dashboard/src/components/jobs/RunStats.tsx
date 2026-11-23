@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import type { BeatState, RunBeats, RunSnapshot } from "@/types/hub-events";
 import { monotonizeBeats } from "@/lib/beatMonotonic";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // p0445: the right-hand columns of a run row — story spine · step position ·
 // cost · elapsed. Extracted from RunRow so the parked-run card can state the
@@ -24,11 +26,12 @@ const SPINE_CLASS: Record<BeatState, string> = {
 // p0355: clamp to a monotonic sequence so a dot can't read "done" ahead of an
 // earlier still-running beat.
 export function Spine({ beats }: { beats: RunBeats }) {
+  const t = useT();
   const view = monotonizeBeats(beats);
   return (
     <div
       className="spine hidesm"
-      title="ticket · plan · build · verify · outcome"
+      title={t("runs.stats.spine")}
       data-testid="run-row-spine"
     >
       {SPINE_ORDER.map((key) => (
@@ -38,16 +41,17 @@ export function Spine({ beats }: { beats: RunBeats }) {
   );
 }
 
-export function relativeAgo(iso: string): string {
+/** "just now", "5m ago" — `nowMs` is injectable so a ticking caller reads its own clock. */
+export function relativeAgo(t: T, iso: string, nowMs: number = Date.now()): string {
   const then = new Date(iso).getTime();
-  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (seconds < 45) return "just now";
+  const seconds = Math.max(0, Math.round((nowMs - then) / 1000));
+  if (seconds < 45) return t("tickets.start.justNow");
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t("tickets.start.ago", { when: `${minutes}m` });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t("tickets.start.ago", { when: `${hours}h` });
   const days = Math.round(hours / 24);
-  return `${days}d ago`;
+  return t("tickets.start.ago", { when: `${days}d` });
 }
 
 export function duration(startedAt: string, finishedAt: string | null): string {
