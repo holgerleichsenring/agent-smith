@@ -21,6 +21,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// unsupported; a host failure records unread for a pull request never read, advances an existing
 /// one's check time only, and is logged. Every refresh then records the ticket's landing when its
 /// pull requests ended with one merged; a refresh that changed anything tells the ticket's pages.
+/// <para>2026-11-23-8d16: and whether an open one is still a draft — read only; a person's merge takes it out of draft.</para>
 /// </summary>
 public sealed class PrReviewRecordRefresh(
     IServiceScopeFactory scopes,
@@ -76,6 +77,7 @@ public sealed class PrReviewRecordRefresh(
             var notes = await threads.ListAsync(pr.Url, ct);
             var entries = await builder.BuildAsync(PrKey.Of(pr.Url), repo.Type, state, notes, once, ct);
             var record = Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha);
+            record.IsDraft = state.IsDraft && state.State == PrReviewStates.Open; // 2026-11-23-8d16
             await ci.ApplyAsync(project, states, record, stored, ct);
             await target.ApplyAsync(states, record, stored, ct); // 2026-11-22-6d85b: where a merge landed
             return await writer.WriteAsync(record, entries, start, ct);

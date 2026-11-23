@@ -30,8 +30,9 @@ describe("seriesStepLines", () => {
     const lines = seriesStepLines(series(), "/series/sr-1", en);
 
     expect(lines.map((l) => l.ticketId)).toEqual(["19648", "19650"]);
-    expect(lines[0].text).toBe("Review and merge PR #9934 (#19648). #19649 is next after it; merges are needed before #19662 and #19665 can start.");
-    expect(lines[0].act).toEqual({ label: "Merge", href: "/series/sr-1?section=next", external: false });
+    // 2026-11-23-8d16: the merge's line is the merge act; which tickets wait on merges is the summary line's.
+    expect(lines[0].text).toBe("Review and merge PR #9934 (#19648). #19649 is next after it.");
+    expect(lines[0].merge).toBe(true);
     expect(lines[1].act.href).toBe("/tickets/shop/19650");
   });
 
@@ -41,6 +42,17 @@ describe("seriesStepLines", () => {
     expect(seriesMergeLine(seriesDetail({ tickets: [seriesTicket({ hold: hold("working") })] }), translator("de")))
       .toBe("1 Ticket geht ohne Merge weiter; keines braucht einen Merge, um zu starten.");
     expect(seriesMergeLine(seriesDetail({ tickets: [seriesTicket({ landed: true })] }), en)).toBeNull();
+  });
+
+  // 2026-11-23-8d16: the merges the server marked are counted and named, in both languages.
+  it("seriesMergeLine_CountsTheMarkedMerges_TheWaitingTicketsNeed", () => {
+    const d = series();
+    d.mergeOrder = d.mergeOrder.map((s) => ({ ...s, neededBy: ["#19662", "#19665"] }));
+
+    expect(seriesMergeLine(d, en)).toBe(
+      "2 tickets continue without merging; 2 merges are needed before #19662 and #19665 can start (marked under Merge next).");
+    expect(seriesMergeLine(d, translator("de"))).toContain(
+      "2 Merges sind nötig, damit #19662 und #19665 starten können (markiert unter Als Nächstes mergen)");
   });
 
   it("mergesNow_OnlyWhileTheHoldIsTheMerge", () => {

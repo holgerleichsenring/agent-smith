@@ -27,14 +27,15 @@ public sealed class SeriesRunOverviewReader(
         foreach (var project in records.GroupBy(r => r.Project, StringComparer.Ordinal))
         {
             var facts = await reads.ReadAsync(projects.Of(project.Key)!, [.. project.SelectMany(r => r.Tickets)], ct);
-            foreach (var record in project)
-                rows[record.Id] = Row(record, called[record.Id], tickets.Of(record, facts, // 849e: read holds, none is no merge
-                    held.GetValueOrDefault(project.Key) ?? new Dictionary<string, AgentSmith.Application.Services.Holds.TicketHold>()));
+            var projectHolds = held.GetValueOrDefault(project.Key) ?? new Dictionary<string, AgentSmith.Application.Services.Holds.TicketHold>();
+            foreach (var record in project) // 849e: read holds, none is no merge; 8d16: and the question by them
+                rows[record.Id] = Row(record, called[record.Id], tickets.Of(record, facts, projectHolds), projectHolds);
         }
         return [.. records.Select(r => rows[r.Id])];
     }
 
-    private static SeriesRunRow Row(SeriesRunRecord record, string name, SeriesRunTicketsShape shape) => new(
+    private static SeriesRunRow Row(SeriesRunRecord record, string name, SeriesRunTicketsShape shape,
+        IReadOnlyDictionary<string, AgentSmith.Application.Services.Holds.TicketHold> holds) => new(
         record.Id, name, record.Project, record.State, shape.Counts,
-        shape.NextMerge, SeriesRunQuestion.Of(record), record.LastActivityAt); // 2026-11-23-849e: the hold's rule
+        shape.NextMerge, SeriesRunQuestion.Of(record, holds), record.LastActivityAt); // 2026-11-23-849e: the hold's rule
 }

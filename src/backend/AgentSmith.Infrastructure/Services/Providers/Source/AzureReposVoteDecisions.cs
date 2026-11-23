@@ -30,7 +30,7 @@ public static class AzureReposVoteDecisions
             _ => (PrReviewStates.Open, created),
         };
         return new PrReviewState(pr.PullRequestId.ToString(CultureInfo.InvariantCulture), state, at, decisions,
-            pr.LastMergeSourceCommit?.CommitId);
+            pr.LastMergeSourceCommit?.CommitId) { IsDraft = pr.IsDraft == true }; // 2026-11-23-8d16
     }
 
     private static PrReviewDecision Decision(

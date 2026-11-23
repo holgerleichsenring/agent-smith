@@ -30,12 +30,25 @@ public static class TicketSeriesMergeHold
         if (facts.StartsOnceMerged.Count == 0) return null;
         var order = facts.SeriesMergeOrder.Select(s => s.Key).ToList();
         var places = facts.StartsOnceMerged.Select(k => order.IndexOf(k)).Where(p => p >= 0).ToList();
-        var merges = (places.DefaultIfEmpty(-1).Max() + 1) + (facts.StartsOnceMerged.Count - places.Count);
+        var merges = Needed(facts.SeriesMergeOrder, facts.StartsOnceMerged).Count + (facts.StartsOnceMerged.Count - places.Count);
         var ready = facts.SeriesMergeOrder.ToList().FindIndex(s => s.Wait == SeriesRunMergeWaits.Ready);
         var next = places.Count == 0 ? facts.StartsOnceMerged[0]
             : ready >= 0 && ready <= places.Max() ? order[ready] : order[places.Min()];
         return TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody, TicketHoldCases.StartsOnMerge,
                 facts.SeriesId is { } series ? new(TicketHoldActs.Series, series) : null, facts.FiledAt)
             with { Names = facts.StartsOnceMerged, Merges = merges, Next = next };
+    }
+
+    /// <summary>2026-11-23-8d16: the steps of the merge order a ticket that starts on merges needs merged first — every step
+    /// up to the last one it names, since the order merges from the top; empty when it names none in the order. The hold's
+    /// merge count and the series page's marks read this one rule.</summary>
+    public static IReadOnlyList<SeriesRunMergeStep> Needed(IReadOnlyList<SeriesRunMergeStep> order, IReadOnlyList<string> startsOnceMerged)
+    {
+        ArgumentNullException.ThrowIfNull(order);
+        ArgumentNullException.ThrowIfNull(startsOnceMerged);
+        var last = -1;
+        for (var i = 0; i < order.Count; i++)
+            if (startsOnceMerged.Contains(order[i].Key, StringComparer.Ordinal)) last = i;
+        return [.. order.Take(last + 1)];
     }
 }

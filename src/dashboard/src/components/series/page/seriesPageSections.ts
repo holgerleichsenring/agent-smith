@@ -7,6 +7,7 @@ import { SeriesMergeNextSection } from "./SeriesMergeNextSection";
 import { SeriesHoldsSection } from "./SeriesHoldsSection";
 import { SeriesTicketsSection } from "./SeriesTicketsSection";
 import { mergesNow } from "./seriesStepLines";
+import type { SeriesMerge } from "./useSeriesMerge";
 
 // 2026-11-23-31dcd: the series page's sections, ONE table, in the bar's order — Merge next, What holds the rest, Order
 // and branches, Tickets, Conversation — each with the count the bar shows beside it; the page shows one at a time and
@@ -29,8 +30,9 @@ export interface SeriesSection {
   id: SeriesSectionId;
   label: TextKey;
   counter: (detail: SeriesRunDetail) => SeriesSectionCounter | null;
-  /** reload reads the series again, after an act the pane started. */
-  Pane: ComponentType<{ detail: SeriesRunDetail; reload: () => void }>;
+  /** reload reads the series again, after an act the pane started. 2026-11-23-8d16: merge is the page's one merge act,
+   *  shared with Your next step. */
+  Pane: ComponentType<{ detail: SeriesRunDetail; reload: () => void; merge?: SeriesMerge }>;
 }
 
 export const seriesSections: SeriesSection[] = [

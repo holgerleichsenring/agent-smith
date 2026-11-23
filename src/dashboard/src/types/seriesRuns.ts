@@ -46,6 +46,8 @@ export interface SeriesRunPullRequest {
   ciLog: string | null;
   /** The branch it targets — the records hold it only once merged, so null for an open pull request today. */
   target: string | null;
+  /** 2026-11-23-8d16: the newest read saw it still a draft; a person's merge takes it out of draft first. */
+  isDraft?: boolean;
 }
 
 export interface SeriesRunTicket {
@@ -76,6 +78,8 @@ export interface SeriesRunMergeStep {
   depth: number;
   wait: SeriesRunMergeWait;
   after: string[];
+  /** 2026-11-23-8d16: the keys of the tickets that start only once this step merged, from their holds (the server's rule). */
+  neededBy?: string[];
 }
 
 /** 2026-11-23-31dcf: what a requires edge means for the branches, from the per-repo stack a start is decided by.
