@@ -45,7 +45,7 @@ public sealed class TicketDetailReader(
     {
         var series = seriesRun.ForAsync(project, ticketId, ct); // 2026-11-23-31dcc: its own scopes, beside the rest
         var config = projects.Config();
-        var inputs = holdInputs.ReadAsync(ProjectScope.Single(project), config.Projects, config.Preconditions, ticketId, ct);
+        var inputs = holdInputs.ReadAsync(ProjectScope.Single(project), config.Projects, config.Preconditions, config.Holds, ticketId, ct);
         var rows = await runQuery.ForTicketAsync(project, ticketId, ct);
         var code = rows.Where(r => r.Run.Pipeline == PipelinePresets.CodeName).ToList();
         var derived = derivations.OfAsync(rows.Select(r => r.Run), ct);

@@ -7,6 +7,9 @@ namespace AgentSmith.Application.Services.Holds;
 /// 2026-11-23-31dcg: the one hold of a ticket, read from its stored facts — one method per source, and when several apply
 /// the most blocking wins: admin, then decide, then plan, then merge, then nobody. A finished ticket has none, and so has a
 /// ticket nothing waits on (a filed one, a cancelled one, one whose pull requests all closed).
+/// <para>2026-11-23-31dci: a nobody hold says since when it waits, and a wait on something outside the run (the model place,
+/// sandbox capacity, the restart) that outlasts <see cref="TicketHoldFacts.EscalateAfterMinutes"/> is the admin's
+/// (<see cref="TicketHoldEscalations"/>) — decided when the hold is read, so nothing runs in the background or is stored.</para>
 /// </summary>
 public sealed class TicketHoldReader
 {
@@ -17,7 +20,7 @@ public sealed class TicketHoldReader
     {
         ArgumentNullException.ThrowIfNull(facts);
         if (facts.Finished) return null;
-        return Admin(facts) ?? Decide(facts) ?? Plan(facts) ?? Merge(facts) ?? Nobody(facts);
+        return Admin(facts) ?? Decide(facts) ?? Plan(facts) ?? Merge(facts) ?? TicketHoldEscalations.Of(Nobody(facts), facts);
     }
 
     /// <summary>A precondition stopped the newest attempt: an image, a bootstrap or another configured precondition.</summary>
@@ -83,22 +86,25 @@ public sealed class TicketHoldReader
             : null;
     }
 
-    /// <summary>The ticket moves on by itself: its attempt works, waits in the queue or resumes, the restart takes it up, its
-    /// pull request merges after another, or what it requires is still being worked.</summary>
+    /// <summary>The ticket moves on by itself: it works or waits for its model place (31dci), waits in the queue or resumes,
+    /// the restart takes it up, its pull request merges after another, or what it requires is still worked. 31dci: a wait
+    /// says since when — the model wait's start, the queue arrival, the interruption's end, the specs' approval.</summary>
     public TicketHold? Nobody(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        var none = (string @case) => Hold(facts, TicketHoldAddressees.Nobody, @case, null, null);
+        var none = (string @case, DateTimeOffset? since) => Hold(facts, TicketHoldAddressees.Nobody, @case, null, since);
         switch (facts.HeadStatus)
         {
-            case RunStatuses.Running: return none(TicketHoldCases.Working);
-            case RunStatuses.Queued: return none(TicketHoldCases.Queued);
-            case RunStatuses.WaitingForInput when !facts.Parked: return none(TicketHoldCases.Resuming);
+            case RunStatuses.Running:
+                return facts.WaitingForModelSince is { } waiting ? none(TicketHoldCases.ModelWait, waiting) : none(TicketHoldCases.Working, null);
+            case RunStatuses.Queued: return none(TicketHoldCases.Queued, facts.EnqueuedAt);
+            case RunStatuses.WaitingForInput when !facts.Parked: return none(TicketHoldCases.Resuming, facts.EnqueuedAt);
         }
-        if (facts.Interrupted && facts.Restarting) return none(TicketHoldCases.Restarting);
-        if (facts.MergeStep is { Wait: SeriesRunMergeWaits.After } after) return none(TicketHoldCases.MergeAfter) with { Names = after.After };
-        if (facts.MergeStep is { Wait: SeriesRunMergeWaits.Retarget }) return none(TicketHoldCases.Retarget);
-        return facts.WaitsFor.Count > 0 ? none(TicketHoldCases.Prerequisite) with { Names = facts.WaitsFor } : null;
+        if (facts.Interrupted && facts.Restarting) return none(TicketHoldCases.Restarting, facts.EndedAt);
+        if (facts.MergeStep is { Wait: SeriesRunMergeWaits.After } after)
+            return none(TicketHoldCases.MergeAfter, null) with { Names = after.After };
+        if (facts.MergeStep is { Wait: SeriesRunMergeWaits.Retarget }) return none(TicketHoldCases.Retarget, null);
+        return facts.WaitsFor.Count > 0 ? none(TicketHoldCases.Prerequisite, facts.FiledAt) with { Names = facts.WaitsFor } : null;
     }
 
     private static bool AtWork(TicketHoldFacts facts) =>

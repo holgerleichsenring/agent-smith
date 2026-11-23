@@ -75,6 +75,7 @@ internal static class TicketReadExtensions
             .AddTransient<TicketTextEditAnswers>() // 2026-11-23-31dcg: a person's turn answers the edit
             .AddTransient<AgentSmith.Application.Services.Holds.TicketHoldReader>() // 2026-11-23-31dcg
             .AddTransient<Services.Tickets.Holds.TicketHoldInputsReader>()
+            .AddTransient<Services.Tickets.Holds.AdminHoldsReader>() // 2026-11-23-31dci
             .AddTransient<TicketCloseAct>() // 2026-10-15-114fa; e061a: its acts are close and reopen runs
             .AddMemoryCache();
         services.TryAddTransient<FiledWorkTrackerProjects>(); // 2026-11-22-a720b: the text edit check skips a held ticket

@@ -61,4 +61,19 @@ public sealed record TicketHoldFacts(string Project, string TicketId)
 
     /// <summary>A person edited the ticket's text and the conversation has not answered it (2026-11-22-a720b).</summary>
     public bool TextEdited { get; init; }
+
+    /// <summary>2026-11-23-31dci: since when the running attempt waits for its model place; null when it does not.</summary>
+    public DateTimeOffset? WaitingForModelSince { get; init; }
+
+    /// <summary>2026-11-23-31dci: since when the attempt waits in the capacity queue; null outside it.</summary>
+    public DateTimeOffset? EnqueuedAt { get; init; }
+
+    /// <summary>2026-11-23-31dci: since when a never-run ticket waits for its requirements — its specs' approval.</summary>
+    public DateTimeOffset? FiledAt { get; init; }
+
+    /// <summary>2026-11-23-31dci: the minutes a wait on nobody may last before it is the admin's; 0 never.</summary>
+    public int EscalateAfterMinutes { get; init; }
+
+    /// <summary>2026-11-23-31dci: the time the hold is read at — a wait's age is counted to it; null counts none.</summary>
+    public DateTimeOffset? Now { get; init; }
 }

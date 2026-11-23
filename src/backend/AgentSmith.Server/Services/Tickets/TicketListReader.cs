@@ -48,7 +48,7 @@ public sealed class TicketListReader(
     {
         var config = projects.Config(); // 2026-11-22-9719d: one configuration load per read
         var configured = config.Projects;
-        var inputs = await holdInputs.ReadAsync(project, configured, config.Preconditions, null, ct);
+        var inputs = await holdInputs.ReadAsync(project, configured, config.Preconditions, config.Holds, null, ct);
         var read = await query.ReadAsync(project, ct);
         var tickets = read.Rows.GroupBy(r => (r.Run.Project, r.Run.TicketId)).Select(g => g.ToList()).ToList();
         var heads = tickets.Select(t => attempts.Head(t).Run).ToList();

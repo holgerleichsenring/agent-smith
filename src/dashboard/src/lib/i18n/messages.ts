@@ -789,6 +789,29 @@ export const messages = {
     en: "an attempt a stopped server left unfinished is retried once by itself if it ended at most this many minutes before the server started; 0 turns it off",
     de: "ein Versuch, den ein gestoppter Server unfertig hinterlassen hat, wird einmal von selbst wiederholt, wenn er höchstens so viele Minuten vor dem Serverstart endete; 0 schaltet das ab",
   },
+  // --- System → Needs attention: every admin hold across projects (2026-11-23-31dci) ---
+  "attention.nav": { en: "Needs attention", de: "Braucht Aufmerksamkeit" },
+  "attention.title": { en: "Needs attention", de: "Braucht Aufmerksamkeit" },
+  "attention.sub": {
+    en: "Tickets only an admin can move: a setting, a credential or an image a run stopped on, and waits that went past the configured limit. Longest held first.",
+    de: "Tickets, die nur ein Admin weiterbringt: eine Einstellung, ein Zugang oder ein Image, an dem ein Run angehalten hat, und Wartezeiten über dem eingestellten Limit. Was am längsten hängt, steht oben.",
+  },
+  "attention.surface": { en: "the admin holds", de: "die Admin-Holds" },
+  "attention.failed": { en: "Could not load the admin holds: {message}", de: "Die Admin-Holds ließen sich nicht laden: {message}" },
+  "attention.loading": { en: "Loading the admin holds…", de: "Admin-Holds werden geladen…" },
+  "attention.empty": { en: "Nothing needs an admin right now.", de: "Gerade braucht nichts einen Admin." },
+  "attention.holds": { en: "Admin holds", de: "Admin-Holds" },
+  "attention.since": { en: "since {at}", de: "seit {at}" },
+  "attention.limit": {
+    en: "Waited longer than {minutes} minutes, the value of {key}.",
+    de: "Hat länger als {minutes} Minuten gewartet, der Wert von {key}.",
+  },
+  // --- config: the holds block (2026-11-23-31dci) ---
+  "config.holds.escalate.label": { en: "Report a wait to the admin after (minutes)", de: "Wartezeit an den Admin melden nach (Minuten)" },
+  "config.holds.escalate.help": {
+    en: "a ticket waiting this long for the model, sandbox capacity or a restart is listed under System → Needs attention; 0 turns it off",
+    de: "ein Ticket, das so lange auf das Modell, Sandbox-Kapazität oder einen Neustart wartet, steht unter System → Braucht Aufmerksamkeit; 0 schaltet das ab",
+  },
   // --- series: the sidebar item, the list and the links to one series (2026-11-23-31dcc) ---
   "series.nav": { en: "Series", de: "Serien" },
   "series.list.title": { en: "Series", de: "Serien" },
@@ -973,6 +996,31 @@ export const messages = {
     de: { one: "Startet, sobald {names} gemergt ist.", other: "Startet, sobald {names} gemergt sind, in dieser Reihenfolge." },
   },
   "hold.sentence.working": { en: "Attempt {n} is working. Nothing for you to do.", de: "Versuch {n} arbeitet. Für dich gibt es nichts zu tun." },
+  // 2026-11-23-31dci: a wait on nobody says since when; one past holds.escalate_after_minutes is reported to the admin.
+  "hold.sentence.model_wait": {
+    en: "Attempt {n} is waiting for the model. Nothing for you to do.",
+    de: "Versuch {n} wartet auf das Modell. Für dich gibt es nichts zu tun.",
+  },
+  "hold.wait.model_wait": { en: "Waiting for the model since {at}", de: "Wartet seit {at} auf das Modell" },
+  "hold.wait.queued": { en: "Waiting for sandbox capacity since {at}", de: "Wartet seit {at} auf Sandbox-Kapazität" },
+  "hold.wait.resuming": {
+    en: "Attempt {n} has been waiting for sandbox capacity to resume since {at}",
+    de: "Versuch {n} wartet seit {at} auf Sandbox-Kapazität, um weiterzulaufen",
+  },
+  "hold.wait.restarting": {
+    en: "Restarts after the server stopped at {at}",
+    de: "Startet neu, nachdem der Server um {at} angehalten hat",
+  },
+  "hold.wait.prerequisite": {
+    en: { one: "Starts when {names} finishes, waiting since {at}", other: "Starts when {names} finish, waiting since {at}" },
+    de: { one: "Startet, wenn {names} fertig ist, wartet seit {at}", other: "Startet, wenn {names} fertig sind, wartet seit {at}" },
+  },
+  "hold.nobody": { en: "{wait}. Nothing for you to do.", de: "{wait}. Für dich gibt es nichts zu tun." },
+  "hold.escalated": {
+    en: "{wait}, longer than {minutes} minutes ({key}). Reported to the admin.",
+    de: "{wait}, länger als {minutes} Minuten ({key}). An den Admin gemeldet.",
+  },
+  "hold.title.escalated": { en: "Reported to the admin", de: "An den Admin gemeldet" },
   "hold.sentence.queued": {
     en: "Attempt {n} waits in the queue. Nothing for you to do.",
     de: "Versuch {n} wartet in der Warteschlange. Für dich gibt es nichts zu tun.",

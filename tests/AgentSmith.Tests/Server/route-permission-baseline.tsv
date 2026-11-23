@@ -49,6 +49,7 @@ GET	/api/config/trackers	config.read	-
 GET	/api/delivery	runs.read	across
 GET	/api/diagnostics/connections	diagnostics.read	-
 GET	/api/diagnostics/model-quota	diagnostics.read	-
+GET	/api/holds/admin	config.write	-
 GET	/api/identity	identity.read	-
 GET	/api/openapi.json	anonymous	-
 GET	/api/projects	runs.read	across
@@ -76,6 +77,9 @@ GET	/api/runs/{runId}/steps/{stepIndex:int}/events	runs.read	run
 GET	/api/runs/{runId}/trace	runs.read	run
 GET	/api/runs/{runId}/trace/{sequence:int}/{label}	runs.read	run
 GET	/api/runs/{runId}/trail	runs.read	run
+GET	/api/series-runs	runs.read	across
+GET	/api/series-runs/count	runs.read	across
+GET	/api/series-runs/{id}	runs.read	seriesrun
 GET	/api/spec-dialog/conversations	dialog.write	across
 GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/html	dialog.write	session
 GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/shot	dialog.write	session
@@ -129,6 +133,7 @@ POST	/api/runs/{runId}/answer	runs.control	run
 POST	/api/runs/{runId}/cancel	runs.control	run
 POST	/api/runs/{runId}/judgements	runs.control	run
 POST	/api/runs/{runId}/retry	runs.control	run
+POST	/api/series-runs/{id}/tickets/{ticketId}/merge	runs.control	seriesrun
 POST	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/ratify	dialog.write	session
 POST	/api/spec-dialog/conversations/{sessionId}/resume	dialog.write	session
 POST	/api/spec-dialog/images	dialog.write	dialog
@@ -138,8 +143,8 @@ POST	/api/spec-dialog/{dialogId}/series/{act}	dialog.write,runs.control	dialog
 POST	/api/teams/messages	anonymous	-
 POST	/api/tickets/{project}/{ticketId}/close	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control	route:project
-POST	/api/tickets/{project}/{ticketId}/follow-ups	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/derive-specs	runs.control	route:project
+POST	/api/tickets/{project}/{ticketId}/follow-ups	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/landed-by-hand	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/reopen	runs.control	route:project
 POST	/slack/commands	anonymous	-
@@ -161,7 +166,3 @@ PUT	/api/config/secret-values/{name}	secrets.write	-
 PUT	/api/config/secrets/{id}	secrets.write	-
 PUT	/api/config/settings/{type}	config.write	-
 PUT	/api/config/trackers/{id}	config.write	-
-GET	/api/series-runs	runs.read	across
-GET	/api/series-runs/count	runs.read	across
-GET	/api/series-runs/{id}	runs.read	seriesrun
-POST	/api/series-runs/{id}/tickets/{ticketId}/merge	runs.control	seriesrun

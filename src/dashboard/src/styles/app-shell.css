@@ -77,6 +77,10 @@
   background: none; color: var(--ink-2); font: inherit; text-align: left; text-decoration: none; cursor: pointer;
 }
 .sb-menu a:hover, .sb-menu button:hover, .sb-menu a:focus-visible, .sb-menu button:focus-visible { background: var(--color-app-hover); color: var(--ink); outline: none; }
+/* 2026-11-23-31dci: an admin's count of admin holds on System, and a dot on the avatar while there are any */
+.sb-menu a .sb-count { margin-left: auto; }
+.sb-who { position: relative; }
+.sb-who .sb-dot { top: 4px; left: 26px; right: auto; }
 .sb-menu-rule { height: 1px; margin: 4px 6px; background: var(--color-app-line-strong); }
 /* 2026-11-22-5485a: the language switch, one flag per language side by side; the one in force reads in ink */
 .sb-menu-lang { display: flex; gap: 2px; }

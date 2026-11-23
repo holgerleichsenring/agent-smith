@@ -19,10 +19,18 @@ public sealed record TicketHold(string Addressee, string Case, TicketHoldAct? Ac
 
     public EndDetail? Detail { get; init; }
 
+    /// <summary>2026-11-23-31dci: a nobody hold whose wait outlasted the configured minutes and is the admin's now; null
+    /// for every other hold. The case stays the wait's, so the sentence still says what it waits for.</summary>
+    public TicketHoldEscalation? Escalation { get; init; }
+
     /// <summary>A person's move: merge, plan or decide. An admin hold is the admin's, nobody's is no one's.</summary>
     [JsonIgnore]
     public bool IsPersons => Addressee is TicketHoldAddressees.Merge or TicketHoldAddressees.Plan or TicketHoldAddressees.Decide;
 }
+
+/// <summary>2026-11-23-31dci: why a wait is the admin's — it lasted longer than <paramref name="AfterMinutes"/>, the value
+/// of the configuration key <paramref name="Key"/>.</summary>
+public sealed record TicketHoldEscalation(int AfterMinutes, string Key);
 
 /// <summary>2026-11-23-31dcg: the one act a hold offers and what it acts on — a run id, a series id, a path or a URL.</summary>
 public sealed record TicketHoldAct(string Kind, string? Target = null);
@@ -64,6 +72,9 @@ public static class TicketHoldCases
     public const string MergeNext = "merge_next";
     public const string StartsOnMerge = "starts_on_merge";
     public const string Working = "working";
+
+    /// <summary>2026-11-23-31dci: the attempt runs but waits for its model place, which another run holds.</summary>
+    public const string ModelWait = "model_wait";
     public const string Queued = "queued";
     public const string Resuming = "resuming";
     public const string Restarting = "restarting";
