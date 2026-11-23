@@ -1,10 +1,12 @@
 import { HomeView } from "@/components/home/HomeView";
+import { PocOnlyRedirect } from "@/components/home/PocOnlyRedirect";
 
 // 2026-11-17-d6fba: home is input — what should we work on, what waits on you, the tickets that moved last. The runs
-// list lives at /runs.
+// list lives at /runs. 2026-11-23-933da: a PoC-only caller is sent on to /pocs.
 export default function HomePage() {
   return (
     <div className="mock-shell mock-home" data-testid="home-page">
+      <PocOnlyRedirect />
       <main className="main">
         <HomeView />
       </main>

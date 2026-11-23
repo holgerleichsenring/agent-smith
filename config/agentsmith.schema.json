@@ -304,6 +304,36 @@
         "pr_reread_merged_cap": { "type": "integer", "minimum": 1, "description": "The most merged records without a landing one re-read pass names, over all trackers. Default 50." }
       }
     },
+    "pocs": {
+      "type": "object",
+      "description": "PoCs: small uploaded apps hosted on a target. Off by default; off means no sidebar item and every PoC route answers 404. Global.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "description": "Whether the PoCs area exists. Default false." },
+        "project_agent": { "type": ["string", "null"], "description": "The agent every poc-<person> project names; required while enabled." },
+        "project_tracker": { "type": ["string", "null"], "description": "The tracker every poc-<person> project names; required while enabled." },
+        "targets": {
+          "type": "array",
+          "description": "Where PoCs are hosted. One for now; required while enabled.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "source_repo"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$", "description": "A DNS label, unique among the targets." },
+              "source_repo": { "type": "string", "description": "One exact repo ref the PoC sources are committed to: a repos-catalog name or connection/name. A glob is refused." },
+              "root": { "type": "string", "description": "The folder of PoC sources inside the source repo; a PoC lives in <root>/<project>/<poc>/. Default pocs." },
+              "deploy_root": { "type": "string", "description": "The folder the deploy manifests are written to. Default deploy." },
+              "template_path": { "type": "string", "description": "The folder the app template is written to. Default poc-template." },
+              "domain_pattern": { "type": ["string", "null"], "description": "A host name with exactly one {app}, e.g. {app}.poc.example.internal. No default." },
+              "lifetime_days": { "type": "integer", "minimum": 1, "description": "How many days a PoC lives. Default 90." },
+              "reminder_days": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "Days before expiry the owner is reminded, each below lifetime_days. Default [14, 7, 1]." },
+              "per_person_limit": { "type": "integer", "minimum": 1, "description": "The most live PoCs one person holds on this target; pocs.admin is not bound by it. Default 3." }
+            }
+          }
+        }
+      }
+    },
     "holds": {
       "type": "object",
       "description": "How long a ticket may wait on nobody - for its model place, for sandbox capacity, for the restart after a stopped server - before its hold is reported to the admin. Read when a hold is read; nothing runs in the background. Global.",

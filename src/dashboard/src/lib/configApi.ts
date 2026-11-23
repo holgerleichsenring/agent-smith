@@ -919,7 +919,8 @@ export type SettingKey =
   | "preconditions"
   | "branch_cleanup"
   | "tickets"
-  | "holds";
+  | "holds"
+  | "pocs";
 
 export interface OrchestratorSetting {
   maxRunWallTimeSeconds: number;
@@ -1093,6 +1094,27 @@ export interface HoldsSetting {
   escalateAfterMinutes: number;
 }
 
+/** 2026-11-23-933da: one PoC target (agentsmith.yml pocs.targets[]). domainPattern has no default, only a placeholder. */
+export interface PocTargetSetting {
+  name: string;
+  sourceRepo: string;
+  root: string;
+  deployRoot: string;
+  templatePath: string;
+  domainPattern: string | null;
+  lifetimeDays: number;
+  reminderDays: number[];
+  perPersonLimit: number;
+}
+
+/** 2026-11-23-933da: the PoCs feature (agentsmith.yml pocs:) — the switch, what every poc- project names, the targets. */
+export interface PocsSetting {
+  enabled: boolean;
+  projectAgent: string | null;
+  projectTracker: string | null;
+  targets: PocTargetSetting[];
+}
+
 /** 2026-11-17-713ec: the branch-cleanup sweep (agentsmith.yml branch_cleanup:). */
 export interface BranchCleanupSetting {
   enabled: boolean;
@@ -1119,6 +1141,7 @@ export interface SettingShapes {
   branch_cleanup: BranchCleanupSetting;
   tickets: TicketsSetting;
   holds: HoldsSetting;
+  pocs: PocsSetting;
 }
 
 export type SettingValue = SettingShapes[SettingKey];

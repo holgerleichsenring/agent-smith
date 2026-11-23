@@ -1,0 +1,39 @@
+/* 2026-11-23-933da: the PoCs list in the ticket list's frame (.mock-tickets) — Vercel-like cards on the dark ground: a
+   quiet preview block, the name, the address, the state with its dot, the owner and the last run; state pills above,
+   the target strip below. Every value is a .mock-shell custom property. */
+.mock-pocs .poc-import { margin-left: auto; }
+.mock-pocs .poc-pills { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+.mock-pocs .poc-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-2); background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+.mock-pocs .poc-pill:hover { background: var(--panel-2); }
+.mock-pocs .poc-pill.on { background: var(--panel-2); border-color: var(--line); color: var(--ink); }
+.mock-pocs .poc-pill b { font-weight: 500; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.mock-pocs .poc-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+.mock-pocs .poc-dot.ok { background: var(--ok); }
+.mock-pocs .poc-dot.run { background: var(--run); }
+.mock-pocs .poc-dot.bad { background: var(--bad); }
+.mock-pocs .poc-dot.idle { background: var(--idle); }
+.mock-pocs .poc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.mock-pocs .poc-card { display: flex; flex-direction: column; min-width: 0; background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r); overflow: hidden; }
+.mock-pocs .poc-card:hover { border-color: var(--line); }
+.mock-pocs .poc-card[data-state="stopped"] .poc-shot, .mock-pocs .poc-card[data-state="deleted"] .poc-shot { opacity: 0.55; }
+.mock-pocs .poc-shot { height: 112px; box-sizing: border-box; display: flex; flex-direction: column; gap: 7px; padding: 12px; background: var(--bg); border-bottom: 1px solid var(--line-2); }
+.mock-pocs .poc-shot i { display: block; height: 8px; border-radius: 4px; background: var(--panel-2); width: 42%; }
+.mock-pocs .poc-shot i + i { width: 68%; }
+.mock-pocs .poc-shot span { flex: 1; border-radius: var(--r-s); background: var(--panel); border: 1px solid var(--line-2); }
+.mock-pocs .poc-body { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; min-width: 0; }
+.mock-pocs .poc-name { margin: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.mock-pocs .poc-host { font-family: var(--mono); font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
+.mock-pocs .poc-state { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.mock-pocs .poc-owner { color: var(--ink-3); }
+.mock-pocs .poc-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line-2); font-size: 12.5px; color: var(--ink-3); }
+.mock-pocs .poc-foot a { color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+.mock-pocs .poc-foot a:hover { color: var(--ink); }
+.mock-pocs .poc-project { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-pocs .poc-empty { display: flex; flex-direction: column; gap: 4px; padding: 28px 16px; text-align: center; color: var(--ink-3); background: var(--panel); border: 1px dashed var(--line); border-radius: var(--r); }
+.mock-pocs .poc-empty strong { color: var(--ink); font-weight: 600; }
+.mock-pocs .poc-targets { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; padding: 12px 16px; border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink-3); font-size: 13px; }
+.mock-pocs .poc-target { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.mock-pocs .poc-targets b { color: var(--ink); font-weight: 500; }
+.mock-pocs .poc-targets .mono { font-family: var(--mono); font-size: 12.5px; }
+.mock-pocs .poc-target-settings { margin-left: auto; color: var(--ink-2); text-decoration: none; }
+.mock-pocs .poc-target-settings:hover { color: var(--ink); }

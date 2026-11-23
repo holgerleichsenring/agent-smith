@@ -706,6 +706,25 @@ branch_cleanup:
 holds:
   escalate_after_minutes: 60
 
+# 2026-11-23-933da: PoCs - small uploaded apps hosted on a target. Off by default: off means no
+# sidebar item and every PoC route answers 404. Every person gets a poc-<person> project naming
+# project_agent and project_tracker. A target's source_repo is one exact repo ref (no glob); a PoC's
+# source lives in <root>/<project>/<poc>/. Defaults shown; domain_pattern has none.
+pocs:
+  enabled: false
+  # project_agent: claude
+  # project_tracker: github-issues
+  targets: []
+  #  - name: main
+  #    source_repo: github/poc-sources
+  #    root: pocs
+  #    deploy_root: deploy
+  #    template_path: poc-template
+  #    domain_pattern: "{app}.poc.example.internal"
+  #    lifetime_days: 90
+  #    reminder_days: [14, 7, 1]
+  #    per_person_limit: 3
+
 # p0128c data-flow gating.
 pipeline_data_flow:
   enforce: false

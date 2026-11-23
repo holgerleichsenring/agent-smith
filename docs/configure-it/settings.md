@@ -89,6 +89,18 @@ Whether the data flow gate warns or enforces.
 
 Whether a run records its conversation (every prompt as sent, every answer, every tool result as the model received it), not only its numbers. Off by default, because a traced run's record grows fast. The `AGENTSMITH_TRACE` environment variable, when it is set, wins over this switch in both directions, so a deployment that sets it in its manifest keeps what the manifest says. See [Recording what the model was told](../connect-your-stuff/ai-providers.md#recording-what-the-model-was-told).
 
+### PoCs
+
+PoCs are small apps people upload to have them hosted. The feature is off until you switch it on. While it's off there is no PoCs item in the sidebar and every PoC route answers 404.
+
+- On: the switch. The other fields can be filled in while it's off.
+- Project agent and project tracker: every person gets their own `poc-<person>` project, and a project needs an agent and a tracker to resolve. Both are required while PoCs are on.
+- Targets: where PoCs go. One for now. Each names its source repo, one exact repository (a catalog name or `connection/name`, no `*`), and three folders inside it: the root for PoC sources (`pocs`, a PoC lives in `<root>/<project>/<poc>/`), the deploy root (`deploy`) and the template path (`poc-template`). The folders are relative and may not lie inside each other. Also the host pattern with one `{app}` (for example `{app}.poc.example.internal`), the lifetime in days (90), the reminder days before expiry (14, 7, 1) and how many live PoCs one person may hold (3; an admin isn't bound by it).
+
+The block is `pocs:` (`enabled`, `project_agent`, `project_tracker`, `targets`). A value the rules refuse is named on save, on import and at startup; a source repo, agent or tracker that doesn't exist is a startup finding naming the key.
+
+Who sees what: `pocs.read` opens the PoCs area, `pocs.write` imports and acts on your own PoCs, `pocs.overrule` lifts a scan block and `pocs.admin` acts on every PoC. The built-in `poc` role holds `pocs.read` and `pocs.write`; operators get `pocs.read`. Which PoCs you see follows the projects you read runs in, so a person bound to their own `poc-` project sees their own PoCs.
+
 ## What the settings rail leaves out
 
 `persistence:` is absent on purpose. It's bootstrap only, read from the file before the server can talk to a database, so making it editable in a UI backed by that database would be a circle. Change it in `agentsmith.yml` and restart.

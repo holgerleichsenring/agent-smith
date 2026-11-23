@@ -23,12 +23,15 @@ import type {
   SpecReviewSetting,
   TicketsSetting,
   HoldsSetting,
+  PocsSetting,
 } from "@/lib/configApi";
 import { CheckField, DrawerSection, NumberField, TextField, keep, patcher } from "./formFields";
 import { SeriesForm, SpecReviewForm } from "./SeriesSettingsForms";
 import { BranchCleanupForm, HoldsForm, PreconditionsForm } from "./SweepSettingsForms";
 import { TicketsForm } from "./TicketsSettingsForm";
 import { SandboxImageTrustFields } from "./SandboxImageTrustFields";
+import { PocsSettingsForm } from "./PocsSettingsForm";
+import { useConfigCatalogContext } from "./ConfigCatalogProvider";
 
 // p0353: the per-settings typed forms. One case per settings key — flat docs are a
 // straightforward field list; the nested pipeline-cost-cap (default + per-pipeline +
@@ -112,7 +115,15 @@ export function SettingsForm({
       return <TicketsForm value={value as TicketsSetting} onChange={onChange} />;
     case "holds":
       return <HoldsForm value={value as HoldsSetting} onChange={onChange} />;
+    case "pocs":
+      return <PocsSettings value={value as PocsSetting} onChange={onChange} />;
   }
+}
+
+// 2026-11-23-933da: the PoCs form picks its agent, tracker and source repository from the shared catalog.
+function PocsSettings({ value, onChange }: { value: PocsSetting; onChange: (v: SettingValue) => void }) {
+  const { catalog } = useConfigCatalogContext();
+  return <PocsSettingsForm value={value} onChange={onChange} catalog={catalog} />;
 }
 
 function OrchestratorForm({

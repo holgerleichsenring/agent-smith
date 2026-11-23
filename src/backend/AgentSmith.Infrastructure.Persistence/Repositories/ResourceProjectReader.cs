@@ -21,6 +21,11 @@ public sealed class ResourceProjectReader(IUnitOfWork unitOfWork)
         unitOfWork.Set<SeriesRun>().AsNoTracking()
             .Where(s => s.SeriesRunId == seriesRunId).Select(s => (string?)s.Project).FirstOrDefaultAsync(ct);
 
+    /// <summary>2026-11-23-933da: a PoC's project — its owner's poc- project.</summary>
+    public Task<string?> PocAsync(long pocId, CancellationToken ct) =>
+        unitOfWork.Set<Poc>().AsNoTracking()
+            .Where(p => p.Id == pocId).Select(p => (string?)p.Project).FirstOrDefaultAsync(ct);
+
     public Task<string?> SessionAsync(string platform, string sessionId, CancellationToken ct) =>
         Sessions(platform)
             .Where(s => s.SessionId == sessionId).Select(s => (string?)s.Project).FirstOrDefaultAsync(ct);

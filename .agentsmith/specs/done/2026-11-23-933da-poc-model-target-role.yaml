@@ -104,7 +104,7 @@ facts:
 
 scope:
   in: >
-    SWITCH: pocs.enabled (bool, default false). Off: PocsGate (an endpoint filter on the /api/pocs group, so it runs after
+    SWITCH: pocs.enabled (bool, default false). Off: PocsGate (an endpoint filter on the group every PoC route is mapped on, so it runs after
     authorization) answers an empty 404 on every PoC route to a caller holding the route's permissions, and every PoC
     hosted service of later slices checks PocsGate.Enabled(config) on each pass and does nothing. CallerIdentity and the
     identity answer stay unchanged: the dashboard learns the switch from GET /api/pocs itself (200 = on and readable, 404 =
@@ -130,7 +130,7 @@ scope:
     SQLite and PostgreSQL allow several NULLs), index (Project); PocAuditEntry index
     (PocId, AtTicks) and unique (RunId, Act) (filtered IS NOT NULL on SQL Server), so every later act projection
     (933db imported, 933dc overruled, the c81e series) inserts nothing on a replay. Migration AddPocs on SQLite, SQL Server, PostgreSQL; archive table counts updated.
-    ProjectScopeQueries gains a Poc Within overload written like the Run one (Hidden honoured). PocRepository:
+    Poc implements IProjectOwned, so ProjectScopeQueries' generic Within (2026-11-23-47b6, Hidden honoured) filters it. PocRepository:
     ListAsync(ProjectScope scope, ct) through .Within(scope), FindAsync(id); PocAuditRepository: ListAsync(pocId). No PoC
     write path in this slice (933db's admission writes the first rows).
     SETTINGS: singleton pocs (ConfigDocTypes.Pocs, PocsConfig in Contracts/Models/Configuration): enabled; project_agent
@@ -183,7 +183,7 @@ scope:
     state, the target strip from the answer's targets with 'Target settings' only for config.read holders; cards per the
     mock (name, host, state dot, owner, run). Sidebar: a PoCs item when GET /api/pocs answers 200; the order is Pull
     requests, Deployments (2026-11-23-8df6a), PoCs — whichever of the two specs lands second keeps it; every other item
-    hidden when the identity is known and lacks its permission (runs.read anywhere for the work items and Insight,
+    hidden when the identity is known and lacks its permission (runs.read anywhere for the work items, Series included, and Insight,
     dialog.write anywhere for Work it out); a PoC-only caller (pocs.read, no global runs.read, and every project holding
     runs.read is a poc- project) sees only PoCs, not New work and not the Recent group, and lands on /pocs from /. FIXED_PLACES gains '/pocs'. Settings: a PoCs form in the settings rail
     (switch, project agent and tracker selects, targets with the fields above, source_repo picked like a project repo).
@@ -192,7 +192,7 @@ scope:
 
 steps:
   - id: entity
-    action: "Poc (with LiveName and the desired-state fields), PocStates (the full set + IsLive), PocAuditEntry, PocActs, configurations (ServerStateConfigurations lines), ProjectScopeQueries Poc overload, PocRepository, PocAuditRepository; migrations AddPocs x3; archive table counts updated."
+    action: "Poc (with LiveName and the desired-state fields; IProjectOwned), PocStates (the full set + IsLive), PocAuditEntry, PocActs, configurations (ServerStateConfigurations lines), PocRepository, PocAuditRepository; migrations AddPocs x3; archive table counts updated."
   - id: settings
     action: "PocsConfig + PocTargetConfig with Problems(); RawAgentSmithConfig.Pocs; AgentSmithConfig.Pocs and its ResolvedConfigComposer line (PocsConfigValidator and PocTargetReferences read AgentSmithConfig); ConfigDocTypes.Pocs + taxonomy singleton entry; PocsConfigValidator in AgentSmithConfigValidator; PocsConfig arm in SettingsBlockRule.Problems and Validate; PocTargetReferences (load findings); schema; docs."
   - id: permissions
@@ -220,7 +220,7 @@ tests:
   - "PocStates.IsLive: importing, ready, blocked, stopped and failed are live; refused and deleted are not (a blocked PoC counts toward per_person_limit until c81ee's removal sets it deleted)"
   - "Migration parity on SQL Server and Postgres; sqlite migration applies"
   - "Schema coverage passes with pocs"
-  - "Dashboard: sidebarItems shows only PoCs for a PoC-only identity (no New work, no Recent group), hides Work it out for an identity without dialog.write anywhere, no PoCs item when GET /api/pocs answers 404, PoCs after Deployments when both exist, all items for an unknown identity; places.test passes with '/pocs'; / redirects a PoC-only caller to /pocs; the empty state and the target strip render; PocsSettingsForm round-trips the switch and a target"
+  - "Dashboard: sidebarItems shows only PoCs for a PoC-only identity (no New work, no Recent group), hides Work it out for an identity without dialog.write anywhere, no PoCs item when GET /api/pocs answers 404, PoCs right after Pull requests (the Deployments item between them is 8df6a's), all items for an unknown identity; places.test passes with '/pocs'; / redirects a PoC-only caller to /pocs; the empty state and the target strip render; PocsSettingsForm round-trips the switch and a target"
 
 done:
   - {given: "an enforcing installation with pocs.enabled true, a target saved in the studio and a person holding only the poc role", when: "that person signs in", then: "the sidebar shows only PoCs, / opens /pocs, the list is empty, and GET /api/pocs as a reader answers 403"}

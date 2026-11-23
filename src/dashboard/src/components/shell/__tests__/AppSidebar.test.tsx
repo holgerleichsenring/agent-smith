@@ -28,6 +28,10 @@ vi.mock("@/hooks/useHoldsAdmin", () => ({ useHoldsAdmin: () => holds.admin }));
 vi.mock("@/lib/tickets/TicketListProvider", () => ({ useTicketList: () => ({ list: hoisted.tickets }) }));
 vi.mock("@/lib/pullRequestsApi", () => ({ fetchPullRequests: (...a: unknown[]) => hoisted.prs(...a) }));
 vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRunCount: (...a: unknown[]) => hoisted.seriesCount(...a) }));
+// 2026-11-23-933da: GET /api/pocs (off unless a case turns it on) and the known identity (unknown unless set).
+const access = vi.hoisted(() => ({ pocs: vi.fn(), identity: null as import("@/lib/identityApi").CallerIdentity | null }));
+vi.mock("@/lib/pocsApi", () => ({ fetchPocs: (...a: unknown[]) => access.pocs(...a) }));
+vi.mock("@/hooks/useKnownIdentity", () => ({ useKnownIdentity: () => access.identity }));
 
 import { AppSidebar } from "../AppSidebar";
 import { TicketBucketFilterProvider } from "@/lib/TicketBucketFilter";
@@ -75,6 +79,8 @@ beforeEach(() => {
   hoisted.tickets = list([], { needsYou: 3, working: 2, done: 7 });
   hoisted.prs.mockReset().mockResolvedValue([{ status: "opened" }, { status: "opened" }, { status: "merged" }]);
   hoisted.seriesCount.mockReset().mockResolvedValue({ running: 4 });
+  access.pocs.mockReset().mockResolvedValue({ status: "off" });
+  access.identity = null;
 });
 
 describe("AppSidebar", () => {
@@ -84,6 +90,31 @@ describe("AppSidebar", () => {
     expect(hrefs).toEqual(["/", "/", "/spec-dialog", "/series", "/tickets?bucket=needs-you", "/tickets", "/runs", "/pull-requests", "/overview", "/delivery"]);
     expect(screen.getByTestId("sidebar-group-Insight")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-group-Recent")).not.toBeInTheDocument();
+  });
+
+  // 2026-11-23-933da: PoCs shows when GET /api/pocs answers 200, right after Pull requests.
+  it("Sidebar_PocsOn_ShowsPocsAfterPullRequests", async () => {
+    access.pocs.mockResolvedValue({ status: "on", list: { pocs: [], mayImport: false, targets: [] } });
+    renderAt("/pocs");
+    expect(await screen.findByTestId("sidebar-pocs")).toHaveAttribute("aria-current", "page");
+    const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
+    expect(hrefs.indexOf("/pocs")).toBe(hrefs.indexOf("/pull-requests") + 1);
+  });
+
+  // 2026-11-23-933da: a known PoC-only caller sees PoCs alone — no New work, no Recent, no Insight.
+  it("Sidebar_PocOnlyCaller_SeesOnlyPocs", async () => {
+    access.pocs.mockResolvedValue({ status: "on", list: { pocs: [], mayImport: true, targets: [] } });
+    access.identity = {
+      authenticated: true, subject: "ann", issuer: "i", roleClaim: "roles", groupClaim: "groups",
+      roleClaimValues: [], groupClaimValues: [], roles: ["poc"], permissions: ["pocs.read", "pocs.write", "identity.read"],
+      findings: [], projectPermissions: { "poc-ann": ["runs.read"] },
+    };
+    renderAt("/pocs");
+    await screen.findByTestId("sidebar-pocs");
+    const hrefs = [...screen.getByTestId("app-sidebar").querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(["/", "/pocs"]); // the brand's way home, then PoCs
+    expect(screen.queryByTestId("sidebar-new-work")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sidebar-group-Insight")).not.toBeInTheDocument();
   });
 
   it("Sidebar_Counts_ComeFromTheTicketListTheHubAndThePullRequests", async () => {

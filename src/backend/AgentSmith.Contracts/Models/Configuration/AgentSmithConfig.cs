@@ -43,6 +43,7 @@ public sealed class AgentSmithConfig
     public BranchCleanupConfig BranchCleanup { get; init; } = new(); // 2026-11-17-713ec
     public TicketsConfig Tickets { get; init; } = new(); // 2026-11-17-f9b0d
     public HoldsConfig Holds { get; init; } = new(); // 2026-11-23-31dci
+    public PocsConfig Pocs { get; init; } = new(); // 2026-11-23-933da
 
     /// <summary>
     /// Empty placeholder. Used by DI default registration when no real config

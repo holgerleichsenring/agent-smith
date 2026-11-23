@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.Pocs;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -21,6 +22,8 @@ internal static class ProjectScopeExtensions
         services.AddScoped<ResourceProjectReader>();
         services.AddScoped<ProjectSourceResolver>();
         services.AddScoped<DialogMessageScope>();
+        // 2026-11-23-933da: the pocs switch, the act rule and the list.
+        services.AddTransient<PocsGate>().AddSingleton<PocActAccess>().AddScoped<PocListReader>();
         return services;
     }
 }

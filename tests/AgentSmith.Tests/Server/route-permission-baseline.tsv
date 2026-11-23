@@ -52,6 +52,7 @@ GET	/api/diagnostics/model-quota	diagnostics.read	-
 GET	/api/holds/admin	config.write	-
 GET	/api/identity	identity.read	-
 GET	/api/openapi.json	anonymous	-
+GET	/api/pocs	pocs.read	-
 GET	/api/projects	runs.read	across
 GET	/api/projects/{name}/bootstrap	runs.read	route:name
 GET	/api/projects/{name}/init	runs.read	route:name

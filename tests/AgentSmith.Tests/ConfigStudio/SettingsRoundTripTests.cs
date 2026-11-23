@@ -32,6 +32,7 @@ public sealed class SettingsRoundTripTests
             "branch_cleanup", // 2026-11-17-713ec
             "tickets", // 2026-11-17-f9b0d
             "holds", // 2026-11-23-31dci
+            "pocs", // 2026-11-23-933da
         });
         h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret");
     }
@@ -85,6 +86,25 @@ public sealed class SettingsRoundTripTests
 
         h.Assembler.Assemble(h.DocStore.LoadAll()).Holds.EscalateAfterMinutes.Should().Be(0);
         Wire(h.Store.GetSetting("holds")).GetProperty("escalateAfterMinutes").GetInt32().Should().Be(0);
+    }
+
+    // 2026-11-23-933da: the PoCs form saves the switch and a target, and the runtime reads them back.
+    [Fact]
+    public void SaveSetting_Pocs_RoundTripsTheSwitchAndATarget()
+    {
+        using var h = new DbConfigTestHarness();
+
+        h.Store.SaveSetting("pocs", Doc("""
+            {"enabled":true,"projectAgent":"a","projectTracker":"t","targets":[{"name":"main","sourceRepo":"gh/poc-src",
+            "domainPattern":"{app}.poc.example.internal","reminderDays":[7,1],"perPersonLimit":2}]}
+            """), new ChangeAttribution("op"));
+
+        var pocs = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs;
+        pocs.Enabled.Should().BeTrue();
+        var target = pocs.Targets.Should().ContainSingle().Subject;
+        (target.SourceRepo, target.Root, target.PerPersonLimit).Should().Be(("gh/poc-src", "pocs", 2));
+        target.ReminderDays.Should().Equal(7, 1);
+        Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("sourceRepo").GetString().Should().Be("gh/poc-src");
     }
 
     [Fact]

@@ -26,6 +26,10 @@ const HUB = {
 };
 vi.mock("@/hooks/useJobsHub", () => ({ useJobsHub: () => HUB }));
 vi.mock("@/lib/pullRequestsApi", () => ({ fetchPullRequests: vi.fn().mockResolvedValue([]) }));
+// 2026-11-23-933da: PoCs on, so the sidebar links /pocs and the table must name it.
+vi.mock("@/lib/pocsApi", () => ({
+  fetchPocs: vi.fn().mockResolvedValue({ status: "on", list: { pocs: [], mayImport: false, targets: [] } }),
+}));
 
 // The factory is hoisted above imports, so all fixtures live inside it.
 vi.mock("@/lib/configApi", () => {
@@ -89,6 +93,10 @@ describe("Places", () => {
     ]) {
       expect(hrefs, href).toContain(href);
     }
+  });
+
+  it("Places_Pocs_IsPocs", () => {
+    expect(placeForPath("/pocs")).toBe("PoCs");
   });
 
   it("Places_Delivery_IsDelivery", () => {

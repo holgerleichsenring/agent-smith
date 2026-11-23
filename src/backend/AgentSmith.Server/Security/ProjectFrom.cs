@@ -27,6 +27,10 @@ internal sealed record ProjectFrom(ProjectSourceKind Kind, string Parameter)
     /// <summary>2026-11-23-31dcb: the series run named by <c>{id}</c>: its stored project.</summary>
     internal static ProjectFrom SeriesRun { get; } = new(ProjectSourceKind.SeriesRun, "id");
 
+    /// <summary>2026-11-23-933da: the PoC named by <c>{pocId}</c>: its owner's poc- project. Keyed by id, never by name,
+    /// because a deleted PoC's name can be taken again.</summary>
+    internal static ProjectFrom Poc { get; } = new(ProjectSourceKind.Poc, "pocId");
+
     /// <summary>The handler reads the project from the body — POST /api/spec-dialog/messages alone.</summary>
     internal static ProjectFrom Body { get; } = new(ProjectSourceKind.Body, string.Empty);
 

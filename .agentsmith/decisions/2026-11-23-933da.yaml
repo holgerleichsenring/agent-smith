@@ -121,3 +121,43 @@ decisions:
     chose: "A blocked PoC that never deployed stays live (name held, per_person_limit slot counted) until it is removed with its purged upload after pocs.blocked_retention_days (7); the removal is c81ed's poc-delete launched by c81ee, which sets deleted and clears LiveName"
     over: "A blocked PoC holding its name and slot until its owner deletes it, or a new state or a second way to clear LiveName"
     reason: "Operator ruling, round 4, 2026-11-23. IsLive and the one LiveName writer stay as defined here; only the time a blocked PoC stays live is now bounded."
+  - category: Implementation
+    chose: "Poc implements IProjectOwned and the list filters through ProjectScopeQueries' generic Within; the spec text now says so"
+    over: "A Poc-specific Within overload written like the Run one"
+    reason: "Build 2026-11-23: 2026-11-23-47b6 replaced the per-entity overloads with one generic Within over IProjectOwned (Hidden honoured), so an overload would be a second copy of the rule."
+  - category: Implementation
+    chose: "Every PoC route is mapped on app.MapGroup(\"/api\") with PocsGate as its endpoint filter, each route naming /pocs itself"
+    over: "app.MapGroup(\"/api/pocs\") with an empty list route"
+    reason: "Build 2026-11-23: an empty route under the /api/pocs group has the pattern /api/pocs/ in the route table, so the golden row 'GET /api/pocs' would read with a trailing slash; the group's job is the filter, not the prefix."
+  - category: Implementation
+    chose: "PocTargetReferences findings are Blocking while pocs.enabled is true and Advisory while it is off"
+    over: "Always Blocking, or only checked while on"
+    reason: "Build 2026-11-23: the spec leaves the severity open; the settings form lets the fields be filled in before the switch, and a dangling name there must not block a load that hosts no PoC, yet it should still be named."
+  - category: Implementation
+    chose: "PocsConfig.Problems() names target keys as pocs.targets[].<field> of target '<name>'; folder rules live in PocTargetFolders"
+    over: "Index-based keys (pocs.targets[0].root), or every rule inside PocTargetConfig"
+    reason: "Build 2026-11-23: the spec's key spelling is pocs.targets[].<field>; the target name tells the operator which one. Splitting the folder rules keeps both classes under the 120-line limit."
+  - category: Implementation
+    chose: "A folder is plain when it is non-empty, relative, without backslash, ':' , '.' or '..' segments and empty segments; two folders nest when one equals or prefixes the other by whole segments"
+    over: "Normalising paths before comparing"
+    reason: "Build 2026-11-23: the spec refuses absolute, '..', backslash and empty-segment paths by name; refusing instead of normalising keeps the stored value the one every step uses."
+  - category: Implementation
+    chose: "The sidebar's Series item (2026-11-23-31dcc) is a work item: hidden for a known caller without runs.read anywhere and for a PoC-only caller"
+    over: "Leaving Series ungated"
+    reason: "Build 2026-11-23: Series landed after the spec was written; its routes need runs.read (route-permission-baseline.tsv), so it follows the work-item rule."
+  - category: Scope
+    chose: "The PoCs item sits right after Pull requests in this tree; the 'PoCs after Deployments' test is left to whichever of 933da and 8df6a lands second"
+    over: "Adding a Deployments placeholder here"
+    reason: "Build 2026-11-23: 8df6a's Deployments item does not exist in this tree; the ruled order (Pull requests, Deployments, PoCs) is stated in sidebarItems.ts for the second spec to keep."
+  - category: Implementation
+    chose: "The Import ZIP button shows only when may_import is true and stays disabled with 'Importing comes with a later update' until 933db; cards link nowhere yet, the last run links to its run page"
+    over: "A visible button for every caller, or a card link to a detail page that does not exist"
+    reason: "Build 2026-11-23: the import route is 933db's and the detail page c81ed's; a dead link would lead to a 404."
+  - category: Implementation
+    chose: "Target settings shows unless the caller is known to lack config.read; the source repo field is one text input suggesting catalog repos and connection/ prefixes"
+    over: "Showing the link only to a known config.read holder; reusing the project RepoPicker"
+    reason: "Build 2026-11-23: an installation without sign-in knows no identity and lets everyone edit settings; the project picker selects many refs, while source_repo is one exact ref."
+  - category: Implementation
+    chose: "The c785 spec file is renamed to its main-branch name (merge-run-ci-build-zero) in this commit"
+    over: "Leaving the six-word label that fails SpecNameRuleTests"
+    reason: "Build 2026-11-23: the branch was cut before main relabelled it, so the spec gate's suite would block this commit; the rename is byte-identical to main's."

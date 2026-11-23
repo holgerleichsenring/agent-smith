@@ -57,6 +57,7 @@ internal static class ServerEndpointExtensions
         app.MapTicketQueryEndpoints(); // 2026-10-13-9a59a: the ticket page read surface
         app.MapSeriesRunEndpoints(); // 2026-11-23-31dcb: the series list and page
         app.MapAdminHoldEndpoints(); // 2026-11-23-31dci: System → Needs attention
+        app.MapPocEndpoints(); // 2026-11-23-933da: the PoCs list behind the pocs switch
         app.MapTicketApprovalPreviewEndpoints(); // 2026-10-13-9a59l: what approving would do
         app.MapTicketDeriveSpecsEndpoints(); // 2026-10-26-bdd0e: derive a ticket's specs without an attempt
         app.MapRunDeletionEndpoints(); // p0337: dashboard run cleanup (destructive, UI-API-gated)
