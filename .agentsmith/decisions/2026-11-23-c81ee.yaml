@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-c81ee
+
+decisions:
+  - category: Implementation
+    chose: "Expiry and due reminders are computed (ExpiresAtTicks ?? CreatedAt + lifetime_days); only the seen time and the extension count are stored, written by a route and by the extend run"
+    over: "The leader subsystem writing reminder and expiry columns"
+    reason: "The subsystem starts runs and writes nothing (933dh review finding 4). Storing ExpiresAtTicks only on extend keeps a later lifetime_days change from moving extended PoCs."
+  - category: Scope
+    decider: operator
+    chose: "Dashboard notice only; mail is a later spec once SMTP exists"
+    over: "Mail or chat DMs now"
+    reason: "Operator ruling H."
+  - category: Implementation
+    decider: operator
+    chose: "An expired PoC whose owner saw no reminder before expiry is stopped, not deleted, and stays stopped until extended or deleted by a person"
+    over: "Deleting it after a grace period"
+    reason: "Ruling H says stopped, not deleted. A grace delete was not ruled and is not built; to be raised with the operator if wanted."
+  - category: Implementation
+    chose: "Expiry reuses c81ed's poc-stop and poc-delete with an expiry seed; no poc-expire preset"
+    over: "A poc-expire preset planning stop or delete"
+    reason: "One chain per act; the seed adds the audit act 'expired' and the run re-checks expiry, so an extension made meanwhile ends the run green."
+  - category: Implementation
+    chose: "Extend is the run poc-extend through PocRunGate and IActRun, its audit entry from PocActedEvent"
+    over: "A row write with a direct audit entry"
+    reason: "933da: PocAuditEntry is written only by a run event projection (933dh review finding 5)."
+  - category: Implementation
+    chose: "The upload purge is an installation run on '@agent-smith' started at most daily, and also deletes deleted PoCs' poc-scope secret rows through SecretWrite"
+    over: "A run in a poc- project, or purging inside the subsystem"
+    reason: "Uploads are global (no project); InstallationScope is the existing label for installation runs; 933dg left secret-row deletion here."
+  - category: Implementation
+    chose: "A failed expiry run is retried at most once a day, recognised as: the run LastRunId names is a poc-stop or poc-delete run, it failed, and it finished less than 24 h ago; a stopped expired PoC starts no run"
+    over: "Retrying every pass; a Run-row query for 'expiry runs'"
+    reason: "Avoids 24 runs a day per PoC (933dh review finding 6). The Run row keeps no seed and no actor (the stored request is cleared at promotion, Trigger is always manual), so an expiry run cannot be told from an owner's; the backoff therefore also covers an owner's failed stop or delete, which is harmless (round-2 review)."
+  - category: Implementation
+    chose: "c81ed's start is refused on an expired PoC, naming the expiry date and Extend; the banner offers Extend and Delete and enables Start after Extend"
+    over: "Only hiding Start in the banner"
+    reason: "Start without Extend left the PoC expired and unseen with Replicas 1, so the next pass stopped it again, in a loop; the spec already said it stays stopped until extended and started. A server refusal holds for every caller, not only the banner (round-2 review)."
+  - category: Implementation
+    chose: "The extend route seeds ContextKeys.PocMayExceed (caller holds pocs.admin), as ConfigApplyRun seeds mayWriteSecrets; no same-run-id retry guard"
+    over: "PocExtend reading the caller's permissions; idempotence by finding its audit entry"
+    reason: "IActRun runs on no token, so the handler cannot see the caller; IActRun runs are never re-queued and the audit entry comes from an asynchronous projection, so the guard protected nothing (round-2 review)."
+  - category: Implementation
+    chose: "ContextKeys.PocAct keeps stop or delete for an expiry run; the audit act 'expired' and its Reason travel separately in ContextKeys.PocAuditAct"
+    over: "Setting the act itself to 'expired'"
+    reason: "c81ed's plan, preconditions and follow state table key on the act; an act 'expired' would never clear LiveName on a settled expiry delete (round-2 review)."
+  - category: Implementation
+    chose: "Expiry, backoff and purge ages are computed in memory over loaded rows, as RunRetentionService does; no ticks column"
+    over: "Query-side DateTimeOffset comparisons; a CreatedAtTicks column on Poc"
+    reason: "SQLite cannot translate a DateTimeOffset comparison; the live PoCs and the uploads are few enough to load (coordinator note relaying 933da)."

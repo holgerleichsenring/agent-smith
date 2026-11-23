@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-c81eb
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "The app template lives in the PoC source repo under <template_path>/app/, written once by poc-target-install and then the operator's; every GitOps commit renders from it at the branch head"
+    over: "A template shipped in agent smith or in a deployment binding"
+    reason: "Operator ruling D and round 2."
+  - category: Implementation
+    chose: "Placeholders only for strings; replicas, image, probe, envFrom, pull secret, checksum annotation and ingress fields set as typed YAML nodes"
+    over: "Text substitution of every value, or ManifestVersionKey"
+    reason: "ManifestVersionKey quotes a numeric scalar (replicas: \"0\" is refused by Kubernetes); typed nodes cannot produce that, and a conditional probe (httpGet or tcpSocket) cannot be a text placeholder."
+  - category: Security
+    chose: "PocManifestPolicy refuses a render whose Deployment lost the hardening"
+    over: "Trusting the editable template"
+    reason: "The template is the operator's to edit; the hardening is a ruling, not a default."
+  - category: Implementation
+    chose: "Readiness: tcpSocket on the port unless the PoC has a ReadinessPath, then httpGet on it"
+    over: "httpGet /health for every PoC"
+    reason: "A vibe-coded app may have no /health; TCP is the fallback that works for every app, and the owner sets a path on the detail page (c81ed)."
+  - category: Implementation
+    chose: "Desired state is written to the Poc row only by GitOpsCommit after the commit landed, from ContextKeys.PocDesiredState that an act's step set"
+    over: "The act step writing the row before the commit"
+    reason: "A failed commit must not leave a desired state git does not hold, which a later run would then commit silently (933dh review finding 2)."
+  - category: Implementation
+    chose: "Proxy variables are set as container env on the Deployment; plain variables go to poc-config with 933dg's variables-checksum annotation"
+    over: "Proxy variables inside poc-config"
+    reason: "933dg's VariablesChecksum covers the PoC's variables only; env on the pod template makes a proxy change restart the pod by itself."
+  - category: Implementation
+    chose: "Names from 933dg's PocNamespace and PocSecretNames, the deploy folder <deploy_root>/<name>/"
+    over: "A hashed k8s name of its own"
+    reason: "933db limits a PoC name to a 40-character DNS label, so poc-<name> fits 63; a second name rule would disagree with 933dg."
+  - category: Security
+    chose: "NetworkPolicy ingress only from the ingress controller's namespace; egress only to DNS and the egress proxy (namespace+pod selector or cidr, exactly one)"
+    over: "An ingress rule for the auth proxy"
+    reason: "In annotation mode the controller calls the auth proxy itself; the pod is reached only by the controller."
+  - category: Implementation
+    chose: "Quota must hold twice the container limit and at least 2 pods"
+    over: "Unchecked quota values"
+    reason: "RollingUpdate with maxUnavailable 0 runs the old and the new pod side by side; a tighter quota would block every update."
+  - category: Implementation
+    chose: "Every string node agent smith writes is double-quoted when its plain form resolves as a non-string, and the default template quotes every placeholder"
+    over: "A stable serialisation without a quoting rule"
+    reason: "YamlDotNet saves an unstyled 'true', '8080' or '123' plain, and Kubernetes refuses a boolean or number in a string field; a PoC named 123 or DEBUG=true is ordinary input (round-2 review, the mirror image of the replicas bug)."
+  - category: Implementation
+    chose: "secretRef poc-secrets only when the PoC has a secret variable and never optional; the Deployment in sync wave 1 so Argo applies and waits for the SealedSecrets (wave 0) first"
+    over: "secretRef optional true on every Deployment"
+    reason: "Argo applies a custom resource after the Deployment within one wave, so an optional ref let the first pod start without its secrets, and a re-seal could roll a pod with the old values; envFrom never refreshes (round-2 review). The wave sits on the Deployment, which agent smith owns, so 933dg's sealed files stay as they are."
+  - category: Implementation
+    chose: "PocDeployedEvent is published on every successful end of GitOpsCommit, and the audit projection inserts once by an existence check on RunId + Act"
+    over: "Publishing only when the step committed or changed the row; relying on the unique index alone"
+    reason: "A crash between the row write and the publish would otherwise lose the entry for good; the existence check is how DeployRecordProjection already inserts once, and 933da's unique (RunId, Act) index from AddPocs backs it, so this spec adds no migration (round-2 review)."
+  - category: Implementation
+    chose: "poc-deploy keeps the row's Replicas, so an upload to a stopped PoC lands stopped"
+    over: "Undefined replicas for poc-deploy"
+    reason: "The text already took only revision and digest from the run; stating it makes the follow's settled state defined. Whether an upload should start a stopped PoC is a product question left open for the operator."
+  - category: Security
+    chose: "PocManifestPolicy checks every container and initContainer and refuses hostNetwork, hostPID, hostIPC and hostPath; Service and NetworkPolicy select the pod's own labels"
+    over: "Checking only container 'app'; a NetworkPolicy podSelector {}"
+    reason: "An extra container or initContainer bypassed the hardening; a podSelector {} also cut off a cert-manager HTTP-01 solver pod in the namespace, so the certificate was never issued (round-2 review)."
+  - category: Security
+    decider: coordinator
+    chose: "pull_mode pull_secret is refused by a blocking load finding when no master key is configured; the message names pocs.targets[].registry.pull_mode, the reason and AGENTSMITH_SECRET_MASTER_KEY (built by 933dg as PocSealKeyFindings)"
+    over: "Accepting a re-seal, commit and pod restart on every run and stating it in upgrade_impact"
+    reason: "The seal fingerprint is an HMAC under a key derived from the master key; without it no fingerprint exists, so every deploy and act would re-seal poc-pull with new ciphertext and restart the pod, and a retried run would never find the folder equal (open question pull-secret-without-master-key, closed)."

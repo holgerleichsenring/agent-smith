@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-c81ec
+goal: "Argo CD deploys every PoC folder through one ApplicationSet poc-target-install upserts, and PocRolloutFollow settles a run once the live Deployment matches this render; a PoC then runs end to end."
+
+applies_to: "default (PoC run wall-time budget in PipelineRunWatchdog and CancelEnforcer, IArgoCdClient + ArgoCdClient + factory, Argo token expiry, PocApplicationSet render + install, PocRolloutFollow step, PocRevision.RolloutState + migrations, writing 933da's PocStates.ready and failed, pocs.targets[].argo and pocs.rollout settings, the shared-Argo load finding, docs) + dashboard (Rollout page, target studio Argo fields with token expiry)"
+
+requires: [2026-11-23-c81eb, 2026-11-23-933dd]
+
+upgrade_impact: "Behind pocs.enabled. The target needs Argo CD 2.8 or later (ApplicationSet create with upsert=true, project-scoped applicationsets RBAC) reachable from agent smith; an Argo CD repository credential for the source repo; an AppProject whose sourceRepos include argo.repo_url, whose destinations allow namespace poc-* on the target's server, whose clusterResourceWhitelist allows the core Namespace kind, whose namespaceResourceWhitelist allows every kind the app template renders (ResourceQuota, Deployment, Service, ConfigMap, Ingress, NetworkPolicy, SealedSecret) and which has a role whose JWT may get applications and get/create/update applicationsets in it; that JWT is stored as an installation secret. The ingress controller must publish Ingress status (status.loadBalancer.ingress), or Argo keeps the Ingress Progressing and no PoC ever settles. PocRevision gains RolloutState (null | healthy | failed) and RolloutAtTicks (migration on three providers). poc-deploy gains PocRolloutFollow. A new pocs.rollout block (poll_seconds 10, deadline_seconds 600, end_margin_seconds 60, commit_allowance_seconds 120), pocs.targets[].argo.token_warn_days (14) and generator_requeue_seconds (30), and pocs.run_wall_time_seconds (2700) read their defaults when absent. PoC runs (every preset in 933db's PocPresets.Names) register with the new RegisteredRunKind.Poc and BOTH wall-time enforcers — PipelineRunWatchdog over the registry and CancelEnforcer over the Run rows — hold them to pocs.run_wall_time_seconds instead of orchestrator.max_run_wall_time_seconds; 933dd's PocBuildWallTime finding moves to that key and adds the rollout deadline to its sum. Every other run keeps its ceiling. Two enabled targets sharing one Argo CD (argo.url) with the same argo.namespace or the same destination_server are now a blocking load finding."
+
+facts:
+  - claim: "3863f left cluster rollout state out because agent smith had no cluster access; nothing in the backend talks to Argo CD today."
+    evidence: ".agentsmith/specs/done/2026-11-18-3863f-deploy-status-read.yaml:23; observed: 2026-11-23, grep -rli 'argocd|ArgoCd|applicationset' over src/backend matched nothing"
+  - claim: "Providers of one kind are made per entity by a factory in Contracts and implemented in Infrastructure; a config entity names its credential by catalog secret id, resolved at call time, and a catalog value is masked in traces by known-string replacement."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/IPipelineRunnerFactory.cs:5-10, src/backend/AgentSmith.Infrastructure/Services/Factories/PipelineRunnerFactory.cs:12-31, src/backend/AgentSmith.Contracts/Services/ICredentialResolver.cs:20-30, src/backend/AgentSmith.Contracts/Runs/SecretMasker.cs:5-24"
+  - claim: "Every run is cancelled by the watchdog once its registered age less model waits passes orchestrator.max_run_wall_time_seconds (1800 by default); the registration time is readable from the cancellation registry's snapshot, and a resumed run registers again when it resumes."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/OrchestratorGlobalConfig.cs:10-17, src/backend/AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs:44-61, src/backend/AgentSmith.Contracts/Services/IRunCancellationRegistry.cs:57-66, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:91"
+  - claim: "A second enforcer, CancelEnforcer, scans the Run rows every 15 s and flags every running run whose Run.StartedAt less model waits passes orchestrator.max_run_wall_time_seconds, whatever its kind, then force-kills it after the 30 s grace; the query filters only on Status running."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:38-48, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:93-112, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:135-142, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ModelRunWaitClock.cs:14-22, src/backend/AgentSmith.Contracts/Runs/CancelPolicy.cs:15"
+  - claim: "A Run row carries its Pipeline name and StartedAt, and model waits are readable per run id through IModelRunSlots.WaitedAsync."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:12-20, src/backend/AgentSmith.Contracts/Services/IModelRunSlots.cs:35"
+  - claim: "The run's wall-time cancel sentence names orchestrator.max_run_wall_time_seconds unconditionally."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:117-119"
+  - claim: "A settings block that must fit inside the run wall clock is checked against it at load as a blocking finding naming the field (series is the model)."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SeriesConfig.cs:62-71, src/backend/AgentSmith.Application/Services/Configuration/SeriesConfigValidator.cs:10-16"
+  - claim: "A run's kind is decided from its preset at registration and the watchdog skips or bounds by kind; only Pipeline and DesignTurn exist."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDialog.cs:28-34, src/backend/AgentSmith.Contracts/Services/RegisteredRunKind.cs:3-12, src/backend/AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs:51-58"
+  - claim: "933dd gives each pipeline job its own timeout and a blocking load finding PocBuildWallTime when queue + build + scan + push timeouts x 60 + pocs.scan.timeout_seconds is not below orchestrator.max_run_wall_time_seconds (defaults 1680 < 1800), which leaves no room for a rollout follow in the same run; 933dd notes that the watchdog may cancel first and a retry follows the still-running pipeline."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933dd"
+  - claim: "A run's steps and each step's events are read live by the dashboard; the run page already shows a pipeline-specific block for deploy runs."
+    evidence: "src/dashboard/src/lib/runStepsApi.ts:72-76, src/dashboard/src/components/jobs/runlog/RunLogView.tsx:61"
+  - claim: "All PoCs share one source repo and its default branch, so Argo's sync revision for one PoC moves whenever another PoC commits; settling on 'sync revision equals this run's commit' fails a healthy rollout under concurrent PoCs."
+    evidence: "observed: 2026-11-23, adversarial review of 2026-11-23-933df"
+  - claim: "Before Argo reconciles a new commit the Application still reports the previous render (Synced, Healthy, its images and replica counts); status.summary.images also lists images of older ReplicaSets scaled to zero and is collected from pods, so it is empty for a Deployment at 0; a Degraded or Failed state left by the previous render is still read on the first poll."
+    evidence: "observed: 2026-11-23, round-2 reviews of this spec and of 2026-11-23-c81ed (Argo CD behaviour, not verified against a live instance)"
+  - claim: "The ApplicationSet git generator requeues every 180 s by default and refreshing an Application does not make the ApplicationSet create or delete one; Argo reports an Ingress Progressing until status.loadBalancer.ingress is set, and an Application's health is the worst of its resources."
+    evidence: "observed: 2026-11-23, round-2 review of this spec (Argo CD behaviour, not verified against a live instance)"
+  - claim: "Argo CD's API has no ApplicationSet update call: create with upsert=true replaces an existing one; a project role token created without --expires-in carries no exp claim."
+    evidence: "observed: 2026-11-23, adversarial review of 2026-11-23-933df (Argo CD API)"
+  - claim: "c81eb renders <deploy_root>/<name>/ into 933dg's PocNamespace ('poc-' + name), writes desired state (933da's Replicas, Revision, ImageDigest) after the commit; 933db's PocRunGate keeps one run per PoC; 933dd's poc-target-install is the install run."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-c81eb"
+  - claim: "Operator 2026-11-23: Argo CD state through the Argo CD API with a token stored in the f3a8d store, no cluster credentials for the target cluster in agent smith; the previous version keeps serving until the new one is healthy; one ApplicationSet (git directory generator, automated sync, prune, selfHeal)."
+    evidence: "observed: 2026-11-23, operator (PoC concept, agreed)"
+  - claim: "Operator ruling I (recommendations accepted): the ApplicationSet is installed through the Argo CD API by poc-target-install; the token is an AppProject role JWT; never the Argo rollback API; the PoC deployment page is named 'Rollout'."
+    evidence: "observed: 2026-11-23, operator"
+
+assumptions:
+  - claim: "Argo CD's resource endpoint (/api/v1/applications/{app}/resource with group apps, version v1, kind Deployment) answers the live Deployment manifest with metadata.generation, status.observedGeneration and the replica counts, and Argo reports a Deployment scaled to 0 as Healthy once its rollout is complete."
+    check: "ArgoCdClient golden tests on recorded JSON; one manual stop and one rollback against a real Argo CD before this spec's done criterion."
+  - claim: "Creating an ApplicationSet through the API with a project role token needs only applicationsets create/update in that project."
+    check: "The manual check against a real Argo CD also confirms whether applications create is needed for the role; docs and upgrade_impact follow what it shows."
+
+scope:
+  in: >
+    CLIENT: IArgoCdClient (Contracts/Providers) — ProbeAsync; GetApplicationAsync(name) -> ArgoApplicationState? (null on
+    404: SyncStatus, HealthStatus, HealthMessage, OperationPhase, OperationMessage); GetLiveDeploymentAsync(app,
+    namespace, name) -> ArgoLiveDeployment? through /api/v1/applications/{app}/resource with group apps, version v1 and
+    kind Deployment: container 'app''s image in the pod template, the pod-template annotation
+    agent-smith.io/variables-checksum, spec.replicas, metadata.generation, status.observedGeneration, ReadyReplicas and
+    UpdatedReplicas; RefreshAsync(name) (GET with refresh=normal); GetApplicationSetAsync(name);
+    UpsertApplicationSetAsync(spec) (POST /api/v1/applicationsets?upsert=true). Never sync, rollback or delete calls.
+    ArgoCdClient (Infrastructure/Services/Providers/Argo) over HttpClient with 'Authorization: Bearer <token>', typed
+    refusals naming url, path and status; ArgoCdClientFactory.Create(target) beside PipelineRunnerFactory. TOKEN:
+    ArgoTokenExpiry reads exp from the JWT payload without verifying it; no exp = 'no expiry'; the studio shows it and the
+    probe says so when under pocs.targets[].argo.token_warn_days (14, reason 'a role token expires silently and every
+    PoC run then fails; two weeks leaves time to mint and store a new one'). CONFIG pocs.targets[].argo (Problems()
+    naming value, reason, key): url (https), token_secret (catalog secret id), project (required), namespace (argocd),
+    destination_server (https://kubernetes.default.svc), repo_url (the source repo as Argo's repository credential
+    names it; required), application_set (default 'pocs-<target name>'), token_warn_days (14; 0 or more),
+    generator_requeue_seconds (30; 10..180; reason 'the git generator creates and deletes Applications only when it
+    requeues; its default 180 s would spend a third of the rollout deadline before a first deploy or a delete is seen').
+    Load finding (blocking, naming both targets and the keys): two enabled targets with one argo.url and the same
+    argo.namespace, or the same destination_server — their ApplicationSets would both claim poc-<name>, since PoC
+    names are unique only per target. APPLICATIONSET: PocApplicationSet renders the spec once per target — git
+    directories generator over <deploy_root>/* on repo_url at the default branch with requeueAfterSeconds =
+    generator_requeue_seconds; template name 'poc-{{path.basename}}' (= PocNamespace, since the folder is the PoC
+    name), project, source path '{{path}}', destination server + namespace 'poc-{{path.basename}}', automated sync
+    with prune and selfHeal, finalizer resources-finalizer.argocd.argoproj.io. poc-target-install (933dd's handler)
+    gains a step part: GET the ApplicationSet and compare a normalised subset — generators, template and syncPolicy,
+    with keys the server defaults and agent smith does not render left out — an equal subset writes nothing
+    ('unchanged'), else upsert; its outcome says which. FOLLOW: PocRolloutFollow (after GitOpsCommit) reads the
+    expected state from the run: the desired state c81eb wrote (933de's ImageReference with ImageDigest, Replicas) and
+    PocSealResult.VariablesChecksum, or, for a delete (c81ed), 'absent'. It refreshes the Application once, then polls
+    every pocs.rollout.poll_seconds (10). A reading counts as THIS RENDER only when the live Deployment's pod-template
+    image of container 'app', its variables-checksum annotation and spec.replicas equal the expected state and
+    observedGeneration >= generation; before that the step waits (the deadline still applies), whatever Argo reports
+    about the previous render. On such a reading: SETTLED when the Application exists, SyncStatus is Synced,
+    HealthStatus is Healthy and, for desired > 0, ReadyReplicas = UpdatedReplicas = desired (for 0, ReadyReplicas 0
+    or absent); FAILED on HealthStatus Degraded or OperationPhase Failed/Error, naming Argo's message. 'absent'
+    settles when the Application answers 404. The rule reads the pod template, never status.summary.images (which
+    lists old ReplicaSets' images and is empty at 0 pods), and never compares Argo's sync revision with this run's
+    commit. DEADLINE = the smaller of pocs.rollout.deadline_seconds (600) and the run's remaining wall time —
+    pocs.run_wall_time_seconds less (now - Run.StartedAt - the run's model waits via IModelRunSlots.WaitedAsync), the
+    clock CancelEnforcer uses, so a resumed run is not given time the enforcer has already spent — less
+    pocs.rollout.end_margin_seconds (60, reason 'the step must write its failure and the PoC state before the
+    wall-time cancel and its 30 s kill grace land'); past it the step fails naming which bound ended it with its
+    value and key and saying that the previous version keeps serving (maxUnavailable 0). Each poll's reading is one
+    step progress line (sync, health, template image, checksum match, generation, replicas), so the run page shows
+    it live. OUTCOME for poc-deploy: settled -> PocRevision.RolloutState healthy + RolloutAtTicks for the rendered
+    revision, and Poc.State from the desired Replicas (more than 0: ready; 0: stopped — an upload to a stopped PoC,
+    c81eb); failed -> RolloutState failed, and Poc.State stays as it was when an earlier revision is healthy (the old
+    pods still serve), else 933da's PocStates.failed (a live state). The acts' outcomes are c81ed's table. Idempotent
+    as a read: a retried follow reads again and settles at once when the cluster already holds the state. WALL TIME
+    (own budget, not the shared one): PipelinePresets.RunKindOf answers RegisteredRunKind.Poc for every preset in
+    933db's PocPresets.Names; the ceiling becomes a function of the kind in BOTH enforcers — PipelineRunWatchdog (by
+    the registry entry's kind) and CancelEnforcer (FlagWallTimeOverdueAsync and CurrentMaxWallTime, with
+    RunRepository.GetWallTimeOverdueRunsAsync taking the ceiling per run, decided from Run.Pipeline through
+    RunKindOf) — Poc -> pocs.run_wall_time_seconds (2700, reason 'a PoC run waits for a host build and a cluster
+    rollout'), Pipeline -> orchestrator.max_run_wall_time_seconds as today, DesignTurn as today in each enforcer —
+    and both cancel sentences (ExecutePipelineUseCase's and the enforcer's) name the key that applied. 933dd's
+    PocBuildWallTime finding compares against pocs.run_wall_time_seconds and its sum gains
+    pocs.rollout.deadline_seconds + pocs.rollout.commit_allowance_seconds (120, reason 'sealing and the GitOps commit
+    with its re-plans run between the build and the follow'): defaults 1680 + 600 + 120 = 2400 < 2700. 933dd's note
+    carries over: the wall-time cancel may still land before a pipeline ends, and a retry follows the still-running
+    pipeline. CONFIG CHECKS: pocs.rollout poll_seconds 1..60, deadline_seconds 60 or more, end_margin_seconds 30 or
+    more, commit_allowance_seconds 0 or more, each naming value, reason and key. ROLLOUT PAGE
+    /pocs/{pocId}/rollouts/{runId} ('Rollout', not 'Deployments'): the run's steps in order (validate, code scan, source
+    commit, pipeline build with 933dd's three jobs and link, seal, GitOps commit with the commit link, rollout), each
+    step's live events, and the PoC's URL once settled; the run page of a poc-* run links it. STUDIO: Argo fields, token
+    expiry, Test connection (ProbeAsync), the ApplicationSet state from the last install. DOCS: the AppProject
+    (sourceRepos with repo_url, destinations, whitelists, role), the ingress controller publishing Ingress status (or
+    Argo never reports Healthy), the generator's requeueAfterSeconds with its key.
+  out: "Lifecycle acts and the PoC detail page (2026-11-23-c81ed). Lifetime and reminders (2026-11-23-c81ee). A server-side follow, deploy records or an automatic rollback for PoCs (the run follows its own rollout; rollback is an act). Argo's sync, rollback and delete calls (never). Creating the cluster, Argo CD, the AppProject or the ingress controller (operator's, documented)."
+
+pipeline-presets:
+  poc-deploy: [LoadCatalog, PocIntake, PocCodeScan, PocSourceCommit, PocPipelineBuild, SealPocVariables, GitOpsCommit, PocRolloutFollow]
+  poc-target-install: [LoadCatalog, PocTargetInstall]
+
+steps:
+  - id: client
+    action: "IArgoCdClient, ArgoApplicationState, ArgoLiveDeployment (template image, checksum, replicas, generations), ArgoCdClient, ArgoCdClientFactory, ArgoTokenExpiry; registration."
+  - id: config
+    action: "PocArgoConfig (incl. token_warn_days, generator_requeue_seconds), PocRolloutConfig (incl. end_margin_seconds, commit_allowance_seconds) with Problems(); the shared-Argo load finding; schema, example."
+  - id: appset
+    action: "PocApplicationSet render (with requeueAfterSeconds) + equality on the normalised subset; PocTargetInstallHandler upserts it."
+  - id: budget
+    action: "RegisteredRunKind.Poc; RunKindOf for PocPresets.Names; ceiling by kind in PipelineRunWatchdog and in CancelEnforcer + RunRepository.GetWallTimeOverdueRunsAsync (from Run.Pipeline); both cancel sentences name the key that applied; PocBuildWallTime (933dd) moved to pocs.run_wall_time_seconds with the rollout deadline and commit allowance in its sum."
+  - id: follow
+    action: "CommandNames.PocRolloutFollow, PocRolloutFollowHandler (expected state with the checksum, deadline from Run.StartedAt less model waits), PocRolloutVerdict (pure: this-render reading, then settle or fail); PocRevision.RolloutState + RolloutAtTicks (migrations x3); registrations; poc-deploy gains it; control-flow.svg."
+  - id: dashboard
+    action: "app/pocs/[pocId]/rollouts/[runId]; rollout step map; link from the run page of a poc-* run; Argo studio section with expiry and Test connection; i18n with German."
+  - id: docs
+    action: "docs: PoC targets on Argo CD (AppProject with sourceRepos, role token, repository credential, version 2.8), Ingress status publishing, the generator requeue key."
+
+tests:
+  - "ArgoCdClient_GetApplication_ParsesSyncHealthOperation (recorded JSON, faked HTTP); _NotFound_AnswersNull; _GetLiveDeployment_SendsGroupVersionKind_ReadsTemplateImageChecksumGenerationsReplicas; _UpsertApplicationSet_SendsUpsertTrue; bearer header carries the token and the trace masks it"
+  - "ArgoTokenExpiry: exp read; no exp -> no expiry; not a JWT -> refused naming argo.token_secret; the probe warns under token_warn_days"
+  - "PocApplicationSet_Render_DirectoriesGenerator_PocPrefix_AutomatedPruneSelfHeal_Finalizer_RequeueAfterSeconds; PocTargetInstallHandler: a fetched spec with server-added defaults but an equal subset writes nothing, a changed one upserts"
+  - "PocRolloutVerdict: this-render reading + Synced + Healthy + replicas settles; another PoC's newer sync revision does not matter; desired 0 settles with no ready replicas and no pod images; absent settles on 404; Synced+Healthy with the old template image keeps waiting"
+  - "PocRolloutVerdict (stale state): a rollback to a digest an old ReplicaSet still lists does not settle until the template names it; a changed checksum with the same digest does not settle until the template carries it; observedGeneration below generation waits; Degraded left by the previous render does not fail the new run; Degraded on this render fails"
+  - "PocRolloutFollowHandler: deadline taken from the remaining wall time (Run.StartedAt less model waits) when smaller, the failure naming pocs.run_wall_time_seconds; settle writes RolloutState healthy and Poc.State ready, or stopped for desired 0; first-rollout failure sets 933da's PocStates.failed; failure with an earlier healthy revision keeps the state"
+  - "Watchdog and CancelEnforcer: a poc-deploy run 2000 s old is not cancelled by either under pocs.run_wall_time_seconds 2700 while a code run that old is flagged by both (1800); each cancel sentence names the key that applied"
+  - "PocBuildWallTime: defaults pass; deadline_seconds 900 with the default build timeouts is a blocking finding naming the sum and pocs.run_wall_time_seconds"
+  - "Load finding: two targets with one argo.url and argo.namespace are blocking, naming both and the keys"
+  - "Migration parity on SQL Server and PostgreSQL"
+  - "Dashboard: Rollout page lists the steps with the pipeline's jobs and the commit link and shows the URL once settled"
+  - "Harness (RealCompositionHarness): poc-deploy end to end with faked runner, registry, git host and Argo settles healthy; two PoCs deployed at once both settle although each commit moves the branch; a retried run commits nothing and settles at once"
+
+done:
+  - {given: "a target with Argo CD, the AppProject and the auth proxy set up and poc-target-install run", when: "a person imports a clean PoC ZIP", then: "the PoC answers at its domain_pattern host behind the auth proxy, served by a hardened pod in its own namespace with a quota, and the Rollout page showed every step"}
+  - {when: "the person uploads a new version", then: "the previous version keeps serving until the new pod is ready, and the run ends when the live Deployment carries the new digest and Argo reports it Synced and Healthy"}
+  - "Two PoCs deployed at once both land on the source repo's default branch and both runs settle healthy."

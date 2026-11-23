@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-8df6a
+goal: "A Deployments page below Pull requests lists the merged pull requests of the projects a person may read, with the commit each merge landed as, beside the deploy runs agent smith made."
+
+applies_to: "default (PrReviewState + three state readers, PrReviewRecord.MergeSha + migrations, list query, endpoint) + dashboard (sidebar item, places, /deployments page)"
+
+requires: [2026-11-22-6d85b, 2026-11-18-3863f, 2026-10-15-4a4dd, 2026-11-23-af60]
+
+upgrade_impact: "No new token scope. A nullable column PrReviewRecords.MergeSha on SQLite, SQL Server and PostgreSQL. No backfill: a pull request merged before the upgrade shows 'merge commit not read' until a refresh reads it again — the re-read sweep nudges merged records of tickets that never landed, so some older merges gain a commit on their own; most never do. No new host call: the merge commit rides on the state read the refresh already makes."
+
+facts:
+  - claim: "The operator wants a Deployments item directly below Pull requests; for merged pull requests, which pipeline ran after the merge and what it delivered, by querying the host's runs for the merge commit, without understanding pipelines; agent smith's own deploy runs are listed too."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling: records merged before the upgrade are not backfilled with a merge commit; they show 'merge commit not read'."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling: the PrReviewRecord overload of ProjectScopeQueries.Within ignoring Hidden is fixed in a spec of its own, handled by another session; this spec requires nothing from it and must not widen the leak."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling: the Deployments page gets a mock, approved before the UI is built; the coordinator builds it."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Pull requests is the last item of the work group in the sidebar, and a fixed path is named for the top bar and Recent in places.ts."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:147-157, src/dashboard/src/lib/places.ts:21-27"
+  - claim: "Operator ruling, round 3: the sidebar order is Pull requests, then Deployments (this spec), then PoCs (2026-11-23-933da, only when PoCs are enabled and the caller may read them); 933da states the same order."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "The sidebar's labels are literal English; new UI text must be a dictionary key read through useT()."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:107-155, .agentsmith/contexts/dashboard/principles.md:11-12"
+  - claim: "The Pull requests page serves what each run recorded at open time from Runs.PullRequestsJson, under runs.read across projects through the caller's project scope; it reads no host state."
+    evidence: "src/backend/AgentSmith.Server/Extensions/PullRequestQueryEndpoints.cs:19-35, src/backend/AgentSmith.Server/Extensions/PullRequestQueryEndpoints.cs:58-68"
+  - claim: "The host-read state of a ticket's pull request lives on PrReviewRecord: state, head, CI and, since 6d85b, the branch a merge went into; it names its run by RunId; no merge commit is stored anywhere."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:10-67, src/backend/AgentSmith.Contracts/Reviews/PrReviewState.cs:9-10"
+  - claim: "Each host's state read already fetches the pull request: GitHub's GraphQL query, Azure's GitPullRequest (LastMergeSourceCommit taken today), GitLab's merge-request GET (sha taken today)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewStateReader.cs:19-40, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:26-33, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestRead.cs:11-22, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequest.cs:6-7"
+  - claim: "GitLab's merge-request read takes sha for every state and the state reader passes it on; the state is mapped from the request's state word."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestRead.cs:21-22, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrStateReader.cs:39-40, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrStateReader.cs:52-54"
+  - claim: "A value of the state read lands on the record in PrReviewRecordRefresh.Record, the way HeadSha does; the copy keeps a stored value when a later read brings none (read ?? stored)."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:78, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:90-96, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordCopy.cs:25-26"
+  - claim: "PrRecordTargetRead never receives the PrReviewState and returns early once a target branch is stored, so code added there would not run for a record that already has its branch."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrRecordTargetRead.cs:15-22"
+  - claim: "A merged record is re-read when a nudge names it or it ended within a day; the re-read sweep nudges merged records of tickets the tracker never landed, so some records merged before the upgrade are read again."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:37, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:61-64, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:38-44, src/backend/AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs:77-81"
+  - claim: "The record list honours a ProjectScope through Within; the PrReviewRecord overload ignores the scope's Hidden names, the Run overload honours them (f3a8a)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Contracts/ProjectScopeQueries.cs:12-25, src/backend/AgentSmith.Infrastructure.Persistence/Contracts/ProjectScope.cs:18-22, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:18-20"
+  - claim: "Deploy records are read only by run; their view carries context, environment, version, delivery, link, PR and CI state, failures and settling; the page block fetches one by run id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/DeployRecordRepository.cs:14-29, src/backend/AgentSmith.Contracts/Deployment/DeployRecordView.cs:10-25, src/backend/AgentSmith.Server/Extensions/DeploymentEndpoints.cs:14-22, src/dashboard/src/components/tickets/deploying/DeployFollowBlock.tsx:12-35"
+  - claim: "DeployRecords.DeliveredAtTicks, which DeliveredSinceAsync filters on, is set by DeployRecordProjection again and filled for stored rows by the one-off data migration DeployDeliveredAtBackfill; 2026-11-23-af60 provides both, so this spec changes neither."
+    evidence: "observed: 2026-11-23, delivered by the required spec 2026-11-23-af60 (PR #923)"
+  - claim: "/api/projects/{project}/deployments already names the project's deployment bindings, so the new list needs another path."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DeploymentEndpoints.cs:16-19"
+  - claim: "The route guards build their facts from the map calls (no table to edit); the golden permission list route-permission-baseline.tsv holds one row per route and is regenerated deliberately, as /api/pull-requests' row shows."
+    evidence: "tests/AgentSmith.Tests/Server/RouteProjectScopeGuardTests.cs:92-97, tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:57-71, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:59"
+  - claim: "The existing test homes: PrReviewStateReaderTests reads all three hosts' states with reply fakes; PrReviewRecordHeadTests covers the head sha through the refresh harness; DeployRecordStoreTests and ProjectScopeTests cover deploy records and the scope queries."
+    evidence: "tests/AgentSmith.Tests/Rework/Records/PrReviewStateReaderTests.cs:12-35, tests/AgentSmith.Tests/Rework/Records/PrReviewRecordHeadTests.cs:20-130, tests/AgentSmith.Tests/Deployment/DeployRecordStoreTests.cs:15-57, tests/AgentSmith.Tests/Persistence/Scope/ProjectScopeTests.cs:15-90"
+  - claim: "A new column on the PR records ships one migration per provider, as TargetBranch did."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261122214703_AddPrReviewRecordTargetBranch.cs:1-28, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261122214709_AddPrReviewRecordTargetBranch.cs:1-28, src/backend/AgentSmith.Infrastructure.Persistence.Postgresql/Migrations/20261122214712_AddPrReviewRecordTargetBranch.cs:1-28, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/PrReviewRecordConfiguration.cs:26-30"
+  - claim: "Writing to a tracker or a repository is a run step; this spec writes neither — the refresh writes agent smith's own record and the page reads."
+    evidence: "tests/AgentSmith.Tests/Architecture/ServerWritesRatchetTests.cs:5-24, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Deploy.cs:5-14"
+
+scope:
+  in: "PrReviewState gains MergeSha: null when the host names none and null whenever the mapped state is not merged, in every reader, so no consumer (DeployFollow today, a merge-commit pipeline lookup later) sees a fake merge commit on an open, closed or locked request. GitHub adds mergeCommit{oid} to the existing query and maps it only for state MERGED; Azure takes LastMergeCommit.CommitId only of a completed pull request (on an active one it is the test merge commit); GitLab, only when the mapped state is merged, reads merge_commit_sha, else squash_commit_sha, else (a fast-forward merge) sha — GitLabMergeRequest gains the two fields. PrReviewRecord.MergeSha (64) with a migration on three providers, set in PrReviewRecordRefresh.Record from state.MergeSha when the state is merged, exactly as HeadSha is set, and kept by PrReviewRecordCopy (read ?? stored) like TargetBranch; PrRecordTargetRead is not touched (it never sees the state and returns early once a branch is stored). The merge commit arrives on every merged state read, so nothing is read 'once'. PrReviewRecordView.MergeSha. PrReviewRecordRepository.MergedSinceAsync(scope, since): merged records with StateAt after since, newest merge first, no entries, joined to their run and admitted through the Run overload of Within (it honours Hidden), so the page shows no hidden project's record; a record whose run is gone is not listed. ProjectScopeQueries gains a DeployRecord Within written like the Run overload (Hidden honoured). DeployRecordRepository.DeliveredSinceAsync(scope, since). GET /api/deployments?days=N (runs.read, InProject AcrossProjects, scope from CallerProjectScope.For(user, RunsRead) as /api/pull-requests): { merged: [project, ticketId, ticketTitle (the record's run), repo, number, url, targetBranch, mergeSha, mergedAt, runId], deploys: [DeployRecordView] }; days defaults to 7; a value under 1, or one whose window start (now minus days) cannot be represented as a date, is 400 naming the parameter (input validation, not a new limit). The answer has no row cap: a 90-day window of one installation's merges and deploy records is small, and the decision is recorded. Read-only: nothing is written outside the refresh. Dashboard, built to the approved mock: deploymentsApi.listDeployments renamed listDeploymentBindings (its one caller follows) and fetchDeploymentsPage added; sidebar item 'Deployments' (Rocket icon) right below Pull requests — the order is Pull requests, Deployments, PoCs (933da, only when enabled and permitted), whichever of the two specs lands second keeps it — its label through useT; places.ts '/deployments'; app/deployments/page.tsx with a 7 / 30 / 90 day filter in the URL (?days=, read through useSearchParams inside a <Suspense> boundary, which pnpm build requires; useTicketTabGo reads search params the same way), section 'Merged' (repo, #number ↗, ticket link via ticketPath, target branch, short merge sha or 'merge commit not read', merged ago, run ›) and section 'Deploys by agent smith' (DeployFollowBlock's body extracted to DeployRecordCard({record}), used by the block and by the page); RefusalSurface, NoProjectReach empty state; every text a dictionary key with German."
+  out: "Fixing the PrReviewRecord overload of ProjectScopeQueries.Within to honour Hidden (its own spec, another session); this spec neither calls that overload for the page nor changes it, so the page does not widen the gap. Backfilling the merge commit of records merged before the upgrade (operator: not done). Which environment a merge reached, from the host's deployment records, and the pipeline runs of the merge commit as the fallback (2026-11-23-8df6b and 8df6c, re-cut once the host APIs are verified against real hosts; operator, round 3). Pull requests of runs without a ticket: they have no PrReviewRecord, so no merged row. Live hub push for the page: it reads on open and on filter change. Cluster rollout state (as 3863f). The DeliveredAtTicks fix and its backfill (2026-11-23-af60). Writing to a host, tracker or repository: none here; an act that would (approve, redeploy) is a chained command preset like PipelinePresets.Deploy."
+
+steps:
+  - id: mock
+    action: "The coordinator publishes a mock of the Deployments page (Merged, Deploys by agent smith; the later environment and merge-run additions may be sketched but are not built here); the dashboard step starts only after the operator approved it."
+  - id: contracts
+    action: "PrReviewState.MergeSha; PrReviewRecordView.MergeSha; DeploymentsPageView + MergedPullRequestItem records in Contracts."
+  - id: hosts
+    action: "GitHubPrReviewStateReader query + mapping; AzureReposVoteDecisions.Read; GitLabMergeRequestRead + GitLabMergeRequest + GitLabMrStateReader."
+  - id: record
+    action: "PrReviewRecord.MergeSha, configuration length, AddPrReviewRecordMergeSha on three providers; PrReviewRecordRefresh.Record sets it from state.MergeSha when merged; PrReviewRecordCopy keeps a known one."
+  - id: queries
+    action: "ProjectScopeQueries: DeployRecord overload honouring Hidden; MergedSinceAsync through the run's scope; DeliveredSinceAsync."
+  - id: endpoint
+    action: "DeploymentsPageEndpoints GET /api/deployments mapped in ServerEndpointExtensions beside MapDeploymentEndpoints, chained .Needs(RunsRead).InProject(ProjectFrom.AcrossProjects); route-permission-baseline.tsv gains 'GET /api/deployments runs.read across'."
+  - id: dashboard
+    action: "After the mock is approved: messages.ts keys (en+de); AppSidebar item; places.ts; deploymentsApi; DeployRecordCard extracted; app/deployments/page.tsx."
+  - id: docs
+    action: "docs/how-it-works/ci-loop.md gains 'After the merge: Deployments' (what is listed, where the merge commit comes from, who sees what; 'merge commit not read' for a merge no refresh has read since the upgrade, which the re-read sweep may still fill for tickets that never landed)."
+
+tests:
+  - "PrReviewStateReaderTests (existing): PrReviewState_GitHub_MergedNamesMergeCommit; PrReviewState_AzureDevOps_CompletedNamesLastMergeCommit (fixture: LastMergeCommit differs from LastMergeSourceCommit); PrReviewState_GitLab_MergedWithMergeCommit_NamesIt / _SquashOnly_NamesSquashCommit / _FastForward_NamesHeadSha; PrReviewState_GitLab_Open_NamesNoMergeSha; PrReviewState_GitHub_Open_NamesNoMergeSha; PrReviewState_AzureDevOps_Active_NamesNoMergeSha"
+  - "PrReviewRecordHeadTests (existing, PrReviewRefreshHarness): PrReviewRecordRefresh_MergedRead_StoresTheMergeSha; PrReviewRecordRefresh_ReadWithoutAMergeSha_KeepsTheStoredOne; PrReviewRecordRefresh_OpenRead_StoresNoMergeSha"
+  - "PrReviewRecordMergedSinceTests (new): MergedSinceAsync_ScopeAndWindow_ReturnsOnlyAdmittedMergedNewestFirst / _HiddenProject_LeavesItOut / _RunGone_NotListed"
+  - "ProjectScopeTests (existing): ProjectScopeQueries_DeployRecord_HiddenProjectLeftOut"
+  - "DeployRecordStoreTests (existing): DeliveredSinceAsync_Scoped_ReturnsAdmittedOnly"
+  - "DeploymentsPageEndpointTests (new): Get_ProjectBoundCaller_SeesOnlyTheirProjects / _GlobalHolderWithHiddenProject_SeesNoneOfIt / _DaysBelowOne_Is400 / _DaysPastTheCalendar_Is400"
+  - "RouteProjectScopeGuardTests and RoutePermissionGuardTests stay green with the new route and its baseline row"
+  - "AppSidebar.test.tsx: Deployments sits right after Pull requests and is active under /deployments; places.test.tsx passes with '/deployments' in places.ts"
+  - "app/deployments/__tests__/page.test.tsx (new): merged rows with short sha, 'merge commit not read' for null, deploy cards, day filter in the URL, empty and refused states"
+  - "DeployFollowBlock.test.tsx still passes through DeployRecordCard; DeployAct.test.tsx mocks listDeploymentBindings"
+done:
+  - given: "a project-bound reader of project A, a merged pull request in A and one in B, and a deploy run in A"
+    when: "they open Deployments from the sidebar"
+    then: "they see A's merged pull request with its merge commit and the deploy card, and nothing of B"
+  - given: "a global holder for whom project H is hidden, and a merged pull request in H"
+    when: "they open Deployments"
+    then: "H's pull request is not listed"

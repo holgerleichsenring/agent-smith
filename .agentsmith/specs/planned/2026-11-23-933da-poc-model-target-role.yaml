@@ -1,0 +1,224 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-933da
+goal: "PoCs become an optional feature: a pocs switch, the Poc and PocAuditEntry model, a source-repo target, four PoC permissions with project-based visibility, and an empty PoCs page."
+
+applies_to: "default (persistence entities + migrations on three providers, pocs settings singleton, permission catalog, PoC project source, PoC list endpoint, feature switch, schema, docs) + dashboard (PoCs page, sidebar and landing gating, pocs settings form)"
+
+requires: [2026-10-15-4a4db, 2026-10-15-4a4dd]
+
+upgrade_impact: "Additive and off by default: pocs.enabled absent reads false, so no sidebar item, every /api/pocs route answers an empty 404 to a caller holding the route's permissions (a caller without them gets the 403 authorization gives first) and no PoC hosted service acts. Two new tables (Pocs, PocAuditEntries; migrations on SQLite, SQL Server, PostgreSQL). Four catalog permissions, held by admin through Permissions.All; the operator bundle gains pocs.read; a new built-in role poc. ProjectScopable is unchanged. The sidebar starts hiding items a known caller cannot read (an identity without runs.read anywhere no longer sees Tickets, Runs, Pull requests, Your move, Overview or Delivery, one without dialog.write anywhere no longer sees Work it out, and a PoC-only caller no longer sees New work or Recent; today they show and answer 403/404). A stored custom role named 'poc' (any case) is ignored by the role catalog once poc is built in, so it stops granting anything and must be renamed; the load finding names it. PermissionCatalogServedTests' built-in role list grows by poc; route-permission-baseline.tsv gains GET /api/pocs."
+
+facts:
+  - claim: "The permission catalog is closed: Permissions.All lists every name and ProjectScopable the six a project binding may grant; config, secrets and the rest are global-only."
+    evidence: "src/backend/AgentSmith.Server/Security/Permissions.cs:74-86"
+  - claim: "Three built-in roles are bundles over the catalog; admin is Permissions.All, so a new catalog name reaches admin without a bundle edit."
+    evidence: "src/backend/AgentSmith.Server/Security/BuiltInRoles.cs:15-45"
+  - claim: "The served catalog and the built-in role names are pinned by a test."
+    evidence: "tests/AgentSmith.Tests/Server/Auth/PermissionCatalogServedTests.cs:22-30"
+  - claim: "A project binding grants roles in ONE project to directory groups and named people (PersonRef: claim + value, compared ordinally); only the roles' project-scopable permissions apply."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ProjectBinding.cs:3-22, src/backend/AgentSmith.Contracts/Models/Configuration/PersonRef.cs:3-16"
+  - claim: "A caller's permissions in a project are the global ones united with that project's binding; HoldsIn answers per project and ProjectsHolding names the projects a permission holds in (null = globally)."
+    evidence: "src/backend/AgentSmith.Server/Models/CallerIdentity.cs:35-39, src/backend/AgentSmith.Server/Security/ProjectAccess.cs:31-50"
+  - claim: "ProjectAccess is the one place that answers 'may this caller, and where': a binding counts only while the live configuration names its project, and every enforcement site asks its members rather than re-deriving the union; CallerIdentity.ProjectPermissions itself is not filtered by configured project."
+    evidence: "src/backend/AgentSmith.Server/Security/ProjectAccess.cs:7-11, src/backend/AgentSmith.Server/Security/ProjectAccess.cs:31-38, src/backend/AgentSmith.Server/Security/ProjectAccess.cs:59, src/backend/AgentSmith.Server/Models/CallerIdentity.cs:18-20"
+  - claim: "CallerProjectScope.For is the existing list filter: every project when nothing is enforced, a global holder everything (the installation hidden without the admin assistant's grant), else the projects a binding grants the permission in."
+    evidence: "src/backend/AgentSmith.Server/Security/CallerProjectScope.cs:7-23"
+  - claim: "A ProjectScope becomes a query filter through a Within overload per entity; the Run overload honours Hidden, and repositories call .Within(scope)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Contracts/ProjectScopeQueries.cs:10-18, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:24-27"
+  - claim: "A route declares where its project comes from (ProjectFrom: route value, run, session, image, across projects); the run source reads the run's stored project before the handler."
+    evidence: "src/backend/AgentSmith.Server/Security/ProjectFrom.cs:10-37, src/backend/AgentSmith.Server/Security/ProjectSourceResolver.cs:24"
+  - claim: "A resource of a project the caller may not reach answers an EMPTY 404 from ProjectScopeMiddleware, only on an enforcing installation."
+    evidence: "src/backend/AgentSmith.Server/Security/ProjectScopeMiddleware.cs:3-32"
+  - claim: "A route needing a project-scopable permission must declare its project source and a route with only global permissions must declare none; the route-value kinds are listed in the guard."
+    evidence: "tests/AgentSmith.Tests/Server/RouteProjectScopeGuardTests.cs:23-42"
+  - claim: "A route's resource project is read by ResourceProjectReader (one method per kind: run, session, image)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ResourceProjectReader.cs:13-36"
+  - claim: "Every mapped route has one row in the golden permission list, regenerated deliberately."
+    evidence: "tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:56-71, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:59"
+  - claim: "The owner principal of a dashboard act is the sub claim, else the identity name, else 'anonymous' on an installation without enforcement."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:16-32"
+  - claim: "A project repo is a ref: a repos-catalog name or connection/name (connection/glob), optionally with a default branch."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawRepoRef.cs:3-10"
+  - claim: "A project without an agent or a tracker does not resolve: both are required references and their absence is a blocking finding."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs:42-43, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs:57-61, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs:83-87"
+  - claim: "Settings singletons are one taxonomy entry plus a C# model; a new field inside is zero migration."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:6-58"
+  - claim: "A settings model states its own rule once in Problems(), each sentence naming the key, the value and the reason; the load reads it through a per-block validator listed in AgentSmithConfigValidator, the settings store and the import through an arm in SettingsBlockRule."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PreconditionsConfig.cs:8-36, src/backend/AgentSmith.Application/Services/Configuration/PreconditionsConfigValidator.cs:9-17, src/backend/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs:31, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/SettingsBlockRule.cs:13-29"
+  - claim: "Reference edges, which refuse deleting a referenced entity, come only from collection descriptors (projects and design sources); a singleton descriptor takes no edge function. A project's own agent and tracker are edges."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:22-24, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:60-65, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocDescriptor.cs:19-38"
+  - claim: "The DbContext is at its 120-line limit; server-state tables join through ServerStateConfigurations."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:54-81, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ServerStateConfigurations.cs:11-29"
+  - claim: "EF Core's SQL Server provider gives a unique index over a nullable column the filter IS NOT NULL; SQLite and PostgreSQL allow several NULLs in a unique index."
+    evidence: "observed: 2026-11-23, EF Core provider behaviour, pinned by this spec's migration parity tests"
+  - claim: "Every resolved block the load validates is read from AgentSmithConfig, which the composer copies from the raw config one line per block."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/PreconditionsConfigValidator.cs:11-14, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedConfigComposer.cs:38, src/backend/AgentSmith.Contracts/Models/Configuration/AgentSmithConfig.cs:42"
+  - claim: "A repo ref is a glob when its pattern contains '*'; a glob selects many repos by discovery."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RepoGlobRef.cs:10-14"
+  - claim: "An unauthenticated caller resolves to an identity with no permissions; ProjectAccess.HoldsEverywhere asks the global permissions and Enforcing says whether sign-in is enforced."
+    evidence: "src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:38, src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:108-111, src/backend/AgentSmith.Server/Security/ProjectAccess.cs:17-21"
+  - claim: "A stored custom role with a built-in name is ignored with only a finding; a new save of one is refused."
+    evidence: "src/backend/AgentSmith.Server/Security/RoleCatalog.cs:48-53, src/backend/AgentSmith.Server/Services/Access/CustomRoleRules.cs:38-44"
+  - claim: "Work it out's routes need dialog.write, not runs.read."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:79"
+  - claim: "The sidebar's New work link and Recent group are ungated."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:95-105, src/dashboard/src/components/shell/AppSidebar.tsx:161-172"
+  - claim: "Migrations exist per provider and parity tests assert no pending model change on SQL Server and Postgres."
+    evidence: "tests/AgentSmith.Tests/Persistence/SqlServerMigrationSetTests.cs, tests/AgentSmith.Tests/Persistence/PostgresqlMigrationSetTests.cs"
+  - claim: "The sidebar is a fixed list of items with no permission gating."
+    evidence: "src/dashboard/src/components/shell/AppSidebar.tsx:107-159"
+  - claim: "The dashboard decides 'known to lack' from the identity's global and per-project permissions; an unknown caller is never told no; the identity is fetched only while a token is held, so an installation without sign-in never learns one."
+    evidence: "src/dashboard/src/hooks/useLacksPermission.ts:7-14, src/dashboard/src/lib/projectPermissions.ts:13-22, src/dashboard/src/hooks/useCallerIdentity.ts:29-40"
+  - claim: "CallerIdentity is the token's one shape and the GET /api/identity answer, resolved on every authorization check; a config flag does not belong there."
+    evidence: "src/backend/AgentSmith.Server/Models/CallerIdentity.cs:3-12, src/backend/AgentSmith.Server/Security/PermissionRequirementHandler.cs:44-48"
+  - claim: "Without enforcement no fallback policy is installed and the project-scope middleware is not used, so a route's permissions are not checked and a tokenless caller reaches it."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerAuthenticationExtensions.cs:40, src/backend/AgentSmith.Server/Extensions/ServerAuthenticationExtensions.cs:75"
+  - claim: "Every sidebar link must have a place in FIXED_PLACES; a test keeps the rail and the table in step."
+    evidence: "src/dashboard/src/lib/places.ts:21-53, src/dashboard/src/lib/__tests__/places.test.tsx:10-12"
+  - claim: "Operator ruling, round 3: the sidebar order is Pull requests, then Deployments (2026-11-23-8df6a), then PoCs (only when enabled and permitted); 8df6a states the same order."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 3: a PoC's desired state (replicas, current revision and image digest) lives on the Poc row; every render reads it, and the lifecycle acts change only that state and commit."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 3: 933df and 933dh are withdrawn; the write path, the template and GitOps commit, Argo CD and the rollout, the lifecycle acts with the detail page, and lifetime/reminders/extend/purge are 2026-11-23-c81ea..e."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator 2026-11-23: name PoCs; one target now, model open for several; every setting gets a dashboard field; foreign = empty 404 like 4a4d."
+    evidence: "observed: 2026-11-23, operator (PoC concept)"
+  - claim: "Operator ruling A: PoCs are optional — a config switch (pocs.enabled, default off) with a dashboard field; off = no sidebar item, PoC routes answer 404, no hosted services act."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling B (round 3 for how): one agent-smith project poc-<person> per user, created behind the scenes by the server at that user's first import (2026-11-23-933db) and bound to the person through the existing 4a4d project bindings, so runs, logs and events are isolated by the existing project visibility; no per-route owner axis."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling B: four permissions pocs.read, pocs.write, pocs.overrule and pocs.admin (admins see and act on everything); the operator role gets pocs.read only (recommendation accepted); sidebar and landing are gated by permission and a PoC-only caller lands on /pocs."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling C: ONE shared source repo, configured like a project repo (by connection or path) plus a root folder; each poc-<person> project has its own subfolder; every step is path-scoped; no other preset runs in poc- projects; direct commit to the default branch."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling G: a per-person PoC limit lives in config."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling I: PocAuditEntry is defined in this model slice so 933dc can use it (recommendation accepted; round 3 keeps it here)."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling J: everything is implemented as chainable command presets (PipelinePresets.*.cs lists of CommandNames, one handler per command); every step idempotent on retry."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Adversarial review 2026-11-23: runs.control must not be reused for PoC users or for overrule, because a project-level runs.control unlocks deploy, memory, derive-specs, close and series routes; PoC permissions are new catalog names."
+    evidence: "observed: 2026-11-23, coordinator relaying the concept review"
+
+scope:
+  in: >
+    SWITCH: pocs.enabled (bool, default false). Off: PocsGate (an endpoint filter on the /api/pocs group, so it runs after
+    authorization) answers an empty 404 on every PoC route to a caller holding the route's permissions, and every PoC
+    hosted service of later slices checks PocsGate.Enabled(config) on each pass and does nothing. CallerIdentity and the
+    identity answer stay unchanged: the dashboard learns the switch from GET /api/pocs itself (200 = on and readable, 404 =
+    off, 403 = not permitted), which it can call with or without a token, so an installation without sign-in shows the
+    item too. The PoCs settings form shows the switch first; the other fields are editable while it is off.
+    ENTITIES (Persistence/Entities, EntityBase): Poc — Id long, Name (DNS label), LiveName (= Name while the PoC is not
+    deleted, null once deleted; only 2026-11-23-c81ed's settled delete clears it, so a deleted PoC frees its name and
+    host), Project (the owner's
+    poc- project key), Target, Folder ('<root>/<project>/<name>', copied at creation so a later settings edit never moves
+    a folder), Owner (principal per SpecDialogOwnership.PrincipalOf), OwnerName (display), State (PocStates, the full
+    set, constants only, later slices write them: importing and refused (933db), blocked (933dc), ready and failed
+    (2026-11-23-c81ec), stopped and deleted (2026-11-23-c81ed); PocStates.IsLive = not refused and not deleted, so
+    importing, ready, blocked, stopped and failed are live — the one definition the per-person limit and the name check
+    read), DESIRED STATE read by every render
+    and changed only by the acts of 2026-11-23-c81ea..e: Replicas (int, default 1), Revision (int?, the revision the
+    GitOps manifest names), ImageDigest (string? 'sha256:<64 hex>', 71); ExpiresAtTicks (nullable; written ONLY by the
+    extend run of 2026-11-23-c81ee, null meaning CreatedAt + the target's lifetime_days), LastRunId. PocAuditEntry — Id, PocId, AtTicks, Actor, Act (PocActs: imported, overruled,
+    deployed, stopped, started, rolled-back, deleted, extended, expired), Reason (nullable, 500), RunId (nullable);
+    written ONLY by the run event projection of the slice that adds the act (933dc overruled onwards), kept when runs are
+    deleted. Configurations in ServerStateConfigurations; Poc unique (Target, LiveName) (SQL Server filtered IS NOT NULL,
+    SQLite and PostgreSQL allow several NULLs), index (Project); PocAuditEntry index
+    (PocId, AtTicks) and unique (RunId, Act) (filtered IS NOT NULL on SQL Server), so every later act projection
+    (933db imported, 933dc overruled, the c81e series) inserts nothing on a replay. Migration AddPocs on SQLite, SQL Server, PostgreSQL; archive table counts updated.
+    ProjectScopeQueries gains a Poc Within overload written like the Run one (Hidden honoured). PocRepository:
+    ListAsync(ProjectScope scope, ct) through .Within(scope), FindAsync(id); PocAuditRepository: ListAsync(pocId). No PoC
+    write path in this slice (933db's admission writes the first rows).
+    SETTINGS: singleton pocs (ConfigDocTypes.Pocs, PocsConfig in Contracts/Models/Configuration): enabled; project_agent
+    and project_tracker (the agent and tracker every provisioned poc- project names, because a project without either does
+    not resolve); targets List<PocTargetConfig>. PocTargetConfig: name; source_repo (a string: an exact project repo ref, catalog name or
+    connection/name, the same means a project names its repos, without the mapping form; a local working copy is
+    refused by 933dd because its host runs no pipeline); root (default 'pocs'; a PoC's source folder is <root>/<project>/<poc>/); deploy_root (default
+    'deploy'; 2026-11-23-c81eb writes <deploy_root>/<poc>/); template_path (default 'poc-template'; 933dd and
+    2026-11-23-c81eb write it); domain_pattern (placeholder '{app}.poc.example.internal' shown only as a placeholder, no
+    value default); lifetime_days (90); reminder_days ([14, 7, 1]); per_person_limit (3; 933db refuses a new PoC past
+    it, pocs.admin excepted). PocsConfig.Problems(): duplicate or non-DNS target name; empty source_repo, or one containing '*' (a glob would
+    bind a poc- project to many repos; the sentence names pocs.targets[].source_repo and the value); root,
+    deploy_root or template_path absolute, holding '..', a backslash or an empty segment, or one inside another;
+    domain_pattern without exactly one {app} or not a host pattern; lifetime_days < 1; a reminder day < 1 or >=
+    lifetime_days; per_person_limit < 1; enabled with no target, no project_agent or no project_tracker — each sentence
+    names key, value and reason. Read by PocsConfigValidator (listed in AgentSmithConfigValidator, Field 'pocs') at the
+    load and by a PocsConfig arm in SettingsBlockRule (Problems and Validate) at the settings save and the import.
+    Cross-entity references (source_repo resolves through the repos catalog or a connection; project_agent and
+    project_tracker exist) are load findings naming the key (PocTargetReferences, the one home of every target
+    reference finding: 933de adds its arm 'registry.pull_auth names a catalog secret' there, naming
+    pocs.targets[].registry.pull_auth; 933de also makes PocsConfig.Problems() report, per target, a missing registry
+    block and the problems of its registry block, so Problems() is the one home of per-target value rules) — a singleton carries no reference
+    edges, so deleting that agent or tracker is not refused while no poc- project exists; once one exists, the project's
+    own agent and tracker edges refuse the delete. Schema entries, agentsmith-yml.md row, configure-it page.
+    PERMISSIONS (all global-only; ProjectScopable unchanged): pocs.read (open the PoCs area, list and read the PoCs one
+    can see), pocs.write (import a new PoC into one's own poc- project and act on one's own PoCs), pocs.overrule (lift a
+    vulnerability block, 933dc), pocs.admin (act on every PoC and past the owner limits: per-person limit, extensions).
+    Built-in role poc = [pocs.read, pocs.write, identity.read]; operator bundle gains pocs.read; admin holds all four
+    through All; reader none.
+    VISIBILITY through projects, not an owner axis: a PoC is seen by whoever holds runs.read in its Project (globally or
+    by the binding 933db writes for poc-<person> with the built-in reader role). ProjectFrom.Poc (route value 'pocId',
+    ProjectSourceKind.Poc, resolved by ResourceProjectReader.PocAsync to the PoC row's Project, missing row = Missing)
+    joins the guard's route-value kinds. Every PoC-keyed route of the series, API and dashboard, is keyed by id —
+    /api/pocs/{pocId:long}/... and /pocs/{pocId}/... — never by name, because a deleted PoC's name can be taken again;
+    the literal segments uploads, import and targets never match it. The first route using it is 933dc's revision read, and this slice proves it with
+    a resolver unit test. PoC-keyed read routes need pocs.read + runs.read InProject(ProjectFrom.Poc), so a foreign PoC
+    answers the empty 404 of 4a4d. Acting (933db onwards) goes through PocActAccess.MayAct(user, poc): true when nothing
+    is enforced; else pocs.admin globally; else pocs.write held plus runs.read granted by a BINDING of poc.Project, asked
+    through a new ProjectAccess member HoldsByBindingIn(user, permissions, project) that applies the configured-project
+    check (a binding of a project no longer configured grants nothing) — so a person holding global reader and the poc
+    role reads every PoC but acts only on their own. Runs, logs and hub events of a PoC are the poc- project's and need
+    nothing new.
+    ENDPOINT: GET /api/pocs (pocs.read, no project source, so the global check) -> the PoCs within
+    CallerProjectScope.For(user, runs.read) (handles 'nothing enforced', global holders and the hidden installation):
+    name, project, target, host from domain_pattern, state, owner name, last run id; plus may_import (!Enforcing || HoldsEverywhere(user, [pocs.write]), so an installation without sign-in imports)
+    for the button and targets [{name, source_repo, root}] for the target strip, which every pocs.read holder sees (no
+    config.read needed; no secret or connection detail beyond the repo ref). route-permission-baseline.tsv gains
+    'GET /api/pocs pocs.read -'.
+    DASHBOARD: /pocs page — header, Import ZIP button (disabled with 'arrives with import' until 933db), state pills, empty
+    state, the target strip from the answer's targets with 'Target settings' only for config.read holders; cards per the
+    mock (name, host, state dot, owner, run). Sidebar: a PoCs item when GET /api/pocs answers 200; the order is Pull
+    requests, Deployments (2026-11-23-8df6a), PoCs — whichever of the two specs lands second keeps it; every other item
+    hidden when the identity is known and lacks its permission (runs.read anywhere for the work items and Insight,
+    dialog.write anywhere for Work it out); a PoC-only caller (pocs.read, no global runs.read, and every project holding
+    runs.read is a poc- project) sees only PoCs, not New work and not the Recent group, and lands on /pocs from /. FIXED_PLACES gains '/pocs'. Settings: a PoCs form in the settings rail
+    (switch, project agent and tracker selects, targets with the fields above, source_repo picked like a project repo).
+    All new strings through useT() with German.
+  out: "Import, archive limits, project provisioning and the different-app guard (933db). Scan policy and overrule (933dc). Registry fields (933de). Pipeline build (933dd). Variables and pull secret (933dg). The PoC write path, app template, GitOps commit, Argo CD, rollout, lifecycle acts, detail page, lifetime enforcement and reminders (2026-11-23-c81ea..e, replacing the withdrawn 933df and 933dh). Components 1..n (the table holds one image per PoC; a component table is a later spec). Creating repositories."
+
+steps:
+  - id: entity
+    action: "Poc (with LiveName and the desired-state fields), PocStates (the full set + IsLive), PocAuditEntry, PocActs, configurations (ServerStateConfigurations lines), ProjectScopeQueries Poc overload, PocRepository, PocAuditRepository; migrations AddPocs x3; archive table counts updated."
+  - id: settings
+    action: "PocsConfig + PocTargetConfig with Problems(); RawAgentSmithConfig.Pocs; AgentSmithConfig.Pocs and its ResolvedConfigComposer line (PocsConfigValidator and PocTargetReferences read AgentSmithConfig); ConfigDocTypes.Pocs + taxonomy singleton entry; PocsConfigValidator in AgentSmithConfigValidator; PocsConfig arm in SettingsBlockRule.Problems and Validate; PocTargetReferences (load findings); schema; docs."
+  - id: permissions
+    action: "Permissions.PocsRead/PocsWrite/PocsOverrule/PocsAdmin in All (not ProjectScopable); BuiltInRoles.Poc bundle; OperatorBundle gains PocsRead; capability descriptor serves them."
+  - id: access
+    action: "ProjectFrom.Poc + ProjectSourceKind.Poc + ResourceProjectReader.PocAsync + the guard's RouteValueKinds; ProjectAccess.HoldsByBindingIn; PocActAccess.MayAct; PocsGate filter; PocListEndpoints GET /api/pocs; route-permission-baseline.tsv row."
+  - id: dashboard
+    action: "app/pocs/page.tsx, components/pocs (PocList, PocCard, PocTargetStrip, PocEmpty), lib/pocsApi.ts; usePocsFeature (GET /api/pocs status); sidebarItems(identity, pocs) function (keeps AppSidebar from growing) + landing redirect; places.ts '/pocs'; settings rail key pocs + PocsSettingsForm; messages.ts keys."
+
+tests:
+  - "PocsConfig.Problems: a source_repo containing '*' is refused naming pocs.targets[].source_repo and the value; each rule refused with a sentence naming key and value; enabled without a target, agent or tracker refused; a sound single target passes"
+  - "PocsConfigValidator: a broken pocs block is a Blocking finding with Field 'pocs'; SettingsBlockRule refuses saving and importing it"
+  - "PocTargetReferences: an unknown source_repo, project_agent or project_tracker is a finding naming the key"
+  - "PocsGate: pocs.enabled false -> GET /api/pocs answers an empty 404 for an admin; true -> 200"
+  - "PocRepository.ListAsync: a scope of projects returns only those projects' rows; Everything returns all; a hidden project's rows are left out"
+  - "ProjectAccess.HoldsByBindingIn: a binding of a configured project holds; the same binding after the project left the configuration does not; a global hold alone does not"
+  - "PocActAccess.MayAct: binding-granted runs.read + pocs.write on the PoC's project acts; global reader + poc role on another person's PoC does not; pocs.admin acts everywhere; nothing enforced acts"
+  - "ProjectSourceResolver / ResourceProjectReader.PocAsync: a pocId resolves to the row's Project; an unknown id is Missing"
+  - "Server HTTP (enforcing): a poc-role caller bound to poc-ann lists only poc-ann's PoCs (poc-bob's row is missing from the list); an operator lists all; a reader is 403; the answer carries targets and may_import"
+  - "Server HTTP (not enforcing, no token): GET /api/pocs answers 200 with may_import true when enabled and an empty 404 when off"
+  - "RouteProjectScopeGuardTests stays green with ProjectFrom.Poc among the route-value kinds and GET /api/pocs declaring no project source; RoutePermissionGuardTests matches the baseline row"
+  - "PermissionCatalogServedTests: catalog includes the four names; built-in roles admin, operator, reader, poc; operator holds pocs.read and no other pocs.*"
+  - "Poc index: a second PoC with the same LiveName on a target is refused; two rows with LiveName null are not (SQLite, SQL Server, PostgreSQL)"
+  - "PocAuditEntry index: a second row with the same RunId and Act is refused; two rows with RunId null are not (SQLite, SQL Server, PostgreSQL)"
+  - "PocStates.IsLive: importing, ready, blocked, stopped and failed are live; refused and deleted are not"
+  - "Migration parity on SQL Server and Postgres; sqlite migration applies"
+  - "Schema coverage passes with pocs"
+  - "Dashboard: sidebarItems shows only PoCs for a PoC-only identity (no New work, no Recent group), hides Work it out for an identity without dialog.write anywhere, no PoCs item when GET /api/pocs answers 404, PoCs after Deployments when both exist, all items for an unknown identity; places.test passes with '/pocs'; / redirects a PoC-only caller to /pocs; the empty state and the target strip render; PocsSettingsForm round-trips the switch and a target"
+
+done:
+  - {given: "an enforcing installation with pocs.enabled true, a target saved in the studio and a person holding only the poc role", when: "that person signs in", then: "the sidebar shows only PoCs, / opens /pocs, the list is empty, and GET /api/pocs as a reader answers 403"}
+  - {given: "pocs.enabled false", when: "an admin opens the dashboard", then: "there is no PoCs item and GET /api/pocs answers an empty 404"}
+  - {given: "an installation without sign-in and pocs.enabled true", when: "anyone opens the dashboard", then: "the PoCs item shows after Pull requests and Deployments and the empty list opens"}

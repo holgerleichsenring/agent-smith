@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-c81ec
+
+decisions:
+  - category: Implementation
+    chose: "Judge only a reading of THIS render — the live Deployment's pod-template image, variables-checksum annotation and spec.replicas equal the expected state and observedGeneration >= generation — then settle on Synced + Healthy + ready replicas, or fail on Degraded / Failed"
+    over: "Synced at this run's commit revision; the expected image in status.summary.images; failing at once on any Degraded"
+    reason: "All PoCs share one branch, so the sync revision moves with other PoCs (933df review finding 3). Before Argo reconciles, the Application still shows the previous render: summary.images keeps old ReplicaSets' images, so a rollback settled before any sync, an apply that changes only the checksum settled at once, and a fix after a Degraded revision failed with the old message; summary.images is also empty at 0 pods (round-2 reviews of c81ec and c81ed)."
+  - category: Implementation
+    decider: operator
+    chose: "ApplicationSet created and updated through the Argo CD API with upsert=true by poc-target-install; the token is an AppProject role JWT; never Argo's sync, rollback or delete calls"
+    over: "kubectl apply or an app-of-apps folder"
+    reason: "Operator ruling I. Upsert needs Argo CD 2.8+, stated in upgrade_impact."
+  - category: Architecture
+    chose: "PoC runs get their own wall-time budget: RegisteredRunKind.Poc held to pocs.run_wall_time_seconds (2700) by BOTH PipelineRunWatchdog and CancelEnforcer (kind from Run.Pipeline); the follow's deadline uses the enforcer's clock (Run.StartedAt less model waits); 933dd's PocBuildWallTime finding moves to that key and adds the rollout deadline"
+    over: "Fitting build and rollout into orchestrator.max_run_wall_time_seconds (1800); a separate follow run"
+    reason: "933dd's default build sum is already 1680 of 1800 s, leaving no room for a rollout; a separate run would split one rollout across two runs and two PocRunGate claims. The watchdog already decides by run kind (design turns). CancelEnforcer flags every running row past orchestrator.max_run_wall_time_seconds regardless of kind, so changing only the watchdog would still kill a PoC run at 1800 s; and a resumed run re-registers, so the registry's time would outlast the enforcer's (round-2 review)."
+  - category: Implementation
+    chose: "A failed first rollout sets PocStates.failed (defined with the full state set in 933da); a failed later rollout keeps the state"
+    over: "Leaving the PoC importing"
+    reason: "maxUnavailable 0 keeps the old pods serving after a later failure; a PoC that never ran needs a state that says so. failed counts as live (933da's IsLive is a negative definition)."
+  - category: Implementation
+    chose: "A blocking load finding when two enabled targets share argo.url with the same argo.namespace or destination_server"
+    over: "Prefixing Application names with the target"
+    reason: "PoC names are unique only per target, so two ApplicationSets on one Argo CD would both claim poc-<name>; a prefix would break the Application = namespace = PocNamespace naming that c81eb and c81ed rely on (round-2 review)."
+  - category: Implementation
+    chose: "The token warning (token_warn_days 14), the generator requeue (generator_requeue_seconds 30), the end margin (end_margin_seconds 60) and the commit allowance (commit_allowance_seconds 120) live in config with reasons; the ApplicationSet is compared on generators, template and syncPolicy"
+    over: "Hard-coded thresholds; comparing the whole fetched object"
+    reason: "CLAUDE.md: a new limit lives in config with a reason. The server adds defaults to a stored ApplicationSet, so a whole-object comparison would almost never report 'unchanged' (round-2 review)."

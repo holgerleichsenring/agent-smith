@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-c81ed
+goal: "A PoC owner stops, starts, rolls back, re-applies or deletes a PoC from its detail page; each act is a run that changes only the desired state and commits it through GitOpsCommit."
+
+applies_to: "default (PocAct step, poc-stop/start/rollback/apply/delete presets, GitOpsCommit delete plan and act event, PocActedEvent + audit projection, clearing 933da's Poc.LiveName on a settled delete, PocActLauncher + endpoints, PoC detail endpoint) + dashboard (PoC detail page, act dialogs, readiness setting, variables panel, hub-events mirror)"
+
+requires: [2026-11-23-c81ec, 2026-11-23-933dg]
+
+upgrade_impact: "Behind pocs.enabled. No migration: a settled delete clears 933da's Poc.LiveName, so the unique (Target, LiveName) index frees the PoC's name and host. Five new presets join 933db's PocPresets.Names. A variable change made through 933dg's routes now also queues a poc-apply run when the PoC has a Revision and a state apply admits (ready, stopped or failed), so the change reaches the pod at once instead of at the next deploy. A delete commit nulls the row's Revision and ImageDigest. A new setting pocs.readiness_path_max_chars (256) reads its default when absent."
+
+facts:
+  - claim: "A server-started run is a queued run row plus a dispatch with string seeds."
+    evidence: "src/backend/AgentSmith.Server/Services/Deployment/DeployLauncher.cs:46-58"
+  - claim: "Every C# event record needs its TypeScript mirror, checked by pnpm gen:hub-events in the spec gate."
+    evidence: "src/dashboard/package.json:14, tools/build-hub-event-types.mjs:1-19"
+  - claim: "933da: PocStates importing, ready, blocked, refused, stopped, failed, deleted with IsLive = not refused and not deleted (the one definition the per-person limit and the name check read); the desired state Replicas, Revision, ImageDigest; PocActs stopped, started, rolled-back, deleted, extended, expired; PocActAccess.MayAct; ProjectFrom.Poc; Poc.LiveName (null once deleted) with unique (Target, LiveName); PocAuditEntry with unique (RunId, Act) created in AddPocs."
+    evidence: "observed: 2026-11-23, delivered by the series spec 2026-11-23-933da, required through the required series spec 2026-11-23-c81ec"
+  - claim: "933db's PocRunGate sets Poc.LastRunId by a conditional update only when no run of the PoC is live, serialising every PoC run across replicas and answering 409 naming the live run; its HANDOVER lets a claim replace a LastRunId that equals the run id the same request just awaited to completion through IActRun, conditional on LastRunId unchanged; PocPresets.Names admits a preset in a poc- project."
+    evidence: "observed: 2026-11-23, delivered by the series spec 2026-11-23-933db, required through the required series spec 2026-11-23-c81ec"
+  - claim: "933de's IContainerRegistry.ExistsAsync confirms a digest is still in the registry."
+    evidence: "observed: 2026-11-23, delivered by the series spec 2026-11-23-933de, required through the required series spec 2026-11-23-c81ec"
+  - claim: "933dg's poc-variables run (through IActRun) writes a variable change and leaves applying it at once, and mounting PocVariablesTable on the detail page, to this spec."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933dg"
+  - claim: "c81eb's GitOpsCommit renders from ContextKeys.PocDesiredState when a step set it and is the only writer of the row's desired state, after the commit; c81ea's ListFilesUnderAsync lists a folder at any depth; c81ec's PocRolloutFollow judges only a reading of this render (pod-template image, variables checksum, spec.replicas, observed generation), settles on an expected state, 'absent' included, and sets Poc.State for poc-deploy; the deploy folder is <deploy_root>/<Name>/."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-c81ec"
+  - claim: "Operator 2026-11-23: stop (replicas 0), start, rollback (older digest), delete (folder removed, Argo prunes), each a run that commits to the GitOps repo; the source stays in the source repo."
+    evidence: "observed: 2026-11-23, operator (PoC concept, agreed)"
+  - claim: "Operator ruling I: rollback is a git commit of an older digest, never the Argo rollback API; ruling J: every act is a chained command preset, every step idempotent."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator round 3: desired state lives on the Poc row; every render reads it; acts change only that state and commit."
+    evidence: "observed: 2026-11-23, operator"
+
+assumptions:
+  - claim: "The operator's scheduled ACR Task running acr purge uses an --ago <N> longer than the longest PoC lifetime including extensions, so the image of a rollback target still exists when a rollback is asked for; 933de's ExistsAsync refuses the rollback naming the digest otherwise."
+    check: "933de's docs warn about <N>; one acr purge --dry-run against the PoC repository lists only images older than <N> days."
+
+scope:
+  in: >
+    PRESETS (PipelinePresets.Poc.cs, all in 933db's PocPresets.Names, Structured, NotRoutable, no master, queued in the PoC's
+    project): poc-stop, poc-start, poc-rollback, poc-apply = [LoadCatalog, PocAct, SealPocVariables, GitOpsCommit,
+    PocRolloutFollow]; poc-delete = [LoadCatalog, PocAct, GitOpsCommit, PocRolloutFollow] — no SealPocVariables,
+    because the 'absent' plan renders nothing and c81eb's seal requirement applies to a render. STEP PocAct reads the
+    seeds (poc id, act, revision for rollback, readiness for apply, actor), re-checks the precondition against the row
+    and sets ContextKeys.PocAct and ContextKeys.PocDesiredState; it writes nothing. PRECONDITIONS (PocActPlan, one
+    table the launcher and the step both read; a refusal names the act and the state): stop: from ready or failed,
+    Revision set -> Replicas 0; start: from stopped, Revision set -> Replicas 1; rollback: from ready, stopped or
+    failed with Revision set -> Revision n and ImageDigest of revision n, which must differ from the current one, have
+    RolloutState healthy and a Digest, and pass 933de's ExistsAsync — refused otherwise naming the revision and the
+    digest; Replicas kept; apply: from ready, stopped or failed with Revision set -> the current desired state,
+    Replicas kept; delete: any state but deleted ('absent'), a retried delete with Revision null included. Deleted,
+    importing, refused and blocked are refused for stop, start, rollback and apply, and Revision null (never deployed,
+    or a delete pending) refuses them too, so no act can re-render a deleted PoC's state into a folder whose name a
+    new PoC has since taken. READINESS SEED (apply only, tri-state): absent = keep the row's ReadinessPath; 'tcp' =
+    null (tcpSocket); a value starting with '/' and at most pocs.readiness_path_max_chars (256, reason 'a probe path,
+    not a payload') characters = httpGet on it; anything else refused naming the value, the rule and the key. The
+    variable route's poc-apply carries no readiness seed, so it never resets the probe. Idempotent: a desired state
+    the row already holds renders the folder the branch already holds, so GitOpsCommit commits nothing. GITOPSCOMMIT
+    (c81eb's step) gains: for 'absent' it renders nothing and plans a deletion of every file ListFilesUnderAsync finds
+    under <deploy_root>/<name>/ at any depth (operator-added subfolders included; nothing found = nothing to commit; a
+    Truncated listing fails with c81eb's sentence naming pocs.gitops.max_folder_files); after the delete commit
+    landed (or c81ea answered that the branch already holds it) it writes Revision = null and ImageDigest = null to
+    the row, so git and the row agree while the follow is still pending or failed. For an act it publishes
+    PocActedEvent instead of PocDeployedEvent, on every successful end of the step as c81eb does. EVENT PocActedEvent
+    (RunId, Timestamp, PocId, Act, Actor, Reason?, Revision?, CommitSha?), EventType.PocActed, TypeScript mirror;
+    projected into PocAuditEntry (stop -> stopped, start -> started, rollback -> rolled-back, delete -> deleted,
+    apply -> deployed with Reason 'applied') once per run and act: an existence check before the insert, backed by
+    933da's unique (RunId, Act) index. The audit entry records the COMMIT of the act, not its rollout: a delete whose
+    follow fails is still audited 'deleted' (the commit is in git and Argo prunes once it syncs), and the detail page
+    shows the pending state. STATES after the follow (c81ec's step, extended here), the one table every act and
+    poc-deploy follow: on a settled follow State comes from the desired Replicas — more than 0: ready, 0: stopped —
+    and a settled delete (the Application answers 404) sets deleted and LiveName null. For desired Replicas 0 the
+    settle rule is c81ec's this-render reading (pod-template image, checksum, spec.replicas 0, observed generation)
+    plus Synced + Healthy + ReadyReplicas 0 or absent; no pod image is checked, since a Deployment at 0 has no pods.
+    ROLLOUT STATE: for an act the follow writes PocRevision.RolloutState only when the act changed the digest
+    (rollback, on the revision it rolled to); stop, start and apply leave RolloutState untouched, and any failed act
+    follow leaves Poc.State exactly as it was; the row's desired state stays what GitOpsCommit recorded with its
+    commit (git and the row agree; the next act or deploy converges). LIVE (933da's IsLive, no second definition):
+    importing, ready, blocked, stopped and failed are live and count toward pocs.targets[].per_person_limit and hold
+    the name; refused holds the name only for its owner (933db); deleted holds nothing. NAME AND HOST: 933da's unique
+    (Target, LiveName) frees the name once this spec's settled delete clears LiveName; the host comes from
+    domain_pattern and the name, so it is freed with it; a new PoC that takes a just-deleted name may meet its
+    namespace still terminating, which Argo's selfHeal retries (documented). LAUNCH: PocActLauncher — precondition
+    from PocActPlan, 933db's PocRunGate (409 naming the live run), queued row + dispatch with string seeds. ROUTES
+    (pocs.write + runs.read InProject(ProjectFrom.Poc), then PocActAccess.MayAct; a foreign PoC answers the empty
+    404): POST /api/pocs/{pocId}/acts/{stop|start|rollback|apply|delete} ({revision} for rollback, {confirm_name} for
+    delete, which must equal the name, an optional {readiness} for apply: absent, 'tcp' or a path); GET
+    /api/pocs/{pocId} (pocs.read + runs.read InProject(ProjectFrom.Poc)): name, host, state, desired state, a pending
+    delete (Revision null while the state is ready, stopped or failed), owner, last run, may_act; GET
+    /api/pocs/{pocId}/revisions: number, digest, rollout state, run id, commit; route-permission-baseline.tsv gains a
+    row per route. VARIABLES APPLY AT ONCE: 933dg's variable routes, after their poc-variables run succeeded, queue
+    poc-apply through PocActLauncher when Poc.Revision is set and the state is one apply admits (ready, stopped or
+    failed), claiming 933db's PocRunGate by its HANDOVER from the poc-variables run the route just awaited (not a fresh
+    claim beside it); when the gate still answers 409 the route says the change applies after the live run, by Apply
+    on the detail page, or at the next deploy. DETAIL PAGE /pocs/{pocId}: header (name, URL, state pill, 'delete
+    pending' when the answer says so), desired state (replicas, revision, digest), revisions table with rollout state
+    and links to their Rollout pages (c81ec) and a Roll back action on each healthy older one, act buttons enabled by
+    PocActPlan's table (Stop, Start, Apply, Delete — delete asks for the name), readiness setting (path or TCP) that
+    posts apply with the readiness seed, 933dg's PocVariablesTable mounted with an Apply note, the audit list
+    (PocAuditRepository); the list card links here. All strings through useT() with German.
+  out: "Lifetime, reminders, extend and purge (2026-11-23-c81ee). Restoring a deleted PoC. Removing the source folder (it stays). Deleting registry images (the operator's scheduled ACR Task running acr purge, documented by 933de; its --ago <N> must be longer than the longest PoC lifetime including extensions, or a rollback target's image is gone). Argo's rollback API (never). Turning a PoC into a project (deferred in the concept)."
+
+pipeline-presets:
+  poc-stop: [LoadCatalog, PocAct, SealPocVariables, GitOpsCommit, PocRolloutFollow]
+  poc-start: [LoadCatalog, PocAct, SealPocVariables, GitOpsCommit, PocRolloutFollow]
+  poc-rollback: [LoadCatalog, PocAct, SealPocVariables, GitOpsCommit, PocRolloutFollow]
+  poc-apply: [LoadCatalog, PocAct, SealPocVariables, GitOpsCommit, PocRolloutFollow]
+  poc-delete: [LoadCatalog, PocAct, GitOpsCommit, PocRolloutFollow]
+
+steps:
+  - id: act
+    action: "CommandNames.PocAct, PocActHandler with PocActPlan (pure: act + row -> desired state or refusal; the state and Revision preconditions; the tri-state readiness seed with pocs.readiness_path_max_chars); ContextKeys.PocAct; presets joining 933db's PocPresets.Names; registrations and the coverage tables every preset needs; control-flow.svg."
+  - id: commit
+    action: "GitOpsCommit: the 'absent' plan over ListFilesUnderAsync and Revision/ImageDigest nulled after the delete commit; PocActedEvent publish on every successful end; PocActedEvent + EventType + hub-events.ts; audit projection case with the existence check."
+  - id: follow
+    action: "PocRolloutFollow: State from the desired Replicas; the Replicas-0 settle rule without a pod image; RolloutState written only for a digest-changing act; a failed act follow leaves State; LiveName cleared on a settled delete."
+  - id: launch
+    action: "PocActLauncher, PocActEndpoints, PocDetailEndpoints (pending delete); route-permission-baseline.tsv rows; 933dg's variable routes queue poc-apply through the gate handover."
+  - id: dashboard
+    action: "app/pocs/[pocId]/page.tsx; components/pocs/detail (PocHeader, DesiredState, RevisionTable, ActButtons, DeleteDialog, ReadinessSetting, AuditList); PocVariablesTable mounted; pocsApi acts/detail; messages.ts with German."
+
+tests:
+  - "PocActPlan: stop from ready -> Replicas 0; start from ready refused naming the state; rollback to a never-healthy revision refused; rollback to a digest the registry no longer has refused naming it; delete -> absent; rollback and apply from deleted, importing, refused or blocked refused naming the state; any act but delete with Revision null refused"
+  - "PocActPlan readiness: absent keeps the row's path; 'tcp' clears it; '/healthz' sets it; 'healthz' and a path over pocs.readiness_path_max_chars refused naming the key"
+  - "PocActHandler + GitOpsCommit: stop commits replicas 0 as an integer and the follow sets stopped; a second stop commits nothing; rollback commits the older digest and the row's Revision and ImageDigest follow after the commit; apply on a stopped PoC keeps replicas 0"
+  - "GitOpsCommit delete: every file under the folder at any depth is deleted in one commit, an operator-added subfolder included; the source folder is untouched; Revision and ImageDigest are null after the commit; a retry finds nothing, commits nothing and succeeds"
+  - "Deleted-then-reused name: after PoC A's delete and a new PoC B with the same name, a rollback or a variable change on A is refused and B's folder is untouched"
+  - "PocRolloutFollow: a settled delete sets deleted and LiveName null; a settled apply or rollback with desired Replicas 0 sets stopped; a stop settles with no pod image in the reading; a failed stop or apply leaves State and the revision's RolloutState untouched; a failed rollback marks the rolled-to revision failed"
+  - "Name reuse: after a settled delete (LiveName null) a new PoC with the same name and target is admitted"
+  - "PocActedEvent projection: one PocAuditEntry per act; a replay inserts none; a delete whose follow fails is audited 'deleted' and the detail answer says delete pending; pnpm gen:hub-events passes"
+  - "Server HTTP: a foreign PoC's act answers the empty 404; a live run answers 409 naming it; delete with a wrong confirm_name refused; the owner's stop queues a poc-stop run in the PoC's project; RoutePermissionGuardTests matches the new baseline rows"
+  - "Variables: a plain-variable change on a deployed PoC queues poc-apply through the gate handover from the awaited poc-variables run; the new pod template carries a changed variables-checksum; a change on a deleted PoC queues nothing"
+  - "Dashboard: detail page enables only the acts PocActPlan allows; delete requires typing the name; the revisions table links the Rollout pages; the variables table is mounted"
+  - "Harness (RealCompositionHarness): poc-stop then poc-start through the real composition commit replicas 0 then 1 to the fake git host and the faked Argo settles each"
+
+done:
+  - "An owner stops and starts a PoC, rolls it back to an earlier healthy revision and deletes it from the detail page; each is a run with one commit on the source repo's default branch and an audit entry, the source folder stays, and after the delete the name can be taken again."
+  - "A variable changed on a deployed PoC reaches the running pod without a new upload: the poc-apply run commits a new variables-checksum and the pod restarts."

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-c81ed
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "Every act is a chained preset that sets desired state in context and commits through c81eb's GitOpsCommit, queued through 933db's PocRunGate"
+    over: "Act-specific manifest edits"
+    reason: "Operator rulings J and round 3; one render means a later run can never undo an act."
+  - category: Implementation
+    chose: "A variable change on a deployed PoC queues poc-apply at once"
+    over: "Applying at the next deploy only"
+    reason: "933dg left the choice here; a changed secret that only applies after a new upload surprises the owner. A busy gate answers that the change waits for Apply or the next deploy."
+  - category: Implementation
+    chose: "A settled delete clears 933da's Poc.LiveName, so its unique (Target, LiveName) frees the name and host"
+    over: "Keeping the name taken forever; deleting the row"
+    reason: "The row stays for audit, yet a deleted PoC must free its name and host (933dh review finding 9). The column and index are 933da's (consistency pass 2026-11-23), so no index swap migration is needed here."
+  - category: Implementation
+    chose: "Delete plans every file under the deploy folder through the recursive listing"
+    over: "The one-level ListDirectoryAsync"
+    reason: "An operator-added subfolder would keep the Application alive (933dh review finding 8)."
+  - category: Implementation
+    chose: "Live = 933da's IsLive (importing, ready, blocked, stopped, failed); all count toward per_person_limit"
+    over: "Counting only running PoCs"
+    reason: "A stopped PoC still holds a namespace, quota and a name; one definition, read everywhere."
+  - category: Implementation
+    chose: "Rollback and apply only from ready, stopped or failed with Revision set; every act but delete refused on Revision null; the variable route's poc-apply under the same condition"
+    over: "Apply 'from any deployed state' and rollback without a state check"
+    reason: "The deploy folder is keyed by name and a settled delete frees the name: without a state precondition a deleted PoC's rollback or variable change re-rendered its state into the folder of a new PoC with the same name (round-2 review)."
+  - category: Implementation
+    chose: "A settled follow sets State from the desired Replicas (0 stopped, more than 0 ready), for every act and for poc-deploy"
+    over: "A per-act table (start, rollback, apply -> ready)"
+    reason: "Apply or rollback on a stopped PoC keeps Replicas 0, and the per-act table marked it ready with no pod running (round-2 review)."
+  - category: Implementation
+    chose: "An act's follow writes RolloutState only when the act changed the digest (rollback); a failed act follow leaves Poc.State unchanged"
+    over: "c81ec's deploy outcome for every act"
+    reason: "A stop or apply that times out on a transient Argo issue would otherwise mark the current healthy revision failed, removing it as a rollback target and possibly setting State failed (round-2 review)."
+  - category: Implementation
+    chose: "GitOpsCommit nulls Revision and ImageDigest after a delete commit; a pending delete is Revision null in ready, stopped or failed"
+    over: "Leaving the desired state as it was until the follow settles"
+    reason: "The 'absent' plan had no representation on the row, so a failed delete follow left Revision set and the next act or variable change re-rendered the folder, undoing the delete (round-2 review)."
+  - category: Implementation
+    chose: "The audit entry records the act's commit, not its rollout"
+    over: "Publishing PocActedEvent from the follow"
+    reason: "c81eb publishes on every successful GitOpsCommit so a crash cannot lose the entry; the commit is what is in git and Argo converges to it. The detail page shows a pending delete."
+  - category: Implementation
+    chose: "A tri-state readiness seed on apply: absent keeps, 'tcp' clears, a '/'-path bounded by pocs.readiness_path_max_chars sets"
+    over: "{readiness_path | null}"
+    reason: "Null had to mean 'keep' for the variable route's apply, so TCP could never be restored once a path was set (round-2 review)."

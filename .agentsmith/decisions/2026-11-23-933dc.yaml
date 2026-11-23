@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-933dc
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "Scan before commit: unpack + validate -> code scan gate -> commit; a blocked upload never reaches git"
+    over: "The first concept's order: unpack + validate -> commit to the source repo -> code scan gate"
+    reason: "Operator ruling, round 3, 2026-11-23: ratifies the review's reversal, so no secret ever lands in the shared repo's history."
+  - category: Security
+    decider: operator
+    chose: "Only critical findings block: a critical 'secrets' pattern and a critical dependency vulnerability; everything else, publishable keys and placeholders included, is a note"
+    over: "Every secret-catalog finding blocking, and fixable high vulnerabilities blocking"
+    reason: "Operator ruling, round 3, 2026-11-23: otherwise false positives stop every PoC. Consequence named: a Dockerfile 'ENV API_KEY=...' (config catalog, high) and high-severity secret patterns are notes."
+  - category: Security
+    decider: operator
+    chose: "A critical secret can never be overruled; a critical vulnerability can, with pocs.overrule and a reason; the overrule lifts exactly the stored blocking ids, a new or secret finding on the re-scan blocks again, an overrule of a revision older than the latest is refused, runs are serialised per PoC"
+    over: "Overrule re-scanning 'for the record' and committing whatever it finds"
+    reason: "Operator ruling, round 3, 2026-11-23 (and ruling I before it). The serialisation is 933db's PocRunGate."
+  - category: Security
+    chose: "A vulnerability is critical when osv-scanner's CVSS base score for the advisory group (max_severity) is >= 9.0; a missing or unparseable score is a note 'severity unknown'"
+    over: "Database-specific severities, computing scores from vectors, or treating unknown as critical"
+    reason: "Author choice, as the operator asked for a defined source: 9.0 is the CVSS 'Critical' band; the pinned scanner computes the score itself, so no CVSS code is written. Unknown as a note follows 'only critical blocks'; many PYSEC advisories carry no score, and blocking them would stop PoCs on missing data."
+  - category: Security
+    chose: "pocs.scan.unfixed_critical_block (default true): a critical vulnerability without a fixed version blocks like one with a fix; false makes it a note; 933dd's image stage reads the same value"
+    over: "Hard-coding either behaviour, or a separate setting per stage"
+    reason: "The ruling says criticals block, so the default blocks; an operator whose PoCs stall on unfixable base-image advisories gets one lever that both stages honour (contract with 933dd)."
+  - category: Architecture
+    chose: "The secret scan runs in process over the sha256-checked manifest files read in full from memory; StaticPatternScanner is not reused; its per-line match is shared as PatternLineMatcher"
+    over: "Reusing StaticPatternScanner in a sandbox, or a sandbox scan with raised read and listing bounds"
+    reason: "Review 2026-11-23: the scanner honours the upload's .gitignore, skips folders and extensions, stops at 1 MB, 1000 entries and depth 12, and swallows unreadable files, timeouts and an empty pattern set. In memory there is no listing to truncate and no read bound; the content is regex-matched, never executed, with the compiler's 500 ms timeout, which here fails the run. The sandbox starts with the dependency scan, as round 3 says."
+  - category: Security
+    chose: "OSV-Scanner runs from pocs.scan.osv_image pinned by digest in a one-shot sandbox over the lockfiles written from memory, with offline databases fetched through the egress proxy from osv-vulnerabilities.storage.googleapis.com (added to the shipped allowlist); a failed download, an unknown exit, an empty or tag-only image and the in-process backend all fail closed"
+    over: "pip-audit or DependencyAuditor; the online query API; an operator-maintained mirror"
+    reason: "operator: OSV pinned by digest accepted (ruling I). Offline databases send no dependency list to a third party; failing closed keeps a scan that did not run from reading as clean. A mirror can follow if an installation forbids that egress."
+  - category: Implementation
+    decider: operator
+    chose: "Blocked uploads kept pocs.blocked_retention_days (7), purged by 2026-11-23-c81ee"
+    over: "Kept forever, or deleted at once"
+    reason: "operator: recommendation accepted (ruling I); the purge moved from the withdrawn 933dh to c81ee (round 3)."
+  - category: Architecture
+    decider: operator
+    chose: "Direct commit to the source repo's default branch, path-scoped"
+    over: "A branch plus auto-merge"
+    reason: "Operator ruling C, 2026-11-23."
+  - category: Implementation
+    chose: "Commit mechanics: sparse no-checkout clone (--filter=blob:none, retried without it where refused) of the PoC folder only, files from the validated manifest, the reference marker removed, 'git add -f -A' inside the folder, PLAIN push with fetch + rebase of the one commit and one retry; nothing staged reuses the last commit touching the folder"
+    over: "CommitAndPushAsync (force-with-lease with a refetch that then overwrites), a full clone followed by sparse-checkout, or git add -A at the root"
+    reason: "Review 2026-11-23: the lease push could overwrite other PoCs' commits on the shared branch; a full checkout breaks the path-scoping ruling; add -A at the root would commit the marker, and a nested .gitignore would drop files. Packaged as PocFolderWrite so the c81e series writes <deploy_root>/<poc>/ the same way."
+  - category: Implementation
+    chose: "The LLM explanation is made only for a blocked verdict, from finding details with masked snippets (never file bodies), unbounded and stored as untrusted text; a failed call leaves the verdict standing; no raw matched value is stored"
+    over: "An explanation for every verdict, a length bound, or masking through the 200-character MatchedText"
+    reason: "Review 2026-11-23: MatchedText is cut at 200, so masking from it leaves the rest of a long value; a length bound would be a new limit without a config key and protects nothing the untrusted marking does not."
+  - category: Implementation
+    chose: "Finding ids: secrets by rule|file|line, vulnerabilities by advisory|package|version; findings carry OSV's aliases"
+    over: "Ids from matched values, or no ids"
+    reason: "The overrule must name exactly which findings it lifts and recognise them on the re-scan of the same revision; 933dd passes ids and aliases to Trivy, which reports CVEs where OSV reports GHSA/PYSEC (contract with 933dd)."
+  - category: Implementation
+    chose: "A GET /api/pocs/{pocId}/revisions/{n} read route with may_overrule and why_not; routes and the page keyed by poc id; the overrule box shown only when may_overrule, otherwise one line saying why"
+    over: "A page keyed by PoC name with no read route; a disabled button"
+    reason: "Review 2026-11-23: the blocked page had no endpoint, a name is unique only per target, and 'disabled' contradicted the 'hidden' test."
+  - category: Implementation
+    chose: "The overrule reason is required and at most 500 characters, the PocAuditEntries.Reason column width; no minimum length"
+    over: "A 10..500 rule"
+    reason: "A minimum length is a new limit with no reason an operator would accept; the maximum is the column 933da defines."
+  - category: Implementation
+    chose: "PocCodeScan sets Poc.State blocked only for a PoC that never reached ready; a ready PoC keeps serving its current revision"
+    over: "Blocking the whole PoC on any blocked revision"
+    reason: "Review 2026-11-23 asked who sets the state; the concept says the previous version keeps serving until a new one is healthy."
+  - category: Security
+    chose: "A snippet masks the union of every matched span on its line, PatternLineMatcher returns every match (Regex.Matches), and a snippet holds at most 80 characters each side of its span"
+    over: "Masking only the finding's own span, first match per pattern, the whole line"
+    reason: "Round-2 review 2026-11-23: one line can yield several findings (PatternFileMatcher.cs:39-62), so a note's snippet showed another finding's raw key; a minified one-line file put the whole line into VerdictJson and the prompt. Verified: on key = \"AKIA…\"; password = \"hunter2hunter2\" both patterns match."
+  - category: Implementation
+    chose: "Strict mode (timeout fails the run) only for the 'secrets' category; another catalog's timeout is a note; an invalid 'secrets' regex the compiler dropped fails the run"
+    over: "Strict mode over every catalog; only checking for zero loaded patterns"
+    reason: "Round-2 review 2026-11-23: findings outside secrets can only be notes, yet a backtracking injection pattern on a minified bundle would make a PoC undeployable with nothing to overrule; PatternCompiler.cs:31-34 drops an invalid regex with a warning only."
+  - category: Implementation
+    chose: "The done criterion and the composition fixture use an AWS access key id (AKIA + 16); the skills catalog's aws-secret-key gains an optional quote, released and pinned in this spec"
+    over: "Keeping the AWS secret key example; recording the gap only"
+    reason: "Round-2 review 2026-11-23, verified: the pinned aws-secret-key regex matches only an unquoted value, so the normal Python and JSON forms pass the scan. Leaving that unfixed lets a critical secret reach git, against the round-3 ruling."
+  - category: Implementation
+    chose: "PocSourceCommit does nothing for a revision that is not the PoC's latest and reuses a CommitSha already set"
+    over: "Committing whatever revision the run names"
+    reason: "Round-2 review 2026-11-23: 933db's retried import of an older upload would otherwise put r1's files back over r2."
+  - category: Implementation
+    chose: "PocIntake skips validated, refused, blocked and overruled revisions; a passing scan sets a blocked PoC back to importing; 'never reached ready' means importing or blocked"
+    over: "933db's validated|refused skip and 'state importing' alone"
+    reason: "Round-2 review 2026-11-23: the overrule run would re-evaluate a blocked revision and rewrite it validated, and a PoC once blocked never left blocked."
+  - category: Implementation
+    chose: "Only exact pins of a requirements file are scanned, the rest listed in one note; exit 128 is the 'dependencies not checked' note; the advisory id of a group is its ordinal-lowest id; the binary is called by path"
+    over: "Letting the scanner guess unpinned versions; failing on 128; whichever id comes first"
+    reason: "Round-2 review 2026-11-23: older parsers scan unpinned lines as 0.0.0 (false critical blocks); a comments-only requirements file is a valid upload; an overrule must survive a database update. The image's binary path, exit 128 and go.mod are assumptions checked against the pinned digest before building."
+  - category: Implementation
+    chose: "An overruler holds pocs.overrule and runs.read in the PoC's project; why_not and the docs say so"
+    over: "The overrule route needing only pocs.overrule"
+    reason: "Round-2 review 2026-11-23: keeps 933da's one visibility rule (PoC-keyed routes need runs.read in the PoC's project); a pocs.overrule holder needs to read the findings anyway, and global reader gives that."
+  - category: Implementation
+    chose: "OverruledIdsJson is an object keyed by stage ({\"code\": [...], \"image\": [...]}) and an overrule appends under its stage's key; the code re-scan reads 'code'"
+    over: "One flat list replaced by each overrule"
+    reason: "Sibling contract from the 933dd round-2 work, 2026-11-23: an image-stage overrule would otherwise erase the code-stage ids, and the next code re-scan would block again."

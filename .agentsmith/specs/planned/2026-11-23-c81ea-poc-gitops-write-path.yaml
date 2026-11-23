@@ -1,0 +1,144 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-c81ea
+goal: "The checkout-free branch write can delete files, list one folder recursively and report a moved head as a typed conflict; GitOps delivery gains a commit mode with a bounded re-plan."
+
+applies_to: "default (RepoFile delete form on four providers, BranchWriteResult.Conflict + AlreadyHeld, folder-scoped recursive file listing and default-branch read on four providers, GitOpsCommitOrder + GitOpsDelivery commit path, pocs.gitops settings) + dashboard (pocs.gitops settings fields)"
+
+requires: [2026-11-23-933db, 2026-11-23-933dc, 2026-11-18-3863c, 2026-09-22-b6ad]
+
+upgrade_impact: "No behaviour change for existing callers: filing (FiledSeriesWrite) and the deploy run (GitOpsDelivery.DeliverAsync, pull-request mode) send no deletes and keep their exact requests; a GitHub write without a delete still goes through Octokit's typed tree call; GitOpsOrder is untouched. BranchWriteResult gains Conflict (true only for a moved head: GitHub's non-fast-forward, Azure's stale OldObjectId, Local's refused update-ref, GitLab's 'Could not update refs/heads' refusal; Written was already false for each) and AlreadyHeld (true only for a write whose every entry was a deletion of an absent path, which no existing caller sends). GitLab writes are unchanged apart from the new delete action, which only a delete sends; no last_commit_id is added. ISourceProvider gains ListFilesUnderAsync and GetDefaultBranchAsync in the BranchRead partial on all four providers and on the eight test implementers. A new pocs.gitops block (commit_attempts 3, max_folder_files 500) reads its defaults when absent. Nothing needs Redis."
+
+facts:
+  - claim: "RepoFile is a text-only REPLACE (path + whole content); BranchWriteResult knows only Ok(sha) and Failed(reason), and a write that names no sha must be Failed."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/BranchWrite.cs:3-30"
+  - claim: "The branch write commits onto an existing branch's head, never forces, and answers a refusal instead of throwing; a branch that does not exist is CREATED from the default branch, so a wrong branch name yields a stray branch, not a refusal."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchWrite.cs:23-38"
+  - claim: "The only callers of the branch write today are filing and the deploy run's GitOps delivery; the only constructor call of GitOpsOrder is DeployManifestPlan."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSeriesWrite.cs:23, src/backend/AgentSmith.Application/Services/Deployment/GitOpsDelivery.cs:19, src/backend/AgentSmith.Application/Services/Deployment/DeployManifestPlan.cs:45"
+  - claim: "GitHub builds a tree over the parent's tree from typed NewTreeItems (blob, content) and updates an existing ref with force false, so a head that moved after the parent was read is refused; an empty write answers Failed('no files to write') on every provider."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubBranchWrite.cs:28-44, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubBranchWrite.cs:57-71, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBranchWrite.cs:31, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabBranchWrite.cs:27, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalBranchCommit.cs:32"
+  - claim: "The GitHub write uses Octokit 14.0.0."
+    evidence: "src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:49"
+  - claim: "Octokit 14.0.0 drops a null NewTreeItem.Sha from the typed Git.Tree.Create body, so a typed tree item can never delete; the same request posted as a pre-serialised JSON string through client.Connection.Post<TreeResponse>(ApiUrls.Tree(owner, repo), json, accepts, contentType) reaches the host verbatim with \"sha\":null."
+    evidence: "observed: 2026-11-23, a probe against Octokit 14.0.0 with a capturing HttpMessageHandler: typed body {\"path\":\"a/b.txt\",\"mode\":\"100644\",\"type\":\"blob\"}, raw string body {... \"type\":\"blob\",\"sha\":null}"
+  - claim: "GitHub's existing reads go through Repository.Content.GetAllContentsByRef and read only NotFound as absent; on a directory the call answers one entry per child."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubBranchRead.cs:14-57"
+  - claim: "Azure pushes one commit with the ref update's OldObjectId set to the head it read, so a concurrent commit makes the push fail; each change is Add or Edit decided per path by an existence probe that answers false on ANY exception."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBranchWrite.cs:59-84, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBranchWrite.cs:94-115"
+  - claim: "Azure's branch read already tells a NotFound VssServiceException apart from other failures, and its listing is scoped to a path."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBranchRead.cs:36-63, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBranchRead.cs:84-86"
+  - claim: "GitLab posts create/update actions on the branch without last_commit_id, deciding update by a HEAD probe that reads any non-success as absent; the host applies the actions on whatever head the branch has when the request arrives."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabBranchWrite.cs:23-47, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabBranchWrite.cs:49-64, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabBranchWrite.cs:88-97"
+  - claim: "GitLab's last_commit_id is a per-action check against the file's own last commit, so sending the branch head would refuse an update of any file last changed before the head."
+    evidence: "observed: 2026-11-23, adversarial review of 2026-11-23-933df (GitLab commits API reading, not verified against a live host)"
+  - claim: "The local write stages files into a scratch index with update-index --add --cacheinfo and moves the ref with update-ref given the value it expects, so a moved ref is refused (today answered as Failed)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalBranchCommit.cs:48-73, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalBranchCommit.cs:75-89"
+  - claim: "git update-ref given a stale old value exits 128 with 'cannot lock ref ...: is at X but expected Y', and given the zero old value for a ref that now exists with '... reference already exists'; git cat-file -e <rev>:<path> exits 128 with \"path '<path>' does not exist\" for an absent path."
+    evidence: "observed: 2026-11-23, git 2.56.1 in a scratch repository"
+  - claim: "A directory listing answers immediate children by name only, without recursion and without telling files from folders."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:66-76, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchRead.cs:29-34, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubBranchRead.cs:44-57"
+  - claim: "ISourceProvider has no default-branch member; GitHub, Azure and GitLab each resolve the live default privately through DefaultBranchResolver, and Local uses its configured branch or 'main'."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:35-36, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:176-177, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:260-261, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:369-370, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs:119"
+  - claim: "Eight test classes implement ISourceProvider and break on a new member; no unit test exists for GitHubBranchWrite, AzureReposBranchWrite, GitLabBranchWrite or LocalBranchCommit."
+    evidence: "tests/AgentSmith.Tests/TestHelpers/StubSourceProvider.cs:14, tests/AgentSmith.Tests/TestHelpers/ScriptedSourceProvider.cs:25, tests/AgentSmith.Tests/TestSupport/RecordingBranchSources.cs:55, tests/AgentSmith.PipelineHarness/Composition/LocalGitSourceProvider.cs:16, tests/AgentSmith.PipelineHarness/Presets/ShortfallDeliveryTests.cs:115, tests/AgentSmith.PipelineHarness/Presets/TicketBranchContextSourceProvider.cs:21, tests/AgentSmith.PipelineHarness/Presets/MultiContextSourceProvider.cs:23, tests/AgentSmith.PipelineHarness/Presets/PerRepoPullRequestProvider.cs:14; observed: 2026-11-23, grep for the four class names over tests/ matched only LocalGitSourceProvider's use of the local provider"
+  - claim: "GitOps delivery today is one file on a fresh branch, a pull request and an optional merge; its order carries one path, one content and the pull request's text, approval, protection, CI and version."
+    evidence: "src/backend/AgentSmith.Application/Services/Deployment/GitOpsDelivery.cs:7-28, src/backend/AgentSmith.Application/Services/Deployment/GitOpsOrder.cs:7-13"
+  - claim: "The sandbox commit and push to a named branch exists and carries any file, binaries included; 933dc's PocFolderWrite uses it (sparse clone, add -f, plain push with one rebase retry) for the uploaded source in <root>/<project>/<poc>/."
+    evidence: "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:28-38; observed: 2026-11-23, delivered by the series spec 2026-11-23-933dc"
+  - claim: "933db's PocRunGate sets Poc.LastRunId by a conditional update only when no run of the PoC is live and answers 409 otherwise, so one PoC never has two runs at once, across replicas and without Redis."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933db"
+  - claim: "Coordinator ruling 2026-11-23: one serialisation mechanism, PocRunGate; no per-PoC Redis lock. The two repository write paths stay, each for its job: the sandbox push for the uploaded source, the checkout-free branch write for the text manifests; both exist today, so neither is a second path."
+    evidence: "observed: 2026-11-23, coordinator relaying the operator's round-3 rulings"
+  - claim: "A spec that adds a delivery or a storage location names the existing one it replaces; a new limit lives in config and its message names value, reason and key."
+    evidence: ".agentsmith/contexts/default/principles.md:32-34"
+  - claim: "933da's PocsConfig is the pocs settings singleton with Problems(), and a PoC name is unique per target."
+    evidence: "observed: 2026-11-23, delivered by the series spec 2026-11-23-933da, required through the required series spec 2026-11-23-933db"
+  - claim: "Operator 2026-11-23: GitOps changes are a direct commit to the GitOps repo's branch, no PR, as a MODE of the GitOps delivery, not a new delivery kind."
+    evidence: "observed: 2026-11-23, operator (PoC concept, agreed)"
+  - claim: "Operator round 3: 933df and 933dh are withdrawn and replaced by the series 2026-11-23-c81e; desired state lives on the Poc row and acts change only that state and commit."
+    evidence: "observed: 2026-11-23, operator"
+
+assumptions:
+  - claim: "GitHub refuses a non-fast-forward ref update with 422 'Update is not a fast forward' (Octokit ApiValidationException); Azure refuses a push whose OldObjectId is stale with TF401028 (or a ref update status StaleOldObjectId); GitLab refuses a commit that lost a race on the ref with 400 'Could not update refs/heads/<branch>'."
+    check: "Faked-HTTP tests per host and a real-git test for Local pin the mapping; one manual concurrent write per remote host before c81ec's end-to-end criterion."
+  - claim: "GitHub's Git.Tree.GetRecursive on a folder's own tree sha answers truncated=false for a PoC deploy or template folder (GitHub cuts a recursive tree at about 100k entries or 7 MB); a truncated answer is reported as such rather than trusted."
+    check: "GitHubBranchRead test with a truncated fake answer."
+
+scope:
+  in: >
+    DELETE FORM: RepoFile gains Delete (bool, default false) and RepoFile.Deletion(path) (Content empty); the record's
+    positional form is unchanged. GitHub: a write holding no delete keeps today's typed Octokit call byte for byte; a
+    write holding a delete posts the whole tree as ONE pre-serialised JSON body through
+    client.Connection.Post<TreeResponse>(ApiUrls.Tree(owner, repo), json, "application/vnd.github+json",
+    "application/json") with base_tree = parent and, per deletion, {path, mode 100644, type blob, sha null}, per write
+    {path, mode, type, content} (System.Text.Json, so null is written); the commit and the non-forced ref update are
+    unchanged. Azure: VersionControlChangeType.Delete with the item path and no content. GitLab: action 'delete' (no
+    last_commit_id anywhere; create/update unchanged). Local: update-index --force-remove <path> on the scratch index.
+    ABSENT AT THE BASE: each provider probes a deletion's path at the parent it commits on — GitHub a
+    Repository.Content.GetAllContentsByRef at the parent sha, Azure GetItemAsync at the base commit, GitLab the files
+    HEAD at the branch, Local git cat-file -e <parent>:<path> — and for a DELETION only the host's NotFound (GitHub
+    NotFoundException, Azure a VssServiceException read by AzureReposBranchRead's not-found rule, GitLab 404, cat-file
+    exit 128 saying the path does not exist) counts as absent; any other probe failure fails the write (Failed, naming the path), so
+    a transient error never turns a required delete into a note. A deletion of an absent path is dropped and said in
+    BranchWriteResult.Notes. A write whose every entry was such a deletion answers BranchWriteResult.AlreadyHeld(notes)
+    (Written false, Error 'every deletion was already absent', AlreadyHeld true) instead of committing; an empty write
+    still answers Failed('no files to write'). CONFLICT: BranchWriteResult gains Conflict (bool) and
+    Conflicted(reason); GitHubBranchWrite maps the ref update's non-fast-forward refusal, AzureReposBranchWrite the
+    stale-OldObjectId refusal, LocalBranchCommit update-ref's 'is at X but expected Y' or 'reference already exists' refusal, and GitLabBranchWrite
+    the 400 'Could not update refs/heads/' refusal to Conflicted; every other failure stays Failed; Written stays false
+    for each. The contract text gains: 'a caller may re-plan on Conflict'. RECURSIVE LISTING:
+    ISourceProvider.ListFilesUnderAsync(path, BranchName branch, int maxFiles, ct) -> RepoFileListing(Files,
+    Truncated): repo-relative FILE paths under path at any depth (empty when absent), at most maxFiles of them;
+    Truncated true when the host cut its answer or more than maxFiles exist. The listing is scoped to the folder on
+    every provider: GitHub reads the parent directory (Repository.Content.GetAllContentsByRef), takes the folder
+    entry's tree sha, then Git.Tree.GetRecursive on that sha (host truncation then applies only to the folder);
+    Azure GetItemsAsync with scopePath and recursion Full, folders dropped; GitLab repository/tree path=<path>
+    recursive=true paginated, type blob only; Local git ls-tree -r --name-only <branch> -- <path>. Providers name no
+    PoC key: the caller writes the sentence (c81eb). Auth and transport errors propagate, as for ListDirectoryAsync.
+    DEFAULT BRANCH: ISourceProvider.GetDefaultBranchAsync(ct) -> BranchName in the BranchRead partial; GitHub, Azure
+    and GitLab answer their existing DefaultBranchResolver, Local its configured branch or 'main'. COMMIT MODE:
+    GitOpsCommitOrder(RepoConnection Repo, IReadOnlyList<RepoFile> Files, string Message) and
+    GitOpsDelivery.CommitAsync(order, replan, attempts, ct) — a second method of the same GitOps delivery; GitOpsOrder
+    and DeliverAsync are untouched, and pull-request mode stays the only one deployment.yaml offers. CommitAsync reads
+    the branch from GetDefaultBranchAsync (the order names none, so no stray branch can be created), writes the
+    order's files onto it with Message as the commit message, no pull request, no merge, no CI read; on Conflict
+    calls replan(ct) — a GitOpsCommitOrder? computed from the new head, null meaning 'the branch already holds it' —
+    and writes again, up to attempts (pocs.gitops.commit_attempts, 3); exhaustion answers the sentence 'gave up after
+    3 attempts (pocs.gitops.commit_attempts): other commits kept landing on <branch>'. AlreadyHeld answers committed
+    with no sha ('the branch already holds it'), so a retried delete whose commit already landed succeeds. Answers
+    (Committed, Sha?, Sentence). SERIALISATION: none added here. One PoC's runs are serialised by 933db's PocRunGate
+    (every c81e preset is queued through it); different PoCs write disjoint folders of the shared branch, so a moved
+    head is only a Conflict to re-plan from, never a content clash. TWO WRITE PATHS, EACH FOR ITS JOB: 933dc's
+    PocFolderWrite (sandbox clone and push) carries the uploaded source, binaries included, into <root>/<project>/<poc>/;
+    this checkout-free write carries the text manifests into <deploy_root>/<poc>/ and never touches a source folder.
+    SETTINGS: pocs.gitops (PocGitOpsConfig on PocsConfig): commit_attempts (3; at least 1); max_folder_files (500;
+    at least 1; reason 'a deploy folder is rendered from the app template and holds a handful of manifests; more
+    means files someone else put there, and planning their deletion would send every path in one commit request' —
+    over it the caller refuses naming the count, the value and the key, and raising the key lets the folder through).
+    PocsConfig.Problems() refuses each out-of-range value naming value, reason and key. pocs.gitops fields in the PoCs
+    settings form with German strings; schema entries.
+  out: "The DeployRecordProjection DeliveredAtTicks fix (2026-11-23-af60 owns it). GitLab last_commit_id (dropped: it would refuse ordinary updates and change filing's writes). Binary files in the branch write. Changing GitOpsOrder or DeliverAsync. Rendering PoC folders and the GitOps commit step (2026-11-23-c81eb). Following a rollout (2026-11-23-c81ec)."
+
+steps:
+  - id: contracts
+    action: "RepoFile.Delete + Deletion(); BranchWriteResult.Conflict + Conflicted() and AlreadyHeld; RepoFileListing; ISourceProvider.ListFilesUnderAsync and GetDefaultBranchAsync in the BranchRead partial; contract text."
+  - id: providers
+    action: "GitHubTreeRequest (raw JSON body) used only when a delete is present; NotFound-only absence probes for deletions on four providers; Azure Delete change; GitLab delete action; Local --force-remove; conflict mapping on four providers; folder-scoped ListFilesUnderAsync and GetDefaultBranchAsync on four providers; the eight test implementers (StubSourceProvider, ScriptedSourceProvider, RecordingBranchSources.Provider, LocalGitSourceProvider, ShortfallDeliveryTests.RecordingSourceProvider, TicketBranchContextSourceProvider, MultiContextSourceProvider, PerRepoPullRequestProvider) gain both members; a capturing IGitHubClientFactory and HttpMessageHandler test fixture built new, since no provider write test exists."
+  - id: gitops
+    action: "GitOpsCommitOrder; GitOpsDelivery.CommitAsync with the default-branch read and the re-plan loop."
+  - id: config
+    action: "PocGitOpsConfig (commit_attempts, max_folder_files) on PocsConfig with Problems(); schema; settings fields; i18n."
+
+tests:
+  - "GitHubBranchWrite_Delete_PostsRawTreeWithNullSha (captured body holds \"sha\":null and base_tree); _NoDelete_TypedBodyUnchanged (characterisation of today's body)"
+  - "Conflict mapping: GitHubBranchWrite_NonFastForward, AzureReposBranchWrite_StaleOldObjectId, GitLabBranchWrite_CouldNotUpdateRef (faked HTTP) and LocalBranchCommit_RefMovedBetweenReadAndUpdate (real git) answer Conflict; other failures stay Failed with Conflict false"
+  - "AzureReposBranchWrite_Delete_ChangeTypeDelete; GitLabBranchWrite_Delete_ActionDelete_NoLastCommitId; LocalBranchCommit_Delete_RemovesPathKeepsOthers"
+  - "Every provider: deleting an absent path (host NotFound) is dropped with a note; a probe failing with a 5xx or transport error fails the write naming the path; all entries dropped -> AlreadyHeld, not Failed"
+  - "ListFilesUnderAsync per provider: nested files returned with full repo-relative paths, folders left out; absent path -> empty; GitHub reads the folder's own tree sha, not the branch head's (captured request); GitHub truncated -> Truncated true; more than maxFiles -> Truncated true with maxFiles entries"
+  - "GetDefaultBranchAsync per provider answers the resolver's branch (Local: configured, else main)"
+  - "GitOpsDelivery_CommitMode_ConflictThenSuccess_WritesTwice; _ReplanAnswersNull_StopsCommitted; _AttemptsExhausted_SentenceNamesKey; _WritesOntoTheDefaultBranchRead; _AlreadyHeld_AnswersCommittedWithoutSha; DeliverAsync unchanged (characterisation)"
+  - "PocGitOpsConfig.Problems: commit_attempts 0 and max_folder_files 0 refused naming value, reason and key"
+  - "FiledSeriesWrite tests stay green unchanged"
+
+done:
+  - "A commit-mode GitOps order with writes and deletes lands as one commit on the default branch of a GitHub, Azure, GitLab and local repository; a head moved between read and write on any of them is retried from a re-plan; a retried delete that already landed succeeds; and filing and the deploy run's pull requests send exactly the requests they sent before."

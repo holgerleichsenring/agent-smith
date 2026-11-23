@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-933dd
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "The image is built by a pipeline of the source repo's host through the 3863e runners: build (no credentials), scan (Trivy by digest on the artifact), push (the only job with credentials, reports the digest)"
+    over: "A rootless BuildKit sandbox kind, ACR Tasks, gVisor/Kata or privileged pods"
+    reason: "Operator ruling D, 2026-11-23: no infrastructure nobody has. The spec is relabelled poc-image-build-scan -> poc-pipeline-build."
+  - category: Architecture
+    decider: operator
+    chose: "poc-target-install writes the pipeline definition into the PoC source repo once; the c81e series extends it with the app template and ApplicationSet"
+    over: "Operator-maintained pipeline files"
+    reason: "Operator ruling D, 2026-11-23; 933df, which held the template, is withdrawn for the c81e series (round 3)."
+  - category: Security
+    decider: operator
+    chose: "At the image stage only CRITICAL blocks (Trivy severity CRITICAL, vulnerabilities and secrets); everything below is a note shown on the page"
+    over: "Fixable HIGH and CRITICAL vulnerabilities block"
+    reason: "Operator ruling round 3, 2026-11-23: otherwise false positives stop every PoC. A critical secret is never overrulable; a critical vulnerability is, with pocs.overrule and a reason."
+  - category: Implementation
+    decider: operator
+    chose: "Vulnerabilities overruled at the code stage reach the image stage's trivy_ignore, with their OSV ids and aliases"
+    over: "A second overrule at the image stage for the same advisory"
+    reason: "Operator ruling round 3, 2026-11-23. Aliases because OSV reports GHSA/PYSEC ids where Trivy reports CVEs; PocScanFinding gains Aliases, filled by OsvReportParser."
+  - category: Implementation
+    chose: "The digest comes back as a small artifact (poc-image/digest.txt) read by a new IPipelineRunner.ReadArtifactTextAsync, then confirmed by the registry"
+    over: "Job outputs, or reading only the registry tag"
+    reason: "PipelineRunState carries no outputs, and the hosts expose artifacts of a run uniformly while job outputs are not readable the same way on all three; a tag alone is mutable, so the pushed digest and the registry must agree."
+  - category: Implementation
+    chose: "Any red run reads the scan report artifact and gate.txt; blocked at the image stage only when the gate itself failed and the report holds a blocking finding, otherwise the step fails with the CiFailures; the artifact is uploaded whether the scan job passes or fails"
+    over: "Detecting 'the scan job failed' from the run's failures"
+    reason: "Review 2026-11-23: Azure DevOps answers one failure named after the pipeline definition and GitLab names '<stage>: <name>', so the failed job is not identifiable uniformly; the report is the evidence the gate itself used."
+  - category: Implementation
+    chose: "PipelineRunId and PipelineUrl are stored as soon as StartAsync names the run"
+    over: "Storing them only on green"
+    reason: "Review 2026-11-23: a restart during the poll (liveness reaper + restart window) otherwise starts a second pipeline that pushes the same tag."
+  - category: Implementation
+    chose: "Every job has its own timeout; a blocking load finding refuses timeouts whose sum plus pocs.scan.timeout_seconds does not fit below orchestrator.max_run_wall_time_seconds; defaults 3 + 12 + 5 + 3 minutes"
+    over: "One 20-minute build timeout polled for 30 minutes inside a 30-minute run"
+    reason: "Review 2026-11-23: the watchdog cancelled the run before the step's own timeout could fire. The series block's wall-clock finding is the precedent; the defaults leave 120 s for intake and commit under the 1800 s default. 2026-11-23-c81ec later moves the comparison to the PoC run kind's pocs.run_wall_time_seconds and adds the rollout deadline; the finding stays this spec's."
+  - category: Security
+    chose: "On GitLab the push credential is a protected variable pair scoped to build.gitlab_environment, declared by the push job only"
+    over: "Project-level protected variables"
+    reason: "Review 2026-11-23: project-level protected variables reach every job on a protected ref, including the build job running the uploader's Dockerfile; that breaks 'push is the only job with credentials'."
+  - category: Architecture
+    chose: "PocRevision gains ImageVerdictJson and BlockedStage (code | image); the overrule route reads the verdict BlockedStage names"
+    over: "Writing the image verdict over the code verdict"
+    reason: "Review 2026-11-23: one verdict column left the image verdict nowhere to live, and the overrule route could not tell which stage it lifts."
+  - category: Scope
+    chose: "The run's build step shows the pipeline link, state and failures only"
+    over: "A per-job list on PipelineRunState plus a new hub event"
+    reason: "Nothing carries per-job progress today; a new event needs the hub-events mirror, and following a build needs only the link and the outcome."
+  - category: Implementation
+    chose: "The image travels between jobs as a gzip artifact kept one day; the host's artifact limits are documented per host"
+    over: "An uncompressed tar with the host's default retention, or a new image-size limit in agent smith"
+    reason: "Review 2026-11-23: an image tar often exceeds GitLab's 100 MB default artifact limit; the host enforces its own limit and its refusal surfaces as a CiFailure, so no second limit is needed."
+  - category: Implementation
+    chose: "A GitHub start that names no run (204) fails the build step"
+    over: "Guessing the run from the run list"
+    reason: "3863e already refuses to guess; an unfollowable build cannot hand back a digest."
+  - category: Security
+    chose: "Inputs reach the shell through environment variables and are checked by regex in each job's first step (root regex-escaped); the pipeline triggers on dispatch only; GitHub jobs run with contents read and no persisted credentials"
+    over: "Inline input interpolation and push triggers"
+    reason: "Anyone with dispatch rights could pass inputs; a push trigger would build every commit of every PoC."
+  - category: Implementation
+    chose: "On Azure DevOps the operator creates the pipeline once from the YAML the install wrote and permits the service connection once"
+    over: "Registering it through the Pipelines API"
+    reason: "The push needs a service connection the operator creates anyway; one manual step there is cheaper than another API surface."
+  - category: Implementation
+    chose: "A stored run is followed only while pending or green; a red one without a blocking report has its PipelineRunId and PipelineUrl cleared and a fresh run is started"
+    over: "Always re-reading the stored run"
+    reason: "Review round 2, 2026-11-23: a registry 5xx, a runner outage, a Trivy database download failure or a cancelled Azure permit wait ends red with no block, and every later retry would re-read the same red run; only a new upload got out."
+  - category: Implementation
+    chose: "The scan job writes a compact projection (id, kind, package, installed and fixed version, severity, title, target/line) with Trivy --format template and poc-report.tpl; default build.report_kb 1024; an oversize report fails the step naming build.report_kb on both paths"
+    over: "Trivy's full JSON at every severity under 256 KB, or a second full-report artifact"
+    reason: "Review round 2, 2026-11-23: the full JSON of a Debian or Node base image is commonly 0.5-2 MB, so a real CRITICAL would never reach the blocked page. The full report stays readable in the host's job log; no second artifact is read by anything. The default is an assumption checked by the manual run per host."
+  - category: Security
+    chose: "TrivyReportParser applies pocs.scan.unfixed_critical_block like the gate's --ignore-unfixed, and blocked also requires the gate's own exit status in gate.txt"
+    over: "Blocking on any CRITICAL the report holds"
+    reason: "Review round 2, 2026-11-23: with the rule off, an unfixed CRITICAL passes the gate; a push failure would then read the report and wrongly block the revision and seed an overrule with ids that never gated."
+  - category: Implementation
+    chose: "OverruledIdsJson is an object keyed by stage, appended to and never replaced; image finding ids are trivy:<VulnerabilityID>|<pkg>|<installed> and sec:<hash>; trivy_ignore gets the bare advisory id and aliases from both stages"
+    over: "Writing the image-stage ids over the code-stage ids in one flat list"
+    reason: "Review round 2, 2026-11-23: a flat list replaced the code ids, so a revision overruled at both stages blocked again at the code stage; 933dc's osv: id does not pass the trivy_ignore regex, so the bare id is extracted."
+  - category: Implementation
+    chose: "The wall-time finding leaves the time before the step out and says the watchdog may cancel first; a retry follows the still running pipeline through the stored run id"
+    over: "A fixed reserve added to the sum"
+    reason: "Review round 2, 2026-11-23: the time before the step is not bounded by any key, so a reserve would be a guessed new limit; a run the watchdog cancels loses nothing, because the pipeline id is stored before the first poll."
+  - category: Implementation
+    chose: "Azure DevOps and GitLab check out with checkout: none / GIT_STRATEGY: none and a depth-1 fetch of the sha with a sparse checkout of the folder; GitLab's build and push jobs use a docker:dind service on a privileged runner, documented"
+    over: "Changing PipelineRunOrder to carry a source version"
+    reason: "Review round 2, 2026-11-23: Azure's StartAsync sets only SourceBranch and GitLab creates a pipeline on a ref, so the sha has to be fetched inside the job; GitLab has no daemon in a plain job."
