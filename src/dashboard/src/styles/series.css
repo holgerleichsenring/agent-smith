@@ -92,3 +92,9 @@
 .mock-tickets .sr-holds > li.plan .sr-holds-tag, .mock-tickets .sr-holds > li.decide .sr-holds-tag { color: var(--person); font-weight: 600; }
 .mock-tickets .sr-holds > li.admin .sr-holds-tag { color: var(--bad); font-weight: 600; }
 .mock-tickets .sr-holds-say { font-size: 12.5px; color: var(--ink-3); }
+/* 2026-11-23-31dcj: Changed in this series, below What holds the rest — the ticket page's revision rows. */
+.mock-tickets .sr-changes { margin-top: 22px; }
+.mock-tickets .sr-changes h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.mock-tickets .sr-changes .revs { margin-top: 10px; }
+.mock-tickets .sr-changes .rv { grid-template-columns: auto minmax(0, 1fr) auto; overflow-wrap: anywhere; }
+.mock-tickets .sr-changes .rc a.mono { color: var(--ink-2); }

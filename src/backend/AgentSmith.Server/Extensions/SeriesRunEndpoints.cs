@@ -14,6 +14,8 @@ namespace AgentSmith.Server.Extensions;
 /// ticket surface; the list and the count filter by the caller's projects, one series answers 404 outside them.
 /// <para>2026-11-23-31dce: and the merge of its next ticket (runs.control) — a merge-green run; a refusal is a plain
 /// sentence, only 200 is JSON.</para>
+/// <para>2026-11-23-31dcj: and what changed in its tickets' spec sets, read apart from the page so only an opened section
+/// pays the branch reads.</para>
 /// </summary>
 internal static class SeriesRunEndpoints
 {
@@ -22,6 +24,7 @@ internal static class SeriesRunEndpoints
         app.MapGet("/api/series-runs", ListAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
         app.MapGet("/api/series-runs/count", CountAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
         app.MapGet("/api/series-runs/{id}", DetailAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.SeriesRun);
+        app.MapGet("/api/series-runs/{id}/changes", ChangesAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.SeriesRun);
         app.MapPost("/api/series-runs/{id}/tickets/{ticketId}/merge", MergeAsync)
             .Needs(Permissions.RunsControl).InProject(ProjectFrom.SeriesRun);
         return app;
@@ -51,5 +54,8 @@ internal static class SeriesRunEndpoints
     }
 
     internal static async Task<IResult> DetailAsync(string id, SeriesRunDetailReader reader, CancellationToken cancellationToken) =>
+        await reader.ReadAsync(id, cancellationToken) is { } view ? Results.Ok(view) : Results.NotFound();
+
+    internal static async Task<IResult> ChangesAsync(string id, SeriesRunChangesReader reader, CancellationToken cancellationToken) =>
         await reader.ReadAsync(id, cancellationToken) is { } view ? Results.Ok(view) : Results.NotFound();
 }

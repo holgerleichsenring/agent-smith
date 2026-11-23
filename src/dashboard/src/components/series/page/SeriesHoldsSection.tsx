@@ -6,12 +6,23 @@ import { seriesRunPath } from "@/lib/seriesRunAddress";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { holdRowAct, holdSentence, holdTag } from "../../tickets/holds/holdWords";
+import { SeriesChangesNotes } from "./SeriesChangesNotes";
 
 // 2026-11-23-31dcg: what holds the series' tickets that are not merging next — each ticket whose hold names someone, with
 // whose it is, the hold's sentence (the one its ticket page says) and its act; the ones nobody needs to move are one line
 // at the end. The merge that comes next is Merge next's, so it is not repeated here.
+// 2026-11-23-31dcj: below them, what changed in the tickets' spec sets (SeriesChangesNotes), read when the pane opens.
 
 export function SeriesHoldsSection({ detail }: { detail: SeriesRunDetail }) {
+  return (
+    <>
+      <SeriesHolds detail={detail} />
+      <SeriesChangesNotes detail={detail} />
+    </>
+  );
+}
+
+function SeriesHolds({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
   const held = detail.tickets.filter((ticket) => ticket.isHeld && ticket.hold);
   const moving = detail.tickets.filter((ticket) => ticket.hold?.addressee === "nobody");

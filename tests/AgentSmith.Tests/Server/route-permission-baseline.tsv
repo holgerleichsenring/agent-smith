@@ -164,4 +164,5 @@ PUT	/api/config/trackers/{id}	config.write	-
 GET	/api/series-runs	runs.read	across
 GET	/api/series-runs/count	runs.read	across
 GET	/api/series-runs/{id}	runs.read	seriesrun
+GET	/api/series-runs/{id}/changes	runs.read	seriesrun
 POST	/api/series-runs/{id}/tickets/{ticketId}/merge	runs.control	seriesrun

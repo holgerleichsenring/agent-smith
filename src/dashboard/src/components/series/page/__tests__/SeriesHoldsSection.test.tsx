@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { hold } from "@/components/tickets/__tests__/ticketFixtures";
 import { attempt, detail as ticketDetail } from "@/components/tickets/detail/__tests__/detailFixtures";
 import { ticketState } from "@/components/tickets/detail/ticketState";
@@ -11,6 +11,9 @@ import { seriesDetail, seriesTicket } from "./seriesFixtures";
 
 // 2026-11-23-31dcg: What holds the rest — each held ticket with whose it is, the hold's sentence and its act; the ones
 // that move on by themselves are one line; the next merge is Merge next's and not repeated.
+
+// 2026-11-23-31dcj: the pane also reads Changed in this series (SeriesChangesNotes.test.tsx); here it answers nothing.
+vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRunChanges: async () => ({ changes: [], unread: [] }) }));
 
 const edited = hold("text_edited", { act: { kind: "conversation", target: null } });
 const startsOnMerge = hold("starts_on_merge", { names: ["#49"], act: { kind: "merge_next", target: "sr-1" } });

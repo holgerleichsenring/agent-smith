@@ -130,3 +130,19 @@ export interface SeriesMergeAnswer {
   ticketId: string;
   pullRequests: SeriesMergeOutcome[];
 }
+
+/** 2026-11-23-31dcj: one revision of a series ticket's spec set after its first, as its ticket branch records it. */
+export interface SeriesRunChange {
+  ticketId: string;
+  revision: number;
+  /** What the revision names as its cause: an approval in a conversation, a run's revision, a re-cut demand… */
+  cause: string;
+  at: string;
+}
+
+/** 2026-11-23-31dcj: the answer of GET /api/series-runs/{id}/changes — newest first. */
+export interface SeriesRunChanges {
+  changes: SeriesRunChange[];
+  /** The tickets whose branch could not be read, so their changes are missing. */
+  unread: { ticketId: string; why: string }[];
+}
