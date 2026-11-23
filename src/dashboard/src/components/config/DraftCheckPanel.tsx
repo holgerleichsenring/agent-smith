@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
   checkConnectionDraft,
+  checkPocRegistryDraft,
   checkTrackerDraft,
   type DraftCheckReport,
+  type PocRegistrySetting,
   type StudioConnection,
   type StudioTracker,
 } from "@/lib/configApi";
@@ -15,9 +17,11 @@ import {
 // stopping point are the server's. Needs config.write and diagnostics.probe; a refusal shows as
 // the request's error.
 
+// 2026-11-23-933de: a PoC target's registry block too, with its own label and test id prefix.
 type Props =
   | { kind: "connections"; draft: StudioConnection }
-  | { kind: "trackers"; draft: StudioTracker };
+  | { kind: "trackers"; draft: StudioTracker }
+  | { kind: "poc-registry"; draft: PocRegistrySetting; label: string; help: string; testId: string };
 
 export function DraftCheckPanel(props: Props) {
   const [report, setReport] = useState<DraftCheckReport | null>(null);
@@ -43,7 +47,9 @@ export function DraftCheckPanel(props: Props) {
     const ask =
       props.kind === "connections"
         ? checkConnectionDraft(props.draft, controller.signal)
-        : checkTrackerDraft(props.draft, controller.signal);
+        : props.kind === "trackers"
+          ? checkTrackerDraft(props.draft, controller.signal)
+          : checkPocRegistryDraft(props.draft, controller.signal);
     ask
       .then(setReport)
       .catch((err: Error) => {
@@ -52,28 +58,31 @@ export function DraftCheckPanel(props: Props) {
       .finally(() => setRunning(false));
   };
 
+  const poc = props.kind === "poc-registry" ? props : null;
+  const id = poc?.testId ?? "draft-check";
   return (
-    <div className="field" data-testid="draft-check">
+    <div className="field" data-testid={id}>
       <label>
-        test <span className="help">checks this unsaved draft against its host; nothing is saved</span>
+        {poc ? poc.label : "test"}{" "}
+        <span className="help">{poc ? poc.help : "checks this unsaved draft against its host; nothing is saved"}</span>
       </label>
       <div className="picks">
-        <button type="button" className="pick" disabled={running} onClick={run} data-testid="draft-check-run">
-          {running ? "Testing…" : "Test"}
+        <button type="button" className="pick" disabled={running} onClick={run} data-testid={`${id}-run`}>
+          {running ? "Testing…" : poc ? poc.label : "Test"}
         </button>
       </div>
       {error && (
-        <div className="dsh-body" style={{ color: "var(--bad)" }} data-testid="draft-check-error">
+        <div className="dsh-body" style={{ color: "var(--bad)" }} data-testid={`${id}-error`}>
           {error}
         </div>
       )}
       {report && (
-        <ol className="flex flex-col gap-1" data-testid="draft-check-steps">
+        <ol className="flex flex-col gap-1" data-testid={`${id}-steps`}>
           {report.steps.map((step) => (
             <li
               key={step.key}
               className="dsh-body"
-              data-testid={`draft-check-step-${step.key}`}
+              data-testid={`${id}-step-${step.key}`}
               data-ok={step.ok}
               style={{ color: step.ok ? undefined : "var(--bad)" }}
             >

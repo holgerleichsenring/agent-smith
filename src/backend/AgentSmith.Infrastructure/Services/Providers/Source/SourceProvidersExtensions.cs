@@ -21,6 +21,9 @@ public static class SourceProvidersExtensions
         services.AddSingleton<IPrDiffProviderFactory, PrDiffProviderFactory>();
         services.AddSingleton<IHostSourceCloner, HostSourceCloner>();
         services.AddSingleton<IPipelineRunnerFactory, PipelineRunnerFactory>(); // 2026-11-18-3863e
+        services.AddSingleton<IContainerRegistryFactory, ContainerRegistryFactory>(); // 2026-11-23-933de
+        services.AddHttpClient(ContainerRegistryFactory.ClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
         return services;
     }
 }

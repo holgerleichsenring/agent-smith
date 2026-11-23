@@ -29,12 +29,18 @@ pocs:
   targets:
     - name: main
       source_repo: poc-src
+      # 2026-11-23-933de: required on every target.
+      registry:
+        login_server: pocregistry.azurecr.io
+        pull_user: poc-pull
+        pull_auth: poc_pull_token
   # 2026-11-23-933dc: required while PoCs are on; no lockfile in these ZIPs reaches it.
   scan:
     osv_image: ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4
 
 secrets:
   gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
+  poc_pull_token: ${AGENTSMITH_TEST_POC_PULL_TOKEN}
 
 skills:
   source: default

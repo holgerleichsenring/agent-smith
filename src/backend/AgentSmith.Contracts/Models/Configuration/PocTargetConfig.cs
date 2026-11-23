@@ -33,10 +33,13 @@ public sealed partial class PocTargetConfig
     /// <summary>The most live PoCs one person holds on this target; pocs.admin is not bound by it.</summary>
     public int PerPersonLimit { get; set; } = 3;
 
+    /// <summary>2026-11-23-933de: the container registry PoC images are read from. Required.</summary>
+    public PocRegistryConfig? Registry { get; set; }
+
     /// <summary>This target's value problems, one sentence each naming the key, the value and the reason.</summary>
     public IEnumerable<string> Problems() =>
         [.. NameProblems(), .. SourceRepoProblems(), .. new PocTargetFolders(this).Problems(), .. DomainProblems(),
-            .. LifetimeProblems()];
+            .. LifetimeProblems(), .. RegistryProblems()];
 
     private string Key(string field) => $"pocs.targets[].{field} of target '{Name}'";
 
@@ -76,6 +79,10 @@ public sealed partial class PocTargetConfig
             yield return $"{Key("per_person_limit")} is {PerPersonLimit}; it must be 1 or more, because 0 would let nobody "
                 + "but an admin import a PoC";
     }
+
+    private IEnumerable<string> RegistryProblems() => Registry is null
+        ? [$"{Key("registry")} is missing; name the container registry, because every PoC image is resolved and verified there"]
+        : Registry.Problems().Select(problem => $"{problem} (target '{Name}')");
 
     [GeneratedRegex("^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$")]
     private static partial Regex DnsLabel();

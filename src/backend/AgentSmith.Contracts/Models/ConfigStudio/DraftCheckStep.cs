@@ -15,6 +15,7 @@ public sealed record DraftCheckStep(string Key, string Label, bool Ok, string De
     public const string Repos = "repos";
     public const string Tickets = "tickets";
     public const string Time = "time";
+    public const string Values = "values"; // 2026-11-23-933de: the draft's own values, checked before any request
 
     public static DraftCheckStep Pass(string key, string detail) => new(key, LabelOf(key), true, detail);
 
@@ -28,6 +29,7 @@ public sealed record DraftCheckStep(string Key, string Label, bool Ok, string De
         Scope => "Scope",
         Repos => "Repositories",
         Tickets => "Open tickets",
+        Values => "Values",
         _ => "Time budget",
     };
 }

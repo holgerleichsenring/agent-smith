@@ -4,8 +4,8 @@ namespace AgentSmith.Application.Services.Configuration;
 
 /// <summary>
 /// 2026-11-23-933da: the one home of the pocs block's references to other entities — each target's source_repo names a
-/// catalog repo or a connection, and project_agent and project_tracker name configured ones. A settings singleton
-/// carries no reference edges, so a dangling name is found here at the load. Blocking while PoCs are on; advisory
+/// catalog repo or a connection, its registry's pull_auth names a catalog secret (2026-11-23-933de), and project_agent
+/// and project_tracker name configured ones. A settings singleton carries no reference edges, so a dangling name is found here at the load. Blocking while PoCs are on; advisory
 /// while off, because the form may be filled in before the switch is.
 /// </summary>
 public static class PocTargetReferences
@@ -28,6 +28,9 @@ public static class PocTargetReferences
         foreach (var target in pocs.Targets.Where(t => !string.IsNullOrWhiteSpace(t.SourceRepo) && !Resolves(t.SourceRepo, config)))
             yield return $"pocs.targets[].source_repo of target '{target.Name}' names '{target.SourceRepo}', which is neither "
                 + "a repos-catalog name nor connection/name of a configured connection";
+        foreach (var target in pocs.Targets.Where(t => t.Registry is { PullAuth.Length: > 0 } r && Dangling(r.PullAuth, config.Secrets.Keys)))
+            yield return $"{PocRegistryConfig.Key}.pull_auth of target '{target.Name}' names '{target.Registry!.PullAuth}', "
+                + "which is not a secret of the secrets catalog; add the pull-only token there";
     }
 
     private static bool Dangling(string? name, IEnumerable<string> known) =>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type HTMLAttributes } from "react";
-import type { ConfigEntityKind, RegistryEntry, StudioEntity } from "@/lib/configApi";
+import type { ConfigEntityKind, PocTargetSetting, RegistryEntry, StudioEntity } from "@/lib/configApi";
 import type {
   StudioAgent,
   StudioConnection,
@@ -35,6 +35,7 @@ export function EntityCard({
   catalog,
   onEdit,
   registries = [],
+  pocTargets = [],
   secretState = null,
 }: {
   kind: ConfigEntityKind;
@@ -43,6 +44,8 @@ export function EntityCard({
   onEdit: () => void;
   /** 2026-11-18-dafc: the registries setting, so a secret card can name the feeds using it. */
   registries?: RegistryEntry[];
+  /** 2026-11-23-933de: the PoC targets, so a secret card can name the targets whose registry pull token it is. */
+  pocTargets?: PocTargetSetting[];
   /** 2026-11-23-78d7: where this secret's value comes from; null while unknown or when the read failed. */
   secretState?: SecretValueState | null;
 }) {
@@ -93,7 +96,7 @@ export function EntityCard({
             <span className="ec-ic">{ENTITY_ICON[kind]}</span>
             <span className="ec-id row">
               <span className="ec-name">{entity.id}</span>
-              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} secretState={secretState} />
+              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} pocTargets={pocTargets} secretState={secretState} />
             </span>
           </button>
         ) : (
@@ -101,7 +104,7 @@ export function EntityCard({
             <div className="ec-ic">{ENTITY_ICON[kind]}</div>
             <div className="ec-id">
               <div className="ec-name">{entity.id}</div>
-              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} secretState={secretState} />
+              <SubLine kind={kind} entity={entity} catalog={catalog} registries={registries} pocTargets={pocTargets} secretState={secretState} />
             </div>
           </>
         )}
@@ -170,12 +173,14 @@ function SubLine({
   entity,
   catalog,
   registries,
+  pocTargets,
   secretState,
 }: {
   kind: ConfigEntityKind;
   entity: StudioEntity;
   catalog: ConfigCatalog;
   registries: RegistryEntry[];
+  pocTargets: PocTargetSetting[];
   secretState: SecretValueState | null;
 }) {
   const t = useT();
@@ -208,7 +213,7 @@ function SubLine({
     }
     case "secrets": {
       const s = entity as StudioSecret;
-      const used = secretUsers(catalog, registries, s.id);
+      const used = secretUsers(catalog, registries, s.id, pocTargets);
       const source = secretState ? secretSource(t, secretState) : null;
       return (
         <div className="ec-sub" data-testid={`config-secret-redaction-${s.id}`}>
@@ -240,8 +245,11 @@ export function secretSource(t: T, state: SecretValueState): string {
 
 // Which catalog entries reference this secret's env-name — real, client-derived
 // from the same catalog the pickers use — plus the registries whose token names it
-// (2026-11-18-dafc), as ${id} or the bare id, the way the loader resolves it.
-export function secretUsers(catalog: ConfigCatalog, registries: RegistryEntry[], id: string): string[] {
+// (2026-11-18-dafc), as ${id} or the bare id, the way the loader resolves it — plus the PoC targets whose container
+// registry pull token it is (2026-11-23-933de), matched the way the server folds secret names, ignoring case.
+export function secretUsers(
+  catalog: ConfigCatalog, registries: RegistryEntry[], id: string, pocTargets: PocTargetSetting[] = [],
+): string[] {
   const used: string[] = [];
   for (const a of catalog.agents) if (a.keySecret === id) used.push(a.id);
   for (const t of catalog.trackers) if (t.authSecret === id) used.push(t.id);
@@ -251,6 +259,9 @@ export function secretUsers(catalog: ConfigCatalog, registries: RegistryEntry[],
   for (const r of registries) {
     const token = r.token.trim();
     if (token === id || token === `\${${id}}`) used.push(`registry ${r.host}`);
+  }
+  for (const target of pocTargets) {
+    if (target.registry?.pullAuth.trim().toLowerCase() === id.toLowerCase()) used.push(`PoC target ${target.name}`);
   }
   return used;
 }

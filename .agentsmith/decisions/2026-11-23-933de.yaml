@@ -60,3 +60,43 @@ decisions:
     chose: "The ACR login-server shape accepts a domain-name-label hash suffix and the azurecr.us and azurecr.cn clouds"
     over: "<name>.azurecr.io only"
     reason: "Review round 2, 2026-11-23: ACR registries with a domain-name-label hash are <name>-<hash>.azurecr.io, and sovereign clouds use their own suffix; the realm rule is the same."
+  - category: Implementation
+    chose: "The registry problems are added in PocTargetConfig.Problems() (which PocsConfig.Problems() already calls per target), each suffixed with \"(target '<name>')\"; PocRegistryConfig.Problems() stays argument-free with keys 'pocs.targets[].registry.<field>'"
+    over: "A second per-target loop in PocsConfig.Problems(), or passing the target name into PocRegistryConfig.Problems()"
+    reason: "Same effect on load, save and import (SettingsBlockRule's PocsConfig arm needed no change); the target already knows its name and its other problems, and the registry block keeps the argument-free rule of every Problems()."
+  - category: Implementation
+    chose: "The registry type and the ACR login-server shape are checked in PocRegistryConfig.Problems(); an unknown type is refused there and again by ContainerRegistryFactory naming pocs.targets[].registry.type"
+    over: "A per-type validator registry"
+    reason: "One type exists; a second registry adds one shape arm and one factory arm. The factory refusal covers a block that never passed Problems()."
+  - category: Architecture
+    chose: "OciDistributionClient (HEAD + challenge) and OciRegistryReader (probe, resolve, exists over a repository prefix) are registry-independent; AcrContainerRegistry only maps the seam onto them and builds the reference"
+    over: "ACR logic inside the client"
+    reason: "'A second registry cheap': the next OCI registry is one class plus a factory arm and a login-server rule."
+  - category: Security
+    chose: "The first manifest HEAD goes out unsigned; only a 401 Bearer challenge whose realm passes the https + login-server-host rule gets the Basic pull credentials, at the realm; the reader also refuses an ImageReference whose registry is not the target's login server"
+    over: "Sending Basic on the first request; trusting the reference's registry"
+    reason: "Credentials go to no host before the realm check, and a reference for another registry cannot be answered with this one's manifests."
+  - category: Security
+    chose: "Registry calls use their own named HTTP client (container-registry) with automatic redirects off"
+    over: "The default client"
+    reason: "A redirect could carry a request to another host; the draft checks use the same setting for the same reason."
+  - category: Implementation
+    chose: "The token request asks with service=<challenge service> and scope=repository:<repo>:pull and reads access_token, then token, from the JSON answer; a non-2xx answer is 'token refused', a 2xx without a token is a refusal naming registry, repository and status"
+    over: "Reading only access_token"
+    reason: "ACR answers access_token, the distribution reference answers token (and both); either is a bearer."
+  - category: Implementation
+    chose: "Statuses: 200 found (digest from Docker-Content-Digest, refused unless it is a sha256 digest), 404 missing, 401/403 after the token denied; any other status and an unreachable host are ContainerRegistryException naming registry, repository and status or the HttpRequestError kind"
+    over: "Passing HttpRequestException through"
+    reason: "Its message may carry more than the spec allows a refusal to say; the error kind is enough to act on."
+  - category: Implementation
+    chose: "The draft check answers a DraftCheckReport (the connection and tracker check model) — a 'values' step for the draft's problems (new DraftCheckStep.Values), a 'secret' step, then a 'scope' step carrying the probe sentence, or a 'host' step with the refusal; DraftCheckPanel gains a poc-registry kind with its own label and test id"
+    over: "A probe-sentence-only answer and a new panel"
+    reason: "Reuses the studio's step display and the collector's 30 s budget; the probe sentence is the last step's detail."
+  - category: Implementation
+    chose: "The pull token picker lists the secrets catalog (PocsCatalog gains secrets); the pull mode is a radio pair with one help line each; a new target carries a default registry block (acr, repository pocs, pull_secret, empty login server, user and token)"
+    over: "Free text for the secret; no default block"
+    reason: "A catalog secret is the only valid pull_auth; a target without a block is refused, so a new one starts with the defaults the server applies."
+  - category: Implementation
+    chose: "The secret card matches a target's pull_auth ignoring case and lists it as 'PoC target <name>'; ConfigStudio fetches the registries and pocs settings independently, each failing alone"
+    over: "Exact-case match; one combined read"
+    reason: "Secret names fold case on the server (ConfigNames.Comparer); a refused pocs read (no PoCs permission) must not hide the feed users."

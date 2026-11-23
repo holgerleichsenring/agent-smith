@@ -1370,6 +1370,42 @@ export const messages = {
   "config.pocs.target.reminders.help": { en: "comma-separated, e.g. 14, 7, 1", de: "durch Kommas getrennt, z. B. 14, 7, 1" },
   "config.pocs.target.limit": { en: "PoCs per person", de: "PoCs pro Person" },
   "config.pocs.target.limit.help": { en: "admins have no limit", de: "für Admins gilt keine Grenze" },
+  "config.pocs.registry.title": { en: "Container registry", de: "Container-Registry" },
+  "config.pocs.registry.help": {
+    en: "Where this target's PoC images live, as <login server>/<repository>/<PoC>. Not the package feeds under Registries. Agent Smith only reads it, with a pull-only token.",
+    de: "Wo die PoC-Images dieses Ziels liegen, als <Login-Server>/<Repository>/<PoC>. Nicht die Paket-Feeds unter Registries. Agent Smith liest sie nur, mit einem Token, das nur pullen darf.",
+  },
+  "config.pocs.registry.type": { en: "Registry type", de: "Registry-Typ" },
+  "config.pocs.registry.loginServer": { en: "Login server", de: "Login-Server" },
+  "config.pocs.registry.loginServer.help": {
+    en: "<name>.azurecr.io, also with a -<hash> label or on .azurecr.us and .azurecr.cn",
+    de: "<Name>.azurecr.io, auch mit -<Hash>-Label oder auf .azurecr.us und .azurecr.cn",
+  },
+  "config.pocs.registry.repository": { en: "Repository prefix", de: "Repository-Präfix" },
+  "config.pocs.registry.repository.help": { en: "every PoC image goes under it", de: "alle PoC-Images liegen darunter" },
+  "config.pocs.registry.pullUser": { en: "Pull user", de: "Pull-Benutzer" },
+  "config.pocs.registry.pullUser.help": { en: "on ACR, the name of the repository-scoped token", de: "bei ACR der Name des repository-bezogenen Tokens" },
+  "config.pocs.registry.pullAuth": { en: "Pull token", de: "Pull-Token" },
+  "config.pocs.registry.pullAuth.help": {
+    en: "a secret holding a token that may only pull <prefix>/*; needed in both pull modes",
+    de: "ein Secret mit einem Token, das nur <Präfix>/* pullen darf; in beiden Pull-Modi nötig",
+  },
+  "config.pocs.registry.pullMode": { en: "How the cluster pulls", de: "Wie der Cluster pullt" },
+  "config.pocs.registry.pullMode.pull_secret": { en: "Deliver a pull secret", de: "Pull-Secret mitliefern" },
+  "config.pocs.registry.pullMode.pull_secret.help": {
+    en: "the pull token goes into each PoC namespace as an imagePullSecret",
+    de: "das Pull-Token kommt als imagePullSecret in jeden PoC-Namespace",
+  },
+  "config.pocs.registry.pullMode.cluster_pulls": { en: "Cluster can already pull", de: "Cluster kann schon pullen" },
+  "config.pocs.registry.pullMode.cluster_pulls.help": {
+    en: "the target cluster has its own access to the registry; no pull secret is delivered",
+    de: "der Ziel-Cluster hat eigenen Zugriff auf die Registry; es wird kein Pull-Secret mitgeliefert",
+  },
+  "config.pocs.registry.test": { en: "Test connection", de: "Verbindung testen" },
+  "config.pocs.registry.test.help": {
+    en: "checks the values in this form, PoCs on or off; nothing is saved",
+    de: "prüft die Werte in diesem Formular, ob PoCs an sind oder nicht; nichts wird gespeichert",
+  },
   "config.pocs.archive.title": { en: "Archive", de: "Archiv" },
   "config.pocs.archive.help": {
     en: "The bounds an imported ZIP is checked against, and when replacing a PoC asks first.",

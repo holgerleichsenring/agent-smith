@@ -7,6 +7,7 @@ import type {
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
 import { CheckField, DrawerSection, NumberField, RefSelect, TextField, keep } from "./formFields";
+import { newPocRegistry, PocRegistryFields } from "./PocRegistryFields";
 
 // 2026-11-23-933da: the PoCs settings (agentsmith.yml pocs:) — the switch first, then the agent and tracker every
 // person's poc- project names, then the targets. Every field stays editable while the switch is off, so a target can
@@ -17,6 +18,8 @@ export interface PocsCatalog {
   trackers: StudioEntity[];
   repos: StudioEntity[];
   connections: StudioEntity[];
+  /** 2026-11-23-933de: the registry pull token is picked from the secrets catalog. */
+  secrets: StudioEntity[];
 }
 
 export const DOMAIN_PLACEHOLDER = "{app}.poc.example.internal";
@@ -42,7 +45,7 @@ export const OSV_IMAGE_PLACEHOLDER = "ghcr.io/google/osv-scanner@sha256:…";
 export function newPocTarget(): PocTargetSetting {
   return {
     name: "", sourceRepo: "", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
-    domainPattern: null, lifetimeDays: 90, reminderDays: [14, 7, 1], perPersonLimit: 3,
+    domainPattern: null, lifetimeDays: 90, reminderDays: [14, 7, 1], perPersonLimit: 3, registry: newPocRegistry(),
   };
 }
 
@@ -170,6 +173,8 @@ function PocTargetFields({ target, index, catalog, onChange }: {
       <ReminderDaysField value={target.reminderDays} testId={`${id}-reminders`} onChange={(v) => onChange({ reminderDays: v })} />
       <NumberField label={t("config.pocs.target.limit")} value={target.perPersonLimit} testId={`${id}-limit`}
         help={t("config.pocs.target.limit.help")} onChange={(v) => onChange({ perPersonLimit: keep(v, target.perPersonLimit) })} />
+      <PocRegistryFields registry={target.registry} secrets={catalog.secrets} testId={`${id}-registry`}
+        onChange={(registry) => onChange({ registry })} />
     </>
   );
 }

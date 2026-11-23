@@ -121,6 +121,7 @@ POST	/api/config/connections/{id}/discovery/refresh	diagnostics.probe	-
 POST	/api/config/design-sources	config.write	-
 POST	/api/config/import	config.import,secrets.write	-
 POST	/api/config/mcp-servers	config.write	-
+POST	/api/config/pocs/registry/check	config.write,diagnostics.probe	-
 POST	/api/config/projects	config.write	-
 POST	/api/config/projects/validate	config.write	-
 POST	/api/config/repos	config.write	-

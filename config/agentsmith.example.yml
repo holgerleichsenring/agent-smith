@@ -724,6 +724,17 @@ pocs:
   #    lifetime_days: 90
   #    reminder_days: [14, 7, 1]
   #    per_person_limit: 3
+  #    # 2026-11-23-933de: the CONTAINER registry PoC images are read from (required; the top-level
+  #    # registries: list is for package feeds). Agent smith holds one pull-only token: on ACR a
+  #    # repository-scoped token whose scope map grants pull on '<repository>/*'. Old images are the
+  #    # operator's scheduled purge (on ACR an ACR Task running acr purge); see Settings > PoCs.
+  #    registry:
+  #      type: acr
+  #      login_server: pocregistry.azurecr.io
+  #      repository: pocs
+  #      pull_user: poc-pull
+  #      pull_auth: poc_registry_pull_token
+  #      pull_mode: pull_secret   # or cluster_pulls when the cluster can already pull
   # 2026-11-23-933db: what an uploaded PoC archive is held to (defaults shown), and when an import
   # asks whether a ZIP is really the same PoC: more than mismatch_ratio_percent of the files AND
   # more than mismatch_file_limit of them differ, or the port or the entrypoint changed.

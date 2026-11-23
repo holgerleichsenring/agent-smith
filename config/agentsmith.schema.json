@@ -347,7 +347,7 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["name", "source_repo"],
+            "required": ["name", "source_repo", "registry"],
             "properties": {
               "name": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$", "description": "A DNS label, unique among the targets." },
               "source_repo": { "type": "string", "description": "One exact repo ref the PoC sources are committed to: a repos-catalog name or connection/name. A glob is refused." },
@@ -357,7 +357,21 @@
               "domain_pattern": { "type": ["string", "null"], "description": "A host name with exactly one {app}, e.g. {app}.poc.example.internal. No default." },
               "lifetime_days": { "type": "integer", "minimum": 1, "description": "How many days a PoC lives. Default 90." },
               "reminder_days": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "Days before expiry the owner is reminded, each below lifetime_days. Default [14, 7, 1]." },
-              "per_person_limit": { "type": "integer", "minimum": 1, "description": "The most live PoCs one person holds on this target; pocs.admin is not bound by it. Default 3." }
+              "per_person_limit": { "type": "integer", "minimum": 1, "description": "The most live PoCs one person holds on this target; pocs.admin is not bound by it. Default 3." },
+              "registry": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["login_server", "pull_user", "pull_auth"],
+                "description": "The CONTAINER registry PoC images are read from (not the top-level registries: list, which is for package feeds). Images are <login_server>/<repository>/<poc>. Agent smith holds one pull-only token and no push or delete credential.",
+                "properties": {
+                  "type": { "type": "string", "enum": ["acr"], "description": "The registry kind. Default acr (Azure Container Registry)." },
+                  "login_server": { "type": "string", "description": "The registry host, e.g. pocregistry.azurecr.io (also <name>-<hash>.azurecr.io, .azurecr.us, .azurecr.cn)." },
+                  "repository": { "type": "string", "description": "The repository prefix every PoC image lives under. Default pocs." },
+                  "pull_user": { "type": "string", "description": "The user of the pull-only token (on ACR the repository-scoped token's name)." },
+                  "pull_auth": { "type": "string", "description": "The secrets-catalog entry holding the pull-only token; its scope map grants pull on <repository>/*. Required with cluster_pulls too, because agent smith resolves and verifies images with it." },
+                  "pull_mode": { "type": "string", "enum": ["pull_secret", "cluster_pulls"], "description": "pull_secret (default): the token is delivered into each PoC namespace as an imagePullSecret. cluster_pulls: the target cluster can already pull." }
+                }
+              }
             }
           }
         }

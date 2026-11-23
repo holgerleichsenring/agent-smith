@@ -96,7 +96,8 @@ public sealed class SettingsRoundTripTests
 
         h.Store.SaveSetting("pocs", Doc("""
             {"enabled":true,"projectAgent":"a","projectTracker":"t","targets":[{"name":"main","sourceRepo":"gh/poc-src",
-            "domainPattern":"{app}.poc.example.internal","reminderDays":[7,1],"perPersonLimit":2}],
+            "domainPattern":"{app}.poc.example.internal","reminderDays":[7,1],"perPersonLimit":2,
+            "registry":{"type":"acr","loginServer":"pocregistry.azurecr.io","pullUser":"poc-pull","pullAuth":"poc_pull","pullMode":"cluster_pulls"}}],
             "scan":{"osvImage":"ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4"}}
             """), new ChangeAttribution("op"));
 
@@ -105,7 +106,25 @@ public sealed class SettingsRoundTripTests
         var target = pocs.Targets.Should().ContainSingle().Subject;
         (target.SourceRepo, target.Root, target.PerPersonLimit).Should().Be(("gh/poc-src", "pocs", 2));
         target.ReminderDays.Should().Equal(7, 1);
+        (target.Registry!.PullAuth, target.Registry.PullMode, target.Registry.Repository).Should().Be(("poc_pull", "cluster_pulls", "pocs"));
         Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("sourceRepo").GetString().Should().Be("gh/poc-src");
+        Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("registry").GetProperty("pullAuth").GetString()
+            .Should().Be("poc_pull");
+    }
+
+    // 2026-11-23-933de: a target without a registry block, or with a bad one, is never saved.
+    [Theory]
+    [InlineData("", "pocs.targets[].registry of target 'main' is missing")]
+    [InlineData(""","registry":{"loginServer":"registry.example.com","pullUser":"u","pullAuth":"s"}""", "pocs.targets[].registry.login_server")]
+    public void SaveSetting_PocsTargetWithoutOrWithABadRegistry_IsRefusedNamingTheKey(string registry, string expected)
+    {
+        using var h = new DbConfigTestHarness();
+
+        var save = () => h.Store.SaveSetting("pocs", Doc($$"""
+            {"enabled":false,"targets":[{"name":"main","sourceRepo":"gh/poc-src"{{registry}}}]}
+            """), new ChangeAttribution("op"));
+
+        save.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage($"*{expected}*");
     }
 
     // 2026-11-23-933db: the archive limits ride in the pocs singleton; a block without them reads as the defaults.

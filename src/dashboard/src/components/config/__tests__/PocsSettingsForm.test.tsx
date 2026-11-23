@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PocsSetting, SettingValue, StudioEntity } from "@/lib/configApi";
+import * as configApi from "@/lib/configApi";
 import { POC_ARCHIVE_DEFAULTS, POC_SCAN_DEFAULTS, PocsSettingsForm, type PocsCatalog } from "../PocsSettingsForm";
 
 // 2026-11-23-933da: the PoCs settings form edits the switch, the poc- projects' agent and tracker, and the targets,
@@ -10,6 +11,7 @@ import { POC_ARCHIVE_DEFAULTS, POC_SCAN_DEFAULTS, PocsSettingsForm, type PocsCat
 const entity = (id: string) => ({ id }) as StudioEntity;
 const CATALOG: PocsCatalog = {
   agents: [entity("claude")], trackers: [entity("jira")], repos: [entity("poc-source")], connections: [entity("github")],
+  secrets: [entity("poc_pull_token")],
 };
 const OFF: PocsSetting = {
   enabled: false, projectAgent: null, projectTracker: null, targets: [], archive: POC_ARCHIVE_DEFAULTS,
@@ -28,6 +30,10 @@ function Harness({ seen, start = OFF }: { seen: SettingValue[]; start?: PocsSett
 }
 
 describe("PocsSettingsForm", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("PocsSettingsForm_SwitchAndATarget_RoundTripToTheWireShape", () => {
     const seen: SettingValue[] = [];
     render(<Harness seen={seen} />);
@@ -47,6 +53,9 @@ describe("PocsSettingsForm", () => {
       targets: [{
         name: "main", sourceRepo: "github/poc-source", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
         domainPattern: "{app}.poc.example.internal", lifetimeDays: 90, reminderDays: [10, 2], perPersonLimit: 3,
+        registry: {
+          type: "acr", loginServer: "", repository: "pocs", pullUser: "", pullAuth: "", pullMode: "pull_secret",
+        },
       }],
       archive: POC_ARCHIVE_DEFAULTS,
       scan: POC_SCAN_DEFAULTS,
@@ -132,5 +141,38 @@ describe("PocsSettingsForm", () => {
     expect(saved.scan).toEqual(POC_SCAN_DEFAULTS);
     expect(saved.blockedRetentionDays).toBe(7);
     expect(saved.archive).toEqual(POC_ARCHIVE_DEFAULTS);
+  });
+
+  // 2026-11-23-933de: the registry section saves the pull token's secret id and the pull mode, and Test connection checks
+  // the values in the form, showing the server's steps.
+  it("PocsSettingsForm_Registry_SavesPullTokenAndMode_AndChecksTheFormValues", async () => {
+    const check = vi.spyOn(configApi, "checkPocRegistryDraft").mockResolvedValue({
+      ok: true,
+      steps: [
+        { key: "secret", label: "Secret", ok: true, detail: "Secret 'poc_pull_token' has a value." },
+        { key: "scope", label: "Scope", ok: true, detail: "The pull token reaches pocregistry.azurecr.io/pocs." },
+      ],
+    });
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-target-add"));
+    const id = "setting-pocs-target-0-registry";
+
+    fireEvent.change(screen.getByTestId(`${id}-login-server`), { target: { value: "pocregistry.azurecr.io" } });
+    fireEvent.change(screen.getByTestId(`${id}-pull-user`), { target: { value: "poc-pull" } });
+    fireEvent.change(screen.getByTestId(`${id}-pull-auth`), { target: { value: "poc_pull_token" } });
+    fireEvent.click(screen.getByTestId(`${id}-pull-mode-cluster_pulls`));
+
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    const registry = {
+      type: "acr", loginServer: "pocregistry.azurecr.io", repository: "pocs", pullUser: "poc-pull",
+      pullAuth: "poc_pull_token", pullMode: "cluster_pulls",
+    };
+    expect(saved.targets[0].registry).toEqual(registry);
+
+    fireEvent.click(screen.getByTestId(`${id}-check-run`));
+    expect(check).toHaveBeenCalledWith(registry, expect.anything());
+    expect(await screen.findByTestId(`${id}-check-step-scope`)).toHaveTextContent(
+      "The pull token reaches pocregistry.azurecr.io/pocs.");
   });
 });

@@ -96,7 +96,7 @@ public sealed class PocsConfigTests : IDisposable
 
         pocs.Problems().Should().HaveCount(3).And.Contain(p => p.Contains("reminder_days of target 'main' holds 10"))
             .And.Contain(p => p.Contains("reminder_days of target 'main' holds 0")).And.Contain(p => p.Contains("per_person_limit of target 'main' is 0"));
-        new PocsConfig { Targets = [new PocTargetConfig { Name = "x", SourceRepo = "r", LifetimeDays = 0, ReminderDays = [] }] }
+        new PocsConfig { Targets = [new PocTargetConfig { Name = "x", SourceRepo = "r", LifetimeDays = 0, ReminderDays = [], Registry = SoundRegistry() }] }
             .Problems().Should().ContainSingle().Which.Should().Contain("lifetime_days of target 'x' is 0");
     }
 
@@ -132,8 +132,20 @@ public sealed class PocsConfigTests : IDisposable
     internal static PocsConfig Sound() => new()
     {
         Enabled = true, ProjectAgent = "claude", ProjectTracker = "issues",
-        Targets = [new PocTargetConfig { Name = "main", SourceRepo = "gh/poc-src", DomainPattern = "{app}.poc.example.internal" }],
+        Targets =
+        [
+            new PocTargetConfig
+            {
+                Name = "main", SourceRepo = "gh/poc-src", DomainPattern = "{app}.poc.example.internal", Registry = SoundRegistry(),
+            },
+        ],
         Scan = new PocScanConfig { OsvImage = PinnedOsvImage },
+    };
+
+    /// <summary>2026-11-23-933de: a registry block every target needs.</summary>
+    internal static PocRegistryConfig SoundRegistry() => new()
+    {
+        LoginServer = "pocregistry.azurecr.io", PullUser = "poc-pull", PullAuth = "poc_pull_token",
     };
 
     internal const string PinnedOsvImage =
@@ -142,8 +154,11 @@ public sealed class PocsConfigTests : IDisposable
     private AgentSmithConfig Load(string yaml)
     {
         File.WriteAllText(_tempFile, yaml);
-        return new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(),
-            new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths()), new NoOpSystemEventPublisher())
-            .LoadConfig(_tempFile);
+        return LoadFile(_tempFile);
     }
+
+    internal static AgentSmithConfig LoadFile(string path) =>
+        new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(),
+            new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths()), new NoOpSystemEventPublisher())
+            .LoadConfig(path);
 }

@@ -386,6 +386,14 @@ export async function checkTrackerDraft(
   return sendJson<DraftCheckReport>("POST", `/api/config/trackers/check`, draft, signal);
 }
 
+/** 2026-11-23-933de: a PoC target's unsaved registry block — values, pull token, then whether it may pull the prefix. */
+export async function checkPocRegistryDraft(
+  draft: PocRegistrySetting,
+  signal?: AbortSignal,
+): Promise<DraftCheckReport> {
+  return sendJson<DraftCheckReport>("POST", `/api/config/pocs/registry/check`, draft, signal);
+}
+
 /** p0345c: one repo the discovery cache knows inside a connection. */
 export interface DiscoveredRepo {
   name: string;
@@ -1105,6 +1113,21 @@ export interface PocTargetSetting {
   lifetimeDays: number;
   reminderDays: number[];
   perPersonLimit: number;
+  /** 2026-11-23-933de: the container registry PoC images are read from; required, null on a target saved before it. */
+  registry: PocRegistrySetting | null;
+}
+
+export type PocPullMode = "pull_secret" | "cluster_pulls";
+
+/** 2026-11-23-933de: agentsmith.yml pocs.targets[].registry — a container registry (not the package-feed registries),
+ *  read with one pull-only token whose secret pullAuth names. */
+export interface PocRegistrySetting {
+  type: "acr";
+  loginServer: string;
+  repository: string;
+  pullUser: string;
+  pullAuth: string;
+  pullMode: PocPullMode;
 }
 
 /** 2026-11-23-933da: the PoCs feature (agentsmith.yml pocs:) — the switch, what every poc- project names, the targets. */

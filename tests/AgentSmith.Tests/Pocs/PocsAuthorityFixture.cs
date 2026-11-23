@@ -33,7 +33,14 @@ public class PocsAuthorityFixture : AuthorityFixture
     internal PocsConfig Pocs { get; } = new()
     {
         Enabled = true, ProjectAgent = "claude", ProjectTracker = "issues",
-        Targets = [new PocTargetConfig { Name = "main", SourceRepo = "gh/poc-src", DomainPattern = "{app}.poc.example.internal" }],
+        Targets =
+        [
+            new PocTargetConfig
+            {
+                Name = "main", SourceRepo = "gh/poc-src", DomainPattern = "{app}.poc.example.internal",
+                Registry = PocsConfigTests.SoundRegistry(),
+            },
+        ],
         Scan = new PocScanConfig { OsvImage = PocsConfigTests.PinnedOsvImage },
     };
 

@@ -30,6 +30,16 @@ describe("secretUsers", () => {
     expect(secretUsers(CATALOG, REGISTRIES, "FEED")).toEqual([]);
   });
 
+  // 2026-11-23-933de: a PoC target's registry pull token is a use too, read from the fetched pocs setting.
+  it("names a PoC target whose registry pull_auth is the secret", () => {
+    const targets = [
+      { name: "main", registry: { pullAuth: "POC_PULL" } },
+      { name: "legacy", registry: null },
+    ] as unknown as Parameters<typeof secretUsers>[3];
+    expect(secretUsers(CATALOG, REGISTRIES, "poc_pull", targets)).toEqual(["PoC target main"]);
+    expect(secretUsers(CATALOG, REGISTRIES, "OTHER", targets)).toEqual([]);
+  });
+
   it("keeps the catalog users", () => {
     expect(secretUsers(CATALOG, REGISTRIES, "JIRA_TOKEN")).toEqual(["jira"]);
   });
@@ -41,6 +51,12 @@ describe("secret card", () => {
       <EntityCard kind="secrets" entity={{ id: "FEED_TOKEN" }} catalog={CATALOG} onEdit={() => {}} registries={REGISTRIES} />,
     );
     expect(screen.getByTestId("config-secret-redaction-FEED_TOKEN")).toHaveTextContent("used by registry npm.example.com");
+  });
+
+  it("reads 'used by PoC target <name>' for a registry pull token", () => {
+    const targets = [{ name: "main", registry: { pullAuth: "POC_PULL" } }] as unknown as Parameters<typeof secretUsers>[3];
+    render(<EntityCard kind="secrets" entity={{ id: "POC_PULL" }} catalog={CATALOG} onEdit={() => {}} pocTargets={targets} />);
+    expect(screen.getByTestId("config-secret-redaction-POC_PULL")).toHaveTextContent("used by PoC target main");
   });
 
   // 2026-11-23-78d7: the card says where the value comes from.

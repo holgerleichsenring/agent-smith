@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Security;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,12 @@ internal static class ConfigDraftCheckEndpoints
         app.MapPost("/api/config/trackers/check",
             async ([FromBody] TrackerEntity draft, [FromServices] ITrackerDraftCheckRunner runner,
                 CancellationToken ct) => Results.Ok(await runner.RunAsync(draft, ct)))
+           .Needs(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
+
+        // 2026-11-23-933de: a PoC target's registry block, outside the PoCs switch, because a target is set up before it.
+        app.MapPost("/api/config/pocs/registry/check",
+            async ([FromBody] PocRegistryConfig draft, [FromServices] IPocRegistryDraftCheck check,
+                CancellationToken ct) => Results.Ok(await check.RunAsync(draft, ct)))
            .Needs(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
 
         return app;

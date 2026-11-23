@@ -36,6 +36,17 @@ public sealed class PocTargetReferencesTests
             .And.Contain(r => r.Contains("pocs.targets[].source_repo of target 'main' names 'gitlab/poc-src'"));
     }
 
+    // 2026-11-23-933de
+    [Fact]
+    public void PocTargetReferences_UnknownPullAuth_FindingNamingKey()
+    {
+        var pocs = PocsConfigTests.Sound();
+        pocs.Targets[0].Registry!.PullAuth = "GHOST_TOKEN";
+
+        PocTargetReferences.Findings(Config(pocs)).Should().ContainSingle().Which.Reason.Should()
+            .StartWith("pocs.targets[].registry.pull_auth of target 'main' names 'GHOST_TOKEN'").And.Contain("secrets catalog");
+    }
+
     [Fact]
     public void Findings_WhileOff_AreAdvisory()
     {
@@ -53,5 +64,6 @@ public sealed class PocTargetReferencesTests
         Trackers = new() { ["issues"] = new TrackerConnection() },
         Connections = new() { ["gh"] = new ResolvedConnection() },
         Repos = new() { ["poc-src"] = new RepoConnection() },
+        Secrets = new Dictionary<string, string> { ["poc_pull_token"] = "pull-value" },
     };
 }
