@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.201.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.200.0...v0.201.0) (2026-11-23)
+
+
+### Features
+
+* **holds:** one merge hold per series, your next step on the series page, CI read in every merge mode, ticket graph removed (2026-11-23-849e) ([7ab4053](https://github.com/holgerleichsenring/agent-smith/commit/7ab40531658abbc57cb8d2fe2383afdefbbf23d4))
+* **holds:** one merge hold per series, your next step, CI read in every merge mode (2026-11-23-849e) ([c6f8e53](https://github.com/holgerleichsenring/agent-smith/commit/c6f8e537e2640c4564d50dbe9f8dad3edc4710a3))
+
 ## [0.200.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.199.2...v0.200.0) (2026-11-23)
 
 
