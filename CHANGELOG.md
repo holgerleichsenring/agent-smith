@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.204.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.204.1...v0.204.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* **merge:** stacked drafts are found and published, a required build that never started reads as not started and is re-queued, Merge when CI is green, a refused merge stays on the series row (2026-11-23-0219) ([ba63609](https://github.com/holgerleichsenring/agent-smith/commit/ba63609577e5a86eaffede6b92f5dfa506a8933e))
+* **merge:** stacked PRs leave draft, required builds re-queued, merge when CI is green (2026-11-23-0219) ([e73f637](https://github.com/holgerleichsenring/agent-smith/commit/e73f63712675b308e7f954ef4ff780ecb5254955))
+
 ## [0.204.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.204.0...v0.204.1) (2026-11-23)
 
 
