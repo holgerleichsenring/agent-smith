@@ -1049,6 +1049,22 @@ export const messages = {
     en: "They move on by themselves. Nobody needs to do anything.",
     de: "Sie kommen von selbst weiter. Niemand muss etwas tun.",
   },
+  "series.changes.title": { en: "Changed in this series", de: "Geändert in dieser Serie" },
+  "series.changes.sub": {
+    en: "Specs that changed after a ticket's first cut, and why. You don't need to do anything.",
+    de: "Specs, die sich nach dem ersten Zuschnitt eines Tickets geändert haben, und warum. Nur zur Info, du musst nichts tun.",
+  },
+  "series.changes.loading": { en: "Reading the changes…", de: "Änderungen werden gelesen…" },
+  "series.changes.failed": { en: "The changes could not be read.", de: "Die Änderungen ließen sich nicht lesen." },
+  "series.changes.empty": {
+    en: "No ticket's specs changed after their first cut.",
+    de: "Bei keinem Ticket haben sich die Specs nach dem ersten Zuschnitt geändert.",
+  },
+  "series.changes.revision": { en: "rev {number}", de: "Rev. {number}" },
+  "series.changes.unread": {
+    en: "The branch of {ticket} could not be read, so its changes are missing: {why}",
+    de: "Der Branch von {ticket} ließ sich nicht lesen, seine Änderungen fehlen daher: {why}",
+  },
 } satisfies Record<string, MessageEntry>;
 
 export type MessageKey = keyof typeof messages;

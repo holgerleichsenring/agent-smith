@@ -7,7 +7,7 @@ import { seriesDetail } from "./seriesFixtures";
 // open the ticket page; its Conversation posts to the series' own conversation.
 
 const hoisted = vi.hoisted(() => ({
-  search: "", replace: vi.fn(), push: vi.fn(), fetch: vi.fn(),
+  search: "", replace: vi.fn(), push: vi.fn(), fetch: vi.fn(), changes: vi.fn(),
   dialog: { open: vi.fn(), send: vi.fn(), attach: vi.fn(), entries: [], working: false, readings: [], activity: [],
     workingSince: null, uploadNote: null, failure: null, awaitingProposal: null, question: null,
     view: { session: { sessionId: "conv-1" } } as unknown },
@@ -17,7 +17,10 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(hoisted.search),
   useRouter: () => ({ replace: hoisted.replace, push: hoisted.push }),
 }));
-vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRun: (...a: unknown[]) => hoisted.fetch(...a) }));
+vi.mock("@/lib/seriesRunsApi", () => ({
+  fetchSeriesRun: (...a: unknown[]) => hoisted.fetch(...a),
+  fetchSeriesRunChanges: (...a: unknown[]) => hoisted.changes(...a), // 2026-11-23-31dcj
+}));
 vi.mock("@/hooks/useSpecDialog", () => ({ useSpecDialog: () => hoisted.dialog }));
 
 import { SeriesRunPage } from "../SeriesRunPage";
@@ -29,6 +32,7 @@ beforeEach(() => {
   hoisted.dialog.open.mockReset();
   hoisted.dialog.send.mockReset();
   hoisted.fetch.mockReset().mockResolvedValue(seriesDetail());
+  hoisted.changes.mockReset().mockResolvedValue({ changes: [], unread: [] });
 });
 
 describe("SeriesRunPage", () => {
@@ -49,6 +53,20 @@ describe("SeriesRunPage", () => {
     expect(await screen.findByTestId("series-pane-talk")).toBeInTheDocument();
     expect(screen.queryByTestId("series-pane-tickets")).toBeNull();
     expect(screen.getByTestId("series-section-title")).toHaveTextContent("Conversation");
+  });
+
+  it("SeriesPage_ChangedInThisSeries_IsReadOnlyOnceWhatHoldsTheRestOpens", async () => {
+    const first = render(<SeriesRunPage id="sr-1" />);
+    expect(await screen.findByTestId("series-pane-next")).toBeInTheDocument();
+    expect(hoisted.changes).not.toHaveBeenCalled();
+    first.unmount();
+
+    hoisted.search = "section=held";
+    render(<SeriesRunPage id="sr-1" />);
+
+    expect(await screen.findByTestId("series-changes-empty")).toBeInTheDocument();
+    expect(hoisted.changes).toHaveBeenCalledTimes(1);
+    expect(hoisted.changes).toHaveBeenCalledWith("sr-1", expect.any(AbortSignal));
   });
 
   it("SeriesPage_TicketsRows_SortByDepth_AndOpenTheTicketPage", async () => {
