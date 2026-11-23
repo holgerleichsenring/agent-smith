@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.204.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.204.0...v0.204.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **series:** the merge now counts only for viewers who may merge (2026-11-23-8071) ([a9eab27](https://github.com/holgerleichsenring/agent-smith/commit/a9eab275a71ae8b8515162fce12ab8024aac31f5))
+* **series:** the merge now is the viewer's move only when they may merge (2026-11-23-8071) ([9fafc8b](https://github.com/holgerleichsenring/agent-smith/commit/9fafc8b858ed4f4446868a326608162eaa8fcdd0))
+
 ## [0.204.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.203.0...v0.204.0) (2026-11-23)
 
 
