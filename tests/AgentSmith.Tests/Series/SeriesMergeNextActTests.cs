@@ -44,7 +44,7 @@ public sealed class SeriesMergeNextActTests : IDisposable
             services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>();
             services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
                 .AddScoped<SeriesRunDetailReader>().AddScoped<SeriesMergeNextAct>().AddSingleton(_merges.Object);
-            services.AddScoped<SeriesRunEdges>().AddTransient<SeriesRunHolds>(); // 31dcf, 31dcg: the detail reads both
+            services.AddTransient<SeriesRunHolds>(); // 31dcg: the detail reads the holds
         });
         _h.Config.Projects["alpha"] = new()
         {

@@ -1,8 +1,9 @@
 import type { SeriesRunDetail, SeriesRunEdge, SeriesRunTicket } from "@/types/seriesRuns";
 
-// 2026-11-23-31dcf: where the Order and branches graph puts each ticket — one row band (lane) per repo in the project's
+// 2026-11-23-31dcf: where the series graph puts each ticket — one row band (lane) per repo in the project's
 // repo order, then one for tickets without a pull request yet; one column per depth, the order work can happen. A ticket
 // in more than one repo sits in its first and names the others. Within one lane and column tickets stack in series order.
+// 2026-11-23-f562: the graph is the Overview's; edges run orthogonally with slightly rounded corners, no curves.
 
 export const NODE_W = 150;
 export const NODE_H = 46;
@@ -70,16 +71,32 @@ export function seriesOrderLayout(detail: SeriesRunDetail): SeriesOrderLayout {
   return { lanes, nodes, lines: lines(detail.edges, nodes), width: LEFT + columns * COLUMN_W, height: y };
 }
 
-// A curve from the prerequisite's right edge to the dependent's left edge, for every edge whose two ends are drawn.
+/** The DOM id of a ticket's node, so its menu can give focus back to it. */
+export function seriesNodeId(ticketId: string): string {
+  return `sr-node-${ticketId.replace(/[^A-Za-z0-9-]/g, (c) => `_${c.charCodeAt(0)}_`)}`;
+}
+
+const CORNER = 6;
+const BEND_BEFORE = 12;
+
+/** An orthogonal path from (x1, y1) to (x2, y2): out horizontally, up or down just before the target's column, in
+ *  horizontally — its two corners rounded by a few pixels; a straight line when both ends are level. */
+export function orthogonalPath(x1: number, y1: number, x2: number, y2: number): string {
+  if (Math.abs(y2 - y1) < 1) return `M${x1},${y1} H${x2}`;
+  const bend = x2 - BEND_BEFORE;
+  const sign = y2 > y1 ? 1 : -1;
+  const r = Math.min(CORNER, Math.abs(y2 - y1) / 2, Math.max(0, bend - x1));
+  return `M${x1},${y1} H${bend - r} Q${bend},${y1} ${bend},${y1 + sign * r} V${y2 - sign * r} Q${bend},${y2} ${bend + r},${y2} H${x2}`;
+}
+
+// A path from the prerequisite's right edge to the dependent's left edge, for every edge whose two ends are drawn.
 function lines(edges: SeriesRunEdge[], nodes: SeriesNode[]): SeriesLine[] {
   const at = new Map(nodes.map((n) => [n.ticket.ticketId, n]));
   return edges.flatMap((edge) => {
     const from = at.get(edge.requiredTicketId);
     const to = at.get(edge.ticketId);
     if (!from || !to) return [];
-    const [x1, y1, x2, y2] = [from.x + NODE_W, from.y + NODE_H / 2, to.x, to.y + NODE_H / 2];
-    const mid = (x1 + x2) / 2;
-    return [{ edge, d: `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}` }];
+    return [{ edge, d: orthogonalPath(from.x + NODE_W, from.y + NODE_H / 2, to.x, to.y + NODE_H / 2) }];
   });
 }
 

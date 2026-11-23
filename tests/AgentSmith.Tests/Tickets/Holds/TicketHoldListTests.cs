@@ -34,7 +34,6 @@ public sealed class TicketHoldListTests : IDisposable
         {
             services.AddSingleton<ISeriesRunStore>(sp => _series.Bind(new SeriesRunRepository(sp.GetRequiredService<IServiceScopeFactory>())));
             services.AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>().AddScoped<SeriesRunDetailReader>();
-            services.AddSingleton<AgentSmith.Application.Services.Claim.GreenPrerequisites>().AddScoped<SeriesRunEdges>();
             services.AddTransient<SeriesRunHolds>();
         });
         _h.Config.Projects["alpha"] = new()
@@ -181,8 +180,8 @@ public sealed class TicketHoldListTests : IDisposable
 
         row.Hold.Should().NotBeNull().And.Be(page.Hold).And.Be(series.Tickets.Single(t => t.TicketId == "2").Hold);
         series.Tickets.Single(t => t.TicketId == "1").Hold!.Case.Should().Be(TicketHoldCases.MergeNext);
-        series.Counts.Held.Should().Be(1, "the failed ticket is held; the next merge is Merge next's");
-        series.Tickets.Select(t => (t.TicketId, t.IsHeld)).Should().BeEquivalentTo([("1", false), ("2", true)]);
+        series.Counts.Held.Should().Be(1, "the failed ticket is held; the next merge is not counted as held");
+        series.Tickets.Select(t => (t.TicketId, SeriesRunTicketView.Held(t.Hold))).Should().BeEquivalentTo([("1", false), ("2", true)]);
     }
 
     [Fact]

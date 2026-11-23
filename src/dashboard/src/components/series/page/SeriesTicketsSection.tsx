@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/hooks/useT";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunDetail } from "@/types/seriesRuns";
+import { SeriesChangesNotes } from "./SeriesChangesNotes";
 import { seriesTicketState } from "./seriesTicketState";
 
 // 2026-11-23-31dcd: every ticket of the series in the order it can happen (by depth, the series' order within one): key and title,
 // its repos, its state. A row opens the ticket's page; the key is the link, so Enter and a middle click work too.
+// 2026-11-23-f562: Changed in this series (31dcj) sits below the table, read when the pane opens.
 
 export function SeriesTicketsSection({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
@@ -32,6 +34,7 @@ export function SeriesTicketsSection({ detail }: { detail: SeriesRunDetail }) {
           })}
         </tbody>
       </table>
+      <SeriesChangesNotes detail={detail} />
     </>
   );
 }

@@ -36,11 +36,13 @@ describe("holdWords", () => {
   // says how many it waits for and which is next; a CI that ran past the minutes says how long and what to check.
   it("holdSentence_TheSeriesMerge_TheMergesAStartWaitsFor_AndAHungCi", () => {
     const merge = hold("merge_next", { next: "#19649", names: ["#19662", "#19665"], approves: true });
-    expect(holdSentence(merge)).toBe("Its pull request is next in the series' merge order. #19649 is next after it; merges are needed "
-      + "before #19662 and #19665 can start. Merging approves the pull request where its host requires a review, as agent-smith's "
+    expect(holdSentence(merge)).toBe("Its pull request is next in the series' merge order. #19649 is next after it. Needed so "
+      + "#19662 and #19665 can start. Merging approves the pull request where its host requires a review, as agent-smith's "
       + "configured identity, and asks the host to complete it once its rules pass.");
     expect(mergeTail(hold("merge_next", { next: "#2" }))).toBe("#2 is next after it.");
-    expect(mergeTail(hold("merge_next", { names: ["#9"] }), translator("de"))).toBe("Erst nach Merges können #9 starten.");
+    // 2026-11-23-f562: the ticket page says the needed-merge wording, not "erst nach weiteren Merges".
+    expect(mergeTail(hold("merge_next", { names: ["#9"] }), translator("de"))).toBe("Nötig, damit #9 starten kann.");
+    expect(mergeTail(hold("merge_next", { next: "#2", names: ["#9"] }), translator("de"))).toBe("Danach ist #2 dran. Nötig, damit #9 starten kann.");
     expect(mergeTail(hold("merge_next"))).toBeNull();
     const waits = hold("starts_on_merge", { addressee: "nobody", names: ["#19653"], merges: 5, next: "#19648" });
     expect(holdSentence(waits)).toBe("Waits for 5 merges, next #19648. Nothing for you to do.");

@@ -10,7 +10,7 @@ namespace AgentSmith.Server.Services.Series;
 /// 2026-11-23-31dcb: the series list — every series run of the scope's projects, newest activity first, each with its
 /// progress and the ticket that merges next. Set-based: one store read, one name read, and per project the fixed reads of
 /// <see cref="SeriesRunProjectReads"/>, never one per ticket. A series of a project no longer configured is left out.
-/// 2026-11-23-31dcg: its held count is the tickets What holds the rest lists, from the holds the ticket list reads.
+/// 2026-11-23-31dcg: its held count is the tickets whose hold names someone and is not the next merge, from the holds the ticket list reads.
 /// </summary>
 public sealed class SeriesRunOverviewReader(
     ISeriesRunStore store, TicketProjects projects, SeriesRunProjectReads reads, SeriesRunTickets tickets, SeriesRunNames names,
