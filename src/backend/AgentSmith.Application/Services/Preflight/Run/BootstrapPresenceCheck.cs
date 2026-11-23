@@ -29,7 +29,7 @@ public sealed class BootstrapPresenceCheck(RepoReadiness readiness) : IRunPrefli
         var run = RunBranchResolver.Resolve(pipeline);
         var verdicts = new List<(string Repo, RemoteBootstrapVerdict Verdict)>();
         foreach (var repo in repos)
-            verdicts.Add((repo.Name, await readiness.ReadForRunAsync(repo, run?.Name, run?.ParentTicketId, cancellationToken)));
+            verdicts.Add((repo.Name, await readiness.ReadForRunAsync(repo, run?.Name, run?.ParentFor(repo.Name), cancellationToken)));
         var incomplete = verdicts.Where(v => v.Verdict.State == RemoteBootstrapState.Incomplete).ToList();
         if (incomplete.Count > 0) return Missing(pipeline, run, incomplete);
         var unknown = verdicts.Where(v => v.Verdict.State == RemoteBootstrapState.Unknown).ToList();
@@ -49,8 +49,15 @@ public sealed class BootstrapPresenceCheck(RepoReadiness readiness) : IRunPrefli
         {
             Kind = RunEndKinds.BootstrapMissing,
             Detail = new EndDetail(project, [.. incomplete.Select(i => i.Repo)], "Initialise", project, "/config/projects",
-                run?.Name.Value, string.IsNullOrWhiteSpace(run?.ParentTicketId) ? null : run.ParentTicketId.Trim()),
+                run?.Name.Value, ParentsPerRepo: Parents(run, incomplete)), // 2026-11-23-31dca: each repo's own
         };
+    }
+
+    private static IReadOnlyDictionary<string, string>? Parents(RunBranch? run, List<(string Repo, RemoteBootstrapVerdict Verdict)> repos)
+    {
+        var parents = repos.Select(r => (r.Repo, Parent: run?.ParentFor(r.Repo)?.Trim())).Where(p => !string.IsNullOrWhiteSpace(p.Parent))
+            .ToDictionary(p => p.Repo, p => p.Parent!, StringComparer.Ordinal);
+        return parents.Count == 0 ? null : parents;
     }
 
     private RunPreflightFinding Unreadable(List<(string Repo, RemoteBootstrapVerdict Verdict)> unknown)

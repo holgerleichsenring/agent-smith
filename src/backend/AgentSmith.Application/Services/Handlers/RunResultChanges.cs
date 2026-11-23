@@ -72,7 +72,7 @@ public sealed class RunResultChanges(
         var union = new List<CodeChange>();
         foreach (var (key, sandbox) in sandboxes)
         {
-            var files = await TryReadAsync(sandbox, DeliveryBasis.For(pipeline), ct);
+            var files = await TryReadAsync(sandbox, DeliveryBasis.For(pipeline, repoName), ct);
             if (files is null)
                 notes.Add($"[changed-files] the branch in sandbox '{key}' could not be read; its files "
                     + "are this run's tool writes instead (diagnostic, not a gate)");

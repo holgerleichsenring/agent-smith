@@ -38,10 +38,9 @@ public sealed class RunContextInventory(
     private async Task<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>> PinnedAsync(
         PipelineContext pipeline, IReadOnlyList<RepoConnection> repos, string context, CancellationToken ct)
     {
-        var branches = ContextReadBranches.For(pipeline);
         var pinned = new Dictionary<string, IReadOnlyList<RemoteContextDiscovery>>(StringComparer.Ordinal);
-        foreach (var repo in repos)
-            pinned[repo.Name ?? string.Empty] = await resolver.ResolveContextAsync(repo, context, branches, ct);
+        foreach (var repo in repos) // 2026-11-23-31dca: each repo read at its own rung
+            pinned[repo.Name ?? string.Empty] = await resolver.ResolveContextAsync(repo, context, ContextReadBranches.For(pipeline, repo.Name), ct);
         return pinned;
     }
 }

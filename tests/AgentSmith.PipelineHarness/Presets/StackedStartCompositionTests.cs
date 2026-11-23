@@ -70,7 +70,8 @@ public sealed class StackedStartCompositionTests
         var (claim, refused) = await StackedBaseStamp.ApplyAsync(new ClaimRequest("github", Project, new TicketId("2"), PipelinePresets.CodeName),
             config, sp.GetRequiredService<UnmetTicketRequirements>(), default);
         refused.Should().BeNull();
-        claim.InitialContext![ContextKeys.StackedOnTicket].Should().Be("1", "the dependent's run is cut from and targets agent-smith/1");
+        claim.InitialContext![ContextKeys.StackedOnTicket].Should().BeEquivalentTo(new Dictionary<string, string> { ["filing-fixture"] = "1" },
+            "the dependent's run is cut from and targets agent-smith/1 in the repo 1 worked in (2026-11-23-31dca)");
 
         await StackedSeries.RunAsync(sp, "2", DependentPr);
         await harness.Services.GetRequiredService<TicketLandingRecorder>().RecordByHandAsync(project, "1", "sample.user", "merged", default);

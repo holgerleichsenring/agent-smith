@@ -73,10 +73,10 @@ public sealed class ForeignCommitProbe(
         PipelineContext pipeline, IReadOnlyList<RepoConnection> repos,
         IReadOnlyDictionary<string, string>? heads, CancellationToken ct)
     {
-        var parent = RunParentTicket.Of(pipeline);
         foreach (var repo in repos)
         {
             var name = repo.Name ?? string.Empty;
+            var parent = RunParentTicket.ForRepo(pipeline, name); // 2026-11-23-31dca: the repo's own rung
             var sandbox = targets.SandboxesForRepo(pipeline, repo).Select(m => m.Value).FirstOrDefault();
             if (sandbox is null) Skipped(name, "the run has no sandbox for it");
             else if (await ForeignSinceAsync(sandbox, name, heads?.GetValueOrDefault(name), parent, ct)) return true;

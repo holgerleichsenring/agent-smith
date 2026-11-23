@@ -117,5 +117,10 @@ public sealed class TicketListQueryCountTests(ITestOutputHelper output)
 
         public Task<bool> HasQueuedAsync(string project, string ticketId, CancellationToken cancellationToken) =>
             _inner.HasQueuedAsync(project, ticketId, cancellationToken);
+
+        public Task<IReadOnlyDictionary<string, IReadOnlySet<string>>> PullRequestReposAsync(
+            string project, IReadOnlyCollection<string> ticketIds, CancellationToken cancellationToken) =>
+            _inner.PullRequestReposAsync(project, ticketIds, cancellationToken); // 2026-11-23-31dca
+
     }
 }

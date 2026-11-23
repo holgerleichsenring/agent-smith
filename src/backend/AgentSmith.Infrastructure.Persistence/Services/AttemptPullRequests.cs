@@ -16,5 +16,12 @@ internal static class AttemptPullRequests
     public static bool OpenedAny(string? json) =>
         json is not null && (RunStoryJson.TryDeserialize<List<RunPullRequestView>>(json) ?? []).Any(Opened);
 
+    /// <summary>2026-11-23-97c2b: the attempt's pull request in the repo still stands on its branch — open, awaiting CI, left
+    /// open by a refused completion, or 2026-11-23-31dca armed to merge itself, which it has not done yet. A completed one
+    /// merged, and a host may have deleted its branch.</summary>
+    public static bool Stands(RunPullRequestView pr) =>
+        (PullRequestStatuses.IsOpen(pr.Status) || pr.Status is PullRequestStatuses.CompletionRefused or PullRequestStatuses.CompletionArmed)
+        && !string.IsNullOrEmpty(pr.Url);
+
     public static bool Opened(RunPullRequestView pr) => PullRequestStatuses.IsOpen(pr.Status) && !string.IsNullOrEmpty(pr.Url); // 3435b
 }

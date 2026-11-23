@@ -50,9 +50,8 @@ public sealed class CompletePullRequestsHandler(PullRequestMergeSequence merges,
     {
         var waiting = new List<string>();
         foreach (var entry in passed)
-            if (PullRequestTargets.For(context.Pipeline, entry.RepoName) is { } rung)
-                await completer.PublishAsync(context.Pipeline, entry, Providers.PullRequestCompletion.Refused(
-                    $"opened against '{rung.Value}', and merging it would land it there rather than on the default branch; left open"), ct);
+            if (PullRequestMergeSequence.RungRefusal(context.Pipeline, entry.RepoName) is { } rung)
+                await completer.PublishAsync(context.Pipeline, entry, Providers.PullRequestCompletion.Refused(rung), ct);
             else
             {
                 await completer.PublishStatusAsync(context.Pipeline, entry, PullRequestStatuses.AwaitingCi, null, ct);

@@ -76,9 +76,9 @@ public sealed class PipelineSandboxCoordinator(
         // this run works on (2026-10-12-6bfaa). `--context NAME` keeps its own resolution.
         var inventory = context.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
             ContextKeys.RemoteContextInventory, out var inv) ? inv : null;
-        var readBranches = ContextReadBranches.For(context);
         foreach (var repo in repos)
         {
+            var readBranches = ContextReadBranches.For(context, repo.Name); // 2026-11-23-31dca: the repo's own rung
             var discoveries = contextOverride is not null
                 ? await sandboxLanguageResolver.ResolveContextAsync(repo, contextOverride, readBranches, cancellationToken)
                 : inventory is not null && inventory.TryGetValue(repo.Name ?? string.Empty, out var cached)

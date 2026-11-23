@@ -51,7 +51,8 @@ public sealed class UnmetTicketRequirementsForStartManyTests
             var one = await Read().ForStartAsync(Configured(mode), key, default);
             many[key].HasRequirements.Should().Be(one.HasRequirements, key);
             many[key].Unmet.Should().Equal(one.Unmet, key);
-            many[key].StackedOn.Should().Be(one.StackedOn, key);
+            many[key].StackedPerRepo.Should().Equal(one.StackedPerRepo, key);
+            many[key].MergesToStart.Should().Equal(one.MergesToStart, key);
             many[key].GreenLifts.Should().Be(one.GreenLifts, key);
         }
     }
@@ -62,14 +63,14 @@ public sealed class UnmetTicketRequirementsForStartManyTests
         var many = await Read().ForStartManyAsync(Configured(RequiresStart.OnGreenPush),
             ["jira-10", "jira-11", "jira-12", "jira-13", "jira-14", "jira-15", "jira-16"], default);
 
-        many["jira-10"].StackedOn!.RequiredTicketId.Should().Be("1", "1 is green");
+        many["jira-10"].StackedPerRepo["api"].Should().Be("1", "1 is green");
         many["jira-11"].Unmet.Should().ContainSingle("2 is red");
         many["jira-12"].Unmet.Should().ContainSingle("3 carries a closed mark");
         many["jira-13"].Unmet.Should().BeEmpty("4 landed");
-        many["jira-13"].StackedOn.Should().BeNull();
+        many["jira-13"].StackedPerRepo.Should().BeEmpty();
         many["jira-14"].Unmet.Should().BeEmpty("14 started already and is not held again");
-        many["jira-15"].StackedOn!.RequiredTicketId.Should().Be("5", "5's chain reaches 1");
-        many["jira-16"].Unmet.Should().HaveCount(2, "1 and 6 are independent, so there is no tip");
+        many["jira-15"].StackedPerRepo["api"].Should().Be("5", "5's chain reaches 1");
+        many["jira-16"].Unmet.Should().HaveCount(2, "1 and 6 are independent and both worked in api, so there is no tip there");
     }
 
     [Fact]
@@ -91,7 +92,7 @@ public sealed class UnmetTicketRequirementsForStartManyTests
     [Fact]
     public async Task GreenPrerequisites_StartedAsync_NamesTheTicketsWithAnAttempt()
     {
-        var started = await new GreenPrerequisites(_facts, _attempts.Object, _facts).StartedAsync(TicketRequirementEdges.Project, ["14", "10"], default);
+        var started = await new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts).StartedAsync(TicketRequirementEdges.Project, ["14", "10"], default);
 
         started.Should().BeEquivalentTo(["14"]);
     }
@@ -99,22 +100,25 @@ public sealed class UnmetTicketRequirementsForStartManyTests
     [Fact]
     public async Task GreenReads_PrefetchAsync_ReadsEachPrerequisiteOnce()
     {
-        var reads = new GreenPrerequisites(_facts, _attempts.Object, _facts).Reads(TicketRequirementEdges.Project);
+        var reads = new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts).Reads(TicketRequirementEdges.Project);
 
         await reads.PrefetchAsync([Edge("10", "1"), Edge("15", "1")], default);
         await reads.PrefetchAsync([Edge("16", "1")], default);
-        var tip = await reads.TipAsync([Edge("16", "1")], requireGreen: true, default);
+        var notGreen = await reads.NotGreenAsync([Edge("16", "1")], default);
 
-        tip!.RequiredTicketId.Should().Be("1");
+        notGreen.Should().BeEmpty();
         _attempts.Verify(a => a.LatestEndsAsync(TicketRequirementEdges.Project, It.IsAny<IReadOnlyCollection<string>>(), default), Times.Once);
     }
 
     private UnmetTicketRequirements Read() =>
-        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts));
+        new(_facts, _facts, new InMemorySpecApprovalStore(), new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts));
 
     private void Attempt(string ticket, string status) =>
         _attempts.Setup(a => a.LatestAsync(TicketRequirementEdges.Project, ticket, null, default))
-            .ReturnsAsync(new PreviousAttempt("run-" + ticket, status, DateTimeOffset.UnixEpoch, Finished: true) { OpenedPullRequest = true });
+            .ReturnsAsync(new PreviousAttempt("run-" + ticket, status, DateTimeOffset.UnixEpoch, Finished: true)
+            {
+                OpenedPullRequest = true, PullRequestUrls = new Dictionary<string, string> { ["api"] = $"https://git.test/o/api/pull/{ticket}" },
+            });
 
     private static ResolvedProject Configured(RequiresStart mode) => new()
     {

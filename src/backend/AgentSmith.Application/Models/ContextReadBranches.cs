@@ -21,14 +21,14 @@ public sealed record ContextReadBranches(IReadOnlyList<BranchName> Candidates)
 
     public static ContextReadBranches ForBranch(BranchName branch) => new([branch]);
 
-    /// <summary>The branch the run checks out, then the rung it would be cut from.</summary>
-    public static ContextReadBranches For(PipelineContext pipeline)
+    /// <summary>The branch the run checks out, then the rung this repo would be cut from (2026-11-23-31dca: its own).</summary>
+    public static ContextReadBranches For(PipelineContext pipeline, string? repo)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (RunBranchResolver.Resolve(pipeline) is not { } run) return None;
         var candidates = new List<BranchName> { run.Name };
-        if (!string.IsNullOrWhiteSpace(run.ParentTicketId))
-            candidates.Add(TicketBranchNamer.Compose(new TicketId(run.ParentTicketId.Trim())));
+        if (run.ParentFor(repo) is { } parent && !string.IsNullOrWhiteSpace(parent))
+            candidates.Add(TicketBranchNamer.Compose(new TicketId(parent.Trim())));
         return new ContextReadBranches(candidates);
     }
 }

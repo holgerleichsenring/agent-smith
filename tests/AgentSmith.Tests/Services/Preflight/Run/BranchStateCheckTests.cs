@@ -64,6 +64,25 @@ public sealed class BranchStateCheckTests
         finding.Verdict.Should().Be(RunPreflightVerdict.Pass);
     }
 
+    // 2026-11-23-31dca: each sandbox counts beyond its own repository's parent — a stacked repo's rung, another its base.
+    [Fact]
+    public async Task BranchState_AStackedRun_CountsEachSandboxAgainstItsOwnRepositorysParent()
+    {
+        var server = new GitScriptSandbox("origin/develop", SandboxGitIdentity.Email, rung: "agent-smith/41");
+        var client = new GitScriptSandbox("origin/develop", SandboxGitIdentity.Email, rung: "agent-smith/41");
+        var pipeline = PipelineWith(server);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { ["server"] = server, ["client"] = client });
+        pipeline.Set<IReadOnlyDictionary<string, string>>(
+            ContextKeys.SandboxRepos, new Dictionary<string, string> { ["server"] = "server", ["client"] = "client" });
+        pipeline.Set<object>(ContextKeys.StackedOnTicket, new Dictionary<string, string> { ["server"] = "41" });
+
+        await Check().RunAsync(pipeline, CancellationToken.None);
+
+        server.RevList!.Args.Should().EndWith("origin/agent-smith/41");
+        client.RevList!.Args.Should().EndWith("origin/develop");
+    }
+
     [Fact]
     public void CountAuthored_CountsOnlyTheFrameworkIdentity()
     {
@@ -82,7 +101,7 @@ public sealed class BranchStateCheckTests
     }
 
     /// <summary>Answers origin/HEAD and the rev-list by command, so the base ladder runs for real.</summary>
-    private sealed class GitScriptSandbox(string? originHead, string revList) : ISandbox
+    private sealed class GitScriptSandbox(string? originHead, string revList, string? rung = null) : ISandbox
     {
         public string JobId => "git-script";
 
@@ -91,6 +110,8 @@ public sealed class BranchStateCheckTests
         public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
         {
             var args = step.Args ?? [];
+            if (args.Contains("--verify"))
+                return Answer(step, rung is not null && args[^1] == $"refs/remotes/origin/{rung}" ? 0 : 1, string.Empty);
             if (args.Contains("symbolic-ref"))
                 return Answer(step, originHead is null ? 128 : 0, originHead ?? string.Empty);
             if (args.Contains("rev-list"))

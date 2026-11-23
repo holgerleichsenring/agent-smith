@@ -22,11 +22,14 @@ namespace AgentSmith.Server.Services.Rework;
 /// <para>The new base is the next stack tip's branch, else the base the prerequisite's own pull request in that repo
 /// had (the providers read a merged pull request's base), else the repo's configured default branch. This class only
 /// READS; the moves run as a 'retarget' run (<see cref="PullRequestRetargetRun"/>).</para>
+/// <para>2026-11-23-97c2b: the next tip is chosen per repo — the next unlanded prerequisite with work in THAT repo — so a pull
+/// request never moves onto a branch its repo does not have; and a landed prerequisite anywhere in the chain counts, since a
+/// pull request stacked per repo may sit on a deeper prerequisite's branch.</para>
 /// </summary>
 public sealed class StackedPullRequestRetarget(
     ITicketRequirementStore requirements,
     ITicketLandingStore landings,
-    UnmetTicketRequirements unmet,
+    GreenPrerequisites green, // 2026-11-23-97c2b: the chain and the tip per repo
     IPreviousAttemptReader attempts,
     IActiveRunLease leases,
     ISourceProviderFactory sources,
@@ -39,12 +42,15 @@ public sealed class StackedPullRequestRetarget(
         ArgumentNullException.ThrowIfNull(project);
         if (attempt.PullRequestUrls.Count == 0) return 0;
         var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
-        var landed = await LandedBranchesAsync(project.Tracker.Name, key, ct);
-        if (landed.Count == 0 || await leases.GetByTicketAsync(project.Name, new TicketId(ticketId), ct) is not null) return 0;
-        var tip = (await unmet.ForStartAsync(project, key, ct)).StackedOn;
+        var edges = await requirements.RequiredOfAsync(project.Tracker.Name, key, ct);
+        if (edges.Count == 0 || await leases.GetByTicketAsync(project.Name, new TicketId(ticketId), ct) is not null) return 0;
+        var reads = green.Reads(project.Name);
+        var (landed, unmet) = await ChainAsync(reads, project.Tracker.Name, edges, ct);
+        if (landed.Count == 0) return 0;
+        var tips = unmet.Count == 0 ? new Dictionary<string, string>() : (await reads.StackPerRepoAsync(unmet, ct)).Bases;
         var moves = new List<PullRequestMove>();
         foreach (var (repo, url) in attempt.PullRequestUrls)
-            if (await MoveOfAsync(project, repo, url, landed, tip, ct) is { } move) moves.Add(move);
+            if (await MoveOfAsync(project, repo, url, landed, tips.GetValueOrDefault(repo), ct) is { } move) moves.Add(move);
         if (moves.Count == 0) return 0;
         (int? Moved, string? Ended) run;
         await using (var scope = scopes.CreateAsyncScope())
@@ -54,25 +60,26 @@ public sealed class StackedPullRequestRetarget(
         return moves.Count;
     }
 
-    // The branch of each landed requirement, keyed by the branch name a stacked pull request targets.
-    private async Task<Dictionary<string, TicketRequirementEdge>> LandedBranchesAsync(string tracker, string key, CancellationToken ct)
+    // The branch of each landed prerequisite of the ticket's chain — a pull request stacked per repo may sit on a deeper
+    // one's (2026-11-23-97c2b) — keyed by the branch name a stacked pull request targets; and the unlanded direct edges.
+    private async Task<(Dictionary<string, TicketRequirementEdge> Landed, IReadOnlyList<TicketRequirementEdge> Unmet)> ChainAsync(
+        GreenReads reads, string tracker, IReadOnlyList<TicketRequirementEdge> edges, CancellationToken ct)
     {
-        var edges = await requirements.RequiredOfAsync(tracker, key, ct);
-        if (edges.Count == 0) return [];
-        var landed = (await landings.LandedAsync(tracker, [.. edges.Select(e => e.RequiredTicketKey)], ct))
+        var chain = await reads.ChainAsync(edges, ct);
+        var landed = (await landings.LandedAsync(tracker, [.. chain.Select(e => e.RequiredTicketKey)], ct))
             .Select(l => l.TicketKey).ToHashSet(StringComparer.Ordinal);
-        return edges.Where(e => landed.Contains(e.RequiredTicketKey))
-            .DistinctBy(e => e.RequiredTicketKey, StringComparer.Ordinal)
-            .ToDictionary(e => TicketBranchNamer.Compose(new TicketId(e.RequiredTicketId)).Value, StringComparer.Ordinal);
+        return (chain.Where(e => landed.Contains(e.RequiredTicketKey))
+                .ToDictionary(e => TicketBranchNamer.Compose(new TicketId(e.RequiredTicketId)).Value, StringComparer.Ordinal),
+            [.. edges.Where(e => !landed.Contains(e.RequiredTicketKey))]);
     }
 
     private async Task<PullRequestMove?> MoveOfAsync(ResolvedProject project, string repo, string url,
-        IReadOnlyDictionary<string, TicketRequirementEdge> landed, TicketRequirementEdge? tip, CancellationToken ct)
+        IReadOnlyDictionary<string, TicketRequirementEdge> landed, string? tip, CancellationToken ct)
     {
         if (project.Repos.FirstOrDefault(r => r.Name == repo) is not { } connection) return null;
         var provider = sources.Create(connection);
         if (await provider.ReadPullRequestBaseAsync(url, ct) is not { } current || !landed.TryGetValue(current, out var edge)) return null;
-        var to = tip is not null ? TicketBranchNamer.Compose(new TicketId(tip.RequiredTicketId)).Value
+        var to = tip is not null ? TicketBranchNamer.Compose(new TicketId(tip)).Value
             : await LandedOnAsync(project.Name, edge, repo, provider, ct) ?? connection.DefaultBranch;
         if (!string.IsNullOrWhiteSpace(to) && to != current) return new PullRequestMove(repo, url, current, to);
         logger.LogWarning("{Url} sits on the landed branch '{Current}' but no base to move it to was found (no pull request "

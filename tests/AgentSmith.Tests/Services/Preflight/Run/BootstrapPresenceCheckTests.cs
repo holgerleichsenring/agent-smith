@@ -110,7 +110,8 @@ public sealed class BootstrapPresenceCheckTests
         var detail = (await RunAsync(slice)).Detail!;
 
         detail.Branch.Should().Be(TicketBranchNamer.Compose(new TicketId("43")).Value);
-        detail.ParentTicketId.Should().Be("42", "a release reads the repositories by the same rule, from the same inputs");
+        detail.ParentOf("web-api").Should().Be("42", "a release reads the repositories by the same rule, from the same inputs");
+        detail.ParentsPerRepo.Should().Equal(new Dictionary<string, string> { ["web-api"] = "42" }, "2026-11-23-31dca: per repo");
     }
 
     [Fact]
