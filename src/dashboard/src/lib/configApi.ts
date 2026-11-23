@@ -1083,6 +1083,8 @@ export interface TicketsSetting {
 /** 2026-11-16-f3fbc: how often stuck-on-precondition tickets are rechecked (agentsmith.yml preconditions:). */
 export interface PreconditionsSetting {
   recheckIntervalSeconds: number;
+  /** 2026-11-22-747dc: minutes before the server started an interrupted attempt may have ended and still be restarted; 0 = off. */
+  interruptedRestartWindowMinutes: number;
 }
 
 /** 2026-11-17-713ec: the branch-cleanup sweep (agentsmith.yml branch_cleanup:). */

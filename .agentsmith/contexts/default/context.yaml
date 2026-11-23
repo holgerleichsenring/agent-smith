@@ -91,6 +91,7 @@ integrations:
 
 state:
   done:
+    2026-11-22-747dc: "RESTART WINDOW SETTING (PreconditionsConfig, InterruptedRestartWindow, PreconditionsForm). preconditions.interrupted_restart_window_minutes (default 60, 0 off) bounds the automatic restart of interrupted attempts, measured from process start; a field in the settings UI, en + de. -> .agentsmith/specs/done/2026-11-22-747dc-restart-window-setting.yaml"
     2026-11-22-747db: "SERVER BOOT LISTEN FIRST (WorkerLauncher/AddWorker, JobsBroadcaster, /health/live, DatabaseMigrateMode, k8s+compose). The port binds first; every worker is built and started after it; probes split live/ready; the init container migrates from the server image. -> .agentsmith/specs/done/2026-11-22-747db-server-boot-listen-first.yaml"
     2026-11-22-747da: "DATA MIGRATION RUN ONCE (DataMigrationRunner, DataMigrationHistory, RunStoreMigrator, Infrastructure.Migration StoreMigrateRun). `database migrate` applies each data migration once and records it; the duplicate repair only while its index is pending; the three config-document migrations left the server start. -> .agentsmith/specs/done/2026-11-22-747da-data-migration-run-once.yaml"
     2026-11-22-6d85d: "UNBLOCKING MERGES NAMED (GreenReads.MergesToStartAsync, RequirementHold, RequiresUnmetGate, series ticket state, ticket list row). A held on_green_push ticket whose prerequisites are all green says 'starts once #A and #B are merged' on its series row, list row and refusal. -> .agentsmith/specs/done/2026-11-22-6d85d-series-unblocking-merges.yaml"

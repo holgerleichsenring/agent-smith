@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-22-747dc
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "The interrupted-run restart window is the setting preconditions.interrupted_restart_window_minutes (default 60) with a field in the settings UI"
+    over: "The constant InterruptedRestartWindow.Horizon"
+    reason: "Operator-approved as part of this series; the window is an installation's deploy gap, not a property of the code."
+  - category: Implementation
+    chose: "0 turns the automatic restart off; only a negative value is refused (value, reason, key named in Problems())"
+    over: "A lower bound of 1"
+    reason: "Reviewer: a floor needs a reason the operator would accept; there is none, while 'off' is a real choice. A person's Retry is unaffected."
+  - category: Implementation
+    chose: "The window measures from the PROCESS start and reads the setting from the configuration in force on every call (the pass passes its config, the series row reads it)"
+    over: "Capturing Since when the singleton is built"
+    reason: "Since 2026-11-22-747db workers are built after the listener, and a series row may first resolve the window hours later; a studio save must apply at the next pass without a restart."
+  - category: Implementation
+    chose: "The preconditions form's two labels and helps come from messages.ts (en + de, du)"
+    over: "Translating only the new field"
+    reason: "Reviewer: a half-translated form. The rest of the settings forms move in the dictionary's own series."
+  - category: Implementation
+    chose: "The series read loads the preconditions settings once and asks Covers per row with them; the key is declared in config/agentsmith.schema.json"
+    over: "A configuration load per ticket row"
+    reason: "Code review: the server's loader assembles the whole stored configuration per call; and the schema's additionalProperties:false refused the example file and every studio export."

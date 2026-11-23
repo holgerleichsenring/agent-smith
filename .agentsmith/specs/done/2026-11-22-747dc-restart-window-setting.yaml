@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-22-747dc
+goal: "The interrupted-run restart window is the setting preconditions.interrupted_restart_window_minutes (default 60) with a field in the settings UI."
+
+applies_to: "default (PreconditionsConfig, InterruptedRestartWindow); dashboard (PreconditionsForm, i18n)"
+
+requires: [2026-11-22-6d85c, 2026-11-16-f3fbc]
+
+facts:
+  - claim: "The window is a constant of one hour before process start."
+    evidence: "src/backend/AgentSmith.Server/Services/Preconditions/InterruptedRestartWindow.cs:12-18"
+  - claim: "The pass and the series row read the same window."
+    evidence: "src/backend/AgentSmith.Server/Services/Preconditions/InterruptedRestartPass.cs:27, src/backend/AgentSmith.Server/Services/Series/SeriesTicketFacts.cs:19,69-70"
+  - claim: "preconditions already carries recheck_interval_seconds with a lower-bound refusal and a dashboard field."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PreconditionsConfig.cs:11-21, src/dashboard/src/components/config/SweepSettingsForms.tsx:12-13"
+
+scope:
+  in: "PreconditionsConfig.InterruptedRestartWindowMinutes (default 60; 0 turns the automatic restart off; negative is refused, naming value, reason and key, in the same Problems() list). InterruptedRestartWindow records the process start once and computes Since per call from the configuration the caller holds (the pass's config, the series row's loaded config), so a studio save applies at the next pass. PreconditionsForm gets the field; its labels, the existing recheck label included, move to messages.ts (en + de, du); the block description in settings.ts and PreconditionsSetting in configApi.ts follow."
+  out: "Any other restart behaviour."
+
+steps:
+  - id: config
+    action: "Property, Problems() refusal, YAML/studio binding."
+  - id: window
+    action: "The window takes the configured minutes."
+  - id: ui
+    action: "configApi type, form field, i18n keys."
+
+tests:
+  - "PreconditionsConfigTests: default 60, binds, 0 is off, -1 refused naming the key."
+  - "InterruptedRestartTests: the window follows the setting."
+  - "PreconditionsForm test: the field changes interruptedRestartWindowMinutes."
+
+done:
+  - "An operator changes the window in the settings UI and the next pass uses it."

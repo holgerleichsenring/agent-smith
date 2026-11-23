@@ -62,7 +62,7 @@ export const SETTING_SUBTITLE: Record<SettingKey, string> = {
   dialogue: "hot-wait window and approval timeout for human dialogue",
   spec_review: "the file reads that re-check the citations of the spec a run enters",
   series: "how many specs a series holds and one attempt runs, and its budget for starting attempts by itself",
-  preconditions: "how often a ticket stuck on a precondition is checked again",
+  preconditions: "how often a ticket stuck on a precondition is checked again, and how far back an interrupted run is restarted by itself",
   branch_cleanup: "the sweep that deletes finished agent-smith branches, and how often it runs",
   tickets: "requires links on the tracker, the dependents wake and the pull-request re-read",
   skills: "where the skill catalog is resolved from",

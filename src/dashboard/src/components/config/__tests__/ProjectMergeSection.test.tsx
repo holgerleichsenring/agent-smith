@@ -84,9 +84,18 @@ describe("sweep settings", () => {
 
   it("preconditions patches its interval", () => {
     const onChange = vi.fn();
-    render(<PreconditionsForm value={{ recheckIntervalSeconds: 300 }} onChange={onChange} />);
+    render(<PreconditionsForm value={{ recheckIntervalSeconds: 300, interruptedRestartWindowMinutes: 60 }} onChange={onChange} />);
     fireEvent.change(screen.getByTestId("setting-preconditions-interval"), { target: { value: "120" } });
-    expect(onChange).toHaveBeenLastCalledWith({ recheckIntervalSeconds: 120 });
+    expect(onChange).toHaveBeenLastCalledWith({ recheckIntervalSeconds: 120, interruptedRestartWindowMinutes: 60 });
+  });
+
+  // 2026-11-22-747dc: the interrupted-run restart window, 0 turning it off.
+  it("preconditions patches its restart window", () => {
+    const onChange = vi.fn();
+    render(<PreconditionsForm value={{ recheckIntervalSeconds: 300, interruptedRestartWindowMinutes: 60 }} onChange={onChange} />);
+    expect(screen.getByText("Restart interrupted runs (minutes before start)")).toBeTruthy();
+    fireEvent.change(screen.getByTestId("setting-preconditions-restart-window"), { target: { value: "0" } });
+    expect(onChange).toHaveBeenLastCalledWith({ recheckIntervalSeconds: 300, interruptedRestartWindowMinutes: 0 });
   });
 });
 
