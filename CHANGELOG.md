@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.207.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.206.0...v0.207.0) (2026-11-24)
+
+
+### Features
+
+* **pocs:** PoCs: upload, scan, build, push and roll out via GitOps and Argo CD, plus a Deployments page (2026-11-23-933d, c81e, 8df6a) ([99f695e](https://github.com/holgerleichsenring/agent-smith/commit/99f695e7233408b346463e358f79b8d2187e3b29))
+* **refresh-base:** a conflicting pull request is brought up to date by itself, in every project (2026-11-24-297b) ([d8cc88b](https://github.com/holgerleichsenring/agent-smith/commit/d8cc88b813d3b8aedeb393c66a35e99d90b8095b))
+* **refresh-base:** a pull request its host says conflicts is brought up to date on its own, in every project (2026-11-24-297b) ([c3c02fa](https://github.com/holgerleichsenring/agent-smith/commit/c3c02fa582125726ad84525422c6b47d9be31264))
+
+
+### Bug Fixes
+
+* **refresh-base:** a landing asks again for a refresh at work before each launch (2026-11-24-297b) ([6041541](https://github.com/holgerleichsenring/agent-smith/commit/6041541120ff1bae294bf219ac94ad4ea16e5ceb))
+* **refresh-base:** the landing launch test waits on the suite's hang ceiling (2026-11-24-297b) ([d5914a7](https://github.com/holgerleichsenring/agent-smith/commit/d5914a75fba7ea6d8f1ca248be5d327a0110f2d5))
+
 ## [0.206.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.205.1...v0.206.0) (2026-11-24)
 
 
