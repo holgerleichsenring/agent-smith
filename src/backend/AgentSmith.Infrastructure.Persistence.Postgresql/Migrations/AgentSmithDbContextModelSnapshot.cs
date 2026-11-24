@@ -1247,6 +1247,16 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<bool?>("AutoCompleteArmed")
+                        .HasColumnType("boolean");
+
+                    b.Property<long?>("AutoCompleteLostAtTicks")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("AutoCompleteRearmedHead")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<long>("CheckedAtTicks")
                         .HasColumnType("bigint");
 

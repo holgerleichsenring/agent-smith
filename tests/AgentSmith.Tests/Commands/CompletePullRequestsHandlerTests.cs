@@ -418,6 +418,19 @@ public sealed class CompletePullRequestsHandlerTests
         result.Message.Should().Contain("a: 1 queued").And.Contain("c: 0 queued").And.Contain("nothing merges");
     }
 
+    // 2026-11-24-629ab: the CI loop's request for a dropped auto-complete arms it again and merges nothing, under manual too.
+    [Fact]
+    public async Task MergeGreen_ARearmRequest_ArmsAgain_AndMergesNothing()
+    {
+        var result = await RunAsync(new MergePolicyConfig(), passed: null, pipeline =>
+            pipeline.Set(ContextKeys.CiGreenMerge, new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42",
+                [new CiGreenPullRequest("a", "https://x/a/pull/1") { Rearm = true }, new CiGreenPullRequest("c", "https://x/c/pull/1") { Rearm = true }])));
+
+        _calls.Should().Equal("rearm https://x/a/pull/1");
+        _merged.Should().BeEmpty();
+        result.Message.Should().Contain("a: armed — set").And.Contain("c: refused — not armed, the repository is not in this run");
+    }
+
     private void Requires(params string[] required) =>
         _edges.Setup(e => e.RequiredOfAsync("gh", "github-42", It.IsAny<CancellationToken>())).ReturnsAsync([.. required.Select(r =>
             new TicketRequirementEdge("gh", "github-42", "42", "p", $"github-{r}", r, true, DateTimeOffset.UnixEpoch, "c-1"))]);
@@ -485,6 +498,12 @@ public sealed class CompletePullRequestsHandlerTests
                 _calls.Add($"requeue {url}");
                 return Task.FromResult(1);
             });
+        provider.As<IPullRequestAutoCompleteRearmer>().Setup(r => r.RearmAutoCompleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((url, _) =>
+            {
+                _calls.Add($"rearm {url}");
+                return Task.FromResult(PullRequestCompletion.Armed("set"));
+            });
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
         var events = new Mock<IEventPublisher>();
@@ -497,7 +516,8 @@ public sealed class CompletePullRequestsHandlerTests
             new UnmetTicketRequirements(_edges.Object, _landings.Object, Mock.Of<ISpecApprovalStore>()),
             new PullRequestDraftStep(factory.Object),
             new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance)), completer,
-            requeue: new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance));
+            requeue: new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance),
+            rearm: new PullRequestAutoCompleteRearm(factory.Object, NullLogger<PullRequestAutoCompleteRearm>.Instance));
         return await handler.ExecuteAsync(new CompletePullRequestsContext(policy, new BranchName("agent-smith/42"), repos, pipeline,
             "gh", "github-42", seriesBranch), CancellationToken.None);
     }

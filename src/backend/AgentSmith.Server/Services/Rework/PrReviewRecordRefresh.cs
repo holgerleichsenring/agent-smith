@@ -31,7 +31,7 @@ public sealed class PrReviewRecordRefresh(
     IPrReviewAuthorTrust trust,
     PrReviewEntryBuilder builder,
     PrRecordCiRead ci, CiGreenMerge ciMerge, CiRedNudge ciRed, // 2026-11-17-3435a/b/c
-    SeriesCiStart ciStart, CiBuildRequeue requeue, // 2026-11-24-f9c5d, 629aa
+    SeriesCiStart ciStart, CiBuildRequeue requeue, AutoCompleteRearm rearm, // 2026-11-24-f9c5d, 629aa, 629ab
     PrRecordTargetRead target, // 2026-11-22-6d85b
     ConflictBaseRefresh conflicts, // 2026-11-24-297b
     TicketLandingRecorder landing,
@@ -57,8 +57,8 @@ public sealed class PrReviewRecordRefresh(
         foreach (var pr in named.Where(n => IsDue(n, records.GetValueOrDefault(PrKey.Of(n.Url)), nudgedUrl)))
             changed |= await OneAsync(project, pr, records.GetValueOrDefault(PrKey.Of(pr.Url)), writer, once, ct);
         if (ciLoop && !await ciStart.AfterRefreshAsync(project, ticketId, ct) && !await requeue.AfterRefreshAsync(project, ticketId, ct)
-            && !await ciMerge.AfterRefreshAsync(project, ticketId, ct))
-            await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c, f9c5d, 629aa: a CI to start or queue again comes first
+            && !await rearm.AfterRefreshAsync(project, ticketId, ct) && !await ciMerge.AfterRefreshAsync(project, ticketId, ct))
+            await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c, f9c5d, 629aa/ab: a CI to start, queue or arm again comes first
         await landing.RecordMergedAsync(project, ticketId, ct);
         if (changed) await activity.ChangedAsync(project.Name, KeyOf(project, ticketId), ct);
     }
@@ -87,6 +87,7 @@ public sealed class PrReviewRecordRefresh(
             var entries = await builder.BuildAsync(PrKey.Of(pr.Url), repo.Type, state, notes, once, ct);
             var record = Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha, state.MergeSha);
             record.IsDraft = state.IsDraft && state.State == PrReviewStates.Open; // 2026-11-23-8d16
+            record.AutoCompleteArmed = state.State == PrReviewStates.Open ? state.AutoCompleteArmed : null; // 2026-11-24-629ab
             record.HasConflicts = state.State == PrReviewStates.Open ? state.HasConflicts : null; // 2026-11-24-6811a
             record.ConflictsAtTicks = record.HasConflicts == true ? record.CheckedAtTicks : null;
             await ci.ApplyAsync(project, states, record, stored, ct);

@@ -13,6 +13,7 @@ internal static class PrReviewRecordCopy
     public static void Record(PrReviewRecord read, PrReviewRecord stored)
     {
         var headMoved = read.HeadSha is { } head && stored.HeadSha is { } was && head != was; // 2026-11-24-297b
+        AutoComplete(read, stored, stored.HasConflicts == true || headMoved); // 2026-11-24-629ab: before the conflict is overwritten
         Stamp(read, stored);
         stored.Url = read.Url;
         stored.Repo = read.Repo;
@@ -60,6 +61,20 @@ internal static class PrReviewRecordCopy
         }
         stored.ConflictsAtTicks = conflicts ? stored.ConflictsAtTicks ?? read.ConflictsAtTicks ?? read.CheckedAtTicks : null;
         stored.HasConflicts = conflicts;
+    }
+
+    // 2026-11-24-629ab: auto-complete that was set and is gone is recorded lost — dropped at a conflict — when the pull request
+    // conflicts now or at the read before, or its head moved (a refresh that pushed before any read saw the conflict). Gone from
+    // an unmoved head that does not conflict, even undecided, is a person's cancel and is never armed again. Set again or an
+    // ended pull request clears the loss; a host that does not say keeps what was stored.
+    private static void AutoComplete(PrReviewRecord read, PrReviewRecord stored, bool conflictedOrMoved)
+    {
+        if (PrReviewStates.IsEnded(read.State)) { stored.AutoCompleteArmed = null; stored.AutoCompleteLostAtTicks = null; return; }
+        if (read.AutoCompleteArmed is not { } armed) return;
+        if (armed) stored.AutoCompleteLostAtTicks = null;
+        else if (stored.AutoCompleteArmed == true)
+            stored.AutoCompleteLostAtTicks = read.HasConflicts == true || conflictedOrMoved ? read.CheckedAtTicks : null;
+        stored.AutoCompleteArmed = armed;
     }
 
     // 2026-10-15-114fc: taken before the columns are overwritten; a read without a sha neither moves nor erases the head.

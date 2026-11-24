@@ -70,6 +70,7 @@ internal sealed class PrReviewRefreshHarness : IDisposable
         new CiRedNudge(Store.ScopeFactory, Attempts.Object, Store.Services.GetRequiredService<IReworkNudges>()),
         new SeriesCiStart(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object, Clock), // 2026-11-24-f9c5d
         new CiBuildRequeue(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object, Clock), // 2026-11-24-629aa
+        new AutoCompleteRearm(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object), // 2026-11-24-629ab
         new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance), Conflicts(),
         Recorder(), Activity.Object, Clock,
         NullLogger<PrReviewRecordRefresh>.Instance);

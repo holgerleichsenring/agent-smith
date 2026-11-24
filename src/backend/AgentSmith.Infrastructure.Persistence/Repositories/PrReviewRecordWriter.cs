@@ -43,6 +43,11 @@ public sealed class PrReviewRecordWriter(IUnitOfWork unitOfWork, IUniqueViolatio
         unitOfWork.Set<PrReviewRecord>().Where(r => r.PrKey == prKey)
             .ExecuteUpdateAsync(s => s.SetProperty(r => r.CiActed, acted), ct);
 
+    /// <summary>2026-11-24-629ab: the head the CI loop armed auto-complete again on; written apart from a read.</summary>
+    public Task MarkRearmedAsync(string prKey, string head, CancellationToken ct) =>
+        unitOfWork.Set<PrReviewRecord>().Where(r => r.PrKey == prKey)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.AutoCompleteRearmedHead, head), ct);
+
     /// <summary>
     /// 2026-11-23-97c2a: forgets what the CI merge acted on for the ticket's pull requests with green or no CI, so the next
     /// refresh asks the merge once more — a ticket it requires landed, and the merge it refused may pass now. A red verdict

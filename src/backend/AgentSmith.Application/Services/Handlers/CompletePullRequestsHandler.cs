@@ -22,10 +22,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <para>2026-11-24-f9c5d: the CI loop's request for pull requests into a series branch that report no CI first starts their
 /// CI (<see cref="PullRequestCiStart"/>), under merge.series_when manual too; the merge follows only when none has CI anywhere.</para>
 /// <para>2026-11-24-629aa: the CI loop's request for pull requests whose required build has not started queues those builds
-/// again (<see cref="PullRequestBuildRequeue"/>) under every merge mode and merges nothing.</para>
+/// again (<see cref="PullRequestBuildRequeue"/>) under every merge mode and merges nothing. 2026-11-24-629ab: likewise its request
+/// for pull requests whose auto-complete the host dropped at a conflict arms it again (<see cref="PullRequestAutoCompleteRearm"/>).</para>
 /// </summary>
 public sealed class CompletePullRequestsHandler(
-    PullRequestMergeSequence merges, PullRequestCompleter completer, PullRequestCiStart? ciStart = null, PullRequestBuildRequeue? requeue = null)
+    PullRequestMergeSequence merges, PullRequestCompleter completer, PullRequestCiStart? ciStart = null, PullRequestBuildRequeue? requeue = null,
+    PullRequestAutoCompleteRearm? rearm = null)
     : ICommandHandler<CompletePullRequestsContext>
 {
     public async Task<CommandResult> ExecuteAsync(CompletePullRequestsContext context, CancellationToken cancellationToken)
@@ -33,6 +35,7 @@ public sealed class CompletePullRequestsHandler(
         ArgumentNullException.ThrowIfNull(context);
         var green = context.Pipeline.TryGet<CiGreenMergeRequest>(ContextKeys.CiGreenMerge, out var asked) ? asked : null;
         if (green is not null && green.PullRequests.Any(p => p.NotStarted)) return await RequeueAsync(context, green, cancellationToken);
+        if (green is not null && green.PullRequests.Any(p => p.Rearm)) return await RearmAsync(context, green, cancellationToken);
         if (green is not null && ciStart is not null && await ciStart.StartAsync(context, green, cancellationToken) is { MayMerge: false } started)
             return CommandResult.Ok($"CI for the series pull requests — {started.Said}; nothing merges until it reports.");
         if (context.Policy.When == MergeWhen.Manual && green?.AskedBy is null)
@@ -65,6 +68,19 @@ public sealed class CompletePullRequestsHandler(
         var said = new List<string>();
         foreach (var pr in request.PullRequests.Where(p => p.NotStarted)) said.Add($"{pr.Repo}: {await QueuedAsync(context, pr, ct)} queued");
         return CommandResult.Ok($"required builds that had not started, queued again — {string.Join("; ", said)}; nothing merges.");
+    }
+
+    // 2026-11-24-629ab: each pull request's auto-complete armed again, as the host answered; nothing merges here.
+    private async Task<CommandResult> RearmAsync(CompletePullRequestsContext context, CiGreenMergeRequest request, CancellationToken ct)
+    {
+        var said = new List<string>();
+        foreach (var pr in request.PullRequests.Where(p => p.Rearm))
+        {
+            var answer = rearm is not null && context.Configs.FirstOrDefault(r => r.Name == pr.Repo) is { } repo
+                ? await rearm.RearmAsync(repo, pr.Url, ct) : Providers.PullRequestCompletion.Refused("not armed, the repository is not in this run");
+            said.Add($"{pr.Repo}: {answer.Outcome.ToString().ToLowerInvariant()}{(answer.Reason is { } why ? $" — {why}" : string.Empty)}");
+        }
+        return CommandResult.Ok($"auto-complete the host dropped at a conflict, armed again — {string.Join("; ", said)}");
     }
 
     private async Task<int> QueuedAsync(CompletePullRequestsContext context, CiGreenPullRequest pr, CancellationToken ct) =>

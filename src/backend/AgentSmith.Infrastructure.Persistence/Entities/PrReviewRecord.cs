@@ -78,4 +78,14 @@ public sealed class PrReviewRecord : EntityBase, IProjectOwned
 
     /// <summary>2026-11-24-6811a: the check time of the read that first saw the conflict; null while it does not conflict.</summary>
     public long? ConflictsAtTicks { get; set; }
+
+    /// <summary>2026-11-24-629ab: the newest read saw auto-complete set (true) or not (false); null when the host does not say.</summary>
+    public bool? AutoCompleteArmed { get; set; }
+
+    /// <summary>2026-11-24-629ab: the check time of the read that found auto-complete gone while the pull request conflicted
+    /// (then or at the read before); null when nothing was lost, it is armed again, or a person took it off cleanly.</summary>
+    public long? AutoCompleteLostAtTicks { get; set; }
+
+    /// <summary>2026-11-24-629ab: the head the CI loop armed auto-complete again on; written apart from a read.</summary>
+    public string? AutoCompleteRearmedHead { get; set; }
 }
