@@ -1148,6 +1148,65 @@ export interface PocTargetSetting {
   build?: PocBuildSetting | null;
   /** 2026-11-23-933dg: how a PoC's secret variables and pull secret are sealed; absent reads as the defaults. */
   secrets?: PocSecretsSetting | null;
+  /** 2026-11-23-c81eb: how its PoCs are reached, put behind auth and confined; each absent block reads as the defaults
+   *  and is always sent back, because a save without it resets it on the server. */
+  ingress?: PocIngressSetting | null;
+  auth?: PocAuthSetting | null;
+  network?: PocNetworkSetting | null;
+  quota?: PocQuotaSetting | null;
+  container?: PocContainerSetting | null;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].ingress — the ingress class and an optional cert-manager issuer. */
+export interface PocIngressSetting {
+  class: string | null;
+  tlsIssuer: string | null;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].auth — the annotations set on every PoC's Ingress, verbatim. */
+export interface PocAuthSetting {
+  ingressAnnotations: Record<string, string>;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].network — what each PoC's NetworkPolicy admits. */
+export interface PocNetworkSetting {
+  ingressControllerNamespace: string | null;
+  dnsNamespace: string;
+  dnsPodLabels: Record<string, string>;
+  egressProxy: PocEgressProxySetting;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].network.egress_proxy — named by namespace + pod labels or by cidr. */
+export interface PocEgressProxySetting {
+  url: string | null;
+  port: number;
+  namespace: string | null;
+  podLabels: Record<string, string>;
+  cidr: string | null;
+  noProxy: string;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].quota — each PoC namespace's ResourceQuota, Kubernetes quantities. */
+export interface PocQuotaSetting {
+  cpu: string;
+  memory: string;
+  pods: number;
+  ephemeralStorage: string;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].container — the PoC container's requests and limits. */
+export interface PocContainerSetting {
+  cpuRequest: string;
+  cpuLimit: string;
+  memoryRequest: string;
+  memoryLimit: string;
+  ephemeralLimit: string;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.gitops — how a PoC's manifests are committed. */
+export interface PocGitOpsSetting {
+  commitAttempts: number;
+  maxFolderFiles: number;
 }
 
 /** 2026-11-23-933dg: agentsmith.yml pocs.targets[].secrets — the sealing provider (only sealed_secrets) and the Sealed
@@ -1208,6 +1267,8 @@ export interface PocsSetting {
   blockedRetentionDays: number;
   /** 2026-11-23-933dg: the bounds a PoC's variables are checked against. */
   variables: PocVariablesSetting;
+  /** 2026-11-23-c81eb: how a PoC's manifests are committed to its deploy folder. */
+  gitops: PocGitOpsSetting;
 }
 
 /** 2026-11-23-933dc: agentsmith.yml pocs.scan — the OSV-Scanner image pinned by digest and what blocks. */

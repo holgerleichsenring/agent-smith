@@ -34,6 +34,20 @@ pocs:
         login_server: pocregistry.azurecr.io
         pull_user: poc-pull
         pull_auth: poc_pull_token
+      # 2026-11-23-c81eb: required while pocs.enabled is true.
+      domain_pattern: "{app}.poc.example.internal"
+      ingress:
+        class: nginx
+      auth:
+        ingress_annotations:
+          nginx.ingress.kubernetes.io/auth-url: https://auth.poc.example.internal/oauth2/auth
+      network:
+        ingress_controller_namespace: ingress-nginx
+        egress_proxy:
+          url: http://egress-proxy.egress.svc.cluster.local:3128
+          namespace: egress
+          pod_labels:
+            app: egress-proxy
   # 2026-11-23-933dg: scan.osv_image and scan.trivy_image are left to their pinned defaults.
 
 secrets:

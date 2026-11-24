@@ -32,6 +32,7 @@ public sealed class PocConfiguration : IEntityTypeConfiguration<Poc>
         builder.Property(p => p.OwnerName).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(p => p.State).HasMaxLength(32);
         builder.Property(p => p.ImageDigest).HasMaxLength(ImageDigestLength);
+        builder.Property(p => p.ReadinessPath).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(p => p.LastRunId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(p => p.SealFingerprint).HasMaxLength(SealFingerprintLength);
         builder.HasIndex(p => new { p.Target, p.LiveName }).IsUnique();

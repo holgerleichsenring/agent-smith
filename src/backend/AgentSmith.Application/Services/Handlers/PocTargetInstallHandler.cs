@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Pocs;
+using AgentSmith.Application.Services.Pocs.GitOps;
 using AgentSmith.Application.Services.Pocs.Pipeline;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Models;
@@ -10,8 +11,10 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-11-23-933dd: the step of a poc-target-install run — renders the build pipeline for the host of the target's
 /// source repo and puts it on the default branch in one checkout-free write (<see cref="PocPipelineWrite"/>). The c81e
 /// series extends this step with the app template and the ApplicationSet.
+/// <para>2026-11-23-c81eb: then writes the default app template's absent files (<see cref="PocAppTemplateWrite"/>).</para>
 /// </summary>
-public sealed class PocTargetInstallHandler(PocsConfigSource config, PocSourceRepos repos, PocPipelineTemplate template, PocPipelineWrite write)
+public sealed class PocTargetInstallHandler(
+    PocsConfigSource config, PocSourceRepos repos, PocPipelineTemplate template, PocPipelineWrite write, PocAppTemplateWrite appTemplate)
     : ICommandHandler<PocTargetInstallContext>
 {
     public async Task<CommandResult> ExecuteAsync(PocTargetInstallContext context, CancellationToken cancellationToken)
@@ -24,6 +27,9 @@ public sealed class PocTargetInstallHandler(PocsConfigSource config, PocSourceRe
         if (repo is null) return CommandResult.Fail(unresolved!);
         var (file, refused) = template.Render(repo.Type, PocPipelineValues.Of(target, all.Pocs.Scan));
         if (file is null) return CommandResult.Fail($"The build pipeline of target '{target.Name}' was not written: {refused}.");
-        return await write.WriteAsync(repo, target, file, cancellationToken);
+        var pipeline = await write.WriteAsync(repo, target, file, cancellationToken);
+        if (!pipeline.IsSuccess) return pipeline;
+        var (written, said) = await appTemplate.WriteAsync(repo, target, all.Pocs.Gitops.MaxFolderFiles, cancellationToken);
+        return written ? CommandResult.Ok($"{pipeline.Message} {said}") : CommandResult.Fail($"{pipeline.Message} {said}");
     }
 }

@@ -56,7 +56,8 @@ public static class RunProjectionsExtensions
         services.AddSingleton<IRunEventFamily, RunDefaultDecisionProjection>(); // 2026-10-13-8762o
         services.TryAddSingleton<MemoryEvidenceWriter>();
         services.AddSingleton<IRunEventFamily, MemoryEvidenceProjection>(); // 2026-10-25-9324b
-        services.AddSingleton<IRunEventFamily, PocImportedProjection>().AddSingleton<IRunEventFamily, PocOverruledProjection>(); // 933db, 933dc
+        services.AddSingleton<IRunEventFamily, PocImportedProjection>().AddSingleton<IRunEventFamily, PocOverruledProjection>() // 933db, 933dc
+            .AddSingleton<IRunEventFamily, PocDeployedProjection>(); // 2026-11-23-c81eb
         return services;
     }
 }

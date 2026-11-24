@@ -6,8 +6,9 @@ import type { PocsSetting, SettingValue, StudioEntity } from "@/lib/configApi";
 import * as configApi from "@/lib/configApi";
 import * as pocsApi from "@/lib/pocsApi";
 import {
-  POC_ARCHIVE_DEFAULTS, POC_SCAN_DEFAULTS, POC_VARIABLES_DEFAULTS, PocsSettingsForm, type PocsCatalog,
+  POC_ARCHIVE_DEFAULTS, POC_GITOPS_DEFAULTS, POC_SCAN_DEFAULTS, POC_VARIABLES_DEFAULTS, PocsSettingsForm, type PocsCatalog,
 } from "../PocsSettingsForm";
+import { newPocDeployBlocks } from "../PocDeployFields";
 import { POC_BUILD_DEFAULTS } from "../PocBuildFields";
 import { newPocSecrets } from "../PocSecretsFields";
 
@@ -21,7 +22,7 @@ const CATALOG: PocsCatalog = {
 };
 const OFF: PocsSetting = {
   enabled: false, projectAgent: null, projectTracker: null, targets: [], archive: POC_ARCHIVE_DEFAULTS,
-  scan: POC_SCAN_DEFAULTS, blockedRetentionDays: 7, variables: POC_VARIABLES_DEFAULTS,
+  scan: POC_SCAN_DEFAULTS, blockedRetentionDays: 7, variables: POC_VARIABLES_DEFAULTS, gitops: POC_GITOPS_DEFAULTS,
 };
 
 function Harness({ seen, start = OFF }: { seen: SettingValue[]; start?: PocsSetting }) {
@@ -64,11 +65,22 @@ describe("PocsSettingsForm", () => {
         },
         build: POC_BUILD_DEFAULTS,
         secrets: { provider: "sealed_secrets", sealedSecretsCert: null, sealedSecretsCertUrl: null },
+        ingress: { class: null, tlsIssuer: null },
+        auth: { ingressAnnotations: {} },
+        network: {
+          ingressControllerNamespace: null, dnsNamespace: "kube-system", dnsPodLabels: { "k8s-app": "kube-dns" },
+          egressProxy: {
+            url: null, port: 3128, namespace: null, podLabels: {}, cidr: null, noProxy: "localhost,127.0.0.1,.svc,.cluster.local",
+          },
+        },
+        quota: { cpu: "1", memory: "1Gi", pods: 4, ephemeralStorage: "2Gi" },
+        container: { cpuRequest: "50m", cpuLimit: "500m", memoryRequest: "128Mi", memoryLimit: "512Mi", ephemeralLimit: "256Mi" },
       }],
       archive: POC_ARCHIVE_DEFAULTS,
       scan: POC_SCAN_DEFAULTS,
       blockedRetentionDays: 7,
       variables: { maxNames: 64, maxValueKb: 4 },
+      gitops: { commitAttempts: 3, maxFolderFiles: 500 },
     });
   });
 
@@ -309,5 +321,92 @@ describe("PocsSettingsForm", () => {
     expect(screen.getByTestId(`${id}-not-after`)).toHaveTextContent("Expired on 2026-02-01");
     const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
     expect(saved.targets[0].secrets).toEqual({ provider: "sealed_secrets", sealedSecretsCert: pem, sealedSecretsCertUrl: url });
+  });
+
+  // 2026-11-23-c81eb: the GitOps commit bounds and each target's ingress, auth, network, quota and container blocks.
+  it("PocsSettingsForm_GitOpsFields_EditAndRoundTrip", () => {
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-gitops-toggle"));
+
+    expect(screen.getByTestId("setting-pocs-gitops-commitAttempts")).toHaveValue(3);
+    expect(screen.getByTestId("setting-pocs-gitops-maxFolderFiles")).toHaveValue(500);
+    fireEvent.change(screen.getByTestId("setting-pocs-gitops-commitAttempts"), { target: { value: "5" } });
+    fireEvent.change(screen.getByTestId("setting-pocs-gitops-maxFolderFiles"), { target: { value: "200" } });
+
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.gitops).toEqual({ commitAttempts: 5, maxFolderFiles: 200 });
+    expect(saved.archive).toEqual(POC_ARCHIVE_DEFAULTS);
+  });
+
+  it("PocsSettingsForm_DeployFields_EditAndRoundTrip", () => {
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-target-add"));
+    const id = "setting-pocs-target-0";
+    for (const section of ["ingress", "auth", "network", "quota", "container"])
+      fireEvent.click(screen.getByTestId(`${id}-${section}-toggle`));
+
+    fireEvent.change(screen.getByTestId(`${id}-ingress-class`), { target: { value: "nginx" } });
+    fireEvent.click(screen.getByTestId(`${id}-auth-annotation-add`));
+    fireEvent.change(screen.getByTestId(`${id}-auth-annotation-0-name`), { target: { value: "nginx.ingress.kubernetes.io/auth-url" } });
+    fireEvent.change(screen.getByTestId(`${id}-auth-annotation-0-value`), { target: { value: "https://auth.example.internal/check" } });
+    fireEvent.click(screen.getByTestId(`${id}-auth-annotation-add`));
+    fireEvent.change(screen.getByTestId(`${id}-auth-annotation-1-name`), { target: { value: "nginx.ingress.kubernetes.io/ssl-redirect" } });
+    fireEvent.change(screen.getByTestId(`${id}-auth-annotation-1-value`), { target: { value: "true" } });
+    fireEvent.change(screen.getByTestId(`${id}-network-ingress-controller-namespace`), { target: { value: "ingress-nginx" } });
+    fireEvent.change(screen.getByTestId(`${id}-network-egress-proxy-url`), { target: { value: "http://proxy.egress.svc:3128" } });
+    fireEvent.change(screen.getByTestId(`${id}-network-egress-proxy-cidr`), { target: { value: "10.0.42.0/24" } });
+    expect(screen.getByTestId(`${id}-network-dns-pod-label-0-name`)).toHaveValue("k8s-app");
+    fireEvent.change(screen.getByTestId(`${id}-quota-memory`), { target: { value: "2Gi" } });
+    fireEvent.change(screen.getByTestId(`${id}-quota-pods`), { target: { value: "6" } });
+    fireEvent.change(screen.getByTestId(`${id}-container-memory-limit`), { target: { value: "1Gi" } });
+
+    let saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    const defaults = newPocDeployBlocks();
+    expect(saved.targets[0].ingress).toEqual({ class: "nginx", tlsIssuer: null });
+    expect(saved.targets[0].auth).toEqual({ ingressAnnotations: {
+      "nginx.ingress.kubernetes.io/auth-url": "https://auth.example.internal/check",
+      "nginx.ingress.kubernetes.io/ssl-redirect": "true",
+    } });
+    expect(saved.targets[0].network).toEqual({
+      ...defaults.network, ingressControllerNamespace: "ingress-nginx",
+      egressProxy: { ...defaults.network.egressProxy, url: "http://proxy.egress.svc:3128", cidr: "10.0.42.0/24" },
+    });
+    expect(saved.targets[0].quota).toEqual({ ...defaults.quota, memory: "2Gi", pods: 6 });
+    expect(saved.targets[0].container).toEqual({ ...defaults.container, memoryLimit: "1Gi" });
+
+    // A removed row leaves the map; an emptied optional text sends null.
+    fireEvent.click(screen.getByTestId(`${id}-auth-annotation-remove-1`));
+    fireEvent.change(screen.getByTestId(`${id}-ingress-class`), { target: { value: "" } });
+    saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.targets[0].auth).toEqual({ ingressAnnotations: {
+      "nginx.ingress.kubernetes.io/auth-url": "https://auth.example.internal/check",
+    } });
+    expect(saved.targets[0].ingress).toEqual({ class: null, tlsIssuer: null });
+  });
+
+  it("PocsSettingsForm_UntouchedLegacyValue_SendsGitOpsAndEveryTargetsDeployBlocksWithDefaults", () => {
+    const seen: SettingValue[] = [];
+    const target = { name: "main", sourceRepo: "poc-source", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
+      domainPattern: null, lifetimeDays: 90, reminderDays: [14, 7, 1], perPersonLimit: 3, registry: null };
+    const legacy = {
+      enabled: false, projectAgent: null, projectTracker: null, targets: [target, { ...target, name: "second" }],
+      archive: POC_ARCHIVE_DEFAULTS, scan: POC_SCAN_DEFAULTS, blockedRetentionDays: 7, variables: POC_VARIABLES_DEFAULTS,
+    } as unknown as PocsSetting;
+    render(<Harness seen={seen} start={legacy} />);
+
+    fireEvent.click(screen.getByTestId("setting-pocs-enabled"));
+
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.gitops).toEqual({ commitAttempts: 3, maxFolderFiles: 500 });
+    const defaults = newPocDeployBlocks();
+    for (const sent of saved.targets) {
+      expect(sent.ingress).toEqual(defaults.ingress);
+      expect(sent.auth).toEqual(defaults.auth);
+      expect(sent.network).toEqual(defaults.network);
+      expect(sent.quota).toEqual(defaults.quota);
+      expect(sent.container).toEqual(defaults.container);
+    }
   });
 });

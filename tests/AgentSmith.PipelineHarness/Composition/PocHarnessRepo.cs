@@ -44,7 +44,7 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
     /// <summary>The source repo as the run's project names it (the harness runner builds its own project).</summary>
     internal Contracts.Models.Configuration.RepoConnection Repo => new()
     {
-        Name = "poc-src", Type = Contracts.Models.Configuration.RepoType.Local, Url = Origin, DefaultBranch = "main",
+        Name = "poc-src", Type = Contracts.Models.Configuration.RepoType.Local, Url = Origin, Path = Origin, DefaultBranch = "main", // c81eb: Path, the checkout-free reads and writes
     };
 
     internal static async Task<PocHarnessRepo?> CreateAsync()
@@ -54,11 +54,23 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
         Directory.CreateDirectory(seed);
         if ((await repo.RunAsync(seed, ["--version"])).ExitCode != 0) return null;
         await File.WriteAllTextAsync(Path.Combine(seed, "README.md"), "pocs\n");
+        SeedAppTemplate(seed);
         await repo.RunAsync(seed, ["init", "-q", "-b", "main"]);
         await repo.RunAsync(seed, ["-c", "user.email=t@example.test", "-c", "user.name=t", "add", "-A"]);
         await repo.RunAsync(seed, ["-c", "user.email=t@example.test", "-c", "user.name=t", "commit", "-q", "-m", "seed"]);
         await repo.RunAsync(repo._root, ["clone", "-q", "--bare", seed, repo.Origin]);
         return repo;
+    }
+
+    /// <summary>2026-11-23-c81eb: the default app template, as the target's install writes it, already on main.</summary>
+    private static void SeedAppTemplate(string seed)
+    {
+        var target = new Contracts.Models.Configuration.PocTargetConfig { Name = "main" };
+        target.Network.IngressControllerNamespace = "ingress-nginx";
+        (target.Network.EgressProxy.Namespace, target.Network.EgressProxy.PodLabels) = ("egress", new() { ["app"] = "egress-proxy" });
+        Directory.CreateDirectory(Path.Combine(seed, "poc-template", "app"));
+        foreach (var file in new Application.Services.Pocs.GitOps.PocAppTemplateDefaults(new Application.Services.Pocs.Pipeline.PocYamlFill()).Render(target))
+            File.WriteAllText(Path.Combine(seed, "poc-template", "app", file.Name), file.Text);
     }
 
     /// <summary>2026-11-23-933dg: the Sealed Secrets controller key this harness's target seals to — the test may open
@@ -74,6 +86,7 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
     {
         var text = File.ReadAllText(FixturePaths.For(FixturePaths.Pocs))
             .Replace("url: https://stub.test/poc-src", $"url: {Origin}\n    default_branch: main", StringComparison.Ordinal)
+            .Replace("path: ./Fixtures/CsharpFixture", $"path: {Origin}", StringComparison.Ordinal) // 2026-11-23-c81eb
             .Replace("        pull_auth: poc_pull_token\n", "        pull_auth: poc_pull_token\n" + Certificate(), StringComparison.Ordinal);
         var path = FixturePaths.For($".poc-repo-{Guid.NewGuid():N}.yml");
         File.WriteAllText(path, text);
@@ -92,6 +105,9 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
         services.RemoveAll<ISkillsCatalogPath>().AddSingleton<ISkillsCatalogPath>(
             Mock.Of<ISkillsCatalogPath>(c => c.Root == Path.Combine(_root, "catalog") && c.Origin == "test"));
         Build.Override(services);
+        // 2026-11-23-c81eb: the GitOps commit reads and writes the bare origin checkout-free, as the real local provider does.
+        services.RemoveAll<Contracts.Providers.ISourceProviderFactory>().AddSingleton(Mock.Of<Contracts.Providers.ISourceProviderFactory>(f =>
+            f.Create(It.IsAny<Contracts.Models.Configuration.RepoConnection>()) == new Infrastructure.Services.Providers.Source.LocalSourceProvider(Origin, "main", null)));
         services.RemoveAll<MasterKeyRing>().AddSingleton(new MasterKeyRing(name => name == MasterKeyRing.Variable ? MasterKey : null));
         var credentials = services.Last(d => d.ServiceType == typeof(ICredentialResolver));
         services.RemoveAll<ICredentialResolver>().AddSingleton<ICredentialResolver>(sp =>

@@ -23,5 +23,7 @@ public sealed class SealedSecretsProvider(KubeSealer sealer, KubeSealedSecretMan
         return new PocSecretFile(FileName(order.Name), manifest.Render(order.Namespace, order.Name, order.Type, encrypted));
     }
 
+    public string FileNameOf(string name) => FileName(name);
+
     public static string FileName(string name) => $"{name}.sealed.yaml";
 }

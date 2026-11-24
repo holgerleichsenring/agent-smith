@@ -337,13 +337,14 @@
   <rect x="430" y="1694" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1736" x2="880" y2="1736" class="cf-rule"/>
   <text x="40" y="1754" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">poc-deploy</text>
-  <text x="40" y="1770" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start"> · 6 steps · 1 with a model</text>
+  <text x="40" y="1770" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start"> · 7 steps · 1 with a model</text>
   <rect x="430" y="1742" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="445" y="1742" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="460" y="1742" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="475" y="1742" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="490" y="1742" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="505" y="1742" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="520" y="1742" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1784" x2="880" y2="1784" class="cf-rule"/>
   <text x="40" y="1802" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">poc-target-install</text>
   <text x="40" y="1818" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start"> · 2 steps · 0 with a model</text>

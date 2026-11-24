@@ -42,11 +42,23 @@ public sealed partial class PocTargetConfig
     /// <summary>2026-11-23-933dg: how the PoCs' secret variables and pull secret reach the target.</summary>
     public PocSecretsConfig Secrets { get; set; } = new();
 
-    /// <summary>This target's value problems, one sentence each naming the key, the value and the reason.</summary>
-    public IEnumerable<string> Problems() =>
+    /// <summary>2026-11-23-c81eb: how its PoCs are reached, put behind auth and confined.</summary>
+    public PocIngressConfig Ingress { get; set; } = new();
+
+    public PocAuthConfig Auth { get; set; } = new();
+
+    public PocNetworkConfig Network { get; set; } = new();
+
+    public PocQuotaConfig Quota { get; set; } = new();
+
+    public PocContainerConfig Container { get; set; } = new();
+
+    /// <summary>This target's value problems, one sentence each naming the key, the value and the reason;
+    /// 2026-11-23-c81eb: with <paramref name="pocsEnabled"/> the deploy keys a PoC cannot run without are required.</summary>
+    public IEnumerable<string> Problems(bool pocsEnabled = false) =>
         [.. NameProblems(), .. SourceRepoProblems(), .. new PocTargetFolders(this).Problems(), .. DomainProblems(),
             .. LifetimeProblems(), .. RegistryProblems(), .. Build.Problems(Name),
-            .. Secrets.Problems(Name)];
+            .. Secrets.Problems(Name), .. new PocTargetExposure(this).Problems(pocsEnabled), .. new PocTargetResources(this).Problems()];
 
     private string Key(string field) => $"pocs.targets[].{field} of target '{Name}'";
 

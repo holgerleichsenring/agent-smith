@@ -27,4 +27,8 @@ public static partial class CommandNames
     /// <summary>2026-11-23-933dg: seals a PoC's secret variables and its pull secret to the target's certificate for the
     /// GitOps commit.</summary>
     public const string SealPocVariables = "SealPocVariablesCommand";
+
+    /// <summary>2026-11-23-c81eb: renders a PoC's hardened manifests from the source repo's app template and the desired
+    /// state, and commits them with the sealed secrets straight onto the default branch.</summary>
+    public const string GitOpsCommit = "GitOpsCommitCommand";
 }

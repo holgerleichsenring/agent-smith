@@ -69,3 +69,39 @@ decisions:
     chose: "poc-deploy's GitOpsCommit commits Replicas 1: a new upload to a stopped PoC starts it"
     over: "Keeping the row's Replicas, so the upload lands stopped and the owner presses Start (open question upload-to-stopped-poc, closed)"
     reason: "Operator ruling, round 4, 2026-11-23. The row's Replicas is still written only by GitOpsCommit after its commit, so git and the row agree; an expired PoC is the exception c81ee adds, because its Start is refused there too and the next lifetime pass would stop it again."
+  - category: Implementation
+    chose: "The default template is filled at install with the target's quota, container resources and network keys (PocAppTemplateDefaults, the pipeline's PocYamlFill); the render substitutes only {app}, {namespace}, {host} and {port}"
+    over: "More render-time placeholders, or agent smith setting resources, quota and NetworkPolicy rules at every commit"
+    reason: "The spec lists four placeholders and the fields agent smith owns; resources, quota and NetworkPolicy are DEFAULT TEMPLATE CONTENT, and once written the files are the operator's. A later edit of those keys reaches an installed target only through a template edit, which docs and the settings help say."
+  - category: Architecture
+    chose: "IPocGitOpsStore (PocGitOpsRepository, DbPocGitOpsStore, NoPocGitOpsStore) writes desired state and seal fingerprint in ONE update"
+    over: "933dg's hint to add WriteSealFingerprintAsync to PocVariableRepository"
+    reason: "The fingerprint must never disagree with the desired state written after the same commit; one ExecuteUpdate holds both, and the variable store stays about variables."
+  - category: Implementation
+    chose: "PocSealResult gains HasSecrets and NeededFiles (init properties), IPocSecretProvider gains FileNameOf(name)"
+    over: "Reading the vault again in the commit step, or guessing sealed file names"
+    reason: "An unchanged seal carries no files, yet the render must know whether to name poc-secrets and the plan which files to keep; the seal step already knows both, and the provider owns its file names."
+  - category: Implementation
+    chose: "poc-target-install writes the app template as a second checkout-free commit after the pipeline, only the absent files"
+    over: "One write carrying the pipeline and the template"
+    reason: "PocPipelineWrite's equality skip and foreign-file refusal stay untouched; the run stays the record of both writes."
+  - category: Implementation
+    chose: "The C# property is PocsConfig.Gitops, so the YAML key is pocs.gitops and the wire key gitops"
+    over: "GitOps (the loader's naming convention reads it as git_ops)"
+    reason: "Schema, messages and docs name pocs.gitops; ConfigSchemaCoverageTests caught the mismatch."
+  - category: Implementation
+    chose: "ingress.class, auth.ingress_annotations, network.ingress_controller_namespace, network.egress_proxy.url and one proxy form are required only while pocs.enabled; every value that is set is checked always; a request above its limit is refused too"
+    over: "Required always"
+    reason: "Mirrors PocTargetReferences (blocking while on): the form may be filled in before the switch. Kubernetes refuses a request above its limit, so the check is the same rule one step earlier."
+  - category: Security
+    chose: "PocPodPolicy checks every workload's pod spec (Pod, Deployment, StatefulSet, DaemonSet, ReplicaSet, Job, CronJob), and every resource but the Namespace must name the PoC's namespace (a cluster-scoped kind names none and is refused)"
+    over: "Checking only the Deployment 'app'"
+    reason: "An operator template adding a second workload would otherwise run unhardened."
+  - category: Implementation
+    chose: "String fields are re-quoted wherever the template put them (labels, annotations, selectors, ConfigMap/Secret data, env values), the Deployment's selector.matchLabels is set like the pod labels, and a template file named like configmap.yaml or a sealed file is refused"
+    over: "Quoting only the nodes agent smith creates"
+    reason: "A placeholder an operator left unquoted ({app} = 123) would otherwise reach Kubernetes as a number; the generated and sealed files must not be shadowed."
+  - category: Implementation
+    chose: "An empty domain_pattern refuses the render naming the key; ContextKeys.PocCommitSha is set only when a commit was made"
+    over: "A new load finding; the head sha on an equal folder"
+    reason: "domain_pattern had no default and the spec adds no requirement for it; the commit mode answers no sha when the branch already holds the render."

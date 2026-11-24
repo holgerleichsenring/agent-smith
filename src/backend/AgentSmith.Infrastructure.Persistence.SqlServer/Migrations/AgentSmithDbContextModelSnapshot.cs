@@ -945,6 +945,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("ReadinessPath")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
                     b.Property<int>("Replicas")
                         .HasColumnType("int");
 

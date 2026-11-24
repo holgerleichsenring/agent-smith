@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Pocs;
+using AgentSmith.Application.Services.Pocs.GitOps;
 using AgentSmith.Application.Services.Pocs.Pipeline;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -21,14 +22,22 @@ public sealed class PocTargetInstallTests
 {
     private readonly Mock<ISourceProvider> _provider = new();
     private readonly List<IReadOnlyList<RepoFile>> _writes = [];
-    private string? _held;
+    private readonly Dictionary<string, string> _held = new(StringComparer.Ordinal);
 
     public PocTargetInstallTests()
     {
         _provider.Setup(p => p.GetDefaultBranchAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new BranchName("main"));
-        _provider.Setup(p => p.TryReadFileAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<CancellationToken>())).ReturnsAsync(() => _held);
+        _provider.Setup(p => p.TryReadFileAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string path, BranchName _, CancellationToken _) => _held.GetValueOrDefault(path));
+        _provider.Setup(p => p.ListFilesUnderAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string folder, BranchName _, int _, CancellationToken _) =>
+                new RepoFileListing(_held.Keys.Where(k => k.StartsWith(folder + "/", StringComparison.Ordinal)).ToList(), false));
         _provider.Setup(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(), It.IsAny<IReadOnlyList<RepoFile>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<BranchName, IReadOnlyList<RepoFile>, string, CancellationToken>((_, files, _, _) => { _writes.Add(files); _held = files[0].Content; })
+            .Callback<BranchName, IReadOnlyList<RepoFile>, string, CancellationToken>((_, files, _, _) =>
+            {
+                _writes.Add(files);
+                foreach (var file in files) _held[file.Path] = file.Content;
+            })
             .ReturnsAsync(BranchWriteResult.Ok("abc123"));
     }
 
@@ -40,14 +49,43 @@ public sealed class PocTargetInstallTests
 
         first.IsSuccess.Should().BeTrue(first.Message);
         first.Message.Should().Contain("commit abc123").And.Contain(".github/workflows/poc-build.yml");
-        _writes.Should().ContainSingle().Which.Single().Path.Should().Be(".github/workflows/poc-build.yml");
+        _writes[0].Single().Path.Should().Be(".github/workflows/poc-build.yml");
+        _writes.Should().HaveCount(2, "the pipeline, then the app template");
         second.Message.Should().Contain("nothing was written");
+        second.Message.Should().Contain("already holds the app template");
+    }
+
+    // 2026-11-23-c81eb: the six default template files are written once, under <template_path>/app/.
+    [Fact]
+    public async Task Execute_WritesTheSixTemplateFilesOnce()
+    {
+        await Handler().ExecuteAsync(new PocTargetInstallContext(new PipelineContext(), "main"), default);
+        await Handler().ExecuteAsync(new PocTargetInstallContext(new PipelineContext(), "main"), default);
+
+        _writes.Should().HaveCount(2);
+        _writes[1].Select(f => f.Path).Should().BeEquivalentTo(
+            new[] { "namespace", "resourcequota", "deployment", "service", "ingress", "networkpolicy" }.Select(n => $"poc-template/app/{n}.yaml"));
+        _held["poc-template/app/resourcequota.yaml"].Should().Contain("limits.memory: \"1Gi\"").And.NotContain("@@");
+        _held["poc-template/app/networkpolicy.yaml"].Should().Contain("kubernetes.io/metadata.name: \"ingress-nginx\"")
+            .And.Contain("podSelector:").And.Contain("{\"app\": \"egress-proxy\"}");
+    }
+
+    [Fact]
+    public async Task Execute_AnOperatorEditedTemplateFile_IsNeverOverwritten()
+    {
+        _held["poc-template/app/deployment.yaml"] = "# mine\n";
+
+        var result = await Handler().ExecuteAsync(new PocTargetInstallContext(new PipelineContext(), "main"), default);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        _held["poc-template/app/deployment.yaml"].Should().Be("# mine\n");
+        _writes[1].Should().HaveCount(5).And.NotContain(f => f.Path.EndsWith("deployment.yaml"));
     }
 
     [Fact]
     public async Task Execute_AFileAgentSmithDidNotWrite_IsRefusedNamingIt()
     {
-        _held = "name: ci\n";
+        _held[".github/workflows/poc-build.yml"] = "name: ci\n";
 
         var result = await Handler().ExecuteAsync(new PocTargetInstallContext(new PipelineContext(), "main"), default);
 
@@ -82,7 +120,8 @@ public sealed class PocTargetInstallTests
     {
         var sources = Mock.Of<ISourceProviderFactory>(f => f.Create(It.IsAny<RepoConnection>()) == _provider.Object);
         return new PocTargetInstallHandler(new PocsConfigSource(Loader(), new ServerContext("c.yml")),
-            new PocSourceRepos(Mock.Of<IConnectionRepoUrlBuilder>()), PocPipelineTemplateTests.Template(), new PocPipelineWrite(sources));
+            new PocSourceRepos(Mock.Of<IConnectionRepoUrlBuilder>()), PocPipelineTemplateTests.Template(), new PocPipelineWrite(sources),
+            new PocAppTemplateWrite(sources, new PocAppTemplateDefaults(new PocYamlFill())));
     }
 
     private static IConfigurationLoader Loader()

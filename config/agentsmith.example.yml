@@ -765,6 +765,40 @@ pocs:
   #        ...
   #        -----END CERTIFICATE-----
   #      sealed_secrets_cert_url: https://sealed-secrets.poc.example.internal/v1/cert.pem
+  #    # 2026-11-23-c81eb: how each PoC is reached, put behind auth and confined. Every deploy renders
+  #    # <template_path>/app/ (written once by the target's Install, then yours to edit) into
+  #    # <deploy_root>/<poc>/ and commits it straight onto the default branch. ingress.class,
+  #    # auth.ingress_annotations, network.ingress_controller_namespace and network.egress_proxy are
+  #    # required while pocs.enabled is true. Forward auth in annotation mode: the ingress controller
+  #    # calls the auth proxy itself (ingress-nginx's auth-url/auth-signin shown as one example).
+  #    ingress:
+  #      class: nginx
+  #      tls_issuer: letsencrypt        # optional cert-manager ClusterIssuer
+  #    auth:
+  #      ingress_annotations:
+  #        nginx.ingress.kubernetes.io/auth-url: https://auth.poc.example.internal/oauth2/auth
+  #        nginx.ingress.kubernetes.io/auth-signin: https://auth.poc.example.internal/oauth2/start?rd=$scheme://$host$request_uri
+  #    network:                           # Kubernetes 1.22 or later
+  #      ingress_controller_namespace: ingress-nginx
+  #      dns_namespace: kube-system
+  #      dns_pod_labels: { k8s-app: kube-dns }
+  #      egress_proxy:
+  #        url: http://egress-proxy.egress.svc.cluster.local:3128
+  #        port: 3128                     # the proxy POD's port
+  #        namespace: egress              # with pod_labels, or instead: cidr: 10.0.0.0/24
+  #        pod_labels: { app: egress-proxy }
+  #        no_proxy: localhost,127.0.0.1,.svc,.cluster.local
+  #    quota:                             # at least twice each container limit, and 2 pods
+  #      cpu: "1"
+  #      memory: 1Gi
+  #      pods: 4
+  #      ephemeral_storage: 2Gi
+  #    container:
+  #      cpu_request: 50m
+  #      cpu_limit: 500m
+  #      memory_request: 128Mi
+  #      memory_limit: 512Mi
+  #      ephemeral_limit: 256Mi
   # 2026-11-23-933db: what an uploaded PoC archive is held to (defaults shown), and when an import
   # asks whether a ZIP is really the same PoC: more than mismatch_ratio_percent of the files AND
   # more than mismatch_file_limit of them differ, or the port or the entrypoint changed.
@@ -791,6 +825,12 @@ pocs:
   #   secret_min_confidence: 8
   #   trivy_image: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
   # blocked_retention_days: 7
+  # 2026-11-23-c81eb: how a PoC's manifests are committed (defaults shown): writes of one commit
+  # before the run gives up on a moving branch, and the most files a deploy folder or the app
+  # template may hold.
+  # gitops:
+  #   commit_attempts: 3
+  #   max_folder_files: 500
   # 2026-11-23-933dg: PoC variables (set at import, or later on the PoC): secret ones are stored
   # encrypted under the PoC's scope and sealed at deploy, plain ones are committed as a ConfigMap.
   # A Kubernetes Secret or ConfigMap holds at most 1 MiB. Defaults shown.

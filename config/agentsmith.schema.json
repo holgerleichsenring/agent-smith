@@ -350,6 +350,15 @@
             "max_value_kb": { "type": "integer", "minimum": 1, "description": "The largest value in KB (UTF-8). Default 4." }
           }
         },
+        "gitops": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How a PoC's manifests are committed straight onto the source repo's default branch (no pull request). Absent reads as the defaults.",
+          "properties": {
+            "commit_attempts": { "type": "integer", "minimum": 1, "description": "How many times one commit is written before the run gives up on a branch other commits keep moving; each retry re-plans from the new head. Default 3." },
+            "max_folder_files": { "type": "integer", "minimum": 1, "description": "The most files a PoC's deploy folder or the app template may hold; more is refused, because the folder holds a handful of rendered manifests. Default 500." }
+          }
+        },
         "blocked_retention_days": { "type": "integer", "minimum": 1, "description": "How many days a blocked upload is kept before it is purged. Default 7." },
         "targets": {
           "type": "array",
@@ -390,6 +399,69 @@
                   "provider": { "type": "string", "enum": ["sealed_secrets"], "description": "The secret provider. Default sealed_secrets (Bitnami Sealed Secrets)." },
                   "sealed_secrets_cert": { "type": ["string", "null"], "description": "The Sealed Secrets controller's public certificate, PEM (kubeseal --fetch-cert). A plain field: it is public. Required before a PoC with a secret variable or with pull_mode pull_secret deploys." },
                   "sealed_secrets_cert_url": { "type": ["string", "null"], "description": "An https URL the settings form fetches the certificate from (e.g. the controller's /v1/cert.pem behind an ingress); nothing reads it at run time." }
+                }
+              },
+              "ingress": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "How each PoC's Ingress is served.",
+                "properties": {
+                  "class": { "type": ["string", "null"], "description": "The ingressClassName the target's ingress controller answers to; required while PoCs are on." },
+                  "tls_issuer": { "type": ["string", "null"], "description": "A cert-manager ClusterIssuer; set, each Ingress carries TLS secret app-tls and the cert-manager.io/cluster-issuer annotation. Optional." }
+                }
+              },
+              "auth": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Every PoC is behind auth: the annotations that make the ingress controller call the auth proxy before it forwards a request (forward auth in annotation mode; ingress-nginx's auth-url and auth-signin are one example).",
+                "properties": {
+                  "ingress_annotations": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Annotation name -> value, set on each PoC's Ingress as given; required non-empty while PoCs are on." }
+                }
+              },
+              "network": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "What each PoC's NetworkPolicy admits: ingress only from the ingress controller's namespace, egress only to the cluster DNS and the egress proxy. Needs Kubernetes 1.22 or later (namespaces are selected by kubernetes.io/metadata.name).",
+                "properties": {
+                  "ingress_controller_namespace": { "type": ["string", "null"], "description": "The namespace the ingress controller runs in; required while PoCs are on." },
+                  "dns_namespace": { "type": "string", "description": "The cluster DNS's namespace. Default kube-system." },
+                  "dns_pod_labels": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The cluster DNS pods' labels. Default {k8s-app: kube-dns}." },
+                  "egress_proxy": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "The proxy a PoC reaches the outside through: named by namespace + pod_labels, or by cidr (exactly one form).",
+                    "properties": {
+                      "url": { "type": ["string", "null"], "description": "The http(s) URL every PoC container gets as HTTP_PROXY, HTTPS_PROXY, http_proxy and https_proxy; required while PoCs are on." },
+                      "port": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "The proxy POD's port the NetworkPolicy opens. Default 3128." },
+                      "namespace": { "type": ["string", "null"], "description": "The proxy's namespace (with pod_labels)." },
+                      "pod_labels": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The proxy pods' labels (with namespace)." },
+                      "cidr": { "type": ["string", "null"], "description": "The proxy's address range, e.g. 10.0.0.0/24 (instead of namespace + pod_labels)." },
+                      "no_proxy": { "type": "string", "description": "NO_PROXY and no_proxy of every PoC container. Default localhost,127.0.0.1,.svc,.cluster.local." }
+                    }
+                  }
+                }
+              },
+              "quota": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Each PoC namespace's ResourceQuota (Kubernetes quantities). It must hold twice each container limit and at least 2 pods, because a rolling update runs the old and the new pod side by side.",
+                "properties": {
+                  "cpu": { "type": "string", "description": "limits.cpu. Default 1." },
+                  "memory": { "type": "string", "description": "limits.memory. Default 1Gi." },
+                  "pods": { "type": "integer", "minimum": 2, "description": "pods. Default 4." },
+                  "ephemeral_storage": { "type": "string", "description": "limits.ephemeral-storage. Default 2Gi." }
+                }
+              },
+              "container": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "The resources of each PoC's container (Kubernetes quantities); a request is at most its limit.",
+                "properties": {
+                  "cpu_request": { "type": "string", "description": "Default 50m." },
+                  "cpu_limit": { "type": "string", "description": "Default 500m." },
+                  "memory_request": { "type": "string", "description": "Default 128Mi." },
+                  "memory_limit": { "type": "string", "description": "Default 512Mi." },
+                  "ephemeral_limit": { "type": "string", "description": "Default 256Mi." }
                 }
               },
               "build": {

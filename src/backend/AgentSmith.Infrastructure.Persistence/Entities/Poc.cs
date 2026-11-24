@@ -40,6 +40,10 @@ public sealed class Poc : EntityBase, IProjectOwned
     /// <summary>'sha256:&lt;64 hex&gt;'.</summary>
     public string? ImageDigest { get; set; }
 
+    /// <summary>2026-11-23-c81eb: the readiness probe's HTTP path; null probes the port over TCP. Part of the desired
+    /// state, written with it by the GitOps commit; set by the owner on the detail page (c81ed).</summary>
+    public string? ReadinessPath { get; set; }
+
     /// <summary>Written only by c81ee's extend run; null means created + the target's lifetime_days.</summary>
     public long? ExpiresAtTicks { get; set; }
 

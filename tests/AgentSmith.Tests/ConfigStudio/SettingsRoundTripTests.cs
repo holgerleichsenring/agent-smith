@@ -97,7 +97,11 @@ public sealed class SettingsRoundTripTests
         h.Store.SaveSetting("pocs", Doc("""
             {"enabled":true,"projectAgent":"a","projectTracker":"t","targets":[{"name":"main","sourceRepo":"gh/poc-src",
             "domainPattern":"{app}.poc.example.internal","reminderDays":[7,1],"perPersonLimit":2,
-            "registry":{"type":"acr","loginServer":"pocregistry.azurecr.io","pullUser":"poc-pull","pullAuth":"poc_pull","pullMode":"cluster_pulls"}}],
+            "registry":{"type":"acr","loginServer":"pocregistry.azurecr.io","pullUser":"poc-pull","pullAuth":"poc_pull","pullMode":"cluster_pulls"},
+            "ingress":{"class":"nginx"},"auth":{"ingressAnnotations":{"nginx.ingress.kubernetes.io/auth-url":"https://auth.example.internal/a"}},
+            "network":{"ingressControllerNamespace":"ingress-nginx","egressProxy":{"url":"http://proxy:3128","namespace":"egress","podLabels":{"app.kubernetes.io/name":"proxy"}}},
+            "quota":{"memory":"2Gi"}}],
+            "gitops":{"commitAttempts":5,"maxFolderFiles":40},
             "scan":{"osvImage":"ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4","trivyImage":"aquasec/trivy@sha256:0000000000000000000000000000000000000000000000000000000000000933"}}
             """), new ChangeAttribution("op"));
 
@@ -110,6 +114,12 @@ public sealed class SettingsRoundTripTests
         Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("sourceRepo").GetString().Should().Be("gh/poc-src");
         Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("registry").GetProperty("pullAuth").GetString()
             .Should().Be("poc_pull");
+        // 2026-11-23-c81eb: the deploy keys and pocs.gitops round-trip, dictionary keys verbatim.
+        target.Auth.IngressAnnotations.Should().ContainKey("nginx.ingress.kubernetes.io/auth-url");
+        target.Network.EgressProxy.PodLabels.Should().ContainKey("app.kubernetes.io/name");
+        (target.Ingress.Class, target.Quota.Memory, target.Quota.Cpu).Should().Be(("nginx", "2Gi", "1"));
+        (pocs.Gitops.CommitAttempts, pocs.Gitops.MaxFolderFiles).Should().Be((5, 40));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("gitops").GetProperty("maxFolderFiles").GetInt32().Should().Be(40);
     }
 
     // 2026-11-23-933de: a target without a registry block, or with a bad one, is never saved.

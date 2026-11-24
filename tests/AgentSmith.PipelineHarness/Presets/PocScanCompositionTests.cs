@@ -43,7 +43,7 @@ public sealed class PocScanCompositionTests
             .Which.MaskedSnippet.Should().Be("KEY = \"<secret at src/config.py:1>\"");
         blockedRevision.VerdictJson.Should().NotContain("AKIAABCDEFGHIJKLMNOP");
         clean.IsSuccess.Should().BeTrue(clean.Message);
-        (await repo.OriginAsync("rev-parse", "main")).Should().Be(cleanRevision.CommitSha);
+        (await repo.OriginAsync("rev-parse", "main~1")).Should().Be(cleanRevision.CommitSha); // c81eb: the GitOps commit follows it
         (await repo.OriginAsync("ls-tree", "-r", "--name-only", "main")).Split('\n')
             .Should().Contain("pocs/poc-lee/clean/src/config.py").And.NotContain(p => p.Contains("leaky"));
     }

@@ -137,8 +137,26 @@ public sealed class PocsConfigTests : IDisposable
             new PocTargetConfig
             {
                 Name = "main", SourceRepo = "gh/poc-src", DomainPattern = "{app}.poc.example.internal", Registry = SoundRegistry(),
+                Ingress = SoundIngress(), Auth = SoundAuth(), Network = SoundNetwork(),
             },
         ],
+    };
+
+    /// <summary>2026-11-23-c81eb: the ingress, auth and network keys an enabled target needs.</summary>
+    internal static PocIngressConfig SoundIngress() => new() { Class = "nginx" };
+
+    internal static PocAuthConfig SoundAuth() => new()
+    {
+        IngressAnnotations = new() { ["nginx.ingress.kubernetes.io/auth-url"] = "https://auth.poc.example.internal/oauth2/auth" },
+    };
+
+    internal static PocNetworkConfig SoundNetwork() => new()
+    {
+        IngressControllerNamespace = "ingress-nginx",
+        EgressProxy = new PocEgressProxyConfig
+        {
+            Url = "http://egress-proxy.egress.svc.cluster.local:3128", Namespace = "egress", PodLabels = new() { ["app"] = "egress-proxy" },
+        },
     };
 
     /// <summary>2026-11-23-933de: a registry block every target needs.</summary>

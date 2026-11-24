@@ -39,4 +39,11 @@ public static partial class ContextKeys
 
     /// <summary>2026-11-23-933dg: what SealPocVariables sealed (PocSealResult) — what the GitOps commit writes.</summary>
     public const string PocSeal = "PocSeal";
+
+    /// <summary>2026-11-23-c81eb: the desired state (PocDesiredState) an act's step wants committed; absent, the GitOps
+    /// commit reads it from the Poc row (poc-deploy: the run's built revision, one replica).</summary>
+    public const string PocDesiredState = "PocDesiredState";
+
+    /// <summary>2026-11-23-c81eb: the GitOps commit's sha; absent when the branch already held the render.</summary>
+    public const string PocCommitSha = "PocCommitSha";
 }

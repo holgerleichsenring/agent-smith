@@ -16,7 +16,7 @@ public sealed class PocSealer(IPocSealFingerprint fingerprint)
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(poc);
         ArgumentNullException.ThrowIfNull(target);
-        if (!plan.HasAnything) return (Result(poc.SealFingerprint is null, [], null, poc), null);
+        if (!plan.HasAnything) return (Result(poc.SealFingerprint is null, [], null, poc, plan), null);
         if (string.IsNullOrWhiteSpace(target.Secrets.SealedSecretsCert))
             return (null, $"{PocSecretsConfig.CertKey} of target '{target.Name}' is empty; paste the Sealed Secrets controller's "
                 + $"public certificate (kubeseal --fetch-cert), because '{poc.Name}' has secrets to seal and none is sealed without it.");
@@ -25,8 +25,8 @@ public sealed class PocSealer(IPocSealFingerprint fingerprint)
         try { certificate = SealingCertificate.Parse(target.Secrets.SealedSecretsCert); }
         catch (FormatException ex) { return (null, $"{PocSecretsConfig.CertKey} of target '{target.Name}' {ex.Message}."); }
         var sealFingerprint = fingerprint.Of(plan.Inputs(certificate.Fingerprint));
-        if (sealFingerprint == poc.SealFingerprint) return (Result(true, [], sealFingerprint, poc), null);
-        return (Result(false, Files(plan, target.Secrets.SealedSecretsCert), sealFingerprint, poc), null);
+        if (sealFingerprint == poc.SealFingerprint) return (Result(true, [], sealFingerprint, poc, plan), null);
+        return (Result(false, Files(plan, target.Secrets.SealedSecretsCert), sealFingerprint, poc, plan), null);
     }
 
     private static List<PocSecretFile> Files(PocSealPlan plan, string certificate)
@@ -40,6 +40,15 @@ public sealed class PocSealer(IPocSealFingerprint fingerprint)
         return files;
     }
 
-    private static PocSealResult Result(bool unchanged, IReadOnlyList<PocSecretFile> files, string? sealFingerprint, PocVariableSubject poc) =>
-        new(unchanged, files, sealFingerprint, PocVariablesChecksum.Of(sealFingerprint, files, poc.Plain));
+    private static PocSealResult Result(
+        bool unchanged, IReadOnlyList<PocSecretFile> files, string? sealFingerprint, PocVariableSubject poc, PocSealPlan plan) =>
+        new(unchanged, files, sealFingerprint, PocVariablesChecksum.Of(sealFingerprint, files, poc.Plain))
+        {
+            HasSecrets = plan.Secrets.Count > 0, NeededFiles = Needed(plan),
+        };
+
+    // 2026-11-23-c81eb: the files the GitOps commit keeps on an unchanged seal, in the order Files renders them.
+    private static List<string> Needed(PocSealPlan plan) =>
+        [.. plan.Secrets.Count > 0 ? [plan.Provider.FileNameOf(PocSecretNames.Secrets)] : Array.Empty<string>(),
+            .. plan.PullSecret is null ? [] : new[] { plan.Provider.FileNameOf(PocSecretNames.Pull) }];
 }

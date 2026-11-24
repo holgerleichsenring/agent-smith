@@ -112,10 +112,72 @@ PoCs are small apps people upload to have them hosted. The feature is off until 
 - Pull secret: with pull mode "deliver a pull secret", each deploy seals the pull-only token as a `kubernetes.io/dockerconfigjson` secret `poc-pull` (entry `.dockerconfigjson`, for the login server and pull user) into the PoC's namespace; the pod names it under `imagePullSecrets`. Whether anything changed is told by a fingerprint keyed from the secret store's master key, so this mode needs a master key (`AGENTSMITH_SECRET_MASTER_KEY`): without one, a target in this mode is a blocking finding and every deploy of it is refused. Use "cluster can already pull" where the cluster has its own access.
 - PoC variables: entered on the import page (and later on the PoC). A secret variable is stored encrypted in the secret store under the PoC's own scope (never in the catalog, never shown again, not even to its owner), must be at least 6 characters so it can be masked, and is masked in every run of the PoC's `poc-<person>` project — no other project's run sees it. A plain variable has no minimum, is shown back, and is committed in plain text as the ConfigMap `poc-config`, so never put a secret there. Names are environment-variable names (`^[A-Z_][A-Z0-9_]*$`, at most 200 characters); both kinds reach the container as environment variables, and a change applies at the PoC's next deploy, restarting the pod. A PoC holds at most 64 variables of at most 4 KB each (both fields), because a Kubernetes Secret or ConfigMap holds at most 1 MiB. A secret variable needs a master key; writing one without it is refused.
 - Source repo: a passed upload is one commit into `<root>/<project>/<poc>/` on the source repo's default branch. The repo's token needs push to that branch; a protected default branch refuses the commit, and the run names the host's reason.
+- Ingress (each target): the ingress class your controller answers to (required while PoCs are on) and, optionally, a cert-manager ClusterIssuer; with an issuer every PoC's Ingress gets a TLS certificate in the secret `app-tls`.
+- Auth (each target): every PoC is behind auth. The ingress annotations are set on every PoC's Ingress as written, and at least one is required while PoCs are on. They tell your ingress controller to ask your auth proxy before it forwards a request (forward auth in annotation mode). See [The app template](#the-app-template) for an example.
+- Network (each target): what each PoC's NetworkPolicy lets through. Requests come only from the ingress controller's namespace (required while on). Traffic goes out only to the cluster DNS (`kube-system`, pods labelled `k8s-app: kube-dns`, port 53) and to the egress proxy. The egress proxy has a URL (required, http or https), which every PoC container gets as `HTTP_PROXY` and `HTTPS_PROXY`, and a pod port (3128, the proxy pod's port, not its Service's, because a NetworkPolicy sees the pod port). Name where it runs either by namespace and pod labels or by a CIDR, exactly one of the two. `no_proxy` (`localhost,127.0.0.1,.svc,.cluster.local`) becomes `NO_PROXY`.
+- Quota and container (each target): the ResourceQuota of each PoC's namespace (cpu 1, memory 1Gi, ephemeral storage 2Gi, 4 pods) and the container's requests and limits (cpu 50m/500m, memory 128Mi/512Mi, ephemeral storage limit 256Mi), as Kubernetes quantities. The quota must hold at least twice each container limit, and at least 2 pods, because a rolling update runs the old and the new pod side by side. A quantity that doesn't parse is refused.
+- GitOps commit: how often one commit is written again when other commits moved the branch in between (3), and the most files a deploy folder or the app template may hold (500); a folder with more is refused rather than cleaned up in one huge commit.
 
-The block is `pocs:` (`enabled`, `project_agent`, `project_tracker`, `targets` with their `registry`, `build` and `secrets`, `archive`, `scan`, `variables`, `blocked_retention_days`). A value the rules refuse is named on save, on import and at startup; a source repo, agent, tracker or registry pull secret that doesn't exist is a startup finding naming the key. A target saved before the registry block existed is refused until it has one.
+The block is `pocs:` (`enabled`, `project_agent`, `project_tracker`, `targets` with their `registry`, `build`, `secrets`, `ingress`, `auth`, `network`, `quota` and `container`, `archive`, `scan`, `variables`, `gitops`, `blocked_retention_days`). A value the rules refuse is named on save, on import and at startup; a source repo, agent, tracker or registry pull secret that doesn't exist is a startup finding naming the key. A target saved before the registry block existed is refused until it has one.
 
 Who sees what: `pocs.read` opens the PoCs area, `pocs.write` imports and acts on your own PoCs, `pocs.overrule` lifts a scan block and `pocs.admin` acts on every PoC. The built-in `poc` role holds `pocs.read` and `pocs.write`; operators get `pocs.read`. Which PoCs you see follows the projects you read runs in, so a person bound to their own `poc-` project sees their own PoCs. A blocked revision's page and its overrule both need `runs.read` in the PoC's project, so someone who overrules holds `pocs.overrule` and `runs.read` there (globally, for example the reader role, or as admin); without it the PoC answers like a foreign one.
+
+#### The app template
+
+Each PoC is deployed from one app template in the source repo. The target's Install writes the default files once, into `<template_path>/app/`: `namespace.yaml`, `resourcequota.yaml`, `deployment.yaml`, `service.yaml`, `ingress.yaml` and `networkpolicy.yaml`. A file the branch already holds is never overwritten, so from then on they are yours to edit. The Install fills the target's quota, container resources and network keys into these files; after that, a change to those keys reaches an installed target only when you edit the template (or delete a file and install again).
+
+Every GitOps commit of a PoC reads the template at the branch head, renders it into `<deploy_root>/<poc>/` and commits the result straight onto the source repo's default branch, with no pull request. Only `*.yaml` and `*.yml` files are rendered; anything else is skipped and the step says so. A file may hold several documents, each one resource. A template edit reaches each PoC at its next GitOps commit; agent smith does not re-render every PoC when the template changes. Argo CD and the ApplicationSet that apply the folder come with a later spec (2026-11-23-c81ec).
+
+Placeholders are plain string substitution:
+
+| Placeholder | Becomes |
+|---|---|
+| `{app}` | the PoC's name |
+| `{namespace}` | `poc-<name>` |
+| `{host}` | the target's `domain_pattern` with the name for `{app}` |
+| `{port}` | the port of the revision being deployed (a rollback renders that revision's port) |
+
+The default template double-quotes every placeholder (`"{app}"`), so a PoC named `123` stays a string. Keep that when you edit it.
+
+Agent smith sets some fields itself, whatever the template says. On the Deployment named `app`:
+
+- `replicas`, as an integer.
+- pod labels `app.kubernetes.io/name: app` and `agent-smith.io/poc: <name>` (the Service selector and the NetworkPolicy's pod selector match them).
+- the Deployment's annotation `argocd.argoproj.io/sync-wave: "1"`. Everything else, the sealed secrets included, stays in wave 0, so they are applied and healthy before the pod starts.
+- container `app`: the image by digest; a readiness probe, `httpGet` on the PoC's readiness path or `tcpSocket` on the port when it has none; `envFrom` the ConfigMap `poc-config`, plus the Secret `poc-secrets` only when the PoC has a secret variable; `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `https_proxy` from `network.egress_proxy.url`, and `NO_PROXY` and `no_proxy` from its `no_proxy`.
+- `imagePullSecrets: [poc-pull]` when the pull mode is "deliver a pull secret".
+- the pod annotation `agent-smith.io/variables-checksum`, so a variable change restarts the pod.
+
+On the Ingress named `app`: `ingressClassName`, the host, the TLS secret `app-tls` with the annotation `cert-manager.io/cluster-issuer` when `ingress.tls_issuer` is set, and every entry of `auth.ingress_annotations`.
+
+Agent smith also writes `configmap.yaml`: the ConfigMap `poc-config` with one entry per plain variable. The sealed `poc-secrets.sealed.yaml` and `poc-pull.sealed.yaml` come from the seal step; when nothing is left to seal they are removed from the folder.
+
+Quoting: every string value agent smith writes (labels, annotations, ConfigMap data, env values) is double-quoted whenever it would otherwise read as a number, a boolean or null. A variable `DEBUG=true` or `PORT=8080` reaches the pod as a string.
+
+A render must pass this policy, or the deploy is refused naming the file and the field. You can edit the template; the hardening is not optional.
+
+- Every container and initContainer: `runAsNonRoot: true`, `runAsUser: 10001`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`, and cpu and memory limits.
+- The pod spec: `automountServiceAccountToken: false` and an `emptyDir` mounted at `/tmp`; no `hostNetwork`, `hostPID` or `hostIPC`, and no `hostPath` volume.
+- Every resource sits in the PoC's namespace.
+- A NetworkPolicy and a ResourceQuota are present.
+
+Auth works through the ingress controller (forward auth in annotation mode): the controller calls your auth proxy before it forwards each request, so the proxy needs no route to the PoC pod. With ingress-nginx and an oauth2-proxy, for example:
+
+```yaml
+auth:
+  ingress_annotations:
+    nginx.ingress.kubernetes.io/auth-url: https://auth.poc.example.internal/oauth2/auth
+    nginx.ingress.kubernetes.io/auth-signin: https://auth.poc.example.internal/oauth2/start?rd=$scheme://$host$request_uri
+```
+
+That is one example, not the expected controller. Another controller takes its own annotations; the NetworkPolicy still admits only the namespace in `network.ingress_controller_namespace`.
+
+The default NetworkPolicy `app` selects the PoC's pod by its labels (not `{}`, so a cert-manager HTTP-01 solver pod in the namespace isn't cut off) and allows:
+
+- in: from the namespace `network.ingress_controller_namespace` on `{port}`.
+- out: to the namespace `network.dns_namespace` with the pods `network.dns_pod_labels` on 53, UDP and TCP; and to the egress proxy on `network.egress_proxy.port`, either `network.egress_proxy.namespace` with `pod_labels`, or `network.egress_proxy.cidr`.
+
+Namespaces are matched by their `kubernetes.io/metadata.name` label. What the cluster needs: Kubernetes 1.22 or later, an ingress controller of the class the target names, the auth proxy it calls, and the Sealed Secrets controller.
 
 ## What the settings rail leaves out
 

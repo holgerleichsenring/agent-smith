@@ -10,4 +10,8 @@ public interface IPocSecretProvider
     string Name { get; }
 
     PocSecretFile Render(PocSecretOrder order);
+
+    /// <summary>2026-11-23-c81eb: the file name <see cref="Render"/> gives the object <paramref name="name"/> — what the
+    /// GitOps commit looks for on the branch when the seal is unchanged.</summary>
+    string FileNameOf(string name);
 }

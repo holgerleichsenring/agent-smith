@@ -24,7 +24,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// the server writes their binding and their poc- project through the real configuration store, the Poc row and its
 /// revision, and queues poc-deploy; the run, built from the queued seeds, takes the archive in to a validated revision
 /// with its port and files; 2026-11-23-933dc: then scans it and commits it to the source repo; 2026-11-23-933dd: and the
-/// host's pipeline (faked) builds, scans and pushes it.
+/// host's pipeline (faked) builds, scans and pushes it; 2026-11-23-c81eb: and its GitOps commit puts the
+/// rendered deploy folder onto main.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class PocDeployCompositionTests
@@ -62,13 +63,25 @@ public sealed class PocDeployCompositionTests
         var revision = await sp.GetRequiredService<AgentSmithDbContext>().Set<PocRevision>().AsNoTracking().SingleAsync(r => r.PocId == started!.PocId);
         (revision.State, revision.Port).Should().Be((PocRevisionStates.Built, 8000), "933dd: the run ends after the image is pushed");
         revision.ManifestJson.Should().Contain("app.py");
-        revision.CommitSha.Should().Be(await repo.OriginAsync("rev-parse", "main"), "933dc: a clean revision is committed");
+        revision.CommitSha.Should().Be(await repo.OriginAsync("rev-parse", "main~1"), "933dc: a clean revision is committed; c81eb: the GitOps commit follows it");
         revision.Digest.Should().Be(PocHarnessBuildHost.Digest, "933dd: the pushed digest the registry confirmed");
         repo.Build.Starts.Single().Inputs["sha"].Should().Be(revision.CommitSha);
         // 2026-11-23-933dg: the run ends sealing the target's pull secret for the namespace; nothing is committed yet.
         var seal = runner.LastContext!.Get<PocSealResult>(ContextKeys.PocSeal);
         seal.Files.Should().ContainSingle().Which.FileName.Should().Be("poc-pull.sealed.yaml");
         seal.Files[0].Content.Should().Contain("namespace: poc-todo").And.Contain("kubernetes.io/dockerconfigjson").And.NotContain(PocHarnessRepo.PullToken);
+        // 2026-11-23-c81eb: and commits the rendered folder with the sealed pull secret onto main; a second run commits nothing.
+        var head = await repo.OriginAsync("rev-parse", "main");
+        (await repo.OriginAsync("show", "main:deploy/todo/deployment.yaml")).Should().Contain($"@{PocHarnessBuildHost.Digest}").And.Contain("replicas: 1");
+        (await repo.OriginAsync("ls-tree", "--name-only", "main", "deploy/todo/")).Should().Contain("poc-pull.sealed.yaml").And.Contain("networkpolicy.yaml");
+        runner.LastContext!.Get<string>(ContextKeys.PocCommitSha).Should().Be(head);
+        var poc = await sp.GetRequiredService<AgentSmithDbContext>().Set<Poc>().AsNoTracking().SingleAsync(p => p.Id == started!.PocId);
+        (poc.Revision, poc.ImageDigest, poc.SealFingerprint).Should().Be((1, PocHarnessBuildHost.Digest, seal.SealFingerprint));
+        var again = new PipelineRunner(harness.Services) { RepoOverride = repo.Repo };
+        foreach (var (key, value) in request.Context!) again.RequestContext[key] = value;
+        var second = await again.RunAsync(PipelinePresets.PocDeployName);
+        second.IsSuccess.Should().BeTrue(second.Message);
+        (await repo.OriginAsync("rev-parse", "main")).Should().Be(head, "the folder already holds the revision");
     }
 
     [Fact]

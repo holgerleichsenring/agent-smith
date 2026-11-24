@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type {
-  PocArchiveSetting, PocScanSetting, PocsSetting, PocTargetSetting, PocVariablesSetting, SettingValue, StudioEntity,
+  PocArchiveSetting, PocGitOpsSetting, PocScanSetting, PocsSetting, PocTargetSetting, PocVariablesSetting, SettingValue, StudioEntity,
 } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
@@ -10,6 +10,7 @@ import { CheckField, DrawerSection, NumberField, RefSelect, TextField, keep } fr
 import { newPocRegistry, PocRegistryFields } from "./PocRegistryFields";
 import { POC_BUILD_DEFAULTS, PocBuildFields } from "./PocBuildFields";
 import { newPocSecrets, PocSecretsFields } from "./PocSecretsFields";
+import { newPocDeployBlocks, PocDeployFields, withPocDeployBlocks } from "./PocDeployFields";
 
 // 2026-11-23-933da: the PoCs settings (agentsmith.yml pocs:) — the switch first, then the agent and tracker every
 // person's poc- project names, then the targets. Every field stays editable while the switch is off, so a target can
@@ -51,12 +52,15 @@ export const TRIVY_IMAGE_PLACEHOLDER =
 /** 2026-11-23-933dg: the server's variables bounds (PocVariablesConfig); like archive, always sent back. */
 export const POC_VARIABLES_DEFAULTS: PocVariablesSetting = { maxNames: 64, maxValueKb: 4 };
 
+/** 2026-11-23-c81eb: the server's GitOps commit defaults (PocGitOpsConfig); like archive, always sent back. */
+export const POC_GITOPS_DEFAULTS: PocGitOpsSetting = { commitAttempts: 3, maxFolderFiles: 500 };
+
 /** A new target carries the server's defaults; the address has none, only a placeholder. */
 export function newPocTarget(): PocTargetSetting {
   return {
     name: "", sourceRepo: "", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
     domainPattern: null, lifetimeDays: 90, reminderDays: [14, 7, 1], perPersonLimit: 3, registry: newPocRegistry(),
-    build: { ...POC_BUILD_DEFAULTS }, secrets: newPocSecrets(),
+    build: { ...POC_BUILD_DEFAULTS }, secrets: newPocSecrets(), ...newPocDeployBlocks(),
   };
 }
 
@@ -68,10 +72,13 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
   const scan = value.scan ?? POC_SCAN_DEFAULTS;
   const blockedRetentionDays = value.blockedRetentionDays ?? POC_BLOCKED_RETENTION_DAYS_DEFAULT;
   const variables = value.variables ?? POC_VARIABLES_DEFAULTS;
-  // 2026-11-23-933dg: a target read without a secrets block is given the defaults and sends them back.
-  const targets = (value.targets ?? []).map((target) => (target.secrets ? target : { ...target, secrets: newPocSecrets() }));
+  const gitops = value.gitops ?? POC_GITOPS_DEFAULTS;
+  // 2026-11-23-933dg: a target read without a secrets block is given the defaults and sends them back;
+  // 2026-11-23-c81eb: so is one without an ingress, auth, network, quota or container block.
+  const targets = (value.targets ?? []).map((target) =>
+    withPocDeployBlocks(target.secrets ? target : { ...target, secrets: newPocSecrets() }));
   const set = (patch: Partial<PocsSetting>) =>
-    onChange({ ...value, archive, scan, blockedRetentionDays, variables, targets, ...patch });
+    onChange({ ...value, archive, scan, blockedRetentionDays, variables, gitops, targets, ...patch });
   const setAt = (i: number, patch: Partial<PocTargetSetting>) =>
     set({ targets: targets.map((target, j) => (j === i ? { ...target, ...patch } : target)) });
   return (
@@ -116,6 +123,15 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
         <NumberField label={t("config.pocs.variables.maxValueKb")} value={variables.maxValueKb} testId="setting-pocs-variables-maxValueKb"
           help={t("config.pocs.variables.maxValueKb.help")}
           onChange={(v) => set({ variables: { ...variables, maxValueKb: keep(v, variables.maxValueKb) } })} />
+      </DrawerSection>
+      <DrawerSection title={t("config.pocs.gitops.title")} testId="setting-pocs-gitops">
+        <span className="help">{t("config.pocs.gitops.help")}</span>
+        <NumberField label={t("config.pocs.gitops.commitAttempts")} value={gitops.commitAttempts} testId="setting-pocs-gitops-commitAttempts"
+          help={t("config.pocs.gitops.commitAttempts.help")}
+          onChange={(v) => set({ gitops: { ...gitops, commitAttempts: keep(v, gitops.commitAttempts) } })} />
+        <NumberField label={t("config.pocs.gitops.maxFolderFiles")} value={gitops.maxFolderFiles} testId="setting-pocs-gitops-maxFolderFiles"
+          help={t("config.pocs.gitops.maxFolderFiles.help")}
+          onChange={(v) => set({ gitops: { ...gitops, maxFolderFiles: keep(v, gitops.maxFolderFiles) } })} />
       </DrawerSection>
     </>
   );
@@ -203,6 +219,7 @@ function PocTargetFields({ target, index, catalog, enabled, onChange }: {
         onChange={(registry) => onChange({ registry })} />
       <PocBuildFields target={target} enabled={enabled} testId={`${id}-build`} onChange={(build) => onChange({ build })} />
       <PocSecretsFields secrets={target.secrets} testId={`${id}-secrets`} onChange={(secrets) => onChange({ secrets })} />
+      <PocDeployFields target={target} testId={id} onChange={onChange} />
     </>
   );
 }
