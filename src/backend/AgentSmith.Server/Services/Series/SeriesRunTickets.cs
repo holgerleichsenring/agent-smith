@@ -7,8 +7,9 @@ namespace AgentSmith.Server.Services.Series;
 
 /// <summary>
 /// 2026-11-23-31dcb: a series run's tickets from its project's facts — each with its depth, repos, pull requests per repo
-/// and newest status — its progress counts and its merge order (<see cref="SeriesRunOrder"/>). An open pull request's
-/// target is not stored, so it counts as the default branch here; the merge itself reads the host's base.
+/// and newest status — its progress counts and its merge order (<see cref="SeriesRunOrder"/>). 2026-11-24-f9c5c: an open pull
+/// request's target is read per head; the series' branch is a merge target like the default branch; the merge itself still
+/// reads the host's base.
 /// <para>2026-11-23-31dcg: each ticket carries its hold, read where the ticket list reads it, and the held count is the
 /// tickets whose hold names someone and is not the next merge — none when no holds were read (the merge order alone needs none).</para>
 /// </summary>
@@ -24,7 +25,8 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
         var ordered = record.Tickets.Select(t => new SeriesRunOrderTicket(t.TicketId, t.Key, facts.Requires.GetValueOrDefault(t.TicketId) ?? [])
         {
             HasOpenPullRequest = prs[t.TicketId].Any(SeriesRunPullRequests.Waits),
-            TargetsElsewhere = prs[t.TicketId].Any(p => SeriesRunPullRequests.Waits(p) && pullRequests.TargetsElsewhere(p, facts.Project)),
+            TargetsElsewhere = prs[t.TicketId].Any(p => SeriesRunPullRequests.Waits(p)
+                && pullRequests.TargetsElsewhere(p, facts.Project, record.IntegrationBranch)), // 2026-11-24-f9c5c
         }).ToList();
         var depths = order.Depths(ordered);
         var tickets = record.Tickets.Select((t, index) => (View: View(t, ordered[index], depths, facts, prs[t.TicketId])

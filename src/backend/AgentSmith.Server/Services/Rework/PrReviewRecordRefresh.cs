@@ -31,6 +31,7 @@ public sealed class PrReviewRecordRefresh(
     IPrReviewAuthorTrust trust,
     PrReviewEntryBuilder builder,
     PrRecordCiRead ci, CiGreenMerge ciMerge, CiRedNudge ciRed, // 2026-11-17-3435a/b/c
+    SeriesCiStart ciStart, // 2026-11-24-f9c5d
     PrRecordTargetRead target, // 2026-11-22-6d85b
     ConflictBaseRefresh conflicts, // 2026-11-24-297b
     TicketLandingRecorder landing,
@@ -55,7 +56,8 @@ public sealed class PrReviewRecordRefresh(
         var once = new PrReviewAuthorTrustOnce(trust);
         foreach (var pr in named.Where(n => IsDue(n, records.GetValueOrDefault(PrKey.Of(n.Url)), nudgedUrl)))
             changed |= await OneAsync(project, pr, records.GetValueOrDefault(PrKey.Of(pr.Url)), writer, once, ct);
-        if (ciLoop && !await ciMerge.AfterRefreshAsync(project, ticketId, ct)) await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c
+        if (ciLoop && !await ciStart.AfterRefreshAsync(project, ticketId, ct) && !await ciMerge.AfterRefreshAsync(project, ticketId, ct))
+            await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c, f9c5d: a series head without CI gets it started first
         await landing.RecordMergedAsync(project, ticketId, ct);
         if (changed) await activity.ChangedAsync(project.Name, KeyOf(project, ticketId), ct);
     }

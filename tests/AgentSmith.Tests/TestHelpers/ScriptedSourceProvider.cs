@@ -78,7 +78,7 @@ internal sealed class ScriptedSourceProvider(
 
     public Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,
-        CancellationToken cancellationToken) => throw new NotSupportedException(Inert);
+        CancellationToken cancellationToken, BranchName? startFrom = null) => throw new NotSupportedException(Inert);
 
     public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
         throw new NotSupportedException(Inert);

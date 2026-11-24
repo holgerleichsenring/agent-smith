@@ -465,10 +465,11 @@
   <rect x="730" y="2462" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="2504" x2="880" y2="2504" class="cf-rule"/>
   <text x="40" y="2522" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">series-run</text>
-  <text x="40" y="2538" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">series-master · 3 steps · 1 with a model</text>
+  <text x="40" y="2538" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">series-master · 4 steps · 1 with a model</text>
   <rect x="430" y="2510" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="445" y="2510" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="460" y="2510" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="445" y="2510" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="2510" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="475" y="2510" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="2552" x2="880" y2="2552" class="cf-rule"/>
   <text x="40" y="2570" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">series-verify</text>
   <text x="40" y="2586" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">series-verify-master · 6 steps · 1 with a model</text>

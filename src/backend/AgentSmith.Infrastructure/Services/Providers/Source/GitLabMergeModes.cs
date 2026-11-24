@@ -25,6 +25,7 @@ public sealed class GitLabMergeModes(
         var completion = await updater.CompleteAsync(prUrl, ct);
         return completion.Outcome == PullRequestCompletionOutcome.Refused
             ? BypassRefusal.Of(Policy, "GitLab", completion.Reason ?? "GitLab refused the merge", Permission)
+                with { Conflicts = completion.Conflicts } // 2026-11-24-f9c5e
             : completion;
     }
 

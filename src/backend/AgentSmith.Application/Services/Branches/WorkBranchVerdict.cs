@@ -15,11 +15,16 @@ public static class WorkBranchVerdict
     public const string NoPullRequest = "no pull request was opened from it";
     public const string MovedSince = "commits were pushed after its pull request ended";
 
+    /// <summary>2026-11-24-f9c5e: a series branch holds the only copy of its tickets' work until its final pull request merges,
+    /// and the host deletes it then.</summary>
+    public const string SeriesBranch = "a series branch leaves only with its final merge";
+
     /// <summary>Null to delete; otherwise the reason the branch stays.</summary>
     public static string? KeepBecause(WorkBranchTip tip, BranchPullRequests pullRequests)
     {
         ArgumentNullException.ThrowIfNull(tip);
         ArgumentNullException.ThrowIfNull(pullRequests);
+        if (WorkBranches.IsSeries(tip.Name)) return SeriesBranch;
         if (pullRequests.OpenInto > 0) return TargetedByAnOpenPullRequest;
         if (pullRequests.From.Any(p => p.State == BranchPullRequestState.Open)) return HasAnOpenPullRequest;
         if (pullRequests.From.Count == 0) return NoPullRequest;

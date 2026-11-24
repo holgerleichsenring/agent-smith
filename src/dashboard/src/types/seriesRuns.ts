@@ -19,7 +19,7 @@ export interface SeriesRunRow {
   /** The conversation's subject, else the first ticket's title. */
   name: string;
   project: string;
-  /** running · verifying · paused · done · stopped */
+  /** running · verifying · delivering · paused · done · stopped */
   state: string;
   counts: SeriesRunCounts;
   /** The key of the ticket whose pull requests merge next; null when none is ready. */
@@ -44,7 +44,7 @@ export interface SeriesRunPullRequest {
   /** A red head's first failed check and its first line. */
   ciFailure: string | null;
   ciLog: string | null;
-  /** The branch it targets — the records hold it only once merged, so null for an open pull request today. */
+  /** The branch it targets as its record read it (2026-11-24-f9c5c: per head, an open one too); null before a read. */
   target: string | null;
   /** 2026-11-23-8d16: the newest read saw it still a draft; a person's merge takes it out of draft first. */
   isDraft?: boolean;
@@ -83,7 +83,7 @@ export interface SeriesMergeSaid {
   at: string;
 }
 
-/** ready: merge this one now · after: the tickets in `after` land first · retarget: its target moves to main first. */
+/** ready: merge this one now · after: the tickets in `after` land first · retarget: it targets another ticket's branch. */
 export type SeriesRunMergeWait = "ready" | "after" | "retarget";
 
 export interface SeriesRunMergeStep {
@@ -128,6 +128,21 @@ export interface SeriesRunDetail {
   edges: SeriesRunEdge[];
   /** 2026-11-23-0219: the project merges with respect_branch_protection: true, so a Merge while CI waits arms auto-complete. */
   mergeArms?: boolean;
+  /** 2026-11-24-f9c5f: the branch its tickets integrate on; absent or null for a series without one. */
+  integrationBranch?: string | null;
+  /** 2026-11-24-f9c5f: per repo the final pull request from the series branch into the default branch. */
+  deliveries?: SeriesRunDelivery[];
+  /** 2026-11-24-f9c5f: manual · on_gate_green · on_ci_green — what the final pull requests merge under. */
+  mergeWhen?: string;
+}
+
+/** 2026-11-24-f9c5f: one repo's final pull request of a series, as its last beat saw it. */
+export interface SeriesRunDelivery {
+  repo: string;
+  url: string;
+  number: string;
+  /** What the series said about it last; null before it said anything. */
+  said: string | null;
 }
 
 /** 2026-11-23-31dce: what a merge from the series page did to one repo's pull request. */

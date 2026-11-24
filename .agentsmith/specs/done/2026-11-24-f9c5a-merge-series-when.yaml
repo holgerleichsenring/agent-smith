@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-f9c5a
+goal: "A project's merge block gains series_when (manual, on_gate_green, on_ci_green; default on_ci_green), set in the Merge tab, read and written like merge.when."
+
+applies_to: "default (MergePolicyConfig, config schema, studio mapping) + dashboard (Merge tab)"
+
+requires: [2026-11-17-023fa, 2026-11-17-3435b]
+
+follows: "Operator design 2026-11-24: a series integrates its tickets on its own branch (2026-11-24-f9c5b). merge.when keeps governing pull requests into the default branch; ticket pull requests into a series branch get their own setting, so a team can let a series run through and still review the final pull request, or review every ticket."
+
+facts:
+  - claim: "merge.when is one MergeWhen value on MergePolicyConfig, manual by default."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:10"
+  - claim: "The studio record ProjectMerge and ProjectMergeMapping carry each merge key positionally to the entity and back to the raw config."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/ProjectEntity.cs:58-60; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ProjectMergeMapping.cs:15-46"
+  - claim: "The schema's merge object allows no unknown key, and ConfigSchemaCoverageTests fails on a bound key the schema does not declare."
+    evidence: "config/agentsmith.schema.json:858-875"
+  - claim: "The Merge tab renders merge.when as a SelectField over capabilities.mergeWhen."
+    evidence: "src/dashboard/src/components/config/ProjectMergeSection.tsx"
+
+scope:
+  in: >-
+    MergePolicyConfig.SeriesWhen (MergeWhen, default OnCiGreen) and IntoSeriesBranch(): a copy whose When is SeriesWhen, for
+    the merge of a ticket pull request into its series branch. Schema key series_when, example config, docs (agentsmith-yml
+    merge block, ci-loop). Studio ProjectMerge.SeriesWhen (string, null = default) through ProjectMergeMapping both ways.
+    Dashboard: ProjectMerge.seriesWhen, a select in the Merge tab beside merge.when with the same options, en/de label and
+    help ("ticket pull requests of a series into its series branch"); NO_MERGE carries on_ci_green; the CI fields show when
+    either setting is on_ci_green. Every project, one with no merge block included, reads on_ci_green for series_when from the
+    deploy (operator: a series runs through by default).
+  out: "What reads it (2026-11-24-f9c5c). No switch for the series branch itself (operator: it is the series behaviour)."
+
+steps:
+  - id: model
+    action: "SeriesWhen + IntoSeriesBranch on MergePolicyConfig; schema, example, docs."
+  - id: studio
+    action: "ProjectMerge.SeriesWhen and the mapping."
+  - id: tab
+    action: "configApi type, ProjectMergeSection select, i18n en/de, test."
+
+tests:
+  - "MergePolicyYamlTests: series_when on_gate_green binds; absent reads on_ci_green; IntoSeriesBranch keeps every other key and leaves the original unchanged."
+  - "StudioSettingsSweepTests: series_when round-trips through the studio; a block sent without it stores its default; an unknown one is refused by name."
+  - "ProjectMergeSection.test: the series select shows the stored value and writes seriesWhen; the CI fields show under series_when on_ci_green with merge.when manual."
+
+done:
+  - "Build, affected backend and dashboard tests green; the spec gate passed."

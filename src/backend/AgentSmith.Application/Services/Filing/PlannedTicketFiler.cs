@@ -33,7 +33,7 @@ public sealed class PlannedTicketFiler(
         progress.Update(c => c with { Edges = edges });
         if (planned.Series is { } series)
             await sets.RecordAsync(provider, Source(request, planned), project, made, series, planned.Goal,
-                progress.Notes, CancellationToken.None, request.Basis);
+                progress.Notes, CancellationToken.None, request.Basis, request.SpecBranchFrom);
         progress.Update(c => c with { Complete = true });
     }
 

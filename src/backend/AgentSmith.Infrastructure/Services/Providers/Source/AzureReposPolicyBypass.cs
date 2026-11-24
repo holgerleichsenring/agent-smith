@@ -52,7 +52,8 @@ public sealed class AzureReposPolicyBypass(string project, string repoName, ILog
         ArgumentNullException.ThrowIfNull(updated);
         if (updated.Status == PullRequestStatus.Completed) return PullRequestCompletion.Merged();
         if (updated.MergeStatus == PullRequestAsyncStatus.Conflicts)
-            return PullRequestCompletion.Refused(updated.MergeFailureMessage ?? $"Pull request !{prId} has merge conflicts.");
+            return PullRequestCompletion.Refused(updated.MergeFailureMessage ?? $"Pull request !{prId} has merge conflicts.")
+                with { Conflicts = true }; // 2026-11-24-f9c5e
         if (updated.MergeStatus is PullRequestAsyncStatus.Failure or PullRequestAsyncStatus.RejectedByPolicy)
             return BypassRefusal.Of(Policy, "Azure Repos",
                 updated.MergeFailureMessage ?? $"the merge of !{prId} ended '{updated.MergeStatus}'", Permission);

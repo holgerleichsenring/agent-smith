@@ -67,7 +67,7 @@ public sealed class DeployCompositionTests
             It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()), Times.Once, "test needs no approval");
         fixture.App.Verify(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(),
             It.Is<IReadOnlyList<RepoFile>>(f => f.Single().Content == DeployFixture.Manifest("v2")),
-            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<BranchName?>()), Times.Once);
     }
 
     [Fact]

@@ -42,9 +42,11 @@ export function seriesNodeSentence(ticket: SeriesRunTicket, detail: SeriesRunDet
   const lead = kind === "needed" ? t("series.merge.needed", { names: namesOf(t, needed), count: needed.length }) : null;
   // 2026-11-23-0219: what the last merge run said when it did not merge, and why Merge when green cannot arm here.
   const told = seriesMergeSaid(ticket);
-  const mergeSaid = told?.status === "completion_refused" ? t("series.merge.said.refused", { reason: told.reason ?? "" })
+  // 2026-11-24-f9c5f: a merge run that started (or could not start) a series pull request's CI said so — said as it is.
+  const mergeSaid = told?.status === "completion_refused" && /^(CI started|CI not started|no CI):/.test(told.reason ?? "") ? told.reason
+    : told?.status === "completion_refused" ? t("series.merge.said.refused", { reason: told.reason ?? "" })
     : told?.status === "completion_armed" ? t("series.merge.said.armed") : null;
-  const arms = mergesWhenGreen(detail, ticket) && !detail.mergeArms ? t("series.merge.whenGreenNeeds") : null;
+  const arms = mergesWhenGreen(detail, ticket) && !detail.mergeArms ? t(WhenGreenNeeds(detail)) : null;
   return [lead, said, draft, mergeSaid, arms].filter(Boolean).join(" ");
 }
 
@@ -52,8 +54,11 @@ export function seriesNodeSentence(ticket: SeriesRunTicket, detail: SeriesRunDet
 // started and arms the host's auto-complete, which needs respect_branch_protection; without it the act names the key.
 function whenGreenAct(detail: SeriesRunDetail, t: T): SeriesAct {
   return { id: "merge", kind: "merge", label: t("series.merge.whenGreen"), tone: "primary",
-    disabledBy: detail.mergeArms ? undefined : t("series.merge.whenGreenNeeds") };
+    disabledBy: detail.mergeArms ? undefined : t(WhenGreenNeeds(detail)) };
 }
+
+// 2026-11-24-f9c5f: a merge into a series branch never arms; it merges by itself once its CI is green.
+const WhenGreenNeeds = (detail: SeriesRunDetail) => detail.integrationBranch ? "series.merge.whenGreenSeries" : "series.merge.whenGreenNeeds";
 
 /** The ticket's acts by its colour, in the order they are drawn. lacks: the viewer has no runs.control (no Merge, no Retry). */
 export function seriesTicketActs(ticket: SeriesRunTicket, detail: SeriesRunDetail, kind: SeriesNodeKind, lacks: boolean, t: T): SeriesAct[] {

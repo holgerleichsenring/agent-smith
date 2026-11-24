@@ -9,6 +9,18 @@ public static class WorkBranches
 {
     public const string Prefix = "agent-smith";
 
+    /// <summary>2026-11-24-f9c5c: the prefix of every series branch (agent-smith/series/&lt;id&gt;).</summary>
+    public const string SeriesPrefix = Prefix + "/series/";
+
+    /// <summary>2026-11-24-f9c5c: whether a branch is a series branch; a <c>refs/heads/</c> prefix is ignored.</summary>
+    public static bool IsSeries(string? branch)
+    {
+        if (string.IsNullOrWhiteSpace(branch)) return false;
+        const string heads = "refs/heads/";
+        var name = branch.StartsWith(heads, StringComparison.Ordinal) ? branch[heads.Length..] : branch;
+        return name.Length > SeriesPrefix.Length && name.StartsWith(SeriesPrefix, StringComparison.Ordinal);
+    }
+
     /// <summary>True for a branch name under <c>agent-smith/</c>; a <c>refs/heads/</c> prefix is ignored.</summary>
     public static bool Owns(string? branch)
     {

@@ -10,6 +10,7 @@ public static partial class PipelinePresets
     public static readonly IReadOnlyList<string> SeriesRun =
     [
         CommandNames.ReadSeries,
+        CommandNames.DeliverSeries, // 2026-11-24-f9c5e
         CommandNames.SeriesMaster,
         CommandNames.PostSeriesStatus,
     ];

@@ -64,6 +64,29 @@ public sealed class MergePolicyYamlTests
         project.Merge.CiFixAttempts.Should().Be(5); // 2026-11-17-3435c
     }
 
+    // 2026-11-24-f9c5a
+    [Fact]
+    public void SeriesWhen_Loads_AndDefaultsToOnCiGreen()
+    {
+        Load(Head + "    merge:\n      series_when: on_gate_green\n").Merge.SeriesWhen.Should().Be(MergeWhen.OnGateGreen);
+        Load(Head).Merge.SeriesWhen.Should().Be(MergeWhen.OnCiGreen, "a series runs through unless the project says otherwise");
+    }
+
+    // 2026-11-24-f9c5a
+    [Fact]
+    public void IntoSeriesBranch_TakesSeriesWhen_GoesPastProtection_AndLeavesTheOriginal()
+    {
+        var merge = new MergePolicyConfig
+        {
+            When = MergeWhen.Manual, SeriesWhen = MergeWhen.OnGateGreen, RespectBranchProtection = true, CiSettleSeconds = 42,
+        };
+
+        var series = merge.IntoSeriesBranch();
+
+        (series.When, series.Protection, series.CiSettleSeconds).Should().Be((MergeWhen.OnGateGreen, BranchProtection.Bypass, 42));
+        (merge.When, merge.Protection).Should().Be((MergeWhen.Manual, BranchProtection.Respect));
+    }
+
     [Fact]
     public void NoMergeBlock_IsManual_AndWouldBypass()
     {

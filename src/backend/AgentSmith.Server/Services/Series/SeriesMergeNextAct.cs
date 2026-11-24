@@ -37,10 +37,12 @@ public sealed class SeriesMergeNextAct(
             return TicketCloseResult.Refuse(Status404NotFound, $"{ticketId} is not a ticket of this series.");
         if (series.MergeOrder.FirstOrDefault(s => s.TicketId == ticketId) is not { } step)
             return TicketCloseResult.Refuse(Status409Conflict, $"{ticket.Key} has no open pull request to merge.");
-        if ((NotNext(step) ?? CiHolds(ticket, project.Merge)) is { } why) return TicketCloseResult.Refuse(Status409Conflict, why);
+        // 2026-11-24-f9c5c: a ticket of a series with a branch merges into it under the series policy, which never arms.
+        var policy = series.IntegrationBranch is null ? project.Merge : project.Merge.IntoSeriesBranch();
+        if ((NotNext(step) ?? CiHolds(ticket, policy, series.IntegrationBranch)) is { } why) return TicketCloseResult.Refuse(Status409Conflict, why);
         if (await attempts.LatestAsync(project.Name, ticketId, null, ct) is not { } attempt)
             return TicketCloseResult.Refuse(Status409Conflict, $"{ticket.Key} has no attempt whose pull requests could merge.");
-        return await RunAsync(project, ticket, Request(ticket, attempt.RunId, askedBy), ct);
+        return await RunAsync(project, ticket, Request(ticket, attempt.RunId, askedBy) with { SeriesBranch = series.IntegrationBranch }, ct);
     }
 
     // The ticket's pull requests that wait for a merge — per repo the open record, as the page shows them.
@@ -65,8 +67,9 @@ public sealed class SeriesMergeNextAct(
     /// <summary>2026-11-23-849e: the ready step's CI is red — the act refuses what the page does not offer. 2026-11-23-0219: a
     /// CI that runs or has not started merges when green — the merge-green run re-queues a build that has not started, approves
     /// and arms the host's auto-complete, which only <c>respect_branch_protection: true</c> does; without it the act refuses and
-    /// names the key. Null when the merge may go ahead.</summary>
-    internal static string? CiHolds(SeriesRunTicketView ticket, MergePolicyConfig merge)
+    /// names the key. Null when the merge may go ahead. 2026-11-24-f9c5c: a merge into a series branch never arms; it waits for
+    /// green and says so.</summary>
+    internal static string? CiHolds(SeriesRunTicketView ticket, MergePolicyConfig merge, string? seriesBranch = null)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(merge);
@@ -74,6 +77,7 @@ public sealed class SeriesMergeNextAct(
         if (waiting.Any(p => p.Ci == CiStates.Red)) return $"{ticket.Key} is not merged: its CI is red.";
         if (merge.RespectBranchProtection || !waiting.Any(p => CiStates.Waits(p.Ci))) return null;
         var why = waiting.Any(p => p.Ci == CiStates.NotStarted) ? "its required build has not started" : "its CI is still running";
+        if (seriesBranch is not null) return $"{ticket.Key} is not merged yet: {why}; a merge into {seriesBranch} waits for its CI to be green.";
         return $"{ticket.Key} is not merged yet: {why}, and merging once it is green arms the host's auto-complete, which needs "
             + $"merge.{BypassRefusal.Key}: true (Config → Project → Merge).";
     }

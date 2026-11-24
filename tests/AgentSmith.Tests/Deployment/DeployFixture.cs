@@ -107,7 +107,7 @@ internal sealed class DeployFixture
         var provider = new Mock<ISourceProvider>();
         provider.Setup(p => p.TryReadFileAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(manifest);
         provider.Setup(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(), It.IsAny<IReadOnlyList<RepoFile>>(),
-            It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(BranchWriteResult.Ok("abc"));
+            It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<BranchName?>())).ReturnsAsync(BranchWriteResult.Ok("abc"));
         provider.Setup(p => p.CreatePullRequestAsync(It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
             .ReturnsAsync(prUrl);

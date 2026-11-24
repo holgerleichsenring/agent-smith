@@ -2,12 +2,12 @@ import type { T } from "@/lib/i18n/translate";
 import type { SeriesRunTicket } from "@/types/seriesRuns";
 
 // 2026-11-23-31dcd: one ticket's state on the Tickets section, from its row alone — merged, then a pull request that
-// waits, then its newest attempt, else not started.
+// waits, then its newest attempt, else not started. 2026-11-24-f9c5f: in a series with a branch, merged means into that branch.
 
 const WAITS = new Set(["open", "unread"]);
 
-export function seriesTicketState(ticket: SeriesRunTicket, t: T): { text: string; tone: "ok" | "run" | "need" | "bad" | "idle" } {
-  if (ticket.landed) return { text: t("series.ticket.merged"), tone: "ok" };
+export function seriesTicketState(ticket: SeriesRunTicket, t: T, seriesBranch?: string | null): { text: string; tone: "ok" | "run" | "need" | "bad" | "idle" } {
+  if (ticket.landed) return { text: t(seriesBranch ? "series.ticket.mergedIntoSeries" : "series.ticket.merged"), tone: "ok" };
   const waiting = ticket.pullRequests.filter((p) => WAITS.has(p.state));
   if (waiting.length > 0) return { text: t("series.ticket.waiting", { numbers: waiting.map((p) => `#${p.number}`).join(" + ") }), tone: "run" };
   switch (ticket.status) {

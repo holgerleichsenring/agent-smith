@@ -54,7 +54,8 @@ public sealed record ProjectResolution(string Strategy, string Value);
 
 /// <summary>2026-11-17-b34eb: the project's <c>merge:</c> block as the studio edits it; <see cref="When"/> is the
 /// snake_case name the YAML uses (manual, on_gate_green, on_ci_green). 2026-11-17-3435d: and the CI loop's keys; a null
-/// one is the key's default.</summary>
+/// one is the key's default. 2026-11-24-f9c5a: and <see cref="SeriesWhen"/>, the mode of a series' ticket pull requests into
+/// its series branch, in the same names; null is its default.</summary>
 public sealed record ProjectMerge(string When, bool RespectBranchProtection, bool RefreshOpenPullRequests,
     int? CiPollSeconds = null, int? CiSettleSeconds = null, int? CiPendingSeconds = null, int? CiFixAttempts = null,
-    int? CiExcerptChars = null, int? CiFailedChecksRead = null, string? ApprovalAuth = null);
+    int? CiExcerptChars = null, int? CiFailedChecksRead = null, string? ApprovalAuth = null, string? SeriesWhen = null);

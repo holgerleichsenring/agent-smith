@@ -79,6 +79,7 @@ public static partial class CommandModelUse
         CommandNames.CompilePrReviewFindings, CommandNames.CollectSpecDialogReply,
         CommandNames.PlanFiling, CommandNames.FileTickets, // 2026-11-17-5701b
         CommandNames.OpenSeriesRun, CommandNames.ReadSeries, CommandNames.PostSeriesStatus, // 2026-11-17-0207a
+        CommandNames.DeliverSeries, // 2026-11-24-f9c5e
         CommandNames.CloseTicket, CommandNames.ReopenTicket, CommandNames.StartTicket, // 2026-11-17-e061a, e061b
         CommandNames.ApplyConfigChanges, CommandNames.WriteSecret, // 2026-11-17-f3a8c, f3a8d
         CommandNames.AmendTicket, CommandNames.PostTicketComments, // 2026-11-17-e061c

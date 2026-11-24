@@ -20,8 +20,22 @@ namespace AgentSmith.Server.Services.Series;
 public sealed class SeriesTicketActs(
     TicketProjects projects, UnmetTicketRequirements requirements, TicketStartRun starts, IPreviousAttemptReader attempts,
     RunRetry retry, SeriesTicketMessage messages, Deployment.DeployLauncher deploys, SeriesRunCancel cancels,
-    WaitingTicketStart waiting, IReworkNudges nudges, IRedisClaimLock locks) : ISeriesTicketActs
+    WaitingTicketStart waiting, IReworkNudges nudges, IRedisClaimLock locks,
+    ITicketLandingStore landings, DependentsWake wake) : ISeriesTicketActs // 2026-11-24-f9c5e
 {
+    /// <summary>2026-11-24-f9c5e: each landed ticket's dependents woken through the landing's own wake, now the series' work is on
+    /// the default branch — the outside ones were held until then (f9c5b).</summary>
+    public async Task<int> WakeDependentsAsync(string project, IReadOnlyList<string> ticketIds, CancellationToken cancellationToken)
+    {
+        if (projects.Of(project) is not { } resolved || ticketIds.Count == 0) return 0;
+        var platform = resolved.Tracker.Type.ToString().ToLowerInvariant();
+        var woken = 0;
+        foreach (var landed in await landings.LandedAsync(resolved.Tracker.Name,
+                     [.. ticketIds.Select(id => TicketKey.For(platform, id).Value)], cancellationToken))
+            woken += await wake.WakeAsync(landed, cancellationToken);
+        return woken;
+    }
+
     public async Task<string> StartAsync(string project, string ticketId, CancellationToken cancellationToken)
     {
         if (projects.Of(project) is not { } resolved) return $"Project '{project}' is not configured.";

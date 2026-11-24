@@ -34,6 +34,7 @@ public sealed class StudioSettingsSweepTests
         {
             CiPollSeconds = 60, CiSettleSeconds = 180, CiPendingSeconds = 3600, CiFixAttempts = 3, CiExcerptChars = 4000,
             CiFailedChecksRead = 5, // 2026-11-17-3435d: a block sent without the CI keys stores their defaults
+            SeriesWhen = "on_ci_green", // 2026-11-24-f9c5a: and without the series mode its default
         });
     }
 
@@ -49,7 +50,23 @@ public sealed class StudioSettingsSweepTests
 
         stored.Merge!.When.Should().Be(MergeWhen.OnCiGreen);
         (stored.Merge.CiFixAttempts, stored.Merge.ApprovalAuth).Should().Be((2, "approver"));
-        ProjectEntityMapping.ToProject("app", stored).Merge.Should().Be(sent.Merge);
+        ProjectEntityMapping.ToProject("app", stored).Merge.Should().Be(sent.Merge with { SeriesWhen = "on_ci_green" });
+    }
+
+    // 2026-11-24-f9c5a
+    [Fact]
+    public void ProjectMerge_SeriesWhen_RoundTrips_AndAnUnknownOneIsRefusedByName()
+    {
+        var sent = new ProjectEntity("app", "a", "t", [], null, [],
+            Merge: new ProjectMerge("on_ci_green", false, false, SeriesWhen: "manual"));
+
+        var stored = RawProjectPatch.Apply(sent, new RawProjectEntry());
+
+        stored.Merge!.SeriesWhen.Should().Be(MergeWhen.Manual);
+        ProjectEntityMapping.ToProject("app", stored).Merge!.SeriesWhen.Should().Be("manual");
+        var unknown = () => RawProjectPatch.Apply(new ProjectEntity("app", "a", "t", [], null, [],
+            Merge: new ProjectMerge("manual", false, false, SeriesWhen: "sometimes")), new RawProjectEntry());
+        unknown.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage("*merge.series_when 'sometimes'*");
     }
 
     [Fact]

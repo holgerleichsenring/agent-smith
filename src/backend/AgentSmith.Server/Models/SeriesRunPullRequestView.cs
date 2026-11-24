@@ -3,7 +3,7 @@ namespace AgentSmith.Server.Models;
 /// <summary>2026-11-23-31dcb: a member ticket's pull request in one repo, from the PR review records — the open one, else
 /// the newest — with its CI on its head (one of CiStates; null before a CI read on it) and a red head's first failed check
 /// with its log link.</summary>
-/// <param name="Target">The branch it targets when known; the records hold it only once merged.</param>
+/// <param name="Target">The branch it targets when known (2026-11-24-f9c5c: read for an open record too, per head).</param>
 public sealed record SeriesRunPullRequestView(
     string Repo, string Number, string Url, string State, string? Ci, string? CiFailure, string? CiLog, string? Target)
 {

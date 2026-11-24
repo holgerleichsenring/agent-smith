@@ -11,7 +11,7 @@ public static class SeriesSummaryText
         ArgumentNullException.ThrowIfNull(beat);
         ArgumentNullException.ThrowIfNull(verdict);
         var failed = verdict.Failed;
-        var text = $"All {beat.Facts.Count} tickets landed. The series check on main ran the done criteria of its specs: "
+        var text = $"All {beat.Facts.Count} tickets landed. The series check on {SeriesBranchWords.Checked(beat.Record)} ran the done criteria of its specs: "
             + $"{verdict.Results.Count - failed.Count} of {verdict.Results.Count} hold.";
         if (failed.Count > 0) text += $" Failing: {string.Join("; ", failed.Select(f => $"{f.Criterion} ({f.Evidence})"))}.";
         if (verdict.Unread.Count > 0) text += $" Not checked, the specs could not be read: {string.Join("; ", verdict.Unread)}.";

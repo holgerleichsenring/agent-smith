@@ -36,4 +36,10 @@ public sealed class WorkBranchVerdictTests
         WorkBranchVerdict.KeepBecause(Tip, Prs(new BranchPullRequest(BranchPullRequestState.Merged, "old"))).Should().Be(WorkBranchVerdict.MovedSince);
 
     private static BranchPullRequests Prs(params BranchPullRequest[] from) => new(from, OpenInto: 0);
+
+    // 2026-11-24-f9c5e: a series branch holds the only copy of its tickets' work until its final merge deletes it.
+    [Fact]
+    public void Verdict_ASeriesBranch_IsKept_EvenAfterItsPullRequestClosed() =>
+        WorkBranchVerdict.KeepBecause(new WorkBranchTip("agent-smith/series/sr-1", "abc"),
+            Prs(new BranchPullRequest(BranchPullRequestState.Closed, "abc"))).Should().Be(WorkBranchVerdict.SeriesBranch);
 }

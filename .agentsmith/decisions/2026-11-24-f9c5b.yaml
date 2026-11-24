@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-f9c5b
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "A series of two or more tickets integrates on one agent-smith/series/<series id> branch per repo, cut from the default branch by its first ticket there; a single ticket works as before; no switch"
+    over: "Stacking each ticket on its unlanded prerequisites' branches into the default branch (today); a setting to turn it off"
+    reason: "Operator design 2026-11-24: ticket-by-ticket merges into the default branch cost many clicks, everything else landing there interferes, and drafts and retargets are fragile. 'What would you turn off?'"
+  - category: Scope
+    decider: operator
+    chose: "Only series opened after the deploy get a branch (IntegrationBranch set at open); a running series keeps today's behaviour"
+    over: "Migrating running series onto a series branch"
+    reason: "Operator confirmed 2026-11-24."
+  - category: Architecture
+    decider: claude
+    chose: "The series branch is one more parent of a run (stacked, then series branch, then label parent), composed by TicketBranchNamer.RungOf, so the ladder, the rung publisher, the PR target record and every base reader serve it unchanged"
+    over: "A second base path beside the ladder; a pseudo ticket id"
+    reason: "No second path: the publisher already creates a missing rung at the clone's base create-only and adopts a sibling's, which is exactly 'cut from the default branch by the first ticket there'. A parent under agent-smith/ is never a ticket id, so RungOf cannot misread one."
+  - category: Architecture
+    decider: claude
+    chose: "agent-smith/series/<id> — two segments under the owned prefix"
+    over: "agent-smith/series-<id>"
+    reason: "TicketBranchNamer.TicketOf reads agent-smith/ plus ONE segment as a ticket's branch; a one-segment series name would be read as ticket 'series-<id>' by the landing and retarget code."
+  - category: Implementation
+    decider: claude
+    chose: "The filing opens (or joins) the series between creating and starting its tickets, through a callback of FilingPlanFiler; OpenSeriesRun then only reports and keeps the follow-up's start on the verdict"
+    over: "Opening the series in OpenSeriesRun after the starts (today)"
+    reason: "Review finding (blocker): the first root ticket was started inside FileTickets and claimed before any series record existed, so it was cut from the default branch."
+  - category: Implementation
+    decider: claude
+    chose: "A follow-up filed into a series with a branch has its ticket branch written from the series branch where the repository has it (WriteFilesToBranchAsync startFrom)"
+    over: "Writing it from the default branch head and merging the series branch in at checkout"
+    reason: "Review finding (blocker): a follow-up filed after the default branch moved would carry those commits into its pull request into the series branch. The first tickets need nothing: their branches are cut before the series branch, from an ancestor of it."
+  - category: Implementation
+    decider: claude
+    chose: "A ticket of a series with a branch is held by landings only under every requires_start; a ticket outside the series requiring one of its tickets stays unmet until the series ends, for starts and merges alike"
+    over: "Keeping on_green_push stacking for series tickets; treating a series-branch merge as a landing for every dependent"
+    reason: "The series branch replaces stacking for series tickets. A merge into the series branch reaches the default branch only with the final pull request, so an outside dependent cut from the default branch before that would miss the work (review finding)."
+  - category: Implementation
+    decider: claude
+    chose: "A series branch still unreadable after the publish stops the run with a sentence naming it"
+    over: "Falling through to the clone's base as an unstacked run does"
+    reason: "Review finding: a fall-through records no target, so the ticket's pull request would open against the default branch."
+  - category: Scope
+    decider: operator
+    chose: "A series ticket requiring a ticket outside the series is met by that ticket's landing on the default branch; the series branch is not refreshed for it"
+    over: "Merging the default branch into the series branch when such a prerequisite lands"
+    reason: "Operator 2026-11-24: develop moving meanwhile is ignored until the final pull request. Recorded as an open question in the series report for the operator to confirm. Operator confirmed 2026-11-24: a prerequisite outside the series that lands later on the default branch does not refresh the series branch."
+  - category: Implementation
+    decider: claude
+    chose: "Post-build review fix: a series the filing step could not open before its starts is opened afterwards without a series branch"
+    over: "Opening it with a branch in OpenSeriesRun"
+    reason: "Review finding 6: its tickets had already started against the default branch; a branch then would split the series between two targets."

@@ -71,6 +71,8 @@ export interface TicketPullRequest {
   note: string | null;
   /** 2026-11-17-3435a: the CI the newest read saw on the head; absent or null before a CI read. */
   ci?: TicketPullRequestCi | null;
+  /** 2026-11-24-f9c5f: the branch it targets as its record read it; absent or null before a read. */
+  target?: string | null;
 }
 
 /** 2026-11-17-3435a: one failed CI check — its name, the link to its full log, a bounded excerpt. */

@@ -56,13 +56,16 @@ internal sealed class SeriesRig(DateTimeOffset start)
 
     private sealed class RecordingLaunch(List<(string, string, string)> launches) : ISeriesRunLaunch
     {
-        public Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken ct)
+        public Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken ct, string? checkoutBranch = null)
         {
             launches.Add((project, pipeline, seriesRunId));
             return Task.FromResult($"run-{pipeline}-{launches.Count}");
         }
 
         public Task<bool> FinishedAsync(string runId, CancellationToken ct) => Task.FromResult(true);
+
+        public Task<bool> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber, DateTimeOffset conflictsSince,
+            CancellationToken ct) => Task.FromResult(true); // 2026-11-24-f9c5f
     }
 
     private sealed class ScriptedCriteria : ISeriesCriteria

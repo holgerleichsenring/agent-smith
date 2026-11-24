@@ -37,6 +37,16 @@ public sealed class SeriesRunPullRequestsTests
         _pullRequests.TargetsElsewhere(pullRequest, Project).Should().Be(elsewhere);
     }
 
+    // 2026-11-24-f9c5c: the series' branch is a merge target like the default branch.
+    [Fact]
+    public void TargetsElsewhere_TheSeriesBranch_IsNotElsewhere()
+    {
+        var pullRequest = new SeriesRunPullRequestView("api", "1", "u", PrReviewStates.Open, null, null, null, "agent-smith/series/sr-1");
+
+        _pullRequests.TargetsElsewhere(pullRequest, Project, "agent-smith/series/sr-1").Should().BeFalse();
+        _pullRequests.TargetsElsewhere(pullRequest, Project).Should().BeTrue("outside its series it is just another branch");
+    }
+
     private static PrReviewRecordView Record(string number, string state) =>
         new($"k{number}", $"https://github.com/o/api/pull/{number}", "api", number, "alpha", "1", "run", state, null,
             DateTimeOffset.UnixEpoch, null, []);

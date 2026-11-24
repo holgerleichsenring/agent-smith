@@ -14,10 +14,11 @@ public static class SeriesFollowUp
     public static FilingRequest Request(SeriesRunRecord record, IReadOnlyList<SeriesCriterionResult> failed)
     {
         ArgumentNullException.ThrowIfNull(record);
-        var body = new StringBuilder($"The series check on the default branch found {failed.Count} done criteria of series ")
+        var on = record.IntegrationBranch ?? "the default branch"; // 2026-11-24-f9c5b
+        var body = new StringBuilder($"The series check on {on} found {failed.Count} done criteria of series ")
             .Append(record.Id).Append(" that do not hold. Make each hold, with a test that shows it.\n");
         foreach (var f in failed) body.Append("\n- ").Append(f.Criterion).Append("\n  Found: ").Append(f.Evidence);
-        var title = failed.Count == 1 ? $"Series check: {Short(failed[0].Criterion)}" : $"Series check: {failed.Count} done criteria fail on main";
+        var title = failed.Count == 1 ? $"Series check: {Short(failed[0].Criterion)}" : $"Series check: {failed.Count} done criteria fail on {SeriesBranchWords.Checked(record)}";
         return new FilingRequest(record.Conversation, record.Principal, [], [], null, record.MayStartRuns)
         {
             FollowUp = new FilingFollowUp(title, body.ToString()),

@@ -13,7 +13,7 @@ export function DialogSeriesHead({ series, onAct }: { series: SeriesRunView; onA
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const act: SeriesAct | null = series.state === "paused" ? "resume"
-    : series.state === "running" || series.state === "verifying" ? "pause" : null;
+    : series.state === "running" || series.state === "verifying" || series.state === "delivering" ? "pause" : null; // f9c5e
   async function press(what: SeriesAct) {
     setBusy(true);
     setRefusal(null);

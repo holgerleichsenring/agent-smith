@@ -12,6 +12,8 @@ namespace AgentSmith.Server.Services.Sweep;
 /// watched while its CI is pending within merge.ci_pending_seconds, at the same poll. Only an on_ci_green project acts on a
 /// verdict, so only it keeps unread, moved-head and unacted records due. The loop now ticks at the smallest poll of every
 /// project (60 s by default) instead of only while an on_ci_green project is configured.</para>
+/// <para>2026-11-24-f9c5c: acting is per record — merge.when on_ci_green for a pull request into the default branch,
+/// merge.series_when on_ci_green for one into a series branch.</para>
 /// </summary>
 public static class CiWatchSelection
 {
@@ -28,7 +30,8 @@ public static class CiWatchSelection
         foreach (var project in watched)
             due.AddRange(await records.CiDueAsync(project.Name,
                 (now - TimeSpan.FromSeconds(project.Merge.CiPollSeconds)).UtcTicks,
-                (now - TimeSpan.FromSeconds(project.Merge.CiPendingSeconds)).UtcTicks, project.Merge.When == MergeWhen.OnCiGreen, ct));
+                (now - TimeSpan.FromSeconds(project.Merge.CiPendingSeconds)).UtcTicks, project.Merge.When == MergeWhen.OnCiGreen, ct,
+                project.Merge.SeriesWhen == MergeWhen.OnCiGreen));
         return due;
     }
 }

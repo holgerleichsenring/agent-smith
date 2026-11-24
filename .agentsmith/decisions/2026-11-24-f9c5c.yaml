@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-f9c5c
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "The setting that decides a merge is chosen by the pull request's target: a run's claim stamp or a merge request's SeriesBranch, and for the CI loop the records' target branch (agent-smith/series/ prefix)"
+    over: "Deciding by series membership (ISeriesRunStore.ForTicketAsync per refresh)"
+    reason: "Review finding: membership and target diverge (a ticket that joined a series after opening a pull request, a rework after the series is done), and ForTicketAsync loads every series row of the project on every refresh. The target is the fact the invariant is about."
+  - category: Implementation
+    decider: claude
+    chose: "A merge into a series branch always goes past protection and never arms auto-complete; the series merge act refuses while CI runs and says it waits for green"
+    over: "The project's respect_branch_protection for series merges too"
+    reason: "Review finding: a series branch carries no host policy, so arming there merges at once with CI pending on Azure DevOps and GitHub."
+  - category: Implementation
+    decider: claude
+    chose: "An open pull request's target is read when its record is first seen and whenever its head moves; a merged one at the merge"
+    over: "Reading it on every refresh; keeping the open-time target at the merge"
+    reason: "One host call per new head bounds the cost (review finding on the per-refresh read); a retarget comes with a push from a run, and the merge re-reads because the target may have moved since."
+  - category: Implementation
+    decider: claude
+    chose: "CiDueAsync decides 'acts on a verdict' per record: merge.when for a default-branch record, merge.series_when for a series-branch record"
+    over: "Acting for a whole project when either setting is on_ci_green"
+    reason: "Review finding: with series_when defaulting to on_ci_green the project-wide rule would make every project's unread and unacted records due every poll, undoing 849e's scoping."
+  - category: Scope
+    decider: claude
+    chose: "No new Retarget wait for a series pull request that targets the default branch; TargetsElsewhere keeps meaning a prerequisite's branch, and the series' branch counts as a merge target"
+    over: "A Retarget wait onto the series branch"
+    reason: "Review finding: nothing would move such a pull request, so the wait would never end; a series ticket opens against the series branch by construction (f9c5b)."
+  - category: Implementation
+    decider: claude
+    chose: "A head on a series branch with no CI reported is not green for the CI merge"
+    over: "Merging it after merge.ci_settle_seconds as for the default branch"
+    reason: "Hosts often run required builds only for protected branches; 'nothing reported' on a series branch is not 'no CI configured'. f9c5d starts the CI or says why it cannot."
+  - category: Implementation
+    decider: claude
+    chose: "Post-build review fix: the CI merge waits while any awaited record's target is not read yet"
+    over: "Falling back to merge.when for an unknown target"
+    reason: "Review finding 10: the fallback started a merge the base guard refused and marked the head acted, so the pull request stayed unmerged until its head moved."

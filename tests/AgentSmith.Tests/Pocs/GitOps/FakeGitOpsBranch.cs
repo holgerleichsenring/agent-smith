@@ -30,8 +30,8 @@ internal sealed class FakeGitOpsBranch
         provider.Setup(p => p.ListFilesUnderAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string folder, BranchName _, int max, CancellationToken _) => RepoFileListing.Bounded(
                 Files.Keys.Where(k => k.StartsWith(folder + "/", StringComparison.Ordinal)).Order(StringComparer.Ordinal).ToList(), max, TruncateListings));
-        provider.Setup(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(), It.IsAny<IReadOnlyList<RepoFile>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((BranchName _, IReadOnlyList<RepoFile> files, string _, CancellationToken _) => Write(files));
+        provider.Setup(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(), It.IsAny<IReadOnlyList<RepoFile>>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<BranchName?>()))
+            .ReturnsAsync((BranchName _, IReadOnlyList<RepoFile> files, string _, CancellationToken _, BranchName? _) => Write(files));
         return Mock.Of<ISourceProviderFactory>(f => f.Create(It.IsAny<AgentSmith.Contracts.Models.Configuration.RepoConnection>()) == provider.Object);
     }
 

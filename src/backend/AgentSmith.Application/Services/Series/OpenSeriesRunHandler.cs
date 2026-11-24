@@ -11,6 +11,10 @@ namespace AgentSmith.Application.Services.Series;
 /// follow-up — joins that series; otherwise a filing that created two or more tickets opens a series run for its
 /// conversation, owned by the approver. One ticket is no series: it has its own ticket conversation. Never fails the
 /// filing: the tickets exist either way.
+/// <para>2026-11-24-f9c5b: the filing step already opened or joined the series before starting its tickets
+/// (<see cref="SeriesMembership"/>); this step reports the opened one, and a join here adds nothing new and keeps the
+/// follow-up's start on the verdict. A series it opens itself — the write before the starts failed or did not run — has its
+/// tickets started already against the default branch, so it opens without a series branch, as a series did before.</para>
 /// </summary>
 public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clock) : ICommandHandler<OpenSeriesRunContext>
 {
@@ -20,25 +24,22 @@ public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clo
         if (!pipeline.TryGet<FilingRequest>(ContextKeys.FilingRequest, out var request) || request is null
             || !pipeline.TryGet<FilingReportSlot>(ContextKeys.FilingReport, out var slot) || slot?.Report is not { } report)
             return CommandResult.Ok("No filing to own: no series run opened.");
-        var tickets = Members(report, followUp: pipeline.Has(ContextKeys.SeriesRunId));
+        var tickets = Members(report.Filed, followUp: pipeline.Has(ContextKeys.SeriesRunId), clock);
         if (pipeline.TryGet<string>(ContextKeys.SeriesRunId, out var joined) && !string.IsNullOrEmpty(joined))
             return await JoinAsync(joined!, tickets, NotStarted(report), cancellationToken);
+        if (pipeline.TryGet<string>(ContextKeys.SeriesRunOpened, out var opened) && !string.IsNullOrEmpty(opened))
+            return CommandResult.Ok($"Opened series run {opened} over {tickets.Count} tickets.");
         if (tickets.Count < 2)
             return CommandResult.Ok($"{tickets.Count} ticket filed: a single ticket is worked in its own conversation, no series run opened.");
-        var record = new SeriesRunRecord(SeriesRunIds.Mint(), request.Conversation, context.Project.Name,
-            request.Principal, request.MayStartRuns, SeriesRunStates.Running, tickets, clock.GetUtcNow());
-        await store.OpenAsync(record, cancellationToken);
-        return CommandResult.Ok($"Opened series run {record.Id} over {tickets.Count} tickets.");
+        var id = await new SeriesMembership(store, clock).OpenAsync(request, context.Project.Name, tickets, cancellationToken, withBranch: false);
+        return CommandResult.Ok($"Opened series run {id} over {tickets.Count} tickets.");
     }
 
     private async Task<CommandResult> JoinAsync(
         string id, IReadOnlyList<SeriesTicket> tickets, IReadOnlyDictionary<string, string?> starts, CancellationToken ct)
     {
-        var joined = await store.UpdateAsync(id, r => r with
+        var joined = await store.UpdateAsync(id, r => Joined(r, tickets) with
         {
-            Tickets = [.. r.Tickets, .. tickets.Where(t => r.Tickets.All(m => m.TicketId != t.TicketId))],
-            State = r.IsActive && r.State != SeriesRunStates.Paused ? SeriesRunStates.Running : r.State,
-            PausedFrom = r.State == SeriesRunStates.Paused ? SeriesRunStates.Running : r.PausedFrom, // 1b72a: a join keeps the pause
             Verdicts = FiledFor(r.Verdicts, tickets, starts), // 0207d: the check's follow-up, and whether it started
         }, ct);
         return joined is null
@@ -59,7 +60,16 @@ public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clo
         report.Filed.Where(f => f.TicketId is not null).ToDictionary(f => f.TicketId!,
             f => f.Start is { State: FiledStartState.Started } or null ? null : f.Start.Reason, StringComparer.Ordinal);
 
-    private IReadOnlyList<SeriesTicket> Members(FilingReport report, bool followUp) =>
-        [.. report.Filed.Where(f => !string.IsNullOrEmpty(f.TicketId))
+    /// <summary>The filed tickets as series members.</summary>
+    internal static IReadOnlyList<SeriesTicket> Members(IReadOnlyList<FiledTicket> filed, bool followUp, TimeProvider clock) =>
+        [.. filed.Where(f => !string.IsNullOrEmpty(f.TicketId))
             .Select(f => new SeriesTicket(f.TicketId!, f.Key ?? f.TicketId!, f.Title, followUp, clock.GetUtcNow()))];
+
+    /// <summary>The series with the tickets it lacks added and running again — a join keeps a pause (1b72a).</summary>
+    internal static SeriesRunRecord Joined(SeriesRunRecord r, IReadOnlyList<SeriesTicket> tickets) => r with
+    {
+        Tickets = [.. r.Tickets, .. tickets.Where(t => r.Tickets.All(m => m.TicketId != t.TicketId))],
+        State = r.IsActive && r.State != SeriesRunStates.Paused ? SeriesRunStates.Running : r.State,
+        PausedFrom = r.State == SeriesRunStates.Paused ? SeriesRunStates.Running : r.PausedFrom,
+    };
 }

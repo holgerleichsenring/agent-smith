@@ -60,7 +60,7 @@ internal sealed class RecordingBranchSources : ISourceProviderFactory
 
         public Task<BranchWriteResult> WriteFilesToBranchAsync(
             BranchName branch, IReadOnlyList<RepoFile> files, string message,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken, BranchName? startFrom = null)
         {
             if (owner.Throws is not null) throw owner.Throws;
             owner.OnWrite?.Invoke();

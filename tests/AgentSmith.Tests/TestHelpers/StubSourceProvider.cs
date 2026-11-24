@@ -128,7 +128,7 @@ internal sealed class StubSourceProvider(string? contextYaml = null) : ISourcePr
     // own; this one only has to be a remote that works.
     public Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken, BranchName? startFrom = null) =>
         Task.FromResult(BranchWriteResult.Ok("stubsha0000000000000000000000000000000"));
 }
 

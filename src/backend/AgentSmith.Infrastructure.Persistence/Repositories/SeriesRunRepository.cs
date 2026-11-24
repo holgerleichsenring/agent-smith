@@ -58,7 +58,7 @@ public sealed class SeriesRunRepository(IServiceScopeFactory scopeFactory) : ISe
         WithTicketAsync([SeriesRunStates.Paused], project, ticketId, cancellationToken);
 
     public Task<SeriesRunRecord?> RunningWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
-        WithTicketAsync([SeriesRunStates.Running, SeriesRunStates.Verifying], project, ticketId, cancellationToken);
+        WithTicketAsync([SeriesRunStates.Running, SeriesRunStates.Verifying, SeriesRunStates.Delivering], project, ticketId, cancellationToken);
 
     // 2026-11-23-31dcc: the members live in the content JSON, so the project's rows are read and the newest holder kept.
     public async Task<SeriesRunRecord?> ForTicketAsync(string project, string ticketId, CancellationToken cancellationToken)
@@ -90,7 +90,8 @@ public sealed class SeriesRunRepository(IServiceScopeFactory scopeFactory) : ISe
         }
     }
 
-    private static readonly string[] Active = [SeriesRunStates.Running, SeriesRunStates.Verifying, SeriesRunStates.Paused];
+    private static readonly string[] Active =
+        [SeriesRunStates.Running, SeriesRunStates.Verifying, SeriesRunStates.Paused, SeriesRunStates.Delivering]; // 2026-11-24-f9c5e
 
     private async Task<SeriesRunRecord?> WithTicketAsync(string[] states, string project, string ticketId, CancellationToken ct)
     {

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-f9c5f
+goal: "The series page shows each ticket pull request's target, merges into the series branch, and the final pull request per repo as its own step; the ticket page shows each pull request's target."
+
+applies_to: "default (series detail, ticket pull request view) + dashboard (series page, ticket page)"
+
+requires: [2026-11-24-f9c5c, 2026-11-24-f9c5d, 2026-11-24-f9c5e, 2026-11-23-31dcd, 2026-11-23-f562]
+
+facts:
+  - claim: "The series payload carries a pull request's target, which no series component reads, and the series detail has no series-wide branch or final step."
+    evidence: "src/dashboard/src/types/seriesRuns.ts:36-53,101-127; src/backend/AgentSmith.Server/Models/SeriesRunDetailView.cs:9-32"
+  - claim: "The overview's action list groups tickets into yours, needed, when green and quiet."
+    evidence: "src/dashboard/src/components/series/page/SeriesActionList.tsx"
+  - claim: "A ticket's pull request rows show repo, number, state and decision, with no target."
+    evidence: "src/dashboard/src/components/tickets/detail/YourMoveBox.tsx:162-176; src/backend/AgentSmith.Server/Models/TicketPullRequestView.cs:18"
+
+scope:
+  in: >-
+    SeriesRunDetailView.IntegrationBranch, Deliveries (repo, url, number, said) and MergeWhen; dashboard types. Series page: the
+    tickets table says per pull request "into <target>" (the series branch named as such); a landed ticket of a series with a
+    branch reads "merged into the series branch"; the action list ends with the final step: waiting for the tickets, the series
+    check, then per repo its pull request (link, the beat's sentence, "your merge" under merge.when manual), and done. A pull
+    request's MergeSaid sentence (the CI trigger's included) shows on its row; the delivering state has its word. The type's stale
+    comments (target null for an open pull request, retarget moves to main) are corrected. Ticket page: TicketPullRequestView.Target from the record,
+    shown on each row as "into <branch>". en/de strings.
+  out: "New acts on the final pull request (it is merged on the host or by merge.when)."
+
+steps:
+  - id: payload
+    action: "SeriesRunDeliveryView, the detail's IntegrationBranch, Deliveries and MergeWhen; TicketPullRequestView.Target."
+  - id: series
+    action: "seriesRuns types, tickets table target, landed wording, final steps in SeriesActionList, i18n."
+  - id: ticket
+    action: "tickets types, YourMoveBox target, i18n."
+
+tests:
+  - "SeriesRunDetailReader: a series with a branch carries it and its deliveries; one without has neither."
+  - "Dashboard: a ticket pull request into the series branch reads 'into the series branch'; the final step shows each repo's pull request with its link and sentence, or what it waits for; a series without a branch shows no final step."
+  - "Dashboard: a ticket page pull request row shows its target."
+
+done:
+  - "Build, affected backend and dashboard tests green; the spec gate passed."

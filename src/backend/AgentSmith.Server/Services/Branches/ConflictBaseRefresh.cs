@@ -34,7 +34,8 @@ public sealed class ConflictBaseRefresh(
             var tried = await scope.ServiceProvider.GetRequiredService<PullRequestMergeSaidReader>()
                 .NewestRefreshesAsync([pullRequest.Url], ct);
             if (!Due(tried.GetValueOrDefault(pullRequest.Url), conflictsSince)) return false;
-            if (!await tickets.FreeAsync(project, pullRequest.TicketId, ct)) return false;
+            // 2026-11-24-f9c5f: a series' final pull request has no ticket to be busy; its beat asks, one at a time.
+            if (pullRequest.Branch is null && !await tickets.FreeAsync(project, pullRequest.TicketId, ct)) return false;
             if (await host.ReadPullRequestBaseAsync(pullRequest.Url, ct) is not { Length: > 0 } baseBranch)
             {
                 logger.LogWarning("{Url} conflicts with its base, but its host named no base to merge", pullRequest.Url);

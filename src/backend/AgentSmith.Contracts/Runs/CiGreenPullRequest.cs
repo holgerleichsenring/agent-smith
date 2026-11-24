@@ -1,4 +1,9 @@
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>2026-11-17-3435b: one repository's pull request a merge-green run merges.</summary>
-public sealed record CiGreenPullRequest(string Repo, string Url);
+public sealed record CiGreenPullRequest(string Repo, string Url)
+{
+    /// <summary>2026-11-24-f9c5d: a pull request into a series branch whose head reported no CI for merge.ci_settle_seconds —
+    /// the run starts its repository's pull-request CI before anything merges.</summary>
+    public bool NoCi { get; init; }
+}

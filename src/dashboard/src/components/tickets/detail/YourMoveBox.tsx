@@ -170,6 +170,7 @@ function PullRequests({ prs }: { prs: TicketPullRequest[] }) {
             <span className="mono">{shortRepo(pr.repo)}</span> #{prNumber(pr.url) ?? pr.number}
           </a>
           <span className="tk-dim"> {word(PR_STATES, pr.state, pr.state)}{pr.decision !== "none" ? ` · ${word(PR_DECISIONS, pr.decision, pr.decision.replace(/-/g, " "))}` : ""}</span>
+          {pr.target && <span className="tk-dim" data-testid="ticket-state-pr-target"> · {t("tickets.pr.into", { branch: pr.target })}</span>}
         </li>
       ))}
     </ul>

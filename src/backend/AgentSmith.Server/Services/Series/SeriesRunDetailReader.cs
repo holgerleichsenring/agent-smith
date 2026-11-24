@@ -36,7 +36,16 @@ public sealed class SeriesRunDetailReader(
         return new SeriesRunDetailView(record.Id, name, record.Project, record.State, record.Conversation, record.StartedAt,
             record.FinishedAt, shape.Counts, SeriesRunQuestion.Of(record, held), shown, shape.MergeOrder)
         {
-            Repos = Repos(project, shape.Tickets), MergeArms = project.Merge.RespectBranchProtection, CostUsd = spent + record.MasterCostUsd,
+            // 2026-11-24-f9c5c: a merge into a series branch never arms auto-complete; it merges once green.
+            Repos = Repos(project, shape.Tickets), MergeArms = record.IntegrationBranch is null && project.Merge.RespectBranchProtection,
+            IntegrationBranch = record.IntegrationBranch, CostUsd = spent + record.MasterCostUsd,
+            Deliveries = [.. record.Deliveries.Where(d => d.Url.Length > 0).Select(d => new SeriesRunDeliveryView(d.Repo, d.Url, d.Number, d.Said))],
+            MergeWhen = project.Merge.When switch // 2026-11-24-f9c5f: the YAML's names
+            {
+                AgentSmith.Contracts.Models.Configuration.MergeWhen.OnGateGreen => "on_gate_green",
+                AgentSmith.Contracts.Models.Configuration.MergeWhen.OnCiGreen => "on_ci_green",
+                _ => "manual",
+            },
             ThreadId = session?.ThreadId, ConversationOpen = session?.IsOpen == true,
             Edges = SeriesRunEdges.Of(facts, [.. record.Tickets.Select(t => t.TicketId)]),
         };

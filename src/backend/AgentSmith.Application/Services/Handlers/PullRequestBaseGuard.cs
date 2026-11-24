@@ -8,16 +8,18 @@ namespace AgentSmith.Application.Services.Handlers;
 /// and the CI watch's green may be stale, and a stacked pull request merged into a prerequisite's branch is not a landing.
 /// Refused when the base is not the repo's configured default branch, or, with none configured, when it is an agent-smith
 /// work branch, and when a hosted repository's base cannot be read (the providers answer null on a failed read). A local
-/// repository has no pull request and no base.
+/// repository has no pull request and no base. 2026-11-24-f9c5c: the merge's series branch is a target it accepts — a series
+/// ticket lands there.
 /// </summary>
 public sealed class PullRequestBaseGuard(ISourceProviderFactory sources)
 {
-    public async Task<string?> RefusalAsync(RepoConnection repo, string prUrl, CancellationToken ct)
+    public async Task<string?> RefusalAsync(RepoConnection repo, string prUrl, CancellationToken ct, string? seriesBranch = null)
     {
         ArgumentNullException.ThrowIfNull(repo);
         if (repo.Type == RepoType.Local) return null;
         if (await sources.Create(repo).ReadPullRequestBaseAsync(prUrl, ct) is not { } current)
             return "its base could not be read from the host, so it is not known to target the default branch; left open";
+        if (seriesBranch is not null && string.Equals(current, seriesBranch, StringComparison.Ordinal)) return null;
         var main = string.IsNullOrWhiteSpace(repo.DefaultBranch) ? null : repo.DefaultBranch;
         var wrong = main is null ? WorkBranches.Owns(current) : !string.Equals(current, main, StringComparison.Ordinal);
         if (!wrong) return null;

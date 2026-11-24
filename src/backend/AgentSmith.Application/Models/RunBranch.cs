@@ -29,12 +29,18 @@ namespace AgentSmith.Application.Models;
 /// never published. 2026-11-23-31dca: one per repo (<see cref="ParentFor"/>); a missing one stops the run instead of
 /// falling through to the clone's base, and a repo with no entry takes the label parent, as an unstacked run does.
 /// </para>
+/// <para>2026-11-24-f9c5b: <see cref="SeriesBranch"/> is the branch a ticket of a series with one is cut from in every repo —
+/// published at the clone's base by the first ticket there, never missing after that (a missing one stops the run).</para>
 /// </summary>
 public sealed record RunBranch(
-    BranchName Name, bool ComposedFromTicket, string? LabelParentId = null, bool CutFresh = false, StackedBases? Stacked = null)
+    BranchName Name, bool ComposedFromTicket, string? LabelParentId = null, bool CutFresh = false, StackedBases? Stacked = null,
+    string? SeriesBranch = null)
 {
-    /// <summary>The ticket whose branch this repo is cut from: its stacked prerequisite, else the label parent.</summary>
-    public string? ParentFor(string? repo) => Stacked?.For(repo) ?? LabelParentId;
+    /// <summary>The parent this repo is cut from: its stacked prerequisite, else the series branch, else the label parent.</summary>
+    public string? ParentFor(string? repo) => Stacked?.For(repo) ?? SeriesBranch ?? LabelParentId;
+
+    /// <summary>2026-11-24-f9c5b: whether this repo is cut from the series branch.</summary>
+    public bool IsSeriesIn(string? repo) => SeriesBranch is not null && Stacked?.For(repo) is null;
 
     /// <summary>Whether this repo is cut from a stacked prerequisite's branch.</summary>
     public bool IsStackedIn(string? repo) => Stacked?.For(repo) is not null;

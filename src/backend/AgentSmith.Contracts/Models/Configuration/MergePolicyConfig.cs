@@ -10,6 +10,13 @@ public sealed class MergePolicyConfig
     public MergeWhen When { get; set; } = MergeWhen.Manual;
 
     /// <summary>
+    /// 2026-11-24-f9c5a: when a ticket pull request of a series merges into its series branch; <see cref="When"/> keeps
+    /// governing every pull request into the default branch, the series' final one included. On green CI by default
+    /// (operator: a series runs through); manual lets a team review every ticket.
+    /// </summary>
+    public MergeWhen SeriesWhen { get; set; } = MergeWhen.OnCiGreen;
+
+    /// <summary>
     /// False (the default): merge past branch policies, protection and approval rules, which are for people.
     /// True: arm the host's auto-complete or auto-merge and let its rules decide when.
     /// </summary>
@@ -70,29 +77,26 @@ public sealed class MergePolicyConfig
     /// </summary>
     public int CiFixAttempts { get; set; } = 3;
 
+    /// <summary>
+    /// 2026-11-24-f9c5a: this policy for a ticket pull request into its series branch — <see cref="SeriesWhen"/> as the mode
+    /// and past protection: a series branch carries no host policy, so arming auto-complete there would merge at once with CI
+    /// still running; agent-smith merges it itself once the mode allows. The original is left unchanged.
+    /// </summary>
+    public MergePolicyConfig IntoSeriesBranch()
+    {
+        var copy = (MergePolicyConfig)MemberwiseClone();
+        copy.When = SeriesWhen;
+        copy.RespectBranchProtection = false;
+        return copy;
+    }
+
+    /// <summary>2026-11-24-f9c5c: the mode that decides a pull request into <paramref name="target"/> — series_when for a series
+    /// branch, when for every other target (an unknown one included).</summary>
+    public MergeWhen WhenInto(string? target) => Providers.WorkBranches.IsSeries(target) ? SeriesWhen : When;
+
+    /// <summary>2026-11-24-f9c5c: whether either mode waits for CI, so the CI loop has anything to act on.</summary>
+    public bool ActsOnCi => When == MergeWhen.OnCiGreen || SeriesWhen == MergeWhen.OnCiGreen;
+
     /// <summary>The protection mode a merge asks the provider for.</summary>
     public BranchProtection Protection => RespectBranchProtection ? BranchProtection.Respect : BranchProtection.Bypass;
-}
-
-/// <summary>2026-11-17-023fa: when a code run merges its pull requests. Values are stored as numbers.</summary>
-public enum MergeWhen
-{
-    /// <summary>Pull requests stay open for a person.</summary>
-    Manual = 0,
-
-    /// <summary>A run whose every spec verified green merges its pull requests at its end.</summary>
-    OnGateGreen = 1,
-
-    /// <summary>2026-11-17-3435b: a gate-passed run's pull requests wait for the host's CI; green on every one merges them.</summary>
-    OnCiGreen = 2,
-}
-
-/// <summary>2026-11-17-023fa: whether a merge goes past the host's branch protection or waits for it.</summary>
-public enum BranchProtection
-{
-    /// <summary>Merge now, past policies and approval rules, as the token's identity is allowed to.</summary>
-    Bypass = 0,
-
-    /// <summary>Arm auto-complete or auto-merge; the host merges when its rules pass.</summary>
-    Respect = 1,
 }

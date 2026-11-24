@@ -88,8 +88,21 @@ public sealed class CiWatchTests : IDisposable
     private PrRecordReReadHostedService Sut() => new(_h.Store.Services, new ServerContext("agentsmith.yml"), _loader.Object, _h.Clock,
         NullLogger<PrRecordReReadHostedService>.Instance);
 
+    // 2026-11-24-f9c5c: acting is per record — a series-branch record acts on merge.series_when (on_ci_green by default), so a
+    // project merging its default branch on its gate still has its series pull requests' verdicts acted on.
+    [Fact]
+    public async Task ASeriesBranchRecord_IsActedOnBySeriesWhen()
+    {
+        await SeedAsync("gate", "7", "h", checkedAgo: TimeSpan.FromMinutes(2), ci: CiStates.Green, target: "agent-smith/series/sr-1");
+        await SeedAsync("gate", "8", "i", checkedAgo: TimeSpan.FromMinutes(2), ci: CiStates.Green);
+
+        (await Sut().CiOnceAsync(CancellationToken.None)).Should().Be(1);
+
+        _nudged.Select(n => (n.Project, n.TicketId)).Should().BeEquivalentTo([("gate", "7")]);
+    }
+
     private async Task SeedAsync(string project, string ticket, string number, string? ci, string? acted = null,
-        TimeSpan? checkedAgo = null, TimeSpan? ciAgo = null)
+        TimeSpan? checkedAgo = null, TimeSpan? ciAgo = null, string? target = null)
     {
         var now = _h.Clock.GetUtcNow();
         await using var db = _h.Store.Context();
@@ -99,7 +112,7 @@ public sealed class CiWatchTests : IDisposable
             PrKey = PrKey.Of(url), Url = url, Repo = "api", Number = number, Project = project, TicketId = ticket, RunId = "run-1",
             State = PrReviewStates.Open, CheckedAtTicks = (now - (checkedAgo ?? TimeSpan.FromMinutes(1))).UtcTicks, HeadSha = "abc",
             CiState = ci, CiHeadSha = ci is null ? null : "abc", CiAtTicks = ci is null ? null : (now - (ciAgo ?? TimeSpan.FromMinutes(1))).UtcTicks,
-            CiActed = acted,
+            CiActed = acted, TargetBranch = target,
         });
         await db.SaveChangesAsync();
     }

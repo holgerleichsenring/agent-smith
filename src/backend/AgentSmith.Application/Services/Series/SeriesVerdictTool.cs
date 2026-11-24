@@ -12,7 +12,7 @@ public sealed class SeriesVerdictTool(IReadOnlyList<SeriesCriterion> criteria)
 
     public AIFunction GetTool() => AIFunctionFactory.Create(RecordCriterion, "record_criterion");
 
-    [Description("Records whether one numbered criterion holds on the default branch, and the evidence: the command and its outcome, the file and line, the test.")]
+    [Description("Records whether one numbered criterion holds on the checked-out branch, and the evidence: the command and its outcome, the file and line, the test.")]
     public string RecordCriterion(
         [Description("The criterion's number from the list.")] int number,
         [Description("True when it holds.")] bool holds,

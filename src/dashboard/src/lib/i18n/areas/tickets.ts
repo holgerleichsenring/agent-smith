@@ -133,6 +133,7 @@ export const ticketsMessages = {
   "tickets.activity.notChecked": { en: "not checked since {when} ago", de: "seit {when} nicht geprüft" },
   "tickets.activity.pr": { en: "PR #{number} {state}", de: "PR #{number} {state}" },
   "tickets.activity.prState.open": { en: "open", de: "offen" },
+  "tickets.pr.into": { en: "into {branch}", de: "in {branch}" }, // 2026-11-24-f9c5f
   "tickets.activity.prState.merged": { en: "merged", de: "gemergt" },
   "tickets.activity.prState.closed": { en: "closed", de: "geschlossen" },
   "tickets.activity.approved": { en: "approved", de: "freigegeben" },

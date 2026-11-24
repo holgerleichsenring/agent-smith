@@ -28,7 +28,7 @@ public sealed record ContextReadBranches(IReadOnlyList<BranchName> Candidates)
         if (RunBranchResolver.Resolve(pipeline) is not { } run) return None;
         var candidates = new List<BranchName> { run.Name };
         if (run.ParentFor(repo) is { } parent && !string.IsNullOrWhiteSpace(parent))
-            candidates.Add(TicketBranchNamer.Compose(new TicketId(parent.Trim())));
+            candidates.Add(TicketBranchNamer.RungOf(parent)); // 2026-11-24-f9c5b
         return new ContextReadBranches(candidates);
     }
 }

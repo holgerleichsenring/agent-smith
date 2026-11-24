@@ -111,10 +111,10 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
         CompletePullRequestAsync(prUrl, sourceBranch, cancellationToken);
 
     // 2026-09-22-b6ad: git plumbing against a scratch index, so the operator's working tree and staged changes are
-    // untouched; it answers a real commit sha, because the pointer the caller records needs one.
-    public Task<BranchWriteResult> WriteFilesToBranchAsync(
-        BranchName branch, IReadOnlyList<RepoFile> files, string message, CancellationToken cancellationToken) =>
-        _branchCommit.WriteAsync(basePath, branch.Value, DefaultBranch, files, message, cancellationToken);
+    // untouched; it answers a real commit sha, because the pointer the caller records needs one. 2026-11-24-f9c5b: a start branch.
+    public async Task<BranchWriteResult> WriteFilesToBranchAsync(
+        BranchName branch, IReadOnlyList<RepoFile> files, string message, CancellationToken cancellationToken, BranchName? startFrom = null) =>
+        await _branchCommit.WriteAsync(basePath, branch.Value, startFrom is not null && await BranchExistsAsync(startFrom, cancellationToken) ? startFrom.Value : DefaultBranch, files, message, cancellationToken);
 
     private string DefaultBranch => defaultBranch ?? FallbackDefaultBranch;
 }

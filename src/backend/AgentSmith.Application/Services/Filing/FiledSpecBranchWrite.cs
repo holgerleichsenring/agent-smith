@@ -32,12 +32,13 @@ public sealed class FiledSpecBranchWrite(
     /// <param name="sources">Filed id to the proposal's spec id, through which a ratified mock is read.</param>
     public async Task WriteAsync(
         ITicketProvider provider, ResolvedProject project, CreatedTicket created,
-        SpecApprovalRecord record, IReadOnlyDictionary<string, string>? sources, List<string> notes, CancellationToken ct)
+        SpecApprovalRecord record, IReadOnlyDictionary<string, string>? sources, List<string> notes, CancellationToken ct,
+        BranchName? startFrom = null)
     {
         ArgumentNullException.ThrowIfNull(created);
         ArgumentNullException.ThrowIfNull(notes);
         var result = await branches.WriteAsync(
-            project, record, created.Id, await ReadBackAsync(provider, created, ct), ct, sources);
+            project, record, created.Id, await ReadBackAsync(provider, created, ct), ct, sources, startFrom);
         notes.AddRange(result.Notes ?? []);
         if (result.Written) return;
         logger.LogWarning(

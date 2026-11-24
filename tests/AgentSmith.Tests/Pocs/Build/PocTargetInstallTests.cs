@@ -39,8 +39,8 @@ public sealed class PocTargetInstallTests
         _provider.Setup(p => p.ListFilesUnderAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string folder, BranchName _, int _, CancellationToken _) =>
                 new RepoFileListing(_held.Keys.Where(k => k.StartsWith(folder + "/", StringComparison.Ordinal)).ToList(), false));
-        _provider.Setup(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(), It.IsAny<IReadOnlyList<RepoFile>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<BranchName, IReadOnlyList<RepoFile>, string, CancellationToken>((_, files, _, _) =>
+        _provider.Setup(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(), It.IsAny<IReadOnlyList<RepoFile>>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<BranchName?>()))
+            .Callback<BranchName, IReadOnlyList<RepoFile>, string, CancellationToken, BranchName?>((_, files, _, _, _) =>
             {
                 _writes.Add(files);
                 foreach (var file in files) _held[file.Path] = file.Content;

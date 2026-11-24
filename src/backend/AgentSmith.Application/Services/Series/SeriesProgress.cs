@@ -7,6 +7,8 @@ namespace AgentSmith.Application.Services.Series;
 /// 2026-11-17-0207d: where the series stands, moved on at the start of each beat. Once every ticket landed the series
 /// check starts on the default branch; its verdict is reported once; a verdict that filed a follow-up keeps the series
 /// running, one with no new failure ends it. A check that ended without a verdict is said and left to the master.
+/// <para>2026-11-24-f9c5e: a series with a series branch is not ended by its verdict but moved to Delivering: its final pull
+/// requests into the default branch merge next (<see cref="DeliverSeriesHandler"/>), and that ends it.</para>
 /// </summary>
 public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launch)
 {
@@ -26,12 +28,14 @@ public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launc
     {
         if (beat.Record.State == SeriesRunStates.Paused) // 2026-11-19-1b72a: a pause holds the check as well
             return "The series is paused; the check starts again once the operator resumes it.";
-        var run = await launch.LaunchAsync(beat.Record.Project, PipelinePresets.SeriesVerifyName, beat.Record.Id, ct);
+        // 2026-11-24-f9c5b: a series with a branch is checked on it — its tickets landed there, not on main.
+        var run = await launch.LaunchAsync(beat.Record.Project, PipelinePresets.SeriesVerifyName, beat.Record.Id, ct,
+            beat.Record.IntegrationBranch);
         // 2026-11-19-1b72a: a pause pressed while the check launched is kept; the check resumes into Verifying.
         await KeepAsync(beat, r => r.State == SeriesRunStates.Paused
             ? r with { PausedFrom = SeriesRunStates.Verifying, VerifyRunId = run }
             : r with { State = SeriesRunStates.Verifying, VerifyRunId = run }, ct);
-        beat.Said.Add($"All {beat.Facts.Count} tickets landed. The series check on main runs now (run {run}).");
+        beat.Said.Add($"All {beat.Facts.Count} tickets landed. The series check on {SeriesBranchWords.Checked(beat.Record)} runs now (run {run}).");
         return $"The series check runs as {run}.";
     }
 
@@ -42,15 +46,20 @@ public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launc
         // 2026-11-19-1b72a: a verdict that arrives during a pause ends the series it would have ended.
         var ends = followUp is null && (beat.Record.State == SeriesRunStates.Paused ? beat.Record.PausedFrom : beat.Record.State)
             == SeriesRunStates.Verifying;
+        var next = EndState(beat.Record.IntegrationBranch); // 2026-11-24-f9c5e: Delivering for a series with a branch
+        var paused = beat.Record.State == SeriesRunStates.Paused;
         await KeepAsync(beat, r => r with
         {
             Verdicts = [.. r.Verdicts.Take(r.Verdicts.Count - 1), r.Verdicts[^1] with { Reported = true }], // not a limit: all but the last
-            State = ends ? SeriesRunStates.Done : r.State, FinishedAt = ends ? beat.Now : r.FinishedAt,
-            PausedFrom = ends ? null : r.PausedFrom,
+            State = ends && !(paused && next == SeriesRunStates.Delivering) ? next : r.State,
+            FinishedAt = ends && next == SeriesRunStates.Done ? beat.Now : r.FinishedAt,
+            PausedFrom = !ends ? r.PausedFrom : paused && next == SeriesRunStates.Delivering ? SeriesRunStates.Delivering : null,
         }, ct);
     }
 
     private static bool Verdicted(SeriesRunRecord record, string run) => record.Verdicts.Any(v => v.RunId == run);
+
+    private static string EndState(string? integrationBranch) => integrationBranch is null ? SeriesRunStates.Done : SeriesRunStates.Delivering;
 
     private async Task KeepAsync(SeriesBeat beat, Func<SeriesRunRecord, SeriesRunRecord> change, CancellationToken ct)
     {

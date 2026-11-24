@@ -27,6 +27,21 @@ public sealed class CiGreenMergeTests : IDisposable
         _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>(), It.IsAny<AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>()))
             .Callback<ResolvedProject, CiGreenMergeRequest, CancellationToken, AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>((_, r, _, _) => _launched.Add(r)).ReturnsAsync(true);
         Attempt(RunStatuses.Success, PrReviewRefreshHarness.Pr1);
+        // 2026-11-24-f9c5c: the CI merge waits for a record's target; these pull requests target the default branch.
+        _h.Provider.Setup(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync("main");
+    }
+
+    // 2026-11-24-f9c5c (post-build review): a target not read yet decides neither the mode nor the base, so nothing merges.
+    [Fact]
+    public async Task ATargetNotReadYet_LaunchesNothing()
+    {
+        _h.Provider.Setup(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((string?)null);
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+
+        await RefreshAsync();
+
+        _launched.Should().BeEmpty();
     }
 
     [Fact]
@@ -227,6 +242,54 @@ public sealed class CiGreenMergeTests : IDisposable
 
         _h.Records().Single().CiActed.Should().Be(red).And.Be("abc:red", "the fix nudge acted on it and a landing changes nothing about it");
     }
+
+    // 2026-11-24-f9c5c: a pull request into a series branch merges under merge.series_when, and the request names the branch.
+    [Fact]
+    public async Task IntoASeriesBranch_MergesUnderSeriesWhen_AndNamesTheBranch()
+    {
+        _project = Project(MergeWhen.Manual);
+        Target(PrReviewRefreshHarness.Pr1, "agent-smith/series/sr-1");
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+
+        await RefreshAsync();
+
+        _launched.Should().ContainSingle().Which.SeriesBranch.Should().Be("agent-smith/series/sr-1");
+    }
+
+    // 2026-11-24-f9c5c: nothing reporting on a series branch is not 'no CI' — the host may not run its CI there (f9c5d).
+    [Fact]
+    public async Task IntoASeriesBranch_NoCi_NeverMergesAsGreen()
+    {
+        Target(PrReviewRefreshHarness.Pr1, "agent-smith/series/sr-1");
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.None);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await RefreshAsync();
+
+        _h.Clock.Now = _h.Clock.Now.AddSeconds(181);
+        await RefreshAsync();
+
+        _launched.Should().OnlyContain(r => r.PullRequests.All(p => p.NoCi),
+            "2026-11-24-f9c5d: the only run is the one that starts its CI before anything merges");
+    }
+
+    // 2026-11-24-f9c5c: series_when manual leaves a series-branch pull request to a person while merge.when is on_ci_green.
+    [Fact]
+    public async Task IntoASeriesBranch_SeriesWhenManual_LaunchesNothing()
+    {
+        _project = Project(MergeWhen.OnCiGreen);
+        _project.Merge.SeriesWhen = MergeWhen.Manual;
+        Target(PrReviewRefreshHarness.Pr1, "agent-smith/series/sr-1");
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+
+        await RefreshAsync();
+
+        _launched.Should().BeEmpty();
+    }
+
+    private void Target(string url, string branch) =>
+        _h.Provider.Setup(p => p.ReadPullRequestBaseAsync(url, It.IsAny<CancellationToken>())).ReturnsAsync(branch);
 
     private async Task RequiresAsync(string dependent, string required)
     {

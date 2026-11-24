@@ -129,16 +129,32 @@ public sealed class StackedMergeLandingTests : IDisposable
         _h.Landings().Should().BeEmpty("it merged into #5's branch, which has not landed");
     }
 
+    // 2026-11-24-f9c5c: an open pull request's target is read when first seen and again when its head moved; a merge reads it
+    // once more, because a retarget may have come between.
     [Fact]
-    public async Task TargetRead_OpenPullRequest_ReadsNoBranch()
+    public async Task TargetRead_OpenPullRequest_ReadsOncePerHead_AndAgainAtTheMerge()
     {
         var provider = new Mock<ISourceProvider>();
-        var record = new PrReviewRecord { Url = Pr1, State = PrReviewStates.Open };
+        provider.Setup(p => p.ReadPullRequestBaseAsync(Pr1, It.IsAny<CancellationToken>())).ReturnsAsync("agent-smith/series/sr-1");
+        var read = new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance);
+        var first = new PrReviewRecord { Url = Pr1, State = PrReviewStates.Open, HeadSha = "a1" };
 
-        await new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance).ApplyAsync(provider.Object, record, null, default);
+        await read.ApplyAsync(provider.Object, first, null, default);
+        var stored = new PrReviewRecordView(Pr1, Pr1, "api", "1", "p", "7", "run", PrReviewStates.Open, null, DateTimeOffset.UnixEpoch, null, [])
+        {
+            HeadSha = "a1", TargetBranch = "agent-smith/series/sr-1",
+        };
+        var sameHead = new PrReviewRecord { Url = Pr1, State = PrReviewStates.Open, HeadSha = "a1" };
+        await read.ApplyAsync(provider.Object, sameHead, stored, default);
+        var moved = new PrReviewRecord { Url = Pr1, State = PrReviewStates.Open, HeadSha = "b2" };
+        await read.ApplyAsync(provider.Object, moved, stored, default);
+        var merged = new PrReviewRecord { Url = Pr1, State = PrReviewStates.Merged, HeadSha = "a1" };
+        await read.ApplyAsync(provider.Object, merged, stored, default);
 
-        record.TargetBranch.Should().BeNull();
-        provider.Verify(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        (first.TargetBranch, sameHead.TargetBranch, merged.TargetBranch).Should().Be(
+            ("agent-smith/series/sr-1", "agent-smith/series/sr-1", "agent-smith/series/sr-1"));
+        provider.Verify(p => p.ReadPullRequestBaseAsync(Pr1, It.IsAny<CancellationToken>()), Times.Exactly(3),
+            "first seen, head moved, merged — the same head reads nothing");
     }
 
     [Fact]

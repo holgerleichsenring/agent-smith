@@ -53,6 +53,7 @@ public sealed class StackedStartCompositionTests
         await using var scope = harness.Services.CreateAsyncScope();
         var sp = scope.ServiceProvider;
         await sp.GetRequiredService<IFilingRun>().RunAsync(StackedSeries.State(), StackedSeries.List(), true, "prop-1");
+        await AsOpenedBeforeSeriesBranchesAsync(sp);
         var project = sp.GetRequiredService<AgentSmith.Server.Services.Tickets.TicketProjects>().Of(Project)!;
         var handler = harness.Services.GetRequiredService<ReworkNudgeHandler>();
         await StackedSeries.RunAsync(sp, "1", PrerequisitePr);
@@ -81,5 +82,14 @@ public sealed class StackedStartCompositionTests
         var listed = await events.ListedRunsAsync(harness.Services);
         listed.Single(r => r.Pipeline == PipelinePresets.RetargetName).Steps.Select(s => s.CommandName)
             .Should().Contain(CommandNames.RetargetPullRequests);
+    }
+
+    // 2026-11-24-f9c5b: a series filed now integrates on its series branch and never stacks; stacking stays for a series
+    // opened before that (no branch), which is what this composition still proves.
+    private static async Task AsOpenedBeforeSeriesBranchesAsync(IServiceProvider sp)
+    {
+        var store = sp.GetRequiredService<AgentSmith.Contracts.Series.ISeriesRunStore>();
+        foreach (var series in await store.ActiveAsync(default))
+            await store.UpdateAsync(series.Id, r => r with { IntegrationBranch = null }, default);
     }
 }

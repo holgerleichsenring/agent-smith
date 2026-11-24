@@ -42,6 +42,41 @@ public sealed class OpenSeriesRunHandlerTests
         record.Principal.Should().Be("operator");
         record.State.Should().Be(SeriesRunStates.Running);
         record.Tickets.Select(t => t.Key).Should().Equal("SCRUM-1", "SCRUM-2");
+        record.IntegrationBranch.Should().BeNull("2026-11-24-f9c5b: opened only after its tickets started, it has no series branch");
+    }
+
+    // 2026-11-24-f9c5b: the filing step opened it before starting the tickets; this step reports it and opens none.
+    [Fact]
+    public async Task OpenSeriesRun_OpenedBeforeTheStarts_IsReportedNotOpenedAgain()
+    {
+        var pipeline = Filed(2);
+        await new SeriesMembership(_store, TimeProvider.System).WriteAsync(pipeline,
+            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), "sample",
+            pipeline.Get<FilingReportSlot>(ContextKeys.FilingReport).Report!.Filed, default);
+        var opened = _store.Records.Values.Should().ContainSingle().Subject;
+
+        var result = await RunAsync(pipeline);
+
+        _store.Records.Should().ContainSingle();
+        result.Message.Should().Contain(opened.Id);
+        opened.IntegrationBranch.Should().Be($"agent-smith/series/{opened.Id}");
+    }
+
+    // 2026-11-24-f9c5b: a follow-up joins before it starts, so its claim finds the series; the step after adds nothing twice.
+    [Fact]
+    public async Task Membership_AFollowUp_JoinsBeforeItStarts_AndTheStepAddsItOnce()
+    {
+        await _store.OpenAsync(SeriesRecords.Running("sr-1") with { State = SeriesRunStates.Verifying }, default);
+        var pipeline = Filed(1, series: "sr-1");
+        await new SeriesMembership(_store, TimeProvider.System).WriteAsync(pipeline,
+            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), "sample",
+            pipeline.Get<FilingReportSlot>(ContextKeys.FilingReport).Report!.Filed, default);
+        _store.Records["sr-1"].Tickets.Should().HaveCount(4);
+
+        await RunAsync(pipeline);
+
+        _store.Records["sr-1"].Tickets.Should().HaveCount(4);
+        _store.Records["sr-1"].State.Should().Be(SeriesRunStates.Running);
     }
 
     [Fact]

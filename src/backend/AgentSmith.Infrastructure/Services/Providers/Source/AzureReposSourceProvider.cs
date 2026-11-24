@@ -51,12 +51,13 @@ public sealed class AzureReposSourceProvider(
 
     public async Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, BranchName? startFrom = null)
     {
         ArgumentNullException.ThrowIfNull(files);
-        return await _branchWrite.WriteAsync(
-            branch.Value, await DefaultBranchNameAsync(cancellationToken), files, message,
-            cancellationToken);
+        // 2026-11-24-f9c5b: a start branch this repository has replaces the default branch as the base of a new branch.
+        var from = startFrom is not null && await BranchExistsAsync(startFrom, cancellationToken)
+            ? startFrom.Value : await DefaultBranchNameAsync(cancellationToken);
+        return await _branchWrite.WriteAsync(branch.Value, from, files, message, cancellationToken);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -337,7 +338,12 @@ public sealed class AzureReposSourceProvider(
             async (projectId, artifact, c) => await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
                 .GetPolicyEvaluationsAsync(projectId, artifact, cancellationToken: c),
             c => clientFactory.CreateBuildClientAsync(_organizationUrl, _personalAccessToken, c),
-            _project, _repoName, _organizationUrl).ReadAsync(prUrl, request, ct);
+            _project, _repoName, _organizationUrl, PolicyConfigurationsAsync, DefaultBranchNameAsync).ReadAsync(prUrl, request, ct);
+
+    // 2026-11-24-f9c5d: the project's build-validation policy configurations, read for a pull request into a series branch.
+    private async Task<IReadOnlyList<Microsoft.TeamFoundation.Policy.WebApi.PolicyConfiguration>> PolicyConfigurationsAsync(Guid projectId, CancellationToken c) =>
+        await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
+            .GetPolicyConfigurationsAsync(projectId, policyType: Guid.Parse(AzureReposCiPolicies.BuildPolicyType), cancellationToken: c);
     // 2026-11-23-0219: the build-policy evaluations that have not started on the head, queued again.
     public Task<int> RequeueNotStartedAsync(string prUrl, CancellationToken ct) =>
         new AzureReposBuildRequeue(CreateConnectionAsync,

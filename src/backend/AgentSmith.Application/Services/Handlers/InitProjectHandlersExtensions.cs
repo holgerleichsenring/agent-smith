@@ -26,6 +26,7 @@ public static class InitProjectHandlersExtensions
         services.AddTransient<ICommandHandler<InitCompleteContext>, InitCompleteHandler>();
         services.AddTransient<PullRequestCompleter>(); // 2026-11-17-023fa
         services.AddTransient<PullRequestMergeSequence>().AddTransient<PullRequestApprovalStep>(); // 2026-11-17-3435b
+        services.AddTransient<PullRequestCiStart>(); // 2026-11-24-f9c5d
         services.AddTransient<PullRequestBaseGuard>().AddTransient<PullRequestDraftStep>(); // 2026-11-23-31dce, 8d16
         services.AddTransient<PullRequestBuildRequeue>(); // 2026-11-23-0219
         services.AddTransient<ICommandHandler<CompletePullRequestsContext>, CompletePullRequestsHandler>();

@@ -23,24 +23,27 @@ public static class SeriesNeedsYou
         var rows = beat.Rows;
         return [.. rows.Select((row, i) => (Row: row, Fact: beat.Facts[i], Was: before.GetValueOrDefault(row.Ticket)))
             .Where(x => x.Was != x.Row.State)
-            .Select(x => Line(x.Row, x.Fact, x.Was, project, masterSpoke)).OfType<string>()];
+            .Select(x => Line(x.Row, x.Fact, x.Was, project, masterSpoke, project.Merge.WhenInto(beat.Record.IntegrationBranch)))
+            .OfType<string>()];
     }
 
-    private static string? Line(SeriesTableRow row, SeriesTicketFact fact, string? was, ResolvedProject project, bool masterSpoke) => row.Kind switch
+    // 2026-11-24-f9c5c: the ticket's own mode — merge.series_when for a series with a branch.
+    private static string? Line(SeriesTableRow row, SeriesTicketFact fact, string? was, ResolvedProject project, bool masterSpoke,
+        MergeWhen when) => row.Kind switch
     {
         SeriesTicketState.Red when masterSpoke => null,
-        SeriesTicketState.Red => Failed(row.Ticket, fact, project),
+        SeriesTicketState.Red => Failed(row.Ticket, fact, when),
         SeriesTicketState.Waiting => fact.PendingQuestion is { } question
             ? $"{row.Ticket} asks: {question.Text}" : $"{row.Ticket} waits for your input on its ticket.",
-        SeriesTicketState.Green when project.Merge.When == MergeWhen.Manual && was?.StartsWith("green", StringComparison.Ordinal) != true
+        SeriesTicketState.Green when when == MergeWhen.Manual && was?.StartsWith("green", StringComparison.Ordinal) != true
             => $"{row.Ticket}'s pull request waits for your merge.",
         _ => null,
     };
 
-    private static string? Failed(string key, SeriesTicketFact fact, ResolvedProject project)
+    private static string? Failed(string key, SeriesTicketFact fact, MergeWhen when)
     {
         if (fact is { LatestStatus: RunStatuses.Success, CiState: CiStates.Red })
-            return project.Merge.When == MergeWhen.OnCiGreen ? null : $"{key}'s CI is red: {fact.CiFailure ?? "a check failed"}.";
+            return when == MergeWhen.OnCiGreen ? null : $"{key}'s CI is red: {fact.CiFailure ?? "a check failed"}.";
         return fact.EndDetail is { Length: > 0 } why ? $"{key} failed: {why}." : $"{key} {fact.LatestStatus ?? "failed"}.";
     }
 }

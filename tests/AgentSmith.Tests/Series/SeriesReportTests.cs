@@ -40,6 +40,19 @@ public sealed class SeriesReportTests
             "I merge each one when its gate is green. I write here only when you are needed; the Series pane shows every ticket, and Pause holds the series.");
     }
 
+    // 2026-11-24-f9c5c: a series with a branch says it merges its tickets there under merge.series_when, and waits on landings.
+    [Fact]
+    public void FirstBeat_ASeriesWithABranch_StatesTheSeriesRule()
+    {
+        var record = SeriesRecords.Running() with { IntegrationBranch = "agent-smith/series/sr-1" };
+
+        var messages = SeriesReport.Messages(new SeriesBeat(record, Facts(), SeriesRecords.T), Project, Dialogue, pane: true);
+
+        messages.Should().ContainSingle().Which.Should().Contain("start once the ticket they need is merged")
+            .And.Contain("I merge each one into agent-smith/series/sr-1 when its CI is green")
+            .And.Contain("the series reaches the default branch as one pull request per repository at the end");
+    }
+
     [Fact]
     public void LaterBeat_NothingChangedBeforeTheCadence_PostsNoTable()
     {

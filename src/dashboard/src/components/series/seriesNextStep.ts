@@ -19,6 +19,7 @@ export function seriesStateWord(state: string, t: T): string {
   switch (state) {
     case "running": return t("series.state.running");
     case "verifying": return t("series.state.verifying");
+    case "delivering": return t("series.state.delivering"); // 2026-11-24-f9c5e
     case "paused": return t("series.state.paused");
     case "done": return t("series.state.done");
     case "stopped": return t("series.state.stopped");

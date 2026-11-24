@@ -32,9 +32,24 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public static class RunParentTicket
 {
-    /// <summary>The ticket whose branch this repo of the run is cut from, or null when it cuts from its own base.</summary>
+    /// <summary>The ticket whose branch this repo of the run is cut from, or 2026-11-24-f9c5b the series branch (a parent under
+    /// agent-smith/, composed by <see cref="TicketBranchNamer.RungOf"/>), or null when it cuts from its own base.</summary>
     public static string? ForRepo(PipelineContext pipeline, string? repo) =>
-        Stacked(pipeline)?.For(repo) ?? LabelParent(pipeline);
+        Stacked(pipeline)?.For(repo) ?? Series(pipeline) ?? LabelParent(pipeline);
+
+    /// <summary>2026-11-24-f9c5b: the series branch the claim stamped on a ticket of a series with one; null otherwise.</summary>
+    public static string? Series(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        if (!pipeline.TryGet<object>(ContextKeys.SeriesBranch, out var value)) return null;
+        var branch = value switch
+        {
+            string text => text,
+            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
+            _ => null,
+        };
+        return string.IsNullOrWhiteSpace(branch) ? null : branch.Trim();
+    }
 
     /// <summary>Whether this repo's answer is a prerequisite's branch — a rung nobody may publish, only find.</summary>
     public static bool IsStackedIn(PipelineContext pipeline, string? repo) => Stacked(pipeline)?.For(repo) is not null;

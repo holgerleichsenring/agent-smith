@@ -32,6 +32,20 @@ public sealed class ConflictBaseRefreshTests : IDisposable
 
     public void Dispose() => _h.Dispose();
 
+    // 2026-11-24-f9c5f: a series' final pull request takes the same conflict path — no ticket to be free, its series branch the
+    // run's checkout, listed on no ticket — and one run per conflict.
+    [Fact]
+    public async Task ASeriesFinalPullRequest_LaunchesOneRefreshOfItsSeriesBranch()
+    {
+        var final = RefreshedPullRequest.SeriesFinal(Pr1, "90", "agent-smith/series/sr-1");
+
+        (await _h.Conflicts().LaunchIfDueAsync(Project, Project.Repos[0], _h.Provider.Object, final, T, CancellationToken.None)).Should().BeTrue();
+        (await _h.Conflicts().LaunchIfDueAsync(Project, Project.Repos[0], _h.Provider.Object, final, T, CancellationToken.None)).Should().BeFalse();
+
+        _h.Queue.Verify(q => q.EnqueueAsync(It.Is<PipelineRequest>(r => r.PipelineName == PipelinePresets.RefreshBaseName
+            && r.ShownOnTicket == null && (string)r.Context![ContextKeys.CheckoutBranch] == "agent-smith/series/sr-1"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public void Due_WithoutARefresh_OrOneOlderThanTheConflict()
     {

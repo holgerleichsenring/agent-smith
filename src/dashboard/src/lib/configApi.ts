@@ -794,6 +794,8 @@ export interface ProjectMerge {
   ciExcerptChars?: number | null;
   ciFailedChecksRead?: number | null;
   approvalAuth?: string | null;
+  /** 2026-11-24-f9c5a: a series' ticket pull requests into its series branch; absent or null is on_ci_green. */
+  seriesWhen?: string | null;
 }
 
 export interface StudioMcpServer {

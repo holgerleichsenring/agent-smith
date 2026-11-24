@@ -126,6 +126,27 @@ public sealed class LocalSourceProviderBranchWriteTests : IDisposable
         Show($"{Ticket}:.agentsmith/specs/azuredevops-19106/accounting.md").Should().Be("# nothing\n");
     }
 
+    // 2026-11-24-f9c5b: a series' follow-up starts on its series branch where the repository has one, else on the default branch.
+    [Fact]
+    public async Task SourceProvider_AStartBranch_IsTheBaseWhenItExists_ElseTheDefaultBranch()
+    {
+        Git("branch", "agent-smith/series/sr-1");
+        Git("checkout", "agent-smith/series/sr-1");
+        Commit("series.txt", "a predecessor's work");
+        Git("checkout", "main");
+        var provider = new LocalSourceProvider(_repoPath, "main");
+
+        var onSeries = await provider.WriteFilesToBranchAsync(new BranchName(Ticket), [new RepoFile(SpecPath, "x")], "spec",
+            CancellationToken.None, new BranchName("agent-smith/series/sr-1"));
+        var missing = await provider.WriteFilesToBranchAsync(new BranchName("agent-smith/19107"), [new RepoFile(SpecPath, "y")], "spec",
+            CancellationToken.None, new BranchName("agent-smith/series/sr-2"));
+
+        onSeries.Written.Should().BeTrue(onSeries.Error);
+        Git("rev-parse", $"{Ticket}^").Trim().Should().Be(Rev("agent-smith/series/sr-1"));
+        missing.Written.Should().BeTrue(missing.Error);
+        Git("rev-parse", "agent-smith/19107^").Trim().Should().Be(Rev("main"), "a start branch this repository lacks is no base");
+    }
+
     private Task<BranchWriteResult> Write(IReadOnlyList<RepoFile> files) =>
         new LocalSourceProvider(_repoPath, "main").WriteFilesToBranchAsync(
             new BranchName(Ticket), files, "spec: azuredevops-19106 revision 1",

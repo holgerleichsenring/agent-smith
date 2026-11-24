@@ -49,7 +49,9 @@ public sealed class SeriesRunCompositionTests
         rig.Facts.Set("1", RunStatuses.Success, prOpened: true);
         rig.Facts.Set("2", RunStatuses.Running, finished: false);
         await BeatAsync(sp, series.Id);
-        (await TextsAsync(sp)).Last().Should().Be("#1's pull request waits for your merge.", "only what needs the operator is written");
+        // 2026-11-24-f9c5c: the series integrates on its branch and merges its tickets there on green CI (merge.series_when),
+        // so a green ticket needs no merge from the operator and nothing is written for it.
+        (await TextsAsync(sp)).Should().NotContain("#1's pull request waits for your merge.", "only what needs the operator is written");
 
         await sp.GetRequiredService<DashboardDialogDispatcher>().DispatchAsync(
             "d-series", "Should forwarding keep the deadline?", "sample.user", true, Project, default);

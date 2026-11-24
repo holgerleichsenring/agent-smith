@@ -9,7 +9,10 @@ namespace AgentSmith.Application.Services.Series;
 /// </summary>
 public static class SeriesBeatDue
 {
-    public static string? Why(SeriesRunRecord record, IReadOnlyList<SeriesTicketFact> facts, DateTimeOffset now, int statusMinutes)
+    /// <param name="deliverEvery">2026-11-24-f9c5e: how often a Delivering series reads its final pull requests again —
+    /// merge.ci_poll_seconds under merge.when on_ci_green; null leaves it to the status cadence.</param>
+    public static string? Why(SeriesRunRecord record, IReadOnlyList<SeriesTicketFact> facts, DateTimeOffset now, int statusMinutes,
+        TimeSpan? deliverEvery = null)
     {
         ArgumentNullException.ThrowIfNull(record);
         if (!record.IsActive) return null;
@@ -17,6 +20,8 @@ public static class SeriesBeatDue
         if (table != record.LastTable) return "the table changed";
         if (record.Question is { Answer: null, DeadlineAt: { } deadline } && deadline <= now) return "a question's deadline passed"; // 0207c
         if (record.Verdicts.LastOrDefault() is { Reported: false }) return "the series check reported"; // 0207d
+        if (record.State == SeriesRunStates.Delivering && deliverEvery is { } every
+            && (record.LastDeliveredAt is not { } last || now - last >= every)) return "the series delivers"; // f9c5e
         return Cadence(record, now, statusMinutes) ? "the status is due" : null;
     }
 

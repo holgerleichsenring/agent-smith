@@ -227,6 +227,12 @@ export const configMessages = {
     en: "whether a green code run merges its own pull requests",
     de: "ob ein grüner Code-Run seine eigenen Pull Requests mergt",
   },
+  // 2026-11-24-f9c5a
+  "config.merge.seriesWhen.label": { en: "merge into a series branch when", de: "In einen Serien-Branch mergen wann" },
+  "config.merge.seriesWhen.help": {
+    en: "a series' ticket pull requests into its series branch; the series' final pull request into the default branch follows 'merge when'",
+    de: "die Ticket-Pull-Requests einer Serie in ihren Serien-Branch; der letzte Pull Request der Serie in den Default-Branch folgt „Mergen wann“",
+  },
   "config.merge.respectProtection.label": { en: "respect branch protection", de: "Branch-Schutz beachten" },
   "config.merge.respectProtection.help": {
     en: "on: arm the host's auto-complete or auto-merge and let its rules decide; off: merge past them, which needs the token's bypass permission",

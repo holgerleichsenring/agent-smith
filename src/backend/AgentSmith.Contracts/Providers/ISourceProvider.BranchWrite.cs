@@ -39,7 +39,9 @@ public partial interface ISourceProvider
     /// </para>
     /// </summary>
     /// <param name="message">The commit message.</param>
+    /// <param name="startFrom">2026-11-24-f9c5b: the branch a missing <paramref name="branch"/> is created at instead of the
+    /// default branch — a series' follow-up starts on its series branch — used only when it exists in this repository.</param>
     Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken, BranchName? startFrom = null);
 }
