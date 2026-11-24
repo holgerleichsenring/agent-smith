@@ -12,7 +12,9 @@ public sealed class BaseRefreshGit
     public Task<StepResult> RunAsync(ISandbox sandbox, IReadOnlyList<string> args, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
-        return sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git", Args: args,
+        // 2026-11-24-9dc0a: names unquoted, so a non-ASCII path reads as the file it is.
+        return sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git",
+            Args: ["-c", "core.quotePath=false", .. args],
             WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
     }
 

@@ -14,12 +14,14 @@ public sealed class BaseMergeConflictPass(IBaseMergeMaster master, BaseMergeWhol
     public async Task<BaseMergeResolution> ResolveAsync(BaseMergeSituation situation, IReadOnlyList<string> conflicted, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(situation);
-        var before = await wholeness.CheckAsync(situation.Sandbox, conflicted, [], ct);
+        var before = await wholeness.CheckAsync(situation.Sandbox, conflicted, [], ct, stage: false);
         var pass = await master.RunAsync(situation with { Unmerged = conflicted }, ct);
         while (true)
         {
             var open = await wholeness.CheckAsync(situation.Sandbox, conflicted, Wrote(pass), ct);
-            if (pass.Whole == false || open.IsWhole) return new BaseMergeResolution(open.PathNames, pass.Reason, Wrote(pass));
+            // whole=false stops even over a tree the check finds whole: the master said its sides contradict.
+            if (pass.Whole == false) return new BaseMergeResolution(open.IsWhole ? conflicted : open.PathNames, pass.Reason, Wrote(pass));
+            if (open.IsWhole) return new BaseMergeResolution([], pass.Reason, Wrote(pass));
             if (open.IsProgressOver(before) && !PipelineCostTracker.GetOrCreate(situation.Pipeline).IsBudgetExhausted)
             {
                 before = open;

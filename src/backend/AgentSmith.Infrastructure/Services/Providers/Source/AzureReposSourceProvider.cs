@@ -361,7 +361,7 @@ public sealed class AzureReposSourceProvider(
     public Task<BranchPullRequests> PullRequestsOfAsync(string branch, CancellationToken ct) => WorkBranchHost().PullRequestsOfAsync(branch, ct);
     public Task<bool> DeleteBranchAsync(WorkBranchTip branch, CancellationToken ct) => WorkBranchHost().DeleteBranchAsync(branch, ct);
 
-    private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, SelfAsync, _project, _repoName, _cloneUrl);
+    private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, SelfAsync, _project, _repoName, _cloneUrl, logger);
 
     private Task<string?> SelfAsync(CancellationToken cancellationToken) =>
         clientFactory.AuthorizedIdentityIdAsync(_organizationUrl, _personalAccessToken, cancellationToken);

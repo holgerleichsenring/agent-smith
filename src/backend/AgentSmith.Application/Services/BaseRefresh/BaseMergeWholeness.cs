@@ -8,12 +8,13 @@ namespace AgentSmith.Application.Services.BaseRefresh;
 /// lists unmerged that is gone from disk (a removal). A path still unmerged that the master neither wrote nor staged stays
 /// unmerged — a marker file keeps its index stages for --ours/--theirs, and a conflict git left without markers (binary,
 /// modify/delete, a merge driver) is never taken silently. Open is every path still unmerged, and every path carrying a
-/// marker among the conflicted ones, the written ones and those whose staged content differs from both parents.
+/// marker among the conflicted and the written ones (a path git merged by itself gains no marker). With stage=false it
+/// only reads — the baseline before a pass, which must not resolve anything on the master's behalf.
 /// </summary>
 public sealed class BaseMergeWholeness(BaseRefreshGit git)
 {
     public async Task<BaseMergeOpen> CheckAsync(ISandbox sandbox, IReadOnlyList<string> conflicted, IReadOnlyList<string> wrote,
-        CancellationToken ct)
+        CancellationToken ct, bool stage = true)
     {
         ArgumentNullException.ThrowIfNull(conflicted);
         ArgumentNullException.ThrowIfNull(wrote);
@@ -21,11 +22,10 @@ public sealed class BaseMergeWholeness(BaseRefreshGit git)
         var marked = unmerged is null ? null : await git.MarkedAsync(sandbox, Union(conflicted, wrote, unmerged), ct);
         var missing = unmerged is null ? null : await git.MissingAsync(sandbox, unmerged, ct);
         if (unmerged is null || marked is null || missing is null) return BaseMergeOpen.All(conflicted, BaseMergeOpenPath.Unchecked);
-        IReadOnlyList<string> stage = [.. wrote.Where(p => !marked.ContainsKey(p)).Concat(missing).Distinct(StringComparer.Ordinal)];
-        if (!await git.StageAsync(sandbox, stage, ct)) return BaseMergeOpen.All(conflicted, BaseMergeOpenPath.Unchecked);
+        IReadOnlyList<string> resolved = [.. wrote.Where(p => !marked.ContainsKey(p)).Concat(missing).Distinct(StringComparer.Ordinal)];
+        if (stage && !await git.StageAsync(sandbox, resolved, ct)) return BaseMergeOpen.All(conflicted, BaseMergeOpenPath.Unchecked);
         var left = await Unmerged(sandbox, ct);
-        var produced = await ProducedAsync(sandbox, ct);
-        var markedNow = left is null || produced is null ? null : await git.MarkedAsync(sandbox, Union(conflicted, wrote, produced), ct);
+        var markedNow = left is null ? null : await git.MarkedAsync(sandbox, Union(conflicted, wrote), ct);
         if (left is null || markedNow is null) return BaseMergeOpen.All(conflicted, BaseMergeOpenPath.Unchecked);
         return Open(left, markedNow);
     }
@@ -40,14 +40,6 @@ public sealed class BaseMergeWholeness(BaseRefreshGit git)
 
     private Task<IReadOnlyList<string>?> Unmerged(ISandbox sandbox, CancellationToken ct) =>
         git.LinesAsync(sandbox, ["diff", "--name-only", "--diff-filter=U"], ct);
-
-    // The paths the merge gave content of its own: their staged blob is neither this branch's nor the base's.
-    private async Task<IReadOnlyList<string>?> ProducedAsync(ISandbox sandbox, CancellationToken ct)
-    {
-        var fromOurs = await git.LinesAsync(sandbox, ["diff", "--cached", "--name-only", "HEAD"], ct);
-        var fromTheirs = await git.LinesAsync(sandbox, ["diff", "--cached", "--name-only", "MERGE_HEAD"], ct);
-        return fromOurs is null || fromTheirs is null ? null : [.. fromOurs.Intersect(fromTheirs, StringComparer.Ordinal)];
-    }
 
     private static IReadOnlyList<string> Union(params IReadOnlyList<string>[] sets) =>
         [.. sets.SelectMany(s => s).Distinct(StringComparer.Ordinal)];

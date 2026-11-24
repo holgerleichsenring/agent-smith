@@ -63,6 +63,7 @@ public sealed class BaseRefreshMerge(
                 || (lastRed is not null && !StageRepairProgress.MadeProgress(lastRed, signature, lastWrote))
                 || PipelineCostTracker.GetOrCreate(context.Pipeline).IsBudgetExhausted)
                 return await RefuseAsync(sandbox, head, Red(merge, red), ct);
+            await git.LevelAsync(sandbox, "HEAD", ct); // 9dc0a: the stage's own outputs gone before the master repairs
             var pass = await master.RunAsync(situation with { Red = red }, ct);
             if (pass.Whole == false) return await RefuseAsync(sandbox, head, $"{Red(merge, red)} The master: {pass.Reason}", ct);
             await AmendAsync(sandbox, pass.Wrote, merge.BaseRef!, ct);
@@ -70,14 +71,14 @@ public sealed class BaseRefreshMerge(
         }
     }
 
-    // Exactly the paths the master's file tools wrote, so a stage's outputs never reach the branch: amended into the merge
-    // commit, or — when git fast-forwarded and HEAD is the base's own commit — committed on top, never rewriting the base.
-    // 2026-11-24-9dc0a: the index is reset first, so nothing the master staged itself rides along.
+    // What the master changed — its file tools' writes, the tracked files it changed by command (a regenerated lockfile, a
+    // side taken with git checkout) and what it staged by name — amended into the merge commit, or — when git fast-forwarded
+    // and HEAD is the base's own commit — committed on top, never rewriting the base. 2026-11-24-9dc0a: the tree was levelled
+    // before the pass, so a stage's outputs are not among them; an untracked file reaches the branch only when staged.
     private async Task AmendAsync(ISandbox sandbox, IReadOnlyList<CodeChange> wrote, string baseRef, CancellationToken ct)
     {
-        await git.RunAsync(sandbox, ["reset", "-q"], ct);
-        if (wrote.Count == 0) return;
         await git.StageAsync(sandbox, [.. wrote.Select(w => w.Path.Value).Distinct(StringComparer.Ordinal)], ct);
+        await git.RunAsync(sandbox, ["add", "-u"], ct);
         if ((await git.RunAsync(sandbox, ["diff", "--cached", "--quiet"], ct)).ExitCode != 1) return;
         var isMerge = (await git.RunAsync(sandbox, ["rev-parse", "-q", "--verify", "HEAD^2"], ct)).ExitCode == 0;
         await git.RunAsync(sandbox, isMerge ? ["commit", "--amend", "--no-edit", "--no-verify"]

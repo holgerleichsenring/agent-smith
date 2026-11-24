@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Reviews;
+using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -11,7 +12,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// </summary>
 public sealed class AzureReposReviewReads(
     Func<CancellationToken, Task<GitHttpClient>> connect, Func<CancellationToken, Task<string?>> self,
-    string project, string repoName, string repoUrl) : IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader
+    string project, string repoName, string repoUrl, ILogger? logger = null) : IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader
 {
     public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -46,11 +47,20 @@ public sealed class AzureReposReviewReads(
 
     // 2026-11-24-9dc0c: the target branch's commit now. The refs filter is relative to refs/ and a PREFIX match
     // (AzureReposBranchRead), so only the exact name counts; a target that is gone answers null.
+    // A tip that cannot be read keeps the status as before: the state read itself must not fail on it.
     private async Task<string?> TipAsync(GitHttpClient client, string? targetRef, CancellationToken ct)
     {
         if (targetRef is not { Length: > 5 } || !targetRef.StartsWith("refs/", StringComparison.Ordinal)) return null;
-        var refs = await client.GetRefsAsync(project, repoName, filter: targetRef[5..], cancellationToken: ct);
-        return refs?.FirstOrDefault(r => string.Equals(r.Name, targetRef, StringComparison.Ordinal))?.ObjectId;
+        try
+        {
+            var refs = await client.GetRefsAsync(project, repoName, filter: targetRef[5..], cancellationToken: ct);
+            return refs?.FirstOrDefault(r => string.Equals(r.Name, targetRef, StringComparison.Ordinal))?.ObjectId;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger?.LogWarning(ex, "{Ref}: the target's tip could not be read; the merge status is taken as Azure says it", targetRef);
+            return null;
+        }
     }
 
     private static int PrId(string prUrl) => AzureReposPullRequestUpdater.TryParsePullRequestId(prUrl, out var prId)

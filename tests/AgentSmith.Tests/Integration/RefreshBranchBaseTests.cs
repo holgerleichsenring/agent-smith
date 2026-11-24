@@ -272,6 +272,49 @@ public sealed class RefreshBranchBaseTests
         fixture.AskRemote("show", $"{Branch}:second.txt").Output.Should().Be("both\n");
     }
 
+    // Review: whole=false stops even when the tree is whole.
+    [Fact]
+    public async Task AWholeTreeTheMasterCallsNotWhole_IsNotCommitted()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch, conflicting: true);
+        fixture.AdvanceBase(conflicting: true);
+        var before = fixture.AskRemote("rev-parse", Branch).Output;
+
+        var result = await RefreshAsync(fixture, stage: "test -e .git",
+            master: _ => Write(fixture, GitRemoteFixture.SharedFile, "one side\n", whole: false));
+
+        result.Message.Should().Contain(GitRemoteFixture.SharedFile).And.Contain("kept both");
+        fixture.AskRemote("rev-parse", Branch).Output.Should().Be(before);
+    }
+
+    // Review: a rename/rename conflict leaves no file at the old path; the baseline check must not resolve it before the
+    // master looks, and the paths each side added stay open while nobody resolves them.
+    [Fact]
+    public async Task ARenameRenameConflict_IsNotResolvedBeforeTheMasterLooks_AndStaysOpen()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch);
+        fixture.AskRemote("checkout", "-q", Branch).Exit.Should().Be(0);
+        fixture.AskRemote("mv", GitRemoteFixture.SharedFile, "ours.txt").Exit.Should().Be(0);
+        fixture.AskRemote("commit", "-q", "-m", "branch renamed it").Exit.Should().Be(0);
+        fixture.AskRemote("checkout", "-q", GitRemoteFixture.BaseBranch).Exit.Should().Be(0);
+        fixture.AskRemote("mv", GitRemoteFixture.SharedFile, "theirs.txt").Exit.Should().Be(0);
+        fixture.AskRemote("commit", "-q", "-m", "base renamed it").Exit.Should().Be(0);
+        var before = fixture.AskRemote("rev-parse", Branch).Output;
+        string? stages = null;
+
+        var result = await RefreshAsync(fixture, stage: "test -e .git", master: _ =>
+        {
+            stages = GitIn(fixture.WorkPath, "ls-files", "-u", "--", GitRemoteFixture.SharedFile);
+            return new BaseMergePass(null, null, []);
+        });
+
+        stages.Should().NotBeNullOrWhiteSpace("the master meets the conflict as git left it");
+        result.Message.Should().Contain("conflicts in").And.Contain("ours.txt").And.Contain("theirs.txt");
+        fixture.AskRemote("rev-parse", Branch).Output.Should().Be(before);
+    }
+
     [Fact]
     public async Task AWholeClaimOverMarkers_IsNotCommitted()
     {
@@ -323,7 +366,7 @@ public sealed class RefreshBranchBaseTests
     }
 
     [Fact]
-    public async Task ARepairWithoutConclude_IsAmended_AndWhatTheMasterStagedItselfIsNot()
+    public async Task ARepairWithoutConclude_IsAmended_WithWhatTheMasterStagedByName()
     {
         if (!SandboxToolAvailability.IsAvailable("git")) return;
         await using var fixture = GitRemoteFixture.Create(Branch);
@@ -338,7 +381,7 @@ public sealed class RefreshBranchBaseTests
 
         result.Message.Should().Contain("pushed");
         fixture.AskRemote("cat-file", "-e", $"{Branch}:repaired.txt").Exit.Should().Be(0);
-        fixture.AskRemote("cat-file", "-e", $"{Branch}:staged-by-master.txt").Exit.Should().NotBe(0);
+        fixture.AskRemote("cat-file", "-e", $"{Branch}:staged-by-master.txt").Exit.Should().Be(0, "a file the master staged by name is its repair");
     }
 
     [Fact]

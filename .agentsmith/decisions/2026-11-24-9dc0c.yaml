@@ -27,3 +27,8 @@ decisions:
     chose: "GitHub and GitLab unchanged"
     over: "A recheck parameter or polling"
     reason: "GitHub's read starts its mergeability job and answers UNKNOWN meanwhile; GitLab checks a single merge request asynchronously on every GET and answers checking or unchecked; both already read as null (with_merge_status_recheck exists only on list endpoints)."
+  - category: Review
+    decider: claude
+    chose: "A failed read of the target's tip is logged and keeps the status as Azure says it"
+    over: "Letting it fail the whole pull-request read"
+    reason: "Diff review: a 403 or transient error on refs would have dropped threads, CI and conflict state for the pull request."

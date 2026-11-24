@@ -42,3 +42,8 @@ decisions:
     chose: "Adversarial spec review BUILD WITH CUTS: whole=false first, no staging of marker files, marker-free conflicts stay open, in-loop check, marker-line progress, MasterConversation reuse, conclude-only test, index reset before an amend — all applied"
     over: "Building the first draft"
     reason: "Independent review before code."
+  - category: Review
+    decider: claude
+    chose: "Diff review fixes: whole=false stops even over a tree the check finds whole; the baseline check before a pass only reads (a rename/rename's old path is not taken as a removal before the master looks); the marker check covers the conflicted and written paths only (an auto-merged file whose lines start like a marker is no conflict); every refresh git call reads names with core.quotePath=false; a repair levels the tree before the master and amends its file-tool writes, its tracked changes (git add -u) and what it staged by name"
+    over: "The first build"
+    reason: "Review found whole=false committed a whole tree; a staging baseline resolved a removal for the master; quoted non-ASCII names never matched; and a repair made by command (git checkout --theirs, a regenerated lockfile) was reset away, which the 9dc0b prompt invites. Levelling before the pass keeps the stage's outputs out instead of resetting the index."

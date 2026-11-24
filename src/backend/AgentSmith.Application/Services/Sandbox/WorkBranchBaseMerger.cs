@@ -96,7 +96,7 @@ public sealed class WorkBranchBaseMerger(
 
     private async Task<IReadOnlyList<string>> ConflictingPathsAsync(ISandbox sandbox, CancellationToken ct)
     {
-        var result = await RunAsync(sandbox, ["diff", "--name-only", "--diff-filter=U"], ct);
+        var result = await RunAsync(sandbox, ["-c", "core.quotePath=false", "diff", "--name-only", "--diff-filter=U"], ct); // 9dc0a
         if (result.ExitCode != 0) return [];
         return [.. (result.OutputContent ?? string.Empty)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];

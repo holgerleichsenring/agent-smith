@@ -27,3 +27,8 @@ decisions:
     chose: "Operator configuration unchanged (agent rate_limit 250k/min, max_concurrent_runs 1); reported"
     over: "Raising the configured budget"
     reason: "The brief: report, don't change, operator config. Cached tokens dominate the production run (1.048M of 1.18M input), so the deployment's TPM is the remaining lever."
+  - category: Review
+    decider: claude
+    chose: "Kept Generated for Azure admission after the diff review asked to re-check"
+    over: "MaxTokens at admission and generated at settle"
+    reason: "The live quota page (updated 2026-08-13) says the TPM calculation uses actual input and generated tokens and that a higher output limit reserves nothing; the estimated-max-processed-tokens wording survives only in older copies. 429s remain handled by the refusal pause and the remaining-tokens header."

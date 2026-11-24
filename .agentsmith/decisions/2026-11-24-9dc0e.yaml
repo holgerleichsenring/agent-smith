@@ -27,3 +27,8 @@ decisions:
     chose: "A series' final pull request is out (no ticket; its beat refreshes it)"
     over: "A series-level Try again"
     reason: "The production refusals are ticket pull requests."
+  - category: Review
+    decider: claude
+    chose: "Endpoint tests for 404, 400 and 409; the race of two concurrent posts and the shared busy label of Retry and Try again on one ticket left as noted"
+    over: "A per-URL lock in the singleton"
+    reason: "Diff review: the window is one database read and the second run would merge an already-merged base (a no-op push); a lock is machinery for a near-impossible case."
