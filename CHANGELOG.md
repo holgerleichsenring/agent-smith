@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.210.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.210.0...v0.210.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **runs:** the list counts work and system runs apart (2026-11-24-6357) ([b2835ec](https://github.com/holgerleichsenring/agent-smith/commit/b2835ecc109f26e94deb66092ba457a4126def8b))
+* **runs:** the list counts work and system runs apart, so a burst of system runs no longer empties it (2026-11-24-6357) ([0286d17](https://github.com/holgerleichsenring/agent-smith/commit/0286d17f27feb93c4b11773d8755ca2fa8549336))
+
 ## [0.210.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.209.0...v0.210.0) (2026-11-24)
 
 
