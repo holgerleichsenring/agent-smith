@@ -1191,6 +1191,9 @@ export interface RunSnapshot {
   /** 2026-10-13-9a59a: the run row's project and tracker platform (REST paths only). */
   project?: string | null;
   platform?: string | null;
+  /** 2026-11-24-35ff: true when the server started the run itself (a series beat, a landing's follow-up, a sweep), from
+   *  the pipeline's declared origin. The runs list hides these unless the viewer asks. Absent on older servers. */
+  system?: boolean;
 }
 
 /** p0350: one pull request a run opened, per repo. */

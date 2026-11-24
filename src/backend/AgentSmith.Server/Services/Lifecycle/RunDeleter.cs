@@ -43,7 +43,8 @@ public sealed class RunDeleter(
     }
 
     // Bulk clear is terminal-only, so it never force-kills a live run.
-    public Task<int> DeleteTerminalAsync(ProjectScope scope, CancellationToken ct) => deletion.DeleteTerminalAsync(scope, ct);
+    public Task<int> DeleteTerminalAsync(ProjectScope scope, bool includeSystem, CancellationToken ct) =>
+        deletion.DeleteTerminalAsync(scope, includeSystem, ct); // 2026-11-24-35ff
 
     // Reuses the p0330 cancel-enforcement order: release the lease, drop the queue
     // entry — before the rows are removed.

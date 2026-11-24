@@ -51,6 +51,20 @@ describe("ClearTerminalRunsButton", () => {
     await waitFor(() => expect(button).toHaveTextContent("clear finished"));
   });
 
+  // 2026-11-24-35ff: with system runs hidden it clears only the finished runs the list shows.
+  it("ClearTerminalRunsButton_SystemRunsHidden_LeavesThemOut", async () => {
+    render(<ClearTerminalRunsButton includeSystem={false} />);
+    const button = screen.getByTestId("clear-terminal-runs");
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/runs?state=terminal&includeSystem=false",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
+  });
+
   it("ClearTerminalRunsButton_CallerWithoutRunsDelete_IsNotOffered", () => {
     mockIdentity = caller(["runs.read"]);
     render(<ClearTerminalRunsButton />);

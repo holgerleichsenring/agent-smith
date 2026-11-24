@@ -15,6 +15,8 @@ import { useSidebarCollapsed } from "@/hooks/useSidebarCollapsed";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
 import { totalTickets } from "@/components/tickets/ticketSections";
 import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
+import { splitSystemRuns } from "@/lib/runs/systemRuns";
+import { useShowSystemRuns } from "@/hooks/useShowSystemRuns";
 import { bucketHref, RUNS_PATH, useRunBucketFilter } from "@/lib/RunBucketFilter";
 import { TICKETS_PATH, ticketBucketHref, useTicketBucketFilter, type TicketBucketFilter } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
@@ -63,12 +65,14 @@ export function AppSidebar() {
   const visible = new Set<SidebarItemId>(sidebarItems(useKnownIdentity(), usePocsFeature().status));
   const show = (item: SidebarItemId) => visible.has(item);
 
-  // The same merge and bucketing the runs list renders, so the count matches it.
+  // The same merge, system-run toggle (2026-11-24-35ff) and bucketing the runs list renders, so the count matches it.
+  const [showSystem] = useShowSystemRuns();
   const inFlight = useMemo(() => {
     if (!overview) return undefined;
-    const buckets = bucketRuns(mergeNewestFirst(overview.active, overview.recent));
+    const shown = splitSystemRuns(mergeNewestFirst(overview.active, overview.recent), showSystem).shown;
+    const buckets = bucketRuns(shown);
     return buckets.needsYou.length + buckets.running.length + buckets.queued.length;
-  }, [overview]);
+  }, [overview, showSystem]);
 
   const onTickets = pathname === TICKETS_PATH;
   const yourMoveActive = onTickets && ticketFilter.filter === "needs-you";

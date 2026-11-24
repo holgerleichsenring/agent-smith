@@ -9,6 +9,9 @@ import { ConnectionState } from "./ConnectionState";
 import { RunRow } from "./RunRow";
 import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { ClearTerminalRunsButton } from "./ClearTerminalRunsButton";
+import { SystemRunsToggle } from "./mission/SystemRunsToggle";
+import { splitSystemRuns } from "@/lib/runs/systemRuns";
+import { useShowSystemRuns } from "@/hooks/useShowSystemRuns";
 import { bucketRuns, deriveMetrics } from "./mission/missionBuckets";
 import { MetricStrip } from "./mission/MetricStrip";
 import { RunStatePills } from "./mission/RunStatePills";
@@ -55,8 +58,14 @@ export function MissionControl() {
     () => (overview ? mergeNewestFirst(overview.active, [...overview.recent, ...older]) : []),
     [overview, older],
   );
-  const buckets = useMemo(() => bucketRuns(runs), [runs]);
-  const metrics = useMemo(() => deriveMetrics(runs), [runs]);
+  // 2026-11-24-35ff: the runs the server starts itself are hidden unless the viewer asks; sections, pills and metrics
+  // count what is shown. Load more still pages from the oldest run loaded, shown or not.
+  const [showSystem, setShowSystem] = useShowSystemRuns();
+  const split = useMemo(() => splitSystemRuns(runs, showSystem), [runs, showSystem]);
+  const buckets = useMemo(() => bucketRuns(split.shown), [split]);
+  const metrics = useMemo(() => deriveMetrics(split.shown), [split]);
+  // Load more pages through every finished run, so it stays offered when the loaded ones are all hidden system runs.
+  const finishedLoaded = useMemo(() => bucketRuns(runs).finished.length, [runs]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || runs.length === 0) return;
@@ -120,6 +129,7 @@ export function MissionControl() {
   return (
     <div data-testid="mission-control" data-bucket={filter}>
       <RunStatePills buckets={buckets} />
+      <SystemRunsToggle show={showSystem} system={split.system} systemFailed={split.systemFailed} onChange={setShowSystem} />
       <MetricStrip metrics={metrics} />
 
       {shows("needs-you") && (
@@ -173,12 +183,10 @@ export function MissionControl() {
           id="finished"
           count={buckets.finished.length}
           testId="section-finished"
-          action={buckets.finished.length > 0 ? <ClearTerminalRunsButton /> : undefined}
-          alwaysShow={filter === "finished"}
+          action={buckets.finished.length > 0 ? <ClearTerminalRunsButton includeSystem={showSystem} /> : undefined}
+          alwaysShow={filter === "finished" || (!exhausted && finishedLoaded > 0)}
           emptyLine={t(EMPTY_LINE.finished)}
-        >
-          <RowList runs={buckets.finished} />
-          {!exhausted && buckets.finished.length > 0 && (
+          after={!exhausted && finishedLoaded > 0 && (
             <button
               type="button"
               className="load-more"
@@ -189,6 +197,8 @@ export function MissionControl() {
               {loadingMore ? t("runs.mission.loading") : t("runs.mission.loadMore")}
             </button>
           )}
+        >
+          <RowList runs={buckets.finished} />
         </Section>
       )}
 

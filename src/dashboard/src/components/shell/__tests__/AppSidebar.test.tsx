@@ -36,6 +36,7 @@ vi.mock("@/hooks/useKnownIdentity", () => ({ useKnownIdentity: () => access.iden
 import { AppSidebar } from "../AppSidebar";
 import { TicketBucketFilterProvider } from "@/lib/TicketBucketFilter";
 import { RunBucketFilterProvider } from "@/lib/RunBucketFilter";
+import { chooseShowSystemRuns, resetShowSystemRuns } from "@/lib/runs/showSystemRuns";
 
 function snap(runId: string, status: string): RunSnapshot {
   return {
@@ -74,6 +75,7 @@ function renderAt(pathname: string, search = "") {
 
 beforeEach(() => {
   stubStorage();
+  resetShowSystemRuns();
   hoisted.push.mockReset();
   hoisted.overview = { active: [snap("r-1", "running"), snap("r-2", "queued")], recent: [snap("r-3", "success")], systemActivity: null };
   hoisted.tickets = list([], { needsYou: 3, working: 2, done: 7 });
@@ -135,6 +137,18 @@ describe("AppSidebar", () => {
     expect(screen.getByTestId("sidebar-tickets-count")).toHaveTextContent("12");
     expect(screen.getByTestId("sidebar-runs-count")).toHaveTextContent("2");
     expect(await screen.findByTestId("sidebar-pull-requests-count")).toHaveTextContent("2");
+  });
+
+  // 2026-11-24-35ff: the Runs count follows the list's system-runs toggle, so the two agree.
+  it("Sidebar_RunsCount_LeavesOutSystemRunsUntilTheToggleShowsThem", () => {
+    hoisted.overview = {
+      active: [snap("r-1", "running"), { ...snap("r-beat", "running"), pipeline: "series-run", system: true }],
+      recent: [], systemActivity: null,
+    };
+    renderAt("/");
+    expect(screen.getByTestId("sidebar-runs-count")).toHaveTextContent("1");
+    act(() => chooseShowSystemRuns(true));
+    expect(screen.getByTestId("sidebar-runs-count")).toHaveTextContent("2");
   });
 
   // 2026-11-23-31dcc: Series sits directly below Work it out, counts the running series and is marked under /series.

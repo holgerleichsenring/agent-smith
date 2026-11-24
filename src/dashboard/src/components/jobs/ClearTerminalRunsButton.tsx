@@ -17,7 +17,8 @@ import { holdsInAnyProject } from "@/lib/projectPermissions";
 // route names no project and the server clears only within the caller's projects.
 const RUNS_DELETE = "runs.delete";
 
-export function ClearTerminalRunsButton() {
+// 2026-11-24-35ff: it clears what the list shows — with system runs hidden, only the finished work runs.
+export function ClearTerminalRunsButton({ includeSystem = true }: { includeSystem?: boolean }) {
   const t = useT();
   const token = useAccessToken();
   const { identity } = useCallerIdentity(token !== null);
@@ -31,7 +32,8 @@ export function ClearTerminalRunsButton() {
     setPending(true);
     setError(null);
     try {
-      const res = await apiFetch(`/api/runs?state=terminal`, { method: "DELETE" });
+      const query = includeSystem ? "state=terminal" : "state=terminal&includeSystem=false";
+      const res = await apiFetch(`/api/runs?${query}`, { method: "DELETE" });
       if (!res.ok) setError(`HTTP ${res.status}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("runs.common2.requestFailed"));
@@ -39,7 +41,7 @@ export function ClearTerminalRunsButton() {
       setArmed(false);
       setPending(false);
     }
-  }, [armed, pending, t]);
+  }, [armed, pending, includeSystem, t]);
 
   if (identity && !holdsInAnyProject(identity, RUNS_DELETE)) return null;
 
