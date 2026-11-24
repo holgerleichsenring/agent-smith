@@ -10,6 +10,7 @@ import { seriesNodeKind, seriesOverviewCounts, type SeriesNodeKind } from "./ser
 import { mergesWhenGreen } from "./seriesCiState";
 import { seriesNodeSentence, seriesTicketActs } from "./seriesTicketActs";
 import { SeriesTicketBadges } from "./SeriesTicketBadges";
+import { SeriesFinalStep } from "./SeriesFinalStep";
 
 // 2026-11-23-f562: below the graph, what someone has to do, in the graph's colours — You're up (the merge now, the
 // questions, the failures), Needed next (the merges others start on, each with its Merge disabled and its pull request)
@@ -69,6 +70,7 @@ export function SeriesActionList({ detail, lacks, handlers, onChain }: Props) {
           </div>
         </>
       )}
+      <SeriesFinalStep detail={detail} />
     </section>
   );
 }

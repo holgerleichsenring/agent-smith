@@ -42,7 +42,9 @@ export function seriesNodeSentence(ticket: SeriesRunTicket, detail: SeriesRunDet
   const lead = kind === "needed" ? t("series.merge.needed", { names: namesOf(t, needed), count: needed.length }) : null;
   // 2026-11-23-0219: what the last merge run said when it did not merge, and why Merge when green cannot arm here.
   const told = seriesMergeSaid(ticket);
-  const mergeSaid = told?.status === "completion_refused" ? t("series.merge.said.refused", { reason: told.reason ?? "" })
+  // 2026-11-24-f9c5f: a merge run that started (or could not start) a series pull request's CI said so — said as it is.
+  const mergeSaid = told?.status === "completion_refused" && /^(CI started|CI not started|no CI):/.test(told.reason ?? "") ? told.reason
+    : told?.status === "completion_refused" ? t("series.merge.said.refused", { reason: told.reason ?? "" })
     : told?.status === "completion_armed" ? t("series.merge.said.armed") : null;
   const arms = mergesWhenGreen(detail, ticket) && !detail.mergeArms ? t("series.merge.whenGreenNeeds") : null;
   return [lead, said, draft, mergeSaid, arms].filter(Boolean).join(" ");

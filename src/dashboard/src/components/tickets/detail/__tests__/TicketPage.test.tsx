@@ -279,9 +279,12 @@ describe("Ticket page", () => {
     world.detail = detail([attempt({ status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed", pullRequests: [
       pr({ number: "12", url: "https://dev.example/org/_git/Sample.App.Server/pullrequest/12", repo: "Sample.App.Server", state: "open" }),
-      pr({ number: "13", url: "https://dev.example/org/_git/Sample.App.Client/pullrequest/13", repo: "Sample.App.Client", state: "merged", decision: "approved" })] };
+      pr({ number: "13", url: "https://dev.example/org/_git/Sample.App.Client/pullrequest/13", repo: "Sample.App.Client", state: "merged", decision: "approved",
+        target: "agent-smith/series/sr-1" })] };
     await open();
     const rows = within(screen.getByTestId("ticket-state-prs")).getAllByRole("listitem");
+    expect(rows[1]).toHaveTextContent("into agent-smith/series/sr-1"); // 2026-11-24-f9c5f: each pull request's target
+    expect(within(rows[0]).queryByTestId("ticket-state-pr-target")).toBeNull();
     expect(rows[0]).toHaveTextContent("Server #12 open");
     expect(rows[1]).toHaveTextContent("Client #13 merged · approved");
     expect(within(rows[0]).getByRole("link")).toHaveAttribute("href", "https://dev.example/org/_git/Sample.App.Server/pullrequest/12");

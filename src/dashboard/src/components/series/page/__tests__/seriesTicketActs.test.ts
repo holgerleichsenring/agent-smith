@@ -48,6 +48,18 @@ describe("seriesTicketActs", () => {
     expect(merge.disabledBy).toBeUndefined();
   });
 
+  // 2026-11-24-f9c5f: a merge run that started a series pull request's CI says so as it is, not as a refusal.
+  it("SeriesNodeSentence_ACiStart_IsSaidAsItIs", () => {
+    const pr = overviewDetail().tickets.find((candidate) => candidate.ticketId === "50")!.pullRequests[0];
+    const said = with_("50", { pullRequests: [{ ...pr, mergeSaid: { status: "completion_refused",
+      reason: "CI started: dispatched ci.yml on agent-smith/50", at: "2026-11-24T08:00:00Z" } }] });
+
+    const sentence = seriesNodeSentence(said.ticket, said.detail, seriesNodeKind(said.ticket, said.detail), t);
+
+    expect(sentence).toContain("CI started: dispatched ci.yml on agent-smith/50");
+    expect(sentence).not.toContain("The last merge was refused");
+  });
+
   it("SeriesTicketActs_AQuestionOnTheTicket_AnswersOnItsPage_WithTheSeriesConversationBeside", () => {
     expect(shapeOf(with_("61", { hold: hold("question", { act: { kind: "answer", target: null } }) }))).toEqual([
       "answer:link>/tickets/shop/61", "conversation:link>/series/sr-1?section=talk", "ticket:link>/tickets/shop/61", "chain:chain"]);

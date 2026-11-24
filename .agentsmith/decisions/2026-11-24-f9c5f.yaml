@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-f9c5f
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "The series page and the ticket page show each pull request's target, merges into the series branch, and the final pull request as its own step"
+    over: "Leaving the target implicit"
+    reason: "Operator 2026-11-24: the pages show the truth."
+  - category: Implementation
+    decider: claude
+    chose: "The final step is drawn after the tickets in the action list, from the series' own account (link, number, last sentence) and merge.when"
+    over: "A step in the merge order"
+    reason: "The merge order is ticket-shaped (depth, requirements, the Merge act); the final pull request has no ticket and no act on the page — it merges on the host or by merge.when."
+  - category: Implementation
+    decider: claude
+    chose: "A merge run's CI-start sentence (CI started / CI not started / no CI) is shown as it is rather than as 'the last merge was refused'"
+    over: "A new pull-request status for a CI start"
+    reason: "No second path: the start reuses the existing refusal record (f9c5d), and the page tells its sentences apart by their opening words, which the server writes."
+  - category: Implementation
+    decider: claude
+    chose: "The verifying state word reads 'checking' instead of 'checking on main'"
+    over: "Keeping 'on main'"
+    reason: "A series with a branch is checked on that branch; the panel line names the branch."

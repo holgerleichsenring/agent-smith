@@ -15,6 +15,8 @@ namespace AgentSmith.Server.Models;
 /// <param name="HeadMovedAt">2026-10-15-114fc: when a read saw the head commit change.</param>
 /// <param name="ReopenedAt">2026-10-15-114fc: when a successful read saw the ended pull request open again.</param>
 /// <param name="Ci">2026-11-17-3435a: the CI the newest read saw on the head, failed checks with their evidence; null before a CI read.</param>
+/// <param name="Target">2026-11-24-f9c5f: the branch it targets as its record read it (a series branch for a series ticket); null
+/// before a read.</param>
 public sealed record TicketPullRequestView(
     string Number,
     string Url,
@@ -28,4 +30,5 @@ public sealed record TicketPullRequestView(
     DateTimeOffset? PersonActivityAt = null,
     DateTimeOffset? HeadMovedAt = null,
     DateTimeOffset? ReopenedAt = null,
-    AgentSmith.Contracts.Reviews.PrRecordCiView? Ci = null);
+    AgentSmith.Contracts.Reviews.PrRecordCiView? Ci = null,
+    string? Target = null);

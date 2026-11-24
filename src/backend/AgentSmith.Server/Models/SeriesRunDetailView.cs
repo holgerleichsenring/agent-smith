@@ -32,4 +32,10 @@ public sealed record SeriesRunDetailView(
 
     /// <summary>2026-11-24-f9c5c: the branch the series' tickets integrate on; null for a series without one.</summary>
     public string? IntegrationBranch { get; init; }
+
+    /// <summary>2026-11-24-f9c5f: per repo the final pull request the series opened from its branch; empty before.</summary>
+    public IReadOnlyList<SeriesRunDeliveryView> Deliveries { get; init; } = [];
+
+    /// <summary>2026-11-24-f9c5f: the project's merge.when (manual, on_gate_green, on_ci_green) — what the final pull requests merge under.</summary>
+    public string MergeWhen { get; init; } = "manual";
 }

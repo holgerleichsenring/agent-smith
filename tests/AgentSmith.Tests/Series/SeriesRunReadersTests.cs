@@ -160,6 +160,27 @@ public sealed class SeriesRunReadersTests : IDisposable
         detail.CostUsd.Should().Be(1.25m, "ticket 9 is not of the series");
     }
 
+    // 2026-11-24-f9c5f: a series with a branch carries it, its final pull requests and what they merge under; one without has neither.
+    [Fact]
+    public async Task Detail_ASeriesWithABranch_CarriesItAndItsFinalPullRequests()
+    {
+        await _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(new SeriesRunRecord("sr-1", "conv-sr-1", "alpha", "operator", true,
+            SeriesRunStates.Delivering, Tickets("1"), T)
+        {
+            IntegrationBranch = "agent-smith/series/sr-1",
+            Deliveries = [new SeriesDelivery("api", "https://github.com/o/api/pull/90", "90") { Said = "merges once CI is green" }],
+        }, default);
+        await OpenAsync("sr-2", Tickets("2"));
+
+        var branched = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
+        var plain = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-2", default)))!;
+
+        branched.IntegrationBranch.Should().Be("agent-smith/series/sr-1");
+        branched.Deliveries.Should().Equal(new AgentSmith.Server.Models.SeriesRunDeliveryView("api", "https://github.com/o/api/pull/90", "90", "merges once CI is green"));
+        branched.MergeArms.Should().BeFalse("a merge into a series branch never arms");
+        (plain.IntegrationBranch, plain.Deliveries.Count).Should().Be(((string?)null, 0));
+    }
+
     [Fact]
     public async Task Detail_AClosedConversation_IsNotOpen_AndAMissingOneHasNoThread()
     {
