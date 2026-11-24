@@ -113,6 +113,13 @@ describe("the system-runs toggle", () => {
     expect(screen.getByTestId("system-runs-toggle")).toHaveTextContent("Show system runs (1 · 1 failed)");
   });
 
+  it("OnlySystemRunsFinished_StillOffersLoadMore", () => {
+    mockOverview = { active: [snap("work-live", "running")], recent: [snap("beat", "success", true)], systemActivity: null };
+    renderList();
+    expect(screen.getByTestId("section-finished")).toBeInTheDocument();
+    expect(screen.getByTestId("runs-load-more")).toBeInTheDocument();
+  });
+
   it("BlockedStorage_HidesSystemRuns_AndTheToggleStillWorks", () => {
     Object.defineProperty(window, "localStorage", {
       configurable: true,

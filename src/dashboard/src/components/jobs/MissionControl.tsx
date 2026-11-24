@@ -64,6 +64,8 @@ export function MissionControl() {
   const split = useMemo(() => splitSystemRuns(runs, showSystem), [runs, showSystem]);
   const buckets = useMemo(() => bucketRuns(split.shown), [split]);
   const metrics = useMemo(() => deriveMetrics(split.shown), [split]);
+  // Load more pages through every finished run, so it stays offered when the loaded ones are all hidden system runs.
+  const finishedLoaded = useMemo(() => bucketRuns(runs).finished.length, [runs]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || runs.length === 0) return;
@@ -182,11 +184,9 @@ export function MissionControl() {
           count={buckets.finished.length}
           testId="section-finished"
           action={buckets.finished.length > 0 ? <ClearTerminalRunsButton includeSystem={showSystem} /> : undefined}
-          alwaysShow={filter === "finished"}
+          alwaysShow={filter === "finished" || (!exhausted && finishedLoaded > 0)}
           emptyLine={t(EMPTY_LINE.finished)}
-        >
-          <RowList runs={buckets.finished} />
-          {!exhausted && buckets.finished.length > 0 && (
+          after={!exhausted && finishedLoaded > 0 && (
             <button
               type="button"
               className="load-more"
@@ -197,6 +197,8 @@ export function MissionControl() {
               {loadingMore ? t("runs.mission.loading") : t("runs.mission.loadMore")}
             </button>
           )}
+        >
+          <RowList runs={buckets.finished} />
         </Section>
       )}
 

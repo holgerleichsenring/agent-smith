@@ -29,6 +29,11 @@ decisions:
     reason: "The server reads the same origin list, so the page sends a viewer's choice, not a classification. An absent parameter keeps every existing caller's behaviour."
   - category: Implementation
     decider: claude
-    chose: "Load more keeps paging from the oldest loaded run, shown or not; a page of only system runs adds nothing visible"
-    over: "Server-side paging that skips system runs"
-    reason: "No new query parameter for a rare case; a further click pages on. Recorded as out of scope in the spec."
+    chose: "Load more keeps paging from the oldest loaded run, shown or not, and stays offered (with the Finished section) while any finished run is loaded, even if every one is a hidden system run"
+    over: "Server-side paging that skips system runs; offering Load more only beside shown finished rows (the first commit)"
+    reason: "Review finding: with the newest 50 finished runs all system runs, the first commit dropped the Finished section and Load more, so older work runs were reachable only by turning the toggle on. No new query parameter for this case; a further click pages on."
+  - category: Scope
+    decider: operator
+    chose: "merge-green and start stay system although a person's series Merge click and an operator's start approval also launch them"
+    over: "Counting merge-green and start as work"
+    reason: "The operator named both as system runs in the request. Review noted the person-launched cases; the series page shows the merge result and a start's coding run is a work run, and a failed hidden one still shows on the toggle."
