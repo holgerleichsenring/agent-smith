@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, Search } from "lucide-react";
-import { PLACES } from "@/lib/places";
+import { PLACE_KEYS, PLACES } from "@/lib/places";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import { ticketBucketHref } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
 
@@ -15,21 +17,38 @@ import { useTicketList } from "@/lib/tickets/TicketListProvider";
 // puts the cursor in it. Searching tickets and runs is a later spec. The bell has no feed behind
 // it yet; it opens what waits on you and carries a dot while anything does.
 
-/** Every page the field can go to, one path per name. */
-export const SEARCHABLE_PLACES: ReadonlyArray<{ name: string; path: string }> = Object.entries(PLACES)
-  .filter(([, name], i, all) => all.findIndex(([, other]) => other === name) === i)
-  .map(([path, name]) => ({ name, path }));
+type Place = { name: string; path: string };
 
-/** The page a typed text names: an exact name first, else the first name starting with it. */
-export function placeForQuery(query: string): string | null {
+function unique(entries: Array<[string, string]>): Place[] {
+  return entries
+    .filter(([, name], i, all) => all.findIndex(([, other]) => other === name) === i)
+    .map(([path, name]) => ({ name, path }));
+}
+
+/** Every page the field can go to, one path per name. */
+export const SEARCHABLE_PLACES: ReadonlyArray<Place> = unique(Object.entries(PLACES));
+
+/** 2026-11-23-5669a: the same pages named in the chosen language; a page the dictionary does not name keeps its name. */
+export function searchablePlaces(t: T): ReadonlyArray<Place> {
+  return unique(Object.entries(PLACES).map(([path, name]) => [path, PLACE_KEYS[path] ? t(PLACE_KEYS[path]) : name]));
+}
+
+/** The page a typed text names: an exact name first, else the first name starting with it; the English names always match. */
+export function placeForQuery(query: string, places: ReadonlyArray<Place> = SEARCHABLE_PLACES): string | null {
   const wanted = query.trim().toLowerCase();
   if (wanted.length === 0) return null;
-  const exact = SEARCHABLE_PLACES.find((p) => p.name.toLowerCase() === wanted);
-  return (exact ?? SEARCHABLE_PLACES.find((p) => p.name.toLowerCase().startsWith(wanted)))?.path ?? null;
+  for (const list of [places, SEARCHABLE_PLACES]) {
+    const exact = list.find((p) => p.name.toLowerCase() === wanted);
+    const found = exact ?? list.find((p) => p.name.toLowerCase().startsWith(wanted));
+    if (found) return found.path;
+  }
+  return null;
 }
 
 export function AppTopBar() {
   const router = useRouter();
+  const t = useT();
+  const places = searchablePlaces(t);
   const field = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const needsYou = yourMoveCount(useTicketList().list?.counts, useHoldsAdmin()) ?? 0; // 2026-11-23-31dcg
@@ -47,7 +66,7 @@ export function AppTopBar() {
 
   const go = (event: React.FormEvent) => {
     event.preventDefault();
-    const path = placeForQuery(query);
+    const path = placeForQuery(query, places);
     if (!path) return;
     setQuery("");
     field.current?.blur();
@@ -64,13 +83,13 @@ export function AppTopBar() {
           list="tb-places"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Go to a page"
-          aria-label="Go to a page"
+          placeholder={t("shell.search.placeholder")}
+          aria-label={t("shell.search.placeholder")}
           data-testid="topbar-search"
         />
         <kbd aria-hidden="true">⌘K</kbd>
         <datalist id="tb-places">
-          {SEARCHABLE_PLACES.map((p) => (
+          {places.map((p) => (
             <option key={p.path} value={p.name} />
           ))}
         </datalist>
@@ -78,8 +97,8 @@ export function AppTopBar() {
       <Link
         href={ticketBucketHref("needs-you")}
         className="tb-bell"
-        aria-label={needsYou > 0 ? `${needsYou} waiting on you` : "Nothing waits on you"}
-        title={needsYou > 0 ? `${needsYou} waiting on you` : "Nothing waits on you"}
+        aria-label={needsYou > 0 ? t("shell.bell.waiting", { count: needsYou }) : t("shell.bell.nothing")}
+        title={needsYou > 0 ? t("shell.bell.waiting", { count: needsYou }) : t("shell.bell.nothing")}
         data-testid="topbar-bell"
       >
         <Bell size={17} strokeWidth={1.9} aria-hidden="true" />

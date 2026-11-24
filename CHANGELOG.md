@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.205.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.205.0...v0.205.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **series:** a merge reads the PR records from the host before it answers, the page follows its tickets' activity (2026-11-24-a4e7) ([4ae468d](https://github.com/holgerleichsenring/agent-smith/commit/4ae468da40f524bc458de402c2d1da45591f6be5))
+* **series:** the post-merge refresh never fails the act, skips the CI loop, and an armed Merge stays enabled (2026-11-24-a4e7) ([bdbeb50](https://github.com/holgerleichsenring/agent-smith/commit/bdbeb50fffd858e6d376aea84bb7aed816190451))
+* **series:** the series page shows a merge at once and follows the host (2026-11-24-a4e7) ([5156d7d](https://github.com/holgerleichsenring/agent-smith/commit/5156d7d868ce2efe8b67cb8fa39d5c84f8bfdfd4))
+
+## [0.205.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.204.2...v0.205.0) (2026-11-23)
+
+
+### Features
+
+* **dashboard:** Config Studio speaks the chosen language (2026-11-23-5669d) ([1e2365c](https://github.com/holgerleichsenring/agent-smith/commit/1e2365cc71cf250ceb5d7d71895ec5359b5924fa))
+* **dashboard:** Delivery and the last dates in Work it out and the series bar speak the chosen language (2026-11-23-5669f) ([87c7d74](https://github.com/holgerleichsenring/agent-smith/commit/87c7d74a21675345d22daa2b5a11375be0746770))
+* **dashboard:** System, Access and identity speak the chosen language (2026-11-23-5669e) ([fbea4dd](https://github.com/holgerleichsenring/agent-smith/commit/fbea4dd6ff10da43842556436a011a317b6571d8))
+* **dashboard:** the closing sweep — every helper takes the lookup, the last hook and lib texts move, the search names config pages in German (2026-11-22-5485b) ([c2f1f44](https://github.com/holgerleichsenring/agent-smith/commit/c2f1f449a942939e20473f0fbab00886b7662119))
+* **dashboard:** the dictionary takes one module per area, dates follow the chosen language, and the shell, home and overview speak German (2026-11-23-5669a) ([0b9e589](https://github.com/holgerleichsenring/agent-smith/commit/0b9e5896a1b52f80de2ab1cb232b5f133c1e0c5b))
+* **dashboard:** the run list and run page speak the chosen language (2026-11-23-5669c) ([b42065d](https://github.com/holgerleichsenring/agent-smith/commit/b42065d02401bb2333cec752032deb3fa089e857))
+* **dashboard:** the ticket list and ticket page speak the chosen language (2026-11-23-5669b) ([d310009](https://github.com/holgerleichsenring/agent-smith/commit/d310009b4c26e621bfec4e26803dbc274ea2f76a))
+* **dashboard:** the whole dashboard speaks German when German is chosen (2026-11-22-5485b, 2026-11-23-5669a..f) ([4de4437](https://github.com/holgerleichsenring/agent-smith/commit/4de4437c4bffbafe14af60bb8c15792dbe73b769))
+
+## [0.204.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.204.1...v0.204.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* **merge:** stacked drafts are found and published, a required build that never started reads as not started and is re-queued, Merge when CI is green, a refused merge stays on the series row (2026-11-23-0219) ([ba63609](https://github.com/holgerleichsenring/agent-smith/commit/ba63609577e5a86eaffede6b92f5dfa506a8933e))
+* **merge:** stacked PRs leave draft, required builds re-queued, merge when CI is green (2026-11-23-0219) ([e73f637](https://github.com/holgerleichsenring/agent-smith/commit/e73f63712675b308e7f954ef4ff780ecb5254955))
+
+## [0.204.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.204.0...v0.204.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **series:** the merge now counts only for viewers who may merge (2026-11-23-8071) ([a9eab27](https://github.com/holgerleichsenring/agent-smith/commit/a9eab275a71ae8b8515162fce12ab8024aac31f5))
+* **series:** the merge now is the viewer's move only when they may merge (2026-11-23-8071) ([9fafc8b](https://github.com/holgerleichsenring/agent-smith/commit/9fafc8b858ed4f4446868a326608162eaa8fcdd0))
+
+## [0.204.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.203.0...v0.204.0) (2026-11-23)
+
+
+### Features
+
+* **series:** graph overview with colour per ticket, node menu and action list (2026-11-23-f562) ([ffe2afe](https://github.com/holgerleichsenring/agent-smith/commit/ffe2afe2d163523d5aa4fb463ee29125fb52c516))
+* **series:** the series page opens on one Overview - chips, the order graph coloured by each ticket's hold with a real act menu per node, the action list below; Merge next, Who moves next, Order and branches, Your next step, edge kinds and IsHeld removed (2026-11-23-f562) ([59f77be](https://github.com/holgerleichsenring/agent-smith/commit/59f77be092b2df4ca0b28f20c85ca94cbbdbc8db))
+
 ## [0.203.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.202.0...v0.203.0) (2026-11-23)
 
 

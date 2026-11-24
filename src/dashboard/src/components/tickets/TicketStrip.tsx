@@ -41,15 +41,16 @@ export function prCellClass(pr: TicketPullRequest): string {
   }
 }
 
-export function prCellTitle(pr: TicketPullRequest): string {
-  const decision = pr.decision === "none" ? "" : ` · ${pr.decision.replace(/-/g, " ")}`;
-  return `PR #${pr.number} ${pr.state}${decision}${pr.by ? ` by ${pr.by}` : ""}`;
+export function prCellTitle(t: T, pr: TicketPullRequest): string {
+  const state = stateWords(t, "tickets.activity.prState", pr.state);
+  const decision = pr.decision === "none" ? "" : ` · ${stateWords(t, "tickets.strip.decision", pr.decision)}`;
+  return `${t("tickets.activity.pr", { number: pr.number, state })}${decision}${pr.by ? ` ${t("tickets.strip.by", { by: pr.by })}` : ""}`;
 }
 
 /** A state word from the dictionary, the raw state where none is defined. */
 function stateWords(t: T, prefix: string, state: string): string {
   const key = `${prefix}.${state}`;
-  return Object.prototype.hasOwnProperty.call(messages, key) ? t(key as TextKey) : state.replace(/_/g, " ");
+  return Object.prototype.hasOwnProperty.call(messages, key) ? t(key as TextKey) : state.replace(/[-_]/g, " ");
 }
 
 export function deriveTitle(t: T, derive: string): string {
@@ -94,8 +95,8 @@ export function TicketStrip({
           className={prCellClass(pr)}
           data-pr-state={pr.state}
           data-pr-decision={pr.decision}
-          title={prCellTitle(pr)}
-          aria-label={prCellTitle(pr)}
+          title={prCellTitle(t, pr)}
+          aria-label={prCellTitle(t, pr)}
           role="img"
         />
       ))}

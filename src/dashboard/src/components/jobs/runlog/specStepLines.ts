@@ -1,3 +1,4 @@
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type { RunSpecRow } from "@/lib/runSpecsApi";
 import type { ProgressLedgerEntry } from "@/types/hub-events";
 import type { RunPassStepMoved } from "@/types/tickets";
@@ -46,8 +47,10 @@ export function ledgerSpec(specs: RunSpecRow[]): string | null {
 }
 
 /** "2 of 6 done". */
-export function specStepsCount(lines: SpecStepLine[]): string {
-  return `${lines.filter((l) => l.state === "done").length} of ${lines.length} done`;
+export function specStepsCount(t: T, lines: SpecStepLine[]): string {
+  return t("runs.log.specSteps.count", { done: lines.filter((l) => l.state === "done").length, total: lines.length });
 }
 
-export const SPEC_STEP_WORDS: Record<SpecStepState, string> = { done: "done", in_progress: "in progress", open: "open" };
+export const SPEC_STEP_WORDS: Record<SpecStepState, TextKey> = {
+  done: "runs.log.specSteps.done", in_progress: "runs.log.specSteps.in_progress", open: "runs.log.specSteps.open",
+};

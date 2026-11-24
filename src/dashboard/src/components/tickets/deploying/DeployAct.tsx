@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { useT } from "@/hooks/useT";
 import { listDeploymentBindings, type DeploymentBindingView } from "@/lib/deploymentsApi";
 import { RUNS_CONTROL } from "../detail/RetryUnchanged";
 import { DeployForm } from "./DeployForm";
@@ -11,6 +12,7 @@ import { DeployForm } from "./DeployForm";
 // listed on this ticket's page.
 
 export function DeployAct({ project, ticketId, onStarted }: { project: string; ticketId: string; onStarted: () => void }) {
+  const t = useT();
   const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [bindings, setBindings] = useState<DeploymentBindingView[]>([]);
   const [open, setOpen] = useState(false);
@@ -24,7 +26,7 @@ export function DeployAct({ project, ticketId, onStarted }: { project: string; t
   return (
     <span className="deploy-act" data-testid="deploy-act">
       {!open && (
-        <button type="button" className="btn" onClick={() => setOpen(true)} data-testid="deploy-open">Deploy…</button>
+        <button type="button" className="btn" onClick={() => setOpen(true)} data-testid="deploy-open">{t("tickets.deploy.open")}</button>
       )}
       {open && <DeployForm project={project} ticketId={ticketId} bindings={bindings} onStarted={onStarted} />}
     </span>

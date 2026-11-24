@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { SectionLabel } from "@/components/ui/SectionLabel";
@@ -72,18 +75,19 @@ function Header({ project }: { project: ConfigProject }) {
 }
 
 function AgentSection({ name, agent }: { name: string; agent: ConfigAgent | null }) {
+  const t = useT();
   return (
-    <Section title="Agent" testId="agent-section">
-      <KvRow label="name" value={name} />
+    <Section title={t("system.project.agent")} testId="agent-section">
+      <KvRow label={t("system.project.name")} value={name} />
       {agent && (
         <>
-          <KvRow label="model" value={agent.model} />
-          <KvRow label="type" value={agent.type} />
-          <KvRow label="network timeout" value={`${agent.networkTimeoutSeconds}s`} />
-          <KvRow label="max fix iterations" value={agent.maxFixIterations} />
-          <KvRow label="runs at a time" value={agent.maxConcurrentRuns ?? "no limit"} />
+          <KvRow label={t("system.project.model")} value={agent.model} />
+          <KvRow label={t("system.project.type")} value={agent.type} />
+          <KvRow label={t("system.project.networkTimeout")} value={`${agent.networkTimeoutSeconds}s`} />
+          <KvRow label={t("system.project.maxFixIterations")} value={agent.maxFixIterations} />
+          <KvRow label={t("system.project.runsAtATime")} value={agent.maxConcurrentRuns ?? t("system.project.noLimit")} />
           {agent.requestsPerMinute != null && (
-            <KvRow label="rate limit" value={`${agent.requestsPerMinute} req/min`} />
+            <KvRow label={t("system.project.rateLimit")} value={t("system.project.perMinute", { count: agent.requestsPerMinute })} />
           )}
         </>
       )}
@@ -92,8 +96,9 @@ function AgentSection({ name, agent }: { name: string; agent: ConfigAgent | null
 }
 
 function ReposSection({ project, repos }: { project: string; repos: ConfigRepo[] }) {
+  const t = useT();
   return (
-    <Section title="Repositories" testId="repos-section">
+    <Section title={t("system.project.repositories")} testId="repos-section">
       <ProjectRepos project={project} repos={repos} />
     </Section>
   );
@@ -106,18 +111,19 @@ function TrackerSection({
   tracker: ConfigTracker | null;
   trigger: ConfigProject["trigger"];
 }) {
+  const t = useT();
   return (
-    <Section title="Tracker" testId="trigger-semantics">
-      <KvRow label="name" value={name} />
+    <Section title={t("system.project.tracker")} testId="trigger-semantics">
+      <KvRow label={t("system.project.name")} value={name} />
       {tracker && (
         <>
-          <KvRow label="type" value={tracker.type} />
-          {tracker.url && <KvRow label="url" value={tracker.url} mono />}
-          {tracker.project && <KvRow label="project" value={tracker.project} />}
+          <KvRow label={t("system.project.type")} value={tracker.type} />
+          {tracker.url && <KvRow label={t("system.project.url")} value={tracker.url} mono />}
+          {tracker.project && <KvRow label={t("system.project.project")} value={tracker.project} />}
         </>
       )}
       <div className="mt-2 border-t border-stone-100 pt-2">
-        <TriggerRow role="triggers on">
+        <TriggerRow role={t("system.project.triggersOn")}>
           {trigger.triggerStatuses.length > 0 ? (
             <span className="flex flex-wrap justify-end gap-1.5">
               {trigger.triggerStatuses.map((s) => (
@@ -128,19 +134,21 @@ function TrackerSection({
             <Dash />
           )}
         </TriggerRow>
-        <TriggerRow role="done">
+        <TriggerRow role={t("system.project.done")}>
           {trigger.doneStatus ? <Badge tone="green">{trigger.doneStatus}</Badge> : <Dash />}
         </TriggerRow>
-        <TriggerRow role="failed">
+        <TriggerRow role={t("system.project.failed")}>
           {trigger.failedStatus ? <Badge tone="rose">{trigger.failedStatus}</Badge> : <Dash />}
         </TriggerRow>
         {/* 2026-10-08-101b: a tracker entry polls or takes webhooks, never both. */}
-        <TriggerRow role="mode">
+        <TriggerRow role={t("system.project.mode")}>
           <span className="dsh-mono text-stone-700">
-            {trigger.pollingEnabled ? `polling every ${trigger.pollingIntervalSeconds}s` : "webhooks"}
+            {trigger.pollingEnabled
+              ? t("system.project.polling", { seconds: trigger.pollingIntervalSeconds })
+              : t("system.project.webhooks")}
           </span>
         </TriggerRow>
-        <TriggerRow role="comment trigger">
+        <TriggerRow role={t("system.project.commentTrigger")}>
           {trigger.commentKeyword ? (
             <span className="dsh-mono text-stone-700">{trigger.commentKeyword}</span>
           ) : (
@@ -153,15 +161,17 @@ function TrackerSection({
 }
 
 function ResolvedSection({ resolved }: { resolved: ConfigProject["resolved"] }) {
+  const t = useT();
+  const locale = useDateLocale();
   return (
-    <Section title="Resolved settings" testId="resolved-settings">
+    <Section title={t("system.project.resolvedSettings")} testId="resolved-settings">
       <dl className="divide-y divide-stone-100">
-        <ResolvedRow testId="resolved-step-timeout" label="step timeout" rv={resolved.stepTimeoutSeconds} format={(v) => `${v}s`} />
-        <ResolvedRow testId="resolved-run-command-timeout" label="run_command timeout" rv={resolved.runCommandTimeoutSeconds} format={(v) => `${v}s`} />
-        <ResolvedRow testId="resolved-sandbox-resources" label="sandbox resources · code run" rv={resolved.sandboxResources} format={formatResources} />
-        <ResolvedRow testId="resolved-agent-image" label="agent image" rv={resolved.agentImage} format={(v) => v} />
-        <ResolvedRow testId="resolved-toolchain-image" label="toolchain image" rv={resolved.toolchainImage} format={(v) => v} />
-        <ResolvedRow testId="resolved-cost-cap" label="cost cap / code run" rv={resolved.costCap} format={(v) => `$${v.usd} · ${v.tokens.toLocaleString()} tok`} />
+        <ResolvedRow testId="resolved-step-timeout" label={t("system.project.stepTimeout")} rv={resolved.stepTimeoutSeconds} format={(v) => `${v}s`} />
+        <ResolvedRow testId="resolved-run-command-timeout" label={t("system.project.runCommandTimeout")} rv={resolved.runCommandTimeoutSeconds} format={(v) => `${v}s`} />
+        <ResolvedRow testId="resolved-sandbox-resources" label={t("system.project.sandboxResources")} rv={resolved.sandboxResources} format={formatResources} />
+        <ResolvedRow testId="resolved-agent-image" label={t("system.project.agentImage")} rv={resolved.agentImage} format={(v) => v} />
+        <ResolvedRow testId="resolved-toolchain-image" label={t("system.project.toolchainImage")} rv={resolved.toolchainImage} format={(v) => v} />
+        <ResolvedRow testId="resolved-cost-cap" label={t("system.project.costCap")} rv={resolved.costCap} format={(v) => `$${v.usd} · ${t("system.project.tokens", { tokens: v.tokens.toLocaleString(locale) })}`} />
       </dl>
       {resolved.resolutionError && (
         <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 dsh-body text-rose-700" data-testid="resolution-error">
@@ -180,6 +190,7 @@ function ResolvedRow<T>({
   rv: ResolvedValue<T>;
   format: (v: T) => ReactNode;
 }) {
+  const t = useT();
   const perRun = rv.source === "run-resolved";
   return (
     <div className="flex items-baseline justify-between gap-3 py-1.5" data-testid={testId}>
@@ -187,7 +198,7 @@ function ResolvedRow<T>({
       <dd className="flex items-baseline gap-2 text-right">
         <span className="dsh-mono break-all text-stone-700">
           {perRun || rv.value === null ? (
-            <span className="text-stone-400">resolved per run</span>
+            <span className="text-stone-400">{t("system.project.perRunResolved")}</span>
           ) : (
             format(rv.value)
           )}

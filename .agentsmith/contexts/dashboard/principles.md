@@ -6,10 +6,12 @@ structure limit has been measured for the dashboard's TypeScript.
 ## Language
 
 - All text in code is English: comments, identifiers, UI strings, test names, commit messages.
-  The one exception is the German text of the UI dictionary, `src/dashboard/src/lib/i18n/messages.ts`
-  (2026-11-22-5485a), which carries each key's English and German side by side.
-- New UI text is a dictionary key read through `useT()` (the rest moves over in 2026-11-22-5485b); a key
-  without German does not compile. Tests run in English (`src/dashboard/vitest.setup.ts`); a test that
+  The one exception is the German text of the UI dictionary, `src/dashboard/src/lib/i18n/messages.ts` and its
+  area modules `lib/i18n/areas/*.ts` (2026-11-22-5485a, 2026-11-23-5669a), which carry each key's English and
+  German side by side.
+- Every UI text is a dictionary key read through `useT()`; a pure helper that words text takes the lookup `t`
+  first and, where it writes a date or time, the locale from `useDateLocale()` — never a default English lookup.
+  A key without German does not compile. Tests run in English (`src/dashboard/vitest.setup.ts`); a test that
   wants German chooses it.
 - No customer, project or target names anywhere in the dashboard, its fixtures or its mocks.
 

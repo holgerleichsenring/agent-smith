@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useLanguage, useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { SERIES_PATH } from "@/lib/seriesRunAddress";
 import { conversationHref } from "@/components/dialog/conversationHref";
 import { money } from "@/components/tickets/ticketFormat";
 import type { SeriesRunDetail } from "@/types/seriesRuns";
+import { useLacksPermission } from "@/hooks/useLacksPermission";
+import { RUNS_CONTROL } from "../../tickets/detail/RetryUnchanged";
 import { SeriesProgress } from "../SeriesProgress";
 import { seriesStateWord } from "../seriesNextStep";
 import { seriesSections, type SeriesSection } from "./seriesPageSections";
@@ -21,9 +23,10 @@ interface Props {
 }
 
 export function SeriesSectionBar({ detail, current, onSelect }: Props) {
+  const lacks = useLacksPermission(RUNS_CONTROL, detail.project); // 2026-11-23-8071
   const t = useT();
-  const language = useLanguage();
-  const started = new Date(detail.startedAt).toLocaleDateString(language === "de" ? "de-DE" : "en-GB", { day: "numeric", month: "short" });
+  const locale = useDateLocale();
+  const started = new Date(detail.startedAt).toLocaleDateString(locale, { day: "numeric", month: "short" });
   return (
     <aside className="tk-bar" aria-label={detail.name} data-testid="series-section-bar">
       <Link className="tk-bar-back" href={SERIES_PATH} data-testid="series-back">{t("series.page.back")}</Link>
@@ -38,7 +41,7 @@ export function SeriesSectionBar({ detail, current, onSelect }: Props) {
       <div className="sr-bar-counts" data-testid="series-counts">{t("series.counts", { ...detail.counts })}</div>
       <nav className="tk-bar-sections" aria-label={t("series.page.sections")}>
         {seriesSections.map((section) => {
-          const counter = section.counter(detail);
+          const counter = section.counter(detail, !lacks);
           return (
             <button key={section.id} type="button" className="tk-bar-sec" aria-current={section.id === current.id ? "page" : undefined}
               onClick={() => onSelect(section.id)} data-testid={`series-section-${section.id}`}>

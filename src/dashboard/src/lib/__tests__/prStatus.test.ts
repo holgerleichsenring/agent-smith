@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { hasPullRequest, isOpenPullRequest, pullRequestStatusLabel } from "../prStatus";
+import { translator } from "@/lib/i18n/translate";
 
 // p0490: before init learned to finish its own pull requests, "opened" answered both
 // "is there a PR" and "is it open". These pin the two questions apart, because three
 // surfaces (rail count, list page, run detail) read the answer.
+
+const en = translator("en");
 
 describe("prStatus", () => {
   it("hasPullRequest_EveryStatusThatProducedOne_IsTrue", () => {
@@ -31,18 +34,18 @@ describe("prStatus", () => {
   });
 
   it("pullRequestStatusLabel_SaysWhatHappened", () => {
-    expect(pullRequestStatusLabel("opened")).toBe("opened");
-    expect(pullRequestStatusLabel("completed")).toBe("merged");
-    expect(pullRequestStatusLabel("completion_refused")).toBe("still open");
-    expect(pullRequestStatusLabel("completion_armed")).toBe("auto-merging");
-    expect(pullRequestStatusLabel("no_changes")).toBe("no changes");
-    expect(pullRequestStatusLabel("failed")).toBe("failed");
+    expect(pullRequestStatusLabel("opened", en)).toBe("opened");
+    expect(pullRequestStatusLabel("completed", en)).toBe("merged");
+    expect(pullRequestStatusLabel("completion_refused", en)).toBe("still open");
+    expect(pullRequestStatusLabel("completion_armed", en)).toBe("auto-merging");
+    expect(pullRequestStatusLabel("no_changes", en)).toBe("no changes");
+    expect(pullRequestStatusLabel("failed", en)).toBe("failed");
   });
 
   // 2026-11-17-3435b
   it("awaitingCi_IsAPullRequestWaitingForABuild_NotAPerson", () => {
     expect(hasPullRequest("awaiting_ci")).toBe(true);
     expect(isOpenPullRequest("awaiting_ci")).toBe(false);
-    expect(pullRequestStatusLabel("awaiting_ci")).toBe("waiting for CI");
+    expect(pullRequestStatusLabel("awaiting_ci", en)).toBe("waiting for CI");
   });
 });

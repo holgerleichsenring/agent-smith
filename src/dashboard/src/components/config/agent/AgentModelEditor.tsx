@@ -23,15 +23,18 @@ import {
   SOURCE_LABEL,
   withOverride,
 } from "./modelCatalog";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 
 // 2026-09-30-62bab: the add/edit sub-view of the Models tab. It edits a local copy and
 // writes it to the agent draft only on "Add to catalog" / "Apply", so Back discards. The
 // window from the price list is offered as a one-click value and never filled on its own.
 
-const TIERS: { key: ModelTier | null; label: string }[] = [
-  { key: "strong", label: "strong" },
-  { key: "fast", label: "fast" },
-  { key: null, label: "none" },
+// The tier values are the YAML's and shown as written; only "none" is a word of the UI.
+const TIERS: { key: ModelTier | null; id: string; label: TextKey | null }[] = [
+  { key: "strong", id: "strong", label: null },
+  { key: "fast", id: "fast", label: null },
+  { key: null, id: "none", label: "config.modelEditor.tier.none" },
 ];
 
 export function AgentModelEditor({
@@ -50,6 +53,8 @@ export function AgentModelEditor({
   capabilities: ConfigCapabilities | null;
   onDone: () => void;
 }) {
+  const t = useT();
+  const locale = useDateLocale();
   const catalog = draft.catalog ?? {};
   const original = editing ? catalog[editing] : undefined;
   const [name, setName] = useState(editing ?? "");
@@ -107,7 +112,7 @@ export function AgentModelEditor({
         <button
           type="button"
           className="btn"
-          aria-label="Back to models"
+          aria-label={t("config.modelEditor.back")}
           data-testid="agent-model-back"
           onClick={onDone}
           style={{ minWidth: 44, minHeight: 38, justifyContent: "center" }}
@@ -115,8 +120,8 @@ export function AgentModelEditor({
           ←
         </button>
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 650, flex: 1 }}>
-          <span className="help" style={{ fontSize: 15, fontWeight: 500 }}>Models /</span>{" "}
-          {editing ? editing : "Add model"}
+          <span className="help" style={{ fontSize: 15, fontWeight: 500 }}>{t("config.modelEditor.crumb")}</span>{" "}
+          {editing ? editing : t("config.modelEditor.addTitle")}
         </h3>
       </div>
 
@@ -131,8 +136,8 @@ export function AgentModelEditor({
       />
 
       <TextField
-        label="deployment"
-        help="the Azure deployment name, when it differs from the model id"
+        label={t("config.modelEditor.deployment.label")}
+        help={t("config.modelEditor.deployment.help")}
         value={entry.deployment ?? ""}
         mono
         testId="agent-model-deployment"
@@ -141,20 +146,20 @@ export function AgentModelEditor({
 
       <div className="tpl-row" data-testid="agent-model-price-box">
         <span className="tpl-sum">
-          <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>Price &amp; window</span>
+          <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{t("config.modelEditor.priceWindow")}</span>
           <span
             className={cn("ec-mark", preview.source === "none" && "warn")}
             data-testid="agent-model-preview-source"
           >
-            {SOURCE_LABEL[preview.source]}
+            {t(SOURCE_LABEL[preview.source])}
             {preview.source === "list" && listed ? ` · ${listed.id}` : ""}
           </span>
         </span>
-        <span className="help">What the resolver charges per million tokens (in / out / cache read):</span>
+        <span className="help">{t("config.modelEditor.charges")}</span>
         <span className="mono" data-testid="agent-model-preview">{priceLine(preview)}</span>
         {entry.model.trim() && !listed && prices && !override && (
           <span className="help" style={{ color: "var(--run)" }}>
-            The price list does not know this model — enter an override or the save is refused.
+            {t("config.modelEditor.unknownModel")}
           </span>
         )}
         <label style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 36, fontSize: 12.5 }}>
@@ -175,15 +180,15 @@ export function AgentModelEditor({
               )
             }
           />
-          Override — this installation pays a different rate
+          {t("config.modelEditor.override")}
         </label>
         {override && (
           <div style={{ display: "flex", gap: 9 }}>
-            <PriceInput label="input / M" testId="agent-model-override-input" value={override.inputPerMillion}
+            <PriceInput label={t("config.modelEditor.inputPerM")} testId="agent-model-override-input" value={override.inputPerMillion}
               onChange={(v) => setOverride({ ...override, inputPerMillion: v ?? 0 })} />
-            <PriceInput label="output / M" testId="agent-model-override-output" value={override.outputPerMillion}
+            <PriceInput label={t("config.modelEditor.outputPerM")} testId="agent-model-override-output" value={override.outputPerMillion}
               onChange={(v) => setOverride({ ...override, outputPerMillion: v ?? 0 })} />
-            <PriceInput label="cache read / M" testId="agent-model-override-cacheRead" value={override.cacheReadPerMillion ?? undefined}
+            <PriceInput label={t("config.modelEditor.cacheReadPerM")} testId="agent-model-override-cacheRead" value={override.cacheReadPerMillion ?? undefined}
               onChange={(v) => setOverride({ ...override, cacheReadPerMillion: v ?? null })} />
           </div>
         )}
@@ -191,8 +196,8 @@ export function AgentModelEditor({
 
       <div className="field">
         <NumberField
-          label="context window"
-          help="input tokens the deployment accepts; compaction derives its threshold from it"
+          label={t("config.modelEditor.window.label")}
+          help={t("config.modelEditor.window.help")}
           value={entry.contextWindowTokens ?? undefined}
           testId="agent-model-window"
           onChange={(v) => setEntry({ ...entry, contextWindowTokens: v ?? null })}
@@ -205,16 +210,16 @@ export function AgentModelEditor({
               data-testid="agent-model-window-from-list"
               onClick={() => setEntry({ ...entry, contextWindowTokens: listed.contextWindowTokens })}
             >
-              use list value ({listed.contextWindowTokens.toLocaleString("en-US")})
-              <span className="rk">from price list</span>
+              {t("config.modelEditor.window.useList", { value: listed.contextWindowTokens.toLocaleString(locale) })}
+              <span className="rk">{t("config.modelEditor.window.fromList")}</span>
             </button>
           </div>
         )}
       </div>
 
       <NumberField
-        label="max tokens"
-        help="per-call output cap; blank = 8192"
+        label={t("config.modelEditor.maxTokens.label")}
+        help={t("config.modelEditor.maxTokens.help")}
         value={entry.maxTokens ?? undefined}
         testId="agent-model-maxTokens"
         onChange={(v) => setEntry({ ...entry, maxTokens: v ?? null })}
@@ -222,23 +227,23 @@ export function AgentModelEditor({
 
       <div className="field">
         <label>
-          tier
-          <span className="help">an activity that needs a strong model warns when a fast one is picked</span>
+          {t("config.modelEditor.tier.label")}
+          <span className="help">{t("config.modelEditor.tier.help")}</span>
         </label>
-        <div className="picks" role="radiogroup" aria-label="tier">
-          {TIERS.map((t) => {
-            const on = (entry.tier ?? null) === t.key;
+        <div className="picks" role="radiogroup" aria-label={t("config.modelEditor.tier.label")}>
+          {TIERS.map((tier) => {
+            const on = (entry.tier ?? null) === tier.key;
             return (
               <button
-                key={t.label}
+                key={tier.id}
                 type="button"
                 role="radio"
                 aria-checked={on}
                 className={cn("pick", on && "on")}
-                data-testid={`agent-model-tier-pick-${t.label}`}
-                onClick={() => setEntry({ ...entry, tier: t.key })}
+                data-testid={`agent-model-tier-pick-${tier.id}`}
+                onClick={() => setEntry({ ...entry, tier: tier.key })}
               >
-                {t.label}
+                {tier.label ? t(tier.label) : tier.id}
               </button>
             );
           })}
@@ -246,8 +251,8 @@ export function AgentModelEditor({
       </div>
 
       <TextField
-        label="name in the catalog"
-        help={nameTaken ? "another entry already has this name" : "what an activity picks"}
+        label={t("config.modelEditor.name.label")}
+        help={nameTaken ? t("config.modelEditor.name.taken") : t("config.modelEditor.name.help")}
         value={name}
         mono
         testId="agent-model-name"
@@ -255,21 +260,21 @@ export function AgentModelEditor({
       />
 
       <DrawerSection
-        title="Different provider or endpoint"
-        summary={entry.providerType || entry.endpoint ? "set" : "the agent's own"}
+        title={t("config.modelEditor.connection.title")}
+        summary={entry.providerType || entry.endpoint ? t("config.modelEditor.connection.set") : t("config.modelEditor.connection.own")}
         testId="agent-model-connection"
       >
         <SelectField
-          label="provider"
+          label={t("config.agent.provider")}
           value={entry.providerType ?? ""}
           options={capabilities?.agentProviders ?? []}
-          placeholder="— the agent's provider —"
+          placeholder={t("config.modelEditor.connection.providerPlaceholder")}
           testId="agent-model-providerType"
           onChange={(v) => setEntry({ ...entry, providerType: v || null })}
         />
         <TextField
-          label="endpoint"
-          help="blank uses the agent's"
+          label={t("config.agent.endpoint")}
+          help={t("config.modelEditor.connection.endpointHelp")}
           value={entry.endpoint ?? ""}
           mono
           placeholder="https://…"
@@ -288,7 +293,7 @@ export function AgentModelEditor({
             onClick={remove}
             style={{ color: "var(--bad)" }}
           >
-            Remove from catalog
+            {t("config.modelEditor.remove")}
           </button>
         )}
         <button
@@ -299,18 +304,21 @@ export function AgentModelEditor({
           onClick={apply}
           style={{ marginLeft: "auto" }}
         >
-          {editing ? "Apply" : "Add to catalog"}
+          {editing ? t("config.modelEditor.apply") : t("config.modelEditor.addToCatalog")}
         </button>
       </div>
       {users.length > 0 && (
         <span className="help" data-testid="agent-model-remove-refused">
-          Cannot remove: {users.map(activityLabel).join(", ")} {users.length === 1 ? "uses" : "use"} this
-          model. Pick another model for {users.length === 1 ? "it" : "them"} on the Activities tab first.
+          {t("config.modelEditor.removeRefused", {
+            count: users.length, activities: users.map((role) => activityLabel(t, role)).join(", "),
+          })}
         </span>
       )}
       {!valid && (
         <span className="help" data-testid="agent-model-invalid">
-          {entry.model.trim() ? (nameTaken ? "Pick a name no other entry has." : "Give the entry a name.") : "Pick the model it runs."}
+          {entry.model.trim()
+            ? (nameTaken ? t("config.modelEditor.invalid.nameTaken") : t("config.modelEditor.invalid.noName"))
+            : t("config.modelEditor.invalid.noModel")}
         </span>
       )}
     </div>

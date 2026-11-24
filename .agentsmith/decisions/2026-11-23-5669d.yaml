@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-5669d
+
+decisions:
+  - category: Implementation
+    chose: "Entity, setting and change-kind names are tables of dictionary keys (ENTITY_LABEL_KEY, SETTING_LABEL_KEY, ...); the English ENTITY_LABEL and SETTING_LABEL stay for the places table"
+    over: "Translating ENTITY_LABEL in place"
+    reason: "lib/places.ts reads them as strings at module load, before any language is known; the search translates the fixed places through PLACE_KEYS."
+  - category: Scope
+    chose: "Config keys, YAML names, environment variable names, provider, pipeline and tier values, and the field labels the server's capabilities descriptor sends stay as written"
+    over: "Translating them"
+    reason: "They are what the operator types into configuration or reads in server output."
+  - category: Implementation
+    chose: "'1 retries' became '1 retry'"
+    over: "Keeping the English text byte-identical"
+    reason: "The retry count became a one/other plural, so the singular is now right."

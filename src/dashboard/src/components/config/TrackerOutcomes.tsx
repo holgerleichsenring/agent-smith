@@ -1,6 +1,8 @@
 "use client";
 
 import type { CapabilityField, ConfigFinding } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import { CapabilityFieldInputs, type FieldValue } from "./capabilityFields";
 
 // 2026-10-06-cea8: the four statuses a run can leave a ticket in, read as one decision —
@@ -18,10 +20,11 @@ export function TrackerOutcomes({
   onFieldChange: (key: string, value: FieldValue) => void;
   findings: ConfigFinding[];
 }) {
+  const t = useT();
   const shared = sharedStatuses(fields, values);
   return (
     <div className="trk-outcomes" data-testid="tracker-outcomes">
-      <span className="trk-outcomes-head">When a run ends, move the ticket to</span>
+      <span className="trk-outcomes-head">{t("config.tracker.outcomes.head")}</span>
       <CapabilityFieldInputs
         fields={fields}
         values={values}
@@ -30,8 +33,7 @@ export function TrackerOutcomes({
       />
       {shared.map(({ status, labels }) => (
         <p className="trk-warn" key={status} data-testid="tracker-outcomes-shared">
-          {listed(labels)} move the ticket to <b>{status}</b> — the board cannot tell these
-          outcomes apart.
+          {listed(t, labels)} <b>{status}</b> {t("config.tracker.outcomes.cannotTell")}
         </p>
       ))}
     </div>
@@ -55,8 +57,8 @@ export function sharedStatuses(
   return [...byStatus.values()].filter((e) => e.labels.length > 1);
 }
 
-function listed(labels: string[]): string {
+function listed(t: T, labels: string[]): string {
   return labels.length === 2
-    ? `${labels[0]} and ${labels[1]} both`
-    : `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]} all`;
+    ? t("config.tracker.outcomes.sharedTwo", { first: labels[0], second: labels[1] })
+    : t("config.tracker.outcomes.sharedMany", { list: labels.slice(0, -1).join(", "), last: labels[labels.length - 1] });
 }

@@ -1,5 +1,9 @@
+"use client";
+
 import type { ReactNode } from "react";
+
 import { cn } from "@/lib/utils";
+import { useT } from "@/hooks/useT";
 import type { MissionMetrics } from "./missionBuckets";
 
 // p0343: the mission-control metric strip. Every value is derived client-side
@@ -22,18 +26,19 @@ function money(usd: number): string {
 }
 
 export function MetricStrip({ metrics }: { metrics: MissionMetrics }) {
+  const t = useT();
   const cells: Cell[] = [
-    { label: "Waiting for input", value: metrics.needsYou, hot: metrics.needsYou > 0, testId: "metric-needs-you" },
-    { label: "Running", value: metrics.running, testId: "metric-running" },
-    { label: "Queued", value: metrics.queued, testId: "metric-queued" },
+    { label: t("runs.mission.needsYou"), value: metrics.needsYou, hot: metrics.needsYou > 0, testId: "metric-needs-you" },
+    { label: t("runs.mission.running"), value: metrics.running, testId: "metric-running" },
+    { label: t("runs.mission.queued"), value: metrics.queued, testId: "metric-queued" },
     {
-      label: "Finished today",
+      label: t("runs.mission.finishedToday"),
       value: metrics.finishedToday,
       small: `${metrics.okToday} ✓ · ${metrics.failToday} ✗`,
       testId: "metric-finished",
     },
     {
-      label: "Cost today",
+      label: t("runs.mission.costToday"),
       value: <span className="num">{money(metrics.costTodayUsd)}</span>,
       testId: "metric-cost",
     },

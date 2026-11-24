@@ -5,6 +5,7 @@ import type { AccessDocument, AccessGroup, AccessView } from "@/lib/accessApi";
 import { groupsOf } from "./derive";
 import { PagedRows } from "./PagedRows";
 import { RoleChips } from "./RoleChips";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-26-7a51: the Groups pane, which edits the group mapping this installation
 // already had — there is no second field with the same meaning. A value somebody has
@@ -21,6 +22,7 @@ export function GroupsPane({
   roles: string[];
   onChange: (next: AccessDocument) => void;
 }) {
+  const t = useT();
   const [value, setValue] = useState("");
   const groups = groupsOf(view, draft);
 
@@ -45,22 +47,22 @@ export function GroupsPane({
     <PagedRows
       rows={groups}
       testId="access-groups"
-      searchLabel="Search groups"
-      searchPlaceholder="Search by group value"
+      searchLabel={t("access.groups.search")}
+      searchPlaceholder={t("access.groups.searchPlaceholder")}
       matchesQuery={(group, query) => group.value.toLowerCase().includes(query)}
       filters={[
-        { key: "all", label: "All", matches: () => true },
-        { key: "mapped", label: "Mapped", matches: (g) => g.roles.length > 0 },
-        { key: "unmapped", label: "Unmapped", matches: (g) => g.roles.length === 0 },
+        { key: "all", label: t("access.filter.all"), matches: () => true },
+        { key: "mapped", label: t("access.groups.mapped"), matches: (g) => g.roles.length > 0 },
+        { key: "unmapped", label: t("access.groups.unmapped"), matches: (g) => g.roles.length === 0 },
       ]}
-      emptyText="No group matches that."
+      emptyText={t("access.groups.empty")}
       header={
         <tr>
           <th>
-            Group value <span className="mono">· {view.groupClaim}</span>
+            {t("access.groups.value")} <span className="mono">· {view.groupClaim}</span>
           </th>
-          <th>Carried by</th>
-          <th>Grants</th>
+          <th>{t("access.groups.carriedBy")}</th>
+          <th>{t("access.groups.grants")}</th>
         </tr>
       }
       toolbarExtra={
@@ -68,14 +70,14 @@ export function GroupsPane({
           <input
             className="addfield"
             type="text"
-            aria-label="Group value"
-            placeholder="group value your directory sends"
+            aria-label={t("access.groups.value")}
+            placeholder={t("access.groups.valuePlaceholder")}
             data-testid="access-groups-add-value"
             value={value}
             onChange={(e) => setValue(e.target.value)}
           />
           <button type="button" className="addgo" data-testid="access-groups-add" onClick={add}>
-            Add group
+            {t("access.groups.add")}
           </button>
         </div>
       }
@@ -83,7 +85,7 @@ export function GroupsPane({
         <tr key={group.value} data-testid={`access-group-${group.value}`}>
           <td className="mono">{group.value}</td>
           <td className="seen">
-            {group.carriers} {group.carriers === 1 ? "person" : "people"}
+            {t("access.groups.people", { count: group.carriers })}
           </td>
           <td>
             <RoleChips
@@ -91,7 +93,7 @@ export function GroupsPane({
               directory={[]}
               granted={group.roles}
               offered={roles}
-              grantLabel={`Map ${group.value} onto a role`}
+              grantLabel={t("access.groups.mapOnto", { group: group.value })}
               onGrant={(role) => set(group, [...group.roles, role])}
               onWithdraw={(role) => set(group, group.roles.filter((r) => r !== role))}
             />

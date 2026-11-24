@@ -1,10 +1,13 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+
 import type { SubAgentToolCallEvent } from "@/types/hub-events";
 
 // p0173f: typed renderer for SubAgentToolCallEvent. Tool name + the
 // producer-curated args summary; never a JSON dump of the raw args.
 export function SubAgentToolCallRow({ event }: { event: SubAgentToolCallEvent }) {
+  const t = useT();
   return (
     <div
       data-testid="sub-agent-tool-call-row"
@@ -19,7 +22,7 @@ export function SubAgentToolCallRow({ event }: { event: SubAgentToolCallEvent })
           {event.argsSummary}
         </span>
       ) : (
-        <span className="flex-1 text-stone-400">(no args)</span>
+        <span className="flex-1 text-stone-400">{t("runs.subagent.noArgs")}</span>
       )}
     </div>
   );

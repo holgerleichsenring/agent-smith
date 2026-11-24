@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTrail } from "@/hooks/useTrail";
+import { useT } from "@/hooks/useT";
 import { assembleTrail } from "@/lib/TrailAssembler";
 import type { TrailNode } from "@/types/trail-node";
 import { TrailTree } from "./TrailTree";
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function TrailTab({ runId, isFinished, prUrl }: Props) {
+  const t = useT();
   const { events, loading, error } = useTrail(runId);
   const assembled = useMemo(() => assembleTrail(events), [events]);
   const [selected, setSelected] = useState<TrailNode | null>(null);
@@ -34,11 +36,11 @@ export function TrailTab({ runId, isFinished, prUrl }: Props) {
     [root, effectiveScrub],
   );
 
-  if (loading) return <p className="text-sm text-stone-500" data-testid="trail-loading">Loading trail…</p>;
+  if (loading) return <p className="text-sm text-stone-500" data-testid="trail-loading">{t("runs.trail.loading")}</p>;
   if (error) return <p className="text-sm text-rose-700" data-testid="trail-error">{error}</p>;
   if (!root || !filtered) {
     if (isFinished) return <TrailExpiredEmptyState prUrl={prUrl} />;
-    return <p className="text-sm text-stone-500" data-testid="trail-empty">No trail events yet.</p>;
+    return <p className="text-sm text-stone-500" data-testid="trail-empty">{t("runs.trail.empty")}</p>;
   }
 
   return (

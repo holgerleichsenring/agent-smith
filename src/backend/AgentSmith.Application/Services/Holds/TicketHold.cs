@@ -97,6 +97,9 @@ public static class TicketHoldCases
 
     /// <summary>2026-11-23-d60d: CI still runs on an open pull request.</summary>
     public const string CiRunning = "ci_running";
+
+    /// <summary>2026-11-23-0219: a required build has not started on an open pull request's head and will not by itself.</summary>
+    public const string CiNotStarted = "ci_not_started";
     public const string StartsOnMerge = "starts_on_merge";
     public const string Working = "working";
 

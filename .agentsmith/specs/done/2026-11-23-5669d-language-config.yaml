@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-5669d
+goal: "Config Studio speaks German when German is chosen."
+
+applies_to: "dashboard (components/config)"
+
+requires: [2026-11-22-5485a, 2026-11-23-5669a]
+
+facts:
+  - claim: "Config Studio's entity names are English literals in one table."
+    evidence: "src/dashboard/src/components/config/entities.ts:41"
+
+scope:
+  in: >
+    Every literal UI text under components/config/** moves to keys in lib/i18n/areas/config.ts; field names that are config keys stay as written.
+  out: >
+    Text the model writes, server-sent messages and refusal reasons; product nouns (Work it out, Spec, Ticket, Run,
+    Turn, Review). Follows 2026-11-22-5485b, which cut the rest of the dashboard into this series.
+
+steps:
+  - id: translate
+    action: "Every literal UI text in the area moves to keys in the area's dictionary module, German beside English; components call useT, pure helpers that word text take the lookup; dates use the chosen language."
+  - id: tests
+    action: "Existing tests stay green in English; one component of the area renders German when German is chosen."
+
+done:
+  - "No literal UI text is left under components/config."
+  - "Dashboard tests and build green."

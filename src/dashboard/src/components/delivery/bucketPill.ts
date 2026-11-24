@@ -1,4 +1,5 @@
 import { SERVER_BUCKET, type TicketBucket, type TicketServerBucket } from "@/types/tickets";
+import type { T } from "@/lib/i18n/translate";
 import { TICKET_SECTIONS } from "@/components/tickets/ticketSections";
 
 // 2026-10-25-0099c: a ticket's outcome is the bucket the ticket list shows it in, named as the Tickets page names
@@ -8,9 +9,10 @@ const URL_BUCKET = Object.fromEntries(
   (Object.entries(SERVER_BUCKET) as [TicketBucket, TicketServerBucket][]).map(([url, server]) => [server, url]),
 ) as Record<TicketServerBucket, TicketBucket>;
 
-export function bucketLabel(bucket: TicketServerBucket | null): string {
+export function bucketLabel(t: T, bucket: TicketServerBucket | null): string {
   if (bucket === null) return "-";
-  return TICKET_SECTIONS[URL_BUCKET[bucket]]?.title ?? bucket;
+  const section = TICKET_SECTIONS[URL_BUCKET[bucket]];
+  return section ? t(section.title) : bucket;
 }
 
 /** The pill's tone: the section's own colour, else plain. */

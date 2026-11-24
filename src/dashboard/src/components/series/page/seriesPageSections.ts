@@ -2,21 +2,17 @@ import type { ComponentType } from "react";
 import type { TextKey } from "@/lib/i18n/translate";
 import type { SeriesRunDetail } from "@/types/seriesRuns";
 import { SeriesConversationSection } from "./SeriesConversationSection";
-import { SeriesOrderSection } from "./SeriesOrderSection";
-import { SeriesMergeNextSection } from "./SeriesMergeNextSection";
-import { SeriesHoldsSection } from "./SeriesHoldsSection";
+import { SeriesOverviewSection } from "./SeriesOverviewSection";
 import { SeriesTicketsSection } from "./SeriesTicketsSection";
-import { mergesNow } from "./seriesStepLines";
+import { seriesOverviewCounts } from "./seriesNodeKind";
 import type { SeriesMerge } from "./useSeriesMerge";
 
-// 2026-11-23-31dcd: the series page's sections, ONE table, in the bar's order — Merge next, What holds the rest, Order
-// and branches, Tickets, Conversation — each with the count the bar shows beside it; the page shows one at a time and
-// ?section= names it. Merge next (31dce), What holds the rest (31dcg) and Order and branches (31dcf) are named here and
-// listed once their pane exists; the first listed section is the default. 2026-11-23-31dce: Merge next is listed.
-// 2026-11-23-31dcg: and What holds the rest, counted by the server's held count. 2026-11-23-849e: renamed Who moves next
-// (the id stays held, so links keep working).
+// 2026-11-23-31dcd: the series page's sections, ONE table, in the bar's order, each with the count the bar shows beside
+// it; the page shows one at a time and ?section= names it, the first listed one without it.
+// 2026-11-23-f562: three sections — Overview (the graph, its menus and the action list), Tickets, Conversation. Merge
+// next, Who moves next and Order and branches are gone; their old names (next, held, course) land on the Overview.
 
-export type SeriesSectionId = "next" | "held" | "course" | "tickets" | "talk";
+export type SeriesSectionId = "overview" | "tickets" | "talk";
 
 export const SERIES_SECTION_PARAM = "section";
 
@@ -29,27 +25,22 @@ export interface SeriesSectionCounter {
 export interface SeriesSection {
   id: SeriesSectionId;
   label: TextKey;
-  counter: (detail: SeriesRunDetail) => SeriesSectionCounter | null;
-  /** reload reads the series again, after an act the pane started. 2026-11-23-8d16: merge is the page's one merge act,
-   *  shared with Your next step. */
+  /** 2026-11-23-8071: canMerge — whether the viewer may merge (runs.control) in the series' project. */
+  counter: (detail: SeriesRunDetail, canMerge: boolean) => SeriesSectionCounter | null;
+  /** reload reads the series again, after an act the pane started; merge is the page's one merge act (8d16). */
   Pane: ComponentType<{ detail: SeriesRunDetail; reload: () => void; merge?: SeriesMerge }>;
 }
 
 export const seriesSections: SeriesSection[] = [
   {
-    id: "next", label: "series.section.next", Pane: SeriesMergeNextSection,
-    counter: (d) => ({ text: String(d.mergeOrder.length), hot: d.mergeOrder.some((step) => mergesNow(d, step)) }), // 849e
+    id: "overview", label: "series.section.overview", Pane: SeriesOverviewSection,
+    counter: (d, canMerge) => { const yours = seriesOverviewCounts(d, canMerge).yours; return { text: String(yours), hot: yours > 0 }; },
   },
-  {
-    id: "held", label: "series.section.held", Pane: SeriesHoldsSection,
-    counter: (d) => ({ text: String(d.counts.held), hot: d.counts.held > 0 }),
-  },
-  { id: "course", label: "series.section.order", Pane: SeriesOrderSection, counter: (d) => ({ text: String(d.tickets.length) }) }, // 31dcf
   { id: "tickets", label: "series.section.tickets", Pane: SeriesTicketsSection, counter: (d) => ({ text: String(d.tickets.length) }) },
   { id: "talk", label: "series.section.conversation", Pane: SeriesConversationSection, counter: () => ({ text: "↗" }) },
 ];
 
-/** The section an address names; a missing or unlisted name is the first listed section. */
+/** The section an address names; a missing, unlisted or retired name (next, held, course) is the Overview. */
 export function seriesSectionOf(name: string | null): SeriesSection {
   return seriesSections.find((section) => section.id === name) ?? seriesSections[0];
 }

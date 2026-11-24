@@ -1,3 +1,11 @@
+import { accessMessages } from "./areas/access";
+import { configMessages } from "./areas/config";
+import { deliveryMessages } from "./areas/delivery";
+import { runsMessages } from "./areas/runs";
+import { shellMessages } from "./areas/shell";
+import { systemMessages } from "./areas/system";
+import { ticketsMessages } from "./areas/tickets";
+
 // 2026-11-22-5485a: the dashboard's one dictionary. Every UI text is a key with its English and its German text side
 // by side, so a key without German does not compile and a reviewer reads both at once. {name} is filled from the
 // lookup's params; a plural entry has a one and an other form, picked by params.count. Product nouns stay as the
@@ -10,7 +18,8 @@ type Forms = { one: string; other: string };
 /** One text in both languages, or one plural in both. */
 export type MessageEntry = { en: string; de: string } | { en: Forms; de: Forms };
 
-export const messages = {
+/** The keys written in this file; the area modules hold the rest (2026-11-23-5669a). */
+export const coreMessages = {
   // --- shared ---
   "common.cancel": { en: "Cancel", de: "Abbrechen" },
   "common.send": { en: "Send", de: "Senden" },
@@ -342,7 +351,7 @@ export const messages = {
   },
   "dialog.pick.sending": { en: "Sending {files}, {size}", de: "{files}, {size} werden gesendet" },
   "dialog.pick.overSet": { en: "{size} over the 25 MB a set may hold", de: "{size} über den 25 MB, die ein Set fassen darf" },
-  "dialog.pick.overFiles": { en: "{count} files over the {max} a set may hold", de: "{count} Dateien über den {max}, die ein Set fassen darf" },
+  "dialog.pick.overFiles": { en: "{count} files over the {max} a set may hold", de: "{count} Dateien zu viel – ein Set fasst höchstens {max}" },
   "dialog.pick.overLeft": { en: "{size} where the conversation has {left} left", de: "{size}, wo die Unterhaltung nur noch {left} hat" },
   "dialog.pick.unticked": { en: "unticked", de: "nicht ausgewählt" },
   "dialog.pick.under": { en: "{files} under {name} ({reason})", de: "{files} unter {name} ({reason})" },
@@ -909,64 +918,98 @@ export const messages = {
   "series.ticket.cancelled": { en: "cancelled", de: "abgebrochen" },
   "series.ticket.shortfall": { en: "fell short", de: "unvollständig" },
   "series.ticket.ended": { en: "ended", de: "beendet" },
-  // 2026-11-23-31dcf: the Order and branches section
-  "series.section.order": { en: "Order and branches", de: "Reihenfolge und Branches" },
-  "series.order.sub": {
-    en: "Columns are the order in which work can happen, one band per repo. A solid line is a branch stacked on another in the same repo, a dashed one is met only by a merge, a dotted one is not known yet.",
-    de: "Die Spalten zeigen, in welcher Reihenfolge die Arbeit passieren kann, ein Band je Repo. Eine durchgezogene Linie ist ein Branch, der im selben Repo auf einem anderen aufsetzt, eine gestrichelte wird erst durch einen Merge erfüllt, eine gepunktete ist noch unbekannt.",
-  },
-  "series.order.from": { en: "Show the course from", de: "Zeig den Weg von" },
-  "series.order.all": { en: { one: "the 1 ticket", other: "all {count} tickets" }, de: { one: "dem 1 Ticket", other: "allen {count} Tickets" } },
-  "series.order.reset": { en: "Show everything", de: "Zeig alles" },
-  "series.order.edge.stacked": { en: "stacked branch", de: "gestapelter Branch" },
-  "series.order.edge.merge": { en: "needs a merge", de: "braucht einen Merge" },
-  "series.order.edge.unknown": { en: "not known yet", de: "noch unbekannt" },
-  "series.order.edge.landed": { en: "already merged", de: "schon gemergt" },
-  "series.order.frame.waiting": { en: "PR waiting", de: "PR wartet" },
-  "series.order.frame.next": { en: "merge next", de: "als Nächstes mergen" },
-  "series.order.frame.question": { en: "asks a question", de: "stellt eine Frage" },
-  "series.order.frame.notStarted": { en: "not started", de: "nicht gestartet" },
-  "series.order.frame.merged": { en: "merged", de: "gemergt" },
-  "series.order.noRepo": { en: "No pull request yet", de: "Noch kein Pull Request" },
-  "series.order.alsoIn": { en: "+ {repos}", de: "+ {repos}" },
   "series.conversation.gone": { en: "The conversation that filed this series no longer exists.", de: "Das Gespräch, das diese Serie angelegt hat, gibt es nicht mehr." },
-  "series.section.next": { en: "Merge next", de: "Als Nächstes mergen" },
-  "series.merge.sub": {
-    en: "Merge from the top. After each merge, the next pull request is moved onto the default branch if it was stacked on the one before.",
-    de: "Von oben nach unten mergen. Nach jedem Merge wird der nächste Pull Request auf den Standard-Branch umgehängt, falls er auf dem vorigen aufgebaut war.",
-  },
-  "series.merge.empty": { en: "No pull request is waiting to be merged.", de: "Kein Pull Request wartet auf einen Merge." },
-  "series.merge.ready": { en: "Targets the default branch. Ready to merge.", de: "Zielt auf den Standard-Branch. Bereit zum Mergen." },
-  "series.merge.after": { en: "Merge {keys} first.", de: "Zuerst {keys} mergen." },
-  "series.merge.retarget": {
-    en: "Waits until its pull request is moved onto the default branch.",
-    de: "Wartet, bis sein Pull Request auf den Standard-Branch umgehängt ist.",
-  },
   "series.merge.button": { en: "Merge", de: "Mergen" },
   "series.merge.busy": { en: "Merging…", de: "Wird gemergt…" },
   "series.merge.pr": { en: "PR #{number}", de: "PR #{number}" },
-  "series.merge.ci.green": { en: "CI green", de: "CI grün" },
-  "series.merge.ci.pending": { en: "CI running", de: "CI läuft" },
-  "series.merge.ci.red": { en: "CI red", de: "CI rot" },
-  "series.merge.ci.none": { en: "no CI checks", de: "keine CI-Checks" },
-  "series.merge.ci.unread": { en: "CI not read yet", de: "CI noch nicht gelesen" },
-  "series.merge.log": { en: "log", de: "Log" },
   "series.merge.outcome.merged": { en: "merged", de: "gemergt" },
   "series.merge.outcome.armed": { en: "merges once the host's rules pass", de: "wird gemergt, sobald die Regeln des Hosts erfüllt sind" },
   "series.merge.outcome.refused": { en: "not merged", de: "nicht gemergt" },
   "series.merge.failed": { en: "The merge failed: {message}", de: "Der Merge ist fehlgeschlagen: {message}" },
-  // 2026-11-23-8d16: the acts beside a merge, the merges others start on, and a draft.
+  // 2026-11-23-8d16: Open pull request, the merges others start on, and a draft; 2026-11-23-f562: the Overview's.
   "series.merge.openPr": { en: "Open pull request #{number}", de: "Pull Request #{number} öffnen" },
   "series.merge.needed": {
     en: { one: "Needed so {names} can start.", other: "Needed so {names} can start." },
-    de: { one: "Nötig, damit {names} startet.", other: "Nötig, damit {names} starten." },
+    de: { one: "Nötig, damit {names} starten kann.", other: "Nötig, damit {names} starten können." },
   },
-  "series.merge.draft": { en: "Draft", de: "Entwurf" },
+  // 2026-11-23-0219: what the host says about a ticket's pull requests, Merge when CI is green, and the last merge run's word.
+  "series.badge.draft": { en: "Draft", de: "Entwurf" },
+  "series.badge.ciNotStarted": { en: "Build not started", de: "Build nicht gestartet" },
+  "series.badge.ciRunning": { en: "CI running", de: "CI läuft" },
+  "series.badge.ciRed": { en: "CI red", de: "CI rot" },
+  "series.merge.whenGreen": { en: "Merge when CI is green", de: "Mergen, sobald die CI grün ist" },
+  "series.merge.whenGreenNeeds": {
+    en: "Merging before CI is green arms the host's auto-complete, which needs merge.respect_branch_protection: true (Config → Project → Merge).",
+    de: "Mergen vor grüner CI aktiviert das Auto-Complete des Hosts, und das braucht merge.respect_branch_protection: true (Config → Project → Merge).",
+  },
+  "series.merge.said.refused": { en: "The last merge was refused: {reason}", de: "Der letzte Merge wurde abgelehnt: {reason}" },
+  "series.merge.said.armed": {
+    en: "The merge is armed: the host completes it once CI is green.",
+    de: "Der Merge ist vorgemerkt: der Host schließt ihn ab, sobald die CI grün ist.",
+  },
+  "series.todo.whenGreen": {
+    en: "Ready once CI is green — merge now and the host completes it",
+    de: "Bereit, sobald die CI grün ist — merge jetzt, der Host schließt ab",
+  },
+  "series.todo.whenGreenUnarmed": { en: "Ready once CI is green", de: "Bereit, sobald die CI grün ist" },
   "series.merge.draftFirst": {
     en: "It is still a draft; merging takes it out of draft first.",
     de: "Er ist noch ein Entwurf; der Merge nimmt ihn zuerst aus dem Entwurf.",
   },
 
+  // --- series: the Overview (2026-11-23-f562) ---
+  "series.section.overview": { en: "Overview", de: "Übersicht" },
+  "series.kind.now": { en: "you: merge now", de: "du: jetzt mergen" },
+  "series.kind.needed": { en: "merge needed (later)", de: "Merge nötig (später)" },
+  "series.kind.question": { en: "question / plan", de: "Frage / Plan" },
+  "series.kind.failed": { en: "failed / decide", de: "fehlgeschlagen / entscheiden" },
+  "series.kind.running": { en: "running", de: "läuft" },
+  "series.kind.pr": { en: "PR waiting", de: "PR wartet" },
+  "series.kind.waiting": { en: "waiting / not started", de: "wartet / nicht gestartet" },
+  "series.kind.merged": { en: "merged", de: "gemergt" },
+  "series.graph.title": { en: "Order of the tickets", de: "Reihenfolge der Tickets" },
+  "series.graph.from": { en: "Show course from", de: "Verlauf ab" },
+  "series.graph.all": { en: { one: "all (1 ticket)", other: "all ({count} tickets)" }, de: { one: "alle (1 Ticket)", other: "alle ({count} Tickets)" } },
+  "series.graph.noRepo": { en: "No pull request yet", de: "Noch kein Pull Request" },
+  "series.graph.alsoIn": { en: "+ {repos}", de: "+ {repos}" },
+  "series.graph.hint": {
+    en: "Click a ticket in the graph to open its menu. The list below shows only what someone has to do, in the same colours.",
+    de: "Ein Klick auf ein Ticket im Graphen öffnet sein Menü. Die Liste darunter zeigt nur, was jemand tun muss, in denselben Farben.",
+  },
+  "series.chip.now": { en: { one: "1 merge now", other: "{count} merges now" }, de: { one: "1 Merge jetzt", other: "{count} Merges jetzt" } },
+  "series.chip.needed": { en: "{merges} needed for {tickets}", de: "{merges} nötig für {tickets}" },
+  "series.chip.merges": { en: { one: "1 more merge", other: "{count} more merges" }, de: { one: "1 weiterer Merge", other: "{count} weitere Merges" } },
+  "series.chip.tickets": { en: { one: "1 ticket", other: "{count} tickets" }, de: { one: "1 Ticket", other: "{count} Tickets" } },
+  "series.chip.question": { en: { one: "1 question", other: "{count} questions" }, de: { one: "1 Frage", other: "{count} Fragen" } },
+  "series.chip.failed": { en: { one: "1 failed", other: "{count} failed" }, de: { one: "1 fehlgeschlagen", other: "{count} fehlgeschlagen" } },
+  "series.chip.running": { en: { one: "1 running", other: "{count} running" }, de: { one: "1 läuft", other: "{count} laufen" } },
+  "series.todo.title": { en: "What someone has to do", de: "Was jemand tun muss" },
+  "series.todo.yours": { en: "You're up", de: "Du bist dran" },
+  "series.todo.nothing": { en: "Nothing for you to do now.", de: "Gerade gibt es für dich nichts zu tun." },
+  "series.todo.needed": {
+    en: { one: "Needed next · so {names} can start", other: "Needed next · so {names} can start" },
+    de: { one: "Danach nötig · damit {names} starten kann", other: "Danach nötig · damit {names} starten können" },
+  },
+  "series.todo.quietTitle": { en: "Runs by itself", de: "Läuft von selbst" },
+  "series.todo.quiet": { en: { one: "1 more ticket", other: "{count} more tickets" }, de: { one: "1 weiteres Ticket", other: "{count} weitere Tickets" } },
+  "series.todo.quietSub": {
+    en: "At work, pull requests waiting, or starting once what they require is done. Nobody needs to do anything.",
+    de: "In Arbeit, PRs warten oder starten, sobald ihre Vorgänger fertig sind. Niemand muss etwas tun.",
+  },
+  "series.node.merged": { en: "Merged.", de: "Gemergt." },
+  "series.node.notStarted": {
+    en: "Not started yet; it starts once what it requires is done.",
+    de: "Noch nicht gestartet; startet, sobald seine Vorgänger fertig sind.",
+  },
+  "series.act.conversation": { en: "Open conversation", de: "Gespräch öffnen" },
+  "series.act.why": { en: "See why", de: "Grund ansehen" },
+  "series.act.run": { en: "See run", de: "Lauf ansehen" },
+  "series.act.chain": { en: "Show chain", de: "Kette zeigen" },
+  "series.act.retrying": { en: "Retrying…", de: "Wird wiederholt…" },
+  "series.act.retryRequested": {
+    en: "Retry requested for {key}: the next attempt starts through the queue.",
+    de: "Wiederholung für {key} angefragt: der nächste Versuch startet über die Warteschlange.",
+  },
   // --- holds: who moves a held ticket, one sentence and one act (2026-11-23-31dcg) ---
   "hold.sentence.image_untrusted": {
     en: "Attempt {n} stopped before any work: a context names a container image outside the trusted registries.",
@@ -1044,6 +1087,15 @@ export const messages = {
     de: "Auf seinem Pull Request läuft die CI. Für dich gibt es nichts zu tun.",
   },
   "hold.wait.ci_running": { en: "CI has been running since {at}", de: "Die CI läuft seit {at}" },
+  // 2026-11-23-0219: a required build that never started is no wait — it does not start by itself.
+  "hold.sentence.ci_not_started": {
+    en: "The required build has not started on its pull request and will not start by itself: queue it on the host, or merge it from its series once CI is green.",
+    de: "Der Pflicht-Build ist auf seinem Pull Request nicht gestartet und startet nicht von selbst: stoß ihn auf dem Host an oder merge ihn aus seiner Serie, sobald die CI grün ist.",
+  },
+  "hold.escalated.ci_not_started": {
+    en: "The required build has not started for {duration}: queue it on the host. Longer than {minutes} minutes ({key}), reported to the admin.",
+    de: "Der Pflicht-Build ist seit {duration} nicht gestartet: stoß ihn auf dem Host an. Länger als {minutes} Minuten ({key}), an den Admin gemeldet.",
+  },
   "hold.title.merge_ready": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
   "hold.title.ci_failed": { en: "Your move: CI failed", de: "Du bist dran: die CI ist fehlgeschlagen" },
   "hold.act.pull_request": { en: "Open the pull request", de: "Pull Request öffnen" },
@@ -1056,12 +1108,16 @@ export const messages = {
       other: "Wartet auf {count} Merges, als Nächstes {next}. Für dich gibt es nichts zu tun.",
     },
   },
+  // 2026-11-23-f562: the merge's tail says it is needed for the waiting tickets, the series page's wording (8d16).
   "hold.merge.tail.both": {
-    en: "{next} is next after it; merges are needed before {names} can start.",
-    de: "Danach ist {next} dran; erst nach weiteren Merges können {names} starten.",
+    en: { one: "{next} is next after it. Needed so {names} can start.", other: "{next} is next after it. Needed so {names} can start." },
+    de: { one: "Danach ist {next} dran. Nötig, damit {names} starten kann.", other: "Danach ist {next} dran. Nötig, damit {names} starten können." },
   },
   "hold.merge.tail.next": { en: "{next} is next after it.", de: "Danach ist {next} dran." },
-  "hold.merge.tail.names": { en: "Merges are needed before {names} can start.", de: "Erst nach Merges können {names} starten." },
+  "hold.merge.tail.names": {
+    en: { one: "Needed so {names} can start.", other: "Needed so {names} can start." },
+    de: { one: "Nötig, damit {names} starten kann.", other: "Nötig, damit {names} starten können." },
+  },
   "hold.merge.approves": {
     en: "Merging approves the pull request where its host requires a review, as agent-smith's configured identity, and asks the host to complete it once its rules pass.",
     de: "Mergen genehmigt den Pull Request, wo sein Host ein Review verlangt, als die in agent-smith konfigurierte Identität, und lässt ihn vom Host abschließen, sobald dessen Regeln erfüllt sind.",
@@ -1150,46 +1206,6 @@ export const messages = {
   "hold.tag.plan": { en: "plan gap", de: "Lücke im Plan" },
   "hold.tag.merge": { en: "merge", de: "Merge" }, // 2026-11-23-8d16: the merge itself
   "hold.tag.nobody": { en: "start on their own", de: "starten von selbst" },
-  "series.section.held": { en: "Who moves next", de: "Wer ist dran" },
-  "series.holds.sub": {
-    en: "Who moves each ticket that will not move on by itself. The next merge is under Merge next.",
-    de: "Wer jedes Ticket bewegt, das nicht von selbst weiterkommt. Der nächste Merge steht unter Als Nächstes mergen.",
-  },
-  "series.holds.empty": {
-    en: "Nobody has to move anything: each ticket merges next or moves on by itself.",
-    de: "Niemand muss etwas bewegen: jedes Ticket wird als Nächstes gemergt oder kommt von selbst weiter.",
-  },
-  // 2026-11-23-849e: the series page's first lines — what the person does next, read from the holds.
-  "series.you.title": { en: "Your next step", de: "Dein nächster Schritt" },
-  "series.you.merge": { en: "Review and merge {prs} ({key}).", de: "Prüf und merge {prs} ({key})." },
-  "series.you.nothing": { en: "Nothing for you to do now.", de: "Gerade gibt es für dich nichts zu tun." },
-  "series.you.without": {
-    en: { one: "1 ticket continues without merging", other: "{count} tickets continue without merging" },
-    de: { one: "1 Ticket geht ohne Merge weiter", other: "{count} Tickets gehen ohne Merge weiter" },
-  },
-  "series.you.need": {
-    en: { one: "1 needs merges to start ({names})", other: "{count} need merges to start ({names})" },
-    de: { one: "1 braucht Merges, um zu starten ({names})", other: "{count} brauchen Merges, um zu starten ({names})" },
-  },
-  // 2026-11-23-8d16: the merges the server marked under Merge next, by count, and the tickets they let start, by count.
-  "series.you.neededMerges": {
-    en: { one: "1 merge is", other: "{count} merges are" },
-    de: { one: "1 Merge ist", other: "{count} Merges sind" },
-  },
-  "series.you.neededFor": {
-    en: { one: "{merges} needed before {names} can start (marked under Merge next)", other: "{merges} needed before {names} can start (marked under Merge next)" },
-    de: {
-      one: "{merges} nötig, damit {names} starten kann (markiert unter Als Nächstes mergen)",
-      other: "{merges} nötig, damit {names} starten können (markiert unter Als Nächstes mergen)",
-    },
-  },
-  "series.you.needNone": { en: "none needs a merge to start", de: "keines braucht einen Merge, um zu starten" },
-  "series.you.merges": { en: "{without}; {need}.", de: "{without}; {need}." },
-  "series.holds.more": { en: { one: "1 more", other: "{count} more" }, de: { one: "1 weiteres", other: "{count} weitere" } },
-  "series.holds.moreSub": {
-    en: "They move on by themselves. Nobody needs to do anything.",
-    de: "Sie kommen von selbst weiter. Niemand muss etwas tun.",
-  },
   "series.changes.title": { en: "Changed in this series", de: "Geändert in dieser Serie" },
   "series.changes.sub": {
     en: "Specs that changed after a ticket's first cut, and why. You don't need to do anything.",
@@ -1216,6 +1232,7 @@ export const messages = {
   "pocs.import": { en: "Import ZIP", de: "ZIP importieren" },
   // --- PoC import (2026-11-23-933db) ---
   "pocs.import.title": { en: "Import a ZIP", de: "ZIP importieren" },
+  "pocs.import.place": { en: "Import a PoC", de: "PoC importieren" },
   "pocs.import.sub": {
     en: "Drop the ZIP you built from the template. It is checked before anything runs.",
     de: "Leg das ZIP ab, das du aus der Vorlage gebaut hast. Es wird geprüft, bevor etwas läuft.",
@@ -2079,5 +2096,28 @@ export const messages = {
   "deployments.ago.hours": { en: "{count}h ago", de: "vor {count} Std." },
   "deployments.ago.days": { en: "{count}d ago", de: "vor {count} T." },
 } satisfies Record<string, MessageEntry>;
+
+/** Every module of the dictionary, by name; a key two of them define is a test failure. */
+export const messageModules = {
+  core: coreMessages,
+  shell: shellMessages,
+  tickets: ticketsMessages,
+  runs: runsMessages,
+  config: configMessages,
+  system: systemMessages,
+  access: accessMessages,
+  delivery: deliveryMessages,
+} as const;
+
+export const messages = {
+  ...coreMessages,
+  ...shellMessages,
+  ...ticketsMessages,
+  ...runsMessages,
+  ...configMessages,
+  ...systemMessages,
+  ...accessMessages,
+  ...deliveryMessages,
+};
 
 export type MessageKey = keyof typeof messages;

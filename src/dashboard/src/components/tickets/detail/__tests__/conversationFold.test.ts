@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { attempt, detail, entry } from "./detailFixtures";
+import { translator } from "@/lib/i18n/translate";
 import { countItems, earlierWords, foldBefore, foldBoundary, itemKey, latestEntry, wholeConversationWords } from "../conversationFold";
 import { nowRun } from "../nowRun";
 import type { ThreadItem } from "../threadItems";
@@ -15,6 +16,8 @@ const derivation = (runId: string, startedAt: string, outcome: "running" | "deri
   runId, status: outcome === "running" ? "running" : "success", startedAt, finishedAt: null, cost: 0.1,
   outcome, specCount: 1, pullRequests: [], summary: null,
 });
+
+const en = translator("en");
 
 describe("conversationFold", () => {
   it("foldBoundary_IsTheFirstOfTheNewestN_NullWhenTheyFit", () => {
@@ -46,11 +49,11 @@ describe("conversationFold", () => {
   });
 
   it("earlierWords_AndWholeConversationWords_CountInWords", () => {
-    expect(earlierWords({ entries: 1, runs: 0 })).toBe("1 earlier entry");
-    expect(earlierWords({ entries: 4, runs: 1 })).toBe("4 earlier entries and 1 run");
-    expect(earlierWords({ entries: 0, runs: 2 })).toBe("2 earlier runs");
-    expect(wholeConversationWords(1)).toBe("Whole conversation · 1 entry →");
-    expect(wholeConversationWords(12)).toBe("Whole conversation · 12 entries →");
+    expect(earlierWords(en, { entries: 1, runs: 0 })).toBe("1 earlier entry");
+    expect(earlierWords(en, { entries: 4, runs: 1 })).toBe("4 earlier entries and 1 run");
+    expect(earlierWords(en, { entries: 0, runs: 2 })).toBe("2 earlier runs");
+    expect(wholeConversationWords(en, 1)).toBe("Whole conversation · 1 entry →");
+    expect(wholeConversationWords(en, 12)).toBe("Whole conversation · 12 entries →");
   });
 });
 

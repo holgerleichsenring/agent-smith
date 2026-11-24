@@ -1,4 +1,5 @@
 import type { SettingKey } from "@/lib/configApi";
+import type { TextKey } from "@/lib/i18n/translate";
 
 // 2026-08-26-7a51: `role_mapping` left this rail for the Access surface, which needs
 // access.write rather than config.write — a custom role bundling config.write is legal,
@@ -53,28 +54,52 @@ export const SETTING_LABEL: Record<SettingKey, string> = {
   trace: "Trace",
 };
 
+// 2026-11-23-5669d: the same names as dictionary keys, for what the studio renders. SETTING_LABEL stays for the
+// header's place table, which reads strings.
+export const SETTING_LABEL_KEY = {
+  orchestrator: "config.setting.orchestrator",
+  sandbox: "config.setting.sandbox",
+  deployment: "config.setting.deployment",
+  registries: "config.setting.registries",
+  primary_provider: "config.setting.primaryProvider",
+  limits: "config.setting.limits",
+  pipeline_cost_cap: "config.setting.pipelineCostCap",
+  queue: "config.setting.queue",
+  dialogue: "config.setting.dialogue",
+  spec_review: "config.setting.specReview",
+  series: "config.setting.series",
+  preconditions: "config.setting.preconditions",
+  branch_cleanup: "config.setting.branchCleanup",
+  tickets: "config.setting.tickets",
+  holds: "config.setting.holds",
+  pocs: "config.setting.pocs",
+  skills: "config.setting.skills",
+  pipeline_data_flow: "config.setting.pipelineDataFlow",
+  trace: "config.setting.trace",
+} as const satisfies Record<SettingKey, TextKey>;
+
 // The one-line subtitle under each settings title in the studio content area.
-export const SETTING_SUBTITLE: Record<SettingKey, string> = {
-  orchestrator: "the run wall-time ceiling",
-  sandbox: "sandbox agent image, per-step / per-command timeouts and trusted image registries",
-  deployment: "the image pin feeding the sandbox agent when it names none",
-  registries: "private package feeds the agent authenticates against",
-  primary_provider: "the default agent provider when a project names none",
-  limits: "per-skill agentic loop ceilings — tool calls, tokens, sub-agents",
-  pipeline_cost_cap: "USD / token budget per run — a default plus per-pipeline and per-tier caps",
-  queue: "consumer backpressure and Redis retry cadence",
-  dialogue: "hot-wait window and approval timeout for human dialogue",
-  spec_review: "the file reads that re-check the citations of the spec a run enters",
-  series: "how many specs a series holds and one attempt runs, and its budget for starting attempts by itself",
-  preconditions: "how often a ticket stuck on a precondition is checked again, and how far back an interrupted run is restarted by itself",
-  branch_cleanup: "the sweep that deletes finished agent-smith branches, and how often it runs",
-  tickets: "requires links on the tracker, the dependents wake and the pull-request re-read",
-  holds: "how long a ticket may wait on nobody before the wait is reported to the admin",
-  pocs: "whether people can host PoCs here, and where their source and apps go",
-  skills: "where the skill catalog is resolved from",
-  pipeline_data_flow: "data-flow gating — warn only, or enforce",
-  trace: "record each run's conversation, not only its numbers — AGENTSMITH_TRACE overrides it",
-};
+export const SETTING_SUBTITLE = {
+  orchestrator: "config.setting.orchestrator.sub",
+  sandbox: "config.setting.sandbox.sub",
+  deployment: "config.setting.deployment.sub",
+  registries: "config.setting.registries.sub",
+  primary_provider: "config.setting.primaryProvider.sub",
+  limits: "config.setting.limits.sub",
+  pipeline_cost_cap: "config.setting.pipelineCostCap.sub",
+  queue: "config.setting.queue.sub",
+  dialogue: "config.setting.dialogue.sub",
+  spec_review: "config.setting.specReview.sub",
+  series: "config.setting.series.sub",
+  preconditions: "config.setting.preconditions.sub",
+  branch_cleanup: "config.setting.branchCleanup.sub",
+  tickets: "config.setting.tickets.sub",
+  holds: "config.setting.holds.sub",
+  pocs: "config.setting.pocs.sub",
+  skills: "config.setting.skills.sub",
+  pipeline_data_flow: "config.setting.pipelineDataFlow.sub",
+  trace: "config.setting.trace.sub",
+} as const satisfies Record<SettingKey, TextKey>;
 
 // The rail / header glyph per settings key.
 export const SETTING_ICON: Record<SettingKey, string> = {

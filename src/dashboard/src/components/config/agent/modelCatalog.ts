@@ -5,23 +5,21 @@ import type {
   ModelRoleCapability,
   StudioAgent,
 } from "@/lib/configApi";
+import type { T, TextKey } from "@/lib/i18n/translate";
 
 // 2026-09-30-62bab: what the agent drawer derives from a draft — pure, so the tabs render
 // and the tests assert one reading of it. The server stays the authority: it prices,
 // resolves and refuses on save; these helpers only show the operator what it will do.
 
 /** The operator's name for each role and what it covers. The raw key is shown beside it. */
-export const ACTIVITY: Record<string, { label: string; covers: string }> = {
-  primary: { label: "Coding", covers: "master loop, sub-agents, docs, gate retries" },
-  planning: { label: "Planning", covers: "spec derivation, repository scope" },
-  reasoning: {
-    label: "Review & checks",
-    covers: "diff review, premise check, spec cut, finding refutation",
-  },
-  contextGeneration: { label: "Project init", covers: "component discovery, context files" },
-  codeMapGeneration: { label: "Code map", covers: "codebase map for analysis" },
-  scout: { label: "Quick lookups", covers: "client surface, registry auth, bootstrap docs" },
-  summarization: { label: "Summaries", covers: "knowledge compile, dialogue subjects" },
+export const ACTIVITY: Record<string, { label: TextKey; covers: TextKey }> = {
+  primary: { label: "config.activity.primary", covers: "config.activity.primary.covers" },
+  planning: { label: "config.activity.planning", covers: "config.activity.planning.covers" },
+  reasoning: { label: "config.activity.reasoning", covers: "config.activity.reasoning.covers" },
+  contextGeneration: { label: "config.activity.contextGeneration", covers: "config.activity.contextGeneration.covers" },
+  codeMapGeneration: { label: "config.activity.codeMapGeneration", covers: "config.activity.codeMapGeneration.covers" },
+  scout: { label: "config.activity.scout", covers: "config.activity.scout.covers" },
+  summarization: { label: "config.activity.summarization", covers: "config.activity.summarization.covers" },
 };
 
 /** The display order when capabilities are unavailable — never guessed needs. */
@@ -31,8 +29,9 @@ const FALLBACK_ROLES: ModelRoleCapability[] = Object.keys(ACTIVITY).map((key) =>
   needsStrong: false,
 }));
 
-export function activityLabel(role: string): string {
-  return ACTIVITY[role]?.label ?? role;
+export function activityLabel(t: T, role: string): string {
+  const activity = ACTIVITY[role];
+  return activity ? t(activity.label) : role;
 }
 
 export function roleList(capabilities: ConfigCapabilities | null): ModelRoleCapability[] {
@@ -143,11 +142,11 @@ export function resolvePrice(
   return { source: "none", inputPerMillion: null, outputPerMillion: null, cacheReadPerMillion: null, listed: null };
 }
 
-export const SOURCE_LABEL: Record<PriceSource, string> = {
-  override: "override",
-  list: "price list",
-  none: "not in list",
-};
+export const SOURCE_LABEL = {
+  override: "config.price.source.override",
+  list: "config.price.source.list",
+  none: "config.price.source.none",
+} as const satisfies Record<PriceSource, TextKey>;
 
 export function money(v: number | null | undefined): string {
   if (v == null) return "—";
@@ -159,15 +158,15 @@ export function priceLine(p: ResolvedPrice): string {
 }
 
 /** "$2.00 / $8.00" for a select option — cache read left to the card. */
-export function shortPrice(p: ResolvedPrice): string {
-  return p.source === "none" ? "no price" : `${money(p.inputPerMillion)} / ${money(p.outputPerMillion)}`;
+export function shortPrice(t: T, p: ResolvedPrice): string {
+  return p.source === "none" ? t("config.price.none") : `${money(p.inputPerMillion)} / ${money(p.outputPerMillion)}`;
 }
 
-export function windowLabel(tokens: number | null | undefined): string {
-  if (!tokens) return "no window stated";
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(2).replace(/\.?0+$/, "")}M window`;
-  if (tokens >= 1000) return `${Math.round(tokens / 1000)}k window`;
-  return `${tokens} window`;
+export function windowLabel(t: T, tokens: number | null | undefined): string {
+  if (!tokens) return t("config.window.none");
+  if (tokens >= 1_000_000) return t("config.window.size", { size: `${(tokens / 1_000_000).toFixed(2).replace(/\.?0+$/, "")}M` });
+  if (tokens >= 1000) return t("config.window.size", { size: `${Math.round(tokens / 1000)}k` });
+  return t("config.window.size", { size: tokens });
 }
 
 /** Overrides naming no model of the catalog — kept by the save, shown so they can go. */

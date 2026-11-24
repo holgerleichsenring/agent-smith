@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-5669a
+
+decisions:
+  - category: Architecture
+    chose: "The dictionary takes one module per area (lib/i18n/areas/*.ts) spread into messages, with a test that fails a key two modules define"
+    over: "Every key in the one messages.ts"
+    reason: "About 1000 literals move in parallel slices; one shared file would conflict on every slice. The spread keeps one MessageKey type, so a missing German still fails to compile."
+  - category: Implementation
+    chose: "dateLocale(language): en-GB for English, de-DE for German; useDateLocale() in components"
+    over: "The browser's locale (toLocaleString() without an argument) or en-US"
+    reason: "The language switch decides; en-GB matches the 24-hour times the dashboard already wrote by hand."
+  - category: Implementation
+    chose: "RenderBoundary takes its surface as a dictionary key plus params and words it when the failure shows; FailedSurface and RefusalSurface take the worded name"
+    over: "Every boundary caller passing an English noun"
+    reason: "The layout is a server component and cannot call useT; a key is worded by a small function component in the language in force."
+  - category: Implementation
+    chose: "The top bar search matches the chosen language's page names and the English ones"
+    over: "Only the chosen language"
+    reason: "An operator who types the English name from habit still lands on the page."
+  - category: Scope
+    chose: "The root surface name is now 'home page', not 'run monitor'"
+    over: "Keeping the English word"
+    reason: "Since 2026-11-17-d6fba / is the home page; the old name was stale."

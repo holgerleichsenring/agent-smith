@@ -1,5 +1,6 @@
 import { isRelaunching, relaunchPlace } from "@/components/jobs/runStatus";
 import { formatRunSummary } from "@/lib/formatRunSummary";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import { hasPullRequest } from "@/lib/prStatus";
 import { extractUrls, stripUrls } from "@/lib/prUrls";
 import type { RunStepRow } from "@/lib/runStepsApi";
@@ -41,21 +42,36 @@ export function nowMode(snapshot: RunSnapshot): NowMode {
   return "live";
 }
 
-const LABELS: Record<NowMode, string> = {
-  live: "Now — follows the agent",
-  waiting: "Waiting for your answer",
-  queued: "Waiting for capacity",
-  ended: "How it ended",
+const LABELS: Record<NowMode, TextKey> = {
+  live: "runs.log.now.live",
+  waiting: "runs.log.now.waiting",
+  queued: "runs.log.now.queued",
+  ended: "runs.log.now.ended",
 };
 
-export function nowLabel(snapshot: RunSnapshot): string {
-  return LABELS[nowMode(snapshot)];
+export function nowLabel(t: T, snapshot: RunSnapshot): string {
+  return t(LABELS[nowMode(snapshot)]);
 }
 
-export function clockOf(iso: string | null | undefined): string | null {
+/** 2026-11-23-5669c: a line's kind stays the word it is recorded under (data-kind); this is what its column shows. A
+ *  kind with no word here (a step's label) is shown as it is. */
+const KIND_WORDS: Record<string, TextKey> = {
+  decision: "runs.log.kind.decision", wrote: "runs.log.kind.wrote", tool: "runs.log.kind.tool", finding: "runs.log.kind.finding",
+  gate: "runs.log.kind.gate", ran: "runs.log.kind.ran", resuming: "runs.log.kind.resuming", queued: "runs.log.kind.queued",
+  paused: "runs.log.kind.paused", review: "runs.log.kind.review", verify: "runs.log.kind.verify", outcome: "runs.log.kind.outcome",
+  llm: "runs.log.kind.llm", write: "runs.log.kind.write", obs: "runs.log.kind.obs", "sub-agent": "runs.log.kind.sub-agent",
+  pr: "runs.log.kind.pr", ticket: "runs.log.kind.ticket", catalog: "runs.log.kind.catalog",
+};
+
+export function kindWord(t: T, kind: string): string {
+  const key = KIND_WORDS[kind];
+  return key ? t(key) : kind;
+}
+
+export function clockOf(iso: string | null | undefined, locale: string): string | null {
   if (!iso) return null;
   const at = new Date(iso);
-  return Number.isNaN(at.getTime()) ? null : at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  return Number.isNaN(at.getTime()) ? null : at.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 }
 
 function stepLabel(row: RunStepRow): string {
@@ -63,18 +79,24 @@ function stepLabel(row: RunStepRow): string {
 }
 
 /** One of the agent's acts the Now block shows, or null for an event it does not. */
-function actLine(e: RunEvent, i: number): NowLine | null {
-  const at = clockOf(e.timestamp);
+function actLine(t: T, locale: string, e: RunEvent, i: number): NowLine | null {
+  const at = clockOf(e.timestamp, locale);
   const key = `${e.type}-${i}`;
   switch (e.type) {
     case EventType.DecisionLogged: return { key, at, kind: "decision", text: e.chose, tone: "text" };
-    case EventType.SubAgentFileWritten: return { key, at, kind: "wrote", text: `${e.path} (${e.bytes} bytes)`, tone: "dim" };
+    case EventType.SubAgentFileWritten: return { key, at, kind: "wrote", text: t("runs.log.act.wrote", { path: e.path, bytes: e.bytes }), tone: "dim" };
     case EventType.ToolCall: return { key, at, kind: "tool", text: e.summary ?? e.tool, tone: "dim" };
     case EventType.SubAgentToolCall: return { key, at, kind: "tool", text: e.argsSummary ?? e.toolName, tone: "dim" };
     case EventType.SubAgentFinding: return { key, at, kind: "finding", text: `${e.severity} · ${e.title}`, tone: "run" };
-    case EventType.GateChecked: return { key, at, kind: "gate", text: `${e.gate} ${e.passed ? "passed" : "failed"}${e.reason ? `: ${e.reason}` : ""}`, tone: e.passed ? "dim" : "bad" };
+    case EventType.GateChecked: return { key, at, kind: "gate", text: gateWords(t, e.gate, e.passed, e.reason), tone: e.passed ? "dim" : "bad" };
     default: return null;
   }
+}
+
+/** "build passed", "scope failed: no repository". */
+export function gateWords(t: T, gate: string, passed: boolean, reason: string | null | undefined): string {
+  const said = t(passed ? "runs.log.gate.passed" : "runs.log.gate.failed", { gate });
+  return reason ? `${said}: ${reason}` : said;
 }
 
 /** The step the run is in: the projection's running row, else the newest StepStarted without its finish. */
@@ -131,7 +153,7 @@ export function currentModelWait(events: RunEvent[]): ModelWait | null {
 
 /** While the run works: the step with its newest narration, the sandbox beat, then the newest `max` acts. */
 export function liveLines(
-  snapshot: RunSnapshot, events: RunEvent[], steps: RunStepRow[],
+  t: T, locale: string, snapshot: RunSnapshot, events: RunEvent[], steps: RunStepRow[],
   beat: { lastCommand?: string | null } | null, max = 3,
 ): NowLine[] {
   const step = currentStep(events, steps);
@@ -147,31 +169,31 @@ export function liveLines(
   const waitText = waiting && waiting.type === EventType.L1StepDetail ? waiting.detail : null;
   lines.push({
     key: "step",
-    at: clockOf((waiting ?? narration)?.timestamp ?? null),
-    kind: step?.label ?? snapshot.stepName ?? "working",
-    text: waitText ?? said ?? (step || snapshot.stepName ? "working on it" : "starting"),
+    at: clockOf((waiting ?? narration)?.timestamp ?? null, locale),
+    kind: step?.label ?? snapshot.stepName ?? t("runs.log.now.working"),
+    text: waitText ?? said ?? t(step || snapshot.stepName ? "runs.log.now.workingOnIt" : "runs.log.now.starting"),
     tone: "now",
   });
   if (beat?.lastCommand) lines.push({ key: "beat", at: null, kind: "ran", text: beat.lastCommand, tone: "dim" });
   const acts: NowLine[] = [];
   for (let i = events.length - 1; i >= 0 && acts.length < max; i--) {
-    const line = actLine(events[i], i);
+    const line = actLine(t, locale, events[i], i);
     if (line) acts.push(line);
   }
   return [...lines, ...acts];
 }
 
 /** A waiting or queued run's lines: what it waits for and that its compute is held. */
-export function waitLines(snapshot: RunSnapshot): NowLine[] {
+export function waitLines(t: T, locale: string, snapshot: RunSnapshot): NowLine[] {
   const status = (snapshot.status ?? "").toLowerCase();
   if (isRelaunching(snapshot)) {
     const place = relaunchPlace(snapshot);
-    return [{ key: "resume", at: null, kind: "resuming", text: `Answered${place != null ? `, place ${place} in line` : ""}. Nothing for you to do.`, tone: "run" }];
+    return [{ key: "resume", at: null, kind: "resuming", text: place != null ? t("runs.log.now.answeredPlace", { place }) : t("runs.log.now.answered"), tone: "run" }];
   }
   if (status === "queued") {
-    return [{ key: "queue", at: null, kind: "queued", text: snapshot.queuePosition ? `Place ${snapshot.queuePosition} in line. Nothing for you to do.` : "Waiting for a slot. Nothing for you to do.", tone: "run" }];
+    return [{ key: "queue", at: null, kind: "queued", text: snapshot.queuePosition ? t("runs.log.now.place", { place: snapshot.queuePosition }) : t("runs.log.now.slot"), tone: "run" }];
   }
-  return [{ key: "held", at: clockOf(snapshot.pendingQuestion?.askedAt ?? null), kind: "paused", text: "The agent needs an answer before it continues. Reserved compute is held; no tokens are spent while it waits.", tone: "run" }];
+  return [{ key: "held", at: clockOf(snapshot.pendingQuestion?.askedAt ?? null, locale), kind: "paused", text: t("runs.log.now.held"), tone: "run" }];
 }
 
 export interface PullRequestLink {
@@ -215,7 +237,7 @@ export interface EndedView {
 /** 2026-11-22-7103a: what a finished run's How it ended adds under its status line — the review and the last verify
  *  pass, the setting that lifts a stop, and the run's own end text. The outcome, why, stopped-at and to-do lines are
  *  the status line now (runStatusLine). */
-export function endedView(snapshot: RunSnapshot, steps: RunStepRow[], events: RunEvent[], attempt: TicketAttempt | null): EndedView {
+export function endedView(t: T, snapshot: RunSnapshot, steps: RunStepRow[], events: RunEvent[], attempt: TicketAttempt | null): EndedView {
   const status = (snapshot.status ?? "").toLowerCase();
   const stopped = status !== "success" && status !== "shortfall" && status !== "cancelled";
   const lines: NowLine[] = [];
@@ -223,7 +245,7 @@ export function endedView(snapshot: RunSnapshot, steps: RunStepRow[], events: Ru
   const reached = steps.filter((s) => !s.planned && s.status);
   const review = [...reached].reverse().find((s) => REVIEW.has(commandKey(s)));
   if (review) {
-    lines.push({ key: "review", at: null, kind: "review", text: firstLine(review.resultMessage) ?? "diff reviewed", tone: review.hasFinding ? "run" : "text" });
+    lines.push({ key: "review", at: null, kind: "review", text: firstLine(review.resultMessage) ?? t("runs.log.now.diffReviewed"), tone: review.hasFinding ? "run" : "text" });
   }
   let verify: VerifyPassRecordedEvent | null = null;
   for (let i = events.length - 1; i >= 0 && !verify; i--) {

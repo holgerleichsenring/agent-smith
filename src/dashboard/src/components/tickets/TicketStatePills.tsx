@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import { StatePills, type StatePill, type StateTone } from "@/components/ui/StatePills";
 import { ticketBucketHref, useTicketBucketFilter, type TicketBucketFilter } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
@@ -22,26 +24,27 @@ const TONE: Partial<Record<TicketBucket, StateTone>> = {
   failed: "stopped",
 };
 
-export function ticketPills(counts: TicketCounts | undefined, filter: TicketBucketFilter): StatePill<TicketBucketFilter>[] {
+export function ticketPills(t: T, counts: TicketCounts | undefined, filter: TicketBucketFilter): StatePill<TicketBucketFilter>[] {
   const pill = (bucket: TicketBucket): StatePill<TicketBucketFilter> => ({
     key: bucket,
-    label: TICKET_SECTIONS[bucket].title,
+    label: t(TICKET_SECTIONS[bucket].title),
     href: ticketBucketHref(bucket),
     count: counts ? TICKET_SECTIONS[bucket].count(counts) : undefined,
     tone: TONE[bucket],
   });
   const occasional = OCCASIONAL.filter((b) => b === filter || (counts ? TICKET_SECTIONS[b].count(counts) > 0 : false));
   return [
-    { key: "all", label: "All", href: ticketBucketHref("all"), count: counts ? totalTickets(counts) : undefined },
+    { key: "all", label: t("tickets.pills.all"), href: ticketBucketHref("all"), count: counts ? totalTickets(counts) : undefined },
     ...DAILY.map(pill),
     ...occasional.map(pill),
   ];
 }
 
 export function TicketStatePills() {
+  const t = useT();
   const { filter, select } = useTicketBucketFilter();
   const counts = useTicketList().list?.counts;
   return (
-    <StatePills label="Ticket state" pills={ticketPills(counts, filter)} selected={filter} onSelect={select} testId="ticket-pills" />
+    <StatePills label={t("tickets.pills.label")} pills={ticketPills(t, counts, filter)} selected={filter} onSelect={select} testId="ticket-pills" />
   );
 }

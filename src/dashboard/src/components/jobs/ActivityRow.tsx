@@ -15,6 +15,8 @@ import {
   type ToolResultEvent,
   type TriageRouteEvent,
 } from "@/types/hub-events";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 interface Props {
   event: RunEvent;
@@ -33,7 +35,9 @@ interface RowView {
 }
 
 export function ActivityRow({ event, expanded, onToggle }: Props) {
-  const view = projectEvent(event);
+  const t = useT();
+  const locale = useDateLocale();
+  const view = projectEvent(t, locale, event);
   const containerClass = severityClass(view.severity);
   return (
     <div
@@ -77,17 +81,17 @@ function countPlannedSteps(stepsJson: string): number | null {
   }
 }
 
-function projectEvent(event: RunEvent): RowView {
+function projectEvent(t: T, locale: string, event: RunEvent): RowView {
   switch (event.type) {
     case EventType.PipelineStepsPlanned: {
       const e = event as PipelineStepsPlannedEvent;
       const count = countPlannedSteps(e.stepsJson);
       return {
         icon: "▤",
-        label: "Pipeline",
+        label: t("runs.activity.label.pipeline"),
         detail: count === null
-          ? `steps planned from #${e.firstStepIndex}`
-          : `${count} step(s) planned from #${e.firstStepIndex}`,
+          ? t("runs.activity.plannedUnknown", { first: e.firstStepIndex })
+          : t("runs.activity.planned", { count, first: e.firstStepIndex }),
         reason: null,
         severity: "info",
       };
@@ -95,8 +99,8 @@ function projectEvent(event: RunEvent): RowView {
     case EventType.RunStarted: {
       return {
         icon: "▶",
-        label: "Run",
-        detail: "started",
+        label: t("runs.activity.label.run"),
+        detail: t("runs.activity.started"),
         reason: null,
         severity: "info",
       };
@@ -105,7 +109,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.RunFinished }>;
       return {
         icon: e.status === "success" || e.status === "shortfall" ? "✓" : "✕",
-        label: "Run",
+        label: t("runs.activity.label.run"),
         detail: `${e.status} — ${e.summary}`,
         reason: null,
         severity: e.status === "success" || e.status === "shortfall" ? "ok" : "error",
@@ -118,7 +122,7 @@ function projectEvent(event: RunEvent): RowView {
       const label = e.displayName ?? e.stepName;
       return {
         icon: "•",
-        label: "Step start",
+        label: t("runs.activity.label.stepStart"),
         detail: `${e.stepIndex}/${e.totalSteps} ${label}`,
         reason: null,
         severity: "info",
@@ -129,7 +133,7 @@ function projectEvent(event: RunEvent): RowView {
       const ok = e.status === "success";
       return {
         icon: ok ? "✓" : "✕",
-        label: ok ? "Step done" : "Step failed",
+        label: ok ? t("runs.activity.label.stepDone") : t("runs.activity.label.stepFailed"),
         detail: `${e.stepIndex} — ${e.status} (${e.durationMs}ms)`,
         reason: !ok ? e.reason : null,
         severity: ok ? "ok" : "error",
@@ -139,8 +143,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SandboxCreated }>;
       return {
         icon: "□",
-        label: "Sandbox",
-        detail: `created ${e.repo} — ${e.image}`,
+        label: t("runs.activity.label.sandbox"),
+        detail: t("runs.activity.sandboxCreated", { repo: e.repo, image: e.image }),
         reason: null,
         severity: "info",
       };
@@ -149,8 +153,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SandboxDisposed }>;
       return {
         icon: "□",
-        label: "Sandbox",
-        detail: `disposed ${e.repo}${e.exitCode !== null ? ` (exit ${e.exitCode})` : ""}`,
+        label: t("runs.activity.label.sandbox"),
+        detail: `${t("runs.activity.sandboxDisposed", { repo: e.repo })}${e.exitCode !== null ? t("runs.activity.exit", { code: e.exitCode }) : ""}`,
         reason: null,
         severity: "info",
       };
@@ -159,7 +163,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SandboxCommand }>;
       return {
         icon: "⟫",
-        label: "Sandbox cmd",
+        label: t("runs.activity.label.sandboxCmd"),
         detail: e.summary
           ? `${e.repo}: ${e.command} ${e.summary}`
           : `${e.repo}: ${e.command}`,
@@ -182,8 +186,8 @@ function projectEvent(event: RunEvent): RowView {
       const ok = e.exitCode === 0;
       return {
         icon: ok ? "✓" : "✕",
-        label: "Sandbox out",
-        detail: `${e.repo}: ${e.command} (exit ${e.exitCode}, ${e.durationMs}ms)`,
+        label: t("runs.activity.label.sandboxOut"),
+        detail: t("runs.activity.sandboxResult", { repo: e.repo, command: e.command, code: e.exitCode, ms: e.durationMs }),
         reason: null,
         severity: ok ? "info" : "warn",
       };
@@ -192,8 +196,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as DecisionLoggedEvent;
       return {
         icon: "◆",
-        label: "Decision",
-        detail: `${e.category}: ${e.chose}${e.over ? ` over ${e.over}` : ""}`,
+        label: t("runs.activity.label.decision"),
+        detail: `${e.category}: ${e.chose}${e.over ? t("runs.activity.over", { over: e.over }) : ""}`,
         reason: e.reason,
         severity: "info",
       };
@@ -202,7 +206,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as TriageRouteEvent;
       return {
         icon: "◇",
-        label: "Triage",
+        label: t("runs.activity.label.triage"),
         detail: `${e.skill} → ${e.role} (${e.confidence})`,
         reason: null,
         severity: "info",
@@ -212,8 +216,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as GateCheckedEvent;
       return {
         icon: e.passed ? "✓" : "✕",
-        label: "Gate",
-        detail: `${e.gate} — ${e.passed ? "passed" : "failed"}`,
+        label: t("runs.activity.label.gate"),
+        detail: `${e.gate} — ${e.passed ? t("runs.activity.passed") : t("runs.status.failed")}`,
         reason: !e.passed ? e.reason : null,
         severity: e.passed ? "info" : "error",
       };
@@ -222,7 +226,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as LlmCallStartedEvent;
       return {
         icon: "↗",
-        label: "LLM start",
+        label: t("runs.activity.label.llmStart"),
         detail: `${e.model} · ${e.role}`,
         reason: null,
         severity: "info",
@@ -232,8 +236,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as LlmCallFinishedEvent;
       return {
         icon: "↘",
-        label: "LLM done",
-        detail: `${e.tokensIn}in/${e.tokensOut}out · $${e.costUsd.toFixed(4)} · ${e.durationMs}ms`,
+        label: t("runs.activity.label.llmDone"),
+        detail: t("runs.activity.llmDetail", { tokensIn: e.tokensIn, tokensOut: e.tokensOut, cost: e.costUsd.toFixed(4), ms: e.durationMs }),
         reason: null,
         severity: "info",
       };
@@ -242,7 +246,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as ToolCallEvent;
       return {
         icon: "→",
-        label: "Tool call",
+        label: t("runs.activity.label.toolCall"),
         detail: e.summary
           ? `${e.tool} ${e.summary}`
           : `${e.tool} (${e.argsLength}B)`,
@@ -254,8 +258,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as ToolResultEvent;
       return {
         icon: e.ok ? "←" : "✕",
-        label: "Tool result",
-        detail: `${e.tool} — ${e.ok ? `ok (${e.resultLength}B)` : "failed"}`,
+        label: t("runs.activity.label.toolResult"),
+        detail: `${e.tool} — ${e.ok ? t("runs.activity.toolOk", { bytes: e.resultLength }) : t("runs.status.failed")}`,
         reason: !e.ok ? e.errorMessage : null,
         severity: e.ok ? "info" : "warn",
       };
@@ -264,9 +268,9 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.CatalogLoaded }>;
       return {
         icon: "▦",
-        label: "Catalog",
-        detail: `${e.version} — ${e.conceptCount} concepts · ${e.skillsLoaded} skills · ${e.mastersCount} masters`,
-        reason: e.fromCache ? "warm cache" : "fresh pull",
+        label: t("runs.activity.label.catalog"),
+        detail: t("runs.activity.catalogLoaded", { version: e.version, concepts: e.conceptCount, skills: e.skillsLoaded, masters: e.mastersCount }),
+        reason: e.fromCache ? t("runs.activity.warmCache") : t("runs.activity.freshPull"),
         severity: "info",
       };
     }
@@ -274,8 +278,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as CatalogIssueEvent;
       return {
         icon: e.severity === "error" ? "✕" : "⚠",
-        label: "Catalog",
-        detail: `${e.category} in ${e.source}`,
+        label: t("runs.activity.label.catalog"),
+        detail: t("runs.activity.catalogIssue", { category: e.category, source: e.source }),
         reason: e.message,
         severity: e.severity === "error" ? "error" : "warn",
       };
@@ -284,15 +288,15 @@ function projectEvent(event: RunEvent): RowView {
       // p0223: a no-changes repo is a normal outcome (neutral), not a failure.
       const e = event as Extract<RunEvent, { type: EventType.PullRequestOutcome }>;
       const detail = e.status === "no_changes"
-        ? "no changes — no PR needed"
+        ? t("runs.activity.prNoChanges")
         : e.status === "opened"
-          ? `PR opened — ${e.url}`
+          ? t("runs.activity.prOpened", { url: String(e.url) })
           : e.status === "awaiting_ci" // 3435b: merges once CI is green
-            ? `PR opened, waiting for CI — ${e.url}`
-            : "failed";
+            ? t("runs.activity.prAwaitingCi", { url: String(e.url) })
+            : t("runs.status.failed");
       return {
         icon: e.status === "opened" || e.status === "awaiting_ci" ? "✓" : e.status === "failed" ? "✕" : "○",
-        label: "PR",
+        label: t("runs.activity.label.pr"),
         detail: `${e.repo}: ${detail}`,
         reason: e.status === "failed" ? e.reason : null,
         severity: e.status === "failed" ? "error" : e.status === "opened" || e.status === "awaiting_ci" ? "ok" : "info",
@@ -304,7 +308,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.TicketInstructionIgnored }>;
       return {
         icon: "⚠",
-        label: "Ignored instruction",
+        label: t("runs.activity.label.ignored"),
         detail: `"${e.quote}"`,
         reason: e.reason,
         severity: "warn",
@@ -314,7 +318,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.L1StepDetail }>;
       return {
         icon: "·",
-        label: "Step detail",
+        label: t("runs.activity.label.stepDetail"),
         detail: `${e.stepIndex} ${e.origin}: ${e.detail}`,
         reason: null,
         severity: "info",
@@ -324,7 +328,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.TicketFetched }>;
       return {
         icon: "✉",
-        label: "Ticket",
+        label: t("runs.activity.label.ticket"),
         detail: `#${e.ticketId} — ${e.title}`,
         reason: null,
         severity: "info",
@@ -334,7 +338,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SubAgentSpawned }>;
       return {
         icon: "⤴",
-        label: "Sub-agent spawn",
+        label: t("runs.activity.label.subSpawn"),
         detail: `${e.name} — ${e.activity}`,
         reason: null,
         severity: "info",
@@ -344,7 +348,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SubAgentObservation }>;
       return {
         icon: "·",
-        label: "Sub-agent obs",
+        label: t("runs.activity.label.subObs"),
         detail: `${e.subAgentId}: ${e.text}`,
         reason: null,
         severity: "info",
@@ -354,7 +358,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SubAgentFinding }>;
       return {
         icon: "◆",
-        label: "Sub-agent finding",
+        label: t("runs.activity.label.subFinding"),
         detail: `${e.severity}: ${e.title}`,
         reason: e.detail,
         severity: e.severity === "high" || e.severity === "critical" ? "warn" : "info",
@@ -364,7 +368,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SubAgentFileWritten }>;
       return {
         icon: "✏",
-        label: "Sub-agent write",
+        label: t("runs.activity.label.subWrite"),
         detail: `${e.path} (${e.bytes}B)`,
         reason: null,
         severity: "info",
@@ -374,7 +378,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SubAgentToolCall }>;
       return {
         icon: "→",
-        label: "Sub-agent tool",
+        label: t("runs.activity.label.subTool"),
         detail: e.argsSummary ? `${e.toolName} ${e.argsSummary}` : e.toolName,
         reason: null,
         severity: "info",
@@ -384,7 +388,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SubAgentMessaged }>;
       return {
         icon: e.continued ? "↩" : "→",
-        label: e.continued ? "Sent back to sub-agent" : "To sub-agent",
+        label: e.continued ? t("runs.activity.label.sentBack") : t("runs.activity.label.toSub"),
         detail: `${e.subAgentId}: ${e.text}`,
         reason: null,
         severity: "info",
@@ -394,8 +398,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SubAgentCompleted }>;
       return {
         icon: e.status === "Succeeded" ? "✓" : "✕",
-        label: "Sub-agent done",
-        detail: `${e.subAgentId}: ${e.status} — ${e.observationsCount} obs, ${e.findingsCount} findings, $${e.costUsd.toFixed(4)}`,
+        label: t("runs.activity.label.subDone"),
+        detail: t("runs.activity.subDone", { id: e.subAgentId, status: e.status, obs: e.observationsCount, findings: e.findingsCount, cost: e.costUsd.toFixed(4) }),
         reason: null,
         severity: e.status === "Succeeded" ? "info" : "warn",
       };
@@ -404,8 +408,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.RunCancelRequested }>;
       return {
         icon: "⊘",
-        label: "Run cancel",
-        detail: `requested (${e.reason})`,
+        label: t("runs.activity.label.runCancel"),
+        detail: t("runs.activity.cancelRequested", { reason: e.reason }),
         reason: null,
         severity: "warn",
       };
@@ -414,10 +418,10 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.SandboxVanished }>;
       return {
         icon: "✕",
-        label: "Sandbox vanished",
+        label: t("runs.activity.label.vanished"),
         detail: `${e.repo}: ${e.containerState} (${e.reason})`,
         reason: e.lastHeartbeatAt
-          ? `last heartbeat: ${formatTime(e.lastHeartbeatAt)}`
+          ? t("runs.activity.lastHeartbeat", { at: formatTime(e.lastHeartbeatAt) })
           : null,
         severity: "error",
       };
@@ -427,9 +431,9 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.RunCheckpointed }>;
       return {
         icon: "?",
-        label: "Checkpointed",
-        detail: `waiting for an operator answer (question ${e.questionId})`,
-        reason: `answer deadline: ${formatTime(e.answerDeadlineAt)}`,
+        label: t("runs.activity.label.checkpointed"),
+        detail: t("runs.activity.checkpointed", { id: e.questionId }),
+        reason: t("runs.activity.deadline", { at: formatTime(e.answerDeadlineAt) }),
         severity: "info",
       };
     }
@@ -438,9 +442,9 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.ExpectationRatified }>;
       return {
         icon: "☑",
-        label: "Expectation",
-        detail: `ratified ${e.outcome} by ${e.ratifiedBy}`,
-        reason: e.editDistance > 0 ? `edited (distance ${e.editDistance})` : null,
+        label: t("runs.activity.label.expectation"),
+        detail: t("runs.activity.ratified", { outcome: e.outcome, by: e.ratifiedBy }),
+        reason: e.editDistance > 0 ? t("runs.activity.edited", { distance: e.editDistance }) : null,
         severity: "info",
       };
     }
@@ -448,13 +452,13 @@ function projectEvent(event: RunEvent): RowView {
       // p0344b: the run's story artifacts (ledger + acceptance) were persisted.
       const e = event as Extract<RunEvent, { type: EventType.RunStoryRecorded }>;
       const parts = [
-        e.progressLedgerJson !== null ? "ledger" : null,
-        e.acceptanceJson !== null ? "acceptance" : null,
+        e.progressLedgerJson !== null ? t("runs.activity.ledger") : null,
+        e.acceptanceJson !== null ? t("runs.activity.acceptance") : null,
       ].filter((p): p is string => p !== null);
       return {
         icon: "☰",
-        label: "Story",
-        detail: parts.length > 0 ? `${parts.join(" + ")} recorded` : "recorded (empty)",
+        label: t("runs.activity.label.story"),
+        detail: parts.length > 0 ? t("runs.activity.recorded", { parts: parts.join(" + ") }) : t("runs.activity.recordedEmpty"),
         reason: null,
         severity: "info",
       };
@@ -464,8 +468,8 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.RunBudgetResolved }>;
       return {
         icon: "◔",
-        label: "Budget",
-        detail: `tier ${e.tier} — cap $${e.capUsd} / ${e.capTokens.toLocaleString()} tokens`,
+        label: t("runs.activity.label.budget"),
+        detail: t("runs.activity.budget", { tier: e.tier, cap: e.capUsd, tokens: e.capTokens.toLocaleString(locale) }),
         reason: null,
         severity: "info",
       };
@@ -475,7 +479,7 @@ function projectEvent(event: RunEvent): RowView {
       const e = event as Extract<RunEvent, { type: EventType.RunWorkShapeResolved }>;
       return {
         icon: "◇",
-        label: "Shape",
+        label: t("runs.activity.label.shape"),
         detail: e.reason ? `${e.shape} — ${e.reason}` : e.shape,
         reason: null,
         severity: "info",
@@ -487,20 +491,20 @@ function projectEvent(event: RunEvent): RowView {
       // this is the history that shape came from. A refused rewrite is a warning:
       // the model tried to take completed work back without the reopen token.
       const e = event as Extract<RunEvent, { type: EventType.LedgerTransitionsRecorded }>;
-      const t = parseTransitions(e.transitionsJson);
-      const refused = t.filter(
+      const transitions = parseTransitions(e.transitionsJson);
+      const refused = transitions.filter(
         (x) => x.cause === "regression_refused" || x.cause === "omission_refused",
       ).length;
       return {
         icon: refused > 0 ? "⤺" : "☑",
-        label: "Ledger",
+        label: t("runs.activity.label.ledger"),
         detail:
-          t.length === 0
-            ? "no change"
-            : `${t.length} transition${t.length === 1 ? "" : "s"} (pass ${t[0].pass})`,
+          transitions.length === 0
+            ? t("runs.activity.noChange")
+            : t("runs.activity.transitions", { count: transitions.length, pass: transitions[0].pass }),
         reason:
           refused > 0
-            ? `${refused} refused — completed work only reopens via the 'reopen' status`
+            ? t("runs.activity.refused", { count: refused })
             : null,
         severity: refused > 0 ? "warn" : "info",
       };
@@ -511,8 +515,8 @@ function projectEvent(event: RunEvent): RowView {
     default: {
       return {
         icon: "•",
-        label: "Event",
-        detail: `type ${(event as RunEvent).type}`,
+        label: t("runs.activity.label.event"),
+        detail: t("runs.activity.type", { type: (event as RunEvent).type }),
         reason: null,
         severity: "info",
       };

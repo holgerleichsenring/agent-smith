@@ -12,6 +12,8 @@ import { useResultMarkdown } from "@/hooks/useResultMarkdown";
 import { useRunDecisions } from "@/hooks/useRunDecisions";
 import { useRunSpecRecord } from "@/hooks/useRunSpecRecord";
 import { useSpecMarkdown } from "@/hooks/useSpecMarkdown";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { T, TextKey } from "@/lib/i18n/translate";
 import { pullRequestStatusLabel } from "@/lib/prStatus";
 import type { RunSpecRow } from "@/lib/runSpecsApi";
 import {
@@ -39,6 +41,7 @@ import type { RunTicket } from "./useRunTicket";
 const Doc = LogDoc;
 
 export function TicketBody({ snapshot, events, ticket }: { snapshot: RunSnapshot | null; events: RunEvent[]; ticket: RunTicket | null }) {
+  const t = useT();
   const fetched = useMemo(() => {
     let latest: TicketFetchedEvent | null = null;
     for (const e of events) if (e.type === EventType.TicketFetched) latest = e;
@@ -54,20 +57,20 @@ export function TicketBody({ snapshot, events, ticket }: { snapshot: RunSnapshot
         <>
           <div className="rl-body-line rl-dim" data-testid="ticket-body-facts">
             {fetched.state} · {fetched.source}
-            {fetched.labels.length > 0 ? ` · labels ${fetched.labels.join(", ")}` : ""}
-            {` · ${fetched.attachmentCount === 0 ? "no attachments" : fetched.attachmentCount === 1 ? "1 attachment, open the ticket in its tracker to view it" : `${fetched.attachmentCount} attachments, open the ticket in its tracker to view them`}`}
+            {fetched.labels.length > 0 ? t("runs.log.body.labels", { labels: fetched.labels.join(", ") }) : ""}
+            {` · ${fetched.attachmentCount === 0 ? t("runs.log.body.noAttachments") : t("runs.log.body.attachments", { count: fetched.attachmentCount })}`}
           </div>
-          <Doc label="the ticket's text" testId="ticket-body-description">
+          <Doc label={t("runs.log.body.ticketText")} testId="ticket-body-description">
             <Markdown>{fetched.description}</Markdown>
           </Doc>
           {fetched.acceptanceCriteria && (
-            <Doc label="the ticket's acceptance criteria" testId="ticket-body-criteria"><Markdown>{fetched.acceptanceCriteria}</Markdown></Doc>
+            <Doc label={t("runs.log.body.ticketCriteria")} testId="ticket-body-criteria"><Markdown>{fetched.acceptanceCriteria}</Markdown></Doc>
           )}
         </>
       )}
       {ratified.length > 0 && (
         <div data-testid="ticket-body-ratified">
-          <div className="rl-body-line rl-dim">acceptance, ratified before any code</div>
+          <div className="rl-body-line rl-dim">{t("runs.log.body.ratified")}</div>
           <ol className="rl-num">
             {ratified.map((c, i) => <li key={`${i}-${c.text}`} className="rl-body-line" data-testid="ticket-body-criterion"><span className="rl-num-n">{i + 1}.</span><span><InlineText text={c.text} /></span></li>)}
           </ol>
@@ -75,44 +78,47 @@ export function TicketBody({ snapshot, events, ticket }: { snapshot: RunSnapshot
       )}
       {!fetched && (
         <div className="rl-body-line rl-dim" data-testid="ticket-body-empty">
-          body not recorded on this run{ticket ? <> — <Link href={ticket.href} data-testid="ticket-body-page">open the ticket</Link></> : ""}
+          {t("runs.log.body.notRecorded")}{ticket ? <> — <Link href={ticket.href} data-testid="ticket-body-page">{t("runs.log.body.openTicket")}</Link></> : ""}
         </div>
       )}
       {fetched && (
         <div className="rl-links">
-          {fetched.webUrl && <a href={fetched.webUrl} target="_blank" rel="noreferrer" data-testid="ticket-body-tracker">open in the tracker ↗</a>}
-          {ticket && <Link href={ticket.href} data-testid="ticket-body-page">the ticket page</Link>}
+          {fetched.webUrl && <a href={fetched.webUrl} target="_blank" rel="noreferrer" data-testid="ticket-body-tracker">{t("runs.log.body.openTracker")}</a>}
+          {ticket && <Link href={ticket.href} data-testid="ticket-body-page">{t("runs.log.body.ticketPage")}</Link>}
         </div>
       )}
     </div>
   );
 }
 
-const LEDGER_TAG: Record<ProgressLedgerEntry["status"], string> = { done: "done", in_progress: "now", pending: "next" };
+const LEDGER_TAG: Record<ProgressLedgerEntry["status"], TextKey> = {
+  done: "runs.log.ledger.done", in_progress: "runs.log.ledger.in_progress", pending: "runs.log.ledger.pending",
+};
 
 export function PlanBody({ runId, ledger, hasSpecs, events }: { runId: string; ledger: ProgressLedgerEntry[] | null; hasSpecs: boolean; events: RunEvent[] }) {
+  const t = useT();
   const spec = useSpecMarkdown(runId);
   const plan = usePlanMarkdown(runId);
   return (
     <div className="rl-body" data-testid="plan-body">
-      {spec.content && <Doc label="the work spec" testId="plan-body-spec"><ResultDocument content={spec.content} /></Doc>}
+      {spec.content && <Doc label={t("runs.log.plan.workSpec")} testId="plan-body-spec"><ResultDocument content={spec.content} /></Doc>}
       {plan.content ? (
-        <Doc label="the agreed plan" testId="plan-body-plan"><ResultDocument content={plan.content} /></Doc>
+        <Doc label={t("runs.log.plan.agreed")} testId="plan-body-plan"><ResultDocument content={plan.content} /></Doc>
       ) : (
         <div className="rl-body-line rl-dim" data-testid="plan-body-no-plan">
-          {plan.loading ? "Reading the plan…" : "No plan recorded yet; the master writes plan.md during the run."}
+          {t(plan.loading ? "runs.log.plan.reading" : "runs.log.plan.noPlan")}
         </div>
       )}
       {ledger && ledger.length > 0 && (
         <div data-testid="plan-body-ledger">
           {ledger.map((e) => (
             <div key={e.id} className={`rl-body-line rl-ledger ${e.status}`} data-testid={`ledger-line-${e.id}`} data-status={e.status}>
-              <span className="rl-ledger-tag">{LEDGER_TAG[e.status]}</span>
+              <span className="rl-ledger-tag">{t(LEDGER_TAG[e.status])}</span>
               <span className="rl-ledger-act" title={e.activity}><InlineText text={e.activity} /></span>
               {e.target ? <span className="rl-ledger-target" title={e.target} data-testid={`ledger-target-${e.id}`}><bdi>{shortTargets(e.target)}</bdi></span> : <span />}
             </div>
           ))}
-          <div className="rl-body-line rl-dim" data-testid="plan-body-ledger-count">{ledgerCount(ledger)}</div>
+          <div className="rl-body-line rl-dim" data-testid="plan-body-ledger-count">{ledgerCount(t, ledger)}</div>
         </div>
       )}
       {!hasSpecs && <RunDecisions runId={runId} events={events} />}
@@ -120,20 +126,22 @@ export function PlanBody({ runId, ledger, hasSpecs, events }: { runId: string; l
   );
 }
 
-export function ledgerCount(ledger: ProgressLedgerEntry[]): string {
+export function ledgerCount(t: T, ledger: ProgressLedgerEntry[]): string {
   const done = ledger.filter((e) => e.status === "done").length;
   const now = ledger.filter((e) => e.status === "in_progress").length;
-  return `${done} done · ${now} now · ${ledger.length - done - now} to go`;
+  return t("runs.log.ledger.count", { done, now, left: ledger.length - done - now });
 }
 
 function RunDecisions({ runId, events }: { runId: string; events: RunEvent[] }) {
+  const t = useT();
+  const locale = useDateLocale();
   const decisions = useRunDecisions(runId, events.length);
   if (decisions.length === 0) return null;
   return (
     <div data-testid="plan-body-decisions">
-      <div className="rl-body-line rl-dim">decisions</div>
+      <div className="rl-body-line rl-dim">{t("runs.log.decisions")}</div>
       {decisions.map((d, i) => (
-        <DecisionLine key={`${d.name}-${i}`} name={d.name} reason={d.reason} prefix={`${clockOf(d.recordedAt) ?? ""}${d.category ? ` ${d.category}` : ""}`} />
+        <DecisionLine key={`${d.name}-${i}`} name={d.name} reason={d.reason} prefix={`${clockOf(d.recordedAt, locale) ?? ""}${d.category ? ` ${d.category}` : ""}`} />
       ))}
     </div>
   );
@@ -157,6 +165,7 @@ export function DecisionLine({ name, reason, prefix }: { name: string; reason: s
 }
 
 export function SpecBody({ runId, spec }: { runId: string; spec: RunSpecRow | undefined }) {
+  const t = useT();
   const [read, setRead] = useState(false);
   if (!spec) return null;
   return (
@@ -164,18 +173,18 @@ export function SpecBody({ runId, spec }: { runId: string; spec: RunSpecRow | un
       {/* 2026-11-22-7103a: why a stopped spec was not delivered, as the server wrote it, whole. */}
       {spec.verdict && (spec.status === "failed" || spec.status === "handed_back") && (
         <div className="rl-body-line rl-bad" data-testid={`spec-body-verdict-${spec.specId}`}>
-          {spec.status === "handed_back" ? "Handed back" : "Not delivered"}: {spec.verdict}
+          {t(spec.status === "handed_back" ? "runs.log.spec.handedBack" : "runs.log.spec.notDelivered", { verdict: spec.verdict })}
         </div>
       )}
       {spec.decisions.length > 0 ? (
-        <Doc label={spec.decisions.length === 1 ? "1 decision" : `${spec.decisions.length} decisions`} testId={`spec-decisions-${spec.specId}`}>
+        <Doc label={t("runs.log.decisionsCount", { count: spec.decisions.length })} testId={`spec-decisions-${spec.specId}`}>
           {spec.decisions.map((d, i) => <DecisionLine key={`${d.name}-${i}`} name={d.name} reason={d.reason} />)}
         </Doc>
       ) : (
-        <div className="rl-body-line rl-dim">No decision was logged in this spec.</div>
+        <div className="rl-body-line rl-dim">{t("runs.log.spec.noDecision")}</div>
       )}
       <details className="rl-doc" data-testid={`spec-record-${spec.specId}`} onToggle={(e) => setRead((e.target as HTMLDetailsElement).open)}>
-        <summary>the spec it executed</summary>
+        <summary>{t("runs.log.spec.executed")}</summary>
         {read && <SpecRecord runId={runId} specId={spec.specId} />}
       </details>
     </div>
@@ -183,12 +192,13 @@ export function SpecBody({ runId, spec }: { runId: string; spec: RunSpecRow | un
 }
 
 function SpecRecord({ runId, specId }: { runId: string; specId: string }) {
+  const t = useT();
   const { record, loading } = useRunSpecRecord(runId, specId);
   return (
     <div className="rl-doc-body">
       {record ? <SpecRecordBody record={record} /> : (
         <div className="rl-body-line rl-dim">
-          {loading ? "Reading…" : `No executed spec recorded for ${specId}; this run wrote none, or it predates the server-held spec record.`}
+          {loading ? t("runs.log.spec.reading") : t("runs.log.spec.noRecord", { spec: specId })}
         </div>
       )}
     </div>
@@ -202,18 +212,20 @@ function SpecRecordBody({ record }: { record: string }) {
 }
 
 export function CheckBody({ snapshot, events, judged }: { snapshot: RunSnapshot | null; events: RunEvent[]; judged: RunJudgements }) {
+  const t = useT();
   const fallback = useMemo(() => buildVerifyFallback(events), [events]);
   return (
     <div className="rl-body rl-plain" data-testid="check-body">
       <VerifySummary acceptance={snapshot?.acceptance ?? null} fallback={fallback} judgements={judged.judgements}
         judgementBusy={judged.busy} onRecordJudgement={judged.record} onWithdrawJudgement={judged.withdraw}
         renderCitation={(citation) => <CitedList text={citation} />} renderText={(text) => <InlineText text={text} />} />
-      {judged.error && <div className="rl-body-line rl-bad" data-testid="check-body-error">The judgement was not recorded: {judged.error}</div>}
+      {judged.error && <div className="rl-body-line rl-bad" data-testid="check-body-error">{t("runs.log.check.judgementFailed", { error: judged.error })}</div>}
     </div>
   );
 }
 
 export function DeliveredBody({ runId, snapshot }: { runId: string; snapshot: RunSnapshot | null }) {
+  const t = useT();
   const prs = snapshot ? pullRequestLinks(snapshot) : [];
   const statuses = new Map((snapshot?.pullRequests ?? []).map((p) => [p.url, p.status]));
   return (
@@ -222,8 +234,8 @@ export function DeliveredBody({ runId, snapshot }: { runId: string; snapshot: Ru
         const status = statuses.get(p.url);
         return (
           <div key={p.url} className="rl-body-line" data-testid="delivered-pr">
-            {p.repo ? `${p.repo} · ` : ""}{status ? `${pullRequestStatusLabel(status as PullRequestStatus)} · ` : ""}
-            <a href={p.url} target="_blank" rel="noreferrer">{p.isDraft ? "draft pull request" : "pull request"} ↗</a>
+            {p.repo ? `${p.repo} · ` : ""}{status ? `${pullRequestStatusLabel(status as PullRequestStatus, t)} · ` : ""}
+            <a href={p.url} target="_blank" rel="noreferrer">{t(p.isDraft ? "runs.log.pr.draft" : "runs.log.pr.ready")} ↗</a>
           </div>
         );
       })}
@@ -233,6 +245,7 @@ export function DeliveredBody({ runId, snapshot }: { runId: string; snapshot: Ru
 }
 
 function RunReport({ runId }: { runId: string }) {
+  const t = useT();
   const { content, loading, error } = useResultMarkdown(runId);
   const [copied, setCopied] = useState(false);
   const copy = useCallback(async () => {
@@ -243,12 +256,12 @@ function RunReport({ runId }: { runId: string }) {
       window.setTimeout(() => setCopied(false), 1500);
     } catch { /* clipboard blocked */ }
   }, [content]);
-  if (loading) return <div className="rl-body-line rl-dim">Reading the run report…</div>;
-  if (error) return <div className="rl-body-line rl-bad" data-testid="delivered-report-error">The run report could not be read: {error}</div>;
-  if (!content) return <div className="rl-body-line rl-dim" data-testid="delivered-report-none">No run report yet; it is written when the run finishes.</div>;
+  if (loading) return <div className="rl-body-line rl-dim">{t("runs.log.report.reading")}</div>;
+  if (error) return <div className="rl-body-line rl-bad" data-testid="delivered-report-error">{t("runs.log.report.failed", { error })}</div>;
+  if (!content) return <div className="rl-body-line rl-dim" data-testid="delivered-report-none">{t("runs.log.report.none")}</div>;
   return (
-    <Doc label="the run report" testId="delivered-report">
-      <button type="button" className="rl-link" onClick={copy} data-testid="delivered-report-copy">{copied ? "copied" : "copy the markdown"}</button>
+    <Doc label={t("runs.log.report.label")} testId="delivered-report">
+      <button type="button" className="rl-link" onClick={copy} data-testid="delivered-report-copy">{t(copied ? "runs.log.report.copied" : "runs.log.report.copy")}</button>
       <ResultDocument content={content} />
     </Doc>
   );

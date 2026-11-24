@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+
 // 2026-08-26-7a51: the chips that say WHERE a role came from. One colour for a role the
 // directory sends and cannot be taken back here, another for one granted here and
 // withdrawn with a click — which is the whole reason the two are told apart at all.
@@ -21,6 +23,7 @@ export function RoleChips({
   onWithdraw: (role: string) => void;
   grantLabel: string;
 }) {
+  const t = useT();
   const open = offered.filter(
     (role) =>
       !granted.some((held) => held.toLowerCase() === role.toLowerCase())
@@ -40,11 +43,11 @@ export function RoleChips({
       ))}
       {granted.map((role) => (
         <span key={role} className="chip chip-here" data-testid={`${testId}-granted-${role}`}>
-          <span className="src">granted</span>
+          <span className="src">{t("access.chips.granted")}</span>
           {role}
           <button
             type="button"
-            aria-label={`Withdraw ${role}`}
+            aria-label={t("access.chips.withdraw", { role })}
             data-testid={`${testId}-withdraw-${role}`}
             onClick={() => onWithdraw(role)}
           >
@@ -52,7 +55,7 @@ export function RoleChips({
           </button>
         </span>
       ))}
-      {directory.length === 0 && granted.length === 0 && <span className="chip-none">no role</span>}
+      {directory.length === 0 && granted.length === 0 && <span className="chip-none">{t("access.chips.noRole")}</span>}
       {open.length > 0 && (
         <select
           className="grant"
@@ -61,7 +64,7 @@ export function RoleChips({
           value=""
           onChange={(e) => e.target.value !== "" && onGrant(e.target.value)}
         >
-          <option value="">+ grant</option>
+          <option value="">{t("access.chips.grant")}</option>
           {open.map((role) => (
             <option key={role} value={role}>
               {role}

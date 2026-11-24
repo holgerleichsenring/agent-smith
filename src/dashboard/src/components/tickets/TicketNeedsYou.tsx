@@ -31,10 +31,10 @@ export function TicketHoldAct({ ticket }: { ticket: TicketSummary }) {
   // 2026-11-23-d60d: a pull request that can merge or whose CI failed opens on its host.
   const pullRequest = holdPullRequestHref(ticket.hold);
   return pullRequest ? (
-    <a className="btn sm" href={pullRequest} target="_blank" rel="noreferrer" data-testid="ticket-hold-act">{holdRowAct(ticket.hold, t)}</a>
+    <a className="btn sm" href={pullRequest} target="_blank" rel="noreferrer" data-testid="ticket-hold-act">{holdRowAct(t, ticket.hold)}</a>
   ) : (
     <Link className="btn sm" href={holdSeriesHref(ticket.hold, seriesRunPath) ?? ticketHref(ticket)} data-testid="ticket-hold-act">
-      {holdRowAct(ticket.hold, t)}
+      {holdRowAct(t, ticket.hold)}
     </Link>
   );
 }

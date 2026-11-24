@@ -86,10 +86,10 @@ export function AppSidebar() {
   };
 
   return (
-    <nav aria-label="Main" data-testid="app-sidebar" data-collapsed={collapsed ? "true" : "false"} className={cn("app-sidebar", collapsed && "collapsed")}>
+    <nav aria-label={t("shell.nav.main")} data-testid="app-sidebar" data-collapsed={collapsed ? "true" : "false"} className={cn("app-sidebar", collapsed && "collapsed")}>
       <div className="sb-brand">
         {/* 2026-11-18-73ca: the brand is the way back to home. */}
-        <Link href="/" className="sb-brand-link" aria-label="Home" data-testid="sidebar-home">
+        <Link href="/" className="sb-brand-link" aria-label={t("shell.nav.home")} data-testid="sidebar-home">
           <Terminal size={20} strokeWidth={2} aria-hidden="true" />
           {!collapsed && <span className="sb-brand-name">Agent Smith</span>}
         </Link>
@@ -97,8 +97,8 @@ export function AppSidebar() {
           type="button"
           className="sb-toggle"
           onClick={toggle}
-          aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
-          title={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}
+          aria-label={collapsed ? t("shell.nav.expand") : t("shell.nav.collapse")}
+          title={collapsed ? t("shell.nav.expand") : t("shell.nav.collapse")}
           data-testid="sidebar-toggle"
         >
           <PanelLeft size={16} strokeWidth={1.8} aria-hidden="true" />
@@ -109,17 +109,17 @@ export function AppSidebar() {
       {show("new-work") && <Link
         href="/"
         className={cn("sb-new", pathname === "/" && "on")}
-        title="New work"
-        aria-label={collapsed ? "New work" : undefined}
+        title={t("shell.nav.newWork")}
+        aria-label={collapsed ? t("shell.nav.newWork") : undefined}
         aria-current={pathname === "/" ? "page" : undefined}
         data-testid="sidebar-new-work"
       >
         <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
-        {!collapsed && <span>New work</span>}
+        {!collapsed && <span>{t("shell.nav.newWork")}</span>}
       </Link>}
 
       {show("work-it-out") && <SidebarItem
-        label="Work it out"
+        label={t("shell.nav.workItOut")}
         href="/spec-dialog"
         icon={MessagesSquare}
         active={under("/spec-dialog")}
@@ -138,7 +138,7 @@ export function AppSidebar() {
       />}
 
       {show("your-move") && <SidebarItem
-        label="Your move"
+        label={t("shell.nav.yourMove")}
         href={ticketBucketHref("needs-you")}
         icon={Inbox}
         active={yourMoveActive}
@@ -149,7 +149,7 @@ export function AppSidebar() {
         testId="sidebar-your-move"
       />}
       {show("tickets") && <SidebarItem
-        label="Tickets"
+        label={t("shell.nav.tickets")}
         href={TICKETS_PATH}
         icon={Ticket}
         active={under(TICKETS_PATH) && !yourMoveActive}
@@ -159,7 +159,7 @@ export function AppSidebar() {
         testId="sidebar-tickets"
       />}
       {show("runs") && <SidebarItem
-        label="Runs"
+        label={t("shell.nav.runs")}
         href={bucketHref("all")}
         icon={CirclePlay}
         active={under(RUNS_PATH) || under("/jobs")}
@@ -169,7 +169,7 @@ export function AppSidebar() {
         testId="sidebar-runs"
       />}
       {show("pull-requests") && <SidebarItem
-        label="Pull requests"
+        label={t("shell.nav.pullRequests")}
         href="/pull-requests"
         icon={GitPullRequest}
         active={under("/pull-requests")}
@@ -190,11 +190,11 @@ export function AppSidebar() {
       {/* 2026-11-23-933da: Pull requests, Deployments (2026-11-23-8df6a), then PoCs. */}
       {show("pocs") && <SidebarItem label={t("pocs.nav")} href="/pocs" icon={LayoutGrid} active={under("/pocs")} collapsed={collapsed} testId="sidebar-pocs" />}
 
-      {show("insight") && <SidebarGroup label="Insight" collapsed={collapsed} />}
-      {show("overview") && <SidebarItem label="Overview" href="/overview" icon={ChartColumn} active={under("/overview")} collapsed={collapsed} testId="sidebar-overview" />}
-      {show("delivery") && <SidebarItem label="Delivery" href="/delivery" icon={CalendarDays} active={under("/delivery")} collapsed={collapsed} testId="sidebar-delivery" />}
+      {show("insight") && <SidebarGroup label={t("shell.nav.insight")} collapsed={collapsed} />}
+      {show("overview") && <SidebarItem label={t("shell.nav.overview")} href="/overview" icon={ChartColumn} active={under("/overview")} collapsed={collapsed} testId="sidebar-overview" />}
+      {show("delivery") && <SidebarItem label={t("shell.nav.delivery")} href="/delivery" icon={CalendarDays} active={under("/delivery")} collapsed={collapsed} testId="sidebar-delivery" />}
 
-      {show("recent") && recent.length > 0 && <SidebarGroup label="Recent" collapsed={collapsed} />}
+      {show("recent") && recent.length > 0 && <SidebarGroup label={t("shell.nav.recent")} collapsed={collapsed} />}
       {show("recent") && recent.map((place) => (
         <SidebarItem
           key={place.href}

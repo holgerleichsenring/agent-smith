@@ -51,7 +51,7 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
         IReadOnlyCollection<string> projects, long checkedBeforeTicks, int take, CancellationToken ct) =>
         OldestAsync(Records().Where(r => r.CheckedAtTicks < checkedBeforeTicks
             && ((r.State == PrReviewStates.Open
-                    && (webhookProjects.Contains(r.Project) || (r.CiState == CiStates.Pending && projects.Contains(r.Project))))
+                    && (webhookProjects.Contains(r.Project) || ((r.CiState == CiStates.Pending || r.CiState == CiStates.NotStarted) && projects.Contains(r.Project))))
                 || (r.State == PrReviewStates.Unread && projects.Contains(r.Project)))), take, ct);
 
     /// <summary>2026-10-14-dbceg: merged records of an ended ticket the tracker never landed; oldest check first, no entries.</summary>
@@ -64,15 +64,15 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
 
     /// <summary>2026-11-17-3435b: a project's open records whose CI the loop still waits on — unread, on an older head,
     /// none, pending since after <paramref name="pendingSinceTicks"/>, or a verdict not acted on — checked before the
-    /// bound; oldest check first, no entries. 2026-11-23-849e: <paramref name="actsOnVerdict"/> false (a project that does
+    /// bound; oldest check first, no entries (2026-11-23-0219: a build not started waits as pending does). 2026-11-23-849e: <paramref name="actsOnVerdict"/> false (a project that does
     /// not merge on green CI) keeps only a pending CI within the bound — an unread record or one on an older head is the
     /// periodic re-read's and the PR sweep's, and a verdict nothing acts on would be read forever.</summary>
     public Task<IReadOnlyList<PrReviewRecordView>> CiDueAsync(
         string project, long checkedBeforeTicks, long pendingSinceTicks, bool actsOnVerdict, CancellationToken ct) =>
         OldestAsync(Records().Where(r => r.Project == project && r.State == PrReviewStates.Open && r.CheckedAtTicks < checkedBeforeTicks
-            && ((r.CiState == CiStates.Pending && r.CiAtTicks > pendingSinceTicks)
+            && (((r.CiState == CiStates.Pending || r.CiState == CiStates.NotStarted) && r.CiAtTicks > pendingSinceTicks)
                 || (actsOnVerdict && (r.CiState == null || r.CiHeadSha != r.HeadSha
-                    || (r.CiState != CiStates.Pending && (r.CiActed == null || r.CiActed != r.CiHeadSha + ":" + r.CiState)))))), int.MaxValue, ct);
+                    || (r.CiState != CiStates.Pending && r.CiState != CiStates.NotStarted && (r.CiActed == null || r.CiActed != r.CiHeadSha + ":" + r.CiState)))))), int.MaxValue, ct);
 
     private static async Task<IReadOnlyList<PrReviewRecordView>> OldestAsync(IQueryable<PrReviewRecord> query, int take, CancellationToken ct) =>
         [.. (await query.OrderBy(r => r.CheckedAtTicks).ThenBy(r => r.Id).Take(take).ToListAsync(ct)).Select(r => View(r, null, []))];

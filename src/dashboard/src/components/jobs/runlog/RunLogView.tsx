@@ -19,7 +19,7 @@ import { RunSectionedLog } from "./RunSectionedLog";
 import { snapshotStatus } from "./runStatusLine";
 import { modelWaitHead } from "./modelWaitWords";
 import { currentModelWait } from "./runNowLines";
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { useRunTicket } from "./useRunTicket";
 import { useStepAddress } from "./useStepAddress";
 
@@ -51,8 +51,9 @@ export function RunLogView({ runId, snapshot, events, steps, repoNames, connecti
   const specs = useRunSpecs(runId, events.length);
   const canRetry = !useLacksPermission(RUNS_CONTROL, ticket?.project ?? snapshot?.project ?? undefined);
   const t = useT();
-  const wait = modelWaitHead(t, currentModelWait(events)); // 2026-11-22-50d7a: the head says the run waits for the model
-  const status = snapshot ? snapshotStatus(snapshot, specs, steps, ticket, canRetry, wait) : null;
+  const locale = useDateLocale();
+  const wait = modelWaitHead(t, currentModelWait(events), locale); // 2026-11-22-50d7a: the head says the run waits for the model
+  const status = snapshot ? snapshotStatus(t, snapshot, specs, steps, ticket, canRetry, wait) : null;
 
   return (
     <div className="rl-page" data-testid="run-log">
@@ -65,7 +66,7 @@ export function RunLogView({ runId, snapshot, events, steps, repoNames, connecti
         ticketBody={<TicketBody snapshot={snapshot} events={events} ticket={ticket} />}
         checkBody={<CheckBody snapshot={snapshot} events={events} judged={judged} />} />
       <div className="rl-more">
-        <Link className="rl-link" href={runTracePath(runId)} data-testid="run-open-why">Why it went this way</Link>
+        <Link className="rl-link" href={runTracePath(runId)} data-testid="run-open-why">{t("runs.log.whyLink")}</Link>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import type { SeriesRunRow } from "@/types/seriesRuns";
 
 // 2026-11-23-31dcc: the one sentence a series row says about what comes next, from that row alone — an ended series
 // says so; otherwise a question for a person first, then the merge that is ready, then the held tickets (2026-11-23-31dcg: the
-// tickets What holds the rest lists), else nothing to do.
+// series' held count), else nothing to do.
 
 export function seriesNextStep(row: SeriesRunRow, t: T): string {
   if (row.state === "done") return t("series.next.done");

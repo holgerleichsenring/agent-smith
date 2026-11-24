@@ -321,6 +321,28 @@ public sealed class VerifySpecHandlerTests
         var recorded = events.Events.OfType<AgentSmith.Contracts.Events.SpecStateChangedEvent>().Single();
         recorded.State.Should().Be(AgentSmith.Contracts.Specs.SpecRunState.Done);
         recorded.AcceptanceJson.Should().Contain("## Delivered").And.Contain("Exports stream over paging");
+        context.Pipeline.Get<AgentSmith.Contracts.Specs.SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
+            .Specs.Single().CarriedWork.Should().BeTrue("2026-11-23-df05: the branch it was verified over carries source");
+    }
+
+    /// <summary>2026-11-23-df05: a spec whose master reported over a branch that carries nothing — a person stopped it —
+    /// reads done, and its row says no work was carried, which keeps the run's pull request a draft.</summary>
+    [Fact]
+    public async Task VerifySpec_GreenOverABranchWithNothing_IsDoneWithoutCarriedWork()
+    {
+        var draft = new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"] };
+        var (context, sandbox) = Setup(Map("csharp", new CiConfig(true, "dotnet build", null, null)), draft);
+        sandbox.GitStatusOutput = string.Empty;
+        context.Pipeline.Set(ContextKeys.SpecSet, new AgentSmith.Contracts.Specs.SpecSet("k",
+            [new AgentSmith.Contracts.Specs.DerivedSpec(draft, "p1", string.Empty, [])],
+            AgentSmith.Contracts.Specs.SpecAccounting.Empty, [], AgentSmith.Contracts.Specs.SpecSource.Derived));
+        context.Pipeline.Set(ContextKeys.MasterVerification, new MasterVerification("Stopped at the operator's request."));
+
+        (await Handler().ExecuteAsync(context, CancellationToken.None)).IsSuccess.Should().BeTrue();
+
+        var row = context.Pipeline.Get<AgentSmith.Contracts.Specs.SpecSequenceProgress>(ContextKeys.SpecSequenceProgress).Specs.Single();
+        row.State.Should().Be(AgentSmith.Contracts.Specs.SpecRunState.Done);
+        row.CarriedWork.Should().BeFalse();
     }
 
     private static MasterVerification Report(string markdown) =>

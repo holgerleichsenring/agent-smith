@@ -13,6 +13,8 @@ import {
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { ConfirmDialog, useConfirmDialog } from "@/components/dialog/ConfirmDialog";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // 2026-08-28-3793: the whole database, out and back in, beside the versions and the
 // database state — where an operator already goes to find out what this installation IS.
@@ -20,15 +22,9 @@ import { ConfirmDialog, useConfirmDialog } from "@/components/dialog/ConfirmDial
 // will not start; this is the ordinary one, for an operator with a browser and no shell on
 // the machine the database runs on.
 
-const UNREDACTED =
-  "The archive is UNREDACTED: it carries ticket text, prompts, artifacts and every "
-  + "configuration secret in clear. Treat the file as the installation itself.";
-
-const SIZE_IS_UNKNOWN_UNTIL_WRITTEN =
-  "Its size is not known before it is written — the archive is produced as it streams, so "
-  + "the byte count is stated once the file has arrived.";
-
 export function DataArchiveView() {
+  const t = useT();
+  const locale = useDateLocale();
   const [preview, setPreview] = useState<ArchivePreview | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
@@ -47,25 +43,25 @@ export function DataArchiveView() {
   return (
     <section data-testid="archive-view">
       <div className="section-head">
-        <h2>Data archive</h2>
-        {preview && <span className="cnt">{preview.totalRows.toLocaleString()} rows</span>}
-        {preview && <span className="sh-sub">schema {preview.schemaHead}</span>}
+        <h2>{t("system.archive.title")}</h2>
+        {preview && <span className="cnt">{t("system.archive.rows", { rows: preview.totalRows.toLocaleString(locale) })}</span>}
+        {preview && <span className="sh-sub">{t("system.archive.schema", { schema: preview.schemaHead })}</span>}
       </div>
       <div style={{ height: 14 }} />
       {refusal ? (
-        <RefusalSurface refusal={refusal} surface="the data archive" />
+        <RefusalSurface refusal={refusal} surface={t("system.archive.surface")} />
       ) : error ? (
         <div className="stateline err" data-testid="archive-error">
-          Failed to read what an archive would carry: {error.message}
+          {t("system.archive.failed", { message: error.message })}
         </div>
       ) : !preview ? (
         <div className="stateline" data-testid="archive-loading">
-          Reading what an archive would carry…
+          {t("system.archive.loading")}
         </div>
       ) : (
         <>
           <p className="stateline" data-testid="archive-unredacted">
-            {UNREDACTED} {SIZE_IS_UNKNOWN_UNTIL_WRITTEN}
+            {t("system.archive.unredacted")} {t("system.archive.sizeUnknown")}
           </p>
           <Tables preview={preview} />
           <Actions />
@@ -76,13 +72,15 @@ export function DataArchiveView() {
 }
 
 function Tables({ preview }: { preview: ArchivePreview }) {
+  const t = useT();
+  const locale = useDateLocale();
   return (
     <div className="rows" data-testid="archive-tables">
       {preview.tables.map((table) => (
         <div className="lrow" key={table.table} data-testid={`archive-table-${table.table}`}>
           <span className="id">{table.table}</span>
           <span />
-          <span className="meta">{table.rows.toLocaleString()} rows</span>
+          <span className="meta">{t("system.archive.rows", { rows: table.rows.toLocaleString(locale) })}</span>
         </div>
       ))}
     </div>
@@ -90,6 +88,8 @@ function Tables({ preview }: { preview: ArchivePreview }) {
 }
 
 function Actions() {
+  const t = useT();
+  const locale = useDateLocale();
   const [busy, setBusy] = useState<"download" | "restore" | null>(null);
   const [downloaded, setDownloaded] = useState<ArchiveDownloadOutcome | null>(null);
   const [restored, setRestored] = useState<ArchiveRestoreReport | null>(null);
@@ -115,7 +115,7 @@ function Actions() {
     const file = event.target.files?.[0];
     event.target.value = ""; // so the same file can be picked again after a refusal
     if (!file) return;
-    if (!(await confirmation.ask(restoreWarning(file), { confirmLabel: "Restore", cancelLabel: "Cancel" }))) return;
+    if (!(await confirmation.ask(restoreWarning(file, t), { confirmLabel: t("system.archive.restore"), cancelLabel: t("common.cancel") }))) return;
     setBusy("restore");
     setRefused(null);
     setFailure(null);
@@ -123,7 +123,7 @@ function Actions() {
     try {
       setRestored(await restoreArchive(file));
     } catch (err) {
-      if (err instanceof ArchiveRefusedError) setRefused(err.message);
+      if (err instanceof ArchiveRefusedError) setRefused(err.message || t("system.archive.refusedNoCause"));
       else setFailure(err as Error);
     } finally {
       setBusy(null);
@@ -139,7 +139,7 @@ function Actions() {
         disabled={busy !== null}
         data-testid="archive-download"
       >
-        {busy === "download" ? "Writing…" : "Download archive ↧"}
+        {busy === "download" ? t("system.archive.writing") : t("system.archive.download")}
       </button>
       <button
         type="button"
@@ -148,7 +148,7 @@ function Actions() {
         disabled={busy !== null}
         data-testid="archive-restore"
       >
-        {busy === "restore" ? "Restoring…" : "Restore from archive ↥"}
+        {busy === "restore" ? t("system.archive.restoring") : t("system.archive.restoreFrom")}
       </button>
       <input
         ref={fileRef}
@@ -161,9 +161,11 @@ function Actions() {
       {downloaded && <DownloadNote outcome={downloaded} />}
       {restored && (
         <p className="stateline" data-testid="archive-restored">
-          Restored {restored.totalRows.toLocaleString()} rows across {restored.tables.length}{" "}
-          tables, at schema {restored.schemaHead}. This installation now serves the
-          configuration the archive carried — no restart.
+          {t("system.archive.restored", {
+            rows: restored.totalRows.toLocaleString(locale),
+            tables: restored.tables.length,
+            schema: restored.schemaHead,
+          })}
         </p>
       )}
       {refused && (
@@ -182,21 +184,19 @@ function Actions() {
 }
 
 function DownloadNote({ outcome }: { outcome: ArchiveDownloadOutcome }) {
+  const t = useT();
   return (
     <p className="stateline" data-testid="archive-download-note">
       {outcome.fileName} — {megabytes(outcome.bytes)}.{" "}
       {outcome.streamedToDisk
-        ? "Written straight into the file you chose, a chunk at a time."
-        : "This browser offers no save dialog, so the whole archive was held in this tab "
-          + "before it reached your downloads."}
+        ? t("system.archive.streamed")
+        : t("system.archive.held")}
     </p>
   );
 }
 
-function restoreWarning(file: File): string {
-  return `Restore ${file.name} (${megabytes(file.size)})?\n\n`
-    + "Every table in this installation is replaced by the archive's, and the restore is "
-    + "refused outright if this installation has ever recorded a run.";
+function restoreWarning(file: File, t: T): string {
+  return t("system.archive.restoreWarning", { file: file.name, size: megabytes(file.size) });
 }
 
 function megabytes(bytes: number): string {

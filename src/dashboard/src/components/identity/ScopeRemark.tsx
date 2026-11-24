@@ -4,6 +4,8 @@ import type { AuthRequirements } from "@/lib/authRequirementsApi";
 import { useAccessToken } from "@/hooks/useAccessToken";
 import { useRuntimeSettings } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
 import { scopeMismatch } from "./scopeAddresses";
+import { withValues } from "@/components/access/withValues";
+import { useT } from "@/hooks/useT";
 
 // 2026-09-14-d4e8: the one thing a refusal cannot say, because it can only say it
 // afterwards — that the scope this dashboard asks for names a different resource than the
@@ -16,6 +18,7 @@ import { scopeMismatch } from "./scopeAddresses";
 // left is the gap neither covers: before the first sign-in, with no token in hand.
 
 export function ScopeRemark({ requirements }: { requirements: AuthRequirements | null }) {
+  const t = useT();
   const { auth } = useRuntimeSettings();
   const token = useAccessToken();
 
@@ -36,19 +39,15 @@ export function ScopeRemark({ requirements }: { requirements: AuthRequirements |
   return (
     <div className="space-y-2" data-testid="identity-scope-remark">
       <h2 className="text-xs font-semibold uppercase tracking-wide">
-        These scopes name a different resource
+        {t("identity.scope.title")}
       </h2>
       <p className="text-sm">
-        This dashboard asks for a token for{" "}
-        <span className="font-mono">{mismatch.asked}</span>, and this server validates tokens
-        for <span className="font-mono">{mismatch.validated}</span>. A token minted for the
-        first will be refused by the second.
+        {withValues(t("identity.scope.body"), {
+          asked: <span className="font-mono">{mismatch.asked}</span>,
+          validated: <span className="font-mono">{mismatch.validated}</span>,
+        })}
       </p>
-      <p className="text-sm text-[var(--color-ink-mid)]">
-        Point the dashboard&apos;s scopes at this server&apos;s API. Silence here is not a
-        promise that sign-in will work — a scope nobody has consented to, and an API minting a
-        different token version, both pass this comparison.
-      </p>
+      <p className="text-sm text-[var(--color-ink-mid)]">{t("identity.scope.remedy")}</p>
     </div>
   );
 }

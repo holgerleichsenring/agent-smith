@@ -1,6 +1,8 @@
 "use client";
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { useT } from "@/hooks/useT";
+import type { Params, TextKey } from "@/lib/i18n/translate";
 import { FailedSurface } from "./FailedSurface";
 
 // 2026-08-25-39ab: the app had NO error boundary anywhere — no route one, no
@@ -18,8 +20,10 @@ import { FailedSurface } from "./FailedSurface";
 // keeps the rest of the page rendering when one card cannot.
 
 interface Props {
-  /** The surface this boundary guards, named as an operator would name it. */
-  surface: string;
+  /** The surface this boundary guards: the dictionary key of its name as an operator would say it (2026-11-23-5669a). */
+  surface: TextKey;
+  /** The values the surface's name carries, such as a ticket's id. */
+  surfaceParams?: Params;
   children: ReactNode;
 }
 
@@ -45,7 +49,20 @@ export class RenderBoundary extends Component<Props, State> {
   override render(): ReactNode {
     if (this.state.error === null) return this.props.children;
     return (
-      <FailedSurface surface={this.props.surface} error={this.state.error} onRetry={this.retry} />
+      <NamedFailedSurface
+        surface={this.props.surface}
+        params={this.props.surfaceParams}
+        error={this.state.error}
+        onRetry={this.retry}
+      />
     );
   }
+}
+
+// A class cannot read the language, so the name is worded here, in the language in force when the failure shows.
+function NamedFailedSurface({ surface, params, error, onRetry }: {
+  surface: TextKey; params?: Params; error: Error; onRetry: () => void;
+}) {
+  const t = useT();
+  return <FailedSurface surface={t(surface, params)} error={error} onRetry={onRetry} />;
 }

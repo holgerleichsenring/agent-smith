@@ -4,6 +4,7 @@ import { useEventFilter } from "@/lib/EventFilterContext";
 import { EventType } from "@/types/hub-events";
 import { L1_TYPES, L2_TYPES, L3_TYPES } from "@/lib/eventFilterQuery";
 import type { DimensionKey } from "@/lib/dimensionFilterQuery";
+import { useT } from "@/hooks/useT";
 
 const LABELS: Record<EventType, string> = {
   [EventType.RunStarted]: "RunStarted",
@@ -76,53 +77,54 @@ interface FilterRailProps {
 }
 
 export function FilterRail({ observedDimensions }: FilterRailProps = {}) {
+  const t = useT();
   const { state, toggle, dimensions, toggleDimension } = useEventFilter();
   return (
     <aside className="space-y-4 text-xs" data-testid="filter-rail">
       <Section
-        title="L1 topology"
+        title={t("runs.filter.l1")}
         level="l1"
         types={[...L1_TYPES]}
         active={state.l1}
-        onToggle={(t) => toggle("l1", t)}
+        onToggle={(type) => toggle("l1", type)}
       />
       <Section
-        title="L2 decisions"
+        title={t("runs.filter.l2")}
         level="l2"
         types={[...L2_TYPES]}
         active={state.l2}
-        onToggle={(t) => toggle("l2", t)}
+        onToggle={(type) => toggle("l2", type)}
       />
       <Section
-        title="L3 sandbox"
+        title={t("runs.filter.l3")}
         level="l3"
         types={[...L3_TYPES]}
         active={state.l3}
-        onToggle={(t) => toggle("l3", t)}
+        onToggle={(type) => toggle("l3", type)}
       />
       <DimensionSection
-        title="Agent"
+        title={t("runs.filter.agent")}
         dimensionKey="agent"
         values={observedDimensions?.agent ?? []}
         active={dimensions.agent}
         onToggle={(v) => toggleDimension("agent", v)}
       />
       <DimensionSection
-        title="Sandbox"
+        title={t("runs.filter.sandbox")}
         dimensionKey="sandbox"
         values={observedDimensions?.sandbox ?? []}
         active={dimensions.sandbox}
         onToggle={(v) => toggleDimension("sandbox", v)}
       />
       <DimensionSection
-        title="Pipeline"
+        title={t("runs.filter.pipeline")}
         dimensionKey="pipeline"
         values={observedDimensions?.pipeline ?? []}
         active={dimensions.pipeline}
         onToggle={(v) => toggleDimension("pipeline", v)}
       />
       <DimensionSection
-        title="Activity"
+        title={t("runs.filter.activity")}
         dimensionKey="activity"
         values={observedDimensions?.activity ?? []}
         active={dimensions.activity}
@@ -173,12 +175,13 @@ interface DimensionSectionProps {
 }
 
 function DimensionSection({ title, dimensionKey, values, active, onToggle }: DimensionSectionProps) {
+  const t = useT();
   return (
     <div data-testid={`filter-dim-${dimensionKey}`}>
       <h3 className="mb-2 font-medium text-stone-700">{title}</h3>
       {values.length === 0 ? (
         <p className="text-stone-500" data-testid={`filter-dim-${dimensionKey}-empty`}>
-          (no values observed yet)
+          {t("runs.filter.noValues")}
         </p>
       ) : (
         <ul className="flex flex-wrap gap-1">

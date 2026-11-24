@@ -28,14 +28,14 @@ describe("RenderBoundary", () => {
     render(
       <div>
         <h1>agent-smith</h1>
-        <RenderBoundary surface="run side rail">
+        <RenderBoundary surface="shell.surface.sidebar">
           <Throws message="Cannot read properties of undefined (reading 'toLowerCase')" />
         </RenderBoundary>
       </div>,
     );
 
     const panel = screen.getByTestId("failed-surface");
-    expect(panel).toHaveTextContent("The run side rail could not be rendered.");
+    expect(panel).toHaveTextContent("The navigation sidebar could not be rendered.");
     expect(screen.getByTestId("failed-surface-message")).toHaveTextContent("toLowerCase");
     // The shell around the failed surface is still on the page — not a blank document.
     expect(screen.getByText("agent-smith")).toBeInTheDocument();
@@ -44,10 +44,10 @@ describe("RenderBoundary", () => {
   it("Render_AComponentThrows_TheOtherSurfacesStillRender", () => {
     render(
       <div>
-        <RenderBoundary surface="navigation rail">
+        <RenderBoundary surface="shell.surface.sidebar">
           <Throws message="a payload this build does not know" />
         </RenderBoundary>
-        <RenderBoundary surface="run monitor">
+        <RenderBoundary surface="shell.surface.home">
           <p>run 7f3c is running</p>
         </RenderBoundary>
       </div>,
@@ -55,7 +55,7 @@ describe("RenderBoundary", () => {
 
     expect(screen.getByTestId("failed-surface")).toHaveAttribute(
       "data-surface",
-      "navigation rail",
+      "navigation sidebar",
     );
     expect(screen.getByText("run 7f3c is running")).toBeInTheDocument();
     // Exactly one surface failed — the sibling boundary never engaged.
@@ -64,7 +64,7 @@ describe("RenderBoundary", () => {
 
   it("RenderBoundary_NothingThrows_RendersItsChildrenUntouched", () => {
     render(
-      <RenderBoundary surface="run monitor">
+      <RenderBoundary surface="shell.surface.home">
         <p>nothing wrong here</p>
       </RenderBoundary>,
     );
@@ -81,7 +81,7 @@ describe("RenderBoundary", () => {
     }
 
     render(
-      <RenderBoundary surface="run view">
+      <RenderBoundary surface="shell.surface.runView">
         <Flaky />
       </RenderBoundary>,
     );
@@ -101,7 +101,7 @@ describe("RenderBoundary", () => {
     }
 
     render(
-      <RenderBoundary surface="configuration">
+      <RenderBoundary surface="shell.surface.configuration">
         <ThrowsAString />
       </RenderBoundary>,
     );

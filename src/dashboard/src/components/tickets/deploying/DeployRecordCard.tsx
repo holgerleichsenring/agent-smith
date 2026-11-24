@@ -1,3 +1,6 @@
+"use client";
+
+import { useT } from "@/hooks/useT";
 import type { DeployRecordView } from "@/lib/deploymentsApi";
 import "@/styles/deploy-follow.css";
 import { deployHeadline, deployStanding, deployTone } from "./deployRecordWords";
@@ -6,12 +9,13 @@ import { deployHeadline, deployStanding, deployTone } from "./deployRecordWords"
 // and a red one's failed checks. The run's and the ticket's follow block and the Deployments page show the same card.
 
 export function DeployRecordCard({ record }: { record: DeployRecordView }) {
+  const t = useT();
   return (
     <div className={`deploy-follow ${deployTone(record)}`} data-testid="deploy-follow">
       <div className="deploy-follow-head">
-        <a href={record.url} target="_blank" rel="noreferrer" data-testid="deploy-follow-link">{deployHeadline(record)} ↗</a>
+        <a href={record.url} target="_blank" rel="noreferrer" data-testid="deploy-follow-link">{deployHeadline(t, record)} ↗</a>
         {" · "}
-        <span data-testid="deploy-follow-standing">{deployStanding(record)}</span>
+        <span data-testid="deploy-follow-standing">{deployStanding(t, record)}</span>
       </div>
       {record.note && <div className="msub" data-testid="deploy-follow-note">{record.note}</div>}
       {record.failures.map((f) => (

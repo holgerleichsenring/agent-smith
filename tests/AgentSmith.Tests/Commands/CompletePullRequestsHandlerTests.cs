@@ -313,7 +313,20 @@ public sealed class CompletePullRequestsHandlerTests
     {
         await RunAsync(new MergePolicyConfig { RespectBranchProtection = true }, passed: null, Green("a", askedBy: "Dana"));
 
-        _calls.Should().Equal("ready https://x/a/pull/1", "approve https://x/a/pull/1", "merge https://x/a/pull/1");
+        _calls.Should().Equal("ready https://x/a/pull/1", "requeue https://x/a/pull/1", "approve https://x/a/pull/1", "merge https://x/a/pull/1");
+    }
+
+    // 2026-11-23-0219: a person's merge queues again the required builds that have not started, after the draft step and before
+    // the approval and the arm; the CI watch's own merge never does.
+    [Fact]
+    public async Task MergeGreen_APersonAskedMerge_RequeuesNotStartedBuilds_TheCiMergeDoesNot()
+    {
+        await RunAsync(new MergePolicyConfig { RespectBranchProtection = true }, passed: null, Green("a", askedBy: "Dana"));
+        _calls.Should().Contain("requeue https://x/a/pull/1");
+
+        _calls.Clear();
+        await RunAsync(OnCi(respect: true), passed: null, Green("a"));
+        _calls.Should().NotContain(c => c.StartsWith("requeue", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -336,7 +349,7 @@ public sealed class CompletePullRequestsHandlerTests
 
         await RunAsync(new MergePolicyConfig(), passed: null, Green("a", askedBy: "Dana"));
 
-        _calls.Should().Equal("merge https://x/a/pull/1");
+        _calls.Should().Equal("requeue https://x/a/pull/1", "merge https://x/a/pull/1");
     }
 
     [Fact]
@@ -408,6 +421,13 @@ public sealed class CompletePullRequestsHandlerTests
                 _calls.Add($"ready {url}");
                 return Task.FromResult(_ready);
             });
+        provider.As<AgentSmith.Contracts.Reviews.IPullRequestBuildRequeuer>()
+            .Setup(r => r.RequeueNotStartedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns<string, CancellationToken>((url, _) =>
+            {
+                _calls.Add($"requeue {url}");
+                return Task.FromResult(1);
+            });
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
         var events = new Mock<IEventPublisher>();
@@ -418,7 +438,8 @@ public sealed class CompletePullRequestsHandlerTests
         var handler = new CompletePullRequestsHandler(new PullRequestMergeSequence(completer, new PullRequestApprovalStep(factory.Object),
             new PullRequestBaseGuard(factory.Object), NullLogger<PullRequestMergeSequence>.Instance,
             new UnmetTicketRequirements(_edges.Object, _landings.Object, Mock.Of<ISpecApprovalStore>()),
-            new PullRequestDraftStep(factory.Object)), completer);
+            new PullRequestDraftStep(factory.Object),
+            new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance)), completer);
         return await handler.ExecuteAsync(new CompletePullRequestsContext(policy, new BranchName("agent-smith/42"), repos, pipeline,
             "gh", "github-42"), CancellationToken.None);
     }

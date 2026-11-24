@@ -1,6 +1,7 @@
 "use client";
 
 import type { SandboxSetting } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
 import { CheckField, DrawerSection } from "./formFields";
 import { ImageTrustInForce } from "./ImageTrustInForce";
 import { useImageTrust } from "./useImageTrust";
@@ -25,6 +26,7 @@ export function SandboxImageTrustFields({
   onChange: (patch: Partial<SandboxSetting>) => void;
   persisted: SandboxSetting | null;
 }) {
+  const t = useT();
   const list = value.allowedRegistries ?? [];
   const saved = JSON.stringify(persisted?.allowedRegistries ?? []);
   const draft = JSON.stringify(list);
@@ -33,20 +35,17 @@ export function SandboxImageTrustFields({
   const setList = (next: string[]) => onChange({ allowedRegistries: next });
 
   return (
-    <DrawerSection title="Trusted image registries" summary={list.length ? `${list.length} named` : "default"}
+    <DrawerSection title={t("config.imageTrust.title")}
+      summary={list.length ? t("config.imageTrust.namedCount", { count: list.length }) : t("config.imageTrust.defaultSummary")}
       defaultOpen testId="setting-sandbox-trust">
       <p className="help" data-testid="setting-sandbox-trust-note">
-        Where a context&apos;s stack.image may come from. Each entry is a prefix of the image
-        reference as Docker reads it — an image with no registry host is on docker.io, so
-        sbtscala/ and docker.io/sbtscala/ are the same entry, and docker.io/ alone trusts all of
-        Docker Hub; docker.io/library/ is its official images (node:22-bookworm). Only the stack.image a context declares is judged: an image named in a
-        project&apos;s sandbox settings and the built-in fallbacks are not. A refused image falls back
-        to the language default. Applies to the next decision, no restart.
+        {t("config.imageTrust.note")}
       </p>
       {list.length === 0 && (
         <p className="help" data-testid="setting-sandbox-trust-empty">
-          No registry named — the built-in default applies{defaults.length ? `: ${defaults.join(", ")}` : ""}.
-          Adding the first entry starts from it.
+          {defaults.length
+            ? t("config.imageTrust.emptyWithDefaults", { defaults: defaults.join(", ") })
+            : t("config.imageTrust.empty")}
         </p>
       )}
       {list.map((entry, i) => (
@@ -56,18 +55,18 @@ export function SandboxImageTrustFields({
             onChange={(e) => setList(list.map((r, j) => (j === i ? e.target.value : r)))} />
           <button type="button" className="btn" data-testid={`setting-sandbox-trust-${i}-remove`}
             onClick={() => setList(list.filter((_, j) => j !== i))} style={{ color: "var(--bad)" }}>
-            Remove
+            {t("config.remove")}
           </button>
         </div>
       ))}
       <button type="button" className="btn" data-testid="setting-sandbox-trust-add"
         onClick={() => setList(withAddedRegistry(list, defaults))}>
-        Add a registry
+        {t("config.imageTrust.add")}
       </button>
-      <CheckField label="Allow new registries" value={value.allowNewRegistries === true}
+      <CheckField label={t("config.imageTrust.allowNew.label")} value={value.allowNewRegistries === true}
         onChange={(v) => onChange({ allowNewRegistries: v })} testId="setting-sandbox-trust-allow-new" />
       <p className="help" data-testid="setting-sandbox-trust-allow-new-note">
-        A ticket run adds the registry of an untrusted image to this list and records it.
+        {t("config.imageTrust.allowNew.note")}
       </p>
       <ImageTrustInForce boundary={boundary} error={error} dirty={draft !== saved} />
     </DrawerSection>

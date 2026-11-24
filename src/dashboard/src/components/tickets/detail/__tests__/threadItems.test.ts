@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TicketDerivation } from "@/types/tickets";
+import { translator } from "@/lib/i18n/translate";
 import { derivationWords, threadItems, type ThreadItem } from "../threadItems";
 import { attempt, conversation, detail, entry } from "./detailFixtures";
 
@@ -19,6 +20,8 @@ const names = (items: ThreadItem[]): string[] => items.map((i) => {
   }
 });
 
+const en = translator("en");
+
 describe("threadItems", () => {
   it("threadItems_Order_BeforeThenAttemptsAndDerivationsByStart_ThenNow", () => {
     const d = detail([
@@ -33,11 +36,11 @@ describe("threadItems", () => {
       entry({ id: "now", group: "now", attemptRunId: null }),
       entry({ id: "orphan", attemptRunId: "r-9" }),
     ]);
-    expect(names(threadItems(c, d))).toEqual(["before", "during", "report-1", "late", "derivation-d-1", "live", "report-2", "now", "orphan"]);
+    expect(names(threadItems(en, c, d))).toEqual(["before", "during", "report-1", "late", "derivation-d-1", "live", "report-2", "now", "orphan"]);
   });
 
   it("threadItems_NoConversationRead_StillListsTheReports", () => {
-    expect(names(threadItems(null, detail([attempt()])))).toEqual(["report-1"]);
+    expect(names(threadItems(en, null, detail([attempt()])))).toEqual(["report-1"]);
   });
 
   it("threadItems_ThreeEqualFailures_FoldIntoOneLineWithACount", () => {
@@ -48,14 +51,14 @@ describe("threadItems", () => {
       attempt({ number: 3, runId: "r-3", ...cause, startedAt: "2026-09-04T12:00:00Z" }),
       attempt({ number: 4, runId: "r-4", startedAt: "2026-09-04T13:00:00Z" }),
     ]);
-    const items = threadItems(conversation([]), d);
+    const items = threadItems(en, conversation([]), d);
     expect(names(items)).toEqual(["repeat(report-1,report-2,report-3)", "report-4"]);
     expect(items[0]).toMatchObject({ kind: "repeat", line: "3 runs stopped: Preflight failed: context-image-trust" });
   });
 
   it("threadItems_OneFailureAlone_DoesNotFold", () => {
     const d = detail([attempt({ status: "failed", summary: "x" }), attempt({ number: 2, runId: "r-2", status: "failed", summary: "y" })]);
-    expect(names(threadItems(conversation([]), d))).toEqual(["report-1", "report-2"]);
+    expect(names(threadItems(en, conversation([]), d))).toEqual(["report-1", "report-2"]);
   });
 
   it("threadItems_EqualDerivationsInARow_Fold_ADifferentOneBreaksTheRun", () => {
@@ -63,15 +66,15 @@ describe("threadItems", () => {
       derivation("d-1", "2026-09-04T10:00:00Z"), derivation("d-2", "2026-09-04T11:00:00Z"), derivation("d-3", "2026-09-04T12:00:00Z"),
       derivation("d-4", "2026-09-04T13:00:00Z", { outcome: "derived", specCount: 1 }),
     ] });
-    const items = threadItems(conversation([]), d);
+    const items = threadItems(en, conversation([]), d);
     expect(names(items)).toEqual(["repeat(derivation-d-1,derivation-d-2,derivation-d-3)", "derivation-d-4"]);
     expect(items[0]).toMatchObject({ line: "3 derivations stopped: Pipeline aborted: missing bootstrap" });
   });
 
   it("derivationWords_SayWhatCameOfIt", () => {
-    expect(derivationWords(derivation("d", "t", { outcome: "derived", specCount: 1 }))).toBe("found 1 spec");
-    expect(derivationWords(derivation("d", "t", { outcome: "asked" }))).toBe("stopped on a question, asked on the ticket");
-    expect(derivationWords(derivation("d", "t", { outcome: "not-finished", summary: null }))).toBe("stopped: no reason was recorded");
-    expect(derivationWords(derivation("d", "t", { outcome: "running" }))).toBe("is running");
+    expect(derivationWords(en, derivation("d", "t", { outcome: "derived", specCount: 1 }))).toBe("found 1 spec");
+    expect(derivationWords(en, derivation("d", "t", { outcome: "asked" }))).toBe("stopped on a question, asked on the ticket");
+    expect(derivationWords(en, derivation("d", "t", { outcome: "not-finished", summary: null }))).toBe("stopped: no reason was recorded");
+    expect(derivationWords(en, derivation("d", "t", { outcome: "running" }))).toBe("is running");
   });
 });

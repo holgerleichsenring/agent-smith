@@ -18,6 +18,8 @@ import { ProjectMergeSection } from "./ProjectMergeSection";
 import { camelCase } from "./capabilityFields";
 import { projectIntegrity, unfinishedTemplates } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
+import { useT } from "@/hooks/useT";
+import type { T, TextKey } from "@/lib/i18n/translate";
 
 // 2026-09-16-74a2: the project form was one scroll of eleven controls, three of which
 // were about pipelines and none of which said what it decided. It is five tabbed
@@ -36,14 +38,24 @@ import type { ConfigCatalog } from "./useConfigCatalog";
 const TABS = ["identity", "repos", "pipeline", "templates", "routing", "sandbox", "merge"] as const;
 export type ProjectTab = (typeof TABS)[number];
 
+const TAB_TITLE = {
+  identity: "config.project.tab.identity",
+  repos: "config.project.tab.repos",
+  pipeline: "config.project.tab.pipeline",
+  templates: "config.project.tab.templates",
+  routing: "config.project.tab.routing",
+  sandbox: "config.project.tab.sandbox",
+  merge: "config.project.tab.merge",
+} as const satisfies Record<ProjectTab, TextKey>;
+
 // Per-strategy value hints for the routing section. The STRATEGY LIST itself comes from
 // capabilities; these are only human placeholders for the strategies the product ships
 // (an unknown strategy falls back to a generic hint and stays selectable).
-const RESOLUTION_HINTS: Record<string, { placeholder: string; help: string }> = {
-  tag: { placeholder: "e.g. checkout", help: "ticket tag/label that routes to this project" },
-  area_path: { placeholder: "e.g. Product\\Team\\Component", help: "the ticket's area path" },
-  repo: { placeholder: "e.g. Sample.Api", help: "a repo name mentioned on the ticket" },
-  to_address: { placeholder: "e.g. team@example.com", help: "the inbound email address" },
+const RESOLUTION_HINTS: Record<string, { placeholder: TextKey; help: TextKey }> = {
+  tag: { placeholder: "config.resolution.tag.placeholder", help: "config.resolution.tag.help" },
+  area_path: { placeholder: "config.resolution.areaPath.placeholder", help: "config.resolution.areaPath.help" },
+  repo: { placeholder: "config.resolution.repo.placeholder", help: "config.resolution.repo.help" },
+  to_address: { placeholder: "config.resolution.toAddress.placeholder", help: "config.resolution.toAddress.help" },
 };
 
 export function ProjectForm({
@@ -65,18 +77,19 @@ export function ProjectForm({
   findings: ConfigFinding[];
   idField: ReactNode;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<ProjectTab>("identity");
   // p0345b: a project's repo refs come in two forms — plain catalog ids (toggled from
   // the repos catalog) and connection-scoped discovery refs "conn/RepoName" (managed by
   // the RepoPicker). Both live in the one `repos` array; the split here is presentational.
   const plainRefs = project.repos.filter((r) => !r.includes("/"));
   const connRefs = project.repos.filter((r) => r.includes("/"));
-  const tracker = catalog.trackers.find((t) => t.id === project.tracker) as StudioTracker | undefined;
+  const tracker = catalog.trackers.find((entry) => entry.id === project.tracker) as StudioTracker | undefined;
   const marked = markedTabs(findings, project);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="dtabs" role="tablist" aria-label="Project sections">
+      <div className="dtabs" role="tablist" aria-label={t("config.project.sections")}>
         {TABS.map((key) => (
           <button
             key={key}
@@ -88,8 +101,8 @@ export function ProjectForm({
             data-testid={`form-tab-${key}`}
             onClick={() => setTab(key)}
           >
-            {key}
-            {marked.has(key) && <span className="dtab-mark" aria-label="needs attention">▲</span>}
+            {t(TAB_TITLE[key])}
+            {marked.has(key) && <span className="dtab-mark" aria-label={t("config.needsAttention")}>▲</span>}
           </button>
         ))}
       </div>
@@ -99,14 +112,14 @@ export function ProjectForm({
           <>
             {idField}
             <RefSelect
-              label="agent"
+              label={t("config.project.agent")}
               value={project.agent}
               options={catalog.agents}
               testId="form-ref-agent"
               onChange={(v) => onChange({ ...project, agent: v })}
             />
             <RefSelect
-              label="tracker"
+              label={t("config.project.tracker")}
               value={project.tracker}
               options={catalog.trackers}
               testId="form-ref-tracker"
@@ -115,7 +128,7 @@ export function ProjectForm({
             {/* 2026-10-01-7f7aa: drawn only when the catalog has a design source to offer. */}
             {catalog["design-sources"].length > 0 && (
               <MultiRefSelect
-                label="design sources"
+                label={t("config.project.designSources")}
                 values={project.designSources ?? []}
                 options={catalog["design-sources"]}
                 testId="form-ref-designSources"
@@ -132,7 +145,7 @@ export function ProjectForm({
                 connection, which is the normal shape. It returns with the first entry. */}
             {catalog.repos.length > 0 && (
               <MultiRefSelect
-                label="repos"
+                label={t("config.project.repos")}
                 values={plainRefs}
                 options={catalog.repos}
                 testId="form-ref-repos"
@@ -140,7 +153,7 @@ export function ProjectForm({
               />
             )}
             <RepoPicker
-              label="connection-scoped repos"
+              label={t("config.project.connectionRepos")}
               values={connRefs}
               connections={catalog.connections}
               testId="form-connref"
@@ -152,11 +165,11 @@ export function ProjectForm({
         {tab === "pipeline" && (
           <>
             <SelectField
-              label="default pipeline"
+              label={t("config.project.defaultPipeline")}
               value={project.defaultPipeline ?? ""}
               options={capabilities?.pipelines ?? []}
-              placeholder="— none —"
-              help={pipelineHelp(project.defaultPipeline ?? "", capabilities)}
+              placeholder={t("config.none")}
+              help={pipelineHelp(t, project.defaultPipeline ?? "", capabilities)}
               testId="form-field-defaultPipeline"
               onChange={(v) =>
                 onChange({ ...project, defaultPipeline: v === "" ? undefined : v })
@@ -206,15 +219,16 @@ function RoutingSection({
   onChange: (next: StudioProject) => void;
   capabilities: ConfigCapabilities | null;
 }) {
+  const t = useT();
   const hint = project.resolution ? RESOLUTION_HINTS[project.resolution.strategy] : undefined;
   return (
     <>
       <SelectField
-        label="resolution strategy"
+        label={t("config.resolution.strategy.label")}
         value={project.resolution?.strategy ?? ""}
         options={capabilities?.resolutionStrategies ?? []}
-        placeholder="— none —"
-        help="how a ticket resolves to this project"
+        placeholder={t("config.none")}
+        help={t("config.resolution.strategy.help")}
         testId="form-field-resolution-strategy"
         onChange={(v) =>
           onChange({
@@ -225,11 +239,11 @@ function RoutingSection({
       />
       {project.resolution && (
         <TextField
-          label="resolution value"
+          label={t("config.resolution.value.label")}
           value={project.resolution.value}
           mono
-          placeholder={hint?.placeholder ?? "match value for this strategy"}
-          help={hint?.help ?? `value the ${project.resolution.strategy} strategy matches on`}
+          placeholder={hint ? t(hint.placeholder) : t("config.resolution.value.placeholder")}
+          help={hint ? t(hint.help) : t("config.resolution.value.help", { strategy: project.resolution.strategy })}
           testId="form-field-resolution-value"
           onChange={(v) => onChange({ ...project, resolution: { ...project.resolution!, value: v } })}
         />
@@ -261,22 +275,22 @@ function markedTabs(findings: ConfigFinding[], project: StudioProject): Set<Proj
 // carry a retired name. SelectField keeps an unlisted current value selectable, and this
 // labels it for what it is rather than silently rewriting it. 2026-09-25-e5b1: such a name
 // no longer runs — the alias map that made it resolve is gone — so the sentence says so.
-function pipelineHelp(value: string, capabilities: ConfigCapabilities | null): string {
-  if (!capabilities) return "capabilities unavailable";
-  if (value && !capabilities.pipelines.includes(value))
-    return `'${value}' is a retired name — it no longer runs; pick a current one to replace it`;
-  return "which pipeline definition this project runs; what a TICKET routes to is the tracker's, below";
+function pipelineHelp(t: T, value: string, capabilities: ConfigCapabilities | null): string {
+  if (!capabilities) return t("config.capabilitiesUnavailable");
+  if (value && !capabilities.pipelines.includes(value)) return t("config.project.pipeline.retired", { value });
+  return t("config.project.pipeline.help");
 }
 
 // p0392: what the server would say about this project, before it is saved. The rules run
 // on the server (ConfigDraftRules); this only renders the answer. A finding that names a
 // field is ALSO shown on that field — the summary here is for the ones that name the unit.
 function DraftFindings({ findings }: { findings: ConfigFinding[] }) {
+  const t = useT();
   if (findings.length === 0) return null;
   return (
     <div className="field" data-testid="form-draft-findings">
       <label>
-        what the server would report <span className="help">before you save</span>
+        {t("config.project.findings.label")} <span className="help">{t("config.project.findings.help")}</span>
       </label>
       <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
         {findings.map((f, i) => (
@@ -301,13 +315,14 @@ function DraftFindings({ findings }: { findings: ConfigFinding[] }) {
  * is the thing that gates Save.
  */
 function ProjectVerdict({ project, catalog }: { project: StudioProject; catalog: ConfigCatalog }) {
+  const t = useT();
   const integrity = projectIntegrity(catalog, project);
   const broken = integrity.repoResults.filter((r) => !r.ok).map((r) => r.id);
   const missing: string[] = [];
-  if (!integrity.agentOk) missing.push("agent");
-  if (!integrity.trackerOk) missing.push("tracker");
-  if (!integrity.reposOk) missing.push("at least one repo");
-  if (broken.length) missing.push(`unknown repo/connection ${broken.join(", ")}`);
+  if (!integrity.agentOk) missing.push(t("config.project.agent"));
+  if (!integrity.trackerOk) missing.push(t("config.project.tracker"));
+  if (!integrity.reposOk) missing.push(t("config.project.verdict.oneRepo"));
+  if (broken.length) missing.push(t("config.project.verdict.unknownRepo", { refs: broken.join(", ") }));
   return (
     <div
       data-testid="project-integrity"
@@ -317,8 +332,8 @@ function ProjectVerdict({ project, catalog }: { project: StudioProject; catalog:
       <span className="ii">{integrity.ok ? "✓" : "▲"}</span>
       <div>
         {integrity.ok
-          ? "Every reference resolves to a catalog entry — this project will pass config validation."
-          : `Unresolved: ${missing.join(", ")}`}
+          ? t("config.project.verdict.ok")
+          : t("config.project.verdict.unresolved", { missing: missing.join(", ") })}
       </div>
     </div>
   );

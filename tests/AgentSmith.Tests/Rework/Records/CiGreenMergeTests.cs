@@ -43,6 +43,18 @@ public sealed class CiGreenMergeTests : IDisposable
         _h.Records().Single().CiActed.Should().Be("abc:green");
     }
 
+    [Fact]
+    public async Task ARefreshWithoutTheCiLoop_LaunchesNothing_SoAnActsRequestNeverWaitsOnAPipeline()
+    {
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+
+        await _h.Refresh().RefreshAsync(_project, "7", null, CancellationToken.None, ciLoop: false); // 2026-11-24-a4e7
+
+        _launched.Should().BeEmpty();
+        _h.Records().Single().CiActed.Should().BeNull("the worker's next refresh acts on it");
+    }
+
     [Theory]
     [InlineData(CiStates.Pending)]
     [InlineData(CiStates.Red)]

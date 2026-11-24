@@ -1,26 +1,29 @@
 import type { NodeStatus } from "@/components/execution/TimingGutter";
+import type { T, TextKey } from "@/lib/i18n/translate";
 
 // 2026-09-17-042ef: the run status IN WORDS, moved here from RunCard, whose own comment said a
 // second copy would be two answers waiting to disagree — and the Work it out page is where the
 // second copy was about to be written. A word this map does not carry is a column value nothing
 // has named yet: it is shown with its underscores opened rather than hidden or guessed at.
-const STATUS_WORD: Record<string, string> = {
-  running: "running",
-  success: "success",
-  shortfall: "done, with a shortfall",
-  failed: "failed",
-  error: "error",
-  cancelled: "cancelled",
+// 2026-11-23-5669c: the words live in the dictionary (runs.status.*), in the chosen language.
+const STATUS_WORD: Record<string, TextKey> = {
+  running: "runs.status.running",
+  success: "runs.status.success",
+  shortfall: "runs.status.shortfall",
+  failed: "runs.status.failed",
+  error: "runs.status.error",
+  cancelled: "runs.status.cancelled",
   // p0269a: capacity-waiting run — the ticket re-runs automatically when room frees.
-  queued: "queued — waiting for capacity",
+  queued: "runs.status.queued",
   // p0327: parked on a question — resumes as the same run once answered.
-  waiting_for_input: "waiting for your input",
+  waiting_for_input: "runs.status.waiting_for_input",
 };
 
 /** What a run's status column says, in the words an operator reads. */
-export function runStatusWord(status: string | null | undefined): string {
+export function runStatusWord(t: T, status: string | null | undefined): string {
   const said = (status ?? "").toLowerCase();
-  return STATUS_WORD[said] ?? said.replace(/_/g, " ");
+  const key = STATUS_WORD[said];
+  return key ? t(key) : said.replace(/_/g, " ");
 }
 
 // p0208: RunSnapshot.status → NodeStatus. success→ok, failed|error→fail,

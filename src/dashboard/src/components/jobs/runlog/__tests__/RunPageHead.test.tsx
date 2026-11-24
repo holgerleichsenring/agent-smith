@@ -85,7 +85,8 @@ describe("RunPageHead", () => {
 describe("RunPageHead state word", () => {
   it("RunPageHead_FailedWithACause_StateWordIsTheShortHeadInItsTone", async () => {
     const { runStatus } = await import("../runStatusLine");
-    const line = runStatus({ status: "failed", specs: [], pullRequests: [], summary: "Checkout failed: the branch is gone." });
+    const { translator } = await import("@/lib/i18n/translate");
+    const line = runStatus(translator("en"), { status: "failed", specs: [], pullRequests: [], summary: "Checkout failed: the branch is gone." });
     render(<RunPageHead runId="run-abc" snapshot={snap({ status: "failed" })} line={line} ticket={ticket} repoNames={["server"]} stepCount={5} onDeleted={() => {}} />);
     expect(screen.getByTestId("run-meta-state")).toHaveTextContent(/^Failed$/);
     expect(screen.getByTestId("run-meta-state")).toHaveAttribute("data-tone", "bad");

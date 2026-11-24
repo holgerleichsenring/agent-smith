@@ -8,6 +8,7 @@ import { CapabilityFieldInputs, pruneToType, type FieldValue } from "./capabilit
 import { DraftCheckPanel } from "./DraftCheckPanel";
 import { TrackerOutcomes } from "./TrackerOutcomes";
 import { TrackerPollingBlock } from "./TrackerPollingBlock";
+import { useT } from "@/hooks/useT";
 import { OUTCOME_GROUP, TRACKER_TABS, trackerTabFor, trackerTabOf, trackerTabTitle, type TrackerTab } from "./trackerTabs";
 
 // 2026-10-06-cea8: the tracker drawer as tabs (the ProjectForm/AgentForm pattern). It was one
@@ -30,12 +31,13 @@ export function TrackerForm({
   secrets: string[];
   idField: ReactNode;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<TrackerTab>("connection");
   const fields = capabilities?.trackerTypes.find((d) => d.type === draft.type)?.fields ?? [];
   const values = draft as unknown as Record<string, unknown>;
   const onFieldChange = (key: string, value: FieldValue) => onChange({ ...draft, [key]: value });
-  const on = (t: TrackerTab) => fields.filter((f) => trackerTabOf(f) === t);
-  const visible = TRACKER_TABS.filter((t) => t === "connection" || t === "intake" || on(t).length > 0);
+  const on = (which: TrackerTab) => fields.filter((f) => trackerTabOf(f) === which);
+  const visible = TRACKER_TABS.filter((k) => k === "connection" || k === "intake" || on(k).length > 0);
   const marked = new Set(
     findings.filter((f) => f.severity === "blocking" && f.field).map((f) => trackerTabFor(f.field!, fields)),
   );
@@ -52,7 +54,7 @@ export function TrackerForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="dtabs" role="tablist" aria-label="Tracker sections">
+      <div className="dtabs" role="tablist" aria-label={t("config.tracker.sections")}>
         {visible.map((key) => (
           <button
             key={key}
@@ -64,8 +66,8 @@ export function TrackerForm({
             data-testid={`tracker-tab-${key}`}
             onClick={() => setTab(key)}
           >
-            {trackerTabTitle(key)}
-            {marked.has(key) && <span className="dtab-mark" aria-label="needs attention">▲</span>}
+            {trackerTabTitle(t, key)}
+            {marked.has(key) && <span className="dtab-mark" aria-label={t("config.needsAttention")}>▲</span>}
           </button>
         ))}
       </div>
@@ -75,11 +77,11 @@ export function TrackerForm({
           <>
             {idField}
             <SelectField
-              label="type"
+              label={t("config.type")}
               value={draft.type}
               options={capabilities?.trackerTypes.map((d) => d.type) ?? []}
               required
-              help={capabilities ? undefined : "capabilities unavailable"}
+              help={capabilities ? undefined : t("config.capabilitiesUnavailable")}
               testId="form-field-type"
               onChange={(v) => onChange(pruneToType(draft, capabilities?.trackerTypes ?? [], v))}
             />

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ticketHref } from "@/components/tickets/TicketRow";
 import { ticketDot } from "@/components/tickets/ticketDot";
-import { age, ticketLabel } from "@/components/tickets/ticketFormat";
+import { compactAge, ticketLabel } from "@/components/tickets/ticketFormat";
 import { ticketBucketHref, TICKETS_PATH } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
 import { holdAsk, holdRowAct, yourMoveCount } from "@/components/tickets/holds/holdWords";
@@ -27,26 +27,27 @@ export function HomeView() {
   const waiting = yourMoveCount(list?.counts, admin) ?? 0;
   const moves = yourMoves(tickets, admin);
   const recent = recentTickets(tickets, admin);
+  const t = useT();
   return (
     <div className="home" data-testid="home">
       <NewWorkHead />
       <HomeComposer />
       {moves.length > 0 && (
         <section className="home-sec" aria-labelledby="home-moves" data-testid="home-your-move">
-          <h2 id="home-moves">Your move</h2>
-          {moves.map((t) => <MoveRow key={`${t.project}/${t.ticketId}`} ticket={t} />)}
+          <h2 id="home-moves">{t("shell.nav.yourMove")}</h2>
+          {moves.map((m) => <MoveRow key={`${m.project}/${m.ticketId}`} ticket={m} />)}
           {waiting > MOVES_SHOWN && (
             <Link className="home-more" href={ticketBucketHref("needs-you")} data-testid="home-your-move-all">
-              All {waiting} that wait on you
+              {t("home.allWaiting", { count: waiting })}
             </Link>
           )}
         </section>
       )}
       {recent.length > 0 && (
         <section className="home-sec" aria-labelledby="home-recent" data-testid="home-recent">
-          <h2 id="home-recent">Recent tickets</h2>
-          {recent.map((t) => <RecentRow key={`${t.project}/${t.ticketId}`} ticket={t} />)}
-          <Link className="home-more" href={TICKETS_PATH}>All tickets</Link>
+          <h2 id="home-recent">{t("home.recentTickets")}</h2>
+          {recent.map((r) => <RecentRow key={`${r.project}/${r.ticketId}`} ticket={r} />)}
+          <Link className="home-more" href={TICKETS_PATH}>{t("home.allTickets")}</Link>
         </section>
       )}
     </div>
@@ -57,17 +58,18 @@ export function HomeView() {
 export function NewWorkHead() {
   const { list } = useTicketList();
   const admin = useHoldsAdmin();
+  const t = useT();
   return (
     <header className="home-head">
-      <h1>What should we work on?</h1>
-      {list && <p className="home-sub" data-testid="home-waiting">{waitingSentence(yourMoveCount(list.counts, admin) ?? 0)}</p>}
+      <h1>{t("home.question")}</h1>
+      {list && <p className="home-sub" data-testid="home-waiting">{waitingSentence(t, yourMoveCount(list.counts, admin) ?? 0)}</p>}
     </header>
   );
 }
 
 function MoveRow({ ticket }: { ticket: TicketSummary }) {
   const t = useT();
-  const act = holdRowAct(ticket.hold, t);
+  const act = holdRowAct(t, ticket.hold);
   return (
     <div className="home-row" data-testid={`home-move-${ticket.project}-${ticket.ticketId}`}>
       <span className={`home-dot ${ticketDot(ticket)}`} aria-hidden="true" />
@@ -76,9 +78,9 @@ function MoveRow({ ticket }: { ticket: TicketSummary }) {
           <span className="home-key">{ticketLabel(ticket)}</span>
           <span className="home-title">{ticket.title ?? ticket.ticketId}</span>
         </div>
-        <div className="home-ask">{holdAsk(ticket, t)}</div>
+        <div className="home-ask">{holdAsk(t, ticket)}</div>
       </div>
-      <span className="home-age">{age(ticket.since) ?? ""}</span>
+      <span className="home-age">{compactAge(t, ticket.since) ?? ""}</span>
       {/* 2026-11-23-d60d: a pull request a person merges or whose CI failed opens on its host. */}
       <Link className="home-act" href={holdPullRequestHref(ticket.hold) ?? ticketHref(ticket)} data-testid="home-move-act">{act}</Link>
     </div>
@@ -86,13 +88,14 @@ function MoveRow({ ticket }: { ticket: TicketSummary }) {
 }
 
 function RecentRow({ ticket }: { ticket: TicketSummary }) {
+  const t = useT();
   return (
     <Link className="home-row link" href={ticketHref(ticket)} data-testid={`home-recent-${ticket.project}-${ticket.ticketId}`}>
       <span className={`home-dot ${ticketDot(ticket)}`} aria-hidden="true" />
       <span className="home-key">{ticketLabel(ticket)}</span>
       <span className="home-title grow">{ticket.title ?? ticket.ticketId}</span>
-      <span className="home-state">{stateWords(ticket)}</span>
-      <span className="home-age">{age(ticket.since) ?? ""}</span>
+      <span className="home-state">{stateWords(ticket, t)}</span>
+      <span className="home-age">{compactAge(t, ticket.since) ?? ""}</span>
     </Link>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type {
   SpecDialogProject,
   SpecDialogSession,
@@ -82,6 +82,7 @@ export function DialogScopePanel({
 
 function BoundTicket({ ticket }: { ticket: SpecDialogSessionTicket }) {
   const t = useT();
+  const locale = useDateLocale();
   return (
     <div data-testid="dialog-scope-ticket" className="mb-3">
       <div className="fl">{t("dialog.scope.ticket")}</div>
@@ -90,7 +91,7 @@ function BoundTicket({ ticket }: { ticket: SpecDialogSessionTicket }) {
         <span className="min-w-0 truncate text-ink">{ticket.title}</span>
       </div>
       <div className="ec-sub mt-1">
-        {t("dialog.scope.read", { when: new Date(ticket.readAt).toLocaleString() })}
+        {t("dialog.scope.read", { when: new Date(ticket.readAt).toLocaleString(locale) })}
         {ticket.truncated && t("dialog.scope.truncated")}
       </div>
       {/* The text the turn was actually seeded with, whitespace kept: a ticket body is written

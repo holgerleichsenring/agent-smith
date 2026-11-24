@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { apiFetch } from "@/lib/apiResponse";
+import { useT } from "@/hooks/useT";
 import { useAccessToken } from "@/hooks/useAccessToken";
 import { useCallerIdentity } from "@/hooks/useCallerIdentity";
 import { holdsInAnyProject } from "@/lib/projectPermissions";
@@ -17,6 +18,7 @@ import { holdsInAnyProject } from "@/lib/projectPermissions";
 const RUNS_DELETE = "runs.delete";
 
 export function ClearTerminalRunsButton() {
+  const t = useT();
   const token = useAccessToken();
   const { identity } = useCallerIdentity(token !== null);
   const [armed, setArmed] = useState(false);
@@ -32,20 +34,20 @@ export function ClearTerminalRunsButton() {
       const res = await apiFetch(`/api/runs?state=terminal`, { method: "DELETE" });
       if (!res.ok) setError(`HTTP ${res.status}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "request failed");
+      setError(err instanceof Error ? err.message : t("runs.common2.requestFailed"));
     } finally {
       setArmed(false);
       setPending(false);
     }
-  }, [armed, pending]);
+  }, [armed, pending, t]);
 
   if (identity && !holdsInAnyProject(identity, RUNS_DELETE)) return null;
 
   const label = pending
-    ? "clearing…"
+    ? t("runs.clear.clearing")
     : armed
-      ? "confirm: finished runs and their verdict history go"
-      : "clear finished";
+      ? t("runs.clear.confirm")
+      : t("runs.clear.idle");
 
   return (
     <button
@@ -54,7 +56,7 @@ export function ClearTerminalRunsButton() {
       onMouseLeave={() => !pending && setArmed(false)}
       disabled={pending}
       data-testid="clear-terminal-runs"
-      title={error ?? "Delete every finished, failed and cancelled run, with the criterion verdicts recorded on it"}
+      title={error ?? t("runs.clear.title")}
       className={`inline-flex flex-none items-center rounded px-2 py-0.5 text-xs font-medium border transition disabled:cursor-not-allowed disabled:opacity-60 ${
         armed
           ? "border-rose-300 bg-rose-50 text-rose-700"

@@ -2,6 +2,7 @@
 
 import { useWebhookLog } from "@/hooks/useWebhookLog";
 import type { SystemEvent } from "@/types/system-events";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 interface Props {
   events: readonly SystemEvent[];
@@ -10,6 +11,8 @@ interface Props {
 
 export function WebhookLog({ events, limit = 50 }: Props) {
   const entries = useWebhookLog(events, limit);
+  const t = useT();
+  const locale = useDateLocale();
 
   return (
     <section
@@ -17,12 +20,12 @@ export function WebhookLog({ events, limit = 50 }: Props) {
       data-testid="webhook-log"
     >
       <header className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-sm font-medium text-stone-700">Webhook deliveries</h2>
-        <span className="text-xs text-stone-500">{entries.length} most recent</span>
+        <h2 className="text-sm font-medium text-stone-700">{t("system.webhooks.title")}</h2>
+        <span className="text-xs text-stone-500">{t("system.recent", { count: entries.length })}</span>
       </header>
       {entries.length === 0 ? (
         <p className="text-sm text-stone-500" data-testid="webhook-log-empty">
-          No webhook deliveries yet.
+          {t("system.webhooks.empty")}
         </p>
       ) : (
         <ul className="space-y-1.5">
@@ -38,7 +41,7 @@ export function WebhookLog({ events, limit = 50 }: Props) {
             >
               <span className="flex items-center gap-2">
                 <span className="rounded bg-stone-800 px-1.5 py-0.5 font-mono dsh-label uppercase tracking-wide text-stone-50">
-                  webhook
+                  {t("system.webhooks.tag")}
                 </span>
                 <span className="font-medium text-stone-800">{entry.source.replace(/^webhook:/, "")}</span>
                 <span className="font-mono text-xs text-stone-500">{entry.eventType}</span>
@@ -46,13 +49,13 @@ export function WebhookLog({ events, limit = 50 }: Props) {
               </span>
               <span className="flex items-center gap-3 text-xs">
                 <span className="font-mono text-stone-500">
-                  {new Date(entry.timestamp).toLocaleTimeString()}
+                  {new Date(entry.timestamp).toLocaleTimeString(locale)}
                 </span>
                 {entry.actioned ? (
-                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">actioned</span>
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">{t("system.webhooks.actioned")}</span>
                 ) : (
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-700">
-                    {entry.skipReason ?? "skipped"}
+                    {entry.skipReason ?? t("system.webhooks.skipped")}
                   </span>
                 )}
               </span>

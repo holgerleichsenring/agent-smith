@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import { fetchCallPrompt, type PromptRecordView } from "@/lib/runStoryApi";
 import { formatChars } from "./callSeries";
+import { useDateLocale, useT } from "@/hooks/useT";
 
 // 2026-11-09-0620a: what one model call was sent, in send order — the tool list, the system prompt and every
 // message — so a prompt can be read instead of reconstructed from code. One block per row; a block's content
 // opens on demand, because a tool list or a read file runs to tens of thousands of characters.
 
 export function CallPrompt({ runId, promptId, index }: { runId: string; promptId: string; index: number }) {
+  const t = useT();
+  const locale = useDateLocale();
   const [view, setView] = useState<PromptRecordView | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
@@ -24,19 +27,19 @@ export function CallPrompt({ runId, promptId, index }: { runId: string; promptId
     return () => ctrl.abort();
   }, [runId, promptId]);
 
-  if (error) return <p className="hint">Could not read the prompt of call {index}: {error.message}</p>;
-  if (!view) return <p className="hint">Loading the prompt of call {index}…</p>;
+  if (error) return <p className="hint">{t("runs.why.prompt.failed", { index, message: error.message })}</p>;
+  if (!view) return <p className="hint">{t("runs.why.prompt.loading", { index })}</p>;
 
   return (
     <div data-testid="call-prompt" data-prompt={view.id} style={{ marginTop: 8 }}>
       <div className="kv" style={{ marginBottom: 6 }}>
-        Call {index} was sent {view.blocks.length} blocks and offered {view.toolCount} tools.
-        {!view.complete && " Its earliest blocks were removed by retention."}
+        {t("runs.why.prompt.sent", { index, blocks: view.blocks.length, tools: view.toolCount })}
+        {!view.complete && t("runs.why.prompt.retention")}
       </div>
       {view.blocks.map((block) => (
         <details key={block.position} data-testid="call-prompt-block" data-kind={block.kind} data-role={block.role}>
           <summary className="mono" style={{ fontSize: "12px", cursor: "pointer" }}>
-            {block.position} · {block.kind === "Tools" ? "tools" : block.role} · {formatChars(block.chars)}
+            {block.position} · {block.kind === "Tools" ? t("runs.why.prompt.tools") : block.role} · {formatChars(block.chars, locale)}
           </summary>
           <pre className="mono" style={PRE}>{block.content}</pre>
         </details>

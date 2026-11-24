@@ -11,6 +11,7 @@ import { TicketSection } from "./TicketSection";
 import { TICKET_SECTIONS, totalTickets } from "./ticketSections";
 import { countsFor, isYourMove } from "./holds/holdWords";
 import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
+import { useT } from "@/hooks/useT";
 
 // 2026-10-13-9a59p: every ticket agent-smith has worked, grouped by who has to act next. The
 // unfiltered view reads the shared first page the rail reads too; a bucket view pages its own.
@@ -19,6 +20,7 @@ import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
 // which then leave Stuck; the counts are read the same way, so a section and its count agree.
 
 export function TicketList() {
+  const t = useT();
   const { filter } = useTicketBucketFilter();
   const shared = useTicketList();
   const bucket = filter === "all" ? null : filter;
@@ -28,18 +30,18 @@ export function TicketList() {
   const list = read ? { ...read, counts: countsFor(read.counts, admin) } : null;
   const refusal = shared.refusal ?? page.refusal;
 
-  if (!list && refusal) return <RefusalSurface refusal={refusal} surface="the ticket list" />;
-  if (!list && shared.failed) return <div className="msub" data-testid="tickets-failed">The ticket list could not be read.</div>;
+  if (!list && refusal) return <RefusalSurface refusal={refusal} surface={t("tickets.list.surface")} />;
+  if (!list && shared.failed) return <div className="msub" data-testid="tickets-failed">{t("tickets.list.failed")}</div>;
   if (!list) return <Loading />;
   if (totalTickets(list.counts) === 0) {
-    return <NoProjectReach><div className="msub" data-testid="tickets-empty">No ticket has been worked yet. A ticket appears here with its first code run.</div></NoProjectReach>;
+    return <NoProjectReach><div className="msub" data-testid="tickets-empty">{t("tickets.list.empty")}</div></NoProjectReach>;
   }
   return (
     <div data-testid="ticket-list" data-bucket={filter}>
       <TicketMetricStrip counts={list.counts} />
       {list.counts.truncated && (
         <div className="msub note" data-testid="tickets-truncated">
-          The list stopped at the server&apos;s read ceiling; older tickets are not counted.
+          {t("tickets.list.truncated")}
         </div>
       )}
       {bucket ? <BucketView bucket={bucket} list={list} page={page} admin={admin} /> : <AllSections list={list} page={page} admin={admin} />}
@@ -73,10 +75,11 @@ function BucketView({ bucket, list, page, admin }: { bucket: TicketBucket; list:
 }
 
 function LoadMore({ page }: { page: TicketBucketPage }) {
+  const t = useT();
   if (!page.hasMore) return null;
   return (
     <button type="button" className="btn load-more" onClick={page.loadMore} disabled={page.loadingMore} data-testid="tickets-load-more">
-      {page.loadingMore ? "Loading…" : "Load more"}
+      {page.loadingMore ? t("tickets.list.loading") : t("tickets.list.loadMore")}
     </button>
   );
 }

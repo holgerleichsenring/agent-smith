@@ -20,6 +20,17 @@ public sealed class CiVerdictTests
         CiVerdict.Of([]).Should().Be(CiStates.None);
     }
 
+    // 2026-11-23-0219: a build that never started outranks one that runs — nothing finishes it by itself; red still wins.
+    [Fact]
+    public void NotStarted_OutranksPending_RedOutranksNotStarted()
+    {
+        CiVerdict.Of([C(CiCheckOutcome.Pending), C(CiCheckOutcome.NotStarted)]).Should().Be(CiStates.NotStarted);
+        CiVerdict.Of([C(CiCheckOutcome.NotStarted), C(CiCheckOutcome.Failed)]).Should().Be(CiStates.Red);
+        CiStates.Waits(CiStates.NotStarted).Should().BeTrue();
+        CiStates.Waits(CiStates.Pending).Should().BeTrue();
+        CiStates.Waits(CiStates.Green).Should().BeFalse();
+    }
+
     [Fact]
     public void RequiredChecks_AloneDecide() =>
         CiVerdict.Of([C(CiCheckOutcome.Failed), C(CiCheckOutcome.Passed, required: true)]).Should().Be(CiStates.Green);

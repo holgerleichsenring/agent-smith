@@ -37,7 +37,9 @@ public sealed class PrReviewRecordRefresh(
 {
     private static readonly TimeSpan RecentlyEnded = TimeSpan.FromHours(24);
 
-    public async Task RefreshAsync(ResolvedProject project, string ticketId, string? nudgedUrl, CancellationToken ct)
+    /// <param name="ciLoop">2026-11-24-a4e7: false for an act's refresh inside a request (<see cref="PrRecordRefreshNow"/>):
+    /// the CI loop may run a whole merge-green pipeline, so that refresh leaves it to the worker's next one.</param>
+    public async Task RefreshAsync(ResolvedProject project, string ticketId, string? nudgedUrl, CancellationToken ct, bool ciLoop = true)
     {
         using var scope = scopes.CreateScope();
         var writer = scope.ServiceProvider.GetRequiredService<PrReviewRecordWriter>();
@@ -50,7 +52,7 @@ public sealed class PrReviewRecordRefresh(
         var once = new PrReviewAuthorTrustOnce(trust);
         foreach (var pr in named.Where(n => IsDue(n, records.GetValueOrDefault(PrKey.Of(n.Url)), nudgedUrl)))
             changed |= await OneAsync(project, pr, records.GetValueOrDefault(PrKey.Of(pr.Url)), writer, once, ct);
-        if (!await ciMerge.AfterRefreshAsync(project, ticketId, ct)) await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c
+        if (ciLoop && !await ciMerge.AfterRefreshAsync(project, ticketId, ct)) await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c
         await landing.RecordMergedAsync(project, ticketId, ct);
         if (changed) await activity.ChangedAsync(project.Name, KeyOf(project, ticketId), ct);
     }

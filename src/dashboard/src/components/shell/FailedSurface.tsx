@@ -2,6 +2,7 @@
 
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "./RefusalSurface";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-25-39ab: what a render failure looks like. A blank page is worse than
 // a wrong number, and it is also worse than an ugly one: an operator watching a
@@ -23,6 +24,7 @@ export function FailedSurface({ surface, error, onRetry }: Props) {
   // be rendered" is the wrong sentence for it. Branching here rather than in each
   // boundary is what makes every boundary — route, global and per-surface — say
   // the right thing about a signed-out or under-permissioned caller.
+  const t = useT();
   const refusal = refusalIn(error);
   if (refusal) return <RefusalSurface refusal={refusal} surface={surface} />;
 
@@ -34,11 +36,10 @@ export function FailedSurface({ surface, error, onRetry }: Props) {
       className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-left"
     >
       <p className="text-sm font-semibold text-amber-900">
-        The {surface} could not be rendered.
+        {t("shell.failed.title", { surface })}
       </p>
       <p className="mt-1 text-xs text-amber-800">
-        The rest of the page is unaffected. This is usually a payload this build does
-        not recognise.
+        {t("shell.failed.body")}
       </p>
       {error?.message && (
         <p
@@ -55,7 +56,7 @@ export function FailedSurface({ surface, error, onRetry }: Props) {
           data-testid="failed-surface-retry"
           className="mt-3 rounded border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
         >
-          Try again
+          {t("shell.failed.retry")}
         </button>
       )}
     </div>

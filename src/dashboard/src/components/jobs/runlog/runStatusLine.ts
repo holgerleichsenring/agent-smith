@@ -1,8 +1,9 @@
 import { isRelaunching, relaunchPlace } from "@/components/jobs/runStatus";
 import { retriable } from "@/components/tickets/detail/RetryUnchanged";
 import { endCauseHead } from "@/components/tickets/detail/ticketState";
-import { NOTHING, type YourMove } from "@/components/tickets/detail/yourMove";
+import type { YourMove } from "@/components/tickets/detail/yourMove";
 import { formatRunSummary } from "@/lib/formatRunSummary";
+import type { T } from "@/lib/i18n/translate";
 import type { RunSpecRow } from "@/lib/runSpecsApi";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import type { RunSnapshot } from "@/types/hub-events";
@@ -78,15 +79,17 @@ function bare(text: string): string {
 
 /** A failed run's head, first that exists: a failed spec's verdict, the end kind's words (endCauseHead), the summary's
  *  first sentence, the failed step's first line; never the generic "Attempt n failed." */
-function failedHead(input: StatusInput): { head: string; clause: string | null } {
+function failedHead(t: T, input: StatusInput): { head: string; clause: string | null } {
   const failed = input.specs.find((s) => s.status === "failed" && s.verdict);
   const verdict = failed ? firstSentence(failed.verdict) : null;
-  const ended = !verdict && input.attempt ? endCauseHead(input.attempt) : null;
+  const ended = !verdict && input.attempt ? endCauseHead(t, input.attempt) : null;
   if (ended) return { head: ended, clause: null };
   const why = verdict ?? said(input) ?? firstSentence(input.failedStep);
-  if (!why) return { head: "Failed", clause: null };
+  if (!why) return { head: t("runs.log.line.failed"), clause: null };
   // A cause that says what failed itself ("Preflight failed: …") follows a bare "Failed", never "Failed: Preflight failed".
-  return SAYS_FAILED.test(why) ? { head: "Failed", clause: why } : { head: `Failed: ${bare(why)}`, clause: null };
+  return SAYS_FAILED.test(why)
+    ? { head: t("runs.log.line.failed"), clause: why }
+    : { head: t("runs.log.line.failedBecause", { why: bare(why) }), clause: null };
 }
 
 /** "Preflight failed: …", "dotnet build failed …": a cause whose first words already say what failed. */
@@ -96,67 +99,67 @@ function said(input: StatusInput): string | null {
   return input.summary ? firstSentence(formatRunSummary(input.summary)) : null;
 }
 
-function pullRequestClause(repos: string[]): string {
-  if (repos.length === 0) return "No pull request opened";
-  return repos.length === 1 ? `Pull request opened in ${repos[0]}` : `${repos.length} pull requests opened`;
+function pullRequestClause(t: T, repos: string[]): string {
+  if (repos.length === 0) return t("runs.log.line.noPullRequest");
+  return repos.length === 1 ? t("runs.log.line.pullRequestIn", { repo: repos[0] }) : t("runs.log.line.pullRequests", { count: repos.length });
 }
 
-function headOf(input: StatusInput): Omit<RunStatusLine, "next" | "short"> {
+function headOf(t: T, input: StatusInput): Omit<RunStatusLine, "next" | "short"> {
   const status = input.status.toLowerCase();
   const specs = [...input.specs].sort((l, r) => l.ordinal - r.ordinal);
   const missing = specs.filter((s) => !delivered(s.status));
-  if (input.endKind === RUN_END_KINDS.superseded) return { tone: "quiet", head: "Superseded", clauses: [] };
-  if (input.endKind === RUN_END_KINDS.seriesPaused) return { tone: "quiet", head: "Paused with its series", clauses: [] };
-  if (input.resuming) return { tone: "run", head: input.queuePlace ? `Resuming, place ${input.queuePlace}` : "Resuming", clauses: [] };
+  if (input.endKind === RUN_END_KINDS.superseded) return { tone: "quiet", head: t("runs.log.line.superseded"), clauses: [] };
+  if (input.endKind === RUN_END_KINDS.seriesPaused) return { tone: "quiet", head: t("runs.log.line.seriesPaused"), clauses: [] };
+  if (input.resuming) return { tone: "run", head: input.queuePlace ? t("runs.log.line.resumingPlace", { place: input.queuePlace }) : t("runs.log.line.resuming"), clauses: [] };
   switch (status) {
-    case "queued": return { tone: "run", head: input.queuePlace ? `Queued, place ${input.queuePlace}` : "Queued", clauses: [] };
+    case "queued": return { tone: "run", head: input.queuePlace ? t("runs.log.line.queuedPlace", { place: input.queuePlace }) : t("runs.log.line.queued"), clauses: [] };
     case "running": {
       if (input.waitingForModel) return { tone: "run", head: input.waitingForModel, clauses: [] };
       const on = specs.find((s) => s.status === "in_progress");
-      return { tone: "run", head: on ? `Working on spec ${on.ordinal} of ${specs.length}` : "Working", clauses: [] };
+      return { tone: "run", head: on ? t("runs.log.line.workingOnSpec", { n: on.ordinal, total: specs.length }) : t("runs.log.line.working"), clauses: [] };
     }
-    case "waiting_for_input": return { tone: "person", head: "Waits for your answer", clauses: [] };
+    case "waiting_for_input": return { tone: "person", head: t("runs.log.line.waits"), clauses: [] };
   }
   if (input.handedBack) {
     const why = said(input);
-    return { tone: "person", head: "Handed back", clauses: why ? [why] : [] };
+    return { tone: "person", head: t("runs.log.line.handedBack"), clauses: why ? [why] : [] };
   }
-  if (input.endedOnInfrastructure) return { tone: "bad", head: "Stopped: the sandbox or host was lost", clauses: [] };
+  if (input.endedOnInfrastructure) return { tone: "bad", head: t("runs.log.line.infrastructure"), clauses: [] };
   switch (status) {
     case "success": {
-      if (specs.length === 0) return { tone: "ok", head: "Done", clauses: input.pullRequests.length > 0 ? [pullRequestClause(input.pullRequests)] : [] };
-      const head = specs.length > 1 ? `${specs.length} of ${specs.length} specs delivered` : "Delivered";
-      return { tone: "ok", head, clauses: [pullRequestClause(input.pullRequests)] };
+      if (specs.length === 0) return { tone: "ok", head: t("runs.log.line.done"), clauses: input.pullRequests.length > 0 ? [pullRequestClause(t, input.pullRequests)] : [] };
+      const head = specs.length > 1 ? t("runs.log.line.specsDelivered", { done: specs.length, total: specs.length }) : t("runs.log.line.delivered");
+      return { tone: "ok", head, clauses: [pullRequestClause(t, input.pullRequests)] };
     }
     case "shortfall": {
       if (specs.length === 0) {
         const why = said(input);
-        return { tone: "bad", head: "Not everything was delivered", clauses: why ? [why] : [] };
+        return { tone: "bad", head: t("runs.log.line.notEverything"), clauses: why ? [why] : [] };
       }
-      const head = `${specs.length - missing.length} of ${specs.length} specs delivered`;
+      const head = t("runs.log.line.specsDelivered", { done: specs.length - missing.length, total: specs.length });
       const clauses = missing.map((s) => {
         const why = firstSentence(s.verdict);
-        return why ? `${s.specId}: ${why}` : `${s.specId} not delivered`;
+        return why ? `${s.specId}: ${why}` : t("runs.log.line.notDelivered", { spec: s.specId });
       });
       return { tone: "bad", head, clauses };
     }
-    case "cancelled": return { tone: "quiet", head: "Cancelled", clauses: [] };
+    case "cancelled": return { tone: "quiet", head: t("runs.log.line.cancelled"), clauses: [] };
     default: {
       const verified = specs.filter((s) => s.status === "done").map((s) => s.specId);
-      const clauses = verified.length > 0 ? [`${verified.join(", ")} verified, not delivered`] : [];
-      const { head, clause } = failedHead(input);
+      const clauses = verified.length > 0 ? [t("runs.log.line.verifiedNotDelivered", { specs: verified.join(", ") })] : [];
+      const { head, clause } = failedHead(t, input);
       return { tone: "bad", head, clauses: clause ? [clause, ...clauses] : clauses };
     }
   }
 }
 
-export function runStatus(input: StatusInput): RunStatusLine {
-  const line = headOf(input);
+export function runStatus(t: T, input: StatusInput): RunStatusLine {
+  const line = headOf(t, input);
   const short = line.head.includes(": ") ? line.head.slice(0, line.head.indexOf(": ")) : line.head;
   let next = input.next ?? null;
   const missing = input.specs.filter((s) => !delivered(s.status)).map((s) => s.specId);
   if (next && input.retryAlso && input.status === "shortfall" && missing.length > 0)
-    next = `${next}; Retry unchanged gives ${missing.join(", ")} another attempt`;
+    next = t("runs.log.line.retryAlso", { next, specs: missing.join(", ") });
   return { ...line, short, next };
 }
 
@@ -204,11 +207,11 @@ export interface StatusContext {
 
 /** The next step of a run: the ticket's move for its newest attempt, the way to the latest for an older one, none
  *  without a move or when the move is a Retry this reader cannot press. */
-export function nextStep(ctx: StatusContext | null, attempt: TicketAttempt | null): string | null {
+export function nextStep(t: T, ctx: StatusContext | null, attempt: TicketAttempt | null): string | null {
   if (!ctx?.move || !attempt) return null;
-  if (ctx.latest && ctx.latest.number !== attempt.number) return `See run ${ctx.latest.number}, the latest`;
+  if (ctx.latest && ctx.latest.number !== attempt.number) return t("runs.log.line.seeLatest", { number: ctx.latest.number });
   if (ctx.move.act?.kind === "retry" && !ctx.canRetry) return null;
-  return ctx.move.next || NOTHING;
+  return ctx.move.next || t("hold.title.nobody");
 }
 
 /** Whether the line adds Retry for a shortfall: the newest attempt, retriable by its own rule, a reader who may retry,
@@ -221,11 +224,11 @@ export function retryAlso(ctx: StatusContext | null, attempt: TicketAttempt | nu
 
 /** An attempt's line with its next step, as the ticket page reads it. */
 export function attemptStatus(
-  attempt: TicketAttempt, ctx: StatusContext | null, queuePlace: number | null = null, waitingForModel: string | null = null,
+  t: T, attempt: TicketAttempt, ctx: StatusContext | null, queuePlace: number | null = null, waitingForModel: string | null = null,
 ): RunStatusLine {
   const newest = !ctx?.latest || ctx.latest.number === attempt.number;
-  const input = attemptStatusInput(attempt, nextStep(ctx, attempt), retryAlso(ctx, attempt), newest ? queuePlace : null);
-  return runStatus({ ...input, waitingForModel });
+  const input = attemptStatusInput(attempt, nextStep(t, ctx, attempt), retryAlso(ctx, attempt), newest ? queuePlace : null);
+  return runStatus(t, { ...input, waitingForModel });
 }
 
 /** The ticket's latest attempt. */
@@ -235,7 +238,7 @@ export function latestAttempt(detail: TicketDetail | null): TicketAttempt | null
 
 /** The run page's line: the snapshot, its RunSpec rows and steps, and the ticket's attempt and move when it has one. */
 export function snapshotStatus(
-  snapshot: RunSnapshot, specs: RunSpecRow[], steps: RunStepRow[],
+  t: T, snapshot: RunSnapshot, specs: RunSpecRow[], steps: RunStepRow[],
   ticket: { attempt: TicketAttempt | null; latest: TicketAttempt | null; move: YourMove | null } | null, canRetry = false,
   waitingForModel: string | null = null,
 ): RunStatusLine {
@@ -243,13 +246,13 @@ export function snapshotStatus(
   const failed = [...steps].reverse().find((s) => s.status === "failed" || s.status === "error");
   const relaunching = isRelaunching(snapshot);
   const status = (snapshot.status ?? "").toLowerCase();
-  return runStatus({
+  return runStatus(t, {
     status, endKind: attempt?.endKind, handedBack: attempt?.handedBack, endedOnInfrastructure: attempt?.endedOnInfrastructure,
     resuming: relaunching, queuePlace: relaunching ? relaunchPlace(snapshot) : snapshot.queuePosition,
     specs: specs.map((s) => ({ specId: s.specId, ordinal: s.ordinal, status: s.status, verdict: s.verdict })),
-    pullRequests: pullRequestLinks(snapshot).map((p) => p.repo || "the repository"),
+    pullRequests: pullRequestLinks(snapshot).map((p) => p.repo || t("runs.log.line.theRepository")),
     summary: snapshot.summary, failedStep: failed?.resultMessage ?? null, attempt,
-    next: ticket ? nextStep({ ...ticket, canRetry }, attempt) : null,
+    next: ticket ? nextStep(t, { ...ticket, canRetry }, attempt) : null,
     retryAlso: ticket ? retryAlso({ ...ticket, canRetry }, attempt) : false,
     waitingForModel,
   });

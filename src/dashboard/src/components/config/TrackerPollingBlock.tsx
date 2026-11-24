@@ -1,6 +1,7 @@
 "use client";
 
 import type { StudioTracker } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
 import { CheckField, NumberField } from "./formFields";
 
 // p0345c: polling is part of the v2 tracker CONTRACT (not per-type) — an
@@ -13,11 +14,12 @@ export function TrackerPollingBlock({
   tracker: StudioTracker;
   onChange: (next: StudioTracker) => void;
 }) {
+  const t = useT();
   if (!tracker.polling) {
     return (
       <div className="field">
         <label>
-          polling <span className="help">backend default applies</span>
+          {t("config.polling.label")} <span className="help">{t("config.polling.backendDefault")}</span>
         </label>
         <div className="picks">
           <button
@@ -28,7 +30,7 @@ export function TrackerPollingBlock({
               onChange({ ...tracker, polling: { enabled: true, intervalSeconds: 300, jitterPercent: 10 } })
             }
           >
-            Configure polling
+            {t("config.polling.configure")}
           </button>
         </div>
       </div>
@@ -38,19 +40,19 @@ export function TrackerPollingBlock({
   return (
     <>
       <CheckField
-        label="polling"
+        label={t("config.polling.label")}
         value={polling.enabled}
         testId="form-field-polling-enabled"
         onChange={(v) => onChange({ ...tracker, polling: { ...polling, enabled: v } })}
       />
       <NumberField
-        label="poll interval (seconds)"
+        label={t("config.polling.interval")}
         value={polling.intervalSeconds}
         testId="form-field-polling-intervalSeconds"
         onChange={(v) => onChange({ ...tracker, polling: { ...polling, intervalSeconds: v ?? 0 } })}
       />
       <NumberField
-        label="jitter (%)"
+        label={t("config.polling.jitter")}
         value={polling.jitterPercent}
         testId="form-field-polling-jitterPercent"
         onChange={(v) => onChange({ ...tracker, polling: { ...polling, jitterPercent: v ?? 0 } })}
@@ -62,7 +64,7 @@ export function TrackerPollingBlock({
           data-testid="form-field-polling-remove"
           onClick={() => onChange({ ...tracker, polling: undefined })}
         >
-          Remove polling override
+          {t("config.polling.remove")}
         </button>
       </div>
     </>

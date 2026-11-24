@@ -1,6 +1,7 @@
 "use client";
 
 import { FailedSurface } from "@/components/shell/FailedSurface";
+import { useLanguage, useT } from "@/hooks/useT";
 import "./globals.css";
 
 // 2026-08-25-39ab: the LAST boundary. The route boundary sits inside the root
@@ -17,11 +18,12 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useT();
   return (
-    <html lang="en">
+    <html lang={useLanguage()}>
       <body className="bg-white p-8">
         <div data-testid="global-error">
-          <FailedSurface surface="dashboard" error={error} onRetry={reset} />
+          <FailedSurface surface={t("shell.surface.dashboard")} error={error} onRetry={reset} />
         </div>
       </body>
     </html>

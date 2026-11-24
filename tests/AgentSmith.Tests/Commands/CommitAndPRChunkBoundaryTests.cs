@@ -68,7 +68,8 @@ public partial class CommitAndPRHandlerTests
         var (_, draft) = CapturePullRequest();
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.SpecSequenceProgress, new SpecSequenceProgress([
-            new SpecProgress("p0001a", "Goal a", SpecRunState.Done), new SpecProgress("p0001b", "Goal b", SpecRunState.Done)]));
+            new SpecProgress("p0001a", "Goal a", SpecRunState.Done, CarriedWork: true),
+            new SpecProgress("p0001b", "Goal b", SpecRunState.Done, CarriedWork: true)]));
 
         var result = await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
 

@@ -15,7 +15,10 @@ export type InitLaunchOutcome = "started" | "already-running" | "refused";
 export interface InitLaunch {
   outcome: InitLaunchOutcome;
   runId: string | null;
+  /** The server's reason, with the status it came with; null when it sent none (the button words that). */
   reason: string | null;
+  /** The HTTP status of a refusal; null once started. */
+  status: number | null;
 }
 
 interface InitLaunchBody {
@@ -41,27 +44,26 @@ export async function startProjectInit(
     signal,
   });
   const body = (await readBody(res)) ?? {};
-  if (res.ok) return { outcome: "started", runId: body.runId ?? null, reason: null };
+  if (res.ok) return { outcome: "started", runId: body.runId ?? null, reason: null, status: null };
   if (res.status === 409) {
     return {
       outcome: "already-running",
       runId: body.runId ?? null,
-      reason: body.reason ?? "An initialization is already running.",
+      reason: body.reason ?? null,
+      status: res.status,
     };
   }
-  return { outcome: "refused", runId: null, reason: refusalReason(body.reason, res.status) };
+  return { outcome: "refused", runId: null, reason: refusalReason(body.reason, res.status), status: res.status };
 }
 
 // 2026-08-27-7098: the reason is the message and the status rides ALONG with it — it is
 // what an operator quotes when they ask for help. The code stopped being the message the
 // moment the server started sending a reason for every refusal, including the unplanned
 // ones; a body that still carries none is a server too broken to say, and then the code
-// is all there is.
-function refusalReason(reason: string | null | undefined, status: number): string {
+// is all there is — the button words it in the chosen language (2026-11-22-5485b).
+function refusalReason(reason: string | null | undefined, status: number): string | null {
   const stated = reason?.trim();
-  return stated
-    ? `${stated} (HTTP ${status})`
-    : `Could not start the initialization (HTTP ${status}).`;
+  return stated ? `${stated} (HTTP ${status})` : null;
 }
 
 // A refusal body is the reason the button renders; a body that is not JSON must

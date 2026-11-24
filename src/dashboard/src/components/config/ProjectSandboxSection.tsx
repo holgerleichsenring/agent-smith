@@ -8,6 +8,8 @@ import type {
   ResolvedValue,
   StudioProject,
 } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 import { CheckField, MapField, NumberField, TextField } from "./formFields";
 import { SandboxResourceGroup } from "./SandboxResourceGroup";
 import { SandboxSecretsBlock } from "./SandboxSecretsBlock";
@@ -34,30 +36,26 @@ import { SandboxSecretsBlock } from "./SandboxSecretsBlock";
 // per-project override is read from the configuration when a run is prepared; the
 // process-wide values it falls back to are built into an options instance once at startup
 // (2026-09-18-0f27), which is why changing THOSE is the half that needs a restart.
-const NEXT_RUN = "applies to the next run of this project";
+// Their words are the dictionary's config.sandbox.nextRun and config.sandbox.nextTurn.
 
 // The hold window's half of the same story, and it is the opposite one: the next design
 // conversation TURN takes it, and a reaper scan picks it up within its own interval — no
 // restart, no new run. Zero is a value, not an empty box: it holds nothing.
-const NEXT_TURN =
-  "applies to the next turn of a design conversation and reaches a reaper scan "
-  + "without a server restart; 0 holds nothing";
 
 /** An empty control means "inherit", so it is sent as undefined — never 0, never "". */
 const text = (v: string) => (v.trim() === "" ? undefined : v);
 
 /** What the inherited value reads as beside a control. A run-resolved value has no
  *  config-time answer at all, and a blank there would read as "no image". */
-function provenance(v: ResolvedValue<string | number> | undefined): string {
-  if (!v) return "inherited value unavailable";
-  if (v.source === "run-resolved") return "detected per run from the repository";
-  if (v.value === null || v.value === "") return "nothing to inherit — none is configured";
+function provenance(t: T, v: ResolvedValue<string | number> | undefined): string {
+  if (!v) return t("config.sandbox.provenance.unavailable");
+  if (v.source === "run-resolved") return t("config.sandbox.provenance.runResolved");
+  if (v.value === null || v.value === "") return t("config.sandbox.provenance.nothing");
   // 2026-09-23-2446: the legs that are NOT a settings field say so, or an operator goes
   // looking for a value in Settings that is not there.
-  if (v.source === "environment-variable")
-    return `inherits ${v.value} from the SANDBOX_HOLD_SECONDS environment variable`;
-  if (v.source === "code-default") return `inherits the built-in ${v.value}`;
-  return `inherits ${v.value}`;
+  if (v.source === "environment-variable") return t("config.sandbox.provenance.environment", { value: v.value });
+  if (v.source === "code-default") return t("config.sandbox.provenance.builtIn", { value: v.value });
+  return t("config.sandbox.provenance.inherits", { value: v.value });
 }
 
 function placeholder(v: ResolvedValue<string | number> | undefined): string | undefined {
@@ -74,6 +72,7 @@ export function ProjectSandboxSection({
   onChange: (next: StudioProject) => void;
   inheritedSandbox: InheritedSandboxProjection | null;
 }) {
+  const t = useT();
   // A project being created — or renamed before its save — is not in the running
   // configuration and has no row of its own. The process-wide values are exactly what it
   // will inherit the moment it exists, so they are shown and SAID, rather than left blank.
@@ -100,75 +99,70 @@ export function ProjectSandboxSection({
   return (
     <>
       <p className="help" data-testid="form-sandbox-inheritance-note">
-        Every field here is an override. Leave one empty and the project inherits what the
-        placeholder names; {NEXT_RUN}. The process-wide values it falls back to — the hold
-        window excepted, which is read live — are read once at startup, so changing THOSE in
-        Settings → sandbox needs a server restart.
+        {t("config.sandbox.inheritanceNote")}
       </p>
 
       {inheritedSandbox === null && (
         <p className="help" data-testid="form-sandbox-inherited-unavailable">
-          The inherited values could not be read, so the placeholders are missing. An empty
-          field still means “inherit”.
+          {t("config.sandbox.inheritedUnavailable")}
         </p>
       )}
 
       {draft && (
         <p className="help" data-testid="form-sandbox-draft-note">
-          This project is not in the running configuration yet, so it has no resolved row —
-          the values named below are the process-wide ones it will inherit once it is saved.
+          {t("config.sandbox.draftNote")}
         </p>
       )}
 
       <TextField
-        label="toolchain image"
+        label={t("config.sandbox.toolchainImage.label")}
         value={block.toolchainImage ?? ""}
         mono
         placeholder={placeholder(row?.toolchainImage)}
-        help={`whole-project sandbox image — ${provenance(row?.toolchainImage)}`}
+        help={t("config.sandbox.toolchainImage.help", { provenance: provenance(t, row?.toolchainImage) })}
         testId="form-field-sandbox-toolchainImage"
         onChange={(v) => set({ toolchainImage: text(v) })}
       />
       <NumberField
-        label="step timeout (seconds)"
+        label={t("config.sandbox.stepTimeout.label")}
         value={block.stepTimeoutSeconds ?? undefined}
         placeholder={placeholder(row?.stepTimeoutSeconds)}
-        help={`per-step wall-time cap for this project — ${provenance(row?.stepTimeoutSeconds)}`}
+        help={t("config.sandbox.stepTimeout.help", { provenance: provenance(t, row?.stepTimeoutSeconds) })}
         testId="form-field-sandbox-stepTimeoutSeconds"
         onChange={(v) => set({ stepTimeoutSeconds: v })}
       />
       <NumberField
-        label="run_command timeout (seconds)"
+        label={t("config.sandbox.runCommandTimeout.label")}
         value={block.runCommandTimeoutSeconds ?? undefined}
         placeholder={placeholder(row?.runCommandTimeoutSeconds)}
-        help={`what a run_command gets when it asks for none — ${provenance(row?.runCommandTimeoutSeconds)}`}
+        help={t("config.sandbox.runCommandTimeout.help", { provenance: provenance(t, row?.runCommandTimeoutSeconds) })}
         testId="form-field-sandbox-runCommandTimeoutSeconds"
         onChange={(v) => set({ runCommandTimeoutSeconds: v })}
       />
       <TextField
-        label="agent registry"
+        label={t("config.sandbox.agentRegistry.label")}
         value={block.agentRegistry ?? ""}
         mono
         placeholder={placeholder(row?.agentRegistry)}
-        help={`registry this project pulls the sandbox agent from — ${provenance(row?.agentRegistry)}`}
+        help={t("config.sandbox.agentRegistry.help", { provenance: provenance(t, row?.agentRegistry) })}
         testId="form-field-sandbox-agentRegistry"
         onChange={(v) => set({ agentRegistry: text(v) })}
       />
       <TextField
-        label="agent version"
+        label={t("config.sandbox.agentVersion.label")}
         value={block.agentVersion ?? ""}
         mono
         placeholder={placeholder(row?.agentVersion)}
-        help={`sandbox agent image tag for this project — ${provenance(row?.agentVersion)}`}
+        help={t("config.sandbox.agentVersion.help", { provenance: provenance(t, row?.agentVersion) })}
         testId="form-field-sandbox-agentVersion"
         onChange={(v) => set({ agentVersion: text(v) })}
       />
 
       <NumberField
-        label="sandbox hold (seconds)"
+        label={t("config.sandbox.hold.label")}
         value={block.holdSeconds ?? undefined}
         placeholder={placeholder(row?.holdSeconds)}
-        help={`how long this project's design conversations hold their source sandboxes between turns — ${provenance(row?.holdSeconds)}; ${NEXT_TURN}`}
+        help={t("config.sandbox.hold.help", { provenance: provenance(t, row?.holdSeconds) })}
         testId="form-field-sandbox-holdSeconds"
         onChange={(v) => set({ holdSeconds: v })}
       />
@@ -176,29 +170,24 @@ export function ProjectSandboxSection({
       {/* 2026-10-01-283df: config decides the browser, because a run's capacity is reserved
           before it starts — the model can only use a pod admission already counted. */}
       <CheckField
-        label="browser rendering in runs"
+        label={t("config.sandbox.browser.label")}
         value={block.browserEnabled === true}
         testId="form-field-sandbox-browserEnabled"
         onChange={(v) => set({ browserEnabled: v ? true : undefined })}
       />
       <p className="help" data-testid="form-sandbox-browser-note">
-        On, a run&apos;s coding master can render the uploaded websites its approval cites and
-        public pages with render_reference, and each run of this project reserves one browser pod
-        at the process-wide browser profile; {NEXT_RUN}.
+        {t("config.sandbox.browser.note")}
       </p>
 
       {/* 2026-10-25-c5a7a/ff3b: with installation hardening on, root is a per-project choice that warns on every run. */}
       <CheckField
-        label="run sandboxes as root"
+        label={t("config.sandbox.root.label")}
         value={block.runAsRoot === true}
         testId="form-field-sandbox-runAsRoot"
         onChange={(v) => set({ runAsRoot: v ? true : undefined })}
       />
       <p className="help" data-testid="form-sandbox-root-note">
-        Matters only when the installation hardens sandboxes (Settings, Sandbox). Then sandboxes run
-        as uid 1000 with no Linux capabilities, and this turns root back on for this project when a
-        prerequisite needs it, such as apt-get or a global npm install. Every run of this project
-        then shows a warning; {NEXT_RUN}.
+        {t("config.sandbox.root.note")}
       </p>
 
       <SandboxResourceGroup
@@ -208,11 +197,11 @@ export function ProjectSandboxSection({
       />
 
       <MapField
-        label="per-language images"
+        label={t("config.sandbox.images.label")}
         values={structured.images ?? {}}
         testId="form-field-sandbox-images"
-        help="one language and the image it is built in — every language you do not name keeps inheriting"
-        rowHint={(key, value) => imageHint(row, key, value)}
+        help={t("config.sandbox.images.help")}
+        rowHint={(key, value) => imageHint(t, row, key, value)}
         onChange={(images) => setStructured({ images: images ?? null })}
       />
 
@@ -228,18 +217,18 @@ export function ProjectSandboxSection({
  *  language never replaces the table — every other key still answers from the code
  *  defaults. A key the product does not know inherits nothing nameable; the image is then
  *  chosen per run from the repository. */
-function imageHint(row: InheritedSandbox | undefined, key: string, value: string) {
+function imageHint(t: T, row: InheritedSandbox | undefined, key: string, value: string) {
   const inherited = row?.images?.[key.trim().toLowerCase()]?.value ?? undefined;
   if (key.trim() === "") return {};
   if (value.trim() !== "")
     return {
       placeholder: inherited ?? undefined,
       note: inherited
-        ? `overrides the code default ${inherited} for ${key} only`
-        : `pins ${key}, which the product has no code default for`,
+        ? t("config.sandbox.images.overrides", { image: inherited, key })
+        : t("config.sandbox.images.pins", { key }),
     };
   return {
     placeholder: inherited ?? undefined,
-    note: inherited ? `inherits ${inherited}` : "no code default for this key",
+    note: inherited ? t("config.sandbox.provenance.inherits", { value: inherited }) : t("config.sandbox.images.noDefault"),
   };
 }

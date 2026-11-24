@@ -1,4 +1,5 @@
 import { summaryLine } from "@/lib/formatRunSummary";
+import type { T } from "@/lib/i18n/translate";
 import type { TicketAttempt, TicketConversation, TicketConversationEntry, TicketDerivation, TicketDetail } from "@/types/tickets";
 import { sameCauses } from "./sameCauses";
 
@@ -24,7 +25,7 @@ interface Block {
   hasEntries: boolean;
 }
 
-export function threadItems(conversation: TicketConversation | null, detail: TicketDetail): ThreadItem[] {
+export function threadItems(t: T, conversation: TicketConversation | null, detail: TicketDetail): ThreadItem[] {
   const entries = conversation?.entries ?? [];
   const attemptIds = new Set(detail.attempts.map((a) => a.runId));
   const before = entries.filter((e) => !e.attemptRunId && e.group === "before");
@@ -35,7 +36,7 @@ export function threadItems(conversation: TicketConversation | null, detail: Tic
   ].sort((l, r) => l.at - r.at);
   return [
     ...before.map(asEntry),
-    ...foldDerivations(foldAttempts(blocks, detail.attempts)).flatMap((b) => b.items),
+    ...foldDerivations(t, foldAttempts(t, blocks, detail.attempts)).flatMap((b) => b.items),
     ...now.map(asEntry),
   ];
 }
@@ -65,24 +66,27 @@ function derivationBlock(derivation: TicketDerivation): Block {
 }
 
 /** Consecutive blocks of attempts in one run of equal causes fold into one line once there are two or more. */
-function foldAttempts(blocks: Block[], attempts: TicketAttempt[]): Block[] {
+function foldAttempts(t: T, blocks: Block[], attempts: TicketAttempt[]): Block[] {
   const runs = sameCauses(attempts);
   const headOf = (b: Block) => (b.attempt ? runs.get(b.attempt.runId)?.key ?? b.attempt.runId : null);
   return fold(blocks, (prev, next) =>
     !!prev.attempt && !!next.attempt && !prev.hasEntries && !next.hasEntries
     && runs.has(next.attempt.runId) && headOf(next) === headOf(prev),
   (run) => {
-    const cause = summaryLine(run[0].attempt!.summary) ?? "the same cause";
-    return { key: `attempts-${run[0].attempt!.runId}`, line: `${run.length} runs stopped: ${cause}` };
+    const cause = summaryLine(run[0].attempt!.summary) ?? t("tickets.thread.sameCause");
+    return { key: `attempts-${run[0].attempt!.runId}`, line: t("tickets.thread.runsStopped", { count: run.length, cause }) };
   });
 }
 
 /** Consecutive derivations that came to the same words fold into one line once there are two or more. */
-function foldDerivations(blocks: Block[]): Block[] {
+function foldDerivations(t: T, blocks: Block[]): Block[] {
   return fold(blocks, (prev, next) =>
     !!prev.derivation && !!next.derivation && next.derivation.outcome !== "running"
-    && derivationWords(prev.derivation) === derivationWords(next.derivation),
-  (run) => ({ key: `derivations-${run[0].derivation!.runId}`, line: `${run.length} derivations ${derivationWords(run[0].derivation!)}` }));
+    && derivationWords(t, prev.derivation) === derivationWords(t, next.derivation),
+  (run) => ({
+    key: `derivations-${run[0].derivation!.runId}`,
+    line: t("tickets.thread.derivations", { count: run.length, words: derivationWords(t, run[0].derivation!) }),
+  }));
 }
 
 function fold(blocks: Block[], joins: (prev: Block, next: Block) => boolean, name: (run: Block[]) => { key: string; line: string }): Block[] {
@@ -104,11 +108,11 @@ function fold(blocks: Block[], joins: (prev: Block, next: Block) => boolean, nam
 }
 
 /** What came of a derivation, after "Spec derivation" or "3 derivations". */
-export function derivationWords(d: TicketDerivation): string {
+export function derivationWords(t: T, d: TicketDerivation): string {
   switch (d.outcome) {
-    case "running": return "is running";
-    case "derived": return d.specCount === 1 ? "found 1 spec" : `found ${d.specCount} specs`;
-    case "asked": return "stopped on a question, asked on the ticket";
-    default: return `stopped: ${summaryLine(d.summary) ?? "no reason was recorded"}`;
+    case "running": return t("tickets.derive.running");
+    case "derived": return t("tickets.derive.found", { count: d.specCount });
+    case "asked": return t("tickets.derive.asked");
+    default: return t("tickets.derive.stopped", { reason: summaryLine(d.summary) ?? t("tickets.derive.noReason") });
   }
 }

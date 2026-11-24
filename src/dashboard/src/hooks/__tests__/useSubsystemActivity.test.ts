@@ -1,6 +1,7 @@
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { describeSystemEvent, useSubsystemActivity } from "../useSubsystemActivity";
+import { translator } from "@/lib/i18n/translate";
 import { SystemEventType, type SystemEvent } from "@/types/system-events";
 
 // p0209b: per-subsystem freshness derivation. Time is pinned via fake timers so
@@ -94,7 +95,7 @@ describe("describeSystemEvent", () => {
       project: "sample",
       ticketKey: "github-42",
     };
-    expect(describeSystemEvent(nudge)).toBe("");
+    expect(describeSystemEvent(translator("en"), nudge)).toBe("");
   });
 
   // 2026-10-14-dbceg
@@ -109,8 +110,14 @@ describe("describeSystemEvent", () => {
       kind,
       by,
     });
-    expect(describeSystemEvent(landed("42", "merged", null))).toBe("landed · sample/#42 · merged");
-    expect(describeSystemEvent(landed("ABC-7", "by-hand", "alice"))).toBe("landed · sample/ABC-7 · by-hand by alice");
+    expect(describeSystemEvent(translator("en"), landed("42", "merged", null))).toBe("landed · sample/#42 · merged");
+    expect(describeSystemEvent(translator("en"), landed("ABC-7", "by-hand", "alice"))).toBe("landed · sample/ABC-7 · by-hand by alice");
+  });
+
+  // 2026-11-22-5485b: the stream's lines are in the chosen language; the recorded values stay as recorded.
+  it("describeSystemEvent_German_WordsTheLineInGerman", () => {
+    expect(describeSystemEvent(translator("de"), pollFinished("2026-06-03T19:09:28.000Z")))
+      .toBe("Poll fertig · sample · 49 abgefragt · 0 passend · 0 gestartet · 269 ms");
   });
 });
 

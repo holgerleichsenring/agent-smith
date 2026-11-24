@@ -1,6 +1,7 @@
 "use client";
 
 import type { DeploymentEnvironmentReference } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
 import { CheckField, MapField, SelectField, TextField } from "./formFields";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
@@ -21,13 +22,14 @@ export function DeploymentEnvironments({
   onChange: (next: DeploymentEnvironmentReference[]) => void;
   testId: string;
 }) {
+  const t = useT();
   const set = (index: number, next: DeploymentEnvironmentReference) =>
     onChange(environments.map((e, i) => (i === index ? next : e)));
   return (
     <div className="field" data-testid={`${testId}-environments`}>
       <label>
-        environments
-        <span className="help">where this context is delivered, by the names its deployment template declares</span>
+        {t("config.environments.title")}
+        <span className="help">{t("config.environments.help")}</span>
       </label>
       {environments.map((environment, index) => (
         <EnvironmentBlock
@@ -42,7 +44,7 @@ export function DeploymentEnvironments({
       <div className="picks">
         <button type="button" className="pick" data-testid={`${testId}-env-add`}
           onClick={() => onChange([...environments, { ...BLANK }])}>
-          Add environment
+          {t("config.environments.add")}
         </button>
       </div>
     </div>
@@ -62,22 +64,23 @@ function EnvironmentBlock({
   onChange: (next: DeploymentEnvironmentReference) => void;
   onRemove: () => void;
 }) {
+  const t = useT();
   return (
     <div className="tpl-env" data-testid={testId}>
-      <TextField label="name" value={environment.name} mono required placeholder="test" testId={`${testId}-name`}
+      <TextField label={t("config.environments.name")} value={environment.name} mono required placeholder="test" testId={`${testId}-name`}
         onChange={(v) => onChange({ ...environment, name: v })} />
-      <SelectField label="manifest repo" value={environment.repo ?? ""} options={repos}
-        placeholder="the context's own repository" testId={`${testId}-repo`}
+      <SelectField label={t("config.environments.repo.label")} value={environment.repo ?? ""} options={repos}
+        placeholder={t("config.environments.repo.placeholder")} testId={`${testId}-repo`}
         onChange={(v) => onChange({ ...environment, repo: v === "" ? null : v })} />
-      <CheckField label="a person approves" value={environment.approval ?? true} testId={`${testId}-approval`}
-        help="on: agent-smith opens the delivery's pull request and a person merges it; off: agent-smith merges it too"
+      <CheckField label={t("config.environments.approval.label")} value={environment.approval ?? true} testId={`${testId}-approval`}
+        help={t("config.environments.approval.help")}
         onChange={(v) => onChange({ ...environment, approval: v })} />
-      <MapField label="parameters" values={environment.parameters ?? {}} testId={`${testId}-parameters`}
-        help="the template's parameter names and their values; never a secret"
+      <MapField label={t("config.environments.parameters.label")} values={environment.parameters ?? {}} testId={`${testId}-parameters`}
+        help={t("config.environments.parameters.help")}
         onChange={(v) => onChange({ ...environment, parameters: v ?? null })} />
-      <button type="button" className="pick" aria-label={`Remove environment ${environment.name || ""}`.trim()}
+      <button type="button" className="pick" aria-label={t("config.environments.removeAria", { name: environment.name || "" }).trim()}
         data-testid={`${testId}-remove`} onClick={onRemove}>
-        Remove environment
+        {t("config.environments.remove")}
       </button>
     </div>
   );

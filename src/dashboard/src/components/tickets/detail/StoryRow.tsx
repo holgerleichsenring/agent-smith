@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useDateLocale } from "@/hooks/useT";
 import { statusJoin } from "@/components/jobs/runlog/runStatusLine";
 import { clock } from "./flowWords";
 import type { StoryLine } from "./storyLines";
@@ -20,11 +21,12 @@ interface Props {
 }
 
 export function StoryRow({ line, open, onToggle, testId, className, children }: Props) {
+  const locale = useDateLocale();
   return (
     <div className={["tk-line", line.tone, className].filter(Boolean).join(" ")} data-testid={testId} data-open={open || undefined}>
       <button type="button" className="tk-line-head" aria-expanded={onToggle ? open : undefined} onClick={onToggle}
         disabled={!onToggle} data-testid={`${testId}-head`}>
-        <span className="tk-at mono">{clock(line.at)}</span>
+        <span className="tk-at mono">{clock(line.at, locale)}</span>
         <span className="tk-dot" aria-hidden="true" />
         <span className="tk-who">{line.who}</span>
         <span className="tk-text">

@@ -1,6 +1,7 @@
 "use client";
 
 import type { CapabilityField, ConfigFinding } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
 import { TextField, ListField, CheckField, MapField, SelectField } from "./formFields";
 
 // p0345c: renders the per-TYPE field set the capabilities descriptor declares
@@ -35,6 +36,7 @@ export function CapabilityFieldInputs({
   /** The secrets catalog's names — what a `secret` field may be set to. */
   secrets?: string[];
 }) {
+  const t = useT();
   return (
     <>
       {fields.map((f) => {
@@ -48,7 +50,7 @@ export function CapabilityFieldInputs({
             return (
               <FieldSlot key={f.key} finding={finding} fieldKey={f.key}>
                 <ListField
-                  label={`${label} (comma separated)`}
+                  label={t("config.field.commaSeparated", { label })}
                   values={current}
                   testId={`form-field-${f.key}`}
                   // p0455: an emptied list travels as an empty list. The upsert reads an

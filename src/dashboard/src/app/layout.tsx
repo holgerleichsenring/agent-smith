@@ -61,36 +61,36 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 {/* 2026-11-16-0440c: the flat sidebar runs the full height on the left;
                   the top bar and the scrolling main share the column beside it. */}
                 <div className="app-shell">
-                  <RenderBoundary surface="navigation sidebar">
+                  <RenderBoundary surface="shell.surface.sidebar">
                     <AppSidebar />
                   </RenderBoundary>
                   <div className="app-column">
-                    <RenderBoundary surface="top bar">
+                    <RenderBoundary surface="shell.surface.topBar">
                       <AppTopBar />
                     </RenderBoundary>
                     {/* p0391a: the server always starts, so "it came up" no longer means
                       "it is fine" — the banner names what is down, above every route. */}
                     <main className="shell-main">
-                      <RenderBoundary surface="installation health banner">
+                      <RenderBoundary surface="shell.surface.healthBanner">
                         <DegradedBanner />
                       </RenderBoundary>
                       {/* 2026-08-25-8c97: the same findings document, read for the one
                         finding whose remedy is a reload rather than an operator. */}
-                      <RenderBoundary surface="build identity banner">
+                      <RenderBoundary surface="shell.surface.buildBanner">
                         <BuildMismatchBanner />
                       </RenderBoundary>
                       {/* 2026-08-25-4530: the two halves of sign-in live on two
                         machines and neither can diagnose the other. This is the
                         only place that holds both, and a half-configured
                         installation otherwise renders nothing at all. */}
-                      <RenderBoundary surface="sign-in configuration banner">
+                      <RenderBoundary surface="shell.surface.authBanner">
                         <AuthMisconfigurationBanner />
                       </RenderBoundary>
                       {/* 2026-09-21-291b: the routes, and only the routes. The profile
                         keeps its own sign-in and the banners keep explaining a
                         half-configured installation — a gate that took those with it
                         would remove the two surfaces that say WHY nothing is visible. */}
-                      <RenderBoundary surface="sign-in gate">
+                      <RenderBoundary surface="shell.surface.signInGate">
                         <SignInGate>{children}</SignInGate>
                       </RenderBoundary>
                     </main>

@@ -1,4 +1,5 @@
 import type { SandboxSetting, SettingKey, SettingValue } from "@/lib/configApi";
+import type { T } from "@/lib/i18n/translate";
 
 // p0495: what the studio refuses to save, and why, in the operator's own numbers.
 //
@@ -9,15 +10,11 @@ import type { SandboxSetting, SettingKey, SettingValue } from "@/lib/configApi";
 // came to configure 900 and watch a command die at 600, so the refusal names both values
 // rather than reporting a generic "invalid".
 
-export function settingRefusal(settingKey: SettingKey, value: SettingValue): string | null {
+export function settingRefusal(t: T, settingKey: SettingKey, value: SettingValue): string | null {
   if (settingKey !== "sandbox") return null;
   const sandbox = value as SandboxSetting;
   const runCommand = sandbox.runCommandTimeoutSeconds;
   const cap = sandbox.stepTimeoutSeconds;
   if (!(runCommand > cap)) return null;
-  return (
-    `A run-command default of ${runCommand}s cannot exceed the step cap of ${cap}s: `
-    + `the cap only lowers a step's timeout, so the default would never apply. `
-    + `Raise the step cap to at least ${runCommand}s, or lower the default to ${cap}s or less.`
-  );
+  return t("config.refusal.runCommandOverCap", { runCommand, cap });
 }

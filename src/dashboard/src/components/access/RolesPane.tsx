@@ -3,6 +3,8 @@
 import type { AccessDocument, AccessGroup, AccessPerson, AccessView } from "@/lib/accessApi";
 import { groupsGranting, peopleHolding, permissionAreas } from "./derive";
 import { RoleEditor } from "./RoleEditor";
+import { withValues } from "./withValues";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-26-7a51: the Roles pane — the roles this installation offers, what each holds,
 // and who carries it, above the full permission matrix.
@@ -24,6 +26,7 @@ export function RolesPane({
   groups: AccessGroup[];
   onChange: (next: AccessDocument) => void;
 }) {
+  const t = useT();
   const areas = permissionAreas(view.permissions);
   return (
     <div data-testid="access-roles">
@@ -32,17 +35,20 @@ export function RolesPane({
           <div key={role.name} className="rolecard" data-testid={`access-role-${role.name}`}>
             <h3>{role.name}</h3>
             <p className="carried">
-              <b>{role.permissions.length}</b> of {view.permissions.length} permissions
+              {withValues(t("access.roles.permissionsOf"), {
+                held: <b>{role.permissions.length}</b>,
+                total: view.permissions.length,
+              })}
               <br />
-              carried by <b>{peopleHolding(people, role.name)}</b>{" "}
-              {peopleHolding(people, role.name) === 1 ? "person" : "people"} ·{" "}
-              <b>{groupsGranting(groups, role.name)}</b>{" "}
-              {groupsGranting(groups, role.name) === 1 ? "group" : "groups"}
+              {withValues(t("access.roles.carriedBy"), {
+                people: counted(t("access.roles.people", { count: peopleHolding(people, role.name) }), peopleHolding(people, role.name)),
+                groups: counted(t("access.roles.groups", { count: groupsGranting(groups, role.name) }), groupsGranting(groups, role.name)),
+              })}
               {!role.builtIn && (
                 <>
                   <br />
                   <span data-testid={`access-role-${role.name}-custom`}>
-                    configured here · read-only
+                    {t("access.roles.custom")}
                   </span>
                 </>
               )}
@@ -54,7 +60,7 @@ export function RolesPane({
         <table className="matrix">
           <thead>
             <tr>
-              <th>Permission</th>
+              <th>{t("access.roles.permission")}</th>
               {view.roles.map((role) => (
                 <th key={role.name} className="role">
                   {role.name}
@@ -83,6 +89,7 @@ function Area({
   permissions: string[];
   view: AccessView;
 }) {
+  const t = useT();
   return (
     <>
       <tr className="grp">
@@ -94,7 +101,7 @@ function Area({
           {view.roles.map((role) => (
             <td key={role.name} className="role">
               {role.permissions.includes(permission) ? (
-                <span className="dot" aria-label={`${role.name} holds ${permission}`} />
+                <span className="dot" aria-label={t("access.roles.holds", { role: role.name, permission })} />
               ) : (
                 <span className="dash">–</span>
               )}
@@ -104,4 +111,9 @@ function Area({
       ))}
     </>
   );
+}
+
+// A count drawn bold inside its plural phrase, "<b>3</b> people".
+function counted(phrase: string, count: number) {
+  return <>{withValues(phrase, { n: <b>{count}</b> })}</>;
 }

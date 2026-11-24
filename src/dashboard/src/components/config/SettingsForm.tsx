@@ -32,6 +32,8 @@ import { TicketsForm } from "./TicketsSettingsForm";
 import { SandboxImageTrustFields } from "./SandboxImageTrustFields";
 import { PocsSettingsForm } from "./PocsSettingsForm";
 import { useConfigCatalogContext } from "./ConfigCatalogProvider";
+import { useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 
 // p0353: the per-settings typed forms. One case per settings key — flat docs are a
 // straightforward field list; the nested pipeline-cost-cap (default + per-pipeline +
@@ -42,11 +44,11 @@ import { useConfigCatalogContext } from "./ConfigCatalogProvider";
 
 const TIER_ORDER = ["Trivial", "Small", "Medium", "Large", "Xl"] as const; // 2026-11-10-548f: Xl
 
-const SKILLS_SOURCES = [
-  { value: 0, label: "Default (release tag)" },
-  { value: 1, label: "Path (pre-mounted directory)" },
-  { value: 2, label: "Url (explicit tarball)" },
-  { value: 3, label: "Embedded (bundled in the binary)" },
+const SKILLS_SOURCES: { value: number; label: TextKey }[] = [
+  { value: 0, label: "config.skills.source.default" },
+  { value: 1, label: "config.skills.source.path" },
+  { value: 2, label: "config.skills.source.url" },
+  { value: 3, label: "config.skills.source.embedded" },
 ];
 
 export function SettingsForm({
@@ -134,11 +136,12 @@ function OrchestratorForm({
   onChange: (v: SettingValue) => void;
 }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
     <>
-      <NumberField label="Max run wall-time (seconds)" value={value.maxRunWallTimeSeconds}
+      <NumberField label={t("config.orchestrator.wallTime.label")} value={value.maxRunWallTimeSeconds}
         onChange={(v) => set({ maxRunWallTimeSeconds: keep(v, value.maxRunWallTimeSeconds) })} testId="setting-orchestrator-walltime"
-        help="a run older than this is cancelled by the watchdog" />
+        help={t("config.orchestrator.wallTime.help")} />
     </>
   );
 }
@@ -146,8 +149,7 @@ function OrchestratorForm({
 // 2026-09-18-0f27: every sandbox setting but the concurrent-sandbox bound is read from
 // an options instance built once at startup, so the form says per field which of the two
 // it is rather than leaving the operator to learn one rule that is no longer uniform.
-const AFTER_RESTART = "applies after a server restart";
-const NEXT_DECISION = "applies to the next capacity decision, no restart";
+// Their words are part of each field's help text in the dictionary.
 
 function SandboxForm({
   value,
@@ -159,64 +161,53 @@ function SandboxForm({
   persisted: SandboxSetting | null;
 }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
     <>
-      <TextField label="Agent registry" value={value.agentRegistry} onChange={(v) => set({ agentRegistry: v })}
+      <TextField label={t("config.sandboxSetting.registry.label")} value={value.agentRegistry} onChange={(v) => set({ agentRegistry: v })}
         mono testId="setting-sandbox-registry"
-        help={`the registry the sandbox agent image is pulled from — ${AFTER_RESTART}`} />
-      <TextField label="Agent version" value={value.agentVersion} onChange={(v) => set({ agentVersion: v })}
+        help={t("config.sandboxSetting.registry.help")} />
+      <TextField label={t("config.sandboxSetting.version.label")} value={value.agentVersion} onChange={(v) => set({ agentVersion: v })}
         mono placeholder="0.48.0" testId="setting-sandbox-version"
-        help={`sandbox agent image tag — ${AFTER_RESTART}`} />
+        help={t("config.sandboxSetting.version.help")} />
       {/* p0495: the pair is one rule, said once, above the two fields it governs. */}
       <p className="help" data-testid="setting-sandbox-timeouts-note">
-        A run_command gets the default when it asks for no timeout, may ask for more, and is
-        killed at the step cap — so raising the cap raises what a command may ask for.
+        {t("config.sandboxSetting.timeoutsNote")}
       </p>
-      <NumberField label="Step timeout (seconds)" value={value.stepTimeoutSeconds}
+      <NumberField label={t("config.sandboxSetting.step.label")} value={value.stepTimeoutSeconds}
         onChange={(v) => set({ stepTimeoutSeconds: keep(v, value.stepTimeoutSeconds) })} testId="setting-sandbox-step"
-        help={`per-sandbox-step wall-time cap — the ceiling a run_command may ask for — ${AFTER_RESTART}`} />
-      <NumberField label="Run-command timeout (seconds)" value={value.runCommandTimeoutSeconds}
+        help={t("config.sandboxSetting.step.help")} />
+      <NumberField label={t("config.sandboxSetting.runCommand.label")} value={value.runCommandTimeoutSeconds}
         onChange={(v) => set({ runCommandTimeoutSeconds: keep(v, value.runCommandTimeoutSeconds) })} testId="setting-sandbox-runcmd"
-        help={`what an agent run_command gets when it asks for none; never above the step cap — ${AFTER_RESTART}`} />
+        help={t("config.sandboxSetting.runCommand.help")} />
       {/* 2026-09-18-0f27: the one sandbox setting that is live, and the two backends
           it does nothing for. Said next to the field, because "everything here needs
           a restart" stopped being true of this form the moment this field arrived. */}
       <p className="help" data-testid="setting-sandbox-bound-note">
-        The concurrent-sandbox bound applies to the Docker backend only. A Kubernetes
-        installation bounds sandboxes through its namespace ResourceQuota and the in-process
-        backend is unbounded — on either, this number does nothing. Left empty it falls back to
-        the SANDBOX_MAX_CONCURRENT environment variable, and then to the built-in default of 2;
-        0 means unbounded.
+        {t("config.sandboxSetting.boundNote")}
       </p>
-      <NumberField label="Max concurrent sandboxes" value={value.maxConcurrentSandboxes ?? undefined}
+      <NumberField label={t("config.sandboxSetting.maxConcurrent.label")} value={value.maxConcurrentSandboxes ?? undefined}
         onChange={(v) => set({ maxConcurrentSandboxes: v ?? null })} testId="setting-sandbox-maxconcurrent"
         placeholder="2"
-        help={`sandbox containers one Docker host runs at once — ${NEXT_DECISION}`} />
+        help={t("config.sandboxSetting.maxConcurrent.help")} />
       {/* 2026-09-22-2d11a: a design conversation keeps its source sandboxes between
           turns. A hold never denies a run — every capacity door releases what this
           server holds before it probes — so the cost of a wrong number is idle
           resources, not a refusal. */}
       <p className="help" data-testid="setting-sandbox-hold-note">
-        A design conversation holds the source sandboxes it opened for this long after a
-        turn, so the next question does not pay for the clone again. Left empty it falls
-        back to the SANDBOX_HOLD_SECONDS environment variable, and then to 180 seconds;
-        0 holds nothing. Per project, this can be overridden on the project itself.
+        {t("config.sandboxSetting.holdNote")}
       </p>
-      <NumberField label="Sandbox hold (seconds)" value={value.holdSeconds ?? undefined}
+      <NumberField label={t("config.sandbox.hold.label")} value={value.holdSeconds ?? undefined}
         onChange={(v) => set({ holdSeconds: v ?? null })} testId="setting-sandbox-hold"
         placeholder="180"
-        help={`how long a design conversation keeps its source sandboxes — ${NEXT_DECISION}`} />
+        help={t("config.sandboxSetting.hold.help")} />
       {/* 2026-10-25-ff3b: hardening is the installation's choice; a project may opt back to root. */}
       <p className="help" data-testid="setting-sandbox-hardening-note">
-        On, Docker and Kubernetes sandboxes run as uid 1000 with no Linux capabilities and no
-        privilege escalation. Check first which projects install system packages in their
-        prerequisites (apt-get, a global npm install): those fail until the project turns on
-        &quot;run sandboxes as root&quot; on its Sandbox tab. Off, sandboxes run as the image&apos;s
-        user, which is root for every built-in image.
+        {t("config.sandboxSetting.hardeningNote")}
       </p>
-      <CheckField label="Harden sandboxes" value={value.hardeningEnabled === true}
+      <CheckField label={t("config.sandboxSetting.harden")} value={value.hardeningEnabled === true}
         onChange={(v) => set({ hardeningEnabled: v })} testId="setting-sandbox-hardening" />
-      <p className="help">{AFTER_RESTART}.</p>
+      <p className="help">{t("config.sandboxSetting.afterRestart")}</p>
       <SandboxImageTrustFields value={value} onChange={set} persisted={persisted} />
     </>
   );
@@ -230,13 +221,14 @@ function DeploymentForm({
   onChange: (v: SettingValue) => void;
 }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
     <>
-      <TextField label="Registry" value={value.registry} onChange={(v) => set({ registry: v })} mono
+      <TextField label={t("config.deploymentSetting.registry.label")} value={value.registry} onChange={(v) => set({ registry: v })} mono
         testId="setting-deployment-registry"
-        help="the one-knob base registry for both images when their own field is unset" />
-      <TextField label="Version" value={value.version} onChange={(v) => set({ version: v })} mono
-        testId="setting-deployment-version" help="the one-knob base version applied where unset" />
+        help={t("config.deploymentSetting.registry.help")} />
+      <TextField label={t("config.deploymentSetting.version.label")} value={value.version} onChange={(v) => set({ version: v })} mono
+        testId="setting-deployment-version" help={t("config.deploymentSetting.version.help")} />
     </>
   );
 }
@@ -251,11 +243,12 @@ function PrimaryProviderForm({
   capabilities: ConfigCapabilities | null;
 }) {
   const providers = capabilities?.agentProviders ?? [];
+  const t = useT();
   return (
     <div className="field">
       <label>
-        Primary provider
-        <span className="help">the default agent provider when a project names none</span>
+        {t("config.setting.primaryProvider")}
+        <span className="help">{t("config.setting.primaryProvider.sub")}</span>
       </label>
       <select
         data-testid="setting-primary-provider"
@@ -263,7 +256,7 @@ function PrimaryProviderForm({
         value={value.value ?? ""}
         onChange={(e) => onChange({ value: e.target.value === "" ? null : e.target.value })}
       >
-        <option value="">— none —</option>
+        <option value="">{t("config.none")}</option>
         {value.value && !providers.includes(value.value) && (
           <option value={value.value}>{value.value}</option>
         )}
@@ -279,6 +272,7 @@ function PrimaryProviderForm({
 
 function LimitsForm({ value, onChange }: { value: LimitsSetting; onChange: (v: SettingValue) => void }) {
   const set = patcher(value, onChange);
+  const t = useT();
   const field = (
     key: keyof LimitsSetting,
     label: string,
@@ -296,15 +290,15 @@ function LimitsForm({ value, onChange }: { value: LimitsSetting; onChange: (v: S
   // bounds, and the sub-agent fan-out caps. The six the skill-call runtime read are retired.
   return (
     <>
-      <DrawerSection title="Scout calls" defaultOpen testId="setting-limits-calls">
-        {field("maxToolCallsPerSkill", "Max tool calls per scout call")}
-        {field("maxSecondsPerSkillCall", "Max seconds per scout call")}
+      <DrawerSection title={t("config.limits.scout")} defaultOpen testId="setting-limits-calls">
+        {field("maxToolCallsPerSkill", t("config.limits.maxToolCalls"))}
+        {field("maxSecondsPerSkillCall", t("config.limits.maxSeconds"))}
       </DrawerSection>
 
-      <DrawerSection title="Sub-agent caps" defaultOpen testId="setting-limits-subagents">
-        {field("maxConcurrentSubAgents", "Max concurrent sub-agents")}
-        {field("maxSubAgentsPerRun", "Max sub-agents per run")}
-        {field("maxSubAgentsPerDialogTurn", "Max sub-agents per design turn")}
+      <DrawerSection title={t("config.limits.subAgents")} defaultOpen testId="setting-limits-subagents">
+        {field("maxConcurrentSubAgents", t("config.limits.maxConcurrentSubAgents"))}
+        {field("maxSubAgentsPerRun", t("config.limits.maxSubAgentsPerRun"))}
+        {field("maxSubAgentsPerDialogTurn", t("config.limits.maxSubAgentsPerTurn"))}
       </DrawerSection>
     </>
   );
@@ -319,11 +313,12 @@ function CostCapValuesFields({
   onChange: (v: CostCapValues) => void;
   testId: string;
 }) {
+  const t = useT();
   return (
     <div className="fields">
-      <NumberField label="USD" value={value.usd} onChange={(v) => onChange({ ...value, usd: keep(v, value.usd) })}
+      <NumberField label={t("config.costCap.usd")} value={value.usd} onChange={(v) => onChange({ ...value, usd: keep(v, value.usd) })}
         testId={`${testId}-usd`} />
-      <NumberField label="Tokens" value={value.tokens} onChange={(v) => onChange({ ...value, tokens: keep(v, value.tokens) })}
+      <NumberField label={t("config.costCap.tokens")} value={value.tokens} onChange={(v) => onChange({ ...value, tokens: keep(v, value.tokens) })}
         testId={`${testId}-tokens`} />
     </div>
   );
@@ -343,6 +338,7 @@ function TierCapField({
   capabilities: ConfigCapabilities | null;
   onChange: (v: CostCapValues) => void;
 }) {
+  const t = useT();
   const stored = value.perTier[tier];
   const shown = stored ?? capabilities?.tierCostCapDefaults?.[tier] ?? value.default;
   return (
@@ -351,7 +347,7 @@ function TierCapField({
       <CostCapValuesFields value={shown} onChange={onChange} testId={`setting-costcap-tier-${tier}`} />
       {!stored && (
         <span className="help" data-testid={`setting-costcap-tier-${tier}-default`}>
-          default — a run never gets less than the Default cap (${value.default.usd} / {value.default.tokens} tokens)
+          {t("config.costCap.tierDefault", { usd: value.default.usd, tokens: value.default.tokens })}
         </span>
       )}
     </div>
@@ -368,6 +364,7 @@ function PipelineCostCapForm({
   capabilities: ConfigCapabilities | null;
 }) {
   const set = patcher(value, onChange);
+  const t = useT();
   const pipelines = capabilities?.pipelines ?? [];
   const perPipelineKeys = Object.keys(value.perPipeline);
   const addablePipelines = pipelines.filter((p) => !perPipelineKeys.includes(p));
@@ -384,12 +381,12 @@ function PipelineCostCapForm({
 
   return (
     <>
-      <DrawerSection title="Default cap" defaultOpen testId="setting-costcap-default">
+      <DrawerSection title={t("config.costCap.default")} defaultOpen testId="setting-costcap-default">
         <CostCapValuesFields value={value.default} onChange={(v) => set({ default: v })}
           testId="setting-costcap-default" />
       </DrawerSection>
 
-      <DrawerSection title="Per-tier caps" summary={`${TIER_ORDER.length} tiers`} defaultOpen
+      <DrawerSection title={t("config.costCap.perTier")} summary={t("config.costCap.tierCount", { count: TIER_ORDER.length })} defaultOpen
         testId="setting-costcap-tiers">
         {TIER_ORDER.map((tier) => (
           <TierCapField key={tier} tier={tier} value={value} capabilities={capabilities}
@@ -397,9 +394,9 @@ function PipelineCostCapForm({
         ))}
       </DrawerSection>
 
-      <DrawerSection title="Per-pipeline overrides" summary={`${perPipelineKeys.length} set`}
+      <DrawerSection title={t("config.costCap.perPipeline")} summary={t("config.costCap.setCount", { count: perPipelineKeys.length })}
         testId="setting-costcap-pipelines">
-        {perPipelineKeys.length === 0 && <span className="help">no per-pipeline overrides</span>}
+        {perPipelineKeys.length === 0 && <span className="help">{t("config.costCap.noOverrides")}</span>}
         {perPipelineKeys.map((name) => (
           <div key={name} className="field" data-testid={`setting-costcap-pipeline-${name}`}>
             <label>
@@ -407,7 +404,7 @@ function PipelineCostCapForm({
               <button type="button" className="help" onClick={() => removePerPipeline(name)}
                 data-testid={`setting-costcap-pipeline-${name}-remove`}
                 style={{ marginLeft: 8, color: "var(--bad)", cursor: "pointer" }}>
-                remove
+                {t("config.costCap.remove")}
               </button>
             </label>
             <CostCapValuesFields value={value.perPipeline[name]} onChange={(v) => setPerPipeline(name, v)}
@@ -416,7 +413,7 @@ function PipelineCostCapForm({
         ))}
         {addablePipelines.length > 0 && (
           <div className="field">
-            <label>Add a pipeline override</label>
+            <label>{t("config.costCap.add")}</label>
             <select
               className="mono"
               data-testid="setting-costcap-pipeline-add"
@@ -425,7 +422,7 @@ function PipelineCostCapForm({
                 if (e.target.value) setPerPipeline(e.target.value, value.default);
               }}
             >
-              <option value="">— pick a pipeline —</option>
+              <option value="">{t("config.costCap.pickPipeline")}</option>
               {addablePipelines.map((p) => (
                 <option key={p} value={p}>
                   {p}
@@ -441,71 +438,74 @@ function PipelineCostCapForm({
 
 function QueueForm({ value, onChange }: { value: QueueSetting; onChange: (v: SettingValue) => void }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
     <>
-      <NumberField label="Max parallel jobs" value={value.maxParallelJobs}
+      <NumberField label={t("config.queue.parallel.label")} value={value.maxParallelJobs}
         onChange={(v) => set({ maxParallelJobs: keep(v, value.maxParallelJobs) })} testId="setting-queue-parallel"
-        help="the sole backpressure knob for downstream pipeline execution" />
-      <NumberField label="Consume block (seconds)" value={value.consumeBlockSeconds}
+        help={t("config.queue.parallel.help")} />
+      <NumberField label={t("config.queue.block")} value={value.consumeBlockSeconds}
         onChange={(v) => set({ consumeBlockSeconds: keep(v, value.consumeBlockSeconds) })} testId="setting-queue-block" />
-      <NumberField label="Shutdown grace (seconds)" value={value.shutdownGraceSeconds}
+      <NumberField label={t("config.queue.shutdown")} value={value.shutdownGraceSeconds}
         onChange={(v) => set({ shutdownGraceSeconds: keep(v, value.shutdownGraceSeconds) })} testId="setting-queue-shutdown" />
-      <NumberField label="Redis retry interval (seconds)" value={value.redisRetryIntervalSeconds}
+      <NumberField label={t("config.queue.retry.label")} value={value.redisRetryIntervalSeconds}
         onChange={(v) => set({ redisRetryIntervalSeconds: keep(v, value.redisRetryIntervalSeconds) })} testId="setting-queue-retry"
-        help="poll cadence when Redis is configured but unreachable" />
+        help={t("config.queue.retry.help")} />
     </>
   );
 }
 
 function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (v: SettingValue) => void }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
     <>
-      <NumberField label="Hot-wait window (seconds)" value={value.hotWaitSeconds}
+      <NumberField label={t("config.dialogue.hotWait.label")} value={value.hotWaitSeconds}
         onChange={(v) => set({ hotWaitSeconds: keep(v, value.hotWaitSeconds) })} testId="setting-dialogue-hotwait"
-        help="in-memory wait before an eligible run checkpoints and parks" />
-      <NumberField label="Approval timeout (seconds)" value={value.approvalTimeoutSeconds}
+        help={t("config.dialogue.hotWait.help")} />
+      <NumberField label={t("config.dialogue.approval.label")} value={value.approvalTimeoutSeconds}
         onChange={(v) => set({ approvalTimeoutSeconds: keep(v, value.approvalTimeoutSeconds) })} testId="setting-dialogue-approval"
-        help="when it elapses on a parked run, the persisted default answer applies" />
-      <TextField label="Dashboard address" value={value.dashboardUrl ?? ""} onChange={(v) => set({ dashboardUrl: v || null })}
-        mono testId="setting-dialogue-dashboard-url" help="a ticket comment that asks a question links to the run here" />
-      <TextField label="Admin assistant agent" value={value.adminAgent ?? ""} onChange={(v) => set({ adminAgent: v || null })}
-        mono testId="setting-dialogue-admin-agent" help="the configured agent the Agent Smith conversation runs on" />
-      <NumberField label="Admin read limit (rows)" value={value.adminReadLimit ?? 50}
+        help={t("config.dialogue.approval.help")} />
+      <TextField label={t("config.dialogue.dashboardUrl.label")} value={value.dashboardUrl ?? ""} onChange={(v) => set({ dashboardUrl: v || null })}
+        mono testId="setting-dialogue-dashboard-url" help={t("config.dialogue.dashboardUrl.help")} />
+      <TextField label={t("config.dialogue.adminAgent.label")} value={value.adminAgent ?? ""} onChange={(v) => set({ adminAgent: v || null })}
+        mono testId="setting-dialogue-admin-agent" help={t("config.dialogue.adminAgent.help")} />
+      <NumberField label={t("config.dialogue.adminReadLimit.label")} value={value.adminReadLimit ?? 50}
         onChange={(v) => set({ adminReadLimit: keep(v, value.adminReadLimit ?? 50) })} testId="setting-dialogue-admin-read-limit"
-        help="the most runs, events or calls one admin assistant read returns" />
-      <NumberField label="Admin result size (characters)" value={value.adminResultMaxChars ?? 40000}
+        help={t("config.dialogue.adminReadLimit.help")} />
+      <NumberField label={t("config.dialogue.adminResult.label")} value={value.adminResultMaxChars ?? 40000}
         onChange={(v) => set({ adminResultMaxChars: keep(v, value.adminResultMaxChars ?? 40000) })} testId="setting-dialogue-admin-result-chars"
-        help="the most characters one admin assistant tool result carries" />
-      <NumberField label="Mock size (characters)" value={value.mockMaxChars}
+        help={t("config.dialogue.adminResult.help")} />
+      <NumberField label={t("config.dialogue.mockSize.label")} value={value.mockMaxChars}
         onChange={(v) => set({ mockMaxChars: keep(v, value.mockMaxChars) })} testId="setting-dialogue-mockchars"
-        help="the longest HTML mock a design conversation keeps" />
-      <NumberField label="Mock versions per spec" value={value.mockVersionsPerSpec}
+        help={t("config.dialogue.mockSize.help")} />
+      <NumberField label={t("config.dialogue.mockPerSpec")} value={value.mockVersionsPerSpec}
         onChange={(v) => set({ mockVersionsPerSpec: keep(v, value.mockVersionsPerSpec) })} testId="setting-dialogue-mockspec" />
-      <NumberField label="Mock versions per conversation" value={value.mockVersionsPerConversation}
+      <NumberField label={t("config.dialogue.mockPerConversation")} value={value.mockVersionsPerConversation}
         onChange={(v) => set({ mockVersionsPerConversation: keep(v, value.mockVersionsPerConversation) })}
         testId="setting-dialogue-mockconversation" />
-      <NumberField label="Series master budget (USD)" value={value.seriesMasterBudgetUsd}
+      <NumberField label={t("config.dialogue.seriesBudget.label")} value={value.seriesMasterBudgetUsd}
         onChange={(v) => set({ seriesMasterBudgetUsd: keep(v, value.seriesMasterBudgetUsd) })} testId="setting-dialogue-seriesbudget"
-        help="what a series master's own judging may spend over one series; the tickets' runs have their own caps" />
-      <NumberField label="Series status every (minutes)" value={value.seriesStatusMinutes}
+        help={t("config.dialogue.seriesBudget.help")} />
+      <NumberField label={t("config.dialogue.seriesStatus.label")} value={value.seriesStatusMinutes}
         onChange={(v) => set({ seriesStatusMinutes: keep(v, value.seriesStatusMinutes) })} testId="setting-dialogue-seriesstatus"
-        help="how often a running series reports its table when nothing changed; a change is reported at once" />
-      <NumberField label="Question default after (minutes)" value={value.questionDefaultMinutes}
+        help={t("config.dialogue.seriesStatus.help")} />
+      <NumberField label={t("config.dialogue.questionDefault.label")} value={value.questionDefaultMinutes}
         onChange={(v) => set({ questionDefaultMinutes: keep(v, value.questionDefaultMinutes) })} testId="setting-dialogue-questiondefault"
-        help="a series question that names a recommendation takes it after this; one without waits for you" />
+        help={t("config.dialogue.questionDefault.help")} />
     </>
   );
 }
 
 function SkillsForm({ value, onChange }: { value: SkillsSetting; onChange: (v: SettingValue) => void }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
     <>
       <div className="field">
         <label>
-          Source
-          <span className="help">how the skill catalog is resolved at boot</span>
+          {t("config.skills.source.label")}
+          <span className="help">{t("config.skills.source.help")}</span>
         </label>
         <select
           className="mono"
@@ -515,21 +515,21 @@ function SkillsForm({ value, onChange }: { value: SkillsSetting; onChange: (v: S
         >
           {SKILLS_SOURCES.map((s) => (
             <option key={s.value} value={s.value}>
-              {s.label}
+              {t(s.label)}
             </option>
           ))}
         </select>
       </div>
-      <TextField label="Version" value={value.version ?? ""} onChange={(v) => set({ version: v || null })}
-        mono testId="setting-skills-version" help="release tag for the default source" />
-      <TextField label="Path" value={value.path ?? ""} onChange={(v) => set({ path: v || null })} mono
-        testId="setting-skills-path" help="pre-mounted catalog directory for the path source" />
-      <TextField label="Url" value={value.url ?? ""} onChange={(v) => set({ url: v || null })} mono
-        testId="setting-skills-url" help="explicit tarball url for the url source" />
-      <TextField label="SHA256" value={value.sha256 ?? ""} onChange={(v) => set({ sha256: v || null })} mono
-        testId="setting-skills-sha256" help="optional tarball hash for a downloading source" />
-      <TextField label="Cache directory" value={value.cacheDir} onChange={(v) => set({ cacheDir: v })} mono
-        testId="setting-skills-cachedir" help="where downloaded catalogs are extracted (empty = default)" />
+      <TextField label={t("config.skills.version.label")} value={value.version ?? ""} onChange={(v) => set({ version: v || null })}
+        mono testId="setting-skills-version" help={t("config.skills.version.help")} />
+      <TextField label={t("config.skills.path.label")} value={value.path ?? ""} onChange={(v) => set({ path: v || null })} mono
+        testId="setting-skills-path" help={t("config.skills.path.help")} />
+      <TextField label={t("config.skills.url.label")} value={value.url ?? ""} onChange={(v) => set({ url: v || null })} mono
+        testId="setting-skills-url" help={t("config.skills.url.help")} />
+      <TextField label={t("config.skills.sha.label")} value={value.sha256 ?? ""} onChange={(v) => set({ sha256: v || null })} mono
+        testId="setting-skills-sha256" help={t("config.skills.sha.help")} />
+      <TextField label={t("config.skills.cacheDir.label")} value={value.cacheDir} onChange={(v) => set({ cacheDir: v })} mono
+        testId="setting-skills-cachedir" help={t("config.skills.cacheDir.help")} />
     </>
   );
 }
@@ -542,8 +542,9 @@ function PipelineDataFlowForm({
   onChange: (v: SettingValue) => void;
 }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
-    <CheckField label="Enforce data-flow gating" value={value.enforce}
+    <CheckField label={t("config.dataFlow.enforce")} value={value.enforce}
       onChange={(v) => set({ enforce: v })} testId="setting-dataflow-enforce" />
   );
 }
@@ -556,8 +557,9 @@ function TraceForm({
   onChange: (v: SettingValue) => void;
 }) {
   const set = patcher(value, onChange);
+  const t = useT();
   return (
-    <CheckField label="Record each run's conversation (AGENTSMITH_TRACE, when set, wins)"
+    <CheckField label={t("config.trace.enabled")}
       value={value.enabled} onChange={(v) => set({ enabled: v })} testId="setting-trace-enabled" />
   );
 }
@@ -573,28 +575,29 @@ function RegistriesForm({
     onChange(value.map((r, j) => (j === i ? { ...r, ...patch } : r)) as SettingValue);
   const remove = (i: number) => onChange(value.filter((_, j) => j !== i) as SettingValue);
   const add = () => onChange([...value, { host: "", username: "", token: "" }] as SettingValue);
+  const t = useT();
 
   return (
     <>
-      {value.length === 0 && <span className="help">no private feeds configured</span>}
+      {value.length === 0 && <span className="help">{t("config.registries.none")}</span>}
       {value.map((entry, i) => (
-        <DrawerSection key={i} title={entry.host || `Feed ${i + 1}`} defaultOpen
+        <DrawerSection key={i} title={entry.host || t("config.registries.feed", { n: i + 1 })} defaultOpen
           testId={`setting-registry-${i}`}>
-          <TextField label="Host" value={entry.host} onChange={(v) => setAt(i, { host: v })} mono
+          <TextField label={t("config.registries.host")} value={entry.host} onChange={(v) => setAt(i, { host: v })} mono
             placeholder="pkgs.dev.azure.com" testId={`setting-registry-${i}-host`} />
-          <TextField label="Username" value={entry.username} onChange={(v) => setAt(i, { username: v })} mono
-            placeholder="any" testId={`setting-registry-${i}-username`} />
-          <TextField label="Token" value={entry.token} onChange={(v) => setAt(i, { token: v })} mono
+          <TextField label={t("config.registries.username")} value={entry.username} onChange={(v) => setAt(i, { username: v })} mono
+            placeholder={t("config.registries.usernamePlaceholder")} testId={`setting-registry-${i}-username`} />
+          <TextField label={t("config.registries.token.label")} value={entry.token} onChange={(v) => setAt(i, { token: v })} mono
             placeholder="${feed_token}" testId={`setting-registry-${i}-token`}
-            help="the secret reference for the feed token" />
+            help={t("config.registries.token.help")} />
           <button type="button" className="btn" onClick={() => remove(i)}
             data-testid={`setting-registry-${i}-remove`} style={{ color: "var(--bad)" }}>
-            Remove feed
+            {t("config.registries.remove")}
           </button>
         </DrawerSection>
       ))}
       <button type="button" className="btn" onClick={add} data-testid="setting-registry-add">
-        Add a feed
+        {t("config.registries.add")}
       </button>
     </>
   );

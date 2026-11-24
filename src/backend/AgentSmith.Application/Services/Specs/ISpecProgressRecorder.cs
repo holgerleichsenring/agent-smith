@@ -20,5 +20,6 @@ public interface ISpecProgressRecorder
         SpecRunState state,
         string? failingCommand = null,
         string? note = null,
+        bool carriedWork = false,
         CancellationToken cancellationToken = default);
 }

@@ -10,6 +10,8 @@ import {
   roleList,
   shortPrice,
 } from "./modelCatalog";
+import { useT } from "@/hooks/useT";
+
 
 // 2026-09-30-62bab: the Activities tab — each role the product routes picks an entry of
 // the catalog (and only that); an optional role left unset follows another. A role that
@@ -26,13 +28,14 @@ export function AgentActivitiesTab({
   capabilities: ConfigCapabilities | null;
   prices: ModelPriceList | null;
 }) {
+  const t = useT();
   const catalog = draft.catalog ?? {};
   const names = Object.keys(catalog);
   const list = prices?.models ?? null;
   const optionLabel = (name: string) => {
     const e = catalog[name];
-    const price = prices ? ` · ${shortPrice(resolvePrice(e.model, draft.pricing, list))}` : "";
-    return `${name} · ${e.tier ?? "no tier"}${price}`;
+    const price = prices ? ` · ${shortPrice(t, resolvePrice(e.model, draft.pricing, list))}` : "";
+    return `${name} · ${e.tier ?? t("config.activities.noTier")}${price}`;
   };
 
   function assign(role: string, entry: string) {
@@ -45,13 +48,13 @@ export function AgentActivitiesTab({
   return (
     <>
       <span className="help">
-        Each activity picks a model from the catalog. Unset, it follows Coding.{" "}
-        <b>needs strong</b> marks an activity whose answer every later step builds on.
+        {t("config.activities.intro")}{" "}
+        <b>{t("config.activities.needsStrong")}</b> {t("config.activities.needsStrongMeans")}
       </span>
       {names.length === 0 && (
         <div className="integrity warn" role="status" data-testid="agent-activities-empty">
           <span className="ii" aria-hidden="true">▲</span>
-          <span>The catalog is empty — add a model on the Models tab, then pick it for Coding.</span>
+          <span>{t("config.activities.empty")}</span>
         </div>
       )}
       {roleList(capabilities).map((r) => {
@@ -70,15 +73,15 @@ export function AgentActivitiesTab({
           >
             <label htmlFor={selectId}>
               <span style={{ flex: 1 }}>
-                {activityLabel(r.key)} <span className="mono help">{r.key}</span>
+                {activityLabel(t, r.key)} <span className="mono help">{r.key}</span>
               </span>
               {r.needsStrong && (
                 <span className="tier-pill strong" data-testid={`agent-activity-needs-strong-${r.key}`}>
-                  needs strong
+                  {t("config.activities.needsStrong")}
                 </span>
               )}
             </label>
-            {ACTIVITY[r.key] && <span className="help">{ACTIVITY[r.key].covers}</span>}
+            {ACTIVITY[r.key] && <span className="help">{t(ACTIVITY[r.key].covers)}</span>}
             <select
               id={selectId}
               data-testid={selectId}
@@ -88,13 +91,13 @@ export function AgentActivitiesTab({
             >
               {r.optional && follows ? (
                 <option value="">
-                  follows {activityLabel(follows)}
+                  {t("config.activities.follows", { activity: activityLabel(t, follows) })}
                   {effectiveEntry(follows, draft.models) ? ` → ${effectiveEntry(follows, draft.models)}` : ""}
                 </option>
               ) : (
-                chosen === "" && <option value="">— pick a model —</option>
+                chosen === "" && <option value="">{t("config.activities.pickModel")}</option>
               )}
-              {!declared && <option value={chosen}>{chosen} · not in the catalog</option>}
+              {!declared && <option value={chosen}>{t("config.activities.notInCatalog", { entry: chosen })}</option>}
               {names.map((n) => (
                 <option key={n} value={n}>
                   {optionLabel(n)}
@@ -103,22 +106,23 @@ export function AgentActivitiesTab({
             </select>
             {chosen === "" && follows && (
               <span className="help" data-testid={`agent-activity-follows-${r.key}`}>
-                follows {activityLabel(follows)} → <span className="mono">{effective ?? "nothing yet"}</span>
+                {t("config.activities.follows", { activity: activityLabel(t, follows) })} →{" "}
+                <span className="mono">{effective ?? t("config.activities.nothingYet")}</span>
               </span>
             )}
             {!r.optional && chosen === "" && (
               <span className="help" style={{ color: "var(--bad)" }} data-testid={`agent-activity-required-${r.key}`}>
-                required — every other activity falls back to it
+                {t("config.activities.required")}
               </span>
             )}
             {!declared && (
               <span className="help" style={{ color: "var(--bad)" }} data-testid={`agent-activity-undeclared-${r.key}`}>
-                names an entry the catalog does not declare
+                {t("config.activities.undeclared")}
               </span>
             )}
             {mismatch && (
               <span className="help" style={{ color: "var(--run)" }} data-testid={`agent-activity-mismatch-${r.key}`}>
-                ▲ a fast model on an activity that needs a strong one
+                {t("config.activities.mismatch")}
               </span>
             )}
           </div>

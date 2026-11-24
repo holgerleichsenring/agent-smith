@@ -1,6 +1,6 @@
 "use client";
 
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import { projectLabel } from "@/lib/installation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -136,7 +136,8 @@ function Conversation({
 }) {
   const t = useT();
   const filed = outcomeLabel(t, conversation);
-  const time = lastActive(t, conversation.lastActivityAt);
+  const locale = useDateLocale();
+  const time = lastActive(t, locale, conversation.lastActivityAt);
   // 2026-09-21-f237a: the ROW says what the conversation is about, the DELETE says what the
   // person wrote — opposite preferences over the same two strings, on purpose. A row twenty-five
   // characters wide cannot show enough of an opening sentence to tell one conversation from

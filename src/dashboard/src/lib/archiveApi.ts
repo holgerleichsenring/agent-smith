@@ -71,7 +71,8 @@ export async function downloadArchive(signal?: AbortSignal): Promise<ArchiveDown
 }
 
 /** Restore an archive into this installation. A refusal arrives as ArchiveRefusedError
- *  carrying the sentence the rule wrote; anything else fails as it always did. */
+ *  carrying the sentence the rule wrote (empty when it wrote none — the view words that); anything else fails as it
+ *  always did. */
 export async function restoreArchive(
   file: File,
   signal?: AbortSignal,
@@ -100,7 +101,7 @@ async function refusalIn(res: Response): Promise<string> {
   } catch (cause) {
     console.debug("A refused restore named no cause this client could read", cause);
   }
-  return "The server refused the restore and named no cause.";
+  return "";
 }
 
 interface SaveFileHandle {

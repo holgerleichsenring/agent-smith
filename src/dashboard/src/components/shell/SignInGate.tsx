@@ -13,6 +13,7 @@ import {
   theAuthorityWasReached,
 } from "@/lib/auth/signInSentinel";
 import type { SessionEndReason } from "@/lib/auth/AccessTokenStore";
+import { useT } from "@/hooks/useT";
 
 /**
  * 2026-09-21-291b: an installation that refuses every call to an anonymous caller
@@ -59,22 +60,23 @@ export function SignInGate({ children }: { children: ReactNode }) {
   return <SignedOut ended={ended} leaving={sendThem} />;
 }
 
-const WHY_IT_ENDED: Record<SessionEndReason, string> = {
-  expired: "Your session expired.",
-  "renewal-refused": "Your session ended.",
+const WHY_IT_ENDED: Record<SessionEndReason, "shell.signIn.expired" | "shell.signIn.ended"> = {
+  expired: "shell.signIn.expired",
+  "renewal-refused": "shell.signIn.ended",
 };
 
 function SignedOut({ ended, leaving }: { ended: SessionEndReason | null; leaving: boolean }) {
+  const t = useT();
   return (
     <div className="p-10" data-testid="sign-in-gate" data-leaving={leaving ? "yes" : "no"}>
       <div className="mx-auto max-w-md rounded-xl border border-slate-200 bg-slate-50 p-6 text-left">
         <p className="text-sm font-semibold text-slate-900">
-          {ended !== null ? WHY_IT_ENDED[ended] : "You are signed out."}
+          {ended !== null ? t(WHY_IT_ENDED[ended]) : t("shell.refusal.signedOut")}
         </p>
         <p className="mt-1 text-xs text-slate-700">
           {leaving
-            ? "Taking you to your organisation's sign-in page."
-            : "This installation asks for a sign-in before it shows anything."}
+            ? t("shell.signIn.leaving")
+            : t("shell.signIn.asks")}
         </p>
         {!leaving && (
           <button
@@ -83,7 +85,7 @@ function SignedOut({ ended, leaving }: { ended: SessionEndReason | null; leaving
             data-testid="sign-in-gate-button"
             className="mt-3 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-900 hover:bg-slate-100"
           >
-            Sign in
+            {t("shell.profile.signIn")}
           </button>
         )}
       </div>

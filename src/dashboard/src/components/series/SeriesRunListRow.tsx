@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useT } from "@/hooks/useT";
 import { seriesRunPath } from "@/lib/seriesRunAddress";
 import type { SeriesRunRow } from "@/types/seriesRuns";
-import { age } from "@/components/tickets/ticketFormat";
+import { compactAge } from "@/components/tickets/ticketFormat";
 import { SeriesProgress } from "./SeriesProgress";
 import { seriesNextStep, seriesStateWord } from "./seriesNextStep";
 
@@ -30,7 +30,7 @@ export function SeriesRunListRow({ row }: { row: SeriesRunRow }) {
       <div className={`sr-heldcnt${row.counts.held > 0 ? " hot" : ""}`} data-testid="series-held">
         {row.counts.held > 0 ? t("series.held", { count: row.counts.held }) : ""}
       </div>
-      <div className="when hidesm">{age(row.lastActivityAt) ?? ""}</div>
+      <div className="when hidesm">{compactAge(t, row.lastActivityAt) ?? ""}</div>
       <span className="chev">›</span>
     </Link>
   );

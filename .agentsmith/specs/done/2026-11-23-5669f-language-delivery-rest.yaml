@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-5669f
+goal: "Delivery and the last English texts in series, dialog and the event store speak German when German is chosen."
+
+applies_to: "dashboard (components/delivery, lib/delivery, components/series, components/dialog, lib/eventStore)"
+
+requires: [2026-11-22-5485a, 2026-11-23-5669a]
+
+facts:
+  - claim: "The Delivery page's texts are English literals."
+    evidence: "src/dashboard/src/components/delivery/DeliveryView.tsx:43"
+  - claim: "Work it out still writes a date in the browser's locale."
+    evidence: "src/dashboard/src/components/dialog/DialogScopePanel.tsx:93"
+
+scope:
+  in: >
+    Every literal UI text under components/delivery/**, lib/delivery/**, lib/eventStore/** and what is still literal under components/series and components/dialog moves to keys in lib/i18n/areas/delivery.ts or the existing series and dialog keys.
+  out: >
+    Text the model writes, server-sent messages and refusal reasons; product nouns (Work it out, Spec, Ticket, Run,
+    Turn, Review). Follows 2026-11-22-5485b, which cut the rest of the dashboard into this series.
+
+steps:
+  - id: translate
+    action: "Every literal UI text in the area moves to keys in the area's dictionary module, German beside English; components call useT, pure helpers that word text take the lookup; dates use the chosen language."
+  - id: tests
+    action: "Existing tests stay green in English; one component of the area renders German when German is chosen."
+
+done:
+  - "No literal UI text is left under delivery, lib/delivery, lib/eventStore, series and dialog."
+  - "Dashboard tests and build green."

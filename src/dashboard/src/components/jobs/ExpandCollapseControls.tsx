@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+
 interface Props {
   repoNames: readonly string[];
   expanded: ReadonlySet<string>;
@@ -8,6 +10,7 @@ interface Props {
 }
 
 export function ExpandCollapseControls({ repoNames, expanded, onExpandAll, onCollapseAll }: Props) {
+  const t = useT();
   if (repoNames.length === 0) return null;
   const allExpanded = repoNames.every((r) => expanded.has(r));
   const noneExpanded = expanded.size === 0;
@@ -20,7 +23,7 @@ export function ExpandCollapseControls({ repoNames, expanded, onExpandAll, onCol
         className="text-stone-600 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-stone-300 disabled:no-underline"
         data-testid="expand-all"
       >
-        expand all
+        {t("runs.list.expandAll")}
       </button>
       <span className="text-stone-300">·</span>
       <button
@@ -30,7 +33,7 @@ export function ExpandCollapseControls({ repoNames, expanded, onExpandAll, onCol
         className="text-stone-600 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-stone-300 disabled:no-underline"
         data-testid="collapse-all"
       >
-        collapse all
+        {t("runs.list.collapseAll")}
       </button>
     </div>
   );

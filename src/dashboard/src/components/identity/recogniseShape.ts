@@ -1,4 +1,5 @@
 import type { AuthRequirements } from "@/lib/authRequirementsApi";
+import type { T } from "@/lib/i18n/translate";
 
 // 2026-09-14-c72e: the closed set of token shapes this dashboard recognises, and the ways
 // out of each.
@@ -23,6 +24,7 @@ export interface Recognition {
 export function recogniseShape(
   requirements: AuthRequirements,
   signInClientId: string,
+  t: T,
 ): Recognition | null {
   const expected = requirements.audience;
   const presented = requirements.presentedAudience;
@@ -32,13 +34,8 @@ export function recogniseShape(
   // belongs, or the API scope is missing and the authority minted one for the client.
   if (presented !== null && signInClientId !== "" && presented === signInClientId) {
     return {
-      shape:
-        "This token was issued for the sign-in client rather than for this API, so it was never "
-        + "addressed to the server that just refused it.",
-      waysOut: [
-        "Add this API's scope to the dashboard's configured scopes — without it the authority "
-        + "mints a token for the client and the server refuses every call.",
-      ],
+      shape: t("identity.shape.signInClient"),
+      waysOut: [t("identity.shape.signInClientWay")],
     };
   }
 
@@ -47,17 +44,10 @@ export function recogniseShape(
   // version claim that says which half of the pair arrived.
   if (isAppIdUriOf(presented, expected) && version === "1.0") {
     return {
-      shape:
-        "This is a version 1 access token: its audience is the API's identifier URI and its "
-        + "issuer is the directory's v1 endpoint, while this server is configured for the "
-        + "version 2 pair. The resource decides the version, never the endpoint the sign-in "
-        + "used — in Microsoft Entra that is requestedAccessTokenVersion on the API's own app "
-        + "registration, which mints version 1 while it is unset.",
+      shape: t("identity.shape.v1"),
       waysOut: [
-        `Set requestedAccessTokenVersion to 2 on the API registration, after which the audience `
-        + `arrives as ${expected}.`,
-        `Or configure this server for the version 1 pair: the audience ${presented} and the `
-        + "authority without its /v2.0 suffix, whose discovery document names the v1 issuer.",
+        t("identity.shape.v1WayVersion", { expected: expected ?? "" }),
+        t("identity.shape.v1WayServer", { presented: presented ?? "" }),
       ],
     };
   }
@@ -65,14 +55,10 @@ export function recogniseShape(
   // The mirror: a v2 token against a server configured for the v1 pair.
   if (isAppIdUriOf(expected, presented) && version === "2.0") {
     return {
-      shape:
-        "This is a version 2 access token, whose audience is the API's bare client id, while "
-        + "this server is configured for the version 1 pair.",
+      shape: t("identity.shape.v2"),
       waysOut: [
-        `Configure this server with the audience ${presented} and the authority carrying its `
-        + "/v2.0 suffix.",
-        "Or set the API registration's accepted access-token version back to 1, which mints "
-        + "the identifier-URI form again.",
+        t("identity.shape.v2WayServer", { presented: presented ?? "" }),
+        t("identity.shape.v2WayVersion"),
       ],
     };
   }

@@ -2,6 +2,7 @@
 
 import type { AccessDocument } from "@/lib/accessApi";
 import { TextField, NumberField } from "@/components/config/formFields";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-26-7a51: the claim names, as their own pane.
 //
@@ -23,39 +24,40 @@ export function ClaimsPane({
   nameClaim: string;
   onChange: (next: AccessDocument) => void;
 }) {
+  const t = useT();
   return (
     <div className="db" data-testid="access-claims">
       <TextField
-        label="Role claim"
+        label={t("access.claims.role")}
         value={draft.roleClaim}
         onChange={(v) => onChange({ ...draft, roleClaim: v })}
         mono
         placeholder="roles"
         testId="access-claims-roleclaim"
-        help="the claim role NAMES are read out of, verbatim"
+        help={t("access.claims.roleHelp")}
       />
       <TextField
-        label="Group claim"
+        label={t("access.claims.group")}
         value={draft.groupClaim}
         onChange={(v) => onChange({ ...draft, groupClaim: v })}
         mono
         placeholder="groups"
         testId="access-claims-groupclaim"
-        help="the claim group values are read out of"
+        help={t("access.claims.groupHelp")}
       />
       <div className="field" data-testid="access-claims-nameclaim">
         <label htmlFor="access-name-claim">
-          Name claim
-          <span className="help">bootstrap — changing it costs a restart</span>
+          {t("access.claims.name")}
+          <span className="help">{t("access.claims.nameHelp")}</span>
         </label>
         <input id="access-name-claim" className="mono" readOnly value={nameClaim} />
       </div>
       <NumberField
-        label="Observation retention (days)"
+        label={t("access.claims.retention")}
         value={draft.observationRetentionDays}
         onChange={(v) => onChange({ ...draft, observationRetentionDays: v ?? draft.observationRetentionDays })}
         testId="access-claims-retention"
-        help="how long a caller stays on the People pane after their last request"
+        help={t("access.claims.retentionHelp")}
       />
     </div>
   );

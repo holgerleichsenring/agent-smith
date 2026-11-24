@@ -1,12 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { routeSurfaceName } from "../routeSurface";
+import { translator } from "@/lib/i18n/translate";
+import { routeSurfaceName as keyOf } from "../routeSurface";
+
+const routeSurfaceName = (path: string | null) => translator("en")(keyOf(path));
 
 // 2026-08-25-39ab: the route boundary names what the operator was looking at,
 // not the URL they were at.
 
 describe("routeSurfaceName", () => {
-  it("routeSurfaceName_TheRoot_IsTheRunMonitor", () => {
-    expect(routeSurfaceName("/")).toBe("run monitor");
+  it("routeSurfaceName_TheRoot_IsTheHomePage", () => {
+    expect(routeSurfaceName("/")).toBe("home page");
   });
 
   it("routeSurfaceName_ARunUrl_IsTheRunView", () => {
@@ -21,6 +24,6 @@ describe("routeSurfaceName", () => {
 
   it("routeSurfaceName_ARouteItDoesNotKnow_StillReadsAsASentence", () => {
     expect(routeSurfaceName("/something-new")).toBe("page");
-    expect(routeSurfaceName(null)).toBe("run monitor");
+    expect(routeSurfaceName(null)).toBe("home page");
   });
 });

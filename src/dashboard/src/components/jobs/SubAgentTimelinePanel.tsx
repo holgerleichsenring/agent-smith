@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from "react";
 import { EventType, type RunEvent } from "@/types/hub-events";
+import { useT } from "@/hooks/useT";
+import type { TextKey } from "@/lib/i18n/translate";
 import { useSubAgentObservations, type SubAgentEventKind } from "@/hooks/useSubAgentObservations";
 import { SubAgentObservationRow } from "./rows/SubAgentObservationRow";
 import { SubAgentFindingRow } from "./rows/SubAgentFindingRow";
@@ -13,14 +15,15 @@ interface Props {
   subAgentId: string;
 }
 
-const KIND_OPTIONS: { value: SubAgentEventKind; label: string }[] = [
-  { value: "observation", label: "Observations" },
-  { value: "finding", label: "Findings" },
-  { value: "file_written", label: "Files" },
-  { value: "tool_call", label: "Tools" },
+const KIND_OPTIONS: { value: SubAgentEventKind; label: TextKey }[] = [
+  { value: "observation", label: "runs.subagent.observations" },
+  { value: "finding", label: "runs.subagent.findings" },
+  { value: "file_written", label: "runs.subagent.files" },
+  { value: "tool_call", label: "runs.subagent.tools" },
 ];
 
 export function SubAgentTimelinePanel({ runId, subAgentId }: Props) {
+  const t = useT();
   const [activeKinds, setActiveKinds] = useState<Set<SubAgentEventKind>>(
     new Set<SubAgentEventKind>(),
   );
@@ -40,7 +43,7 @@ export function SubAgentTimelinePanel({ runId, subAgentId }: Props) {
     <section className="space-y-3 text-xs" data-testid="sub-agent-timeline-panel">
       <header className="flex flex-wrap items-center gap-2">
         <h3 className="font-medium text-stone-700">
-          Sub-agent <span className="font-mono">{subAgentId}</span>
+          {t("runs.subagent.title")} <span className="font-mono">{subAgentId}</span>
         </h3>
         <div className="flex gap-1">
           {KIND_OPTIONS.map((opt) => (
@@ -56,14 +59,14 @@ export function SubAgentTimelinePanel({ runId, subAgentId }: Props) {
                   : "border-stone-300 bg-white text-stone-700"
               }`}
             >
-              {opt.label}
+              {t(opt.label)}
             </button>
           ))}
         </div>
       </header>
       {sorted.length === 0 ? (
         <p className="text-stone-500" data-testid="sub-agent-timeline-empty">
-          (no observations yet)
+          {t("runs.subagent.noObservations")}
         </p>
       ) : (
         <ul className="space-y-0">

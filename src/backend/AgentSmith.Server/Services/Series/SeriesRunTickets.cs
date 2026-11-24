@@ -10,7 +10,7 @@ namespace AgentSmith.Server.Services.Series;
 /// and newest status — its progress counts and its merge order (<see cref="SeriesRunOrder"/>). An open pull request's
 /// target is not stored, so it counts as the default branch here; the merge itself reads the host's base.
 /// <para>2026-11-23-31dcg: each ticket carries its hold, read where the ticket list reads it, and the held count is the
-/// tickets What holds the rest lists — none when no holds were read (the merge order alone needs none).</para>
+/// tickets whose hold names someone and is not the next merge — none when no holds were read (the merge order alone needs none).</para>
 /// </summary>
 public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests pullRequests)
 {
@@ -63,7 +63,8 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
         SeriesRunProjectFacts facts, IReadOnlyList<SeriesRunPullRequestView> prs) =>
         new(ticket.TicketId, ticket.Key, ticket.Title, ticket.FollowUp, depths[ticket.TicketId], ordered.Requires,
             [.. prs.Select(p => p.Repo).Distinct(StringComparer.Ordinal)], facts.Landed.Contains(ticket.TicketId),
-            facts.Attempts.GetValueOrDefault(ticket.TicketId)?.Status, prs);
+            facts.Attempts.GetValueOrDefault(ticket.TicketId)?.Status, prs)
+        { RunId = facts.Attempts.GetValueOrDefault(ticket.TicketId)?.RunId }; // 2026-11-23-f562
 
     private static SeriesRunCounts Counts(IReadOnlyList<SeriesRunTicketView> tickets, SeriesRunProjectFacts facts)
     {

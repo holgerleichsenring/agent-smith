@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { SettingKey, SettingShapes, SettingValue, StudioEntity } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
+
 
 // p0345: form field primitives for the studio drawer. RefSelect / MultiRefSelect
 // are the load-bearing pieces — a reference is only ever CHOSEN from the catalog
@@ -35,11 +37,12 @@ export function TextField({
   required?: boolean;
   help?: string;
 }) {
+  const t = useT();
   return (
     <div className="field">
       <label>
         {label}
-        {required && <span className="req">required</span>}
+        {required && <span className="req">{t("config.required")}</span>}
         {help && <span className="help">{help}</span>}
       </label>
       <input
@@ -62,7 +65,7 @@ export function RefSelect({
   value,
   options,
   onChange,
-  placeholder = "— pick —",
+  placeholder,
   testId,
 }: {
   label: string;
@@ -72,11 +75,12 @@ export function RefSelect({
   placeholder?: string;
   testId?: string;
 }) {
+  const t = useT();
   return (
     <div className="field">
       <label>{label}</label>
       <select data-testid={testId} value={value} onChange={(e) => onChange(e.target.value)} className="mono">
-        <option value="">{placeholder}</option>
+        <option value="">{placeholder ?? t("config.pick")}</option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>
             {o.id}
@@ -102,6 +106,7 @@ export function MultiRefSelect({
   onChange: (v: string[]) => void;
   testId?: string;
 }) {
+  const t = useT();
   return (
     <MultiPickField
       label={label}
@@ -109,8 +114,8 @@ export function MultiRefSelect({
       options={options.map((o) => o.id)}
       onChange={onChange}
       testId={testId}
-      help="pick from the catalog"
-      empty="no entries in catalog"
+      help={t("config.pickFromCatalog")}
+      empty={t("config.noCatalogEntries")}
     />
   );
 }
@@ -136,15 +141,16 @@ export function MultiPickField({
   help?: string;
   empty?: string;
 }) {
+  const t = useT();
   const toggle = (id: string) =>
     onChange(values.includes(id) ? values.filter((v) => v !== id) : [...values, id]);
   return (
     <div className="field" data-testid={testId}>
       <label>
-        {label} <span className="help">{help ?? "pick from the catalog"}</span>
+        {label} <span className="help">{help ?? t("config.pickFromCatalog")}</span>
       </label>
       <div className="picks">
-        {options.length === 0 && <span className="help">{empty ?? "nothing to pick from"}</span>}
+        {options.length === 0 && <span className="help">{empty ?? t("config.nothingToPick")}</span>}
         {options.map((option) => {
           const on = values.includes(option);
           return (
@@ -188,7 +194,7 @@ export function SelectField({
   value,
   options,
   onChange,
-  placeholder = "— pick —",
+  placeholder,
   testId,
   required,
   help,
@@ -202,17 +208,18 @@ export function SelectField({
   required?: boolean;
   help?: string;
 }) {
+  const t = useT();
   const opts: SelectOption[] =
     value && !options.some((o) => optionValue(o) === value) ? [value, ...options] : options;
   return (
     <div className="field">
       <label>
         {label}
-        {required && <span className="req">required</span>}
+        {required && <span className="req">{t("config.required")}</span>}
         {help && <span className="help">{help}</span>}
       </label>
       <select data-testid={testId} value={value} onChange={(e) => onChange(e.target.value)} className="mono">
-        <option value="">{placeholder}</option>
+        <option value="">{placeholder ?? t("config.pick")}</option>
         {opts.map((o) => (
           <option key={optionValue(o)} value={optionValue(o)}>
             {optionLabel(o)}
@@ -280,6 +287,7 @@ export function CheckField({
   /** 2026-11-17-b34eb: what turning it on does. */
   help?: string;
 }) {
+  const t = useT();
   return (
     <div className="field">
       <label>
@@ -296,7 +304,7 @@ export function CheckField({
           className={cn("pick", value && "on")}
         >
           <span className="pk">{value ? "✓" : ""}</span>
-          {value ? "enabled" : "disabled"}
+          {value ? t("config.enabled") : t("config.disabled")}
         </button>
       </div>
     </div>

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { runStatusWord, toNodeStatus } from "../runStatus";
+import { translator } from "@/lib/i18n/translate";
+import { runStatusWord as wordOf, toNodeStatus } from "../runStatus";
+
+const runStatusWord = (status: string | null | undefined) => wordOf(translator("en"), status);
 
 describe("toNodeStatus", () => {
   it("toNodeStatus_KnownStatuses_MapToNodeStatus", () => {

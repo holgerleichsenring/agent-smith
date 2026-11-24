@@ -40,7 +40,8 @@ public sealed class CommitAndPRHandler(
     Structure.StructureDivergencePublisher divergences,
     CodePullRequestBanner banners,
     SeriesChunkStop chunkStop,
-    ILogger<CommitAndPRHandler> logger)
+    ILogger<CommitAndPRHandler> logger,
+    PullRequestBuildRequeue? requeue = null)
     : ICommandHandler<CommitAndPRContext>
 {
     // p0234: the run record (plan.md / result.md / decisions.md / context.yaml)
@@ -125,7 +126,8 @@ public sealed class CommitAndPRHandler(
         var halfMigrated = progress?.IsPartial == true && shortfall is null;
         // 2026-10-12-3a36c: failed means NOT delivered — a delivered shortfall stays a delivery.
         var failed = failureReason is not null && shortfall is null;
-        var isDraft = !keystone.Satisfied || halfMigrated;
+        // 2026-11-23-df05 (operator): a run whose specs delivered no work keeps its PR a draft — no ready, no re-queue.
+        var isDraft = !keystone.Satisfied || halfMigrated || progress?.DeliveredNone == true;
 
         foreach (var (repo, _, sandbox, hasCode) in stagedRepos)
         {
@@ -359,6 +361,11 @@ public sealed class CommitAndPRHandler(
         // verified. Only a complete, green run takes it out of draft — a stopped sequence
         // stays unmergeable by construction, which is the whole point of opening it early.
         var ready = !isDraft && await provider.MarkPullRequestReadyAsync(prUrl, ct);
+        // 2026-11-23-0219: a green run whose pull request stays a draft is a delivery nobody can merge — said loudly, and a
+        // published one gets the required builds the host did not start on the draft (Azure runs none on a draft).
+        if (!isDraft && !ready)
+            logger.LogWarning("{Repo}: {Url} stays a draft — the host did not take it out of draft", repoName, prUrl);
+        if (ready && requeue is not null) await requeue.RequeueAsync(provider, prUrl, ct);
         logger.LogInformation(
             "{Repo}: reusing the PR opened earlier on this branch {Url} "
             + "(body updated: {Updated}, ready for review: {Ready})",

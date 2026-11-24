@@ -1,3 +1,4 @@
+import { translator } from "@/lib/i18n/translate";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "../../__tests__/ticketFixtures";
@@ -96,7 +97,7 @@ describe("TicketDefaultsTab", () => {
     expect(screen.getByTestId("defaults-overrule")).toBeEnabled();
     select(5);
     expect(screen.getByTestId("defaults-overrule")).toBeDisabled();
-    expect(screen.getByTestId("defaults-conversation-hint")).toHaveTextContent(ANSWER_IN_CONVERSATION);
+    expect(screen.getByTestId("defaults-conversation-hint")).toHaveTextContent(translator("en")(ANSWER_IN_CONVERSATION));
     expect(screen.getByTestId("defaults-ratify")).toBeEnabled();
   });
 

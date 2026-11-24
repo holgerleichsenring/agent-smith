@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
+
 interface Props {
   prUrl: string | null;
 }
@@ -10,15 +12,16 @@ interface Props {
 // fallback" mental model.
 
 export function TrailExpiredEmptyState({ prUrl }: Props) {
+  const t = useT();
   return (
     <div
       className="rounded-lg border border-dashed border-stone-300 bg-white p-6 text-sm text-stone-600"
       data-testid="trail-expired-empty"
     >
-      <p className="mb-2 font-medium text-stone-800">Trail expired (24h+).</p>
+      <p className="mb-2 font-medium text-stone-800">{t("runs.trail.expired")}</p>
       {prUrl !== null ? (
         <p>
-          The full execution detail is in the PR —{" "}
+          {t("runs.trail.expiredInPr")}{" "}
           <a
             href={prUrl}
             target="_blank"
@@ -26,15 +29,13 @@ export function TrailExpiredEmptyState({ prUrl }: Props) {
             className="text-stone-800 underline hover:text-stone-900"
             data-testid="trail-expired-pr-link"
           >
-            view in PR
+            {t("runs.trail.viewInPr")}
           </a>
           .
         </p>
       ) : (
         <p>
-          Per-event detail is only retained for the live look-back
-          window. The PR carries the synthesised result.md if you
-          need to refer back.
+          {t("runs.trail.expiredNoPr")}
         </p>
       )}
     </div>

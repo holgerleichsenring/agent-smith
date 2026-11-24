@@ -1,7 +1,14 @@
+import { translator } from "@/lib/i18n/translate";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { EventType, type VerifyPassRecordedEvent } from "@/types/hub-events";
-import { staleWords, stageWords, VerifyPassLines } from "../VerifyPassLines";
+import { staleWords as staleWordsIn, stageWords as stageWordsIn, VerifyPassLines } from "../VerifyPassLines";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const staleWords = (...args: DropLead<Parameters<typeof staleWordsIn>, 1>) => staleWordsIn(en, ...args);
+const stageWords = (...args: DropLead<Parameters<typeof stageWordsIn>, 1>) => stageWordsIn(en, ...args);
 
 // 2026-11-17-d6fbc: a verify pass reads as a line per repository, the stale derivations as one muted line with the
 // files behind a disclosure. 2026-11-18-d6d2e: moved here from the deleted RunSectionLog test.

@@ -1,5 +1,6 @@
 import type { DeliveryFigures, DeliveryPeriod } from "@/lib/deliveryApi";
-import { COMPARED_WITH, KPIS, formatDelta, formatValue, type Kpi } from "@/lib/delivery/deliveryFormat";
+import { useLanguage, useT } from "@/hooks/useT";
+import { KPIS, comparedWith, formatDelta, formatValue, wording, type Kpi } from "@/lib/delivery/deliveryFormat";
 
 // 2026-10-25-0099c: the eight figures of the period, each with its change against the period before (hidden on a
 // truncated answer, whose previous period is incomplete) and a sparkline of the period's slots.
@@ -7,10 +8,11 @@ import { COMPARED_WITH, KPIS, formatDelta, formatValue, type Kpi } from "@/lib/d
 export function DeliveryKpis({
   current, previous, slots, period, truncated,
 }: { current: DeliveryFigures; previous: DeliveryFigures; slots: DeliveryFigures[]; period: DeliveryPeriod; truncated: boolean }) {
+  const t = useT();
   return (
-    <section className="kpis" aria-label="Key figures" data-testid="delivery-kpis">
+    <section className="kpis" aria-label={t("delivery.kpis.label")} data-testid="delivery-kpis">
       {KPIS.map((kpi) => (
-        <Tile key={kpi.label} kpi={kpi} current={current} previous={truncated ? null : previous} slots={slots} period={period} />
+        <Tile key={kpi.id} kpi={kpi} current={current} previous={truncated ? null : previous} slots={slots} period={period} />
       ))}
     </section>
   );
@@ -19,19 +21,20 @@ export function DeliveryKpis({
 function Tile({ kpi, current, previous, slots, period }: {
   kpi: Kpi; current: DeliveryFigures; previous: DeliveryFigures | null; slots: DeliveryFigures[]; period: DeliveryPeriod;
 }) {
+  const w = wording(useLanguage());
   const value = kpi.value(current);
-  const delta = previous === null ? null : formatDelta(kpi, value, kpi.value(previous));
+  const delta = previous === null ? null : formatDelta(w, kpi, value, kpi.value(previous));
   return (
-    <div className="kpi" data-testid={`delivery-kpi-${kpi.label}`}>
-      <div className="k">{kpi.label}</div>
-      <div className="v">{formatValue(kpi.kind, value)}</div>
+    <div className="kpi" data-testid={`delivery-kpi-${kpi.id}`}>
+      <div className="k">{w.t(kpi.label)}</div>
+      <div className="v">{formatValue(w, kpi.kind, value)}</div>
       <div className="d">
         {delta && (
           <>
             <span className={delta.better === null ? undefined : delta.better ? "up" : "down"}>{delta.text}</span>{" "}
           </>
         )}
-        {COMPARED_WITH[period]}
+        {comparedWith(w.t, period)}
       </div>
       <Sparkline values={slots.map(kpi.value)} />
     </div>

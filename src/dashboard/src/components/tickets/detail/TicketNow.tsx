@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import { useTicketConversation, useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import type { TicketApprovalPreview, TicketAttempt, TicketDetail } from "@/types/tickets";
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export function TicketNow({ lead, focus, preview }: Props) {
+  const t = useT();
   const detail = useTicketDetail();
   const conversation = useTicketConversation();
   const address = useTicketTabGo();
@@ -51,7 +53,7 @@ export function TicketNow({ lead, focus, preview }: Props) {
   const attempts = detail.data.attempts;
   const newest = attempts.length > 0 ? attempts[attempts.length - 1] : null;
   const retryNewest = !retryInBox && newest !== null;
-  const entry = data ? latestEntry(threadItems(data, detail.data)) : null;
+  const entry = data ? latestEntry(threadItems(t, data, detail.data)) : null;
   const answer = () => question.current?.scrollIntoView?.({ block: "center" });
   return (
     <>
@@ -74,7 +76,7 @@ export function TicketNow({ lead, focus, preview }: Props) {
       <div className="thread" data-testid="now-latest">
         {!data && (
           <div className="msub" data-testid="conv-unread">
-            {conversation.loading ? "Reading the conversation…" : "The conversation could not be read."}
+            {conversation.loading ? t("tickets.now.reading") : t("tickets.now.unread")}
           </div>
         )}
         {entry && <ThreadItemList items={[{ kind: "entry", entry }]} conversation={data} target={null}
@@ -84,7 +86,7 @@ export function TicketNow({ lead, focus, preview }: Props) {
       {data && (
         <button type="button" className="tk-link tk-now-more" onClick={() => address.go("conversation")}
           data-testid="now-conversation-link">
-          {wholeConversationWords(data.entries.length)}
+          {wholeConversationWords(t, data.entries.length)}
         </button>
       )}
     </>
@@ -103,11 +105,13 @@ function NewestRetry({ attempt, project }: { attempt: TicketAttempt; project: st
 
 /** A ticket whose runs are not coding runs (a deploy, a merge): one line and its newest run. */
 function NoCodingRun({ detail }: { detail: TicketDetail }) {
-  const newest = runListLines(detail.attempts, detail.derivations ?? [], detail.otherRuns ?? [])[0] ?? null;
+  const t = useT();
+  const locale = useDateLocale();
+  const newest = runListLines(t, locale, detail.attempts, detail.derivations ?? [], detail.otherRuns ?? [], null, null)[0] ?? null;
   return (
     <div className="msub" data-testid="now-no-run">
-      No coding run yet.
-      {newest && <> Newest run: <Link href={newest.href} data-testid="now-newest-run">{newest.who} · {newest.outcome}</Link></>}
+      {t("tickets.now.noCodingRun")}
+      {newest && <> {t("tickets.now.newestRun")} <Link href={newest.href} data-testid="now-newest-run">{newest.who} · {newest.outcome}</Link></>}
     </div>
   );
 }

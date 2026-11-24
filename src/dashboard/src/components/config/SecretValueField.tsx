@@ -4,13 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import {
   deleteSecretValue, fetchSecretValues, rewrapSecretValues, setSecretValue, type SecretValuesView,
 } from "@/lib/secretValuesApi";
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // 2026-11-17-f3a8d: a secret's value, set in the admin area. The field is a password input whose text goes straight
 // into the request and is cleared whatever the answer; the page never holds a stored value, because the server never
 // sends one. An environment variable of the same name wins over what is stored here.
 
 export function SecretValueField({ name }: { name: string }) {
+  const t = useT();
+  const locale = useDateLocale();
   const [view, setView] = useState<SecretValuesView | null>(null);
   const [value, setValue] = useState("");
   const [line, setLine] = useState<string | null>(null);
@@ -31,29 +34,29 @@ export function SecretValueField({ name }: { name: string }) {
     <div data-testid="secret-value-field" className="flex flex-col gap-2">
       {view && !view.masterKeyPresent && (
         <p data-testid="secret-value-no-key" className="dsh-body text-ink">
-          {view.masterKeyProblem ?? "No master key is configured, so no value can be stored here."}
+          {view.masterKeyProblem ?? t("config.secret.newValue.noKey")}
         </p>
       )}
-      <p data-testid="secret-value-state" className="ec-sub">{describe(state)}</p>
+      <p data-testid="secret-value-state" className="ec-sub">{describe(t, locale, state)}</p>
       {view?.masterKeySource && (
-        <p data-testid="secret-value-key-source" className="ec-sub">Master key: {view.masterKeySource}, set by the deployment.</p>
+        <p data-testid="secret-value-key-source" className="ec-sub">{t("config.secret.keySource", { source: view.masterKeySource })}</p>
       )}
       <div className="flex flex-wrap items-center gap-2">
         <input
-          type="password" autoComplete="new-password" aria-label="Secret value" data-testid="secret-value-input"
+          type="password" autoComplete="new-password" aria-label={t("config.secret.valueAria")} data-testid="secret-value-input"
           className="d-input mono max-w-md flex-1" value={value} onChange={(e) => setValue(e.target.value)}
-          placeholder={state?.stored ? "enter a new value to replace it" : "enter the value"}
+          placeholder={state?.stored ? t("config.secret.replacePlaceholder") : t("config.secret.newValue.placeholder")}
         />
         <button type="button" className="btn primary" data-testid="secret-value-set" disabled={value === "" || !view?.masterKeyPresent}
-          onClick={() => act(() => setSecretValue(name, value))}>Set value</button>
+          onClick={() => act(() => setSecretValue(name, value))}>{t("config.secret.set")}</button>
         {state?.stored && (
           <button type="button" className="btn" data-testid="secret-value-delete" onClick={() => act(() => deleteSecretValue(name))}>
-            Delete stored value
+            {t("config.secret.deleteStored")}
           </button>
         )}
         {state?.stored && !state.stored.keyCurrent && state.stored.readable && (
           <button type="button" className="btn" data-testid="secret-value-rewrap" onClick={() => act(rewrapSecretValues)}>
-            Re-wrap with the current master key
+            {t("config.secret.rewrap")}
           </button>
         )}
       </div>
@@ -87,11 +90,14 @@ export function NewSecretValueInput({ value, onChange }: { value: string; onChan
   );
 }
 
-function describe(state: SecretValuesView["secrets"][number] | null): string {
-  if (!state) return "No value stored here yet.";
+function describe(t: T, locale: string, state: SecretValuesView["secrets"][number] | null): string {
+  if (!state) return t("config.secret.state.noneYet");
   const stored = state.stored
-    ? `Stored value set by ${state.stored.setBy} at ${new Date(state.stored.setAt).toLocaleString()}`
-      + (state.stored.readable ? "" : " — the running master key cannot open it")
-    : "No value stored here";
-  return state.fromEnvironment ? `${stored}. The environment variable ${state.variable} is set and wins.` : `${stored}.`;
+    ? t(state.stored.readable ? "config.secret.state.stored" : "config.secret.state.storedUnreadable", {
+      by: state.stored.setBy, at: new Date(state.stored.setAt).toLocaleString(locale),
+    })
+    : t("config.secret.state.none");
+  return state.fromEnvironment
+    ? t("config.secret.state.environmentWins", { stored, variable: state.variable })
+    : t("config.secret.state.sentence", { stored });
 }

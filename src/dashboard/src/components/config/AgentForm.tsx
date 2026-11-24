@@ -11,6 +11,8 @@ import { AgentProviderTab } from "./agent/AgentProviderTab";
 import { AgentTuningTab } from "./agent/AgentTuningTab";
 import { strongMismatches } from "./agent/modelCatalog";
 import { usePriceList } from "./agent/usePriceList";
+import { useT } from "@/hooks/useT";
+
 
 // 2026-09-30-62bab: the agent drawer as four tabs (the ProjectForm pattern). An agent
 // declares its models ONCE in a named catalog (Models), each activity picks one entry
@@ -19,6 +21,12 @@ import { usePriceList } from "./agent/usePriceList";
 
 const TABS = ["models", "activities", "provider", "tuning"] as const;
 export type AgentTab = (typeof TABS)[number];
+
+const TAB_TITLE = {
+  activities: "config.agent.tab.activities",
+  provider: "config.agent.tab.provider",
+  tuning: "config.agent.tab.tuning",
+} as const;
 
 /** null = no sub-view; "" = adding; otherwise the entry being edited. */
 type Editing = string | null;
@@ -34,6 +42,7 @@ export function AgentForm({
   catalog: ConfigCatalog;
   capabilities: ConfigCapabilities | null;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<AgentTab>("models");
   const [editing, setEditing] = useState<Editing>(null);
   const { list: prices, failed: pricesFailed } = usePriceList();
@@ -57,7 +66,7 @@ export function AgentForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="dtabs" role="tablist" aria-label="Agent sections">
+      <div className="dtabs" role="tablist" aria-label={t("config.agent.sections")}>
         {TABS.map((key) => (
           <button
             key={key}
@@ -69,8 +78,8 @@ export function AgentForm({
             data-testid={`agent-tab-${key}`}
             onClick={() => setTab(key)}
           >
-            {key === "models" ? `Models · ${entryCount}` : key[0].toUpperCase() + key.slice(1)}
-            {marked.has(key) && <span className="dtab-mark" aria-label="needs attention">▲</span>}
+            {key === "models" ? t("config.agent.tab.models", { count: entryCount }) : t(TAB_TITLE[key])}
+            {marked.has(key) && <span className="dtab-mark" aria-label={t("config.needsAttention")}>▲</span>}
           </button>
         ))}
       </div>

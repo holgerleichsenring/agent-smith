@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { commandKey, stepState, type SectionState } from "@/components/jobs/runlog/runSections";
 import { stepDetailLines } from "@/components/jobs/runlog/stepDetailLines";
 import { useRunStepEvents } from "@/hooks/useRunStepEvents";
-import { useT } from "@/hooks/useT";
+import { useDateLocale, useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
 import { pocRevisionPagePath } from "@/lib/pocRevisionPath";
 import { getPocRevision, getPocRollout, type PocRevisionView, type PocRolloutView } from "@/lib/pocsApi";
@@ -160,12 +160,13 @@ function RolloutStep({ row, view, revision, live }: {
   row: RunStepRow; view: PocRolloutView; revision: PocRevisionView | null; live: boolean;
 }) {
   const t = useT();
+  const locale = useDateLocale();
   const key = commandKey(row);
   const state = row.planned ? "pending" : stepState(row);
   const reached = !row.planned && !!row.status;
   const { events } = useRunStepEvents(view.runId, reached ? row.stepIndex : null, live && row.status === "running");
   // stepDetailLines sorts newest first; a rollout reads top to bottom, oldest first.
-  const lines = stepDetailLines(events, !live).lines.slice().reverse();
+  const lines = stepDetailLines(t, locale, events, !live).lines.slice().reverse();
   const testId = `poc-rollout-step-${key}`;
   return (
     <li className={`poc-rollout-step ${state}`} data-testid={testId} data-look={state}>

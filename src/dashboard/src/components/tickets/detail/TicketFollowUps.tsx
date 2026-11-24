@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MasterReport } from "@/components/jobs/runlog/LogText";
+import { useT } from "@/hooks/useT";
 import { postFollowUp } from "@/lib/ticketsApi";
 import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import type { TicketSeriesSpec } from "@/types/tickets";
@@ -14,11 +15,12 @@ import type { TicketSeriesSpec } from "@/types/tickets";
 type Filing = { state: "filing" } | { state: "filed"; key: string } | { state: "refused"; text: string };
 
 export function TicketFollowUps({ specs }: { specs: TicketSeriesSpec[] }) {
+  const t = useT();
   const items = specs.flatMap((spec) => (spec.followUps ?? []).map((f) => ({ ...f, spec })));
   if (items.length === 0) return null;
   return (
     <div className="doc" data-testid="acceptance-follow-ups">
-      <h5>Proposed follow-ups</h5>
+      <h5>{t("tickets.followUps.title")}</h5>
       <FollowUpList specs={specs} />
     </div>
   );
@@ -33,6 +35,7 @@ export function MasterReportText({ spec, label, folded = true }: { spec: TicketS
 
 /** The follow-ups of these specs, each with its "File as a ticket" action. */
 export function FollowUpList({ specs }: { specs: TicketSeriesSpec[] }) {
+  const t = useT();
   const { project, ticketId } = useTicketDetail();
   const [filing, setFiling] = useState<Record<string, Filing>>({});
   const items = specs.flatMap((spec) => (spec.followUps ?? []).map((f) => ({ ...f, spec })));
@@ -60,11 +63,11 @@ export function FollowUpList({ specs }: { specs: TicketSeriesSpec[] }) {
               {now?.state === "refused" && <span className="dim-line"> · {now.text}</span>}
             </span>
             <span className="cw">
-              Spec {f.spec.ordinal}{" "}
-              {now?.state === "filed" ? <span data-testid="follow-up-filed">filed as {now.key}</span> : (
+              {t("tickets.acceptance.spec", { n: f.spec.ordinal })}{" "}
+              {now?.state === "filed" ? <span data-testid="follow-up-filed">{t("tickets.followUps.filedAs", { key: now.key })}</span> : (
                 <button type="button" className="btn sm" disabled={now?.state === "filing"}
                   onClick={() => void file(key, f.runId, f.spec.specId, f.index)} data-testid="follow-up-file">
-                  File as a ticket
+                  {t("tickets.followUps.file")}
                 </button>
               )}
             </span>

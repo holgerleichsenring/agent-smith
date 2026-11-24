@@ -73,7 +73,7 @@ describe("CatalogBrowserView", () => {
     render(<CatalogBrowserView contents={contents} loadBody={() => Promise.resolve(null)} />);
 
     expect(screen.getByTestId("catalog-origin-read-at")).toHaveTextContent(
-      new Date(READ_AT).toLocaleString(),
+      new Date(READ_AT).toLocaleString("en-GB"),
     );
   });
 

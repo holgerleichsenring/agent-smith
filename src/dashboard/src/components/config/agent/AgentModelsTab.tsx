@@ -11,6 +11,8 @@ import {
   windowLabel,
   withOverride,
 } from "./modelCatalog";
+import { useT } from "@/hooks/useT";
+
 
 // 2026-09-30-62bab: the Models tab — one card per catalog entry, each showing what the
 // resolver would charge for it and which activities name it. A card opens the editor.
@@ -30,6 +32,7 @@ export function AgentModelsTab({
   onAdd: () => void;
   onEdit: (name: string) => void;
 }) {
+  const t = useT();
   const entries = Object.entries(draft.catalog ?? {});
   const list = prices?.models ?? null;
   const unpriced = prices
@@ -42,13 +45,13 @@ export function AgentModelsTab({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <span className="help" data-testid="agent-models-source">
           {prices
-            ? <>Prices &amp; windows from the public price list · <span className="mono">{fetchedLabel(prices.fetchedAt)}</span></>
+            ? <>{t("config.models.source")} <span className="mono">{fetchedLabel(prices.fetchedAt)}</span></>
             : pricesFailed
-            ? "The public price list could not be read — prices show once it loads."
-            : "Loading the public price list…"}
+            ? t("config.models.pricesFailed")
+            : t("config.models.pricesLoading")}
         </span>
         <button type="button" className="btn primary" data-testid="agent-model-add" onClick={onAdd}>
-          + Add model
+          {t("config.models.add")}
         </button>
       </div>
 
@@ -57,22 +60,21 @@ export function AgentModelsTab({
           <span className="ii" aria-hidden="true">▲</span>
           <span>
             <b className="mono">{unpriced.join(", ")}</b>{" "}
-            {unpriced.length === 1 ? "matches" : "match"} nothing in the price list — the save is
-            refused until you pick a listed model or enter a price.
+            {t("config.models.unpriced", { count: unpriced.length })}
           </span>
         </div>
       )}
 
       {entries.length === 0 ? (
         <span className="help" data-testid="agent-models-empty">
-          No models yet. Add one, then pick it for Coding on the Activities tab.
+          {t("config.models.empty")}
         </span>
       ) : (
         <div className="tpl-rows">
           {entries.map(([name, entry]) => {
             const price = resolvePrice(entry.model, draft.pricing, list);
-            const used = rolesUsing(name, draft.models).map(activityLabel);
-            const conn = [entry.providerType, entry.deployment, windowLabel(entry.contextWindowTokens)]
+            const used = rolesUsing(name, draft.models).map((role) => activityLabel(t, role));
+            const conn = [entry.providerType, entry.deployment, windowLabel(t, entry.contextWindowTokens)]
               .filter(Boolean)
               .join(" · ");
             return (
@@ -81,7 +83,7 @@ export function AgentModelsTab({
                 type="button"
                 className="tpl-row"
                 data-testid={`agent-model-card-${name}`}
-                aria-label={`Edit model ${name}`}
+                aria-label={t("config.models.editAria", { name })}
                 onClick={() => onEdit(name)}
                 style={{ textAlign: "left", font: "inherit", cursor: "pointer", color: "inherit" }}
               >
@@ -92,20 +94,20 @@ export function AgentModelsTab({
                       {entry.tier}
                     </span>
                   )}
-                  {prices && price.source === "none" && <span className="ec-mark warn">▲ unpriced</span>}
+                  {prices && price.source === "none" && <span className="ec-mark warn">{t("config.models.unpricedMark")}</span>}
                 </span>
                 <span className="help">
-                  <span className="mono">{entry.model || "no model id"}</span>
+                  <span className="mono">{entry.model || t("config.models.noModelId")}</span>
                   {conn ? ` · ${conn}` : ""}
                 </span>
                 {prices && (
                   <span className="help" data-testid={`agent-model-price-${name}`}>
                     <span className="mono">{priceLine(price)}</span> ·{" "}
-                    <span data-testid={`agent-model-source-${name}`}>{SOURCE_LABEL[price.source]}</span>
+                    <span data-testid={`agent-model-source-${name}`}>{t(SOURCE_LABEL[price.source])}</span>
                   </span>
                 )}
                 <span className="help" data-testid={`agent-model-used-${name}`}>
-                  {used.length > 0 ? `used by ${used.join(", ")}` : "not assigned"}
+                  {used.length > 0 ? t("config.models.usedBy", { activities: used.join(", ") }) : t("config.models.notAssigned")}
                 </span>
               </button>
             );
@@ -116,8 +118,8 @@ export function AgentModelsTab({
       {orphans.length > 0 && (
         <div className="field" data-testid="agent-orphan-overrides">
           <label>
-            Price overrides for models not in the catalog
-            <span className="help">kept on save until removed</span>
+            {t("config.models.orphans.title")}
+            <span className="help">{t("config.models.orphans.help")}</span>
           </label>
           <div className="picks">
             {orphans.map((model) => (
@@ -126,7 +128,7 @@ export function AgentModelsTab({
                 type="button"
                 className="pick"
                 data-testid={`agent-orphan-override-remove-${model}`}
-                aria-label={`Remove price override for ${model}`}
+                aria-label={t("config.models.orphans.removeAria", { model })}
                 onClick={() => onChange({ ...draft, pricing: withOverride(draft.pricing, model, null) })}
               >
                 {model} ✕

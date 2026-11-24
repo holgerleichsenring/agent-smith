@@ -2,6 +2,7 @@
 
 import { signIn } from "@/lib/auth/session";
 import type { ApiRefusal } from "@/lib/apiResponse";
+import { useT } from "@/hooks/useT";
 
 // 2026-08-25-4530: what a refused surface looks like. The server answers a
 // refusal in exactly two flavours and each has exactly ONE action that resolves
@@ -22,7 +23,8 @@ interface Props {
 }
 
 export function RefusalSurface({ refusal, surface }: Props) {
-  const what = surface ?? "this";
+  const t = useT();
+  const what = surface ?? t("shell.refusal.this");
   return (
     <div
       role="alert"
@@ -43,11 +45,12 @@ export function RefusalSurface({ refusal, surface }: Props) {
 }
 
 function SignedOut({ what }: { what: string }) {
+  const t = useT();
   return (
     <>
-      <p className="text-sm font-semibold text-slate-900">You are signed out.</p>
+      <p className="text-sm font-semibold text-slate-900">{t("shell.refusal.signedOut")}</p>
       <p className="mt-1 text-xs text-slate-700">
-        This installation asks for a sign-in before it shows {what}.
+        {t("shell.refusal.asksSignIn", { what })}
       </p>
       <button
         type="button"
@@ -55,23 +58,23 @@ function SignedOut({ what }: { what: string }) {
         data-testid="refusal-sign-in"
         className="mt-3 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-900 hover:bg-slate-100"
       >
-        Sign in
+        {t("shell.profile.signIn")}
       </button>
     </>
   );
 }
 
 function MissingPermission({ missing, what }: { missing: readonly string[]; what: string }) {
+  const t = useT();
   return (
     <>
       <p className="text-sm font-semibold text-slate-900">
-        You are signed in, and not allowed to see {what}.
+        {t("shell.refusal.notAllowed", { what })}
       </p>
       {missing.length > 0 ? (
         <>
           <p className="mt-1 text-xs text-slate-700">
-            The server named {missing.length === 1 ? "the permission" : "the permissions"} it
-            asked for and you do not hold:
+            {t("shell.refusal.namedPermissions", { count: missing.length })}
           </p>
           <ul className="mt-2 space-y-1" data-testid="refusal-missing-permissions">
             {missing.map((permission) => (
@@ -83,13 +86,11 @@ function MissingPermission({ missing, what }: { missing: readonly string[]; what
         </>
       ) : (
         <p className="mt-1 text-xs text-slate-700" data-testid="refusal-unnamed">
-          The server named no permission — its own logs name the route it refused.
+          {t("shell.refusal.unnamed")}
         </p>
       )}
       <p className="mt-2 text-xs text-slate-700">
-        A permission comes from a role your directory grants. Your roles are on the identity
-        page, and changing them is your directory&apos;s business rather than this
-        dashboard&apos;s.
+        {t("shell.refusal.whereRolesComeFrom")}
       </p>
     </>
   );

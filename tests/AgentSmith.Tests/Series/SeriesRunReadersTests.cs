@@ -47,6 +47,48 @@ public sealed class SeriesRunReadersTests : IDisposable
         detail.Tickets.Select(t => (t.TicketId, t.Depth)).Should().Equal([("1", 0), ("2", 1)]);
     }
 
+    // 2026-11-23-0219: a person's merge the host refused is said on its own merge run only; the detail carries it on the pull
+    // request, and whether a merge asked while CI waits arms auto-complete.
+    [Fact]
+    public async Task Detail_AWaitingPullRequest_CarriesTheNewestMergeRunsRefusal_AndMergeArms()
+    {
+        _h.Config.Projects["alpha"].Merge.RespectBranchProtection = true;
+        await OpenAsync("sr-1", Tickets("1"));
+        await _h.AddAsync(Record("1", "api", CiStates.NotStarted), TicketStoreHarness.Run("run-1", ticket: "1"),
+            TicketStoreHarness.Run("merge-1", ticket: "1", pipeline: "merge-green"),
+            new AgentSmith.Infrastructure.Persistence.Entities.RunRepo
+            {
+                RunId = "merge-1", RepoName = "api", PrUrl = "https://github.com/o/api/pull/1",
+                PrStatus = AgentSmith.Contracts.Runs.PullRequestStatuses.CompletionRefused, Reason = "cannot bypass branch policies",
+            });
+
+        var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
+
+        detail.MergeArms.Should().BeTrue();
+        var pr = detail.Tickets.Single().PullRequests.Single();
+        (pr.Ci, pr.MergeSaid?.Status, pr.MergeSaid?.Reason).Should().Be((CiStates.NotStarted,
+            AgentSmith.Contracts.Runs.PullRequestStatuses.CompletionRefused, "cannot bypass branch policies"));
+    }
+
+    // A push after the refusal makes it a word about an older change: it is not shown.
+    [Fact]
+    public async Task Detail_ARefusalBeforeTheHeadMoved_IsNotShown()
+    {
+        await OpenAsync("sr-1", Tickets("1"));
+        var record = Record("1", "api", CiStates.Pending);
+        record.HeadMovedAtTicks = T.AddHours(1).UtcTicks;
+        await _h.AddAsync(record, TicketStoreHarness.Run("run-1", ticket: "1"), TicketStoreHarness.Run("merge-1", ticket: "1", pipeline: "merge-green"),
+            new AgentSmith.Infrastructure.Persistence.Entities.RunRepo
+            {
+                RunId = "merge-1", RepoName = "api", PrUrl = "https://github.com/o/api/pull/1",
+                PrStatus = AgentSmith.Contracts.Runs.PullRequestStatuses.CompletionRefused, Reason = "still a draft",
+            });
+
+        var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
+
+        detail.Tickets.Single().PullRequests.Single().MergeSaid.Should().BeNull();
+    }
+
     [Fact]
     public async Task Detail_MergeOrder_ReadyOnlyWhereEveryRequirementLanded()
     {
@@ -149,27 +191,17 @@ public sealed class SeriesRunReadersTests : IDisposable
     }
 
     [Fact]
-    public async Task Detail_CarriesEachEdgesKind_FromThePerRepoStack()
+    public async Task Detail_CarriesTheEdgesBetweenItsTickets_AndEachTicketsNewestRunId()
     {
         await OpenAsync("sr-1", Tickets("1", "2", "3", "4"));
         await _h.AddAsync(Requires("2", "1"), Requires("4", "3"), Landed("3"), WithPr(TicketStoreHarness.Run("run-1", ticket: "1")),
             TicketStoreHarness.Run("run-9", ticket: "9", status: "running"));
 
-        var edges = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!.Edges;
+        var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
 
-        edges.Should().BeEquivalentTo(
-            [new SeriesRunEdgeView("2", "1", SeriesRunEdgeKinds.Stacked), new SeriesRunEdgeView("4", "3", SeriesRunEdgeKinds.Landed)]);
-    }
-
-    [Fact]
-    public async Task Detail_APrerequisiteWithoutAGreenAttempt_IsAnUnknownEdge()
-    {
-        await OpenAsync("sr-1", Tickets("1", "2"));
-        await _h.AddAsync(Requires("2", "1"), TicketStoreHarness.Run("run-1", ticket: "1", status: "running"));
-
-        var edges = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!.Edges;
-
-        edges.Should().ContainSingle().Which.Kind.Should().Be(SeriesRunEdgeKinds.Unknown);
+        detail.Edges.Should().BeEquivalentTo([new SeriesRunEdgeView("2", "1"), new SeriesRunEdgeView("4", "3")]);
+        detail.Tickets.Single(t => t.TicketId == "1").RunId.Should().Be("run-1", "the Overview retries and opens the newest run");
+        detail.Tickets.Single(t => t.TicketId == "2").RunId.Should().BeNull();
     }
 
     [Fact]
@@ -227,7 +259,6 @@ public sealed class SeriesRunReadersTests : IDisposable
         services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>();
         services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
             .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
-        services.AddSingleton<AgentSmith.Application.Services.Claim.GreenPrerequisites>().AddScoped<SeriesRunEdges>(); // 31dcf
         services.AddTransient<SeriesRunHolds>(); // 31dcg
     }
 

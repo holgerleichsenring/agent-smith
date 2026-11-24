@@ -1,10 +1,18 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import type { YourMove } from "@/components/tickets/detail/yourMove";
 import type { TicketAttempt } from "@/types/tickets";
 import {
-  attemptStatus, attemptStatusInput, nextStep, retryAlso, runStatus, statusSentence, type StatusContext, type StatusInput,
+  attemptStatus as attemptStatusIn, attemptStatusInput, nextStep as nextStepIn, retryAlso, runStatus as runStatusIn, statusSentence, type StatusContext, type StatusInput,
   type StatusSpec,
 } from "../runStatusLine";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const attemptStatus = (...args: DropLead<Parameters<typeof attemptStatusIn>, 1>) => attemptStatusIn(en, ...args);
+const nextStep = (...args: DropLead<Parameters<typeof nextStepIn>, 1>) => nextStepIn(en, ...args);
+const runStatus = (...args: DropLead<Parameters<typeof runStatusIn>, 1>) => runStatusIn(en, ...args);
 
 // 2026-11-22-7103a: a run's one status line — what happened, then the next step — from recorded fields only. Each
 // sentence is asserted whole.

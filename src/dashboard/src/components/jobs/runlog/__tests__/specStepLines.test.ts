@@ -1,6 +1,12 @@
+import { translator } from "@/lib/i18n/translate";
 import { describe, expect, it } from "vitest";
 import type { RunSpecRow } from "@/lib/runSpecsApi";
-import { ledgerSpec, specStepsCount, stepLinesFromLedger, stepLinesFromRecord } from "../specStepLines";
+import { ledgerSpec, specStepsCount as specStepsCountIn, stepLinesFromLedger, stepLinesFromRecord } from "../specStepLines";
+
+const en = translator("en");
+type DropLead<P extends unknown[], N extends number> = N extends 1 ? (P extends [unknown, ...infer R] ? R : never)
+  : P extends [unknown, unknown, ...infer R] ? R : never;
+const specStepsCount = (...args: DropLead<Parameters<typeof specStepsCountIn>, 1>) => specStepsCountIn(en, ...args);
 
 // 2026-11-19-1b72d: the steps of a spec with their state — from the run's ledger for the spec it belongs to, else from
 // the executed record and the run's recorded transitions.

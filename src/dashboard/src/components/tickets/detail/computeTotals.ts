@@ -1,3 +1,4 @@
+import type { T } from "@/lib/i18n/translate";
 import { isRunLive } from "@/lib/runLiveness";
 import type { RunSnapshot } from "@/types/hub-events";
 import type { RunCompute, RunComputeSegment, RunComputeSpawn, TicketAttempt } from "@/types/tickets";
@@ -169,11 +170,11 @@ export function computeTotals(machines: AttemptMachine[], now: number): ComputeT
   };
 }
 
-/** "45s", "6m", "1h 34m". */
-export function duration(ms: number): string {
+/** "45s", "6m", "1h 34m"; with a lookup in the chosen language's units (2026-11-23-5669b). */
+export function duration(ms: number, t?: T): string {
   const seconds = Math.max(0, Math.round(ms / 1000));
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return t ? t("tickets.compute.seconds", { n: seconds }) : `${seconds}s`;
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  if (minutes < 60) return t ? t("tickets.compute.minutes", { n: minutes }) : `${minutes}m`;
+  return t ? t("tickets.compute.hours", { h: Math.floor(minutes / 60), m: minutes % 60 }) : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }

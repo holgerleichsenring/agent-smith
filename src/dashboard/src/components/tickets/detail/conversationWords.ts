@@ -1,42 +1,46 @@
+import type { T, TextKey } from "@/lib/i18n/translate";
 import type { TicketConversationEntry } from "@/types/tickets";
 
 // 2026-10-13-9a59r: how one conversation entry is labelled — the filter it falls under, the
 // name it shows (the author only where 9a59h recorded one, else its role) and the where-label — from the
 // entry's own source, kind and detail. Nothing here is inferred from text.
 
-const ROLE_NAMES: Record<string, string> = { person: "person", agent: "Agent Smith", system: "system", reviewer: "reviewer" };
+const ROLE_NAMES: Record<string, TextKey> = {
+  person: "tickets.conversation.role.person", agent: "tickets.conversation.role.agent", system: "tickets.conversation.role.system",
+  reviewer: "tickets.conversation.role.reviewer",
+};
 
-export function nameOf(entry: TicketConversationEntry): string {
-  if (entry.kind === "edited") return "Ticket text changed";
-  if (entry.kind === "cut-review") return "Spec cut reviewer";
-  if (entry.kind === "default-answer") return "Default answer";
-  return entry.author ?? ROLE_NAMES[entry.role] ?? entry.role;
+export function nameOf(t: T, entry: TicketConversationEntry): string {
+  if (entry.kind === "edited") return t("tickets.conversation.name.edited");
+  if (entry.kind === "cut-review") return t("tickets.conversation.name.cutReview");
+  if (entry.kind === "default-answer") return t("tickets.conversation.name.defaultAnswer");
+  return entry.author ?? (ROLE_NAMES[entry.role] ? t(ROLE_NAMES[entry.role]) : entry.role);
 }
 
-export function whereOf(entry: TicketConversationEntry, attemptNumber: (runId: string | null) => number | null): string {
+export function whereOf(t: T, entry: TicketConversationEntry, attemptNumber: (runId: string | null) => number | null): string {
   const detail = (entry.detail ?? {}) as Record<string, unknown>;
   switch (entry.source) {
     case "ticket": {
-      if (entry.kind !== "edited") return "ticket comment";
+      if (entry.kind !== "edited") return t("tickets.conversation.where.ticketComment");
       const n = attemptNumber(entry.attemptRunId);
-      return n !== null ? `seen when attempt ${n} read the ticket` : "seen when an attempt read the ticket";
+      return n !== null ? t("tickets.conversation.where.seenBy", { n }) : t("tickets.conversation.where.seen");
     }
     case "question":
-      if (entry.kind === "default-answer") return "answered at the deadline";
-      return entry.kind === "answer" ? "answered in agent-smith" : "question";
+      if (entry.kind === "default-answer") return t("tickets.conversation.where.atDeadline");
+      return entry.kind === "answer" ? t("tickets.conversation.where.answered") : t("tickets.conversation.where.question");
     case "pr-review": {
       const pr = prNumber(entry.url) ?? "";
-      const kind = entry.kind === "command-answer" ? "command answer" : entry.kind;
-      return [`PR ${pr ? `#${pr}` : ""}`.trim(), kind, detail.isBot === true ? "bot" : null].filter(Boolean).join(" · ");
+      const kind = entry.kind === "command-answer" ? t("tickets.conversation.where.commandAnswer") : entry.kind;
+      return [`PR ${pr ? `#${pr}` : ""}`.trim(), kind, detail.isBot === true ? t("tickets.conversation.where.bot") : null].filter(Boolean).join(" · ");
     }
     case "spec-cut":
       if (entry.kind === "cut-review") {
-        const cut = typeof detail.attempt === "number" ? `cut ${detail.attempt}` : "cut";
-        return `in the run · ${cut}${typeof detail.deliverable === "string" ? ` ${detail.deliverable}` : ""}`;
+        const cut = typeof detail.attempt === "number" ? t("tickets.conversation.where.cutN", { n: detail.attempt }) : t("tickets.conversation.where.cut");
+        return t("tickets.conversation.where.inTheRun", { cut: `${cut}${typeof detail.deliverable === "string" ? ` ${detail.deliverable}` : ""}` });
       }
-      return entry.kind === "hand-back" ? "hand-back" : entry.kind;
+      return entry.kind === "hand-back" ? t("tickets.conversation.where.handBack") : entry.kind;
     case "conversation":
-      return "ticket conversation";
+      return t("tickets.conversation.where.conversation");
     default:
       return entry.source;
   }
@@ -53,15 +57,17 @@ export function isQuote(entry: TicketConversationEntry): boolean {
   return (entry.role === "person" || entry.role === "reviewer") && entry.kind !== "edited";
 }
 
-const DECISION_PILLS: Record<string, [string, string]> = {
-  approved: ["ok", "approved"],
-  "approved-with-suggestions": ["ok", "approved with suggestions"],
-  "changes-requested": ["bad", "changes requested"],
-  rejected: ["bad", "rejected"],
+const DECISION_PILLS: Record<string, [string, TextKey]> = {
+  approved: ["ok", "tickets.conversation.decision.approved"],
+  "approved-with-suggestions": ["ok", "tickets.conversation.decision.approvedWithSuggestions"],
+  "changes-requested": ["bad", "tickets.conversation.decision.changesRequested"],
+  rejected: ["bad", "tickets.conversation.decision.rejected"],
 };
 
 /** A pull-request decision recorded on the entry, as a pill. */
-export function decisionPill(entry: TicketConversationEntry): [string, string] | null {
+export function decisionPill(t: T, entry: TicketConversationEntry): [string, string] | null {
   const decision = (entry.detail as { decision?: unknown } | null | undefined)?.decision;
-  return typeof decision === "string" ? DECISION_PILLS[decision] ?? ["q", decision.replace(/-/g, " ")] : null;
+  if (typeof decision !== "string") return null;
+  const pill = DECISION_PILLS[decision];
+  return pill ? [pill[0], t(pill[1])] : ["q", decision.replace(/-/g, " ")];
 }

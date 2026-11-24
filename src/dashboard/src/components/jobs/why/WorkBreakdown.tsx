@@ -2,6 +2,7 @@
 
 import type { RunWorkKind } from "@/lib/runStoryApi";
 import { formatMs } from "./callSeries";
+import { useT } from "@/hooks/useT";
 
 // p0341h: what the run spent its time ON. The panel this sits above answered "how much"
 // and never "on what", and one of its numbers was a lie by construction — it counted an
@@ -41,6 +42,7 @@ export function WorkBreakdown({ title, subtitle, kinds, testId }: WorkBreakdownP
 }
 
 function Row({ kind, longest }: { kind: RunWorkKind; longest: number }) {
+  const t = useT();
   // The bar is the only thing a reader scans before deciding where to look, so it carries
   // the number that decides that: wall clock, relative to the heaviest row.
   const width = Math.max(2, Math.round((kind.durationMs / longest) * 100));
@@ -62,7 +64,7 @@ function Row({ kind, longest }: { kind: RunWorkKind; longest: number }) {
         {formatMs(kind.durationMs)}
       </span>
       <span className="w-20 shrink-0 text-right text-xs text-red-600">
-        {kind.failed > 0 ? `${kind.failed} failed` : ""}
+        {kind.failed > 0 ? t("runs.why.work.failed", { count: kind.failed }) : ""}
       </span>
     </li>
   );

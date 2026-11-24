@@ -4,6 +4,8 @@ import { useAccessToken } from "@/hooks/useAccessToken";
 import { useAuthRequirements } from "@/hooks/useAuthRequirements";
 import { useRuntimeSettings } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
 import type { AuthRequirements } from "@/lib/authRequirementsApi";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 /**
  * 2026-08-25-4530: the two halves of sign-in are configured on two machines, and
@@ -25,7 +27,8 @@ export function AuthMisconfigurationBanner() {
   const requirements = useAuthRequirements();
   const { auth } = useRuntimeSettings();
   const token = useAccessToken();
-  const missing = missingHalf(requirements, auth.authority, token !== null);
+  const t = useT();
+  const missing = missingHalf(t, requirements, auth.authority, token !== null);
   if (!missing) return null;
 
   return (
@@ -50,8 +53,6 @@ type MissingHalf = {
   reason: string;
 };
 
-const ONE_SIDE = "Sign-in is configured on one side only.";
-const TWO_AUTHORITIES = "The two halves of sign-in name different authorities.";
 
 // Trailing slashes are how the same issuer is written two ways — an authority
 // copied out of a discovery document carries one and the one typed by hand does
@@ -62,6 +63,7 @@ function normalize(authority: string | null): string | null {
 }
 
 function missingHalf(
+  t: T,
   requirements: AuthRequirements | null,
   configured: string,
   holdsToken: boolean,
@@ -72,19 +74,17 @@ function missingHalf(
 
   if (server === null && dashboard === null) return null;
   if (dashboard === null) {
-    return { half: "dashboard", heading: ONE_SIDE, reason: dashboardHalf(requirements) };
+    return { half: "dashboard", heading: t("shell.auth.oneSide"), reason: dashboardHalf(t, requirements) };
   }
   if (server === null) {
-    return { half: "server", heading: ONE_SIDE, reason: serverHalf(dashboard) };
+    return { half: "server", heading: t("shell.auth.oneSide"), reason: serverHalf(t, dashboard) };
   }
   if (server === dashboard) return null;
   if (!twoAuthoritiesAreAProblem(requirements, holdsToken, server, dashboard)) return null;
   return {
     half: "both",
-    heading: TWO_AUTHORITIES,
-    reason:
-      `This dashboard signs in against ${dashboard}, and the server validates tokens from `
-      + `${server}. A token minted by one is refused by the other; one of the two is wrong.`,
+    heading: t("shell.auth.twoAuthorities"),
+    reason: t("shell.auth.both", { dashboard, server }),
   };
 }
 
@@ -145,20 +145,13 @@ function withoutVersionEndpoint(authority: string): string {
     : authority;
 }
 
-function dashboardHalf(requirements: AuthRequirements): string {
-  const authority = requirements.authority ?? "an authority";
+function dashboardHalf(t: T, requirements: AuthRequirements): string {
+  const authority = requirements.authority ?? t("shell.auth.anAuthority");
   return requirements.enforced
-    ? `The server enforces sign-in against ${authority} and this dashboard has no authority `
-      + "configured, so every call it makes is refused. Set the authority in the dashboard's "
-      + "runtime settings."
-    : `The server validates tokens from ${authority} and this dashboard has no authority `
-      + "configured, so nobody can sign in. Nothing is refused yet — enforcement is off.";
+    ? t("shell.auth.dashboardEnforced", { authority })
+    : t("shell.auth.dashboardNotEnforced", { authority });
 }
 
-function serverHalf(dashboard: string): string {
-  return (
-    `This dashboard signs in against ${dashboard} and the server has no authority configured, `
-    + "so it validates no token and reads every caller as anonymous. Set the authority in the "
-    + "server's auth configuration."
-  );
+function serverHalf(t: T, dashboard: string): string {
+  return t("shell.auth.server", { dashboard });
 }

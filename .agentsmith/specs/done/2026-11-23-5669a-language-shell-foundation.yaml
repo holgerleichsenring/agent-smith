@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-5669a
+goal: "The dictionary takes one module per dashboard area, dates follow the chosen language, and the shell, home, app routes, ui, overview and execution speak German."
+
+applies_to: "dashboard (lib/i18n, components/shell, home, ui, overview, execution; app routes)"
+
+requires: [2026-11-22-5485a]
+
+scope:
+  in: >
+    lib/i18n/areas/*.ts: one module per area, spread into the one dictionary; a test fails a key two modules define. lib/i18n/dates.ts: the date locale of the chosen language, so en is en-GB and de is de-DE. Every literal UI text of the sidebar, FailedSurface and RefusalSurface (the surface name passed as a key), HomeComposer, the app route pages, components/ui, overview and execution moves to keys.
+  out: >
+    Text the model writes, server-sent messages and refusal reasons; product nouns (Work it out, Spec, Ticket, Run,
+    Turn, Review). Follows 2026-11-22-5485b, which cut the rest of the dashboard into this series.
+
+steps:
+  - id: translate
+    action: "Every literal UI text in the area moves to keys in the area's dictionary module, German beside English; components call useT, pure helpers that word text take the lookup; dates use the chosen language."
+  - id: tests
+    action: "Existing tests stay green in English; one component of the area renders German when German is chosen."
+
+done:
+  - "No literal UI text is left in shell, home, ui, overview, execution and the app routes."
+  - "Dashboard tests and build green."

@@ -6,6 +6,7 @@
 // drift apart on that.
 
 import type { PullRequestStatus } from "@/types/hub-events";
+import type { T } from "@/lib/i18n/translate";
 
 /** A pull request exists on the platform and has a URL worth linking to. */
 export function hasPullRequest(status: PullRequestStatus): boolean {
@@ -26,21 +27,21 @@ export function isOpenPullRequest(status: PullRequestStatus): boolean {
 }
 
 /** The short word shown on the row's status pill. */
-export function pullRequestStatusLabel(status: PullRequestStatus): string {
+export function pullRequestStatusLabel(status: PullRequestStatus, t: T): string {
   switch (status) {
     case "completed":
-      return "merged";
+      return t("pullRequests.status.merged");
     case "completion_armed":
-      return "auto-merging";
+      return t("pullRequests.status.autoMerging");
     case "completion_refused":
-      return "still open";
+      return t("pullRequests.status.stillOpen");
     case "awaiting_ci":
-      return "waiting for CI";
+      return t("pullRequests.status.awaitingCi");
     case "no_changes":
-      return "no changes";
+      return t("pullRequests.status.noChanges");
     case "failed":
-      return "failed";
+      return t("pullRequests.status.failed");
     default:
-      return "opened";
+      return t("pullRequests.status.opened");
   }
 }

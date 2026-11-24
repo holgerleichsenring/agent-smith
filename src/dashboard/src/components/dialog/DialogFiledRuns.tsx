@@ -87,7 +87,7 @@ function Run({ run }: { run: FiledWorkRun }) {
           subject of a specificity note in the stylesheet, and the mono and the label size are
           what that note is about. */}
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className={markClass(runStatusTone(run.status))}>{runStatusWord(run.status)}</span>
+        <span className={markClass(runStatusTone(run.status))}>{runStatusWord(t, run.status)}</span>
         <Link
           href={`/jobs/${encodeURIComponent(run.runId)}`}
           className="d-link font-mono dsh-label"

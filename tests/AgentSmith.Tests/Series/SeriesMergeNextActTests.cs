@@ -11,11 +11,15 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Rework;
 using AgentSmith.Server.Services.Series;
 using AgentSmith.Tests.Tickets;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Server.Services.Tickets;
+using Microsoft.Extensions.Logging.Abstractions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -26,11 +30,13 @@ namespace AgentSmith.Tests.Series;
 
 /// <summary>2026-11-23-31dce: POST /api/series-runs/{id}/tickets/{ticketId}/merge over a real migrated store — the ready
 /// ticket's open pull requests go to a merge-green run asked by the caller and its outcome comes back; a ticket that is not
-/// next is refused naming what comes first and nothing starts; a held lease and a run that ended first say so.</summary>
+/// next is refused naming what comes first and nothing starts; a held lease and a run that ended first say so.
+/// 2026-11-24-a4e7: a merged or armed pull request has the ticket's records read again before the answer.</summary>
 public sealed class SeriesMergeNextActTests : IDisposable
 {
     private static readonly DateTimeOffset T = TicketStoreHarness.T;
     private readonly Mock<IMergeGreenRun> _merges = new();
+    private readonly Mock<IPrRecordRefreshNow> _refresh = new();
     private readonly List<CiGreenMergeRequest> _asked = [];
     private readonly TicketStoreHarness _h;
     private IReadOnlyList<PullRequestMergeLine>? _lines = [new("api", PullRequestCompletionOutcome.Merged, "api: merged (https://github.com/o/api/pull/1)")];
@@ -43,8 +49,9 @@ public sealed class SeriesMergeNextActTests : IDisposable
             services.AddSingleton<ISeriesRunStore, SeriesRunRepository>().AddTransient<SeriesRunOrder>();
             services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>();
             services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
-                .AddScoped<SeriesRunDetailReader>().AddScoped<SeriesMergeNextAct>().AddSingleton(_merges.Object);
-            services.AddScoped<SeriesRunEdges>().AddTransient<SeriesRunHolds>(); // 31dcf, 31dcg: the detail reads both
+                .AddScoped<SeriesRunDetailReader>().AddScoped<SeriesMergeNextAct>().AddSingleton(_merges.Object)
+                .AddSingleton(_refresh.Object);
+            services.AddTransient<SeriesRunHolds>(); // 31dcg: the detail reads the holds
         });
         _h.Config.Projects["alpha"] = new()
         {
@@ -77,6 +84,40 @@ public sealed class SeriesMergeNextActTests : IDisposable
         asked.AskedBy.Should().Be("Dana");
         (asked.TicketId, asked.AttemptRunId, asked.Branch).Should().Be(("1", "run-1", "agent-smith/1"));
         asked.PullRequests.Should().Equal(new CiGreenPullRequest("api", "https://github.com/o/api/pull/1"));
+    }
+
+    [Theory]
+    [InlineData(PullRequestCompletionOutcome.Merged, 1)]
+    [InlineData(PullRequestCompletionOutcome.Armed, 1)]
+    [InlineData(PullRequestCompletionOutcome.Refused, 0)]
+    public async Task Merge_AMergedOrArmedPullRequest_RefreshesTheTicketsRecordsBeforeTheAnswer(PullRequestCompletionOutcome outcome, int reads)
+    {
+        await SeedAsync();
+        _lines = [new("api", outcome, "api: said")];
+
+        var result = await MergeAsync("1");
+
+        result.Should().BeOfType<Ok<object>>();
+        _refresh.Verify(r => r.RefreshAsync(It.Is<ResolvedProject>(p => p.Name == "alpha"), "1"), Times.Exactly(reads));
+    }
+
+    [Fact]
+    public async Task Merge_ARefreshWhoseLockThrows_StillAnswersTheMergeLines()
+    {
+        await SeedAsync();
+        using var refreshes = new AgentSmith.Tests.Rework.Records.PrReviewRefreshHarness();
+        var locks = new Mock<IRedisClaimLock>();
+        locks.Setup(l => l.TryAcquireAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("redis is gone"));
+        var now = new PrRecordRefreshNow(refreshes.Refresh(), locks.Object, Mock.Of<IReworkNudges>(), NullLogger<PrRecordRefreshNow>.Instance);
+        await using var scope = _h.Services.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+        var act = new SeriesMergeNextAct(sp.GetRequiredService<SeriesRunDetailReader>(), sp.GetRequiredService<TicketProjects>(),
+            sp.GetRequiredService<IPreviousAttemptReader>(), _merges.Object, now);
+
+        var result = await SeriesRunEndpoints.MergeAsync("sr-1", "1", new DefaultHttpContext(), act, default);
+
+        ((SeriesMergeAnswer)((Ok<object>)result).Value!).PullRequests.Should().ContainSingle().Which.Outcome.Should().Be("merged");
     }
 
     [Fact]

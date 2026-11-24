@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/hooks/useT";
 import { isRunLive } from "@/lib/runLiveness";
 import type { AttemptMachines } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketDerivation, TicketSeriesBudget } from "@/types/tickets";
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function CostSection({ attempts, derivations, machines, ordinals, budget }: Props) {
+  const t = useT();
   const total = ticketCost(attempts, derivations);
   const capped = budget && budget.heldBecause !== "off" ? budget : null;
   return (
@@ -28,7 +30,7 @@ export function CostSection({ attempts, derivations, machines, ordinals, budget 
       <div className="tk-cost-head">
         <span className="tk-cost-total" data-testid="cost-total">{money(total)}</span>
         <span className="tk-dim" data-testid="cost-budget">
-          {capped ? `on this ticket · ${money(capped.spentUsd)} of ${money(capped.capUsd)} series budget spent` : "spent on this ticket"}
+          {capped ? t("tickets.cost.budget", { spent: money(capped.spentUsd), cap: money(capped.capUsd) }) : t("tickets.cost.spent")}
         </span>
       </div>
       {capped && (
@@ -40,16 +42,16 @@ export function CostSection({ attempts, derivations, machines, ordinals, budget 
         {attempts.map((attempt) => {
           const live = isRunLive(attempt.status);
           const run = machines.run[attempt.runId]?.data ?? null;
-          const buckets = costBuckets(machines.passes[attempt.runId]?.data ?? null, ordinals);
+          const buckets = costBuckets(t, machines.passes[attempt.runId]?.data ?? null, ordinals);
           const carried = (attempt.revision?.carriedIds ?? []).map((id) => specLabel(id, ordinals));
-          const figures = [run ? `${run.llmCalls} LLM call${run.llmCalls === 1 ? "" : "s"}` : null, run?.budgetCapUsd ? `run cap ${money(run.budgetCapUsd)}` : null]
+          const figures = [run ? t("tickets.cost.llmCalls", { count: run.llmCalls }) : null, run?.budgetCapUsd ? t("tickets.cost.runCap", { cap: money(run.budgetCapUsd) }) : null]
             .filter(Boolean).join(" · ");
           return (
             <div key={attempt.runId} className="tk-cost-line" data-testid={`cost-row-${attempt.number}`}>
-              <span className="tk-cost-who">Run {attempt.number}</span>
+              <span className="tk-cost-who">{t("tickets.cost.run", { n: attempt.number })}</span>
               <span className="tk-cost-usd">{money(attempt.cost)}</span>
               <span className="tk-dim">
-                <span data-testid={`cost-parts-${attempt.number}`}>{costParts(buckets, carried, live) || (live ? "so far" : "no split recorded")}</span>
+                <span data-testid={`cost-parts-${attempt.number}`}>{costParts(t, buckets, carried, live) || (live ? t("tickets.cost.soFarWord") : t("tickets.cost.noSplit"))}</span>
                 {figures && <span data-testid={`cost-figures-${attempt.number}`}> · {figures}</span>}
               </span>
             </div>
@@ -63,13 +65,14 @@ export function CostSection({ attempts, derivations, machines, ordinals, budget 
 
 /** The spec derivations summed on one line; none, no line. */
 function DerivationsLine({ derivations }: { derivations: TicketDerivation[] }) {
+  const t = useT();
   if (derivations.length === 0) return null;
   const running = derivations.some((d) => d.outcome === "running");
   return (
     <div className="tk-cost-line" data-testid="cost-derivations">
-      <span className="tk-cost-who">Derivations</span>
+      <span className="tk-cost-who">{t("tickets.cost.derivations")}</span>
       <span className="tk-cost-usd">{money(derivations.reduce((sum, d) => sum + d.cost, 0))}</span>
-      <span className="tk-dim">{derivations.length} spec derivation{derivations.length === 1 ? "" : "s"}, not runs{running ? " · so far" : ""}</span>
+      <span className="tk-dim">{t("tickets.cost.derivationCount", { count: derivations.length })}{running ? ` · ${t("tickets.cost.soFarWord")}` : ""}</span>
     </div>
   );
 }

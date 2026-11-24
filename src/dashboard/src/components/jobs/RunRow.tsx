@@ -11,6 +11,8 @@ import { RunStats, relativeAgo } from "./RunStats";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import { cn } from "@/lib/utils";
+import { useT } from "@/hooks/useT";
+import type { T } from "@/lib/i18n/translate";
 
 // p0343c (pixel identity): one run row in the runs-list.html mock's .rrow DOM —
 // status dot · ticket ref + title + activity line · story spine (only when the
@@ -39,16 +41,16 @@ const ST_CLASS: Record<NodeStatus, string> = {
   shortfall: "st-ok",
 };
 
-function finishedPill(status: NodeStatus): { cls: string; label: string } | null {
+function finishedPill(t: T, status: NodeStatus): { cls: string; label: string } | null {
   switch (status) {
     case "ok":
-      return { cls: "ok", label: "done" };
+      return { cls: "ok", label: t("runs.row.done") };
     case "fail":
-      return { cls: "bad", label: "failed" };
+      return { cls: "bad", label: t("runs.status.failed") };
     case "cancel":
-      return { cls: "q", label: "cancelled" };
+      return { cls: "q", label: t("runs.status.cancelled") };
     case "shortfall":
-      return { cls: "ok", label: "done, with a shortfall" };
+      return { cls: "ok", label: t("runs.status.shortfall") };
     default:
       return null;
   }
@@ -69,12 +71,13 @@ export function RunRow({ snapshot }: Props) {
   // state dot's class, the activity-line gate and the wait-reason column. A parked run whose
   // relaunch is under way reads as queued in every one of them, so the row cannot say it
   // needs an answer with one hand and that it is waiting for a slot with the other.
+  const t = useT();
   const status = toRunNodeStatus(snapshot);
   const relaunching = isRelaunching(snapshot);
   const place = relaunchPlace(snapshot);
   const tick = snapshot.ticketId ? `#${snapshot.ticketId}` : `#${shortRunId(snapshot.runId)}`;
   const title = snapshot.ticketTitle ?? snapshot.pipeline;
-  const pill = finishedPill(status);
+  const pill = finishedPill(t, status);
   const queued = status === "queued";
   const ticketHref = runRowTicketHref(snapshot);
 
@@ -83,7 +86,7 @@ export function RunRow({ snapshot }: Props) {
       <Link
         href={runRowHref(snapshot)}
         className="rrow-open"
-        aria-label={`Open run ${tick} ${title}`}
+        aria-label={t("runs.row.openRun", { tick, title })}
         data-testid={`run-row-${snapshot.runId}-open`}
       />
       <span className="sd" />
@@ -94,7 +97,7 @@ export function RunRow({ snapshot }: Props) {
             <Link
               href={ticketHref}
               className="tick tick-link"
-              title={`Open ticket ${tick}`}
+              title={t("runs.row.openTicket", { tick })}
               data-testid={`run-row-${snapshot.runId}-ticket`}
             >
               {tick}
@@ -128,14 +131,14 @@ export function RunRow({ snapshot }: Props) {
           <span className="prog" data-testid={`run-row-${snapshot.runId}-progress`}>
             {relaunching
               ? place != null
-                ? `resuming · pos ${place}`
-                : "resuming"
+                ? t("runs.row.resumingAt", { place })
+                : t("runs.row.resuming")
               : snapshot.queuePosition != null
-              ? `pos ${snapshot.queuePosition}`
-              : "queued"}
+              ? t("runs.row.position", { place: snapshot.queuePosition })
+              : t("runs.row.queued")}
           </span>
           <span className="cost hidesm" />
-          <span className="prog hidesm">{relativeAgo(snapshot.startedAt)}</span>
+          <span className="prog hidesm">{relativeAgo(t, snapshot.startedAt)}</span>
         </>
       ) : (
         <RunStats
@@ -158,10 +161,11 @@ export function RunRow({ snapshot }: Props) {
 // The mock's .act line — what the run is doing NOW (running), or how it ended
 // (finished). Only real snapshot fields; no line when nothing is known.
 function ActivityLine({ snapshot, status }: { snapshot: RunSnapshot; status: NodeStatus }) {
+  const t = useT();
   if (status === "run" && snapshot.stepName) {
     return (
       <div className="act">
-        now: <b>{snapshot.stepName}</b>
+        {t("runs.row.now")} <b>{snapshot.stepName}</b>
         {snapshot.agentName ? <> · {snapshot.agentName}</> : null}
       </div>
     );
@@ -177,7 +181,7 @@ function ActivityLine({ snapshot, status }: { snapshot: RunSnapshot; status: Nod
       <div className="act">
         {snapshot.pipeline}
         {repos.length > 0 ? (
-          <> · {repos.length === 1 ? repos[0] : `${repos.length} repos`}</>
+          <> · {repos.length === 1 ? repos[0] : t("runs.card.repos", { count: repos.length })}</>
         ) : null}
       </div>
     );

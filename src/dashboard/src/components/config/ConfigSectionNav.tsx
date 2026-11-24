@@ -2,11 +2,12 @@
 
 import { usePathname } from "next/navigation";
 import { useConfigCatalogContext } from "@/components/config/ConfigCatalogProvider";
-import { ENTITY_LABEL } from "@/components/config/entities";
-import { SETTING_ICON, SETTING_KEYS, SETTING_LABEL } from "@/components/config/settings";
+import { ENTITY_LABEL_KEY } from "@/components/config/entities";
+import { SETTING_ICON, SETTING_KEYS, SETTING_LABEL_KEY } from "@/components/config/settings";
 import { SectionNav, SectionNavGroup } from "@/components/shell/SectionNav";
 import { SectionNavItem } from "@/components/shell/SectionNavItem";
 import type { ConfigEntityKind } from "@/lib/configApi";
+import { useT } from "@/hooks/useT";
 
 // p0343b: the configuration sections — the entity CATALOG with live counts (the same list clients
 // the studio loads), the global SETTINGS singletons, ACCESS and THIS INSTALLATION with the Changes
@@ -26,28 +27,29 @@ const CATALOG_KINDS: Array<{ kind: ConfigEntityKind; icon: string }> = [
 ];
 
 export function ConfigSectionNav() {
+  const t = useT();
   const pathname = usePathname() ?? "";
   const { catalog, loading, changesCount } = useConfigCatalogContext();
   const at = (href: string) => pathname === href;
 
   return (
-    <SectionNav label="Settings" testId="config-nav">
-      <SectionNavGroup label="Catalog" />
+    <SectionNav label={t("config.nav.settings")} testId="config-nav">
+      <SectionNavGroup label={t("config.nav.catalog")} />
       {CATALOG_KINDS.map(({ kind, icon }) => (
         <SectionNavItem
           key={kind}
-          label={ENTITY_LABEL[kind]}
+          label={t(ENTITY_LABEL_KEY[kind])}
           href={`/config/${kind}`}
           icon={icon}
           active={at(`/config/${kind}`) || (kind === "agents" && at("/config"))}
           count={loading ? undefined : catalog[kind].length}
         />
       ))}
-      <SectionNavGroup label="Settings" />
+      <SectionNavGroup label={t("config.nav.settings")} />
       {SETTING_KEYS.map((key) => (
         <SectionNavItem
           key={key}
-          label={SETTING_LABEL[key]}
+          label={t(SETTING_LABEL_KEY[key])}
           href={`/config/settings/${key}`}
           icon={SETTING_ICON[key]}
           active={at(`/config/settings/${key}`)}
@@ -55,13 +57,13 @@ export function ConfigSectionNav() {
       ))}
       {/* 2026-08-26-7a51: its own group, because it needs access.read/access.write and not
           config.read/config.write. */}
-      <SectionNavGroup label="Access" />
-      <SectionNavItem label="Permissions" href="/config/access" icon="◈" active={at("/config/access")} />
-      <SectionNavGroup label="This installation" />
-      <SectionNavItem label="Installation" href="/config/installation" icon="⬡" active={at("/config/installation")} />
-      <SectionNavItem label="Connection check" href="/config/connection-check" icon="◳" active={at("/config/connection-check")} />
+      <SectionNavGroup label={t("config.nav.access")} />
+      <SectionNavItem label={t("config.nav.permissions")} href="/config/access" icon="◈" active={at("/config/access")} />
+      <SectionNavGroup label={t("config.nav.thisInstallation")} />
+      <SectionNavItem label={t("config.nav.installation")} href="/config/installation" icon="⬡" active={at("/config/installation")} />
+      <SectionNavItem label={t("config.nav.connectionCheck")} href="/config/connection-check" icon="◳" active={at("/config/connection-check")} />
       <SectionNavItem
-        label="Changes"
+        label={t("config.nav.changes")}
         href="/config/changes"
         icon="◔"
         active={at("/config/changes")}

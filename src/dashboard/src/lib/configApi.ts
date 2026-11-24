@@ -927,7 +927,7 @@ export async function importConfigYml(
   });
   if (res.status === 409) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new ConfigStoreNotEmptyError(body.error ?? "Config store is not empty.");
+    throw new ConfigStoreNotEmptyError(body.error ?? ""); // the studio words an empty one
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };

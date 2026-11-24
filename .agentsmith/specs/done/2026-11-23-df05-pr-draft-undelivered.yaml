@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-df05
+goal: "A code run whose specs delivered no work keeps its pull request a draft: no mark-ready, no build re-queue, a banner that says so; a run with a delivered spec is unchanged."
+
+applies_to: "default (VerifySpec, the per-spec progress table, CommitAndPR, SpecOnlyPullRequests)"
+
+requires: [2026-11-23-0219, 2026-11-18-c8e2c]
+
+facts:
+  - claim: "CommitAndPR decides draft from the mechanical keystone and the half-migrated table only; a green run whose every spec is done publishes its PR."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:126; src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:130"
+  - claim: "Reusing an open PR marks it ready and re-queues its builds whenever the run is not a draft; the spec-only path does the same with ready = !isDraft && !failed."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:363; src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:368; src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:163; src/backend/AgentSmith.Application/Services/Handlers/SpecOnlyPullRequests.cs:65"
+  - claim: "The TF401179 already-exists path takes the found draft out of draft only when the caller passed isDraft false."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:135"
+  - claim: "VerifySpec records a spec done on a green pass whether or not the branch carries any source change: with nothing delivered and no stage run it returns Ok and the spec reads done."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:104; src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:178; src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:197; src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:225"
+  - claim: "Whether a branch carries source is already a mechanical fact: DeliveredWork over the delivery diff, run-record paths excluded, an unreadable diff counted as carrying work."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeliveredWork.cs:46; src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:86"
+  - claim: "The master's report outcome is shown, never acted on, so a spec a person stopped reads done when its master reported; prod run 2026-11-22T22-58-27-c7db (#19661, one spec 2026-11-19-0544a, answered 'stop this spec') logged 'ready for review: True' on PR 9990."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:163; .agentsmith/decisions/2026-11-23-0219.yaml:12"
+  - claim: "A draft run's banner reads 'Verification red' when no failure, shortfall or chunk stop explains the draft."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CodePullRequestBanner.cs:25"
+
+scope:
+  in: >-
+    SpecProgress gains CarriedWork (false by default, so stored and seeded rows read as before); ISpecProgressRecorder and
+    SpecSequenceProgress.With carry it; VerifySpec's green pass records it from DeliveredWork.Anything. SpecSequenceProgress.DeliveredNone:
+    no row done with CarriedWork. CommitAndPR's isDraft adds DeliveredNone, which keeps the reused PR, the created PR (and so
+    the TF401179 path) and the spec-only PR a draft and skips the build re-queue, both of which already follow isDraft.
+    CodePullRequestBanner names the case, ahead of a shortfall's banner. Such a run publishes no gate-passed PR
+    (PublishGatePassed already reads isDraft), so nothing auto-merges it. A run without a progress table (no spec set) and a run with one delivered spec are unchanged.
+  out: >-
+    The master's report text (c8e2c stands). The ticket's finalization and the run's success verdict for such a run (unchanged:
+    the operator's decision is about the PR). A stopped spec whose master had already changed code before the stop: its branch
+    carries work, so it counts as delivered — no mechanical fact tells that work from a delivery. Likewise a stopped spec
+    on a branch that already carries earlier commits (a rework run, a later series attempt): the delivery diff is taken
+    against the base ladder, so the earlier work reads as carried.
+
+tests:
+  - "CommitAndPRUndeliveredDraftTests, through the real handler: a single spec recorded done without CarriedWork keeps the reused PR a draft, MarkPullRequestReady and the re-queue never called, the body carries the banner; the same spec with CarriedWork marks ready and re-queues as today; the spec-only PR is not marked ready either."
+  - "SpecSequenceProgressDeliveredTests: DeliveredNone true for done rows without work, false once one done row carried work, and With keeps the flag per row."
+  - "VerifySpecHandlerTests: a green pass over a branch with source records CarriedWork; one over a branch with nothing records it false."
+
+done:
+  - "Build, the affected tests and the full suite green; the spec gate passed."
