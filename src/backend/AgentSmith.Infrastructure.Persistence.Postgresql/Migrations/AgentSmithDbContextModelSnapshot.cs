@@ -1100,6 +1100,17 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<string>("Reason")
                         .HasColumnType("text");
 
+                    b.Property<long?>("RolloutAtTicks")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("RolloutCommitSha")
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
+                    b.Property<string>("RolloutState")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<string>("RunId")
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");

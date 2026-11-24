@@ -25,7 +25,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// revision, and queues poc-deploy; the run, built from the queued seeds, takes the archive in to a validated revision
 /// with its port and files; 2026-11-23-933dc: then scans it and commits it to the source repo; 2026-11-23-933dd: and the
 /// host's pipeline (faked) builds, scans and pushes it; 2026-11-23-c81eb: and its GitOps commit puts the
-/// rendered deploy folder onto main.
+/// rendered deploy folder onto main; 2026-11-23-c81ec: and it follows the rollout on Argo CD (faked from main) to ready.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class PocDeployCompositionTests
@@ -77,11 +77,51 @@ public sealed class PocDeployCompositionTests
         runner.LastContext!.Get<string>(ContextKeys.PocCommitSha).Should().Be(head);
         var poc = await sp.GetRequiredService<AgentSmithDbContext>().Set<Poc>().AsNoTracking().SingleAsync(p => p.Id == started!.PocId);
         (poc.Revision, poc.ImageDigest, poc.SealFingerprint).Should().Be((1, PocHarnessBuildHost.Digest, seal.SealFingerprint));
+        // 2026-11-23-c81ec: and follows the rollout until the live Deployment carries this render — the PoC is ready.
+        poc.State.Should().Be(PocStates.Ready);
+        var rolled = await sp.GetRequiredService<AgentSmithDbContext>().Set<PocRevision>().AsNoTracking().SingleAsync(r => r.PocId == started!.PocId);
+        (rolled.RolloutState, rolled.RolloutCommitSha).Should().Be((PocRolloutStates.Healthy, head));
+        var reads = repo.Argo.Reads;
         var again = new PipelineRunner(harness.Services) { RepoOverride = repo.Repo };
         foreach (var (key, value) in request.Context!) again.RequestContext[key] = value;
         var second = await again.RunAsync(PipelinePresets.PocDeployName);
         second.IsSuccess.Should().BeTrue(second.Message);
         (await repo.OriginAsync("rev-parse", "main")).Should().Be(head, "the folder already holds the revision");
+        (repo.Argo.Reads - reads).Should().Be(2, "a retried run commits nothing and settles on its first poll (the refresh, then one read)");
+    }
+
+    // 2026-11-23-c81ec: two PoCs deployed at once both land on main and both runs settle healthy, although each commit
+    // moves the branch the other's follow reads — the follow judges its own folder's Deployment, never the sync revision.
+    [Fact]
+    public async Task TwoPocsDeployedAtOnce_BothLandOnMain_AndBothSettleHealthy()
+    {
+        await using var repo = await PocHarnessRepo.CreateAsync();
+        if (repo is null) return;
+        await using var harness = RealCompositionHarness.Build(repo.Fixture(), repo.Override);
+        await using var scope = harness.Services.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+        var started = new List<long>();
+        foreach (var name in new[] { "todo", "shop" })
+        {
+            var (upload, _) = await sp.GetRequiredService<PocUploadAdmission>().AdmitAsync(Lee, new PocUpload($"{name}.zip", Zip(), null), default);
+            var (import, refused) = await sp.GetRequiredService<PocImportLauncher>()
+                .ImportAsync(Lee, upload!.UploadId, new PocImportRequest("new", null, name, null, false), default);
+            import.Should().NotBeNull(refused?.Reason);
+            started.Add(import!.PocId);
+        }
+        var runs = repo.Queued.Select(request =>
+        {
+            var runner = new PipelineRunner(harness.Services) { RepoOverride = repo.Repo };
+            foreach (var (key, value) in request.Context!) runner.RequestContext[key] = value;
+            return runner.RunAsync(PipelinePresets.PocDeployName);
+        }).ToList();
+
+        var results = await Task.WhenAll(runs);
+
+        results.Should().OnlyContain(r => r.IsSuccess, string.Join(" | ", results.Select(r => r.Message)));
+        (await repo.OriginAsync("ls-tree", "--name-only", "main", "deploy/")).Should().Contain("deploy/todo").And.Contain("deploy/shop");
+        var db = sp.GetRequiredService<AgentSmithDbContext>();
+        (await db.Set<Poc>().AsNoTracking().Where(p => started.Contains(p.Id)).Select(p => p.State).ToListAsync()).Should().Equal(PocStates.Ready, PocStates.Ready);
     }
 
     [Fact]

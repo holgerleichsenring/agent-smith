@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type {
-  PocArchiveSetting, PocGitOpsSetting, PocScanSetting, PocsSetting, PocTargetSetting, PocVariablesSetting, SettingValue, StudioEntity,
+  PocArchiveSetting, PocGitOpsSetting, PocRolloutSetting, PocScanSetting, PocsSetting, PocTargetSetting, PocVariablesSetting, SettingValue, StudioEntity,
 } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
@@ -11,6 +11,7 @@ import { newPocRegistry, PocRegistryFields } from "./PocRegistryFields";
 import { POC_BUILD_DEFAULTS, PocBuildFields } from "./PocBuildFields";
 import { newPocSecrets, PocSecretsFields } from "./PocSecretsFields";
 import { newPocDeployBlocks, PocDeployFields, withPocDeployBlocks } from "./PocDeployFields";
+import { newPocArgo, PocArgoFields } from "./PocArgoFields";
 
 // 2026-11-23-933da: the PoCs settings (agentsmith.yml pocs:) — the switch first, then the agent and tracker every
 // person's poc- project names, then the targets. Every field stays editable while the switch is off, so a target can
@@ -55,12 +56,20 @@ export const POC_VARIABLES_DEFAULTS: PocVariablesSetting = { maxNames: 64, maxVa
 /** 2026-11-23-c81eb: the server's GitOps commit defaults (PocGitOpsConfig); like archive, always sent back. */
 export const POC_GITOPS_DEFAULTS: PocGitOpsSetting = { commitAttempts: 3, maxFolderFiles: 500 };
 
+/** 2026-11-23-c81ec: the server's rollout defaults (PocRolloutConfig) and the PoC run wall-time budget; like archive,
+ *  always sent back. */
+export const POC_ROLLOUT_DEFAULTS: PocRolloutSetting = {
+  pollSeconds: 10, deadlineSeconds: 600, endMarginSeconds: 60, commitAllowanceSeconds: 120,
+};
+
+export const POC_RUN_WALL_TIME_SECONDS_DEFAULT = 2700;
+
 /** A new target carries the server's defaults; the address has none, only a placeholder. */
 export function newPocTarget(): PocTargetSetting {
   return {
     name: "", sourceRepo: "", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
     domainPattern: null, lifetimeDays: 90, reminderDays: [14, 7, 1], perPersonLimit: 3, registry: newPocRegistry(),
-    build: { ...POC_BUILD_DEFAULTS }, secrets: newPocSecrets(), ...newPocDeployBlocks(),
+    build: { ...POC_BUILD_DEFAULTS }, secrets: newPocSecrets(), ...newPocDeployBlocks(), argo: newPocArgo(),
   };
 }
 
@@ -73,12 +82,15 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
   const blockedRetentionDays = value.blockedRetentionDays ?? POC_BLOCKED_RETENTION_DAYS_DEFAULT;
   const variables = value.variables ?? POC_VARIABLES_DEFAULTS;
   const gitops = value.gitops ?? POC_GITOPS_DEFAULTS;
+  const rollout = value.rollout ?? POC_ROLLOUT_DEFAULTS;
+  const runWallTimeSeconds = value.runWallTimeSeconds ?? POC_RUN_WALL_TIME_SECONDS_DEFAULT;
   // 2026-11-23-933dg: a target read without a secrets block is given the defaults and sends them back;
-  // 2026-11-23-c81eb: so is one without an ingress, auth, network, quota or container block.
-  const targets = (value.targets ?? []).map((target) =>
-    withPocDeployBlocks(target.secrets ? target : { ...target, secrets: newPocSecrets() }));
+  // 2026-11-23-c81eb: so is one without an ingress, auth, network, quota or container block; 2026-11-23-c81ec: or argo.
+  const targets = (value.targets ?? []).map((target) => withPocDeployBlocks({
+    ...target, secrets: target.secrets ?? newPocSecrets(), argo: target.argo ?? newPocArgo(),
+  }));
   const set = (patch: Partial<PocsSetting>) =>
-    onChange({ ...value, archive, scan, blockedRetentionDays, variables, gitops, targets, ...patch });
+    onChange({ ...value, archive, scan, blockedRetentionDays, variables, gitops, rollout, runWallTimeSeconds, targets, ...patch });
   const setAt = (i: number, patch: Partial<PocTargetSetting>) =>
     set({ targets: targets.map((target, j) => (j === i ? { ...target, ...patch } : target)) });
   return (
@@ -133,6 +145,16 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
           help={t("config.pocs.gitops.maxFolderFiles.help")}
           onChange={(v) => set({ gitops: { ...gitops, maxFolderFiles: keep(v, gitops.maxFolderFiles) } })} />
       </DrawerSection>
+      <DrawerSection title={t("config.pocs.rollout.title")} testId="setting-pocs-rollout">
+        <span className="help">{t("config.pocs.rollout.help")}</span>
+        {ROLLOUT_FIELDS.map(({ key, label, help }) => (
+          <NumberField key={key} label={t(label)} value={rollout[key]} help={t(help)} testId={`setting-pocs-rollout-${key}`}
+            onChange={(v) => set({ rollout: { ...rollout, [key]: keep(v, rollout[key]) } })} />
+        ))}
+        <NumberField label={t("config.pocs.runWallTimeSeconds")} value={runWallTimeSeconds} testId="setting-pocs-runWallTimeSeconds"
+          help={t("config.pocs.runWallTimeSeconds.help")}
+          onChange={(v) => set({ runWallTimeSeconds: keep(v, runWallTimeSeconds) })} />
+      </DrawerSection>
     </>
   );
 }
@@ -149,6 +171,13 @@ const ARCHIVE_FIELDS: { key: keyof PocArchiveSetting; label: TextKey; help: Text
   { key: "maxDockerfileKb", label: "config.pocs.archive.maxDockerfileKb", help: "config.pocs.archive.maxDockerfileKb.help" },
   { key: "mismatchRatioPercent", label: "config.pocs.archive.mismatchRatioPercent", help: "config.pocs.archive.mismatchRatioPercent.help" },
   { key: "mismatchFileLimit", label: "config.pocs.archive.mismatchFileLimit", help: "config.pocs.archive.mismatchFileLimit.help" },
+];
+
+const ROLLOUT_FIELDS: { key: keyof PocRolloutSetting; label: TextKey; help: TextKey }[] = [
+  { key: "pollSeconds", label: "config.pocs.rollout.pollSeconds", help: "config.pocs.rollout.pollSeconds.help" },
+  { key: "deadlineSeconds", label: "config.pocs.rollout.deadlineSeconds", help: "config.pocs.rollout.deadlineSeconds.help" },
+  { key: "endMarginSeconds", label: "config.pocs.rollout.endMarginSeconds", help: "config.pocs.rollout.endMarginSeconds.help" },
+  { key: "commitAllowanceSeconds", label: "config.pocs.rollout.commitAllowanceSeconds", help: "config.pocs.rollout.commitAllowanceSeconds.help" },
 ];
 
 function PocArchiveFields({ archive, onChange }: { archive: PocArchiveSetting; onChange: (patch: Partial<PocArchiveSetting>) => void }) {
@@ -220,6 +249,7 @@ function PocTargetFields({ target, index, catalog, enabled, onChange }: {
       <PocBuildFields target={target} enabled={enabled} testId={`${id}-build`} onChange={(build) => onChange({ build })} />
       <PocSecretsFields secrets={target.secrets} testId={`${id}-secrets`} onChange={(secrets) => onChange({ secrets })} />
       <PocDeployFields target={target} testId={id} onChange={onChange} />
+      <PocArgoFields argo={target.argo} target={target.name} secrets={catalog.secrets} testId={id} onChange={(argo) => onChange({ argo })} />
     </>
   );
 }

@@ -24,7 +24,8 @@ public sealed class PocBuildConfigTests
 
     [Fact]
     public void WallTime_TheDefaults_Pass() =>
-        PocBuildWallTime.Findings(new AgentSmithConfig { Pocs = PocsConfigTests.Sound() }).Should().BeEmpty("23 x 60 + 300 = 1680 < 1800");
+        PocBuildWallTime.Findings(new AgentSmithConfig { Pocs = PocsConfigTests.Sound() })
+            .Should().BeEmpty("2026-11-23-c81ec: 23 x 60 + 300 + 600 + 120 = 2400 < 2700");
 
     [Fact]
     public void WallTime_ABuildOfThirtyMinutes_IsBlockingNamingBothSumsAndTheKeys()
@@ -35,7 +36,25 @@ public sealed class PocBuildConfigTests
         var finding = PocBuildWallTime.Findings(new AgentSmithConfig { Pocs = pocs }).Should().ContainSingle().Subject;
 
         finding.IsBlocking.Should().BeTrue();
-        finding.Reason.Should().Contain("41 min = 2460 s").And.Contain("2760 s").And.Contain("build_timeout_minutes")
-            .And.Contain("orchestrator.max_run_wall_time_seconds (1800 s)").And.Contain("target 'main'");
+        finding.Reason.Should().Contain("41 min = 2460 s").And.Contain("3480 s").And.Contain("build_timeout_minutes")
+            .And.Contain("pocs.run_wall_time_seconds (2700 s)").And.Contain("target 'main'");
     }
+
+    [Fact]
+    public void WallTime_ARolloutDeadlineOf900_IsBlockingNamingTheSumAndThePocBudget()
+    {
+        var pocs = PocsConfigTests.Sound();
+        pocs.Rollout.DeadlineSeconds = 900;
+
+        var finding = PocBuildWallTime.Findings(new AgentSmithConfig { Pocs = pocs }).Should().ContainSingle().Subject;
+
+        finding.IsBlocking.Should().BeTrue();
+        finding.Reason.Should().Contain("is 2700 s").And.Contain("pocs.rollout.deadline_seconds (900 s)")
+            .And.Contain("pocs.run_wall_time_seconds (2700 s)");
+    }
+
+    [Fact]
+    public void WallTime_TheOrchestratorCeiling_NoLongerBindsAPocTarget() =>
+        PocBuildWallTime.Findings(new AgentSmithConfig { Pocs = PocsConfigTests.Sound(), Orchestrator = new() { MaxRunWallTimeSeconds = 600 } })
+            .Should().BeEmpty("a PoC run is held to pocs.run_wall_time_seconds");
 }

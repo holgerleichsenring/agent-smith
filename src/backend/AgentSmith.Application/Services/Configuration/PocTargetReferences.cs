@@ -31,6 +31,9 @@ public static class PocTargetReferences
         foreach (var target in pocs.Targets.Where(t => t.Registry is { PullAuth.Length: > 0 } r && Dangling(r.PullAuth, config.Secrets.Keys)))
             yield return $"{PocRegistryConfig.Key}.pull_auth of target '{target.Name}' names '{target.Registry!.PullAuth}', "
                 + "which is not a secret of the secrets catalog; add the pull-only token there";
+        foreach (var target in pocs.Targets.Where(t => t.Argo is { TokenSecret.Length: > 0 } a && Dangling(a.TokenSecret, config.Secrets.Keys)))
+            yield return $"{PocArgoConfig.Key}.token_secret of target '{target.Name}' names '{target.Argo!.TokenSecret}', " // 2026-11-23-c81ec
+                + "which is not a secret of the secrets catalog; add the AppProject role token there";
     }
 
     private static bool Dangling(string? name, IEnumerable<string> known) =>

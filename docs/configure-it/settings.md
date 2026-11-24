@@ -102,7 +102,7 @@ PoCs are small apps people upload to have them hosted. The feature is off until 
 - Code scan: every upload is scanned before anything is committed, so a blocked upload never reaches git. A secret pattern of severity high or critical blocks when its catalog confidence is at least the minimum confidence (8); a blocking secret can never be overruled. Below that confidence, generic assignments, placeholders such as `CHANGE_ME` and publishable keys are notes. A dependency vulnerability blocks when its CVSS score is 9.0 or more (no score is a note); one with no fixed version blocks too while "block criticals without a fix" is on (the default). A vulnerability block can be lifted by someone holding `pocs.overrule` with a reason. The dependency scan runs OSV-Scanner (by default `ghcr.io/google/osv-scanner:v2.2.4`, pinned by its digest; set the image only to run your own mirror, pinned by digest, a tag is refused) in a sandbox, so the server needs Kubernetes or Docker; it fetches its databases from `osv-vulnerabilities.storage.googleapis.com`, which the shipped egress allowlist names. Its time limit is 300 seconds.
 - Blocked uploads are kept 7 days (a field), then purged.
 - Container registry (each target, required): where PoC images live, `<login server>/<repository>/<poc>`. This is a container registry, not the package feeds under Registries. Type (`acr` for now), login server (`<name>.azurecr.io`, `<name>-<hash>.azurecr.io`, or the `.azurecr.us` and `.azurecr.cn` clouds), repository prefix (`pocs`), pull user and pull token. Agent smith holds only a pull-only token: on ACR create a repository-scoped token whose scope map grants pull (`content/read`, `metadata/read`) on `<repository>/*`, put its password in the secrets catalog and pick that secret. Agent smith uses it to turn a tag into a digest and to check that a digest exists; pushing is the host pipeline's job. Pull mode says how the target cluster pulls: "deliver a pull secret" (the default) puts the token into each PoC namespace as an imagePullSecret, "cluster can already pull" relies on the cluster's own access. The token is required either way. Test connection checks the values in the form, PoCs on or off: it says whether the token reaches `<login server>/<repository>`, or that it signs in but its scope map leaves the prefix out. The secret's card lists the PoC target as a user.
-- Image build (each target): the image is built, scanned and pushed by a pipeline of the source repo's host, never where agent smith runs. Install (in the target's section, `pocs.admin`, PoCs on) starts a run that writes the pipeline into the source repo's default branch once: `.github/workflows/poc-build.yml` on GitHub, `<template path>/azure-pipelines.poc-build.yml` on Azure DevOps, `.gitlab-ci.yml` at the root on GitLab. It refuses to overwrite such a file it did not write, and writes nothing when the file is already current. The names, the job timeouts and the Trivy image are written into the pipeline, so install again after changing them. The pipeline has three jobs: build (the folder at the commit, no registry credential, the image saved as a gzip artifact kept one day), scan (Trivy, by default `aquasec/trivy:0.76.2` pinned by its digest, or your own mirror pinned by digest under the scan settings, on that artifact; a vulnerability blocks at CVSS 9.0 or more by any source's v3 score, Trivy's own severity label decides nothing; a secret blocks when Trivy rates it high or critical and its rule maps to a catalog pattern of at least the minimum confidence; a vulnerability overruled at the code stage is ignored here too), and push (the only job that can reach the registry credential; it reports the pushed digest, which agent smith checks against the registry). A build is followed every 15 seconds up to queue + build + scan + push minutes (3 + 12 + 5 + 3); that sum times 60 plus the code scan's time limit must stay below the run wall time (`orchestrator.max_run_wall_time_seconds`, 1800), or loading refuses it. A scan report larger than 1024 KB fails the build naming the field.
+- Image build (each target): the image is built, scanned and pushed by a pipeline of the source repo's host, never where agent smith runs. Install (in the target's section, `pocs.admin`, PoCs on) starts a run that writes the pipeline into the source repo's default branch once: `.github/workflows/poc-build.yml` on GitHub, `<template path>/azure-pipelines.poc-build.yml` on Azure DevOps, `.gitlab-ci.yml` at the root on GitLab. It refuses to overwrite such a file it did not write, and writes nothing when the file is already current. The names, the job timeouts and the Trivy image are written into the pipeline, so install again after changing them. The pipeline has three jobs: build (the folder at the commit, no registry credential, the image saved as a gzip artifact kept one day), scan (Trivy, by default `aquasec/trivy:0.76.2` pinned by its digest, or your own mirror pinned by digest under the scan settings, on that artifact; a vulnerability blocks at CVSS 9.0 or more by any source's v3 score, Trivy's own severity label decides nothing; a secret blocks when Trivy rates it high or critical and its rule maps to a catalog pattern of at least the minimum confidence; a vulnerability overruled at the code stage is ignored here too), and push (the only job that can reach the registry credential; it reports the pushed digest, which agent smith checks against the registry). A build is followed every 15 seconds up to queue + build + scan + push minutes (3 + 12 + 5 + 3); that sum times 60, plus the code scan's time limit, the rollout deadline and the commit allowance, must stay below the PoC run wall time (see Rollout below), or loading refuses it. A scan report larger than 1024 KB fails the build naming the field.
   - GitHub: the repo token needs `actions: write` and the `workflow` scope (it writes a workflow file), and the host must answer a workflow dispatch with the run it started (`return_run_details`; github.com does, an older GitHub Enterprise Server answers 204 and every build fails saying so). Create the environment `poc-push` with the secrets `POC_REGISTRY_USER` and `POC_REGISTRY_PASSWORD` (an ACR token with push on `<repository>/*`). Artifacts count against your plan's storage.
   - Azure DevOps: the token needs Build read & execute. Create the pipeline `poc-build` once from the YAML the install wrote, create a Docker registry service connection `poc-registry` and permit the pipeline to use it once — otherwise the first build waits for that approval until it times out. The build fetches the commit with the job's own access token. Artifacts follow the build's retention.
   - GitLab: the token needs `api`, the token's role must be allowed to set pipeline variables (a project restricting them answers 400/403), and the push variables `POC_REGISTRY_USER` and `POC_REGISTRY_PASSWORD` are protected and scoped to the environment `poc-push`, which only the push job declares. Build and push use a `docker:dind` service, so the runner needs `privileged = true` (gitlab.com's hosted runners have it). Self-managed GitLab limits artifacts to 100 MB by default; a larger image tar fails the build job with GitLab's words.
@@ -117,8 +117,19 @@ PoCs are small apps people upload to have them hosted. The feature is off until 
 - Network (each target): what each PoC's NetworkPolicy lets through. Requests come only from the ingress controller's namespace (required while on). Traffic goes out only to the cluster DNS (`kube-system`, pods labelled `k8s-app: kube-dns`, port 53) and to the egress proxy. The egress proxy has a URL (required, http or https), which every PoC container gets as `HTTP_PROXY` and `HTTPS_PROXY`, and a pod port (3128, the proxy pod's port, not its Service's, because a NetworkPolicy sees the pod port). Name where it runs either by namespace and pod labels or by a CIDR, exactly one of the two. `no_proxy` (`localhost,127.0.0.1,.svc,.cluster.local`) becomes `NO_PROXY`.
 - Quota and container (each target): the ResourceQuota of each PoC's namespace (cpu 1, memory 1Gi, ephemeral storage 2Gi, 4 pods) and the container's requests and limits (cpu 50m/500m, memory 128Mi/512Mi, ephemeral storage limit 256Mi), as Kubernetes quantities. The quota must hold at least twice each container limit, and at least 2 pods, because a rolling update runs the old and the new pod side by side. A quantity that doesn't parse is refused.
 - GitOps commit: how often one commit is written again when other commits moved the branch in between (3), and the most files a deploy folder or the app template may hold (500); a folder with more is refused rather than cleaned up in one huge commit.
+- Argo CD (each target, required while PoCs are on): the Argo CD that deploys the target's PoC folders. See [PoC targets on Argo CD](#poc-targets-on-argo-cd) for what it needs.
+  - URL: the Argo CD server, https only, because the role token is sent to it.
+  - Role token: the secret holding the JWT of a role on the AppProject. The dashboard never shows it; Test connection reads its expiry on the server.
+  - AppProject, namespace (`argocd`) and destination server (`https://kubernetes.default.svc`): the project the ApplicationSet and every PoC Application belong to, the namespace Argo CD keeps them in, and the cluster the PoC namespaces are created on.
+  - Repository URL: the source repo as Argo CD's repository credential names it.
+  - ApplicationSet name: empty means `pocs-<target name>`.
+  - Warn before the token expires (14 days): a role token expires silently and every PoC run then fails; two weeks leaves time to mint and store a new one.
+  - Generator requeue (30 seconds, 10 to 180): the git generator creates and deletes Applications only when it requeues; its default of 180 seconds would spend a third of the rollout deadline.
+  - Test connection checks the values in the form, PoCs on or off: the values, the token's secret, the token's expiry (no expiry, the date, or a warning inside the warning days), the host, whether Argo CD takes the token, and the target's ApplicationSet as it is on Argo CD now (present, or absent: run Install).
+- Rollout: how a PoC run follows Argo CD after the GitOps commit. Argo CD is read every 10 seconds (1 to 60); each reading is one line on the run's Rollout page (sync, health, template image, checksum, generation, replicas). A rollout that isn't healthy after 600 seconds (at least 60) fails the run. The end margin (60 seconds, at least 30) is kept free at the end of the run, because the step must write its failure and the PoC state before the wall-time cancel and its 30-second kill grace land. The commit allowance (120 seconds, at least 0) is the time sealing and the GitOps commit get between the build and the follow.
+- PoC run wall time (2700 seconds): every PoC run is held to it, by both wall-time enforcers, instead of `orchestrator.max_run_wall_time_seconds`. Loading checks that it fits the slowest run: (queue + build + scan + push minutes) × 60 + `scan.timeout_seconds` + `rollout.deadline_seconds` + `rollout.commit_allowance_seconds` must stay below it. With the defaults that is (3 + 12 + 5 + 3) × 60 + 300 + 600 + 120 = 2400, below 2700. A target that goes over is a blocking finding naming the keys.
 
-The block is `pocs:` (`enabled`, `project_agent`, `project_tracker`, `targets` with their `registry`, `build`, `secrets`, `ingress`, `auth`, `network`, `quota` and `container`, `archive`, `scan`, `variables`, `gitops`, `blocked_retention_days`). A value the rules refuse is named on save, on import and at startup; a source repo, agent, tracker or registry pull secret that doesn't exist is a startup finding naming the key. A target saved before the registry block existed is refused until it has one.
+The block is `pocs:` (`enabled`, `project_agent`, `project_tracker`, `targets` with their `registry`, `build`, `secrets`, `ingress`, `auth`, `network`, `quota`, `container` and `argo`, `archive`, `scan`, `variables`, `gitops`, `rollout`, `run_wall_time_seconds`, `blocked_retention_days`). A value the rules refuse is named on save, on import and at startup; a source repo, agent, tracker or registry pull secret that doesn't exist is a startup finding naming the key. A target saved before the registry block existed is refused until it has one.
 
 Who sees what: `pocs.read` opens the PoCs area, `pocs.write` imports and acts on your own PoCs, `pocs.overrule` lifts a scan block and `pocs.admin` acts on every PoC. The built-in `poc` role holds `pocs.read` and `pocs.write`; operators get `pocs.read`. Which PoCs you see follows the projects you read runs in, so a person bound to their own `poc-` project sees their own PoCs. A blocked revision's page and its overrule both need `runs.read` in the PoC's project, so someone who overrules holds `pocs.overrule` and `runs.read` there (globally, for example the reader role, or as admin); without it the PoC answers like a foreign one.
 
@@ -126,7 +137,7 @@ Who sees what: `pocs.read` opens the PoCs area, `pocs.write` imports and acts on
 
 Each PoC is deployed from one app template in the source repo. The target's Install writes the default files once, into `<template_path>/app/`: `namespace.yaml`, `resourcequota.yaml`, `deployment.yaml`, `service.yaml`, `ingress.yaml` and `networkpolicy.yaml`. A file the branch already holds is never overwritten, so from then on they are yours to edit. The Install fills the target's quota, container resources and network keys into these files; after that, a change to those keys reaches an installed target only when you edit the template (or delete a file and install again).
 
-Every GitOps commit of a PoC reads the template at the branch head, renders it into `<deploy_root>/<poc>/` and commits the result straight onto the source repo's default branch, with no pull request. Only `*.yaml` and `*.yml` files are rendered; anything else is skipped and the step says so. A file may hold several documents, each one resource. A template edit reaches each PoC at its next GitOps commit; agent smith does not re-render every PoC when the template changes. Argo CD and the ApplicationSet that apply the folder come with a later spec (2026-11-23-c81ec).
+Every GitOps commit of a PoC reads the template at the branch head, renders it into `<deploy_root>/<poc>/` and commits the result straight onto the source repo's default branch, with no pull request. Only `*.yaml` and `*.yml` files are rendered; anything else is skipped and the step says so. A file may hold several documents, each one resource. A template edit reaches each PoC at its next GitOps commit; agent smith does not re-render every PoC when the template changes. Argo CD applies the folder through the target's ApplicationSet, see [PoC targets on Argo CD](#poc-targets-on-argo-cd).
 
 Placeholders are plain string substitution:
 
@@ -178,6 +189,73 @@ The default NetworkPolicy `app` selects the PoC's pod by its labels (not `{}`, s
 - out: to the namespace `network.dns_namespace` with the pods `network.dns_pod_labels` on 53, UDP and TCP; and to the egress proxy on `network.egress_proxy.port`, either `network.egress_proxy.namespace` with `pod_labels`, or `network.egress_proxy.cidr`.
 
 Namespaces are matched by their `kubernetes.io/metadata.name` label. What the cluster needs: Kubernetes 1.22 or later, an ingress controller of the class the target names, the auth proxy it calls, and the Sealed Secrets controller.
+
+#### PoC targets on Argo CD
+
+Argo CD deploys every PoC. Agent smith commits a PoC's folder, then only reads Argo CD until the live Deployment matches that commit. It never calls Argo CD's sync, rollback or delete.
+
+What Argo CD needs:
+
+- Argo CD 2.8 or later. The ApplicationSet is created with `upsert=true`, which older versions don't take.
+- A repository credential for the source repo. `argo.repo_url` is the URL that credential names, exactly.
+- An AppProject (`argo.project`) that allows only what a PoC folder holds:
+  - `sourceRepos` includes `repo_url`.
+  - `destinations` allow the namespaces `poc-*` on `destination_server`.
+  - `clusterResourceWhitelist` allows only the core `Namespace` kind (group `""`, kind `Namespace`).
+  - `namespaceResourceWhitelist` allows `ResourceQuota`, `Deployment` (`apps`), `Service`, `ConfigMap`, `Ingress` (`networking.k8s.io`), `NetworkPolicy` (`networking.k8s.io`) and `SealedSecret` (`bitnami.com`).
+  - A role whose policies allow `applications, get, <project>/*` and `applicationsets, get`, `create` and `update` on `<project>/*`.
+
+For example:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: pocs
+  namespace: argocd
+spec:
+  sourceRepos:
+    - https://git.example.internal/platform/poc-source.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "poc-*"
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - { group: "", kind: ResourceQuota }
+    - { group: apps, kind: Deployment }
+    - { group: "", kind: Service }
+    - { group: "", kind: ConfigMap }
+    - { group: networking.k8s.io, kind: Ingress }
+    - { group: networking.k8s.io, kind: NetworkPolicy }
+    - { group: bitnami.com, kind: SealedSecret }
+  roles:
+    - name: agent-smith
+      policies:
+        - p, proj:pocs:agent-smith, applications, get, pocs/*, allow
+        - p, proj:pocs:agent-smith, applicationsets, get, pocs/*, allow
+        - p, proj:pocs:agent-smith, applicationsets, create, pocs/*, allow
+        - p, proj:pocs:agent-smith, applicationsets, update, pocs/*, allow
+```
+
+Mint the role's token and store it as an installation secret (the encrypted store), then name that secret in `argo.token_secret`:
+
+```sh
+argocd proj role create-token pocs agent-smith --expires-in 90d
+```
+
+A token created without `--expires-in` never expires. With it, the studio warns `token_warn_days` (14) before the expiry, and Test connection shows the date.
+
+The ingress controller must publish Ingress status (`status.loadBalancer.ingress`). With ingress-nginx that is the `--publish-service` flag (`controller.publishService.enabled` in its Helm chart). Without it Argo CD keeps every Ingress Progressing and no PoC ever settles.
+
+The target's Install upserts the ApplicationSet (`argo.application_set`, by default `pocs-<target name>`) in `argo.namespace`:
+
+- a git directories generator over `<deploy_root>/*` at the source repo's default branch, with `requeueAfterSeconds` set to `argo.generator_requeue_seconds`;
+- one Application per folder, named `poc-{{path.basename}}`, which is also its namespace;
+- automated sync with prune and selfHeal, and the resources finalizer, so deleting a PoC's folder removes its namespace.
+
+Two targets on one Argo CD with the same `argo.namespace` or `destination_server` are a blocking load finding, because their ApplicationSets would manage the same Applications.
 
 ## What the settings rail leaves out
 

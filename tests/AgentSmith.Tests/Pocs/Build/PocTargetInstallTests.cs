@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Pocs;
+using AgentSmith.Application.Services.Pocs.Argo;
 using AgentSmith.Application.Services.Pocs.GitOps;
 using AgentSmith.Application.Services.Pocs.Pipeline;
 using AgentSmith.Contracts.Commands;
@@ -11,6 +12,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Server.Services.Acts;
 using AgentSmith.Server.Services.Pocs.Targets;
 using AgentSmith.Server.Services.Tickets;
+using AgentSmith.Tests.Pocs.Argo;
 using FluentAssertions;
 using Moq;
 
@@ -23,6 +25,11 @@ public sealed class PocTargetInstallTests
     private readonly Mock<ISourceProvider> _provider = new();
     private readonly List<IReadOnlyList<RepoFile>> _writes = [];
     private readonly Dictionary<string, string> _held = new(StringComparer.Ordinal);
+
+    /// <summary>2026-11-23-c81ec: the target's Argo CD the install upserts the ApplicationSet on.</summary>
+    internal FakeArgoCd Argo { get; } = new();
+
+    private IArgoCdClient? _argoOverride;
 
     public PocTargetInstallTests()
     {
@@ -94,6 +101,41 @@ public sealed class PocTargetInstallTests
         _writes.Should().BeEmpty();
     }
 
+    // 2026-11-23-c81ec: the ApplicationSet is created on the first install; a stored one with server-added defaults but
+    // an equal subset writes nothing, a changed one is upserted.
+    [Fact]
+    public async Task Execute_TheApplicationSet_IsCreatedThenUnchangedDespiteServerDefaults_ThenUpdatedWhenChanged()
+    {
+        var first = await Handler().ExecuteAsync(new PocTargetInstallContext(new PipelineContext(), "main"), default);
+        Argo.StoredSet!["status"] = new System.Text.Json.Nodes.JsonObject { ["conditions"] = new System.Text.Json.Nodes.JsonArray() };
+        Argo.StoredSet["metadata"]!["uid"] = "u-1";
+        ((System.Text.Json.Nodes.JsonObject)Argo.StoredSet["spec"]!["template"]!["spec"]!)["revisionHistoryLimit"] = 10;
+        var second = await Handler().ExecuteAsync(new PocTargetInstallContext(new PipelineContext(), "main"), default);
+        Argo.StoredSet["spec"]!["generators"]![0]!["git"]!["requeueAfterSeconds"] = 180;
+        var third = await Handler().ExecuteAsync(new PocTargetInstallContext(new PipelineContext(), "main"), default);
+
+        first.Message.Should().Contain("The ApplicationSet pocs-main on Argo CD https://argocd.poc.example.internal is created.");
+        second.Message.Should().Contain("is unchanged");
+        third.Message.Should().Contain("is updated");
+        Argo.Upserts.Should().HaveCount(2);
+        Argo.Upserts[1]["spec"]!["generators"]![0]!["git"]!["requeueAfterSeconds"]!.GetValue<int>().Should().Be(30);
+    }
+
+    [Fact]
+    public async Task Execute_ArgoRefusesTheToken_FailsNamingIt()
+    {
+        Argo.StoredSet = null;
+        var refusing = new Mock<IArgoCdClient>();
+        refusing.Setup(c => c.GetApplicationSetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new AgentSmith.Contracts.Exceptions.ArgoCdException("Argo CD https://argocd.poc.example.internal answered status 403 for api/v1/applicationsets/pocs-main"));
+        _argoOverride = refusing.Object;
+
+        var result = await Handler().ExecuteAsync(new PocTargetInstallContext(new PipelineContext(), "main"), default);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("The ApplicationSet pocs-main was not installed").And.Contain("403");
+    }
+
     [Fact]
     public async Task Execute_AnUnknownTarget_Fails() =>
         (await Handler().ExecuteAsync(new PocTargetInstallContext(new PipelineContext(), "other"), default)).IsSuccess.Should().BeFalse();
@@ -121,7 +163,9 @@ public sealed class PocTargetInstallTests
         var sources = Mock.Of<ISourceProviderFactory>(f => f.Create(It.IsAny<RepoConnection>()) == _provider.Object);
         return new PocTargetInstallHandler(new PocsConfigSource(Loader(), new ServerContext("c.yml")),
             new PocSourceRepos(Mock.Of<IConnectionRepoUrlBuilder>()), PocPipelineTemplateTests.Template(), new PocPipelineWrite(sources),
-            new PocAppTemplateWrite(sources, new PocAppTemplateDefaults(new PocYamlFill())));
+            new PocAppTemplateWrite(sources, new PocAppTemplateDefaults(new PocYamlFill())),
+            new PocApplicationSetInstall(_argoOverride is null ? Argo : Mock.Of<IArgoCdClientFactory>(f => f.Create(It.IsAny<PocArgoConfig>()) == _argoOverride), sources, new PocApplicationSet(), new PocApplicationSetMatch(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<PocApplicationSetInstall>.Instance));
     }
 
     private static IConfigurationLoader Loader()

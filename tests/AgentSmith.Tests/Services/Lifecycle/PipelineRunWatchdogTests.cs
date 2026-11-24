@@ -136,4 +136,27 @@ public sealed class PipelineRunWatchdogTests
 
         registry.Verify(r => r.TryCancel("run-busy", "watchdog-wall-time"), Times.Once);
     }
+
+    // 2026-11-23-c81ec: a PoC run is held to pocs.run_wall_time_seconds (2700) — 2000 s old it runs on — while a code run
+    // that old is past orchestrator.max_run_wall_time_seconds (1800).
+    [Fact]
+    public async Task PipelineRunWatchdog_APocRun_IsHeldToItsOwnBudget()
+    {
+        var registry = new Mock<IRunCancellationRegistry>();
+        registry.Setup(r => r.Snapshot()).Returns(new[]
+        {
+            new RunCancellationEntry("run-poc", DateTimeOffset.UtcNow.AddSeconds(-2000), RegisteredRunKind.Poc),
+            new RunCancellationEntry("run-code", DateTimeOffset.UtcNow.AddSeconds(-2000)),
+        });
+        registry.Setup(r => r.TryCancel(It.IsAny<string>(), "watchdog-wall-time")).Returns(true);
+
+        await new PipelineRunWatchdog(registry.Object, Mock.Of<IEventPublisher>(), () => 1800,
+            NullLogger<PipelineRunWatchdog>.Instance, pocWallTimeSeconds: () => 2700).ScanOnceAsync(CancellationToken.None);
+
+        registry.Verify(r => r.TryCancel("run-code", "watchdog-wall-time"), Times.Once);
+        registry.Verify(r => r.TryCancel("run-poc", It.IsAny<string>()), Times.Never);
+        Contracts.Commands.PipelinePresets.RunKindOf(Contracts.Commands.PipelinePresets.PocDeployName).Should().Be(RegisteredRunKind.Poc);
+        RunWallTimeCeiling.Of(new Contracts.Models.Configuration.AgentSmithConfig(), RegisteredRunKind.Poc).CancelSentence
+            .Should().Be("Run exceeded its 45-minute wall-time budget (pocs.run_wall_time_seconds) and was cancelled.");
+    }
 }

@@ -16,6 +16,8 @@ public sealed record DraftCheckStep(string Key, string Label, bool Ok, string De
     public const string Tickets = "tickets";
     public const string Time = "time";
     public const string Values = "values"; // 2026-11-23-933de: the draft's own values, checked before any request
+    public const string Token = "token"; // 2026-11-23-c81ec: an Argo CD role token's expiry
+    public const string ApplicationSet = "application_set"; // 2026-11-23-c81ec: the target's ApplicationSet as Argo CD holds it
 
     public static DraftCheckStep Pass(string key, string detail) => new(key, LabelOf(key), true, detail);
 
@@ -30,6 +32,8 @@ public sealed record DraftCheckStep(string Key, string Label, bool Ok, string De
         Repos => "Repositories",
         Tickets => "Open tickets",
         Values => "Values",
+        Token => "Token",
+        ApplicationSet => "ApplicationSet",
         _ => "Time budget",
     };
 }

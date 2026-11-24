@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
   checkConnectionDraft,
+  checkPocArgoDraft,
   checkPocRegistryDraft,
   checkTrackerDraft,
   type DraftCheckReport,
+  type PocArgoSetting,
   type PocRegistrySetting,
   type StudioConnection,
   type StudioTracker,
@@ -21,7 +23,9 @@ import {
 type Props =
   | { kind: "connections"; draft: StudioConnection }
   | { kind: "trackers"; draft: StudioTracker }
-  | { kind: "poc-registry"; draft: PocRegistrySetting; label: string; help: string; testId: string };
+  | { kind: "poc-registry"; draft: PocRegistrySetting; label: string; help: string; testId: string }
+  // 2026-11-23-c81ec: a PoC target's Argo block, checked under the target's name (the ApplicationSet is named after it).
+  | { kind: "poc-argo"; target: string; draft: PocArgoSetting; label: string; help: string; testId: string };
 
 export function DraftCheckPanel(props: Props) {
   const [report, setReport] = useState<DraftCheckReport | null>(null);
@@ -30,7 +34,7 @@ export function DraftCheckPanel(props: Props) {
   const inFlight = useRef<AbortController | null>(null);
 
   // A draft that changed since the last Test is a different draft; its old answer would lie.
-  const key = JSON.stringify(props.draft);
+  const key = JSON.stringify([props.kind === "poc-argo" ? props.target : null, props.draft]);
   useEffect(() => {
     setReport(null);
     setError(null);
@@ -49,7 +53,9 @@ export function DraftCheckPanel(props: Props) {
         ? checkConnectionDraft(props.draft, controller.signal)
         : props.kind === "trackers"
           ? checkTrackerDraft(props.draft, controller.signal)
-          : checkPocRegistryDraft(props.draft, controller.signal);
+          : props.kind === "poc-registry"
+            ? checkPocRegistryDraft(props.draft, controller.signal)
+            : checkPocArgoDraft(props.target, props.draft, controller.signal);
     ask
       .then(setReport)
       .catch((err: Error) => {
@@ -58,7 +64,7 @@ export function DraftCheckPanel(props: Props) {
       .finally(() => setRunning(false));
   };
 
-  const poc = props.kind === "poc-registry" ? props : null;
+  const poc = props.kind === "poc-registry" || props.kind === "poc-argo" ? props : null;
   const id = poc?.testId ?? "draft-check";
   return (
     <div className="field" data-testid={id}>

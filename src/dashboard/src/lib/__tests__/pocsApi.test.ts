@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError } from "../apiResponse";
 import {
-  fetchPocs, getPocRevision, getPocVariables, importPocUpload, installPocTarget, overrulePocRevision, putPocVariables,
+  fetchPocs, getPocRevision, getPocRollout, getPocVariables, importPocUpload, installPocTarget, overrulePocRevision, putPocVariables,
   uploadPocZip,
 } from "../pocsApi";
 
@@ -243,5 +243,21 @@ describe("PoC variables", () => {
     const thrown = await putPocVariables(4, { set: [], delete: ["A"] }).catch((err: unknown) => err) as ApiResponseError;
 
     expect([thrown.status, thrown.reason]).toEqual([409, "run r-3 of doc-search is still running"]);
+  });
+});
+
+// 2026-11-23-c81ec: one rollout — the view, or null on the empty 404 a foreign PoC or run answers.
+describe("getPocRollout", () => {
+  it("getPocRollout_200_IsTheView_404_IsNull", async () => {
+    const view = {
+      pocId: 4, name: "todo", runId: "r-7", revision: 2, state: "ready", rolloutState: "healthy", rolloutAt: null,
+      url: "https://todo.poc.example.internal", pipelineUrl: null, sourceCommitSha: null, gitopsCommitSha: null, gitopsCommitUrl: null,
+    };
+    const fetchMock = vi.fn().mockResolvedValueOnce(answer(200, view)).mockResolvedValueOnce(answer(404));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getPocRollout(4, "r-7")).resolves.toEqual(view);
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/api\/pocs\/4\/rollouts\/r-7$/);
+    await expect(getPocRollout(4, "r-x")).resolves.toBeNull();
   });
 });

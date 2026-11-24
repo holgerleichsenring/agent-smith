@@ -48,11 +48,18 @@ pocs:
           namespace: egress
           pod_labels:
             app: egress-proxy
+      # 2026-11-23-c81ec: required while pocs.enabled is true.
+      argo:
+        url: https://argocd.poc.example.internal
+        token_secret: poc_argo_token
+        project: pocs
+        repo_url: https://git.example.internal/platform/poc-src.git
   # 2026-11-23-933dg: scan.osv_image and scan.trivy_image are left to their pinned defaults.
 
 secrets:
   gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
   poc_pull_token: ${AGENTSMITH_TEST_POC_PULL_TOKEN}
+  poc_argo_token: ${AGENTSMITH_TEST_POC_ARGO_TOKEN}
 
 skills:
   source: default

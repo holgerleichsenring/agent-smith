@@ -28,6 +28,8 @@ public sealed class PocRevisionConfiguration : IEntityTypeConfiguration<PocRevis
         builder.Property(r => r.PipelineRunId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(r => r.PipelineUrl).HasMaxLength(UrlLength);
         builder.Property(r => r.BlockedStage).HasMaxLength(16);
+        builder.Property(r => r.RolloutState).HasMaxLength(16); // 2026-11-23-c81ec
+        builder.Property(r => r.RolloutCommitSha).HasMaxLength(PersistenceLimits.IndexedString);
         builder.HasIndex(r => new { r.PocId, r.Number }).IsUnique();
         builder.HasIndex(r => r.UploadId);
     }

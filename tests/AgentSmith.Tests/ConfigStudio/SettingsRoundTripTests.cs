@@ -100,8 +100,9 @@ public sealed class SettingsRoundTripTests
             "registry":{"type":"acr","loginServer":"pocregistry.azurecr.io","pullUser":"poc-pull","pullAuth":"poc_pull","pullMode":"cluster_pulls"},
             "ingress":{"class":"nginx"},"auth":{"ingressAnnotations":{"nginx.ingress.kubernetes.io/auth-url":"https://auth.example.internal/a"}},
             "network":{"ingressControllerNamespace":"ingress-nginx","egressProxy":{"url":"http://proxy:3128","namespace":"egress","podLabels":{"app.kubernetes.io/name":"proxy"}}},
-            "quota":{"memory":"2Gi"}}],
-            "gitops":{"commitAttempts":5,"maxFolderFiles":40},
+            "quota":{"memory":"2Gi"},
+            "argo":{"url":"https://argocd.example.internal","tokenSecret":"poc_argo","project":"pocs","repoUrl":"https://git.example.internal/poc-src.git","generatorRequeueSeconds":45}}],
+            "gitops":{"commitAttempts":5,"maxFolderFiles":40},"rollout":{"deadlineSeconds":900,"pollSeconds":5},"runWallTimeSeconds":3600,
             "scan":{"osvImage":"ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4","trivyImage":"aquasec/trivy@sha256:0000000000000000000000000000000000000000000000000000000000000933"}}
             """), new ChangeAttribution("op"));
 
@@ -120,6 +121,11 @@ public sealed class SettingsRoundTripTests
         (target.Ingress.Class, target.Quota.Memory, target.Quota.Cpu).Should().Be(("nginx", "2Gi", "1"));
         (pocs.Gitops.CommitAttempts, pocs.Gitops.MaxFolderFiles).Should().Be((5, 40));
         Wire(h.Store.GetSetting("pocs")).GetProperty("gitops").GetProperty("maxFolderFiles").GetInt32().Should().Be(40);
+        // 2026-11-23-c81ec: the Argo CD block, pocs.rollout and the PoC run budget round-trip; absent keys read their defaults.
+        (target.Argo!.Url, target.Argo.Namespace, target.Argo.GeneratorRequeueSeconds, target.Argo.TokenWarnDays)
+            .Should().Be(("https://argocd.example.internal", "argocd", 45, 14));
+        (pocs.Rollout.DeadlineSeconds, pocs.Rollout.PollSeconds, pocs.Rollout.EndMarginSeconds, pocs.RunWallTimeSeconds).Should().Be((900, 5, 60, 3600));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("argo").GetProperty("tokenSecret").GetString().Should().Be("poc_argo");
     }
 
     // 2026-11-23-933de: a target without a registry block, or with a bad one, is never saved.

@@ -64,6 +64,6 @@ public sealed class PocTargetReferencesTests
         Trackers = new() { ["issues"] = new TrackerConnection() },
         Connections = new() { ["gh"] = new ResolvedConnection() },
         Repos = new() { ["poc-src"] = new RepoConnection() },
-        Secrets = new Dictionary<string, string> { ["poc_pull_token"] = "pull-value" },
+        Secrets = new Dictionary<string, string> { ["poc_pull_token"] = "pull-value", ["poc_argo_token"] = "argo-value" }, // c81ec
     };
 }

@@ -32,6 +32,15 @@ public sealed class PocsConfig
     /// <summary>2026-11-23-c81eb (model from c81ea): how a PoC's manifests are committed to its deploy folder.</summary>
     public PocGitOpsConfig Gitops { get; set; } = new();
 
+    /// <summary>2026-11-23-c81ec: how a PoC run follows its rollout on Argo CD.</summary>
+    public PocRolloutConfig Rollout { get; set; } = new();
+
+    public const string RunWallTimeSecondsKey = "pocs.run_wall_time_seconds";
+
+    /// <summary>2026-11-23-c81ec: the wall-time budget of every PoC run, in place of orchestrator.max_run_wall_time_seconds —
+    /// a PoC run waits for a host build and a cluster rollout.</summary>
+    public int RunWallTimeSeconds { get; set; } = 2700;
+
     public const string BlockedRetentionDaysKey = "pocs.blocked_retention_days";
 
     /// <summary>2026-11-23-933dc: how many days a blocked upload is kept; 2026-11-23-c81ee purges it after them.</summary>
@@ -51,6 +60,11 @@ public sealed class PocsConfig
         problems.AddRange(Scan.Problems());
         problems.AddRange(Variables.Problems());
         problems.AddRange(Gitops.Problems());
+        problems.AddRange(Rollout.Problems()); // 2026-11-23-c81ec
+        problems.AddRange(new PocSharedArgo(Enabled ? Targets : []).Problems());
+        if (RunWallTimeSeconds < 60)
+            problems.Add($"{RunWallTimeSecondsKey} is {RunWallTimeSeconds}; it must be 60 or more, because a PoC run waits for "
+                + "a host build and a cluster rollout, and a shorter budget cancels every one of them");
         if (BlockedRetentionDays < 1)
             problems.Add($"{BlockedRetentionDaysKey} is {BlockedRetentionDays}; it must be 1 or more, because 0 or less would "
                 + "purge a blocked upload before anyone could read why it was blocked");

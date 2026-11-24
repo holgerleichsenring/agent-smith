@@ -64,6 +64,6 @@ public sealed class PocGitOpsCommit(
             : $"revision {job.Desired.Revision} of '{job.Poc.Name}' is commit {sha} in {job.Repo.Name}:{job.Folder}/ "
               + $"({plan.Changes.Count(c => !c.Delete)} written, {plan.Changes.Count(c => c.Delete)} deleted)";
         var notes = skipped.Count == 0 ? string.Empty : $" The app template's {string.Join(", ", skipped)} is not YAML and was skipped.";
-        return $"{char.ToUpperInvariant(done[0])}{done[1..]}, {job.Desired.Replicas} replica(s).{notes} The rollout follow arrives with 2026-11-23-c81ec.";
+        return $"{char.ToUpperInvariant(done[0])}{done[1..]}, {job.Desired.Replicas} replica(s).{notes}";
     }
 }

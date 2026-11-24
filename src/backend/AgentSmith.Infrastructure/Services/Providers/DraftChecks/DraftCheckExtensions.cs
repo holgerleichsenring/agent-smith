@@ -29,6 +29,7 @@ public static class DraftCheckExtensions
         services.AddSingleton<IConnectionDraftCheckRunner, ConnectionDraftCheckRunner>();
         services.AddSingleton<ITrackerDraftCheckRunner, TrackerDraftCheckRunner>();
         services.AddSingleton<IPocRegistryDraftCheck, PocRegistryDraftCheck>(); // 2026-11-23-933de
+        services.AddSingleton<IPocArgoDraftCheck, PocArgoDraftCheck>(); // 2026-11-23-c81ec
         return services;
     }
 }

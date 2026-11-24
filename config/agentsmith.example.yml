@@ -799,6 +799,19 @@ pocs:
   #      memory_request: 128Mi
   #      memory_limit: 512Mi
   #      ephemeral_limit: 256Mi
+  #    # 2026-11-23-c81ec: the Argo CD that deploys the target's PoCs (required while enabled), read
+  #    # through its API with an AppProject role token stored as an installation secret; Install
+  #    # upserts the target's ApplicationSet there (Argo CD 2.8 or later).
+  #    argo:
+  #      url: https://argocd.poc.example.internal
+  #      token_secret: poc_argo_token
+  #      project: pocs
+  #      namespace: argocd
+  #      destination_server: https://kubernetes.default.svc
+  #      repo_url: https://git.example.internal/platform/poc-src.git
+  #      # application_set: pocs-main         # empty reads pocs-<target name>
+  #      token_warn_days: 14
+  #      generator_requeue_seconds: 30
   # 2026-11-23-933db: what an uploaded PoC archive is held to (defaults shown), and when an import
   # asks whether a ZIP is really the same PoC: more than mismatch_ratio_percent of the files AND
   # more than mismatch_file_limit of them differ, or the port or the entrypoint changed.
@@ -831,6 +844,14 @@ pocs:
   # gitops:
   #   commit_attempts: 3
   #   max_folder_files: 500
+  # 2026-11-23-c81ec: a PoC run's own wall-time budget (in place of
+  # orchestrator.max_run_wall_time_seconds) and how it follows its rollout on Argo CD (defaults shown).
+  # run_wall_time_seconds: 2700
+  # rollout:
+  #   poll_seconds: 10
+  #   deadline_seconds: 600
+  #   end_margin_seconds: 60
+  #   commit_allowance_seconds: 120
   # 2026-11-23-933dg: PoC variables (set at import, or later on the PoC): secret ones are stored
   # encrypted under the PoC's scope and sealed at deploy, plain ones are committed as a ConfigMap.
   # A Kubernetes Secret or ConfigMap holds at most 1 MiB. Defaults shown.

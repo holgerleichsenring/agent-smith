@@ -46,4 +46,8 @@ public static partial class ContextKeys
 
     /// <summary>2026-11-23-c81eb: the GitOps commit's sha; absent when the branch already held the render.</summary>
     public const string PocCommitSha = "PocCommitSha";
+
+    /// <summary>2026-11-23-c81ec: true when a run's rollout follow expects the PoC's Application gone (poc-delete,
+    /// 2026-11-23-c81ed); absent, it expects the desired state the GitOps commit recorded.</summary>
+    public const string PocRolloutAbsent = "PocRolloutAbsent";
 }

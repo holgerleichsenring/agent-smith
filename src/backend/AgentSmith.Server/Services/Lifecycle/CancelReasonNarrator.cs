@@ -1,3 +1,7 @@
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
+
 namespace AgentSmith.Server.Services.Lifecycle;
 
 /// <summary>
@@ -10,12 +14,14 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// </summary>
 internal static class CancelReasonNarrator
 {
-    public static string Summary(string? reason) => reason switch
+    public static string Summary(string? reason, string? pipeline = null) => reason switch
     {
         "stale-lease-reaped" =>
             "Reaped — the owning replica went away (stale lease); cancelled after the grace period.",
-        "watchdog-wall-time" =>
-            "Cancelled — the run exceeded its wall-time budget (orchestrator.max_run_wall_time_seconds).",
+        // 2026-11-23-c81ec: the key that applied to the run's kind.
+        "watchdog-wall-time" => PipelinePresets.RunKindOf(pipeline ?? string.Empty) == RegisteredRunKind.Poc
+            ? $"Cancelled — the run exceeded its wall-time budget ({PocsConfig.RunWallTimeSecondsKey})."
+            : $"Cancelled — the run exceeded its wall-time budget ({RunWallTimeCeiling.OrchestratorKey}).",
         "budget" =>
             "Cancelled — the run exceeded its cost/capacity budget.",
         "crashed" =>

@@ -137,9 +137,16 @@ public sealed class PocsConfigTests : IDisposable
             new PocTargetConfig
             {
                 Name = "main", SourceRepo = "gh/poc-src", DomainPattern = "{app}.poc.example.internal", Registry = SoundRegistry(),
-                Ingress = SoundIngress(), Auth = SoundAuth(), Network = SoundNetwork(),
+                Ingress = SoundIngress(), Auth = SoundAuth(), Network = SoundNetwork(), Argo = SoundArgo(),
             },
         ],
+    };
+
+    /// <summary>2026-11-23-c81ec: the Argo CD block an enabled target needs.</summary>
+    internal static PocArgoConfig SoundArgo() => new()
+    {
+        Url = "https://argocd.poc.example.internal", TokenSecret = "poc_argo_token", Project = "pocs",
+        RepoUrl = "https://git.example.internal/platform/poc-src.git",
     };
 
     /// <summary>2026-11-23-c81eb: the ingress, auth and network keys an enabled target needs.</summary>

@@ -1102,6 +1102,17 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<string>("Reason")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<long?>("RolloutAtTicks")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("RolloutCommitSha")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("RolloutState")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
                     b.Property<string>("RunId")
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");

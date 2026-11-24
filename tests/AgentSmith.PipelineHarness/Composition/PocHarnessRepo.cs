@@ -41,6 +41,11 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
     /// <summary>2026-11-23-933dd: the faked build pipeline and registry the run's build step reaches.</summary>
     internal PocHarnessBuildHost Build { get; } = new();
 
+    /// <summary>2026-11-23-c81ec: the target's Argo CD and cluster the rollout follow reads, faked from main's deploy folders.</summary>
+    internal PocHarnessArgo Argo => _argo ??= new PocHarnessArgo(args => OriginAsync(args));
+
+    private PocHarnessArgo? _argo;
+
     /// <summary>The source repo as the run's project names it (the harness runner builds its own project).</summary>
     internal Contracts.Models.Configuration.RepoConnection Repo => new()
     {
@@ -105,6 +110,7 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
         services.RemoveAll<ISkillsCatalogPath>().AddSingleton<ISkillsCatalogPath>(
             Mock.Of<ISkillsCatalogPath>(c => c.Root == Path.Combine(_root, "catalog") && c.Origin == "test"));
         Build.Override(services);
+        services.RemoveAll<Contracts.Providers.IArgoCdClientFactory>().AddSingleton<Contracts.Providers.IArgoCdClientFactory>(Argo); // c81ec
         // 2026-11-23-c81eb: the GitOps commit reads and writes the bare origin checkout-free, as the real local provider does.
         services.RemoveAll<Contracts.Providers.ISourceProviderFactory>().AddSingleton(Mock.Of<Contracts.Providers.ISourceProviderFactory>(f =>
             f.Create(It.IsAny<Contracts.Models.Configuration.RepoConnection>()) == new Infrastructure.Services.Providers.Source.LocalSourceProvider(Origin, "main", null)));

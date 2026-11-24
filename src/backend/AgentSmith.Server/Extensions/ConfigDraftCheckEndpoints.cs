@@ -33,6 +33,12 @@ internal static class ConfigDraftCheckEndpoints
                 CancellationToken ct) => Results.Ok(await check.RunAsync(draft, ct)))
            .Needs(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
 
+        // 2026-11-23-c81ec: a PoC target's Argo CD block — its token's expiry, the probe and the ApplicationSet's state.
+        app.MapPost("/api/config/pocs/argo/check",
+            async ([FromBody] PocArgoCheckRequest draft, [FromServices] IPocArgoDraftCheck check,
+                CancellationToken ct) => Results.Ok(await check.RunAsync(draft, ct)))
+           .Needs(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
+
         // 2026-11-23-933dg: a PoC target's Sealed Secrets certificate, read from a pasted PEM or fetched from an https URL —
         // public material, a run-free read that saves nothing, outside the PoCs switch like the registry check.
         app.MapPost("/api/config/pocs/sealed-secrets-cert/fetch",

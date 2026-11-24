@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Pocs.Rollout;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Pocs;
 using AgentSmith.Application.Services.Pocs.Build;
@@ -28,6 +29,6 @@ public static class PocHandlersExtensions
         return services.AddSingleton<PocProjectPresetGuard>().AddTransient<PocArchiveLimitsSource>()
             .AddTransient<PocImportedPublisher>()
             .AddTransient<ICommandHandler<PocIntakeContext>, PocIntakeHandler>()
-            .AddPocScan().AddPocBuild().AddPocGitOps(); // 2026-11-23-933dc, 933dd, c81eb
+            .AddPocScan().AddPocBuild().AddPocGitOps().AddPocRollout(); // 2026-11-23-933dc, 933dd, c81eb, c81ec
     }
 }

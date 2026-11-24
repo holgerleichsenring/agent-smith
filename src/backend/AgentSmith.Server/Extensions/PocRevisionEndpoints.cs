@@ -17,12 +17,19 @@ internal static class PocRevisionEndpoints
             .Needs(Permissions.PocsRead, Permissions.RunsRead).InProject(ProjectFrom.Poc);
         pocs.MapPost("/pocs/{pocId:long}/revisions/{n:int}/overrule", OverruleAsync)
             .Needs(Permissions.PocsOverrule, Permissions.RunsRead).InProject(ProjectFrom.Poc);
+        // 2026-11-23-c81ec: a run's Rollout page — the PoC facts beside the run's steps.
+        pocs.MapGet("/pocs/{pocId:long}/rollouts/{runId}", RolloutAsync)
+            .Needs(Permissions.PocsRead, Permissions.RunsRead).InProject(ProjectFrom.Poc);
         return pocs;
     }
 
     internal static async Task<IResult> ReadAsync(
         long pocId, int n, ClaimsPrincipal user, PocRevisionReader reader, CancellationToken cancellationToken) =>
         await reader.ReadAsync(user, pocId, n, cancellationToken) is { } answer ? Results.Ok(answer) : Results.NotFound();
+
+    internal static async Task<IResult> RolloutAsync(
+        long pocId, string runId, Services.Pocs.Rollouts.PocRolloutReader reader, CancellationToken cancellationToken) =>
+        await reader.ReadAsync(pocId, runId, cancellationToken) is { } answer ? Results.Ok(answer) : Results.NotFound();
 
     internal static async Task<IResult> OverruleAsync(
         long pocId, int n, PocOverruleRequest? request, ClaimsPrincipal user, PocOverruleLauncher launcher,

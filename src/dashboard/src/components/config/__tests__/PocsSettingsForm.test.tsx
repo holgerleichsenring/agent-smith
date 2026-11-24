@@ -6,9 +6,11 @@ import type { PocsSetting, SettingValue, StudioEntity } from "@/lib/configApi";
 import * as configApi from "@/lib/configApi";
 import * as pocsApi from "@/lib/pocsApi";
 import {
-  POC_ARCHIVE_DEFAULTS, POC_GITOPS_DEFAULTS, POC_SCAN_DEFAULTS, POC_VARIABLES_DEFAULTS, PocsSettingsForm, type PocsCatalog,
+  POC_ARCHIVE_DEFAULTS, POC_GITOPS_DEFAULTS, POC_ROLLOUT_DEFAULTS, POC_SCAN_DEFAULTS, POC_VARIABLES_DEFAULTS, PocsSettingsForm,
+  type PocsCatalog,
 } from "../PocsSettingsForm";
 import { newPocDeployBlocks } from "../PocDeployFields";
+import { newPocArgo } from "../PocArgoFields";
 import { POC_BUILD_DEFAULTS } from "../PocBuildFields";
 import { newPocSecrets } from "../PocSecretsFields";
 
@@ -23,6 +25,7 @@ const CATALOG: PocsCatalog = {
 const OFF: PocsSetting = {
   enabled: false, projectAgent: null, projectTracker: null, targets: [], archive: POC_ARCHIVE_DEFAULTS,
   scan: POC_SCAN_DEFAULTS, blockedRetentionDays: 7, variables: POC_VARIABLES_DEFAULTS, gitops: POC_GITOPS_DEFAULTS,
+  rollout: POC_ROLLOUT_DEFAULTS, runWallTimeSeconds: 2700,
 };
 
 function Harness({ seen, start = OFF }: { seen: SettingValue[]; start?: PocsSetting }) {
@@ -75,12 +78,18 @@ describe("PocsSettingsForm", () => {
         },
         quota: { cpu: "1", memory: "1Gi", pods: 4, ephemeralStorage: "2Gi" },
         container: { cpuRequest: "50m", cpuLimit: "500m", memoryRequest: "128Mi", memoryLimit: "512Mi", ephemeralLimit: "256Mi" },
+        argo: {
+          url: "", tokenSecret: "", project: "", namespace: "argocd", destinationServer: "https://kubernetes.default.svc",
+          repoUrl: "", applicationSet: null, tokenWarnDays: 14, generatorRequeueSeconds: 30,
+        },
       }],
       archive: POC_ARCHIVE_DEFAULTS,
       scan: POC_SCAN_DEFAULTS,
       blockedRetentionDays: 7,
       variables: { maxNames: 64, maxValueKb: 4 },
       gitops: { commitAttempts: 3, maxFolderFiles: 500 },
+      rollout: { pollSeconds: 10, deadlineSeconds: 600, endMarginSeconds: 60, commitAllowanceSeconds: 120 },
+      runWallTimeSeconds: 2700,
     });
   });
 
@@ -407,6 +416,42 @@ describe("PocsSettingsForm", () => {
       expect(sent.network).toEqual(defaults.network);
       expect(sent.quota).toEqual(defaults.quota);
       expect(sent.container).toEqual(defaults.container);
+      expect(sent.argo).toEqual(newPocArgo());
     }
+    expect(saved.rollout).toEqual(POC_ROLLOUT_DEFAULTS);
+    expect(saved.runWallTimeSeconds).toBe(2700);
+  });
+
+  // 2026-11-23-c81ec: the rollout block and the PoC run wall time are edited beside the GitOps bounds; each target's
+  // Argo section is mounted inside its fields and always sent.
+  it("PocsSettingsForm_RolloutAndWallTime_EditAndRoundTrip", () => {
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-rollout-toggle"));
+
+    expect(screen.getByTestId("setting-pocs-rollout-deadlineSeconds")).toHaveValue(600);
+    expect(screen.getByTestId("setting-pocs-runWallTimeSeconds")).toHaveValue(2700);
+    fireEvent.change(screen.getByTestId("setting-pocs-rollout-pollSeconds"), { target: { value: "5" } });
+    fireEvent.change(screen.getByTestId("setting-pocs-rollout-endMarginSeconds"), { target: { value: "90" } });
+    fireEvent.change(screen.getByTestId("setting-pocs-runWallTimeSeconds"), { target: { value: "3000" } });
+
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.rollout).toEqual({ ...POC_ROLLOUT_DEFAULTS, pollSeconds: 5, endMarginSeconds: 90 });
+    expect(saved.runWallTimeSeconds).toBe(3000);
+    expect(saved.gitops).toEqual(POC_GITOPS_DEFAULTS);
+  });
+
+  it("PocsSettingsForm_TargetArgo_EditsInsideTheTarget_AndIsSentWithTheSave", () => {
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-target-add"));
+    fireEvent.change(screen.getByTestId("setting-pocs-target-0-name"), { target: { value: "main" } });
+    fireEvent.click(screen.getByTestId("setting-pocs-target-0-argo-toggle"));
+    fireEvent.change(screen.getByTestId("setting-pocs-target-0-argo-token-secret"), { target: { value: "poc_pull_token" } });
+    fireEvent.change(screen.getByTestId("setting-pocs-target-0-argo-token-warn-days"), { target: { value: "21" } });
+
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.targets[0].argo).toEqual({ ...newPocArgo(), tokenSecret: "poc_pull_token", tokenWarnDays: 21 });
+    expect(screen.getByTestId("setting-pocs-target-0-argo-application-set")).toHaveAttribute("placeholder", "pocs-main");
   });
 });

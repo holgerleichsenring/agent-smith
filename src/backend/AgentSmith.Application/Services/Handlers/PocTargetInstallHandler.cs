@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Pocs;
+using AgentSmith.Application.Services.Pocs.Argo;
 using AgentSmith.Application.Services.Pocs.GitOps;
 using AgentSmith.Application.Services.Pocs.Pipeline;
 using AgentSmith.Contracts.Commands;
@@ -12,9 +13,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// source repo and puts it on the default branch in one checkout-free write (<see cref="PocPipelineWrite"/>). The c81e
 /// series extends this step with the app template and the ApplicationSet.
 /// <para>2026-11-23-c81eb: then writes the default app template's absent files (<see cref="PocAppTemplateWrite"/>).</para>
+/// <para>2026-11-23-c81ec: then upserts the target's ApplicationSet on its Argo CD, or says it is unchanged
+/// (<see cref="PocApplicationSetInstall"/>).</para>
 /// </summary>
 public sealed class PocTargetInstallHandler(
-    PocsConfigSource config, PocSourceRepos repos, PocPipelineTemplate template, PocPipelineWrite write, PocAppTemplateWrite appTemplate)
+    PocsConfigSource config, PocSourceRepos repos, PocPipelineTemplate template, PocPipelineWrite write, PocAppTemplateWrite appTemplate,
+    PocApplicationSetInstall applicationSet)
     : ICommandHandler<PocTargetInstallContext>
 {
     public async Task<CommandResult> ExecuteAsync(PocTargetInstallContext context, CancellationToken cancellationToken)
@@ -30,6 +34,8 @@ public sealed class PocTargetInstallHandler(
         var pipeline = await write.WriteAsync(repo, target, file, cancellationToken);
         if (!pipeline.IsSuccess) return pipeline;
         var (written, said) = await appTemplate.WriteAsync(repo, target, all.Pocs.Gitops.MaxFolderFiles, cancellationToken);
-        return written ? CommandResult.Ok($"{pipeline.Message} {said}") : CommandResult.Fail($"{pipeline.Message} {said}");
+        if (!written) return CommandResult.Fail($"{pipeline.Message} {said}");
+        var (installed, set) = await applicationSet.InstallAsync(repo, target, cancellationToken);
+        return installed ? CommandResult.Ok($"{pipeline.Message} {said} {set}") : CommandResult.Fail($"{pipeline.Message} {said} {set}");
     }
 }

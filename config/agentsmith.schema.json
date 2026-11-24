@@ -360,6 +360,18 @@
           }
         },
         "blocked_retention_days": { "type": "integer", "minimum": 1, "description": "How many days a blocked upload is kept before it is purged. Default 7." },
+        "run_wall_time_seconds": { "type": "integer", "minimum": 60, "description": "The wall-time budget of every PoC run, in place of orchestrator.max_run_wall_time_seconds: a PoC run waits for a host build and a cluster rollout. Both wall-time enforcers hold PoC runs to it. Default 2700." },
+        "rollout": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How a PoC run follows its rollout on Argo CD until the live Deployment carries the render and Argo reports it Synced and Healthy. Absent reads as the defaults.",
+          "properties": {
+            "poll_seconds": { "type": "integer", "minimum": 1, "maximum": 60, "description": "How often the Application and the live Deployment are read. Default 10." },
+            "deadline_seconds": { "type": "integer", "minimum": 60, "description": "The longest one follow waits; past it the run fails and the previous version keeps serving. Default 600." },
+            "end_margin_seconds": { "type": "integer", "minimum": 30, "description": "How long before the run's wall-time cancel the follow gives up: the step must write its failure and the PoC state before the cancel and its 30 s kill grace land. Default 60." },
+            "commit_allowance_seconds": { "type": "integer", "minimum": 0, "description": "What sealing and the GitOps commit with its re-plans may take between the build and the follow; part of the wall-time check. Default 120." }
+          }
+        },
         "targets": {
           "type": "array",
           "description": "Where PoCs are hosted. One for now; required while enabled.",
@@ -450,6 +462,22 @@
                   "memory": { "type": "string", "description": "limits.memory. Default 1Gi." },
                   "pods": { "type": "integer", "minimum": 2, "description": "pods. Default 4." },
                   "ephemeral_storage": { "type": "string", "description": "limits.ephemeral-storage. Default 2Gi." }
+                }
+              },
+              "argo": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "The Argo CD that deploys this target's PoCs, read through its API with an AppProject role token; required while pocs.enabled is true. poc-target-install upserts the target's ApplicationSet there (Argo CD 2.8 or later).",
+                "properties": {
+                  "url": { "type": "string", "description": "The Argo CD server's https URL." },
+                  "token_secret": { "type": "string", "description": "The catalog secret holding the AppProject role JWT (argocd proj role create-token)." },
+                  "project": { "type": "string", "description": "The AppProject every PoC Application belongs to." },
+                  "namespace": { "type": "string", "description": "The namespace Argo CD runs in, where the ApplicationSet lives. Default argocd." },
+                  "destination_server": { "type": "string", "description": "The target cluster as Argo CD names it. Default https://kubernetes.default.svc." },
+                  "repo_url": { "type": "string", "description": "The source repo's URL as Argo CD's repository credential names it." },
+                  "application_set": { "type": ["string", "null"], "description": "The ApplicationSet's name; empty reads pocs-<target name>." },
+                  "token_warn_days": { "type": "integer", "minimum": 0, "description": "How many days before the token expires the probe and the studio warn: a role token expires silently and every PoC run then fails; two weeks leaves time to mint and store a new one. Default 14." },
+                  "generator_requeue_seconds": { "type": "integer", "minimum": 10, "maximum": 180, "description": "The git generator's requeueAfterSeconds: it creates and deletes Applications only when it requeues; its default 180 s would spend a third of the rollout deadline before a first deploy or a delete is seen. Default 30." }
                 }
               },
               "container": {

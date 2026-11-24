@@ -26,10 +26,11 @@ public static partial class PipelinePresets
     ];
 
     /// <summary>2026-11-10-e706: the kind a run of this preset registers as. A spec-dialog run is one
-    /// design turn, which the wall-time watchdog leaves to its cost cap and to a person.</summary>
+    /// design turn, which the wall-time watchdog leaves to its cost cap and to a person; 2026-11-23-c81ec: a PoC
+    /// preset's run is a PoC run, held to pocs.run_wall_time_seconds.</summary>
     public static Services.RegisteredRunKind RunKindOf(string pipelineName) =>
         string.Equals(pipelineName, SpecDialogName, StringComparison.OrdinalIgnoreCase)
         || string.Equals(pipelineName, AdminTurnName, StringComparison.OrdinalIgnoreCase) // 2026-11-17-f3a8a
             ? Services.RegisteredRunKind.DesignTurn
-            : Services.RegisteredRunKind.Pipeline;
+            : Pocs.PocPresets.Contains(pipelineName ?? string.Empty) ? Services.RegisteredRunKind.Poc : Services.RegisteredRunKind.Pipeline;
 }

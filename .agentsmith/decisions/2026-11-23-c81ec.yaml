@@ -27,3 +27,43 @@ decisions:
     chose: "The token warning (token_warn_days 14), the generator requeue (generator_requeue_seconds 30), the end margin (end_margin_seconds 60) and the commit allowance (commit_allowance_seconds 120) live in config with reasons; the ApplicationSet is compared on generators, template and syncPolicy"
     over: "Hard-coded thresholds; comparing the whole fetched object"
     reason: "CLAUDE.md: a new limit lives in config with a reason. The server adds defaults to a stored ApplicationSet, so a whole-object comparison would almost never report 'unchanged' (round-2 review)."
+  - category: Implementation
+    chose: "pocs.targets[].argo is required while pocs.enabled is true (like c81eb's ingress/auth/network); token_secret is a catalog secret checked by PocTargetReferences"
+    over: "Required on every target like the registry; optional with the follow failing at run time"
+    reason: "Every PoC run now ends in the follow, so an enabled target without Argo can never settle; the form may still be filled in before the switch."
+  - category: Implementation
+    chose: "The live image matches when it is <login_server>/<repository>/<name>[:tag]@<expected digest>, compared as text without parsing"
+    over: "Rebuilding the full ImageReference through the registry factory (eager pull-token lookup) or a digest-only suffix check"
+    reason: "The follow needs no registry call; the repository prefix keeps another PoC's image with the same digest from counting, and the tag (the commit) is free."
+  - category: Implementation
+    chose: "An unreachable Argo CD or a 5xx is a waiting reading (the deadline still applies); a 401/403 or any other refusal fails the run and records NO rollout outcome"
+    over: "Failing on any error; recording such a run as a failed rollout"
+    reason: "A brief outage should not kill a 10-minute follow; a refused token says nothing about the pods, so writing failed (and PocStates.failed on a first rollout) would claim a state nobody read. A retry reads again."
+  - category: Implementation
+    chose: "A failed rollout keeps the PoC state when ANY revision of the PoC (the current one's previous follow included) rolled out healthy, else PocStates.failed"
+    over: "Only revisions other than the current one count"
+    reason: "An act that re-renders the same revision (c81ed apply, variables) and fails still leaves the old pods serving."
+  - category: Implementation
+    chose: "PocRevision gains RolloutCommitSha (beside RolloutState and RolloutAtTicks), written when the follow starts; the Rollout page links <source repo web URL>/commit/<sha>"
+    over: "No column (parse the sha out of the GitOps step's message); a commit URL builder per host"
+    reason: "The spec asks for the commit link on the page and only the run's context held the sha; the /commit/<sha> path answers on GitHub, Azure DevOps and GitLab, so one rule serves all three."
+  - category: Implementation
+    chose: "The studio's 'ApplicationSet state from the last install' is read live by the Test connection (an application_set step: present, or absent with 'run Install'); the token's expiry is its token step"
+    over: "Storing the last install's outcome"
+    reason: "933dd ruled that no last install is stored and the run is the record; the token is a secret the dashboard never sees, so the check is the place that can read its exp claim."
+  - category: Implementation
+    chose: "The probe is GET /api/version then GET /api/v1/session/userinfo (loggedIn), then the token's expiry sentence"
+    over: "Listing applications of the project"
+    reason: "A list filtered by RBAC answers 200 for any token; userinfo says whether Argo took the token without needing a permission the role may lack."
+  - category: Implementation
+    chose: "The ApplicationSet compare is a recursive subset of spec.generators, spec.template and spec.syncPolicy: every key the render carries must equal the stored value, arrays element by element; the render sets no ApplicationSet-level syncPolicy"
+    over: "Rendering spec.syncPolicy defaults (preserveResourcesOnDeletion: false)"
+    reason: "Argo CD omits false and empty values when it stores the object, so a rendered default would read as a change on every install."
+  - category: Implementation
+    chose: "One RunWallTimeCeiling (Contracts) answers the ceiling and its key per run kind for both enforcers, the run's cancel sentence and the enforcer's summary; PipelineRunWatchdog gains an optional pocWallTimeSeconds reader; RunRepository.GetWallTimeOverdueRunsAsync takes a ceiling per run"
+    over: "Each enforcer deciding the key on its own"
+    reason: "The spec requires both enforcers and both sentences to name the key that applied; one rule keeps them from drifting. A design turn keeps its behaviour in each enforcer."
+  - category: Implementation
+    chose: "ContextKeys.PocRolloutAbsent (bool) is the key c81ed's poc-delete sets so the follow waits for the Application's 404; the follow writes no outcome for an absence"
+    over: "A second follow step for delete"
+    reason: "One follow, two expectations; the acts' outcomes are c81ed's table."

@@ -291,3 +291,40 @@ export async function putPocVariables(pocId: number, body: PocVariablesChange, s
   if (!res.ok) throw await refusedAsSaid(res, path);
   return readJson<PocVariablesWritten>(res, path);
 }
+
+// 2026-11-23-c81ec: GET /api/pocs/{pocId}/rollouts/{runId} — one poc-deploy run's rollout as the Poc and its revision
+// recorded it. rolloutState is null while the run still follows Argo CD; url is set only once it settled healthy. A
+// foreign PoC or run answers an empty 404, read here as "not found".
+
+export type PocRolloutState = "healthy" | "failed";
+
+export interface PocRolloutView {
+  pocId: number;
+  name: string;
+  runId: string;
+  revision: number | null;
+  /** The Poc row's state (importing, ready, failed, stopped, …). */
+  state: PocState | string;
+  rolloutState: PocRolloutState | null;
+  /** ISO timestamp of the reading that settled the rollout. */
+  rolloutAt: string | null;
+  /** https://<host>, only once the rollout settled healthy. */
+  url: string | null;
+  /** The source repo host's build pipeline run. */
+  pipelineUrl: string | null;
+  sourceCommitSha: string | null;
+  gitopsCommitSha: string | null;
+  gitopsCommitUrl: string | null;
+}
+
+export function pocRolloutPath(pocId: number, runId: string): string {
+  return `${POCS_PATH}/${encodeURIComponent(String(pocId))}/rollouts/${encodeURIComponent(runId)}`;
+}
+
+export async function getPocRollout(pocId: number, runId: string, signal?: AbortSignal): Promise<PocRolloutView | null> {
+  const path = pocRolloutPath(pocId, runId);
+  const res = await apiFetch(path, { signal });
+  if (res.status === 404) return null;
+  if (!res.ok) throw await refused(res, path);
+  return readJson<PocRolloutView>(res, path);
+}

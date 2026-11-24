@@ -53,12 +53,15 @@ public sealed partial class PocTargetConfig
 
     public PocContainerConfig Container { get; set; } = new();
 
+    /// <summary>2026-11-23-c81ec: the Argo CD that deploys its PoCs; required while pocs.enabled is true.</summary>
+    public PocArgoConfig? Argo { get; set; }
+
     /// <summary>This target's value problems, one sentence each naming the key, the value and the reason;
     /// 2026-11-23-c81eb: with <paramref name="pocsEnabled"/> the deploy keys a PoC cannot run without are required.</summary>
     public IEnumerable<string> Problems(bool pocsEnabled = false) =>
         [.. NameProblems(), .. SourceRepoProblems(), .. new PocTargetFolders(this).Problems(), .. DomainProblems(),
             .. LifetimeProblems(), .. RegistryProblems(), .. Build.Problems(Name),
-            .. Secrets.Problems(Name), .. new PocTargetExposure(this).Problems(pocsEnabled), .. new PocTargetResources(this).Problems()];
+            .. Secrets.Problems(Name), .. new PocTargetExposure(this).Problems(pocsEnabled), .. new PocTargetResources(this).Problems(), .. ArgoProblems(pocsEnabled)];
 
     private string Key(string field) => $"pocs.targets[].{field} of target '{Name}'";
 
@@ -102,6 +105,9 @@ public sealed partial class PocTargetConfig
     private IEnumerable<string> RegistryProblems() => Registry is null
         ? [$"{Key("registry")} is missing; name the container registry, because every PoC image is resolved and verified there"]
         : Registry.Problems().Select(problem => $"{problem} (target '{Name}')");
+
+    private IEnumerable<string> ArgoProblems(bool pocsEnabled) => Argo is not null ? Argo.Problems(Name)
+        : pocsEnabled ? [$"{Key("argo")} is missing while pocs.enabled is true; name the Argo CD that deploys its PoCs, because every PoC run follows its rollout there"] : [];
 
     [GeneratedRegex("^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$")]
     private static partial Regex DnsLabel();

@@ -114,9 +114,7 @@ public sealed class ExecutePipelineUseCase(
             cancellationRegistry.TryGetReason(runId, out var cancelReason);
             var cancelMsg = cancelReason switch
             {
-                "watchdog-wall-time" =>
-                    $"Run exceeded its {prologue.Config.Orchestrator.MaxRunWallTimeSeconds / 60}-minute wall-time budget "
-                    + "(orchestrator.max_run_wall_time_seconds) and was cancelled.",
+                "watchdog-wall-time" => RunWallTimeCeiling.Of(prologue.Config, request.PipelineName).CancelSentence, // c81ec: the key that applied
                 "operator" => "Cancelled by operator.",
                 // p0237: the liveness watcher killed the run because the sandbox
                 // container exited mid-step (SandboxLivenessWatcher.CancelReason).

@@ -68,4 +68,14 @@ public sealed class PocRevision : EntityBase
 
     /// <summary>2026-11-23-933dd: the stage a blocked revision is blocked at ('code' | 'image'), null when not blocked.</summary>
     public string? BlockedStage { get; set; }
+
+    /// <summary>2026-11-23-c81ec: how the latest rollout follow of this revision ended (PocRolloutStates: healthy |
+    /// failed), null while none ended.</summary>
+    public string? RolloutState { get; set; }
+
+    /// <summary>2026-11-23-c81ec: when that follow ended, UTC ticks.</summary>
+    public long? RolloutAtTicks { get; set; }
+
+    /// <summary>2026-11-23-c81ec: the GitOps commit the latest follow of this revision followed — the Rollout page's link.</summary>
+    public string? RolloutCommitSha { get; set; }
 }

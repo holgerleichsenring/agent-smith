@@ -31,4 +31,8 @@ public static partial class CommandNames
     /// <summary>2026-11-23-c81eb: renders a PoC's hardened manifests from the source repo's app template and the desired
     /// state, and commits them with the sealed secrets straight onto the default branch.</summary>
     public const string GitOpsCommit = "GitOpsCommitCommand";
+
+    /// <summary>2026-11-23-c81ec: follows a PoC's rollout on Argo CD until the live Deployment carries this render and
+    /// Argo reports it Synced and Healthy, or fails naming why; writes the revision's rollout state and the PoC state.</summary>
+    public const string PocRolloutFollow = "PocRolloutFollowCommand";
 }

@@ -394,6 +394,16 @@ export async function checkPocRegistryDraft(
   return sendJson<DraftCheckReport>("POST", `/api/config/pocs/registry/check`, draft, signal);
 }
 
+/** 2026-11-23-c81ec: a PoC target's unsaved Argo block — values, token secret and expiry, host, scope, then the
+ *  ApplicationSet as it is on Argo CD now. */
+export async function checkPocArgoDraft(
+  target: string,
+  draft: PocArgoSetting,
+  signal?: AbortSignal,
+): Promise<DraftCheckReport> {
+  return sendJson<DraftCheckReport>("POST", `/api/config/pocs/argo/check`, { target, argo: draft }, signal);
+}
+
 /** 2026-11-23-933dg: a Sealed Secrets controller certificate as the server read it. */
 export interface SealedSecretsCert {
   pem: string;
@@ -1155,6 +1165,30 @@ export interface PocTargetSetting {
   network?: PocNetworkSetting | null;
   quota?: PocQuotaSetting | null;
   container?: PocContainerSetting | null;
+  /** 2026-11-23-c81ec: the Argo CD that deploys its PoC folders; absent reads as the defaults and is always sent back. */
+  argo?: PocArgoSetting | null;
+}
+
+/** 2026-11-23-c81ec: agentsmith.yml pocs.targets[].argo — the Argo CD, its AppProject and the role token's secret id.
+ *  applicationSet null or empty means "pocs-<target name>". */
+export interface PocArgoSetting {
+  url: string;
+  tokenSecret: string;
+  project: string;
+  namespace: string;
+  destinationServer: string;
+  repoUrl: string;
+  applicationSet: string | null;
+  tokenWarnDays: number;
+  generatorRequeueSeconds: number;
+}
+
+/** 2026-11-23-c81ec: agentsmith.yml pocs.rollout — how PocRolloutFollow reads Argo CD and how long it waits. */
+export interface PocRolloutSetting {
+  pollSeconds: number;
+  deadlineSeconds: number;
+  endMarginSeconds: number;
+  commitAllowanceSeconds: number;
 }
 
 /** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].ingress — the ingress class and an optional cert-manager issuer. */
@@ -1269,6 +1303,10 @@ export interface PocsSetting {
   variables: PocVariablesSetting;
   /** 2026-11-23-c81eb: how a PoC's manifests are committed to its deploy folder. */
   gitops: PocGitOpsSetting;
+  /** 2026-11-23-c81ec: how a rollout is followed on Argo CD. */
+  rollout: PocRolloutSetting;
+  /** 2026-11-23-c81ec: the wall-time budget of every PoC run, in seconds. */
+  runWallTimeSeconds: number;
 }
 
 /** 2026-11-23-933dc: agentsmith.yml pocs.scan — the OSV-Scanner image pinned by digest and what blocks. */

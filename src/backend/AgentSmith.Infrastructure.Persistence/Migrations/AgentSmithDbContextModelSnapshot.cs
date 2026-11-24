@@ -1065,6 +1065,17 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("Reason")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("RolloutAtTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RolloutCommitSha")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RolloutState")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RunId")
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
