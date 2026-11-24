@@ -33,15 +33,15 @@ decisions:
     over: "A beat every ci_poll_seconds whatever merge.when says"
     reason: "Review finding: under manual a fixed fast cadence costs a run row per poll for a merge a person makes; the status cadence notices it soon enough."
   - category: Scope
-    decider: claude
+    decider: operator
     chose: "A closed final pull request is said and the series stays delivering; the operator reopens it or stops the series"
     over: "Stopping the series; reopening it"
-    reason: "Closing it is a person's act whose intent agent-smith cannot read. Recorded as an operator question in the series report (review Q4)."
+    reason: "Closing it is a person's act whose intent agent-smith cannot read. Recorded as an operator question in the series report (review Q4). Operator accepted this recommendation 2026-11-24."
   - category: Scope
-    decider: claude
+    decider: operator
     chose: "The final pull request merges in the project's protection mode (merge.respect_branch_protection)"
     over: "Always respecting branch protection for it"
-    reason: "The brief says it follows merge.when and the host's policies, and merge.respect_branch_protection is how a project already says whether its merges respect them; a single-ticket pull request into the default branch merges the same way. Recorded as an operator question in the series report (review Q2)."
+    reason: "The brief says it follows merge.when and the host's policies, and merge.respect_branch_protection is how a project already says whether its merges respect them; a single-ticket pull request into the default branch merges the same way. Recorded as an operator question in the series report (review Q2). Operator accepted this recommendation 2026-11-24."
   - category: Implementation
     decider: claude
     chose: "Post-build review fixes: a series with no repo to deliver is never done; a merged final pull request counts only at the branch tip (a follow-up landed after it is delivered again); a different open pull request replaces the known one; each repo's step catches its host's failure and says it, and LastDeliveredAt is always written; an armed merge is not asked again on the same head; a not-started required build is queued again once per head"

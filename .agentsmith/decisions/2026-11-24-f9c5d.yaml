@@ -28,15 +28,15 @@ decisions:
     over: "A branch pipeline only"
     reason: "A merge-request pipeline is what a project's MR rules expect; a branch pipeline still becomes the merge request's head pipeline when MR pipelines are not configured for that target (review finding)."
   - category: Scope
-    decider: claude
+    decider: operator
     chose: "A started trigger whose CI never registers, and an impossible one, keep the pull request waiting with the sentence; a person's Merge on the series page still merges it"
     over: "Merging as 'no CI' after a second settle"
-    reason: "A series pull request merged without the CI its repository runs would defeat the point; the series page states why it waits. Recorded as an operator question in the series report (review Q3)."
+    reason: "A series pull request merged without the CI its repository runs would defeat the point; the series page states why it waits. Recorded as an operator question in the series report (review Q3). Operator accepted this recommendation 2026-11-24."
   - category: Scope
-    decider: claude
+    decider: operator
     chose: "A ticket whose repositories mix 'has CI' and 'no CI at all' waits for a person's merge for the repository without CI"
     over: "Remembering per repository that it has no CI"
-    reason: "Rare, and remembering it needs a stored fact per repository the records do not have; the sentence says so on the page."
+    reason: "Rare, and remembering it needs a stored fact per repository the records do not have; the sentence says so on the page. Operator accepted this recommendation 2026-11-24."
   - category: Implementation
     decider: claude
     chose: "Post-build review fixes: Azure DevOps reads the repository's default branch from the provider (a pull request's repository reference may leave it out); a GitHub workflow that already takes the series branch and reported nothing on the head answers NoCi"

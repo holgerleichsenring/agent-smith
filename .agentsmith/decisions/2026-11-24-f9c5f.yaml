@@ -32,3 +32,8 @@ decisions:
     chose: "After merging main (2026-11-24-6811a-d): the final pull request's step reads the host's conflict state (PrReviewState.HasConflicts) every beat and launches one refresh-base run per head on a conflict, under every merge.when and before the series check passed"
     over: "Seeing a conflict only at agent-smith's own merge attempt"
     reason: "6811a gave every host's state read the conflict; the final pull request has no PR record, so the step asks the host directly — a small change, and merge.when manual no longer hides a conflict."
+  - category: Architecture
+    decider: claude
+    chose: "The final pull request's conflict goes through 2026-11-24-297b's ConflictBaseRefresh — the one conflict trigger — with RefreshedPullRequest.SeriesFinal naming the series branch: no ticket to be free, listed on no ticket, one run per conflict on a head, none while one is at work. The series record keeps when the conflict began on the head (ConflictHead, ConflictSince) for it; f9c5e's own launcher overload and RefreshedHead are gone"
+    over: "Keeping the final pull request's own launch beside 297b's"
+    reason: "Coordinator 2026-11-24: one trigger path. 297b's due rule (by the pull request's refresh runs and when the conflict began) serves a pull request without a ticket once the free check is skipped for one; the beat still decides when to ask, because the final pull request has no record the refresh's read would reach."

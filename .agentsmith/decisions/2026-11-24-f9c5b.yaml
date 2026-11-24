@@ -43,10 +43,10 @@ decisions:
     over: "Falling through to the clone's base as an unstacked run does"
     reason: "Review finding: a fall-through records no target, so the ticket's pull request would open against the default branch."
   - category: Scope
-    decider: claude
+    decider: operator
     chose: "A series ticket requiring a ticket outside the series is met by that ticket's landing on the default branch; the series branch is not refreshed for it"
     over: "Merging the default branch into the series branch when such a prerequisite lands"
-    reason: "Operator 2026-11-24: develop moving meanwhile is ignored until the final pull request. Recorded as an open question in the series report for the operator to confirm."
+    reason: "Operator 2026-11-24: develop moving meanwhile is ignored until the final pull request. Recorded as an open question in the series report for the operator to confirm. Operator confirmed 2026-11-24: a prerequisite outside the series that lands later on the default branch does not refresh the series branch."
   - category: Implementation
     decider: claude
     chose: "Post-build review fix: a series the filing step could not open before its starts is opened afterwards without a series branch"
