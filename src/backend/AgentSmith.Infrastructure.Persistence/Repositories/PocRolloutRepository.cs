@@ -36,11 +36,18 @@ public sealed class PocRolloutRepository(IUnitOfWork unitOfWork)
     {
         ArgumentNullException.ThrowIfNull(outcome);
         await using var transaction = await unitOfWork.BeginTransactionAsync(ct);
-        await unitOfWork.Set<PocRevision>().Where(r => r.PocId == outcome.PocId && r.Number == outcome.Revision)
-            .ExecuteUpdateAsync(set => set.SetProperty(r => r.RolloutState, outcome.RolloutState)
-                .SetProperty(r => r.RolloutAtTicks, outcome.At.UtcTicks), ct);
+        if (outcome.RolloutState is { } rollout) // 2026-11-23-c81ed: a stop, start or apply leaves it untouched
+            await unitOfWork.Set<PocRevision>().Where(r => r.PocId == outcome.PocId && r.Number == outcome.Revision)
+                .ExecuteUpdateAsync(set => set.SetProperty(r => r.RolloutState, rollout)
+                    .SetProperty(r => r.RolloutAtTicks, outcome.At.UtcTicks), ct);
         if (outcome.PocState is { } state)
             await unitOfWork.Set<Poc>().Where(p => p.Id == outcome.PocId).ExecuteUpdateAsync(set => set.SetProperty(p => p.State, state), ct);
         await transaction.CommitAsync(ct);
     }
+
+    /// <summary>2026-11-23-c81ed: a settled delete — the PoC deleted and its LiveName null in one update, so 933da's unique
+    /// (Target, LiveName) frees the name and the host made from it.</summary>
+    public Task RecordDeletedAsync(long pocId, CancellationToken ct) =>
+        unitOfWork.Set<Poc>().Where(p => p.Id == pocId).ExecuteUpdateAsync(set => set
+            .SetProperty(p => p.State, PocStates.Deleted).SetProperty(p => p.LiveName, (string?)null), ct);
 }

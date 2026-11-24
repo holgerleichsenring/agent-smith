@@ -52,3 +52,55 @@ decisions:
     chose: "A new upload to a stopped PoC starts it: poc-deploy commits Replicas 1 (c81eb) and the follow's state table settles it ready; Start stays the act for a stopped PoC without a new upload"
     over: "An upload landing stopped until the owner presses Start"
     reason: "Operator ruling, round 4, 2026-11-23. No act changes: the state table already derives State from the desired Replicas."
+  - category: Implementation
+    chose: "The PocAct step takes the act from the run's preset (ContextKeys.PipelineName via PocActKinds.OfPreset) and sets ContextKeys.PocAct itself; the server seeds only the PoC, the actor, a rollback's revision and an apply's readiness"
+    over: "Seeding the act as a string beside the preset"
+    reason: "A seed could disagree with the preset; the preset is what the run is, so it is the one source."
+  - category: Implementation
+    chose: "The registry check of a rollback's image (933de ExistsAsync) runs in the PocAct step only; the route checks the table (PocActPlan) and the request shape"
+    over: "Calling the registry from the HTTP request as well"
+    reason: "The step re-checks at run time anyway (the image can be purged between request and run); a registry call in the request adds a network dependency to a route that only queues."
+  - category: Implementation
+    chose: "Request-shape refusals (rollback without revision, wrong delete name, bad readiness, readiness on a non-apply act) answer 400; a state the table does not admit answers 409 naming the act and the state; a live run 409 naming it"
+    over: "One status for every refusal"
+    reason: "400 is a request the caller can fix by itself; 409 depends on the PoC's state, like the live-run conflict 933db already answers."
+  - category: Implementation
+    chose: "The delete commit nulls the seal fingerprint with Revision and ImageDigest in one update (IPocGitOpsStore.RecordAbsentAsync)"
+    over: "Leaving the fingerprint"
+    reason: "The sealed files went with the folder; c81eb's contract says a fingerprint names what the branch holds."
+  - category: Implementation
+    chose: "A replace import of a PoC whose delete is pending (Revision null in ready, stopped or failed) is refused 409"
+    over: "Letting poc-deploy re-render the folder"
+    reason: "The same invariant as the acts' Revision-null refusal: nothing re-renders a folder a delete removed before the delete settled."
+  - category: Implementation
+    chose: "LocalIndexStaging stages a deletion as an update-index --index-info entry of mode 0 (with the empty blob's id for the hash length)"
+    over: "update-index --force-remove <path>"
+    reason: "The path form needs a work tree; the GitOps repo served from a path is a bare origin, so c81ea's local deletion failed there (found by the harness delete)."
+  - category: Implementation
+    chose: "An apply's audit reason is 'applied' followed by the revision and commit, like the deployed entry's 'revision n, commit sha'"
+    over: "The bare word 'applied'"
+    reason: "The reason starts with 'applied' as the spec says and keeps what the deployed entry already records."
+  - category: Implementation
+    chose: "The variable route answers applyRunId when it queued poc-apply, else applyNote (a live run, or a PoC apply does not admit); a deleted PoC gets neither"
+    over: "A silent skip"
+    reason: "The owner sees whether the change reached the pod or when it will."
+  - category: Implementation
+    chose: "GET /api/pocs/{pocId} carries the audit trail and the admitted acts; GET /api/pocs/{pocId}/revisions carries mayRollBack per revision, both computed by PocActPlan"
+    over: "A separate audit route; the dashboard deriving the acts"
+    reason: "One table decides what the page offers and what the route admits, so they cannot disagree."
+  - category: Implementation
+    chose: "pocs.readiness_path_max_chars is checked to be 1 or more only"
+    over: "An upper bound as well"
+    reason: "An upper bound on a bound is another limit with no reason the operator would accept."
+  - category: Implementation
+    chose: "Pocs.ReadinessPath becomes an unbounded column (migration WidenPocReadinessPath on SQLite, SQL Server and PostgreSQL); pocs.readiness_path_max_chars alone bounds the path"
+    over: "The spec's 'no migration' with c81eb's 191-character column; or a default of 191"
+    reason: "Review finding: a path the 256 default admits failed the row write after its commit landed, so git and the row disagreed and every retry failed the same way. The spec's default and reason stand; the column follows them."
+  - category: Implementation
+    chose: "GitOpsCommit refuses a render of a deleted or delete-pending PoC (PocGitOpsSubject.IsGone), and the overrule route answers 409 for one"
+    over: "Guarding only the five acts"
+    reason: "Review finding: an overrule's poc-deploy of a deleted PoC rendered it into the folder a new PoC with the same name owned. The commit step is the one place every render passes."
+  - category: Implementation
+    chose: "Argo CD's Application read and refresh name the AppProject (?project=)"
+    over: "c81ec's bare GET"
+    reason: "Review finding: without the project Argo CD answers PermissionDenied for a missing Application, so a delete's follow would never see it gone. Unverified against a real Argo CD."

@@ -18,6 +18,7 @@ public static class PocGitOpsExtensions
             .AddTransient<PocAppRender>().AddTransient<PocTemplateRead>().AddTransient<PocFolderPlan>()
             .AddTransient<PocGitOpsPlanner>().AddTransient<PocDesiredStates>().AddTransient<PocRenderInputs>()
             .AddTransient<PocDeployedPublisher>().AddTransient<PocGitOpsCommit>()
+            .AddTransient<PocActedPublisher>().AddSingleton<PocAbsentPlan>().AddTransient<PocGitOpsDelete>() // 2026-11-23-c81ed
             .AddTransient<PocAppTemplateDefaults>().AddTransient<PocAppTemplateWrite>()
             .AddTransient<ICommandHandler<GitOpsCommitContext>, GitOpsCommitHandler>();
     }

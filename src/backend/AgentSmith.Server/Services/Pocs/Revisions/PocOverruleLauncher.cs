@@ -30,6 +30,8 @@ internal sealed class PocOverruleLauncher(
                 + "fit, the width of the PoC audit trail's reason column (PocAuditEntries.Reason)."));
         if (await pocs.FindAsync(pocId, ct) is not { } poc || await revisions.RowAsync(pocId, revision, ct) is not { } found)
             return (null, PocRefusal.NotFound);
+        if (!PocStates.IsLive(poc.State)) return (null, PocImportRefusals.NotLive(poc)); // 2026-11-23-c81ed
+        if (Acts.PocActSubjects.Map(poc).IsDeletePending) return (null, PocImportRefusals.DeletePending(poc));
         var (row, latest) = found;
         if (rule.WhyNot(row, latest) is { } whyNot) return (null, PocRefusal.BadRequest(Sentence(whyNot)));
         if (await uploads.ReadAsync(row.UploadSession, row.UploadId, ct) is null)

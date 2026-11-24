@@ -69,6 +69,7 @@ public static class EventTypeResolver
         EventType.PocImported => typeof(PocImportedEvent), // 2026-11-23-933db
         EventType.PocOverruled => typeof(PocOverruledEvent), // 2026-11-23-933dc
         EventType.PocDeployed => typeof(PocDeployedEvent), // 2026-11-23-c81eb
+        EventType.PocActed => typeof(PocActedEvent), // 2026-11-23-c81ed
         _ => null
     };
 

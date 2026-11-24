@@ -12,4 +12,6 @@ public sealed class NoPocRolloutStore : IPocRolloutStore
     public Task RecordCommitAsync(long pocId, int revision, string commitSha, CancellationToken ct) => Task.CompletedTask;
 
     public Task RecordOutcomeAsync(PocRolloutOutcome outcome, CancellationToken ct) => Task.CompletedTask;
+
+    public Task RecordDeletedAsync(long pocId, CancellationToken ct) => Task.CompletedTask;
 }

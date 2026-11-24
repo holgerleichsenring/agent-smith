@@ -60,8 +60,7 @@ public enum EventType
     // (verbatim/edited/rejected/unratified + edit distance). Carries the
     // draft + ratified ExpectationDraft JSON so the server-side projector
     // can persist the RunExpectation row — the event stream is the only
-    // DB channel a spawned orchestrator has. Nothing emits it any more; it stays
-    // so archived trails decode.
+    // DB channel a spawned orchestrator has. Nothing emits it any more; it stays so archived trails decode.
     ExpectationRatified = 73,
     // p0344b: the run-story snapshot at run end — the progress ledger + the acceptance dispositions as camelCase wire
     // JSON. The server-side applier persists both onto the run row (ProgressLedgerJson / AcceptanceJson) so the run
@@ -112,9 +111,10 @@ public enum EventType
     VerifyPassRecorded = 91,
     // 2026-11-18-3863f: a deploy's pull request or pipeline run, followed by the server.
     DeployDelivered = 92,
-    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs; 933db: a poc-deploy run validated a PoC revision; 933dc: one lifted a block; c81eb: one committed it to the deploy folder.
+    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs; 933db: a poc-deploy run validated a PoC revision; 933dc: one lifted a block; c81eb: one committed it to the deploy folder; c81ed: a lifecycle act committed.
     TicketTextRewritten = 93,
     PocImported = 94,
     PocOverruled = 95,
     PocDeployed = 96,
+    PocActed = 97,
 }

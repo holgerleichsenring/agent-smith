@@ -26,11 +26,11 @@ public sealed class ArgoCdClient(ArgoCdHttp http, PocArgoConfig argo, string tok
     }
 
     public async Task<ArgoApplicationState?> GetApplicationAsync(string name, CancellationToken cancellationToken) =>
-        await http.SendAsync(HttpMethod.Get, $"api/v1/applications/{Escape(name)}", null, cancellationToken) is { } app
+        await http.SendAsync(HttpMethod.Get, $"api/v1/applications/{Escape(name)}?{Project}", null, cancellationToken) is { } app
             ? ArgoApplicationRead.From(app) : null;
 
     public async Task<ArgoApplicationState?> RefreshAsync(string name, CancellationToken cancellationToken) =>
-        await http.SendAsync(HttpMethod.Get, $"api/v1/applications/{Escape(name)}?refresh=normal", null, cancellationToken) is { } app
+        await http.SendAsync(HttpMethod.Get, $"api/v1/applications/{Escape(name)}?refresh=normal&{Project}", null, cancellationToken) is { } app
             ? ArgoApplicationRead.From(app) : null;
 
     public async Task<ArgoLiveDeployment?> GetLiveDeploymentAsync(
@@ -53,6 +53,11 @@ public sealed class ArgoCdClient(ArgoCdHttp http, PocArgoConfig argo, string tok
             throw new ArgoCdException($"Argo CD {http.Server} answered 404 for api/v1/applicationsets; the ApplicationSet API "
                 + "needs Argo CD 2.8 or later");
     }
+
+    // 2026-11-23-c81ed: with the project named, Argo CD answers 404 for an Application that does not exist to a token
+    // that may read the project's Applications; without it, PermissionDenied — so a delete's follow could never see the
+    // Application gone.
+    private string Project => $"project={Escape(argo.Project)}";
 
     private static string Escape(string value) => Uri.EscapeDataString(value);
 }

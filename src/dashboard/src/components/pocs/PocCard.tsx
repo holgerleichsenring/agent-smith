@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useT } from "@/hooks/useT";
-import { pocRevisionPagePath } from "@/lib/pocRevisionPath";
+import { pocDetailPagePath, pocRevisionPagePath } from "@/lib/pocRevisionPath";
 import type { PocRow } from "@/lib/pocsApi";
 import { runPath } from "@/lib/runPath";
 import { pocDot } from "./pocStates";
 import { PocStateLabel } from "./PocStateLabel";
 
 // 2026-11-23-933da: one PoC as a card — its name, its address, its state with a dot, who owns it and its last run.
-// The detail page arrives with the lifecycle acts (2026-11-23-c81ed), so the card itself links nowhere yet.
+// 2026-11-23-c81ed: the name links to the PoC's detail page, where its lifecycle acts are.
 // 2026-11-23-933dc: a blocked PoC links to its latest revision's page, which says why.
 
 export function PocCard({ poc }: { poc: PocRow }) {
@@ -18,7 +18,9 @@ export function PocCard({ poc }: { poc: PocRow }) {
     <article className="poc-card" data-testid={`poc-card-${poc.id}`} data-state={poc.state}>
       <div className="poc-shot" aria-hidden="true"><i /><i /><span /></div>
       <div className="poc-body">
-        <h2 className="poc-name">{poc.name}</h2>
+        <h2 className="poc-name">
+          <Link href={pocDetailPagePath(poc.id)} data-testid={`poc-card-${poc.id}-detail`}>{poc.name}</Link>
+        </h2>
         <div className="poc-host">{poc.host ?? t("pocs.card.noHost")}</div>
         <div className="poc-state">
           <span className={`poc-dot ${pocDot(poc.state)}`} aria-hidden="true" />

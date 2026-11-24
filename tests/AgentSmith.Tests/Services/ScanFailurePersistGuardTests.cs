@@ -85,6 +85,11 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.DeployName, false)] // 2026-11-18-3863c: a deploy writes a manifest branch, never WIP
     [InlineData(PipelinePresets.PocDeployName, false)] // 2026-11-23-933db: the intake checks an archive and commits nothing
     [InlineData(PipelinePresets.PocVariablesName, false)] // 2026-11-23-933dg: it writes variables, no code
+    [InlineData(PipelinePresets.PocStopName, false)] // 2026-11-23-c81ed: the acts commit manifests through GitOpsCommit, no code
+    [InlineData(PipelinePresets.PocStartName, false)]
+    [InlineData(PipelinePresets.PocRollbackName, false)]
+    [InlineData(PipelinePresets.PocApplyName, false)]
+    [InlineData(PipelinePresets.PocDeleteName, false)]
     public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
         WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
 
@@ -94,7 +99,10 @@ public sealed class ScanFailurePersistGuardTests
             "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project", PipelinePresets.SpecDeriveName,
             PipelinePresets.FileName, PipelinePresets.BranchCleanupName, PipelinePresets.RefreshBaseName, PipelinePresets.CloseName, PipelinePresets.ReopenName,
             PipelinePresets.StartName, PipelinePresets.AmendName, PipelinePresets.CommentName,
-            PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName, PipelinePresets.SeriesRunName, PipelinePresets.SeriesVerifyName, PipelinePresets.PocDeployName, PipelinePresets.PocVariablesName, .. InstallationPresets]);
+            PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName, PipelinePresets.SeriesRunName, PipelinePresets.SeriesVerifyName, PipelinePresets.PocDeployName, PipelinePresets.PocVariablesName, .. PocActPresets, .. InstallationPresets]);
+
+    // 2026-11-23-c81ed: the PoC lifecycle acts.
+    private static readonly string[] PocActPresets = [PipelinePresets.PocStopName, PipelinePresets.PocStartName, PipelinePresets.PocRollbackName, PipelinePresets.PocApplyName, PipelinePresets.PocDeleteName];
 
     // 2026-11-17-f3a8a: the runs on the installation, none of which commits work.
     private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName, PipelinePresets.SecretName, PipelinePresets.PocTargetInstallName]; // 933dd: the install commits its pipeline itself

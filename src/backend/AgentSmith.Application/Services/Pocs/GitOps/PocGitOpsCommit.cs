@@ -11,10 +11,12 @@ namespace AgentSmith.Application.Services.Pocs.GitOps;
 /// commit mode, re-planned from the new head when another commit landed first), then — and only then — records the
 /// desired state and the seal fingerprint on the row. A folder that already holds the render commits nothing and only
 /// records, so a retried run ends the same. A sealed file an unchanged seal keeps but the branch lost clears the
-/// fingerprint and fails naming it, so the retry seals again. poc-deploy publishes PocDeployedEvent on every good end.
+/// fingerprint and fails naming it, so the retry seals again. poc-deploy publishes PocDeployedEvent on every good end;
+/// 2026-11-23-c81ed: a lifecycle act publishes PocActedEvent instead.
 /// </summary>
 public sealed class PocGitOpsCommit(
-    ISourceProviderFactory sources, PocGitOpsPlanner planner, GitOpsDelivery delivery, IPocGitOpsStore store, PocDeployedPublisher deployed)
+    ISourceProviderFactory sources, PocGitOpsPlanner planner, GitOpsDelivery delivery, IPocGitOpsStore store, PocDeployedPublisher deployed,
+    PocActedPublisher acted)
 {
     public async Task<CommandResult> RunAsync(PocGitOpsJob job, CancellationToken ct)
     {
@@ -35,6 +37,8 @@ public sealed class PocGitOpsCommit(
         await store.RecordDeployedAsync(job.Poc.PocId, job.Desired, job.Input.Seal.SealFingerprint, ct);
         if (sha is not null) job.Pipeline.Set(ContextKeys.PocCommitSha, sha);
         if (!job.FromAct) await deployed.PublishAsync(job.Pipeline, job.Poc.PocId, job.Desired, sha, job.Actor, ct);
+        else if (job.Pipeline.TryGet<string>(ContextKeys.PocAct, out var act) && act is not null)
+            await acted.PublishAsync(job.Pipeline, job.Poc.PocId, act, job.Desired.Revision, sha, job.Actor, ct);
         return CommandResult.Ok(Said(job, plan, sha, skipped));
     }
 

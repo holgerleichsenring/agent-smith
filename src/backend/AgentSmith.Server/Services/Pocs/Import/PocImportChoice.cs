@@ -29,6 +29,7 @@ internal sealed class PocImportChoice(
         if (poc is null || !acts.MayAct(user, poc) || !string.Equals(poc.Target, target.Name, StringComparison.OrdinalIgnoreCase))
             return (null, PocRefusal.NotFound);
         if (!PocStates.IsLive(poc.State)) return (null, PocImportRefusals.NotLive(poc));
+        if (Acts.PocActSubjects.Map(poc).IsDeletePending) return (null, PocImportRefusals.DeletePending(poc)); // 2026-11-23-c81ed
         var match = (await identity.CompareAsync(poc.Id, admitted, config.Archive, ct)).Match;
         if (match.Verdict == PocMatchVerdicts.Ask && !request.Confirmed) return (null, PocImportRefusals.DifferentApp(poc, match));
         return await gate.LiveRunAsync(poc, ct) is { } live ? (null, PocImportRefusals.InProgress(poc, live)) : (poc, null);

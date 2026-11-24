@@ -66,7 +66,17 @@ public sealed class ArgoCdClientTests
 
         await Client().RefreshAsync("poc-todo", default);
 
-        _host.Requests.Single().Url.Query.Should().Be("?refresh=normal");
+        _host.Requests.Single().Url.Query.Should().Be("?refresh=normal&project=pocs");
+    }
+
+    // 2026-11-23-c81ed: the project is named, so Argo CD answers a missing Application 404 (a delete's follow) and not
+    // PermissionDenied.
+    [Fact]
+    public async Task GetApplication_NamesTheProject()
+    {
+        await Client().GetApplicationAsync("poc-gone", default);
+
+        _host.Requests.Single().Url.Query.Should().Be("?project=pocs");
     }
 
     [Fact]

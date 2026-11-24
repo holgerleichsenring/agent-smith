@@ -360,6 +360,7 @@
           }
         },
         "blocked_retention_days": { "type": "integer", "minimum": 1, "description": "How many days a blocked upload is kept before it is purged. Default 7." },
+        "readiness_path_max_chars": { "type": "integer", "minimum": 1, "description": "The longest readiness path an owner may set on a PoC's detail page: a probe path, not a payload. Default 256." },
         "run_wall_time_seconds": { "type": "integer", "minimum": 60, "description": "The wall-time budget of every PoC run, in place of orchestrator.max_run_wall_time_seconds: a PoC run waits for a host build and a cluster rollout. Both wall-time enforcers hold PoC runs to it. Default 2700." },
         "rollout": {
           "type": "object",

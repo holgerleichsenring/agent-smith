@@ -11,6 +11,9 @@ namespace AgentSmith.Application.Models;
 public sealed record PocSeeds(
     long? PocId, int? Revision, string? Actor, bool Overrule, string? OverruleReason, IReadOnlyList<string> OverruleIds)
 {
+    /// <summary>2026-11-23-c81ed: an apply's readiness seed — null keeps the row's path.</summary>
+    public string? Readiness { get; init; }
+
     public static PocSeeds From(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
@@ -20,7 +23,10 @@ public sealed record PocSeeds(
             Text(pipeline, ContextKeys.PocActor),
             string.Equals(Text(pipeline, ContextKeys.PocOverrule), "true", StringComparison.OrdinalIgnoreCase),
             Text(pipeline, ContextKeys.PocOverruleReason),
-            Ids(Text(pipeline, ContextKeys.PocOverruleIds)));
+            Ids(Text(pipeline, ContextKeys.PocOverruleIds)))
+        {
+            Readiness = Text(pipeline, ContextKeys.PocReadiness),
+        };
     }
 
     private static IReadOnlyList<string> Ids(string? json) =>

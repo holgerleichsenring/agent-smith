@@ -26,6 +26,8 @@ internal sealed class GitOpsCommitRig
 
     public List<PocDeployedEvent> Published { get; } = [];
 
+    public List<PocActedEvent> Acted { get; } = [];
+
     public PocsConfig Pocs { get; } = PocsConfigTests.Sound();
 
     public GitOpsCommitRig()
@@ -38,15 +40,23 @@ internal sealed class GitOpsCommitRig
     {
         var events = new Mock<IEventPublisher>();
         events.Setup(e => e.PublishAsync(It.IsAny<RunEvent>(), It.IsAny<CancellationToken>()))
-            .Callback<RunEvent, CancellationToken>((e, _) => Published.Add((PocDeployedEvent)e)).Returns(Task.CompletedTask);
+            .Callback<RunEvent, CancellationToken>((e, _) => Record(e)).Returns(Task.CompletedTask);
         var config = new AgentSmithConfig { Pocs = Pocs };
         var source = new PocsConfigSource(Mock.Of<IConfigurationLoader>(l => l.LoadConfig(It.IsAny<string>()) == config), new ServerContext("c.yml"));
         var factory = Branch.Factory();
         var planner = new PocGitOpsPlanner(new PocTemplateRead(), PocRenderRig.Render(), new PocFolderPlan());
-        var commit = new PocGitOpsCommit(factory, planner, new GitOpsDelivery(factory, new DeployCiStatus(NullLogger<DeployCiStatus>.Instance)),
-            Store, new PocDeployedPublisher(events.Object, TimeProvider.System));
-        return new GitOpsCommitHandler(Store, source, new PocDesiredStates(Store), new PocRenderInputs(Store, Registries()), commit,
+        var delivery = new GitOpsDelivery(factory, new DeployCiStatus(NullLogger<DeployCiStatus>.Instance));
+        var acted = new PocActedPublisher(events.Object, TimeProvider.System);
+        var commit = new PocGitOpsCommit(factory, planner, delivery, Store, new PocDeployedPublisher(events.Object, TimeProvider.System), acted);
+        var delete = new PocGitOpsDelete(factory, new PocAbsentPlan(), delivery, Store, acted); // 2026-11-23-c81ed
+        return new GitOpsCommitHandler(Store, source, new PocDesiredStates(Store), new PocRenderInputs(Store, Registries()), commit, delete,
             NullLogger<GitOpsCommitHandler>.Instance);
+    }
+
+    private void Record(RunEvent e)
+    {
+        if (e is PocDeployedEvent deployed) Published.Add(deployed);
+        if (e is PocActedEvent act) Acted.Add(act);
     }
 
     public GitOpsCommitContext Context(PocSealResult? seal, string runId = "run-1")

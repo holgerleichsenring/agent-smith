@@ -946,8 +946,7 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasColumnType("character varying(191)");
 
                     b.Property<string>("ReadinessPath")
-                        .HasMaxLength(191)
-                        .HasColumnType("character varying(191)");
+                        .HasColumnType("text");
 
                     b.Property<int>("Replicas")
                         .HasColumnType("integer");

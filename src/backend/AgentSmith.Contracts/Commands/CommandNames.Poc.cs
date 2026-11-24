@@ -35,4 +35,8 @@ public static partial class CommandNames
     /// <summary>2026-11-23-c81ec: follows a PoC's rollout on Argo CD until the live Deployment carries this render and
     /// Argo reports it Synced and Healthy, or fails naming why; writes the revision's rollout state and the PoC state.</summary>
     public const string PocRolloutFollow = "PocRolloutFollowCommand";
+
+    /// <summary>2026-11-23-c81ed: re-checks a lifecycle act's precondition against the Poc row and puts the desired state it
+    /// wants (or the PoC's absence) into the run for the GitOps commit; it writes nothing.</summary>
+    public const string PocAct = "PocActCommand";
 }

@@ -27,6 +27,15 @@ internal sealed class FakeGitOpsStore : IPocGitOpsStore
         return Task.CompletedTask;
     }
 
+    public int Absents { get; private set; }
+
+    public Task RecordAbsentAsync(long pocId, CancellationToken ct)
+    {
+        Absents++;
+        Poc = Poc with { Revision = null, ImageDigest = null, SealFingerprint = null };
+        return Task.CompletedTask;
+    }
+
     public Task ClearSealFingerprintAsync(long pocId, CancellationToken ct)
     {
         Poc = Poc with { SealFingerprint = null };

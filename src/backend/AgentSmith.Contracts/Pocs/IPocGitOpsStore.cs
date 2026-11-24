@@ -15,4 +15,8 @@ public interface IPocGitOpsStore
     Task RecordDeployedAsync(long pocId, PocDesiredState desired, string? sealFingerprint, CancellationToken ct);
 
     Task ClearSealFingerprintAsync(long pocId, CancellationToken ct);
+
+    /// <summary>2026-11-23-c81ed: after a delete commit landed (or the branch held no folder any more) — Revision,
+    /// ImageDigest and the seal fingerprint null, so git and the row agree while the follow is pending or failed.</summary>
+    Task RecordAbsentAsync(long pocId, CancellationToken ct);
 }

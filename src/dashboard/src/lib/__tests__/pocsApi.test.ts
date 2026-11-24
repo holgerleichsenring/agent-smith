@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError } from "../apiResponse";
 import {
-  fetchPocs, getPocRevision, getPocRollout, getPocVariables, importPocUpload, installPocTarget, overrulePocRevision, putPocVariables,
-  uploadPocZip,
+  fetchPocs, getPocDetail, getPocRevision, getPocRevisions, getPocRollout, getPocVariables, importPocUpload, installPocTarget,
+  overrulePocRevision, postPocAct, putPocVariables, uploadPocZip,
 } from "../pocsApi";
 
 // 2026-11-23-933da: GET /api/pocs is the feature switch too — 200 is the list, 404 off, 403 not permitted.
@@ -259,5 +259,70 @@ describe("getPocRollout", () => {
     await expect(getPocRollout(4, "r-7")).resolves.toEqual(view);
     expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/api\/pocs\/4\/rollouts\/r-7$/);
     await expect(getPocRollout(4, "r-x")).resolves.toBeNull();
+  });
+});
+
+// 2026-11-23-c81ed: the detail answer and the revisions list read an empty 404 as null; an act posts its body as JSON and
+// a refusal carries the server's sentence whole; a variable write answers the apply run it queued, or why not.
+describe("PoC detail and acts", () => {
+  it("getPocDetail_200_IsTheDetail_404_IsNull", async () => {
+    const poc = { id: 4, name: "todo", acts: { stop: true, start: false, rollback: false, apply: true, delete: true } };
+    const fetchMock = vi.fn().mockResolvedValueOnce(answer(200, poc)).mockResolvedValueOnce(answer(404));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getPocDetail(4)).resolves.toEqual(poc);
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/api\/pocs\/4$/);
+    await expect(getPocDetail(5)).resolves.toBeNull();
+  });
+
+  it("getPocRevisions_200_IsTheList_404_IsNull", async () => {
+    const list = { revisions: [{ number: 2, state: "built", digest: null, rolloutState: "healthy", rolloutAt: null, runId: "r-2",
+      commitSha: null, mayRollBack: true, current: false }] };
+    const fetchMock = vi.fn().mockResolvedValueOnce(answer(200, list)).mockResolvedValueOnce(answer(404));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getPocRevisions(4)).resolves.toEqual(list);
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/api\/pocs\/4\/revisions$/);
+    await expect(getPocRevisions(5)).resolves.toBeNull();
+  });
+
+  it("postPocAct_PostsTheBodyToTheAct_AndReadsTheRun", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(answer(201, { pocId: 4, act: "delete", runId: "r-21" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(postPocAct(4, "delete", { confirmName: "todo" })).resolves.toEqual({ pocId: 4, act: "delete", runId: "r-21" });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/pocs\/4\/acts\/delete$/);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ confirmName: "todo" });
+  });
+
+  it("postPocAct_NoBody_PostsAnEmptyObject", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(answer(201, { pocId: 4, act: "stop", runId: "r-20" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await postPocAct(4, "stop");
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({});
+  });
+
+  it("postPocAct_409And404_CarryTheSentenceOrNone", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(plain(409, "a stopped PoC cannot be stopped"))
+      .mockResolvedValueOnce(plain(404, "")));
+
+    const busy = await postPocAct(4, "stop").catch((err: unknown) => err) as ApiResponseError;
+    const gone = await postPocAct(4, "stop").catch((err: unknown) => err) as ApiResponseError;
+
+    expect([busy.status, busy.reason]).toEqual([409, "a stopped PoC cannot be stopped"]);
+    expect([gone.status, gone.reason]).toEqual([404, null]);
+  });
+
+  it("putPocVariables_ReadsTheApplyRunAndNote", async () => {
+    const said = { runId: "r-9", line: "1 set", applyRunId: null, applyNote: "a run of todo is live" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(answer(200, said)));
+
+    await expect(putPocVariables(4, { set: [], delete: ["A"] })).resolves.toEqual(said);
   });
 });

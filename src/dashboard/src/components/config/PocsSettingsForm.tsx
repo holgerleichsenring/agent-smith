@@ -63,6 +63,8 @@ export const POC_ROLLOUT_DEFAULTS: PocRolloutSetting = {
 };
 
 export const POC_RUN_WALL_TIME_SECONDS_DEFAULT = 2700;
+/** 2026-11-23-c81ed: the server's default of pocs.readiness_path_max_chars (PocsConfig); always sent like the rest. */
+export const POC_READINESS_PATH_MAX_CHARS_DEFAULT = 256;
 
 /** A new target carries the server's defaults; the address has none, only a placeholder. */
 export function newPocTarget(): PocTargetSetting {
@@ -84,13 +86,16 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
   const gitops = value.gitops ?? POC_GITOPS_DEFAULTS;
   const rollout = value.rollout ?? POC_ROLLOUT_DEFAULTS;
   const runWallTimeSeconds = value.runWallTimeSeconds ?? POC_RUN_WALL_TIME_SECONDS_DEFAULT;
+  const readinessPathMaxChars = value.readinessPathMaxChars ?? POC_READINESS_PATH_MAX_CHARS_DEFAULT;
   // 2026-11-23-933dg: a target read without a secrets block is given the defaults and sends them back;
   // 2026-11-23-c81eb: so is one without an ingress, auth, network, quota or container block; 2026-11-23-c81ec: or argo.
   const targets = (value.targets ?? []).map((target) => withPocDeployBlocks({
     ...target, secrets: target.secrets ?? newPocSecrets(), argo: target.argo ?? newPocArgo(),
   }));
   const set = (patch: Partial<PocsSetting>) =>
-    onChange({ ...value, archive, scan, blockedRetentionDays, variables, gitops, rollout, runWallTimeSeconds, targets, ...patch });
+    onChange({
+      ...value, archive, scan, blockedRetentionDays, variables, gitops, rollout, runWallTimeSeconds, readinessPathMaxChars, targets, ...patch,
+    });
   const setAt = (i: number, patch: Partial<PocTargetSetting>) =>
     set({ targets: targets.map((target, j) => (j === i ? { ...target, ...patch } : target)) });
   return (
@@ -154,6 +159,9 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
         <NumberField label={t("config.pocs.runWallTimeSeconds")} value={runWallTimeSeconds} testId="setting-pocs-runWallTimeSeconds"
           help={t("config.pocs.runWallTimeSeconds.help")}
           onChange={(v) => set({ runWallTimeSeconds: keep(v, runWallTimeSeconds) })} />
+        <NumberField label={t("config.pocs.readinessPathMaxChars")} value={readinessPathMaxChars}
+          testId="setting-pocs-readinessPathMaxChars" help={t("config.pocs.readinessPathMaxChars.help")}
+          onChange={(v) => set({ readinessPathMaxChars: keep(v, readinessPathMaxChars) })} />
       </DrawerSection>
     </>
   );

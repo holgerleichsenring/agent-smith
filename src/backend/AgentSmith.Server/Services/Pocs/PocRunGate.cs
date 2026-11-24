@@ -49,6 +49,20 @@ internal sealed class PocRunGate(
         return claim.Won ? (runId, null) : (null, claim.LiveRunId);
     }
 
+    /// <summary>2026-11-23-c81ed: claims <paramref name="poc"/>'s slot for a run of <paramref name="pipeline"/> and queues it
+    /// with <paramref name="seeds"/> (strings only) — a lifecycle act; the run id, or null with the run that holds the slot.
+    /// <paramref name="handover"/> takes the slot over from the run the same request just awaited.</summary>
+    public async Task<(string? RunId, string? HeldBy)> QueueAsync(
+        Poc poc, string pipeline, string summary, Dictionary<string, object> seeds, CancellationToken ct, string? handover = null)
+    {
+        ArgumentNullException.ThrowIfNull(poc);
+        var (runId, heldBy) = await ClaimAsync(poc, pipeline, summary, ct, handover: handover);
+        if (runId is null) return (null, heldBy);
+        await dispatch.DispatchAsync(new PipelineRequest(poc.Project, pipeline, TicketId: null, Headless: true, RunId: runId, Context: seeds), ct);
+        logger.LogInformation("{Pipeline} of PoC {PocId} queued (run {RunId})", pipeline, poc.Id, runId);
+        return (runId, null);
+    }
+
     // 2026-11-23-933dc: an overrule run carries its reason and the lifted ids beside the common seeds.
     private static Dictionary<string, object> With(Dictionary<string, object> seeds, IReadOnlyDictionary<string, object>? extra)
     {

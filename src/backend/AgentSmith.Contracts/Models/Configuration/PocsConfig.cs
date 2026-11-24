@@ -41,6 +41,12 @@ public sealed class PocsConfig
     /// a PoC run waits for a host build and a cluster rollout.</summary>
     public int RunWallTimeSeconds { get; set; } = 2700;
 
+    public const string ReadinessPathMaxCharsKey = "pocs.readiness_path_max_chars";
+
+    /// <summary>2026-11-23-c81ed: the longest readiness path an owner may set on a PoC's detail page — a probe path, not a
+    /// payload.</summary>
+    public int ReadinessPathMaxChars { get; set; } = 256;
+
     public const string BlockedRetentionDaysKey = "pocs.blocked_retention_days";
 
     /// <summary>2026-11-23-933dc: how many days a blocked upload is kept; 2026-11-23-c81ee purges it after them.</summary>
@@ -65,6 +71,9 @@ public sealed class PocsConfig
         if (RunWallTimeSeconds < 60)
             problems.Add($"{RunWallTimeSecondsKey} is {RunWallTimeSeconds}; it must be 60 or more, because a PoC run waits for "
                 + "a host build and a cluster rollout, and a shorter budget cancels every one of them");
+        if (ReadinessPathMaxChars < 1)
+            problems.Add($"{ReadinessPathMaxCharsKey} is {ReadinessPathMaxChars}; it must be 1 or more, because the shortest "
+                + "readiness path is '/' and a smaller bound refuses every path");
         if (BlockedRetentionDays < 1)
             problems.Add($"{BlockedRetentionDaysKey} is {BlockedRetentionDays}; it must be 1 or more, because 0 or less would "
                 + "purge a blocked upload before anyone could read why it was blocked");

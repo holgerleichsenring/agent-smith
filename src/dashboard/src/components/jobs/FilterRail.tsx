@@ -62,6 +62,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.PocImported]: "PocImported", // 2026-11-23-933db
   [EventType.PocOverruled]: "PocOverruled", // 2026-11-23-933dc
   [EventType.PocDeployed]: "PocDeployed", // 2026-11-23-c81eb
+  [EventType.PocActed]: "PocActed", // 2026-11-23-c81ed
 };
 
 interface FilterRailProps {

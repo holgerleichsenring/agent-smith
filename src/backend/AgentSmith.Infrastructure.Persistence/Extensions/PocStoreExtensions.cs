@@ -12,5 +12,6 @@ public static class PocStoreExtensions
         services.AddSingleton<IPocProjects, DbPocProjects>().AddSingleton<IPocIntakeStore, DbPocIntakeStore>()
             .AddSingleton<IPocScanStore, DbPocScanStore>().AddSingleton<IPocBuildStore, DbPocBuildStore>() // 933dc, 933dd
             .AddSingleton<IPocVariableStore, DbPocVariableStore>() // 933dg
-            .AddSingleton<IPocGitOpsStore, DbPocGitOpsStore>().AddSingleton<IPocRolloutStore, DbPocRolloutStore>(); // c81eb, c81ec
+            .AddSingleton<IPocGitOpsStore, DbPocGitOpsStore>().AddSingleton<IPocRolloutStore, DbPocRolloutStore>() // c81eb, c81ec
+            .AddSingleton<IPocActStore, DbPocActStore>(); // c81ed
 }

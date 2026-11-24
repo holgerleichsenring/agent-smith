@@ -50,4 +50,12 @@ public static partial class ContextKeys
     /// <summary>2026-11-23-c81ec: true when a run's rollout follow expects the PoC's Application gone (poc-delete,
     /// 2026-11-23-c81ed); absent, it expects the desired state the GitOps commit recorded.</summary>
     public const string PocRolloutAbsent = "PocRolloutAbsent";
+
+    /// <summary>2026-11-23-c81ed: the lifecycle act a run carries out (PocActKinds) — set by the PocAct step from the run's
+    /// preset; the GitOps commit and the follow read it. Absent in poc-deploy.</summary>
+    public const string PocAct = "PocAct";
+
+    /// <summary>2026-11-23-c81ed: an apply's readiness seed — absent keeps the row's path, 'tcp' probes the port, a path
+    /// starting with '/' probes it over HTTP.</summary>
+    public const string PocReadiness = "PocReadiness";
 }

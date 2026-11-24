@@ -50,6 +50,9 @@ describe("PocList", () => {
     expect(screen.getByTestId("poc-card-1")).toHaveTextContent("Ready");
     expect(screen.getByTestId("poc-card-1")).toHaveTextContent("by Ann");
     expect(screen.getByTestId("poc-card-1-run")).toHaveAttribute("href", "/jobs/r-9");
+    // 2026-11-23-c81ed: the name links to the PoC's detail page.
+    expect(screen.getByTestId("poc-card-1-detail")).toHaveAttribute("href", "/pocs/1");
+    expect(screen.getByTestId("poc-card-1-detail")).toHaveTextContent("shift-planner");
     expect(screen.getByTestId("pocs-pill-all")).toHaveTextContent("2");
 
     fireEvent.click(screen.getByTestId("pocs-pill-blocked"));

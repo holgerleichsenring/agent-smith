@@ -49,7 +49,8 @@ public sealed class PocRolloutFollowHandler(
         {
             var (reading, _) = await watch.WatchAsync(context.Pipeline, argos.Create(argo), expected, budget, pollSeconds, ct);
             var host = target.DomainPattern?.Replace("{app}", poc.Name, StringComparison.Ordinal);
-            return await record.EndAsync(new PocRolloutEnd(poc.PocId, poc.Name, poc.Revision ?? 0, host, expected, reading, budget), ct);
+            var act = context.Pipeline.TryGet<string>(ContextKeys.PocAct, out var carried) ? carried : null; // 2026-11-23-c81ed
+            return await record.EndAsync(new PocRolloutEnd(poc.PocId, poc.Name, poc.Revision ?? 0, host, expected, reading, budget, act), ct);
         }
         catch (ArgoCdException ex)
         {

@@ -14,4 +14,6 @@ public sealed class NoPocGitOpsStore : IPocGitOpsStore
         Task.CompletedTask;
 
     public Task ClearSealFingerprintAsync(long pocId, CancellationToken ct) => Task.CompletedTask;
+
+    public Task RecordAbsentAsync(long pocId, CancellationToken ct) => Task.CompletedTask;
 }

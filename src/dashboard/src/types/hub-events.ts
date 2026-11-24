@@ -60,6 +60,7 @@ export enum EventType {
   PocImported = 94,
   PocOverruled = 95,
   PocDeployed = 96,
+  PocActed = 97,
 }
 
 interface RunEventBase {
@@ -853,6 +854,18 @@ export interface PocDeployedEvent extends RunEventBase {
   actor: string;
 }
 
+/** 2026-11-23-c81ed: a lifecycle act's GitOps commit (stop, start, rollback, apply, delete) landed (commitSha null: the
+ *  folder already held it). Mirrors C# PocActedEvent. */
+export interface PocActedEvent extends RunEventBase {
+  type: EventType.PocActed;
+  pocId: number;
+  act: string;
+  actor: string;
+  reason?: string | null;
+  revision?: number | null;
+  commitSha?: string | null;
+}
+
 /** 2026-11-18-3863f: a deploy delivered — its pull request, or the pipeline run it started (null id: the host did
  *  not name it). Mirrors C# DeployDeliveredEvent. */
 export interface DeployDeliveredEvent extends RunEventBase {
@@ -965,7 +978,8 @@ export type RunEvent =
   | TicketTextRewrittenEvent
   | PocImportedEvent
   | PocOverruledEvent
-  | PocDeployedEvent;
+  | PocDeployedEvent
+  | PocActedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

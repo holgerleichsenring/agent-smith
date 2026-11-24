@@ -19,6 +19,9 @@ public sealed class DbPocGitOpsStore(IServiceScopeFactory scopeFactory) : IPocGi
     public Task ClearSealFingerprintAsync(long pocId, CancellationToken ct) =>
         With(async r => { await r.ClearSealFingerprintAsync(pocId, ct); return true; });
 
+    public Task RecordAbsentAsync(long pocId, CancellationToken ct) =>
+        With(async r => { await r.RecordAbsentAsync(pocId, ct); return true; });
+
     private async Task<T> With<T>(Func<PocGitOpsRepository, Task<T>> work)
     {
         using var scope = scopeFactory.CreateScope();

@@ -8,3 +8,8 @@ export function pocRevisionPagePath(pocId: number, revision: number): string {
 export function pocRolloutPagePath(pocId: number, runId: string): string {
   return `/pocs/${encodeURIComponent(String(pocId))}/rollouts/${encodeURIComponent(runId)}`;
 }
+
+/** 2026-11-23-c81ed: the dashboard's address of one PoC — its detail page with the lifecycle acts. */
+export function pocDetailPagePath(pocId: number): string {
+  return `/pocs/${encodeURIComponent(String(pocId))}`;
+}

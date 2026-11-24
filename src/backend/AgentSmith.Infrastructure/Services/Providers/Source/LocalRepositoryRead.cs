@@ -52,9 +52,10 @@ public sealed class LocalRepositoryRead(string basePath)
     {
         if (!Directory.Exists(basePath)) return RepoFileListing.Empty;
         var result = await LocalGitCommand.RunAsync(
-            basePath, null, null, ct, "ls-tree", "-r", "--name-only", branch, "--", Normalised(path));
+            basePath, null, null, ct, "ls-tree", "-r", "-z", "--name-only", branch, "--", Normalised(path));
         if (result.Exit != 0) return RepoFileListing.Empty;
-        var files = result.Out.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        // 2026-11-23-c81ed: -z, so a name git would quote (a blank, a non-ASCII letter) is listed as it is — a delete plans it too.
+        var files = result.Out.Split('\0', StringSplitOptions.RemoveEmptyEntries)
             .Where(file => file.StartsWith(Normalised(path) + "/", StringComparison.Ordinal)).ToList();
         return RepoFileListing.Bounded(files, maxFiles, hostTruncated: false);
     }

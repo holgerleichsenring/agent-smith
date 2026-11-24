@@ -19,6 +19,10 @@ public sealed class PocRepository(IUnitOfWork unitOfWork)
         await unitOfWork.Set<PocRevision>().AsNoTracking().Where(r => pocIds.Contains(r.PocId)).GroupBy(r => r.PocId)
             .Select(g => new { PocId = g.Key, Latest = g.Max(r => r.Number) }).ToDictionaryAsync(x => x.PocId, x => x.Latest, ct);
 
+    /// <summary>2026-11-23-c81ed: a PoC's revisions, newest first, for its detail page.</summary>
+    public async Task<IReadOnlyList<PocRevision>> RevisionsAsync(long pocId, CancellationToken ct) =>
+        await unitOfWork.Set<PocRevision>().AsNoTracking().Where(r => r.PocId == pocId).OrderByDescending(r => r.Number).ToListAsync(ct);
+
     public Task<Poc?> FindAsync(long id, CancellationToken ct) =>
         unitOfWork.Set<Poc>().AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
 }

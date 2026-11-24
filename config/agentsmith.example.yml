@@ -838,6 +838,8 @@ pocs:
   #   secret_min_confidence: 8
   #   trivy_image: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
   # blocked_retention_days: 7
+  # 2026-11-23-c81ed: the longest readiness path an owner may set on a PoC's detail page.
+  # readiness_path_max_chars: 256
   # 2026-11-23-c81eb: how a PoC's manifests are committed (defaults shown): writes of one commit
   # before the run gives up on a moving branch, and the most files a deploy folder or the app
   # template may hold.

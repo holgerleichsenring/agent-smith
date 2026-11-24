@@ -270,6 +270,10 @@ export interface PocVariablesChange {
 export interface PocVariablesWritten {
   runId: string;
   line: string;
+  /** 2026-11-23-c81ed: the poc-apply run queued after the write, which applies the change at once; null when none was. */
+  applyRunId?: string | null;
+  /** 2026-11-23-c81ed: the server's sentence why the apply could not be queued (a live run, say); null when it was. */
+  applyNote?: string | null;
 }
 
 export function pocVariablesPath(pocId: number): string {
@@ -327,4 +331,113 @@ export async function getPocRollout(pocId: number, runId: string, signal?: Abort
   if (res.status === 404) return null;
   if (!res.ok) throw await refused(res, path);
   return readJson<PocRolloutView>(res, path);
+}
+
+// 2026-11-23-c81ed: GET /api/pocs/{pocId} — one PoC as its detail page shows it: the desired state, a pending delete,
+// the acts PocActPlan admits from its state for this caller, and the audit of its acts, oldest first. GET
+// /api/pocs/{pocId}/revisions lists its revisions newest first. POST /api/pocs/{pocId}/acts/{act} starts the run that
+// changes the desired state and commits it; a refusal is one plain sentence (400, 409 while a run is live or when the
+// state does not admit the act), a foreign PoC an empty 404.
+
+export type PocAct = "stop" | "start" | "rollback" | "apply" | "delete";
+
+export interface PocDesired {
+  replicas: number;
+  revision: number | null;
+  imageDigest: string | null;
+  readinessPath: string | null;
+}
+
+export interface PocAuditEntry {
+  /** ISO timestamp. */
+  at: string;
+  actor: string;
+  /** imported, overruled, deployed, stopped, started, rolled-back, deleted, extended, expired. */
+  act: string;
+  reason: string | null;
+  runId: string | null;
+}
+
+export interface PocDetail {
+  id: number;
+  name: string;
+  project: string;
+  target: string;
+  host: string | null;
+  url: string | null;
+  state: PocState | string;
+  ownerName: string;
+  lastRunId: string | null;
+  desired: PocDesired;
+  deletePending: boolean;
+  mayAct: boolean;
+  /** What PocActPlan admits from this state; all false when the caller may not act. */
+  acts: Record<PocAct, boolean>;
+  readinessPathMaxChars: number;
+  /** Oldest first. */
+  audit: PocAuditEntry[];
+}
+
+export interface PocRevisionRow {
+  number: number;
+  state: PocRevisionState | string;
+  digest: string | null;
+  rolloutState: PocRolloutState | null;
+  rolloutAt: string | null;
+  runId: string | null;
+  commitSha: string | null;
+  mayRollBack: boolean;
+  current: boolean;
+}
+
+export interface PocRevisionList {
+  /** Newest first. */
+  revisions: PocRevisionRow[];
+}
+
+export interface PocActBody {
+  /** rollback: the revision to roll back to. */
+  revision?: number;
+  /** delete: the PoC's name, typed by the caller. */
+  confirmName?: string;
+  /** apply: omitted keeps the readiness; "tcp" is a TCP probe; a path starting with "/" an HTTP probe. */
+  readiness?: string;
+}
+
+export interface PocActed {
+  pocId: number;
+  act: string;
+  runId: string;
+}
+
+export function pocDetailPath(pocId: number): string {
+  return `${POCS_PATH}/${encodeURIComponent(String(pocId))}`;
+}
+
+/** One PoC, or null on the empty 404 a foreign or missing PoC answers. */
+export async function getPocDetail(pocId: number, signal?: AbortSignal): Promise<PocDetail | null> {
+  const path = pocDetailPath(pocId);
+  const res = await apiFetch(path, { signal });
+  if (res.status === 404) return null;
+  if (!res.ok) throw await refused(res, path);
+  return readJson<PocDetail>(res, path);
+}
+
+/** A PoC's revisions newest first, or null on the empty 404. */
+export async function getPocRevisions(pocId: number, signal?: AbortSignal): Promise<PocRevisionList | null> {
+  const path = `${pocDetailPath(pocId)}/revisions`;
+  const res = await apiFetch(path, { signal });
+  if (res.status === 404) return null;
+  if (!res.ok) throw await refused(res, path);
+  return readJson<PocRevisionList>(res, path);
+}
+
+/** Start one act's run; a refusal throws with the server's sentence as its reason. */
+export async function postPocAct(pocId: number, act: PocAct, body: PocActBody = {}, signal?: AbortSignal): Promise<PocActed> {
+  const path = `${pocDetailPath(pocId)}/acts/${encodeURIComponent(act)}`;
+  const res = await apiFetch(path, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
+  });
+  if (!res.ok) throw await refusedAsSaid(res, path);
+  return readJson<PocActed>(res, path);
 }

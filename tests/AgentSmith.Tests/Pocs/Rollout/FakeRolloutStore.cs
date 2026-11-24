@@ -23,6 +23,14 @@ internal sealed class FakeRolloutStore : IPocRolloutStore
         return Task.CompletedTask;
     }
 
+    public List<long> Deleted { get; } = [];
+
+    public Task RecordDeletedAsync(long pocId, CancellationToken ct)
+    {
+        Deleted.Add(pocId);
+        return Task.CompletedTask;
+    }
+
     public Task RecordOutcomeAsync(PocRolloutOutcome outcome, CancellationToken ct)
     {
         Outcomes.Add(outcome);

@@ -1307,6 +1307,8 @@ export interface PocsSetting {
   rollout: PocRolloutSetting;
   /** 2026-11-23-c81ec: the wall-time budget of every PoC run, in seconds. */
   runWallTimeSeconds: number;
+  /** 2026-11-23-c81ed: the longest readiness path an owner may set on a PoC's detail page. */
+  readinessPathMaxChars: number;
 }
 
 /** 2026-11-23-933dc: agentsmith.yml pocs.scan — the OSV-Scanner image pinned by digest and what blocks. */

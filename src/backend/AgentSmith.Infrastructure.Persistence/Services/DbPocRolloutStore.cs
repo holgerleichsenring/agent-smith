@@ -18,6 +18,9 @@ public sealed class DbPocRolloutStore(IServiceScopeFactory scopeFactory) : IPocR
     public Task RecordOutcomeAsync(PocRolloutOutcome outcome, CancellationToken ct) =>
         With(async r => { await r.RecordOutcomeAsync(outcome, ct); return true; });
 
+    public Task RecordDeletedAsync(long pocId, CancellationToken ct) =>
+        With(async r => { await r.RecordDeletedAsync(pocId, ct); return true; });
+
     private async Task<T> With<T>(Func<PocRolloutRepository, Task<T>> work)
     {
         using var scope = scopeFactory.CreateScope();

@@ -16,4 +16,7 @@ public interface IPocRolloutStore
     Task RecordCommitAsync(long pocId, int revision, string commitSha, CancellationToken ct);
 
     Task RecordOutcomeAsync(PocRolloutOutcome outcome, CancellationToken ct);
+
+    /// <summary>2026-11-23-c81ed: a settled delete — the PoC deleted and its LiveName null, which frees its name and host.</summary>
+    Task RecordDeletedAsync(long pocId, CancellationToken ct);
 }

@@ -915,7 +915,6 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ReadinessPath")
-                        .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Replicas")

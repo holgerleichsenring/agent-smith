@@ -31,6 +31,10 @@ internal static class PocImportRefusals
     public static PocRefusal NotLive(Poc poc) =>
         PocRefusal.Conflict($"'{poc.Name}' is {poc.State}; import the ZIP as a new PoC instead.");
 
+    /// <summary>2026-11-23-c81ed: an upload would re-render the folder a pending delete removed.</summary>
+    public static PocRefusal DeletePending(Poc poc) =>
+        PocRefusal.Conflict($"A delete of '{poc.Name}' is pending; once Argo CD pruned it, import the ZIP as a new PoC.");
+
     public static PocRefusal Purged(int revision, int days) =>
         new(StatusCodes.Status410Gone, $"The upload of revision {revision} was purged after {days} days "
             + $"({PocsConfig.BlockedRetentionDaysKey}); import the ZIP again.");

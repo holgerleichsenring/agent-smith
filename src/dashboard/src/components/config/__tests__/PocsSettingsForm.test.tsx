@@ -25,7 +25,7 @@ const CATALOG: PocsCatalog = {
 const OFF: PocsSetting = {
   enabled: false, projectAgent: null, projectTracker: null, targets: [], archive: POC_ARCHIVE_DEFAULTS,
   scan: POC_SCAN_DEFAULTS, blockedRetentionDays: 7, variables: POC_VARIABLES_DEFAULTS, gitops: POC_GITOPS_DEFAULTS,
-  rollout: POC_ROLLOUT_DEFAULTS, runWallTimeSeconds: 2700,
+  rollout: POC_ROLLOUT_DEFAULTS, runWallTimeSeconds: 2700, readinessPathMaxChars: 256,
 };
 
 function Harness({ seen, start = OFF }: { seen: SettingValue[]; start?: PocsSetting }) {
@@ -90,6 +90,7 @@ describe("PocsSettingsForm", () => {
       gitops: { commitAttempts: 3, maxFolderFiles: 500 },
       rollout: { pollSeconds: 10, deadlineSeconds: 600, endMarginSeconds: 60, commitAllowanceSeconds: 120 },
       runWallTimeSeconds: 2700,
+      readinessPathMaxChars: 256,
     });
   });
 
@@ -420,6 +421,7 @@ describe("PocsSettingsForm", () => {
     }
     expect(saved.rollout).toEqual(POC_ROLLOUT_DEFAULTS);
     expect(saved.runWallTimeSeconds).toBe(2700);
+    expect(saved.readinessPathMaxChars).toBe(256);
   });
 
   // 2026-11-23-c81ec: the rollout block and the PoC run wall time are edited beside the GitOps bounds; each target's
@@ -439,6 +441,20 @@ describe("PocsSettingsForm", () => {
     expect(saved.rollout).toEqual({ ...POC_ROLLOUT_DEFAULTS, pollSeconds: 5, endMarginSeconds: 90 });
     expect(saved.runWallTimeSeconds).toBe(3000);
     expect(saved.gitops).toEqual(POC_GITOPS_DEFAULTS);
+  });
+
+  // 2026-11-23-c81ed: the readiness path bound is edited beside the run wall time and always sent.
+  it("PocsSettingsForm_ReadinessPathMaxChars_EditAndRoundTrip", () => {
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-rollout-toggle"));
+
+    expect(screen.getByTestId("setting-pocs-readinessPathMaxChars")).toHaveValue(256);
+    fireEvent.change(screen.getByTestId("setting-pocs-readinessPathMaxChars"), { target: { value: "128" } });
+
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.readinessPathMaxChars).toBe(128);
+    expect(saved.runWallTimeSeconds).toBe(2700);
   });
 
   it("PocsSettingsForm_TargetArgo_EditsInsideTheTarget_AndIsSentWithTheSave", () => {

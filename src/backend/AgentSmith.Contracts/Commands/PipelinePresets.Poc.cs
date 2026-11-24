@@ -24,4 +24,22 @@ public static partial class PipelinePresets
     public const string PocVariablesName = "poc-variables";
 
     public static readonly IReadOnlyList<string> PocVariables = [CommandNames.WritePocVariables];
+
+    /// <summary>2026-11-23-c81ed: the lifecycle acts, each a run in the PoC's poc- project that the server queues from the
+    /// detail page: the PocAct step puts the act's desired state into the run, the GitOps commit renders and commits it,
+    /// and the follow waits for Argo CD. A delete renders nothing, so it seals nothing.</summary>
+    public const string PocStopName = "poc-stop";
+    public const string PocStartName = "poc-start";
+    public const string PocRollbackName = "poc-rollback";
+    public const string PocApplyName = "poc-apply";
+    public const string PocDeleteName = "poc-delete";
+
+    public static readonly IReadOnlyList<string> PocRender =
+    [
+        CommandNames.LoadCatalog, CommandNames.PocAct, CommandNames.SealPocVariables, CommandNames.GitOpsCommit,
+        CommandNames.PocRolloutFollow,
+    ];
+
+    public static readonly IReadOnlyList<string> PocDelete =
+        [CommandNames.LoadCatalog, CommandNames.PocAct, CommandNames.GitOpsCommit, CommandNames.PocRolloutFollow];
 }

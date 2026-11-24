@@ -165,6 +165,26 @@ public sealed class PocImportEndpointTests(PocImportFixture fixture) : IClassFix
         (await _client.ReadAsync(db => db.Set<Poc>().AsNoTracking().SingleAsync(p => p.Id == refused.Id))).State.Should().Be(PocStates.Importing);
     }
 
+    // 2026-11-23-c81ed: a settled delete cleared LiveName, so the name is free on the target again; a pending delete
+    // (ready, no revision) refuses a replace, which would re-render the folder the delete removed.
+    [Fact]
+    public async Task Start_New_TheNameOfADeletedPoc_IsAdmitted_APendingDeleteRefusesAReplace()
+    {
+        await _client.ReadAsync(async db => await PocRows.AddAsync(db, PocRows.Poc("freed-app", "poc-bob", deleted: true)));
+        var pending = await SeedAsync("pending-app", "poc-ann", "ann-person", PocStates.Ready);
+        await _client.ReadAsync(db => db.Set<Poc>().Where(p => p.Id == pending.Id)
+            .ExecuteUpdateAsync(set => set.SetProperty(p => p.Revision, (int?)null).SetProperty(p => p.ImageDigest, (string?)null)));
+        var upload = await _client.UploadIdAsync(Ann, PocZips.App());
+
+        var freed = await _client.StartAsync(Ann, upload, new { choice = "new", name = "freed-app" });
+        var replace = await _client.StartAsync(Ann, await _client.UploadIdAsync(Ann, PocZips.App()),
+            new { choice = "replace", pocId = pending.Id, confirmed = true });
+
+        freed.StatusCode.Should().Be(HttpStatusCode.Created);
+        replace.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await replace.Content.ReadAsStringAsync()).Should().Contain("delete of 'pending-app' is pending");
+    }
+
     [Fact]
     public async Task Start_New_TwoPeopleOneNameAtOnce_OneWinsOneIsRefusedNamingIt()
     {
