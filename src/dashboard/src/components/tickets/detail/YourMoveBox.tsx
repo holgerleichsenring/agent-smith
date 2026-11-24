@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
 import { mergeSeriesTicket } from "@/lib/seriesRunsApi";
+import { refreshTicketBase } from "@/lib/ticketsApi";
 import { ProjectInitAction } from "@/components/system/ProjectInitAction";
 import { TrackerText } from "@/components/ui/TrackerText";
 import { formatRunSummary } from "@/lib/formatRunSummary";
@@ -81,6 +82,7 @@ function Act({ act, project, onReply, onAnswer, question }: ActProps) {
   switch (act.kind) {
     case "merge": return <span className="tk-move-act"><MergeAct seriesId={act.seriesId} ticketId={act.ticketId} project={project} /></span>;
     case "retry": return <span className="tk-move-act"><RetryUnchanged attempt={act.attempt} project={project} /></span>;
+    case "refresh": return <span className="tk-move-act"><RefreshAct project={act.project} ticketId={act.ticketId} url={act.url} /></span>;
     case "init": return <span className="tk-move-act" data-testid="ticket-state-init"><ProjectInitAction project={act.project} /></span>;
     case "link":
       return (
@@ -129,6 +131,36 @@ function MergeAct({ seriesId, ticketId, project }: { seriesId: string; ticketId:
         {busy ? t("hold.act.merging") : t("hold.act.merge")}
       </button>
       {said && <span className="tk-dim" role="status" data-testid="ticket-state-merge-said">{said}</span>}
+    </>
+  );
+}
+
+/** 2026-11-24-9dc0e: Try again on a refused refresh — the same refresh-base run for that pull request; what the server
+ *  said stays under the button. Without runs.control the act is the pull request itself. */
+function RefreshAct({ project, ticketId, url }: { project: string; ticketId: string; url: string }) {
+  const t = useT();
+  const lacks = useLacksPermission(RUNS_CONTROL, project);
+  const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState<string | null>(null);
+  if (lacks) return <a className="btn primary" href={url} target="_blank" rel="noreferrer" data-testid="ticket-state-act">{t("hold.act.pull_request")}</a>;
+  const tryAgain = async () => {
+    setBusy(true);
+    setSaid(null);
+    try {
+      const answer = await refreshTicketBase(project, ticketId, url);
+      setSaid(answer.kind === "started" ? t("hold.act.refreshStarted") : answer.text);
+    } catch (error: unknown) {
+      setSaid(t("hold.act.refreshFailed", { message: error instanceof Error ? error.message : String(error) }));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <button type="button" className="btn primary" disabled={busy} onClick={() => void tryAgain()} data-testid="ticket-state-act">
+        {busy ? t("hold.act.refreshing") : t("hold.act.refresh")}
+      </button>
+      {said && <span className="tk-dim" role="status" data-testid="ticket-state-refresh-said">{said}</span>}
     </>
   );
 }

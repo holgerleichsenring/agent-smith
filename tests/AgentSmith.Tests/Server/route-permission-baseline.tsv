@@ -163,6 +163,7 @@ POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control	route:proj
 POST	/api/tickets/{project}/{ticketId}/derive-specs	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/follow-ups	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/landed-by-hand	runs.control	route:project
+POST	/api/tickets/{project}/{ticketId}/refresh-base	runs.control	route:project
 POST	/api/tickets/{project}/{ticketId}/reopen	runs.control	route:project
 POST	/slack/commands	anonymous	-
 POST	/slack/events	anonymous	-

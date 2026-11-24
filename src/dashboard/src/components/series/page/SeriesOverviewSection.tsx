@@ -45,6 +45,7 @@ export function SeriesOverviewSection({ detail, reload, merge: shared }: Props) 
     mergeBusy: merge.busy, retryBusy: retry.busy,
     onMerge: (id) => { done(id); void merge.merge(id); },
     onRetry: (id, runId) => { done(id); void retry.retry(id, runId); },
+    onRefresh: (id, url) => { done(id); void retry.refresh(id, detail.project, url); }, // 2026-11-24-9dc0e
     onChain: (id) => { done(id); setFrom(id); },
   };
   const keyOf = (id: string) => detail.tickets.find((ticket) => ticket.ticketId === id)?.key ?? id;
@@ -59,6 +60,7 @@ export function SeriesOverviewSection({ detail, reload, merge: shared }: Props) 
       {retry.outcome && (
         <div className={`sr-said${"said" in retry.outcome ? " bad" : ""}`} role="status" data-testid="series-retry-outcome">
           {"said" in retry.outcome ? `${keyOf(retry.outcome.ticketId)}: ${retry.outcome.said}`
+            : "refreshed" in retry.outcome ? `${keyOf(retry.outcome.ticketId)}: ${t("hold.act.refreshStarted")}`
             : t("series.act.retryRequested", { key: keyOf(retry.outcome.ticketId) })}
         </div>
       )}

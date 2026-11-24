@@ -12,7 +12,7 @@ import { waitingPullRequests, type SeriesNodeKind } from "./seriesNodeKind";
 // colour (the hold's own sentence, which every surface says) and its acts by colour. Every act is a real one: the series'
 // merge (useSeriesMerge), the ticket page's Retry (useSeriesRetry), a link to a route or a pull request, or the chain.
 
-export type SeriesActKind = "merge" | "retry" | "chain" | "link" | "external";
+export type SeriesActKind = "merge" | "retry" | "refresh" | "chain" | "link" | "external";
 
 export interface SeriesAct {
   id: string;
@@ -28,6 +28,8 @@ export interface SeriesAct {
   menuOnly?: boolean;
   /** The run a Retry starts again. */
   run?: string;
+  /** 2026-11-24-9dc0e: the pull request whose refused refresh Try again starts again. */
+  url?: string;
 }
 
 // The newest attempt's ends the ticket page's Retry offers (RetryUnchanged.retriable): finished and not a success.
@@ -103,6 +105,9 @@ function failedActs(ticket: SeriesRunTicket, detail: SeriesRunDetail, lacks: boo
   const page = ticketPath(detail.project, ticket.ticketId);
   if (hold?.addressee === "admin") return [{ id: "act", kind: "link", href: page, label: holdRowAct(t, hold), tone: "bad" }];
   const acts: SeriesAct[] = [];
+  // 2026-11-24-9dc0e: a refused refresh is tried again on its pull request — the hold's act names it.
+  if (hold?.case === "refresh_refused" && hold.act?.target && !lacks)
+    acts.push({ id: "refresh", kind: "refresh", label: t("hold.act.refresh"), tone: "bad", url: hold.act.target });
   const run = hold?.act?.kind === "retry" && hold.act.target ? hold.act.target : ticket.runId ?? null;
   const retriable = hold?.act?.kind === "retry" || (RETRIES.has(ticket.status ?? "") && hold?.case !== "handback");
   if (run && retriable && !lacks) acts.push({ id: "retry", kind: "retry", label: t("hold.act.retry"), tone: "bad", run });

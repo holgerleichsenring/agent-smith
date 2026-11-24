@@ -30,7 +30,9 @@ public static class TicketPullRequestHold
     {
         ArgumentNullException.ThrowIfNull(facts);
         if (TicketHoldOf.AtWork(facts) || facts.OpenPullRequests is not { Refresh: { InFlight: false } said } open) return null;
-        return TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.RefreshRefused, Act(open), said.At)
+        // 2026-11-24-9dc0e: the act opens the refused pull request, which a person's Try again names.
+        var act = new TicketHoldAct(TicketHoldActs.PullRequest, said.Url ?? open.Url);
+        return TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.RefreshRefused, act, said.At)
             with { Detail = new AgentSmith.Domain.Models.EndDetail(said.Reason ?? string.Empty, []) };
     }
 

@@ -70,7 +70,8 @@ public sealed class TicketOpenPullRequestsReader(
     private static PullRequestRefreshSaid? RefreshOf(IReadOnlyList<PrReviewRecordView> open, IReadOnlyDictionary<string, PullRequestRefreshSaid>? refreshes)
     {
         if (refreshes is null || refreshes.Count == 0) return null;
-        var said = open.Select(r => (Record: r, Said: refreshes.GetValueOrDefault(r.Url))).Where(t => t.Said is not null).ToList();
+        var said = open.Select(r => (Record: r, Said: refreshes.GetValueOrDefault(r.Url) is { } s ? s with { Url = r.Url } : null))
+            .Where(t => t.Said is not null).ToList(); // 2026-11-24-9dc0e: with the pull request it names
         return said.FirstOrDefault(t => t.Said!.InFlight).Said
             ?? said.Where(t => t.Said!.Stands(t.Record.HeadMovedAt)).Select(t => t.Said).MinBy(s => s!.At);
     }

@@ -7,6 +7,9 @@ namespace AgentSmith.Contracts.Runs;
 /// </summary>
 public sealed record PullRequestRefreshSaid(string RunId, bool InFlight, string? Reason, DateTimeOffset At)
 {
+    /// <summary>2026-11-24-9dc0e: the pull request it names, set where several open ones are read together.</summary>
+    public string? Url { get; init; }
+
     /// <summary>At work, or a refusal no head move has overtaken since the run began.</summary>
     public bool Stands(DateTimeOffset? headMovedAt) => InFlight || headMovedAt is not { } moved || moved <= At;
 }

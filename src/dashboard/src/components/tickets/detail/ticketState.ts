@@ -25,6 +25,7 @@ export type StateAct =
   /** 2026-11-23-31dcg: merge the ticket's pull requests through its series' merge (31dce). */
   | { kind: "merge"; seriesId: string; ticketId: string }
   | { kind: "link"; label: string; href: string; note?: string }
+  | { kind: "refresh"; project: string; ticketId: string; url: string } // 2026-11-24-9dc0e: Try again on a refused refresh
   | { kind: "tab"; label: string; tab: string; note?: string };
 
 export interface TicketStateView {
@@ -154,7 +155,11 @@ function holdAct(detail: TicketDetail, head: TicketAttempt | null, hold: TicketH
     // 2026-11-23-849e: a ticket that waits on its series' merges opens the series.
     case "series": return act.target ? { kind: "link", label: t("hold.act.series"), href: seriesRunPath(act.target) } : null;
     // 2026-11-23-d60d: the one open pull request on its host; several are drawn as the block's rows instead.
-    case "pull_request": return act.target ? { kind: "link", label: t("hold.act.pull_request"), href: act.target } : null;
+    // 2026-11-24-9dc0e: a refused refresh is tried again on that pull request; the box's rows still link it.
+    case "pull_request":
+      if (act.target && hold.case === "refresh_refused")
+        return { kind: "refresh", project: detail.summary.project, ticketId: detail.summary.ticketId, url: act.target };
+      return act.target ? { kind: "link", label: t("hold.act.pull_request"), href: act.target } : null;
   }
 }
 

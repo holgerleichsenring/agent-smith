@@ -71,6 +71,7 @@ export function actLabel(t: T, act: StateAct, question: boolean): string {
     case "retry": return t("hold.act.retry");
     case "init": return t("hold.act.init");
     case "merge": return t("hold.act.merge");
+    case "refresh": return t("hold.act.refresh");
     case "link": return act.label;
     case "tab": return question ? t("hold.act.answer") : t("hold.act.conversation");
   }

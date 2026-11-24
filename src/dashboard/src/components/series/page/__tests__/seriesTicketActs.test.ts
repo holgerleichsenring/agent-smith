@@ -143,4 +143,15 @@ describe("seriesNodeSentence", () => {
     expect(acts.some((a) => a.kind === "merge")).toBe(false);
     expect(acts.find((a) => a.id === "run")?.href).toContain("rf-1");
   });
+  // 2026-11-24-9dc0e: a refused refresh is tried again on its pull request, only by a caller with runs.control.
+  it("SeriesTicketActs_ARefusedRefresh_OffersTryAgainOnItsPullRequest", () => {
+    const url = "https://git.test/server/pull/9";
+    const pr = { repo: "server", number: "9", url, state: "open", ci: "green", ciFailure: null, ciLog: null, target: null };
+    const { detail, ticket } = with_("50", { pullRequests: [pr], status: "success",
+      hold: hold("refresh_refused", { act: { kind: "pull_request", target: url } }) });
+    const offered = seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), false, t);
+    expect(offered.find((a) => a.id === "refresh")).toMatchObject({ kind: "refresh", label: "Try again", url });
+    expect(offered.find((a) => a.id === "pr-server")?.menuOnly).toBeFalsy();
+    expect(seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), true, t).some((a) => a.id === "refresh")).toBe(false);
+  });
 });

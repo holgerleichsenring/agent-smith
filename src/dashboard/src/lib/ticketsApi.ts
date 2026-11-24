@@ -145,6 +145,22 @@ export async function deriveSpecs(project: string, ticketId: string, mode: Deriv
   throw await refused(res, path);
 }
 
+/** 2026-11-24-9dc0e: Try again on a refused refresh — POST /api/tickets/{project}/{ticketId}/refresh-base (runs.control);
+ *  a 409 carries the server's sentence. */
+export type RefreshBaseAnswer = { kind: "started"; runId: string } | { kind: "refused"; text: string };
+
+export async function refreshTicketBase(project: string, ticketId: string, url: string): Promise<RefreshBaseAnswer> {
+  const path = `/api${ticketPath(project, ticketId)}/refresh-base`;
+  const res = await apiFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  if (res.ok) return { kind: "started", runId: ((await res.json()) as { runId: string }).runId };
+  if (res.status === 409 || res.status === 400) return { kind: "refused", text: await res.text() };
+  throw await refused(res, path);
+}
+
 export async function retryAttempt(runId: string): Promise<RetryAnswer> {
   const path = `/api/runs/${encodeURIComponent(runId)}/retry`;
   const res = await apiFetch(path, { method: "POST" });

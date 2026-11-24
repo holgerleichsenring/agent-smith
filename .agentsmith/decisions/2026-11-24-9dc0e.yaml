@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-9dc0e
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "A person's Try again on a refresh_refused hold, starting the same refresh-base run through BaseRefreshLauncher (runs.control); refused when the ticket is not free or a refresh is at work"
+    over: "Extending RunRetry (the code run's Retry) or waiting for the head or base to move"
+    reason: "Operator brief: two tickets refused by the old harness would otherwise never be retried after the fix deploys. RunRetry re-queues a ticket's own attempt through the rework queue, a different run; the launcher stays the one path that starts a refresh-base run (no second path: the operator asked for this trigger)."
+  - category: Implementation
+    decider: claude
+    chose: "BaseRefreshStart extracted from ConflictBaseRefresh (free ticket, host base, launch); ConflictBaseRefresh and BaseRefreshRetry keep their own due rules in front of it"
+    over: "A copy of the free-ticket and base checks in the retry"
+    reason: "Review: reuse, don't copy."
+  - category: Implementation
+    decider: claude
+    chose: "The refresh_refused hold keeps its pull_request act, now targeting the refused pull request (PullRequestRefreshSaid.Url); the dashboard draws Try again for that case and posts the URL"
+    over: "A new hold act kind refresh"
+    reason: "Review: a new act kind would drop the pull request link from every surface that opens pull_request targets; the endpoint takes the URL so one pull request gets one run."
+  - category: Implementation
+    decider: claude
+    chose: "Only a refusal that still stands (PullRequestRefreshSaid.Stands) is tried again; a queued row counts as at work, so a second click is refused"
+    over: "Starting a refresh whenever asked"
+    reason: "The act lifts a refusal; anything else already has its own trigger. Two concurrent posts that both read before either writes could still start two runs — the launcher writes the queued row first, so the window is the time of one database read."
+  - category: Scope
+    decider: claude
+    chose: "A series' final pull request is out (no ticket; its beat refreshes it)"
+    over: "A series-level Try again"
+    reason: "The production refusals are ticket pull requests."

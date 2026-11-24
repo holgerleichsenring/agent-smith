@@ -13,6 +13,8 @@ export interface SeriesActHandlers {
   retryBusy: string | null;
   onMerge: (ticketId: string) => void;
   onRetry: (ticketId: string, runId: string) => void;
+  /** 2026-11-24-9dc0e: Try again on a refused refresh of the pull request at url. */
+  onRefresh: (ticketId: string, url: string) => void;
   onChain: (ticketId: string) => void;
 }
 
@@ -42,11 +44,13 @@ export function SeriesActButtons({ ticket, acts, handlers, row = false, testId }
           return <button key={act.id} type="button" className={className} onClick={() => handlers.onChain(ticket.ticketId)} data-testid={id}>{act.label}</button>;
         const merge = act.kind === "merge";
         const label = merge && handlers.mergeBusy === ticket.ticketId ? t("series.merge.busy")
-          : !merge && handlers.retryBusy === ticket.ticketId ? t("series.act.retrying") : act.label;
+          : !merge && handlers.retryBusy === ticket.ticketId ? t(act.kind === "refresh" ? "hold.act.refreshing" : "series.act.retrying") : act.label;
+        const click = merge ? () => handlers.onMerge(ticket.ticketId)
+          : act.kind === "refresh" ? () => handlers.onRefresh(ticket.ticketId, act.url!) : () => handlers.onRetry(ticket.ticketId, act.run!);
         return (
           <button key={act.id} type="button" className={className} disabled={!!act.disabledBy || busy}
             title={act.disabledBy} aria-label={act.disabledBy ? `${act.label}: ${act.disabledBy}` : undefined}
-            onClick={() => (merge ? handlers.onMerge(ticket.ticketId) : handlers.onRetry(ticket.ticketId, act.run!))}
+            onClick={click}
             data-testid={id}>
             {label}
           </button>

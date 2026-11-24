@@ -87,6 +87,17 @@ public sealed class ProjectScopeTicketTests(ProjectScopeAuthorityFixture fixture
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    // 2026-11-24-9dc0e: Try again on a refused refresh is scoped like every ticket act.
+    [Fact]
+    public async Task ProjectScope_RefreshBaseInAnotherProject_Is404WithAnEmptyBody()
+    {
+        var response = await fixture.Server.Client.SendAsync(fixture.As(AlphaTeam, HttpMethod.Post,
+            "/api/tickets/beta/T-1/refresh-base", JsonContent.Create(new { url = "https://example.test/pr/1" })));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await response.Content.ReadAsByteArrayAsync()).Should().BeEmpty();
+    }
+
     private Task<HttpResponseMessage> LandAsync(string group, string project) =>
         fixture.Server.Client.SendAsync(fixture.As(group, HttpMethod.Post,
             $"/api/tickets/{project}/T-1/landed-by-hand", JsonContent.Create(new { note = "" })));
