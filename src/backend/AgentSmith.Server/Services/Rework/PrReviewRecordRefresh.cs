@@ -8,6 +8,7 @@ using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Services.Webhooks;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Server.Services.Branches;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -22,6 +23,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// one's check time only, and is logged. Every refresh then records the ticket's landing when its
 /// pull requests ended with one merged; a refresh that changed anything tells the ticket's pages.
 /// <para>2026-11-23-8d16: and whether an open one is still a draft — read only; a person's merge takes it out of draft.</para>
+/// <para>2026-11-24-297b: an open one the host says conflicts is handed to <see cref="ConflictBaseRefresh"/> before it is written.</para>
 /// </summary>
 public sealed class PrReviewRecordRefresh(
     IServiceScopeFactory scopes,
@@ -30,6 +32,7 @@ public sealed class PrReviewRecordRefresh(
     PrReviewEntryBuilder builder,
     PrRecordCiRead ci, CiGreenMerge ciMerge, CiRedNudge ciRed, // 2026-11-17-3435a/b/c
     PrRecordTargetRead target, // 2026-11-22-6d85b
+    ConflictBaseRefresh conflicts, // 2026-11-24-297b
     TicketLandingRecorder landing,
     ITicketActivityNudge activity,
     TimeProvider clock,
@@ -71,7 +74,8 @@ public sealed class PrReviewRecordRefresh(
     {
         var start = clock.GetUtcNow().UtcTicks;
         var repo = project.Repos.FirstOrDefault(r => r.Name == pr.Repo);
-        if (repo is null || sources.Create(repo) is not (IPrReviewStateReader states and IPrReviewThreadReader threads))
+        var host = repo is null ? null : sources.Create(repo);
+        if (repo is null || host is not (IPrReviewStateReader states and IPrReviewThreadReader threads))
             return await writer.WriteAsync(Record(pr, repo, PrReviewStates.Unsupported, null, null), [], start, ct);
         try
         {
@@ -84,6 +88,9 @@ public sealed class PrReviewRecordRefresh(
             record.ConflictsAtTicks = record.HasConflicts == true ? record.CheckedAtTicks : null;
             await ci.ApplyAsync(project, states, record, stored, ct);
             await target.ApplyAsync(states, record, stored, ct); // 2026-11-22-6d85b: where a merge landed
+            if (record.HasConflicts == true) // 2026-11-24-297b: started before the conflict is written, so no page sees it alone
+                await conflicts.LaunchIfDueAsync(project, repo, host, new RefreshedPullRequest(pr.Url, record.Number, pr.TicketId),
+                    ConflictBaseRefresh.ConflictsSince(stored, record.HeadSha, new DateTimeOffset(record.CheckedAtTicks, TimeSpan.Zero)), ct);
             return await writer.WriteAsync(record, entries, start, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

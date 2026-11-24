@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-297b
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "A pull request whose host reports a merge conflict is brought up to date by the refresh-base run automatically, in every project, with no setting; merge.refresh_open_pull_requests keeps only the extra case of refreshing conflict-free pull requests after a landing"
+    over: "6811c/023fb: every refresh behind merge.refresh_open_pull_requests, default off"
+    reason: "Operator, 2026-11-24: 'Why should that cost anything? It should be decided by the conflict, and if it is decided, then so be it.' A conflicting pull request cannot merge, so the push (and any approval reset) is unavoidable; the sandbox and build are paid only where there is a conflict."
+  - category: Architecture
+    decider: claude
+    chose: "The record read is the trigger: PrReviewRecordRefresh hands a conflicting read to ConflictBaseRefresh, which launches through the existing BaseRefreshLauncher before the record is written"
+    over: "A second trigger path (a sweep over conflicting records), or launching after the write"
+    reason: "No second path: the read that records the conflict (6811a) starts the same refresh-base pipeline the landing does. Launching first means the queued run row (with its PR URL, 6811d) exists before any page can read the conflict, so the hold reads refreshing, never pr_conflict's 'your move', for a conflict queued for automatic resolution."
+  - category: Implementation
+    decider: claude
+    chose: "One refresh per conflict on a head: due when no refresh-base run named the URL, or the newest is not at work and started before the conflict began; the conflict begins at the stored ConflictsAt while the head stays, else at the read; PrReviewRecordCopy restarts the conflict on a head move"
+    over: "A refresh on every conflicting re-read; a new column recording the head and base each refresh saw"
+    reason: "The run rows already say when each refresh started (PullRequestMergeSaidReader.NewestRefreshesAsync over the query RefreshesAsync uses). A refused or failed refresh therefore stands until the head moves, as 6811d's hold does. A verdict belongs to its head: after a push an undecided read no longer shows the old head's conflict, and a conflicting one is a new conflict."
+  - category: Implementation
+    decider: claude
+    chose: "A base move retries through the landing: SiblingBaseRefresh refreshes the siblings whose record conflicts in every project, all free siblings only with the setting, and skips a sibling a refresh is at work on"
+    over: "Reading the base's sha from all three hosts into the record"
+    reason: "A landing is the base move the system knows; it re-tries a refused refresh because the base it refused against is gone. The in-flight skip also stops a landing from starting a second refresh beside one already at work. A base moved outside agent-smith while a refusal stands is lifted by a push or the ticket's rework, as before."
+  - category: Implementation
+    decider: claude
+    chose: "RefreshableTicket extracted from SiblingBaseRefresh (not closed, leased, queued or waiting) and used by both triggers; BaseRefreshLauncher takes a RefreshedPullRequest (url, number, ticket)"
+    over: "Copying the free check; constructing a PrReviewRecordView for a record not written yet"
+    reason: "One rule for who may be refreshed; the launch needs only those three fields, and the conflict trigger runs before the record exists."
+  - category: Implementation
+    decider: claude
+    chose: "The dashboard's CI fix attempts field shows for every merge mode; the refresh setting's help says a conflict is refreshed anyway"
+    over: "Showing it only with on_ci_green or the refresh setting"
+    reason: "ci_fix_attempts bounds a base refresh's repair passes (6811c), and a conflict refresh now runs in any project."
+  - category: Scope
+    decider: claude
+    chose: "No refresh for a pull request without a textual conflict: the host's PR build is of the merge result (Azure refs/pull/N/merge, GitHub's merge ref, GitLab merged-results pipelines where enabled), so a break only the merge causes shows as red CI"
+    over: "Refreshing every open pull request to catch silent breakage"
+    reason: "Checked against the CI read: an expired Azure build-policy evaluation reads not_started (AzureReposCiPolicies.Outcome), which every merge path waits on (CiStates.Waits). Azure re-queues an automatic policy that expires immediately on a target update itself (Microsoft Learn, branch policies, build expiration). An 'after n hours' expiry or a manual policy is re-queued only by pipeline steps (CommitAndPR, spec-only PRs, retarget, a person's merge via PullRequestMergeSequence); the CI loop's merge-green does not re-queue, so an on_ci_green ticket waits on it until a person merges or holds.escalate_after_minutes reaches the admin. Named follow-up: the CI loop re-queues a not-started required build through a pipeline step. GitHub re-runs nothing when the base moves; staleness there is the host's 'require branches to be up to date' rule."
+  - category: Scope
+    decider: claude
+    chose: "Accept that the landing trigger and the record read may each launch a refresh for one conflict in the same instant"
+    over: "A lock across the landing hook and the ticket lock"
+    reason: "Both check for a refresh at work first; the window is the time between that read and the queued row. A second refresh pushes without force and is refused if the first pushed."
+  - category: Review
+    decider: claude
+    chose: "Diff review fixes: the landing path asks again for a refresh at work right before each launch, after its host reads; tests prove the refresh is queued before the conflict is written, that the hold then reads refreshing (nobody), and that a landing without the setting launches the conflicting sibling's refresh"
+    over: "Checking for a refresh at work only when the siblings are chosen"
+    reason: "Fresh-reviewer finding: the record read could launch for a new conflict while the landing's background task read the host, giving two refreshes on one branch and a refusal from the second shadowing the first's success. Left as named: Due compares the run's StartedAt, which the executor rewrites from its own clock at promotion, with ConflictsAt from the server's clock; only an executor clock behind the server by more than the queue wait re-launches, and only once per read."

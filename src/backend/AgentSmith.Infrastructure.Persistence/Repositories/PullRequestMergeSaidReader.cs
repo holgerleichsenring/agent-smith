@@ -38,15 +38,8 @@ public sealed class PullRequestMergeSaidReader(IUnitOfWork unitOfWork)
     public async Task<IReadOnlyDictionary<string, PullRequestRefreshSaid>> RefreshesAsync(
         IReadOnlyCollection<string> urls, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(urls);
-        if (urls.Count == 0) return new Dictionary<string, PullRequestRefreshSaid>(StringComparer.Ordinal);
-        var rows = await (
-            from repo in unitOfWork.Set<RunRepo>().AsNoTracking()
-            join run in unitOfWork.Set<Run>().AsNoTracking() on repo.RunId equals run.Id
-            where run.Pipeline == PipelinePresets.RefreshBaseName && repo.PrUrl != null && urls.Contains(repo.PrUrl)
-            select new { Url = repo.PrUrl!, run.Id, run.Status, run.Summary, run.CancelReason, repo.PrStatus, repo.Reason, run.StartedAt }).ToListAsync(ct);
         var said = new Dictionary<string, PullRequestRefreshSaid>(StringComparer.Ordinal);
-        foreach (var r in rows.GroupBy(r => r.Url, StringComparer.Ordinal).Select(g => g.OrderByDescending(r => r.StartedAt.UtcTicks).First()))
+        foreach (var r in await NewestRefreshRowsAsync(urls, ct))
         {
             var inFlight = r.Status is RunStatuses.Queued or RunStatuses.Running;
             if (inFlight) said[r.Url] = new PullRequestRefreshSaid(r.Id, true, null, r.StartedAt);
@@ -57,4 +50,29 @@ public sealed class PullRequestMergeSaidReader(IUnitOfWork unitOfWork)
         }
         return said;
     }
+
+    /// <summary>
+    /// 2026-11-24-297b: per pull request URL, the newest refresh-base run that names it, whatever it ended with — what the
+    /// conflict trigger asks before it starts another.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, PullRequestRefreshTried>> NewestRefreshesAsync(
+        IReadOnlyCollection<string> urls, CancellationToken ct) =>
+        (await NewestRefreshRowsAsync(urls, ct)).ToDictionary(r => r.Url,
+            r => new PullRequestRefreshTried(r.Id, r.Status is RunStatuses.Queued or RunStatuses.Running, r.StartedAt), StringComparer.Ordinal);
+
+    private async Task<IReadOnlyList<RefreshRow>> NewestRefreshRowsAsync(IReadOnlyCollection<string> urls, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(urls);
+        if (urls.Count == 0) return [];
+        var rows = await (
+            from repo in unitOfWork.Set<RunRepo>().AsNoTracking()
+            join run in unitOfWork.Set<Run>().AsNoTracking() on repo.RunId equals run.Id
+            where run.Pipeline == PipelinePresets.RefreshBaseName && repo.PrUrl != null && urls.Contains(repo.PrUrl)
+            select new RefreshRow(repo.PrUrl!, run.Id, run.Status, run.Summary, run.CancelReason, repo.PrStatus, repo.Reason, run.StartedAt))
+            .ToListAsync(ct);
+        return [.. rows.GroupBy(r => r.Url, StringComparer.Ordinal).Select(g => g.OrderByDescending(r => r.StartedAt.UtcTicks).First())];
+    }
+
+    private sealed record RefreshRow(string Url, string Id, string Status, string? Summary, string? CancelReason,
+        string? PrStatus, string? Reason, DateTimeOffset StartedAt);
 }

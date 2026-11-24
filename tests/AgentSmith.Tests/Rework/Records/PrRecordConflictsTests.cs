@@ -95,6 +95,23 @@ public sealed class PrRecordConflictsTests : IDisposable
         (stored.HasConflicts, stored.ConflictsAtTicks).Should().Be(((bool?)null, (long?)null));
     }
 
+    // 2026-11-24-297b: a verdict belongs to its head.
+    [Fact]
+    public void Copy_AHeadMove_ClearsTheConflictOnAnUndecidedRead_AndRestartsItOnAConflictingOne()
+    {
+        var stored = new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "a", HasConflicts = true, ConflictsAtTicks = 5 };
+        PrReviewRecordCopy.Record(new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "b", HasConflicts = null, CheckedAtTicks = 9 }, stored);
+        (stored.HasConflicts, stored.ConflictsAtTicks).Should().Be(((bool?)null, (long?)null), "a pushed refresh no longer shows the old head's conflict");
+
+        stored = new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "a", HasConflicts = true, ConflictsAtTicks = 5 };
+        PrReviewRecordCopy.Record(new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "b", HasConflicts = true, ConflictsAtTicks = 9, CheckedAtTicks = 9 }, stored);
+        (stored.HasConflicts, stored.ConflictsAtTicks).Should().Be(((bool?)true, (long?)9));
+
+        stored = new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "a", HasConflicts = true, ConflictsAtTicks = 5 };
+        PrReviewRecordCopy.Record(new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "a", HasConflicts = null, CheckedAtTicks = 9 }, stored);
+        (stored.HasConflicts, stored.ConflictsAtTicks).Should().Be(((bool?)true, (long?)5), "the same head keeps what the host said last");
+    }
+
     private void State(bool? conflicts) =>
         _h.Provider.As<IPrReviewStateReader>().Setup(s => s.ReadAsync(Pr1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PrReviewState("1", PrReviewStates.Open, T, []) { HasConflicts = conflicts });
