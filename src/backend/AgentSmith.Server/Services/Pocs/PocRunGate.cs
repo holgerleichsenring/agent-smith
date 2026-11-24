@@ -27,15 +27,26 @@ internal sealed class PocRunGate(
     {
         ArgumentNullException.ThrowIfNull(poc);
         ArgumentNullException.ThrowIfNull(revision);
-        var runId = RunIdGenerator.Generate(clock.GetUtcNow());
-        var claim = await gate.ClaimAsync(new PocClaimRequest(poc.Id, runId, poc.Project, PipelinePresets.PocDeployName, [],
-            $"starting — {(extraSeeds is null ? "checking" : "overruling")} revision {revision.Number} of {poc.Name}",
-            RunLivenessReaper.StaleAfter, revision.Id, handover), ct);
-        if (!claim.Won) return (null, claim.LiveRunId);
+        var (runId, heldBy) = await ClaimAsync(poc, PipelinePresets.PocDeployName,
+            $"starting — {(extraSeeds is null ? "checking" : "overruling")} revision {revision.Number} of {poc.Name}", ct, revision.Id, handover);
+        if (runId is null) return (null, heldBy);
         await dispatch.DispatchAsync(new PipelineRequest(poc.Project, PipelinePresets.PocDeployName, TicketId: null, Headless: true,
             RunId: runId, Context: With(Seeds(poc.Id, revision.Number, actor), extraSeeds)), ct);
         logger.LogInformation("poc-deploy of PoC {PocId} revision {Revision} queued (run {RunId})", poc.Id, revision.Number, runId);
         return (runId, null);
+    }
+
+    /// <summary>2026-11-23-933dg: claims <paramref name="poc"/>'s slot for a run of <paramref name="pipeline"/> — a minted
+    /// run id with its queued row, the caller then runs it (IActRun with that run id) or dispatches it; the run id, or
+    /// null with the run that holds the slot.</summary>
+    public async Task<(string? RunId, string? HeldBy)> ClaimAsync(
+        Poc poc, string pipeline, string summary, CancellationToken ct, long? revisionId = null, string? handover = null)
+    {
+        ArgumentNullException.ThrowIfNull(poc);
+        var runId = RunIdGenerator.Generate(clock.GetUtcNow());
+        var claim = await gate.ClaimAsync(new PocClaimRequest(poc.Id, runId, poc.Project, pipeline, [], summary,
+            RunLivenessReaper.StaleAfter, revisionId, handover), ct);
+        return claim.Won ? (runId, null) : (null, claim.LiveRunId);
     }
 
     // 2026-11-23-933dc: an overrule run carries its reason and the lifted ids beside the common seeds.

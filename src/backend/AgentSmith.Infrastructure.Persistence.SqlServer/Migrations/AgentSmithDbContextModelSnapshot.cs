@@ -937,6 +937,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("PlainVariablesJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Project")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -947,6 +950,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<int?>("Revision")
                         .HasColumnType("int");
+
+                    b.Property<string>("SealFingerprint")
+                        .HasMaxLength(76)
+                        .HasColumnType("nvarchar(76)");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -3450,6 +3457,12 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.StoredSecret", b =>
                 {
+                    b.Property<string>("Scope")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasDefaultValue("installation");
+
                     b.Property<string>("Name")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -3492,7 +3505,7 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
 
-                    b.HasKey("Name");
+                    b.HasKey("Scope", "Name");
 
                     b.ToTable("StoredSecrets", (string)null);
                 });

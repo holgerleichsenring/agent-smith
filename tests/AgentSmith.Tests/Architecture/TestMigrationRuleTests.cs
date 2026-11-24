@@ -37,6 +37,7 @@ public sealed class TestMigrationRuleTests
         "ProposalMigrationTests.cs", // 2026-11-17-a0b6d: the session's proposal columns copied into rows and back
         "DataMigrationRunnerTests.cs", // 2026-11-22-747da: data migrations run once per store and are recorded
         "StoreMigrateRunTests.cs", // 2026-11-22-747da: `database migrate` end to end, twice
+        "StoredSecretScopeMigrationTests.cs", // 2026-11-23-933dg: an installation row kept through the (Scope, Name) key rebuild
     ];
 
     [Fact]

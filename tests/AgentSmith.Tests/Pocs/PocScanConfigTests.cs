@@ -39,14 +39,25 @@ public sealed class PocScanConfigTests
     }
 
     [Fact]
-    public void Problems_EnabledWithAnEmptyOsvImage_IsRefused_OffIsNot()
+    public void Problems_EmptyImages_RunTheVerifiedDefaults_NoProblem()
     {
         var pocs = PocsConfigTests.Sound();
         pocs.Scan.OsvImage = "";
+        pocs.Scan.TrivyImage = "";
 
-        pocs.Problems().Should().ContainSingle().Which.Should().StartWith("pocs.scan.osv_image is empty while pocs.enabled is true");
-        pocs.Enabled = false;
+        // 2026-11-23-933dg (operator ruling): an image is set only for an own mirror; empty is the pinned default.
         pocs.Problems().Should().BeEmpty();
+        pocs.Scan.OsvImageInUse().Should().Be(PocScanConfig.DefaultOsvImage).And.Contain("@sha256:");
+        pocs.Scan.TrivyImageInUse().Should().Be(PocScanConfig.DefaultTrivyImage).And.MatchRegex("^aquasec/trivy:[0-9.]+@sha256:[0-9a-f]{64}$");
+        pocs.Scan.IsPinned().Should().BeTrue();
+    }
+
+    [Fact]
+    public void Problems_TheDefaultsThemselves_PassTheirOwnPinRules()
+    {
+        var mirror = new PocScanConfig { OsvImage = PocScanConfig.DefaultOsvImage, TrivyImage = PocScanConfig.DefaultTrivyImage };
+
+        mirror.Problems().Should().BeEmpty();
     }
 
     [Fact]

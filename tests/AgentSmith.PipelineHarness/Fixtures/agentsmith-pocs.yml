@@ -34,10 +34,7 @@ pocs:
         login_server: pocregistry.azurecr.io
         pull_user: poc-pull
         pull_auth: poc_pull_token
-  # 2026-11-23-933dc: required while PoCs are on; no lockfile in these ZIPs reaches it.
-  scan:
-    osv_image: ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4
-    trivy_image: aquasec/trivy@sha256:0000000000000000000000000000000000000000000000000000000000000933
+  # 2026-11-23-933dg: scan.osv_image and scan.trivy_image are left to their pinned defaults.
 
 secrets:
   gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}

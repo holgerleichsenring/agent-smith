@@ -60,7 +60,7 @@ public static partial class CommandNames
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",
-        [InitComplete] = "Completing init pull requests", [CompletePullRequests] = "Merging the pull requests", [CleanupWorkBranches] = "Removing finished branches", [RefreshBranchBase] = "Merging the landed base", [DeployToEnvironment] = "Delivering the version to the environment", [PocIntake] = "Checking the PoC archive", [PocCodeScan] = "Scanning the PoC", [PocSourceCommit] = "Committing the PoC", [PocPipelineBuild] = "Building the PoC image", [PocTargetInstall] = "Installing the PoC build pipeline", // 713ec, 023fa, 023fb, 3863c, 933db, 933dc, 933dd
+        [InitComplete] = "Completing init pull requests", [CompletePullRequests] = "Merging the pull requests", [CleanupWorkBranches] = "Removing finished branches", [RefreshBranchBase] = "Merging the landed base", [DeployToEnvironment] = "Delivering the version to the environment", [PocIntake] = "Checking the PoC archive", [PocCodeScan] = "Scanning the PoC", [PocSourceCommit] = "Committing the PoC", [PocPipelineBuild] = "Building the PoC image", [PocTargetInstall] = "Installing the PoC build pipeline", [WritePocVariables] = "Writing the PoC variables", [SealPocVariables] = "Sealing the PoC secrets", // 713ec, 023fa, 023fb, 3863c, 933db, 933dc, 933dd, 933dg
         [GenerateTests] = "Generating tests", [GenerateDocs] = "Generating docs",
         [Triage] = "Triaging ticket",
         [SwitchSkill] = "Switching skill",

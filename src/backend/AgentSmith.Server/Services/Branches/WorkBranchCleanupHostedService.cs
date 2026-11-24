@@ -70,6 +70,7 @@ public sealed class WorkBranchCleanupHostedService(
         {
             await services.GetRequiredService<Pocs.PocPrefixFindings>().ReportAsync(config, ct);
             services.GetRequiredService<Pocs.PocSandboxFinding>().Report(config); // 2026-11-23-933dc
+            services.GetRequiredService<Pocs.PocSealKeyFindings>().Report(config); // 2026-11-23-933dg
         }
         catch (Exception ex) when (!ct.IsCancellationRequested) { logger.LogWarning(ex, "The poc- prefix findings could not be read"); }
     }

@@ -39,10 +39,14 @@ public sealed partial class PocTargetConfig
     /// <summary>2026-11-23-933dd: how the source repo host's pipeline builds, scans and pushes the image.</summary>
     public PocBuildConfig Build { get; set; } = new();
 
+    /// <summary>2026-11-23-933dg: how the PoCs' secret variables and pull secret reach the target.</summary>
+    public PocSecretsConfig Secrets { get; set; } = new();
+
     /// <summary>This target's value problems, one sentence each naming the key, the value and the reason.</summary>
     public IEnumerable<string> Problems() =>
         [.. NameProblems(), .. SourceRepoProblems(), .. new PocTargetFolders(this).Problems(), .. DomainProblems(),
-            .. LifetimeProblems(), .. RegistryProblems(), .. Build.Problems(Name)];
+            .. LifetimeProblems(), .. RegistryProblems(), .. Build.Problems(Name),
+            .. Secrets.Problems(Name)];
 
     private string Key(string field) => $"pocs.targets[].{field} of target '{Name}'";
 

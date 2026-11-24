@@ -33,6 +33,17 @@ internal static class ConfigDraftCheckEndpoints
                 CancellationToken ct) => Results.Ok(await check.RunAsync(draft, ct)))
            .Needs(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
 
+        // 2026-11-23-933dg: a PoC target's Sealed Secrets certificate, read from a pasted PEM or fetched from an https URL —
+        // public material, a run-free read that saves nothing, outside the PoCs switch like the registry check.
+        app.MapPost("/api/config/pocs/sealed-secrets-cert/fetch",
+            async ([FromBody] Services.Pocs.Targets.SealingCertificateRequest request,
+                [FromServices] Services.Pocs.Targets.SealingCertificateFetch fetch, CancellationToken ct) =>
+            {
+                var (answer, refusal) = await fetch.ReadAsync(request, ct);
+                return answer is not null ? Results.Ok(answer) : refusal!.Answer();
+            })
+           .Needs(Permissions.ConfigWrite);
+
         return app;
     }
 }

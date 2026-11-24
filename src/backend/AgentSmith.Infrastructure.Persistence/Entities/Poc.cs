@@ -44,4 +44,12 @@ public sealed class Poc : EntityBase, IProjectOwned
     public long? ExpiresAtTicks { get; set; }
 
     public string? LastRunId { get; set; }
+
+    /// <summary>2026-11-23-933dg: the plain variables, a JSON array of {name, value, set_by, set_at} ordered by name —
+    /// committed in plain text as the PoC's ConfigMap, so they are not secret. Null holds none.</summary>
+    public string? PlainVariablesJson { get; set; }
+
+    /// <summary>2026-11-23-933dg: the seal fingerprint of the sealed files the GitOps branch holds; written only by
+    /// 2026-11-23-c81eb's GitOps commit after the commit landed. A keyed digest: it reveals nothing of a value.</summary>
+    public string? SealFingerprint { get; set; }
 }

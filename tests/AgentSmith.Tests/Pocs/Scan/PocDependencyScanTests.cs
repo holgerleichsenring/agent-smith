@@ -22,6 +22,15 @@ public sealed class PocDependencyScanTests : IAsyncDisposable
     private SandboxSpec? _spec;
 
     [Fact]
+    public async Task Scan_NoImageSet_RunsTheVerifiedDefault()
+    {
+        _sandbox.Report = Report("9.8");
+        await ScanAsync(new PocScanConfig(), File("go.mod", "module x\n"));
+
+        _spec!.ToolchainImage.Should().Be(PocScanConfig.DefaultOsvImage);
+    }
+
+    [Fact]
     public async Task Scan_RunsThePinnedScannerOverTheExactPinsOnly_NeverInstalling()
     {
         _sandbox.Report = Report("9.8");

@@ -34,7 +34,7 @@ public sealed class SecretValuesApprovalTests
         report.Applied.Should().BeFalse();
         report.Line.Should().Contain("secrets.write").And.Contain("delete secret-values/old_token").And.Contain("Nothing was applied");
         _store.Verify(s => s.UpsertTracker(It.IsAny<TrackerEntity>(), It.IsAny<ChangeAttribution>()), Times.Never);
-        _vault.Verify(v => v.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _vault.Verify(v => v.DeleteAsync(It.IsAny<SecretScope>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

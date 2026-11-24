@@ -30,7 +30,7 @@ public sealed class PocDependencyScan(
         IReadOnlyList<PocScanFinding> notes = unpinned is null ? [] : [unpinned];
         if (scanned.Count == 0) return new PocDependencyResult([], [.. notes, NotChecked("the upload holds no lockfile with a pinned dependency")]);
         if (!config.IsPinned())
-            return PocDependencyResult.Failed($"{PocScanConfig.OsvImageKey} is '{config.OsvImage}'; the dependency scan runs only an image pinned by digest");
+            return PocDependencyResult.Failed($"{PocScanConfig.OsvImageKey} is '{config.OsvImageInUse()}'; the dependency scan runs only an image pinned by digest");
         if (runtime is { SpawnsContainers: false })
             return PocDependencyResult.Failed("the dependency scan needs a sandbox backend that runs images: Kubernetes or Docker");
         await using var sandbox = await factory.CreateAsync(Spec(project, config), ct);
@@ -56,7 +56,7 @@ public sealed class PocDependencyScan(
     private SandboxSpec Spec(ResolvedProject project, PocScanConfig config) =>
         specs.Build(project, language: null, pipelineName: null) with
         {
-            ToolchainImage = config.OsvImage, Secrets = ResolvedSandboxSecrets.Empty, NoPackageCaches = true,
+            ToolchainImage = config.OsvImageInUse(), Secrets = ResolvedSandboxSecrets.Empty, NoPackageCaches = true,
             RunId = runContext.CurrentRunId, StepTimeoutSeconds = config.TimeoutSeconds,
         };
 

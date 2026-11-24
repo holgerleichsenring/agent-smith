@@ -162,4 +162,62 @@ describe("PocImportFlow", () => {
     fireEvent.click(screen.getByTestId("poc-import-start"));
     await waitFor(() => expect(importUpload).toHaveBeenCalledWith("u-1", { choice: "new", target: "lab", name: "shift-planner-v4" }));
   });
+
+  // 2026-11-23-933dg: the variables table — sent with Start, secret values cleared afterwards whether Start was taken or
+  // refused, and the note that plain values are committed in plain text.
+  it("PocImport_Variables_ArePostedWithStart_AndSecretValuesAreClearedAfterwards", async () => {
+    upload.mockResolvedValue(answer());
+    importUpload.mockRejectedValueOnce(new ApiResponseError("/api/pocs/uploads/u-1/import", 422, "HTTP 422",
+      "Variable 'mode' is not a valid name (^[A-Z_][A-Z0-9_]*$)."));
+    await drop();
+
+    expect(screen.getByTestId("poc-variables-note")).toHaveTextContent("plain values are committed in plain text");
+    fireEvent.click(screen.getByTestId("poc-variables-add"));
+    fireEvent.click(screen.getByTestId("poc-variables-add"));
+    fireEvent.change(screen.getByTestId("poc-variables-row-0-name"), { target: { value: "API_KEY" } });
+    fireEvent.change(screen.getByTestId("poc-variables-row-0-value"), { target: { value: "s3cr3t-value" } });
+    expect(screen.getByTestId("poc-variables-row-0-value")).toHaveAttribute("type", "password");
+    fireEvent.change(screen.getByTestId("poc-variables-row-1-name"), { target: { value: "mode" } });
+    fireEvent.click(screen.getByTestId("poc-variables-row-1-secret"));
+    fireEvent.change(screen.getByTestId("poc-variables-row-1-value"), { target: { value: "demo" } });
+    expect(screen.getByTestId("poc-variables-row-1-value")).toHaveAttribute("type", "text");
+    expect(screen.getByTestId("poc-variables-row-1-hint")).toHaveTextContent("capital letters");
+
+    fireEvent.click(screen.getByTestId("poc-import-start"));
+
+    expect(await screen.findByTestId("poc-import-refusal")).toHaveTextContent("Variable 'mode' is not a valid name");
+    expect(importUpload).toHaveBeenCalledWith("u-1", {
+      choice: "new", target: "main", name: "shift-planner-v4",
+      variables: [{ name: "API_KEY", secret: true, value: "s3cr3t-value" }, { name: "mode", secret: false, value: "demo" }],
+    });
+    expect(screen.getByTestId("poc-variables-row-0-value")).toHaveValue("");
+    expect(screen.getByTestId("poc-variables-row-1-value")).toHaveValue("demo");
+
+    importUpload.mockResolvedValueOnce({ pocId: 9, revision: 1, runId: "r-46" });
+    fireEvent.change(screen.getByTestId("poc-variables-row-0-value"), { target: { value: "an0ther-secret" } });
+    fireEvent.change(screen.getByTestId("poc-variables-row-1-name"), { target: { value: "MODE" } });
+    fireEvent.click(screen.getByTestId("poc-import-start"));
+
+    await screen.findByTestId("poc-import-started");
+    expect(importUpload).toHaveBeenLastCalledWith("u-1", expect.objectContaining({
+      variables: [{ name: "API_KEY", secret: true, value: "an0ther-secret" }, { name: "MODE", secret: false, value: "demo" }],
+    }));
+  });
+
+  it("PocImport_ShortSecretValue_ShowsTheHint_AndARemovedRowIsNotSent", async () => {
+    upload.mockResolvedValue(answer());
+    importUpload.mockResolvedValue({ pocId: 9, revision: 1, runId: "r-47" });
+    await drop();
+
+    fireEvent.click(screen.getByTestId("poc-variables-add"));
+    fireEvent.change(screen.getByTestId("poc-variables-row-0-name"), { target: { value: "TOKEN" } });
+    fireEvent.change(screen.getByTestId("poc-variables-row-0-value"), { target: { value: "abc" } });
+    expect(screen.getByTestId("poc-variables-row-0-hint")).toHaveTextContent("at least 6 characters");
+    fireEvent.click(screen.getByTestId("poc-variables-row-0-remove"));
+    expect(screen.queryByTestId("poc-variables-row-0")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("poc-import-start"));
+    await screen.findByTestId("poc-import-started");
+    expect(importUpload).toHaveBeenCalledWith("u-1", { choice: "new", target: "main", name: "shift-planner-v4" });
+  });
 });

@@ -65,6 +65,10 @@ public sealed class PocDeployCompositionTests
         revision.CommitSha.Should().Be(await repo.OriginAsync("rev-parse", "main"), "933dc: a clean revision is committed");
         revision.Digest.Should().Be(PocHarnessBuildHost.Digest, "933dd: the pushed digest the registry confirmed");
         repo.Build.Starts.Single().Inputs["sha"].Should().Be(revision.CommitSha);
+        // 2026-11-23-933dg: the run ends sealing the target's pull secret for the namespace; nothing is committed yet.
+        var seal = runner.LastContext!.Get<PocSealResult>(ContextKeys.PocSeal);
+        seal.Files.Should().ContainSingle().Which.FileName.Should().Be("poc-pull.sealed.yaml");
+        seal.Files[0].Content.Should().Contain("namespace: poc-todo").And.Contain("kubernetes.io/dockerconfigjson").And.NotContain(PocHarnessRepo.PullToken);
     }
 
     [Fact]

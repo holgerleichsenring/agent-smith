@@ -12,7 +12,7 @@ namespace AgentSmith.Tests.Pocs;
 /// the configuration store held in memory, so a first import provisions its poc- project without a catalog to check it
 /// against. <see cref="Queued"/> holds every dispatched request, <see cref="Projects"/> every saved project.
 /// </summary>
-public sealed class PocImportFixture : PocsAuthorityFixture
+public class PocImportFixture : PocsAuthorityFixture
 {
     /// <summary>The per-person limit while a case does not test it — the cases share one store and one owner.</summary>
     internal const int RoomyLimit = 100;

@@ -55,6 +55,7 @@ GET	/api/identity	identity.read	-
 GET	/api/openapi.json	anonymous	-
 GET	/api/pocs	pocs.read	-
 GET	/api/pocs/{pocId:long}/revisions/{n:int}	pocs.read,runs.read	poc
+GET	/api/pocs/{pocId:long}/variables	pocs.read,runs.read	poc
 GET	/api/projects	runs.read	across
 GET	/api/projects/{name}/bootstrap	runs.read	route:name
 GET	/api/projects/{name}/init	runs.read	route:name
@@ -122,6 +123,7 @@ POST	/api/config/design-sources	config.write	-
 POST	/api/config/import	config.import,secrets.write	-
 POST	/api/config/mcp-servers	config.write	-
 POST	/api/config/pocs/registry/check	config.write,diagnostics.probe	-
+POST	/api/config/pocs/sealed-secrets-cert/fetch	config.write	-
 POST	/api/config/projects	config.write	-
 POST	/api/config/projects/validate	config.write	-
 POST	/api/config/repos	config.write	-
@@ -174,3 +176,4 @@ PUT	/api/config/secret-values/{name}	secrets.write	-
 PUT	/api/config/secrets/{id}	secrets.write	-
 PUT	/api/config/settings/{type}	config.write	-
 PUT	/api/config/trackers/{id}	config.write	-
+PUT	/api/pocs/{pocId:long}/variables	pocs.write,runs.read	poc

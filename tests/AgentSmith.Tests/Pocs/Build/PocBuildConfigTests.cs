@@ -9,7 +9,7 @@ public sealed class PocBuildConfigTests
 {
     [Fact]
     public void Problems_ATagOnlyTrivyImage_IsRefusedNamingTheKey() =>
-        new PocScanConfig { TrivyImage = "aquasec/trivy:0.58.1" }.Problems(false).Should().ContainSingle()
+        new PocScanConfig { TrivyImage = "aquasec/trivy:0.58.1" }.Problems().Should().ContainSingle()
             .Which.Should().Contain(PocScanConfig.TrivyImageKey).And.Contain("by digest");
 
     [Fact]

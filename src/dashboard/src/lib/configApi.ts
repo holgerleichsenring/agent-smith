@@ -4,7 +4,7 @@
 // comes from) and the tracker trigger semantics — so the dashboard renders
 // exactly what the runtime resolves, not a second computation.
 
-import { apiFetch, getJson, refused, sendJson } from "@/lib/apiResponse";
+import { ApiResponseError, apiFetch, getJson, readJson, refused, sendJson } from "@/lib/apiResponse";
 
 // Where an effective value came from. "run-resolved" = not knowable at config
 // time (e.g. the toolchain image is chosen per run from the repo's context.yaml).
@@ -392,6 +392,35 @@ export async function checkPocRegistryDraft(
   signal?: AbortSignal,
 ): Promise<DraftCheckReport> {
   return sendJson<DraftCheckReport>("POST", `/api/config/pocs/registry/check`, draft, signal);
+}
+
+/** 2026-11-23-933dg: a Sealed Secrets controller certificate as the server read it. */
+export interface SealedSecretsCert {
+  pem: string;
+  fingerprint: string;
+  /** ISO timestamps. */
+  notBefore: string;
+  notAfter: string;
+}
+
+export const SEALED_SECRETS_CERT_PATH = "/api/config/pocs/sealed-secrets-cert/fetch";
+
+/** 2026-11-23-933dg: `{ url }` fetches the certificate from that https URL; `{ pem }` only parses a pasted one. A refusal
+ *  (400, or 502 when the URL did not answer) throws with the server's plain sentence as its reason. Nothing is saved. */
+export async function fetchSealedSecretsCert(
+  source: { url: string } | { pem: string },
+  signal?: AbortSignal,
+): Promise<SealedSecretsCert> {
+  const res = await apiFetch(SEALED_SECRETS_CERT_PATH, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(source),
+    signal,
+  });
+  if (res.ok) return readJson<SealedSecretsCert>(res, SEALED_SECRETS_CERT_PATH);
+  if (res.status === 401 || res.status === 403) throw await refused(res, SEALED_SECRETS_CERT_PATH);
+  const text = (await res.text().catch(() => "")).trim();
+  throw new ApiResponseError(SEALED_SECRETS_CERT_PATH, res.status, `HTTP ${res.status}${text ? ` — ${text}` : ""}`, text || null);
 }
 
 /** p0345c: one repo the discovery cache knows inside a connection. */
@@ -1117,6 +1146,22 @@ export interface PocTargetSetting {
   registry: PocRegistrySetting | null;
   /** 2026-11-23-933dd: how the source repo host's pipeline builds, scans and pushes; absent reads as the defaults. */
   build?: PocBuildSetting | null;
+  /** 2026-11-23-933dg: how a PoC's secret variables and pull secret are sealed; absent reads as the defaults. */
+  secrets?: PocSecretsSetting | null;
+}
+
+/** 2026-11-23-933dg: agentsmith.yml pocs.targets[].secrets — the sealing provider (only sealed_secrets) and the Sealed
+ *  Secrets controller's public certificate, pasted or fetched from a URL. The certificate is public, a plain field. */
+export interface PocSecretsSetting {
+  provider: string;
+  sealedSecretsCert: string | null;
+  sealedSecretsCertUrl: string | null;
+}
+
+/** 2026-11-23-933dg: agentsmith.yml pocs.variables — how many variables one PoC holds and the largest value in KB. */
+export interface PocVariablesSetting {
+  maxNames: number;
+  maxValueKb: number;
 }
 
 /** 2026-11-23-933dd: agentsmith.yml pocs.targets[].build — the names the pipeline's push job uses, the job timeouts in
@@ -1161,6 +1206,8 @@ export interface PocsSetting {
   scan: PocScanSetting;
   /** 2026-11-23-933dc: how many days a blocked upload is kept before it is purged. */
   blockedRetentionDays: number;
+  /** 2026-11-23-933dg: the bounds a PoC's variables are checked against. */
+  variables: PocVariablesSetting;
 }
 
 /** 2026-11-23-933dc: agentsmith.yml pocs.scan — the OSV-Scanner image pinned by digest and what blocks. */

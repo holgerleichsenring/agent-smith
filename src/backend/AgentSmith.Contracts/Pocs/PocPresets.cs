@@ -10,7 +10,7 @@ namespace AgentSmith.Contracts.Pocs;
 /// </summary>
 public static class PocPresets
 {
-    public static IReadOnlyList<string> Names { get; } = [PipelinePresets.PocDeployName];
+    public static IReadOnlyList<string> Names { get; } = [PipelinePresets.PocDeployName, PipelinePresets.PocVariablesName];
 
     public static bool Contains(string pipeline) => Names.Contains(pipeline, StringComparer.OrdinalIgnoreCase);
 }

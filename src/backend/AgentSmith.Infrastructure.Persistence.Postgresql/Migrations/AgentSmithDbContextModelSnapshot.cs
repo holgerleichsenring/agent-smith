@@ -937,6 +937,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
+                    b.Property<string>("PlainVariablesJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("Project")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -947,6 +950,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
                     b.Property<int?>("Revision")
                         .HasColumnType("integer");
+
+                    b.Property<string>("SealFingerprint")
+                        .HasMaxLength(76)
+                        .HasColumnType("character varying(76)");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -3434,6 +3441,12 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.StoredSecret", b =>
                 {
+                    b.Property<string>("Scope")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("installation");
+
                     b.Property<string>("Name")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -3476,7 +3489,7 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
-                    b.HasKey("Name");
+                    b.HasKey("Scope", "Name");
 
                     b.ToTable("StoredSecrets", (string)null);
                 });

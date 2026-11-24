@@ -753,6 +753,18 @@ pocs:
   #      push_timeout_minutes: 3          # (3+12+5+3) x 60 + scan.timeout_seconds < orchestrator.max_run_wall_time_seconds
   #      poll_seconds: 15
   #      report_kb: 1024
+  #    # 2026-11-23-933dg: how the PoCs' secret variables and the pull secret reach the target. Each
+  #    # value is sealed in agent smith to the Sealed Secrets controller's PUBLIC certificate (strict
+  #    # scope, namespace poc-<name>), so plaintext never lands in git. Get it with
+  #    # 'kubeseal --fetch-cert' (or Fetch from the controller's URL in Settings > PoCs). Needed before
+  #    # a PoC with a secret variable or with pull_mode pull_secret deploys.
+  #    secrets:
+  #      provider: sealed_secrets
+  #      sealed_secrets_cert: |
+  #        -----BEGIN CERTIFICATE-----
+  #        ...
+  #        -----END CERTIFICATE-----
+  #      sealed_secrets_cert_url: https://sealed-secrets.poc.example.internal/v1/cert.pem
   # 2026-11-23-933db: what an uploaded PoC archive is held to (defaults shown), and when an import
   # asks whether a ZIP is really the same PoC: more than mismatch_ratio_percent of the files AND
   # more than mismatch_file_limit of them differ, or the port or the entrypoint changed.
@@ -767,18 +779,24 @@ pocs:
   #   max_dockerfile_kb: 64
   #   mismatch_ratio_percent: 50
   #   mismatch_file_limit: 100
-  # 2026-11-23-933dc: how an upload is scanned before it is committed. osv_image is required while
-  # PoCs are enabled and must be pinned by digest; the scan fetches its databases from
-  # osv-vulnerabilities.storage.googleapis.com through the sandbox egress.
+  # 2026-11-23-933dc: how an upload is scanned before it is committed; the scan fetches its
+  # databases from osv-vulnerabilities.storage.googleapis.com through the sandbox egress.
+  # 2026-11-23-933dg: both scanner images default to a verified digest-pinned release (shown); set
+  # osv_image or trivy_image only to run an own mirror, pinned by digest. A Trivy change is written
+  # into the pipeline at install, so install again after changing it.
   # scan:
-  #   osv_image: ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4
+  #   osv_image: ghcr.io/google/osv-scanner:v2.2.4@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4
   #   timeout_seconds: 300
   #   unfixed_critical_block: true
   #   secret_min_confidence: 8
-  #   # 2026-11-23-933dd: the Trivy image the build pipeline's scan job runs, pinned by digest (required
-  #   # while PoCs are enabled; install again after changing it).
-  #   trivy_image: aquasec/trivy@sha256:<digest of the Trivy release you verified>
+  #   trivy_image: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
   # blocked_retention_days: 7
+  # 2026-11-23-933dg: PoC variables (set at import, or later on the PoC): secret ones are stored
+  # encrypted under the PoC's scope and sealed at deploy, plain ones are committed as a ConfigMap.
+  # A Kubernetes Secret or ConfigMap holds at most 1 MiB. Defaults shown.
+  # variables:
+  #   max_names: 64
+  #   max_value_kb: 4
 
 # p0128c data-flow gating.
 pipeline_data_flow:

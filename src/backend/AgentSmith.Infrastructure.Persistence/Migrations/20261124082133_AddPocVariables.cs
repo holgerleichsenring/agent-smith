@@ -1,0 +1,69 @@
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace AgentSmith.Infrastructure.Persistence.Migrations
+{
+    /// <inheritdoc />
+    public partial class AddPocVariables : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropPrimaryKey(
+                name: "PK_StoredSecrets",
+                table: "StoredSecrets");
+
+            migrationBuilder.AddColumn<string>(
+                name: "Scope",
+                table: "StoredSecrets",
+                type: "TEXT",
+                maxLength: 32,
+                nullable: false,
+                defaultValue: "installation");
+
+            migrationBuilder.AddColumn<string>(
+                name: "PlainVariablesJson",
+                table: "Pocs",
+                type: "TEXT",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "SealFingerprint",
+                table: "Pocs",
+                type: "TEXT",
+                maxLength: 76,
+                nullable: true);
+
+            migrationBuilder.AddPrimaryKey(
+                name: "PK_StoredSecrets",
+                table: "StoredSecrets",
+                columns: new[] { "Scope", "Name" });
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropPrimaryKey(
+                name: "PK_StoredSecrets",
+                table: "StoredSecrets");
+
+            migrationBuilder.DropColumn(
+                name: "Scope",
+                table: "StoredSecrets");
+
+            migrationBuilder.DropColumn(
+                name: "PlainVariablesJson",
+                table: "Pocs");
+
+            migrationBuilder.DropColumn(
+                name: "SealFingerprint",
+                table: "Pocs");
+
+            migrationBuilder.AddPrimaryKey(
+                name: "PK_StoredSecrets",
+                table: "StoredSecrets",
+                column: "Name");
+        }
+    }
+}

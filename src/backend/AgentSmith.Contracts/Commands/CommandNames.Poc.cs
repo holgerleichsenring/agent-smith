@@ -19,4 +19,12 @@ public static partial class CommandNames
 
     /// <summary>2026-11-23-933dd: writes the PoC build pipeline's definition into a target's source repo, once.</summary>
     public const string PocTargetInstall = "PocTargetInstallCommand";
+
+    /// <summary>2026-11-23-933dg: writes a PoC's variables — secrets into the store under the PoC's scope, plain values on
+    /// the Poc row — for the person the endpoint let write them.</summary>
+    public const string WritePocVariables = "WritePocVariablesCommand";
+
+    /// <summary>2026-11-23-933dg: seals a PoC's secret variables and its pull secret to the target's certificate for the
+    /// GitOps commit.</summary>
+    public const string SealPocVariables = "SealPocVariablesCommand";
 }

@@ -105,9 +105,8 @@ public sealed class PocsConfigTests : IDisposable
     {
         var empty = new PocsConfig { Enabled = true };
 
-        empty.Problems().Should().HaveCount(5).And.Contain(p => p.StartsWith("pocs.targets is empty"))
-            .And.Contain(p => p.StartsWith("pocs.scan.osv_image is empty")) // 2026-11-23-933dc
-            .And.Contain(p => p.StartsWith("pocs.scan.trivy_image is empty")) // 2026-11-23-933dd
+        // 2026-11-23-933dg: the scanner images have defaults, so an empty scan block is no problem.
+        empty.Problems().Should().HaveCount(3).And.Contain(p => p.StartsWith("pocs.targets is empty"))
             .And.Contain(p => p.StartsWith("pocs.project_agent is empty")).And.Contain(p => p.StartsWith("pocs.project_tracker is empty"));
         new PocsConfig().Problems().Should().BeEmpty("an off block may be filled in before the switch is");
     }
@@ -126,7 +125,7 @@ public sealed class PocsConfigTests : IDisposable
     {
         var config = new AgentSmithConfig { Pocs = new PocsConfig { Enabled = true } };
 
-        PocsConfigValidator.Findings(config).Should().HaveCount(5).And.OnlyContain(f => f.IsBlocking && f.Field == "pocs");
+        PocsConfigValidator.Findings(config).Should().HaveCount(3).And.OnlyContain(f => f.IsBlocking && f.Field == "pocs");
         new AgentSmithConfigValidator(new SkillsConfigValidator()).Validate(config).Should().Contain(r => r.Contains("pocs.project_agent"));
     }
 
@@ -140,7 +139,6 @@ public sealed class PocsConfigTests : IDisposable
                 Name = "main", SourceRepo = "gh/poc-src", DomainPattern = "{app}.poc.example.internal", Registry = SoundRegistry(),
             },
         ],
-        Scan = new PocScanConfig { OsvImage = PinnedOsvImage, TrivyImage = PinnedTrivyImage },
     };
 
     /// <summary>2026-11-23-933de: a registry block every target needs.</summary>
@@ -149,7 +147,8 @@ public sealed class PocsConfigTests : IDisposable
         LoginServer = "pocregistry.azurecr.io", PullUser = "poc-pull", PullAuth = "poc_pull_token",
     };
 
-    /// <summary>2026-11-23-933dd: a Trivy image pinned by digest, required while PoCs are on.</summary>
+    /// <summary>2026-11-23-933dd: a Trivy image pinned by digest — 2026-11-23-933dg: an own mirror, since the key has a
+    /// default.</summary>
     internal const string PinnedTrivyImage = "aquasec/trivy@sha256:0000000000000000000000000000000000000000000000000000000000000933";
 
     internal const string PinnedOsvImage =

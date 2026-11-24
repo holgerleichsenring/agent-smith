@@ -26,6 +26,9 @@ public sealed class PocsConfig
     /// <summary>2026-11-23-933dc: how an upload is scanned before it is committed.</summary>
     public PocScanConfig Scan { get; set; } = new();
 
+    /// <summary>2026-11-23-933dg: how many variables a PoC holds and how large each value may be.</summary>
+    public PocVariablesConfig Variables { get; set; } = new();
+
     public const string BlockedRetentionDaysKey = "pocs.blocked_retention_days";
 
     /// <summary>2026-11-23-933dc: how many days a blocked upload is kept; 2026-11-23-c81ee purges it after them.</summary>
@@ -41,7 +44,8 @@ public sealed class PocsConfig
                 + "because a PoC names its target by it");
         problems.AddRange(Targets.SelectMany(t => t.Problems()));
         problems.AddRange(Archive.Problems());
-        problems.AddRange(Scan.Problems(Enabled));
+        problems.AddRange(Scan.Problems());
+        problems.AddRange(Variables.Problems());
         if (BlockedRetentionDays < 1)
             problems.Add($"{BlockedRetentionDaysKey} is {BlockedRetentionDays}; it must be 1 or more, because 0 or less would "
                 + "purge a blocked upload before anyone could read why it was blocked");

@@ -95,6 +95,16 @@ export interface PocImportBody {
   pocId?: number;
   /** Replace although the upload's verdict was "ask". */
   confirmed?: boolean;
+  /** 2026-11-23-933dg: the PoC's variables, written by a poc-variables run before poc-deploy is queued; omitted when none.
+   *  A failed variables run answers 422 with its line and queues nothing. */
+  variables?: PocVariableInput[];
+}
+
+/** 2026-11-23-933dg: one variable as it is sent — a secret one is sealed, a plain one is committed in plain text. */
+export interface PocVariableInput {
+  name: string;
+  secret: boolean;
+  value: string;
 }
 
 export interface PocImported {
@@ -231,4 +241,53 @@ export async function installPocTarget(name: string, signal?: AbortSignal): Prom
   const res = await apiFetch(path, { method: "POST", signal });
   if (!res.ok) throw await refusedAsSaid(res, path);
   return readJson<PocTargetInstalled>(res, path);
+}
+
+// 2026-11-23-933dg: a PoC's variables. GET lists them — a secret one never with its value, a plain one with it. PUT sets
+// and deletes them through a poc-variables run and answers that run's line; a refusal is a plain sentence (400, 404
+// empty, 409 while another run of the PoC is live, 422, 503). A change applies at the PoC's next deploy.
+
+export type PocVariableKind = "secret" | "plain";
+
+export interface PocVariableView {
+  name: string;
+  kind: PocVariableKind;
+  setBy: string;
+  setAt: string;
+  /** The value of a plain variable; always null for a secret one. */
+  value: string | null;
+}
+
+export interface PocVariables {
+  variables: PocVariableView[];
+}
+
+export interface PocVariablesChange {
+  set: PocVariableInput[];
+  delete: string[];
+}
+
+export interface PocVariablesWritten {
+  runId: string;
+  line: string;
+}
+
+export function pocVariablesPath(pocId: number): string {
+  return `${POCS_PATH}/${encodeURIComponent(String(pocId))}/variables`;
+}
+
+export async function getPocVariables(pocId: number, signal?: AbortSignal): Promise<PocVariables> {
+  const path = pocVariablesPath(pocId);
+  const res = await apiFetch(path, { signal });
+  if (!res.ok) throw await refusedAsSaid(res, path);
+  return readJson<PocVariables>(res, path);
+}
+
+export async function putPocVariables(pocId: number, body: PocVariablesChange, signal?: AbortSignal): Promise<PocVariablesWritten> {
+  const path = pocVariablesPath(pocId);
+  const res = await apiFetch(path, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
+  });
+  if (!res.ok) throw await refusedAsSaid(res, path);
+  return readJson<PocVariablesWritten>(res, path);
 }

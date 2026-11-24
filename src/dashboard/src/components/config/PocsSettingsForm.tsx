@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import type {
-  PocArchiveSetting, PocScanSetting, PocsSetting, PocTargetSetting, SettingValue, StudioEntity,
+  PocArchiveSetting, PocScanSetting, PocsSetting, PocTargetSetting, PocVariablesSetting, SettingValue, StudioEntity,
 } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
 import { CheckField, DrawerSection, NumberField, RefSelect, TextField, keep } from "./formFields";
 import { newPocRegistry, PocRegistryFields } from "./PocRegistryFields";
 import { POC_BUILD_DEFAULTS, PocBuildFields } from "./PocBuildFields";
+import { newPocSecrets, PocSecretsFields } from "./PocSecretsFields";
 
 // 2026-11-23-933da: the PoCs settings (agentsmith.yml pocs:) — the switch first, then the agent and tracker every
 // person's poc- project names, then the targets. Every field stays editable while the switch is off, so a target can
@@ -32,24 +33,30 @@ export const POC_ARCHIVE_DEFAULTS: PocArchiveSetting = {
   maxDockerfileKb: 64, mismatchRatioPercent: 50, mismatchFileLimit: 100,
 };
 
-/** 2026-11-23-933dc: the server's scan defaults (PocScanConfig). The image has none: it is required while PoCs are on,
- *  pinned by digest. Like archive, scan and blockedRetentionDays are always sent back. */
+/** 2026-11-23-933dc: the server's scan defaults (PocScanConfig). Like archive, scan and blockedRetentionDays are always
+ *  sent back. 2026-11-23-933dg: an empty image means the server's pinned default; an operator sets one only for a mirror. */
 export const POC_SCAN_DEFAULTS: PocScanSetting = {
   osvImage: "", timeoutSeconds: 300, unfixedCriticalBlock: true, secretMinConfidence: 8, trivyImage: "",
 };
 
 export const POC_BLOCKED_RETENTION_DAYS_DEFAULT = 7;
 
-export const OSV_IMAGE_PLACEHOLDER = "ghcr.io/google/osv-scanner@sha256:…";
+/** 2026-11-23-933dg: the server's default images, shown as placeholders. */
+export const OSV_IMAGE_PLACEHOLDER =
+  "ghcr.io/google/osv-scanner:v2.2.4@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4";
 
-export const TRIVY_IMAGE_PLACEHOLDER = "aquasec/trivy@sha256:…";
+export const TRIVY_IMAGE_PLACEHOLDER =
+  "aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb";
+
+/** 2026-11-23-933dg: the server's variables bounds (PocVariablesConfig); like archive, always sent back. */
+export const POC_VARIABLES_DEFAULTS: PocVariablesSetting = { maxNames: 64, maxValueKb: 4 };
 
 /** A new target carries the server's defaults; the address has none, only a placeholder. */
 export function newPocTarget(): PocTargetSetting {
   return {
     name: "", sourceRepo: "", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
     domainPattern: null, lifetimeDays: 90, reminderDays: [14, 7, 1], perPersonLimit: 3, registry: newPocRegistry(),
-    build: { ...POC_BUILD_DEFAULTS },
+    build: { ...POC_BUILD_DEFAULTS }, secrets: newPocSecrets(),
   };
 }
 
@@ -60,8 +67,11 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
   const archive = value.archive ?? POC_ARCHIVE_DEFAULTS;
   const scan = value.scan ?? POC_SCAN_DEFAULTS;
   const blockedRetentionDays = value.blockedRetentionDays ?? POC_BLOCKED_RETENTION_DAYS_DEFAULT;
-  const set = (patch: Partial<PocsSetting>) => onChange({ ...value, archive, scan, blockedRetentionDays, ...patch });
-  const targets = value.targets ?? [];
+  const variables = value.variables ?? POC_VARIABLES_DEFAULTS;
+  // 2026-11-23-933dg: a target read without a secrets block is given the defaults and sends them back.
+  const targets = (value.targets ?? []).map((target) => (target.secrets ? target : { ...target, secrets: newPocSecrets() }));
+  const set = (patch: Partial<PocsSetting>) =>
+    onChange({ ...value, archive, scan, blockedRetentionDays, variables, targets, ...patch });
   const setAt = (i: number, patch: Partial<PocTargetSetting>) =>
     set({ targets: targets.map((target, j) => (j === i ? { ...target, ...patch } : target)) });
   return (
@@ -97,6 +107,15 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
         <PocScanFields scan={scan} blockedRetentionDays={blockedRetentionDays}
           onScan={(patch) => set({ scan: { ...scan, ...patch } })}
           onRetention={(days) => set({ blockedRetentionDays: days })} />
+      </DrawerSection>
+      <DrawerSection title={t("config.pocs.variables.title")} testId="setting-pocs-variables">
+        <span className="help">{t("config.pocs.variables.help")}</span>
+        <NumberField label={t("config.pocs.variables.maxNames")} value={variables.maxNames} testId="setting-pocs-variables-maxNames"
+          help={t("config.pocs.variables.maxNames.help")}
+          onChange={(v) => set({ variables: { ...variables, maxNames: keep(v, variables.maxNames) } })} />
+        <NumberField label={t("config.pocs.variables.maxValueKb")} value={variables.maxValueKb} testId="setting-pocs-variables-maxValueKb"
+          help={t("config.pocs.variables.maxValueKb.help")}
+          onChange={(v) => set({ variables: { ...variables, maxValueKb: keep(v, variables.maxValueKb) } })} />
       </DrawerSection>
     </>
   );
@@ -183,6 +202,7 @@ function PocTargetFields({ target, index, catalog, enabled, onChange }: {
       <PocRegistryFields registry={target.registry} secrets={catalog.secrets} testId={`${id}-registry`}
         onChange={(registry) => onChange({ registry })} />
       <PocBuildFields target={target} enabled={enabled} testId={`${id}-build`} onChange={(build) => onChange({ build })} />
+      <PocSecretsFields secrets={target.secrets} testId={`${id}-secrets`} onChange={(secrets) => onChange({ secrets })} />
     </>
   );
 }

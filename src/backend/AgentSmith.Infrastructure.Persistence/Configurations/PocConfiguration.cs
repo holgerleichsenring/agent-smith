@@ -15,6 +15,9 @@ public sealed class PocConfiguration : IEntityTypeConfiguration<Poc>
     /// <summary>'sha256:' plus 64 hex digits.</summary>
     public const int ImageDigestLength = 71; // not a limit: the fixed width of a sha256 digest reference
 
+    /// <summary>2026-11-23-933dg: 'hmac-sha256:' plus 64 hex digits.</summary>
+    public const int SealFingerprintLength = 76; // not a limit: the fixed width of the seal fingerprint
+
     public void Configure(EntityTypeBuilder<Poc> builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -30,6 +33,7 @@ public sealed class PocConfiguration : IEntityTypeConfiguration<Poc>
         builder.Property(p => p.State).HasMaxLength(32);
         builder.Property(p => p.ImageDigest).HasMaxLength(ImageDigestLength);
         builder.Property(p => p.LastRunId).HasMaxLength(PersistenceLimits.IndexedString);
+        builder.Property(p => p.SealFingerprint).HasMaxLength(SealFingerprintLength);
         builder.HasIndex(p => new { p.Target, p.LiveName }).IsUnique();
         builder.HasIndex(p => p.Project);
     }

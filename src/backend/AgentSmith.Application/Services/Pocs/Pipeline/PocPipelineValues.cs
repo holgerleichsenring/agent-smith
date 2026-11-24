@@ -13,7 +13,7 @@ public sealed record PocPipelineValues(
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(scan);
         var registry = target.Registry ?? new PocRegistryConfig();
-        return new PocPipelineValues(target.Root, target.TemplatePath, scan.TrivyImage, registry.LoginServer,
+        return new PocPipelineValues(target.Root, target.TemplatePath, scan.TrivyImageInUse(), registry.LoginServer,
             $"{registry.LoginServer}/{registry.Repository}", target.Build);
     }
 }

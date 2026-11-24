@@ -27,13 +27,17 @@ internal sealed class PocImportClient(PocImportFixture fixture)
     public Task<HttpResponseMessage> StartAsync(string group, string uploadId, object body) =>
         SendAsync(group, HttpMethod.Post, $"/api/pocs/uploads/{uploadId}/import", JsonContent.Create(body));
 
+    /// <summary>2026-11-23-933dg: any JSON call as that group's person (the variables routes).</summary>
+    public Task<HttpResponseMessage> CallAsync(string group, HttpMethod method, string path, object? body = null) =>
+        SendAsync(group, method, path, body is null ? null : JsonContent.Create(body));
+
     public async Task<T> ReadAsync<T>(Func<AgentSmithDbContext, Task<T>> read)
     {
         await using var scope = fixture.Server.Services.CreateAsyncScope();
         return await read(scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>());
     }
 
-    private Task<HttpResponseMessage> SendAsync(string group, HttpMethod method, string path, HttpContent content)
+    private Task<HttpResponseMessage> SendAsync(string group, HttpMethod method, string path, HttpContent? content)
     {
         var request = new HttpRequestMessage(method, path) { Content = content };
         request.Headers.Authorization = new AuthenticationHeaderValue(

@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError } from "../apiResponse";
-import { fetchPocs, getPocRevision, importPocUpload, installPocTarget, overrulePocRevision, uploadPocZip } from "../pocsApi";
+import {
+  fetchPocs, getPocRevision, getPocVariables, importPocUpload, installPocTarget, overrulePocRevision, putPocVariables,
+  uploadPocZip,
+} from "../pocsApi";
 
 // 2026-11-23-933da: GET /api/pocs is the feature switch too — 200 is the list, 404 off, 403 not permitted.
 
@@ -193,5 +196,52 @@ describe("installPocTarget", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toMatch(/\/api\/pocs\/targets\/main\/install$/);
     expect(init.method).toBe("POST");
+  });
+});
+
+// 2026-11-23-933dg: Start carries the variables; GET lists a PoC's variables (no secret value), PUT sets and deletes them
+// and answers the run's line; refusals are plain sentences, carried whole.
+describe("PoC variables", () => {
+  it("importPocUpload_SendsTheVariablesInTheBody", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(answer(201, { pocId: 4, revision: 1, runId: "r-8" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const variables = [{ name: "API_KEY", secret: true, value: "s3cr3t-value" }, { name: "MODE", secret: false, value: "demo" }];
+
+    await importPocUpload("u-1", { choice: "new", target: "main", name: "rota", variables });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({ choice: "new", target: "main", name: "rota", variables });
+  });
+
+  it("getPocVariables_ReadsTheList", async () => {
+    const list = { variables: [
+      { name: "API_KEY", kind: "secret", setBy: "dev-one", setAt: "2026-11-24T08:00:00Z", value: null },
+      { name: "MODE", kind: "plain", setBy: "dev-one", setAt: "2026-11-24T08:00:00Z", value: "demo" },
+    ] };
+    const fetchMock = vi.fn().mockResolvedValue(answer(200, list));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getPocVariables(4)).resolves.toEqual(list);
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/api\/pocs\/4\/variables$/);
+  });
+
+  it("putPocVariables_PutsSetAndDelete_AndReadsTheLine", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(answer(200, { runId: "r-9", line: "1 set, 1 deleted" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const body = { set: [{ name: "MODE", secret: false, value: "live" }], delete: ["OLD_KEY"] };
+
+    await expect(putPocVariables(4, body)).resolves.toEqual({ runId: "r-9", line: "1 set, 1 deleted" });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/pocs\/4\/variables$/);
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual(body);
+  });
+
+  it("putPocVariables_409_ThrowsTheSentenceWhole", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(plain(409, "run r-3 of doc-search is still running")));
+
+    const thrown = await putPocVariables(4, { set: [], delete: ["A"] }).catch((err: unknown) => err) as ApiResponseError;
+
+    expect([thrown.status, thrown.reason]).toEqual([409, "run r-3 of doc-search is still running"]);
   });
 });

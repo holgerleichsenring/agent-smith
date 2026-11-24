@@ -41,7 +41,6 @@ public class PocsAuthorityFixture : AuthorityFixture
                 Registry = PocsConfigTests.SoundRegistry(),
             },
         ],
-        Scan = new PocScanConfig { OsvImage = PocsConfigTests.PinnedOsvImage, TrivyImage = PocsConfigTests.PinnedTrivyImage },
     };
 
     protected virtual bool Enforce => true;

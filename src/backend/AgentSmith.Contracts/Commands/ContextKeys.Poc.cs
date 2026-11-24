@@ -30,4 +30,13 @@ public static partial class ContextKeys
 
     /// <summary>2026-11-23-933dd: the PoC target a poc-target-install run writes the build pipeline for.</summary>
     public const string PocTargetName = "PocTargetName";
+
+    /// <summary>2026-11-23-933dg: the poc-variables run's seed (PocVariableWrite) — in memory only, never checkpointed.</summary>
+    public const string PocVariableWrite = "PocVariableWrite";
+
+    /// <summary>2026-11-23-933dg: the slot the poc-variables step fills with its line, for the route that started it.</summary>
+    public const string PocVariableReport = "PocVariableReport";
+
+    /// <summary>2026-11-23-933dg: what SealPocVariables sealed (PocSealResult) — what the GitOps commit writes.</summary>
+    public const string PocSeal = "PocSeal";
 }

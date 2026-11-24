@@ -14,5 +14,12 @@ public static partial class PipelinePresets
         CommandNames.PocCodeScan, // 2026-11-23-933dc: secrets and dependencies, before anything reaches git
         CommandNames.PocSourceCommit,
         CommandNames.PocPipelineBuild, // 2026-11-23-933dd: the host's pipeline builds, scans and pushes the image
+        CommandNames.SealPocVariables, // 2026-11-23-933dg: the secret variables and the pull secret, sealed for the commit
     ];
+
+    /// <summary>2026-11-23-933dg: the run that writes a PoC's variables for its owner, in the PoC's poc- project, started
+    /// only through IActRun by the variables route or the import — never queued, because a secret value is in its seed.</summary>
+    public const string PocVariablesName = "poc-variables";
+
+    public static readonly IReadOnlyList<string> PocVariables = [CommandNames.WritePocVariables];
 }

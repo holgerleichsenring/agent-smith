@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using AgentSmith.Infrastructure.Persistence.Services.Secrets;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -58,11 +61,20 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
         return repo;
     }
 
-    /// <summary>The PoC fixture with poc-src pointing at the bare origin.</summary>
+    /// <summary>2026-11-23-933dg: the Sealed Secrets controller key this harness's target seals to — the test may open
+    /// what the run sealed with it.</summary>
+    internal RSA SealingKey { get; } = RSA.Create(2048);
+
+    /// <summary>2026-11-23-933dg: the pull token the fixture resolves, so the sealed pull secret carries it.</summary>
+    internal const string PullToken = "harness-pull-token-933dg";
+
+    /// <summary>The PoC fixture with poc-src pointing at the bare origin; 2026-11-23-933dg: the target carries the
+    /// controller certificate, so poc-deploy seals poc-pull with <see cref="PullToken"/>.</summary>
     internal string Fixture()
     {
         var text = File.ReadAllText(FixturePaths.For(FixturePaths.Pocs))
-            .Replace("url: https://stub.test/poc-src", $"url: {Origin}\n    default_branch: main", StringComparison.Ordinal);
+            .Replace("url: https://stub.test/poc-src", $"url: {Origin}\n    default_branch: main", StringComparison.Ordinal)
+            .Replace("        pull_auth: poc_pull_token\n", "        pull_auth: poc_pull_token\n" + Certificate(), StringComparison.Ordinal);
         var path = FixturePaths.For($".poc-repo-{Guid.NewGuid():N}.yml");
         File.WriteAllText(path, text);
         return path;
@@ -80,6 +92,21 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
         services.RemoveAll<ISkillsCatalogPath>().AddSingleton<ISkillsCatalogPath>(
             Mock.Of<ISkillsCatalogPath>(c => c.Root == Path.Combine(_root, "catalog") && c.Origin == "test"));
         Build.Override(services);
+        services.RemoveAll<MasterKeyRing>().AddSingleton(new MasterKeyRing(name => name == MasterKeyRing.Variable ? MasterKey : null));
+        var credentials = services.Last(d => d.ServiceType == typeof(ICredentialResolver));
+        services.RemoveAll<ICredentialResolver>().AddSingleton<ICredentialResolver>(sp =>
+            new PullTokenCredentials((ICredentialResolver)(credentials.ImplementationInstance
+                ?? credentials.ImplementationFactory?.Invoke(sp) ?? ActivatorUtilities.CreateInstance(sp, credentials.ImplementationType!))));
+    }
+
+    private static readonly string MasterKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+    private string Certificate()
+    {
+        var request = new CertificateRequest("CN=sealed-secret", SealingKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var cert = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
+        var pem = string.Concat(cert.ExportCertificatePem().Split('\n').Select(line => $"          {line.TrimEnd('\r')}\n"));
+        return "      secrets:\n        sealed_secrets_cert: |\n" + pem;
     }
 
     /// <summary>git's output in <see cref="Origin"/>.</summary>
@@ -96,6 +123,7 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        SealingKey.Dispose();
         try { Directory.Delete(_root, recursive: true); }
         catch (IOException) { }
         return ValueTask.CompletedTask;
@@ -110,5 +138,19 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
             Directory.CreateDirectory(dir);
             return Task.FromResult<ISandbox>(new InProcessSandbox("poc", dir, ownsWorkDir: true, InProcessStepEnvironment.Inherit, NullLogger.Instance));
         }
+    }
+
+    /// <summary>2026-11-23-933dg: the pull token the target's pull_auth names, without an environment variable to set.</summary>
+    private sealed class PullTokenCredentials(ICredentialResolver inner) : ICredentialResolver
+    {
+        public string For(Contracts.Models.Configuration.RepoConnection repo) => inner.For(repo);
+
+        public string For(Contracts.Models.Configuration.ResolvedConnection connection) => inner.For(connection);
+
+        public string For(Contracts.Models.Configuration.TrackerConnection tracker) => inner.For(tracker);
+
+        public string? Named(string name) => inner.Named(name);
+
+        public CredentialLookup Lookup(string name) => name == "poc_pull_token" ? CredentialLookup.Of(PullToken) : inner.Lookup(name);
     }
 }

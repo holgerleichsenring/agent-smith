@@ -17,6 +17,13 @@ public static class PocHandlersExtensions
     {
         services.TryAddSingleton<IPocProjects, NoPocProjects>();
         services.TryAddSingleton<IPocIntakeStore, NoPocIntakeStore>();
+        services.TryAddSingleton<IPocMaskValues, NoPocMaskValues>(); // 2026-11-23-933dg
+        services.TryAddSingleton<IPocVariableValues, NoPocVariableValues>();
+        services.TryAddSingleton<IPocVariableStore, Pocs.Variables.NoPocVariableStore>();
+        services.TryAddSingleton<IPocSealFingerprint, Pocs.Sealing.NoPocSealFingerprint>();
+        services.AddSingleton<PocRunMasking>().AddSingleton<Pocs.Variables.PocVariableRules>()
+            .AddTransient<Pocs.Sealing.PocSealPlanner>().AddTransient<Pocs.Sealing.PocSealer>()
+            .AddTransient<ICommandHandler<SealPocVariablesContext>, SealPocVariablesHandler>();
         return services.AddSingleton<PocProjectPresetGuard>().AddTransient<PocArchiveLimitsSource>()
             .AddTransient<PocImportedPublisher>()
             .AddTransient<ICommandHandler<PocIntakeContext>, PocIntakeHandler>()

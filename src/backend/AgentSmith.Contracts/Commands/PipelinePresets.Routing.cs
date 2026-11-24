@@ -53,6 +53,7 @@ public static partial class PipelinePresets
         [SeriesVerifyName] = "it checks a series whose tickets all landed, and the series' beat starts it", // 0207d
         [DeployName] = "it delivers a version to an environment a person chose, and the server starts it", // 2026-11-18-3863c
         [PocDeployName] = "it takes in a PoC archive a person uploaded, and the server starts it at the import", // 2026-11-23-933db
+        [PocVariablesName] = "it writes a PoC's variables a person entered, and the server starts it in memory", // 933dg
         [BranchCleanupName] = "it sweeps a project's repositories, not a ticket, and the server starts it every "
             + "branch_cleanup.interval_seconds", // 2026-11-17-713ec
     };

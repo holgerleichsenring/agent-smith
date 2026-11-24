@@ -10,5 +10,9 @@ internal static class PocUploadExtensions
             .AddScoped<PocProjectProvisioner>().AddScoped<PocRunGate>().AddScoped<PocImportChoice>().AddScoped<PocImportLauncher>()
             .AddSingleton<PocPrefixFindings>().AddSingleton<PocSandboxFinding>()
             .AddSingleton<Revisions.PocOverruleRule>().AddScoped<Revisions.PocRevisionReader>().AddScoped<Revisions.PocOverruleLauncher>()
-            .AddScoped<Targets.PocTargetInstallLauncher>(); // 2026-11-23-933dd
+            .AddScoped<Targets.PocTargetInstallLauncher>() // 2026-11-23-933dd
+            .AddScoped<Variables.PocVariableLauncher>().AddScoped<Variables.PocVariableReader>() // 2026-11-23-933dg
+            .AddSingleton<Targets.SealingCertificateFetch>().AddSingleton<PocSealKeyFindings>()
+            .AddHttpClient(Targets.SealingCertificateFetch.ClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false }).Services;
 }

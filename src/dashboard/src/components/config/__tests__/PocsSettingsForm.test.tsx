@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ApiResponseError } from "@/lib/apiResponse";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PocsSetting, SettingValue, StudioEntity } from "@/lib/configApi";
 import * as configApi from "@/lib/configApi";
 import * as pocsApi from "@/lib/pocsApi";
-import { POC_ARCHIVE_DEFAULTS, POC_SCAN_DEFAULTS, PocsSettingsForm, type PocsCatalog } from "../PocsSettingsForm";
+import {
+  POC_ARCHIVE_DEFAULTS, POC_SCAN_DEFAULTS, POC_VARIABLES_DEFAULTS, PocsSettingsForm, type PocsCatalog,
+} from "../PocsSettingsForm";
 import { POC_BUILD_DEFAULTS } from "../PocBuildFields";
+import { newPocSecrets } from "../PocSecretsFields";
 
 // 2026-11-23-933da: the PoCs settings form edits the switch, the poc- projects' agent and tracker, and the targets,
 // and what it hands back is the wire shape the settings route saves.
@@ -17,7 +21,7 @@ const CATALOG: PocsCatalog = {
 };
 const OFF: PocsSetting = {
   enabled: false, projectAgent: null, projectTracker: null, targets: [], archive: POC_ARCHIVE_DEFAULTS,
-  scan: POC_SCAN_DEFAULTS, blockedRetentionDays: 7,
+  scan: POC_SCAN_DEFAULTS, blockedRetentionDays: 7, variables: POC_VARIABLES_DEFAULTS,
 };
 
 function Harness({ seen, start = OFF }: { seen: SettingValue[]; start?: PocsSetting }) {
@@ -59,10 +63,12 @@ describe("PocsSettingsForm", () => {
           type: "acr", loginServer: "", repository: "pocs", pullUser: "", pullAuth: "", pullMode: "pull_secret",
         },
         build: POC_BUILD_DEFAULTS,
+        secrets: { provider: "sealed_secrets", sealedSecretsCert: null, sealedSecretsCertUrl: null },
       }],
       archive: POC_ARCHIVE_DEFAULTS,
       scan: POC_SCAN_DEFAULTS,
       blockedRetentionDays: 7,
+      variables: { maxNames: 64, maxValueKb: 4 },
     });
   });
 
@@ -216,5 +222,92 @@ describe("PocsSettingsForm", () => {
 
     expect(install).toHaveBeenCalledWith("main");
     expect(await screen.findByText("The build pipeline of target 'main' is commit abc123.")).toBeInTheDocument();
+  });
+
+  // 2026-11-23-933dg: the variables bounds and each target's secrets block are always sent back; a value read without
+  // them gets the defaults. The image fields show the server's pinned defaults as placeholders.
+  it("PocsSettingsForm_Variables_EditAndRoundTrip_AndALegacyValueSendsTheDefaultsBack", () => {
+    const seen: SettingValue[] = [];
+    const target = { name: "main", sourceRepo: "poc-source", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
+      domainPattern: null, lifetimeDays: 90, reminderDays: [14, 7, 1], perPersonLimit: 3, registry: null };
+    const legacy = {
+      enabled: false, projectAgent: null, projectTracker: null, targets: [target], archive: POC_ARCHIVE_DEFAULTS,
+      scan: POC_SCAN_DEFAULTS, blockedRetentionDays: 7,
+    } as unknown as PocsSetting;
+    render(<Harness seen={seen} start={legacy} />);
+
+    fireEvent.click(screen.getByTestId("setting-pocs-enabled"));
+    let saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.variables).toEqual({ maxNames: 64, maxValueKb: 4 });
+    expect(saved.targets[0].secrets).toEqual(newPocSecrets());
+
+    fireEvent.click(screen.getByTestId("setting-pocs-variables-toggle"));
+    expect(screen.getByTestId("setting-pocs-variables-maxNames")).toHaveValue(64);
+    fireEvent.change(screen.getByTestId("setting-pocs-variables-maxNames"), { target: { value: "32" } });
+    fireEvent.change(screen.getByTestId("setting-pocs-variables-maxValueKb"), { target: { value: "8" } });
+    saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.variables).toEqual({ maxNames: 32, maxValueKb: 8 });
+    expect(screen.getByTestId("setting-pocs-variables")).toHaveTextContent("a Kubernetes Secret or ConfigMap holds at most 1 MiB");
+  });
+
+  it("PocsSettingsForm_ScanImages_ShowTheServerDefaultsAsPlaceholders", () => {
+    render(<Harness seen={[]} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-scan-toggle"));
+
+    expect(screen.getByTestId("setting-pocs-scan-osvImage")).toHaveAttribute("placeholder",
+      "ghcr.io/google/osv-scanner:v2.2.4@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4");
+    expect(screen.getByTestId("setting-pocs-scan-trivyImage")).toHaveAttribute("placeholder",
+      "aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb");
+    expect(screen.getByTestId("setting-pocs-scan-osvImage")).toHaveValue("");
+  });
+
+  it("PocsSettingsForm_Certificate_ShowsFingerprintExpiryAndAge_FromTheInspectAnswer", async () => {
+    const issued = new Date(Date.now() - 12 * 24 * 60 * 60 * 1000 - 60_000).toISOString();
+    const inspect = vi.spyOn(configApi, "fetchSealedSecretsCert").mockResolvedValue({
+      pem: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----", fingerprint: "ab:cd:ef",
+      notBefore: issued, notAfter: "2036-11-20T00:00:00Z",
+    });
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-target-add"));
+    const id = "setting-pocs-target-0-secrets";
+    fireEvent.click(screen.getByTestId(`${id}-toggle`));
+    expect(screen.getByTestId(`${id}-provider`)).toHaveValue("sealed_secrets");
+
+    const pem = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----";
+    fireEvent.change(screen.getByTestId(`${id}-cert`), { target: { value: pem } });
+
+    expect(await screen.findByTestId(`${id}-fingerprint`)).toHaveTextContent("ab:cd:ef");
+    expect(inspect).toHaveBeenCalledWith({ pem }, expect.anything());
+    expect(screen.getByTestId(`${id}-not-after`)).toHaveTextContent("Valid until 2036-11-20");
+    expect(screen.getByTestId(`${id}-age`)).toHaveTextContent("Issued 12 days ago");
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.targets[0].secrets).toEqual({ provider: "sealed_secrets", sealedSecretsCert: pem, sealedSecretsCertUrl: null });
+  });
+
+  it("PocsSettingsForm_CertificateFetch_PutsThePemInTheField_AndARefusalIsShownAsSaid", async () => {
+    const pem = "-----BEGIN CERTIFICATE-----\nMIIC\n-----END CERTIFICATE-----";
+    const fetchCert = vi.spyOn(configApi, "fetchSealedSecretsCert")
+      .mockRejectedValueOnce(new ApiResponseError("/api/config/pocs/sealed-secrets-cert/fetch", 502, "HTTP 502",
+        "https://certs.example.internal/v1/cert.pem did not answer within 10 seconds."))
+      .mockResolvedValue({ pem, fingerprint: "12:34", notBefore: "2026-01-01T00:00:00Z", notAfter: "2026-02-01T00:00:00Z" });
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-target-add"));
+    const id = "setting-pocs-target-0-secrets";
+    fireEvent.click(screen.getByTestId(`${id}-toggle`));
+    expect(screen.getByTestId(`${id}-fetch`)).toBeDisabled();
+
+    const url = "https://certs.example.internal/v1/cert.pem";
+    fireEvent.change(screen.getByTestId(`${id}-cert-url`), { target: { value: url } });
+    fireEvent.click(screen.getByTestId(`${id}-fetch`));
+    expect(await screen.findByTestId(`${id}-fetch-error`)).toHaveTextContent("did not answer within 10 seconds.");
+
+    fireEvent.click(screen.getByTestId(`${id}-fetch`));
+    await waitFor(() => expect(screen.getByTestId(`${id}-cert`)).toHaveValue(pem));
+    expect(fetchCert).toHaveBeenCalledWith({ url });
+    expect(screen.getByTestId(`${id}-not-after`)).toHaveTextContent("Expired on 2026-02-01");
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.targets[0].secrets).toEqual({ provider: "sealed_secrets", sealedSecretsCert: pem, sealedSecretsCertUrl: url });
   });
 });

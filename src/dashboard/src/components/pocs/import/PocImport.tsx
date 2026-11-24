@@ -8,7 +8,7 @@ import { ApiResponseError } from "@/lib/apiResponse";
 import type { T } from "@/lib/i18n/translate";
 import {
   importPocUpload, uploadPocZip,
-  type PocImportBody, type PocImportChoice, type PocImported, type PocTarget, type PocUpload,
+  type PocImportBody, type PocImportChoice, type PocImported, type PocTarget, type PocUpload, type PocVariableInput,
 } from "@/lib/pocsApi";
 import { runPath } from "@/lib/runPath";
 import { pocsUnavailable } from "../PocsHome";
@@ -18,6 +18,7 @@ import { DropZone } from "./DropZone";
 import { ImportChecks } from "./ImportChecks";
 import { MismatchAlert } from "./MismatchAlert";
 import { NameField } from "./NameField";
+import { PocVariablesTable, variablesToSend, withoutSecretValues } from "./PocVariablesTable";
 import "@/styles/pocs.css";
 
 // 2026-11-23-933db: /pocs/import — drop one ZIP, read what the server checked, say which app it is, and start the run
@@ -57,6 +58,7 @@ export function PocImportFlow({ targets }: { targets: PocTarget[] }) {
   const [name, setName] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [variables, setVariables] = useState<PocVariableInput[]>([]);
   const [started, setStarted] = useState<{ imported: PocImported; name: string } | null>(null);
 
   const reset = () => {
@@ -104,6 +106,8 @@ export function PocImportFlow({ targets }: { targets: PocTarget[] }) {
     const body: PocImportBody = choice === "replace" && match
       ? { choice: "replace", pocId: match.pocId, ...(confirmed ? { confirmed: true } : {}) }
       : { choice: "new", target: upload.target, name: name.trim() };
+    const sent = variablesToSend(variables);
+    if (sent.length > 0) body.variables = sent;
     setBusy(true);
     setRefusal(null);
     try {
@@ -114,6 +118,8 @@ export function PocImportFlow({ targets }: { targets: PocTarget[] }) {
       // A purged or foreign upload cannot be imported any more; the ZIP goes up again.
       if (err instanceof ApiResponseError && (err.status === 404 || err.status === 410)) setUpload(null);
     } finally {
+      // 2026-11-23-933dg: a secret never stays in the form, whether Start was taken or refused.
+      setVariables(withoutSecretValues);
       setBusy(false);
     }
   };
@@ -136,6 +142,7 @@ export function PocImportFlow({ targets }: { targets: PocTarget[] }) {
         {upload && match && choice === "replace" && confirmed && (
           <div className="poc-meta" data-testid="poc-import-confirmed">{t("pocs.import.mismatch.confirmed", { name: match.pocName })}</div>
         )}
+        {upload && <PocVariablesTable rows={variables} onChange={setVariables} disabled={busy} />}
       </div>
       <div className="poc-col-side">
         {upload && <ImportChecks upload={upload} />}
