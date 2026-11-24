@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Holds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
@@ -8,6 +9,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Services.Branches;
+using AgentSmith.Server.Services.Tickets.Holds;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +67,28 @@ public sealed class ConflictBaseRefreshTests : IDisposable
             It.IsAny<CancellationToken>()), Times.Once);
         var said = await Said().RefreshesAsync([Pr1], CancellationToken.None);
         said[Pr1].InFlight.Should().BeTrue("the hold reads refreshing, not pr_conflict, from the first read on");
+    }
+
+    [Fact]
+    public async Task TheRefreshIsQueuedBeforeTheConflictIsWritten_AndTheHoldSaysRefreshingNotYourMove()
+    {
+        await _h.RunAsync("r1", Pr1);
+        State(true, "a");
+        bool? recordedAtTheLaunch = false;
+        _h.Queue.Setup(q => q.EnqueueAsync(It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()))
+            .Callback(() => recordedAtTheLaunch = _h.Records().SingleOrDefault()?.HasConflicts);
+
+        await _h.RefreshAsync();
+
+        recordedAtTheLaunch.Should().BeNull("no reader can see the conflict before its refresh is queued");
+        var views = await _h.Store.Services.CreateScope().ServiceProvider.GetRequiredService<PrReviewRecordRepository>()
+            .ByTicketAsync("p", "7", CancellationToken.None);
+        var open = TicketOpenPullRequestsReader.Of(views, await Said().RefreshesAsync([Pr1], CancellationToken.None));
+        var hold = new TicketHoldReader().Of(new TicketHoldFacts("p", "7")
+        {
+            HeadStatus = RunStatuses.Success, HeadRunId = "r1", Attempt = 1, EndedAt = T, OpenPullRequests = open,
+        })!;
+        (hold.Addressee, hold.Case).Should().Be((TicketHoldAddressees.Nobody, TicketHoldCases.Refreshing));
     }
 
     [Fact]

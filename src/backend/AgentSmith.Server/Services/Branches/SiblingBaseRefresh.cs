@@ -75,6 +75,11 @@ public sealed class SiblingBaseRefresh(
                 {
                     if (await host.ReadPullRequestBaseAsync(sibling.Url, CancellationToken.None) != moved) continue;
                     using var scope = scopes.CreateScope();
+                    // 2026-11-24-297b: asked again at the launch — the record read may have started one for a new conflict
+                    // while the host was read.
+                    if ((await scope.ServiceProvider.GetRequiredService<PullRequestMergeSaidReader>()
+                            .NewestRefreshesAsync([sibling.Url], CancellationToken.None)).GetValueOrDefault(sibling.Url) is { InFlight: true })
+                        continue;
                     await scope.ServiceProvider.GetRequiredService<BaseRefreshLauncher>()
                         .LaunchAsync(project, repo, RefreshedPullRequest.Of(sibling), moved, CancellationToken.None);
                 }

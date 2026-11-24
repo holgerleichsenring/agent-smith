@@ -42,3 +42,8 @@ decisions:
     chose: "Accept that the landing trigger and the record read may each launch a refresh for one conflict in the same instant"
     over: "A lock across the landing hook and the ticket lock"
     reason: "Both check for a refresh at work first; the window is the time between that read and the queued row. A second refresh pushes without force and is refused if the first pushed."
+  - category: Review
+    decider: claude
+    chose: "Diff review fixes: the landing path asks again for a refresh at work right before each launch, after its host reads; tests prove the refresh is queued before the conflict is written, that the hold then reads refreshing (nobody), and that a landing without the setting launches the conflicting sibling's refresh"
+    over: "Checking for a refresh at work only when the siblings are chosen"
+    reason: "Fresh-reviewer finding: the record read could launch for a new conflict while the landing's background task read the host, giving two refreshes on one branch and a refusal from the second shadowing the first's success. Left as named: Due compares the run's StartedAt, which the executor rewrites from its own clock at promotion, with ConflictsAt from the server's clock; only an executor clock behind the server by more than the queue wait re-launches, and only once per read."

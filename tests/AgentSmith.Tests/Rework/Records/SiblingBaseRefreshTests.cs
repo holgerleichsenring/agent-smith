@@ -8,6 +8,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Services.Branches;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using static AgentSmith.Tests.Rework.Records.PrReviewRefreshHarness;
@@ -120,6 +121,28 @@ public sealed class SiblingBaseRefreshTests : IDisposable
         }
 
         (await Sut().SiblingsAsync(Refreshing, "7", CancellationToken.None)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ALandingWithoutTheSetting_LaunchesTheConflictingSiblingsRefresh()
+    {
+        await SeedAsync(Pr1, "7", PrReviewStates.Merged);
+        await SeedAsync(Pr2, "8", PrReviewStates.Open, conflicts: true);
+        var config = new Mock<IConfigurationLoader>();
+        config.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
+        {
+            Projects = new Dictionary<string, ResolvedProject> { ["p"] = Project },
+        });
+        _h.Provider.Setup(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync("main");
+        var launched = new TaskCompletionSource();
+        _h.Queue.Setup(q => q.EnqueueAsync(It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()))
+            .Callback(() => launched.TrySetResult());
+
+        await Sut(config.Object).LandedAsync(Landing(TicketLandingKinds.Merged), CancellationToken.None);
+
+        await launched.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await using var db = _h.Store.Context();
+        db.Set<RunRepo>().AsNoTracking().Select(r => r.PrUrl).Should().Equal(Pr2);
     }
 
     private static TicketLandingFact Landing(string kind) =>
