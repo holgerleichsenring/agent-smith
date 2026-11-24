@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.211.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.210.1...v0.211.0) (2026-11-24)
+
+
+### Features
+
+* **refresh-base:** a pushed refresh resolves its earlier refusal threads and queues the required builds that did not start (2026-11-24-5ee0) ([86faec2](https://github.com/holgerleichsenring/agent-smith/commit/86faec20e0ee976152822822401cb00d8272e539))
+* **refresh-base:** a pushed refresh resolves its earlier refusal threads and queues the required builds that did not start (2026-11-24-5ee0) ([8a05acc](https://github.com/holgerleichsenring/agent-smith/commit/8a05acc805082c8eba3927bc140c5f45c8542c9f))
+
 ## [0.210.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.210.0...v0.210.1) (2026-11-24)
 
 
