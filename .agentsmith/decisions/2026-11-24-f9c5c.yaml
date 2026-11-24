@@ -32,3 +32,8 @@ decisions:
     chose: "A head on a series branch with no CI reported is not green for the CI merge"
     over: "Merging it after merge.ci_settle_seconds as for the default branch"
     reason: "Hosts often run required builds only for protected branches; 'nothing reported' on a series branch is not 'no CI configured'. f9c5d starts the CI or says why it cannot."
+  - category: Implementation
+    decider: claude
+    chose: "Post-build review fix: the CI merge waits while any awaited record's target is not read yet"
+    over: "Falling back to merge.when for an unknown target"
+    reason: "Review finding 10: the fallback started a merge the base guard refused and marked the head acted, so the pull request stayed unmerged until its head moved."

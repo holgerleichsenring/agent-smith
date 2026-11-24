@@ -42,3 +42,18 @@ decisions:
     chose: "The final pull request merges in the project's protection mode (merge.respect_branch_protection)"
     over: "Always respecting branch protection for it"
     reason: "The brief says it follows merge.when and the host's policies, and merge.respect_branch_protection is how a project already says whether its merges respect them; a single-ticket pull request into the default branch merges the same way. Recorded as an operator question in the series report (review Q2)."
+  - category: Implementation
+    decider: claude
+    chose: "Post-build review fixes: a series with no repo to deliver is never done; a merged final pull request counts only at the branch tip (a follow-up landed after it is delivered again); a different open pull request replaces the known one; each repo's step catches its host's failure and says it, and LastDeliveredAt is always written; an armed merge is not asked again on the same head; a not-started required build is queued again once per head"
+    over: "The first build of the step"
+    reason: "Review findings 1, 3, 4, 5, 9, 13: a series could end with nothing delivered, a follow-up's work could stay off the default branch, a dead link could be merged forever, and one failing host made every beat fail and re-launch."
+  - category: Implementation
+    decider: claude
+    chose: "A merged ticket pull request whose target is not read yet holds the delivery for that beat, and the merged target read keeps the open-time target when the host answers nothing"
+    over: "Delivering from the repos known so far"
+    reason: "Review finding 1: an unknown target left the repo out, and an empty list ended the series."
+  - category: Scope
+    decider: claude
+    chose: "A stopped series no longer holds its outside dependents, and branch cleanup keeps series branches whatever their series' state"
+    over: "Holding outside dependents of a stopped series forever; deleting a done or stopped series' branch"
+    reason: "Review findings 7 and 11, accepted as they are: stopping is the operator's act and releases what waited for the series; a stopped series' branch is the only copy of its work and stays until a person removes it (a merge through the host deletes it)."

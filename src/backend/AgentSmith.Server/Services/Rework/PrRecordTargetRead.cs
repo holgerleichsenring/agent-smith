@@ -25,11 +25,14 @@ public sealed class PrRecordTargetRead(ILogger<PrRecordTargetRead> logger)
         }
         try
         {
-            record.TargetBranch = await source.ReadPullRequestBaseAsync(record.Url, ct);
+            // 2026-11-24-f9c5c: a read that answers nothing keeps what was read before — an open record's target is still the
+            // best word on where it merged.
+            record.TargetBranch = await source.ReadPullRequestBaseAsync(record.Url, ct) ?? stored?.TargetBranch;
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "The base of {Url} could not be read; it stays unknown until the next refresh", record.Url);
+            record.TargetBranch = stored?.TargetBranch;
+            logger.LogWarning(ex, "The base of {Url} could not be read; it stays as last read until the next refresh", record.Url);
         }
     }
 

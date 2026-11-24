@@ -30,6 +30,7 @@ public sealed class CiLoopTests : IDisposable
 
     public CiLoopTests()
     {
+        _h.Provider.Setup(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync("main"); // f9c5c
         _h.Provider.As<IPrReviewStateReader>().Setup(s => s.ReadAsync(PrReviewRefreshHarness.Pr1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new PrReviewState("1", _state, PrReviewRefreshHarness.T, [], _head));
         _h.Provider.As<IPullRequestCiReader>().Setup(c => c.ReadCiAsync(PrReviewRefreshHarness.Pr1, It.IsAny<CiReadRequest>(), It.IsAny<CancellationToken>()))

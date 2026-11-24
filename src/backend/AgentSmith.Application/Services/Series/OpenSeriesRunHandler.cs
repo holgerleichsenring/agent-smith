@@ -13,7 +13,8 @@ namespace AgentSmith.Application.Services.Series;
 /// filing: the tickets exist either way.
 /// <para>2026-11-24-f9c5b: the filing step already opened or joined the series before starting its tickets
 /// (<see cref="SeriesMembership"/>); this step reports the opened one, and a join here adds nothing new and keeps the
-/// follow-up's start on the verdict. A series it opens itself (no membership ran) gets its branch all the same.</para>
+/// follow-up's start on the verdict. A series it opens itself — the write before the starts failed or did not run — has its
+/// tickets started already against the default branch, so it opens without a series branch, as a series did before.</para>
 /// </summary>
 public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clock) : ICommandHandler<OpenSeriesRunContext>
 {
@@ -30,7 +31,7 @@ public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clo
             return CommandResult.Ok($"Opened series run {opened} over {tickets.Count} tickets.");
         if (tickets.Count < 2)
             return CommandResult.Ok($"{tickets.Count} ticket filed: a single ticket is worked in its own conversation, no series run opened.");
-        var id = await new SeriesMembership(store, clock).OpenAsync(request, context.Project.Name, tickets, cancellationToken);
+        var id = await new SeriesMembership(store, clock).OpenAsync(request, context.Project.Name, tickets, cancellationToken, withBranch: false);
         return CommandResult.Ok($"Opened series run {id} over {tickets.Count} tickets.");
     }
 

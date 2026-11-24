@@ -953,6 +953,10 @@ export const coreMessages = {
   "series.badge.ciRunning": { en: "CI running", de: "CI läuft" },
   "series.badge.ciRed": { en: "CI red", de: "CI rot" },
   "series.merge.whenGreen": { en: "Merge when CI is green", de: "Mergen, sobald die CI grün ist" },
+  "series.merge.whenGreenSeries": {
+    en: "It merges into the series branch by itself once its CI is green.",
+    de: "Er wird von selbst in den Serien-Branch gemergt, sobald seine CI grün ist.",
+  },
   "series.merge.whenGreenNeeds": {
     en: "Merging before CI is green arms the host's auto-complete, which needs merge.respect_branch_protection: true (Config → Project → Merge).",
     de: "Mergen vor grüner CI aktiviert das Auto-Complete des Hosts, und das braucht merge.respect_branch_protection: true (Config → Project → Merge).",

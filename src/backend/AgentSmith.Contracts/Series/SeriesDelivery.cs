@@ -15,4 +15,10 @@ public sealed record SeriesDelivery(string Repo, string Url, string Number)
     public string? NoCiHead { get; init; }
 
     public DateTimeOffset? NoCiSince { get; init; }
+
+    /// <summary>The head whose merge the host armed — the host completes it; nothing is asked again until the head moves.</summary>
+    public string? ArmedHead { get; init; }
+
+    /// <summary>The head whose not-started builds were queued again.</summary>
+    public string? RequeuedHead { get; init; }
 }

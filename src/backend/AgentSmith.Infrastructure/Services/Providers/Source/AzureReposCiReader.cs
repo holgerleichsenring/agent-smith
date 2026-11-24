@@ -14,7 +14,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposCiReader(
     Func<CancellationToken, Task<GitHttpClient>> git, AzureReposPolicyEvaluations policies,
     Func<CancellationToken, Task<BuildHttpClient>> builds, string project, string repoName, string orgUrl,
-    AzureReposPolicyConfigurations? configurations = null)
+    AzureReposPolicyConfigurations? configurations = null, Func<CancellationToken, Task<string>>? defaultBranch = null)
 {
     public async Task<PullRequestCi> ReadAsync(string prUrl, CiReadRequest request, CancellationToken ct)
     {
@@ -31,15 +31,16 @@ public sealed class AzureReposCiReader(
             .Concat(await AzureReposCiStatuses.ReadAsync(client, project, repoName, prId, ct)).ToList();
         if (configurations is not null && items.Count == 0 && AgentSmith.Contracts.Providers.WorkBranches.IsSeries(pr.TargetRefName))
             items.AddRange(await AzureReposSeriesBuilds.ReadAsync(AzureReposBuildPolicyScope.Validating(await configurations(projectId, ct),
-                pr.Repository.Id, $"refs/heads/{Main(pr)}"), buildClient, projectId, pr.SourceRefName, head, orgUrl, ct));
+                pr.Repository.Id, $"refs/heads/{await MainAsync(pr, ct)}"), buildClient, projectId, pr.SourceRefName, head, orgUrl, ct));
         var checks = items.Select(i => i.Check).ToList();
         var state = CiVerdict.Of(checks);
         return new PullRequestCi(state, head, CiVerdict.At(checks),
             state == CiStates.Red ? await FailuresAsync(items, checks, buildClient, projectId, request, ct) : []);
     }
 
-    private static string Main(GitPullRequest pr) =>
-        pr.Repository.DefaultBranch?.Replace("refs/heads/", string.Empty, StringComparison.Ordinal) ?? "main";
+    // The repository's default branch as the provider resolves it — a pull request's repository reference may leave it out.
+    private async Task<string> MainAsync(GitPullRequest pr, CancellationToken ct) => defaultBranch is not null ? await defaultBranch(ct)
+        : pr.Repository.DefaultBranch?.Replace("refs/heads/", string.Empty, StringComparison.Ordinal) ?? "main";
 
     private static async Task<IReadOnlyList<CiFailure>> FailuresAsync(IReadOnlyList<AzureReposCiItem> items, IReadOnlyList<CiCheck> checks,
         BuildHttpClient builds, Guid projectId, CiReadRequest request, CancellationToken ct)

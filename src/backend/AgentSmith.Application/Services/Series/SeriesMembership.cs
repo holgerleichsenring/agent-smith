@@ -28,15 +28,17 @@ public sealed class SeriesMembership(ISeriesRunStore store, TimeProvider clock)
         var joining = pipeline.TryGet<string>(ContextKeys.SeriesRunId, out var id) && !string.IsNullOrEmpty(id);
         var tickets = OpenSeriesRunHandler.Members(filed, joining, clock);
         if (joining) await store.UpdateAsync(id!, r => OpenSeriesRunHandler.Joined(r, tickets), ct);
-        else if (tickets.Count >= 2) pipeline.Set(ContextKeys.SeriesRunOpened, await OpenAsync(request, project, tickets, ct));
+        else if (tickets.Count >= 2) pipeline.Set(ContextKeys.SeriesRunOpened, await OpenAsync(request, project, tickets, ct, withBranch: true));
     }
 
-    /// <summary>Opens a series over the tickets with its branch; answers its id.</summary>
-    public async Task<string> OpenAsync(FilingRequest request, string project, IReadOnlyList<SeriesTicket> tickets, CancellationToken ct)
+    /// <summary>Opens a series over the tickets; answers its id. With <paramref name="withBranch"/> it integrates on its own
+    /// branch — only when no ticket of it started yet, since a started one already works against the default branch.</summary>
+    public async Task<string> OpenAsync(FilingRequest request, string project, IReadOnlyList<SeriesTicket> tickets, CancellationToken ct,
+        bool withBranch)
     {
         var id = SeriesRunIds.Mint();
         await store.OpenAsync(new SeriesRunRecord(id, request.Conversation, project, request.Principal, request.MayStartRuns,
-            SeriesRunStates.Running, tickets, clock.GetUtcNow()) { IntegrationBranch = TicketBranchNamer.Series(id).Value }, ct);
+            SeriesRunStates.Running, tickets, clock.GetUtcNow()) { IntegrationBranch = withBranch ? TicketBranchNamer.Series(id).Value : null }, ct);
         return id;
     }
 }

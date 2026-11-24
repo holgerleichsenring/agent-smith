@@ -37,12 +37,17 @@ public sealed class DeliverSeriesHandlerTests
     private PullRequestCi _ci = new(CiStates.Green, "h1", null, []);
     private DateTimeOffset _now = SeriesRecords.T;
 
+    private string? _tip;
+    private bool _throws;
+
     public DeliverSeriesHandlerTests()
     {
+        _host.As<IWorkBranchCleanup>().Setup(h => h.ListWorkBranchesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => _tip is null ? [] : [new WorkBranchTip(Branch, _tip)]);
         _host.As<IWorkBranchCleanup>().Setup(h => h.PullRequestsOfAsync(Branch, It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new BranchPullRequests([.. _from], 0));
         _host.Setup(h => h.FindOpenPullRequestAsync(It.Is<Repository>(r => r.CurrentBranch.Value == Branch), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => _open);
+            .ReturnsAsync(() => _throws ? throw new HttpRequestException("503") : _open);
         _host.Setup(h => h.CreatePullRequestAsync(It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(),
                 It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
             .Callback<Repository, string, string, CancellationToken, PullRequestTicket?, bool, BranchName?>((r, _, body, _, _, _, _) => _created.Add(body))
@@ -148,6 +153,48 @@ public sealed class DeliverSeriesHandlerTests
         (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().ContainSingle().Which.Should().Contain("closed without merging");
         _store.Records["sr-1"].State.Should().Be(SeriesRunStates.Delivering);
         _created.Should().ContainSingle("a closed one is never opened again by itself");
+    }
+
+    // Post-build review: a branch merged once and moved on (a follow-up landed) is delivered again; merged at its tip is done.
+    [Fact]
+    public async Task AMergedFinalPullRequest_CountsOnlyAtTheBranchTip()
+    {
+        _from.Add(new BranchPullRequest(BranchPullRequestState.Merged, "h1"));
+        _tip = "h2";
+        await BeatAsync(SeriesRunStates.Delivering);
+        _created.Should().ContainSingle("the follow-up's work is not on the default branch yet");
+
+        _tip = "h1";
+        await BeatAsync(SeriesRunStates.Delivering);
+        _store.Records["sr-1"].State.Should().Be(SeriesRunStates.Done);
+    }
+
+    [Fact]
+    public async Task ADifferentOpenPullRequest_ReplacesTheKnownOne_AndAFailingHostIsSaid()
+    {
+        _store.Records["sr-1"] = SeriesRecords.Running() with
+        {
+            IntegrationBranch = Branch, Deliveries = [new SeriesDelivery("api", "https://github.com/example/api/pull/80", "80")],
+        };
+        _open = Final;
+        _from.Add(new BranchPullRequest(BranchPullRequestState.Open, "h1"));
+        await BeatAsync(SeriesRunStates.Delivering);
+        _store.Records["sr-1"].Deliveries.Single().Url.Should().Be(Final);
+
+        _throws = true;
+        var beat = await BeatAsync(SeriesRunStates.Delivering);
+        beat.Said.Should().ContainSingle().Which.Should().Contain("could not be read or opened: 503");
+        _store.Records["sr-1"].LastDeliveredAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task NoRepoToDeliver_NeverEndsTheSeries()
+    {
+        _store.Records["sr-1"] = SeriesRecords.Running() with { IntegrationBranch = Branch, Tickets = [SeriesRecords.Ticket("44")] };
+
+        await BeatAsync(SeriesRunStates.Delivering);
+
+        _store.Records["sr-1"].State.Should().Be(SeriesRunStates.Delivering);
     }
 
     private async Task<SeriesBeat> BeatAsync(string state, MergeWhen when = MergeWhen.OnGateGreen, bool landed = true)

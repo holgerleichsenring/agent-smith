@@ -47,3 +47,8 @@ decisions:
     chose: "A series ticket requiring a ticket outside the series is met by that ticket's landing on the default branch; the series branch is not refreshed for it"
     over: "Merging the default branch into the series branch when such a prerequisite lands"
     reason: "Operator 2026-11-24: develop moving meanwhile is ignored until the final pull request. Recorded as an open question in the series report for the operator to confirm."
+  - category: Implementation
+    decider: claude
+    chose: "Post-build review fix: a series the filing step could not open before its starts is opened afterwards without a series branch"
+    over: "Opening it with a branch in OpenSeriesRun"
+    reason: "Review finding 6: its tickets had already started against the default branch; a branch then would split the series between two targets."

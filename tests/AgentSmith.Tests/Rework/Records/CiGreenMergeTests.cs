@@ -27,6 +27,21 @@ public sealed class CiGreenMergeTests : IDisposable
         _h.MergeRuns.Setup(r => r.RunAsync(It.IsAny<ResolvedProject>(), It.IsAny<CiGreenMergeRequest>(), It.IsAny<CancellationToken>(), It.IsAny<AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>()))
             .Callback<ResolvedProject, CiGreenMergeRequest, CancellationToken, AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>?>((_, r, _, _) => _launched.Add(r)).ReturnsAsync(true);
         Attempt(RunStatuses.Success, PrReviewRefreshHarness.Pr1);
+        // 2026-11-24-f9c5c: the CI merge waits for a record's target; these pull requests target the default branch.
+        _h.Provider.Setup(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync("main");
+    }
+
+    // 2026-11-24-f9c5c (post-build review): a target not read yet decides neither the mode nor the base, so nothing merges.
+    [Fact]
+    public async Task ATargetNotReadYet_LaunchesNothing()
+    {
+        _h.Provider.Setup(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((string?)null);
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+
+        await RefreshAsync();
+
+        _launched.Should().BeEmpty();
     }
 
     [Fact]

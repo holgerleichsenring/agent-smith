@@ -23,7 +23,9 @@ public sealed class AzureReposCiTrigger(
         {
             var client = await git(cancellationToken);
             var pr = await client.GetPullRequestAsync(project, repoName, prId, cancellationToken: cancellationToken);
-            var main = defaultBranch ?? pr.Repository.DefaultBranch?.Replace("refs/heads/", string.Empty, StringComparison.Ordinal) ?? "main";
+            // A pull request's repository reference may leave the default branch out; the repository itself names it.
+            var main = defaultBranch ?? (pr.Repository.DefaultBranch ?? (await client.GetRepositoryAsync(project, repoName, cancellationToken: cancellationToken)).DefaultBranch)
+                ?.Replace("refs/heads/", string.Empty, StringComparison.Ordinal) ?? "main";
             var projectId = pr.Repository.ProjectReference.Id;
             var validating = AzureReposBuildPolicyScope.Validating(await configurations(projectId, cancellationToken), pr.Repository.Id, $"refs/heads/{main}");
             if (validating.Count == 0) return CiTrigger.None($"no build-validation policy covers {main} in {repoName}, so it has no pull-request CI");

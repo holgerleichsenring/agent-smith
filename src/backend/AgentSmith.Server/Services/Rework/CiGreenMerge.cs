@@ -29,6 +29,8 @@ public sealed class CiGreenMerge(
         var records = (await scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>().ByTicketAsync(project.Name, ticketId, ct))
             .ToDictionary(r => r.PrKey, StringComparer.Ordinal);
         var awaited = attempt.AwaitingCiUrls.Select(p => (Repo: p.Key, Url: p.Value, Record: records.GetValueOrDefault(PrKey.Of(p.Value)))).ToList();
+        // 2026-11-24-f9c5c: a target not read yet waits for the read — the mode and the base guard both turn on it.
+        if (awaited.Any(a => a.Record is { TargetBranch: null })) return false;
         var series = SeriesTarget(awaited.Select(a => a.Record));
         if (project.Merge.WhenInto(series) != MergeWhen.OnCiGreen) return false;
         if (awaited.Any(a => a.Record?.Ci is not { } ci || !Green(a.Record, ci, project, series is not null)) || awaited.All(a => Acted(a.Record!)))

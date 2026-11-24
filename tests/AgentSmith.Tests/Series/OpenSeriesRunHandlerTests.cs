@@ -42,7 +42,7 @@ public sealed class OpenSeriesRunHandlerTests
         record.Principal.Should().Be("operator");
         record.State.Should().Be(SeriesRunStates.Running);
         record.Tickets.Select(t => t.Key).Should().Equal("SCRUM-1", "SCRUM-2");
-        record.IntegrationBranch.Should().Be($"agent-smith/series/{record.Id}", "2026-11-24-f9c5b: a series integrates on its own branch");
+        record.IntegrationBranch.Should().BeNull("2026-11-24-f9c5b: opened only after its tickets started, it has no series branch");
     }
 
     // 2026-11-24-f9c5b: the filing step opened it before starting the tickets; this step reports it and opens none.

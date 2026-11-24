@@ -23,13 +23,12 @@ public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullR
         if (beat.Record.IntegrationBranch is not { } branch) return CommandResult.Ok("The series has no series branch; nothing to deliver.");
         if (beat.Facts.Count == 0 || !beat.Facts.All(f => f.Landed)) return CommandResult.Ok($"Not every ticket landed on {branch} yet.");
         var merging = beat.Record.State == SeriesRunStates.Delivering;
-        var repos = await ReposAsync(context.Project, beat.Record, branch, cancellationToken);
+        var (repos, unread) = await ReposAsync(context.Project, beat.Record, branch, cancellationToken);
+        if (unread) return CommandResult.Ok("A landed ticket's pull request has no target read yet; the next beat delivers.");
         var steps = new List<(string Repo, SeriesDeliveryStep Step)>();
-        foreach (var repo in repos)
-            steps.Add((repo.Name, await finals.StepAsync(context, beat.Record, repo, branch,
-                beat.Record.Deliveries.FirstOrDefault(d => d.Repo == repo.Name), merging, beat.Now, cancellationToken)));
+        foreach (var repo in repos) steps.Add((repo.Name, await StepAsync(context, beat, repo, branch, merging, cancellationToken)));
         beat.Said.AddRange(steps.Select(s => s.Step.Say).OfType<string>());
-        var done = merging && steps.All(s => s.Step.Merged);
+        var done = merging && steps.Count > 0 && steps.All(s => s.Step.Merged);
         if (await store.UpdateAsync(beat.Record.Id, r => r with
             {
                 Deliveries = [.. steps.Select(s => s.Step.Delivery).OfType<SeriesDelivery>()], LastDeliveredAt = beat.Now,
@@ -41,6 +40,19 @@ public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullR
             : string.Join("; ", steps.Select(s => $"{s.Repo}: {s.Step.Line}")));
     }
 
+    // One repo's step; a host that fails is said and tried again next beat, and never stops the beat's other steps.
+    private async Task<SeriesDeliveryStep> StepAsync(DeliverSeriesContext context, SeriesBeat beat, RepoConnection repo, string branch,
+        bool merging, CancellationToken ct)
+    {
+        var known = beat.Record.Deliveries.FirstOrDefault(d => d.Repo == repo.Name);
+        try { return await finals.StepAsync(context, beat.Record, repo, branch, known, merging, beat.Now, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            return SeriesDeliveryStep.Of(known ?? new SeriesDelivery(repo.Name, string.Empty, string.Empty), "failed",
+                $"The final pull request of {repo.Name} could not be read or opened: {ex.Message.Split('\n', 2)[0].Trim()}");
+        }
+    }
+
     private async Task EndAsync(DeliverSeriesContext context, SeriesBeat beat, string branch, CancellationToken ct)
     {
         var woken = await acts.WakeDependentsAsync(context.Project.Name, [.. beat.Record.Tickets.Select(t => t.TicketId)], ct);
@@ -49,14 +61,18 @@ public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullR
     }
 
     // The project's repos a ticket pull request of the series merged into the series branch, in the project's order.
-    private async Task<IReadOnlyList<RepoConnection>> ReposAsync(ResolvedProject project, SeriesRunRecord record, string branch, CancellationToken ct)
+    // Unread: a merged ticket pull request's target is not read yet, so where the series has work is not known yet either.
+    private async Task<(IReadOnlyList<RepoConnection> Repos, bool Unread)> ReposAsync(ResolvedProject project, SeriesRunRecord record,
+        string branch, CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
-        if (scope.ServiceProvider.GetService<IPrReviewRecordReader>() is not { } reader) return [];
+        if (scope.ServiceProvider.GetService<IPrReviewRecordReader>() is not { } reader) return ([], true);
         var repos = new HashSet<string>(StringComparer.Ordinal);
+        var unread = false;
         foreach (var ticket in record.Tickets)
-            foreach (var pr in await reader.ByTicketAsync(project.Name, ticket.TicketId, ct))
-                if (pr.State == PrReviewStates.Merged && pr.TargetBranch == branch) repos.Add(pr.Repo);
-        return [.. project.Repos.Where(r => repos.Contains(r.Name))];
+            foreach (var pr in (await reader.ByTicketAsync(project.Name, ticket.TicketId, ct)).Where(r => r.State == PrReviewStates.Merged))
+                if (pr.TargetBranch == branch) repos.Add(pr.Repo);
+                else unread |= pr.TargetBranch is null;
+        return ([.. project.Repos.Where(r => repos.Contains(r.Name))], unread);
     }
 }

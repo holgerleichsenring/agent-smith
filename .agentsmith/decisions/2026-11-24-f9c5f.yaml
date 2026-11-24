@@ -22,3 +22,8 @@ decisions:
     chose: "The verifying state word reads 'checking' instead of 'checking on main'"
     over: "Keeping 'on main'"
     reason: "A series with a branch is checked on that branch; the panel line names the branch."
+  - category: Implementation
+    decider: claude
+    chose: "Post-build review fix: a ready series ticket whose CI waits says it merges into the series branch by itself instead of asking for respect_branch_protection"
+    over: "The default-branch wording"
+    reason: "Review finding 12: a merge into a series branch never arms, so the key could not help."

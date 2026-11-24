@@ -45,14 +45,17 @@ public sealed class GitHubCiTriggerTests
         answer.Text.Should().Contain("ci.yml").And.Contain("agent-smith/series/**").And.Contain("workflow_dispatch");
     }
 
+    // A workflow already taking the series branch that reported nothing skipped this head (paths, conditions), as it would
+    // into the default branch — no CI to wait for, nothing dispatched (post-build review).
     [Fact]
-    public async Task AFilterThatTakesTheSeriesBranch_IsGitHubsOwnStart_AndDispatchesNothing()
+    public async Task AFilterThatTakesTheSeriesBranch_IsNoCiForThisHead_AndDispatchesNothing()
     {
         Workflow("on:\n  pull_request:\n    branches: [main, 'agent-smith/**']\n  workflow_dispatch:\n");
 
         var answer = await StartAsync();
 
-        answer.Outcome.Should().Be(CiTriggerOutcome.Started);
+        answer.Outcome.Should().Be(CiTriggerOutcome.NoCi);
+        answer.Text.Should().Contain("reported nothing on this head");
         _host.Requests.Should().NotContain(r => r.Method == "POST");
     }
 

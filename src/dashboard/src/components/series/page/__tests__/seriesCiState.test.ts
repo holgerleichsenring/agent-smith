@@ -60,6 +60,15 @@ describe("seriesCiState", () => {
     expect(seriesNodeSentence(ticket, detail, kind, t)).toContain("merge.respect_branch_protection");
   });
 
+  // 2026-11-24-f9c5f (post-build review): into a series branch nothing arms and the key cannot help — it merges by itself.
+  it("SeriesCiWait_IntoASeriesBranch_SaysItMergesByItself", () => {
+    const { detail, ticket } = ready({ ci: "pending" }, false);
+    const branched = { ...detail, integrationBranch: "agent-smith/series/sr-1" };
+    const merge = seriesTicketActs(ticket, branched, seriesNodeKind(ticket, branched), false, t)[0];
+    expect(merge.disabledBy).toBe("It merges into the series branch by itself once its CI is green.");
+    expect(merge.disabledBy).not.toContain("respect_branch_protection");
+  });
+
   it("SeriesMergeSaid_TheLastRefusalStaysInTheSentence", () => {
     const { detail, ticket } = ready({ ci: "pending", mergeSaid: { status: "completion_refused", reason: "cannot bypass branch policies", at: "2026-11-23T10:00:00Z" } }, true);
     expect(seriesMergeSaid(ticket)?.reason).toBe("cannot bypass branch policies");

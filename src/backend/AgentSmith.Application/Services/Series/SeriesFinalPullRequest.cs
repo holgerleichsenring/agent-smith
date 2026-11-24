@@ -18,9 +18,10 @@ public sealed class SeriesFinalPullRequest(ISourceProviderFactory sources, Serie
         string branch, SeriesDelivery? known, bool merging, DateTimeOffset now, CancellationToken ct)
     {
         var provider = sources.Create(repo);
-        var from = provider is IWorkBranchCleanup host ? (await host.PullRequestsOfAsync(branch, ct)).From : [];
+        var host = provider as IWorkBranchCleanup;
+        var from = host is null ? [] : (await host.PullRequestsOfAsync(branch, ct)).From;
         var source = new Repository(new BranchName(branch), repo.Url ?? string.Empty);
-        if (from.Any(p => p.State == BranchPullRequestState.Merged))
+        if (from.Any(p => p.State == BranchPullRequestState.Merged) && await DeliveredAsync(host!, branch, from, ct))
             return SeriesDeliveryStep.Of(known ?? new SeriesDelivery(repo.Name, string.Empty, string.Empty), "merged", null, merged: true);
         if (await provider.FindOpenPullRequestAsync(source, ct) is not { } url)
         {
@@ -32,10 +33,18 @@ public sealed class SeriesFinalPullRequest(ISourceProviderFactory sources, Serie
                 $"Every ticket landed on {branch}. The final pull request of {repo.Name} into the default branch is open: {url}"
                 + (merging ? "." : "; it merges once the series check passed."));
         }
-        var delivery = known is { Url.Length: > 0 } ? known : new SeriesDelivery(repo.Name, url, Number(url));
+        var delivery = known is not null && known.Url == url ? known : new SeriesDelivery(repo.Name, url, Number(url));
         if (!merging) return SeriesDeliveryStep.Of(delivery, "open, waits for the series check", null);
         var head = from.FirstOrDefault(p => p.State == BranchPullRequestState.Open)?.HeadSha;
         return await merge.MergeAsync(context, repo, branch, delivery, head, now, ct);
+    }
+
+    // Merged and nothing landed on the branch since: the branch is gone (the host deleted it) or still at the merged head. A
+    // branch that moved on after its merge (a follow-up landed) is delivered again.
+    private static async Task<bool> DeliveredAsync(IWorkBranchCleanup host, string branch, IReadOnlyList<BranchPullRequest> from, CancellationToken ct)
+    {
+        var tip = (await host.ListWorkBranchesAsync(ct)).FirstOrDefault(b => b.Name == branch)?.Sha;
+        return tip is null || from.Any(p => p.State == BranchPullRequestState.Merged && string.Equals(p.HeadSha, tip, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string Title(SeriesRunRecord record) => record.Tickets.Count == 0 ? $"Series {record.Id}"

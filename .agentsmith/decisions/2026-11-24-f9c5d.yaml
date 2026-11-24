@@ -37,3 +37,8 @@ decisions:
     chose: "A ticket whose repositories mix 'has CI' and 'no CI at all' waits for a person's merge for the repository without CI"
     over: "Remembering per repository that it has no CI"
     reason: "Rare, and remembering it needs a stored fact per repository the records do not have; the sentence says so on the page."
+  - category: Implementation
+    decider: claude
+    chose: "Post-build review fixes: Azure DevOps reads the repository's default branch from the provider (a pull request's repository reference may leave it out); a GitHub workflow that already takes the series branch and reported nothing on the head answers NoCi"
+    over: "pr.Repository.DefaultBranch with 'main' as fallback; answering Started for a workflow GitHub starts itself"
+    reason: "Review findings 2 and 8: a repo whose default is not main never found its validating builds, and a paths-filtered workflow would have kept the pull request waiting for good while the page said CI started."

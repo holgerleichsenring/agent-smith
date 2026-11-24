@@ -30,8 +30,10 @@ public sealed class GitHubCiTrigger(PipelineHttp http, GitHubRepoAddress address
             var workflows = await WorkflowsAsync(main, cancellationToken);
             var forMain = workflows.Where(w => w.Triggers.RunsFor(main)).ToList();
             if (forMain.Count == 0) return CiTrigger.None($"no workflow of {address.FullName} runs for pull requests into {main}");
+            // A workflow that already takes this base and still reported nothing skipped this head (paths, types, conditions) —
+            // as it would for a pull request into the default branch, which then merges as one with no CI.
             if (forMain.Any(w => w.Triggers.RunsFor(into)))
-                return CiTrigger.Started($"GitHub runs {Names(forMain.Where(w => w.Triggers.RunsFor(into)))} for pull requests into {into} itself");
+                return CiTrigger.None($"{Names(forMain.Where(w => w.Triggers.RunsFor(into)))} run for pull requests into {into} but reported nothing on this head");
             var dispatchable = forMain.Where(w => w.Triggers.Dispatch).ToList();
             if (dispatchable.Count == 0)
                 return CiTrigger.Impossible($"{Names(forMain)} run for pull requests into {main} only and declare no workflow_dispatch; add "
