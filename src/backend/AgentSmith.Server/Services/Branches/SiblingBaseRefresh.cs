@@ -1,9 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Reviews;
-using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -20,25 +18,26 @@ namespace AgentSmith.Server.Services.Branches;
 /// a run of its own merges the base at its own checkout. The host reads (which base each pull request targets) and the
 /// launches run in the background, so the landing path is never held up by a host. Series siblings on another
 /// repository are not touched: their base did not move.
+/// <para>2026-11-24-297b: in every project a landing refreshes the siblings whose record conflicts — the base moved, so a
+/// refused refresh is tried again; the setting adds the conflict-free ones. A sibling a refresh is at work on is left to it.</para>
 /// </summary>
 public sealed class SiblingBaseRefresh(
-    IServiceScopeFactory scopes, IConfigurationLoader configLoader, ServerContext server,
-    IActiveRunLease leases, IPreviousAttemptReader attempts, ITicketClosedMarkStore closed,
+    IServiceScopeFactory scopes, IConfigurationLoader configLoader, ServerContext server, RefreshableTicket tickets,
     ISourceProviderFactory sources, ILogger<SiblingBaseRefresh> logger) : ITicketLandedSubscriber
 {
     public async Task LandedAsync(TicketLandingFact landing, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(landing);
         if (landing.Kind != TicketLandingKinds.Merged) return;
-        if (!configLoader.LoadConfig(server.ConfigPath).Projects.TryGetValue(landing.Project, out var project)
-            || !project.Merge.RefreshOpenPullRequests) return;
+        if (!configLoader.LoadConfig(server.ConfigPath).Projects.TryGetValue(landing.Project, out var project)) return;
         var work = await SiblingsAsync(project, landing.TicketId, cancellationToken);
         if (work.Count > 0) _ = Task.Run(() => LaunchAllAsync(project, work));
     }
 
     /// <summary>
     /// Per repository the landed ticket merged into, the open pull requests of the project's other tickets there that
-    /// are free to refresh: not closed, not leased, not queued, not waiting for an answer.
+    /// are free to refresh: not closed, not leased, not queued, not waiting for an answer, no refresh at work on it — and,
+    /// without merge.refresh_open_pull_requests, only those whose record conflicts.
     /// </summary>
     public async Task<IReadOnlyList<SiblingRefresh>> SiblingsAsync(ResolvedProject project, string landedTicketId, CancellationToken ct)
     {
@@ -52,21 +51,16 @@ public sealed class SiblingBaseRefresh(
             if (project.Repos.FirstOrDefault(r => r.Name == merged.Repo) is not { Url: { Length: > 0 } url } repo) continue;
             var open = (await records.ByRepoKeyAsync(RepoKey.Of(url), ct))
                 .Where(r => r.State == PrReviewStates.Open && r.Project == project.Name && r.TicketId != landedTicketId)
+                .Where(r => project.Merge.RefreshOpenPullRequests || r.HasConflicts) // 2026-11-24-297b
                 .DistinctBy(r => r.Url).ToList();
+            var atWork = await scope.ServiceProvider.GetRequiredService<PullRequestMergeSaidReader>()
+                .NewestRefreshesAsync([.. open.Select(r => r.Url)], ct);
             var free = new List<PrReviewRecordView>();
-            foreach (var sibling in open) if (await FreeAsync(project, sibling.TicketId, ct)) free.Add(sibling);
+            foreach (var sibling in open.Where(r => atWork.GetValueOrDefault(r.Url) is not { InFlight: true }))
+                if (await tickets.FreeAsync(project, sibling.TicketId, ct)) free.Add(sibling);
             if (free.Count > 0) work.Add(new SiblingRefresh(repo, merged.Url, free));
         }
         return work;
-    }
-
-    private async Task<bool> FreeAsync(ResolvedProject project, string ticketId, CancellationToken ct)
-    {
-        var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
-        if ((await closed.OfAsync(project.Tracker.Name, [key], ct)).Count > 0) return false;
-        if (await leases.GetByTicketAsync(project.Name, new TicketId(ticketId), ct) is not null) return false;
-        if (await attempts.HasQueuedAsync(project.Name, ticketId, ct)) return false;
-        return (await attempts.LatestAsync(project.Name, ticketId, null, ct))?.Status != RunStatuses.WaitingForInput;
     }
 
     private async Task LaunchAllAsync(ResolvedProject project, IReadOnlyList<SiblingRefresh> work)
@@ -81,8 +75,13 @@ public sealed class SiblingBaseRefresh(
                 {
                     if (await host.ReadPullRequestBaseAsync(sibling.Url, CancellationToken.None) != moved) continue;
                     using var scope = scopes.CreateScope();
+                    // 2026-11-24-297b: asked again at the launch — the record read may have started one for a new conflict
+                    // while the host was read.
+                    if ((await scope.ServiceProvider.GetRequiredService<PullRequestMergeSaidReader>()
+                            .NewestRefreshesAsync([sibling.Url], CancellationToken.None)).GetValueOrDefault(sibling.Url) is { InFlight: true })
+                        continue;
                     await scope.ServiceProvider.GetRequiredService<BaseRefreshLauncher>()
-                        .LaunchAsync(project, repo, sibling, moved, CancellationToken.None);
+                        .LaunchAsync(project, repo, RefreshedPullRequest.Of(sibling), moved, CancellationToken.None);
                 }
             }
             catch (Exception ex)

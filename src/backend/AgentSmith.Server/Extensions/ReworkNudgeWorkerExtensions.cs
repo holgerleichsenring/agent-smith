@@ -30,6 +30,7 @@ internal static class ReworkNudgeWorkerExtensions
         services.AddSingleton<ITicketLandedSubscriber, Services.Branches.SiblingBaseRefresh>();
         services.TryAddScoped<Infrastructure.Persistence.Repositories.InitRunRepository>();
         services.AddScoped<Services.Branches.BaseRefreshLauncher>();
+        services.AddSingleton<Services.Branches.RefreshableTicket>().AddSingleton<Services.Branches.ConflictBaseRefresh>(); // 2026-11-24-297b
         services.AddSingleton<DependentsWake>().AddSingleton<WaitingTicketStart>().AddSingleton<RequirementsMetStart>(); // 2026-10-14-dbceh; 1b72a
         services.AddSingleton<StackedDependentsWake>().AddSingleton<StackedPullRequestRetarget>().AddSingleton<StackedTicketUpkeep>(); // 9a39a/c
         services.AddSingleton<TicketStartHold>().AddSingleton<PreconditionRelease>(); // 2026-11-16-f3fbc

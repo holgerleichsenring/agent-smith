@@ -38,6 +38,7 @@ public sealed class DeliverSeriesHandlerTests
     private DateTimeOffset _now = SeriesRecords.T;
 
     private string? _tip;
+    private readonly HashSet<DateTimeOffset> _refreshed = [];
     private bool _throws;
 
     public DeliverSeriesHandlerTests()
@@ -57,7 +58,9 @@ public sealed class DeliverSeriesHandlerTests
         _host.Setup(h => h.ReadPullRequestBaseAsync(Final, It.IsAny<CancellationToken>())).ReturnsAsync("main");
         _host.As<IPullRequestCiReader>().Setup(c => c.ReadCiAsync(Final, It.IsAny<CiReadRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => _ci);
-        _launch.Setup(l => l.RefreshAsync("sample", "api", Branch, Final, "90", "main", It.IsAny<CancellationToken>())).ReturnsAsync("run-r");
+        // The conflict refresh (2026-11-24-297b) starts one run per conflict: true the first time a conflict start is asked for.
+        _launch.Setup(l => l.RefreshAsync("sample", "api", Branch, Final, "90", It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string _, string _, string _, string _, string _, DateTimeOffset since, CancellationToken _) => _refreshed.Add(since));
         _acts.Setup(a => a.WakeDependentsAsync("sample", It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
     }
 
@@ -133,10 +136,10 @@ public sealed class DeliverSeriesHandlerTests
         _from.Add(new BranchPullRequest(BranchPullRequestState.Open, "h1"));
         _completion = PullRequestCompletion.Refused("conflicts") with { Conflicts = true };
 
-        (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().ContainSingle().Which.Should().Contain("run run-r brings");
-        await BeatAsync(SeriesRunStates.Delivering);
-        _launch.Verify(l => l.RefreshAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().ContainSingle().Which.Should().Contain("a refresh-base run brings");
+        _now = _now.AddMinutes(1);
+        (await BeatAsync(SeriesRunStates.Delivering)).Said.Should().BeEmpty("the same conflict on the same head started its run already");
+        _refreshed.Should().ContainSingle("both beats name when the conflict began, not when they read it");
 
         _completion = PullRequestCompletion.Refused("review required");
         _from[0] = new BranchPullRequest(BranchPullRequestState.Open, "h2");
@@ -154,11 +157,10 @@ public sealed class DeliverSeriesHandlerTests
         _host.As<IPrReviewStateReader>().Setup(s => s.ReadAsync(Final, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PrReviewState("90", PrReviewStates.Open, SeriesRecords.T, []) { HasConflicts = true });
 
-        (await BeatAsync(SeriesRunStates.Running, MergeWhen.Manual)).Said.Should().ContainSingle().Which.Should().Contain("run run-r brings");
+        (await BeatAsync(SeriesRunStates.Running, MergeWhen.Manual)).Said.Should().ContainSingle().Which.Should().Contain("a refresh-base run brings");
         await BeatAsync(SeriesRunStates.Delivering, MergeWhen.Manual);
 
-        _launch.Verify(l => l.RefreshAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _refreshed.Should().ContainSingle();
         _host.Verify(h => h.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

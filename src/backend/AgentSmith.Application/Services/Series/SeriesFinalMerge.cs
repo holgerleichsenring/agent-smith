@@ -12,7 +12,8 @@ namespace AgentSmith.Application.Services.Series;
 /// 2026-11-24-f9c5e: merges a series' final pull request under merge.when in the project's protection mode — manual waits for
 /// a person, on_gate_green merges (the series check was the gate), on_ci_green merges on green CI or on none for
 /// merge.ci_settle_seconds and says a red one. The merge takes the steps every merge path takes (approval, completion). A
-/// refusal for a conflict launches one refresh-base run per head, which brings the series branch up to date with its base.
+/// conflict — at a merge or in the host's state — goes to the one conflict refresh (2026-11-24-297b), which brings the series
+/// branch up to date with its base once per conflict.
 /// </summary>
 public sealed class SeriesFinalMerge(
     ISourceProviderFactory sources, PullRequestApprovalStep approvals, PullRequestCompleter completer, ISeriesRunLaunch launch,
@@ -35,7 +36,7 @@ public sealed class SeriesFinalMerge(
             PullRequestCompletionOutcome.Merged => SeriesDeliveryStep.Of(delivery, "merged", $"{delivery.Url} merged: {repo.Name} has the series.", merged: true),
             PullRequestCompletionOutcome.Armed => SeriesDeliveryStep.Of(delivery with { ArmedHead = head }, "armed",
                 $"{delivery.Url} completes once the host's rules pass: {completion.Reason}"),
-            _ => await RefusedAsync(context, repo, branch, delivery, head, completion, ct),
+            _ => await RefusedAsync(context, repo, branch, delivery, head, completion, now, ct),
         };
     }
 
@@ -61,21 +62,22 @@ public sealed class SeriesFinalMerge(
     }
 
     private async Task<SeriesDeliveryStep> RefusedAsync(DeliverSeriesContext context, RepoConnection repo, string branch,
-        SeriesDelivery delivery, string? head, PullRequestCompletion completion, CancellationToken ct)
+        SeriesDelivery delivery, string? head, PullRequestCompletion completion, DateTimeOffset now, CancellationToken ct)
     {
-        if (!completion.Conflicts || head is null || head == delivery.RefreshedHead)
+        if (!completion.Conflicts || head is null)
             return SeriesDeliveryStep.Of(delivery, "refused", $"{delivery.Url} is not merged: {completion.Reason}");
-        return await RefreshAsync(context, repo, branch, delivery, head, ct);
+        return await RefreshAsync(context, repo, branch, delivery, head, now, ct);
     }
 
-    /// <summary>2026-11-24-f9c5f: one refresh-base run for a final pull request that conflicts with its base, on a head no
-    /// refresh was launched for — whether the host said so at a merge or in its state (2026-11-24-6811a).</summary>
+    /// <summary>2026-11-24-f9c5f: a final pull request that conflicts with its base — whether the host said so at a merge or in
+    /// its state (2026-11-24-6811a) — handed to the conflict refresh, which starts one run per conflict on a head.</summary>
     public async Task<SeriesDeliveryStep> RefreshAsync(DeliverSeriesContext context, RepoConnection repo, string branch,
-        SeriesDelivery delivery, string head, CancellationToken ct)
+        SeriesDelivery delivery, string head, DateTimeOffset now, CancellationToken ct)
     {
-        var target = await sources.Create(repo).ReadPullRequestBaseAsync(delivery.Url, ct) ?? repo.DefaultBranch ?? "main";
-        var run = await launch.RefreshAsync(context.Project.Name, repo.Name, branch, delivery.Url, delivery.Number, target, ct);
-        return SeriesDeliveryStep.Of(delivery with { RefreshedHead = head }, "conflicts",
-            $"{delivery.Url} conflicts with {target}; run {run} brings {branch} up to date with it.");
+        var since = delivery.ConflictHead == head && delivery.ConflictSince is { } seen ? seen : now;
+        var conflicted = delivery with { ConflictHead = head, ConflictSince = since };
+        return await launch.RefreshAsync(context.Project.Name, repo.Name, branch, delivery.Url, delivery.Number, since, ct)
+            ? SeriesDeliveryStep.Of(conflicted, "conflicts", $"{delivery.Url} conflicts with its base; a refresh-base run brings {branch} up to date with it.")
+            : SeriesDeliveryStep.Of(conflicted, "conflicts", null);
     }
 }

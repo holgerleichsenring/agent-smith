@@ -15,16 +15,17 @@ namespace AgentSmith.Server.Services.Series;
 /// </summary>
 public sealed class SeriesRunLaunch(
     InitRunRepository runs, QueuedRunDispatch dispatch, RunRepository rows, TimeProvider clock, ILogger<SeriesRunLaunch> logger,
-    TicketProjects projects, Branches.BaseRefreshLauncher refreshes)
+    TicketProjects projects, Branches.ConflictBaseRefresh conflicts, AgentSmith.Contracts.Providers.ISourceProviderFactory sources)
     : ISeriesRunLaunch
 {
-    /// <summary>2026-11-24-f9c5e: the refresh-base run of a series' final pull request, through the launcher every refresh takes.</summary>
-    public async Task<string> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber, string baseBranch,
-        CancellationToken cancellationToken)
+    /// <summary>2026-11-24-f9c5f: a series' final pull request that conflicts goes through 2026-11-24-297b's conflict refresh,
+    /// the one path a conflicting pull request is brought up to date by.</summary>
+    public async Task<bool> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber,
+        DateTimeOffset conflictsSince, CancellationToken cancellationToken)
     {
-        var resolved = projects.Of(project) ?? throw new InvalidOperationException($"Project '{project}' is not configured.");
-        var connection = resolved.Repos.FirstOrDefault(r => r.Name == repo) ?? throw new InvalidOperationException($"No repo '{repo}' in '{project}'.");
-        return await refreshes.LaunchAsync(resolved, connection, branch, prUrl, prNumber, baseBranch, shownOnTicket: null, cancellationToken);
+        if (projects.Of(project) is not { } resolved || resolved.Repos.FirstOrDefault(r => r.Name == repo) is not { } connection) return false;
+        return await conflicts.LaunchIfDueAsync(resolved, connection, sources.Create(connection),
+            Branches.RefreshedPullRequest.SeriesFinal(prUrl, prNumber, branch), conflictsSince, cancellationToken);
     }
 
     public async Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken cancellationToken,

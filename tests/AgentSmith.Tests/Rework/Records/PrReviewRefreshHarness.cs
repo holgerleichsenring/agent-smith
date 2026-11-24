@@ -11,6 +11,8 @@ using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Webhooks;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Services.Branches;
+using AgentSmith.Server.Services.Lifecycle;
 using AgentSmith.Server.Services.Rework;
 using AgentSmith.Tests.TestSupport;
 using Microsoft.EntityFrameworkCore;
@@ -35,8 +37,13 @@ internal sealed class PrReviewRefreshHarness : IDisposable
         Store = new ServerStateStore(Clock, configure: services =>
         {
             ClosedTicketFollowUps.Register(services);
+            // 2026-11-24-297b: the refresh-base launch a conflicting read starts, over the store and a queue double.
+            services.AddScoped<InitRunRepository>().AddScoped<QueuedRunRepository>();
+            services.AddSingleton(Queue.Object).AddSingleton<QueuedRunDispatch>().AddScoped<BaseRefreshLauncher>();
             configure?.Invoke(services);
         });
+        Closed.Setup(c => c.OfAsync(It.IsAny<string>(), It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
         Provider.As<IPrReviewStateReader>();
         Provider.As<IPrReviewThreadReader>();
         Sources.Setup(s => s.Create(It.IsAny<RepoConnection>())).Returns(() => Provider.Object);
@@ -62,9 +69,17 @@ internal sealed class PrReviewRefreshHarness : IDisposable
     public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(), new PrRecordCiRead(NullLogger<PrRecordCiRead>.Instance), CiMerge(),
         new CiRedNudge(Store.ScopeFactory, Attempts.Object, Store.Services.GetRequiredService<IReworkNudges>()),
         new SeriesCiStart(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object, Clock), // 2026-11-24-f9c5d
-        new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance),
+        new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance), Conflicts(),
         Recorder(), Activity.Object, Clock,
         NullLogger<PrReviewRecordRefresh>.Instance);
+
+    /// <summary>2026-11-24-297b: the queue the refresh-base launch pushes to, and the closed marks the free check reads.</summary>
+    public Mock<IRedisJobQueue> Queue { get; } = new();
+    public Mock<ITicketClosedMarkStore> Closed { get; } = new();
+
+    public RefreshableTicket Tickets() => new(Leases.Object, Attempts.Object, Closed.Object);
+
+    public ConflictBaseRefresh Conflicts() => new(Store.ScopeFactory, Tickets(), NullLogger<ConflictBaseRefresh>.Instance);
 
     /// <summary>2026-11-17-3435b: the merge-green runs the CI loop started.</summary>
     public Mock<IMergeGreenRun> MergeRuns { get; } = new();

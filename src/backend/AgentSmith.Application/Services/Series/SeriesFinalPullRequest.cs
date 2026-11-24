@@ -38,9 +38,8 @@ public sealed class SeriesFinalPullRequest(ISourceProviderFactory sources, Serie
         var head = from.FirstOrDefault(p => p.State == BranchPullRequestState.Open)?.HeadSha;
         // 2026-11-24-f9c5f: the host's recorded conflict state (2026-11-24-6811a) brings the branch up to date in every mode and
         // before the check passed — merge.when manual included, where no merge attempt would ever see it.
-        if (head is not null && head != delivery.RefreshedHead && provider is IPrReviewStateReader states
-            && (await states.ReadAsync(url, ct)).HasConflicts == true)
-            return await merge.RefreshAsync(context, repo, branch, delivery, head, ct);
+        if (head is not null && provider is IPrReviewStateReader states && (await states.ReadAsync(url, ct)).HasConflicts == true)
+            return await merge.RefreshAsync(context, repo, branch, delivery, head, now, ct);
         if (!merging) return SeriesDeliveryStep.Of(delivery, "open, waits for the series check", null);
         return await merge.MergeAsync(context, repo, branch, delivery, head, now, ct);
     }

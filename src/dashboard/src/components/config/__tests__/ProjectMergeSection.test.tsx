@@ -41,17 +41,17 @@ describe("ProjectMergeSection", () => {
   it("hides the merge-on-green keys for another mode but keeps the poll and the evidence bounds", () => {
     const manual = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: false, seriesWhen: "manual" } };
     render(<ProjectMergeSection project={manual} onChange={() => {}} capabilities={capabilities} />);
-    expect(screen.queryByTestId("form-field-merge-ciFixAttempts")).toBeNull();
     expect(screen.queryByTestId("form-field-merge-ciSettleSeconds")).toBeNull();
     expect(screen.getByTestId("form-field-merge-ciPollSeconds")).toBeTruthy();
     expect(screen.getByTestId("form-field-merge-ciPendingSeconds")).toBeTruthy();
     expect(screen.getByTestId("form-field-merge-ciExcerptChars")).toBeTruthy();
   });
 
-  // 2026-11-24-6811c: the fix budget also bounds a base refresh's repair passes, so a manual project that refreshes shows it.
-  it("shows the fix attempts for a refreshing project in any mode", () => {
-    const refreshing = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: true, seriesWhen: "manual" } };
-    render(<ProjectMergeSection project={refreshing} onChange={() => {}} capabilities={capabilities} />);
+  // 2026-11-24-6811c: the fix budget also bounds a base refresh's repair passes; 2026-11-24-297b: a conflicting pull request
+  // is refreshed in every project, so a manual project without the refresh setting shows it too.
+  it("shows the fix attempts in any mode", () => {
+    const manual = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: false, seriesWhen: "manual" } };
+    render(<ProjectMergeSection project={manual} onChange={() => {}} capabilities={capabilities} />);
     expect(screen.getByTestId("form-field-merge-ciFixAttempts")).toBeTruthy();
     expect(screen.queryByTestId("form-field-merge-ciSettleSeconds")).toBeNull();
   });

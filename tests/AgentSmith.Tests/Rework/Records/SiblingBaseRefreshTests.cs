@@ -7,7 +7,9 @@ using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Services.Branches;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using static AgentSmith.Tests.Rework.Records.PrReviewRefreshHarness;
@@ -22,6 +24,7 @@ namespace AgentSmith.Tests.Rework.Records;
 public sealed class SiblingBaseRefreshTests : IDisposable
 {
     private const string OtherRepoPr = "https://github.com/o/web/pull/9";
+    private static readonly ResolvedProject Refreshing = Project with { Merge = new MergePolicyConfig { RefreshOpenPullRequests = true } };
     private readonly PrReviewRefreshHarness _h = new();
     private readonly Mock<IActiveRunLease> _leases = new();
     private readonly Mock<IPreviousAttemptReader> _attempts = new();
@@ -40,7 +43,7 @@ public sealed class SiblingBaseRefreshTests : IDisposable
         await SeedAsync(Pr2, "8", PrReviewStates.Open);
         await SeedAsync(OtherRepoPr, "9", PrReviewStates.Open, repo: "web", repoUrl: "https://github.com/o/web");
 
-        var work = await Sut().SiblingsAsync(Project, "7", CancellationToken.None);
+        var work = await Sut().SiblingsAsync(Refreshing, "7", CancellationToken.None);
 
         work.Should().ContainSingle().Which.LandedUrl.Should().Be(Pr1);
         work[0].Siblings.Select(s => s.TicketId).Should().Equal("8");
@@ -54,7 +57,7 @@ public sealed class SiblingBaseRefreshTests : IDisposable
         _leases.Setup(l => l.GetByTicketAsync("p", new TicketId("8"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new StaleLease("p", new TicketId("8"), "run-8", null, DateTimeOffset.UtcNow));
 
-        (await Sut().SiblingsAsync(Project, "7", CancellationToken.None)).Should().BeEmpty();
+        (await Sut().SiblingsAsync(Refreshing, "7", CancellationToken.None)).Should().BeEmpty();
     }
 
     [Fact]
@@ -64,7 +67,7 @@ public sealed class SiblingBaseRefreshTests : IDisposable
         await SeedAsync(Pr2, "8", PrReviewStates.Open);
         _attempts.Setup(a => a.HasQueuedAsync("p", "8", It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
-        (await Sut().SiblingsAsync(Project, "7", CancellationToken.None)).Should().BeEmpty();
+        (await Sut().SiblingsAsync(Refreshing, "7", CancellationToken.None)).Should().BeEmpty();
     }
 
     [Fact]
@@ -75,7 +78,7 @@ public sealed class SiblingBaseRefreshTests : IDisposable
         _closed.Setup(c => c.OfAsync("gh-tracker", It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new TicketClosedMark("gh-tracker", "github-8", "8", "p", DateTimeOffset.UtcNow, "someone", null, [], false)]);
 
-        (await Sut().SiblingsAsync(Project, "7", CancellationToken.None)).Should().BeEmpty();
+        (await Sut().SiblingsAsync(Refreshing, "7", CancellationToken.None)).Should().BeEmpty();
     }
 
     [Fact]
@@ -93,14 +96,65 @@ public sealed class SiblingBaseRefreshTests : IDisposable
         _h.Sources.Verify(s => s.Create(It.IsAny<RepoConnection>()), Times.Never, "no host is asked when nothing is refreshed");
     }
 
+    // 2026-11-24-297b: without the setting a landing still refreshes a sibling that conflicts — its base moved.
+    [Fact]
+    public async Task WithoutTheSetting_OnlyAConflictingSibling_IsRefreshed()
+    {
+        await SeedAsync(Pr1, "7", PrReviewStates.Merged);
+        await SeedAsync(Pr2, "8", PrReviewStates.Open);
+        await SeedAsync("https://github.com/o/api/pull/3", "9", PrReviewStates.Open, conflicts: true);
+
+        var work = await Sut().SiblingsAsync(Project, "7", CancellationToken.None);
+
+        work.Should().ContainSingle().Which.Siblings.Select(s => s.TicketId).Should().Equal("9");
+    }
+
+    [Fact]
+    public async Task ASiblingARefreshIsAtWorkOn_IsLeftToIt()
+    {
+        await SeedAsync(Pr1, "7", PrReviewStates.Merged);
+        await SeedAsync(Pr2, "8", PrReviewStates.Open);
+        await using (var db = _h.Store.Context())
+        {
+            db.Add(new Run { Id = "refresh-1", Project = "p", TicketId = string.Empty, Pipeline = "refresh-base", Status = RunStatuses.Queued, StartedAt = T });
+            db.Add(new RunRepo { RunId = "refresh-1", RepoName = "api", PrUrl = Pr2 });
+            await db.SaveChangesAsync();
+        }
+
+        (await Sut().SiblingsAsync(Refreshing, "7", CancellationToken.None)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ALandingWithoutTheSetting_LaunchesTheConflictingSiblingsRefresh()
+    {
+        await SeedAsync(Pr1, "7", PrReviewStates.Merged);
+        await SeedAsync(Pr2, "8", PrReviewStates.Open, conflicts: true);
+        var config = new Mock<IConfigurationLoader>();
+        config.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
+        {
+            Projects = new Dictionary<string, ResolvedProject> { ["p"] = Project },
+        });
+        _h.Provider.Setup(p => p.ReadPullRequestBaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync("main");
+        var launched = new TaskCompletionSource();
+        _h.Queue.Setup(q => q.EnqueueAsync(It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()))
+            .Callback(() => launched.TrySetResult());
+
+        await Sut(config.Object).LandedAsync(Landing(TicketLandingKinds.Merged), CancellationToken.None);
+
+        await launched.Task.WaitAsync(TestWaits.Hang);
+        await using var db = _h.Store.Context();
+        db.Set<RunRepo>().AsNoTracking().Select(r => r.PrUrl).Should().Equal(Pr2);
+    }
+
     private static TicketLandingFact Landing(string kind) =>
         new("gh-tracker", "github-7", "7", "p", kind, T, null, null, kind == TicketLandingKinds.Merged ? Pr1 : null);
 
     private SiblingBaseRefresh Sut(IConfigurationLoader? config = null) => new(
         _h.Store.ScopeFactory, config ?? Mock.Of<IConfigurationLoader>(), new ServerContext("unused.yml"),
-        _leases.Object, _attempts.Object, _closed.Object, _h.Sources.Object, NullLogger<SiblingBaseRefresh>.Instance);
+        new RefreshableTicket(_leases.Object, _attempts.Object, _closed.Object), _h.Sources.Object, NullLogger<SiblingBaseRefresh>.Instance);
 
-    private async Task SeedAsync(string url, string ticket, string state, string repo = "api", string repoUrl = "https://github.com/o/api")
+    private async Task SeedAsync(string url, string ticket, string state, string repo = "api", string repoUrl = "https://github.com/o/api",
+        bool conflicts = false)
     {
         await using var db = _h.Store.Context();
         db.Add(new PrReviewRecord
@@ -108,6 +162,7 @@ public sealed class SiblingBaseRefreshTests : IDisposable
             PrKey = PrKey.Of(url), Url = url, Repo = repo, RepoKey = RepoKey.Of(repoUrl), Number = url.Split('/')[^1],
             Project = "p", TicketId = ticket, RunId = $"run-{ticket}", State = state,
             StateAtTicks = T.AddHours(1).UtcTicks, CheckedAtTicks = T.AddHours(3).UtcTicks,
+            HasConflicts = conflicts ? true : null, ConflictsAtTicks = conflicts ? T.AddHours(2).UtcTicks : null,
         });
         await db.SaveChangesAsync();
     }
