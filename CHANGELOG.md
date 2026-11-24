@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.208.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.207.0...v0.208.0) (2026-11-24)
+
+
+### Features
+
+* **series:** a series delivers into its own integration branch, one final pull request per repo (2026-11-24-f9c5) ([9b2c5ce](https://github.com/holgerleichsenring/agent-smith/commit/9b2c5ceb303c135a80c1cd3650a576faa6cabe2b))
+
+
+### Bug Fixes
+
+* **series:** after merging main, the final pull request refreshes on the host's conflict state and the tests follow the new branch-write signature (2026-11-24-f9c5f) ([7e36a35](https://github.com/holgerleichsenring/agent-smith/commit/7e36a3599f869e83684110067c11505d5ed983d2))
+* **series:** the operator's five answers recorded, and the final pull request's conflict on 297b's one refresh path (2026-11-24-f9c5f) ([f8da1e1](https://github.com/holgerleichsenring/agent-smith/commit/f8da1e19c75264059cffaf16e1d92f4d76a89894))
+
 ## [0.207.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.206.0...v0.207.0) (2026-11-24)
 
 
