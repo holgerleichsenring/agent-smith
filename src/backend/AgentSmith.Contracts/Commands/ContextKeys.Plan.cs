@@ -23,6 +23,10 @@ public static partial class ContextKeys
     /// done-status honesty diagnostic).</summary>
     public const string ProgressLedger = "ProgressLedger";
 
+    /// <summary>2026-11-24-0fbfa: the spec (and the digest of its steps) <see cref="ProgressLedger"/> was seeded for, so a
+    /// later master pass of that spec opens on it as it stands (SpecLedgerCarry); absent when it belongs to no spec.</summary>
+    public const string ProgressLedgerSpecId = "ProgressLedgerSpecId";
+
     /// <summary>p0241: what a spec's coding master left (a <c>MasterVerification</c>) — 2026-11-22-96c8a: its report
     /// and what one read took off it. Set by AgenticMasterHandler, read by VerifySpec (a report must exist), the spec
     /// account, the spec-derivation gate and WriteRunResult (refused instructions).</summary>

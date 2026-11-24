@@ -15,6 +15,7 @@ import {
 import type { TicketAttempt } from "@/types/tickets";
 import { isTerminal } from "./runFactWords";
 import { commandKey } from "./runSections";
+import { passHead, specPasses } from "./specPasses";
 
 // 2026-11-17-6d9ea: the Now block's lines. While the run works: the step it is in with what it says it is doing, then
 // the newest decisions, tool calls, files written and findings off the run's hub events, and the sandbox beat. Once it
@@ -61,6 +62,7 @@ const KIND_WORDS: Record<string, TextKey> = {
   paused: "runs.log.kind.paused", review: "runs.log.kind.review", verify: "runs.log.kind.verify", outcome: "runs.log.kind.outcome",
   llm: "runs.log.kind.llm", write: "runs.log.kind.write", obs: "runs.log.kind.obs", "sub-agent": "runs.log.kind.sub-agent",
   pr: "runs.log.kind.pr", ticket: "runs.log.kind.ticket", catalog: "runs.log.kind.catalog",
+  pass: "runs.log.kind.pass", // 2026-11-24-0fbfa
 };
 
 export function kindWord(t: T, kind: string): string {
@@ -174,6 +176,8 @@ export function liveLines(
     text: waitText ?? said ?? t(step || snapshot.stepName ? "runs.log.now.workingOnIt" : "runs.log.now.starting"),
     tone: "now",
   });
+  const pass = step ? currentPass(t, steps, events, step.index) : null;
+  if (pass) lines.push({ key: "pass", at: null, kind: "pass", text: pass, tone: "run" });
   if (beat?.lastCommand) lines.push({ key: "beat", at: null, kind: "ran", text: beat.lastCommand, tone: "dim" });
   const acts: NowLine[] = [];
   for (let i = events.length - 1; i >= 0 && acts.length < max; i--) {
@@ -181,6 +185,15 @@ export function liveLines(
     if (line) acts.push(line);
   }
   return [...lines, ...acts];
+}
+
+/** 2026-11-24-0fbfa: the master pass the running step is, when its spec runs its master more than once — the Now block
+ *  follows a correction pass as the spec's pass 2, not as a new start. */
+function currentPass(t: T, steps: RunStepRow[], events: RunEvent[], index: number): string | null {
+  const row = steps.find((s) => s.stepIndex === index);
+  if (!row?.specId) return null;
+  const pass = specPasses(steps.filter((s) => s.specId === row.specId), events).get(index);
+  return pass ? passHead(t, pass) : null;
 }
 
 /** A waiting or queued run's lines: what it waits for and that its compute is held. */
