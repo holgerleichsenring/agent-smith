@@ -50,7 +50,7 @@ describe("ProjectMergeSection", () => {
 
   // 2026-11-24-6811c: the fix budget also bounds a base refresh's repair passes, so a manual project that refreshes shows it.
   it("shows the fix attempts for a refreshing project in any mode", () => {
-    const refreshing = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: true } };
+    const refreshing = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: true, seriesWhen: "manual" } };
     render(<ProjectMergeSection project={refreshing} onChange={() => {}} capabilities={capabilities} />);
     expect(screen.getByTestId("form-field-merge-ciFixAttempts")).toBeTruthy();
     expect(screen.queryByTestId("form-field-merge-ciSettleSeconds")).toBeNull();

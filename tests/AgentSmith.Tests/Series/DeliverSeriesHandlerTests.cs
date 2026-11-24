@@ -144,6 +144,24 @@ public sealed class DeliverSeriesHandlerTests
         _store.Records["sr-1"].State.Should().Be(SeriesRunStates.Delivering);
     }
 
+    // 2026-11-24-f9c5f: the host's conflict state (6811a) refreshes the series branch once per head, under manual and before the
+    // check passed too — no merge attempt is needed to see it.
+    [Fact]
+    public async Task AConflictTheHostReports_RefreshesOncePerHead_WithoutAMergeAttempt()
+    {
+        _open = Final;
+        _from.Add(new BranchPullRequest(BranchPullRequestState.Open, "h1"));
+        _host.As<IPrReviewStateReader>().Setup(s => s.ReadAsync(Final, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PrReviewState("90", PrReviewStates.Open, SeriesRecords.T, []) { HasConflicts = true });
+
+        (await BeatAsync(SeriesRunStates.Running, MergeWhen.Manual)).Said.Should().ContainSingle().Which.Should().Contain("run run-r brings");
+        await BeatAsync(SeriesRunStates.Delivering, MergeWhen.Manual);
+
+        _launch.Verify(l => l.RefreshAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        _host.Verify(h => h.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task AClosedFinalPullRequest_IsSaid_AndTheSeriesWaits()
     {

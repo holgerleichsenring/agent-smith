@@ -27,3 +27,8 @@ decisions:
     chose: "Post-build review fix: a ready series ticket whose CI waits says it merges into the series branch by itself instead of asking for respect_branch_protection"
     over: "The default-branch wording"
     reason: "Review finding 12: a merge into a series branch never arms, so the key could not help."
+  - category: Implementation
+    decider: claude
+    chose: "After merging main (2026-11-24-6811a-d): the final pull request's step reads the host's conflict state (PrReviewState.HasConflicts) every beat and launches one refresh-base run per head on a conflict, under every merge.when and before the series check passed"
+    over: "Seeing a conflict only at agent-smith's own merge attempt"
+    reason: "6811a gave every host's state read the conflict; the final pull request has no PR record, so the step asks the host directly — a small change, and merge.when manual no longer hides a conflict."

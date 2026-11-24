@@ -65,6 +65,14 @@ public sealed class SeriesFinalMerge(
     {
         if (!completion.Conflicts || head is null || head == delivery.RefreshedHead)
             return SeriesDeliveryStep.Of(delivery, "refused", $"{delivery.Url} is not merged: {completion.Reason}");
+        return await RefreshAsync(context, repo, branch, delivery, head, ct);
+    }
+
+    /// <summary>2026-11-24-f9c5f: one refresh-base run for a final pull request that conflicts with its base, on a head no
+    /// refresh was launched for — whether the host said so at a merge or in its state (2026-11-24-6811a).</summary>
+    public async Task<SeriesDeliveryStep> RefreshAsync(DeliverSeriesContext context, RepoConnection repo, string branch,
+        SeriesDelivery delivery, string head, CancellationToken ct)
+    {
         var target = await sources.Create(repo).ReadPullRequestBaseAsync(delivery.Url, ct) ?? repo.DefaultBranch ?? "main";
         var run = await launch.RefreshAsync(context.Project.Name, repo.Name, branch, delivery.Url, delivery.Number, target, ct);
         return SeriesDeliveryStep.Of(delivery with { RefreshedHead = head }, "conflicts",

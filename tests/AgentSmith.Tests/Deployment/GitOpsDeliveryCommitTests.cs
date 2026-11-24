@@ -27,8 +27,8 @@ public sealed class GitOpsDeliveryCommitTests
     {
         _provider.Setup(p => p.GetDefaultBranchAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Trunk);
         _provider.Setup(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(), It.IsAny<IReadOnlyList<RepoFile>>(),
-                It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<BranchName, IReadOnlyList<RepoFile>, string, CancellationToken>((b, f, m, _) => _writes.Add((b, f, m)))
+                It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<BranchName?>()))
+            .Callback<BranchName, IReadOnlyList<RepoFile>, string, CancellationToken, BranchName?>((b, f, m, _, _) => _writes.Add((b, f, m)))
             .ReturnsAsync(() => _answers.Dequeue());
     }
 
