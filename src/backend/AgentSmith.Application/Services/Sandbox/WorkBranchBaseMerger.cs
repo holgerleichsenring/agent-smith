@@ -60,10 +60,11 @@ public sealed class WorkBranchBaseMerger(
         ISandbox sandbox, string baseRef, string? error, CancellationToken ct)
     {
         var conflicting = await ConflictingPathsAsync(sandbox, ct);
-        if (await stateIndex.TryResolveAsync(sandbox, conflicting, ct)
+        // 2026-11-24-6811b: the index files are united one by one; the merge commits only when nothing is left unmerged.
+        if (conflicting.Count > 0 && (await stateIndex.ResolveAsync(sandbox, conflicting, ct)).Count == 0
             && (await RunAsync(sandbox, ["commit", "--no-edit"], ct)).ExitCode == 0)
         {
-            logger.LogInformation("Merged {BaseRef}; state.done entries of both sides united", baseRef);
+            logger.LogInformation("Merged {BaseRef}; the index lines of both sides united", baseRef);
             return BaseMergeResult.Merged(baseRef);
         }
         var abort = await RunAsync(sandbox, ["merge", "--abort"], ct);
