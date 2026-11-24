@@ -403,6 +403,21 @@ public sealed class CompletePullRequestsHandlerTests
         _merged.Should().ContainSingle();
     }
 
+    // 2026-11-24-629aa: the CI loop's request for a build that has not started queues it again and merges nothing, under manual too.
+    [Theory]
+    [InlineData(MergeWhen.Manual)]
+    [InlineData(MergeWhen.OnCiGreen)]
+    public async Task MergeGreen_ANotStartedRequest_QueuesTheBuildsAgain_AndMergesNothing(MergeWhen when)
+    {
+        var result = await RunAsync(new MergePolicyConfig { When = when, RespectBranchProtection = true }, passed: null, pipeline =>
+            pipeline.Set(ContextKeys.CiGreenMerge, new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42",
+                [new CiGreenPullRequest("a", "https://x/a/pull/1") { NotStarted = true }, new CiGreenPullRequest("c", "https://x/c/pull/1") { NotStarted = true }])));
+
+        _calls.Should().Equal("requeue https://x/a/pull/1");
+        _merged.Should().BeEmpty();
+        result.Message.Should().Contain("a: 1 queued").And.Contain("c: 0 queued").And.Contain("nothing merges");
+    }
+
     private void Requires(params string[] required) =>
         _edges.Setup(e => e.RequiredOfAsync("gh", "github-42", It.IsAny<CancellationToken>())).ReturnsAsync([.. required.Select(r =>
             new TicketRequirementEdge("gh", "github-42", "42", "p", $"github-{r}", r, true, DateTimeOffset.UnixEpoch, "c-1"))]);
@@ -481,7 +496,8 @@ public sealed class CompletePullRequestsHandlerTests
             new PullRequestBaseGuard(factory.Object), NullLogger<PullRequestMergeSequence>.Instance,
             new UnmetTicketRequirements(_edges.Object, _landings.Object, Mock.Of<ISpecApprovalStore>()),
             new PullRequestDraftStep(factory.Object),
-            new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance)), completer);
+            new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance)), completer,
+            requeue: new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance));
         return await handler.ExecuteAsync(new CompletePullRequestsContext(policy, new BranchName("agent-smith/42"), repos, pipeline,
             "gh", "github-42", seriesBranch), CancellationToken.None);
     }

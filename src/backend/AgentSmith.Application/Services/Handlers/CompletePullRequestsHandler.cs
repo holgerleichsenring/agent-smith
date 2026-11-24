@@ -21,14 +21,18 @@ namespace AgentSmith.Application.Services.Handlers;
 /// server seeded one.</para>
 /// <para>2026-11-24-f9c5d: the CI loop's request for pull requests into a series branch that report no CI first starts their
 /// CI (<see cref="PullRequestCiStart"/>), under merge.series_when manual too; the merge follows only when none has CI anywhere.</para>
+/// <para>2026-11-24-629aa: the CI loop's request for pull requests whose required build has not started queues those builds
+/// again (<see cref="PullRequestBuildRequeue"/>) under every merge mode and merges nothing.</para>
 /// </summary>
-public sealed class CompletePullRequestsHandler(PullRequestMergeSequence merges, PullRequestCompleter completer, PullRequestCiStart? ciStart = null)
+public sealed class CompletePullRequestsHandler(
+    PullRequestMergeSequence merges, PullRequestCompleter completer, PullRequestCiStart? ciStart = null, PullRequestBuildRequeue? requeue = null)
     : ICommandHandler<CompletePullRequestsContext>
 {
     public async Task<CommandResult> ExecuteAsync(CompletePullRequestsContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         var green = context.Pipeline.TryGet<CiGreenMergeRequest>(ContextKeys.CiGreenMerge, out var asked) ? asked : null;
+        if (green is not null && green.PullRequests.Any(p => p.NotStarted)) return await RequeueAsync(context, green, cancellationToken);
         if (green is not null && ciStart is not null && await ciStart.StartAsync(context, green, cancellationToken) is { MayMerge: false } started)
             return CommandResult.Ok($"CI for the series pull requests — {started.Said}; nothing merges until it reports.");
         if (context.Policy.When == MergeWhen.Manual && green?.AskedBy is null)
@@ -54,6 +58,17 @@ public sealed class CompletePullRequestsHandler(PullRequestMergeSequence merges,
         var why = request.AskedBy is { } by ? $"asked by {by}" : "merge: on_ci_green, CI green";
         return CommandResult.Ok($"{why} ({Mode(context.Policy)}) — {Joined(lines)}");
     }
+
+    // 2026-11-24-629aa: each not-started pull request's required builds queued again; a repo not in the run queues nothing.
+    private async Task<CommandResult> RequeueAsync(CompletePullRequestsContext context, CiGreenMergeRequest request, CancellationToken ct)
+    {
+        var said = new List<string>();
+        foreach (var pr in request.PullRequests.Where(p => p.NotStarted)) said.Add($"{pr.Repo}: {await QueuedAsync(context, pr, ct)} queued");
+        return CommandResult.Ok($"required builds that had not started, queued again — {string.Join("; ", said)}; nothing merges.");
+    }
+
+    private async Task<int> QueuedAsync(CompletePullRequestsContext context, CiGreenPullRequest pr, CancellationToken ct) =>
+        requeue is not null && context.Configs.FirstOrDefault(r => r.Name == pr.Repo) is { } repo ? await requeue.RequeueAsync(repo, pr.Url, ct) : 0;
 
     // A pull request opened against a rung is left open, as a merge would leave it; the rest wait for CI.
     private async Task<CommandResult> AwaitCiAsync(
