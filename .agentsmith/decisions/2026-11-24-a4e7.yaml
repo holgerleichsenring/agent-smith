@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-a4e7
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "The series merge act, after a merged or armed outcome, runs the nudge worker's own PrReviewRecordRefresh at once under the worker's ticket lock (PrRecordRefreshNow); a busy lock queues a Refresh nudge"
+    over: "Writing the merged state from the run's outcome; a refresh inside MergeGreenRun; only enqueuing a Refresh nudge"
+    reason: "The records keep their one writer and lock, so no second path writes PR state. MergeGreenRun is also called by CiGreenMerge from inside a refresh, so a refresh there would recurse. A queued nudge alone is drained every 5 s, after the act has answered and the page has re-read."
+  - category: Implementation
+    decider: claude
+    chose: "A failed immediate refresh is logged and the act still answers the merge"
+    over: "Failing the act"
+    reason: "The host already merged; a 500 would tell the person the opposite. The periodic re-read reads the records again."
+  - category: Scope
+    decider: claude
+    chose: "Armed auto-complete needs no new server state: the detail already carries the newest merge run's completion_armed per PR (MergeSaid); the Overview disables Merge (and Merge when CI is green) on it, naming the existing armed sentence"
+    over: "A new 'armed' merge-order wait on the server; leaving Merge enabled"
+    reason: "Smallest change that stops the row offering the same Merge as if nothing happened; a second click would only arm again. The arm clears when the host completes (the record reads merged) or the head moves (MergeSaid is dropped). A host-side cancelled auto-complete stays disabled until then; the PR link on the row remains."
+  - category: Architecture
+    decider: claude
+    chose: "The series page re-reads on TicketActivityChanged of its project (coalesced, SERIES_TICKET_NUDGE_MS = 2000) and on a reconnect, through the hub mechanism the ticket list and Delivery page use"
+    over: "A polling interval while a ticket waits for its host; filtering the nudge by ticket key"
+    reason: "Every refresh that changes a record already sends that nudge, so the page follows a completed arm, a CI turn and a retarget without polling. The constant is a UI coalescing window, not a limit, and matches TICKET_NUDGE_MS and DELIVERY_TICKET_NUDGE_MS. The hub's key is the tracker-typed slug the series view does not carry; a project's other nudges cost at most one read per window."

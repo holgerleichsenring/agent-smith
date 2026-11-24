@@ -35,6 +35,17 @@ describe("seriesTicketActs", () => {
     expect(shape("56")).toEqual(["merge:merge:disabled", "pr-client:external>https://git.test/client/pull/9980", "ticket:link>/tickets/shop/56", "chain:chain"]);
   });
 
+  it("SeriesTicketActs_AnArmedMerge_IsDisabledNamingTheArm", () => {
+    const pr = overviewDetail().tickets.find((candidate) => candidate.ticketId === "50")!.pullRequests[0];
+    const armed = with_("50", { pullRequests: [{ ...pr, mergeSaid: { status: "completion_armed", reason: null, at: "2026-11-24T08:00:00Z" } }] });
+
+    const merge = seriesTicketActs(armed.ticket, armed.detail, seriesNodeKind(armed.ticket, armed.detail), false, t)[0];
+
+    expect(merge.id).toBe("merge");
+    expect(merge.disabledBy).toBe("The merge is armed: the host completes it once CI is green.");
+    expect(acts("50")[0].disabledBy).toBeUndefined();
+  });
+
   it("SeriesTicketActs_AQuestionOnTheTicket_AnswersOnItsPage_WithTheSeriesConversationBeside", () => {
     expect(shapeOf(with_("61", { hold: hold("question", { act: { kind: "answer", target: null } }) }))).toEqual([
       "answer:link>/tickets/shop/61", "conversation:link>/series/sr-1?section=talk", "ticket:link>/tickets/shop/61", "chain:chain"]);
