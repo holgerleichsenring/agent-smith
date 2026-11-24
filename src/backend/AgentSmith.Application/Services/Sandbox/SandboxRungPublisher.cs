@@ -61,7 +61,7 @@ public sealed class SandboxRungPublisher(
             return resolved;
         }
 
-        var rung = TicketBranchNamer.Compose(new TicketId(parentTicketId.Trim())).Value;
+        var rung = TicketBranchNamer.RungOf(parentTicketId).Value; // 2026-11-24-f9c5b: the series branch is published here too
         // 2026-10-02-5f89g: the publish and the adoption both talk to the remote as this repo.
         var credential = credentials.For(config);
         var creation = await push.CreateAsync(sandbox, credential, baseRef, rung, ct);

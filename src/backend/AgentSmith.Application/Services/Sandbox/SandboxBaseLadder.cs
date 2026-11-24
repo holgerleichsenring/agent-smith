@@ -68,7 +68,7 @@ public sealed class SandboxBaseLadder(
     private static IEnumerable<string> Candidates(string? parentTicketId)
     {
         if (string.IsNullOrWhiteSpace(parentTicketId)) yield break;
-        yield return TicketBranchNamer.Compose(new TicketId(parentTicketId.Trim())).Value;
+        yield return TicketBranchNamer.RungOf(parentTicketId).Value; // 2026-11-24-f9c5b: a series branch is its own name
     }
 
     private async Task<bool> ExistsAsync(

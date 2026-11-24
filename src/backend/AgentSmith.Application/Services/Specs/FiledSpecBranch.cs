@@ -48,9 +48,10 @@ public sealed class FiledSpecBranch(
     /// <param name="ticket">The ticket as the TRACKER stored it, which is what the set is
     /// fingerprinted from, minus the label note as a run's fetch strips it (2026-11-17-b6e4a) — never the body we rendered.</param>
     /// <param name="sources">Filed id to the proposal's spec id, through which a ratified mock is read.</param>
+    /// <param name="startFrom">2026-11-24-f9c5b: where a missing ticket branch is created instead of the default branch.</param>
     public async Task<BranchWriteResult> WriteAsync(
         ResolvedProject project, SpecApprovalRecord record, TicketId ticketId, Ticket? ticket,
-        CancellationToken cancellationToken, IReadOnlyDictionary<string, string>? sources = null)
+        CancellationToken cancellationToken, IReadOnlyDictionary<string, string>? sources = null, BranchName? startFrom = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(record);
@@ -71,7 +72,7 @@ public sealed class FiledSpecBranch(
         try
         {
             var ratified = await new RatifiedMockFiles(mocks).ReadAsync(record, sources, cancellationToken);
-            return await WriteAsync(project, placement, ticketId, ratified, cancellationToken);
+            return await WriteAsync(project, placement, ticketId, ratified, cancellationToken, startFrom);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -81,10 +82,11 @@ public sealed class FiledSpecBranch(
     }
 
     private async Task<BranchWriteResult> WriteAsync(
-        ResolvedProject project, SeriesPlacement placement, TicketId ticketId, RatifiedMockSet ratified, CancellationToken ct)
+        ResolvedProject project, SeriesPlacement placement, TicketId ticketId, RatifiedMockSet ratified, CancellationToken ct,
+        BranchName? startFrom)
     {
         var set = placement.Set;
-        var written = await writes.WriteAsync(placement, TicketBranchNamer.Compose(ticketId), ct, ratified.BySpec);
+        var written = await writes.WriteAsync(placement, TicketBranchNamer.Compose(ticketId), ct, ratified.BySpec, startFrom);
         if (!written.Written)
         {
             logger.LogWarning("The approved set {Key} was not written to the ticket branch of {Repos}: {Error}",

@@ -141,4 +141,39 @@ public sealed class RunParentTicketTests
         RunParentTicket.Stacked(pipeline).Should().BeNull();
         RunBranchResolver.Resolve(pipeline)!.IsStackedIn("api").Should().BeFalse();
     }
+
+    // 2026-11-24-f9c5b
+    [Fact]
+    public void Series_TheStampedBranch_AnswersBelowAStackAndAboveALabelParent()
+    {
+        var pipeline = WithTicket(FiledTicketLabels.ParentStamp("4711"));
+        pipeline.Set<object>(ContextKeys.SeriesBranch, System.Text.Json.JsonDocument.Parse("\"agent-smith/series/sr-1\"").RootElement);
+        pipeline.Set<object>(ContextKeys.StackedOnTicket, new Dictionary<string, string> { ["server"] = "41" });
+
+        RunParentTicket.ForRepo(pipeline, "server").Should().Be("41");
+        RunParentTicket.ForRepo(pipeline, "client").Should().Be("agent-smith/series/sr-1");
+        var run = RunBranchResolver.Resolve(pipeline)!;
+        run.ParentFor("client").Should().Be("agent-smith/series/sr-1");
+        run.IsSeriesIn("client").Should().BeTrue();
+        run.IsSeriesIn("server").Should().BeFalse();
+    }
+
+    // 2026-11-24-f9c5b
+    [Theory]
+    [InlineData("agent-smith/series/sr-1", "agent-smith/series/sr-1")]
+    [InlineData("4711", "agent-smith/4711")]
+    public void RungOf_ASeriesBranchIsItself_ATicketIsItsBranch(string parent, string rung) =>
+        AgentSmith.Application.Services.TicketBranchNamer.RungOf(parent).Value.Should().Be(rung);
+
+    // 2026-11-24-f9c5b
+    [Fact]
+    public void Series_IsNeverReadAsATicketsBranch()
+    {
+        var branch = AgentSmith.Application.Services.TicketBranchNamer.Series("sr-1").Value;
+
+        branch.Should().Be("agent-smith/series/sr-1");
+        AgentSmith.Application.Services.TicketBranchNamer.TicketOf(branch).Should().BeNull();
+        AgentSmith.Application.Services.TicketBranchNamer.IsSeries("refs/heads/" + branch).Should().BeTrue();
+        AgentSmith.Application.Services.TicketBranchNamer.IsSeries("agent-smith/41").Should().BeFalse();
+    }
 }

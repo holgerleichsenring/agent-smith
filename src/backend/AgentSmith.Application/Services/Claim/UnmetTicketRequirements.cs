@@ -16,6 +16,9 @@ namespace AgentSmith.Application.Services.Claim;
 /// branch the ticket can stack on (<see cref="GreenPrerequisites"/>). Without the green reader it answers landings.</para>
 /// <para>2026-11-19-1b72a: a paused series holds its tickets too (<see cref="PausedSeriesAsync"/>); without the series
 /// store nothing is paused.</para>
+/// <para>2026-11-24-f9c5b: a ticket of a series with a series branch is held by landings only under every requires_start and
+/// its hold names the branch; a ticket outside such a series that requires one of its tickets stays held until the series
+/// ends (<see cref="SeriesBranchReads"/>), here and for a merge alike.</para>
 /// </summary>
 public sealed class UnmetTicketRequirements(
     ITicketRequirementStore requirements, ITicketLandingStore landings, ISpecApprovalStore approvals,
@@ -35,7 +38,9 @@ public sealed class UnmetTicketRequirements(
         if (edges.Count == 0) return (false, []);
         var landed = (await landings.LandedAsync(tracker, [.. edges.Select(e => e.RequiredTicketKey)], cancellationToken))
             .Select(l => l.TicketKey).ToHashSet(StringComparer.Ordinal);
-        return (true, [.. edges.Where(e => !landed.Contains(e.RequiredTicketKey))]);
+        var reads = edges.Any(e => landed.Contains(e.RequiredTicketKey))
+            ? await SeriesBranchReads.ReadAsync(series, cancellationToken) : SeriesBranchReads.None;
+        return (true, [.. edges.Where(e => !landed.Contains(e.RequiredTicketKey) || reads.HoldsOutside(e))]);
     }
 
     /// <summary>
@@ -60,18 +65,21 @@ public sealed class UnmetTicketRequirements(
         var required = edges.Values.SelectMany(e => e).Select(e => e.RequiredTicketKey).Distinct(StringComparer.Ordinal).ToList();
         var landed = required.Count == 0 ? [] : (await landings.LandedAsync(tracker, [.. required], cancellationToken))
             .Select(l => l.TicketKey).ToHashSet(StringComparer.Ordinal);
+        var integrating = await SeriesBranchReads.ReadAsync(series, cancellationToken); // 2026-11-24-f9c5b
         var open = edges.ToDictionary(p => p.Key, p => (IReadOnlyList<TicketRequirementEdge>)
-            [.. p.Value.Where(e => !landed.Contains(e.RequiredTicketKey))], StringComparer.Ordinal);
+            [.. p.Value.Where(e => !landed.Contains(e.RequiredTicketKey) || integrating.HoldsOutside(e))], StringComparer.Ordinal);
+        var seriesBranches = integrating.BranchesByKey(project);
+        RequirementHold ByLandings(string key) => new(edges[key].Count > 0, open[key]) { SeriesBranch = seriesBranches.GetValueOrDefault(key) };
         if (project.RequiresStart != RequiresStart.OnGreenPush || green is null)
-            return open.ToDictionary(p => p.Key, p => new RequirementHold(edges[p.Key].Count > 0, p.Value), StringComparer.Ordinal);
-        var held = open.Values.Where(u => u.Count > 0).ToList();
+            return open.ToDictionary(p => p.Key, p => ByLandings(p.Key), StringComparer.Ordinal);
+        var held = open.Where(p => p.Value.Count > 0 && !seriesBranches.ContainsKey(p.Key)).Select(p => p.Value).ToList();
         var started = held.Count == 0 ? new HashSet<string>()
             : await green.StartedAsync(project.Name, [.. held.Select(u => u[0].TicketId).Distinct(StringComparer.Ordinal)], cancellationToken);
         var reads = green.Reads(project.Name, edges.Select(p => KeyValuePair.Create((tracker, p.Key), p.Value)));
         await reads.PrefetchAsync(held.Where(u => !started.Contains(u[0].TicketId)).SelectMany(u => u), cancellationToken);
         var holds = new Dictionary<string, RequirementHold>(StringComparer.Ordinal);
         foreach (var (key, unmet) in open)
-            holds[key] = unmet.Count == 0 ? new(edges[key].Count > 0, unmet)
+            holds[key] = unmet.Count == 0 || seriesBranches.ContainsKey(key) ? ByLandings(key) // f9c5b: a series ticket never stacks
                 : await _rule.HoldAsync(reads, unmet, started.Contains(unmet[0].TicketId), cancellationToken);
         return holds;
     }

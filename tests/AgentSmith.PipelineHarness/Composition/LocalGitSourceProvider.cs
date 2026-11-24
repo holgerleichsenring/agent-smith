@@ -93,7 +93,7 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
     // commit in it — the same plumbing the local provider uses, against the bare repo itself.
     public Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken, BranchName? startFrom = null) =>
         new LocalBranchCommit().WriteAsync(
             session.BareRepoPath, branch.Value, "main", files, message, cancellationToken);
 

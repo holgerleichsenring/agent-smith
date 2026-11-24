@@ -46,7 +46,7 @@ public sealed class SeriesMasterHandler(
         var ask = new SeriesAskTool(beat, store, config.Dialogue.QuestionDefaultMinutes).GetTool(); // 0207c
         var check = AIFunctionFactory.Create(
             (CancellationToken ct) => progress.CheckAsync(beat, ct), "check_series", // 0207d
-            "Starts the series check on the default branch again — for a check that ended without a verdict.");
+            "Starts the series check again (on the series branch when it has one, else the default branch) — for a check that ended without a verdict.");
         IList<AITool> tools = [.. new SeriesReadTools(beat).GetTools().Concat(new SeriesActTools(beat, acts, store, pause).GetTools())
             .Append(ask).Append(check).Select(f => new MidTurnMessageAIFunction(f, messages)), .. records?.Tools() ?? []];
         var agent = context.Project.Agent;

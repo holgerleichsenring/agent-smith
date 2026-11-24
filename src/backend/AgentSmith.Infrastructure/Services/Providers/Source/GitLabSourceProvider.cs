@@ -64,12 +64,13 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
 
     public async Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, BranchName? startFrom = null)
     {
         ArgumentNullException.ThrowIfNull(files);
-        return await _branchWrite.WriteAsync(
-            branch.Value, await GetDefaultBranchAsync(cancellationToken), files, message,
-            cancellationToken);
+        // 2026-11-24-f9c5b: a start branch this repository has replaces the default branch as the base of a new branch.
+        var from = startFrom is not null && await BranchExistsAsync(startFrom, cancellationToken)
+            ? startFrom.Value : await GetDefaultBranchAsync(cancellationToken);
+        return await _branchWrite.WriteAsync(branch.Value, from, files, message, cancellationToken);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)

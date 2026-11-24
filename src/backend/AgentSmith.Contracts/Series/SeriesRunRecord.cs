@@ -47,6 +47,11 @@ public sealed record SeriesRunRecord(
     /// <summary>2026-11-19-1b72a: the state a paused series returns to on resume; null unless paused.</summary>
     public string? PausedFrom { get; init; }
 
+    /// <summary>2026-11-24-f9c5b: the branch its tickets integrate on in every repository they touch —
+    /// agent-smith/series/&lt;id&gt;, cut from the default branch by the first ticket working there; null for a series opened
+    /// before the branch existed (it runs as it did) and for one opened over a single ticket.</summary>
+    public string? IntegrationBranch { get; init; }
+
     /// <summary>The optimistic version the store compares on update.</summary>
     public int Version { get; init; }
 

@@ -16,12 +16,15 @@ public sealed class SeriesRunLaunch(
     InitRunRepository runs, QueuedRunDispatch dispatch, RunRepository rows, TimeProvider clock, ILogger<SeriesRunLaunch> logger)
     : ISeriesRunLaunch
 {
-    public async Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken cancellationToken)
+    public async Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken cancellationToken,
+        string? checkoutBranch = null)
     {
+        var seeds = new Dictionary<string, object> { [ContextKeys.SeriesRunId] = seriesRunId };
+        if (!string.IsNullOrWhiteSpace(checkoutBranch)) seeds[ContextKeys.CheckoutBranch] = checkoutBranch; // 2026-11-24-f9c5b
         var runId = RunIdGenerator.Generate(clock.GetUtcNow());
         await runs.CreateQueuedRunAsync(runId, project, pipeline, [], $"starting — series {seriesRunId}", cancellationToken);
         await dispatch.DispatchAsync(new PipelineRequest(project, pipeline, TicketId: null, Headless: true, RunId: runId,
-            Context: new Dictionary<string, object> { [ContextKeys.SeriesRunId] = seriesRunId }), cancellationToken);
+            Context: seeds), cancellationToken);
         logger.LogInformation("Series {Series}: {Pipeline} run {RunId} launched", seriesRunId, pipeline, runId);
         return runId;
     }

@@ -16,8 +16,12 @@ public sealed class FilingPlanFiler(
     ITicketProviderFactory ticketFactory, PlannedTicketFiler tickets, TicketGraphStarts starts,
     ILogger<FilingPlanFiler> logger)
 {
+    /// <param name="beforeStarts">2026-11-24-f9c5b: run on no token after the last ticket is created and before any is
+    /// started — the filing's series is written there, so the first claim already finds it. A failure is logged and the
+    /// tickets are still started.</param>
     public async Task<FilingReport> FileAsync(
-        FilingRequest request, ResolvedProject project, FilingPlan plan, CancellationToken ct)
+        FilingRequest request, ResolvedProject project, FilingPlan plan, CancellationToken ct,
+        Func<IReadOnlyList<FiledTicket>, Task>? beforeStarts = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(project);
@@ -36,8 +40,18 @@ public sealed class FilingPlanFiler(
             logger.LogError(ex, "Filing for conversation {Conversation} stopped after {Count} ticket(s)", request.Conversation, progress.Filed.Count);
         }
         if (provider is not null && progress.Tickets.Count > 0)
+        {
+            await BeforeStartsAsync(beforeStarts, progress.Filed);
             progress.Notes.AddRange(await starts.SettleAsync(provider, project, progress.Tickets, request.MayStartRuns, progress.Filed));
+        }
         return new FilingReport(progress.Filed, error) { Notes = progress.Notes };
+    }
+
+    private async Task BeforeStartsAsync(Func<IReadOnlyList<FiledTicket>, Task>? beforeStarts, IReadOnlyList<FiledTicket> filed)
+    {
+        if (beforeStarts is null) return;
+        try { await beforeStarts(filed); }
+        catch (Exception ex) { logger.LogError(ex, "The filing's series could not be written before its tickets start"); }
     }
 
     // Between tickets the run's own cancel still stops the loop; once a ticket exists, no call runs on the token.

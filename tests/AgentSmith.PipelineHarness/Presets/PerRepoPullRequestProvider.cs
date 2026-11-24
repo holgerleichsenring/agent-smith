@@ -83,6 +83,6 @@ internal sealed class PerRepoPullRequestProvider : ISourceProvider, ISourceProvi
         _inner.MergePullRequestAsync(prUrl, sourceBranch, protection, cancellationToken);
 
     public Task<BranchWriteResult> WriteFilesToBranchAsync(
-        BranchName branch, IReadOnlyList<RepoFile> files, string message, CancellationToken cancellationToken) =>
-        _inner.WriteFilesToBranchAsync(branch, files, message, cancellationToken);
+        BranchName branch, IReadOnlyList<RepoFile> files, string message, CancellationToken cancellationToken, BranchName? startFrom = null) =>
+        _inner.WriteFilesToBranchAsync(branch, files, message, cancellationToken, startFrom);
 }

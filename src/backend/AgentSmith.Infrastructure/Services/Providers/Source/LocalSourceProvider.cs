@@ -110,11 +110,11 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
     // plumbing against a scratch index, so the operator's working tree and their staged changes
     // are untouched by a commit made on a branch they are not on. It answers a real commit sha,
     // because the pointer the caller records needs one and a bare file write can name none.
-    public Task<BranchWriteResult> WriteFilesToBranchAsync(
+    public async Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,
-        CancellationToken cancellationToken) =>
-        _branchCommit.WriteAsync(
-            basePath, branch.Value, DefaultBranch, files, message, cancellationToken);
+        CancellationToken cancellationToken, BranchName? startFrom = null) =>
+        await _branchCommit.WriteAsync(basePath, branch.Value, startFrom is not null && await BranchExistsAsync(startFrom, cancellationToken)
+            ? startFrom.Value : DefaultBranch, files, message, cancellationToken); // 2026-11-24-f9c5b
 
     private string DefaultBranch => defaultBranch ?? FallbackDefaultBranch;
 }

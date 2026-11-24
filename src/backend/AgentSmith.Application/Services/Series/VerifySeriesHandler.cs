@@ -28,7 +28,7 @@ public sealed class VerifySeriesHandler(ISeriesRunStore store, ISeriesCriteria c
             return CommandResult.Fail($"A series-verify run is started with an existing series' ContextKeys.{nameof(ContextKeys.SeriesRunId)}.");
         var (list, unread) = await criteria.ReadAsync(record, context.Project, cancellationToken);
         var verdictTool = new SeriesVerdictTool(list);
-        if (list.Count > 0) await CheckAsync(context, list, verdictTool, cancellationToken);
+        if (list.Count > 0) await CheckAsync(context, list, verdictTool, record.IntegrationBranch ?? "the default branch", cancellationToken);
         var verdict = new SeriesVerdict(pipeline.TryGet<string>(ContextKeys.RunId, out var run) ? run! : string.Empty, clock.GetUtcNow(), verdictTool.Results())
         {
             Unread = unread,
@@ -42,9 +42,11 @@ public sealed class VerifySeriesHandler(ISeriesRunStore store, ISeriesCriteria c
         return CommandResult.Ok($"{verdict.Results.Count - verdict.Failed.Count} of {verdict.Results.Count} criteria hold; {fresh.Count} new failure(s) to file.");
     }
 
-    private async Task CheckAsync(VerifySeriesContext context, IReadOnlyList<SeriesCriterion> list, SeriesVerdictTool verdict, CancellationToken ct)
+    private async Task CheckAsync(VerifySeriesContext context, IReadOnlyList<SeriesCriterion> list, SeriesVerdictTool verdict,
+        string branch, CancellationToken ct)
     {
-        var prompt = new StringBuilder("The series' tickets all landed on the default branch, checked out here. Check each criterion:\n");
+        // 2026-11-24-f9c5b: a series with a series branch landed there, and that branch is checked out.
+        var prompt = new StringBuilder($"The series' tickets all landed on {branch}, checked out here. Check each criterion:\n");
         for (var i = 0; i < list.Count; i++) prompt.Append($"{i + 1}. {list[i].Cited}\n");
         var request = new AgenticLoopRequest(context.Project.Agent, TaskType.Primary, prompts.Get(MasterName), prompt.ToString(),
             SeriesVerifySurface.Tools(context.Pipeline, verdict), Name: MasterName, Compaction: context.Project.Agent.Compaction);

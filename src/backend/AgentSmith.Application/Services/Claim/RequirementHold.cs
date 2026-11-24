@@ -16,4 +16,8 @@ public sealed record RequirementHold(
     public IReadOnlyDictionary<string, string> StackedPerRepo { get; init; } = new Dictionary<string, string>();
 
     public IReadOnlyList<TicketRequirementEdge> MergesToStart { get; init; } = [];
+
+    /// <summary>2026-11-24-f9c5b: the series branch of the integrating series the ticket belongs to — it is cut from it and
+    /// held by landings only, never stacked; null for every other ticket.</summary>
+    public string? SeriesBranch { get; init; }
 }

@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class FiledSeriesWrite(ISourceProviderFactory sources, SeriesFiles files)
 {
     public async Task<SpecSetWriteResult> WriteAsync(SeriesPlacement placement, BranchName branch,
-        CancellationToken cancellationToken, IReadOnlyDictionary<string, RepoFile>? mocks = null)
+        CancellationToken cancellationToken, IReadOnlyDictionary<string, RepoFile>? mocks = null, BranchName? startFrom = null)
     {
         ArgumentNullException.ThrowIfNull(placement);
         var shas = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -23,7 +23,7 @@ public sealed class FiledSeriesWrite(ISourceProviderFactory sources, SeriesFiles
             var result = await sources.Create(repo).WriteFilesToBranchAsync(branch,
                 [.. files.Render(sub).Select(f => new RepoFile(f.Path, f.Content)),
                     .. sub.UnexecutedTail.Select(s => mocks?.GetValueOrDefault(s.SpecId)).OfType<RepoFile>()],
-                SeriesWriter.MessageFor(sub), cancellationToken);
+                SeriesWriter.MessageFor(sub), cancellationToken, startFrom); // 2026-11-24-f9c5b
             if (!result.Written)
             {
                 var why = result.Error ?? "the write named no commit";

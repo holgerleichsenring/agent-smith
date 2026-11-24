@@ -87,6 +87,6 @@ internal sealed class MultiContextSourceProvider(
 
     public Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,
-        CancellationToken cancellationToken) =>
-        _inner.WriteFilesToBranchAsync(branch, files, message, cancellationToken);
+        CancellationToken cancellationToken, BranchName? startFrom = null) =>
+        _inner.WriteFilesToBranchAsync(branch, files, message, cancellationToken, startFrom);
 }

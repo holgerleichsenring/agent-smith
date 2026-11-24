@@ -56,7 +56,7 @@ internal sealed class SeriesRig(DateTimeOffset start)
 
     private sealed class RecordingLaunch(List<(string, string, string)> launches) : ISeriesRunLaunch
     {
-        public Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken ct)
+        public Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken ct, string? checkoutBranch = null)
         {
             launches.Add((project, pipeline, seriesRunId));
             return Task.FromResult($"run-{pipeline}-{launches.Count}");

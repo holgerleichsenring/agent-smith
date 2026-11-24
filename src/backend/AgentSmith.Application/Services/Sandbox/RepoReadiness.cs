@@ -45,7 +45,7 @@ public sealed class RepoReadiness(
         ArgumentNullException.ThrowIfNull(repo);
         var baseBranch = string.IsNullOrWhiteSpace(parentTicketId)
             ? DefaultOf(repo)
-            : await SliceBaseAsync(repo, TicketBranchNamer.Compose(new TicketId(parentTicketId.Trim())), ct);
+            : await SliceBaseAsync(repo, TicketBranchNamer.RungOf(parentTicketId), ct); // 2026-11-24-f9c5b
         return await ReadAsync(repo, baseBranch, runBranch, ct);
     }
 

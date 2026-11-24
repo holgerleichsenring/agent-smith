@@ -22,6 +22,10 @@ public sealed record FilingRequest(
     /// <summary>2026-11-17-e061d: a closed ticket's follow-up a person's act asked for, filed instead of a proposal.</summary>
     public FilingFollowUp? FollowUp { get; init; }
 
+    /// <summary>2026-11-24-f9c5b: the series branch a follow-up filed into a series is written from, in each repository that
+    /// has it, so its pull request into that branch carries no default-branch commits the series lacks; null otherwise.</summary>
+    public Domain.Models.BranchName? SpecBranchFrom { get; init; }
+
     /// <summary>The approval a record of this filing carries.</summary>
     public ApprovalSource Approval => new(Conversation, Principal, ScopeRepos, OwnerWords);
 }

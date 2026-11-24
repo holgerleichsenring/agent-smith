@@ -17,6 +17,10 @@ public static class TicketBranchNamer
 {
     public const string Prefix = AgentSmith.Contracts.Providers.WorkBranches.Prefix;
 
+    /// <summary>2026-11-24-f9c5b: the prefix of every series branch — two segments, so <see cref="TicketOf"/> never reads one
+    /// as a ticket's branch.</summary>
+    public const string SeriesPrefix = Prefix + "/series/";
+
     /// <summary>The branch an init-project run works on, under the same prefix as every ticket run.</summary>
     public const string InitBranch = Prefix + "/init";
     private const int MaxSlugChars = 64;
@@ -44,6 +48,29 @@ public static class TicketBranchNamer
             throw new ConfigurationException(
                 $"Composed branch name exceeds {MaxBranchChars} chars: '{branch}'");
         return new BranchName(branch);
+    }
+
+    /// <summary>2026-11-24-f9c5b: the branch a series' tickets integrate on.</summary>
+    public static BranchName Series(string seriesRunId) =>
+        string.IsNullOrWhiteSpace(seriesRunId)
+            ? throw new ArgumentException("A series branch needs the series' id.", nameof(seriesRunId))
+            : new BranchName(SeriesPrefix + seriesRunId.Trim());
+
+    /// <summary>2026-11-24-f9c5b: whether a branch is a series branch; a <c>refs/heads/</c> prefix is ignored.</summary>
+    public static bool IsSeries(string? branch) =>
+        BranchRef.ShortName(branch) is { } name && name.Length > SeriesPrefix.Length
+        && name.StartsWith(SeriesPrefix, StringComparison.Ordinal);
+
+    /// <summary>
+    /// 2026-11-24-f9c5b: the branch a run's parent names — a parent already under agent-smith/ (a series branch) is that
+    /// branch, any other is a ticket whose branch is agent-smith/&lt;ticket&gt;. Every reader of a run's base composes
+    /// through here, so the series branch is one more parent rather than a second base path.
+    /// </summary>
+    public static BranchName RungOf(string parent)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(parent);
+        var trimmed = parent.Trim();
+        return AgentSmith.Contracts.Providers.WorkBranches.Owns(trimmed) ? new BranchName(trimmed) : Compose(new TicketId(trimmed));
     }
 
     /// <summary>

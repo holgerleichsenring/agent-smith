@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-f9c5b
+goal: "A series of two or more tickets works on agent-smith/series/<id> per repo: cut from the default branch by its first ticket there, each ticket cut from it after its prerequisites landed in it."
+
+applies_to: "default (series record, claim stamp, requirement hold, RunParentTicket, RunBranch, base ladder, rung publisher, series check)"
+
+requires: [2026-11-17-0207a, 2026-11-23-31dca, 2026-11-23-97c2b, 2026-09-13-35a4, 2026-11-17-0207d]
+
+follows: "Operator design 2026-11-24: ticket by ticket into the default branch meant many clicks, interference from everything else landing there, and fragile drafts and retargets."
+
+invariant: "A ticket of a series with a series branch is cut from that branch, never from the default branch or a prerequisite's ticket branch, and starts only once every prerequisite it requires inside the series landed."
+
+facts:
+  - claim: "A filing that created two or more tickets opens a series run; one ticket opens none."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/OpenSeriesRunHandler.cs:26-30"
+  - claim: "Under requires_start on_green_push an unlanded green prerequisite is lifted and the dependent stacks per repo on prerequisite branches."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:65-77; src/backend/AgentSmith.Application/Services/Claim/StackedBaseStamp.cs:27-36"
+  - claim: "Each repo's base is its stacked prerequisite, else the label parent; the ladder looks for agent-smith/<parent> and the publisher creates that rung at the clone's base when nobody has, unless it is a stacked prerequisite's."
+    evidence: "src/backend/AgentSmith.Application/Models/RunBranch.cs:37-40; src/backend/AgentSmith.Application/Services/Sandbox/SandboxBaseLadder.cs:68-72; src/backend/AgentSmith.Application/Services/Sandbox/SandboxRungPublisher.cs:54-75; src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:72,95"
+  - claim: "The rung a repo was cut from is recorded as that repo's pull request target, and every base reader (delivery diff, structure merge base, branch state, foreign commits, readiness, context read) asks RunParentTicket for the repo's parent."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs:63; src/backend/AgentSmith.Application/Services/DeliveryBasis.cs:21-25; src/backend/AgentSmith.Application/Models/ContextReadBranches.cs:30-31; src/backend/AgentSmith.Application/Services/Sandbox/RepoReadiness.cs:46-48"
+  - claim: "TicketOf reads agent-smith/ plus exactly one segment as a ticket, so a two-segment branch is never mistaken for a ticket's."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:53-60"
+  - claim: "The series check checks out the default branch once every ticket landed."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesProgress.cs:24-36; src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SeriesRun.cs:21-38"
+  - claim: "A filing settles (starts) its tickets inside FileTickets, before OpenSeriesRun writes the series record."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.File.cs:11-16; src/backend/AgentSmith.Application/Services/Filing/FilingPlanFiler.cs:37-38"
+  - claim: "Filing writes a ticket's approved specs onto agent-smith/<ticket>, created at the default branch's head; a run then checks that branch out and merges its base into it."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchWrite.cs:23-38; src/backend/AgentSmith.Application/Services/Specs/FiledSeriesWrite.cs:23; src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:61-75"
+  - claim: "A merge into a branch that is no ticket's branch records the landing, which frees every dependent."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/StackedMergeLanding.cs:29-32; src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:42-52"
+
+scope:
+  in: >-
+    SeriesRunRecord.IntegrationBranch = agent-smith/series/<series id> (TicketBranchNamer.Series) for a series opened over two
+    or more tickets; one opened before this has none and runs as before (operator: no migration). The record is written BEFORE
+    the filing settles its tickets: FilingPlanFiler takes a before-settle callback through which FileTickets opens the series
+    (or joins one, for the series check's follow-up); OpenSeriesRun then only reports and keeps the follow-up's start on the
+    verdict. A follow-up filed into a series with a branch has its ticket branch written from the series branch in each repo
+    that has it (WriteFilesToBranchAsync gains an optional start branch, used when it exists), so its pull request carries no
+    default-branch commits the series lacks. TicketBranchNamer.RungOf(parent): a parent under agent-smith/ is that branch,
+    else agent-smith/<ticket>; the ladder, the publisher, ContextReadBranches and RepoReadiness compose through it.
+    UnmetTicketRequirements reads the project's active series once per call: a series ticket (with a branch) is held by
+    landings only, under every requires_start (no green lift, no stack), and its RequirementHold.SeriesBranch names the branch;
+    an edge whose prerequisite is a ticket of such a series and whose dependent is not stays unmet until that series is done
+    (its work is not on the default branch before the final merge) — in OfAsync too, so no merge of the outside dependent
+    lands first. StackedBaseStamp writes ContextKeys.SeriesBranch from the hold and drops a carried one otherwise.
+    RunParentTicket.ForRepo and RunBranch.ParentFor answer stacked, then series branch, then label parent: the checkout publishes
+    the series branch at the clone's base when it is missing (the first ticket there), cuts from it, records it as the pull
+    request target, and every base reader compares against it; a series branch that is still not readable after the publish
+    stops the run with a sentence naming it, as a missing stacked rung does. The series check is launched with
+    ContextKeys.CheckoutBranch = the series branch (a repo without it is checked on its default branch); its prompt, the said
+    line, the master's check_series description, the panel, the summary, the follow-up and the verdict tool name the series
+    branch instead of main.
+  out: >-
+    Merging into the series branch (f9c5c), its CI (f9c5d), the final pull request and the outside dependents' wake at the
+    series' end (f9c5e), the pages (f9c5f). A series ticket requiring a ticket outside its series is met by that ticket's landing
+    on the default branch and the series branch is not refreshed for it (operator: develop moving is ignored until the final
+    pull request).
+
+retires: >-
+  For a ticket of a series with a branch this replaces stacking on an unlanded prerequisite (2026-11-17-9a39a/b,
+  2026-11-23-31dca): no green lift, no StackedOnTicket stamp, no pull request onto a prerequisite's branch, hence nothing for
+  StackedPullRequestRetarget (97c2b) or StackedMergeLanding (6d85b) to move or delay. That code stays only for requirement
+  edges outside such a series (a single ticket requiring another, a series opened before the deploy).
+
+steps:
+  - id: record
+    action: "IntegrationBranch; TicketBranchNamer.Series and RungOf; the before-settle open/join in FileTickets; OpenSeriesRun reports."
+  - id: follow-up
+    action: "WriteFilesToBranchAsync start branch (four providers); FilingRequest carries it to FiledSeriesWrite."
+  - id: hold
+    action: "RequirementHold.SeriesBranch; ForStartManyAsync and OfAsync series rules; StackedBaseStamp writes ContextKeys.SeriesBranch."
+  - id: base
+    action: "RunParentTicket.Series and ForRepo order; RunBranch.SeriesBranch; RungOf in ladder, publisher, ContextReadBranches, RepoReadiness; the missing-series-branch stop."
+  - id: check
+    action: "ISeriesRunLaunch.LaunchAsync checkout branch; SeriesProgress passes it; the texts."
+
+tests:
+  - "SeriesMembership/OpenSeriesRunHandler: a two-ticket filing opens the series with its branch before the starts and the step reports it without opening another; a follow-up joins before it starts and is added once. LocalSourceProvider: a start branch the repository has is the new branch's base, a missing one is not."
+  - "UnmetTicketRequirements (landing and on_green_push): a series ticket waits for its landed prerequisite, gets no stack and names the series branch; an outside dependent of a series ticket stays unmet until the series is done; a ticket outside any series stacks as before."
+  - "StackedBaseStamp: a free series ticket gets ContextKeys.SeriesBranch and no StackedOnTicket."
+  - "RunParentTicket/RunBranch: the series branch answers below a stack entry and above a label parent; TicketBranchNamer.TicketOf of a series branch is null."
+  - "Against real git: the first series ticket publishes the series branch at the default branch's head and targets it; a later one is cut from it with its predecessors' work and without the default branch's newer commits."
+  - "SeriesProgress: the check launches with the series branch as checkout branch."
+
+done:
+  - "Build, affected tests green; the spec gate passed."

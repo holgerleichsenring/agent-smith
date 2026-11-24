@@ -56,7 +56,7 @@ public sealed class SeriesVerifyTests
     [Fact]
     public async Task Progress_EveryTicketLanded_StartsTheCheck()
     {
-        _launch.Setup(l => l.LaunchAsync("sample", PipelinePresets.SeriesVerifyName, "sr-1", It.IsAny<CancellationToken>())).ReturnsAsync("run-v");
+        _launch.Setup(l => l.LaunchAsync("sample", PipelinePresets.SeriesVerifyName, "sr-1", It.IsAny<CancellationToken>(), It.IsAny<string?>())).ReturnsAsync("run-v");
         var beat = await BeatAsync(SeriesRecords.Running());
 
         await Progress.MoveAsync(beat, default);
@@ -136,7 +136,7 @@ public sealed class SeriesVerifyTests
     [Fact]
     public async Task CheckSeries_PausePressedMidBeat_KeepsThePause()
     {
-        _launch.Setup(l => l.LaunchAsync("sample", PipelinePresets.SeriesVerifyName, "sr-1", It.IsAny<CancellationToken>())).ReturnsAsync("run-v");
+        _launch.Setup(l => l.LaunchAsync("sample", PipelinePresets.SeriesVerifyName, "sr-1", It.IsAny<CancellationToken>(), It.IsAny<string?>())).ReturnsAsync("run-v");
         var beat = await BeatAsync(SeriesRecords.Running());
         await _store.UpdateAsync("sr-1", r => r with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running }, default);
 
@@ -144,5 +144,20 @@ public sealed class SeriesVerifyTests
 
         _store.Records["sr-1"].Should().Match<SeriesRunRecord>(r =>
             r.State == SeriesRunStates.Paused && r.PausedFrom == SeriesRunStates.Verifying && r.VerifyRunId == "run-v");
+    }
+
+    // 2026-11-24-f9c5b: a series with a branch is checked on that branch, and says so.
+    [Fact]
+    public async Task Progress_EveryTicketLandedOnTheSeriesBranch_ChecksThatBranch()
+    {
+        const string branch = "agent-smith/series/sr-1";
+        _launch.Setup(l => l.LaunchAsync("sample", PipelinePresets.SeriesVerifyName, "sr-1", It.IsAny<CancellationToken>(), branch))
+            .ReturnsAsync("run-v");
+        var beat = await BeatAsync(SeriesRecords.Running() with { IntegrationBranch = branch });
+
+        await Progress.MoveAsync(beat, default);
+
+        _launch.Verify(l => l.LaunchAsync("sample", PipelinePresets.SeriesVerifyName, "sr-1", It.IsAny<CancellationToken>(), branch), Times.Once);
+        beat.Said.Should().ContainSingle().Which.Should().Contain($"series check on {branch} runs now");
     }
 }

@@ -39,13 +39,14 @@ public sealed class ApprovedSetTicketFiler(
     /// <param name="basis">The series a worked ticket's approval continues; null for a new filing.</param>
     public async Task RecordAsync(
         ITicketProvider provider, ApprovalSource source, ResolvedProject project, CreatedTicket created,
-        FiledSeries series, string goal, List<string> notes, CancellationToken ct, ContinuationBasis? basis = null)
+        FiledSeries series, string goal, List<string> notes, CancellationToken ct, ContinuationBasis? basis = null,
+        Domain.Models.BranchName? startFrom = null)
     {
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(created);
         ArgumentNullException.ThrowIfNull(notes);
         var record = await StoreAsync(source, project, created, series, goal, basis, ct);
-        await branches.WriteAsync(provider, project, created, record, series.Sources, notes, ct);
+        await branches.WriteAsync(provider, project, created, record, series.Sources, notes, ct, startFrom); // f9c5b
     }
 
     /// <summary>

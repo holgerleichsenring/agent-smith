@@ -26,12 +26,14 @@ public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launc
     {
         if (beat.Record.State == SeriesRunStates.Paused) // 2026-11-19-1b72a: a pause holds the check as well
             return "The series is paused; the check starts again once the operator resumes it.";
-        var run = await launch.LaunchAsync(beat.Record.Project, PipelinePresets.SeriesVerifyName, beat.Record.Id, ct);
+        // 2026-11-24-f9c5b: a series with a branch is checked on it — its tickets landed there, not on main.
+        var run = await launch.LaunchAsync(beat.Record.Project, PipelinePresets.SeriesVerifyName, beat.Record.Id, ct,
+            beat.Record.IntegrationBranch);
         // 2026-11-19-1b72a: a pause pressed while the check launched is kept; the check resumes into Verifying.
         await KeepAsync(beat, r => r.State == SeriesRunStates.Paused
             ? r with { PausedFrom = SeriesRunStates.Verifying, VerifyRunId = run }
             : r with { State = SeriesRunStates.Verifying, VerifyRunId = run }, ct);
-        beat.Said.Add($"All {beat.Facts.Count} tickets landed. The series check on main runs now (run {run}).");
+        beat.Said.Add($"All {beat.Facts.Count} tickets landed. The series check on {SeriesBranchWords.Checked(beat.Record)} runs now (run {run}).");
         return $"The series check runs as {run}.";
     }
 

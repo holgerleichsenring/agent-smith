@@ -28,7 +28,8 @@ public static class SeriesPanel
         SeriesRunStates.Done => "series done",
         SeriesRunStates.Stopped => "series stopped",
         SeriesRunStates.Paused => question is null ? "series paused" : "series paused · 1 question for you",
-        SeriesRunStates.Verifying => question is null ? "series checking on main" : "series checking on main · 1 question for you",
+        SeriesRunStates.Verifying => question is null ? $"series checking on {SeriesBranchWords.Checked(record)}"
+            : $"series checking on {SeriesBranchWords.Checked(record)} · 1 question for you",
         _ => question is null ? "series running" : "series running · 1 question for you",
     };
 }
