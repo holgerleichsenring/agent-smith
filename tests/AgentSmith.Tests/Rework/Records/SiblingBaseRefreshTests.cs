@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Services.Branches;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -140,7 +141,7 @@ public sealed class SiblingBaseRefreshTests : IDisposable
 
         await Sut(config.Object).LandedAsync(Landing(TicketLandingKinds.Merged), CancellationToken.None);
 
-        await launched.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await launched.Task.WaitAsync(TestWaits.Hang);
         await using var db = _h.Store.Context();
         db.Set<RunRepo>().AsNoTracking().Select(r => r.PrUrl).Should().Equal(Pr2);
     }
