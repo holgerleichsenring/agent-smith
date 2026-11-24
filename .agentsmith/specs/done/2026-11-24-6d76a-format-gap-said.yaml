@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-6d76a
+goal: "A spec commit says which of its changed source files no formatter touched and why, so structure measured on unformatted lines is never a silent skip."
+
+applies_to: "backend (spec format run, spec commit note)"
+
+requires: [2026-10-13-a347a]
+
+facts:
+  - claim: "observed: coding runs on a .NET target wrote methods on one line and lines of 230-812 characters; its context.yaml declares verify (dotnet build, dotnet test) and no format, and nothing in the run said so."
+    evidence: "observed: 2026-11-24, live run report from the operator"
+  - claim: "A sandbox whose contexts declare no formatter returns no note at all; a declared formatter whose when_present path is absent is dropped silently."
+    evidence: "observed: 2026-11-24, origin/main 61cf7c8, src/backend/AgentSmith.Application/Services/SpecExecution/SpecFormatRun.cs:45-46 and :67-71"
+  - claim: "The spec commit formats, pushes, then measures structure; the format note is appended to every message the outcome builds."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/CommitSpecWorkHandler.cs:46-50, src/backend/AgentSmith.Application/Services/Structure/StructureGateOutcome.cs:57-58"
+  - claim: "observed: 'dotnet format whitespace --folder --include <file>' leaves a method written on one line unchanged when no .editorconfig sets csharp_preserve_single_line_blocks; with it set to false it also expands every auto-property."
+    evidence: "observed: 2026-11-24, scratch run with SDK 10.0.100"
+
+decisions:
+  - key: "SAID, NOT FORCED. A file no formatter touched is named with its context and the reason; it is committed as written and the structure gate judges it as before."
+  - key: "NO FORMAT VERIFY STAGE. A check over the spec's files after the rewrite is green by construction; over the tree it reddens on code the spec never touched."
+
+scope:
+  in: >
+    SpecFormatRun lists the spec's changed files once per sandbox, also when no context there declares a formatter. A
+    changed file that the structure engine measures and no formatting context owns is counted against its last owner
+    among the repository's contexts; the note names the context, the count and the reason: it declares no format, its
+    format's when_present path is absent, or it belongs to another sandbox, whose formatter never sees this sandbox's
+    changes. The note joins the formatter-failure lines in the commit step message. SpecFormatGaps does the counting.
+  out: "Choosing a formatter (the bootstrap skill derives it: 2026-11-24-6d76b); a format verify stage; new settings."
+
+steps:
+  - id: gaps
+    action: "SpecFormatGaps counts unformatted measured files per owning context with the reason; SpecFormatRun lists changes before the declaring check and adds the gap lines."
+
+tests:
+  - "SpecFormatGaps_ContextWithoutFormat_IsNamedWithItsCount"
+  - "SpecFormatGaps_WhenPresentAbsent_SaysThePath"
+  - "SpecFormatGaps_FileNoEngineMeasures_IsNotCounted"
+  - "SpecFormatGaps_FileFormattedBySharedWorkdirContext_IsNotCounted"
+  - "SpecFormatGaps_FileOfAnotherSandboxContext_SaysItsFormatDoesNotRunHere"
+  - "SpecFormatGaps_NestedContextWithoutFormat_IsNamedNotItsParent"
+  - "SpecFormatGaps_FileUnderAnUnformattedContextsSources_CountsForIt"
+  - "SpecFormatRun_FormatterFails_SaysTheFailureNotAGap"
+  - "SpecFormatRun_NoContextDeclaresFormat_SaysSo"
+
+done:
+  - "A spec commit in a sandbox whose context declares no format says '<context> declares no format' with the count of its unformatted source files; full suite green."

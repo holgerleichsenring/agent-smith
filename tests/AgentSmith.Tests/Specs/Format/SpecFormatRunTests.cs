@@ -15,7 +15,7 @@ public sealed class SpecFormatRunTests
     {
         var sandbox = new FormatSandbox();
         sandbox.Changed.AddRange(
-            ["api/src/A.cs", "api/src/it's.cs", "web/app.ts", ".agentsmith/runs/r1/plan.md", "README.md"]);
+            ["api/src/A.cs", "api/src/it's.cs", "web/app.ts", "web/Page.cs", ".agentsmith/runs/r1/plan.md", "README.md"]);
         var pipeline = FormatFixture.Pipeline(sandbox,
             FormatFixture.Context("api", "api", "dotnet csharpier {files}"),
             FormatFixture.Context("web", "web", null),
@@ -23,7 +23,9 @@ public sealed class SpecFormatRunTests
 
         var note = await FormatFixture.Run().RunAsync(pipeline, CancellationToken.None);
 
-        note.Should().BeNull("every formatter exited 0");
+        note.Should().Be(
+            "format: web declares no format in repo; 1 changed source file(s) are committed as written, unformatted",
+            "every formatter exited 0, and web declares none; its .ts file is not one the structure engine measures (2026-11-24-6d76a)");
         sandbox.ShellCommands.Should().BeEquivalentTo(
             "dotnet csharpier './api/src/A.cs' './api/src/it'\\''s.cs'",
             "prettier --write './README.md'");
