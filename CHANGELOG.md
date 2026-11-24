@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.209.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.208.0...v0.209.0) (2026-11-24)
+
+
+### Features
+
+* **runs:** hide the server's own runs behind a Show system runs toggle (2026-11-24-35ff) ([f8c06f8](https://github.com/holgerleichsenring/agent-smith/commit/f8c06f839ab03904628924c64c5d5f9c9e027720))
+* **runs:** the Runs page hides the server's own runs behind a Show system runs toggle (2026-11-24-35ff) ([c3b4ac8](https://github.com/holgerleichsenring/agent-smith/commit/c3b4ac857bc29ac1c8bd8b4b1289221d16739690))
+
+
+### Bug Fixes
+
+* **runs:** Load more stays offered when every loaded finished run is a hidden system run (2026-11-24-35ff) ([8bf4a6c](https://github.com/holgerleichsenring/agent-smith/commit/8bf4a6cbbe9b1e2289720005380b7e603977a6de))
+
 ## [0.208.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.207.0...v0.208.0) (2026-11-24)
 
 
