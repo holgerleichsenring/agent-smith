@@ -16,17 +16,18 @@ vi.mock("@/hooks/useJobsHub", () => ({
     systemActivity: null,
   }),
 }));
-vi.mock("@/lib/runsApi", () => ({ fetchRunsBefore: vi.fn().mockResolvedValue([]) }));
+const fetchRunsBefore = vi.fn().mockResolvedValue([]);
+vi.mock("@/lib/runsApi", () => ({ fetchRunsBefore: (...args: unknown[]) => fetchRunsBefore(...args) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 import { MissionControl } from "../MissionControl";
 import { RunBucketFilterProvider } from "@/lib/RunBucketFilter";
 import { resetShowSystemRuns } from "@/lib/runs/showSystemRuns";
 
-function snap(runId: string, status: string, system = false): RunSnapshot {
+function snap(runId: string, status: string, system = false, startedAt = "2026-11-24T10:00:00Z"): RunSnapshot {
   return {
     runId, pipeline: system ? "merge-green" : "code", trigger: "ticket", repos: ["server"], status,
-    prUrl: null, summary: null, startedAt: "2026-11-24T10:00:00Z",
+    prUrl: null, summary: null, startedAt,
     finishedAt: status === "running" ? null : "2026-11-24T11:00:00Z",
     sandboxes: 1, stepIndex: 2, stepName: null, totalSteps: 5, lastEventType: null,
     costUsd: 0, llmCalls: 0, ticketId: null, ticketTitle: null, agentName: null,
@@ -131,4 +132,72 @@ describe("the system-runs toggle", () => {
     fireEvent.click(screen.getByTestId("system-runs-checkbox"));
     expect(screen.getByTestId("run-pills-all-count")).toHaveTextContent("4");
   });
+
+  // 2026-11-24-6357: the server sends a work window and a system window; Load more pages from the end of what it pages.
+  it("LoadMore_Hidden_PagesWorkRunsFromTheOldestWorkRun", () => {
+    fetchRunsBefore.mockClear();
+    mockOverview = {
+      active: [],
+      recent: [
+        snap("beat-new", "success", true, "2026-11-24T12:00:00Z"),
+        snap("work-old", "success", false, "2026-11-24T08:00:00Z"),
+        snap("beat-old", "success", true, "2026-11-24T06:00:00Z"),
+      ],
+      systemActivity: null,
+    };
+    renderList();
+    fireEvent.click(screen.getByTestId("runs-load-more"));
+    expect(fetchRunsBefore).toHaveBeenCalledWith("2026-11-24T08:00:00Z", 20, undefined, false);
+  });
+
+  it("LoadMore_Shown_PagesEveryRunFromTheNewerWindowEnd", () => {
+    fetchRunsBefore.mockClear();
+    mockOverview = {
+      active: [],
+      recent: [
+        snap("beat-new", "success", true, "2026-11-24T12:00:00Z"),
+        snap("beat-old", "success", true, "2026-11-24T11:00:00Z"),
+        snap("work-old", "success", false, "2026-11-24T08:00:00Z"),
+      ],
+      systemActivity: null,
+    };
+    renderList();
+    fireEvent.click(screen.getByTestId("system-runs-checkbox"));
+    fireEvent.click(screen.getByTestId("runs-load-more"));
+    expect(fetchRunsBefore).toHaveBeenCalledWith("2026-11-24T11:00:00Z", 20, undefined, true);
+  });
+
+  it("LoadMore_APageOfKnownRuns_MovesTheCursorOn_InsteadOfEnding", async () => {
+    fetchRunsBefore.mockReset();
+    const known = snap("beat-old", "success", true, "2026-11-24T11:00:00Z");
+    mockOverview = {
+      active: [],
+      recent: [snap("beat-new", "success", true, "2026-11-24T12:00:00Z"), known,
+        snap("work-old", "success", false, "2026-11-24T08:00:00Z")],
+      systemActivity: null,
+    };
+    fetchRunsBefore
+      .mockResolvedValueOnce([{ ...snap("work-old", "success", false, "2026-11-24T08:00:00Z") }])
+      .mockResolvedValueOnce([snap("beat-older", "success", true, "2026-11-24T05:00:00Z")]);
+    renderList();
+    fireEvent.click(screen.getByTestId("system-runs-checkbox"));
+    await act(async () => { fireEvent.click(screen.getByTestId("runs-load-more")); });
+    expect(screen.getByTestId("runs-load-more")).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByTestId("runs-load-more")); });
+    expect(fetchRunsBefore).toHaveBeenLastCalledWith("2026-11-24T08:00:00Z", 20, undefined, true);
+    fetchRunsBefore.mockResolvedValueOnce([]);
+    await act(async () => { fireEvent.click(screen.getByTestId("runs-load-more")); });
+    expect(fetchRunsBefore).toHaveBeenLastCalledWith("2026-11-24T05:00:00Z", 20, undefined, true);
+    expect(screen.queryByTestId("runs-load-more")).toBeNull();
+  });
+
+  it("LoadMore_Hidden_OnlySystemRunsLoaded_StillPagesWorkRuns", () => {
+    fetchRunsBefore.mockReset();
+    fetchRunsBefore.mockResolvedValue([]);
+    mockOverview = { active: [], recent: [snap("beat", "success", true, "2026-11-24T12:00:00Z")], systemActivity: null };
+    renderList();
+    fireEvent.click(screen.getByTestId("runs-load-more"));
+    expect(fetchRunsBefore).toHaveBeenCalledWith("2026-11-24T12:00:00Z", 20, undefined, false);
+  });
 });
+

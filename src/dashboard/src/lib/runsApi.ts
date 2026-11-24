@@ -28,8 +28,11 @@ export async function fetchRunsBefore(
   beforeIso: string,
   limit = 20,
   signal?: AbortSignal,
+  includeSystem = true,
 ): Promise<RunSnapshot[]> {
   const params = new URLSearchParams({ before: beforeIso, limit: String(limit) });
+  // 2026-11-24-6357: with system runs hidden the page holds work runs only, so a burst of system runs is never a page.
+  if (!includeSystem) params.set("includeSystem", "false");
   const data = await getJson<unknown>(`/api/runs?${params.toString()}`, signal);
   if (Array.isArray(data)) return data as RunSnapshot[];
   if (data && typeof data === "object") {

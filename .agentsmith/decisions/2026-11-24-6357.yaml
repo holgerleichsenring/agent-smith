@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-6357
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "The overview reads two windows, the newest 50 work runs and the newest 50 system runs, merged newest first; the browser keeps filtering on `system`"
+    over: "Filtering on the server per viewer (the hub sends one overview to every viewer); one larger window; a window of work runs only"
+    reason: "Operator saw an empty runs list with 42 system runs: series beats every 15 minutes pushed every work run out of the one 50-run window. Counting the two apart keeps the toggle a pure view choice and both states full."
+  - category: Implementation
+    decider: claude
+    chose: "Load more sends includeSystem from the toggle and pages from the oldest shown work run, or with system runs shown from the newer of the two window ends; already loaded runs are dropped"
+    over: "Paging from the oldest loaded run of any pipeline"
+    reason: "With two windows the oldest loaded run can sit far below the other window's end, so paging from it skips every run between them."

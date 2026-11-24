@@ -69,4 +69,15 @@ describe("applySnapshotFilters", () => {
 
     expect(filtered.active.map((r) => r.runId)).toEqual(["a", "b"]);
   });
+
+  // 2026-11-24-6357: thirty system runs newer than three work runs — the cap keeps the work runs.
+  it("applySnapshotFilters_ASystemBurst_KeepsTheWorkRuns", () => {
+    const beats = Array.from({ length: 30 }, (_, i) => snap({ runId: `beat-${i}`, system: true }));
+    const work = [snap({ runId: "work-1" }), snap({ runId: "work-2" }), snap({ runId: "work-3" })];
+    const filtered = applySnapshotFilters({ active: [], recent: [...beats, ...work], systemActivity: null }, false);
+
+    expect(filtered.recent.filter((r) => r.system !== true).map((r) => r.runId)).toEqual(["work-1", "work-2", "work-3"]);
+    expect(filtered.recent.filter((r) => r.system === true)).toHaveLength(20);
+  });
 });
+

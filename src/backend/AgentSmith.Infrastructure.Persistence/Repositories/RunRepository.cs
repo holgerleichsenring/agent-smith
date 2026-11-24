@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -21,10 +22,10 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
         return runs;
     }
 
-    public async Task<List<Run>> GetRecentRunsAsync(ProjectScope scope, int limit, CancellationToken ct)
+    public async Task<List<Run>> GetRecentRunsAsync(ProjectScope scope, int limit, CancellationToken ct, PipelineOrigin? origin = null)
     {
         var runs = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.FinishedAt != null).Within(scope)
+            .Where(r => r.FinishedAt != null).OfOrigin(origin).Within(scope)
             .OrderByDescending(r => r.Id)
             .Take(limit)
             .ToListAsync(ct);
@@ -32,16 +33,14 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
         return runs;
     }
 
-    // p0355: cursor page for the runs-list "load more" — finished runs OLDER than
-    // `before`, newest-first, so the operator reaches every run beyond the recent
-    // window (not just the newest ~50). SQLite cannot compare DateTimeOffset in SQL
-    // (same constraint as the cancel/wall-time scans), so the child-free run rows
-    // are ordered by the sortable id and the cursor is applied client-side; only the
-    // page's children are then hydrated.
-    public async Task<List<Run>> GetRunsBeforeAsync(ProjectScope scope, DateTimeOffset before, int limit, CancellationToken ct)
+    // p0355: finished runs older than `before`, newest-first, beyond the recent window. SQLite cannot compare
+    // DateTimeOffset in SQL, so rows are ordered by the sortable id and the cursor is applied client-side;
+    // 2026-11-24-6357: an origin narrows both reads to work or system runs (null reads every run).
+    public async Task<List<Run>> GetRunsBeforeAsync(ProjectScope scope, DateTimeOffset before, int limit, CancellationToken ct,
+        PipelineOrigin? origin = null)
     {
         var finished = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.FinishedAt != null).Within(scope)
+            .Where(r => r.FinishedAt != null).OfOrigin(origin).Within(scope)
             .OrderByDescending(r => r.Id)
             .ToListAsync(ct);
         var page = finished.Where(r => r.StartedAt < before).Take(limit).ToList();
