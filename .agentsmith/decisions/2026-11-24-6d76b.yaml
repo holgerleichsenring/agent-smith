@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-6d76b
+
+decisions:
+  - category: Architecture
+    chose: "Init declares the stack's standard formatter when the repository runs none, if the chosen image's toolchain runs it without an install"
+    over: "2026-10-12-fbbdb's rule 'no formatter in the repository, no format'"
+    reason: |
+      Decided by the operator (2026-11-24): coding runs on a .NET target with no formatter wrote methods on one
+      line, and a size limit counted in physical lines rewards that. The formatter is derived like verify, from
+      what the repository has or the stack's standard, never from a parser in agent-smith.
+  - category: Architecture
+    chose: "No formatter configuration is written into a repository; dotnet format whitespace is declared for .NET as it is"
+    over: "A C# delta artefact (.editorconfig with csharp_preserve_single_line_blocks = false, or a tool manifest adding CSharpier)"
+    reason: |
+      Measured 2026-11-24 with SDK 10.0.100: without an .editorconfig, dotnet format whitespace leaves a method on
+      one line unchanged; with csharp_preserve_single_line_blocks = false it expands every auto-property to four
+      lines, which would rewrite every touched file. CSharpier unfolds crammed code cleanly but is a tool the
+      estate does not run, fetched from NuGet. Either is a style decision for the operator, left open. Review also
+      showed dotnet format whitespace restyles a whole touched file whose layout differs from its defaults (tabs,
+      K&R braces), so init skips the standard formatter where the sources visibly use another layout.
+  - category: Implementation
+    chose: "A standard formatter qualifies only when the image's SDK ships it and it formats only the files it is given; gofmt behind a .go filter, rustfmt only when the repository runs it"
+    over: "Listing gofmt, rustfmt and dart format as plain standard commands"
+    reason: |
+      {files} carries every changed file of the context: gofmt exits 2 on a go.mod beside the .go file, and
+      rustfmt follows mod declarations into files the spec never touched (review finding).
+  - category: Implementation
+    chose: "The C# delta states one statement per line and no block body on its signature's line, and names CSharpier or dotnet format as the formatter"
+    over: "Leaving the delta without its core hook 6"
+    reason: |
+      The core requires every delta to name its formatting tools; the C# delta named none, and the layout rule
+      is what the coding agent reads where no formatter unfolds a one-line body.

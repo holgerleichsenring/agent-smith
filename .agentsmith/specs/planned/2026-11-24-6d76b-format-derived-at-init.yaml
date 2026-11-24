@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-6d76b
+goal: "Init declares a formatter for every stack that has one — the repository's own, else the stack's standard — and the C# delta names its formatter; the catalog is pinned."
+
+applies_to: "skills catalog (project-bootstrap, principles/deltas/csharp.md) and backend (catalog pin)"
+
+requires: [2026-11-24-6d76a]
+
+facts:
+  - claim: "The bootstrap master declares format only when the repository already runs a formatter, and declares none otherwise."
+    evidence: "observed: 2026-11-24, agent-smith-skills origin/main dd572da, skills/_masters/project-bootstrap/SKILL.md:198-222"
+  - claim: "The core requires each language delta to name its formatting and lint tools; the C# delta names none."
+    evidence: "observed: 2026-11-24, agent-smith-skills origin/main dd572da, principles/core.md:107, principles/deltas/csharp.md"
+  - claim: "The write_context_yaml description and the context schema tell the model to omit format when the repository runs no formatter."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolDescription.cs:70-76, .agentsmith/context.schema.json:540"
+  - claim: "observed: gofmt -w over a changed go.mod and README.md beside a .go file formats the .go file and exits 2; rustfmt follows a file's mod declarations into files it was not given."
+    evidence: "observed: 2026-11-24, review of the skills draft"
+  - claim: "The catalog is embedded as a pinned release tarball."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj"
+
+decisions:
+  - key: "THE STACK'S STANDARD WHEN THE REPOSITORY RUNS NONE. Reverses 2026-10-12-fbbdb's 'no formatter in the repository, no format' at the operator's request: unformatted code measured in physical lines rewards cramming."
+  - key: "ONLY A FORMATTER THE IMAGE RUNS WITHOUT AN INSTALL. A standard that needs a download or a dependency the repository lacks is declared only when the repository carries it."
+
+scope:
+  in: >
+    SKILLS (agent-smith-skills, own PR and release): project-bootstrap derives format in order — the repository's own
+    formatter (CI, scripts, config file), else the stack's standard formatter that the chosen image's toolchain runs
+    ships and that formats only the files it is given (dotnet format whitespace; gofmt behind a .go filter), skipped
+    when the sources visibly use another layout; none, said in the summary. CSharpier where the repository configures
+    it, by its pinned major. The C# delta gains a Formatting section naming CSharpier and dotnet format whitespace and
+    a one-statement-per-line rule the agent keeps itself. BACKEND: the write_context_yaml format sentence and the
+    context schema's format description follow the skill; pin the released catalog.
+  out: "Writing formatter configuration (.editorconfig, tool manifests) into a repository; reformatting untouched files."
+
+steps:
+  - id: skills
+    action: "project-bootstrap format section and csharp delta in agent-smith-skills; PR; release."
+  - id: pin
+    action: "Tool description and schema text follow the skill; pin the released catalog tarball; tests that read the old format wording follow."
+
+tests:
+  - "Catalog pin tests read the new version"
+
+done:
+  - "The pinned catalog's project-bootstrap declares the stack's standard formatter for a repository that runs none; full suite green."

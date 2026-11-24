@@ -30,7 +30,11 @@ internal static class FormatFixture
         new SandboxTargets(), StructureBaselineStubs.GitReads(), new StructureRepoContexts(), new SpecFormatPlan(new StructureOwnership()),
         new DeclaredStagePresence(new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
-        new SpecFormatFailureRecorder(new SecretMasker(new FixedSecretValues(secrets))), NullLogger<SpecFormatRun>.Instance);
+        new SpecFormatFailureRecorder(new SecretMasker(new FixedSecretValues(secrets))),
+        Gaps(), NullLogger<SpecFormatRun>.Instance);
+
+    /// <summary>2026-11-24-6d76a: over the real structure engine, so a claimed extension is what counts.</summary>
+    public static SpecFormatGaps Gaps() => new(StructureEngineFixture.Engine(), new StructureOwnership());
 
     public static CommitSpecWorkHandler Handler() => new(
         Run(), Checkpointer(), StructureGateFixture.Gate(),
