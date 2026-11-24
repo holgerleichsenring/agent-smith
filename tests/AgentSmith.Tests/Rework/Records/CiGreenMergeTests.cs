@@ -77,6 +77,26 @@ public sealed class CiGreenMergeTests : IDisposable
         _launched.Should().BeEmpty();
     }
 
+    // Review fix: a refresh that refused found the merged tree conflicting or red; its head is not merged until it moves.
+    [Fact]
+    public async Task ARefusedRefreshStanding_LaunchesNothing()
+    {
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await using (var ctx = _h.Store.Context())
+        {
+            ctx.Add(new Run { Id = "rf-1", Project = "p", TicketId = string.Empty, Pipeline = "refresh-base", Status = "success",
+                StartedAt = PrReviewRefreshHarness.T.AddHours(2) });
+            ctx.Add(new RunRepo { RunId = "rf-1", RepoName = "api", PrUrl = PrReviewRefreshHarness.Pr1,
+                PrStatus = PullRequestStatuses.RefreshRefused, Reason = "red" });
+            await ctx.SaveChangesAsync();
+        }
+
+        await RefreshAsync();
+
+        _launched.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task ARefreshWithoutTheCiLoop_LaunchesNothing_SoAnActsRequestNeverWaitsOnAPipeline()
     {

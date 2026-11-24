@@ -26,3 +26,11 @@ decisions:
     chose: "Two rounds BUILD WITH CUTS, every cut applied"
     over: "Building the first draft"
     reason: "Independent adversarial reviews of the series before any code."
+  - category: Review
+    chose: "Diff review fixes: CiGreenMerge also waits on a standing refusal (PullRequestRefreshSaid.Stands), a cancelled refresh names its cancel reason"
+    over: "Waiting only on a refresh at work"
+    reason: "A refusal for a red merged tree left the head green on CI, and the CI merge would land a base that no longer builds."
+  - category: Scope
+    chose: "Accept that a refusal is dropped when a PR record read stamps a head move after the refusing run began"
+    over: "Recording the head each refresh saw"
+    reason: "HeadMovedAt is when a read noticed the move; the drop needs a second landing within the minute after an earlier refresh pushed. Recording the seen head needs a column on the run row; left as a named risk."

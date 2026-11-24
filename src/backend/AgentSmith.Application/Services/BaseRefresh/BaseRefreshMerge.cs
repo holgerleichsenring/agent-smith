@@ -31,7 +31,7 @@ public sealed class BaseRefreshMerge(WorkBranchBaseMerger merger, IBaseMergeMast
         var merge = await merger.MergeIntoCurrentAsync(sandbox, resolved, ct, situation is null ? null : async (paths, c) =>
         {
             var pass = await master.RunAsync(situation with { Unmerged = paths }, c);
-            masterSaid = pass.Reason;
+            masterSaid = pass.Whole ? "its resolution still left a path unmerged or a conflict marker" : pass.Reason;
             return pass.Whole ? [.. pass.Wrote.Select(w => w.Path.Value)] : null;
         });
         return merge.Status switch
@@ -49,7 +49,7 @@ public sealed class BaseRefreshMerge(WorkBranchBaseMerger merger, IBaseMergeMast
     {
         string? lastRed = null;
         IReadOnlyList<CodeChange>? lastWrote = null;
-        while (true)
+        for (var passes = 0; ; passes++)
         {
             var verdict = await verify.RunAsync(context.Pipeline, repo, head, merge.BaseRef!, ct);
             if (verdict.Problem is { } problem) return await RefuseAsync(sandbox, head, $"The merge of {merge.BaseRef} could not be checked: {problem}", ct);
@@ -59,23 +59,29 @@ public sealed class BaseRefreshMerge(WorkBranchBaseMerger merger, IBaseMergeMast
                         + "and no build or test stage is declared to check that resolution.", ct)
                     : BaseRefreshOutcome.Push("not built: no build or test stage is declared");
             var signature = StageRepairProgress.Signature(red);
-            if (situation is null || (lastRed is not null && !StageRepairProgress.MadeProgress(lastRed, signature, lastWrote))
+            // merge.ci_fix_attempts bounds the passes as it bounds the CI fixes in a row: a stage's output carries times, so
+            // "the failure changed" alone would not end a repair that never converges.
+            if (situation is null || passes >= situation.Project.Merge.CiFixAttempts
+                || (lastRed is not null && !StageRepairProgress.MadeProgress(lastRed, signature, lastWrote))
                 || PipelineCostTracker.GetOrCreate(context.Pipeline).IsBudgetExhausted)
                 return await RefuseAsync(sandbox, head, Red(merge, red), ct);
             var pass = await master.RunAsync(situation with { Red = red }, ct);
             if (!pass.Whole) return await RefuseAsync(sandbox, head, $"{Red(merge, red)} The master: {pass.Reason}", ct);
-            await AmendAsync(sandbox, pass.Wrote, ct);
+            await AmendAsync(sandbox, pass.Wrote, merge.BaseRef!, ct);
             (lastRed, lastWrote) = (signature, pass.Wrote);
         }
     }
 
-    // Exactly the paths the master's file tools wrote, so a stage's outputs never reach the merge commit.
-    private async Task AmendAsync(ISandbox sandbox, IReadOnlyList<CodeChange> wrote, CancellationToken ct)
+    // Exactly the paths the master's file tools wrote, so a stage's outputs never reach the branch: amended into the merge
+    // commit, or — when git fast-forwarded and HEAD is the base's own commit — committed on top, never rewriting the base.
+    private async Task AmendAsync(ISandbox sandbox, IReadOnlyList<CodeChange> wrote, string baseRef, CancellationToken ct)
     {
         if (wrote.Count == 0) return;
-        await git.RunAsync(sandbox, ["add", "-A", "--", .. wrote.Select(w => w.Path.Value).Distinct(StringComparer.Ordinal)], ct);
-        if ((await git.RunAsync(sandbox, ["diff", "--cached", "--quiet"], ct)).ExitCode == 1)
-            await git.RunAsync(sandbox, ["commit", "--amend", "--no-edit", "--no-verify"], ct);
+        await git.StageAsync(sandbox, [.. wrote.Select(w => w.Path.Value).Distinct(StringComparer.Ordinal)], ct);
+        if ((await git.RunAsync(sandbox, ["diff", "--cached", "--quiet"], ct)).ExitCode != 1) return;
+        var isMerge = (await git.RunAsync(sandbox, ["rev-parse", "-q", "--verify", "HEAD^2"], ct)).ExitCode == 0;
+        await git.RunAsync(sandbox, isMerge ? ["commit", "--amend", "--no-edit", "--no-verify"]
+            : ["commit", "--no-verify", "-q", "-m", $"Repair the merge of {baseRef}"], ct);
     }
 
     private static string Red(BaseMergeResult merge, VerifyOutcome red) =>

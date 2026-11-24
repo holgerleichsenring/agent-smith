@@ -44,7 +44,7 @@ public sealed class PullRequestMergeSaidReader(IUnitOfWork unitOfWork)
             from repo in unitOfWork.Set<RunRepo>().AsNoTracking()
             join run in unitOfWork.Set<Run>().AsNoTracking() on repo.RunId equals run.Id
             where run.Pipeline == PipelinePresets.RefreshBaseName && repo.PrUrl != null && urls.Contains(repo.PrUrl)
-            select new { Url = repo.PrUrl!, run.Id, run.Status, run.Summary, repo.PrStatus, repo.Reason, run.StartedAt }).ToListAsync(ct);
+            select new { Url = repo.PrUrl!, run.Id, run.Status, run.Summary, run.CancelReason, repo.PrStatus, repo.Reason, run.StartedAt }).ToListAsync(ct);
         var said = new Dictionary<string, PullRequestRefreshSaid>(StringComparer.Ordinal);
         foreach (var r in rows.GroupBy(r => r.Url, StringComparer.Ordinal).Select(g => g.OrderByDescending(r => r.StartedAt.UtcTicks).First()))
         {
@@ -52,7 +52,8 @@ public sealed class PullRequestMergeSaidReader(IUnitOfWork unitOfWork)
             if (inFlight) said[r.Url] = new PullRequestRefreshSaid(r.Id, true, null, r.StartedAt);
             else if (r.PrStatus == PullRequestStatuses.RefreshRefused) said[r.Url] = new PullRequestRefreshSaid(r.Id, false, r.Reason, r.StartedAt);
             else if (r.Status != RunStatuses.Success)
-                said[r.Url] = new PullRequestRefreshSaid(r.Id, false, r.Summary ?? $"the refresh run ended {r.Status}", r.StartedAt);
+                said[r.Url] = new PullRequestRefreshSaid(r.Id, false,
+                    r.Summary ?? (r.CancelReason is { } why ? $"the refresh run ended {r.Status}: {why}" : $"the refresh run ended {r.Status}"), r.StartedAt);
         }
         return said;
     }

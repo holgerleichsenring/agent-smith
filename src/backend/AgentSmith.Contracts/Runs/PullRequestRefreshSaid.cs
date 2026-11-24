@@ -5,4 +5,8 @@ namespace AgentSmith.Contracts.Runs;
 /// or it left the branch unchanged, with the reason (the refusal it recorded, or the failed run's summary) — with the run
 /// and when it started. A refresh that pushed or found nothing to do says nothing and is absent.
 /// </summary>
-public sealed record PullRequestRefreshSaid(string RunId, bool InFlight, string? Reason, DateTimeOffset At);
+public sealed record PullRequestRefreshSaid(string RunId, bool InFlight, string? Reason, DateTimeOffset At)
+{
+    /// <summary>At work, or a refusal no head move has overtaken since the run began.</summary>
+    public bool Stands(DateTimeOffset? headMovedAt) => InFlight || headMovedAt is not { } moved || moved <= At;
+}

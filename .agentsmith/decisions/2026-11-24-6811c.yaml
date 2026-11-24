@@ -42,3 +42,7 @@ decisions:
     chose: "Round 1 REFUSE (sizing, second repair path, clean-merge red case, status vocabulary), rewritten; round 2 BUILD WITH CUTS (secondary spread, amend paths), applied"
     over: "Building the first draft"
     reason: "Independent adversarial reviews of the series before any code."
+  - category: Review
+    chose: "Diff review fixes: stage a resolution path by path (a removal is git rm --cached), level the primary with reset and clean before the stages, commit a repair on top when git fast-forwarded instead of amending the base's commit, commit the resolution with --no-verify, and bound the repair passes by merge.ci_fix_attempts"
+    over: "Leaving them"
+    reason: "A modify/delete resolved by removal was refused; a file the master left untracked could make the build green without reaching the push; an amend after a fast-forward rewrote the base's tip; a stage output with times made 'the failure changed' always true, so without a cost cap the repair never ended. ci_fix_attempts already bounds the same kind of fix and is in the dashboard, which now shows it for a refreshing project too."

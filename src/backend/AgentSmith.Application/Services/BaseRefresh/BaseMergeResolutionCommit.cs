@@ -13,10 +13,10 @@ public sealed class BaseMergeResolutionCommit(BaseRefreshGit git)
         ArgumentNullException.ThrowIfNull(resolveRest);
         if (await resolveRest(rest, ct) is not { } wrote) return false;
         IReadOnlyList<string> touched = [.. rest.Concat(wrote).Distinct(StringComparer.Ordinal)];
-        if ((await git.RunAsync(sandbox, ["add", "-A", "--", .. touched], ct)).ExitCode != 0) return false;
+        if (!await git.StageAsync(sandbox, touched, ct)) return false;
         var unmerged = await git.RunAsync(sandbox, ["diff", "--name-only", "--diff-filter=U"], ct);
         if (unmerged.ExitCode != 0 || !string.IsNullOrWhiteSpace(unmerged.OutputContent)) return false;
         if (await git.HasMarkersAsync(sandbox, touched, ct)) return false;
-        return (await git.RunAsync(sandbox, ["commit", "--no-edit"], ct)).ExitCode == 0;
+        return (await git.RunAsync(sandbox, ["commit", "--no-edit", "--no-verify"], ct)).ExitCode == 0;
     }
 }

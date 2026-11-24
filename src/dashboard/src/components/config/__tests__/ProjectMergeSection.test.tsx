@@ -47,6 +47,14 @@ describe("ProjectMergeSection", () => {
     expect(screen.getByTestId("form-field-merge-ciExcerptChars")).toBeTruthy();
   });
 
+  // 2026-11-24-6811c: the fix budget also bounds a base refresh's repair passes, so a manual project that refreshes shows it.
+  it("shows the fix attempts for a refreshing project in any mode", () => {
+    const refreshing = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: true } };
+    render(<ProjectMergeSection project={refreshing} onChange={() => {}} capabilities={capabilities} />);
+    expect(screen.getByTestId("form-field-merge-ciFixAttempts")).toBeTruthy();
+    expect(screen.queryByTestId("form-field-merge-ciSettleSeconds")).toBeNull();
+  });
+
   it("offers the server's modes, a mode it gained included", () => {
     render(<ProjectMergeSection project={project} onChange={() => {}} capabilities={capabilities} />);
     expect(options("form-field-merge-when")).toEqual(["manual", "on_gate_green", "on_ci_green"]);

@@ -149,6 +149,72 @@ public sealed class RefreshBranchBaseTests
         _events.OfType<PullRequestOutcomeEvent>().Single().Status.Should().Be(PullRequestStatuses.RefreshRefused);
     }
 
+    // Review fixes: a file the master leaves untracked is not what a push carries, so the stage runs without it.
+    [Fact]
+    public async Task ARepairOutsideTheFileTools_IsNotBuiltOn_AndIsRefused()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch);
+        fixture.AdvanceBase();
+
+        var result = await RefreshAsync(fixture, stage: "test -f repaired.txt", master: _ =>
+        {
+            File.WriteAllText(Path.Combine(fixture.WorkPath, "repaired.txt"), "untracked\n");
+            return new BaseMergePass(true, "wrote it with a command", []);
+        });
+
+        result.Message.Should().Contain("turns the test stage red");
+    }
+
+    [Fact]
+    public async Task ARepairOfAFastForward_IsCommittedOnTop_NeverRewritingTheBase()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(workBranch: null);
+        fixture.AskRemote("branch", Branch, GitRemoteFixture.BaseBranch).Exit.Should().Be(0);
+        fixture.AdvanceBase();
+        var baseTip = fixture.AskRemote("rev-parse", GitRemoteFixture.BaseBranch).Output.Trim();
+
+        var result = await RefreshAsync(fixture, stage: "test -f repaired.txt",
+            master: s => s.Red is null ? new BaseMergePass(false, "-", []) : Write(fixture, "repaired.txt", "fixed\n"));
+
+        result.Message.Should().Contain("pushed");
+        fixture.AskRemote("rev-parse", $"{Branch}~1").Output.Trim().Should().Be(baseTip, "the repair sits on the base's own commit");
+    }
+
+    [Fact]
+    public async Task RepairPasses_AreBoundedByCiFixAttempts()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch);
+        fixture.AdvanceBase();
+        var n = 0;
+
+        var result = await RefreshAsync(fixture, stage: "cat counter.txt && false",
+            master: _ => Write(fixture, "counter.txt", $"{++n}\n"), fixAttempts: 2);
+
+        result.Message.Should().Contain("red");
+        _passes.Should().HaveCount(2, "each pass writes and changes the failure, so only merge.ci_fix_attempts ends it");
+    }
+
+    [Fact]
+    public async Task AModifyDeleteConflict_ResolvedByRemoval_Commits()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch, conflicting: true);
+        fixture.AskRemote("rm", "-q", GitRemoteFixture.SharedFile).Exit.Should().Be(0);
+        fixture.AskRemote("commit", "-q", "-m", "base removed it").Exit.Should().Be(0);
+
+        var result = await RefreshAsync(fixture, stage: $"test ! -e {GitRemoteFixture.SharedFile}", master: _ =>
+        {
+            File.Delete(Path.Combine(fixture.WorkPath, GitRemoteFixture.SharedFile));
+            return new BaseMergePass(true, "the base removed it", []);
+        });
+
+        result.Message.Should().Contain("pushed");
+        fixture.AskRemote("cat-file", "-e", $"{Branch}:{GitRemoteFixture.SharedFile}").Exit.Should().NotBe(0);
+    }
+
     [Fact]
     public async Task AForeignBranch_IsRefused()
     {
@@ -168,7 +234,7 @@ public sealed class RefreshBranchBaseTests
     }
 
     private async Task<CommandResult> RefreshAsync(GitRemoteFixture fixture, Action? beforeRefresh = null, string? stage = null,
-        Func<BaseMergeSituation, BaseMergePass>? master = null)
+        Func<BaseMergeSituation, BaseMergePass>? master = null, int fixAttempts = 3)
     {
         var config = new RepoConnection { Name = "server", Type = RepoType.GitHub, Url = fixture.RemotePath };
         var provider = new Mock<ISourceProvider>();
@@ -196,7 +262,7 @@ public sealed class RefreshBranchBaseTests
                     { ["server"] = [new RemoteContextDiscovery("default", ".", "csharp", Verify: [new("test", stage)])] });
         return await Handler(master ?? (_ => new BaseMergePass(false, "not asked", []))).ExecuteAsync(
             new RefreshBranchBaseContext([config], Branch, PrUrl, "5", GitRemoteFixture.BaseBranch, pipeline)
-                { Project = new ResolvedProject { Name = "p" } },
+                { Project = new ResolvedProject { Name = "p", Merge = new MergePolicyConfig { CiFixAttempts = fixAttempts } } },
             CancellationToken.None);
     }
 

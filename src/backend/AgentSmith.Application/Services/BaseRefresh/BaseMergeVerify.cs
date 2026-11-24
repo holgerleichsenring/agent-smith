@@ -10,8 +10,8 @@ namespace AgentSmith.Application.Services.BaseRefresh;
 /// <summary>
 /// 2026-11-24-6811c: runs the repository's declared build and test stages over a merged branch before a refresh pushes
 /// it — every context in its own sandbox, stopping at the first red, as a code run's verify does (VerifyStageResolver,
-/// VerifyCommandRunner). The primary sandbox holds the merge; it is reset to its commit first, so the stages build what
-/// would be pushed. A secondary sandbox (a context on another image) never receives the landed base as a diff, which
+/// VerifyCommandRunner). The primary sandbox holds the merge; it is levelled to its commit first (reset and cleaned), so the
+/// stages build what would be pushed. A secondary sandbox (a context on another image) never receives the landed base as a diff, which
 /// could pass SandboxTreeGit's limit, and never goes through SandboxTreeSync, which pushes: both compute the same
 /// <c>git merge-tree --write-tree</c> of the old head and the base, the secondary reads that tree, and only the change from
 /// it to the primary's commit — the resolution and repairs — travels as an encoded diff.
@@ -27,7 +27,7 @@ public sealed class BaseMergeVerify(
         var sandboxes = targets.SandboxesForRepo(pipeline, repo);
         if (sandboxes.Count == 0) return BaseMergeVerdict.Unchecked($"{repo.Name}: no sandbox to build in");
         var (primaryKey, primary) = sandboxes[0];
-        await git.RunAsync(primary, ["reset", "--hard", "HEAD"], ct);
+        await git.LevelAsync(primary, "HEAD", ct);
         foreach (var (key, secondary) in sandboxes.Skip(1))
             if (await LevelAsync(primaryKey, primary, key, secondary, head, baseRef, ct) is { } problem)
                 return BaseMergeVerdict.Unchecked(problem);
@@ -59,7 +59,7 @@ public sealed class BaseMergeVerify(
         if (ours is null || theirs is null)
             return $"git merge-tree --write-tree failed in {(ours is null ? primaryKey : key)}; the sandbox needs git 2.38 or newer";
         if (ours != theirs) return $"{primaryKey} and {key} merge {baseRef} into different trees";
-        await git.RunAsync(secondary, ["reset", "--hard", head], ct);
+        await git.LevelAsync(secondary, head, ct);
         if ((await git.RunAsync(secondary, ["read-tree", "--reset", "-u", theirs], ct)) is { ExitCode: not 0 } read)
             return $"{key}: git read-tree of the merge failed: {read.ErrorMessage}";
         string? diff;

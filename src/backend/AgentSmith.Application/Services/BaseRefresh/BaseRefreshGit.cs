@@ -25,6 +25,27 @@ public sealed class BaseRefreshGit
         return line.Length == 0 ? null : line;
     }
 
+    /// <summary>Stages each path as it now is — added or changed when it exists, removed from the index when it was deleted
+    /// (a modify/delete conflict resolved by removal); a path neither on disk nor in the index is passed over.</summary>
+    public async Task<bool> StageAsync(ISandbox sandbox, IReadOnlyList<string> paths, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(sandbox);
+        const string script = "for f in \"$@\"; do if [ -e \"$f\" ]; then git add -A -- \"$f\" || exit 1; "
+            + "else git rm -q --cached --ignore-unmatch -- \"$f\" || exit 1; fi; done";
+        var staged = await sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "sh", Args: ["-c", script, "sh", .. paths], WorkingDirectory: Repository.SandboxWorkPath,
+            TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
+        return staged.ExitCode == 0;
+    }
+
+    /// <summary>The working tree at HEAD exactly: tracked files reset, untracked ones removed (ignored ones kept), so a
+    /// stage builds what a push would carry.</summary>
+    public async Task LevelAsync(ISandbox sandbox, string commit, CancellationToken ct)
+    {
+        await RunAsync(sandbox, ["reset", "--hard", commit], ct);
+        await RunAsync(sandbox, ["clean", "-fdq"], ct);
+    }
+
     /// <summary>2026-11-24-6811c: whether any of <paramref name="paths"/> still carries a conflict marker line; true also
     /// when the check itself fails, so a tree nobody could read is never called whole.</summary>
     public async Task<bool> HasMarkersAsync(ISandbox sandbox, IReadOnlyList<string> paths, CancellationToken ct)

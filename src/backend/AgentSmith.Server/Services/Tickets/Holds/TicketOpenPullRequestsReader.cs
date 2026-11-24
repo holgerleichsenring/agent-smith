@@ -72,7 +72,7 @@ public sealed class TicketOpenPullRequestsReader(
         if (refreshes is null || refreshes.Count == 0) return null;
         var said = open.Select(r => (Record: r, Said: refreshes.GetValueOrDefault(r.Url))).Where(t => t.Said is not null).ToList();
         return said.FirstOrDefault(t => t.Said!.InFlight).Said
-            ?? said.Where(t => t.Record.HeadMovedAt is not { } moved || moved <= t.Said!.At).Select(t => t.Said).MinBy(s => s!.At);
+            ?? said.Where(t => t.Said!.Stands(t.Record.HeadMovedAt)).Select(t => t.Said).MinBy(s => s!.At);
     }
 
     private async Task<IReadOnlyDictionary<string, PullRequestRefreshSaid>> RefreshesAsync(IReadOnlyCollection<string> urls, CancellationToken ct)
