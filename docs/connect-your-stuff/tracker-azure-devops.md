@@ -48,7 +48,7 @@ The CLI reads this shape directly, and a server takes it through `agent-smith co
 
 deployment:
   registry: holgerleichsenring
-  version: 0.210.1
+  version: 0.211.0
 
 agents:
   azure-openai-default:
