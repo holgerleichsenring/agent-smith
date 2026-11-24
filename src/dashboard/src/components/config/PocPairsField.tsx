@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useT } from "@/hooks/useT";
+import { NO_AUTOFILL } from "./formFields";
 
 // 2026-11-23-c81eb: a name/value map edited as rows (ingress annotations, pod labels). The rows live here, so a row
 // whose name is still empty can be typed into; the map handed back leaves such rows out, and a name typed twice
@@ -48,8 +49,10 @@ export function PocPairsField({ label, help, value, testId, namePlaceholder, val
       {rows.map((row, n) => (
         <div key={n} style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input type="text" className="mono" aria-label={t("config.pocs.pairs.name")} data-testid={`${testId}-${n}-name`}
+            name={`${testId}-${n}-name`} {...NO_AUTOFILL}
             value={row.name} placeholder={namePlaceholder} onChange={(e) => setAt(n, { name: e.target.value })} />
           <input type="text" className="mono" aria-label={t("config.pocs.pairs.value")} data-testid={`${testId}-${n}-value`}
+            name={`${testId}-${n}-value`} {...NO_AUTOFILL}
             value={row.value} placeholder={valuePlaceholder} onChange={(e) => setAt(n, { value: e.target.value })} />
           <button type="button" className="btn" data-testid={`${testId}-remove-${n}`}
             onClick={() => change(rows.filter((_, m) => m !== n))}>

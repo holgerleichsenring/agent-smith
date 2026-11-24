@@ -60,11 +60,15 @@
 .mock-pocs .poc-field label { font-size: 13px; color: var(--ink-2); }
 .mock-pocs .poc-field input, .mock-pocs .poc-field select { height: 38px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; }
 .mock-pocs .poc-field input.mono { font-family: var(--mono); font-size: 13px; }
-.mock-pocs .poc-choices { display: flex; flex-direction: column; gap: 8px; }
-.mock-pocs .poc-choice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; }
-.mock-pocs .poc-choice.on { border-color: var(--ink-3); background: var(--panel-2); }
+/* 2026-11-24-f965: the choice list is shared with the config studio's PoC settings (pull mode, source repository rows),
+   where the generic .field input rule would stretch a radio to full width: the radio keeps its size, the hint its line. */
+.mock-pocs .poc-choices, .mock-config .poc-choices { display: flex; flex-direction: column; gap: 8px; }
+.mock-pocs .poc-choice, .mock-config .poc-choice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; }
+.mock-pocs .poc-choice.on, .mock-config .poc-choice.on { border-color: var(--ink-3); background: var(--panel-2); }
 .mock-pocs .poc-choice input { margin-top: 3px; accent-color: var(--accent); }
-.mock-pocs .poc-choice b { font-weight: 600; }
+.mock-config .field .poc-choice input[type="radio"] { flex: none; width: auto; margin: 3px 0 0; padding: 0; accent-color: var(--accent); }
+.mock-pocs .poc-choice b, .mock-config .poc-choice b { font-weight: 600; }
+.mock-config .poc-choice .poc-meta { display: block; margin-top: 2px; font-size: 12.5px; color: var(--ink-3); }
 .mock-pocs .poc-checks, .mock-pocs .poc-compared { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .mock-pocs .poc-checks li { display: flex; gap: 10px; align-items: flex-start; }
 .mock-pocs .poc-check-text { display: flex; flex-direction: column; }

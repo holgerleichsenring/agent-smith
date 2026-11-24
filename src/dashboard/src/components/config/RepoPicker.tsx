@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { isRule, patternMatches, refMatches } from "@/lib/repoRefs";
 import { type ConnectionRepos, type DiscoveredRepo, type StudioEntity } from "@/lib/configApi";
 import { DiscoveryStatus } from "./DiscoveryStatus";
+import { NO_AUTOFILL } from "./formFields";
 import { useConnectionDiscovery } from "./useConnectionDiscovery";
 import { useT } from "@/hooks/useT";
 import type { T } from "@/lib/i18n/translate";
@@ -24,7 +25,7 @@ import type { T } from "@/lib/i18n/translate";
 /** How many matching rows render before "show more" is offered. */
 const WINDOW = 25;
 
-type AddOffer = { ref: string; kind: "rule" | "pick"; label: string };
+export type AddOffer = { ref: string; kind: "rule" | "pick"; label: string };
 
 export function RepoPicker({
   label,
@@ -173,7 +174,7 @@ export function RepoPicker({
 }
 
 /** Free text narrows the list; a wildcard narrows it to exactly what the rule would cover. */
-function matchesQuery(repoName: string, query: string): boolean {
+export function matchesQuery(repoName: string, query: string): boolean {
   if (query === "") return true;
   if (isRule(query)) return patternMatches(query, repoName);
   return repoName.toLowerCase().includes(query.toLowerCase());
@@ -246,8 +247,9 @@ function SelectedRefs({
   );
 }
 
-/** p0345c's honest discovery states — loading, unavailable, never discovered, discovered-but-empty. */
-function DiscoveryNotice({
+/** p0345c's honest discovery states — loading, unavailable, never discovered, discovered-but-empty.
+ *  2026-11-24-f965: shared with the PoC source repository picker. */
+export function DiscoveryNotice({
   testId,
   loading,
   error,
@@ -344,8 +346,9 @@ function RepoRows({
   );
 }
 
-/** One box for two thoughts that were always one: narrow the list, or add what was typed. */
-function FilterBox({
+/** One box for two thoughts that were always one: narrow the list, or add what was typed.
+ *  2026-11-24-f965: shared with the PoC source repository picker; browser autofill stays off. */
+export function FilterBox({
   testId,
   filter,
   offer,
@@ -364,6 +367,8 @@ function FilterBox({
       <input
         type="text"
         data-testid={`${testId}-filter`}
+        name={`${testId}-filter`}
+        {...NO_AUTOFILL}
         aria-label={t("config.repoPicker.filterAria")}
         value={filter}
         placeholder={t("config.repoPicker.filterPlaceholder")}
