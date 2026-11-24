@@ -20,7 +20,17 @@ public sealed class GitLabMergeRequestRead(string baseUrl, string projectPath, s
             && a.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.Number ? id.GetInt64() : (long?)null;
         return new GitLabMergeRequest(author, Str(root, "state") ?? "opened", Time(root, "created_at"), Time(root, "merged_at"), Time(root, "closed_at"),
             Str(root, "sha"), root.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True, // 8d16
-            Str(root, "merge_commit_sha"), Str(root, "squash_commit_sha")); // 2026-11-23-8df6a
+            Str(root, "merge_commit_sha"), Str(root, "squash_commit_sha"), Conflicts(root)); // 2026-11-23-8df6a
+    }
+
+    // 2026-11-24-6811a: has_conflicts stays false while GitLab still checks, so unchecked or checking decides nothing.
+    internal static bool? Conflicts(JsonElement root)
+    {
+        var status = Str(root, "detailed_merge_status") ?? Str(root, "merge_status");
+        if (status is "unchecked" or "checking" or "cannot_be_merged_recheck" or "preparing") return null;
+        if (status is "conflict" or "broken_status") return true;
+        return root.TryGetProperty("has_conflicts", out var c) && c.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? c.ValueKind == JsonValueKind.True : null;
     }
 
     private static DateTimeOffset? Time(JsonElement e, string name) =>

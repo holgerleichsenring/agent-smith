@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
@@ -110,6 +111,16 @@ public sealed class SandboxResourceResolverTests
         var resolved = sut.Resolve(project, "init-project", ValidContext);
 
         resolved.Should().BeSameAs(ResourceLimits.LightProfile);
+    }
+
+    // 2026-11-24-6811c: a refresh-base run builds and tests every base merge, so it is sized like a code run, while the
+    // master's re-engagement stays the code preset's.
+    [Fact]
+    public void Resolve_RefreshBase_IsSizedForBuilding_ButExpectsNoCodeChanges()
+    {
+        NewSut().ResolveLayer(new ResolvedProject(), PipelinePresets.RefreshBaseName, ValidContext)
+            .Should().Be(SandboxResourceLayer.ContextDocument);
+        PipelinePresets.ExpectsCodeChanges(PipelinePresets.RefreshBaseName).Should().BeFalse();
     }
 
     [Theory]

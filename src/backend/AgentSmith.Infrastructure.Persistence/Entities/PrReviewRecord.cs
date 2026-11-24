@@ -72,4 +72,10 @@ public sealed class PrReviewRecord : EntityBase, IProjectOwned
     /// <summary>2026-11-23-8df6a: the commit a merged pull request landed as, from every merged state read; null before a read
     /// named one (an open record, a merge no read saw since the upgrade).</summary>
     public string? MergeSha { get; set; }
+
+    /// <summary>2026-11-24-6811a: the host says the open pull request conflicts with its base; null before a host decided.</summary>
+    public bool? HasConflicts { get; set; }
+
+    /// <summary>2026-11-24-6811a: the check time of the read that first saw the conflict; null while it does not conflict.</summary>
+    public long? ConflictsAtTicks { get; set; }
 }

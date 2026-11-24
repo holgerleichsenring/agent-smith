@@ -50,7 +50,7 @@ public sealed class SandboxResourceResolver(
         // compile, so neither the LLM-authored build sizing nor the build-capable
         // global default applies — they get the fixed light profile. A null/unknown
         // pipeline is treated the same: build sizing must be asked for explicitly.
-        if (pipelineName is null || !PipelinePresets.ExpectsCodeChanges(pipelineName))
+        if (pipelineName is null || !PipelinePresets.BuildsInSandbox(pipelineName)) // 2026-11-24-6811c: refresh-base builds too
             return (ResourceLimits.LightProfile, SandboxResourceLayer.LightProfile);
 
         // 2. LLM-authored context.yaml stack.resources — applied only when valid,

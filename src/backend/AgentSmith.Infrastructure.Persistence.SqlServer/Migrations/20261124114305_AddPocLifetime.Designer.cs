@@ -1273,8 +1273,14 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<long?>("ConflictsAtTicks")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<bool?>("HasConflicts")
+                        .HasColumnType("bit");
 
                     b.Property<long?>("HeadMovedAtTicks")
                         .HasColumnType("bigint");

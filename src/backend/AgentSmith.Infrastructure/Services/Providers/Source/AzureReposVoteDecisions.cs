@@ -32,7 +32,7 @@ public static class AzureReposVoteDecisions
         // 2026-11-23-8df6a: on an active pull request LastMergeCommit is the test merge, so only a completed one names it.
         return new PrReviewState(pr.PullRequestId.ToString(CultureInfo.InvariantCulture), state, at, decisions,
             pr.LastMergeSourceCommit?.CommitId, state == PrReviewStates.Merged ? pr.LastMergeCommit?.CommitId : null)
-            { IsDraft = pr.IsDraft == true }; // 2026-11-23-8d16
+            { IsDraft = pr.IsDraft == true, HasConflicts = Conflicts(pr.MergeStatus) }; // 8d16, 2026-11-24-6811a
     }
 
     private static PrReviewDecision Decision(
@@ -53,6 +53,14 @@ public static class AzureReposVoteDecisions
         5 => PrReviewDecisions.ApprovedWithSuggestions,
         -5 => PrReviewDecisions.ChangesRequested,
         -10 => PrReviewDecisions.Rejected,
+        _ => null,
+    };
+
+    // 2026-11-24-6811a: queued or not set means the host has not computed it yet; a failure or policy refusal is no conflict.
+    internal static bool? Conflicts(PullRequestAsyncStatus status) => status switch
+    {
+        PullRequestAsyncStatus.Conflicts => true,
+        PullRequestAsyncStatus.Succeeded or PullRequestAsyncStatus.Failure or PullRequestAsyncStatus.RejectedByPolicy => false,
         _ => null,
     };
 

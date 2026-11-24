@@ -18,7 +18,7 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAd
 {
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
-        + "number state isDraft createdAt mergedAt closedAt headRefOid mergeCommit{oid} author{login} "
+        + "number state isDraft mergeable createdAt mergedAt closedAt headRefOid mergeCommit{oid} author{login} "
         + "latestReviews(first:100){nodes{id state body author{__typename login} submittedAt}}}}}";
 
     public async Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken)
@@ -40,6 +40,8 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAd
             Str(pr, "headRefOid"), state == PrReviewStates.Merged ? MergeCommit(pr) : null)
         {
             IsDraft = pr.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True, // 2026-11-23-8d16
+            // 2026-11-24-6811a: UNKNOWN while GitHub recomputes after the base moved — not decided, not clean.
+            HasConflicts = Str(pr, "mergeable") switch { "CONFLICTING" => true, "MERGEABLE" => false, _ => null },
         };
     }
 

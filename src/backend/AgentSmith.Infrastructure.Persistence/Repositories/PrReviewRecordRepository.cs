@@ -101,7 +101,7 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
         new(r.PrKey, r.Url, r.Repo, r.Number, r.Project, r.TicketId, r.RunId, r.State, Time(r.StateAtTicks),
             Time(r.CheckedAtTicks)!.Value, Time(newestEntry), [.. entries.Select(Entry)])
         { HeadSha = r.HeadSha, HeadMovedAt = Time(r.HeadMovedAtTicks), ReopenedAt = Time(r.ReopenedAtTicks), Ci = PrRecordCiJson.View(r), CiActed = r.CiActed, TargetBranch = r.TargetBranch,
-            IsDraft = r.IsDraft, MergeSha = r.MergeSha }; // 2026-11-23-8d16, 8df6a
+            IsDraft = r.IsDraft, MergeSha = r.MergeSha, HasConflicts = r.HasConflicts == true, ConflictsAt = Time(r.ConflictsAtTicks) }; // 8d16, 8df6a, 6811a
 
     private static PrReviewEntryView Entry(PrReviewEntry e) =>
         new(e.HostId, e.Kind, e.Decision, e.Standing, e.AuthorLogin, e.Trusted, e.IsOurs, e.IsBot, e.IsSystem,

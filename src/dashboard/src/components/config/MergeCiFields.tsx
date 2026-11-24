@@ -23,12 +23,10 @@ export function MergeCiFields({ merge, secrets, onChange }: {
     <>
       {number("ciPollSeconds", t("config.merge.ciPoll.label"), "60", t("config.merge.ciPoll.help"))}
       {number("ciPendingSeconds", t("config.merge.ciPending.label"), "3600", t("config.merge.ciPending.help"))}
-      {merge.when === "on_ci_green" && (
-        <>
-          {number("ciSettleSeconds", t("config.merge.ciSettle.label"), "180", t("config.merge.ciSettle.help"))}
-          {number("ciFixAttempts", t("config.merge.ciFix.label"), "3", t("config.merge.ciFix.help"))}
-        </>
-      )}
+      {merge.when === "on_ci_green" && number("ciSettleSeconds", t("config.merge.ciSettle.label"), "180", t("config.merge.ciSettle.help"))}
+      {/* 2026-11-24-6811c: the fix budget also bounds a base refresh's repair passes, so it shows with either. */}
+      {(merge.when === "on_ci_green" || merge.refreshOpenPullRequests) &&
+        number("ciFixAttempts", t("config.merge.ciFix.label"), "3", t("config.merge.ciFix.help"))}
       {number("ciExcerptChars", t("config.merge.ciExcerpt.label"), "4000", t("config.merge.ciExcerpt.help"))}
       {number("ciFailedChecksRead", t("config.merge.ciFailedChecks.label"), "5", t("config.merge.ciFailedChecks.help"))}
       <RefSelect label={t("config.merge.approvalAuth.label")} value={merge.approvalAuth ?? ""} options={secrets}

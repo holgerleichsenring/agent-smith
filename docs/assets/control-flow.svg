@@ -422,10 +422,11 @@
   <rect x="640" y="2222" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="2264" x2="880" y2="2264" class="cf-rule"/>
   <text x="40" y="2282" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">refresh-base</text>
-  <text x="40" y="2298" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start"> · 3 steps · 0 with a model</text>
+  <text x="40" y="2298" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">base-merge-master · 4 steps · 2 with a model</text>
   <rect x="430" y="2270" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="445" y="2270" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="460" y="2270" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="2270" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="475" y="2270" width="11" height="18" rx="3" class="cf-model"/>
   <line x1="40" y1="2312" x2="880" y2="2312" class="cf-rule"/>
   <text x="40" y="2330" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">reopen</text>
   <text x="40" y="2346" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start"> · 1 steps · 0 with a model</text>

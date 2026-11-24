@@ -65,8 +65,8 @@ export const configMessages = {
   },
   "config.merge.ciFix.label": { en: "CI fix attempts", de: "CI-Fix-Versuche" },
   "config.merge.ciFix.help": {
-    en: "red-CI fix runs in a row before the ticket is handed back",
-    de: "Fix-Runs bei roter CI in Folge, bevor das Ticket zurückgegeben wird",
+    en: "red-CI fix runs in a row before the ticket is handed back; also the repair passes a base refresh may make on a red build",
+    de: "Fix-Runs bei roter CI in Folge, bevor das Ticket zurückgegeben wird; auch die Reparaturdurchgänge einer Basis-Aktualisierung bei rotem Build",
   },
   "config.merge.ciExcerpt.label": { en: "CI excerpt characters", de: "Zeichen im CI-Auszug" },
   "config.merge.ciExcerpt.help": {

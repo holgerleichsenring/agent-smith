@@ -8,4 +8,4 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <param name="SquashCommitSha">2026-11-23-8df6a: the squash commit of a squash merge.</param>
 public sealed record GitLabMergeRequest(
     long? AuthorId, string State, DateTimeOffset? CreatedAt, DateTimeOffset? MergedAt, DateTimeOffset? ClosedAt, string? Sha = null,
-    bool IsDraft = false, string? MergeCommitSha = null, string? SquashCommitSha = null);
+    bool IsDraft = false, string? MergeCommitSha = null, string? SquashCommitSha = null, bool? HasConflicts = null);

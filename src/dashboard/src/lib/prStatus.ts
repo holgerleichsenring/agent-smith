@@ -15,7 +15,8 @@ export function hasPullRequest(status: PullRequestStatus): boolean {
     status === "completed" ||
     status === "completion_armed" ||
     status === "completion_refused" ||
-    status === "awaiting_ci"
+    status === "awaiting_ci" ||
+    status === "refresh_refused"
   );
 }
 
@@ -23,7 +24,7 @@ export function hasPullRequest(status: PullRequestStatus): boolean {
  *  armed one is waiting too, but for a build, so counting it here would send the operator
  *  to look at something that is already finishing itself. */
 export function isOpenPullRequest(status: PullRequestStatus): boolean {
-  return status === "opened" || status === "completion_refused";
+  return status === "opened" || status === "completion_refused" || status === "refresh_refused";
 }
 
 /** The short word shown on the row's status pill. */
@@ -37,6 +38,8 @@ export function pullRequestStatusLabel(status: PullRequestStatus, t: T): string 
       return t("pullRequests.status.stillOpen");
     case "awaiting_ci":
       return t("pullRequests.status.awaitingCi");
+    case "refresh_refused": // 2026-11-24-6811c
+      return t("pullRequests.status.refreshRefused");
     case "no_changes":
       return t("pullRequests.status.noChanges");
     case "failed":

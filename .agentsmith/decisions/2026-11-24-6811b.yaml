@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-6811b
+
+decisions:
+  - category: Architecture
+    chose: "Extend StateIndexConflictResolver to MEMORY.md and make it per file (it answers the paths still unmerged)"
+    over: "A second resolver for the memory index, or keeping the all-or-nothing gate"
+    reason: "No second path: one resolver for the append-only indexes. Per file lets 6811c hand only the real conflicts to its master."
+  - category: Implementation
+    chose: "Entries keyed by name and compared without their label; the label from the side that changed it, ours when both did"
+    over: "Whole-line three-way comparison"
+    reason: "Review round 1: a description update on one side and the record step's relabel on the other is mechanical; the next record step rewrites every label from evidence (MemoryIndexLabelWriter)."
+  - category: Implementation
+    chose: "The header block before the first entry is picked three-way; a non-blank non-entry line after the first entry refuses; ours' trailing newline is kept"
+    over: "Unaligned comparison of all non-entry lines"
+    reason: "Review rounds 1 and 2: an unspecified alignment, and a rule that refused every file ending in a newline."
+  - category: Implementation
+    chose: "A merge that still conflicts names git's full list of paths"
+    over: "Naming only the paths the unions left"
+    reason: "Review round 2: the merge is aborted, so a person merging by hand meets every path again."
+  - category: Review
+    chose: "Two rounds BUILD WITH CUTS, every cut applied"
+    over: "Building the first draft"
+    reason: "Independent adversarial reviews of the series before any code."

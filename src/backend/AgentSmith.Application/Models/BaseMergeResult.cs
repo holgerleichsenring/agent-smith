@@ -21,6 +21,10 @@ public sealed record BaseMergeResult(
     public static BaseMergeResult Merged(string baseRef) =>
         new(BaseMergeStatus.Merged, baseRef, [], Reason: null);
 
+    /// <summary>2026-11-24-6811c: a master resolved the conflicts the unions left — a merge no rule produced, which the
+    /// refresh only pushes once a build and test stage checked it.</summary>
+    public bool ResolvedByMaster { get; init; }
+
     public static BaseMergeResult Conflicted(string baseRef, IReadOnlyList<string> conflictingPaths) =>
         new(BaseMergeStatus.Conflicted, baseRef, conflictingPaths, Reason: null);
 }

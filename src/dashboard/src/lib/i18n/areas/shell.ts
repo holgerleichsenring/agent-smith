@@ -270,6 +270,7 @@ export const shellMessages = {
   "pullRequests.status.merged": { en: "merged", de: "gemergt" },
   "pullRequests.status.autoMerging": { en: "auto-merging", de: "wird automatisch gemergt" },
   "pullRequests.status.stillOpen": { en: "still open", de: "noch offen" },
+  "pullRequests.status.refreshRefused": { en: "not brought up to date", de: "nicht aktualisiert" },
   "pullRequests.status.awaitingCi": { en: "waiting for CI", de: "wartet auf CI" },
   "pullRequests.status.noChanges": { en: "no changes", de: "keine Änderungen" },
   "pullRequests.status.failed": { en: "failed", de: "fehlgeschlagen" },

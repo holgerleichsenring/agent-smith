@@ -1229,8 +1229,14 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("ConflictsAtTicks")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool?>("HasConflicts")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long?>("HeadMovedAtTicks")
                         .HasColumnType("INTEGER");
