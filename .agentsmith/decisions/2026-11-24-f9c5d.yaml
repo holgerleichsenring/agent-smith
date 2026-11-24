@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-f9c5d
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "CI of a pull request into a series branch is started through the host's API on Azure DevOps, GitHub and GitLab; where it cannot be, the page says why"
+    over: "Relying on the host to run CI for an unprotected branch; one provider only"
+    reason: "Operator 2026-11-24: hosts often run required builds only for pull requests into protected branches, and it must always work for all providers."
+  - category: Architecture
+    decider: claude
+    chose: "The start is the first part of the merge-green run's merge step (PullRequestCiStart), launched by the CI loop for pull requests flagged NoCi"
+    over: "A ci-start pipeline of its own; starting CI from the refresh directly"
+    reason: "A host write belongs in a run with a run id; the merge-green run already runs under the ticket's lease and is listed on the ticket, and a series pull request whose repository has no CI at all must merge right after the answer, in the same step. A new pipeline preset would have meant a second leased run kind for the same pull requests. The review's point (a merge-green run used only to start CI) is answered by the step's result line, which says that CI started and nothing merged."
+  - category: Implementation
+    decider: claude
+    chose: "Azure DevOps: the definitions of the enabled build-validation policies covering the default branch (scope with this repository or none, exact or prefix ref) are queued on the source branch at the head; a series pull request with no policy evaluation reads those definitions' builds at its head as required checks, and none at all on the head as no CI"
+    over: "Queuing on refs/pull/<id>/merge; tagging the builds; writing a branch policy for the series branch"
+    reason: "A manual queue on the merge ref needs policy-only trigger info; the source branch at its head is what the pull request's head sha names, so the existing on-head rule reads it. Tags need an extra permission. Writing policies on the host is out of agent-smith's remit. 'None on the head is no CI' keeps the trigger's own precondition true before it ran."
+  - category: Implementation
+    decider: claude
+    chose: "GitHub: the workflow files on the default branch are read for their on: pull_request filters; a filter already taking the series branch is GitHub's own start, workflow_dispatch is dispatched on the head branch, otherwise the fix is named"
+    over: "Re-running a check suite; listing check runs only"
+    reason: "A re-run needs a run that exists, and a filtered workflow never ran for the series pull request. Dispatched on the head branch its check runs attach to the head commit, which the rollup read already reads. Reading the on: block is configuration, not code semantics."
+  - category: Implementation
+    decider: claude
+    chose: "GitLab: a merge-request pipeline, then a branch pipeline on the source branch, then GitLab's words; a missing CI file on the default branch is no CI"
+    over: "A branch pipeline only"
+    reason: "A merge-request pipeline is what a project's MR rules expect; a branch pipeline still becomes the merge request's head pipeline when MR pipelines are not configured for that target (review finding)."
+  - category: Scope
+    decider: claude
+    chose: "A started trigger whose CI never registers, and an impossible one, keep the pull request waiting with the sentence; a person's Merge on the series page still merges it"
+    over: "Merging as 'no CI' after a second settle"
+    reason: "A series pull request merged without the CI its repository runs would defeat the point; the series page states why it waits. Recorded as an operator question in the series report (review Q3)."
+  - category: Scope
+    decider: claude
+    chose: "A ticket whose repositories mix 'has CI' and 'no CI at all' waits for a person's merge for the repository without CI"
+    over: "Remembering per repository that it has no CI"
+    reason: "Rare, and remembering it needs a stored fact per repository the records do not have; the sentence says so on the page."

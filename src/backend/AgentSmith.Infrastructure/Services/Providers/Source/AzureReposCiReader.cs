@@ -9,9 +9,12 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// posted, decided by <see cref="CiVerdict"/>. A failed build is read with its failed tasks' issues and log end, a
 /// failed status with its description and link.
 /// </summary>
+/// <para>2026-11-24-f9c5d: a pull request into a series branch has no build policy of its own; its checks are the builds of the
+/// definitions that validate the default branch, on its head (<see cref="AzureReposSeriesBuilds"/>).</para>
 public sealed class AzureReposCiReader(
     Func<CancellationToken, Task<GitHttpClient>> git, AzureReposPolicyEvaluations policies,
-    Func<CancellationToken, Task<BuildHttpClient>> builds, string project, string repoName, string orgUrl)
+    Func<CancellationToken, Task<BuildHttpClient>> builds, string project, string repoName, string orgUrl,
+    AzureReposPolicyConfigurations? configurations = null)
 {
     public async Task<PullRequestCi> ReadAsync(string prUrl, CiReadRequest request, CancellationToken ct)
     {
@@ -26,11 +29,17 @@ public sealed class AzureReposCiReader(
         var evaluations = await policies(projectId, AzureReposCiPolicies.ArtifactId(projectId, prId), ct);
         var items = (await AzureReposCiPolicies.ReadAsync(evaluations, buildClient, projectId, head, orgUrl, ct))
             .Concat(await AzureReposCiStatuses.ReadAsync(client, project, repoName, prId, ct)).ToList();
+        if (configurations is not null && items.Count == 0 && AgentSmith.Contracts.Providers.WorkBranches.IsSeries(pr.TargetRefName))
+            items.AddRange(await AzureReposSeriesBuilds.ReadAsync(AzureReposBuildPolicyScope.Validating(await configurations(projectId, ct),
+                pr.Repository.Id, $"refs/heads/{Main(pr)}"), buildClient, projectId, pr.SourceRefName, head, orgUrl, ct));
         var checks = items.Select(i => i.Check).ToList();
         var state = CiVerdict.Of(checks);
         return new PullRequestCi(state, head, CiVerdict.At(checks),
             state == CiStates.Red ? await FailuresAsync(items, checks, buildClient, projectId, request, ct) : []);
     }
+
+    private static string Main(GitPullRequest pr) =>
+        pr.Repository.DefaultBranch?.Replace("refs/heads/", string.Empty, StringComparison.Ordinal) ?? "main";
 
     private static async Task<IReadOnlyList<CiFailure>> FailuresAsync(IReadOnlyList<AzureReposCiItem> items, IReadOnlyList<CiCheck> checks,
         BuildHttpClient builds, Guid projectId, CiReadRequest request, CancellationToken ct)

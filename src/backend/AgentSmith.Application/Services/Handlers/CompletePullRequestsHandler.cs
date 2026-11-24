@@ -19,14 +19,18 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <para>2026-11-23-31dce: a merge-green request a person asked for (its AskedBy) runs under merge: manual too — the click is
 /// the manual merge; the CI watch's own request still does not. Each repo's outcome goes into the outcome slot when the
 /// server seeded one.</para>
+/// <para>2026-11-24-f9c5d: the CI loop's request for pull requests into a series branch that report no CI first starts their
+/// CI (<see cref="PullRequestCiStart"/>), under merge.series_when manual too; the merge follows only when none has CI anywhere.</para>
 /// </summary>
-public sealed class CompletePullRequestsHandler(PullRequestMergeSequence merges, PullRequestCompleter completer)
+public sealed class CompletePullRequestsHandler(PullRequestMergeSequence merges, PullRequestCompleter completer, PullRequestCiStart? ciStart = null)
     : ICommandHandler<CompletePullRequestsContext>
 {
     public async Task<CommandResult> ExecuteAsync(CompletePullRequestsContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         var green = context.Pipeline.TryGet<CiGreenMergeRequest>(ContextKeys.CiGreenMerge, out var asked) ? asked : null;
+        if (green is not null && ciStart is not null && await ciStart.StartAsync(context, green, cancellationToken) is { MayMerge: false } started)
+            return CommandResult.Ok($"CI for the series pull requests — {started.Said}; nothing merges until it reports.");
         if (context.Policy.When == MergeWhen.Manual && green?.AskedBy is null)
             return CommandResult.Ok("merge: manual — the pull requests stay open for review.");
         if (green is not null) return await MergeGreenAsync(context, green, cancellationToken);

@@ -200,7 +200,8 @@ public sealed class CiGreenMergeTests : IDisposable
         _h.Clock.Now = _h.Clock.Now.AddSeconds(181);
         await RefreshAsync();
 
-        _launched.Should().BeEmpty();
+        _launched.Should().OnlyContain(r => r.PullRequests.All(p => p.NoCi),
+            "2026-11-24-f9c5d: the only run is the one that starts its CI before anything merges");
     }
 
     // 2026-11-24-f9c5c: series_when manual leaves a series-branch pull request to a person while merge.when is on_ci_green.

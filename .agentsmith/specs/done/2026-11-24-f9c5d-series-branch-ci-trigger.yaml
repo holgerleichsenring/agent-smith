@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-f9c5d
+goal: "A series-branch pull request with no CI after merge.ci_settle_seconds has its repo's pull request CI started through the host's API on Azure DevOps, GitHub and GitLab, or the page says why it cannot."
+
+applies_to: "default (source providers' CI trigger and CI read, CI-green merge, merge-green run, merge sequence)"
+
+requires: [2026-11-24-f9c5c, 2026-11-17-3435a, 2026-11-17-3435b, 2026-11-23-0219]
+
+follows: "Operator 2026-11-24: hosts often run required builds only for pull requests into protected branches; it must work for all providers."
+
+invariant: "A series-branch pull request is never merged as 'no CI' while its repository has pull-request CI for the default branch."
+
+facts:
+  - claim: "A head with no CI for merge.ci_settle_seconds counts as green and merges; under merge: manual the code run returns before any merge sequence runs."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/CiGreenMerge.cs:41-45; src/backend/AgentSmith.Application/Services/Handlers/CompletePullRequestsHandler.cs:30-31"
+  - claim: "Azure DevOps CI is read from the pull request's build-policy evaluations and statuses; a series branch carries no build policy, so it reads none."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiReader.cs:24-28; src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiPolicies.cs:33-34"
+  - claim: "GitHub CI is the head's statusCheckRollup, which carries every check run on the head commit; GitLab CI is the merge request's head_pipeline."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubCiReader.cs:16-40; src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabCiReader.cs:17-31"
+  - claim: "Only Azure DevOps re-queues a pull request's builds today, and only a policy evaluation that exists; nothing reads policy configurations, lists GitHub workflows or creates a GitLab merge-request pipeline."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBuildRequeue.cs:17-34; src/backend/AgentSmith.Infrastructure/Services/Providers/Pipelines/GitHubPipelineRunner.cs:16-30"
+  - claim: "Starting a pipeline needs Build read & execute on Azure DevOps, Actions write and a declared workflow_dispatch on GitHub, api on GitLab."
+    evidence: "docs/configure-it/deployment-templates.md:127-131"
+
+scope:
+  in: >-
+    IPullRequestCiTrigger.TriggerAsync(prUrl, defaultBranch) answering CiTrigger(Outcome Started | NoCi | Impossible, Text, Url),
+    implemented by the three hosted providers. Azure DevOps: the enabled, undeleted build-validation policy configurations of the
+    project, filtered client-side to a scope naming this repository or none and the default branch exactly or by prefix, name the
+    definitions; none is NoCi; each is queued on the pull request's source branch at its head (its own head, not the merge ref);
+    AzureReposCiReader, when the pull request has no build-policy evaluation, reads those definitions' builds of the source branch
+    at the head as required checks. GitHub: the active workflows' files on the default branch are read; none whose pull_request or
+    pull_request_target trigger takes the default branch is NoCi; one whose filter already takes the series branch is Started
+    (GitHub starts it itself); otherwise each declaring workflow_dispatch is dispatched on the head branch, a 403 is Impossible
+    naming Actions: write, and none declaring it is Impossible naming the files and the two fixes (agent-smith/series/** in
+    branches, or workflow_dispatch). GitLab: a CI file (ci_config_path, else .gitlab-ci.yml) missing on the default branch is NoCi
+    (a path into another project counts as present); otherwise a merge-request pipeline is created, a refusal falls back to a
+    branch pipeline on the source branch, and a refusal of that is Impossible with the host's message. SeriesCiStart (server, in the refresh's CI loop before the CI merge)
+    starts one merge-green run, under the ticket's lease, for a ticket whose open records target a series branch and one of which
+    read none on its head for merge.ci_settle_seconds — once per head (the acted mark), under every series_when — with those pull
+    requests marked CiGreenPullRequest.NoCi. The run's merge step first starts their CI (PullRequestCiStart): Started and
+    Impossible are recorded as a refusal with the sentence on the run (what the series page shows as said) and as awaiting_ci on
+    the attempt, and nothing merges; only when every pull request answered NoCi does the merge go on as one with no CI does.
+  out: >-
+    Pull requests into the default branch (their CI is the host's own). Writing branch policies, rulesets or workflow files on the
+    host. A Started trigger whose CI never registers stays awaiting with its sentence; a person's Merge merges it (operator question
+    recorded in decisions).
+
+steps:
+  - id: contract
+    action: "IPullRequestCiTrigger, CiTrigger, CiTriggerOutcome in Contracts/Reviews."
+  - id: azure
+    action: "AzureReposCiTrigger and the no-policy build read in AzureReposCiReader."
+  - id: github
+    action: "GitHubCiTrigger (workflow list, file read, on: parse with branch globs, dispatch)."
+  - id: gitlab
+    action: "GitLabCiTrigger (CI file read, merge-request pipeline, branch-pipeline fallback)."
+  - id: run
+    action: "CiGreenPullRequest.NoCi, PullRequestCiStart in the merge step, SeriesCiStart in PrReviewRecordRefresh, docs."
+
+tests:
+  - "AzureReposCiTrigger: a build policy on refs/heads/main for this repo or for all repos is queued on the source branch at the head; a prefix scope matches; another repo's, a disabled or a deleted one is not; none is NoCi. AzureReposCiReader: no evaluation and a build of a validating definition at the head reads as a required check."
+  - "GitHubCiTrigger: a pull_request workflow on [main] with workflow_dispatch is dispatched on the head branch; without it Impossible naming the file; branches [main, 'agent-smith/**'] is Started with nothing dispatched; no pull_request workflow is NoCi; a 403 names Actions: write."
+  - "GitLabCiTrigger: a 201 is Started with the pipeline url; a missing CI file is NoCi; a 400 falls back to a branch pipeline; both refused is Impossible with the message."
+  - "SeriesCiStart: a series-branch record with no CI past settle starts one merge-green run with it marked NoCi and marks the head acted, under series_when manual and on_ci_green; not again on that head; a default-branch record starts none."
+  - "PullRequestCiStart: Started and Impossible are said on the run and the attempt and nothing merges; all NoCi lets the merge go on; NoCi beside a pull request with CI waits for a person."
+
+done:
+  - "Build, affected tests green; the spec gate passed."

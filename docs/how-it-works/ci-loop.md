@@ -32,6 +32,16 @@ Every open pull request's CI is read with its record and shown on the ticket pag
 
 For a red head, codeably stores which checks failed, with a bounded excerpt of the evidence (the host's summary and annotations, then the end of the log) and a link. GitHub check runs and statuses, Azure DevOps build policies and statuses, and GitLab head pipelines are all read. The token needs read access to checks and logs on GitHub, Build (read) on Azure DevOps and `read_api` on GitLab.
 
+## Series branches
+
+A series of two or more tickets works on its own branch per repository, `agent-smith/series/<id>`, cut from the default branch by its first ticket there. Its tickets' pull requests target that branch and merge under `merge.series_when` (default `on_ci_green`), always past protection: the branch carries no host policy. Hosts often run their required builds only for pull requests into protected branches, so a series pull request whose head reports no CI for `ci_settle_seconds` gets its repository's pull-request CI started by a `merge-green` run, once per head, whatever `series_when` says:
+
+- **Azure DevOps**: the build definitions whose build-validation policy covers the default branch (this repository or all of the project, exactly or by prefix) are queued on the pull request's source branch at its head; their builds there are read as its checks. Needs Policy (read) and Build (read & execute).
+- **GitHub**: the workflows whose `pull_request` trigger runs for the default branch are read from their files. One whose filter already takes the series branch runs on its own; otherwise each declaring `workflow_dispatch` is dispatched on the head branch. None declaring it is said, with the fix: add `agent-smith/series/**` to its `branches`, or `workflow_dispatch`. Needs Actions: write.
+- **GitLab**: a merge-request pipeline is created, or a pipeline on the source branch when that is refused. Needs `api`.
+
+What the start said shows on the series page beside the pull request. A repository with no pull-request CI for its default branch either merges as one with no CI does. When all of a series' tickets landed, one pull request per repository takes the series branch into the default branch under `merge.when`.
+
 ## The fix loop
 
 With `on_ci_green`, a red CI on the head the green attempt pushed starts a **fix run**. Its task is the failed checks' evidence: names, excerpts, links. It fixes, verifies locally and pushes to the same pull request, never force-pushing, and the CI watch starts again. On the ticket page the run's cause reads `ci`.
