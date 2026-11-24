@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-f9c5c
+goal: "A ticket pull request into its series branch merges under merge.series_when on every merge path, the guards accept that branch, and the CI loop serves it as it serves merge.when."
+
+applies_to: "default (merge context, merge sequence, base guard, CI-green merge, CI fix loop, CI watch, series merge order, PR target read)"
+
+requires: [2026-11-24-f9c5a, 2026-11-24-f9c5b, 2026-11-23-97c2a, 2026-11-23-31dce, 2026-11-17-3435c]
+
+invariant: "Exactly one setting decides each pull request: series_when for a ticket pull request into a series branch, merge.when for every other."
+
+facts:
+  - claim: "The merge context's policy is the project's merge block, whatever the target."
+    evidence: "src/backend/AgentSmith.Application/Services/Builders/CompletePullRequestsContextBuilder.cs:19-21"
+  - claim: "A code run leaves a pull request opened against any recorded rung open, and a merge-green run refuses a base that is not the default branch."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:72-76; src/backend/AgentSmith.Application/Services/Handlers/PullRequestBaseGuard.cs:21-26"
+  - claim: "The CI-green merge, the red-CI act, the fix run's CI read, the red nudge and the CI watch each test project.Merge.When."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/CiGreenMerge.cs:23; src/backend/AgentSmith.Application/Services/Rework/CiAct.cs:20; src/backend/AgentSmith.Application/Services/Rework/CiRework.cs:25; src/backend/AgentSmith.Application/Services/Rework/CiReworkAct.cs:19; src/backend/AgentSmith.Server/Services/Rework/CiRedNudge.cs:20; src/backend/AgentSmith.Server/Services/Sweep/CiWatchSelection.cs:31"
+  - claim: "A merge into a branch that is no ticket's branch is a landing; the series branch has two segments, so it is one."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/StackedMergeLanding.cs:30"
+  - claim: "The series merge order makes a step Ready only when its target is the default branch, and an open record's target is never read, so it counts as the default branch."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesRunOrder.cs:43; src/backend/AgentSmith.Server/Services/Rework/PrRecordTargetRead.cs:17; src/backend/AgentSmith.Server/Services/Series/SeriesRunTickets.cs:11"
+  - claim: "The series texts state the merge rule from merge.when."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesOpening.cs:19-23; src/backend/AgentSmith.Application/Services/Series/SeriesPolicy.cs:10-14; src/backend/AgentSmith.Application/Services/Series/SeriesNeedsYou.cs:35,43"
+
+scope:
+  in: >-
+    The deciding fact is the pull request's target, never series membership: a target under agent-smith/series/
+    (TicketBranchNamer.IsSeries) is a series branch. MergePolicyConfig.WhenInto(target) answers series_when for such a target and
+    merge.when otherwise; IntoSeriesBranch() is that policy with RespectBranchProtection false — a series branch carries no host
+    policy, so arming auto-complete there would merge at once with CI pending; agent-smith merges it itself. Code run: the claim's
+    ContextKeys.SeriesBranch (f9c5b) is the target it opens against, so CompletePullRequestsContext.SeriesBranch comes from it and
+    the policy is IntoSeriesBranch(). Merge-green run: CiGreenMergeRequest.SeriesBranch, set by CiGreenMerge from the records'
+    target and by SeriesMergeNextAct from the series' branch. The rung refusal and PullRequestBaseGuard accept the context's
+    series branch. CiGreenMerge, CiAct (so CiRework, CiReworkAct, CiRedNudge) decide by the awaited records' target; a
+    series-branch record is green on green CI only (none is f9c5d's to start). PrReviewRecordCopy/PrRecordTargetRead: an open
+    record's target is read when first seen and when its head moves, a merged one when it turns merged. CiDueAsync acts on a
+    verdict per record: merge.when on_ci_green for any record, series_when on_ci_green for a record whose target is a series branch.
+    SeriesMergeNextAct.CiHolds takes the series policy (no arming: it waits for green). SeriesRunOrder: a step is Ready when it
+    targets the default branch or its series' branch; TargetsElsewhere keeps meaning another branch (a stacked prerequisite's) and
+    its Retarget wait stays with the mover that exists (97c2b). SeriesOpening, SeriesPolicy and SeriesNeedsYou state series_when
+    for the tickets of a series with a branch. The landing needs no change: a merge into the series branch lands the ticket and
+    wakes its series dependents (outside ones stay held, f9c5b).
+  out: "Starting CI that does not run for the series branch (f9c5d). The final pull request, which follows merge.when (f9c5e)."
+
+steps:
+  - id: policy
+    action: "TicketBranchNamer.IsSeries; MergePolicyConfig.WhenInto and IntoSeriesBranch; CompletePullRequestsContext.SeriesBranch and the builder; CiGreenMergeRequest.SeriesBranch."
+  - id: guards
+    action: "RungRefusal and PullRequestBaseGuard accept the series branch."
+  - id: loop
+    action: "CiGreenMerge, CiAct and its callers, CiDueAsync on the records' target; open-record target read."
+  - id: order
+    action: "SeriesRunOrder and TargetsElsewhere; SeriesMergeNextAct's request and CiHolds; series texts."
+
+tests:
+  - "CompletePullRequestsHandler: a code run with a series branch and series_when on_gate_green merges past protection while merge.when is manual; series_when manual leaves it open while merge.when is on_gate_green."
+  - "PullRequestMergeSequence: a pull request onto the run's series branch is no rung refusal; one onto another branch still is. PullRequestBaseGuard: the request's series branch passes, another agent-smith branch is refused."
+  - "CiGreenMerge: a record targeting a series branch merges on green under series_when on_ci_green with merge.when manual, carrying the branch; it does not merge on none; a default-branch record is unchanged."
+  - "CiAct: a red head targeting a series branch acts under series_when on_ci_green and not under manual."
+  - "PrRecordTargetRead: an open record reads its target once and again after its head moved; a merged one reads it at the merge."
+  - "SeriesRunOrder: an open pull request targeting its series branch is Ready. SeriesMergeNextAct.CiHolds: a series ticket with CI running is refused even with respect_branch_protection."
+
+done:
+  - "Build, affected tests green; the spec gate passed."

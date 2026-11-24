@@ -36,7 +36,9 @@ public sealed class SeriesRunDetailReader(
         return new SeriesRunDetailView(record.Id, name, record.Project, record.State, record.Conversation, record.StartedAt,
             record.FinishedAt, shape.Counts, SeriesRunQuestion.Of(record, held), shown, shape.MergeOrder)
         {
-            Repos = Repos(project, shape.Tickets), MergeArms = project.Merge.RespectBranchProtection, CostUsd = spent + record.MasterCostUsd,
+            // 2026-11-24-f9c5c: a merge into a series branch never arms auto-complete; it merges once green.
+            Repos = Repos(project, shape.Tickets), MergeArms = record.IntegrationBranch is null && project.Merge.RespectBranchProtection,
+            IntegrationBranch = record.IntegrationBranch, CostUsd = spent + record.MasterCostUsd,
             ThreadId = session?.ThreadId, ConversationOpen = session?.IsOpen == true,
             Edges = SeriesRunEdges.Of(facts, [.. record.Tickets.Select(t => t.TicketId)]),
         };

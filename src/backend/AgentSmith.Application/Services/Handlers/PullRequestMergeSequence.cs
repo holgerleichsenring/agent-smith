@@ -47,8 +47,8 @@ public sealed class PullRequestMergeSequence(
     {
         if (context.Configs.FirstOrDefault(r => r.Name == entry.RepoName) is not { } repo)
             return Refused(entry, "not merged, the repository is not in this run");
-        if (RungRefusal(context.Pipeline, repo.Name) is { } rung) return await RefuseAsync(context, entry, mark, rung, ct);
-        if (attemptRunId is not null && await bases.RefusalAsync(repo, entry.Url!, ct) is { } offMain)
+        if (RungRefusal(context.Pipeline, repo.Name, context.SeriesBranch) is { } rung) return await RefuseAsync(context, entry, mark, rung, ct);
+        if (attemptRunId is not null && await bases.RefusalAsync(repo, entry.Url!, ct, context.SeriesBranch) is { } offMain)
             return await HoldAsync(context, entry, mark, offMain, ct);
         if (asked && drafts is not null && await drafts.RefusalAsync(repo, entry.Url!, ct) is { } draft)
             return await RefuseAsync(context, entry, mark, draft, ct);
@@ -71,9 +71,9 @@ public sealed class PullRequestMergeSequence(
     private static PullRequestMergeLine Refused(OpenedPullRequest entry, string reason) =>
         new(entry.RepoName, PullRequestCompletionOutcome.Refused, $"{entry.RepoName}: {reason}");
 
-    /// <summary>Why a pull request opened against a rung is left open; null when it targets the default branch.</summary>
-    internal static string? RungRefusal(PipelineContext pipeline, string repo) =>
-        PullRequestTargets.For(pipeline, repo) is { } rung
+    /// <summary>Why a pull request opened against a rung is left open; null for the default branch or the series branch (f9c5c).</summary>
+    internal static string? RungRefusal(PipelineContext pipeline, string repo, string? seriesBranch = null) =>
+        PullRequestTargets.For(pipeline, repo) is { } rung && !string.Equals(rung.Value, seriesBranch, StringComparison.Ordinal)
             ? $"opened against '{rung.Value}', and merging it would land it there rather than on the default branch; left open"
             : null;
 
@@ -93,7 +93,7 @@ public sealed class PullRequestMergeSequence(
     {
         var lines = new List<PullRequestMergeLine>();
         foreach (var entry in entries)
-            lines.Add(RungRefusal(context.Pipeline, entry.RepoName) is { } rung
+            lines.Add(RungRefusal(context.Pipeline, entry.RepoName, context.SeriesBranch) is { } rung
                 ? await RefuseAsync(context, entry, attemptRunId, rung, ct)
                 : await HoldAsync(context, entry, attemptRunId, unlanded, ct));
         return lines;

@@ -174,6 +174,53 @@ public sealed class CiGreenMergeTests : IDisposable
         _h.Records().Single().CiActed.Should().Be(red).And.Be("abc:red", "the fix nudge acted on it and a landing changes nothing about it");
     }
 
+    // 2026-11-24-f9c5c: a pull request into a series branch merges under merge.series_when, and the request names the branch.
+    [Fact]
+    public async Task IntoASeriesBranch_MergesUnderSeriesWhen_AndNamesTheBranch()
+    {
+        _project = Project(MergeWhen.Manual);
+        Target(PrReviewRefreshHarness.Pr1, "agent-smith/series/sr-1");
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+
+        await RefreshAsync();
+
+        _launched.Should().ContainSingle().Which.SeriesBranch.Should().Be("agent-smith/series/sr-1");
+    }
+
+    // 2026-11-24-f9c5c: nothing reporting on a series branch is not 'no CI' — the host may not run its CI there (f9c5d).
+    [Fact]
+    public async Task IntoASeriesBranch_NoCi_NeverMergesAsGreen()
+    {
+        Target(PrReviewRefreshHarness.Pr1, "agent-smith/series/sr-1");
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.None);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await RefreshAsync();
+
+        _h.Clock.Now = _h.Clock.Now.AddSeconds(181);
+        await RefreshAsync();
+
+        _launched.Should().BeEmpty();
+    }
+
+    // 2026-11-24-f9c5c: series_when manual leaves a series-branch pull request to a person while merge.when is on_ci_green.
+    [Fact]
+    public async Task IntoASeriesBranch_SeriesWhenManual_LaunchesNothing()
+    {
+        _project = Project(MergeWhen.OnCiGreen);
+        _project.Merge.SeriesWhen = MergeWhen.Manual;
+        Target(PrReviewRefreshHarness.Pr1, "agent-smith/series/sr-1");
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+
+        await RefreshAsync();
+
+        _launched.Should().BeEmpty();
+    }
+
+    private void Target(string url, string branch) =>
+        _h.Provider.Setup(p => p.ReadPullRequestBaseAsync(url, It.IsAny<CancellationToken>())).ReturnsAsync(branch);
+
     private async Task RequiresAsync(string dependent, string required)
     {
         await using var db = _h.Store.Context();

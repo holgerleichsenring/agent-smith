@@ -27,6 +27,20 @@ public sealed class PullRequestBaseGuardTests
         if (refused) refusal.Should().Contain($"targets '{current}', not the default branch");
     }
 
+    // 2026-11-24-f9c5c: the merge's series branch is a base it accepts; another agent-smith branch is still refused.
+    [Theory]
+    [InlineData("agent-smith/series/sr-1", false)]
+    [InlineData("main", false)]
+    [InlineData("agent-smith/series/sr-2", true)]
+    [InlineData("agent-smith/41", true)]
+    public async Task RefusalAsync_TheMergesSeriesBranch_Passes(string current, bool refused)
+    {
+        var refusal = await GuardReading(current).RefusalAsync(
+            new RepoConnection { Name = "a", DefaultBranch = "main" }, Url, default, "agent-smith/series/sr-1");
+
+        (refusal is not null).Should().Be(refused);
+    }
+
     [Fact]
     public async Task RefusalAsync_AHostedBaseThatCannotBeRead_IsRefused()
     {

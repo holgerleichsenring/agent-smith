@@ -29,4 +29,7 @@ public sealed record SeriesRunDetailView(
     /// <summary>2026-11-23-0219: the project merges with respect_branch_protection: true, so a merge asked while CI runs or has
     /// not started arms the host's auto-complete and completes once it is green.</summary>
     public bool MergeArms { get; init; }
+
+    /// <summary>2026-11-24-f9c5c: the branch the series' tickets integrate on; null for a series without one.</summary>
+    public string? IntegrationBranch { get; init; }
 }

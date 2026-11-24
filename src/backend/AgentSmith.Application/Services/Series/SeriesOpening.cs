@@ -15,18 +15,22 @@ public static class SeriesOpening
         var held = rows.Count(r => r.Kind == SeriesTicketState.Held);
         var text = $"Filed {rows.Count} tickets. "
             + (started.Count > 0 ? $"{string.Join(", ", started)} started; " : "None has started yet; ")
-            + (held > 0 ? $"{held} wait on their prerequisites and {WaitRule(project)}. " : string.Empty);
-        var merge = project.Merge.When switch
+            + (held > 0 ? $"{held} wait on their prerequisites and {WaitRule(project, beat.Record.IntegrationBranch)}. " : string.Empty);
+        var branch = beat.Record.IntegrationBranch; // 2026-11-24-f9c5c: a series with a branch merges its tickets there
+        var into = branch is null ? string.Empty : $" into {branch}";
+        var merge = project.Merge.WhenInto(branch) switch
         {
-            MergeWhen.OnGateGreen => "I merge each one when its gate is green",
-            MergeWhen.OnCiGreen => "I merge each one when its CI is green; a red CI goes back to its run with the failing check",
-            _ => "Their pull requests stay open for you to merge",
+            MergeWhen.OnGateGreen => $"I merge each one{into} when its gate is green",
+            MergeWhen.OnCiGreen => $"I merge each one{into} when its CI is green; a red CI goes back to its run with the failing check",
+            _ => $"Their pull requests{into} stay open for you to merge",
         };
+        if (branch is not null) merge += "; the series reaches the default branch as one pull request per repository at the end";
         return text + (pane
             ? $"{merge}. I write here only when you are needed; the Series pane shows every ticket, and Pause holds the series."
             : $"{merge} and report here on every change and every {dialogue.SeriesStatusMinutes} minutes.");
     }
 
-    private static string WaitRule(ResolvedProject project) => project.RequiresStart == RequiresStart.OnMerge
-        ? "start once the ticket they need is merged" : "start as soon as the ticket they need has a green push";
+    private static string WaitRule(ResolvedProject project, string? seriesBranch) =>
+        seriesBranch is not null || project.RequiresStart == RequiresStart.OnMerge
+            ? "start once the ticket they need is merged" : "start as soon as the ticket they need has a green push";
 }

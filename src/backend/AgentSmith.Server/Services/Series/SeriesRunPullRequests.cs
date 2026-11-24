@@ -22,10 +22,12 @@ public sealed class SeriesRunPullRequests
     internal static bool Waits(SeriesRunPullRequestView pullRequest) =>
         pullRequest.State is PrReviewStates.Open or PrReviewStates.Unread;
 
-    /// <summary>The pull request's target is known and is not its repo's configured default branch.</summary>
-    public bool TargetsElsewhere(SeriesRunPullRequestView pullRequest, ResolvedProject project)
+    /// <summary>The pull request's target is known and is neither its repo's configured default branch nor 2026-11-24-f9c5c
+    /// the series' branch — the two places a ticket of the series merges.</summary>
+    public bool TargetsElsewhere(SeriesRunPullRequestView pullRequest, ResolvedProject project, string? seriesBranch = null)
     {
         ArgumentNullException.ThrowIfNull(pullRequest);
+        if (pullRequest.Target is { } into && string.Equals(into, seriesBranch, StringComparison.Ordinal)) return false;
         var main = project.Repos.FirstOrDefault(r => r.Name == pullRequest.Repo)?.DefaultBranch;
         return pullRequest.Target is { } target && !string.IsNullOrEmpty(main) && !string.Equals(target, main, StringComparison.Ordinal);
     }

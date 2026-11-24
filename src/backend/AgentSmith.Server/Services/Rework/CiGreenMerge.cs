@@ -14,34 +14,46 @@ namespace AgentSmith.Server.Services.Rework;
 /// its pull requests awaiting CI is merged once CI is green on every one of THOSE pull requests (an older attempt's
 /// closed one does not block it) — or reports nothing for merge.ci_settle_seconds. Each head and verdict is acted on
 /// once: only a merge-green run that ran marks the records, so a held lease is tried again on the next refresh.
+/// <para>2026-11-24-f9c5c: the mode is the awaited pull requests' target's — merge.series_when for a series branch, which the
+/// request then names — and a series-branch head merges on green only: one that reports nothing is f9c5d's to start.</para>
 /// </summary>
 public sealed class CiGreenMerge(
     IServiceScopeFactory scopes, IPreviousAttemptReader attempts, IActiveRunLease leases, IMergeGreenRun run, TimeProvider clock)
 {
     public async Task<bool> AfterRefreshAsync(ResolvedProject project, string ticketId, CancellationToken ct)
     {
-        if (project.Merge.When != MergeWhen.OnCiGreen) return false;
+        if (!project.Merge.ActsOnCi) return false;
         var attempt = await attempts.LatestAsync(project.Name, ticketId, null, ct);
         if (attempt is not { Finished: true, Status: RunStatuses.Success } || attempt.AwaitingCiUrls.Count == 0) return false;
         using var scope = scopes.CreateScope();
         var records = (await scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>().ByTicketAsync(project.Name, ticketId, ct))
             .ToDictionary(r => r.PrKey, StringComparer.Ordinal);
         var awaited = attempt.AwaitingCiUrls.Select(p => (Repo: p.Key, Url: p.Value, Record: records.GetValueOrDefault(PrKey.Of(p.Value)))).ToList();
-        if (awaited.Any(a => a.Record?.Ci is not { } ci || !Green(a.Record, ci, project)) || awaited.All(a => Acted(a.Record!)))
+        var series = SeriesTarget(awaited.Select(a => a.Record));
+        if (project.Merge.WhenInto(series) != MergeWhen.OnCiGreen) return false;
+        if (awaited.Any(a => a.Record?.Ci is not { } ci || !Green(a.Record, ci, project, series is not null)) || awaited.All(a => Acted(a.Record!)))
             return false;
         if (await leases.GetByTicketAsync(project.Name, new TicketId(ticketId), ct) is not null) return false;
         var request = new CiGreenMergeRequest(ticketId, attempt.RunId, TicketBranchNamer.Compose(new TicketId(ticketId)).Value,
-            [.. awaited.Select(a => new CiGreenPullRequest(a.Repo, a.Url))]);
+            [.. awaited.Select(a => new CiGreenPullRequest(a.Repo, a.Url))]) { SeriesBranch = series };
         if (!await run.RunAsync(project, request, ct)) return false;
         var writer = scope.ServiceProvider.GetRequiredService<PrReviewRecordWriter>();
         foreach (var (_, _, record) in awaited) await writer.MarkCiActedAsync(record!.PrKey, record.Ci!.ActedMark, ct);
         return true;
     }
 
-    private bool Green(PrReviewRecordView record, PrRecordCiView ci, ResolvedProject project) =>
+    /// <summary>2026-11-24-f9c5c: the series branch the pull requests target, read from their records; null when any targets
+    /// another branch or its target is not read yet.</summary>
+    internal static string? SeriesTarget(IEnumerable<PrReviewRecordView?> records)
+    {
+        var targets = records.Select(r => r?.TargetBranch).Distinct(StringComparer.Ordinal).ToList();
+        return targets is [{ } only] && AgentSmith.Contracts.Providers.WorkBranches.IsSeries(only) ? only : null;
+    }
+
+    private bool Green(PrReviewRecordView record, PrRecordCiView ci, ResolvedProject project, bool intoSeries) =>
         record.State == PrReviewStates.Open && ci.IsOn(record.HeadSha)
         && (ci.State == CiStates.Green
-            || (ci.State == CiStates.None && ci.At is { } since
+            || (!intoSeries && ci.State == CiStates.None && ci.At is { } since
                 && clock.GetUtcNow() - since >= TimeSpan.FromSeconds(project.Merge.CiSettleSeconds)));
 
     private static bool Acted(PrReviewRecordView record) => record.CiActed == record.Ci!.ActedMark;

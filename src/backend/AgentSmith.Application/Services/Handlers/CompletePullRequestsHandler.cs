@@ -57,7 +57,7 @@ public sealed class CompletePullRequestsHandler(PullRequestMergeSequence merges,
     {
         var waiting = new List<string>();
         foreach (var entry in passed)
-            if (PullRequestMergeSequence.RungRefusal(context.Pipeline, entry.RepoName) is { } rung)
+            if (PullRequestMergeSequence.RungRefusal(context.Pipeline, entry.RepoName, context.SeriesBranch) is { } rung)
                 await completer.PublishAsync(context.Pipeline, entry, Providers.PullRequestCompletion.Refused(rung), ct);
             else
             {

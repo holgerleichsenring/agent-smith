@@ -109,6 +109,48 @@ public sealed class CompletePullRequestsHandlerTests
         _outcomes.Single().Status.Should().Be(PullRequestStatuses.CompletionRefused);
     }
 
+    // 2026-11-24-f9c5c: a series ticket's pull request onto its series branch merges under the series policy (past protection);
+    // one onto another branch is still a rung refusal.
+    [Fact]
+    public async Task SeriesBranchTarget_MergesUnderSeriesWhen_PastProtection()
+    {
+        var policy = new MergePolicyConfig { When = MergeWhen.Manual, SeriesWhen = MergeWhen.OnGateGreen, RespectBranchProtection = true };
+        const string series = "agent-smith/series/sr-1";
+
+        var result = await RunAsync(policy.IntoSeriesBranch(), Passed("a"), p => PullRequestTargets.Record(p, "a", series), series);
+
+        _merged.Should().Equal(("https://x/a/pull/1", BranchProtection.Bypass));
+        result.Message.Should().Contain("a: merged");
+    }
+
+    [Fact]
+    public async Task SeriesBranchRun_APullRequestOntoAnotherRung_IsStillLeftOpen()
+    {
+        var result = await RunAsync(OnGreen(), Passed("a"), p => PullRequestTargets.Record(p, "a", "agent-smith/41"), "agent-smith/series/sr-1");
+
+        _merged.Should().BeEmpty();
+        result.Message.Should().Contain("opened against 'agent-smith/41'");
+    }
+
+    [Fact]
+    public void Builder_ARunStampedWithASeriesBranch_MergesUnderTheSeriesPolicy()
+    {
+        var project = new ResolvedProject
+        {
+            Name = "p", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            Merge = new MergePolicyConfig { When = MergeWhen.OnGateGreen, SeriesWhen = MergeWhen.Manual, RespectBranchProtection = true },
+        };
+        var stamped = new PipelineContext();
+        stamped.Set(ContextKeys.SeriesBranch, "agent-smith/series/sr-1");
+        var builder = new AgentSmith.Application.Services.Builders.CompletePullRequestsContextBuilder();
+
+        var series = (CompletePullRequestsContext)builder.Build(null!, project, stamped);
+        var plain = (CompletePullRequestsContext)builder.Build(null!, project, new PipelineContext());
+
+        (series.Policy.When, series.Policy.Protection, series.SeriesBranch).Should().Be((MergeWhen.Manual, BranchProtection.Bypass, "agent-smith/series/sr-1"));
+        (plain.Policy.When, plain.SeriesBranch).Should().Be((MergeWhen.OnGateGreen, (string?)null));
+    }
+
     // 2026-11-17-3435b
     [Fact]
     public async Task OnCiGreen_CodeRun_RecordsAwaitingCi_AndMergesNothing()
@@ -388,7 +430,7 @@ public sealed class CompletePullRequestsHandlerTests
         [.. repos.Select(r => new OpenedPullRequest(r, $"https://x/{r}/pull/1", OpenStatus.Opened))];
 
     private async Task<CommandResult> RunAsync(
-        MergePolicyConfig policy, List<OpenedPullRequest>? passed, Action<PipelineContext>? arrange = null)
+        MergePolicyConfig policy, List<OpenedPullRequest>? passed, Action<PipelineContext>? arrange = null, string? seriesBranch = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-1");
@@ -441,6 +483,6 @@ public sealed class CompletePullRequestsHandlerTests
             new PullRequestDraftStep(factory.Object),
             new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance)), completer);
         return await handler.ExecuteAsync(new CompletePullRequestsContext(policy, new BranchName("agent-smith/42"), repos, pipeline,
-            "gh", "github-42"), CancellationToken.None);
+            "gh", "github-42", seriesBranch), CancellationToken.None);
     }
 }

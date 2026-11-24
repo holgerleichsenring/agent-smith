@@ -19,7 +19,7 @@ public static class TicketBranchNamer
 
     /// <summary>2026-11-24-f9c5b: the prefix of every series branch — two segments, so <see cref="TicketOf"/> never reads one
     /// as a ticket's branch.</summary>
-    public const string SeriesPrefix = Prefix + "/series/";
+    public const string SeriesPrefix = AgentSmith.Contracts.Providers.WorkBranches.SeriesPrefix;
 
     /// <summary>The branch an init-project run works on, under the same prefix as every ticket run.</summary>
     public const string InitBranch = Prefix + "/init";
@@ -57,9 +57,7 @@ public static class TicketBranchNamer
             : new BranchName(SeriesPrefix + seriesRunId.Trim());
 
     /// <summary>2026-11-24-f9c5b: whether a branch is a series branch; a <c>refs/heads/</c> prefix is ignored.</summary>
-    public static bool IsSeries(string? branch) =>
-        BranchRef.ShortName(branch) is { } name && name.Length > SeriesPrefix.Length
-        && name.StartsWith(SeriesPrefix, StringComparison.Ordinal);
+    public static bool IsSeries(string? branch) => AgentSmith.Contracts.Providers.WorkBranches.IsSeries(branch);
 
     /// <summary>
     /// 2026-11-24-f9c5b: the branch a run's parent names — a parent already under agent-smith/ (a series branch) is that

@@ -42,6 +42,18 @@ public sealed class CiActTests
             [Record(CiStates.Red, T.AddMinutes(10))]).Should().BeNull();
     }
 
+    // 2026-11-24-f9c5c: a red head of a pull request into a series branch acts on merge.series_when, not merge.when.
+    [Fact]
+    public void RedIntoASeriesBranch_ActsOnSeriesWhen()
+    {
+        var red = Record(CiStates.Red, T.AddMinutes(10)) with { TargetBranch = "agent-smith/series/sr-1" };
+        var manualProject = new ResolvedProject { Name = "p", Merge = new MergePolicyConfig { When = MergeWhen.Manual, SeriesWhen = MergeWhen.OnCiGreen } };
+        var seriesManual = new ResolvedProject { Name = "p", Merge = new MergePolicyConfig { When = MergeWhen.OnCiGreen, SeriesWhen = MergeWhen.Manual } };
+
+        CiAct.Of(manualProject, Green(), [red]).Should().NotBeNull();
+        CiAct.Of(seriesManual, Green(), [red]).Should().BeNull();
+    }
+
     [Fact]
     public void AnOlderAttemptsPullRequest_IsNoAct() =>
         CiAct.Of(OnCi, Green() with { AwaitingCiUrls = new Dictionary<string, string>() }, [Record(CiStates.Red, T.AddMinutes(10))])

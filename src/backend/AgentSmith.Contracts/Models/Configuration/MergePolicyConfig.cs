@@ -87,29 +87,13 @@ public sealed class MergePolicyConfig
         return copy;
     }
 
+    /// <summary>2026-11-24-f9c5c: the mode that decides a pull request into <paramref name="target"/> — series_when for a series
+    /// branch, when for every other target (an unknown one included).</summary>
+    public MergeWhen WhenInto(string? target) => Providers.WorkBranches.IsSeries(target) ? SeriesWhen : When;
+
+    /// <summary>2026-11-24-f9c5c: whether either mode waits for CI, so the CI loop has anything to act on.</summary>
+    public bool ActsOnCi => When == MergeWhen.OnCiGreen || SeriesWhen == MergeWhen.OnCiGreen;
+
     /// <summary>The protection mode a merge asks the provider for.</summary>
     public BranchProtection Protection => RespectBranchProtection ? BranchProtection.Respect : BranchProtection.Bypass;
-}
-
-/// <summary>2026-11-17-023fa: when a code run merges its pull requests. Values are stored as numbers.</summary>
-public enum MergeWhen
-{
-    /// <summary>Pull requests stay open for a person.</summary>
-    Manual = 0,
-
-    /// <summary>A run whose every spec verified green merges its pull requests at its end.</summary>
-    OnGateGreen = 1,
-
-    /// <summary>2026-11-17-3435b: a gate-passed run's pull requests wait for the host's CI; green on every one merges them.</summary>
-    OnCiGreen = 2,
-}
-
-/// <summary>2026-11-17-023fa: whether a merge goes past the host's branch protection or waits for it.</summary>
-public enum BranchProtection
-{
-    /// <summary>Merge now, past policies and approval rules, as the token's identity is allowed to.</summary>
-    Bypass = 0,
-
-    /// <summary>Arm auto-complete or auto-merge; the host merges when its rules pass.</summary>
-    Respect = 1,
 }

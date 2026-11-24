@@ -41,4 +41,15 @@ public sealed class SeriesMergeNextActCiTests
     [Fact]
     public void CiHolds_GreenNoneOrUnread_Merges() =>
         SeriesMergeNextAct.CiHolds(Ticket(CiStates.Green, CiStates.None, null), Bypass).Should().BeNull();
+
+    // 2026-11-24-f9c5c: into a series branch nothing is armed — the series policy is past protection — so running CI waits.
+    [Fact]
+    public void CiHolds_IntoASeriesBranch_WaitsForGreen_EvenWithRespect()
+    {
+        var series = new AgentSmith.Contracts.Models.Configuration.MergePolicyConfig { RespectBranchProtection = true }.IntoSeriesBranch();
+
+        SeriesMergeNextAct.CiHolds(Ticket(CiStates.Pending), series, "agent-smith/series/sr-1").Should()
+            .Contain("a merge into agent-smith/series/sr-1 waits for its CI to be green");
+        SeriesMergeNextAct.CiHolds(Ticket(CiStates.Green), series, "agent-smith/series/sr-1").Should().BeNull();
+    }
 }
