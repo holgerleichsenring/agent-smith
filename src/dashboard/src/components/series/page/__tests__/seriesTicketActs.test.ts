@@ -112,4 +112,13 @@ describe("seriesNodeSentence", () => {
     detail.tickets[1].pullRequests[0].isDraft = true;
     expect(of("50")).toMatch(/merging takes it out of draft first\.$/);
   });
+  // 2026-11-24-6811a: a conflict's act is its pull request, so the row shows it rather than hiding it in the menu.
+  it("SeriesTicketActs_APrConflict_KeepsItsPullRequestOnTheRow", () => {
+    const pr = { repo: "server", number: "9", url: "https://git.test/server/pull/9", state: "open", ci: "green", ciFailure: null,
+      ciLog: null, target: null, hasConflicts: true };
+    const { detail, ticket } = with_("50", { pullRequests: [pr], hold: hold("pr_conflict", { addressee: "decide" }), status: "success" });
+    const prAct = seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), false, t).find((a) => a.id === "pr-server");
+    expect(prAct?.menuOnly).toBeFalsy();
+    expect(seriesNodeKind(ticket, detail)).toBe("failed");
+  });
 });

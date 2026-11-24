@@ -11,4 +11,8 @@ public sealed record PrReviewState(
 {
     /// <summary>2026-11-23-8d16: the host says the pull request is still a draft — Azure DevOps cannot complete one.</summary>
     public bool IsDraft { get; init; }
+
+    /// <summary>2026-11-24-6811a: the host says the pull request conflicts with its base (true), merges cleanly (false), or
+    /// has not decided yet — a host computes mergeability after the base moves (null).</summary>
+    public bool? HasConflicts { get; init; }
 }

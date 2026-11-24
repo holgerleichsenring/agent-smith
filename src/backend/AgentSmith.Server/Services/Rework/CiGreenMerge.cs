@@ -39,7 +39,7 @@ public sealed class CiGreenMerge(
     }
 
     private bool Green(PrReviewRecordView record, PrRecordCiView ci, ResolvedProject project) =>
-        record.State == PrReviewStates.Open && ci.IsOn(record.HeadSha)
+        record.State == PrReviewStates.Open && !record.HasConflicts && ci.IsOn(record.HeadSha) // 6811a: a conflict cannot merge
         && (ci.State == CiStates.Green
             || (ci.State == CiStates.None && ci.At is { } since
                 && clock.GetUtcNow() - since >= TimeSpan.FromSeconds(project.Merge.CiSettleSeconds)));

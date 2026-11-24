@@ -7,7 +7,7 @@ import { waitingPullRequests } from "./seriesNodeKind";
 
 export type SeriesCiWait = "red" | "not_started" | "pending";
 
-export type SeriesBadge = "draft" | "ciRed" | "ciNotStarted" | "ciRunning";
+export type SeriesBadge = "draft" | "conflict" | "ciRed" | "ciNotStarted" | "ciRunning";
 
 const ORDER: SeriesCiWait[] = ["red", "not_started", "pending"];
 
@@ -21,6 +21,8 @@ export function seriesCiWait(ticket: SeriesRunTicket): SeriesCiWait | null {
 export function seriesTicketBadges(ticket: SeriesRunTicket): SeriesBadge[] {
   const badges: SeriesBadge[] = [];
   if (waitingPullRequests(ticket.pullRequests).some((pr) => pr.isDraft)) badges.push("draft");
+  // 2026-11-24-6811a: a conflict is said before the CI, which cannot merge it either way.
+  if (waitingPullRequests(ticket.pullRequests).some((pr) => pr.hasConflicts)) badges.push("conflict");
   const wait = seriesCiWait(ticket);
   if (wait === "red") badges.push("ciRed");
   if (wait === "not_started") badges.push("ciNotStarted");

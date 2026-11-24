@@ -937,6 +937,7 @@ export const coreMessages = {
   "series.badge.ciNotStarted": { en: "Build not started", de: "Build nicht gestartet" },
   "series.badge.ciRunning": { en: "CI running", de: "CI läuft" },
   "series.badge.ciRed": { en: "CI red", de: "CI rot" },
+  "series.badge.conflict": { en: "Conflict", de: "Konflikt" },
   "series.merge.whenGreen": { en: "Merge when CI is green", de: "Mergen, sobald die CI grün ist" },
   "series.merge.whenGreenNeeds": {
     en: "Merging before CI is green arms the host's auto-complete, which needs merge.respect_branch_protection: true (Config → Project → Merge).",
@@ -1098,6 +1099,12 @@ export const coreMessages = {
   },
   "hold.title.merge_ready": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
   "hold.title.ci_failed": { en: "Your move: CI failed", de: "Du bist dran: die CI ist fehlgeschlagen" },
+  // 2026-11-24-6811a: the host says the pull request conflicts with its base; nothing merges it until that is resolved.
+  "hold.sentence.pr_conflict": {
+    en: "Its pull request conflicts with its base branch, so it cannot merge. Resolve the conflict on the branch, or rework the ticket.",
+    de: "Sein Pull Request hat Konflikte mit seinem Basis-Branch und kann nicht gemergt werden. Löse den Konflikt auf dem Branch oder überarbeite das Ticket.",
+  },
+  "hold.title.pr_conflict": { en: "Your move: the pull request conflicts", de: "Du bist dran: der Pull Request hat Konflikte" },
   "hold.act.pull_request": { en: "Open the pull request", de: "Pull Request öffnen" },
   "hold.act.pull_requests": { en: "Open the pull requests below", de: "Öffne die Pull Requests unten" },
   // 2026-11-23-849e: a ticket that starts once others merge waits on nobody; the series' one merge says what it unblocks.

@@ -1008,8 +1008,14 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<long?>("ConflictsAtTicks")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool?>("HasConflicts")
+                        .HasColumnType("boolean");
 
                     b.Property<long?>("HeadMovedAtTicks")
                         .HasColumnType("bigint");

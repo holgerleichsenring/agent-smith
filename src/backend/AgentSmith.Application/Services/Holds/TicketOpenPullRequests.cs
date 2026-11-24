@@ -13,4 +13,9 @@ public sealed record TicketOpenPullRequests(string? Ci, DateTimeOffset? CiSince)
     public IReadOnlyList<string> Unlanded { get; init; } = [];
 
     public string? Url { get; init; }
+
+    /// <summary>2026-11-24-6811a: the host said last that one of them conflicts with its base, and since when.</summary>
+    public bool Conflicts { get; init; }
+
+    public DateTimeOffset? ConflictsSince { get; init; }
 }

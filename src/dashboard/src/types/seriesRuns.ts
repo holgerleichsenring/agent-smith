@@ -48,6 +48,8 @@ export interface SeriesRunPullRequest {
   target: string | null;
   /** 2026-11-23-8d16: the newest read saw it still a draft; a person's merge takes it out of draft first. */
   isDraft?: boolean;
+  /** 2026-11-24-6811a: the host said last that it conflicts with its base. */
+  hasConflicts?: boolean;
   /** 2026-11-23-0219: the newest merge run's refusal or armed auto-complete on it; null when none said one. */
   mergeSaid?: SeriesMergeSaid | null;
 }

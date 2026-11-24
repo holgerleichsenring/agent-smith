@@ -6,4 +6,4 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <param name="IsDraft">2026-11-23-8d16: GitLab's draft flag.</param>
 public sealed record GitLabMergeRequest(
     long? AuthorId, string State, DateTimeOffset? CreatedAt, DateTimeOffset? MergedAt, DateTimeOffset? ClosedAt, string? Sha = null,
-    bool IsDraft = false);
+    bool IsDraft = false, bool? HasConflicts = null);

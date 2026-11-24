@@ -53,6 +53,8 @@ public sealed class TicketOpenPullRequestsReader(ITicketRequirementStore require
             FailedChecks = [.. inState.Where(c => c.State == CiStates.Red).SelectMany(c => c.Failures).Select(f => f.Name)
                 .Distinct(StringComparer.Ordinal)],
             Url = open.Count == 1 ? open[0].Url : null,
+            Conflicts = open.Any(r => r.HasConflicts), // 2026-11-24-6811a
+            ConflictsSince = open.Where(r => r.HasConflicts).Select(r => r.ConflictsAt).Min(),
         };
     }
 

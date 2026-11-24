@@ -134,4 +134,36 @@ public sealed class TicketOpenPullRequestHoldTests
     private static PrReviewRecordView Record(string number, string head, PrRecordCiView? ci) =>
         new($"pr-{number}", $"https://github.com/o/api/pull/{number}", "api", number, "alpha", "42", "r-2", PrReviewStates.Open,
             T, T, null, []) { HeadSha = head, Ci = ci };
+
+    // 2026-11-24-6811a: a conflict holds for a person whatever the CI says, since nothing merges it; at work it holds nothing.
+    [Theory]
+    [InlineData(CiStates.Green)]
+    [InlineData(CiStates.Pending)]
+    [InlineData(CiStates.Red)]
+    public void Of_AConflictingPullRequest_IsAPersonsPrConflict_NotAMergeOrACiWait(string ci)
+    {
+        var open = Open(ci, T.AddMinutes(1)) with { Conflicts = true, ConflictsSince = T.AddMinutes(4) };
+
+        var hold = _reader.Of(Facts(open))!;
+
+        (hold.Addressee, hold.Case, hold.Act, hold.Since).Should().Be((TicketHoldAddressees.Decide, TicketHoldCases.PrConflict,
+            new TicketHoldAct(TicketHoldActs.PullRequest, Url), (DateTimeOffset?)T.AddMinutes(4)));
+        _reader.Merge(Facts(open)).Should().BeNull();
+        _reader.Of(Facts(open, RunStatuses.Running))!.Case.Should().Be(TicketHoldCases.Working);
+    }
+
+    [Fact]
+    public void Of_OpenPullRequestsReader_ConflictsWhenAnyOpenRecordDoes_SinceTheEarliest()
+    {
+        var a = Record("https://h/1") with { HasConflicts = true, ConflictsAt = T.AddMinutes(9) };
+        var b = Record("https://h/2") with { HasConflicts = true, ConflictsAt = T.AddMinutes(2) };
+
+        var open = TicketOpenPullRequestsReader.Of([a, b, Record("https://h/3")]);
+
+        (open.Conflicts, open.ConflictsSince).Should().Be((true, (DateTimeOffset?)T.AddMinutes(2)));
+        TicketOpenPullRequestsReader.Of([Record("https://h/3")]).Conflicts.Should().BeFalse();
+    }
+
+    private static PrReviewRecordView Record(string url) =>
+        new(PrKey.Of(url), url, "api", "1", "alpha", "42", "r-2", PrReviewStates.Open, T, T, null, []);
 }

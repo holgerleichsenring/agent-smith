@@ -58,7 +58,8 @@ public sealed class TicketHoldReader
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Interrupted, retry, facts.EndedAt);
         if (facts.HeadStatus == RunStatuses.Shortfall)
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Shortfall, new(TicketHoldActs.Conversation), facts.EndedAt);
-        if (facts.HeadStatus != RunStatuses.Failed) return TicketPullRequestHold.CiFailed(facts);
+        if (facts.HeadStatus != RunStatuses.Failed) // 2026-11-24-6811a: a conflict first — nothing merges it, green or red
+            return TicketPullRequestHold.Conflict(facts) ?? TicketPullRequestHold.CiFailed(facts);
         var rework = new TicketHoldAct(TicketHoldActs.Conversation);
         if (facts.EndKind == RunEndKinds.ReadinessUnknown)
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.ReadinessUnknown, retry, facts.EndedAt);
@@ -86,7 +87,7 @@ public sealed class TicketHoldReader
     public TicketHold? Merge(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        if (AtWork(facts) || TicketPullRequestHold.CiHolds(facts)) return null;
+        if (AtWork(facts) || TicketPullRequestHold.CiHolds(facts) || TicketPullRequestHold.Conflicts(facts)) return null;
         return TicketSeriesMergeHold.Next(facts) ?? TicketPullRequestHold.Ready(facts);
     }
 

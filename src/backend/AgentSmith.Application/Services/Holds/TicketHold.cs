@@ -92,6 +92,9 @@ public static class TicketHoldCases
     /// it requires unlanded.</summary>
     public const string MergeReady = "merge_ready";
 
+    /// <summary>2026-11-24-6811a: the host says an open pull request conflicts with its base; nothing merges it.</summary>
+    public const string PrConflict = "pr_conflict";
+
     /// <summary>2026-11-23-d60d: CI failed on an open pull request; the names are the failed checks.</summary>
     public const string CiFailed = "ci_failed";
 

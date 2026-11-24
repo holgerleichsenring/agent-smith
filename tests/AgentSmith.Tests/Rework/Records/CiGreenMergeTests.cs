@@ -43,6 +43,21 @@ public sealed class CiGreenMergeTests : IDisposable
         _h.Records().Single().CiActed.Should().Be("abc:green");
     }
 
+    // 2026-11-24-6811a: a pull request its host says conflicts cannot merge, so the CI loop starts no merge on it.
+    [Fact]
+    public async Task AGreenButConflictingPullRequest_LaunchesNothing()
+    {
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        _h.Provider.As<IPrReviewStateReader>().Setup(s => s.ReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string url, CancellationToken _) => new PrReviewState(url.Split('/')[^1], PrReviewStates.Open, PrReviewRefreshHarness.T, [], "abc")
+                { HasConflicts = true });
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+
+        await RefreshAsync();
+
+        _launched.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task ARefreshWithoutTheCiLoop_LaunchesNothing_SoAnActsRequestNeverWaitsOnAPipeline()
     {

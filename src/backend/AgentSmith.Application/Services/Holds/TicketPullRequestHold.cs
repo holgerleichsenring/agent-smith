@@ -11,6 +11,23 @@ namespace AgentSmith.Application.Services.Holds;
 /// </summary>
 public static class TicketPullRequestHold
 {
+    /// <summary>2026-11-24-6811a: an open pull request of a ticket not at work that its host says conflicts with its base —
+    /// a person decides, whatever its CI says, since nothing merges it.</summary>
+    public static TicketHold? Conflict(TicketHoldFacts facts)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        return !TicketHoldOf.AtWork(facts) && facts.OpenPullRequests is { Conflicts: true } open
+            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.PrConflict, Act(open), open.ConflictsSince)
+            : null;
+    }
+
+    /// <summary>2026-11-24-6811a: an open pull request conflicts with its base: no merge is offered.</summary>
+    public static bool Conflicts(TicketHoldFacts facts)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        return facts.OpenPullRequests is { Conflicts: true };
+    }
+
     /// <summary>Red CI on an open pull request of a ticket that is not at work.</summary>
     public static TicketHold? CiFailed(TicketHoldFacts facts)
     {
