@@ -174,8 +174,10 @@ public sealed class VerifySpecHandler(
         await verifiedHeads.RecordAsync(context.Pipeline, all, cancellationToken);
         var unread = MasterReportAccount.ReadProblem(context.Pipeline) is { } problem
             ? $"; its report could not be read: {problem}" : string.Empty;
+        // 2026-11-23-df05: whether the branch it was verified over carries work — the run's PR stays a draft without it.
         return await RecordAsync(context, CommandResult.Ok(
-            $"{mechanical.Message} — the master reported, {account.FollowUps?.Count ?? 0} follow-up(s) proposed{unread}."), cancellationToken);
+            $"{mechanical.Message} — the master reported, {account.FollowUps?.Count ?? 0} follow-up(s) proposed{unread}."),
+            cancellationToken, carriedWork: delivered.Anything);
     }
 
     // p0393a: verification is what makes a spec DONE, so this is where the sequence's
@@ -184,7 +186,7 @@ public sealed class VerifySpecHandler(
     // p0466: one writer — ISpecProgressRecorder puts the standing in the per-spec
     // table AND on the event stream, so the spec reaches the server as a row.
     private async Task<CommandResult> RecordAsync(
-        VerifySpecContext context, CommandResult result, CancellationToken ct)
+        VerifySpecContext context, CommandResult result, CancellationToken ct, bool carriedWork = false)
     {
         if (!context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
             return result;
@@ -192,7 +194,7 @@ public sealed class VerifySpecHandler(
         if (result.IsSuccess)
             await progress.RecordAsync(context.Pipeline, draft.SpecId,
                 result.InsertNext is { Count: > 0 } ? SpecRunState.InProgress : SpecRunState.Done,
-                cancellationToken: ct);
+                carriedWork: carriedWork, cancellationToken: ct);
         else
             await progress.RecordAsync(
                 context.Pipeline, draft.SpecId, SpecRunState.Failed, FailingCommandOf(result),

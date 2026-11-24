@@ -21,6 +21,7 @@ public sealed class SpecProgressRecorder(IEventPublisher eventPublisher) : ISpec
         SpecRunState state,
         string? failingCommand = null,
         string? note = null,
+        bool carriedWork = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
@@ -30,7 +31,7 @@ public sealed class SpecProgressRecorder(IEventPublisher eventPublisher) : ISpec
             ContextKeys.SpecSequenceProgress, out var p) && p is not null
             ? p : SpecSequenceProgress.ForSet(set);
         pipeline.Set(
-            ContextKeys.SpecSequenceProgress, progress.With(specId, state, failingCommand, note));
+            ContextKeys.SpecSequenceProgress, progress.With(specId, state, failingCommand, note, carriedWork));
 
         await PublishAsync(pipeline, set, specId, state, failingCommand ?? note, cancellationToken);
     }

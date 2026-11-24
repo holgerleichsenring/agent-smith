@@ -20,6 +20,9 @@ public sealed record SpecSequenceProgress(IReadOnlyList<SpecProgress> Specs)
     /// <summary>True while any spec is anything other than done — the half-migrated state.</summary>
     public bool IsPartial => Specs.Any(p => p.State != SpecRunState.Done);
 
+    /// <summary>2026-11-23-df05: no spec was recorded done over a branch that carries work — the run delivered no spec.</summary>
+    public bool DeliveredNone => !Specs.Any(p => p.State == SpecRunState.Done && p.CarriedWork);
+
     /// <summary>2026-10-13-8762u: the attempt ended at a boundary — at least one spec is left to the next attempt and
     /// every other spec is done; a chunk boundary and a review-share stop alike.</summary>
     public bool StoppedAtChunk =>
@@ -33,13 +36,14 @@ public sealed record SpecSequenceProgress(IReadOnlyList<SpecProgress> Specs)
             : p)]);
 
     public SpecSequenceProgress With(
-        string specId, SpecRunState state, string? failingCommand = null, string? note = null) =>
+        string specId, SpecRunState state, string? failingCommand = null, string? note = null, bool carriedWork = false) =>
         new([.. Specs.Select(p => p.SpecId == specId
             ? p with
             {
                 State = state,
                 FailingCommand = failingCommand ?? p.FailingCommand,
                 Note = note ?? p.Note,
+                CarriedWork = carriedWork,
             }
             : p)]);
 }
@@ -49,13 +53,15 @@ public sealed record SpecSequenceProgress(IReadOnlyList<SpecProgress> Specs)
 /// mislead — a spec found already satisfied on entry is DONE and did no work, and a
 /// reader of the table has to be able to tell that from a spec that ran.</param>
 /// <param name="NextAttempt">2026-10-13-8762g: the spec is left to the next attempt, never built in this one.</param>
+/// <param name="CarriedWork">2026-11-23-df05: verification recorded the spec over a branch that carries source changes.</param>
 public sealed record SpecProgress(
     string SpecId,
     string Goal,
     SpecRunState State,
     string? FailingCommand = null,
     string? Note = null,
-    bool NextAttempt = false);
+    bool NextAttempt = false,
+    bool CarriedWork = false);
 
 /// <summary>p0393a: the states a reviewer must be able to tell apart.</summary>
 public enum SpecRunState
