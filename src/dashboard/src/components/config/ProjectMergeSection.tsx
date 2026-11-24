@@ -8,8 +8,13 @@ import { MergeCiFields } from "./MergeCiFields";
 // 2026-11-17-b34eb: requires_start (2026-11-17-9a39a) and the merge: block (2026-11-17-023fa/b). The mode lists come
 // from the server's enums through capabilities, so a mode the server gains is offered without a change here. A
 // project with no merge block reads as manual; the block is written only once a control here is touched.
+// 2026-11-24-f9c5a: series_when beside it, on_ci_green when the project says nothing.
 
-const NO_MERGE: ProjectMerge = { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: false };
+export const SERIES_WHEN_DEFAULT = "on_ci_green";
+
+const NO_MERGE: ProjectMerge = {
+  when: "manual", respectBranchProtection: false, refreshOpenPullRequests: false, seriesWhen: SERIES_WHEN_DEFAULT,
+};
 
 export function ProjectMergeSection({
   project,
@@ -45,6 +50,15 @@ export function ProjectMergeSection({
         help={t("config.merge.when.help")}
         testId="form-field-merge-when"
         onChange={(v) => setMerge({ when: v || "manual" })}
+      />
+      <SelectField
+        label={t("config.merge.seriesWhen.label")}
+        value={merge.seriesWhen ?? SERIES_WHEN_DEFAULT}
+        options={capabilities?.mergeWhen ?? []}
+        placeholder={t("config.pick")}
+        help={t("config.merge.seriesWhen.help")}
+        testId="form-field-merge-seriesWhen"
+        onChange={(v) => setMerge({ seriesWhen: v || SERIES_WHEN_DEFAULT })}
       />
       <CheckField
         label={t("config.merge.respectProtection.label")}

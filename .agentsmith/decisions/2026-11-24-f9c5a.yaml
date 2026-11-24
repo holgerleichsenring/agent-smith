@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-f9c5a
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "A second merge setting, merge.series_when, with merge.when's values, governs ticket pull requests into a series branch; merge.when keeps every pull request into the default branch, the series' final one included"
+    over: "One merge.when for both; a switch to turn the series branch off"
+    reason: "Operator 2026-11-24: if a series just runs through the pull requests get huge at the end, and some teams want to see and review every ticket; and 'what would you turn off?' — the series branch is the series behaviour, not an option."
+  - category: Implementation
+    decider: operator
+    chose: "series_when defaults to on_ci_green for every project, one without a merge block included"
+    over: "manual like merge.when"
+    reason: "Operator expectation 2026-11-24: a series runs through; manual stays available for teams that review every ticket."
+  - category: Architecture
+    decider: claude
+    chose: "IntoSeriesBranch() returns a copy of the merge policy with SeriesWhen as its When and protection off"
+    over: "A second policy type; a flag threaded beside the policy"
+    reason: "Every merge reader already reads one MergePolicyConfig; a copy keeps them unchanged. Protection is off because a series branch carries no host policy: arming auto-complete there would merge at once with CI still running (review finding on f9c5c)."
+  - category: Implementation
+    decider: claude
+    chose: "The Merge tab shows the settle and fix keys when either setting is on_ci_green"
+    over: "Only for merge.when on_ci_green"
+    reason: "With merge.when manual and the default series_when, those keys govern every series ticket; hiding them would hide the settings that apply (review finding)."

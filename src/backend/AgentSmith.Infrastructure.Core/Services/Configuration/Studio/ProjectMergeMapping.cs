@@ -17,18 +17,14 @@ internal static class ProjectMergeMapping
             ? null
             : new ProjectMerge(ConfigStudioCapabilities.SnakeName(merge.When), merge.RespectBranchProtection,
                 merge.RefreshOpenPullRequests, merge.CiPollSeconds, merge.CiSettleSeconds, merge.CiPendingSeconds, // 3435d
-                merge.CiFixAttempts, merge.CiExcerptChars, merge.CiFailedChecksRead, merge.ApprovalAuth);
+                merge.CiFixAttempts, merge.CiExcerptChars, merge.CiFailedChecksRead, merge.ApprovalAuth,
+                ConfigStudioCapabilities.SnakeName(merge.SeriesWhen)); // 2026-11-24-f9c5a
 
     /// <summary>The stored block for a sent one; an unknown mode is refused by name.</summary>
     public static MergePolicyConfig ToRaw(string projectId, ProjectMerge merge)
     {
         ArgumentNullException.ThrowIfNull(merge);
-        var when = Enum.GetValues<MergeWhen>()
-            .Where(w => ConfigStudioCapabilities.SnakeName(w) == merge.When?.Trim().ToLowerInvariant())
-            .Cast<MergeWhen?>().FirstOrDefault()
-            ?? throw new ConfigurationException(
-                $"Project '{projectId}': merge.when '{merge.When}' is not a known mode " +
-                $"({string.Join(", ", ConfigStudioCapabilities.MergeWhenNames)}).");
+        var when = Mode(projectId, "when", merge.When);
         var defaults = new MergePolicyConfig();
         return new MergePolicyConfig
         {
@@ -43,6 +39,17 @@ internal static class ProjectMergeMapping
             CiExcerptChars = merge.CiExcerptChars ?? defaults.CiExcerptChars,
             CiFailedChecksRead = merge.CiFailedChecksRead ?? defaults.CiFailedChecksRead,
             ApprovalAuth = string.IsNullOrWhiteSpace(merge.ApprovalAuth) ? null : merge.ApprovalAuth.Trim(),
+            // 2026-11-24-f9c5a: a missing series mode is its default, like the CI keys.
+            SeriesWhen = merge.SeriesWhen is null ? defaults.SeriesWhen : Mode(projectId, "series_when", merge.SeriesWhen),
         };
     }
+
+    // A mode by its snake_case name; an unknown one is refused by name.
+    private static MergeWhen Mode(string projectId, string key, string? name) =>
+        Enum.GetValues<MergeWhen>()
+            .Where(w => ConfigStudioCapabilities.SnakeName(w) == name?.Trim().ToLowerInvariant())
+            .Cast<MergeWhen?>().FirstOrDefault()
+        ?? throw new ConfigurationException(
+            $"Project '{projectId}': merge.{key} '{name}' is not a known mode " +
+            $"({string.Join(", ", ConfigStudioCapabilities.MergeWhenNames)}).");
 }

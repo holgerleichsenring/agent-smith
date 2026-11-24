@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-f9c5e
+goal: "Once every ticket landed in a series branch, a beat opens one pull request from it into the default branch per repo, merges it under merge.when after the series check, and ends the series."
+
+applies_to: "default (series record and states, series-run pipeline, series progress, beat due, series launch, base refresh launch, merge completion, branch cleanup) + dashboard (state words)"
+
+requires: [2026-11-24-f9c5b, 2026-11-24-f9c5c, 2026-11-17-0207a, 2026-11-17-0207d, 2026-11-17-023fb]
+
+follows: "Operator design 2026-11-24: one pull request per repo into the default branch at the end, under merge.when and the host's policies; a conflicting one is brought up to date by 2026-11-24-6811's refresh."
+
+invariant: "agent-smith merges a series branch into the default branch only after the series check passed with no new failure, and ends the series only when every repo's final pull request merged."
+
+facts:
+  - claim: "A beat is ReadSeries, SeriesMaster, PostSeriesStatus; ReadSeries moves the series (check, report, end) and what a step adds to beat.Said is posted."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SeriesRun.cs:10-15; src/backend/AgentSmith.Application/Services/Series/ReadSeriesHandler.cs:32"
+  - claim: "A verdict with no follow-up ends the series as done."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesProgress.cs:43-50"
+  - claim: "The active states are running, verifying and paused, in the record and in the repository's queries."
+    evidence: "src/backend/AgentSmith.Contracts/Series/SeriesRunStates.cs:15; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SeriesRunRepository.cs:61,93"
+  - claim: "A beat is due when the table changed, a deadline passed, a verdict waits, or the status cadence is due."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesBeatDue.cs:12-21"
+  - claim: "The refresh-base run merges a base into an agent-smith branch of an open pull request, seeded with strings only; 2026-11-24-6811 makes it resolve conflicts and build before it pushes."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/BaseRefreshLauncher.cs:21-46"
+  - claim: "A provider deletes an agent-smith/ source branch when its pull request merges; branch cleanup keeps a branch no pull request came from."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/WorkBranches.cs:3-8; src/backend/AgentSmith.Application/Services/Branches/WorkBranchVerdict.cs:25-27"
+
+scope:
+  in: >-
+    SeriesRunStates.Delivering: active (beaten, pausable — a pause keeps it in PausedFrom), in the repository's active and running
+    queries, the panel and the dashboard state words. A verdict that would end a series with a branch moves it to Delivering (or
+    PausedFrom = Delivering) instead of Done. Step DeliverSeries (series-run, after ReadSeries) for a series with a branch whose
+    every ticket landed: the repos to deliver are those where a ticket pull request merged into the series branch (the tickets'
+    PR records); per repo it reads the series branch's pull requests from the host (IWorkBranchCleanup.PullRequestsOfAsync — the
+    host is the store) and opens one into the default branch when none is open or merged (title the series name, body its
+    tickets with their host references, linked like a ticket pull request). In Delivering and not paused, per open one, by
+    merge.when in the project's protection mode: manual waits for a person; on_gate_green merges; on_ci_green reads its CI and
+    merges on green or on none for merge.ci_settle_seconds, says red once. A merge goes through PullRequestApprovalStep and
+    PullRequestCompleter, the primitives every merge path uses. PullRequestCompletion.Conflicts (set by the three providers when
+    their host refuses for a conflict) launches one refresh-base run (series branch, its pull request, the default branch — what
+    2026-11-24-6811 makes resolve and verify) per pull request head through ISeriesRunLaunch.RefreshAsync; any other refusal is
+    said. The record keeps only the series' own account: SeriesDelivery(repo, url, number, said, refreshed head, none since) and
+    LastDeliveredAt — never a pull request's state, which is re-read each beat. Every repo merged ends the series as done and
+    wakes the outside dependents of its tickets (ISeriesTicketActs.WakeDependentsAsync over DependentsWake); a closed one is said
+    and the series waits for the operator (resume after reopening, or stop). SeriesBeatDue is due for a Delivering series every
+    merge.ci_poll_seconds after LastDeliveredAt under merge.when on_ci_green, otherwise at the status cadence.
+    CleanupWorkBranches never deletes an agent-smith/series/ branch: only its final merge does (the host deletes the merged source
+    branch), so a closed final pull request never loses the only copy of the series' work.
+  out: >-
+    A rework run on the final pull request (its CI red is said; the tickets' own CI loop has run). A conflict the host reports on
+    a pull request agent-smith did not try to merge (merge.when manual): the person sees it on the host; 2026-11-24-6811a's state
+    read can feed it later. Showing it (f9c5f). Final pull requests for a series opened before this spec (it has no branch).
+
+steps:
+  - id: record
+    action: "Delivering state and its consumers; SeriesDelivery, Deliveries, LastDeliveredAt; SeriesProgress ends into Delivering."
+  - id: step
+    action: "CommandNames.DeliverSeries, context, builder, DeliverSeriesHandler in the series-run preset."
+  - id: conflicts
+    action: "PullRequestCompletion.Conflicts from Azure Repos, GitHub and GitLab; ISeriesRunLaunch.RefreshAsync and a string-seeded BaseRefreshLauncher overload."
+  - id: end
+    action: "WakeDependentsAsync at done; SeriesBeatDue for Delivering; WorkBranchVerdict keeps series branches."
+
+tests:
+  - "DeliverSeriesHandler: all landed opens one pull request per repo a ticket merged into the series branch and none elsewhere; an open one is adopted; not all landed opens none."
+  - "Delivering: manual merges nothing and says it waits; on_gate_green merges; on_ci_green merges on green, waits on pending, merges on none after settle, says red once; paused merges nothing; every repo merged ends done and wakes dependents."
+  - "A conflict refusal launches one refresh for that head and not a second on the same head; another refusal launches none; a closed one is said."
+  - "SeriesProgress: a verdict with no follow-up moves a series with a branch to delivering, one paused while verifying to PausedFrom delivering, one without a branch to done. SeriesBeatDue: delivering under on_ci_green is due after merge.ci_poll_seconds."
+  - "WorkBranchVerdict: an agent-smith/series/ branch whose pull request closed is kept."
+
+done:
+  - "Build, affected tests green; the spec gate passed."

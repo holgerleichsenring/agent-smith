@@ -62,6 +62,7 @@ projects:
       refresh_open_pull_requests: false
       ci_poll_seconds: 60             # how often open pull requests' CI is read
       ci_settle_seconds: 180          # how long "no CI" must last before it counts as none
+      series_when: on_ci_green        # a series' ticket pull requests into its series branch
       ci_pending_seconds: 3600        # after this a pending head leaves the fast poll
       ci_fix_attempts: 3              # fix runs in a row before the ticket comes back
       ci_excerpt_chars: 4000          # evidence kept per failed check

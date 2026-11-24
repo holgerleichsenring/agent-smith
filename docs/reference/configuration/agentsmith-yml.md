@@ -269,6 +269,7 @@ Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md)
 ```yaml
 merge:
   when: on_gate_green               # manual (default) | on_gate_green | on_ci_green
+  series_when: on_ci_green          # on_ci_green (default) | manual | on_gate_green
   respect_branch_protection: false  # default false
   refresh_open_pull_requests: false # default false
   ci_excerpt_chars: 4000            # default 4000
@@ -283,6 +284,7 @@ merge:
 | Key | Description |
 |-----|-------------|
 | `when` | `manual`: the run opens its pull requests and a person merges them. `on_gate_green`: a run whose every spec passed its verification merges its pull requests as its last step, and later work fixes forward. A red, partial or record-only run never merges. |
+| `series_when` | The same modes for a series' ticket pull requests into its series branch (`agent-smith/series/<id>`, one per repository a series of two or more tickets works in). Default `on_ci_green`: the series runs through, each ticket merging into its series branch on green CI. `manual`: a person reviews and merges every ticket. `when` keeps governing every pull request into the default branch, the series' final one included. A merge into a series branch always goes past protection: the branch carries no host policy. |
 | `respect_branch_protection` | `false`: merge past branch policies, protection rules and approval rules, which are there for people. That needs the token's permission: on Azure DevOps *Bypass policies when completing pull requests*; on GitHub repository admin with *Do not allow bypassing the above settings* off, or the token's actor on a ruleset's bypass list. GitLab has no API bypass for required approvals or pipelines, so it merges when its merge checks allow. `true`: Azure DevOps arms auto-complete, GitHub enables auto-merge, GitLab merges when the pipeline succeeds. |
 
 | `refresh_open_pull_requests` | `true`: when a ticket lands, every other open agent-smith pull request on the same repository and base gets that base merged in by a `refresh-base` run, pushed without force. Collisions of `state.done` index lines in `.agentsmith/contexts/*/context.yaml` are united; any other conflict leaves the branch unchanged and is said on the pull request. Closed, running, queued and waiting tickets are skipped. A host that dismisses approvals on a push clears them. |

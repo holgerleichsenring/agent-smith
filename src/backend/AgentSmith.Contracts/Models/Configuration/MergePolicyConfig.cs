@@ -10,6 +10,13 @@ public sealed class MergePolicyConfig
     public MergeWhen When { get; set; } = MergeWhen.Manual;
 
     /// <summary>
+    /// 2026-11-24-f9c5a: when a ticket pull request of a series merges into its series branch; <see cref="When"/> keeps
+    /// governing every pull request into the default branch, the series' final one included. On green CI by default
+    /// (operator: a series runs through); manual lets a team review every ticket.
+    /// </summary>
+    public MergeWhen SeriesWhen { get; set; } = MergeWhen.OnCiGreen;
+
+    /// <summary>
     /// False (the default): merge past branch policies, protection and approval rules, which are for people.
     /// True: arm the host's auto-complete or auto-merge and let its rules decide when.
     /// </summary>
@@ -66,6 +73,19 @@ public sealed class MergePolicyConfig
     /// spending; a person's answer resets the count.
     /// </summary>
     public int CiFixAttempts { get; set; } = 3;
+
+    /// <summary>
+    /// 2026-11-24-f9c5a: this policy for a ticket pull request into its series branch — <see cref="SeriesWhen"/> as the mode
+    /// and past protection: a series branch carries no host policy, so arming auto-complete there would merge at once with CI
+    /// still running; agent-smith merges it itself once the mode allows. The original is left unchanged.
+    /// </summary>
+    public MergePolicyConfig IntoSeriesBranch()
+    {
+        var copy = (MergePolicyConfig)MemberwiseClone();
+        copy.When = SeriesWhen;
+        copy.RespectBranchProtection = false;
+        return copy;
+    }
 
     /// <summary>The protection mode a merge asks the provider for.</summary>
     public BranchProtection Protection => RespectBranchProtection ? BranchProtection.Respect : BranchProtection.Bypass;

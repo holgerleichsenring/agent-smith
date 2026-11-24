@@ -551,6 +551,7 @@ projects:
     # pull request's CI is read with its record; the ci_* bounds limit what a red one stores.
     # merge:
     #   when: manual                  # manual | on_gate_green | on_ci_green
+    #   series_when: on_ci_green      # a series' ticket pull requests into its series branch
     #   ci_poll_seconds: 60           # on_ci_green: how often CI is read
     #   ci_settle_seconds: 180        # on_ci_green: "no CI" must last this long
     #   ci_pending_seconds: 3600      # on_ci_green: stop fast polling a stuck head

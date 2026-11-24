@@ -39,7 +39,8 @@ describe("ProjectMergeSection", () => {
 
   // 2026-11-23-849e: the poll and the pending bound re-read every project's pending CI, so they show for every mode.
   it("hides the merge-on-green keys for another mode but keeps the poll and the evidence bounds", () => {
-    render(<ProjectMergeSection project={project} onChange={() => {}} capabilities={capabilities} />);
+    const manual = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: false, seriesWhen: "manual" } };
+    render(<ProjectMergeSection project={manual} onChange={() => {}} capabilities={capabilities} />);
     expect(screen.queryByTestId("form-field-merge-ciFixAttempts")).toBeNull();
     expect(screen.queryByTestId("form-field-merge-ciSettleSeconds")).toBeNull();
     expect(screen.getByTestId("form-field-merge-ciPollSeconds")).toBeTruthy();
@@ -61,8 +62,21 @@ describe("ProjectMergeSection", () => {
     fireEvent.change(screen.getByTestId("form-field-merge-when"), { target: { value: "on_gate_green" } });
 
     expect(onChange).toHaveBeenLastCalledWith({
-      ...project, merge: { when: "on_gate_green", respectBranchProtection: false, refreshOpenPullRequests: false },
+      ...project, merge: { when: "on_gate_green", respectBranchProtection: false, refreshOpenPullRequests: false, seriesWhen: "on_ci_green" },
     });
+  });
+
+  // 2026-11-24-f9c5a
+  it("shows series_when beside merge.when, on_ci_green by default, writes it, and shows the CI keys for it", () => {
+    const onChange = vi.fn();
+    const manual = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: false } };
+    render(<ProjectMergeSection project={manual} onChange={onChange} capabilities={capabilities} />);
+    expect((screen.getByTestId("form-field-merge-seriesWhen") as HTMLSelectElement).value).toBe("on_ci_green");
+    expect(screen.getByTestId("form-field-merge-ciSettleSeconds")).toBeTruthy();
+
+    fireEvent.change(screen.getByTestId("form-field-merge-seriesWhen"), { target: { value: "manual" } });
+
+    expect(onChange.mock.calls.at(-1)![0].merge).toMatchObject({ when: "manual", seriesWhen: "manual" });
   });
 
   it("patches requires_start", () => {

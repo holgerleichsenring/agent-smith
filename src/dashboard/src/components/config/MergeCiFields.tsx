@@ -8,6 +8,7 @@ import { NumberField, RefSelect } from "./formFields";
 // are shown then; the evidence bounds and the approval identity apply to every mode. A hidden value stays in the form's
 // state, so switching the mode away and back never clears it. Empty is the key's default. 2026-11-23-849e: the poll and the
 // pending bound drive the CI re-read of every project now (the holds read the CI), so they show for every mode.
+// 2026-11-24-f9c5a: the settle and fix keys act for series_when on_ci_green too (absent is on_ci_green), so they show then.
 
 export function MergeCiFields({ merge, secrets, onChange }: {
   merge: ProjectMerge;
@@ -23,7 +24,7 @@ export function MergeCiFields({ merge, secrets, onChange }: {
     <>
       {number("ciPollSeconds", t("config.merge.ciPoll.label"), "60", t("config.merge.ciPoll.help"))}
       {number("ciPendingSeconds", t("config.merge.ciPending.label"), "3600", t("config.merge.ciPending.help"))}
-      {merge.when === "on_ci_green" && (
+      {(merge.when === "on_ci_green" || (merge.seriesWhen ?? "on_ci_green") === "on_ci_green") && (
         <>
           {number("ciSettleSeconds", t("config.merge.ciSettle.label"), "180", t("config.merge.ciSettle.help"))}
           {number("ciFixAttempts", t("config.merge.ciFix.label"), "3", t("config.merge.ciFix.help"))}
