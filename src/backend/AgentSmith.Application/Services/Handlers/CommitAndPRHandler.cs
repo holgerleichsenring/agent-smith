@@ -126,7 +126,8 @@ public sealed class CommitAndPRHandler(
         var halfMigrated = progress?.IsPartial == true && shortfall is null;
         // 2026-10-12-3a36c: failed means NOT delivered — a delivered shortfall stays a delivery.
         var failed = failureReason is not null && shortfall is null;
-        var isDraft = !keystone.Satisfied || halfMigrated;
+        // 2026-11-23-df05 (operator): a run whose specs delivered no work keeps its PR a draft — no ready, no re-queue.
+        var isDraft = !keystone.Satisfied || halfMigrated || progress?.DeliveredNone == true;
 
         foreach (var (repo, _, sandbox, hasCode) in stagedRepos)
         {

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-df05
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "A code run that delivered no spec keeps its pull request a draft: CommitAndPR does not mark it ready (reused, created or the TF401179 found draft), keeps the series repository's spec PR a draft and re-queues no build"
+    over: "0219's choice to leave a stopped spec's run publishing its PR (run 2026-11-22T22-58-27-c7db, PR 9990)"
+    reason: "Operator, 2026-11-23: a person answered 'stop this spec' on a one-spec run and the PR went ready for review although nothing was delivered. A run with at least one delivered spec behaves as before, shortfall rules unchanged."
+  - category: Architecture
+    decider: claude
+    chose: "The mechanical fact is SpecProgress.CarriedWork, written by VerifySpec's green pass from DeliveredWork.Anything (the delivery diff carries source, or could not be read); SpecSequenceProgress.DeliveredNone = no done row carried work; CommitAndPR folds it into isDraft"
+    over: "Reading the master's report text; the run's staged code in CommitAndPR (hasCode); a new state beside Done"
+    reason: "c8e2c stands: the report is shown, never acted on. hasCode reads only this run's staging and checkpoints, so a resumed run whose verified work is already on the branch would read as undelivered; the delivery diff against the base ladder is the branch's own answer. Done stays Done — the readers of the state (ticket page, shortfall, memory evidence) are unchanged; one optional row field, false on stored and seeded rows."
+  - category: Implementation
+    decider: claude
+    chose: "isDraft carries the case, so the build re-queue (called only after a successful mark-ready) and the TF401179 path (marks ready only when isDraft is false) follow without a change of their own; the banner says 'No spec delivered' instead of 'Verification red'"
+    over: "Separate guards at each mark-ready and re-queue site"
+    reason: "One flag already decides all three sites; a second condition at each would be a second path. Review fix: the banner names the case ahead of a shortfall's, whose 'delivered' would contradict the draft."
+  - category: Scope
+    decider: claude
+    chose: "Left as they are and named: the run's success verdict and the ticket's finalization for such a run; a stopped spec whose master changed code before the stop, or that runs on a branch already carrying earlier commits, counts as delivered (the branch carries work); the run publishes no gate-passed PR, so nothing auto-merges it"
+    over: "Failing the run or holding the ticket"
+    reason: "The operator's decision is about the pull request. Work on the branch is the only mechanical delivery fact; telling a stopped partial change from a delivery would need the report's words."

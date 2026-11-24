@@ -556,7 +556,7 @@ public partial class CommitAndPRHandlerTests
         pipeline.Set(ContextKeys.FailureReason, "per-pipeline cost budget exhausted");
         pipeline.Set(ContextKeys.SpecSequenceProgress, new Contracts.Specs.SpecSequenceProgress(
         [
-            new Contracts.Specs.SpecProgress("p0001a", "Introduce the guard", Contracts.Specs.SpecRunState.Done),
+            new Contracts.Specs.SpecProgress("p0001a", "Introduce the guard", Contracts.Specs.SpecRunState.Done, CarriedWork: true),
             new Contracts.Specs.SpecProgress("p0001b", "Move the callers", Contracts.Specs.SpecRunState.InProgress),
         ]));
         if (withVerifiedHead)

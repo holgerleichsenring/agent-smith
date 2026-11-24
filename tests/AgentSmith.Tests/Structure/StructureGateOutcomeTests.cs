@@ -64,7 +64,7 @@ public sealed class StructureGateOutcomeTests
         _progress.Verify(p => p.RecordAsync(pipeline, SpecId, SpecRunState.Failed,
             It.Is<string>(s => s.Contains("src/A.cs A.Long(): function_lines 70 > 55")
                 && s.Contains("src/B.cs B.Wide(): function_lines 61 > 55")),
-            null, It.IsAny<CancellationToken>()), Times.Once);
+            null, false, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public sealed class StructureGateOutcomeTests
         result.Message.Should().Contain("tree-sitter-c-sharp");
         result.InsertNext.Should().BeNullOrEmpty("a grammar that will not load is not the master's to correct");
         _progress.Verify(p => p.RecordAsync(pipeline, SpecId, SpecRunState.Failed,
-            It.Is<string>(s => s.Contains("tree-sitter-c-sharp")), null, It.IsAny<CancellationToken>()), Times.Once);
+            It.Is<string>(s => s.Contains("tree-sitter-c-sharp")), null, false, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
