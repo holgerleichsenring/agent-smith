@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import type { RunSnapshot } from "@/types/hub-events";
@@ -10,7 +10,7 @@ import { RunRow } from "./RunRow";
 import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { ClearTerminalRunsButton } from "./ClearTerminalRunsButton";
 import { SystemRunsToggle } from "./mission/SystemRunsToggle";
-import { splitSystemRuns } from "@/lib/runs/systemRuns";
+import { loadMoreCursor, oldestStart, splitSystemRuns } from "@/lib/runs/systemRuns";
 import { useShowSystemRuns } from "@/hooks/useShowSystemRuns";
 import { bucketRuns, deriveMetrics } from "./mission/missionBuckets";
 import { MetricStrip } from "./mission/MetricStrip";
@@ -67,23 +67,34 @@ export function MissionControl() {
   // Load more pages through every finished run, so it stays offered when the loaded ones are all hidden system runs.
   const finishedLoaded = useMemo(() => bucketRuns(runs).finished.length, [runs]);
 
+  // 2026-11-24-6357: the cursor Load more pages from. It starts at the end of the loaded windows and then follows each page's
+  // oldest run, so a page of runs already loaded moves it on instead of ending the list; only an empty page does. Turning
+  // the toggle changes what it pages through, so it starts over.
+  const [pageCursor, setPageCursor] = useState<string | null>(null);
+  useEffect(() => {
+    setExhausted(false);
+    setPageCursor(null);
+  }, [showSystem]);
+
   const loadMore = useCallback(async () => {
-    if (loadingMore || runs.length === 0) return;
+    const cursor = pageCursor ?? loadMoreCursor(runs, showSystem);
+    if (loadingMore || cursor === null) return;
     setLoadingMore(true);
     try {
-      const cursor = runs[runs.length - 1].startedAt; // oldest loaded run
-      const page = await fetchRunsBefore(cursor, 20);
+      const page = await fetchRunsBefore(cursor, 20, undefined, showSystem);
       const known = new Set(runs.map((r) => r.runId));
       const fresh = page.filter((r) => !known.has(r.runId));
-      if (fresh.length === 0) setExhausted(true);
-      else setOlder((prev) => [...prev, ...fresh]);
+      const next = oldestStart(page);
+      if (page.length === 0 || next === null) setExhausted(true);
+      else setPageCursor(next);
+      if (fresh.length > 0) setOlder((prev) => [...prev, ...fresh]);
     } catch {
       // Endpoint unavailable / transient — stop offering to page further.
       setExhausted(true);
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, runs]);
+  }, [loadingMore, runs, showSystem, pageCursor]);
 
   // 2026-09-21-291b: a skeleton that cannot resolve. With nothing read and the
   // server refusing this caller, the pulse below was the whole screen — for as

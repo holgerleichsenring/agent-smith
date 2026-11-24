@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Tests.TestSupport;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -47,12 +48,16 @@ public sealed class RunCostAndPaginationTests : IDisposable
 
     private RunRepository NewStore() => new(new AgentSmithDbContext(Options()));
 
-    private async Task ProjectRunAsync(
-        string runId, DateTimeOffset startedAt, decimal? finishedCost, params decimal[] llmCosts)
+    private Task ProjectRunAsync(
+        string runId, DateTimeOffset startedAt, decimal? finishedCost, params decimal[] llmCosts) =>
+        ProjectPipelineRunAsync(runId, "code", startedAt, finishedCost, llmCosts);
+
+    private async Task ProjectPipelineRunAsync(
+        string runId, string pipeline, DateTimeOffset startedAt, decimal? finishedCost, params decimal[] llmCosts)
     {
         var projector = NewProjector();
         await projector.ProjectAsync(
-            new RunStartedEvent(runId, "ticket", "code", new[] { "primary" }, startedAt, "claude", "42"),
+            new RunStartedEvent(runId, "ticket", pipeline, new[] { "primary" }, startedAt, "claude", "42"),
             CancellationToken.None);
         foreach (var cost in llmCosts)
             await projector.ProjectAsync(
@@ -162,5 +167,42 @@ public sealed class RunCostAndPaginationTests : IDisposable
         var page = await NewStore().GetRunsBeforeAsync(ProjectScope.Everything, t.AddMinutes(5), limit: 1, CancellationToken.None);
 
         page.Select(r => r.Id).Should().Equal("run-c");
+    }
+    // 2026-11-24-6357: three work runs older than sixty system runs.
+    private async Task<DateTimeOffset> SeedWorkUnderSystemBurstAsync()
+    {
+        var t = DateTimeOffset.Parse("2026-06-07T12:00:00Z");
+        for (var i = 0; i < 3; i++)
+            await ProjectPipelineRunAsync($"2026-06-07T12-00-0{i}-work", "code", t.AddSeconds(i), 0m);
+        for (var i = 0; i < 60; i++)
+            await ProjectPipelineRunAsync($"2026-06-07T13-{i:00}-00-beat", "series-run", t.AddHours(1).AddMinutes(i), 0m);
+        return t;
+    }
+
+    [Fact]
+    public async Task RecentWindow_OfWork_HoldsTheWorkRuns_UnderASystemBurst()
+    {
+        await SeedWorkUnderSystemBurstAsync();
+
+        var work = await NewStore().GetRecentRunsAsync(ProjectScope.Everything, 50, CancellationToken.None, PipelineOrigin.Work);
+        var system = await NewStore().GetRecentRunsAsync(ProjectScope.Everything, 50, CancellationToken.None, PipelineOrigin.System);
+        var either = await NewStore().GetRecentRunsAsync(ProjectScope.Everything, 50, CancellationToken.None);
+
+        work.Should().HaveCount(3).And.OnlyContain(r => r.Pipeline == "code");
+        system.Should().HaveCount(50).And.OnlyContain(r => r.Pipeline == "series-run");
+        either.Should().HaveCount(50).And.OnlyContain(r => r.Pipeline == "series-run");
+    }
+
+    [Fact]
+    public async Task Page_OfWork_SkipsSystemRuns_AndEitherKeepsBoth()
+    {
+        var t = await SeedWorkUnderSystemBurstAsync();
+
+        var work = await NewStore().GetRunsBeforeAsync(
+            ProjectScope.Everything, t.AddHours(2), 20, CancellationToken.None, PipelineOrigin.Work);
+        var either = await NewStore().GetRunsBeforeAsync(ProjectScope.Everything, t.AddHours(2), 20, CancellationToken.None);
+
+        work.Select(r => r.Pipeline).Should().Equal("code", "code", "code");
+        either.Should().HaveCount(20).And.OnlyContain(r => r.Pipeline == "series-run");
     }
 }

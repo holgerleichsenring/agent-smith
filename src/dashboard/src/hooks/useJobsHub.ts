@@ -170,6 +170,10 @@ export function isPreSpawnZombie(snapshot: RunSnapshot): boolean {
 export function applySnapshotFilters(snapshot: OverviewSnapshot, debug: boolean): OverviewSnapshot {
   const cap = debug ? RECENT_CAP_DEBUG : RECENT_CAP_DEFAULT;
   const active = debug ? snapshot.active : snapshot.active.filter((r) => !isPreSpawnZombie(r));
-  const recent = snapshot.recent.slice(0, cap);
+  // 2026-11-24-6357: the cap applies per origin, as the server's two windows do, so a burst of system runs never cuts
+  // every work run out of the list that hides system runs.
+  const work = (snapshot.recent ?? []).filter((r) => r.system !== true).slice(0, cap);
+  const system = (snapshot.recent ?? []).filter((r) => r.system === true).slice(0, cap);
+  const recent = (snapshot.recent ?? []).filter((r) => work.includes(r) || system.includes(r));
   return { active, recent, systemActivity: snapshot.systemActivity };
 }

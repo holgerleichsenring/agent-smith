@@ -61,7 +61,7 @@ internal static class RunQueryEndpoints
         RunRepository runs, ICapacityQueue capacityQueue, IRunCheckpointStore checkpoints,
         ICapacityBudget capacityBudget,
         IActiveRunLease activeRunLease, TimeProvider clock,
-        string? before, int? limit,
+        string? before, int? limit, bool? includeSystem,
         ClaimsPrincipal user, CallerProjectScope scopes,
         CancellationToken cancellationToken)
     {
@@ -77,7 +77,7 @@ internal static class RunQueryEndpoints
             var page = await RunListComposer.BuildPageBeforeAsync(
                 runs, scope, capacityBudget, cursor,
                 Math.Clamp(limit ?? RunListComposer.RecentLimit, 1, RunListComposer.MaxPageLimit),
-                cancellationToken);
+                cancellationToken, includeSystem ?? true); // 2026-11-24-6357: false pages work runs only
             return Results.Ok(new { recent = page });
         }
 

@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-6357
+goal: "The runs list shows the newest work runs however many system runs came after them: the recent window and Load more count work and system runs apart."
+
+applies_to: "default (run list window, runs paging endpoint) + dashboard (runs list Load more)"
+
+requires: [2026-11-24-35ff]
+
+facts:
+  - claim: "The overview's recent window is the newest 50 finished runs of any pipeline; the list hides system runs from that window in the browser, so 50 system runs in a row leave an empty list."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:57; src/dashboard/src/lib/runs/systemRuns.ts:20"
+  - claim: "35ff left server-side paging that skips system runs out of scope."
+    evidence: ".agentsmith/specs/done/2026-11-24-35ff-runs-system-filter.yaml:27"
+  - claim: "Load more pages from the oldest loaded run of any pipeline, through runs of any pipeline."
+    evidence: "src/dashboard/src/components/jobs/MissionControl.tsx:74; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:41"
+
+scope:
+  in: >-
+    RunRepository.GetRecentRunsAsync and GetRunsBeforeAsync take an optional origin (work, system, either); the overview
+    reads the newest 50 work runs and the newest 50 system runs and merges them newest first. GET
+    /api/runs?before=…&includeSystem=false pages work runs only; without it pages every run as before. Load more sends
+    includeSystem from the toggle and pages from the oldest run of what it pages through, so no run between the two
+    windows is skipped; toggling resets an exhausted Load more.
+  out: >-
+    The PR list's recent window (PullRequestQueryEndpoints) keeps one window. How often the server starts series runs.
+
+tests:
+  - "RunRepository: 3 work runs older than 60 system runs — the work window holds all 3; a work-only page skips system runs; an either page keeps both."
+  - "RunListComposer overview: work runs older than 50 system runs are in recent."
+  - "Dashboard: Load more sends includeSystem=false with the toggle off and pages from the oldest shown work run; on, from the newer of the two window ends."
+
+done:
+  - "Build, the affected backend and dashboard tests green; the spec gate passed."

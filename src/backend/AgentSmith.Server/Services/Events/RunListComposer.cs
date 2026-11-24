@@ -1,4 +1,5 @@
 using System.Globalization;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -37,9 +38,10 @@ internal static class RunListComposer
     // stays complete when opened from a paged row.
     internal static async Task<RunSnapshot[]> BuildPageBeforeAsync(
         RunRepository runs, ProjectScope scope, ICapacityBudget? capacityBudget, DateTimeOffset before, int limit,
-        CancellationToken ct)
+        CancellationToken ct, bool includeSystem = true)
     {
-        var page = await runs.GetRunsBeforeAsync(scope, before, limit, ct);
+        var page = await runs.GetRunsBeforeAsync(
+            scope, before, limit, ct, includeSystem ? null : PipelineOrigin.Work); // 2026-11-24-6357
         var footprints = capacityBudget is null
             ? new Dictionary<string, RunCapacitySnapshot>()
             : await capacityBudget.GetManyAsync(page.Select(r => r.Id).ToList(), ct);
@@ -54,7 +56,10 @@ internal static class RunListComposer
         TimeProvider? clock = null)
     {
         var active = await runs.GetActiveRunsAsync(scope, cancellationToken);
-        var recent = await runs.GetRecentRunsAsync(scope, RecentLimit, cancellationToken);
+        // 2026-11-24-6357: two windows, work and system, so the list the browser filters always holds the newest work runs.
+        var work = await runs.GetRecentRunsAsync(scope, RecentLimit, cancellationToken, PipelineOrigin.Work);
+        var system = await runs.GetRecentRunsAsync(scope, RecentLimit, cancellationToken, PipelineOrigin.System);
+        var recent = work.Concat(system).OrderByDescending(r => r.Id, StringComparer.Ordinal).ToList();
         var positions = await capacityQueue.GetPositionsByRunIdAsync(cancellationToken);
         // 2026-09-22-7c41c: the second carrier of "this parked run's relaunch is under way",
         // for the span between the queue entry's removal and the run starting. Only the

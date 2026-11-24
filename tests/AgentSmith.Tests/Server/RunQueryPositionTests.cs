@@ -52,6 +52,38 @@ public sealed class RunQueryPositionTests : IDisposable
         active.Should().OnlyContain(s => s.Status == "queued");
     }
 
+    // 2026-11-24-6357: the recent window counts work and system runs apart, so work runs older than fifty system runs
+    // still reach the list that hides system runs.
+    [Fact]
+    public async Task Overview_WorkRunsOlderThanASystemBurst_AreInRecent()
+    {
+        var t = DateTimeOffset.Parse("2026-07-10T12:00:00Z");
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            for (var i = 0; i < 2; i++)
+                ctx.Runs.Add(new AgentSmith.Infrastructure.Persistence.Entities.Run
+                {
+                    Id = $"2026-07-10T12-00-0{i}-work", Project = "p1", Pipeline = "code", Status = "success",
+                    StartedAt = t.AddSeconds(i), FinishedAt = t.AddSeconds(i + 1),
+                });
+            for (var i = 0; i < 55; i++)
+                ctx.Runs.Add(new AgentSmith.Infrastructure.Persistence.Entities.Run
+                {
+                    Id = $"2026-07-10T13-{i:00}-00-beat", Project = "p1", Pipeline = "series-run", Status = "success",
+                    StartedAt = t.AddHours(1).AddMinutes(i), FinishedAt = t.AddHours(1).AddMinutes(i),
+                });
+            await ctx.SaveChangesAsync();
+        }
+
+        var (_, recent) = await RunListComposer.BuildOverviewAsync(
+            NewRepository(), ProjectScope.Everything, _queue, CancellationToken.None);
+
+        recent.Where(r => !r.IsSystem).Select(r => r.RunId)
+            .Should().Equal("2026-07-10T12-00-01-work", "2026-07-10T12-00-00-work");
+        recent.Count(r => r.IsSystem).Should().Be(RunListComposer.RecentLimit);
+        recent.Select(r => r.RunId).Should().BeInDescendingOrder(StringComparer.Ordinal);
+    }
+
     [Fact]
     public async Task GetRuns_QueueDrains_PositionsRerank()
     {

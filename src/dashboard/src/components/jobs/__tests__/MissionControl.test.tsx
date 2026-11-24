@@ -203,7 +203,7 @@ describe("MissionControl", () => {
     fireEvent.click(screen.getByTestId("runs-load-more"));
     // Paged in and appended after the newer run (newest-first).
     await waitFor(() => expect(screen.getByTestId("run-row-older-1")).toBeInTheDocument());
-    expect(fetchRunsBeforeMock).toHaveBeenCalledWith("2026-07-17T10:00:00Z", 20);
+    expect(fetchRunsBeforeMock).toHaveBeenCalledWith("2026-07-17T10:00:00Z", 20, undefined, false);
     const finished = screen.getByTestId("section-finished");
     const ids = Array.from(finished.querySelectorAll(".rrow"))
       .map((el) => el.getAttribute("data-testid"));
