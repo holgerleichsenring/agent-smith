@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-9dc0d
+
+decisions:
+  - category: Implementation
+    decider: claude
+    chose: "Azure OpenAI counts a call's actual input and generated tokens: no max_tokens at admission, the generated output debited on settle"
+    over: "Holding max_tokens for the minute as OpenAI's admission does (66e4a's shared rule)"
+    reason: "Azure's quota page (updated 2026-08-13): token rate-limit calculations use actual input and generated tokens, and a higher output limit reserves nothing. Its older latency page still describes a released reservation; the quota page is newer and about rate limits. With ~60k-token contexts this frees ~7.6k tokens per call (~12%)."
+  - category: Implementation
+    decider: claude
+    chose: "Cached prompt tokens keep their full weight on Azure"
+    over: "Counting them at a discount"
+    reason: "Azure's prompt-caching and quota pages say nothing about TPM for Standard deployments; OpenAI's guide says cached input still counts toward TPM. The provider's x-ratelimit-remaining-tokens reading already caps our bucket if Azure counts more."
+  - category: Implementation
+    decider: claude
+    chose: "One enum OutputCount { None, MaxTokens, Generated } replaces CountsMaxOutput; OpenAI keeps MaxTokens"
+    over: "A second bool beside CountsMaxOutput"
+    reason: "Review: the two flags cannot both be true. OpenAI's own max_tokens rule was not re-verified here, so it is unchanged."
+  - category: Implementation
+    decider: claude
+    chose: "The learned input ratio observes counted input only; the shortfall notice names the output as generated or max_tokens"
+    over: "Folding output into the observed count"
+    reason: "Review: the ratio scales the next admission's input estimate; generated tokens in it would inflate every later reservation."
+  - category: Scope
+    decider: claude
+    chose: "Operator configuration unchanged (agent rate_limit 250k/min, max_concurrent_runs 1); reported"
+    over: "Raising the configured budget"
+    reason: "The brief: report, don't change, operator config. Cached tokens dominate the production run (1.048M of 1.18M input), so the deployment's TPM is the remaining lever."

@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-9dc0d
+goal: "An Azure OpenAI call counts against its deployment's TPM with its actual input and generated tokens, no longer with its max_tokens held for the minute."
+
+applies_to: "default (model quota: LlmRateBudget, ProviderQuotaRule, QuotaReservation, LlmQuotaLease)"
+
+requires: [2026-11-22-66e4a]
+
+facts:
+  - claim: "Azure and OpenAI share one rule: cached prompt tokens at full weight and the request's max_tokens reserved at admission and kept after the call settles."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateBudget.cs:30-42, src/backend/AgentSmith.Infrastructure/Services/RateLimiting/QuotaReservation.cs:13-20, src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmQuotaLease.cs:20-29"
+  - claim: "Azure's quota page (updated 2026-08-13): token rate-limit calculations use actual input and generated tokens rather than the configured maximum output; a higher output limit reserves nothing against TPM. Its prompt-caching page says nothing about TPM for Standard deployments; OpenAI's guide says cached input tokens still count toward TPM."
+    evidence: "learn.microsoft.com/azure/foundry/openai/how-to/quota, learn.microsoft.com/azure/foundry/openai/how-to/prompt-caching, developers.openai.com/api/docs/guides/prompt-caching"
+  - claim: "Seen in production 2026-11-24: a quarter of a refresh run waited for quota at rate_limit 250k tokens/min, with about 60k-token contexts (1.048M of 1.18M input tokens cached) and 8192 max_tokens held per call."
+    evidence: "observed: 2026-11-24, production audit of run 2026-11-24T15-14-02-b5c4"
+
+scope:
+  in: >-
+    ProviderQuotaRule's CountsMaxOutput becomes one enum, OutputCount { None, MaxTokens, Generated }. Azure OpenAI
+    (azure_openai, azure-openai): cached reads at full weight (unchanged; Azure is silent and OpenAI counts them), no
+    max_tokens at admission (Generated), the generated tokens debited when the call settles. OpenAI (openai) keeps
+    MaxTokens. The learned input ratio stays input-only (DeploymentQuota.Debit observes counted input, not output). The
+    lease's shortfall counts the same output, and QuotaShortfallNotice names it by what it is (max_tokens or generated).
+  out: >-
+    Operator configuration (agent rate_limit, max_concurrent_runs): reported, not changed. Letting the provider's
+    remaining-tokens header raise the bucket (it only lowers it today).
+
+steps:
+  - id: rule
+    action: "ProviderQuotaRule.Output (OutputCount); QuotaReservation reads it; LlmRateBudget.RuleFor splits openai from azure_openai."
+  - id: settle
+    action: "LlmQuotaLease counts usage.OutputTokenCount where the rule says so."
+
+tests:
+  - "ModelQuotaCountingTests: Settle_AzureCall_…KeepsMaxOutput is rewritten — an Azure call reserves its input estimate only and settles at uncached + cached input + generated output, its learned ratio from input alone; an OpenAI call still reserves max_tokens."
+  - "LlmRateLimiterCacheAwareTests and the other quota tests stay green with the Azure rule."
+
+done:
+  - "Build, affected backend tests green; the spec gate passed."
