@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.205.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.205.0...v0.205.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **series:** a merge reads the PR records from the host before it answers, the page follows its tickets' activity (2026-11-24-a4e7) ([4ae468d](https://github.com/holgerleichsenring/agent-smith/commit/4ae468da40f524bc458de402c2d1da45591f6be5))
+* **series:** the post-merge refresh never fails the act, skips the CI loop, and an armed Merge stays enabled (2026-11-24-a4e7) ([bdbeb50](https://github.com/holgerleichsenring/agent-smith/commit/bdbeb50fffd858e6d376aea84bb7aed816190451))
+* **series:** the series page shows a merge at once and follows the host (2026-11-24-a4e7) ([5156d7d](https://github.com/holgerleichsenring/agent-smith/commit/5156d7d868ce2efe8b67cb8fa39d5c84f8bfdfd4))
+
 ## [0.205.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.204.2...v0.205.0) (2026-11-23)
 
 
