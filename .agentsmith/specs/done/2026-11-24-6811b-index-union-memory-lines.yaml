@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-6811b
+goal: "A base merge's MEMORY.md conflict made of entry lines both sides added or one side changed is united like state.done, and the resolver hands every other path back to its caller."
+
+applies_to: "default (work-branch base merge, index conflict resolver, memory index)"
+
+requires: [2026-11-17-023fb, 2026-10-25-9324d]
+
+facts:
+  - claim: "The resolver runs only when every conflicting path is a .agentsmith/contexts/*/context.yaml, otherwise it resolves nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/StateIndexConflictResolver.cs:20-24,52-53"
+  - claim: "WorkBranchBaseMerger commits when the resolver answers true and aborts the whole merge otherwise."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/WorkBranchBaseMerger.cs:59-76"
+  - claim: "MEMORY.md is a header and one '- [name](name.md) (type[, label]) — description' line per memory; an update replaces the line of the same name, a new memory is appended."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryIndexLine.cs:6-28, src/backend/AgentSmith.Application/Services/Memory/MemoryIndexUpdater.cs:16-35, src/backend/AgentSmith.Application/Services/Memory/MemoryIndexLabels.cs:13-16"
+  - claim: "Two parallel specs that each remember something append to the end of MEMORY.md, so their merge conflicts there; seen in production 2026-11-24 beside a context.yaml conflict."
+    evidence: "observed: 2026-11-24, operator brief"
+
+scope:
+  in: >-
+    MemoryIndexUnion (Application/Services/Memory): from base (missing = empty), ours, theirs — null when a side is missing;
+    entry lines keyed by name via MemoryIndexLine, compared without their label: per name, equal sides keep it, a side
+    equal to base takes the other's (a change or a removal), two different changes refuse; the label comes from the side
+    that changed it, ours when both did (the next record step rewrites labels from evidence, MemoryIndexLabelWriter). The
+    lines before the first entry (the header block) must be equal or one side equal to base; a non-blank line that is no entry
+    after the first entry refuses; ours' trailing newline is kept. The result is ours in its order with theirs' new entries after ours' last entry. StateIndexConflictResolver resolves
+    each conflicting context.yaml (state.done union, unchanged) and .agentsmith/memory/MEMORY.md it can, writes and stages
+    them, and answers the paths still unmerged; WorkBranchBaseMerger commits when none is left and aborts as before when
+    any is (a rework checkout stops, a refresh says the conflict); BaseMergeResult.Conflicted still names git's full list,
+    since a person merging by hand meets every path again.
+  out: "Resolving the paths the unions leave (2026-11-24-6811c). Memory entry files: two sides adding different files do not conflict, the same name added twice is a real conflict."
+
+steps:
+  - id: union
+    action: "MemoryIndexUnion.Resolve(base, ours, theirs) with unit tests."
+  - id: resolver
+    action: "StateIndexConflictResolver.ResolveAsync answers the unresolved paths; the merger commits on none, aborts on any, git's full list reported; StateIndexMergeTests and WorkBranchBaseMergeTests stay green."
+
+tests:
+  - "MemoryIndexUnion: two sides appending different entries unite in order; one side relabelling an entry and the other appending unite; both changing one entry differently, or the header differing on both, refuse; the same entry added on both with the same text is kept once."
+  - "MemoryIndexUnion: one side changing an entry's description while the other relabels it unites to the new description with the new label; a non-entry line after the first entry on one side refuses."
+  - "Against real git: a merge conflicting only in MEMORY.md and context.yaml state.done commits with no MERGE_HEAD; one also conflicting in a code file is Conflicted naming all three paths, the tree clean."
+
+done:
+  - "Build, affected tests green; the spec gate passed."

@@ -30,7 +30,7 @@ public static partial class CommandStepClasses
         [CommandNames.VerifySpec] = Milestone,
         [CommandNames.ReviewSpecDiff] = Milestone,   // 2026-09-17-042eh: its findings are read
         [CommandNames.CommitAndPR] = Milestone,
-        [CommandNames.FileTickets] = Milestone, [CommandNames.SeriesMaster] = Milestone, [CommandNames.VerifySeries] = Milestone, // 5701b: it creates the tickets; 0207a: the series master acts
+        [CommandNames.FileTickets] = Milestone, [CommandNames.SeriesMaster] = Milestone, [CommandNames.VerifySeries] = Milestone, [CommandNames.RefreshBranchBase] = Milestone, // 6811c: a master works there // 5701b: it creates the tickets; 0207a: the series master acts
         [CommandNames.CloseTicket] = Milestone, [CommandNames.ReopenTicket] = Milestone, [CommandNames.StartTicket] = Milestone, // e061a-b
         [CommandNames.AmendTicket] = Milestone, [CommandNames.PostTicketComments] = Milestone, // 2026-11-17-e061c: the acts themselves
         [CommandNames.RetargetPullRequests] = Milestone, [CommandNames.DeployToEnvironment] = Milestone, // 9a39c, 3863c
@@ -103,7 +103,7 @@ public static partial class CommandStepClasses
         [CommandNames.WriteSpecRecord] = Internal,
         [CommandNames.WriteRunResult] = Internal,        // run-artifact bookkeeping
         [CommandNames.PrCrossLink] = Internal,
-        [CommandNames.CompletePullRequests] = Internal, [CommandNames.InitComplete] = Internal, [CommandNames.CleanupWorkBranches] = Internal, [CommandNames.RefreshBranchBase] = Internal, // 713ec, 023fa, 023fb
+        [CommandNames.CompletePullRequests] = Internal, [CommandNames.InitComplete] = Internal, [CommandNames.CleanupWorkBranches] = Internal, // 713ec, 023fa
         [CommandNames.SwitchSkill] = Internal,
         [CommandNames.SessionSetup] = Internal,
         [CommandNames.PersistWorkBranch] = Internal,

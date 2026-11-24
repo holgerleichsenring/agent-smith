@@ -63,7 +63,8 @@ public sealed class MergePolicyConfig
     /// <summary>
     /// 2026-11-17-3435c: with on_ci_green, how many rework runs in a row a red CI may start before the ticket is handed
     /// back with the evidence. Three gives a flaky suite and a follow-up fix room while a fix that cannot converge stops
-    /// spending; a person's answer resets the count.
+    /// spending; a person's answer resets the count. 2026-11-24-6811c: also how many repair passes a refresh-base run's
+    /// master may make on a stage the merged base turned red — the same kind of fix, bounded the same way.
     /// </summary>
     public int CiFixAttempts { get; set; } = 3;
 

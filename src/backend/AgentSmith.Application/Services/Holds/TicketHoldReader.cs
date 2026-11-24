@@ -58,7 +58,9 @@ public sealed class TicketHoldReader
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Interrupted, retry, facts.EndedAt);
         if (facts.HeadStatus == RunStatuses.Shortfall)
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Shortfall, new(TicketHoldActs.Conversation), facts.EndedAt);
-        if (facts.HeadStatus != RunStatuses.Failed) return TicketPullRequestHold.CiFailed(facts);
+        if (facts.HeadStatus != RunStatuses.Failed) // 6811a: a conflict before CI; 6811d: a refusal first, nothing while one works
+            return TicketPullRequestHold.RefreshRefused(facts) ?? (TicketPullRequestHold.Refreshing(facts) ? null
+                : TicketPullRequestHold.Conflict(facts) ?? TicketPullRequestHold.CiFailed(facts));
         var rework = new TicketHoldAct(TicketHoldActs.Conversation);
         if (facts.EndKind == RunEndKinds.ReadinessUnknown)
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.ReadinessUnknown, retry, facts.EndedAt);
@@ -86,7 +88,7 @@ public sealed class TicketHoldReader
     public TicketHold? Merge(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        if (AtWork(facts) || TicketPullRequestHold.CiHolds(facts)) return null;
+        if (AtWork(facts) || TicketPullRequestHold.CiHolds(facts) || TicketPullRequestHold.Blocks(facts)) return null;
         return TicketSeriesMergeHold.Next(facts) ?? TicketPullRequestHold.Ready(facts);
     }
 
@@ -107,6 +109,7 @@ public sealed class TicketHoldReader
             case RunStatuses.WaitingForInput when !facts.Parked: return none(TicketHoldCases.Resuming, facts.EnqueuedAt);
         }
         if (facts.Interrupted && facts.Restarting) return none(TicketHoldCases.Restarting, facts.EndedAt);
+        if (TicketPullRequestHold.RefreshWait(facts) is { } refreshing) return refreshing; // 2026-11-24-6811d
         if (facts.MergeStep is { Wait: SeriesRunMergeWaits.After } after)
             return none(TicketHoldCases.MergeAfter, facts.EndedAt) with { Names = after.After };
         if (facts.MergeStep is { Wait: SeriesRunMergeWaits.Retarget }) return none(TicketHoldCases.Retarget, facts.EndedAt);

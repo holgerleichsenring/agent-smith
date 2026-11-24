@@ -45,4 +45,10 @@ public sealed record PrReviewRecordView(
 
     /// <summary>2026-11-23-8d16: the newest successful read saw it still a draft.</summary>
     public bool IsDraft { get; init; }
+
+    /// <summary>2026-11-24-6811a: the host said last that the open pull request conflicts with its base.</summary>
+    public bool HasConflicts { get; init; }
+
+    /// <summary>2026-11-24-6811a: since when it conflicts; null when it does not.</summary>
+    public DateTimeOffset? ConflictsAt { get; init; }
 }

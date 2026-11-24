@@ -80,6 +80,8 @@ public sealed class PrReviewRecordRefresh(
             var entries = await builder.BuildAsync(PrKey.Of(pr.Url), repo.Type, state, notes, once, ct);
             var record = Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha);
             record.IsDraft = state.IsDraft && state.State == PrReviewStates.Open; // 2026-11-23-8d16
+            record.HasConflicts = state.State == PrReviewStates.Open ? state.HasConflicts : null; // 2026-11-24-6811a
+            record.ConflictsAtTicks = record.HasConflicts == true ? record.CheckedAtTicks : null;
             await ci.ApplyAsync(project, states, record, stored, ct);
             await target.ApplyAsync(states, record, stored, ct); // 2026-11-22-6d85b: where a merge landed
             return await writer.WriteAsync(record, entries, start, ct);

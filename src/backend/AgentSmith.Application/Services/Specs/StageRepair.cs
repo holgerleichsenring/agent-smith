@@ -60,13 +60,12 @@ public static class StageRepair
     ];
 
     // The repair pass's own write log (a master step's file host is per step) and the failure it left.
+    // 2026-11-24-6811c: the rule lives in StageRepairProgress, shared with the refresh-base repair.
     private static bool MadeProgress(PipelineContext pipeline, string lastRed, string red) =>
-        !string.Equals(lastRed, red, StringComparison.Ordinal)
-        && pipeline.TryGet<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges, out var wrote)
-        && ReengageProgressPolicy.ProducedNewWork([], wrote ?? []);
+        pipeline.TryGet<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges, out var wrote)
+        && StageRepairProgress.MadeProgress(lastRed, red, wrote);
 
-    private static string Signature(VerifyOutcome red) =>
-        $"{red.Key}|{red.Stage}|{red.ExitCode}|{VerifyCommandRunner.Tail(red.Output ?? string.Empty, VerifyCommandRunner.OutputTailChars)}";
+    private static string Signature(VerifyOutcome red) => StageRepairProgress.Signature(red);
 
     private static string Item(VerifyOutcome red) =>
         $"{ItemPrefix} {(string.IsNullOrEmpty(red.Key) ? "(default)" : red.Key)} {red.Stage} "

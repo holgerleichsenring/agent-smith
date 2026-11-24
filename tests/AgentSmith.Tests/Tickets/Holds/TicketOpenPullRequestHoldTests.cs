@@ -134,4 +134,83 @@ public sealed class TicketOpenPullRequestHoldTests
     private static PrReviewRecordView Record(string number, string head, PrRecordCiView? ci) =>
         new($"pr-{number}", $"https://github.com/o/api/pull/{number}", "api", number, "alpha", "42", "r-2", PrReviewStates.Open,
             T, T, null, []) { HeadSha = head, Ci = ci };
+
+    // 2026-11-24-6811a: a conflict holds for a person whatever the CI says, since nothing merges it; at work it holds nothing.
+    [Theory]
+    [InlineData(CiStates.Green)]
+    [InlineData(CiStates.Pending)]
+    [InlineData(CiStates.Red)]
+    public void Of_AConflictingPullRequest_IsAPersonsPrConflict_NotAMergeOrACiWait(string ci)
+    {
+        var open = Open(ci, T.AddMinutes(1)) with { Conflicts = true, ConflictsSince = T.AddMinutes(4) };
+
+        var hold = _reader.Of(Facts(open))!;
+
+        (hold.Addressee, hold.Case, hold.Act, hold.Since).Should().Be((TicketHoldAddressees.Decide, TicketHoldCases.PrConflict,
+            new TicketHoldAct(TicketHoldActs.PullRequest, Url), (DateTimeOffset?)T.AddMinutes(4)));
+        _reader.Merge(Facts(open)).Should().BeNull();
+        _reader.Of(Facts(open, RunStatuses.Running))!.Case.Should().Be(TicketHoldCases.Working);
+    }
+
+    [Fact]
+    public void Of_OpenPullRequestsReader_ConflictsWhenAnyOpenRecordDoes_SinceTheEarliest()
+    {
+        var a = Record("https://h/1") with { HasConflicts = true, ConflictsAt = T.AddMinutes(9) };
+        var b = Record("https://h/2") with { HasConflicts = true, ConflictsAt = T.AddMinutes(2) };
+
+        var open = TicketOpenPullRequestsReader.Of([a, b, Record("https://h/3")]);
+
+        (open.Conflicts, open.ConflictsSince).Should().Be((true, (DateTimeOffset?)T.AddMinutes(2)));
+        TicketOpenPullRequestsReader.Of([Record("https://h/3")]).Conflicts.Should().BeFalse();
+    }
+
+    // 2026-11-24-6811d: a refresh at work holds nobody, over a conflict, red CI and a running CI, and offers no merge; its
+    // refusal holds a person with the reason, over a conflict; a head moved after the refusal drops it.
+    [Theory]
+    [InlineData(CiStates.Green, false)]
+    [InlineData(CiStates.Red, true)]
+    [InlineData(CiStates.Pending, true)]
+    public void Of_ARefreshAtWork_IsNobodysRefreshing_NotAMergeOrAConflict(string ci, bool conflicts)
+    {
+        var open = Open(ci, T) with { Conflicts = conflicts, Refresh = new PullRequestRefreshSaid("rf-1", true, null, T.AddMinutes(7)) };
+
+        var hold = _reader.Of(Facts(open))!;
+
+        (hold.Addressee, hold.Case, hold.Since).Should().Be((TicketHoldAddressees.Nobody, TicketHoldCases.Refreshing, (DateTimeOffset?)T.AddMinutes(7)));
+        _reader.Merge(Facts(open)).Should().BeNull();
+    }
+
+    [Fact]
+    public void Of_ARefusedRefresh_IsAPersonsDecision_QuotingTheReason_OverAConflict()
+    {
+        var open = Open(CiStates.Green, T) with
+        {
+            Conflicts = true, Refresh = new PullRequestRefreshSaid("rf-1", false, "conflicts in Program.cs", T.AddMinutes(3)),
+        };
+
+        var hold = _reader.Of(Facts(open))!;
+
+        (hold.Addressee, hold.Case, hold.Act).Should().Be((TicketHoldAddressees.Decide, TicketHoldCases.RefreshRefused,
+            new TicketHoldAct(TicketHoldActs.PullRequest, Url)));
+        hold.Detail!.Subject.Should().Be("conflicts in Program.cs");
+    }
+
+    [Fact]
+    public void Of_OpenPullRequestsReader_ARefusalTheHeadMovedPast_IsDropped_OneAtWorkWins()
+    {
+        var refused = new PullRequestRefreshSaid("rf-1", false, "red", T.AddMinutes(5));
+        var moved = Record("https://h/1") with { HeadMovedAt = T.AddMinutes(9) };
+        var still = Record("https://h/2");
+
+        TicketOpenPullRequestsReader.Of([moved], new Dictionary<string, PullRequestRefreshSaid> { ["https://h/1"] = refused })
+            .Refresh.Should().BeNull();
+        TicketOpenPullRequestsReader.Of([still], new Dictionary<string, PullRequestRefreshSaid> { ["https://h/2"] = refused })
+            .Refresh.Should().Be(refused);
+        var working = refused with { RunId = "rf-2", InFlight = true };
+        TicketOpenPullRequestsReader.Of([still, moved], new Dictionary<string, PullRequestRefreshSaid>
+            { ["https://h/2"] = refused, ["https://h/1"] = working }).Refresh.Should().Be(working);
+    }
+
+    private static PrReviewRecordView Record(string url) =>
+        new(PrKey.Of(url), url, "api", "1", "alpha", "42", "r-2", PrReviewStates.Open, T, T, null, []);
 }

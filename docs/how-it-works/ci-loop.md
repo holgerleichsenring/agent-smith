@@ -45,7 +45,7 @@ Then the next run hands the ticket back in its clarification status, with the ev
 
 ## Keeping other pull requests current
 
-With `refresh_open_pull_requests: true`, a landing merges its base into every other open codeably pull request on the same repository and base, in a `refresh-base` run, pushed without force. Collisions in the `state.done` index of `.agentsmith/contexts/*/context.yaml` are united; any other conflict leaves the branch alone and is said on the pull request. Closed, running, queued and waiting tickets are skipped.
+With `refresh_open_pull_requests: true`, a landing merges its base into every other open codeably pull request on the same repository and base, in a `refresh-base` run, pushed without force. Collisions in the `state.done` index of `.agentsmith/contexts/*/context.yaml` and in the memory index `.agentsmith/memory/MEMORY.md` are united. A conflict beyond those goes to a master that reads both sides' specs and resolves it, usually by keeping both. Before anything is pushed, the repository's declared `verify` stages build and test the merged branch, even after a clean merge, because git can merge two changes into a tree that no longer builds. A red stage goes back to the master while its repairs make progress. When the merge can't be resolved or stays red, the branch is left as it was, the reason is said on the pull request, and the ticket waits for you with that reason. Closed, running, queued and waiting tickets are skipped.
 
 ## Branches after the merge
 

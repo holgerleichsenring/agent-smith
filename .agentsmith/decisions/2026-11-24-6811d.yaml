@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-6811d
+
+decisions:
+  - category: Architecture
+    chose: "Read the refresh's state from its own run row (RunRepo PrUrl, PrStatus, Reason) through PullRequestMergeSaidReader.RefreshesAsync"
+    over: "New columns on the PR record written by the run, or a new store"
+    reason: "No second path: the merge-green run's outcome reaches the series page the same way (0219); the queued row now carries the PR URL so a run is read per pull request before it starts."
+  - category: Architecture
+    chose: "refreshing is a nobody hold, the first nobody case; while it runs Decide yields no pr_conflict or ci_failed, Merge no merge hold, and CiGreenMerge starts no merge"
+    over: "Letting the conflict or CI hold show while the refresh works"
+    reason: "Review round 1: Decide runs before Nobody, so a refresh on a conflicting PR — the main case — would never show. Review round 2: the CI loop reads records, not holds, and could merge the pre-refresh head."
+  - category: Implementation
+    chose: "A failed or cancelled newest refresh run is a refusal carrying the run's summary"
+    over: "Showing nothing for a refresh that died"
+    reason: "Review round 1: an OOM or an infrastructure end would otherwise hand back nothing. A run no process drives is ended by RunLivenessReaper, so refreshing never outlives its run."
+  - category: Implementation
+    chose: "A refusal stands until the pull request's head moves after the run began, or a newer refresh ends otherwise"
+    over: "A refusal that never expires"
+    reason: "A person's fix or the ticket's rework pushes a new head; the merge-green word expires the same way."
+  - category: Implementation
+    chose: "The series row's run link opens the refresh run (SeriesRunPullRequestView.RefreshRunId); refresh_refused keeps the PR act on the row; the ticket page titles refresh_refused"
+    over: "Linking the ticket's finished attempt"
+    reason: "Review rounds 1 and 2."
+  - category: Review
+    chose: "Two rounds BUILD WITH CUTS, every cut applied"
+    over: "Building the first draft"
+    reason: "Independent adversarial reviews of the series before any code."
+  - category: Review
+    chose: "Diff review fixes: CiGreenMerge also waits on a standing refusal (PullRequestRefreshSaid.Stands), a cancelled refresh names its cancel reason"
+    over: "Waiting only on a refresh at work"
+    reason: "A refusal for a red merged tree left the head green on CI, and the CI merge would land a base that no longer builds."
+  - category: Scope
+    chose: "Accept that a refusal is dropped when a PR record read stamps a head move after the refusing run began"
+    over: "Recording the head each refresh saw"
+    reason: "HeadMovedAt is when a read noticed the move; the drop needs a second landing within the minute after an earlier refresh pushed. Recording the seen head needs a column on the run row; left as a named risk."

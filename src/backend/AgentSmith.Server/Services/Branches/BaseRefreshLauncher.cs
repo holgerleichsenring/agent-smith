@@ -27,7 +27,8 @@ public sealed class BaseRefreshLauncher(
         var runId = RunIdGenerator.Generate(timeProvider.GetUtcNow());
         var branch = TicketBranchNamer.Compose(new TicketId(pullRequest.TicketId)).Value;
         await runs.CreateQueuedRunAsync(runId, project.Name, PipelinePresets.RefreshBaseName, [repo.Name],
-            $"starting — merging {baseBranch} into {branch}", ct);
+            $"starting — merging {baseBranch} into {branch}", ct,
+            new Dictionary<string, string> { [repo.Name] = pullRequest.Url }); // 2026-11-24-6811d: read per pull request
         await dispatch.DispatchAsync(new PipelineRequest(project.Name, PipelinePresets.RefreshBaseName,
             TicketId: null, Headless: true, RunId: runId, Context: Seeds(repo, branch, pullRequest, baseBranch),
             ShownOnTicket: new TicketId(pullRequest.TicketId)), ct); // 2026-11-17-b34ed: listed on the ticket's page

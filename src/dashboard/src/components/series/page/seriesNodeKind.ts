@@ -11,7 +11,7 @@ export type SeriesNodeKind = "now" | "needed" | "question" | "failed" | "running
 /** The kinds in the legend's order. */
 export const SERIES_NODE_KINDS: SeriesNodeKind[] = ["now", "needed", "question", "failed", "running", "pr", "waiting", "merged"];
 
-const AT_WORK = new Set(["working", "model_wait", "queued", "resuming", "restarting"]);
+const AT_WORK = new Set(["working", "model_wait", "queued", "resuming", "restarting", "refreshing"]); // 6811d: a refresh too
 
 /** A step of the merge order is the person's merge now only while its ticket's hold is that merge (849e). */
 export function mergesNow(detail: SeriesRunDetail, step: SeriesRunMergeStep): boolean {

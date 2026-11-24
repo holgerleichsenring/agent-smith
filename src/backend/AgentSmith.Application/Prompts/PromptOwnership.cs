@@ -43,6 +43,7 @@ public static class PromptOwnership
             // acts, so it changes with the server rather than with a skills release.
             ["series-master"] = PromptOwner.Embedded,
             ["series-verify-master"] = PromptOwner.Embedded, // 2026-11-17-0207d: the series check's body, same reason
+            ["base-merge-master"] = PromptOwner.Embedded, // 2026-11-24-6811c: the refresh-base merge's body, same reason
         };
 
     /// <summary>

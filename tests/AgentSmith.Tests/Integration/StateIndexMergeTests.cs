@@ -61,6 +61,48 @@ public sealed class StateIndexMergeTests
         checkout.Problem.Should().Contain(ContextYaml);
     }
 
+    // 2026-11-24-6811b: MEMORY.md, where both sides remembered something, is united beside context.yaml's state.done.
+    private const string MemoryIndex = ".agentsmith/memory/MEMORY.md";
+    private const string MemoryBase = "# Memory index\n\n- [a](a.md) (feedback) — first\n";
+
+    [Fact]
+    public async Task BothSidesAddedMemoryAndStateDoneLines_MergesWithAll()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(workBranch: null);
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, ContextYaml, Base);
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, MemoryIndex, MemoryBase);
+        fixture.CommitOn(TicketBranch, ContextYaml, Base.Replace("  done:\n", "  done:\n    s-branch: \"b\"\n"));
+        fixture.CommitOn(TicketBranch, MemoryIndex, MemoryBase + "- [b](b.md) (project) — the branch's\n");
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, ContextYaml, Base.Replace("  done:\n", "  done:\n    s-base: \"c\"\n"));
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, MemoryIndex, MemoryBase + "- [c](c.md) (project) — the base's\n");
+
+        var (checkout, sandbox) = await CheckOutAsync(fixture);
+
+        checkout.Repository.Should().NotBeNull(checkout.Problem);
+        fixture.ReadWorkFile(MemoryIndex).Should().Be(MemoryBase + "- [b](b.md) (project) — the branch's\n- [c](c.md) (project) — the base's\n");
+        (await GitAsync(sandbox, "status", "--porcelain")).Trim().Should().BeEmpty("the merge is committed");
+    }
+
+    [Fact]
+    public async Task IndexesAndACodeFileConflict_StopsNamingEveryPath_TheTreeClean()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(workBranch: null);
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, MemoryIndex, MemoryBase);
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, "Program.cs", "var a = 1;\n");
+        fixture.CommitOn(TicketBranch, MemoryIndex, MemoryBase + "- [b](b.md) (project) — b\n");
+        fixture.CommitOn(TicketBranch, "Program.cs", "var a = 2;\n");
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, MemoryIndex, MemoryBase + "- [c](c.md) (project) — c\n");
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, "Program.cs", "var a = 3;\n");
+
+        var (checkout, sandbox) = await CheckOutAsync(fixture);
+
+        checkout.Repository.Should().BeNull();
+        checkout.Problem.Should().Contain("Program.cs").And.Contain(MemoryIndex);
+        (await GitAsync(sandbox, "status", "--porcelain")).Trim().Should().BeEmpty("the merge was aborted");
+    }
+
     private static async Task<string> GitAsync(ISandbox sandbox, params string[] args) =>
         (await sandbox.RunStepAsync(new AgentSmith.Sandbox.Wire.Step(AgentSmith.Sandbox.Wire.Step.CurrentSchemaVersion,
             Guid.NewGuid(), AgentSmith.Sandbox.Wire.StepKind.Run, Command: "git", Args: args,

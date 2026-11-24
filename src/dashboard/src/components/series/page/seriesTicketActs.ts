@@ -76,9 +76,13 @@ export function seriesTicketActs(ticket: SeriesRunTicket, detail: SeriesRunDetai
     if (href !== talk) acts.push(conversation);
   }
   if (kind === "failed") acts.push(...failedActs(ticket, detail, lacks, conversation, t));
-  if (kind === "running" && run) acts.push({ id: "run", kind: "link", href: runPath(run), label: t("series.act.run") });
+  // 2026-11-24-6811d: a ticket being brought up to date links the refresh run, not its finished attempt.
+  const refreshRun = ticket.hold?.case === "refreshing" ? ticket.pullRequests.find((pr) => pr.refreshRunId)?.refreshRunId ?? null : null;
+  if (kind === "running" && (refreshRun ?? run)) acts.push({ id: "run", kind: "link", href: runPath((refreshRun ?? run)!), label: t("series.act.run") });
   if (kind === "waiting") acts.push({ ...conversation, menuOnly: true });
-  acts.push(...prs.map((pr) => (kind === "failed" || kind === "question" || kind === "merged" ? { ...pr, menuOnly: true } : pr)));
+  // 2026-11-24-6811a: a conflict's act is the pull request itself, so it stays on the row.
+  const prOnRow = ticket.hold?.case === "pr_conflict" || ticket.hold?.case === "refresh_refused";
+  acts.push(...prs.map((pr) => (!prOnRow && (kind === "failed" || kind === "question" || kind === "merged") ? { ...pr, menuOnly: true } : pr)));
   if (!(kind === "failed" && ticket.hold?.addressee === "admin")) // an admin's act already opens the ticket
     acts.push({ id: "ticket", kind: "link", href: ticketPath(detail.project, ticket.ticketId), label: t("hold.act.open"), menuOnly: true });
   acts.push({ id: "chain", kind: "chain", label: t("series.act.chain"), menuOnly: true });

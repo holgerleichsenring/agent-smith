@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-6811c
+goal: "A refresh-base run builds and tests every base merge before it pushes, and an embedded master makes the merge whole when conflicts remain or a stage is red."
+
+applies_to: "default (refresh-base run, base merge, verify stages, stage repair, embedded masters, sandbox sizing) + dashboard (PR status words)"
+
+requires: [2026-11-24-6811b, 2026-11-17-023fb, 2026-11-17-0207d, 2026-08-31-26d4, 2026-11-18-9c1cc]
+
+facts:
+  - claim: "RefreshBranchBaseHandler pushes every Merged result without building it and answers a conflict with a PR comment only."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RefreshBranchBaseHandler.cs:37-44,62-78"
+  - claim: "Seen in production 2026-11-24: git merged a test .csproj cleanly into a duplicated FrameworkReference, which broke the build (NETSDK1087); a person resolved the rest by keeping both sides, built, tested and pushed a merge commit."
+    evidence: "observed: 2026-11-24, operator brief"
+  - claim: "An embedded master runs as a handler's IAgenticLoopRunner call with a body from Prompts/Resources, owned in PromptOwnership, over FilesystemToolHost tools, its cost tracked on the pipeline."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/VerifySeriesHandler.cs:46-53, src/backend/AgentSmith.Application/Prompts/PromptOwnership.cs:44-45, src/backend/AgentSmith.Application/Services/Series/SeriesVerifySurface.cs:13-21"
+  - claim: "CheckoutSource sets each sandbox's context list, from which ContextVerifyStagesResolver reads the declared stages; VerifyStageResolver resolves them and VerifyCommandRunner runs each; without RepoProjectMaps nothing is inferred."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:117-118, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:107-130, src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:41-52"
+  - claim: "StageRepair is the one repair rule: a red stage goes back to a master while the repair wrote and the failure's signature changed, within the cost budget."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/StageRepair.cs:9-48"
+  - claim: "A pipeline outside ExpectsCodeChanges gets the light sandbox profile (1Gi), too small to build and test a .NET solution; the predicate also decides master re-engagement."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxResourceResolver.cs:50-54, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:73-86, src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementPolicy.cs:29"
+  - claim: "A repository whose contexts need two images is two sandboxes; a change crosses between them as SandboxTreeGit's encoded binary diff."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxTreeSync.cs:9-20, src/backend/AgentSmith.Application/Services/Sandbox/SandboxTreeGit.cs:63-87"
+  - claim: "A run records a per-pull-request outcome on its own run row with PullRequestOutcomeEvent, as merge-green records completion_refused; the Pull Requests page lists every run's outcomes and labels an unknown status as opened."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestCompleter.cs:56-67, src/backend/AgentSmith.Server/Extensions/PullRequestQueryEndpoints.cs:59-67, src/dashboard/src/lib/prStatus.ts:30-40"
+
+upgrade_impact: "A project with merge.refresh_open_pull_requests now spends model tokens and a build-sized sandbox plus a build and test pass per refreshed pull request, and a refresh pushes nothing while a stage is red. Projects without the setting see no change."
+
+scope:
+  in: >-
+    WorkBranchBaseMerger takes an optional resolver of the paths the unions leave; without one it aborts as today (the
+    rework checkout); with one the merge stays in progress for it and is committed by the merger once no path is unmerged
+    and none of the resolved paths carries a conflict marker. BaseMergeMaster (Application, embedded body
+    base-merge-master, one loop shape): given the work branch, the base, the spec files each side added since the merge
+    base, and either the unmerged paths or a red stage with its output tail, it works with FilesystemToolHost's tools on
+    the primary sandbox and ends with a conclude tool: whole, or cannot with a reason (a failure the base has on its own is
+    not this branch's to fix). BaseMergeVerify after every Merged result — clean, united or master-resolved: the declared
+    stages of every context of the repository in their own sandbox, stopping at the first red. A secondary sandbox never
+    receives the landed base as a diff (it can pass SandboxTreeGit's encoded limit) and never goes through SandboxTreeSync
+    (which pushes): both sandboxes compute the same git merge-tree --write-tree of HEAD and the base, the secondary reads
+    that tree into its index and working tree, and only the master's change from that tree to the primary's merge commit
+    travels as an encoded diff (a null diff is a refusal naming the limit). After every commit or amend the primary's
+    working tree is reset to it, so the stages build exactly what would be pushed. A red stage goes to the same master with no unmerged paths;
+    StageRepair's signature and progress rule (extracted, not copied) decides whether another pass may run, the cost
+    budget honoured; a repair is amended into the merge commit with exactly the paths the master's file tools wrote,
+    never git add -A, so stage outputs stay out of it. No declared stage: a clean or united merge pushes as today
+    and says it was not built; a master-resolved one is refused. A refusal resets the branch to its head before the merge,
+    pushes nothing, comments on the PR (the unresolved paths, or the red stage and its tail, or the master's reason) and
+    publishes PullRequestOutcomeEvent(refresh_refused, reason). PullRequestStatuses.RefreshRefused, after merge-green's
+    completion_refused: a pull request exists (HasPullRequest), waits for a person (NeedsAHuman); dashboard status union,
+    prStatus label, i18n. Sizing: PipelinePresets.BuildsInSandbox (code, refresh-base) replaces ExpectsCodeChanges in
+    SandboxResourceResolver only. The refresh-base preset runs SetupRegistryAuth after CheckoutSource, since a build needs
+    private-feed credentials. CommandModelUse: RefreshBranchBase is a Loop on base-merge-master; its step class becomes
+    Milestone. The merge commit after a resolution is BaseMergeResolutionCommit's (git via BaseRefreshGit), never the
+    master's.
+  out: >-
+    The trigger and merge.refresh_open_pull_requests (unchanged; an operator question). Showing the outcome on the series
+    and ticket pages (2026-11-24-6811d). A rework run's checkout conflict, which still stops the run: 2026-11-17-023fc
+    keeps that half. A forced push.
+
+steps:
+  - id: merger
+    action: "MergeIntoCurrentAsync(sandbox, base, ct, resolveRest): the unresolved paths go to resolveRest before an abort; true plus no unmerged path and no marker commits; BaseMergeResult.ResolvedByMaster."
+  - id: repair-rule
+    action: "Extract StageRepair's signature and progress check into a shared StageRepairProgress used by StageRepair and BaseMergeVerify; StageRepair's tests stay green."
+  - id: master
+    action: "BaseMergeMaster + Resources/base-merge-master.md + PromptOwnership entry + conclude tool; marker check by grep over the resolved paths."
+  - id: verify
+    action: "BaseMergeVerify: per sandbox of the repo the declared stages (secondaries levelled through merge-tree plus the master's diff), the repair passes, reset on refusal."
+  - id: handler
+    action: "RefreshBranchBaseHandler: merge with the master, verify, push on green; refusal comment + PullRequestOutcomeEvent; RefreshBranchBaseContext carries the project."
+  - id: wiring
+    action: "PullRequestStatuses.RefreshRefused + dashboard vocabulary; BuildsInSandbox; CommandModelUse Loop; CommandStepClasses Milestone; DI."
+
+tests:
+  - "Merger against real git: a code conflict whose resolver resolves commits with no MERGE_HEAD; one that leaves a marker or refuses aborts, tree clean, the unresolved paths named."
+  - "RefreshBranchBaseTests: a clean merge whose declared stage is red and whose master cannot pushes nothing, resets the branch, comments and publishes refresh_refused; a clean green merge pushes; a conflict the stub master resolves is verified and pushed; a red stage the stub master repairs pushes the amended merge; a resolved conflict with no stage declared is refused."
+  - "BaseMergeVerify with two sandboxes of one repository: a master-resolved conflict reaches the secondary as the same tree; a stage output left in the tree is not amended into the merge."
+  - "StageRepairProgress: the same red again or a pass that wrote nothing ends it; StageRepair's own tests unchanged."
+  - "SandboxResourceResolver: refresh-base is sized like code; MasterReengagementPolicy unchanged for refresh-base."
+  - "Dashboard prStatus labels refresh_refused."
+
+done:
+  - "Build, affected backend and dashboard tests green; the spec gate passed."

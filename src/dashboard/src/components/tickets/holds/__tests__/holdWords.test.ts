@@ -15,7 +15,7 @@ const CASES: TicketHoldCase[] = [
   "image_untrusted", "bootstrap_missing", "preflight", "question", "question_plan", "question_environment", "handback", "readiness_unknown", "infrastructure", "interrupted",
   "criteria_unmet", "failed", "shortfall", "text_edited", "merge_next", "starts_on_merge", "working", "model_wait", "queued", "resuming",
   "restarting", "merge_after", "retarget", "prerequisite", "merge_ready", "ci_failed", "ci_running",
-  "ci_not_started",
+  "ci_not_started", "pr_conflict", "refreshing", "refresh_refused",
 ];
 
 describe("holdWords", () => {
@@ -183,5 +183,13 @@ describe("holdWords", () => {
     expect(holdPullRequestHref(hold("merge_next", { act: { kind: "merge", target: "sr-1" } }))).toBeNull();
     expect(isPersons(hold("merge_ready"))).toBe(true);
     expect(isPersons(hold("ci_running"))).toBe(false);
+  });
+  // 2026-11-24-6811d: a refresh's wait says since when; its refusal quotes the reason it recorded.
+  it("holdSentence_ARefresh_WaitsSinceItsStart_ItsRefusalQuotesTheReason", () => {
+    const en = translator("en");
+    expect(holdSentence(en, hold("refreshing", { since: "2026-11-24T09:00:00Z" }), new Date("2026-11-24T09:30:00Z")))
+      .toMatch(/^Being brought up to date with its base since .+\. Nothing for you to do\.$/);
+    expect(holdSentence(en, hold("refresh_refused", { detail: { subject: "Merging origin/main conflicts in Program.cs.", repos: [] } as never })))
+      .toBe("Bringing its pull request up to date did not work, and the branch is unchanged: Merging origin/main conflicts in Program.cs.");
   });
 });

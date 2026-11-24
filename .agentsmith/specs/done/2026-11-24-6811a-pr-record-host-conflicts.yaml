@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-6811a
+goal: "A pull request's record knows when its host says it conflicts with its base, and its hold and the series page say conflict instead of CI running."
+
+applies_to: "default (PR state reads, PR record, holds, series detail) + dashboard (hold words, series badges)"
+
+requires: [2026-11-23-8d16, 2026-11-23-d60d, 2026-11-23-31dcg]
+
+facts:
+  - claim: "The host state read records state, head, decisions and the draft flag; nothing records whether the host can merge the pull request into its base."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrReviewState.cs:9-14, src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:69-70"
+  - claim: "Azure DevOps reports a pull request's merge status (PullRequestAsyncStatus.Conflicts); only the policy bypass reads it, after a completion."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPolicyBypass.cs:54, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:32-33"
+  - claim: "The GitHub state read is one GraphQL query that asks isDraft but not mergeable; the GitLab read parses draft but not has_conflicts."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewStateReader.cs:19-21, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestRead.cs:22"
+  - claim: "An open pull request with CI pending holds as ci_running and its Merge waits; a conflicting one says the same, because the hold sees only CI."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketPullRequestHold.cs:23-27,45-49, src/backend/AgentSmith.Application/Services/Holds/TicketHoldReader.cs:86-90"
+  - claim: "The series page's badges come from the waiting pull requests' draft flag and CI only."
+    evidence: "src/dashboard/src/components/series/page/seriesCiState.ts:23-31, src/dashboard/src/components/series/page/seriesTicketActs.ts:78"
+  - claim: "Seen in production 2026-11-24: a pull request with auto-complete armed, CI green and an approval sat unmerged because its host reported a conflict; the series page showed no conflict."
+    evidence: "observed: 2026-11-24, operator brief"
+
+scope:
+  in: >-
+    PrReviewState.HasConflicts (bool?, null = the host has not decided) read by all three hosts — Azure DevOps MergeStatus
+    Conflicts true / Succeeded false / anything else null, GitHub mergeable CONFLICTING true / MERGEABLE false / UNKNOWN null,
+    GitLab null while detailed_merge_status is unchecked or checking, true on conflict, else has_conflicts — into PrReviewRecord.HasConflicts (bool?) and ConflictsAtTicks (when a read first saw it true),
+    three migrations; PrReviewRecordCopy keeps the stored value on a null read and clears both on an ended record; on
+    PrReviewRecordView and SeriesRunPullRequestView. TicketOpenPullRequests.Conflicts and ConflictsSince (any open record
+    conflicts, since its earliest stamp). Hold case pr_conflict: decide, act pull_request, since ConflictsSince, ahead of
+    ci_failed for a ticket not at work; a conflicting pull request offers no merge hold and no CI wait. Dashboard: hold words
+    for pr_conflict, a "conflict" badge ahead of the CI badges on the series page, the pull request act visible (not
+    menu-only) on a pr_conflict row, the ticket page's Your move box titles it (yourMove heldMove case), TypeScript mirror.
+    CiGreenMerge does not start a merge on a pull request whose record conflicts.
+  out: >-
+    Bringing the branch up to date (2026-11-24-6811b, 6811c) and the refresh's own holds (6811d). Conflict reads on a
+    closed or merged record. A webhook for mergeability changes: the existing refresh and periodic re-read read it.
+
+steps:
+  - id: read
+    action: "HasConflicts (bool?) on PrReviewState; the three state readers set it; GitLabMergeRequest gains HasConflicts."
+  - id: record
+    action: "PrReviewRecord.HasConflicts + ConflictsAtTicks + migrations (SQLite, SQL Server, Postgres); PrReviewRecordRefresh sets it on open records; PrReviewRecordCopy keeps a stored value on a null read, stamps the first true, clears on ended; repository view."
+  - id: hold
+    action: "TicketOpenPullRequests.Conflicts from TicketOpenPullRequestsReader.Of; TicketPullRequestHold.Conflict; TicketHoldReader.Decide and Merge use it; TicketHoldCases.PrConflict."
+  - id: show
+    action: "SeriesRunPullRequestView.HasConflicts; dashboard types, holdWords sentence, seriesTicketBadges conflict badge, a visible pull request act on a pr_conflict row, a yourMove case and title, i18n en/de; CiGreenMerge.Green skips a conflicting record."
+
+tests:
+  - "Each host reader sets HasConflicts from its field; GitHub UNKNOWN, GitLab checking or unchecked, and an absent field read null."
+  - "CiGreenMergeTests: a green conflicting pull request starts no merge."
+  - "PrReviewRecordCopy: a null read keeps a stored true; the first true read stamps ConflictsAtTicks and a later true keeps it; an ended record clears both."
+  - "TicketHoldReader: a conflicting open pull request of a ticket not at work holds pr_conflict (decide) over ci_running, ci_failed and merge_ready; at work it holds nothing of its own."
+  - "Dashboard: seriesTicketBadges puts conflict first; holdSentence says pr_conflict; a pr_conflict row shows its Open pull request act; yourMove titles pr_conflict."
+
+done:
+  - "Build, affected backend and dashboard tests green; the spec gate passed."

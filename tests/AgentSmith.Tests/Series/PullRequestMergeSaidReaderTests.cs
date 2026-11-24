@@ -48,6 +48,40 @@ public sealed class PullRequestMergeSaidReaderTests : IDisposable
         (await scope.ServiceProvider.GetRequiredService<PullRequestMergeSaidReader>().NewestAsync([Pr], default)).Should().BeEmpty();
     }
 
+    // 2026-11-24-6811d: the newest refresh-base run per pull request — at work, refused with its reason, failed with its
+    // summary — and nothing once a newer one pushed; the merge-green answers are untouched by it.
+    [Fact]
+    public async Task RefreshesAsync_TheNewestRefreshRun_PerUrl()
+    {
+        var refused = TicketStoreHarness.Run("r-1", ticket: "", pipeline: "refresh-base");
+        var running = TicketStoreHarness.Run("r-2", ticket: "", pipeline: "refresh-base", status: "queued");
+        running.StartedAt = refused.StartedAt.AddMinutes(5);
+        var failed = TicketStoreHarness.Run("r-3", ticket: "", pipeline: "refresh-base", status: "failed");
+        failed.Summary = "the sandbox ran out of memory";
+        var pushedBefore = TicketStoreHarness.Run("r-4", ticket: "", pipeline: "refresh-base");
+        var pushed = TicketStoreHarness.Run("r-5", ticket: "", pipeline: "refresh-base");
+        pushed.StartedAt = pushedBefore.StartedAt.AddMinutes(5);
+        const string Third = "https://dev.azure.com/o/p/_git/api/pullrequest/11";
+        const string Fourth = "https://dev.azure.com/o/p/_git/api/pullrequest/12";
+        await _h.AddAsync(refused, running, failed, pushedBefore, pushed,
+            Row("r-1", Pr, PullRequestStatuses.RefreshRefused, "conflicts in Program.cs"),
+            new RunRepo { RunId = "r-2", RepoName = "api", PrUrl = Pr },
+            new RunRepo { RunId = "r-3", RepoName = "api", PrUrl = Other },
+            Row("r-4", Third, PullRequestStatuses.RefreshRefused, "red"),
+            new RunRepo { RunId = "r-5", RepoName = "api", PrUrl = Third },
+            Row("r-1", Fourth, PullRequestStatuses.RefreshRefused, "conflicts in Startup.cs"));
+
+        await using var scope = _h.Services.CreateAsyncScope();
+        var reader = scope.ServiceProvider.GetRequiredService<PullRequestMergeSaidReader>();
+        var said = await reader.RefreshesAsync([Pr, Other, Third, Fourth], default);
+
+        said[Pr].Should().Be(new PullRequestRefreshSaid("r-2", true, null, running.StartedAt));
+        said[Other].Should().Be(new PullRequestRefreshSaid("r-3", false, "the sandbox ran out of memory", failed.StartedAt));
+        said[Fourth].Reason.Should().Be("conflicts in Startup.cs");
+        said.Should().NotContainKey(Third, "the newer refresh pushed");
+        (await reader.NewestAsync([Pr], default)).Should().BeEmpty("a refresh is no merge run");
+    }
+
     private static RunRepo Row(string run, string url, string status, string? reason) =>
         new() { RunId = run, RepoName = "api", PrUrl = url, PrStatus = status, Reason = reason };
 
