@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-a4e7
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "The series merge act, after a merged or armed outcome, runs the nudge worker's own PrReviewRecordRefresh at once under the worker's ticket lock (PrRecordRefreshNow); a busy lock reads nothing and leaves the read to a queued Refresh nudge"
+    over: "Writing the merged state from the run's outcome; a refresh inside MergeGreenRun; only enqueuing a Refresh nudge"
+    reason: "The records keep their one writer and lock, so no second path writes PR state. MergeGreenRun is also called by CiGreenMerge from inside a refresh, so a refresh there would recurse. A queued nudge alone is drained every 5 s, after the act has answered and the page has re-read."
+  - category: Implementation
+    decider: claude
+    chose: "The inline refresh skips the CI loop (PrReviewRecordRefresh ciLoop: false) and always queues one Refresh nudge, whose worker refresh runs the loop"
+    over: "Running CiGreenMerge/CiRedNudge inside the request"
+    reason: "Checked after review: CiGreenMerge.AfterRefreshAsync awaits IMergeGreenRun.RunAsync, which executes the whole merge-green pipeline synchronously — on an on_ci_green project a person's request could have waited on a second pipeline (e.g. one repo armed with green CI). The loop runs a few seconds later in the worker, as it would have on the periodic re-read."
+  - category: Implementation
+    decider: claude
+    chose: "PrRecordRefreshNow throws nothing and takes no token: lock, refresh and nudge each run on CancellationToken.None and any failure, a cancellation included, is logged; the act still answers its merge lines"
+    over: "Only the refresh call in try/catch (the first commit); a short own timeout"
+    reason: "Review finding: a Redis or database failure or a client abort escaped and turned a merge the host already did into a failed request. No token matches MergeGreenRun, which also runs on none so a host change is never cut off halfway; the provider clients bound each host call. A timeout would be a new limit with no measured reason."
+  - category: Scope
+    decider: operator
+    chose: "An armed ticket keeps its Merge enabled; the row says the existing armed sentence, and a second click arms again"
+    over: "Disabling Merge while the newest merge run armed it (the first commit)"
+    reason: "Operator via the master session, 2026-11-24: completion_armed comes from the newest merge-green row and clears only on a head move, so an auto-complete cancelled on the host would strand the ticket on a manual project. Re-arm idempotence, read from the providers (not live-tested): Azure Repos re-casts the approving vote and PATCHes the same AutoCompleteSetBy (idempotent); GitLab re-sends merge_when_pipeline_succeeds/auto_merge on PUT merge and reads the answer (expected idempotent, not verified); GitHub re-runs enablePullRequestAutoMerge — if GitHub rejects it on an already-armed PR, the error would read as a refusal and its message may be misworded as 'auto-merge is off' when it contains 'auto merge'. That case is unverified."
+  - category: Architecture
+    decider: claude
+    chose: "The series page re-reads on TicketActivityChanged of its project (coalesced, SERIES_TICKET_NUDGE_MS = 2000) and on a reconnect, through the hub mechanism the ticket list and Delivery page use"
+    over: "A polling interval while a ticket waits for its host; filtering the nudge by ticket key"
+    reason: "Every refresh that changes a record already sends that nudge, so the page follows a completed arm, a CI turn and a retarget without polling. The constant is a UI coalescing window, not a limit, and matches TICKET_NUDGE_MS and DELIVERY_TICKET_NUDGE_MS. The hub's key is the tracker-typed slug the series view does not carry; a project's other nudges cost at most one read per window."

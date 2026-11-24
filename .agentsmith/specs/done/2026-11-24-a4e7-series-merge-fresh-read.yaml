@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-a4e7
+goal: "After a person's series merge the PR records are read from the host before the act answers, and the series page re-reads on its tickets' activity, so a merged ticket never shows Merge again."
+
+applies_to: "default (series merge act, PR record refresh) + dashboard (series page read, Overview acts)"
+
+requires: [2026-11-23-31dce, 2026-11-23-0219, 2026-10-13-9a59b]
+
+facts:
+  - claim: "The series merge act runs the merge-green run synchronously and answers its per-repo outcome; nothing in the act or the run refreshes the PR records."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesMergeNextAct.cs:52; src/backend/AgentSmith.Server/Services/Rework/MergeGreenRun.cs:29"
+  - claim: "The series detail reads PR state from the PR records, which only PrReviewRecordRefresh writes, run by the nudge worker under the ticket's lock; the periodic re-read nudges it about once a minute."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:17; src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:50; src/backend/AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs:14"
+  - claim: "A refresh that changed anything sends TicketActivityChanged; the ticket page and ticket list re-read on it, the series page does not listen."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:55; src/dashboard/src/lib/tickets/TicketListProvider.tsx:71; src/dashboard/src/components/series/page/useSeriesRunDetail.ts:18"
+  - claim: "An armed auto-complete is already on the series detail as the PR's MergeSaid (completion_armed), but the row still offers Merge as the next act."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunDetailReader.cs:47; src/dashboard/src/components/series/page/seriesTicketActs.ts:70"
+
+scope:
+  in: >-
+    PrRecordRefreshNow (Server/Services/Rework): reads a ticket's PR records under the nudge worker's ticket lock with the
+    same PrReviewRecordRefresh the worker runs, without the CI loop (ciLoop: false), then queues one Refresh nudge so the
+    worker runs the loop; a busy lock reads nothing and leaves it to that nudge. It runs on no token and throws nothing.
+    SeriesMergeNextAct calls it when any repo's outcome is merged or armed, before answering. useSeriesRunDetail re-reads,
+    coalesced within 2 s, on every TicketActivityChanged of the series' project and on a reconnect. An armed ticket keeps
+    its enabled Merge and the existing armed sentence.
+  out: >-
+    A refresh inside MergeGreenRun (CiGreenMerge calls the run from inside a refresh). A new "armed" merge-order wait on the
+    server. A polling interval on the page.
+
+tests:
+  - "PrRecordRefreshNowTests: a free lock reads the merge from the host, releases the lock and queues one Refresh nudge; a busy lock reads nothing and queues it; a throwing lock or nudge queue throws nothing."
+  - "SeriesMergeNextActTests: a merged or armed outcome refreshes the ticket's records before the answer, a refused one does not; a refresh whose lock throws still answers the merge lines. CiGreenMergeTests: a refresh without the CI loop starts no merge-green run."
+  - "Dashboard useSeriesRunDetail: a burst of the series' project's TicketActivityChanged reads once, another project's reads nothing, a reconnect reads again. seriesTicketActs: an armed ticket says so and keeps an enabled Merge."
+
+done:
+  - "Build, the affected backend and dashboard tests green; the spec gate passed."

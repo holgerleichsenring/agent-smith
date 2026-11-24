@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Rework;
 using AgentSmith.Server.Services.Tickets;
@@ -21,9 +22,12 @@ namespace AgentSmith.Server.Services.Series;
 /// the open record, as the page shows them) go to a merge-green run marked as asked by that person, which runs under
 /// merge: manual too. The run re-reads every base on the host and hands back each repo's outcome; a lease another run
 /// holds is said as such. The retarget of the next ticket follows the landing, as for any merge.
+/// <para>2026-11-24-a4e7: a run that merged or armed a pull request has the ticket's records read from the host before the
+/// act answers, so the page's next read shows the merge instead of the same Merge again.</para>
 /// </summary>
 public sealed class SeriesMergeNextAct(
-    SeriesRunDetailReader details, TicketProjects projects, IPreviousAttemptReader attempts, IMergeGreenRun merges)
+    SeriesRunDetailReader details, TicketProjects projects, IPreviousAttemptReader attempts, IMergeGreenRun merges,
+    IPrRecordRefreshNow records)
 {
     public async Task<TicketCloseResult> MergeAsync(string seriesId, string ticketId, string askedBy, CancellationToken ct)
     {
@@ -51,9 +55,11 @@ public sealed class SeriesMergeNextAct(
         var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
         if (!await merges.RunAsync(project, request, ct, slot))
             return TicketCloseResult.Refuse(Status409Conflict, $"{ticket.Key} was not merged: another run holds this ticket.");
-        return slot.Value is { } lines
-            ? TicketCloseResult.Ok(new SeriesMergeAnswer(ticket.TicketId, [.. lines.Select(View)]))
-            : TicketCloseResult.Refuse(Status500InternalServerError, $"{ticket.Key} was not merged: the merge run ended before its merge step.");
+        if (slot.Value is not { } lines)
+            return TicketCloseResult.Refuse(Status500InternalServerError, $"{ticket.Key} was not merged: the merge run ended before its merge step.");
+        if (lines.Any(l => l.Outcome is PullRequestCompletionOutcome.Merged or PullRequestCompletionOutcome.Armed))
+            await records.RefreshAsync(project, ticket.TicketId);
+        return TicketCloseResult.Ok(new SeriesMergeAnswer(ticket.TicketId, [.. lines.Select(View)]));
     }
 
     /// <summary>2026-11-23-849e: the ready step's CI is red — the act refuses what the page does not offer. 2026-11-23-0219: a
