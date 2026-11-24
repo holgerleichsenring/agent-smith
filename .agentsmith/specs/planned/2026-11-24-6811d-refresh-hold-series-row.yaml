@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-6811d
+goal: "While a refresh-base run works on a pull request its ticket says it is brought up to date and offers no Merge; a refresh that left the branch alone holds for a person with its reason."
+
+applies_to: "default (PR outcome reader, holds, series detail) + dashboard (hold words, series row acts)"
+
+requires: [2026-11-24-6811c, 2026-11-24-6811a, 2026-11-23-0219]
+
+facts:
+  - claim: "A refresh-base run's queued row names the repository but no pull request; it is shown on its ticket (ShownOnTicket) and is no attempt, since hold heads read code runs only."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/BaseRefreshLauncher.cs:28-34, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/InitRunRepository.cs:36-48, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDerive.cs:16-19"
+  - claim: "The series page reads what the newest merge-green run said per pull request from its run row (PullRequestMergeSaidReader); nothing reads a refresh run."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PullRequestMergeSaidReader.cs:17-31"
+  - claim: "A hold is read from TicketHoldFacts, whose open pull requests come from TicketOpenPullRequestsReader over the records the read already holds."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Holds/TicketOpenPullRequestsReader.cs:21-40, src/backend/AgentSmith.Application/Services/Holds/TicketHoldFacts.cs:74-75, src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:3-18"
+  - claim: "The series row offers Merge for the now, needed and pr kinds; a hold in AT_WORK makes the ticket running, which offers none."
+    evidence: "src/dashboard/src/components/series/page/seriesTicketActs.ts:64-79, src/dashboard/src/components/series/page/seriesNodeKind.ts:14,35"
+
+scope:
+  in: >-
+    BaseRefreshLauncher writes the pull request URL on the queued run's repo row. PullRequestMergeSaidReader gains the
+    newest refresh-base run per URL with its run id: in flight (queued or running), refused (refresh_refused with its
+    reason, or a failed or cancelled run with the run's summary as the reason), and nothing once a newer refresh finished
+    otherwise or the head moved after it. TicketOpenPullRequestsReader reads it once per call for the open URLs into
+    TicketOpenPullRequests.Refresh. Holds: refreshing (nobody, since the run started; the first nobody case, before
+    merge_after, retarget and the CI waits) — while it runs Decide yields no pr_conflict or ci_failed, Merge no merge hold,
+    and CiGreenMerge starts no merge on that pull request; a run no process drives any more is ended by RunLivenessReaper,
+    so refreshing never outlives its run; refresh_refused (decide, the reason as the hold's detail, act
+    pull_request), ahead of pr_conflict. SeriesRunPullRequestView.RefreshRunId while one runs. Dashboard: hold words for
+    both; refreshing is at work on the series page (no Merge) and its run link opens the refresh run; a refresh_refused
+    row shows its pull request act and the ticket page's Your move box titles both (yourMove heldMove cases); TypeScript
+    mirror, i18n en/de. A refused refresh is one more row on the Pull Requests page, as a refused merge-green run is.
+  out: "The refresh itself (6811c); the trigger setting (unchanged). A refused refresh is lifted by the next landing's refresh, a push to the branch, or the ticket's rework."
+
+steps:
+  - id: seed
+    action: "CreateQueuedRunAsync takes the pull request URL per repo; BaseRefreshLauncher passes it."
+  - id: read
+    action: "PullRequestMergeSaidReader.RefreshesAsync(urls) -> PullRequestRefreshSaid(RunId, InFlight, Reason, At)."
+  - id: facts
+    action: "TicketOpenPullRequests.Refresh; TicketOpenPullRequestsReader reads it, dropping a refusal older than the record's HeadMovedAt."
+  - id: hold
+    action: "TicketHoldCases.Refreshing and RefreshRefused; TicketPullRequestHold.Refresh*; TicketHoldReader Decide, Merge and Nobody."
+  - id: show
+    action: "holdWords, yourMove cases, seriesNodeKind AT_WORK, series run link, i18n, types; CiGreenMerge skips a pull request with a refresh in flight."
+
+tests:
+  - "PullRequestMergeSaidReaderTests: a queued or running refresh is in flight; a refused one carries its reason; a failed run carries its summary; a newer finished refresh clears it; merge-green answers are unchanged."
+  - "CiGreenMergeTests: a green pull request with a refresh in flight starts no merge."
+  - "TicketHoldReader: refreshing holds nobody, over pr_conflict, ci_failed and ci_running, and no merge; refresh_refused holds decide with the reason, over pr_conflict; a head moved after the refusal drops it."
+  - "Dashboard: a refreshing ticket is running on the series page with no Merge act and a link to the refresh run; holdSentence says both cases."
+
+done:
+  - "Build, affected backend and dashboard tests green; the spec gate passed."
