@@ -94,7 +94,7 @@ spec:
       emptyDir: {}
   initContainers:
     - name: inject-agent
-      image: holgerleichsenring/agent-smith-sandbox-agent:0.209.0   # derived from the server's release
+      image: holgerleichsenring/agent-smith-sandbox-agent:0.210.0   # derived from the server's release
       volumeMounts:
         - name: shared
           mountPath: /shared

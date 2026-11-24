@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.210.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.209.0...v0.210.0) (2026-11-24)
+
+
+### Features
+
+* **pocs:** source repository picker, autofill off, pull-mode choice list, problems at their fields (2026-11-24-f965) ([68fd39e](https://github.com/holgerleichsenring/agent-smith/commit/68fd39ee4d57c4585771c744392a90f17644f03b))
+* **pocs:** the PoC source repository is picked from the catalog or a connection's discovered repos, autofill stays off, the pull mode is a choice list, and missing or refused values show at their fields (2026-11-24-f965) ([558035e](https://github.com/holgerleichsenring/agent-smith/commit/558035ebdcde3fc8f3dbae612f1f1d4b1f838855))
+* **refresh-base:** a refused refresh offers Try again, which starts the same refresh-base run (2026-11-24-9dc0e) ([605c3db](https://github.com/holgerleichsenring/agent-smith/commit/605c3dbe7750dacb9d29498477ffcac331563c1a))
+
+
+### Bug Fixes
+
+* **model-quota:** an Azure call counts its generated tokens, not max_tokens held for the minute (2026-11-24-9dc0d) ([9b2f371](https://github.com/holgerleichsenring/agent-smith/commit/9b2f371f7835e95e63b5bcfa257fa5ab9e344237))
+* **refresh-base:** a stale Azure clean merge status reads unknown, the record stops keeping it (2026-11-24-9dc0c) ([c48de22](https://github.com/holgerleichsenring/agent-smith/commit/c48de2255e37157ca9476ecb5c070cc5574d4137))
+* **refresh-base:** diff review fixes across the series (2026-11-24-9dc0e) ([f401725](https://github.com/holgerleichsenring/agent-smith/commit/f401725616e918b3d1aae5de8be97376a80b0f2b))
+* **refresh-base:** the base-merge master resolves and stages, the server builds and tests (2026-11-24-9dc0b) ([1f31a8b](https://github.com/holgerleichsenring/agent-smith/commit/1f31a8b7e37c9ef6b78059a873291ea3ec585629))
+* **refresh-base:** the server decides a base merge is whole; the master resolves, the server builds; stale merge status is unknown; Try again (2026-11-24-9dc0) ([a9c9c66](https://github.com/holgerleichsenring/agent-smith/commit/a9c9c66d1e44b99e1de102d57e84441eaeea2a70))
+* **refresh-base:** the server decides a conflict resolution is whole, a pass that ends without conclude loses nothing (2026-11-24-9dc0a) ([d92e70b](https://github.com/holgerleichsenring/agent-smith/commit/d92e70b2d9d0d46458b8022a7a630562be1d186e))
+
 ## [0.209.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.208.0...v0.209.0) (2026-11-24)
 
 
