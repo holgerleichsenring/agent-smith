@@ -1,0 +1,64 @@
+# @@MARKER@@
+# Agent smith sets replicas, the image (by digest), the readiness probe, envFrom, the proxy variables, the pull
+# secret, the pod labels, the sync wave and the variables checksum at every commit; the hardening below must stay.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: "{namespace}"
+  labels:
+    app.kubernetes.io/name: app
+    agent-smith.io/poc: "{app}"
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app
+      agent-smith.io/poc: "{app}"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app
+        agent-smith.io/poc: "{app}"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          ports:
+            - name: http
+              containerPort: {port}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: @@CPU_REQUEST@@
+              memory: @@MEMORY_REQUEST@@
+            limits:
+              cpu: @@CPU_LIMIT@@
+              memory: @@MEMORY_LIMIT@@
+              ephemeral-storage: @@EPHEMERAL_LIMIT@@
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

@@ -64,6 +64,13 @@ internal sealed class StubSourceProvider(string? contextYaml = null) : ISourcePr
         string path, BranchName branch, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<string>>([]);
 
+    public Task<RepoFileListing> ListFilesUnderAsync(
+        string path, BranchName branch, int maxFiles, CancellationToken cancellationToken) =>
+        Task.FromResult(RepoFileListing.Empty);
+
+    public Task<BranchName> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new BranchName("main"));
+
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
         // 2026-11-16-f3fba: the repository is bootstrapped as the host serves it, so the run's

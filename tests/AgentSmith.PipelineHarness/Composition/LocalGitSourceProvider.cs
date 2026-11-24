@@ -68,6 +68,13 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
             ? ListDirectoryAsync(path, cancellationToken)
             : Task.FromResult<IReadOnlyList<string>>([]);
 
+    public Task<RepoFileListing> ListFilesUnderAsync(
+        string path, BranchName branch, int maxFiles, CancellationToken cancellationToken) =>
+        Task.FromResult(RepoFileListing.Empty);
+
+    public Task<BranchName> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new BranchName(DefaultBranch));
+
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
         var full = Path.Combine(session.WorkingCopyPath, path);
@@ -94,7 +101,7 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
     public Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,
         CancellationToken cancellationToken) =>
-        new LocalBranchCommit().WriteAsync(
+        new LocalBranchCommit(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance).WriteAsync(
             session.BareRepoPath, branch.Value, "main", files, message, cancellationToken);
 
     // p0393a: the harness records the promotion so a test can assert that a stopped

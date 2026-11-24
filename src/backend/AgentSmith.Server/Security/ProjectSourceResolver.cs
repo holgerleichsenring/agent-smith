@@ -26,6 +26,8 @@ internal sealed class ProjectSourceResolver(ResourceProjectReader reader)
             ProjectSourceKind.Session => value is null ? RouteProjects.Missing : RouteProjects.Stored(await reader.SessionAsync(Platform, value, ct)),
             ProjectSourceKind.Image => long.TryParse(value, out var image)
                 ? RouteProjects.Stored(await reader.ImageAsync(Platform, image, ct)) : RouteProjects.Missing,
+            ProjectSourceKind.Poc => long.TryParse(value, out var poc) // 933da
+                ? RouteProjects.Stored(await reader.PocAsync(poc, ct)) : RouteProjects.Missing,
             ProjectSourceKind.Dialog => await DialogAsync(value ?? http.Request.Query["dialogId"].ToString(), http),
             _ => RouteProjects.Unscoped,
         };

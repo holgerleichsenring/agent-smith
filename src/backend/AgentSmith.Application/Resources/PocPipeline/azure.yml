@@ -1,0 +1,108 @@
+@@MARKER@@
+trigger: none
+pr: none
+parameters:
+  - name: poc
+    type: string
+  - name: folder
+    type: string
+  - name: sha
+    type: string
+  - name: trivy_ignore
+    type: string
+    default: none
+  - name: ignore_unfixed
+    type: string
+    default: "false"
+    values: ["true", "false"]
+  - name: secret_rules
+    type: string
+    default: none
+jobs:
+  - job: build
+    timeoutInMinutes: @@BUILD_MINUTES@@
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: none
+      - bash: |
+          @@GUARD@@
+        displayName: Check the inputs
+        env:
+          @@ENV@@
+      - bash: |
+          @@CHECKOUT@@
+        displayName: Fetch the folder at the sha
+        env:
+          @@ENV@@
+          POC_REPO_URL: $(Build.Repository.Uri)
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      - bash: |
+          @@BUILD@@
+        displayName: Build the image, without any registry credential
+        env:
+          @@ENV@@
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: out
+          ArtifactName: poc-image-tar
+  - job: scan
+    dependsOn: build
+    timeoutInMinutes: @@SCAN_MINUTES@@
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: none
+      - bash: |
+          @@GUARD@@
+        displayName: Check the inputs
+        env:
+          @@ENV@@
+      - task: DownloadBuildArtifacts@1
+        inputs:
+          buildType: current
+          downloadType: single
+          artifactName: poc-image-tar
+          downloadPath: $(System.DefaultWorkingDirectory)
+      - bash: |
+          @@SCAN@@
+        displayName: Scan the image with Trivy
+        env:
+          @@ENV@@
+      - task: PublishBuildArtifacts@1
+        condition: always()
+        inputs:
+          PathtoPublish: report
+          ArtifactName: poc-scan-report
+  - job: push
+    dependsOn: scan
+    timeoutInMinutes: @@PUSH_MINUTES@@
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: none
+      - bash: |
+          @@GUARD@@
+        displayName: Check the inputs
+        env:
+          @@ENV@@
+      - task: DownloadBuildArtifacts@1
+        inputs:
+          buildType: current
+          downloadType: single
+          artifactName: poc-image-tar
+          downloadPath: $(System.DefaultWorkingDirectory)
+      - task: Docker@2
+        displayName: Sign in to the registry, in this job only
+        inputs:
+          command: login
+          containerRegistry: @@AZURE_SERVICE_CONNECTION@@
+      - bash: |
+          @@PUSH@@
+        displayName: Push the image
+        env:
+          @@ENV@@
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: out
+          ArtifactName: poc-image

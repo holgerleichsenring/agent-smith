@@ -37,6 +37,10 @@
   <ItemGroup>
     <!-- Live-LLM probe fixtures: real .cs files used as input to the LLM, NOT compiled. -->
     <Compile Remove="Integration\Fixtures\**\*.cs" />
+    <!-- 2026-11-23-933dg: a value sealed by kubeseal's own HybridEncrypt (sealed-secrets v0.27.1) with a test-only key. -->
+    <None Include="Pocs\Sealing\Fixtures\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Integration\Fixtures\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

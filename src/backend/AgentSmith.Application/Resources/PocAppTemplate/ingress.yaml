@@ -1,0 +1,19 @@
+# @@MARKER@@
+# Agent smith sets the ingress class, the host, the auth annotations and (with ingress.tls_issuer) TLS at every commit.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app
+  namespace: "{namespace}"
+spec:
+  rules:
+    - host: "{host}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app
+                port:
+                  number: 80

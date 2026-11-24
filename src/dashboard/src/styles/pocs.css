@@ -1,0 +1,206 @@
+/* 2026-11-23-933da: the PoCs list in the ticket list's frame (.mock-tickets) — Vercel-like cards on the dark ground: a
+   quiet preview block, the name, the address, the state with its dot, the owner and the last run; state pills above,
+   the target strip below. Every value is a .mock-shell custom property. */
+.mock-pocs .poc-import { margin-left: auto; }
+.mock-pocs .poc-pills { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+.mock-pocs .poc-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-2); background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
+.mock-pocs .poc-pill:hover { background: var(--panel-2); }
+.mock-pocs .poc-pill.on { background: var(--panel-2); border-color: var(--line); color: var(--ink); }
+.mock-pocs .poc-pill b { font-weight: 500; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.mock-pocs .poc-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+.mock-pocs .poc-dot.ok { background: var(--ok); }
+.mock-pocs .poc-dot.run { background: var(--run); }
+.mock-pocs .poc-dot.bad { background: var(--bad); }
+.mock-pocs .poc-dot.idle { background: var(--idle); }
+.mock-pocs .poc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.mock-pocs .poc-card { display: flex; flex-direction: column; min-width: 0; background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r); overflow: hidden; }
+.mock-pocs .poc-card:hover { border-color: var(--line); }
+.mock-pocs .poc-card[data-state="stopped"] .poc-shot, .mock-pocs .poc-card[data-state="deleted"] .poc-shot { opacity: 0.55; }
+.mock-pocs .poc-shot { height: 112px; box-sizing: border-box; display: flex; flex-direction: column; gap: 7px; padding: 12px; background: var(--bg); border-bottom: 1px solid var(--line-2); }
+.mock-pocs .poc-shot i { display: block; height: 8px; border-radius: 4px; background: var(--panel-2); width: 42%; }
+.mock-pocs .poc-shot i + i { width: 68%; }
+.mock-pocs .poc-shot span { flex: 1; border-radius: var(--r-s); background: var(--panel); border: 1px solid var(--line-2); }
+.mock-pocs .poc-body { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; min-width: 0; }
+.mock-pocs .poc-name { margin: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.mock-pocs .poc-host { font-family: var(--mono); font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
+.mock-pocs .poc-state { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.mock-pocs .poc-owner { color: var(--ink-3); }
+.mock-pocs .poc-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line-2); font-size: 12.5px; color: var(--ink-3); }
+.mock-pocs .poc-foot a { color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+.mock-pocs .poc-foot a:hover { color: var(--ink); }
+.mock-pocs .poc-project { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mock-pocs .poc-empty { display: flex; flex-direction: column; gap: 4px; padding: 28px 16px; text-align: center; color: var(--ink-3); background: var(--panel); border: 1px dashed var(--line); border-radius: var(--r); }
+.mock-pocs .poc-empty strong { color: var(--ink); font-weight: 600; }
+.mock-pocs .poc-targets { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; padding: 12px 16px; border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink-3); font-size: 13px; }
+.mock-pocs .poc-target { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.mock-pocs .poc-targets b { color: var(--ink); font-weight: 500; }
+.mock-pocs .poc-targets .mono { font-family: var(--mono); font-size: 12.5px; }
+.mock-pocs .poc-target-settings { margin-left: auto; color: var(--ink-2); text-decoration: none; }
+.mock-pocs .poc-target-settings:hover { color: var(--ink); }
+
+/* 2026-11-23-933db: the import page — the drop zone, the app choice and comparison on the left; the checks, what
+   happens next and Start on the right; the mismatch alert in the run colour. */
+.mock-pocs .poc-crumb { font-size: 13px; color: var(--ink-3); margin-bottom: 10px; }
+.mock-pocs .poc-crumb a { color: var(--ink-2); text-decoration: none; }
+.mock-pocs .poc-crumb a:hover { color: var(--ink); }
+.mock-pocs .poc-cols { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.mock-pocs .poc-col-main { flex: 3 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.mock-pocs .poc-col-side { flex: 2 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.mock-pocs .poc-box { background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--r); padding: 18px 20px; }
+.mock-pocs .poc-box h2, .mock-pocs .poc-alert h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+.mock-pocs .poc-box p { margin: 0 0 14px; color: var(--ink-2); }
+.mock-pocs .poc-meta { display: block; font-size: 13px; color: var(--ink-3); }
+.mock-pocs .poc-drop { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 22px; border: 1px dashed var(--line); border-radius: var(--r); background: var(--bg); }
+.mock-pocs .poc-drop.over { border-color: var(--ink-3); background: var(--panel-2); }
+.mock-pocs .poc-drop.done { border-style: solid; border-color: var(--line-2); background: var(--panel); }
+.mock-pocs .poc-drop-text { flex: 1; min-width: 160px; }
+.mock-pocs .poc-file-name { font-weight: 600; overflow-wrap: anywhere; }
+.mock-pocs .poc-zip { width: 44px; height: 52px; flex: none; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+.mock-pocs .poc-field { display: flex; flex-direction: column; gap: 6px; }
+.mock-pocs .poc-field label { font-size: 13px; color: var(--ink-2); }
+.mock-pocs .poc-field input, .mock-pocs .poc-field select { height: 38px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; }
+.mock-pocs .poc-field input.mono { font-family: var(--mono); font-size: 13px; }
+.mock-pocs .poc-choices { display: flex; flex-direction: column; gap: 8px; }
+.mock-pocs .poc-choice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; }
+.mock-pocs .poc-choice.on { border-color: var(--ink-3); background: var(--panel-2); }
+.mock-pocs .poc-choice input { margin-top: 3px; accent-color: var(--accent); }
+.mock-pocs .poc-choice b { font-weight: 600; }
+.mock-pocs .poc-checks, .mock-pocs .poc-compared { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.mock-pocs .poc-checks li { display: flex; gap: 10px; align-items: flex-start; }
+.mock-pocs .poc-check-text { display: flex; flex-direction: column; }
+.mock-pocs .poc-check-text .poc-meta { font-size: 12.5px; }
+.mock-pocs .poc-ok { color: var(--ok); flex: none; margin-top: 2px; }
+.mock-pocs .poc-compared { gap: 4px; color: var(--ink-2); font-size: 13px; }
+.mock-pocs .poc-diffnums { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 12px; font-family: var(--mono); font-size: 13px; }
+.mock-pocs .poc-diffnums .add { color: var(--ok); }
+.mock-pocs .poc-diffnums .chg { color: var(--run); }
+.mock-pocs .poc-diffnums .del { color: var(--bad); }
+.mock-pocs .poc-diffnums .same { color: var(--ink-3); }
+.mock-pocs .poc-alert { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; border: 1px solid color-mix(in srgb, var(--run) 45%, var(--bg)); background: var(--run-wash); border-radius: var(--r); }
+.mock-pocs .poc-alert h2 { color: var(--run); margin: 0; }
+.mock-pocs .poc-alert p { margin: 0; }
+.mock-pocs .poc-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.mock-pocs .poc-refusal { padding: 12px 16px; border: 1px solid color-mix(in srgb, var(--bad) 45%, var(--bg)); background: var(--bad-wash); border-radius: var(--r); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mock-pocs .poc-next { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 18px; color: var(--ink-2); }
+.mock-pocs .poc-go { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
+.mock-pocs .poc-go .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.mock-pocs a.btn { text-decoration: none; }
+
+/* 2026-11-23-933dc: a revision's page — the state badge, the step strip, each blocking finding in the bad colour with
+   its masked line, the notes folded, the agent's explanation as plain text, and the overrule box or the sentence why
+   not. A blocked card links here. */
+.mock-pocs .poc-why { font-size: 13px; color: var(--bad); text-decoration: none; }
+.mock-pocs .poc-why:hover { text-decoration: underline; }
+.mock-pocs .poc-rev-title { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.mock-pocs .poc-badge { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 13px; font-weight: 500; }
+.mock-pocs .poc-badge.bad { background: var(--bad-wash); color: var(--bad); }
+.mock-pocs .poc-badge.ok { background: var(--ok-wash); color: var(--ok); }
+.mock-pocs .poc-badge.run { background: var(--run-wash); color: var(--run); }
+.mock-pocs .poc-badge-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.mock-pocs .mono { font-family: var(--mono); font-size: 12.5px; }
+.mock-pocs .poc-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 22px; padding: 0; list-style: none; }
+.mock-pocs .poc-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); font-size: 13px; color: var(--ink-2); }
+.mock-pocs .poc-chip.done svg { color: var(--ok); }
+.mock-pocs .poc-chip.blocked { border-color: color-mix(in srgb, var(--bad) 45%, var(--bg)); background: var(--bad-wash); color: var(--bad); }
+.mock-pocs .poc-chip.pending { color: var(--ink-3); }
+.mock-pocs .poc-find { background: var(--panel); border: 1px solid color-mix(in srgb, var(--bad) 35%, var(--line-2)); border-radius: var(--r); overflow: hidden; }
+.mock-pocs .poc-find-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 18px; }
+.mock-pocs .poc-find-head h2 { font-size: 15px; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+.mock-pocs .poc-place { margin-left: auto; color: var(--ink-3); overflow-wrap: anywhere; }
+.mock-pocs .poc-sev, .mock-pocs .poc-kind { flex: none; font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; padding: 2px 8px; border-radius: 5px; }
+.mock-pocs .poc-sev { background: var(--bad-wash); color: var(--bad); }
+.mock-pocs .poc-kind { background: var(--panel-2); color: var(--ink-2); }
+.mock-pocs .poc-find-body { display: flex; flex-direction: column; gap: 10px; padding: 0 18px 16px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mock-pocs .poc-code { margin: 0; padding: 10px 14px; border-radius: var(--r-s); background: var(--bg); border: 1px solid var(--line-2); font-family: var(--mono); font-size: 12.5px; line-height: 1.8; color: var(--ink); overflow-x: auto; white-space: pre; }
+.mock-pocs .poc-fix { color: var(--ink); font-size: 13.5px; }
+.mock-pocs .poc-fix b { font-weight: 600; }
+.mock-pocs .poc-notes summary { cursor: pointer; list-style: none; }
+.mock-pocs .poc-notes summary::-webkit-details-marker { display: none; }
+.mock-pocs .poc-notes summary h2 { display: inline; margin: 0; }
+.mock-pocs .poc-notes ul { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; }
+.mock-pocs .poc-notes li { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mock-pocs .poc-notes li > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mock-pocs .poc-agent { margin-top: 10px; color: var(--ink-2); font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mock-pocs .poc-overrule { display: flex; flex-direction: column; gap: 10px; }
+.mock-pocs .poc-overrule h2 { margin: 0; }
+.mock-pocs .poc-overrule textarea { width: 100%; box-sizing: border-box; min-height: 72px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; resize: vertical; }
+.mock-pocs .poc-overrule .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.mock-pocs .poc-why-not { padding: 12px 16px; border: 1px solid var(--line-2); border-radius: var(--r); color: var(--ink-2); font-size: 13.5px; }
+
+/* 2026-11-23-933dg: the variables table on the import page. */
+.mock-pocs .poc-variables-table { width: 100%; border-collapse: collapse; margin: 0 0 12px; }
+.mock-pocs .poc-variables-table th { text-align: left; font-size: 13px; font-weight: 500; color: var(--ink-2); padding: 0 8px 6px 0; }
+.mock-pocs .poc-variables-table td { vertical-align: top; padding: 0 8px 8px 0; }
+.mock-pocs .poc-variables-table input[type="text"], .mock-pocs .poc-variables-table input[type="password"] { width: 100%; height: 34px; box-sizing: border-box; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-family: var(--mono); font-size: 13px; }
+.mock-pocs .poc-variables-table input[type="checkbox"] { margin-top: 10px; }
+
+/* 2026-11-23-c81ec: the Rollout page — one row per step with its state, its links and its live lines. */
+.mock-pocs .poc-rollout-steps { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.mock-pocs .poc-rollout-step { background: var(--panel); border: 1px solid var(--line-2); border-left: 3px solid var(--line); border-radius: var(--r); padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mock-pocs .poc-rollout-step.done, .mock-pocs .poc-rollout-step.warn, .mock-pocs .poc-rollout-step.quiet { border-left-color: var(--ok); }
+.mock-pocs .poc-rollout-step.running { border-left-color: var(--run); }
+.mock-pocs .poc-rollout-step.bad { border-left-color: var(--bad); }
+.mock-pocs .poc-rollout-step.pending { opacity: 0.6; }
+.mock-pocs .poc-rollout-step-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.mock-pocs .poc-rollout-step-head .poc-meta { display: inline; }
+.mock-pocs .poc-rollout-step-head .mono { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
+.mock-pocs .poc-rollout-lines { list-style: none; margin: 0; padding: 0; font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.mock-pocs .poc-rollout-lines .poc-meta { display: inline; }
+.mock-pocs .poc-rollout-lines .tone-bad { color: var(--bad); }
+.mock-pocs .poc-rollout-lines .tone-ok { color: var(--ok); }
+
+/* 2026-11-23-c81ed: the PoC detail page — the header with its state and a pending delete, the revisions table, the
+   desired state, the acts with the delete confirmation, the readiness setting, the variables and the audit. */
+.mock-pocs .poc-name a { color: inherit; text-decoration: none; }
+.mock-pocs .poc-name a:hover { text-decoration: underline; }
+.mock-pocs .poc-detail-head { margin-bottom: 18px; }
+.mock-pocs .poc-detail-head .msub a { color: var(--ink-2); text-decoration: none; }
+.mock-pocs .poc-detail-head .msub a:hover { color: var(--ink); }
+.mock-pocs .poc-detail-head .poc-meta a { color: var(--ink-2); }
+.mock-pocs .poc-detail-state { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.mock-pocs .poc-detail-cols { margin-top: 16px; }
+.mock-pocs .poc-acted { margin-bottom: 12px; padding: 12px 16px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--panel); color: var(--ink-2); }
+.mock-pocs .poc-acted a { color: var(--ink); }
+.mock-pocs .poc-table-scroll { overflow-x: auto; }
+.mock-pocs .poc-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.mock-pocs .poc-table th { text-align: left; font-size: 12.5px; font-weight: 500; color: var(--ink-3); padding: 0 12px 8px 0; white-space: nowrap; }
+.mock-pocs .poc-table td { padding: 10px 12px 10px 0; border-top: 1px solid var(--line-2); vertical-align: middle; }
+.mock-pocs .poc-table td a { color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+.mock-pocs .poc-table td a:hover { color: var(--ink); }
+.mock-pocs .poc-table .poc-state { display: inline-flex; }
+.mock-pocs .poc-row-acts { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end; }
+.mock-pocs .poc-current { margin-left: 8px; font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; padding: 1px 6px; border-radius: 5px; background: var(--ink); color: var(--bg); }
+.mock-pocs .poc-kv { margin: 0; display: flex; flex-direction: column; }
+.mock-pocs .poc-kv div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line-2); font-size: 13.5px; }
+.mock-pocs .poc-kv div:first-child { border-top: 0; }
+.mock-pocs .poc-kv dt { color: var(--ink-3); }
+.mock-pocs .poc-kv dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.mock-pocs .poc-acts .poc-meta { margin-top: 12px; }
+.mock-pocs .btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+.mock-pocs .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.mock-pocs .poc-delete { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; border-color: color-mix(in srgb, var(--bad) 40%, var(--line-2)); }
+.mock-pocs .poc-delete h2, .mock-pocs .poc-delete p { margin: 0; }
+.mock-pocs .poc-readiness { display: flex; flex-direction: column; gap: 12px; }
+.mock-pocs .poc-readiness h2, .mock-pocs .poc-readiness p { margin: 0; }
+.mock-pocs .poc-detail-variables { display: flex; flex-direction: column; gap: 10px; }
+.mock-pocs .poc-variables-save { display: flex; flex-direction: column; gap: 10px; }
+.mock-pocs .poc-variables-save p { margin: 0; }
+.mock-pocs .poc-apply-note { display: block; margin-top: 6px; color: var(--run); }
+.mock-pocs .poc-audit { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mock-pocs .poc-audit li { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line-2); font-size: 13.5px; color: var(--ink-2); }
+.mock-pocs .poc-audit li:first-child { border-top: 0; }
+.mock-pocs .poc-audit .poc-meta { display: inline; }
+.mock-pocs .poc-audit b { color: var(--ink); font-weight: 500; }
+.mock-pocs .poc-audit a { margin-left: auto; color: var(--ink-2); text-decoration: none; }
+.mock-pocs .poc-audit a:hover { color: var(--ink); }
+.mock-pocs .poc-audit-reason { flex-basis: 100%; color: var(--ink-3); overflow-wrap: anywhere; }
+.mock-pocs .poc-detail > .poc-refusal { margin-bottom: 12px; }
+
+/* 2026-11-23-c81ee: the lifetime badge on a card, the reminder banner, the lifetime panel. */
+.mock-pocs .poc-badge.poc-life { height: 22px; padding: 0 8px; font-size: 12px; }
+.mock-pocs .poc-detail > .poc-life-banner { margin-bottom: 12px; }
+.mock-pocs .poc-life-banner.expired { border-color: color-mix(in srgb, var(--bad) 45%, var(--bg)); background: var(--bad-wash); }
+.mock-pocs .poc-life-banner.expired h2 { color: var(--bad); }
+.mock-pocs .poc-lifetime { display: flex; flex-direction: column; gap: 8px; }
+.mock-pocs .poc-lifetime p { margin: 0; }
+.mock-pocs .poc-lifetime-extended { color: var(--ok); }

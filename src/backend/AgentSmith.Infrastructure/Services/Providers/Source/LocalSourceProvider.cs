@@ -2,28 +2,29 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Repository = AgentSmith.Domain.Entities.Repository;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
-/// Local source provider — assumes the operator has bind-mounted basePath into
-/// the sandbox at /work (or is running InProcessSandbox with basePath as workdir).
-/// CheckoutAsync is metadata-only. K8s mode is not supported because the
+/// Local source provider — assumes the operator has bind-mounted basePath into the sandbox at /work (or is running
+/// InProcessSandbox with basePath as workdir). CheckoutAsync is metadata-only. K8s mode is not supported because the
 /// operator cannot bind-mount a local disk into a remote pod.
 /// </summary>
-public sealed class LocalSourceProvider(string basePath, string? defaultBranch = null) : ISourceProvider
+public sealed class LocalSourceProvider(string basePath, string? defaultBranch = null, ILogger? logger = null)
+    : ISourceProvider
 {
     private const string FallbackDefaultBranch = "main";
 
     private readonly LocalBranchFastForward _fastForward = new();
-    private readonly LocalBranchCommit _branchCommit = new();
+    private readonly LocalBranchCommit _branchCommit = new(logger ?? NullLogger.Instance);
     private readonly LocalRepositoryRead _read = new(basePath);
 
     public string ProviderType => "Local";
 
-    // A local repo has no remote to reach — "reachable" means the base path exists
-    // on disk. No network round-trip, so latency is always zero.
+    // No remote to reach: "reachable" means the base path exists on disk, so latency is always zero.
     public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
         Task.FromResult(Directory.Exists(basePath)
             ? ConnectionProbeResult.Reachable(0)
@@ -50,14 +51,12 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
         CancellationToken cancellationToken,
         PullRequestTicket? linkedTicket = null, bool isDraft = false, BranchName? targetBranch = null)
     {
-        // p0326: honest wording — a Local repo without an origin remote is never
-        // pushed (SandboxGitOperations skips the push); the local commit is the result.
+        // p0326: a Local repo without an origin remote is never pushed; the local commit is the result.
         var result = $"Local repository - no PR created, commit recorded on branch: {repository.CurrentBranch}";
         return Task.FromResult(result);
     }
 
-    // p0390: a Local repo has no PR surface at all, so there is never one to find
-    // and CommitAndPR falls through to its unchanged create path.
+    // p0390: a Local repo has no PR surface, so CommitAndPR falls through to its unchanged create path.
     public Task<string?> FindOpenPullRequestAsync(
         Repository repository, CancellationToken cancellationToken) =>
         Task.FromResult<string?>(null);
@@ -78,6 +77,13 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
         string path, BranchName branch, CancellationToken cancellationToken) =>
         _read.ListDirectoryAsync(path, branch.Value, cancellationToken);
 
+    public Task<RepoFileListing> ListFilesUnderAsync( // 2026-11-23-c81ea
+        string path, BranchName branch, int maxFiles, CancellationToken cancellationToken) =>
+        _read.ListFilesUnderAsync(path, branch.Value, maxFiles, cancellationToken);
+
+    public Task<BranchName> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new BranchName(DefaultBranch));
+
     public Task<bool> UpdatePullRequestBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken) =>
         Task.FromResult(true);
@@ -86,8 +92,7 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
     public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
         Task.FromResult(true);
 
-    // 2026-09-13-a284: null is "do not move it" — an unknown base is not a wrong one, and
-    // a local repo has no pull request whose base could be read.
+    // 2026-09-13-a284: null is "do not move it" — a local repo has no pull request whose base could be read.
     public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
         Task.FromResult<string?>(null);
 
@@ -95,9 +100,8 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
         string prUrl, BranchName target, CancellationToken cancellationToken) =>
         Task.FromResult(true);
 
-    // p0490: with no pull request server, finishing the work IS moving the default
-    // branch onto the branch the run committed. The prUrl a local "PR" carries is the
-    // sentence CreatePullRequestAsync returns, so the branch is what identifies the work.
+    // p0490: finishing the work IS moving the default branch onto the branch the run committed; the branch, not the
+    // prUrl (CreatePullRequestAsync's sentence), identifies the work.
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _fastForward.RunAsync(basePath, sourceBranch.Value, DefaultBranch, cancellationToken);
@@ -106,15 +110,11 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
         string prUrl, BranchName sourceBranch, BranchProtection protection, CancellationToken cancellationToken) =>
         CompletePullRequestAsync(prUrl, sourceBranch, cancellationToken);
 
-    // 2026-09-22-b6ad: the same trust in the bind-mounted tree the checkout already places — git
-    // plumbing against a scratch index, so the operator's working tree and their staged changes
-    // are untouched by a commit made on a branch they are not on. It answers a real commit sha,
-    // because the pointer the caller records needs one and a bare file write can name none.
+    // 2026-09-22-b6ad: git plumbing against a scratch index, so the operator's working tree and staged changes are
+    // untouched; it answers a real commit sha, because the pointer the caller records needs one.
     public Task<BranchWriteResult> WriteFilesToBranchAsync(
-        BranchName branch, IReadOnlyList<RepoFile> files, string message,
-        CancellationToken cancellationToken) =>
-        _branchCommit.WriteAsync(
-            basePath, branch.Value, DefaultBranch, files, message, cancellationToken);
+        BranchName branch, IReadOnlyList<RepoFile> files, string message, CancellationToken cancellationToken) =>
+        _branchCommit.WriteAsync(basePath, branch.Value, DefaultBranch, files, message, cancellationToken);
 
     private string DefaultBranch => defaultBranch ?? FallbackDefaultBranch;
 }

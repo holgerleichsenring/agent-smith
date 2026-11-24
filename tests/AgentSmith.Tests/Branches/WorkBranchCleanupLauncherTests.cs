@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Pocs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -57,6 +58,15 @@ public sealed class WorkBranchCleanupLauncherTests : IDisposable
     }
 
     [Fact]
+    public async Task Launcher_AProvisionedPocProject_StartsNothing_AnOperatorsPocNamedProjectStillSweeps()
+    {
+        (await Launcher("poc-ann").LaunchAsync(Project(RepoType.GitHub, "poc-ann"), CancellationToken.None)).Should().BeNull(
+            "a poc- project a Poc row names runs only the PoC presets (2026-11-23-933db)");
+        (await Launcher("poc-ann").LaunchAsync(Project(RepoType.GitHub, "poc-demo"), CancellationToken.None)).Should().NotBeNull();
+        _enqueued.Select(r => r.ProjectName).Should().Equal("poc-demo");
+    }
+
+    [Fact]
     public async Task Launcher_OnlyLocalRepositories_HasNothingToSweep()
     {
         (await Launcher().LaunchAsync(Project(RepoType.Local), CancellationToken.None)).Should().BeNull();
@@ -105,10 +115,15 @@ public sealed class WorkBranchCleanupLauncherTests : IDisposable
         _enqueued.Select(r => r.ProjectName).Should().BeEquivalentTo(["a", "b"]);
     }
 
-    private WorkBranchCleanupLauncher Launcher() => new(
-        new InitRunRepository(new AgentSmithDbContext(Options()), TimeProvider.System),
-        TestQueuedRunDispatch.Over(() => new AgentSmithDbContext(Options()), Queue()),
-        TimeProvider.System, NullLogger<WorkBranchCleanupLauncher>.Instance);
+    private WorkBranchCleanupLauncher Launcher(params string[] pocProjects)
+    {
+        var pocs = new Mock<IPocProjects>();
+        pocs.Setup(p => p.IsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string project, CancellationToken _) => pocProjects.Contains(project));
+        return new(new InitRunRepository(new AgentSmithDbContext(Options()), TimeProvider.System),
+            TestQueuedRunDispatch.Over(() => new AgentSmithDbContext(Options()), Queue()),
+            TimeProvider.System, pocs.Object, NullLogger<WorkBranchCleanupLauncher>.Instance);
+    }
 
     private IRedisJobQueue Queue()
     {

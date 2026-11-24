@@ -21,7 +21,7 @@ public sealed class OrphanedSecretValues(ISecretVault vault)
     {
         ArgumentNullException.ThrowIfNull(store);
         if (store.GetSecrets().Any(s => string.Equals(s.Id, name, StringComparison.OrdinalIgnoreCase))) return null;
-        var state = (await vault.StatesAsync(ct)).FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
+        var state = (await vault.StatesAsync(SecretScope.Installation, ct)).FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
         return state is null ? null : ConfigEntityJson.Render(new { state.Name, state.SetAt });
     }
 
@@ -34,5 +34,5 @@ public sealed class OrphanedSecretValues(ISecretVault vault)
             $"'{name}' has no stored value whose catalog secret is gone; a value whose secret exists is deleted in the secret drawer.");
     }
 
-    public Task<bool> DeleteAsync(string name, CancellationToken ct) => vault.DeleteAsync(name, ct);
+    public Task<bool> DeleteAsync(string name, CancellationToken ct) => vault.DeleteAsync(SecretScope.Installation, name, ct);
 }

@@ -42,7 +42,7 @@ public sealed class ConfigStudioRouteSplitTests
 
     [Fact]
     public void ConfigStudio_MappedRoutes_AreTheSameThirtyNineAfterTheSplit() =>
-        MappedRoutes().Should().HaveCount(52); // 2026-11-17-f3a8d: + the four secret-value routes
+        MappedRoutes().Should().HaveCount(55); // 2026-11-17-f3a8d: + the four secret-value routes; 933de: + registry check; 933dg: + certificate fetch; c81ec: + argo check
 
     [Fact]
     public void ConfigStudio_MappedRoutes_KeepTheirVerbsAndPaths() =>
@@ -77,6 +77,9 @@ public sealed class ConfigStudioRouteSplitTests
             "POST /api/config/connections/{id}/discovery/refresh",
             "POST /api/config/connections/check",
             "POST /api/config/trackers/check",
+            "POST /api/config/pocs/registry/check", // 2026-11-23-933de
+            "POST /api/config/pocs/sealed-secrets-cert/fetch", // 2026-11-23-933dg
+            "POST /api/config/pocs/argo/check", // 2026-11-23-c81ec
             "GET /api/config/projects/{project}/contexts",
             "GET /api/config/export.yml",
             "POST /api/config/import",

@@ -24,6 +24,8 @@ public static partial class CommandModelUse
             ModelUse.Call, "spec premise-check prompt",
             "per stated premise that no longer holds: the premise, the verdict and the evidence id"),
         [CommandNames.ReviewSpecs] = new(ModelUse.Call, "spec attack brief", "per reviewer: a verdict, cited cuts and findings"),
+        // 2026-11-23-933dc: one call for a BLOCKED verdict only; the rules never read its answer.
+        [CommandNames.PocCodeScan] = new(ModelUse.Call, "PoC scan explanation prompt", "an explanation of the blocking findings"),
         [CommandNames.BootstrapDocument] = new(
             ModelUse.Call, "contract-classifier-master", "the document type"),
         [CommandNames.BootstrapDiscover] = new(
@@ -83,7 +85,7 @@ public static partial class CommandModelUse
         CommandNames.RetargetPullRequests, // 2026-11-17-9a39c
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.PostPrComments,
-        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches, CommandNames.CompletePullRequests, CommandNames.DeployToEnvironment,
+        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches, CommandNames.CompletePullRequests, CommandNames.DeployToEnvironment, CommandNames.PocIntake, CommandNames.PocSourceCommit, CommandNames.PocPipelineBuild, CommandNames.PocTargetInstall, CommandNames.WritePocVariables, CommandNames.SealPocVariables, CommandNames.GitOpsCommit, CommandNames.PocRolloutFollow, CommandNames.PocAct, CommandNames.PocExtend, CommandNames.PurgePocUploads,
         CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
     };
 }

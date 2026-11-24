@@ -3,8 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
   checkConnectionDraft,
+  checkPocArgoDraft,
+  checkPocRegistryDraft,
   checkTrackerDraft,
   type DraftCheckReport,
+  type PocArgoSetting,
+  type PocRegistrySetting,
   type StudioConnection,
   type StudioTracker,
 } from "@/lib/configApi";
@@ -17,9 +21,13 @@ import { useT } from "@/hooks/useT";
 // stopping point are the server's. Needs config.write and diagnostics.probe; a refusal shows as
 // the request's error.
 
+// 2026-11-23-933de: a PoC target's registry block too, with its own label and test id prefix.
 type Props =
   | { kind: "connections"; draft: StudioConnection }
-  | { kind: "trackers"; draft: StudioTracker };
+  | { kind: "trackers"; draft: StudioTracker }
+  | { kind: "poc-registry"; draft: PocRegistrySetting; label: string; help: string; testId: string }
+  // 2026-11-23-c81ec: a PoC target's Argo block, checked under the target's name (the ApplicationSet is named after it).
+  | { kind: "poc-argo"; target: string; draft: PocArgoSetting; label: string; help: string; testId: string };
 
 export function DraftCheckPanel(props: Props) {
   const t = useT();
@@ -29,7 +37,7 @@ export function DraftCheckPanel(props: Props) {
   const inFlight = useRef<AbortController | null>(null);
 
   // A draft that changed since the last Test is a different draft; its old answer would lie.
-  const key = JSON.stringify(props.draft);
+  const key = JSON.stringify([props.kind === "poc-argo" ? props.target : null, props.draft]);
   useEffect(() => {
     setReport(null);
     setError(null);
@@ -46,7 +54,11 @@ export function DraftCheckPanel(props: Props) {
     const ask =
       props.kind === "connections"
         ? checkConnectionDraft(props.draft, controller.signal)
-        : checkTrackerDraft(props.draft, controller.signal);
+        : props.kind === "trackers"
+          ? checkTrackerDraft(props.draft, controller.signal)
+          : props.kind === "poc-registry"
+            ? checkPocRegistryDraft(props.draft, controller.signal)
+            : checkPocArgoDraft(props.target, props.draft, controller.signal);
     ask
       .then(setReport)
       .catch((err: Error) => {
@@ -55,28 +67,31 @@ export function DraftCheckPanel(props: Props) {
       .finally(() => setRunning(false));
   };
 
+  const poc = props.kind === "poc-registry" || props.kind === "poc-argo" ? props : null;
+  const id = poc?.testId ?? "draft-check";
   return (
-    <div className="field" data-testid="draft-check">
+    <div className="field" data-testid={id}>
       <label>
-        {t("config.draftCheck.label")} <span className="help">{t("config.draftCheck.help")}</span>
+        {poc ? poc.label : t("config.draftCheck.label")}{" "}
+        <span className="help">{poc ? poc.help : t("config.draftCheck.help")}</span>
       </label>
       <div className="picks">
-        <button type="button" className="pick" disabled={running} onClick={run} data-testid="draft-check-run">
-          {running ? t("config.draftCheck.running") : t("config.draftCheck.run")}
+        <button type="button" className="pick" disabled={running} onClick={run} data-testid={`${id}-run`}>
+          {running ? t("config.draftCheck.running") : poc ? poc.label : t("config.draftCheck.run")}
         </button>
       </div>
       {error && (
-        <div className="dsh-body" style={{ color: "var(--bad)" }} data-testid="draft-check-error">
+        <div className="dsh-body" style={{ color: "var(--bad)" }} data-testid={`${id}-error`}>
           {error}
         </div>
       )}
       {report && (
-        <ol className="flex flex-col gap-1" data-testid="draft-check-steps">
+        <ol className="flex flex-col gap-1" data-testid={`${id}-steps`}>
           {report.steps.map((step) => (
             <li
               key={step.key}
               className="dsh-body"
-              data-testid={`draft-check-step-${step.key}`}
+              data-testid={`${id}-step-${step.key}`}
               data-ok={step.ok}
               style={{ color: step.ok ? undefined : "var(--bad)" }}
             >

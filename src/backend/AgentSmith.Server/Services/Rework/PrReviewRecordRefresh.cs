@@ -78,7 +78,7 @@ public sealed class PrReviewRecordRefresh(
             var state = await states.ReadAsync(pr.Url, ct);
             var notes = await threads.ListAsync(pr.Url, ct);
             var entries = await builder.BuildAsync(PrKey.Of(pr.Url), repo.Type, state, notes, once, ct);
-            var record = Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha);
+            var record = Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha, state.MergeSha);
             record.IsDraft = state.IsDraft && state.State == PrReviewStates.Open; // 2026-11-23-8d16
             record.HasConflicts = state.State == PrReviewStates.Open ? state.HasConflicts : null; // 2026-11-24-6811a
             record.ConflictsAtTicks = record.HasConflicts == true ? record.CheckedAtTicks : null;
@@ -93,11 +93,13 @@ public sealed class PrReviewRecordRefresh(
         }
     }
 
-    private PrReviewRecord Record(NamedPullRequest pr, RepoConnection? repo, string state, DateTimeOffset? stateAt, string? number, string? headSha = null) => new()
+    private PrReviewRecord Record(NamedPullRequest pr, RepoConnection? repo, string state, DateTimeOffset? stateAt, string? number,
+        string? headSha = null, string? mergeSha = null) => new()
     {
         PrKey = PrKey.Of(pr.Url), Url = pr.Url, Repo = pr.Repo, RepoKey = repo?.Url is { } url ? RepoKey.Of(url) : string.Empty,
         Number = number ?? pr.Url.TrimEnd('/').Split('/')[^1], Project = pr.Project, TicketId = pr.TicketId, RunId = pr.RunId,
         State = state, StateAtTicks = stateAt is { } at && at != DateTimeOffset.MinValue ? at.UtcTicks : null,
         CheckedAtTicks = clock.GetUtcNow().UtcTicks, HeadSha = headSha,
+        MergeSha = state == PrReviewStates.Merged ? mergeSha : null, // 2026-11-23-8df6a: only a merge lands as a commit
     };
 }

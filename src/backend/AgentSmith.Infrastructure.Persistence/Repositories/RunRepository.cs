@@ -133,11 +133,11 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
     // question) run is legitimately idle, not hung. Same client-side timespan
     // filter as above (SQLite can't compare DateTimeOffset in SQL).
     public async Task<IReadOnlyList<Run>> GetWallTimeOverdueRunsAsync(
-        TimeSpan maxWallTime, DateTimeOffset now, CancellationToken ct)
+        Func<Run, TimeSpan> ceilingOf, DateTimeOffset now, CancellationToken ct) // c81ec: a ceiling per run (its kind)
     {
         var running = await unitOfWork.Set<Run>().AsNoTracking()
             .Where(r => r.FinishedAt == null && !r.CancelRequested && r.Status == "running")
             .ToListAsync(ct);
-        return await new ModelRunWaitClock(unitOfWork).OverdueAsync(running, maxWallTime, now, ct); // 24bd: minus model waits
+        return await new ModelRunWaitClock(unitOfWork).OverdueAsync(running, ceilingOf, now, ct); // 24bd: minus model waits
     }
 }

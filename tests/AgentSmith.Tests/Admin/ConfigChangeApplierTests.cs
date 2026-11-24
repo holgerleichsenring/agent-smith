@@ -24,7 +24,7 @@ public sealed class ConfigChangeApplierTests
         _store.Setup(s => s.SettingTypes).Returns(["dialogue", "role_mapping"]);
         _store.Setup(s => s.GetChanges()).Returns([]);
         _store.Setup(s => s.GetSecrets()).Returns([]);
-        _vault.Setup(v => v.StatesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+        _vault.Setup(v => v.StatesAsync(It.IsAny<SecretScope>(), It.IsAny<CancellationToken>())).ReturnsAsync(
             [new StoredSecretState("old_token", "ada", SetAt, "env:1", true, true)]);
     }
 
@@ -79,7 +79,7 @@ public sealed class ConfigChangeApplierTests
         report.Applied.Should().BeTrue(report.Line);
         before.Should().Contain("old_token").And.NotContain("ada").And.NotContain("env:1");
         _store.Verify(s => s.UpsertTracker(It.IsAny<TrackerEntity>(), It.IsAny<ChangeAttribution>()));
-        _vault.Verify(v => v.DeleteAsync("old_token", It.IsAny<CancellationToken>()));
+        _vault.Verify(v => v.DeleteAsync(SecretScope.Installation, "old_token", It.IsAny<CancellationToken>()));
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public sealed class ConfigChangeApplierTests
     {
         var before = await new OrphanedSecretValues(_vault.Object).DraftAsync(_store.Object, ConfigChangeItem.Delete, "old_token", CancellationToken.None);
         _store.Setup(s => s.GetSecrets()).Returns([new SecretEntity("OLD_TOKEN")]);
-        _vault.Setup(v => v.StatesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([
+        _vault.Setup(v => v.StatesAsync(It.IsAny<SecretScope>(), It.IsAny<CancellationToken>())).ReturnsAsync([
             new StoredSecretState("old_token", "ada", SetAt, "env:1", true, true), new StoredSecretState("other", "ada", SetAt, "env:1", true, true)]);
         _store.Setup(s => s.GetChanges()).Returns([new ConfigChange("c-9", 1, DateTimeOffset.UtcNow,
             "ada via admin assistant (run run-5)", ConfigEntityType.Tracker, "jira-b", ConfigChangeOperation.Create, null, "{}", false)]);
@@ -98,7 +98,7 @@ public sealed class ConfigChangeApplierTests
 
         report.Applied.Should().BeFalse();
         report.Line.Should().Contain("Change 3 (delete secret-values/old_token)").And.Contain("were reverted");
-        _vault.Verify(v => v.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _vault.Verify(v => v.DeleteAsync(It.IsAny<SecretScope>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.Revert("c-9", It.IsAny<ChangeAttribution>()));
     }
 

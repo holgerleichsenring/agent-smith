@@ -551,6 +551,12 @@ public sealed class ConfigStudioApiSmokeTests
     public Task ConfigSettings_HoldsNegativeEscalation_Is400AndNotSaved() =>
         RefusedAndNotSavedAsync("holds", """{"escalateAfterMinutes":-1}""", "holds.escalate_after_minutes");
 
+    // 2026-11-23-933da: a glob source repo is refused on save as it is at load, naming the key and the value.
+    [Fact]
+    public Task ConfigSettings_PocsGlobSourceRepo_Is400AndNotSaved() =>
+        RefusedAndNotSavedAsync("pocs", """{"targets":[{"name":"main","sourceRepo":"gh/poc-*"}]}""",
+            "pocs.targets[].source_repo", "gh/poc-*");
+
     private static async Task RefusedAndNotSavedAsync(string type, string body, params string[] fields)
     {
         var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-refused-{Guid.NewGuid():N}.yml");

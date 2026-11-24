@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -79,7 +80,7 @@ public sealed class AdminReadToolsUnitTests : IDisposable
         var documents = new Mock<IConfigDocumentStore>();
         documents.Setup(d => d.LoadAll()).Returns([]);
         var vault = new Mock<ISecretVault>();
-        vault.Setup(v => v.StatesAsync(It.IsAny<CancellationToken>())).ReturnsAsync([
+        vault.Setup(v => v.StatesAsync(It.IsAny<SecretScope>(), It.IsAny<CancellationToken>())).ReturnsAsync([
             new AgentSmith.Contracts.Models.StoredSecretState("gh", "ada", DateTimeOffset.UtcNow, "env:1", true, true)]);
         var config = new AdminConfigReadTools(Mock.Of<IConfigurationLoader>(), new ServerContext("x"),
             Microsoft.Extensions.Options.Options.Create(new SandboxGlobalConfig()), null!, null!, secrets.Object,

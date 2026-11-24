@@ -32,7 +32,7 @@ public static partial class PipelinePresets
             [SpecDialogName] = SpecDialog,
             [SpecDeriveName] = SpecDerive,
             [FileName] = File, [SeriesRunName] = SeriesRun, [SeriesVerifyName] = SeriesVerify, // 5701b, 0207a, 0207d
-            [BranchCleanupName] = BranchCleanup, [RefreshBaseName] = RefreshBase, [DeployName] = Deploy, // 2026-11-17-713ec, 023fb, 2026-11-18-3863c
+            [BranchCleanupName] = BranchCleanup, [RefreshBaseName] = RefreshBase, [DeployName] = Deploy, [PocDeployName] = PocDeploy, [PocVariablesName] = PocVariables, [PocStopName] = PocRender, [PocStartName] = PocRender, [PocRollbackName] = PocRender, [PocApplyName] = PocRender, [PocDeleteName] = PocDelete, [PocExtendName] = PocExtend, // 2026-11-17-713ec, 023fb, 2026-11-18-3863c, 933db, 933dg, c81ed, c81ee
         };
         foreach (var (name, steps) in HostActSteps.Concat(InstallationSteps)) All[name] = steps; // e061 acts on a ticket, f3a8a installation
         Names = All.Keys.ToList();
@@ -55,7 +55,7 @@ public static partial class PipelinePresets
         [SpecDialogName] = PipelineType.Discussion,
         [SpecDeriveName] = PipelineType.Discussion,
         [FileName] = PipelineType.Discussion, [SeriesRunName] = PipelineType.Discussion, [SeriesVerifyName] = PipelineType.Structured, // 0207a, 0207d
-        [BranchCleanupName] = PipelineType.Structured, [RefreshBaseName] = PipelineType.Structured, [DeployName] = PipelineType.Structured, // 713ec, 023fb, 3863c
+        [BranchCleanupName] = PipelineType.Structured, [RefreshBaseName] = PipelineType.Structured, [DeployName] = PipelineType.Structured, [PocDeployName] = PipelineType.Structured, [PocVariablesName] = PipelineType.Structured, [PocStopName] = PipelineType.Structured, [PocStartName] = PipelineType.Structured, [PocRollbackName] = PipelineType.Structured, [PocApplyName] = PipelineType.Structured, [PocDeleteName] = PipelineType.Structured, [PocExtendName] = PipelineType.Structured, // 713ec, 023fb, 3863c, 933db, 933dg, c81ed, c81ee
     };
 
     /// <summary>

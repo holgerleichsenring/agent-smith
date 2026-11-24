@@ -2,6 +2,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Pocs;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Services.Lifecycle;
 using Microsoft.Extensions.Logging;
@@ -11,10 +12,11 @@ namespace AgentSmith.Server.Services.Branches;
 /// <summary>
 /// 2026-11-17-713ec: starts a project's branch-cleanup run — the queued row, then the dispatch, as the chat's
 /// ticketless launches do. No capacity admission: the run takes no sandbox. A project whose repositories are all
-/// local has no host to sweep, and a project whose previous cleanup is still live is left to it.
+/// local has no host to sweep, and a project whose previous cleanup is still live is left to it. 2026-11-23-933db: a
+/// server-provisioned PoC project runs only the PoC presets, so the sweep queues nothing there that would be refused.
 /// </summary>
 public sealed class WorkBranchCleanupLauncher(
-    InitRunRepository runs, QueuedRunDispatch dispatch, TimeProvider timeProvider,
+    InitRunRepository runs, QueuedRunDispatch dispatch, TimeProvider timeProvider, IPocProjects pocProjects,
     ILogger<WorkBranchCleanupLauncher> logger)
 {
     private const string QueuedSummary = "starting — branch cleanup";
@@ -24,7 +26,7 @@ public sealed class WorkBranchCleanupLauncher(
     {
         ArgumentNullException.ThrowIfNull(project);
         var hosted = project.Repos.Where(r => r.Type != RepoType.Local).Select(r => r.Name).ToList();
-        if (hosted.Count == 0) return null;
+        if (hosted.Count == 0 || await pocProjects.IsAsync(project.Name, ct)) return null;
         if (await runs.FindLiveRunAsync(project.Name, PipelinePresets.BranchCleanupName, ct) is not null) return null;
 
         var runId = RunIdGenerator.Generate(timeProvider.GetUtcNow());

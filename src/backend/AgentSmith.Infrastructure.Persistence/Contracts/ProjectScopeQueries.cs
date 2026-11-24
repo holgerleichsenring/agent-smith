@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Persistence.Contracts;
 /// name emits the equality a ?project= filter emitted before — its parameter named as it was — so an installation
 /// without enforcement and every global holder run exactly the SQL they ran; several names filter with a collection.
 /// <para>2026-11-23-47b6: one rule for every project-owned row — a run, a pull-request record and a filed series
-/// leave out the same hidden projects (2026-11-17-f3a8a).</para>
+/// leave out the same hidden projects (2026-11-17-f3a8a); 2026-11-23-8df6a: and a deploy record.</para>
 /// </summary>
 public static class ProjectScopeQueries
 {

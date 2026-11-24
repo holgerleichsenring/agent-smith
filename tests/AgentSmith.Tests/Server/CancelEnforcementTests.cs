@@ -258,6 +258,30 @@ public sealed class CancelEnforcementTests : IDisposable
         check.Runs.Single(r => r.Id == "run-young").CancelRequested.Should().BeFalse();
     }
 
+    // 2026-11-23-c81ec: the ceiling follows the run's kind, decided from Run.Pipeline — a poc-deploy run 2000 s old is
+    // within pocs.run_wall_time_seconds (2700), a code run that old is past orchestrator.max_run_wall_time_seconds (1800).
+    [Fact]
+    public async Task Enforcer_APocRunIsHeldToItsOwnBudget_ACodeRunToTheOrchestratorsCeiling()
+    {
+        _orchestrator = new OrchestratorGlobalConfig { MaxRunWallTimeSeconds = 1800 };
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            foreach (var (id, pipeline) in new[] { ("run-poc", PipelinePresets.PocDeployName), ("run-code", PipelinePresets.CodeName) })
+                ctx.Runs.Add(new Run
+                {
+                    Id = id, Project = "p1", Pipeline = pipeline, TicketId = "42", Platform = "github", Status = "running",
+                    StartedAt = DateTimeOffset.UtcNow.AddSeconds(-2000), JobId = id,
+                });
+            await ctx.SaveChangesAsync();
+        }
+
+        await NewEnforcer().RunOnceAsync(CancellationToken.None);
+
+        _published.OfType<RunCancelRequestedEvent>().Should().ContainSingle().Which.RunId.Should().Be("run-code");
+        CancelReasonNarrator.Summary("watchdog-wall-time", PipelinePresets.PocDeployName).Should().Contain("pocs.run_wall_time_seconds");
+        CancelReasonNarrator.Summary("watchdog-wall-time", PipelinePresets.CodeName).Should().Contain("orchestrator.max_run_wall_time_seconds");
+    }
+
     // p0357 (p0330b): a NULL deadline is due NOW — pre-p0357 the candidate query
     // excluded it and the run wedged in 'cancelling' forever (observed 46-min hang).
     [Fact]

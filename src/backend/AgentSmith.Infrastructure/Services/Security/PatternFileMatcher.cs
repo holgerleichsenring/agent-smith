@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Sandbox;
 
@@ -8,8 +7,10 @@ namespace AgentSmith.Infrastructure.Services.Security;
 /// Matches compiled regex patterns against individual file contents fetched
 /// through ISandboxFileReader so the scan reads the sandbox tree directly.
 /// </summary>
-public sealed class PatternFileMatcher
+public sealed class PatternFileMatcher(PatternLineMatcher? lines = null)
 {
+    private readonly PatternLineMatcher _lineMatcher = lines ?? new PatternLineMatcher();
+
     public async Task<List<PatternFinding>> ScanFileAsync(
         ISandboxFileReader reader,
         string filePath,
@@ -36,39 +37,24 @@ public sealed class PatternFileMatcher
             if (string.IsNullOrWhiteSpace(line))
                 continue;
 
-            foreach (var pattern in effective)
-            {
-                try
-                {
-                    var match = pattern.Regex.Match(line);
-                    if (match.Success)
-                    {
-                        var matchedText = match.Value.Length > 200
-                            ? match.Value[..200] + "..."
-                            : match.Value;
-
-                        findings.Add(new PatternFinding(
-                            PatternId: pattern.Definition.Id,
-                            Category: pattern.Definition.Category,
-                            Severity: pattern.Definition.Severity,
-                            Confidence: pattern.Definition.Confidence,
-                            File: relativePath,
-                            Line: lineIndex + 1,
-                            Title: pattern.Definition.Title,
-                            Description: pattern.Definition.Description,
-                            Cwe: pattern.Definition.Cwe,
-                            MatchedText: matchedText,
-                            Provider: pattern.Definition.Provider,
-                            RevokeUrl: pattern.Definition.RevocationUrl));
-                    }
-                }
-                catch (RegexMatchTimeoutException)
-                {
-                }
-            }
+            // 2026-11-23-933dc: the per-line match is shared with the PoC scan; this scan keeps each pattern's FIRST
+            // match on a line and swallows timeouts, as it always did.
+            foreach (var match in _lineMatcher.Match(line, effective, firstOnly: true))
+                findings.Add(Finding(match, relativePath, lineIndex + 1));
         }
 
         return findings;
+    }
+
+    private static PatternFinding Finding(PatternLineMatch match, string relativePath, int line)
+    {
+        var definition = match.Pattern.Definition;
+        var matchedText = match.Value.Length > 200 ? match.Value[..200] + "..." : match.Value;
+        return new PatternFinding(
+            PatternId: definition.Id, Category: definition.Category, Severity: definition.Severity,
+            Confidence: definition.Confidence, File: relativePath, Line: line, Title: definition.Title,
+            Description: definition.Description, Cwe: definition.Cwe, MatchedText: matchedText,
+            Provider: definition.Provider, RevokeUrl: definition.RevocationUrl);
     }
 
     private const string SecretsCategory = "secrets";

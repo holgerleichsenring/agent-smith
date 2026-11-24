@@ -1,0 +1,193 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-c81eb
+goal: "GitOpsCommit renders a PoC's hardened manifests from the source repo's app template and the Poc row's desired state, and commits them with the sealed secrets to the PoC's deploy folder."
+
+applies_to: "default (Poc.ReadinessPath + migrations on three providers, app template defaults written by poc-target-install, PocAppRender + PocManifestPolicy + PocFolderPlan, GitOpsCommit step, PocDeployedEvent + audit projection, pocs.targets[] ingress/auth/network/quota/container settings, docs) + dashboard (target studio fields, hub-events mirror)"
+
+requires: [2026-11-23-c81ea, 2026-11-23-933dd, 2026-11-23-933de, 2026-11-23-933dg]
+
+upgrade_impact: "Behind pocs.enabled. Poc gains ReadinessPath (string?, null = TCP readiness; migration on SQLite, SQL Server and PostgreSQL); the desired-state columns Replicas, Revision and ImageDigest are 933da's and get their first writer here. poc-target-install additionally writes the default app template under <template_path>/app/ (a file the branch already holds is never overwritten). poc-deploy now ends after the GitOps commit, saying the rollout follow arrives with 2026-11-23-c81ec. An enabled target now needs ingress.class, auth.ingress_annotations, network.ingress_controller_namespace and network.egress_proxy (Problems() refuses it otherwise). The target cluster needs Kubernetes 1.22 or later (the NetworkPolicy selects namespaces by the kubernetes.io/metadata.name label), an ingress controller whose class the target names, an auth proxy the controller calls through annotations the target sets (forward auth in annotation mode; ingress-nginx's auth-url/auth-signin is one example, not the expected controller), and the Sealed Secrets controller (the Deployment waits for the sealed files through Argo sync waves)."
+
+facts:
+  - claim: "ManifestVersionKey double-quotes any plain scalar that would read as a number or boolean, so writing replicas through it yields replicas: \"0\", which Kubernetes refuses for an int32 field."
+    evidence: "src/backend/AgentSmith.Application/Services/Deployment/ManifestVersionKey.cs:62-70"
+  - claim: "A deploy version refuses a digest because ':' cannot be in a git ref; YamlDotNet's representation model is already the manifest reader."
+    evidence: "src/backend/AgentSmith.Application/Services/Deployment/DeployVersionShape.cs:5-17, src/backend/AgentSmith.Application/Services/Deployment/ManifestVersionKey.cs:1-3"
+  - claim: "YamlDotNet 16.3.0 is the Application's YAML library, and a node written through YamlStream.Save keeps a style only when one is set (ScalarStyle.DoubleQuoted is how the code quotes)."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:19, src/backend/AgentSmith.Application/Services/Specs/SpecOutcomeBlock.cs:33-40"
+  - claim: "A new YamlScalarNode with no style is saved plain: 'true' as ssl-redirect: true, '8080' as PORT: 8080, '123' as agent-smith.io/poc: 123, which Kubernetes reads as a boolean or a number in a string field and refuses."
+    evidence: "observed: 2026-11-23, round-2 review probe of YamlDotNet 16.3.0 (RepresentationModel, YamlStream.Save)"
+  - claim: "Argo CD applies resources of one sync wave in kind order, a custom resource such as SealedSecret after Deployment, and waits for a wave's resources to be healthy before the next wave; it ships a health check for bitnami.com/SealedSecret."
+    evidence: "observed: 2026-11-23, round-2 review of this spec (Argo CD sync-wave behaviour, not verified against a live instance)"
+  - claim: "The checkout-free branch write carries text files only, which is all a manifest folder holds."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/BranchWrite.cs:3-10"
+  - claim: "Run events become rows through an IRunEventFamily projection; DeployRecordProjection inserts once by an existence check on the run id, with no unique index, and leaves a replayed event alone."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRowFamily.cs:14-29, src/backend/AgentSmith.Infrastructure.Persistence/Services/DeployRecordProjection.cs:14-31"
+  - claim: "Every C# event record needs its TypeScript mirror: pnpm gen:hub-events fails the dashboard check (and the spec gate) on a record without one."
+    evidence: "src/dashboard/package.json:14, tools/build-hub-event-types.mjs:1-19, src/backend/AgentSmith.Contracts/Events/EventType.cs:116"
+  - claim: "933da's Poc row carries Name (a DNS label), Folder, Owner, State (PocStates with IsLive) and the desired state Replicas (1), Revision and ImageDigest, changed only by the c81e acts; PocAuditEntry is written only by a run event projection and carries a unique (RunId, Act) index created in AddPocs; targets carry deploy_root, template_path and domain_pattern with one {app}."
+    evidence: "observed: 2026-11-23, delivered by the series spec 2026-11-23-933da, required through the required series spec 2026-11-23-933dd"
+  - claim: "933dd's poc-target-install writes files into the source repo's default branch in one checkout-free write, idempotent by equality, and the series extends it; its pipeline triggers on dispatch only, so a GitOps commit builds nothing; PocRevision carries Number, Port and Digest."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933dd"
+  - claim: "933de's ImageReference names <login_server>/<repository>/<poc> with a digest and is the one digest parser; pull_mode is pull_secret or cluster_pulls."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933de"
+  - claim: "933dg: PocNamespace.For(poc) = 'poc-' + Name (Name at most 40) and PocSecretNames (poc-secrets, poc-pull, poc-config) are the only names to render with; SealPocVariables leaves PocSealResult(Unchanged, Files, SealFingerprint, VariablesChecksum) under ContextKeys.PocSeal and never writes Poc.SealFingerprint; GitOpsCommit is its only writer, after the commit landed or the branch was already equal; on Unchanged the branch's sealed files are kept, and a needed one missing there clears the fingerprint and fails naming the file; the pod annotation agent-smith.io/variables-checksum carries VariablesChecksum."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933dg"
+  - claim: "A ConfigMap or Secret consumed through envFrom does not restart running pods when it changes; a Namespace name is an RFC 1123 label of at most 63 characters."
+    evidence: "observed: 2026-11-23, adversarial review of 2026-11-23-933df and 2026-11-23-933dh (Kubernetes behaviour)"
+  - claim: "Operator 2026-11-23: one reusable app template rendered per PoC with {app} {image} {host} {port}; hardening runAsNonRoot 10001, readOnlyRootFilesystem, drop ALL, no privilege escalation, memory/CPU limits, readiness, Ingress, NetworkPolicy with egress via proxy."
+    evidence: "observed: 2026-11-23, operator (PoC concept, agreed)"
+  - claim: "Operator round 2: every PoC is behind auth; a namespace per PoC with a quota; image pull through an imagePullSecret per PoC namespace; the app template and ApplicationSet live in the PoC source repo."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a new upload to a stopped PoC starts it."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator round 3: plain variables go to a ConfigMap and secret variables to a Secret, both through envFrom, and a checksum annotation over both restarts the pod on change; desired state lives on the Poc row, every render reads it, acts change only that state and commit."
+    evidence: "observed: 2026-11-23, operator"
+
+assumptions:
+  - claim: "The target's ingress controller calls the auth proxy itself in annotation mode (forward auth), so the auth proxy needs no NetworkPolicy ingress rule to the PoC pod; ingress-nginx's auth-url/auth-signin annotations are one example."
+    check: "docs name annotation-mode forward auth with ingress-nginx as one example; a target with another controller sets its own annotations and the rendered NetworkPolicy still admits only the controller's namespace."
+  - claim: "Argo's SealedSecret health turns Healthy only once the controller has unsealed it into its Secret, so a Deployment in a later sync wave starts with the Secret's current values."
+    check: "One manual first deploy and one re-seal against a real Argo CD with the Sealed Secrets controller before c81ec's end-to-end criterion."
+
+scope:
+  in: >
+    DESIRED STATE: the render reads PocDesiredState (Replicas, Revision, ImageDigest from 933da, ReadinessPath added here:
+    null = tcpSocket on the port, a path = httpGet on it) from ContextKeys.PocDesiredState when an earlier step of the run
+    set it (the acts of c81ed), else from the row; in poc-deploy GitOpsCommit itself takes the run's built revision and
+    its Digest, sets Replicas 1 and keeps the row's ReadinessPath, so a new upload to a stopped PoC (Replicas 0) starts
+    it (operator ruling, round 4) and c81ec's follow settles it ready; the one exception, an expired PoC, is added by
+    2026-11-23-c81ee, whose Start refusal it mirrors. The row's desired state is written ONLY by GitOpsCommit,
+    after its commit landed or the branch already held the render, so a failed commit never leaves a desired state git
+    does not hold. NAMES: 933dg's PocNamespace and PocSecretNames only; the deploy folder is <deploy_root>/<Name>/, apart
+    from every source folder; the Argo Application is named like the namespace (c81ec); {app} in domain_pattern is Name.
+    Load finding (blocking, naming both targets and the keys): two targets naming one source_repo where a root,
+    deploy_root or template_path of one equals or lies inside the other's root or deploy_root, or the two share a
+    template_path. TEMPLATE: poc-target-install (933dd's handler) also writes the default files
+    <template_path>/app/{namespace,resourcequota,deployment,service,ingress,networkpolicy}.yaml, each only when absent;
+    then they are the operator's. RENDER: PocAppRender lists <template_path>/app/ at the branch head with c81ea's
+    ListFilesUnderAsync (a Truncated listing is refused: 'the app template holds more than <value> files
+    (pocs.gitops.max_folder_files): a template is a handful of manifests') and renders only the *.yaml and *.yml files
+    (others are skipped and said once in the step's outcome), read with TryReadFileAsync. It substitutes the string
+    placeholders {app} (Name), {namespace} (PocNamespace), {host} (domain_pattern with Name) and {port} (the Port of the
+    PocRevision the desired Revision names, so a rollback to n renders n's port), and parses each result as a YAML
+    stream: a file may hold several documents, each one resource, kept in that file in order; a file that does not
+    parse is refused naming it. Then it sets the fields agent smith owns as typed YAML nodes on the Deployment named
+    'app': spec.replicas a plain integer, the pod template's labels app.kubernetes.io/name app and agent-smith.io/poc
+    Name (the selectors below match them), the Deployment's own metadata annotation argocd.argoproj.io/sync-wave "1" (the Namespace,
+    ConfigMap, sealed files and the rest stay in wave 0, so Argo applies and waits for the SealedSecrets before the
+    pod starts, on a first deploy and on a re-seal), container 'app' image = 933de's ImageReference with ImageDigest,
+    readinessProbe (httpGet ReadinessPath or tcpSocket port), envFrom [configMapRef poc-config] plus secretRef
+    poc-secrets ONLY when the PoC has a secret variable and then without optional, env HTTP_PROXY, HTTPS_PROXY,
+    http_proxy and https_proxy = network.egress_proxy.url and NO_PROXY and no_proxy = network.egress_proxy.no_proxy
+    (default 'localhost,127.0.0.1,.svc,.cluster.local') directly on the container (so a proxy change alters the pod
+    template and restarts it), imagePullSecrets [poc-pull] when pull_mode is pull_secret (none for cluster_pulls), and
+    the pod-template annotation agent-smith.io/variables-checksum = PocSealResult.VariablesChecksum; on the Ingress
+    named 'app': ingressClassName, host, TLS secret 'app-tls' with cert-manager.io/cluster-issuer when
+    ingress.tls_issuer is set, and every auth.ingress_annotations entry. It generates configmap.yaml: poc-config whose data maps
+    each entry's name to its value from Poc.PlainVariablesJson (933dg: an array of {name, value, set_by, set_at};
+    set_by and set_at are not rendered). imagePullSecrets names poc-pull, which 933dg seals as a
+    kubernetes.io/dockerconfigjson Secret with the data key .dockerconfigjson; the render does not touch it. QUOTING: every string node agent smith writes (labels, annotations, ConfigMap data, env
+    values) gets ScalarStyle.DoubleQuoted whenever its plain form would resolve as
+    anything but a string (true, yes, on, null, 8080, 1e3, 0x1F, ...), and the default template quotes every
+    placeholder ("{app}"), so a PoC named 123 or a variable DEBUG=true renders as a string. Every file is written in
+    one stable serialisation, so equal input renders equal bytes. The step adds the sync-wave annotation only to the
+    Deployment; 933dg's sealed files are written as PocSealResult hands them. A render without a PocSealResult in the
+    run is refused ('the seal step did not run'), so every chain that renders runs SealPocVariables first: poc-deploy
+    and c81ed's poc-stop, poc-start, poc-rollback and poc-apply; c81ed's 'absent' plan (poc-delete) renders nothing
+    and needs no seal. POLICY: PocManifestPolicy refuses a render whose Deployment 'app' lacks, on EVERY container and
+    initContainer of the pod spec, runAsNonRoot true, runAsUser 10001, readOnlyRootFilesystem true,
+    allowPrivilegeEscalation false, capabilities drop [ALL], and cpu and memory limits; whose pod spec lacks
+    automountServiceAccountToken false or an emptyDir at /tmp, or sets hostNetwork, hostPID or hostIPC true or mounts
+    a hostPath volume; whose resources sit outside the PoC's namespace; or that has no NetworkPolicy and ResourceQuota
+    — each naming the file and field (the template is editable; the hardening is not optional). DEFAULT TEMPLATE
+    CONTENT: Namespace {namespace} labelled agent-smith.io/poc "{app}"; ResourceQuota from quota.* (quota.cpu ->
+    limits.cpu, quota.memory -> limits.memory, quota.ephemeral_storage -> limits.ephemeral-storage, quota.pods ->
+    pods); Deployment (RollingUpdate maxUnavailable 0 maxSurge 1, progressDeadlineSeconds 600, selector matchLabels
+    app.kubernetes.io/name app + agent-smith.io/poc "{app}", the hardening above, resources from container.*, emptyDir
+    /tmp sizeLimit 64Mi, containerPort {port}); Service app port 80 -> {port} selecting those labels; Ingress app;
+    NetworkPolicy app (Ingress + Egress) with podSelector those labels (not {}, so a cert-manager HTTP-01 solver pod in
+    the namespace is not cut off): ingress from namespaceSelector kubernetes.io/metadata.name =
+    network.ingress_controller_namespace on {port}; egress to namespaceSelector kubernetes.io/metadata.name =
+    network.dns_namespace (kube-system) with podSelector network.dns_pod_labels ({k8s-app: kube-dns}) on 53 UDP and
+    TCP, and to the egress proxy — namespaceSelector network.egress_proxy.namespace + podSelector
+    network.egress_proxy.pod_labels, or ipBlock network.egress_proxy.cidr — on network.egress_proxy.port. TARGET
+    SETTINGS (PocTargetConfig, Problems() naming value, reason, key): ingress.class (required), ingress.tls_issuer
+    (optional); auth.ingress_annotations (required non-empty when enabled: 'every PoC is behind auth');
+    network.ingress_controller_namespace (required), dns_namespace, dns_pod_labels, egress_proxy.{url (required
+    http(s) URL), port (1..65535), namespace + pod_labels OR cidr — exactly one form}, no_proxy; quota.{cpu 1, memory
+    1Gi, pods 4, ephemeral_storage 2Gi} (limits.* of the ResourceQuota); container.{cpu_request 50m, cpu_limit 500m,
+    memory_request 128Mi, memory_limit 512Mi, ephemeral_limit 256Mi} — a quantity that does not parse is refused, and
+    quota.cpu, quota.memory or quota.ephemeral_storage below twice cpu_limit, memory_limit or ephemeral_limit, or
+    quota.pods below 2, are refused with 'a rolling update runs the old and the new pod side by side'. STEP
+    GitOpsCommit (poc-deploy after SealPocVariables): (1) the run holds 933db's PocRunGate for this PoC, so no other
+    run of it writes; (2) desired state as above; (3) render; (4) PocFolderPlan against
+    ListFilesUnderAsync(<deploy_root>/<Name>) — a Truncated listing fails naming the count, the value, the reason and
+    pocs.gitops.max_folder_files —: write each rendered file that differs, delete each file not rendered; with
+    PocSealResult.Unchanged poc-secrets.yaml and poc-pull.yaml are kept as the branch holds them, and when one the PoC
+    needs (a secret variable exists; pull_mode pull_secret, which without a master key is refused by 933dg's blocking
+    load finding PocSealKeyFindings naming pocs.targets[].registry.pull_mode and AGENTSMITH_SECRET_MASTER_KEY, so a
+    fingerprint always exists when anything is sealed) is missing there the step clears Poc.SealFingerprint and
+    fails naming the file, so the retry seals; otherwise the sealed files are written and a sealed file the PoC no
+    longer needs is deleted; (5) nothing to write -> 'the deploy folder already holds revision N', no commit; (6) else
+    c81ea's GitOpsDelivery.CommitAsync with a GitOpsCommitOrder on the source repo (the branch is the one the provider
+    reads as default), message 'poc <name>: revision <N>', replan = (3)+(4) at the new head; (7) then write the
+    desired state and PocSealResult.SealFingerprint to the Poc row and set ContextKeys.PocCommitSha. Idempotent: a
+    retried run finds the folder equal, commits nothing and only records. A failure fails naming the cause (render,
+    policy, write). EVENT: PocDeployedEvent (RunId, Timestamp, PocId, Revision, Digest, CommitSha?, Actor),
+    EventType.PocDeployed, published by poc-deploy's GitOpsCommit on EVERY successful end of the step (committed, or
+    the folder already held the render), so a run that crashed after its row write still publishes on its retry (an
+    act's run publishes c81ed's event instead); projected into PocAuditEntry 'deployed' once per run: the projection
+    first checks whether an entry with this RunId and Act exists and inserts nothing when it does (as
+    DeployRecordProjection does), backed by 933da's unique (RunId, Act) index from its AddPocs migration, so no
+    migration is added here; TypeScript mirror in hub-events.ts.
+    STUDIO: target fields above in the PoCs settings form, German strings. DOCS: the app template (files,
+    placeholders, quoting, the fields agent smith sets, the sync wave, the policy), annotation-mode forward auth with
+    ingress-nginx as one example, the NetworkPolicy keys.
+  out: "Argo CD, the ApplicationSet and the rollout follow (2026-11-23-c81ec). Acts that change desired state, and setting ReadinessPath (2026-11-23-c81ed). Re-rendering every PoC after a template edit (each PoC takes it at its next GitOps commit). Kustomize. A LimitRange (container resources are set on the Deployment). Ingress controllers that need an auth-proxy hop through the pod's namespace."
+
+pipeline-presets:
+  poc-deploy: [LoadCatalog, PocIntake, PocCodeScan, PocSourceCommit, PocPipelineBuild, SealPocVariables, GitOpsCommit]
+  poc-target-install: [LoadCatalog, PocTargetInstall]
+
+steps:
+  - id: model
+    action: "Poc.ReadinessPath; migrations x3; PocDesiredState + ContextKeys.PocDesiredState, PocCommitSha."
+  - id: config
+    action: "PocIngressConfig, PocAuthConfig, PocNetworkConfig, PocQuotaConfig, PocContainerConfig with PocQuantity parsing and Problems(); the shared-repo load finding; schema, example. Also, moved from 2026-11-23-c81ea (built before 2026-11-23-933da's PocsConfig existed): PocsConfig.GitOps (PocGitOpsConfig: commit_attempts 3, max_folder_files 500) with its Problems() joined into PocsConfig.Problems(), its schema entries, and the pocs.gitops fields in the PoCs settings form with German strings."
+  - id: template
+    action: "Default template files as embedded resources; PocTargetInstallHandler writes the absent ones."
+  - id: render
+    action: "PocAppRender (*.yaml/*.yml scope, multi-document files, placeholders with {port} from the desired revision, typed setters incl. pod labels and the Deployment's sync wave, conditional secretRef, quoting of non-string scalars, generated configmap, stable serialisation), PocManifestPolicy (every container and initContainer, host namespaces, hostPath), PocFolderPlan (writes, deletes, kept and missing sealed files, Truncated listing refused)."
+  - id: step
+    action: "CommandNames.GitOpsCommit, GitOpsCommitHandler, registrations (labels, display names, beats, step classes, data flows); control-flow.svg."
+  - id: event
+    action: "PocDeployedEvent + EventType + hub-events.ts mirror; PocAuditEntry projection case with the existence check on RunId + Act (933da's unique index backs it)."
+  - id: dashboard
+    action: "Target studio sections ingress, auth, network, quota, container; i18n with German."
+  - id: docs
+    action: "docs: the PoC app template (placeholders, quoting, sync wave, policy) and the target's ingress, auth (annotation-mode forward auth, ingress-nginx as one example) and network keys."
+
+tests:
+  - "PocAppRender: replicas renders as a plain integer node (0 and 1), never quoted, also when the template wrote replicas: \"1\""
+  - "PocAppRender_Hardened (runAsUser 10001, readOnlyRootFilesystem, drop ALL, emptyDir /tmp, limits); _PullSecretMode_ImagePullSecrets; _ClusterPulls_None; _ReadinessPathNull_TcpSocket; _ReadinessPath_HttpGet; _AuthAnnotationsOnIngress; _ImageFromImageReferenceWithDigest; _NamespaceFromPocNamespace"
+  - "PocAppRender_SameInput_SameBytes; the variables-checksum annotation equals PocSealResult.VariablesChecksum; a proxy url change changes the pod template; lowercase and uppercase proxy variables both set; NO_PROXY default holds localhost and 127.0.0.1"
+  - "PocAppRender quoting: DEBUG=true and PORT=8080 in poc-config, an auth annotation value \"true\" and a PoC named 123 all render double-quoted"
+  - "PocAppRender secrets: a PoC with a secret variable gets secretRef poc-secrets without optional; one without gets no secretRef; the Deployment carries argocd.argoproj.io/sync-wave \"1\" and the sealed files none"
+  - "PocAppRender scope: a README.md under app/ is skipped; a file with two YAML documents renders both; {port} of a rollback render is the named revision's Port; Service selector and NetworkPolicy podSelector equal the pod template labels"
+  - "PocAppRender without PocSealResult is refused naming the seal step"
+  - "PocManifestPolicy: an operator template without runAsNonRoot is refused naming deployment.yaml and the field; a second container or an initContainer without the hardening, hostNetwork true and a hostPath volume are each refused naming the field"
+  - "PocFolderPlan: unchanged folder -> nothing; a file the template dropped -> deleted; Unchanged keeps the sealed files; Unchanged with poc-secrets.yaml missing while a secret variable exists -> fingerprint cleared, failure names the file"
+  - "PocTargetConfig.Problems: enabled without auth annotations refused naming key and reason; both proxy forms set refused; quota.memory 512Mi with memory_limit 512Mi refused naming the rolling-update reason; quota.ephemeral_storage below twice ephemeral_limit refused"
+  - "Shared-repo load finding: one target's deploy_root equal to another's root, and two targets sharing a template_path, are each a blocking finding naming both targets"
+  - "PocTargetInstallHandler: writes the six template files once; an operator-edited file is never overwritten"
+  - "PocsConfig: pocs.gitops absent reads commit_attempts 3 and max_folder_files 500; commit_attempts 0 refused through PocsConfig.Problems() naming pocs.gitops.commit_attempts; the PoCs settings form round-trips both fields"
+  - "GitOpsCommitHandler: commits the folder once and records desired state and SealFingerprint after the commit; a retry commits nothing, publishes PocDeployedEvent again and the projection inserts no second entry; a run that crashed after the row write publishes on its retry; a Conflict re-plans; a failed write leaves the row unchanged; a Truncated deploy-folder listing fails naming pocs.gitops.max_folder_files"
+  - "GitOpsCommitHandler in poc-deploy: a stopped PoC (row Replicas 0) commits the new revision with replicas 1, and the row holds Replicas 1 after the commit"
+  - "PocDeployedEvent projection: one PocAuditEntry 'deployed'; a replay or a second event of the same run inserts none (existence check before 933da's unique (RunId, Act) index)"
+  - "Migration parity on SQL Server and PostgreSQL"
+  - "pnpm gen:hub-events passes with PocDeployedEvent"
+  - "PocDeployCompositionTests (RealCompositionHarness): a built revision with faked runner, registry and git host ends with the deploy folder on the fake host's default branch holding the digest; a second run of the same revision commits nothing"
+
+done:
+  - "A built PoC revision's run commits <deploy_root>/<name>/ to the source repo's default branch: Namespace, quota, hardened Deployment with the digest, Service, Ingress with the auth annotations, NetworkPolicy, poc-config and the sealed files; the Poc row holds the committed desired state and seal fingerprint, and the audit list says 'deployed'."

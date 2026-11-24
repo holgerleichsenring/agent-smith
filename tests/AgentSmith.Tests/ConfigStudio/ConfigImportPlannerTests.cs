@@ -28,6 +28,31 @@ public sealed class ConfigImportPlannerTests
             .WithMessage("*spec_review.reground_read_budget is 0*", "a block the run would refuse is never stored (2026-11-10-8e59)");
     }
 
+    // 2026-11-23-933da: an import refuses a pocs block the load would refuse, naming the key.
+    [Fact]
+    public void ConfigImportPlanner_InvalidPocsBlock_IsRefused()
+    {
+        var import = () => Planner.Plan("""
+            pocs:
+              enabled: true
+            """, "test.yml");
+
+        import.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage("*pocs.project_agent is empty*");
+    }
+
+    // 2026-11-23-933db: an import refuses a pocs.archive value the load would refuse, naming the key.
+    [Fact]
+    public void ConfigImportPlanner_InvalidPocsArchive_IsRefused()
+    {
+        var import = () => Planner.Plan("""
+            pocs:
+              archive:
+                max_ratio: 0
+            """, "test.yml");
+
+        import.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage("*pocs.archive.max_ratio is 0*");
+    }
+
     [Fact]
     public void Plan_MisspeltKey_IsNamed()
     {

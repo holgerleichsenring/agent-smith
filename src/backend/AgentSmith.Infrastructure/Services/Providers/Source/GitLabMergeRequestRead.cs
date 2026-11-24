@@ -20,7 +20,7 @@ public sealed class GitLabMergeRequestRead(string baseUrl, string projectPath, s
             && a.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.Number ? id.GetInt64() : (long?)null;
         return new GitLabMergeRequest(author, Str(root, "state") ?? "opened", Time(root, "created_at"), Time(root, "merged_at"), Time(root, "closed_at"),
             Str(root, "sha"), root.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True, // 8d16
-            Conflicts(root));
+            Str(root, "merge_commit_sha"), Str(root, "squash_commit_sha"), Conflicts(root)); // 2026-11-23-8df6a
     }
 
     // 2026-11-24-6811a: has_conflicts stays false while GitLab still checks, so unchecked or checking decides nothing.

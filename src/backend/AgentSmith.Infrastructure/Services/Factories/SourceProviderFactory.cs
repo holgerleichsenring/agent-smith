@@ -32,9 +32,10 @@ public sealed class SourceProviderFactory(
         };
     }
 
-    private static LocalSourceProvider CreateLocal(RepoConnection config)
+    private LocalSourceProvider CreateLocal(RepoConnection config)
     {
-        return new LocalSourceProvider(config.Path!, config.DefaultBranch);
+        return new LocalSourceProvider(
+            config.Path!, config.DefaultBranch, loggerFactory.CreateLogger<LocalSourceProvider>());
     }
 
     private GitHubSourceProvider CreateGitHub(RepoConnection config)

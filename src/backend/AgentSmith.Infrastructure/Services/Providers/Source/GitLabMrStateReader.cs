@@ -37,7 +37,8 @@ public sealed class GitLabMrStateReader(
             if (!await _users.IsBotAsync(note.AuthorId!.Value, cancellationToken))
                 decisions.Add(Decision(note));
         var (state, at) = State(mr);
-        return new PrReviewState(iid.ToString(CultureInfo.InvariantCulture), state, at, decisions, mr.Sha) { IsDraft = mr.IsDraft, HasConflicts = mr.HasConflicts }; // 8d16, 6811a
+        return new PrReviewState(iid.ToString(CultureInfo.InvariantCulture), state, at, decisions, mr.Sha,
+            state == PrReviewStates.Merged ? mr.MergeCommitSha ?? mr.SquashCommitSha ?? mr.Sha : null) { IsDraft = mr.IsDraft, HasConflicts = mr.HasConflicts }; // 8d16, 6811a
     }
 
     private PrReviewDecision Decision(GitLabNote note)

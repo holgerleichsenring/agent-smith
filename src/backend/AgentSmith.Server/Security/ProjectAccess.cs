@@ -38,6 +38,13 @@ internal sealed class ProjectAccess(
     }
 
     /// <summary>
+    /// 2026-11-23-933da: every permission granted in this project by a BINDING of a configured project — a global hold
+    /// alone does not count, so a person holding global reader acts only where their own binding reaches.
+    /// </summary>
+    public bool HoldsByBindingIn(ClaimsPrincipal user, IReadOnlyList<string> permissions, string project) =>
+        IsConfigured(project) && AllIn(BindingGrants(identities.Resolve(user), project), permissions);
+
+    /// <summary>
     /// 2026-10-15-4a4dd: the configured projects this permission holds in, in configured spelling; null when it holds
     /// globally. The caller is resolved once and the configured keys read once (or taken as given), never per project.
     /// </summary>
@@ -55,6 +62,9 @@ internal sealed class ProjectAccess(
     /// </summary>
     public bool SeesInstallation(ClaimsPrincipal user) =>
         !Enforcing || identities.Resolve(user).Permissions.Contains(Permissions.AdminAssistant, StringComparer.Ordinal);
+
+    private static IReadOnlyList<string> BindingGrants(Models.CallerIdentity identity, string project) =>
+        identity.ProjectPermissions.TryGetValue(project, out var granted) ? granted : [];
 
     private bool IsConfigured(string project) => projects.All().Keys.Contains(project, ConfigNames.Comparer);
 

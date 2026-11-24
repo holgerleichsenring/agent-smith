@@ -112,6 +112,7 @@ public sealed class HousekeepingLeaderHostedService(
         return new PipelineRunWatchdog(
             registry, publisher,
             () => configLoader.LoadConfig(serverContext.ConfigPath).Orchestrator.MaxRunWallTimeSeconds,
-            services.GetRequiredService<ILogger<PipelineRunWatchdog>>(), services.GetService<IModelRunSlots>());
+            services.GetRequiredService<ILogger<PipelineRunWatchdog>>(), services.GetService<IModelRunSlots>(),
+            () => configLoader.LoadConfig(serverContext.ConfigPath).Pocs.RunWallTimeSeconds); // 2026-11-23-c81ec
     }
 }

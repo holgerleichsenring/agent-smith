@@ -305,6 +305,13 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         string path, BranchName branch, CancellationToken cancellationToken) =>
         _branchRead.ListDirectoryAsync(path, branch.Value, cancellationToken);
 
+    public Task<RepoFileListing> ListFilesUnderAsync( // 2026-11-23-c81ea
+        string path, BranchName branch, int maxFiles, CancellationToken cancellationToken) =>
+        new GitHubFolderFiles(_address, _clientFactory, _token, _logger).ListAsync(path, branch.Value, maxFiles, cancellationToken);
+
+    public async Task<BranchName> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+        new(await GetDefaultBranchAsync(CreateGitHubClient()));
+
     private IGitHubClient CreateGitHubClient() => _clientFactory.Create(_address, _token);
 
     // 2026-10-08-e8b9d: the review is read by a collaborator over this provider's own connection.

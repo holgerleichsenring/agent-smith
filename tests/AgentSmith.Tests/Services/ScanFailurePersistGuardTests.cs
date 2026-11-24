@@ -83,6 +83,15 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.ConfigName, false)] // 2026-11-17-f3a8c
     [InlineData(PipelinePresets.SecretName, false)] // 2026-11-17-f3a8d
     [InlineData(PipelinePresets.DeployName, false)] // 2026-11-18-3863c: a deploy writes a manifest branch, never WIP
+    [InlineData(PipelinePresets.PocDeployName, false)] // 2026-11-23-933db: the intake checks an archive and commits nothing
+    [InlineData(PipelinePresets.PocVariablesName, false)] // 2026-11-23-933dg: it writes variables, no code
+    [InlineData(PipelinePresets.PocStopName, false)] // 2026-11-23-c81ed: the acts commit manifests through GitOpsCommit, no code
+    [InlineData(PipelinePresets.PocStartName, false)]
+    [InlineData(PipelinePresets.PocRollbackName, false)]
+    [InlineData(PipelinePresets.PocApplyName, false)]
+    [InlineData(PipelinePresets.PocDeleteName, false)]
+    [InlineData(PipelinePresets.PocExtendName, false)] // 2026-11-23-c81ee: an extension writes the row, no code
+    [InlineData(PipelinePresets.PocUploadPurgeName, false)] // 2026-11-23-c81ee: the purge deletes stored uploads, no code
     public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
         WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
 
@@ -92,10 +101,13 @@ public sealed class ScanFailurePersistGuardTests
             "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project", PipelinePresets.SpecDeriveName,
             PipelinePresets.FileName, PipelinePresets.BranchCleanupName, PipelinePresets.RefreshBaseName, PipelinePresets.CloseName, PipelinePresets.ReopenName,
             PipelinePresets.StartName, PipelinePresets.AmendName, PipelinePresets.CommentName,
-            PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName, PipelinePresets.SeriesRunName, PipelinePresets.SeriesVerifyName, .. InstallationPresets]);
+            PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName, PipelinePresets.SeriesRunName, PipelinePresets.SeriesVerifyName, PipelinePresets.PocDeployName, PipelinePresets.PocVariablesName, .. PocActPresets, .. InstallationPresets]);
+
+    // 2026-11-23-c81ed: the PoC lifecycle acts.
+    private static readonly string[] PocActPresets = [PipelinePresets.PocStopName, PipelinePresets.PocStartName, PipelinePresets.PocRollbackName, PipelinePresets.PocApplyName, PipelinePresets.PocDeleteName, PipelinePresets.PocExtendName];
 
     // 2026-11-17-f3a8a: the runs on the installation, none of which commits work.
-    private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName, PipelinePresets.SecretName];
+    private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName, PipelinePresets.SecretName, PipelinePresets.PocTargetInstallName, PipelinePresets.PocUploadPurgeName]; // 933dd, c81ee: the install commits its pipeline itself
 
     // The webhook path: a PR push routes to the resolver's default pipeline, which must never persist.
     [Fact]

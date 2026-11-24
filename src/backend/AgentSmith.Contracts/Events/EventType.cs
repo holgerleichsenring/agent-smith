@@ -19,9 +19,8 @@ public enum EventType
     ToolCall = 23,
     ToolResult = 24,
     L1StepDetail = 25,
-    // p0184: ticket detail event (L1Run tier). Carries title, description,
-    // state, labels, attachment count — fills the empty Fetch-ticket step
-    // body and feeds RunSnapshot.TicketTitle for the runs-page card.
+    // p0184: ticket detail event (L1Run tier): title, description, state, labels, attachment
+    // count — fills the Fetch-ticket step body and feeds RunSnapshot.TicketTitle.
     TicketFetched = 26,
     // p0205: per-run catalog binding (version/source/url/counts/from-cache),
     // emitted by the visible LoadCatalog step. Distinct from the system-scoped
@@ -61,8 +60,7 @@ public enum EventType
     // (verbatim/edited/rejected/unratified + edit distance). Carries the
     // draft + ratified ExpectationDraft JSON so the server-side projector
     // can persist the RunExpectation row — the event stream is the only
-    // DB channel a spawned orchestrator has. Nothing emits it any more; it stays
-    // so archived trails decode.
+    // DB channel a spawned orchestrator has. Nothing emits it any more; it stays so archived trails decode.
     ExpectationRatified = 73,
     // p0344b: the run-story snapshot at run end — the progress ledger + the acceptance dispositions as camelCase wire
     // JSON. The server-side applier persists both onto the run row (ProgressLedgerJson / AcceptanceJson) so the run
@@ -89,8 +87,7 @@ public enum EventType
     // is addressable after the run — the spec used to survive only as a
     // "p19213a: " prefix on a step name.
     SpecStateChanged = 79,
-    // p0466: the executed spec, as WriteSpecRecord wrote it into the working tree. Mirrored into the artifact store
-    // so the server can serve the record of a spec whose sandbox and branch are long gone.
+    // p0466: the executed spec as WriteSpecRecord wrote it, mirrored into the artifact store for a spec whose sandbox and branch are gone.
     SpecRecorded = 80,
     // 2026-09-17-042eh: what a fresh reviewer found in the spec's own diff, as JSON — its own event and
     // artifact row, because the record body carries the findings as prose and 042ej reads them as data.
@@ -114,6 +111,10 @@ public enum EventType
     VerifyPassRecorded = 91,
     // 2026-11-18-3863f: a deploy's pull request or pipeline run, followed by the server.
     DeployDelivered = 92,
-    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs.
+    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs; 933db: a poc-deploy run validated a PoC revision; 933dc: one lifted a block; c81eb: one committed it to the deploy folder; c81ed: a lifecycle act committed.
     TicketTextRewritten = 93,
+    PocImported = 94,
+    PocOverruled = 95,
+    PocDeployed = 96,
+    PocActed = 97,
 }

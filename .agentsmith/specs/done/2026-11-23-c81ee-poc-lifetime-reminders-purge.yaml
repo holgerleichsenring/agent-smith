@@ -1,0 +1,177 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-c81ee
+goal: "A PoC's expiry is computed, its owner sees reminders and may extend it, an expired PoC is stopped or deleted by a run, and a blocked PoC never deployed goes with its purged upload."
+
+applies_to: "default (PocLifetime computation, Poc.Extensions + ReminderSeenAtTicks + migrations on three providers, poc-lifetime leader subsystem, expiry and removal seeds on c81ed's acts, start refused and an upload kept stopped on an expired PoC, lifetime fields on the PoC list and detail answers, poc-extend and poc-upload-purge presets, reminder-seen route, pocs.lifetime settings) + dashboard (list badge, lifetime panel and banner on the detail page, settings fields)"
+
+requires: [2026-11-23-c81ed, 2026-11-23-933dc]
+
+upgrade_impact: "Behind pocs.enabled. Poc gains Extensions (int, 0) and ReminderSeenAtTicks (nullable); migration on SQLite, SQL Server and PostgreSQL, no data written. A new leader subsystem 'poc-lifetime' acts only while pocs.enabled is true and a target exists; it starts runs and writes nothing. PoCs older than their target's lifetime_days when this ships are expired at once: the first pass stops those whose owner never saw a reminder (none could have) and records that stop, so nothing is deleted on the upgrade; they are deleted pocs.lifetime.unseen_delete_after_days (30) after that stop unless extended. A blocked PoC that never deployed and whose upload the first purge run deletes is removed (state deleted, its name and per-person slot freed) by the pass after it. Two presets: poc-extend (in 933db's PocPresets.Names) and poc-upload-purge (an installation run). c81ed's Start is refused on an expired PoC (Extend first), and c81eb's poc-deploy keeps an expired PoC's Replicas instead of starting it. GET /api/pocs and GET /api/pocs/{pocId} gain lifetime fields; route-permission-baseline.tsv gains the two new routes. A new pocs.lifetime block (interval_seconds 3600, extend_days 90, max_owner_extensions 2, unseen_delete_after_days 30) reads its defaults when absent."
+
+facts:
+  - claim: "Timed work is a leader-leased subsystem rebuilt per config epoch that starts runs and writes nothing itself; branch-cleanup is the model, and its launcher skips a project whose previous run is live."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/WorkBranchCleanupHostedService.cs:11-62, src/backend/AgentSmith.Server/Services/Hosting/LeaderEpochLoop.cs:14-23, src/backend/AgentSmith.Server/Services/Branches/WorkBranchCleanupLauncher.cs:22-36"
+  - claim: "Every persisted entity carries CreatedAt stamped on insert, so a PoC's age needs no column of its own."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/EntityBase.cs:3-13"
+  - claim: "Runs on the installation are their own preset dictionary, started through IActRun with the reserved label '@agent-smith' where a project name goes."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Installation.cs:24-34, src/backend/AgentSmith.Contracts/Models/Configuration/InstallationScope.cs:3-14, src/backend/AgentSmith.Server/Services/Admin/Config/ConfigApplyRun.cs:15-24, src/backend/AgentSmith.Server/Services/Acts/IActRun.cs:10-17"
+  - claim: "SQLite cannot translate a DateTimeOffset comparison in a query, so the code selects ids and timestamps and filters client-side, then deletes set-based."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRetentionService.cs:22-41"
+  - claim: "A Run row keeps no seeds and no actor once started: its stored request is cleared when RunStarted promotes the row, and a ticketless run's Trigger is always 'manual'."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:54-57, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/InitRunRepository.cs:19, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/InitRunRepository.cs:36-45"
+  - claim: "IActRun runs the act on no token and builds the request from the seeds only, so the handler cannot see the caller's permissions; ConfigApplyRun passes the caller's right as a seed (mayWriteSecrets)."
+    evidence: "src/backend/AgentSmith.Server/Services/Acts/ActRun.cs:10-37, src/backend/AgentSmith.Server/Services/Admin/Config/ConfigApplyRun.cs:15-23"
+  - claim: "Every mapped route must appear in route-permission-baseline.tsv with its permissions, or RoutePermissionGuardTests fails."
+    evidence: "tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:56-71"
+  - claim: "Uploaded bytes are ReferenceFile rows keyed on a session id and stamped with CreatedAt."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ReferenceFile.cs:17-25"
+  - claim: "A project's runs of one preset can be found by project and pipeline on the Run rows."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/InitRunRepository.cs:23-31"
+  - claim: "No mail sender exists in the backend; chat adapters only answer into a channel an incoming request named."
+    evidence: "observed: 2026-11-23, grep -rliE 'smtp|SendGrid|MailKit|SendMail|EmailSender' over src/backend matched nothing; src/backend/AgentSmith.Server/Contracts/IPlatformAdapter.cs:5-20"
+  - claim: "933db stores an admitted archive under the session key 'poc-upload:<owner key>' and leaves its purge to this spec; 933dc keeps a blocked upload for pocs.blocked_retention_days (7) and its overrule reuses the stored upload; 933dg leaves deleting a PoC's poc-scope secret rows to this spec, through SecretWrite with the PoC's scope; 933da's ExpiresAtTicks is written only by this spec's extend run and targets carry lifetime_days (90) and reminder_days ([14, 7, 1]); 933da's GET /api/pocs list item carries name, project, target, host, state, owner and last run; 933db's IActRun.RunAsync takes an optional run id."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933dc and the series specs 2026-11-23-933da, 2026-11-23-933db and 2026-11-23-933dg it requires"
+  - claim: "c81ed's poc-stop and poc-delete are the runs that stop and delete a PoC, launched through PocActLauncher and 933db's PocRunGate; ContextKeys.PocAct drives the plan and the follow's state table; PocActPlan holds the act preconditions; PocActedEvent is projected into PocAuditEntry; GET /api/pocs/{pocId} answers name, host, state, desired state, owner, last run and may_act; a pending delete is Revision null."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-c81ed"
+  - claim: "Operator 2026-11-23: 90-day lifetime, owner reminders at 14/7/1 days, extend; source stays in the source repo."
+    evidence: "observed: 2026-11-23, operator (PoC concept, agreed)"
+  - claim: "Operator ruling H: mail is the wanted reminder channel but there is no SMTP yet, so it is not built now and the dashboard notice is the channel; an expired PoC whose owner has not seen a reminder is STOPPED, not deleted; extend by the owner at most twice (config), then by an admin."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling I: blocked uploads are kept 7 days (config)."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: an expired PoC stopped because its reminder was unseen is deleted after 30 days, a config key with a dashboard field."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a blocked PoC that never deployed is removed when its upload is purged (7 days)."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a new upload to a stopped PoC starts it."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "933da's PocAuditEntry stores its time as AtTicks (a long) with an index on (PocId, AtTicks), so the latest entry of an act per PoC is a query without a DateTimeOffset; 933da's PocStates.IsLive counts a blocked PoC toward per_person_limit and holds its name until it is deleted; 933dc's overrule route checks whether a revision's stored upload is gone; c81ed's poc-delete admits any state but deleted, Revision null included, and its settled delete sets deleted and LiveName null."
+    evidence: "observed: 2026-11-23, delivered by the series specs 2026-11-23-933da and 2026-11-23-933dc and the required series spec 2026-11-23-c81ed"
+
+scope:
+  in: >
+    EXPIRY (computed, PocLifetime, pure): ExpiresAt = Poc.ExpiresAtTicks when set (only an extend run sets it), else
+    CreatedAt + the target's lifetime_days. The reminder window opens at ExpiresAt minus the largest reminder day; a
+    reminder for day d is due while ExpiresAt - d <= now < ExpiresAt. A reminder is SEEN when ReminderSeenAtTicks lies in
+    [window open, ExpiresAt); a view after ExpiresAt never counts, and a seen time from before an extension falls outside
+    the new window. No reminder state is stored besides the seen time. Every expiry is computed IN MEMORY over rows
+    already loaded; no query compares CreatedAt or another DateTimeOffset (SQLite cannot translate it), so no ticks
+    column is added. SEEN ROUTE: POST /api/pocs/{pocId}/reminders/seen (pocs.read + runs.read InProject(ProjectFrom.Poc))
+    records ReminderSeenAtTicks = now only when the caller's principal is the PoC's Owner and now is inside the window;
+    otherwise it answers 204 and records nothing (an admin's view never counts as the owner's). LIFETIME FIELDS: the
+    items of 933da's GET /api/pocs and the answer of c81ed's GET /api/pocs/{pocId} gain expires_at, days_left,
+    window_open, expired, deletes_at (the unseen-delete date once an expiry stop is recorded, else null), extensions, owner_allowance (pocs.lifetime.max_owner_extensions) and may_extend (the
+    caller may act and either Extensions < owner_allowance or the caller holds pocs.admin), all from PocLifetime.
+    SUBSYSTEM poc-lifetime (leader lease agentsmith:leader:poc-lifetime, on LeaderEpochLoop like branch-cleanup, every
+    pocs.lifetime.interval_seconds; idle while 933da's PocsGate says off or no target exists): each pass loads the live
+    PoCs (IsLive), for the expired ones the AtTicks of their latest PocAuditEntry 'expired' (933da's (PocId, AtTicks)
+    index; a long, so no DateTimeOffset in the query), and for the blocked ones with Revision null whether their latest
+    revision's stored upload still exists (933dc's check); PocLifetimePlan decides per PoC in memory, writing nothing.
+    Revision set: expired and seen -> launch poc-delete; expired, not seen, no 'expired' entry at or after ExpiresAt ->
+    launch poc-stop, also at Replicas 0 (stopped by its owner), so every unseen expiry gets one recorded stop; expired,
+    not seen, an 'expired' entry at or after ExpiresAt -> nothing until pocs.lifetime.unseen_delete_after_days (30)
+    have passed since that entry (AtTicks compared in memory), then launch poc-delete (UNSEEN DELETE). REMOVAL: state
+    blocked, Revision null (never deployed) and the latest revision's upload gone, purged after
+    pocs.blocked_retention_days by the purge below -> launch poc-delete, which commits nothing (no deploy folder exists)
+    and settles deleted with LiveName null (c81ed), freeing the name and the per-person slot. Any other Revision null
+    (importing, a blocked PoC whose upload is still kept, or a delete pending per c81ed) -> nothing. Skipped for this pass: a PoC whose LastRunId names a live run (933db's
+    PocRunGate also answers 409, read as 'skip'), and a PoC whose LastRunId names a FAILED poc-stop or poc-delete run
+    (Run.Pipeline and Status, read by id) that finished less than 24 hours ago (FinishedAt compared in memory) — the
+    Run row keeps no seed, so this backoff covers an owner's failed stop or delete as well, and a broken PoC is retried
+    once a day, not hourly. Launch: c81ed's PocActLauncher with the seed expiry = true and actor 'poc-lifetime'.
+    EXPIRY SEED (c81ed's PocAct): ContextKeys.PocAct keeps the plan's act, stop or delete, so the plan, the follow's
+    state table (a settled delete still clears LiveName) and the preconditions are c81ed's unchanged; the seed adds
+    the audit act and its reason separately (ContextKeys.PocAuditAct: Act expired with Reason 'stopped, not deleted:
+    no reminder was seen before expiry', 'deleted after the owner saw a reminder' or 'deleted <N> days after its
+    expiry stop: no reminder was seen and it was not extended (pocs.lifetime.unseen_delete_after_days)'; for a
+    REMOVAL Act deleted with Reason 'removed with its upload: blocked and never deployed, the upload was purged after
+    <N> days (pocs.blocked_retention_days)'), which GitOpsCommit puts on the run's PocActedEvent, projected into
+    PocAuditEntry. PocAct re-reads the row: a PoC no longer expired (extended meanwhile), a removal whose PoC is no
+    longer blocked with Revision null and its upload gone (a new upload meanwhile), or a deleted PoC ends the run green
+    saying so; an expiry stop of a PoC already at Replicas 0 is admitted (c81ed's PocActPlan admits stop from ready or
+    failed; the expiry seed adds stopped, with the same desired state) and runs on (GitOpsCommit commits nothing and
+    still publishes its event), so the stop that starts the unseen-delete clock is recorded. An expired PoC stopped this way stays
+    stopped until its owner extends it and then starts it or deletes it, or until the UNSEEN DELETE; the detail answer's
+    deletes_at and the banner name that date. START AFTER
+    EXPIRY: c81ed's PocActPlan refuses start on an expired PoC (PocLifetime), naming the expiry date and Extend
+    ('<poc> expired on <date>; extend it first'), so Start without Extend cannot loop with the next pass's stop.
+    UPLOAD AFTER EXPIRY: c81eb's GitOpsCommit commits Replicas 1 in poc-deploy (a new upload starts a stopped PoC,
+    operator ruling round 4) except for an expired PoC (PocLifetime), whose row Replicas it keeps; the step's outcome
+    says '<poc> expired on <date>: revision <N> is deployed stopped; extend it, then start it' — an upload does not do
+    what Start may not.
+    EXTEND: preset poc-extend [PocExtend] in 933db's PocPresets.Names, started by POST /api/pocs/{pocId}/acts/extend
+    (pocs.write + runs.read InProject(ProjectFrom.Poc), then PocActAccess.MayAct) through 933db's PocRunGate (minted
+    run id, claim and queued row in one transaction, 409 naming a live run) and IActRun with that run id in the PoC's
+    project, so the button gets its answer. IActRun runs on no token, so the route seeds ContextKeys.PocMayExceed =
+    whether the caller holds pocs.admin, as ConfigApplyRun seeds mayWriteSecrets. PocExtend refuses a deleted PoC; it
+    extends while Extensions < pocs.lifetime.max_owner_extensions (2), past that only with PocMayExceed, refused
+    naming the value, the reason 'a PoC is not a product' and the key; it writes Extensions + 1 and ExpiresAtTicks =
+    max(now, ExpiresAt) + pocs.lifetime.extend_days (90) and publishes PocActedEvent (Act extended), projected into
+    PocAuditEntry 'extended'. An IActRun run is awaited in process and never re-queued (no stored request), so there
+    is no retry of the same run id to guard; PocRunGate keeps two clicks from running at once, and a second click
+    after the first finished is a second extension that counts. It does not start a stopped PoC; Start is c81ed's
+    act. PURGE: preset poc-upload-purge [PurgePocUploads] in the installation dictionary, run through IActRun on
+    '@agent-smith' by the lifetime subsystem when the latest poc-upload-purge run (by id on project '@agent-smith')
+    did not finish in the last 24 hours (compared in memory). PurgePocUploads selects the ids and CreatedAt of the
+    ReferenceFile rows whose session id starts with 'poc-upload:', keeps those older than
+    pocs.blocked_retention_days client-side and deletes them set-based (as RunRetentionService does), and, for every
+    PoC in state deleted that still has poc-scope secret rows, deletes them through 933dg's SecretWrite with the scope
+    poc:<id>; it says how many of each; idempotent (nothing left = nothing done). OVERRULE AFTER PURGE: 933dc's
+    overrule route already refuses a revision whose stored upload is gone, naming the revision, the days and
+    pocs.blocked_retention_days; this spec adds no code to it, only the purge that makes it happen. SETTINGS
+    pocs.lifetime (PocLifetimeConfig, Problems() naming value, reason, key): interval_seconds at least 300 ('each pass
+    reads every PoC, and reminders count in days'), extend_days at least 1, max_owner_extensions 0 or more,
+    unseen_delete_after_days at least 1 ('0 would delete an expired PoC in the pass after its stop, before its owner
+    could see the banner and extend it'); fields in
+    the PoCs settings form. ROUTES: route-permission-baseline.tsv gains POST /api/pocs/{pocId}/reminders/seen and POST
+    /api/pocs/{pocId}/acts/extend with their permissions. DASHBOARD: PoC list badge 'expires in N days' while the
+    window is open and 'expired' after (from the list fields); the detail page's lifetime panel (expires on, days
+    left, extensions used of the owner's allowance, Extend when may_extend) and a banner while the window is open that
+    posts reminders/seen once per page view for the owner; after expiry the banner says why the PoC was stopped and
+    on which date it will be deleted unless extended (deletes_at), and offers Extend and Delete, with Start enabled
+    again once Extend has moved the expiry. German strings.
+  out: "A reminder mail channel: a later spec once agent smith has an SMTP sender (not minted here, a random id cannot be reserved), and chat DMs (nothing maps a person to a chat user). Deleting registry images (the operator's scheduled ACR Task running acr purge, documented by 933de; its --ago <N> must be longer than the longest PoC lifetime including extensions). Removing the source folder (it stays)."
+
+pipeline-presets:
+  poc-extend: [PocExtend]
+  poc-upload-purge: [PurgePocUploads]
+
+steps:
+  - id: model
+    action: "Poc.Extensions, ReminderSeenAtTicks; migrations x3."
+  - id: lifetime
+    action: "PocLifetime (expiry, window, due reminders, seen, in memory) and PocLifetimePlan (pure: expiry stop, unseen delete, removal), PocLifetimeConfig (with unseen_delete_after_days) and Problems(); schema, example."
+  - id: subsystem
+    action: "PocLifetimeHostedService on LeaderEpochLoop with its SubsystemHealth; launches through PocActLauncher with the expiry seed and the purge through IActRun; the backoff reads the run LastRunId names (Pipeline, Status, FinishedAt) and the latest '@agent-smith' purge run by id, timestamps compared in memory; the latest 'expired' audit entry per expired PoC and the upload check per never-deployed blocked PoC."
+  - id: acts
+    action: "PocAct's expiry and removal seeds with ContextKeys.PocAuditAct (Act + Reason) beside ContextKeys.PocAct, PocActPlan admitting an expiry-seeded stop from stopped, which runs on; PocActPlan refuses start on an expired PoC; GitOpsCommit keeps an expired PoC's Replicas in poc-deploy; CommandNames.PocExtend, PocExtendHandler with ContextKeys.PocMayExceed; poc-extend joining 933db's PocPresets.Names; POST acts/extend seeding PocMayExceed; reminders/seen route; lifetime fields on the list items and the detail answer; route-permission-baseline.tsv rows."
+  - id: purge
+    action: "CommandNames.PurgePocUploads, PurgePocUploadsHandler (ids selected, ages filtered client-side, set-based delete); poc-upload-purge in the installation dictionary."
+  - id: dashboard
+    action: "List badge and lifetime panel from the lifetime fields, banner with the seen post, Extend, Start only after Extend on an expired PoC; settings fields; i18n with German."
+  - id: docs
+    action: "docs: PoC lifetime, reminders, extend and upload retention."
+
+tests:
+  - "PocLifetime: ExpiresAtTicks null -> CreatedAt + lifetime_days; 14 days left opens the window; a seen time before the window or after ExpiresAt does not count; after an extension the old seen time does not count"
+  - "PocLifetimePlan: expired + seen -> delete; expired + unseen + Replicas 1 -> stop; expired + unseen + Replicas 0 with no 'expired' entry since ExpiresAt -> stop; with an expiry stop 29 days old -> nothing, 31 days old -> delete; an expiry stop from before an extension does not count; blocked + Revision null + upload gone -> delete (removal); blocked + Revision null + upload kept -> nothing; importing + Revision null -> nothing; live run -> skipped; LastRunId a failed poc-stop finished 2 h ago -> skipped, 25 h ago -> launched; LastRunId a failed poc-deploy -> not skipped"
+  - "PocLifetimeHostedService on SQLite: a pass computes expiry in memory with no DateTimeOffset in a query; pocs.enabled false starts nothing; after an expiry stop the next pass starts no run for that PoC; unseen_delete_after_days 30 is read from config"
+  - "Seen route: the owner inside the window records; an admin records nothing; the owner after expiry records nothing"
+  - "Lifetime fields: GET /api/pocs and GET /api/pocs/{pocId} answer expires_at, days_left, window_open, expired, deletes_at, extensions, owner_allowance and may_extend (false for the owner at 2 extensions, true for pocs.admin)"
+  - "PocExtendHandler: third owner extension refused naming pocs.lifetime.max_owner_extensions; with PocMayExceed seeded by an admin's route call it passes; a deleted PoC refused; the audit entry 'extended' comes from the event projection"
+  - "PocAct expiry seed: an expiry stop of a PoC at Replicas 0 commits nothing and records an 'expired' entry; an unseen delete names pocs.lifetime.unseen_delete_after_days in its Reason; a removal seed of a PoC that got a new upload meanwhile ends green with nothing done; an extended PoC ends green with nothing done; ContextKeys.PocAct stays stop or delete; an expiry delete that settles clears LiveName; the audit entry 'expired' names stop or delete in its Reason"
+  - "PocActPlan start on an expired stopped PoC refused naming the expiry date and Extend; after an extension start passes"
+  - "GitOpsCommit in poc-deploy: a new upload to a stopped PoC that is not expired commits replicas 1; to an expired stopped PoC it commits replicas 0 and the outcome names the expiry date and Extend"
+  - "Removal end to end (SQLite, faked git host and Argo): a blocked never-deployed PoC whose upload the purge run deleted is removed by the next pass's poc-delete — state deleted, LiveName null, the owner can import a new PoC of that name past a per_person_limit the blocked one filled, and the audit entry 'deleted' names pocs.blocked_retention_days"
+  - "PurgePocUploadsHandler on SQLite: an 8-day-old poc-upload row is deleted, a 6-day-old one and a reference upload of a conversation are kept; a deleted PoC's poc-scope secret rows are deleted through SecretWrite; a second run does nothing"
+  - "Overrule HTTP after a real purge run (933dc's refusal, end to end): refused naming the revision, the days and the key"
+  - "PocLifetimeConfig.Problems: interval_seconds 60 refused naming value, reason and key; max_owner_extensions -1 refused; unseen_delete_after_days 0 refused naming value, reason and key"
+  - "RoutePermissionGuardTests matches the baseline with the reminders/seen and acts/extend rows"
+  - "Migration parity on SQL Server and PostgreSQL"
+  - "Dashboard: banner shows days left and posts seen once for the owner; Extend calls the act and shows the new date; the list badge shows for an expiring PoC; after expiry Start is disabled until Extend and the banner names deletes_at; the settings form round-trips unseen_delete_after_days"
+
+done:
+  - "A PoC 90 days old whose owner never saw a reminder is stopped by a run, not deleted, no later pass starts another run for it for 30 days, and then a run deletes it; one whose owner saw the 1-day reminder before expiry is deleted by a run; each run leaves an 'expired' audit entry."
+  - "A blocked PoC that never deployed is gone (state deleted, its name free, no longer counted against the owner's limit) by a run after the daily purge removed its 7-day-old upload."
+  - "An owner extends a PoC twice; the third extension is refused naming the key and an admin's passes."
+  - "An upload older than pocs.blocked_retention_days is gone after the daily purge run on '@agent-smith', and its revision's overrule is refused saying so."

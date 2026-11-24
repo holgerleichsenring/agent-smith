@@ -1,0 +1,74 @@
+@@MARKER@@
+stages: [build, scan, push]
+variables:
+  GIT_STRATEGY: none
+.poc-rules: &poc-rules
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "api" && $POC_FOLDER'
+build:
+  stage: build
+  <<: *poc-rules
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  timeout: @@BUILD_MINUTES@@m
+  script:
+    - |
+      @@GUARD@@
+    - apk add --no-cache git
+    - |
+      @@CHECKOUT@@
+    - |
+      @@BUILD@@
+  artifacts:
+    paths:
+      - out/image.tar.gz
+    expire_in: 1 day
+scan:
+  stage: scan
+  <<: *poc-rules
+  needs:
+    - job: build
+      artifacts: true
+  image:
+    name: @@TRIVY_IMAGE@@
+    entrypoint: [""]
+  timeout: @@SCAN_MINUTES@@m
+  script:
+    - |
+      @@GUARD@@
+    - |
+      @@SCAN@@
+  artifacts:
+    when: always
+    paths:
+      - report.json
+      - gate.txt
+    expire_in: 1 day
+push:
+  stage: push
+  <<: *poc-rules
+  needs:
+    - job: build
+      artifacts: true
+    - job: scan
+      artifacts: false
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  environment:
+    name: @@GITLAB_ENVIRONMENT@@
+  timeout: @@PUSH_MINUTES@@m
+  script:
+    - |
+      @@GUARD@@
+    - |
+      @@PUSH@@
+  artifacts:
+    paths:
+      - digest.txt
+    expire_in: 1 day

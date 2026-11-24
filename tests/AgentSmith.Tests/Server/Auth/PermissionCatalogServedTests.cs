@@ -26,8 +26,20 @@ public sealed class PermissionCatalogServedTests(EnforcingAuthorityFixture fixtu
 
         capabilities.Permissions.Should().BeEquivalentTo(Permissions.All,
             "the form offers the catalog the server enforces, not a copy of it");
-        capabilities.BuiltInRoles.Should().BeEquivalentTo(["admin", "operator", "reader"]);
+        capabilities.BuiltInRoles.Should().BeEquivalentTo(["admin", "operator", "reader", "poc"]); // 2026-11-23-933da
+        capabilities.Permissions.Should().Contain(["pocs.read", "pocs.write", "pocs.overrule", "pocs.admin"]);
     }
+
+    // 2026-11-23-933da: the operator opens the PoCs area and reads; acting and overruling stay pocs.write and pocs.*.
+    [Fact]
+    public void BuiltInRoles_Operator_HoldsPocsReadAndNoOtherPocsPermission() =>
+        BuiltInRoles.All[BuiltInRoles.Operator].Where(p => p.StartsWith("pocs.", StringComparison.Ordinal))
+            .Should().Equal(Permissions.PocsRead);
+
+    [Fact]
+    public void BuiltInRoles_Poc_ReadsAndWritesPocsAndNothingElse() =>
+        BuiltInRoles.All[BuiltInRoles.Poc].Should().BeEquivalentTo(
+            [Permissions.PocsRead, Permissions.PocsWrite, Permissions.IdentityRead]);
 
     private async Task<ConfigCapabilities> Capabilities()
     {

@@ -5,7 +5,7 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// then written only by the deploy follow. Keyed by the run; a pull request (<see cref="PullRequestUrl"/>) or a pipeline
 /// run (<see cref="PipelineRunId"/>). Times are UTC ticks, as on the pull-request records, so SQLite compares them.
 /// </summary>
-public sealed class DeployRecord : EntityBase
+public sealed class DeployRecord : EntityBase, IProjectOwned // 2026-11-23-8df6a: scoped like every project-owned row
 {
     public string RunId { get; set; } = string.Empty;
     public string Project { get; set; } = string.Empty;

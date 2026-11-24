@@ -1,0 +1,70 @@
+# 2026-11-23-933db harness fixture: PoCs switched on with one target; no project yet — a person's first import creates
+# their poc- project.
+agents:
+  openai-default:
+    type: openai
+    api_key: dummy
+    models:
+      primary:
+        model: gpt-4
+        max_tokens: 4096
+
+trackers:
+  github-fixture:
+    type: github
+    url: https://github.com/agent-smith-fixtures/repo
+    auth: gh_token
+
+repos:
+  poc-src:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    url: https://stub.test/poc-src
+    auth: ""
+
+pocs:
+  enabled: true
+  project_agent: openai-default
+  project_tracker: github-fixture
+  targets:
+    - name: main
+      source_repo: poc-src
+      # 2026-11-23-933de: required on every target.
+      registry:
+        login_server: pocregistry.azurecr.io
+        pull_user: poc-pull
+        pull_auth: poc_pull_token
+      # 2026-11-23-c81eb: required while pocs.enabled is true.
+      domain_pattern: "{app}.poc.example.internal"
+      ingress:
+        class: nginx
+      auth:
+        ingress_annotations:
+          nginx.ingress.kubernetes.io/auth-url: https://auth.poc.example.internal/oauth2/auth
+      network:
+        ingress_controller_namespace: ingress-nginx
+        egress_proxy:
+          url: http://egress-proxy.egress.svc.cluster.local:3128
+          namespace: egress
+          pod_labels:
+            app: egress-proxy
+      # 2026-11-23-c81ec: required while pocs.enabled is true.
+      argo:
+        url: https://argocd.poc.example.internal
+        token_secret: poc_argo_token
+        project: pocs
+        repo_url: https://git.example.internal/platform/poc-src.git
+  # 2026-11-23-933dg: scan.osv_image and scan.trivy_image are left to their pinned defaults.
+
+secrets:
+  gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
+  poc_pull_token: ${AGENTSMITH_TEST_POC_PULL_TOKEN}
+  poc_argo_token: ${AGENTSMITH_TEST_POC_ARGO_TOKEN}
+
+skills:
+  source: default
+  version: v3.5.0
+  cache_dir: /tmp/agentsmith-harness/skills
+
+sandbox:
+  agent_version: "0.0.0-harness"

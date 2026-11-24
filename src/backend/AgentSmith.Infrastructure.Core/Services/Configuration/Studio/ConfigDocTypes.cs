@@ -35,6 +35,7 @@ public static class ConfigDocTypes
     public const string BranchCleanup = "branch_cleanup"; // 2026-11-17-713ec
     public const string Tickets = "tickets"; // 2026-11-17-f9b0d
     public const string Holds = "holds"; // 2026-11-23-31dci
+    public const string Pocs = "pocs"; // 2026-11-23-933da
 
     // 2026-08-25-1806: role names, their permission bundles and the two claims they are
     // read from — application configuration, not bootstrap.

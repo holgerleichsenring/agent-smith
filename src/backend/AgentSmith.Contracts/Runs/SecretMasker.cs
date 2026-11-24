@@ -16,8 +16,12 @@ namespace AgentSmith.Contracts.Runs;
 /// frozen from the configuration loaded at startup — a secret added in the Studio later was
 /// otherwise never masked. The ordered list is rebuilt only when the source list changes.
 /// </para>
+/// <para>
+/// 2026-11-23-933dg: <paramref name="frame"/>'s values — the secret variables of the PoC project whose run this flow is —
+/// are replaced beside the installation's; outside a run's frame there are none.
+/// </para>
 /// </summary>
-public sealed class SecretMasker(ISecretValues secrets)
+public sealed class SecretMasker(ISecretValues secrets, RunMaskFrame? frame = null)
 {
     private const string Mask = "***";
     /// <summary>2026-11-17-f3a8d: the shortest value the masker masks — a stored secret must be at least this long.</summary>
@@ -37,7 +41,9 @@ public sealed class SecretMasker(ISecretValues secrets)
     public string Apply(string text, string placeholder)
     {
         if (string.IsNullOrEmpty(text)) return text;
-        foreach (var value in Maskable())
+        // Merged and ordered again, so a frame value inside an installation token never leaves it half-masked.
+        var values = frame?.Current is { Count: > 0 } extra ? Order(extra.Concat(Maskable())) : Maskable();
+        foreach (var value in values)
             text = text.Replace(value, placeholder, StringComparison.Ordinal);
         return text;
     }
@@ -51,7 +57,8 @@ public sealed class SecretMasker(ISecretValues secrets)
         return snapshot.Values;
     }
 
-    private static IReadOnlyList<string> Order(IReadOnlyList<string> values) =>
+    /// <summary>The values a masker replaces, longest first: blank, short and repeated values dropped.</summary>
+    internal static IReadOnlyList<string> Order(IEnumerable<string> values) =>
         values
             .Where(v => !string.IsNullOrWhiteSpace(v) && v.Length >= MinimumMaskedLength)
             .Distinct(StringComparer.Ordinal)

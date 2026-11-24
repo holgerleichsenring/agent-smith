@@ -1,0 +1,12 @@
+# @@MARKER@@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: app
+  namespace: "{namespace}"
+spec:
+  hard:
+    limits.cpu: @@QUOTA_CPU@@
+    limits.memory: @@QUOTA_MEMORY@@
+    limits.ephemeral-storage: @@QUOTA_EPHEMERAL_STORAGE@@
+    pods: @@QUOTA_PODS@@

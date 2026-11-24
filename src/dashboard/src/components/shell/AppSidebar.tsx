@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarDays, ChartColumn, CirclePlay, Clock, GitFork, GitPullRequest, Inbox, MessagesSquare, PanelLeft, Plus, Ticket, Terminal,
+  CalendarDays, ChartColumn, CirclePlay, Clock, GitFork, GitPullRequest, Inbox, LayoutGrid, MessagesSquare, PanelLeft, Plus, Rocket, Ticket, Terminal,
 } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useOpenPrCount } from "@/hooks/useOpenPrCount";
@@ -23,6 +23,9 @@ import { SERIES_PATH } from "@/lib/seriesRunAddress";
 import { cn } from "@/lib/utils";
 import { yourMoveCount } from "@/components/tickets/holds/holdWords";
 import { useHoldsAdmin } from "@/hooks/useHoldsAdmin";
+import { useKnownIdentity } from "@/hooks/useKnownIdentity";
+import { usePocsFeature } from "@/hooks/usePocsFeature";
+import { sidebarItems, type SidebarItemId } from "./sidebarItems";
 import { ProfileMenu } from "./ProfileMenu";
 import { SidebarGroup, SidebarItem } from "./SidebarItem";
 
@@ -56,6 +59,9 @@ export function AppSidebar() {
   const runningSeries = useSeriesRunCount(pathname); // 2026-11-23-31dcc
   const t = useT();
   const recent = useRecentPlaces(pathname);
+  // 2026-11-23-933da: what this caller sees — sidebarItems decides, from the known identity and GET /api/pocs.
+  const visible = new Set<SidebarItemId>(sidebarItems(useKnownIdentity(), usePocsFeature().status));
+  const show = (item: SidebarItemId) => visible.has(item);
 
   // The same merge and bucketing the runs list renders, so the count matches it.
   const inFlight = useMemo(() => {
@@ -100,7 +106,7 @@ export function AppSidebar() {
       </div>
 
       {/* 2026-11-18-73ca: + starts new work on home's composer; the conversations are Work it out, below. */}
-      <Link
+      {show("new-work") && <Link
         href="/"
         className={cn("sb-new", pathname === "/" && "on")}
         title={t("shell.nav.newWork")}
@@ -110,18 +116,18 @@ export function AppSidebar() {
       >
         <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
         {!collapsed && <span>{t("shell.nav.newWork")}</span>}
-      </Link>
+      </Link>}
 
-      <SidebarItem
+      {show("work-it-out") && <SidebarItem
         label={t("shell.nav.workItOut")}
         href="/spec-dialog"
         icon={MessagesSquare}
         active={under("/spec-dialog")}
         collapsed={collapsed}
         testId="sidebar-work-it-out"
-      />
+      />}
       {/* 2026-11-23-31dcc: every series a conversation filed, directly below the conversations that file them. */}
-      <SidebarItem
+      {show("series") && <SidebarItem
         label={t("series.nav")}
         href={SERIES_PATH}
         icon={GitFork}
@@ -129,9 +135,9 @@ export function AppSidebar() {
         collapsed={collapsed}
         count={runningSeries ?? undefined}
         testId="sidebar-series"
-      />
+      />}
 
-      <SidebarItem
+      {show("your-move") && <SidebarItem
         label={t("shell.nav.yourMove")}
         href={ticketBucketHref("needs-you")}
         icon={Inbox}
@@ -141,8 +147,8 @@ export function AppSidebar() {
         attention
         onClick={chooseTickets("needs-you")}
         testId="sidebar-your-move"
-      />
-      <SidebarItem
+      />}
+      {show("tickets") && <SidebarItem
         label={t("shell.nav.tickets")}
         href={TICKETS_PATH}
         icon={Ticket}
@@ -151,8 +157,8 @@ export function AppSidebar() {
         count={tickets ? totalTickets(tickets) : undefined}
         onClick={chooseTickets("all")}
         testId="sidebar-tickets"
-      />
-      <SidebarItem
+      />}
+      {show("runs") && <SidebarItem
         label={t("shell.nav.runs")}
         href={bucketHref("all")}
         icon={CirclePlay}
@@ -161,8 +167,8 @@ export function AppSidebar() {
         count={inFlight}
         onClick={chooseRuns}
         testId="sidebar-runs"
-      />
-      <SidebarItem
+      />}
+      {show("pull-requests") && <SidebarItem
         label={t("shell.nav.pullRequests")}
         href="/pull-requests"
         icon={GitPullRequest}
@@ -170,14 +176,26 @@ export function AppSidebar() {
         collapsed={collapsed}
         count={openPrs ?? undefined}
         testId="sidebar-pull-requests"
-      />
+      />}
+      {/* 2026-11-23-8df6a: what merged and what agent smith deployed, right below Pull requests (PoCs follow it). */}
+      {show("deployments") && <SidebarItem
+        label={t("deployments.nav")}
+        href="/deployments"
+        icon={Rocket}
+        active={under("/deployments")}
+        collapsed={collapsed}
+        testId="sidebar-deployments"
+      />}
 
-      <SidebarGroup label={t("shell.nav.insight")} collapsed={collapsed} />
-      <SidebarItem label={t("shell.nav.overview")} href="/overview" icon={ChartColumn} active={under("/overview")} collapsed={collapsed} testId="sidebar-overview" />
-      <SidebarItem label={t("shell.nav.delivery")} href="/delivery" icon={CalendarDays} active={under("/delivery")} collapsed={collapsed} testId="sidebar-delivery" />
+      {/* 2026-11-23-933da: Pull requests, Deployments (2026-11-23-8df6a), then PoCs. */}
+      {show("pocs") && <SidebarItem label={t("pocs.nav")} href="/pocs" icon={LayoutGrid} active={under("/pocs")} collapsed={collapsed} testId="sidebar-pocs" />}
 
-      {recent.length > 0 && <SidebarGroup label={t("shell.nav.recent")} collapsed={collapsed} />}
-      {recent.map((place) => (
+      {show("insight") && <SidebarGroup label={t("shell.nav.insight")} collapsed={collapsed} />}
+      {show("overview") && <SidebarItem label={t("shell.nav.overview")} href="/overview" icon={ChartColumn} active={under("/overview")} collapsed={collapsed} testId="sidebar-overview" />}
+      {show("delivery") && <SidebarItem label={t("shell.nav.delivery")} href="/delivery" icon={CalendarDays} active={under("/delivery")} collapsed={collapsed} testId="sidebar-delivery" />}
+
+      {show("recent") && recent.length > 0 && <SidebarGroup label={t("shell.nav.recent")} collapsed={collapsed} />}
+      {show("recent") && recent.map((place) => (
         <SidebarItem
           key={place.href}
           label={place.label}

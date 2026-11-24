@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using AgentSmith.Application.Services.Archives;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Services.References;
@@ -16,10 +17,8 @@ namespace AgentSmith.Server.Services.References;
 /// stay inside the set; the count and size bounds then apply to what was kept.
 /// </para>
 /// </summary>
-public sealed class ReferenceZipReader(ReferencePathRule paths, ReferenceIgnoreList ignored, ZipEntryChecksum checksum)
+public sealed class ReferenceZipReader(ReferencePathRule paths, ReferenceIgnoreList ignored, BoundedZipInflater inflater)
 {
-    private const int ChunkBytes = 81920;
-
     /// <summary>2026-10-09-86e1: the folder an archive named only ".zip" is unpacked under.</summary>
     private const string ArchiveRoot = "archive";
 
@@ -60,13 +59,9 @@ public sealed class ReferenceZipReader(ReferencePathRule paths, ReferenceIgnoreL
         {
             var path = paths.Normalise(entry.FullName);
             var budget = Math.Min(ReferenceUploadLimits.MaxFileBytes, ReferenceUploadLimits.MaxSetBytes - total);
-            if (Counted(entry, budget) is not { } bytes)
-                return ReferenceSetCheck.Refused(
-                    $"'{path}' takes '{archiveName}' over the {ReferenceUploadLimits.Megabytes(ReferenceUploadLimits.MaxFileBytes)} "
-                    + $"per-file or {ReferenceUploadLimits.Megabytes(ReferenceUploadLimits.MaxSetBytes)} set limit once unpacked.");
-            if (checksum.Of(bytes) != entry.Crc32)
-                return ReferenceSetCheck.Refused(
-                    $"'{path}' in '{archiveName}' does not match its own checksum; the archive is damaged or misstates its size.");
+            var inflated = inflater.Inflate(entry, budget);
+            if (inflated.Fault is { } fault) return ReferenceSetCheck.Refused(Refusal(fault, path, archiveName));
+            var bytes = inflated.Bytes;
             total += bytes.LongLength;
             files.Add(new ReferenceUploadPart(path, bytes));
         }
@@ -74,20 +69,11 @@ public sealed class ReferenceZipReader(ReferencePathRule paths, ReferenceIgnoreL
         return new ReferenceSetCheck(Rooted(archiveName, files), null);
     }
 
-    // The inflated bytes, or null as soon as they pass the budget.
-    private static byte[]? Counted(ZipArchiveEntry entry, long budget)
-    {
-        using var source = entry.Open();
-        using var into = new MemoryStream();
-        var buffer = new byte[ChunkBytes];
-        int read;
-        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
-        {
-            if (into.Length + read > budget) return null;
-            into.Write(buffer, 0, read);
-        }
-        return into.ToArray();
-    }
+    private static string Refusal(ZipInflationFault fault, string path, string archiveName) =>
+        fault == ZipInflationFault.OverBound
+            ? $"'{path}' takes '{archiveName}' over the {ReferenceUploadLimits.Megabytes(ReferenceUploadLimits.MaxFileBytes)} "
+              + $"per-file or {ReferenceUploadLimits.Megabytes(ReferenceUploadLimits.MaxSetBytes)} set limit once unpacked."
+            : $"'{path}' in '{archiveName}' does not match its own checksum; the archive is damaged or misstates its size.";
 
     private static IReadOnlyList<ReferenceUploadPart> Rooted(string archiveName, List<ReferenceUploadPart> files)
     {

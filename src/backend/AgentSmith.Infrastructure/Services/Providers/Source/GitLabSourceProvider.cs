@@ -68,7 +68,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     {
         ArgumentNullException.ThrowIfNull(files);
         return await _branchWrite.WriteAsync(
-            branch.Value, await GetDefaultBranchAsync(cancellationToken), files, message,
+            branch.Value, await DefaultBranchNameAsync(cancellationToken), files, message,
             cancellationToken);
     }
 
@@ -94,7 +94,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     public async Task<Repository> CheckoutAsync(
         BranchName? branch, CancellationToken cancellationToken)
     {
-        var target = branch ?? new BranchName(await GetDefaultBranchAsync(cancellationToken));
+        var target = branch ?? new BranchName(await DefaultBranchNameAsync(cancellationToken));
         _logger.LogInformation(
             "Resolved metadata for {Url} on branch {Branch}", _cloneUrl, target);
         return new Repository(target, _cloneUrl);
@@ -107,7 +107,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     {
         // 2026-09-13-a284: the base the caller resolved WINS; a null target falls through
         // to the default-branch resolver, which honours the configured override.
-        var target = targetBranch?.Value ?? await GetDefaultBranchAsync(cancellationToken);
+        var target = targetBranch?.Value ?? await DefaultBranchNameAsync(cancellationToken);
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests";
 
         var body = GitLabTicketReference.Compose(
@@ -351,10 +351,10 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
         _merge.MergeAsync(prUrl, protection, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
-        await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);
+        await _branchRead.TryReadFileAsync(path, await DefaultBranchNameAsync(cancellationToken), cancellationToken);
 
     public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken) =>
-        await _branchRead.ListDirectoryAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);
+        await _branchRead.ListDirectoryAsync(path, await DefaultBranchNameAsync(cancellationToken), cancellationToken);
 
     public Task<bool> BranchExistsAsync(BranchName branch, CancellationToken cancellationToken) =>
         _branchRead.ExistsAsync(branch.Value, cancellationToken);
@@ -366,7 +366,15 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
         string path, BranchName branch, CancellationToken cancellationToken) =>
         _branchRead.ListDirectoryAsync(path, branch.Value, cancellationToken);
 
-    private Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+    public Task<RepoFileListing> ListFilesUnderAsync( // 2026-11-23-c81ea
+        string path, BranchName branch, int maxFiles, CancellationToken cancellationToken) =>
+        new GitLabFolderFiles(_baseUrl, _projectPath, _privateToken, _httpClient)
+            .ListAsync(path, branch.Value, maxFiles, cancellationToken);
+
+    public async Task<BranchName> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+        new(await DefaultBranchNameAsync(cancellationToken));
+
+    private Task<string> DefaultBranchNameAsync(CancellationToken cancellationToken) =>
         _defaultBranch.ResolveAsync(AskGitLabAsync, cancellationToken);
 
     private async Task<string?> AskGitLabAsync(CancellationToken cancellationToken)

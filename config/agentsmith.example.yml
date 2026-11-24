@@ -706,6 +706,169 @@ branch_cleanup:
 holds:
   escalate_after_minutes: 60
 
+# 2026-11-23-933da: PoCs - small uploaded apps hosted on a target. Off by default: off means no
+# sidebar item and every PoC route answers 404. Every person gets a poc-<person> project naming
+# project_agent and project_tracker. A target's source_repo is one exact repo ref (no glob); a PoC's
+# source lives in <root>/<project>/<poc>/. Defaults shown; domain_pattern has none.
+pocs:
+  enabled: false
+  # project_agent: claude
+  # project_tracker: github-issues
+  targets: []
+  #  - name: main
+  #    source_repo: github/poc-sources
+  #    root: pocs
+  #    deploy_root: deploy
+  #    template_path: poc-template
+  #    domain_pattern: "{app}.poc.example.internal"
+  #    lifetime_days: 90
+  #    reminder_days: [14, 7, 1]
+  #    per_person_limit: 3
+  #    # 2026-11-23-933de: the CONTAINER registry PoC images are read from (required; the top-level
+  #    # registries: list is for package feeds). Agent smith holds one pull-only token: on ACR a
+  #    # repository-scoped token whose scope map grants pull on '<repository>/*'. Old images are the
+  #    # operator's scheduled purge (on ACR an ACR Task running acr purge); see Settings > PoCs.
+  #    registry:
+  #      type: acr
+  #      login_server: pocregistry.azurecr.io
+  #      repository: pocs
+  #      pull_user: poc-pull
+  #      pull_auth: poc_registry_pull_token
+  #      pull_mode: pull_secret   # or cluster_pulls when the cluster can already pull
+  #    # 2026-11-23-933dd: the source repo host's pipeline builds, scans and pushes each image; the
+  #    # target's Install action (Settings > PoCs) writes it once. Names and job timeouts are written
+  #    # into it at install, so install again after changing them. The push credential lives only in
+  #    # the host: GitHub environment secrets, GitLab protected variables scoped to gitlab_environment,
+  #    # an Azure DevOps Docker registry service connection. Defaults shown.
+  #    build:
+  #      pipeline: poc-build             # Azure DevOps: the pipeline you create from the written YAML
+  #      github_environment: poc-push
+  #      gitlab_environment: poc-push
+  #      push_user_secret: POC_REGISTRY_USER
+  #      push_password_secret: POC_REGISTRY_PASSWORD
+  #      azure_service_connection: poc-registry
+  #      queue_minutes: 3
+  #      build_timeout_minutes: 12
+  #      scan_timeout_minutes: 5
+  #      push_timeout_minutes: 3          # (3+12+5+3) x 60 + scan.timeout_seconds < orchestrator.max_run_wall_time_seconds
+  #      poll_seconds: 15
+  #      report_kb: 1024
+  #    # 2026-11-23-933dg: how the PoCs' secret variables and the pull secret reach the target. Each
+  #    # value is sealed in agent smith to the Sealed Secrets controller's PUBLIC certificate (strict
+  #    # scope, namespace poc-<name>), so plaintext never lands in git. Get it with
+  #    # 'kubeseal --fetch-cert' (or Fetch from the controller's URL in Settings > PoCs). Needed before
+  #    # a PoC with a secret variable or with pull_mode pull_secret deploys.
+  #    secrets:
+  #      provider: sealed_secrets
+  #      sealed_secrets_cert: |
+  #        -----BEGIN CERTIFICATE-----
+  #        ...
+  #        -----END CERTIFICATE-----
+  #      sealed_secrets_cert_url: https://sealed-secrets.poc.example.internal/v1/cert.pem
+  #    # 2026-11-23-c81eb: how each PoC is reached, put behind auth and confined. Every deploy renders
+  #    # <template_path>/app/ (written once by the target's Install, then yours to edit) into
+  #    # <deploy_root>/<poc>/ and commits it straight onto the default branch. ingress.class,
+  #    # auth.ingress_annotations, network.ingress_controller_namespace and network.egress_proxy are
+  #    # required while pocs.enabled is true. Forward auth in annotation mode: the ingress controller
+  #    # calls the auth proxy itself (ingress-nginx's auth-url/auth-signin shown as one example).
+  #    ingress:
+  #      class: nginx
+  #      tls_issuer: letsencrypt        # optional cert-manager ClusterIssuer
+  #    auth:
+  #      ingress_annotations:
+  #        nginx.ingress.kubernetes.io/auth-url: https://auth.poc.example.internal/oauth2/auth
+  #        nginx.ingress.kubernetes.io/auth-signin: https://auth.poc.example.internal/oauth2/start?rd=$scheme://$host$request_uri
+  #    network:                           # Kubernetes 1.22 or later
+  #      ingress_controller_namespace: ingress-nginx
+  #      dns_namespace: kube-system
+  #      dns_pod_labels: { k8s-app: kube-dns }
+  #      egress_proxy:
+  #        url: http://egress-proxy.egress.svc.cluster.local:3128
+  #        port: 3128                     # the proxy POD's port
+  #        namespace: egress              # with pod_labels, or instead: cidr: 10.0.0.0/24
+  #        pod_labels: { app: egress-proxy }
+  #        no_proxy: localhost,127.0.0.1,.svc,.cluster.local
+  #    quota:                             # at least twice each container limit, and 2 pods
+  #      cpu: "1"
+  #      memory: 1Gi
+  #      pods: 4
+  #      ephemeral_storage: 2Gi
+  #    container:
+  #      cpu_request: 50m
+  #      cpu_limit: 500m
+  #      memory_request: 128Mi
+  #      memory_limit: 512Mi
+  #      ephemeral_limit: 256Mi
+  #    # 2026-11-23-c81ec: the Argo CD that deploys the target's PoCs (required while enabled), read
+  #    # through its API with an AppProject role token stored as an installation secret; Install
+  #    # upserts the target's ApplicationSet there (Argo CD 2.8 or later).
+  #    argo:
+  #      url: https://argocd.poc.example.internal
+  #      token_secret: poc_argo_token
+  #      project: pocs
+  #      namespace: argocd
+  #      destination_server: https://kubernetes.default.svc
+  #      repo_url: https://git.example.internal/platform/poc-src.git
+  #      # application_set: pocs-main         # empty reads pocs-<target name>
+  #      token_warn_days: 14
+  #      generator_requeue_seconds: 30
+  # 2026-11-23-933db: what an uploaded PoC archive is held to (defaults shown), and when an import
+  # asks whether a ZIP is really the same PoC: more than mismatch_ratio_percent of the files AND
+  # more than mismatch_file_limit of them differ, or the port or the entrypoint changed.
+  # archive:
+  #   max_zip_mb: 25
+  #   max_unpacked_mb: 100
+  #   max_entries: 2000
+  #   max_ratio: 100
+  #   max_path_chars: 240
+  #   max_file_mb: 10
+  #   max_binary_mb: 20
+  #   max_dockerfile_kb: 64
+  #   mismatch_ratio_percent: 50
+  #   mismatch_file_limit: 100
+  # 2026-11-23-933dc: how an upload is scanned before it is committed; the scan fetches its
+  # databases from osv-vulnerabilities.storage.googleapis.com through the sandbox egress.
+  # 2026-11-23-933dg: both scanner images default to a verified digest-pinned release (shown); set
+  # osv_image or trivy_image only to run an own mirror, pinned by digest. A Trivy change is written
+  # into the pipeline at install, so install again after changing it.
+  # scan:
+  #   osv_image: ghcr.io/google/osv-scanner:v2.2.4@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4
+  #   timeout_seconds: 300
+  #   unfixed_critical_block: true
+  #   secret_min_confidence: 8
+  #   trivy_image: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+  # blocked_retention_days: 7
+  # 2026-11-23-c81ed: the longest readiness path an owner may set on a PoC's detail page.
+  # readiness_path_max_chars: 256
+  # 2026-11-23-c81eb: how a PoC's manifests are committed (defaults shown): writes of one commit
+  # before the run gives up on a moving branch, and the most files a deploy folder or the app
+  # template may hold.
+  # gitops:
+  #   commit_attempts: 3
+  #   max_folder_files: 500
+  # 2026-11-23-c81ec: a PoC run's own wall-time budget (in place of
+  # orchestrator.max_run_wall_time_seconds) and how it follows its rollout on Argo CD (defaults shown).
+  # run_wall_time_seconds: 2700
+  # rollout:
+  #   poll_seconds: 10
+  #   deadline_seconds: 600
+  #   end_margin_seconds: 60
+  #   commit_allowance_seconds: 120
+  # 2026-11-23-c81ee: a PoC's lifetime (defaults shown). A PoC expires lifetime_days after its creation;
+  # its owner sees reminders on its page, may extend it max_owner_extensions times (an admin further);
+  # an expired PoC whose owner saw no reminder is stopped, then deleted unseen_delete_after_days later.
+  # lifetime:
+  #   interval_seconds: 3600
+  #   extend_days: 90
+  #   max_owner_extensions: 2
+  #   unseen_delete_after_days: 30
+  # 2026-11-23-933dg: PoC variables (set at import, or later on the PoC): secret ones are stored
+  # encrypted under the PoC's scope and sealed at deploy, plain ones are committed as a ConfigMap.
+  # A Kubernetes Secret or ConfigMap holds at most 1 MiB. Defaults shown.
+  # variables:
+  #   max_names: 64
+  #   max_value_kb: 4
+
 # p0128c data-flow gating.
 pipeline_data_flow:
   enforce: false

@@ -21,7 +21,8 @@ public sealed class RouteProjectScopeGuardTests
     private const string GateEnvVar = "AGENTSMITH_UI_API_ENABLED";
 
     private static readonly ProjectSourceKind[] RouteValueKinds =
-        [ProjectSourceKind.Route, ProjectSourceKind.Run, ProjectSourceKind.Session, ProjectSourceKind.Image, ProjectSourceKind.SeriesRun];
+        [ProjectSourceKind.Route, ProjectSourceKind.Run, ProjectSourceKind.Session, ProjectSourceKind.Image, ProjectSourceKind.SeriesRun,
+         ProjectSourceKind.Poc]; // 2026-11-23-933da
 
     [Fact]
     public void RouteProjectScopeGuard_EveryProjectScopableRoute_DeclaresWhereItsProjectComesFrom()

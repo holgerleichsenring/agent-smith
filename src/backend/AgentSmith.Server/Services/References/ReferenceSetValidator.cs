@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Archives;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Services.References;
@@ -26,7 +27,7 @@ public sealed class ReferenceSetValidator(ReferencePathRule paths, ReferenceIgno
         var named = ReferenceKeepRule.Collapsed(leftOut.Select(e => e.Why).OfType<ReferenceLeftOut>());
         if (kept.Count == 0) return ReferenceSetCheck.Refused(NothingKept(named));
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (kept.Select(p => paths.RefusalOf(p.Path, seen)).FirstOrDefault(why => why is not null) is { } path)
+        if (kept.Select(p => paths.RefusalOf(p.Path, seen, ReferenceUploadLimits.MaxPathChars)).FirstOrDefault(why => why is not null) is { } path)
             return ReferenceSetCheck.Refused(path);
         return ReferenceSetBounds.RefusalOf(kept) is { } bound
             ? ReferenceSetCheck.Refused(bound)
