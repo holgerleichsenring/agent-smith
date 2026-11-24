@@ -140,7 +140,9 @@ POST	/api/diagnostics/connections/{name}/probe	diagnostics.probe	-
 POST	/api/pocs/targets/{name}/install	pocs.admin	-
 POST	/api/pocs/uploads	pocs.write	-
 POST	/api/pocs/uploads/{uploadId}/import	pocs.write	-
+POST	/api/pocs/{pocId:long}/acts/extend	pocs.write,runs.read	poc
 POST	/api/pocs/{pocId:long}/acts/{act}	pocs.write,runs.read	poc
+POST	/api/pocs/{pocId:long}/reminders/seen	pocs.read,runs.read	poc
 POST	/api/pocs/{pocId:long}/revisions/{n:int}/overrule	pocs.overrule,runs.read	poc
 POST	/api/projects/{name}/init	projects.init	route:name
 POST	/api/projects/{project}/deployments	runs.control	route:project

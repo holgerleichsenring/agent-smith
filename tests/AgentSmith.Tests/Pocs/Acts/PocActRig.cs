@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Pocs;
 using AgentSmith.Application.Services.Pocs.Acts;
+using AgentSmith.Application.Services.Pocs.Lifetime;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Pocs;
@@ -9,6 +10,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Pocs.GitOps;
+using AgentSmith.Tests.Pocs.Lifetime;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -26,6 +28,9 @@ internal sealed class PocActRig
 
     public bool ImageExists { get; set; } = true;
 
+    /// <summary>2026-11-23-c81ee: what the expiry re-check reads.</summary>
+    public FakeLifetimeStore Lifetimes { get; } = new();
+
     public PocActRig()
     {
         Acts = new FakeActStore(Commit.Store);
@@ -38,9 +43,10 @@ internal sealed class PocActRig
     public async Task DeployAsync() => await Commit.RunAsync(PocRenderRig.Seal());
 
     public async Task<(CommandResult Act, CommandResult? Commit, PipelineContext Pipeline)> RunAsync(
-        string preset, int? revision = null, string? readiness = null, string runId = "act-1")
+        string preset, int? revision = null, string? readiness = null, string runId = "act-1", string? lifetimeCase = null)
     {
         var context = Commit.Context(PocRenderRig.Seal(unchanged: true), runId);
+        if (lifetimeCase is not null) context.Pipeline.Set(ContextKeys.PocLifetimeCase, lifetimeCase);
         context.Pipeline.Set(ContextKeys.PipelineName, preset);
         if (revision is { } n) context.Pipeline.Set(ContextKeys.PocRevision, n.ToString(System.Globalization.CultureInfo.InvariantCulture));
         else context.Pipeline.Remove(ContextKeys.PocRevision);
@@ -62,6 +68,9 @@ internal sealed class PocActRig
             .Returns((string poc, string tag) => new ImageReference("pocregistry.azurecr.io", $"pocs/{poc}", tag));
         registry.Setup(r => r.ExistsAsync(It.IsAny<ImageReference>(), It.IsAny<CancellationToken>())).ReturnsAsync(() => ImageExists);
         var registries = Mock.Of<IContainerRegistryFactory>(f => f.Create(It.IsAny<PocRegistryConfig>()) == registry.Object);
-        return new PocActHandler(Acts, source, new PocActPlan(), new PocRollbackImage(registries), NullLogger<PocActHandler>.Instance);
+        var lifetime = new PocLifetime();
+        var recheck = new PocLifetimeRecheck(Lifetimes, lifetime, new PocLifetimePlan(), new PocLifetimeReasons(), Commit.Clock);
+        return new PocActHandler(Acts, source, new PocActPlan(), new PocRollbackImage(registries), lifetime, recheck, Commit.Clock,
+            NullLogger<PocActHandler>.Instance);
     }
 }

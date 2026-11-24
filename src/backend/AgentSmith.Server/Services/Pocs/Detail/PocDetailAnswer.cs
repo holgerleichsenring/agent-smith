@@ -5,4 +5,8 @@ namespace AgentSmith.Server.Services.Pocs.Detail;
 /// last run, which acts the caller may start, the readiness bound, and the audit trail oldest first.</summary>
 internal sealed record PocDetailAnswer(
     long Id, string Name, string Project, string Target, string? Host, string? Url, string State, string OwnerName, string? LastRunId,
-    PocDesiredView Desired, bool DeletePending, bool MayAct, PocActsView Acts, int ReadinessPathMaxChars, IReadOnlyList<PocAuditView> Audit);
+    PocDesiredView Desired, bool DeletePending, bool MayAct, PocActsView Acts, int ReadinessPathMaxChars, IReadOnlyList<PocAuditView> Audit)
+{
+    /// <summary>2026-11-23-c81ee: its lifetime; null for a PoC that is not live or whose target is gone.</summary>
+    public Models.PocLifetimeView? Lifetime { get; init; }
+}

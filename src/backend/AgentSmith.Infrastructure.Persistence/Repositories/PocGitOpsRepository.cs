@@ -12,7 +12,10 @@ public sealed class PocGitOpsRepository(IUnitOfWork unitOfWork)
     public Task<PocGitOpsSubject?> ReadAsync(long pocId, CancellationToken ct) =>
         unitOfWork.Set<Poc>().AsNoTracking().Where(p => p.Id == pocId)
             .Select(p => new PocGitOpsSubject(p.Id, p.Name, p.Project, p.Target, p.Replicas, p.Revision, p.ImageDigest,
-                p.ReadinessPath, p.SealFingerprint, p.PlainVariablesJson) { State = p.State })
+                p.ReadinessPath, p.SealFingerprint, p.PlainVariablesJson)
+            {
+                State = p.State, Lifetime = new PocLifetimeFacts(p.CreatedAt, p.ExpiresAtTicks, p.ReminderSeenAtTicks, p.Extensions), // c81ee
+            })
             .FirstOrDefaultAsync(ct);
 
     public Task<PocRenderRevision?> RevisionAsync(long pocId, int revision, CancellationToken ct) =>

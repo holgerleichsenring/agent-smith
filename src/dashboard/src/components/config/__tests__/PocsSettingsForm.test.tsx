@@ -6,7 +6,7 @@ import type { PocsSetting, SettingValue, StudioEntity } from "@/lib/configApi";
 import * as configApi from "@/lib/configApi";
 import * as pocsApi from "@/lib/pocsApi";
 import {
-  POC_ARCHIVE_DEFAULTS, POC_GITOPS_DEFAULTS, POC_ROLLOUT_DEFAULTS, POC_SCAN_DEFAULTS, POC_VARIABLES_DEFAULTS, PocsSettingsForm,
+  POC_ARCHIVE_DEFAULTS, POC_GITOPS_DEFAULTS, POC_LIFETIME_DEFAULTS, POC_ROLLOUT_DEFAULTS, POC_SCAN_DEFAULTS, POC_VARIABLES_DEFAULTS, PocsSettingsForm,
   type PocsCatalog,
 } from "../PocsSettingsForm";
 import { newPocDeployBlocks } from "../PocDeployFields";
@@ -25,7 +25,7 @@ const CATALOG: PocsCatalog = {
 const OFF: PocsSetting = {
   enabled: false, projectAgent: null, projectTracker: null, targets: [], archive: POC_ARCHIVE_DEFAULTS,
   scan: POC_SCAN_DEFAULTS, blockedRetentionDays: 7, variables: POC_VARIABLES_DEFAULTS, gitops: POC_GITOPS_DEFAULTS,
-  rollout: POC_ROLLOUT_DEFAULTS, runWallTimeSeconds: 2700, readinessPathMaxChars: 256,
+  rollout: POC_ROLLOUT_DEFAULTS, runWallTimeSeconds: 2700, readinessPathMaxChars: 256, lifetime: POC_LIFETIME_DEFAULTS,
 };
 
 function Harness({ seen, start = OFF }: { seen: SettingValue[]; start?: PocsSetting }) {
@@ -91,6 +91,7 @@ describe("PocsSettingsForm", () => {
       rollout: { pollSeconds: 10, deadlineSeconds: 600, endMarginSeconds: 60, commitAllowanceSeconds: 120 },
       runWallTimeSeconds: 2700,
       readinessPathMaxChars: 256,
+      lifetime: { intervalSeconds: 3600, extendDays: 90, maxOwnerExtensions: 2, unseenDeleteAfterDays: 30 },
     });
   });
 
@@ -422,6 +423,7 @@ describe("PocsSettingsForm", () => {
     expect(saved.rollout).toEqual(POC_ROLLOUT_DEFAULTS);
     expect(saved.runWallTimeSeconds).toBe(2700);
     expect(saved.readinessPathMaxChars).toBe(256);
+    expect(saved.lifetime).toEqual(POC_LIFETIME_DEFAULTS);
   });
 
   // 2026-11-23-c81ec: the rollout block and the PoC run wall time are edited beside the GitOps bounds; each target's
@@ -455,6 +457,38 @@ describe("PocsSettingsForm", () => {
     const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
     expect(saved.readinessPathMaxChars).toBe(128);
     expect(saved.runWallTimeSeconds).toBe(2700);
+  });
+
+  // 2026-11-23-c81ee: the lifetime block — the pass interval, the days one extension adds, the owner's allowance and the
+  // unseen delete — edits and round-trips, and every other change sends it too.
+  it("PocsSettingsForm_Lifetime_UnseenDeleteAfterDays_EditsAndRoundTrips", () => {
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-lifetime-toggle"));
+
+    expect(screen.getByTestId("setting-pocs-lifetime-intervalSeconds")).toHaveValue(3600);
+    expect(screen.getByTestId("setting-pocs-lifetime-extendDays")).toHaveValue(90);
+    expect(screen.getByTestId("setting-pocs-lifetime-maxOwnerExtensions")).toHaveValue(2);
+    expect(screen.getByTestId("setting-pocs-lifetime-unseenDeleteAfterDays")).toHaveValue(30);
+    fireEvent.change(screen.getByTestId("setting-pocs-lifetime-unseenDeleteAfterDays"), { target: { value: "45" } });
+
+    let saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.lifetime).toEqual({ ...POC_LIFETIME_DEFAULTS, unseenDeleteAfterDays: 45 });
+    expect(screen.getByTestId("setting-pocs-lifetime-unseenDeleteAfterDays")).toHaveValue(45);
+
+    fireEvent.click(screen.getByTestId("setting-pocs-enabled"));
+    saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.lifetime.unseenDeleteAfterDays).toBe(45);
+  });
+
+  it("PocsSettingsForm_ReadWithoutLifetime_SendsTheDefaults", () => {
+    const seen: SettingValue[] = [];
+    const legacy: Partial<PocsSetting> = { ...OFF };
+    delete legacy.lifetime;
+    render(<Harness seen={seen} start={legacy as PocsSetting} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-enabled"));
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.lifetime).toEqual(POC_LIFETIME_DEFAULTS);
   });
 
   it("PocsSettingsForm_TargetArgo_EditsInsideTheTarget_AndIsSentWithTheSave", () => {

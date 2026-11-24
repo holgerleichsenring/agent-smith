@@ -58,4 +58,20 @@ public static partial class ContextKeys
     /// <summary>2026-11-23-c81ed: an apply's readiness seed — absent keeps the row's path, 'tcp' probes the port, a path
     /// starting with '/' probes it over HTTP.</summary>
     public const string PocReadiness = "PocReadiness";
+
+    /// <summary>2026-11-23-c81ee: why the lifetime pass started a poc-stop or poc-delete (PocLifetimeCases); absent for an
+    /// owner's act.</summary>
+    public const string PocLifetimeCase = "PocLifetimeCase";
+
+    /// <summary>2026-11-23-c81ee: the audit act (PocAuditAct) an expiry or removal run records in place of its act's own;
+    /// set by the PocAct step, put on the run's PocActedEvent by the GitOps commit.</summary>
+    public const string PocAuditAct = "PocAuditAct";
+
+    /// <summary>2026-11-23-c81ee: why a lifecycle run has nothing left to do (an expiry re-check found the PoC extended,
+    /// a removal found a new upload); set by the PocAct step, the later steps end green on it.</summary>
+    public const string PocActSettled = "PocActSettled";
+
+    /// <summary>2026-11-23-c81ee: "true" when the person who asked for a poc-extend holds pocs.admin — the run cannot see
+    /// the caller, so the route seeds it.</summary>
+    public const string PocMayExceed = "PocMayExceed";
 }

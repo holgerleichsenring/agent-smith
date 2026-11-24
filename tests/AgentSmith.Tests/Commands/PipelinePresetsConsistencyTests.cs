@@ -31,7 +31,7 @@ public sealed class PipelinePresetsConsistencyTests
         // 2026-11-17-f3a8a: a run on the installation reads no skill; its master is embedded in the server.
         if (PipelinePresets.RunsOnInstallation(presetName)) return;
         // 2026-11-23-933dg: a PoC variable write reads no skill either; the server starts it in memory.
-        if (presetName == PipelinePresets.PocVariablesName) return;
+        if (presetName == PipelinePresets.PocVariablesName || presetName == PipelinePresets.PocExtendName) return; // c81ee: no catalog either
         preset[0].Should().Be(CommandNames.LoadCatalog,
             $"preset '{presetName}' must bind the skill catalog as its first visible step (p0205)");
     }

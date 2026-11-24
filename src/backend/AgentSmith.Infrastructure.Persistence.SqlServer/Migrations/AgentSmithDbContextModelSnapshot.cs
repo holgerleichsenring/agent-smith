@@ -905,6 +905,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<long?>("ExpiresAtTicks")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("Extensions")
+                        .HasColumnType("int");
+
                     b.Property<string>("Folder")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -947,6 +950,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<string>("ReadinessPath")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<long?>("ReminderSeenAtTicks")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("Replicas")
                         .HasColumnType("int");

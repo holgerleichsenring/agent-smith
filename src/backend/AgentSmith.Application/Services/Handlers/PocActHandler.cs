@@ -1,8 +1,10 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Pocs;
 using AgentSmith.Application.Services.Pocs.Acts;
+using AgentSmith.Application.Services.Pocs.Lifetime;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Exceptions;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Pocs;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -14,10 +16,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// against the Poc row as it stands now (<see cref="PocActPlan"/>, the table the launcher read), checks a rollback's image
 /// is still in the registry, and puts ContextKeys.PocAct with the desired state (or, for a delete,
 /// ContextKeys.PocRolloutAbsent) into the run. It writes nothing: the GitOps commit writes the row after its commit.
+/// <para>2026-11-23-c81ee: a run the lifetime pass started (ContextKeys.PocLifetimeCase) re-checks its case first
+/// (<see cref="PocLifetimeRecheck"/>): still due, the audit act and reason go under ContextKeys.PocAuditAct; no longer due,
+/// ContextKeys.PocActSettled says why and the later steps end green. A start of an expired PoC is refused.</para>
 /// </summary>
 public sealed class PocActHandler(
-    IPocActStore store, PocsConfigSource config, PocActPlan plan, PocRollbackImage images, ILogger<PocActHandler> logger)
-    : ICommandHandler<PocActContext>
+    IPocActStore store, PocsConfigSource config, PocActPlan plan, PocRollbackImage images, PocLifetime lifetime,
+    PocLifetimeRecheck recheck, TimeProvider clock, ILogger<PocActHandler> logger) : ICommandHandler<PocActContext>
 {
     public async Task<CommandResult> ExecuteAsync(PocActContext context, CancellationToken cancellationToken)
     {
@@ -26,26 +31,50 @@ public sealed class PocActHandler(
             return CommandResult.Fail($"The PocAct step runs in a PoC act preset; '{context.Preset}' is none.");
         if (context.Seeds.PocId is not { } pocId || await store.ReadAsync(pocId, cancellationToken) is not { } poc)
             return CommandResult.Fail($"A {act} run needs the PoC it was seeded with; none was found.");
-        var order = new PocActOrder(act, context.Seeds.Revision, context.Seeds.Readiness);
-        var target = act == PocActKinds.Rollback && order.Revision is { } n ? await store.RevisionAsync(pocId, n, cancellationToken) : null;
         var pocs = config.Current();
+        if (context.Seeds.LifetimeCase is { } lifetimeCase && await LifetimeAsync(context, act, lifetimeCase, pocId, pocs, cancellationToken) is { } ended)
+            return ended;
+        poc = poc with { ExpiredOn = lifetime.ExpiredOn(poc.Lifetime, lifetime.TargetOf(pocs, poc.Target), clock.GetUtcNow()) };
+        return await PlanAsync(context, act, poc, pocs, cancellationToken);
+    }
+
+    // A lifetime run whose case is no longer due ends here; one still due records its audit act and goes on (null).
+    private async Task<CommandResult?> LifetimeAsync(
+        PocActContext context, string act, string lifetimeCase, long pocId, PocsConfig pocs, CancellationToken ct)
+    {
+        if (!PocLifetimeCases.IsCase(lifetimeCase) || PocLifetimeCases.ActOf(lifetimeCase) != act)
+            return CommandResult.Fail($"'{lifetimeCase}' is not a lifetime case a {act} run carries out.");
+        var (audit, settled) = await recheck.CheckAsync(lifetimeCase, pocId, pocs, ct);
+        if (settled is not null)
+        {
+            context.Pipeline.Set(ContextKeys.PocActSettled, settled);
+            logger.LogInformation("PoC {PocId}: {Case} settled: {Why}", pocId, lifetimeCase, settled);
+            return CommandResult.Ok($"{settled}; nothing is done.");
+        }
+        context.Pipeline.Set(ContextKeys.PocAuditAct, audit!);
+        return null;
+    }
+
+    private async Task<CommandResult> PlanAsync(PocActContext context, string act, PocActSubject poc, PocsConfig pocs, CancellationToken ct)
+    {
+        var order = new PocActOrder(act, context.Seeds.Revision, context.Seeds.Readiness) { LifetimeCase = context.Seeds.LifetimeCase };
+        var target = act == PocActKinds.Rollback && order.Revision is { } n ? await store.RevisionAsync(poc.PocId, n, ct) : null;
         var decision = plan.Decide(order, poc, target, pocs.ReadinessPathMaxChars);
         if (decision.Refusal is { } refusal) return CommandResult.Fail($"{refusal}.");
-        if (decision.Desired is { } wanted && act == PocActKinds.Rollback && await MissingAsync(poc, wanted, target, pocs, cancellationToken) is { } gone)
+        if (decision.Desired is { } wanted && act == PocActKinds.Rollback && await MissingAsync(poc, wanted, target, pocs, ct) is { } gone)
             return CommandResult.Fail($"{gone}.");
         context.Pipeline.Set(ContextKeys.PocAct, act);
         if (decision.Absent) context.Pipeline.Set(ContextKeys.PocRolloutAbsent, true);
         else context.Pipeline.Set(ContextKeys.PocDesiredState, decision.Desired!);
-        logger.LogInformation("PoC {PocId}: {Act} planned", pocId, act);
+        logger.LogInformation("PoC {PocId}: {Act} planned", poc.PocId, act);
         return CommandResult.Ok(decision.Absent
             ? $"'{poc.Name}' is to be deleted: its deploy folder is removed and Argo CD prunes it; its source stays."
             : $"'{poc.Name}' ({poc.State}) is to run revision {decision.Desired!.Revision} with {decision.Desired.Replicas} replica(s).");
     }
 
-    private async Task<string?> MissingAsync(
-        PocActSubject poc, PocDesiredState wanted, PocActRevision? revision, Contracts.Models.Configuration.PocsConfig pocs, CancellationToken ct)
+    private async Task<string?> MissingAsync(PocActSubject poc, PocDesiredState wanted, PocActRevision? revision, PocsConfig pocs, CancellationToken ct)
     {
-        if (pocs.Targets.FirstOrDefault(t => string.Equals(t.Name, poc.Target, StringComparison.OrdinalIgnoreCase)) is not { } target)
+        if (lifetime.TargetOf(pocs, poc.Target) is not { } target)
             return $"'{poc.Name}' names the target '{poc.Target}', which pocs.targets no longer holds";
         try
         {

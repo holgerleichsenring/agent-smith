@@ -28,11 +28,18 @@ public static partial class PipelinePresets
 
     public static readonly IReadOnlyList<string> PocTargetInstall = [CommandNames.LoadCatalog, CommandNames.PocTargetInstall];
 
+    /// <summary>2026-11-23-c81ee: the run on the installation that deletes the stored PoC uploads older than
+    /// pocs.blocked_retention_days and what deleted PoCs still hold of their variables, started at most daily by the
+    /// lifetime pass. Declared above the dictionary for the same reason.</summary>
+    public const string PocUploadPurgeName = "poc-upload-purge";
+
+    public static readonly IReadOnlyList<string> PocUploadPurge = [CommandNames.PurgePocUploads];
+
     // The runs on the installation, launched by the server with a transcript or a request only it supplies.
     private static readonly Dictionary<string, IReadOnlyList<string>> InstallationSteps = new(StringComparer.OrdinalIgnoreCase)
     {
         [AdminTurnName] = AdminTurn, [ConfigName] = Config, [SecretName] = Secret,
-        [PocTargetInstallName] = PocTargetInstall, // 2026-11-23-933dd
+        [PocTargetInstallName] = PocTargetInstall, [PocUploadPurgeName] = PocUploadPurge, // 2026-11-23-933dd, c81ee
     };
 
     private const string InstallationReason = "it runs on the installation itself with a conversation or a request "

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { PocList as PocListAnswer, PocRow } from "@/lib/pocsApi";
+import type { PocLifetime, PocList as PocListAnswer, PocRow } from "@/lib/pocsApi";
 import { PocList } from "../PocList";
 
 // 2026-11-23-933da: the PoCs list — the empty state, the target strip with its settings link for config readers, the
@@ -67,5 +67,24 @@ describe("PocList", () => {
     expect(screen.getByTestId("poc-card-4-why")).toHaveAttribute("href", "/pocs/4/revisions/3");
     expect(screen.getByTestId("poc-card-4-why")).toHaveTextContent("See why it is blocked");
     expect(screen.queryByTestId("poc-card-5-why")).not.toBeInTheDocument();
+  });
+
+  // 2026-11-23-c81ee: a card carries "Expires in N days" while the reminder window is open and "Expired" once it expired.
+  it("PocList_LifetimeBadge_ExpiringAndExpired_NothingOtherwise", () => {
+    const life = (over: Partial<PocLifetime>): PocLifetime => ({
+      expiresAt: "2026-12-07T12:00:00Z", daysLeft: 13, windowOpen: false, expired: false, deletesAt: null, extensions: 0,
+      ownerAllowance: 2, mayExtend: true, ...over,
+    });
+    render(<PocList list={list([
+      { ...poc(1, "shift-planner", "ready"), lifetime: life({ windowOpen: true, daysLeft: 6 }) },
+      { ...poc(2, "doc-search", "stopped"), lifetime: life({ expired: true, daysLeft: 0 }) },
+      { ...poc(3, "todo", "ready"), lifetime: life({ daysLeft: 60 }) },
+      poc(5, "old", "deleted"),
+    ])} showSettings />);
+    expect(screen.getByTestId("poc-card-1-lifetime")).toHaveTextContent("Expires in 6 days");
+    expect(screen.getByTestId("poc-card-2-lifetime")).toHaveTextContent("Expired");
+    expect(screen.getByTestId("poc-card-2-lifetime")).toHaveAttribute("data-lifetime", "expired");
+    expect(screen.queryByTestId("poc-card-3-lifetime")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("poc-card-5-lifetime")).not.toBeInTheDocument();
   });
 });

@@ -905,6 +905,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<long?>("ExpiresAtTicks")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("Extensions")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Folder")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -947,6 +950,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
                     b.Property<string>("ReadinessPath")
                         .HasColumnType("text");
+
+                    b.Property<long?>("ReminderSeenAtTicks")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("Replicas")
                         .HasColumnType("integer");

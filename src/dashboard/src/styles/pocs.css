@@ -195,3 +195,12 @@
 .mock-pocs .poc-audit a:hover { color: var(--ink); }
 .mock-pocs .poc-audit-reason { flex-basis: 100%; color: var(--ink-3); overflow-wrap: anywhere; }
 .mock-pocs .poc-detail > .poc-refusal { margin-bottom: 12px; }
+
+/* 2026-11-23-c81ee: the lifetime badge on a card, the reminder banner, the lifetime panel. */
+.mock-pocs .poc-badge.poc-life { height: 22px; padding: 0 8px; font-size: 12px; }
+.mock-pocs .poc-detail > .poc-life-banner { margin-bottom: 12px; }
+.mock-pocs .poc-life-banner.expired { border-color: color-mix(in srgb, var(--bad) 45%, var(--bg)); background: var(--bad-wash); }
+.mock-pocs .poc-life-banner.expired h2 { color: var(--bad); }
+.mock-pocs .poc-lifetime { display: flex; flex-direction: column; gap: 8px; }
+.mock-pocs .poc-lifetime p { margin: 0; }
+.mock-pocs .poc-lifetime-extended { color: var(--ok); }

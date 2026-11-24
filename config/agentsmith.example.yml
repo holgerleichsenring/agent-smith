@@ -854,6 +854,14 @@ pocs:
   #   deadline_seconds: 600
   #   end_margin_seconds: 60
   #   commit_allowance_seconds: 120
+  # 2026-11-23-c81ee: a PoC's lifetime (defaults shown). A PoC expires lifetime_days after its creation;
+  # its owner sees reminders on its page, may extend it max_owner_extensions times (an admin further);
+  # an expired PoC whose owner saw no reminder is stopped, then deleted unseen_delete_after_days later.
+  # lifetime:
+  #   interval_seconds: 3600
+  #   extend_days: 90
+  #   max_owner_extensions: 2
+  #   unseen_delete_after_days: 30
   # 2026-11-23-933dg: PoC variables (set at import, or later on the PoC): secret ones are stored
   # encrypted under the PoC's scope and sealed at deploy, plain ones are committed as a ConfigMap.
   # A Kubernetes Secret or ConfigMap holds at most 1 MiB. Defaults shown.

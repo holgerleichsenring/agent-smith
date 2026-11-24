@@ -47,6 +47,13 @@ public sealed class Poc : EntityBase, IProjectOwned
     /// <summary>Written only by c81ee's extend run; null means created + the target's lifetime_days.</summary>
     public long? ExpiresAtTicks { get; set; }
 
+    /// <summary>2026-11-23-c81ee: how many times the PoC was extended (the poc-extend run counts them).</summary>
+    public int Extensions { get; set; }
+
+    /// <summary>2026-11-23-c81ee: when its owner last saw a reminder on the detail page (UTC ticks); recorded only inside
+    /// the reminder window, so a view after the expiry never counts.</summary>
+    public long? ReminderSeenAtTicks { get; set; }
+
     public string? LastRunId { get; set; }
 
     /// <summary>2026-11-23-933dg: the plain variables, a JSON array of {name, value, set_by, set_at} ordered by name —

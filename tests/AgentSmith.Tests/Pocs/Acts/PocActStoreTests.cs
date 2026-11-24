@@ -27,7 +27,10 @@ public sealed class PocActStoreTests : IDisposable
         var poc = await SeedAsync();
         var store = new PocActRepository(_db);
 
-        (await store.ReadAsync(poc.Id, _ct)).Should().Be(new PocActSubject(poc.Id, "shop", "main", PocStates.Ready, 1, 1, PocRows.Digest, null));
+        (await store.ReadAsync(poc.Id, _ct)).Should().Be(new PocActSubject(poc.Id, "shop", "main", PocStates.Ready, 1, 1, PocRows.Digest, null)
+        {
+            Lifetime = new PocLifetimeFacts(poc.CreatedAt, null, null, 0), // 2026-11-23-c81ee
+        });
         (await store.RevisionAsync(poc.Id, 1, _ct)).Should().Be(new PocActRevision(1, PocRows.Digest, "abc", PocRolloutStates.Healthy));
         (await store.RevisionAsync(poc.Id, 9, _ct)).Should().BeNull();
     }

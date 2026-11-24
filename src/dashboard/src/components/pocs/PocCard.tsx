@@ -11,6 +11,7 @@ import { PocStateLabel } from "./PocStateLabel";
 // 2026-11-23-933da: one PoC as a card — its name, its address, its state with a dot, who owns it and its last run.
 // 2026-11-23-c81ed: the name links to the PoC's detail page, where its lifecycle acts are.
 // 2026-11-23-933dc: a blocked PoC links to its latest revision's page, which says why.
+// 2026-11-23-c81ee: a badge while its reminder window is open ("Expires in N days") and once it expired.
 
 export function PocCard({ poc }: { poc: PocRow }) {
   const t = useT();
@@ -26,6 +27,15 @@ export function PocCard({ poc }: { poc: PocRow }) {
           <span className={`poc-dot ${pocDot(poc.state)}`} aria-hidden="true" />
           <PocStateLabel state={poc.state} />
           <span className="poc-owner">{t("pocs.card.owner", { owner: poc.ownerName })}</span>
+          {poc.lifetime?.expired ? (
+            <span className="poc-badge bad poc-life" data-testid={`poc-card-${poc.id}-lifetime`} data-lifetime="expired">
+              {t("pocs.card.expired")}
+            </span>
+          ) : poc.lifetime?.windowOpen ? (
+            <span className="poc-badge run poc-life" data-testid={`poc-card-${poc.id}-lifetime`} data-lifetime="expiring">
+              {t("pocs.card.expiresIn", { count: poc.lifetime.daysLeft })}
+            </span>
+          ) : null}
         </div>
         {poc.state === "blocked" && poc.latestRevision != null && (
           <Link className="poc-why" href={pocRevisionPagePath(poc.id, poc.latestRevision)} data-testid={`poc-card-${poc.id}-why`}>

@@ -874,6 +874,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<long?>("ExpiresAtTicks")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("Extensions")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Folder")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -916,6 +919,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ReadinessPath")
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReminderSeenAtTicks")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Replicas")
                         .HasColumnType("INTEGER");

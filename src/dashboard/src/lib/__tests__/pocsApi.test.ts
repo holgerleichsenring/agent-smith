@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError } from "../apiResponse";
 import {
   fetchPocs, getPocDetail, getPocRevision, getPocRevisions, getPocRollout, getPocVariables, importPocUpload, installPocTarget,
-  overrulePocRevision, postPocAct, putPocVariables, uploadPocZip,
+  overrulePocRevision, postPocAct, postPocExtend, postPocReminderSeen, putPocVariables, uploadPocZip,
 } from "../pocsApi";
 
 // 2026-11-23-933da: GET /api/pocs is the feature switch too — 200 is the list, 404 off, 403 not permitted.
@@ -324,5 +324,47 @@ describe("PoC detail and acts", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(answer(200, said)));
 
     await expect(putPocVariables(4, { set: [], delete: ["A"] })).resolves.toEqual(said);
+  });
+});
+
+// 2026-11-23-c81ee: the reminder-seen post and the extend act.
+describe("postPocReminderSeen", () => {
+  it("postPocReminderSeen_PostsWithoutABody_To204", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ...answer(204), text: async () => "" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(postPocReminderSeen(4)).resolves.toBeUndefined();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/pocs\/4\/reminders\/seen$/);
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeUndefined();
+  });
+});
+
+describe("postPocExtend", () => {
+  it("postPocExtend_PostsToTheExtendAct_AndReadsTheNewExpiry", async () => {
+    const said = { pocId: 4, runId: "r-40", expiresAt: "2027-03-01T00:00:00Z", extensions: 1 };
+    const fetchMock = vi.fn().mockResolvedValue(answer(200, said));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(postPocExtend(4)).resolves.toEqual(said);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/pocs\/4\/acts\/extend$/);
+    expect(init.method).toBe("POST");
+  });
+
+  it("postPocExtend_409And422_CarryTheServersSentence", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(plain(409, "run r-3 of todo is still running"))
+      .mockResolvedValueOnce(plain(422, "todo was extended 2 times; pocs.lifetime.max_owner_extensions is 2")));
+
+    const busy = await postPocExtend(4).catch((err: unknown) => err) as ApiResponseError;
+    const refusedRun = await postPocExtend(4).catch((err: unknown) => err) as ApiResponseError;
+
+    expect([busy.status, busy.reason]).toEqual([409, "run r-3 of todo is still running"]);
+    expect(refusedRun.status).toBe(422);
+    expect(refusedRun.reason).toContain("pocs.lifetime.max_owner_extensions");
   });
 });

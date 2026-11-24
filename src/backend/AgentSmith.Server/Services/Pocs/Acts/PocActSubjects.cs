@@ -10,6 +10,16 @@ internal static class PocActSubjects
     public static PocActSubject Map(Poc poc)
     {
         ArgumentNullException.ThrowIfNull(poc);
-        return new(poc.Id, poc.Name, poc.Target, poc.State, poc.Replicas, poc.Revision, poc.ImageDigest, poc.ReadinessPath);
+        return new(poc.Id, poc.Name, poc.Target, poc.State, poc.Replicas, poc.Revision, poc.ImageDigest, poc.ReadinessPath)
+        {
+            Lifetime = Facts(poc),
+        };
+    }
+
+    /// <summary>2026-11-23-c81ee: what the PoC's lifetime is computed from.</summary>
+    public static PocLifetimeFacts Facts(Poc poc)
+    {
+        ArgumentNullException.ThrowIfNull(poc);
+        return new(poc.CreatedAt, poc.ExpiresAtTicks, poc.ReminderSeenAtTicks, poc.Extensions);
     }
 }

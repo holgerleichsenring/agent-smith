@@ -65,6 +65,12 @@ internal static class PollingExtensions
         services.AddWorker<AgentSmith.Server.Services.Branches.WorkBranchCleanupHostedService>();
         services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Branches.WorkBranchCleanupHostedService>().Health);
 
+        // 2026-11-23-c81ee: PoC expiry stops and deletes, removals and the daily upload purge — leader-elected, re-run on
+        // every config epoch, idle while pocs.enabled is off.
+        services.AddSingleton<AgentSmith.Server.Services.Pocs.Lifetime.PocLifetimeHostedService>();
+        services.AddWorker<AgentSmith.Server.Services.Pocs.Lifetime.PocLifetimeHostedService>();
+        services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Pocs.Lifetime.PocLifetimeHostedService>().Health);
+
         // p0281a: keep the connection repo snapshot warm (warm-on-start + interval).
         services.AddWorker<RepoDiscoveryRefreshHostedService>();
 

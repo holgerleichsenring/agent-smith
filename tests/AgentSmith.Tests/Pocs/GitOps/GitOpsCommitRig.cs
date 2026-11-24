@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Deployment;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Pocs;
 using AgentSmith.Application.Services.Pocs.GitOps;
+using AgentSmith.Application.Services.Pocs.Lifetime;
 using AgentSmith.Application.Services.Pocs.Pipeline;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
@@ -12,6 +13,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Tests.Pocs.Lifetime;
 using Moq;
 
 namespace AgentSmith.Tests.Pocs.GitOps;
@@ -29,6 +31,9 @@ internal sealed class GitOpsCommitRig
     public List<PocActedEvent> Acted { get; } = [];
 
     public PocsConfig Pocs { get; } = PocsConfigTests.Sound();
+
+    /// <summary>2026-11-23-c81ee: the time the lifetime is computed at.</summary>
+    public PocClock Clock { get; } = new(new DateTimeOffset(2026, 12, 1, 0, 0, 0, TimeSpan.Zero));
 
     public GitOpsCommitRig()
     {
@@ -49,7 +54,7 @@ internal sealed class GitOpsCommitRig
         var acted = new PocActedPublisher(events.Object, TimeProvider.System);
         var commit = new PocGitOpsCommit(factory, planner, delivery, Store, new PocDeployedPublisher(events.Object, TimeProvider.System), acted);
         var delete = new PocGitOpsDelete(factory, new PocAbsentPlan(), delivery, Store, acted); // 2026-11-23-c81ed
-        return new GitOpsCommitHandler(Store, source, new PocDesiredStates(Store), new PocRenderInputs(Store, Registries()), commit, delete,
+        return new GitOpsCommitHandler(Store, source, new PocDesiredStates(Store, source, new PocLifetime(), Clock), new PocRenderInputs(Store, Registries()), commit, delete,
             NullLogger<GitOpsCommitHandler>.Instance);
     }
 

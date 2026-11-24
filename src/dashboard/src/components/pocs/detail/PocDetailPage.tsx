@@ -1,17 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
 import { pocRolloutPagePath } from "@/lib/pocRevisionPath";
 import {
-  getPocDetail, getPocRevisions, postPocAct, type PocActed, type PocActBody, type PocAct, type PocDetail, type PocRevisionRow,
+  getPocDetail, getPocRevisions, postPocAct, postPocExtend, postPocReminderSeen, type PocActed, type PocActBody, type PocAct,
+  type PocDetail, type PocExtended, type PocRevisionRow,
 } from "@/lib/pocsApi";
 import { ActButtons } from "./ActButtons";
 import { actRefusal } from "./actRefusal";
 import { AuditList } from "./AuditList";
+import { DeleteDialog } from "./DeleteDialog";
 import { DesiredState } from "./DesiredState";
+import { LifetimeBanner } from "./LifetimeBanner";
+import { LifetimePanel } from "./LifetimePanel";
 import { PocDetailVariables } from "./PocDetailVariables";
 import { PocHeader } from "./PocHeader";
 import { ReadinessSetting } from "./ReadinessSetting";
@@ -21,6 +25,8 @@ import "@/styles/pocs.css";
 // 2026-11-23-c81ed: /pocs/{pocId} — one PoC: its header, what its GitOps folder asks for, its revisions with their
 // rollouts, the acts its state admits, the readiness probe, its variables and the audit of its acts. Every act is a
 // run; once one is queued the page links its Rollout page and reads the PoC again.
+// 2026-11-23-c81ee: its lifetime panel, and a banner while the reminder window is open or once it expired. A page view
+// inside the window posts reminders/seen once; the server records it only for the owner. Extend is a run too.
 
 const POCS_LIST_PATH = "/pocs";
 
@@ -80,6 +86,18 @@ export function PocDetailView({ poc, revisions, reread }: { poc: PocDetail; revi
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [acted, setActed] = useState<{ act: PocAct; run: PocActed } | null>(null);
+  const [extended, setExtended] = useState<PocExtended | null>(null);
+  // The delete dialog opens where it was asked for: the actions box or the expiry banner.
+  const [deleteFrom, setDeleteFrom] = useState<"acts" | "banner" | null>(null);
+  const seenPosted = useRef(false);
+  const lifetime = poc.lifetime ?? null;
+  const reminderOpen = !!lifetime && lifetime.windowOpen && !lifetime.expired;
+
+  useEffect(() => {
+    if (!reminderOpen || seenPosted.current) return;
+    seenPosted.current = true;
+    void Promise.resolve().then(() => postPocReminderSeen(poc.id)).catch(() => undefined);
+  }, [reminderOpen, poc.id]);
 
   const onAct = async (act: PocAct, body: PocActBody = {}): Promise<boolean> => {
     setBusy(true);
@@ -97,9 +115,32 @@ export function PocDetailView({ poc, revisions, reread }: { poc: PocDetail; revi
     }
   };
 
+  const onExtend = async () => {
+    setBusy(true);
+    setRefusal(null);
+    try {
+      setExtended(await postPocExtend(poc.id));
+      reread();
+    } catch (err) {
+      setRefusal(actRefusal(t, err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteDialog = poc.acts.delete
+    ? <DeleteDialog name={poc.name} busy={busy} onAct={onAct} onClose={() => setDeleteFrom(null)} />
+    : null;
+
   return (
     <div className="poc-detail" data-testid="poc-detail" data-state={poc.state}>
       <PocHeader poc={poc} />
+      {lifetime && (
+        <LifetimeBanner poc={poc} lifetime={lifetime} busy={busy} onExtend={() => void onExtend()}
+          onDelete={() => setDeleteFrom("banner")}>
+          {deleteFrom === "banner" && deleteDialog}
+        </LifetimeBanner>
+      )}
       {acted && (
         <div className="poc-acted" role="status" data-testid="poc-detail-acted" data-act={acted.act}>
           {t(ACT_STARTED[acted.act])}{" "}
@@ -114,8 +155,10 @@ export function PocDetailView({ poc, revisions, reread }: { poc: PocDetail; revi
           <AuditList pocId={poc.id} audit={poc.audit} />
         </div>
         <div className="poc-col-side">
+          {lifetime && <LifetimePanel lifetime={lifetime} busy={busy} extended={extended} onExtend={() => void onExtend()} />}
           <DesiredState desired={poc.desired} />
-          <ActButtons poc={poc} busy={busy} onAct={onAct} />
+          <ActButtons poc={poc} busy={busy} onAct={onAct} deleting={deleteFrom === "acts"}
+            setDeleting={(open) => setDeleteFrom(open ? "acts" : null)} />
           <ReadinessSetting key={poc.desired.readinessPath ?? "tcp"} current={poc.desired.readinessPath}
             maxChars={poc.readinessPathMaxChars} enabled={poc.acts.apply} busy={busy} onAct={onAct} />
         </div>

@@ -26,6 +26,8 @@ public sealed class PocRolloutFollowHandler(
     public async Task<CommandResult> ExecuteAsync(PocRolloutFollowContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+        if (context.Pipeline.TryGet<string>(ContextKeys.PocActSettled, out var settled) && !string.IsNullOrEmpty(settled))
+            return CommandResult.Ok($"Nothing to follow: {settled}."); // 2026-11-23-c81ee
         if (context.Seeds.PocId is not { } pocId || await pocs.ReadAsync(pocId, cancellationToken) is not { } poc)
             return CommandResult.Fail("A PoC run's rollout follow needs the PoC it was seeded with; none was found.");
         var all = config.Current();

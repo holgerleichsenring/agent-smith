@@ -90,6 +90,8 @@ public sealed class ScanFailurePersistGuardTests
     [InlineData(PipelinePresets.PocRollbackName, false)]
     [InlineData(PipelinePresets.PocApplyName, false)]
     [InlineData(PipelinePresets.PocDeleteName, false)]
+    [InlineData(PipelinePresets.PocExtendName, false)] // 2026-11-23-c81ee: an extension writes the row, no code
+    [InlineData(PipelinePresets.PocUploadPurgeName, false)] // 2026-11-23-c81ee: the purge deletes stored uploads, no code
     public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
         WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
 
@@ -102,10 +104,10 @@ public sealed class ScanFailurePersistGuardTests
             PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName, PipelinePresets.SeriesRunName, PipelinePresets.SeriesVerifyName, PipelinePresets.PocDeployName, PipelinePresets.PocVariablesName, .. PocActPresets, .. InstallationPresets]);
 
     // 2026-11-23-c81ed: the PoC lifecycle acts.
-    private static readonly string[] PocActPresets = [PipelinePresets.PocStopName, PipelinePresets.PocStartName, PipelinePresets.PocRollbackName, PipelinePresets.PocApplyName, PipelinePresets.PocDeleteName];
+    private static readonly string[] PocActPresets = [PipelinePresets.PocStopName, PipelinePresets.PocStartName, PipelinePresets.PocRollbackName, PipelinePresets.PocApplyName, PipelinePresets.PocDeleteName, PipelinePresets.PocExtendName];
 
     // 2026-11-17-f3a8a: the runs on the installation, none of which commits work.
-    private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName, PipelinePresets.SecretName, PipelinePresets.PocTargetInstallName]; // 933dd: the install commits its pipeline itself
+    private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName, PipelinePresets.SecretName, PipelinePresets.PocTargetInstallName, PipelinePresets.PocUploadPurgeName]; // 933dd, c81ee: the install commits its pipeline itself
 
     // The webhook path: a PR push routes to the resolver's default pipeline, which must never persist.
     [Fact]

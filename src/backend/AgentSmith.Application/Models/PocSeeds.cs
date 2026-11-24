@@ -14,6 +14,12 @@ public sealed record PocSeeds(
     /// <summary>2026-11-23-c81ed: an apply's readiness seed — null keeps the row's path.</summary>
     public string? Readiness { get; init; }
 
+    /// <summary>2026-11-23-c81ee: why the lifetime pass started this stop or delete (PocLifetimeCases); null for an owner's act.</summary>
+    public string? LifetimeCase { get; init; }
+
+    /// <summary>2026-11-23-c81ee: the person who asked for a poc-extend holds pocs.admin.</summary>
+    public bool MayExceed { get; init; }
+
     public static PocSeeds From(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
@@ -26,6 +32,8 @@ public sealed record PocSeeds(
             Ids(Text(pipeline, ContextKeys.PocOverruleIds)))
         {
             Readiness = Text(pipeline, ContextKeys.PocReadiness),
+            LifetimeCase = Text(pipeline, ContextKeys.PocLifetimeCase),
+            MayExceed = string.Equals(Text(pipeline, ContextKeys.PocMayExceed), "true", StringComparison.OrdinalIgnoreCase),
         };
     }
 

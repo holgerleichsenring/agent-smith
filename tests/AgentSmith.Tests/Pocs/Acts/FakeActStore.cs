@@ -11,11 +11,14 @@ internal sealed class FakeActStore(FakeGitOpsStore rows) : IPocActStore
 
     public Dictionary<int, PocActRevision> Revisions { get; } = [];
 
+    /// <summary>2026-11-23-c81ee: the lifetime the row reports; null reports none.</summary>
+    public PocLifetimeFacts? Lifetime { get; set; }
+
     public Task<PocActSubject?> ReadAsync(long pocId, CancellationToken ct)
     {
         var p = rows.Poc;
         return Task.FromResult<PocActSubject?>(pocId != p.PocId ? null
-            : new PocActSubject(p.PocId, p.Name, p.Target, State, p.Replicas, p.Revision, p.ImageDigest, p.ReadinessPath));
+            : new PocActSubject(p.PocId, p.Name, p.Target, State, p.Replicas, p.Revision, p.ImageDigest, p.ReadinessPath) { Lifetime = Lifetime });
     }
 
     public Task<PocActRevision?> RevisionAsync(long pocId, int revision, CancellationToken ct) =>

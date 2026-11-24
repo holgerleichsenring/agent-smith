@@ -14,15 +14,23 @@ public sealed class PocActPlan
 {
     private static readonly string[] Deployed = [PocStates.Ready, PocStates.Stopped, PocStates.Failed];
 
-    /// <summary>Why <paramref name="act"/> cannot run from the row's state, or null when it may.</summary>
-    public string? WhyNot(string act, PocActSubject poc)
+    /// <summary>Why <paramref name="act"/> cannot run from the row's state, or null when it may. 2026-11-23-c81ee: an expiry
+    /// stop (<paramref name="lifetimeCase"/>) runs from stopped too, so the stop that starts the unseen-delete clock is
+    /// recorded; a start of an expired PoC is refused until it is extended.</summary>
+    public string? WhyNot(string act, PocActSubject poc, string? lifetimeCase = null)
     {
         ArgumentNullException.ThrowIfNull(poc);
         if (!PocActKinds.IsAct(act)) return $"'{act}' is not a PoC act; the acts are {string.Join(", ", PocActKinds.All)}";
         if (act == PocActKinds.Delete)
             return poc.State == PocStates.Deleted ? $"'{poc.Name}' is deleted already; delete needs any other state" : null;
-        string[] from = act switch { PocActKinds.Stop => [PocStates.Ready, PocStates.Failed], PocActKinds.Start => [PocStates.Stopped], _ => Deployed };
+        string[] from = act switch
+        {
+            PocActKinds.Stop => lifetimeCase == PocLifetimeCases.ExpiryStop ? Deployed : [PocStates.Ready, PocStates.Failed],
+            PocActKinds.Start => [PocStates.Stopped], _ => Deployed,
+        };
         if (!from.Contains(poc.State)) return $"'{poc.Name}' is {poc.State}; {act} needs it {string.Join(" or ", from)}";
+        if (act == PocActKinds.Start && poc.ExpiredOn is { } expired)
+            return $"'{poc.Name}' expired on {expired:yyyy-MM-dd}; extend it first";
         return poc.Revision is null || poc.ImageDigest is null
             ? $"'{poc.Name}' has no deployed revision{(poc.IsDeletePending ? " (its delete is pending)" : string.Empty)}; {act} needs one"
             : null;
@@ -33,7 +41,7 @@ public sealed class PocActPlan
     public PocActDecision Decide(PocActOrder order, PocActSubject poc, PocActRevision? target, int readinessMaxChars)
     {
         ArgumentNullException.ThrowIfNull(order);
-        if (WhyNot(order.Act, poc) is { } why) return PocActDecision.Refused(why);
+        if (WhyNot(order.Act, poc, order.LifetimeCase) is { } why) return PocActDecision.Refused(why);
         var current = new PocDesiredState(poc.Replicas, poc.Revision ?? 0, poc.ImageDigest ?? string.Empty, poc.ReadinessPath);
         return order.Act switch
         {

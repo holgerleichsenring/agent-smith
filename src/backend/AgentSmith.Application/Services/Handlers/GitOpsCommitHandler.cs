@@ -26,6 +26,8 @@ public sealed class GitOpsCommitHandler(
     public async Task<CommandResult> ExecuteAsync(GitOpsCommitContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+        if (context.Pipeline.TryGet<string>(ContextKeys.PocActSettled, out var settled) && !string.IsNullOrEmpty(settled))
+            return CommandResult.Ok($"Nothing to commit: {settled}."); // 2026-11-23-c81ee
         if (context.Seeds.PocId is not { } pocId || await store.ReadAsync(pocId, cancellationToken) is not { } poc)
             return CommandResult.Fail("A PoC run's GitOps commit needs the PoC it was seeded with; none was found.");
         var pocs = config.Current();
@@ -38,9 +40,10 @@ public sealed class GitOpsCommitHandler(
         if (poc.IsGone) return CommandResult.Fail($"'{poc.Name}' is {(poc.State == PocStates.Deleted ? "deleted" : "being deleted")}; nothing is rendered into its deploy folder.");
         if (!context.Pipeline.TryGet<PocSealResult>(ContextKeys.PocSeal, out var seal) || seal is null)
             return CommandResult.Fail($"The manifests of '{poc.Name}' are not rendered: the seal step did not run (SealPocVariables comes first).");
-        var (state, fromAct, unresolved) = await desired.ResolveAsync(context.Pipeline, poc, context.Seeds, cancellationToken);
+        var (state, fromAct, unresolved, note) = await desired.ResolveAsync(context.Pipeline, poc, context.Seeds, cancellationToken);
         if (state is null) return CommandResult.Fail(unresolved!);
-        return await CommitAsync(context, poc, (state, fromAct), target, seal, repo, pocs.Gitops, cancellationToken);
+        var result = await CommitAsync(context, poc, (state, fromAct), target, seal, repo, pocs.Gitops, cancellationToken);
+        return note is not null && result.IsSuccess ? CommandResult.Ok(note + result.Message) : result; // 2026-11-23-c81ee
     }
 
     private async Task<CommandResult> DeleteAsync(

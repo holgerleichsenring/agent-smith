@@ -864,6 +864,8 @@ export interface PocActedEvent extends RunEventBase {
   reason?: string | null;
   revision?: number | null;
   commitSha?: string | null;
+  /** 2026-11-23-c81ee: the audit act an expiry, removal or extend run records in place of the act's own. */
+  auditAct?: string | null;
 }
 
 /** 2026-11-18-3863f: a deploy delivered — its pull request, or the pipeline run it started (null id: the host did

@@ -1345,6 +1345,12 @@ export const messages = {
   "pocs.card.owner": { en: "by {owner}", de: "von {owner}" },
   "pocs.card.lastRun": { en: "Last run", de: "Letzter Run" },
   "pocs.card.noRun": { en: "No run yet", de: "Noch kein Run" },
+  // 2026-11-23-c81ee: the lifetime badge on a PoC card.
+  "pocs.card.expiresIn": {
+    en: { one: "Expires in 1 day", other: "Expires in {count} days" },
+    de: { one: "Läuft in 1 Tag ab", other: "Läuft in {count} Tagen ab" },
+  },
+  "pocs.card.expired": { en: "Expired", de: "Abgelaufen" },
   "pocs.target.label": { en: "Target", de: "Ziel" },
   "pocs.target.source": { en: "Source", de: "Quelle" },
   "pocs.target.folder": { en: "Folder", de: "Ordner" },
@@ -1848,6 +1854,32 @@ export const messages = {
     en: "the longest readiness path an owner may set on a PoC's detail page — a probe path, not a payload",
     de: "der längste Readiness-Pfad, den jemand auf der Detailseite eines PoC setzen darf — ein Prüfpfad, keine Nutzlast",
   },
+  // 2026-11-23-c81ee: pocs.lifetime — the poc-lifetime pass, Extend and the unseen delete.
+  "config.pocs.lifetime.title": { en: "Lifetime", de: "Laufzeit" },
+  "config.pocs.lifetime.help": {
+    en: "how often expiring PoCs are checked, how far Extend moves the expiry, and when an expired PoC nobody looked at is deleted; a target's lifetime and reminder days are set on the target",
+    de: "wie oft ablaufende PoCs geprüft werden, wie weit Verlängern das Ablaufdatum verschiebt und wann ein abgelaufener PoC, den niemand angesehen hat, gelöscht wird; Laufzeit und Erinnerungstage stehen am Ziel",
+  },
+  "config.pocs.lifetime.intervalSeconds": { en: "Check every (seconds)", de: "Prüfen alle (Sekunden)" },
+  "config.pocs.lifetime.intervalSeconds.help": {
+    en: "how often the poc-lifetime pass looks for expired PoCs and starts their stop or delete runs",
+    de: "wie oft der poc-lifetime-Durchlauf nach abgelaufenen PoCs sucht und deren Stopp- oder Lösch-Runs startet",
+  },
+  "config.pocs.lifetime.extendDays": { en: "Days one extension adds", de: "Tage pro Verlängerung" },
+  "config.pocs.lifetime.extendDays.help": {
+    en: "how many days one Extend moves a PoC's expiry",
+    de: "um wie viele Tage ein Verlängern das Ablaufdatum eines PoC verschiebt",
+  },
+  "config.pocs.lifetime.maxOwnerExtensions": { en: "Extensions by the owner", de: "Verlängerungen durch den Besitzer" },
+  "config.pocs.lifetime.maxOwnerExtensions.help": {
+    en: "how many times an owner may extend a PoC; after that only an admin can",
+    de: "wie oft jemand den eigenen PoC verlängern darf; danach nur noch ein Admin",
+  },
+  "config.pocs.lifetime.unseenDeleteAfterDays": { en: "Delete unseen after (days)", de: "Ungesehen löschen nach (Tagen)" },
+  "config.pocs.lifetime.unseenDeleteAfterDays.help": {
+    en: "days after an expiry stop that an expired PoC whose owner saw no reminder is deleted, unless it is extended",
+    de: "Tage nach einem Ablauf-Stopp, nach denen ein abgelaufener PoC, dessen Besitzer keine Erinnerung gesehen hat, gelöscht wird, wenn er nicht verlängert wird",
+  },
   "config.pocs.runWallTimeSeconds": { en: "PoC run wall time (seconds)", de: "Wall-Time eines PoC-Runs (Sekunden)" },
   "config.pocs.runWallTimeSeconds.help": {
     en: "every PoC run is held to this instead of orchestrator.max_run_wall_time_seconds; build, scan, push, the rollout deadline and the commit allowance must fit below it",
@@ -1971,6 +2003,49 @@ export const messages = {
   "pocs.detail.audit.deleted": { en: "Deleted", de: "Gelöscht" },
   "pocs.detail.audit.extended": { en: "Extended", de: "Verlängert" },
   "pocs.detail.audit.expired": { en: "Expired", de: "Abgelaufen" },
+  // 2026-11-23-c81ee: the lifetime panel, the reminder banner and Extend.
+  "pocs.detail.lifetime.title": { en: "Lifetime", de: "Laufzeit" },
+  "pocs.detail.lifetime.expiresOn": { en: "Expires on {date}", de: "Läuft am {date} ab" },
+  "pocs.detail.lifetime.expiredOn": { en: "Expired on {date}", de: "Am {date} abgelaufen" },
+  "pocs.detail.lifetime.daysLeft": {
+    en: { one: "1 day left", other: "{count} days left" },
+    de: { one: "noch 1 Tag", other: "noch {count} Tage" },
+  },
+  "pocs.detail.lifetime.extensions": {
+    en: { one: "{used} of 1 extension used", other: "{used} of {count} extensions used" },
+    de: { one: "{used} von 1 Verlängerung genutzt", other: "{used} von {count} Verlängerungen genutzt" },
+  },
+  "pocs.detail.lifetime.adminOnly": {
+    en: "Further extensions are made by an admin.",
+    de: "Weitere Verlängerungen nimmt ein Admin vor.",
+  },
+  "pocs.detail.lifetime.extend": { en: "Extend", de: "Verlängern" },
+  "pocs.detail.lifetime.extending": { en: "Extending…", de: "Wird verlängert…" },
+  "pocs.detail.lifetime.extended": {
+    en: "Extended. The PoC now expires on {date}.",
+    de: "Verlängert. Der PoC läuft jetzt am {date} ab.",
+  },
+  "pocs.detail.banner.expiring": {
+    en: { one: "{name} expires on {date} — 1 day left", other: "{name} expires on {date} — {count} days left" },
+    de: { one: "{name} läuft am {date} ab — noch 1 Tag", other: "{name} läuft am {date} ab — noch {count} Tage" },
+  },
+  "pocs.detail.banner.expiringHelp": {
+    en: "Extend it if it is still needed; once it expires it is stopped or deleted.",
+    de: "Verlängere ihn, wenn er noch gebraucht wird; sobald er abläuft, wird er gestoppt oder gelöscht.",
+  },
+  "pocs.detail.banner.expired": { en: "{name} expired on {date}", de: "{name} ist am {date} abgelaufen" },
+  "pocs.detail.banner.expiredUnseen": {
+    en: "It was stopped because it expired and no reminder was seen in time. It will be deleted on {date} unless it is extended.",
+    de: "Er wurde gestoppt, weil er abgelaufen ist und keine Erinnerung rechtzeitig gesehen wurde. Er wird am {date} gelöscht, wenn er nicht verlängert wird.",
+  },
+  "pocs.detail.banner.expiredDue": {
+    en: "It is stopped because it expired, and it is due for deletion unless it is extended.",
+    de: "Er ist gestoppt, weil er abgelaufen ist, und wird gelöscht, wenn er nicht verlängert wird.",
+  },
+  "pocs.detail.banner.startAfterExtend": {
+    en: "Start is available again once it is extended.",
+    de: "Starten geht wieder, sobald er verlängert ist.",
+  },
   "runs.pocRollout": { en: "Rollout", de: "Rollout" },
   // --- deployments page (2026-11-23-8df6a) ---
   "deployments.nav": { en: "Deployments", de: "Deployments" },

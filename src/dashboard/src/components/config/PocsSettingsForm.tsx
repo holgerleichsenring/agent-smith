@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type {
-  PocArchiveSetting, PocGitOpsSetting, PocRolloutSetting, PocScanSetting, PocsSetting, PocTargetSetting, PocVariablesSetting, SettingValue, StudioEntity,
+  PocArchiveSetting, PocGitOpsSetting, PocLifetimeSetting, PocRolloutSetting, PocScanSetting, PocsSetting, PocTargetSetting, PocVariablesSetting, SettingValue, StudioEntity,
 } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
@@ -16,6 +16,7 @@ import { newPocArgo, PocArgoFields } from "./PocArgoFields";
 // 2026-11-23-933da: the PoCs settings (agentsmith.yml pocs:) — the switch first, then the agent and tracker every
 // person's poc- project names, then the targets. Every field stays editable while the switch is off, so a target can
 // be set up before anyone sees the page. The server refuses what PocsConfig.Problems() names; this form only edits.
+// 2026-11-23-c81ee: the lifetime block (pass interval, extension days and allowance, unseen delete) is always sent.
 
 export interface PocsCatalog {
   agents: StudioEntity[];
@@ -66,6 +67,11 @@ export const POC_RUN_WALL_TIME_SECONDS_DEFAULT = 2700;
 /** 2026-11-23-c81ed: the server's default of pocs.readiness_path_max_chars (PocsConfig); always sent like the rest. */
 export const POC_READINESS_PATH_MAX_CHARS_DEFAULT = 256;
 
+/** 2026-11-23-c81ee: the server's lifetime defaults (PocLifetimeConfig); like archive, always sent back. */
+export const POC_LIFETIME_DEFAULTS: PocLifetimeSetting = {
+  intervalSeconds: 3600, extendDays: 90, maxOwnerExtensions: 2, unseenDeleteAfterDays: 30,
+};
+
 /** A new target carries the server's defaults; the address has none, only a placeholder. */
 export function newPocTarget(): PocTargetSetting {
   return {
@@ -87,6 +93,7 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
   const rollout = value.rollout ?? POC_ROLLOUT_DEFAULTS;
   const runWallTimeSeconds = value.runWallTimeSeconds ?? POC_RUN_WALL_TIME_SECONDS_DEFAULT;
   const readinessPathMaxChars = value.readinessPathMaxChars ?? POC_READINESS_PATH_MAX_CHARS_DEFAULT;
+  const lifetime = value.lifetime ?? POC_LIFETIME_DEFAULTS;
   // 2026-11-23-933dg: a target read without a secrets block is given the defaults and sends them back;
   // 2026-11-23-c81eb: so is one without an ingress, auth, network, quota or container block; 2026-11-23-c81ec: or argo.
   const targets = (value.targets ?? []).map((target) => withPocDeployBlocks({
@@ -94,7 +101,8 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
   }));
   const set = (patch: Partial<PocsSetting>) =>
     onChange({
-      ...value, archive, scan, blockedRetentionDays, variables, gitops, rollout, runWallTimeSeconds, readinessPathMaxChars, targets, ...patch,
+      ...value, archive, scan, blockedRetentionDays, variables, gitops, rollout, runWallTimeSeconds, readinessPathMaxChars,
+      lifetime, targets, ...patch,
     });
   const setAt = (i: number, patch: Partial<PocTargetSetting>) =>
     set({ targets: targets.map((target, j) => (j === i ? { ...target, ...patch } : target)) });
@@ -163,6 +171,13 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
           testId="setting-pocs-readinessPathMaxChars" help={t("config.pocs.readinessPathMaxChars.help")}
           onChange={(v) => set({ readinessPathMaxChars: keep(v, readinessPathMaxChars) })} />
       </DrawerSection>
+      <DrawerSection title={t("config.pocs.lifetime.title")} testId="setting-pocs-lifetime">
+        <span className="help">{t("config.pocs.lifetime.help")}</span>
+        {LIFETIME_FIELDS.map(({ key, label, help }) => (
+          <NumberField key={key} label={t(label)} value={lifetime[key]} help={t(help)} testId={`setting-pocs-lifetime-${key}`}
+            onChange={(v) => set({ lifetime: { ...lifetime, [key]: keep(v, lifetime[key]) } })} />
+        ))}
+      </DrawerSection>
     </>
   );
 }
@@ -186,6 +201,13 @@ const ROLLOUT_FIELDS: { key: keyof PocRolloutSetting; label: TextKey; help: Text
   { key: "deadlineSeconds", label: "config.pocs.rollout.deadlineSeconds", help: "config.pocs.rollout.deadlineSeconds.help" },
   { key: "endMarginSeconds", label: "config.pocs.rollout.endMarginSeconds", help: "config.pocs.rollout.endMarginSeconds.help" },
   { key: "commitAllowanceSeconds", label: "config.pocs.rollout.commitAllowanceSeconds", help: "config.pocs.rollout.commitAllowanceSeconds.help" },
+];
+
+const LIFETIME_FIELDS: { key: keyof PocLifetimeSetting; label: TextKey; help: TextKey }[] = [
+  { key: "intervalSeconds", label: "config.pocs.lifetime.intervalSeconds", help: "config.pocs.lifetime.intervalSeconds.help" },
+  { key: "extendDays", label: "config.pocs.lifetime.extendDays", help: "config.pocs.lifetime.extendDays.help" },
+  { key: "maxOwnerExtensions", label: "config.pocs.lifetime.maxOwnerExtensions", help: "config.pocs.lifetime.maxOwnerExtensions.help" },
+  { key: "unseenDeleteAfterDays", label: "config.pocs.lifetime.unseenDeleteAfterDays", help: "config.pocs.lifetime.unseenDeleteAfterDays.help" },
 ];
 
 function PocArchiveFields({ archive, onChange }: { archive: PocArchiveSetting; onChange: (patch: Partial<PocArchiveSetting>) => void }) {

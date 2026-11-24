@@ -27,6 +27,7 @@ internal static class PocEndpoints
         pocs.MapPocTargetEndpoints(); // 2026-11-23-933dd
         pocs.MapPocVariableEndpoints(); // 2026-11-23-933dg
         pocs.MapPocActEndpoints(); // 2026-11-23-c81ed
+        pocs.MapPocLifetimeEndpoints(); // 2026-11-23-c81ee
         return app;
     }
 

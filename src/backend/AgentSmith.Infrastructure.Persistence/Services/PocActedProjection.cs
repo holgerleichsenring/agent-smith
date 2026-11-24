@@ -17,8 +17,9 @@ public sealed class PocActedProjection : IRunEventFamily
     public async Task ApplyAsync(IUnitOfWork uow, RunEvent runEvent, long? eventSeq, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(uow);
-        if (runEvent is not PocActedEvent e || !PocActKinds.IsAct(e.Act)) return;
-        var act = PocActKinds.AuditActOf(e.Act);
+        if (runEvent is not PocActedEvent e) return;
+        // 2026-11-23-c81ee: an expiry, removal or extension run names the audit act it records in place of the act's own.
+        if ((e.AuditAct ?? (PocActKinds.IsAct(e.Act) ? PocActKinds.AuditActOf(e.Act) : null)) is not { } act) return;
         if (await uow.Set<PocAuditEntry>().AnyAsync(a => a.RunId == e.RunId && a.Act == act, ct)) return;
         uow.Add(new PocAuditEntry
         {

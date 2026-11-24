@@ -21,6 +21,26 @@ export interface PocRow {
   lastRunId: string | null;
   /** 2026-11-23-933dc: the PoC's newest revision, which a blocked PoC's card links to; null before the first one. */
   latestRevision: number | null;
+  /** 2026-11-23-c81ee: when the PoC expires and what may be done about it; null for a deleted or refused PoC or when its
+   *  target is no longer configured. */
+  lifetime?: PocLifetime | null;
+}
+
+/** 2026-11-23-c81ee: a PoC's lifetime as the server computed it. */
+export interface PocLifetime {
+  /** ISO timestamp. */
+  expiresAt: string;
+  /** Whole days, 0 once expired. */
+  daysLeft: number;
+  /** The reminder window is open and the PoC has not expired yet. */
+  windowOpen: boolean;
+  expired: boolean;
+  /** ISO date an expired PoC that was stopped unseen is deleted unless extended; null otherwise. */
+  deletesAt: string | null;
+  extensions: number;
+  /** pocs.lifetime.max_owner_extensions. */
+  ownerAllowance: number;
+  mayExtend: boolean;
 }
 
 export interface PocTarget {
@@ -376,6 +396,8 @@ export interface PocDetail {
   readinessPathMaxChars: number;
   /** Oldest first. */
   audit: PocAuditEntry[];
+  /** 2026-11-23-c81ee: see PocRow.lifetime. */
+  lifetime?: PocLifetime | null;
 }
 
 export interface PocRevisionRow {
@@ -440,4 +462,31 @@ export async function postPocAct(pocId: number, act: PocAct, body: PocActBody = 
   });
   if (!res.ok) throw await refusedAsSaid(res, path);
   return readJson<PocActed>(res, path);
+}
+
+// 2026-11-23-c81ee: the owner saw the reminder — POST /api/pocs/{pocId}/reminders/seen always answers 204; the server
+// records it only for the owner inside the window. Extend starts the poc-extend run and answers the new expiry; a
+// refusal is one plain sentence (409 while a run is live or the PoC is deleted, 422 when the run refused).
+
+export interface PocExtended {
+  pocId: number;
+  runId: string;
+  /** ISO timestamp. */
+  expiresAt: string;
+  extensions: number;
+}
+
+/** Tell the server the reminder was seen; it answers 204 whatever it recorded. */
+export async function postPocReminderSeen(pocId: number, signal?: AbortSignal): Promise<void> {
+  const path = `${pocDetailPath(pocId)}/reminders/seen`;
+  const res = await apiFetch(path, { method: "POST", signal });
+  if (!res.ok) throw await refused(res, path);
+}
+
+/** Extend the PoC's lifetime; a refusal throws with the server's sentence as its reason. */
+export async function postPocExtend(pocId: number, signal?: AbortSignal): Promise<PocExtended> {
+  const path = `${pocDetailPath(pocId)}/acts/extend`;
+  const res = await apiFetch(path, { method: "POST", signal });
+  if (!res.ok) throw await refusedAsSaid(res, path);
+  return readJson<PocExtended>(res, path);
 }

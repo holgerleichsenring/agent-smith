@@ -1,11 +1,13 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError } from "@/lib/apiResponse";
-import type { PocDetail, PocRevisionRow, PocVariableView } from "@/lib/pocsApi";
+import { chooseLanguage } from "@/lib/i18n/language";
+import type { PocDetail, PocLifetime, PocRevisionRow, PocVariableView } from "@/lib/pocsApi";
 import { PocDetailPage } from "../PocDetailPage";
 import { variablesChange } from "../PocDetailVariables";
 import { shortDigest } from "../DesiredState";
 import { readinessHints } from "../ReadinessSetting";
+import { pocDate } from "../../pocDate";
 
 // 2026-11-23-c81ed: the PoC detail page enables only the acts the server's answer admits, asks for the name before a
 // delete, links each revision's Rollout page with Roll back only where the answer allows it, mounts the variables
@@ -16,6 +18,8 @@ const getRevisions = vi.fn();
 const postAct = vi.fn();
 const getVariables = vi.fn();
 const putVariables = vi.fn();
+const postSeen = vi.fn();
+const postExtend = vi.fn();
 
 vi.mock("@/lib/pocsApi", () => ({
   getPocDetail: (...args: unknown[]) => getDetail(...args),
@@ -23,6 +27,8 @@ vi.mock("@/lib/pocsApi", () => ({
   postPocAct: (...args: unknown[]) => postAct(...args),
   getPocVariables: (...args: unknown[]) => getVariables(...args),
   putPocVariables: (...args: unknown[]) => putVariables(...args),
+  postPocReminderSeen: (...args: unknown[]) => postSeen(...args),
+  postPocExtend: (...args: unknown[]) => postExtend(...args),
 }));
 
 const DIGEST = "sha256:" + "4b1e".repeat(16);
@@ -57,7 +63,8 @@ const REVISIONS = [
 ];
 
 beforeEach(() => {
-  for (const mock of [getDetail, getRevisions, postAct, getVariables, putVariables]) mock.mockReset();
+  for (const mock of [getDetail, getRevisions, postAct, getVariables, putVariables, postSeen, postExtend]) mock.mockReset();
+  postSeen.mockResolvedValue(undefined);
   getDetail.mockResolvedValue(detail());
   getRevisions.mockResolvedValue({ revisions: REVISIONS });
   getVariables.mockResolvedValue({ variables: [] });
@@ -228,6 +235,131 @@ describe("PocDetailPage", () => {
   });
 });
 
+// 2026-11-23-c81ee: the lifetime panel, the reminder banner with its seen post, Extend, and the expired PoC.
+function lifetime(over: Partial<PocLifetime> = {}): PocLifetime {
+  return {
+    expiresAt: "2026-12-07T12:00:00Z", daysLeft: 13, windowOpen: true, expired: false, deletesAt: null,
+    extensions: 1, ownerAllowance: 2, mayExtend: true, ...over,
+  };
+}
+
+const EXPIRED = lifetime({
+  expiresAt: "2026-11-20T12:00:00Z", daysLeft: 0, windowOpen: false, expired: true, deletesAt: "2026-12-20T12:00:00Z",
+});
+
+describe("PocDetailPage lifetime", () => {
+  it("PocDetailPage_ReminderWindow_BannerShowsDaysLeft_AndPostsSeenOnce", async () => {
+    getDetail.mockResolvedValue(detail({ lifetime: lifetime() }));
+    postAct.mockResolvedValue({ pocId: 4, act: "stop", runId: "r-20" });
+    await shown();
+
+    expect(screen.getByTestId("poc-detail-banner")).toHaveTextContent("todo expires on 7 December 2026 — 13 days left");
+    expect(screen.getByTestId("poc-detail-lifetime-expires")).toHaveTextContent("Expires on 7 December 2026");
+    expect(screen.getByTestId("poc-detail-lifetime-days")).toHaveTextContent("13 days left");
+    expect(screen.getByTestId("poc-detail-lifetime-extensions")).toHaveTextContent("1 of 2 extensions used");
+    await waitFor(() => expect(postSeen).toHaveBeenCalledWith(4));
+
+    // A reread of the same page view does not post again.
+    fireEvent.click(screen.getByTestId("poc-detail-act-stop"));
+    await waitFor(() => expect(getDetail).toHaveBeenCalledTimes(2));
+    expect(postSeen).toHaveBeenCalledTimes(1);
+  });
+
+  it("PocDetailPage_NoWindow_NoBanner_NoSeenPost", async () => {
+    getDetail.mockResolvedValue(detail({ lifetime: lifetime({ windowOpen: false, daysLeft: 60 }) }));
+    await shown();
+    expect(screen.queryByTestId("poc-detail-banner")).not.toBeInTheDocument();
+    expect(screen.getByTestId("poc-detail-lifetime")).toBeInTheDocument();
+    expect(postSeen).not.toHaveBeenCalled();
+  });
+
+  it("PocDetailPage_German_DatesFollowTheLanguage", async () => {
+    chooseLanguage("de");
+    getDetail.mockResolvedValue(detail({ lifetime: lifetime() }));
+    await shown();
+    expect(screen.getByTestId("poc-detail-banner")).toHaveTextContent("todo läuft am 7. Dezember 2026 ab — noch 13 Tage");
+  });
+
+  it("PocDetailPage_Extend_CallsTheAct_ShowsTheNewDate_AndReadsAgain", async () => {
+    getDetail.mockResolvedValue(detail({ lifetime: lifetime() }));
+    postExtend.mockResolvedValue({ pocId: 4, runId: "r-40", expiresAt: "2027-03-07T12:00:00Z", extensions: 2 });
+    await shown();
+
+    fireEvent.click(screen.getByTestId("poc-detail-lifetime-extend"));
+
+    expect(await screen.findByTestId("poc-detail-extended")).toHaveTextContent("now expires on 7 March 2027");
+    expect(postExtend).toHaveBeenCalledWith(4);
+    await waitFor(() => expect(getDetail).toHaveBeenCalledTimes(2));
+  });
+
+  it("PocDetailPage_ExtendRefused_ShowsTheServersSentence", async () => {
+    getDetail.mockResolvedValue(detail({ lifetime: lifetime() }));
+    postExtend.mockRejectedValue(new ApiResponseError("/api/pocs/4/acts/extend", 422, "HTTP 422",
+      "todo was extended 2 times; pocs.lifetime.max_owner_extensions is 2"));
+    await shown();
+    fireEvent.click(screen.getByTestId("poc-detail-banner-extend"));
+    expect(await screen.findByTestId("poc-detail-refusal")).toHaveTextContent("pocs.lifetime.max_owner_extensions");
+    expect(screen.queryByTestId("poc-detail-extended")).not.toBeInTheDocument();
+  });
+
+  it("PocDetailPage_MayNotExtend_HidesExtend", async () => {
+    getDetail.mockResolvedValue(detail({ lifetime: lifetime({ extensions: 2, mayExtend: false }) }));
+    await shown();
+    expect(screen.queryByTestId("poc-detail-lifetime-extend")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("poc-detail-banner-extend")).not.toBeInTheDocument();
+    expect(screen.getByTestId("poc-detail-lifetime-extensions")).toHaveTextContent("2 of 2 extensions used");
+  });
+
+  it("PocDetailPage_Expired_StartDisabledUntilExtend_BannerNamesDeletesAt", async () => {
+    const stopped = { stop: false, start: false, rollback: false, apply: false, delete: true };
+    getDetail
+      .mockResolvedValueOnce(detail({ state: "stopped", acts: stopped, lifetime: EXPIRED }))
+      .mockResolvedValue(detail({
+        state: "stopped", acts: { ...stopped, start: true },
+        lifetime: lifetime({ expiresAt: "2027-02-18T12:00:00Z", daysLeft: 86, windowOpen: false, extensions: 2 }),
+      }));
+    postExtend.mockResolvedValue({ pocId: 4, runId: "r-41", expiresAt: "2027-02-18T12:00:00Z", extensions: 2 });
+    await shown();
+
+    const banner = screen.getByTestId("poc-detail-banner");
+    expect(banner).toHaveAttribute("data-lifetime", "expired");
+    expect(banner).toHaveTextContent("todo expired on 20 November 2026");
+    expect(screen.getByTestId("poc-detail-banner-why")).toHaveTextContent("no reminder was seen in time");
+    expect(screen.getByTestId("poc-detail-banner-why")).toHaveTextContent("It will be deleted on 20 December 2026 unless it is extended");
+    expect(screen.getByTestId("poc-detail-act-start")).toBeDisabled();
+    expect(postSeen).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("poc-detail-banner-extend"));
+
+    await waitFor(() => expect(screen.getByTestId("poc-detail-act-start")).toBeEnabled());
+    expect(screen.queryByTestId("poc-detail-banner")).not.toBeInTheDocument();
+    expect(screen.getByTestId("poc-detail-extended")).toHaveTextContent("18 February 2027");
+  });
+
+  it("PocDetailPage_Expired_BannerDeleteOpensTheDeleteDialog", async () => {
+    postAct.mockResolvedValue({ pocId: 4, act: "delete", runId: "r-42" });
+    getDetail.mockResolvedValue(detail({
+      state: "stopped", acts: { stop: false, start: false, rollback: false, apply: false, delete: true },
+      lifetime: { ...EXPIRED, deletesAt: null },
+    }));
+    await shown();
+    expect(screen.getByTestId("poc-detail-banner-why")).toHaveTextContent("due for deletion unless it is extended");
+
+    fireEvent.click(screen.getByTestId("poc-detail-banner-delete"));
+    fireEvent.change(screen.getByTestId("poc-detail-delete-name"), { target: { value: "todo" } });
+    fireEvent.click(screen.getByTestId("poc-detail-delete-confirm"));
+    await waitFor(() => expect(postAct).toHaveBeenCalledWith(4, "delete", { confirmName: "todo" }));
+  });
+
+  it("PocDetailPage_Expired_DeleteNotAdmitted_NoBannerDelete", async () => {
+    getDetail.mockResolvedValue(detail({
+      state: "stopped", acts: { stop: false, start: false, rollback: false, apply: false, delete: false }, lifetime: EXPIRED,
+    }));
+    await shown();
+    expect(screen.queryByTestId("poc-detail-banner-delete")).not.toBeInTheDocument();
+  });
+});
+
 describe("variablesChange", () => {
   const stored: PocVariableView[] = [
     { name: "API_KEY", kind: "secret", setBy: "Ann", setAt: "x", value: null },
@@ -265,5 +397,13 @@ describe("shortDigest", () => {
   it("shortDigest_CutsTheHash", () => {
     expect(shortDigest("sha256:" + "a".repeat(64))).toBe("sha256:" + "a".repeat(12) + "…");
     expect(shortDigest("sha256:abc")).toBe("sha256:abc");
+  });
+});
+
+describe("pocDate", () => {
+  it("pocDate_FollowsTheLanguage_AndKeepsAnUnreadableValue", () => {
+    expect(pocDate("2026-12-07T12:00:00Z", "en")).toBe("7 December 2026");
+    expect(pocDate("2026-12-07T12:00:00Z", "de")).toBe("7. Dezember 2026");
+    expect(pocDate("soon", "en")).toBe("soon");
   });
 });

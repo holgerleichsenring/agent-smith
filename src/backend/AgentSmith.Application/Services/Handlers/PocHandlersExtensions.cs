@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Pocs;
 using AgentSmith.Application.Services.Pocs.Acts;
 using AgentSmith.Application.Services.Pocs.Build;
 using AgentSmith.Application.Services.Pocs.GitOps;
+using AgentSmith.Application.Services.Pocs.Lifetime;
 using AgentSmith.Application.Services.Pocs.Scan;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Pocs;
@@ -30,6 +31,6 @@ public static class PocHandlersExtensions
         return services.AddSingleton<PocProjectPresetGuard>().AddTransient<PocArchiveLimitsSource>()
             .AddTransient<PocImportedPublisher>()
             .AddTransient<ICommandHandler<PocIntakeContext>, PocIntakeHandler>()
-            .AddPocScan().AddPocBuild().AddPocGitOps().AddPocRollout().AddPocActs(); // 2026-11-23-933dc, 933dd, c81eb, c81ec, c81ed
+            .AddPocScan().AddPocBuild().AddPocGitOps().AddPocRollout().AddPocActs().AddPocLifetime(); // 2026-11-23-933dc, 933dd, c81eb, c81ec, c81ed, c81ee
     }
 }

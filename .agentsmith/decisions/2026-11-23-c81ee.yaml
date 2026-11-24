@@ -66,3 +66,44 @@ decisions:
     chose: "A new upload to an expired stopped PoC is deployed but kept stopped (poc-deploy keeps the row's Replicas), the outcome naming the expiry date and Extend"
     over: "Starting it per ruling 5, or refusing the import"
     reason: "Round 4 ruled that an upload starts a stopped PoC, and ruling H plus this spec refuse Start on an expired PoC: starting it would be undone by the next pass's stop, so the upload does not do what Start may not. Refusing the import would lose the owner's upload; kept stopped, Extend and Start bring it up."
+  # Build (2026-11-24): choices made while implementing.
+  - category: Scope
+    chose: "The reminder mail channel is a named deferred follow-up: 'PoC reminder mail', specced once agent smith has an SMTP sender; until then the detail page's banner and the card badge are the reminder and seeing the banner is what counts as seen"
+    over: "Building a mail sender or chat DMs in this spec"
+    reason: "Operator ruling H (no SMTP yet, start without mail). Not minted now: a date-minted id cannot be reserved; the follow-up states in prose that it follows 2026-11-23-c81ee."
+  - category: Implementation
+    chose: "A lifetime run that is no longer due ends green through ContextKeys.PocActSettled, which SealPocVariables, GitOpsCommit and PocRolloutFollow read first and end on"
+    over: "CommandResult.DropAhead; a new 'end the run' result kind; failing the run"
+    reason: "DropAhead is spec-scoped and cannot retire pipeline-level steps (p0460), and widening it changes every preset; the spec wants the run green with nothing done. Three one-line guards in the three steps that follow PocAct keep the change local."
+  - category: Implementation
+    chose: "One seed ContextKeys.PocLifetimeCase with four values (expiry-stop, seen-delete, unseen-delete, removal); the PocAct step re-runs PocLifetimePlan.CaseOf on the re-read row and goes on only when the same case is still due"
+    over: "A boolean expiry seed plus a separate removal seed and per-case re-check code"
+    reason: "The pass and the re-check then share one decision table; a PoC extended, re-uploaded or deleted meanwhile falls out of the case and ends the run green, naming why."
+  - category: Implementation
+    chose: "PocActedEvent gains a trailing optional AuditAct; the projection records AuditAct ?? the act's own; the extension is published as PocActedEvent with Act and AuditAct 'extended'"
+    over: "A PocExpiredEvent and a PocExtendedEvent with projections of their own"
+    reason: "No second path for the PoC audit trail: one event and one projection, one entry per (run, act). The C# field is optional, so older payloads still read; the dashboard mirror gained auditAct."
+  - category: Implementation
+    chose: "The lifetime fields travel as one nested object 'lifetime' {expiresAt, daysLeft, windowOpen, expired, deletesAt, extensions, ownerAllowance, mayExtend} on the list item and the detail answer, null for a PoC that is not live or whose target is gone"
+    over: "Eight flat fields on each answer"
+    reason: "One view type (PocLifetimeView) built by one service for both answers, so the card and the page cannot disagree; the field names are the spec's."
+  - category: Implementation
+    chose: "Each pass decides the PoCs first and runs the purge after; a blocked PoC whose upload a pass purged is removed by the next pass"
+    over: "Purging first and removing in the same pass"
+    reason: "upgrade_impact says the removal comes 'by the pass after it'; the purge run's rows are then settled before anything reads them."
+  - category: Implementation
+    chose: "The once-a-day retry of a failed stop or delete and the daily purge cadence are code constants marked '// not a limit'"
+    over: "Two more pocs.lifetime keys"
+    reason: "The spec fixes both at 24 hours as cadences, not bounds on anything a person does; the pass interval, which does pace the work, is config (interval_seconds)."
+  - category: Implementation
+    chose: "The purge run also clears a deleted PoC's plain variables (Pocs.PlainVariablesJson) beside its stored secret values"
+    over: "Deleting only the poc-scope secret rows"
+    reason: "933dg's hand-over asked for both; plain values of a deleted PoC have no reader left."
+  - category: Implementation
+    chose: "PurgePocUploadsHandler is registered with the admin pipelines (server composition), next to the poc-variables writer"
+    over: "Registering it with the other PoC handlers"
+    reason: "It deletes secrets through SecretWrite and ISecretVault, which exist only in the server composition; the CLI composition validates every registered handler and has no vault."
+  - category: Implementation
+    chose: "Start refusal and the poc-deploy replica rule read 'expired' from one PocLifetime over the row's facts: PocActSubject and PocGitOpsSubject carry PocLifetimeFacts, PocActPlan reads PocActSubject.ExpiredOn"
+    over: "A clock inside PocActPlan, or each caller computing expiry its own way"
+    reason: "PocActPlan stays pure; the launcher, the detail page and the run's step set ExpiredOn from the same computation, so the page never offers a Start the step refuses."

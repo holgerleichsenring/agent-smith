@@ -42,4 +42,10 @@ public static partial class PipelinePresets
 
     public static readonly IReadOnlyList<string> PocDelete =
         [CommandNames.LoadCatalog, CommandNames.PocAct, CommandNames.GitOpsCommit, CommandNames.PocRolloutFollow];
+
+    /// <summary>2026-11-23-c81ee: the run that extends a PoC's lifetime, in its poc- project, started only through IActRun
+    /// by the extend route so the button gets its answer.</summary>
+    public const string PocExtendName = "poc-extend";
+
+    public static readonly IReadOnlyList<string> PocExtend = [CommandNames.PocExtend];
 }

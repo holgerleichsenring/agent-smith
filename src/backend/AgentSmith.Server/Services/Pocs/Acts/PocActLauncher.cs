@@ -12,20 +12,23 @@ namespace AgentSmith.Server.Services.Pocs.Acts;
 /// rollback names a revision, a delete repeats the name, an apply's readiness is a '/' path or 'tcp') answer 400; the
 /// act's precondition (<see cref="PocActPlan"/>, the table the run's step reads again) answers 409 naming the act and the
 /// state; then the PoC's slot is claimed through the run gate (a live run answers 409 naming it) and the act's preset is
-/// queued in the PoC's project with string seeds.
+/// queued in the PoC's project with string seeds. 2026-11-23-c81ee: the lifetime pass launches through here too, with its
+/// case as a seed; an expired PoC's start is refused (PocExpiry).
 /// </summary>
-internal sealed class PocActLauncher(PocRunGate gate, PocActPlan plan, TicketProjects projects)
+internal sealed class PocActLauncher(PocRunGate gate, PocActPlan plan, TicketProjects projects, Lifetime.PocExpiry expiry)
 {
     public async Task<(PocActAnswer? Answer, PocRefusal? Refusal)> LaunchAsync(
-        Poc poc, string act, PocActRequest request, string actor, CancellationToken ct, string? handover = null)
+        Poc poc, string act, PocActRequest request, string actor, CancellationToken ct, string? handover = null,
+        string? lifetimeCase = null)
     {
         ArgumentNullException.ThrowIfNull(poc);
         ArgumentNullException.ThrowIfNull(request);
         if (!PocActKinds.IsAct(act)) return (null, PocRefusal.NotFound);
         if (WhyBad(poc, act, request) is { } bad) return (null, PocRefusal.BadRequest(bad));
-        if (plan.WhyNot(act, PocActSubjects.Map(poc)) is { } why) return (null, PocRefusal.Conflict(Sentence(why)));
-        var (runId, heldBy) = await gate.QueueAsync(poc, PocActKinds.PresetOf(act), $"starting — {act} of {poc.Name}",
-            Seeds(poc, act, request, actor), ct, handover);
+        if (plan.WhyNot(act, expiry.Subject(poc), lifetimeCase) is { } why) return (null, PocRefusal.Conflict(Sentence(why)));
+        var seeds = Seeds(poc, act, request, actor);
+        if (lifetimeCase is not null) seeds[ContextKeys.PocLifetimeCase] = lifetimeCase; // 2026-11-23-c81ee
+        var (runId, heldBy) = await gate.QueueAsync(poc, PocActKinds.PresetOf(act), $"starting — {act} of {poc.Name}", seeds, ct, handover);
         return runId is null ? (null, PocImportRefusals.InProgress(poc, heldBy)) : (new PocActAnswer(poc.Id, act, runId), null);
     }
 

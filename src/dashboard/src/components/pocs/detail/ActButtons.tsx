@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
 import type { PocAct, PocDetail } from "@/lib/pocsApi";
@@ -10,6 +9,7 @@ import { DeleteDialog } from "./DeleteDialog";
 // 2026-11-23-c81ed: Stop, Start, Apply and Delete — each enabled only when the server's answer admits it from the
 // PoC's state for this caller. Each is a run that changes the desired state and commits it; Argo CD carries it out.
 // Roll back sits on the revision it rolls back to.
+// 2026-11-23-c81ee: the detail page holds whether the delete dialog is open, since the expiry banner opens it too.
 
 const BUTTONS: { act: Exclude<PocAct, "rollback">; label: TextKey }[] = [
   { act: "stop", label: "pocs.detail.act.stop" },
@@ -18,9 +18,10 @@ const BUTTONS: { act: Exclude<PocAct, "rollback">; label: TextKey }[] = [
   { act: "delete", label: "pocs.detail.act.delete" },
 ];
 
-export function ActButtons({ poc, busy, onAct }: { poc: PocDetail; busy: boolean; onAct: RunAct }) {
+export function ActButtons({ poc, busy, onAct, deleting, setDeleting }: {
+  poc: PocDetail; busy: boolean; onAct: RunAct; deleting: boolean; setDeleting: (open: boolean) => void;
+}) {
   const t = useT();
-  const [deleting, setDeleting] = useState(false);
   return (
     <section className="poc-box poc-acts" data-testid="poc-detail-acts">
       <h2>{t("pocs.detail.acts.title")}</h2>

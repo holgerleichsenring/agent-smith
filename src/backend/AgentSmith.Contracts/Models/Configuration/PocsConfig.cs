@@ -35,6 +35,9 @@ public sealed class PocsConfig
     /// <summary>2026-11-23-c81ec: how a PoC run follows its rollout on Argo CD.</summary>
     public PocRolloutConfig Rollout { get; set; } = new();
 
+    /// <summary>2026-11-23-c81ee: how a PoC's lifetime, its reminders and its extensions are kept.</summary>
+    public PocLifetimeConfig Lifetime { get; set; } = new();
+
     public const string RunWallTimeSecondsKey = "pocs.run_wall_time_seconds";
 
     /// <summary>2026-11-23-c81ec: the wall-time budget of every PoC run, in place of orchestrator.max_run_wall_time_seconds —
@@ -67,6 +70,7 @@ public sealed class PocsConfig
         problems.AddRange(Variables.Problems());
         problems.AddRange(Gitops.Problems());
         problems.AddRange(Rollout.Problems()); // 2026-11-23-c81ec
+        problems.AddRange(Lifetime.Problems()); // 2026-11-23-c81ee
         problems.AddRange(new PocSharedArgo(Enabled ? Targets : []).Problems());
         if (RunWallTimeSeconds < 60)
             problems.Add($"{RunWallTimeSecondsKey} is {RunWallTimeSeconds}; it must be 60 or more, because a PoC run waits for "

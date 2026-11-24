@@ -21,6 +21,8 @@ public sealed class SealPocVariablesHandler(
     public async Task<CommandResult> ExecuteAsync(SealPocVariablesContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+        if (context.Pipeline.TryGet<string>(ContextKeys.PocActSettled, out var settled) && !string.IsNullOrEmpty(settled))
+            return CommandResult.Ok($"Nothing to seal: {settled}."); // 2026-11-23-c81ee
         if (context.Seeds.PocId is not { } pocId || await store.ReadAsync(pocId, cancellationToken) is not { } poc)
             return CommandResult.Fail("A PoC run's seal needs the PoC it was seeded with; none was found.");
         if (config.Current().Targets.FirstOrDefault(t => string.Equals(t.Name, poc.Target, StringComparison.OrdinalIgnoreCase)) is not { } target)

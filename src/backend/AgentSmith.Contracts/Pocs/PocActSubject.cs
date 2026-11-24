@@ -8,4 +8,10 @@ public sealed record PocActSubject(
     /// <summary>A delete commit landed but its follow has not settled: the row lost its revision in a state only a deployed
     /// PoC takes.</summary>
     public bool IsDeletePending => Revision is null && State is PocStates.Ready or PocStates.Stopped or PocStates.Failed;
+
+    /// <summary>2026-11-23-c81ee: what the PoC's lifetime is computed from; null where a reader does not say.</summary>
+    public PocLifetimeFacts? Lifetime { get; init; }
+
+    /// <summary>2026-11-23-c81ee: when the PoC expired, set only while it is expired — PocActPlan refuses its start.</summary>
+    public DateTimeOffset? ExpiredOn { get; init; }
 }

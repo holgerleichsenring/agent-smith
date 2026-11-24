@@ -373,6 +373,17 @@
             "commit_allowance_seconds": { "type": "integer", "minimum": 0, "description": "What sealing and the GitOps commit with its re-plans may take between the build and the follow; part of the wall-time check. Default 120." }
           }
         },
+        "lifetime": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How a PoC's lifetime is kept: the lifetime pass stops an expired PoC whose owner saw no reminder and deletes it later, deletes one whose owner saw a reminder, and removes a blocked PoC that never deployed once its upload is purged. Absent reads as the defaults.",
+          "properties": {
+            "interval_seconds": { "type": "integer", "minimum": 300, "description": "Seconds between two lifetime passes; each reads every PoC, and reminders count in days. Default 3600." },
+            "extend_days": { "type": "integer", "minimum": 1, "description": "Days one extension adds to the later of now and the PoC's expiry. Default 90." },
+            "max_owner_extensions": { "type": "integer", "minimum": 0, "description": "Extensions an owner may make; past them only a pocs.admin holder extends, because a PoC is not a product. Default 2." },
+            "unseen_delete_after_days": { "type": "integer", "minimum": 1, "description": "Days after its recorded expiry stop an expired PoC whose owner saw no reminder is deleted unless extended. Default 30." }
+          }
+        },
         "targets": {
           "type": "array",
           "description": "Where PoCs are hosted. One for now; required while enabled.",

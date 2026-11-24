@@ -22,7 +22,7 @@ public static partial class CommandBeats
         [CommandNames.PrCrossLink] = RunBeat.Outcome,
         [CommandNames.InitComplete] = RunBeat.Outcome,
         [CommandNames.CompletePullRequests] = RunBeat.Outcome, [CommandNames.RefreshBranchBase] = RunBeat.Outcome, [CommandNames.DeployToEnvironment] = RunBeat.Outcome, // 023fa, 023fb, 3863c
-        [CommandNames.PocIntake] = RunBeat.Outcome, [CommandNames.PocCodeScan] = RunBeat.Outcome, [CommandNames.PocSourceCommit] = RunBeat.Outcome, [CommandNames.PocPipelineBuild] = RunBeat.Outcome, [CommandNames.PocTargetInstall] = RunBeat.Outcome, [CommandNames.WritePocVariables] = RunBeat.Outcome, [CommandNames.SealPocVariables] = RunBeat.Outcome, [CommandNames.GitOpsCommit] = RunBeat.Outcome, [CommandNames.PocRolloutFollow] = RunBeat.Outcome, [CommandNames.PocAct] = RunBeat.Outcome, // 933db, 933dc, 933dd, 933dg
+        [CommandNames.PocIntake] = RunBeat.Outcome, [CommandNames.PocCodeScan] = RunBeat.Outcome, [CommandNames.PocSourceCommit] = RunBeat.Outcome, [CommandNames.PocPipelineBuild] = RunBeat.Outcome, [CommandNames.PocTargetInstall] = RunBeat.Outcome, [CommandNames.WritePocVariables] = RunBeat.Outcome, [CommandNames.SealPocVariables] = RunBeat.Outcome, [CommandNames.GitOpsCommit] = RunBeat.Outcome, [CommandNames.PocRolloutFollow] = RunBeat.Outcome, [CommandNames.PocAct] = RunBeat.Outcome, [CommandNames.PocExtend] = RunBeat.Outcome, [CommandNames.PurgePocUploads] = RunBeat.Outcome, // 933db, 933dc, 933dd, 933dg
         [CommandNames.CleanupWorkBranches] = RunBeat.Outcome, // 2026-11-17-713ec
         [CommandNames.PersistWorkBranch] = RunBeat.Outcome,
         [CommandNames.CollectSpecDialogReply] = RunBeat.Outcome,

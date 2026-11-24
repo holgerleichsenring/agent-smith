@@ -23,7 +23,8 @@ internal static class ProjectScopeExtensions
         services.AddScoped<ProjectSourceResolver>();
         services.AddScoped<DialogMessageScope>();
         // 2026-11-23-933da: the pocs switch, the act rule and the list.
-        services.AddTransient<PocsGate>().AddSingleton<PocActAccess>().AddScoped<PocListReader>();
+        services.AddTransient<PocsGate>().AddSingleton<PocActAccess>().AddScoped<PocListReader>()
+            .AddScoped<Services.Pocs.Lifetime.PocLifetimeViews>(); // 2026-11-23-c81ee: the list's lifetime fields
         return services;
     }
 }

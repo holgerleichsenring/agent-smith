@@ -1191,6 +1191,15 @@ export interface PocRolloutSetting {
   commitAllowanceSeconds: number;
 }
 
+/** 2026-11-23-c81ee: agentsmith.yml pocs.lifetime — how often the poc-lifetime pass runs, how many days one Extend
+ *  adds, how many extensions an owner may make before an admin must, and when an expired PoC stopped unseen is deleted. */
+export interface PocLifetimeSetting {
+  intervalSeconds: number;
+  extendDays: number;
+  maxOwnerExtensions: number;
+  unseenDeleteAfterDays: number;
+}
+
 /** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].ingress — the ingress class and an optional cert-manager issuer. */
 export interface PocIngressSetting {
   class: string | null;
@@ -1309,6 +1318,8 @@ export interface PocsSetting {
   runWallTimeSeconds: number;
   /** 2026-11-23-c81ed: the longest readiness path an owner may set on a PoC's detail page. */
   readinessPathMaxChars: number;
+  /** 2026-11-23-c81ee: the PoC lifetime pass, Extend and the unseen delete. */
+  lifetime: PocLifetimeSetting;
 }
 
 /** 2026-11-23-933dc: agentsmith.yml pocs.scan — the OSV-Scanner image pinned by digest and what blocks. */

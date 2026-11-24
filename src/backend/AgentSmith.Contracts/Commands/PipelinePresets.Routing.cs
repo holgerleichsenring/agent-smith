@@ -58,7 +58,7 @@ public static partial class PipelinePresets
         [PocDeployName] = "it takes in a PoC archive a person uploaded, and the server starts it at the import", // 2026-11-23-933db
         [PocVariablesName] = "it writes a PoC's variables a person entered, and the server starts it in memory", // 933dg
         [PocStopName] = PocActReason, [PocStartName] = PocActReason, [PocRollbackName] = PocActReason, // 2026-11-23-c81ed
-        [PocApplyName] = PocActReason, [PocDeleteName] = PocActReason,
+        [PocApplyName] = PocActReason, [PocDeleteName] = PocActReason, [PocExtendName] = "it extends a PoC an owner chose on its detail page, and the server starts it", // c81ee
         [BranchCleanupName] = "it sweeps a project's repositories, not a ticket, and the server starts it every "
             + "branch_cleanup.interval_seconds", // 2026-11-17-713ec
     };
