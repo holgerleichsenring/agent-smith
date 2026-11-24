@@ -47,11 +47,17 @@ internal static class PrReviewRecordCopy
     // ended pull request conflicts with nothing. 2026-11-24-297b: a verdict belongs to its head — after a head move an
     // undecided read knows nothing (a refresh that pushed no longer shows the old head's conflict) and a conflicting
     // read begins a new conflict, which the conflict refresh is due once.
+    // 2026-11-24-9dc0c: an undecided read makes a stored clean verdict unknown — the host no longer vouches for it (an Azure
+    // merge computed against an older target) — while a stored conflict stays until the host decides again.
     private static void Conflicts(PrReviewRecord read, PrReviewRecord stored, bool headMoved)
     {
         if (PrReviewStates.IsEnded(read.State)) { stored.HasConflicts = null; stored.ConflictsAtTicks = null; return; }
         if (headMoved) { stored.HasConflicts = null; stored.ConflictsAtTicks = null; }
-        if (read.HasConflicts is not { } conflicts) return;
+        if (read.HasConflicts is not { } conflicts)
+        {
+            if (stored.HasConflicts == false) stored.HasConflicts = null;
+            return;
+        }
         stored.ConflictsAtTicks = conflicts ? stored.ConflictsAtTicks ?? read.ConflictsAtTicks ?? read.CheckedAtTicks : null;
         stored.HasConflicts = conflicts;
     }

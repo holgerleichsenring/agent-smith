@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-9dc0c
+
+decisions:
+  - category: Implementation
+    decider: claude
+    chose: "Only a Succeeded merge status computed against a target commit other than the target's tip reads unknown; Conflicts stays true whatever target it was computed against"
+    over: "Every decided status against an older target reading unknown"
+    reason: "Review: a conflict with an older target almost always still holds, and a true read is what starts 297b's conflict refresh; making it unknown would stop refreshes that work today."
+  - category: Implementation
+    decider: claude
+    chose: "Read the target's tip only for an active pull request whose status is Succeeded, by exact ref name after the prefix-matching refs filter"
+    over: "Reading the tip on every state read; trusting the first ref the filter returns"
+    reason: "One extra call where it can change the verdict; the refs filter is a prefix match (AzureReposBranchRead)."
+  - category: Implementation
+    decider: claude
+    chose: "An undecided read clears a stored clean verdict and keeps a stored conflict"
+    over: "Keeping every stored verdict on an undecided read (6811a)"
+    reason: "Every consumer already reads unknown as no conflict, so nothing regresses, and the record no longer states a fact the host stopped vouching for; a stored conflict keeps its ConflictsAt for 297b."
+  - category: Scope
+    decider: claude
+    chose: "No request to Azure to recompute the merge; the record says unknown"
+    over: "An undocumented PATCH of mergeStatus"
+    reason: "Azure's Update API lists the updatable properties and mergeStatus is not one; Restart merge exists only in the web UI. Whether an unknown verdict should start a refresh is an operator question (023fb chose not to push clean pull requests uninvited)."
+  - category: Scope
+    decider: claude
+    chose: "GitHub and GitLab unchanged"
+    over: "A recheck parameter or polling"
+    reason: "GitHub's read starts its mergeability job and answers UNKNOWN meanwhile; GitLab checks a single merge request asynchronously on every GET and answers checking or unchecked; both already read as null (with_merge_status_recheck exists only on list endpoints)."
