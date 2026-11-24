@@ -21,10 +21,13 @@ public sealed class RunDeletionRepository(
         DeleteManyAsync([runId], ct);
 
     // Bulk "clear terminal runs" — success/failed/cancelled only (FinishedAt set), of the caller's projects.
-    public async Task<int> DeleteTerminalAsync(ProjectScope scope, CancellationToken ct)
+    // 2026-11-24-35ff: includeSystem false leaves the runs the server started itself, which the list then hides.
+    public async Task<int> DeleteTerminalAsync(ProjectScope scope, bool includeSystem, CancellationToken ct)
     {
+        var system = PipelinePresets.SystemNames.ToList();
         var ids = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.FinishedAt != null).Within(scope).Select(r => r.Id).ToListAsync(ct);
+            .Where(r => r.FinishedAt != null && (includeSystem || !system.Contains(r.Pipeline)))
+            .Within(scope).Select(r => r.Id).ToListAsync(ct);
         return ids.Count == 0 ? 0 : await DeleteManyAsync(ids, ct);
     }
 

@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Services.Events;
 /// to the recent ring buffer. Fields are the dashboard contract for the
 /// JobUpserted SignalR message.
 /// </summary>
-public sealed record RunSnapshot(
+public sealed partial record RunSnapshot(
     string RunId,
     string Pipeline,
     string Trigger,

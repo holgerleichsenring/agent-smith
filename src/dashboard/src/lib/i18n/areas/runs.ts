@@ -431,6 +431,18 @@ export const runsMessages = {
     de: "Jeden beendeten, fehlgeschlagenen und abgebrochenen Run löschen, mit den Urteilen zu seinen Kriterien",
   },
 
+  // --- runs: the system-runs toggle (2026-11-24-35ff) ---
+  "runs.system.toggle": { en: "Show system runs", de: "System-Runs anzeigen" },
+  "runs.system.toggleCount": { en: "Show system runs ({count})", de: "System-Runs anzeigen ({count})" },
+  "runs.system.toggleFailed": {
+    en: "Show system runs ({count} · {failed} failed)",
+    de: "System-Runs anzeigen ({count} · {failed} fehlgeschlagen)",
+  },
+  "runs.system.title": {
+    en: "Runs the server starts on its own: series steps, merges, retargets, base refreshes, branch cleanup",
+    de: "Runs, die der Server selbst startet: Serienschritte, Merges, Retargets, Basis-Updates, Branch-Aufräumen",
+  },
+
   // --- runs: the hub connection ---
   "runs.connection.connected": { en: "connected", de: "verbunden" },
   "runs.connection.connecting": { en: "connecting…", de: "verbinde…" },

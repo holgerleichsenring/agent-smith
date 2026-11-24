@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-35ff
+goal: "The runs list hides the runs the server starts itself behind one 'Show system runs' toggle, off by default, which names how many it hides and how many of them failed."
+
+applies_to: "default (pipeline classification, run snapshot, bulk clear) + dashboard (runs list, sidebar Runs count)"
+
+requires: [2026-11-17-d6fba, 2026-11-16-0440b]
+
+facts:
+  - claim: "The presets already say in words which pipelines the server starts itself, but only as routing refusal sentences; nothing a run carries says so."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Routing.cs:46"
+  - claim: "The run snapshot is the payload of both the live list and the REST list, and a get-only property on it (Title) is serialized with it."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs:123"
+  - claim: "The runs list merges active and recent runs and buckets them; the sidebar's Runs count buckets the same merge so the two agree."
+    evidence: "src/dashboard/src/components/jobs/MissionControl.tsx:54; src/dashboard/src/components/shell/AppSidebar.tsx:67"
+  - claim: "Clear finished deletes every terminal run in the caller's projects, whatever the list shows."
+    evidence: "src/dashboard/src/components/jobs/ClearTerminalRunsButton.tsx:34; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:24"
+
+scope:
+  in: >-
+    PipelinePresets.System.cs: an explicit origin per preset (work or system) and IsSystem(name); an unknown name is work.
+    RunSnapshot.System, a get-only property read from it, so every run payload carries `system`. DELETE
+    /api/runs?state=terminal&includeSystem=false clears only finished work runs; without the parameter it clears all as
+    before. Dashboard: a useShowSystemRuns store (localStorage, try/catch, shared by every reader in the page); the runs
+    list filters on `system` before bucketing, so sections, pills, metrics and Load more's list follow it; a toggle above
+    the list says "Show system runs (18 · 1 failed)"; clear finished passes includeSystem from the toggle; the sidebar
+    Runs count follows the same toggle. en + de copy.
+  out: >-
+    The ticket page's run history (shows every run of its ticket). A per-run origin (a PoC stop by its owner vs by the
+    lifetime pass) — the classification is per pipeline. Server-side paging that skips system runs.
+
+tests:
+  - "PipelinePresetsSystemTests: every preset name has an origin; the server-started presets are system; code, deploy and the person acts are work; an unknown name is work."
+  - "RunSnapshot serializes `system` true for a series-run and false for code. RunDeletionRepository: includeSystem false leaves finished system runs and running work runs."
+  - "Dashboard: the list hides system runs by default, the toggle shows the hidden count and failed count, turning it on shows them and is remembered, clear finished sends includeSystem, the sidebar count follows the toggle."
+
+done:
+  - "Build, the affected backend and dashboard tests green; the spec gate passed."

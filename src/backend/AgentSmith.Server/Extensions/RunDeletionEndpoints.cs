@@ -46,6 +46,7 @@ internal static class RunDeletionEndpoints
         OverviewAudience audience,
         IHubContext<JobsHub> hub,
         string? state,
+        bool? includeSystem,
         ClaimsPrincipal user,
         CallerProjectScope scopes,
         CancellationToken cancellationToken)
@@ -54,7 +55,9 @@ internal static class RunDeletionEndpoints
         if (!string.Equals(state, "terminal", StringComparison.OrdinalIgnoreCase))
             return Results.BadRequest("only state=terminal is supported for bulk delete");
         // 2026-10-15-4a4dd: a project-bound holder of runs.delete clears only their projects' finished runs.
-        var deleted = await deleter.DeleteTerminalAsync(scopes.For(user, Permissions.RunsDelete), cancellationToken);
+        // 2026-11-24-35ff: includeSystem=false clears what the list shows with system runs hidden; absent clears all.
+        var deleted = await deleter.DeleteTerminalAsync(
+            scopes.For(user, Permissions.RunsDelete), includeSystem ?? true, cancellationToken);
         await NudgeAsync(hub, audience.Everyone(), "bulk", cancellationToken);
         return Results.Ok(new { deleted });
     }

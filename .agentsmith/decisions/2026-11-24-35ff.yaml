@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-35ff
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "One 'Show system runs' toggle above the runs list, off by default, remembered per browser; its label names the system-run count and how many failed; clear finished acts on what is shown; the ticket page's run history is unchanged"
+    over: "Tabs for work and system runs; showing every run as before"
+    reason: "Operator request 2026-11-24: the server's own runs (series beats, merge-green, retarget, refresh-base, start, cleanup) crowd out the runs that work on a ticket. A failed hidden run must still be visible on the toggle."
+  - category: Architecture
+    decider: claude
+    chose: "An explicit origin per preset (PipelineOrigin Work/System) in PipelinePresets.System.cs, served as a get-only RunSnapshot.IsSystem serialized as `system`; a test fails any preset without an origin"
+    over: "Matching pipeline names in the dashboard; deriving it from NotRoutableBecause's 'the server starts it' sentences; a persisted column on the run row"
+    reason: "One source of truth next to the presets, so a new pipeline has to decide. The routing sentences also name person-chosen acts (deploy, PoC acts) and are prose, not a classification. A get-only property on the snapshot reaches the live SignalR fold and every REST list without a migration, as Title already does; RunSnapshot is not a Contracts/Events record, so the hub-event mirror check does not cover it and the TS field is added by hand."
+  - category: Implementation
+    decider: claude
+    chose: "System: series-run, series-verify, refresh-base, branch-cleanup, start, retarget, merge-green, poc-upload-purge. Work: every other preset, including deploy, file, comment, close/reopen/amend, the PoC acts and the admin runs; a name that is no preset is work"
+    over: "Classifying per run (who launched it); counting poc-stop/poc-delete or comment as system"
+    reason: "A person chose deploy, file (an approval), close, amend, comment edits and the PoC acts. poc-stop and poc-delete are also started by the lifetime pass on expiry and comment also posts a follow-up's link, but the classification is per pipeline and their main use is a person's act; a hidden person's act would be worse than a visible housekeeping one. An unknown name stays visible so nothing is hidden by accident."
+  - category: Implementation
+    decider: claude
+    chose: "The sidebar's Runs count follows the same toggle"
+    over: "Counting every in-flight run in the sidebar regardless of the toggle"
+    reason: "The count is documented as matching the list it opens (same merge and bucketing); with system runs hidden, a badge counting series beats would not match what the list shows. The toggle is one value per page (a module store like the language), so both re-render together."
+  - category: Implementation
+    decider: claude
+    chose: "DELETE /api/runs?state=terminal&includeSystem=false clears only finished work runs; without the parameter it clears all as before"
+    over: "Filtering by pipeline names sent from the dashboard; deleting a list of run ids the page shows"
+    reason: "The server reads the same origin list, so the page sends a viewer's choice, not a classification. An absent parameter keeps every existing caller's behaviour."
+  - category: Implementation
+    decider: claude
+    chose: "Load more keeps paging from the oldest loaded run, shown or not; a page of only system runs adds nothing visible"
+    over: "Server-side paging that skips system runs"
+    reason: "No new query parameter for a rare case; a further click pages on. Recorded as out of scope in the spec."
