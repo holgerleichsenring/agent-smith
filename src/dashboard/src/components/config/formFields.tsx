@@ -16,6 +16,12 @@ import { useT } from "@/hooks/useT";
 // dropdown fed from the capabilities descriptor), NumberField/CheckField for
 // the full agent surface, and DrawerSection (collapsible drawer sections).
 
+/** 2026-11-24-f965: a config field never holds a person's data, so neither the browser nor a password manager may
+ *  fill it — a contact entry used to cover the PoC source repository. */
+export const NO_AUTOFILL = {
+  autoComplete: "off", "data-1p-ignore": "true", "data-lpignore": "true", "data-form-type": "other",
+} as const;
+
 export function TextField({
   label,
   value,
@@ -48,6 +54,8 @@ export function TextField({
       <input
         type="text"
         data-testid={testId}
+        name={testId}
+        {...NO_AUTOFILL}
         value={value}
         disabled={disabled}
         placeholder={placeholder}

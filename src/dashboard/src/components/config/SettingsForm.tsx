@@ -57,6 +57,7 @@ export function SettingsForm({
   onChange,
   capabilities,
   persisted = null,
+  saveError = null,
 }: {
   settingKey: SettingKey;
   value: SettingValue;
@@ -64,6 +65,8 @@ export function SettingsForm({
   capabilities: ConfigCapabilities | null;
   /** The saved value — the Sandbox form refetches the boundary in force when it changes. */
   persisted?: SettingValue | null;
+  /** 2026-11-24-f965: the last refused save's message — the PoCs form places its sentences at their fields. */
+  saveError?: string | null;
 }) {
   switch (settingKey) {
     case "orchestrator":
@@ -118,14 +121,16 @@ export function SettingsForm({
     case "holds":
       return <HoldsForm value={value as HoldsSetting} onChange={onChange} />;
     case "pocs":
-      return <PocsSettings value={value as PocsSetting} onChange={onChange} />;
+      return <PocsSettings value={value as PocsSetting} onChange={onChange} saveError={saveError} />;
   }
 }
 
 // 2026-11-23-933da: the PoCs form picks its agent, tracker and source repository from the shared catalog.
-function PocsSettings({ value, onChange }: { value: PocsSetting; onChange: (v: SettingValue) => void }) {
+function PocsSettings({ value, onChange, saveError }: {
+  value: PocsSetting; onChange: (v: SettingValue) => void; saveError: string | null;
+}) {
   const { catalog } = useConfigCatalogContext();
-  return <PocsSettingsForm value={value} onChange={onChange} catalog={catalog} />;
+  return <PocsSettingsForm value={value} onChange={onChange} catalog={catalog} saveError={saveError} />;
 }
 
 function OrchestratorForm({

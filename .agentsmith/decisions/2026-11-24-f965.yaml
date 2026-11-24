@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-f965
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "The PoC source repository is picked like a project's repos (catalog, or a connection's discovered repos), autofill stays off, and missing or refused values show at their fields"
+    over: "The free-text input with a datalist"
+    reason: "Operator 2026-11-24: contact autofill covered the field and an empty catalog offered only bare connection prefixes, so no repo could be picked; a failed save showed one red wall."
+  - category: Implementation
+    decider: claude
+    chose: "A single-select SourceRepoPicker in its own file over useConnectionDiscovery, sharing RepoPicker's DiscoveryNotice, FilterBox and matchesQuery (exported)"
+    over: "A single-select mode inside RepoPicker; a copy of the discovery rows"
+    reason: "RepoPicker's body is built around a set of refs and wildcard rules (chips, covered rows, select-all); a mode flag would branch most of it. Exporting the pieces keeps one discovery path and one notice wording without bending the multi-select."
+  - category: Implementation
+    decider: claude
+    chose: "A refused save's message is split on '; ' before the next 'pocs.' key and each sentence placed by its key (agent, tracker, targets, a target's field, the target found by the name the sentence quotes); unplaced target fields show at the top of the target; the page's error line keeps the whole message"
+    over: "A client copy of PocsConfig.Problems(); a structured problem list from the server"
+    reason: "The server stays the one rule source and needs no change. Every PocsConfig sentence opens with its key and names its target, so placement is a read of the server's words, not a second rule. A structured payload would be the cleaner contract but is a backend change outside this form's scope."
+  - category: Implementation
+    decider: claude
+    chose: "The only client-side check is emptiness of the always-required values while pocs.enabled is on (agent, tracker, at least one target, target name, source repository), shown as 'required' and replaced by the server's sentence once there is one"
+    over: "Mirroring the DNS-label, wildcard or deploy-block rules in the client"
+    reason: "Emptiness of these fields mirrors EnabledProblems and SourceRepoProblems in a way that cannot drift in substance; anything finer stays with the server and reaches the field through the placed sentences."
+  - category: Implementation
+    decider: claude
+    chose: "TextField (all config forms), RepoPicker's filter box and the PoC pairs rows carry autoComplete=off, a name from their test id and the 1Password/LastPass ignore markers (NO_AUTOFILL)"
+    over: "Only the PoC form's inputs"
+    reason: "No config studio field holds a person's data; browsers and password managers ignore autoComplete=off alone on unnamed inputs, so the markers and a non-personal name go together, in one place."
+  - category: Implementation
+    decider: claude
+    chose: "The pull mode renders as the PoC pages' poc-choice list (radiogroup, small radio, bold title, hint on its own line); pocs.css widens those selectors to .mock-config and pins the radio's size inside .field, and the repo-row checkbox sizing rule also covers radios"
+    over: "New CSS for a config radio group; Tailwind utility classes"
+    reason: "Coordinator 2026-11-24 (operator report): the generic .field input rule stretched the radios to full width and the title ran into its hint. The PoC import and readiness pages already have this choice list. The other PoC config forms (argo, secrets, deploy, build) use CheckField buttons and text fields, no raw radios or checkboxes, so they needed no change."

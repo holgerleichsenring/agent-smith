@@ -99,6 +99,7 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
               onChange={setDraft}
               capabilities={capabilities}
               persisted={value}
+              saveError={saveError?.message ?? null}
             />
           )}
         </div>

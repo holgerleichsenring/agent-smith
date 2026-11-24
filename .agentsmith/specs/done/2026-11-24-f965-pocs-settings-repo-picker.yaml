@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-f965
+goal: "The PoCs settings pick a target's source repository like a project picks repos, keep browser autofill off its text fields, and show missing or refused values next to their fields."
+
+applies_to: "dashboard (PoCs settings form, repo picker, settings studio)"
+
+requires: [2026-11-23-933da, p0488]
+
+facts:
+  - claim: "The source repository is a free-text input with a datalist of catalog ids and bare connection prefixes."
+    evidence: "src/dashboard/src/components/config/PocsSettingsForm.tsx:287-305"
+  - claim: "The project form picks connection repos through RepoPicker over useConnectionDiscovery (multi-select, wildcard rules)."
+    evidence: "src/dashboard/src/components/config/RepoPicker.tsx:29-173; src/dashboard/src/components/config/useConnectionDiscovery.ts:10-49"
+  - claim: "The server refuses a settings save with \"Invalid 'pocs' settings: \" and every PocsConfig.Problems() sentence joined by '; ', each sentence opening with its key."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:44-47; src/backend/AgentSmith.Contracts/Models/Configuration/PocsConfig.cs:60-98; src/backend/AgentSmith.Contracts/Models/Configuration/PocTargetConfig.cs:61-81"
+
+scope:
+  in: >-
+    A single-select SourceRepoPicker: a catalog repo select (when the catalog has repos) and a connection select whose
+    discovered repos are filterable radio rows with Refresh, the discovery notices and a typed-name fallback (no wildcard);
+    the value stays a catalog id or connection/name. RepoPicker's DiscoveryNotice, FilterBox and query match are shared,
+    not copied. TextField and the picker's filter box carry autoComplete off, a field name and the password-manager ignore
+    markers. While pocs.enabled is on, empty agent, tracker, targets, target name and source repository say "required" at
+    their field; after a refused save the server's sentences are placed at the field their key names (target by name),
+    and the page's error line keeps the full message. The registry's pull mode renders as the PoC pages' poc-choice
+    list (small radio, title, hint on its own line) instead of full-width radios; the other PoC forms hold no raw
+    radios or checkboxes. en/de strings.
+  out: "Backend changes; a client copy of the server's rules beyond emptiness."
+
+steps:
+  - id: picker
+    action: "Export the shared pieces from RepoPicker; SourceRepoPicker in its own file; wire into PocTargetFields."
+  - id: autofill
+    action: "TextField and FilterBox autofill attributes."
+  - id: problems
+    action: "pocsProblems parser (split on '; ' before 'pocs.'), SettingsStudio passes the save error to the form, fields show required hints and placed sentences."
+  - id: tests
+    action: "Dashboard tests: catalog pick, connection pick, typed fallback, autofill attributes, required hints, placed server problems."
+
+tests:
+  - "SourceRepoPicker: picking a catalog repo sets its id; picking a connection and a discovered row sets connection/name; a typed name without a wildcard is offered; a wildcard is not."
+  - "PocsSettingsForm: the pull mode is a radiogroup of poc-choice labels, radio first, then a bold title and a poc-meta hint."
+  - "PocsSettingsForm: text inputs carry autoComplete=off and a name; enabled with empty agent/tracker/targets shows required hints; a refused save's sentences appear at agent and at the named target's source repository."
+
+done:
+  - "Affected dashboard tests green; the spec gate passed."

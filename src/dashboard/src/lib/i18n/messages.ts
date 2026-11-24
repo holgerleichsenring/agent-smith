@@ -1438,8 +1438,20 @@ export const coreMessages = {
   "config.pocs.target.name.help": { en: "lowercase letters, digits and dashes", de: "Kleinbuchstaben, Ziffern und Bindestriche" },
   "config.pocs.target.sourceRepo": { en: "Source repository", de: "Quell-Repository" },
   "config.pocs.target.sourceRepo.help": {
-    en: "a repo from the catalog, or connection/name; no wildcards",
-    de: "ein Repo aus dem Katalog oder Verbindung/Name; keine Platzhalter",
+    en: "one repo: from the catalog, or a repo on a connection",
+    de: "ein Repo: aus dem Katalog oder ein Repo einer Verbindung",
+  },
+  "config.pocs.source.none": { en: "no repository picked", de: "kein Repository gewählt" },
+  "config.pocs.source.catalog": { en: "from the catalog", de: "aus dem Katalog" },
+  "config.pocs.source.connection": { en: "or a repo on a connection", de: "oder ein Repo einer Verbindung" },
+  "config.pocs.source.use": { en: "use {ref}", de: "{ref} verwenden" },
+  "config.pocs.source.noWildcard": {
+    en: "a wildcard names many repos; PoC sources go to exactly one, so pick a row",
+    de: "ein Platzhalter meint viele Repos; PoC-Quellen gehen in genau eines, also eine Zeile wählen",
+  },
+  "config.pocs.field.required": {
+    en: "required while PoCs are on",
+    de: "Pflicht, solange PoCs eingeschaltet sind",
   },
   "config.pocs.target.root": { en: "Source folder", de: "Quellordner" },
   "config.pocs.target.root.help": { en: "a PoC's code goes to <folder>/<project>/<PoC>/", de: "der Code eines PoCs liegt in <Ordner>/<Projekt>/<PoC>/" },

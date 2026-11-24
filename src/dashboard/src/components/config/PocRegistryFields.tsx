@@ -2,6 +2,8 @@
 
 import type { PocPullMode, PocRegistrySetting, StudioEntity } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
+import { cn } from "@/lib/utils";
+import "@/styles/pocs.css";
 import { DraftCheckPanel } from "./DraftCheckPanel";
 import { DrawerSection, SelectField, TextField } from "./formFields";
 
@@ -46,21 +48,25 @@ export function PocRegistryFields({ registry, secrets, testId, onChange }: {
   );
 }
 
+// 2026-11-24-f965: the PoC pages' choice list (poc-choice): a small radio, the title, the hint on its own line.
 function PullModeField({ value, testId, onChange }: { value: PocPullMode; testId: string; onChange: (v: PocPullMode) => void }) {
   const t = useT();
+  const title = t("config.pocs.registry.pullMode");
   return (
     <div className="field" data-testid={testId}>
-      <label>{t("config.pocs.registry.pullMode")}</label>
-      {PULL_MODES.map((mode) => (
-        <label key={mode} className="flex items-start gap-2">
-          <input type="radio" name={testId} value={mode} checked={value === mode} data-testid={`${testId}-${mode}`}
-            onChange={() => onChange(mode)} />
-          <span>
-            {t(`config.pocs.registry.pullMode.${mode}`)}
-            <span className="help">{t(`config.pocs.registry.pullMode.${mode}.help`)}</span>
-          </span>
-        </label>
-      ))}
+      <label>{title}</label>
+      <div className="poc-choices" role="radiogroup" aria-label={title}>
+        {PULL_MODES.map((mode) => (
+          <label key={mode} className={cn("poc-choice", value === mode && "on")} data-testid={`${testId}-${mode}-choice`}>
+            <input type="radio" name={testId} value={mode} checked={value === mode} data-testid={`${testId}-${mode}`}
+              onChange={() => onChange(mode)} />
+            <span>
+              <b>{t(`config.pocs.registry.pullMode.${mode}`)}</b>
+              <span className="poc-meta">{t(`config.pocs.registry.pullMode.${mode}.help`)}</span>
+            </span>
+          </label>
+        ))}
+      </div>
     </div>
   );
 }

@@ -53,7 +53,7 @@ describe("PocsSettingsForm", () => {
     fireEvent.change(screen.getByTestId("setting-pocs-tracker"), { target: { value: "jira" } });
     fireEvent.click(screen.getByTestId("setting-pocs-target-add"));
     fireEvent.change(screen.getByTestId("setting-pocs-target-0-name"), { target: { value: "main" } });
-    fireEvent.change(screen.getByTestId("setting-pocs-target-0-source"), { target: { value: "github/poc-source" } });
+    fireEvent.change(screen.getByTestId("setting-pocs-target-0-source-catalog"), { target: { value: "poc-source" } });
     fireEvent.change(screen.getByTestId("setting-pocs-target-0-domain"), { target: { value: "{app}.poc.example.internal" } });
     fireEvent.change(screen.getByTestId("setting-pocs-target-0-reminders"), { target: { value: "10, 2" } });
 
@@ -61,7 +61,7 @@ describe("PocsSettingsForm", () => {
     expect(saved).toEqual({
       enabled: true, projectAgent: "claude", projectTracker: "jira",
       targets: [{
-        name: "main", sourceRepo: "github/poc-source", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
+        name: "main", sourceRepo: "poc-source", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
         domainPattern: "{app}.poc.example.internal", lifetimeDays: 90, reminderDays: [10, 2], perPersonLimit: 3,
         registry: {
           type: "acr", loginServer: "", repository: "pocs", pullUser: "", pullAuth: "", pullMode: "pull_secret",

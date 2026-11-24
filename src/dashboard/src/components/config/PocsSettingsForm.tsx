@@ -12,11 +12,16 @@ import { POC_BUILD_DEFAULTS, PocBuildFields } from "./PocBuildFields";
 import { newPocSecrets, PocSecretsFields } from "./PocSecretsFields";
 import { newPocDeployBlocks, PocDeployFields, withPocDeployBlocks } from "./PocDeployFields";
 import { newPocArgo, PocArgoFields } from "./PocArgoFields";
+import { SourceRepoPicker } from "./SourceRepoPicker";
+import { PocsFieldNotes } from "./PocsFieldNotes";
+import { placePocsProblems } from "./pocsProblems";
 
 // 2026-11-23-933da: the PoCs settings (agentsmith.yml pocs:) — the switch first, then the agent and tracker every
 // person's poc- project names, then the targets. Every field stays editable while the switch is off, so a target can
 // be set up before anyone sees the page. The server refuses what PocsConfig.Problems() names; this form only edits.
 // 2026-11-23-c81ee: the lifetime block (pass interval, extension days and allowance, unseen delete) is always sent.
+// 2026-11-24-f965: while the switch is on, an empty agent, tracker, target list, target name or source repository says
+// "required" at its field; a refused save's sentences are placed at the fields their keys name (pocsProblems).
 
 export interface PocsCatalog {
   agents: StudioEntity[];
@@ -81,8 +86,10 @@ export function newPocTarget(): PocTargetSetting {
   };
 }
 
-export function PocsSettingsForm({ value, onChange, catalog }: {
+export function PocsSettingsForm({ value, onChange, catalog, saveError = null }: {
   value: PocsSetting; onChange: (v: SettingValue) => void; catalog: PocsCatalog;
+  /** 2026-11-24-f965: the last refused save's message; its sentences are placed at their fields. */
+  saveError?: string | null;
 }) {
   const t = useT();
   const archive = value.archive ?? POC_ARCHIVE_DEFAULTS;
@@ -106,6 +113,8 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
     });
   const setAt = (i: number, patch: Partial<PocTargetSetting>) =>
     set({ targets: targets.map((target, j) => (j === i ? { ...target, ...patch } : target)) });
+  const problems = placePocsProblems(saveError, targets.map((target) => target.name));
+  const on = value.enabled;
   return (
     <>
       <CheckField label={t("config.pocs.enabled.label")} value={value.enabled} onChange={(v) => set({ enabled: v })}
@@ -113,13 +122,17 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
       <span className="help">{t("config.pocs.projects.help")}</span>
       <RefSelect label={t("config.pocs.agent.label")} value={value.projectAgent ?? ""} options={catalog.agents}
         placeholder={t("config.pocs.pick")} testId="setting-pocs-agent" onChange={(v) => set({ projectAgent: v || null })} />
+      <PocsFieldNotes testId="setting-pocs-agent" missing={on && !value.projectAgent} problems={problems.agent} />
       <RefSelect label={t("config.pocs.tracker.label")} value={value.projectTracker ?? ""} options={catalog.trackers}
         placeholder={t("config.pocs.pick")} testId="setting-pocs-tracker" onChange={(v) => set({ projectTracker: v || null })} />
+      <PocsFieldNotes testId="setting-pocs-tracker" missing={on && !value.projectTracker} problems={problems.tracker} />
       {targets.length === 0 && <span className="help" data-testid="setting-pocs-no-target">{t("config.pocs.targets.none")}</span>}
+      <PocsFieldNotes testId="setting-pocs-targets" missing={on && targets.length === 0} problems={problems.targets} />
       {targets.map((target, i) => (
         <DrawerSection key={i} title={target.name || t("config.pocs.target.untitled", { number: i + 1 })} defaultOpen
           testId={`setting-pocs-target-${i}`}>
-          <PocTargetFields target={target} index={i} catalog={catalog} enabled={value.enabled} onChange={(patch) => setAt(i, patch)} />
+          <PocTargetFields target={target} index={i} catalog={catalog} enabled={value.enabled}
+            problems={problems.target[i] ?? {}} onChange={(patch) => setAt(i, patch)} />
           <button type="button" className="btn" data-testid={`setting-pocs-target-${i}-remove`}
             onClick={() => set({ targets: targets.filter((_, j) => j !== i) })}>
             {t("config.pocs.target.remove")}
@@ -250,16 +263,27 @@ function PocScanFields({ scan, blockedRetentionDays, onScan, onRetention }: {
   );
 }
 
-function PocTargetFields({ target, index, catalog, enabled, onChange }: {
-  target: PocTargetSetting; index: number; catalog: PocsCatalog; enabled: boolean; onChange: (patch: Partial<PocTargetSetting>) => void;
+// Each target field the server names: the field's wire name → the sentences placed there. A sentence on a field this
+// form has no own place for is shown at the top of the target, so nothing refused stays only in the page's error line.
+const PLACED_TARGET_FIELDS = ["name", "source_repo"];
+
+function PocTargetFields({ target, index, catalog, enabled, problems, onChange }: {
+  target: PocTargetSetting; index: number; catalog: PocsCatalog; enabled: boolean;
+  problems: Record<string, string[]>; onChange: (patch: Partial<PocTargetSetting>) => void;
 }) {
   const t = useT();
   const id = `setting-pocs-target-${index}`;
+  const others = Object.entries(problems).filter(([field]) => !PLACED_TARGET_FIELDS.includes(field)).flatMap(([, s]) => s);
   return (
     <>
+      <PocsFieldNotes testId={id} problems={others} />
       <TextField label={t("config.pocs.target.name")} value={target.name} mono testId={`${id}-name`}
         help={t("config.pocs.target.name.help")} onChange={(v) => onChange({ name: v })} />
-      <SourceRepoField value={target.sourceRepo} catalog={catalog} testId={`${id}-source`} onChange={(v) => onChange({ sourceRepo: v })} />
+      <PocsFieldNotes testId={`${id}-name`} missing={enabled && !target.name.trim()} problems={problems.name} />
+      <SourceRepoPicker label={t("config.pocs.target.sourceRepo")} help={t("config.pocs.target.sourceRepo.help")}
+        value={target.sourceRepo} repos={catalog.repos} connections={catalog.connections} testId={`${id}-source`}
+        notes={<PocsFieldNotes testId={`${id}-source`} missing={enabled && !target.sourceRepo.trim()} problems={problems.source_repo} />}
+        onChange={(v) => onChange({ sourceRepo: v })} />
       <TextField label={t("config.pocs.target.root")} value={target.root} mono testId={`${id}-root`}
         help={t("config.pocs.target.root.help")} onChange={(v) => onChange({ root: v })} />
       <TextField label={t("config.pocs.target.deployRoot")} value={target.deployRoot} mono testId={`${id}-deploy-root`}
@@ -281,26 +305,6 @@ function PocTargetFields({ target, index, catalog, enabled, onChange }: {
       <PocDeployFields target={target} testId={id} onChange={onChange} />
       <PocArgoFields argo={target.argo} target={target.name} secrets={catalog.secrets} testId={id} onChange={(argo) => onChange({ argo })} />
     </>
-  );
-}
-
-// The source repository is named the way a project names a repo: a catalog name or connection/name. The suggestions are
-// the catalog's repos and its connections; a wildcard is refused by the server, since a glob would bind many repos.
-function SourceRepoField({ value, catalog, testId, onChange }: {
-  value: string; catalog: PocsCatalog; testId: string; onChange: (v: string) => void;
-}) {
-  const t = useT();
-  const listId = `${testId}-options`;
-  const options = [...catalog.repos.map((r) => r.id), ...catalog.connections.map((c) => `${c.id}/`)];
-  return (
-    <div className="field">
-      <label>
-        {t("config.pocs.target.sourceRepo")}
-        <span className="help">{t("config.pocs.target.sourceRepo.help")}</span>
-      </label>
-      <input type="text" className="mono" list={listId} data-testid={testId} value={value} onChange={(e) => onChange(e.target.value)} />
-      <datalist id={listId}>{options.map((option) => <option key={option} value={option} />)}</datalist>
-    </div>
   );
 }
 
