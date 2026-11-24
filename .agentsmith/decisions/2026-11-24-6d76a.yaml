@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-6d76a
+
+decisions:
+  - category: Architecture
+    chose: "Formatting stays the rewrite before the spec commit (2026-10-12-fbbdb); no format verify stage"
+    over: "Adding the formatter's check mode as a verify stage"
+    reason: |
+      Over the spec's files a check right after the rewrite is green by construction; over the tree it reddens
+      on code the spec never touched, which an established repository carries. A repository whose CI already
+      runs a check keeps it as a verify stage the bootstrap adopts from CI, as before.
+  - category: Implementation
+    chose: "A gap counts only files the structure engine measures with no owner that formatted them, against the last owner among the repository's contexts"
+    over: "Every changed file, or only the sandbox's own contexts"
+    reason: |
+      A Markdown file or a run record is not code the gate measures, so it is no gap. A context sharing the
+      workdir that formatted the file covers it. A file of another clone's context edited here is never formatted
+      — each sandbox formats only its own changes — so it is named too, with that reason (review finding).
+  - category: Implementation
+    chose: "The line says 'committed as written, unformatted', not 'measured'"
+    over: "'committed and measured as written'"
+    reason: |
+      A context without Limits and a baseline is not judged at all; the structure part of the same message says
+      what was judged (review finding).
+  - category: Implementation
+    chose: "The gap line joins the step note, after the formatter-failure lines; the work is committed and measured as before"
+    over: "Failing the spec, or skipping the structure gate for unformatted files"
+    reason: |
+      The operator asked for no silent skip and measurement as today; the step note is the one place every
+      spec commit message already carries for formatting.

@@ -18,11 +18,13 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// as written.
 /// 2026-10-13-a347a: a failure is also recorded for the code PR of its repository, with the
 /// declared command and what the formatter said.
+/// 2026-11-24-6d76a: the changes are listed whether or not a context declares a formatter, and the
+/// source files no formatter touched are said, with why (<see cref="SpecFormatGaps"/>).
 /// </summary>
 public sealed class SpecFormatRun(
     SandboxTargets targets, StructureGitReads git, StructureRepoContexts repoContexts, SpecFormatPlan plan,
     DeclaredStagePresence presence, VerifyCommandRunner runner, SpecFormatFailureRecorder failures,
-    ILogger<SpecFormatRun> logger)
+    SpecFormatGaps gaps, ILogger<SpecFormatRun> logger)
 {
     public const string Stage = "format";
 
@@ -42,29 +44,31 @@ public sealed class SpecFormatRun(
     private async Task<IReadOnlyList<string>> RunSandboxAsync(
         PipelineContext pipeline, string repoName, string key, ISandbox sandbox, CancellationToken ct)
     {
-        var declaring = await DeclaringAsync(pipeline, key, sandbox, ct);
-        if (declaring.Count == 0) return [];
+        pipeline.TryGet<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries, out var discoveries);
+        var contexts = SandboxContextList.InOr(pipeline, key, discoveries?.GetValueOrDefault(key));
+        if (contexts.Count == 0) return [];
         if (SpecStartHeads.For(pipeline, key) is not { } head
             || await git.ChangedPathsAsync(sandbox, head, ct) is not { } changed)
         {
             logger.LogInformation("{Key}: no spec start head or no change listing; nothing is formatted", key);
             return [];
         }
-        var invocations = plan.Plan(declaring, repoContexts.Of(pipeline, repoName, [key]), changed);
+        var declaring = await DeclaringAsync(key, sandbox, contexts, ct);
+        var repository = repoContexts.Of(pipeline, repoName, [key]);
         var notes = new List<string>();
-        foreach (var invocation in invocations)
+        foreach (var invocation in plan.Plan(declaring, repository, changed))
             if (await RunOneAsync(pipeline, repoName, key, sandbox, invocation, ct) is { } note) notes.Add(note);
+        notes.AddRange(gaps.Lines(key, contexts, declaring, repository, changed));
         return notes;
     }
 
     // The sandbox's contexts that declare a formatter whose when_present path the tree carries.
     private async Task<IReadOnlyList<RemoteContextDiscovery>> DeclaringAsync(
-        PipelineContext pipeline, string key, ISandbox sandbox, CancellationToken ct)
+        string key, ISandbox sandbox, IReadOnlyList<RemoteContextDiscovery> contexts, CancellationToken ct)
     {
-        pipeline.TryGet<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
-            ContextKeys.SandboxDiscoveries, out var discoveries);
         var declaring = new List<RemoteContextDiscovery>();
-        foreach (var context in SandboxContextList.InOr(pipeline, key, discoveries?.GetValueOrDefault(key)))
+        foreach (var context in contexts)
             if (context.Format is { } format && await presence.IsSatisfiedAsync(
                     key, new ContextYamlVerifyStage(Stage, format.Command, format.WhenPresent), sandbox, ct))
                 declaring.Add(context);
