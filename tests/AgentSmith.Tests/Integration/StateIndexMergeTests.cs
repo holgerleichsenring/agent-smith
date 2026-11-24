@@ -84,8 +84,9 @@ public sealed class StateIndexMergeTests
         (await GitAsync(sandbox, "status", "--porcelain")).Trim().Should().BeEmpty("the merge is committed");
     }
 
+    // 2026-11-24-9dc0a: the stop names only the path the union left; the index it united is no conflict.
     [Fact]
-    public async Task IndexesAndACodeFileConflict_StopsNamingEveryPath_TheTreeClean()
+    public async Task IndexesAndACodeFileConflict_StopsNamingTheCodePath_TheTreeClean()
     {
         if (!SandboxToolAvailability.IsAvailable("git")) return;
         await using var fixture = GitRemoteFixture.Create(workBranch: null);
@@ -99,7 +100,7 @@ public sealed class StateIndexMergeTests
         var (checkout, sandbox) = await CheckOutAsync(fixture);
 
         checkout.Repository.Should().BeNull();
-        checkout.Problem.Should().Contain("Program.cs").And.Contain(MemoryIndex);
+        checkout.Problem.Should().Contain("Program.cs").And.NotContain(MemoryIndex);
         (await GitAsync(sandbox, "status", "--porcelain")).Trim().Should().BeEmpty("the merge was aborted");
     }
 

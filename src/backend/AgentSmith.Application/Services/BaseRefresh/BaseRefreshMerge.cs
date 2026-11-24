@@ -13,9 +13,12 @@ namespace AgentSmith.Application.Services.BaseRefresh;
 /// the index files; the base-merge master the paths they leave. Every merged tree — clean, united or resolved — is built
 /// and tested by the declared stages; a red stage goes back to the same master while StageRepairProgress says the repair
 /// moves and the cost budget lasts, its writes amended into the merge commit. Whatever cannot be made whole or checked
-/// is refused with its reason and the branch put back at its head.
+/// is refused with its reason and the branch put back at its head. 2026-11-24-9dc0a: the server, not conclude, decides —
+/// the conflicts go to <see cref="BaseMergeConflictPass"/>, and a repair is checked by the stages unless the master
+/// said whole=false.
 /// </summary>
-public sealed class BaseRefreshMerge(WorkBranchBaseMerger merger, IBaseMergeMaster master, BaseMergeVerify verify, BaseRefreshGit git)
+public sealed class BaseRefreshMerge(
+    WorkBranchBaseMerger merger, IBaseMergeMaster master, BaseMergeConflictPass conflicts, BaseMergeVerify verify, BaseRefreshGit git)
 {
     public async Task<BaseRefreshOutcome> RunAsync(RefreshBranchBaseContext context, RepoConnection repo, ISandbox sandbox,
         string branch, string baseBranch, CancellationToken ct)
@@ -27,19 +30,14 @@ public sealed class BaseRefreshMerge(WorkBranchBaseMerger merger, IBaseMergeMast
         var situation = context.Project is { } project ? new BaseMergeSituation(project, context.Pipeline, sandbox, branch,
             resolved.Ref!, await git.SpecsAddedAsync(sandbox, resolved.Ref!, head, ct),
             await git.SpecsAddedAsync(sandbox, head, resolved.Ref!, ct)) : null;
-        string? masterSaid = null;
-        var merge = await merger.MergeIntoCurrentAsync(sandbox, resolved, ct, situation is null ? null : async (paths, c) =>
-        {
-            var pass = await master.RunAsync(situation with { Unmerged = paths }, c);
-            masterSaid = pass.Whole ? "its resolution still left a path unmerged or a conflict marker" : pass.Reason;
-            return pass.Whole ? [.. pass.Wrote.Select(w => w.Path.Value)] : null;
-        });
+        var merge = await merger.MergeIntoCurrentAsync(sandbox, resolved, ct,
+            situation is null ? null : (paths, c) => conflicts.ResolveAsync(situation, paths, c));
         return merge.Status switch
         {
             BaseMergeStatus.Merged => await CheckAsync(context, repo, sandbox, situation, merge, head, ct),
             BaseMergeStatus.UpToDate => BaseRefreshOutcome.Plain($"'{branch}' already carries {merge.BaseRef}."),
             BaseMergeStatus.Conflicted => await RefuseAsync(sandbox, head, $"Merging {merge.BaseRef} into '{branch}' conflicts in "
-                + $"{string.Join(", ", merge.ConflictingPaths)}" + (masterSaid is null ? "." : $"; the master could not resolve it: {masterSaid}"), ct),
+                + $"{string.Join(", ", merge.ConflictingPaths)}" + (merge.Reason is null ? "." : $"; the master could not resolve it: {merge.Reason}"), ct),
             _ => BaseRefreshOutcome.Plain($"'{branch}' was not refreshed: {merge.Reason}"),
         };
     }
@@ -66,7 +64,7 @@ public sealed class BaseRefreshMerge(WorkBranchBaseMerger merger, IBaseMergeMast
                 || PipelineCostTracker.GetOrCreate(context.Pipeline).IsBudgetExhausted)
                 return await RefuseAsync(sandbox, head, Red(merge, red), ct);
             var pass = await master.RunAsync(situation with { Red = red }, ct);
-            if (!pass.Whole) return await RefuseAsync(sandbox, head, $"{Red(merge, red)} The master: {pass.Reason}", ct);
+            if (pass.Whole == false) return await RefuseAsync(sandbox, head, $"{Red(merge, red)} The master: {pass.Reason}", ct);
             await AmendAsync(sandbox, pass.Wrote, merge.BaseRef!, ct);
             (lastRed, lastWrote) = (signature, pass.Wrote);
         }
@@ -74,8 +72,10 @@ public sealed class BaseRefreshMerge(WorkBranchBaseMerger merger, IBaseMergeMast
 
     // Exactly the paths the master's file tools wrote, so a stage's outputs never reach the branch: amended into the merge
     // commit, or — when git fast-forwarded and HEAD is the base's own commit — committed on top, never rewriting the base.
+    // 2026-11-24-9dc0a: the index is reset first, so nothing the master staged itself rides along.
     private async Task AmendAsync(ISandbox sandbox, IReadOnlyList<CodeChange> wrote, string baseRef, CancellationToken ct)
     {
+        await git.RunAsync(sandbox, ["reset", "-q"], ct);
         if (wrote.Count == 0) return;
         await git.StageAsync(sandbox, [.. wrote.Select(w => w.Path.Value).Distinct(StringComparer.Ordinal)], ct);
         if ((await git.RunAsync(sandbox, ["diff", "--cached", "--quiet"], ct)).ExitCode != 1) return;

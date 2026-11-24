@@ -1,22 +1,20 @@
 namespace AgentSmith.Application.Services.BaseRefresh;
 
 /// <summary>
-/// 2026-11-24-6811c: concludes a merge whose conflicts a resolver worked on — the paths it was given staged with the ones it
-/// wrote, and the merge committed only when nothing is left unmerged and no touched path carries a conflict marker. The
-/// commit is made here, never by the resolver, so a model's claim alone never ends a merge.
+/// 2026-11-24-6811c: concludes a merge whose conflicts a resolver worked on. The commit is made here, never by the
+/// resolver, so a model's claim alone never ends a merge. 2026-11-24-9dc0a: the resolver answers what the server's check
+/// (<see cref="BaseMergeWholeness"/>) still finds open, which also staged what was resolved; only a whole one is committed.
 /// </summary>
 public sealed class BaseMergeResolutionCommit(BaseRefreshGit git)
 {
-    public async Task<bool> CommitAsync(AgentSmith.Contracts.Sandbox.ISandbox sandbox, IReadOnlyList<string> rest,
-        Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<string>?>> resolveRest, CancellationToken ct)
+    public async Task<BaseMergeResolution> CommitAsync(AgentSmith.Contracts.Sandbox.ISandbox sandbox, IReadOnlyList<string> rest,
+        Func<IReadOnlyList<string>, CancellationToken, Task<BaseMergeResolution>> resolveRest, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(resolveRest);
-        if (await resolveRest(rest, ct) is not { } wrote) return false;
-        IReadOnlyList<string> touched = [.. rest.Concat(wrote).Distinct(StringComparer.Ordinal)];
-        if (!await git.StageAsync(sandbox, touched, ct)) return false;
-        var unmerged = await git.RunAsync(sandbox, ["diff", "--name-only", "--diff-filter=U"], ct);
-        if (unmerged.ExitCode != 0 || !string.IsNullOrWhiteSpace(unmerged.OutputContent)) return false;
-        if (await git.HasMarkersAsync(sandbox, touched, ct)) return false;
-        return (await git.RunAsync(sandbox, ["commit", "--no-edit", "--no-verify"], ct)).ExitCode == 0;
+        var resolution = await resolveRest(rest, ct);
+        if (!resolution.IsWhole) return resolution;
+        var commit = await git.RunAsync(sandbox, ["commit", "--no-edit", "--no-verify"], ct);
+        return commit.ExitCode == 0 ? resolution
+            : resolution with { Open = rest, Reason = $"git could not commit the resolved merge: {commit.ErrorMessage}" };
     }
 }

@@ -25,6 +25,7 @@ public sealed record BaseMergeResult(
     /// refresh only pushes once a build and test stage checked it.</summary>
     public bool ResolvedByMaster { get; init; }
 
-    public static BaseMergeResult Conflicted(string baseRef, IReadOnlyList<string> conflictingPaths) =>
-        new(BaseMergeStatus.Conflicted, baseRef, conflictingPaths, Reason: null);
+    /// <summary>2026-11-24-9dc0a: the paths still open after the unions and any master, and the master's reason.</summary>
+    public static BaseMergeResult Conflicted(string baseRef, IReadOnlyList<string> conflictingPaths, string? reason = null) =>
+        new(BaseMergeStatus.Conflicted, baseRef, conflictingPaths, reason);
 }
