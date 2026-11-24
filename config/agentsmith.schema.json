@@ -337,7 +337,8 @@
             "osv_image": { "type": "string", "description": "The OSV-Scanner image, pinned by digest ('...@sha256:<64 hex>'); a tag is refused. Required while PoCs are enabled. The scan downloads its databases from osv-vulnerabilities.storage.googleapis.com through the sandbox egress." },
             "timeout_seconds": { "type": "integer", "minimum": 1, "description": "How long the dependency scan may take, the database download included. Default 300." },
             "unfixed_critical_block": { "type": "boolean", "description": "Whether a critical vulnerability with no fixed version blocks (overrulable) like one with a fix; false makes it a note. Default true." },
-            "secret_min_confidence": { "type": "integer", "minimum": 1, "maximum": 10, "description": "A secret pattern of severity high or critical blocks at this catalog confidence or above; below it the finding is a note. Default 8." }
+            "secret_min_confidence": { "type": "integer", "minimum": 1, "maximum": 10, "description": "A secret pattern of severity high or critical blocks at this catalog confidence or above; below it the finding is a note. The image scan blocks the Trivy secret rules mapped to such patterns. Default 8." },
+            "trivy_image": { "type": "string", "description": "The Trivy image the build pipeline's scan job runs, pinned by digest ('...@sha256:<64 hex>'); a tag is refused. Required while PoCs are enabled. Written into the pipeline at install: install again after changing it." }
           }
         },
         "blocked_retention_days": { "type": "integer", "minimum": 1, "description": "How many days a blocked upload is kept before it is purged. Default 7." },
@@ -370,6 +371,25 @@
                   "pull_user": { "type": "string", "description": "The user of the pull-only token (on ACR the repository-scoped token's name)." },
                   "pull_auth": { "type": "string", "description": "The secrets-catalog entry holding the pull-only token; its scope map grants pull on <repository>/*. Required with cluster_pulls too, because agent smith resolves and verifies images with it." },
                   "pull_mode": { "type": "string", "enum": ["pull_secret", "cluster_pulls"], "description": "pull_secret (default): the token is delivered into each PoC namespace as an imagePullSecret. cluster_pulls: the target cluster can already pull." }
+                }
+              },
+              "build": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "How the source repo host's pipeline (written by the target's Install action) builds, scans and pushes a PoC image. The names and job timeouts are written into the pipeline at install: install again after changing them. Absent reads as the defaults.",
+                "properties": {
+                  "pipeline": { "type": "string", "description": "Azure DevOps: the pipeline the operator creates from the YAML the install wrote (folder\\name in a folder). Default poc-build." },
+                  "github_environment": { "type": "string", "description": "GitHub: the environment holding the push secrets; only the push job names it. Default poc-push." },
+                  "gitlab_environment": { "type": "string", "description": "GitLab: the environment the protected push variables are scoped to; only the push job declares it. Default poc-push." },
+                  "push_user_secret": { "type": "string", "description": "GitHub secret / GitLab variable holding the registry push user. Default POC_REGISTRY_USER." },
+                  "push_password_secret": { "type": "string", "description": "GitHub secret / GitLab variable holding the registry push password or token. Default POC_REGISTRY_PASSWORD." },
+                  "azure_service_connection": { "type": "string", "description": "Azure DevOps: the Docker registry service connection the push job alone uses. Default poc-registry." },
+                  "queue_minutes": { "type": "integer", "minimum": 1, "description": "How long a build may wait for an agent. Default 3." },
+                  "build_timeout_minutes": { "type": "integer", "minimum": 1, "description": "The build job's timeout. Default 12." },
+                  "scan_timeout_minutes": { "type": "integer", "minimum": 1, "description": "The scan job's timeout. Default 5." },
+                  "push_timeout_minutes": { "type": "integer", "minimum": 1, "description": "The push job's timeout. Default 3. The four minutes times 60 plus pocs.scan.timeout_seconds must stay below orchestrator.max_run_wall_time_seconds." },
+                  "poll_seconds": { "type": "integer", "minimum": 1, "description": "How often a build's state is read. Default 15." },
+                  "report_kb": { "type": "integer", "minimum": 1, "description": "The largest scan report read back, in KB. Default 1024." }
                 }
               }
             }

@@ -131,6 +131,7 @@ POST	/api/config/trackers	config.write	-
 POST	/api/config/trackers/check	config.write,diagnostics.probe	-
 POST	/api/config/trackers/validate	config.write	-
 POST	/api/diagnostics/connections/{name}/probe	diagnostics.probe	-
+POST	/api/pocs/targets/{name}/install	pocs.admin	-
 POST	/api/pocs/uploads	pocs.write	-
 POST	/api/pocs/uploads/{uploadId}/import	pocs.write	-
 POST	/api/pocs/{pocId:long}/revisions/{n:int}/overrule	pocs.overrule,runs.read	poc

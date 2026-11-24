@@ -1041,6 +1041,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("BlockedStage")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
                     b.Property<string>("CommitSha")
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
@@ -1048,10 +1052,17 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("Digest")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
                     b.Property<string>("Entrypoint")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Explanation")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImageVerdictJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ManifestJson")
@@ -1062,6 +1073,14 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<string>("OverruledIdsJson")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PipelineRunId")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("PipelineUrl")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
 
                     b.Property<long>("PocId")
                         .HasColumnType("bigint");

@@ -9,4 +9,21 @@ public sealed record PocScanSubject(
     string? CommitSha)
 {
     public bool IsLatest => Revision == LatestRevision;
+
+    /// <summary>2026-11-23-933dd: the PoC's target name.</summary>
+    public string Target { get; init; } = string.Empty;
+
+    /// <summary>2026-11-23-933dd: the stage a blocked revision is blocked at (PocScanStages), null when not blocked.</summary>
+    public string? BlockedStage { get; init; }
+
+    /// <summary>2026-11-23-933dd: the image scan's verdict JSON (PocScanVerdict).</summary>
+    public string? ImageVerdictJson { get; init; }
+
+    /// <summary>2026-11-23-933dd: the pushed image's digest the registry confirmed.</summary>
+    public string? Digest { get; init; }
+
+    /// <summary>2026-11-23-933dd: the host pipeline run building the revision, stored before its first read.</summary>
+    public string? PipelineRunId { get; init; }
+
+    public string? PipelineUrl { get; init; }
 }

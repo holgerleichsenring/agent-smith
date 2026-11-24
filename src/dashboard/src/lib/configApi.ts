@@ -1115,6 +1115,25 @@ export interface PocTargetSetting {
   perPersonLimit: number;
   /** 2026-11-23-933de: the container registry PoC images are read from; required, null on a target saved before it. */
   registry: PocRegistrySetting | null;
+  /** 2026-11-23-933dd: how the source repo host's pipeline builds, scans and pushes; absent reads as the defaults. */
+  build?: PocBuildSetting | null;
+}
+
+/** 2026-11-23-933dd: agentsmith.yml pocs.targets[].build — the names the pipeline's push job uses, the job timeouts in
+ *  minutes, how often a build is read and the largest scan report read back. */
+export interface PocBuildSetting {
+  pipeline: string;
+  githubEnvironment: string;
+  gitlabEnvironment: string;
+  pushUserSecret: string;
+  pushPasswordSecret: string;
+  azureServiceConnection: string;
+  queueMinutes: number;
+  buildTimeoutMinutes: number;
+  scanTimeoutMinutes: number;
+  pushTimeoutMinutes: number;
+  pollSeconds: number;
+  reportKb: number;
 }
 
 export type PocPullMode = "pull_secret" | "cluster_pulls";
@@ -1151,6 +1170,8 @@ export interface PocScanSetting {
   unfixedCriticalBlock: boolean;
   /** 1..10: high or critical secret patterns at or above it block and cannot be overruled. */
   secretMinConfidence: number;
+  /** 2026-11-23-933dd: the Trivy image the build pipeline's scan job runs, pinned by digest. */
+  trivyImage?: string;
 }
 
 /** 2026-11-23-933db: agentsmith.yml pocs.archive — sizes in MB/KB as named, the ratio as n:1. */

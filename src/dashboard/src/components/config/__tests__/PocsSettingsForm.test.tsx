@@ -3,7 +3,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PocsSetting, SettingValue, StudioEntity } from "@/lib/configApi";
 import * as configApi from "@/lib/configApi";
+import * as pocsApi from "@/lib/pocsApi";
 import { POC_ARCHIVE_DEFAULTS, POC_SCAN_DEFAULTS, PocsSettingsForm, type PocsCatalog } from "../PocsSettingsForm";
+import { POC_BUILD_DEFAULTS } from "../PocBuildFields";
 
 // 2026-11-23-933da: the PoCs settings form edits the switch, the poc- projects' agent and tracker, and the targets,
 // and what it hands back is the wire shape the settings route saves.
@@ -56,6 +58,7 @@ describe("PocsSettingsForm", () => {
         registry: {
           type: "acr", loginServer: "", repository: "pocs", pullUser: "", pullAuth: "", pullMode: "pull_secret",
         },
+        build: POC_BUILD_DEFAULTS,
       }],
       archive: POC_ARCHIVE_DEFAULTS,
       scan: POC_SCAN_DEFAULTS,
@@ -123,7 +126,7 @@ describe("PocsSettingsForm", () => {
     fireEvent.change(screen.getByTestId("setting-pocs-blockedRetentionDays"), { target: { value: "14" } });
 
     const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
-    expect(saved.scan).toEqual({ osvImage: image, timeoutSeconds: 600, unfixedCriticalBlock: false, secretMinConfidence: 9 });
+    expect(saved.scan).toEqual({ osvImage: image, timeoutSeconds: 600, unfixedCriticalBlock: false, secretMinConfidence: 9, trivyImage: "" });
     expect(saved.blockedRetentionDays).toBe(14);
     expect(saved.archive).toEqual(POC_ARCHIVE_DEFAULTS);
   });
@@ -174,5 +177,44 @@ describe("PocsSettingsForm", () => {
     expect(check).toHaveBeenCalledWith(registry, expect.anything());
     expect(await screen.findByTestId(`${id}-check-step-scope`)).toHaveTextContent(
       "The pull token reaches pocregistry.azurecr.io/pocs.");
+  });
+
+  // 2026-11-23-933dd: the Trivy image, the build block of a target and the Install action.
+  it("PocsSettingsForm_TrivyImageAndBuildFields_EditAndRoundTrip", () => {
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-scan-toggle"));
+    fireEvent.click(screen.getByTestId("setting-pocs-target-add"));
+    fireEvent.click(screen.getByTestId("setting-pocs-target-0-build-toggle"));
+
+    const trivy = "aquasec/trivy@sha256:" + "b".repeat(64);
+    fireEvent.change(screen.getByTestId("setting-pocs-scan-trivyImage"), { target: { value: trivy } });
+    expect(screen.getByTestId("setting-pocs-target-0-build-buildTimeoutMinutes")).toHaveValue(12);
+    fireEvent.change(screen.getByTestId("setting-pocs-target-0-build-buildTimeoutMinutes"), { target: { value: "15" } });
+    fireEvent.change(screen.getByTestId("setting-pocs-target-0-build-githubEnvironment"), { target: { value: "registry-push" } });
+
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.scan.trivyImage).toBe(trivy);
+    expect(saved.targets[0].build).toEqual({ ...POC_BUILD_DEFAULTS, buildTimeoutMinutes: 15, githubEnvironment: "registry-push" });
+  });
+
+  it("PocsSettingsForm_Install_IsOffWhileThePocsSwitchIs_AndSaysTheRunsOutcome", async () => {
+    const install = vi.spyOn(pocsApi, "installPocTarget").mockResolvedValue({
+      target: "main", succeeded: true, runId: "r1", message: "The build pipeline of target 'main' is commit abc123.",
+    });
+    const target = { name: "main", sourceRepo: "poc-source", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
+      domainPattern: null, lifetimeDays: 90, reminderDays: [14, 7, 1], perPersonLimit: 3, registry: null };
+    const { unmount } = render(<Harness seen={[]} start={{ ...OFF, targets: [target] }} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-target-0-build-toggle"));
+    expect(screen.getByTestId("setting-pocs-target-0-build-install")).toBeDisabled();
+    expect(screen.getByTestId("setting-pocs-target-0-build-install-said")).toHaveTextContent("Turn PoCs on to install.");
+    unmount();
+
+    render(<Harness seen={[]} start={{ ...OFF, enabled: true, targets: [target] }} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-target-0-build-toggle"));
+    fireEvent.click(screen.getByTestId("setting-pocs-target-0-build-install"));
+
+    expect(install).toHaveBeenCalledWith("main");
+    expect(await screen.findByText("The build pipeline of target 'main' is commit abc123.")).toBeInTheDocument();
   });
 });

@@ -9,5 +9,6 @@ internal static class PocUploadExtensions
         services.AddSingleton<PocUploadBody>().AddScoped<PocUploadStore>().AddScoped<PocIdentity>().AddScoped<PocUploadAdmission>()
             .AddScoped<PocProjectProvisioner>().AddScoped<PocRunGate>().AddScoped<PocImportChoice>().AddScoped<PocImportLauncher>()
             .AddSingleton<PocPrefixFindings>().AddSingleton<PocSandboxFinding>()
-            .AddSingleton<Revisions.PocOverruleRule>().AddScoped<Revisions.PocRevisionReader>().AddScoped<Revisions.PocOverruleLauncher>();
+            .AddSingleton<Revisions.PocOverruleRule>().AddScoped<Revisions.PocRevisionReader>().AddScoped<Revisions.PocOverruleLauncher>()
+            .AddScoped<Targets.PocTargetInstallLauncher>(); // 2026-11-23-933dd
 }

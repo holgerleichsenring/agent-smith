@@ -41,6 +41,12 @@ describe("runSections", () => {
     expect(commandSection(step("PocSourceCommitCommand"))).toBe("deliver");
   });
 
+  // 2026-11-23-933dd: the host pipeline's build and the install of its pipeline deliver.
+  it("commandSection_PocPipelineBuildAndPocTargetInstall_Deliver", () => {
+    expect(commandSection(step("PocPipelineBuildCommand"))).toBe("deliver");
+    expect(commandSection(step("PocTargetInstallCommand"))).toBe("deliver");
+  });
+
   it("commandSection_AnUnknownCommand_NamesNone", () => {
     expect(commandSection(step("SomethingNew"))).toBeUndefined();
   });

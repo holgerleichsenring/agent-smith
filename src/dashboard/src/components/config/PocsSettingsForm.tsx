@@ -8,6 +8,7 @@ import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
 import { CheckField, DrawerSection, NumberField, RefSelect, TextField, keep } from "./formFields";
 import { newPocRegistry, PocRegistryFields } from "./PocRegistryFields";
+import { POC_BUILD_DEFAULTS, PocBuildFields } from "./PocBuildFields";
 
 // 2026-11-23-933da: the PoCs settings (agentsmith.yml pocs:) — the switch first, then the agent and tracker every
 // person's poc- project names, then the targets. Every field stays editable while the switch is off, so a target can
@@ -34,18 +35,21 @@ export const POC_ARCHIVE_DEFAULTS: PocArchiveSetting = {
 /** 2026-11-23-933dc: the server's scan defaults (PocScanConfig). The image has none: it is required while PoCs are on,
  *  pinned by digest. Like archive, scan and blockedRetentionDays are always sent back. */
 export const POC_SCAN_DEFAULTS: PocScanSetting = {
-  osvImage: "", timeoutSeconds: 300, unfixedCriticalBlock: true, secretMinConfidence: 8,
+  osvImage: "", timeoutSeconds: 300, unfixedCriticalBlock: true, secretMinConfidence: 8, trivyImage: "",
 };
 
 export const POC_BLOCKED_RETENTION_DAYS_DEFAULT = 7;
 
 export const OSV_IMAGE_PLACEHOLDER = "ghcr.io/google/osv-scanner@sha256:…";
 
+export const TRIVY_IMAGE_PLACEHOLDER = "aquasec/trivy@sha256:…";
+
 /** A new target carries the server's defaults; the address has none, only a placeholder. */
 export function newPocTarget(): PocTargetSetting {
   return {
     name: "", sourceRepo: "", root: "pocs", deployRoot: "deploy", templatePath: "poc-template",
     domainPattern: null, lifetimeDays: 90, reminderDays: [14, 7, 1], perPersonLimit: 3, registry: newPocRegistry(),
+    build: { ...POC_BUILD_DEFAULTS },
   };
 }
 
@@ -73,7 +77,7 @@ export function PocsSettingsForm({ value, onChange, catalog }: {
       {targets.map((target, i) => (
         <DrawerSection key={i} title={target.name || t("config.pocs.target.untitled", { number: i + 1 })} defaultOpen
           testId={`setting-pocs-target-${i}`}>
-          <PocTargetFields target={target} index={i} catalog={catalog} onChange={(patch) => setAt(i, patch)} />
+          <PocTargetFields target={target} index={i} catalog={catalog} enabled={value.enabled} onChange={(patch) => setAt(i, patch)} />
           <button type="button" className="btn" data-testid={`setting-pocs-target-${i}-remove`}
             onClick={() => set({ targets: targets.filter((_, j) => j !== i) })}>
             {t("config.pocs.target.remove")}
@@ -134,6 +138,9 @@ function PocScanFields({ scan, blockedRetentionDays, onScan, onRetention }: {
       <TextField label={t("config.pocs.scan.osvImage")} value={scan.osvImage} mono testId="setting-pocs-scan-osvImage"
         placeholder={OSV_IMAGE_PLACEHOLDER} help={t("config.pocs.scan.osvImage.help")}
         onChange={(v) => onScan({ osvImage: v })} />
+      <TextField label={t("config.pocs.scan.trivyImage")} value={scan.trivyImage ?? ""} mono testId="setting-pocs-scan-trivyImage"
+        placeholder={TRIVY_IMAGE_PLACEHOLDER} help={t("config.pocs.scan.trivyImage.help")}
+        onChange={(v) => onScan({ trivyImage: v })} />
       <NumberField label={t("config.pocs.scan.timeoutSeconds")} value={scan.timeoutSeconds} testId="setting-pocs-scan-timeoutSeconds"
         help={t("config.pocs.scan.timeoutSeconds.help")} onChange={(v) => onScan({ timeoutSeconds: keep(v, scan.timeoutSeconds) })} />
       <CheckField label={t("config.pocs.scan.unfixedCriticalBlock")} value={scan.unfixedCriticalBlock}
@@ -149,8 +156,8 @@ function PocScanFields({ scan, blockedRetentionDays, onScan, onRetention }: {
   );
 }
 
-function PocTargetFields({ target, index, catalog, onChange }: {
-  target: PocTargetSetting; index: number; catalog: PocsCatalog; onChange: (patch: Partial<PocTargetSetting>) => void;
+function PocTargetFields({ target, index, catalog, enabled, onChange }: {
+  target: PocTargetSetting; index: number; catalog: PocsCatalog; enabled: boolean; onChange: (patch: Partial<PocTargetSetting>) => void;
 }) {
   const t = useT();
   const id = `setting-pocs-target-${index}`;
@@ -175,6 +182,7 @@ function PocTargetFields({ target, index, catalog, onChange }: {
         help={t("config.pocs.target.limit.help")} onChange={(v) => onChange({ perPersonLimit: keep(v, target.perPersonLimit) })} />
       <PocRegistryFields registry={target.registry} secrets={catalog.secrets} testId={`${id}-registry`}
         onChange={(registry) => onChange({ registry })} />
+      <PocBuildFields target={target} enabled={enabled} testId={`${id}-build`} onChange={(build) => onChange({ build })} />
     </>
   );
 }

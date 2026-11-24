@@ -36,10 +36,13 @@ public sealed partial class PocTargetConfig
     /// <summary>2026-11-23-933de: the container registry PoC images are read from. Required.</summary>
     public PocRegistryConfig? Registry { get; set; }
 
+    /// <summary>2026-11-23-933dd: how the source repo host's pipeline builds, scans and pushes the image.</summary>
+    public PocBuildConfig Build { get; set; } = new();
+
     /// <summary>This target's value problems, one sentence each naming the key, the value and the reason.</summary>
     public IEnumerable<string> Problems() =>
         [.. NameProblems(), .. SourceRepoProblems(), .. new PocTargetFolders(this).Problems(), .. DomainProblems(),
-            .. LifetimeProblems(), .. RegistryProblems()];
+            .. LifetimeProblems(), .. RegistryProblems(), .. Build.Problems(Name)];
 
     private string Key(string field) => $"pocs.targets[].{field} of target '{Name}'";
 

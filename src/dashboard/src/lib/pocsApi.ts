@@ -128,7 +128,8 @@ export async function importPocUpload(uploadId: string, body: PocImportBody, sig
 // empty 404, read here as "not found".
 
 /** The states a revision carries. */
-export type PocRevisionState = "admitted" | "validated" | "refused" | "blocked" | "overruled";
+/** 2026-11-23-933dd: built — the image was built, scanned and pushed. */
+export type PocRevisionState = "admitted" | "validated" | "refused" | "blocked" | "overruled" | "built";
 
 export type PocFindingKind = "secret" | "vulnerability" | "note";
 
@@ -167,7 +168,16 @@ export interface PocRevisionView {
   mayOverrule: boolean;
   /** The server's sentence why the caller may not overrule; null when they may. */
   whyNot: string | null;
+  /** 2026-11-23-933dd: the stage a blocked revision is blocked at; null when not blocked. */
+  blockedStage?: "code" | "image" | string | null;
+  /** 2026-11-23-933dd: the image scan's verdict — its blocks, or the notes of a pushed image. */
+  imageVerdict?: PocScanVerdict | null;
+  /** 2026-11-23-933dd: the pushed digest the registry confirmed. */
+  digest?: string | null;
+  /** 2026-11-23-933dd: the source repo host's pipeline run that builds the revision. */
+  pipelineUrl?: string | null;
 }
+
 
 export interface PocOverruled {
   pocId: number;
@@ -205,4 +215,20 @@ async function refusedAsSaid(res: Response, path: string): Promise<Error> {
   if (res.status === 401 || res.status === 403) return refused(res, path);
   const text = (await res.text().catch(() => "")).trim();
   return new ApiResponseError(path, res.status, `HTTP ${res.status}${text ? ` — ${text}` : ""}`, text || null);
+}
+
+// 2026-11-23-933dd: POST /api/pocs/targets/{name}/install — a pocs.admin holder starts the run that writes the target's
+// build pipeline into its source repo. The answer is how that run ended: the commit, or why nothing was written.
+export interface PocTargetInstalled {
+  target: string;
+  succeeded: boolean;
+  message: string;
+  runId: string;
+}
+
+export async function installPocTarget(name: string, signal?: AbortSignal): Promise<PocTargetInstalled> {
+  const path = `${POCS_PATH}/targets/${encodeURIComponent(name)}/install`;
+  const res = await apiFetch(path, { method: "POST", signal });
+  if (!res.ok) throw await refusedAsSaid(res, path);
+  return readJson<PocTargetInstalled>(res, path);
 }

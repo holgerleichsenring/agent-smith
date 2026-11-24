@@ -1004,6 +1004,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("BlockedStage")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("CommitSha")
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
@@ -1011,10 +1015,17 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Digest")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Entrypoint")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Explanation")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ImageVerdictJson")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ManifestJson")
@@ -1024,6 +1035,14 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("OverruledIdsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PipelineRunId")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PipelineUrl")
+                        .HasMaxLength(1024)
                         .HasColumnType("TEXT");
 
                     b.Property<long>("PocId")

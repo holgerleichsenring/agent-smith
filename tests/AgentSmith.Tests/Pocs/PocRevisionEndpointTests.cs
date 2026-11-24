@@ -103,13 +103,39 @@ public sealed class PocRevisionEndpointTests(PocImportFixture fixture) : IClassF
         again.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
+    [Fact]
+    public async Task Overrule_AnImageStageBlock_ReadsTheImageVerdict_AndQueuesItsIds_ASecretInTheImageIsRefused()
+    {
+        var image = new PocScanVerdict([new PocScanFinding("trivy:CVE-9|openssl|1.0", PocScanFindingKinds.Vulnerability, "CVE-9", "debian 12",
+            null, "t", "CVSS 9.8", null, null, [])], []);
+        var poc = await SeedAsync(new PocScanVerdict([], []), image: image);
+        var secret = await SeedAsync(new PocScanVerdict([], []), image: Secret());
+
+        var answer = await ReadAsync(ReadingOverrulers, poc.Id, 1);
+        var started = await OverruleAsync(Admins, poc.Id, 1, "base image fix pending");
+
+        (answer.BlockedStage, answer.MayOverrule).Should().Be((PocScanStages.Image, true));
+        answer.ImageVerdict!.Blocks.Should().ContainSingle().Which.Id.Should().Be("trivy:CVE-9|openssl|1.0");
+        var runId = (await started.Content.ReadFromJsonAsync<Started>())!.RunId;
+        fixture.Queued.Single(q => q.RunId == runId).Context![ContextKeys.PocOverruleIds].ToString().Should().Be("""["trivy:CVE-9|openssl|1.0"]""");
+        (await TextAsync(OverruleAsync(Admins, secret.Id, 1, "why"))).Should().Contain("A secret cannot be overruled");
+    }
+
+    [Fact]
+    public async Task Install_NeedsPocsAdmin_AndAnUnknownTargetIsAnEmpty404()
+    {
+        (await SendAsync(Ann, HttpMethod.Post, "/api/pocs/targets/main/install")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var unknown = await SendAsync(Admins, HttpMethod.Post, "/api/pocs/targets/nowhere/install");
+        unknown.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     private static PocScanVerdict Vulnerability() => new(
         [new PocScanFinding("osv:CVE-1|django|3.2.0", PocScanFindingKinds.Vulnerability, "CVE-1", "requirements.txt", null, "SQLi", "CVSS 9.8", null, "Upgrade", ["GHSA-1"])], []);
 
     private static PocScanVerdict Secret() => new(
         [new PocScanFinding("sec:1", PocScanFindingKinds.Secret, "aws-access-key", "a.py", 1, "AWS", "key", "<secret at a.py:1>", "Remove", [])], []);
 
-    private async Task<Poc> SeedAsync(PocScanVerdict verdict, int revisions = 1, bool upload = true)
+    private async Task<Poc> SeedAsync(PocScanVerdict verdict, int revisions = 1, bool upload = true, PocScanVerdict? image = null)
     {
         Poc poc = null!;
         await fixture.SeedAsync(async db =>
@@ -123,6 +149,7 @@ public sealed class PocRevisionEndpointTests(PocImportFixture fixture) : IClassF
                 {
                     PocId = poc.Id, Number = n, UploadSession = "poc-upload:test", UploadId = set, Actor = "ann-sub",
                     State = PocRevisionStates.Blocked, VerdictJson = verdict.ToJson(), Explanation = "agent text",
+                    ImageVerdictJson = image?.ToJson(), BlockedStage = image is null ? PocScanStages.Code : PocScanStages.Image, // 933dd
                 });
             await db.SaveChangesAsync();
         });
@@ -149,7 +176,8 @@ public sealed class PocRevisionEndpointTests(PocImportFixture fixture) : IClassF
         return fixture.Server.Client.SendAsync(request);
     }
 
-    private sealed record Answer(long PocId, int Revision, string State, PocScanVerdict? Verdict, string? Explanation, bool MayOverrule, string? WhyNot);
+    private sealed record Answer(long PocId, int Revision, string State, PocScanVerdict? Verdict, string? Explanation, bool MayOverrule, string? WhyNot,
+        string? BlockedStage = null, PocScanVerdict? ImageVerdict = null);
 
     private sealed record Started(long PocId, int Revision, string RunId);
 }

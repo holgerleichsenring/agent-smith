@@ -96,7 +96,7 @@ public sealed class ScanFailurePersistGuardTests
             PipelinePresets.RetargetName, PipelinePresets.MergeGreenName, PipelinePresets.DeployName, PipelinePresets.SeriesRunName, PipelinePresets.SeriesVerifyName, PipelinePresets.PocDeployName, .. InstallationPresets]);
 
     // 2026-11-17-f3a8a: the runs on the installation, none of which commits work.
-    private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName, PipelinePresets.SecretName];
+    private static readonly string[] InstallationPresets = [PipelinePresets.AdminTurnName, PipelinePresets.ConfigName, PipelinePresets.SecretName, PipelinePresets.PocTargetInstallName]; // 933dd: the install commits its pipeline itself
 
     // The webhook path: a PR push routes to the resolver's default pipeline, which must never persist.
     [Fact]

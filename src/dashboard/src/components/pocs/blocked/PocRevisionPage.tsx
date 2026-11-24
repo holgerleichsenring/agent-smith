@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useT } from "@/hooks/useT";
 import type { T } from "@/lib/i18n/translate";
 import { pocRevisionPagePath } from "@/lib/pocRevisionPath";
+import { blockingVerdict } from "@/lib/pocBlockingVerdict";
 import { getPocRevision, type PocRevisionView } from "@/lib/pocsApi";
 import { runPath } from "@/lib/runPath";
 import { AgentExplanation } from "./AgentExplanation";
@@ -55,8 +56,9 @@ export function PocRevisionPage({ pocId, revision }: { pocId: number; revision: 
 export function PocRevisionDetail({ view }: { view: PocRevisionView }) {
   const t = useT();
   const blocked = view.state === "blocked";
-  const blocks = view.verdict?.blocks ?? [];
-  const notes = view.verdict?.notes ?? [];
+  const imageStage = view.blockedStage === "image";
+  const blocks = (blocked ? blockingVerdict(view)?.blocks : view.verdict?.blocks) ?? [];
+  const notes = [...(view.verdict?.notes ?? []), ...(view.imageVerdict?.notes ?? [])];
   return (
     <div data-testid="poc-revision" data-state={view.state}>
       <div className="poc-crumb">
@@ -73,11 +75,16 @@ export function PocRevisionDetail({ view }: { view: PocRevisionView }) {
           </h1>
           <div className="msub" data-testid="poc-revision-sub">
             {blocked
-              ? t("pocs.revision.sub.blocked", { count: blocks.length })
+              ? t(imageStage ? "pocs.revision.sub.blockedImage" : "pocs.revision.sub.blocked", { count: blocks.length })
+              : view.digest
+                ? t("pocs.revision.sub.built", { digest: view.digest.slice(0, 19) })
               : view.commitSha
                 ? t("pocs.revision.sub.committed", { sha: view.commitSha.slice(0, 12) })
                 : t("pocs.revision.sub.notCommitted")}
             {view.runId && <> <Link href={runPath(view.runId)} data-testid="poc-revision-run">{t("pocs.revision.run")} →</Link></>}
+            {view.pipelineUrl && (
+              <> <a href={view.pipelineUrl} target="_blank" rel="noreferrer" data-testid="poc-revision-pipeline">{t("pocs.revision.pipeline")} ↗</a></>
+            )}
           </div>
           {view.latestRevision > view.revision && (
             <div className="poc-meta" data-testid="poc-revision-newer">
@@ -117,6 +124,7 @@ const STATE_LABELS = {
   refused: "pocs.revision.state.refused",
   blocked: "pocs.revision.state.blocked",
   overruled: "pocs.revision.state.overruled",
+  built: "pocs.revision.state.built",
 } as const;
 
 function stateLabel(t: T, state: string): string {

@@ -24,6 +24,7 @@ internal static class PocEndpoints
         pocs.MapPost("/pocs/uploads", UploadAsync).Needs(Permissions.PocsWrite);
         pocs.MapPost("/pocs/uploads/{uploadId}/import", ImportAsync).Needs(Permissions.PocsWrite);
         pocs.MapPocRevisionEndpoints(); // 2026-11-23-933dc
+        pocs.MapPocTargetEndpoints(); // 2026-11-23-933dd
         return app;
     }
 

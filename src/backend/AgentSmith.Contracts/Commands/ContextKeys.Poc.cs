@@ -24,4 +24,10 @@ public static partial class ContextKeys
 
     /// <summary>2026-11-23-933dc: the source-repo commit that holds the revision's files — what 933dd builds.</summary>
     public const string PocSourceCommitSha = "PocSourceCommitSha";
+
+    /// <summary>2026-11-23-933dd: the pushed image's digest ('sha256:…') the registry confirmed — what c81eb renders.</summary>
+    public const string PocImageDigest = "PocImageDigest";
+
+    /// <summary>2026-11-23-933dd: the PoC target a poc-target-install run writes the build pipeline for.</summary>
+    public const string PocTargetName = "PocTargetName";
 }

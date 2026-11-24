@@ -36,7 +36,8 @@ public static class SecurityScannersExtensions
         services.AddTransient<PatternLineMatcher>(); // 2026-11-23-933dc: shared with the PoC scan
         services.AddTransient<PatternFileMatcher>();
         services.AddSingleton<Pocs.PocPatternSet>().AddSingleton<Pocs.PocLineMasker>().AddSingleton<Pocs.PocTextFiles>()
-            .AddSingleton<AgentSmith.Contracts.Pocs.IPocSecretScan, Pocs.PocSecretScan>(); // 2026-11-23-933dc
+            .AddSingleton<AgentSmith.Contracts.Pocs.IPocSecretScan, Pocs.PocSecretScan>() // 2026-11-23-933dc
+            .AddSingleton<AgentSmith.Contracts.Pocs.IPocSecretConfidences, Pocs.PocSecretConfidences>(); // 2026-11-23-933dd
         services.AddTransient<GitDiffSecretMatcher>();
         // p0403: the source sweep is a service, not a static reaching for a reader.
         services.AddSingleton<SourceFileEnumerator>();

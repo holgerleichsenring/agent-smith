@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError } from "../apiResponse";
-import { fetchPocs, getPocRevision, importPocUpload, overrulePocRevision, uploadPocZip } from "../pocsApi";
+import { fetchPocs, getPocRevision, importPocUpload, installPocTarget, overrulePocRevision, uploadPocZip } from "../pocsApi";
 
 // 2026-11-23-933da: GET /api/pocs is the feature switch too — 200 is the list, 404 off, 403 not permitted.
 
@@ -178,5 +178,20 @@ describe("overrulePocRevision", () => {
 
     expect([busy.status, busy.reason]).toEqual([409, "a run of doc-search is in progress"]);
     expect([gone.status, gone.reason]).toEqual([410, "the upload of r3 was purged after 7 days (pocs.blocked_retention_days)"]);
+  });
+});
+
+// 2026-11-23-933dd: the Install action of a PoC target.
+describe("installPocTarget", () => {
+  it("installPocTarget_PostsToTheTarget_AndReadsTheRunsOutcome", async () => {
+    const said = { target: "main", succeeded: true, message: "commit abc123", runId: "r-1" };
+    const fetchMock = vi.fn().mockResolvedValue(answer(200, said));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(installPocTarget("main")).resolves.toEqual(said);
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/pocs\/targets\/main\/install$/);
+    expect(init.method).toBe("POST");
   });
 });

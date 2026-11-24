@@ -35,6 +35,9 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
 
     internal List<PipelineRequest> Queued { get; } = [];
 
+    /// <summary>2026-11-23-933dd: the faked build pipeline and registry the run's build step reaches.</summary>
+    internal PocHarnessBuildHost Build { get; } = new();
+
     /// <summary>The source repo as the run's project names it (the harness runner builds its own project).</summary>
     internal Contracts.Models.Configuration.RepoConnection Repo => new()
     {
@@ -76,6 +79,7 @@ internal sealed class PocHarnessRepo : IAsyncDisposable
         File.WriteAllText(Path.Combine(_root, "catalog", "patterns", "secrets.yaml"), Patterns);
         services.RemoveAll<ISkillsCatalogPath>().AddSingleton<ISkillsCatalogPath>(
             Mock.Of<ISkillsCatalogPath>(c => c.Root == Path.Combine(_root, "catalog") && c.Origin == "test"));
+        Build.Override(services);
     }
 
     /// <summary>git's output in <see cref="Origin"/>.</summary>

@@ -105,3 +105,56 @@ decisions:
     chose: "A critical vulnerability without a fix blocks by default (ignore_unfixed = not pocs.scan.unfixed_critical_block, default true) and can be overruled like any vulnerability block"
     over: "Trivy's --ignore-unfixed by default"
     reason: "Operator ruling, round 4, 2026-11-23: ratifies the shared default with 933dc."
+  # --- Mechanisms chosen while building (2026-11-24) ---
+  - category: Implementation
+    chose: "The pipeline definitions, the job scripts, poc-report.tpl and poc-gate.rego are embedded resources of AgentSmith.Application (Resources/PocPipeline); PocYamlFill puts a script into a YAML line that holds only its placeholder, indented as that line, and refuses a placeholder left over"
+    over: "Raw string constants in the renderer classes, or a templating library"
+    reason: "Each piece stays readable as the file it becomes, the C# renderers stay far under the file-length ratchet, and one script text serves all three hosts; a placeholder that survived would ship a broken pipeline, so it fails the render."
+  - category: Implementation
+    chose: "The Trivy report template and gate policy are written by the scan job from heredocs embedded in the pipeline itself; the job appends blocking_secret_rules (or set()) from the guard-checked secret_rules input"
+    over: "Separate poc-report.tpl and poc-gate.rego files in <template_path> that the scan job checks out"
+    reason: "The scan job then needs no checkout at all, and the install stays one file per host; the template, the policy and the pipeline cannot drift apart because they are written together."
+  - category: Security
+    chose: "The guard is POSIX sh (GitLab's docker and Trivy images have no bash): a value holding a line break is refused, then the whole value is matched with grep -Eqx; the folder must also end in the PoC's name"
+    over: "bash [[ =~ ]] or a per-line grep"
+    reason: "grep matches per line, so a value with an embedded newline could pass on its first line; refusing line breaks first closes that. The folder/name check keeps a dispatcher from building one PoC's folder under another's tag."
+  - category: Implementation
+    chose: "Empty list inputs (trivy_ignore, secret_rules) are sent as 'none' on every host and read back as empty by the guard and the scan script"
+    over: "Empty strings"
+    reason: "Azure DevOps refuses an empty template parameter value (it treats it as not provided); one sentinel for all hosts keeps the scripts identical."
+  - category: Implementation
+    chose: "Trivy runs as the pinned image through docker run on GitHub and Azure hosted agents, and as the job image (entrypoint cleared) on GitLab; the report pass fills .trivy-cache and the gate pass runs with --skip-db-update"
+    over: "Installing the Trivy binary in the job, or a GitHub job container"
+    reason: "The pinned digest is the only Trivy anything runs; the second pass downloading nothing makes a database outage fail the report pass (no gate.txt), so it reads as red-without-a-block and the next retry starts fresh."
+  - category: Implementation
+    chose: "Azure DevOps moves the image tar and reads back report/digest through build (container) artifacts: PublishBuildArtifacts/DownloadBuildArtifacts, read with BuildHttpClient.GetArtifactsAsync + GetArtifactContentZipAsync; the zip reader accepts a file at the zip root or under '<artifact>/'"
+    over: "Pipeline artifacts (publish/download shortcuts) read through their download URL"
+    reason: "The SDK client already authenticated with the repo token serves a container artifact as a zip; a pipeline artifact's download URL would need a second authenticated HTTP path. Retention follows the build's, as the spec documents."
+  - category: Implementation
+    chose: "GitLab job artifacts are written at the job root (report.json, gate.txt, digest.txt) so PipelineArtifact.File is the same path on all three hosts; the job is found as the latest job of that name in the pipeline"
+    over: "A per-host file path"
+    reason: "GitLab stores artifacts per job by their project path while GitHub and Azure name the artifact; writing them at the root makes one PipelineArtifact constant serve every host."
+  - category: Implementation
+    chose: "The pushed digest is read with docker inspect's RepoDigests entry for <image>/<poc>, checked against ^sha256:[0-9a-f]{64}$ before it is written to digest.txt"
+    over: "Parsing docker push's 'digest:' line"
+    reason: "RepoDigests is filled after a push by every Docker version; the push output's wording differs with the containerd image store."
+  - category: Implementation
+    chose: "An image-stage overrule is applied by the build step (PocBuildOverrule): it refuses a block holding a secret, appends the blocking ids under 'image', clears the stored run, and the overrule audit event is published once the fresh build is pushed; the code scan step settles a revision built or blocked at the image stage without scanning"
+    over: "Appending in the code scan step, or publishing the overrule when it is applied"
+    reason: "933dc's code step appends under 'code' for any overrule run; settling it for an image-stage block keeps the ids under the stage that blocked. Publishing on the pushed build mirrors 933dc, which publishes when the overruled scan passes, and a retried overrule run publishes nothing twice (the retry finds the tag pushed)."
+  - category: Implementation
+    chose: "A built revision is state 'built' (PocRevisionStates.Built, evaluated, so the intake skips it); a green build keeps every report finding as a note, including one the rules would block but the gate let pass"
+    over: "Leaving the revision 'validated' with a digest, or failing a green run whose report disagrees with the gate"
+    reason: "The spec names state built. The image is already pushed when the report is read, so the honest record is the notes; the gate (which ignored overruled ids and applied --ignore-unfixed) is the decision."
+  - category: Implementation
+    chose: "The install action is POST /api/pocs/targets/{name}/install answering how the poc-target-install run ended (succeeded, message naming the commit, run id); the settings form shows that answer, and the run itself is the record of the last install"
+    over: "Storing the last install's commit on a new table or in the pocs settings"
+    reason: "No PoC target entity exists (targets are configuration), and a settings field written by a run would be a second storage location for the same fact; the run history already keeps every install with its commit."
+  - category: Implementation
+    chose: "pocs.scan.trivy_image is required while PoCs are on and must match <name>@sha256:<64 hex>; the build block's names are checked as variable or plain names because they are written into YAML"
+    over: "An optional Trivy image"
+    reason: "The scan job cannot run without it, and a value written into a pipeline must not be able to break its YAML or a shell word; the osv_image rule of 933dc is the precedent."
+  - category: Scope
+    chose: "The run's build step is shown through its outcome sentence (pipeline link, state, the red run's failures with their bounded excerpts) in the run log's deliver section, and the revision page links the pipeline run"
+    over: "A dedicated build-step component"
+    reason: "The step's outcome already carries everything the spec lists; the run log renders outcomes, so a second renderer would show the same text twice."

@@ -13,5 +13,6 @@ public static partial class PipelinePresets
         CommandNames.PocIntake,
         CommandNames.PocCodeScan, // 2026-11-23-933dc: secrets and dependencies, before anything reaches git
         CommandNames.PocSourceCommit,
+        CommandNames.PocPipelineBuild, // 2026-11-23-933dd: the host's pipeline builds, scans and pushes the image
     ];
 }

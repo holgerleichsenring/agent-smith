@@ -31,6 +31,7 @@ const SECTION_OF: Record<string, StepSectionId> = {
   PersistWorkBranch: "deliver", DeliverOutput: "deliver", InitCommit: "deliver", InitComplete: "deliver", CompletePullRequests: "deliver", RefreshBranchBase: "deliver", DeployToEnvironment: "deliver",
   PostPrComments: "deliver", WriteTickets: "deliver", DeliverFindings: "deliver", FileTickets: "deliver",
   PocSourceCommit: "deliver", // 2026-11-23-933dc: the scanned PoC committed to its folder
+  PocPipelineBuild: "deliver", PocTargetInstall: "deliver", // 2026-11-23-933dd: the host builds and pushes; the install writes its pipeline
 };
 
 /** 2026-11-17-6d9eb: the step section a command belongs to, or undefined for a command the table does not name. */

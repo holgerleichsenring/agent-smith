@@ -14,7 +14,8 @@ namespace AgentSmith.Server.Services.Pocs.Revisions;
 /// 2026-11-23-933dc: an overrule of a blocked revision starts a run — it never writes the revision itself. It refuses a
 /// blank or over-long reason, a revision that is not the latest blocked one or whose block holds a secret, a purged
 /// upload (the run re-reads it), and a live run of the PoC (the run gate, 409); otherwise it claims the PoC and queues
-/// poc-deploy seeded with the reason and the blocking ids, which the run appends under 'code' and scans again.
+/// poc-deploy seeded with the reason and the blocking ids, which the run appends under 'code' and scans again — or,
+/// 2026-11-23-933dd, under 'image' for an image-stage block, building afresh.
 /// </summary>
 internal sealed class PocOverruleLauncher(
     PocRepository pocs, PocScanRepository revisions, PocOverruleRule rule, PocUploadStore uploads, PocRunGate gate,
@@ -33,7 +34,7 @@ internal sealed class PocOverruleLauncher(
         if (rule.WhyNot(row, latest) is { } whyNot) return (null, PocRefusal.BadRequest(Sentence(whyNot)));
         if (await uploads.ReadAsync(row.UploadSession, row.UploadId, ct) is null)
             return (null, PocImportRefusals.Purged(row.Number, projects.Config().Pocs.BlockedRetentionDays));
-        var ids = PocScanVerdict.FromJson(row.VerdictJson)!.Blocks.Select(b => b.Id).ToList();
+        var ids = PocOverruleRule.Blocking(row)!.Blocks.Select(b => b.Id).ToList();
         var (runId, heldBy) = await gate.QueueDeployAsync(poc, row, SpecDialogOwnership.PrincipalOf(user), ct, extraSeeds: Seeds(reason.Trim(), ids));
         return runId is null ? (null, PocImportRefusals.InProgress(poc, heldBy)) : (new PocOverruleAnswer(poc.Id, row.Number, runId), null);
     }

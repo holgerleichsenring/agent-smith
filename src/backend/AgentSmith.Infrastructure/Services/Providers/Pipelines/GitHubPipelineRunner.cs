@@ -40,6 +40,24 @@ public sealed class GitHubPipelineRunner(PipelineHttp http, GitHubRepoAddress ad
             : []);
     }
 
+    /// <summary>2026-11-23-933dd: the run's artifact named so (not expired) from its artifact list, downloaded as the zip
+    /// GitHub serves, and the file read out of it.</summary>
+    public async Task<PipelineArtifactText?> ReadArtifactTextAsync(
+        string runId, PipelineArtifact artifact, long maxBytes, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(artifact);
+        var list = await http.GetAsync(
+            $"{Repo}/actions/runs/{runId}/artifacts?name={Uri.EscapeDataString(artifact.Name)}&per_page=100", cancellationToken);
+        var found = list.TryGetProperty("artifacts", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? items.EnumerateArray().FirstOrDefault(a => PipelineHttp.Text(a, "name") == artifact.Name
+                && !(a.TryGetProperty("expired", out var expired) && expired.ValueKind == System.Text.Json.JsonValueKind.True))
+            : default;
+        if (found.ValueKind != System.Text.Json.JsonValueKind.Object) return null;
+        var url = PipelineHttp.Text(found, "archive_download_url") ?? $"{Repo}/actions/artifacts/{found.GetProperty("id").GetRawText()}/zip";
+        await using var zip = await http.DownloadAsync(url, cancellationToken);
+        return zip is null ? null : await PipelineArtifactZip.ReadAsync(zip, artifact, maxBytes, cancellationToken);
+    }
+
     private static string State(string? status, string? conclusion) =>
         status != "completed" ? CiStates.Pending
         : conclusion is "success" or "skipped" or "neutral" ? CiStates.Green

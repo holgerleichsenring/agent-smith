@@ -1039,6 +1039,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
 
+                    b.Property<string>("BlockedStage")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<string>("CommitSha")
                         .HasMaxLength(191)
                         .HasColumnType("character varying(191)");
@@ -1046,10 +1050,17 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Digest")
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
                     b.Property<string>("Entrypoint")
                         .HasColumnType("text");
 
                     b.Property<string>("Explanation")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImageVerdictJson")
                         .HasColumnType("text");
 
                     b.Property<string>("ManifestJson")
@@ -1060,6 +1071,14 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
                     b.Property<string>("OverruledIdsJson")
                         .HasColumnType("text");
+
+                    b.Property<string>("PipelineRunId")
+                        .HasMaxLength(191)
+                        .HasColumnType("character varying(191)");
+
+                    b.Property<string>("PipelineUrl")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
 
                     b.Property<long>("PocId")
                         .HasColumnType("bigint");

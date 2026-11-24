@@ -9,6 +9,9 @@ namespace AgentSmith.Infrastructure.Persistence.Configurations;
 /// manifest, entrypoint, reason, verdict, explanation and overruled ids are unbounded text: their size follows the archive and the rule that refused it.</summary>
 public sealed class PocRevisionConfiguration : IEntityTypeConfiguration<PocRevision>
 {
+    /// <summary>2026-11-23-933dd: the widest pipeline run page stored — a host's run URL is well under it.</summary>
+    public const int UrlLength = 1024; // not a limit: a column width; a host's run page URL is far shorter
+
     public void Configure(EntityTypeBuilder<PocRevision> builder)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -21,6 +24,10 @@ public sealed class PocRevisionConfiguration : IEntityTypeConfiguration<PocRevis
         builder.Property(r => r.RunId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(r => r.BaseImage).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(r => r.CommitSha).HasMaxLength(PersistenceLimits.IndexedString); // 2026-11-23-933dc
+        builder.Property(r => r.Digest).HasMaxLength(PersistenceLimits.IndexedString); // 2026-11-23-933dd
+        builder.Property(r => r.PipelineRunId).HasMaxLength(PersistenceLimits.IndexedString);
+        builder.Property(r => r.PipelineUrl).HasMaxLength(UrlLength);
+        builder.Property(r => r.BlockedStage).HasMaxLength(16);
         builder.HasIndex(r => new { r.PocId, r.Number }).IsUnique();
         builder.HasIndex(r => r.UploadId);
     }

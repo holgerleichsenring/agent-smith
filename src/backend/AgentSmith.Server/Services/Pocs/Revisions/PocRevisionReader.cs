@@ -23,6 +23,10 @@ internal sealed class PocRevisionReader(PocRepository pocs, PocScanRepository re
         var whyNot = rule.WhyNot(row, latest)
             ?? (!access.Enforcing || access.HoldsEverywhere(user, Overrule) ? null : NeedsOverrule);
         return new PocRevisionAnswer(poc.Id, poc.Name, row.Number, latest, row.State, row.RunId, row.CommitSha,
-            PocScanVerdict.FromJson(row.VerdictJson), row.Explanation, whyNot is null, whyNot);
+            PocScanVerdict.FromJson(row.VerdictJson), row.Explanation, whyNot is null, whyNot)
+        {
+            BlockedStage = row.BlockedStage, ImageVerdict = PocScanVerdict.FromJson(row.ImageVerdictJson), Digest = row.Digest,
+            PipelineUrl = row.PipelineUrl,
+        };
     }
 }

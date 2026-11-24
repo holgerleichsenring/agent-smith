@@ -23,7 +23,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// 2026-11-23-933db, real server composition: a person without a project uploads a PoC ZIP and starts it as a new PoC —
 /// the server writes their binding and their poc- project through the real configuration store, the Poc row and its
 /// revision, and queues poc-deploy; the run, built from the queued seeds, takes the archive in to a validated revision
-/// with its port and files; 2026-11-23-933dc: then scans it and commits it to the source repo.
+/// with its port and files; 2026-11-23-933dc: then scans it and commits it to the source repo; 2026-11-23-933dd: and the
+/// host's pipeline (faked) builds, scans and pushes it.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class PocDeployCompositionTests
@@ -59,9 +60,36 @@ public sealed class PocDeployCompositionTests
 
         result.IsSuccess.Should().BeTrue(result.Message);
         var revision = await sp.GetRequiredService<AgentSmithDbContext>().Set<PocRevision>().AsNoTracking().SingleAsync(r => r.PocId == started!.PocId);
-        (revision.State, revision.Port).Should().Be((PocRevisionStates.Validated, 8000));
+        (revision.State, revision.Port).Should().Be((PocRevisionStates.Built, 8000), "933dd: the run ends after the image is pushed");
         revision.ManifestJson.Should().Contain("app.py");
         revision.CommitSha.Should().Be(await repo.OriginAsync("rev-parse", "main"), "933dc: a clean revision is committed");
+        revision.Digest.Should().Be(PocHarnessBuildHost.Digest, "933dd: the pushed digest the registry confirmed");
+        repo.Build.Starts.Single().Inputs["sha"].Should().Be(revision.CommitSha);
+    }
+
+    [Fact]
+    public async Task Import_ACriticalInTheImage_EndsBlockedAtTheImageStage()
+    {
+        await using var repo = await PocHarnessRepo.CreateAsync();
+        if (repo is null) return;
+        repo.Build.CriticalInImage = true;
+        await using var harness = RealCompositionHarness.Build(repo.Fixture(), repo.Override);
+        await using var scope = harness.Services.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+        var (upload, _) = await sp.GetRequiredService<PocUploadAdmission>().AdmitAsync(Lee, new PocUpload("todo.zip", Zip(), null), default);
+        var (started, _) = await sp.GetRequiredService<PocImportLauncher>()
+            .ImportAsync(Lee, upload!.UploadId, new PocImportRequest("new", null, "todo", null, false), default);
+        var runner = new PipelineRunner(harness.Services) { RepoOverride = repo.Repo };
+        foreach (var (key, value) in repo.Queued.Single().Context!) runner.RequestContext[key] = value;
+
+        var result = await runner.RunAsync(PipelinePresets.PocDeployName);
+
+        result.IsSuccess.Should().BeFalse();
+        var revision = await sp.GetRequiredService<AgentSmithDbContext>().Set<PocRevision>().AsNoTracking().SingleAsync(r => r.PocId == started!.PocId);
+        (revision.State, revision.BlockedStage).Should().Be((PocRevisionStates.Blocked, PocScanStages.Image));
+        PocScanVerdict.FromJson(revision.ImageVerdictJson)!.Blocks.Should().ContainSingle(b => b.Id == "trivy:CVE-2024-933|openssl|3.0.1");
+        (await sp.GetRequiredService<AgentSmithDbContext>().Set<Poc>().AsNoTracking().SingleAsync(p => p.Id == started!.PocId)).State
+            .Should().Be(PocStates.Blocked);
     }
 
     [Fact]

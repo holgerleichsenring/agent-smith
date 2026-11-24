@@ -31,9 +31,13 @@ public sealed class PocCodeScanHandler(IPocScanStore store, PocScanGate gate) : 
         return await gate.RunAsync(context, subject, cancellationToken);
     }
 
-    // What an earlier scan or the intake already decided, or null when this run scans.
+    // What an earlier scan or the intake already decided, or null when this run scans. 2026-11-23-933dd: a revision
+    // built, or blocked at the image stage, passed this stage; the build step decides the rest.
     private static CommandResult? Settled(PocScanSubject subject, bool overrule) => subject.RevisionState switch
     {
+        PocRevisionStates.Built => CommandResult.Ok($"Revision {subject.Revision} passed the code scan earlier and was built."),
+        PocRevisionStates.Blocked when subject.BlockedStage == PocScanStages.Image => CommandResult.Ok(
+            $"Revision {subject.Revision} passed the code scan earlier; its block is at the image stage."),
         PocRevisionStates.Overruled => CommandResult.Ok($"Revision {subject.Revision} was overruled earlier; it is not scanned again."),
         PocRevisionStates.Blocked when !overrule => CommandResult.Fail(
             $"Revision {subject.Revision} of '{subject.PocName}' was blocked by the code scan earlier; it is not scanned again."),

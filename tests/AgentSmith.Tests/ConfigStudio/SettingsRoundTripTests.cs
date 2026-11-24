@@ -98,7 +98,7 @@ public sealed class SettingsRoundTripTests
             {"enabled":true,"projectAgent":"a","projectTracker":"t","targets":[{"name":"main","sourceRepo":"gh/poc-src",
             "domainPattern":"{app}.poc.example.internal","reminderDays":[7,1],"perPersonLimit":2,
             "registry":{"type":"acr","loginServer":"pocregistry.azurecr.io","pullUser":"poc-pull","pullAuth":"poc_pull","pullMode":"cluster_pulls"}}],
-            "scan":{"osvImage":"ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4"}}
+            "scan":{"osvImage":"ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4","trivyImage":"aquasec/trivy@sha256:0000000000000000000000000000000000000000000000000000000000000933"}}
             """), new ChangeAttribution("op"));
 
         var pocs = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs;

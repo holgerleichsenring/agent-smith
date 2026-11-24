@@ -18,6 +18,13 @@ internal sealed class FakePipelineHost : HttpMessageHandler
         return this;
     }
 
+    /// <summary>2026-11-23-933dd: a binary answer (an artifact zip, a raw file).</summary>
+    public FakePipelineHost OnBytes(string method, string suffix, byte[] bytes)
+    {
+        _routes[$"{method} {suffix}"] = () => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) };
+        return this;
+    }
+
     public PipelineHttp Http() => new(new HttpClient(this), _ => { });
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)

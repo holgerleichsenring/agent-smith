@@ -54,4 +54,18 @@ public sealed class PocRevision : EntityBase
 
     /// <summary>2026-11-23-933dc: the source-repo commit holding the revision's files.</summary>
     public string? CommitSha { get; set; }
+
+    /// <summary>2026-11-23-933dd: the pushed image's digest ('sha256:…') the registry confirmed.</summary>
+    public string? Digest { get; set; }
+
+    /// <summary>2026-11-23-933dd: the host pipeline run building it, stored before its first read.</summary>
+    public string? PipelineRunId { get; set; }
+
+    public string? PipelineUrl { get; set; }
+
+    /// <summary>2026-11-23-933dd: the image scan's verdict (PocScanVerdict JSON); <see cref="VerdictJson"/> stays the code scan's.</summary>
+    public string? ImageVerdictJson { get; set; }
+
+    /// <summary>2026-11-23-933dd: the stage a blocked revision is blocked at ('code' | 'image'), null when not blocked.</summary>
+    public string? BlockedStage { get; set; }
 }

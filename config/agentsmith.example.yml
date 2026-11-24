@@ -735,6 +735,24 @@ pocs:
   #      pull_user: poc-pull
   #      pull_auth: poc_registry_pull_token
   #      pull_mode: pull_secret   # or cluster_pulls when the cluster can already pull
+  #    # 2026-11-23-933dd: the source repo host's pipeline builds, scans and pushes each image; the
+  #    # target's Install action (Settings > PoCs) writes it once. Names and job timeouts are written
+  #    # into it at install, so install again after changing them. The push credential lives only in
+  #    # the host: GitHub environment secrets, GitLab protected variables scoped to gitlab_environment,
+  #    # an Azure DevOps Docker registry service connection. Defaults shown.
+  #    build:
+  #      pipeline: poc-build             # Azure DevOps: the pipeline you create from the written YAML
+  #      github_environment: poc-push
+  #      gitlab_environment: poc-push
+  #      push_user_secret: POC_REGISTRY_USER
+  #      push_password_secret: POC_REGISTRY_PASSWORD
+  #      azure_service_connection: poc-registry
+  #      queue_minutes: 3
+  #      build_timeout_minutes: 12
+  #      scan_timeout_minutes: 5
+  #      push_timeout_minutes: 3          # (3+12+5+3) x 60 + scan.timeout_seconds < orchestrator.max_run_wall_time_seconds
+  #      poll_seconds: 15
+  #      report_kb: 1024
   # 2026-11-23-933db: what an uploaded PoC archive is held to (defaults shown), and when an import
   # asks whether a ZIP is really the same PoC: more than mismatch_ratio_percent of the files AND
   # more than mismatch_file_limit of them differ, or the port or the entrypoint changed.
@@ -757,6 +775,9 @@ pocs:
   #   timeout_seconds: 300
   #   unfixed_critical_block: true
   #   secret_min_confidence: 8
+  #   # 2026-11-23-933dd: the Trivy image the build pipeline's scan job runs, pinned by digest (required
+  #   # while PoCs are enabled; install again after changing it).
+  #   trivy_image: aquasec/trivy@sha256:<digest of the Trivy release you verified>
   # blocked_retention_days: 7
 
 # p0128c data-flow gating.

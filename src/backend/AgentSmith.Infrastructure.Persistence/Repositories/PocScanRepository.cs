@@ -19,7 +19,11 @@ public sealed class PocScanRepository(IUnitOfWork unitOfWork)
         if (poc is null || row is null) return null;
         var latest = await unitOfWork.Set<PocRevision>().Where(r => r.PocId == pocId).MaxAsync(r => r.Number, ct);
         return new PocScanSubject(poc.Id, poc.Name, poc.State, poc.Folder, row.Number, row.State, latest, row.UploadSession,
-            row.UploadId, row.ManifestJson, row.VerdictJson, row.OverruledIdsJson, row.CommitSha);
+            row.UploadId, row.ManifestJson, row.VerdictJson, row.OverruledIdsJson, row.CommitSha)
+        {
+            Target = poc.Target, BlockedStage = row.BlockedStage, ImageVerdictJson = row.ImageVerdictJson, Digest = row.Digest,
+            PipelineRunId = row.PipelineRunId, PipelineUrl = row.PipelineUrl,
+        };
     }
 
     /// <summary>The revision row and the PoC's latest revision number — what the revision routes read.</summary>
@@ -41,7 +45,7 @@ public sealed class PocScanRepository(IUnitOfWork unitOfWork)
         ArgumentNullException.ThrowIfNull(outcome);
         var blocked = outcome.State == PocRevisionStates.Blocked;
         var row = await unitOfWork.Set<PocRevision>().FirstAsync(r => r.PocId == outcome.PocId && r.Number == outcome.Revision, ct);
-        (row.State, row.VerdictJson) = (outcome.State, outcome.VerdictJson);
+        (row.State, row.VerdictJson, row.BlockedStage) = (outcome.State, outcome.VerdictJson, blocked ? PocScanStages.Code : null);
         if (blocked) row.Explanation = outcome.Explanation;
         await unitOfWork.SaveChangesAsync(ct);
         var (from, to) = blocked ? (new[] { PocStates.Importing, PocStates.Blocked }, PocStates.Blocked) : ([PocStates.Blocked], PocStates.Importing);

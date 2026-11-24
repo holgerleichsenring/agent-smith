@@ -29,7 +29,7 @@ public static class ServerStateExtensions
         services.AddScoped<RunRetryRequestRepository>(); // 2026-10-13-9a59n
         services.AddScoped<DeployRecordRepository>(); // 2026-11-18-3863f
         services.AddScoped<PocRepository>().AddScoped<PocAuditRepository>(); // 2026-11-23-933da
-        services.AddScoped<PocImportRepository>().AddScoped<PocRunGateRepository>().AddScoped<PocIntakeRepository>().AddScoped<PocScanRepository>(); // 933db, 933dc
+        services.AddScoped<PocImportRepository>().AddScoped<PocRunGateRepository>().AddScoped<PocIntakeRepository>().AddScoped<PocScanRepository>().AddScoped<PocBuildRepository>(); // 933db, 933dc, 933dd
         services.RemoveAll<IReworkNudges>().RemoveAll<IReworkWatermark>();
         services.AddSingleton<DbReworkNudges>();
         services.AddSingleton<IReworkNudges>(sp => sp.GetRequiredService<DbReworkNudges>());

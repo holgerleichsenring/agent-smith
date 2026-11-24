@@ -10,5 +10,5 @@ public static class PocStoreExtensions
 {
     public static IServiceCollection AddPocStores(this IServiceCollection services) =>
         services.AddSingleton<IPocProjects, DbPocProjects>().AddSingleton<IPocIntakeStore, DbPocIntakeStore>()
-            .AddSingleton<IPocScanStore, DbPocScanStore>(); // 2026-11-23-933dc
+            .AddSingleton<IPocScanStore, DbPocScanStore>().AddSingleton<IPocBuildStore, DbPocBuildStore>(); // 933dc, 933dd
 }

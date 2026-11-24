@@ -12,4 +12,11 @@ public static partial class CommandNames
 
     /// <summary>2026-11-23-933dc: commits a passed PoC revision into its folder of the target's source repo.</summary>
     public const string PocSourceCommit = "PocSourceCommitCommand";
+
+    /// <summary>2026-11-23-933dd: has the source repo host's pipeline build, image-scan and push a committed revision, and
+    /// reads back its state, scan report and pushed digest.</summary>
+    public const string PocPipelineBuild = "PocPipelineBuildCommand";
+
+    /// <summary>2026-11-23-933dd: writes the PoC build pipeline's definition into a target's source repo, once.</summary>
+    public const string PocTargetInstall = "PocTargetInstallCommand";
 }

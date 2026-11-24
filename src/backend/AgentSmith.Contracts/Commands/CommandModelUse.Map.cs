@@ -82,7 +82,7 @@ public static partial class CommandModelUse
         CommandNames.RetargetPullRequests, // 2026-11-17-9a39c
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.PostPrComments,
-        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches, CommandNames.CompletePullRequests, CommandNames.RefreshBranchBase, CommandNames.DeployToEnvironment, CommandNames.PocIntake, CommandNames.PocSourceCommit,
+        CommandNames.InitCommit, CommandNames.PrCrossLink, CommandNames.InitComplete, CommandNames.CleanupWorkBranches, CommandNames.CompletePullRequests, CommandNames.RefreshBranchBase, CommandNames.DeployToEnvironment, CommandNames.PocIntake, CommandNames.PocSourceCommit, CommandNames.PocPipelineBuild, CommandNames.PocTargetInstall,
         CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
     };
 }

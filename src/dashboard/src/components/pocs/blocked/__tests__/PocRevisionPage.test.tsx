@@ -97,6 +97,35 @@ describe("PocRevisionDetail", () => {
     expect(screen.getByTestId("poc-step-commit")).toHaveTextContent("c07d1aa");
   });
 
+  // 2026-11-23-933dd: a block at the image stage shows the image scan's findings and the pipeline; a built revision its digest.
+  it("PocRevisionDetail_BlockedAtTheImageStage_ShowsTheImageFindingsAndThePipeline", () => {
+    const image = finding({ id: "trivy:CVE-9|openssl|1.0", ruleId: "CVE-9", file: "debian 12", line: null, title: "openssl", aliases: [] });
+    render(<PocRevisionDetail view={view({
+      commitSha: "a".repeat(40), verdict: { blocks: [], notes: [], isBlocked: false, overrulable: false }, blockedStage: "image",
+      imageVerdict: { blocks: [image], notes: [NOTE], isBlocked: true, overrulable: true }, pipelineUrl: "https://host/runs/7",
+    })} />);
+
+    expect(screen.getByTestId("poc-revision-sub")).toHaveTextContent("The image scan found 1 blocking finding; nothing was pushed.");
+    expect(screen.getByTestId("poc-finding-trivy:CVE-9|openssl|1.0")).toBeInTheDocument();
+    expect(screen.getByTestId("poc-revision-pipeline")).toHaveAttribute("href", "https://host/runs/7");
+    expect(screen.getByTestId("poc-step-codeScan")).toHaveAttribute("data-look", "done");
+    expect(screen.getByTestId("poc-step-imageScan")).toHaveAttribute("data-look", "blocked");
+    expect(screen.getByTestId("poc-step-push")).toHaveAttribute("data-look", "pending");
+  });
+
+  it("PocRevisionDetail_Built_ShowsTheDigestAndEveryImageStepDone", () => {
+    const digest = "sha256:" + "1".repeat(64);
+    render(<PocRevisionDetail view={view({
+      state: "built", commitSha: "a".repeat(40), digest, verdict: { blocks: [], notes: [], isBlocked: false, overrulable: false },
+      imageVerdict: { blocks: [], notes: [NOTE], isBlocked: false, overrulable: false },
+    })} />);
+
+    expect(screen.getByTestId("poc-revision-state")).toHaveTextContent("Image built");
+    expect(screen.getByTestId("poc-revision-sub")).toHaveTextContent(`Built, scanned and pushed as ${digest.slice(0, 19)}.`);
+    expect(["build", "imageScan", "push"].map((id) => screen.getByTestId(`poc-step-${id}`).getAttribute("data-look"))).toEqual(["done", "done", "done"]);
+    expect(screen.getByTestId("poc-revision-notes")).toHaveTextContent("1 note");
+  });
+
   it("PocRevisionDetail_OlderRevision_LinksTheLatest", () => {
     render(<PocRevisionDetail view={view({ latestRevision: 5 })} />);
     expect(screen.getByTestId("poc-revision-newer").querySelector("a")).toHaveAttribute("href", "/pocs/4/revisions/5");

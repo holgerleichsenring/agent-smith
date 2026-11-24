@@ -24,7 +24,7 @@ public sealed class PocSourceCommitHandler(
         if (context.Seeds is not { PocId: { } pocId, Revision: { } revision }
             || await store.ReadAsync(pocId, revision, cancellationToken) is not { } subject)
             return CommandResult.Fail("A poc-deploy run's commit needs the PoC and revision it was seeded with; none was found.");
-        if (subject.RevisionState is not (PocRevisionStates.Validated or PocRevisionStates.Overruled) || subject.VerdictJson is null)
+        if (!PassedCodeScan(subject) || subject.VerdictJson is null)
             return CommandResult.Fail($"Revision {revision} of '{subject.PocName}' did not pass the code scan; nothing is committed.");
         if (!subject.IsLatest)
             return CommandResult.Fail($"Revision {revision} is older than r{subject.LatestRevision} of '{subject.PocName}'; nothing is committed.");
@@ -52,6 +52,11 @@ public sealed class PocSourceCommitHandler(
             return CommandResult.Fail($"Revision {subject.Revision} of '{subject.PocName}' could not be committed to {repo.Name}: {ex.Message}");
         }
     }
+
+    // 2026-11-23-933dd: built, or blocked only at the image stage, it passed the code scan and was committed before.
+    private static bool PassedCodeScan(PocScanSubject subject) =>
+        subject.RevisionState is PocRevisionStates.Validated or PocRevisionStates.Overruled or PocRevisionStates.Built
+        || (subject.RevisionState == PocRevisionStates.Blocked && subject.BlockedStage == PocScanStages.Image);
 
     private static CommandResult Published(PocSourceCommitContext context, string sha, string message)
     {
