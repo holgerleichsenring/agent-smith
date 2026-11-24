@@ -35,15 +35,17 @@ describe("seriesTicketActs", () => {
     expect(shape("56")).toEqual(["merge:merge:disabled", "pr-client:external>https://git.test/client/pull/9980", "ticket:link>/tickets/shop/56", "chain:chain"]);
   });
 
-  it("SeriesTicketActs_AnArmedMerge_IsDisabledNamingTheArm", () => {
+  it("SeriesTicketActs_AnArmedMerge_SaysSoOnTheRow_AndMergeStaysEnabled", () => {
+    // 2026-11-24-a4e7: an arm the host dropped would strand the ticket; a second Merge simply arms it again.
     const pr = overviewDetail().tickets.find((candidate) => candidate.ticketId === "50")!.pullRequests[0];
     const armed = with_("50", { pullRequests: [{ ...pr, mergeSaid: { status: "completion_armed", reason: null, at: "2026-11-24T08:00:00Z" } }] });
+    const kind = seriesNodeKind(armed.ticket, armed.detail);
 
-    const merge = seriesTicketActs(armed.ticket, armed.detail, seriesNodeKind(armed.ticket, armed.detail), false, t)[0];
+    const merge = seriesTicketActs(armed.ticket, armed.detail, kind, false, t)[0];
 
+    expect(seriesNodeSentence(armed.ticket, armed.detail, kind, t)).toContain("The merge is armed: the host completes it once CI is green.");
     expect(merge.id).toBe("merge");
-    expect(merge.disabledBy).toBe("The merge is armed: the host completes it once CI is green.");
-    expect(acts("50")[0].disabledBy).toBeUndefined();
+    expect(merge.disabledBy).toBeUndefined();
   });
 
   it("SeriesTicketActs_AQuestionOnTheTicket_AnswersOnItsPage_WithTheSeriesConversationBeside", () => {

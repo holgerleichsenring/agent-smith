@@ -17,6 +17,9 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Rework;
 using AgentSmith.Server.Services.Series;
 using AgentSmith.Tests.Tickets;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Server.Services.Tickets;
+using Microsoft.Extensions.Logging.Abstractions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -95,7 +98,26 @@ public sealed class SeriesMergeNextActTests : IDisposable
         var result = await MergeAsync("1");
 
         result.Should().BeOfType<Ok<object>>();
-        _refresh.Verify(r => r.RefreshAsync(It.Is<ResolvedProject>(p => p.Name == "alpha"), "1", It.IsAny<CancellationToken>()), Times.Exactly(reads));
+        _refresh.Verify(r => r.RefreshAsync(It.Is<ResolvedProject>(p => p.Name == "alpha"), "1"), Times.Exactly(reads));
+    }
+
+    [Fact]
+    public async Task Merge_ARefreshWhoseLockThrows_StillAnswersTheMergeLines()
+    {
+        await SeedAsync();
+        using var refreshes = new AgentSmith.Tests.Rework.Records.PrReviewRefreshHarness();
+        var locks = new Mock<IRedisClaimLock>();
+        locks.Setup(l => l.TryAcquireAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("redis is gone"));
+        var now = new PrRecordRefreshNow(refreshes.Refresh(), locks.Object, Mock.Of<IReworkNudges>(), NullLogger<PrRecordRefreshNow>.Instance);
+        await using var scope = _h.Services.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+        var act = new SeriesMergeNextAct(sp.GetRequiredService<SeriesRunDetailReader>(), sp.GetRequiredService<TicketProjects>(),
+            sp.GetRequiredService<IPreviousAttemptReader>(), _merges.Object, now);
+
+        var result = await SeriesRunEndpoints.MergeAsync("sr-1", "1", new DefaultHttpContext(), act, default);
+
+        ((SeriesMergeAnswer)((Ok<object>)result).Value!).PullRequests.Should().ContainSingle().Which.Outcome.Should().Be("merged");
     }
 
     [Fact]

@@ -58,7 +58,7 @@ public sealed class SeriesMergeNextAct(
         if (slot.Value is not { } lines)
             return TicketCloseResult.Refuse(Status500InternalServerError, $"{ticket.Key} was not merged: the merge run ended before its merge step.");
         if (lines.Any(l => l.Outcome is PullRequestCompletionOutcome.Merged or PullRequestCompletionOutcome.Armed))
-            await records.RefreshAsync(project, ticket.TicketId, ct);
+            await records.RefreshAsync(project, ticket.TicketId);
         return TicketCloseResult.Ok(new SeriesMergeAnswer(ticket.TicketId, [.. lines.Select(View)]));
     }
 

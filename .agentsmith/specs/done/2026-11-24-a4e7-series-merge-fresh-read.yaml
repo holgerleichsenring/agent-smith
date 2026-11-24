@@ -18,19 +18,20 @@ facts:
 
 scope:
   in: >-
-    PrRecordRefreshNow (Server/Services/Rework): refreshes a ticket's PR records under the nudge worker's ticket lock, the same
-    PrReviewRecordRefresh the worker runs; a busy lock enqueues a Refresh nudge instead. SeriesMergeNextAct calls it when any
-    repo's outcome is merged or armed, before answering. useSeriesRunDetail re-reads, coalesced within 2 s, on every
-    TicketActivityChanged of the series' project and on a reconnect. The Overview's Merge on a ticket whose newest merge run
-    armed auto-complete is disabled, naming the armed sentence.
+    PrRecordRefreshNow (Server/Services/Rework): reads a ticket's PR records under the nudge worker's ticket lock with the
+    same PrReviewRecordRefresh the worker runs, without the CI loop (ciLoop: false), then queues one Refresh nudge so the
+    worker runs the loop; a busy lock reads nothing and leaves it to that nudge. It runs on no token and throws nothing.
+    SeriesMergeNextAct calls it when any repo's outcome is merged or armed, before answering. useSeriesRunDetail re-reads,
+    coalesced within 2 s, on every TicketActivityChanged of the series' project and on a reconnect. An armed ticket keeps
+    its enabled Merge and the existing armed sentence.
   out: >-
     A refresh inside MergeGreenRun (CiGreenMerge calls the run from inside a refresh). A new "armed" merge-order wait on the
     server. A polling interval on the page.
 
 tests:
-  - "PrRecordRefreshNowTests: a free lock refreshes the records from the host and releases the lock; a busy lock enqueues one Refresh nudge and reads nothing."
-  - "SeriesMergeNextActTests: a merged or armed outcome refreshes the ticket's records before the answer; a refused one does not."
-  - "Dashboard useSeriesRunDetail: a TicketActivityChanged of the series' project re-reads, another project's does not. seriesTicketActs: an armed ticket's Merge is disabled with the armed sentence."
+  - "PrRecordRefreshNowTests: a free lock reads the merge from the host, releases the lock and queues one Refresh nudge; a busy lock reads nothing and queues it; a throwing lock or nudge queue throws nothing."
+  - "SeriesMergeNextActTests: a merged or armed outcome refreshes the ticket's records before the answer, a refused one does not; a refresh whose lock throws still answers the merge lines. CiGreenMergeTests: a refresh without the CI loop starts no merge-green run."
+  - "Dashboard useSeriesRunDetail: a burst of the series' project's TicketActivityChanged reads once, another project's reads nothing, a reconnect reads again. seriesTicketActs: an armed ticket says so and keeps an enabled Merge."
 
 done:
   - "Build, the affected backend and dashboard tests green; the spec gate passed."
