@@ -9,6 +9,11 @@ public interface ISeriesRunLaunch
     Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken cancellationToken,
         string? checkoutBranch = null);
 
+    /// <summary>2026-11-24-f9c5e: a refresh-base run that brings the series branch's final pull request up to date with the
+    /// default branch it conflicts with; answers the run id.</summary>
+    Task<string> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber, string baseBranch,
+        CancellationToken cancellationToken);
+
     /// <summary>2026-11-17-0207d: whether a run the series launched has ended (or is gone).</summary>
     Task<bool> FinishedAsync(string runId, CancellationToken cancellationToken);
 }

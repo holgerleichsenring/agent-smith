@@ -32,6 +32,7 @@ public sealed class GitHubMergeModes(
         var completion = await merger.CompleteAsync(prUrl, sourceBranch, ct);
         return completion.Outcome == PullRequestCompletionOutcome.Refused
             ? BypassRefusal.Of(Policy, "GitHub", completion.Reason ?? "GitHub refused the merge", Permission)
+                with { Conflicts = completion.Conflicts } // 2026-11-24-f9c5e
             : completion;
     }
 

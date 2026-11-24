@@ -19,7 +19,7 @@ export interface SeriesRunRow {
   /** The conversation's subject, else the first ticket's title. */
   name: string;
   project: string;
-  /** running · verifying · paused · done · stopped */
+  /** running · verifying · delivering · paused · done · stopped */
   state: string;
   counts: SeriesRunCounts;
   /** The key of the ticket whose pull requests merge next; null when none is ready. */

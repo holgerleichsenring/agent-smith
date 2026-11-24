@@ -93,7 +93,8 @@ export function DialogPane({
     ...(series ? (["series"] as const) : []),
   ];
   // 2026-11-17-0207e: while a series runs its panel is what the column shows first.
-  const running = series && (series.state === "running" || series.state === "verifying" || series.state === "paused"); // 1b72a
+  const running = series && (series.state === "running" || series.state === "verifying" || series.state === "paused"
+    || series.state === "delivering"); // 1b72a, 2026-11-24-f9c5e
   const fallback: DialogPaneTab = running ? "series" : filed ? "filed" : proposal ? "proposal" : "scope";
   const tab = focus && offered.includes(focus.tab) ? focus.tab : fallback;
   const ids = useId();

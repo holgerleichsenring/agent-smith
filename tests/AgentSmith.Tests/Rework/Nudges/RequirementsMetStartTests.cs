@@ -440,7 +440,7 @@ public sealed class RequirementsMetStartTests : IDisposable
         var waiting = Waiting(project);
         return new(new AgentSmith.Server.Services.Tickets.TicketProjects(loader.Object, new ServerContext("c.yml")),
             TicketRequirementDoubles.Of(_facts, _approvals), null!, _attempts.Object, null!, null!, null!, null!, waiting,
-            _nudges.Object, _locks.Object);
+            _nudges.Object, _locks.Object, _facts, null!);
     }
 
     private ReworkFallbackSpawn Fallback(AgentSmithConfig config)

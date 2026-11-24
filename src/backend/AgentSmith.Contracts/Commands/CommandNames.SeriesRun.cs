@@ -17,6 +17,10 @@ public static partial class CommandNames
     /// the cadence is due.</summary>
     public const string PostSeriesStatus = "PostSeriesStatusCommand";
 
+    /// <summary>2026-11-24-f9c5e: a beat's delivery of a series with a series branch: once every ticket landed, one pull request
+    /// per repo from the series branch into the default branch, merged under merge.when once the series check passed.</summary>
+    public const string DeliverSeries = "DeliverSeriesCommand";
+
     /// <summary>2026-11-17-0207d: the series-verify run's check of the series' done criteria on the default branch;
     /// failures not followed up before become one follow-up the run's filing steps file into the series.</summary>
     public const string VerifySeries = "VerifySeriesCommand";

@@ -45,9 +45,17 @@ Write in the same conversation. A message from someone holding `runs.control` go
 
 When the master asks a question with a recommended answer, or a ticket's run parks on a question with one, the question appears in the conversation. Answer it there. If nobody answers within `dialogue.question_default_minutes` (default 120), the series takes the recommendation, posts *Taken by default at HH:mm: …* and hands the answer on: to the master, or to the parked run, which resumes. A question without a recommendation waits for you.
 
+## The series branch
+
+A series works on its own branch in every repository it touches, `agent-smith/series/<id>`, cut from the default branch by its first ticket there. Each ticket starts from that branch once the tickets it requires have landed on it, opens its pull request against it, and merges into it under `merge.series_when` (default `on_ci_green`; `manual` for teams that review every ticket). What else lands on the default branch meanwhile does not reach the series until its end. A ticket outside the series that requires one of its tickets waits until the series has reached the default branch. If a series pull request reports no CI, agent-smith starts its repository's pull-request CI ([CI loop](ci-loop.md#series-branches)).
+
+When every ticket has landed on the series branch, one pull request per repository takes it into the default branch. After the check passes, that pull request merges under `merge.when` in the project's protection mode; a conflict with the default branch starts a `refresh-base` run that brings the series branch up to date. The series is done once every one has merged. A closed one is said, and the branch is kept: only its final merge removes it.
+
+A series opened before series branches existed keeps working ticket by ticket into the default branch.
+
 ## The check on main
 
-Once every ticket has landed, a `series-verify` run checks out the default branch and runs the specs' done criteria against the merged result. This is the cross-ticket check no single ticket's verification can make.
+Once every ticket has landed, a `series-verify` run checks out the series branch (the default branch for a series without one) and runs the specs' done criteria against the merged result. This is the cross-ticket check no single ticket's verification can make.
 
 - New failures become **one follow-up ticket**, filed and started in the same series.
 - A check with nothing new closes the series with a summary: cost, duration, landed, open, and *Nothing waits on you.* when nothing does.

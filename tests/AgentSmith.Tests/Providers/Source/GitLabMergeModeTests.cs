@@ -31,6 +31,19 @@ public sealed class GitLabMergeModeTests
         body.Should().NotContain("merge_when_pipeline_succeeds");
     }
 
+    // 2026-11-24-f9c5e: GitLab's 406 is 'Branch cannot be merged' — a conflict, which a refresh can resolve; a 405 is not.
+    [Theory]
+    [InlineData(HttpStatusCode.NotAcceptable, true)]
+    [InlineData(HttpStatusCode.MethodNotAllowed, false)]
+    public async Task Bypass_Refused_SaysWhetherItConflicts(HttpStatusCode status, bool conflicts)
+    {
+        var sut = Sut(_ => Json(status, """{"message":"Branch cannot be merged"}"""));
+
+        var completion = await sut.MergePullRequestAsync(MrUrl, Branch, BranchProtection.Bypass, CancellationToken.None);
+
+        completion.Conflicts.Should().Be(conflicts);
+    }
+
     [Fact]
     public async Task Bypass_Refused_NamesPolicyPermissionAndKey()
     {

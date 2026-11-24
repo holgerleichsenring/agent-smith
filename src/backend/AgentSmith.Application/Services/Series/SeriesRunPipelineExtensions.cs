@@ -18,6 +18,8 @@ public static class SeriesRunPipelineExtensions
         services.AddTransient<ICommandHandler<VerifySeriesContext>, VerifySeriesHandler>(); // 0207d
         services.AddTransient<ICommandHandler<OpenSeriesRunContext>, OpenSeriesRunHandler>();
         services.AddTransient<ICommandHandler<ReadSeriesContext>, ReadSeriesHandler>();
+        services.AddTransient<SeriesFinalMerge>().AddTransient<SeriesFinalPullRequest>() // 2026-11-24-f9c5e
+            .AddTransient<ICommandHandler<DeliverSeriesContext>, DeliverSeriesHandler>();
         services.AddTransient<ICommandHandler<SeriesMasterContext>, SeriesMasterHandler>();
         services.AddTransient<ICommandHandler<PostSeriesStatusContext>, PostSeriesStatusHandler>();
         return services;

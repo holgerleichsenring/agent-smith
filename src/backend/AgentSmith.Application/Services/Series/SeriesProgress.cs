@@ -7,6 +7,8 @@ namespace AgentSmith.Application.Services.Series;
 /// 2026-11-17-0207d: where the series stands, moved on at the start of each beat. Once every ticket landed the series
 /// check starts on the default branch; its verdict is reported once; a verdict that filed a follow-up keeps the series
 /// running, one with no new failure ends it. A check that ended without a verdict is said and left to the master.
+/// <para>2026-11-24-f9c5e: a series with a series branch is not ended by its verdict but moved to Delivering: its final pull
+/// requests into the default branch merge next (<see cref="DeliverSeriesHandler"/>), and that ends it.</para>
 /// </summary>
 public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launch)
 {
@@ -44,15 +46,20 @@ public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launc
         // 2026-11-19-1b72a: a verdict that arrives during a pause ends the series it would have ended.
         var ends = followUp is null && (beat.Record.State == SeriesRunStates.Paused ? beat.Record.PausedFrom : beat.Record.State)
             == SeriesRunStates.Verifying;
+        var next = EndState(beat.Record.IntegrationBranch); // 2026-11-24-f9c5e: Delivering for a series with a branch
+        var paused = beat.Record.State == SeriesRunStates.Paused;
         await KeepAsync(beat, r => r with
         {
             Verdicts = [.. r.Verdicts.Take(r.Verdicts.Count - 1), r.Verdicts[^1] with { Reported = true }], // not a limit: all but the last
-            State = ends ? SeriesRunStates.Done : r.State, FinishedAt = ends ? beat.Now : r.FinishedAt,
-            PausedFrom = ends ? null : r.PausedFrom,
+            State = ends && !(paused && next == SeriesRunStates.Delivering) ? next : r.State,
+            FinishedAt = ends && next == SeriesRunStates.Done ? beat.Now : r.FinishedAt,
+            PausedFrom = !ends ? r.PausedFrom : paused && next == SeriesRunStates.Delivering ? SeriesRunStates.Delivering : null,
         }, ct);
     }
 
     private static bool Verdicted(SeriesRunRecord record, string run) => record.Verdicts.Any(v => v.RunId == run);
+
+    private static string EndState(string? integrationBranch) => integrationBranch is null ? SeriesRunStates.Done : SeriesRunStates.Delivering;
 
     private async Task KeepAsync(SeriesBeat beat, Func<SeriesRunRecord, SeriesRunRecord> change, CancellationToken ct)
     {

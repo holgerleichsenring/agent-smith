@@ -37,7 +37,7 @@ public sealed class GitHubPullRequestMerger(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Merging PR #{Pr} was refused", prNumber);
-            return PullRequestCompletion.Refused(ex.Message);
+            return PullRequestCompletion.Refused(ex.Message) with { Conflicts = ex is PullRequestNotMergeableException && await DirtyAsync(prNumber) };
         }
     }
 
@@ -72,6 +72,13 @@ public sealed class GitHubPullRequestMerger(
         {
             logger.LogInformation(ex, "Merged branch {Branch} was not deleted", branch);
         }
+    }
+
+    // 2026-11-24-f9c5e: GitHub refuses a merge that is not mergeable for several reasons; 'dirty' is the conflict.
+    private async Task<bool> DirtyAsync(int prNumber)
+    {
+        try { return (await clientFactory.Create(address, token).PullRequest.Get(address.Owner, address.Repo, prNumber)).MergeableState?.StringValue == "dirty"; }
+        catch (Exception) { return false; } // a best-effort read: an unreadable state is no conflict
     }
 
     private PullRequestCompletion Completed(PullRequestMerge merge, int prNumber, PullRequestMergeMethod method)

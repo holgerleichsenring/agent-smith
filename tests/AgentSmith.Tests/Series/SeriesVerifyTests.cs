@@ -160,4 +160,25 @@ public sealed class SeriesVerifyTests
         _launch.Verify(l => l.LaunchAsync("sample", PipelinePresets.SeriesVerifyName, "sr-1", It.IsAny<CancellationToken>(), branch), Times.Once);
         beat.Said.Should().ContainSingle().Which.Should().Contain($"series check on {branch} runs now");
     }
+
+    // 2026-11-24-f9c5e: a series with a branch is not ended by its verdict: its final pull requests merge next.
+    [Fact]
+    public async Task Progress_VerdictWithNothingNew_OnASeriesBranch_MovesToDelivering_AndKeepsAPause()
+    {
+        var verdict = new SeriesVerdict("run-v", SeriesRecords.T, [new(Criteria[0].Cited, true, "ok")]);
+        var beat = await BeatAsync(SeriesRecords.Running() with
+        {
+            State = SeriesRunStates.Verifying, VerifyRunId = "run-v", Verdicts = [verdict], IntegrationBranch = "agent-smith/series/sr-1",
+        });
+
+        await Progress.MoveAsync(beat, default);
+
+        _store.Records["sr-1"].Should().Match<SeriesRunRecord>(r => r.State == SeriesRunStates.Delivering && r.FinishedAt == null);
+        _store.Records["sr-1"] = _store.Records["sr-1"] with
+        {
+            State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Verifying, Verdicts = [verdict with { Reported = false }],
+        };
+        await Progress.MoveAsync(await BeatAsync(_store.Records["sr-1"]), default);
+        _store.Records["sr-1"].Should().Match<SeriesRunRecord>(r => r.State == SeriesRunStates.Paused && r.PausedFrom == SeriesRunStates.Delivering);
+    }
 }

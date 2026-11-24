@@ -99,4 +99,20 @@ public sealed class SeriesTableTests
         SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(14), 15).Should().BeNull();
         SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(15), 15).Should().Be("the status is due");
     }
+
+    // 2026-11-24-f9c5e: a Delivering series reads its final pull requests again at the cadence it is given.
+    [Fact]
+    public void SeriesBeatDue_Delivering_IsDueEveryDeliverInterval()
+    {
+        var facts = new[] { SeriesRecords.Fact("43", landed: SeriesRecords.T) };
+        var record = SeriesRecords.Running() with
+        {
+            State = AgentSmith.Contracts.Series.SeriesRunStates.Delivering, LastTable = SeriesTable.Snapshot(SeriesTable.Rows(facts, SeriesRecords.T)),
+            LastStatusAt = SeriesRecords.T, LastDeliveredAt = SeriesRecords.T,
+        };
+
+        SeriesBeatDue.Why(record, facts, SeriesRecords.T.AddSeconds(30), 15, TimeSpan.FromSeconds(60)).Should().BeNull();
+        SeriesBeatDue.Why(record, facts, SeriesRecords.T.AddSeconds(60), 15, TimeSpan.FromSeconds(60)).Should().Be("the series delivers");
+        SeriesBeatDue.Why(record, facts, SeriesRecords.T.AddSeconds(60), 15).Should().BeNull("without an interval the status cadence decides");
+    }
 }

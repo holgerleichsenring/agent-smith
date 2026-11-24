@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Series;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Services.Lifecycle;
+using AgentSmith.Server.Services.Tickets;
 
 namespace AgentSmith.Server.Services.Series;
 
@@ -13,9 +14,19 @@ namespace AgentSmith.Server.Services.Series;
 /// takes it.
 /// </summary>
 public sealed class SeriesRunLaunch(
-    InitRunRepository runs, QueuedRunDispatch dispatch, RunRepository rows, TimeProvider clock, ILogger<SeriesRunLaunch> logger)
+    InitRunRepository runs, QueuedRunDispatch dispatch, RunRepository rows, TimeProvider clock, ILogger<SeriesRunLaunch> logger,
+    TicketProjects projects, Branches.BaseRefreshLauncher refreshes)
     : ISeriesRunLaunch
 {
+    /// <summary>2026-11-24-f9c5e: the refresh-base run of a series' final pull request, through the launcher every refresh takes.</summary>
+    public async Task<string> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber, string baseBranch,
+        CancellationToken cancellationToken)
+    {
+        var resolved = projects.Of(project) ?? throw new InvalidOperationException($"Project '{project}' is not configured.");
+        var connection = resolved.Repos.FirstOrDefault(r => r.Name == repo) ?? throw new InvalidOperationException($"No repo '{repo}' in '{project}'.");
+        return await refreshes.LaunchAsync(resolved, connection, branch, prUrl, prNumber, baseBranch, shownOnTicket: null, cancellationToken);
+    }
+
     public async Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken cancellationToken,
         string? checkoutBranch = null)
     {

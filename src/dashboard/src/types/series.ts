@@ -16,7 +16,7 @@ export type SeriesAct = "pause" | "resume";
 
 export interface SeriesRunView {
   id: string;
-  /** running · verifying · paused · done · stopped */
+  /** running · verifying · delivering · paused · done · stopped */
   state: string;
   /** "series running", "series running · 1 question for you", "series done", … */
   headState: string;

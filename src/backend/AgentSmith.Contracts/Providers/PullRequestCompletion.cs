@@ -8,6 +8,10 @@ namespace AgentSmith.Contracts.Providers;
 /// </summary>
 public sealed record PullRequestCompletion(PullRequestCompletionOutcome Outcome, string? Reason)
 {
+    /// <summary>2026-11-24-f9c5e: the host refused because the pull request conflicts with its base — bringing the branch up to
+    /// date is what it needs; false for every other refusal and wherever the host did not say.</summary>
+    public bool Conflicts { get; init; }
+
     /// <summary>The pull request is merged / completed on the platform.</summary>
     public static PullRequestCompletion Merged() => new(PullRequestCompletionOutcome.Merged, null);
 

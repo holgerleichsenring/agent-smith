@@ -73,8 +73,9 @@ public sealed class GitLabMergeRequestUpdater(
                 new { should_remove_source_branch = true }, cancellationToken);
             var answer = GitLabMergeAnswer.Parse(
                 await response.Content.ReadAsStringAsync(cancellationToken));
-            if (!response.IsSuccessStatusCode)
-                return Refuse(iid, $"GitLab answered {(int)response.StatusCode}: {answer.Message}");
+            if (!response.IsSuccessStatusCode) // 2026-11-24-f9c5e: 406 is GitLab's 'Branch cannot be merged' — a conflict
+                return Refuse(iid, $"GitLab answered {(int)response.StatusCode}: {answer.Message}")
+                    with { Conflicts = response.StatusCode == System.Net.HttpStatusCode.NotAcceptable };
             if (answer.State is { } state && state != "merged")
                 return Refuse(iid, $"GitLab left the merge request in state '{state}'.");
             logger.LogInformation("MR !{Iid} merged", iid);

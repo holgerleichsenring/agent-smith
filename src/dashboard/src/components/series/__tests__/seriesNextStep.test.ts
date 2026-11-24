@@ -24,7 +24,8 @@ describe("seriesNextStep", () => {
   });
 
   it("seriesStateWord_KnownAndUnknown", () => {
-    expect(seriesStateWord("verifying", t)).toBe("checking on main");
+    expect(seriesStateWord("verifying", t)).toBe("checking");
+    expect(seriesStateWord("delivering", t)).toBe("merging into the default branch"); // 2026-11-24-f9c5e
     expect(seriesStateWord("odd", t)).toBe("odd");
     expect(seriesStateWord("paused", translator("de"))).toBe("pausiert");
   });

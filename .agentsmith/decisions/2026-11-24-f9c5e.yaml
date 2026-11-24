@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-f9c5e
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "When every ticket landed on the series branch, one pull request per repo takes it into the default branch, under merge.when and the host's policies; a conflict is brought up to date by 2026-11-24-6811's refresh"
+    over: "Each ticket into the default branch (today)"
+    reason: "Operator design 2026-11-24; develop moving meanwhile is ignored until then."
+  - category: Architecture
+    decider: claude
+    chose: "The beat's own step (DeliverSeries in the series-run pipeline) opens, reads and merges the final pull requests; the host is the store of their state, read each beat through the branch's pull requests"
+    over: "Recording the final pull request as a PrReviewRecord keyed to the series; a delivery pipeline of its own"
+    reason: "Review finding (no second path): keeping a pull request's state on the series record would be a second store of it. PrReviewRecords are derived from a ticket's runs and every reader of them is ticket-shaped; a series-keyed record would leak into the ticket list and holds. The record keeps only the series' own account (what it opened, what it last said, the head it refreshed, when it first saw no CI) — like the master's thread it keeps already."
+  - category: Implementation
+    decider: claude
+    chose: "The merge takes PullRequestApprovalStep and PullRequestCompleter, the primitives every merge path takes, in the project's protection mode"
+    over: "The merge-green run's PullRequestMergeSequence"
+    reason: "The sequence is ticket-shaped (requirements, the attempt's marks, the rung refusal); the final pull request has no ticket. The approval (approval_auth) and the completion (bypass or arm, branch deletion) are the same calls."
+  - category: Implementation
+    decider: claude
+    chose: "A refresh-base run is launched only for a refusal the host reports as a conflict (PullRequestCompletion.Conflicts: Azure MergeStatus Conflicts, GitHub mergeable_state dirty, GitLab 406), once per head"
+    over: "A refresh on any refusal"
+    reason: "Review finding: a missing review or red CI would push the default branch into the series branch for nothing. Under merge.when manual agent-smith tries no merge, so a conflict there is the person's to see on the host until 2026-11-24-6811a's state read can feed it."
+  - category: Implementation
+    decider: claude
+    chose: "Branch cleanup never deletes an agent-smith/series/ branch"
+    over: "Deleting it like any branch whose pull request ended"
+    reason: "Review finding (blocker): the ticket branches are gone once merged, so after a closed final pull request the series branch is the only copy of the series' work; the host deletes it when the final pull request merges."
+  - category: Implementation
+    decider: claude
+    chose: "A Delivering series is beaten every merge.ci_poll_seconds under merge.when on_ci_green, otherwise at the status cadence"
+    over: "A beat every ci_poll_seconds whatever merge.when says"
+    reason: "Review finding: under manual a fixed fast cadence costs a run row per poll for a merge a person makes; the status cadence notices it soon enough."
+  - category: Scope
+    decider: claude
+    chose: "A closed final pull request is said and the series stays delivering; the operator reopens it or stops the series"
+    over: "Stopping the series; reopening it"
+    reason: "Closing it is a person's act whose intent agent-smith cannot read. Recorded as an operator question in the series report (review Q4)."
+  - category: Scope
+    decider: claude
+    chose: "The final pull request merges in the project's protection mode (merge.respect_branch_protection)"
+    over: "Always respecting branch protection for it"
+    reason: "The brief says it follows merge.when and the host's policies, and merge.respect_branch_protection is how a project already says whether its merges respect them; a single-ticket pull request into the default branch merges the same way. Recorded as an operator question in the series report (review Q2)."
