@@ -68,6 +68,10 @@ describe("yourMove", () => {
     // 2026-11-24-6811d: a refused refresh is titled as one.
     const refused = moveOf("needs_you", attempt(), { pullRequests: [pr({ state: "open" })], hold: hold("refresh_refused") });
     expect(refused).toMatchObject({ tone: "bad", title: "Your move: the base could not be merged in", why: false });
+    // 2026-11-24-9dc0e: its act tries the refresh again on the refused pull request.
+    const again = moveOf("needs_you", attempt(), { pullRequests: [pr({ state: "open" })],
+      hold: hold("refresh_refused", { act: { kind: "pull_request", target: "https://example.test/pr/809" } }) });
+    expect(again).toMatchObject({ act: { kind: "refresh", url: "https://example.test/pr/809" }, next: "Try again" });
   });
 
   it("yourMove_AMergeAndAChangedText_AreAPersonsMove", () => {

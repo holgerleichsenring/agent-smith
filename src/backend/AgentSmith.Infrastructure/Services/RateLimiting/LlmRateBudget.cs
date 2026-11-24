@@ -28,16 +28,19 @@ public static class LlmRateBudget
     }
 
     /// <summary>
-    /// 2026-11-22-66e4a: how the provider counts a call. Azure and OpenAI count cached prompt tokens toward TPM and
-    /// add the request's max_tokens to their admission estimate; Anthropic's ITPM counts uncached input and cache
+    /// 2026-11-22-66e4a: how the provider counts a call. Azure and OpenAI count cached prompt tokens toward TPM; OpenAI
+    /// adds the request's max_tokens to its admission estimate; Anthropic's ITPM counts uncached input and cache
     /// writes, not cache reads — the tenth p0374 reserved for them stays as headroom. Every other provider counts
-    /// every input token.
+    /// every input token. 2026-11-24-9dc0d: Azure counts the actual input and generated tokens, not max_tokens
+    /// (learn.microsoft.com/azure/foundry/openai/how-to/quota); its docs say nothing about cached tokens, so they
+    /// count in full as OpenAI's do.
     /// </summary>
     public static ProviderQuotaRule RuleFor(string providerType) =>
         providerType.ToLowerInvariant() switch
         {
-            "claude" or "anthropic" => new ProviderQuotaRule(CachedReadWeight: 0.1, CountsMaxOutput: false),
-            "openai" or "azure_openai" or "azure-openai" => new ProviderQuotaRule(CachedReadWeight: 1.0, CountsMaxOutput: true),
+            "claude" or "anthropic" => new ProviderQuotaRule(CachedReadWeight: 0.1, Output: OutputCount.None),
+            "openai" => new ProviderQuotaRule(CachedReadWeight: 1.0, Output: OutputCount.MaxTokens),
+            "azure_openai" or "azure-openai" => new ProviderQuotaRule(CachedReadWeight: 1.0, Output: OutputCount.Generated),
             _ => ProviderQuotaRule.EveryToken,
         };
 

@@ -16,17 +16,45 @@ public sealed class ModelQuotaCountingTests
 {
     private static readonly ModelQuotaScope Scope = new("k", "azure_openai", "dep");
 
+    // 2026-11-24-9dc0d: Azure counts actual input and generated tokens; max_tokens reserves nothing.
     [Fact]
-    public async Task Settle_AzureCall_DebitsTheCountedInputIncludingCachedAndKeepsMaxOutput()
+    public async Task Settle_AzureCall_DebitsTheCountedInputIncludingCachedAndTheGeneratedOutput()
     {
         var limiter = new LlmRateLimiter(
             new LlmRateLimitOptions(250, 250_000, LlmRateBudget.RuleFor("azure_openai")), new FrozenClock());
 
         var lease = await limiter.AcquireAsync(new LlmQuotaDemand(100, 8_192), CancellationToken.None);
-        lease.Settle(new UsageDetails { InputTokenCount = 50_000, CachedInputTokenCount = 45_000 }, null, TimeSpan.Zero);
+        limiter.Snapshot(Scope).FreeTokens.Should().Be(250_000 - 100, "the admission holds the input estimate only");
+        lease.Settle(new UsageDetails { InputTokenCount = 50_000, CachedInputTokenCount = 45_000, OutputTokenCount = 600 }, null, TimeSpan.Zero);
 
-        limiter.Snapshot(Scope).FreeTokens.Should().Be(250_000 - 50_000 - 8_192,
-            "Azure counts the cached prompt tokens and keeps the max_tokens its admission reserved");
+        limiter.Snapshot(Scope).FreeTokens.Should().Be(250_000 - 50_000 - 600,
+            "Azure counts the cached prompt tokens and the tokens generated, not max_tokens");
+    }
+
+    [Fact]
+    public async Task Settle_AzureCall_LearnsTheInputRatioFromInputAlone()
+    {
+        var limiter = new LlmRateLimiter(
+            new LlmRateLimitOptions(250, 250_000, LlmRateBudget.RuleFor("azure_openai")), new FrozenClock());
+
+        var lease = await limiter.AcquireAsync(new LlmQuotaDemand(1_000, 8_192), CancellationToken.None);
+        lease.Settle(new UsageDetails { InputTokenCount = 1_000, OutputTokenCount = 50_000 }, null, TimeSpan.Zero);
+        var before = limiter.Snapshot(Scope).FreeTokens;
+        await limiter.AcquireAsync(new LlmQuotaDemand(1_000, 8_192), CancellationToken.None);
+
+        (before - limiter.Snapshot(Scope).FreeTokens).Should().Be(1_000, "an output-heavy call does not inflate the next input estimate");
+    }
+
+    [Fact]
+    public async Task Settle_OpenAiCall_StillKeepsMaxOutput()
+    {
+        var limiter = new LlmRateLimiter(
+            new LlmRateLimitOptions(250, 250_000, LlmRateBudget.RuleFor("openai")), new FrozenClock());
+
+        var lease = await limiter.AcquireAsync(new LlmQuotaDemand(100, 8_192), CancellationToken.None);
+        lease.Settle(new UsageDetails { InputTokenCount = 50_000, CachedInputTokenCount = 45_000, OutputTokenCount = 600 }, null, TimeSpan.Zero);
+
+        limiter.Snapshot(Scope).FreeTokens.Should().Be(250_000 - 50_000 - 8_192);
     }
 
     [Fact]

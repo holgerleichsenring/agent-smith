@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-9dc0a
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "The server decides whether a conflict resolution is whole (nothing unmerged, no marker; the declared stages after the commit); conclude supplies the reason, and whole=false stops"
+    over: "A missing conclude counting as not whole (6811c)"
+    reason: "Production run b5c4 resolved every conflict, went green and lost it all at the loop cap because conclude never ran. The operator asked for the harness to decide, not the model's last call."
+  - category: Architecture
+    decider: claude
+    chose: "A pass that leaves paths open is continued in the same conversation while the open set shrinks (fewer paths, or as many with fewer marker lines) and the cost budget lasts; without progress it is asked once with conclude as the only tool"
+    over: "An iteration setting of the master's own; a single re-prompt for the reason only"
+    reason: "No new limit is needed: progress only falls, so the continuation ends. A large single file cut off mid-resolution still shows progress in its marker lines. A setting would be a cap the operator explicitly did not want."
+  - category: Implementation
+    decider: claude
+    chose: "Stage only what the master resolved: its file-tool writes without a marker, and unmerged paths gone from disk; a path still unmerged that it neither wrote nor staged stays open"
+    over: "Staging every conflicted path and judging by markers (6811c)"
+    reason: "Review: staging a marker file erases its index stages (--ours/--theirs, :2:/:3:) for a continued pass, and a conflict git left without markers (binary, modify/delete, a merge driver) would be taken as the side on disk."
+  - category: Implementation
+    decider: claude
+    chose: "conclude(whole=true) in a conflict pass asks the server's check first and answers what is open instead of recording"
+    over: "Refusing a whole claim over an unresolved tree after the loop"
+    reason: "Review: the master can carry on in the same loop, which costs nothing and removes a refusal branch."
+  - category: Implementation
+    decider: claude
+    chose: "BaseMergeSession holds the reused MasterConversation and one FilesystemToolHost; each continuation's cost is tracked"
+    over: "A transcript list on BaseMergePass"
+    reason: "Review: MasterConversation is the existing append-only, cache-ordered thread; the file host must be the same for writes to accumulate."
+  - category: Implementation
+    decider: claude
+    chose: "A repair amend resets the index before staging the file tools' writes"
+    over: "Amending whatever the index holds"
+    reason: "Review: a master that stages files itself (a build output after git add -A) would have them amended into the merge commit."
+  - category: Scope
+    decider: claude
+    chose: "A conflict names the paths still open after the master, else after the unions — on the refresh and on a rework checkout alike"
+    over: "The conflict list from before the unions"
+    reason: "The refusal listed MEMORY.md, which the union had already resolved; StateIndexMergeTests now asserts the code path alone."
+  - category: Review
+    decider: claude
+    chose: "Adversarial spec review BUILD WITH CUTS: whole=false first, no staging of marker files, marker-free conflicts stay open, in-loop check, marker-line progress, MasterConversation reuse, conclude-only test, index reset before an amend — all applied"
+    over: "Building the first draft"
+    reason: "Independent review before code."
+  - category: Review
+    decider: claude
+    chose: "Diff review fixes: whole=false stops even over a tree the check finds whole; the baseline check before a pass only reads (a rename/rename's old path is not taken as a removal before the master looks); the marker check covers the conflicted and written paths only (an auto-merged file whose lines start like a marker is no conflict); every refresh git call reads names with core.quotePath=false; a repair levels the tree before the master and amends its file-tool writes, its tracked changes (git add -u) and what it staged by name"
+    over: "The first build"
+    reason: "Review found whole=false committed a whole tree; a staging baseline resolved a removal for the master; quoted non-ASCII names never matched; and a repair made by command (git checkout --theirs, a regenerated lockfile) was reset away, which the 9dc0b prompt invites. Levelling before the pass keeps the stage's outputs out instead of resetting the index."

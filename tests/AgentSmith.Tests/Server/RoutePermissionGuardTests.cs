@@ -167,6 +167,11 @@ public sealed class RoutePermissionGuardTests
     public void RoutePermissionGuard_LandedByHand_NeedsRunsControl() =>
         Declaration("POST", "/api/tickets/{project}/{ticketId}/landed-by-hand").Should().Equal(Permissions.RunsControl);
 
+    // 2026-11-24-9dc0e: Try again on a refused refresh starts a refresh-base run, like a Retry.
+    [Fact]
+    public void RoutePermissionGuard_TicketRefreshBase_NeedsRunsControl() =>
+        Declaration("POST", "/api/tickets/{project}/{ticketId}/refresh-base").Should().Equal(Permissions.RunsControl);
+
     // 2026-10-15-114fa: a close may close pull requests and tracker tickets, and a reopen undoes it.
     [Fact]
     public void RoutePermissionGuard_TicketCloseAndReopen_NeedRunsControl()

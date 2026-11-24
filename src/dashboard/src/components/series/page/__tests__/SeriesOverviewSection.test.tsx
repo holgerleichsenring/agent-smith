@@ -7,14 +7,17 @@ import { overviewDetail, seriesDetail } from "./seriesFixtures";
 // click outside close the menu; one act's outcome shows once; the chips, list and bar agree; a row lights its chain.
 
 const hoisted = vi.hoisted(() => ({
-  merge: vi.fn(), retry: vi.fn(), fetch: vi.fn(), changes: vi.fn(), replace: vi.fn(), push: vi.fn(), lacks: false, search: "",
+  merge: vi.fn(), retry: vi.fn(), refresh: vi.fn(), fetch: vi.fn(), changes: vi.fn(), replace: vi.fn(), push: vi.fn(), lacks: false, search: "",
 }));
 vi.mock("@/lib/seriesRunsApi", () => ({
   mergeSeriesTicket: (...a: unknown[]) => hoisted.merge(...a),
   fetchSeriesRun: (...a: unknown[]) => hoisted.fetch(...a),
   fetchSeriesRunChanges: (...a: unknown[]) => hoisted.changes(...a),
 }));
-vi.mock("@/lib/ticketsApi", () => ({ retryAttempt: (...a: unknown[]) => hoisted.retry(...a) }));
+vi.mock("@/lib/ticketsApi", () => ({
+  retryAttempt: (...a: unknown[]) => hoisted.retry(...a),
+  refreshTicketBase: (...a: unknown[]) => hoisted.refresh(...a),
+}));
 vi.mock("@/hooks/useLacksPermission", () => ({ useLacksPermission: () => hoisted.lacks }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/series/sr-1",
@@ -27,6 +30,7 @@ import { SeriesRunPage } from "../SeriesRunPage";
 beforeEach(() => {
   hoisted.merge.mockReset().mockResolvedValue({ kind: "said", text: "#50 was not merged: another run holds this ticket." });
   hoisted.retry.mockReset().mockResolvedValue({ kind: "requested" });
+  hoisted.refresh.mockReset().mockResolvedValue({ kind: "started", runId: "rf-2" });
   hoisted.fetch.mockReset().mockResolvedValue(overviewDetail());
   hoisted.changes.mockReset().mockResolvedValue({ changes: [], unread: [] });
   hoisted.replace.mockReset();
@@ -144,6 +148,23 @@ describe("SeriesOverviewSection", () => {
     await waitFor(() => expect(hoisted.retry).toHaveBeenCalledWith("run-59"));
     expect(await screen.findByTestId("series-retry-outcome")).toHaveTextContent("Retry requested for #59");
     expect(hoisted.fetch).toHaveBeenCalledTimes(2); // read again after the act
+  });
+
+  // 2026-11-24-9dc0e: a refused refresh's row offers Try again, which posts the refresh of its pull request.
+  it("Row_ARefusedRefresh_TryAgainPostsTheRefreshOfItsPullRequest", async () => {
+    const detail = overviewDetail();
+    const ticket = detail.tickets.find((x) => x.ticketId === "59")!;
+    const url = "https://git.test/client/pull/77";
+    ticket.status = "success";
+    ticket.hold = { addressee: "decide", case: "refresh_refused", act: { kind: "pull_request", target: url }, since: null, attempt: 1,
+      names: [], detail: null };
+    hoisted.fetch.mockResolvedValue(detail);
+    render(<SeriesRunPage id="sr-1" />);
+
+    fireEvent.click(await screen.findByTestId("series-row-refresh-59"));
+
+    await waitFor(() => expect(hoisted.refresh).toHaveBeenCalledWith("shop", "59", url));
+    expect(await screen.findByTestId("series-retry-outcome")).toHaveTextContent("#59: The refresh started again.");
   });
 
   it("Retry_ARefusal_IsShownAsTheServerWroteIt", async () => {

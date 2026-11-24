@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-9dc0b
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "The conflict pass resolves and stages; the server builds and tests the committed merge and returns a red stage to the master (the existing repair loop)"
+    over: "The master running the build and tests itself, as the 6811c prompt invited"
+    reason: "Production run b5c4 spent most of its 25 rounds on four build and test commands, one restore 140 s; the server already runs the declared stages after the commit."
+  - category: Implementation
+    decider: claude
+    chose: "Edit the third and fourth paragraphs of base-merge-master.md in place, the first two unchanged; capabilities named (git checkout --ours/--theirs, a quick compile is fine)"
+    over: "A new section or prohibitions ('do not build')"
+    reason: "Keep the prompt's order for caching; describe what the agent can do."
+  - category: Implementation
+    decider: claude
+    chose: "Stage by name (git add <path>, git rm <path>) and a generated file is taken from one side and regenerated with the repository's tool when it runs here, else both sides' additions merged"
+    over: "git add -A; regenerating unconditionally"
+    reason: "Review: -A would stage build outputs; a regeneration tool may need network the sandbox lacks, and the stages check the result either way."
+  - category: Review
+    decider: claude
+    chose: "Prompt test asserts content (stages, staging by name, generated files), not paragraph counts or byte equality"
+    over: "Pinning prose"
+    reason: "Review: pinning prose tests wording, not behaviour."

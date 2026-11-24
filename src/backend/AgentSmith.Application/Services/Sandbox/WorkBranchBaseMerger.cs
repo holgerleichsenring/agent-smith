@@ -34,11 +34,11 @@ public sealed class WorkBranchBaseMerger(
 
     /// <summary>Merges the resolved base into the sandbox's current HEAD.</summary>
     /// <param name="resolveRest">2026-11-24-6811c: given the paths the unions left unmerged, resolves them in the working
-    /// tree and answers the further paths it wrote, or null when it cannot; without one a conflict aborts (a rework's
-    /// checkout). The merge is committed only when no path is unmerged and none of them carries a conflict marker.</param>
+    /// tree; without one a conflict aborts (a rework's checkout). 2026-11-24-9dc0a: it answers what the server's check
+    /// still finds open, and the merge is committed only when nothing is.</param>
     public async Task<BaseMergeResult> MergeIntoCurrentAsync(
         ISandbox sandbox, ResolvedBase resolved, CancellationToken ct,
-        Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<string>?>>? resolveRest = null)
+        Func<IReadOnlyList<string>, CancellationToken, Task<BaseRefresh.BaseMergeResolution>>? resolveRest = null)
     {
         ArgumentNullException.ThrowIfNull(resolved);
         if (resolved.Ref is not { } baseRef)
@@ -62,7 +62,7 @@ public sealed class WorkBranchBaseMerger(
     }
 
     private async Task<BaseMergeResult> AbortAsync(ISandbox sandbox, string baseRef, string? error,
-        Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<string>?>>? resolveRest, CancellationToken ct)
+        Func<IReadOnlyList<string>, CancellationToken, Task<BaseRefresh.BaseMergeResolution>>? resolveRest, CancellationToken ct)
     {
         var conflicting = await ConflictingPathsAsync(sandbox, ct);
         // 2026-11-24-6811b: the index files are united one by one; the merge commits only when nothing is left unmerged.
@@ -72,7 +72,8 @@ public sealed class WorkBranchBaseMerger(
             logger.LogInformation("Merged {BaseRef}; the index lines of both sides united", baseRef);
             return BaseMergeResult.Merged(baseRef);
         }
-        if (rest.Count > 0 && resolveRest is not null && await resolution.CommitAsync(sandbox, rest, resolveRest, ct))
+        var resolved = rest.Count > 0 && resolveRest is not null ? await resolution.CommitAsync(sandbox, rest, resolveRest, ct) : null;
+        if (resolved is { IsWhole: true })
         {
             logger.LogInformation("Merged {BaseRef}; {Count} conflicting path(s) resolved by a master", baseRef, rest.Count);
             return BaseMergeResult.Merged(baseRef) with { ResolvedByMaster = true };
@@ -82,8 +83,10 @@ public sealed class WorkBranchBaseMerger(
             logger.LogWarning("git merge --abort exited {Exit}: {Error}", abort.ExitCode, abort.ErrorMessage);
         if (conflicting.Count > 0)
         {
-            logger.LogWarning("Merging {BaseRef} conflicts in {Count} path(s)", baseRef, conflicting.Count);
-            return BaseMergeResult.Conflicted(baseRef, conflicting);
+            // 2026-11-24-9dc0a: only what is still open — after the master, else after the unions — is named.
+            var open = resolved?.Open is { Count: > 0 } left ? left : rest.Count > 0 ? rest : conflicting;
+            logger.LogWarning("Merging {BaseRef} conflicts in {Count} path(s)", baseRef, open.Count);
+            return BaseMergeResult.Conflicted(baseRef, open, resolved?.Reason);
         }
         // A merge that never started leaves the tree exactly as the checkout left it —
         // the state every run before this one worked in. Reported, not fatal.
@@ -93,7 +96,7 @@ public sealed class WorkBranchBaseMerger(
 
     private async Task<IReadOnlyList<string>> ConflictingPathsAsync(ISandbox sandbox, CancellationToken ct)
     {
-        var result = await RunAsync(sandbox, ["diff", "--name-only", "--diff-filter=U"], ct);
+        var result = await RunAsync(sandbox, ["-c", "core.quotePath=false", "diff", "--name-only", "--diff-filter=U"], ct); // 9dc0a
         if (result.ExitCode != 0) return [];
         return [.. (result.OutputContent ?? string.Empty)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];

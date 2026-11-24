@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-9dc0a
+goal: "The server, not the master's conclude, decides when a refresh's conflict resolution is whole, so a pass that ends on the iteration cap or in prose loses no resolved work."
+
+applies_to: "default (refresh-base run: WorkBranchBaseMerger, BaseMergeResolutionCommit, BaseMergeMaster, BaseRefreshMerge)"
+
+requires: [2026-11-24-6811c, 2026-11-24-6811b]
+
+facts:
+  - claim: "Seen in production 2026-11-24 (refresh-base runs b5c4 and 700f): the master resolved all four code conflicts and its last build and test exited 0, then hit the loop cap; the 26th call carried no tools, so conclude was never called and the work was reset. The sibling answered in prose after 10 calls without conclude; nothing asked again."
+    evidence: "observed: 2026-11-24, production audit of run 2026-11-24T15-14-02-b5c4"
+  - claim: "Every agentic loop without its own MaxIterations is capped at 25 tool rounds; the base-merge master sets none."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:43,210, src/backend/AgentSmith.Application/Services/BaseRefresh/BaseMergeMaster.cs:29-30"
+  - claim: "A pass whose conclude was not called counts as not whole; the resolver then returns null and the merge is aborted."
+    evidence: "src/backend/AgentSmith.Application/Services/BaseRefresh/BaseMergeMaster.cs:33-34, src/backend/AgentSmith.Application/Services/BaseRefresh/BaseRefreshMerge.cs:31-36, src/backend/AgentSmith.Application/Services/BaseRefresh/BaseMergeResolutionCommit.cs:14"
+  - claim: "The resolution commit stages every conflicted path whatever the master did, so an untouched modify/delete conflict would be committed as the side still on disk once a pass may end without conclude."
+    evidence: "src/backend/AgentSmith.Application/Services/BaseRefresh/BaseMergeResolutionCommit.cs:15-19, src/backend/AgentSmith.Application/Services/BaseRefresh/BaseRefreshGit.cs:30-39"
+  - claim: "The refusal names the conflict list from before the index unions, so a MEMORY.md the union already resolved is listed as conflicting."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/WorkBranchBaseMerger.cs:67-69,83-86, src/backend/AgentSmith.Application/Services/BaseRefresh/BaseRefreshMerge.cs:41-42"
+  - claim: "A loop request can continue a transcript (PriorMessages) with a new user turn and its own tool list; the response carries the loop's messages."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRequest.cs:47, src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:49-51,65-68"
+
+upgrade_impact: "None to configure. A refresh whose master ends without conclude now commits a resolution the server finds whole and builds it; a pass that left paths unresolved may be continued while it resolves more."
+
+scope:
+  in: >-
+    BaseMergeWholeness (Application/BaseRefresh) is the server's check of a conflict pass: it stages the paths the
+    master's file tools wrote that carry no conflict marker, and every path git still lists unmerged that is gone from
+    disk (a removal); a path still unmerged that the master neither wrote nor staged stays unmerged and open — a marker
+    file keeps its index stages for --ours/--theirs, and a conflict git left without markers (binary, delete, a merge
+    driver) is never taken silently. It answers the open paths (still unmerged, or carrying a marker among the conflicted
+    paths, the written ones and the paths whose staged content differs from both parents), each with why, and the
+    marker-line count. BaseMergeConcludeTool: conclude(whole=false) stops with its reason; conclude(whole=true) in a
+    conflict pass asks the check first and, while paths are open, answers them instead of recording, so the master
+    carries on in the same loop. BaseMergeConflictPass runs the master over the unmerged paths: whole=false stops at once;
+    otherwise the check decides — nothing open is whole whether conclude was called or not; open with progress (fewer open
+    paths, or as many with fewer marker lines) and the cost budget not exhausted continues the same conversation with full
+    tools and a note naming what is open; open without progress asks once more with conclude as the only tool (no check),
+    for the reason a person reads. BaseMergeSession holds one master conversation: MasterConversation (reused), its
+    FilesystemToolHost (whose changes accumulate) and its situation; BaseMergePass carries the master's own word (bool?
+    Whole), its reason, the writes and the session; IBaseMergeMaster.ContinueAsync continues it; each continuation's cost
+    is tracked. BaseMergeResolution (open paths, reason, writes) replaces the resolver's nullable path list;
+    BaseMergeResolutionCommit commits only a whole one. WorkBranchBaseMerger reports a conflict as the paths still open
+    after the master, else those left after the unions (also on a rework checkout); BaseMergeResult.Conflicted carries
+    the master's reason. BaseRefreshMerge: a repair pass after a red stage is amended and re-checked unless the master said
+    whole=false; the amend resets the index first, so only the file tools' writes reach the merge commit.
+  out: >-
+    The master's prompt (2026-11-24-9dc0b). An iteration setting of the master's own: continuation while the open set
+    shrinks, and the cost budget, bound it, so no new limit is added. The red-stage repair rule (StageRepairProgress,
+    merge.ci_fix_attempts), unchanged.
+
+steps:
+  - id: contracts
+    action: "BaseMergePass(bool? Whole, string? Reason, Wrote) + Session; BaseMergeSession; BaseMergeOpen; BaseMergeResolution; IBaseMergeMaster.ContinueAsync."
+  - id: wholeness
+    action: "BaseMergeWholeness.CheckAsync; BaseRefreshGit.MarkedAsync (marker lines per path, null when the check fails) replaces HasMarkersAsync."
+  - id: pass
+    action: "BaseMergeConflictPass; BaseMergeMaster opens and continues a session (full tools, or conclude only); the conclude tool asks the check before it records whole."
+  - id: merger
+    action: "Resolver returns BaseMergeResolution; ResolutionCommit commits a whole one; merger reports the unresolved paths and the reason; BaseRefreshMerge uses the conflict pass and amends a repair unless whole=false."
+  - id: wiring
+    action: "DI for BaseMergeWholeness and BaseMergeConflictPass; tests."
+
+tests:
+  - "BaseMergeMasterTests (scripted loop runner): a conclude-only continuation sends conclude as its only tool and the first pass's user turn and answer as PriorMessages; each pass's cost is tracked."
+  - "RefreshBranchBaseTests: a conflict the master resolves without calling conclude is committed, checked and pushed; a pass that resolves nothing and never concludes is asked once with conclude only and the refusal names the still-unresolved path and that reason; a pass that resolves one of two conflicted paths without conclude is continued and the second pass's resolution is pushed; a path left with its markers stays unmerged (its index stages kept) and open; a red-stage repair pass without conclude is amended and re-checked; a file the master staged itself in a repair is not amended in."
+  - "A conflict whose MEMORY.md the union resolves and whose code path the master cannot resolve names only the code path."
+  - "An untouched modify/delete conflict without conclude stays unresolved; one the master deleted is committed (existing test kept)."
+  - "WorkBranchBaseMergeTests stay green (a rework checkout still aborts and names the conflicting path)."
+
+done:
+  - "Build, affected backend tests green; the spec gate passed."

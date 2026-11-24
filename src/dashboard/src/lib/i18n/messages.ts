@@ -1242,6 +1242,11 @@ export const coreMessages = {
   "hold.act.init": { en: "Initialize the project", de: "Projekt initialisieren" },
   "hold.act.open": { en: "Open the ticket", de: "Ticket öffnen" },
   "hold.act.mergeFailed": { en: "The merge could not start: {message}", de: "Der Merge ließ sich nicht starten: {message}" },
+  // 2026-11-24-9dc0e: Try again on a refused refresh starts the same refresh-base run once more.
+  "hold.act.refresh": { en: "Try again", de: "Erneut versuchen" },
+  "hold.act.refreshing": { en: "Starting…", de: "Wird gestartet…" },
+  "hold.act.refreshStarted": { en: "The refresh started again.", de: "Die Aktualisierung läuft erneut." },
+  "hold.act.refreshFailed": { en: "The refresh could not start: {message}", de: "Die Aktualisierung ließ sich nicht starten: {message}" },
   "hold.tag.admin": { en: "needs an admin", de: "braucht einen Admin" },
   "hold.tag.decide": { en: "your decision", de: "deine Entscheidung" },
   "hold.tag.plan": { en: "plan gap", de: "Lücke im Plan" },

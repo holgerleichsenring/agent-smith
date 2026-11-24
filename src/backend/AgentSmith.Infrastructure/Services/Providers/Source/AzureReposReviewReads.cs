@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Reviews;
+using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -7,11 +8,11 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// 2026-10-08-e8b9d / 2026-10-08-e8b9c: a pull request's review threads and its standing "Wait for
 /// author" votes, over the provider's Git client. The repository's ids come with the answer, because
 /// an Azure DevOps author's trust verdict is keyed on them. 2026-10-13-9a59b: and its state with the
-/// standing votes.
+/// standing votes. 2026-11-24-9dc0c: and, for a clean merge status, the target branch's commit now.
 /// </summary>
 public sealed class AzureReposReviewReads(
     Func<CancellationToken, Task<GitHttpClient>> connect, Func<CancellationToken, Task<string?>> self,
-    string project, string repoName, string repoUrl) : IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader
+    string project, string repoName, string repoUrl, ILogger? logger = null) : IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader
 {
     public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -39,7 +40,27 @@ public sealed class AzureReposReviewReads(
         var client = await connect(cancellationToken);
         var pr = await client.GetPullRequestAsync(project, repoName, prId, cancellationToken: cancellationToken);
         var threads = await client.GetThreadsAsync(project, repoName, prId, cancellationToken: cancellationToken);
-        return AzureReposVoteDecisions.Read(pr, threads, await self(cancellationToken), repoUrl);
+        var tip = pr.Status == PullRequestStatus.Active && pr.MergeStatus == PullRequestAsyncStatus.Succeeded
+            ? await TipAsync(client, pr.TargetRefName, cancellationToken) : null;
+        return AzureReposVoteDecisions.Read(pr, threads, await self(cancellationToken), repoUrl, tip);
+    }
+
+    // 2026-11-24-9dc0c: the target branch's commit now. The refs filter is relative to refs/ and a PREFIX match
+    // (AzureReposBranchRead), so only the exact name counts; a target that is gone answers null.
+    // A tip that cannot be read keeps the status as before: the state read itself must not fail on it.
+    private async Task<string?> TipAsync(GitHttpClient client, string? targetRef, CancellationToken ct)
+    {
+        if (targetRef is not { Length: > 5 } || !targetRef.StartsWith("refs/", StringComparison.Ordinal)) return null;
+        try
+        {
+            var refs = await client.GetRefsAsync(project, repoName, filter: targetRef[5..], cancellationToken: ct);
+            return refs?.FirstOrDefault(r => string.Equals(r.Name, targetRef, StringComparison.Ordinal))?.ObjectId;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger?.LogWarning(ex, "{Ref}: the target's tip could not be read; the merge status is taken as Azure says it", targetRef);
+            return null;
+        }
     }
 
     private static int PrId(string prUrl) => AzureReposPullRequestUpdater.TryParsePullRequestId(prUrl, out var prId)

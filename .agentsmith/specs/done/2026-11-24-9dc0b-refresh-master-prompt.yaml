@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-9dc0b
+goal: "The base-merge master resolves and stages the conflicted paths and leaves the declared build and tests to the server, which returns a red stage to it with its output."
+
+applies_to: "default (base-merge-master prompt)"
+
+requires: [2026-11-24-9dc0a]
+
+facts:
+  - claim: "The prompt tells the master it can run the build and the tests itself; in production it spent most of its 25 rounds on four build and test commands, one restore taking 140 s."
+    evidence: "src/backend/AgentSmith.Application/Prompts/Resources/base-merge-master.md:14-18, observed: 2026-11-24, production audit of run 2026-11-24T15-14-02-b5c4"
+  - claim: "After the merge commit the server runs every declared stage and hands a red one back to the same master with its output tail, bounded by StageRepairProgress, merge.ci_fix_attempts and the cost budget."
+    evidence: "src/backend/AgentSmith.Application/Services/BaseRefresh/BaseRefreshMerge.cs:47-73, src/backend/AgentSmith.Application/Services/BaseRefresh/BaseMergeMaster.cs:46-48"
+  - claim: "The prompt says nothing about generated files, which conflict in both sides' additions (ORM model snapshots, lockfiles)."
+    evidence: "src/backend/AgentSmith.Application/Prompts/Resources/base-merge-master.md:10-21"
+
+scope:
+  in: >-
+    base-merge-master.md, edited in place with its paragraph order kept (prompt caching): the conflict pass resolves every
+    conflicted path with no marker left and stages it by name (git add <path>, or git rm <path> for a removal); the
+    server may answer with the paths still open (markers, or not staged); a compile to check one
+    resolution is fine; the server builds and tests the committed merge with the repository's declared stages and
+    hands a red stage back with its output, which the master then fixes where the merge caused it. One sentence on
+    generated files (ORM model snapshots, lockfiles): take one side and regenerate with the repository's own tool when
+    it runs in the sandbox, else merge both sides' additions; the server's stages check the result. conclude gives the reason; whole=false when it cannot be resolved here. Capabilities, not
+    prohibitions. PromptOwnership unchanged (same body name).
+  out: "The server's rule (9dc0a). Any change to the stages or their runner."
+
+steps:
+  - id: prompt
+    action: "Rewrite the third and fourth paragraphs of base-merge-master.md in place; first two unchanged."
+  - id: tests
+    action: "A prompt test: the body names staging by path, the server's stages and generated files."
+
+tests:
+  - "BaseMergeMasterPromptTests: the body says the server runs the declared stages, asks for staging by path, and has the generated-files sentence."
+
+done:
+  - "Build, affected backend tests green; the spec gate passed."

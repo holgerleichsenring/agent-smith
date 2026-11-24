@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-9dc0e
+goal: "A ticket held as refresh_refused offers Try again, which starts the same refresh-base run for its refused pull request when the ticket is free and no refresh is at work."
+
+applies_to: "default (hold act, ticket endpoint, BaseRefreshLauncher) + dashboard (series row and node menu, ticket Your move box)"
+
+requires: [2026-11-24-6811d, 2026-11-24-297b, 2026-11-24-9dc0a]
+
+facts:
+  - claim: "A refused or failed refresh stands until the pull request's head moves or a landing moves its base; the conflict refresh starts one per conflict on a head, so a refusal made by an older server is never tried again."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/ConflictBaseRefresh.cs:11-17,54-57, src/backend/AgentSmith.Server/Services/Tickets/Holds/TicketOpenPullRequestsReader.cs:69-76"
+  - claim: "The refresh_refused hold's act opens the pull request; nothing starts a refresh by hand."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketPullRequestHold.cs:29-35,96"
+  - claim: "BaseRefreshLauncher is the one path that starts a refresh-base run (queued row naming the pull request, then the dispatch); RefreshableTicket says whether a ticket is free; NewestRefreshesAsync says whether one is at work."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/BaseRefreshLauncher.cs:21-37, src/backend/AgentSmith.Server/Services/Branches/RefreshableTicket.cs:17-25, src/backend/AgentSmith.Server/Services/Branches/ConflictBaseRefresh.cs:33-44"
+  - claim: "A ticket act is a runs.control POST under /api/tickets/{project}/{ticketId}; a refusal answers as a plain sentence."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketLandedByHandEndpoints.cs:25,66, src/dashboard/src/lib/ticketsApi.ts:134-145"
+  - claim: "The series row draws a failure's acts (refresh_refused is a decide hold, so a failed node) through SeriesActButtons; the ticket page's box draws the hold's act."
+    evidence: "src/dashboard/src/components/series/page/seriesNodeKind.ts:32, src/dashboard/src/components/series/page/seriesTicketActs.ts:101-114, src/dashboard/src/components/series/page/SeriesActButtons.tsx:43-53, src/dashboard/src/components/tickets/detail/ticketState.ts:134-158"
+  - claim: "Seen in production 2026-11-24: two tickets were refused by the refresh before 9dc0a; nothing will retry them after the fix deploys."
+    evidence: "observed: 2026-11-24, operator brief"
+
+scope:
+  in: >-
+    The refresh_refused hold keeps its pull_request act, now targeting the refused pull request
+    (PullRequestRefreshSaid.Url, set by TicketOpenPullRequestsReader), so every link that opens it stays. BaseRefreshStart
+    (Server/Services/Branches), extracted from ConflictBaseRefresh: ticket free (RefreshableTicket), base named by the host,
+    then BaseRefreshLauncher — the one launch path, ConflictBaseRefresh keeps its own due rule in front of it.
+    BaseRefreshRetry: for a project, ticket and pull-request URL — the ticket's open record for that URL, whose newest
+    refresh is refused and still stands (PullRequestRefreshSaid.Stands); refused with a sentence when there is none, when a
+    refresh is at work on it (a queued row counts, so a second click starts nothing), when the ticket is not free, or
+    when its host names no base; else one run id. POST /api/tickets/{project}/{ticketId}/refresh-base {url}, runs.control,
+    InProject(route project): 200 {runId}, 404 unknown project, 409 a refusal sentence. RunRetry (the code run's
+    Retry) is not extended: it re-queues a ticket's own attempt through the rework queue, a different run. Dashboard:
+    ticketsApi.refreshTicketBase; a refresh_refused failed row and node menu offer Try again (runs.control only, drawn and
+    answered like Retry); the ticket page's box draws Try again for a refresh_refused pull_request act (the pull request
+    link without runs.control); i18n en/de.
+  out: "A series' final pull request (no ticket; its beat refreshes it). Retrying a refresh that is not refused."
+
+steps:
+  - id: act
+    action: "PullRequestRefreshSaid.Url; RefreshRefused's pull_request act targets it."
+  - id: start
+    action: "BaseRefreshStart extracted from ConflictBaseRefresh; BaseRefreshRetry; RefreshBaseEndpoints; DI."
+  - id: dashboard
+    action: "refreshTicketBase, seriesTicketActs + SeriesActButtons + useSeriesRetry, ticketState + YourMoveBox + yourMove actLabel, i18n."
+
+tests:
+  - "BaseRefreshRetryTests: a standing refusal on a free ticket launches one refresh-base run whose queued row names the PR; a second call then is refused (at work); a ticket at work, a refusal overtaken by a head move and a URL with no refused refresh are refused with a sentence."
+  - "Endpoint: runs.control and the route's project are required; 409 carries the sentence."
+  - "ConflictBaseRefresh tests stay green over BaseRefreshStart; TicketOpenPullRequestsReader: a refused refresh carries its pull request's URL."
+  - "Dashboard: a refresh_refused failed row offers Try again only with runs.control and posts the ticket's refresh; the ticket box draws Try again for a refresh act."
+
+done:
+  - "Build, affected backend and dashboard tests green; the spec gate passed."

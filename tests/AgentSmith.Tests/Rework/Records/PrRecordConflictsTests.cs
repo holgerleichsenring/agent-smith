@@ -63,6 +63,32 @@ public sealed class PrRecordConflictsTests : IDisposable
         AzureReposVoteDecisions.Read(pr, [], "self", "u").HasConflicts.Should().BeNull();
     }
 
+    // 2026-11-24-9dc0c: Azure merges again only when the source moves; a clean merge against an older target is stale.
+    [Fact]
+    public void Azure_ACleanMergeAgainstAnOlderTarget_ReadsUnknown_AConflictStays()
+    {
+        var pr = AzurePr(PullRequestStatus.Active);
+        pr.LastMergeTargetCommit = new GitCommitRef { CommitId = "old" };
+        pr.MergeStatus = PullRequestAsyncStatus.Succeeded;
+        AzureReposVoteDecisions.Read(pr, [], "self", "u", targetTip: "old").HasConflicts.Should().BeFalse();
+        AzureReposVoteDecisions.Read(pr, [], "self", "u", targetTip: "new").HasConflicts.Should().BeNull();
+        AzureReposVoteDecisions.Read(pr, [], "self", "u", targetTip: null).HasConflicts.Should().BeFalse("no tip read keeps the status");
+        pr.MergeStatus = PullRequestAsyncStatus.Conflicts;
+        AzureReposVoteDecisions.Read(pr, [], "self", "u", targetTip: "new").HasConflicts.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Copy_AnUndecidedRead_ClearsAStoredCleanVerdict_AndKeepsAConflict()
+    {
+        var clean = new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "a", HasConflicts = false };
+        PrReviewRecordCopy.Record(new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "a", HasConflicts = null, CheckedAtTicks = 9 }, clean);
+        clean.HasConflicts.Should().BeNull("the host no longer vouches for it");
+
+        var conflict = new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "a", HasConflicts = true, ConflictsAtTicks = 5 };
+        PrReviewRecordCopy.Record(new PrReviewRecord { State = PrReviewStates.Open, HeadSha = "a", HasConflicts = null, CheckedAtTicks = 9 }, conflict);
+        (conflict.HasConflicts, conflict.ConflictsAtTicks).Should().Be(((bool?)true, (long?)5));
+    }
+
     [Fact]
     public async Task Refresh_RecordsAConflict_KeepsItOnAnUndecidedRead_AndClearsItWhenClean()
     {

@@ -79,7 +79,11 @@ internal sealed class PrReviewRefreshHarness : IDisposable
 
     public RefreshableTicket Tickets() => new(Leases.Object, Attempts.Object, Closed.Object);
 
-    public ConflictBaseRefresh Conflicts() => new(Store.ScopeFactory, Tickets(), NullLogger<ConflictBaseRefresh>.Instance);
+    public ConflictBaseRefresh Conflicts() => new(Store.ScopeFactory, Start(), NullLogger<ConflictBaseRefresh>.Instance);
+
+    public BaseRefreshStart Start() => new(Tickets(), NullLogger<BaseRefreshStart>.Instance); // 2026-11-24-9dc0e
+
+    public BaseRefreshRetry Retry() => new(Store.ScopeFactory, Start(), Sources.Object); // 2026-11-24-9dc0e
 
     /// <summary>2026-11-17-3435b: the merge-green runs the CI loop started.</summary>
     public Mock<IMergeGreenRun> MergeRuns { get; } = new();

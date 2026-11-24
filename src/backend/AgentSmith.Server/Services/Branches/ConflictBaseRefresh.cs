@@ -16,7 +16,7 @@ namespace AgentSmith.Server.Services.Branches;
 /// or a landing moves the base — <see cref="SiblingBaseRefresh"/>), and none for a ticket that is not free.
 /// </summary>
 public sealed class ConflictBaseRefresh(
-    IServiceScopeFactory scopes, RefreshableTicket tickets, ILogger<ConflictBaseRefresh> logger)
+    IServiceScopeFactory scopes, BaseRefreshStart start, ILogger<ConflictBaseRefresh> logger)
 {
     /// <summary>Launches the refresh when the conflict is due one; true when a run was started.</summary>
     /// <param name="host">The provider the read used; it names the pull request's base.</param>
@@ -35,14 +35,8 @@ public sealed class ConflictBaseRefresh(
                 .NewestRefreshesAsync([pullRequest.Url], ct);
             if (!Due(tried.GetValueOrDefault(pullRequest.Url), conflictsSince)) return false;
             // 2026-11-24-f9c5f: a series' final pull request has no ticket to be busy; its beat asks, one at a time.
-            if (pullRequest.Branch is null && !await tickets.FreeAsync(project, pullRequest.TicketId, ct)) return false;
-            if (await host.ReadPullRequestBaseAsync(pullRequest.Url, ct) is not { Length: > 0 } baseBranch)
-            {
-                logger.LogWarning("{Url} conflicts with its base, but its host named no base to merge", pullRequest.Url);
-                return false;
-            }
-            await scope.ServiceProvider.GetRequiredService<BaseRefreshLauncher>().LaunchAsync(project, repo, pullRequest, baseBranch, ct);
-            return true;
+            // 2026-11-24-9dc0e: the free ticket, the base and the launch are BaseRefreshStart's, shared with Try again.
+            return (await start.StartAsync(scope.ServiceProvider, project, repo, host, pullRequest, ct)).RunId is not null;
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {

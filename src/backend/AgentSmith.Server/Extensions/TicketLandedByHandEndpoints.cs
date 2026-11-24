@@ -23,7 +23,7 @@ internal static class TicketLandedByHandEndpoints
     internal static WebApplication MapTicketLandedByHandEndpoints(this WebApplication app)
     {
         app.MapPost("/api/tickets/{project}/{ticketId}/landed-by-hand", LandedByHandAsync).Needs(Permissions.RunsControl).InProject(ProjectFrom.Route("project"));
-        return app.MapTicketCloseEndpoints().MapTicketFollowUpEndpoints(); // + c8e2d
+        return app.MapTicketCloseEndpoints().MapTicketFollowUpEndpoints().MapTicketRefreshBaseEndpoints(); // + c8e2d, 9dc0e
     }
 
     // Internal so the endpoint tests drive the real recorder without a host.

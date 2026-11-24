@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-9dc0c
+goal: "An Azure DevOps clean merge status computed against a target commit that is no longer the target's tip reads as unknown, and the record then says unknown instead of keeping it."
+
+applies_to: "default (Azure Repos PR state read, PR record copy)"
+
+requires: [2026-11-24-6811a, 2026-11-24-297b]
+
+facts:
+  - claim: "Seen in production 2026-11-24: a pull request conflicted with its base while Azure's mergeStatus said Succeeded, computed five hours earlier against an older target tip; the record stored HasConflicts=false, so the conflict refresh never started."
+    evidence: "observed: 2026-11-24, production audit of run 2026-11-24T15-14-02-b5c4"
+  - claim: "The Azure read maps Succeeded to no conflict without looking at which target commit the merge was computed against."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:33-35,59-65, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewReads.cs:36-43"
+  - claim: "Azure documents lastMergeTargetCommit as the target's head at the last merge, promises a new merge only when the source changes, and offers no REST way to restart it (mergeStatus is not an updatable property; the UI has Restart merge)."
+    evidence: "learn.microsoft.com/rest/api/azure/devops/git/pull-requests/update (7.1), learn.microsoft.com/azure/devops/repos/git/complete-pull-requests"
+  - claim: "GitHub answers UNKNOWN while it computes mergeability, which a read starts; GitLab checks a single merge request's status asynchronously on every GET and reports checking or unchecked meanwhile; both already read as null."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewStateReader.cs:20-21,44, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestRead.cs:13,26-34, docs.github.com/rest/pulls/pulls#get-a-pull-request, docs.gitlab.com/api/merge_requests"
+  - claim: "An undecided read keeps the stored verdict while the head stayed, so a stale clean verdict outlives the read that can no longer confirm it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordCopy.cs:50-57"
+
+upgrade_impact: "Display and holds only: every consumer already reads unknown as no conflict, so a stale clean verdict no longer stands as a fact, but nothing starts a refresh on it — the production pull request still needs a person's Try again (2026-11-24-9dc0e) or Azure's Restart merge."
+
+scope:
+  in: >-
+    AzureReposReviewReads.ReadAsync reads the target branch's current tip (GetRefsAsync on the pull request's
+    TargetRefName without refs/, exact name, as AzureReposBranchRead does) when the pull request is active and its
+    mergeStatus is Succeeded; AzureReposVoteDecisions.Read takes that tip (optional), and Succeeded whose
+    LastMergeTargetCommit is not the tip reads null. A tip that cannot be read keeps the status as before; Conflicts stays
+    true whatever target it was computed against (a conflict with an older tip almost always still holds, and it is what
+    starts the conflict refresh). PrReviewRecordCopy: an undecided read clears a stored
+    false (the record says unknown) and keeps a stored true. The dashboard and holds already treat unknown as no conflict.
+  out: >-
+    Asking Azure to recompute the merge: no documented REST call exists (an operator question). GitHub and GitLab: their
+    reads already say unknown while the host recomputes. Starting a refresh on an unknown verdict (023fb chose not to push
+    a clean pull request uninvited).
+
+steps:
+  - id: read
+    action: "AzureReposVoteDecisions.Conflicts(status, mergedTarget, targetTip); Read takes targetTip; AzureReposReviewReads reads the tip."
+  - id: copy
+    action: "PrReviewRecordCopy.Conflicts clears a stored false on an undecided read."
+
+tests:
+  - "AzureReposVoteDecisions: Succeeded against the current tip is false; against an older target commit null; Conflicts against an older commit stays true; no tip known keeps the status."
+  - "PrRecordConflictsTests: an undecided read clears a stored false and keeps a stored true."
+
+done:
+  - "Build, affected backend tests green; the spec gate passed."

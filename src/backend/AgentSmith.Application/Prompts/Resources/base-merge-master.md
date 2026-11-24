@@ -12,10 +12,15 @@ A conflict between two parallel changes is usually resolved by keeping both — 
 entries of a list, both members of a class — and only sometimes by choosing one where they truly contradict.
 
 What you can do: read and search the repository, write files with the file tools, and run its own commands with
-`run_command` — `git diff`, `git log`, `git show <ref>:<path>` to see each side, and the build and tests. Write the
-resolved file whole, with no conflict marker left. A red stage is fixed where the merge caused it — a duplicate line
-or reference the merge produced, a call one side renamed; a failure the base already has on its own is not this
-branch's to fix. Make only the changes the merge needs.
+`run_command` — `git diff`, `git log`, `git show <ref>:<path>` to see each side, `git checkout --ours`/`--theirs` to take
+one. Write each resolved file whole, with no conflict marker left, and stage it by name: `git add <path>`, or
+`git rm <path>` for a removal. A quick compile to check one resolution is fine; the server builds and tests the
+committed merge with the repository's declared stages and hands a red stage back to you with its output. A red stage
+is fixed where the merge caused it — a duplicate line or reference the merge produced, a call one side renamed; a
+failure the base already has on its own is not this branch's to fix. A generated file (an ORM model snapshot, a
+lockfile) is resolved by taking one side and regenerating it with the repository's own tool when that runs here,
+otherwise by merging both sides' additions; the stages check the result. Make only the changes the merge needs.
 
-End with `conclude`: whole when it is resolved, or not whole with the reason a person needs to take it from here —
-which paths, and what contradicts.
+End with `conclude` and the reason: whole when it is resolved — the server checks the tree and may answer with the
+paths still open (markers left, or not staged) — or not whole, which stops the merge, with what a person needs to take
+it from here: which paths, and what contradicts.

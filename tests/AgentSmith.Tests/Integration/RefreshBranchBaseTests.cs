@@ -36,6 +36,8 @@ public sealed class RefreshBranchBaseTests
     private readonly Mock<IPrCommentProvider> _comments = new();
     private readonly List<RunEvent> _events = [];
     private readonly List<BaseMergeSituation> _passes = [];
+    private readonly List<(string Note, bool ConcludeOnly)> _continued = [];
+    private Func<string, bool, BaseMergePass> _next = (_, _) => new BaseMergePass(null, "asked: both sides contradict", []);
 
     public RefreshBranchBaseTests() =>
         _comments.Setup(c => c.PostCommentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -215,6 +217,173 @@ public sealed class RefreshBranchBaseTests
         fixture.AskRemote("cat-file", "-e", $"{Branch}:{GitRemoteFixture.SharedFile}").Exit.Should().NotBe(0);
     }
 
+    // 2026-11-24-9dc0a: the production case — the master resolved, then its loop ended without conclude.
+    [Fact]
+    public async Task AConflictResolvedWithoutConclude_IsCommittedCheckedAndPushed()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch, conflicting: true);
+        fixture.AdvanceBase(conflicting: true);
+
+        var result = await RefreshAsync(fixture, stage: "test -e .git",
+            master: _ => Write(fixture, GitRemoteFixture.SharedFile, "both sides kept\n", whole: null));
+
+        result.Message.Should().Contain("pushed");
+        _continued.Should().BeEmpty("the server found the merge whole");
+        fixture.AskRemote("show", $"{Branch}:{GitRemoteFixture.SharedFile}").Output.Should().Contain("both sides kept");
+    }
+
+    [Fact]
+    public async Task APassThatResolvesNothingWithoutConclude_IsAskedOnceForTheReason_TheMarkersKeptUnmerged()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch, conflicting: true);
+        fixture.AdvanceBase(conflicting: true);
+        string? stages = null;
+        _next = (_, only) =>
+        {
+            stages = GitIn(fixture.WorkPath, "ls-files", "-u", "--", GitRemoteFixture.SharedFile);
+            return new BaseMergePass(null, "both rewrote the one line", []);
+        };
+
+        var result = await RefreshAsync(fixture, stage: "test -e .git", master: _ => new BaseMergePass(null, null, []));
+
+        _continued.Should().ContainSingle().Which.ConcludeOnly.Should().BeTrue();
+        stages.Should().NotBeNullOrWhiteSpace("a path left with its markers is never staged, so --ours/--theirs still work");
+        result.Message.Should().Contain("conflicts in").And.Contain(GitRemoteFixture.SharedFile).And.Contain("both rewrote the one line");
+        _events.OfType<PullRequestOutcomeEvent>().Single().Status.Should().Be(PullRequestStatuses.RefreshRefused);
+    }
+
+    [Fact]
+    public async Task APassThatResolvesOneOfTwo_IsContinued_AndTheSecondPassIsPushed()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch, conflicting: true);
+        fixture.CommitOn(Branch, "second.txt", "the branch's\n");
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, "second.txt", "the base's\n");
+        fixture.AdvanceBase(conflicting: true);
+        _next = (_, only) => only ? new BaseMergePass(false, "-", []) : Write(fixture, "second.txt", "both\n", whole: null);
+
+        var result = await RefreshAsync(fixture, stage: "test -e .git",
+            master: _ => Write(fixture, GitRemoteFixture.SharedFile, "both sides kept\n", whole: null));
+
+        result.Message.Should().Contain("pushed");
+        _continued.Should().ContainSingle().Which.Should().Match<(string Note, bool ConcludeOnly)>(c => !c.ConcludeOnly && c.Note.Contains("second.txt"));
+        fixture.AskRemote("show", $"{Branch}:second.txt").Output.Should().Be("both\n");
+    }
+
+    // Review: whole=false stops even when the tree is whole.
+    [Fact]
+    public async Task AWholeTreeTheMasterCallsNotWhole_IsNotCommitted()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch, conflicting: true);
+        fixture.AdvanceBase(conflicting: true);
+        var before = fixture.AskRemote("rev-parse", Branch).Output;
+
+        var result = await RefreshAsync(fixture, stage: "test -e .git",
+            master: _ => Write(fixture, GitRemoteFixture.SharedFile, "one side\n", whole: false));
+
+        result.Message.Should().Contain(GitRemoteFixture.SharedFile).And.Contain("kept both");
+        fixture.AskRemote("rev-parse", Branch).Output.Should().Be(before);
+    }
+
+    // Review: a rename/rename conflict leaves no file at the old path; the baseline check must not resolve it before the
+    // master looks, and the paths each side added stay open while nobody resolves them.
+    [Fact]
+    public async Task ARenameRenameConflict_IsNotResolvedBeforeTheMasterLooks_AndStaysOpen()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch);
+        fixture.AskRemote("checkout", "-q", Branch).Exit.Should().Be(0);
+        fixture.AskRemote("mv", GitRemoteFixture.SharedFile, "ours.txt").Exit.Should().Be(0);
+        fixture.AskRemote("commit", "-q", "-m", "branch renamed it").Exit.Should().Be(0);
+        fixture.AskRemote("checkout", "-q", GitRemoteFixture.BaseBranch).Exit.Should().Be(0);
+        fixture.AskRemote("mv", GitRemoteFixture.SharedFile, "theirs.txt").Exit.Should().Be(0);
+        fixture.AskRemote("commit", "-q", "-m", "base renamed it").Exit.Should().Be(0);
+        var before = fixture.AskRemote("rev-parse", Branch).Output;
+        string? stages = null;
+
+        var result = await RefreshAsync(fixture, stage: "test -e .git", master: _ =>
+        {
+            stages = GitIn(fixture.WorkPath, "ls-files", "-u", "--", GitRemoteFixture.SharedFile);
+            return new BaseMergePass(null, null, []);
+        });
+
+        stages.Should().NotBeNullOrWhiteSpace("the master meets the conflict as git left it");
+        result.Message.Should().Contain("conflicts in").And.Contain("ours.txt").And.Contain("theirs.txt");
+        fixture.AskRemote("rev-parse", Branch).Output.Should().Be(before);
+    }
+
+    [Fact]
+    public async Task AWholeClaimOverMarkers_IsNotCommitted()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch, conflicting: true);
+        fixture.AdvanceBase(conflicting: true);
+        var before = fixture.AskRemote("rev-parse", Branch).Output;
+
+        var result = await RefreshAsync(fixture, stage: "test -e .git", master: _ => new BaseMergePass(true, "all resolved", []));
+
+        result.Message.Should().Contain(GitRemoteFixture.SharedFile);
+        fixture.AskRemote("rev-parse", Branch).Output.Should().Be(before);
+    }
+
+    [Fact]
+    public async Task AnUntouchedModifyDeleteConflict_WithoutConclude_StaysOpen()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch, conflicting: true);
+        fixture.AskRemote("rm", "-q", GitRemoteFixture.SharedFile).Exit.Should().Be(0);
+        fixture.AskRemote("commit", "-q", "-m", "base removed it").Exit.Should().Be(0);
+        var before = fixture.AskRemote("rev-parse", Branch).Output;
+
+        var result = await RefreshAsync(fixture, stage: "test -e .git", master: _ => new BaseMergePass(null, null, []));
+
+        result.Message.Should().Contain("conflicts in").And.Contain(GitRemoteFixture.SharedFile);
+        fixture.AskRemote("rev-parse", Branch).Output.Should().Be(before, "a side git left on disk is never taken silently");
+    }
+
+    // 2026-11-24-9dc0a: the refusal names what is still open, not the index file the union already resolved.
+    [Fact]
+    public async Task AUnitedMemoryIndexBesideACodeConflict_NamesOnlyTheCodePath()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        const string memory = ".agentsmith/memory/MEMORY.md";
+        const string header = "# Memory index\n\n- [a](a.md) (feedback) — first\n";
+        await using var fixture = GitRemoteFixture.Create(workBranch: null);
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, memory, header);
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, "Program.cs", "var a = 1;\n");
+        fixture.CommitOn(Branch, memory, header + "- [b](b.md) (project) — b\n");
+        fixture.CommitOn(Branch, "Program.cs", "var a = 2;\n");
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, memory, header + "- [c](c.md) (project) — c\n");
+        fixture.CommitOn(GitRemoteFixture.BaseBranch, "Program.cs", "var a = 3;\n");
+
+        var result = await RefreshAsync(fixture, master: _ => new BaseMergePass(false, "two values for a", []));
+
+        result.Message.Should().Contain("Program.cs").And.NotContain("MEMORY.md");
+        _passes.Single().Unmerged.Should().Equal("Program.cs");
+    }
+
+    [Fact]
+    public async Task ARepairWithoutConclude_IsAmended_WithWhatTheMasterStagedByName()
+    {
+        if (!SandboxToolAvailability.IsAvailable("git")) return;
+        await using var fixture = GitRemoteFixture.Create(Branch);
+        fixture.AdvanceBase();
+
+        var result = await RefreshAsync(fixture, stage: "test -f repaired.txt", master: s =>
+        {
+            File.WriteAllText(Path.Combine(fixture.WorkPath, "staged-by-master.txt"), "x\n");
+            GitIn(fixture.WorkPath, "add", "staged-by-master.txt");
+            return Write(fixture, "repaired.txt", "fixed\n", whole: null);
+        });
+
+        result.Message.Should().Contain("pushed");
+        fixture.AskRemote("cat-file", "-e", $"{Branch}:repaired.txt").Exit.Should().Be(0);
+        fixture.AskRemote("cat-file", "-e", $"{Branch}:staged-by-master.txt").Exit.Should().Be(0, "a file the master staged by name is its repair");
+    }
+
     [Fact]
     public async Task AForeignBranch_IsRefused()
     {
@@ -227,10 +396,20 @@ public sealed class RefreshBranchBaseTests
         result.Message.Should().Contain("not an agent-smith work branch");
     }
 
-    private static BaseMergePass Write(GitRemoteFixture fixture, string path, string content)
+    private static string GitIn(string dir, params string[] args)
+    {
+        var start = new System.Diagnostics.ProcessStartInfo("git") { WorkingDirectory = dir, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in args) start.ArgumentList.Add(arg);
+        using var process = System.Diagnostics.Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return output;
+    }
+
+    private static BaseMergePass Write(GitRemoteFixture fixture, string path, string content, bool? whole = true)
     {
         File.WriteAllText(Path.Combine(fixture.WorkPath, path), content);
-        return new BaseMergePass(true, "kept both", [new CodeChange(new FilePath(path), content, "Modify")]);
+        return new BaseMergePass(whole, "kept both", [new CodeChange(new FilePath(path), content, "Modify")]);
     }
 
     private async Task<CommandResult> RefreshAsync(GitRemoteFixture fixture, Action? beforeRefresh = null, string? stage = null,
@@ -279,13 +458,16 @@ public sealed class RefreshBranchBaseTests
         var stub = new Mock<IBaseMergeMaster>();
         stub.Setup(m => m.RunAsync(It.IsAny<BaseMergeSituation>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((BaseMergeSituation s, CancellationToken _) => { _passes.Add(s); return master(s); });
+        stub.Setup(m => m.ContinueAsync(It.IsAny<BaseMergePass>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((BaseMergePass _, string note, bool only, CancellationToken _) => { _continued.Add((note, only)); return _next(note, only); });
         var targets = new SandboxTargets();
         var verify = new BaseMergeVerify(new ContextVerifyStagesResolver(),
             new VerifyStageResolver(new DeclaredStagePresence(new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
                 NullLogger<VerifyStageResolver>.Instance),
             new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance), targets, TestTreeSync.TreeGit(), new BaseRefreshGit(),
             NullLogger<BaseMergeVerify>.Instance);
-        return new RefreshBranchBaseHandler(new BaseRefreshMerge(TestGit.Merger, stub.Object, verify, new BaseRefreshGit()), new GitBranchPusher(),
+        var conflicts = new BaseMergeConflictPass(stub.Object, new BaseMergeWholeness(new BaseRefreshGit()));
+        return new RefreshBranchBaseHandler(new BaseRefreshMerge(TestGit.Merger, stub.Object, conflicts, verify, new BaseRefreshGit()), new GitBranchPusher(),
             AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, targets, sources.Object, events.Object,
             NullLogger<RefreshBranchBaseHandler>.Instance);
     }

@@ -205,10 +205,10 @@ public sealed class TicketOpenPullRequestHoldTests
         TicketOpenPullRequestsReader.Of([moved], new Dictionary<string, PullRequestRefreshSaid> { ["https://h/1"] = refused })
             .Refresh.Should().BeNull();
         TicketOpenPullRequestsReader.Of([still], new Dictionary<string, PullRequestRefreshSaid> { ["https://h/2"] = refused })
-            .Refresh.Should().Be(refused);
+            .Refresh.Should().Be(refused with { Url = "https://h/2" }, "2026-11-24-9dc0e: it names its pull request");
         var working = refused with { RunId = "rf-2", InFlight = true };
         TicketOpenPullRequestsReader.Of([still, moved], new Dictionary<string, PullRequestRefreshSaid>
-            { ["https://h/2"] = refused, ["https://h/1"] = working }).Refresh.Should().Be(working);
+            { ["https://h/2"] = refused, ["https://h/1"] = working }).Refresh.Should().Be(working with { Url = "https://h/1" });
     }
 
     private static PrReviewRecordView Record(string url) =>

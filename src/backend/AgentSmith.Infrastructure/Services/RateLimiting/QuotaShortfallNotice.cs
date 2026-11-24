@@ -40,8 +40,9 @@ internal sealed class QuotaShortfallNotice(string deployment, ModelQuotaWaitLine
         return SayAsync(reason, $"A call to {deployment} cannot fit a minute's quota: {reason}. It keeps waiting and retrying.", cancellationToken);
     }
 
-    // The max_tokens part only where the provider counts it.
-    private static string Parts(QuotaShortfall s) => s.Output > 0 ? $" (input ~{s.Input} + max_tokens {s.Output})" : "";
+    // The output part only where the provider counts it, named by what it is (2026-11-24-9dc0d).
+    private static string Parts(QuotaShortfall s) =>
+        s.Output > 0 ? $" (input ~{s.Input} + {(s.IsGenerated ? "generated" : "max_tokens")} {s.Output})" : "";
 
     private Task SayAsync(string reason, string sentence, CancellationToken cancellationToken)
     {
