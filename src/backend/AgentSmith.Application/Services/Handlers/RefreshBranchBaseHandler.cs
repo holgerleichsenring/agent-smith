@@ -21,10 +21,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// unions leave go to the base-merge master, every merged tree is built and tested — and pushed only then. A refusal
 /// leaves the branch as it was, says why on the pull request, and records refresh_refused with the reason on this run's
 /// pull-request outcome, where the ticket's hold reads it.</para>
+/// <para>2026-11-24-5ee0: a push is followed up on the pull request (<see cref="RefreshedPullRequestFollowUp"/>): the earlier
+/// refusals resolved, the required builds that did not start queued.</para>
 /// </summary>
 public sealed class RefreshBranchBaseHandler(
     BaseRefreshMerge refresh, GitBranchPusher pusher, IGitTokenResolver credentials, SandboxTargets sandboxTargets,
-    ISourceProviderFactory sources, IEventPublisher events, ILogger<RefreshBranchBaseHandler> logger)
+    ISourceProviderFactory sources, IEventPublisher events, RefreshedPullRequestFollowUp followUp, ILogger<RefreshBranchBaseHandler> logger)
     : ICommandHandler<RefreshBranchBaseContext>
 {
     public const string Marker = "<!-- agent-smith:base-refresh -->";
@@ -43,19 +45,18 @@ public sealed class RefreshBranchBaseHandler(
         var outcome = await refresh.RunAsync(context, repo, sandbox, branch, baseBranch, cancellationToken);
         return outcome.Verdict switch
         {
-            BaseRefreshVerdict.Push => await PushAsync(sandbox, repo, branch, baseBranch, outcome.Text, cancellationToken),
+            BaseRefreshVerdict.Push => await PushAsync(context, sandbox, repo, branch, baseBranch, outcome.Text, cancellationToken),
             BaseRefreshVerdict.Refuse => await RefuseAsync(context, repo, branch, outcome.Text, cancellationToken),
             _ => CommandResult.Ok(outcome.Text),
         };
     }
 
-    private async Task<CommandResult> PushAsync(
+    private async Task<CommandResult> PushAsync(RefreshBranchBaseContext context,
         ISandbox sandbox, RepoConnection repo, string branch, string baseBranch, string checkedBy, CancellationToken ct)
     {
         try
         {
             await pusher.PushPlainAsync(sandbox, branch, SandboxGitOperations.CredHelper, credentials.For(repo), ct);
-            return CommandResult.Ok($"Merged origin/{baseBranch} into '{branch}' ({checkedBy}) and pushed it.");
         }
         catch (InvalidOperationException ex)
         {
@@ -63,6 +64,8 @@ public sealed class RefreshBranchBaseHandler(
             return CommandResult.Ok($"'{branch}' moved on the remote since this run cloned it; the refresh was skipped "
                 + "and the branch's next run merges the base itself.");
         }
+        var followed = await followUp.RunAsync(repo, context.PrUrl, context.PrNumber, ct);
+        return CommandResult.Ok($"Merged origin/{baseBranch} into '{branch}' ({checkedBy}) and pushed it.{followed}");
     }
 
     private async Task<CommandResult> RefuseAsync(

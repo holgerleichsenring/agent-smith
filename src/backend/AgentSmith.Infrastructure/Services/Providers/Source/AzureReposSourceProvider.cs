@@ -21,7 +21,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup, IPrMarkedThreadResolver
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -257,6 +257,11 @@ public sealed class AzureReposSourceProvider(
         logger.LogInformation("Deleted {Count} marked comment(s) on PR #{PrId}", deleted, prId);
         return deleted;
     }
+
+    // 2026-11-24-5ee0: a refusal a later refresh made untrue stops blocking completion.
+    public Task<int> ResolveMarkedThreadsAsync(string prIdentifier, string markerPrefix, CancellationToken cancellationToken) =>
+        new AzureReposMarkedThreads(CreateConnectionAsync, SelfAsync, _project, _repoName, logger)
+            .ResolveAsync(prIdentifier, markerPrefix, cancellationToken);
 
     private Task<string> DefaultBranchNameAsync(CancellationToken cancellationToken) =>
         _defaultBranch.ResolveAsync(AskAzureDevOpsAsync, cancellationToken);

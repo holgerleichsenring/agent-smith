@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-5ee0
+goal: "A refresh-base run that pushes resolves the refusal threads earlier refreshes posted on its pull request and queues the required builds that did not start."
+
+applies_to: "default (RefreshBranchBaseHandler, PullRequestBuildRequeue, Azure Repos threads)"
+
+requires: [2026-11-24-9dc0e, 2026-11-24-6811c, 2026-11-23-0219]
+
+facts:
+  - claim: "A refused refresh posts a comment that starts with RefreshBranchBaseHandler.Marker, and has since the handler was written (023fb); nothing ever resolves it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RefreshBranchBaseHandler.cs:30,70-79"
+  - claim: "On Azure Repos that comment is an Active thread; a 'comments must be resolved' branch policy then blocks completion. GitLab posts it as a plain MR note (POST /notes), which is not resolvable and never blocks 'all threads resolved'; a GitHub issue comment is never resolvable."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:188-199, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:192-202"
+  - claim: "PullRequestBuildRequeue queues the not-started required builds through IPullRequestBuildRequeuer, which on Azure re-queues the build-policy evaluation (the policy's Queue button) — the route a policy-covered target needs. IPullRequestCiTrigger (f9c5d) queues free-standing builds for a series branch that has no policy; such a build would not satisfy one."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestBuildRequeue.cs:14-37, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBuildRequeue.cs:16-35, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiTrigger.cs:14-45"
+  - claim: "An expired evaluation, and one queued with no build on the head, already read as not started and are what the re-queue queues."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiPolicies.cs:52-68"
+  - claim: "A red declared stage at the end of a spec fails the step (FailureReason, 'Run failed' banner) or marks the spec Failed (a partial sequence); the 'Verification red' banner is reached only when the keystone failed with no failed step and no partial sequence — an unaccounted run (for example ratified criteria and no account), which a green refresh build does not answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:72-166,200, src/backend/AgentSmith.Application/Services/Pipeline/PipelineStepFailure.cs:84, src/backend/AgentSmith.Application/Services/RunDeliveryGate.cs:59-70, src/backend/AgentSmith.Application/Services/Handlers/CodePullRequestBanner.cs:19-26"
+  - claim: "Seen on Azure 2026-11-24: after a green refresh push and after publishing, the required policy stayed queued with buildId 0 (queueOnSourceUpdateOnly=true) and no build was created; un-drafting alone does not start it."
+    evidence: "observed: 2026-11-24, coordinator brief"
+
+scope:
+  in: >-
+    After a successful push RefreshBranchBaseHandler hands the pull request to RefreshedPullRequestFollowUp, which
+    (1) resolves every Active or Pending thread the token opened whose first comment starts with the refusal marker,
+    through a new IPrMarkedThreadResolver implemented by Azure Repos (status Fixed; one refused thread leaves the others
+    resolved), not by GitLab or GitHub, whose refusal comments cannot block; (2) queues the not-started required builds
+    through the existing PullRequestBuildRequeue. Its catch also takes a host call's own timeout, so a timeout never
+    fails a run whose push already happened.
+  out: >-
+    Lifting the draft after a green refresh: no draft reason CommitAndPR writes today is one a green refresh build
+    answers (see the facts), so lifting needs the operator's word on which reason it may lift — a follow-up spec,
+    "refresh draft lift", once decided. A refresh that ends up to date resolves nothing. Re-queue right after the push
+    can race Azure's processing of it (an evaluation on the old head is not yet reset); the CI merge loop (CiGreenMerge)
+    re-queuing a required build that is not started (expired, or reset after this run) closes both gaps and needs a run
+    of its own, since the server writes nothing to a host — a follow-up spec, "ci-loop requeue not-started builds".
+
+steps:
+  - id: contracts
+    action: "IPrMarkedThreadResolver."
+  - id: host
+    action: "AzureReposMarkedThreads; AzureReposSourceProvider implements the resolver."
+  - id: followup
+    action: "RefreshedPullRequestFollowUp; handler calls it after a push; DI; PullRequestBuildRequeue timeout filter."
+  - id: tests
+    action: "Unit tests per new public method; RefreshBranchBaseTests over real git drive the follow-up."
+
+tests:
+  - "AzureReposMarkedThreadsTests: the token's active or pending marked thread is set Fixed; a stranger's, an already fixed one and an unmarked one are left; an unknown token resolves nothing; one refused update leaves the others resolved."
+  - "RefreshedPullRequestFollowUpTests: resolve then requeue; a failing resolve still requeues; a host timeout in the requeue does not fail; a host with neither, a local repo and no pull request say nothing."
+  - "RefreshBranchBaseTests: a pushed refresh (built or not) resolves and re-queues; a refused one and a skipped push do neither."
+
+done:
+  - "Build, affected tests green; the spec gate passed."

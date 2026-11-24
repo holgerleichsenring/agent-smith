@@ -30,7 +30,8 @@ public sealed class PullRequestBuildRequeue(ISourceProviderFactory sources, ILog
             if (queued > 0) logger.LogInformation("{Url}: {Count} required build(s) queued again", prUrl, queued);
             return queued;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // 2026-11-24-5ee0: a host call's own timeout is a failed re-queue, not the run's cancellation.
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "{Url}: the required builds could not be queued again", prUrl);
             return 0;
