@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.BaseRefresh;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -9,5 +10,7 @@ public static class BranchCleanupHandlersExtensions
 {
     public static IServiceCollection AddBranchCleanupHandlers(this IServiceCollection services) =>
         services.AddTransient<ICommandHandler<CleanupWorkBranchesContext>, CleanupWorkBranchesHandler>()
-            .AddTransient<ICommandHandler<RefreshBranchBaseContext>, RefreshBranchBaseHandler>(); // 2026-11-17-023fb
+            .AddTransient<ICommandHandler<RefreshBranchBaseContext>, RefreshBranchBaseHandler>() // 2026-11-17-023fb
+            .AddTransient<BaseRefreshMerge>().AddTransient<BaseMergeVerify>() // 2026-11-24-6811c
+            .AddTransient<IBaseMergeMaster, BaseMergeMaster>();
 }

@@ -31,6 +31,12 @@ public partial interface ISourceProvider
     /// normal answer here, because the caller has already created a ticket and a retry would file
     /// a second one.
     /// </para>
+    /// <para>
+    /// 2026-11-23-c81ea: a <see cref="RepoFile.Deletion"/> removes its path; a deletion of a path absent at the
+    /// base is dropped and said in the notes, and a write of nothing but such deletions answers
+    /// <see cref="BranchWriteResult.AlreadyHeld"/>. A head that moved between the read and the ref update answers
+    /// <see cref="BranchWriteResult.Conflict"/>: a caller may re-plan on Conflict.
+    /// </para>
     /// </summary>
     /// <param name="message">The commit message.</param>
     /// <param name="startFrom">2026-11-24-f9c5b: the branch a missing <paramref name="branch"/> is created at instead of the

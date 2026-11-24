@@ -11,7 +11,10 @@ public interface IActRun
 {
     /// <summary>Runs <paramref name="pipeline"/> for <paramref name="project"/> on no token and answers how it ended;
     /// a run that could not start answers a failed result, never a throw. 2026-11-17-b34ed: <paramref name="shownOnTicket"/>
-    /// lists the run on that ticket's page and gives it nothing else of the ticket.</summary>
+    /// lists the run on that ticket's page and gives it nothing else of the ticket. 2026-11-23-933db: <paramref name="runId"/>
+    /// is a run id the caller minted — the PoC run gate claims it with the queued row before the run starts — passed as
+    /// PipelineRequest.RunId; none mints one as before.</summary>
     Task<CommandResult> RunAsync(
-        string project, string pipeline, IReadOnlyDictionary<string, object> seeds, TicketId? shownOnTicket = null);
+        string project, string pipeline, IReadOnlyDictionary<string, object> seeds, TicketId? shownOnTicket = null,
+        string? runId = null);
 }

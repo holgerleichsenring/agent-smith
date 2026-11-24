@@ -1,0 +1,281 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-933db
+goal: "A person uploads a PoC ZIP; the server creates their poc- project at the first import, and a poc-deploy run validates the archive in process by the ported rules and the different-app guard."
+
+applies_to: "default (archive rules shared with reference uploads, PoC upload admission + import endpoints, poc- project provisioning by the server, PoC run gate, poc-deploy preset, intake step, PocRevision entity + migrations, poc- project preset guard, pocs.archive settings) + dashboard (import page, archive settings fields)"
+
+requires: [2026-11-23-933da]
+
+upgrade_impact: "Additive and behind pocs.enabled: one new preset, two routes under /api/pocs, a PocRevisions table (migrations on three providers) and a pocs.archive settings block whose absence reads as the defaults. A person's first import adds a project binding and then a project poc-<person> to the stored configuration, written by the server itself (no run) and attributed to the person (visible in the studio's history). A run of any preset other than the PoC presets is refused in a server-provisioned PoC project (key starting with poc- AND named by a Poc row, so only after a first import), and branch cleanup skips such projects; an operator's own project named poc-* has no Poc row, stays an ordinary project, runs as before and is named by a finding while PoCs are on. An installation that never imports a PoC sees no change. Reference uploads keep their limits and behaviour; the shared rule classes move from Server to Application with unchanged output (characterisation tests). Nothing is committed to any repository in this slice."
+
+facts:
+  - claim: "The one ZIP reader today unpacks on the server counting inflated bytes (a lying declared length stops at the bound), checks each entry's CRC, and refuses hostile paths before inflating; nothing of the archive executes."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceZipReader.cs:7-21, src/backend/AgentSmith.Application/Services/Archives/BoundedZipInflater.cs:5-40, src/backend/AgentSmith.Application/Services/Archives/ZipEntryChecksum.cs:3-14"
+  - claim: "The reader drops OS litter (__MACOSX, ._ files, .DS_Store, Thumbs.db) BEFORE any check, so a Finder-made ZIP is not refused for it."
+    evidence: "src/backend/AgentSmith.Application/Services/Archives/ReferenceIgnoreList.cs:3-23, src/backend/AgentSmith.Server/Services/References/ReferenceZipReader.cs:32-34"
+  - claim: "The hostile-path rule refuses NUL, absolute, drive and '..' paths and empty segments, normalising backslashes to slashes first; a case-insensitive seen set refuses a second file under one path; its length bound is the caller's argument (the reference caller passes ReferenceUploadLimits.MaxPathChars), since this spec moved it to Application."
+    evidence: "src/backend/AgentSmith.Application/Services/Archives/ReferencePathRule.cs:13-52, src/backend/AgentSmith.Server/Services/References/ReferenceSetValidator.cs:29-31"
+  - claim: "Application references only Contracts and Domain; the 240-character path bound also exists in Contracts as ReferenceSetLimits.MaxPathChars."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:4-5, src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs:17-18"
+  - claim: "Reference limits are code constants (500 files, 25 MB set, 240-character path), which predate the limits rule and are listed debt; the hard-coded-limits ratchet admits no new file, and ReferenceZipReader's ChunkBytes is on that list."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs:8-18, src/backend/AgentSmith.Server/Services/References/ReferenceUploadLimits.cs:10-36, tests/AgentSmith.Tests/Architecture/hard-coded-limits-baseline.tsv:369"
+  - claim: "A constant that is not a limit says so in a trailing '// not a limit: <why>' comment."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelRunSlotKey.cs:16-18"
+  - claim: "A reference upload LEAVES OUT .env-like files rather than refusing them; a PoC must refuse forbidden files, so the keep rule is not reused."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceKeepRule.cs:10-19, src/backend/AgentSmith.Server/Services/References/ReferenceSetValidator.cs:5-34"
+  - claim: "The upload body is bounded before it is read: a declared length over the ceiling is refused untouched and the multipart reader is held to it."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceUploadBody.cs:6-47"
+  - claim: "Uploaded bytes live in the ReferenceFile byte store, which has no owner column: AddAsync stamps the session key it is given and mints the set id; a set is read back only together with its session key."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ReferenceFile.cs:17-45, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:22-39, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:54-60"
+  - claim: "A server-started run is a queued row plus a dispatch with string seeds; presets register in PipelinePresets' two dictionaries (the file is at 120 lines, so a preset lives in its own partial); the run reads the configuration at its start."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/BaseRefreshLauncher.cs:21-36, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:35, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:58, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Deploy.cs:1-15, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:265"
+  - claim: "Every run resolves its preset in ExecutePipelineUseCase's prologue, before the run announces itself; a refusal there is a ConfigurationException."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:258-271"
+  - claim: "Branch cleanup launches one run per configured project with a hosted repo, every interval; every poc- project names the shared source repo."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/WorkBranchCleanupHostedService.cs:56-61, src/backend/AgentSmith.Server/Services/Branches/WorkBranchCleanupLauncher.cs:23-35"
+  - claim: "The config run's entity path refuses the role mapping; the access surface's writer, in Server, persists a mapping the server built itself through IConfigStore.SaveSetting."
+    evidence: "src/backend/AgentSmith.Application/Services/Admin/ConfigEntityKinds.cs:10, src/backend/AgentSmith.Application/Services/Admin/ConfigEntityKinds.cs:57-58, src/backend/AgentSmith.Server/Services/Access/AccessGrantWriter.cs:47-50"
+  - claim: "IConfigStore saves a project through UpsertProject (referential and resolution checks) and a singleton through SaveSetting; the expected version is the one the store's cache holds at SAVE time and every mutation reloads afterwards, so two saves on one replica never raise StaleConfigVersionException against each other (the later read-modify-write silently wins); only a replica whose cache is behind raises it."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IConfigStore.cs:35-37, src/backend/AgentSmith.Contracts/Services/IConfigStore.cs:73-74, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:68-74, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:115-116, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:122-139, src/backend/AgentSmith.Infrastructure.Persistence/Services/ConfigDocumentRepository.cs:80-85"
+  - claim: "A server-built role mapping is saved whole: the writer serialises the edited mapping and saves the singleton, so a binding is appended by read-modify-write."
+    evidence: "src/backend/AgentSmith.Server/Services/Access/AccessGrantWriter.cs:47-50"
+  - claim: "IActRun.RunAsync returns when ExecutePipelineUseCase returns; the run row is finished later by the asynchronous event drain, which persists each event through the router."
+    evidence: "src/backend/AgentSmith.Server/Services/Acts/ActRun.cs:18-31, src/backend/AgentSmith.Server/Services/Events/RunEventRouter.cs:31"
+  - claim: "A finding that needs the database is republished by a server service through IStartupFindings (clear the subsystem, record each), not by the config load."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/UnanswerableParkReporter.cs:22-38"
+  - claim: "Conversation uploads are bounded per conversation in bytes; nothing bounds a PoC uploader today."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceUploadLimits.cs:17-22, src/backend/AgentSmith.Server/Services/References/ReferenceUploadLimits.cs:23"
+  - claim: "Application references only Contracts and Domain, so a prologue check that reads a table goes through a Contracts interface implemented in Persistence, like IRunCheckpointStore."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:4-5, src/backend/AgentSmith.Contracts/Services/IRunCheckpointStore.cs"
+  - claim: "Project bindings live in the role-mapping singleton; a binding naming an unconfigured project is a finding, not a refusal; the only refusal is a binding naming no project."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/RoleMappingConfig.cs:44-45, src/backend/AgentSmith.Server/Services/Access/AccessGrantWriter.cs:37-40"
+  - claim: "The name claim defaults to the opaque sub, which most installations never change; a PersonRef resolves only while its Claim is the configured name claim."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/TokenAuthorityConfig.cs:48-53, src/backend/AgentSmith.Server/Security/ReadableName.cs:3-25, src/backend/AgentSmith.Contracts/Models/Configuration/PersonRef.cs:3-16"
+  - claim: "A project resolves only with an agent and a tracker (933da's pocs.project_agent and project_tracker supply both)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs:42-43"
+  - claim: "A settings model's Problems() is the one rule, read by the load and the settings store."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PreconditionsConfig.cs:23-36"
+  - claim: "The dashboard's hub-event mirror is checked by the gate (gen:hub-events --check); the archive tests pin the table and generated-key counts."
+    evidence: "src/dashboard/package.json:14, src/dashboard/src/types/hub-events.ts, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:77, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:177, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33"
+  - claim: "The queued run row is written through the scoped IUnitOfWork, the same AgentSmithDbContext the Poc table joins, and that unit of work opens transactions; a multi-row transaction is the existing precedent."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/InitRunRepository.cs:36-49, src/backend/AgentSmith.Infrastructure.Persistence/Contracts/IUnitOfWork.cs:15-25, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunCapacityRepository.cs:35-46"
+  - claim: "PipelineRequest carries an optional pre-reserved RunId that ExecutePipelineUseCase uses instead of minting one (marking the run relaunched, which only suppresses one-shot ticket side effects); IActRun builds its PipelineRequest without one."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PipelineRequest.cs:9-29, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:51, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:287-292, src/backend/AgentSmith.Server/Services/Acts/IActRun.cs:15-16, src/backend/AgentSmith.Server/Services/Acts/ActRun.cs:22-24"
+  - claim: "A queued row with a stored request is pushed again by QueuedRunSweeper; the liveness reaper flags only running rows by HeartbeatAt, so a queued row with no stored request that no process started is reaped by neither."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/QueuedRunSweeper.cs:12-19, src/backend/AgentSmith.Server/Services/Lifecycle/QueuedRunSweeper.cs:32-40, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:50-58, src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:10-18"
+  - claim: "933da delivers the Poc row (Id, Project, Folder, State with refused and IsLive, LastRunId), PocActAccess.MayAct, ProjectAccess.HoldsByBindingIn and pocs.targets[].per_person_limit."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933da"
+  - claim: "Operator 2026-11-23: archive rules worth porting (zip-slip, size/ratio/entry limits, symlinks, forbidden files, Dockerfile at root, exactly one EXPOSE, Dockerfile blocklist); an update differing too much or changing the port asks 'is this really <poc>?' with replace / import as new / other ZIP."
+    evidence: "observed: 2026-11-23, operator (PoC concept)"
+  - claim: "Operator ruling, round 3: the poc-<person> project and its role-mapping binding are created behind the scenes by the server at the first import (no run): binding first, then project, through IConfigStore with the stale-version check, retried once; then poc-deploy is queued — a decision deviating from the config-via-run pattern."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 3: ZIP validation runs in process (bounded .NET inflate, like reference uploads); nothing of the uploader executes there; the sandbox starts with the scan (933dc)."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 3: at admission the Poc row (with an id) exists before poc-deploy is queued, so the variables slice can attach to it."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling C: no other preset runs in poc- projects; repo/file size and binary limits live in config."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling I (recommendation accepted): the different-app guard asks when more than 50 % of files changed AND more than 100 files differ, or when the port or the entrypoint changed; a changed base image alone does not ask; both values in config."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling I (recommendation accepted): a new PoC's name is proposed from the ZIP's file name and is editable."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Review 2026-11-23: a blocked upload never reaches git; archive limits go to config with fields; the guard must not count files alone (node_modules, venv)."
+    evidence: "observed: 2026-11-23, coordinator relaying the concept review"
+
+assumptions:
+  - claim: "The admitted archive is stored once in the ReferenceFile byte store under the session key 'poc-upload:<owner key>' (owner key = the first 16 hex of sha256 of the uploader's principal), and the upload id is the set id AddAsync mints; reference deletions are keyed on a conversation's session id, so none reaches that key. Its retention is 933dc's pocs.blocked_retention_days, purged by 2026-11-23-c81ee."
+    check: "Open question upload-store."
+  - claim: "The guard is answered at admission time from central-directory data (paths after the ignore list and top-folder strip, CRC-32, sizes) and the manifest of the PoC's latest validated revision, so the person chooses before the run starts; the import endpoint recomputes it, and the run re-checks the archive authoritatively."
+    check: "Open question guard-moment."
+
+scope:
+  in: >
+    SHARED RULES: ReferencePathRule, ZipEntryChecksum and ReferenceIgnoreList move to Application/Services/Archives;
+    ReferencePathRule.RefusalOf takes its path bound as an argument (reference callers pass
+    ReferenceUploadLimits.MaxPathChars, the PoC rules pocs.archive.max_path_chars), so Application needs nothing from
+    Server; BoundedZipInflater is extracted from ReferenceZipReader (counted inflate + CRC, bounds as arguments, its
+    buffer size marked '// not a limit: the read buffer') and used by both readers; the moved line leaves the
+    hard-coded-limits baseline. LIMITS (pocs.archive, PocArchiveLimits with Problems()): max_zip_mb 25, max_unpacked_mb
+    100, max_entries 2000, max_ratio 100 (per entry and whole archive), max_path_chars 240 (<= the ReferenceFile path
+    column), max_file_mb 10, max_binary_mb 20 (sum of files a NUL byte in the first 8 KB marks as binary; the 8 KB is
+    marked '// not a limit: the sniff window, as git reads 8000 bytes'), max_dockerfile_kb 64; every refusal names value,
+    reason and key (e.g. "'app/x.bin' unpacks 140:1, over pocs.archive.max_ratio 100, the bound that stops a ZIP bomb
+    before it fills the server's memory"). ORDER: the ignore list drops OS litter first, then a single shared top folder
+    is stripped, then the rules run; every path in a manifest is the path after the strip. PocArchiveRules (Application):
+    hostile paths (shared rule), backslash and drive forms, case clashes, NUL; symlinks and special files (unix mode in
+    external attributes other than regular file/dir); encrypted entries (general-purpose bit 0); count, size, per-file,
+    binary, ratio and path limits; forbidden names anywhere in the tree: .git (dir or file), .env and .env.*,
+    docker-compose*.yml/yaml and compose*.yml/yaml, id_rsa, id_ed25519, *.pem, *.p12, *.pfx. DockerfileRules: a
+    Dockerfile at the archive root; a '# syntax=' parser directive, RUN --security=insecure, RUN --network=host, RUN
+    --mount=type=ssh|secret, ADD from http(s)://, git@, git:// or ssh:// are refused naming the line; exactly one TCP
+    EXPOSE across the FINAL stage (multi-stage: only the last FROM's block), its port recorded; the final stage's last
+    USER, when present, must be numeric (uid or uid:gid) — a named user is refused, because the pod runs as 10001
+    regardless (2026-11-23-c81eb) and a name cannot be checked against that; line continuations joined before matching.
+    UPLOAD: POST /api/pocs/uploads (pocs.write, global, no project source; multipart, one ZIP, body bounded at
+    max_zip_mb plus framing) reads the central directory only (plus the Dockerfile entry, inflated with the counted
+    bound) and runs at admission only what declared data can answer: hostile paths, backslash and drive forms, case
+    clashes, NUL, entry kinds (symlink, special file), encryption, entry count, declared per-file and unpacked sizes,
+    declared ratio, path length, forbidden names and DockerfileRules; max_binary_mb needs inflated content (the first
+    8 KB of each file) and runs only at intake. A target field (optional; the single configured target when omitted,
+    required when several are configured, else 400 naming pocs.targets) picks the target the match and the import use.
+    A new upload REPLACES the caller's previous un-imported uploads (no PocRevision names their upload id; they are
+    deleted), so a person holds at most one pending upload and stored bytes stay bounded without a new limit. It then stores the archive under the caller's session key
+    (see assumptions), and answers {upload id, checks passed, port, entry count, unpacked size, proposed name
+    (PocNameProposal: the ZIP's file name without extension, lower-cased, non [a-z0-9-] runs folded to '-', trimmed to
+    a DNS label of at most 40, marked '// not a limit: keeps the namespace poc-<name> of 933dg's PocNamespace and the
+    names derived from it inside the 63-character DNS label, RFC 1035'), match: {poc, revision, added, changed,
+    removed, unchanged, ratio, port changed, entrypoint changed, verdict same|ask}}. The match candidate is the caller's
+    own PoC (PocActAccess.MayAct of 933da) on the chosen target named like the proposal; files compare on path + CRC-32 + size against the
+    candidate's latest validated manifest. GUARD (PocIdentityGuard): ask when (changed+added+removed)/max(previous, new)
+    exceeds pocs.archive.mismatch_ratio_percent (50) AND the differing count exceeds pocs.archive.mismatch_file_limit
+    (100), or when the EXPOSE port or ENTRYPOINT/CMD changed; a changed final FROM image alone never asks. A PoC with no
+    validated revision (its only revisions were refused) has nothing to protect: the verdict is same.
+    IMPORT: POST /api/pocs/uploads/{uploadId}/import {choice: new|replace, target, name, poc id when replace, confirmed}
+    (target defaults to the single configured target and is required, else 400 naming pocs.targets, when several are)
+    (pocs.write). The upload is read with the CALLER's session key, so another person's upload id answers an empty 404. A RETRIED
+    Start of the same upload id finds the PocRevision carrying that UploadId and reuses its Poc row and revision: a live
+    run of it is answered as is, otherwise the steps below continue from where they stopped (933dg: a failed
+    poc-variables run leaves the row importing and the same upload can be started again). A retried Start whose
+    upload's stored bytes are gone (purged by 2026-11-23-c81ee's poc-upload-purge run after the upload retention) is
+    refused 410 before any row is written and before any run is queued: 'the upload of revision <N> was purged after
+    <days> days (pocs.blocked_retention_days); upload the ZIP again'. The days and the key are 933dc's
+    pocs.blocked_retention_days, which 933dc wires into this message when it adds the key; nothing purges before
+    c81ee, which requires 933dc.
+    replace: PocActAccess.MayAct on that PoC, else empty 404; the endpoint recomputes PocIdentityGuard against the CHOSEN
+    PoC's latest validated revision and refuses an 'ask' verdict unless confirmed is true (409 naming the question).
+    new: the name must be a DNS label of at most 40; it is taken when a live PoC (PocStates.IsLive) on the target holds it or a
+    refused PoC of another owner does — a refused PoC of the same owner and name is reused and its State set back to
+    importing; a caller with pocs.targets[].per_person_limit live PoCs on the target is refused unless pocs.admin, naming
+    the value, the reason 'each person's PoCs share one cluster' and the key. The count is re-checked after the Poc row
+    is inserted, in the same transaction, which rolls back when it is over; a unique-index violation on (Target,
+    LiveName) from a concurrent import answers 409 naming the taken name, never a 500. Then, in this order, all on the server and without a run:
+    (1) PROVISIONING when the caller has no poc- project yet (PocProjectProvisioner, Server): PocProjectName derives
+    'poc-<slug>' from a READABLE claim — the configured name claim when ReadableName.Is it, else preferred_username,
+    else the local part of email — lower-cased, DNS-folded, trimmed so the key stays a DNS label with room for the
+    suffix (54, marked '// not a limit: keeps the key a DNS label, RFC 1035'); with no readable claim the slug is 'u'
+    plus 8 hex of sha256(name-claim value). '-<4 hex of sha256(name-claim value)>' is appended when the key is a
+    configured project or a binding target that is not this person's — a poc- project IS this person's when a binding
+    names them for it OR the Poc table holds a row of theirs (Owner = principal) in it; in the second case the missing
+    binding is re-added rather than a suffixed project made, so a lost binding never strands their PoCs. The binding — ProjectBinding {project, people:
+    [PersonRef(configured name claim, its value)], roles: [reader]} — is appended to the current role mapping and saved
+    FIRST through AccessGrantWriter.Save (IConfigStore.SaveSetting); the project (agent = pocs.project_agent, tracker =
+    pocs.project_tracker, repos = [the target's source_repo], no triggers, polling off) is saved SECOND through
+    IConfigStore.UpsertProject; both attributed '<person> via PoC import'. A binding naming a not-yet-configured project
+    is only a finding, so a failure between the two saves leaves a binding that the next attempt recognises as this
+    person's and completes. The provisioner is serialised within the process (one lock), re-reads the
+    role mapping inside the lock, and reads it back after the save, saving again once when this person's binding is
+    missing (a same-replica save does not raise a stale version, DbConfigStore takes the expected version at save
+    time). A StaleConfigVersionException (a replica whose cache is behind) reloads the store and retries once; a second
+    one refuses the import naming the reason (the configuration changed while the project was being created). An
+    existing project of this person changes nothing, except that the chosen target's source_repo is added to its repos
+    through IConfigStore.UpsertProject when missing. (2) ROWS: first a live run of the PoC (replace, or a reused row) is
+    looked for and answers the gate's 409 before anything is written; then the Poc row (new: Name, Project, Target, Folder '<root>/<project>/<name>',
+    Owner = actor principal, OwnerName, State importing) and a PocRevision row (PocId, Number = latest + 1, UploadSession,
+    UploadId, State admitted, actor) are written, so the PoC has its id before any run (933dg attaches variables to it
+    here; 933dg runs its poc-variables run at this point, claimed through the gate below like any PoC run, and awaits
+    it when variables were given, before poc-deploy is claimed and queued). (3) RUN GATE (PocRunGate, Persistence repository + Server launcher): the run id is minted FIRST; then ONE
+    transaction of the scoped unit of work (the Poc and Run tables share AgentSmithDbContext) makes the conditional
+    update of Poc.LastRunId to that id — only when the stored LastRunId is unchanged since it was read and is null or
+    names no live run (a missing or finished run row is free; a queued row with no stored request that no process
+    started within RunLivenessReaper.StaleAfter is free too, because nothing else ever ends it) — AND inserts the queued
+    run row (InitRunRepository.CreateQueuedRunAsync's row), committed together or not at all: no claim without a row,
+    no row without a claim. A lost claim answers 409 'a run of <poc> is in progress (run <id>)' and leaves nothing: the poc-deploy claim
+    that loses also deletes the admitted revision this request wrote (RunId null), so no number is burned. HANDOVER: a
+    claim may replace a LastRunId that equals the run id this same request just awaited to completion through IActRun
+    (poc-variables before poc-deploy), conditional on LastRunId unchanged, because the run row is finished only by the
+    asynchronous event drain after RunAsync returns.
+    Only after the commit is the run dispatched (queued presets) or started through IActRun with that run id
+    (poc-variables, poc-extend): IActRun.RunAsync gains an optional runId passed as PipelineRequest.RunId. This
+    serialises every PoC run, across replicas; no write to a PoC's variables, state or GitOps folder bypasses it. (4) QUEUE: poc-deploy in the PoC's project with string seeds (poc id, revision number, actor principal);
+    the answer is {poc id, revision, run id}. The contract later slices rely on: the Poc row (with its id) and
+    the revision exist before any PoC run, and every poc-deploy run is told its PoC by the poc id seed.
+    PRESET poc-deploy [LoadCatalog, PocIntake] registered like deploy (All, PipelineTypes Structured, NotRoutable, no
+    master). PocIntake runs IN PROCESS, opens no sandbox: it READS the Poc and PocRevision rows the seeds name (it never
+    creates a Poc row), reads
+    the stored archive, inflates it with BoundedZipInflater, applies the ignore list and the strip, runs PocArchiveRules
+    on the inflated data and DockerfileRules again, and writes the revision: ManifestJson (path after the strip ->
+    sha256, crc32, size), Port, Entrypoint, BaseImage, RunId, State validated|refused, Reason. A refusal ends the run
+    failed naming the rule; a PoC that never reached ready (State importing) becomes refused. Idempotent: a revision
+    already validated or refused is not evaluated again. The run publishes PocImportedEvent (PocId, revision, actor)
+    for a validated revision; its projection writes the PocAuditEntry 'imported'. Nothing is committed.
+    PRESET GUARD: PocPresets.Names is the ONE list of PoC presets, defined here and referenced by every later slice,
+    which adds its constant to it with the preset: poc-deploy (this spec), poc-variables (933dg), poc-stop, poc-start,
+    poc-rollback, poc-apply and poc-delete (2026-11-23-c81ed), poc-extend (2026-11-23-c81ee). The installation presets
+    poc-target-install (933dd) and poc-upload-purge (c81ee) run on '@agent-smith' and are not in it. PocRunGate is the
+    one serialisation of PoC runs; no slice adds a lock. PocProjectPresetGuard is called in
+    ExecutePipelineUseCase's prologue right after the preset resolves and refuses any other preset in a server-provisioned PoC project
+    (PocProjects.IsAsync: the key starts with 'poc-' and a Poc row names the project — only the
+    provisioner's projects ever get rows; read through IPocProjects, a Contracts interface implemented in Persistence),
+    naming the preset, the project and the reason 'poc- projects run only the
+    PoC presets'; WorkBranchCleanupLauncher returns without a run for such a project, so the sweep queues nothing that
+    would fail. PocPrefixFindings (Server, the UnanswerableParkReporter pattern, republished on each branch-cleanup
+    pass): while pocs.enabled is on, each configured project whose key starts with poc- and that no Poc row names is a
+    finding (Field 'pocs') saying it stays an ordinary project and that the prefix is the PoC projects'. ENTITY PocRevision (unique PocId + Number) with migrations x3 (ServerStateConfigurations); archive test
+    counts updated. DASHBOARD: /pocs/import page per the mock — drop zone, checks list from the upload answer, name field
+    prefilled with the proposal, which-app choice (update <poc> / new), the compared-with panel, the mismatch alert with
+    replace / import as new / choose another ZIP (replace after the alert sends confirmed), the 'What happens next' list
+    stating that nothing is committed in this release, and Start; it then links the run. Settings: archive limit and
+    guard fields in the PoCs form.
+  out: "Code scan, commit to the source repo, blocked page (933dc). Variables on the import page (933dg, attaching to the Poc row written here). Pipeline build (933dd). Reading the source repo for the diff: the manifest of the latest validated revision is the comparison base (agent smith is the folder's only writer). Purging stored uploads (2026-11-23-c81ee). Removing a poc- project when its person leaves (the project and its binding stay; 4a4d's person removal drops the binding). Refusing 'poc-' as a name for an operator's own project (it stays ordinary; PocPrefixFindings names it)."
+
+pipeline-presets:
+  poc-deploy: [LoadCatalog, PocIntake]
+
+steps:
+  - id: shared
+    action: "Move ReferencePathRule (bound as argument), ZipEntryChecksum and ReferenceIgnoreList to Application/Services/Archives; extract BoundedZipInflater; ReferenceZipReader uses it; hard-coded-limits baseline loses the moved line."
+  - id: limits
+    action: "PocArchiveLimits (+ mismatch_ratio_percent, mismatch_file_limit) + Problems(); PocsConfig.Archive; schema, docs."
+  - id: rules
+    action: "PocArchiveRules (one rule type per concern: PocForbiddenNames, PocEntryKinds, PocArchiveBounds), DockerfileRules (DockerfileStages, DockerfileBlocklist, DockerfileExpose); PocManifest (path -> sha256, crc32, size)."
+  - id: admission
+    action: "PocUploadBody (bounded at the config value), PocUploadAdmission (declared-data rules only; replaces the caller's un-imported uploads), PocUploadKey (owner-keyed session key), PocNameProposal, PocIdentityGuard, PocUploadEndpoints (upload + import)."
+  - id: provision
+    action: "PocProjectName; PocProjectProvisioner (process lock, mapping re-read inside it and read back after the save; binding via AccessGrantWriter.Save, then IConfigStore.UpsertProject; ownership by binding or Poc row; target repo added when missing; stale retry once); PocRunGate (mint id; one transaction: conditional LastRunId update + queued run row; handover of an awaited run; lost deploy claim deletes the admitted revision); IActRun.RunAsync optional runId -> PipelineRequest.RunId; PocImportLauncher (rows, gate, then dispatch)."
+  - id: run
+    action: "PipelinePresets.Poc.cs (PocDeployName 'poc-deploy'); CommandNames.PocIntake + registrations (ContextKeys.Poc, CommandStepClasses, labels, display names, beats, data flow); PocIntakeHandler orchestrating PocArchiveReader, PocArchiveRules, DockerfileRules, PocRevisionWriter; PocImportedEvent (Contracts/Events) + hub-events.ts mirror + projection; control-flow.svg regenerated; runSections map."
+  - id: guard
+    action: "PocPresets.Names (poc-deploy now; the later slices add theirs), IPocProjects + PocProjects.IsAsync; PocPrefixFindings; PocProjectPresetGuard in ExecutePipelineUseCase's prologue; WorkBranchCleanupLauncher skips poc- projects."
+  - id: entity
+    action: "PocRevision + configuration + repository; migrations AddPocRevisions x3; DataArchiveSchemaTests and DataArchiveRoundTripTests counts."
+  - id: dashboard
+    action: "app/pocs/import/page.tsx; components/pocs/import (DropZone, ImportChecks, NameField, AppChoice, ComparedPanel, MismatchAlert); pocsApi upload/import; PoCs settings form archive fields; messages.ts."
+
+tests:
+  - "BoundedZipInflater: a lying declared length stops at the bound; a CRC mismatch is refused (characterisation: ReferenceZipReader's output unchanged)"
+  - "ReferencePathRule: the reference caller's 240 and a PoC bound of 100 each refuse one character over, naming the bound"
+  - "PocArchiveRules: zip-slip, absolute, backslash, drive and NUL paths; a symlink and a fifo entry; an encrypted entry; a case clash; 2001 entries; 101 MB unpacked; an 11 MB file; 21 MB of binaries; ratio 101:1; a 241-char path; each forbidden name at depth — each refused naming value and key"
+  - "PocUploadAdmission: a ZIP over max_binary_mb is admitted (declared data cannot tell binaries) and refused by PocIntake naming the key"
+  - "PocArchiveRules: a Finder-made ZIP (one app folder plus __MACOSX/ and ._ files) passes with the Dockerfile found at root"
+  - "DockerfileRules: missing root Dockerfile; '# syntax='; each RUN flag and ADD source form, also across a line continuation; two EXPOSE in the final stage; EXPOSE 53/udp only; USER app in the final stage refused, USER 10001 passes; EXPOSE in a builder stage ignored; one EXPOSE 8000 passes with port 8000"
+  - "PocArchiveLimits.Problems: zero or negative values refused naming the key"
+  - "PocIdentityGuard: a PoC with no validated revision answers same"
+  - "PocIdentityGuard: 60 % changed with 80 files differing passes; 40 % with 300 files passes; 60 % with 300 files asks; a port change asks; an ENTRYPOINT change asks; only the final FROM changed passes; an unchanged file compares equal on CRC-32 + size against a stored manifest"
+  - "PocNameProposal: 'My Cool App (2).zip' proposes 'my-cool-app-2'; a 70-character file name is trimmed to 40 at a label boundary"
+  - "PocProjectName: name claim sub with preferred_username 'ann.lee' gives poc-ann-lee; only an e-mail gives its local part; no readable claim gives poc-u<8 hex>; a key bound to someone else gets the hash suffix; the same person gets the same key twice"
+  - "PocProjectProvisioner: writes the binding before the project, both attributed; a failure after the binding is completed by the next import without a suffix; a stale version is retried once and a second one refuses; a second import for the same person changes nothing; two first imports of different people on one replica both keep their bindings; a person whose binding was lost but who owns a Poc row in poc-ann gets the binding re-added and no suffixed project; a second target's source_repo is added to the person's existing project"
+  - "PocRunGate: a live LastRunId refuses with 409 naming the run; a finished or missing one is replaced; two concurrent claims, one wins and exactly one queued row exists; a lost claim leaves no run row and no revision row; with the run-row projection delayed, poc-deploy claimed right after the awaited poc-variables run takes the handover; a failure of the row insert leaves LastRunId unchanged; a queued row without a stored request older than StaleAfter is free"
+  - "ActRun: a given runId reaches PipelineRequest.RunId and the run's events carry it; none given mints one as today"
+  - "PocProjectPresetGuard: a code run in poc-ann (a Poc row names it, PoCs on) is refused in the prologue naming the preset; poc-deploy in poc-ann passes; an operator project poc-demo (no Poc row) still runs code with PoCs off and on; WorkBranchCleanupLauncher returns null for poc-ann and launches for poc-demo; PocPrefixFindings names poc-demo while PoCs are on"
+  - "Server HTTP: a retried Start of the same upload id reuses its Poc row and revision and writes no second one"
+  - "Server HTTP: a retried Start whose upload rows were deleted (as the purge does) answers 410 naming the purge and the revision, writes no Poc, PocRevision or run row and queues no run"
+  - "Server HTTP: an over-ceiling body is refused untouched; another person's upload id or PoC answers an empty 404; replace of another app without confirmed answers 409, with confirmed passes; a taken name for new is refused, the owner's own refused name is reused with State importing; two concurrent new imports of one name answer one 201 and one 409 naming the name; two concurrent imports at per_person_limit leave the limit unbroken; an import naming no target with two configured answers 400; a second upload deletes the caller's first un-imported upload; the fourth live PoC of a person at per_person_limit 3 is refused naming the key; an admin passes; the Poc row and revision exist with an id when the run is queued"
+  - "PocIntakeHandler: seeds naming no existing Poc row fail the run without writing one"
+  - "PocIntakeHandler: a valid archive writes a validated revision with its manifest and commits nothing; a refused archive writes a refused revision, sets a never-ready PoC to refused and fails the run naming the rule; a retried run does not evaluate again"
+  - "PocDeployCompositionTests (RealCompositionHarness): POST upload then import by a person without a project creates the binding and poc-<person>, then poc-deploy runs through the real composition to a validated revision"
+  - "Coverage that knows every preset: PipelineDataFlowsCoverageTests, RoutingPipelineChoiceTests, ScanFailurePersistGuardTests, control-flow diagram test"
+  - "Migration parity on SQL Server and Postgres; DataArchiveSchemaTests and DataArchiveRoundTripTests with the new counts; hard-coded limits ratchet green"
+  - "Dashboard: the checks list renders the upload answer; the name field shows the proposal and can be edited; the mismatch alert shows for verdict ask with the three choices; replace after the alert posts confirmed; Start posts the choice"
+
+done:
+  - {given: "pocs enabled, a target and a person with the poc role and no PoC yet", when: "they import a template ZIP as a new PoC", then: "a binding and a project poc-<person> exist without a run, a poc-deploy run in it ends green with a validated revision, port and file count, and the source repository is unchanged"}
+  - {when: "they upload a ZIP carrying .env or a Dockerfile with RUN --network=host", then: "the upload is refused naming the file or line and no run starts"}
+  - {when: "they import a second ZIP for the same PoC while its first run is still running", then: "the import answers 409 naming the running run"}
+
+open_questions:
+  - id: guard-when-off
+    question: "Round-2 review asked that the poc- preset guard apply only while pocs.enabled is on. Kept on regardless (ruling C: no other preset runs in poc- projects); the Poc-row condition already spares an operator's own poc-* project. Should switching PoCs off let other presets run in provisioned poc-<person> projects?"
+  - id: upload-store
+    question: "Store the admitted archive in the ReferenceFile byte store under an owner-keyed 'poc-upload:' session key (assumed; extends the existing byte store and gives ownership without a new table) or in run material/artifacts? Retention is ruled (7 days, config) and purged by 2026-11-23-c81ee."
+  - id: guard-moment
+    question: "Is the different-app question answered at admission from central-directory data (assumed, matches the mock; the import endpoint recomputes it) or by a parked run asking the person?"

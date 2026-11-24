@@ -54,7 +54,7 @@ export function sinceClock(iso: string, locale: string, now: Date = new Date()):
 }
 
 // 2026-11-23-31dci: the waits that say since when; a wait without a since keeps its plain sentence.
-const WAITS = new Set<TicketHold["case"]>(["model_wait", "queued", "resuming", "restarting", "prerequisite", "ci_running"]);
+const WAITS = new Set<TicketHold["case"]>(["model_wait", "queued", "resuming", "restarting", "prerequisite", "ci_running", "refreshing"]);
 
 /** 2026-11-23-31dci: a wait's clause with its since — "Waiting for the model since 00:12"; null when the hold is no wait
  *  or carries no since. */
@@ -64,7 +64,7 @@ export function waitClause(t: T, hold: TicketHold, now: Date = new Date()): stri
   const n = hold.attempt ?? 0;
   return hold.case === "prerequisite"
     ? t("hold.wait.prerequisite", { names: namesOf(t, hold.names), count: hold.names.length, at })
-    : t(`hold.wait.${hold.case as "model_wait" | "queued" | "resuming" | "restarting" | "ci_running"}`, { n, at });
+    : t(`hold.wait.${hold.case as "model_wait" | "queued" | "resuming" | "restarting" | "ci_running" | "refreshing"}`, { n, at });
 }
 
 /** The hold's one sentence, from the hold alone — the same words on every surface; a stop quotes what it recorded.
@@ -94,6 +94,9 @@ export function holdSentence(t: T, hold: TicketHold, now: Date = new Date()): st
       return why ? t("hold.sentence.readiness_unknown_why", { n, why }) : t("hold.sentence.readiness_unknown", { n });
     }
     case "failed": return said ? t("hold.sentence.failed_told", { n, told: said }) : t("hold.sentence.failed", { n });
+    // 2026-11-24-6811d: a refresh that left the branch unchanged quotes its reason.
+    case "refresh_refused":
+      return hold.detail?.subject ? t("hold.sentence.refresh_refused_why", { why: hold.detail.subject }) : t("hold.sentence.refresh_refused");
     // 2026-11-23-d60d: red CI names its failed checks; a red read that recorded none says only that it failed.
     case "ci_failed":
       return hold.names.length > 0 ? t("hold.sentence.ci_failed", { names, count: hold.names.length }) : t("hold.sentence.ci_failed_bare");

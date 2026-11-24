@@ -38,6 +38,7 @@ public sealed class ResolvedConfigComposer
             Preconditions = raw.Preconditions, BranchCleanup = raw.BranchCleanup, // 2026-11-16-f3fbc, 2026-11-17-713ec
             Tickets = raw.Tickets, // 2026-11-17-f9b0d
             Holds = raw.Holds, // 2026-11-23-31dci
+            Pocs = raw.Pocs, // 2026-11-23-933da
         };
 
     private static IReadOnlyList<RegistryConfig> BuildRegistries(RawAgentSmithConfig raw)

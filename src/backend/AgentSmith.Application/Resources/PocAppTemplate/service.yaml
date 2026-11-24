@@ -1,0 +1,14 @@
+# @@MARKER@@
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: "{namespace}"
+spec:
+  selector:
+    app.kubernetes.io/name: app
+    agent-smith.io/poc: "{app}"
+  ports:
+    - name: http
+      port: 80
+      targetPort: {port}

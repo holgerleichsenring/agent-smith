@@ -23,6 +23,11 @@ public static class AdminPipelineExtensions
         services.AddTransient<ICommandHandler<ApplyConfigChangesContext>, ApplyConfigChangesHandler>();
         // 2026-11-17-f3a8d: the secret run.
         services.AddScoped<SecretWrite>().AddTransient<ICommandHandler<WriteSecretContext>, WriteSecretHandler>();
+        // 2026-11-23-933dg: the poc-variables run writes its secrets through the same SecretWrite, in the PoC's scope.
+        services.AddScoped<Pocs.Variables.PocVariableWriter>()
+            .AddTransient<ICommandHandler<WritePocVariablesContext>, WritePocVariablesHandler>();
+        // 2026-11-23-c81ee: the poc-upload-purge run deletes a deleted PoC's secrets through the same SecretWrite.
+        services.AddTransient<ICommandHandler<PurgePocUploadsContext>, PurgePocUploadsHandler>();
         return services;
     }
 }

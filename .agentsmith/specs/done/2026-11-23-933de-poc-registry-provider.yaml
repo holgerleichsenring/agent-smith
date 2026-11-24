@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-933de
+goal: "Agent smith reads PoC images from the registry through a provider seam with one pull-only token per target: resolve a tag to a digest, verify a digest exists. ACR first, a second registry cheap."
+
+applies_to: "default (Contracts registry seam, Infrastructure OCI client + ACR provider, target registry config, draft probe endpoint, schema, docs) + dashboard (PocsSettingsForm registry fields, secret usage)"
+
+requires: [2026-11-23-933da, 2026-11-17-f3a8d]
+
+upgrade_impact: "Behind pocs.enabled for every PoC run; the draft probe works while the switch is off. The operator creates one container-registry repository prefix for PoCs and one pull-only token per target (on ACR a repository-scoped token whose scope map grants pull on '<repository>/*'), stored as a catalog secret. Agent smith holds no push or delete credential: pushing is the host pipeline's job (933dd), cleanup is the operator's own scheduled purge on the registry (on ACR an ACR Task running acr purge, documented; ACR's retention policy deletes untagged manifests only and 933dd's images are all tagged). Every target needs a registry block with pull_auth: a target saved under 933da without one is refused at load naming pocs.targets[].registry. The secret card of the pull token now lists the PoC target as its user. No change for existing projects."
+
+facts:
+  - claim: "Providers of one kind are made per entity by a factory in Contracts, implemented in Infrastructure and registered with the source providers; IPipelineRunnerFactory is the latest such seam."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/IPipelineRunnerFactory.cs:5-10, src/backend/AgentSmith.Infrastructure/Services/Factories/PipelineRunnerFactory.cs:16-31, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/SourceProvidersExtensions.cs:23"
+  - claim: "A credential named by secret id resolves through Lookup/Named environment first, then the catalog (stored value included), and Lookup tells a value, none and an unreadable stored value apart; For(entity) reads the catalog only and has no overload for a PoC registry."
+    evidence: "src/backend/AgentSmith.Contracts/Services/CredentialResolver.cs:23-36, src/backend/AgentSmith.Contracts/Services/EnvironmentFirst.cs:11-19, src/backend/AgentSmith.Contracts/Services/ICredentialResolver.cs:12-30, src/backend/AgentSmith.Contracts/Services/CredentialLookup.cs:3-9"
+  - claim: "The masker is one process-wide singleton that replaces the strings ISecretValues.All() lists — the catalog's secret values and package-feed registry tokens of the loaded config; it has no register method, so a value derived at call time (a base64 auth, an exchanged bearer token) is never masked."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/SecretMasker.cs:20-61, src/backend/AgentSmith.Contracts/Services/LoadedSecretValues.cs:18-33, src/backend/AgentSmith.Server/Services/Config/CurrentSecretValues.cs:12-22, src/backend/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs:41"
+  - claim: "Every settings Problems() takes no argument and checks the block's own values; cross-entity references are load findings."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SpecReviewConfig.cs:16, src/backend/AgentSmith.Contracts/Models/Configuration/BranchCleanupConfig.cs:20, src/backend/AgentSmith.Contracts/Models/Configuration/PreconditionsConfig.cs:25"
+  - claim: "The studio's Test for an unsaved entity posts the draft to /api/config/…/check and needs config.write plus diagnostics.probe, because a draft can name any saved secret and any host."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigDraftCheckEndpoints.cs:8-27"
+  - claim: "The existing draft checks resolve the draft's secret from the catalog only (For(entity) -> ISecretValues.Resolve), never environment first; each check route has its row in the route permission baseline."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/ConnectionDraftCheckRunner.cs:21, src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/TrackerDraftCheckRunner.cs:25, src/backend/AgentSmith.Contracts/Services/CredentialResolver.cs:34-36, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:112, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:123"
+  - claim: "The secret card's 'used by' list is derived client-side from catalog entities and the package-feed registries setting, the only setting ConfigStudio fetches for it; nothing from pocs settings is in it."
+    evidence: "src/dashboard/src/components/config/EntityCard.tsx:216-228, src/dashboard/src/components/config/ConfigStudio.tsx:320-331"
+  - claim: "A settings block's Problems() is enforced at the settings save and the import through one arm per block in SettingsBlockRule."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/SettingsBlockRule.cs:13-28"
+  - claim: "A top-level 'registries:' list already exists for private package feeds (NuGet, npm, pip), unrelated to container images."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/RegistryConfig.cs:3-14"
+  - claim: "Nothing in the backend talks to a container registry today."
+    evidence: "observed: 2026-11-23, grep -rli 'azurecr|IContainerRegistry' over src/backend matched nothing but the f3a8d secret envelope files"
+  - claim: "933da puts every /api/pocs route behind PocsGate (empty 404 while pocs.enabled is false), keeps the target fields editable while it is off, and edits targets in PocsSettingsForm of the settings rail."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933da"
+  - claim: "Operator 2026-11-23: registry as a provider, ACR first, built so another is cheap; by digest; credentials in the f3a8d store; uploaders are not trusted."
+    evidence: "observed: 2026-11-23, operator (PoC concept, agreed)"
+  - claim: "Operator ruling D: the build is a pipeline of the source repo's host; its push job is the only holder of registry push credentials and reports the digest; agent smith needs from a registry only to resolve and verify that a digest exists — no quarantine, no promote, no push credential in agent smith."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling E: a target field chooses 'cluster can already pull' or 'deliver a pull secret' (default); the latter stores one pull-only registry token per target as a catalog secret, delivered into each PoC namespace by 933dg; no kubelet identity assumption."
+    evidence: "observed: 2026-11-23, operator"
+
+assumptions:
+  - claim: "A classic 'docker push' stores a Docker schema2 manifest (application/vnd.docker.distribution.manifest.v2+json) or a manifest list, and the registry answers its push digest in Docker-Content-Digest only when the Accept header names that media type."
+    check: "Faked-HTTP test with a schema2 answer; one manual resolve against ACR after 933dd's first push."
+  - claim: "ACR's retention policy (Premium tier) deletes untagged manifests only; acr purge in a scheduled ACR Task deletes tagged images by repository filter and age."
+    check: "The docs page links Microsoft's ACR retention-policy and acr purge pages; one acr purge --dry-run against the PoC repository lists only images older than <N> days."
+
+scope:
+  in: >
+    SEAM (Contracts/Providers): IContainerRegistry — ProbeAsync(), Reference(poc, tag) (login server + repository
+    prefix + PoC name), ResolveAsync(reference) -> digest or null (HEAD manifest by tag, the Docker-Content-Digest
+    header), ExistsAsync(reference by digest) -> bool (HEAD manifest by digest). Every HEAD sends Accept with the OCI
+    index and image manifest types AND application/vnd.docker.distribution.manifest.v2+json and
+    application/vnd.docker.distribution.manifest.list.v2+json, so a docker-pushed image resolves to its push digest.
+    IContainerRegistryFactory.Create(PocRegistryConfig). ImageReference (registry, repository, tag?, digest?) with a
+    Parse that refuses a reference without a sha256 digest where a digest is required — the ONE digest-reference type:
+    the c81e series renders the deployed image with it and defines no second parser. OciDistributionClient
+    (Infrastructure/Services/Providers/Registry) takes the pull token from its caller: in a PoC run the factory resolves
+    it with ICredentialResolver.Lookup(pull_auth) (environment first, then the catalog): none is refused naming
+    pocs.targets[].registry.pull_auth, unreadable is refused with the lookup's reason; Basic credentials -> 401 challenge -> the challenge's realm is checked BEFORE any credential is sent:
+    a realm whose scheme is not https or whose host is not the login server is refused naming both hosts -> bearer token
+    for 'repository:<repo>:pull' -> HEAD manifests. The Basic header and the bearer token never enter a log, a refusal,
+    an event or a result: refusals name registry, repository and HTTP status only, never headers or a body. PROBE:
+    ProbeAsync asks for a token scoped 'repository:<repository>/agent-smith-probe:pull' and sends HEAD
+    /v2/<repository>/agent-smith-probe/manifests/probe; 404 (name or manifest unknown) answers 'the pull token reaches
+    <login_server>/<repository>', 401 or 403 answers 'the token signs in but may not pull <repository>/* — the scope map
+    misses it', a failed token request answers 'the registry refused the pull token'. AcrContainerRegistry over it
+    (login server shape: a label of 5 to 50 lowercase letters and digits, optionally followed by '-' and a
+    domain-name-label hash, then .azurecr.io, .azurecr.us or .azurecr.cn; realm https://<login_server>/oauth2/token). ContainerRegistryFactory: type
+    switch, an unknown type refused naming pocs.targets[].registry.type; registered beside PipelineRunnerFactory. CONFIG:
+    registry block on 933da's PocTargetConfig, REQUIRED on every target (933dd resolves and verifies the built image
+    through it, c81ed checks a rollback digest with ExistsAsync) — type (acr), login_server, repository (default 'pocs'; images are
+    <login_server>/<repository>/<poc>), pull_user, pull_auth (catalog secret id of the pull-only token; required with
+    cluster_pulls too, because ResolveAsync and ExistsAsync read the registry with it), pull_mode (pull_secret |
+    cluster_pulls, default pull_secret; 933dg reads it). PocRegistryConfig.Problems() checks its own values only:
+    login_server shape, repository a valid path, pull_user and pull_auth non-empty, pull_mode one of the two — each
+    naming value, reason and key. PocsConfig.Problems() (933da) gains, per target, 'no registry block' naming
+    pocs.targets[].registry and the problems of PocRegistryConfig.Problems(), so the load finding and SettingsBlockRule's
+    PocsConfig arm refuse a bad block on save and import. 'pull_auth names a catalog secret' is a load finding in 933da's PocTargetReferences,
+    naming the key. Schema description and docs say 'container registry' and point out that the top-level registries:
+    list is for package feeds; docs cover the pull-only token, the scope map '<repository>/*' and cleanup of old images: on ACR
+    a scheduled ACR Task running acr purge --filter '<repository>/.*:.*' --ago <N>d (with --untagged when untagged
+    manifests should go too), because ACR's retention policy deletes untagged manifests only and every image 933dd
+    pushes is tagged <poc>:<sha>; the docs warn that <N> must be longer than the longest PoC lifetime including
+    extensions, or the purge removes a running PoC's image (a pod restart then fails to pull) or a rollback target. ENDPOINT: POST /api/config/pocs/registry/check (config.write + diagnostics.probe, the draft-check
+    pair, outside PocsGate so it works while PoCs are off) takes the unsaved registry block from the form and answers the
+    probe sentence; nothing is saved. Before the first request it runs PocRegistryConfig.Problems() and refuses on any
+    problem, and it resolves pull_auth from the catalog only (ISecretValues.Resolve, unreadable told by
+    ISecretValues.Unreadable), as the connection and tracker draft checks resolve theirs: a pull_auth naming no catalog
+    secret is refused naming pocs.targets[].registry.pull_auth, the same rule as the load finding, so a draft can never
+    send a server environment variable to a host it names. route-permission-baseline.tsv gains 'POST
+    /api/config/pocs/registry/check config.write,diagnostics.probe -'. FORM: PocsSettingsForm's target registry section — type select (acr), login
+    server, repository, pull user, pull token secret picker, pull mode radio with the help text naming what each means,
+    Test connection (checks the values in the form). ConfigStudio's useSecretRegistries also fetches the pocs setting, and
+    secretUsers in EntityCard.tsx takes its targets as a further argument and lists 'PoC target <name>' for every target
+    whose registry.pull_auth names the secret.
+  out: "Building, scanning and pushing (933dd's host pipeline). The pull secret manifest (933dg). Deleting registry images (the operator's scheduled acr purge, documented; agent smith has no delete credential). A second registry implementation (the seam is the deliverable). A guard against deleting a referenced secret (the card now shows the use)."
+
+steps:
+  - id: contracts
+    action: "IContainerRegistry, IContainerRegistryFactory, ImageReference, RegistryProbe in AgentSmith.Contracts/Providers."
+  - id: oci
+    action: "OciDistributionClient (Infrastructure/Services/Providers/Registry): the pull token from its caller (Lookup in a PoC run, the catalog only in the draft check), realm check, challenge -> token -> HEAD manifests by tag or digest with OCI and Docker media types; Docker-Content-Digest read; typed refusals without headers or body."
+  - id: acr
+    action: "AcrContainerRegistry over OciDistributionClient; ContainerRegistryFactory (type switch); registration beside PipelineRunnerFactory."
+  - id: config
+    action: "PocRegistryConfig on PocTargetConfig with Problems() (required block, pull_auth required, ACR login-server shape with hash label and sovereign suffixes); PocsConfig.Problems() calls it per target; pull_auth reference in PocTargetReferences; schema, example, docs (acr purge task and the <N> warning)."
+  - id: probe
+    action: "PocRegistryDraftCheck (Problems() first, pull_auth from the catalog only) + POST /api/config/pocs/registry/check beside ConfigDraftCheckEndpoints; route-permission-baseline.tsv row."
+  - id: dashboard
+    action: "PocsSettingsForm registry section with Test connection on the form's values; useSecretRegistries fetches the pocs setting and secretUsers gains PoC targets; i18n keys with German."
+
+tests:
+  - "OciDistributionClient_ChallengeThenToken_ReadsDigestHeader (faked HTTP)"
+  - "OciDistributionClient_Schema2Manifest_ResolvesToPushDigest (Accept carries the Docker media types)"
+  - "OciDistributionClient_UnknownManifest_AnswersNull"
+  - "OciDistributionClient_RealmOnForeignHost_RefusedBeforeCredentialsSent (faked HTTP records no Authorization header to the foreign host)"
+  - "OciDistributionClient_Refusal_CarriesNoTokenHeaderOrBody (captured logger and refusal text hold neither the Basic value nor the bearer token)"
+  - "OciDistributionClient_PullAuthMissing_RefusedNamingKey; _Unreadable_RefusedWithReason"
+  - "AcrContainerRegistry_Probe_404Reaches_403ScopeMapMisses"
+  - "AcrContainerRegistry_Reference_UsesLoginServerRepositoryAndPoc"
+  - "AcrContainerRegistry_ExistsByDigest_TrueAndFalse"
+  - "ImageReference_Parse_TagOnlyWhereDigestRequired_Refused"
+  - "ContainerRegistryFactory_UnknownType_RefusedNamingKey"
+  - "PocRegistryConfig_BadLoginServer_Refused; _HashLabelAndSovereignSuffix_Accepted; _EmptyPullUser_Refused; _EmptyPullAuthWithClusterPulls_Refused; PocTargetReferences_UnknownPullAuth_FindingNamingKey"
+  - "PocsConfig_TargetWithoutRegistry_RefusedNamingKey; SettingsBlockRule refuses saving and importing a bad registry block"
+  - "Server HTTP: POST /api/config/pocs/registry/check answers with pocs.enabled false; without diagnostics.probe 403"
+  - "PocRegistryDraftCheck_PullAuthNamesEnvironmentVariableNotInCatalog_SendsNoRequest (faked HTTP records nothing); _ProblemInDraft_RefusedBeforeFirstRequest"
+  - "Dashboard: registry section saves the pull token secret id and pull mode and shows the check result for the form's values; the secret card names the PoC target from the fetched pocs setting"
+
+done:
+  - {given: "a target form with an ACR registry and a pull-only token whose scope map grants '<repository>/*'", when: "the operator presses Test connection, PoCs on or off", then: "the form says the pull token reaches <login_server>/<repository>; with a scope map missing the prefix it says so"}
+  - "Given an image docker-pushed as <repository>/<poc>:<sha>, ResolveAsync answers its push digest and ExistsAsync confirms that digest; agent smith holds no push credential anywhere and no log line carries a registry token."

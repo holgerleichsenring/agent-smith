@@ -128,7 +128,7 @@ internal static class RelationalPersistenceExtensions
         services.AddTicketFactStores().AddMemoryEvidence(); // c1a7 + 2026-09-25-b4d9, 2026-10-25-9324a
         services.AddScoped<RunCheckpointRepository>().AddScoped<DialogueAnswerRepository>();
         services.RemoveAll<IRunCheckpointStore>();
-        services.AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();
+        services.AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>().AddPocStores(); // 2026-11-23-933db
         services.RemoveAll<IDialogueAnswerInbox>();
         services.AddSingleton<IDialogueAnswerInbox, DbDialogueAnswerInbox>();
         // p0356: same-ticket resume — the DB-backed prior-run ledger reader

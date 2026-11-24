@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.206.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.205.1...v0.206.0) (2026-11-24)
+
+
+### Features
+
+* **base-merge:** MEMORY.md index lines of both sides are united like state.done (2026-11-24-6811b) ([13f92f1](https://github.com/holgerleichsenring/agent-smith/commit/13f92f11db0621aef7365540f88355e6073b70e0))
+* **holds:** a refresh at work holds nobody and offers no Merge; a refused refresh holds a person with its reason (2026-11-24-6811d) ([1560699](https://github.com/holgerleichsenring/agent-smith/commit/1560699f1a8c6f777559498689408ac3faa1a340))
+* **pr-records:** the host's merge conflict is read, recorded and held for a person (2026-11-24-6811a) ([e2088c5](https://github.com/holgerleichsenring/agent-smith/commit/e2088c5240884ef5b7a4799d75c422cbf0d305f6))
+* **refresh-base:** every base merge is built and tested before the push; a master resolves what the unions leave (2026-11-24-6811c) ([dbc2414](https://github.com/holgerleichsenring/agent-smith/commit/dbc241483d15daeb31b65c748e9455ee649767fc))
+* **refresh-base:** open pull requests are brought up to date after a landing, conflicts resolved, built and tested (2026-11-24-6811) ([1fc4743](https://github.com/holgerleichsenring/agent-smith/commit/1fc4743f115896b2c0ffbe5accf0df57ce8c044d))
+
+
+### Bug Fixes
+
+* **refresh-base:** review findings — removals stage, untracked repairs are not built on, fast-forward repairs commit on top, passes bounded by ci_fix_attempts, a refused refresh stops the CI merge (2026-11-24-6811c) ([da903b4](https://github.com/holgerleichsenring/agent-smith/commit/da903b40e048776529ed127153cad878cb53f487))
+
 ## [0.205.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.205.0...v0.205.1) (2026-11-24)
 
 

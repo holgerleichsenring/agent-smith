@@ -26,6 +26,12 @@ const FIXED_PLACES: Record<string, string> = {
   // 2026-10-13-9a59p: the ticket list; its six bucket views are ?bucket= queries of one place.
   "/tickets": "Tickets",
   "/pull-requests": "Pull requests",
+  // 2026-11-23-8df6a: merged pull requests and agent smith's deploys, below Pull requests.
+  "/deployments": "Deployments",
+  // 2026-11-23-933da: the PoCs list, shown when the feature is on and the caller may read it.
+  "/pocs": "PoCs",
+  // 2026-11-23-933db: importing a PoC ZIP.
+  "/pocs/import": "Import a PoC",
   // 2026-11-23-31dcc: every series a conversation filed (the search names it in the chosen language through PLACE_KEYS).
   "/series": "Series",
   // 2026-09-15-cb3e: where the work is DESIGNED — a peer of the two above, not a
@@ -74,6 +80,9 @@ export const PLACE_KEYS: Readonly<Record<string, TextKey>> = {
   "/runs": "shell.nav.runs",
   "/tickets": "shell.nav.tickets",
   "/pull-requests": "shell.nav.pullRequests",
+  "/deployments": "deployments.nav",
+  "/pocs": "pocs.nav",
+  "/pocs/import": "pocs.import.place",
   "/series": "series.nav",
   "/spec-dialog": "shell.nav.workItOut",
   "/spec-dialog/conversations": "shell.place.conversations",

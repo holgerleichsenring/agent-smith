@@ -6,9 +6,15 @@ namespace AgentSmith.Contracts.Reviews;
 /// <param name="StateAt">When it was merged or closed; for an open one, when it was opened.</param>
 /// <param name="Decisions">The decisions standing now, at most one per reviewer.</param>
 /// <param name="HeadSha">The pull request's head commit, when the read fetched it.</param>
+/// <param name="MergeSha">2026-11-23-8df6a: the commit a merge landed as; null unless the state is merged and the host named one.</param>
 public sealed record PrReviewState(
-    string Number, string State, DateTimeOffset StateAt, IReadOnlyList<PrReviewDecision> Decisions, string? HeadSha = null)
+    string Number, string State, DateTimeOffset StateAt, IReadOnlyList<PrReviewDecision> Decisions, string? HeadSha = null,
+    string? MergeSha = null)
 {
     /// <summary>2026-11-23-8d16: the host says the pull request is still a draft — Azure DevOps cannot complete one.</summary>
     public bool IsDraft { get; init; }
+
+    /// <summary>2026-11-24-6811a: the host says the pull request conflicts with its base (true), merges cleanly (false), or
+    /// has not decided yet — a host computes mergeability after the base moves (null).</summary>
+    public bool? HasConflicts { get; init; }
 }

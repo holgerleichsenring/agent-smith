@@ -34,6 +34,12 @@ describe("seriesCiState", () => {
     expect(seriesTicketBadges({ ...ticket, pullRequests: [open({ ci: "green" })] })).toEqual([]);
   });
 
+  // 2026-11-24-6811a: the host's conflict comes before the CI — nothing merges it, green or not.
+  it("SeriesTicketBadges_AConflictComesBeforeTheCi", () => {
+    const ticket = { ...overviewDetail().tickets[1], pullRequests: [open({ hasConflicts: true, ci: "pending" })] };
+    expect(seriesTicketBadges(ticket)).toEqual(["conflict", "ciRunning"]);
+  });
+
   it("MergesWhenGreen_AReadyStepWhoseCiRunsOrHasNotStarted_NeverRed", () => {
     expect(mergesWhenGreen(ready({ ci: "pending" }, true).detail, ready({ ci: "pending" }, true).ticket)).toBe(true);
     const notStarted = ready({ ci: "not_started" }, true);

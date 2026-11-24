@@ -57,6 +57,10 @@ export enum EventType {
   // 2026-11-18-3863f: a deploy delivered its pull request or started its pipeline.
   DeployDelivered = 92,
   TicketTextRewritten = 93,
+  PocImported = 94,
+  PocOverruled = 95,
+  PocDeployed = 96,
+  PocActed = 97,
 }
 
 interface RunEventBase {
@@ -819,6 +823,51 @@ export interface TicketTextRewrittenEvent extends RunEventBase {
   acceptanceCriteria?: string | null;
 }
 
+/** 2026-11-23-933db: a poc-deploy run validated a revision of a PoC. Mirrors C# PocImportedEvent. */
+export interface PocImportedEvent extends RunEventBase {
+  type: EventType.PocImported;
+  pocId: number;
+  revision: number;
+  actor: string;
+}
+
+/** 2026-11-23-933dc: a holder of pocs.overrule lifted a revision's scan block; the run committed it. Mirrors C#
+ *  PocOverruledEvent. */
+export interface PocOverruledEvent extends RunEventBase {
+  type: EventType.PocOverruled;
+  pocId: number;
+  revision: number;
+  stage: string;
+  actor: string;
+  reason: string;
+  findingIds: string[];
+}
+
+/** 2026-11-23-c81eb: a poc-deploy run's GitOps commit put a revision into the PoC's deploy folder (commitSha null:
+ *  the folder already held it). Mirrors C# PocDeployedEvent. */
+export interface PocDeployedEvent extends RunEventBase {
+  type: EventType.PocDeployed;
+  pocId: number;
+  revision: number;
+  digest: string;
+  commitSha?: string | null;
+  actor: string;
+}
+
+/** 2026-11-23-c81ed: a lifecycle act's GitOps commit (stop, start, rollback, apply, delete) landed (commitSha null: the
+ *  folder already held it). Mirrors C# PocActedEvent. */
+export interface PocActedEvent extends RunEventBase {
+  type: EventType.PocActed;
+  pocId: number;
+  act: string;
+  actor: string;
+  reason?: string | null;
+  revision?: number | null;
+  commitSha?: string | null;
+  /** 2026-11-23-c81ee: the audit act an expiry, removal or extend run records in place of the act's own. */
+  auditAct?: string | null;
+}
+
 /** 2026-11-18-3863f: a deploy delivered — its pull request, or the pipeline run it started (null id: the host did
  *  not name it). Mirrors C# DeployDeliveredEvent. */
 export interface DeployDeliveredEvent extends RunEventBase {
@@ -928,7 +977,11 @@ export type RunEvent =
   | DialogActivityEvent
   | VerifyPassRecordedEvent
   | DeployDeliveredEvent
-  | TicketTextRewrittenEvent;
+  | TicketTextRewrittenEvent
+  | PocImportedEvent
+  | PocOverruledEvent
+  | PocDeployedEvent
+  | PocActedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */
@@ -1165,7 +1218,9 @@ export type PullRequestStatus =
   | "completion_armed"
   | "completion_refused"
   /** 2026-11-17-3435b: the run's gate passed; the pull request waits for the host's CI (merge: on_ci_green). */
-  | "awaiting_ci";
+  | "awaiting_ci"
+  /** 2026-11-24-6811c: a refresh-base run left the branch unchanged; the PR is still open and the reason says why. */
+  | "refresh_refused";
 
 /** p0347: one row of GET /api/pull-requests — a per-repo PR outcome flattened
  *  across runs and joined with its run/ticket facts, newest-first. */

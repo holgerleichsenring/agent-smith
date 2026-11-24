@@ -47,6 +47,23 @@ public sealed class AzurePipelineRunner(
         return new PipelineRunState(state, Url(runId), [new CiFailure(build.Definition?.Name ?? "pipeline", Url(runId), excerpt)]);
     }
 
+    /// <summary>2026-11-23-933dd: the build's artifact named so, fetched as the zip Azure DevOps serves, and the file read
+    /// out of it.</summary>
+    public async Task<PipelineArtifactText?> ReadArtifactTextAsync(
+        string runId, PipelineArtifact artifact, long maxBytes, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(artifact);
+        var client = await builds(cancellationToken);
+        var id = int.Parse(runId, CultureInfo.InvariantCulture);
+        var artifacts = await client.GetArtifactsAsync(project, id, cancellationToken: cancellationToken);
+        if (!artifacts.Any(a => string.Equals(a.Name, artifact.Name, StringComparison.Ordinal))) return null;
+        await using var content = await client.GetArtifactContentZipAsync(project, id, artifact.Name, cancellationToken: cancellationToken);
+        var zip = new MemoryStream();
+        await content.CopyToAsync(zip, cancellationToken);
+        zip.Position = 0;
+        return await PipelineArtifactZip.ReadAsync(zip, artifact, maxBytes, cancellationToken);
+    }
+
     private async Task<BuildDefinitionReference> DefinitionAsync(BuildHttpClient client, string pipeline, CancellationToken ct)
     {
         var cut = pipeline.LastIndexOf('\\');

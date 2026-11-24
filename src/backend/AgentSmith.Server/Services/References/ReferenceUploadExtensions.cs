@@ -9,11 +9,8 @@ internal static class ReferenceUploadExtensions
     internal static IServiceCollection AddReferenceUploads(this IServiceCollection services)
     {
         services.AddSingleton<ReferenceUploadBody>();
-        services.AddSingleton<ReferencePathRule>();
-        services.AddSingleton<ReferenceIgnoreList>();
         services.AddSingleton<ReferenceFileTypes>();
-        services.AddSingleton<ZipEntryChecksum>();
-        services.AddSingleton<ReferenceZipReader>();
+        services.AddSingleton<ReferenceZipReader>(); // 2026-11-23-933db: its rules and inflater come from AddArchiveRules
         services.AddSingleton<ReferenceSetValidator>();
         services.AddScoped<ReferenceSetUpload>();
         // 2026-10-08-e8b9g: the byte cap and copies both uploads answer to, the image upload, the

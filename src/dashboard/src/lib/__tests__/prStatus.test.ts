@@ -48,4 +48,10 @@ describe("prStatus", () => {
     expect(isOpenPullRequest("awaiting_ci")).toBe(false);
     expect(pullRequestStatusLabel("awaiting_ci", en)).toBe("waiting for CI");
   });
+  // 2026-11-24-6811c: a refresh that left the branch unchanged leaves an open pull request that waits for a person.
+  it("refreshRefused_IsAnOpenPullRequestWaitingForAPerson_AndSaysSo", () => {
+    expect(hasPullRequest("refresh_refused")).toBe(true);
+    expect(isOpenPullRequest("refresh_refused")).toBe(true);
+    expect(pullRequestStatusLabel("refresh_refused", en)).toBe("not brought up to date");
+  });
 });

@@ -10,6 +10,12 @@ public sealed record SeriesRunPullRequestView(
     /// <summary>2026-11-23-8d16: the newest read saw it still a draft; a person's merge takes it out of draft first.</summary>
     public bool IsDraft { get; init; }
 
+    /// <summary>2026-11-24-6811a: the host said last that it conflicts with its base.</summary>
+    public bool HasConflicts { get; init; }
+
+    /// <summary>2026-11-24-6811d: the refresh-base run at work on it; null when none is.</summary>
+    public string? RefreshRunId { get; init; }
+
     /// <summary>2026-11-23-0219: the newest merge-green run's refusal or armed auto-complete on it; null when none said one.</summary>
     public AgentSmith.Contracts.Runs.PullRequestMergeSaid? MergeSaid { get; init; }
 }

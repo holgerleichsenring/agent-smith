@@ -1,0 +1,163 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-933da
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "PoCs are optional: pocs.enabled (default false) with a dashboard field; off = no sidebar item, every PoC route an empty 404, no PoC hosted service acts"
+    over: "PoCs always on once a target is configured"
+    reason: "Operator ruling A, 2026-11-23."
+  - category: Architecture
+    decider: operator
+    chose: "Visibility through one poc-<person> project per user, bound to the person by a 4a4d project binding; no per-route owner axis"
+    over: "An owner axis (PocAccess) checked on every PoC route and every cross-project route"
+    reason: "Operator ruling B, 2026-11-23: runs, logs and events are then isolated by the existing project visibility instead of a second visibility rule."
+  - category: Security
+    decider: operator
+    chose: "Four global-only permissions: pocs.read, pocs.write, pocs.overrule, pocs.admin (admins see and act on everything)"
+    over: "Three permissions with pocs.overrule doubling as 'sees all', or reusing runs.control"
+    reason: "Operator ruling B, 2026-11-23; runs.control at project level unlocks deploy, memory, derive-specs, close and series routes (concept review)."
+  - category: Security
+    decider: operator
+    chose: "The operator role gets pocs.read only"
+    over: "Operator with pocs.read and pocs.write, or without PoCs"
+    reason: "operator: recommendation accepted (ruling B)."
+  - category: Security
+    chose: "Seeing a PoC = runs.read in its project (ProjectFrom.Poc); acting = pocs.admin, or pocs.write plus runs.read granted by a binding of the PoC's project"
+    over: "Making pocs.read/pocs.write project-scopable"
+    reason: "Follows from ruling B. A global pocs.* hold would mean every project, so the PoC permissions stay global feature grants and the project decides which PoC. Requiring a BINDING for acts keeps a person who also holds global reader from acting on other people's PoCs. Note: seeing every PoC therefore comes from a global runs.read, which admin and operator hold; pocs.admin adds acting on every PoC and lifting owner limits."
+  - category: Implementation
+    chose: "pocs.project_agent and pocs.project_tracker on the settings singleton"
+    over: "Provisioned projects without agent or tracker"
+    reason: "Code: ResolvedProjectBuilder refuses a project lacking either (blocking finding), so a provisioned poc- project needs both from config."
+  - category: Architecture
+    decider: operator
+    chose: "One shared source repo per target, named like a project repo (catalog name or connection/name) plus a root; source folder <root>/<project>/<poc>/"
+    over: "One repository per poc- project (needs a repo-creation provider)"
+    reason: "Operator ruling C, 2026-11-23."
+  - category: Architecture
+    chose: "The target names no 3863a deployment binding any more"
+    over: "A target pointing at a deployment binding for its GitOps repo"
+    reason: "Follows from ruling D: the app template and ApplicationSet live in the PoC source repo, so the source repo is the GitOps repo; this also settles the former target-binding-home question."
+  - category: Implementation
+    decider: operator
+    chose: "PocAuditEntry is defined in this model slice and written only by run event projections"
+    over: "Defining it in 933df"
+    reason: "operator: recommendation accepted (ruling I), so 933dc's overrule can write its audit entry."
+  - category: Implementation
+    decider: operator
+    chose: "A per-person PoC limit pocs.targets[].per_person_limit (default 3), pocs.admin excepted"
+    over: "No limit"
+    reason: "Operator ruling G. The default 3 is the author's choice; the operator may change it in the settings field."
+  - category: Security
+    chose: "GET /api/pocs needs pocs.read and declares no project source; its handler filters rows by CallerProjectScope.For(user, runs.read) through a Poc Within overload that honours Hidden"
+    over: "Declaring InProject(AcrossProjects) and filtering by ProjectsHolding directly"
+    reason: "Review 2026-11-23: RouteProjectScopeGuardTests refuses a project source on a route whose permissions are all global-only, and ProjectsHolding answers [] for a caller on an installation without enforcement, so that installation would list nothing; CallerProjectScope already handles 'nothing enforced', global holders and the hidden installation."
+  - category: Security
+    chose: "PocActAccess.MayAct asks a new ProjectAccess member HoldsByBindingIn, which applies the configured-project check; nothing enforced means everyone may act"
+    over: "Reading CallerIdentity.ProjectPermissions directly"
+    reason: "Review 2026-11-23: ProjectAccess is the one place the union is answered, and the raw identity map is not filtered by configured project; without the 'not enforcing' arm nobody could replace a PoC on such an installation."
+  - category: Architecture
+    chose: "The dashboard learns the PoCs switch from GET /api/pocs (200 on, 404 off, 403 not permitted); CallerIdentity stays unchanged"
+    over: "A pocs_enabled flag on the identity answer, or a separate feature route"
+    reason: "Review 2026-11-23: the identity is fetched only with a token, so an installation without sign-in would never learn the flag, and CallerIdentity is the token's one shape resolved on every authorization check. Reusing the list route adds no route."
+  - category: Implementation
+    chose: "The list answer carries targets [{name, source_repo, root}] for the target strip"
+    over: "Showing the strip only to config.read holders"
+    reason: "Review 2026-11-23: a PoC-only caller holds no config.read; the strip tells them where their source lives, and a repo ref holds no secret."
+  - category: Implementation
+    chose: "pocs.project_agent and pocs.project_tracker get no reference edge; a dangling one is a load finding, and once a poc- project exists that project's own agent and tracker edges refuse the delete"
+    over: "Adding an edge function to singleton descriptors"
+    reason: "Code: only collection descriptors carry edges (ConfigDocDescriptor.Singleton takes none); every provisioned poc- project already names both, so the refusal arrives with the first project at no new mechanism."
+  - category: Implementation
+    chose: "ProjectFrom.Poc ships here with a resolver unit test; the first route using it is 933dc's revision read"
+    over: "Moving ProjectFrom.Poc to 933dc"
+    reason: "Review 2026-11-23: this slice has no PoC-keyed route; the source and its reader belong with the model, and 933dc, 933dg and the c81e series all key routes by pocId."
+  - category: Architecture
+    decider: operator
+    chose: "Desired state (Replicas, Revision, ImageDigest) lives on the Poc row; every render reads it and acts change only that state and commit"
+    over: "Deriving desired state from the last GitOps commit or the last run"
+    reason: "Operator ruling, round 3, 2026-11-23."
+  - category: Implementation
+    chose: "PocStates gains refused, and PocStates.IsLive (not refused, not deleted) is the one definition of a live PoC"
+    over: "No row for a refused import, or an importing row nothing moves on"
+    reason: "Review of 933db: a refused first import left an importing row holding the name and counting toward the limit; round 3 requires the row to exist before poc-deploy is queued, so it needs a terminal state."
+  - category: Scope
+    decider: operator
+    chose: "Sidebar order Pull requests, Deployments (8df6a), PoCs (only when enabled and permitted), stated identically in both specs"
+    over: "Both items right after Pull requests"
+    reason: "Operator ruling, round 3, 2026-11-23."
+  - category: Scope
+    decider: operator
+    chose: "References to 933df and 933dh point at 2026-11-23-c81ea..e; PocAuditEntry stays defined here"
+    over: "Keeping the withdrawn specs as targets"
+    reason: "Operator ruling, round 3, 2026-11-23: 933df and 933dh are withdrawn and replaced by the c81e series."
+  - category: Implementation
+    chose: "PocTargetReferences is the one home of target reference findings; 933de's pull_auth check is an arm of it, added by 933de with the field"
+    over: "A second reference checker per slice"
+    reason: "Coordinator contract 2026-11-23: the pull_auth load finding moved into 933da's target references. The registry block itself is 933de's, which requires 933da, so the arm lands with the field."
+  - category: Implementation
+    chose: "Poc.LiveName (null once deleted) with unique (Target, LiveName) is defined here, and PocStates holds the full set (failed included) once"
+    over: "Unique (Target, Name) here and an index swap in 2026-11-23-c81ed; each slice adding its own state constant"
+    reason: "Consistency pass 2026-11-23: a deleted PoC must free its name and host (c81ed), and defining the column with the table avoids a later index migration; one state set read by IsLive everywhere."
+  - category: Implementation
+    chose: "PocAuditEntry carries unique (RunId, Act), filtered IS NOT NULL on SQL Server, created with the table in AddPocs"
+    over: "Each act-projecting slice adding the index later, or none at all"
+    reason: "Round-2 review 2026-11-23: 933db, 933dc and the c81e series project acts 'unique on RunId + Act so a replay inserts nothing', yet no slice created that index; defining it with the table needs no later migration."
+  - category: Implementation
+    chose: "may_import = !Enforcing || HoldsEverywhere(user, [pocs.write])"
+    over: "may_import = pocs.write held"
+    reason: "Round-2 review 2026-11-23: an unauthenticated caller resolves to no permissions (CallerIdentityResolver.cs:108-111), so the button would stay disabled on an installation without sign-in, where MayAct is true."
+  - category: Implementation
+    chose: "source_repo is a string holding an exact repo ref; Problems() refuses one containing '*'"
+    over: "Accepting any project repo ref, glob or mapping included"
+    reason: "Round-2 review 2026-11-23: 933db provisions every poc- project with repos = [source_repo], so a glob would bind it to many repos; RepoGlobRef.IsGlob is the same '*' test."
+  - category: Implementation
+    chose: "Work it out is gated on dialog.write anywhere; New work and Recent are hidden for a PoC-only caller"
+    over: "Gating Work it out on runs.read; leaving New work and Recent ungated"
+    reason: "Round-2 review 2026-11-23: Work it out's routes need dialog.write (route-permission-baseline.tsv:79); a PoC-only caller is redirected away from home, so New work and Recent lead nowhere."
+  - category: Architecture
+    decider: operator
+    chose: "A blocked PoC that never deployed stays live (name held, per_person_limit slot counted) until it is removed with its purged upload after pocs.blocked_retention_days (7); the removal is c81ed's poc-delete launched by c81ee, which sets deleted and clears LiveName"
+    over: "A blocked PoC holding its name and slot until its owner deletes it, or a new state or a second way to clear LiveName"
+    reason: "Operator ruling, round 4, 2026-11-23. IsLive and the one LiveName writer stay as defined here; only the time a blocked PoC stays live is now bounded."
+  - category: Implementation
+    chose: "Poc implements IProjectOwned and the list filters through ProjectScopeQueries' generic Within; the spec text now says so"
+    over: "A Poc-specific Within overload written like the Run one"
+    reason: "Build 2026-11-23: 2026-11-23-47b6 replaced the per-entity overloads with one generic Within over IProjectOwned (Hidden honoured), so an overload would be a second copy of the rule."
+  - category: Implementation
+    chose: "Every PoC route is mapped on app.MapGroup(\"/api\") with PocsGate as its endpoint filter, each route naming /pocs itself"
+    over: "app.MapGroup(\"/api/pocs\") with an empty list route"
+    reason: "Build 2026-11-23: an empty route under the /api/pocs group has the pattern /api/pocs/ in the route table, so the golden row 'GET /api/pocs' would read with a trailing slash; the group's job is the filter, not the prefix."
+  - category: Implementation
+    chose: "PocTargetReferences findings are Blocking while pocs.enabled is true and Advisory while it is off"
+    over: "Always Blocking, or only checked while on"
+    reason: "Build 2026-11-23: the spec leaves the severity open; the settings form lets the fields be filled in before the switch, and a dangling name there must not block a load that hosts no PoC, yet it should still be named."
+  - category: Implementation
+    chose: "PocsConfig.Problems() names target keys as pocs.targets[].<field> of target '<name>'; folder rules live in PocTargetFolders"
+    over: "Index-based keys (pocs.targets[0].root), or every rule inside PocTargetConfig"
+    reason: "Build 2026-11-23: the spec's key spelling is pocs.targets[].<field>; the target name tells the operator which one. Splitting the folder rules keeps both classes under the 120-line limit."
+  - category: Implementation
+    chose: "A folder is plain when it is non-empty, relative, without backslash, ':' , '.' or '..' segments and empty segments; two folders nest when one equals or prefixes the other by whole segments"
+    over: "Normalising paths before comparing"
+    reason: "Build 2026-11-23: the spec refuses absolute, '..', backslash and empty-segment paths by name; refusing instead of normalising keeps the stored value the one every step uses."
+  - category: Implementation
+    chose: "The sidebar's Series item (2026-11-23-31dcc) is a work item: hidden for a known caller without runs.read anywhere and for a PoC-only caller"
+    over: "Leaving Series ungated"
+    reason: "Build 2026-11-23: Series landed after the spec was written; its routes need runs.read (route-permission-baseline.tsv), so it follows the work-item rule."
+  - category: Scope
+    chose: "The PoCs item sits right after Pull requests in this tree; the 'PoCs after Deployments' test is left to whichever of 933da and 8df6a lands second"
+    over: "Adding a Deployments placeholder here"
+    reason: "Build 2026-11-23: 8df6a's Deployments item does not exist in this tree; the ruled order (Pull requests, Deployments, PoCs) is stated in sidebarItems.ts for the second spec to keep."
+  - category: Implementation
+    chose: "The Import ZIP button shows only when may_import is true and stays disabled with 'Importing comes with a later update' until 933db; cards link nowhere yet, the last run links to its run page"
+    over: "A visible button for every caller, or a card link to a detail page that does not exist"
+    reason: "Build 2026-11-23: the import route is 933db's and the detail page c81ed's; a dead link would lead to a 404."
+  - category: Implementation
+    chose: "Target settings shows unless the caller is known to lack config.read; the source repo field is one text input suggesting catalog repos and connection/ prefixes"
+    over: "Showing the link only to a known config.read holder; reusing the project RepoPicker"
+    reason: "Build 2026-11-23: an installation without sign-in knows no identity and lets everyone edit settings; the project picker selects many refs, while source_repo is one exact ref."
+  - category: Implementation
+    chose: "The c785 spec file is renamed to its main-branch name (merge-run-ci-build-zero) in this commit"
+    over: "Leaving the six-word label that fails SpecNameRuleTests"
+    reason: "Build 2026-11-23: the branch was cut before main relabelled it, so the spec gate's suite would block this commit; the rename is byte-identical to main's."

@@ -1,0 +1,261 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-933dc
+goal: "A PoC upload passes a scan gate where critical vulnerabilities and high-confidence secrets block, before it is committed; a blocked page shows why and pocs.overrule lifts vulnerability blocks."
+
+applies_to: "default (PoC scan verdict and block rules, in-process secret pattern scan, pinned OSV-Scanner dependency scan, masked LLM explanation, path-scoped source-repo commit, revision read and overrule routes, pocs.scan settings) + dashboard (blocked page, scan settings fields)"
+
+requires: [2026-11-23-933db]
+
+upgrade_impact: "Behind pocs.enabled; only poc-deploy runs change. poc-deploy now ends after the commit (933db ended after validation). The source repo's token needs push to its default branch: a protected default branch refuses the direct commit, said with the host's reason (documented). pocs.scan absent reads as the defaults below; with pocs.enabled true an empty or tag-only pocs.scan.osv_image is refused, so an installation that enabled PoCs under 933db must set it. The shipped egress-proxy allowlist gains the OSV database host. PocRevision gains VerdictJson, Explanation, OverruledIdsJson (keyed by stage) and CommitSha (migrations on three providers). The security-scan pipeline and its handlers are unchanged; PatternFileMatcher's per-line match moves into a shared PatternLineMatcher with unchanged output. The embedded skills catalog pin moves to a release whose aws-secret-key also matches a quoted value and whose connection-string-password carries confidence 8. pocs.scan gains secret_min_confidence (8)."
+
+facts:
+  - claim: "All three security-scan handlers emit their findings as observations with Blocking: false; the pipeline reports, it never gates."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/StaticPatternScanHandler.cs:33-50, src/backend/AgentSmith.Application/Services/Handlers/DependencyAuditHandler.cs:42-47, src/backend/AgentSmith.Application/Services/Handlers/GitHistoryScanHandler.cs:37-42"
+  - claim: "The Python dependency audit runs pip-audit --requirement=requirements.txt and, when pip-audit is absent, pip-installs it unpinned in the sandbox — resolving the uploader's requirements (index options honoured) is running uploader-controlled input."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Security/DependencyAuditor.cs:90-117"
+  - claim: "No OSV-Scanner integration exists in the backend today."
+    evidence: "observed: 2026-11-23, grep -ril 'osv-scanner|OsvScanner' over src/backend matched nothing"
+  - claim: "The git history scanner reads the last 500 commits of the whole checkout, so on a shared source repo it would read every PoC's history; an upload not yet committed has none."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Security/GitHistoryScanner.cs:24, src/backend/AgentSmith.Infrastructure/Services/Security/GitHistoryScanner.cs:42"
+  - claim: "The run's secret masker replaces only values the framework itself staged; an uploader's own key is unknown to it."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/SecretMasker.cs:5-22"
+  - claim: "A checkout-free branch write takes text content only (RepoFile(Path, string Content)), so it cannot carry a PoC's binary files."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/BranchWrite.cs:10, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchWrite.cs:36-38"
+  - claim: "No sparse checkout exists in the backend today."
+    evidence: "observed: 2026-11-23, grep -rln 'sparse-checkout|SparseCheckout' src/backend returned nothing"
+  - claim: "StaticPatternScanner, built to sort findings in a repository, skips files: the upload's own .gitignore decides, .md/.lock/.svg files and bin/, obj/, node_modules/, __pycache__/ are left out, the listing stops at depth 12."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Security/SourceFileEnumerator.cs:18-21, src/backend/AgentSmith.Infrastructure/Services/Security/SourceFileEnumerator.cs:33-39, src/backend/AgentSmith.Infrastructure/Services/Security/SourceFileEnumerator.cs:46-55"
+  - claim: "Sandbox reads stop at 1 MB and listings at 1000 entries, the truncation only an event; an unreadable file yields no finding; a regex timeout is swallowed; no loaded pattern is a clean pass."
+    evidence: "src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:5, src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:13, src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:160-165, src/backend/AgentSmith.Infrastructure/Services/Security/PatternFileMatcher.cs:22-23, src/backend/AgentSmith.Infrastructure/Services/Security/PatternFileMatcher.cs:65-67, src/backend/AgentSmith.Infrastructure/Services/Security/StaticPatternScanner.cs:28-34"
+  - claim: "Patterns load from the skills catalog's patterns directory, each file's name is its category ('secrets' for the secret catalog), and compile with a 500 ms match timeout; a matched text longer than 200 characters is cut, so replacing it would not mask a longer value."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Security/PatternsDirectoryResolver.cs:13-34, src/backend/AgentSmith.Infrastructure/Services/Security/PatternDefinitionLoader.cs:19-54, src/backend/AgentSmith.Infrastructure/Services/Security/PatternCompiler.cs:24-27, src/backend/AgentSmith.Infrastructure/Services/Security/PatternFileMatcher.cs:46-48, src/backend/AgentSmith.Infrastructure/Services/Security/PatternFileMatcher.cs:74"
+  - claim: "The pinned skills catalog's secrets.yaml holds 27 patterns: 15 critical (cloud, git-host, payment, chat and private keys), 7 high, 4 medium (generic-secret-assignment and three placeholders such as placeholder-change-me) and 1 low (stripe-publishable-key); 'ENV API_KEY=' in a Dockerfile matches only config.yaml's high dockerfile-secret-in-env."
+    evidence: "observed: 2026-11-23, agent-smith-skills patterns/secrets.yaml and patterns/config.yaml at ee350e3"
+  - claim: "PatternFileMatcher runs every pattern on every line and takes only each pattern's FIRST match (Regex.Match), so one line can yield several findings and a second match of one pattern on that line yields none; PatternCompiler drops an invalid regex with only a warning."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Security/PatternFileMatcher.cs:39-62, src/backend/AgentSmith.Infrastructure/Services/Security/PatternCompiler.cs:31-34"
+  - claim: "In the pinned catalog aws-secret-key is '(?i)aws_secret_access_key\\s*[=:]\\s*[A-Za-z0-9/+=]{40}': it matches only an unquoted value, so AWS_SECRET_ACCESS_KEY = \"...\" (Python, JSON) is not found, and generic-secret-assignment needs secret|password|passwd|pwd|token directly before the '='; aws-access-key 'AKIA[0-9A-Z]{16}' matches in any quoting."
+    evidence: "observed: 2026-11-23, agent-smith-skills patterns/secrets.yaml:3-17 and :171-172 at ee350e3, regex run against the quoted and unquoted forms"
+  - claim: "The embedded skills catalog is pinned by SkillsCatalogVersion with its sha256; a catalog change reaches the server only through a release and a pin bump."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:46-58"
+  - claim: "CommitAndPushStagedAsync throws 'nothing to commit' on a clean tree, so a caller checks for staged changes first."
+    evidence: "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:234-239"
+  - claim: "The run's default push uses --force-with-lease and on 'stale info' fetches and pushes with the lease again, which then overwrites a concurrent commit; the plain push forces nothing and a moved remote refuses it."
+    evidence: "src/backend/AgentSmith.Application/Services/GitBranchPusher.cs:27-44, src/backend/AgentSmith.Application/Services/GitBranchPusher.cs:46-53, src/backend/AgentSmith.Application/Services/GitBranchPusher.cs:58-61, src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:222-250"
+  - claim: "A clone step takes narrowing arguments (the scope clone passes --depth 1 --single-branch) and the repo's credential helper; the last commit touching a path is read in the sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:23-41, src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:88-90"
+  - claim: "ReferenceSetMaterialiser.WriteUnderAsync writes already-read files under a root and a .agentsmith-reference marker beside them; text goes as text, anything else as bytes."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetMaterialiser.cs:8-24, src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetMaterialiser.cs:45-58"
+  - claim: "A one-shot sandbox of a given image is created through ISandboxFactory.CreateAsync(SandboxSpec) and runs steps; a musl agent lets a sandbox run on an Alpine image."
+    evidence: "src/backend/AgentSmith.Application/Services/Preflight/SandboxRoundTripProbe.cs:25-35, src/backend/AgentSmith.Sandbox.Agent/Dockerfile:39-53"
+  - claim: "The server's in-process sandbox backend is the fallback when neither Kubernetes nor Docker is found; it runs no image."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxBackend.cs:3-13"
+  - claim: "The egress proxy's shipped allowlist names the public git hosts and package feeds and no vulnerability database host; a host not listed is refused with a 403."
+    evidence: "deploy/egress-proxy/allowlist.txt:1-22"
+  - claim: "933db delivers the Poc row and PocRevision (UploadSession, UploadId, ManifestJson path -> sha256/crc32/size), BoundedZipInflater with the ignore list and strip, PocRunGate serialising every run of a PoC, and the poc-deploy seeds (poc id, revision, actor)."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933db"
+  - claim: "933da defines PocAuditEntry with the act 'overruled', written only by a run event projection, ProjectFrom.Poc, PocActAccess and pocs.overrule."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933da"
+  - claim: "Operator ruling, round 3: scan before commit is ratified (unpack+validate -> code scan gate -> commit); a blocked upload never reaches git."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 3: only critical findings block (secrets, code vulnerabilities, image vulnerabilities); everything else is a note. A critical secret can never be overruled; a critical vulnerability can, with pocs.overrule and a reason. Publishable keys are not secrets. Round 4 widens the secret part (next fact)."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a secret pattern of severity high OR critical blocks when it is high-confidence (confidence >= 8: AWS, Google, Stripe secret, private keys, connection strings with a password); generic assignments, CHANGE_ME placeholders and publishable keys are notes. For vulnerabilities only critical blocks."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a vulnerability is critical when its CVSS score is >= 9.0; a vulnerability with no score is a note."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a critical vulnerability without an available fix blocks (pocs.scan.unfixed_critical_block, default true) and can be overruled."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Every loaded pattern carries the catalog's integer confidence, and every finding the matcher makes carries it on."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PatternDefinition.cs:11, src/backend/AgentSmith.Infrastructure/Services/Security/PatternDefinitionLoader.cs:63, src/backend/AgentSmith.Infrastructure/Services/Security/PatternDefinitionLoader.cs:97, src/backend/AgentSmith.Contracts/Models/PatternFinding.cs:10, src/backend/AgentSmith.Infrastructure/Services/Security/PatternFileMatcher.cs:54"
+  - claim: "In the pinned secrets.yaml every critical pattern has confidence 8 or 9; of the high ones google-api-key and slack-webhook have 8, connection-string-password, jwt-token, twilio-api-key and mailchimp-api-key 7, generic-api-key-assignment 6; the medium ones (generic-secret-assignment, the three placeholders) 4 to 6; the low stripe-publishable-key 7."
+    evidence: "observed: 2026-11-23, agent-smith-skills patterns/secrets.yaml at ee350e3"
+  - claim: "Operator ruling, round 3: the overrule lifts exactly the stored overrulable finding ids; a new or secret finding on the re-scan blocks again; an overrule of a revision older than the PoC's latest is refused; runs are serialised per PoC."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 3: the sandbox starts with the scan; ZIP validation runs in process."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator 2026-11-23: deterministic rules decide; the LLM explains and suggests fixes; overrule leaves an audit trail."
+    evidence: "observed: 2026-11-23, operator (PoC concept)"
+  - claim: "Operator ruling C: every step is path-scoped (sparse checkout, scans, build context) and the commit goes directly to the default branch."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling I (recommendation accepted): the dependency scan is OSV-Scanner pinned by digest over the lockfiles, never executing uploader code, in agent smith's code scan step."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling I (recommendation accepted): blocked uploads are kept 7 days, a config value."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "933dd copies this spec's rule for criticals without a fixed version into its pipeline (Trivy ignore_unfixed) and passes the overruled ids of OverruledIdsJson's 'image' key with their aliases to Trivy's ignore list; image finding ids are 'trivy:<VulnerabilityID>|<pkg>|<installed>' (vulnerability) and 'sec:' + hash (secret), defined by 933dd; PocRevision's ImageVerdictJson and BlockedStage come from 933dd."
+    evidence: "observed: 2026-11-23, coordinator relaying the 933dd contract"
+
+assumptions:
+  - claim: "The pinned OSV-Scanner image carries its binary at /osv-scanner, exits 128 when it finds no packages, and reads go.mod (not go.sum) for Go."
+    check: "Before building: run the pinned digest's /osv-scanner --version and its exit-code documentation for that version; correct PocLockfiles and the exit handling to what it states."
+
+scope:
+  in: >
+    VERDICT: PocScanVerdict (Contracts): Blocks and Notes, lists of PocScanFinding(Id, Kind secret|vulnerability|note,
+    RuleId, File, Line, Title, Detail, MaskedSnippet, Fix?, Aliases); IsBlocked = Blocks non-empty; Overrulable = every
+    block is a vulnerability. Finding Id: a secret 'sec:' + 16 hex of sha256(rule id|file|line); a vulnerability
+    'osv:' + advisory id + '|' + package + '|' + version, where the advisory id of a group is the ordinal-lowest of
+    its ids — stable across re-scans of one revision and across a database update that reorders a group. Aliases are OSV's
+    aliases of the advisory (CVE, GHSA, PYSEC), filled by OsvReportParser, empty for a secret; 933dd hands them to
+    Trivy. Decided ONLY by PocBlockRules (one rule type each: PocSecretRule, PocVulnerabilityRule): a finding of the
+    'secrets' catalog with severity high or critical AND a pattern confidence of at least pocs.scan.secret_min_confidence
+    (8) blocks and is never overrulable — with the catalog this spec pins: every critical pattern, google-api-key,
+    slack-webhook and connection-string-password (raised to 8, step catalog); a high or critical secret below that
+    confidence is a note naming its confidence, the value and the key ('confidence 7 is below
+    pocs.scan.secret_min_confidence (8): reported, not blocking, because patterns under it also match ordinary
+    assignments'); a dependency vulnerability whose severity is critical blocks and is overrulable; every other finding
+    of every catalog (medium and low secrets such as generic-secret-assignment, the placeholders and
+    stripe-publishable-key, Dockerfile ENV secrets, a missing or root USER, unpinned requirements, binary files not
+    pattern-scanned) is a note. pocs.scan.secret_min_confidence outside 1..10 is refused by Problems() naming the value,
+    the reason ('the catalog rates pattern confidence from 1 to 10') and the key; 933dd's image stage reads the same
+    value. SEVERITY of a vulnerability: the CVSS base score osv-scanner reports
+    for the advisory group (max_severity); a score >= 9.0 is critical (the CVSS 'Critical' band, marked '// not a
+    limit: the CVSS v3.1 qualitative rating'); a missing or unparseable score is a note saying 'severity unknown'.
+    UNFIXED: pocs.scan.unfixed_critical_block (bool, default true) — true, a critical vulnerability with no fixed
+    version blocks like one with a fix and is overrulable like it; false, it is a note. 933dd's image stage reads the same value (ignore_unfixed =
+    not unfixed_critical_block), so both stages decide alike. The LLM explanation is attached as text and never read by
+    the rules. 'A blocking secret cannot be overruled' is fixed text in the settings form, not a setting.
+    SECRET SCAN (PocSecretScan, IN PROCESS, no listing): the step re-reads the stored archive with 933db's
+    BoundedZipInflater, keeps exactly the paths of the revision's manifest and checks each file's sha256 against it (a
+    missing file or a mismatch fails the run naming the path); every text file (strict UTF-8, no NUL) is read in FULL
+    from memory; no ignore rule of the upload applies (no .gitignore, no excluded folder or extension); binary files are
+    listed in one note. Patterns load through PatternsDirectoryResolver, PatternDefinitionLoader and PatternCompiler;
+    zero loaded 'secrets' patterns fails the run ('no secret patterns loaded from <dir>'), as does a 'secrets' pattern
+    the compiler dropped as invalid (the loaded definitions are compared with the compiled ones, naming the pattern id).
+    The per-line match is extracted from PatternFileMatcher into PatternLineMatcher, returning EVERY match on the line
+    (Regex.Matches, each with index and length); the security scan keeps taking the first per pattern and swallowing
+    timeouts (characterisation unchanged). STRICT mode covers only the 'secrets' category: a match timeout of a
+    'secrets' pattern fails the run naming the pattern and file; a timeout of any other catalog (injection, ssrf,
+    config, ...) is a note naming the pattern and file, because those findings can only ever be notes. MASKING: every
+    matched span of every pattern on a line is collected first; MaskedSnippet is that line with the UNION of all spans
+    replaced, each by '<secret at file:line>' (from index and length, never from the 200-character MatchedText), so
+    one finding's snippet never shows another's value. A snippet holds at most 80 characters on each side of its own
+    span, cut at the masked line ('// not a limit: a display window, so a minified one-line file never puts its whole
+    line into VerdictJson or the prompt'); no raw matched value is stored anywhere.
+    DEPENDENCY SCAN (PocDependencyScan): the sandbox starts here. A one-shot sandbox of pocs.scan.osv_image (an image
+    reference pinned by digest; a tag is refused naming the key) is created through ISandboxFactory; the manifest's
+    lockfiles and manifests osv-scanner reads by file name (requirements*.txt, Pipfile.lock, poetry.lock, uv.lock,
+    pdm.lock, package-lock.json, yarn.lock, pnpm-lock.yaml, go.mod, Cargo.lock, composer.lock, Gemfile.lock — the list in
+    PocLockfiles) are written into it from memory with ReferenceSetMaterialiser.WriteUnderAsync under 'scan/', the
+    marker never passed to the scanner; the step runs the image's binary by path (/osv-scanner, see assumptions; the sandbox
+    agent runs commands, not the image's ENTRYPOINT) in lockfile mode (-L per file) with JSON output and offline
+    databases downloaded in the sandbox, never installing or executing anything. UNPINNED: PocRequirementsFilter
+    writes a requirements*.txt into the sandbox holding only its exact pins ('name==version', markers and hashes kept);
+    every other line ('flask', 'requests>=2.0', '-r', '--index-url', a URL) is left out of the scanned copy and listed
+    in one note 'not checked: unpinned', so no scanner version guesses a version for it. With no lockfile, or exit 128
+    (no packages found, e.g. a requirements file of comments and '-r' lines), the scan is a note 'dependencies not
+    checked'. Exit 0 or 1 with parseable JSON is a result; any other exit, an unparseable report or a timeout
+    (pocs.scan.timeout_seconds, 300) fails the run naming it. The database download goes through
+    the sandbox's egress: the shipped allowlist (deploy/egress-proxy/allowlist.txt and the k8s example ConfigMap) gains
+    osv-vulnerabilities.storage.googleapis.com; a refused or failed download fails the run naming that host. FAIL
+    CLOSED: PocsConfig.Problems refuses pocs.enabled true with an empty pocs.scan.osv_image; on the in-process sandbox
+    backend, which runs no image, the step fails the run ('the dependency scan needs a sandbox backend that runs
+    images: Kubernetes or Docker') and the server logs a startup finding when PoCs are enabled there.
+    EXPLANATION (PocScanExplanation): only for a BLOCKED verdict, one LLM call with the poc- project's agent (933da's
+    pocs.project_agent); the prompt holds each finding's rule, title, detail, file, line, masked snippet and fix — never a
+    file body — and passes through SecretMasker as well; the answer is stored as untrusted text in
+    PocRevision.Explanation, unbounded, and no rule reads it. A failed call leaves Explanation empty with the reason and
+    the verdict stands.
+    GATE STEP PocCodeScan in poc-deploy after PocIntake: runs both scans, PocBlockRules, then stores VerdictJson on the
+    revision. Blocked -> revision state blocked (the code stage is the only one here; 933dd adds BlockedStage and
+    ImageVerdictJson and sets 'code' at this point), the explanation, the run ends 'blocked by N findings' (success=false), nothing
+    committed; the step sets Poc.State blocked only for a PoC that never reached ready (state importing or blocked) — a
+    ready PoC keeps serving its current revision. A PASSING scan sets a blocked PoC back to importing, so a later stage
+    (933dd's build, a refusal) starts from importing. 'Never reached ready' means importing or blocked everywhere in
+    the series; this spec extends 933db's PocIntake to the same reading (a refused intake of a blocked PoC sets it
+    refused). The upload is kept pocs.blocked_retention_days (7; purged by 2026-11-23-c81ee).
+    Idempotent: a revision already scanned keeps its verdict unless the run is an overrule. PocIntake (933db) skips a
+    revision in state validated, refused, blocked or overruled — this spec extends its skip from validated|refused, so
+    the overrule run and a retry after a commit never re-evaluate a revision and rewrite it to validated.
+    COMMIT STEP PocSourceCommit (only when not blocked, or overruled): when the revision is not the PoC's latest
+    (a retried import of an older upload, 933db) the step does nothing and the run ends naming 'revision <n> is older
+    than r<latest>'; when the revision's CommitSha is already set, that sha is reused and nothing is cloned. Else a sandbox of the default toolchain image (as a
+    coding run's) clones the target's source repo with 'git clone --no-checkout --sparse --filter=blob:none
+    --single-branch --branch <default>' through CheckoutStepFactory's narrowing (git ignores a filter the server does not
+    support, with a warning), then 'git sparse-checkout set <Folder>' and checks out the branch — no other folder is ever in
+    the work tree. The folder's tracked files are removed, the files of the validated manifest are written into
+    <Folder> from memory with WriteUnderAsync (the same sha256-checked re-read as the secret scan), the
+    .agentsmith-reference marker is deleted, and 'git add -f -A .' runs inside <Folder>, so a nested .gitignore drops
+    nothing. When nothing is staged (checked before CommitAndPushStagedAsync, which throws on a clean tree) the folder already equals the manifest and the last commit touching <Folder> is
+    reused (GetLastCommitForPathAsync). Else commit 'poc <name> r<N>' authored by agent-smith with the actor as
+    Co-authored-by trailer, and PLAIN push (CommitAndPushStagedAsync plain: true, never --force-with-lease); a rejected
+    push fetches the branch, rebases the one commit onto the new head and pushes plain once more; a second rejection or
+    a rebase conflict ends the run naming git's message (a protected branch's reason included). Any listing the step
+    reads that comes back truncated fails the run. The revision gets CommitSha and the run publishes it under
+    ContextKeys.PocSourceCommitSha — 933dd builds that sha. The mechanics live in PocFolderWrite (sparse clone of one
+    folder, replace, add -f inside it, plain push with one rebase retry), which the c81e series reuses for
+    <deploy_root>/<poc>/.
+    READ ROUTE: GET /api/pocs/{pocId}/revisions/{n} (pocs.read + runs.read InProject(ProjectFrom.Poc)) -> {poc id, name,
+    revision, state, verdict (blocks and notes with masked snippets, ids, aliases), explanation,
+    may_overrule, why_not}. Both revision routes need runs.read in the PoC's project, so an overruler holds
+    pocs.overrule AND runs.read there (globally, e.g. the reader role, or as admin); a pocs.overrule holder without it
+    gets the empty 404, and the docs' permissions table says so. may_overrule is true only when the caller holds pocs.overrule, the verdict of the blocked
+    stage is Overrulable, n is the PoC's latest revision and its state is blocked; why_not names the first that fails.
+    OVERRULE: POST /api/pocs/{pocId}/revisions/{n}/overrule {reason} (pocs.overrule + runs.read
+    InProject(ProjectFrom.Poc)) reads VerdictJson, the code stage's verdict (933dd makes it read the verdict of the stage
+    BlockedStage names, ImageVerdictJson for 'image'), and
+    refuses: a secret block ('a secret cannot be overruled'), a revision older than the PoC's latest ('revision
+    <n> is older than r<latest>'), a revision not blocked, a revision whose stored upload is gone (the overrule run
+    re-reads it; purged by 2026-11-23-c81ee: 'the upload of revision <N> was purged after <days> days
+    (pocs.blocked_retention_days); import the ZIP again'), a blank reason, a reason over 500 characters (the
+    PocAuditEntries.Reason column width, named) and a live run of the PoC (933db's PocRunGate, 409). It APPENDS the
+    blocking ids under the overruled stage's key of OverruledIdsJson ({"code": [...], "image": [...]}; this spec writes
+    'code', 933dd 'image'), never replacing an earlier stage's or an earlier overrule's ids, with the reason and actor, and queues poc-deploy in the PoC's project with seeds
+    (poc id, revision, actor, overrule = true). The overrule run re-runs PocCodeScan: it passes when every blocking
+    finding's Id is in OverruledIdsJson's 'code' key and none is a secret; a new or secret block stores the new verdict, keeps the
+    revision blocked and ends the run blocked. Passing sets the revision overruled, commits, and emits
+    PocOverruledEvent (PocId, revision, stage, actor, reason, finding ids) — mirrored in hub-events.ts — projected into a
+    PocAuditEntry 'overruled'.
+    DASHBOARD: /pocs/{pocId}/revisions/{n} blocked view per the mock — the step strip, each blocking finding with
+    file:line, masked snippet, fix, the notes, 'What the agent read' marked as the agent's explanation, the overrule
+    box (reason textarea) only when may_overrule, otherwise one line with why_not ('a secret cannot be
+    overruled: remove it and upload again' or 'a holder of pocs.overrule who can read this PoC's runs can lift this block'). PoCs settings form:
+    osv_image, timeout_seconds, unfixed_critical_block, secret_min_confidence, blocked_retention_days, and the fixed secret line.
+  out: "Image build and image scan (933dd's pipeline; it adds ImageVerdictJson and the image stage of BlockedStage). LLM triage changing any verdict (never). Secret history rewriting (a blocked upload never lands, so none is needed). Scanning other folders of the source repo. Purging blocked uploads (2026-11-23-c81ee). Reusing StaticPatternScanner, DependencyAuditor or GitHistoryScanner for PoCs (see facts)."
+
+pipeline-presets:
+  poc-deploy: [LoadCatalog, PocIntake, PocCodeScan, PocSourceCommit]
+
+steps:
+  - id: verdict
+    action: "PocScanVerdict, PocScanFinding (with Id and Aliases), PocBlockRules (PocSecretRule, PocVulnerabilityRule); pocs.scan (osv_image, timeout_seconds, unfixed_critical_block, secret_min_confidence) and pocs.blocked_retention_days with Problems() (its value and key also fill 933db's purged-upload refusal at Start); PocRevision gains VerdictJson, Explanation, OverruledIdsJson (object keyed by stage, appended to, the code re-scan reading 'code'), CommitSha (migration x3)."
+  - id: scanners
+    action: "PatternLineMatcher extracted from PatternFileMatcher (every match with index and length; characterisation test); PocManifestFiles (sha256-checked re-read); PocSecretScan (strict for 'secrets' only, union masking, display window); PocLockfiles, PocRequirementsFilter, PocDependencyScan (one-shot pinned OSV sandbox), OsvReportParser (severity, fix, aliases); allowlist + k8s example ConfigMap gain the OSV host; startup finding for the in-process backend."
+  - id: catalog
+    action: "[skills-repo] patterns/secrets.yaml aws-secret-key accepts an optional quote around the value ([\"']?) and connection-string-password's confidence goes from 7 to 8, released; SkillsCatalogVersion and its sha256 bumped to that release in AgentSmith.Infrastructure.Core.csproj."
+  - id: explain
+    action: "PocScanExplanation over masked findings, blocked verdicts only, failure tolerated."
+  - id: gate
+    action: "PocCodeScanHandler; CommandNames.PocCodeScan, PocSourceCommit + registrations; PocDeploy preset gains both; control-flow.svg."
+  - id: commit
+    action: "CheckoutStepFactory.BuildSparseCloneStep; PocFolderWrite (sparse checkout set, replace, marker removed, add -f inside the folder, plain push with fetch + rebase + one retry, reuse when nothing staged); PocSourceCommitHandler (latest-revision check, CommitSha reuse); PocIntake's skip extended to blocked and overruled."
+  - id: routes
+    action: "PocRevisionEndpoints (GET revision, POST overrule) + PocOverruleLauncher over PocRunGate; PocOverruledEvent (Contracts/Events, hub-events.ts mirror) + PocAuditEntry projection; route-permission-baseline.tsv rows."
+  - id: dashboard
+    action: "app/pocs/[pocId]/revisions/[n]/page.tsx; components/pocs/blocked (StepStrip, BlockingFinding, ScanNotes, AgentExplanation, OverruleBox); scan fields; messages.ts."
+
+tests:
+  - "PocBlockRules: a critical secret (aws-access-key, 9) and a high secret of confidence 8 (google-api-key) block and are not Overrulable; a high secret of confidence 7 (jwt-token) is a note naming pocs.scan.secret_min_confidence; generic-secret-assignment, stripe-publishable-key and placeholder-change-me are notes; with secret_min_confidence 9 google-api-key is a note; secret_min_confidence 0 or 11 is refused naming the key; a dependency vulnerability with max_severity 9.8 blocks and is Overrulable; 8.9 is a note; no severity is a note 'severity unknown'; a critical without fix blocks with unfixed_critical_block true and is a note with false; a Dockerfile 'ENV API_KEY=x' and a missing USER are notes"
+  - "PocBlockRules: an explanation text saying 'safe, allow' never changes IsBlocked (the rules take no explanation input)"
+  - "PocSecretScan: a key in README.md, in bin/config.py, in a file the upload's .gitignore lists, at depth 15 and past 1 MB of a 5 MB text file is found; two AKIA keys on one line are two findings; zero secret patterns fails the run; an invalid 'secrets' regex fails the run naming its id; a 'secrets' regex timeout fails the run; an injection-pattern timeout on a minified one-line bundle is a note naming pattern and file and the run continues; a manifest file missing on re-read fails the run naming it"
+  - "PatternLineMatcher: PatternFileMatcher's findings are unchanged (characterisation); the masked snippet hides a 300-character match entirely; on key = \"AKIA…\"; password = \"hunter2hunter2\" the generic-secret-assignment snippet masks the AKIA value too; a 2 MB one-line file gives a snippet of at most 80 characters each side of the span"
+  - "PocScanExplanation: the prompt holds '<secret at src/config.py:14>' and neither the key nor a file body; no call for a clean verdict; a failing call leaves the verdict blocked"
+  - "PocDependencyScan: runs /osv-scanner of the configured digest, never 'pip install'; a requirements line '--index-url http://x' is read as data and left out; 'flask' and 'requests>=2.0' are left out of the scanned copy and listed in the unpinned note while 'django==3.2.0' is scanned; no lockfile is a note; exit 128 is the 'dependencies not checked' note; exit 2 fails the run; a tag-only osv_image is refused naming the key; enabled with an empty osv_image is refused"
+  - "OsvReportParser: a group with max_severity and a fixed version parses with severity, fix and the advisory's aliases; a group listing [PYSEC-1, GHSA-b, CVE-a] in any order gets the id of its ordinal-lowest member"
+  - "PocCodeScanHandler: blocked -> revision blocked with VerdictJson, nothing pushed (fake host shows no commit), a never-ready PoC blocked, a ready PoC unchanged; clean -> PocSourceCommit runs; a blocked PoC whose next revision passes is set back to importing"
+  - "PocFolderWrite: the clone carries --no-checkout --sparse --filter=blob:none; only the folder is in the work tree; a removed file is deleted; a file a nested .gitignore names is committed; the marker is not; a concurrent commit to another folder is kept (rebase, plain push), never overwritten; a second rejection fails naming git's message; nothing staged reuses the last commit; ContextKeys.PocSourceCommitSha is set"
+  - "PocSourceCommit: a retried r1 after r2 was committed changes nothing in the folder and names the latest; a revision with CommitSha set reuses it without a clone"
+  - "PocIntakeHandler: a revision in state blocked or overruled is not evaluated again and keeps its state; a refused intake of a blocked PoC sets it refused"
+  - "Revision read HTTP: the owner reads verdict and explanation with may_overrule false and why_not; a foreign PoC answers an empty 404; a pocs.overrule holder without runs.read in the PoC's project gets the empty 404, with global reader added reads it with may_overrule true"
+  - "Import HTTP: a retried Start of a purged upload is refused naming the days and pocs.blocked_retention_days"
+  - "Overrule HTTP: without pocs.overrule 403; foreign PoC empty 404; blank or 501-character reason refused; a secret block refused naming why; an older revision refused naming the latest; a revision whose upload rows are gone refused naming the days and pocs.blocked_retention_days; a live run of the PoC answers 409; a vulnerability block: the run commits, the revision is overruled and PocAuditEntry 'overruled' carries who, why and the ids"
+  - "Overrule: a second overrule appends to OverruledIdsJson; an 'image' key already present is kept when 'code' ids are added; the code re-scan ignores ids under 'image'"
+  - "Overrule run: a re-scan finding a new critical vulnerability or a secret stores the new verdict and ends blocked without a commit"
+  - "PocDeployCompositionTests: a ZIP whose src/config.py holds an AWS access key id (AKIA + 16) ends blocked with no commit on the fake host; a clean ZIP ends with a commit under its folder"
+  - "Dashboard: blocked view renders findings, notes and the explanation; overrule box only with may_overrule; why_not shown otherwise"
+
+done:
+  - {when: "a person imports a ZIP whose src/config.py holds an AWS access key id (AKIA followed by 16 characters)", then: "the run ends blocked, the blocked page shows the finding with a masked snippet and a fix, offers no overrule, and the source repo has no new commit"}
+  - {when: "a ZIP holds only a Stripe publishable key, a CHANGE_ME placeholder and a generic password assignment", then: "all three are notes and the upload is committed"}
+  - {when: "a ZIP's settings.py holds ConnectionString = \"Server=db;Password=s3cret!\"", then: "the run ends blocked with no overrule offered"}
+  - {when: "an admin overrules a critical vulnerability block of the latest revision with a reason", then: "a run commits it to the PoC's folder and an audit entry says who overruled, why and which findings"}
+  - {when: "a clean ZIP is imported while another PoC's run commits to the same repo", then: "both commits land on the default branch, each touching only its own folder"}

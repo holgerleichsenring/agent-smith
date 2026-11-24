@@ -1,7 +1,11 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.BaseRefresh;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -10,14 +14,17 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// 2026-11-17-023fb: brings one open agent-smith pull request up to date with the base a landing just moved — merged
-/// with <see cref="WorkBranchBaseMerger"/> (state.done collisions united), pushed WITHOUT force, so work another run
-/// pushed in the meantime is never overwritten. A conflict leaves the branch as it was and is said on the pull request,
-/// once per landing. Only an agent-smith/ branch is written: a handed branch is not licensed for writes.
+/// 2026-11-17-023fb: brings one open agent-smith pull request up to date with the base a landing just moved, pushed
+/// WITHOUT force, so work another run pushed in the meantime is never overwritten. Only an agent-smith/ branch is written:
+/// a handed branch is not licensed for writes.
+/// <para>2026-11-24-6811c: the merge is made whole and checked first (<see cref="BaseRefreshMerge"/>) — conflicts the
+/// unions leave go to the base-merge master, every merged tree is built and tested — and pushed only then. A refusal
+/// leaves the branch as it was, says why on the pull request, and records refresh_refused with the reason on this run's
+/// pull-request outcome, where the ticket's hold reads it.</para>
 /// </summary>
 public sealed class RefreshBranchBaseHandler(
-    WorkBranchBaseMerger merger, GitBranchPusher pusher, IGitTokenResolver credentials,
-    SandboxTargets sandboxTargets, ISourceProviderFactory sources, ILogger<RefreshBranchBaseHandler> logger)
+    BaseRefreshMerge refresh, GitBranchPusher pusher, IGitTokenResolver credentials, SandboxTargets sandboxTargets,
+    ISourceProviderFactory sources, IEventPublisher events, ILogger<RefreshBranchBaseHandler> logger)
     : ICommandHandler<RefreshBranchBaseContext>
 {
     public const string Marker = "<!-- agent-smith:base-refresh -->";
@@ -33,23 +40,22 @@ public sealed class RefreshBranchBaseHandler(
         if (sandboxTargets.SandboxesForRepo(context.Pipeline, repo) is not [var (_, sandbox), ..])
             return CommandResult.Fail($"{repo.Name}: no sandbox to merge in.");
 
-        var merge = await merger.MergeIntoCurrentAsync(sandbox, ResolvedBase.Rung(baseBranch), cancellationToken);
-        return merge.Status switch
+        var outcome = await refresh.RunAsync(context, repo, sandbox, branch, baseBranch, cancellationToken);
+        return outcome.Verdict switch
         {
-            BaseMergeStatus.Merged => await PushAsync(sandbox, repo, branch, merge.BaseRef!, cancellationToken),
-            BaseMergeStatus.UpToDate => CommandResult.Ok($"'{branch}' already carries {merge.BaseRef}."),
-            BaseMergeStatus.Conflicted => await SayConflictAsync(context, repo, branch, merge, cancellationToken),
-            _ => CommandResult.Ok($"'{branch}' was not refreshed: {merge.Reason}"),
+            BaseRefreshVerdict.Push => await PushAsync(sandbox, repo, branch, baseBranch, outcome.Text, cancellationToken),
+            BaseRefreshVerdict.Refuse => await RefuseAsync(context, repo, branch, outcome.Text, cancellationToken),
+            _ => CommandResult.Ok(outcome.Text),
         };
     }
 
     private async Task<CommandResult> PushAsync(
-        ISandbox sandbox, Contracts.Models.Configuration.RepoConnection repo, string branch, string baseRef, CancellationToken ct)
+        ISandbox sandbox, RepoConnection repo, string branch, string baseBranch, string checkedBy, CancellationToken ct)
     {
         try
         {
             await pusher.PushPlainAsync(sandbox, branch, SandboxGitOperations.CredHelper, credentials.For(repo), ct);
-            return CommandResult.Ok($"Merged {baseRef} into '{branch}' and pushed it.");
+            return CommandResult.Ok($"Merged origin/{baseBranch} into '{branch}' ({checkedBy}) and pushed it.");
         }
         catch (InvalidOperationException ex)
         {
@@ -59,20 +65,21 @@ public sealed class RefreshBranchBaseHandler(
         }
     }
 
-    private async Task<CommandResult> SayConflictAsync(RefreshBranchBaseContext context,
-        Contracts.Models.Configuration.RepoConnection repo, string branch, BaseMergeResult merge, CancellationToken ct)
+    private async Task<CommandResult> RefuseAsync(
+        RefreshBranchBaseContext context, RepoConnection repo, string branch, string reason, CancellationToken ct)
     {
-        var paths = string.Join(", ", merge.ConflictingPaths);
-        var text = $"{Marker}\n{merge.BaseRef} moved after a landing, and merging it into `{branch}` conflicts in: {paths}. "
-            + "The branch is unchanged; it needs the base merged by hand, or a rework of its ticket.";
+        var text = $"{Marker}\n{reason}\n\nThe branch `{branch}` is unchanged; it needs the base merged by hand, or a rework of its ticket.";
         if (context.PrNumber is { Length: > 0 } number && sources.Create(repo) is IPrCommentProvider comments)
         {
             try { await comments.PostCommentAsync(number, text, ct); }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
-                logger.LogWarning(ex, "{Repo}: the conflict notice on #{Pr} was not posted", repo.Name, number);
+                logger.LogWarning(ex, "{Repo}: the refresh notice on #{Pr} was not posted", repo.Name, number);
             }
         }
-        return CommandResult.Ok($"Merging {merge.BaseRef} into '{branch}' conflicts in {paths}; the branch is unchanged.");
+        if (context.Pipeline.TryGet<string>(ContextKeys.RunId, out var runId) && !string.IsNullOrEmpty(runId) && context.PrUrl is { } url)
+            await events.PublishAsync(new PullRequestOutcomeEvent(runId!, repo.Name, PullRequestStatuses.RefreshRefused,
+                DateTimeOffset.UtcNow, url, reason), ct);
+        return CommandResult.Ok($"{reason} The branch is unchanged.");
     }
 }

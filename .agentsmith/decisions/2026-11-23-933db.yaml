@@ -1,0 +1,190 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-933db
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "A person's first import creates the binding and the project poc-<person> behind the scenes on the server, without a run: binding first, then project, through IConfigStore with the stale-version check, retried once; then poc-deploy is queued"
+    over: "An installation run poc-provision started through IActRun and awaited before poc-deploy (the config-via-run pattern, f3a8c), or an admin creating PoC projects by hand"
+    reason: "Operator ruling, round 3, 2026-11-23; it deliberately deviates from the config-via-run pattern. The config run's entity path refuses the role mapping, so a run would have needed a second writer for it anyway."
+  - category: Architecture
+    chose: "The binding is saved through AccessGrantWriter.Save (IConfigStore.SaveSetting) and the project through IConfigStore.UpsertProject — the two existing config write paths; no new writer"
+    over: "A PoC-specific writer for the role-mapping document"
+    reason: "No second path: AccessGrantWriter.Save already persists a mapping the server built itself, and UpsertProject runs the studio's referential and resolution checks. Both are attributed and versioned, so the stale-version exception is the concurrency guard."
+  - category: Implementation
+    chose: "Binding before project"
+    over: "Project before binding"
+    reason: "Review 2026-11-23: a project saved without its binding would read as 'not bound to this person' on the retry, which appended the hash and orphaned the project. A binding naming an unconfigured project is only a finding, so binding-first is safe and the retry idempotent."
+  - category: Implementation
+    chose: "Project key poc-<slug> from a readable claim (the configured name claim when readable, else preferred_username, else the e-mail local part; 'u' + 8 hex of sha256 when none), with a 4-hex hash suffix when the key belongs to someone else; the binding's PersonRef stays on the configured name claim"
+    over: "Slugging the configured name claim (sub by default, so a slugged GUID), or a counter"
+    reason: "Review 2026-11-23: the name claim defaults to the opaque sub. The key must be readable; the binding must resolve, which only the configured name claim does."
+  - category: Security
+    chose: "The upload is stored under an owner-keyed session key 'poc-upload:<16 hex of sha256(principal)>' and read back only with the caller's key; the upload id is the set id the store mints"
+    over: "A key carrying only the upload id, or a new upload table"
+    reason: "Review 2026-11-23: ReferenceFile has no owner column and AddAsync mints its own set id, so 'the upload must be the caller's' had nothing to check. FilesAsync already filters by session key, so ownership costs no new table."
+  - category: Implementation
+    decider: operator
+    chose: "Archive validation runs in process with the bounded inflate; no sandbox in this slice; the sandbox starts with the scan (933dc)"
+    over: "Copying the archive into a sandbox and validating there"
+    reason: "Operator ruling, round 3, 2026-11-23. The review found the sandbox step did no work there: the materialiser only writes files, and the rules are .NET code. Nothing of the uploader executes during validation."
+  - category: Implementation
+    chose: "Manifests store path (after the ignore list and the top-folder strip) -> sha256, crc32, size; the admission guard compares on CRC-32 + size"
+    over: "Comparing central-directory CRC-32 against a stored sha256"
+    reason: "Review 2026-11-23: those hashes never match, so every same-size file counted as changed."
+  - category: Security
+    chose: "The import endpoint recomputes the different-app guard against the chosen PoC and refuses an 'ask' verdict unless the request confirms it"
+    over: "Trusting the admission answer"
+    reason: "Review 2026-11-23: editing the name or picking another app skipped the question."
+  - category: Implementation
+    chose: "The Poc row and a PocRevision (state admitted) are written by the import endpoint before poc-deploy is queued; a never-ready PoC whose intake is refused becomes refused (terminal); a refused PoC of the same owner and name is reused by a new import"
+    over: "Writing the rows in the run, or leaving an importing row nothing moves on"
+    reason: "Operator ruling, round 3: the Poc row with an id exists before the run so 933dg can attach variables. Review 2026-11-23: a stuck importing row held the name and counted toward the limit; PocStates.IsLive (933da) is the one definition the limit and the name check read."
+  - category: Implementation
+    chose: "PocRunGate serialises every run of one PoC through a conditional update of Poc.LastRunId; a live run refuses a second with 409"
+    over: "No serialisation, or a per-project live-run check"
+    reason: "Review of 933dc 2026-11-23: two revisions could race and commit in the wrong order; the operator's round 3 asks to serialise runs per PoC. A conditional update holds across replicas, which multi-replica requires."
+  - category: Security
+    decider: operator
+    chose: "No preset other than the PoC presets runs in a poc- project: PocProjectPresetGuard in ExecutePipelineUseCase's prologue, and branch cleanup skips poc- projects"
+    over: "Allowing coding or scan presets in poc- projects, or a guard only at admission"
+    reason: "Operator ruling C, 2026-11-23. Where it sits is the author's: the prologue is where every run resolves its preset; the sweep skip keeps branch cleanup from queuing one failing run per person per interval."
+  - category: Implementation
+    chose: "ReferenceIgnoreList moves with the shared rules and runs before the PoC rules; ReferencePathRule takes its bound as an argument"
+    over: "Applying the PoC rules to the raw entry list, or moving ReferenceUploadLimits to Application"
+    reason: "Review 2026-11-23: Finder ZIPs carry __MACOSX and would lose the single-top-folder strip; Application references only Contracts and Domain."
+  - category: Implementation
+    chose: "The 8 KB sniff window, the DNS label lengths and the inflate buffer are constants marked '// not a limit'; every bound an operator would tune is in pocs.archive with a field"
+    over: "Config keys for the sniff window and the DNS lengths"
+    reason: "The hard-coded-limits ratchet admits no new file; the DNS lengths come from RFC 1035 and the sniff window and buffer change no outcome an operator would tune."
+  - category: Implementation
+    chose: "The binding grants the built-in reader role in the poc- project"
+    over: "A new built-in role for PoC projects"
+    reason: "Only project-scopable permissions apply through a binding; reader's are runs.read and runs.watch, which is all a PoC owner needs there."
+  - category: Implementation
+    decider: operator
+    chose: "Different-app guard asks at >50 % changed AND >100 files differing, or a changed port or entrypoint; a base image change alone never asks; both values in config"
+    over: "A file count alone, or counting a FROM change"
+    reason: "operator: recommendation accepted (ruling I)."
+  - category: Implementation
+    decider: operator
+    chose: "A new PoC's name is proposed from the ZIP file name and editable"
+    over: "Top folder name or a mandatory typed field"
+    reason: "operator: recommendation accepted (ruling I)."
+  - category: Implementation
+    decider: operator
+    chose: "Per-file and binary-size limits in pocs.archive (max_file_mb 10, max_binary_mb 20)"
+    over: "Only total-size limits"
+    reason: "Operator ruling C asks for repo/file size and binary limits in config; the defaults are the author's."
+  - category: Implementation
+    chose: "A PoC name is a DNS label of at most 40; a retried Start of one upload id reuses its Poc row and revision; poc-variables (933dg) is in PocPresets.Names and runs between the rows and the queue"
+    over: "A 63-character name, or a fresh row per Start"
+    reason: "Contract with 933dg (2026-11-23): PocNamespace.For = 'poc-' + Name and the names derived from it must fit 63; a failed poc-variables run leaves the row importing for the same upload to be started again."
+  - category: Architecture
+    decider: coordinator
+    chose: "PocRunGate mints the run id first, then makes the conditional Poc.LastRunId update and the queued run row insert in ONE transaction of the scoped unit of work; dispatch or IActRun follows the commit"
+    over: "Claim first and queue after (a gap in which a missing row reads as free admits a second run); queued row first and cancel it on a lost claim"
+    reason: "Coordinator ruling 2026-11-23. The code allows the single transaction: InitRunRepository writes the queued row through the same scoped IUnitOfWork (AgentSmithDbContext) that holds the Poc table, and IUnitOfWork.BeginTransactionAsync exists (RunCapacityRepository is the precedent). No claim without a row, no orphan. A queued row without a stored request that no process started within RunLivenessReaper.StaleAfter counts as free, because neither QueuedRunSweeper nor the liveness reaper ends such a row."
+  - category: Architecture
+    decider: coordinator
+    chose: "IActRun.RunAsync takes an optional caller-minted runId (passed as PipelineRequest.RunId); poc-variables and poc-extend claim the gate exactly like queued runs; the PUT variables route only starts a gated poc-variables run and answers 409 naming a live run"
+    over: "IActRun runs outside the gate; the variables route writing directly"
+    reason: "Coordinator ruling 2026-11-23: no write path to a PoC's variables, state or GitOps folder bypasses the gate. PipelineRequest.RunId already exists and ExecutePipelineUseCase uses it; a variable write racing a deploy would leave the ConfigMap and the variables checksum out of step."
+  - category: Implementation
+    chose: "A poc- project is a PoC project (preset guard, cleanup skip) only when a Poc row names it; an operator's own poc-* project stays ordinary and PocPrefixFindings names it while PoCs are on"
+    over: "The name prefix alone deciding"
+    reason: "Round-2 review 2026-11-23: an existing operator project named poc-demo would have every code, scan and init run refused after the upgrade, contradicting 'additive'. Only the provisioner's projects ever get Poc rows. Whether pocs.enabled off should also lift the guard is open question guard-when-off (ruling C)."
+  - category: Implementation
+    chose: "PocProjectProvisioner holds a process lock, re-reads the mapping inside it, reads it back after the save; a poc- project is this person's when a binding or a Poc row of theirs names it, and a lost binding is re-added"
+    over: "Relying on StaleConfigVersionException alone"
+    reason: "Round-2 review 2026-11-23: DbConfigStore takes the expected version at save time (DbConfigStore.cs:122-139), so two same-replica saves never conflict and the later read-modify-write erases a binding; the suffix rule then stranded the person's PoCs."
+  - category: Implementation
+    chose: "PocRunGate hands over: a claim may replace a LastRunId equal to the run id the same request just awaited through IActRun, conditional on it being unchanged"
+    over: "Waiting for the run row to finish, or claiming poc-variables and poc-deploy as one claim"
+    reason: "Round-2 review 2026-11-23: the run row is finished by the asynchronous event drain, not when RunAsync returns (ActRun.cs:18-31, RunEventRouter.cs:31), so an import with variables would 409 against its own run."
+  - category: Implementation
+    chose: "The upload and the import name a target, defaulting to the single configured one and required when several exist; the provisioner adds that target's source_repo to the person's existing project when missing"
+    over: "An implicit 'the target'"
+    reason: "Round-2 review 2026-11-23: 933da's model holds a list of targets; without a named target a second target's repo would never reach the person's project."
+  - category: Implementation
+    chose: "Look for a live run before writing any row; a lost poc-deploy claim deletes the admitted revision this request wrote"
+    over: "Writing the revision inside the gate's transaction"
+    reason: "Round-2 review 2026-11-23: an orphan admitted revision burned a number. Keeping the revision in step (2) preserves the retry contract (a retried Start finds the revision by UploadId after a failed poc-variables run)."
+  - category: Implementation
+    chose: "A reused refused row goes back to importing; a unique-index violation answers 409 naming the name; the per-person count is re-checked after the insert in the same transaction"
+    over: "Leaving those cases unspecified"
+    reason: "Round-2 review 2026-11-23: a reused row stayed refused and uncounted; concurrent imports of one name surfaced as a 500."
+  - category: Implementation
+    chose: "Admission runs only the rules declared data can answer; max_binary_mb runs at intake"
+    over: "Claiming every PocArchiveRule at admission"
+    reason: "Round-2 review 2026-11-23: the binary limit needs the first 8 KB of each file inflated; the central directory holds only names, sizes and CRCs."
+  - category: Implementation
+    chose: "A new upload replaces the caller's previous un-imported uploads"
+    over: "A per-person pending-bytes ceiling in pocs.archive"
+    reason: "Round-2 review 2026-11-23: stored uploads were unbounded until the purge. Replacement bounds them at one pending upload per person and adds no limit, which the limits rule would otherwise require to earn its place."
+  - category: Implementation
+    chose: "Replace against a PoC with no validated revision answers verdict same"
+    over: "Leaving the verdict undefined"
+    reason: "Round-2 review 2026-11-23: there is no manifest to protect when every earlier revision was refused."
+  - category: Implementation
+    chose: "A retried Start of a purged upload is refused 410 before any row is written, naming the revision, the days and pocs.blocked_retention_days"
+    over: "An empty 404 or a failure inside the run"
+    reason: "Coordinator request 2026-11-23: c81ee's purge deletes the bytes a retry needs; a defined refusal tells the owner to upload again instead of starting a run that cannot read its archive."
+  # Build 2026-11-23 (operator: "zieh durch" — open questions take the spec's stated assumption)
+  - category: Architecture
+    decider: operator
+    chose: "Open questions taken as the spec assumed: the poc- preset guard holds whether pocs.enabled is on or off (guard-when-off); the admitted archive is stored in the ReferenceFile byte store under 'poc-upload:<16 hex>' (upload-store); the different-app question is answered at admission and recomputed at Start (guard-moment)"
+    over: "Lifting the guard while PoCs are off, a run-material store, a parked run asking the person"
+    reason: "Operator accepted every recommendation and asked to build through without questions."
+  - category: Implementation
+    chose: "The hostile-path check runs on the raw entry paths BEFORE the top-folder strip; every later rule and the manifest see the stripped path"
+    over: "Strictly ignore list, strip, then all rules"
+    reason: "Stripping first could hide a leading '..' segment; the order the spec names still holds for every rule a strip can change."
+  - category: Implementation
+    chose: "ReferencePathRule.RefusalOf names a setting only when the caller passes its key; BoundedZipInflater answers a record with a fault (over bound, checksum mismatch)"
+    over: "One wording for both callers; null for over-bound and the CRC check in each reader"
+    reason: "Reference refusals keep their exact text (characterisation); the CRC check lives in one place."
+  - category: Implementation
+    chose: "An unreadable ZIP is refused under check 'paths'; unix mode 0 counts as a plain entry; forbidden names match any path segment case-insensitively; the whole-archive ratio divides by the uploaded ZIP's length and is shown rounded up"
+    over: "A new check key, refusing mode 0, last-segment matching, rounding down"
+    reason: "Windows-made ZIPs carry no unix mode; a .git folder or secret file at any depth must be caught; a refused ratio must never read as equal to its bound."
+  - category: Implementation
+    chose: "Dockerfile directives are the leading '# key=value' lines only; '# escape=' is honoured when joining continuations; RUN flags are read from the leading '--' tokens; exactly one TCP port across the final stage's EXPOSE tokens; ENTRYPOINT and CMD of the final stage form the comparable entrypoint; a Dockerfile without FROM is refused"
+    over: "Any '# syntax=' comment, a fixed backslash continuation, one EXPOSE instruction"
+    reason: "Matches how BuildKit parses; an escape directive would otherwise bypass the blocklist across continuations."
+  - category: Implementation
+    chose: "The upload answer carries the passed check keys (paths, kinds, bounds, forbidden, dockerfile, expose) and the dashboard translates them; a refusal is a text/plain sentence with 422"
+    over: "Per-check objects with server-side labels"
+    reason: "The server's refusal sentence already names file, value and key; labels belong to the dashboard's en+de messages."
+  - category: Implementation
+    chose: "PocImportLauncher serialises imports within the process (one lock), the per-person count is pre-checked before provisioning and re-checked after the insert in the same transaction"
+    over: "Only the after-insert re-check"
+    reason: "A refused import must not create a project first; the in-process lock makes concurrent Starts of one upload and the limit race deterministic on one replica, the transaction covers the cross-replica case."
+  - category: Implementation
+    chose: "The claim transaction also stamps the revision's RunId; a retried Start answers a revision that has a run as is, and continues one without"
+    over: "Reading the run only from Poc.LastRunId"
+    reason: "The revision names its own run, so a retry cannot confuse it with a later run of the PoC; a revision without one is exactly the stopped-midway case the retry contract covers."
+  - category: Implementation
+    chose: "The 410 for a purged upload names the revision and pocs.blocked_retention_days but no day count"
+    over: "Inventing the number before 933dc adds the key"
+    reason: "933dc wires the days into this message when it adds the key (spec)."
+  - category: Implementation
+    chose: "IPocProjects and IPocIntakeStore (Contracts) with no-database defaults in Application and DB implementations registered by AddPocStores in the relational persistence"
+    over: "Making the guard and the intake depend on Persistence"
+    reason: "Application references only Contracts and Domain (the IRunCheckpointStore pattern); the CLI composition keeps working with nothing a PoC project."
+  - category: Implementation
+    chose: "PocPrefixFindings runs on each branch-cleanup pass, and once per epoch while the sweep is off; a failure to read it is logged, never ends the pass"
+    over: "Only while branch cleanup is on"
+    reason: "An installation with the sweep off would otherwise never be told about its poc-* project."
+  - category: Implementation
+    chose: "IActRun.RunAsync takes an optional trailing runId; the one Moq setup of it and the test double were updated"
+    over: "A second overload"
+    reason: "No second path; a single optional parameter keeps every caller as it was."
+  - category: Implementation
+    chose: "PoC import services are registered beside the access surface in ServerCompositionBuilder (AddPocImports)"
+    over: "Registering them with the project scope"
+    reason: "The provisioner saves through AccessGrantWriter, which only the access surface registers; the DI validation test composes the scope without it."
+  - category: Implementation
+    chose: "Dashboard: Start stays disabled on an 'ask' verdict until 'Replace anyway'; 'Import as a new app' switches to new with the proposal; the compared panel shows counts, percentage, port and entrypoint change but no per-file list; PocIntake sits in the 'verify' run section"
+    over: "The mock's per-file list; DeployToEnvironment's 'deliver' section"
+    reason: "The contract carries counts only; the intake checks and delivers nothing."

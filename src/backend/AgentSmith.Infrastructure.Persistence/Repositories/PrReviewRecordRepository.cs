@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Deployment;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -25,6 +26,18 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
         string project, IReadOnlyCollection<string> ticketIds, CancellationToken ct) =>
         [.. (await Records().Where(r => r.Project == project && ticketIds.Contains(r.TicketId)).OrderBy(r => r.Id).ToListAsync(ct))
             .Select(r => View(r, null, []))];
+
+    /// <summary>2026-11-23-8df6a: the scope's merged records whose merge came after <paramref name="since"/>, newest merge
+    /// first, each with its run's ticket title; a record whose run is gone is not listed.</summary>
+    public async Task<IReadOnlyList<MergedPullRequestItem>> MergedSinceAsync(ProjectScope scope, DateTimeOffset since, CancellationToken ct)
+    {
+        var after = since.UtcTicks;
+        var rows = await Records().Within(scope).Where(r => r.State == PrReviewStates.Merged && r.StateAtTicks > after)
+            .Join(unitOfWork.Set<Run>().AsNoTracking(), r => r.RunId, run => run.Id, (r, run) => new { r, run.TicketTitle })
+            .OrderByDescending(x => x.r.StateAtTicks).ThenByDescending(x => x.r.Id).ToListAsync(ct);
+        return [.. rows.Select(x => new MergedPullRequestItem(x.r.Project, x.r.TicketId, x.TicketTitle, x.r.Repo, x.r.Number,
+            x.r.Url, x.r.TargetBranch, x.r.MergeSha, Time(x.r.StateAtTicks)!.Value, x.r.RunId))];
+    }
 
     public async Task<PrReviewRecordView?> ByPrKeyAsync(string prKey, CancellationToken ct) =>
         (await ReadAsync(Records().Where(r => r.PrKey == prKey), standingOnly: false, ct)).SingleOrDefault();
@@ -93,7 +106,7 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
         new(r.PrKey, r.Url, r.Repo, r.Number, r.Project, r.TicketId, r.RunId, r.State, Time(r.StateAtTicks),
             Time(r.CheckedAtTicks)!.Value, Time(newestEntry), [.. entries.Select(Entry)])
         { HeadSha = r.HeadSha, HeadMovedAt = Time(r.HeadMovedAtTicks), ReopenedAt = Time(r.ReopenedAtTicks), Ci = PrRecordCiJson.View(r), CiActed = r.CiActed, TargetBranch = r.TargetBranch,
-            IsDraft = r.IsDraft }; // 2026-11-23-8d16
+            IsDraft = r.IsDraft, MergeSha = r.MergeSha, HasConflicts = r.HasConflicts == true, ConflictsAt = Time(r.ConflictsAtTicks) }; // 8d16, 8df6a, 6811a
 
     private static PrReviewEntryView Entry(PrReviewEntry e) =>
         new(e.HostId, e.Kind, e.Decision, e.Standing, e.AuthorLogin, e.Trusted, e.IsOurs, e.IsBot, e.IsSystem,

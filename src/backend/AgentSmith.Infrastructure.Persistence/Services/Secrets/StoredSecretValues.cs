@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -13,6 +14,8 @@ namespace AgentSmith.Infrastructure.Persistence.Services.Secrets;
 /// masker both read, so they see one generation. A row the running keys cannot open resolves to nothing and is said
 /// as a configuration finding naming the secret and its key id; a missing key with rows stored is said the same way.
 /// The load reads through a scope of its own, because the loader is called from places that hold none.
+/// 2026-11-23-933dg: installation rows only — a PoC variable never resolves as a catalog secret, never enters the
+/// unreadable map or its finding, and never reaches ISecretValues.All(); a run of its PoC's project masks it instead.
 /// </summary>
 public sealed class StoredSecretValues(
     IServiceScopeFactory scopes, MasterKeyRing keys, SecretEnvelope envelope, IStartupFindings findings,
@@ -21,7 +24,8 @@ public sealed class StoredSecretValues(
     public StoredSecretLoad Load()
     {
         using var scope = scopes.CreateScope();
-        var rows = scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Set<StoredSecret>().ToList();
+        var rows = scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Set<StoredSecret>()
+            .Where(s => s.Scope == SecretScope.InstallationText).ToList();
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         var unreadable = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var row in rows)

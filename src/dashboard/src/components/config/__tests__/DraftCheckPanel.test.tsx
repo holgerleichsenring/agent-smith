@@ -7,10 +7,12 @@ import { DraftCheckPanel } from "../DraftCheckPanel";
 
 const checkConnectionDraft = vi.fn();
 const checkTrackerDraft = vi.fn();
+const checkPocArgoDraft = vi.fn();
 
 vi.mock("@/lib/configApi", () => ({
   checkConnectionDraft: (...args: unknown[]) => checkConnectionDraft(...args),
   checkTrackerDraft: (...args: unknown[]) => checkTrackerDraft(...args),
+  checkPocArgoDraft: (...args: unknown[]) => checkPocArgoDraft(...args),
 }));
 
 const draft = { id: "gl", type: "gitlab", authSecret: "gitlab_a", organization: "acme", host: "https://git.example.test" };
@@ -19,6 +21,7 @@ describe("DraftCheckPanel", () => {
   beforeEach(() => {
     checkConnectionDraft.mockReset();
     checkTrackerDraft.mockReset();
+    checkPocArgoDraft.mockReset();
   });
 
   it("the connection form's Test renders each step with its mark and stops at the failing one", async () => {
@@ -51,6 +54,26 @@ describe("DraftCheckPanel", () => {
     fireEvent.click(screen.getByTestId("draft-check-run"));
 
     await waitFor(() => expect(screen.getByTestId("draft-check-error")).toHaveTextContent("missing diagnostics.probe"));
+    expect(checkConnectionDraft).not.toHaveBeenCalled();
+  });
+
+  // 2026-11-23-c81ec: a target's Argo block is checked under the target's name, with its own label and test ids.
+  it("a poc-argo draft goes to the Argo check with the target's name and renders its steps", async () => {
+    checkPocArgoDraft.mockResolvedValue({
+      ok: true, steps: [{ key: "token", label: "Token", ok: true, detail: "The token has no expiry." }],
+    });
+    const argo = {
+      url: "https://argocd.example.internal", tokenSecret: "argo_role_token", project: "pocs", namespace: "argocd",
+      destinationServer: "https://kubernetes.default.svc", repoUrl: "https://git.example.internal/poc-source.git",
+      applicationSet: null, tokenWarnDays: 14, generatorRequeueSeconds: 30,
+    };
+    render(<DraftCheckPanel kind="poc-argo" target="main" draft={argo} label="Test connection" help="checks it" testId="argo-check" />);
+
+    fireEvent.click(screen.getByTestId("argo-check-run"));
+
+    await waitFor(() => expect(screen.getByTestId("argo-check-step-token")).toHaveTextContent("no expiry"));
+    expect(checkPocArgoDraft.mock.calls[0][0]).toBe("main");
+    expect(checkPocArgoDraft.mock.calls[0][1]).toEqual(argo);
     expect(checkConnectionDraft).not.toHaveBeenCalled();
   });
 });

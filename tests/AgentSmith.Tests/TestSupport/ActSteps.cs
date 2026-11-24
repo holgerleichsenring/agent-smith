@@ -68,7 +68,8 @@ internal sealed class ActSteps(AgentSmithConfig config, IServiceProvider service
     public List<string> Runs { get; } = [];
 
     public async Task<CommandResult> RunAsync(
-        string project, string pipeline, IReadOnlyDictionary<string, object> seeds, AgentSmith.Domain.Models.TicketId? shownOnTicket = null)
+        string project, string pipeline, IReadOnlyDictionary<string, object> seeds, AgentSmith.Domain.Models.TicketId? shownOnTicket = null,
+        string? runId = null)
     {
         lock (Runs) Runs.Add(pipeline);
         if (LiveConfig.Projects(config).Of(project) is not { } resolved)

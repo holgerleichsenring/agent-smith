@@ -28,7 +28,7 @@ export type DeployAnswer = { kind: "started"; runId: string } | { kind: "refused
 
 const path = (project: string) => `/api/projects/${encodeURIComponent(project)}/deployments`;
 
-export function listDeployments(project: string, signal?: AbortSignal): Promise<DeploymentBindingView[]> {
+export function listDeploymentBindings(project: string, signal?: AbortSignal): Promise<DeploymentBindingView[]> {
   return getJson<DeploymentBindingView[]>(path(project), signal);
 }
 
@@ -74,4 +74,28 @@ export async function getDeployRecord(runId: string, signal?: AbortSignal): Prom
   if (res.status === 404) return null;
   if (!res.ok) throw await refused(res, at);
   return (await res.json()) as DeployRecordView;
+}
+
+/** 2026-11-23-8df6a: one merged pull request of a ticket's run, with the commit its merge became (null when not read). */
+export interface MergedPullRequestItem {
+  project: string;
+  ticketId: string;
+  ticketTitle?: string | null;
+  repo: string;
+  number: string;
+  url: string;
+  targetBranch?: string | null;
+  mergeSha?: string | null;
+  mergedAt: string;
+  runId: string;
+}
+
+/** 2026-11-23-8df6a: the Deployments page — merged pull requests and agent smith's deploys over the last `days`. */
+export interface DeploymentsPageView {
+  merged: MergedPullRequestItem[];
+  deploys: DeployRecordView[];
+}
+
+export function fetchDeploymentsPage(days: number, signal?: AbortSignal): Promise<DeploymentsPageView> {
+  return getJson<DeploymentsPageView>(`/api/deployments?days=${days}`, signal);
 }

@@ -32,6 +32,7 @@ public sealed class SettingsRoundTripTests
             "branch_cleanup", // 2026-11-17-713ec
             "tickets", // 2026-11-17-f9b0d
             "holds", // 2026-11-23-31dci
+            "pocs", // 2026-11-23-933da
         });
         h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret");
     }
@@ -85,6 +86,98 @@ public sealed class SettingsRoundTripTests
 
         h.Assembler.Assemble(h.DocStore.LoadAll()).Holds.EscalateAfterMinutes.Should().Be(0);
         Wire(h.Store.GetSetting("holds")).GetProperty("escalateAfterMinutes").GetInt32().Should().Be(0);
+    }
+
+    // 2026-11-23-933da: the PoCs form saves the switch and a target, and the runtime reads them back.
+    [Fact]
+    public void SaveSetting_Pocs_RoundTripsTheSwitchAndATarget()
+    {
+        using var h = new DbConfigTestHarness();
+
+        h.Store.SaveSetting("pocs", Doc("""
+            {"enabled":true,"projectAgent":"a","projectTracker":"t","targets":[{"name":"main","sourceRepo":"gh/poc-src",
+            "domainPattern":"{app}.poc.example.internal","reminderDays":[7,1],"perPersonLimit":2,
+            "registry":{"type":"acr","loginServer":"pocregistry.azurecr.io","pullUser":"poc-pull","pullAuth":"poc_pull","pullMode":"cluster_pulls"},
+            "ingress":{"class":"nginx"},"auth":{"ingressAnnotations":{"nginx.ingress.kubernetes.io/auth-url":"https://auth.example.internal/a"}},
+            "network":{"ingressControllerNamespace":"ingress-nginx","egressProxy":{"url":"http://proxy:3128","namespace":"egress","podLabels":{"app.kubernetes.io/name":"proxy"}}},
+            "quota":{"memory":"2Gi"},
+            "argo":{"url":"https://argocd.example.internal","tokenSecret":"poc_argo","project":"pocs","repoUrl":"https://git.example.internal/poc-src.git","generatorRequeueSeconds":45}}],
+            "gitops":{"commitAttempts":5,"maxFolderFiles":40},"rollout":{"deadlineSeconds":900,"pollSeconds":5},"runWallTimeSeconds":3600,"lifetime":{"unseenDeleteAfterDays":45},
+            "scan":{"osvImage":"ghcr.io/google/osv-scanner@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4","trivyImage":"aquasec/trivy@sha256:0000000000000000000000000000000000000000000000000000000000000933"}}
+            """), new ChangeAttribution("op"));
+
+        var pocs = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs;
+        pocs.Enabled.Should().BeTrue();
+        var target = pocs.Targets.Should().ContainSingle().Subject;
+        (target.SourceRepo, target.Root, target.PerPersonLimit).Should().Be(("gh/poc-src", "pocs", 2));
+        target.ReminderDays.Should().Equal(7, 1);
+        (target.Registry!.PullAuth, target.Registry.PullMode, target.Registry.Repository).Should().Be(("poc_pull", "cluster_pulls", "pocs"));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("sourceRepo").GetString().Should().Be("gh/poc-src");
+        Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("registry").GetProperty("pullAuth").GetString()
+            .Should().Be("poc_pull");
+        // 2026-11-23-c81eb: the deploy keys and pocs.gitops round-trip, dictionary keys verbatim.
+        target.Auth.IngressAnnotations.Should().ContainKey("nginx.ingress.kubernetes.io/auth-url");
+        target.Network.EgressProxy.PodLabels.Should().ContainKey("app.kubernetes.io/name");
+        (target.Ingress.Class, target.Quota.Memory, target.Quota.Cpu).Should().Be(("nginx", "2Gi", "1"));
+        (pocs.Gitops.CommitAttempts, pocs.Gitops.MaxFolderFiles).Should().Be((5, 40));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("gitops").GetProperty("maxFolderFiles").GetInt32().Should().Be(40);
+        // 2026-11-23-c81ec: the Argo CD block, pocs.rollout and the PoC run budget round-trip; absent keys read their defaults.
+        (target.Argo!.Url, target.Argo.Namespace, target.Argo.GeneratorRequeueSeconds, target.Argo.TokenWarnDays)
+            .Should().Be(("https://argocd.example.internal", "argocd", 45, 14));
+        (pocs.Rollout.DeadlineSeconds, pocs.Rollout.PollSeconds, pocs.Rollout.EndMarginSeconds, pocs.RunWallTimeSeconds).Should().Be((900, 5, 60, 3600));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("targets")[0].GetProperty("argo").GetProperty("tokenSecret").GetString().Should().Be("poc_argo");
+        // 2026-11-23-c81ee: pocs.lifetime round-trips; its absent keys read their defaults.
+        (pocs.Lifetime.UnseenDeleteAfterDays, pocs.Lifetime.MaxOwnerExtensions, pocs.Lifetime.IntervalSeconds).Should().Be((45, 2, 3600));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("lifetime").GetProperty("unseenDeleteAfterDays").GetInt32().Should().Be(45);
+    }
+
+    // 2026-11-23-933de: a target without a registry block, or with a bad one, is never saved.
+    [Theory]
+    [InlineData("", "pocs.targets[].registry of target 'main' is missing")]
+    [InlineData(""","registry":{"loginServer":"registry.example.com","pullUser":"u","pullAuth":"s"}""", "pocs.targets[].registry.login_server")]
+    public void SaveSetting_PocsTargetWithoutOrWithABadRegistry_IsRefusedNamingTheKey(string registry, string expected)
+    {
+        using var h = new DbConfigTestHarness();
+
+        var save = () => h.Store.SaveSetting("pocs", Doc($$"""
+            {"enabled":false,"targets":[{"name":"main","sourceRepo":"gh/poc-src"{{registry}}}]}
+            """), new ChangeAttribution("op"));
+
+        save.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage($"*{expected}*");
+    }
+
+    // 2026-11-23-933db: the archive limits ride in the pocs singleton; a block without them reads as the defaults.
+    [Fact]
+    public void SaveSetting_PocsArchive_RoundTripsItsLimits_AndItsAbsenceReadsAsTheDefaults()
+    {
+        using var h = new DbConfigTestHarness();
+
+        h.Store.SaveSetting("pocs", Doc("""{"enabled":false,"archive":{"maxZipMb":30,"mismatchFileLimit":7}}"""),
+            new ChangeAttribution("op"));
+        var archive = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs.Archive;
+        (archive.MaxZipMb, archive.MismatchFileLimit, archive.MaxEntries).Should().Be((30, 7, 2000));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("archive").GetProperty("maxZipMb").GetInt32().Should().Be(30);
+
+        h.Store.SaveSetting("pocs", Doc("""{"enabled":false}"""), new ChangeAttribution("op"));
+        h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs.Archive.MaxZipMb.Should().Be(25);
+    }
+
+    // 2026-11-23-933dc: the scan settings and the blocked retention ride in the pocs singleton too.
+    [Fact]
+    public void SaveSetting_PocsScan_RoundTripsItsValues_AndItsAbsenceReadsAsTheDefaults()
+    {
+        using var h = new DbConfigTestHarness();
+
+        h.Store.SaveSetting("pocs", Doc("""{"enabled":false,"blockedRetentionDays":3,"scan":{"timeoutSeconds":120,"unfixedCriticalBlock":false,"secretMinConfidence":9}}"""),
+            new ChangeAttribution("op"));
+        var pocs = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs;
+        (pocs.BlockedRetentionDays, pocs.Scan.TimeoutSeconds, pocs.Scan.UnfixedCriticalBlock, pocs.Scan.SecretMinConfidence)
+            .Should().Be((3, 120, false, 9));
+        Wire(h.Store.GetSetting("pocs")).GetProperty("scan").GetProperty("secretMinConfidence").GetInt32().Should().Be(9);
+
+        h.Store.SaveSetting("pocs", Doc("""{"enabled":false}"""), new ChangeAttribution("op"));
+        var defaults = h.Assembler.Assemble(h.DocStore.LoadAll()).Pocs;
+        (defaults.BlockedRetentionDays, defaults.Scan.SecretMinConfidence).Should().Be((7, 8));
     }
 
     [Fact]

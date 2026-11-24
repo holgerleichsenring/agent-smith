@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Archives;
 using AgentSmith.Server.Services.References;
 using FluentAssertions;
 using static AgentSmith.Tests.References.ReferenceUploadRequests;
@@ -7,7 +8,7 @@ namespace AgentSmith.Tests.References;
 /// <summary>2026-10-01-283db: the one archive a set may arrive as is counted, not trusted.</summary>
 public sealed class ReferenceZipReaderTests
 {
-    private readonly ReferenceZipReader _reader = new(new ReferencePathRule(), new ReferenceIgnoreList(), new ZipEntryChecksum());
+    private readonly ReferenceZipReader _reader = new(new ReferencePathRule(), new ReferenceIgnoreList(), new BoundedZipInflater(new ZipEntryChecksum()));
 
     [Fact]
     public void ReferenceUpload_ZipEntryLyingAboutItsSize_StopsAtTheSetBound()
@@ -66,6 +67,19 @@ public sealed class ReferenceZipReaderTests
 
         read.Files.Select(f => f.Path).Should().Equal("s/app.py", "s/LICENSE");
         read.LeftOut.Should().Equal(new AgentSmith.Server.Models.ReferenceLeftOut("s/node_modules/", "rebuildable"));
+    }
+
+    // 2026-11-23-933db: characterisation — the extracted BoundedZipInflater leaves the reader's answer unchanged.
+    [Fact]
+    public void ReferenceZipReader_OnTheSharedInflater_AnswersExactlyAsBefore()
+    {
+        var read = _reader.Read("site.zip", Zip(("site/index.html", Text("<p>")), ("site/css/a.css", Text("a{}"))));
+        var over = _reader.Read("site.zip", Zip(Enumerable.Range(0, 3).Select(i => ($"site/{i}.bin", new byte[10L * 1024 * 1024])).ToArray()));
+
+        read.Files.Select(f => (f.Path, System.Text.Encoding.UTF8.GetString(f.Content))).Should()
+            .Equal(("site/index.html", "<p>"), ("site/css/a.css", "a{}"));
+        read.Refusal.Should().BeNull();
+        over.Refusal.Should().Be("'site/2.bin' takes 'site.zip' over the 25 MB per-file or 25 MB set limit once unpacked.");
     }
 
     [Fact]

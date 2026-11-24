@@ -1,0 +1,230 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-23-933dd
+goal: "A committed PoC revision is built, image-scanned and pushed by a pipeline of the source repo's host that poc-target-install writes once; agent smith starts it, reads state, failures, digest."
+
+applies_to: "default (per-host pipeline template, poc-target-install preset, PocPipelineBuild step, pipeline artifact read on three runners, pocs.targets[].build settings + wall-time finding, image-stage verdict and overrule, docs) + dashboard (Install action in PocsSettingsForm, build step on the run, build settings fields, image-stage findings on the blocked page)"
+
+requires: [2026-11-23-933dc, 2026-11-23-933de, 2026-11-18-3863e]
+
+upgrade_impact: "Behind pocs.enabled; poc-deploy now ends after the image is pushed and its digest verified. PocRevision gains Digest, PipelineRunId, PipelineUrl, ImageVerdictJson and BlockedStage (migrations on three providers). The source repo's host must run the pipeline: GitHub's token needs actions write and workflow scope (it writes .github/workflows/poc-build.yml) and the host must support return_run_details on workflow dispatch (github.com does; an older GitHub Enterprise Server answers 204 and every build fails saying so); Azure DevOps needs Build read & execute, the operator creates the pipeline once from the YAML the install wrote, creates a Docker registry service connection and permits the pipeline to use it once (otherwise the first build waits for that approval until it times out); GitLab needs api, pipeline variables allowed for the token's role (a project restricting them answers 400/403) and a protected, environment-scoped CI variable pair for the push, and a runner with privileged true for the docker:dind service the build and push jobs use (gitlab.com's hosted runners have it). The registry push credential lives only in the host, scoped to the push job, named in target config. The pipeline runs uploader Dockerfiles: it must run on the host's ephemeral hosted agents (documented; a self-hosted pool is the operator's risk). The image travels between jobs as a gzip artifact kept one day; its size counts against the host's artifact limits (GitLab self-managed 100 MB by default, GitHub storage per plan, Azure DevOps by build retention) — documented per host. A load finding refuses job timeouts that do not fit below orchestrator.max_run_wall_time_seconds (below pocs.run_wall_time_seconds once 2026-11-23-c81ec ships). IPipelineRunner gains an artifact read on all three runners; the deploy pipeline_trigger delivery of 3863e is unchanged."
+
+facts:
+  - claim: "IPipelineRunner starts a host's pipeline with inputs on a ref and reads a run's state as a CiState with its failed jobs bounded by a CiReadRequest; it reads no outputs, artifacts or per-job progress — PipelineRunState holds State, Url and the failures only."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/IPipelineRunner.cs:10-18, src/backend/AgentSmith.Contracts/Providers/PipelineRunState.cs:5-7, src/backend/AgentSmith.Contracts/Reviews/CiReadRequest.cs:8"
+  - claim: "A pipeline is named per host: GitHub by workflow file, Azure DevOps by pipeline name with inputs as template parameters, GitLab runs the project's own .gitlab-ci.yml with inputs as variables, refuses a named pipeline, and a project restricting pipeline variables answers 400/403."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/PipelineRunOrder.cs:3-8, src/backend/AgentSmith.Infrastructure/Services/Providers/Pipelines/AzurePipelineRunner.cs:17-32, src/backend/AgentSmith.Infrastructure/Services/Providers/Pipelines/GitLabPipelineRunner.cs:6-26"
+  - claim: "A red run's failures do not name the failed job uniformly: Azure DevOps answers one CiFailure named after the pipeline definition, built from failed Task records; GitLab names each failure '<stage>: <name>'."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Pipelines/AzurePipelineRunner.cs:43-47, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBuildEvidence.cs:15-16, src/backend/AgentSmith.Infrastructure/Services/Providers/Pipelines/GitLabPipelineFailures.cs:22"
+  - claim: "A GitHub host answering 204 starts the run without naming it; the existing delivery then does not follow it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Pipelines/GitHubPipelineRunner.cs:24-26, src/backend/AgentSmith.Application/Services/Deployment/PipelineDelivery.cs:28-29"
+  - claim: "The runner is made per repository with the repo's own auth secret; a local working copy has no runner."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/PipelineRunnerFactory.cs:12-31"
+  - claim: "A failed job is told as CiFailure (name, link, bounded excerpt), bounded by merge.ci_excerpt_chars and merge.ci_failed_checks_read."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/CiFailure.cs:3-7, src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:29,35"
+  - claim: "Every run lives under one wall-time ceiling, orchestrator.max_run_wall_time_seconds (default 1800), read live by PipelineRunWatchdog, which cancels the run past it; only model waits are taken out."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/OrchestratorGlobalConfig.cs:10-17, src/backend/AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs:44-59, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:113-119"
+  - claim: "A settings block sized against the run wall clock is refused as a blocking load finding naming both keys; the series block is the precedent."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SeriesConfig.cs:60-68, src/backend/AgentSmith.Application/Services/Configuration/SeriesConfigValidator.cs:12-16"
+  - claim: "A run no process drives any more (a restart, a crash) is interrupted by the liveness reaper and may be restarted, so a step runs again from its start."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:10-24"
+  - claim: "3863e left secret values out of pipeline inputs: a secret is referenced by name inside the pipeline."
+    evidence: ".agentsmith/specs/done/2026-11-18-3863e-deploy-pipeline-trigger.yaml:25"
+  - claim: "A checkout-free branch write commits text files onto an existing branch's head — enough for a pipeline definition."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/BranchWrite.cs:3-10, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchWrite.cs:23-38"
+  - claim: "933dc defines PocScanVerdict and PocScanFinding, OsvReportParser, the PocRevision states blocked and overruled, the overrule route and the blocked page."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933dc"
+  - claim: "933de defines ResolveAsync, ExistsAsync, the Docker schema2 media types in Accept and the image name <login_server>/<repository>/<poc>."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933de"
+  - claim: "Operator ruling D: BUILD is a pipeline of the source repo's host via the 3863e runners; no in-cluster builder, no ACR Tasks, no gVisor/Kata, no privileged pods. A poc-target-install run writes the pipeline definition into the PoC source repo once. Jobs build (no registry credentials), scan (Trivy pinned by digest on the artifact), push (the only job with credentials; reports the digest). Agent smith reads state, failures and the digest back."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling round 3: only critical findings block, at the image stage too (vulnerabilities and secrets); everything else is a note. A secret block can never be overruled; a critical vulnerability can, with pocs.overrule and a reason. Round 4 refines both (next facts)."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a secret of severity high OR critical blocks when its pattern is high-confidence (confidence >= 8); other secrets are notes; for vulnerabilities only critical blocks — this applies to Trivy's secret findings as well."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a vulnerability is critical when its CVSS score is >= 9.0; no score is a note."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling, round 4: a critical vulnerability without an available fix blocks (unfixed_critical_block, default true) and can be overruled."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "933dc defines pocs.scan.secret_min_confidence (8) and decides a code-stage secret by the catalog pattern's severity and confidence; the catalog carries a confidence per pattern, Trivy's own secret rules carry none."
+    evidence: "observed: 2026-11-23, delivered by the required series spec 2026-11-23-933dc; src/backend/AgentSmith.Contracts/Models/PatternDefinition.cs:11"
+  - claim: "Operator ruling round 3: a vulnerability overruled at the code stage is passed to the image stage's ignore list, so it is not overruled twice."
+    evidence: "observed: 2026-11-23, operator"
+  - claim: "Operator ruling J: poc-deploy is one chain of command presets with PocPipelineBuild after PocSourceCommit; every step idempotent on retry (skip an existing image tag/digest)."
+    evidence: "observed: 2026-11-23, operator"
+
+assumptions:
+  - claim: "The digest and the scan report are read back as small artifacts (poc-image/digest.txt, poc-scan-report/report.json), because the hosts' REST APIs expose a run's artifacts uniformly and job outputs not at all (GitHub) or not for completed runs (Azure DevOps); the registry then confirms the digest."
+    check: "One faked-HTTP test per host against the documented artifact endpoints; a manual run per host once."
+  - claim: "The pinned Trivy version's built-in secret rules include every Trivy rule id PocTrivySecretRules maps (for AWS access and secret keys, GitHub tokens, Stripe secret key, private keys, Slack, Google API key and the other high-confidence catalog patterns), and maps none to a publishable key."
+    check: "Golden test over the pinned version's built-in secret rule list: every mapped id exists; the manual run per host includes a publishable key and an AWS access key id."
+  - claim: "Trivy's --ignore-policy evaluates a Rego policy per finding whose input carries a vulnerability's CVSS map (per source, V3Score) and FixedVersion and a secret's RuleID and Severity, and a finding the policy ignores neither fails the --exit-code nor appears in the report."
+    check: "Golden test against the pinned Trivy image with a fixture image holding a CVE scored 9.8 by NVD but rated LOW by its vendor, one scored 7.5 but rated CRITICAL, an unscored one, a private key and a JWT; the manual run per host repeats it."
+  - claim: "The compact report projection of a common base image fits the default build.report_kb of 1024: without descriptions, references and CVSS vectors a finding is a few hundred bytes. Not measured yet."
+    check: "The manual run per host measures report.json for node:20 and python:3.12 (Debian) images; the default is raised before the commit when either does not fit with room."
+  - claim: "Each host serves a fetch of one commit by its sha (git protocol v2), which the Azure DevOps and GitLab checkout scripts rely on."
+    check: "Golden tests pin the fetch per host; the manual run per host builds a sha that is no longer the branch head."
+
+scope:
+  in: >
+    PIPELINE TEMPLATE: PocPipelineTemplate renders the definition per host of the target's source repo — GitHub
+    '.github/workflows/poc-build.yml' (on: workflow_dispatch only; permissions: contents read), Azure DevOps
+    '<template_path>/azure-pipelines.poc-build.yml' (trigger: none, pr: none, parameters), GitLab '.gitlab-ci.yml' at
+    the root (jobs ruled to the 'api' pipeline source with POC_FOLDER set, so no push runs anything) — refused when that
+    file exists without agent smith's marker header, naming the file. INPUTS PER HOST: GitHub workflow inputs and Azure
+    DevOps template parameters poc, folder, sha, trivy_ignore (optional, comma-separated advisory ids), ignore_unfixed
+    (true|false), secret_rules (comma-separated Trivy secret rule ids that block); GitLab pipeline variables POC_NAME,
+    POC_FOLDER, POC_SHA, POC_TRIVY_IGNORE, POC_IGNORE_UNFIXED, POC_SECRET_RULES, because
+    the GitLab runner passes input keys through verbatim as variables, so the step sends those keys there. Every input
+    reaches the shell through an environment variable, never inline interpolation, and the first step of every job
+    checks folder against ^<root>/[a-z0-9-]+/[a-z0-9-]+$ with <root> regex-escaped at render (933da allows
+    multi-segment roots), sha against ^[0-9a-f]{40}$, every trivy_ignore id against
+    ^[A-Z][A-Z0-9]*-[A-Za-z0-9._:-]{1,80}$, every secret_rules id against ^[a-z0-9-]{1,80}$ and ignore_unfixed against
+    true|false, failing otherwise. CHECKOUT AT THE SHA,
+    in the build job, of the folder only: GitHub actions/checkout with ref the sha, sparse-checkout the folder and
+    persist-credentials false; Azure DevOps checkout: none (StartAsync sets only SourceBranch, never SourceVersion), then
+    git init, git fetch --depth 1 --filter=blob:none of the sha from $(Build.Repository.Uri) authorised by
+    System.AccessToken mapped into that step's env, git sparse-checkout set <folder>, git checkout FETCH_HEAD; GitLab
+    GIT_STRATEGY: none (a pipeline is created on a ref, never on a sha), then the same fetch of $POC_SHA from
+    $CI_REPOSITORY_URL and the same sparse checkout. Every job has a timeout from pocs.targets[].build: build — docker
+    build with the folder as the only context, no registry login, docker save piped through gzip to the artifact
+    poc-image-tar kept one day (GitHub retention-days 1, GitLab expire_in 1 day, Azure by the build's retention,
+    documented), build_timeout_minutes (12); on GitLab build and push run docker through a docker:dind service, which
+    needs a runner with privileged true (gitlab.com's hosted runners have it; a self-managed runner without it fails the
+    build job — documented beside the hosted-agent note); scan — gunzip, then Trivy from pocs.scan.trivy_image (pinned
+    by digest) on the tar with scanners vuln,secret, twice: first the REPORT, a
+    compact projection written with --format template and the template's poc-report.tpl (a JSON array, one object per
+    finding at every severity: VulnerabilityID or secret RuleID, kind vulnerability|secret, package, installed version,
+    fixed version, Trivy's severity, the V3Score of each CVSS source Trivy lists, title, target and line for a secret —
+    no descriptions, references or CVSS vectors) to report.json in the artifact poc-scan-report; then the GATE at every
+    severity with exit code 1 on a finding and --ignore-policy poc-gate.rego, the template's Rego policy that ignores a
+    vulnerability whose highest V3Score over its sources is below 9.0 or absent ('// not a limit: the CVSS v3.1
+    Critical band', the rule 933dc applies to OSV) and a secret whose Severity is not HIGH or CRITICAL or whose RuleID
+    is not in secret_rules (the job writes the guard-checked ids into the policy's rule set before the scan), a
+    .trivyignore written from trivy_ignore (vulnerabilities only — a secret is never ignorable) and --ignore-unfixed
+    when ignore_unfixed is true, its exit status written to gate.txt in the same artifact; Trivy's own severity label
+    decides nothing, because for OS packages it is the distribution's rating, which often differs from the CVSS score; the artifact is uploaded whether
+    the job passes or fails (GitHub if: always(), Azure condition: always(), GitLab artifacts when: always);
+    scan_timeout_minutes (5); push — needs scan, the ONLY job that can reach the registry credential: GitHub the
+    environment build.github_environment with secrets named by build.push_user_secret and build.push_password_secret;
+    Azure DevOps the Docker registry service connection build.azure_service_connection, referenced in the push job
+    only; GitLab protected variables of those two names scoped to the environment build.gitlab_environment, which only
+    the push job declares (environment: on push alone, so the build job running the uploader's Dockerfile never
+    receives them); docker load of the gzip, tag <login_server>/<repository>/<poc>:<sha> (933de), push, write the
+    pushed digest to the artifact poc-image (digest.txt); push_timeout_minutes (3). PRESET poc-target-install
+    [LoadCatalog, PocTargetInstall], started from PocsSettingsForm by a pocs.admin holder (POST
+    /api/pocs/targets/{name}/install, global; behind PocsGate, so the button is disabled with 'turn PoCs on to install'
+    while the switch is off; route-permission-baseline.tsv gains its row) as a run on the installation through
+    IActRun, like the config run, in the installation preset dictionary: renders the pipeline definition into the
+    source repo's default branch in one checkout-free branch write (this slice writes nothing else; the same handler
+    later also writes the default app template under <template_path>/app/, 2026-11-23-c81eb, and upserts the
+    ApplicationSet through the Argo CD API, 2026-11-23-c81ec); idempotent (files equal to what the branch holds are not
+    written; nothing to write = said); its outcome names the commit and, on Azure DevOps, the YAML path, the pipeline
+    name build.pipeline (default 'poc-build') the operator creates from it and the one-time permit of the service
+    connection. ARTIFACT READ: IPipelineRunner gains ReadArtifactTextAsync(runId, PipelineArtifact(name, job, file),
+    maxBytes) — GitHub actions/runs/{id}/artifacts by name then the zip download, Azure DevOps the build artifact by
+    name, GitLab the job named by PipelineArtifact.job in the pipeline then jobs/{id}/artifacts/{file}; bounded at
+    maxBytes, a larger file answers too-large with its size rather than text; an absent artifact answers null. STEP
+    PocPipelineBuild in poc-deploy after PocSourceCommit, idempotent in this order: (1) 933de ResolveAsync(
+    <repository>/<poc>:<sha>) answers a digest -> taken, no pipeline started, said; (2) the revision carries a
+    PipelineRunId -> that run is read first: pending or green, it is followed; red with a blocking report, the revision
+    is blocked as below; red without one (a registry 5xx on push, a runner outage, a Trivy database download failure, an
+    Azure permit wait cancelled on the host), PipelineRunId and PipelineUrl are cleared and (3) starts a fresh run, so a
+    retry never re-reads the same red run; (3) otherwise StartAsync with the inputs, and the revision stores
+    PipelineRunId and PipelineUrl AT ONCE, before the first poll, so a restarted run follows the same pipeline; a start
+    naming no run (GitHub 204) fails the step: 'the host started the build without naming it, so it cannot be followed
+    (workflow dispatch without return_run_details)'. A run started in this execution that ends red without a blocking
+    report fails the step with its CiFailures; its id stays stored, and the next retry starts afresh by (2). IMAGE
+    FINDING IDS: a vulnerability 'trivy:' + VulnerabilityID + '|' + package + '|' + installed version, a secret 'sec:' +
+    16 hex of sha256(rule id|target|line) as 933dc's secret id, stable across re-scans of one image; Aliases empty.
+    TRIVY_IGNORE: for every id overruled on this revision at either stage (both keys of OverruledIdsJson, below), the
+    matching finding of that stage's verdict gives its bare advisory id (the part after 'osv:' or 'trivy:' up to the
+    first '|') and its Aliases (933dc's OsvReportParser fills PocScanFinding.Aliases from OSV's aliases, because OSV
+    reports GHSA/PYSEC ids where Trivy reports CVEs); ignore_unfixed = not pocs.scan.unfixed_critical_block, so both
+    stages decide alike. SECRET_RULES: PocTrivySecretRules maps Trivy built-in secret rule ids to 933dc's catalog
+    pattern ids (aws-access-key-id -> aws-access-key, private-key -> rsa-private-key, ...); the step passes the mapped
+    ids whose catalog pattern has confidence >= pocs.scan.secret_min_confidence (933dc's key and value), so both stages
+    block the same secrets; a Trivy secret whose rule is unmapped or below the confidence is a note naming its rule,
+    the value and the key. Polls ReadAsync every build.poll_seconds (15) up to the deadline queue_minutes (3) +
+    build_timeout_minutes + scan_timeout_minutes + push_timeout_minutes; past it the step fails naming the deadline,
+    the reason 'the host never finished the build' and the keys. WALL TIME: PocBuildWallTime is a blocking load finding
+    when (queue + build + scan + push timeouts) x 60 + pocs.scan.timeout_seconds (933dc) of any target is not below
+    orchestrator.max_run_wall_time_seconds, naming the target, both sums and the keys (defaults 23 x 60 + 300 = 1680 <
+    1800). The sum leaves out the time spent before the step (intake, sandbox start-up, PocSourceCommit's clone and
+    push) and the poll granularity, so near the ceiling the watchdog may cancel the run before the step's own deadline
+    fires; the host's pipeline keeps running and a retry follows it through the stored PipelineRunId (2). This spec owns
+    the finding; 2026-11-23-c81ec gives PoC runs their own kind and ceiling and moves the comparison to
+    pocs.run_wall_time_seconds (2700), adding pocs.rollout.deadline_seconds + 120 to the sum (defaults 2400 < 2700).
+    ANY RED RUN -> ReadArtifactTextAsync(poc-scan-report, job scan, report.json, build.report_kb 1024) and gate.txt: the
+    revision is blocked only when gate.txt says the gate itself failed (1) AND TrivyReportParser with 933dc's block
+    rules finds a blocking finding — a secret of Trivy severity HIGH or CRITICAL whose rule is in secret_rules, or a
+    vulnerability not in trivy_ignore whose highest V3Score is >= 9.0 (none = a note 'severity unknown') and that has a
+    fixed version or, with pocs.scan.unfixed_critical_block true, has none (an empty FixedVersion with the rule off is
+    a note, as the gate's --ignore-unfixed skips it) -> the revision's ImageVerdictJson holds the verdict, BlockedStage 'image',
+    state blocked, Poc.State blocked only for a PoC that never reached ready (state importing or blocked, as 933dc
+    reads it: a passing code scan has moved a blocked PoC back to importing before the build; a ready PoC keeps serving
+    its current revision), and 933dc's blocked page shows it; no report, a gate.txt absent or
+    0, or a report with nothing blocking -> the step fails with the CiFailures bounded by merge.ci_excerpt_chars and
+    merge.ci_failed_checks_read. A report over build.report_kb, on a red or a green run, fails the step: 'the scan
+    report is <n> KB, over build.report_kb (<v> KB); raise it'. GREEN -> the scan report is read for its notes (every
+    finding that does not block by the rules above, kept in ImageVerdictJson as notes), digest.txt is
+    read, ExistsAsync of that digest and ResolveAsync of the tag must agree, else refused naming both; the revision gets
+    Digest, state built. VERDICT BY STAGE: PocRevision keeps 933dc's code verdict, gains ImageVerdictJson and
+    BlockedStage (code | image, null when not blocked). OVERRULED IDS BY STAGE: OverruledIdsJson (933dc) is an object
+    keyed by stage ({"code": [...], "image": [...]}), appended to and never replaced; 933dc's code re-scan reads the
+    'code' key, so a revision overruled at both stages keeps passing the code stage. OVERRULE AT THE IMAGE STAGE: 933dc's
+    overrule route reads the verdict BlockedStage names; an image-stage block is Overrulable when every blocking finding
+    is a vulnerability (an unfixed critical included); the overrule appends the blocking ids under 'image', and the overrule run clears PipelineRunId
+    and PipelineUrl and starts a fresh pipeline run whose trivy_ignore carries both stages' ids; the audit entry names
+    the stage. A local or unknown host is refused at the step naming the source_repo. SETTINGS pocs.targets[].build
+    (pipeline, github_environment, gitlab_environment, push_user_secret, push_password_secret,
+    azure_service_connection, queue_minutes, build_timeout_minutes, scan_timeout_minutes, push_timeout_minutes,
+    poll_seconds, report_kb) and pocs.scan.trivy_image, each in Problems() with value, reason and key. DASHBOARD: the
+    run's build step shows the pipeline link, the read state and a red run's failures (no per-job list: the hosts' run
+    state carries none); the blocked page shows the image stage's findings and notes; PocsSettingsForm gains the Install
+    button with the last install's commit and the build fields.
+  out: "Running uploader builds anywhere agent smith runs (never). Registry quarantine or promotion (dropped by ruling D). A per-job progress list (would need a job list on PipelineRunState plus a hub event; not needed to follow a build). The app template and ApplicationSet (the 2026-11-23-c81e series extends poc-target-install with them: template c81eb, Argo CD c81ec). Multi-component builds (later). SBOM publication."
+
+pipeline-presets:
+  poc-deploy: [LoadCatalog, PocIntake, PocCodeScan, PocSourceCommit, PocPipelineBuild]
+  poc-target-install: [LoadCatalog, PocTargetInstall]
+
+steps:
+  - id: template
+    action: "PocPipelineTemplate (GitHubPocWorkflow, AzurePocPipeline, GitLabPocCi renderers) with the per-host input keys, the input guard step, the per-host checkout at the sha, per-job timeouts, gzip artifact, GitLab docker:dind, the compact report via poc-report.tpl (with the V3Scores) plus gate.txt, always uploaded, the gate's poc-gate.rego filled with secret_rules, push-only credential scoping; golden tests per host."
+  - id: artifact
+    action: "PipelineArtifact record; IPipelineRunner.ReadArtifactTextAsync (text, absent, or too-large with its size) on GitHubPipelineRunner, AzurePipelineRunner, GitLabPipelineRunner with faked-HTTP tests."
+  - id: install
+    action: "CommandNames.PocTargetInstall, PocTargetInstallHandler (render + checkout-free branch write, equality skip), PocTargetInstallLauncher + endpoint; route-permission-baseline.tsv row 'POST /api/pocs/targets/{name}/install pocs.admin -'; PipelinePresets.Poc.cs gains PocTargetInstallName."
+  - id: settings
+    action: "PocBuildConfig on PocTargetConfig + pocs.scan.trivy_image with Problems(); PocBuildWallTime load finding beside SeriesConfigValidator's; schema, docs per host (permissions, permit, return_run_details, artifact limits, hosted agents)."
+  - id: build
+    action: "CommandNames.PocPipelineBuild, PocPipelineBuildHandler (resolve -> read a stored run, clearing a red one without a blocking report -> start + store run id, poll, report and gate.txt on any red, report_kb refusal, digest verify, Poc.State for a never-ready PoC), TrivyReportParser (trivy: and sec: ids, highest V3Score >= 9.0, the unfixed rule, secrets by secret_rules); PocTrivySecretRules (Trivy rule id -> catalog pattern id, filtered by pocs.scan.secret_min_confidence); PocScanFinding.Aliases + OsvReportParser fills it; PocRevision gains Digest, PipelineRunId, PipelineUrl, ImageVerdictJson, BlockedStage (migration x3); poc-deploy gains the step; control-flow.svg."
+  - id: overrule
+    action: "933dc's overrule route reads the verdict BlockedStage names; OverruledIdsJson keyed by stage and appended to; image-stage vulnerability blocks append under 'image', clear the run id and reach trivy_ignore with the code stage's ids."
+  - id: dashboard
+    action: "Run step section (link, state, failures); image-stage findings and notes on the blocked page; Install action and build fields in PocsSettingsForm; messages.ts."
+
+tests:
+  - "PocPipelineTemplate golden per host: dispatch-only trigger, the host's input keys (GitLab POC_*), inputs via env, the guard regexes with a regex-escaped multi-segment root, the checkout at the sha of the folder only (GitHub ref + sparse-checkout; Azure checkout: none + fetch of the sha with System.AccessToken; GitLab GIT_STRATEGY: none + fetch from CI_REPOSITORY_URL), a timeout on every job, gzip artifact kept one day, GitLab docker:dind, the compact report via poc-report.tpl and gate.txt uploaded on failure, the gate with poc-gate.rego, .trivyignore, ignore_unfixed and the secret_rules guard, build job with no credential, push job alone referencing the credential (GitLab: environment: on push only)"
+  - "PocPipelineTemplate: an existing .gitlab-ci.yml without the marker is refused naming the file"
+  - "ReadArtifactTextAsync per host: reads digest.txt; a file over maxBytes answers too-large with its size; an absent artifact answers null"
+  - "PocTargetInstallHandler: writes the definition once; a second run writes nothing and says so"
+  - "PocPipelineBuildHandler: a tag already in the registry skips the pipeline; a run id is stored before the first poll and a restarted step reads it instead of starting; a 204 start fails naming why; red with gate.txt 1 and a report holding a vulnerability with V3Score 9.8 -> revision blocked at stage image with the parsed findings, a never-ready PoC (importing, or blocked earlier and moved back to importing by a passing code scan) blocked, a ready PoC unchanged; red with a report holding only findings below 9.0 -> fails with CiFailures; red with no report or gate.txt 0 -> fails with CiFailures bounded; a report over build.report_kb fails naming the key on a red and on a green run; green -> notes kept, digest verified, a registry mismatch refused; the deadline sums the four keys"
+  - "PocPipelineBuildHandler: red without a blocking report, then retry -> PipelineRunId cleared and a new run is started; a stored pending run is followed, not restarted"
+  - "PocPipelineBuildHandler: push red, report holds only an unfixed vulnerability scored 9.8 with pocs.scan.unfixed_critical_block false -> CiFailures, not blocked"
+  - "PocPipelineBuildHandler: a vulnerability overruled at the code stage reaches trivy_ignore with its OSV id and its CVE alias"
+  - "TrivyReportParser: a vulnerability with V3Score 9.8 blocks with Id trivy:<VulnerabilityID>|<pkg>|<installed>, also when Trivy's severity says LOW; one rated CRITICAL by Trivy with 7.5 is a note; one without a score is a note 'severity unknown'; a HIGH private-key secret (mapped, confidence 9) blocks with kind secret and a sec: id; a jwt secret (confidence 7) and an unmapped rule are notes naming pocs.scan.secret_min_confidence; an unfixed 9.8 blocks with unfixed_critical_block true and is a note with false; a clean report passes"
+  - "PocTrivySecretRules: with secret_min_confidence 8 the passed secret_rules hold the AWS, private-key and Stripe secret ids and no publishable-key id; with 9 the Google API key id drops out"
+  - "PocBuildWallTime: defaults pass; build_timeout_minutes 30 is a blocking finding naming both keys and both sums"
+  - "Overrule at image stage: the route reads the image verdict when BlockedStage is image; a vulnerability-only block clears the run id and seeds trivy_ignore with exactly those bare ids and aliases; a block with a secret is refused"
+  - "Code-stage overrule, then image-stage overrule -> OverruledIdsJson holds both keys, the code re-scan passes, and both id sets reach trivy_ignore"
+  - "Settings: tag-only trivy_image refused naming the key; a timeout of 0 refused naming the key"
+  - "PocDeployCompositionTests: a committed revision with a faked runner and faked registry ends built with the digest; a faked red scan whose report holds a vulnerability scored 9.8 ends blocked at the image stage"
+  - "Coverage that knows every preset: PipelineDataFlowsCoverageTests, RoutingPipelineChoiceTests, control-flow diagram test"
+
+done:
+  - {given: "a GitHub-hosted source repo with poc-target-install run and the push environment configured", when: "a clean PoC is imported", then: "the run starts poc-build.yml for the folder and sha, waits for it, and the revision carries the pushed digest the registry confirms"}
+  - {when: "the uploaded image carries a vulnerability with CVSS 9.8", then: "the pipeline's scan job fails, nothing is pushed, and the blocked page shows the finding at the image stage with an overrule box for pocs.overrule holders; a finding below 9.0 alone is a note and the build is pushed"}
+  - {when: "the uploaded image carries a private key file", then: "the scan job fails, nothing is pushed, and the blocked page shows the secret with no overrule offered"}
+  - {when: "the server restarts while the build runs, and later the same revision's run is retried after the push", then: "the restarted run follows the pipeline it started; the retry starts no pipeline and takes the digest from the registry"}
+  - {when: "a build ends red without a blocking report (a registry outage on push) and the run is retried", then: "the retry starts a fresh pipeline run instead of re-reading the red one"}

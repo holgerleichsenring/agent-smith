@@ -24,7 +24,9 @@ internal static class PrReviewRecordCopy
         stored.StateAtTicks = read.StateAtTicks;
         stored.HeadSha = read.HeadSha ?? stored.HeadSha;
         stored.IsDraft = read.IsDraft; // 2026-11-23-8d16
+        Conflicts(read, stored); // 2026-11-24-6811a
         stored.TargetBranch = read.TargetBranch ?? stored.TargetBranch; // 2026-11-22-6d85b: read once, after the merge
+        stored.MergeSha = read.MergeSha ?? stored.MergeSha; // 2026-11-23-8df6a: a read that names none keeps the known one
         Ci(read, stored);
     }
 
@@ -38,6 +40,16 @@ internal static class PrReviewRecordCopy
         stored.CiFailuresJson = same ? stored.CiFailuresJson ?? read.CiFailuresJson : read.CiFailuresJson;
         stored.CiState = read.CiState;
         stored.CiHeadSha = read.CiHeadSha;
+    }
+
+    // 2026-11-24-6811a: an undecided read keeps what the host said last; the first conflicting read stamps since when; an
+    // ended pull request conflicts with nothing.
+    private static void Conflicts(PrReviewRecord read, PrReviewRecord stored)
+    {
+        if (PrReviewStates.IsEnded(read.State)) { stored.HasConflicts = null; stored.ConflictsAtTicks = null; return; }
+        if (read.HasConflicts is not { } conflicts) return;
+        stored.ConflictsAtTicks = conflicts ? stored.ConflictsAtTicks ?? read.ConflictsAtTicks ?? read.CheckedAtTicks : null;
+        stored.HasConflicts = conflicts;
     }
 
     // 2026-10-15-114fc: taken before the columns are overwritten; a read without a sha neither moves nor erases the head.

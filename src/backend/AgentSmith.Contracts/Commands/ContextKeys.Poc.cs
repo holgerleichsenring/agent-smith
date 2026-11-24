@@ -1,0 +1,77 @@
+namespace AgentSmith.Contracts.Commands;
+
+/// <summary>2026-11-23-933db: what the server seeds into a PoC run — strings, so the request survives the queue. Every
+/// PoC run is told its PoC by <see cref="PocId"/>.</summary>
+public static partial class ContextKeys
+{
+    /// <summary>The Poc row's id.</summary>
+    public const string PocId = "PocId";
+
+    /// <summary>The PocRevision number the run takes in.</summary>
+    public const string PocRevision = "PocRevision";
+
+    /// <summary>The principal of the person who started the import.</summary>
+    public const string PocActor = "PocActor";
+
+    /// <summary>2026-11-23-933dc: "true" when the run lifts a blocked revision (pocs.overrule).</summary>
+    public const string PocOverrule = "PocOverrule";
+
+    /// <summary>2026-11-23-933dc: why the overruler lifted the block.</summary>
+    public const string PocOverruleReason = "PocOverruleReason";
+
+    /// <summary>2026-11-23-933dc: the blocking finding ids the overrule lifts, a JSON array of strings.</summary>
+    public const string PocOverruleIds = "PocOverruleIds";
+
+    /// <summary>2026-11-23-933dc: the source-repo commit that holds the revision's files — what 933dd builds.</summary>
+    public const string PocSourceCommitSha = "PocSourceCommitSha";
+
+    /// <summary>2026-11-23-933dd: the pushed image's digest ('sha256:…') the registry confirmed — what c81eb renders.</summary>
+    public const string PocImageDigest = "PocImageDigest";
+
+    /// <summary>2026-11-23-933dd: the PoC target a poc-target-install run writes the build pipeline for.</summary>
+    public const string PocTargetName = "PocTargetName";
+
+    /// <summary>2026-11-23-933dg: the poc-variables run's seed (PocVariableWrite) — in memory only, never checkpointed.</summary>
+    public const string PocVariableWrite = "PocVariableWrite";
+
+    /// <summary>2026-11-23-933dg: the slot the poc-variables step fills with its line, for the route that started it.</summary>
+    public const string PocVariableReport = "PocVariableReport";
+
+    /// <summary>2026-11-23-933dg: what SealPocVariables sealed (PocSealResult) — what the GitOps commit writes.</summary>
+    public const string PocSeal = "PocSeal";
+
+    /// <summary>2026-11-23-c81eb: the desired state (PocDesiredState) an act's step wants committed; absent, the GitOps
+    /// commit reads it from the Poc row (poc-deploy: the run's built revision, one replica).</summary>
+    public const string PocDesiredState = "PocDesiredState";
+
+    /// <summary>2026-11-23-c81eb: the GitOps commit's sha; absent when the branch already held the render.</summary>
+    public const string PocCommitSha = "PocCommitSha";
+
+    /// <summary>2026-11-23-c81ec: true when a run's rollout follow expects the PoC's Application gone (poc-delete,
+    /// 2026-11-23-c81ed); absent, it expects the desired state the GitOps commit recorded.</summary>
+    public const string PocRolloutAbsent = "PocRolloutAbsent";
+
+    /// <summary>2026-11-23-c81ed: the lifecycle act a run carries out (PocActKinds) — set by the PocAct step from the run's
+    /// preset; the GitOps commit and the follow read it. Absent in poc-deploy.</summary>
+    public const string PocAct = "PocAct";
+
+    /// <summary>2026-11-23-c81ed: an apply's readiness seed — absent keeps the row's path, 'tcp' probes the port, a path
+    /// starting with '/' probes it over HTTP.</summary>
+    public const string PocReadiness = "PocReadiness";
+
+    /// <summary>2026-11-23-c81ee: why the lifetime pass started a poc-stop or poc-delete (PocLifetimeCases); absent for an
+    /// owner's act.</summary>
+    public const string PocLifetimeCase = "PocLifetimeCase";
+
+    /// <summary>2026-11-23-c81ee: the audit act (PocAuditAct) an expiry or removal run records in place of its act's own;
+    /// set by the PocAct step, put on the run's PocActedEvent by the GitOps commit.</summary>
+    public const string PocAuditAct = "PocAuditAct";
+
+    /// <summary>2026-11-23-c81ee: why a lifecycle run has nothing left to do (an expiry re-check found the PoC extended,
+    /// a removal found a new upload); set by the PocAct step, the later steps end green on it.</summary>
+    public const string PocActSettled = "PocActSettled";
+
+    /// <summary>2026-11-23-c81ee: "true" when the person who asked for a poc-extend holds pocs.admin — the run cannot see
+    /// the caller, so the route seeds it.</summary>
+    public const string PocMayExceed = "PocMayExceed";
+}

@@ -25,10 +25,16 @@ const SECTION_OF: Record<string, StepSectionId> = {
   SkillRound: "build", FilterRound: "build", SwitchSkill: "build", RunFinalPhase: "build", GenerateTests: "build",
   GenerateDocs: "build", CompileDiscussion: "build", CommitSpecWork: "build",
   VerifySpec: "verify", RunVerifyPhase: "verify", ConvergenceCheck: "verify",
+  PocIntake: "verify", // 2026-11-23-933db: the imported archive checked again
+  PocCodeScan: "verify", // 2026-11-23-933dc: the scan gate before the commit
   ReviewSpecDiff: "review", RunReviewPhase: "review",
   WriteSpecRecord: "deliver", WriteRunResult: "deliver", CommitAndPR: "deliver", PrCrossLink: "deliver",
   PersistWorkBranch: "deliver", DeliverOutput: "deliver", InitCommit: "deliver", InitComplete: "deliver", CompletePullRequests: "deliver", RefreshBranchBase: "deliver", DeployToEnvironment: "deliver",
   PostPrComments: "deliver", WriteTickets: "deliver", DeliverFindings: "deliver", FileTickets: "deliver",
+  PocSourceCommit: "deliver", // 2026-11-23-933dc: the scanned PoC committed to its folder
+  PocPipelineBuild: "deliver", PocTargetInstall: "deliver", // 2026-11-23-933dd: the host builds and pushes; the install writes its pipeline
+  SealPocVariables: "deliver", GitOpsCommit: "deliver", // 2026-11-23-933dg / c81eb: sealed variables, the deploy folder committed
+  PocRolloutFollow: "deliver", // 2026-11-23-c81ec: Argo CD followed until the live Deployment matches the commit
 };
 
 /** 2026-11-17-6d9eb: the step section a command belongs to, or undefined for a command the table does not name. */

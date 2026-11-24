@@ -308,7 +308,7 @@ public sealed class ModelRunSlotStoreTests : IDisposable
         clock.Advance(TimeSpan.FromMinutes(5)); // run-waiting still waits: 20 minutes so far
 
         await using var db = new AgentSmithDbContext(SqliteOptions());
-        var overdue = await new RunRepository(db).GetWallTimeOverdueRunsAsync(TimeSpan.FromMinutes(30), now, CancellationToken.None);
+        var overdue = await new RunRepository(db).GetWallTimeOverdueRunsAsync(_ => TimeSpan.FromMinutes(30), now, CancellationToken.None);
 
         overdue.Select(r => r.Id).Should().BeEquivalentTo(["run-busy"], "40 minutes less 15 or 20 waited is inside a 30-minute ceiling");
     }

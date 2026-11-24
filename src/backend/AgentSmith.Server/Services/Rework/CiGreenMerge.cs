@@ -36,6 +36,11 @@ public sealed class CiGreenMerge(
         if (awaited.Any(a => a.Record?.Ci is not { } ci || !Green(a.Record, ci, project, series is not null)) || awaited.All(a => Acted(a.Record!)))
             return false;
         if (await leases.GetByTicketAsync(project.Name, new TicketId(ticketId), ct) is not null) return false;
+        // 2026-11-24-6811d: a refresh-base run at work on one of them merges the base first, and one that refused it found the
+        // merged tree conflicting or red — the head is merged once a refresh pushed or a person moved it.
+        var refreshes = await scope.ServiceProvider.GetRequiredService<PullRequestMergeSaidReader>()
+            .RefreshesAsync([.. awaited.Select(a => a.Url)], ct);
+        if (awaited.Any(a => refreshes.TryGetValue(a.Url, out var said) && said.Stands(a.Record?.HeadMovedAt))) return false;
         var request = new CiGreenMergeRequest(ticketId, attempt.RunId, TicketBranchNamer.Compose(new TicketId(ticketId)).Value,
             [.. awaited.Select(a => new CiGreenPullRequest(a.Repo, a.Url))]) { SeriesBranch = series };
         if (!await run.RunAsync(project, request, ct)) return false;
@@ -53,7 +58,7 @@ public sealed class CiGreenMerge(
     }
 
     private bool Green(PrReviewRecordView record, PrRecordCiView ci, ResolvedProject project, bool intoSeries) =>
-        record.State == PrReviewStates.Open && ci.IsOn(record.HeadSha)
+        record.State == PrReviewStates.Open && !record.HasConflicts && ci.IsOn(record.HeadSha) // 6811a: a conflict cannot merge
         && (ci.State == CiStates.Green
             || (!intoSeries && ci.State == CiStates.None && ci.At is { } since
                 && clock.GetUtcNow() - since >= TimeSpan.FromSeconds(project.Merge.CiSettleSeconds)));

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-6811a
+
+decisions:
+  - category: Implementation
+    chose: "HasConflicts is a nullable read: true, false, or null while the host has not decided (GitHub UNKNOWN, GitLab checking/unchecked, Azure queued); an undecided read keeps the stored value"
+    over: "A plain bool where UNKNOWN reads false"
+    reason: "Review round 1: GitHub answers UNKNOWN right after a base moves, so a bool would clear a real conflict on every landing until the host recomputes."
+  - category: Implementation
+    chose: "ConflictsAtTicks stamped by the first conflicting read, the hold's since"
+    over: "A hold without since"
+    reason: "Every pull-request hold carries a since; nothing else records when the conflict appeared."
+  - category: Architecture
+    chose: "pr_conflict is a decide hold checked before ci_failed for a ticket not at work, and a conflicting pull request offers no merge hold; CiGreenMerge skips a conflicting record"
+    over: "Leaving the CI wait in place (the ticket said 'CI running') or a new addressee"
+    reason: "A conflict cannot merge whatever CI says; a person (or the refresh of 6811c) has to act. The CI merge would only start a merge-green run the host refuses."
+  - category: Implementation
+    chose: "The series row keeps the pull request act visible for pr_conflict, and the ticket page titles it"
+    over: "The failed kind's menu-only pull request links and the 'Stopped' title"
+    reason: "Review rounds 1 and 2: the pull request is the one useful act; a successful attempt must not read as stopped."
+  - category: Review
+    chose: "Round 1 BUILD WITH CUTS (nullable read, since, visible act), round 2 BUILD WITH CUTS (GitLab checking, ticket-page title, CI merge skip); every cut applied"
+    over: "Building the first draft"
+    reason: "Independent adversarial reviews of the series before any code."

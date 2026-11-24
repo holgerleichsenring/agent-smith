@@ -47,6 +47,13 @@ internal sealed class ScriptedSourceProvider(
         string path, BranchName branch, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<string>>([]);
 
+    public Task<RepoFileListing> ListFilesUnderAsync(
+        string path, BranchName branch, int maxFiles, CancellationToken cancellationToken) =>
+        Task.FromResult(RepoFileListing.Empty);
+
+    public Task<BranchName> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new BranchName("main"));
+
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
         Reads.Add(path);

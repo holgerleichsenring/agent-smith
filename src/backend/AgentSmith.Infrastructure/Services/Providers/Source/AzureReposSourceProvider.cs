@@ -56,7 +56,7 @@ public sealed class AzureReposSourceProvider(
         ArgumentNullException.ThrowIfNull(files);
         // 2026-11-24-f9c5b: a start branch this repository has replaces the default branch as the base of a new branch.
         var from = startFrom is not null && await BranchExistsAsync(startFrom, cancellationToken)
-            ? startFrom.Value : await GetDefaultBranchAsync(cancellationToken);
+            ? startFrom.Value : await DefaultBranchNameAsync(cancellationToken);
         return await _branchWrite.WriteAsync(branch.Value, from, files, message, cancellationToken);
     }
 
@@ -78,7 +78,7 @@ public sealed class AzureReposSourceProvider(
 
     public async Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken)
     {
-        var target = branch ?? new BranchName(await GetDefaultBranchAsync(cancellationToken));
+        var target = branch ?? new BranchName(await DefaultBranchNameAsync(cancellationToken));
         logger.LogInformation(
             "Resolved metadata for {Url} on branch {Branch}", _cloneUrl, target);
         return new Repository(target, _cloneUrl);
@@ -108,7 +108,7 @@ public sealed class AzureReposSourceProvider(
         var src = $"refs/heads/{repository.CurrentBranch.Value}";
         // 2026-09-13-a284: the base the caller resolved WINS; a null target falls through
         // to the default-branch resolver, which honours the configured override.
-        var tgt = $"refs/heads/{targetBranch?.Value ?? await GetDefaultBranchAsync(cancellationToken)}";
+        var tgt = $"refs/heads/{targetBranch?.Value ?? await DefaultBranchNameAsync(cancellationToken)}";
         var pr = new GitPullRequest
         {
             Title = title, Description = TruncateDescription(workItemId is null
@@ -258,7 +258,7 @@ public sealed class AzureReposSourceProvider(
         return deleted;
     }
 
-    private Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+    private Task<string> DefaultBranchNameAsync(CancellationToken cancellationToken) =>
         _defaultBranch.ResolveAsync(AskAzureDevOpsAsync, cancellationToken);
 
     private async Task<string?> AskAzureDevOpsAsync(CancellationToken cancellationToken)
@@ -338,7 +338,7 @@ public sealed class AzureReposSourceProvider(
             async (projectId, artifact, c) => await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
                 .GetPolicyEvaluationsAsync(projectId, artifact, cancellationToken: c),
             c => clientFactory.CreateBuildClientAsync(_organizationUrl, _personalAccessToken, c),
-            _project, _repoName, _organizationUrl, PolicyConfigurationsAsync, GetDefaultBranchAsync).ReadAsync(prUrl, request, ct);
+            _project, _repoName, _organizationUrl, PolicyConfigurationsAsync, DefaultBranchNameAsync).ReadAsync(prUrl, request, ct);
 
     // 2026-11-24-f9c5d: the project's build-validation policy configurations, read for a pull request into a series branch.
     private async Task<IReadOnlyList<Microsoft.TeamFoundation.Policy.WebApi.PolicyConfiguration>> PolicyConfigurationsAsync(Guid projectId, CancellationToken c) =>
@@ -400,10 +400,10 @@ public sealed class AzureReposSourceProvider(
         _pullRequests.CompleteAsync(prUrl, protection, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
-        await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);
+        await _branchRead.TryReadFileAsync(path, await DefaultBranchNameAsync(cancellationToken), cancellationToken);
 
     public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken) =>
-        await _branchRead.ListDirectoryAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);
+        await _branchRead.ListDirectoryAsync(path, await DefaultBranchNameAsync(cancellationToken), cancellationToken);
 
     public Task<bool> BranchExistsAsync(BranchName branch, CancellationToken cancellationToken) =>
         _branchRead.ExistsAsync(branch.Value, cancellationToken);
@@ -414,6 +414,14 @@ public sealed class AzureReposSourceProvider(
     public Task<IReadOnlyList<string>> ListDirectoryAsync(
         string path, BranchName branch, CancellationToken cancellationToken) =>
         _branchRead.ListDirectoryAsync(path, branch.Value, cancellationToken);
+
+    public Task<RepoFileListing> ListFilesUnderAsync( // 2026-11-23-c81ea
+        string path, BranchName branch, int maxFiles, CancellationToken cancellationToken) =>
+        new AzureReposFolderFiles(_project, _repoName, clientFactory, _organizationUrl, connection.PersonalAccessToken, logger)
+            .ListAsync(path, branch.Value, maxFiles, cancellationToken);
+
+    public async Task<BranchName> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
+        new(await DefaultBranchNameAsync(cancellationToken));
 
     // 2026-10-08-9e6e / 10b0: standing votes, open pull requests and their comments, read by collaborators.
     public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new AzureReposChangedPullRequests(CreateConnectionAsync, _project, _repoName, _cloneUrl).ChangedSinceAsync(resume, maxPages, ct);

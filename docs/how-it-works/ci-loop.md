@@ -55,11 +55,22 @@ Then the next run hands the ticket back in its clarification status, with the ev
 
 ## Keeping other pull requests current
 
-With `refresh_open_pull_requests: true`, a landing merges its base into every other open codeably pull request on the same repository and base, in a `refresh-base` run, pushed without force. Collisions in the `state.done` index of `.agentsmith/contexts/*/context.yaml` are united; any other conflict leaves the branch alone and is said on the pull request. Closed, running, queued and waiting tickets are skipped.
+With `refresh_open_pull_requests: true`, a landing merges its base into every other open codeably pull request on the same repository and base, in a `refresh-base` run, pushed without force. Collisions in the `state.done` index of `.agentsmith/contexts/*/context.yaml` and in the memory index `.agentsmith/memory/MEMORY.md` are united. A conflict beyond those goes to a master that reads both sides' specs and resolves it, usually by keeping both. Before anything is pushed, the repository's declared `verify` stages build and test the merged branch, even after a clean merge, because git can merge two changes into a tree that no longer builds. A red stage goes back to the master while its repairs make progress. When the merge can't be resolved or stays red, the branch is left as it was, the reason is said on the pull request, and the ticket waits for you with that reason. Closed, running, queued and waiting tickets are skipped.
 
 ## Branches after the merge
 
 A merge codeably performs deletes its `agent-smith/` branch on Azure Repos, GitHub and GitLab. For merges a person makes, a `branch-cleanup` run per project deletes every `agent-smith/` branch whose pull request merged or closed and that hasn't moved since. Open branches, branches another pull request targets and branches without a pull request are kept. The interval is under **Branch cleanup** in [Settings](../configure-it/settings.md).
+
+## After the merge: Deployments
+
+The Deployments page, right below Pull requests in the sidebar, shows what happened after the merge. It covers the last 7, 30 or 90 days and lists two things:
+
+- **Merged**: every merged pull request of a ticket's run, with the branch it went into and the commit the merge became. GitHub names that commit as the merge commit. Azure DevOps names it as the last merge commit of a completed pull request. GitLab gives the merge commit, the squash commit for a squash merge, or the head for a fast-forward merge. codeably reads it whenever it reads a merged pull request's state, so it makes no extra call to the host.
+- **Deploys by agent smith**: every deploy run codeably made, as its run page shows it, with where it stands.
+
+A pull request merged before this was recorded shows *merge commit not read*. Nothing goes back to fill those in. A ticket the tracker never closed still gets its merged pull requests read again, so some of them fill in later.
+
+You see the projects you may read runs in. Projects hidden from you stay hidden here too.
 
 ## The keys
 

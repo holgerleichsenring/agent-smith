@@ -37,6 +37,22 @@ public sealed class GitLabPipelineRunner(PipelineHttp http, string projectApi, s
             : []);
     }
 
+    /// <summary>2026-11-23-933dd: GitLab keeps artifacts per job — the pipeline's latest job named by the artifact's job,
+    /// then that one file of its artifacts, read raw.</summary>
+    public async Task<PipelineArtifactText?> ReadArtifactTextAsync(
+        string runId, PipelineArtifact artifact, long maxBytes, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(artifact);
+        var jobs = await http.GetAsync($"{projectApi}/pipelines/{runId}/jobs?per_page=100", cancellationToken);
+        var job = jobs.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? jobs.EnumerateArray().Where(j => PipelineHttp.Text(j, "name") == artifact.Job)
+                .OrderByDescending(j => j.GetProperty("id").GetInt64()).FirstOrDefault()
+            : default;
+        if (job.ValueKind != System.Text.Json.JsonValueKind.Object) return null;
+        var path = string.Join('/', artifact.File.Split('/').Select(Uri.EscapeDataString));
+        return await http.BoundedTextAsync($"{projectApi}/jobs/{job.GetProperty("id").GetInt64()}/artifacts/{path}", maxBytes, cancellationToken);
+    }
+
     private async Task<string> DefaultBranchAsync(CancellationToken ct) =>
         PipelineHttp.Text(await http.GetAsync(projectApi, ct), "default_branch")
         ?? throw new InvalidOperationException("GitLab names no default branch of the project; give the environment a ref");

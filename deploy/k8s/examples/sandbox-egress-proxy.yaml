@@ -56,6 +56,8 @@ data:
     .pythonhosted.org
     .golang.org
     .crates.io
+    # Vulnerability databases (2026-11-23-933dc: the PoC dependency scan's offline OSV databases)
+    osv-vulnerabilities.storage.googleapis.com
   squid.conf: |
     # Agent Smith - egress proxy configuration (2026-10-25-c5a7g)
     #

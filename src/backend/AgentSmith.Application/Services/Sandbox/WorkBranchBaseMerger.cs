@@ -27,13 +27,18 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public sealed class WorkBranchBaseMerger(
     StateIndexConflictResolver stateIndex, // 2026-11-17-023fb: added state.done entries on both sides are no conflict
+    BaseRefresh.BaseMergeResolutionCommit resolution, // 2026-11-24-6811c: what a resolver resolved is committed here
     ILogger<WorkBranchBaseMerger> logger)
 {
     internal const int TimeoutSeconds = 300;
 
     /// <summary>Merges the resolved base into the sandbox's current HEAD.</summary>
+    /// <param name="resolveRest">2026-11-24-6811c: given the paths the unions left unmerged, resolves them in the working
+    /// tree and answers the further paths it wrote, or null when it cannot; without one a conflict aborts (a rework's
+    /// checkout). The merge is committed only when no path is unmerged and none of them carries a conflict marker.</param>
     public async Task<BaseMergeResult> MergeIntoCurrentAsync(
-        ISandbox sandbox, ResolvedBase resolved, CancellationToken ct)
+        ISandbox sandbox, ResolvedBase resolved, CancellationToken ct,
+        Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<string>?>>? resolveRest = null)
     {
         ArgumentNullException.ThrowIfNull(resolved);
         if (resolved.Ref is not { } baseRef)
@@ -53,18 +58,24 @@ public sealed class WorkBranchBaseMerger(
             logger.LogInformation("Merged {BaseRef} into the work branch", baseRef);
             return BaseMergeResult.Merged(baseRef);
         }
-        return await AbortAsync(sandbox, baseRef, merge.ErrorMessage, ct);
+        return await AbortAsync(sandbox, baseRef, merge.ErrorMessage, resolveRest, ct);
     }
 
-    private async Task<BaseMergeResult> AbortAsync(
-        ISandbox sandbox, string baseRef, string? error, CancellationToken ct)
+    private async Task<BaseMergeResult> AbortAsync(ISandbox sandbox, string baseRef, string? error,
+        Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<string>?>>? resolveRest, CancellationToken ct)
     {
         var conflicting = await ConflictingPathsAsync(sandbox, ct);
-        if (await stateIndex.TryResolveAsync(sandbox, conflicting, ct)
-            && (await RunAsync(sandbox, ["commit", "--no-edit"], ct)).ExitCode == 0)
+        // 2026-11-24-6811b: the index files are united one by one; the merge commits only when nothing is left unmerged.
+        var rest = conflicting.Count > 0 ? await stateIndex.ResolveAsync(sandbox, conflicting, ct) : conflicting;
+        if (conflicting.Count > 0 && rest.Count == 0 && (await RunAsync(sandbox, ["commit", "--no-edit"], ct)).ExitCode == 0)
         {
-            logger.LogInformation("Merged {BaseRef}; state.done entries of both sides united", baseRef);
+            logger.LogInformation("Merged {BaseRef}; the index lines of both sides united", baseRef);
             return BaseMergeResult.Merged(baseRef);
+        }
+        if (rest.Count > 0 && resolveRest is not null && await resolution.CommitAsync(sandbox, rest, resolveRest, ct))
+        {
+            logger.LogInformation("Merged {BaseRef}; {Count} conflicting path(s) resolved by a master", baseRef, rest.Count);
+            return BaseMergeResult.Merged(baseRef) with { ResolvedByMaster = true };
         }
         var abort = await RunAsync(sandbox, ["merge", "--abort"], ct);
         if (abort.ExitCode != 0)

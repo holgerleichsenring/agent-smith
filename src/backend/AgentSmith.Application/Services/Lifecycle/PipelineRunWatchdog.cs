@@ -16,7 +16,8 @@ public sealed class PipelineRunWatchdog(
     IEventPublisher eventPublisher,
     Func<int> maxWallTimeSeconds,
     ILogger<PipelineRunWatchdog> logger,
-    IModelRunSlots? modelRunSlots = null) // 2026-11-20-24bd: a wait for a model place is no wall time
+    IModelRunSlots? modelRunSlots = null, // 2026-11-20-24bd: a wait for a model place is no wall time
+    Func<int>? pocWallTimeSeconds = null) // 2026-11-23-c81ec: a PoC run's own budget, pocs.run_wall_time_seconds
 {
     private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(1);
 
@@ -44,8 +45,7 @@ public sealed class PipelineRunWatchdog(
     internal async Task ScanOnceAsync(CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
-        var ceilingSeconds = maxWallTimeSeconds();
-        var threshold = TimeSpan.FromSeconds(ceilingSeconds);
+        var (pipelineSeconds, pocSeconds) = (maxWallTimeSeconds(), pocWallTimeSeconds?.Invoke());
         var entries = registry.Snapshot();
         var waited = await WaitedAsync(entries, ct);
         foreach (var entry in entries)
@@ -54,8 +54,9 @@ public sealed class PipelineRunWatchdog(
             // 2026-11-10-e706: a design turn is stopped by its cost cap or a person, never by its
             // age; every model wait it makes is bounded by the agent's network timeout instead.
             if (entry.Kind == RegisteredRunKind.DesignTurn) continue;
+            var ceilingSeconds = entry.Kind == RegisteredRunKind.Poc && pocSeconds is { } poc ? poc : pipelineSeconds;
             var elapsed = now - entry.RegisteredAt - waited.GetValueOrDefault(entry.RunId);
-            if (elapsed < threshold) continue;
+            if (elapsed < TimeSpan.FromSeconds(ceilingSeconds)) continue;
             await CancelOverdueAsync(entry, elapsed, ceilingSeconds, ct);
         }
     }

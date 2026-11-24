@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Security;
 using Microsoft.AspNetCore.Mvc;
@@ -25,6 +26,29 @@ internal static class ConfigDraftCheckEndpoints
             async ([FromBody] TrackerEntity draft, [FromServices] ITrackerDraftCheckRunner runner,
                 CancellationToken ct) => Results.Ok(await runner.RunAsync(draft, ct)))
            .Needs(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
+
+        // 2026-11-23-933de: a PoC target's registry block, outside the PoCs switch, because a target is set up before it.
+        app.MapPost("/api/config/pocs/registry/check",
+            async ([FromBody] PocRegistryConfig draft, [FromServices] IPocRegistryDraftCheck check,
+                CancellationToken ct) => Results.Ok(await check.RunAsync(draft, ct)))
+           .Needs(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
+
+        // 2026-11-23-c81ec: a PoC target's Argo CD block — its token's expiry, the probe and the ApplicationSet's state.
+        app.MapPost("/api/config/pocs/argo/check",
+            async ([FromBody] PocArgoCheckRequest draft, [FromServices] IPocArgoDraftCheck check,
+                CancellationToken ct) => Results.Ok(await check.RunAsync(draft, ct)))
+           .Needs(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
+
+        // 2026-11-23-933dg: a PoC target's Sealed Secrets certificate, read from a pasted PEM or fetched from an https URL —
+        // public material, a run-free read that saves nothing, outside the PoCs switch like the registry check.
+        app.MapPost("/api/config/pocs/sealed-secrets-cert/fetch",
+            async ([FromBody] Services.Pocs.Targets.SealingCertificateRequest request,
+                [FromServices] Services.Pocs.Targets.SealingCertificateFetch fetch, CancellationToken ct) =>
+            {
+                var (answer, refusal) = await fetch.ReadAsync(request, ct);
+                return answer is not null ? Results.Ok(answer) : refusal!.Answer();
+            })
+           .Needs(Permissions.ConfigWrite);
 
         return app;
     }

@@ -36,7 +36,7 @@ public sealed class ExecutePipelineUseCase(
     IProgressReporter progressReporter,
     IPipelineErrorHandler errorHandler,
     ILogger<ExecutePipelineUseCase> logger, ModelPlaceRelease? modelPlaces = null, // 2026-11-20-24bd
-    Lifecycle.ServerStopEnd? serverStop = null) // 2026-11-22-6d85c
+    Lifecycle.ServerStopEnd? serverStop = null, Pocs.PocProjectPresetGuard? pocPresets = null, Pocs.PocRunMasking? pocMasks = null) // 2026-11-22-6d85c, 933db, 933dg
 {
     // p0242: the single-run lease is CLAIMED by the poller at enqueue; this use
     // case owns the rest of its lifecycle — ATTACH the run id on start, RENEW the
@@ -50,7 +50,7 @@ public sealed class ExecutePipelineUseCase(
         // "queued" Run row becomes the running row — only unreserved runs mint one.
         var runId = request.RunId ?? RunIdGenerator.Generate(runStartedAt);
         using var logScope = logger.BeginScope("run={RunId}", runId);
-        using var runScope = runContext.BeginScope(runId);
+        using var runScope = runContext.BeginScope(runId); using var maskScope = pocMasks?.Begin(await pocMasks.ValuesAsync(request.ProjectName, cancellationToken)); // 933dg
         var recordedCalls = new RecordedCallLedger();
         using var callsScope = runContext.BeginRecordedCallsScope(recordedCalls); // 2026-11-17-7c9bc
 
@@ -114,9 +114,7 @@ public sealed class ExecutePipelineUseCase(
             cancellationRegistry.TryGetReason(runId, out var cancelReason);
             var cancelMsg = cancelReason switch
             {
-                "watchdog-wall-time" =>
-                    $"Run exceeded its {prologue.Config.Orchestrator.MaxRunWallTimeSeconds / 60}-minute wall-time budget "
-                    + "(orchestrator.max_run_wall_time_seconds) and was cancelled.",
+                "watchdog-wall-time" => RunWallTimeCeiling.Of(prologue.Config, request.PipelineName).CancelSentence, // c81ec: the key that applied
                 "operator" => "Cancelled by operator.",
                 // p0237: the liveness watcher killed the run because the sandbox
                 // container exited mid-step (SandboxLivenessWatcher.CancelReason).
@@ -266,8 +264,8 @@ public sealed class ExecutePipelineUseCase(
         var catalogResolution = await catalogResolver.EnsureResolvedAsync(config.Skills, cancellationToken);
         var projectConfig = ResolveProject(request, config);
         var repos = ResolveRepos(projectConfig, request.Context);
-        var commands = PipelinePresets.TryResolve(request.PipelineName)
-            ?? throw new ConfigurationException(RetiredPipelineNames.Refusal(request.PipelineName));
+        var commands = PipelinePresets.TryResolve(request.PipelineName) ?? throw new ConfigurationException(RetiredPipelineNames.Refusal(request.PipelineName));
+        await (pocPresets?.CheckAsync(projectConfig.Name, request.PipelineName, cancellationToken) ?? Task.CompletedTask); // 933db
         var resolved = pipelineConfigResolver.Resolve(projectConfig, request.PipelineName);
 
         var pipeline = new PipelineContext();

@@ -21,7 +21,7 @@ public sealed class SecretValuesReader(
 
     public async Task<SecretValuesView> ReadAsync(CancellationToken ct)
     {
-        var stored = (await vault.StatesAsync(ct)).ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
+        var stored = (await vault.StatesAsync(SecretScope.Installation, ct)).ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
         var names = store.GetSecrets().Select(s => s.Id).ToList();
         var variables = Variables();
         var secrets = names.Select(name => State(name, variables.GetValueOrDefault(name) ?? name, stored.GetValueOrDefault(name))).ToList();

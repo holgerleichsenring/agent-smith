@@ -32,7 +32,7 @@ public sealed class AdminOrphanCleanupTests
             .AcceptAsync(state, changes, mayStartRuns: true, CancellationToken.None);
 
         acceptance.Should().Be(OutcomeAcceptance.Acted);
-        (await scope.ServiceProvider.GetRequiredService<ISecretVault>().StatesAsync(CancellationToken.None))
+        (await scope.ServiceProvider.GetRequiredService<ISecretVault>().StatesAsync(SecretScope.Installation, CancellationToken.None))
             .Should().NotContain(s => s.Name == "old_token");
     }
 
@@ -48,7 +48,7 @@ public sealed class AdminOrphanCleanupTests
             .AcceptAsync(state, changes, mayStartRuns: true, CancellationToken.None);
 
         acceptance.Should().Be(OutcomeAcceptance.Refused);
-        (await scope.ServiceProvider.GetRequiredService<ISecretVault>().StatesAsync(CancellationToken.None))
+        (await scope.ServiceProvider.GetRequiredService<ISecretVault>().StatesAsync(SecretScope.Installation, CancellationToken.None))
             .Should().Contain(s => s.Name == "old_token");
         var after = await scope.ServiceProvider.GetRequiredService<SpecDialogSessionManager>()
             .GetOpenByThreadAsync(state.Platform, state.ThreadId!, CancellationToken.None);
@@ -68,7 +68,7 @@ public sealed class AdminOrphanCleanupTests
     private static async Task<(ConversationState State, ConfigChangeOutcome Changes)> DraftAsync(RealCompositionHarness harness)
     {
         await using (var seed = harness.Services.CreateAsyncScope())
-            await seed.ServiceProvider.GetRequiredService<ISecretVault>().SetAsync("old_token", new SecretInput(Value), "ada", CancellationToken.None);
+            await seed.ServiceProvider.GetRequiredService<ISecretVault>().SetAsync(SecretScope.Installation, "old_token", new SecretInput(Value), "ada", CancellationToken.None);
         var state = await AdminTurnRunnerTests.OpenAsync(harness, "clean up stored values nothing uses");
         harness.ChatClient
             .EnqueueToolCall("read_config_entity", """{"kind": "secret-values", "id": "old_token"}""")

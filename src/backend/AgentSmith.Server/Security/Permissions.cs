@@ -71,12 +71,21 @@ internal static class Permissions
     // configuration changes, so holding its conversation is its own grant — the admin role's, never a project's.
     internal const string AdminAssistant = "admin.assistant";
 
+    // 2026-11-23-933da: PoCs — feature grants, all global-only. Which PoC a caller sees and acts on is its project's
+    // business (runs.read in the owner's poc- project); these say whether the caller uses the PoCs area at all.
+    // runs.control is not reused: a project-level runs.control unlocks deploy, memory, derive-specs and close routes.
+    internal const string PocsRead = "pocs.read";
+    internal const string PocsWrite = "pocs.write";
+    internal const string PocsOverrule = "pocs.overrule";
+    internal const string PocsAdmin = "pocs.admin";
+
     internal static IReadOnlyList<string> All { get; } =
     [
         RunsRead, RunsWatch, RunsControl, RunsDelete, ProjectsInit, CatalogRead,
         DiagnosticsRead, DiagnosticsProbe, ConfigRead, ConfigWrite, ConfigExport,
         ConfigImport, SecretsRead, SecretsWrite, IdentityRead, AccessRead, AccessWrite,
         ArchiveExport, ArchiveImport, DialogWrite, AdminAssistant,
+        PocsRead, PocsWrite, PocsOverrule, PocsAdmin,
     ];
 
     // 2026-10-15-4a4da: what a project binding may grant — the acts on a run, a project's

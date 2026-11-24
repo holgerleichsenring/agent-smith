@@ -15,4 +15,10 @@ public interface IPipelineRunner
     /// <summary>The run's state as one of <see cref="CiStates"/>, with the failed jobs of a red one, bounded by
     /// <paramref name="bounds"/> (its HeadSha is not used).</summary>
     Task<PipelineRunState> ReadAsync(string runId, CiReadRequest bounds, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-23-933dd: one file of the run's artifact as text, read only up to <paramref name="maxBytes"/>: a
+    /// larger file answers <see cref="PipelineArtifactText.TooLarge"/> with its size; an absent artifact or file answers
+    /// null.</summary>
+    Task<PipelineArtifactText?> ReadArtifactTextAsync(
+        string runId, PipelineArtifact artifact, long maxBytes, CancellationToken cancellationToken);
 }

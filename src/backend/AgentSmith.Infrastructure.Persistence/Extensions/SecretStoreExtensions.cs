@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Pocs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services.Secrets;
@@ -18,6 +19,10 @@ public static class SecretStoreExtensions
         services.AddSingleton<SecretEnvelope>().TryAddSingleton(TimeProvider.System);
         services.AddScoped<StoredSecretRepository>().AddScoped<ISecretVault>(sp => sp.GetRequiredService<StoredSecretRepository>());
         services.AddSingleton<IStoredSecretValues, StoredSecretValues>();
+        // 2026-11-23-933dg: the PoC variables, opened for a poc- run's mask frame and for the sealing step only.
+        services.AddSingleton<PocSecretValues>().AddSingleton<IPocMaskValues>(sp => sp.GetRequiredService<PocSecretValues>())
+            .AddSingleton<IPocVariableValues>(sp => sp.GetRequiredService<PocSecretValues>())
+            .AddSingleton<IPocSealFingerprint, PocSealFingerprint>();
         return services;
     }
 }

@@ -366,7 +366,6 @@
 1	AgentSmith.Server/Services/References/ReferenceSetValidator.cs
 1	AgentSmith.Server/Services/References/ReferenceUploadBody.cs
 3	AgentSmith.Server/Services/References/ReferenceUploadLimits.cs
-1	AgentSmith.Server/Services/References/ReferenceZipReader.cs
 1	AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs
 2	AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs
 1	AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs

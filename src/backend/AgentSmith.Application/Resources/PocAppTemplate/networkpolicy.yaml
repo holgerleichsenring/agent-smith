@@ -1,0 +1,40 @@
+# @@MARKER@@
+# Ingress only from the ingress controller; egress only to the cluster DNS and the egress proxy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app
+  namespace: "{namespace}"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: app
+      agent-smith.io/poc: "{app}"
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: @@INGRESS_NAMESPACE@@
+      ports:
+        - protocol: TCP
+          port: {port}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: @@DNS_NAMESPACE@@
+          podSelector:
+            matchLabels: @@DNS_POD_LABELS@@
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        @@EGRESS_PROXY_TO@@
+      ports:
+        - protocol: TCP
+          port: @@EGRESS_PROXY_PORT@@

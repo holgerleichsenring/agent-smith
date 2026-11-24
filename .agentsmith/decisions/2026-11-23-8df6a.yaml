@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-8df6a
+
+decisions:
+  - category: Scope
+    chose: "Records merged before the upgrade are not backfilled; they show 'merge commit not read'"
+    over: "Naming them once through the re-read (merged, MergeSha null, StateAt inside the page's widest filter)"
+    reason: "Operator, 2026-11-23: recommendation accepted. A backfill is a one-off host read for history the page only shows for 7 to 90 days; it fades out on its own."
+    decider: operator
+  - category: Security
+    chose: "The PrReviewRecord overload of ProjectScopeQueries.Within is not fixed here; the page admits merged records through their run and the Run overload, which honours Hidden, and the new DeployRecord overload honours Hidden from the start"
+    over: "Fixing the PrReviewRecord overload in this slice (it also changes the ticket list and the PR sweep's reads), or calling it unchanged for the page"
+    reason: "Operator, 2026-11-23: the fix is a spec of its own that another session handles; 8df6a requires nothing from it but must not widen the leak. Calling the unchanged overload would show hidden projects' merges on a new page; the run join reuses the existing Hidden path, and the record's run is read anyway for the ticket title."
+    decider: operator
+  - category: Implementation
+    chose: "The Deployments page is mocked and the mock approved before the dashboard step; the coordinator builds the mock"
+    over: "Building the UI straight from the spec text"
+    reason: "Operator, 2026-11-23: recommendation accepted. One mock covers 8df6a's sections, 8df6b's environment strip and reach chips and 8df6c's merge runs."
+    decider: operator
+  - category: Implementation
+    chose: "MergeSha is set in PrReviewRecordRefresh.Record from the state read, like HeadSha, and kept by the copy"
+    over: "Setting it in PrRecordTargetRead on the first merged read"
+    reason: "Review 2026-11-23: PrRecordTargetRead never receives the PrReviewState and returns early once a branch is stored, so it would never run for most merged records; the merge commit arrives on every merged state read."
+  - category: Implementation
+    chose: "?days= below 1 or past the representable calendar answers 400 naming the parameter; the answer carries no row cap"
+    over: "Only refusing values under 1 (a huge value threw a 500), or capping rows with a new limit"
+    reason: "Input validation is not a new limit. The page offers 7, 30 and 90 days over one installation's merges and deploy records, which stays small; a cap would need a config key and a reason nobody has yet."
+  - category: Scope
+    decider: operator
+    chose: "Sidebar order Pull requests, Deployments, PoCs (933da, only when enabled and permitted), stated identically in 8df6a and 933da"
+    over: "Each spec inserting its item right after Pull requests"
+    reason: "Operator ruling, round 3, 2026-11-23."
+  - category: Scope
+    decider: operator
+    chose: "Build only 8df6a now; environments (8df6b) and merge pipeline runs (8df6c) are re-cut once the host APIs are verified against real hosts"
+    over: "Building the three slices in one go"
+    reason: "Operator ruling, round 3, 2026-11-23."
+  - category: Implementation
+    chose: "Every reader sets PrReviewState.MergeSha only when the mapped state is merged; GitLab's sha fallback applies only to a merged request"
+    over: "GitLab falling back to sha for every state, relying on the record copying MergeSha only when merged"
+    reason: "Round-2 review 2026-11-23: GitLabMergeRequestRead takes sha for every state (GitLabMergeRequestRead.cs:21-22), so an open request would carry its head sha as a merge commit, breaking 'null when the host names none' for every IPrReviewStateReader consumer, DeployFollow today and 8df6c later."
+  - category: Implementation
+    decider: coordinator
+    chose: "No separate mock round: the Deployments page is a plain list in the existing dashboard style, built to the Pull requests page's rows (.rrow, .section-head, .pill) and tokens, with a 7/30/90 span switch drawn like Delivery's .seg"
+    over: "Publishing a mock and waiting for the operator's approval before the dashboard step"
+    reason: "Coordinator ruling, 2026-11-23 (operator: 'zieh durch'): the page adds no new visual language, so the Pull requests page stands as the approved look. Sidebar order Pull requests, Deployments (then PoCs), label through useT."
+  - category: Security
+    chose: "Admit merged records and deploy records through the one generic ProjectScopeQueries.Within; DeployRecord implements IProjectOwned"
+    over: "A record-to-run join admitted through the Run overload, and a separate DeployRecord overload of Within, as the spec was written"
+    reason: "2026-11-23-47b6 landed before this build and made Within one rule over IProjectOwned rows that honours Hidden, so the PrReviewRecord gap the spec worked around no longer exists. A second overload would be a second path for the same rule. The record is still joined to its run, for the ticket title and so a record whose run is gone is not listed. The spec text was corrected in this commit."
+  - category: Implementation
+    chose: "Merge origin/main (8d16: PrReviewRecord.IsDraft on the same files, the c785 spec relabel) into the branch before the spec commit, and generate AddPrReviewRecordMergeSha after AddPrReviewRecordIsDraft on all three providers"
+    over: "Building on the branch's base and leaving the overlap to whoever merges"
+    reason: "8d16 touched PrReviewState, the record, the copy, the three host readers and the snapshot; the branch's base also carried a spec whose six-word label the full suite rejects. Merging first keeps the model snapshots in one line and the gate green."
+  - category: Implementation
+    chose: "MergeSha set in PrReviewRecordRefresh.Record only when the state is merged, besides each reader already naming it only for a merged state"
+    over: "Trusting the readers alone"
+    reason: "Two guards cost one expression; a reader added later that forgets the rule still cannot store a fake merge commit on an open record."
+  - category: Implementation
+    chose: "The default window of 7 days is a constant marked '// not a limit' in DeploymentsPageEndpoints; the 7/30/90 choices live in the dashboard"
+    over: "A config key for the default span"
+    reason: "It bounds nothing — any span from 1 day back to year 1 is accepted — it is only what the page opens with when ?days= is absent."
+  - category: Implementation
+    chose: "The merged row shows the short sha (7 characters, full sha on hover) or 'merge commit not read' with a tooltip saying a later read may still fill it"
+    over: "Hiding the column for unread merges"
+    reason: "Operator ruling: no backfill, so the missing value must read as a known gap, not as an empty cell."
+  - category: Implementation
+    chose: "On merging into the PoC series branch, Deployments is a sidebarItems() work item gated like Pull requests (runs.read anywhere), and tests assert the order Pull requests, Deployments, PoCs"
+    over: "Keeping Deployments an ungated literal item in AppSidebar"
+    reason: "Merge 2026-11-23: 933da made the sidebar a permission-gated sidebarItems(identity, pocs) list; the page answers runs.read like /api/pull-requests, and 8df6a lands second, so it adds the ordering test both specs ruled."

@@ -91,6 +91,8 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
     case "merge_next": return { ...base, tone: "person", title: t("hold.title.merge_next") };
     case "merge_ready": return { ...base, tone: "person", title: t("hold.title.merge_ready") };
     case "ci_failed": return { ...base, tone: "bad", title: t("hold.title.ci_failed") };
+    case "pr_conflict": return { ...base, tone: "bad", title: t("hold.title.pr_conflict") }; // 2026-11-24-6811a
+    case "refresh_refused": return { ...base, tone: "bad", title: t("hold.title.refresh_refused") }; // 2026-11-24-6811d
   }
   // 2026-11-23-31dci: a wait that outlasted the configured minutes is no stop — the admin was told, nothing failed.
   if (hold.escalation) return { ...base, tone: "amber", title: t("hold.title.escalated") };

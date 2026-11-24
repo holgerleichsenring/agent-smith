@@ -4,7 +4,7 @@
 // comes from) and the tracker trigger semantics — so the dashboard renders
 // exactly what the runtime resolves, not a second computation.
 
-import { apiFetch, getJson, refused, sendJson } from "@/lib/apiResponse";
+import { ApiResponseError, apiFetch, getJson, readJson, refused, sendJson } from "@/lib/apiResponse";
 
 // Where an effective value came from. "run-resolved" = not knowable at config
 // time (e.g. the toolchain image is chosen per run from the repo's context.yaml).
@@ -384,6 +384,53 @@ export async function checkTrackerDraft(
   signal?: AbortSignal,
 ): Promise<DraftCheckReport> {
   return sendJson<DraftCheckReport>("POST", `/api/config/trackers/check`, draft, signal);
+}
+
+/** 2026-11-23-933de: a PoC target's unsaved registry block — values, pull token, then whether it may pull the prefix. */
+export async function checkPocRegistryDraft(
+  draft: PocRegistrySetting,
+  signal?: AbortSignal,
+): Promise<DraftCheckReport> {
+  return sendJson<DraftCheckReport>("POST", `/api/config/pocs/registry/check`, draft, signal);
+}
+
+/** 2026-11-23-c81ec: a PoC target's unsaved Argo block — values, token secret and expiry, host, scope, then the
+ *  ApplicationSet as it is on Argo CD now. */
+export async function checkPocArgoDraft(
+  target: string,
+  draft: PocArgoSetting,
+  signal?: AbortSignal,
+): Promise<DraftCheckReport> {
+  return sendJson<DraftCheckReport>("POST", `/api/config/pocs/argo/check`, { target, argo: draft }, signal);
+}
+
+/** 2026-11-23-933dg: a Sealed Secrets controller certificate as the server read it. */
+export interface SealedSecretsCert {
+  pem: string;
+  fingerprint: string;
+  /** ISO timestamps. */
+  notBefore: string;
+  notAfter: string;
+}
+
+export const SEALED_SECRETS_CERT_PATH = "/api/config/pocs/sealed-secrets-cert/fetch";
+
+/** 2026-11-23-933dg: `{ url }` fetches the certificate from that https URL; `{ pem }` only parses a pasted one. A refusal
+ *  (400, or 502 when the URL did not answer) throws with the server's plain sentence as its reason. Nothing is saved. */
+export async function fetchSealedSecretsCert(
+  source: { url: string } | { pem: string },
+  signal?: AbortSignal,
+): Promise<SealedSecretsCert> {
+  const res = await apiFetch(SEALED_SECRETS_CERT_PATH, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(source),
+    signal,
+  });
+  if (res.ok) return readJson<SealedSecretsCert>(res, SEALED_SECRETS_CERT_PATH);
+  if (res.status === 401 || res.status === 403) throw await refused(res, SEALED_SECRETS_CERT_PATH);
+  const text = (await res.text().catch(() => "")).trim();
+  throw new ApiResponseError(SEALED_SECRETS_CERT_PATH, res.status, `HTTP ${res.status}${text ? ` — ${text}` : ""}`, text || null);
 }
 
 /** p0345c: one repo the discovery cache knows inside a connection. */
@@ -921,7 +968,8 @@ export type SettingKey =
   | "preconditions"
   | "branch_cleanup"
   | "tickets"
-  | "holds";
+  | "holds"
+  | "pocs";
 
 export interface OrchestratorSetting {
   maxRunWallTimeSeconds: number;
@@ -1095,6 +1143,212 @@ export interface HoldsSetting {
   escalateAfterMinutes: number;
 }
 
+/** 2026-11-23-933da: one PoC target (agentsmith.yml pocs.targets[]). domainPattern has no default, only a placeholder. */
+export interface PocTargetSetting {
+  name: string;
+  sourceRepo: string;
+  root: string;
+  deployRoot: string;
+  templatePath: string;
+  domainPattern: string | null;
+  lifetimeDays: number;
+  reminderDays: number[];
+  perPersonLimit: number;
+  /** 2026-11-23-933de: the container registry PoC images are read from; required, null on a target saved before it. */
+  registry: PocRegistrySetting | null;
+  /** 2026-11-23-933dd: how the source repo host's pipeline builds, scans and pushes; absent reads as the defaults. */
+  build?: PocBuildSetting | null;
+  /** 2026-11-23-933dg: how a PoC's secret variables and pull secret are sealed; absent reads as the defaults. */
+  secrets?: PocSecretsSetting | null;
+  /** 2026-11-23-c81eb: how its PoCs are reached, put behind auth and confined; each absent block reads as the defaults
+   *  and is always sent back, because a save without it resets it on the server. */
+  ingress?: PocIngressSetting | null;
+  auth?: PocAuthSetting | null;
+  network?: PocNetworkSetting | null;
+  quota?: PocQuotaSetting | null;
+  container?: PocContainerSetting | null;
+  /** 2026-11-23-c81ec: the Argo CD that deploys its PoC folders; absent reads as the defaults and is always sent back. */
+  argo?: PocArgoSetting | null;
+}
+
+/** 2026-11-23-c81ec: agentsmith.yml pocs.targets[].argo — the Argo CD, its AppProject and the role token's secret id.
+ *  applicationSet null or empty means "pocs-<target name>". */
+export interface PocArgoSetting {
+  url: string;
+  tokenSecret: string;
+  project: string;
+  namespace: string;
+  destinationServer: string;
+  repoUrl: string;
+  applicationSet: string | null;
+  tokenWarnDays: number;
+  generatorRequeueSeconds: number;
+}
+
+/** 2026-11-23-c81ec: agentsmith.yml pocs.rollout — how PocRolloutFollow reads Argo CD and how long it waits. */
+export interface PocRolloutSetting {
+  pollSeconds: number;
+  deadlineSeconds: number;
+  endMarginSeconds: number;
+  commitAllowanceSeconds: number;
+}
+
+/** 2026-11-23-c81ee: agentsmith.yml pocs.lifetime — how often the poc-lifetime pass runs, how many days one Extend
+ *  adds, how many extensions an owner may make before an admin must, and when an expired PoC stopped unseen is deleted. */
+export interface PocLifetimeSetting {
+  intervalSeconds: number;
+  extendDays: number;
+  maxOwnerExtensions: number;
+  unseenDeleteAfterDays: number;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].ingress — the ingress class and an optional cert-manager issuer. */
+export interface PocIngressSetting {
+  class: string | null;
+  tlsIssuer: string | null;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].auth — the annotations set on every PoC's Ingress, verbatim. */
+export interface PocAuthSetting {
+  ingressAnnotations: Record<string, string>;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].network — what each PoC's NetworkPolicy admits. */
+export interface PocNetworkSetting {
+  ingressControllerNamespace: string | null;
+  dnsNamespace: string;
+  dnsPodLabels: Record<string, string>;
+  egressProxy: PocEgressProxySetting;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].network.egress_proxy — named by namespace + pod labels or by cidr. */
+export interface PocEgressProxySetting {
+  url: string | null;
+  port: number;
+  namespace: string | null;
+  podLabels: Record<string, string>;
+  cidr: string | null;
+  noProxy: string;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].quota — each PoC namespace's ResourceQuota, Kubernetes quantities. */
+export interface PocQuotaSetting {
+  cpu: string;
+  memory: string;
+  pods: number;
+  ephemeralStorage: string;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.targets[].container — the PoC container's requests and limits. */
+export interface PocContainerSetting {
+  cpuRequest: string;
+  cpuLimit: string;
+  memoryRequest: string;
+  memoryLimit: string;
+  ephemeralLimit: string;
+}
+
+/** 2026-11-23-c81eb: agentsmith.yml pocs.gitops — how a PoC's manifests are committed. */
+export interface PocGitOpsSetting {
+  commitAttempts: number;
+  maxFolderFiles: number;
+}
+
+/** 2026-11-23-933dg: agentsmith.yml pocs.targets[].secrets — the sealing provider (only sealed_secrets) and the Sealed
+ *  Secrets controller's public certificate, pasted or fetched from a URL. The certificate is public, a plain field. */
+export interface PocSecretsSetting {
+  provider: string;
+  sealedSecretsCert: string | null;
+  sealedSecretsCertUrl: string | null;
+}
+
+/** 2026-11-23-933dg: agentsmith.yml pocs.variables — how many variables one PoC holds and the largest value in KB. */
+export interface PocVariablesSetting {
+  maxNames: number;
+  maxValueKb: number;
+}
+
+/** 2026-11-23-933dd: agentsmith.yml pocs.targets[].build — the names the pipeline's push job uses, the job timeouts in
+ *  minutes, how often a build is read and the largest scan report read back. */
+export interface PocBuildSetting {
+  pipeline: string;
+  githubEnvironment: string;
+  gitlabEnvironment: string;
+  pushUserSecret: string;
+  pushPasswordSecret: string;
+  azureServiceConnection: string;
+  queueMinutes: number;
+  buildTimeoutMinutes: number;
+  scanTimeoutMinutes: number;
+  pushTimeoutMinutes: number;
+  pollSeconds: number;
+  reportKb: number;
+}
+
+export type PocPullMode = "pull_secret" | "cluster_pulls";
+
+/** 2026-11-23-933de: agentsmith.yml pocs.targets[].registry — a container registry (not the package-feed registries),
+ *  read with one pull-only token whose secret pullAuth names. */
+export interface PocRegistrySetting {
+  type: "acr";
+  loginServer: string;
+  repository: string;
+  pullUser: string;
+  pullAuth: string;
+  pullMode: PocPullMode;
+}
+
+/** 2026-11-23-933da: the PoCs feature (agentsmith.yml pocs:) — the switch, what every poc- project names, the targets. */
+export interface PocsSetting {
+  enabled: boolean;
+  projectAgent: string | null;
+  projectTracker: string | null;
+  targets: PocTargetSetting[];
+  /** 2026-11-23-933db: the bounds an imported ZIP is checked against, and when a replace asks first. */
+  archive: PocArchiveSetting;
+  /** 2026-11-23-933dc: the code scan gate an upload passes before it is committed. */
+  scan: PocScanSetting;
+  /** 2026-11-23-933dc: how many days a blocked upload is kept before it is purged. */
+  blockedRetentionDays: number;
+  /** 2026-11-23-933dg: the bounds a PoC's variables are checked against. */
+  variables: PocVariablesSetting;
+  /** 2026-11-23-c81eb: how a PoC's manifests are committed to its deploy folder. */
+  gitops: PocGitOpsSetting;
+  /** 2026-11-23-c81ec: how a rollout is followed on Argo CD. */
+  rollout: PocRolloutSetting;
+  /** 2026-11-23-c81ec: the wall-time budget of every PoC run, in seconds. */
+  runWallTimeSeconds: number;
+  /** 2026-11-23-c81ed: the longest readiness path an owner may set on a PoC's detail page. */
+  readinessPathMaxChars: number;
+  /** 2026-11-23-c81ee: the PoC lifetime pass, Extend and the unseen delete. */
+  lifetime: PocLifetimeSetting;
+}
+
+/** 2026-11-23-933dc: agentsmith.yml pocs.scan — the OSV-Scanner image pinned by digest and what blocks. */
+export interface PocScanSetting {
+  osvImage: string;
+  timeoutSeconds: number;
+  unfixedCriticalBlock: boolean;
+  /** 1..10: high or critical secret patterns at or above it block and cannot be overruled. */
+  secretMinConfidence: number;
+  /** 2026-11-23-933dd: the Trivy image the build pipeline's scan job runs, pinned by digest. */
+  trivyImage?: string;
+}
+
+/** 2026-11-23-933db: agentsmith.yml pocs.archive — sizes in MB/KB as named, the ratio as n:1. */
+export interface PocArchiveSetting {
+  maxZipMb: number;
+  maxUnpackedMb: number;
+  maxEntries: number;
+  maxRatio: number;
+  maxPathChars: number;
+  maxFileMb: number;
+  maxBinaryMb: number;
+  maxDockerfileKb: number;
+  mismatchRatioPercent: number;
+  mismatchFileLimit: number;
+}
+
 /** 2026-11-17-713ec: the branch-cleanup sweep (agentsmith.yml branch_cleanup:). */
 export interface BranchCleanupSetting {
   enabled: boolean;
@@ -1121,6 +1375,7 @@ export interface SettingShapes {
   branch_cleanup: BranchCleanupSetting;
   tickets: TicketsSetting;
   holds: HoldsSetting;
+  pocs: PocsSetting;
 }
 
 export type SettingValue = SettingShapes[SettingKey];

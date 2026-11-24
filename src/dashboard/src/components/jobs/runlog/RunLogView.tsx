@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { HubConnectionState } from "@microsoft/signalr";
 import type { RunJudgements } from "@/components/jobs/story/useRunJudgements";
+import { PocRolloutLink } from "@/components/pocs/rollout/PocRolloutLink";
 import { DeployFollowBlock } from "@/components/tickets/deploying/DeployFollowBlock";
 import { RUNS_CONTROL } from "@/components/tickets/detail/RetryUnchanged";
 import { useLacksPermission } from "@/hooks/useLacksPermission";
@@ -60,6 +61,7 @@ export function RunLogView({ runId, snapshot, events, steps, repoNames, connecti
         connectionState={connectionState} onDeleted={onDeleted} />
       <RunNow runId={runId} snapshot={snapshot} status={status} events={events} steps={steps} ticket={ticket} />
       {snapshot?.pipeline === "deploy" && !isRunLive(snapshot.status) && <DeployFollowBlock runId={runId} />}
+      <PocRolloutLink runId={runId} project={ticket?.project ?? snapshot?.project} />
       <RunSectionedLog runId={runId} snapshot={snapshot} events={events} steps={steps} openStep={openStep} onOpenStep={setOpenStep}
         ticketBody={<TicketBody snapshot={snapshot} events={events} ticket={ticket} />}
         checkBody={<CheckBody snapshot={snapshot} events={events} judged={judged} />} />

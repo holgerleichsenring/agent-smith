@@ -56,8 +56,14 @@ public sealed class SeriesRunDetailReader(
     private async Task<IReadOnlyList<SeriesRunTicketView>> WithMergeSaidAsync(
         IReadOnlyList<SeriesRunTicketView> shown, SeriesRunProjectFacts facts, CancellationToken ct)
     {
-        var said = await mergeSaid.NewestAsync(
-            [.. shown.SelectMany(t => t.PullRequests).Where(SeriesRunPullRequests.Waits).Select(p => p.Url).Distinct(StringComparer.Ordinal)], ct);
+        IReadOnlyCollection<string> waiting =
+            [.. shown.SelectMany(t => t.PullRequests).Where(SeriesRunPullRequests.Waits).Select(p => p.Url).Distinct(StringComparer.Ordinal)];
+        var said = await mergeSaid.NewestAsync(waiting, ct);
+        var refreshing = (await mergeSaid.RefreshesAsync(waiting, ct)).Where(r => r.Value.InFlight) // 2026-11-24-6811d
+            .ToDictionary(r => r.Key, r => r.Value.RunId, StringComparer.Ordinal);
+        if (refreshing.Count > 0)
+            shown = [.. shown.Select(t => t with { PullRequests = [.. t.PullRequests.Select(p =>
+                refreshing.TryGetValue(p.Url, out var run) ? p with { RefreshRunId = run } : p)] })];
         if (said.Count == 0) return shown;
         var moved = facts.PullRequests.SelectMany(g => g).Where(r => r.HeadMovedAt is not null)
             .GroupBy(r => r.Url, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Max(r => r.HeadMovedAt!.Value), StringComparer.Ordinal);

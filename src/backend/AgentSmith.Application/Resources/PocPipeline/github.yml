@@ -1,0 +1,103 @@
+@@MARKER@@
+name: poc-build
+on:
+  workflow_dispatch:
+    inputs:
+      poc:
+        required: true
+        type: string
+      folder:
+        required: true
+        type: string
+      sha:
+        required: true
+        type: string
+      trivy_ignore:
+        required: false
+        type: string
+        default: none
+      ignore_unfixed:
+        required: false
+        type: string
+        default: "false"
+      secret_rules:
+        required: false
+        type: string
+        default: none
+permissions:
+  contents: read
+env:
+  POC_NAME: ${{ inputs.poc }}
+  POC_FOLDER: ${{ inputs.folder }}
+  POC_SHA: ${{ inputs.sha }}
+  POC_TRIVY_IGNORE: ${{ inputs.trivy_ignore }}
+  POC_IGNORE_UNFIXED: ${{ inputs.ignore_unfixed }}
+  POC_SECRET_RULES: ${{ inputs.secret_rules }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: @@BUILD_MINUTES@@
+    steps:
+      - name: Check the inputs
+        run: |
+          @@GUARD@@
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+          sparse-checkout: ${{ format('/{0}/', inputs.folder) }}
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Build the image, without any registry credential
+        run: |
+          @@BUILD@@
+      - uses: actions/upload-artifact@v4
+        with:
+          name: poc-image-tar
+          path: out/image.tar.gz
+          retention-days: 1
+          compression-level: 0
+  scan:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: @@SCAN_MINUTES@@
+    steps:
+      - name: Check the inputs
+        run: |
+          @@GUARD@@
+      - uses: actions/download-artifact@v4
+        with:
+          name: poc-image-tar
+          path: in
+      - name: Scan the image with Trivy
+        run: |
+          @@SCAN@@
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: poc-scan-report
+          path: report/
+          retention-days: 1
+  push:
+    needs: scan
+    runs-on: ubuntu-latest
+    timeout-minutes: @@PUSH_MINUTES@@
+    environment: @@GITHUB_ENVIRONMENT@@
+    steps:
+      - name: Check the inputs
+        run: |
+          @@GUARD@@
+      - uses: actions/download-artifact@v4
+        with:
+          name: poc-image-tar
+          path: in
+      - name: Push the image
+        env:
+          POC_REGISTRY_USER: ${{ secrets.@@PUSH_USER@@ }}
+          POC_REGISTRY_PASSWORD: ${{ secrets.@@PUSH_PASSWORD@@ }}
+        run: |
+          @@PUSH@@
+      - uses: actions/upload-artifact@v4
+        with:
+          name: poc-image
+          path: out/digest.txt
+          retention-days: 1

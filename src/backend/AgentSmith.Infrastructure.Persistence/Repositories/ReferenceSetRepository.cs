@@ -82,6 +82,11 @@ public sealed class ReferenceSetRepository(IUnitOfWork unitOfWork)
             .Select(f => new { f.RelativePath, f.Content }).ToListAsync(ct))
             .Select(f => (f.RelativePath, f.Content))];
 
+    /// <summary>2026-11-23-933db: deletes the session's sets except <paramref name="keep"/> — a PoC upload replaces the
+    /// person's earlier un-imported ones, so a person holds at most one pending upload.</summary>
+    public Task<int> DeleteSetsExceptAsync(string sessionId, IReadOnlyCollection<string> keep, CancellationToken ct) =>
+        unitOfWork.Set<ReferenceFile>().Where(f => f.SessionId == sessionId && !keep.Contains(f.SetId)).ExecuteDeleteAsync(ct);
+
     private static ReferenceSetSummary Summary(
         string setId, IReadOnlyList<(string Path, long Length, DateTimeOffset At)> files) =>
         new(setId, ReferenceSetName.Of(files.Select(f => f.Path)), files.Count, files.Sum(f => f.Length), files.Min(f => f.At));

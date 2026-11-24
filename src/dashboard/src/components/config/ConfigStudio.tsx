@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ConfigEntityKind, RegistryEntry, StudioEntity } from "@/lib/configApi";
+import type { ConfigEntityKind, PocTargetSetting, RegistryEntry, StudioEntity } from "@/lib/configApi";
 import { ConfigStoreNotEmptyError, fetchConfigExportYml, fetchSetting, importConfigYml } from "@/lib/configApi";
 import { EntityCard } from "./EntityCard";
 import { EntityDrawer } from "./EntityDrawer";
@@ -265,7 +265,7 @@ function EntityCatalog({
 }) {
   const t = useT();
   const items = catalog[kind];
-  const registries = useSecretRegistries(kind === "secrets");
+  const { registries, pocTargets } = useSecretRegistries(kind === "secrets");
   const secretStates = useSecretValueStates(kind === "secrets", catalog.secrets, drawerOpen);
   const cards = loading ? (
     <div className="empty">{t("config.loading")}</div>
@@ -283,6 +283,7 @@ function EntityCatalog({
         catalog={catalog}
         onEdit={() => onEdit(entity)}
         registries={registries}
+        pocTargets={pocTargets}
         secretState={kind === "secrets" ? stateOf(secretStates, entity.id) : null}
       />
     ))
@@ -345,15 +346,20 @@ function stateOf(states: SecretValueState[], id: string): SecretValueState | nul
   return states.find((s) => s.name.toLowerCase() === id.toLowerCase()) ?? null;
 }
 
-function useSecretRegistries(active: boolean): RegistryEntry[] {
+// 2026-11-23-933de: and the pocs setting, whose targets' registry pull tokens are secrets too. Each read fails alone.
+function useSecretRegistries(active: boolean): { registries: RegistryEntry[]; pocTargets: PocTargetSetting[] } {
   const [registries, setRegistries] = useState<RegistryEntry[]>([]);
+  const [pocTargets, setPocTargets] = useState<PocTargetSetting[]>([]);
   useEffect(() => {
     if (!active) return;
     const ctl = new AbortController();
     fetchSetting("registries", ctl.signal)
       .then((r) => setRegistries(r ?? []))
       .catch(() => {});
+    fetchSetting("pocs", ctl.signal)
+      .then((p) => setPocTargets(p?.targets ?? []))
+      .catch(() => {});
     return () => ctl.abort();
   }, [active]);
-  return registries;
+  return { registries, pocTargets };
 }

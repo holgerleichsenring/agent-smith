@@ -15,14 +15,14 @@ internal static class SettingsBlockRule
         {
             SeriesConfig series => series.Problems(), SpecReviewConfig review => review.Problems(),
             PreconditionsConfig preconditions => preconditions.Problems(), BranchCleanupConfig cleanup => cleanup.Problems(),
-            TicketsConfig tickets => tickets.Problems(), HoldsConfig holds => holds.Problems(), _ => [],
+            TicketsConfig tickets => tickets.Problems(), HoldsConfig holds => holds.Problems(), PocsConfig pocs => pocs.Problems(), _ => [],
         };
 
     public static void Validate(RawAgentSmithConfig raw)
     {
         ArgumentNullException.ThrowIfNull(raw);
         IReadOnlyList<string> problems = [.. Problems(raw.Series), .. Problems(raw.SpecReview), .. Problems(raw.Preconditions), .. Problems(raw.BranchCleanup),
-            .. Problems(raw.Tickets), .. Problems(raw.Holds)];
+            .. Problems(raw.Tickets), .. Problems(raw.Holds), .. Problems(raw.Pocs)];
         if (problems.Count > 0)
             throw new ConfigurationException($"Invalid settings in the imported file: {string.Join("; ", problems)}");
     }

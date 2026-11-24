@@ -38,7 +38,7 @@ public static class LoopRuntimeExtensions
         // p0423: a run records its conversation only when asked; the null writer is the
         // default so every producer can call it unconditionally and pay nothing.
         services.AddSingleton<Contracts.Runs.TraceSwitch>();
-        services.AddSingleton<Contracts.Runs.SecretMasker>();
+        services.AddSingleton<Contracts.Runs.SecretMasker>().AddSingleton<Contracts.Runs.RunMaskFrame>(); // 933dg: per-run values
         // 2026-10-01-7f7aa: the values of the configuration this process loaded; the server
         // replaces it with CurrentSecretValues, which follows the config store.
         services.TryAddSingleton<ISecretValues>(sp =>

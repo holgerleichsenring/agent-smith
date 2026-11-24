@@ -65,8 +65,8 @@ export const configMessages = {
   },
   "config.merge.ciFix.label": { en: "CI fix attempts", de: "CI-Fix-Versuche" },
   "config.merge.ciFix.help": {
-    en: "red-CI fix runs in a row before the ticket is handed back",
-    de: "Fix-Runs bei roter CI in Folge, bevor das Ticket zurückgegeben wird",
+    en: "red-CI fix runs in a row before the ticket is handed back; also the repair passes a base refresh may make on a red build",
+    de: "Fix-Runs bei roter CI in Folge, bevor das Ticket zurückgegeben wird; auch die Reparaturdurchgänge einer Basis-Aktualisierung bei rotem Build",
   },
   "config.merge.ciExcerpt.label": { en: "CI excerpt characters", de: "Zeichen im CI-Auszug" },
   "config.merge.ciExcerpt.help": {
@@ -392,6 +392,7 @@ export const configMessages = {
   "config.setting.branchCleanup": { en: "Branch cleanup", de: "Branch-Bereinigung" },
   "config.setting.tickets": { en: "Tickets", de: "Tickets" },
   "config.setting.holds": { en: "Holds", de: "Holds" },
+  "config.setting.pocs": { en: "PoCs", de: "PoCs" },
   "config.setting.skills": { en: "Skills", de: "Skills" },
   "config.setting.pipelineDataFlow": { en: "Pipeline data flow", de: "Datenfluss der Pipeline" },
   "config.setting.trace": { en: "Trace", de: "Trace" },
@@ -451,6 +452,10 @@ export const configMessages = {
   "config.setting.holds.sub": {
     en: "how long a ticket may wait on nobody before the wait is reported to the admin",
     de: "wie lange ein Ticket auf niemanden warten darf, bevor die Wartezeit dem Admin gemeldet wird",
+  },
+  "config.setting.pocs.sub": {
+    en: "whether people can host PoCs here, and where their source and apps go",
+    de: "ob hier PoCs gehostet werden dürfen und wohin ihre Quellen und Apps gehen",
   },
   "config.setting.skills.sub": { en: "where the skill catalog is resolved from", de: "woher der Skill-Katalog aufgelöst wird" },
   "config.setting.pipelineDataFlow.sub": {
@@ -1134,6 +1139,7 @@ export const configMessages = {
   "config.card.usedBy": { en: "used by {users}", de: "genutzt von {users}" },
   "config.card.notReferenced": { en: "not referenced yet", de: "noch nirgends verwendet" },
   "config.card.registry": { en: "registry {host}", de: "Registry {host}" },
+  "config.card.pocTarget": { en: "PoC target {name}", de: "PoC-Ziel {name}" },
   "config.card.roleModel": { en: "{role} model", de: "Modell {role}" },
   "config.card.organisation": { en: "Organisation", de: "Organisation" },
   "config.card.project": { en: "Project", de: "Projekt" },

@@ -36,7 +36,7 @@ const ADDRESSEE: Record<TicketHoldCase, TicketHold["addressee"]> = {
   criteria_unmet: "decide", failed: "decide", shortfall: "decide",
   text_edited: "plan", merge_next: "merge", starts_on_merge: "nobody", merge_ready: "merge", ci_failed: "decide", ci_running: "nobody", ci_not_started: "nobody",
   working: "nobody", model_wait: "nobody", queued: "nobody", resuming: "nobody", restarting: "nobody", merge_after: "nobody", retarget: "nobody",
-  prerequisite: "nobody",
+  prerequisite: "nobody", pr_conflict: "decide", refreshing: "nobody", refresh_refused: "decide",
 };
 
 export function hold(holdCase: TicketHoldCase, over: Partial<TicketHold> = {}): TicketHold {

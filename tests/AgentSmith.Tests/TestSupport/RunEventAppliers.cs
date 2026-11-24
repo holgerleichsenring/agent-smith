@@ -35,5 +35,6 @@ internal static class RunEventAppliers
         new RunSpecReviewRoundProjection(new()), // 2026-10-13-8762e
         new RunDefaultDecisionProjection(new()), // 2026-10-13-8762o
         new MemoryEvidenceProjection(new(), new()), // 2026-10-25-9324b
+        new PocImportedProjection(), // 2026-11-23-933db
     ];
 }

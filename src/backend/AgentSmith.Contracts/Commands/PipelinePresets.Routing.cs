@@ -40,6 +40,9 @@ public static partial class PipelinePresets
         NotRoutable.GetValueOrDefault(pipelineName) ?? (HostActSteps.ContainsKey(pipelineName) ? HostActReason : null)
         ?? (InstallationSteps.ContainsKey(pipelineName) ? InstallationReason : null); // 2026-11-17-f3a8a
 
+    // 2026-11-23-c81ed: the PoC lifecycle acts.
+    private const string PocActReason = "it changes a PoC's desired state an owner chose on its detail page, and the server starts it";
+
     private static readonly Dictionary<string, string> NotRoutable = new(StringComparer.OrdinalIgnoreCase)
     {
         [SpecDialogName] = "its run needs a design conversation's transcript and reply slot, which only the chat "
@@ -52,6 +55,10 @@ public static partial class PipelinePresets
         [SeriesRunName] = "it beats a series run a filing opened, and the server starts it with the series' id", // 0207a
         [SeriesVerifyName] = "it checks a series whose tickets all landed, and the series' beat starts it", // 0207d
         [DeployName] = "it delivers a version to an environment a person chose, and the server starts it", // 2026-11-18-3863c
+        [PocDeployName] = "it takes in a PoC archive a person uploaded, and the server starts it at the import", // 2026-11-23-933db
+        [PocVariablesName] = "it writes a PoC's variables a person entered, and the server starts it in memory", // 933dg
+        [PocStopName] = PocActReason, [PocStartName] = PocActReason, [PocRollbackName] = PocActReason, // 2026-11-23-c81ed
+        [PocApplyName] = PocActReason, [PocDeleteName] = PocActReason, [PocExtendName] = "it extends a PoC an owner chose on its detail page, and the server starts it", // c81ee
         [BranchCleanupName] = "it sweeps a project's repositories, not a ticket, and the server starts it every "
             + "branch_cleanup.interval_seconds", // 2026-11-17-713ec
     };

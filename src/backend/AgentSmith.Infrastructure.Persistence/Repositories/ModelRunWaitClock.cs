@@ -11,14 +11,22 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 public sealed class ModelRunWaitClock(IUnitOfWork unitOfWork)
 {
     /// <summary>The runs of <paramref name="running"/> past <paramref name="maxWallTime"/> once their waits are taken out.</summary>
+    public Task<IReadOnlyList<Run>> OverdueAsync(
+        IReadOnlyList<Run> running, TimeSpan maxWallTime, DateTimeOffset now, CancellationToken ct) =>
+        OverdueAsync(running, _ => maxWallTime, now, ct);
+
+    /// <summary>2026-11-23-c81ec: the same with a ceiling per run — a PoC run's is pocs.run_wall_time_seconds. A ceiling
+    /// of zero or less holds no run.</summary>
     public async Task<IReadOnlyList<Run>> OverdueAsync(
-        IReadOnlyList<Run> running, TimeSpan maxWallTime, DateTimeOffset now, CancellationToken ct)
+        IReadOnlyList<Run> running, Func<Run, TimeSpan> ceilingOf, DateTimeOffset now, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(ceilingOf);
         ArgumentNullException.ThrowIfNull(running);
         var ids = running.Select(r => r.Id).ToList();
         var waits = await unitOfWork.Set<ModelRunWait>().AsNoTracking().Where(w => ids.Contains(w.RunId)).ToListAsync(ct);
         var waited = waits.ToDictionary(w => w.RunId, w => w.Waited(now), StringComparer.Ordinal);
-        return [.. running.Where(r => now - r.StartedAt - waited.GetValueOrDefault(r.Id) > maxWallTime)];
+        return [.. running.Where(r => ceilingOf(r) is var ceiling && ceiling > TimeSpan.Zero
+            && now - r.StartedAt - waited.GetValueOrDefault(r.Id) > ceiling)];
     }
 
     /// <summary>2026-11-22-d434b: whether <paramref name="runId"/> waits for its model place now — its wait row is open.</summary>

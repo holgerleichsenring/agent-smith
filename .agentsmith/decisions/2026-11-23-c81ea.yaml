@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-c81ea
+
+decisions:
+  - category: Scope
+    decider: operator
+    chose: "The series 2026-11-23-c81ea..e replaces the withdrawn specs 2026-11-23-933df (poc-gitops-rollout) and 2026-11-23-933dh (poc-lifecycle-expiry); both files and their decision files are deleted, never committed"
+    over: "Patching 933df and 933dh in place"
+    reason: "Operator round 3, 2026-11-23. Both were REFUSED in adversarial review. 933df: a GitLab last_commit_id change that would refuse ordinary updates, a GitHub delete Octokit never sends (null sha dropped), a rollout settled on 'sync revision == commit' that fails whenever another PoC commits, a fix af60 already owns, an unspecified lock, undefined NetworkPolicy keys, no pod restart on variable change, and too big for one build. 933dh: replicas written as a quoted string, no stored desired state so later runs undo stop and rollback, a leader service writing rows, extend writing the audit row directly, an hourly re-run loop and a 'seen after expiry' delete, a purge run with no project, a non-recursive delete, names never freed. c81ea is the write path, c81eb template + commit, c81ec Argo + rollout, c81ed acts + detail page, c81ee lifetime."
+  - category: Implementation
+    chose: "A GitHub write carrying a delete posts the whole tree as one pre-serialised JSON string through client.Connection.Post<TreeResponse>(ApiUrls.Tree(...)); a write without a delete keeps the typed call"
+    over: "A typed NewTreeItem with Sha null; rebuilding the full recursive tree without base_tree"
+    reason: "A probe against Octokit 14.0.0 showed the typed body drops sha:null while a string body reaches the host verbatim. The full-tree rebuild depends on a recursive read GitHub truncates on large repos. Keeping the typed call for writes without deletes leaves filing's requests byte for byte unchanged."
+  - category: Implementation
+    chose: "No GitLab last_commit_id; GitLab gets the delete action, and its 400 'Could not update refs/heads/' refusal (a commit that lost the race on the ref) maps to Conflict"
+    over: "Sending the branch head as last_commit_id; GitLab never answering Conflict"
+    reason: "last_commit_id is a per-file check, so the head would refuse ordinary updates and change filing's writes; GitLab applies actions onto its current head and PoC folders are disjoint, so nothing is lost. A ref race is still a refusal a re-plan resolves, so it is a Conflict, not a failed run (round-2 review). The delete action is kept because a GitLab-hosted source repo is a valid target (933dd ships GitLab CI) and a PoC delete must work there."
+  - category: Architecture
+    decider: operator
+    chose: "One serialisation mechanism: 933db's PocRunGate (one live run per PoC); cross-PoC concurrency on the shared branch is the typed Conflict plus a bounded re-plan (pocs.gitops.commit_attempts)"
+    over: "A per-PoC Redis lock over IRedisClaimLock spanning commit and follow"
+    reason: "Coordinator ruling 2026-11-23 relaying round 3: PocRunGate already refuses a second live run across replicas without Redis; a second lock would be a second mechanism with its own TTL and Redis-off behaviour to define."
+  - category: Architecture
+    decider: operator
+    chose: "Two repository write paths stay, each for its job: 933dc's PocFolderWrite (sandbox clone and push) for the uploaded source incl. binaries, the checkout-free branch write for the text manifests"
+    over: "Forcing both through one path"
+    reason: "Coordinator ruling 2026-11-23. Both mechanisms exist today (SandboxGitOperations, the b6ad branch write); the branch write is text only by design and the source upload carries binaries, while manifests need no clone. Not a second path under the principle."
+  - category: Implementation
+    chose: "The commit mode is GitOpsDelivery.CommitAsync taking its own GitOpsCommitOrder (repo, files, message) and a re-plan callback; GitOpsOrder and DeliverAsync stay untouched"
+    over: "A Mode and a file set on GitOpsOrder; a PoC-specific writer or a new IDeployDelivery kind"
+    reason: "Operator: the direct commit is a mode of the GitOps delivery ('No second path'), so it stays a method of GitOpsDelivery. A Mode field repeated which method was called, and a commit-mode GitOpsOrder had to fill pull-request text, approval, protection, CI and version that mean nothing there (round-2 review). Pull-request mode stays the only one deployment.yaml offers."
+  - category: Implementation
+    chose: "ListFilesUnderAsync as a new recursive member scoped to the folder on every provider (GitHub: GetRecursive on the folder's own tree sha), answering a typed RepoFileListing(Files, Truncated) that names no PoC key"
+    over: "Recursing over ListDirectoryAsync; GitHub GetRecursive at the branch head filtered by prefix; refusing by exception with a message naming pocs.gitops.max_folder_files"
+    reason: "ListDirectoryAsync answers names without telling files from folders. A branch-head recursive read on GitHub reads the whole shared source repo on every deploy and truncates past about 100k entries, which would fail every PoC deploy and delete at once (round-2 review); Azure, GitLab and Local were already path-scoped. A generic provider must not word a PoC key, so the caller writes the sentence."
+  - category: Scope
+    chose: "The DeployRecordProjection DeliveredAtTicks fix is not here"
+    over: "Repeating it"
+    reason: "2026-11-23-af60 already fixed it with a backfill migration; PoCs use no deploy records."
+  - category: Implementation
+    chose: "ISourceProvider.GetDefaultBranchAsync exposes the resolver each provider already has, and CommitAsync takes the branch from it; the commit order names no branch"
+    over: "Refusing an order whose branch is not the default branch"
+    reason: "Nothing on ISourceProvider could check the refusal, and a wrong branch name would not be refused anyway: the branch write CREATES a missing branch from the default, so the result is a stray branch (round-2 review)."
+  - category: Implementation
+    chose: "For a deletion only a host NotFound counts as absent; any other probe failure fails the write. A write whose every entry is a deletion of an absent path answers AlreadyHeld, which CommitAsync reads as committed with no sha"
+    over: "Azure's and GitLab's existing probes (any failure reads as absent); answering Failed('nothing to write')"
+    reason: "A transient 5xx would otherwise drop a required delete, report the PoC deleted and leave Argo serving it; and a retried delete whose commit already landed would fail its run (round-2 review). AlreadyHeld keeps Written false, so the contract's 'no sha is failure' still holds for filing, which never sends deletes."
+  - category: Implementation
+    chose: "Local's refused update-ref answers Conflict"
+    over: "Local never answering Conflict"
+    reason: "Two PoC runs on one server move the same local default branch exactly as two replicas do on a host; LocalBranchCommit already refuses the moved ref, it only mislabelled it as Failed (round-2 review)."
+  - category: Implementation
+    chose: "pocs.gitops.max_folder_files (500) stays, with the harm it prevents as its reason: more files than a template renders means foreign files, and deleting them all is one oversized commit request"
+    over: "Dropping the limit and relying on folder-scoped truncation"
+    reason: "Folder scoping bounds GitHub's read, not Azure's or GitLab's paginated listing nor the size of the delete commit. Over the limit the caller refuses naming count, value and key; raising the key lets the folder through."
+  - category: Scope
+    chose: "PocGitOpsConfig ships as a model with Problems() here; attaching it to PocsConfig, the schema entries and the settings fields with German strings move to 2026-11-23-c81eb's config step"
+    over: "Creating PocsConfig and the PoCs settings form here; leaving the config step out silently"
+    reason: "Built under 'zieh durch' before 2026-11-23-933da: neither PocsConfig nor the PoCs settings form exists on this branch, and building them here would duplicate 933da's settings step and collide with it. c81eb is the first reader of pocs.gitops and builds after 933da, so the wiring lands where it is first used; the spec text and c81eb's step and tests say so."
+  - category: Implementation
+    chose: "Local's deletion probe is 'git ls-tree --name-only <parent> -- <path>' (named = present, empty = absent, a non-zero exit throws)"
+    over: "git cat-file -e <parent>:<path> with exit 128 and 'does not exist' as absent"
+    reason: "A test showed cat-file refuses an absent path with a different sentence when the working tree still holds it ('exists on disk, but not in <rev>'), which a checkout-free commit leaves behind. ls-tree answers absence as an empty listing with exit 0, so no git sentence is parsed."
+  - category: Implementation
+    chose: "The factory for the all-absent answer is BranchWriteResult.HeldAlready(notes); the flag is the property AlreadyHeld"
+    over: "A static AlreadyHeld(notes) beside an AlreadyHeld property"
+    reason: "C# forbids a method and a property of one name on one type; the spec's flag name is kept and the factory renamed."
+  - category: Implementation
+    chose: "A GitHub ApiValidationException (422) from the ref update or create is Conflict; Azure's VssServiceException carrying TF401028 is Conflict; GitLab's 400 whose body holds 'Could not update refs/heads/' is Conflict; Local's update-ref stderr holding 'but expected' or 'reference already exists' is Conflict"
+    over: "Matching GitHub's message text; a typed Azure exception"
+    reason: "On GitHub the type is enough because the catch wraps only the ref call, where a 422 means the ref moved or appeared. The Azure SDK (19.225.2) has no typed stale-ref exception — only the GitRefUpdateStatus.StaleOldObjectId enum on another call — so the TF code is the narrowest signal, as AzureReposBranchRead's not-found rule already reads messages. GitLab and git name the race only in text."
+  - category: Implementation
+    chose: "The absence rule lives once in AbsentDeletionFilter (Infrastructure), fed a per-provider probe that answers false only for the host's not-found and throws otherwise; writes are never probed by it"
+    over: "Four copies of the drop-and-note loop"
+    reason: "One rule for four providers, so a transient-failure-drops-a-delete bug cannot come back in one of them. The existing add-or-edit probes on Azure and GitLab stay lenient, so filing's requests are unchanged."
+  - category: Implementation
+    chose: "Provider classes stay under their length ceilings by new types: GitHubTreeRequest, GitHubFolderFiles, AzureReposPushChanges, AzureReposFolderFiles, GitLabFileProbe, GitLabFolderFiles, LocalIndexStaging, LocalPathProbe"
+    over: "Growing the branch-write classes and providers past 120 lines"
+    reason: "Coding principles: 120 lines per class, and providers already over it may only shrink."
+  - category: Implementation
+    chose: "LocalPathProbe is unsealed with a virtual probe and LocalBranchCommit takes it in a second constructor, so a test moves the branch between the head read and update-ref against real git"
+    over: "A concurrent-writers test that races by chance; no local Conflict test"
+    reason: "The only deterministic way to stage the race on real git; the production constructor keeps building its own probe."
+  - category: Implementation
+    chose: "LocalSourceProvider takes an optional logger, which SourceProviderFactory now passes"
+    over: "A null logger inside the local branch write"
+    reason: "The deletion filter logs a failed probe before failing the write; the local provider had no logger to give it."

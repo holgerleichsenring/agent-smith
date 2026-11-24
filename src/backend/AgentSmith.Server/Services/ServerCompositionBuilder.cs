@@ -7,6 +7,7 @@ using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.Config;
 using AgentSmith.Server.Services.Logging;
+using AgentSmith.Server.Services.Pocs;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Console;
@@ -62,7 +63,8 @@ public static class ServerCompositionBuilder
             // p0503d: role resolution is registered whether or not an authority is
             // configured — the route table is enumerated without one.
             .AddCallerIdentity()
-            .AddAccessSurface();
+            .AddAccessSurface()
+            .AddPocImports(); // 2026-11-23-933db: the provisioner saves through the access surface's writer
 
         // p0349: the SERVER reads its config from the DB entity-document store (the
         // studio's source of truth), not the file. Override the core's file loader

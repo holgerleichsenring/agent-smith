@@ -37,6 +37,23 @@ describe("runSections", () => {
     expect(commandSection(step("RunConfigPreflightCommand"))).toBe("ready");
   });
 
+  // 2026-11-23-933db: a PoC import's intake checks the archive again.
+  it("commandSection_PocIntake_Verifies", () => {
+    expect(commandSection(step("PocIntakeCommand"))).toBe("verify");
+  });
+
+  // 2026-11-23-933dc: the code scan gate verifies; the commit to the source repo delivers.
+  it("commandSection_PocCodeScanVerifies_PocSourceCommitDelivers", () => {
+    expect(commandSection(step("PocCodeScanCommand"))).toBe("verify");
+    expect(commandSection(step("PocSourceCommitCommand"))).toBe("deliver");
+  });
+
+  // 2026-11-23-933dd: the host pipeline's build and the install of its pipeline deliver.
+  it("commandSection_PocPipelineBuildAndPocTargetInstall_Deliver", () => {
+    expect(commandSection(step("PocPipelineBuildCommand"))).toBe("deliver");
+    expect(commandSection(step("PocTargetInstallCommand"))).toBe("deliver");
+  });
+
   it("commandSection_AnUnknownCommand_NamesNone", () => {
     expect(commandSection(step("SomethingNew"))).toBeUndefined();
   });

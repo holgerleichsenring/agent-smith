@@ -35,10 +35,13 @@ public sealed class CancelEnforcer(
     // so this DB-backed scan closes that gap for every run.
     // p0353: read LIVE per scan (was a boot-frozen IOptions) so a Config Studio edit to
     // orchestrator.max_run_wall_time_seconds applies without a restart.
-    private TimeSpan CurrentMaxWallTime() => TimeSpan.FromSeconds(
-        services.GetRequiredService<IConfigurationLoader>()
-            .LoadConfig(services.GetRequiredService<ServerContext>().ConfigPath)
-            .Orchestrator.MaxRunWallTimeSeconds);
+    // 2026-11-23-c81ec: the ceiling is a function of the run's kind, decided from Run.Pipeline — a PoC run is held to
+    // pocs.run_wall_time_seconds, every other run (a design turn as before) to orchestrator.max_run_wall_time_seconds.
+    private AgentSmithConfig CurrentConfig() => services.GetRequiredService<IConfigurationLoader>()
+        .LoadConfig(services.GetRequiredService<ServerContext>().ConfigPath);
+
+    private static TimeSpan CeilingOf(AgentSmithConfig config, string? pipeline) =>
+        TimeSpan.FromSeconds(RunWallTimeCeiling.Of(config, pipeline).Seconds);
 
     /// <summary>Grace between the persisted cancel and the force-kill — the
     /// window in which a cooperative (in-process) cancel may land first. p0348:
@@ -92,19 +95,18 @@ public sealed class CancelEnforcer(
     // "waiting_for_input" (parked on a question) run is legitimately idle, not hung.
     private async Task FlagWallTimeOverdueAsync(CancellationToken ct)
     {
-        var maxWallTime = CurrentMaxWallTime();
-        if (maxWallTime <= TimeSpan.Zero) return;
+        var config = CurrentConfig();
         var now = timeProvider.GetUtcNow();
 
         using var scope = services.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<RunRepository>();
-        var overdue = await repo.GetWallTimeOverdueRunsAsync(maxWallTime, now, ct);
+        var overdue = await repo.GetWallTimeOverdueRunsAsync(run => CeilingOf(config, run.Pipeline), now, ct);
         foreach (var run in overdue)
         {
             ct.ThrowIfCancellationRequested();
             logger.LogWarning(
                 "Run {RunId} exceeded wall-time ceiling {Ceiling}s (elapsed {Elapsed:F0}s) — requesting cancel",
-                run.Id, maxWallTime.TotalSeconds, (now - run.StartedAt).TotalSeconds);
+                run.Id, CeilingOf(config, run.Pipeline).TotalSeconds, (now - run.StartedAt).TotalSeconds);
             await repo.MarkCancelRequestedAsync(run.Id, "watchdog-wall-time", now + KillGrace, ct);
             await events.PublishAsync(
                 new RunCancelRequestedEvent(run.Id, "watchdog-wall-time", now), ct);
@@ -130,7 +132,7 @@ public sealed class CancelEnforcer(
         // 2026-08-24-ca23: a paused run's stream is drained by nobody, so publishing alone
         // never reached its row and the scan re-selected it every 15s — see CancelTerminalWriter.
         var terminal = new RunFinishedEvent(run.Id, "cancelled", null,
-            CancelReasonNarrator.Summary(run.CancelReason), timeProvider.GetUtcNow());
+            CancelReasonNarrator.Summary(run.CancelReason, run.Pipeline), timeProvider.GetUtcNow());
         await terminalWriter.FinalizeAsync(terminal, ct);
         await events.PublishAsync(terminal, ct);
         // p0355/p0459: guard on current ownership — a run that a NEWER run has reclaimed

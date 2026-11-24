@@ -38,7 +38,7 @@ public sealed class PipelineContextSerializer(
         ContextKeys.ResumedDialogueAnswer, ContextKeys.ResumeCheckpoint,
         ContextKeys.DialogueHotWaitSeconds, ContextKeys.DialogueApprovalTimeoutSeconds,
         "ProjectPricing", "PipelineCostCap", "ModelPricingResolver", "PipelineCostTracker",
-        ContextKeys.RecordedCalls, ContextKeys.SecretWriteRequest, // 2026-11-17-7c9bc; f3a8d: a value never reaches a checkpoint
+        ContextKeys.RecordedCalls, ContextKeys.SecretWriteRequest, ContextKeys.PocVariableWrite, // 2026-11-17-7c9bc; f3a8d, 933dg: a value never reaches a checkpoint
     };
 
     public string Serialize(PipelineContext context)

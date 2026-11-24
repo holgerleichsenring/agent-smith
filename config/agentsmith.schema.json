@@ -304,6 +304,230 @@
         "pr_reread_merged_cap": { "type": "integer", "minimum": 1, "description": "The most merged records without a landing one re-read pass names, over all trackers. Default 50." }
       }
     },
+    "pocs": {
+      "type": "object",
+      "description": "PoCs: small uploaded apps hosted on a target. Off by default; off means no sidebar item and every PoC route answers 404. Global.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "description": "Whether the PoCs area exists. Default false." },
+        "project_agent": { "type": ["string", "null"], "description": "The agent every poc-<person> project names; required while enabled." },
+        "project_tracker": { "type": ["string", "null"], "description": "The tracker every poc-<person> project names; required while enabled." },
+        "archive": {
+          "type": "object",
+          "description": "What an uploaded PoC archive is held to, and when an import asks whether it is another app. Every refusal names the value, the reason and the key. Absent reads as the defaults.",
+          "additionalProperties": false,
+          "properties": {
+            "max_zip_mb": { "type": "integer", "minimum": 1, "description": "The uploaded ZIP's size; the upload body is bounded at it. Default 25." },
+            "max_unpacked_mb": { "type": "integer", "minimum": 1, "description": "What the archive unpacks to, all files together. Default 100." },
+            "max_entries": { "type": "integer", "minimum": 1, "description": "How many files the archive may hold. Default 2000." },
+            "max_ratio": { "type": "integer", "minimum": 1, "description": "How many times its compressed size one file, and the whole archive, may unpack to; stops a ZIP bomb. Default 100." },
+            "max_path_chars": { "type": "integer", "minimum": 1, "maximum": 240, "description": "The longest path inside the archive, at most the store's 240-character path column. Default 240." },
+            "max_file_mb": { "type": "integer", "minimum": 1, "description": "One file's unpacked size. Default 10." },
+            "max_binary_mb": { "type": "integer", "minimum": 1, "description": "The files a NUL byte in their first 8000 bytes marks as binary, together; checked when the import runs. Default 20." },
+            "max_dockerfile_kb": { "type": "integer", "minimum": 1, "description": "The root Dockerfile's size. Default 64." },
+            "mismatch_ratio_percent": { "type": "integer", "minimum": 1, "maximum": 100, "description": "An import asks whether the archive is really the same PoC when more than this share of files differs AND more than mismatch_file_limit do. Default 50." },
+            "mismatch_file_limit": { "type": "integer", "minimum": 1, "description": "An import asks whether the archive is really the same PoC when more than this many files differ AND more than mismatch_ratio_percent do. Default 100." }
+          }
+        },
+        "scan": {
+          "type": "object",
+          "description": "How an upload is scanned before it is committed: a high or critical secret pattern of enough confidence blocks and can never be overruled; a dependency vulnerability with CVSS 9.0 or more blocks and can be overruled (pocs.overrule); everything else is a note. Absent reads as the defaults.",
+          "additionalProperties": false,
+          "properties": {
+            "osv_image": { "type": "string", "description": "An own mirror of the OSV-Scanner image, pinned by digest ('...@sha256:<64 hex>'); a tag is refused. Empty (the default) runs ghcr.io/google/osv-scanner:v2.2.4@sha256:f7ba4be68bac8086b1f88fd598fdca1ca67239c79ad2c2b5c78e03a82e5187c4. The scan downloads its databases from osv-vulnerabilities.storage.googleapis.com through the sandbox egress." },
+            "timeout_seconds": { "type": "integer", "minimum": 1, "description": "How long the dependency scan may take, the database download included. Default 300." },
+            "unfixed_critical_block": { "type": "boolean", "description": "Whether a critical vulnerability with no fixed version blocks (overrulable) like one with a fix; false makes it a note. Default true." },
+            "secret_min_confidence": { "type": "integer", "minimum": 1, "maximum": 10, "description": "A secret pattern of severity high or critical blocks at this catalog confidence or above; below it the finding is a note. The image scan blocks the Trivy secret rules mapped to such patterns. Default 8." },
+            "trivy_image": { "type": "string", "description": "An own mirror of the Trivy image the build pipeline's scan job runs, pinned by digest ('...@sha256:<64 hex>'); a tag is refused. Empty (the default) runs aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb. Written into the pipeline at install: install again after changing it." }
+          }
+        },
+        "variables": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How many variables one PoC holds and how large each value may be: a Kubernetes Secret or ConfigMap holds at most 1 MiB, and max_names x max_value_kb stays at or below 512 KB. Absent reads as the defaults.",
+          "properties": {
+            "max_names": { "type": "integer", "minimum": 1, "description": "The most variables, secret and plain together, one PoC holds. Default 64." },
+            "max_value_kb": { "type": "integer", "minimum": 1, "description": "The largest value in KB (UTF-8). Default 4." }
+          }
+        },
+        "gitops": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How a PoC's manifests are committed straight onto the source repo's default branch (no pull request). Absent reads as the defaults.",
+          "properties": {
+            "commit_attempts": { "type": "integer", "minimum": 1, "description": "How many times one commit is written before the run gives up on a branch other commits keep moving; each retry re-plans from the new head. Default 3." },
+            "max_folder_files": { "type": "integer", "minimum": 1, "description": "The most files a PoC's deploy folder or the app template may hold; more is refused, because the folder holds a handful of rendered manifests. Default 500." }
+          }
+        },
+        "blocked_retention_days": { "type": "integer", "minimum": 1, "description": "How many days a blocked upload is kept before it is purged. Default 7." },
+        "readiness_path_max_chars": { "type": "integer", "minimum": 1, "description": "The longest readiness path an owner may set on a PoC's detail page: a probe path, not a payload. Default 256." },
+        "run_wall_time_seconds": { "type": "integer", "minimum": 60, "description": "The wall-time budget of every PoC run, in place of orchestrator.max_run_wall_time_seconds: a PoC run waits for a host build and a cluster rollout. Both wall-time enforcers hold PoC runs to it. Default 2700." },
+        "rollout": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How a PoC run follows its rollout on Argo CD until the live Deployment carries the render and Argo reports it Synced and Healthy. Absent reads as the defaults.",
+          "properties": {
+            "poll_seconds": { "type": "integer", "minimum": 1, "maximum": 60, "description": "How often the Application and the live Deployment are read. Default 10." },
+            "deadline_seconds": { "type": "integer", "minimum": 60, "description": "The longest one follow waits; past it the run fails and the previous version keeps serving. Default 600." },
+            "end_margin_seconds": { "type": "integer", "minimum": 30, "description": "How long before the run's wall-time cancel the follow gives up: the step must write its failure and the PoC state before the cancel and its 30 s kill grace land. Default 60." },
+            "commit_allowance_seconds": { "type": "integer", "minimum": 0, "description": "What sealing and the GitOps commit with its re-plans may take between the build and the follow; part of the wall-time check. Default 120." }
+          }
+        },
+        "lifetime": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How a PoC's lifetime is kept: the lifetime pass stops an expired PoC whose owner saw no reminder and deletes it later, deletes one whose owner saw a reminder, and removes a blocked PoC that never deployed once its upload is purged. Absent reads as the defaults.",
+          "properties": {
+            "interval_seconds": { "type": "integer", "minimum": 300, "description": "Seconds between two lifetime passes; each reads every PoC, and reminders count in days. Default 3600." },
+            "extend_days": { "type": "integer", "minimum": 1, "description": "Days one extension adds to the later of now and the PoC's expiry. Default 90." },
+            "max_owner_extensions": { "type": "integer", "minimum": 0, "description": "Extensions an owner may make; past them only a pocs.admin holder extends, because a PoC is not a product. Default 2." },
+            "unseen_delete_after_days": { "type": "integer", "minimum": 1, "description": "Days after its recorded expiry stop an expired PoC whose owner saw no reminder is deleted unless extended. Default 30." }
+          }
+        },
+        "targets": {
+          "type": "array",
+          "description": "Where PoCs are hosted. One for now; required while enabled.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "source_repo", "registry"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$", "description": "A DNS label, unique among the targets." },
+              "source_repo": { "type": "string", "description": "One exact repo ref the PoC sources are committed to: a repos-catalog name or connection/name. A glob is refused." },
+              "root": { "type": "string", "description": "The folder of PoC sources inside the source repo; a PoC lives in <root>/<project>/<poc>/. Default pocs." },
+              "deploy_root": { "type": "string", "description": "The folder the deploy manifests are written to. Default deploy." },
+              "template_path": { "type": "string", "description": "The folder the app template is written to. Default poc-template." },
+              "domain_pattern": { "type": ["string", "null"], "description": "A host name with exactly one {app}, e.g. {app}.poc.example.internal. No default." },
+              "lifetime_days": { "type": "integer", "minimum": 1, "description": "How many days a PoC lives. Default 90." },
+              "reminder_days": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "Days before expiry the owner is reminded, each below lifetime_days. Default [14, 7, 1]." },
+              "per_person_limit": { "type": "integer", "minimum": 1, "description": "The most live PoCs one person holds on this target; pocs.admin is not bound by it. Default 3." },
+              "registry": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["login_server", "pull_user", "pull_auth"],
+                "description": "The CONTAINER registry PoC images are read from (not the top-level registries: list, which is for package feeds). Images are <login_server>/<repository>/<poc>. Agent smith holds one pull-only token and no push or delete credential.",
+                "properties": {
+                  "type": { "type": "string", "enum": ["acr"], "description": "The registry kind. Default acr (Azure Container Registry)." },
+                  "login_server": { "type": "string", "description": "The registry host, e.g. pocregistry.azurecr.io (also <name>-<hash>.azurecr.io, .azurecr.us, .azurecr.cn)." },
+                  "repository": { "type": "string", "description": "The repository prefix every PoC image lives under. Default pocs." },
+                  "pull_user": { "type": "string", "description": "The user of the pull-only token (on ACR the repository-scoped token's name)." },
+                  "pull_auth": { "type": "string", "description": "The secrets-catalog entry holding the pull-only token; its scope map grants pull on <repository>/*. Required with cluster_pulls too, because agent smith resolves and verifies images with it." },
+                  "pull_mode": { "type": "string", "enum": ["pull_secret", "cluster_pulls"], "description": "pull_secret (default): the token is delivered into each PoC namespace as an imagePullSecret. cluster_pulls: the target cluster can already pull." }
+                }
+              },
+              "secrets": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "How the PoCs' secret variables and pull secret reach this target. Sealed Secrets: each value is sealed in agent smith to the controller's public certificate (strict scope, namespace poc-<name>); plaintext never lands in git.",
+                "properties": {
+                  "provider": { "type": "string", "enum": ["sealed_secrets"], "description": "The secret provider. Default sealed_secrets (Bitnami Sealed Secrets)." },
+                  "sealed_secrets_cert": { "type": ["string", "null"], "description": "The Sealed Secrets controller's public certificate, PEM (kubeseal --fetch-cert). A plain field: it is public. Required before a PoC with a secret variable or with pull_mode pull_secret deploys." },
+                  "sealed_secrets_cert_url": { "type": ["string", "null"], "description": "An https URL the settings form fetches the certificate from (e.g. the controller's /v1/cert.pem behind an ingress); nothing reads it at run time." }
+                }
+              },
+              "ingress": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "How each PoC's Ingress is served.",
+                "properties": {
+                  "class": { "type": ["string", "null"], "description": "The ingressClassName the target's ingress controller answers to; required while PoCs are on." },
+                  "tls_issuer": { "type": ["string", "null"], "description": "A cert-manager ClusterIssuer; set, each Ingress carries TLS secret app-tls and the cert-manager.io/cluster-issuer annotation. Optional." }
+                }
+              },
+              "auth": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Every PoC is behind auth: the annotations that make the ingress controller call the auth proxy before it forwards a request (forward auth in annotation mode; ingress-nginx's auth-url and auth-signin are one example).",
+                "properties": {
+                  "ingress_annotations": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Annotation name -> value, set on each PoC's Ingress as given; required non-empty while PoCs are on." }
+                }
+              },
+              "network": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "What each PoC's NetworkPolicy admits: ingress only from the ingress controller's namespace, egress only to the cluster DNS and the egress proxy. Needs Kubernetes 1.22 or later (namespaces are selected by kubernetes.io/metadata.name).",
+                "properties": {
+                  "ingress_controller_namespace": { "type": ["string", "null"], "description": "The namespace the ingress controller runs in; required while PoCs are on." },
+                  "dns_namespace": { "type": "string", "description": "The cluster DNS's namespace. Default kube-system." },
+                  "dns_pod_labels": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The cluster DNS pods' labels. Default {k8s-app: kube-dns}." },
+                  "egress_proxy": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "The proxy a PoC reaches the outside through: named by namespace + pod_labels, or by cidr (exactly one form).",
+                    "properties": {
+                      "url": { "type": ["string", "null"], "description": "The http(s) URL every PoC container gets as HTTP_PROXY, HTTPS_PROXY, http_proxy and https_proxy; required while PoCs are on." },
+                      "port": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "The proxy POD's port the NetworkPolicy opens. Default 3128." },
+                      "namespace": { "type": ["string", "null"], "description": "The proxy's namespace (with pod_labels)." },
+                      "pod_labels": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The proxy pods' labels (with namespace)." },
+                      "cidr": { "type": ["string", "null"], "description": "The proxy's address range, e.g. 10.0.0.0/24 (instead of namespace + pod_labels)." },
+                      "no_proxy": { "type": "string", "description": "NO_PROXY and no_proxy of every PoC container. Default localhost,127.0.0.1,.svc,.cluster.local." }
+                    }
+                  }
+                }
+              },
+              "quota": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Each PoC namespace's ResourceQuota (Kubernetes quantities). It must hold twice each container limit and at least 2 pods, because a rolling update runs the old and the new pod side by side.",
+                "properties": {
+                  "cpu": { "type": "string", "description": "limits.cpu. Default 1." },
+                  "memory": { "type": "string", "description": "limits.memory. Default 1Gi." },
+                  "pods": { "type": "integer", "minimum": 2, "description": "pods. Default 4." },
+                  "ephemeral_storage": { "type": "string", "description": "limits.ephemeral-storage. Default 2Gi." }
+                }
+              },
+              "argo": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "The Argo CD that deploys this target's PoCs, read through its API with an AppProject role token; required while pocs.enabled is true. poc-target-install upserts the target's ApplicationSet there (Argo CD 2.8 or later).",
+                "properties": {
+                  "url": { "type": "string", "description": "The Argo CD server's https URL." },
+                  "token_secret": { "type": "string", "description": "The catalog secret holding the AppProject role JWT (argocd proj role create-token)." },
+                  "project": { "type": "string", "description": "The AppProject every PoC Application belongs to." },
+                  "namespace": { "type": "string", "description": "The namespace Argo CD runs in, where the ApplicationSet lives. Default argocd." },
+                  "destination_server": { "type": "string", "description": "The target cluster as Argo CD names it. Default https://kubernetes.default.svc." },
+                  "repo_url": { "type": "string", "description": "The source repo's URL as Argo CD's repository credential names it." },
+                  "application_set": { "type": ["string", "null"], "description": "The ApplicationSet's name; empty reads pocs-<target name>." },
+                  "token_warn_days": { "type": "integer", "minimum": 0, "description": "How many days before the token expires the probe and the studio warn: a role token expires silently and every PoC run then fails; two weeks leaves time to mint and store a new one. Default 14." },
+                  "generator_requeue_seconds": { "type": "integer", "minimum": 10, "maximum": 180, "description": "The git generator's requeueAfterSeconds: it creates and deletes Applications only when it requeues; its default 180 s would spend a third of the rollout deadline before a first deploy or a delete is seen. Default 30." }
+                }
+              },
+              "container": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "The resources of each PoC's container (Kubernetes quantities); a request is at most its limit.",
+                "properties": {
+                  "cpu_request": { "type": "string", "description": "Default 50m." },
+                  "cpu_limit": { "type": "string", "description": "Default 500m." },
+                  "memory_request": { "type": "string", "description": "Default 128Mi." },
+                  "memory_limit": { "type": "string", "description": "Default 512Mi." },
+                  "ephemeral_limit": { "type": "string", "description": "Default 256Mi." }
+                }
+              },
+              "build": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "How the source repo host's pipeline (written by the target's Install action) builds, scans and pushes a PoC image. The names and job timeouts are written into the pipeline at install: install again after changing them. Absent reads as the defaults.",
+                "properties": {
+                  "pipeline": { "type": "string", "description": "Azure DevOps: the pipeline the operator creates from the YAML the install wrote (folder\\name in a folder). Default poc-build." },
+                  "github_environment": { "type": "string", "description": "GitHub: the environment holding the push secrets; only the push job names it. Default poc-push." },
+                  "gitlab_environment": { "type": "string", "description": "GitLab: the environment the protected push variables are scoped to; only the push job declares it. Default poc-push." },
+                  "push_user_secret": { "type": "string", "description": "GitHub secret / GitLab variable holding the registry push user. Default POC_REGISTRY_USER." },
+                  "push_password_secret": { "type": "string", "description": "GitHub secret / GitLab variable holding the registry push password or token. Default POC_REGISTRY_PASSWORD." },
+                  "azure_service_connection": { "type": "string", "description": "Azure DevOps: the Docker registry service connection the push job alone uses. Default poc-registry." },
+                  "queue_minutes": { "type": "integer", "minimum": 1, "description": "How long a build may wait for an agent. Default 3." },
+                  "build_timeout_minutes": { "type": "integer", "minimum": 1, "description": "The build job's timeout. Default 12." },
+                  "scan_timeout_minutes": { "type": "integer", "minimum": 1, "description": "The scan job's timeout. Default 5." },
+                  "push_timeout_minutes": { "type": "integer", "minimum": 1, "description": "The push job's timeout. Default 3. The four minutes times 60 plus pocs.scan.timeout_seconds must stay below orchestrator.max_run_wall_time_seconds." },
+                  "poll_seconds": { "type": "integer", "minimum": 1, "description": "How often a build's state is read. Default 15." },
+                  "report_kb": { "type": "integer", "minimum": 1, "description": "The largest scan report read back, in KB. Default 1024." }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "holds": {
       "type": "object",
       "description": "How long a ticket may wait on nobody - for its model place, for sandbox capacity, for the restart after a stopped server - before its hold is reported to the admin. Read when a hold is read; nothing runs in the background. Global.",

@@ -1,0 +1,145 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-23-933dg
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "PoC secret values are stored in the f3a8d store with a scope column (installation | poc:<id>), same envelope, write rules per scope (owner + admin for poc)"
+    over: "A second store, or not storing PoC values (seal at entry, re-enter on every cert change)"
+    reason: "Operator ruling F, 2026-11-23. Not a second path: f3a8d's scope.out 'application secrets' is lifted by this operator ruling."
+  - category: Architecture
+    decider: operator
+    chose: "A provider seam writes the format on use: SealedSecret with the target's pasted certificate first, a vault write with an ExternalSecret reference later"
+    over: "Sealing at entry only"
+    reason: "Operator ruling F, 2026-11-23."
+  - category: Security
+    decider: operator
+    chose: "Secret variables keep the 6-character minimum and are masked in the runs of the PoC's project; plain variables have no minimum, are not masked and go to a ConfigMap; nobody reads a secret value back, not even its owner"
+    over: "No minimum for the poc scope (ruling F, round 2)"
+    reason: "Operator ruling round 3, 2026-11-23: a value under 6 characters cannot be masked (SecretMasker.MinimumMaskedLength), so 'masked' and 'no minimum' could not both hold; the minimum stays for secrets and plain values take the unmasked path."
+  - category: Implementation
+    decider: operator
+    chose: "Both kinds reach the container through envFrom, and a checksum annotation over both restarts the pod; 933dg exposes the checksum (PocSealResult.VariablesChecksum), c81eb renders it"
+    over: "Restarting the pod by hand or by a rollout act after a variable change"
+    reason: "Operator ruling round 3, 2026-11-23."
+  - category: Architecture
+    decider: operator
+    chose: "Variables entered at import get a poc id because the server writes the Poc row at Start (with the poc-<person> project, server-side, no run), then runs poc-variables, then queues poc-deploy"
+    over: "Queued seeds carrying secret values, or setting variables after poc-deploy is queued"
+    reason: "Operator ruling round 3, 2026-11-23 (project created server-side at import). Review 2026-11-23: there was no poc id before poc-deploy wrote the row, and queued seeds cannot carry a secret (f3a8d keeps values in memory, through IActRun only)."
+  - category: Security
+    decider: operator
+    chose: "With pull_mode pull_secret the target's pull-only token becomes a sealed dockerconfigjson in each PoC namespace through the same provider"
+    over: "A kubelet identity"
+    reason: "Operator ruling E, 2026-11-23."
+  - category: Architecture
+    chose: "Variable writes, secret and plain, are one poc-variables run through IActRun on the PoC's own project; secrets go through the existing SecretWrite with the poc scope"
+    over: "Extending the installation secret run, or writing plain values straight from the endpoint"
+    reason: "Review 2026-11-23: the secret run runs on InstallationScope.Name, so the owner could not see it, and a plain write outside a run loses attribution. SecretWrite stays the one writer of stored values; the run is the one write path for both kinds."
+  - category: Security
+    chose: "The endpoint decides who may write (PocActAccess.MayAct); the run re-checks only that the PoC belongs to the run's project"
+    over: "A per-scope permission check inside WriteSecretHandler"
+    reason: "Review 2026-11-23: the handler is in Application and receives a person string; CallerIdentity is Server-side. The run is never queued, so only the endpoint starts it; ConfigChangeRequest.MayWriteSecrets is the precedent for a server-decided grant."
+  - category: Implementation
+    chose: "Poc rows keep the name verbatim under ^[A-Z_][A-Z0-9_]*$; installation rows keep lower-casing; poc rows bind 'poc:<id>\\0<NAME>' into both associated data; the key is (Scope, Name)"
+    over: "Lower-casing every name"
+    reason: "Review 2026-11-23: lower-casing would deliver OPENAI_API_KEY to the pod as openai_api_key, and delete by name alone crossed scopes."
+  - category: Security
+    decider: coordinator
+    chose: "PoC secret values are masked ONLY in runs of the PoC's own project (poc-<person>) and their trace and record output, through an AsyncLocal RunMaskFrame that ExecutePipelineUseCase opens at run start from IPocMaskValues and SecretMasker.Apply reads beside All(); the config load skips poc rows"
+    over: "Feeding poc values into the installation-wide ISecretValues.All() (masked everywhere), or a register method on the singleton SecretMasker"
+    reason: "Coordinator ruling 2026-11-23 on the operator's intent 'masked in the runs' of the PoC. Review round 2 cut 1: All() also drives every project's model calls (MaskedPlaceholderWrite then refuses writes carrying the placeholder) and the in-process step environment scrub, so a PoC secret like 'return' or 'Production' broke runs installation-wide. SecretMasker is a process singleton; an AsyncLocal frame (the MaterializingSecrets precedent) adds per-run values without shared mutable state. Skipping poc rows in the load also keeps them out of the catalog's name-keyed maps, and makes WriteSecretHandler's reload and replica signal unnecessary for poc writes: each run reads its project's values when it starts."
+  - category: Security
+    chose: "The seal fingerprint is an HMAC-SHA256 under a key HKDF-derived from the current master key, over every input including the values themselves"
+    over: "SHA-256 over names, SetAt and key ids"
+    reason: "Review 2026-11-23: SetAt does not exist for an environment-held pull token, login_server and pull_user were missing, and key ids re-sealed every PoC on a re-wrap. Keyed, so a stored digest reveals nothing of a short value; a master-key rotation re-seals each PoC once at its next deploy, which is accepted."
+  - category: Architecture
+    chose: "The fingerprint is written only by c81eb's GitOpsCommit after its commit lands; on Unchanged with a sealed file missing on the branch, c81eb clears it and fails"
+    over: "The sealing step recording the fingerprint"
+    reason: "Review 2026-11-23: a fingerprint recorded by the sealing step answers 'unchanged' over a branch that never received the files (before c81eb ships, or after a failed commit)."
+  - category: Implementation
+    chose: "PocSealResult (ciphertext, digests, Unchanged) is a typed context value and is checkpointed"
+    over: "Excluding the sealed files from checkpoints and an 'unchanged' sentinel inside a files-typed key"
+    reason: "Review 2026-11-23: a run resumed between sealing and the commit lost its files. The content is what git will hold, so a checkpoint holds nothing more sensitive."
+  - category: Implementation
+    chose: "PocNamespace.For(poc) = 'poc-' + Poc.Name and PocSecretNames are Contracts constants defined here; the c81e series renders from them"
+    over: "Defining the namespace in the GitOps slice"
+    reason: "Review 2026-11-23: the strict-scope label '<namespace>/<name>' is bound at seal time, and this spec ships before c81eb."
+  - category: Implementation
+    chose: "Variable limits pocs.variables.max_names 64 and max_value_kb 4, in config with fields"
+    over: "No bound"
+    reason: "A Kubernetes Secret or ConfigMap holds at most 1 MiB; 64 x 4 KB stays well under it once sealed and base64-encoded."
+  - category: Scope
+    chose: "Applying a variable change at once and the detail-page panel are 2026-11-23-c81ed's; purging a PoC's poc-scope rows is 2026-11-23-c81ee's"
+    over: "Defining them here"
+    reason: "933dh is withdrawn for the c81e series (round 3); both end in GitOpsCommit or a lifecycle act, which arrive there. Until then a change applies at the PoC's next deploy."
+  - category: Architecture
+    chose: "This spec ships before c81eb: SealPocVariables renders into context and commits nothing; c81eb's GitOpsCommit commits the files"
+    over: "Shipping the seal with the GitOps commit"
+    reason: "The default pull mode needs the sealed pull secret, so the first rollout works only if sealing exists; the requires edges stay acyclic."
+  - category: Implementation
+    chose: "KubeSealer encodes EME-OAEP (SHA-256, MGF1-SHA256, label '<namespace>/<name>') itself and applies the RSA public operation with BigInteger.ModPow; the test-only decryptor uses the raw private operation; the kubeseal fixture is the guard"
+    over: "BouncyCastle as a new dependency, or RSA.Encrypt with RSAEncryptionPadding.OaepSHA256"
+    reason: "Review round 2, 2026-11-23: RSAEncryptionPadding takes no label, so RSA.Encrypt yields an empty-label ciphertext the controller rejects under strict scope; one padding scheme of about forty lines, pinned by a kubeseal-made fixture, is cheaper than a crypto library for one call."
+  - category: Implementation
+    chose: "A poc row that does not open stays out of the config load (no entry in the name-keyed unreadable map, no webhook/Slack finding); IPocVariableValues answers it and SealPocVariables refuses the variable by name"
+    over: "The installation's name-keyed unreadable map and its webhook/Slack finding"
+    reason: "Review round 2, 2026-11-23: the shared map is read for catalog secrets by name, and sealing without the variable would deploy a PoC missing it silently."
+  - category: Implementation
+    chose: "Scope is at most 32 characters and a PoC variable name at most 200 (the StoredSecrets.Name width); the pull secret's entry key is .dockerconfigjson; PlainVariablesJson is an array of {name, value, set_by, set_at}; the new routes get baseline rows"
+    over: "Leaving the bounds and shapes to the build"
+    reason: "Review round 2, 2026-11-23: the (Scope, Name) key must stay under SQL Server's 900-byte index key, and GET answers set by and set at for plain variables, which need a stored shape."
+  - category: Security
+    decider: coordinator
+    chose: "PocSealKeyFindings: a target with pull_mode pull_secret while ISecretVault.Unavailable is set is a blocking finding per target, and SealPocVariables refuses it with the same text"
+    over: "Every run re-sealing without a fingerprint"
+    reason: "This spec owns the fingerprint's key derivation from the master key; the ruling recorded in 2026-11-23-c81eb's decisions is built here so the refusal ships with the sealer."
+  - category: Implementation
+    chose: "The poc scope has two writers: the owner through the gated poc-variables run, and c81ee's poc-upload-purge installation run deleting a deleted PoC's rows"
+    over: "poc-variables as the only path into the scope"
+    reason: "c81ee's purge deletes a deleted PoC's secret rows through SecretWrite with the PoC's scope; the text named one writer while the series has two."
+  - category: Configuration
+    decider: operator
+    chose: "pocs.scan.osv_image and pocs.scan.trivy_image have verified digest-pinned defaults — ghcr.io/google/osv-scanner:v2.2.4@sha256:f7ba4be6…87c4 (933dc's digest, the v2.2.4 index re-read from ghcr.io 2026-11-24) and aquasec/trivy:0.76.2@sha256:8f6bb947…68fb (the 0.76.2 index read from Docker Hub 2026-11-24); a key is set only for an own mirror, empty means the default, no startup finding"
+    over: "Both images required while PoCs are on, with a placeholder digest for Trivy in the example"
+    reason: "Operator ruling 2026-11-23 (extra step of this spec). Trivy 0.76.2 is the newest release older than two weeks; the 0.69.4-0.69.6 tags absent from the registry are skipped. The defaults pass their own pin rules (a test pins that), the in-use value is a method so the settings document never carries it."
+  - category: Implementation
+    chose: "KubeSealer is pinned both ways against the real sealed-secrets library (pkg/crypto v0.27.1): a value its HybridEncrypt sealed is the test fixture the ported decryptor opens, and once by hand its HybridDecrypt opened a KubeSealer output and refused it under another label"
+    over: "A fixture from another OAEP implementation, or the spec's kind-cluster check only"
+    reason: "No kubeseal binary on the build host, but Go was: the library is the code kubeseal and the controller run. The private key is committed as base64 PKCS#8 DER (test-only), so no PEM key header sits in the tree. A controller in a real cluster opening a sealed file stays open."
+  - category: Implementation
+    chose: "The mask frame is opened through PocRunMasking: values read async, then a synchronous Begin on ExecutePipelineUseCase's own flow, beside runContext.BeginScope, appended to that line (the file is at its length baseline)"
+    over: "An async BeginAsync returning the scope"
+    reason: "An AsyncLocal set inside an awaited async method is reverted when that method returns, so the frame would never reach the run. The values are read only for a project named poc-…, so no other run touches the database for it; the frame is not gated on pocs.enabled — a poc- project with stored variables masks them even with PoCs off, which only masks more."
+  - category: Implementation
+    chose: "SecretMasker merges the frame's values with the installation's and orders them longest first again when the frame is not empty"
+    over: "Replacing the frame's values before the installation's"
+    reason: "A PoC value contained in an installation token, replaced first, would leave the token half-masked — the reason the masker orders longest first at all."
+  - category: Implementation
+    chose: "PocSealKeyFindings publishes under its own subsystem 'pocs-seal-key' (Field pocs.targets[<target>].registry.pull_mode), republished with the prefix findings"
+    over: "Subsystem 'pocs' as the spec text names it"
+    reason: "Each publisher clears its own subsystem before recording; sharing 'pocs' with PocPrefixFindings would let either pass erase the other's findings."
+  - category: Implementation
+    chose: "WritePocVariablesHandler neither reloads the configuration nor signals the replicas"
+    over: "store.Load + ConfigChangedSignal as the steps list's 'variables' line says"
+    reason: "scope.in is the later, reviewed text: the load holds no PoC value and every run reads its project's values when it starts, so a reload would change nothing."
+  - category: Implementation
+    chose: "The poc-variables step reports its line through an ActSlot (ContextKeys.PocVariableReport), the SecretWriteRun pattern; the route answers 200 {runId, line}, a failed run 422 with its line, a secret write without a master key 503, a rule 400, a live run 409"
+    over: "Answering the run result's generic message"
+    reason: "The pipeline's result says only 'completed'; the person needs the names and kinds that were written."
+  - category: Implementation
+    chose: "At Start the variables are checked against the rule before anything is written (their own count only); the run checks the count again against what the PoC holds. A failed variables run leaves the revision written but unclaimed, so a retried Start of the same upload writes the variables again and then queues poc-deploy handing the variables run over"
+    over: "Deleting the revision on a failed variables run, or reading a replaced PoC's names before the choice checked ownership"
+    reason: "933db's retry path finds the revision by upload id; a variable write is idempotent. Counting a replaced PoC's existing names before the choice would tell a stranger how many variables another person's PoC holds."
+  - category: Implementation
+    chose: "POST /api/config/pocs/sealed-secrets-cert/fetch also takes {pem} and only reads it, so the form shows fingerprint, notAfter and age of a pasted certificate too; its fetch has redirects off, https only, and reads at most 64 KB (a transport bound marked as no limit: a certificate is about 2 KB)"
+    over: "A second route for a pasted certificate, or parsing X.509 in the browser"
+    reason: "One route, one parser (SealingCertificate) for the form, the target rule and the sealer."
+  - category: Implementation
+    chose: "Nothing to seal (no secret variable, cluster_pulls) answers no files and no fingerprint, Unchanged when the row holds none either; sealed files are '<name>.sealed.yaml' (poc-secrets.sealed.yaml, poc-pull.sealed.yaml); the fingerprint is 'hmac-sha256:<64 hex>' (76 characters); anything to seal without a master key is refused with the master-key sentence"
+    over: "A fingerprint over an empty input set"
+    reason: "A PoC whose last secret was deleted then gets Unchanged false with no files, which tells c81eb to remove the sealed files and clear the fingerprint."
+  - category: Configuration
+    chose: "pocs.variables.max_names x max_value_kb must stay at or below 512 KB"
+    over: "Bounding each key alone"
+    reason: "The 1 MiB per object is the reason both keys exist; sealing and base64 roughly double a value, so a product above half of it could not be written."
