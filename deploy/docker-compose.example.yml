@@ -60,7 +60,7 @@ services:
       args:
         AGENTSMITH_BUILD_REVISION:
         AGENTSMITH_RELEASE_VERSION:
-    image: agentsmith-cli:${AGENTSMITH_VERSION:-0.209.0}  # x-release-please-version
+    image: agentsmith-cli:${AGENTSMITH_VERSION:-0.210.0}  # x-release-please-version
     restart: "no"
     env_file:
       - ../.env
@@ -87,7 +87,7 @@ services:
       args:
         AGENTSMITH_BUILD_REVISION:
         AGENTSMITH_RELEASE_VERSION:
-    image: agent-smith-sandbox-agent:${AGENT_VERSION:-${AGENTSMITH_VERSION:-0.209.0}}  # x-release-please-version
+    image: agent-smith-sandbox-agent:${AGENT_VERSION:-${AGENTSMITH_VERSION:-0.210.0}}  # x-release-please-version
     profiles: [build-only]
 
   redis:
@@ -139,7 +139,7 @@ services:
       args:
         AGENTSMITH_BUILD_REVISION:
         AGENTSMITH_RELEASE_VERSION:
-    image: agentsmith-server:${AGENTSMITH_VERSION:-0.209.0}  # x-release-please-version
+    image: agentsmith-server:${AGENTSMITH_VERSION:-0.210.0}  # x-release-please-version
     restart: "no"
     user: root  # the same user as the server below, which writes the same SQLite files
     env_file:
@@ -160,7 +160,7 @@ services:
       args:
         AGENTSMITH_BUILD_REVISION:
         AGENTSMITH_RELEASE_VERSION:
-    image: agentsmith-server:${AGENTSMITH_VERSION:-0.209.0}  # x-release-please-version
+    image: agentsmith-server:${AGENTSMITH_VERSION:-0.210.0}  # x-release-please-version
     restart: unless-stopped
     user: root  # docker socket access for the Docker sandbox backend (local dev)
     extra_hosts:
@@ -229,7 +229,7 @@ services:
       args:
         AGENTSMITH_BUILD_REVISION:
         AGENTSMITH_RELEASE_VERSION:
-    image: agentsmith-dashboard:${AGENTSMITH_VERSION:-0.209.0}  # x-release-please-version
+    image: agentsmith-dashboard:${AGENTSMITH_VERSION:-0.210.0}  # x-release-please-version
     profiles: [dashboard]
     restart: unless-stopped
     environment:
