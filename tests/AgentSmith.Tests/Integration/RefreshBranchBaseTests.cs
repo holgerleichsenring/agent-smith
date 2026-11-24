@@ -34,6 +34,7 @@ public sealed class RefreshBranchBaseTests
     private const string Branch = "agent-smith/77";
     private const string PrUrl = "https://x/pull/5";
     private readonly Mock<IPrCommentProvider> _comments = new();
+    private readonly List<string> _followed = []; // 2026-11-24-5ee0: what the pull request got after the push
     private readonly List<RunEvent> _events = [];
     private readonly List<BaseMergeSituation> _passes = [];
     private readonly List<(string Note, bool ConcludeOnly)> _continued = [];
@@ -54,6 +55,7 @@ public sealed class RefreshBranchBaseTests
 
         result.Message.Should().Contain("pushed").And.Contain("not built");
         fixture.AskRemote("cat-file", "-e", $"{Branch}:{GitRemoteFixture.BaseOnlyFile}").Exit.Should().Be(0);
+        _followed.Should().Equal(["resolve", "requeue"], "an unbuilt push is a push too (5ee0)");
     }
 
     [Fact]
@@ -67,6 +69,7 @@ public sealed class RefreshBranchBaseTests
 
         result.Message.Should().Contain("moved on the remote");
         fixture.AskRemote("cat-file", "-e", $"{Branch}:pushed-meanwhile.txt").Exit.Should().Be(0, "nothing is forced");
+        _followed.Should().BeEmpty("nothing was pushed (5ee0)");
     }
 
     [Fact]
@@ -86,6 +89,7 @@ public sealed class RefreshBranchBaseTests
             It.IsAny<CancellationToken>()), Times.Once);
         _events.OfType<PullRequestOutcomeEvent>().Should().ContainSingle().Which.Should().Match<PullRequestOutcomeEvent>(e =>
             e.Status == PullRequestStatuses.RefreshRefused && e.Url == PrUrl && e.Reason!.Contains(GitRemoteFixture.SharedFile));
+        _followed.Should().BeEmpty("a refusal leaves the pull request as it was (5ee0)");
     }
 
     [Fact]
@@ -101,6 +105,8 @@ public sealed class RefreshBranchBaseTests
         result.Message.Should().Contain("pushed").And.Contain("1 declared stage(s) green");
         fixture.AskRemote("show", $"{Branch}:{GitRemoteFixture.SharedFile}").Output.Should().Contain("both sides kept");
         _events.Should().BeEmpty();
+        _followed.Should().Equal(["resolve", "requeue"], "a pushed refresh resolves its refusals and queues the build (5ee0)");
+        result.Message.Should().Contain("Resolved 1 earlier refusal thread(s).").And.Contain("Queued 1 required build(s)");
     }
 
     [Fact]
@@ -450,6 +456,7 @@ public sealed class RefreshBranchBaseTests
         var host = new Mock<ISourceProvider>();
         host.As<IPrCommentProvider>().Setup(c => c.PostCommentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns<string, string, CancellationToken>((n, t, ct) => _comments.Object.PostCommentAsync(n, t, ct));
+        FollowUps(host);
         var sources = new Mock<ISourceProviderFactory>();
         sources.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(host.Object);
         var events = new Mock<IEventPublisher>();
@@ -469,6 +476,17 @@ public sealed class RefreshBranchBaseTests
         var conflicts = new BaseMergeConflictPass(stub.Object, new BaseMergeWholeness(new BaseRefreshGit()));
         return new RefreshBranchBaseHandler(new BaseRefreshMerge(TestGit.Merger, stub.Object, conflicts, verify, new BaseRefreshGit()), new GitBranchPusher(),
             AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, targets, sources.Object, events.Object,
+            new RefreshedPullRequestFollowUp(sources.Object, new PullRequestBuildRequeue(sources.Object, NullLogger<PullRequestBuildRequeue>.Instance),
+                NullLogger<RefreshedPullRequestFollowUp>.Instance),
             NullLogger<RefreshBranchBaseHandler>.Instance);
+    }
+
+    // 2026-11-24-5ee0: a host with a refusal thread and a required build that did not start.
+    private void FollowUps(Mock<ISourceProvider> host)
+    {
+        host.As<IPrMarkedThreadResolver>().Setup(r => r.ResolveMarkedThreadsAsync("5", RefreshBranchBaseHandler.Marker, It.IsAny<CancellationToken>()))
+            .Callback(() => _followed.Add("resolve")).ReturnsAsync(1);
+        host.As<AgentSmith.Contracts.Reviews.IPullRequestBuildRequeuer>().Setup(q => q.RequeueNotStartedAsync(PrUrl, It.IsAny<CancellationToken>()))
+            .Callback(() => _followed.Add("requeue")).ReturnsAsync(1);
     }
 }

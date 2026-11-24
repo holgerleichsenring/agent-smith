@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-5ee0
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "A pushed refresh resolves the refusal threads earlier refreshes posted on its pull request and queues the required builds that did not start"
+    over: "Leaving both to a person, as on 2026-11-24 when the operator merged by hand"
+    reason: "Operator brief: a refresh that ends green must leave the pull request mergeable without hand work. No new outcome kind or trigger: the push already happens, the re-queue is the existing PullRequestBuildRequeue."
+  - category: Implementation
+    decider: claude
+    chose: "Resolve (Azure status Fixed) rather than delete the refusal"
+    over: "DeleteCommentsByMarkerAsync (f147), which already deletes marked comments"
+    reason: "The refusal is the history of why the branch sat; resolving keeps it readable and is what the 'comments must be resolved' policy asks for. Deleting is the pr-review re-run's act on its own superseded review, a different notice."
+  - category: Implementation
+    decider: claude
+    chose: "Match on RefreshBranchBaseHandler.Marker, the token's own thread, first comment"
+    over: "A new marker, or matching the refusal text"
+    reason: "Every refusal ever posted already starts with the marker (it shipped with 023fb), so no text match is needed; only the token's own thread, as f147 reads a marker, since a marker is text anyone can paste."
+  - category: Implementation
+    decider: claude
+    chose: "IPrMarkedThreadResolver implemented by Azure Repos only; GitLab and GitHub skip it"
+    over: "A resolve on every host"
+    reason: "GitLab posts the refusal as a plain MR note (POST /notes), which is not resolvable and never blocks 'all threads resolved'; a GitHub issue comment cannot be resolved and blocks nothing. A call there would be a no-op at best and an API error at worst."
+  - category: Implementation
+    decider: claude
+    chose: "Re-queue through PullRequestBuildRequeue (Azure: the policy evaluation's re-queue)"
+    over: "IPullRequestCiTrigger (f9c5d), which queues free-standing builds"
+    reason: "No second path; and on a policy-covered target a free-standing build does not satisfy the policy — the live evidence (evaluation queued, buildId 0) needs the evaluation itself re-queued, which is what AzureReposBuildRequeue does. Expired evaluations already read as not started and are re-queued the same way."
+  - category: Scope
+    decider: claude
+    chose: "No draft lift in this spec; asked of the operator"
+    over: "Lifting a 'Verification red' draft after a green refresh (built, then removed after review)"
+    reason: "Review: a red declared stage at the end of a spec fails the step ('Run failed') or marks the spec Failed (a partial sequence, which must stay a draft); the 'Verification red' banner is reached only for an unaccounted run with no failed step — for example ratified criteria and no account — and a green refresh build says nothing about that. Lifting it would let on_ci_green merge a run nobody accounted for. Which draft reason a green refresh may lift is the operator's call; follow-up 'refresh draft lift'."
+  - category: Scope
+    decider: claude
+    chose: "The CI loop's re-queue of a not-started required build is a follow-up ('ci-loop requeue not-started builds')"
+    over: "Re-queuing from CiGreenMerge in this spec"
+    reason: "Same host mechanism, different trigger: the loop is the server, which writes nothing to a host (ServerWritesRatchetTests), so it needs a run of its own. It also closes the race this spec leaves: a re-queue right after the push can read the old head before Azure resets its evaluation."
+  - category: Review
+    decider: claude
+    chose: "PullRequestBuildRequeue catches a host call's own timeout (OperationCanceledException while the run is not cancelled); AzureReposMarkedThreads resolves thread by thread"
+    over: "Letting either escape"
+    reason: "Diff review: a TaskCanceledException from an HttpClient timeout would fail a run whose push already happened; one refused thread update stopped the rest."

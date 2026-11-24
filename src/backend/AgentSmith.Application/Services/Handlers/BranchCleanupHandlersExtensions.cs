@@ -13,5 +13,6 @@ public static class BranchCleanupHandlersExtensions
             .AddTransient<ICommandHandler<RefreshBranchBaseContext>, RefreshBranchBaseHandler>() // 2026-11-17-023fb
             .AddTransient<BaseRefreshMerge>().AddTransient<BaseMergeVerify>() // 2026-11-24-6811c
             .AddTransient<IBaseMergeMaster, BaseMergeMaster>()
-            .AddTransient<BaseMergeConflictPass>().AddTransient<BaseMergeWholeness>(); // 2026-11-24-9dc0a
+            .AddTransient<BaseMergeConflictPass>().AddTransient<BaseMergeWholeness>() // 2026-11-24-9dc0a
+            .AddTransient<RefreshedPullRequestFollowUp>(); // 2026-11-24-5ee0
 }
