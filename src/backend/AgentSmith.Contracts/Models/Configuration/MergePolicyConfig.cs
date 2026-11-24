@@ -18,6 +18,8 @@ public sealed class MergePolicyConfig
     /// <summary>
     /// 2026-11-17-023fb: when a ticket of this project lands, merge its base into every other open agent-smith pull
     /// request on the same repository and base. Off by default: it pushes onto pull requests people may be reviewing.
+    /// 2026-11-24-297b: a pull request its host says conflicts is refreshed without it (it cannot merge anyway); this
+    /// adds the conflict-free ones, to keep their branches current.
     /// </summary>
     public bool RefreshOpenPullRequests { get; set; }
 

@@ -234,8 +234,8 @@ export const configMessages = {
   },
   "config.merge.refreshOpen.label": { en: "refresh open pull requests", de: "Offene Pull Requests auffrischen" },
   "config.merge.refreshOpen.help": {
-    en: "when a ticket lands, merge its base into the other open agent-smith pull requests on that repository and base",
-    de: "wenn ein Ticket landet, dessen Base in die anderen offenen agent-smith Pull Requests auf diesem Repository und dieser Base mergen",
+    en: "a pull request the host says conflicts is brought up to date anyway; this also merges a landed ticket's base into the conflict-free open agent-smith pull requests on that repository and base, to keep their branches current",
+    de: "ein Pull Request mit Konflikt laut Host wird ohnehin aktualisiert; dies mergt zusätzlich die Base eines gelandeten Tickets in die konfliktfreien offenen agent-smith Pull Requests auf diesem Repository und dieser Base, damit ihre Branches aktuell bleiben",
   },
 
   // --- project pipeline: how a ticket is routed ---

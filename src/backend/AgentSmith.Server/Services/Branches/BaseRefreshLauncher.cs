@@ -19,7 +19,7 @@ public sealed class BaseRefreshLauncher(
     InitRunRepository runs, QueuedRunDispatch dispatch, TimeProvider timeProvider, ILogger<BaseRefreshLauncher> logger)
 {
     public async Task<string> LaunchAsync(
-        ResolvedProject project, RepoConnection repo, PrReviewRecordView pullRequest, string baseBranch, CancellationToken ct)
+        ResolvedProject project, RepoConnection repo, RefreshedPullRequest pullRequest, string baseBranch, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(repo);
@@ -38,7 +38,7 @@ public sealed class BaseRefreshLauncher(
 
     /// <summary>The run's seeds — strings only, so the request survives the queue.</summary>
     public static Dictionary<string, object> Seeds(
-        RepoConnection repo, string branch, PrReviewRecordView pullRequest, string baseBranch) => new()
+        RepoConnection repo, string branch, RefreshedPullRequest pullRequest, string baseBranch) => new()
     {
         [ContextKeys.SourceOverrideRepo] = repo.Name,
         [ContextKeys.CheckoutBranch] = branch,
@@ -46,4 +46,15 @@ public sealed class BaseRefreshLauncher(
         [ContextKeys.BaseRefreshPrNumber] = pullRequest.Number,
         [ContextKeys.BaseRefreshBaseBranch] = baseBranch,
     };
+}
+
+/// <summary>2026-11-24-297b: the pull request a refresh-base run brings up to date — what the launch needs of its record, so a
+/// read that has not been written yet can start one.</summary>
+public sealed record RefreshedPullRequest(string Url, string Number, string TicketId)
+{
+    public static RefreshedPullRequest Of(PrReviewRecordView record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        return new RefreshedPullRequest(record.Url, record.Number, record.TicketId);
+    }
 }

@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-297b
+goal: "A pull request its host says conflicts with its base is brought up to date by the refresh-base run on its own, in any project, once per conflict on a head."
+
+applies_to: "default (PR record read, refresh-base trigger, landing refresh, PR record copy) + dashboard (merge settings)"
+
+requires: [2026-11-24-6811a, 2026-11-24-6811c, 2026-11-24-6811d, 2026-11-17-023fb, 2026-11-23-0219]
+
+facts:
+  - claim: "The record read stores the host's conflict verdict; nothing starts a refresh from it."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:82-83"
+  - claim: "The only refresh-base trigger is a merged landing on a project with merge.refresh_open_pull_requests, which refreshes every free open sibling and does not look at a refresh already at work."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/SiblingBaseRefresh.cs:29-37,60-67"
+  - claim: "A decide hold pr_conflict is read for a conflicting pull request unless a refresh is in flight or refused."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketHoldReader.cs:62-63"
+  - claim: "An undecided conflict read keeps the stored verdict even after the head moved, so a refresh that pushed keeps showing the old head's conflict until the host decides again."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordCopy.cs:44-51"
+  - claim: "An expired build-policy evaluation reads not_started and is re-queued only by pipeline steps (CommitAndPR, spec-only PRs, retarget, a person's merge); Azure itself re-queues an automatic policy that expires immediately on a target update."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiPolicies.cs:42-59, src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:25,55, learn.microsoft.com/azure/devops/repos/git/branch-policies (build expiration)"
+
+scope:
+  in: >-
+    ConflictBaseRefresh (Server/Services/Branches): PrReviewRecordRefresh calls it for an open pull request whose read says
+    the host decided it conflicts, before the record is written, so no page reads the conflict without the queued refresh.
+    It launches the refresh-base run through BaseRefreshLauncher when the ticket is free (RefreshableTicket, extracted from
+    SiblingBaseRefresh: not closed, leased, queued or waiting) and no refresh-base run for that URL is in flight or started
+    since this conflict began on this head (conflictsSince: the stored ConflictsAt when the head did not move, else now).
+    The base comes from the host (ReadPullRequestBaseAsync). PullRequestMergeSaidReader.NewestRefreshesAsync gives the newest
+    refresh-base run per URL of any outcome. PrReviewRecordCopy: a head move restarts the conflict — an undecided read clears
+    it, a conflicting read stamps a new ConflictsAt. SiblingBaseRefresh: a landing refreshes the siblings whose record
+    conflicts in every project (the base moved, so a refused refresh is tried again), every free sibling only with
+    merge.refresh_open_pull_requests, and none with a refresh in flight. BaseRefreshLauncher takes a RefreshedPullRequest
+    (url, number, ticket). Dashboard: refreshOpen help says conflicts are refreshed anyway; the CI fix attempts field shows
+    for every mode.
+  out: >-
+    Re-queuing an expired build after the target moved from the CI loop (a named follow-up: the CI loop re-queues a
+    not-started required build through a pipeline step). Tracking the base's sha. A base moved outside agent-smith while a
+    refusal stands is lifted by a push or the ticket's rework, as before.
+
+steps:
+  - id: reader
+    action: "PullRequestRefreshTried + PullRequestMergeSaidReader.NewestRefreshesAsync sharing the newest-row query with RefreshesAsync."
+  - id: launcher
+    action: "RefreshedPullRequest; BaseRefreshLauncher.LaunchAsync takes it; RefreshableTicket extracted."
+  - id: conflict
+    action: "ConflictBaseRefresh.Due (pure) and LaunchIfDueAsync; PrReviewRecordRefresh calls it before the write; DI."
+  - id: copy
+    action: "PrReviewRecordCopy restarts the conflict on a head move."
+  - id: landing
+    action: "SiblingBaseRefresh: conflicting siblings without the setting, in-flight refreshes skipped."
+  - id: dashboard
+    action: "refreshOpen help en/de; ciFixAttempts always shown; tests."
+
+tests:
+  - "ConflictBaseRefresh.Due: no refresh yet is due; one in flight or started after the conflict began is not; one started before a head move is."
+  - "PrReviewRecordRefresh: a conflicting read launches one refresh-base run whose queued row names the PR; a second read of the same conflict launches none; a clean read launches none; a ticket at work launches none."
+  - "PrReviewRecordCopy: a head move with an undecided read clears the conflict; with a conflicting read restamps ConflictsAt."
+  - "SiblingBaseRefresh: without the setting only a conflicting sibling is chosen; a sibling with a refresh in flight is skipped."
+  - "PullRequestMergeSaidReader.NewestRefreshesAsync: a successful run is answered with its start."
+  - "TicketHoldReader: a conflicting PR with a queued refresh holds refreshing, not pr_conflict (6811d, kept green)."
+  - "Dashboard: the CI fix attempts field shows for a manual project."
+
+done:
+  - "Build, affected backend and dashboard tests green; the spec gate passed."
