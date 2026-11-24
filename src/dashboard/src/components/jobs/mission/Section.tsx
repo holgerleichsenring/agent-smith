@@ -15,6 +15,7 @@ export function Section({
   action,
   alwaysShow,
   emptyLine,
+  after,
   children,
 }: {
   title: string;
@@ -29,6 +30,8 @@ export function Section({
   action?: ReactNode;
   alwaysShow?: boolean;
   emptyLine?: string;
+  /** Rendered below the rows or the empty line alike (Finished: Load more, 2026-11-24-35ff). */
+  after?: ReactNode;
   children: ReactNode;
 }) {
   if (count === 0 && !alwaysShow) return null;
@@ -44,6 +47,7 @@ export function Section({
       </div>
       <div style={{ height: 14 }} />
       {count === 0 ? <div className="msub">{emptyLine}</div> : children}
+      {after}
     </section>
   );
 }

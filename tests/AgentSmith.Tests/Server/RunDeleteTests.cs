@@ -222,7 +222,7 @@ public sealed class RunDeleteTests : IDisposable
             "2026-07-14T10-00-00-e5f6", "waiting", ["repo-a"],
             InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
-        var deleted = await NewDeleter().DeleteTerminalAsync(ProjectScope.Everything, CancellationToken.None);
+        var deleted = await NewDeleter().DeleteTerminalAsync(ProjectScope.Everything, includeSystem: true, CancellationToken.None);
 
         deleted.Should().Be(1);
         using var db = new AgentSmithDbContext(Options());
@@ -243,11 +243,34 @@ public sealed class RunDeleteTests : IDisposable
             await ctx.SaveChangesAsync();
         }
 
-        var deleted = await NewDeleter().DeleteTerminalAsync(ProjectScope.Of(["p2"]), CancellationToken.None);
+        var deleted = await NewDeleter().DeleteTerminalAsync(ProjectScope.Of(["p2"]), includeSystem: true, CancellationToken.None);
 
         deleted.Should().Be(1);
         using var db = new AgentSmithDbContext(Options());
         db.Runs.Select(r => r.Id).Should().Equal("run-p1");
+    }
+
+    // 2026-11-24-35ff: with system runs hidden the list's clear finished leaves the ones it does not show.
+    [Fact]
+    public async Task BulkDelete_WithoutSystem_LeavesFinishedSystemRuns()
+    {
+        await SeedTerminalRunWithSatellitesAsync("run-work");
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.Runs.Add(new Run
+            {
+                Id = "run-beat", Project = "p1", Pipeline = AgentSmith.Contracts.Commands.PipelinePresets.SeriesRunName,
+                TicketId = "", Platform = "github", Status = "failed",
+                StartedAt = DateTimeOffset.UtcNow.AddMinutes(-5), FinishedAt = DateTimeOffset.UtcNow,
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        var deleted = await NewDeleter().DeleteTerminalAsync(ProjectScope.Everything, includeSystem: false, CancellationToken.None);
+
+        deleted.Should().Be(1);
+        using var db = new AgentSmithDbContext(Options());
+        db.Runs.Select(r => r.Id).Should().Equal("run-beat");
     }
 
     [Fact]
@@ -261,7 +284,7 @@ public sealed class RunDeleteTests : IDisposable
             await ctx.SaveChangesAsync();
         }
 
-        await NewDeleter().DeleteTerminalAsync(ProjectScope.Everything, CancellationToken.None);
+        await NewDeleter().DeleteTerminalAsync(ProjectScope.Everything, includeSystem: true, CancellationToken.None);
 
         using var db = new AgentSmithDbContext(Options());
         db.RunCriterionJudgements.Select(j => j.RunId).Should().Equal("run-running");
