@@ -49,8 +49,10 @@ scope:
     publishes PullRequestOutcomeEvent(refresh_refused, reason). PullRequestStatuses.RefreshRefused, after merge-green's
     completion_refused: a pull request exists (HasPullRequest), waits for a person (NeedsAHuman); dashboard status union,
     prStatus label, i18n. Sizing: PipelinePresets.BuildsInSandbox (code, refresh-base) replaces ExpectsCodeChanges in
-    SandboxResourceResolver only. CommandModelUse: RefreshBranchBase is a Loop on base-merge-master; its step class
-    becomes Milestone.
+    SandboxResourceResolver only. The refresh-base preset runs SetupRegistryAuth after CheckoutSource, since a build needs
+    private-feed credentials. CommandModelUse: RefreshBranchBase is a Loop on base-merge-master; its step class becomes
+    Milestone. The merge commit after a resolution is BaseMergeResolutionCommit's (git via BaseRefreshGit), never the
+    master's.
   out: >-
     The trigger and merge.refresh_open_pull_requests (unchanged; an operator question). Showing the outcome on the series
     and ticket pages (2026-11-24-6811d). A rework run's checkout conflict, which still stops the run: 2026-11-17-023fc

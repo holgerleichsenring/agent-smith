@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-6811c
+
+decisions:
+  - category: Architecture
+    chose: "Resolve inside the refresh-base run with an embedded master (base-merge-master) run by IAgenticLoopRunner over FilesystemToolHost, as the series check runs its master"
+    over: "Starting the ticket's coding run for a conflict (planned 2026-11-17-023fc), or a new LLM path"
+    reason: "The refresh run already holds the sandbox with the merge in progress; a coding run re-derives and re-verifies a finished, reviewed set. The embedded-master shape exists (0207d) and changes with the server. 023fc keeps the rework-checkout half."
+  - category: Architecture
+    chose: "Build and test every merged tree — clean, united or resolved — with the declared verify stages before the push"
+    over: "Pushing a clean merge unchecked"
+    reason: "The production failure was a clean auto-merge that duplicated a FrameworkReference (NETSDK1087); only a build catches it."
+  - category: Architecture
+    chose: "A red stage goes back to the same master under StageRepairProgress, extracted from StageRepair, plus the cost budget"
+    over: "A second repair rule with its own count, or no repair (hand back on every red)"
+    reason: "Review round 1: one repair rule, not a copy; no new limit. The operator wants a person only when it truly cannot."
+  - category: Implementation
+    chose: "The merge commit is made by the merger (BaseMergeResolutionCommit) only when nothing is unmerged and no touched path has a marker; a repair is amended with exactly the paths the master's file tools wrote"
+    over: "Trusting the master's own commit, or git add -A"
+    reason: "Review rounds 1 and 2: a model's claim never ends a merge, and stage outputs must not reach the branch."
+  - category: Implementation
+    chose: "A secondary sandbox computes the same git merge-tree of the old head and the base; only the primary's change from that tree to its commit crosses as an encoded diff"
+    over: "Spreading the whole merge as a diff, or SandboxTreeSync"
+    reason: "Review round 2: the landed base can pass SandboxTreeGit's 1,000,000-character limit, and SandboxTreeSync pushes through the checkpointer before verification."
+  - category: Implementation
+    chose: "PipelinePresets.BuildsInSandbox (code, refresh-base) for sandbox sizing only; the refresh-base preset gains SetupRegistryAuth"
+    over: "Adding refresh-base to ExpectsCodeChanges"
+    reason: "Review round 1: the light profile (1Gi) cannot build; ExpectsCodeChanges also drives master re-engagement. A build of a private-feed repository needs the staged credentials a code run gets."
+  - category: Implementation
+    chose: "PullRequestStatuses.RefreshRefused on the run's own pull-request outcome (after merge-green's completion_refused): a pull request exists and waits for a person; dashboard vocabulary and label added"
+    over: "Only the PR comment"
+    reason: "The hold (6811d) needs a stored fact; an unknown status would read as 'opened' on the Pull Requests page."
+  - category: Scope
+    chose: "No declared stage: a clean or united merge pushes as before and says it was not built; a master-resolved one is refused"
+    over: "Inferring build commands (needs AnalyzeCode's project maps, which this run does not have)"
+    reason: "A model's resolution is never pushed unchecked; the pre-existing clean refresh behaviour is kept."
+  - category: Scope
+    chose: "The trigger stays merge.refresh_open_pull_requests (default false); whether series pull requests refresh regardless or the default flips is an operator question"
+    over: "Deciding it here"
+    reason: "023fb chose default off because a push can dismiss approvals and reset votes; reversing that is the operator's call."
+  - category: Review
+    chose: "Round 1 REFUSE (sizing, second repair path, clean-merge red case, status vocabulary), rewritten; round 2 BUILD WITH CUTS (secondary spread, amend paths), applied"
+    over: "Building the first draft"
+    reason: "Independent adversarial reviews of the series before any code."

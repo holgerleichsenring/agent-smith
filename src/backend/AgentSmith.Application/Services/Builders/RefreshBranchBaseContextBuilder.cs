@@ -13,7 +13,8 @@ public sealed class RefreshBranchBaseContextBuilder : IContextBuilder
         new RefreshBranchBaseContext(
             pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var repos) ? repos ?? [] : [],
             Text(pipeline, ContextKeys.CheckoutBranch), Text(pipeline, ContextKeys.BaseRefreshPrUrl),
-            Text(pipeline, ContextKeys.BaseRefreshPrNumber), Text(pipeline, ContextKeys.BaseRefreshBaseBranch), pipeline);
+            Text(pipeline, ContextKeys.BaseRefreshPrNumber), Text(pipeline, ContextKeys.BaseRefreshBaseBranch), pipeline)
+        { Project = project }; // 2026-11-24-6811c
 
     private static string? Text(PipelineContext pipeline, string key) =>
         pipeline.TryGet<object>(key, out var value) ? value?.ToString() : null;

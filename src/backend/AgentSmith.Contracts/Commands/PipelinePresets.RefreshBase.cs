@@ -11,6 +11,7 @@ public static partial class PipelinePresets
     [
         CommandNames.LoadCatalog, // p0205: every preset binds the skill catalog first
         CommandNames.CheckoutSource,
+        CommandNames.SetupRegistryAuth, // 2026-11-24-6811c: the merge is built and tested, so private feeds need their credentials
         CommandNames.RefreshBranchBase,
     ];
 }

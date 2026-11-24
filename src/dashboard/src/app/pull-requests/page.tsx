@@ -199,7 +199,7 @@ function OpenedRow({ pr }: { pr: PullRequest }) {
       </div>
 
       <span
-        className={cn("pill", pr.status === "completion_refused" ? "q" : "ok")}
+        className={cn("pill", pr.status === "completion_refused" || pr.status === "refresh_refused" ? "q" : "ok")}
         data-testid={`pr-row-${pr.runId}-${pr.repo}-status`}
       >
         {pullRequestStatusLabel(pr.status, t)}
