@@ -11,6 +11,29 @@ namespace AgentSmith.Application.Services.Holds;
 /// </summary>
 public static class TicketPullRequestHold
 {
+    /// <summary>2026-11-24-6811d: a refresh-base run is at work on an open pull request of a ticket not at work itself.</summary>
+    public static bool Refreshing(TicketHoldFacts facts)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        return !TicketHoldOf.AtWork(facts) && facts.OpenPullRequests?.Refresh is { InFlight: true };
+    }
+
+    /// <summary>2026-11-24-6811d: the refresh run's wait — nobody's, since it started.</summary>
+    public static TicketHold? RefreshWait(TicketHoldFacts facts) =>
+        Refreshing(facts)
+            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody, TicketHoldCases.Refreshing, null, facts.OpenPullRequests!.Refresh!.At)
+            : null;
+
+    /// <summary>2026-11-24-6811d: the newest refresh left the branch unchanged and its reason still stands — a person decides,
+    /// the reason quoted as the hold's detail.</summary>
+    public static TicketHold? RefreshRefused(TicketHoldFacts facts)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        if (TicketHoldOf.AtWork(facts) || facts.OpenPullRequests is not { Refresh: { InFlight: false } said } open) return null;
+        return TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.RefreshRefused, Act(open), said.At)
+            with { Detail = new AgentSmith.Domain.Models.EndDetail(said.Reason ?? string.Empty, []) };
+    }
+
     /// <summary>2026-11-24-6811a: an open pull request of a ticket not at work that its host says conflicts with its base —
     /// a person decides, whatever its CI says, since nothing merges it.</summary>
     public static TicketHold? Conflict(TicketHoldFacts facts)
@@ -21,11 +44,12 @@ public static class TicketPullRequestHold
             : null;
     }
 
-    /// <summary>2026-11-24-6811a: an open pull request conflicts with its base: no merge is offered.</summary>
-    public static bool Conflicts(TicketHoldFacts facts)
+    /// <summary>2026-11-24-6811a: an open pull request conflicts with its base, or 6811d: a refresh works on one — no merge is
+    /// offered.</summary>
+    public static bool Blocks(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        return facts.OpenPullRequests is { Conflicts: true };
+        return facts.OpenPullRequests is { Conflicts: true } || Refreshing(facts);
     }
 
     /// <summary>Red CI on an open pull request of a ticket that is not at work.</summary>

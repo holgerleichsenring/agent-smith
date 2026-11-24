@@ -33,9 +33,11 @@ public sealed class InitRunRepository(IUnitOfWork unitOfWork, TimeProvider timeP
     /// <summary>Writes the pre-start row so the launch is immediately visible and
     /// immediately linkable. TicketId stays empty — this run has no ticket and none
     /// is fabricated for it.</summary>
+    /// <param name="prUrls">2026-11-24-6811d: the pull request a repo's row is about, by repo name — a refresh-base run is
+    /// read per pull request while it is still queued.</param>
     public async Task CreateQueuedRunAsync(
         string runId, string project, string pipeline, IReadOnlyList<string> repos,
-        string summary, CancellationToken ct)
+        string summary, CancellationToken ct, IReadOnlyDictionary<string, string>? prUrls = null)
     {
         unitOfWork.Add(new Run
         {
@@ -44,7 +46,7 @@ public sealed class InitRunRepository(IUnitOfWork unitOfWork, TimeProvider timeP
             StartedAt = timeProvider.GetUtcNow(),
         });
         foreach (var repo in repos)
-            unitOfWork.Add(new RunRepo { RunId = runId, RepoName = repo });
+            unitOfWork.Add(new RunRepo { RunId = runId, RepoName = repo, PrUrl = prUrls?.GetValueOrDefault(repo) });
         await unitOfWork.SaveChangesAsync(ct);
     }
 }

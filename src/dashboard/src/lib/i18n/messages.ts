@@ -1104,6 +1104,21 @@ export const coreMessages = {
     en: "Its pull request conflicts with its base branch, so it cannot merge. Resolve the conflict on the branch, or rework the ticket.",
     de: "Sein Pull Request hat Konflikte mit seinem Basis-Branch und kann nicht gemergt werden. Löse den Konflikt auf dem Branch oder überarbeite das Ticket.",
   },
+  // 2026-11-24-6811d: a refresh-base run at work on the pull request, and one that left the branch unchanged.
+  "hold.sentence.refreshing": {
+    en: "Its pull request is being brought up to date with its base. Nothing for you to do.",
+    de: "Sein Pull Request wird auf den Stand seines Basis-Branches gebracht. Für dich gibt es nichts zu tun.",
+  },
+  "hold.wait.refreshing": { en: "Being brought up to date with its base since {at}", de: "Wird seit {at} auf den Stand seiner Basis gebracht" },
+  "hold.sentence.refresh_refused": {
+    en: "Bringing its pull request up to date with its base did not work; the branch is unchanged.",
+    de: "Sein Pull Request ließ sich nicht auf den Stand seiner Basis bringen; der Branch ist unverändert.",
+  },
+  "hold.sentence.refresh_refused_why": {
+    en: "Bringing its pull request up to date did not work, and the branch is unchanged: {why}",
+    de: "Sein Pull Request ließ sich nicht aktualisieren, der Branch ist unverändert: {why}",
+  },
+  "hold.title.refresh_refused": { en: "Your move: the base could not be merged in", de: "Du bist dran: die Basis ließ sich nicht einmergen" },
   "hold.title.pr_conflict": { en: "Your move: the pull request conflicts", de: "Du bist dran: der Pull Request hat Konflikte" },
   "hold.act.pull_request": { en: "Open the pull request", de: "Pull Request öffnen" },
   "hold.act.pull_requests": { en: "Open the pull requests below", de: "Öffne die Pull Requests unten" },

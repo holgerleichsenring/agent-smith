@@ -30,6 +30,10 @@ public sealed class CiGreenMerge(
         if (awaited.Any(a => a.Record?.Ci is not { } ci || !Green(a.Record, ci, project)) || awaited.All(a => Acted(a.Record!)))
             return false;
         if (await leases.GetByTicketAsync(project.Name, new TicketId(ticketId), ct) is not null) return false;
+        // 2026-11-24-6811d: a refresh-base run at work on one of them merges the base first; the head it pushes is merged then.
+        var refreshes = await scope.ServiceProvider.GetRequiredService<PullRequestMergeSaidReader>()
+            .RefreshesAsync([.. awaited.Select(a => a.Url)], ct);
+        if (refreshes.Values.Any(r => r.InFlight)) return false;
         var request = new CiGreenMergeRequest(ticketId, attempt.RunId, TicketBranchNamer.Compose(new TicketId(ticketId)).Value,
             [.. awaited.Select(a => new CiGreenPullRequest(a.Repo, a.Url))]);
         if (!await run.RunAsync(project, request, ct)) return false;

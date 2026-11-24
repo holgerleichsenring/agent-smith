@@ -18,4 +18,8 @@ public sealed record TicketOpenPullRequests(string? Ci, DateTimeOffset? CiSince)
     public bool Conflicts { get; init; }
 
     public DateTimeOffset? ConflictsSince { get; init; }
+
+    /// <summary>2026-11-24-6811d: a refresh-base run at work on one of them, or the newest one's refusal still standing (its
+    /// head has not moved since); null when neither.</summary>
+    public AgentSmith.Contracts.Runs.PullRequestRefreshSaid? Refresh { get; init; }
 }

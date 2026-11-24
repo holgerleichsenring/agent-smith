@@ -65,6 +65,9 @@ describe("yourMove", () => {
     const conflict = moveOf("needs_you", attempt(), { pullRequests: [pr({ state: "open" })],
       hold: hold("pr_conflict", { act: { kind: "pull_request", target: "https://example.test/pr/809" } }) });
     expect(conflict).toMatchObject({ tone: "bad", title: "Your move: the pull request conflicts", why: false });
+    // 2026-11-24-6811d: a refused refresh is titled as one.
+    const refused = moveOf("needs_you", attempt(), { pullRequests: [pr({ state: "open" })], hold: hold("refresh_refused") });
+    expect(refused).toMatchObject({ tone: "bad", title: "Your move: the base could not be merged in", why: false });
   });
 
   it("yourMove_AMergeAndAChangedText_AreAPersonsMove", () => {

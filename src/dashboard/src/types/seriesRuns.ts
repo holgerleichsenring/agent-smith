@@ -50,6 +50,8 @@ export interface SeriesRunPullRequest {
   isDraft?: boolean;
   /** 2026-11-24-6811a: the host said last that it conflicts with its base. */
   hasConflicts?: boolean;
+  /** 2026-11-24-6811d: the refresh-base run at work on it. */
+  refreshRunId?: string | null;
   /** 2026-11-23-0219: the newest merge run's refusal or armed auto-complete on it; null when none said one. */
   mergeSaid?: SeriesMergeSaid | null;
 }

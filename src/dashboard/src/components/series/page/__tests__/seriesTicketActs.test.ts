@@ -121,4 +121,14 @@ describe("seriesNodeSentence", () => {
     expect(prAct?.menuOnly).toBeFalsy();
     expect(seriesNodeKind(ticket, detail)).toBe("failed");
   });
+  // 2026-11-24-6811d: a ticket being brought up to date is at work — no Merge — and its run link opens the refresh run.
+  it("SeriesTicketActs_Refreshing_OffersNoMerge_AndLinksTheRefreshRun", () => {
+    const pr = { repo: "server", number: "9", url: "https://git.test/server/pull/9", state: "open", ci: "green", ciFailure: null,
+      ciLog: null, target: null, refreshRunId: "rf-1" };
+    const { detail, ticket } = with_("50", { pullRequests: [pr], hold: hold("refreshing"), status: "success", runId: "code-1" });
+    const acts = seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), false, t);
+    expect(seriesNodeKind(ticket, detail)).toBe("running");
+    expect(acts.some((a) => a.kind === "merge")).toBe(false);
+    expect(acts.find((a) => a.id === "run")?.href).toContain("rf-1");
+  });
 });

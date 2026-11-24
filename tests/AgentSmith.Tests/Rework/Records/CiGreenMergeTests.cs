@@ -58,6 +58,25 @@ public sealed class CiGreenMergeTests : IDisposable
         _launched.Should().BeEmpty();
     }
 
+    // 2026-11-24-6811d: a refresh-base run at work on the pull request merges the base first; its pushed head is merged then.
+    [Fact]
+    public async Task ARefreshAtWorkOnThePullRequest_LaunchesNothing()
+    {
+        Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await using (var ctx = _h.Store.Context())
+        {
+            ctx.Add(new Run { Id = "rf-1", Project = "p", TicketId = string.Empty, Pipeline = "refresh-base", Status = "running",
+                StartedAt = PrReviewRefreshHarness.T });
+            ctx.Add(new RunRepo { RunId = "rf-1", RepoName = "api", PrUrl = PrReviewRefreshHarness.Pr1 });
+            await ctx.SaveChangesAsync();
+        }
+
+        await RefreshAsync();
+
+        _launched.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task ARefreshWithoutTheCiLoop_LaunchesNothing_SoAnActsRequestNeverWaitsOnAPipeline()
     {
