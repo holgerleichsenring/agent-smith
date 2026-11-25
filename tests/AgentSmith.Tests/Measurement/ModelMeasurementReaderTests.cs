@@ -105,7 +105,8 @@ public sealed class ModelMeasurementReaderTests : IDisposable
         services.AddSingleton<ISeriesRunStore, SeriesRunRepository>().AddTransient<SeriesRunOrder>();
         services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>();
         services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
-            .AddScoped<SeriesRunDetailReader>().AddScoped<ModelMeasurementReader>();
+            .AddScoped<SeriesRunDetailReader>().AddScoped<SeriesParkedQuestion>().AddScoped<SeriesStatusReader>()
+            .AddScoped<ModelMeasurementReader>();
         services.AddTransient<SeriesRunHolds>();
     }
 
