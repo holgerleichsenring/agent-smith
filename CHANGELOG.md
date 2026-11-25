@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.223.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.222.0...v0.223.0) (2026-11-25)
+
+
+### Features
+
+* **series-master:** lead with hints; shared workspace wording; skills v5.46.1 (2026-11-25-9992l) ([ba53935](https://github.com/holgerleichsenring/agent-smith/commit/ba53935791caa13f5803cd94d2aa240e92fcb579))
+* **series-master:** the series master leads with hints — merge order, review, parallelism, filing a missing prerequisite itself; ensure_repo_sandbox speaks of the shared workspace; skills v5.46.1 pinned (2026-11-25-9992l) ([dc0bbc2](https://github.com/holgerleichsenring/agent-smith/commit/dc0bbc2c1336cad0ab1e354387da48698e2c951b))
+
 ## [0.222.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.221.0...v0.222.0) (2026-11-25)
 
 
