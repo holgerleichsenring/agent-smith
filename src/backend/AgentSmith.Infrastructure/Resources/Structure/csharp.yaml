@@ -6,6 +6,14 @@ library: tree-sitter-c-sharp
 symbol: tree_sitter_c_sharp
 attribute_kinds: [attribute_list]
 containers: {}
+# 2026-11-24-8756: what a formatter puts on lines of its own — a block's braces and each
+# statement or member (a switch section's statements, a match arm) — so a unit's count
+# includes the breaks joined lines leave out.
+layout:
+  blocks: [block, declaration_list, switch_body]
+  member_parents: [block, declaration_list]
+  sections: [switch_section]
+  section_members: ["_statement", "block"]
 exclude:
   - "**/*Tests/**"
   - "**/*.Test/**"

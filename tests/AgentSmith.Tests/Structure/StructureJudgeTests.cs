@@ -23,7 +23,7 @@ public sealed class StructureJudgeTests
         var findings = new StructureJudge().Judge("src/A.cs", Measured, limits);
 
         findings.Should().ContainSingle()
-            .Which.Should().Be(new StructureFinding("src/A.cs", "A.Long()", StructureMetric.FunctionLines, 69, 55));
+            .Which.Should().Be(new StructureFinding("src/A.cs", "A.Long()", StructureMetric.FunctionLines, 69, 55, PhysicalValue: 69));
     }
 
     [Fact]

@@ -7,8 +7,9 @@ namespace AgentSmith.Infrastructure.Services.Structure;
 /// 2026-10-06-8565b: turns a language query's captures into measured units. A unit inside a
 /// @test region is not measured; a type nested in another type does not count toward the
 /// file's type count; lines run from the first non-attribute line to the last.
+/// 2026-11-24-8756: each unit also carries the breaks its layout would add (<see cref="StructureLayout"/>).
 /// </summary>
-public sealed class StructureUnitCollector
+public sealed class StructureUnitCollector(StructureLayout layout)
 {
     public (IReadOnlyList<StructureUnit> Units, int TypeCount) Collect(
         Node root, Query query, StructureLanguage language)
@@ -21,7 +22,8 @@ public sealed class StructureUnitCollector
             segments.TryAdd(capture.Node, keys.Segment(capture.Name, capture.Parameters));
         var unique = Deduplicate([.. kept.Select(c => Chain(c, segments, keys))]);
         var units = kept.Select((c, i) => new StructureUnit(
-            c.Kind, unique[i], StartLine(c.Node, language), c.Node.EndPosition.Row + 1));
+            c.Kind, unique[i], StartLine(c.Node, language), c.Node.EndPosition.Row + 1,
+            layout.Breaks(c.Node, language.Layout)));
         var types = kept.Where(c => c.Kind == StructureUnitKind.Type).Select(c => c.Node).ToHashSet();
         var topLevel = kept.Count(c => c.Kind == StructureUnitKind.Type && !HasAncestor(c.Node, types));
         return ([.. units], topLevel);

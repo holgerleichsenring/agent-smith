@@ -52,7 +52,8 @@ public sealed class StructureGateContexts(
             logger.LogInformation("Structure gate passes {Context}: Limits but no baseline at {Base}", contextName, baseRev);
             return null;
         }
-        return new StructureContextRules(workdir, limitSet, baselineFile.Index(baselineFile.Parse(baseline.Content)));
+        return new StructureContextRules(workdir, limitSet, baselineFile.Index(baselineFile.Parse(baseline.Content)),
+            baselineFile.CountsBreaks(baseline.Content));
     }
 
     // 2026-10-13-2d0c: a git that could not answer passes the context, and says so.

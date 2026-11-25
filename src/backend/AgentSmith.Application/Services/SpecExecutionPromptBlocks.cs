@@ -86,7 +86,8 @@ public static class SpecExecutionPromptBlocks
     /// The units the commit gate found over the principles' Limits, for the master's one
     /// correction. Empty unless that correction is under way; while it is, it is the only
     /// instruction the pass carries. 2026-10-12-fbbda: they are past the tolerance band, and the
-    /// master is asked to reach the limit itself, not the band's end.
+    /// master is asked to reach the limit itself, not the band's end. 2026-11-24-8756: and told that the
+    /// count is per statement, so joining lines does not help.
     /// </summary>
     public static string StructureFindings(PipelineContext pipeline)
     {
@@ -96,7 +97,8 @@ public static class SpecExecutionPromptBlocks
             + "past their tolerance band (path, unit, metric, value > limit):**\n"
             + string.Join("\n", findings.Select(f => "- " + f))
             + "\nSplit each by responsibility until it is within its limit — the limit itself, not the "
-            + "tolerance band. Change nothing else.";
+            + "tolerance band. A unit's lines count each statement and closing brace on a line of its own, as a "
+            + "formatter writes them, so joining lines does not shorten it. Change nothing else.";
     }
 
     private static IReadOnlyList<string> Findings(PipelineContext pipeline) =>

@@ -22,6 +22,7 @@ internal static class StructureGateFixture
             new StructureGateFiles(
                 missingGrammar ? StructureEngineFixture.MissingGrammar() : StructureEngineFixture.Engine(),
                 new StructureJudge(), new SandboxFileReaderFactory(), new StructureOwnership(),
+                new StructureBaseCounts(StructureEngineFixture.Engine(), StructureBaselineStubs.GitReads()),
                 NullLogger<StructureGateFiles>.Instance),
             NullLogger<StructureRepoSandboxes>.Instance),
         NullLogger<StructureGate>.Instance);

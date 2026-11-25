@@ -21,7 +21,7 @@ public sealed class StructureJudge
         {
             var metric = unit.Kind == StructureUnitKind.Function
                 ? StructureMetric.FunctionLines : StructureMetric.TypeLines;
-            Add(findings, path, unit.Key, metric, unit.Lines, limits);
+            Add(findings, path, unit.Key, metric, unit.Lines, limits, unit.PhysicalLines);
         }
         Add(findings, path, StructureMetric.FileKey, StructureMetric.FileLines,
             measurement.FileLines, limits);
@@ -32,10 +32,10 @@ public sealed class StructureJudge
 
     private static void Add(
         List<StructureFinding> findings, string path, string key, string metric, int value,
-        StructureLimitSet limits)
+        StructureLimitSet limits, int? physical = null)
     {
         if (limits.For(metric) is not { } limit || value <= limit) return;
         var severity = value <= limits.BandEnd(limit) ? StructureSeverity.Divergence : StructureSeverity.Excess;
-        findings.Add(new StructureFinding(path, key, metric, value, limit, severity));
+        findings.Add(new StructureFinding(path, key, metric, value, limit, severity, PhysicalValue: physical));
     }
 }

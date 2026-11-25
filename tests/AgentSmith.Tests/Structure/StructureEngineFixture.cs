@@ -9,7 +9,7 @@ internal static class StructureEngineFixture
     public static TreeSitterStructureEngine Engine(StructureLanguageCatalog? catalog = null) =>
         new(catalog ?? new StructureLanguageCatalog(),
             new StructureGrammarLoader(NullLogger<StructureGrammarLoader>.Instance),
-            new StructureUnitCollector());
+            new StructureUnitCollector(new StructureLayout()));
 
     /// <summary>C# claimed by a language whose grammar library does not exist.</summary>
     public static TreeSitterStructureEngine MissingGrammar() => Engine(new StructureLanguageCatalog([new StructureLanguage
