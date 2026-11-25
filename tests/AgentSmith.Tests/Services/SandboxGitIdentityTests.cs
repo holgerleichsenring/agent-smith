@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
@@ -39,6 +40,30 @@ public sealed class SandboxGitIdentityTests
 
         configured.Should().BeFalse();
         sandbox.RanSteps.Should().ContainSingle().Which.Args.Should().Contain("--get");
+    }
+
+    // 2026-11-25-9992h: a repository with a machine identity commits as the machine, whatever the image already resolves.
+    [Fact]
+    public async Task EnsureConfigured_WithAMachine_WritesItOverAnExistingIdentity()
+    {
+        var sandbox = new ScriptedSandbox(configuredEmail: "image@example.com");
+
+        var configured = await Identity().EnsureConfiguredAsync(
+            sandbox, new MachineIdentity("agent-smith-bot", "bot@example.com", "bot"), CancellationToken.None);
+
+        configured.Should().BeTrue();
+        sandbox.RanSteps.Should().NotContain(s => s.Args!.Contains("--get"), "the machine's identity is not a default to keep");
+        sandbox.RanSteps.Should().Contain(s => s.Args!.Contains("user.email") && s.Args!.Contains("bot@example.com"));
+        sandbox.RanSteps.Should().Contain(s => s.Args!.Contains("user.name") && s.Args!.Contains("agent-smith-bot"));
+    }
+
+    [Fact]
+    public void IsOurs_TheFrameworkEmailAndTheMachineEmail_NobodyElse()
+    {
+        SandboxGitIdentity.IsOurs(SandboxGitIdentity.Email, null).Should().BeTrue("commits from before the machine stay ours");
+        SandboxGitIdentity.IsOurs("BOT@example.com", "bot@example.com").Should().BeTrue();
+        SandboxGitIdentity.IsOurs("dev@example.com", "bot@example.com").Should().BeFalse();
+        SandboxGitIdentity.IsOurs(string.Empty, string.Empty).Should().BeFalse();
     }
 
     private sealed class ScriptedSandbox(string configuredEmail) : ISandbox

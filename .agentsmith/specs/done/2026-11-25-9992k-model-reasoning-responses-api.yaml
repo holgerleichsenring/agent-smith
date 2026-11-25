@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992k
+goal: "A catalog model can be called through the OpenAI Responses API with a reasoning effort, so a GPT-6 deployment runs beside gpt-5.6 per role, and runs and series record the comparison numbers."
+
+applies_to: "default (CatalogModel/ModelAssignment, OpenAiChatClientBuilder, a Responses reasoning chat client, LlmCallFinishedEvent, RunMetrics, SeriesRunRecord, series-run measurement endpoint, dashboard model editor)"
+
+requires: [2026-09-30-62bab, 2026-11-23-31dcd]
+
+facts:
+  - claim: "Every openai/azure_openai call goes through Chat Completions: AzureOpenAIClient.GetChatClient(deployment).AsIChatClient() or OpenAIClient.GetChatClient(model).AsIChatClient()."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:43-67"
+  - claim: "There is no model id gpt-6 or gpt-6.0; GPT-6 is a family (gpt-6-sol, gpt-6-astra, gpt-6-luna, gpt-6.1-terra, gpt-6.2-sol/astra; Azure also gpt-6.1-sol)."
+    evidence: "https://developers.openai.com/api/docs/models ; https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning"
+  - claim: "On Chat Completions, gpt-6-sol/-luna/6.1-terra call tools only at reasoning_effort none, and gpt-6-astra/6.1-sol/6.2-* cannot call tools there at all; only the Responses API returns reasoning items to carry across turns."
+    evidence: "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning ; https://developers.openai.com/api/docs/guides/reasoning"
+  - claim: "Responses takes reasoning: {effort}; values by model among none, minimal, low, medium, high, xhigh, max. With store: false, reasoning items carry encrypted_content and are passed back in input with the tool outputs; include reasoning.encrypted_content is still accepted."
+    evidence: "https://developers.openai.com/api/docs/guides/reasoning ; https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning"
+  - claim: "Reasoning tokens are reported in output_tokens_details.reasoning_tokens and billed as output tokens, inside output_tokens; Responses takes max_output_tokens."
+    evidence: "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning ; https://developers.openai.com/api/docs/guides/reasoning"
+  - claim: "Azure serves Responses at https://RESOURCE.openai.azure.com/openai/v1/responses with no api-version; the OpenAI .NET client is pointed at {endpoint}/openai/v1/."
+    evidence: "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning ; https://github.com/openai/openai-dotnet (README, Azure section)"
+  - claim: "The pinned OpenAI 2.8.0 + Microsoft.Extensions.AI.OpenAI 10.3.0 have ResponsesClient, OpenAIClient.GetResponsesClient, AsIChatClient(ResponsesClient), CreateResponseOptions (StoredOutputEnabled, IncludedProperties, ReasoningOptions) and a string-valued ResponseReasoningEffortLevel; the adapter maps ChatOptions.Reasoning only to low/medium/high, maps reasoning items to TextReasoningContent (ProtectedData = EncryptedContent, RawRepresentation = the item) and sends a content's raw ResponseItem back as is, and maps usage to CachedInputTokenCount and ReasoningTokenCount."
+    evidence: "decompiled Microsoft.Extensions.AI.OpenAIResponsesChatClient 10.3.0 (ToOpenAIResponseReasoningOptions, ToOpenAIResponsesItems, ToUsageDetails); OpenAI.dll 2.8.0 OpenAI.Responses.*"
+  - claim: "gpt-5.6 on Chat Completions with tools fails at reasoning_effort low/medium/high/xhigh and works only with none or the effort unsent."
+    evidence: "https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/reasoning (tool support table)"
+  - claim: "No stored thread carries reasoning back: DialogThreadCodec drops reasoning contents, SeriesThread stores text only, ForwardedThreadCapture holds live objects; secret masking passes reasoning through and the scrub rebuilds only function results."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DialogThreadCodec.cs:11-13,42-57; src/backend/AgentSmith.Application/Services/Series/SeriesThread.cs:13-19; src/backend/AgentSmith.Infrastructure/Services/SecretValueMaskingChatClient.cs:45-53"
+  - claim: "RunLlmCall carries per call Model, TokensIn, TokensOut, CachedTokensIn and CostUsd; tools/build-hub-event-types.mjs compares event type names, not fields."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunLlmCall.cs:4-41; tools/build-hub-event-types.mjs:91,111"
+  - claim: "The run's metrics fold is JSON on the run row, folded from LlmCallFinishedEvent and SandboxResultEvent; a sandbox result writes its own trail row as the fold's identity."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunMetricsContracts.cs:52-110; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:26-40; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDbProjector.cs:45-47"
+  - claim: "No production code publishes a ToolCallEvent: EventPublishingAIFunction lost its last call site in 2026-11-17-274cb; every agent loop (masters, sub-agents, the series master) runs through AgenticLoopRunner, which hands request.Tools over unwrapped."
+    evidence: "src/backend/AgentSmith.Application/Services/Events/EventPublishingAIFunction.cs:19-24,75; src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:52-55 (before this spec); git show ba5f27ddb"
+  - claim: "The series master's ask_human replaces SeriesRunRecord.Question and keeps no count; its beats are runs without a ticket or series id; a series' delivered tickets are its landed ones and the page's cost is its tickets' runs plus MasterCostUsd."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesAskTool.cs:25; src/backend/AgentSmith.Server/Services/Series/SeriesRunLaunch.cs:31-39; src/backend/AgentSmith.Server/Services/Series/SeriesRunDetailReader.cs:34-41"
+
+scope:
+  in: |
+    Catalog entry and inline role gain `api` (chat_completions | responses, unset = chat_completions) and `reasoning_effort`
+    (sent as written, accepted only with api responses; with chat_completions the builder refuses it naming both keys). With
+    `api: responses` the builder calls the Responses API (Azure at {endpoint}/openai/v1/ by deployment, OpenAI by model) on the
+    same pipeline options (no SDK retries, quota headers, test transport), and configures each call with store false,
+    include reasoning.encrypted_content and the effort; the adapter carries the reasoning items across tool iterations as raw
+    items. With `api` unset nothing in the request changes. LlmCallFinishedEvent and RunLlmCall carry ReasoningTokensOut, read
+    from UsageDetails.ReasoningTokenCount on every provider (one migration per provider). AgenticLoopRunner hands ask_human
+    over wrapped in EventPublishingAIFunction, so each ask is a ToolCallEvent; RunMetrics folds it with the trail row as identity
+    like a sandbox result. SeriesRunRecord counts the master's asks that do not replace a waiting one. api and reasoning_effort
+    on any provider other than openai/azure_openai are refused by name. A series is measured over its tickets' runs started
+    since the series began.
+    GET /api/runs/{runId}/measurement and GET /api/series-runs/{id}/measurement return questions, delivered specs or tickets,
+    cost, cost per delivered ticket and per-model calls, tokens (cached, reasoning) and cost from RunLlmCall rows.
+    Config schema, docs, the hub-events mirror and the dashboard's model editor carry the new fields.
+  out: "A comparison UI. A bundled GPT-6 price (pricing.models until the price list carries it). Streaming. previous_response_id (stateless: multi-replica, no server store). Restoring reasoning into a reloaded thread (no store keeps it). Pinning reasoning.context (both models run on their defaults; the reasoning tokens show the difference)."
+
+done:
+  - "api unset: the Chat Completions request body is unchanged (pinned through the test transport); reasoning_effort with chat_completions is refused naming the keys."
+  - "api responses on Azure posts to {endpoint}/openai/v1/responses with model = deployment, store false, include reasoning.encrypted_content, reasoning.effort, max_output_tokens and no temperature; a 429 there is tried once."
+  - "In a two-iteration tool loop on faked Responses payloads, the second request carries the first response's reasoning item with its id and encrypted_content before the function_call_output."
+  - "A thread reloaded through DialogThreadCodec is sent on the Responses path without reasoning items."
+  - "Faked usage with cached and reasoning tokens yields CachedTokensIn and ReasoningTokensOut on LlmCallFinishedEvent and RunLlmCall, on Responses and on Chat Completions."
+  - "RunMetrics counts an ask_human ToolCallEvent once, a replay of it not again; the run and series measurement endpoints return questions, delivered, cost, cost per delivered ticket and per-model rows."
+  - "The dashboard model editor edits api and reasoning_effort; the studio round-trip keeps both."

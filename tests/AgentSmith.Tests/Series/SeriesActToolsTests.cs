@@ -34,6 +34,21 @@ public sealed class SeriesActToolsTests
         (await Tools(SeriesRecords.Running()).RetryTicketAsync("SCRUM-44")).Should().Be("retried");
     }
 
+    // 2026-11-25-9992h: an act with its reason is said under the machine's name; the approver stays the authority.
+    [Fact]
+    public async Task RetryTicket_WithAReason_IsSaidUnderTheMachine()
+    {
+        _acts.Setup(a => a.RetryAsync("sample", "44", "operator", It.IsAny<CancellationToken>())).ReturnsAsync("retried");
+        var record = SeriesRecords.Running();
+        var beat = new SeriesBeat(record, [.. record.Tickets.Select(t => new SeriesTicketFact(t))], SeriesRecords.T) { Actor = "agent-smith-bot" };
+        var tools = new SeriesActTools(beat, _acts.Object, _store, new SeriesPause(_store, _facts.Object, _acts.Object, _conversation.Object));
+
+        (await tools.RetryTicketAsync("SCRUM-44", "the runner lost its network")).Should().Be("retried");
+        await tools.RetryTicketAsync("SCRUM-44");
+
+        beat.Said.Should().Equal("agent-smith-bot retried SCRUM-44: the runner lost its network");
+    }
+
     [Fact]
     public async Task TellTicket_ApproverWithoutRunsControl_ActsOnNoTicket()
     {

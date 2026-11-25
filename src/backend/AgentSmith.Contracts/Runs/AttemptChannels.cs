@@ -34,7 +34,8 @@ public static class AttemptChannels
     /// <summary>2026-11-17-3435c: the CI on the attempt's pull request went red; the run fixes it.</summary>
     public const string Ci = "ci";
 
-    /// <summary>2026-10-13-8762v: the actor a series start names.</summary>
+    /// <summary>2026-10-13-8762v: the actor a series start names; 2026-11-25-9992h: when its project declares no machine
+    /// identity (<see cref="Models.Configuration.ResolvedProject.ActorName"/>).</summary>
     public const string SeriesActor = "agent-smith";
 
     /// <summary>2026-11-22-6d85c: the requester of the one Retry agent-smith asks itself after the server's stop

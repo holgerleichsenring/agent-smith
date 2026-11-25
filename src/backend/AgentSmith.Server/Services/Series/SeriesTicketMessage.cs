@@ -11,7 +11,10 @@ namespace AgentSmith.Server.Services.Series;
 public sealed class SeriesTicketMessage(
     TicketProjects projects, TicketConversationBinder binder, IServiceScopeFactory scopes, ILogger<SeriesTicketMessage> logger)
 {
-    public const string Author = "series master";
+    /// <summary>2026-11-25-9992h: the name the series' messages and retries carry — the project's machine identity, which the
+    /// series acts as, with the master's role; agent-smith without one.</summary>
+    public static string AuthorOf(AgentSmith.Contracts.Models.Configuration.ResolvedProject? project) =>
+        $"{project?.ActorName ?? AgentSmith.Contracts.Runs.AttemptChannels.SeriesActor} (series master)";
 
     public async Task<string> SendAsync(
         string project, string ticketId, string text, string principal, bool mayStartRuns, CancellationToken ct)
@@ -23,18 +26,18 @@ public sealed class SeriesTicketMessage(
         // 2026-11-22-6d85e: the route does not inherit the beat's ambient run id — the turn it starts opens its own, and a
         // call keyed to the beat after the beat released would take a model place under a finished run.
         using (ExecutionContext.SuppressFlow())
-            _ = Task.Run(() => RouteAsync(dialogId, text, principal, mayStartRuns, project, ticketId), CancellationToken.None);
+            _ = Task.Run(() => RouteAsync(dialogId, text, principal, mayStartRuns, project, ticketId, AuthorOf(resolved)), CancellationToken.None);
         return $"Sent to ticket {ticketId}'s conversation: its running attempt reads it with its next tool result, "
             + "or its steward answers there.";
     }
 
-    private async Task RouteAsync(string dialogId, string text, string principal, bool mayStartRuns, string project, string ticketId)
+    private async Task RouteAsync(string dialogId, string text, string principal, bool mayStartRuns, string project, string ticketId, string author)
     {
         try
         {
             await using var scope = scopes.CreateAsyncScope();
             await scope.ServiceProvider.GetRequiredService<DashboardDialogDispatcher>().DispatchAsync(
-                dialogId, text, principal, mayStartRuns, project, CancellationToken.None, ticketId, Author);
+                dialogId, text, principal, mayStartRuns, project, CancellationToken.None, ticketId, author);
         }
         catch (Exception ex)
         {

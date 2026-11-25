@@ -225,6 +225,8 @@ export interface LlmCallFinishedEvent extends RunEventBase {
   /** 2026-11-09-0620a: the stored prompt of this call, and how many tools it offered. */
   promptId?: string | null;
   toolCount?: number;
+  /** 2026-11-25-9992k: the share of tokensOut spent reasoning; absent on older events. */
+  reasoningTokensOut?: number;
 }
 
 export interface SandboxCommandEvent extends RunEventBase {

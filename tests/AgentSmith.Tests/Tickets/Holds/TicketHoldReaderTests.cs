@@ -86,10 +86,10 @@ public sealed class TicketHoldReaderTests
     {
         var hold = _reader.Of(Facts(RunStatuses.Success) with
         {
-            SeriesId = "sr-1", MergeStep = Order[0], SeriesMergeOrder = Order, SeriesStartsOnMerge = ["#50", "#51"], MergeApproves = true,
+            SeriesId = "sr-1", MergeStep = Order[0], SeriesMergeOrder = Order, SeriesStartsOnMerge = ["#50", "#51"],
         })!;
 
-        (hold.Addressee, hold.Case, hold.Next, hold.Approves).Should().Be((TicketHoldAddressees.Merge, TicketHoldCases.MergeNext, "#44", true));
+        (hold.Addressee, hold.Case, hold.Next).Should().Be((TicketHoldAddressees.Merge, TicketHoldCases.MergeNext, "#44"));
         hold.Names.Should().Equal("#50", "#51");
     }
 

@@ -42,7 +42,8 @@ public sealed class RunDbProjector(
         // identity every row the event produces is written under. A sandbox result writes its own
         // trail row with its fold (2026-10-26-0f19a), so it never waits in the buffer.
         var buffer = await buffers.ForAsync(runEvent.RunId, cancellationToken);
-        var added = runEvent is SandboxResultEvent
+        // 2026-11-25-9992k: so does a question the run asked (RunQuestionFamily).
+        var added = runEvent is SandboxResultEvent || RunQuestionFamily.Folds(runEvent)
             ? new TrailAddition(buffer.Reserve(position), null)
             : buffer.Add(runEvent, position, FlushThreshold, timeProvider.GetUtcNow());
         // 2026-10-26-0f19a: a projection that lost a unique race to another writer is re-run once, in a

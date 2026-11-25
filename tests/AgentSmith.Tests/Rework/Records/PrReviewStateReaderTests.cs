@@ -85,7 +85,7 @@ public sealed class PrReviewStateReaderTests
     }
 
     [Fact]
-    public void PrReviewState_AzureDevOps_CreatorAutoCompleteVote_IsNoApproval()
+    public void PrReviewState_AzureDevOps_CreatorsVoteCounts_TheTokensOwnDoesNot()
     {
         var at = new DateTime(2026, 10, 8, 10, 0, 0, DateTimeKind.Utc);
         var pr = AzurePr(PullRequestStatus.Completed, new() { Id = "creator", Vote = 10 }, new() { Id = "self", Vote = 10 });
@@ -93,7 +93,8 @@ public sealed class PrReviewStateReaderTests
         var state = AzureReposVoteDecisions.Read(pr, [VoteThread(7, "creator", 10, at)], "self", "u");
 
         state.State.Should().Be(PrReviewStates.Merged);
-        state.Decisions.Should().BeEmpty("the auto-complete approves as the creator, and the token's own vote is ours");
+        // 2026-11-25-9992h: agent-smith casts no vote, so the creator's approval is a person's.
+        state.Decisions.Select(d => (d.Author!.AuthorId, d.Decision)).Should().Equal(("creator", PrReviewDecisions.Approved));
     }
 
     [Fact]

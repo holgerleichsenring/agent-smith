@@ -3,44 +3,6 @@ using AgentSmith.Contracts.Events;
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
-/// p0369: one file and how often it was read/written in a run — the body of the
-/// run-metrics "top files" lists.
-/// </summary>
-public sealed record FileAccessView(string Path, int Count);
-
-/// <summary>
-/// p0369: the per-run METRICS summary served on the run detail — WHERE a run's
-/// time and cost went, so the operator can optimize without reconstructing it by
-/// hand from raw events. A projection of <see cref="RunMetrics"/> (the fold drops
-/// its internal redundancy state and keeps only the top-N file lists).
-/// </summary>
-public sealed record RunMetricsView(
-    // Time split: real LLM work, the slice of it spent waiting on the token rate
-    // limiter, and sandbox-command wall time.
-    long LlmActiveMs,
-    long ThrottleWaitMs,
-    long SandboxCommandMs,
-    // Tool usage.
-    int Reads,
-    int Writes,
-    int RunCommands,
-    int Greps,
-    IReadOnlyList<FileAccessView> TopReadFiles,
-    IReadOnlyList<FileAccessView> TopWriteFiles,
-    // Redundancy: re-reads/re-writes of content whose hash matched the last seen
-    // for that path — the waste signal (a re-read of CHANGED content is not here).
-    int RedundantReads,
-    int RedundantWrites,
-    // Cache health: "cold" calls (>1024 input tokens, nothing served from cache),
-    // warm->cold discards, and the total tokens re-processed uncached.
-    int ColdLlmCalls,
-    int CacheDiscards,
-    long UncachedReprocessedTokens,
-    // Build/test invocations and how many exited non-zero.
-    int BuildTestInvocations,
-    int BuildTestFailures);
-
-/// <summary>
 /// p0369: the incremental fold behind <see cref="RunMetricsView"/>. Folds
 /// <see cref="LlmCallFinishedEvent"/> + <see cref="SandboxResultEvent"/> as they
 /// arrive (the applier persists it as JSON on the run row, so a mid-run run
@@ -53,6 +15,9 @@ public sealed class RunMetrics
     // p0369: an LLM call is "cold" when its prompt is large enough that skipping
     // the cache means a real re-process, not a trivially small prompt.
     private const long ColdInputThreshold = 1024;
+
+    /// <summary>2026-11-25-9992k: the tool a run asks the operator with.</summary>
+    public const string QuestionTool = "ask_human";
 
     private static readonly HashSet<string> FileVerbs = new(StringComparer.Ordinal)
         { "ReadFile", "WriteFile", "Grep", "ListFiles", "DirectoryTree" };
@@ -84,6 +49,8 @@ public sealed class RunMetrics
     public int BuildTestInvocations { get; set; }
     public int BuildTestFailures { get; set; }
 
+    public int QuestionsAsked { get; set; }
+
     public static RunMetrics From(IEnumerable<RunEvent> events)
     {
         var metrics = new RunMetrics();
@@ -97,6 +64,7 @@ public sealed class RunMetrics
         {
             case LlmCallFinishedEvent e: ApplyLlm(e); break;
             case SandboxResultEvent e: ApplySandbox(e); break;
+            case ToolCallEvent { Tool: QuestionTool }: QuestionsAsked++; break; // 2026-11-25-9992k
         }
         return this;
     }
@@ -165,7 +133,7 @@ public sealed class RunMetrics
         Top(ReadsByPath, topN), Top(WritesByPath, topN),
         RedundantReads, RedundantWrites,
         ColdLlmCalls, CacheDiscards, UncachedReprocessedTokens,
-        BuildTestInvocations, BuildTestFailures);
+        BuildTestInvocations, BuildTestFailures, QuestionsAsked);
 
     private static IReadOnlyList<FileAccessView> Top(Dictionary<string, int> counts, int n) =>
         counts.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal)

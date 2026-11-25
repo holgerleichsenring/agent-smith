@@ -506,6 +506,10 @@ export interface AgentCatalogModel {
   providerType?: string | null;
   endpoint?: string | null;
   tier?: ModelTier | null;
+  /** 2026-11-25-9992k: the wire the model is called on — "chat_completions" (null) or "responses". */
+  api?: string | null;
+  /** 2026-11-25-9992k: the reasoning effort sent as written; only with api "responses". */
+  reasoningEffort?: string | null;
 }
 
 export interface AgentPricingEntry {
@@ -779,6 +783,25 @@ export interface StudioProject {
   requiresStart?: string | null;
   /** 2026-11-17-b34eb: the merge block; null when the project declares none (manual). ABSENT leaves it alone. */
   merge?: ProjectMerge | null;
+  /** 2026-11-25-9992h: the machine identity; null when the project declares none. ABSENT leaves it alone. */
+  machine?: ProjectMachine | null;
+}
+
+/** 2026-11-25-9992h: the project's machine: block — the actor name, the commit email and per hoster its secret. */
+export interface ProjectMachine {
+  name: string;
+  email: string;
+  github?: ProjectMachineHoster | null;
+  gitlab?: ProjectMachineHoster | null;
+  azureDevops?: ProjectMachineHoster | null;
+}
+
+/** 2026-11-25-9992h: one hoster's entry; appId and installationId make a GitHub entry a GitHub App. */
+export interface ProjectMachineHoster {
+  auth: string;
+  appId?: string | null;
+  installationId?: string | null;
+  email?: string | null;
 }
 
 /** 2026-11-17-b34eb: the project's merge: block (when is the YAML name, e.g. manual or on_gate_green). */
@@ -793,7 +816,6 @@ export interface ProjectMerge {
   ciFixAttempts?: number | null;
   ciExcerptChars?: number | null;
   ciFailedChecksRead?: number | null;
-  approvalAuth?: string | null;
   /** 2026-11-24-f9c5a: a series' ticket pull requests into its series branch; absent or null is on_ci_green. */
   seriesWhen?: string | null;
 }

@@ -40,6 +40,10 @@ public sealed record SeriesRunRecord(
     /// <summary>What the master's own loops have spent.</summary>
     public decimal MasterCostUsd { get; init; }
 
+    /// <summary>2026-11-25-9992k: the questions the master itself put to the operator (a relayed ticket question is the
+    /// ticket run's). Its beats carry no series id, so the count lives here.</summary>
+    public int MasterQuestionsAsked { get; init; }
+
     /// <summary>True once the conversation was told the master's budget is spent.</summary>
     public bool BudgetSaid { get; init; }
 

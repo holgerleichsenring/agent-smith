@@ -48,15 +48,16 @@ internal static class AgentCatalogProjection
     private static bool SameCall(AgentCatalogModel a, AgentCatalogModel b) =>
         a.Model == b.Model && Blank(a.Deployment) == Blank(b.Deployment)
         && MaxTokens(a) == MaxTokens(b) && a.ContextWindowTokens == b.ContextWindowTokens
-        && Blank(a.ProviderType) == Blank(b.ProviderType) && Blank(a.Endpoint) == Blank(b.Endpoint);
+        && Blank(a.ProviderType) == Blank(b.ProviderType) && Blank(a.Endpoint) == Blank(b.Endpoint)
+        && Blank(a.Api) == Blank(b.Api) && Blank(a.ReasoningEffort) == Blank(b.ReasoningEffort);
 
     private static AgentCatalogModel Inline(ModelAssignment role, string? agentDeployment) =>
         new(role.Model, Blank(role.Deployment) ?? Blank(agentDeployment), role.MaxTokens, role.ContextWindowTokens,
-            Blank(role.ProviderType), Blank(role.Endpoint));
+            Blank(role.ProviderType), Blank(role.Endpoint), Api: Blank(role.Api), ReasoningEffort: Blank(role.ReasoningEffort));
 
     private static AgentCatalogModel ToStudio(CatalogModel entry) =>
         new(entry.Model, entry.Deployment, entry.MaxTokens, entry.ContextWindowTokens,
-            entry.ProviderType, entry.Endpoint, entry.Tier);
+            entry.ProviderType, entry.Endpoint, entry.Tier, entry.Api, entry.ReasoningEffort);
 
     private static int MaxTokens(AgentCatalogModel entry) => entry.MaxTokens ?? new CatalogModel().MaxTokens;
 

@@ -556,9 +556,15 @@ projects:
     #   ci_settle_seconds: 180        # on_ci_green: "no CI" must last this long
     #   ci_pending_seconds: 3600      # on_ci_green: stop fast polling a stuck head
     #   ci_fix_attempts: 3            # on_ci_green: red-CI fix runs in a row before a hand-back
-    #   approval_auth: github_approver # a second identity's secret for required reviews
     #   ci_excerpt_chars: 4000        # evidence kept per failed check
     #   ci_failed_checks_read: 5      # failed checks whose logs are read
+    # 2026-11-25-9992h: the identity agent-smith acts under; a hoster left out uses each repo's own auth.
+    # machine:
+    #   name: agent-smith-bot
+    #   email: agent-smith-bot@example.com
+    #   github: { auth: github_app_key, app_id: "123456", installation_id: "7890123" }
+    #   gitlab: { auth: gitlab_bot_token }
+    #   azure_devops: { auth: azdo_bot_pat }
 
   # Azure DevOps project (p0281b): only `resolution:` is project-specific —
   # trigger_statuses / done_status / failed_status / pipeline_from_label all come from the

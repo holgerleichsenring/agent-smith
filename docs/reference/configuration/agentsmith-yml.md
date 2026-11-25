@@ -101,7 +101,28 @@ catalog:
     endpoint: https://…            # optional: its own host; unset takes the agent's endpoint
                                    #   when it runs on the agent's provider
     tier: strong                   # optional: strong | fast, your word for the model
+    api: responses                 # optional: chat_completions (default) | responses
+    reasoning_effort: medium       # optional, only with api: responses; sent as written
 ```
+
+`api: responses` calls the model on the OpenAI Responses API instead of Chat Completions. Use it for a reasoning model that calls tools: a GPT-6 model calls tools on Chat Completions only at effort `none`, or not at all. The call is stateless (`store: false`), and the model's encrypted reasoning items are sent back with every tool result in the same loop. On Azure the request goes to `{endpoint}/openai/v1/responses` with the deployment as the model and no `api-version`. `reasoning_effort` is sent as you write it (`none`, `low`, `medium`, `high`, `xhigh` or `max`; which ones a model takes is up to the provider). On Chat Completions it is refused, because gpt-5.6 fails with tools at any effort other than `none`. Reasoning tokens are billed inside the output tokens and recorded per call.
+
+Two models side by side, for example to compare them:
+
+```yaml
+agents:
+  azure:
+    type: azure_openai
+    endpoint: https://my-resource.openai.azure.com/
+    catalog:
+      terra:   { model: gpt-5.6, deployment: terra }
+      sol:     { model: gpt-6-sol, deployment: sol, api: responses, reasoning_effort: medium }
+    models:
+      primary: { use: sol }     # or terra; every role names its entry
+      scout:   { use: terra }
+```
+
+A second agent with the other assignment, named by a second project, runs the same work on the other model. `GET /api/runs/{runId}/measurement` and `GET /api/series-runs/{id}/measurement` return the comparison: questions asked, delivered specs or tickets, cost, cost per delivered ticket, and per model the calls, input (cached), output (reasoning) tokens and cost. A model the bundled price list doesn't know needs a price under `pricing.models`.
 
 `tier` is advice, never enforced. The roles that decide structure (`primary`, `planning`, `reasoning`, `context_generation`, `code_map_generation`) need a strong model; one that resolves to an entry marked `fast` is reported as an advisory startup finding. An entry with no tier is never reported, because agent-smith doesn't rate models.
 
@@ -278,7 +299,6 @@ merge:
   ci_settle_seconds: 180            # on_ci_green: default 180
   ci_pending_seconds: 3600          # on_ci_green: default 3600
   ci_fix_attempts: 3                # on_ci_green: default 3
-  approval_auth: github_approver    # optional: a secret name
 ```
 
 | Key | Description |
@@ -289,18 +309,53 @@ merge:
 
 | `refresh_open_pull_requests` | A pull request its host says conflicts with its base gets its base merged in by a `refresh-base` run whatever this says: it can't merge as it is. `true` adds the rest: when a ticket lands, every other open agent-smith pull request on the same repository and base gets that base merged in by a `refresh-base` run, pushed without force. Collisions of `state.done` index lines in `.agentsmith/contexts/*/context.yaml` and of `.agentsmith/memory/MEMORY.md` entry lines are united; a master resolves any other conflict, and the declared `verify` stages build and test every merge before the push. A merge that can't be resolved or stays red leaves the branch unchanged, is said on the pull request and holds the ticket for a person. Each refresh spends model tokens and a build-sized sandbox. Closed, running, queued and waiting tickets are skipped. A host that dismisses approvals on a push clears them. |
 
-| `on_ci_green` (a `when` value) | A run whose every spec passed merges nothing at its end: each of its pull requests reads *waiting for CI*. agent-smith reads their CI every `ci_poll_seconds`; once it is green on every one of the attempt's pull requests (or nothing reports on the head for `ci_settle_seconds`), a `merge-green` run, listed in the ticket's Runs, approves where the host requires a review and merges them, and the ticket lands. A head is acted on once per verdict; a new head or a new verdict is acted on again. |
+| `on_ci_green` (a `when` value) | A run whose every spec passed merges nothing at its end: each of its pull requests reads *waiting for CI*. agent-smith reads their CI every `ci_poll_seconds`; once it is green on every one of the attempt's pull requests (or nothing reports on the head for `ci_settle_seconds`), a `merge-green` run, listed in the ticket's Runs, merges them, and the ticket lands. A head is acted on once per verdict; a new head or a new verdict is acted on again. |
 | `ci_poll_seconds` | With `on_ci_green`, how often the open pull requests' CI is read. Also how often a deploy's pull request or pipeline run is read while it runs, whatever `when` says ([following a deploy](../../configure-it/deployment-templates.md#following-a-deploy)). Default 60. |
 | `ci_settle_seconds` | How long a head with no CI reporting must stay so before it counts as having none and merges. Default 180: a host registers its checks seconds to minutes after a push. |
 | `ci_pending_seconds` | After how long a head still pending is no longer read every `ci_poll_seconds`; the five-minute re-read still sees it move. A deploy still pending this long after it was delivered stops being followed, and says so. Default 3600. |
 | `ci_fix_attempts` | With `on_ci_green`, a red CI on the head the newest green attempt pushed starts a rework run that carries the failed checks' evidence (names, excerpts, links) as its task; the fix is verified locally and pushed to the same pull request, never force-pushed, and CI is watched again. After `ci_fix_attempts` such runs in a row (default 3), or after a fix that pushed nothing, the next run hands the ticket back in its clarification status with the evidence on the ticket; a person's comment or approval starts the next attempt and the count starts again. A red pull request is never merged. It also bounds how many repair passes a base refresh may make on a build or test stage the merged base turned red. |
-| `approval_auth` | With `respect_branch_protection: true`, the secret of the identity that approves a pull request whose host requires a review. GitHub never lets the author approve its own pull request, and the author is the repo's own token, so a required review there needs a second identity (a machine user or app token); Azure DevOps and GitLab need it when the host forbids the author approving. Without it the repo's token approves where the host allows; a refusal leaves the pull request open and names this key. With the default `respect_branch_protection: false` no approval is needed: the merge goes past the review rule. |
 | `ci_excerpt_chars` | How many characters of each failed CI check's evidence are read, stored and shown: the host's summary and annotations, then the end of its log. Default 4000. |
 | `ci_failed_checks_read` | How many failed checks of one red head have their logs read; the rest are named with their links. Default 5. |
 
 Every open pull request's CI is read with its record and shown on the ticket page: `none` (nothing reports on the head), `pending`, `green` or `red`. One rule decides for every host: where checks are marked required only those count; any failed check is red; else anything running is pending; else green. GitHub reads the check runs and commit statuses of the head (a failed GitHub Actions job adds the end of its log), Azure DevOps the build-validation policies (the failed build's task issues and log end) and the pull request's statuses of its latest iteration, GitLab the head pipeline (each failed job's stage, name and trace end). The token needs read access to checks, commit statuses and Actions logs on GitHub, Build (read) on Azure DevOps, and `read_api` on GitLab; a refused read leaves the stored CI as it was.
 
 A merge the host refuses leaves the pull request open. The step result and the run's pull-request record name the reason; a missing bypass permission reads `cannot bypass <policy> on <provider>: <reason>; grant <permission> or set respect_branch_protection: true`. Repositories merge in order and the first refusal stops the rest. A pull request opened against a feature rung is left open. A local repository fast-forwards its default branch either way.
+
+Nothing approves a pull request. A review the host requires is a person's: with `respect_branch_protection: true` the armed auto-complete or auto-merge waits for it. (`approval_auth` was retired on 2026-11-25.)
+
+### projects.machine
+
+The identity agent-smith acts under on each hoster: every commit it makes carries its name and email, and every push, pull request, comment, merge and auto-complete goes out with its token, so the hoster records each act under the machine. A hoster the project has repositories on and no entry for acts with each repository's own `auth` token. The project's settings say so in a finding.
+
+```yaml
+machine:
+  name: agent-smith-bot                  # commit author and the name agent-smith's own records book acts under
+  email: agent-smith-bot@example.com     # commit email
+  github:
+    auth: github_app_key                 # a GitHub App's private key (PEM), or a bot user's token without app_id
+    app_id: "123456"                     # GitHub App id or client id
+    installation_id: "7890123"           # the App's installation on the repositories' owner
+    email: "123+agent-smith-bot[bot]@users.noreply.github.com"   # optional: this hoster's commit email
+  gitlab:
+    auth: gitlab_bot_token               # a project or group access token (its bot user)
+  azure_devops:
+    auth: azdo_bot_pat                   # a bot user's personal access token
+```
+
+| Key | Description |
+|-----|-------------|
+| `name`, `email` | Required as soon as one hoster is named. The commit author and committer on every repository of the project; series acts are booked and said under `name`. |
+| `<hoster>.auth` | The secret behind every act on that hoster. With `app_id` on GitHub it is the App's private key: agent-smith signs a JWT with it and trades that for an installation token, renewed before it expires. |
+| `github.app_id`, `github.installation_id` | Make the GitHub entry a GitHub App. Both are needed. |
+| `<hoster>.email` | This hoster's commit email when it differs from `email`. For a GitHub App, use its bot address so GitHub links the commits to it. |
+
+Setting it up:
+
+- **GitHub:** create a GitHub App with Contents, Pull requests and Workflows (write: a change under `.github/workflows/` is pushed too) and Checks, Commit statuses and Actions (read) permissions, install it on the owner of the repositories, and store its private key as a secret. Alternatively, use a machine user's token without `app_id`.
+- **GitLab:** create a project or group access token (`api`, `write_repository`), which comes with its own bot user, and store it as a secret.
+- **Azure DevOps:** create a user for the bot, give it Contribute and Contribute to pull requests on the repositories (plus *Bypass policies when completing pull requests* for the default `respect_branch_protection: false`), and store its personal access token as a secret. Service principals come with 2026-11-25-d0e2.
+
+agent-smith never approves its own pull requests. Where a policy wants a person's review, the person gives it.
 
 ## secrets
 

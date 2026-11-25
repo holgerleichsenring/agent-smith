@@ -34,6 +34,7 @@ public static class RawProjectPatch
         if (entity.RequiresStart is { } requiresStart) // 2026-11-17-9a39a
             project.RequiresStart = string.IsNullOrWhiteSpace(requiresStart) ? null : requiresStart.Trim();
         if (entity.Merge is { } merge) project.Merge = ProjectMergeMapping.ToRaw(entity.Id, merge); // 2026-11-17-b34eb
+        if (entity.Machine is { } machine) project.Machine = ProjectMachineMapping.ToRaw(machine); // 2026-11-25-9992h
         ApplyPipelines(entity, project, existing);
         return project;
     }

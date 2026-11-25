@@ -14,6 +14,9 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
 
     public DateTimeOffset Now { get; } = now;
 
+    /// <summary>2026-11-25-9992h: the name the series acts under — its project's machine identity, agent-smith without one.</summary>
+    public string Actor { get; set; } = Contracts.Runs.AttemptChannels.SeriesActor;
+
     /// <summary>Why the master judges this beat; empty when nothing needs it.</summary>
     public List<string> Reasons { get; } = [];
 

@@ -18,7 +18,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (it is metadata, not git plumbing).
 /// </summary>
-public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPrMarkedThreadResolver, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser, IWorkBranchCleanup
+public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPrMarkedThreadResolver, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly GitHubRepoAddress _address;
     private readonly string _owner;
@@ -38,6 +38,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     private readonly GitHubBranchWrite _branchWrite;
     // 2026-10-12-6bfaa: reading a named branch, the default-branch reads included.
     private readonly GitHubBranchRead _branchRead;
+    private readonly Func<string?>? _selfLogin; // 2026-11-25-9992h: a GitHub App's {slug}[bot]
 
     public string ProviderType => "GitHub";
 
@@ -50,6 +51,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         (_owner, _repo) = (_address.Owner, _address.Repo);
         _cloneUrl = connection.RepoUrl.EndsWith(".git") ? connection.RepoUrl : $"{connection.RepoUrl}.git";
         _token = connection.Token;
+        _selfLogin = connection.SelfLogin;
         _clientFactory = clientFactory;
         _logger = logger;
         _pullRequests = new GitHubPullRequestUpdater(_address, clientFactory, _token, logger);
@@ -237,7 +239,8 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     {
         var prNumber = int.Parse(prIdentifier);
         var client = CreateGitHubClient();
-        var self = (await client.User.Current()).Login;
+        // 2026-11-25-9992h: an App's installation token cannot read GET /user; its login comes from GET /app.
+        var self = _selfLogin?.Invoke() ?? (await client.User.Current()).Login;
         bool Ours(string? body, User? user) =>
             string.Equals(user?.Login, self, StringComparison.OrdinalIgnoreCase)
             && body?.StartsWith(markerPrefix, StringComparison.Ordinal) == true;
@@ -324,10 +327,6 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
 
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken) =>
         new GitHubPrReviewStateReader(CreateGitHubClient(), _address).ReadAsync(prUrl, cancellationToken);
-
-    // 2026-11-17-3435b: an APPROVE review when the review decision requires one.
-    public Task<PullRequestApproval> ApproveIfRequiredAsync(string prUrl, CancellationToken cancellationToken) =>
-        new GitHubApprover(CreateGitHubClient(), _address).ApproveIfRequiredAsync(prUrl, cancellationToken);
 
     // 2026-11-17-3435a: the CI of the pull request's head; an Actions job's log through the same client.
     public Task<PullRequestCi> ReadCiAsync(string prUrl, CiReadRequest request, CancellationToken cancellationToken)

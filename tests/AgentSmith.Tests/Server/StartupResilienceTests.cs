@@ -256,6 +256,7 @@ public sealed class StartupResilienceTests : IDisposable
             pipeline: code
             resolution:
               tag: healthy
+            machine: { name: bot, email: bot@example.com, github: { auth: token } }
           broken:
             agent: claude-default
             tracker: gh
@@ -304,6 +305,7 @@ public sealed class StartupResilienceTests : IDisposable
             pipeline: code
             resolution:
               tag: beta
+            machine: { name: bot, email: bot@example.com, github: { auth: token } }
         """;
 
     private static void Seed(string dbPath, string configPath)

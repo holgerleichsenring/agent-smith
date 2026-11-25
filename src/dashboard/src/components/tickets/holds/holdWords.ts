@@ -100,9 +100,8 @@ export function holdSentence(t: T, hold: TicketHold, now: Date = new Date()): st
     // 2026-11-23-d60d: red CI names its failed checks; a red read that recorded none says only that it failed.
     case "ci_failed":
       return hold.names.length > 0 ? t("hold.sentence.ci_failed", { names, count: hold.names.length }) : t("hold.sentence.ci_failed_bare");
-    // 2026-11-23-849e: the series' one merge says what it unblocks and, where it does, that merging approves.
-    case "merge_next": return [t("hold.sentence.merge_next"), mergeTail(t, hold), hold.approves ? t("hold.merge.approves") : null]
-      .filter(Boolean).join(" ");
+    // 2026-11-23-849e: the series' one merge says what it unblocks (2026-11-25-9992h: merging never approves).
+    case "merge_next": return [t("hold.sentence.merge_next"), mergeTail(t, hold)].filter(Boolean).join(" ");
     case "starts_on_merge": {
       const count = hold.merges ?? hold.names.length;
       return t("hold.sentence.starts_on_merge", { count, next: hold.next ?? names });

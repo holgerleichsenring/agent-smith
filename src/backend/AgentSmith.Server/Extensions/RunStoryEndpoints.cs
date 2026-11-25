@@ -19,6 +19,8 @@ internal static class RunStoryEndpoints
     {
         app.MapGet("/api/runs/{runId}/statistics", GetStatisticsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         app.MapGet("/api/runs/{runId}/trace", GetTraceAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
+        app.MapGet("/api/runs/{runId}/measurement", GetMeasurementAsync) // 2026-11-25-9992k
+           .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         app.MapGet("/api/runs/{runId}/trace/{sequence:int}/{label}", GetTraceEntryAsync)
            .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         app.MapGet("/api/runs/{runId}/prompts/digest", GetPromptDigestAsync)
@@ -34,6 +36,11 @@ internal static class RunStoryEndpoints
         var view = await statistics.ReadAsync(runId, cancellationToken);
         return Results.Ok(view);
     }
+
+    // 2026-11-25-9992k: the model comparison's numbers for one run.
+    internal static async Task<IResult> GetMeasurementAsync(
+        string runId, Services.Measurement.ModelMeasurementReader reader, CancellationToken cancellationToken) =>
+        await reader.RunAsync(runId, cancellationToken) is { } view ? Results.Ok(view) : Results.NotFound();
 
     // An untraced run answers with an empty list — the reader is ABSENT, never broken.
     private static async Task<IResult> GetTraceAsync(

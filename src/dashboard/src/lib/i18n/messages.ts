@@ -1087,10 +1087,6 @@ export const coreMessages = {
     en: { one: "Needed so {names} can start.", other: "Needed so {names} can start." },
     de: { one: "Nötig, damit {names} starten kann.", other: "Nötig, damit {names} starten können." },
   },
-  "hold.merge.approves": {
-    en: "Merging approves the pull request where its host requires a review, as agent-smith's configured identity, and asks the host to complete it once its rules pass.",
-    de: "Mergen genehmigt den Pull Request, wo sein Host ein Review verlangt, als die in agent-smith konfigurierte Identität, und lässt ihn vom Host abschließen, sobald dessen Regeln erfüllt sind.",
-  },
   "hold.escalated.ci_running": {
     en: "CI has been running for {duration}: check the pipeline. Longer than {minutes} minutes ({key}), reported to the admin.",
     de: "Die CI läuft seit {duration}: prüf die Pipeline. Länger als {minutes} Minuten ({key}), an den Admin gemeldet.",
