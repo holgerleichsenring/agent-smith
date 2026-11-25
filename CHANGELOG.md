@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.216.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.215.0...v0.216.0) (2026-11-25)
+
+
+### Features
+
+* **series:** one state per series ticket, read by every surface (2026-11-25-9992a) ([a89a486](https://github.com/holgerleichsenring/agent-smith/commit/a89a48606603a490ec3b8426976f8a2e8ee687a3))
+* **series:** one state per series ticket, read by the master, the panel, the page, the list and the dashboard (2026-11-25-9992a) ([2664bc4](https://github.com/holgerleichsenring/agent-smith/commit/2664bc4e3b124112b3f0cfaaef74b353ad557963))
+
 ## [0.215.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.214.0...v0.215.0) (2026-11-25)
 
 
