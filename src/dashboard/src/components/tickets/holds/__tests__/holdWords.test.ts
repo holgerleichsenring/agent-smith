@@ -4,7 +4,7 @@ import type { TicketHoldCase } from "@/types/tickets";
 import { hold, list, ticket } from "../../__tests__/ticketFixtures";
 import { attempt } from "../../detail/__tests__/detailFixtures";
 import {
-  countsFor, durationOf, holdActLabel, holdAsk, holdRowAct, holdSentence, holdTag, isPersons, isYourMove, mergeTail, namesOf, sinceClock, toldOf,
+  countsFor, durationOf, holdActLabel, holdAsk, holdRowAct, holdSentence, holdTag, isPersons, isYourMove, mergeTail, namesOf, seriesTalkLabel, sinceClock, toldOf,
   waitClause, yourMoveCount,
 } from "../holdWords";
 import { holdPullRequestHref, holdSeriesHref, isAsked } from "../holdRoutes";
@@ -87,6 +87,15 @@ describe("holdWords", () => {
     expect(holdRowAct(translator("en"), hold("text_edited", { act: { kind: "conversation", target: null } }))).toBe("Discuss in the conversation");
     expect(holdRowAct(translator("en"), hold("working"))).toBe("Open the ticket");
     expect(holdTag(translator("en"), hold("text_edited"))).toBe("plan gap");
+  });
+
+  // 2026-11-25-9992j: a ticket's own question in an active series is answered in the series chat — said so, not "the plan".
+  it("seriesTalkLabel_ATicketsQuestionInTheSeries_IsAnsweredInTheSeriesChat", () => {
+    const asked = hold("question", { act: { kind: "conversation", target: "sr-1" } });
+    expect([seriesTalkLabel(translator("en"), asked), holdActLabel(translator("en"), asked), holdRowAct(translator("de"), asked)])
+      .toEqual(["Answer in the series chat", "Answer in the series chat", "Im Chat der Serie antworten"]);
+    expect(seriesTalkLabel(translator("en"), hold("question_plan", { act: { kind: "conversation", target: "sr-1" } }))).toBe("Talk about the plan");
+    expect(holdSeriesHref(asked, (id) => `/series/${id}`)).toBe("/series/sr-1?section=talk");
   });
 
   // 2026-11-23-31dch: a plan question's act is the series' conversation, in both languages.

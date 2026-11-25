@@ -76,7 +76,7 @@ public sealed class SeriesStatusReader(
     }
 
     private static SeriesRunTicketView Shown(SeriesRunTicketView view, SeriesTicketFact fact) =>
-        view with { Kind = fact.Kind, State = fact.State, Ci = fact.Ci, Working = fact.Working };
+        view with { Kind = fact.Kind, State = fact.State, Ci = fact.Ci, Working = fact.Working, CostUsd = fact.CostUsd };
 
     private async Task<SeriesTicketFact> FactAsync(SeriesTicket ticket, SeriesRunTicketView view, SeriesRunProjectFacts facts,
         IReadOnlyDictionary<string, SeriesTicketSpend> spent, IReadOnlyDictionary<string, IReadOnlyList<string>> needed, CancellationToken ct)

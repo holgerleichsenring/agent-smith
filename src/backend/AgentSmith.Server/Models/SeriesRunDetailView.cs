@@ -41,4 +41,11 @@ public sealed record SeriesRunDetailView(
 
     /// <summary>2026-11-25-9992a: the keys of the tickets a run of the series is at work on now.</summary>
     public IReadOnlyList<string> WorkingOn { get; init; } = [];
+
+    /// <summary>2026-11-25-9992j: the waiting question's choices (empty without one) and the recommended choice's index — the
+    /// page draws them as the chat's buttons, and a choice sent as a message is the answer.</summary>
+    public IReadOnlyList<string> QuestionChoices { get; init; } = [];
+
+    /// <inheritdoc cref="QuestionChoices"/>
+    public int? QuestionRecommended { get; init; }
 }

@@ -84,6 +84,8 @@ export interface SeriesRunTicket {
   state: string;
   ci: string | null;
   working: boolean;
+  /** 2026-11-25-9992j: what every run of the ticket cost; the ticket details show it. */
+  costUsd: number;
 }
 
 /** 2026-11-23-0219: what a merge run said about a pull request it did not merge (PullRequestMergeSaid). */
@@ -147,6 +149,10 @@ export interface SeriesRunDetail {
   mergeWhen?: string;
   /** 2026-11-25-9992a: the keys of the tickets a run of the series is at work on now. */
   workingOn: string[];
+  /** 2026-11-25-9992j: the waiting question's choices (empty without one) and the recommended choice's index; the chat
+   *  draws them as buttons, and a choice sent as a message is the answer. */
+  questionChoices: string[];
+  questionRecommended: number | null;
 }
 
 /** 2026-11-24-f9c5f: one repo's final pull request of a series, as its last beat saw it. */
@@ -171,20 +177,4 @@ export interface SeriesMergeOutcome {
 export interface SeriesMergeAnswer {
   ticketId: string;
   pullRequests: SeriesMergeOutcome[];
-}
-
-/** 2026-11-23-31dcj: one revision of a series ticket's spec set after its first, as its ticket branch records it. */
-export interface SeriesRunChange {
-  ticketId: string;
-  revision: number;
-  /** What the revision names as its cause: an approval in a conversation, a run's revision, a re-cut demand… */
-  cause: string;
-  at: string;
-}
-
-/** 2026-11-23-31dcj: the answer of GET /api/series-runs/{id}/changes — newest first. */
-export interface SeriesRunChanges {
-  changes: SeriesRunChange[];
-  /** The tickets whose branch could not be read, so their changes are missing. */
-  unread: { ticketId: string; why: string }[];
 }

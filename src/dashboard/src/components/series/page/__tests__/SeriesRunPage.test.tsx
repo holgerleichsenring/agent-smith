@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError } from "@/lib/apiResponse";
 import { seriesDetail } from "./seriesFixtures";
 
-// 2026-11-23-31dcd: the series page shows one section at a time, named by ?section=; its Tickets rows run by depth and
-// open the ticket page; its Conversation posts to the series' own conversation. 2026-11-23-f562: three sections, the
-// Overview first; the retired names land on it; Changed in this series is read under Tickets.
+// 2026-11-23-31dcd: the series page; its chat posts to the series' own conversation. 2026-11-25-9992j: ONE pane — the graph
+// and the chat under it, no sections; an older ?section=talk link scrolls to the chat; the series' waiting question shows
+// its choices as buttons, the recommended one primary, and a click sends the choice as the answer.
 
 const hoisted = vi.hoisted(() => ({
-  search: "", replace: vi.fn(), push: vi.fn(), fetch: vi.fn(), changes: vi.fn(),
+  search: "", fetch: vi.fn(), lacks: false, scrolled: vi.fn(),
   dialog: { open: vi.fn(), send: vi.fn(), attach: vi.fn(), entries: [], working: false, readings: [], activity: [],
     workingSince: null, uploadNote: null, failure: null, awaitingProposal: null, question: null,
     view: { session: { sessionId: "conv-1" } } as unknown },
@@ -16,87 +16,48 @@ const hoisted = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   usePathname: () => "/series/sr-1",
   useSearchParams: () => new URLSearchParams(hoisted.search),
-  useRouter: () => ({ replace: hoisted.replace, push: hoisted.push }),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
-vi.mock("@/lib/seriesRunsApi", () => ({
-  fetchSeriesRun: (...a: unknown[]) => hoisted.fetch(...a),
-  fetchSeriesRunChanges: (...a: unknown[]) => hoisted.changes(...a), // 2026-11-23-31dcj
-}));
+vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRun: (...a: unknown[]) => hoisted.fetch(...a) }));
 vi.mock("@/hooks/useSpecDialog", () => ({ useSpecDialog: () => hoisted.dialog }));
+vi.mock("@/hooks/useLacksPermission", () => ({ useLacksPermission: () => hoisted.lacks }));
 
 import { SeriesRunPage } from "../SeriesRunPage";
 
+const asked = () => seriesDetail({ question: "#50 is ready to merge. Shall I merge, or do you want to look at the PR first?",
+  questionChoices: ["Merge it", "I'll look at the PR first"], questionRecommended: 0 });
+
 beforeEach(() => {
   hoisted.search = "";
-  hoisted.replace.mockReset();
-  hoisted.push.mockReset();
+  hoisted.lacks = false;
   hoisted.dialog.open.mockReset();
   hoisted.dialog.send.mockReset();
+  hoisted.scrolled.mockReset();
   hoisted.fetch.mockReset().mockResolvedValue(seriesDetail());
-  hoisted.changes.mockReset().mockResolvedValue({ changes: [], unread: [] });
+  Element.prototype.scrollIntoView = hoisted.scrolled;
 });
 
 describe("SeriesRunPage", () => {
-  it("SeriesPage_SelectingASection_ShowsOnlyItsPane_AndSetsTheSectionParam", async () => {
+  it("SeriesPage_IsTheGraphAndTheChat_OnOnePane_WithoutSections", async () => {
     render(<SeriesRunPage id="sr-1" />);
-    expect(await screen.findByTestId("series-pane-overview")).toBeInTheDocument();
-    expect(screen.queryByTestId("series-pane-talk")).toBeNull();
-    expect(screen.getAllByTestId(/^series-section-(overview|tickets|talk)$/)).toHaveLength(3);
-    expect(screen.queryByTestId("series-your-step")).toBeNull();
 
-    fireEvent.click(screen.getByTestId("series-section-talk"));
-
-    expect(hoisted.replace).toHaveBeenCalledWith("/series/sr-1?section=talk", { scroll: false });
+    expect(await screen.findByTestId("series-graph")).toBeInTheDocument();
+    expect(screen.getByTestId("series-chat")).toContainElement(screen.getByTestId("series-talk"));
+    expect(screen.getByTestId("series-title")).toHaveTextContent("Approval workflow");
+    expect(screen.queryByTestId(/^series-section-(overview|tickets|talk)$/)).toBeNull();
+    expect(screen.queryByTestId("series-tickets")).toBeNull();
+    expect(hoisted.scrolled).not.toHaveBeenCalled();
   });
 
-  it("SeriesPage_SectionParam_ShowsThatSectionAlone", async () => {
+  it("SeriesPage_AnOlderTalkLink_ScrollsToTheChat", async () => {
     hoisted.search = "section=talk";
     render(<SeriesRunPage id="sr-1" />);
 
-    expect(await screen.findByTestId("series-pane-talk")).toBeInTheDocument();
-    expect(screen.queryByTestId("series-pane-tickets")).toBeNull();
-    expect(screen.getByTestId("series-section-title")).toHaveTextContent("Conversation");
+    await screen.findByTestId("series-chat");
+    expect(hoisted.scrolled).toHaveBeenCalledTimes(1);
   });
 
-  it("SeriesPage_RetiredSectionNames_LandOnTheOverview", async () => {
-    for (const name of ["next", "held", "course"]) {
-      hoisted.search = `section=${name}`;
-      const page = render(<SeriesRunPage id="sr-1" />);
-      expect(await screen.findByTestId("series-pane-overview")).toBeInTheDocument();
-      expect(screen.getByTestId("series-section-title")).toHaveTextContent("Overview");
-      page.unmount();
-    }
-  });
-
-  it("SeriesPage_ChangedInThisSeries_IsReadOnlyOnceTicketsOpens", async () => {
-    const first = render(<SeriesRunPage id="sr-1" />);
-    expect(await screen.findByTestId("series-pane-overview")).toBeInTheDocument();
-    expect(hoisted.changes).not.toHaveBeenCalled();
-    first.unmount();
-
-    hoisted.search = "section=tickets";
-    render(<SeriesRunPage id="sr-1" />);
-
-    expect(await screen.findByTestId("series-changes-empty")).toBeInTheDocument();
-    expect(hoisted.changes).toHaveBeenCalledTimes(1);
-    expect(hoisted.changes).toHaveBeenCalledWith("sr-1", expect.any(AbortSignal));
-  });
-
-  it("SeriesPage_TicketsRows_SortByDepth_AndOpenTheTicketPage", async () => {
-    hoisted.search = "section=tickets";
-    render(<SeriesRunPage id="sr-1" />);
-    const table = await screen.findByTestId("series-tickets");
-
-    const keys = [...table.querySelectorAll("tbody tr")].map((row) => row.querySelector("a")?.textContent);
-    expect(keys).toEqual(["#48", "#49", "#50"]);
-    expect(screen.getByTestId("series-ticket-49")).toHaveTextContent("PR #9935 waiting");
-    expect(screen.getByTestId("series-ticket-48")).toHaveTextContent("merged");
-    fireEvent.click(screen.getByTestId("series-ticket-50"));
-    expect(hoisted.push).toHaveBeenCalledWith("/tickets/shop/50");
-  });
-
-  it("SeriesPage_Conversation_PostsToTheSeriesOwnConversation", async () => {
-    hoisted.search = "section=talk";
+  it("SeriesPage_Chat_PostsToTheSeriesOwnConversation", async () => {
     render(<SeriesRunPage id="sr-1" />);
     await screen.findByTestId("series-talk"); // that it lands on the thread: SeriesConversationSection.test.tsx, real hook
 
@@ -106,8 +67,55 @@ describe("SeriesRunPage", () => {
     await waitFor(() => expect(hoisted.dialog.send).toHaveBeenCalledWith("The worker needs the callback URL", "shop"));
   });
 
+  it("SeriesPage_AQuestionWithChoices_DrawsThemAsButtons_TheRecommendedPrimary_AClickAnswers", async () => {
+    hoisted.fetch.mockResolvedValue(asked());
+    render(<SeriesRunPage id="sr-1" />);
+
+    const merge = await screen.findByTestId("dialog-answer-Merge it");
+    const look = screen.getByTestId("dialog-answer-I'll look at the PR first");
+    expect(merge).toHaveClass("primary");
+    expect(merge).toHaveTextContent("(recommended)");
+    expect(look).not.toHaveClass("primary");
+    expect(screen.getByTestId("series-question")).toHaveTextContent("Or write your own answer below.");
+
+    fireEvent.click(merge);
+
+    expect(hoisted.dialog.send).toHaveBeenCalledWith("Merge it", "shop");
+    expect(screen.queryByTestId("series-question")).toBeNull();
+  });
+
+  it("SeriesPage_AFailedSend_BringsTheChoicesBack", async () => {
+    hoisted.fetch.mockResolvedValue(asked());
+    const page = render(<SeriesRunPage id="sr-1" />);
+    fireEvent.click(await screen.findByTestId("dialog-answer-Merge it"));
+    expect(screen.queryByTestId("series-question")).toBeNull();
+
+    hoisted.dialog.failure = new Error("offline") as unknown as null;
+    page.rerender(<SeriesRunPage id="sr-1" />);
+
+    expect(screen.getByTestId("series-question")).toBeInTheDocument();
+    hoisted.dialog.failure = null;
+  });
+
+  it("SeriesPage_WithoutRunsControl_ShowsNoChoiceButtons", async () => {
+    hoisted.lacks = true;
+    hoisted.fetch.mockResolvedValue(asked());
+    render(<SeriesRunPage id="sr-1" />);
+
+    await screen.findByTestId("series-talk");
+    expect(screen.queryByTestId("series-question")).toBeNull();
+  });
+
+  it("SeriesPage_AQuestionWithoutChoices_IsAnsweredByWriting", async () => {
+    hoisted.fetch.mockResolvedValue(seriesDetail({ question: "Which callback URL?" }));
+    render(<SeriesRunPage id="sr-1" />);
+
+    await screen.findByTestId("series-talk");
+    expect(screen.queryByTestId("series-question")).toBeNull();
+    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
+  });
+
   it("SeriesPage_AClosedConversation_IsContinuedInWorkItOut", async () => {
-    hoisted.search = "section=talk";
     hoisted.fetch.mockResolvedValue(seriesDetail({ conversationOpen: false }));
     render(<SeriesRunPage id="sr-1" />);
 

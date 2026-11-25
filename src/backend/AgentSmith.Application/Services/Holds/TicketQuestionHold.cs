@@ -20,13 +20,15 @@ public static class TicketQuestionHold
         return TicketHoldOf.Hold(facts, TicketHoldAddressees.Admin, TicketHoldCases.QuestionEnvironment, act, facts.ParkedAt);
     }
 
-    /// <summary>The parked question is the ticket's own: answered on it. Null for a park its series settles.</summary>
+    /// <summary>The parked question is the ticket's own: answered on it — or, 2026-11-25-9992j, in its active series' chat,
+    /// which relays every question that is not the environment's (SeriesQuestions), one at a time, so the ticket page
+    /// offers no second way to answer it. Null for a park its series settles as a plan question.</summary>
     public static TicketHold? Target(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        return Waiting(facts) && !PlanInSeries(facts)
-            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Question, new(TicketHoldActs.Answer), facts.ParkedAt)
-            : null;
+        if (!Waiting(facts) || PlanInSeries(facts)) return null;
+        var act = InActiveSeries(facts) ? new TicketHoldAct(TicketHoldActs.Conversation, facts.SeriesId) : new(TicketHoldActs.Answer);
+        return TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Question, act, facts.ParkedAt);
     }
 
     /// <summary>The park asks about the plan and the ticket's series still runs: talked through in its conversation.</summary>
@@ -43,5 +45,7 @@ public static class TicketQuestionHold
 
     // A question stored before the field existed carries no answerer and is the target's.
     private static bool PlanInSeries(TicketHoldFacts facts) =>
-        facts.SeriesId is not null && facts.SeriesActive && facts.Answerers.Contains(QuestionAnswerers.Plan);
+        InActiveSeries(facts) && facts.Answerers.Contains(QuestionAnswerers.Plan);
+
+    private static bool InActiveSeries(TicketHoldFacts facts) => facts.SeriesId is not null && facts.SeriesActive;
 }
