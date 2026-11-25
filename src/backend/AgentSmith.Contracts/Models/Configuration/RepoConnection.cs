@@ -31,6 +31,12 @@ public sealed record RepoConnection
     public string? Consumes { get; init; }
 
     /// <summary>
+    /// 2026-11-25-9992h: the machine identity this repository's acts run under, stamped from its project's <c>machine:</c>
+    /// block when the project resolves; null when the project names none for this hoster — then <see cref="Auth"/> answers.
+    /// </summary>
+    public MachineIdentity? Machine { get; init; }
+
+    /// <summary>
     /// 2026-09-01-1335: whether this connection names a repository at all — a remote by
     /// <see cref="Url"/>, or a working copy on this machine by <see cref="Path"/>. Context
     /// discovery reads through the source provider either way, so "has no url" was never

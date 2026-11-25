@@ -21,7 +21,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup, IPrMarkedThreadResolver, IPullRequestAutoCompleteRearmer
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup, IPrMarkedThreadResolver, IPullRequestAutoCompleteRearmer
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -321,21 +321,6 @@ public sealed class AzureReposSourceProvider(
     public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken ct) => Reviews().ListAsync(prUrl, ct);
     public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken ct) => Reviews().ChangesRequestedAsync(prUrl, ct);
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken ct) => Reviews().ReadAsync(prUrl, ct);
-
-    // 2026-11-17-3435b: the +10 vote as the identity this provider's token is; a minimum-reviewers policy counts it
-    // unless it forbids the requestor approving, which the refusal then names.
-    public async Task<PullRequestApproval> ApproveIfRequiredAsync(string prUrl, CancellationToken ct)
-    {
-        if (!AzureReposPullRequestUpdater.TryParsePullRequestId(prUrl, out var prId))
-            return PullRequestApproval.Refused($"Not an Azure Repos pull request URL: {prUrl}");
-        try
-        {
-            if (await SelfAsync(ct) is not { } self) return PullRequestApproval.Refused("Azure DevOps did not say who the token is");
-            await AzureReposApprovalVote.CastAsync(await CreateConnectionAsync(ct), _project, _repoName, prId, self, ct);
-            return PullRequestApproval.Approved;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException) { return PullRequestApproval.Refused(ex.Message); }
-    }
 
     // 2026-11-17-3435a: the pull request's build policies and statuses.
     public Task<PullRequestCi> ReadCiAsync(string prUrl, CiReadRequest request, CancellationToken ct) =>

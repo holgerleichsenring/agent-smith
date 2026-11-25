@@ -8,8 +8,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <summary>
 /// 2026-10-08-e8b9c: Azure DevOps' standing "Wait for author" votes. A vote leaves a system thread
 /// (<see cref="AzureReposVoteThreads"/>); only the voter's NEWEST -5 thread counts, and only while the
-/// reviewer list still shows that voter at -5 — a reset vote, or our auto-complete's +10, leaves no
-/// standing act. A -5 counts whoever cast it: we never vote -5. 2026-10-13-9a59b: the act carries the
+/// reviewer list still shows that voter at -5 — a reset vote or a later +10 leaves no standing act. A -5 counts whoever cast it: we never vote -5. 2026-10-13-9a59b: the act carries the
 /// vote comment's host id.
 /// </summary>
 public static class AzureReposVoteActs

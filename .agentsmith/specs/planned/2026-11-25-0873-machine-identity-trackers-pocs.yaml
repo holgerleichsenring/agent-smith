@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-0873
+goal: "Tracker writes (comments, status moves) and PoC source and GitOps repo commits act under the project's machine identity, as repository acts do since 2026-11-25-9992h."
+
+applies_to: "default (TrackerConnections, TrackerIdentity, PocSourceRepos, PoC commit paths)"
+
+requires: [2026-11-25-9992h]
+
+facts:
+  - claim: "Tracker comments and status moves authenticate with the tracker's own auth secret and find themselves with GET /user on GitHub."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubStatusHistory.cs:16"
+  - claim: "A PoC target's source repo is read from the repos catalog or a connection, not from a project, so it carries no machine stamp."
+    evidence: "src/backend/AgentSmith.Application/Services/Pocs/Pipeline/PocSourceRepos.cs:10-21"
+
+scope:
+  in: "Stamp the PoC source repo from its owning project's machine block; tracker writes on GitHub, GitLab and Azure Boards under the machine identity of the tracker's hoster; the preflight repo checks (RepoAccessCheck, VerificationOnboardingCheck) and the PR/change sweeps that group repos by URL across projects read the stamped project repos."
+  out: "Jira trackers (no machine identity there)."
+
+done:
+  - "A PoC install commit and a tracker comment on a project with a machine identity are made under the machine's token, pinned with fakes."

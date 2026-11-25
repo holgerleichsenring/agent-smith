@@ -13,34 +13,29 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// unavailable in exactly the environment it was built for.
 /// </para>
 /// <para>
-/// The mechanism that works is to APPROVE and then ARM: cast an approving reviewer
-/// vote, set <c>AutoCompleteSetBy</c>, and the pull request merges itself once the
-/// policy passes. The identity both need is already in hand — our own run opened this
-/// pull request, so <c>CreatedBy</c> IS the token's identity, and reading it off the
-/// pull request avoids a second round trip for a fact the first response returned.
+/// The mechanism that works is to ARM: set <c>AutoCompleteSetBy</c>, and the pull request
+/// merges itself once the policies pass.
+/// </para>
+/// <para>
+/// 2026-11-25-9992h: armed as the token's own identity — the machine's — never as the pull
+/// request's creator, who may be a person from before the machine; and with no vote: a
+/// policy that wants a reviewer's approval waits for a person's.
 /// </para>
 /// </summary>
 public sealed class AzureReposAutoComplete(
     string project, string repoName, ILogger logger)
 {
     /// <summary>
-    /// Approves <paramref name="pr"/> and arms auto-complete on it. Returns merged when
+    /// Arms auto-complete on <paramref name="pr"/> as <paramref name="self"/>. Returns merged when
     /// Azure completed it there and then (no policy stood in the way), armed when it
     /// accepted the instruction and is waiting, and refused when it declined.
     /// </summary>
     public async Task<PullRequestCompletion> ArmAsync(
-        GitHttpClient client, GitPullRequest pr, int prId, CancellationToken cancellationToken)
+        GitHttpClient client, GitPullRequest pr, int prId, string? self, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(pr);
-
-        var identity = pr.CreatedBy;
-        if (identity is null)
-            return PullRequestCompletion.Refused(
-                $"Azure DevOps returned no creator identity for pull request !{prId}, "
-                + "so auto-complete cannot be armed on anyone's behalf.");
-
-        await ApproveAsync(client, identity, prId, cancellationToken);
+        if (Self(self) is not { } identity) return Unknown(prId);
         var updated = await client.UpdatePullRequestAsync(
             Arming(pr, identity), project, repoName, prId, cancellationToken: cancellationToken);
         return Interpret(updated, prId);
@@ -49,15 +44,16 @@ public sealed class AzureReposAutoComplete(
     /// <summary>
     /// 2026-11-24-629ab: arms auto-complete again after Azure dropped it at a merge conflict — as the same identity, with the
     /// pull request's own completion options when it still carries them, and no vote: whoever set it first decided the merge,
-    /// and a vote is a review nobody asked for. One that is armed already is left as it is.
+    /// and a vote is a review nobody asked for. One that is armed already is left as it is. 2026-11-25-9992h: as the token's
+    /// own identity, like <see cref="ArmAsync"/>.
     /// </summary>
-    public async Task<PullRequestCompletion> RearmAsync(GitHttpClient client, GitPullRequest pr, int prId, CancellationToken cancellationToken)
+    public async Task<PullRequestCompletion> RearmAsync(
+        GitHttpClient client, GitPullRequest pr, int prId, string? self, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(pr);
         if (pr.AutoCompleteSetBy is not null) return PullRequestCompletion.Armed("Auto-complete is set already.");
-        if (pr.CreatedBy is not { } identity)
-            return PullRequestCompletion.Refused($"Azure DevOps returned no creator identity for pull request !{prId}.");
+        if (Self(self) is not { } identity) return Unknown(prId);
         var updated = await client.UpdatePullRequestAsync(
             Arming(pr, identity, Kept(pr.CompletionOptions)), project, repoName, prId, cancellationToken: cancellationToken);
         return Interpret(updated, prId);
@@ -70,15 +66,11 @@ public sealed class AzureReposAutoComplete(
         MergeCommitMessage = had.MergeCommitMessage, TransitionWorkItems = had.TransitionWorkItems,
     };
 
-    private async Task ApproveAsync(
-        GitHttpClient client, Microsoft.VisualStudio.Services.WebApi.IdentityRef identity,
-        int prId, CancellationToken cancellationToken)
-    {
-        // A policy that requires approval is satisfied by the vote; one that requires a
-        // build is not, and is precisely what auto-complete then waits for.
-        await AzureReposApprovalVote.CastAsync(client, project, repoName, prId, identity.Id, cancellationToken); // 3435b
-        logger.LogInformation("PR !{PrId} approved by {Identity}", prId, identity.DisplayName ?? identity.Id);
-    }
+    private static Microsoft.VisualStudio.Services.WebApi.IdentityRef? Self(string? self) =>
+        string.IsNullOrWhiteSpace(self) ? null : new Microsoft.VisualStudio.Services.WebApi.IdentityRef { Id = self };
+
+    private static PullRequestCompletion Unknown(int prId) => PullRequestCompletion.Refused(
+        $"Azure DevOps did not say who the token is, so auto-complete on pull request !{prId} is not armed on anyone's behalf.");
 
     private static GitPullRequest Arming(GitPullRequest pr, Microsoft.VisualStudio.Services.WebApi.IdentityRef identity,
         GitPullRequestCompletionOptions? options = null) => new()

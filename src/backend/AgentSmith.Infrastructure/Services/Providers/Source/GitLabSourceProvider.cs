@@ -18,7 +18,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (REST API call, not git plumbing).
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestAutoCompleteRearmer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestAutoCompleteRearmer, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -299,10 +299,6 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken) =>
         new GitLabMrStateReader(_baseUrl, _projectPath, _privateToken, _cloneUrl, _httpClient, _logger).ReadAsync(prUrl, cancellationToken);
     public Task CloseAsync(string prUrl, CancellationToken cancellationToken) => new GitLabMergeRequestClose(_baseUrl, _projectPath, _privateToken, _httpClient).CloseAsync(prUrl, cancellationToken);
-
-    // 2026-11-17-3435b: an approval while the approval rules want one.
-    public Task<PullRequestApproval> ApproveIfRequiredAsync(string prUrl, CancellationToken cancellationToken) =>
-        new GitLabApprover(_baseUrl, _projectPath, _privateToken, _httpClient).ApproveIfRequiredAsync(prUrl, cancellationToken);
 
     // 2026-11-25-7a92b: a settled head without a pipeline gets one, through f9c5d's start; a manual one is left for a person.
     public Task<int> RequeueNotStartedAsync(string prUrl, bool headSettled, CancellationToken ct) => new GitLabPipelineRequeue(new Pipelines.PipelineHttp(

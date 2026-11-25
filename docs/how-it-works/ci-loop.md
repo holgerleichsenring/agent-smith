@@ -24,7 +24,7 @@ A red, partial or record-only run never merges, whatever the policy. Neither doe
 - **Off (default):** the merge goes past branch policies, required reviews and required checks, which exist for people. The token needs the permission to bypass them: on Azure DevOps *Bypass policies when completing pull requests*; on GitHub repository admin with bypassing allowed, or the token's actor on the ruleset's bypass list. GitLab has no API bypass for required approvals or pipelines, so it merges when its merge checks allow.
 - **On:** codeably arms the host's own mechanism (auto-complete on Azure DevOps, auto-merge on GitHub, merge when the pipeline succeeds on GitLab) and the host's rules decide. Azure DevOps drops auto-complete at a merge conflict, and GitLab drops auto-merge when new commits arrive. Once the pull request merges cleanly on its new head, codeably arms it again, once per head, whoever pushed; the host's merge checks (approvals, the pipeline) still decide. If you take it off a head that hasn't changed, it stays off. GitHub keeps auto-merge through codeably's pushes, so nothing needs arming there.
 
-Where the host requires an approval, `approval_auth` names the secret of a second identity that approves. GitHub never lets the author approve its own pull request, so a required review there needs one. A refusal leaves the pull request open and the run's result names the reason, the missing permission and the key to change.
+Nothing approves a pull request: a review the host requires is a person's, and the armed merge waits for it. codeably acts under the project's machine identity (`machine:`), so the host records every push, comment and merge under the machine. A refusal leaves the pull request open and the run's result names the reason and the missing permission.
 
 ## Reading CI
 
@@ -96,7 +96,6 @@ projects:
       ci_fix_attempts: 3              # fix runs in a row before the ticket comes back
       ci_excerpt_chars: 4000          # evidence kept per failed check
       ci_failed_checks_read: 5        # failed checks whose logs are read
-      approval_auth: github_approver  # optional: secret of the approving identity
 ```
 
 Every key with its default is in the [agentsmith.yml reference](../reference/configuration/agentsmith-yml.md).

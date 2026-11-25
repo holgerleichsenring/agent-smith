@@ -78,8 +78,28 @@ export const configMessages = {
     en: "failed checks of a red head whose logs are read",
     de: "fehlgeschlagene Checks eines roten Heads, deren Logs gelesen werden",
   },
-  "config.merge.approvalAuth.label": { en: "approval identity", de: "Identität für die Freigabe" },
-  "config.merge.approvalAuth.placeholder": { en: "— the repo's token —", de: "— das Token des Repos —" },
+  // --- project: the machine identity (2026-11-25-9992h) ---
+  "config.machine.help": {
+    en: "The identity agent-smith pushes, opens pull requests, comments and merges under. A hoster left empty uses each repository's own token.",
+    de: "Die Identität, unter der agent-smith pusht, Pull Requests öffnet, kommentiert und merged. Ein leerer Host nimmt das Token des jeweiligen Repos.",
+  },
+  "config.machine.name.label": { en: "name", de: "Name" },
+  "config.machine.name.help": { en: "author of its commits and name of its acts", de: "Autor seiner Commits und Name seiner Taten" },
+  "config.machine.email.label": { en: "commit email", de: "Commit-E-Mail" },
+  "config.machine.email.help": { en: "the address its commits carry", de: "die Adresse in seinen Commits" },
+  "config.machine.auth.label": { en: "secret", de: "Secret" },
+  "config.machine.auth.placeholder": { en: "— no machine identity —", de: "— keine Maschinen-Identität —" },
+  "config.machine.appId.label": { en: "GitHub App id", de: "GitHub-App-ID" },
+  "config.machine.appId.help": {
+    en: "set for a GitHub App; the secret is then its private key",
+    de: "für eine GitHub App; das Secret ist dann ihr privater Schlüssel",
+  },
+  "config.machine.installationId.label": { en: "installation id", de: "Installations-ID" },
+  "config.machine.hosterEmail.label": { en: "commit email here", de: "Commit-E-Mail hier" },
+  "config.machine.hosterEmail.help": {
+    en: "when it differs on this hoster, e.g. a GitHub App's bot address",
+    de: "wenn sie bei diesem Host abweicht, z. B. die Bot-Adresse einer GitHub App",
+  },
 
   // --- tracker: the form's tabs ---
   "config.tracker.tab.connection": { en: "Connection", de: "Verbindung" },
@@ -1070,6 +1090,7 @@ export const configMessages = {
   "config.project.tab.routing": { en: "routing", de: "Routing" },
   "config.project.tab.sandbox": { en: "sandbox", de: "Sandbox" },
   "config.project.tab.merge": { en: "merge", de: "Merge" },
+  "config.project.tab.machine": { en: "machine identity", de: "Maschinen-Identität" },
   "config.project.agent": { en: "agent", de: "Agent" },
   "config.project.tracker": { en: "tracker", de: "Tracker" },
   "config.project.designSources": { en: "design sources", de: "Design-Quellen" },

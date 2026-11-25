@@ -7,11 +7,19 @@ namespace AgentSmith.Contracts.Exceptions;
 /// The message names the entity and the secret, never a value, so it can be shown and logged
 /// as it is; it is a <see cref="ConfigurationException"/> because the fix is in the configuration.
 /// </summary>
-public sealed class MissingCredentialException(string entity, string secret)
-    : ConfigurationException(BuildMessage(entity, secret))
+public class MissingCredentialException : ConfigurationException
 {
-    public string Entity { get; } = entity;
-    public string Secret { get; } = secret;
+    public MissingCredentialException(string entity, string secret) : this(entity, secret, BuildMessage(entity, secret)) { }
+
+    /// <summary>2026-11-25-9992h: a subtype's own sentence about the same entity and secret.</summary>
+    protected MissingCredentialException(string entity, string secret, string message) : base(message)
+    {
+        Entity = entity;
+        Secret = secret;
+    }
+
+    public string Entity { get; }
+    public string Secret { get; }
 
     private static string BuildMessage(string entity, string secret) =>
         string.IsNullOrWhiteSpace(secret)

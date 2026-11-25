@@ -23,6 +23,7 @@ namespace AgentSmith.Application.Services.Rework;
 /// <para>2026-10-13-8762p: an overruled default ranks below the act slot and a status move, above Retry.</para>
 /// <para>2026-10-13-8762v: a series' automatic start ranks below Retry and above a start by name, which it also is.</para>
 /// <para>2026-11-16-f3fbc: a precondition release ranks directly above the series start.</para>
+/// <para>2026-11-25-9992h: the series start's actor is the project's machine identity.</para>
 /// </summary>
 public sealed class AttemptCauseReader(
     TrackerIdentity identity, ApprovedSpecSetResolver approvals, ILogger<AttemptCauseReader> logger)
@@ -40,11 +41,17 @@ public sealed class AttemptCauseReader(
         if (OverruleAct.Of(previous) is { } overrule) return Of(overrule);
         if (RetryAct.Of(previous) is { } retry) return Of(retry);
         if (pipeline.IsPreconditionRelease()) return new AttemptCause(AttemptChannels.Precondition);
-        if (pipeline.IsSeriesAutoStart()) return new AttemptCause(AttemptChannels.Series, AttemptChannels.SeriesActor);
+        if (pipeline.IsSeriesAutoStart()) return new AttemptCause(AttemptChannels.Series, SeriesActor(pipeline));
         if (pipeline.IsRequestedByName()) return new AttemptCause(AttemptChannels.Requested);
         if (previous is not null) return new AttemptCause(AttemptChannels.Retrigger);
         return await PickupAsync(provider, context, cancellationToken);
     }
+
+    // 2026-11-25-9992h: a series start is booked under the project's machine identity, agent-smith without one.
+    private static string SeriesActor(PipelineContext pipeline) =>
+        pipeline.TryGet<Contracts.Models.Configuration.ResolvedProject>(ContextKeys.ProjectConfig, out var project) && project is not null
+            ? project.ActorName
+            : AttemptChannels.SeriesActor;
 
     private async Task<ReworkAct?> OperatorAsync(PipelineContext pipeline, CancellationToken cancellationToken)
     {

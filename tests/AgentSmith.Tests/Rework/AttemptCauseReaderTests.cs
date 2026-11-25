@@ -179,6 +179,23 @@ public sealed class AttemptCauseReaderTests
         (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Series, AttemptChannels.SeriesActor));
     }
 
+    // 2026-11-25-9992h: a series start is booked under its project's machine identity.
+    [Fact]
+    public async Task AttemptCauseReader_SeriesAutoStart_IsBookedUnderTheMachine()
+    {
+        PreviousAttempt();
+        _pipeline.Set(ContextKeys.SeriesAutoStart, System.Text.Json.JsonSerializer.SerializeToElement(true));
+        _pipeline.Set(ContextKeys.ProjectConfig, new AgentSmith.Contracts.Models.Configuration.ResolvedProject
+        {
+            Name = "p", Machine = new AgentSmith.Contracts.Models.Configuration.MachineIdentityConfig
+            {
+                Name = "agent-smith-bot", Github = new AgentSmith.Contracts.Models.Configuration.MachineHosterConfig { Auth = "bot" },
+            },
+        });
+
+        (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Series, "agent-smith-bot"));
+    }
+
     [Fact]
     public async Task AttemptCauseReader_ActBeatsSeriesAutoStart()
     {

@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992h
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "agent-smith acts under a per-project machine identity per hoster, stamped onto the project's repos and answered by CredentialResolver.For(repo)"
+    over: "Keep acting with each repo's own auth secret (often a person's PAT); a second credential beside Auth chosen per act"
+    reason: |
+      The operator's decision (concept 'Rahmen statt Regeln', revision): it is a machine and that must be visible, in commits,
+      merges, comments and the audit trail. CredentialResolver.For(repo) is the one seam every hoster act already goes through,
+      so the identity replaces the repo's token there and no act path gets a second way to authenticate. Reads under a
+      connection (discovery) stay on the connection's secret: they are reads, not acts.
+  - category: Architecture
+    decider: operator
+    chose: "Remove every approval agent-smith casts (IPullRequestApprover, the Azure vote on arming auto-complete) and retire merge.approval_auth"
+    over: "Keep 3435b's approval step, approving as the repo token or as a second identity named by merge.approval_auth"
+    reason: |
+      The operator's rule: a policy that requires a human vote is the environment's call, and the machine never approves its own
+      pull request. approval_auth existed only to satisfy a review rule with a second machine vote, which is exactly what the rule
+      forbids. With respect_branch_protection the host's auto-merge or auto-complete now waits for a person's review; bypass
+      merges past the rule as before, which is the operator's explicit choice per project.
+  - category: Architecture
+    chose: "A missing identity is an advisory finding per hoster on the project (studio draft and runtime); an unusable block (no name or email, app_id without installation_id) is blocking"
+    over: "Blocking every project without an identity; silently acting with the repo's token"
+    reason: |
+      Blocking would disable every existing project at the upgrade. The advisory finding names the hoster, the repos and the token
+      the project acts with instead, on the project's own form, so the fallback is said rather than silent.
+  - category: Implementation
+    chose: "GitHub App installation tokens are minted synchronously (HttpClient.Send with HttpClient's default timeout, one mint per installation at a time) and cached per process until five minutes before expires_at"
+    over: "Making ICredentialResolver async across its 75 call sites; a background refresher"
+    reason: |
+      The resolver is synchronous and called from synchronous factories. A mint happens once an hour per installation; a
+      synchronous HTTP call there blocks one thread for one round trip, with no sync-over-async. A per-replica cache needs no
+      coordination: each replica mints its own token, which GitHub allows.
+  - category: Implementation
+    chose: "The series' auto-start, retry and tell are booked under the machine's name; the approver's principal stays the authority (runs.control)"
+    over: "Booking the series as the approver; replacing the approver by the machine"
+    reason: |
+      Who acts and who authorized it are two facts. The machine acts; the person who approved the series authorized it, and
+      their runs.control still decides whether the series may start runs. RestartActor keeps its text: the interrupted-restart
+      reader matches on it to not restart an attempt it caused.
+  - category: Implementation
+    chose: "The trail of push, pull request, comment and merge acts is the hoster's own record of the identity that made them; series acts are said with their reason in the conversation"
+    over: "A new act ledger table"
+    reason: |
+      Once the identity is the machine, every hoster already records each act under it (commit author, PR creator, comment author,
+      merged-by, auto-complete set-by). A second ledger would be a second copy. The reason exists where the master chooses an act,
+      so the series tools take it and say it.
+  - category: Scope
+    chose: "Azure DevOps service principals and tracker/PoC writes are separate specs (2026-11-25-d0e2, 2026-11-25-0873)"
+    over: "All in this slice"
+    reason: |
+      A service principal cannot hold a PAT; it needs Entra Bearer tokens in every Azure client that uses Basic today. A bot user
+      PAT covers Azure DevOps now through the existing clients. Tracker and PoC paths authenticate through other entities than
+      the project's repos.

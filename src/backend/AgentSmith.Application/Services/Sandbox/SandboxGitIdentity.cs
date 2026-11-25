@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
@@ -27,14 +28,27 @@ public sealed class SandboxGitIdentity(ILogger<SandboxGitIdentity> logger)
     /// Ensures the sandbox can commit. Returns true when THIS call set the identity,
     /// false when git already resolved one (or the probe could not run).
     /// </summary>
-    public async Task<bool> EnsureConfiguredAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    public Task<bool> EnsureConfiguredAsync(ISandbox sandbox, CancellationToken cancellationToken) =>
+        EnsureConfiguredAsync(sandbox, null, cancellationToken);
+
+    /// <summary>
+    /// 2026-11-25-9992h: with the repository's machine identity, the clone commits as the machine — written into the clone's
+    /// own config whatever the image resolves, because the machine's commits must carry it. Without one, as before.
+    /// </summary>
+    public async Task<bool> EnsureConfiguredAsync(ISandbox sandbox, MachineIdentity? machine, CancellationToken cancellationToken)
     {
-        if (await HasIdentityAsync(sandbox, cancellationToken)) return false;
-        await SetAsync(sandbox, "user.email", Email, cancellationToken);
-        await SetAsync(sandbox, "user.name", Name, cancellationToken);
-        logger.LogDebug("Configured the git identity in sandbox {JobId}", sandbox.JobId);
+        if (machine is null && await HasIdentityAsync(sandbox, cancellationToken)) return false;
+        await SetAsync(sandbox, "user.email", machine?.Email ?? Email, cancellationToken);
+        await SetAsync(sandbox, "user.name", machine?.Name ?? Name, cancellationToken);
+        logger.LogDebug("Configured the git identity {Name} in sandbox {JobId}", machine?.Name ?? Name, sandbox.JobId);
         return true;
     }
+
+    /// <summary>2026-11-25-9992h: whether a commit email is agent-smith's — the repository's machine email or the framework's
+    /// own, which every commit made before a machine identity was configured carries.</summary>
+    public static bool IsOurs(string? email, string? machineEmail) =>
+        string.Equals(email, Email, StringComparison.OrdinalIgnoreCase)
+        || (!string.IsNullOrWhiteSpace(machineEmail) && string.Equals(email, machineEmail, StringComparison.OrdinalIgnoreCase));
 
     // `git config --get user.email` resolves local, global and system config, so an
     // operator's own identity in a bind-mounted repo is found and left alone.

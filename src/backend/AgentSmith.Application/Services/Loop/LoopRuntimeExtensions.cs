@@ -47,7 +47,8 @@ public static class LoopRuntimeExtensions
         // auth secret from those values, so it follows whichever ISecretValues the host chose.
         // Deferred: those values come from a configuration whose load discovers repos with it.
         services.TryAddSingleton<ICredentialResolver>(sp => new CredentialResolver(
-            sp.GetRequiredService<ISecretValues>, sp.GetRequiredService<IMaterializingSecrets>()));
+            sp.GetRequiredService<ISecretValues>, sp.GetRequiredService<IMaterializingSecrets>(),
+            machineTokens: sp.GetService<IMachineTokens>())); // 2026-11-25-9992h
         // 2026-10-02-5f89g: clone, fetch and push read the repo's own auth secret the same way.
         services.TryAddSingleton<IGitTokenResolver, GitTokenResolver>();
         services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Contracts.Runs.NullRunTraceWriter>();

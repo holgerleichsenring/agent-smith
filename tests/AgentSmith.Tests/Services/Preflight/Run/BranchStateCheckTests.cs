@@ -84,6 +84,14 @@ public sealed class BranchStateCheckTests
     }
 
     [Fact]
+    public void CountAuthored_WithAMachine_CountsItsEmailAndTheFrameworks()
+    {
+        // 2026-11-25-9992h
+        BranchStateCheck.CountAuthored($"commit x\nbot@example.com\n{SandboxGitIdentity.Email}\nhuman@example.com\n", "bot@example.com")
+            .Should().Be(2);
+    }
+
+    [Fact]
     public void CountAuthored_CountsOnlyTheFrameworkIdentity()
     {
         BranchStateCheck.CountAuthored($"commit x\n{SandboxGitIdentity.Email}\nhuman@example.com\n")

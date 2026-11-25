@@ -38,15 +38,11 @@ public sealed class TicketHoldInputsReader(
         var enqueued = await services.ServiceProvider.GetRequiredService<QueuedTicketRepository>().EnqueuedAtAsync(ct);
         return new TicketHoldInputs(series.Series, series.Steps, edited, since, series.Active)
         {
-            Plans = series.Plans, Approving = Approving(configured), // 2026-11-23-849e
+            Plans = series.Plans,
             ModelWaits = waits, Enqueued = enqueued, EscalateAfterMinutes = holds?.EscalateAfterMinutes ?? 0,
             Now = (clock ?? TimeProvider.System).GetUtcNow(),
         };
     }
-
-    // 2026-11-23-849e: a merge run approves where the host requires a review unless the project bypasses the protection.
-    private static HashSet<string> Approving(IReadOnlyDictionary<string, ResolvedProject> configured) =>
-        [.. configured.Values.Where(p => p.Merge.Protection == BranchProtection.Respect).Select(p => p.Name)];
 
     private static async Task<HashSet<(string, string)>> EditedAsync(
         IServiceProvider services, ProjectScope scope, string? ticketId, CancellationToken ct)

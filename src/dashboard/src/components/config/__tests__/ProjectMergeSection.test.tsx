@@ -29,12 +29,12 @@ describe("ProjectMergeSection", () => {
   it("shows the CI loop's keys for on_ci_green and writes them", () => {
     const onChange = vi.fn();
     const ci = { ...project, merge: { when: "on_ci_green", respectBranchProtection: true, refreshOpenPullRequests: false } };
-    render(<ProjectMergeSection project={ci} onChange={onChange} capabilities={capabilities} secrets={[{ id: "approver" } as never]} />);
+    render(<ProjectMergeSection project={ci} onChange={onChange} capabilities={capabilities} />);
 
     fireEvent.change(screen.getByTestId("form-field-merge-ciFixAttempts"), { target: { value: "5" } });
     expect(onChange.mock.calls.at(-1)![0].merge).toMatchObject({ when: "on_ci_green", ciFixAttempts: 5 });
-    fireEvent.change(screen.getByTestId("form-field-merge-approvalAuth"), { target: { value: "approver" } });
-    expect(onChange.mock.calls.at(-1)![0].merge.approvalAuth).toBe("approver");
+    // 2026-11-25-9992h: nothing approves, so the form offers no approval identity.
+    expect(screen.queryByTestId("form-field-merge-approvalAuth")).toBeNull();
   });
 
   // 2026-11-23-849e: the poll and the pending bound re-read every project's pending CI, so they show for every mode.

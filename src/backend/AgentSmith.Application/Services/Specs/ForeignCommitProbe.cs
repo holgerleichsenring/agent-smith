@@ -44,14 +44,15 @@ public sealed class ForeignCommitProbe(
     }
 
     /// <summary>True when HEAD carries a commit since <paramref name="stored"/> that neither came
-    /// from the base nor was authored by us.</summary>
+    /// from the base nor was authored by us — the framework's email or, 2026-11-25-9992h, the repository's
+    /// <paramref name="machineEmail"/>.</summary>
     public async Task<bool> ForeignSinceAsync(
-        ISandbox sandbox, string repository, string? stored, string? parentTicketId, CancellationToken ct)
+        ISandbox sandbox, string repository, string? stored, string? parentTicketId, CancellationToken ct, string? machineEmail = null)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         if (string.IsNullOrWhiteSpace(stored)) return Skipped(repository, "no head was stored with the hand-back");
         var email = (await RunAsync(sandbox, ["config", "--get", "user.email"], ct)).OutputContent?.Trim();
-        if (!string.Equals(email, SandboxGitIdentity.Email, StringComparison.OrdinalIgnoreCase))
+        if (!SandboxGitIdentity.IsOurs(email, machineEmail))
             return Skipped(repository, $"the sandbox commits as '{email}', so our commits cannot be told apart");
         if ((await ladder.ResolveAsync(sandbox, parentTicketId, ct)).Ref is not { } baseRef)
             return Skipped(repository, "the clone names no base branch");
@@ -61,7 +62,7 @@ public sealed class ForeignCommitProbe(
         var authors = (listed.OutputContent ?? string.Empty)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(line => !line.StartsWith("commit ", StringComparison.Ordinal))
-            .Where(author => !string.Equals(author, SandboxGitIdentity.Email, StringComparison.OrdinalIgnoreCase))
+            .Where(author => !SandboxGitIdentity.IsOurs(author, machineEmail))
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (authors.Count == 0) return false;
         logger.LogInformation("{Repo} got commits by {Authors} since the hand-back parked at {Sha} — it expires",
@@ -79,7 +80,7 @@ public sealed class ForeignCommitProbe(
             var parent = RunParentTicket.ForRepo(pipeline, name); // 2026-11-23-31dca: the repo's own rung
             var sandbox = targets.SandboxesForRepo(pipeline, repo).Select(m => m.Value).FirstOrDefault();
             if (sandbox is null) Skipped(name, "the run has no sandbox for it");
-            else if (await ForeignSinceAsync(sandbox, name, heads?.GetValueOrDefault(name), parent, ct)) return true;
+            else if (await ForeignSinceAsync(sandbox, name, heads?.GetValueOrDefault(name), parent, ct, repo.Machine?.Email)) return true;
         }
         return false;
     }
