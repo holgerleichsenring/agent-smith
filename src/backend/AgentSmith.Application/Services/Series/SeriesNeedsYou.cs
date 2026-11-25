@@ -11,6 +11,8 @@ namespace AgentSmith.Application.Services.Series;
 /// for a person's merge. Everything else the pane shows. A ticket that turned red wakes the master, so when the master
 /// speaks in the same beat its line says the failure; and under merge: on_ci_green a red CI is the CI loop's to fix, so
 /// it is said only once the loop handed it back (its fix ended red).
+/// <para>2026-11-25-e94ea: a waiting ticket gets no line here — its question is shown only by <see cref="SeriesQuestions"/>,
+/// the one question the operator's next message answers.</para>
 /// </summary>
 public static class SeriesNeedsYou
 {
@@ -33,8 +35,6 @@ public static class SeriesNeedsYou
     {
         SeriesTicketState.Red when masterSpoke => null,
         SeriesTicketState.Red => Failed(row.Ticket, fact, when),
-        SeriesTicketState.Waiting => fact.PendingQuestion is { } question
-            ? $"{row.Ticket} asks: {question.Text}" : $"{row.Ticket} waits for your input on its ticket.",
         SeriesTicketState.Green when when == MergeWhen.Manual && was?.StartsWith("green", StringComparison.Ordinal) != true
             => $"{row.Ticket}'s pull request waits for your merge.",
         _ => null,

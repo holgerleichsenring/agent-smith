@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-e94ea
+goal: "A series conversation shows a ticket's question only as the record's one waiting question, and one its run left is dropped, so an answer reaches the run that asked."
+
+applies_to: "default (Application series beat: SeriesQuestions, SeriesNeedsYou)"
+
+requires: [2026-11-17-0207c, 2026-11-19-1b72a, 2026-11-23-31dch]
+
+facts:
+  - claim: "SeriesNeedsYou printed '<key> asks: <text>' for every ticket that turned Waiting, independent of the record's question."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesNeedsYou.cs:36-37"
+  - claim: "SettleAsync answers the record's waiting question with the beat's first operator message and relays only when none waits; it never checks that the asking run is still parked on it."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestions.cs:18-23"
+  - claim: "A fact carries a PendingQuestion only while the ticket's newest attempt is WaitingForInput and its checkpoint is not resumed."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesParkedQuestion.cs:17-20"
+  - claim: "Live: the record held ticket A's day-old relayed question after A's run had left it; NeedsYou printed B's question, the operator's answer was delivered to A and B was relayed again 15 minutes later."
+    evidence: "observed: 2026-11-25, production series conversation, read-only"
+
+scope:
+  in: "Drop a record question whose ticket's run is no longer parked on its checkpoint question, at the start of SettleAsync, then relay the next parked one; NeedsYou writes no Waiting line; the delivered line names the ticket and the question's first line; tests pinning the live sequence."
+  out: "The other NeedsYou lines (2026-11-25-e94eb removes them). The 'waits for your input on its ticket' line for an unrelayed (environment) question goes with the Waiting case; the series page lists it. The master's own question (no ticket) is never dropped. A dropped question is not announced: its run left it, so it was answered elsewhere or ended."
+
+steps:
+  - id: drop
+    action: "SeriesQuestions.SettleAsync: drop on positive evidence only — the waiting question has a TicketId, that ticket's fact is read (LatestStatus known) and its PendingQuestion is not the CheckpointQuestionId; clear Record.Question and go on to RelayAsync. A bare fact (no attempt read) keeps the question. This is the record-side step SeriesRunQuestion.Of (8d16) waits for; its doc says so."
+  - id: relay-order
+    action: "Pinned by a test, already today's shape: a question relayed in this beat is not answered by this beat's messages; they reach the master."
+  - id: delivered-line
+    action: "DeliverAsync line: Passed your answer to <key>'s run on \"<first line of the question>\"; it goes on with it."
+  - id: needs-you
+    action: "SeriesNeedsYou: remove the Waiting case."
+  - id: tests
+    action: "Tests in SeriesQuestionsTests and SeriesNeedsYouTests."
+
+done:
+  - "Stale A question + B parked: beat 1 drops A and relays B; beat 2 with the operator's message delivers it to B's job and names B and B's question."
+  - "A question still parked is answered as before; the master's own question and a question whose ticket's fact is bare are never dropped."
+  - "NeedsYou yields no line for a Waiting ticket."

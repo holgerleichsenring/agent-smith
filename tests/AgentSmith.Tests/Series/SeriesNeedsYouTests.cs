@@ -62,22 +62,18 @@ public sealed class SeriesNeedsYouTests
         SeriesNeedsYou.Lines(beat, Manual).Should().BeEmpty();
     }
 
+    // 2026-11-25-e94ea: a waiting ticket's question is SeriesQuestions' to show — the one the operator's next message answers.
     [Fact]
-    public void NeedsYou_Question_IsSaid()
-    {
-        SeriesNeedsYou.Lines(Beat(string.Empty, SeriesRecords.Fact("43", RunStatuses.WaitingForInput, finished: false)), Manual)
-            .Should().Equal("SCRUM-43 waits for your input on its ticket.");
-    }
-
-    [Fact]
-    public void NeedsYou_PendingQuestion_IsQuotedInItsOwnWords()
+    public void NeedsYou_WaitingTicket_WritesNoLine_WithOrWithoutAQuestion()
     {
         var fact = SeriesRecords.Fact("43", RunStatuses.WaitingForInput, finished: false) with
         {
             PendingQuestion = new AgentSmith.Contracts.Dialogue.DialogQuestion("q-1", default, "Keep the original deadline?", null, null, null, TimeSpan.Zero),
         };
 
-        SeriesNeedsYou.Lines(Beat(string.Empty, fact), Manual).Should().Equal("SCRUM-43 asks: Keep the original deadline?");
+        SeriesNeedsYou.Lines(Beat(string.Empty, fact), Manual).Should().BeEmpty();
+        SeriesNeedsYou.Lines(Beat(string.Empty, SeriesRecords.Fact("43", RunStatuses.WaitingForInput, finished: false)), Manual)
+            .Should().BeEmpty();
     }
 
     [Fact]

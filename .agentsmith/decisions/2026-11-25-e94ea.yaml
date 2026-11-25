@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-e94ea
+
+decisions:
+  - category: Architecture
+    chose: "SeriesQuestions is the one path that shows a ticket's question; SeriesNeedsYou writes no Waiting line"
+    over: "Keeping both and teaching NeedsYou to print only the record's question"
+    reason: |
+      Two paths showed questions, but only one routes the answer. Whatever the conversation shows as a question must be
+      the one the operator's next message answers, so the path that routes the answer is the one that shows it. The
+      'waits for your input on its ticket' line for an unrelayed environment question goes too; the series page lists it.
+  - category: Implementation
+    chose: "Drop a relayed question at the start of the beat only on positive evidence: its ticket's attempt was read and is not parked on that checkpoint question"
+    over: "Drop whenever the fact has no PendingQuestion, or answer the stale question anyway"
+    reason: |
+      A bare fact (no project, no attempt read) would otherwise drop every question on one transient read, and the next
+      beat would relay it again under a new deadline. A question answered but not yet resumed has Answer set and is never
+      dropped. The drop is silent: the run left the question — resumed (after an answer on its page) or ended. A
+      question answered on the ticket's page but not yet resumed is still the run's park and stays until the resume.
+  - category: Implementation
+    chose: "A question relayed this beat is not answered by this beat's messages (pinned by a test, as the code already did)"
+    over: "Let the beat's message answer the newly relayed question"
+    reason: |
+      The operator could not have seen a question relayed in the same beat; the messages reach the master as a reason.
+      The live sequence (relay, then the operator's reply in a later beat) delivers to the right run.
+  - category: Implementation
+    chose: "The delivered line names the ticket and the question's first line, untruncated"
+    over: "Only the ticket key, or a truncated headline"
+    reason: |
+      A misroute becomes visible in the conversation. The question was shown in full when relayed, so its first line
+      adds no new length bound.
