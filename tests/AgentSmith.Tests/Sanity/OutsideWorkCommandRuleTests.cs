@@ -12,9 +12,31 @@ public sealed class OutsideWorkCommandRuleTests
     [Fact]
     public async Task OutsideWorkCommand_CdToAbsoluteWorkPathClimbingOut_IsFlagged()
     {
-        var text = await Run("cd /work/src/../../etc && cat passwd");
+        // 2026-11-25-9992c: the run's only repository, shop, is rooted at /work/shop.
+        var text = await Run("cd /work/shop/src/../../../etc && cat passwd");
 
-        text.Should().StartWith(Output + "\n[framework] `cd /work/src/../../etc` climbs above /work to /etc");
+        text.Should().StartWith(Output + "\n[framework] `cd /work/shop/src/../../../etc` climbs above /work to /etc");
+    }
+
+    // 2026-11-25-9992c: repositories sit side by side, so a sibling is the run's work.
+    [Fact]
+    public async Task OutsideWorkCommand_CdIntoASiblingRepository_IsNotFlagged()
+    {
+        var pipeline = SanityCalls.Pipeline(map: new Dictionary<string, string> { ["a"] = "api", ["w"] = "web" }, withSpec: false);
+
+        var text = await SanityCalls.Text(pipeline, "run_command", Output, ("command", "cd ../web && ls"), ("repo", "a"));
+
+        text.Should().Be(Output);
+    }
+
+    [Fact]
+    public async Task OutsideWorkCommand_ClimbFromTheNamedRepositoryAboveTheWorkspace_IsFlagged()
+    {
+        var pipeline = SanityCalls.Pipeline(map: new Dictionary<string, string> { ["a"] = "api", ["w"] = "web" }, withSpec: false);
+
+        var text = await SanityCalls.Text(pipeline, "run_command", Output, ("command", "cd ../.. && ls"), ("repo", "a"));
+
+        text.Should().Contain("[framework] `cd ../..` climbs above /work to /");
     }
 
     [Fact]
@@ -27,7 +49,7 @@ public sealed class OutsideWorkCommandRuleTests
     public async Task OutsideWorkCommand_RelativeCdAfterAnEarlierCd_ResolvesAgainstIt()
     {
         (await Run("cd src/backend; cd ../.. && dotnet build")).Should().Be(Output);
-        (await Run("cd src; cd ../.. | tee log")).Should().Contain("[framework] `cd ../..` climbs above /work to /");
+        (await Run("cd src; cd ../../.. | tee log")).Should().Contain("[framework] `cd ../../..` climbs above /work to /");
     }
 
     [Theory]
@@ -41,8 +63,8 @@ public sealed class OutsideWorkCommandRuleTests
     }
 
     [Theory]
-    [InlineData("cd .. && ls")]
-    [InlineData("pushd ../other || true")]
+    [InlineData("cd ../.. && ls")]
+    [InlineData("pushd ../../other || true")]
     public async Task OutsideWorkCommand_CdDotDotAboveWork_IsFlagged(string command)
     {
         (await Run(command)).Should().Contain("[framework]").And.Contain("climbs above /work");

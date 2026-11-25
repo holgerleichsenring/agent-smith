@@ -68,7 +68,7 @@ public sealed class SpecCitationHistory(ILogger<SpecCitationHistory> logger)
     {
         if (!ContainedPath.TryRelative(path, out var relative)) return null;
         var result = await RunAsync(sandbox, new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile,
-            TimeoutSeconds: TimeoutSeconds, Path: ContainedPath.Absolute(relative), WorkingDirectory: Repository.SandboxWorkPath), ct);
+            TimeoutSeconds: TimeoutSeconds, Path: ContainedPath.Absolute(sandbox.WorkDirectory(), relative)), ct);
         return result is { ExitCode: 0, TimedOut: false } ? result.OutputContent ?? string.Empty : null;
     }
 
@@ -91,7 +91,7 @@ public sealed class SpecCitationHistory(ILogger<SpecCitationHistory> logger)
 
     private Task<StepResult?> StepAsync(ISandbox sandbox, IReadOnlyList<string> args, CancellationToken ct) =>
         RunAsync(sandbox, new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git", Args: args,
-            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: TimeoutSeconds), ct);
+            TimeoutSeconds: TimeoutSeconds), ct);
 
     // On the run's token: a sandbox that went silent is a question that could not be asked.
     private async Task<StepResult?> RunAsync(ISandbox sandbox, Step step, CancellationToken ct)

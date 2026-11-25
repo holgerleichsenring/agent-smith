@@ -23,6 +23,7 @@ public static class SandboxServiceCollectionExtensions
     {
         services.TryAddSingleton<InProcessStepEnvironmentReader>(); // 2026-10-25-c5a7h
         services.AddSingleton<ISandboxFactory, InProcessSandboxFactory>();
+        services.AddSingleton<IWorkspaceFactory, InProcessWorkspaceFactory>(); // 2026-11-25-9992b
         services.TryAddSingleton<IOptions<SandboxGlobalConfig>>(_ =>
             Options.Create(new SandboxGlobalConfig
             {

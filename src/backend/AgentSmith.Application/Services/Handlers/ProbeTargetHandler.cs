@@ -70,8 +70,8 @@ public sealed class ProbeTargetHandler(
             .Select(probe => (Key: sandbox.Key, Sandbox: sandbox.Value, Probe: probe)))];
 
     private static bool Injects(ISandbox sandbox) =>
-        sandbox is ISandboxSecretInjection injection
-        && injection.InjectedSecrets.Env.Count + injection.InjectedSecrets.Files.Count > 0;
+        sandbox.Backend() is ISandboxSecretInjection injection // 2026-11-25-9992d: run sandboxes are wrapped
+        && injection.InjectedSecrets.Count > 0;
 
     private static IReadOnlyDictionary<string, ISandbox> Sandboxes(PipelineContext pipeline) =>
         pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(

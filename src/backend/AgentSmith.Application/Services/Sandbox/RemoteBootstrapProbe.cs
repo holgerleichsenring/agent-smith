@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// contexts are the ones a run would discover (<see cref="ISandboxLanguageResolver.ListContextsAsync"/>,
 /// none being the synthetic 'default'); each is then read for the same files
 /// <c>BootstrapContextProbe</c> reads in the sandbox, on the probed branch, so this answer and a run's
-/// refusal never disagree. Paths are repository-relative — the sandbox paths start at /work.
+/// refusal never disagree. Paths are repository-relative — the sandbox paths start at the sandbox's root.
 /// </summary>
 public sealed class RemoteBootstrapProbe(
     ISourceProviderFactory sources, ISandboxLanguageResolver contexts, ILogger<RemoteBootstrapProbe> logger)

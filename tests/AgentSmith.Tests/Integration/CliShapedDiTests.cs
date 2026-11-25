@@ -134,8 +134,7 @@ public sealed class CliShapedDiTests
             AgentSmith.Application.Models.VerifySpecContext>>();
 
         handler.Should().BeOfType<AgentSmith.Application.Services.Handlers.VerifySpecHandler>(
-            "the verify gate takes the sandbox tree sync, and the real composition must provide it");
-        provider.GetRequiredService<AgentSmith.Application.Services.Sandbox.SandboxTreeSync>().Should().NotBeNull();
+            "the verify gate's collaborators must all come from the real composition");
     }
 
     [Fact]

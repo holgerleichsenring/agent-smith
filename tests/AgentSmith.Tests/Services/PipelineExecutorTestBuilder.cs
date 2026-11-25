@@ -34,7 +34,7 @@ internal sealed class PipelineExecutorTestBuilder
     public Mock<IPipelineLifecycleCoordinator> LifecycleCoordinatorMock { get; } = new();
     public Mock<IRunCancellationRegistry> CancellationRegistryMock { get; } = new();
     public Mock<IAsyncPipelineLifecycle> LifecycleMock { get; } = new();
-    public Mock<ISandboxFactory> SandboxFactoryMock { get; } = new();
+    public Mock<IWorkspaceFactory> WorkspaceFactoryMock { get; } = new();
     public Mock<IProgressReporter> ProgressReporterMock { get; } = new();
     public Mock<ISandboxLanguageResolver> SandboxLanguageResolverMock { get; } = new();
     public SandboxSpecBuilder SandboxSpecBuilder { get; }
@@ -67,6 +67,11 @@ internal sealed class PipelineExecutorTestBuilder
             .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", null) });
         SandboxSpecBuilder = new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver());
+        // 2026-11-25-9992b: by default the run's workspace is one of stub containers; a test overrides the setup to fail.
+        var stubWorkspaces = new StubWorkspaceFactory(new StubSandboxFactory());
+        WorkspaceFactoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<WorkspaceSpec>(), It.IsAny<CancellationToken>()))
+            .Returns((WorkspaceSpec spec, CancellationToken ct) => stubWorkspaces.CreateAsync(spec, ct));
 
         var dataFlowReadGate = new DataFlowReadGate(
             DataFlowResolver,
@@ -94,16 +99,8 @@ internal sealed class PipelineExecutorTestBuilder
         // SandboxCoordinator owns mutable per-run state; the executor resolves a
         // fresh transient instance per ExecuteAsync.
         var services = new ServiceCollection();
-        services.AddTransient<IPipelineSandboxCoordinator>(_ => sandboxCoordinator ?? new PipelineSandboxCoordinator(
-            SandboxFactoryMock.Object,
-            SandboxSpecBuilder,
-            SandboxLanguageResolverMock.Object,
-            EventTestStubs.NoOp,
-            EventTestStubs.RunContext,
-            new NoOpSandboxLivenessSupervisor(),
-new AgentSmith.Application.Services.Sandbox.SandboxRelease(
-                AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
-            NullLogger<PipelineSandboxCoordinator>.Instance));
+        services.AddTransient<IPipelineSandboxCoordinator>(_ => sandboxCoordinator ?? AgentSmith.Tests.TestHelpers.TestCoordinators.Create(
+            WorkspaceFactoryMock.Object, SandboxLanguageResolverMock.Object, SandboxSpecBuilder));
         services.AddTransient(_ => new AgentSmith.Application.Services.Specs.RunTemplateScopes(
             new AgentSmith.Application.Services.Specs.ProjectTemplateScopes(
                 new Mock<ISourceScopeSandboxFactory>(MockBehavior.Strict).Object,

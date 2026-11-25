@@ -88,7 +88,7 @@ public sealed class MemoryStandingTests
     {
         var store = new FakeLedger([Confirmed("z"), Strained("y")]);
         var files = new InMemorySandboxFileReader();
-        var path = $"{Repository.SandboxWorkPath}/.agentsmith/memory/MEMORY.md";
+        var path = ".agentsmith/memory/MEMORY.md"; // 2026-11-25-9992c: relative — the reader roots it at its sandbox
         files.Files[path] = Index;
 
         var staged = await MemoryStandings.LabelWriter(store).WriteAsync(new PipelineContext(), files, "api", default);

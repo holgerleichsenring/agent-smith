@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Services.Sandbox;
 
 /// <summary>
 /// Regression: handlers build Steps with WorkingDirectory =
-/// Repository.SandboxWorkPath (literal "/work"). Pre-fix
+/// Repository.WorkspaceRoot (literal "/work"). Pre-fix
 /// InProcessSandbox.BuildStartInfo passed that string verbatim to
 /// Process.Start, which fails on dev hosts (macOS / Windows / any host
 /// without /work) with "No such file or directory". The fix routes

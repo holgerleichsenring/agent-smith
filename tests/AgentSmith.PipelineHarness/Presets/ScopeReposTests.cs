@@ -40,7 +40,8 @@ public sealed class ScopeReposTests
         result.IsSuccess.Should().BeTrue($"a real change and a green verdict pass: {result.Message}");
 
         // Nothing narrowed: both repositories provisioned; the master scopes itself.
-        harness.StubSandboxFactory!.Spawned.Should().HaveCount(2, "no model call narrows the run's repositories");
+        TwoRepos().Should().OnlyContain(r => harness.StubSandboxFactory!.StepsIn(r.Name).Count > 0,
+            "no model call narrows the run's repositories");
 
         var pipeline = runner.LastContext!;
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Select(r => r.Name)
@@ -72,7 +73,7 @@ public sealed class ScopeReposTests
         var result = await runner.RunAsync("code");
 
         result.Should().NotBeNull("the pipeline must run to a terminal result");
-        harness.StubSandboxFactory!.Spawned.Should().HaveCount(2,
+        TwoRepos().Should().OnlyContain(r => harness.StubSandboxFactory!.StepsIn(r.Name).Count > 0,
             "a failed classification keeps the full scope (all repos provisioned)");
         var pipeline = runner.LastContext!;
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos).Should().HaveCount(2);

@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -23,7 +24,7 @@ namespace AgentSmith.Tests.Services;
 /// </summary>
 public sealed class PipelineSandboxCoordinatorPerToolchainTests
 {
-    private readonly Mock<ISandboxFactory> _factoryMock = new();
+    private readonly StubWorkspaceFactory _workspaces = new(new StubSandboxFactory());
     private readonly Mock<ISandboxLanguageResolver> _resolverMock = new();
     private readonly SandboxSpecBuilder _specBuilder
         = new(new StubSandboxResourceResolver(), new StubAgentImageResolver());
@@ -40,8 +41,6 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
                 new RemoteContextDiscovery("component-c", "src/component-c", "csharp"),
                 new RemoteContextDiscovery("component-d", "src/component-d", "csharp"),
             });
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Mock<ISandbox>().Object);
 
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
@@ -50,7 +49,8 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
         var sut = NewSut();
         var sandboxes = await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
-        _factoryMock.Verify(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()), Times.Once);
+        _workspaces.Created.Should().ContainSingle("a run has one workspace");
+        _workspaces.Sandboxes.Spawned.Should().ContainSingle("one container per distinct image");
         sandboxes.Should().HaveCount(1);
     }
 
@@ -66,8 +66,6 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
                 new RemoteContextDiscovery("component-c", "src/component-c", "csharp"),
                 new RemoteContextDiscovery("component-d", "src/component-d", "csharp"),
             });
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Mock<ISandbox>().Object);
 
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
@@ -95,8 +93,6 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
                 new RemoteContextDiscovery("frontend", "src/Frontend", "typescript"),
                 new RemoteContextDiscovery("docs", "docs", null),
             });
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Mock<ISandbox>().Object);
 
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
@@ -106,7 +102,8 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
         var sandboxes = await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
         // csharp (2 contexts) → 1 sandbox; typescript (1) → 1 sandbox; null/generic (1) → 1 sandbox.
-        _factoryMock.Verify(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _workspaces.Created.Should().ContainSingle("a run has one workspace");
+        _workspaces.Sandboxes.Spawned.Should().HaveCount(3, "one container per distinct image");
         sandboxes.Should().HaveCount(3);
     }
 
@@ -125,8 +122,6 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
                 new RemoteContextDiscovery("legacy", "src/Legacy", "csharp",
                     ToolchainImage: "mcr.microsoft.com/dotnet/sdk:8.0"),
             });
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Mock<ISandbox>().Object);
 
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
@@ -149,8 +144,6 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
                 new RemoteContextDiscovery("dashboard", "src/dashboard", "typescript", ToolchainImage: "node:20-bookworm"),
                 new RemoteContextDiscovery("default", ".", "csharp", ToolchainImage: "mcr.microsoft.com/dotnet/sdk:10.0"),
             });
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new Mock<ISandbox>().Object);
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection { Name = "agent-smith" } });
 
@@ -160,14 +153,6 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
         context.Get<ISandbox>(ContextKeys.Sandbox).Should().BeSameAs(sandboxes["default"]);
     }
 
-    private PipelineSandboxCoordinator NewSut() => new(
-        _factoryMock.Object,
-        _specBuilder,
-        _resolverMock.Object,
-        AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
-        AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
-        new NoOpSandboxLivenessSupervisor(),
-        new AgentSmith.Application.Services.Sandbox.SandboxRelease(
-            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
-        NullLogger<PipelineSandboxCoordinator>.Instance);
+    private PipelineSandboxCoordinator NewSut() =>
+        TestCoordinators.Create(_workspaces, _resolverMock.Object, _specBuilder);
 }

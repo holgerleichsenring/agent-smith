@@ -18,12 +18,17 @@ namespace AgentSmith.Infrastructure.Services.Sandbox;
 /// per-job tempdir). Pass <c>false</c> when reusing an existing operator-owned path
 /// such as a CLI <c>--source-path</c> argument or a previously host-cloned source —
 /// disposing must not <c>rm -rf</c> the operator's working tree.
+/// 2026-11-25-9992c: <paramref name="repoMounts"/> serve host directories at /work/&lt;repo&gt; — never deleted (2026-11-25-9992b: one per repository of a run's workspace).
 /// </summary>
 public sealed class InProcessSandbox(
-    string jobId, string workDir, bool ownsWorkDir, InProcessStepEnvironment environment, ILogger logger) : ISandbox
+    string jobId, string workDir, bool ownsWorkDir, InProcessStepEnvironment environment, ILogger logger,
+    IReadOnlyList<InProcessRepoMount>? repoMounts = null) : ISandbox, ISandboxWorkDirectory
 {
     public string JobId => jobId;
     public string WorkDir => workDir;
+
+    /// <summary>2026-11-25-9992c: one tree at the workspace root; a run repository's RepoSandbox names its own.</summary>
+    public string WorkDirectory => Domain.Entities.Repository.WorkspaceRoot;
 
     public Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
@@ -117,7 +122,13 @@ public sealed class InProcessSandbox(
             captured.Append(e.Data);
         };
 
-        process.Start();
+        // 2026-11-25-9992c: a working directory that does not exist yet (/work/<repo> before its clone) is a
+        // failed step, as the container agent reports it — not an exception out of the sandbox.
+        try { process.Start(); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return Failure(step, sw.Elapsed.TotalSeconds, $"failed to start '{step.Command}': {ex.Message}");
+        }
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
@@ -149,7 +160,7 @@ public sealed class InProcessSandbox(
     private ProcessStartInfo BuildStartInfo(Step step)
     {
         // Steps speak the canonical /work-relative path language (Repository
-        // .SandboxWorkPath = "/work") so CLI- and container-mode handlers
+        // .WorkspaceRoot = "/work") so CLI- and container-mode handlers
         // share the same Step shape. ResolvePath translates /work back to
         // this sandbox's actual temp dir; without it Process.Start hits the
         // OS with a literal "/work" working directory and macOS / dev hosts
@@ -362,21 +373,13 @@ public sealed class InProcessSandbox(
         return false;
     }
 
-    // Mirror image of ResolvePath: translate the actual workDir back to /work so callers
+    // Mirror image of ResolvePath: translate the actual host path back to its canonical one so callers
     // that walk the listing with /work-relative paths line up with the inputs they passed in.
-    private string VirtualisePath(string actual)
-    {
-        if (actual.Equals(workDir, StringComparison.Ordinal))
-            return "/work";
-        if (actual.StartsWith(workDir + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-            return "/work/" + actual[(workDir.Length + 1)..].Replace(Path.DirectorySeparatorChar, '/');
-        return actual;
-    }
+    private string VirtualisePath(string actual) => paths.Virtualise(actual);
 
-    // /work is the canonical sandbox working-directory path (Repository.LocalPath).
-    // In CLI mode, route those paths back to this sandbox's actual workDir so handlers
-    // and tools that always speak in /work-relative paths still hit the right files.
-    private readonly SandboxPathMap paths = new(jobId, workDir);
+    // /work is the canonical workspace mount (Repository.WorkspaceRoot) and /work/<repo> a mounted
+    // repository. In CLI mode, route those paths back to the host directories behind them.
+    private readonly SandboxPathMap paths = new(jobId, workDir, repoMounts);
 
     private string ResolvePath(string raw) => paths.Resolve(raw);
 

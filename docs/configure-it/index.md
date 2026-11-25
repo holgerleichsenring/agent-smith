@@ -59,7 +59,7 @@ A config write also bumps a counter in Redis, and the running server watches it.
 | `persistence:` | the file (or the two env vars), read at boot | unused |
 | `secrets:` `auth:` | the file, read at boot | the file |
 | `agents:` `trackers:` `connections:` `repos:` `projects:` `mcp_servers:` `design_sources:` | database, via the [Config studio](config-studio.md) | the file |
-| `deployment:` `sandbox:` `orchestrator:` `queue:` `limits:` `skills:` `dialogue:` `registries:` `primary_provider:` `pipeline_cost_cap:` `pipeline_data_flow:` `spec_review:` `series:` `trace:` | database, via [Settings](settings.md) | the file |
+| `deployment:` `sandbox:` `orchestrator:` `queue:` `limits:` `skills:` `dialogue:` `primary_provider:` `pipeline_cost_cap:` `pipeline_data_flow:` `spec_review:` `series:` `trace:` | database, via [Settings](settings.md) | the file |
 | `pipeline_triggers:` | database, with no studio page, so import or export to edit it | the file |
 | `tool_runner:` | `config/agentsmith.yml` under the working directory | the same |
 

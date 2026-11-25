@@ -88,7 +88,6 @@ public sealed class BranchStateCheck(SandboxBaseLadder ladder, ILogger<BranchSta
                 Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
                 Command: "git",
                 Args: ["rev-list", "--no-merges", "--format=%ae", "HEAD", "--not", baseRef],
-                WorkingDirectory: Repository.SandboxWorkPath,
                 TimeoutSeconds: TimeoutSeconds);
             var result = await sandbox.RunStepAsync(step, null, ct);
             if (result.ExitCode != 0) return 0;

@@ -46,7 +46,7 @@ public sealed class MasterTemplateAdvice(
         {
             try
             {
-                var content = await reader.TryReadAsync(ContainedPath.Absolute(path), cancellationToken);
+                var content = await reader.TryReadAsync(ContainedPath.Absolute(scope.WorkDirectory(), path), cancellationToken);
                 if (content is not null) return (path, content);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

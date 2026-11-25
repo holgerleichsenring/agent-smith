@@ -16,7 +16,7 @@ public sealed class PocSparseCheckout(PocGit git, IGitTokenResolver credentials)
     {
         ArgumentNullException.ThrowIfNull(repo);
         await git.RunStepAsync(sandbox, $"Cloning '{repo.Name}'",
-            CheckoutStepFactory.BuildSparseCloneStep(repo, credentials.For(repo), repo.DefaultBranch), ct);
+            CheckoutStepFactory.BuildSparseCloneStep(repo, credentials.For(repo), repo.DefaultBranch, sandbox.WorkDirectory()), ct);
         await git.RunAsync(sandbox, $"Narrowing the work tree to '{folder}'", ["sparse-checkout", "set", "--no-cone", $"/{folder}/"], ct);
         var branch = await git.RunAsync(sandbox, "Reading the cloned branch", ["rev-parse", "--abbrev-ref", "HEAD"], ct);
         await git.RunAsync(sandbox, $"Checking out '{branch}'", ["checkout", branch], ct, repo);

@@ -76,8 +76,23 @@
 #           - mount: "/secrets/server.key"
 #             secret: "sf-creds"
 #             key: "jwt-key"
+#         # 2026-11-25-9992d: env is for every repository's commands; repo_env for one repository's only.
+#         repo_env:
+#           my-salesforce-app:
+#             SF_INSTANCE_URL: "sf-creds:instance-url"
 # .agentsmith/contexts/<name>/context.yaml prerequisites (in the repo, not here):
 #   prerequisites: 'sh -c "sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub"'
+
+# --- Private package feeds per project (p0191, per project since 2026-11-25-9992d) ---
+# A run stages user-level feed credentials (~/.nuget/NuGet/NuGet.Config, ~/.npmrc, and
+# other ecosystems through the generic path) for every feed its repositories' configs name
+# and its project lists here. The token is a reference to a secrets: entry.
+# projects:
+#   my-app:
+#     registries:
+#       - host: pkgs.dev.azure.com
+#         username: any
+#         token: "${azure_artifacts_token}"
 
 # --- What TYPE of work item a filing creates (2026-09-18-b4f0) ---
 # agent-smith files tickets in four ROLES. Without this map every provider sends its own
@@ -731,7 +746,7 @@ pocs:
   #    lifetime_days: 90
   #    reminder_days: [14, 7, 1]
   #    per_person_limit: 3
-  #    # 2026-11-23-933de: the CONTAINER registry PoC images are read from (required; the top-level
+  #    # 2026-11-23-933de: the CONTAINER registry PoC images are read from (required; a project's
   #    # registries: list is for package feeds). Agent smith holds one pull-only token: on ACR a
   #    # repository-scoped token whose scope map grants pull on '<repository>/*'. Old images are the
   #    # operator's scheduled purge (on ACR an ACR Task running acr purge); see Settings > PoCs.

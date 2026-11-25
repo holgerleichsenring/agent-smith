@@ -1,6 +1,6 @@
 # p0199b docker-tier harness fixture. agent_version pinned to the
 # latest published sandbox-agent tag so DockerSandboxFactory can pull /
-# inject the agent binary against a real image. registries: block is
+# inject the agent binary against a real image. a project's registries: block is
 # populated so SetupRegistryAuth stages credentials for the fixture's
 # private feed host (pkgs.dev.azure.com). The token resolves from
 # AGENTSMITH_TEST_AZDO_TOKEN — when present the staged credential lets
@@ -31,6 +31,10 @@ repos:
 
 projects:
   fixture-fix-bug:
+    registries:
+      - host: pkgs.dev.azure.com
+        username: any
+        token: ${azdo_token}
     agent: openai-default
     tracker: github-fixture
     repos: [csharp-fixture]
@@ -38,11 +42,6 @@ projects:
 secrets:
   azdo_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
   gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
-
-registries:
-  - host: pkgs.dev.azure.com
-    username: any
-    token: ${azdo_token}
 
 skills:
   source: default

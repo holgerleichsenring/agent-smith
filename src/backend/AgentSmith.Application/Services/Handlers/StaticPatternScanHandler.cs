@@ -32,7 +32,7 @@ public sealed class StaticPatternScanHandler(
 
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
         var reader = readerFactory.Create(sandbox);
-        var result = await scanner.ScanAsync(reader, cancellationToken);
+        var result = await scanner.ScanAsync(reader, sandbox.WorkDirectory(), cancellationToken);
         context.Pipeline.Set(ContextKeys.StaticScanResult, result);
 
         var observations = result.Findings.Select(f => new SkillObservation(

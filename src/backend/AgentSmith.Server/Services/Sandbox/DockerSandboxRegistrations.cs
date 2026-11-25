@@ -47,19 +47,9 @@ internal static class DockerSandboxRegistrations
 
     private static void RegisterFactory(IServiceCollection services)
     {
-        services.AddSingleton<ISandboxFactory>(sp => new DockerSandboxFactory(
-            sp.GetRequiredService<IDockerClient>(),
-            sp.GetRequiredService<IConnectionMultiplexer>(),
-            sp.GetRequiredService<DockerContainerSpecBuilder>(),
-            sp.GetRequiredService<DockerSandboxOptions>(),
-            sp.GetRequiredService<DockerPackageCaches>(),
-            sp.GetRequiredService<DockerImagePresence>(),
-            sp.GetRequiredService<DockerSandboxVolumes>(),
-            sp.GetRequiredService<DockerOneShotRunner>(),
-            sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
-            sp.GetRequiredService<IWireProtocolWatcher>(),
-            sp.GetRequiredService<SandboxBusCredentials>(),
-            sp.GetRequiredService<ILoggerFactory>()));
+        services.AddSingleton<ISandboxFactory, DockerSandboxFactory>();
+        // 2026-11-25-9992b: a run's workspace — one volume set, a container per image — on the same launch code.
+        services.AddSingleton<IWorkspaceFactory, DockerWorkspaceFactory>();
         // p0269a: Docker capacity is a configured concurrent-sandbox bound (no
         // create-time signal on a limitless daemon). Replaces the Unbounded default.
         // 2026-09-18-0f27: the bound is no longer baked into the eagerly-built options.

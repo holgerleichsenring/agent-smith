@@ -57,7 +57,7 @@ public sealed class BootstrapCheckHandler(
         {
             var contexts = SandboxContextList.InOr(
                 context.Pipeline, key, discoveries.GetValueOrDefault(key));
-            if (contexts.Count > 0) paths.AddRange(BootstrapContextProbe.PathsFor(contexts));
+            if (contexts.Count > 0) paths.AddRange(BootstrapContextProbe.PathsFor(sandbox.WorkDirectory(), contexts));
             var probed = contexts.Count == 0
                 ? NoContexts(key)
                 : await probe.ProbeAsync(sandbox, key, contexts, cancellationToken);

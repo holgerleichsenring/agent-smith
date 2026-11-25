@@ -20,7 +20,7 @@ public sealed class LoadedSecretValues : ISecretValues
         foreach (var (name, value) in config.Secrets) _byName.TryAdd(name, value);
         foreach (var (name, reason) in config.UnreadableSecrets) _unreadable.TryAdd(name, reason);
         _all = config.Secrets.Values
-            .Concat(config.Registries.Select(r => r.Token))
+            .Concat(config.Projects.Values.SelectMany(p => p.Registries).Select(r => r.Token)) // 2026-11-25-9992d
             .Where(v => !string.IsNullOrEmpty(v))
             .ToList();
     }

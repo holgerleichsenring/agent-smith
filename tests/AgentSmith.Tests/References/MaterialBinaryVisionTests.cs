@@ -127,7 +127,7 @@ public sealed class MaterialBinaryVisionTests : IDisposable
     [Fact]
     public void SourceScope_WriteBytes_IsRefused() =>
         SourceScopeRefusal.Unless(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteBytes, Path: "x", Content: "AA=="),
-            new SourceScopeWritePolicy([])).Should().NotBeNull();
+            new SourceScopeWritePolicy([], "/work")).Should().NotBeNull();
 
     private InProcessSandbox InProcess() => new("e8b9j", _dir, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
 

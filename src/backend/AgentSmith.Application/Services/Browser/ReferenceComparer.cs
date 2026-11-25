@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Sandbox;
+
 namespace AgentSmith.Application.Services.Browser;
 
 /// <summary>
@@ -8,7 +10,6 @@ namespace AgentSmith.Application.Services.Browser;
 public sealed class ReferenceComparer(
     BrowserSandboxOpener opener, RenderSourceStager stager, BrowserRenderInvocation invocation)
 {
-    private const string WorkRoot = "/work";
 
     /// <summary>The comparison, or why there is none.</summary>
     public async Task<(BrowserRenderOutput? Output, string? Refusal)> CompareAsync(
@@ -25,7 +26,7 @@ public sealed class ReferenceComparer(
             var (right, whyRight) = await stager.StageAsync(lease.Sandbox, scope, candidate, ct);
             if (right is null) return (null, $"the candidate could not be staged: {whyRight}");
             var request = new BrowserRenderRequest(null, null, string.Empty, [], BrowserStyleProperties.Properties,
-                $"{WorkRoot}/render/{Guid.NewGuid():N}",
+                lease.Sandbox.PathUnderRoot($"render/{Guid.NewGuid():N}"),
                 new BrowserCompareRequest(BrowserCompareSide.Of(left), BrowserCompareSide.Of(right), pairs, viewports));
             var (result, shots, failure) = await invocation.RunAsync(lease.Sandbox, request, ct);
             return result?.Compare is null

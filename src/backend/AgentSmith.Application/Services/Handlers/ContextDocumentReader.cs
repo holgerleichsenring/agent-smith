@@ -24,7 +24,7 @@ public sealed class ContextDocumentReader(ISandboxFileReaderFactory readerFactor
         var documents = new List<ContextDocument>();
         foreach (var context in contexts)
         {
-            var path = $"{ProjectMetaPaths.MetaDirFor(context.ContextName)}/{fileName}";
+            var path = $"{ProjectMetaPaths.MetaDirFor(sandbox.WorkDirectory(), context.ContextName)}/{fileName}";
             var content = await reader.TryReadAsync(path, cancellationToken);
             if (content is null) continue;
             documents.Add(new ContextDocument(sandboxKey, context.ContextName, context.Workdir, path, content));

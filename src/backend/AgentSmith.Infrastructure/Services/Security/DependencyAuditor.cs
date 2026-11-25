@@ -27,7 +27,7 @@ public sealed class DependencyAuditor(
     {
         var sw = Stopwatch.StartNew();
         var findings = new List<DependencyFinding>();
-        var repoPath = Repository.SandboxWorkPath;
+        var repoPath = sandbox.WorkDirectory();
 
         var packageJsonPath = Path.Combine(repoPath, "package.json");
         if (await reader.ExistsAsync(packageJsonPath, cancellationToken))

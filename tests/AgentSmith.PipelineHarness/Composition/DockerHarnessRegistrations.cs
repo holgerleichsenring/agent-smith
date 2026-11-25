@@ -45,6 +45,7 @@ internal static class DockerHarnessRegistrations
     {
         var options = BuildDockerOptions();
         services.RemoveAll<ISandboxFactory>();
+        services.RemoveAll<IWorkspaceFactory>();
         services.RemoveAll<IDockerClient>();
         services.RemoveAll<DockerSandboxOptions>();
         services.RemoveAll<DockerContainerSpecBuilder>();
@@ -74,23 +75,12 @@ internal static class DockerHarnessRegistrations
         services.AddSingleton(new SandboxBusCredentialSetting(SandboxBusCredentialMode.PerJob));
         services.AddSingleton<SandboxBusCredentials>();
 
-        services.AddSingleton<ISandboxFactory>(sp =>
-        {
-            var inner = new DockerSandboxFactory(
-                sp.GetRequiredService<IDockerClient>(),
-                sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>(),
-                sp.GetRequiredService<DockerContainerSpecBuilder>(),
-                sp.GetRequiredService<DockerSandboxOptions>(),
-                sp.GetRequiredService<DockerPackageCaches>(),
-                sp.GetRequiredService<DockerImagePresence>(),
-                sp.GetRequiredService<DockerSandboxVolumes>(),
-                sp.GetRequiredService<DockerOneShotRunner>(),
-                sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
-                sp.GetRequiredService<IWireProtocolWatcher>(),
-                sp.GetRequiredService<SandboxBusCredentials>(),
-                sp.GetRequiredService<ILoggerFactory>());
-            return new ExtraBindsSandboxFactory(inner, session);
-        });
+        services.AddSingleton(sp => new ExtraBindsSandboxFactory(
+            ActivatorUtilities.CreateInstance<DockerSandboxFactory>(sp),
+            ActivatorUtilities.CreateInstance<DockerWorkspaceFactory>(sp), session));
+        services.AddSingleton<ISandboxFactory>(sp => sp.GetRequiredService<ExtraBindsSandboxFactory>());
+        // 2026-11-25-9992b: a run's workspace, on the same Docker launch code and the same bind.
+        services.AddSingleton<IWorkspaceFactory>(sp => sp.GetRequiredService<ExtraBindsSandboxFactory>());
     }
 
     private static DockerSandboxOptions BuildDockerOptions() => new()

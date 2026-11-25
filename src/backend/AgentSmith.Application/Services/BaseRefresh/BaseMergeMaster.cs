@@ -26,7 +26,7 @@ public sealed class BaseMergeMaster(IAgenticLoopRunner loop, IPromptCatalog prom
         ArgumentNullException.ThrowIfNull(situation);
         var timeout = situation.Pipeline.TryGet<int>(ContextKeys.RunCommandTimeoutSeconds, out var seconds) && seconds > 0 ? seconds : (int?)null;
         var session = new BaseMergeSession(situation,
-            new FilesystemToolHost(situation.Sandbox, Repository.SandboxWorkPath, runCommandTimeoutSeconds: timeout));
+            new FilesystemToolHost(situation.Sandbox, runCommandTimeoutSeconds: timeout));
         var conclude = Conclude(session);
         var request = Request(situation, Prompt(situation), session.Tools(conclude), null);
         session.Conversation.Opened(request, await RunAsync(situation, request, ct));

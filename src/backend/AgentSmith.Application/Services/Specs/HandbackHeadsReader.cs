@@ -45,7 +45,7 @@ public sealed class HandbackHeadsReader(SandboxTargets targets, ILogger<Handback
         var result = await sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git",
                 Args: ["rev-parse", "--verify", "--quiet", $"refs/remotes/origin/{branch}"],
-                WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: TimeoutSeconds),
+                TimeoutSeconds: TimeoutSeconds),
             progress: null, ct);
         var sha = (result.OutputContent ?? string.Empty).Trim();
         return result.ExitCode == 0 && sha.Length > 0 ? sha : null;

@@ -4,6 +4,7 @@ import type { SandboxSecrets, SandboxSecretFile } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
 import { MapField } from "./formFields";
 import { SecretFileRows } from "./SecretFileRows";
+import { RepoSecretEnvRows } from "./RepoSecretEnvRows";
 
 // 2026-09-22-6c46: the pod's secret injection. It has NO process-wide counterpart — the
 // global sandbox block carries no secrets field — so it inherits NOTHING, and a placeholder
@@ -28,7 +29,9 @@ export function SandboxSecretsBlock({
 
   const emit = (next: SandboxSecrets) =>
     onChange(
-      (next.env && Object.keys(next.env).length > 0) || (next.files && next.files.length > 0)
+      (next.env && Object.keys(next.env).length > 0)
+        || (next.files && next.files.length > 0)
+        || (next.repoEnv && Object.keys(next.repoEnv).length > 0)
         ? next
         : undefined,
     );
@@ -45,6 +48,13 @@ export function SandboxSecretsBlock({
         testId="form-field-sandbox-secrets-env"
         help={t("config.sandboxSecrets.env.help")}
         onChange={(next) => emit({ ...secrets, env: next ?? null })}
+      />
+
+      {/* 2026-11-25-9992d: a variable only one repository's commands receive. */}
+      <RepoSecretEnvRows
+        values={secrets.repoEnv}
+        testId="form-field-sandbox-secrets-repoEnv"
+        onChange={(next) => emit({ ...secrets, repoEnv: next ?? null })}
       />
 
       <SecretFileRows

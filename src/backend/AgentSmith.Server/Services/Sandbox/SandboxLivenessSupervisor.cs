@@ -37,10 +37,12 @@ public sealed class SandboxLivenessSupervisor(
         watcher.Start();
     }
 
-    public async ValueTask DisposeAsync()
+    public async Task UnwatchAllAsync()
     {
         SandboxLivenessWatcher[] snapshot;
         lock (_gate) { snapshot = _watchers.ToArray(); _watchers.Clear(); }
         foreach (var w in snapshot) await w.DisposeAsync();
     }
+
+    public async ValueTask DisposeAsync() => await UnwatchAllAsync();
 }

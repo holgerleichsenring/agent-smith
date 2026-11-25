@@ -44,7 +44,7 @@ public sealed class TemplateProofRead(
         try
         {
             content = await files.Create(scope)
-                .TryReadAsync(ContainedPath.Absolute(path), cancellationToken);
+                .TryReadAsync(ContainedPath.Absolute(scope.WorkDirectory(), path), cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

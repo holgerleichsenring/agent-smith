@@ -11,9 +11,10 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Tools;
 
 /// <summary>
-/// run_gate_stage over two real-git clones of one repository: a .NET sandbox holding the root
-/// context and a node sandbox holding the dashboard context. The master writes through the
-/// first; a stage of the second runs over the levelled work, in its own sandbox.
+/// run_gate_stage over two real-git clones standing in for the two toolchain containers of one repository: a .NET
+/// key holding the root context and a node key holding the dashboard context. 2026-11-25-9992b: in a run's workspace
+/// both keys see the repository's one tree, so the work is written where the node stage reads it and nothing is
+/// levelled; the stage runs in its own key.
 /// </summary>
 [Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
@@ -23,11 +24,11 @@ public sealed class GateStageToolTests
     private readonly List<(string Key, string Command)> _ran = [];
 
     [Fact]
-    public async Task GateStageTool_DashboardStage_RunsInTheNodeSandboxOverTheMastersSyncedWork()
+    public async Task GateStageTool_DashboardStage_RunsInTheNodeSandboxOverTheMastersWork()
     {
         await using var clones = await Clones(dashboardTest: NodeTest);
         if (clones is null) return;
-        await clones.WriteAsync(clones.Primary, "web/app.ts", "export const app = 2;\n");
+        await clones.WriteAsync(clones.Secondary, "web/app.ts", "export const app = 2;\n");
 
         var answer = await Run(clones, "shop", "test");
 
@@ -41,26 +42,12 @@ public sealed class GateStageToolTests
     {
         await using var clones = await Clones(dashboardTest: NodeTest);
         if (clones is null) return;
-        await clones.WriteAsync(clones.Primary, "web/app.ts", "export const app = 2;\n");
+        await clones.WriteAsync(clones.Secondary, "web/app.ts", "export const app = 2;\n");
 
         await Run(clones, "shop", "test");
 
         AgentSmith.Application.Services.Specs.SpecRunCommandScope.Open(clones.Pipeline).Evidence()
             .Should().ContainSingle().Which.Should().Be($"shop: the agent ran '{NodeTest}' exited 0 — no output");
-    }
-
-    [Fact]
-    public async Task GateStageTool_SyncRed_RunsNothingAndReturnsTheSyncMessage()
-    {
-        await using var clones = await Clones(dashboardTest: NodeTest);
-        if (clones is null) return;
-        await clones.WriteAsync(clones.Primary, "web/app.ts", "export const app = 2;\n");
-        await clones.WriteAsync(clones.Secondary, "web/app.ts", "export const app = 3;\n");
-
-        var answer = await Run(clones, "shop", "test");
-
-        answer.Should().StartWith("Sandbox tree sync: ");
-        _ran.Should().NotContain(r => r.Command == NodeTest);
     }
 
     [Fact]

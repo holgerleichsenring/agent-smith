@@ -16,6 +16,8 @@ public static class ConfigDocTypes
     public const string Secret = "secret";
     public const string PipelineTrigger = "pipeline_trigger";
 
+    /// <summary>2026-11-25-9992d: retired — no longer assembled; the feeds live on each project. Named for the data
+    /// migration that moves a stored singleton onto the projects.</summary>
     public const string Registries = "registries";
     public const string Queue = "queue";
     public const string Skills = "skills";

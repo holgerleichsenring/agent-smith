@@ -21,11 +21,11 @@ public sealed class PocOsvRun
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         ArgumentNullException.ThrowIfNull(config);
-        var work = Repository.SandboxWorkPath;
+        var work = sandbox.WorkDirectory();
         string[] args = ["scan", "source", "--offline", "--download-offline-databases", "--format", "json",
             "--output", $"{work}/{Report}", .. paths.SelectMany(p => new[] { "-L", $"{work}/{LockfileRoot}/{p}" })];
         return sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: Binary, Args: args, WorkingDirectory: work,
+            Command: Binary, Args: args,
             Env: new Dictionary<string, string> { ["OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY"] = $"{work}/.osv-db" },
             TimeoutSeconds: config.TimeoutSeconds), null, ct);
     }

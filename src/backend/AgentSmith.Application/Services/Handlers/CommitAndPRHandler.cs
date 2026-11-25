@@ -77,13 +77,7 @@ public sealed class CommitAndPRHandler(
                 continue;
             }
             var sandbox = matches[0].Value;
-            // p0299: a mixed-stack monorepo has one clone per toolchain sandbox; fold every
-            // OTHER sandbox's edits into the primary so nothing is dropped at commit time.
-            var consolidated = await gitOps.ConsolidateSecondarySandboxesAsync(matches, sandbox, cancellationToken);
-            if (consolidated > 0)
-                logger.LogInformation(
-                    "{Repo}: consolidated {N} secondary sandbox(es) into {Key}",
-                    repo.Name, consolidated, matches[0].Key);
+            // 2026-11-25-9992b: every key of the repository works in this one tree of the workspace.
             await gitOps.StageAllAsync(sandbox, cancellationToken);
             var staged = await gitOps.GetStagedFileNamesAsync(sandbox, cancellationToken);
             // p0360: work already committed by mid-run checkpoints leaves a clean

@@ -43,7 +43,7 @@ public sealed class SourceScopeMaterialiser(SourceScopeRefresh refresh, IGitToke
         if (!await refresh.HoldsRepoAsync(sandbox, repo, ct))
         {
             var clone = await sandbox.RunStepAsync(
-                CheckoutStepFactory.BuildScopeCloneStep(repo, credential), null, ct);
+                CheckoutStepFactory.BuildScopeCloneStep(repo, credential, sandbox.WorkDirectory()), null, ct);
             if (clone.ExitCode != 0)
                 throw SourceScopeFailures.Fail(SourceScopeFailures.KindOf(clone), repo, revision,
                     $"git clone failed: {SourceScopeFailures.Text(clone)}");

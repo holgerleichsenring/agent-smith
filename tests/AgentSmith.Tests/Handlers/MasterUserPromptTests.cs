@@ -31,11 +31,19 @@ public sealed class MasterUserPromptTests
     }
 
     [Fact]
-    public void Build_NoCheckouts_FallsBackToTheRepositoryPath()
+    public void Build_NoCheckouts_FallsBackToTheBranch()
     {
         var prompt = MasterUserPrompt.Build(null, Repo, [], string.Empty, string.Empty);
 
-        prompt.Should().Contain(Repo.LocalPath).And.Contain(Repo.CurrentBranch.ToString());
+        prompt.Should().Contain(Repo.CurrentBranch.ToString()).And.NotContain("**Path:**");
+    }
+
+    [Fact]
+    public void Build_Checkout_NamesTheRepositoryRootUnderTheWorkspace()
+    {
+        var prompt = MasterUserPrompt.Build(null, Repo, ["server"], string.Empty, string.Empty);
+
+        prompt.Should().Contain("`/work/server`");
     }
 
     [Fact]

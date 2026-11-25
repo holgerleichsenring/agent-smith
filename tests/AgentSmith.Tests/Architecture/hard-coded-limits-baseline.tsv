@@ -25,7 +25,7 @@
 1	AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs
 1	AgentSmith.Application/Services/Handlers/BootstrapMetaFiles.cs
 2	AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs
-1	AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs
+1	AgentSmith.Application/Services/Handlers/PrerequisiteInstall.cs
 1	AgentSmith.Application/Services/Handlers/GateOutputHandler.cs
 1	AgentSmith.Application/Services/Handlers/GateRetryCoordinator.cs
 1	AgentSmith.Application/Services/Handlers/InlineDerivationAsk.cs
@@ -88,7 +88,6 @@
 1	AgentSmith.Application/Services/Sandbox/SandboxSecretPresenceProbe.cs
 2	AgentSmith.Application/Services/Sandbox/SandboxStepWatch.cs
 1	AgentSmith.Application/Services/Sandbox/SandboxToolchainProbe.cs
-2	AgentSmith.Application/Services/Sandbox/SandboxTreeGit.cs
 1	AgentSmith.Application/Services/Sandbox/SandboxWorkingTreeReader.cs
 1	AgentSmith.Application/Services/Sandbox/ToolchainCapabilityLine.cs
 1	AgentSmith.Application/Services/Sandbox/WorkBranchBaseMerger.cs

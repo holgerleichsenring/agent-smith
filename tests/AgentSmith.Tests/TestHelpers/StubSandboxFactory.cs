@@ -65,12 +65,31 @@ internal sealed class StubSandboxFactory : ISandboxFactory
             else ShellAnswers.Remove(prefix);
     }
 
-    public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
+    public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken) =>
+        Task.FromResult<ISandbox>(Spawn(spec, AgentSmith.Domain.Entities.Repository.WorkspaceRoot));
+
+    /// <summary>
+    /// 2026-11-25-9992b: a toolchain container of a run's workspace — it serves every repository at /work/&lt;repo&gt;,
+    /// each its own tree. Listed in <see cref="Spawned"/> like any sandbox.
+    /// </summary>
+    public StubSandbox CreateContainer(SandboxSpec spec) => Spawn(spec, root: null);
+
+    /// <summary>
+    /// 2026-11-25-9992b: every step any spawned sandbox ran in <paramref name="repo"/>'s tree, /work/&lt;repo&gt; — a
+    /// workspace container serves every repository, so a repository's work is told apart by its tree, not its sandbox.
+    /// </summary>
+    public IReadOnlyList<AgentSmith.Sandbox.Wire.Step> StepsIn(string repo)
+    {
+        var root = AgentSmith.Domain.Entities.Repository.WorkPathFor(repo);
+        return [.. Spawned.SelectMany(s => s.Sandbox.RanSteps).Where(step => StubTree.RootOf(step) == root)];
+    }
+
+    private StubSandbox Spawn(SandboxSpec spec, string? root)
     {
         var sandbox = new StubSandbox(
             MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles, ShellAnswers,
-            AdvancesHeadOnCommit, GitAnswers) { OnStep = Observe };
+            AdvancesHeadOnCommit, GitAnswers, root) { OnStep = Observe };
         Spawned.Add((spec, sandbox));
-        return Task.FromResult<ISandbox>(sandbox);
+        return sandbox;
     }
 }

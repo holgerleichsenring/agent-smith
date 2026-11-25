@@ -58,7 +58,6 @@ public sealed class AcquireSourceHandlerTests : IDisposable
 
         var repo = pipeline.Get<AgentSmith.Domain.Entities.Repository>(ContextKeys.Repository);
         repo.Should().NotBeNull();
-        repo.LocalPath.Should().Be("/work");
     }
 
     [Fact]

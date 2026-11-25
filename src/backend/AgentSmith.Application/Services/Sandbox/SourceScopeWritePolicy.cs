@@ -1,4 +1,3 @@
-using AgentSmith.Domain.Entities;
 using AgentSmith.Sandbox.Wire;
 
 namespace AgentSmith.Application.Services.Sandbox;
@@ -14,26 +13,25 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </para>
 /// <para>
 /// The path is canonicalised BEFORE it is matched. The seam that resolves a step's path
-/// (<c>FileStepHandler</c>) joins a relative path onto the work root and uses an absolute one
+/// (<c>FileStepHandler</c>) joins a relative path onto the scope's root and uses an absolute one
 /// verbatim, collapsing nothing — so a prefix match over a raw path would accept
 /// <c>specs/../../etc/passwd</c>. Collapsing first also makes the containment leg cheap: a
-/// canonical path that is not under the work root is refused whatever the prefix set says.
+/// canonical path that is not under the root is refused whatever the prefix set says.
+/// 2026-11-25-9992c: the root is the scope's own (<paramref name="root"/>), never a constant here.
 /// </para>
 /// </summary>
-public sealed class SourceScopeWritePolicy(IReadOnlyCollection<string> writablePrefixes)
+public sealed class SourceScopeWritePolicy(IReadOnlyCollection<string> writablePrefixes, string root)
 {
-    /// <summary>The default: no prefix declared, so every write is refused.</summary>
-    public static SourceScopeWritePolicy Nothing => new([]);
 
     /// <summary>The refusal for a write this scope will not serve; null when it will.</summary>
     public StepResult? Refuse(Step step)
     {
         ArgumentNullException.ThrowIfNull(step);
-        var canonical = Canonical(step.Path, step.WorkingDirectory);
-        if (!IsUnder(canonical, Repository.SandboxWorkPath))
+        var canonical = Canonical(step.Path, step.WorkingDirectory, root);
+        if (!IsUnder(canonical, Canonical(root, null, root)))
             return SourceScopeRefusal.Because(step,
                 $"'{step.Path}' resolves to '{canonical}', which is outside the checkout at "
-                + $"{Repository.SandboxWorkPath}. A read-only source sandbox writes nothing "
+                + $"{root}. A read-only source sandbox writes nothing "
                 + "outside its own checkout.");
 
         if (writablePrefixes.Any(prefix => IsUnder(canonical, Rooted(prefix)))) return null;
@@ -45,21 +43,19 @@ public sealed class SourceScopeWritePolicy(IReadOnlyCollection<string> writableP
               + $"prefixes this source sandbox declares ({string.Join(", ", writablePrefixes)}).");
     }
 
-    /// <summary>A declared prefix as an absolute, collapsed path under the work root.</summary>
-    private static string Rooted(string prefix) => Canonical(prefix, Repository.SandboxWorkPath);
+    /// <summary>A declared prefix as an absolute, collapsed path under the root.</summary>
+    private string Rooted(string prefix) => Canonical(prefix, root, root);
 
     /// <summary>
     /// The path the agent would actually open, with '.' and '..' collapsed. Written out rather
     /// than taken from <c>Path.GetFullPath</c> because the target is a POSIX container path and
     /// must resolve identically on whatever host the server runs on.
     /// </summary>
-    internal static string Canonical(string? path, string? workingDirectory)
+    internal static string Canonical(string? path, string? workingDirectory, string root)
     {
-        var root = string.IsNullOrEmpty(workingDirectory)
-            ? Repository.SandboxWorkPath
-            : workingDirectory;
+        var from = string.IsNullOrEmpty(workingDirectory) ? root : workingDirectory;
         var raw = (path ?? string.Empty).Replace('\\', '/');
-        var combined = raw.StartsWith('/') ? raw : $"{root.Replace('\\', '/')}/{raw}";
+        var combined = raw.StartsWith('/') ? raw : $"{from.Replace('\\', '/')}/{raw}";
         var segments = new List<string>();
         foreach (var segment in combined.Split('/', StringSplitOptions.RemoveEmptyEntries))
         {

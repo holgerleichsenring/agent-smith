@@ -58,7 +58,7 @@ public sealed class DependencyAuditTool(
         }
 
         var ecosystem = await ecosystems.DetectAsync(
-            files.Create(sandbox), Repository.SandboxWorkPath, ct);
+            files.Create(sandbox), sandbox.WorkDirectory(), ct);
         var step = ecosystem is null ? null : AuditCommands.For(ecosystem);
         if (step is null)
             return $"{repository} declares no ecosystem with an advisory command here"

@@ -247,6 +247,7 @@ A project wires one agent, one tracker and a set of repos, and says how a ticket
 | `pipelines` | pipelines this project hosts with their own overrides: `name`, `agent`, `skills_path`, `coding_principles_path` |
 | `coding_principles_path`, `skills_path` | project-level overrides |
 | `sandbox` | per-project sandbox overrides, see below |
+| `registries` | private package feeds this project's runs authenticate against in the sandbox: a list of `host`, `username` and `token` (a `${secret}` reference). A repository's `nuget.config`, `.npmrc` or other feed config naming the host gets user-level credentials staged. The top-level `registries:` list is retired; `database migrate` copied a stored one into every project that had none |
 | `merge` | whether a green code run merges its own pull requests, see below |
 | `design_sources` | names from `design_sources:` this project may read designs from. See [Design sources](../../configure-it/design-sources.md) |
 
@@ -281,7 +282,7 @@ Refused: an unknown project, a repo that project doesn't carry, a wildcard repo,
 | `agent_registry`, `agent_version` | override the sandbox agent image |
 | `hold_seconds` | how long this project's design conversations hold their sandboxes between turns |
 | `run_as_root` | with `sandbox.hardening_enabled` on, `true` runs this project's sandboxes as root with default capabilities, for prerequisites that need root; every run then carries a warning |
-| `secrets` | `env` (`VAR: "secretName:key"`) and `files` (`mount`, `secret`, `key`): Kubernetes Secrets mounted into the sandbox |
+| `secrets` | `env` (`VAR: "secretName:key"`, every repository's commands), `repo_env` (`<repo>: { VAR: "secretName:key" }`, only that repository's commands; needs sandbox agents of wire protocol 3) and `files` (`mount`, `secret`, `key`): Kubernetes Secrets mounted into the sandbox |
 
 Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md) has what each one does at runtime.
 
@@ -404,7 +405,6 @@ These blocks apply to every project unless a project overrides them. On a server
 | `deployment` | `registry`, `version`: an optional image pin for the sandbox agent |
 | `orchestrator` | `max_run_wall_time_seconds` (1800; a PoC run is held to `pocs.run_wall_time_seconds` instead) |
 | `sandbox` | agent image, `step_timeout_seconds` (900), `run_command_timeout_seconds` (300), `max_concurrent_sandboxes`, `hold_seconds` (180), registry trust, pull secrets and `hardening_enabled` (false: sandboxes run as uid 1000 with no capabilities when true) |
-| `registries` | private package feeds the agent authenticates against in the sandbox |
 | `primary_provider` | the agent used when a project names none |
 | `limits` | per-skill ceilings of the agentic loop |
 | `pipeline_cost_cap` | money and token caps per run, see [Pipeline cost cap](pipeline-cost-cap.md) |

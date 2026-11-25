@@ -24,7 +24,7 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 /// refusal.
 /// </para>
 /// </summary>
-public sealed class RegistryCredentialCheck(AgentSmithConfig config) : IRunPreflightCheck
+public sealed class RegistryCredentialCheck : IRunPreflightCheck
 {
     public string Name => "registry-credentials";
 
@@ -32,21 +32,22 @@ public sealed class RegistryCredentialCheck(AgentSmithConfig config) : IRunPrefl
 
     public Task<RunPreflightFinding> RunAsync(PipelineContext pipeline, CancellationToken cancellationToken)
     {
-        if (config.Registries.Count == 0)
+        var registries = pipeline.ProjectRegistries(); // 2026-11-25-9992d: the run's project's feeds
+        if (registries.Count == 0)
             return Task.FromResult(RunPreflightFinding.Pass(
-                Name, "no registries configured — nothing to stage"));
+                Name, "the project configures no registries — nothing to stage"));
 
-        var empty = config.Registries
+        var empty = registries
             .Where(r => string.IsNullOrWhiteSpace(r.Token))
             .Select(Describe)
             .ToList();
 
         return Task.FromResult(empty.Count == 0
-            ? RunPreflightFinding.Pass(Name, $"{config.Registries.Count} registry credential(s) present")
+            ? RunPreflightFinding.Pass(Name, $"{registries.Count} registry credential(s) present")
             : RunPreflightFinding.Warn(
                 Name,
                 $"configured registry credential(s) resolved to nothing: {string.Join(", ", empty)}"
-                + " — set the environment variable behind registries[].token, or drop the entry if"
+                + " — set the environment variable behind projects.<name>.registries[].token, or drop the entry if"
                 + " the feed is public; a 401 from one of these hosts later has its cause here"));
     }
 

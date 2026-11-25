@@ -20,7 +20,6 @@ public sealed class AgentSmithConfig
     public IReadOnlyDictionary<string, string> Secrets { get; init; } = new Dictionary<string, string>();
     /// <summary>2026-11-18-78efb: secrets with no environment value whose stored value cannot be opened, with why.</summary>
     public IReadOnlyDictionary<string, string> UnreadableSecrets { get; init; } = new Dictionary<string, string>();
-    public IReadOnlyList<RegistryConfig> Registries { get; init; } = Array.Empty<RegistryConfig>();
 
     public QueueConfig Queue { get; init; } = new();
     public SkillsConfig Skills { get; init; } = new();

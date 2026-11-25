@@ -17,18 +17,39 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public static partial class SandboxSecretDeclarationReview
 {
-    public static IReadOnlyList<string> Problems(SandboxSecrets? secrets) =>
-        secrets is null ? [] : [.. EnvProblems(secrets.Env), .. FileProblems(secrets.Files)];
+    /// <param name="repositories">2026-11-25-9992d: the project's repository names; a repo_env key naming none of them
+    /// is a problem. Matched Ordinal, as the sandbox's scope is (RepoSandbox stamps the RepoConnection name). Null skips
+    /// the check.</param>
+    public static IReadOnlyList<string> Problems(SandboxSecrets? secrets, IReadOnlyCollection<string>? repositories = null) =>
+        secrets is null
+            ? []
+            : [.. EnvProblems("env", secrets.Env), .. RepoEnvProblems(secrets.RepoEnv),
+                .. UnknownRepositories(secrets.RepoEnv, repositories), .. FileProblems(secrets.Files)];
 
-    private static IEnumerable<string> EnvProblems(Dictionary<string, string>? env) =>
-        (env ?? []).SelectMany(entry => EnvProblem(entry.Key, entry.Value));
+    private static IEnumerable<string> UnknownRepositories(
+        Dictionary<string, Dictionary<string, string>>? repoEnv, IReadOnlyCollection<string>? repositories) =>
+        repositories is null
+            ? []
+            : (repoEnv ?? []).Keys
+                .Where(repo => !string.IsNullOrWhiteSpace(repo) && !repositories.Contains(repo, StringComparer.Ordinal))
+                .Select(repo => $"sandbox.secrets.repo_env['{repo}'] names no repository of the project "
+                    + $"(exact names: {string.Join(", ", repositories.Order(StringComparer.Ordinal))})");
 
-    private static IEnumerable<string> EnvProblem(string name, string? value)
+    private static IEnumerable<string> EnvProblems(string field, Dictionary<string, string>? env) =>
+        (env ?? []).SelectMany(entry => EnvProblem(field, entry.Key, entry.Value));
+
+    // 2026-11-25-9992d: a repository's own variables follow the env rules, under a repository that has a name.
+    private static IEnumerable<string> RepoEnvProblems(Dictionary<string, Dictionary<string, string>>? repoEnv) =>
+        (repoEnv ?? []).SelectMany(repo => string.IsNullOrWhiteSpace(repo.Key)
+            ? ["sandbox.secrets.repo_env has an entry that names no repository"]
+            : EnvProblems($"repo_env['{repo.Key}']", repo.Value));
+
+    private static IEnumerable<string> EnvProblem(string field, string name, string? value)
     {
         if (!EnvNameRegex().IsMatch(name ?? string.Empty))
-            yield return $"sandbox.secrets.env['{name}'] is not a usable environment variable name";
+            yield return $"sandbox.secrets.{field}['{name}'] is not a usable environment variable name";
         if (!SandboxSecretReference.TryParse(value, out _))
-            yield return $"sandbox.secrets.env['{name}'] is not a 'secretName:key' reference";
+            yield return $"sandbox.secrets.{field}['{name}'] is not a 'secretName:key' reference";
     }
 
     private static IEnumerable<string> FileProblems(List<SandboxSecretFile>? files)

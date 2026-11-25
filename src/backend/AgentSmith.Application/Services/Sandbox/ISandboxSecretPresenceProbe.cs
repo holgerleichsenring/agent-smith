@@ -14,7 +14,9 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public interface ISandboxSecretPresenceProbe
 {
-    /// <summary>The env names and mount paths that failed the test, in the order declared.</summary>
+    /// <summary>The env names and mount paths that failed the test, in the order declared. 2026-11-25-9992d: the
+    /// scoped variables of <paramref name="repository"/> are tested too, as that repository's commands see them;
+    /// null tests only the project-wide ones.</summary>
     Task<IReadOnlyList<string>> MissingAsync(
-        ISandbox sandbox, ResolvedSandboxSecrets secrets, CancellationToken cancellationToken);
+        ISandbox sandbox, ResolvedSandboxSecrets secrets, string? repository, CancellationToken cancellationToken);
 }

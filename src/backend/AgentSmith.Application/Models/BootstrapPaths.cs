@@ -21,15 +21,16 @@ public sealed record BootstrapPaths(
     string ContextYaml, string Principles, string RetiredPrinciples,
     string MetaDir, string RetiredMetaDir)
 {
-    public static BootstrapPaths For(string contextName)
+    /// <summary>2026-11-25-9992c: under <paramref name="root"/>, the repository root of the sandbox they are read in.</summary>
+    public static BootstrapPaths For(string root, string contextName)
     {
-        var metaDir = ProjectMetaPaths.MetaDirFor(contextName);
+        var metaDir = ProjectMetaPaths.MetaDirFor(root, contextName);
         return new BootstrapPaths(
             $"{metaDir}/{ProjectMetaPaths.ContextYamlFile}",
             $"{metaDir}/{ProjectMetaPaths.PrinciplesFile}",
             $"{metaDir}/{ProjectMetaPaths.RetiredPrinciplesFile}",
             metaDir,
-            ProjectMetaPaths.RetiredMetaDirFor(contextName));
+            ProjectMetaPaths.RetiredMetaDirFor(root, contextName));
     }
 
     public IReadOnlyList<string> All => [ContextYaml, Principles];

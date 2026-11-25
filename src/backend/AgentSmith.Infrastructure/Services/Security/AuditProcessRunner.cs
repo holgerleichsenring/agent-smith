@@ -26,7 +26,6 @@ internal sealed class AuditProcessRunner(ILogger logger)
             Kind: StepKind.Run,
             Command: "/bin/sh",
             Args: ["-c", command],
-            WorkingDirectory: Repository.SandboxWorkPath,
             TimeoutSeconds: ProcessTimeoutSeconds);
 
         var progress = new Progress<StepEvent>(ev =>

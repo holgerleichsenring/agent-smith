@@ -21,7 +21,7 @@ public sealed class StaticPatternScanner(
     ILogger<StaticPatternScanner> logger) : IStaticPatternScanner
 {
     public async Task<StaticScanResult> ScanAsync(
-        ISandboxFileReader reader, CancellationToken cancellationToken)
+        ISandboxFileReader reader, string root, CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
 
@@ -37,17 +37,17 @@ public sealed class StaticPatternScanner(
 
         logger.LogInformation(
             "Scanning {RepoPath} with {PatternCount} compiled patterns",
-            Repository.SandboxWorkPath, compiledPatterns.Count);
+            root, compiledPatterns.Count);
 
         var findings = new List<PatternFinding>();
         var filesScanned = 0;
 
         await foreach (var filePath in sourceFiles.EnumerateAsync(
-            reader, Repository.SandboxWorkPath, cancellationToken))
+            reader, root, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var relativePath = ToRelative(filePath, Repository.SandboxWorkPath);
+            var relativePath = ToRelative(filePath, root);
             var fileFindings = await fileMatcher.ScanFileAsync(
                 reader, filePath, relativePath, compiledPatterns, cancellationToken);
             findings.AddRange(fileFindings);

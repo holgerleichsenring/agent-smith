@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Sandbox;
+
 namespace AgentSmith.Application.Services.Browser;
 
 /// <summary>
@@ -10,7 +12,6 @@ namespace AgentSmith.Application.Services.Browser;
 public sealed class ReferenceRenderer(
     BrowserSandboxOpener opener, RenderSourceStager stager, BrowserRenderInvocation invocation)
 {
-    private const string WorkRoot = "/work";
 
     /// <summary>The render, or why there is none.</summary>
     public async Task<(BrowserRenderOutput? Output, string? Refusal)> RenderAsync(
@@ -25,7 +26,7 @@ public sealed class ReferenceRenderer(
             var (staged, unstaged) = await stager.StageAsync(lease.Sandbox, scope, source, ct);
             if (staged is null) return (null, unstaged);
             var request = new BrowserRenderRequest(staged.Url, staged.SiteDir, staged.Page,
-                selectors, BrowserStyleProperties.Properties, $"{WorkRoot}/render/{Guid.NewGuid():N}");
+                selectors, BrowserStyleProperties.Properties, lease.Sandbox.PathUnderRoot($"render/{Guid.NewGuid():N}"));
             var (result, shots, failure) = await invocation.RunAsync(lease.Sandbox, request, ct);
             return result is null ? (null, failure) : (new BrowserRenderOutput(result, shots, staged.Notes), null);
         }

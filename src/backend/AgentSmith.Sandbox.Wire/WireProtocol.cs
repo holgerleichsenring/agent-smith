@@ -23,8 +23,10 @@ public static class WireProtocol
 {
     /// <summary>The protocol version this build speaks and stamps onto every message it sends.</summary>
     /// <remarks>2026-10-08-e8b9j: 2 adds StepKind.WriteBytes with Append and RenameTo. An agent on
-    /// 1 still reads every step this build sends and answers a WriteBytes as an unknown kind.</remarks>
-    public const int Current = 2;
+    /// 1 still reads every step this build sends and answers a WriteBytes as an unknown kind.
+    /// 2026-11-25-9992d: 3 adds Step.SecretScope. An agent on 1 or 2 reads the step and ignores the scope, so its
+    /// commands would see no repository-scoped secret; a workspace whose project scopes secrets refuses such an agent.</remarks>
+    public const int Current = 3;
 
     /// <summary>The oldest protocol version this build still understands.</summary>
     public const int MinimumSupported = 1;

@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992d
+
+decisions:
+  - category: Architecture
+    chose: "Repository-scoped secrets stay Kubernetes Secret references projected into the pod under scoped names (AGENTSMITH_SECRET_<HEX(repo)>__NAME); the agent hands a command only its step's repository's, under the plain name, and makes itself non-dumpable"
+    over: "The server reading Secret values and sending them in each step's env"
+    reason: "The server never reads a declared secret's value (by name, never by value) and would need get-secrets RBAC; values on the step bus would cross Redis. The agent is the one process that already holds them."
+  - category: Architecture
+    chose: "sandbox.secrets.env stays project-wide; sandbox.secrets.repo_env is added for one repository's commands"
+    over: "Making every declared variable repository-scoped"
+    reason: "A workspace is one run of one project; a project-wide secret is meant for all its repositories. Only a repository-specific one needs the boundary."
+  - category: Implementation
+    chose: "Wire protocol 3 (Step.SecretScope); a pod whose project scopes secrets probes each container and refuses an agent below 3, naming image and protocol"
+    over: "Refusing every older agent, or none"
+    reason: "Review: an older agent ignores the field and would hand every command every repository's scoped variables; projects without repo_env keep working with older agents."
+  - category: Scope
+    chose: "Secret files, the repositories' trees and a concurrently running command of another repository stay reachable at the same uid; documented, not enforced"
+    over: "Separate uids or containers per repository"
+    reason: "A shared workspace exists so repositories see each other's trees; isolating files within one container's uid is not possible without giving up that."
+  - category: Architecture
+    chose: "Private feeds move to projects.<name>.registries; the top-level key is retired with its advisory; stored configuration is moved once by the data migration 2026-11-25-9992d-project-registries (run by database migrate, never at startup)"
+    over: "Retiring the key alone, or a catalog of feeds projects reference"
+    reason: "The binding revision says feed tokens per project. Feeds are operator content with secret references, so retiring the key would lose them; the migrator is the existing once-only mechanism."
+  - category: Implementation
+    chose: "Every command of a workspace gets every feed of its project"
+    over: "Feeds per repository"
+    reason: "Review: a build in one repository referencing ../Other restores the other's packages with its own credentials; the binding revision scopes feeds by project."
+  - category: Scope
+    chose: "Per-toolchain limits get no new key: the per-context stack.resources declaration and the project's sandbox.resources (both editable) size each container, and the footprint is per pod (9992b)"
+    over: "projects.<name>.sandbox.toolchain_resources"
+    reason: "Review: it would be a third sizing source beside the context declaration and the project default, with image keys typed by hand that drift from resolved tags (no second path)."
+  - category: Scope
+    chose: "No git worktree per sub-agent in this series"
+    over: "A worktree per writing sub-agent and repository"
+    reason: "The ticket run stays the unit, so parallel tickets already get separate workspaces; sub-agents share the master's tree by design (p0177), and checkpoint, restart and delivery see only that tree. It becomes its own spec when a real run shows sub-agents colliding."

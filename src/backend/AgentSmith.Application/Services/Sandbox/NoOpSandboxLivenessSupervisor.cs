@@ -10,5 +10,6 @@ namespace AgentSmith.Application.Services.Sandbox;
 public sealed class NoOpSandboxLivenessSupervisor : ISandboxLivenessSupervisor
 {
     public void Watch(string runId, string sandboxKey, ISandbox sandbox) { }
+    public Task UnwatchAllAsync() => Task.CompletedTask;
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

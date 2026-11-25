@@ -58,7 +58,7 @@ public sealed partial class StateIndexConflictResolver(
 
     private static Task<StepResult> GitAsync(ISandbox sandbox, IReadOnlyList<string> args, CancellationToken ct) =>
         sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git", Args: args,
-            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
+            TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
 
     [GeneratedRegex(@"^\.agentsmith/contexts/[^/]+/context\.yaml$")]
     private static partial Regex ContextYaml();

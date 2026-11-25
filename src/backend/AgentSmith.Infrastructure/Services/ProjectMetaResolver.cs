@@ -13,16 +13,15 @@ namespace AgentSmith.Infrastructure.Services;
 /// </summary>
 public sealed class ProjectMetaResolver(IContextYamlParser contextYamlParser) : IProjectMetaResolver
 {
-    private const string ContextsRoot = "/work/.agentsmith/contexts";
-
     public async Task<IReadOnlyList<MetaDiscovery>> ResolveAllAsync(
-        ISandboxFileReader reader, CancellationToken cancellationToken)
+        ISandboxFileReader reader, string root, CancellationToken cancellationToken)
     {
-        var entries = await reader.ListAsync(ContextsRoot, maxDepth: 1, cancellationToken);
+        var contextsRoot = $"{root.TrimEnd('/')}/{ProjectMetaPaths.Contexts}";
+        var entries = await reader.ListAsync(contextsRoot, maxDepth: 1, cancellationToken);
         if (entries.Count == 0) return [];
 
         var discoveries = new List<MetaDiscovery>();
-        foreach (var subDir in EnumerateImmediateSubDirs(entries))
+        foreach (var subDir in EnumerateImmediateSubDirs(entries, contextsRoot))
         {
             var contextName = LastSegment(subDir);
             var yamlPath = subDir + "/context.yaml";
@@ -45,12 +44,12 @@ public sealed class ProjectMetaResolver(IContextYamlParser contextYamlParser) : 
         return discoveries;
     }
 
-    private static IEnumerable<string> EnumerateImmediateSubDirs(IReadOnlyList<string> entries)
+    private static IEnumerable<string> EnumerateImmediateSubDirs(IReadOnlyList<string> entries, string contextsRoot)
     {
         foreach (var entry in entries)
         {
-            if (!entry.StartsWith(ContextsRoot + "/", StringComparison.Ordinal)) continue;
-            var rel = entry[(ContextsRoot.Length + 1)..];
+            if (!entry.StartsWith(contextsRoot + "/", StringComparison.Ordinal)) continue;
+            var rel = entry[(contextsRoot.Length + 1)..];
             if (rel.Contains('/')) continue;
             yield return entry;
         }

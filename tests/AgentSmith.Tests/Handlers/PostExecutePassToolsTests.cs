@@ -29,7 +29,7 @@ public sealed class PostExecutePassToolsTests
             ["server", "client"], [],
             new Dictionary<string, ISandbox> { ["server"] = server, ["client"] = client });
 
-        var (_, log, _) = new PostExecutePassTools(logger.Object, readers.Object, null).For(partition, "/work");
+        var (_, log, _) = new PostExecutePassTools(logger.Object, readers.Object, null).For(partition);
         await log.LogDecision("Implementation", "client tests use the shared fixture", "client");
 
         logger.Verify(l => l.LogAsync(clientFiles, DecisionCategory.Implementation,
@@ -43,7 +43,7 @@ public sealed class PostExecutePassToolsTests
             new Dictionary<string, ISandbox>(), [], ["server"], new Dictionary<string, ISandbox>());
 
         var act = () => new PostExecutePassTools(Mock.Of<IDecisionLogger>(),
-            Mock.Of<ISandboxFileReaderFactory>(), null).For(partition, "/work");
+            Mock.Of<ISandboxFileReaderFactory>(), null).For(partition);
 
         act.Should().Throw<ArgumentException>();
     }

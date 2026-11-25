@@ -28,7 +28,7 @@ kubectl -n agentsmith rollout status deployment/agentsmith-server
 ## What this gets you
 
 - The server survives node failures because Kubernetes reschedules it, and the run history survives everything because it lives in a relational database (SQLite on a PVC by default; point `persistence:` at PostgreSQL, MySQL or SQL Server for anything shared, and the same init-container migrates it). To keep the database password out of the ConfigMap, set `AGENTSMITH_PERSISTENCE_PROVIDER` and `AGENTSMITH_PERSISTENCE_CONNECTION` as environment variables on both the server and the migrate init-container, for example from the Secret. Set together, they replace the `persistence:` block; one without the other is refused with a startup finding.
-- Sandbox pods created per repo and toolchain image per run, then deleted. They run in the `agentsmith` namespace beside the server. The server's `ServiceAccount` may create and delete pods and read the `ResourceQuota` there. That is the whole RBAC story. Moving sandboxes to a namespace of their own, with a network policy, is an opt-in step: see [Isolating sandboxes](#isolating-sandboxes-opt-in).
+- One workspace pod per run, holding a container per toolchain image the run needs, then deleted. It runs in the `agentsmith` namespace beside the server. The server's `ServiceAccount` may create and delete pods and read the `ResourceQuota` there. That is the whole RBAC story. Moving sandboxes to a namespace of their own, with a network policy, is an opt-in step: see [Isolating sandboxes](#isolating-sandboxes-opt-in).
 - Real capacity control: a `ResourceQuota` on the namespace sandboxes run in turns "too many runs" into a FIFO queue instead of failures (see the capacity section below).
 - The dashboard as its own Deployment + Service, port 3000 behind the Service.
 
@@ -41,7 +41,7 @@ The load-bearing details from `8-deployment-server.yaml`, so you know what you'r
 - The ConfigMap mounted at **`/app/config/agentsmith.yml`** carries the bootstrap slice only, meaning `persistence:` and `secrets:`. Everything else (agents, trackers, repos, projects, and the global settings) lives in the database and is edited in the dashboard's Config studio. Putting a full catalog into this ConfigMap does nothing, because the server reads those two blocks and ignores the rest. See [Where configuration lives](../configure-it/index.md).
 - Secrets come from the `agentsmith-secrets` Secret (`REDIS_URL`, provider keys, tracker tokens, webhook secrets, optional Slack/Teams tokens). The ConfigMap names them, the Secret holds the values.
 - Redis takes a password when the Secret has one: set `redis-password`, and put the same value into `redis-url` as `redis:6379,password=…`. Each sandbox reaches Redis as its own ACL user limited to its job's keys, which only protects anything once Redis has a password. Without one, Redis runs as before and the server shows a startup notice. See [Requiring a Redis password](../reference/host-it/redis-password.md).
-- Every run executes inside the server pod. In-cluster the sandbox backend is Kubernetes (`SANDBOX_TYPE` says so explicitly; left unset, the in-cluster service host decides): the server creates each run's sandbox pods in its own namespace and removes them when the run ends. With [sandbox isolation](#isolating-sandboxes-opt-in) turned on, `K8S_SANDBOX_NAMESPACE` names another namespace and `SANDBOX_REDIS_URL` gives those pods Redis's full name; the reference manifests set neither. That's why the quota math below counts a run's sandboxes, and why the Role grants pods and nothing else.
+- Every run executes inside the server pod. In-cluster the sandbox backend is Kubernetes (`SANDBOX_TYPE` says so explicitly; left unset, the in-cluster service host decides): the server creates each run's workspace pod in its own namespace and removes them when the run ends. With [sandbox isolation](#isolating-sandboxes-opt-in) turned on, `K8S_SANDBOX_NAMESPACE` names another namespace and `SANDBOX_REDIS_URL` gives those pods Redis's full name; the reference manifests set neither. That's why the quota math below counts a run's sandboxes, and why the Role grants pods and nothing else.
 - The images are one release: `holgerleichsenring/agent-smith-server` (also the migrate init-container) and `holgerleichsenring/agentsmith-dashboard` carry the same tag in the manifests. The sandbox-agent image (`holgerleichsenring/agent-smith-sandbox-agent`) needs no pin: its tag is derived from the release the server is. Pin it through **Configuration → Deployment** (`deployment.version`) or `sandbox.agent_version` only to run a different tag on purpose; a pin is reported as an advisory finding, never refused.
 
 - Skills need no pin: every release embeds the catalog it was tested with. The `skills` volume is an `emptyDir` the embedded catalog materializes into at startup.
@@ -64,13 +64,13 @@ The Ingress (`9-ingress.yaml`) routes your public hostname to the server Service
 
 ## Sandbox pods
 
-The server creates one pod per repo and toolchain image per run. Contexts of one repo that share an image share one pod, sized to the largest resource envelope among them; a repo whose contexts need two different images gets two pods. Each pod has an init-container that copies the sandbox-agent binary into a shared `emptyDir`, then the main toolchain container starts and the agent binary takes over the entrypoint. The toolchain image comes from, in order: `projects.<name>.sandbox.toolchain_image`, `projects.<name>.sandbox.images.<language>`, the context's `stack.image` in `.agentsmith/contexts/<name>/context.yaml`, a built-in per-language table, and finally a generic image that carries git and no toolchain (with a warning that nothing can be built there).
+The server creates one workspace pod per run. It holds one toolchain container per distinct image the run needs (`toolchain-0`, `toolchain-1`, …), each with its own agent, job id and Redis credential, and all of them mount one `/work`. The run's repositories sit side by side at `/work/<repo>`, so `../OtherRepo` works. Contexts that resolve to the same image share one container across repositories, sized to the largest resource envelope among them. The pod has an init-container that copies the sandbox-agent binary into a shared `emptyDir`, then the toolchain containers start and the agent binary takes over their entrypoint. The toolchain image comes from, in order: `projects.<name>.sandbox.toolchain_image`, `projects.<name>.sandbox.images.<language>`, the context's `stack.image` in `.agentsmith/contexts/<name>/context.yaml`, a built-in per-language table, and finally a generic image that carries git and no toolchain (with a warning that nothing can be built there).
 
-A repository is cloned inside its own sandbox, so the image has to carry git. One that doesn't fails the checkout with an error that says so, instead of a bare exit code.
+Each repository is cloned once, into `/work/<repo>` inside the workspace, so the image has to carry git. One that doesn't fails the checkout with an error that says so, instead of a bare exit code.
 
-You don't pre-create anything. Sizing is pipeline-aware: code-changing pipelines use the repo's declared `stack.resources` (clamped to a hard ceiling), scans and other non-build pipelines get a light fixed profile. When a run finishes (success, failure, cancel) the pods are deleted; a force-killed cancel releases them immediately. Every repository in the run's scope is provisioned: the repositories an approved spec names, otherwise the project's.
+You don't pre-create anything. Sizing is pipeline-aware: code-changing pipelines use the repo's declared `stack.resources` (clamped to a hard ceiling), scans and other non-build pipelines get a light fixed profile. When a run finishes (success, failure, cancel) the pod is deleted; a force-killed cancel releases it immediately. Every repository in the run's scope is provisioned: the repositories an approved spec names, otherwise the project's. A repository brought in mid-run (`ensure_repo_sandbox`) whose image the pod already has is cloned beside the others. If its image is missing, the run pushes every repository's work to its branch, replaces the pod with one that has the extra container, and clones every repository again at the commit it stood at; Kubernetes cannot add a container to a running pod. A single-repo sandbox (a read-only source scope for a design conversation, a probe) is still its own one-container pod.
 
-Pods are labelled with the deployment that owns them. The owner identity is derived from the Redis endpoint; `SANDBOX_OWNER_ID` names it explicitly. A corpse reaper deletes this deployment's pods whose run is no longer live, on a timer and again at admission, so a crashed server doesn't leave pods holding quota. Two deployments in one namespace never touch each other's pods.
+Pods are labelled with the deployment that owns them. The owner identity is derived from the Redis endpoint; `SANDBOX_OWNER_ID` names it explicitly. A corpse reaper deletes this deployment's pods whose run is no longer live, on a timer and again at admission, so a crashed server doesn't leave pods holding quota. The pod's `agentsmith.io/job-ids` annotation lists every container's job id, and the reaper deletes each listed bus credential with the pod. Two deployments in one namespace never touch each other's pods.
 
 ### What a sandbox pod runs as
 
@@ -179,6 +179,9 @@ projects:
       secrets:
         env:
           FEED_TOKEN: "todolist-build:feed-token"     # secretName:key
+        repo_env:
+          todolist-api:                               # only this repository's commands get it
+            DB_PASSWORD: "todolist-api:db-password"
         files:
           - mount: /secrets/signing.key
             secret: todolist-build
@@ -187,9 +190,17 @@ projects:
 
 The Secret lives in the namespace sandbox pods run in: `agentsmith` by default, `agentsmith-sandboxes` with sandbox isolation. With isolation on, a reference to a Secret that only exists in the server's namespace, `agentsmith-secrets` among them, does not resolve and the pod does not start. `env` entries become environment variables from a `secretKeyRef`; `files` entries are mounted read-only at `mount`. The command that uses them lives in the context's `prerequisites`. The run preflight checks the declaration without touching the cluster: a reference without a single `:`, a duplicate or a clashing mount is named before anything starts. Once the pod is up, a second check asserts by name that every declared variable and file arrived, and fails naming the missing one, never its value. On the Docker and in-process backends nothing is injected, and the preflight reports "NOT INJECTED" as a warning instead of failing.
 
+`env` reaches every command of every repository in the run. `repo_env` reaches only the named repository's commands: the pod carries those variables under scoped names, and the sandbox agent hands a command its own repository's under their plain names and drops the rest. This needs sandbox agents of wire protocol 3: a run's workspace, or any single sandbox pod, whose project has `repo_env` refuses to start against an older agent image and names the image and the protocol it speaks. A design turn's work clone of a repository carries only that repository's `repo_env`; a read-only source scope carries none. It is not a wall: files under `files` and the repositories' trees are readable by every command in the container, and a command running at the same time for another repository runs as the same user. The agent makes itself non-dumpable, which keeps a same-user command out of its environment; it does not stop root with `CAP_SYS_PTRACE`.
+
 ## Updating
 
 An update changes no infrastructure: sandbox pods stay in the namespace they run in, and the sandbox namespace and network policy are only created when you apply `deploy/k8s/sandbox-isolation/` yourself. If you turned isolation on, keep the two server variables in your copy of the Deployment; the shipped `8-deployment-server.yaml` does not carry them.
+
+A run that used to get several sandbox pods (one per repo and toolchain image) now gets one larger workspace pod. No RBAC change is needed, but check what your namespace already enforces:
+
+- A `ResourceQuota` now counts one pod per run where it used to count several; the requests and limits add up to the same totals, the `pods` count drops.
+- A `LimitRange` with a `max` per **Pod** must fit the sum of a run's toolchain containers, not just one of them, or the pod is refused at admission. A per-**Container** `max` is unaffected.
+- Container logs are per toolchain: `kubectl logs <pod> -c toolchain-0` (then `toolchain-1`, …) instead of `-c toolchain`.
 
 Bump the tag in the manifests' images (server, the migrate init-container, the dashboard), then:
 
@@ -198,17 +209,17 @@ kubectl apply -f deploy/k8s/
 kubectl -n agentsmith rollout status deployment/agentsmith-server
 ```
 
-`RollingUpdate` is the default strategy. The migrate init-container applies any new migrations before the new server accepts traffic. Runs execute in the server pod, so a run still going on the replaced pod ends with it and the corpse reaper removes its sandbox pods; a run parked on a question holds no pod and resumes on the new one. Roll out between runs when you can.
+`RollingUpdate` is the default strategy. The migrate init-container applies any new migrations before the new server accepts traffic. Runs execute in the server pod, so a run still going on the replaced pod ends with it and the corpse reaper removes its workspace pod; a run parked on a question holds no pod and resumes on the new one. Roll out between runs when you can.
 
 ## Resources
 
-The server itself is cheap on CPU — it waits on LLM calls and shuffles events — but it is **not** cheap on memory: ASP.NET + SignalR + EF + the skills catalog + live event streams need room. Give the server pod a **request of at least 512Mi and a limit of 1–1.5Gi**. Below that it OOMKills under normal load, and every OOM-restart reaps the in-flight run (surfacing as a bogus "cancelled"), truncates the durable event trail, and leaves the run's sandbox pods to the corpse reaper. The startup preflight WARNs when the pod's memory ceiling is under the 512Mi floor. Remember the namespace `ResourceQuota` counts the server's request/limit too.
+The server itself is cheap on CPU — it waits on LLM calls and shuffles events — but it is **not** cheap on memory: ASP.NET + SignalR + EF + the skills catalog + live event streams need room. Give the server pod a **request of at least 512Mi and a limit of 1–1.5Gi**. Below that it OOMKills under normal load, and every OOM-restart reaps the in-flight run (surfacing as a bogus "cancelled"), truncates the durable event trail, and leaves the run's workspace pod to the corpse reaper. The startup preflight WARNs when the pod's memory ceiling is under the 512Mi floor. Remember the namespace `ResourceQuota` counts the server's request/limit too.
 
-The interesting sizing is per run: a run's pods are its sandboxes, one per repo and toolchain image. **Build sandboxes** default to a 1Gi request with a 4Gi limit as the OOM guard. Keep requests honest, not minimal — see the warning below.
+The interesting sizing is per run: a run's pod is its workspace, with one container per toolchain image, and its footprint is the sum of those containers' requests and limits. Kubernetes schedules the whole pod on one node, so a node must fit that sum. **Build sandboxes** default to a 1Gi request with a 4Gi limit as the OOM guard. Keep requests honest, not minimal — see the warning below.
 
 ## Capacity quota: count requests, not limits
 
-The capacity probe reads the namespace `ResourceQuota` and admits a run only when its whole footprint (one sandbox per repo and toolchain image) still fits. It compares **only the quota keys present in `status.hard`** — so the quota's shape decides what "capacity" means. A run that doesn't fit is queued (strict FIFO, one entry per ticket, visible amber in the dashboard with its position) and launched when capacity frees.
+The capacity probe reads the namespace `ResourceQuota` and admits a run only when its whole footprint (the workspace pod, the sum of its toolchain containers) still fits. It compares **only the quota keys present in `status.hard`** — so the quota's shape decides what "capacity" means. A run that doesn't fit is queued (strict FIFO, one entry per ticket, visible amber in the dashboard with its position) and launched when capacity frees.
 
 Quota the namespace on **requests**, not limits. Requests are what the scheduler packs nodes by — i.e. what the cluster actually provisions and what costs money. A quota on `limits.memory` reserves the theoretical worst case for a pod's whole runtime: five default pods "use" 20Gi of quota while their real reservation is a fraction of that, and runs queue behind capacity nobody is consuming.
 

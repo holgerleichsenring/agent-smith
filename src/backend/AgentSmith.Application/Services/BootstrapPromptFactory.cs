@@ -27,7 +27,7 @@ namespace AgentSmith.Application.Services;
 internal static class BootstrapPromptFactory
 {
     public static (string System, string User) Build(
-        RoleSkillDefinition role, Repository repository, ProjectMap projectMap,
+        RoleSkillDefinition role, Repository repository, string localPath, ProjectMap projectMap,
         string contextName, string workdir, string? appliesTo = null,
         string? existingContextYaml = null, string? existingPrinciples = null,
         PrinciplesMode principlesMode = PrinciplesMode.SkillWrites)
@@ -61,7 +61,7 @@ internal static class BootstrapPromptFactory
 
             ## Repository
             - Branch: {repository.CurrentBranch.Value}
-            - Local path: {repository.LocalPath}
+            - Local path: {localPath}
             {ReInitSection(isReInit, existingContextYaml, mergeablePrinciples)}
             {WriteInstruction(isReInit, contextYamlPath, principlesPath, principlesMode)}
             """;

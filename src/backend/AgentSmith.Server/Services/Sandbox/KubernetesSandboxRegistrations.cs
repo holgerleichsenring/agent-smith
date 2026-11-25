@@ -33,15 +33,21 @@ internal static class KubernetesSandboxRegistrations
         services.AddSingleton<LiveRunSetReader>();
         services.AddSingleton<PodSecurity>();
         services.AddSingleton<PodSpecBuilder>();
-        services.AddSingleton<ISandboxFactory>(sp => new KubernetesSandboxFactory(
+        services.AddSingleton(sp => new KubernetesPodLauncher(
+            sp.GetRequiredService<IKubernetes>(),
+            sp.GetRequiredService<KubernetesSandboxOptions>(),
+            sp.GetRequiredService<ILoggerFactory>()));
+        services.AddSingleton(sp => new KubernetesContainerSandboxes(
             sp.GetRequiredService<IKubernetes>(),
             sp.GetRequiredService<IConnectionMultiplexer>(),
-            sp.GetRequiredService<PodSpecBuilder>(),
             sp.GetRequiredService<KubernetesSandboxOptions>(),
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<IWireProtocolWatcher>(),
-            sp.GetRequiredService<SandboxBusCredentials>(),
             sp.GetRequiredService<ILoggerFactory>()));
+        services.AddSingleton<ISandboxFactory, KubernetesSandboxFactory>();
+        // 2026-11-25-9992b: a run's workspace — one pod, a container per image — on the same pod and container code.
+        services.AddSingleton<WorkspaceAgentProtocolGate>(); // 2026-11-25-9992d
+        services.AddSingleton<IWorkspaceFactory, KubernetesWorkspaceFactory>();
         // p0269a: admission reads the namespace ResourceQuota. Replaces the Unbounded
         // default registered in the Application composition.
         services.AddSingleton<ISandboxCapacityProbe>(sp => new KubernetesCapacityProbe(

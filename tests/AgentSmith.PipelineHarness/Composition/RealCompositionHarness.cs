@@ -196,6 +196,9 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         sandboxFactory = new StubSandboxFactory();
         services.RemoveAll<ISandboxFactory>();
         services.AddSingleton<ISandboxFactory>(sandboxFactory);
+        // 2026-11-25-9992b: the run's workspace of stub containers, spawned through the same stub factory.
+        services.RemoveAll<IWorkspaceFactory>();
+        services.AddSingleton<IWorkspaceFactory>(new StubWorkspaceFactory(sandboxFactory));
 
         services.RemoveAll<IPromptCatalog>();
         services.AddSingleton<IPromptCatalog, StubPromptCatalog>();

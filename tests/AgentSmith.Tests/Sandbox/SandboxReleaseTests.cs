@@ -67,7 +67,7 @@ public sealed class SandboxReleaseTests
                 [
                     new V1ContainerStatus
                     {
-                        Name = "toolchain",
+                        Name = "toolchain-0",
                         State = new V1ContainerState
                         {
                             Terminated = new V1ContainerStateTerminated { ExitCode = 137, Reason = "OOMKilled" },
@@ -138,8 +138,9 @@ public sealed class SandboxReleaseTests
         else read.ReturnsAsync(new HttpOperationResponse<V1Pod> { Body = pod });
         var client = new Mock<IKubernetes>();
         client.SetupGet(c => c.CoreV1).Returns(core.Object);
-        return new KubernetesSandbox(client.Object, "agentsmith", "pod-1", "job-1", Channel(), SandboxBusDoubles.SharedCredential,
-            stepTimeoutCapSeconds: 900, "node:20", ResolvedSandboxSecrets.Empty, NullLogger.Instance);
+        return new KubernetesSandbox(client.Object, new KubernetesContainerAddress("agentsmith", "pod-1", "toolchain-0"), "job-1",
+            Channel(), SandboxBusDoubles.SharedCredential, 900, "node:20", ResolvedSandboxSecrets.Empty, ownsPod: true,
+            NullLogger.Instance);
     }
 
     private static SandboxRedisChannel Channel()

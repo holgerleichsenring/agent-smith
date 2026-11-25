@@ -5,21 +5,20 @@ using k8s.Models;
 namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
-/// 2026-10-13-9a59i: reads how a sandbox pod's toolchain container stands before the release deletes
+/// 2026-10-13-9a59i: reads how one toolchain container of a sandbox pod stands (2026-11-25-9992b: a workspace pod has one per image, each read by its own sandbox) before the release deletes
 /// the pod. RestartPolicy is Never, so a container that died mid-run is still Terminated here with its
 /// exit code and reason. A pod that is gone, or a read that fails, is Gone — never folded into Running.
 /// </summary>
 public sealed class KubernetesPodExitReader(IKubernetes client)
 {
-    private const string ToolchainContainer = "toolchain";
     private const string OomKilledReason = "OOMKilled";
 
-    public async Task<SandboxExitRead> ReadAsync(string podName, string @namespace, CancellationToken ct)
+    public async Task<SandboxExitRead> ReadAsync(string podName, string container, string @namespace, CancellationToken ct)
     {
         try
         {
             var pod = await client.CoreV1.ReadNamespacedPodAsync(podName, @namespace, cancellationToken: ct);
-            return Of(pod);
+            return Of(pod, container);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -33,9 +32,9 @@ public sealed class KubernetesPodExitReader(IKubernetes client)
         }
     }
 
-    internal static SandboxExitRead Of(V1Pod? pod)
+    internal static SandboxExitRead Of(V1Pod? pod, string container)
     {
-        var toolchain = pod?.Status?.ContainerStatuses?.FirstOrDefault(s => s.Name == ToolchainContainer);
+        var toolchain = pod?.Status?.ContainerStatuses?.FirstOrDefault(s => s.Name == container);
         if (toolchain?.State is not { } state) return SandboxExitRead.Gone;
         if (state.Terminated is { } terminated)
             return SandboxExitRead.Exited(terminated.ExitCode, terminated.Reason == OomKilledReason);

@@ -22,7 +22,7 @@ public sealed class PocGit(IGitTokenResolver credentials)
         var env = credential?.Env();
         string[] argv = credential is null ? args : [.. GitStepCredentials.Args(credential), .. args]; // 2026-11-25-d0e2
         return await RunStepAsync(sandbox, what, new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "git", Args: argv, WorkingDirectory: Repository.SandboxWorkPath, Env: env), ct);
+            Command: "git", Args: argv, Env: env), ct);
     }
 
     public async Task<string> RunStepAsync(ISandbox sandbox, string what, Step step, CancellationToken ct)

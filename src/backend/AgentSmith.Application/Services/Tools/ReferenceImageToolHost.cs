@@ -19,7 +19,7 @@ internal sealed class ReferenceImageToolHost(
     IReadOnlyDictionary<string, ReferenceUploadAddress> uploads, IReferenceSetReader sets, IToolImageDeposit deposit)
     : IToolHost
 {
-    private const string WorkPrefix = "/work/";
+    private const string WorkPrefix = Domain.Entities.Repository.WorkspaceRoot + "/";
 
     private static readonly Dictionary<string, string> MediaTypes = new(StringComparer.OrdinalIgnoreCase)
     {

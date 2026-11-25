@@ -50,6 +50,9 @@ internal sealed class PipelineE2EHarness : IAsyncDisposable
         services.AddSingleton<IChatClientFactory>(ChatClientFactory);
         services.RemoveAll<ISandboxFactory>();
         services.AddSingleton<ISandboxFactory>(SandboxFactory);
+        // 2026-11-25-9992b: a run's workspace of stub containers, spawned through the same stub factory.
+        services.RemoveAll<IWorkspaceFactory>();
+        services.AddSingleton<IWorkspaceFactory>(new StubWorkspaceFactory(SandboxFactory));
         services.RemoveAll<ISourceProviderFactory>();
         services.AddSingleton<ISourceProviderFactory>(new StubSourceProviderFactory());
         services.RemoveAll<ITicketProviderFactory>();

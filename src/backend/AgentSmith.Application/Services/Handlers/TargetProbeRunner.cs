@@ -34,7 +34,7 @@ public sealed class TargetProbeRunner(ILogger<TargetProbeRunner> logger)
         ArgumentNullException.ThrowIfNull(probe);
         logger.LogInformation(
             "{Key}: asking {Target} whether it answers via '{Command}' at {Cwd}",
-            key, probe.Target, probe.Command, Repository.SandboxWorkPath);
+            key, probe.Target, probe.Command, sandbox.WorkDirectory());
 
         // The verify runner's shell, not the prerequisite tokenizer: a declared command is a
         // command LINE, and an injected credential is reached as $VAR, which only a shell
@@ -42,7 +42,7 @@ public sealed class TargetProbeRunner(ILogger<TargetProbeRunner> logger)
         var step = new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "/bin/sh", Args: ["-c", probe.Command],
-            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: ProbeTimeoutSeconds);
+            TimeoutSeconds: ProbeTimeoutSeconds);
 
         var streamed = new StringBuilder();
         var progress = new SyncProgress<StepEvent>(ev =>
@@ -52,18 +52,18 @@ public sealed class TargetProbeRunner(ILogger<TargetProbeRunner> logger)
         });
 
         var result = await sandbox.RunStepAsync(step, progress, ct);
-        if (result.ExitCode != 0) LogRefusal(key, probe, result, streamed);
+        if (result.ExitCode != 0) LogRefusal(key, probe, result, streamed, sandbox.WorkDirectory());
         return result.ExitCode;
     }
 
     private void LogRefusal(
-        string key, ContextTargetProbe probe, StepResult result, StringBuilder streamed)
+        string key, ContextTargetProbe probe, StepResult result, StringBuilder streamed, string cwd)
     {
         var output = Combine(result.OutputContent, result.ErrorMessage);
         if (string.IsNullOrWhiteSpace(output)) output = streamed.ToString().TrimEnd();
         logger.LogError(
             "{Key}: {Target} refused '{Command}' (exit {Exit}) at {Cwd}:\n{Output}",
-            key, probe.Target, probe.Command, result.ExitCode, Repository.SandboxWorkPath,
+            key, probe.Target, probe.Command, result.ExitCode, cwd,
             Tail(output, OutputTailChars));
     }
 

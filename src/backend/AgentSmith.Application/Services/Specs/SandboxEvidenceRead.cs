@@ -38,7 +38,7 @@ internal sealed class SandboxEvidenceRead(ITurnActivityObserverAccessor activity
     {
         var step = new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile, TimeoutSeconds: TimeoutSeconds,
-            Path: ContainedPath.Absolute(relative), WorkingDirectory: Repository.SandboxWorkPath);
+            Path: ContainedPath.Absolute(sandbox.WorkDirectory(), relative));
         try
         {
             var result = await sandbox.RunStepAsync(step, progress: null, ct);

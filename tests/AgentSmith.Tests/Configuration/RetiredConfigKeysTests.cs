@@ -124,6 +124,42 @@ public sealed class RetiredConfigKeysTests
         finding.Reason.Should().Contain("stored configuration").And.Contain("studio");
     }
 
+    // 2026-11-25-9992d: the installation-wide feeds moved onto the projects.
+    [Fact]
+    public void RetiredConfigKeys_TopLevelRegistries_ReportsAdvisoryNamingTheProjectKeyAndTheMigration()
+    {
+        const string yaml = """
+            registries:
+              - host: pkgs.example.com
+                username: any
+                token: ${feed_token}
+            projects:
+              todolist:
+                registries:
+                  - host: pkgs.example.com
+                    username: any
+                    token: ${feed_token}
+            """;
+
+        var finding = _detector.InYaml(yaml, "config/agentsmith.yml").Should().ContainSingle(
+            "a project's own registries are the current key").Which;
+
+        finding.Severity.Should().Be(StartupFindingSeverity.Advisory);
+        finding.Field.Should().Be("registries");
+        finding.Reason.Should().Contain("projects.<name>.registries").And.Contain("data migration");
+    }
+
+    [Fact]
+    public void RetiredConfigKeys_AStoredRegistriesSingleton_ReportsAdvisory()
+    {
+        ConfigDocRow[] rows =
+        [
+            new("registries", "default", """[{"Host":"pkgs.example.com","Username":"any","Token":"${feed_token}"}]""", 2),
+        ];
+
+        _detector.InStoredDocuments(rows).Should().ContainSingle().Which.Field.Should().Be("registries");
+    }
+
     [Fact]
     public void RetiredConfigKeys_AFileWithoutRetiredKeys_IsSilent()
     {

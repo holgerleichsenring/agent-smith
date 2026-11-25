@@ -11,10 +11,9 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// p0336: builds the run's full footprint by reading every repo's context.yaml
 /// remotely (the p0331 inventory: repo → contexts). The pipeline runs in the server, so
 /// the footprint is the sandboxes alone.
-/// p0336c: sizes ONE pod per (repo, toolchain image) at the max resource envelope —
-/// the SAME grouping the coordinator spawns — so the reserved footprint equals the
-/// pods that actually run (was one-per-context, which over-reserved). A mixed-SDK
-/// repo still yields one pod per image.
+/// 2026-11-25-9992b: the run is ONE workspace pod with a container per toolchain image across all its repositories,
+/// each at the largest resource envelope any of its contexts asks for — the same grouping the coordinator spawns — so
+/// the reserved footprint is the sum of those containers (plus the browser pod, which stays its own).
 /// </summary>
 public sealed class RunFootprintCalculator(
     ISandboxLanguageResolver languageResolver,
@@ -27,27 +26,27 @@ public sealed class RunFootprintCalculator(
     public async Task<RunFootprintBreakdown> CalculateAsync(
         ResolvedProject project, string? pipelineName, ContextReadBranches branches, CancellationToken ct)
     {
-        var pods = new List<RunFootprintPod>();
+        var contexts = new List<(string Repo, RemoteContextDiscovery Discovery)>();
         foreach (var repo in project.Repos)
-        {
-            var discoveries = await languageResolver.ResolveAllAsync(repo, branches, ct);
-            foreach (var group in discoveries.GroupBy(ImageOf, StringComparer.Ordinal))
-                pods.Add(PodForGroup(project, pipelineName, repo.Name ?? "?", group.ToList()));
-        }
+            contexts.AddRange((await languageResolver.ResolveAllAsync(repo, branches, ct)).Select(d => (repo.Name ?? "?", d)));
+        var pods = contexts.GroupBy(c => ImageOf(c.Discovery), StringComparer.Ordinal)
+            .Select(group => ContainerForImage(project, pipelineName, group.Key, [.. group]))
+            .ToList();
         if (BrowserPod(project, pipelineName) is { } browser) pods.Add(browser);
 
         return Totalize(pods, project);
     }
 
-    private RunFootprintPod PodForGroup(
-        ResolvedProject project, string? pipeline, string repoName,
-        IReadOnlyList<RemoteContextDiscovery> group)
+    // One container of the workspace: the repositories it serves, their contexts, the image and the largest envelope.
+    private RunFootprintPod ContainerForImage(
+        ResolvedProject project, string? pipeline, string image,
+        IReadOnlyList<(string Repo, RemoteContextDiscovery Discovery)> group)
     {
         var limits = ResourceEnvelope.Max(
-            group.Select(d => resourceResolver.Resolve(project, pipeline, d.Resources)));
+            group.Select(c => resourceResolver.Resolve(project, pipeline, c.Discovery.Resources)));
         return new RunFootprintPod(
-            repoName, group.Select(d => d.ContextName).ToList(),
-            ImageOf(group[0]), limits.CpuLimit, limits.MemoryLimit);
+            string.Join('+', group.Select(c => c.Repo).Distinct(StringComparer.Ordinal)),
+            [.. group.Select(c => c.Discovery.ContextName)], image, limits.CpuLimit, limits.MemoryLimit);
     }
 
     // 2026-10-01-283df: a project whose runs may render gets the browser pod reserved at the browser
@@ -70,14 +69,14 @@ public sealed class RunFootprintCalculator(
             if (KubernetesQuantity.TryParseMemoryToBytes(pod.MemLimit, out var m)) mem += m;
         }
         logger.LogInformation(
-            "Footprint for {Project}: {Pods} pod(s), cpu {Cpu}, memory {Mem}",
+            "Footprint for {Project}: {Pods} container(s), cpu {Cpu}, memory {Mem}",
             project.Name, pods.Count, FormatCpu(cpu), FormatMem(mem));
         return new RunFootprintBreakdown(
             pods, FormatCpu(cpu), FormatMem(mem), cpu, mem, [], SummaryOf(pods));
     }
 
     private static string SummaryOf(IReadOnlyList<RunFootprintPod> pods) =>
-        $"{pods.Count} pod(s): " + string.Join(", ", pods.Select(p =>
+        $"1 workspace pod, {pods.Count(p => p.Contexts.Count > 0)} container(s): " + string.Join(", ", pods.Select(p =>
             p.Contexts.Count == 0 ? p.Repo : $"{p.Repo}/{string.Join('+', p.Contexts)}"));
 
     private static string FormatCpu(long nanoCpus) => (nanoCpus / 1_000_000_000.0).ToString("0.##");

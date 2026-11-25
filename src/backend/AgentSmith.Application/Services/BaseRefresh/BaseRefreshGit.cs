@@ -15,7 +15,7 @@ public sealed class BaseRefreshGit
         // 2026-11-24-9dc0a: names unquoted, so a non-ASCII path reads as the file it is.
         return sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git",
             Args: ["-c", "core.quotePath=false", .. args],
-            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
+            TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
     }
 
     /// <summary>The first line git printed, trimmed; null when it failed or printed nothing.</summary>
@@ -35,8 +35,7 @@ public sealed class BaseRefreshGit
         const string script = "for f in \"$@\"; do if [ -e \"$f\" ]; then git add -A -- \"$f\" || exit 1; "
             + "else git rm -q --cached --ignore-unmatch -- \"$f\" || exit 1; fi; done";
         var staged = await sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "sh", Args: ["-c", script, "sh", .. paths], WorkingDirectory: Repository.SandboxWorkPath,
-            TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
+            Command: "sh", Args: ["-c", script, "sh", .. paths], TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
         return staged.ExitCode == 0;
     }
 
@@ -74,8 +73,7 @@ public sealed class BaseRefreshGit
     {
         if (paths.Count == 0) return [];
         var found = await sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "sh", Args: ["-c", script, "sh", .. paths], WorkingDirectory: Repository.SandboxWorkPath,
-            TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
+            Command: "sh", Args: ["-c", script, "sh", .. paths], TimeoutSeconds: WorkBranchBaseMerger.TimeoutSeconds), progress: null, ct);
         return found.ExitCode != 0 ? null : Split(found.OutputContent);
     }
 

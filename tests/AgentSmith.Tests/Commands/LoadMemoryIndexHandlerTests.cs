@@ -12,7 +12,8 @@ namespace AgentSmith.Tests.Commands;
 
 public sealed class LoadMemoryIndexHandlerTests
 {
-    private const string IndexPath = "/work/.agentsmith/memory/MEMORY.md";
+    // 2026-11-25-9992c: relative — the repository's reader roots it at its sandbox.
+    private const string IndexPath = ".agentsmith/memory/MEMORY.md";
 
     [Fact]
     public async Task LoadMemoryIndex_InjectsIndexAtPlanTime_AbsentStoreEmptyNoError()

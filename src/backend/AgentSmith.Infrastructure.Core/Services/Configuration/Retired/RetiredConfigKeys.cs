@@ -80,5 +80,9 @@ public static class RetiredConfigKeys
             "agent-smith no longer approves pull requests: a review a host requires is a person's (2026-11-25-9992h)."),
         new("spec_review.series_contract_max_chars", "2026-11-19",
             "Nothing shows the series contract to a reviewer any more; the reviewer that read it was never wired (2026-11-19-4176)."),
+        new("registries", "2026-11-25",
+            "Private package feeds are configured per project now, under projects.<name>.registries (2026-11-25-9992d). "
+            + "A stored configuration was moved by the data migration of `database migrate`, which copied the list into "
+            + "every project that had none of its own; in agentsmith.yml, move the entries under each project."),
     ];
 }

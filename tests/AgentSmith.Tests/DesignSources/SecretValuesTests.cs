@@ -50,7 +50,11 @@ public sealed class SecretValuesTests
         var values = new LoadedSecretValues(new AgentSmithConfig
         {
             Secrets = new Dictionary<string, string> { ["FIGMA_TOKEN"] = StudioToken, ["EMPTY"] = "" },
-            Registries = [new RegistryConfig("packages.example.test", "ci", "registry-token-1")],
+            // 2026-11-25-9992d: a project's feed token is a secret value too.
+            Projects = new Dictionary<string, ResolvedProject>
+            {
+                ["p"] = new() { Registries = [new RegistryConfig("packages.example.test", "ci", "registry-token-1")] },
+            },
         });
 
         values.Resolve("figma_token").Should().Be(StudioToken);

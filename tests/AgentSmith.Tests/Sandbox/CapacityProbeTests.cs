@@ -184,7 +184,7 @@ public sealed class CapacityProbeTests
         const string msg = "pods \"agentsmith-sandbox-abc\" is forbidden: exceeded quota: compute, "
                          + "requested: requests.cpu=1, used: requests.cpu=6, limited: requests.cpu=6";
 
-        var mapped = KubernetesSandboxFactory.TryMapQuotaMessage(msg, "agentsmith", inner: null, out var ex);
+        var mapped = KubernetesPodLauncher.TryMapQuotaMessage(msg, "agentsmith", inner: null, out var ex);
 
         mapped.Should().BeTrue();
         ex!.Scope.Should().Be("agentsmith");
@@ -197,7 +197,7 @@ public sealed class CapacityProbeTests
         const string msg = "pods is forbidden: User \"system:serviceaccount:ns:sa\" cannot create "
                          + "resource \"pods\" in API group \"\" in the namespace \"ns\"";
 
-        KubernetesSandboxFactory.TryMapQuotaMessage(msg, "ns", inner: null, out var ex)
+        KubernetesPodLauncher.TryMapQuotaMessage(msg, "ns", inner: null, out var ex)
             .Should().BeFalse();
         ex.Should().BeNull();
     }

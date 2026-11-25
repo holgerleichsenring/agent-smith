@@ -16,7 +16,7 @@ public sealed class StructureGitRunner
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git", Args: args,
-            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: GitTimeoutSeconds);
+            TimeoutSeconds: GitTimeoutSeconds);
         return sandbox.RunStepAsync(step, null, cancellationToken);
     }
 }

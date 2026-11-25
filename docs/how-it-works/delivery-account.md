@@ -26,7 +26,7 @@ After the master, `VerifySpec` runs the verify stages each repository declares i
 
 A red stage goes back to the master with its output; the master hands it to its sub-agent. It goes back again while each repair changes the code and the failure, and not once the run's cost budget is spent. If the same stage fails the same way after a repair, or the repair changed nothing, the spec fails, and the run says so honestly. What that means for the run is on [Lifecycle](lifecycle.md#when-it-goes-wrong).
 
-A repository whose contexts need two toolchain images is worked in two sandboxes. Before a stage runs, every sandbox of one repository is brought to the union of their work. When two sandboxes changed the same file to different contents, nothing is applied and verify is red, naming the file. A run where a change was delivered and no repository ran any verify command over it fails too: nobody checked what shipped.
+A repository whose contexts need two toolchain images is cloned once; both toolchain containers work on the same `/work/<repo>`, so each stage runs over the one copy of the work. A run where a change was delivered and no repository ran any verify command over it fails too: nobody checked what shipped.
 
 ## Where you read it
 

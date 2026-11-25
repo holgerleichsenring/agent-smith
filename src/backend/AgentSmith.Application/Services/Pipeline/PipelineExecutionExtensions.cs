@@ -21,10 +21,9 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Pipeline;
 
 /// <summary>
-/// Pipeline-execution feature-set: executor + its step/error/sandbox/command-list
-/// collaborators, data-flow resolver + per-preset declarations, sandbox + image
-/// resolvers, lifecycle coordinator default, prompt builder, sandbox file-reader
-/// factory, project resolver + spawn use-case, and the IntentParser binding.
+/// Pipeline-execution feature-set: executor + its step/error/sandbox/command-list collaborators, data-flow resolver +
+/// per-preset declarations, sandbox + image resolvers, lifecycle coordinator default, prompt builder, sandbox
+/// file-reader factory, project resolver + spawn use-case, and the IntentParser binding.
 /// </summary>
 public static class PipelineExecutionExtensions
 {
@@ -42,7 +41,8 @@ public static class PipelineExecutionExtensions
         services.AddTransient<IPipelineErrorHandler, PipelineErrorHandler>();
         services.TryAddSingleton<IUnmovedTicketStore, Persistence.InMemoryUnmovedTicketStore>();
         services.AddTransient<Lifecycle.UnmovedTicketReport>();
-        services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>().AddTransient<SandboxRelease>(); // 2026-10-13-9a59i
+        services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>().AddTransient<SandboxRelease>() // 9a59i, 9992b:
+            .AddTransient<WorkspaceGroupPlanner>().AddTransient<WorkspaceRestart>().AddTransient<WorkspaceCheckpoint>().AddTransient<WorkspaceRepoRestore>();
         // p0201: liveness supervisor. No-op default; Server overrides in DockerSandboxRegistrations.
         services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
         services.AddPipelineExecutor();

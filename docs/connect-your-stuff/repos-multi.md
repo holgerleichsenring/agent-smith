@@ -6,10 +6,10 @@ One product, multiple repos. One ticket, one run, multiple pull requests. This i
 
 A multi-repo project is one entry under `projects:` with more than one repo in its `repos:` list. When a ticket targeted at that project comes in, codeably:
 
-- Spawns **one sandbox per repo**, each with its own toolchain image (a .NET repo gets a .NET SDK image, a Node repo a Node image). A repo whose contexts need different toolchains gets one sandbox per toolchain.
-- Clones each repo into its sandbox at `/work`.
+- Spawns **one workspace for the run**, with one toolchain container per image the repos need (a .NET repo gets a .NET SDK image, a Node repo a Node image). Repos that need the same image share one container; a repo whose contexts need different toolchains adds a container per toolchain.
+- Clones each repo once into the shared `/work`, side by side at `/work/<repo>`, so a script in one repo can reach `../OtherRepo`.
 - Cuts a branch named `agent-smith/{ticket}` in every repo so reviewers see the same branch name across all sibling PRs.
-- Works from **one specification and one agent conversation** across the whole set. The file-tool calls dispatch by path prefix — `TodoList.Api/src/Auth.cs` ends up in the api sandbox, `TodoList.Web/src/auth/login.ts` ends up in the web sandbox.
+- Works from **one specification and one agent conversation** across the whole set. The file-tool calls dispatch by path prefix — `TodoList.Api/src/Auth.cs` ends up in the api repo, `TodoList.Web/src/auth/login.ts` in the web repo, each in the container that runs its image.
 - Opens **one pull request per repo**, all cross-linked.
 - Sets the ticket back to resolved with every PR URL in the comment.
 
@@ -98,7 +98,7 @@ A branch set this way is a fallback. codeably reads each repository's own defaul
 
 The classic top-level `repos:` catalog (one entry per repo, `type` + `url` + `auth`, referenced by key) stays available as the escape hatch for a single repo that isn't discoverable through a provider API — see [Repos: mono-repo](repos-mono.md) for that shape. A repo can appear in more than one project either way — handy if you have shared library repos.
 
-**Path-prefix routing.** When the agent calls `read_file("TodoList.Api/src/Auth.cs")`, the framework parses the first path segment, looks up `Sandboxes["TodoList.Api"]`, and forwards the read to that sandbox. Same logic for write, edit, find_files, grep_in_tree, etc. The run_command tool requires an explicit `repo` argument so there's no path-segment guessing.
+**Path-prefix routing.** When the agent calls `read_file("TodoList.Api/src/Auth.cs")`, the framework parses the first path segment, looks up `Sandboxes["TodoList.Api"]`, and forwards the read to that repo's checkout at `/work/TodoList.Api`. Same logic for write, edit, find_files, grep_in_tree, etc. The run_command tool requires an explicit `repo` argument so there's no path-segment guessing.
 
 **Per-repo bootstrap.** Each repo needs its own contexts, `.agentsmith/contexts/<name>/context.yaml` and `principles.md`, one directory per component, so codeably knows the toolchain and the rules for each. The `init-project` pipeline writes them into each repo and opens one bootstrap PR per repo, cross-linked. Run it once per project, for example with the **Initialize** button on the project card; it covers every repo in the project.
 
@@ -106,7 +106,7 @@ The classic top-level `repos:` catalog (one entry per repo, `type` + `url` + `au
 
 ## Toolchain images per repo
 
-Each sandbox gets a toolchain image matching its contexts automatically. When the defaults don't fit (an internal registry mirror, a newer SDK), pin per language on the project, in YAML or on the drawer's **sandbox** tab:
+Each context gets a toolchain image automatically, and the workspace gets one container per distinct image. When the defaults don't fit (an internal registry mirror, a newer SDK), pin per language on the project, in YAML or on the drawer's **sandbox** tab:
 
 ```yaml
 projects:
@@ -117,7 +117,7 @@ projects:
         node:   my-mirror.azurecr.io/node:22
 ```
 
-The image is picked in this order: a whole-project `sandbox.toolchain_image` wins outright, then the per-language `sandbox.images` map, then the `stack.image` a context declares in its `context.yaml` (only if it comes from a registry the installation trusts), then the built-in image for the language, then a generic image that has git and no language toolchain at all. The run log names which of these decided and why, and warns when a run lands on the generic image, because such a sandbox can't build or test. A context's `stack.resources` sizes the sandbox for code-changing pipelines only.
+The image is picked in this order: a whole-project `sandbox.toolchain_image` wins outright, then the per-language `sandbox.images` map, then the `stack.image` a context declares in its `context.yaml` (only if it comes from a registry the installation trusts), then the built-in image for the language, then a generic image that has git and no language toolchain at all. The run log names which of these decided and why, and warns when a run lands on the generic image, because such a container can't build or test. A context's `stack.resources` sizes its container for code-changing pipelines only; contexts that share an image share the container at the largest envelope among them.
 
 ## Branch coherence
 

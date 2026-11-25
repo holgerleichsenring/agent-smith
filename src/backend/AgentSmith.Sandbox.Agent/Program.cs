@@ -61,6 +61,8 @@ internal static class Program
     private static async Task<int> RunLoopAsync(
         string redisUrl, string jobId, string? runId, ILoggerFactory loggerFactory)
     {
+        // 2026-11-25-9992d: before anything else runs — the environment holds every repository's scoped secrets.
+        new AgentDumpability(loggerFactory.CreateLogger<AgentDumpability>()).Disable();
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 

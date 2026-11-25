@@ -64,7 +64,7 @@ public sealed class FilesystemToolHost : IToolHost
     // Wraps the one sandbox in an empty-keyed dictionary so routing has a
     // sensible default ("" matches any unprefixed path).
     public FilesystemToolHost(
-        ISandbox sandbox, string repoPath = "/work",
+        ISandbox sandbox, string? repoPath = null,
         IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null,
         SkillExecutionPhase writePhase = SkillExecutionPhase.Implementation,
         string? contextName = null,
@@ -84,7 +84,7 @@ public sealed class FilesystemToolHost : IToolHost
     public FilesystemToolHost(
         IReadOnlyDictionary<string, ISandbox> sandboxes,
         string defaultRepo,
-        string repoPath = "/work",
+        string? repoPath = null,
         IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null,
         SkillExecutionPhase writePhase = SkillExecutionPhase.Implementation,
         string? contextName = null,
@@ -109,7 +109,10 @@ public sealed class FilesystemToolHost : IToolHost
         _runners = runners;
         _runCommandTimeout = timeout;
         _defaultRepo = defaultRepo;
-        _guards = new ToolGuardInvoker(readGuard, writeGuard, repoPath, writePhase, contextName);
+        // 2026-11-25-9992c: the guards' root is the default sandbox's repository root unless a caller names one.
+        _guards = new ToolGuardInvoker(readGuard, writeGuard,
+            repoPath ?? (runners.TryGetValue(defaultRepo, out var primary) ? primary.Root : Repository.WorkspaceRoot),
+            writePhase, contextName);
         _logger = logger;
     }
 
@@ -117,12 +120,10 @@ public sealed class FilesystemToolHost : IToolHost
     // throw that kills the master. Runner is non-null exactly when Error is null.
     private (SandboxStepRunner? Runner, string BarePath, string? Error) Route(string? path)
     {
-        // p0179h: accept the multi-repo prefix form even in single-sandbox mode.
-        // The master prompt teaches "always prefix paths with the repo name" so
-        // strict single-repo mode would reject the prompt's own examples. When
-        // the prefix matches the only repo, strip it; otherwise fall through to
-        // pass-through (lets operators paste bare paths in single-repo CLI runs).
+        // p0179h: accept the multi-repo prefix form even in single-sandbox mode; an unprefixed path falls through to
+        // the only repo. 2026-11-25-9992c: /work/<repo>/... — the form the prompt names — routes as <repo>/...
         var runners = _runners;
+        path = RepoPathRouter.Addressed(runners, path);
         var (key, matched) = RepoPathRouter.MatchLongestKey(runners, path);
         if (matched is not null)
         {
@@ -328,9 +329,9 @@ public sealed class FilesystemToolHost : IToolHost
         if (!Specs.ContainedPath.TryRelative(bareRoot, out var relativeRoot))
             return $"Error: {Specs.ContainedPath.Refusal}";
         var run = await runner!.RunProgramAsync(
-            FileSearchStep.Program, FileSearchStep.Arguments(relativeRoot, pattern),
+            FileSearchStep.Program, FileSearchStep.Arguments(runner.Root, relativeRoot, pattern),
             timeoutSeconds: null, ct);
-        return FileSearchStep.Format(run, limit);
+        return FileSearchStep.Format(run, limit, runner.Root);
     }
 
     [Description("Replaces EXACT text in one file. Either one replacement — old_string must appear EXACTLY ONCE (give enough surrounding context to make it unique) unless replace_all is true — or several at once: pass edits, applied in order, all or none. dry_run with edits reports what would change and writes nothing.")]

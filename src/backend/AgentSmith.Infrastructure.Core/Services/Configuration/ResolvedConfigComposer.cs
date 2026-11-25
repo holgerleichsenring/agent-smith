@@ -23,7 +23,6 @@ public sealed class ResolvedConfigComposer
             PipelineTriggers = new PipelineTriggerMap(raw.PipelineTriggers),
             Projects = projects,
             Secrets = raw.Secrets, UnreadableSecrets = raw.UnreadableSecrets, // 2026-11-18-78efb
-            Registries = BuildRegistries(raw),
             Queue = raw.Queue,
             Skills = raw.Skills,
             PrimaryProvider = raw.PrimaryProvider,
@@ -40,13 +39,4 @@ public sealed class ResolvedConfigComposer
             Holds = raw.Holds, // 2026-11-23-31dci
             Pocs = raw.Pocs, // 2026-11-23-933da
         };
-
-    private static IReadOnlyList<RegistryConfig> BuildRegistries(RawAgentSmithConfig raw)
-    {
-        if (raw.Registries.Count == 0) return Array.Empty<RegistryConfig>();
-        var resolved = new List<RegistryConfig>(raw.Registries.Count);
-        foreach (var entry in raw.Registries)
-            resolved.Add(new RegistryConfig(entry.Host, entry.Username, entry.Token));
-        return resolved;
-    }
 }

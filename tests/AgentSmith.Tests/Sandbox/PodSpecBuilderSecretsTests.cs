@@ -28,7 +28,7 @@ public sealed class PodSpecBuilderSecretsTests
 
         var pod = Builder.Build("p", "j", "redis:6379", SpecWith(secrets), owner: null);
 
-        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain");
+        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain-0");
         var env = toolchain.Env.Single(e => e.Name == "SF_CLIENT_ID");
         env.Value.Should().BeNull();
         env.ValueFrom.SecretKeyRef.Name.Should().Be("sf-creds");
@@ -41,7 +41,7 @@ public sealed class PodSpecBuilderSecretsTests
     {
         var pod = Builder.Build("p", "j", "redis:6379", SpecWith(ResolvedSandboxSecrets.Empty), owner: null);
 
-        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain");
+        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain-0");
         toolchain.Args.Should().NotContain("--redis-url").And.NotContain("redis:6379");
         toolchain.Env.Should().Contain(e => e.Name == "REDIS_URL" && e.Value == "redis:6379");
     }
@@ -54,7 +54,7 @@ public sealed class PodSpecBuilderSecretsTests
 
         var pod = Builder.Build("p", "j", "redis:6379", SpecWith(secrets), owner: null);
 
-        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain");
+        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain-0");
         var mount = toolchain.VolumeMounts.Single(m => m.MountPath == "/secrets/server.key");
         mount.ReadOnlyProperty.Should().BeTrue();
         mount.SubPath.Should().Be("server.key");
@@ -95,7 +95,7 @@ public sealed class PodSpecBuilderSecretsTests
     {
         var pod = Builder.Build("p", "j", "redis:6379", SpecWith(secrets: null), owner: null);
 
-        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain");
+        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain-0");
         toolchain.VolumeMounts.Should().HaveCount(2);
         pod.Spec.Volumes.Should().HaveCount(2);
         toolchain.Env.Select(e => e.Name).Should().BeEquivalentTo("JOB_ID", "REDIS_URL");
@@ -108,5 +108,25 @@ public sealed class PodSpecBuilderSecretsTests
         var pod = Builder.Build("p", "j", "redis:6379", SpecWith(secrets: null), owner: null);
 
         pod.Spec.Containers.SelectMany(c => c.Env ?? []).Should().NotContain(e => e.Name == "GIT_TOKEN");
+    }
+
+    // 2026-11-25-9992d: a repository's own variable travels under its scoped name; a project-wide one keeps its name.
+    [Fact]
+    public void Build_RepoEnv_IsProjectedUnderTheScopedName_EnvUnderItsOwn()
+    {
+        var secrets = new ResolvedSandboxSecrets(
+            [new SecretEnvBinding("FEED_TOKEN", new SecretRef("build", "feed"))], [],
+            [new SecretEnvBinding("DB_PASSWORD", new SecretRef("api-creds", "db"), "api")]);
+
+        var pod = Builder.Build("p", "j", "redis:6379", SpecWith(secrets), owner: null);
+
+        var env = pod.Spec.Containers.Single(c => c.Name == "toolchain-0").Env;
+        env.Should().Contain(e => e.Name == "FEED_TOKEN" && e.ValueFrom.SecretKeyRef.Name == "build");
+        env.Should().NotContain(e => e.Name == "DB_PASSWORD", "a scoped variable never travels under the name a command reads");
+        var scoped = env.Single(e => e.Name == AgentSmith.Sandbox.Wire.ScopedSecretNames.For("api", "DB_PASSWORD"));
+        scoped.Name.Should().Be("AGENTSMITH_SECRET_617069__DB_PASSWORD");
+        scoped.Value.Should().BeNull();
+        scoped.ValueFrom.SecretKeyRef.Name.Should().Be("api-creds");
+        scoped.ValueFrom.SecretKeyRef.Key.Should().Be("db");
     }
 }

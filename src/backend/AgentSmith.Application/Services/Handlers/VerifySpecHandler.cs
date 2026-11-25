@@ -53,7 +53,6 @@ public sealed class VerifySpecHandler(
     VerifyDerivationDrift derivationDrift,
     SandboxTargets sandboxTargets,
     SpecSandboxes specSandboxes,
-    SandboxTreeSync treeSync,
     StageRelevance relevance,
     VerifyCommandRunner commandRunner,
     DeliveryDiff deliveryDiff,
@@ -73,12 +72,6 @@ public sealed class VerifySpecHandler(
             return await RecordAsync(
                 context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."),
                 cancellationToken);
-        // Every sandbox of one repository holds the union of their work before a stage runs.
-        if (await treeSync.SyncAsync(context.Pipeline, cancellationToken) is { Message: { } unsynced })
-        {
-            RunAccountLedger.RecordProblem(context.Pipeline, all.Keys, unsynced);
-            return await RecordAsync(context, CommandResult.Fail(unsynced), cancellationToken);
-        }
         // 2026-10-17-a196a: the stages, the account and the repair run over the repositories THIS spec
         // names; a three-repository account of a one-repository spec handed its repair another spec's work.
         specSandboxes.TryResolve(context.Pipeline, out var sandboxes, out var unresolved);

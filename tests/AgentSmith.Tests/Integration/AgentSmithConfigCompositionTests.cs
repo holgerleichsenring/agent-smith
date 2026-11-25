@@ -84,9 +84,8 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
 
         var config = provider.GetRequiredService<AgentSmithConfig>();
 
-        config.Registries.Should().BeEmpty(
+        config.Repos.Should().BeEmpty(
             "default DI registration is AgentSmithConfig.Empty(); composition roots MUST override.");
-        config.Repos.Should().BeEmpty();
         config.Projects.Should().BeEmpty();
     }
 
@@ -115,11 +114,13 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
         using var provider = services.BuildServiceProvider();
         var config = provider.GetRequiredService<AgentSmithConfig>();
 
-        config.Registries.Should().HaveCount(1,
-            "the imported `registries:` must reach the DI singleton via the DB loader " +
+        // 2026-11-25-9992d: the feeds live on the project.
+        var registries = config.Projects["sample"].Registries;
+        registries.Should().HaveCount(1,
+            "the imported project `registries:` must reach the DI singleton via the DB loader " +
             "so handlers (SetupRegistryAuthHandler, AgenticMasterHandler) see real values.");
-        config.Registries[0].Host.Should().Be("pkgs.dev.azure.com");
-        config.Registries[0].Token.Should().Be("test-token-xyz",
+        registries[0].Host.Should().Be("pkgs.dev.azure.com");
+        registries[0].Token.Should().Be("test-token-xyz",
             "the `${azure_devops_token}` secret reference must resolve through the secrets dict.");
     }
 
@@ -226,6 +227,10 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
             agent: openai-default
             tracker: gh
             repos: [repo1]
+            registries:
+              - host: pkgs.dev.azure.com
+                username: any
+                token: ${azure_devops_token}
 
         secrets:
           azure_devops_token: ${AGENTSMITH_TEST_COMPOSITION_TOKEN}
@@ -235,10 +240,5 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
           max_seconds_per_skill_call: 77
           max_sub_agents_per_run: 3
           max_concurrent_sub_agents: 2
-
-        registries:
-          - host: pkgs.dev.azure.com
-            username: any
-            token: ${azure_devops_token}
         """;
 }

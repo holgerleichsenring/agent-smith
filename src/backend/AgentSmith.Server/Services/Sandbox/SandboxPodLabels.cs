@@ -25,6 +25,19 @@ public sealed class SandboxPodLabels(SandboxOwnerIdentity owner)
     /// </summary>
     public const string ConversationIdLabel = "conversation-id";
 
+    /// <summary>
+    /// 2026-11-25-9992b: the job id of EVERY toolchain container of a pod, comma-separated — a workspace pod runs an
+    /// agent per image, each with its own bus credential. An annotation, because nothing selects on it and a label
+    /// value cannot hold the list. A pod from before carries only <see cref="PipelineIdLabel"/>.
+    /// </summary>
+    public const string JobIdsAnnotation = "agentsmith.io/job-ids";
+
+    public static string JoinJobIds(IEnumerable<string> jobIds) => string.Join(',', jobIds);
+
+    /// <summary>The job ids an annotation value names; empty for none.</summary>
+    public static IReadOnlyList<string> SplitJobIds(string? value) =>
+        string.IsNullOrEmpty(value) ? [] : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
     /// <summary>Pods stamped by this liveness store's server — the reaper's candidates.</summary>
     public string OwnedSelector => $"app={AppLabel},{OwnerLabel}={owner.Value}";
 

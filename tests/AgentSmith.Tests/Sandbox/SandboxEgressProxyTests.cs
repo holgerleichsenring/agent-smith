@@ -14,7 +14,7 @@ public sealed class SandboxEgressProxyTests
         var builder = new PodSpecBuilder(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")),
             new PodSecurity(new KubernetesSandboxOptions { EgressProxy = proxy }));
         var pod = builder.Build("p", "j", "redis:6379", new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), null);
-        return pod.Spec.Containers.Single(c => c.Name == "toolchain").Env.ToDictionary(e => e.Name, e => e.Value);
+        return pod.Spec.Containers.Single(c => c.Name == "toolchain-0").Env.ToDictionary(e => e.Name, e => e.Value);
     }
 
     [Fact]

@@ -55,7 +55,6 @@
 187	AgentSmith.Infrastructure/Services/Security/GitHistoryScanner.cs
 178	AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs
 183	AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketStatusTransitioner.cs
-166	AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs
 182	AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs
 181	AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs
 181	AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs
