@@ -8,6 +8,7 @@ import { RefSelect, TextField } from "./formFields";
 // pushes, pull requests, comments and merges authenticate with. A GitHub App adds its app id and installation id, and its
 // bot address as the GitHub commit email. The block is written only once a control here is touched; clearing every field
 // clears it. A hoster left empty acts with each repository's own token, and the project's findings say so.
+// 2026-11-25-d0e2: an Azure DevOps entry with a tenant id and a client id is a service principal; its secret is the client secret.
 
 const HOSTERS = [
   { key: "github", label: "GitHub" },
@@ -29,7 +30,7 @@ export function ProjectMachineSection({ project, onChange, secrets }: {
   const set = (patch: Partial<ProjectMachine>) => onChange({ ...project, machine: { ...machine, ...patch } });
   const setHoster = (key: HosterKey, patch: Partial<ProjectMachineHoster>) => {
     const next = { auth: "", ...(machine[key] ?? {}), ...patch };
-    const empty = !next.auth && !next.appId && !next.installationId && !next.email;
+    const empty = !next.auth && !next.appId && !next.installationId && !next.email && !next.tenantId && !next.clientId;
     set({ [key]: empty ? null : next });
   };
   return (
@@ -52,6 +53,15 @@ export function ProjectMachineSection({ project, onChange, secrets }: {
                 onChange={(v) => setHoster("github", { appId: v || null })} />
               <TextField label={t("config.machine.installationId.label")} value={machine.github?.installationId ?? ""} mono
                 testId="form-field-machine-github-installationId" onChange={(v) => setHoster("github", { installationId: v || null })} />
+            </>
+          )}
+          {key === "azureDevops" && (
+            <>
+              <TextField label={t("config.machine.tenantId.label")} value={machine.azureDevops?.tenantId ?? ""} mono
+                help={t("config.machine.tenantId.help")} testId="form-field-machine-azureDevops-tenantId"
+                onChange={(v) => setHoster("azureDevops", { tenantId: v || null })} />
+              <TextField label={t("config.machine.clientId.label")} value={machine.azureDevops?.clientId ?? ""} mono
+                testId="form-field-machine-azureDevops-clientId" onChange={(v) => setHoster("azureDevops", { clientId: v || null })} />
             </>
           )}
           <TextField label={t("config.machine.hosterEmail.label")} value={machine[key]?.email ?? ""} mono

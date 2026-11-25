@@ -6,6 +6,7 @@ using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.Identity.Client;
 using Microsoft.VisualStudio.Services.WebApi;
+using AgentSmith.Infrastructure.Services.Providers;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
@@ -71,16 +72,19 @@ public sealed class DefaultAzDoClientFactory : IAzDoClientFactory
     // and rebuilt so a refreshed federation token / rotated location cache never wedges it.
     internal static VssConnection Connect(string organizationUrl, string personalAccessToken)
     {
+        var key = AzureDevOpsConnectionKey.For(organizationUrl, personalAccessToken);
+        VssConnectionEviction.DropStale(Cache, key, e => e.IsStale(Ttl));
         var entry = Cache.AddOrUpdate(
-            AzureDevOpsConnectionKey.For(organizationUrl, personalAccessToken),
+            key,
             addValueFactory: _ => Build(organizationUrl, personalAccessToken),
             updateValueFactory: (_, existing) =>
                 existing.IsStale(Ttl) ? Rebuild(organizationUrl, personalAccessToken, existing) : existing);
         return entry.Connection;
     }
 
+    // 2026-11-25-d0e2: an Entra token as Bearer, a PAT as Basic (AzureDevOpsAuth); a rotated token's old entries are dropped.
     private static Entry Build(string url, string pat) =>
-        new(new VssConnection(new Uri(url), new VssBasicCredential(string.Empty, pat)), DateTimeOffset.UtcNow);
+        new(new VssConnection(new Uri(url), AzureDevOpsAuth.Credential(pat)), DateTimeOffset.UtcNow);
 
     private static Entry Rebuild(string url, string pat, Entry old)
     {

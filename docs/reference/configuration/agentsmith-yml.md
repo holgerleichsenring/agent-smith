@@ -339,7 +339,9 @@ machine:
   gitlab:
     auth: gitlab_bot_token               # a project or group access token (its bot user)
   azure_devops:
-    auth: azdo_bot_pat                   # a bot user's personal access token
+    auth: azdo_bot_pat                   # a bot user's personal access token, or a service principal's client secret
+    tenant_id: 00000000-0000-0000-0000-000000000000   # optional: with client_id, a Microsoft Entra service principal
+    client_id: 11111111-1111-1111-1111-111111111111
 ```
 
 | Key | Description |
@@ -347,13 +349,20 @@ machine:
 | `name`, `email` | Required as soon as one hoster is named. The commit author and committer on every repository of the project; series acts are booked and said under `name`. |
 | `<hoster>.auth` | The secret behind every act on that hoster. With `app_id` on GitHub it is the App's private key: agent-smith signs a JWT with it and trades that for an installation token, renewed before it expires. |
 | `github.app_id`, `github.installation_id` | Make the GitHub entry a GitHub App. Both are needed. |
+| `azure_devops.tenant_id`, `azure_devops.client_id` | Make the Azure DevOps entry a Microsoft Entra service principal; `auth` is then its client secret. agent-smith trades it for an Entra access token (client credentials grant, renewed before it expires) and sends that as `Authorization: Bearer` on every Azure DevOps call and as git's bearer header on every clone, fetch and push. Both are needed. |
 | `<hoster>.email` | This hoster's commit email when it differs from `email`. For a GitHub App, use its bot address so GitHub links the commits to it. |
 
 Setting it up:
 
 - **GitHub:** create a GitHub App with Contents, Pull requests and Workflows (write: a change under `.github/workflows/` is pushed too) and Checks, Commit statuses and Actions (read) permissions, install it on the owner of the repositories, and store its private key as a secret. Alternatively, use a machine user's token without `app_id`.
 - **GitLab:** create a project or group access token (`api`, `write_repository`), which comes with its own bot user, and store it as a secret.
-- **Azure DevOps:** create a user for the bot, give it Contribute and Contribute to pull requests on the repositories (plus *Bypass policies when completing pull requests* for the default `respect_branch_protection: false`), and store its personal access token as a secret. Service principals come with 2026-11-25-d0e2.
+- **Azure DevOps:** create a user for the bot, give it Contribute and Contribute to pull requests on the repositories (plus *Bypass policies when completing pull requests* for the default `respect_branch_protection: false`), and store its personal access token as a secret. Or use a service principal, which needs no person's account:
+  1. The Azure DevOps organization must be connected to Microsoft Entra ID (*Organization settings → Microsoft Entra*). In that tenant, register an app and create a client secret. Note the tenant id and the application (client) id.
+  2. In Azure DevOps, under *Organization settings → Users*, add the service principal with the **Basic** access level (Stakeholder has no Azure Repos). Search for it by the app's name; Azure DevOps keys it by the object id under *Enterprise applications*, not the one under *App registrations*.
+  3. Add it to each project's **Contributors** group. That gives Contribute, Create branch, Contribute to pull requests and work item edits on the project's boards. If repositories or area paths narrow those rights, grant them to the principal there.
+  4. For the default `respect_branch_protection: false`, also grant *Bypass policies when completing pull requests* on the repositories. No security group has it by default.
+  5. Store the client secret as a secret and set `tenant_id` and `client_id`. Entra client secrets expire; renew the secret before it does.
+  Azure DevOps Server has no Entra principals; use a bot user's PAT there. The bearer header is passed to git with `--config-env`, which needs git 2.31 or later in the sandbox image.
 
 agent-smith never approves its own pull requests. Where a policy wants a person's review, the person gives it.
 

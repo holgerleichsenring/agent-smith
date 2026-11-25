@@ -27,6 +27,10 @@ public sealed class ConfigSchemaCoverageTests
             ["projects.*.machine.gitlab.installation_id"] = "a GitHub App key; refused on GitLab by a finding",
             ["projects.*.machine.azure_devops.app_id"] = "a GitHub App key; refused on Azure DevOps by a finding",
             ["projects.*.machine.azure_devops.installation_id"] = "a GitHub App key; refused on Azure DevOps by a finding",
+            ["projects.*.machine.github.tenant_id"] = "an Azure DevOps service principal key; refused on GitHub by a finding",
+            ["projects.*.machine.github.client_id"] = "an Azure DevOps service principal key; refused on GitHub by a finding",
+            ["projects.*.machine.gitlab.tenant_id"] = "an Azure DevOps service principal key; refused on GitLab by a finding",
+            ["projects.*.machine.gitlab.client_id"] = "an Azure DevOps service principal key; refused on GitLab by a finding",
         };
 
     /// <summary>Property tables that are mixed into others, which close them.</summary>

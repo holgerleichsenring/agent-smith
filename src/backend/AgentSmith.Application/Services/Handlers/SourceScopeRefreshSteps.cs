@@ -39,7 +39,7 @@ internal static class SourceScopeRefreshSteps
     public static Step BuildFetchHeadAtDepthStep(GitCredential credential) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: ["-c", GitStepCredentials.Helper, "fetch", "--depth", "1", "origin", "HEAD"],
+            Args: [.. GitStepCredentials.Args(credential), "fetch", "--depth", "1", "origin", "HEAD"],
             WorkingDirectory: Repository.SandboxWorkPath,
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: FetchTimeoutSeconds);

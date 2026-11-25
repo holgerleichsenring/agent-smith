@@ -40,20 +40,39 @@ public static class ProjectMachineFindings
         if (string.IsNullOrWhiteSpace(machine.Name))
             yield return ProjectFindings.Blocking(project, "machine.name",
                 $"Project '{project}': machine.name is empty — the name agent-smith's commits and acts carry.");
-        foreach (var (hoster, entry) in entries)
-        {
-            var key = $"machine.{Key(hoster)}";
-            if (string.IsNullOrWhiteSpace(entry.Auth))
-                yield return ProjectFindings.Blocking(project, $"{key}.auth", $"Project '{project}': {key}.auth names no secret.");
-            if (string.IsNullOrWhiteSpace(machine.Email) && string.IsNullOrWhiteSpace(entry.Email))
-                yield return ProjectFindings.Blocking(project, "machine.email",
-                    $"Project '{project}': {key} has no commit email — set machine.email or {key}.email.");
-            if (!string.IsNullOrWhiteSpace(entry.AppId) && hoster != RepoType.GitHub)
-                yield return ProjectFindings.Blocking(project, $"{key}.app_id", $"Project '{project}': {key}.app_id is for a GitHub App only.");
-            if (!string.IsNullOrWhiteSpace(entry.AppId) && string.IsNullOrWhiteSpace(entry.InstallationId))
-                yield return ProjectFindings.Blocking(project, $"{key}.installation_id",
-                    $"Project '{project}': {key}.app_id is set without installation_id — the App's installation on the repositories' owner.");
-        }
+        foreach (var finding in entries.SelectMany(e => Entry(project, machine, e.Hoster, e.Entry).Concat(Principal(project, e.Hoster, e.Entry))))
+            yield return finding;
+    }
+
+    private static IEnumerable<StartupFinding> Entry(string project, MachineIdentityConfig machine, RepoType hoster, MachineHosterConfig entry)
+    {
+        var key = $"machine.{Key(hoster)}";
+        if (string.IsNullOrWhiteSpace(entry.Auth))
+            yield return ProjectFindings.Blocking(project, $"{key}.auth", $"Project '{project}': {key}.auth names no secret.");
+        if (string.IsNullOrWhiteSpace(machine.Email) && string.IsNullOrWhiteSpace(entry.Email))
+            yield return ProjectFindings.Blocking(project, "machine.email",
+                $"Project '{project}': {key} has no commit email — set machine.email or {key}.email.");
+        if (!string.IsNullOrWhiteSpace(entry.AppId) && hoster != RepoType.GitHub)
+            yield return ProjectFindings.Blocking(project, $"{key}.app_id", $"Project '{project}': {key}.app_id is for a GitHub App only.");
+        if (!string.IsNullOrWhiteSpace(entry.AppId) && string.IsNullOrWhiteSpace(entry.InstallationId))
+            yield return ProjectFindings.Blocking(project, $"{key}.installation_id",
+                $"Project '{project}': {key}.app_id is set without installation_id — the App's installation on the repositories' owner.");
+    }
+
+    // 2026-11-25-d0e2: a service principal needs both its tenant and its client id, and exists on Azure DevOps only.
+    private static IEnumerable<StartupFinding> Principal(string project, RepoType hoster, MachineHosterConfig entry)
+    {
+        var key = $"machine.{Key(hoster)}";
+        bool tenant = !string.IsNullOrWhiteSpace(entry.TenantId), client = !string.IsNullOrWhiteSpace(entry.ClientId);
+        if (!tenant && !client) yield break;
+        if (hoster != RepoType.AzureDevOps)
+            yield return ProjectFindings.Blocking(project, $"{key}.tenant_id",
+                $"Project '{project}': {key}.tenant_id and client_id are for an Azure DevOps service principal only.");
+        else if (tenant != client)
+            yield return ProjectFindings.Blocking(project, $"{key}.{(tenant ? "client_id" : "tenant_id")}",
+                $"Project '{project}': {key} names a service principal without its {(tenant ? "client_id" : "tenant_id")} — both come from the app registration in Microsoft Entra.");
+        if (!string.IsNullOrWhiteSpace(entry.AppId))
+            yield return ProjectFindings.Blocking(project, $"{key}.app_id", $"Project '{project}': {key} is either a GitHub App or a service principal, not both.");
     }
 
     private static StartupFinding Missing(string project, RepoType hoster, IReadOnlyList<string> repos) =>

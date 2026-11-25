@@ -95,6 +95,12 @@ export const configMessages = {
     de: "für eine GitHub App; das Secret ist dann ihr privater Schlüssel",
   },
   "config.machine.installationId.label": { en: "installation id", de: "Installations-ID" },
+  "config.machine.tenantId.label": { en: "Entra tenant id", de: "Entra-Mandanten-ID" },
+  "config.machine.tenantId.help": {
+    en: "with a client id, a service principal: the secret is its client secret",
+    de: "mit einer Client-ID ein Service Principal: das Secret ist sein Client-Secret",
+  },
+  "config.machine.clientId.label": { en: "client id", de: "Client-ID" },
   "config.machine.hosterEmail.label": { en: "commit email here", de: "Commit-E-Mail hier" },
   "config.machine.hosterEmail.help": {
     en: "when it differs on this hoster, e.g. a GitHub App's bot address",

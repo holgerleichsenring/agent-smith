@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-d0e2
+
+decisions:
+  - category: Architecture
+    chose: "Bearer or Basic is read from the token itself (AzureDevOpsBearer: a JWT is an Entra token, a PAT has no dot)"
+    over: "A registry of the tokens this process minted; a bearer flag threaded through IAzDoClientFactory and every Azure client"
+    reason: |
+      The adversarial review refused the registry: static mutable state that grows hourly, leaks between tests and answers
+      wrong for a token resolved in another process. Threading a typed token through IAzDoClientFactory touches about thirty
+      call sites and every test fake for one bit the token already carries: an Entra access token is a JWT (three dot-joined
+      base64url parts, header eyJ…), and neither PAT format contains a dot. The rule also sends an Entra token an operator
+      configured by hand the way Azure DevOps wants it.
+  - category: Implementation
+    chose: "Bearer for REST (VssOAuthAccessTokenCredential, Authorization: Bearer) and git's http.extraheader 'AUTHORIZATION: bearer'"
+    over: "Sending the Entra token as a Basic password through the existing clients and git credential helper"
+    reason: |
+      Microsoft documents Bearer for service principals and the extraheader for git (service-principal-managed-identity,
+      repos/git/auth-overview, client-libraries/samples). Basic with an Entra token appears in one .NET sample and contradicts
+      the samples page; for raw REST and git it is not documented, so it is not relied on.
+  - category: Implementation
+    chose: "git --config-env=http.<origin>.extraheader=AGENTSMITH_GIT_AUTH_HEADER, the header in the step env"
+    over: "GIT_CONFIG_COUNT/KEY/VALUE in the step env; -c http.extraheader=<token> on the command line"
+    reason: |
+      The hardened sandbox already sets GIT_CONFIG_COUNT=1 for safe.directory and the step env overwrites the pod env, so a
+      second GIT_CONFIG_COUNT would drop safe.directory and git would refuse /work. -c puts the token in the process list.
+      --config-env is git's documented way to take a config value from the environment (git 2.31+, said in the docs). The
+      origin scope keeps the header off submodule and redirect hosts.
+  - category: Implementation
+    chose: "An Entra token is kept for half its expires_in; GitHub App tokens keep 9992h's five-minute margin"
+    over: "Renewing five minutes before expiry as GitHubAppTokens does"
+    reason: |
+      The Azure clients, the CI wait (PipelineRunnerFactory) and the CI trigger hold the token they were given; renewing at
+      half life means a token handed out stays good at least that long. Changing the GitHub margin is outside this spec.
+  - category: Implementation
+    chose: "Both Azure connection caches drop every other stale entry before a lookup and do not dispose it"
+    over: "Disposing dropped entries; leaving entries keyed by a rotated token in the cache forever"
+    reason: |
+      A minted token changes hourly and the caches key on its hash, so an old key is never asked again. Disposing would break
+      a client another caller took from that connection; the collector frees it once nobody holds it.
+  - category: Implementation
+    chose: "No timeout of our own on the Entra token request (HttpClient's default), as 9992h mints GitHub App tokens"
+    over: "A short fixed timeout on the token request"
+    reason: "A new limit would need a config key and a reason the operator accepts; the mint happens about once every half hour per principal."
+  - category: Scope
+    chose: "Studio draft checks keep Basic; repo discovery under a connection uses the shared rule"
+    over: "Changing DraftCheckAuth too"
+    reason: "A draft check tests the secret a draft names, and Jira shares that helper; discovery is one header and an Entra token on a connection would otherwise fail."
