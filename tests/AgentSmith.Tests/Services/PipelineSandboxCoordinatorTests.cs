@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -21,7 +22,7 @@ namespace AgentSmith.Tests.Services;
 /// </summary>
 public sealed class PipelineSandboxCoordinatorTests
 {
-    private readonly Mock<ISandboxFactory> _factoryMock = new();
+    private readonly StubWorkspaceFactory _workspaces = new(new StubSandboxFactory());
     private readonly Mock<ISandboxLanguageResolver> _resolverMock = new();
     private readonly SandboxSpecBuilder _specBuilder
         = new(new StubSandboxResourceResolver(), new StubAgentImageResolver());
@@ -69,11 +70,6 @@ public sealed class PipelineSandboxCoordinatorTests
     [Fact]
     public async Task EnsureSandboxesAsync_FirstCall_BootsSandbox_PublishesToContext()
     {
-        var sandbox = new Mock<ISandbox>();
-        sandbox.SetupGet(s => s.JobId).Returns("test-job");
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sandbox.Object);
-
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
 
@@ -82,38 +78,33 @@ public sealed class PipelineSandboxCoordinatorTests
 
         // p0169e: the coordinator wraps each sandbox with SandboxEventProjector
         // so RunStepAsync emits L3 events; identity check is on JobId, not the
-        // raw mock instance.
-        result.Values.Should().ContainSingle().Which.JobId.Should().Be("test-job");
+        // raw container instance. 2026-11-25-9992b: the key reaches its image's container of the one workspace.
+        var container = _workspaces.Created.Should().ContainSingle().Which.Containers.Should().ContainSingle().Subject;
+        result.Values.Should().ContainSingle().Which.JobId.Should().Be(container.JobId);
         context.TryGet<ISandbox>(ContextKeys.Sandbox, out var stored).Should().BeTrue();
-        stored!.JobId.Should().Be("test-job");
+        stored!.JobId.Should().Be(container.JobId);
     }
 
     [Fact]
-    public async Task EnsureSandboxesAsync_SecondCall_ReturnsCachedSandbox_FactoryCalledOnce()
+    public async Task EnsureSandboxesAsync_SecondCall_ReturnsCachedSandbox_WorkspaceCreatedOnce()
     {
-        var sandbox = new Mock<ISandbox>().Object;
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sandbox);
-
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
         var sut = NewSut();
 
         var first = await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
+        var firstKeys = first.Keys.ToList();
         var second = await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
         first.Should().BeSameAs(second);
-        _factoryMock.Verify(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        second.Keys.Should().Equal(firstKeys);
+        _workspaces.Created.Should().ContainSingle();
+        _workspaces.Sandboxes.Spawned.Should().ContainSingle();
     }
 
     [Fact]
-    public async Task DisposeAsync_DisposesSandboxExactlyOnce_EvenIfCalledTwice()
+    public async Task DisposeAsync_DisposesTheWorkspaceExactlyOnce_EvenIfCalledTwice()
     {
-        var sandboxMock = new Mock<ISandbox>();
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sandboxMock.Object);
-
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
         var sut = NewSut();
@@ -122,7 +113,9 @@ public sealed class PipelineSandboxCoordinatorTests
         await sut.DisposeAsync();
         await sut.DisposeAsync();
 
-        sandboxMock.Verify(s => s.DisposeAsync(), Times.Once);
+        var workspace = _workspaces.Created.Single();
+        workspace.DisposeCount.Should().Be(1);
+        workspace.Containers.Should().OnlyContain(c => c.Disposed);
     }
 
     [Fact]
@@ -133,33 +126,21 @@ public sealed class PipelineSandboxCoordinatorTests
         await act.Should().NotThrowAsync();
     }
 
+    // 2026-11-25-9992b: a host source (CLI --source-path) is served at /work/<repo> of the workspace.
     [Fact]
-    public async Task EnsureSandboxesAsync_SourcePathInContext_AttachedToSpecAsInitialSourcePath()
+    public async Task EnsureSandboxesAsync_SourcePathInContext_IsTheRepositorysHostSource()
     {
-        SandboxSpec? captured = null;
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .Callback<SandboxSpec, CancellationToken>((s, _) => captured = s)
-            .ReturnsAsync(new Mock<ISandbox>().Object);
-
         var context = new PipelineContext();
-        context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
+        context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection { Name = "api" } });
         context.Set(ContextKeys.SourcePath, "/tmp/host-clone");
         var sut = NewSut();
 
         await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
-        captured.Should().NotBeNull();
-        captured!.InitialSourcePath.Should().Be("/tmp/host-clone");
+        _workspaces.Created.Single().Spec.HostSources.Should().BeEquivalentTo(
+            new Dictionary<string, string> { ["api"] = "/tmp/host-clone" });
     }
 
-    private PipelineSandboxCoordinator NewSut() => new(
-        _factoryMock.Object,
-        _specBuilder,
-        _resolverMock.Object,
-        AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
-        AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
-        new NoOpSandboxLivenessSupervisor(),
-new AgentSmith.Application.Services.Sandbox.SandboxRelease(
-            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
-        NullLogger<PipelineSandboxCoordinator>.Instance);
+    private PipelineSandboxCoordinator NewSut() =>
+        TestCoordinators.Create(_workspaces, _resolverMock.Object, _specBuilder);
 }

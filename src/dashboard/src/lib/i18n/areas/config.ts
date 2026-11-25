@@ -95,6 +95,17 @@ export const configMessages = {
     de: "für eine GitHub App; das Secret ist dann ihr privater Schlüssel",
   },
   "config.machine.installationId.label": { en: "installation id", de: "Installations-ID" },
+  "config.machine.tenantId.label": { en: "Entra tenant id", de: "Entra-Mandanten-ID" },
+  "config.machine.tenantId.help": {
+    en: "with a client id, a service principal: the secret is its client secret",
+    de: "mit einer Client-ID ein Service Principal: das Secret ist sein Client-Secret",
+  },
+  "config.machine.clientId.label": { en: "client id", de: "Client-ID" },
+  "config.pocs.machine.title": { en: "Machine identity", de: "Maschinen-Identität" },
+  "config.pocs.machine.help": {
+    en: "Who the PoC pipelines, commits and builds act as. A poc- project's own machine identity wins.",
+    de: "Als wer die PoC-Pipelines, Commits und Builds handeln. Die eigene Maschinen-Identität eines poc-Projekts geht vor.",
+  },
   "config.machine.hosterEmail.label": { en: "commit email here", de: "Commit-E-Mail hier" },
   "config.machine.hosterEmail.help": {
     en: "when it differs on this hoster, e.g. a GitHub App's bot address",
@@ -214,6 +225,16 @@ export const configMessages = {
     en: "environment variable name, and the secretName:key it is taken from",
     de: "Name der Umgebungsvariable und der secretName:key, aus dem sie stammt",
   },
+  "config.sandboxSecrets.repoEnv.label": { en: "secret variables for one repository", de: "geheime Variablen für ein Repository" },
+  "config.sandboxSecrets.repoEnv.help": {
+    en: "only that repository's commands get the variable; needs a current sandbox agent (Kubernetes)",
+    de: "nur die Befehle dieses Repositorys bekommen die Variable; braucht einen aktuellen Sandbox-Agent (Kubernetes)",
+  },
+  "config.sandboxSecrets.repoEnv.repo": { en: "repository", de: "Repository" },
+  "config.sandboxSecrets.repoEnv.name": { en: "variable", de: "Variable" },
+  "config.sandboxSecrets.repoEnv.ref": { en: "secretName:key", de: "secretName:key" },
+  "config.sandboxSecrets.repoEnv.none": { en: "none", de: "keine" },
+  "config.sandboxSecrets.repoEnv.add": { en: "Add a variable", de: "Variable hinzufügen" },
   "config.sandboxSecrets.files.label": { en: "mounted secret files", de: "eingehängte Secret-Dateien" },
   "config.sandboxSecrets.files.help": {
     en: "mount path, the secret holding the value, and the key projected as the file",
@@ -400,7 +421,6 @@ export const configMessages = {
   "config.setting.orchestrator": { en: "Orchestrator", de: "Orchestrator" },
   "config.setting.sandbox": { en: "Sandbox", de: "Sandbox" },
   "config.setting.deployment": { en: "Deployment", de: "Deployment" },
-  "config.setting.registries": { en: "Registries", de: "Registries" },
   "config.setting.primaryProvider": { en: "Primary provider", de: "Primärer Provider" },
   "config.setting.limits": { en: "Limits", de: "Limits" },
   "config.setting.pipelineCostCap": { en: "Pipeline cost cap", de: "Kostenlimit der Pipeline" },
@@ -424,10 +444,6 @@ export const configMessages = {
   "config.setting.deployment.sub": {
     en: "the image pin feeding the sandbox agent when it names none",
     de: "der Image-Pin für den Sandbox-Agent, wenn er selbst keinen nennt",
-  },
-  "config.setting.registries.sub": {
-    en: "private package feeds the agent authenticates against",
-    de: "private Paket-Feeds, an denen sich der Agent anmeldet",
   },
   "config.setting.primaryProvider.sub": {
     en: "the default agent provider when a project names none",
@@ -1420,6 +1436,11 @@ export const configMessages = {
   "config.trace.enabled": {
     en: "Record each run's conversation (AGENTSMITH_TRACE, when set, wins)",
     de: "Die Unterhaltung jedes Runs aufzeichnen (AGENTSMITH_TRACE hat Vorrang, wenn gesetzt)",
+  },
+  "config.registries.label": { en: "private package feeds", de: "private Paket-Feeds" },
+  "config.registries.help": {
+    en: "this project's runs sign in to these feeds when a repository's nuget.config or .npmrc names them",
+    de: "die Runs dieses Projekts melden sich an diesen Feeds an, wenn die nuget.config oder .npmrc eines Repositorys sie nennt",
   },
   "config.registries.none": { en: "no private feeds configured", de: "keine privaten Feeds eingerichtet" },
   "config.registries.feed": { en: "Feed {n}", de: "Feed {n}" },

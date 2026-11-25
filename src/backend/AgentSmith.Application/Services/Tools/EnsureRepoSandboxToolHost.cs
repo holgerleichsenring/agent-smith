@@ -13,21 +13,16 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
-/// p0331: the escalation valve behind ScopeRepos' conservative narrowing — the
-/// master calls <c>ensure_repo_sandbox(repo_name)</c> when it discovers mid-run
-/// that another configured repo is affected. Validates against the PROJECT
-/// config (not the narrowed scope), runs its OWN single-sandbox capacity probe
-/// (deny = an honest tool answer, never a throw), widens ContextKeys.Repos,
-/// spawns through the run's LIVE coordinator (idempotent per group), checks the
-/// source out via the same SandboxRepoCloner path CheckoutSource uses, and
-/// grows the running master's FilesystemToolHost so the new repo is addressable
-/// immediately.
+/// p0331: the escalation valve behind ScopeRepos' narrowing — the master calls <c>ensure_repo_sandbox(repo_name)</c>
+/// when another configured repo turns out to be affected. Validates against the PROJECT config, probes capacity for
+/// what the run's workspace would gain (deny = an honest tool answer, never a throw), widens ContextKeys.Repos, grows
+/// the workspace through the run's LIVE coordinator, checks the source out via the SandboxRepoCloner path
+/// CheckoutSource uses, and grows the master's FilesystemToolHost so the repo is addressable immediately.
 /// </summary>
 public sealed class EnsureRepoSandboxToolHost(
     PipelineContext pipeline,
     FilesystemToolHost fs,
     ISandboxCapacityProbe capacityProbe,
-    ISandboxResourceResolver resourceResolver,
     SandboxRepoCloner cloner,
     ILogger? logger,
     SandboxTargets sandboxTargets,
@@ -57,6 +52,7 @@ public sealed class EnsureRepoSandboxToolHost(
             return await EnsureAsync(repo_name?.Trim() ?? string.Empty, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (WorkspaceRestoreException) { throw; } // 2026-11-25-9992b: the run has no tree to go on with
         catch (Exception ex)
         {
             // Recoverable tool error, never a run-aborting throw (p0259b contract).
@@ -89,21 +85,24 @@ public sealed class EnsureRepoSandboxToolHost(
                    $"Address its paths as '{target.Name}/<path>'.";
         }
 
-        // Own single-sandbox probe — pipeline-aware size, orchestrator already running.
-        var pipelineName = pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
-        var footprint = new RunFootprint(Sandboxes: [resourceResolver.Resolve(project, pipelineName)]);
-        // 2026-09-22-2d11a: release before the probe; 2026-09-24-81ea: only when it is short.
-        await heldSandboxes.EvictIfShortAsync(
-            async c => (await capacityProbe.HasCapacityAsync(footprint, c)).Admitted, ct);
-        var capacity = await capacityProbe.HasCapacityAsync(footprint, ct);
-        if (!capacity.Admitted)
+        // 2026-11-25-9992b: only the containers the workspace would gain are probed — a repository whose images it
+        // serves is cloned beside the others and takes no new capacity; one that needs a new image restarts it bigger.
+        var added = await coordinator.AddedToolchainsAsync(project, pipeline, target, ct);
+        if (added.Count > 0 && await DeniedAsync(new RunFootprint(Sandboxes: added), ct) is { } reason)
         {
-            logger?.LogInformation(
-                "ensure_repo_sandbox({Repo}) denied for capacity: {Reason}", target.Name, capacity.Reason);
+            logger?.LogInformation("ensure_repo_sandbox({Repo}) denied for capacity: {Reason}", target.Name, reason);
             return CapacityDenyAnswer;
         }
 
         return await SpawnAndCheckoutAsync(coordinator, project, target, repos, inScope, existing, ct);
+    }
+
+    // 2026-09-22-2d11a: release held sandboxes before the probe; 2026-09-24-81ea: only when it is short.
+    private async Task<string?> DeniedAsync(RunFootprint footprint, CancellationToken ct)
+    {
+        await heldSandboxes.EvictIfShortAsync(async c => (await capacityProbe.HasCapacityAsync(footprint, c)).Admitted, ct);
+        var capacity = await capacityProbe.HasCapacityAsync(footprint, ct);
+        return capacity.Admitted ? null : capacity.Reason ?? "no capacity";
     }
 
     private async Task<string> SpawnAndCheckoutAsync(

@@ -58,7 +58,7 @@ public sealed class PodSpecBuilderResourcesTests
             AgentImage: "agent:1");
         var pod = Builder.Build("p", "j", "redis:6379", spec, owner: null);
 
-        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain");
+        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain-0");
         toolchain.Resources.Requests["cpu"].ToString().Should().Be("250m");
         toolchain.Resources.Requests["memory"].ToString().Should().Be("768Mi");
         toolchain.Resources.Limits["cpu"].ToString().Should().Be("750m");

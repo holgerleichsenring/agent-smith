@@ -16,7 +16,7 @@ public sealed class MemoryIndexLabelWriter(MemoryStandingReader standings, Memor
         PipelineContext pipeline, ISandboxFileReader files, string repository, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(files);
-        var path = Path.Combine(Repository.SandboxWorkPath, ProjectMetaPaths.MemoryIndex);
+        var path = ProjectMetaPaths.MemoryIndex;
         if (await files.TryReadAsync(path, ct) is not { } index) return null;
         var relabelled = labels.Relabel(index, await standings.OfAsync(pipeline, repository, ct));
         if (string.Equals(relabelled, index, StringComparison.Ordinal)) return null;

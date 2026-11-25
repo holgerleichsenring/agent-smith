@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992c
+goal: "A run's repository lives at /work/<repo> instead of /work, through one root function, so 2026-11-25-9992b can put repositories side by side."
+
+applies_to: "default (Domain Repository, Contracts sandbox, Application sandbox/git/tool paths and prompts, in-process sandbox)"
+
+requires: []
+
+facts:
+  - claim: "The repo root is the constant /work and LocalPath returns it whatever the repo; WorkPathFor(repo) already names /work/<repo> for external addressing; the clone goes to '.' in /work."
+    evidence: "src/backend/AgentSmith.Domain/Entities/Repository.cs:16,23,26; src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:42-43"
+  - claim: "A local repository's bind mount is probed at /work before any clone."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/LocalRepoCheckout.cs:17-25; src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:83-89"
+  - claim: "A step with no working directory runs in /work: the agent's process runner, file handler and grep scope default to it."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs:62; src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:15,22; src/backend/AgentSmith.Sandbox.Wire/GrepScope.cs:36"
+  - claim: "Git and file helpers hard-code /work as their working directory or path root."
+    evidence: "src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:75; src/backend/AgentSmith.Application/Services/Specs/VerifiedHeads.cs:82; src/backend/AgentSmith.Application/Services/Specs/SpecStartHeads.cs:60; src/backend/AgentSmith.Application/Services/UnverifiedWorkReverter.cs:107; src/backend/AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs:35"
+  - claim: "A wrapped sandbox is unwrapped through ISandboxWrapper, the way release and liveness read the backend."
+    evidence: "src/backend/AgentSmith.Application/Services/Events/SandboxEventProjector.cs:22,31; src/backend/AgentSmith.Application/Services/Sandbox/SandboxRelease.cs:31"
+  - claim: "The in-process sandbox maps /work to its work dir and reuses a host-cloned source as that dir."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Sandbox/SandboxPathMap.cs:18,46; src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandboxFactory.cs:20-23"
+
+scope:
+  in: "ISandboxWorkDirectory + WorkDirectory() walking the wrapper chain; every production sandbox declares its root (backends and single-repo sandboxes /work), held by a ratchet test, so only a test fake falls to /work; RepoSandbox wrapper per run sandbox key with root /work/<repo>, filling a step's empty or relative working directory; Repository carries its name, LocalPath and RepoSandbox both read Repository.WorkPathFor, SandboxWorkPath replaced by WorkspaceRoot; clone into the root and the local bind-mount probe read it; every hard-coded /work (git, diff, heads, revert, checkpoint, delivery, file tools, path guards, scanners, prompt and tool text) reads the sandbox's root; in-process maps /work/<repo> to a reused host source."
+  out: "Sharing one pod or volume between repositories (2026-11-25-9992b); until then each per-repo pod holds only /work/<repo>. Read-only source scopes, reference sets and the browser stay single-repo sandboxes with their tree at /work. In-process, a reused host source mapped to /work/<repo> sees its host siblings as ../X. Container WorkingDir stays /work, the workspace root."
+
+done:
+  - "A run's repository is cloned to /work/<repo>; a step with no working directory runs there and a relative one resolves under it."
+  - "Commit, diff, verified heads, spec start heads, revert, checkpoint push and delivery run in /work/<repo> (tests with a RepoSandbox over a recording sandbox)."
+  - "The master prompt names /work/<repo> as the repository path; no production file keeps a '/work' literal that means a repository root."
+  - "A source scope still reads its tree at /work; the in-process sandbox serves a reused host source at /work/<repo>."
+  - "A ratchet test fails on a production ISandbox type that neither declares a root nor wraps one."
+  - "dotnet build and the affected tests are green; the spec gate passes."

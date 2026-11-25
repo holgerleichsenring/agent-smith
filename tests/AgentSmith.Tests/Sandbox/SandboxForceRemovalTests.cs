@@ -47,8 +47,8 @@ public sealed class SandboxForceRemovalTests
         var database = new Mock<IDatabase>();
         var client = KubernetesThatAcceptsADelete(out var deleted);
         var sandbox = new KubernetesSandbox(
-            client, "agentsmith", "pod-1", "job-1", Channel(database, "job-1"), SandboxBusDoubles.SharedCredential,
-            stepTimeoutCapSeconds: 900, "node:20", ResolvedSandboxSecrets.Empty, NullLogger.Instance);
+            client, new KubernetesContainerAddress("agentsmith", "pod-1", "toolchain-0"), "job-1", Channel(database, "job-1"),
+            SandboxBusDoubles.SharedCredential, 900, "node:20", ResolvedSandboxSecrets.Empty, ownsPod: true, NullLogger.Instance);
 
         await ((ISandboxForceRemoval)sandbox).ForceRemoveAsync(CancellationToken.None);
 

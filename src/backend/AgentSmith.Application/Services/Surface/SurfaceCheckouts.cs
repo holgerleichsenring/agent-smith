@@ -20,8 +20,6 @@ public sealed record SurfaceCheckouts(
     IReadOnlyDictionary<string, string>? KeyToRepo,
     string RepoPath)
 {
-    private const string DefaultRepoPath = "/work";
-
     public static SurfaceCheckouts? For(PipelineContext pipeline, IReadOnlyList<string> consumers)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
@@ -35,7 +33,8 @@ public sealed record SurfaceCheckouts(
         var keys = consumers.Select(c => KeyOf(c, sandboxes, keyToRepo)).ToList();
         if (keys.Any(k => k is null)) return null;
 
-        return new SurfaceCheckouts(sandboxes, keys[0]!, keyToRepo, ResolveRepoPath(pipeline));
+        // 2026-11-25-9992c: the tool host's root is the default checkout's own.
+        return new SurfaceCheckouts(sandboxes, keys[0]!, keyToRepo, sandboxes[keys[0]!].WorkDirectory());
     }
 
     private static string? KeyOf(
@@ -48,9 +47,4 @@ public sealed record SurfaceCheckouts(
         return sandboxes.Count == 1 ? sandboxes.Keys.First() : null;
     }
 
-    private static string ResolveRepoPath(PipelineContext pipeline) =>
-        pipeline.TryGet<Repository>(ContextKeys.Repository, out var repository)
-        && !string.IsNullOrWhiteSpace(repository?.LocalPath)
-            ? repository.LocalPath
-            : DefaultRepoPath;
 }

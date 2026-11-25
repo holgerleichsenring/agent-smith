@@ -24,7 +24,8 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 public sealed class DeclaredSecretCheck : IRunPreflightCheck
 {
     private const string Lever =
-        "write each credential as sandbox.secrets.env.<NAME>: '<secretName>:<key>' and give "
+        "write each credential as sandbox.secrets.env.<NAME>: '<secretName>:<key>' (or under "
+        + "sandbox.secrets.repo_env.<repo>.<NAME> for one repository) and give "
         + "every sandbox.secrets.files entry its own absolute mount, secret and key — the "
         + "values stay in the operator's Kubernetes Secrets and are never read from here";
 
@@ -39,20 +40,16 @@ public sealed class DeclaredSecretCheck : IRunPreflightCheck
     public Task<RunPreflightFinding> RunAsync(
         PipelineContext pipeline, CancellationToken cancellationToken)
     {
-        var declared = Declared(pipeline);
-        var count = (declared?.Env?.Count ?? 0) + (declared?.Files?.Count ?? 0);
+        var project = pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var p) ? p : null;
+        var declared = project?.Sandbox?.Secrets;
+        var count = declared?.DeclaredCount() ?? 0;
         if (count == 0)
             return Task.FromResult(RunPreflightFinding.Pass(
                 Name, "no credentials are declared — nothing to check"));
 
-        var problems = SandboxSecretDeclarationReview.Problems(declared);
+        var problems = SandboxSecretDeclarationReview.Problems(declared, [.. project!.Repos.Select(r => r.Name)]);
         return Task.FromResult(problems.Count == 0
             ? RunPreflightFinding.Pass(Name, $"{count} declared credential reference(s) well-formed")
             : RunPreflightFinding.Fail(Name, string.Join("; ", problems), Lever) with { Detail = Detail });
     }
-
-    private static SandboxSecrets? Declared(PipelineContext pipeline) =>
-        pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)
-            ? project?.Sandbox?.Secrets
-            : null;
 }

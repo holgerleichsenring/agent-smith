@@ -48,7 +48,7 @@ public sealed class GitHistoryScanner(
         }
 
         var headContent = await matcher.BuildHeadContentIndexAsync(
-            reader, Repository.SandboxWorkPath, secretPatterns, cancellationToken);
+            reader, sandbox.WorkDirectory(), secretPatterns, cancellationToken);
         var seenSecrets = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var (sha, fileChanges) in ParseLog(rawLog))
@@ -91,7 +91,6 @@ public sealed class GitHistoryScanner(
             Kind: StepKind.Run,
             Command: "git",
             Args: args,
-            WorkingDirectory: Repository.SandboxWorkPath,
             TimeoutSeconds: 120);
         // Progress<T> dispatches callbacks on the ThreadPool with no
         // serialization, so concurrent stdout events can corrupt the

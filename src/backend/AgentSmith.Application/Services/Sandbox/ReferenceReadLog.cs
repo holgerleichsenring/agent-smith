@@ -6,11 +6,12 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// 2026-11-04-96a0c: the paths read_file opened on one upload in this turn. Every read of an upload passes its
 /// reference sandbox, the children's included, and the master and its children share that sandbox, so the log is
 /// thread-safe. Only a ReadFile step that came back with exit code 0 counts: a grep hit or a command's output shows a
-/// fragment, not the file. Paths are kept relative to the set.
+/// fragment, not the file. Paths are kept relative to the set. 2026-11-25-9992c: relative to
+/// <paramref name="root"/>, the root of the upload's sandbox.
 /// </summary>
-public sealed class ReferenceReadLog
+public sealed class ReferenceReadLog(string root)
 {
-    private const string WorkRoot = "/work/";
+    private readonly string _rootPrefix = root.TrimEnd('/') + "/";
     private readonly object _lock = new();
     private readonly HashSet<string> _paths = new(StringComparer.Ordinal);
 
@@ -34,10 +35,10 @@ public sealed class ReferenceReadLog
         return result;
     }
 
-    private static string Normalised(string path)
+    private string Normalised(string path)
     {
         var relative = path.Trim();
-        if (relative.StartsWith(WorkRoot, StringComparison.Ordinal)) relative = relative[WorkRoot.Length..];
+        if (relative.StartsWith(_rootPrefix, StringComparison.Ordinal)) relative = relative[_rootPrefix.Length..];
         while (relative.StartsWith("./", StringComparison.Ordinal)) relative = relative[2..];
         return relative.TrimStart('/');
     }

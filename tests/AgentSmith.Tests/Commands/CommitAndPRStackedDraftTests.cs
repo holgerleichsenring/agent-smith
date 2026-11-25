@@ -150,7 +150,7 @@ public sealed class CommitAndPRStackedDraftTests
             new PullRequestOutcomePublisher(EventTestStubs.NoOp), new TicketLifecycle(), new SandboxTargets(),
             new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(sources, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
-            new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, new SandboxTargets(), NullLogger<UnverifiedWorkReverter>.Instance),
+            new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(TestRunResultChanges.Create()), Structure.StructureGateFixture.Publisher(),
             TestSupport.SeriesSettingsDoubles.Banners(), TestSupport.SeriesSettingsDoubles.ChunkStop(), NullLogger<CommitAndPRHandler>.Instance,

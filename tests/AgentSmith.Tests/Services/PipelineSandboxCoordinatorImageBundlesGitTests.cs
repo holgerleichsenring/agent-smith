@@ -9,6 +9,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -38,26 +39,13 @@ public sealed class PipelineSandboxCoordinatorImageBundlesGitTests
     [InlineData("rust")]
     public async Task EveryKnownLanguage_ProducesGitBearingToolchainImage(string language)
     {
-        var factoryMock = new Mock<ISandboxFactory>();
-        SandboxSpec? captured = null;
-        factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .Callback<SandboxSpec, CancellationToken>((spec, _) => captured = spec)
-            .ReturnsAsync(new Mock<ISandbox>().Object);
+        var workspaces = new StubWorkspaceFactory(new StubSandboxFactory());
 
         var resolverMock = new Mock<ISandboxLanguageResolver>();
         resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", language) });
 
-        var sut = new PipelineSandboxCoordinator(
-            factoryMock.Object,
-            new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver()),
-            resolverMock.Object,
-            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
-            AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
-            new NoOpSandboxLivenessSupervisor(),
-new AgentSmith.Application.Services.Sandbox.SandboxRelease(
-                AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
-            NullLogger<PipelineSandboxCoordinator>.Instance);
+        var sut = TestCoordinators.Create(workspaces, resolverMock.Object, new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver()));
 
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
@@ -65,8 +53,8 @@ new AgentSmith.Application.Services.Sandbox.SandboxRelease(
 
         await sut.EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
-        captured.Should().NotBeNull($"coordinator must call factory.CreateAsync for language '{language}'");
-        GitBearing.IsMatch(captured!.ToolchainImage).Should().BeTrue(
+        var captured = workspaces.Sandboxes.Spawned.Should().ContainSingle($"the workspace holds a container for language '{language}'").Subject.Spec;
+        GitBearing.IsMatch(captured.ToolchainImage).Should().BeTrue(
             $"language '{language}' resolved to '{captured.ToolchainImage}' which does not match a " +
             $"git-bearing base. CheckoutSourceHandler runs `git clone` INSIDE the sandbox; " +
             $"a slim/alpine/bare-tag image will break checkout. See SandboxSpecBuilderImageBundlesGitTests " +

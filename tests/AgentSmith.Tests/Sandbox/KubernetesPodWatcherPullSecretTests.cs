@@ -15,7 +15,7 @@ public sealed class KubernetesPodWatcherPullSecretTests
 {
     private static V1ContainerStatus Waiting(string reason, string message) => new()
     {
-        Name = "toolchain",
+        Name = "toolchain-0",
         State = new V1ContainerState
         {
             Waiting = new V1ContainerStateWaiting { Reason = reason, Message = message }
@@ -63,7 +63,7 @@ public sealed class KubernetesPodWatcherPullSecretTests
     {
         var running = new V1ContainerStatus
         {
-            Name = "toolchain",
+            Name = "toolchain-0",
             State = new V1ContainerState { Running = new V1ContainerStateRunning() }
         };
 

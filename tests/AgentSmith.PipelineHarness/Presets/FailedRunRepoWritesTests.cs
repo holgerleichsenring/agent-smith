@@ -50,14 +50,15 @@ public sealed class FailedRunRepoWritesTests
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse("nothing was verified, so nothing was delivered");
-        var sandboxes = harness.StubSandboxFactory!.Spawned.Select(s => s.Sandbox).ToList();
-        sandboxes.Should().HaveCount(3);
+        // 2026-11-25-9992b: the three repositories share the run's workspace; each one's work is its own tree's steps.
+        var repos = ThreeRepos().Select(r => harness.StubSandboxFactory!.StepsIn(r.Name)).ToList();
+        repos.Should().HaveCount(3).And.OnlyContain(steps => steps.Count > 0, "every repository was provisioned");
         // The stub answers the staged-changes probe with "nothing", so the series itself
         // may not commit here; whatever does commit must be the series and nothing else.
-        sandboxes.SelectMany(s => s.RanSteps).Where(IsGitCommit).Should().OnlyContain(
+        repos.SelectMany(steps => steps).Where(IsGitCommit).Should().OnlyContain(
             s => IsSeriesCommit(s), "the series commit at derivation is the only work this run did");
-        sandboxes.Where(s => !s.RanSteps.Any(IsGitCommit))
-            .Should().AllSatisfy(s => s.RanSteps.Should().NotContain(st => IsGitPush(st),
+        repos.Where(steps => !steps.Any(IsGitCommit))
+            .Should().AllSatisfy(steps => steps.Should().NotContain(st => IsGitPush(st),
                 "a repository the run changed nothing in gets no branch pushed"));
 
         var pipeline = runner.LastContext!;

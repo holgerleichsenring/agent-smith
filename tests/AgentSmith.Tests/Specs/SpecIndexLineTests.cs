@@ -209,7 +209,7 @@ public sealed class SpecIndexLineTests : IDisposable
         foreach (var (key, sandbox) in sandboxes)
         {
             var written = await Writer().WriteAsync(
-                pipeline, sandbox, key, Repository.SandboxWorkPath, SpecId, line, CancellationToken.None);
+                pipeline, sandbox, key, Repository.WorkspaceRoot, SpecId, line, CancellationToken.None);
             written.Should().NotBeNull();
             await sandbox.DisposeAsync();
         }

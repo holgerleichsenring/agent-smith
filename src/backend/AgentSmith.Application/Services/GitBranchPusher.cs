@@ -34,14 +34,14 @@ public sealed class GitBranchPusher(IEventPublisher events, IRunContextAccessor 
         GitCredential credential, CancellationToken ct)
     {
         // 2026-10-02-5f89g: the repo's own credential, resolved by the caller that holds the repo.
-        var env = Env(credential);
+        var env = credential.Env(); // 2026-11-25-d0e2: a bearer credential carries its header too
         await RecordHeadAsync(sandbox, branch, ct);
 
-        var result = await PushOnceAsync(sandbox, branch, credentialHelper, env, ct);
+        var result = await PushOnceAsync(sandbox, branch, credential.Args(credentialHelper), env, ct);
         if (result.ExitCode != 0 && Mentions(result, "stale info"))
         {
-            await Run(sandbox, ["-c", credentialHelper, "fetch", "origin", branch], env, ct);
-            result = await PushOnceAsync(sandbox, branch, credentialHelper, env, ct);
+            await Run(sandbox, [.. credential.Args(credentialHelper), "fetch", "origin", branch], env, ct);
+            result = await PushOnceAsync(sandbox, branch, credential.Args(credentialHelper), env, ct);
         }
 
         if (result.ExitCode != 0)
@@ -54,7 +54,7 @@ public sealed class GitBranchPusher(IEventPublisher events, IRunContextAccessor 
         ISandbox sandbox, string branch, string credentialHelper, GitCredential credential, CancellationToken ct)
     {
         await RecordHeadAsync(sandbox, branch, ct);
-        var result = await Run(sandbox, ["-c", credentialHelper, "push", "origin", $"HEAD:{branch}"], Env(credential), ct);
+        var result = await Run(sandbox, [.. credential.Args(credentialHelper), "push", "origin", $"HEAD:{branch}"], credential.Env(), ct);
         if (result.ExitCode != 0)
             throw new InvalidOperationException($"git push failed (exit {result.ExitCode}): {result.ErrorMessage}");
     }
@@ -68,20 +68,16 @@ public sealed class GitBranchPusher(IEventPublisher events, IRunContextAccessor 
         await events.PublishAsync(new BranchPushedEvent(runId, DateTimeOffset.UtcNow, branch, sha), ct);
     }
 
-    private static IReadOnlyDictionary<string, string>? Env(GitCredential credential) =>
-        credential.HasToken ? new Dictionary<string, string> { ["GIT_TOKEN"] = credential.Token! } : null;
-
     private static Task<StepResult> PushOnceAsync(
-        ISandbox sandbox, string branch, string credentialHelper,
+        ISandbox sandbox, string branch, string[] credentialArgs,
         IReadOnlyDictionary<string, string>? env, CancellationToken ct) =>
-        Run(sandbox, ["-c", credentialHelper, "push", "--force-with-lease", "origin", $"HEAD:{branch}"], env, ct);
+        Run(sandbox, [.. credentialArgs, "push", "--force-with-lease", "origin", $"HEAD:{branch}"], env, ct);
 
     private static Task<StepResult> Run(
         ISandbox sandbox, string[] args, IReadOnlyDictionary<string, string>? env, CancellationToken ct) =>
         sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-                Command: "git", Args: args, WorkingDirectory: Repository.SandboxWorkPath,
-                Env: env, TimeoutSeconds: GitTimeoutSeconds),
+                Command: "git", Args: args, Env: env, TimeoutSeconds: GitTimeoutSeconds),
             progress: null, ct);
 
     private static bool Mentions(StepResult result, string phrase) =>

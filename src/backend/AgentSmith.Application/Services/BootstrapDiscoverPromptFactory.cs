@@ -24,7 +24,7 @@ namespace AgentSmith.Application.Services;
 internal static class BootstrapDiscoverPromptFactory
 {
     public static (string System, string User) Build(
-        RoleSkillDefinition role, Repository repository, string repoName,
+        RoleSkillDefinition role, Repository repository, string repoName, string localPath,
         ProjectMap projectMap, bool isInteractive,
         IReadOnlyList<DiscoveredComponent> declared)
     {
@@ -40,7 +40,7 @@ internal static class BootstrapDiscoverPromptFactory
             ## Repo
             - Name: {{repoName}}
             - Branch: {{repository.CurrentBranch.Value}}
-            - Local path: {{repository.LocalPath}}
+            - Local path: {{localPath}}
 
             ## ProjectMap (from AnalyzeCode)
 

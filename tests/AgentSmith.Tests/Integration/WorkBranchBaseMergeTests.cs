@@ -190,7 +190,7 @@ public sealed class WorkBranchBaseMergeTests
             new AgentSmith.Sandbox.Wire.Step(
                 AgentSmith.Sandbox.Wire.Step.CurrentSchemaVersion, Guid.NewGuid(),
                 AgentSmith.Sandbox.Wire.StepKind.Run, Command: "git", Args: args,
-                WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: 60),
+                WorkingDirectory: Repository.WorkspaceRoot, TimeoutSeconds: 60),
             progress: null, CancellationToken.None);
         return result.OutputContent ?? string.Empty;
     }

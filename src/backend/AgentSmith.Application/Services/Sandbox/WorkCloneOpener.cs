@@ -64,7 +64,7 @@ public sealed class WorkCloneOpener(
                     $"The commit your reads of '{repo.Name}' show ({sha}) is not in this clone"
                     + (fullHistory ? string.Empty : $" of the last {DefaultDepth} commits — ask for history: full")
                     + $"; nothing runs on a different commit. {Text(checkout)}");
-            return sandbox;
+            return new SecretScopedSandbox(sandbox, repo.Name); // 2026-11-25-9992d: the model's commands speak for this repo
         }
         catch
         {
@@ -79,19 +79,21 @@ public sealed class WorkCloneOpener(
         var discoveries = await languages.ResolveAllAsync(repo, ContextReadBranches.None, ct);
         var root = discoveries.FirstOrDefault(d => StructureWorkdir.Normalize(d.Workdir) == string.Empty)
                    ?? discoveries.FirstOrDefault();
-        return specs.Build(project, root?.Language, PipelinePresets.CodeName, root?.ToolchainImage, root?.Resources) with
+        var spec = specs.Build(project, root?.Language, PipelinePresets.CodeName, root?.ToolchainImage, root?.Resources);
+        return spec with
         {
             RunId = runContext.CurrentRunId, ConversationId = null, NoPackageCaches = true, RequiresPerJobBus = true,
+            // 2026-11-25-9992d: the clone carries only its own repository's scoped secrets, never another's.
+            Secrets = spec.Secrets is { } s ? s with { RepoEnv = [.. s.RepoEnv.Where(b => b.Repository == repo.Name)] } : null,
         };
     }
 
     public static Step CloneStep(RepoConnection repo, GitCredential credential, bool fullHistory) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: ["-c", GitStepCredentials.Helper, "clone",
+            Args: [.. GitStepCredentials.Args(credential), "clone",
                 .. fullHistory ? new[] { "--single-branch" } : ["--depth", DefaultDepth.ToString(System.Globalization.CultureInfo.InvariantCulture), "--single-branch"],
                 repo.Url!, "."],
-            WorkingDirectory: Repository.SandboxWorkPath,
             Env: CloneEnv(credential),
             TimeoutSeconds: 300);
 
@@ -105,7 +107,7 @@ public sealed class WorkCloneOpener(
     public static Step CheckoutStep(string sha) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git", Args: ["checkout", "--detach", sha],
-            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: 60);
+            TimeoutSeconds: 60);
 
     private static string Text(StepResult result) =>
         (result.ErrorMessage ?? result.OutputContent ?? string.Empty).Trim();

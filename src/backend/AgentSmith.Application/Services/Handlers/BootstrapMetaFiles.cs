@@ -53,7 +53,7 @@ public sealed class BootstrapMetaFiles(
     private async Task<(bool Renamed, string? Error)> MoveRetiredPrinciplesAsync(
         ISandbox sandbox, string contextName, CancellationToken ct)
     {
-        var paths = BootstrapPaths.For(contextName);
+        var paths = BootstrapPaths.For(sandbox.WorkDirectory(), contextName);
         var reader = readerFactory.Create(sandbox);
         if (await reader.ExistsAsync(paths.Principles, ct)) return (false, null);
         if (!await reader.ExistsAsync(paths.RetiredPrinciples, ct)) return (false, null);

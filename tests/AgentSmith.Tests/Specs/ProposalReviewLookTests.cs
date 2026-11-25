@@ -328,7 +328,7 @@ public sealed class ProposalReviewLookTests
         public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken ct)
         {
             Ran.Add(step);
-            if (RefuseRuns && SourceScopeRefusal.Unless(step, SourceScopeWritePolicy.Nothing) is { } refused)
+            if (RefuseRuns && SourceScopeRefusal.Unless(step, new SourceScopeWritePolicy([], "/work")) is { } refused)
                 return Task.FromResult(refused);
             return Task.FromResult(new StepResult(
                 StepResult.CurrentSchemaVersion, step.StepId, StepExit, false, 0.1, Error,

@@ -43,7 +43,7 @@ public sealed class ResolvedProjectBuilder(
             || designSources is null || requiresStart is null) return null;
         if (ProjectMachineStamp.Apply(name, raw.Machine, repoList, findings) is not { } repos) return null; // 2026-11-25-9992h
 
-        return CreateProject(name, raw, agent, tracker, repos, pipelines) with
+        return CreateProject(name, raw, agent, ProjectMachineStamp.Tracker(tracker, raw.Machine), repos, pipelines) with // 2026-11-25-0873
         {
             Templates = templates,
             DesignSources = designSources,
@@ -114,7 +114,7 @@ public sealed class ResolvedProjectBuilder(
             GitlabTrigger = raw.GitlabTrigger,
             AzuredevopsTrigger = raw.AzuredevopsTrigger,
             Polling = raw.Polling,
-            Sandbox = raw.Sandbox,
+            Sandbox = raw.Sandbox, Registries = [.. raw.Registries.Select(r => new RegistryConfig(r.Host, r.Username, r.Token))], // 2026-11-25-9992d
             Merge = raw.Merge ?? new MergePolicyConfig(), Machine = raw.Machine, // 2026-11-17-023fa, 2026-11-25-9992h
         };
 }

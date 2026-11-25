@@ -33,12 +33,14 @@ public sealed class CompositionRootTests
 
             var config = harness.Config;
 
-            config.Registries.Should().HaveCount(1,
-                "the fixture YAML's `registries:` block must reach DI through ServerCompositionBuilder. " +
+            // 2026-11-25-9992d: the feeds live on each project.
+            var registries = config.Projects["fixture-fix-bug"].Registries;
+            registries.Should().HaveCount(1,
+                "the fixture YAML's project `registries:` block must reach DI through ServerCompositionBuilder. " +
                 "If empty, the p0198-followup ordering bug is back (override before AddCoreDispatcherServices " +
                 "→ Empty() placeholder overwrites the loaded config).");
-            config.Registries[0].Host.Should().Be("pkgs.dev.azure.com");
-            config.Registries[0].Token.Should().Be("fixture-pat-xyz",
+            registries[0].Host.Should().Be("pkgs.dev.azure.com");
+            registries[0].Token.Should().Be("fixture-pat-xyz",
                 "secret reference `${azdo_token}` must resolve through the secrets dict.");
         }
         finally
@@ -54,7 +56,7 @@ public sealed class CompositionRootTests
 
         var config = harness.Config;
 
-        config.Registries.Should().BeEmpty(
+        config.Projects.Values.SelectMany(project => project.Registries).Should().BeEmpty(
             "docs-only / public-only YAML must round-trip to an empty list — not a parse error, not a null.");
     }
 

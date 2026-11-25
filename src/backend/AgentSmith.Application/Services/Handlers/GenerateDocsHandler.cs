@@ -55,11 +55,12 @@ public sealed class GenerateDocsHandler(
             context.Changes.Count, changedFiles);
 
         var plan = BuildSyntheticPlan(context.Changes);
-        var (fs, log, human) = passTools.For(partition, context.Repository.LocalPath);
+        var (fs, log, human) = passTools.For(partition);
 
         var systemPrompt = promptBuilder.BuildChangePassSystemPrompt(ChangePass.Docs,
             context.CodingPrinciples, context.RepoCodeMaps, context.ProjectContext);
-        var userPrompt = promptBuilder.BuildExecutionUserPrompt(plan, context.Repository);
+        var userPrompt = promptBuilder.BuildExecutionUserPrompt(plan, context.Repository,
+            repositoryPath: string.Join(", ", partition.ChangedRepoNames.Select(Repository.WorkPathFor)));
 
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
         var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);

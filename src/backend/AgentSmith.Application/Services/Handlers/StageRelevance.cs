@@ -103,7 +103,7 @@ public sealed class StageRelevance(SandboxTargets sandboxTargets, ILogger<StageR
         var result = await sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git",
                 Args: ["-c", "core.quotePath=false", "diff", "--name-only", "--no-renames", "-z", against],
-                WorkingDirectory: "/work", TimeoutSeconds: GitTimeoutSeconds),
+                TimeoutSeconds: GitTimeoutSeconds),
             progress: null, ct);
         var output = result.OutputContent ?? string.Empty;
         if (result.ExitCode != 0 || output.Length >= SizeLimits.RunStepCapturedStdoutMaxChars) return null;

@@ -36,7 +36,7 @@ public sealed class SecurityTrendHandler(
 
         var currentSnapshot = SecuritySnapshotBuilder.BuildCurrentSnapshot(context.Pipeline, repo);
 
-        var securityDir = Path.Combine(repo.LocalPath, SecurityDir);
+        var securityDir = sandbox.PathUnderRoot(SecurityDir);
         var previousSnapshots = await snapshots.LoadSnapshotsAsync(reader, securityDir, cancellationToken);
 
         var previous = previousSnapshots

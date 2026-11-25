@@ -35,7 +35,7 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
             {(review ? PrReviewPrompt.Opening : SecurityOpening)}
 
             ## Working source
-            **Path:** {repository.LocalPath}
+            **Path:** {string.Join(", ", repoNames.Select(Repository.WorkPathFor))}
             **Branch:** {repository.CurrentBranch}
             {repos}
             {BuildConversationSection(pipeline)}

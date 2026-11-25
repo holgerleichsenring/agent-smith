@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Services;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -20,7 +21,7 @@ public sealed class GitHubAppTokensTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 25, 12, 0, 0, TimeSpan.Zero);
     private static readonly MachineIdentity App = new("agent-smith-bot", "1+agent-smith-bot[bot]@users.noreply.github.com", "GH_APP_KEY", "123456", "987");
-    private static readonly RepoConnection Repo = new() { Name = "app", Type = RepoType.GitHub, Url = "https://github.com/example/app", Machine = App };
+    private static readonly MachineTarget Repo = new("Repo 'app' (machine identity 'agent-smith-bot')", "https://github.com/example/app");
     private readonly RSA _key = RSA.Create(2048);
     private readonly SettableClock _clock = new() { Now = Now };
     private readonly Handler _github = new();

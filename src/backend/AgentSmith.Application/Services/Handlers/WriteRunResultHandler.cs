@@ -150,11 +150,11 @@ public sealed class WriteRunResultHandler(
             var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
             var reader = readerFactory.Create(sandbox);
             await WriteRepoRecordAsync(
-                reader, context, runId, repoName: null, changeSet.For(null),
+                reader, sandbox.WorkDirectory(), context, runId, repoName: null, changeSet.For(null),
                 cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
                 failureReason, cacheResult: true, tryCachePlan: true, cancellationToken);
             await narrativeWriter.TryWriteAsync(
-                reader, context.Repository.LocalPath, context.Ticket, runId,
+                reader, sandbox.WorkDirectory(), context.Ticket, runId,
                 failureReason, changeSet.For(null), decisions, cancellationToken);
             logger.LogInformation("Written run result {RunId} (single sandbox)", RunIdGenerator.FormatForDisplay(runId));
             return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded");
@@ -162,7 +162,7 @@ public sealed class WriteRunResultHandler(
 
         var written = 0;
         var planCached = false;
-        var narratives = new List<(ISandboxFileReader Reader, IReadOnlyList<CodeChange> Changes)>();
+        var narratives = new List<(ISandboxFileReader Reader, string Root, IReadOnlyList<CodeChange> Changes)>();
         foreach (var repo in repos)
         {
             var sandbox = ResolvePerRepoSandbox(context.Pipeline, repo);
@@ -175,11 +175,11 @@ public sealed class WriteRunResultHandler(
             var repoReader = readerFactory.Create(sandbox);
             // 2026-10-12-f5f7c: the narrative goes to each repository that changed, with its changes.
             if (repos.Count == 1 || repoChanges.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString())))
-                narratives.Add((repoReader, repoChanges));
+                narratives.Add((repoReader, sandbox.WorkDirectory(), repoChanges));
             // cacheResult on the first repo; cache the first plan.md we find (the
             // agent may write its plan.md only in the repo it edited, p0235).
             planCached |= await WriteRepoRecordAsync(
-                repoReader, context, runId, repo.Name, repoChanges,
+                repoReader, sandbox.WorkDirectory(), context, runId, repo.Name, repoChanges,
                 cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
                 failureReason, cacheResult: written == 0, tryCachePlan: !planCached, cancellationToken);
             written++;
@@ -188,9 +188,9 @@ public sealed class WriteRunResultHandler(
         }
         // p0380 / 2026-10-12-f5f7c: the curated project memory of a green ticket run, in every
         // repository it changed — the store that repository's pull request carries.
-        foreach (var (reader, changes) in narratives)
+        foreach (var (reader, root, changes) in narratives)
             await narrativeWriter.TryWriteAsync(
-                reader, context.Repository.LocalPath, context.Ticket, runId,
+                reader, root, context.Ticket, runId,
                 failureReason, changes, decisions, cancellationToken);
         return CommandResult.Ok(
             $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {written} repo(s)");
@@ -227,7 +227,7 @@ public sealed class WriteRunResultHandler(
     // single-sandbox fallback. Returns true when it cached a plan.md for the
     // dashboard (p0235), so the per-repo loop caches the first one it finds.
     private async Task<bool> WriteRepoRecordAsync(
-        ISandboxFileReader reader, WriteRunResultContext context, string runId,
+        ISandboxFileReader reader, string root, WriteRunResultContext context, string runId,
         string? repoName, IReadOnlyList<CodeChange> repoChanges,
         RunCostSummary? cost, int duration, List<ExecutionTrailEntry>? trail,
         List<PlanDecision>? decisions, SecurityTrend? trend,
@@ -235,7 +235,7 @@ public sealed class WriteRunResultHandler(
         RunMetaTopology topology, string? failureReason, bool cacheResult, bool tryCachePlan,
         CancellationToken ct)
     {
-        var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
+        var agentDir = Path.Combine(root, AgentSmithDir); // 2026-11-25-9992c: the sandbox's own root
         var runDir = Path.Combine(agentDir, RunsDir, RunRecordPaths.DirName(runId));
 
         // p0196: coding presets retire GeneratePlan (Plan null) → no rendered
@@ -335,7 +335,7 @@ public sealed class WriteRunResultHandler(
             var reader = readerFactory.Create(sandbox);
             var repoComponents = components is not null && components.TryGetValue(repo.Name, out var rc) ? rc : null;
             var repoOutputs = outputs is not null && outputs.TryGetValue(repo.Name, out var ro) ? ro : null;
-            var runDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir, RunsDir, $"{runId}-init");
+            var runDir = Path.Combine(sandbox.WorkDirectory(), AgentSmithDir, RunsDir, $"{runId}-init");
 
             var planMd = RunResultFormatter.FormatInitPlan(runId, repo.Name, repoComponents);
             await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
@@ -365,7 +365,7 @@ public sealed class WriteRunResultHandler(
     {
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
         var reader = readerFactory.Create(sandbox);
-        var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
+        var agentDir = Path.Combine(sandbox.WorkDirectory(), AgentSmithDir);
         var runDir = Path.Combine(agentDir, RunsDir, $"{runId}-init");
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, cancellationToken);
         var (cost, duration) = ResolveCostAndDuration(context.Pipeline);

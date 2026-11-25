@@ -32,7 +32,7 @@ public sealed class InjectedSecretCheck(ISandboxSecretPresenceProbe probe) : IRu
     {
         var sandboxes = Sandboxes(pipeline);
         var injecting = Injecting(sandboxes);
-        if (injecting.Count > 0) return await ProbeAsync(injecting, cancellationToken);
+        if (injecting.Count > 0) return await ProbeAsync(injecting, Repos(pipeline), cancellationToken);
 
         var declared = DeclaredCount(pipeline);
         return declared == 0
@@ -42,15 +42,15 @@ public sealed class InjectedSecretCheck(ISandboxSecretPresenceProbe probe) : IRu
 
     private async Task<RunPreflightFinding> ProbeAsync(
         IReadOnlyList<(string Key, ISandbox Sandbox, ResolvedSandboxSecrets Secrets)> injecting,
-        CancellationToken cancellationToken)
+        IReadOnlyDictionary<string, string> repos, CancellationToken cancellationToken)
     {
         var missing = new List<string>();
         foreach (var (key, sandbox, secrets) in injecting)
             missing.AddRange(
-                (await probe.MissingAsync(sandbox, secrets, cancellationToken))
+                (await probe.MissingAsync(sandbox, secrets, repos.GetValueOrDefault(key), cancellationToken))
                 .Select(name => $"{key}: {name}"));
 
-        var declared = injecting.Sum(i => i.Secrets.Env.Count + i.Secrets.Files.Count);
+        var declared = injecting.Sum(i => i.Secrets.Count);
         return missing.Count == 0
             ? RunPreflightFinding.Pass(
                 Name, $"{declared} injected credential(s) present in {injecting.Count} sandbox(es)")
@@ -71,17 +71,23 @@ public sealed class InjectedSecretCheck(ISandboxSecretPresenceProbe probe) : IRu
             ? sandboxes
             : new Dictionary<string, ISandbox>(StringComparer.Ordinal);
 
+    // 2026-11-25-9992d: the repository a key belongs to, so its scoped variables are tested as its commands see them.
+    private static IReadOnlyDictionary<string, string> Repos(PipelineContext pipeline) =>
+        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, out var repos) && repos is not null
+            ? repos
+            : new Dictionary<string, string>(StringComparer.Ordinal);
+
+    // The backend is the injecting one; the key's own sandbox (its repository's root) is what the probe runs through.
     private static IReadOnlyList<(string Key, ISandbox Sandbox, ResolvedSandboxSecrets Secrets)>
         Injecting(IReadOnlyDictionary<string, ISandbox> sandboxes) =>
         [.. sandboxes
-            .Where(s => s.Value is ISandboxSecretInjection)
-            .Select(s => (s.Key, s.Value, ((ISandboxSecretInjection)s.Value).InjectedSecrets))
-            .Where(s => s.Item3.Env.Count + s.Item3.Files.Count > 0)];
+            .Where(s => s.Value.Backend() is ISandboxSecretInjection)
+            .Select(s => (s.Key, s.Value, ((ISandboxSecretInjection)s.Value.Backend()).InjectedSecrets))
+            .Where(s => s.Item3.Count > 0)];
 
     private static int DeclaredCount(PipelineContext pipeline)
     {
         if (!pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)) return 0;
-        var declared = project?.Sandbox?.Secrets;
-        return (declared?.Env?.Count ?? 0) + (declared?.Files?.Count ?? 0);
+        return project?.Sandbox?.Secrets?.DeclaredCount() ?? 0;
     }
 }

@@ -20,7 +20,8 @@ public sealed record StructureBaselineScope(
 
     public string? WorkdirBefore { get; init; }
 
-    public string PrinciplesPath => $"{ProjectMetaPaths.MetaDirFor(ContextName)}/{ProjectMetaPaths.PrinciplesFile}";
+    /// <summary>2026-11-25-9992c: under <paramref name="root"/>, the repository root of the sandbox it is read in.</summary>
+    public string PrinciplesPath(string root) => $"{ProjectMetaPaths.MetaDirFor(root, ContextName)}/{ProjectMetaPaths.PrinciplesFile}";
 
-    public string BaselinePath => $"{ProjectMetaPaths.MetaDirFor(ContextName)}/{StructureBaselineFile.FileName}";
+    public string BaselinePath(string root) => $"{ProjectMetaPaths.MetaDirFor(root, ContextName)}/{StructureBaselineFile.FileName}";
 }

@@ -94,6 +94,6 @@ public sealed class ForeignCommitProbe(
     private static Task<StepResult> RunAsync(ISandbox sandbox, IReadOnlyList<string> args, CancellationToken ct) =>
         sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git", Args: args,
-                WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: TimeoutSeconds),
+                TimeoutSeconds: TimeoutSeconds),
             progress: null, ct);
 }

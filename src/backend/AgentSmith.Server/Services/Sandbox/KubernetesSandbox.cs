@@ -6,21 +6,25 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
-/// ISandbox implementation backed by a Kubernetes Pod. Communication runs over
-/// SandboxRedisChannel; pod cleanup happens on DisposeAsync.
+/// ISandbox implementation backed by one toolchain container of a Kubernetes pod. Communication runs over
+/// SandboxRedisChannel. 2026-11-25-9992b: a single sandbox OWNS its pod and deletes it on DisposeAsync; a container of
+/// a run's workspace does not — <see cref="ContainerWorkspace"/> deletes the shared pod once, after every container.
 /// </summary>
 public sealed class KubernetesSandbox(
     IKubernetes client,
-    string @namespace,
-    string podName,
+    KubernetesContainerAddress address,
     string jobId,
     SandboxRedisChannel channel,
     SandboxBusCredential bus,
     int stepTimeoutCapSeconds,
     string toolchainImage,
     ResolvedSandboxSecrets injectedSecrets,
-    ILogger logger) : IHoldableSandbox, ISandboxToolchainImage, ISandboxSecretInjection, ISandboxExitReader
+    bool ownsPod,
+    ILogger logger) : IHoldableSandbox, ISandboxToolchainImage, ISandboxSecretInjection, ISandboxExitReader, ISandboxWorkDirectory
 {
+    /// <summary>2026-11-25-9992c: the pod holds one tree at the workspace mount; a run repository's RepoSandbox names its own.</summary>
+    public string WorkDirectory => Domain.Entities.Repository.WorkspaceRoot;
+
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
     private readonly KubernetesPodExitReader _exits = new(client);
 
@@ -34,8 +38,9 @@ public sealed class KubernetesSandbox(
     public ResolvedSandboxSecrets InjectedSecrets => injectedSecrets;
 
     // 2026-10-13-9a59i: read before the delete — the pod (RestartPolicy Never) still holds the exit.
+    // 2026-11-25-9992b: this container's own exit, not a sibling's.
     public Task<SandboxExitRead> ReadExitAsync(CancellationToken cancellationToken) =>
-        _exits.ReadAsync(podName, @namespace, cancellationToken);
+        _exits.ReadAsync(address.PodName, address.Container, address.Namespace, cancellationToken);
 
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
@@ -56,7 +61,8 @@ public sealed class KubernetesSandbox(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Sandbox shutdown signal failed for pod {Pod}", podName);
+            logger.LogWarning(ex, "Sandbox shutdown signal failed for {Container} of pod {Pod}",
+                address.Container, address.PodName);
         }
         await ForceRemoveAsync(CancellationToken.None);
     }
@@ -71,21 +77,8 @@ public sealed class KubernetesSandbox(
         // p0355: the pod delete must run on EVERY terminal path, even if the channel
         // teardown throws — a leaked channel is cheap, a leaked pod holds the quota.
         try { await channel.DisposeAsync(); }
-        catch (Exception ex) { logger.LogWarning(ex, "Sandbox channel dispose failed for pod {Pod}", podName); }
+        catch (Exception ex) { logger.LogWarning(ex, "Sandbox channel dispose failed for pod {Pod}", address.PodName); }
         await bus.DisposeAsync(); // 2026-10-25-c5a7e: after the channel, which still used the user
-        await TryDeletePodAsync();
-    }
-
-    private async Task TryDeletePodAsync()
-    {
-        try
-        {
-            await client.CoreV1.DeleteNamespacedPodAsync(podName, @namespace, gracePeriodSeconds: 0);
-            logger.LogInformation("Sandbox pod {Pod} deleted", podName);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to delete sandbox pod {Pod}", podName);
-        }
+        if (ownsPod) await new KubernetesPodRemoval(client, logger).DeleteAsync(address);
     }
 }

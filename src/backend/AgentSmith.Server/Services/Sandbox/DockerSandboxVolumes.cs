@@ -19,9 +19,15 @@ public sealed class DockerSandboxVolumes(IDockerClient docker, DockerOneShotRunn
         string slug, SandboxSecurityContext profile, CancellationToken ct)
     {
         var volumes = DockerSandboxVolumeSet.For(slug, profile);
-        foreach (var name in volumes.All)
-            await docker.Volumes.CreateAsync(new VolumesCreateParameters { Name = name }, ct);
+        await CreateAsync(volumes.All, ct);
         return volumes;
+    }
+
+    /// <summary>2026-11-25-9992b: creates the named volumes — a workspace's shared pair and its homes.</summary>
+    public async Task CreateAsync(IReadOnlyList<string> names, CancellationToken ct)
+    {
+        foreach (var name in names)
+            await docker.Volumes.CreateAsync(new VolumesCreateParameters { Name = name }, ct);
     }
 
     public async Task GiveOwnershipAsync(

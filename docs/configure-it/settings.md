@@ -30,9 +30,7 @@ Every one of these except `MaxConcurrentSandboxes`, hardening and the registry b
 
 A single registry plus version for the sandbox agent image, used when the Sandbox group leaves its own unset. Left empty, the tag is derived from the running server's release, so there is nothing to bump on upgrade; set it only to pin a tag on purpose.
 
-### Registries
-
-Private package feeds the agent authenticates against inside the sandbox, so `dotnet restore` or `npm install` against your internal feed works without baking credentials into a toolchain image.
+Private package feeds are not a setting: each project names its own, on the sandbox tab of the project drawer (`projects.<name>.registries`). See [The Config studio](config-studio.md#the-project-drawer).
 
 ### Primary provider
 

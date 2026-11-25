@@ -1,7 +1,7 @@
 # Sandbox Agent
 
 The **Sandbox Agent** is a small, standalone .NET executable that runs inside
-each per-pipeline sandbox pod. It pulls Steps from Redis, executes them as
+each toolchain container of a run's workspace pod. It pulls Steps from Redis, executes them as
 shell commands, streams stdout/stderr back, and exits when told to.
 
 It is deliberately **boring**: no provider knowledge, no pipeline knowledge,
@@ -11,10 +11,10 @@ binary into any official toolchain image via the **init-container pattern**.
 
 ## What it is
 
-- A worker process inside a sandbox pod
+- A worker process inside one toolchain container of a sandbox pod
 - Driven by a Redis wire format (Step / StepEvent / StepResult)
 - Self-contained .NET single-file binary, built for glibc and for musl; a static launcher picks the build the toolchain image can run
-- One sandbox = one agent process (run-once, exit on Shutdown); a run gets one sandbox per repo and toolchain image
+- One toolchain container = one agent process with its own job id (run-once, exit on Shutdown); a run gets one workspace pod with one container per distinct toolchain image, all mounting one `/work` with the repos at `/work/<repo>`
 
 ## What it isn't
 
@@ -26,7 +26,7 @@ binary into any official toolchain image via the **init-container pattern**.
 
 ## The init-container injection pattern
 
-Each sandbox pod has **two containers** sharing an `emptyDir` volume:
+Each sandbox pod has an init container and one toolchain container per image, sharing an `emptyDir` volume. The single-image case:
 
 ```
 ┌──────────────────── Pod ─────────────────────┐
@@ -94,13 +94,13 @@ spec:
       emptyDir: {}
   initContainers:
     - name: inject-agent
-      image: holgerleichsenring/agent-smith-sandbox-agent:0.219.0   # derived from the server's release
+      image: holgerleichsenring/agent-smith-sandbox-agent:0.220.0   # derived from the server's release
       volumeMounts:
         - name: shared
           mountPath: /shared
       # default CMD already runs `--inject /shared/agent`
   containers:
-    - name: toolchain
+    - name: toolchain-0
       image: mcr.microsoft.com/dotnet/sdk:8.0   # <-- unmodified upstream
       command: ['/shared/agent']
       args:
@@ -120,6 +120,7 @@ spec:
         - name: work
           mountPath: /work
       workingDir: /work
+    # toolchain-1, … : one per further image, same shape, own job id, same /work
 ```
 <!-- x-release-please-end -->
 
@@ -158,7 +159,7 @@ Three keys per job, all under the `sandbox:{jobId}:` namespace:
   "stepId": "11111111-1111-1111-1111-111111111111",
   "kind": "run",
   "command": "git",
-  "args": ["clone", "https://github.com/foo/bar.git", "."],
+  "args": ["clone", "https://github.com/foo/bar.git", "/work/bar"],
   "workingDirectory": "/work",
   "env": null,
   "timeoutSeconds": 600

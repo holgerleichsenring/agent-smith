@@ -25,7 +25,6 @@ internal static class ConfigDocumentTaxonomy
         ConfigDocDescriptor.Collection(ConfigDocTypes.Secret, r => r.Secrets),
         ConfigDocDescriptor.Collection(ConfigDocTypes.PipelineTrigger, r => r.PipelineTriggers),
 
-        ConfigDocDescriptor.Singleton(ConfigDocTypes.Registries, r => r.Registries, (r, v) => r.Registries = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Queue, r => r.Queue, (r, v) => r.Queue = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Skills, r => r.Skills, (r, v) => r.Skills = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.PrimaryProvider, r => new PrimaryProviderDoc(r.PrimaryProvider),

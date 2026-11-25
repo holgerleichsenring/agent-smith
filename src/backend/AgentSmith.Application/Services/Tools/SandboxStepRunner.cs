@@ -17,6 +17,9 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
     /// <summary>2026-11-10-85e2: open now — a source scope that has not materialized is not, and asking it would open it.</summary>
     internal bool IsOpen => sandbox is not ISourceScopeSandbox { IsMaterialized: false };
 
+    /// <summary>2026-11-25-9992c: the repository root of the sandbox this runner speaks to.</summary>
+    internal string Root => sandbox.WorkDirectory();
+
     public SandboxStepRunner(ISandbox sandbox, int? runCommandTimeoutSeconds = null)
         : this(sandbox, new RunCommandTimeout(runCommandTimeoutSeconds, stepTimeoutCapSeconds: null)) { }
 

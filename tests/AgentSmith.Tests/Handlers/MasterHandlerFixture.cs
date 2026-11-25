@@ -154,7 +154,6 @@ internal static class MasterHandlerFixture
         new(new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
             new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
                 new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
-                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
                 new SandboxRepoCloner(
                     Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
                     new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),

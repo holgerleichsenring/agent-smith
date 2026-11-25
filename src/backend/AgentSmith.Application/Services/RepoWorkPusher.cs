@@ -28,8 +28,7 @@ public sealed class RepoWorkPusher(
     {
         var matches = sandboxTargets.SandboxesForRepo(pipeline, repo);
         if (matches.Count == 0) return;
-        // Multi-context monorepo: checkpoint the first sandbox, same convention as
-        // PersistWorkBranch; secondary-sandbox edits consolidate at CommitAndPR time.
+        // 2026-11-25-9992b: every key of the repository works in this one tree of the workspace.
         var sandbox = matches[0].Value;
 
         if (!await gitOps.HasWorkingChangesAsync(sandbox, ct)) return;

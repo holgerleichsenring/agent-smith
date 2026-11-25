@@ -12,19 +12,19 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Sandbox;
 
-/// <summary>2026-11-24-6811c: a repository whose contexts need two images is two sandboxes; the merge a master resolved in
-/// the primary reaches the secondary as the same tree — through the shared merge-tree and the resolution's diff alone, never
-/// the landed base as a diff — so each context's stages build what would be pushed.</summary>
+/// <summary>2026-11-24-6811c: the merge a master resolved is built by the repository's declared stages before the push —
+/// over the levelled tree, so the stages build what would be pushed. 2026-11-25-9992b: every key of a repository works in
+/// the workspace's one tree, so nothing is levelled into a second clone any more.</summary>
 [Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class BaseMergeVerifyTests
 {
     [Fact]
-    public async Task AResolvedConflict_ReachesTheSecondary_AndItsStagesRunThere()
+    public async Task AResolvedConflict_ItsStagesRunOverTheLevelledTree()
     {
         await using var clones = await SandboxClones.CreateAsync();
         if (clones is null) return;
-        var (primary, secondary) = (clones.Primary, clones.Secondary);
+        var primary = clones.Primary;
         await clones.GitAsync(primary, "checkout", "-q", "-b", "main");
         await clones.WriteAsync(primary, "web/app.ts", "the base's\n");
         await clones.CommitAllAsync(primary, "base");
@@ -33,19 +33,16 @@ public sealed class BaseMergeVerifyTests
         await clones.WriteAsync(primary, "web/app.ts", "the branch's\n");
         await clones.CommitAllAsync(primary, "branch");
         await clones.GitAsync(primary, "push", "-q", "origin", SandboxClones.Branch);
-        await clones.GitAsync(secondary, "fetch", "-q", "origin");
-        await clones.GitAsync(secondary, "reset", "-q", "--hard", $"origin/{SandboxClones.Branch}");
-        var head = await clones.HeadAsync(primary);
         await clones.GitAsync(primary, "fetch", "-q", "origin");
         await GitMayFail(clones, primary, "merge", "--no-edit", "origin/main");
         await clones.WriteAsync(primary, "web/app.ts", "both kept\n");
         await clones.CommitAllAsync(primary, "merge");
-        Stages(clones, "grep -q 'both kept' web/app.ts");
+        await clones.WriteAsync(primary, "stray.txt", "left over\n");
+        Stages(clones, primary, "grep -q 'both kept' web/app.ts && test ! -e stray.txt");
 
-        var verdict = await Verify().RunAsync(clones.Pipeline, Repo(clones), head, "origin/main", CancellationToken.None);
+        var verdict = await Verify().RunAsync(clones.Pipeline, Repo(clones), CancellationToken.None);
 
-        verdict.Should().Be(new BaseMergeVerdict(2, null, null));
-        (await clones.ReadAsync(secondary, "web/app.ts")).Should().Be("both kept\n");
+        verdict.Should().Be(new BaseMergeVerdict(1, null, null));
     }
 
     private static async Task GitMayFail(SandboxClones clones, string key, params string[] args)
@@ -57,14 +54,16 @@ public sealed class BaseMergeVerifyTests
     private static RepoConnection Repo(SandboxClones clones) =>
         clones.Pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)[0];
 
-    private static void Stages(SandboxClones clones, string command) =>
+    private static void Stages(SandboxClones clones, string key, string command) =>
         clones.Pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(ContextKeys.SandboxContexts,
-            clones.Sandboxes.Keys.ToDictionary(k => k, k => (IReadOnlyList<RemoteContextDiscovery>)
-                [new RemoteContextDiscovery(k, ".", "csharp", Verify: [new("build", command)])], StringComparer.Ordinal));
+            new Dictionary<string, IReadOnlyList<RemoteContextDiscovery>>(StringComparer.Ordinal)
+            {
+                [key] = [new RemoteContextDiscovery(key, ".", "csharp", Verify: [new("build", command)])],
+            });
 
     private static BaseMergeVerify Verify() => new(new ContextVerifyStagesResolver(),
         new VerifyStageResolver(new DeclaredStagePresence(new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
             NullLogger<VerifyStageResolver>.Instance),
-        new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance), new SandboxTargets(), TestTreeSync.TreeGit(), new BaseRefreshGit(),
+        new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance), new SandboxTargets(), new BaseRefreshGit(),
         NullLogger<BaseMergeVerify>.Instance);
 }

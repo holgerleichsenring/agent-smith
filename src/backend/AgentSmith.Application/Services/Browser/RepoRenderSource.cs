@@ -13,7 +13,6 @@ namespace AgentSmith.Application.Services.Browser;
 public sealed class RepoRenderSource(ISandboxFileReaderFactory files, RepoTreeListing listing)
 {
     internal const string NotCopied = "not copied (binary, or over the 1 MB a sandbox read returns)";
-    private const string WorkRoot = "/work";
 
     public async Task<(StagedSource? Staged, string? Refusal)> CopyAsync(
         ISandbox browser, IReadOnlyDictionary<string, ISandbox> repos, string? repo, string path, CancellationToken ct)
@@ -25,7 +24,7 @@ public sealed class RepoRenderSource(ISandboxFileReaderFactory files, RepoTreeLi
         if (tree is null) return (null, refusal);
         var source = files.Create(sandbox);
         var target = files.Create(browser);
-        var root = $"{WorkRoot}/repo/{Guid.NewGuid():N}";
+        var root = browser.PathUnderRoot($"repo/{Guid.NewGuid():N}");
         var notes = new List<string>();
         foreach (var file in tree)
         {

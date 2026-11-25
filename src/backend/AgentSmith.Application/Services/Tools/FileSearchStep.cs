@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Entities;
-
 namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
@@ -18,9 +16,9 @@ internal static class FileSearchStep
 {
     public const string Program = "find";
 
-    /// <summary>The arguments for a root already contained under the work path.</summary>
-    public static IReadOnlyList<string> Arguments(string relativeRoot, string pattern) =>
-        [Specs.ContainedPath.Absolute(relativeRoot), "-type", "f", "-path", NormalizePattern(pattern)];
+    /// <summary>The arguments for a root already contained under the repository root <paramref name="root"/>.</summary>
+    public static IReadOnlyList<string> Arguments(string root, string relativeRoot, string pattern) =>
+        [Specs.ContainedPath.Absolute(root, relativeRoot), "-type", "f", "-path", NormalizePattern(pattern)];
 
     private static string NormalizePattern(string pattern)
     {
@@ -35,11 +33,11 @@ internal static class FileSearchStep
     /// claims; a bad exit WITH matches is still matches, because find reports an unreadable
     /// directory that way.
     /// </summary>
-    public static string Format(ProgramRun run, int limit)
+    public static string Format(ProgramRun run, int limit, string root)
     {
         var lines = ExtractStdoutSection(run.Rendered)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(RepoRelative)
+            .Select(line => RepoRelative(line, root))
             .ToList();
         if (run.ExitCode != 0 && lines.Count == 0)
             return $"Error: {Program} did not run in this sandbox, so nothing was searched — "
@@ -49,10 +47,11 @@ internal static class FileSearchStep
     }
 
     /// <summary>The path as the model addresses files, now that find is given a rooted one.</summary>
-    private static string RepoRelative(string line) =>
-        line.StartsWith(Repository.SandboxWorkPath + "/", StringComparison.Ordinal)
-            ? line[(Repository.SandboxWorkPath.Length + 1)..]
-            : line;
+    private static string RepoRelative(string line, string root)
+    {
+        var prefix = root.TrimEnd('/') + "/";
+        return line.StartsWith(prefix, StringComparison.Ordinal) ? line[prefix.Length..] : line;
+    }
 
     /// <summary>RunProgramAsync renders the labeled-section format; this pulls stdout out.</summary>
     private static string ExtractStdoutSection(string structured)

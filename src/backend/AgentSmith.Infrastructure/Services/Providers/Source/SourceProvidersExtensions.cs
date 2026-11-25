@@ -19,7 +19,9 @@ public static class SourceProvidersExtensions
         services.AddSingleton<IAzDoClientFactory, DefaultAzDoClientFactory>();
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         // 2026-11-25-9992h: a GitHub App machine identity's installation tokens, one synchronous mint an hour per installation.
-        services.AddSingleton<IMachineTokens>(_ => new GitHubAppTokens(new HttpClient(), TimeProvider.System));
+        // 2026-11-25-d0e2: and a service principal's Entra tokens, one synchronous mint an hour per principal.
+        services.AddSingleton<IMachineTokens>(_ => new MachineTokens(
+            new GitHubAppTokens(new HttpClient(), TimeProvider.System), new EntraPrincipalTokens(new HttpClient(), TimeProvider.System)));
         services.AddSingleton<IPrDiffProviderFactory, PrDiffProviderFactory>();
         services.AddSingleton<IHostSourceCloner, HostSourceCloner>();
         services.AddSingleton<IPipelineRunnerFactory, PipelineRunnerFactory>(); // 2026-11-18-3863e

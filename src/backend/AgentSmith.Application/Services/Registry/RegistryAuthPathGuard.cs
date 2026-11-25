@@ -13,7 +13,8 @@ namespace AgentSmith.Application.Services.Registry;
 public sealed class RegistryAuthPathGuard
 {
     private const string SandboxHome = "/root";
-    private const string RepoTreeRoot = "/work";
+    // 2026-11-25-9992c: the whole workspace mount, so every repository tree beside the run's is refused too.
+    private const string RepoTreeRoot = Domain.Entities.Repository.WorkspaceRoot;
 
     public RegistryAuthPathVerdict Check(string path)
     {

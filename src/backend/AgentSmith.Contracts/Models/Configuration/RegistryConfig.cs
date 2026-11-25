@@ -1,7 +1,7 @@
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
-/// One entry in the agentsmith.yml `registries:` list (p0191). Authenticates
+/// One entry in a project's `registries:` list (p0191; per project since 2026-11-25-9992d). Authenticates
 /// the agent against a private package feed (NuGet / npm / pip / maven /
 /// whatever) when the toolchain step inside a sandbox returns NU1301 /
 /// EAUTH / 401. Token is the only sensitive field; matched on Host via the

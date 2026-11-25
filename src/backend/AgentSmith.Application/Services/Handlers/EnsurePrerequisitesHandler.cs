@@ -1,12 +1,8 @@
-using CommandLineStringSplitter = System.CommandLine.Parsing.CommandLineStringSplitter;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using AgentSmith.Sandbox.Wire;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -20,12 +16,9 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class EnsurePrerequisitesHandler(
     SandboxTargets sandboxTargets,
     IOptions<SandboxGlobalConfig> sandboxConfig,
-    ILogger<EnsurePrerequisitesHandler> logger)
+    PrerequisiteInstall install)
     : ICommandHandler<EnsurePrerequisitesContext>
 {
-    // The backend applies sandbox.step_timeout_seconds (p0200), the single knob that changes this.
-    private const int InstallTimeoutSeconds = 900;
-
     // 2026-10-25-c5a7a/ff3b: a prerequisite that apt-installs fails in a hardened sandbox; say why.
     private const string HardenedHint =
         "\nThis installation runs sandboxes as uid 1000, not root (sandbox.hardening_enabled). A prerequisite "
@@ -39,23 +32,11 @@ public sealed class EnsurePrerequisitesHandler(
 
         // Only the operator-declared context.yaml prerequisite runs: a derived install guessed
         // command and subtree and failed on real layouts, so dependency installs are the coding
-        // master's job. It runs at the REPOSITORY ROOT; a command needing another directory
-        // carries its own cd, because meta.workdir says where source lives, not the manifest.
-        var outcomes = new List<InstallOutcome>(sandboxes.Count);
+        // master's job.
+        var outcomes = new List<PrerequisiteOutcome>(sandboxes.Count);
         foreach (var (key, sandbox) in sandboxes)
-        {
-            if (!discoveries.TryGetValue(key, out var discovery))
-                continue;
-            var command = discovery.Prerequisites;
-            if (string.IsNullOrWhiteSpace(command))
-            {
-                logger.LogInformation("{Key}: no context.yaml prerequisites — the coding agent installs deps as needed; skipping", key);
-                outcomes.Add(new InstallOutcome(key, ExitCode: 0, Skipped: true));
-                continue;
-            }
-            outcomes.Add(await RunOneAsync(
-                key, sandbox, Repository.SandboxWorkPath, command!, cancellationToken));
-        }
+            if (discoveries.TryGetValue(key, out var discovery))
+                outcomes.Add(await install.RunAsync(key, sandbox, discovery.Prerequisites, cancellationToken));
 
         return BuildAggregateResult(outcomes, RunsHardened(context.Pipeline));
     }
@@ -65,32 +46,7 @@ public sealed class EnsurePrerequisitesHandler(
         pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)
         && project?.Sandbox?.RunAsRoot == true) == SandboxSecurityContext.Hardened;
 
-    private async Task<InstallOutcome> RunOneAsync(
-        string key, ISandbox sandbox, string workingDirectory, string rawCommand, CancellationToken ct)
-    {
-        var tokens = CommandLineStringSplitter.Instance.Split(rawCommand).ToList();
-        if (tokens.Count == 0)
-        {
-            logger.LogWarning("{Key}: install command '{Raw}' tokenized to zero arguments; skipping", key, rawCommand);
-            return new InstallOutcome(key, ExitCode: 0, Skipped: true);
-        }
-
-        logger.LogInformation("{Key}: installing dependencies via {Command} at {Cwd}", key, rawCommand, workingDirectory);
-        var step = new Step(
-            Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: tokens[0], Args: tokens.Skip(1).ToArray(),
-            WorkingDirectory: workingDirectory, TimeoutSeconds: InstallTimeoutSeconds);
-        var result = await sandbox.RunStepAsync(step, progress: null, ct);
-        var output = Combine(result.OutputContent, result.ErrorMessage);
-        if (result.ExitCode != 0)
-            // Surface WHY: without this the operator only sees "failed in repo X"
-            // and the dashboard shows "waiting for stdout…" — undiagnosable.
-            logger.LogError("{Key}: '{Command}' failed (exit {Exit}) at {Cwd}:\n{Output}",
-                key, rawCommand, result.ExitCode, workingDirectory, Tail(output, 4000));
-        return new InstallOutcome(key, result.ExitCode, Skipped: false, Output: output);
-    }
-
-    private CommandResult BuildAggregateResult(IReadOnlyList<InstallOutcome> outcomes, bool hardened)
+    private static CommandResult BuildAggregateResult(IReadOnlyList<PrerequisiteOutcome> outcomes, bool hardened)
     {
         var ran = outcomes.Where(o => !o.Skipped).ToList();
         if (ran.Count == 0) return CommandResult.Ok("No contexts had an initialize command; skipped all.");
@@ -107,11 +63,6 @@ public sealed class EnsurePrerequisitesHandler(
             + (hardened ? HardenedHint : ""));
     }
 
-    private static string Combine(string? stdout, string? stderr) =>
-        string.Join("\n", new[] { stdout, stderr }.Where(s => !string.IsNullOrWhiteSpace(s))).Trim();
-
     private static string Tail(string? text, int max) =>
         string.IsNullOrEmpty(text) ? "" : text.Length <= max ? text : "…" + text[^max..];
-
-    private sealed record InstallOutcome(string Key, int ExitCode, bool Skipped, string? Output = null);
 }

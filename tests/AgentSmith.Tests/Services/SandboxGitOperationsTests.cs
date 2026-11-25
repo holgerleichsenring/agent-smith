@@ -62,52 +62,6 @@ public sealed class SandboxGitOperationsTests
             .Where(e => e.Message.Contains("nothing to commit"));
     }
 
-    [Fact]
-    public async Task ConsolidateSecondarySandboxes_MultiSandbox_AppliesSecondaryDiffIntoPrimary()
-    {
-        var primarySteps = new List<Step>();
-        var primary = ScriptedSandbox(primarySteps, diffOutput: null);
-        var secondarySteps = new List<Step>();
-        var secondary = ScriptedSandbox(secondarySteps, diffOutput: "diff --git a/x b/x\n+change\n");
-
-        var matches = new List<KeyValuePair<string, ISandbox>>
-        {
-            new("repo/primary", primary),
-            new("repo/secondary", secondary),
-        };
-
-        var n = await _sut.ConsolidateSecondarySandboxesAsync(matches, primary, CancellationToken.None);
-
-        n.Should().Be(1);
-        secondarySteps.Should().Contain(s => (s.Args ?? Array.Empty<string>()).Contains("--cached"), "the secondary's staged diff is pulled");
-        primarySteps.Should().Contain(s => (s.Args ?? Array.Empty<string>()).Contains("apply"), "the secondary's diff is git-applied into the primary");
-    }
-
-    [Fact]
-    public async Task ConsolidateSecondarySandboxes_SingleSandbox_NoOp()
-    {
-        var n = await _sut.ConsolidateSecondarySandboxesAsync(
-            new List<KeyValuePair<string, ISandbox>> { new("repo", _sandboxMock.Object) },
-            _sandboxMock.Object, CancellationToken.None);
-
-        n.Should().Be(0);
-    }
-
-    private static ISandbox ScriptedSandbox(List<Step> steps, string? diffOutput)
-    {
-        var mock = new Mock<ISandbox>();
-        mock.Setup(s => s.RunStepAsync(
-                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
-            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
-            {
-                steps.Add(step);
-                var output = (step.Args ?? Array.Empty<string>()).Contains("--cached") ? diffOutput : null;
-                return Task.FromResult(new StepResult(
-                    StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, output));
-            });
-        return mock.Object;
-    }
-
     // p0322c: a non-zero `git commit` that is NOT git's canonical clean-tree
     // phrase is a real failure (hook, perms, config) and must surface the real
     // git output — the old code collapsed it into false, which was rethrown as a

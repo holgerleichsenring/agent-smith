@@ -27,7 +27,7 @@ public sealed class EnsurePrerequisitesHandlerTests
         new SandboxTargets(),
         Microsoft.Extensions.Options.Options.Create(
             new AgentSmith.Contracts.Models.Configuration.SandboxGlobalConfig { HardeningEnabled = hardening }),
-        NullLogger<EnsurePrerequisitesHandler>.Instance);
+        new PrerequisiteInstall(NullLogger<PrerequisiteInstall>.Instance));
 
     [Fact]
     public async Task EnsurePrerequisitesHandler_EmptyPrerequisites_ReturnsOk_LogsSkip()

@@ -59,13 +59,13 @@ public static class ProjectMetaPaths
     public const string RetiredPrinciplesFile = "coding-principles.md";
 
     /// <summary>p0161a: absolute MetaDir inside the sandbox for one discovered
-    /// context. /work prefix matches Repository.SandboxWorkPath. Result is
-    /// /work/.agentsmith/contexts/&lt;contextName&gt;.</summary>
-    public static string MetaDirFor(string contextName) =>
-        $"/work/{Contexts}/{contextName}";
+    /// context, under the sandbox's repository root <paramref name="root"/> (2026-11-25-9992c:
+    /// ISandbox.WorkDirectory()). Result is &lt;root&gt;/.agentsmith/contexts/&lt;contextName&gt;.</summary>
+    public static string MetaDirFor(string root, string contextName) =>
+        $"{root.TrimEnd('/')}/{Contexts}/{contextName}";
 
     /// <summary>2026-09-23-4711: the absolute sandbox path <see cref="MetaDirFor"/>'s
     /// directory is MOVED to when it is retired — the same name, one directory across.</summary>
-    public static string RetiredMetaDirFor(string contextName) =>
-        $"/work/{RetiredContexts}/{contextName}";
+    public static string RetiredMetaDirFor(string root, string contextName) =>
+        $"{root.TrimEnd('/')}/{RetiredContexts}/{contextName}";
 }

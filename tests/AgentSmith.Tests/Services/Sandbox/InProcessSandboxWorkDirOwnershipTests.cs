@@ -12,9 +12,8 @@ namespace AgentSmith.Tests.Services.Sandbox;
 /// Regression-guard: <see cref="InProcessSandbox"/> DisposeAsync used to
 /// <c>Directory.Delete(workDir, recursive: true)</c> unconditionally, which
 /// destroyed operator-owned source trees when the sandbox was created via
-/// <see cref="InProcessSandboxFactory"/> with a <see cref="SandboxSpec.InitialSourcePath"/>
-/// (e.g. an <c>api-scan --source-path</c> CLI invocation against a real working
-/// copy). This suite asserts the ownsWorkDir contract: the sandbox only removes
+/// a reused operator source (e.g. an <c>api-scan --source-path</c> CLI invocation
+/// against a real working copy; 2026-11-25-9992b: now a mount of the in-process workspace). This suite asserts the ownsWorkDir contract: the sandbox only removes
 /// what it created, never what the operator handed in.
 /// </summary>
 [Trait("TestProcess", "serial")]
@@ -67,35 +66,6 @@ public sealed class InProcessSandboxWorkDirOwnershipTests
 
         Directory.Exists(sandboxTemp).Should().BeFalse(
             "sandbox-owned tempdir must be cleaned up on Dispose");
-    }
-
-    [Fact]
-    public async Task Factory_ReusesInitialSourcePath_ProducesNonOwningSandbox()
-    {
-        var operatorPath = Path.Combine(Path.GetTempPath(), $"agentsmith-factory-ownership-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(operatorPath);
-        var sentinel = Path.Combine(operatorPath, "marker.txt");
-        await File.WriteAllTextAsync(sentinel, "operator file");
-        try
-        {
-            var factory = new InProcessSandboxFactory(InProcessStepEnvironmentReaders.Empty(), NullLoggerFactory.Instance);
-            var spec = new SandboxSpec(
-                ToolchainImage: "irrelevant",
-                Resources: ResourceLimits.Default,
-                InitialSourcePath: operatorPath);
-
-            var sandbox = await factory.CreateAsync(spec, CancellationToken.None);
-            await sandbox.DisposeAsync();
-
-            Directory.Exists(operatorPath).Should().BeTrue(
-                "factory must produce a non-owning sandbox when reusing InitialSourcePath");
-            File.Exists(sentinel).Should().BeTrue();
-        }
-        finally
-        {
-            if (Directory.Exists(operatorPath))
-                Directory.Delete(operatorPath, recursive: true);
-        }
     }
 
     [Fact]

@@ -281,6 +281,74 @@ describe("ProjectForm structured sandbox overrides", () => {
     expect(saved[0].sandbox!.structured!.secrets).toBeNull();
   });
 
+  // 2026-11-25-9992d: a variable only one repository's commands receive, folded into repo -> NAME -> reference.
+  it("ProjectForm_TheRepoEnvRows_FoldIntoOneMapPerRepository", () => {
+    const saved: StudioProject[] = [];
+    render(<Harness onSave={(p) => saved.push(p)} />);
+    openSandbox();
+
+    const row = (i: number, repo: string, name: string, ref: string) => {
+      fireEvent.click(screen.getByTestId("form-field-sandbox-secrets-repoEnv-add"));
+      fireEvent.change(screen.getByTestId(`form-field-sandbox-secrets-repoEnv-repo-${i}`), { target: { value: repo } });
+      fireEvent.change(screen.getByTestId(`form-field-sandbox-secrets-repoEnv-name-${i}`), { target: { value: name } });
+      fireEvent.change(screen.getByTestId(`form-field-sandbox-secrets-repoEnv-ref-${i}`), { target: { value: ref } });
+    };
+    row(0, "api", "DB_PASSWORD", "api-creds:db");
+    row(1, "api", "API_KEY", "api-creds:key");
+    row(2, "web", "NPM_TOKEN", "web-creds:npm");
+    fireEvent.click(screen.getByTestId("save"));
+
+    expect(saved.at(-1)!.sandbox!.structured!.secrets!.repoEnv).toEqual({
+      api: { DB_PASSWORD: "api-creds:db", API_KEY: "api-creds:key" },
+      web: { NPM_TOKEN: "web-creds:npm" },
+    });
+  });
+
+  it("ProjectForm_AStoredRepoEnv_ShowsItsRowsAndDroppingTheLastDeclaresNone", () => {
+    const saved: StudioProject[] = [];
+    render(
+      <Harness
+        initial={{ sandbox: { structured: { secrets: { repoEnv: { api: { DB_PASSWORD: "api-creds:db" } } } } } }}
+        onSave={(p) => saved.push(p)}
+      />,
+    );
+    openSandbox();
+
+    expect(screen.getByTestId("form-field-sandbox-secrets-repoEnv-repo-0")).toHaveValue("api");
+    expect(screen.getByTestId("form-field-sandbox-secrets-repoEnv-ref-0")).toHaveValue("api-creds:db");
+    fireEvent.click(screen.getByTestId("form-field-sandbox-secrets-repoEnv-remove-0"));
+    fireEvent.click(screen.getByTestId("save"));
+
+    expect(saved[0].sandbox!.structured!.secrets).toBeNull();
+  });
+
+  // 2026-11-25-9992d: the project's private package feeds, moved here from the installation Settings.
+  it("ProjectForm_TheFeedsEditor_RoundTripsTheProjectsRegistries", () => {
+    const saved: StudioProject[] = [];
+    render(
+      <Harness
+        initial={{ registries: [{ host: "pkgs.example.com", username: "any", token: "${feed_token}" }] }}
+        onSave={(p) => saved.push(p)}
+      />,
+    );
+    openSandbox();
+
+    expect(screen.getByTestId("form-registry-0-host")).toHaveValue("pkgs.example.com");
+    fireEvent.click(screen.getByTestId("form-registry-add"));
+    fireEvent.change(screen.getByTestId("form-registry-1-host"), { target: { value: "npm.example.com" } });
+    fireEvent.change(screen.getByTestId("form-registry-1-token"), { target: { value: "${npm_token}" } });
+    fireEvent.click(screen.getByTestId("save"));
+    expect(saved.at(-1)!.registries).toEqual([
+      { host: "pkgs.example.com", username: "any", token: "${feed_token}" },
+      { host: "npm.example.com", username: "", token: "${npm_token}" },
+    ]);
+
+    fireEvent.click(screen.getByTestId("form-registry-0-remove"));
+    fireEvent.click(screen.getByTestId("form-registry-0-remove"));
+    fireEvent.click(screen.getByTestId("save"));
+    expect(saved.at(-1)!.registries).toEqual([]);
+  });
+
   it("ProjectForm_DeletingTheLastMapRow_WritesInheritNotAnEmptyMap", () => {
     const saved: StudioProject[] = [];
     render(

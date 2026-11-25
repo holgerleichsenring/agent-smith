@@ -57,14 +57,8 @@ public sealed class RepoAccessCheck(
         return PreflightCheckResult.Pass(string.Join(" | ", lines));
     }
 
-    // Deduplicated by what is actually reached: two projects sharing one connection
-    // resolve the same remote twice, and probing it twice proves nothing new.
+    // Deduplicated by what is actually reached: two projects sharing one connection resolve the same remote twice, and
+    // probing it twice proves nothing new. 2026-11-25-0873: a project's repo is probed as its machine identity.
     private static IReadOnlyList<RepoConnection> Remotes(AgentSmithConfig config) =>
-        [.. config.Repos.Values
-            .Concat(config.Projects.Values.SelectMany(p => p.Repos))
-            .Where(r => r.Type != RepoType.Local)
-            .DistinctBy(Target, StringComparer.OrdinalIgnoreCase)];
-
-    private static string Target(RepoConnection repo) =>
-        $"{repo.Type}|{repo.Url ?? repo.Path ?? repo.Name}|{repo.Auth}";
+        [.. PreflightRepos.Acting(config).Where(r => r.Type != RepoType.Local)];
 }

@@ -33,8 +33,9 @@ public sealed class GitOpsCommitHandler(
         var pocs = config.Current();
         if (pocs.Targets.FirstOrDefault(t => string.Equals(t.Name, poc.Target, StringComparison.OrdinalIgnoreCase)) is not { } target)
             return CommandResult.Fail($"'{poc.Name}' names the target '{poc.Target}', which pocs.targets no longer holds.");
-        if (context.Project.Repos.FirstOrDefault() is not { } repo)
+        if (context.Project.Repos.FirstOrDefault() is not { } projectRepo)
             return CommandResult.Fail($"The project '{context.Project.Name}' names no source repo to commit '{poc.Name}' to.");
+        var repo = PocMachine.Stamp(pocs, projectRepo); // 2026-11-25-0873
         if (context.Pipeline.TryGet<bool>(ContextKeys.PocRolloutAbsent, out var absent) && absent)
             return await DeleteAsync(context, poc, repo, $"{target.DeployRoot.TrimEnd('/')}/{poc.Name}", pocs.Gitops, cancellationToken);
         if (poc.IsGone) return CommandResult.Fail($"'{poc.Name}' is {(poc.State == PocStates.Deleted ? "deleted" : "being deleted")}; nothing is rendered into its deploy folder.");

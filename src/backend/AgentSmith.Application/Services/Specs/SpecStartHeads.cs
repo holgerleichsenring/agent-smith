@@ -57,8 +57,7 @@ public sealed class SpecStartHeads(SandboxTargets targets, ILogger<SpecStartHead
     {
         var result = await sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-                Command: "git", Args: ["rev-parse", "HEAD"], WorkingDirectory: "/work",
-                TimeoutSeconds: GitTimeoutSeconds),
+                Command: "git", Args: ["rev-parse", "HEAD"], TimeoutSeconds: GitTimeoutSeconds),
             progress: null, ct);
         if (result.ExitCode != 0) return null;
         var head = (result.OutputContent ?? string.Empty).Trim();

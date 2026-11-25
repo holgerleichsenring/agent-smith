@@ -9,17 +9,18 @@ namespace AgentSmith.Application.Services.Registry;
 /// Guards, substitutes and writes ONE staged auth file: path allowlist first
 /// (the load-bearing guard — BEFORE any write), then the secret-leak scan on the
 /// raw templated content, then host-side token substitution, then the sandbox
-/// write. Every rejection carries a reason for the loud per-host decision line.
+/// write. Every rejection carries a reason for the loud per-host decision line. 2026-11-25-9992d: the feeds are the
+/// run project's, handed in by the caller.
 /// </summary>
 public sealed class StagedAuthFileWriter(
     RegistryAuthPathGuard pathGuard,
     SecretLeakGuard leakGuard,
     RegistryTokenSubstitutor substitutor,
-    AgentSmithConfig config,
     ILogger<StagedAuthFileWriter> logger)
 {
     public async Task<StagedFileOutcome> WriteAsync(
-        string repoKey, ISandboxFileReader reader, StagedAuthFile file, CancellationToken ct)
+        string repoKey, ISandboxFileReader reader, StagedAuthFile file, IReadOnlyList<RegistryConfig> registries,
+        CancellationToken ct)
     {
         var hosts = RegistryTokenPlaceholder.HostsIn(file.Content);
 
@@ -27,14 +28,14 @@ public sealed class StagedAuthFileWriter(
         if (!verdict.IsAllowed)
             return StagedFileOutcome.Fail(hosts, verdict.Reason!);
 
-        var leakedHosts = leakGuard.LeakedHosts(file.Content, config.Registries);
+        var leakedHosts = leakGuard.LeakedHosts(file.Content, registries);
         if (leakedHosts.Count > 0)
             return StagedFileOutcome.Fail(
                 Union(hosts, leakedHosts),
                 $"templated content for '{file.Path}' contained the real token for host(s) "
                 + $"[{string.Join(", ", leakedHosts)}] instead of the placeholder");
 
-        var substitution = substitutor.Substitute(file.Content, config.Registries);
+        var substitution = substitutor.Substitute(file.Content, registries);
         if (!substitution.IsSuccess)
             return StagedFileOutcome.Fail(hosts, substitution.FailureReason!);
 

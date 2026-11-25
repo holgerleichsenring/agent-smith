@@ -13,14 +13,13 @@ namespace AgentSmith.Application.Services.Browser;
 public sealed class RepoTreeListing
 {
     internal const int MaxDepth = 8;
-    private const string WorkRoot = "/work";
 
     /// <summary>The tree's files relative to <paramref name="dir"/>, or why it is refused.</summary>
     public async Task<(IReadOnlyList<string>? Files, string? Refusal)> ListAsync(
         ISandbox sandbox, string dir, string page, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
-        var root = dir.Length == 0 ? WorkRoot : $"{WorkRoot}/{dir}";
+        var root = dir.Length == 0 ? sandbox.WorkDirectory() : sandbox.PathUnderRoot(dir);
         var result = await sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ListFiles,
             TimeoutSeconds: 30, Path: root, MaxDepth: MaxDepth), null, ct);
         if (result.ExitCode != 0 || result.OutputContent is null)

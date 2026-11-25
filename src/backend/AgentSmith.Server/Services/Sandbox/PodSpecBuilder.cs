@@ -4,23 +4,34 @@ using k8s.Models;
 namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
-/// Builds the V1Pod spec for the sandbox: agent-loader initContainer + toolchain
-/// main container, sharing /shared (binary) and /work (working dir) emptyDir volumes.
+/// Builds the V1Pod spec for a sandbox: the agent-loader initContainer and one toolchain container per
+/// <see cref="PodToolchain"/>, sharing /shared (binary) and /work (working dir) emptyDir volumes.
+/// 2026-11-25-9992b: a run's workspace pod carries a container per image, a single sandbox's pod one. The containers
+/// share no process namespace (shareProcessNamespace stays unset), so no agent sees another's processes.
 /// The security profile (who it runs as, capabilities, the /root home) is <see cref="PodSecurity"/>'s.
 /// </summary>
 public sealed class PodSpecBuilder(SandboxPodLabels labels, PodSecurity podSecurity)
 {
-    private const string SharedVolume = "agent-shared";
-    private const string WorkVolume = "agent-work";
-    private const string SharedMount = "/shared";
-    private const string WorkMount = "/work";
+    private const string SharedVolume = PodToolchainContainer.SharedVolume;
+    private const string SharedMount = PodToolchainContainer.SharedMount;
+    private readonly PodToolchainContainer _containers = new(podSecurity);
 
-    public V1Pod Build(string podName, string jobId, string redisUrl, SandboxSpec spec, V1OwnerReference? owner)
+    /// <summary>A single sandbox's pod: one toolchain container from <paramref name="spec"/>'s image and limits.</summary>
+    public V1Pod Build(string podName, string jobId, string redisUrl, SandboxSpec spec, V1OwnerReference? owner) =>
+        Build(podName, [new PodToolchain(spec.ToolchainImage, spec.Resources, jobId, redisUrl)], spec, owner);
+
+    /// <summary>
+    /// A pod with a container per toolchain. <paramref name="spec"/> carries what they share (agent image, profile,
+    /// run, secrets, pull secrets); its own image and limits are not read.
+    /// </summary>
+    public V1Pod Build(
+        string podName, IReadOnlyList<PodToolchain> toolchains, SandboxSpec spec, V1OwnerReference? owner)
     {
+        if (toolchains.Count == 0) throw new ArgumentException("A sandbox pod needs a toolchain.", nameof(toolchains));
         var profile = spec.SecurityContext ?? SandboxSecurityContext.Unconfined;
         return new V1Pod
         {
-            Metadata = BuildMetadata(podName, jobId, spec, owner),
+            Metadata = BuildMetadata(podName, toolchains, spec, owner),
             Spec = new V1PodSpec
             {
                 RestartPolicy = "Never",
@@ -28,17 +39,27 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels, PodSecurity podSecur
                 AutomountServiceAccountToken = podSecurity.AutomountToken(profile),
                 ImagePullSecrets = PullSecrets(spec.ImagePullSecrets),
                 InitContainers = [BuildInitContainer(spec.AgentImage, profile)],
-                Containers = [BuildToolchainContainer(spec, profile, jobId, redisUrl)],
-                Volumes = [.. BuildVolumes(spec.Secrets?.Files), .. podSecurity.HomeVolumes(profile)]
+                Containers = [.. toolchains.Select((t, i) => _containers.Build(t, i, spec, profile))],
+                Volumes =
+                [
+                    .. BuildVolumes(spec.Secrets?.Files),
+                    .. toolchains.SelectMany((_, i) => podSecurity.HomeVolumes(profile, i))
+                ]
             }
         };
     }
 
+    // 2026-11-25-9992b: the pipeline-id label names the first container's job; the annotation names every one, so a
+    // reaper deletes each container's bus credential.
     private V1ObjectMeta BuildMetadata(
-        string podName, string jobId, SandboxSpec spec, V1OwnerReference? owner) => new()
+        string podName, IReadOnlyList<PodToolchain> toolchains, SandboxSpec spec, V1OwnerReference? owner) => new()
     {
         Name = podName,
-        Labels = labels.Build(jobId, spec.RunId, spec.ConversationId),
+        Labels = labels.Build(toolchains[0].JobId, spec.RunId, spec.ConversationId),
+        Annotations = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [SandboxPodLabels.JobIdsAnnotation] = SandboxPodLabels.JoinJobIds(toolchains.Select(t => t.JobId))
+        },
         OwnerReferences = owner is null ? null : [owner]
     };
 
@@ -77,68 +98,10 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels, PodSecurity podSecur
         }
     };
 
-    private V1Container BuildToolchainContainer(
-        SandboxSpec spec, SandboxSecurityContext profile, string jobId, string redisUrl) => new()
-    {
-        Name = "toolchain",
-        Image = spec.ToolchainImage,
-        SecurityContext = podSecurity.Container(profile),
-        Command = [$"{SharedMount}/agent"],
-        // p0360b: --run-id arms the agent's run-alive idle guard — an idle sandbox
-        // of a live run keeps waiting instead of self-terminating. Omitted for
-        // runless sandboxes (probe/preflight), which keep the plain idle backstop.
-        // 2026-10-02-35b2: the Redis URL travels in REDIS_URL only — a command line is readable by every process.
-        Args = string.IsNullOrEmpty(spec.RunId)
-            ? ["--job-id", jobId]
-            : ["--job-id", jobId, "--run-id", spec.RunId],
-        Env = [.. BuildEnv(jobId, redisUrl, spec.Secrets?.Env), .. podSecurity.Env(profile)],
-        VolumeMounts =
-        [
-            new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount, ReadOnlyProperty = true },
-            new V1VolumeMount { Name = WorkVolume, MountPath = WorkMount },
-            .. SandboxSecretProjection.FileMounts(spec.Secrets?.Files),
-            .. podSecurity.HomeMounts(profile)
-        ],
-        WorkingDir = WorkMount,
-        Resources = BuildToolchainResources(spec.Resources)
-    };
-
-    // Both Requests and Limits are emitted: Requests so the pod survives namespaces
-    // with a ResourceQuota that mandates limits.cpu + requests.cpu + memory variants,
-    // Limits so the toolchain container has a hard CFS/OOM cap. Quantities are passed
-    // through to Kubernetes verbatim from <see cref="ResourceLimits"/>.
-    private static V1ResourceRequirements BuildToolchainResources(ResourceLimits resources) => new()
-    {
-        Requests = new Dictionary<string, ResourceQuantity>
-        {
-            ["cpu"] = new(resources.CpuRequest),
-            ["memory"] = new(resources.MemoryRequest)
-        },
-        Limits = new Dictionary<string, ResourceQuantity>
-        {
-            ["cpu"] = new(resources.CpuLimit),
-            ["memory"] = new(resources.MemoryLimit)
-        }
-    };
-
-    private static List<V1EnvVar> BuildEnv(
-        string jobId, string redisUrl, IReadOnlyList<SecretEnvBinding>? secretEnv)
-    {
-        var env = new List<V1EnvVar>
-        {
-            new() { Name = "JOB_ID", Value = jobId },
-            new() { Name = "REDIS_URL", Value = redisUrl }
-        };
-        // 2026-10-02-5f89g: no pod-wide GIT_TOKEN — each git step carries its repo's own.
-        foreach (var binding in secretEnv ?? [])
-            env.Add(SandboxSecretProjection.EnvVar(binding.EnvName, binding.Source));
-        return env;
-    }
-
     private static List<V1Volume> BuildVolumes(IReadOnlyList<SecretFileMount>? files) =>
     [
         new V1Volume { Name = SharedVolume, EmptyDir = new V1EmptyDirVolumeSource() },
-        new V1Volume { Name = WorkVolume, EmptyDir = new V1EmptyDirVolumeSource() },
+        new V1Volume { Name = PodToolchainContainer.WorkVolume, EmptyDir = new V1EmptyDirVolumeSource() },
         .. SandboxSecretProjection.FileVolumes(files)
     ];
 }

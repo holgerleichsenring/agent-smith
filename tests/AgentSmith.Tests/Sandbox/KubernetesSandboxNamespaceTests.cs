@@ -69,10 +69,8 @@ public sealed class KubernetesSandboxNamespaceTests
     {
         var options = Read(new() { ["K8S_NAMESPACE"] = "agentsmith", ["K8S_SANDBOX_NAMESPACE"] = "agentsmith-sandboxes" });
         var client = new Mock<IKubernetes>(MockBehavior.Strict);
-        var factory = new KubernetesSandboxFactory(client.Object, Mock.Of<IConnectionMultiplexer>(),
-            new PodSpecBuilder(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity(options)),
-            options, Options.Create(new SandboxGlobalConfig()), Mock.Of<IWireProtocolWatcher>(),
-            SandboxBusDoubles.Credentials(), NullLoggerFactory.Instance);
+        var factory = KubernetesFactoryDoubles.Sandbox(client.Object, Mock.Of<IConnectionMultiplexer>(), options,
+            SandboxBusDoubles.Credentials());
 
         var act = () => factory.CreateAsync(new SandboxSpec("node:20", ResourceLimits.Default), CancellationToken.None);
 
@@ -102,11 +100,8 @@ public sealed class KubernetesSandboxNamespaceTests
         var client = new Mock<IKubernetes>();
         client.SetupGet(c => c.CoreV1).Returns(core.Object);
         var redis = new SandboxBusRedisDouble();
-        var factory = new KubernetesSandboxFactory(client.Object, redis.Multiplexer.Object,
-            new PodSpecBuilder(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity(options)),
-            options, Options.Create(new SandboxGlobalConfig()), Mock.Of<IWireProtocolWatcher>(),
-            SandboxBusDoubles.Credentials(SandboxBusCredentialMode.PerJob, redis.Multiplexer.Object),
-            NullLoggerFactory.Instance);
+        var factory = KubernetesFactoryDoubles.Sandbox(client.Object, redis.Multiplexer.Object, options,
+            SandboxBusDoubles.Credentials(SandboxBusCredentialMode.PerJob, redis.Multiplexer.Object));
 
         var act = () => factory.CreateAsync(new SandboxSpec("node:20", ResourceLimits.Default), CancellationToken.None);
 

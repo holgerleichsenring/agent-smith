@@ -17,8 +17,7 @@ public sealed class PocFolderReplace(PocGit git, ReferenceSetMaterialiser materi
         await git.RunAsync(sandbox, $"Removing the tracked files of '{folder}'", ["rm", "-r", "-q", "--ignore-unmatch", "--", folder], ct);
         await materialiser.WriteUnderAsync(sandbox, files, folder, ct);
         await git.RunStepAsync(sandbox, "Removing the reference marker", new Step(Step.CurrentSchemaVersion, Guid.NewGuid(),
-            StepKind.Run, Command: "rm", Args: ["-f", $"{folder}/{ReferenceSetMaterialiser.Marker}"],
-            WorkingDirectory: Repository.SandboxWorkPath), ct);
+            StepKind.Run, Command: "rm", Args: ["-f", $"{folder}/{ReferenceSetMaterialiser.Marker}"]), ct);
         await git.RunAsync(sandbox, $"Staging '{folder}'", ["-C", folder, "add", "-f", "-A", "."], ct);
     }
 }

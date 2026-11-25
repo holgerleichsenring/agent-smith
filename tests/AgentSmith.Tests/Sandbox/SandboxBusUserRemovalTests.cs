@@ -23,9 +23,9 @@ public sealed class SandboxBusUserRemovalTests
     {
         var redis = new SandboxBusRedisDouble();
         var bus = await SandboxBusCredentialsTests.Credentials(redis).IssueAsync("job-1", "redis:6379");
-        var sandbox = new KubernetesSandbox(KubernetesClient().Object, "agentsmith", "pod-1", "job-1",
+        var sandbox = new KubernetesSandbox(KubernetesClient().Object, new KubernetesContainerAddress("agentsmith", "pod-1", "toolchain-0"), "job-1",
             new SandboxRedisChannel(redis.Multiplexer.Object, "job-1", NullLogger.Instance, Mock.Of<IWireProtocolWatcher>()),
-            bus, 900, "node:20", ResolvedSandboxSecrets.Empty, NullLogger.Instance);
+            bus, 900, "node:20", ResolvedSandboxSecrets.Empty, ownsPod: true, NullLogger.Instance);
 
         await sandbox.ForceRemoveAsync(CancellationToken.None);
 
@@ -64,6 +64,30 @@ public sealed class SandboxBusUserRemovalTests
         // The first sweep also lists the unowned selector, which this client answers alike.
         reaped.Should().BePositive();
         redis.Calls("DELUSER").Should().NotBeEmpty().And.OnlyContain(args => (string)args[1] == "sbx-job-dead");
+    }
+
+    // 2026-11-25-9992b: a workspace pod runs an agent per image; the sweep deletes every one's user, read off the
+    // job-ids annotation rather than the one pipeline-id label.
+    [Fact]
+    public async Task KubernetesSandboxCorpseReaper_WorkspacePod_DeletesEveryContainersUser()
+    {
+        var redis = new SandboxBusRedisDouble();
+        var pod = Corpse("agentsmith-sandbox-ws", jobId: "job-a");
+        pod.Metadata.Annotations = new Dictionary<string, string>
+        {
+            [SandboxPodLabels.JobIdsAnnotation] = SandboxPodLabels.JoinJobIds(["job-a", "job-b"]),
+        };
+        var reaper = new KubernetesSandboxCorpseReaper(KubernetesClient(pod).Object, new KubernetesSandboxOptions(),
+            new SandboxPodLabels(new SandboxOwnerIdentity("owner")),
+            new LiveRunSetReader(InMemoryRedis.Connection(), new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
+                new AgentSmith.Application.Services.Lifecycle.NoOpRunHeartbeat(), NullLogger<LiveRunSetReader>.Instance),
+            SandboxHoldRailDoubles.Reader(), SandboxBusCredentialsTests.Credentials(redis),
+            NullLogger<KubernetesSandboxCorpseReaper>.Instance);
+
+        await reaper.ReapCorpsesAsync(CancellationToken.None);
+
+        redis.Calls("DELUSER").Select(args => (string)args[1]).Distinct()
+            .Should().BeEquivalentTo(["sbx-job-a", "sbx-job-b"]);
     }
 
     private static V1Pod Corpse(string name, string jobId) => new()

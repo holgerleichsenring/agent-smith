@@ -29,9 +29,10 @@ public sealed class SandboxRelease(IEventPublisher eventPublisher, ILogger<Sandb
 
     private async Task<SandboxExitRead?> ReadExitAsync(string key, ISandbox sandbox)
     {
-        if (sandbox.Backend() is not ISandboxExitReader reader) return null;
         try
         {
+            // 2026-11-25-9992b: inside the try — a workspace container resolves its backend through the run's workspace.
+            if (sandbox.Backend() is not ISandboxExitReader reader) return null;
             using var timeout = new CancellationTokenSource(ReadTimeout);
             return await reader.ReadExitAsync(timeout.Token);
         }

@@ -40,13 +40,14 @@ public sealed class VerificationOnboardingCheck(
         var config = configSource.Resolve().Config;
         if (config is null)
             return PreflightCheckResult.Skip("agentsmith.yml failed to load — see config-schema");
-        if (config.Repos.Count == 0)
+        if (PreflightRepos.Acting(config).Count == 0)
             return PreflightCheckResult.Skip($"no repository configured ({Cost})");
 
         var declared = new List<string>();
         var unreadable = new List<string>();
-        foreach (var (name, repo) in config.Repos)
-            await InspectAsync(name, repo, declared, unreadable, cancellationToken);
+        // 2026-11-25-0873: read as the repos act — a project's repo under its machine identity.
+        foreach (var repo in PreflightRepos.Acting(config))
+            await InspectAsync(repo.Name, repo, declared, unreadable, cancellationToken);
 
         return unreadable.Count > 0
             ? PreflightCheckResult.Fail(

@@ -79,7 +79,7 @@ public sealed class VerifiedHeads(ILogger<VerifiedHeads> logger)
     {
         var result = await sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-                Command: "git", Args: args, WorkingDirectory: "/work", TimeoutSeconds: GitTimeoutSeconds),
+                Command: "git", Args: args, TimeoutSeconds: GitTimeoutSeconds),
             progress: null, ct);
         return result.ExitCode == 0 ? result.OutputContent ?? string.Empty : null;
     }

@@ -38,6 +38,5 @@ internal static class SearchCommands
 
     private static Step Run(string command, string[] args) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: command, Args: args, WorkingDirectory: "/work",
-            TimeoutSeconds: TimeoutSeconds);
+            Command: command, Args: args, TimeoutSeconds: TimeoutSeconds);
 }

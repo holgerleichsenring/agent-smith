@@ -18,6 +18,18 @@ public sealed class SandboxSecrets
     /// </summary>
     public Dictionary<string, string>? Env { get; set; }
 
+    /// <summary>
+    /// 2026-11-25-9992d: variables only one repository's commands receive, keyed by repository name, each value a
+    /// <c>secretName:key</c> reference like <see cref="Env"/>. <see cref="Env"/> stays project-wide: every command of
+    /// every repository receives it.
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>>? RepoEnv { get; set; }
+
     /// <summary>Secret keys mounted as read-only files (e.g. a JWT private key).</summary>
     public List<SandboxSecretFile>? Files { get; set; }
+
+    /// <summary>Every declaration: project-wide variables, files and each repository's variables. A method, so no
+    /// serializer writes it back into the configuration.</summary>
+    public int DeclaredCount() =>
+        (Env?.Count ?? 0) + (Files?.Count ?? 0) + (RepoEnv?.Sum(repo => repo.Value?.Count ?? 0) ?? 0);
 }

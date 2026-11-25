@@ -15,4 +15,10 @@ public interface ISandboxLivenessSupervisor : IAsyncDisposable
     /// <see cref="ISandboxLivenessProbeTarget"/> (no backend resource id to probe).
     /// </summary>
     void Watch(string runId, string sandboxKey, ISandbox sandbox);
+
+    /// <summary>
+    /// 2026-11-25-9992b: stops every watcher, so a workspace the run replaces on purpose (a restart with one more
+    /// toolchain) is not reported vanished; Watch may be called again afterwards.
+    /// </summary>
+    Task UnwatchAllAsync();
 }

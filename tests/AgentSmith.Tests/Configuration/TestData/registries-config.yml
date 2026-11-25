@@ -22,16 +22,16 @@ projects:
     tracker: test-ado
     repos: [test-repo]
     pipeline: code
+    registries:
+      - host: pkgs.dev.azure.com
+        username: any
+        token: ${azure_artifacts_token}
+      - host: my-company.jfrog.io
+        username: ci
+        token: ${jfrog_token}
 
 secrets:
   github_token: ${AGENTSMITH_TEST_GH_TOKEN}
   azure_artifacts_token: ${AGENTSMITH_TEST_AZURE_ARTIFACTS_TOKEN}
   jfrog_token: ${AGENTSMITH_TEST_JFROG_TOKEN}
 
-registries:
-  - host: pkgs.dev.azure.com
-    username: any
-    token: ${azure_artifacts_token}
-  - host: my-company.jfrog.io
-    username: ci
-    token: ${jfrog_token}

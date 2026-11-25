@@ -25,13 +25,13 @@ public sealed class BootstrapContextProbe(
     }
 
     /// <summary>The paths this probe reads for the given contexts, in the order it reads them.</summary>
-    public static IReadOnlyList<string> PathsFor(IEnumerable<RemoteContextDiscovery> contexts) =>
-        [.. contexts.SelectMany(d => BootstrapPaths.For(d.ContextName).All)];
+    public static IReadOnlyList<string> PathsFor(string root, IEnumerable<RemoteContextDiscovery> contexts) =>
+        [.. contexts.SelectMany(d => BootstrapPaths.For(root, d.ContextName).All)];
 
     private async Task<ContextProbeResult> ProbeOneAsync(
         ISandbox sandbox, string key, RemoteContextDiscovery discovery, CancellationToken ct)
     {
-        var paths = BootstrapPaths.For(discovery.ContextName);
+        var paths = BootstrapPaths.For(sandbox.WorkDirectory(), discovery.ContextName);
         var reader = readerFactory.Create(sandbox);
         var context = await reader.ExistsAsync(paths.ContextYaml, ct);
         var principles = await reader.ExistsAsync(paths.Principles, ct);
@@ -41,7 +41,7 @@ public sealed class BootstrapContextProbe(
         logger.LogInformation(
             "Probe {Key}/{Context}: context.yaml={CtxOk} principles={PrincOk} retired={Retired} (path={MetaDir}/)",
             key, discovery.ContextName, context, principles, retired,
-            ProjectMetaPaths.MetaDirFor(discovery.ContextName));
+            paths.MetaDir);
         return new ContextProbeResult(discovery.ContextName, context, principles, retired);
     }
 }

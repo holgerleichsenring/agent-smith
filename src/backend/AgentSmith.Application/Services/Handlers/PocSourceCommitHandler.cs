@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Pocs;
 using AgentSmith.Application.Services.Pocs.Commit;
 using AgentSmith.Application.Services.Pocs.Scan;
 using AgentSmith.Contracts.Commands;
@@ -15,7 +16,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// committed reuses its sha without a clone.
 /// </summary>
 public sealed class PocSourceCommitHandler(
-    IPocScanStore store, PocRevisionFiles revisionFiles, PocFolderWrite folders, ILogger<PocSourceCommitHandler> logger)
+    IPocScanStore store, PocRevisionFiles revisionFiles, PocFolderWrite folders, PocsConfigSource config, ILogger<PocSourceCommitHandler> logger)
     : ICommandHandler<PocSourceCommitContext>
 {
     public async Task<CommandResult> ExecuteAsync(PocSourceCommitContext context, CancellationToken cancellationToken)
@@ -31,7 +32,7 @@ public sealed class PocSourceCommitHandler(
         if (subject.CommitSha is { } committed) return Published(context, committed, $"Revision {revision} was committed earlier as {committed}.");
         if (context.Project.Repos.FirstOrDefault() is not { } repo)
             return CommandResult.Fail($"The project '{context.Project.Name}' names no source repo to commit '{subject.PocName}' to.");
-        return await CommitAsync(context, subject, repo, cancellationToken);
+        return await CommitAsync(context, subject, PocMachine.Stamp(config.Current(), repo), cancellationToken); // 2026-11-25-0873
     }
 
     private async Task<CommandResult> CommitAsync(

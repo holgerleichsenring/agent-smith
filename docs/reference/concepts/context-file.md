@@ -115,10 +115,10 @@ present. Where that path is absent the stage is skipped and says so, so one
 declaration serves repositories of different shapes. A stage may also name
 `when_changed` globs, relative to the repository root — `**` is any number of
 path segments, `*` any run within one. It then runs only when the repository's
-branch changed a matching path, in whichever of the repository's sandboxes, and
+branch changed a matching path, and
 is skipped with a note naming its globs otherwise. A repository whose every stage
 was skipped that way ran nothing and is green: no stage applies to that change. A
-stage without `when_changed` runs whenever its own sandbox's branch changed source.
+stage without `when_changed` runs whenever the repository's branch changed source.
 Every command, and every path a stage names, is relative to the repository root.
 A command that cannot fail
 — `echo`, `true` — is refused at resolution rather than run: a declared gate

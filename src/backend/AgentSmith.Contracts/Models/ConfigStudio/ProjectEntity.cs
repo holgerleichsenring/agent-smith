@@ -42,6 +42,9 @@ public sealed record ProjectEntity(
     string? RequiresStart = null,
     // 2026-11-17-b34eb: the merge block. Nullable for the same reason Templates is — absent leaves the stored block alone.
     ProjectMerge? Merge = null,
+    // 2026-11-25-9992d: the project's private package feeds, the token a secret reference as stored. Nullable for the
+    // same reason Templates is — absent leaves the stored list alone; an empty list clears it.
+    IReadOnlyList<Configuration.RegistryConfig>? Registries = null,
     // 2026-11-25-9992h: the machine identity. Nullable for the same reason Templates is — absent leaves the stored block alone;
     // a sent block with no name, no email and no hoster clears it.
     ProjectMachine? Machine = null)
@@ -62,7 +65,8 @@ public sealed record ProjectMachine(string Name, string Email,
 
 /// <summary>2026-11-25-9992h: one hoster's entry — <see cref="Auth"/> the secret's name, <see cref="AppId"/> and
 /// <see cref="InstallationId"/> for a GitHub App, <see cref="Email"/> this hoster's commit email when it differs.</summary>
-public sealed record ProjectMachineHoster(string Auth, string? AppId = null, string? InstallationId = null, string? Email = null);
+public sealed record ProjectMachineHoster(string Auth, string? AppId = null, string? InstallationId = null, string? Email = null,
+    string? TenantId = null, string? ClientId = null); // 2026-11-25-d0e2: an Azure DevOps service principal
 
 /// <summary>2026-11-17-b34eb: the project's <c>merge:</c> block as the studio edits it; <see cref="When"/> is the
 /// snake_case name the YAML uses (manual, on_gate_green, on_ci_green). 2026-11-17-3435d: and the CI loop's keys; a null

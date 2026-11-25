@@ -48,7 +48,8 @@ public sealed class ConfigSecretResolver(ConfigSecretReferences references, ISto
     // so the verifier compared deliveries against the literal placeholder.
     private void ResolveReferences(RawAgentSmithConfig raw)
     {
-        foreach (var entry in raw.Registries)
+        // 2026-11-25-9992d: the feeds live on each project now.
+        foreach (var entry in raw.Projects.Values.SelectMany(project => project.Registries))
             entry.Token = references.Resolve(entry.Token, raw.Secrets);
         // 2026-10-29-6bd3a: on the tracker now — LegacyTriggerFold moved every jira_trigger.secret there.
         foreach (var tracker in raw.Trackers.Values)

@@ -133,9 +133,9 @@ public sealed class DesignWorkCloneReviewTests
         var again = await clones.ForAsync("api", fullHistory: true, held, default);
 
         factory.Spawned.Should().HaveCount(2);
-        ((Recording)shallow).Disposed.Should().BeTrue("a shallow clone is never deepened in place");
+        ((Recording)shallow.Backend()).Disposed.Should().BeTrue("a shallow clone is never deepened in place");
         full.Should().NotBeSameAs(shallow).And.BeSameAs(again);
-        ((Recording)full).Steps[0].Args.Should().NotContain("--depth");
+        ((Recording)full.Backend()).Steps[0].Args.Should().NotContain("--depth");
     }
 
     [Fact]

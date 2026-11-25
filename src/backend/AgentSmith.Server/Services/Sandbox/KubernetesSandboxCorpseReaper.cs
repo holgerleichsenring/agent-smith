@@ -38,6 +38,9 @@ public sealed class KubernetesSandboxCorpseReaper(
         if (pods.Count == 0) return 0;
 
         var candidates = SandboxPodCandidates.From(pods, DateTimeOffset.UtcNow);
+        var byName = pods.Where(p => !string.IsNullOrEmpty(p.Metadata?.Name))
+            .GroupBy(p => p.Metadata!.Name, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         var live = await liveRuns.ReadAsync(cancellationToken);
         var held = await heldConversations.ReadAsync(candidates, cancellationToken);
         var reaped = 0;
@@ -46,7 +49,9 @@ public sealed class KubernetesSandboxCorpseReaper(
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!await DeleteAsync(corpse.SandboxId, corpse.RunId, cancellationToken)) continue;
-            await busCredentials.DeleteAsync(corpse.JobId); // 2026-10-25-c5a7e: the pipeline-id label
+            // 2026-10-25-c5a7e; 2026-11-25-9992b: every container's credential — a workspace pod has one per image.
+            foreach (var jobId in SandboxPodCandidates.JobIds(byName[corpse.SandboxId]))
+                await busCredentials.DeleteAsync(jobId);
             reaped++;
         }
         return reaped;

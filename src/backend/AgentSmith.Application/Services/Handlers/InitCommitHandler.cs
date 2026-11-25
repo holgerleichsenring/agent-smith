@@ -53,12 +53,7 @@ public sealed class InitCommitHandler(
                 continue;
             }
             var sandbox = matches[0].Value;
-            // p0299: mixed-stack monorepo — fold every other toolchain sandbox's edits into
-            // the primary before commit (was: committed matches[0] only, dropping the rest).
-            var consolidated = await gitOps.ConsolidateSecondarySandboxesAsync(matches, sandbox, cancellationToken);
-            if (consolidated > 0)
-                logger.LogInformation("{Repo}: consolidated {N} secondary sandbox(es) into {Key}",
-                    repo.Name, consolidated, matches[0].Key);
+            // 2026-11-25-9992b: every key of the repository works in this one tree of the workspace.
             var (result, body) = await OpenOneAsync(context, sandbox, repo, ticketId, cancellationToken);
             opened.Add(result);
             if (body is not null) bodies[repo.Name] = body;

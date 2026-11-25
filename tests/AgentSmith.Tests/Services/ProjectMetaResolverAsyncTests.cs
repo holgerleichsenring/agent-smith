@@ -26,7 +26,7 @@ public sealed class ProjectMetaResolverAsyncTests
         parser.Setup(p => p.Parse("docs-yaml")).Returns(ContextYamlParseResult.Ok(new ContextYamlSummary("docs", "markdown")));
 
         var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
-            reader.Object, CancellationToken.None);
+            reader.Object, "/work", CancellationToken.None);
 
         result.Should().BeEquivalentTo(new[]
         {
@@ -46,7 +46,7 @@ public sealed class ProjectMetaResolverAsyncTests
         parser.Setup(p => p.Parse("default-yaml")).Returns(ContextYamlParseResult.Ok(new ContextYamlSummary(".", "csharp")));
 
         var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
-            reader.Object, CancellationToken.None);
+            reader.Object, "/work", CancellationToken.None);
 
         result.Should().ContainSingle()
             .Which.Should().Be(new MetaDiscovery("/work/.agentsmith/contexts/default", "default", "."));
@@ -60,7 +60,7 @@ public sealed class ProjectMetaResolverAsyncTests
             .ReturnsAsync(Array.Empty<string>());
 
         var result = await new ProjectMetaResolver(Mock.Of<IContextYamlParser>()).ResolveAllAsync(
-            reader.Object, CancellationToken.None);
+            reader.Object, "/work", CancellationToken.None);
 
         result.Should().BeEmpty();
     }
@@ -78,7 +78,7 @@ public sealed class ProjectMetaResolverAsyncTests
         parser.Setup(p => p.Parse("server-yaml")).Returns(ContextYamlParseResult.Ok(new ContextYamlSummary("src/Server", "csharp")));
 
         var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
-            reader.Object, CancellationToken.None);
+            reader.Object, "/work", CancellationToken.None);
 
         result.Should().ContainSingle().Which.ContextName.Should().Be("server");
     }
@@ -94,7 +94,7 @@ public sealed class ProjectMetaResolverAsyncTests
             .Returns(ContextYamlParseResult.Error("(Line: 1, Col: 1): scanner error"));
 
         var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
-            reader.Object, CancellationToken.None);
+            reader.Object, "/work", CancellationToken.None);
 
         result.Should().BeEmpty();
     }
@@ -110,7 +110,7 @@ public sealed class ProjectMetaResolverAsyncTests
             .Throws(new InvalidOperationException("missing meta.workdir"));
 
         var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
-            reader.Object, CancellationToken.None);
+            reader.Object, "/work", CancellationToken.None);
 
         result.Should().BeEmpty();
     }

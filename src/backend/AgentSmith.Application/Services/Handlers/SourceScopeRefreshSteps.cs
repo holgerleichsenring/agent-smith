@@ -29,7 +29,6 @@ internal static class SourceScopeRefreshSteps
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
             Args: ["config", "--get", "remote.origin.url"],
-            WorkingDirectory: Repository.SandboxWorkPath,
             TimeoutSeconds: LocalTimeoutSeconds);
 
     /// <summary>
@@ -39,8 +38,7 @@ internal static class SourceScopeRefreshSteps
     public static Step BuildFetchHeadAtDepthStep(GitCredential credential) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: ["-c", GitStepCredentials.Helper, "fetch", "--depth", "1", "origin", "HEAD"],
-            WorkingDirectory: Repository.SandboxWorkPath,
+            Args: [.. GitStepCredentials.Args(credential), "fetch", "--depth", "1", "origin", "HEAD"],
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: FetchTimeoutSeconds);
 
@@ -53,6 +51,5 @@ internal static class SourceScopeRefreshSteps
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
             Args: ["reset", "--hard", reference],
-            WorkingDirectory: Repository.SandboxWorkPath,
             TimeoutSeconds: LocalTimeoutSeconds);
 }

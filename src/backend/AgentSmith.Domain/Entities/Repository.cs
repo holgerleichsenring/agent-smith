@@ -3,27 +3,21 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Domain.Entities;
 
 /// <summary>
-/// Represents a repository checked out into the pipeline sandbox. The sandbox
-/// root is fixed at '/work' (SandboxWorkPath). Under p0158e (multi-sandbox-
-/// per-repo), each repo has its OWN sandbox where /work is that repo's root —
-/// so LocalPath is `/work` regardless of repo name; repo-prefixed addressing
-/// (`server/src/...`) happens at the tool-host layer, not inside the sandbox.
-/// The static WorkPathFor helper remains for tool-host external addressing
-/// (composing the operator-facing path from the run's perspective).
+/// A repository a run works on: the branch it is on and the remote it came from. Where it is
+/// checked out is the sandbox's business, not the repository's (2026-11-25-9992c): a run's
+/// repository lives at <see cref="WorkPathFor"/> inside the workspace mounted at
+/// <see cref="WorkspaceRoot"/>, and a single-repo sandbox (a read-only source scope, a probe)
+/// holds its tree at the root itself. A step asks its sandbox (ISandbox.WorkDirectory()).
 /// </summary>
 public sealed class Repository
 {
-    public const string SandboxWorkPath = "/work";
+    /// <summary>The workspace mount every sandbox container shares.</summary>
+    public const string WorkspaceRoot = "/work";
 
-    /// <summary>
-    /// External (orchestrator-facing) path for a named repo. Used by tool
-    /// hosts when rendering repo-prefixed output (e.g. grep results across
-    /// all repos). NOT used as a sandbox-internal working directory.
-    /// </summary>
+    /// <summary>2026-11-25-9992c: THE one place a run repository's root is named.</summary>
     public static string WorkPathFor(string repoName) =>
-        $"{SandboxWorkPath}/{repoName}";
+        $"{WorkspaceRoot}/{repoName}";
 
-    public string LocalPath => SandboxWorkPath;
     public BranchName CurrentBranch { get; }
     public string RemoteUrl { get; }
 

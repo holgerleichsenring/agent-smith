@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Converts a document to Markdown via MarkItDown, detects contract type, loads legal skills.
-/// AcquireSourceHandler has already copied the source document into the sandbox at /work/&lt;file&gt;,
+/// AcquireSourceHandler has already copied the source document into the sandbox's root,
 /// so this handler picks it up via SandboxFileReader.
 /// </summary>
 public sealed class BootstrapDocumentHandler(
@@ -32,7 +32,7 @@ public sealed class BootstrapDocumentHandler(
     {
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
         var reader = readerFactory.Create(sandbox);
-        var workspace = context.Repository.LocalPath;
+        var workspace = sandbox.WorkDirectory();
 
         var entries = await reader.ListAsync(workspace, maxDepth: 1, cancellationToken);
         var sourceFiles = entries
@@ -64,7 +64,7 @@ public sealed class BootstrapDocumentHandler(
 
         var principlesPath = Path.Combine(context.SkillsPath, "legal-principles.md");
         var principlesContent = await reader.TryReadAsync(
-            Path.Combine(context.Repository.LocalPath, principlesPath), cancellationToken);
+            Path.Combine(workspace, principlesPath), cancellationToken);
         if (principlesContent is not null)
             context.Pipeline.Set(ContextKeys.DomainRules, principlesContent);
 

@@ -19,7 +19,7 @@ public sealed class PodSpecBuilderSecurityTests
         new SandboxSpec("node:20", ResourceLimits.Default, "agent:1", SecurityContext: profile),
         owner: null);
 
-    private static V1Container Toolchain(V1Pod pod) => pod.Spec.Containers.Single(c => c.Name == "toolchain");
+    private static V1Container Toolchain(V1Pod pod) => pod.Spec.Containers.Single(c => c.Name == "toolchain-0");
 
     [Fact]
     public void PodSpecBuilder_Hardened_RunsAsUid1000DropsAllCapsRuntimeDefaultSeccomp()

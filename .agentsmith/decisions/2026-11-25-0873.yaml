@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-0873
+
+decisions:
+  - category: Architecture
+    chose: "The project's tracker is a stamped copy (TrackerConnection.Machine from the block's entry for the tracker's hoster); CredentialResolver.For(tracker) answers the machine"
+    over: "Stamping the shared catalog tracker; a second credential chosen per tracker write"
+    reason: |
+      A tracker is a catalog entry several projects may name, and each project has its own machine block. Every write path
+      (claims, comments, status and label moves, rewrites, requires-links, filing) already takes the resolved project's
+      tracker, and every tracker client takes its token from credentials.For(tracker), so stamping the project's copy moves
+      every write onto the machine through the seam 9992h used for repositories. Reads under the catalog tracker (polling,
+      the change sweep) stay on its own auth: they are reads, not acts.
+  - category: Implementation
+    chose: "A GitHub App tracker's self is {slug}[bot] (MachineLogin, read from GET /app), not GET /user; TrackerIdentity keys by tracker and machine"
+    over: "GET /user for every token"
+    reason: |
+      9992h's open point, checked against GitHub's docs: GET /user is not among the endpoints an installation token may call;
+      an installation token identifies as the App's bot account (@name[bot]) and reads PR review comments, reviews and issue
+      comments with pull_requests/issues read, so the marked-comment delete (comment.user.login against {slug}[bot]) and the
+      GraphQL readers (author __typename Bot) already see its own comments. Projects sharing a tracker may write as different
+      identities, so the self cache keys on both.
+  - category: Architecture
+    chose: "Advisory findings for a tracker whose hoster the block leaves out, and for a tracker projects write to under different identities"
+    over: "Blocking; staying silent"
+    reason: |
+      The operator's rule is that nothing falls back silently, while blocking would disable existing projects at the upgrade
+      (9992h's reasoning). The shared-tracker case is a real defect the review found: each project tells its own moves apart only
+      by its own identity, so another project's bot moves read as a person's.
+  - category: Architecture
+    chose: "pocs.machine: the same machine block for the PoC area, applied at the act (PocMachine) unless the poc- project stamped the repo itself"
+    over: "The machine of the first configured project listing the source repo's url; copying a block into each poc- project at provisioning"
+    reason: |
+      The adversarial review refused the first: config.Projects order is no contract and a url no project lists would fall
+      back silently. A copy at provisioning drifts from its source and leaves existing poc- projects behind. pocs: already
+      carries what every poc- project gets (project_agent, project_tracker); its machine is one more such key, validated by the
+      same MachineIdentityProblems rule as a project's block, edited with the same fields on the PoC settings.
+  - category: Scope
+    chose: "The 9992h advisory still names a poc- project without its own block, although pocs.machine covers its acts"
+    over: "Suppressing it for projects whose key starts with poc-"
+    reason: "Nothing but the name marks a poc- project, and an operator may name any project poc-; guessing from the name would hide a real finding."
+  - category: Implementation
+    chose: "Preflight probes each project's repo and tracker as it acts, and each catalog repo and tracker with its own auth, once per remote and identity"
+    over: "Probing catalog entries only (the unstamped copy); dropping a catalog repo a project lists"
+    reason: |
+      The acts use the machine's token and the reads (polling, sweeps, discovery) use the entry's own auth; a dead token on
+      either side should fail at start, not mid-run.
+  - category: Scope
+    chose: "Sweeps, polling and discovery stay on the catalog entry's auth; the zero-match comment keeps the tracker's auth"
+    over: "Stamping the url groups of the PR and change sweeps"
+    reason: |
+      The sweeps only read and their launched runs act under their project; a url two projects share under different machines
+      has no single right identity to read as. The zero-match comment has no project by definition; the docs say whose token
+      it uses.

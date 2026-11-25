@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992b
+
+decisions:
+  - category: Architecture
+    chose: "One workspace per run (IWorkspaceFactory/IWorkspace): a container per distinct toolchain image, each its own agent, job id and per-job bus credential, over one /work; sandbox keys stay per (repository, image) and reach their image's container through a RunWorkspace slot"
+    over: "Keeping one pod per (repository, image), or one container per repository"
+    reason: "Repositories must sit side by side on one disk (a generator expecting ../Server), and NFS/Azure Files are too slow for obj/ and node_modules; an emptyDir shared by the containers of one pod is local disk. Keys per image keep stages in the right toolchain."
+  - category: Architecture
+    chose: "ISandboxFactory stays for single-repo sandboxes (source scopes, browser, probes, PoC writes, design work clones) and shares the pod and container launch code with the workspace factory"
+    over: "Routing every sandbox through a one-container workspace, or keeping a separate single-sandbox launcher"
+    reason: "Those sandboxes hold one tree and no sibling and are not a run's repositories; one launcher per backend means no second path for pods or containers."
+  - category: Architecture
+    chose: "A missing toolchain restarts the workspace: alone at the step gate, every repository's work goes to its remote (checkpoint path, then a push of a head no remote ref contains), liveness stops, the workspace is replaced, each repository is cloned and checked out with checkout -B <branch> <saved head>, identity, feed credentials and prerequisites are redone, references are carried again"
+    over: "Ephemeral containers, or re-running SandboxWorkBranchCheckout.SwitchAsync on restore"
+    reason: "Operator decision in the concept's binding revision (ephemeral containers lack resources and RBAC). Review: SwitchAsync may cut afresh or merge the base and would move what the spec heads measure; a checkout of the saved head cannot."
+  - category: Implementation
+    chose: "A repository that cannot be saved refuses the restart (WorkspaceRestartRefusedException, the tool's answer, workspace untouched); one that cannot be restored ends the run (WorkspaceRestoreException is rethrown by ensure_repo_sandbox)"
+    over: "Swallowing either as a tool error"
+    reason: "A refused save loses nothing; a workspace whose repository did not come back has no tree to continue on."
+  - category: Implementation
+    chose: "Steps waiting at a restart wait without a timeout; the restart waits for steps in flight, so a long build delays it"
+    over: "A wait limit"
+    reason: "A new limit needs a reason the operator would accept and a config key; the step cap already bounds every step."
+  - category: Implementation
+    chose: "A repository is cloned and placed once, through its first key; SandboxTreeSync/Spread/Conflicts/SandboxTreeGit, ConsolidateSecondarySandboxesAsync, BaseMergeVerify's secondary levelling and the reverter's secondary commit are removed"
+    over: "Keeping the levelling as a no-op"
+    reason: "They existed because two keys of one repository were two clones; in one tree they would stage twice or reset a fresh merge (review). Removing the mechanism with the cause is the no-second-path rule."
+  - category: Implementation
+    chose: "A container's limits are the largest envelope of the groups it serves, as within one repository (p0336c); the footprint is one workspace pod, the sum of its containers"
+    over: "Summing the envelopes of the repositories a container serves"
+    reason: "A limit caps one toolchain's processes; the master builds one repository at a time. A per-node fit check needs cluster-wide node reads the server does not have; a pod too large for any node stays Pending and the watcher's reason fails the spawn."
+  - category: Implementation
+    chose: "Each toolchain container has its own home (k8s emptyDir agent-home-<n>, Docker volume per container); registry staging lists the whole /work, so every container stages the feeds of every repository"
+    over: "One home shared by all containers, or staging per repository"
+    reason: "Per-repository staging overwrote ~/.nuget and ~/.npmrc for the second repository in a shared container; the workspace is one project's, so its feeds belong to all its commands."
+  - category: Implementation
+    chose: "k8s containers are named toolchain-<n>; the pipeline-id label is the first container's job id and agentsmith.io/job-ids lists all; the corpse reaper deletes every listed bus credential"
+    over: "One label per container"
+    reason: "Labels select pods, and only one value fits a key; the annotation carries the list the reapers need, with the label as fallback for older pods."
+  - category: Scope
+    chose: "Run records under a directory the repository ignores, and ignored build outputs, are not carried across a restart"
+    over: "Force-staging the run record into the checkpoint"
+    reason: "The checkpoint stages what git tracks, as when a pod dies today; obj/ and node_modules are rebuilt by the next build."

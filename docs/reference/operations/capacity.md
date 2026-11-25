@@ -4,7 +4,7 @@ What happens when more runs arrive than your host or cluster can carry. Short ve
 
 ## Admission: check before you claim
 
-Before a triggered ticket is even claimed, the server asks the capacity probe one question: does this run's *whole footprint* fit right now? The footprint is the pods the run will actually start: one sandbox per repo **and toolchain image**. The pipeline itself runs in the server, so it adds no pod of its own. A repo whose contexts all build on one image gets one sandbox, sized to the largest resource envelope among those contexts; a repo that mixes SDKs gets one sandbox per image. No fit means the run is recorded as **queued**, without claiming the ticket and without spawning anything that would then die. The queued run shows up in the list right away, not once something tries to launch it.
+Before a triggered ticket is even claimed, the server asks the capacity probe one question: does this run's *whole footprint* fit right now? The footprint is the workspace the run will actually start: one pod holding one toolchain container per **distinct image** across all the run's repos, and its size is the sum of those containers' limits. Kubernetes schedules the whole pod on one node. The pipeline itself runs in the server, so it adds no pod of its own; a browser pod, for a project whose runs may render, stays a pod of its own and is added. Contexts that build on the same image share one container, across repos, sized to the largest resource envelope among them; a repo that mixes SDKs adds one container per image it brings. No fit means the run is recorded as **queued**, without claiming the ticket and without spawning anything that would then die. The queued run shows up in the list right away, not once something tries to launch it.
 
 The same question is asked at three doors: the ticket spawn, a manual project init, and a mid-run sandbox escalation.
 
@@ -51,7 +51,7 @@ A run can be cheap in tokens and expensive in pods (a big build that thinks litt
 Cancelling a run (dashboard button or `POST /api/runs/{runId}/cancel`) writes a persistent cancel state that is enforced everywhere:
 
 - A run that hasn't started yet is cancelled before it ever spawns.
-- A running run gets a graceful window (30 seconds) for its pipeline to stop, then the server records it cancelled whether it has stopped or not — its capacity is released, its sandbox pods go with it (the corpse reaper removes any that linger), and the ticket is terminalized on the tracker.
+- A running run gets a graceful window (30 seconds) for its pipeline to stop, then the server records it cancelled whether it has stopped or not — its capacity is released, its workspace pod goes with it (the corpse reaper removes one that lingers), and the ticket is terminalized on the tracker.
 - Cancelled is its own terminal status in the history, distinct from failed.
 
 ## The knobs, in one place

@@ -47,7 +47,7 @@ public sealed class FormatBeforeCommitHarnessTests
         format.Should().BeGreaterThanOrEqualTo(0, "the declared formatter ran");
         steps[format].Args![1].Should().Be("dotnet csharpier './src/Handler.cs'",
             "the formatter gets the file the spec changed, and the run record stays out of it");
-        steps[format].WorkingDirectory.Should().Be("/work");
+        steps[format].WorkingDirectory.Should().Be("/work/primary"); // 2026-11-25-9992c: the repository root
         IsCheckpointStart(steps[format + 1]).Should().BeTrue(
             "the checkpoint push is the next thing the spec commit does");
     }

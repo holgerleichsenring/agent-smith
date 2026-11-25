@@ -37,7 +37,7 @@ public sealed class VerifyDerivationDigest(ISandboxFileReaderFactory readerFacto
         var builder = new StringBuilder();
         foreach (var file in files)
         {
-            var content = await reader.TryReadAsync(FromRoot(file), ct);
+            var content = await reader.TryReadAsync(sandbox.PathUnderRoot(FromRoot(file)), ct);
             builder.Append(file).Append('\n').Append(Normalised(content)).Append('\n');
         }
         return "sha256:" + Convert.ToHexString(
@@ -50,9 +50,7 @@ public sealed class VerifyDerivationDigest(ISandboxFileReaderFactory readerFacto
     private static string Normalised(string? content) =>
         content is null ? Absent : content.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-    private static string FromRoot(string relative)
-    {
-        var trimmed = relative.Trim().Replace('\\', '/').TrimStart('/');
-        return $"{Repository.SandboxWorkPath.TrimEnd('/')}/{trimmed}";
-    }
+    // Under the sandbox's repository root (2026-11-25-9992c), whatever slashes the declaration wrote.
+    private static string FromRoot(string relative) =>
+        relative.Trim().Replace('\\', '/').TrimStart('/');
 }

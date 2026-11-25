@@ -25,6 +25,7 @@ public static class StoreMigrateExtensions
         services.AddSingleton(sp => sp.GetRequiredService<BootstrapConfig>().Auth ?? new TokenAuthorityConfig());
         services.AddSingleton<ConfigDocJson>().AddSingleton<ConfigDocumentAssembler>();
         services.AddSingleton<RoleMappingMigration>().AddSingleton<PipelineAliasMigration>().AddSingleton<LegacyTriggerMigration>();
+        services.AddSingleton<ProjectRegistriesMigration>(); // 2026-11-25-9992d
         services.AddSingleton<MigrateContextFactory>().AddSingleton<StoreMigrateRun>();
         return services.AddRunStoreRepair();
     }

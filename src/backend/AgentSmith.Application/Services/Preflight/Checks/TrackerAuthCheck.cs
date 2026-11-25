@@ -38,9 +38,10 @@ public sealed class TrackerAuthCheck(
 
         var lines = new List<string>();
         var failures = new List<string>();
-        foreach (var (name, tracker) in config.Trackers)
+        foreach (var tracker in Reached(config))
         {
             var probe = await trackerFactory.Create(tracker).ProbeAsync(cancellationToken);
+            var name = tracker.Machine is { } machine ? $"{tracker.Name} as '{machine.Name}'" : tracker.Name;
             if (probe.Ok) lines.Add($"{name} ({tracker.Type}): ok {probe.LatencyMs}ms");
             else failures.Add($"{name} ({tracker.Type}): {probe.Error}");
         }
@@ -62,6 +63,12 @@ public sealed class TrackerAuthCheck(
 
         return PreflightCheckResult.Pass(string.Join(" | ", lines) + "; webhook secrets configured");
     }
+
+    // 2026-11-25-0873: each catalog tracker with its own token (polling reads with it), and each project's copy stamped with a
+    // machine identity, which its writes use.
+    private static IEnumerable<TrackerConnection> Reached(AgentSmithConfig config) =>
+        config.Trackers.Values.Concat(config.Projects.Values.Select(p => p.Tracker).Where(t => t.Machine is not null))
+            .DistinctBy(t => $"{t.Name}|{t.Machine?.Name}|{t.Machine?.Auth}|{t.Machine?.InstallationId}", StringComparer.Ordinal);
 
     private List<string> FindMissingWebhookSecrets(AgentSmithConfig config)
     {

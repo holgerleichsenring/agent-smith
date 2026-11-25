@@ -230,7 +230,7 @@ public sealed class PullRequestTargetTests
             new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(sourceFactory, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
-                new UnverifiedWorkReverter(GitOps(), new SandboxTargets(), NullLogger<UnverifiedWorkReverter>.Instance),
+                new UnverifiedWorkReverter(GitOps(), NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create()),
             AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),

@@ -41,5 +41,5 @@ public sealed class StructureBatchScript
     public Step For(IReadOnlyList<string> paths) => new(
         Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "sh",
         Args: ["-c", Script.Replace("BUDGET", ByteBudget.ToString()), "sh", .. paths],
-        WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: TimeoutSeconds);
+        TimeoutSeconds: TimeoutSeconds);
 }

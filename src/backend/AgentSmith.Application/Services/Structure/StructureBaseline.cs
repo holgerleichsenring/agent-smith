@@ -34,7 +34,7 @@ public sealed class StructureBaseline(
         string? existing = null;
         try
         {
-            existing = await reader.TryReadAsync(scope.BaselinePath, cancellationToken);
+            existing = await reader.TryReadAsync(scope.BaselinePath(sandbox.WorkDirectory()), cancellationToken);
             return await TakeAsync(sandbox, reader, scope, existing, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -54,7 +54,7 @@ public sealed class StructureBaseline(
             return StructureBaselineResult.Untouched(baselineFile.Parse(existing).Count);
         if (scope.Mode == PrinciplesMode.SkillWrites)
             return StructureBaselineResult.Skipped("the bootstrap skill wrote principles.md, whose Limits are not relied on", present);
-        var limitSet = limits.Read(await reader.TryReadAsync(scope.PrinciplesPath, ct));
+        var limitSet = limits.Read(await reader.TryReadAsync(scope.PrinciplesPath(sandbox.WorkDirectory()), ct));
         if (limitSet.IsEmpty) return StructureBaselineResult.Skipped("principles.md declares no Limits", present);
         if (owned is null)
             return StructureBaselineResult.Skipped($"workdir '{scope.Workdir}' is rooted or escapes the repository", present);
@@ -87,7 +87,7 @@ public sealed class StructureBaseline(
         var measuredWith = preserved ? baselineFile.MeasuredWith(existing) : limitSet;
         // 2026-11-24-8756: a preserved baseline keeps its entries, so it keeps saying how they were counted.
         var counted = !preserved || baselineFile.CountsBreaks(existing);
-        await reader.WriteAsync(scope.BaselinePath, baselineFile.Render(written, measuredWith, owned.Directories, counted), ct);
+        await reader.WriteAsync(scope.BaselinePath(sandbox.WorkDirectory()), baselineFile.Render(written, measuredWith, owned.Directories, counted), ct);
         return new StructureBaselineResult(true, written.Count, unreadable, existing is not null);
     }
 

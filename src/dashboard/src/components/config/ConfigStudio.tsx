@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ConfigEntityKind, PocTargetSetting, RegistryEntry, StudioEntity } from "@/lib/configApi";
+import type { ConfigEntityKind, PocTargetSetting, StudioEntity } from "@/lib/configApi";
 import { ConfigStoreNotEmptyError, fetchConfigExportYml, fetchSetting, importConfigYml } from "@/lib/configApi";
 import { EntityCard } from "./EntityCard";
 import { EntityDrawer } from "./EntityDrawer";
@@ -265,7 +265,9 @@ function EntityCatalog({
 }) {
   const t = useT();
   const items = catalog[kind];
-  const { registries, pocTargets } = useSecretRegistries(kind === "secrets");
+  const pocTargets = useSecretPocTargets(kind === "secrets");
+  // 2026-11-25-9992d: the feeds live on the projects, so a secret card reads them from the catalog.
+  const registries = catalog.projects.flatMap((p) => p.registries ?? []);
   const secretStates = useSecretValueStates(kind === "secrets", catalog.secrets, drawerOpen);
   const cards = loading ? (
     <div className="empty">{t("config.loading")}</div>
@@ -324,9 +326,7 @@ function EntityCatalog({
   );
 }
 
-// 2026-11-18-dafc: a registry token references a secret too; the secrets list reads the
-// registries setting once so each card can say which feed uses it. A failed read leaves
-// the cards as they were — the label is a convenience, not a gate.
+// 2026-11-18-dafc: a registry token references a secret too, so each card can say which feed uses it.
 // 2026-11-23-78d7: the secrets list reads where each value comes from once, not per card, and again when the
 // catalog reloads or the drawer closes (a value set in the drawer changes it). A failed read leaves the source out.
 function useSecretValueStates(active: boolean, secrets: unknown, drawerOpen: boolean): SecretValueState[] {
@@ -346,20 +346,16 @@ function stateOf(states: SecretValueState[], id: string): SecretValueState | nul
   return states.find((s) => s.name.toLowerCase() === id.toLowerCase()) ?? null;
 }
 
-// 2026-11-23-933de: and the pocs setting, whose targets' registry pull tokens are secrets too. Each read fails alone.
-function useSecretRegistries(active: boolean): { registries: RegistryEntry[]; pocTargets: PocTargetSetting[] } {
-  const [registries, setRegistries] = useState<RegistryEntry[]>([]);
+// 2026-11-23-933de: the pocs setting, whose targets' registry pull tokens are secrets too. A failed read leaves them out.
+function useSecretPocTargets(active: boolean): PocTargetSetting[] {
   const [pocTargets, setPocTargets] = useState<PocTargetSetting[]>([]);
   useEffect(() => {
     if (!active) return;
     const ctl = new AbortController();
-    fetchSetting("registries", ctl.signal)
-      .then((r) => setRegistries(r ?? []))
-      .catch(() => {});
     fetchSetting("pocs", ctl.signal)
       .then((p) => setPocTargets(p?.targets ?? []))
       .catch(() => {});
     return () => ctl.abort();
   }, [active]);
-  return { registries, pocTargets };
+  return pocTargets;
 }

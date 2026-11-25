@@ -78,7 +78,7 @@ public sealed class SandboxBaseLadder(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
                 Command: "git",
                 Args: ["rev-parse", "--verify", "--quiet", $"refs/remotes/origin/{rung}"],
-                WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: TimeoutSeconds),
+                TimeoutSeconds: TimeoutSeconds),
             progress: null, cancellationToken);
         return result.ExitCode == 0;
     }

@@ -46,9 +46,9 @@ public sealed class LoadDesignSystemHandler(
     private async Task<ContextDocument?> ReadAsync(
         PipelineContext pipeline, RepoConnection repo, CancellationToken ct)
     {
-        var path = Path.Combine(Repository.SandboxWorkPath, ProjectMetaPaths.DesignSystem);
         foreach (var (key, sandbox) in sandboxTargets.SandboxesForRepo(pipeline, repo))
         {
+            var path = sandbox.PathUnderRoot(ProjectMetaPaths.DesignSystem);
             var content = await readerFactory.Create(sandbox).TryReadAsync(path, ct);
             if (string.IsNullOrWhiteSpace(content)) continue;
             logger.LogInformation("{Key}: loaded {Path} ({Chars} chars)", key, path, content.Length);

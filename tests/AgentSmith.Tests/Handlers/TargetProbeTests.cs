@@ -98,9 +98,21 @@ public sealed class TargetProbeTests
         var step = sandbox.RanSteps.Should().ContainSingle().Subject;
         step.Command.Should().Be("/bin/sh", "an injected credential is reached as $VAR");
         step.Args.Should().Equal(["-c", Command]);
-        step.WorkingDirectory.Should().Be("/work",
-            "2026-09-03-7bac: a probe runs where every other command runs; the declaring "
-            + "context's meta.workdir places nothing");
+        step.WorkingDirectory.Should().BeNull(
+            "2026-09-03-7bac: a probe runs where every other command runs — 2026-11-25-9992c: at its sandbox's "
+            + "repository root, which the step leaves to the sandbox; the declaring context's meta.workdir places nothing");
+    }
+
+    // 2026-11-25-9992d: a run sandbox is its repository's RepoSandbox over the injecting backend; the probe still runs.
+    [Fact]
+    public async Task Probe_ThroughARepositorysSandbox_IsAskedNotSkipped()
+    {
+        var backend = new AnsweringSandbox(exitCode: 1, Leaky);
+
+        var result = await Ask(new AgentSmith.Application.Services.Sandbox.RepoSandbox(backend, "warehouse"));
+
+        result.IsSuccess.Should().BeFalse("the injecting backend sits behind the wrapper, so the target is asked");
+        backend.RanSteps.Should().ContainSingle().Which.SecretScope.Should().Be("warehouse");
     }
 
     private static readonly ContextYamlTargetProbe Probe = new(Target, Command);

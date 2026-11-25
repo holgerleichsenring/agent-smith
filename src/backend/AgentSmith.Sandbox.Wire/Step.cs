@@ -1,5 +1,7 @@
 namespace AgentSmith.Sandbox.Wire;
 
+// 2026-11-25-9992d: SecretScope names the repository a command runs for. The agent hands a Run step's process
+// that repository's scoped secrets (ScopedSecretNames) under their plain names and no other repository's.
 // 2026-10-08-e8b9j: Append and RenameTo serve WriteBytes only — a chunk continues the file at
 // Path, and the last chunk moves it over RenameTo, so a reader never sees half a file.
 // 2026-09-17-042ed: SearchHidden asks a Grep step to search DOTFILES AND IGNORED PATHS as well.
@@ -33,7 +35,8 @@ public sealed record Step(
     IReadOnlyList<string>? ExcludeGlobs = null,
     bool SearchHidden = false,
     bool Append = false,
-    string? RenameTo = null)
+    string? RenameTo = null,
+    string? SecretScope = null)
 {
     /// <summary>The protocol version stamped on every step this build sends. Stated once in
     /// <see cref="WireProtocol"/> so three records cannot disagree about what "current" is.</summary>

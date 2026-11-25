@@ -24,11 +24,12 @@ internal static class ProjectMachineMapping
     }
 
     private static ProjectMachineHoster? Hoster(MachineHosterConfig? entry) =>
-        entry is null ? null : new ProjectMachineHoster(entry.Auth, entry.AppId, entry.InstallationId, entry.Email);
+        entry is null ? null : new ProjectMachineHoster(entry.Auth, entry.AppId, entry.InstallationId, entry.Email, entry.TenantId, entry.ClientId);
 
     private static MachineHosterConfig? Raw(ProjectMachineHoster? entry) => entry is null ? null : new MachineHosterConfig
     {
         Auth = entry.Auth.Trim(), AppId = Blank(entry.AppId), InstallationId = Blank(entry.InstallationId), Email = Blank(entry.Email),
+        TenantId = Blank(entry.TenantId), ClientId = Blank(entry.ClientId), // 2026-11-25-d0e2
     };
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

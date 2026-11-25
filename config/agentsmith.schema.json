@@ -53,7 +53,8 @@
     },
     "registries": {
       "type": "array",
-      "description": "Private package feeds the agent authenticates against inside a sandbox (get_artifact_credentials).",
+      "deprecated": true,
+      "description": "Retired 2026-11-25 and ignored: private package feeds are configured per project, under projects.<name>.registries. A stored configuration was moved by the data migration of `database migrate`. Declared only so an older file still validates; the server reports it as a retired key.",
       "items": { "$ref": "#/$defs/registry" }
     },
     "primary_provider": { "type": "string", "description": "The default agent provider when a project names none." },
@@ -371,6 +372,18 @@
             "deadline_seconds": { "type": "integer", "minimum": 60, "description": "The longest one follow waits; past it the run fails and the previous version keeps serving. Default 600." },
             "end_margin_seconds": { "type": "integer", "minimum": 30, "description": "How long before the run's wall-time cancel the follow gives up: the step must write its failure and the PoC state before the cancel and its 30 s kill grace land. Default 60." },
             "commit_allowance_seconds": { "type": "integer", "minimum": 0, "description": "What sealing and the GitOps commit with its re-plans may take between the build and the follow; part of the wall-time check. Default 120." }
+          }
+        },
+        "machine": {
+          "type": "object",
+          "description": "2026-11-25-0873: the identity every PoC act runs under (target install, source and GitOps commits, builds) for a poc- project without a machine block of its own; the same block as a project's. 2026-11-25-9992h: the identity agent-smith acts under on each hoster: commit author, and the token of every push, pull request, comment and merge. A hoster left out acts with each repo's own auth, and the project's setup says so.",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "description": "Commit author and the name agent-smith's own records book acts under." },
+            "email": { "type": "string", "description": "Commit email." },
+            "github": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with app_id a GitHub App's private key." }, "app_id": { "type": "string", "description": "GitHub App id or client id." }, "installation_id": { "type": "string", "description": "The App's installation on the repositories' owner." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } },
+            "gitlab": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with app_id a GitHub App's private key." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } },
+            "azure_devops": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: an Azure DevOps bot user PAT, or with tenant_id and client_id a service principal's client secret." }, "tenant_id": { "type": "string", "description": "The Microsoft Entra tenant of the service principal." }, "client_id": { "type": "string", "description": "The application (client) id of the service principal's app registration." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } }
           }
         },
         "lifetime": {
@@ -1098,6 +1111,11 @@
             "respect_branch_protection": { "type": "boolean", "description": "false (default): merge past branch policies, protection rules and approval rules, which needs the token's bypass permission (Azure: Bypass policies when completing pull requests; GitHub: admin or ruleset bypass). true: arm auto-complete / auto-merge and let the host's rules decide." }
           }
         },
+        "registries": {
+          "type": "array",
+          "description": "2026-11-25-9992d: private package feeds this project's runs authenticate against inside the sandbox (nuget.config, .npmrc and other feed configs are matched by host). The token is a ${secret} reference.",
+          "items": { "$ref": "#/$defs/registry" }
+        },
         "machine": {
           "type": "object",
           "description": "2026-11-25-9992h: the identity agent-smith acts under on each hoster: commit author, and the token of every push, pull request, comment and merge. A hoster left out acts with each repo's own auth, and the project's setup says so.",
@@ -1107,7 +1125,7 @@
             "email": { "type": "string", "description": "Commit email." },
             "github": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with app_id a GitHub App's private key." }, "app_id": { "type": "string", "description": "GitHub App id or client id." }, "installation_id": { "type": "string", "description": "The App's installation on the repositories' owner." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } },
             "gitlab": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with app_id a GitHub App's private key." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } },
-            "azure_devops": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with app_id a GitHub App's private key." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } }
+            "azure_devops": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: an Azure DevOps bot user PAT, or with tenant_id and client_id a service principal's client secret." }, "tenant_id": { "type": "string", "description": "The Microsoft Entra tenant of the service principal." }, "client_id": { "type": "string", "description": "The application (client) id of the service principal's app registration." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } }
           }
         },
         "polling": {
@@ -1155,8 +1173,17 @@
               "properties": {
                 "env": {
                   "type": "object",
-                  "description": "Env vars sourced from a k8s Secret. Each value is 'secretName:key', e.g. SF_CLIENT_ID: 'sf-creds:client-id'.",
+                  "description": "Env vars sourced from a k8s Secret, for every command of every repository of the project. Each value is 'secretName:key', e.g. SF_CLIENT_ID: 'sf-creds:client-id'.",
                   "additionalProperties": { "type": "string" }
+                },
+                "repo_env": {
+                  "type": "object",
+                  "description": "2026-11-25-9992d: env vars only one repository's commands receive, keyed by repository name, each value 'secretName:key' like env. Needs sandbox agents of wire protocol 3; a workspace refuses an older agent. A secret FILE stays readable by every command of the container.",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": { "type": "string" }
+                  },
+                  "examples": [{"billing-api": {"NUGET_TOKEN": "billing-feed:token"}}]
                 },
                 "files": {
                   "type": "array",

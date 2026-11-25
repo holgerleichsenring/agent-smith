@@ -471,7 +471,7 @@ public sealed class RefreshBranchBaseTests
         var verify = new BaseMergeVerify(new ContextVerifyStagesResolver(),
             new VerifyStageResolver(new DeclaredStagePresence(new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
                 NullLogger<VerifyStageResolver>.Instance),
-            new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance), targets, TestTreeSync.TreeGit(), new BaseRefreshGit(),
+            new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance), targets, new BaseRefreshGit(),
             NullLogger<BaseMergeVerify>.Instance);
         var conflicts = new BaseMergeConflictPass(stub.Object, new BaseMergeWholeness(new BaseRefreshGit()));
         return new RefreshBranchBaseHandler(new BaseRefreshMerge(TestGit.Merger, stub.Object, conflicts, verify, new BaseRefreshGit()), AgentSmith.Tests.TestSupport.TestPushers.Plain(),

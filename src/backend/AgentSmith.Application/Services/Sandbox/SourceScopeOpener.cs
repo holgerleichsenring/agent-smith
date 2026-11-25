@@ -53,6 +53,8 @@ public sealed class SourceScopeOpener(
             with { RunId = runContext.CurrentRunId, ConversationId = conversationId };
         // 2026-11-10-4778: an upload's container runs a model's shell, so it mounts no shared package cache either.
         if (withoutSecrets) spec = spec with { Secrets = ResolvedSandboxSecrets.Empty, NoPackageCaches = true };
+        // 2026-11-25-9992d: a source scope speaks for no repository, so it carries no repository's scoped secrets.
+        else if (spec.Secrets is { RepoEnv.Count: > 0 } secrets) spec = spec with { Secrets = secrets with { RepoEnv = [] } };
         return sandboxFactory.CreateAsync(spec, ct);
     }
 

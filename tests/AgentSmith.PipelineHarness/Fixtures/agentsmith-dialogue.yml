@@ -1,5 +1,5 @@
 # p0199 harness fixture: mirrors operator-shape agentsmith.yml.
-# registries: block is here so the composition-root tests can prove the
+# each project's registries: block (2026-11-25-9992d) is here so the composition-root tests can prove the
 # loaded config reaches handlers (the p0198-followup bug class). Token
 # resolves from AGENTSMITH_TEST_AZDO_TOKEN env var; missing-token tests
 # leave it unset and assert SetupRegistryAuth still tolerates it.
@@ -34,22 +34,42 @@ repos:
 
 projects:
   fixture-fix-bug:
+    registries:
+      - host: pkgs.dev.azure.com
+        username: any
+        token: ${azdo_token}
     agent: openai-default
     tracker: github-fixture
     repos: [csharp-fixture]
   fixture-add-feature:
+    registries:
+      - host: pkgs.dev.azure.com
+        username: any
+        token: ${azdo_token}
     agent: openai-default
     tracker: github-fixture
     repos: [csharp-fixture]
   fixture-init-project:
+    registries:
+      - host: pkgs.dev.azure.com
+        username: any
+        token: ${azdo_token}
     agent: openai-default
     tracker: github-fixture
     repos: [csharp-fixture]
   fixture-security-scan:
+    registries:
+      - host: pkgs.dev.azure.com
+        username: any
+        token: ${azdo_token}
     agent: openai-default
     tracker: github-fixture
     repos: [csharp-fixture]
   fixture-spec-dialog:
+    registries:
+      - host: pkgs.dev.azure.com
+        username: any
+        token: ${azdo_token}
     agent: openai-default
     tracker: github-fixture
     repos: [spec-dialog-fixture]
@@ -58,6 +78,10 @@ projects:
   # identity to re-launch on). See DurableDialogueTests for why it is not
   # spec-dialog.
   fixture-durable-dialogue:
+    registries:
+      - host: pkgs.dev.azure.com
+        username: any
+        token: ${azdo_token}
     agent: openai-default
     tracker: github-fixture
     repos: [csharp-fixture]
@@ -65,11 +89,6 @@ projects:
 secrets:
   azdo_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
   gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
-
-registries:
-  - host: pkgs.dev.azure.com
-    username: any
-    token: ${azdo_token}
 
 skills:
   source: default

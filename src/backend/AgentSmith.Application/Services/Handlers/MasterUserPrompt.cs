@@ -56,11 +56,12 @@ internal static class MasterUserPrompt
     {
         var names = sandboxKeys.Where(k => !string.IsNullOrEmpty(k)).ToList();
         if (names.Count == 0)
-            return $"- **Path:** {repo.LocalPath} — **Branch:** {repo.CurrentBranch}";
+            return $"- **Branch:** {repo.CurrentBranch}";
 
-        // 2026-11-09-0620k: no path — each sandbox has its own, and one path printed for all of them was wrong for all
-        // but one. The prefix sentence is the one place the file tools' path form is stated.
-        var checkouts = string.Join("\n", names.Select(n => $"- `{n}` — its own sandbox — **Branch:** {repo.CurrentBranch}"));
+        // 2026-11-09-0620k: each sandbox has its own path; 2026-11-25-9992c: and it is the repository's own,
+        // /work/<repo>. The prefix sentence is the one place the file tools' path form is stated.
+        var checkouts = string.Join("\n", names.Select(n =>
+            $"- `{n}` — its own sandbox at `{Repository.WorkPathFor(n)}` — **Branch:** {repo.CurrentBranch}"));
         return names.Count > 1
             ? checkouts
               + $"\nFile tools address a file by its repository's name and its path from that root (`{names[0]}/src/...`),"
