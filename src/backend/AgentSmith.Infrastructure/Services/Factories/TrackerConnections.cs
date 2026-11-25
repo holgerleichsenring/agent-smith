@@ -25,7 +25,8 @@ internal sealed class TrackerConnections(ICredentialResolver credentials)
         credentials.For(config), TicketLabelVocabulary.For(config));
 
     public GitHubTicketConnection GitHub(TrackerConnection config) => new(
-        Required(config, config.Url, "url"), credentials.For(config), TicketLabelVocabulary.For(config));
+        Required(config, config.Url, "url"), credentials.For(config), TicketLabelVocabulary.For(config),
+        config.Machine is { IsGitHubApp: true } ? () => credentials.MachineLogin(config) : null); // 2026-11-25-0873
 
     public JiraTicketConnection Jira(TrackerConnection config) => new(
         Required(config, config.Url, "url"), Required(config, config.Email, "email"),

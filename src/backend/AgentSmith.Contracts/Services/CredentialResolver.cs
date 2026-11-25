@@ -24,29 +24,40 @@ public sealed class CredentialResolver(
         : this(() => secrets, new MaterializingSecrets(), environment, machineTokens) { }
 
     public string For(RepoConnection repo) => repo.Machine is { } machine
-        ? Machine(repo, machine)
+        ? Machine(Target($"Repo '{repo.Name}'", repo.Url, machine), machine)
         : Resolve($"Repo '{repo.Name}'", repo.Auth);
 
     public string? MachineLogin(RepoConnection repo) =>
-        repo.Machine is { IsGitHubApp: true } machine
-            ? Tokens(repo, machine).AppLogin(repo, machine, Resolve(Entity(repo, machine), machine.Auth))
-            : null;
+        repo.Machine is { IsGitHubApp: true } machine ? AppLogin(Target($"Repo '{repo.Name}'", repo.Url, machine), machine) : null;
 
-    private string Machine(RepoConnection repo, MachineIdentity machine)
+    // 2026-11-25-d0e2: a GitHub App's installation token, a service principal's Entra token, or the bot's own secret.
+    private string Machine(MachineTarget target, MachineIdentity machine)
     {
-        var secret = Resolve(Entity(repo, machine), machine.Auth);
-        return machine.IsGitHubApp ? Tokens(repo, machine).InstallationToken(repo, machine, secret) : secret;
+        var secret = Resolve(target.Entity, machine.Auth);
+        if (machine.IsGitHubApp) return Tokens(target, machine).InstallationToken(target, machine, secret);
+        return machine.IsAzurePrincipal ? Tokens(target, machine).PrincipalToken(target, machine, secret) : secret;
     }
 
-    private IMachineTokens Tokens(RepoConnection repo, MachineIdentity machine) => machineTokens
-        ?? throw new MachineCredentialException(Entity(repo, machine), machine.Auth, "this process mints no GitHub App tokens");
+    private string AppLogin(MachineTarget target, MachineIdentity machine) =>
+        Tokens(target, machine).AppLogin(target, machine, Resolve(target.Entity, machine.Auth));
 
-    private static string Entity(RepoConnection repo, MachineIdentity machine) => $"Repo '{repo.Name}' (machine identity '{machine.Name}')";
+    private IMachineTokens Tokens(MachineTarget target, MachineIdentity machine) => machineTokens
+        ?? throw new MachineCredentialException(target.Entity, machine.Auth, "this process mints no machine tokens");
+
+    private static MachineTarget Target(string entity, string? url, MachineIdentity machine) =>
+        new($"{entity} (machine identity '{machine.Name}')", url);
 
     public string For(ResolvedConnection connection) =>
         Resolve($"Connection '{connection.Name}'", connection.Auth);
 
-    public string For(TrackerConnection tracker) => Resolve($"Tracker '{tracker.Name}'", tracker.Auth);
+    // 2026-11-25-0873: a tracker stamped with its project's machine writes under the machine, as a repository does.
+    public string For(TrackerConnection tracker) => tracker.Machine is { } machine
+        ? Machine(Target($"Tracker '{tracker.Name}'", tracker.Url, machine), machine)
+        : Resolve($"Tracker '{tracker.Name}'", tracker.Auth);
+
+    public string? MachineLogin(TrackerConnection tracker) => tracker.Machine is { IsGitHubApp: true } machine
+        ? AppLogin(Target($"Tracker '{tracker.Name}'", tracker.Url, machine), machine)
+        : null;
 
     public string? Named(string name) => Lookup(name).Value;
 

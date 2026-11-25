@@ -29,6 +29,16 @@ describe("ProjectMachineSection", () => {
     expect(onChange.mock.calls.at(-1)![0].machine.github).toEqual({ auth: "GH_APP_KEY", appId: "123" });
   });
 
+  // 2026-11-25-d0e2
+  it("writes a service principal's tenant and client id on Azure DevOps only", () => {
+    const onChange = vi.fn();
+    const azure = { ...project, machine: { name: "bot", email: "bot@example.com", azureDevops: { auth: "SP_SECRET" } } };
+    render(<ProjectMachineSection project={azure} onChange={onChange} secrets={secrets} />);
+    expect(screen.queryByTestId("form-field-machine-github-tenantId")).toBeNull();
+    fireEvent.change(screen.getByTestId("form-field-machine-azureDevops-tenantId"), { target: { value: "tenant-1" } });
+    expect(onChange.mock.calls.at(-1)![0].machine.azureDevops).toEqual({ auth: "SP_SECRET", tenantId: "tenant-1" });
+  });
+
   it("offers the app fields on GitHub only and clears a hoster whose fields are all empty", () => {
     const onChange = vi.fn();
     const gitlab = { ...project, machine: { name: "bot", email: "bot@example.com", gitlab: { auth: "GITLAB_BOT" } } };

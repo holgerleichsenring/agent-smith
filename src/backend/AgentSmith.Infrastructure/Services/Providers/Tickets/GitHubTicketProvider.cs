@@ -28,6 +28,7 @@ public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory
     private readonly ILogger _logger;
     private readonly GitHubTicketFinalizer _finalizer;
     private readonly GitHubIssueAttachmentRefs _attachmentRefs;
+    private readonly Func<string?>? _selfLogin; // 2026-11-25-0873: a GitHub App's {slug}[bot]
 
     public string ProviderType => "GitHub";
 
@@ -46,6 +47,7 @@ public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory
         _logger = logger;
         _finalizer = new GitHubTicketFinalizer(UpdateStatusAsync, CloseTicketAsync, TransitionToAsync);
         _attachmentRefs = new GitHubIssueAttachmentRefs(_client, _owner, _repo);
+        _selfLogin = connection.SelfLogin; // 2026-11-25-0873
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
@@ -179,7 +181,7 @@ public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory
     public Task<TicketStatusMove?> NewestMoveIntoAsync(TicketId ticketId, string status, CancellationToken ct) => new GitHubStatusHistory(_client, _owner, _repo).NewestMoveIntoAsync(ticketId, status, ct);
 
     public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
-        new GitHubStatusHistory(_client, _owner, _repo).SelfAsync(cancellationToken);
+        new GitHubStatusHistory(_client, _owner, _repo, _selfLogin).SelfAsync(cancellationToken);
 
     // 2026-10-08-9e6e: the tickets changed since a cursor, read by a collaborator.
     public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, int maxPages, CancellationToken ct) => new GitHubChangedTickets(_client, _owner, _repo).ChangedSinceAsync(since, maxPages, ct);

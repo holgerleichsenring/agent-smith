@@ -802,6 +802,9 @@ export interface ProjectMachineHoster {
   appId?: string | null;
   installationId?: string | null;
   email?: string | null;
+  /** 2026-11-25-d0e2: tenantId and clientId make an Azure DevOps entry a service principal; auth is then its client secret. */
+  tenantId?: string | null;
+  clientId?: string | null;
 }
 
 /** 2026-11-17-b34eb: the project's merge: block (when is the YAML name, e.g. manual or on_gate_green). */
@@ -1344,6 +1347,8 @@ export interface PocsSetting {
   readinessPathMaxChars: number;
   /** 2026-11-23-c81ee: the PoC lifetime pass, Extend and the unseen delete. */
   lifetime: PocLifetimeSetting;
+  /** 2026-11-25-0873: the identity every PoC act runs under, for a poc- project with no machine block of its own. */
+  machine?: ProjectMachine | null;
 }
 
 /** 2026-11-23-933dc: agentsmith.yml pocs.scan — the OSV-Scanner image pinned by digest and what blocks. */

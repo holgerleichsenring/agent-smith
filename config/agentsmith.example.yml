@@ -564,7 +564,7 @@ projects:
     #   email: agent-smith-bot@example.com
     #   github: { auth: github_app_key, app_id: "123456", installation_id: "7890123" }
     #   gitlab: { auth: gitlab_bot_token }
-    #   azure_devops: { auth: azdo_bot_pat }
+    #   azure_devops: { auth: azdo_bot_pat }   # or a service principal: { auth: sp_client_secret, tenant_id: ..., client_id: ... }
 
   # Azure DevOps project (p0281b): only `resolution:` is project-specific —
   # trigger_statuses / done_status / failed_status / pipeline_from_label all come from the

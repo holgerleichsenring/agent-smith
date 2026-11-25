@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using Microsoft.VisualStudio.Services.Identity;
+using AgentSmith.Infrastructure.Services.Providers;
 
 namespace AgentSmith.Infrastructure.Services.Webhooks;
 
@@ -46,8 +47,7 @@ public sealed class AzureDevOpsPermissionReader(
         string url, string pat, string token, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($":{pat}")));
+        request.Headers.Authorization = AzureDevOpsAuth.Header(pat); // 2026-11-25-d0e2
         using var response = await httpClientFactory.CreateClient().SendAsync(request, cancellationToken);
         await response.EnsureSuccessWithBodyAsync(cancellationToken);
 

@@ -88,7 +88,7 @@ public sealed class WorkCloneOpener(
     public static Step CloneStep(RepoConnection repo, GitCredential credential, bool fullHistory) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: ["-c", GitStepCredentials.Helper, "clone",
+            Args: [.. GitStepCredentials.Args(credential), "clone",
                 .. fullHistory ? new[] { "--single-branch" } : ["--depth", DefaultDepth.ToString(System.Globalization.CultureInfo.InvariantCulture), "--single-branch"],
                 repo.Url!, "."],
             WorkingDirectory: Repository.SandboxWorkPath,

@@ -70,14 +70,13 @@ public sealed class HostSourceCloner(IGitTokenResolver credentials, ILogger<Host
             UseShellExecute = false,
             CreateNoWindow = true
         };
-        psi.ArgumentList.Add("-c");
-        psi.ArgumentList.Add(CredHelper);
+        foreach (var option in credential.Args(CredHelper)) psi.ArgumentList.Add(option); // 2026-11-25-d0e2: a bearer header too
         psi.ArgumentList.Add("clone");
         psi.ArgumentList.Add("--depth=1");
         psi.ArgumentList.Add("--no-tags");
         psi.ArgumentList.Add(source.Url!);
         psi.ArgumentList.Add(targetDir);
-        if (credential.HasToken) psi.Environment["GIT_TOKEN"] = credential.Token;
+        foreach (var (name, value) in credential.Env() ?? new Dictionary<string, string>()) psi.Environment[name] = value;
         // p0419: the clone carries its own credential helper (CredHelper above), so the
         // SYSTEM gitconfig has nothing to add — and on macOS it declares the keychain
         // helper, which puts a modal dialog in front of an operator who started a

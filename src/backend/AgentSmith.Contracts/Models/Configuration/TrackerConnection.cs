@@ -14,6 +14,13 @@ public sealed record TrackerConnection
     public string? Project { get; init; }
     public string Auth { get; init; } = string.Empty;
 
+    /// <summary>
+    /// 2026-11-25-0873: the machine identity this tracker's writes run under, stamped from the resolving project's
+    /// <c>machine:</c> entry for the tracker's hoster (GitHub, GitLab, Azure Boards); null for a catalog tracker, a Jira tracker
+    /// and a project naming none — then <see cref="Auth"/> answers.
+    /// </summary>
+    public MachineIdentity? Machine { get; init; }
+
     /// <summary>2026-10-02-5f89a, Jira only: the account the API token belongs to.</summary>
     public string? Email { get; init; }
     public IReadOnlyList<string> OpenStates { get; init; } = [];

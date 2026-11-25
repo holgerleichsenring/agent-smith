@@ -43,7 +43,7 @@ public sealed class ResolvedProjectBuilder(
             || designSources is null || requiresStart is null) return null;
         if (ProjectMachineStamp.Apply(name, raw.Machine, repoList, findings) is not { } repos) return null; // 2026-11-25-9992h
 
-        return CreateProject(name, raw, agent, tracker, repos, pipelines) with
+        return CreateProject(name, raw, agent, ProjectMachineStamp.Tracker(tracker, raw.Machine), repos, pipelines) with // 2026-11-25-0873
         {
             Templates = templates,
             DesignSources = designSources,

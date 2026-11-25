@@ -12,10 +12,12 @@ public sealed class PocSourceRepos(IConnectionRepoUrlBuilder urls)
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(target);
         var reference = target.SourceRepo;
-        if (config.Repos.FirstOrDefault(r => ConfigNames.Comparer.Equals(r.Key, reference)).Value is { } catalogued) return (catalogued, null);
+        // 2026-11-25-0873: the repository acts under pocs.machine.
+        if (config.Repos.FirstOrDefault(r => ConfigNames.Comparer.Equals(r.Key, reference)).Value is { } catalogued)
+            return (PocMachine.Stamp(config.Pocs, catalogued), null);
         var slash = reference.IndexOf('/');
         if (slash > 0 && config.Connections.FirstOrDefault(c => ConfigNames.Comparer.Equals(c.Key, reference[..slash])).Value is { } connection)
-            return (urls.Build(connection, reference[(slash + 1)..], null), null);
+            return (PocMachine.Stamp(config.Pocs, urls.Build(connection, reference[(slash + 1)..], null)), null);
         return (null, $"pocs.targets[].source_repo of target '{target.Name}' names '{reference}', which is neither a repos-catalog "
             + "name nor connection/name of a configured connection");
     }

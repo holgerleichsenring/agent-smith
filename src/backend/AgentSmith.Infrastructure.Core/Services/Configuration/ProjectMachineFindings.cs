@@ -30,31 +30,9 @@ public static class ProjectMachineFindings
                 yield return Missing(project, hoster.Key, [.. hoster.Select(r => r.Name).Distinct(StringComparer.Ordinal)]);
     }
 
-    /// <summary>The blocking findings of a block that cannot act; none for an absent block.</summary>
-    public static IEnumerable<StartupFinding> Unusable(string project, MachineIdentityConfig? machine)
-    {
-        if (machine is null) yield break;
-        var entries = new[] { (RepoType.GitHub, machine.Github), (RepoType.GitLab, machine.Gitlab), (RepoType.AzureDevOps, machine.AzureDevops) }
-            .Where(e => e.Item2 is not null).Select(e => (Hoster: e.Item1, Entry: e.Item2!)).ToList();
-        if (entries.Count == 0) yield break;
-        if (string.IsNullOrWhiteSpace(machine.Name))
-            yield return ProjectFindings.Blocking(project, "machine.name",
-                $"Project '{project}': machine.name is empty — the name agent-smith's commits and acts carry.");
-        foreach (var (hoster, entry) in entries)
-        {
-            var key = $"machine.{Key(hoster)}";
-            if (string.IsNullOrWhiteSpace(entry.Auth))
-                yield return ProjectFindings.Blocking(project, $"{key}.auth", $"Project '{project}': {key}.auth names no secret.");
-            if (string.IsNullOrWhiteSpace(machine.Email) && string.IsNullOrWhiteSpace(entry.Email))
-                yield return ProjectFindings.Blocking(project, "machine.email",
-                    $"Project '{project}': {key} has no commit email — set machine.email or {key}.email.");
-            if (!string.IsNullOrWhiteSpace(entry.AppId) && hoster != RepoType.GitHub)
-                yield return ProjectFindings.Blocking(project, $"{key}.app_id", $"Project '{project}': {key}.app_id is for a GitHub App only.");
-            if (!string.IsNullOrWhiteSpace(entry.AppId) && string.IsNullOrWhiteSpace(entry.InstallationId))
-                yield return ProjectFindings.Blocking(project, $"{key}.installation_id",
-                    $"Project '{project}': {key}.app_id is set without installation_id — the App's installation on the repositories' owner.");
-        }
-    }
+    /// <summary>The blocking findings of a block that cannot act; none for an absent block (rules: <see cref="MachineIdentityProblems"/>).</summary>
+    public static IEnumerable<StartupFinding> Unusable(string project, MachineIdentityConfig? machine) =>
+        MachineIdentityProblems.Of(machine, "machine").Select(p => ProjectFindings.Blocking(project, p.Field, $"Project '{project}': {p.Text}"));
 
     private static StartupFinding Missing(string project, RepoType hoster, IReadOnlyList<string> repos) =>
         new(StartupSubsystems.Configuration, StartupFindingSeverity.Advisory,
@@ -63,12 +41,7 @@ public static class ProjectMachineFindings
             + $"Set machine.{Key(hoster)} in the project's settings.",
             project, Field: "machine");
 
-    internal static string Key(RepoType hoster) => hoster switch
-    {
-        RepoType.GitHub => "github",
-        RepoType.GitLab => "gitlab",
-        _ => "azure_devops",
-    };
+    internal static string Key(RepoType hoster) => MachineIdentityProblems.Key(hoster);
 
     private static string Label(RepoType hoster) => hoster switch
     {

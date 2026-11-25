@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using AgentSmith.Infrastructure.Services.Providers;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
@@ -34,12 +35,15 @@ internal sealed class AzureDevOpsConnectionCache(AzureDevOpsTicketConnection con
         Connection().GetClient<WorkItemTrackingHttpClient>();
 
     /// <summary>The pooled connection for this organization and token.</summary>
-    internal VssConnection Connection() =>
-        Cache.AddOrUpdate(_key,
+    internal VssConnection Connection()
+    {
+        VssConnectionEviction.DropStale(Cache, _key, e => e.IsStale(Ttl)); // 2026-11-25-d0e2: rotated tokens
+        return Cache.AddOrUpdate(_key,
             addValueFactory: _ => Build(_organizationUrl),
             updateValueFactory: (_, existing) =>
                 existing.IsStale(Ttl) ? Rebuild(_organizationUrl, existing) : existing)
             .Connection;
+    }
 
     public void Invalidate(Exception cause)
     {
@@ -51,9 +55,7 @@ internal sealed class AzureDevOpsConnectionCache(AzureDevOpsTicketConnection con
     private Entry Build(string url)
     {
         logger.LogInformation("Initializing VssConnection for {Url}", url);
-        return new Entry(
-            new VssConnection(new Uri(url), new VssBasicCredential(string.Empty, _pat)),
-            DateTimeOffset.UtcNow);
+        return new Entry(new VssConnection(new Uri(url), AzureDevOpsAuth.Credential(_pat)), DateTimeOffset.UtcNow);
     }
 
     private Entry Rebuild(string url, Entry old)

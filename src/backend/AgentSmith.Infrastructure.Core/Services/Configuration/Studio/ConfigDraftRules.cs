@@ -45,7 +45,7 @@ public sealed class ConfigDraftRules(
             .. normalizer.Inspect(draft.Id, project),
             .. ProjectTemplateDraftCheck.MessagesFor(draft, catalog)
                 .Select(m => ProjectFindings.Blocking(draft.Id, "templates", m)),
-            .. ProjectMachineFindings.For(draft.Id, project.Machine, Hosters(draft, catalog)), // 2026-11-25-9992h
+            .. ProjectMachineFindings.For(draft.Id, project.Machine, Hosters(draft, catalog)), .. MachineAdvisories.Tracker(draft, project, rawTracker), // 9992h, 0873
         ];
     }
 

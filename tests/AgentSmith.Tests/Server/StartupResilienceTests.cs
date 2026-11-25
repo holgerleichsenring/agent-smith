@@ -264,6 +264,7 @@ public sealed class StartupResilienceTests : IDisposable
             pipeline: code
             resolution:
               not_a_strategy: whatever
+            machine: { name: bot, email: bot@example.com, github: { auth: token } }
         """;
 
     private const string TwoProjectsYaml = """

@@ -116,8 +116,8 @@ public sealed class MachineIdentityTests
             TestCredentials.Config(("token", "persons-pat"), ("bot", "bots-pat"), ("key", "pem"))), machineTokens: tokens.Object);
         var repo = new RepoConnection { Name = "app", Type = RepoType.GitHub, Auth = "token" };
         var app = new MachineIdentity("bot", "bot@example.com", "key", "123", "987");
-        tokens.Setup(t => t.InstallationToken(It.IsAny<RepoConnection>(), app, "pem")).Returns("ghs_minted");
-        tokens.Setup(t => t.AppLogin(It.IsAny<RepoConnection>(), app, "pem")).Returns("bot[bot]");
+        tokens.Setup(t => t.InstallationToken(It.IsAny<MachineTarget>(), app, "pem")).Returns("ghs_minted");
+        tokens.Setup(t => t.AppLogin(It.IsAny<MachineTarget>(), app, "pem")).Returns("bot[bot]");
 
         resolver.For(repo).Should().Be("persons-pat");
         resolver.For(repo with { Machine = new MachineIdentity("bot", "bot@example.com", "bot") }).Should().Be("bots-pat");
@@ -196,7 +196,83 @@ public sealed class MachineIdentityTests
             "the machine never approves its own pull request; a review a host requires is a person's");
     }
 
-    private static ResolvedProject Load(string yaml)
+    [Fact]
+    public void Yaml_AzureServicePrincipal_StampsTenantAndClient()
+    {
+        var project = Load(Head.Replace("lab: { type: GitLab, url: https://gitlab.com/example/lab, auth: token }",
+                "lab: { type: AzureDevOps, url: https://dev.azure.com/example/p/_git/lab, auth: token }")
+            + "    machine:\n      name: bot\n      email: bot@example.com\n"
+            + "      azure_devops: { auth: bot, tenant_id: tenant-1, client_id: client-1 }\n");
+
+        var machine = project.Repos.Single(r => r.Name == "lab").Machine!;
+        machine.Should().Be(new MachineIdentity("bot", "bot@example.com", "bot", TenantId: "tenant-1", ClientId: "client-1"));
+        machine.IsAzurePrincipal.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Findings_AServicePrincipalHalfSet_OrOnAnotherHoster_OrBesideAnApp_IsBlocking()
+    {
+        MachineIdentityConfig Block(MachineHosterConfig? github = null, MachineHosterConfig? azure = null) =>
+            new() { Name = "bot", Email = "bot@example.com", Github = github, AzureDevops = azure };
+
+        ProjectMachineFindings.Unusable("app", Block(azure: new() { Auth = "s", TenantId = "t" })).Select(f => f.Field)
+            .Should().Equal("machine.azure_devops.client_id");
+        ProjectMachineFindings.Unusable("app", Block(github: new() { Auth = "s", TenantId = "t", ClientId = "c" })).Select(f => f.Field)
+            .Should().Equal("machine.github.tenant_id");
+        ProjectMachineFindings.Unusable("app", Block(azure: new() { Auth = "s", TenantId = "t", ClientId = "c", AppId = "1", InstallationId = "2" }))
+            .Select(f => f.Field).Should().Contain("machine.azure_devops.app_id");
+        ProjectMachineFindings.Unusable("app", Block(azure: new() { Auth = "s", TenantId = "t", ClientId = "c" })).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CredentialResolver_ServicePrincipal_MintsItsEntraToken_FromTheClientSecret()
+    {
+        var tokens = new Mock<IMachineTokens>();
+        var resolver = new CredentialResolver(new LoadedSecretValues(TestCredentials.Config(("sp", "client-secret"))), machineTokens: tokens.Object);
+        var principal = new MachineIdentity("bot", "bot@example.com", "sp", TenantId: "t", ClientId: "c");
+        var repo = new RepoConnection { Name = "lab", Type = RepoType.AzureDevOps, Url = "https://dev.azure.com/o/p/_git/lab", Machine = principal };
+        tokens.Setup(t => t.PrincipalToken(It.Is<MachineTarget>(m => m.Url == repo.Url && m.Entity.Contains("Repo 'lab'")), principal, "client-secret"))
+            .Returns("eyJ.entra.token");
+
+        resolver.For(repo).Should().Be("eyJ.entra.token");
+        resolver.MachineLogin(repo).Should().BeNull("an Entra token says itself who it is (connectionData)");
+    }
+
+    [Fact]
+    public void Studio_ServicePrincipal_RoundTrips()
+    {
+        var sent = new ProjectEntity("app", "a", "t", [], null, [], Machine: new ProjectMachine("bot", "bot@example.com",
+            AzureDevops: new ProjectMachineHoster("sp", TenantId: "tenant-1", ClientId: "client-1")));
+
+        var stored = RawProjectPatch.Apply(sent, new RawProjectEntry());
+
+        (stored.Machine!.AzureDevops!.TenantId, stored.Machine.AzureDevops.ClientId).Should().Be(("tenant-1", "client-1"));
+        ProjectEntityMapping.ToProject("app", stored).Machine.Should().Be(sent.Machine);
+    }
+
+    // 2026-11-25-0873
+    [Fact]
+    public void Yaml_MachineBlock_StampsTheProjectsTracker_ForItsHoster()
+    {
+        var project = Load(Head + "    machine:\n      name: bot\n      email: bot@example.com\n      github: { auth: bot }\n");
+
+        project.Tracker.Machine.Should().Be(new MachineIdentity("bot", "bot@example.com", "bot"));
+        Load(Head).Tracker.Machine.Should().BeNull("a project without a block writes with the tracker's own token");
+    }
+
+    [Fact]
+    public void Yaml_PocsMachine_Binds_WithAServicePrincipalEntry()
+    {
+        var pocs = LoadConfig(Head + "pocs:\n  machine:\n    name: poc-bot\n    email: poc@example.com\n"
+            + "    azure_devops: { auth: bot, tenant_id: t-1, client_id: c-1 }\n").Pocs;
+
+        pocs.Machine!.IdentityFor(RepoType.AzureDevOps).Should().Be(
+            new MachineIdentity("poc-bot", "poc@example.com", "bot", TenantId: "t-1", ClientId: "c-1"));
+    }
+
+    private static ResolvedProject Load(string yaml) => LoadConfig(yaml).Projects["app"];
+
+    private static AgentSmithConfig LoadConfig(string yaml)
     {
         var path = Path.Combine(Path.GetTempPath(), $"machine-identity-{Guid.NewGuid():N}.yml");
         File.WriteAllText(path, yaml);
@@ -205,7 +281,7 @@ public sealed class MachineIdentityTests
             var loader = new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(),
                 new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(),
                 new AgentSmithPaths()), new NoOpSystemEventPublisher());
-            return loader.LoadConfig(path).Projects["app"];
+            return loader.LoadConfig(path);
         }
         finally
         {

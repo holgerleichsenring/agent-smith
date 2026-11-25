@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Pocs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Pocs;
@@ -71,7 +72,7 @@ public sealed class PocSourceCommitHandlerTests : IAsyncDisposable
     }
 
     private PocSourceCommitHandler Handler(PocGitRig git) =>
-        new(_scan.Store, _scan.Files(), git.Writer(), NullLogger<PocSourceCommitHandler>.Instance);
+        new(_scan.Store, _scan.Files(), git.Writer(), new PocsConfigSource(), NullLogger<PocSourceCommitHandler>.Instance);
 
     private static PocSourceCommitContext Context(PocGitRig git, int revision) =>
         new(new PipelineContext(), new ResolvedProject { Name = "poc-ann", Repos = [git.Repo] }, new PocSeeds(7, revision, "ann-sub", false, null, []));

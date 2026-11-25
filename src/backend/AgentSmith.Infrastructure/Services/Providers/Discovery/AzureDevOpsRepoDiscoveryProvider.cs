@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Infrastructure.Services.Providers;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Discovery;
 
@@ -34,8 +35,7 @@ public sealed class AzureDevOpsRepoDiscoveryProvider(
                   "/_apis/git/repositories?api-version=7.1";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{credentials.For(connection)}"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", token);
+        request.Headers.Authorization = AzureDevOpsAuth.Header(credentials.For(connection)); // 2026-11-25-d0e2: an Entra token as Bearer
 
         var response = await Http.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)

@@ -18,4 +18,8 @@ public static class ProjectMachineStamp
         if (unusable.Count > 0) return null;
         return [.. repos.Select(r => r.Type == RepoType.Local ? r : r with { Machine = machine?.IdentityFor(r.Type) })];
     }
+
+    /// <summary>2026-11-25-0873: the project's copy of its tracker, stamped with the block's entry for the tracker's hoster.</summary>
+    public static TrackerConnection Tracker(TrackerConnection tracker, MachineIdentityConfig? machine) =>
+        tracker with { Machine = machine?.IdentityFor(tracker.Type) };
 }

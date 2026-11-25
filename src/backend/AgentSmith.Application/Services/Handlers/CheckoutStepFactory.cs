@@ -39,7 +39,7 @@ internal static class CheckoutStepFactory
     private static Step Clone(RepoConnection config, GitCredential credential, string[] narrowing) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: ["-c", GitStepCredentials.Helper, "clone", .. narrowing, config.Url!, "."],
+            Args: [.. GitStepCredentials.Args(credential), "clone", .. narrowing, config.Url!, "."],
             WorkingDirectory: Repository.SandboxWorkPath,
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
@@ -53,7 +53,7 @@ internal static class CheckoutStepFactory
     public static Step BuildFetchRevisionStep(GitCredential credential, string revision) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: new[] { "-c", GitStepCredentials.Helper, "fetch", "origin", revision },
+            Args: [.. GitStepCredentials.Args(credential), "fetch", "origin", revision],
             WorkingDirectory: Repository.SandboxWorkPath,
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
@@ -68,7 +68,7 @@ internal static class CheckoutStepFactory
     public static Step BuildFetchRevisionAtDepthStep(GitCredential credential, string revision) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: ["-c", GitStepCredentials.Helper, "fetch", "--depth", "1", "origin", revision],
+            Args: [.. GitStepCredentials.Args(credential), "fetch", "--depth", "1", "origin", revision],
             WorkingDirectory: Repository.SandboxWorkPath,
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
@@ -99,7 +99,7 @@ internal static class CheckoutStepFactory
     public static Step BuildCreateRemoteBranchStep(GitCredential credential, string atRef, string branch) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
-            Args: new[] { "-c", GitStepCredentials.Helper, "push", "origin", $"{atRef}:refs/heads/{branch}" },
+            Args: [.. GitStepCredentials.Args(credential), "push", "origin", $"{atRef}:refs/heads/{branch}"],
             WorkingDirectory: Repository.SandboxWorkPath,
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
