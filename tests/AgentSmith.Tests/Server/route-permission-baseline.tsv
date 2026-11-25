@@ -67,6 +67,7 @@ GET	/api/projects/{project}/deployments	runs.read	route:project
 GET	/api/pull-requests	runs.read	across
 GET	/api/runs	runs.read	across
 GET	/api/runs/expectations/metrics	runs.read	across
+GET	/api/runs/spend	runs.read	across
 GET	/api/runs/{runId}	runs.read	run
 GET	/api/runs/{runId}/acceptance	runs.read	run
 GET	/api/runs/{runId}/compute	runs.read	run

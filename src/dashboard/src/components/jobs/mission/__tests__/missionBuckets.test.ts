@@ -45,7 +45,7 @@ describe("missionBuckets", () => {
     expect(buckets.finished.map((r) => r.runId)).toEqual(["d", "e", "f", "g"]);
   });
 
-  it("DeriveMetrics_FinishedToday_SplitsOkFailAndSumsCost", () => {
+  it("DeriveMetrics_FinishedToday_SplitsOkFail", () => {
     // Today's finished runs share `now`'s exact time-of-day so the same-day
     // check is timezone-robust; yesterday is exactly 24h earlier.
     const now = new Date("2026-07-17T12:00:00Z").getTime();
@@ -68,7 +68,8 @@ describe("missionBuckets", () => {
     expect(metrics.finishedToday).toBe(3);
     expect(metrics.okToday).toBe(2);
     expect(metrics.failToday).toBe(1);
-    expect(metrics.costTodayUsd).toBeCloseTo(4.0);
+    // 2026-11-24-0fbfb: Cost today is the server's spend rollup, not a sum over these runs.
+    expect(metrics).not.toHaveProperty("costTodayUsd");
   });
 
   // p0458: a run that took its answer resumes as an ordinary running run — it

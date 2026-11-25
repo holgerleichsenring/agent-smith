@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-0fbfb
+goal: "Cost today and the Overview's spend come from one server rollup over the caller's projects since the viewer's local midnight, split into work and system runs, not from the loaded run list."
+
+applies_to: "default (run spend repository, GET /api/runs/spend) + dashboard (runs metric strip, Overview spend card and breakdown)"
+
+requires: [2026-11-24-6357]
+
+facts:
+  - claim: "Cost today sums costUsd over the runs the list shows that finished on the local calendar day, so hidden system runs and runs outside the loaded window are missing."
+    evidence: "src/dashboard/src/components/jobs/mission/missionBuckets.ts:71-90; src/dashboard/src/components/jobs/MissionControl.tsx:64-66"
+  - claim: "The overview's recent window is a bounded number of runs per origin."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:26,60-61"
+  - claim: "The Overview's spend card and breakdown sum the same overview window over a rolling 24 h and 7 days."
+    evidence: "src/dashboard/src/hooks/useCostRollup.ts:42-66; src/dashboard/src/hooks/useSpendBreakdown.ts:43-55"
+  - claim: "A run id begins with its UTC start, so a time window is an id range SQL compares on every provider; SQLite cannot compare DateTimeOffset nor sum decimals in SQL."
+    evidence: "src/backend/AgentSmith.Application/Services/RunIdGenerator.cs:27-33; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/DeliveryRunWindow.cs:7-24; src/backend/AgentSmith.Server/Services/Tickets/TicketMonthCost.cs:9-24"
+  - claim: "Which pipelines are system runs is PipelinePresets.SystemNames, applied in SQL by OfOrigin."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunOriginQuery.cs:12-19"
+
+scope:
+  in: >-
+    RunSpendRepository reads the runs whose id falls in [from, now] in the caller's projects (id, pipeline, cost, repos)
+    and their llm call count; sums run in memory. GET /api/runs/spend?from=<ISO instant> (runs.read, across the caller's
+    projects) answers total, work and system cost and run counts, llm calls and the breakdown by repos and pipeline; a
+    missing or unreadable from is 400. The browser sends the instant of its own local midnight, so the zone never reaches
+    the server and DST is the browser's. Runs page: Cost today is that rollup, with work and system beneath, whatever the
+    toggle and the window. Overview: today since local midnight, the week and its llm calls since 7 days ago, and the
+    breakdown from the week's rollup. Read again when a run starts or its cost moves (spendKey of the overview). i18n en/de.
+  out: "Finished today and its ok/fail counts stay over the shown runs. A run spanning midnight counts where it started."
+
+steps:
+  - id: read
+    action: "RunSpendRepository + rows; RunSpendReader composing the view; endpoint; DI."
+  - id: dashboard
+    action: "spendApi + useRunSpend; MetricStrip Cost today; Overview spend card and breakdown; drop the window sums."
+
+tests:
+  - "RunSpendRepository on SQLite: runs before from, another project and non-timestamp ids are out; work and system apart; llm calls counted. SQL Server and PostgreSQL translate the window and scope in SQL."
+  - "Endpoint: a scoped caller sees only its projects' spend; no from is 400."
+  - "Dashboard: Cost today shows the rollup with system runs hidden; the Overview card and breakdown read the rollup."
+
+done:
+  - "Build, the affected backend and dashboard tests green; the spec gate passed."

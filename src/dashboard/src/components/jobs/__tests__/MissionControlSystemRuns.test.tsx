@@ -19,6 +19,12 @@ vi.mock("@/hooks/useJobsHub", () => ({
 const fetchRunsBefore = vi.fn().mockResolvedValue([]);
 vi.mock("@/lib/runsApi", () => ({ fetchRunsBefore: (...args: unknown[]) => fetchRunsBefore(...args) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+// 2026-11-24-0fbfb: Cost today is the server's rollup since local midnight, whatever the toggle shows.
+const fetchRunSpend = vi.fn();
+vi.mock("@/lib/runSpendApi", async (actual) => ({
+  ...(await actual<object>()),
+  fetchRunSpend: (...args: unknown[]) => fetchRunSpend(...args),
+}));
 
 import { MissionControl } from "../MissionControl";
 import { RunBucketFilterProvider } from "@/lib/RunBucketFilter";
@@ -62,6 +68,8 @@ function renderList() {
 
 describe("the system-runs toggle", () => {
   beforeEach(() => {
+    fetchRunSpend.mockReset();
+    fetchRunSpend.mockReturnValue(new Promise(() => {}));
     stubStorage();
     resetShowSystemRuns();
     mockOverview = {
@@ -69,6 +77,19 @@ describe("the system-runs toggle", () => {
       recent: [snap("work-done", "success"), snap("beat-ok", "success", true), snap("beat-bad", "failed", true)],
       systemActivity: null,
     };
+  });
+
+  it("CostToday_SystemRunsHidden_IsTheRollupOfEveryRun", async () => {
+    fetchRunSpend.mockResolvedValue({
+      from: "", totalUsd: 12.65, work: { costUsd: 10.65, runs: 5 }, system: { costUsd: 2, runs: 206 }, llmCalls: 0, slices: [],
+    });
+    renderList();
+    expect(screen.getByTestId("system-runs-checkbox")).not.toBeChecked();
+    expect(await screen.findByText("$12.65")).toBeInTheDocument();
+    expect(screen.getByTestId("metric-cost")).toHaveTextContent("work $10.65 · system $2.00");
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    expect(fetchRunSpend).toHaveBeenCalledWith(midnight.toISOString(), expect.anything());
   });
 
   it("ByDefault_HidesSystemRuns_AndCountsOnlyWorkRuns", () => {

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-0fbfa
+goal: "A later master pass inside one spec reads as its continuation: the checklist keeps the steps pass 1 finished, and the pass's master step says which pass it is and why it runs."
+
+applies_to: "default (AgenticMasterHandler ledger seed, structure correction message) + dashboard (run log spec section, Now block)"
+
+facts:
+  - claim: "Every AgenticMaster step seeds the progress ledger afresh from the spec's steps, all pending, and flushes it; a correction, repair or after-answer pass is a new AgenticMaster step of the same spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:127,167-168; src/backend/AgentSmith.Application/Services/Tools/ProgressLedgerSeeder.cs:21-31; src/backend/AgentSmith.Application/Services/Structure/StructureGateOutcome.cs:20-21,46"
+  - claim: "A ledger with pending steps re-drives the master once ('unfinished'), so a correction pass over a re-seeded checklist is pushed to redo the spec's finished steps."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageReasonPolicy.cs:27-31"
+  - claim: "The run page's plan section and an opened master step's spec steps read the run's one ledger, so pass 2's seed shows pass 1's finished steps as open."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunLogSectionBodies.tsx:112-122; src/dashboard/src/components/jobs/runlog/useSpecStepLines.ts:31-34"
+  - claim: "The commit step's correction message counts the units but does not name them."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureGateOutcome.cs:45"
+  - claim: "MasterPassEnded carries the pass's opener and end reason and is stamped with its step; the ticket page already words both."
+    evidence: "src/dashboard/src/types/hub-events.ts:658-673; src/backend/AgentSmith.Application/Services/Events/StepAttributingEventPublisher.cs:23-28; src/dashboard/src/components/tickets/detail/flowWords.ts:9-39"
+
+scope:
+  in: >-
+    Backend: the master's seed carries the ledger the pipeline already holds for the same spec and steps
+    (ContextKeys.ProgressLedgerSpecId: spec id and steps digest, set beside the ledger), so a later pass of that spec opens
+    on the checklist as pass 1 left it; another spec, a revised one, or none seeds as before. The correction message names each unit over its limit on its own line. Dashboard: in a spec section, a
+    master step after the spec's first one carries a pass line — what kind of pass (from the step that queued it: commit =
+    correction, verify = repair, open questions = after the answer, diff review = review fix, else another pass), its number
+    in the spec and that step's reason; a master step whose pass ended says how (MasterPassEnded by step). The Now block's
+    step names the pass. i18n en/de.
+  out: "The ticket page's pass view. Per-pass ledger snapshots for runs recorded before this spec."
+
+steps:
+  - id: carry
+    action: "SpecLedgerCarry (seed from the same spec's ledger) + ContextKeys.ProgressLedgerSpecId; AgenticMasterHandler uses it."
+  - id: message
+    action: "StructureGateOutcome correction message lists the findings."
+  - id: dashboard
+    action: "specPasses (pass of each master step), RunLog pass line, Now block label, i18n."
+
+tests:
+  - "SpecLedgerCarry: same spec carries statuses; another spec, a revised spec, no spec and no carried ledger seed fresh."
+  - "StructureGateOutcome: the correction message names each unit."
+  - "Harness (real composition): a correction pass that only splits the method keeps the checklist pass 1 finished and is not re-driven."
+  - "specPasses: the second master step of a spec after a commit is a correction pass carrying the commit's reason; ended passes carry their end."
+  - "Run page replay: steps 22..26 of the reported run (pass 1, commit with correction, pass 2 running) — pass 1's step and the plan stay done, pass 2's line names the correction and its reason, the Now block follows pass 2."
+
+done:
+  - "Build, the affected backend and dashboard tests green; the spec gate passed."

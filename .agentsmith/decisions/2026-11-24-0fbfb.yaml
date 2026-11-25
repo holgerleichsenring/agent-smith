@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-0fbfb
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "GET /api/runs/spend?from=<ISO instant> sums every run of the caller's projects whose id falls between the instant and now; the browser sends its own local midnight (or seven days ago)"
+    over: "An IANA zone query parameter resolved on the server; UTC days"
+    reason: "The browser already knows where its day starts, including DST; the server needs no tz database and the instant is unambiguous. It replaces the browser sums over the loaded window (missionBuckets, useCostRollup, useSpendBreakdown) — no second figure remains."
+  - category: Architecture
+    decider: claude
+    chose: "A run counts at its start (its id); the window is an id range, costs summed in memory"
+    over: "Summing RunLlmCall rows by their write time; filtering runs by FinishedAt"
+    reason: "The id range is how DeliveryRunWindow and TicketMonthCost window runs on all three providers; SQLite compares neither DateTimeOffset nor sums decimals in SQL. Per-call time would be exact across midnight but reads every call of the window; a run spanning midnight is the accepted error."
+  - category: Implementation
+    decider: claude
+    chose: "The Overview's breakdown groups the week's rollup the server returns (slices by repo set and pipeline)"
+    over: "Leaving the breakdown on the overview window"
+    reason: "7463 pinned that the breakdown sums to the 7-day figure; moving only the headline would have made them two truths for one number."
+  - category: Implementation
+    decider: claude
+    chose: "Re-read when spendKey of the overview changes — its live runs, newest finished run, run count and summed cost; '—' until answered, a sentence when the first read fails"
+    over: "Re-reading on every overview object (review: several reads a second while a run is live); a timer; a push of the rollup on the hub"
+    reason: "Every live run is in the overview, so no spend moves without the key moving; a timer would be a new limit, and the overview's push is shared by every viewer and has no viewer's day."
+  - category: Implementation
+    decider: claude
+    chose: "The upper bound of the id range is now plus a day"
+    over: "Now plus one second"
+    reason: "Review: a replica whose clock runs ahead mints ids the second-bound would drop; the bound only has to keep ids that are no timestamp (letters sort above digits) out."

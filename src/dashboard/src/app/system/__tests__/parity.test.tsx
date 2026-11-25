@@ -43,6 +43,14 @@ vi.mock("@/lib/catalogApi", () => ({
   fetchSkillBody: vi.fn(() => Promise.resolve(null)),
 }));
 vi.mock("@/lib/expectationsApi", () => ({ fetchExpectationMetrics: vi.fn() }));
+// 2026-11-24-0fbfb: the Overview's spend is the server's rollup.
+vi.mock("@/lib/runSpendApi", async (actual) => ({
+  ...(await actual<object>()),
+  fetchRunSpend: vi.fn(() => Promise.resolve({
+    from: "", totalUsd: 2.44, work: { costUsd: 2.44, runs: 1 }, system: { costUsd: 0, runs: 0 }, llmCalls: 19,
+    slices: [{ repos: ["server"], pipeline: "fix-bug", costUsd: 2.44 }],
+  })),
+}));
 
 // Five judged criteria over two runs: 3 met, 1 unmet, 1 unproven, 2 not applicable
 // (in neither side), one overrule applied and one left stale.
@@ -164,7 +172,7 @@ describe("System & overview pages — parity design system (p0343d)", () => {
     const overview = render(<OverviewView />);
     expect(overview.container.querySelector(".mock-shell.mock-system")).not.toBeNull();
     expect(overview.container.querySelector(".m-head h1")).not.toBeNull();
-    expect(screen.getByTestId("kcard-cost-today")).toHaveTextContent("$2.44");
+    expect(await screen.findByTestId("kcard-cost-today")).toHaveTextContent("$2.44");
     expect(screen.getByTestId("kcard-cost-week")).toHaveTextContent("$2.44");
     expect(screen.getByTestId("kcard-cost-calls-7d")).toHaveTextContent("19");
     // 2026-08-27-559e: the figures read from cards now, not from a strip.

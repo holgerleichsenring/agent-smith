@@ -51,7 +51,6 @@ export interface MissionMetrics {
   finishedToday: number;
   okToday: number;
   failToday: number;
-  costTodayUsd: number;
 }
 
 function isSameDay(iso: string | null, now: number): boolean {
@@ -65,22 +64,20 @@ function isSameDay(iso: string | null, now: number): boolean {
   );
 }
 
-// Every metric is derived from the same run list the sections render — no
-// separate server rollup, so the strip can never disagree with the sections
-// below it. `now` is injectable for deterministic tests.
+// Every count is derived from the same run list the sections render, so the strip can never disagree with the
+// sections below it. `now` is injectable for deterministic tests. 2026-11-24-0fbfb: Cost today is not a count of the
+// shown runs — it is the server's spend rollup (useRunSpend), which the toggle and the loaded window cannot shrink.
 export function deriveMetrics(runs: RunSnapshot[], now: number = Date.now()): MissionMetrics {
   const buckets = bucketRuns(runs);
   const finishedToday = buckets.finished.filter((run) => isSameDay(run.finishedAt, now));
 
   let okToday = 0;
   let failToday = 0;
-  let costTodayUsd = 0;
   for (const run of finishedToday) {
     const status = toNodeStatus(run.status);
     // p0439: a shortfall is a done wherever runs are counted, never a failure.
     if (status === "ok" || status === "shortfall") okToday += 1;
     else if (status === "fail") failToday += 1;
-    costTodayUsd += run.costUsd ?? 0;
   }
 
   return {
@@ -90,6 +87,5 @@ export function deriveMetrics(runs: RunSnapshot[], now: number = Date.now()): Mi
     finishedToday: finishedToday.length,
     okToday,
     failToday,
-    costTodayUsd,
   };
 }

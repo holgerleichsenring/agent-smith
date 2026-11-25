@@ -42,7 +42,8 @@ public sealed class StructureGateOutcome(ISpecProgressRecorder progress)
         pipeline.Set(ContextKeys.StructureFindings, verdict.Excess.Select(f => f.ToString()).ToList());
         var specId = pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) ? draft?.SpecId : null;
         return CommandResult.OkAndContinueWith(
-            Noted($"{verdict.Excess.Count} unit(s) over their Limits; one correction pass follows", note),
+            Noted($"{verdict.Excess.Count} unit(s) over their Limits; one correction pass follows\n" // 0fbfa: and which
+                + string.Join('\n', verdict.Excess.Select(f => $"- {f}")), note),
             [.. CorrectionBlock.Select(name => new PipelineCommand(name) { SpecId = specId })]);
     }
 

@@ -1,8 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { OverviewView } from "@/components/overview/OverviewView";
-import { deriveCostRollup } from "@/hooks/useCostRollup";
 import { deriveSpendBreakdown } from "@/hooks/useSpendBreakdown";
+import type { RunSpend } from "@/lib/runSpendApi";
 import { deriveRunOutcomes } from "@/lib/runOutcomes";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
 import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
@@ -20,6 +20,23 @@ import * as expectationsApi from "@/lib/expectationsApi";
 const useJobsHub = vi.hoisted(() => vi.fn());
 vi.mock("@/hooks/useJobsHub", () => ({ useJobsHub: () => useJobsHub() }));
 vi.mock("@/lib/expectationsApi", () => ({ fetchExpectationMetrics: vi.fn() }));
+// 2026-11-24-0fbfb: the spend is the server's rollup — one read since local midnight, one since a week ago.
+const fetchRunSpend = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/runSpendApi", async (actual) => ({ ...(await actual<object>()), fetchRunSpend }));
+
+const TODAY: RunSpend = {
+  from: "", totalUsd: 3.5, work: { costUsd: 3, runs: 2 }, system: { costUsd: 0.5, runs: 4 }, llmCalls: 12,
+  slices: [{ repos: ["server"], pipeline: "fix-bug", costUsd: 3.5 }],
+};
+const WEEK: RunSpend = {
+  from: "", totalUsd: 9.75, work: { costUsd: 8, runs: 5 }, system: { costUsd: 1.75, runs: 40 }, llmCalls: 1234,
+  slices: [
+    { repos: ["web"], pipeline: "add-feature", costUsd: 4 },
+    { repos: ["server"], pipeline: "fix-bug", costUsd: 4 },
+    { repos: [], pipeline: "series-run", costUsd: 1.75 },
+  ],
+};
+const isWeek = (from: string) => Date.now() - Date.parse(from) > 6 * 24 * 60 * 60 * 1000;
 
 // Five judged criteria over two runs: 3 met, 1 unmet, 1 unproven, 2 not applicable
 // (in neither side), one overrule applied and one left stale.
@@ -126,39 +143,43 @@ beforeEach(() => {
   useJobsHub.mockReturnValue({ overview });
   mockedExpectations.fetchExpectationMetrics.mockReset();
   mockedExpectations.fetchExpectationMetrics.mockResolvedValue(noCriteria);
+  fetchRunSpend.mockReset();
+  fetchRunSpend.mockImplementation(async (from: string) => (isWeek(from) ? WEEK : TODAY));
 });
 
 describe("Overview", () => {
-  it("Overview_TheSpendFigure_IsTheOneTheCostViewRead", () => {
-    const cost = deriveCostRollup(overview, Date.now());
+  it("Overview_TheSpendFigure_IsTheServersRollup_TodayAndWeekApart", async () => {
     renderOverview();
-    expect(screen.getByTestId("kcard-cost-today")).toHaveTextContent(`$${cost.today.toFixed(2)}`);
-    expect(screen.getByTestId("kcard-cost-week")).toHaveTextContent(`$${cost.week.toFixed(2)}`);
-    expect(screen.getByTestId("kcard-cost-calls-7d")).toHaveTextContent(
-      cost.llmCalls.toLocaleString(),
-    );
-    // The run finished three days ago is in the week and not in the day.
-    expect(cost.week).toBeGreaterThan(cost.today);
+    expect(await screen.findByTestId("kcard-cost-today")).toHaveTextContent("$3.50");
+    expect(screen.getByTestId("kcard-cost-week")).toHaveTextContent("$9.75");
+    expect(screen.getByTestId("kcard-cost-calls-7d")).toHaveTextContent((1234).toLocaleString());
+    // Today is read from the viewer's local midnight, the week from seven days back.
+    const froms = fetchRunSpend.mock.calls.map((c) => String(c[0]));
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    expect(froms).toContain(midnight.toISOString());
+    expect(froms.some(isWeek)).toBe(true);
   });
 
-  it("Overview_TheBreakdown_SumsToTheHeadlineSpend", () => {
-    const cost = deriveCostRollup(overview, Date.now());
-    const slices = deriveSpendBreakdown(overview, Date.now());
-    // The grouping is a re-cut of the same runs, so it adds up to the figure
-    // above it — a breakdown that does not is a second truth for one number.
-    const summed = slices.reduce((total, slice) => total + slice.amountUsd, 0);
-    expect(summed).toBeCloseTo(cost.week, 10);
+  it("Overview_TheBreakdown_SumsToTheHeadlineSpend", async () => {
+    const slices = deriveSpendBreakdown(WEEK);
+    // The grouping is a re-cut of the same read, so it adds up to the figure above it.
+    expect(slices.reduce((total, slice) => total + slice.amountUsd, 0)).toBeCloseTo(WEEK.totalUsd, 10);
 
     renderOverview();
-    const rows = within(screen.getByTestId("overview-spend-rows")).getAllByText(/^\$/);
-    expect(rows).toHaveLength(slices.length);
-    // Biggest first, and the work and the pipeline both name themselves.
-    expect(screen.getByTestId(`overview-spend-row-${slices[0].key}`)).toHaveTextContent(
-      `$${slices[0].amountUsd.toFixed(2)}`,
-    );
-    const breakdown = screen.getByTestId("overview-spend-rows");
+    const breakdown = await screen.findByTestId("overview-spend-rows");
+    expect(within(breakdown).getAllByText(/^\$/)).toHaveLength(slices.length);
+    expect(screen.getByTestId(`overview-spend-row-${slices[0].key}`)).toHaveTextContent(`$${slices[0].amountUsd.toFixed(2)}`);
     expect(breakdown).toHaveTextContent("add-feature");
     expect(breakdown).toHaveTextContent("web");
+    expect(breakdown).toHaveTextContent("series-run");
+  });
+
+  it("Overview_SpendNotReadable_SaysSoInItsCard", async () => {
+    fetchRunSpend.mockRejectedValue(new Error("down"));
+    renderOverview();
+    expect(await screen.findByText("The spend could not be read.")).toBeInTheDocument();
+    expect(screen.getByTestId("overview-runs-card")).toBeInTheDocument();
   });
 
   it("Overview_TheRunOutcomes_MatchTheBucketsTheRailCounts", () => {
@@ -220,18 +241,17 @@ describe("Overview", () => {
 
   it("Overview_NoRunListYet_EachSectionSaysSoInItsOwnBox", () => {
     useJobsHub.mockReturnValue({ overview: null });
+    fetchRunSpend.mockReturnValue(new Promise(() => {}));
     renderOverview();
     expect(screen.getByTestId("overview-spend-loading")).toBeInTheDocument();
     expect(screen.getByTestId("overview-runs-loading")).toBeInTheDocument();
     expect(screen.getByTestId("overview-page")).toBeInTheDocument();
   });
 
-  it("Overview_NoSpendInTheWindow_TheBreakdownSaysSoRatherThanShowingNothing", () => {
-    useJobsHub.mockReturnValue({
-      overview: { active: [], recent: [], systemActivity: null } as OverviewSnapshot,
-    });
+  it("Overview_NoSpendInTheWindow_TheBreakdownSaysSoRatherThanShowingNothing", async () => {
+    fetchRunSpend.mockResolvedValue({ ...WEEK, totalUsd: 0, slices: [] });
     renderOverview();
-    expect(screen.getByTestId("overview-spend-empty")).toBeInTheDocument();
+    expect(await screen.findByTestId("overview-spend-empty")).toBeInTheDocument();
     expect(screen.getByTestId("overview-runs-card")).toBeInTheDocument();
   });
 
@@ -248,8 +268,9 @@ describe("Overview", () => {
   });
   // ===== 2026-08-27-559e: cards over panels ================================
 
-  it("Overview_TheThreeFigures_RenderAsThreeCards", () => {
+  it("Overview_TheThreeFigures_RenderAsThreeCards", async () => {
     const { container } = renderOverview();
+    await screen.findByTestId("kcard-cost-week");
     // The page is a bounded column of its own scope, not a .mock-system page
     // whose strips run whatever width the display has.
     expect(container.querySelector(".mock-overview .main")).not.toBeNull();
@@ -301,27 +322,17 @@ describe("Overview", () => {
     }
   });
 
-  it("Overview_ARepoSetLongerThanItsRow_IsTruncatedAndKeepsItsFullValue", () => {
-    overview = {
-      active: [],
-      recent: [
-        snap({
-          runId: "wide",
-          repos: [
-            "platform-identity-service",
-            "platform-billing-service",
-            "platform-notification-service",
-          ],
-        }),
-      ],
-      systemActivity: null,
+  it("Overview_ARepoSetLongerThanItsRow_IsTruncatedAndKeepsItsFullValue", async () => {
+    const wide: RunSpend = {
+      ...WEEK,
+      slices: [{ repos: ["platform-identity-service", "platform-billing-service", "platform-notification-service"], pipeline: "fix-bug", costUsd: 1 }],
     };
-    useJobsHub.mockReturnValue({ overview });
-    const slices = deriveSpendBreakdown(overview, Date.now());
+    fetchRunSpend.mockResolvedValue(wide);
+    const slices = deriveSpendBreakdown(wide);
     expect(slices).toHaveLength(1);
 
     renderOverview();
-    const label = screen.getByTestId(`overview-spend-work-${slices[0].key}`);
+    const label = await screen.findByTestId(`overview-spend-work-${slices[0].key}`);
     // The row is truncated by its own rule rather than stretched by its label,
     // and the whole repo set stays reachable on the element.
     expect(label.className).toContain("ov-work");
@@ -347,15 +358,12 @@ describe("Overview", () => {
 
   it("Overview_EveryFigure_IsTheOneTheSectionsAlreadyRead", async () => {
     mockedExpectations.fetchExpectationMetrics.mockResolvedValue(alphaCriteria);
-    const cost = deriveCostRollup(overview, Date.now());
     const outcomes = deriveRunOutcomes(mergeNewestFirst(overview.active, overview.recent));
     renderOverview();
 
-    expect(screen.getByTestId("kcard-cost-week")).toHaveTextContent(`$${cost.week.toFixed(2)}`);
-    expect(screen.getByTestId("kcard-cost-today")).toHaveTextContent(`$${cost.today.toFixed(2)}`);
-    expect(screen.getByTestId("kcard-cost-calls-7d")).toHaveTextContent(
-      cost.llmCalls.toLocaleString(),
-    );
+    expect(await screen.findByTestId("kcard-cost-week")).toHaveTextContent(`$${WEEK.totalUsd.toFixed(2)}`);
+    expect(screen.getByTestId("kcard-cost-today")).toHaveTextContent(`$${TODAY.totalUsd.toFixed(2)}`);
+    expect(screen.getByTestId("kcard-cost-calls-7d")).toHaveTextContent(WEEK.llmCalls.toLocaleString());
     expect(screen.getByTestId("kcard-runs-total")).toHaveTextContent(String(outcomes.total));
     expect(screen.getByTestId("kcard-runs-succeeded")).toHaveTextContent(
       String(outcomes.succeeded),
