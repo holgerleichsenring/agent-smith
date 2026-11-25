@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992k
+
+decisions:
+  - category: Architecture
+    chose: "A per-model `api: responses` that calls the OpenAI Responses API; Chat Completions stays the default and is not touched"
+    over: "Moving every OpenAI/Azure role to Responses; a separate provider type (azure_openai_responses)"
+    reason: |
+      There is no model id gpt-6 or gpt-6.0. GPT-6 is a family (gpt-6-sol, -astra, -luna, 6.1-terra, 6.2-*). On Chat Completions
+      these models call tools only at effort none or not at all, so an agent loop needs the Responses API. The operator wants
+      5.6 unchanged beside it, so the wire is a property of the catalog entry, next to deployment and window. A provider type
+      would duplicate the endpoint, key and deployment handling. The Responses path is not a second path for one thing: it is
+      the wire the other model needs, chosen per model.
+  - category: Architecture
+    chose: "Stateless calls: store false, include reasoning.encrypted_content, reasoning items carried back by the adapter as raw items"
+    over: "previous_response_id with server-side storage; restoring reasoning into reloaded threads"
+    reason: |
+      Multi-replica is a requirement, so a turn must not depend on state one replica asked the provider to keep. MEAI 10.3.0
+      keeps each reasoning item as the raw representation of its TextReasoningContent and sends it back as is. Inside a tool
+      loop the secret masking, the scrub and the compactor keep it, because they pass reasoning through and evict whole
+      messages. No stored thread keeps reasoning (DialogThreadCodec drops it, SeriesThread keeps text), so there is nothing
+      to restore. The review cut the restore machinery for that reason. A reloaded thread is sent without reasoning items,
+      which the API accepts.
+  - category: Implementation
+    chose: "reasoning_effort sent as written through CreateResponseOptions; refused on Chat Completions naming both keys"
+    over: "ChatOptions.Reasoning (MEAI maps only low/medium/high); sending reasoning_effort on Chat Completions"
+    reason: |
+      The SDK's effort is a string struct, so none, xhigh and max reach the provider. The MEAI enum cannot express them. On
+      Chat Completions gpt-5.6 with tools fails at any effort other than none (Azure tool table), so an effort there would
+      break the 5.6 role it was set on. Refusing names the value and the key to set instead.
+  - category: Implementation
+    chose: "ReasoningTokensOut on LlmCallFinishedEvent and a RunLlmCall column, read from UsageDetails.ReasoningTokenCount for every provider"
+    over: "A per-model copy in the RunMetrics JSON; recording reasoning only on the Responses path"
+    reason: |
+      RunLlmCall already holds model, tokens, cached tokens and cost per call, so per-model sums are a read over it, not a second
+      copy. gpt-5.6 reasons on Chat Completions too, and MEAI maps the field on both wires. Cost needs no change: reasoning tokens
+      are inside output_tokens and priced as output. One migration per provider adds only the column.
+  - category: Implementation
+    chose: "Questions = ask_human calls: AgenticLoopRunner wraps that one tool in the existing EventPublishingAIFunction, and RunMetrics folds the ToolCallEvent with the trail row as identity; the series master's asks counted on SeriesRunRecord"
+    over: "A new question event; wrapping every tool again; counting from trail rows at read time; counting the series' relayed questions"
+    reason: |
+      The diff review found that nothing published a ToolCallEvent any more (EventPublishingAIFunction lost its last call site in
+      274cb), so the fold alone would have counted 0. Every agent loop runs through AgenticLoopRunner, so wrapping ask_human there
+      reaches every ask with the event type that already exists. Wrapping every tool again would bring back the volume 274cb
+      removed. Trail rows are pruned by retention, so a read-time count shrinks with age. The fold uses the sandbox result's
+      identity: it reserves the position and writes its own trail row, so a replay is not counted twice. The master's beats are
+      runs without a series id, so its count lives on the record. An ask that replaces a waiting question is not counted again.
+      A question relayed from a ticket run belongs to that run and is not counted again either.
+  - category: Implementation
+    chose: "Two read endpoints (runs/{id}/measurement, series-runs/{id}/measurement); a series is measured over its tickets' runs started since it began, its landed count from SeriesRunDetailReader"
+    over: "A UI; a new comparison table; the page's cost, which counts every run of the tickets"
+    reason: |
+      The task asks for numbers readable from the API, without a UI. The probe runs the same tickets once with 5.6 and once with
+      6.x. A series that counted every run of its tickets would charge one model's series with the other's runs, which the
+      review found, so the runs are bounded by the series' start. Landed comes from the page's own reader. Master cost has no
+      model attached and is reported separately.
+  - category: Implementation
+    chose: "api and reasoning_effort refused on every provider other than openai and azure_openai, in the model registry"
+    over: "Ignoring them there"
+    reason: |
+      Ignoring them would drop a setting unread, while the same effort on Chat Completions is refused. The registry resolves every
+      role for every provider, so the refusal is in one place and names the provider and both keys.
+  - category: Implementation
+    chose: "Unverified, stated: Azure v1 with the API key sent as a bearer token, and the exact error text for temperature"
+    over: "Claiming them verified"
+    reason: |
+      Azure's v1 samples construct the OpenAI client with the key as api_key, which sends a bearer header. No call against a real
+      endpoint was made. Nothing sends temperature or top_p (no caller sets them), and a test pins that the body carries neither.

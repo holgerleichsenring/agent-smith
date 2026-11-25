@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Server.Models;
@@ -18,10 +19,6 @@ public sealed class SeriesRunPullRequests
             .Select(View)];
     }
 
-    /// <summary>The pull request waits for a merge: open, or opened and not read by the host yet.</summary>
-    internal static bool Waits(SeriesRunPullRequestView pullRequest) =>
-        pullRequest.State is PrReviewStates.Open or PrReviewStates.Unread;
-
     /// <summary>The pull request's target is known and is neither its repo's configured default branch nor 2026-11-24-f9c5c
     /// the series' branch — the two places a ticket of the series merges.</summary>
     public bool TargetsElsewhere(SeriesRunPullRequestView pullRequest, ResolvedProject project, string? seriesBranch = null)
@@ -34,10 +31,10 @@ public sealed class SeriesRunPullRequests
 
     private static SeriesRunPullRequestView View(PrReviewRecordView record)
     {
-        var ci = record.Ci is { } read && read.IsOn(record.HeadSha) ? read : null;
+        var ci = PullRequestHeadCi.OnHead(record); // 2026-11-25-9992a: the hold's rule — an older head's read is pending
         var failed = ci?.State == CiStates.Red ? ci.Failures.FirstOrDefault() : null;
         return new SeriesRunPullRequestView(record.Repo, record.Number, record.Url, record.State, ci?.State,
-            failed is null ? null : $"{failed.Name}: {failed.Excerpt.Split('\n', 2)[0].Trim()}", failed?.Url, record.TargetBranch)
+            PullRequestHeadCi.FirstFailure(ci), failed?.Url, record.TargetBranch)
             { IsDraft = record.IsDraft, HasConflicts = record.HasConflicts }; // 8d16, 6811a
     }
 }

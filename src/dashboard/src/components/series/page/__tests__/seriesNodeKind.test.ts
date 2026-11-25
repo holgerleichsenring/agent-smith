@@ -1,33 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { hold } from "@/components/tickets/__tests__/ticketFixtures";
-import { mergesNow, seriesNeededChain, seriesNodeKind, seriesOverviewCounts, waitingPullRequests } from "../seriesNodeKind";
-import { overviewDetail, seriesDetail, seriesTicket } from "./seriesFixtures";
+import { seriesNeededChain, seriesOverviewCounts, waitingPullRequests } from "../seriesNodeKind";
+import { overviewDetail } from "./seriesFixtures";
 
-// 2026-11-23-f562: one colour per ticket, read from what the server sent, and every count the Overview shows from it.
+// 2026-11-23-f562: one colour per ticket and every count the Overview shows from it. 2026-11-25-9992a: the colour is the
+// server's ticket.kind (SeriesTicketState, proven there); the browser only counts it.
 
-describe("seriesNodeKind", () => {
-  it("SeriesNodeKind_ReadsEachColourFromTheHoldTheMergeOrderAndNeededBy", () => {
+describe("seriesOverviewCounts kinds", () => {
+  it("SeriesOverviewCounts_CountsTheServersKinds_NotAReadingOfTheHold", () => {
     const detail = overviewDetail();
-    const kinds = Object.fromEntries(detail.tickets.map((t) => [t.ticketId, seriesNodeKind(t, detail)]));
+    detail.tickets[1] = { ...detail.tickets[1], kind: "failed" }; // whatever its hold, the server's kind counts
 
-    expect(kinds).toEqual({ 48: "merged", 50: "now", 61: "question", 59: "failed", 51: "needed", 55: "needed", 56: "pr", 63: "running", 62: "waiting" });
-  });
-
-  it("SeriesNodeKind_AReadyStepWhoseHoldIsNotTheMerge_IsNotNow", () => {
-    const detail = overviewDetail();
-    detail.tickets[1] = { ...detail.tickets[1], hold: hold("ci_running") };
-
-    expect(seriesNodeKind(detail.tickets[1], detail)).toBe("needed");
-    expect(mergesNow(detail, detail.mergeOrder[0])).toBe(false);
-  });
-
-  it("SeriesNodeKind_RedCiOrAnAdminHold_IsFailed_AnAskedQuestion_IsQuestion", () => {
-    const red = seriesTicket({ hold: hold("ci_failed") });
-    const admin = seriesTicket({ hold: hold("image_untrusted") });
-    const asked = seriesTicket({ hold: hold("question") });
-    const detail = seriesDetail({ tickets: [red, admin, asked] });
-
-    expect([red, admin, asked].map((t) => seriesNodeKind(t, detail))).toEqual(["failed", "failed", "question"]);
+    expect(seriesOverviewCounts(detail).kinds.failed).toBe(2);
+    expect(seriesOverviewCounts(detail).kinds.now).toBe(0);
   });
 });
 

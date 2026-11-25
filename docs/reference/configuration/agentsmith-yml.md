@@ -101,7 +101,28 @@ catalog:
     endpoint: https://…            # optional: its own host; unset takes the agent's endpoint
                                    #   when it runs on the agent's provider
     tier: strong                   # optional: strong | fast, your word for the model
+    api: responses                 # optional: chat_completions (default) | responses
+    reasoning_effort: medium       # optional, only with api: responses; sent as written
 ```
+
+`api: responses` calls the model on the OpenAI Responses API instead of Chat Completions. Use it for a reasoning model that calls tools: a GPT-6 model calls tools on Chat Completions only at effort `none`, or not at all. The call is stateless (`store: false`), and the model's encrypted reasoning items are sent back with every tool result in the same loop. On Azure the request goes to `{endpoint}/openai/v1/responses` with the deployment as the model and no `api-version`. `reasoning_effort` is sent as you write it (`none`, `low`, `medium`, `high`, `xhigh` or `max`; which ones a model takes is up to the provider). On Chat Completions it is refused, because gpt-5.6 fails with tools at any effort other than `none`. Reasoning tokens are billed inside the output tokens and recorded per call.
+
+Two models side by side, for example to compare them:
+
+```yaml
+agents:
+  azure:
+    type: azure_openai
+    endpoint: https://my-resource.openai.azure.com/
+    catalog:
+      terra:   { model: gpt-5.6, deployment: terra }
+      sol:     { model: gpt-6-sol, deployment: sol, api: responses, reasoning_effort: medium }
+    models:
+      primary: { use: sol }     # or terra; every role names its entry
+      scout:   { use: terra }
+```
+
+A second agent with the other assignment, named by a second project, runs the same work on the other model. `GET /api/runs/{runId}/measurement` and `GET /api/series-runs/{id}/measurement` return the comparison: questions asked, delivered specs or tickets, cost, cost per delivered ticket, and per model the calls, input (cached), output (reasoning) tokens and cost. A model the bundled price list doesn't know needs a price under `pricing.models`.
 
 `tier` is advice, never enforced. The roles that decide structure (`primary`, `planning`, `reasoning`, `context_generation`, `code_map_generation`) need a strong model; one that resolves to an entry marked `fast` is reported as an advisory startup finding. An entry with no tier is never reported, because agent-smith doesn't rate models.
 

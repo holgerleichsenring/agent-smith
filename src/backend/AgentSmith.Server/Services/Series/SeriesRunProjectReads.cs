@@ -27,10 +27,15 @@ public sealed class SeriesRunProjectReads(
         var requires = edges.ToDictionary(p => p.Key,
             p => (IReadOnlyList<string>)[.. p.Value.Select(e => e.RequiredTicketId).Distinct(StringComparer.Ordinal)], StringComparer.Ordinal);
         var asked = ids.Concat(requires.Values.SelectMany(r => r)).Distinct(StringComparer.Ordinal).Select(id => Key(project, id)).ToList();
-        var landed = (await landings.LandedAsync(project.Tracker.Name, asked, ct)).Select(l => l.TicketId).ToHashSet(StringComparer.Ordinal);
+        var found = await landings.LandedAsync(project.Tracker.Name, asked, ct);
+        var landed = found.Select(l => l.TicketId).ToHashSet(StringComparer.Ordinal);
         var prs = (await records.ByTicketsAsync(project.Name, ids, ct)).ToLookup(r => r.TicketId, StringComparer.Ordinal);
         var newest = await attempts.LatestEndsAsync(project.Name, ids, ct);
-        return new SeriesRunProjectFacts(project, requires, landed, prs, newest) { Edges = edges };
+        return new SeriesRunProjectFacts(project, requires, landed, prs, newest)
+        {
+            Edges = edges, // 2026-11-25-9992a: and when each landed
+            LandedAt = found.GroupBy(l => l.TicketId, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Min(l => l.LandedAt), StringComparer.Ordinal),
+        };
     }
 
     private static string Key(ResolvedProject project, string ticketId) =>

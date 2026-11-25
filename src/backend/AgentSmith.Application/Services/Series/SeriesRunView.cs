@@ -6,4 +6,8 @@ namespace AgentSmith.Application.Services.Series;
 public sealed record SeriesRunView(
     string Id, string State, string HeadState, int Landed, int Total, string Elapsed, string Cost, string? Eta,
     IReadOnlyList<SeriesTableRow> Tickets, IReadOnlyList<string> CriticalPath, string? CriticalPathLeft, string Policy,
-    string? Question);
+    string? Question)
+{
+    /// <summary>2026-11-25-9992a: the keys of the tickets a run of the series is at work on now.</summary>
+    public IReadOnlyList<string> WorkingOn { get; init; } = [];
+}

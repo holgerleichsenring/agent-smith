@@ -33,7 +33,7 @@ public sealed class TicketHoldListTests : IDisposable
         _h = new TicketStoreHarness(services =>
         {
             services.AddSingleton<ISeriesRunStore>(sp => _series.Bind(new SeriesRunRepository(sp.GetRequiredService<IServiceScopeFactory>())));
-            services.AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>().AddScoped<SeriesRunDetailReader>();
+            services.AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>().AddScoped<SeriesRunDetailReader>().AddScoped<SeriesParkedQuestion>().AddScoped<SeriesStatusReader>() /* 2026-11-25-9992a */;
             services.AddTransient<SeriesRunHolds>();
         });
         _h.Config.Projects["alpha"] = new()
@@ -181,7 +181,7 @@ public sealed class TicketHoldListTests : IDisposable
         row.Hold.Should().NotBeNull().And.Be(page.Hold).And.Be(series.Tickets.Single(t => t.TicketId == "2").Hold);
         series.Tickets.Single(t => t.TicketId == "1").Hold!.Case.Should().Be(TicketHoldCases.MergeNext);
         series.Counts.Held.Should().Be(1, "the failed ticket is held; the next merge is not counted as held");
-        series.Tickets.Select(t => (t.TicketId, SeriesRunTicketView.Held(t.Hold))).Should().BeEquivalentTo([("1", false), ("2", true)]);
+        series.Tickets.Select(t => (t.TicketId, t.Kind)).Should().BeEquivalentTo([("1", "now"), ("2", "failed")]); // 2026-11-25-9992a
     }
 
     [Fact]

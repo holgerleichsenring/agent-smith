@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Series;
 using System.Text.Json;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Runs;

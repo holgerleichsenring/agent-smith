@@ -99,7 +99,7 @@ public sealed class RunDbProjectorTests : IDisposable
                 "run-cache", "claude-sonnet-4-6", "coding-agent",
                 TokensIn: 2_000, TokensOut: 300, CostUsd: 0.02m, DurationMs: 900, Timestamp: t,
                 Phase: "implementation", RepoName: "primary",
-                CachedTokensIn: 18_000, CacheCreationTokensIn: 2_500),
+                CachedTokensIn: 18_000, CacheCreationTokensIn: 2_500, ReasoningTokensOut: 120),
             CancellationToken.None);
 
         var run = await NewStore().GetRunDetailAsync("run-cache", CancellationToken.None);
@@ -107,6 +107,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var call = run!.LlmCalls.Should().ContainSingle().Subject;
         call.CachedTokensIn.Should().Be(18_000);
         call.CacheCreationTokensIn.Should().Be(2_500);
+        call.ReasoningTokensOut.Should().Be(120); // 2026-11-25-9992k
     }
 
     [Fact]

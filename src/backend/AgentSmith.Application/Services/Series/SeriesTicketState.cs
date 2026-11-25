@@ -1,59 +1,71 @@
-using AgentSmith.Contracts.Reviews;
+using AgentSmith.Application.Services.Holds;
 using AgentSmith.Contracts.Runs;
-using AgentSmith.Contracts.Series;
+using H = AgentSmith.Application.Services.Holds.TicketHoldCases;
 
 namespace AgentSmith.Application.Services.Series;
 
 /// <summary>
-/// 2026-11-17-0207a: the words a member ticket's facts read as in the table, and their kind. Landed wins; then the
-/// newest attempt — running, parked on a question, red with its reason, green with its pull request open; a ticket
-/// with no attempt waits on the prerequisites that have not landed, or has not started. 2026-11-22-6d85c: an attempt the
-/// server's stop interrupted reads restarting, not red, while its one automatic restart is still to come.
+/// 2026-11-17-0207a: a member ticket's state, its kind and its words. 2026-11-25-9992a: read from the ONE hold the ticket
+/// list and page read, never from a reading of its own — landed first; then the hold's CASE: the series' next merge, a
+/// question or plan gap, a failure or stop a person decides, a run at work; then a merge others start on, a pull request
+/// that waits, the rest waits. An escalated wait (<see cref="TicketHold.Escalation"/>) keeps its case's kind, its words say
+/// it is overdue. A ticket nothing holds reads from its newest attempt: none waits, a green one waits, a live one runs, a
+/// parked one asks, any other end failed.
 /// </summary>
 public static class SeriesTicketState
 {
-    public const string Landed = "landed", Running = "running", Red = "red", Waiting = "waiting", Held = "held",
-        NotStarted = "not started", Green = "green", ModelWait = "model wait"; // d434b
-
-    public static (string State, string Kind) Of(SeriesTicketFact fact, IReadOnlyList<SeriesTicketFact> all)
+    public static string KindOf(SeriesTicketFact fact)
     {
         ArgumentNullException.ThrowIfNull(fact);
-        if (fact.Landed) return ("landed", Landed);
-        if (fact.LatestStatus is { } status) return OfAttempt(fact, status);
-        if (fact.StartsOnceMerged.Count > 0) return (StartsOnce(fact.StartsOnceMerged, all), Held); // 2026-11-22-6d85d
-        var unmet = fact.Requires.Select(id => all.FirstOrDefault(f => f.Ticket.TicketId == id))
-            .Where(f => f is { Landed: false }).Select(f => f!.Ticket.Key).ToList();
-        return unmet.Count > 0 ? ($"waits on {string.Join(", ", unmet)}", Held) : ("not started", NotStarted);
+        if (fact.Landed) return SeriesTicketKinds.Merged;
+        if (fact.Hold is not { } hold) return Unheld(fact);
+        if (hold.Case == H.MergeNext) return SeriesTicketKinds.Now;
+        if (hold.Case is H.Question or H.QuestionPlan or H.QuestionEnvironment || hold.Addressee == TicketHoldAddressees.Plan)
+            return SeriesTicketKinds.Question;
+        if (hold.Escalation is null && hold.Addressee is TicketHoldAddressees.Decide or TicketHoldAddressees.Admin)
+            return SeriesTicketKinds.Failed;
+        if (hold.Case is H.Working or H.ModelWait or H.Queued or H.Resuming or H.Restarting or H.Refreshing) return SeriesTicketKinds.Running;
+        return Waits(fact);
     }
 
-    // 2026-11-22-6d85d: "starts once SCRUM-44 and SCRUM-45 are merged" — a member by its key, another by its id.
-    private static string StartsOnce(IReadOnlyList<string> ids, IReadOnlyList<SeriesTicketFact> all)
+    public static string WordsOf(SeriesTicketFact fact)
     {
-        var names = ids.Select(id => all.FirstOrDefault(f => f.Ticket.TicketId == id)?.Ticket.Key ?? $"#{id}").ToList();
-        return $"starts once {Claim.RequiresUnmetGate.MergesNamed(names)} {(names.Count == 1 ? "is" : "are")} merged";
+        ArgumentNullException.ThrowIfNull(fact);
+        if (fact.Landed) return "merged";
+        if (fact.Hold is not { } hold) return UnheldWords(fact);
+        return SeriesTicketWords.Of(hold, fact)
+            + (hold.Escalation is { } late ? $" · overdue past {late.AfterMinutes} min ({late.Key})" : string.Empty);
     }
 
-    // 2026-11-17-0207d: a green run's pull requests as the CI loop's records see them — the CI loop fixes a red one.
-    private static (string State, string Kind) OfCi(SeriesTicketFact fact) => fact.CiState switch
+    private static string Waits(SeriesTicketFact fact) =>
+        fact.NeededBy.Count > 0 ? SeriesTicketKinds.Needed : fact.Waiting.Count > 0 ? SeriesTicketKinds.Pr : SeriesTicketKinds.Waiting;
+
+    private static string Unheld(SeriesTicketFact fact) => fact.LatestStatus switch
     {
-        CiStates.Red => ($"CI red · {fact.CiFailure ?? "a check failed"}", Red),
-        CiStates.Pending => ("green · CI running", Green),
-        CiStates.NotStarted => ("green · build not started", Green), // 2026-11-23-0219
-        CiStates.Green => ("green · CI green", Green),
-        _ => (fact.OpenedPullRequest ? "green · PR open" : "green", Green),
+        null or RunStatuses.Success => Waits(fact),
+        RunStatuses.WaitingForInput => fact.PendingQuestion is null ? SeriesTicketKinds.Waiting : SeriesTicketKinds.Question,
+        RunStatuses.Running or RunStatuses.Queued => SeriesTicketKinds.Running,
+        _ => SeriesTicketKinds.Failed,
     };
 
-    private static (string State, string Kind) OfAttempt(SeriesTicketFact fact, string status)
+    private static string UnheldWords(SeriesTicketFact fact) => fact.LatestStatus switch
     {
-        if (status == RunStatuses.Queued) return ("queued", Running);
-        // 2026-11-22-d434b: a live attempt waiting for its model place is another run's turn on the deployment, not a stall.
-        if (!fact.LatestFinished && fact.WaitingForModel) return ("waiting for its model place", ModelWait);
-        if (!fact.LatestFinished && status != RunStatuses.WaitingForInput) return ("coding", Running);
-        if (status == RunStatuses.WaitingForInput)
-            return (fact.PendingQuestion is null ? "waiting for input" : "question", Waiting);
-        if (status == RunStatuses.Success) return OfCi(fact);
-        if (fact.Interrupted) // 2026-11-22-6d85c: the server stopped under it; restarted once by itself
-            return fact.Restarting ? ("interrupted · restarting", Running) : ("red · interrupted, not restarted by itself", Red);
-        return (fact.EndDetail is { Length: > 0 } why ? $"red · {why}" : $"red · {status}", Red);
-    }
+        null => "not started",
+        RunStatuses.Success => fact.Waiting.Count > 0 ? "green · PR open" : "green",
+        RunStatuses.WaitingForInput => fact.PendingQuestion is null ? "waiting for input" : "question",
+        RunStatuses.Queued => "queued",
+        RunStatuses.Running => "coding",
+        var status => fact.EndDetail is { Length: > 0 } why ? $"red · {why}" : $"red · {status}",
+    };
+}
+
+/// <summary>2026-11-25-9992a: the kinds a series ticket reads as — the Overview's colours, the master's table and the
+/// panel's alike.</summary>
+public static class SeriesTicketKinds
+{
+    public const string Merged = "merged", Now = "now", Needed = "needed", Question = "question", Failed = "failed",
+        Running = "running", Pr = "pr", Waiting = "waiting";
+
+    /// <summary>The text is one of the kinds.</summary>
+    public static bool Is(string? text) => text is Merged or Now or Needed or Question or Failed or Running or Pr or Waiting;
 }

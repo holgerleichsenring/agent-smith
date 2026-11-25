@@ -17,7 +17,7 @@ public sealed class SeriesRunViewReader(
         var session = await sessions.GetOpenByThreadAsync(DispatcherDefaults.PlatformDashboard, dialogId, ct);
         if (session is null || await store.LatestForConversationAsync(session.SessionId, ct) is not { } record) return null;
         if (projects.Of(record.Project) is not { } project) return null;
-        var read = await facts.ReadAsync(record.Project, record.Tickets, ct);
+        var read = await facts.ReadAsync(record, ct);
         return SeriesPanel.Of(record, read, clock.GetUtcNow(), project, config.Dialogue);
     }
 }

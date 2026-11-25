@@ -2533,6 +2533,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("PromptHash")
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("ReasoningTokensOut")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Role")
                         .HasColumnType("TEXT");
 

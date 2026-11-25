@@ -48,7 +48,7 @@ public sealed class SeriesMergeNextAct(
     // The ticket's pull requests that wait for a merge — per repo the open record, as the page shows them.
     private static CiGreenMergeRequest Request(SeriesRunTicketView ticket, string attemptRunId, string askedBy) =>
         new(ticket.TicketId, attemptRunId, TicketBranchNamer.Compose(new TicketId(ticket.TicketId)).Value,
-            [.. ticket.PullRequests.Where(SeriesRunPullRequests.Waits).Select(p => new CiGreenPullRequest(p.Repo, p.Url))])
+            [.. ticket.PullRequests.Where(SeriesRunPullRequestView.Waits).Select(p => new CiGreenPullRequest(p.Repo, p.Url))])
         { AskedBy = askedBy };
 
     private async Task<TicketCloseResult> RunAsync(
@@ -73,10 +73,10 @@ public sealed class SeriesMergeNextAct(
     {
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(merge);
-        var waiting = ticket.PullRequests.Where(SeriesRunPullRequests.Waits).ToList();
-        if (waiting.Any(p => p.Ci == CiStates.Red)) return $"{ticket.Key} is not merged: its CI is red.";
-        if (merge.RespectBranchProtection || !waiting.Any(p => CiStates.Waits(p.Ci))) return null;
-        var why = waiting.Any(p => p.Ci == CiStates.NotStarted) ? "its required build has not started" : "its CI is still running";
+        // 2026-11-25-9992a: the ticket's one CI (its waiting pull requests together, PullRequestHeadCi), as the page shows it
+        if (ticket.Ci == CiStates.Red) return $"{ticket.Key} is not merged: its CI is red.";
+        if (merge.RespectBranchProtection || !CiStates.Waits(ticket.Ci)) return null;
+        var why = ticket.Ci == CiStates.NotStarted ? "its required build has not started" : "its CI is still running";
         if (seriesBranch is not null) return $"{ticket.Key} is not merged yet: {why}; a merge into {seriesBranch} waits for its CI to be green.";
         return $"{ticket.Key} is not merged yet: {why}, and merging once it is green arms the host's auto-complete, which needs "
             + $"merge.{BypassRefusal.Key}: true (Config → Project → Merge).";

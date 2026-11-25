@@ -82,9 +82,9 @@ public sealed class ChatClientFactory(
 
             var probe = ModelIdRejectionChatClient.Wrap(
                 builder.Build(agent, assignment), agent, TaskType.Summarization, assignment, effectiveType);
-            await probe.GetResponseAsync(
+            await probe.GetResponseAsync( // 2026-11-25-9992k: the Responses API refuses max_output_tokens below 16
                 [new ChatMessage(ChatRole.User, "ping")],
-                new ChatOptions { MaxOutputTokens = 1 },
+                new ChatOptions { MaxOutputTokens = ModelApi.IsResponses(assignment.Api) ? 16 : 1 },
                 cancellationToken);
             return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
         }

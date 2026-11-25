@@ -30,6 +30,9 @@ import type { TextKey } from "@/lib/i18n/translate";
 // writes it to the agent draft only on "Add to catalog" / "Apply", so Back discards. The
 // window from the price list is offered as a one-click value and never filled on its own.
 
+// 2026-11-25-9992k: the YAML's api values, shown as written.
+const MODEL_APIS = ["chat_completions", "responses"];
+
 // The tier values are the YAML's and shown as written; only "none" is a word of the UI.
 const TIERS: { key: ModelTier | null; id: string; label: TextKey | null }[] = [
   { key: "strong", id: "strong", label: null },
@@ -225,6 +228,30 @@ export function AgentModelEditor({
         onChange={(v) => setEntry({ ...entry, maxTokens: v ?? null })}
       />
 
+      {/* 2026-11-25-9992k: a reasoning model of the GPT-6 family calls tools on the Responses API. */}
+      <SelectField
+        label={t("config.modelEditor.api.label")}
+        help={t("config.modelEditor.api.help")}
+        value={entry.api ?? ""}
+        options={MODEL_APIS}
+        placeholder={t("config.modelEditor.api.placeholder")}
+        testId="agent-model-api"
+        onChange={(v) =>
+          setEntry({ ...entry, api: v || null, reasoningEffort: isResponses(v) ? entry.reasoningEffort ?? null : null })
+        }
+      />
+      {isResponses(entry.api) && (
+        <TextField
+          label={t("config.modelEditor.effort.label")}
+          help={t("config.modelEditor.effort.help")}
+          value={entry.reasoningEffort ?? ""}
+          mono
+          placeholder="medium"
+          testId="agent-model-reasoningEffort"
+          onChange={(v) => setEntry({ ...entry, reasoningEffort: v.trim() || null })}
+        />
+      )}
+
       <div className="field">
         <label>
           {t("config.modelEditor.tier.label")}
@@ -323,6 +350,11 @@ export function AgentModelEditor({
       )}
     </div>
   );
+}
+
+// As the server reads it: case and padding do not matter.
+function isResponses(api: string | null | undefined): boolean {
+  return api?.trim().toLowerCase() === "responses";
 }
 
 function sameModel(a: string, b: string): boolean {

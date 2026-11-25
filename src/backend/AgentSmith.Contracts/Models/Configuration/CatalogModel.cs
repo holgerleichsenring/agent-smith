@@ -17,6 +17,12 @@ public sealed class CatalogModel
     public string? Endpoint { get; set; }
     public ModelTier? Tier { get; set; }
 
+    /// <summary>2026-11-25-9992k: the wire this model is called on — <see cref="ModelApi"/>; unset is Chat Completions.</summary>
+    public string? Api { get; set; }
+
+    /// <summary>2026-11-25-9992k: the reasoning effort sent as written (Responses only).</summary>
+    public string? ReasoningEffort { get; set; }
+
     /// <summary>The assignment a role naming this entry answers with.</summary>
     public ModelAssignment ToAssignment() => new()
     {
@@ -26,5 +32,7 @@ public sealed class CatalogModel
         ContextWindowTokens = ContextWindowTokens,
         ProviderType = ProviderType,
         Endpoint = Endpoint,
+        Api = Api,
+        ReasoningEffort = ReasoningEffort,
     };
 }

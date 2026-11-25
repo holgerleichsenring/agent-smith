@@ -26,9 +26,8 @@ public sealed class SpecDialogSeriesEndpointsTests : IDisposable
     private readonly Mock<ISeriesConversation> _conversation = new();
 
     public SpecDialogSeriesEndpointsTests() =>
-        _facts.Setup(f => f.ReadAsync("sample", It.IsAny<IReadOnlyList<SeriesTicket>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string _, IReadOnlyList<SeriesTicket> tickets, CancellationToken _) =>
-                tickets.Select(t => new SeriesTicketFact(t)).ToList());
+        _facts.Setup(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SeriesRunRecord record, CancellationToken _) => record.Tickets.Select(t => new SeriesTicketFact(t)).ToList());
 
     public void Dispose() => _state.Dispose();
 

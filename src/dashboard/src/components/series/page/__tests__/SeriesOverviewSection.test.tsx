@@ -50,7 +50,9 @@ describe("SeriesOverviewSection", () => {
   it("Overview_ABuildNotStarted_ListsMergeWhenGreen_WithItsBadges_AndMergePostsTheMerge", async () => {
     const detail = { ...overviewDetail(), mergeArms: true };
     const at = detail.tickets.findIndex((ticket) => ticket.ticketId === "50");
-    detail.tickets[at] = { ...detail.tickets[at], hold: { ...detail.tickets[at].hold!, case: "ci_not_started", addressee: "nobody", act: null },
+    // 2026-11-25-9992a: with the kind and CI the server sends with that hold
+    detail.tickets[at] = { ...detail.tickets[at], kind: "pr", ci: "not_started",
+      hold: { ...detail.tickets[at].hold!, case: "ci_not_started", addressee: "nobody", act: null },
       pullRequests: detail.tickets[at].pullRequests.map((pr) => ({ ...pr, ci: "not_started", isDraft: true })) };
     detail.mergeOrder = detail.mergeOrder.map((step) => (step.ticketId === "50" ? { ...step, neededBy: [] } : step));
     hoisted.fetch.mockResolvedValue(detail);

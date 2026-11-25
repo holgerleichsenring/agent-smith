@@ -44,5 +44,8 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
 
     public IReadOnlyList<SeriesTableRow> Rows => SeriesTable.Rows(Facts, Now);
 
+    /// <summary>2026-11-25-9992a: the keys of the tickets a run of the series is at work on now.</summary>
+    public IReadOnlyList<string> WorkingOn => SeriesWorkingOn.Of(Facts);
+
     public string Table => SeriesTable.Snapshot(Rows);
 }
