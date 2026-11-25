@@ -38,6 +38,13 @@ public sealed class PocsConfig
     /// <summary>2026-11-23-c81ee: how a PoC's lifetime, its reminders and its extensions are kept.</summary>
     public PocLifetimeConfig Lifetime { get; set; } = new();
 
+    /// <summary>
+    /// 2026-11-25-0873: the identity every PoC act runs under — the target install's pipeline, app template and ApplicationSet
+    /// writes, each PoC's source commit, GitOps commit and build — for a poc- project that names no <c>machine:</c> block of its
+    /// own. The same block as a project's; absent, the source repo's own token acts and the setup says so.
+    /// </summary>
+    public MachineIdentityConfig? Machine { get; set; }
+
     public const string RunWallTimeSecondsKey = "pocs.run_wall_time_seconds";
 
     /// <summary>2026-11-23-c81ec: the wall-time budget of every PoC run, in place of orchestrator.max_run_wall_time_seconds —
@@ -71,6 +78,7 @@ public sealed class PocsConfig
         problems.AddRange(Gitops.Problems());
         problems.AddRange(Rollout.Problems()); // 2026-11-23-c81ec
         problems.AddRange(Lifetime.Problems()); // 2026-11-23-c81ee
+        problems.AddRange(MachineIdentityProblems.Of(Machine, "pocs.machine").Select(p => p.Text)); // 2026-11-25-0873
         problems.AddRange(new PocSharedArgo(Enabled ? Targets : []).Problems());
         if (RunWallTimeSeconds < 60)
             problems.Add($"{RunWallTimeSecondsKey} is {RunWallTimeSeconds}; it must be 60 or more, because a PoC run waits for "

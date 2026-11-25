@@ -23,6 +23,9 @@ public interface ICredentialResolver
 
     string For(TrackerConnection tracker);
 
+    /// <summary>2026-11-25-0873: a tracker's <see cref="MachineLogin(RepoConnection)"/> — a GitHub App's <c>{slug}[bot]</c>.</summary>
+    string? MachineLogin(TrackerConnection tracker) => null;
+
     /// <summary>
     /// 2026-11-18-9ae8: a credential named by its environment variable — an agent's api_key_secret, a provider's
     /// fallback variable, a webhook or chat adapter secret — by <see cref="EnvironmentFirst"/>; null when unset.

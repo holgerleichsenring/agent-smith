@@ -250,7 +250,29 @@ public sealed class MachineIdentityTests
         ProjectEntityMapping.ToProject("app", stored).Machine.Should().Be(sent.Machine);
     }
 
-    private static ResolvedProject Load(string yaml)
+    // 2026-11-25-0873
+    [Fact]
+    public void Yaml_MachineBlock_StampsTheProjectsTracker_ForItsHoster()
+    {
+        var project = Load(Head + "    machine:\n      name: bot\n      email: bot@example.com\n      github: { auth: bot }\n");
+
+        project.Tracker.Machine.Should().Be(new MachineIdentity("bot", "bot@example.com", "bot"));
+        Load(Head).Tracker.Machine.Should().BeNull("a project without a block writes with the tracker's own token");
+    }
+
+    [Fact]
+    public void Yaml_PocsMachine_Binds_WithAServicePrincipalEntry()
+    {
+        var pocs = LoadConfig(Head + "pocs:\n  machine:\n    name: poc-bot\n    email: poc@example.com\n"
+            + "    azure_devops: { auth: bot, tenant_id: t-1, client_id: c-1 }\n").Pocs;
+
+        pocs.Machine!.IdentityFor(RepoType.AzureDevOps).Should().Be(
+            new MachineIdentity("poc-bot", "poc@example.com", "bot", TenantId: "t-1", ClientId: "c-1"));
+    }
+
+    private static ResolvedProject Load(string yaml) => LoadConfig(yaml).Projects["app"];
+
+    private static AgentSmithConfig LoadConfig(string yaml)
     {
         var path = Path.Combine(Path.GetTempPath(), $"machine-identity-{Guid.NewGuid():N}.yml");
         File.WriteAllText(path, yaml);
@@ -259,7 +281,7 @@ public sealed class MachineIdentityTests
             var loader = new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(),
                 new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(),
                 new AgentSmithPaths()), new NoOpSystemEventPublisher());
-            return loader.LoadConfig(path).Projects["app"];
+            return loader.LoadConfig(path);
         }
         finally
         {

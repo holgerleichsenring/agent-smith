@@ -33,6 +33,18 @@ public sealed class MachineIdentityConfig
             entry.Auth.Trim(), Blank(entry.AppId), Blank(entry.InstallationId), Blank(entry.TenantId), Blank(entry.ClientId))
         : null;
 
+    /// <summary>2026-11-25-0873: the identity a tracker's writes run under — its hoster's entry; null for Jira, which has none.</summary>
+    public MachineIdentity? IdentityFor(TrackerType tracker) => HosterOf(tracker) is { } hoster ? IdentityFor(hoster) : null;
+
+    /// <summary>2026-11-25-0873: the hoster whose machine entry a tracker type acts under; null for Jira.</summary>
+    public static RepoType? HosterOf(TrackerType tracker) => tracker switch
+    {
+        TrackerType.GitHub => RepoType.GitHub,
+        TrackerType.GitLab => RepoType.GitLab,
+        TrackerType.AzureDevOps => RepoType.AzureDevOps,
+        _ => null,
+    };
+
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 

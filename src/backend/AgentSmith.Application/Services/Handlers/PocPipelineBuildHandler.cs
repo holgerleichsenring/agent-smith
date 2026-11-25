@@ -41,8 +41,9 @@ public sealed class PocPipelineBuildHandler(
         if (pocs.Targets.FirstOrDefault(t => string.Equals(t.Name, subject.Target, StringComparison.OrdinalIgnoreCase)) is not { } target)
             return CommandResult.Fail($"'{subject.PocName}' names the target '{subject.Target}', which pocs.targets no longer holds.");
         if (subject.CommitSha is not { } sha) return CommandResult.Fail($"Revision {subject.Revision} of '{subject.PocName}' is not committed; nothing is built.");
-        if (context.Project.Repos.FirstOrDefault() is not { } repo)
+        if (context.Project.Repos.FirstOrDefault() is not { } projectRepo)
             return CommandResult.Fail($"The project '{context.Project.Name}' names no source repo to build '{subject.PocName}' from.");
+        var repo = PocMachine.Stamp(pocs, projectRepo); // 2026-11-25-0873
         try
         {
             return await build.RunAsync(new PocBuildJob(context, subject, target, pocs.Scan, repo, sha), ct);

@@ -50,7 +50,14 @@ public sealed class CredentialResolver(
     public string For(ResolvedConnection connection) =>
         Resolve($"Connection '{connection.Name}'", connection.Auth);
 
-    public string For(TrackerConnection tracker) => Resolve($"Tracker '{tracker.Name}'", tracker.Auth);
+    // 2026-11-25-0873: a tracker stamped with its project's machine writes under the machine, as a repository does.
+    public string For(TrackerConnection tracker) => tracker.Machine is { } machine
+        ? Machine(Target($"Tracker '{tracker.Name}'", tracker.Url, machine), machine)
+        : Resolve($"Tracker '{tracker.Name}'", tracker.Auth);
+
+    public string? MachineLogin(TrackerConnection tracker) => tracker.Machine is { IsGitHubApp: true } machine
+        ? AppLogin(Target($"Tracker '{tracker.Name}'", tracker.Url, machine), machine)
+        : null;
 
     public string? Named(string name) => Lookup(name).Value;
 

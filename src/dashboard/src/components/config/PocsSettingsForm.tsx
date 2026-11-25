@@ -15,6 +15,7 @@ import { newPocArgo, PocArgoFields } from "./PocArgoFields";
 import { SourceRepoPicker } from "./SourceRepoPicker";
 import { PocsFieldNotes } from "./PocsFieldNotes";
 import { placePocsProblems } from "./pocsProblems";
+import { MachineIdentityFields } from "./MachineIdentityFields";
 
 // 2026-11-23-933da: the PoCs settings (agentsmith.yml pocs:) — the switch first, then the agent and tracker every
 // person's poc- project names, then the targets. Every field stays editable while the switch is off, so a target can
@@ -22,6 +23,7 @@ import { placePocsProblems } from "./pocsProblems";
 // 2026-11-23-c81ee: the lifetime block (pass interval, extension days and allowance, unseen delete) is always sent.
 // 2026-11-24-f965: while the switch is on, an empty agent, tracker, target list, target name or source repository says
 // "required" at its field; a refused save's sentences are placed at the fields their keys name (pocsProblems).
+// 2026-11-25-0873: the machine identity every PoC act runs under (pocs.machine), the same fields as a project's.
 
 export interface PocsCatalog {
   agents: StudioEntity[];
@@ -143,6 +145,11 @@ export function PocsSettingsForm({ value, onChange, catalog, saveError = null }:
         onClick={() => set({ targets: [...targets, newPocTarget()] })}>
         {t("config.pocs.target.add")}
       </button>
+      <DrawerSection title={t("config.pocs.machine.title")} testId="setting-pocs-machine">
+        <span className="help">{t("config.pocs.machine.help")}</span>
+        <MachineIdentityFields value={value.machine} secrets={catalog.secrets} testPrefix="setting-pocs-machine"
+          onChange={(machine) => set({ machine: machine.name || machine.email || machine.github || machine.gitlab || machine.azureDevops ? machine : null })} />
+      </DrawerSection>
       <DrawerSection title={t("config.pocs.archive.title")} testId="setting-pocs-archive">
         <span className="help">{t("config.pocs.archive.help")}</span>
         <PocArchiveFields archive={archive} onChange={(patch) => set({ archive: { ...archive, ...patch } })} />

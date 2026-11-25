@@ -101,6 +101,11 @@ export const configMessages = {
     de: "mit einer Client-ID ein Service Principal: das Secret ist sein Client-Secret",
   },
   "config.machine.clientId.label": { en: "client id", de: "Client-ID" },
+  "config.pocs.machine.title": { en: "Machine identity", de: "Maschinen-Identität" },
+  "config.pocs.machine.help": {
+    en: "Who the PoC pipelines, commits and builds act as. A poc- project's own machine identity wins.",
+    de: "Als wer die PoC-Pipelines, Commits und Builds handeln. Die eigene Maschinen-Identität eines poc-Projekts geht vor.",
+  },
   "config.machine.hosterEmail.label": { en: "commit email here", de: "Commit-E-Mail hier" },
   "config.machine.hosterEmail.help": {
     en: "when it differs on this hoster, e.g. a GitHub App's bot address",

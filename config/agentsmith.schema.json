@@ -373,6 +373,18 @@
             "commit_allowance_seconds": { "type": "integer", "minimum": 0, "description": "What sealing and the GitOps commit with its re-plans may take between the build and the follow; part of the wall-time check. Default 120." }
           }
         },
+        "machine": {
+          "type": "object",
+          "description": "2026-11-25-0873: the identity every PoC act runs under (target install, source and GitOps commits, builds) for a poc- project without a machine block of its own; the same block as a project's. 2026-11-25-9992h: the identity agent-smith acts under on each hoster: commit author, and the token of every push, pull request, comment and merge. A hoster left out acts with each repo's own auth, and the project's setup says so.",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "description": "Commit author and the name agent-smith's own records book acts under." },
+            "email": { "type": "string", "description": "Commit email." },
+            "github": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with app_id a GitHub App's private key." }, "app_id": { "type": "string", "description": "GitHub App id or client id." }, "installation_id": { "type": "string", "description": "The App's installation on the repositories' owner." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } },
+            "gitlab": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with app_id a GitHub App's private key." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } },
+            "azure_devops": { "type": "object", "additionalProperties": false, "required": ["auth"], "properties": { "auth": { "type": "string", "description": "The secret behind every act on this hoster: an Azure DevOps bot user PAT, or with tenant_id and client_id a service principal's client secret." }, "tenant_id": { "type": "string", "description": "The Microsoft Entra tenant of the service principal." }, "client_id": { "type": "string", "description": "The application (client) id of the service principal's app registration." }, "email": { "type": "string", "description": "This hoster's commit email when it differs from machine.email." } } }
+          }
+        },
         "lifetime": {
           "type": "object",
           "additionalProperties": false,
