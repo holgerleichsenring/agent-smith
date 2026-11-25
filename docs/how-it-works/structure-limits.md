@@ -82,7 +82,7 @@ Without a baseline, a context isn't judged at all. An init that keeps an existin
 
 ## The commit gate
 
-`CommitSpecWork`, the step that puts a spec's work on the branch, runs the formatter the context declares (see [`format`](../reference/concepts/context-file.md#format-is-the-repositorys-own-formatter)) and then judges the structure. For each repository of the run it:
+`CommitSpecWork`, the step that puts a spec's work on the branch, runs the formatter the context declares (see [`format`](../reference/concepts/context-file.md#format-is-the-stacks-formatter)) and then judges the structure. For each repository of the run it:
 
 1. finds the commit the branch was cut from: the merge-base of `HEAD` with the base the branch is delivered against, falling back to the commit the run started on
 2. reads every context's limits and baseline as they are at that commit

@@ -197,12 +197,16 @@ was declared. Only the first is silent. A sandbox backend that injects no creden
 — docker, in-process — does not ask at all and says so, because a refusal there would
 be a fact about the backend rather than about the target.
 
-## `format` is the repository's own formatter
+## `format` is the stack's formatter
 
-Layout is the formatter's job, never a done criterion and never a gate. A context may
-declare the REWRITING form of the formatter its repository already runs — in its CI or
-its scripts — and the spec commit runs it over the files the spec changed, before the
-work is pushed:
+Layout is the formatter's job, never a done criterion and never a gate. A context
+declares the REWRITING form of its formatter, and the spec commit runs it over the files
+the spec changed, before the work is pushed and before structure is measured, so a size
+counted in lines is counted over formatted code. Init derives it like `verify`: the
+formatter the repository runs or configures, otherwise the stack's standard formatter
+that the image's SDK ships and that formats only the files it is given
+(`dotnet format whitespace --folder --include {files}` for .NET). Init writes no
+formatter configuration into the repository.
 
 ```yaml
 format:
@@ -221,7 +225,9 @@ said in the step result; it never fails the spec, and the work is pushed as writ
 The failure is also named at the top of that repository's code PR, under "Formatter
 failed", with the declared command, its exit code and the tail of its output, so a wrong
 command gets corrected in `context.yaml` once.
-A repository that runs no formatter omits the block.
+A stack with no such formatter omits the block. The spec commit then says, per context,
+how many changed source files it committed unformatted and why: no `format`, an absent
+`when_present` path, or a file of another sandbox's context.
 
 ## `sources` are the rest of the component
 

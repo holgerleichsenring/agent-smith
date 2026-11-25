@@ -10,13 +10,15 @@ decisions:
       line, and a size limit counted in physical lines rewards that. The formatter is derived like verify, from
       what the repository has or the stack's standard, never from a parser in agent-smith.
   - category: Architecture
-    chose: "No formatter configuration is written into a repository; dotnet format whitespace is declared for .NET as it is"
+    decider: claude
+    chose: "No formatter configuration is written into a repository and CSharpier is not adopted; dotnet format whitespace is declared for .NET as it is"
     over: "A C# delta artefact (.editorconfig with csharp_preserve_single_line_blocks = false, or a tool manifest adding CSharpier)"
     reason: |
       Measured 2026-11-24 with SDK 10.0.100: without an .editorconfig, dotnet format whitespace leaves a method on
       one line unchanged; with csharp_preserve_single_line_blocks = false it expands every auto-property to four
       lines, which would rewrite every touched file. CSharpier unfolds crammed code cleanly but is a tool the
-      estate does not run, fetched from NuGet. Either is a style decision for the operator, left open. Review also
+      estate does not run, fetched from NuGet. Both are a new NuGet tool or a repository-wide style change;
+      decided 2026-11-25 with the operator's instruction that open choices are decided here and may be overridden. Review also
       showed dotnet format whitespace restyles a whole touched file whose layout differs from its defaults (tabs,
       K&R braces), so init skips the standard formatter where the sources visibly use another layout.
   - category: Implementation
@@ -31,3 +33,9 @@ decisions:
     reason: |
       The core requires every delta to name its formatting tools; the C# delta named none, and the layout rule
       is what the coding agent reads where no formatter unfolds a one-line body.
+  - category: Implementation
+    chose: "The write_context_yaml format sentence, the context schema's format description and docs/reference/concepts/context-file.md follow the skill; the C# principles golden gains the delta's Formatting section"
+    over: "Pinning the catalog alone"
+    reason: |
+      The tool description and the schema told the model to omit format when the repository runs no formatter; with
+      the new skill that is a second, contradicting instruction in the same bootstrap turn.

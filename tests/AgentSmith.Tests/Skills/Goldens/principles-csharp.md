@@ -142,6 +142,19 @@ states what applies instead.
 - One type per file: every class, interface, enum, or record gets its own
   file.
 
+### Formatting
+
+- One statement per line, and a method or accessor body that holds a statement
+  never shares a line with its signature (`=> expression;` and
+  `{ get; set; }` may): the method limit above counts physical lines, so a
+  body written on one line hides its size from it. Keep this yourself — the
+  SDK's formatter does not split such a line.
+- The formatter is CSharpier where the repository configures it
+  (`.csharpierrc` or a `csharpier` entry in `.config/dotnet-tools.json`),
+  otherwise `dotnet format whitespace`; it runs over the files a change
+  touches, never the whole tree. The compiler's analyzers, at the
+  repository's own analysis level, are the lint.
+
 ### Naming
 
 - `PascalCase` for classes, methods, properties, events; `camelCase` for
