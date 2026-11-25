@@ -109,6 +109,8 @@
 :is(.mock-viewer, .tk-runlog) .rl-step-cost { flex: none; width: 70px; text-align: right; color: var(--ink-2); }
 :is(.mock-viewer, .tk-runlog) .rl-step-time { flex: none; width: 70px; text-align: right; color: var(--ink-3); }
 :is(.mock-viewer, .tk-runlog) .rl-step-pass { padding-left: 24px; }
+:is(.mock-viewer, .tk-runlog) .rl-master-pass { font-family: var(--mono); font-size: 12px; line-height: 19px; color: var(--ink-2); padding-bottom: 2px; } /* 0fbfa */
+:is(.mock-viewer, .tk-runlog) .rl-master-pass-why { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-3); }
 :is(.mock-viewer, .tk-runlog) .rl-step-detail { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 10px 24px; }
 :is(.mock-viewer, .tk-runlog) .rl-detail-head { display: flex; flex-direction: column; gap: 2px; padding-bottom: 4px; }
 :is(.mock-viewer, .tk-runlog) .rl-detail-status { color: var(--ink-3); }

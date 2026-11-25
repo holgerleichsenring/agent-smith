@@ -84,4 +84,29 @@ public sealed class StructureGateHarnessTests
             .Specs.Should().ContainSingle(p => p.State == SpecRunState.Done);
         runner.LastContext!.TryGet<List<string>>(ContextKeys.StructureFindings, out _).Should().BeFalse();
     }
+
+    /// <summary>2026-11-24-0fbfa: the correction pass opens on the checklist pass 1 finished — it is not seeded pending
+    /// again, so a correction that only splits the method is not driven to redo the spec's steps.</summary>
+    [Fact]
+    public async Task Harness_CorrectionPass_KeepsTheChecklistPassOneFinished()
+    {
+        await using var harness = Harness();
+        harness.ChatClient
+            .EnqueueText("Planning: I will add the handler.")
+            .EnqueueToolCall("write_file", Write(LongMethod()))
+            .EnqueueReport()
+            .EnqueueText("Correcting: I split Handle by responsibility.")
+            .EnqueueToolCall("write_file", Write(SplitMethod()))
+            .EnqueueText("## Delivered\n- Handle split by responsibility");
+
+        var runner = new PipelineRunner(harness.Services);
+        await runner.RunAsync("code");
+
+        var ledger = runner.LastContext!.Get<AgentSmith.Contracts.Progress.ProgressLedger>(ContextKeys.ProgressLedger);
+        ledger.IsEmpty.Should().BeFalse();
+        ledger.HasActionablePending.Should().BeFalse("the steps pass 1 finished stay finished in the correction pass");
+        harness.ChatClient.ToolCalls.Count(c => c.Name == "write_file").Should().Be(2, "the correction is not re-driven");
+        runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
+            .Specs.Should().ContainSingle(p => p.State == SpecRunState.Done);
+    }
 }

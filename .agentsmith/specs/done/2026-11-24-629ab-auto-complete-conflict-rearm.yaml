@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-629ab
+goal: "A pull request whose Azure auto-complete was dropped at a conflict has it armed again by the CI loop once it no longer conflicts, once per head, without a vote."
+
+applies_to: "default (PrReviewRecord, PrReviewRecordCopy, AutoCompleteRearm, merge-green run, AzureReposAutoComplete)"
+
+requires: [2026-11-24-629aa, 2026-11-24-6811a, 2026-11-24-297b]
+
+facts:
+  - claim: "Azure arms auto-complete by setting AutoCompleteSetBy (and CompletionOptions) on the pull request; agent-smith's arm also casts the token's approval vote first."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:31-66"
+  - claim: "No agent-smith code clears AutoCompleteSetBy, and the record keeps no word of it: the state read and the record carry draft and conflict, not auto-complete."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:35-37, src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:69-80"
+  - claim: "A conflict the record reads launches a refresh-base run, whose push ends the conflict; nothing afterwards arms the pull request again."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:93-95"
+  - claim: "GitHub enables auto-merge with enablePullRequestAutoMerge and GitLab sets merge_when_pipeline_succeeds/auto_merge at a merge; neither provider's state read says whether it is set."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubMergeModes.cs:26, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeModes.cs:43"
+  - claim: "Seen on Azure 2026-11-24: auto-complete set by a person; a sibling merged, the pull request conflicted and Azure dropped auto-complete; the refresh pushed, every policy went green and it did not merge."
+    evidence: "observed: 2026-11-24, coordinator brief"
+
+scope:
+  in: >-
+    The Azure state read says whether auto-complete is set; the record keeps it (AutoCompleteArmed) and, when a read finds
+    it gone from a pull request that conflicts now or at the read before, or whose head moved (a refresh that pushed before
+    any read saw the conflict), when it was lost (AutoCompleteLostAtTicks). Gone from an unmoved head that does not conflict
+    is a person's cancel and is never armed again; set again or an ended pull request clears the loss. AutoCompleteRearm, run
+    by the CI loop: an open, non-draft pull request that lost it, which the host now says merges cleanly and which was not
+    re-armed on this head, gets one merge-green run whose pull request carries Rearm; the run arms auto-complete again through
+    IPullRequestAutoCompleteRearmer (Azure: AutoCompleteSetBy as the token, the pull request's merge strategy, squash,
+    delete-source and message, never its bypass or ignored policies, no vote) and merges nothing, in every merge mode —
+    arming never goes past protection. Only a run that ran marks the head (AutoCompleteRearmedHead); a refused arm waits for a
+    new head or a person. Such a record stays due in the CI watch until armed again or marked.
+  out: >-
+    GitHub and GitLab: a documented no-op — their state reads say nothing of auto-merge, so no loss is recorded (no drop
+    at a conflict seen there); a follow-up once one is. A record must have read auto-complete set once before it can lose it,
+    so a pull request whose drop happened before this ships is armed by hand once. A person who cancels while the pull
+    request conflicts, or in the same read window as a push, reads as lost and is armed again once the conflict ends.
+
+steps:
+  - id: contract
+    action: "PrReviewState.AutoCompleteArmed; IPullRequestAutoCompleteRearmer; CiGreenPullRequest.Rearm; view fields."
+  - id: store
+    action: "PrReviewRecord columns + migrations (SQLite, SQL Server, Postgres); copy rule; writer mark; CI-due query."
+  - id: host
+    action: "Azure state read sets AutoCompleteArmed; AzureReposAutoComplete.RearmAsync; provider implements the rearmer."
+  - id: run
+    action: "PullRequestAutoCompleteRearm step; CompletePullRequestsHandler arms the Rearm pull requests and returns."
+  - id: loop
+    action: "AutoCompleteRearm (Server/Services/Rework); PrReviewRecordRefresh calls it; DI."
+  - id: tests
+    action: "Copy rule over the store; loop; step; Azure rearm."
+
+tests:
+  - "AutoCompleteRearmTests (copy rule): armed then gone at a conflict, after one, or with a head move records the loss; gone from a clean or undecided unmoved head, armed again and ended clear it."
+  - "AutoCompleteRearmTests (loop): a lost head the host says merges cleanly starts one Rearm run and is marked; undecided, still conflicting, a draft, a marked head and a held lease start nothing; the CI watch keeps a lost clean head due."
+  - "PullRequestAutoCompleteRearmTests and handler: a Rearm request arms through the rearmer, a host without one says so, nothing merges."
+  - "AzureReposMergeModeTests: a rearm sets AutoCompleteSetBy with the pull request's merge options but no bypass and casts no vote; an armed one is left."
+
+done:
+  - "Build, affected tests green; the spec gate passed."

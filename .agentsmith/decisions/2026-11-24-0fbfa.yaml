@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-0fbfa
+
+decisions:
+  - category: Architecture
+    decider: claude
+    chose: "A later master step of the same spec opens on the ledger the pipeline holds for that spec (SpecLedgerCarry, keyed by ContextKeys.ProgressLedgerSpecId); another spec or none is seeded from its steps as before"
+    over: "A dashboard-only fix that reads pass 1's checklist back from the recorded ledger transitions while the run's ledger is re-seeded pending"
+    reason: "The reset was not only a display defect: a pending checklist re-drives the master once ('unfinished') to redo the steps pass 1 finished, against the correction's 'change nothing else'. The ledger is documented as memory across re-drives (p0341); seeding it afresh per step broke that for the correction, repair and after-answer passes alike."
+  - category: Implementation
+    decider: claude
+    chose: "The owner of the ledger is its own context key — the spec id and a digest of the steps it was seeded from — set beside the ledger and cleared for a spec-less master; a held ledger is carried whole, never merged with the seed"
+    over: "Matching the held entries' ids against the new seed's ids; the spec id alone"
+    reason: "Step ids are spec-local (s1, s2 in every spec), so two specs' ledgers can share every id. Review: revise_spec keeps the spec id and changes the steps, so the digest makes a revised spec seed afresh. A merge would re-add steps the master legitimately dropped (p0359) as pending and re-drive it."
+  - category: Implementation
+    decider: claude
+    chose: "The pass kind is read off the step that queued the later master step (commit = structure correction, verify = repair, open questions = after the answer, diff review = review fix) until its MasterPassEnded is recorded, which then wins"
+    over: "A new event at pass open carrying the opener; matching the commit step's message text"
+    reason: "The queuing command is a structural fact already on the step rows, live and on reload; the recorded opener is the truth once it exists. Text matching would break on the next wording change, and a new event would be a second record of what MasterPassEnded already records."
+  - category: Implementation
+    decider: claude
+    chose: "The correction message names each unit over its limit, one '- unit' line under the count"
+    over: "The count alone"
+    reason: "The pass line shows the queuing step's message as the reason; 'one unit over its Limits' does not say which one."
+  - category: Implementation
+    decider: claude
+    chose: "A spec that ran its master once shows no pass line; the Now block adds a 'pass' line for a later pass"
+    over: "Numbering every master step; widening the Now block's kind column for the pass"
+    reason: "A single pass needs no number; the kind column is 92 px and truncates."

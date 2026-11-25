@@ -1,20 +1,12 @@
 import { useMemo } from "react";
-import { WEEK_MS, costWindowTimestampMs } from "@/hooks/useCostRollup";
-import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
+import type { RunSpend, RunSpendSlice } from "@/lib/runSpendApi";
 
-// 2026-08-27-7463: WHERE the money went, grouped out of the run list the
-// dashboard already holds. No endpoint, no server-side aggregation: the same
-// snapshots the headline sums are bucketed by the work they were spent on.
+// 2026-08-27-7463: WHERE the money went, by the work it was spent on. 2026-11-24-0fbfb: grouped by the server in the
+// week's spend rollup (GET /api/runs/spend), the same read the headline sums, so the slices still add up to the 7-day
+// figure — over every run of the caller's projects, not the overview's window.
 //
-// The window, the timestamp choice and the iteration order are the headline's
-// (active then recent, undeduplicated), so the slices sum to the 7-day figure
-// exactly rather than approximately.
-//
-// The work dimension is the run's REPOS, not its project: RunSnapshot carries
-// no project — the rail says so where it declines to draw a Projects section —
-// and a project inferred from a repo would be a guess printed as a fact. A
-// multi-repo run is one slice under its whole repo set, so no run's cost is
-// counted twice.
+// The work dimension is the run's REPOS, not its project; a multi-repo run is one slice under its whole repo set, so
+// no run's cost is counted twice.
 
 const UNATTRIBUTED_WORK = "unattributed";
 const UNKNOWN_PIPELINE = "unknown pipeline";
@@ -30,38 +22,24 @@ export interface SpendSlice {
   share: number;
 }
 
-export function useSpendBreakdown(
-  overview: OverviewSnapshot | null,
-  now: Date = new Date(),
-): SpendSlice[] {
-  return useMemo(
-    () => deriveSpendBreakdown(overview, now.getTime()),
-    [overview, now.getTime()],
-  );
+export function useSpendBreakdown(week: RunSpend | null): SpendSlice[] {
+  return useMemo(() => deriveSpendBreakdown(week), [week]);
 }
 
-export function deriveSpendBreakdown(
-  overview: OverviewSnapshot | null,
-  nowMs: number,
-): SpendSlice[] {
-  if (overview === null) return [];
+export function deriveSpendBreakdown(week: RunSpend | null): SpendSlice[] {
+  if (week === null) return [];
   const slices = new Map<string, SpendSlice>();
-  const cutoff = nowMs - WEEK_MS;
-  for (const run of [...overview.active, ...overview.recent]) {
-    const tsMs = costWindowTimestampMs(run);
-    if (Number.isNaN(tsMs) || tsMs < cutoff) continue;
-    book(slices, run);
-  }
+  for (const slice of week.slices) book(slices, slice);
   return rankedSlices([...slices.values()]);
 }
 
-function book(slices: Map<string, SpendSlice>, run: RunSnapshot): void {
-  const repos = run.repos?.filter((repo) => repo.length > 0) ?? [];
+function book(slices: Map<string, SpendSlice>, slice: RunSpendSlice): void {
+  const repos = slice.repos.filter((repo) => repo.length > 0);
   const work = repos.length > 0 ? [...repos].sort().join(" + ") : UNATTRIBUTED_WORK;
-  const pipeline = run.pipeline || UNKNOWN_PIPELINE;
+  const pipeline = slice.pipeline || UNKNOWN_PIPELINE;
   const key = `${work} · ${pipeline}`;
   const booked = slices.get(key) ?? { key, work, pipeline, amountUsd: 0, share: 0 };
-  booked.amountUsd += run.costUsd;
+  booked.amountUsd += slice.costUsd;
   slices.set(key, booked);
 }
 

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useCostRollup } from "@/hooks/useCostRollup";
+import { spendKey } from "@/hooks/useRunSpend";
 import { useSpendBreakdown } from "@/hooks/useSpendBreakdown";
 import { useExpectationMetrics } from "@/hooks/useExpectationMetrics";
 import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
@@ -35,8 +36,10 @@ import { useT } from "@/hooks/useT";
 
 export function OverviewView() {
   const { overview } = useJobsHub();
-  const cost = useCostRollup(overview);
-  const slices = useSpendBreakdown(overview);
+  // 2026-11-24-0fbfb: the spend is the server's rollup over every run of the caller's projects, read again on each
+  // overview change; the breakdown groups the same week's read the headline sums.
+  const spend = useCostRollup(spendKey(overview));
+  const slices = useSpendBreakdown(spend.week);
   const criteria = useExpectationMetrics();
   const runs = useMemo(
     () => (overview ? mergeNewestFirst(overview.active, overview.recent) : []),
@@ -54,12 +57,12 @@ export function OverviewView() {
           sub={t("overview.sub")}
         />
         <div className="ov-cards" data-testid="overview-cards">
-          <SpendCard cost={cost} ready={ready} />
+          <SpendCard cost={spend.cost} failed={spend.failed} />
           <RunOutcomeCard outcomes={outcomes} ready={ready} />
           <CriteriaMetCard read={criteria} />
         </div>
         <div className="ov-panels" data-testid="overview-panels">
-          <SpendBreakdownPanel slices={slices} ready={ready} />
+          <SpendBreakdownPanel slices={slices} ready={spend.week !== null} />
           <ExpectationMetricsView {...criteria} />
         </div>
       </main>

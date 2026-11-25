@@ -124,7 +124,8 @@ public sealed class AgenticMasterHandler(
         // p0356: a spec-less coding run of a TICKET seen before resumes on the latest
         // prior run's persisted ledger (mid-run flushes make it durable) — gated in
         // PriorRunLedgerSeeder on progressed-past-bootstrap + the age cap.
-        var seedEntries = ProgressLedgerSeeder.Seed(draft);
+        // 2026-11-24-0fbfa: a later pass of the same spec opens on its ledger as it stands (SpecLedgerCarry).
+        var seedEntries = SpecLedgerCarry.Seed(context.Pipeline, draft);
         if (seedEntries.Count == 0 && !isScanMaster && !isSpecDialog && ticket is not null)
             seedEntries = await priorRunSeed.SeedAsync(
                 context.Pipeline, ticket.Id.Value, cancellationToken);
@@ -165,6 +166,7 @@ public sealed class AgenticMasterHandler(
         var progress = new ProgressLedgerToolHost(
             seedEntries, onReplaced, logger, currentPass: () => masterPass);
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
+        SpecLedgerCarry.Own(context.Pipeline, draft);
         if (!progress.GetLedger().IsEmpty && flusher is not null)
             await flusher.FlushAsync(progress.GetLedger());
         // 2026-09-13-6f35: the templates this spec's contexts declare, materialised now so

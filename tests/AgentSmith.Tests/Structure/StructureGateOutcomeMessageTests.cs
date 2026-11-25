@@ -65,4 +65,13 @@ public sealed class StructureGateOutcomeMessageTests
 
         result.Message.Should().Be("Spec work is on the branch; structure judged 3 file(s) in 2 context(s), within their Limits");
     }
+
+    [Fact]
+    public async Task StructureGateOutcome_Correction_NamesEachUnit()
+    {
+        var result = await Outcome().ResolveAsync(Spec(), Found, null, CancellationToken.None);
+
+        result.Message.Split('\n').Should().Equal(
+            "1 unit(s) over their Limits; one correction pass follows", "- src/A.cs A.Long(): function_lines 70 > 55");
+    }
 }

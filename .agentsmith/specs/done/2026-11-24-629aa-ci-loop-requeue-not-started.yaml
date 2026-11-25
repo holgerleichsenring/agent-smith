@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-629aa
+goal: "The CI loop queues a required build again, once per spell, when it has not started or expired on the current head for merge.ci_settle_seconds — through a merge-green run, in every merge mode."
+
+applies_to: "default (CI loop: PrReviewRecordRefresh, CiBuildRequeue, merge-green run, CompletePullRequestsHandler)"
+
+requires: [2026-11-24-5ee0, 2026-11-24-f9c5d, 2026-11-23-0219]
+
+facts:
+  - claim: "An Azure build-policy evaluation that expired, or sits queued with no build on the head (buildId 0), reads as not started; that is what AzureReposBuildRequeue queues again."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiPolicies.cs:52-68, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBuildRequeue.cs:17-34"
+  - claim: "Only Azure Repos implements IPullRequestBuildRequeuer, and only Azure policy reads produce CiCheckOutcome.NotStarted; GitHub and GitLab start their CI on push and have no policy evaluation to queue."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:24, src/backend/AgentSmith.Contracts/Reviews/CiVerdict.cs:17"
+  - claim: "The re-queue today runs after a publish, a retarget, a person's merge and a pushed refresh — never from the CI loop, which reads not_started records every merge.ci_poll_seconds for merge.ci_pending_seconds in every project and acts on none of them."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:55, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:73-80, src/backend/AgentSmith.Server/Services/Rework/CiGreenMerge.cs:60-64"
+  - claim: "The server writes nothing to a host: the CI loop acts through a merge-green run, as SeriesCiStart (f9c5d) starts a series head's CI with a flagged CiGreenPullRequest and marks the head acted."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/SeriesCiStart.cs:20-47, src/backend/AgentSmith.Application/Services/Handlers/CompletePullRequestsHandler.cs:31-35"
+  - claim: "Seen on Azure 2026-11-24: after a push the required policy evaluation sat queued, buildId 0, all-zero commit ids, for 30+ minutes (queueOnSourceUpdateOnly=true, manualQueueOnly=false, validDuration=720); no build was created."
+    evidence: "observed: 2026-11-24, coordinator brief"
+
+scope:
+  in: >-
+    CiBuildRequeue, run by the CI loop after every record refresh before the CI merge: the ticket's open, non-draft,
+    non-conflicting pull requests of its newest finished attempt whose CI on the current head is not_started for merge.ci_settle_seconds and
+    not acted on get one merge-green run whose pull requests carry NotStarted; the run's CompletePullRequests queues their
+    required builds through the existing PullRequestBuildRequeue and merges nothing, in every merge mode. Only a run that
+    ran marks the records '<head>:not_started@<first-read ticks>', so each spell of not_started on a head is re-queued
+    once (a later expiry is a new spell) and a held lease is tried on the next refresh.
+  out: >-
+    A second re-queue in a spell whose first one did not take (a person's Queue or a new push moves it). GitHub and GitLab:
+    a documented no-op — their providers are no IPullRequestBuildRequeuer and their CI reads never say not_started.
+
+steps:
+  - id: contract
+    action: "CiGreenPullRequest.NotStarted."
+  - id: run
+    action: "CompletePullRequestsHandler queues the NotStarted pull requests' builds and returns before any merge."
+  - id: loop
+    action: "CiBuildRequeue (Server/Services/Rework); PrReviewRecordRefresh calls it; DI."
+  - id: tests
+    action: "Loop tests over the refresh harness; handler tests."
+
+tests:
+  - "CiBuildRequeueTests: a not_started head past the settle starts one run with NotStarted under every merge.when and is marked acted; within the settle, a draft, a pending head and an acted head start nothing; a held lease marks nothing; a re-queue that did not take is not repeated, a new spell on the same head is; a conflicting pull request is left alone."
+  - "CompletePullRequestsHandler: a NotStarted request queues each repo's builds and merges nothing, under merge: manual too."
+
+done:
+  - "Build, affected tests green; the spec gate passed."

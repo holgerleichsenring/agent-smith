@@ -1249,6 +1249,16 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<bool?>("AutoCompleteArmed")
+                        .HasColumnType("bit");
+
+                    b.Property<long?>("AutoCompleteLostAtTicks")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("AutoCompleteRearmedHead")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<long>("CheckedAtTicks")
                         .HasColumnType("bigint");
 

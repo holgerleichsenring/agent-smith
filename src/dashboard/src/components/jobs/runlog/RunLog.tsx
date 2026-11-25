@@ -5,11 +5,14 @@ import { useT } from "@/hooks/useT";
 import { EventType, type RunEvent, type VerifyPassRecordedEvent } from "@/types/hub-events";
 import { costWords, llmWords, stepTime, type LogSection, type LogStep } from "./runLogSections";
 import { VerifyPassLines } from "./VerifyPassLines";
+import { passHead, specPasses, type StepPass } from "./specPasses";
 
 // 2026-11-17-6d9eb: the sectioned log in the approved mock's columns, hairlines and text colour only. A section line
 // says its state by its dot, its name and its steps · llm · cost · time; open, it lists its step lines (name, llm,
 // cost, time), the steps the run keeps out of the story behind one "n mechanics steps" line, and what the section
 // read or produced. Every step the run reached opens in place.
+// 2026-11-24-0fbfa: a spec that ran its master more than once numbers each master step's pass, and a later pass says
+// what kind it is and why it runs, so a correction reads as the spec going on rather than starting again.
 
 export interface RunLogProps {
   sections: LogSection[];
@@ -38,6 +41,14 @@ export function RunLog(props: RunLogProps) {
     }
     return map;
   }, [props.events]);
+  const masterPasses = useMemo(() => {
+    const map = new Map<number, StepPass>();
+    for (const s of props.sections) {
+      if (s.kind !== "spec") continue;
+      for (const [index, pass] of specPasses(s.steps.map((st) => st.row), props.events)) map.set(index, pass);
+    }
+    return map;
+  }, [props.sections, props.events]);
   return (
     <div className="rl-log" data-testid="run-sections">
       {props.sections.map((s) => {
@@ -52,7 +63,7 @@ export function RunLog(props: RunLogProps) {
             </button>
             {isOpen && (
               <div className="rl-sec-body" id={`${props.idPrefix ?? ""}run-sec-${s.id}`}>
-                <Steps section={s} passes={passes} {...props} />
+                <Steps section={s} passes={passes} masterPasses={masterPasses} {...props} />
                 {props.body(s)}
               </div>
             )}
@@ -63,8 +74,8 @@ export function RunLog(props: RunLogProps) {
   );
 }
 
-function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggleMechanics, detail, idPrefix = "" }:
-  RunLogProps & { section: LogSection; passes: Map<number, VerifyPassRecordedEvent[]> }) {
+function Steps({ section, passes, masterPasses, openStep, onToggleStep, mechanicsOpen, onToggleMechanics, detail, idPrefix = "" }:
+  RunLogProps & { section: LogSection; passes: Map<number, VerifyPassRecordedEvent[]>; masterPasses: Map<number, StepPass> }) {
   const t = useT();
   const hidden = section.steps.filter((s) => !s.story);
   const holdsOpen = hidden.some((s) => s.row.stepIndex === openStep);
@@ -83,7 +94,8 @@ function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggl
           )}
           {(step.story || showAll) && (
             <StepLine step={step} open={openStep === step.row.stepIndex} onToggle={() => onToggleStep(step.row.stepIndex)}
-              passes={passes.get(step.row.stepIndex) ?? []} detail={detail} id={`${idPrefix}step-${step.row.stepIndex}`} />
+              passes={passes.get(step.row.stepIndex) ?? []} pass={masterPasses.get(step.row.stepIndex) ?? null}
+              detail={detail} id={`${idPrefix}step-${step.row.stepIndex}`} />
           )}
         </Fragment>
       ))}
@@ -91,8 +103,9 @@ function Steps({ section, passes, openStep, onToggleStep, mechanicsOpen, onToggl
   );
 }
 
-function StepLine({ step, open, onToggle, passes, detail, id }: {
-  step: LogStep; open: boolean; onToggle: () => void; passes: VerifyPassRecordedEvent[]; detail: (step: LogStep) => ReactNode; id: string;
+function StepLine({ step, open, onToggle, passes, pass, detail, id }: {
+  step: LogStep; open: boolean; onToggle: () => void; passes: VerifyPassRecordedEvent[]; pass: StepPass | null;
+  detail: (step: LogStep) => ReactNode; id: string;
 }) {
   const t = useT();
   const { row } = step;
@@ -105,8 +118,24 @@ function StepLine({ step, open, onToggle, passes, detail, id }: {
         <span className="rl-step-cost">{costWords(row.costUsd)}</span>
         <span className="rl-step-time">{row.planned ? "" : stepTime(row.durationSeconds)}</span>
       </button>
+      {pass && <MasterPassLine pass={pass} stepIndex={row.stepIndex} />}
       {passes.map((p, i) => <div key={i} className="rl-step-pass"><VerifyPassLines pass={p} /></div>)}
       {open && <div className="rl-step-detail" data-testid={`run-step-detail-${row.stepIndex}`}>{detail(step)}</div>}
+    </div>
+  );
+}
+
+/** 2026-11-24-0fbfa: "Pass 2 of this spec · structure correction" and, for a later pass, the reason its spec gave. */
+function MasterPassLine({ pass, stepIndex }: { pass: StepPass; stepIndex: number }) {
+  const t = useT();
+  return (
+    <div className="rl-step-pass rl-master-pass" data-testid={`run-step-pass-${stepIndex}`} data-pass={pass.number}>
+      <div className="rl-master-pass-head">{passHead(t, pass)}</div>
+      {pass.because && (
+        <div className="rl-master-pass-why" data-testid={`run-step-pass-why-${stepIndex}`}>
+          <span className="rl-dim">{t("runs.log.pass.why")}</span> {pass.because.trim()}
+        </div>
+      )}
     </div>
   );
 }

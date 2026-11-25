@@ -191,6 +191,7 @@ export const shellMessages = {
   },
   "overview.spend.label": { en: "Spend · 7 days", de: "Kosten · 7 Tage" },
   "overview.spend.reading": { en: "Reading the run ledger…", de: "Run-Buchungen werden gelesen…" },
+  "overview.spend.failed": { en: "The spend could not be read.", de: "Die Kosten konnten nicht gelesen werden." }, // 2026-11-24-0fbfb
   "overview.spend.today": { en: "today", de: "heute" },
   "overview.spend.calls": { en: "LLM calls", de: "LLM-Aufrufe" },
   "overview.spend.empty": {

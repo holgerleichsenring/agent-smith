@@ -47,6 +47,7 @@ internal static class DashboardReadersExtensions
         services.AddTransient<ConnectionDiscoveryReader>(); // 2026-10-02-5f89c
         services.AddTransient<RunCriteriaCounter>();
         services.AddTransient<CriteriaMetAggregator>();
+        services.AddTransient<Services.Spend.RunSpendReader>(); // 2026-11-24-0fbfb
         return services;
     }
 }
