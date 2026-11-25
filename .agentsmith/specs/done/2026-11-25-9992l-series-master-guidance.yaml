@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992l
+goal: "The series master is told how to lead a series well, as hints; the coding master knows the side-by-side workspace (skills v5.46.1 pinned)."
+
+applies_to: "default (series master prompt, ensure_repo_sandbox, skills pin)"
+
+requires: [2026-11-25-9992e, 2026-11-25-9992b, 2026-11-25-433fa]
+
+facts:
+  - claim: "The series master prompt lists its tools but says nothing about ordering merges, parallelism, deciding plan gaps itself or hinting a ticket at its workspace."
+    evidence: "src/backend/AgentSmith.Application/Prompts/Resources/series-master.md (before this spec)"
+  - claim: "Skills v5.46.1 teaches the coding master that repositories sit side by side at /work/<repo> and that ensure_repo_sandbox brings another repository and its toolchain; its tarball hashes to c3f3fe073b53b67578ee108d95016d4b7dc83c38e02961b47ebfac434efa858f (v5.46.1)."
+    evidence: "observed: 2026-11-25, agent-smith-skills PR #319, releases v5.46.0 and v5.46.1 (restart wording fix) asset .sha256"
+  - claim: "ensure_repo_sandbox's description still speaks of provisioning a separate sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs:41-44 (before this spec)"
+
+scope:
+  in: "A 'How to lead the series well' hint block in series-master.md; ensure_repo_sandbox's description for the shared workspace; SkillsCatalogVersion v5.46.1 and its sha256."
+  out: "Any code lock on the master's judgement (operator: limits only by the environment)."
+
+done:
+  - "Build and the full suite are green on the v5.46.1 pin with the new prompt text."

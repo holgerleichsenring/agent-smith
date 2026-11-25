@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992l
+
+decisions:
+  - category: Implementation
+    chose: "Hints in the series master prompt, no code locks"
+    over: "Enforcing merge order and parallelism limits in the tools"
+    reason: |
+      Operator decision 2026-11-25: limits come only from the environment (identity rights, secrets, budget, gate);
+      everything else is a hint the master weighs. The session that steered this series worked that way.
+    decider: operator
+  - category: Implementation
+    chose: "The series master prompt stays embedded in agent-smith; only the coding master text moved through the skills repo"
+    over: "Moving the series master prompt into the skills repo"
+    reason: |
+      The series master is owned as an embedded prompt (PromptOwnership); moving it is a separate change with no
+      benefit for this spec.

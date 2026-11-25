@@ -38,10 +38,10 @@ public sealed class EnsureRepoSandboxToolHost(
         return [AIFunctionFactory.Create(EnsureRepoSandbox, name: "ensure_repo_sandbox")];
     }
 
-    [Description("Provisions a sandbox for another configured repository of this project mid-run, " +
-                 "checks its source out, and makes it addressable by name (like the repos you already " +
-                 "have). Call when the ticket turns out to affect a repository that is not in this " +
-                 "run's scope. A capacity denial is a normal answer — continue without the repo then.")]
+    [Description("Brings another configured repository of this project into the run's workspace beside the others at /work/<repo>, addressable by name like the repos you have. " +
+                 "When its toolchain is missing the workspace restarts with it: your changes are committed, pushed and come back at the same commit; build output is gone and the project's prerequisites install again. " +
+                 "Call when the work needs a repository not in the run yet (a sibling a script reaches as ../<repo>, a contract both sides share). " +
+                 "A capacity denial is a normal answer: continue without the repository then.")]
     public async Task<string> EnsureRepoSandbox(
         [Description("Name of the configured repository to bring into the run.")] string repo_name,
         CancellationToken ct = default)
