@@ -17,7 +17,7 @@ namespace AgentSmith.Tests.TestSupport;
 internal static class SeriesDoubles
 {
     internal static SandboxGitOperations Git(ISandboxFileReaderFactory files) =>
-        new(new GitBranchPusher(), TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
+        new(AgentSmith.Tests.TestSupport.TestPushers.Plain(), TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
             files, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
     internal static SeriesReader Reader(ISandboxFileReaderFactory files, SandboxGitOperations? git = null) =>

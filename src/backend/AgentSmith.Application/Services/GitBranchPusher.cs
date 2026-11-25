@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
@@ -19,8 +20,12 @@ namespace AgentSmith.Application.Services;
 /// multi-repository spec write, and the revert that undoes it, must be refused when somebody else
 /// pushed in between, as <c>CreateOnlyBranchPush</c> is.
 /// </para>
+/// <para>
+/// 2026-11-25-098f: inside a run, the head about to be pushed is published first (<see cref="BranchPushedEvent"/>), so the run
+/// records it before any read of the host can see it; a pull request's moved head is then known as agent-smith's own.
+/// </para>
 /// </summary>
-public sealed class GitBranchPusher
+public sealed class GitBranchPusher(IEventPublisher events, IRunContextAccessor runContext)
 {
     private const int GitTimeoutSeconds = 120;
 
@@ -30,6 +35,7 @@ public sealed class GitBranchPusher
     {
         // 2026-10-02-5f89g: the repo's own credential, resolved by the caller that holds the repo.
         var env = Env(credential);
+        await RecordHeadAsync(sandbox, branch, ct);
 
         var result = await PushOnceAsync(sandbox, branch, credentialHelper, env, ct);
         if (result.ExitCode != 0 && Mentions(result, "stale info"))
@@ -47,9 +53,19 @@ public sealed class GitBranchPusher
     public async Task PushPlainAsync(
         ISandbox sandbox, string branch, string credentialHelper, GitCredential credential, CancellationToken ct)
     {
+        await RecordHeadAsync(sandbox, branch, ct);
         var result = await Run(sandbox, ["-c", credentialHelper, "push", "origin", $"HEAD:{branch}"], Env(credential), ct);
         if (result.ExitCode != 0)
             throw new InvalidOperationException($"git push failed (exit {result.ExitCode}): {result.ErrorMessage}");
+    }
+
+    // Outside a run nothing records the head; a HEAD git cannot name has nothing to push either.
+    private async Task RecordHeadAsync(ISandbox sandbox, string branch, CancellationToken ct)
+    {
+        if (runContext.CurrentRunId is not { Length: > 0 } runId) return;
+        var head = await Run(sandbox, ["rev-parse", "HEAD"], null, ct);
+        if (head.ExitCode != 0 || (head.OutputContent ?? string.Empty).Trim() is not { Length: > 0 } sha) return;
+        await events.PublishAsync(new BranchPushedEvent(runId, DateTimeOffset.UtcNow, branch, sha), ct);
     }
 
     private static IReadOnlyDictionary<string, string>? Env(GitCredential credential) =>

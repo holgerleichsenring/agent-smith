@@ -16,7 +16,7 @@ public sealed class SandboxGitOperationsTests
     private readonly Mock<ISandbox> _sandboxMock = new();
     private readonly List<Step> _steps = new();
     private readonly SandboxGitOperations _sut = new(
-        new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
+        AgentSmith.Tests.TestSupport.TestPushers.Plain(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
         NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(),
         new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
@@ -207,7 +207,7 @@ public sealed class SandboxGitOperationsTests
     {
         var resolver = AgentSmith.Tests.TestSupport.TestCredentials.With(("gh", "first"), ("gh_two", "second"));
         var sut = new SandboxGitOperations(
-            new GitBranchPusher(), new GitTokenResolver(resolver),
+            AgentSmith.Tests.TestSupport.TestPushers.Plain(), new GitTokenResolver(resolver),
             NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(),
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 

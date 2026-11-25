@@ -112,6 +112,6 @@ internal sealed class RepoCommitFixture
     }
 
     private static SandboxGitOperations GitOps() =>
-        new(new GitBranchPusher(), TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
+        new(AgentSmith.Tests.TestSupport.TestPushers.Plain(), TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
             new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 }

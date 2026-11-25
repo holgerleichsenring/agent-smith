@@ -474,7 +474,7 @@ public sealed class RefreshBranchBaseTests
             new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance), targets, TestTreeSync.TreeGit(), new BaseRefreshGit(),
             NullLogger<BaseMergeVerify>.Instance);
         var conflicts = new BaseMergeConflictPass(stub.Object, new BaseMergeWholeness(new BaseRefreshGit()));
-        return new RefreshBranchBaseHandler(new BaseRefreshMerge(TestGit.Merger, stub.Object, conflicts, verify, new BaseRefreshGit()), new GitBranchPusher(),
+        return new RefreshBranchBaseHandler(new BaseRefreshMerge(TestGit.Merger, stub.Object, conflicts, verify, new BaseRefreshGit()), AgentSmith.Tests.TestSupport.TestPushers.Plain(),
             AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, targets, sources.Object, events.Object,
             new RefreshedPullRequestFollowUp(sources.Object, new PullRequestBuildRequeue(sources.Object, NullLogger<PullRequestBuildRequeue>.Instance),
                 NullLogger<RefreshedPullRequestFollowUp>.Instance),

@@ -285,14 +285,14 @@ public sealed class MultiRepoHandlerTests
                 _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
             var handler = new CommitAndPRHandler(
                 _sourceFactoryMock.Object, _ticketFactoryMock.Object,
-                new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+                new SandboxGitOperations(AgentSmith.Tests.TestSupport.TestPushers.Plain(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
                 new SecretPatternScanner(),
                 new PullRequestOutcomePublisher(EventTestStubs.NoOp),
                 new TicketLifecycle(), new SandboxTargets(), new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(
-                    new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+                    new SandboxGitOperations(AgentSmith.Tests.TestSupport.TestPushers.Plain(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
                     new SandboxTargets(),
                     NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),

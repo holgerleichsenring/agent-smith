@@ -61,6 +61,8 @@ export enum EventType {
   PocOverruled = 95,
   PocDeployed = 96,
   PocActed = 97,
+  // 2026-11-25-098f: a run pushed a head of its branch.
+  BranchPushed = 98,
 }
 
 interface RunEventBase {
@@ -868,6 +870,13 @@ export interface PocActedEvent extends RunEventBase {
   auditAct?: string | null;
 }
 
+/** 2026-11-25-098f: a run pushed a head of its branch, recorded before the push. Mirrors C# BranchPushedEvent. */
+export interface BranchPushedEvent extends RunEventBase {
+  type: EventType.BranchPushed;
+  branch: string;
+  sha: string;
+}
+
 /** 2026-11-18-3863f: a deploy delivered — its pull request, or the pipeline run it started (null id: the host did
  *  not name it). Mirrors C# DeployDeliveredEvent. */
 export interface DeployDeliveredEvent extends RunEventBase {
@@ -981,7 +990,8 @@ export type RunEvent =
   | PocImportedEvent
   | PocOverruledEvent
   | PocDeployedEvent
-  | PocActedEvent;
+  | PocActedEvent
+  | BranchPushedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

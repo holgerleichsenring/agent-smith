@@ -63,7 +63,7 @@ internal static class FormatFixture
     private static RunWorkCheckpointer Checkpointer()
     {
         var gitOps = new SandboxGitOperations(
-            new GitBranchPusher(), TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
+            AgentSmith.Tests.TestSupport.TestPushers.Plain(), TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
             new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         return new RunWorkCheckpointer(
             new RepoWorkPusher(gitOps, new SecretPatternScanner(), new SandboxTargets(), NullLogger<RepoWorkPusher>.Instance),

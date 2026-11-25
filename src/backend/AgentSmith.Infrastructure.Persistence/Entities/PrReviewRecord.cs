@@ -88,4 +88,8 @@ public sealed class PrReviewRecord : EntityBase, IProjectOwned
 
     /// <summary>2026-11-24-629ab: the head the CI loop armed auto-complete again on; written apart from a read.</summary>
     public string? AutoCompleteRearmedHead { get; set; }
+
+    /// <summary>2026-11-25-098f: the moved head auto-complete was found gone on that no run had recorded pushing yet — asked about
+    /// again at every read until a run records it (then lost) or it is set again; null otherwise. A person's head stays here.</summary>
+    public string? AutoCompleteGoneHead { get; set; }
 }

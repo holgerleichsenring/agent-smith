@@ -100,7 +100,7 @@ public sealed class ConflictedCheckoutStopsThePushTests
 
     private static PersistWorkBranchHandler PersistHandler() =>
         new(new SandboxGitOperations(
-                new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
+                AgentSmith.Tests.TestSupport.TestPushers.Plain(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
                 new StubSandboxFileReaderFactory(), TestGit.Identity),
             new SandboxTargets(), new WipCommitMessage(), NullLogger<PersistWorkBranchHandler>.Instance);
 }

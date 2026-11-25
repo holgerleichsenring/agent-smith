@@ -26,6 +26,7 @@ public sealed class RunRowFamily(
         typeof(PullRequestOutcomeEvent), typeof(RunCancelRequestedEvent), typeof(RunCheckpointedEvent),
         typeof(ExpectationRatifiedEvent), typeof(RunStoryRecordedEvent), typeof(PipelineStepsPlannedEvent),
         typeof(RunBudgetResolvedEvent), typeof(RunWorkShapeResolvedEvent), typeof(DeployDeliveredEvent),
+        typeof(BranchPushedEvent),
     ];
 
     public Task ApplyAsync(IUnitOfWork uow, RunEvent runEvent, long? eventSeq, CancellationToken ct) => runEvent switch
@@ -55,6 +56,7 @@ public sealed class RunRowFamily(
         RunBudgetResolvedEvent e => classification.ApplyBudgetAsync(uow, e, ct),
         RunWorkShapeResolvedEvent e => classification.ApplyShapeAsync(uow, e, ct),
         DeployDeliveredEvent e => deploys.ApplyAsync(uow, e, ct), // 2026-11-18-3863f
+        BranchPushedEvent e => UpdateRunAsync(uow, e.RunId, r => r.PushedHeadsJson = PushedHeads.With(r.PushedHeadsJson, e.Sha), ct), // 2026-11-25-098f
         _ => Task.CompletedTask,
     };
 

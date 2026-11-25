@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.TicketActs;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
@@ -7,6 +8,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Services.Providers.Source;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
@@ -73,8 +75,20 @@ public sealed class AutoCompleteRearmTests : IDisposable
         stored.AutoCompleteLostAtTicks.Should().BeNull("a cancel is never overridden on a guess: the host did not say it conflicts");
 
         stored = Stored(armed: true, conflicts: false);
+        Copy(stored, armed: false, conflicts: false, head: "b", ownHead: true);
+        stored.AutoCompleteLostAtTicks.Should().Be(9, "agent-smith pushed the new head: a refresh before any read saw the conflict, a rework, a CI fix");
+
+        stored = Stored(armed: true, conflicts: false);
         Copy(stored, armed: false, conflicts: false, head: "b");
-        stored.AutoCompleteLostAtTicks.Should().Be(9, "a refresh that pushed before any read saw the conflict");
+        stored.AutoCompleteLostAtTicks.Should().BeNull("2026-11-25-098f: no run pushed the new head; auto-merge stays off");
+        stored.AutoCompleteGoneHead.Should().Be("b", "the run's record may still be on its way");
+        PrRecordAutoComplete.HeadInQuestion(Read(armed: false, head: "c"), stored).Should().Be("b", "the head it went on decides, not a later one");
+        Copy(stored, armed: false, conflicts: false, head: "b", ownHead: true);
+        (stored.AutoCompleteLostAtTicks, stored.AutoCompleteGoneHead).Should().Be(((long?)9, (string?)null), "the run's record arrived");
+
+        stored = Stored(armed: true, conflicts: true);
+        Copy(stored, armed: false, conflicts: false, head: "b");
+        stored.AutoCompleteLostAtTicks.Should().BeNull("a person's push to a conflicting pull request is still a person's push");
 
         stored = Stored(armed: true, conflicts: false);
         Copy(stored, armed: false, conflicts: false);
@@ -113,6 +127,73 @@ public sealed class AutoCompleteRearmTests : IDisposable
         var request = _launched.Should().ContainSingle().Subject;
         request.PullRequests.Should().ContainSingle().Which.Should().Match<CiGreenPullRequest>(p => p.Rearm && !p.NotStarted && !p.NoCi);
         _h.Records().Single().AutoCompleteRearmedHead.Should().Be("def");
+    }
+
+    // 2026-11-25-098f: GitLab cancels auto-merge on every new commit; the record arms it again only after agent-smith's own push.
+    [Fact]
+    public async Task CancelledByAgentSmithsOwnPush_IsArmedAgain()
+    {
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await RefreshAsync();
+        await PushedByAgentSmithAsync("def");
+        (_head, _armed) = ("def", false);
+        await RefreshAsync();
+
+        _h.Records().Single().AutoCompleteLostAtTicks.Should().NotBeNull();
+        _launched.Should().ContainSingle().Which.PullRequests.Should().ContainSingle(p => p.Rearm);
+        _h.Records().Single().AutoCompleteRearmedHead.Should().Be("def");
+    }
+
+    [Fact]
+    public async Task CancelledByAPersonsPush_IsNotArmedAgain()
+    {
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await RefreshAsync();
+        await PushedByAgentSmithAsync("abc");
+        (_head, _armed) = ("def", false);
+        await RefreshAsync();
+        await RefreshAsync();
+
+        _h.Records().Single().AutoCompleteLostAtTicks.Should().BeNull("agent-smith never pushed def");
+        _launched.Should().BeEmpty();
+
+        await PushedByAgentSmithAsync("ghi");
+        _head = "ghi";
+        await RefreshAsync();
+        _launched.Should().BeEmpty("agent-smith's later push on top does not make the person's cancelling push its own");
+    }
+
+    [Fact]
+    public async Task OwnPushRecordedAfterTheRead_IsArmedAgain_AtTheNextRead()
+    {
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await RefreshAsync();
+        (_head, _armed) = ("def", false);
+        await RefreshAsync();
+        _launched.Should().BeEmpty("the run's record of def has not landed yet");
+
+        await PushedByAgentSmithAsync("def");
+        await RefreshAsync();
+
+        _launched.Should().ContainSingle();
+        _h.Records().Single().Should().Match<PrReviewRecord>(r => r.AutoCompleteGoneHead == null && r.AutoCompleteRearmedHead == "def");
+    }
+
+    [Fact]
+    public async Task AShaPushedInAnotherProject_IsNotOurs()
+    {
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+        await using (var ctx = _h.Store.Context())
+        {
+            ctx.Add(new Run { Id = "other", Project = "q", TicketId = "1", Pipeline = "code", Status = "success", StartedAt = PrReviewRefreshHarness.T });
+            await ctx.SaveChangesAsync();
+        }
+        await PushedInAsync("other", "def");
+        await RefreshAsync();
+        (_head, _armed) = ("def", false);
+        await RefreshAsync();
+
+        _launched.Should().BeEmpty();
     }
 
     [Fact]
@@ -194,11 +275,26 @@ public sealed class AutoCompleteRearmTests : IDisposable
         State = PrReviewStates.Open, HeadSha = "a", AutoCompleteArmed = armed, HasConflicts = conflicts, AutoCompleteLostAtTicks = lostAt,
     };
 
-    private static void Copy(PrReviewRecord stored, bool? armed, bool? conflicts, string head = "a") =>
-        PrReviewRecordCopy.Record(new PrReviewRecord
+    private static void Copy(PrReviewRecord stored, bool? armed, bool? conflicts, string head = "a", bool ownHead = false) =>
+        PrReviewRecordCopy.Record(Read(armed, head, conflicts), stored, ownHead);
+
+    private static PrReviewRecord Read(bool? armed, string head, bool? conflicts = false) => new()
+    {
+        State = PrReviewStates.Open, HeadSha = head, AutoCompleteArmed = armed, HasConflicts = conflicts, CheckedAtTicks = 9,
+    };
+
+    // A run recorded the heads it pushed: its BranchPushedEvents, projected onto Runs.PushedHeadsJson as the applier does.
+    private async Task PushedByAgentSmithAsync(params string[] heads) => await PushedInAsync("r1", heads);
+
+    private async Task PushedInAsync(string runId, params string[] heads)
+    {
+        var applier = RunEventAppliers.Default();
+        foreach (var head in heads)
         {
-            State = PrReviewStates.Open, HeadSha = head, AutoCompleteArmed = armed, HasConflicts = conflicts, CheckedAtTicks = 9,
-        }, stored);
+            await using var uow = _h.Store.Context();
+            await applier.ApplyAsync(uow, new BranchPushedEvent(runId, PrReviewRefreshHarness.T, "agent-smith/7", head), CancellationToken.None);
+        }
+    }
 
     private static ResolvedProject Project(MergeWhen when) => new()
     {

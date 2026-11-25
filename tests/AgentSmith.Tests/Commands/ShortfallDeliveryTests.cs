@@ -27,7 +27,7 @@ public sealed class ShortfallDeliveryTests
     private readonly ShortfallDelivery _sut = new(
         new UnverifiedWorkReverter(
             new SandboxGitOperations(
-                new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
+                AgentSmith.Tests.TestSupport.TestPushers.Plain(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
                 new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SandboxTargets(),
             NullLogger<UnverifiedWorkReverter>.Instance),

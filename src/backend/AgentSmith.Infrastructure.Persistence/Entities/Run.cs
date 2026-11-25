@@ -96,6 +96,9 @@ public sealed class Run : EntityBase, IProjectOwned
     // still COMING. Null on pre-p0405 rows and before the first announcement.
     public string? PlannedStepsJson { get; set; }
     public int? PlannedFirstStepIndex { get; set; }
+    // 2026-11-25-098f: every head this run pushed (BranchPushedEvent), a JSON array of shas, each once. A pull request's moved
+    // head found here is agent-smith's own push. Null on older rows and on runs that pushed nothing.
+    public string? PushedHeadsJson { get; set; }
 
     public ICollection<RunRepo> Repos { get; set; } = new List<RunRepo>();
     public ICollection<RunStep> Steps { get; set; } = new List<RunStep>();
