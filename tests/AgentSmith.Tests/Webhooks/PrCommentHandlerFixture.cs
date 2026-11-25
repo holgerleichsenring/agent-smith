@@ -46,6 +46,12 @@ internal sealed class PrCommentHandlerFixture
     /// <summary>The store a head-less delivery finds its ticket's record in; none by default.</summary>
     public IServiceScopeFactory? Scopes { get; set; }
 
+    /// <summary>2026-11-25-9992g: the series runs the admission asks whether one holds the ticket; none by default.</summary>
+    public AgentSmith.Contracts.Series.ISeriesRunStore? SeriesStore { get; set; }
+
+    /// <summary>2026-11-25-9992g: the wakes a comment on a series ticket's pull request recorded.</summary>
+    public Mock<AgentSmith.Contracts.Series.ISeriesWakes> Wakes { get; } = new();
+
     public PrCommentCommandAdmission Admission()
     {
         var launch = new Mock<AgentSmith.Server.Contracts.IPrCommandLaunch>();
@@ -61,7 +67,9 @@ internal sealed class PrCommentHandlerFixture
         nudges.Setup(n => n.EnqueueAsync(It.IsAny<ReworkNudgeRequest>(), It.IsAny<CancellationToken>()))
             .Callback<ReworkNudgeRequest, CancellationToken>((r, _) => Nudged.Add(r)).Returns(Task.CompletedTask);
         return new(new CommentIntentParser(Model.Object), new ServerContext("config.yml"), launch.Object,
-            owners.Object, nudges.Object, PrRecordNudges.Of(owners.Object, nudges.Object, Scopes), NullLogger<PrCommentCommandAdmission>.Instance);
+            owners.Object, nudges.Object, PrRecordNudges.Of(owners.Object, nudges.Object, Scopes),
+            AgentSmith.Tests.TestSupport.SeriesWakeDoubles.PrComments(owners.Object, SeriesStore, Wakes.Object),
+            NullLogger<PrCommentCommandAdmission>.Instance);
     }
 
     /// <summary>A head reader that completes a command with <see cref="HeadRef"/> in the same repository.</summary>

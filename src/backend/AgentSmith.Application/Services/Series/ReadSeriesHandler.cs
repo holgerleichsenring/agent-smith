@@ -29,10 +29,13 @@ public sealed class ReadSeriesHandler(
         };
         beat.Messages.AddRange(await conversation.AddressedAsync(record.Conversation, record.Id, record.MessagesThrough, cancellationToken));
         if (beat.Messages.Count > 0) beat.MessagesThrough = beat.Messages[^1].Index;
+        // 2026-11-25-9992g: a paused series keeps its wakes; they are never an answer to the waiting question
+        if (record.State != SeriesRunStates.Paused) beat.Wakes.AddRange(record.Wakes.Where(w => w.At <= beat.Now));
         await questions.SettleAsync(beat, config.Dialogue.QuestionDefaultMinutes, cancellationToken); // 0207c
         await progress.MoveAsync(beat, cancellationToken); // 0207d: the series check, its report, the series' end
         beat.Reasons.AddRange(SeriesJudgement.NewlyRed(record, beat.Rows));
         beat.Reasons.AddRange(SeriesJudgement.Operator(beat.Messages));
+        beat.Reasons.AddRange(SeriesJudgement.Woken(beat)); // 2026-11-25-9992g
         beat.Reasons.AddRange(SeriesJudgement.Stalled(beat, config.Dialogue.SeriesStatusMinutes));
         context.Pipeline.Set(ContextKeys.SeriesBeat, beat);
         return CommandResult.Ok($"Series run {id}: {beat.Facts.Count(f => f.Landed)} of {beat.Facts.Count} landed"

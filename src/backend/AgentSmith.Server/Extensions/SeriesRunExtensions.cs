@@ -19,6 +19,7 @@ public static class SeriesRunExtensions
         services.AddScoped<ISeriesConversation, SeriesConversation>().AddScoped<ISeriesRunLaunch, SeriesRunLaunch>();
         services.AddScoped<ISeriesRecordReads, SeriesRecordReads>(); // 0207e: the admin assistant's run reads, lent
         services.AddSingleton<SeriesRunSweeper>().AddScoped<SeriesRunViewReader>(); // 0207e: the panel's read
+        services.AddSeriesWakes();
         services.TryAddTransient<SeriesRunPullRequests>(); // 2026-11-23-31dcb: the series page's reads
         services.TryAddTransient<SeriesRunTickets>();
         services.TryAddScoped<SeriesRunNames>();
@@ -30,6 +31,14 @@ public static class SeriesRunExtensions
         services.AddTransient<SeriesRunHolds>(); // 2026-11-23-31dcg
         services.AddTransient<SeriesRunChangesReader>(); // 2026-11-23-31dcj: read when Changed in this series opens
         services.AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
+        return services;
+    }
+
+    /// <summary>2026-11-25-9992g: what wakes the master, recorded — by the PR read, the run end, the tracker and the PR
+    /// comments, so the worker's and the webhooks' compositions each take it in.</summary>
+    public static IServiceCollection AddSeriesWakes(this IServiceCollection services)
+    {
+        services.TryAddSingleton<ISeriesWakes, SeriesWakes>();
         return services;
     }
 }

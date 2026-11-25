@@ -27,6 +27,7 @@ public sealed class PrCommentCommandAdmission(
     IPrTicketOwner owners,
     IReworkNudges nudges,
     PrRecordNudge records,
+    SeriesPrCommentWake series, // 2026-11-25-9992g
     ILogger<PrCommentCommandAdmission> logger)
 {
     public async Task<WebhookResult> AdmitAsync(
@@ -36,6 +37,8 @@ public sealed class PrCommentCommandAdmission(
         if (command.Body.StartsWith(OwnPrNoteMarker.Prefix, StringComparison.Ordinal))
             return WebhookResult.NotHandled("our own note");
         await records.NudgeAsync(PrRecordDelivery.Of(command, allowedProjects), cancellationToken);
+        if (TicketOf(command) is { } held && await series.TryAsync(command, held, trust, allowedProjects, cancellationToken))
+            return WebhookResult.HandledNoRoute(); // 2026-11-25-9992g: the series master answers it
         var match = commentIntentParser.Match(command.Body);
         if (match.Type == CommentIntentType.Unknown)
             return WebhookResult.NotHandled();

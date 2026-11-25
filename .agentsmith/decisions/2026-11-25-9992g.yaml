@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992g
+
+decisions:
+  - category: Scope
+    chose: "On a ticket a series holds, a tracker comment (keyword or not) and a PR comment (a command or plain text) wake the series master INSTEAD of a rework; standalone tickets keep their rework unchanged"
+    over: "Waking the master and still enqueuing the rework nudge; waking only on keyword comments"
+    reason: |
+      No second path: the series master owns its tickets (9992e) and has tell_ticket and retry_ticket. A rework the server
+      starts on its own beside the master's judgement is the second actor 9992e removed for CI. The wake replaces the rework
+      trigger for series tickets; it adds none. Plan answers still go to the parked plan run that asked them — they answer a
+      question, they are no rework.
+  - category: Scope
+    chose: "ReworkNoActTail also treats a pending Ticket- or PullRequest-channel act of a series ticket as no act; Operator, Retry, Overrule, Status and Ci acts are served as before"
+    over: "Gating only the two webhook entries"
+    reason: |
+      The nudge worker reads keyword comments from the tracker itself (IReworkPendingActs), so a comment that woke the master
+      would still have started a rework at the ticket's next nudge (its run end, a sweep). Only the channels that are comments
+      are gated; a person's act on the ticket page is a person's decision and keeps its path.
+  - category: Security
+    chose: "A PR comment wakes the master only when its author can write to the repository (the bar a command has); it is checked only after the store says a series holds the ticket"
+    over: "Waking on every PR comment"
+    reason: "On a public repository anyone can comment, and the master can merge; a stranger's text must not reach it. Asking the store first keeps the trust call off every other pull request. An untrusted command falls through to the existing refusal."
+  - category: Architecture
+    chose: "SeriesRunRecord.Wakes (a list of SeriesWake on the JSON content), appended through ISeriesRunStore.UpdateAsync by the Server's SeriesWakes behind Contracts' ISeriesWakes; At and TicketId are stamped where the wake is recorded; an identical waiting wake is not appended twice"
+    over: "A wake table with its own migration; reusing the conversation transcript as the event log"
+    reason: |
+      The record is one JSON document, so the field needs no migration, and UpdateAsync re-applies the append on a version
+      conflict, so a beat's write and a webhook's append never lose each other. Stamping at the recorder makes the time the
+      order the record saw. The dedupe absorbs a webhook delivered twice and a re-read of the same verdict. The transcript is
+      the operator's chat; a comment there would read as the operator's and could answer the master's question.
+  - category: Security
+    chose: "A tracker comment on a series ticket reaches the master only when its author may write: on GitHub and GitLab issues by the same write-access check a PR command gets (IPrReviewAuthorTrust, the commenter read from the payload as KeywordComment.Writer); Jira and Azure DevOps comments are taken as they come. A stranger's comment on a series ticket is dropped — neither a wake nor a rework"
+    over: "Waking on every tracker comment; letting an untrusted comment fall through to the standalone rework"
+    reason: |
+      Anyone may comment on a public repository's issues, and the master can merge. Jira and Azure DevOps boards are only
+      open to their organisation's signed-in members and have no per-comment trust check of their own; requiring repository
+      write access there would refuse the people who own the board. Falling through would bring back the rework the spec
+      removes, for exactly the authors it must not trust.
+  - category: Security
+    chose: "A comment reaches the master as a fenced data block, said to be from a commenter — not the operator and not instructions — with any fence inside it broken up; its length is bounded by the ticket conversation's prompt limit (TicketConversationPromptSection.MaxChars, 20000)"
+    over: "A new config key for comment length"
+    reason: "Reusing the bound a ticket's comments already have in a prompt adds no limit; the cut says where it cut and why."
+  - category: Architecture
+    chose: "WakeAsync appends to every active series of the ticket's own project holding the ticket (ListAsync([project]): running, verifying, delivering, paused) and answers whether one holds it, so a caller learns in one call whether to skip its standalone path"
+    over: "A separate holds check before every wake"
+    reason: "The tracker comment and the run end need both answers at once; the PR comment asks HoldsTicketAsync first only because the trust check costs a host call."
+  - category: Implementation
+    chose: "A beat hands over the wakes with At ≤ its start and, once the master judged (KeepAsync), clears exactly the wakes it handed over, matched by identity"
+    over: "Clearing every wake up to the newest handed over (the spec's 'by time'); clearing all wakes after the beat"
+    reason: "Review: a wake stamped earlier by another replica but stored after the record read would have been cleared unseen by a time cut-off. Identity clears only what the master saw; the hand-over itself stays by time (At ≤ the beat's start)."
+  - category: Implementation
+    chose: "A paused series neither beats for its wakes nor hands them over; nor does one whose master budget is spent, nor one whose master loop failed less than dialogue.series_status_minutes ago (SeriesBeatDue.Woken, SeriesRunRecord.MasterFailedAt)"
+    over: "Handing wakes to a paused master; beating on wakes regardless of budget"
+    reason: "Paused keeps them for the first beat after resume, as scoped. A spent master cannot judge them, so a beat per sweep (15 s) would only launch runs that do nothing; the budget question waits instead and a raise hands the wakes over. The loop throws on a provider failure; a failed beat records MasterFailedAt and what the tracker counted, keeps its wakes and fails the step (so the operator's messages are read again too), and its retry waits for the stall cadence, not the next sweep."
+  - category: Implementation
+    chose: "Each wake becomes a Reason; a comment is quoted with its author ('alice commented on SCRUM-43 (HH:mm): \"…\"') and counts toward MasterSpeaks; SeriesMasterPrompt itself is unchanged (it lists the Reasons), the series-master prompt text names the new events in place"
+    over: "A separate events section in the prompt"
+    reason: "One list of what needs judgement; a second section would split it. The prompt text is changed in place, not reordered, so caching holds."
+  - category: Implementation
+    chose: "A PR read wakes on a CI verdict on the head (green, red, not started) that differs from the stored one, and on a state, conflict or target change (SeriesPrChange); a running CI, a check-time advance or new threads wake nothing"
+    over: "Waking whenever the record writer reports changed"
+    reason: "The writer's changed includes check times and entries; waking on it would call the master on every poll."
+  - category: Scope
+    chose: "The budget question has choices (raise by dialogue.series_master_budget_usd / stop), recommended index 0, and NO deadline (SeriesQuestion.NoDefault); only an answer that IS a choice (its label, or the bare word raise/stop, ignoring case and punctuation) raises the budget (SeriesRunRecord.BudgetRaisedUsd += the setting) or stops the series; any other answer goes to the master and the question is asked again in a later beat"
+    over: "A deadline that raises by default; no recommendation"
+    reason: |
+      Raising spends the operator's money and stopping ends their series: neither may happen because nobody answered. The
+      recommendation exists only because the series page draws choices as buttons only with one (9992j). The question is
+      asked in any beat once the threshold is reached — also the beat whose judgement spent it down, and one with nothing
+      to judge — at most once per beat and never while it waits. "Stop restarting CI on X" is an instruction, not a choice,
+      so prefix matching went (review). A bare number is no choice: 0- or 1-based is a guess, and a stop on a guess is not
+      acceptable. The raise is stored as a delta so a later change of the setting still applies (review). The spent line
+      names what lets the master judge again as things stand: the waiting question, or the setting.
+  - category: TradeOff
+    chose: "The budget question takes the series' one question slot before a relayed ticket question (the ticket's run stays parked and is relayed again once the budget is answered) and after the master's own"
+    over: "A second question slot so ticket questions are relayed while the budget question waits"
+    reason: "Two waiting questions make an operator message ambiguous — which one does it answer? The one-question model stays; the master's own question is not overwritten because nothing would bring it back, a relayed one is re-relayed by the existing relay from the parked run."
+  - category: Architecture
+    chose: "New config key dialogue.series_master_budget_ask_usd (default 2 USD), a dashboard field next to series_master_budget_usd, the schema and the docs; the question names the spent value, the budget, the left amount and both keys"
+    over: "A fixed fraction of the budget"
+    reason: "The operator should hear before the master falls silent, not after; how much warning is enough depends on how expensive one judgement is on the configured agent, which only the operator knows. 0 restores asking only once spent."

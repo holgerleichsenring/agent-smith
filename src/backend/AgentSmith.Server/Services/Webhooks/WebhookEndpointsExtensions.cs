@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Extensions;
 using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +30,7 @@ internal static class WebhookEndpointsExtensions
         services.AddTransient<PrCommandBootstrapCheck>(); // 2026-10-13-0b82b
         services.AddSingleton<IPrTicketOwner, PrTicketOwner>();
         services.AddSingleton<IPrCommandHead, PrCommandHead>();
-        services.AddSingleton<PrCommentCommandAdmission>();
+        services.AddSeriesWakes().AddSingleton<SeriesPrCommentWake>().AddSingleton<SeriesTicketCommentWake>().AddSingleton<PrCommentCommandAdmission>(); // 2026-11-25-9992g
         services.AddSingleton<PrReviewRouteResolver>();
         services.TryAddSingleton<PrRunContextFactory>();
         services.AddSingleton<IDetachedPipelineLauncher, DetachedPipelineLauncher>(); // 2026-10-08-10b0

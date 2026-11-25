@@ -27,7 +27,8 @@ public sealed class SeriesMasterActLogTests
         Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"), _acts.Object, _store, new AgentSmithConfig(), _conversation.Object,
         new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()),
         new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), _acts.Object, Mock.Of<ISeriesConversation>()),
-        _pullRequests.Object, SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), NullLogger<SeriesMasterHandler>.Instance, records);
+        _pullRequests.Object, SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store),
+        NullLogger<SeriesMasterHandler>.Instance, records);
 
     private async Task<SeriesBeat> JudgeAsync(string? tool, string arguments = "{}", ISeriesRecordReads? records = null)
     {

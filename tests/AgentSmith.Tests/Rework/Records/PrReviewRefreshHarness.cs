@@ -71,10 +71,14 @@ internal sealed class PrReviewRefreshHarness : IDisposable
         new CiRedNudge(Store.ScopeFactory, Attempts.Object, Store.Services.GetRequiredService<IReworkNudges>()),
         new CiBuildRequeue(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object, Clock), // 2026-11-24-629aa
         new AutoCompleteRearm(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object), // 2026-11-24-629ab
-        Series, // 2026-11-25-9992e
+        Series, Wakes, // 2026-11-25-9992e, 9992g
         new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance), Conflicts(),
         Recorder(), Activity.Object, Clock,
         NullLogger<PrReviewRecordRefresh>.Instance);
+
+    /// <summary>2026-11-25-9992g: the wakes a series ticket's read recorded, over the harness store.</summary>
+    public AgentSmith.Contracts.Series.ISeriesWakes Wakes => new AgentSmith.Server.Services.Series.SeriesWakes(Series, Clock,
+        NullLogger<AgentSmith.Server.Services.Series.SeriesWakes>.Instance);
 
     /// <summary>2026-11-25-9992e: the series runs over the harness store; a ticket one holds is its master's.</summary>
     public AgentSmith.Contracts.Series.ISeriesRunStore Series => Store.Services.GetRequiredService<AgentSmith.Contracts.Series.ISeriesRunStore>();

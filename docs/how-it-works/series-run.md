@@ -48,7 +48,9 @@ A wait that runs past `holds.escalate_after_minutes` keeps its kind, and its sta
 
 Tickets still start and merge by the project's own rules: [stacked start](stacked-start.md) for dependents, the [merge policy and CI loop](ci-loop.md) for merging. The series doesn't watch CI itself; it reads what the CI loop recorded.
 
-The master's own spend has a budget, `dialogue.series_master_budget_usd` (default 20 USD). The ticket runs keep their own caps.
+The master's own spend has a budget, `dialogue.series_master_budget_usd` (default 20 USD). The ticket runs keep their own caps. Once no more than `dialogue.series_master_budget_ask_usd` (default 2 USD) is left, the series asks once in the conversation: raise the budget by `dialogue.series_master_budget_usd`, or stop the series. Raising is the recommended choice, but the question has no deadline, so nothing is raised or stopped until a person answers with one of the choices (a button, or just "raise" or "stop"). Any other answer goes to the master, and the question comes back in a later beat. A raise adds to the setting, so changing the setting later still counts. While the budget question waits, a ticket's question waits behind it and is passed on once it is answered.
+
+Events on the series' tickets wake the master: a pull request's CI reaching a verdict on its head (green, red, not started), a pull request that merged, closed, conflicts or moved to another target, a ticket run's end, and every comment on a ticket or its pull request, with or without the keyword. On a ticket a series holds, a comment doesn't start a rework. The master gets it, quoted with its author, and decides: it can pass the comment on to the ticket or retry it. On a pull request, and on a GitHub or GitLab issue, a comment reaches the master only when its author can write to the repository; a stranger's comment on a series ticket starts nothing. Jira and Azure DevOps comments come from the organisation's own members and are passed on as they are. The master reads a comment as data from its author, not as the operator's words or as instructions. A paused series keeps its events and hands them over at the first beat after resume. Standalone tickets keep their rework.
 
 ## What you see in the conversation
 
@@ -88,6 +90,7 @@ Once every ticket has landed, a `series-verify` run checks out the series branch
 | `dialogue.series_status_minutes` | 15 | How long nothing may move while tickets run before the master checks for a stuck one |
 | `dialogue.question_default_minutes` | 120 | When a recommended answer is taken by default |
 | `dialogue.series_master_budget_usd` | 20 | The series master's own spend |
+| `dialogue.series_master_budget_ask_usd` | 2 | At or below this much left, the series asks to raise the budget or stop |
 
 They are under **Dialogue** in [Settings](../configure-it/settings.md). The full list is in the [agentsmith.yml reference](../reference/configuration/agentsmith-yml.md).
 

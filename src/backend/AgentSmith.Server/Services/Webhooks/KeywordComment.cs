@@ -13,4 +13,9 @@ public sealed record KeywordComment(
     string PayloadStatus,
     string Body,
     Dictionary<string, string>? PlanAnswers,
-    ReworkAct? Act);
+    ReworkAct? Act)
+{
+    /// <summary>2026-11-25-9992g: the commenter as the repository's host names them, on an issue tracker that is a
+    /// repository (GitHub, GitLab) — what a write-access check asks; null on Jira and Azure DevOps boards.</summary>
+    public AgentSmith.Contracts.Webhooks.PrCommentAuthor? Writer { get; init; }
+}

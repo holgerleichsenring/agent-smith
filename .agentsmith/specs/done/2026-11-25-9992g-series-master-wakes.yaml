@@ -41,7 +41,9 @@ scope:
     start) once the master judged them.
     The table-change trigger and the stall cadence (dialogue.series_status_minutes) stay.
     Budget: once the master's remaining budget is at or below dialogue.series_master_budget_ask_usd (default 2), the beat asks
-    once in the chat: "raise the budget by dialogue.series_master_budget_usd" / "stop the series", with no default. A
+    once in the chat: "raise the budget by dialogue.series_master_budget_usd" / "stop the series", as choices with "raise" as the
+    recommended index (the series page renders choices as buttons only with a recommendation) and NO deadline: a budget is
+    never raised or a series stopped by default (SeriesQuestion gains NoDefault). A
     matching answer raises SeriesRunRecord.MasterBudgetUsd (null = the config value) or stops the series. Any other answer
     goes to the master. The new key gets a dashboard field next to series_master_budget_usd (SettingsForm.tsx, configApi.ts).
   out: "Webhook-free CI (polling stays). UI rendering of events (j). Thread compaction (existing agent.compaction)."

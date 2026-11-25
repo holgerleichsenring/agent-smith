@@ -1091,6 +1091,8 @@ export interface DialogueSetting {
   mockVersionsPerConversation: number;
   /** 2026-11-17-0207a/b/c: the series run's master budget, status cadence and question default. */
   seriesMasterBudgetUsd: number;
+  /** 2026-11-25-9992g: at or below this much left the series asks to raise the budget or stop. */
+  seriesMasterBudgetAskUsd?: number;
   seriesStatusMinutes: number;
   questionDefaultMinutes: number;
 }

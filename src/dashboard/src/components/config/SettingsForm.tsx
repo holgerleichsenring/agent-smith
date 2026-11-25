@@ -492,6 +492,9 @@ function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (
       <NumberField label={t("config.dialogue.seriesBudget.label")} value={value.seriesMasterBudgetUsd}
         onChange={(v) => set({ seriesMasterBudgetUsd: keep(v, value.seriesMasterBudgetUsd) })} testId="setting-dialogue-seriesbudget"
         help={t("config.dialogue.seriesBudget.help")} />
+      <NumberField label={t("config.dialogue.seriesBudgetAsk.label")} value={value.seriesMasterBudgetAskUsd ?? 2}
+        onChange={(v) => set({ seriesMasterBudgetAskUsd: keep(v, value.seriesMasterBudgetAskUsd ?? 2) })}
+        testId="setting-dialogue-seriesbudgetask" help={t("config.dialogue.seriesBudgetAsk.help")} />
       <NumberField label={t("config.dialogue.seriesStatus.label")} value={value.seriesStatusMinutes}
         onChange={(v) => set({ seriesStatusMinutes: keep(v, value.seriesStatusMinutes) })} testId="setting-dialogue-seriesstatus"
         help={t("config.dialogue.seriesStatus.help")} />

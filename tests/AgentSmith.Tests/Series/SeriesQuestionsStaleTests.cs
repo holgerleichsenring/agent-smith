@@ -36,7 +36,7 @@ public sealed class SeriesQuestionsStaleTests
         var record = _store.Records["sr-1"];
         var beat = new SeriesBeat(record, facts, now);
         beat.Messages.AddRange(messages.Select((m, i) => new SeriesOperatorMessage(20 + i, m, now, "Dana")));
-        await new SeriesQuestions(_store, _inbox.Object).SettleAsync(beat, 120, default);
+        await new SeriesQuestions(_store, _inbox.Object, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store)).SettleAsync(beat, 120, default);
         return beat;
     }
 

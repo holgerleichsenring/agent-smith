@@ -71,7 +71,8 @@ public sealed class GitHubIssueCommentWebhookHandler(
             var act = PayloadActTime.Act(
                 PayloadActTime.Text(comment, "user", "login"), PayloadActTime.Text(comment, "created_at"));
             return await router.RouteAsync(config, matches, new KeywordComment(envelope, issueState, commentBody,
-                planAnswers.Count > 0 ? new Dictionary<string, string>(planAnswers) : null, act), cancellationToken);
+                planAnswers.Count > 0 ? new Dictionary<string, string>(planAnswers) : null, act) { Writer = TicketCommentWriter.GitHub(root) },
+                cancellationToken);
         }
         catch (Exception ex)
         {

@@ -47,6 +47,23 @@ public sealed record SeriesRunRecord(
     /// <summary>True once the conversation was told the master's budget is spent.</summary>
     public bool BudgetSaid { get; init; }
 
+    /// <summary>2026-11-25-9992g: what the conversation added to the configured budget, so a later change of the setting
+    /// still applies; 0 until a raise.</summary>
+    public decimal BudgetRaisedUsd { get; init; }
+
+    /// <summary>2026-11-25-9992g: true once the budget question was asked; a raise asks it anew.</summary>
+    public bool BudgetAsked { get; init; }
+
+    /// <summary>2026-11-25-9992g: what happened on its tickets that the master has not judged yet, oldest first.</summary>
+    public IReadOnlyList<SeriesWake> Wakes { get; init; } = [];
+
+    /// <summary>2026-11-25-9992g: when the master's loop last failed; its wakes then wait a status period before the next try.
+    /// Null once it judged again.</summary>
+    public DateTimeOffset? MasterFailedAt { get; init; }
+
+    /// <summary>2026-11-25-9992g: the budget the master judges within — the configured one plus what was raised.</summary>
+    public decimal BudgetUsd(decimal configured) => configured + BudgetRaisedUsd;
+
     public DateTimeOffset? FinishedAt { get; init; }
 
     /// <summary>2026-11-19-1b72a: the state a paused series returns to on resume; null unless paused.</summary>

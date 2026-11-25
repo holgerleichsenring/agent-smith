@@ -23,6 +23,19 @@ public static class SeriesBeatDue
         return Cadence(record, now, statusMinutes) ? "the stall check is due" : null;
     }
 
+    public const string EventsArrived = "events arrived";
+
+    /// <summary>2026-11-25-9992g: events wait for the master — unless the series is paused (it keeps them for the first beat
+    /// after resume), the master's budget is spent (it could not judge them; the budget question waits instead), or its loop
+    /// failed less than a status period ago (the next try waits for the stall cadence, not the next sweep).</summary>
+    public static bool Woken(SeriesRunRecord record, decimal configuredBudgetUsd, DateTimeOffset now, int statusMinutes)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        return record is { IsActive: true, Wakes.Count: > 0 } && record.State != SeriesRunStates.Paused
+            && record.MasterCostUsd < record.BudgetUsd(configuredBudgetUsd)
+            && (record.MasterFailedAt is not { } failed || now - failed >= TimeSpan.FromMinutes(statusMinutes));
+    }
+
     /// <summary>2026-11-17-0207b: the series' last beat ran a whole status period ago.</summary>
     public static bool Cadence(SeriesRunRecord record, DateTimeOffset now, int statusMinutes) =>
         record.LastStatusAt is not { } last || now - last >= TimeSpan.FromMinutes(statusMinutes);

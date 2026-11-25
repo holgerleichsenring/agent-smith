@@ -55,7 +55,7 @@ public sealed class SeriesDeliveryBeatTests
         var factsReader = Mock.Of<ISeriesTicketFacts>(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())
             == Task.FromResult<IReadOnlyList<SeriesTicketFact>>(facts));
         var read = new ReadSeriesHandler(_store, factsReader, _conversation.Object, _config, clock.Object,
-            new SeriesQuestions(_store, Mock.Of<IDialogueAnswerInbox>()), new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()));
+            new SeriesQuestions(_store, Mock.Of<IDialogueAnswerInbox>(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store, _config)), new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()));
 
         await read.ExecuteAsync(new ReadSeriesContext(pipeline, _config.Projects["sample"]), default);
         await Master().ExecuteAsync(new SeriesMasterContext(pipeline, _config.Projects["sample"]), default);
@@ -91,5 +91,6 @@ public sealed class SeriesDeliveryBeatTests
     private SeriesMasterHandler Master() => new(_loop.Object, Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"),
         Mock.Of<ISeriesTicketActs>(), _store, _config, _conversation.Object, new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()),
         new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), _conversation.Object),
-        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), NullLogger<SeriesMasterHandler>.Instance);
+        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(),
+        AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store, _config), NullLogger<SeriesMasterHandler>.Instance);
 }

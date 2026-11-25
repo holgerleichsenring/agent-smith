@@ -568,6 +568,7 @@
         "mock_max_chars": { "type": "integer", "description": "The longest HTML mock a design conversation keeps; it stays below the tool-result bound so a mock reads back whole. Default 90000." },
         "mock_versions_per_spec": { "type": "integer", "description": "The most mock versions one spec keeps in a conversation. Default 20." },
         "mock_versions_per_conversation": { "type": "integer", "description": "The most mock versions one conversation keeps over all its specs. Default 100." },
+        "series_master_budget_ask_usd": { "type": "number", "description": "Once no more than this is left of a series master's budget, in USD, the series asks its conversation once whether to raise the budget by series_master_budget_usd or stop the series; there is no default answer. 0 asks only once it is spent. Default 2." },
         "series_master_budget_usd": { "type": "number", "description": "What a series master's own loops may spend over one series, in USD; past it the series keeps reporting but its master judges no more. Default 20." },
         "series_status_minutes": { "type": "integer", "description": "How long nothing may move while a series run's tickets run before its master looks whether one is stuck. Default 15." },
         "question_default_minutes": { "type": "integer", "description": "How long a series waits on a question that names a recommendation before it takes the recommendation and says so; a question without one waits for the operator. Default 120." }

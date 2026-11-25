@@ -24,7 +24,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// pull requests ended with one merged; a refresh that changed anything tells the ticket's pages.
 /// <para>2026-11-23-8d16: and whether an open one is still a draft — read only; a person's merge takes it out of draft.</para>
 /// <para>2026-11-24-297b: an open one the host says conflicts is handed to <see cref="ConflictBaseRefresh"/> before it is written.</para>
-/// <para>2026-11-25-9992e: a ticket an active series holds is read only — its master merges, refreshes and acts on its CI.</para>
+/// <para>2026-11-25-9992e: a ticket an active series holds is read only — its master merges, refreshes and acts on its CI; 9992g: what a read changed wakes it.</para>
 /// </summary>
 public sealed class PrReviewRecordRefresh(
     IServiceScopeFactory scopes,
@@ -32,7 +32,7 @@ public sealed class PrReviewRecordRefresh(
     IPrReviewAuthorTrust trust,
     PrReviewEntryBuilder builder,
     PrRecordCiRead ci, CiGreenMerge ciMerge, CiRedNudge ciRed, CiBuildRequeue requeue, AutoCompleteRearm rearm, // 3435a/b/c, 629aa/ab
-    AgentSmith.Contracts.Series.ISeriesRunStore series, // 2026-11-25-9992e
+    AgentSmith.Contracts.Series.ISeriesRunStore series, AgentSmith.Contracts.Series.ISeriesWakes wakes, // 2026-11-25-9992e, 9992g
     PrRecordTargetRead target, // 2026-11-22-6d85b
     ConflictBaseRefresh conflicts, // 2026-11-24-297b
     TicketLandingRecorder landing,
@@ -96,7 +96,9 @@ public sealed class PrReviewRecordRefresh(
             if (record.HasConflicts == true && !held) // 2026-11-24-297b: started before the conflict is written, so no page sees it alone
                 await conflicts.LaunchIfDueAsync(project, repo, host, new RefreshedPullRequest(pr.Url, record.Number, pr.TicketId),
                     ConflictBaseRefresh.ConflictsSince(stored, record.HeadSha, new DateTimeOffset(record.CheckedAtTicks, TimeSpan.Zero)), ct);
-            return await writer.WriteAsync(record, entries, start, ct);
+            var wrote = await writer.WriteAsync(record, entries, start, ct);
+            if (held) foreach (var wake in SeriesPrChange.Of(stored, record)) await wakes.WakeAsync(project.Name, pr.TicketId, wake, ct); // 9992g
+            return wrote;
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {

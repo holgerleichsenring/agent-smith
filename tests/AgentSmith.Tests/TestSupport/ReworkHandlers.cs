@@ -19,7 +19,8 @@ internal static class ReworkHandlers
         ClosedTicketActFollowUp followUps, ISeriesAutoStart? series = null, RequirementsMetStart? start = null,
         PreconditionRelease? release = null, StackedTicketUpkeep? stacked = null) =>
         Of(leases, attempts, pending, rework, speech, fallback, withheld, checkpoints, followUps,
-            new ReworkNoActTail(pending, followUps, withheld, series ?? Mock.Of<ISeriesAutoStart>()), start, release,
+            new ReworkNoActTail(pending, followUps, withheld, series ?? Mock.Of<ISeriesAutoStart>(),
+                Mock.Of<AgentSmith.Contracts.Series.ISeriesRunStore>(), Mock.Of<AgentSmith.Contracts.Series.ISeriesWakes>()), start, release,
             stacked ?? NoStackedUpkeep(attempts, leases));
 
     private static ReworkNudgeHandler Of(

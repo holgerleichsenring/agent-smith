@@ -27,6 +27,8 @@ public sealed class ReworkNoActTailTests : IDisposable
     private readonly ServerStateStore _store = new(configure: ClosedTicketFollowUps.Register);
     private readonly Mock<IReworkPendingActs> _pending = new();
     private readonly Mock<ISeriesAutoStart> _series = new();
+    private readonly Mock<AgentSmith.Contracts.Series.ISeriesRunStore> _seriesRuns = new(); // 2026-11-25-9992g
+    private readonly Mock<AgentSmith.Contracts.Series.ISeriesWakes> _wakes = new();
     private readonly Mock<ITicketProviderFactory> _tickets = new();
 
     public ReworkNoActTailTests()
@@ -44,7 +46,7 @@ public sealed class ReworkNoActTailTests : IDisposable
     {
         var speech = Speech();
         return new ReworkNoActTail(_pending.Object, ClosedTicketFollowUps.Of(_store.ScopeFactory, _tickets.Object, speech),
-            new ReworkWithheld(_store.ScopeFactory, speech), _series.Object);
+            new ReworkWithheld(_store.ScopeFactory, speech), _series.Object, _seriesRuns.Object, _wakes.Object);
     }
 
     private static PreviousAttempt Attempt(bool finished) => new("run-1", finished ? "success" : "running", Start, finished);
@@ -111,5 +113,32 @@ public sealed class ReworkNoActTailTests : IDisposable
 
         rework.Verify(r => r.EnterAsync(Project, "7", Act.Act, "code", It.IsAny<CancellationToken>()), Times.Once);
         _series.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ReworkNoActTail_SeriesTicketRunEnd_WakesTheMasterAndServesNoComment()
+    {
+        Pending(Act); // a keyword comment on the ticket
+        _wakes.Setup(w => w.WakeAsync("p", "7", It.IsAny<AgentSmith.Contracts.Series.SeriesWake>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var tail = await Tail().ReadAsync(Project, Nudge, Attempt(finished: true), CancellationToken.None);
+
+        tail.Act.Should().BeNull("the series master was woken by the comment and answers it; no rework starts");
+        _wakes.Verify(w => w.WakeAsync("p", "7", It.Is<AgentSmith.Contracts.Series.SeriesWake>(k =>
+            k.Kind == AgentSmith.Contracts.Series.SeriesWakeKinds.Run && k.Text.Contains("run-1") && k.Text.Contains("success")),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _series.Verify(s => s.ContinueAsync(Project, "7", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ReworkNoActTail_StandaloneTicketComment_IsStillServed()
+    {
+        Pending(Act);
+
+        var tail = await Tail().ReadAsync(Project, Nudge with { Origin = ReworkNudgeOrigin.Ticket }, Attempt(finished: true), CancellationToken.None);
+
+        tail.Act.Should().Be(Act);
+        _wakes.VerifyNoOtherCalls();
     }
 }

@@ -1372,6 +1372,11 @@ export const configMessages = {
     en: "what a series master's own judging may spend over one series; the tickets' runs have their own caps",
     de: "was die eigene Bewertung eines Serien-Masters über eine Serie kosten darf; die Runs der Tickets haben eigene Limits",
   },
+  "config.dialogue.seriesBudgetAsk.label": { en: "Ask about the budget below (USD)", de: "Nach dem Budget fragen unter (USD)" },
+  "config.dialogue.seriesBudgetAsk.help": {
+    en: "once no more than this is left of a series master's budget, the series asks in its chat whether to raise the budget or stop; it never decides that by itself",
+    de: "sobald vom Budget eines Serien-Masters nicht mehr übrig ist, fragt die Serie im Chat, ob das Budget erhöht oder die Serie gestoppt wird; sie entscheidet das nie selbst",
+  },
   "config.dialogue.seriesStatus.label": { en: "Series stall check after (minutes)", de: "Serien-Stillstandsprüfung nach (Minuten)" },
   "config.dialogue.seriesStatus.help": {
     en: "how long nothing may move while a series' tickets run before its master looks whether one is stuck",

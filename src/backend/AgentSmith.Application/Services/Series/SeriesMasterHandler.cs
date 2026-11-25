@@ -19,11 +19,14 @@ namespace AgentSmith.Application.Services.Series;
 /// spent it judges no more and the conversation is told once. 2026-11-25-9992e: it merges, refreshes, retargets and reads
 /// or restarts CI for its tickets and the final pull requests (<see cref="SeriesPullRequestTools"/>); every act is logged with
 /// its reason (<see cref="SeriesActedFunction"/>); its surface stays within the house cap of 20 tools.
+/// 2026-11-25-9992g: the events on its tickets wake it (<see cref="SeriesBeat.Wakes"/>), cleared once judged; before its
+/// budget is spent the conversation is asked to raise it or stop (<see cref="SeriesBudgetQuestion"/>).
 /// </summary>
 public sealed class SeriesMasterHandler(
     IAgenticLoopRunner loop, IPromptCatalog prompts, ISeriesTicketActs acts, ISeriesRunStore store, AgentSmithConfig config,
     ISeriesConversation conversation, SeriesProgress progress, SeriesPause pause, ISeriesPullRequestActs pullRequests,
-    SeriesFinalMerge finals, SeriesFinalCi finalCi, ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null)
+    SeriesFinalMerge finals, SeriesFinalCi finalCi, SeriesBudgetQuestion budgets, // 2026-11-25-9992g
+    ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null)
     : ICommandHandler<SeriesMasterContext>
 {
     public const string MasterName = "series-master";
@@ -32,18 +35,40 @@ public sealed class SeriesMasterHandler(
     {
         if (!context.Pipeline.TryGet<SeriesBeat>(ContextKeys.SeriesBeat, out var beat) || beat is null)
             return CommandResult.Ok("No series to judge.");
-        if (beat.Reasons.Count == 0) return CommandResult.Ok("Nothing needs the series master's judgement.");
         // 2026-11-25-9992e: a series that ended in this beat (its final pull requests merged) has nothing left to judge.
         if (!beat.Record.IsActive) return CommandResult.Ok($"The series is {beat.Record.State}; nothing is left to judge.");
-        var budget = config.Dialogue.SeriesMasterBudgetUsd;
-        if (beat.Record.MasterCostUsd >= budget) return await SpentAsync(beat, budget, cancellationToken);
+        await budgets.AskIfLowAsync(beat, cancellationToken); // 2026-11-25-9992g: in any beat, once it runs low
+        if (beat.Reasons.Count == 0) return CommandResult.Ok("Nothing needs the series master's judgement.");
+        if (budgets.Spent(beat.Record)) return CommandResult.Ok(await budgets.SpentAsync(beat, cancellationToken));
+        return await JudgeAsync(context, beat, cancellationToken);
+    }
+
+    private async Task<CommandResult> JudgeAsync(SeriesMasterContext context, SeriesBeat beat, CancellationToken ct)
+    {
         var prompt = SeriesMasterPrompt.Build(beat);
         var tracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         var before = tracker.CaptureSpend().AccruedUsd;
-        var result = await loop.RunAsync(Request(context, beat, prompt), cancellationToken);
+        AgenticLoopResult result;
+        try { result = await loop.RunAsync(Request(context, beat, prompt), ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return await FailedAsync(beat, ex, tracker.CaptureSpend().AccruedUsd - before, ct);
+        }
         tracker.Track(result.Response);
-        await KeepAsync(beat, prompt, result.Response.Text, tracker.CaptureSpend().AccruedUsd - before, cancellationToken);
+        await KeepAsync(beat, prompt, result.Response.Text, tracker.CaptureSpend().AccruedUsd - before, ct);
+        await budgets.AskIfLowAsync(beat, ct); // 2026-11-25-9992g: this judgement may have spent it down
         return CommandResult.Ok($"The series master judged: {string.Join("; ", beat.Reasons)}");
+    }
+
+    // 2026-11-25-9992g: a failed loop keeps its wakes and the spend it made; they wait a status period, not the next sweep.
+    private async Task<CommandResult> FailedAsync(SeriesBeat beat, Exception ex, decimal spent, CancellationToken ct)
+    {
+        logger.LogWarning(ex, "Series {Series}: the master's loop failed", beat.Record.Id);
+        if (await store.UpdateAsync(beat.Record.Id, r => r with { MasterFailedAt = beat.Now, MasterCostUsd = r.MasterCostUsd + spent }, ct)
+            is { } kept) beat.Record = kept;
+        var minutes = config.Dialogue.SeriesStatusMinutes;
+        return CommandResult.Fail($"The series master's loop failed ({ex.Message}); its events wait {minutes} minutes "
+            + "(dialogue.series_status_minutes, the stall cadence) so a failing model is not retried every sweep.");
     }
 
     private AgenticLoopRequest Request(SeriesMasterContext context, SeriesBeat beat, string prompt)
@@ -71,20 +96,8 @@ public sealed class SeriesMasterHandler(
         var kept = await store.UpdateAsync(beat.Record.Id, r => r with
         {
             ThreadJson = SeriesThread.Append(r.ThreadJson, prompt, answer), MasterCostUsd = r.MasterCostUsd + spent,
+            Wakes = beat.Unjudged(r.Wakes), MasterFailedAt = null, // 2026-11-25-9992g: exactly the wakes it judged
         }, ct);
         if (kept is not null) beat.Record = kept;
-    }
-
-    private async Task<CommandResult> SpentAsync(SeriesBeat beat, decimal budget, CancellationToken ct)
-    {
-        if (!beat.Record.BudgetSaid
-            && await store.UpdateAsync(beat.Record.Id, r => r with { BudgetSaid = true }, ct) is { } said)
-        {
-            beat.Record = said;
-            beat.Said.Add($"The series master has spent {SeriesTable.Money(said.MasterCostUsd)} of its "
-                + $"{SeriesTable.Money(budget)} (dialogue.series_master_budget_usd), so it judges no more; the tickets keep "
-                + "running. Raise the setting to let it judge again.");
-        }
-        return CommandResult.Ok($"The series master's budget of {budget} USD (dialogue.series_master_budget_usd) is spent.");
     }
 }

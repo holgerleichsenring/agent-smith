@@ -37,6 +37,7 @@ internal static class ReworkNudgeWorkerExtensions
         services.AddSingleton<StackedDependentsWake>().AddSingleton<StackedPullRequestRetarget>().AddSingleton<StackedTicketUpkeep>(); // 9a39a/c
         services.AddSingleton<TicketStartHold>().AddSingleton<PreconditionRelease>(); // 2026-11-16-f3fbc
         services.AddSingleton<ReworkNoActTail>().AddSingleton<ISeriesAutoStart, SeriesAutoStart>(); // 2026-10-13-8762v
+        services.AddSeriesWakes(); // 2026-11-25-9992g
         services.AddSingleton<ReworkNudgeWorker>();
         return services.AddWorker<ReworkNudgeWorker>();
     }

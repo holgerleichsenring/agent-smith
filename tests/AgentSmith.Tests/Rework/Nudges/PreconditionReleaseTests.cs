@@ -73,7 +73,8 @@ public sealed class PreconditionReleaseTests : IDisposable
             Mock.Of<ISpawnPipelineRunsUseCase>(), NullLogger<ReworkFallbackSpawn>.Instance);
         var withheld = new ReworkWithheld(_store.ScopeFactory, speech);
         var followUps = ClosedTicketFollowUps.Of(_store.ScopeFactory, _tickets.Object, speech);
-        var tail = new ReworkNoActTail(_pending.Object, followUps, withheld, Mock.Of<ISeriesAutoStart>());
+        var tail = new ReworkNoActTail(_pending.Object, followUps, withheld, Mock.Of<ISeriesAutoStart>(),
+            Mock.Of<AgentSmith.Contracts.Series.ISeriesRunStore>(), Mock.Of<AgentSmith.Contracts.Series.ISeriesWakes>());
         var release = new PreconditionRelease(_attempts.Object, _pending.Object, tail, ReworkHandlers.Hold(_facts, _tickets.Object),
             _launch.Object, _log);
         return ReworkHandlers.Of(Mock.Of<IActiveRunLease>(), _attempts.Object, _pending.Object, _rework.Object, speech, fallback,

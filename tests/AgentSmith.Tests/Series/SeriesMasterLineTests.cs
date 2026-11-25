@@ -25,7 +25,7 @@ public sealed class SeriesMasterLineTests
         Mock.Of<ISeriesTicketActs>(), _store, new AgentSmithConfig(), _conversation.Object,
         new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()),
         new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), Mock.Of<ISeriesConversation>()),
-        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(),
+        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store),
         Microsoft.Extensions.Logging.Abstractions.NullLogger<SeriesMasterHandler>.Instance);
 
     /// <summary>A beat whose master calls the named tool once, then answers.</summary>
@@ -120,7 +120,7 @@ public sealed class SeriesMasterLineTests
         }, default);
         var beat = new SeriesBeat(_store.Records["sr-1"], [], SeriesRecords.T.AddMinutes(121));
 
-        await new SeriesQuestions(_store, Mock.Of<IDialogueAnswerInbox>()).SettleAsync(beat, 120, default);
+        await new SeriesQuestions(_store, Mock.Of<IDialogueAnswerInbox>(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store)).SettleAsync(beat, 120, default);
 
         beat.MasterAnswered.Should().BeTrue();
     }

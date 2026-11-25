@@ -18,6 +18,7 @@ public sealed class SeriesBeatDemand(ISeriesConversation conversation, AgentSmit
         ArgumentNullException.ThrowIfNull(record);
         if (SeriesBeatDue.Why(record, facts, now, config.Dialogue.SeriesStatusMinutes) is { } why) return why;
         if (!record.IsActive) return null;
+        if (SeriesBeatDue.Woken(record, config.Dialogue.SeriesMasterBudgetUsd, now, config.Dialogue.SeriesStatusMinutes)) return SeriesBeatDue.EventsArrived; // 2026-11-25-9992g
         if (FinalsDue(record, now)) return FinalsRead;
         var waiting = await conversation.AddressedAsync(record.Conversation, record.Id, record.MessagesThrough, ct);
         return waiting.Count > 0 ? "the operator wrote" : null;

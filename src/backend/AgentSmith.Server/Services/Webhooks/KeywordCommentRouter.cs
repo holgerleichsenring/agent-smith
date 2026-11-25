@@ -14,11 +14,13 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// <para>2026-10-08-0781: a keyword comment on a ticket with a code attempt nudges the ticket and
 /// returns — the worker reads the comment from the tracker, decides, and answers. Plan answers and
 /// a ticket no run has worked on still dispatch here, in the request.</para>
+/// <para>2026-11-25-9992g: on a ticket a series holds every comment wakes the series master instead.</para>
 /// </summary>
 public sealed class KeywordCommentRouter(
     WebhookSpawnDispatcher dispatcher,
     IPreviousAttemptReader attempts,
     IReworkNudges nudges,
+    SeriesTicketCommentWake series, // 2026-11-25-9992g
     ILogger<KeywordCommentRouter> logger)
 {
     public async Task<WebhookResult> RouteAsync(
@@ -29,11 +31,13 @@ public sealed class KeywordCommentRouter(
             await dispatcher.DispatchAsync(config, matches, comment.Envelope, comment.PayloadStatus, comment.PlanAnswers, ct);
             return WebhookResult.HandledNoRoute();
         }
-        var kept = matches.Where(m => comment.PlanAnswers is { Count: > 0 } || CarriesKeyword(config, m, comment.Body)).ToList();
+        var woken = await WokenAsync(matches, comment, ct);
+        var kept = matches.Where(m => !woken.Contains(m.ProjectName)
+            && (comment.PlanAnswers is { Count: > 0 } || CarriesKeyword(config, m, comment.Body))).ToList();
         if (kept.Count == 0)
         {
             logger.LogDebug("Comment on {Ticket}: matched but no keyword/answers — ignoring", comment.Envelope.TicketId);
-            return WebhookResult.NotHandled();
+            return woken.Count > 0 ? WebhookResult.HandledNoRoute() : WebhookResult.NotHandled();
         }
         foreach (var match in kept)
             if (!await NudgedAsync(match, comment, ct))
@@ -49,6 +53,17 @@ public sealed class KeywordCommentRouter(
         await nudges.EnqueueAsync(new ReworkNudgeRequest(match.ProjectName, ticketId, ReworkNudgeOrigin.Ticket,
             Channel: ReworkChannel.Ticket), ct);
         return true;
+    }
+
+    // 2026-11-25-9992g: a comment on a series ticket, keyword or not, goes to its master instead of a rework; plan answers
+    // still go to the parked plan run that asked them.
+    private async Task<HashSet<string>> WokenAsync(IReadOnlyList<ProjectMatch> matches, KeywordComment comment, CancellationToken ct)
+    {
+        var taken = new HashSet<string>(StringComparer.Ordinal);
+        if (comment.PlanAnswers is { Count: > 0 }) return taken;
+        foreach (var project in matches.Select(m => m.ProjectName).Distinct(StringComparer.Ordinal))
+            if (await series.TakenAsync(project, comment, ct)) taken.Add(project);
+        return taken;
     }
 
     private static bool CarriesKeyword(AgentSmithConfig config, ProjectMatch match, string body) =>

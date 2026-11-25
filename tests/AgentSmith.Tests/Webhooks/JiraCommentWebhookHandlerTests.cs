@@ -95,7 +95,7 @@ public sealed class JiraCommentWebhookHandlerTests
         // 2026-10-08-0781: no code attempt on the ticket — the comment takes the dispatch.
         var router = new KeywordCommentRouter(
             dispatcher, new Mock<IPreviousAttemptReader>().Object, new Mock<IReworkNudges>().Object,
-            NullLogger<KeywordCommentRouter>.Instance);
+            AgentSmith.Tests.TestSupport.SeriesWakeDoubles.TicketComments(), NullLogger<KeywordCommentRouter>.Instance);
         var handler = new JiraCommentWebhookHandler(
             loader.Object, new ServerContext(ConfigPath),
             resolver.Object, router, ApprovedRecordProbes.None(),

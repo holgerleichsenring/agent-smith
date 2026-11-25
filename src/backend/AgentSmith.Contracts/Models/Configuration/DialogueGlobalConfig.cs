@@ -55,6 +55,11 @@ public sealed class DialogueGlobalConfig
     /// have their own caps; this bounds the judging, which runs on events, never on a timer.</summary>
     public decimal SeriesMasterBudgetUsd { get; set; } = 20m;
 
+    /// <summary>2026-11-25-9992g: once no more than this is left of the series master's budget, in USD, the series asks the
+    /// conversation once whether to raise the budget by <see cref="SeriesMasterBudgetUsd"/> or stop — before the master
+    /// falls silent, not after. 0 asks only once it is spent.</summary>
+    public decimal SeriesMasterBudgetAskUsd { get; set; } = 2m;
+
     /// <summary>2026-11-17-0207b: the series beat's cadence in minutes. 2026-11-25-e94eb: no table is posted any more;
     /// it is how long nothing may move while tickets run before the master looks whether one is stuck.</summary>
     public int SeriesStatusMinutes { get; set; } = 15;
