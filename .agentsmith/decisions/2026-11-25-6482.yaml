@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-6482
+
+decisions:
+  - category: Implementation
+    chose: "Pin v5.45.0 and update the C# and Rust goldens by the release's exact delta lines"
+    over: "Regenerating the goldens from the composer"
+    reason: |
+      The goldens prove the composer reproduces the catalog; carrying the release's changed lines into them by
+      hand keeps the test an independent check rather than a copy of the composer's own output.
