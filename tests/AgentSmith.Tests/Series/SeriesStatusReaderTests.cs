@@ -72,6 +72,7 @@ public sealed class SeriesStatusReaderTests : IDisposable
 
         (fact.Working, page.Working, page.Kind).Should().Be((true, true, SeriesTicketKinds.Running));
         detail.WorkingOn.Should().Equal("#1");
+        (detail.Progress, detail.NextMerge).Should().Be(("none", null), "2026-11-25-433fa: nothing merged, nothing ready to merge");
     }
 
     // 2026-11-25-9992e: the master's newest act on the ticket, from the act log, for the master and the page alike.

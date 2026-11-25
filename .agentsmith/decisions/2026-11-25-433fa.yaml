@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-433fa
+
+decisions:
+  - category: Scope
+    chose: "One status line pinned at the top of the series chat (counts, tickets at work, who waits on you, next merge, progress), reversing 9992j's 'no counts on the series' for this one line"
+    over: "Keeping 9992j's graph-only page"
+    decider: operator
+    reason: |
+      The operator, 2026-11-25: "I want the current state without asking — it must come through the UI, like on the mock."
+      The graph shows each ticket but not the sum; one line gives the sum without bringing back the metric bars 9992j removed.
+  - category: Architecture
+    chose: "The line's facts come from the detail the page already reads (Counts, WorkingOn, State) plus NextMerge (the list row's merge-order rule) and Progress (SeriesProgressWord, server-side); the browser only words them through useT()"
+    over: "A SeriesStatus record holding its own copy of the counts; a server-written English sentence"
+    reason: |
+      The counts are SeriesRunCounts from the one truth, and a second record would be a second copy of them. NextMerge already
+      decides what merges next for the list row, so 'next' takes it, not a third rule. The dashboard rule is that every UI
+      text is a dictionary key. Numbers and a word from the server, worded in the browser, derive nothing and keep German.
+  - category: Architecture
+    chose: "Progress is merged over total, said as the nearest of begun, quarter, third, half, two thirds, three quarters, nearly"
+    over: "Weighting tickets by state (a green PR as half done) or by size"
+    reason: "Merged is the only fact that never goes back: a green pull request can still turn red, and tickets carry no size in the model. A word, not a percentage, says what the operator asked ('about a third done') without claiming a precision the measure lacks."
+  - category: Architecture
+    chose: "In place through the existing TicketActivityChanged nudge: the beat's last step nudges each member whose kind or state changed against the stored table, and every member when the beat moved the series' state"
+    over: "A new SeriesChanged hub event with its own change detector (a stored status snapshot compared on every sweep)"
+    reason: |
+      No second path. The series page already re-reads on its project's ticket nudges, and a table change already starts a
+      beat. The gaps were a run's end, which raises no ticket nudge, and the series' own state changes. Both are seen by the
+      beat that the table change starts. The member tickets' pages re-read too, which is right, because their series runway
+      changed. A new event kind would have added a type, a resolver entry, two fanout methods, a backlog skip, a mirror and a
+      client subject for a signal the existing one carries.
+  - category: Scope
+    chose: "Milestones: 'merged' (members whose kind turned merged) before the beat's other messages and 'stuck' (turned failed) after the master's line; the first beat says neither; a ticket whose newest act is the master's own merge, a ticket the master acted on this beat, and any stuck line in a beat that asked a question are left out"
+    over: "Posting each change as it is seen; a stuck line beside the master's retry or question"
+    reason: |
+      The operator asked for one sentence per event, not a cadence, and no status (e94eb/e94ec). The master's own act is
+      already said with its reason (SeriesActSay), so repeating it would be a second report of one event. Stuck after the
+      master's line, and only when it did not act, keeps "waits for your decision" from contradicting a retry it just made.
+      The questions, the final PR's opening and the series' end were already said where they happen. The opening was made
+      one sentence. The series check's report (SeriesSummaryText) stays as it is: it reports criteria and is not a milestone.

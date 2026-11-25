@@ -31,8 +31,8 @@ public sealed class SeriesFinalPullRequest(ISourceProviderFactory sources)
                     + $"merging; {branch} keeps the series' work. Reopen it to deliver the series, or stop the series.");
             url = await provider.CreatePullRequestAsync(source, Title(record), SeriesFinalBody.Of(record, branch, facts), ct);
             return SeriesDeliveryStep.Of(new SeriesDelivery(repo.Name, url, Number(url)), "opened",
-                $"Every ticket landed on {branch}. The final pull request of {repo.Name} into the default branch is open for your "
-                + $"review: {url}.");
+                $"Every ticket landed on {branch}, and the final pull request of {repo.Name} into the default branch is open for your "
+                + $"review: {url}"); // 2026-11-25-433fa: one sentence, as every milestone
         }
         var delivery = known is not null && known.Url == url ? known : new SeriesDelivery(repo.Name, url, Number(url));
         return SeriesDeliveryStep.Of(delivery, "open for review", null);

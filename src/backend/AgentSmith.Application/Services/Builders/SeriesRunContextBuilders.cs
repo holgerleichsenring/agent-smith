@@ -15,6 +15,7 @@ internal static class SeriesRunContextBuilders
         Add<DeliverSeriesContextBuilder>(services, CommandNames.DeliverSeries); // 2026-11-24-f9c5e
         Add<SeriesMasterContextBuilder>(services, CommandNames.SeriesMaster);
         Add<PostSeriesStatusContextBuilder>(services, CommandNames.PostSeriesStatus);
+        Add<CompactSeriesThreadContextBuilder>(services, CommandNames.CompactSeriesThread); // 2026-11-25-433fb
         Add<VerifySeriesContextBuilder>(services, CommandNames.VerifySeries);
     }
 

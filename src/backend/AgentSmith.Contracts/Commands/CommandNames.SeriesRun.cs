@@ -17,6 +17,10 @@ public static partial class CommandNames
     /// the cadence is due.</summary>
     public const string PostSeriesStatus = "PostSeriesStatusCommand";
 
+    /// <summary>2026-11-25-433fb: a beat's last step: past dialogue.series_master_thread_max_chars the master's older beats
+    /// become its notes, its latest beats stay.</summary>
+    public const string CompactSeriesThread = "CompactSeriesThreadCommand";
+
     /// <summary>2026-11-24-f9c5e: a beat's delivery of a series with a series branch: once every ticket landed, one pull request
     /// per repo from the series branch into the default branch, reviewed by a person and merged by the series master once the series check passed (2026-11-25-9992i).</summary>
     public const string DeliverSeries = "DeliverSeriesCommand";

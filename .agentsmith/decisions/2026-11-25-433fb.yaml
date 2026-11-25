@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-433fb
+
+decisions:
+  - category: Architecture
+    chose: "A stored-thread compaction for the series master (CompactSeriesThread) beside the in-loop fold (CompactingChatClient), which stays unchanged"
+    over: "Relying on the in-loop fold; reusing CompactionSummaryRequest's summarizer for the stored thread"
+    reason: |
+      Not a second path for the same thing. The fold bounds one loop's forwarded view and keeps nothing, so a thread that has
+      grown for days is re-sent and re-folded at every beat: one summarizer call each time, plus a rewritten prefix the cache
+      cannot hold. The fold's summarizer is a coding-agent compactor that keeps the files read and the implementation's
+      current state. That is the opposite of what the operator asked for here: the master's reasoning, without state, which
+      is re-read every beat.
+  - category: Architecture
+    chose: "A beat stores its turn without the ticket table (SeriesMasterPrompt.Kept)"
+    over: "Storing the whole prompt and compacting more often"
+    reason: "The table is re-read at every beat, so an old table in the thread is stale state the master could mistake for the current one. It was also most of every stored turn. Without it the thread holds reasons and answers only, and compaction becomes rare."
+  - category: Architecture
+    chose: "Its own step, last in the series-run preset after PostSeriesStatus, through the loop runner with no tools and a short system prompt of its own"
+    over: "Compacting inside SeriesMasterHandler after it kept the beat; the master's skill as the system prompt"
+    reason: |
+      Everything is a pipeline step. As the last step it never delays the chat's message by a model call, and it keeps
+      SeriesMasterHandler under its size limit. The master's skill describes about 20 tools this call does not have, so
+      under that prompt the model could reach for a tool instead of writing notes. The call still runs on the master's
+      agent and model, over the master's own older beats.
+  - category: Limits
+    chose: "dialogue.series_master_thread_max_chars (default 60000) and dialogue.series_master_thread_keep_turns (default 4), in config with dashboard fields; the log line names the size, the value, the reason and both keys"
+    over: "A token count; a fixed constant"
+    reason: |
+      A new limit earns its place: it keeps a series that runs for days inside the master's context and its cost per beat,
+      which the operator asked for. Characters match the fold's own estimate and need no tokenizer. 60000 characters, about
+      15k tokens, leaves the window to the beat's table and tools. Four beats keep the recent exchange word for word.
+  - category: Scope
+    chose: "A failed or empty note keeps the thread byte for byte and the beat succeeds; a spent budget or an ended series compacts nothing; the notes replace pairs by count under UpdateAsync"
+    over: "Failing the beat; compacting past the budget"
+    reason: "Compaction is upkeep. A failure must not turn a beat red, and the next judged beat tries again. Spending past the budget would break the rule the budget question protects. Replacing by pair count keeps any turn appended in the meantime, even though a series has one beat at a time."
+  - category: Scope
+    chose: "The series-run doc also describes 2026-11-25-433fa's status line and milestones"
+    over: "A separate docs commit"
+    reason: "Both change what a person sees of a series, and one paragraph pass over the same doc page keeps them consistent."

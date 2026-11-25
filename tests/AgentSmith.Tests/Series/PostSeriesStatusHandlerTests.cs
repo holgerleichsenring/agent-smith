@@ -16,6 +16,7 @@ public sealed class PostSeriesStatusHandlerTests
     private readonly InMemorySeriesRunStore _store = new();
     private readonly Mock<ISeriesConversation> _conversation = new();
     private readonly List<string> _said = [];
+    private readonly Mock<AgentSmith.Contracts.Services.ITicketActivityNudge> _activity = new();
 
     private static readonly ResolvedProject Project = new() { Name = "sample" };
 
@@ -27,7 +28,7 @@ public sealed class PostSeriesStatusHandlerTests
         var beat = new SeriesBeat(record, facts, SeriesRecords.T.AddMinutes(20));
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SeriesBeat, beat);
-        await new PostSeriesStatusHandler(_store, _conversation.Object)
+        await new PostSeriesStatusHandler(_store, _conversation.Object, new SeriesTicketNudges(_activity.Object))
             .ExecuteAsync(new PostSeriesStatusContext(pipeline, Project), default);
     }
 
@@ -45,6 +46,8 @@ public sealed class PostSeriesStatusHandlerTests
         _said.Should().BeEmpty("the series page lists what failed and what waits for a merge");
         _store.Records["sr-1"].LastStatusAt.Should().Be(SeriesRecords.T.AddMinutes(20));
         _store.Records["sr-1"].LastTable.Should().Contain("SCRUM-43=");
+        // 2026-11-25-433fa: told against the table the last beat saw, before this beat's is kept
+        _activity.Verify(a => a.ChangedAsync("sample", "github-43", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

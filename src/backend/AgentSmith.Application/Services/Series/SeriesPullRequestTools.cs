@@ -17,10 +17,11 @@ public sealed class SeriesPullRequestTools(
 {
     public const string Final = "final";
     public const string CiTool = "ci";
+    public const string MergeTool = "merge_pull_request"; // 2026-11-25-433fa: the merged milestone tells the master's own merge by it
 
     public IEnumerable<AIFunction> GetTools() =>
     [
-        AIFunctionFactory.Create(MergePullRequestAsync, "merge_pull_request"),
+        AIFunctionFactory.Create(MergePullRequestAsync, MergeTool),
         AIFunctionFactory.Create(RefreshBranchAsync, "refresh_branch"),
         AIFunctionFactory.Create(RetargetPullRequestAsync, "retarget_pull_request"),
         AIFunctionFactory.Create(CiAsync, CiTool),

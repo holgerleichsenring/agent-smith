@@ -15,6 +15,10 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
 
     public DateTimeOffset Now { get; } = now;
 
+    /// <summary>2026-11-25-433fa: the series' state when the beat read it — a beat that moved it (the check, delivering, done)
+    /// tells every member's page at its end.</summary>
+    public string StartState { get; } = record.State;
+
     /// <summary>2026-11-25-9992h: the name the series acts under — its project's machine identity, agent-smith without one.</summary>
     public string Actor { get; set; } = Contracts.Runs.AttemptChannels.SeriesActor;
 
@@ -40,6 +44,10 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
 
     /// <summary>The master's closing line, posted as its own message when <see cref="MasterSpeaks"/>.</summary>
     public string? MasterLine { get; set; }
+
+    /// <summary>2026-11-25-433fb: the master judged this beat and its thread grew by it — only then may the thread need
+    /// compacting.</summary>
+    public bool MasterJudged { get; set; }
 
     /// <summary>2026-11-25-e94ec: the master called an act this beat (<see cref="SeriesActedFunction"/>).</summary>
     public bool MasterActed { get; set; }

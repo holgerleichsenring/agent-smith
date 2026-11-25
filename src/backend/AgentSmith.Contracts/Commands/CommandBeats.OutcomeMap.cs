@@ -35,7 +35,7 @@ public static partial class CommandBeats
         [CommandNames.FileTickets] = RunBeat.Outcome,
         [CommandNames.OpenSeriesRun] = RunBeat.Outcome, [CommandNames.ReadSeries] = RunBeat.Ticket, // 2026-11-17-0207a
         [CommandNames.DeliverSeries] = RunBeat.Outcome, // 2026-11-24-f9c5e
-        [CommandNames.SeriesMaster] = RunBeat.Building, [CommandNames.PostSeriesStatus] = RunBeat.Outcome, [CommandNames.VerifySeries] = RunBeat.Verify, // 0207d
+        [CommandNames.SeriesMaster] = RunBeat.Building, [CommandNames.PostSeriesStatus] = RunBeat.Outcome, [CommandNames.CompactSeriesThread] = RunBeat.Outcome, /* 433fb */ [CommandNames.VerifySeries] = RunBeat.Verify, // 0207d
         [CommandNames.CloseTicket] = RunBeat.Outcome, // 2026-11-17-e061a
         [CommandNames.ApplyConfigChanges] = RunBeat.Outcome, [CommandNames.WriteSecret] = RunBeat.Outcome, // f3a8c, f3a8d
         [CommandNames.ReopenTicket] = RunBeat.Outcome, [CommandNames.StartTicket] = RunBeat.Outcome,

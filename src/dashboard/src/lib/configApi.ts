@@ -1096,6 +1096,9 @@ export interface DialogueSetting {
   seriesMasterBudgetUsd: number;
   /** 2026-11-25-9992g: at or below this much left the series asks to raise the budget or stop. */
   seriesMasterBudgetAskUsd?: number;
+  /** 2026-11-25-433fb: past this many characters the series master's thread is compacted into its notes; the latest beats stay. */
+  seriesMasterThreadMaxChars?: number;
+  seriesMasterThreadKeepTurns?: number;
   seriesStatusMinutes: number;
   questionDefaultMinutes: number;
 }

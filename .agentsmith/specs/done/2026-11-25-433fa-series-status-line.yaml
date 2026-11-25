@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-433fa
+goal: "The series chat pins one status line worded from what the server reads from the one truth, refreshed in place by the ticket hub nudge, and the series posts one-sentence milestones."
+
+applies_to: "default (Application series beat/status, Server series sweep/events/detail) + dashboard (series page chat)"
+
+requires: [2026-11-25-9992a, 2026-11-25-9992j, 2026-11-25-e94ec]
+
+facts:
+  - claim: "Every surface of a series reads its tickets through ISeriesTicketFacts; SeriesTicketFact.Kind is the one state (merged, now, needed, question, failed, running, pr, waiting)."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/ISeriesTicketFacts.cs:5-13 and src/backend/AgentSmith.Application/Services/Series/SeriesTicketState.cs:15-26"
+  - claim: "The series page re-reads its one model on the project's TicketActivityChanged nudge only; a ticket run's end raises no such nudge, it is a rework nudge."
+    evidence: "src/dashboard/src/components/series/page/useSeriesRunDetail.ts:59 and src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:50"
+  - claim: "The sweep reads every idle active series' facts once per scan (15 s) on the housekeeping leader."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunSweeper.cs:36-38"
+  - claim: "A series that ends (Done) leaves ActiveAsync, so the sweep never sees it again; the beat that ends it is its last writer."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/DeliverSeriesHandler.cs:31-37 and src/backend/AgentSmith.Contracts/Series/SeriesRunRecord.cs:95"
+  - claim: "A beat already tells a ticket's change by the stored table snapshot, whose lines keep each ticket's kind; the first beat has an empty snapshot."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesJudgement.cs:43-52 and src/backend/AgentSmith.Application/Services/Series/SeriesTable.cs:19-25"
+  - claim: "The final pull request's opening and the series' end are already said; the opening takes two sentences."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesFinalPullRequest.cs:33-35 and src/backend/AgentSmith.Application/Services/Series/DeliverSeriesHandler.cs:58"
+  - claim: "No status table or needs-you line is posted in a series conversation (e94eb); the master's line is posted only when it acted (e94ec)."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesReport.cs:6-21"
+  - claim: "The series record is one JSON document; a new field needs no migration."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SeriesRunRepository.cs:25"
+  - claim: "Every UI text is a dictionary key read through useT(); every C# event record under Contracts/Events has a TypeScript mirror checked by gen:hub-events."
+    evidence: ".agentsmith/contexts/dashboard/principles.md:12-15 and :28-32"
+
+scope:
+  in: |
+    LINE: the series page's detail already carries the line's facts from the one truth: Counts (landed, total, held),
+    WorkingOn (SeriesWorkingOn) and State. It gains two more. NextMerge is the merge-order shape's next merge
+    (SeriesRunTickets.NextMerge, the one the series list row already shows). Progress is a word the server computes in
+    SeriesProgressWord.Of(landed, total). Progress is merged over total: the only measure in the model that never goes back
+    (a green PR can still turn red, and tickets carry no size). The word is none (nothing merged), all (everything merged),
+    else the nearest of begun 0.1, quarter 1/4, third 1/3, half 1/2, twoThirds 2/3, threeQuarters 3/4, nearly 0.9.
+    DASHBOARD: SeriesStatusLine is pinned (sticky) at the top of the chat section. It only words these server fields through
+    useT() (en/de), e.g. "9 of 25 merged · 3 in progress: #4, #7, #9 · 1 needs you · next: #12 · about a third done". At
+    most three keys, then "+n". The phase words are paused, check running, delivering and finished, and stopped for a
+    stopped series. It derives nothing. This reverses 9992j's "no counts on the series" (SeriesSectionBar.tsx:12-14) for
+    this one line, on the operator's word (logged with the operator as decider).
+    IN PLACE: the page already re-reads on the project's TicketActivityChanged (the existing hub nudge). That nudge is
+    missing for a ticket-run end and for the series' own state changes. PostSeriesStatusHandler fills the gap at the end
+    of every beat: it nudges TicketActivityChanged (ITicketActivityNudge, key by TicketKeyResolver's rule) for each member
+    whose kind changed against the stored snapshot (record.LastTable vs beat.Table), and for every member when the series'
+    state changed in the beat (SeriesBeat.StartState). A table change already starts a beat (SeriesBeatDue), so no second
+    change detector and no new event kind is added. The ticket pages of those tickets re-read too, which is right: their
+    series runway changed.
+    MILESTONES (SeriesMilestones, in SeriesReport.Messages before the master's line): one sentence each, never a table,
+    never a "still running" line. Both are told against record.LastTable; the first beat (empty snapshot) says neither.
+      - merged: members whose kind turned merged, e.g. "#4 and #7 merged; 9 of 25 are in." A ticket the master merged
+        itself is left out, since its act was said then: its newest act is merge_pull_request.
+      - stuck: members whose kind turned failed, e.g. "#9 is stuck (red · tests failed) and waits for your decision." It
+        is said after the master's line and only when the master did not act on that ticket in this beat (Acts with
+        At == beat.Now and that id) and no question was asked in it (an ask_human act, or SeriesQuestion.AskedAt == now).
+      - a question, the final PR opened and the series finished are already said (SeriesQuestions/SeriesAskTool,
+        SeriesFinalPullRequest, DeliverSeriesHandler). The final PR's opening becomes one sentence. The series check's
+        report (SeriesSummaryText) stays as it is: it reports the criteria and is not a milestone.
+  out: "A new hub event kind. Progress weighted by ticket size (the model carries none). Status in the ticket list or the Work it out panel. The thread compaction (2026-11-25-433fb)."
+
+steps:
+  - id: detail
+    action: "SeriesProgressWord (Application/Services/Series); SeriesRunDetailView.NextMerge + Progress from the shape and counts."
+  - id: nudge
+    action: "SeriesBeat.StartState; PostSeriesStatusHandler nudges changed members and, on a state change, all members through ITicketActivityNudge (key resolved like TicketKeyResolver, from the project's tracker type)."
+  - id: milestones
+    action: "SeriesMilestones.Merged/Stuck called by SeriesReport.Messages; SeriesFinalPullRequest's opening as one sentence."
+  - id: dashboard
+    action: "types (nextMerge, progress on SeriesRunDetail), SeriesStatusLine (sticky, i18n en/de) at the top of SeriesRunPage's chat section."
+  - id: tests
+    action: "SeriesProgressWord buckets; detail carries nextMerge/progress; PostSeriesStatusHandler nudges changed members only, all on a state change, none when nothing changed; milestones merged/stuck/first-beat/master-merged/master-acted/question; SeriesStatusLine words the fields; the page re-reads on a ticket nudge (existing)."
+
+done:
+  - "The series page's chat shows one pinned status line worded from GET /api/series-runs/{id} (counts, workingOn, nextMerge, progress, state) (tests)."
+  - "A beat whose table or state changed nudges the changed members (all on a state change); a beat that changed nothing nudges none (tests)."
+  - "A ticket that merged and one that got stuck each produce one sentence in the chat; the first beat and a ticket the master acted on produce none (tests)."
+  - "pnpm gen:hub-events, pnpm test and pnpm build in src/dashboard, dotnet build and the affected tests are green."

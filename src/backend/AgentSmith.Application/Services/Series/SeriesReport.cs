@@ -14,8 +14,10 @@ public static class SeriesReport
         ArgumentNullException.ThrowIfNull(beat);
         var messages = new List<string>();
         if (beat.Record.LastStatusAt is null && beat.Record.IsActive) messages.Add(SeriesOpening.Text(beat, project));
+        if (SeriesMilestones.Merged(beat) is { } merged) messages.Add(merged); // 2026-11-25-433fa
         messages.AddRange(beat.Said);
         if (beat.MasterLine is { Length: > 0 } line && beat.MasterSpeaks) messages.Add(line); // 2026-11-25-e94ec
+        messages.AddRange(SeriesMilestones.Stuck(beat)); // 2026-11-25-433fa
         return messages;
     }
 

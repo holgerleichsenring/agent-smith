@@ -1378,6 +1378,17 @@ export const configMessages = {
     en: "once no more than this is left of a series master's budget, the series asks in its chat whether to raise the budget or stop; it never decides that by itself",
     de: "sobald vom Budget eines Serien-Masters nicht mehr übrig ist, fragt die Serie im Chat, ob das Budget erhöht oder die Serie gestoppt wird; sie entscheidet das nie selbst",
   },
+  // 2026-11-25-433fb: the series master's thread compaction.
+  "config.dialogue.seriesThreadMax.label": { en: "Series master thread limit (characters)", de: "Grenze des Serien-Master-Verlaufs (Zeichen)" },
+  "config.dialogue.seriesThreadMax.help": {
+    en: "past this size the series master writes notes on its decisions, open questions, acts and plan in place of its older beats, so a series that runs for days stays within its context and cost",
+    de: "ab dieser Größe schreibt der Serien-Master Notizen zu Entscheidungen, offenen Fragen, Taten und Plan anstelle seiner älteren Runden, damit eine tagelange Serie in Kontext und Kosten bleibt",
+  },
+  "config.dialogue.seriesThreadKeep.label": { en: "Series master beats kept verbatim", de: "Wörtlich behaltene Runden des Serien-Masters" },
+  "config.dialogue.seriesThreadKeep.help": {
+    en: "the latest beats a compaction of the series master's thread keeps word for word",
+    de: "die letzten Runden, die eine Verdichtung des Serien-Master-Verlaufs wörtlich behält",
+  },
   "config.dialogue.seriesStatus.label": { en: "Series stall check after (minutes)", de: "Serien-Stillstandsprüfung nach (Minuten)" },
   "config.dialogue.seriesStatus.help": {
     en: "how long nothing may move while a series' tickets run before its master looks whether one is stuck",

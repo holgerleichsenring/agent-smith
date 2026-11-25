@@ -55,7 +55,11 @@ Events on the series' tickets wake the master: a pull request's CI reaching a ve
 
 ## What you see in the conversation
 
-The series posts an opening line saying what it filed, what started, what waits and how it will merge. After that the conversation holds only what a person reads: a question and the answer passed on, what the master did (a retry, a rework, a pause), its reply when you write to it, and the series check's summary. It posts no status: the series page shows every ticket's state and what waits on you.
+The series posts an opening line saying what it filed, what started, what waits and how it will merge. After that the conversation holds only what a person reads: a question and the answer passed on, what the master did (a retry, a rework, a pause), its reply when you write to it, and the series check's summary. It also gets one sentence when tickets merge ("#4 and #7 merged; 9 of 25 are in."), when one gets stuck and waits for your decision, when the final pull request opens and when the series is done. It posts no status: the series page shows every ticket's state and what waits on you.
+
+On the series page, one line sits at the top of the chat and stays there while you scroll, for example "9 of 25 merged · 3 in progress: #4, #7, #9 · 1 needs you · next: #12 · about a third done". The server computes it from the same state the master reads. Progress is merged tickets over all tickets. The line updates whenever a ticket of the project changes.
+
+The master runs in short beats and keeps a thread between them. Each beat keeps its reasons and the master's answer, not the ticket table, which it reads fresh every beat. Once the thread passes `dialogue.series_master_thread_max_chars` (default 60000 characters), the master writes notes in place of its older beats: what it decided and why, what is still open, the acts it took and its plan. The latest `dialogue.series_master_thread_keep_turns` beats (default 4) stay word for word.
 
 While tickets run and nothing moves for `dialogue.series_status_minutes` (default 15), the master looks whether one is stuck.
 
@@ -102,6 +106,8 @@ Once every ticket has landed, a `series-verify` run checks out the series branch
 | `dialogue.question_default_minutes` | 120 | When a recommended answer is taken by default |
 | `dialogue.series_master_budget_usd` | 20 | The series master's own spend |
 | `dialogue.series_master_budget_ask_usd` | 2 | At or below this much left, the series asks to raise the budget or stop |
+| `dialogue.series_master_thread_max_chars` | 60000 | Past this size the master's older beats become its notes; 0 turns it off |
+| `dialogue.series_master_thread_keep_turns` | 4 | The latest beats a compaction keeps word for word |
 
 They are under **Dialogue** in [Settings](../configure-it/settings.md). The full list is in the [agentsmith.yml reference](../reference/configuration/agentsmith-yml.md).
 

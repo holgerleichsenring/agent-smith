@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Series;
 /// the table it saw, kept on the record so the next beat tells what changed. 2026-11-17-0207b: the series' opening
 /// first; the operator messages the beat read are read past. 2026-11-25-e94eb: no status table in any conversation.
 /// </summary>
-public sealed class PostSeriesStatusHandler(ISeriesRunStore store, ISeriesConversation conversation)
+public sealed class PostSeriesStatusHandler(ISeriesRunStore store, ISeriesConversation conversation, SeriesTicketNudges nudges)
     : ICommandHandler<PostSeriesStatusContext>
 {
     public async Task<CommandResult> ExecuteAsync(PostSeriesStatusContext context, CancellationToken cancellationToken)
@@ -20,6 +20,7 @@ public sealed class PostSeriesStatusHandler(ISeriesRunStore store, ISeriesConver
         var messages = SeriesReport.Messages(beat, context.Project);
         foreach (var message in messages)
             await conversation.SayAsync(beat.Record.Conversation, message, cancellationToken);
+        await nudges.SendAsync(beat, context.Project, cancellationToken); // 2026-11-25-433fa: before Seen moves the table on
         await store.UpdateAsync(beat.Record.Id, r => SeriesReport.Seen(r, beat), cancellationToken);
         return CommandResult.Ok($"Posted {messages.Count} message(s) into the conversation.");
     }

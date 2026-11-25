@@ -492,6 +492,12 @@ function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (
       <NumberField label={t("config.dialogue.seriesBudgetAsk.label")} value={value.seriesMasterBudgetAskUsd ?? 2}
         onChange={(v) => set({ seriesMasterBudgetAskUsd: keep(v, value.seriesMasterBudgetAskUsd ?? 2) })}
         testId="setting-dialogue-seriesbudgetask" help={t("config.dialogue.seriesBudgetAsk.help")} />
+      <NumberField label={t("config.dialogue.seriesThreadMax.label")} value={value.seriesMasterThreadMaxChars ?? 60000}
+        onChange={(v) => set({ seriesMasterThreadMaxChars: keep(v, value.seriesMasterThreadMaxChars ?? 60000) })}
+        testId="setting-dialogue-seriesthreadmax" help={t("config.dialogue.seriesThreadMax.help")} />
+      <NumberField label={t("config.dialogue.seriesThreadKeep.label")} value={value.seriesMasterThreadKeepTurns ?? 4}
+        onChange={(v) => set({ seriesMasterThreadKeepTurns: keep(v, value.seriesMasterThreadKeepTurns ?? 4) })}
+        testId="setting-dialogue-seriesthreadkeep" help={t("config.dialogue.seriesThreadKeep.help")} />
       <NumberField label={t("config.dialogue.seriesStatus.label")} value={value.seriesStatusMinutes}
         onChange={(v) => set({ seriesStatusMinutes: keep(v, value.seriesStatusMinutes) })} testId="setting-dialogue-seriesstatus"
         help={t("config.dialogue.seriesStatus.help")} />
