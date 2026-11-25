@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.215.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.214.0...v0.215.0) (2026-11-25)
+
+
+### Features
+
+* **auto-complete:** auto-merge lost on a moved head is armed again only after agent-smith's own push (2026-11-25-098f) ([8ee081e](https://github.com/holgerleichsenring/agent-smith/commit/8ee081e9b1e1d0d764094fb9827b6e26393e4f08))
+* **auto-complete:** auto-merge lost on a moved head is armed again only after agent-smith's own push (2026-11-25-098f) ([e9a37c2](https://github.com/holgerleichsenring/agent-smith/commit/e9a37c2fd254038a92296116700dd174f4e9a082))
+
 ## [0.214.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.213.0...v0.214.0) (2026-11-25)
 
 
