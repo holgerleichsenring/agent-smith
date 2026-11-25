@@ -72,7 +72,7 @@ public sealed class SeriesMasterHandler(
             beat.Record = said;
             beat.Said.Add($"The series master has spent {SeriesTable.Money(said.MasterCostUsd)} of its "
                 + $"{SeriesTable.Money(budget)} (dialogue.series_master_budget_usd), so it judges no more; the tickets keep "
-                + "running and the status keeps coming. Raise the setting to let it judge again.");
+                + "running. Raise the setting to let it judge again.");
         }
         return CommandResult.Ok($"The series master's budget of {budget} USD (dialogue.series_master_budget_usd) is spent.");
     }

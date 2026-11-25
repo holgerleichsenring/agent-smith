@@ -31,9 +31,10 @@ public sealed record SeriesRunRecord(
     /// <summary>The newest verify run's id.</summary>
     public string? VerifyRunId { get; init; }
 
+    /// <summary>When the last beat ran: the stall check's clock, and null until the opening is posted.</summary>
     public DateTimeOffset? LastStatusAt { get; init; }
 
-    /// <summary>The table as last posted, to tell a change.</summary>
+    /// <summary>The table as the last beat saw it, to tell a change; 2026-11-25-e94eb: never posted.</summary>
     public string LastTable { get; init; } = string.Empty;
 
     /// <summary>What the master's own loops have spent.</summary>
@@ -63,7 +64,7 @@ public sealed record SeriesRunRecord(
 
     public bool IsActive => SeriesRunStates.IsActive(State);
 
-    /// <summary>2026-11-23-31dcb: when the series last moved — the newest of its finish, its last status post and its start.</summary>
+    /// <summary>2026-11-23-31dcb: when the series last moved — the newest of its finish, its last beat and its start.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public DateTimeOffset LastActivityAt => new[] { FinishedAt, LastStatusAt, StartedAt }.Max() ?? StartedAt;
 }

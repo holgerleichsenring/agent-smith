@@ -3,8 +3,8 @@ using AgentSmith.Contracts.Models.Configuration;
 namespace AgentSmith.Application.Services.Series;
 
 /// <summary>2026-11-17-0207b: the series' policy in the operator's words, read from the project and the dialogue
-/// settings — when a ticket merges, when a waiting one starts, how often the series reports, when a question
-/// defaults. 2026-11-19-1b72a: the line is the Series pane's, and the series no longer reports on a cadence there.
+/// settings — when a ticket merges, when a waiting one starts, when a question defaults. 2026-11-19-1b72a: the line
+/// is the series page's; 2026-11-25-e94eb: no series conversation reports on a cadence.
 /// 2026-11-24-f9c5c: a series with a branch merges its tickets into it under merge.series_when.</summary>
 public static class SeriesPolicy
 {

@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-e94eb
+
+decisions:
+  - category: Architecture
+    chose: "No series conversation gets a status table, whatever platform holds it; HasPaneAsync is deleted"
+    over: "Fix the dashboard detection so only chat platforms keep the table"
+    reason: |
+      The operator's ask is that the series page is the status. Every series is listed on the dashboard's series
+      page regardless of where its conversation lives, so a chat conversation loses no information only it had. The
+      pane check misjudged a dashboard-shown conversation and produced 83% of its text; one rule for every
+      conversation removes the misjudgement with the table.
+  - category: Implementation
+    chose: "One opening for every platform: the series page on the dashboard shows every ticket, and asking the master to hold pauses the series"
+    over: "A series-page link built from dialogue.dashboard_url, or naming the dashboard's Pause button"
+    reason: |
+      No link builder for the series page exists, and the operator asked for reduction with no new UI. Pause is a
+      dashboard button, but the master's pause_series answers 'hold' on every platform, so the opening names that.
+      The screenshot series-status.png still shows the old table; its captions say current versions post none.
+  - category: Architecture
+    chose: "Delete SeriesNeedsYou: no failed, CI-red or waits-for-your-merge lines in the conversation"
+    over: "Keep the waits-for-your-merge line under merge: manual"
+    reason: |
+      The series page's 'You're up / Needed next' list is read from the server's one hold per ticket and already
+      carries a pull request waiting for a person's merge and a failed ticket. The conversation lines duplicated it
+      (17 turns in the measured conversation). A failure the master acts on is still said, through its line.
+  - category: Implementation
+    chose: "Keep dialogue.series_status_minutes, re-described as the stall period"
+    over: "Remove the key with the table"
+    reason: |
+      The key also clocks the stall check (SeriesBeatDue cadence, SeriesJudgement.Stalled), which still asks the
+      master whether a quiet running ticket is stuck. It is not dead, so its dashboard field stays with new wording;
+      no config key is removed. Every beat now stamps LastStatusAt, as every beat under a pane already did.
+  - category: Implementation
+    chose: "Keep the names LastStatusAt, LastTable and PostSeriesStatus"
+    over: "Rename them to match their new meaning"
+    reason: |
+      LastStatusAt and LastTable are persisted in the series record's JSON and PostSeriesStatus is a pipeline step
+      name; a rename is a migration for no behaviour change. Their doc comments say what they mean now.

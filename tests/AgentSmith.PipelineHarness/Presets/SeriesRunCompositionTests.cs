@@ -44,7 +44,7 @@ public sealed class SeriesRunCompositionTests
         rig.Facts.Set("1", RunStatuses.Running, finished: false);
         await BeatAsync(sp, series.Id);
         (await TextsAsync(sp)).Should().Contain(t => t.StartsWith("Filed 3 tickets. #1 started; 2 wait on their prerequisites"))
-            .And.NotContain(t => t.Contains("| #2 |"), "2026-11-19-1b72a: the dashboard's Series pane holds the table");
+            .And.NotContain(t => t.Contains("| #2 |"), "2026-11-25-e94eb: the series page is the status, never the conversation");
 
         rig.Facts.Set("1", RunStatuses.Success, prOpened: true);
         rig.Facts.Set("2", RunStatuses.Running, finished: false);

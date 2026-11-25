@@ -7,7 +7,7 @@
 
 <figure class="cb-shot" markdown>
 ![A series in its Work it out conversation: the opening line, a status table and the Series tab](../assets/screenshots/series-status.png)
-<figcaption>The series reports in the conversation you filed from. The Series tab on the right shows progress, cost, what runs now, the critical path and the policy.</figcaption>
+<figcaption>The series speaks in the conversation you filed from when you are needed; current versions post no status table there. The Series tab on the right shows progress, cost, what runs now, the critical path and the policy.</figcaption>
 </figure>
 
 ## When it opens
@@ -35,7 +35,9 @@ The master's own spend has a budget, `dialogue.series_master_budget_usd` (defaul
 
 ## What you see in the conversation
 
-The series posts an opening line saying what it filed, what started, what waits and how it will merge. After that it posts a status table on every change and at least every `dialogue.series_status_minutes` (default 15): ticket, what it is, state, cost and time, plus one summary line. Posting the table costs no model call.
+The series posts an opening line saying what it filed, what started, what waits and how it will merge. After that the conversation holds only what a person reads: a question and the answer passed on, what the master did (a retry, a rework, a pause), its reply when you write to it, and the series check's summary. It posts no status: the series page shows every ticket's state and what waits on you.
+
+While tickets run and nothing moves for `dialogue.series_status_minutes` (default 15), the master looks whether one is stuck.
 
 The head of the conversation reads **series running**, **· 1 question for you** while a question waits, and **series done** at the end. The **Series** tab in the right-hand pane opens by default while the series runs. It shows landed of total, elapsed time, cost, an estimate once two tickets have landed, what runs now, the critical path and the policy.
 
@@ -64,7 +66,7 @@ Once every ticket has landed, a `series-verify` run checks out the series branch
 
 | Key | Default | What it changes |
 |---|---|---|
-| `dialogue.series_status_minutes` | 15 | How often the status table is posted when nothing changed |
+| `dialogue.series_status_minutes` | 15 | How long nothing may move while tickets run before the master checks for a stuck one |
 | `dialogue.question_default_minutes` | 120 | When a recommended answer is taken by default |
 | `dialogue.series_master_budget_usd` | 20 | The series master's own spend |
 

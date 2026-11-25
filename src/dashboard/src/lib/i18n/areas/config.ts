@@ -1340,10 +1340,10 @@ export const configMessages = {
     en: "what a series master's own judging may spend over one series; the tickets' runs have their own caps",
     de: "was die eigene Bewertung eines Serien-Masters über eine Serie kosten darf; die Runs der Tickets haben eigene Limits",
   },
-  "config.dialogue.seriesStatus.label": { en: "Series status every (minutes)", de: "Serienstatus alle (Minuten)" },
+  "config.dialogue.seriesStatus.label": { en: "Series stall check after (minutes)", de: "Serien-Stillstandsprüfung nach (Minuten)" },
   "config.dialogue.seriesStatus.help": {
-    en: "how often a running series reports its table when nothing changed; a change is reported at once",
-    de: "wie oft eine laufende Serie ihre Tabelle meldet, wenn sich nichts geändert hat; eine Änderung wird sofort gemeldet",
+    en: "how long nothing may move while a series' tickets run before its master looks whether one is stuck",
+    de: "wie lange sich nichts bewegen darf, während die Tickets einer Serie laufen, bevor ihr Master prüft, ob eines feststeckt",
   },
   "config.dialogue.questionDefault.label": { en: "Question default after (minutes)", de: "Standardantwort auf Fragen nach (Minuten)" },
   "config.dialogue.questionDefault.help": {

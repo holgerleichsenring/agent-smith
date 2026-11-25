@@ -5,7 +5,8 @@ namespace AgentSmith.Application.Services.Series;
 /// <summary>
 /// 2026-11-17-0207a: whether a series needs a beat now. The sweep reads the same facts a beat would and starts one when
 /// the table moved since the last beat saw it — the first beat included, which has seen nothing — and, from 0207b,
-/// when the status cadence is due.
+/// when the status cadence is due. 2026-11-25-e94eb: no status is posted any more; the cadence is the stall check's —
+/// a beat a whole dialogue.series_status_minutes after the last, which asks the master when nothing moved.
 /// </summary>
 public static class SeriesBeatDue
 {
@@ -22,10 +23,10 @@ public static class SeriesBeatDue
         if (record.Verdicts.LastOrDefault() is { Reported: false }) return "the series check reported"; // 0207d
         if (record.State == SeriesRunStates.Delivering && deliverEvery is { } every
             && (record.LastDeliveredAt is not { } last || now - last >= every)) return "the series delivers"; // f9c5e
-        return Cadence(record, now, statusMinutes) ? "the status is due" : null;
+        return Cadence(record, now, statusMinutes) ? "the stall check is due" : null;
     }
 
-    /// <summary>2026-11-17-0207b: the series last spoke a whole status period ago.</summary>
+    /// <summary>2026-11-17-0207b: the series' last beat ran a whole status period ago.</summary>
     public static bool Cadence(SeriesRunRecord record, DateTimeOffset now, int statusMinutes) =>
         record.LastStatusAt is not { } last || now - last >= TimeSpan.FromMinutes(statusMinutes);
 }
