@@ -107,14 +107,14 @@ public enum EventType
     MemoryUseRecorded = 89,
     // 2026-11-10-d854c: one step a design turn reported, kept on its run so it is readable after the turn.
     DialogActivity = 90,
-    // 2026-11-17-d6fbc: one verify pass as data — stages per repository, stale derivations.
+    // 2026-11-17-d6fbc: one verify pass as data — stages per repository, stale derivations; 3863f: a deploy's pull request or pipeline run, followed by the server.
     VerifyPassRecorded = 91,
-    // 2026-11-18-3863f: a deploy's pull request or pipeline run, followed by the server.
     DeployDelivered = 92,
-    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs; 933db: a poc-deploy run validated a PoC revision; 933dc: one lifted a block; c81eb: one committed it to the deploy folder; c81ed: a lifecycle act committed.
+    // 2026-11-22-e812: the run rewrote its ticket's text from the approved specs; 933db: a poc-deploy run validated a PoC revision; 933dc: one lifted a block; c81eb: one committed it to the deploy folder; c81ed: a lifecycle act committed; 098f: a run pushed a head (BranchPushed).
     TicketTextRewritten = 93,
     PocImported = 94,
     PocOverruled = 95,
     PocDeployed = 96,
     PocActed = 97,
+    BranchPushed = 98,
 }

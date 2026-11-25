@@ -24,6 +24,7 @@ public sealed class RunEventApplierFamiliesTests
         [typeof(RunBudgetResolvedEvent)] = ["RunRowFamily"],
         [typeof(RunWorkShapeResolvedEvent)] = ["RunRowFamily"],
         [typeof(DeployDeliveredEvent)] = ["RunRowFamily"], // 2026-11-18-3863f
+        [typeof(BranchPushedEvent)] = ["RunRowFamily"], // 2026-11-25-098f
         [typeof(TicketTextRewrittenEvent)] = ["RunAttemptFamily", "RunConversationProjection"], // 2026-11-22-e812
         [typeof(PocImportedEvent)] = ["PocImportedProjection"], // 2026-11-23-933db
         [typeof(StepStartedEvent)] = ["RunStepFamily"],

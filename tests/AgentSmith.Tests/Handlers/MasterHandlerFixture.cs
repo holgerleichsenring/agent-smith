@@ -73,7 +73,7 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.RunWorkCheckpointer(
                 new AgentSmith.Application.Services.RepoWorkPusher(
                     new AgentSmith.Application.Services.SandboxGitOperations(
-                        new AgentSmith.Application.Services.GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
+                        AgentSmith.Tests.TestSupport.TestPushers.Plain(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
                         NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
                         Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>(),
                         new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),

@@ -24,9 +24,18 @@ public sealed class PrReviewRecordWriter(IUnitOfWork unitOfWork, IUniqueViolatio
             .Where(r => r.PrKey == record.PrKey && r.CheckedAtTicks < readStartTicks)
             .ExecuteUpdateAsync(s => s.SetProperty(r => r.CheckedAtTicks, record.CheckedAtTicks), ct);
         if (won == 0) return false;
-        PrReviewRecordCopy.Record(record, existing);
+        PrReviewRecordCopy.Record(record, existing, await OwnHeadAsync(record, existing, ct));
         await MergeEntriesAsync(record.PrKey, entries, ct);
         return await unitOfWork.SaveChangesAsync(ct) > 0;
+    }
+
+    // 2026-11-25-098f: asked only where the answer decides — auto-complete gone on a moved head: did a run of this project push
+    // that head? A sha names one commit, so it is matched in the runs' pushed heads, never by who authored the commit.
+    private Task<bool> OwnHeadAsync(PrReviewRecord read, PrReviewRecord stored, CancellationToken ct)
+    {
+        if (PrRecordAutoComplete.HeadInQuestion(read, stored) is not { } head) return Task.FromResult(false);
+        var quoted = "\"" + head + "\"";
+        return unitOfWork.Set<Run>().AnyAsync(r => r.Project == read.Project && r.PushedHeadsJson != null && r.PushedHeadsJson.Contains(quoted), ct);
     }
 
     /// <summary>A host failure: a new record is inserted unread; an existing one only advances its check time, no change shown.</summary>

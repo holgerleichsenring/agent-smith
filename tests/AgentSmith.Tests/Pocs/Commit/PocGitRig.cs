@@ -67,7 +67,7 @@ internal sealed class PocGitRig : IAsyncDisposable
             new SandboxSpecBuilder(new StubSandboxResourceResolver(), Mock.Of<IAgentImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test")),
             Mock.Of<IRunContextAccessor>(r => r.CurrentRunId == "run-1"), new PocSparseCheckout(git, TestGitCredentials.Resolver),
             new PocFolderReplace(git, new ReferenceSetMaterialiser(Mock.Of<IReferenceSetReader>(), files, new SandboxBinaryFileWriter())),
-            new PocFolderPush(operations, new GitBranchPusher(), git, TestGitCredentials.Resolver), operations);
+            new PocFolderPush(operations, AgentSmith.Tests.TestSupport.TestPushers.Plain(), git, TestGitCredentials.Resolver), operations);
     }
 
     /// <summary>A commit to <see cref="OtherFolder"/> pushed to the origin from a clone of its own.</summary>

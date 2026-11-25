@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.TestHelpers;
 internal static class TestTreeSync
 {
     public static SandboxGitOperations GitOps() =>
-        new(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
+        new(AgentSmith.Tests.TestSupport.TestPushers.Plain(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
             NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory(), TestGit.Identity);
 
     public static SandboxTreeGit TreeGit() => new(new SandboxBinaryFileWriter(), TestGit.Identity);

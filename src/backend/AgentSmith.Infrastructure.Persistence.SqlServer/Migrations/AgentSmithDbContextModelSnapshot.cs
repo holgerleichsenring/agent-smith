@@ -1252,6 +1252,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<bool?>("AutoCompleteArmed")
                         .HasColumnType("bit");
 
+                    b.Property<string>("AutoCompleteGoneHead")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<long?>("AutoCompleteLostAtTicks")
                         .HasColumnType("bigint");
 
@@ -1860,6 +1864,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasColumnType("nvarchar(191)");
 
                     b.Property<string>("PullRequestsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PushedHeadsJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("QueuedRequestJson")

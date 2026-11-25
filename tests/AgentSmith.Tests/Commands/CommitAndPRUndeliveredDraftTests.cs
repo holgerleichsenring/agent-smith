@@ -126,7 +126,7 @@ public sealed class CommitAndPRUndeliveredDraftTests
     {
         var tickets = new Mock<ITicketProviderFactory>();
         tickets.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(new Mock<ITicketProvider>().Object);
-        var gitOps = new SandboxGitOperations(new GitBranchPusher(), TestSupport.TestGitCredentials.Resolver,
+        var gitOps = new SandboxGitOperations(AgentSmith.Tests.TestSupport.TestPushers.Plain(), TestSupport.TestGitCredentials.Resolver,
             NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         var requeue = new PullRequestBuildRequeue(sources, NullLogger<PullRequestBuildRequeue>.Instance);
         return new CommitAndPRHandler(sources, tickets.Object, gitOps, new SecretPatternScanner(),

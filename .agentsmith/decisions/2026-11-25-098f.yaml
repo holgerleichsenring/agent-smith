@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-098f
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "Arm auto-merge again after a moved head only when agent-smith pushed that head (its refresh, rework or CI-fix push); a person's push leaves it off"
+    over: "7a92c's rule: GitLab's cancel on any new commit, a person's push included, counts as a host drop and is armed again"
+    reason: |
+      The operator's decision, 2026-11-25. A person who pushes to the branch takes the merge back into their own hands. Arming it again
+      merges commits they may still be working on. agent-smith's own pushes are a different case: they come from its own loop, and the
+      cancel they trigger is a side effect, not anyone's choice. The rule is host-agnostic. On Azure, a person's push to a conflicting
+      pull request is now also left off, where 629ab armed it again: the operator's rule names a person's push without exception.
+  - category: Architecture
+    chose: "Record the sha agent-smith pushes: GitBranchPusher publishes BranchPushedEvent, the run row keeps the shas (Runs.PushedHeadsJson)"
+    over: "Comparing commit authors or committers with agent-smith's git identity; reading GitLab's 'added N commits' system notes or push events"
+    reason: |
+      Nothing recorded pushed heads before, and run events are pruned by retention. A sha names exactly one commit, so matching it is
+      a fact, not a guess. Commit authors can be anyone, a cherry-pick or rebase keeps them, and GitLab's note wording is not
+      documented. GitBranchPusher is the one place every push onto an existing work branch passes through, and the run row is the
+      existing record of what a run did, so the record needs no new table.
+  - category: Implementation
+    chose: "Publish the head before the push, and keep a moved head no run recorded yet (AutoCompleteGoneHead) to ask about again at every read"
+    over: "Deciding at the first read after the move"
+    reason: |
+      On the server the event reaches the projection through the Redis stream, so a host read can see the head before the record
+      lands. Before, a lost race decided for good: auto-merge stored as off, never looked at again. The kept head is the one
+      auto-merge was found gone on, so a later agent-smith push on top of a person's push does not make the person's push its own.
+      A person's head simply stays in question until the pull request ends or auto-merge is set again; one query over the project's runs
+      per read of such a record, no time limit to configure.
+  - category: Implementation
+    chose: "Match the sha among runs of the record's project"
+    over: "Among runs of the same ticket, or across all projects"
+    reason: "A refresh, rework or CI fix is a run of the project; scoping to the ticket would miss a series member's runs, and another project's push is never ours."
+  - category: Implementation
+    chose: "Accepted gaps: a person resetting the branch to a sha agent-smith pushed earlier counts as agent-smith's push; a host that drops auto-merge only on a read after the moved head was already seen armed reads as a person's cancel"
+    over: "Recording the pusher of every head the host reports"
+    reason: "The first costs one extra arm through the host's own merge checks; the second existed before (7a92c, 629ab), and no host reports who pushed a head."

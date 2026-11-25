@@ -1250,6 +1250,10 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<bool?>("AutoCompleteArmed")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("AutoCompleteGoneHead")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<long?>("AutoCompleteLostAtTicks")
                         .HasColumnType("bigint");
 
@@ -1857,6 +1861,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                         .HasColumnType("character varying(191)");
 
                     b.Property<string>("PullRequestsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PushedHeadsJson")
                         .HasColumnType("text");
 
                     b.Property<string>("QueuedRequestJson")

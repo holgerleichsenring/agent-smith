@@ -1211,6 +1211,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<bool?>("AutoCompleteArmed")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AutoCompleteGoneHead")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<long?>("AutoCompleteLostAtTicks")
                         .HasColumnType("INTEGER");
 
@@ -1811,6 +1815,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PullRequestsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PushedHeadsJson")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("QueuedRequestJson")

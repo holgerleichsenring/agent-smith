@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-098f
+goal: "Auto-merge or auto-complete lost on a moved head is armed again only when agent-smith pushed that head; a person's push leaves it off."
+
+applies_to: "default (GitBranchPusher, BranchPushedEvent, Run.PushedHeadsJson, PrRecordAutoComplete, PrReviewRecordWriter)"
+
+requires: [2026-11-25-7a92c, 2026-11-24-629ab]
+
+facts:
+  - claim: "The loss rule counts any moved head as a host drop: lost when the PR conflicts now or before, or its head moved."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordCopy.cs:15-16,70-77 (before this spec)"
+  - claim: "Nothing records which heads agent-smith pushed: no sha field on Run or PrReviewRecord names a pushed head; run events are pruned by retention."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:8-106; src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunEvent.cs:3-7"
+  - claim: "Every push onto an existing work branch goes through GitBranchPusher: code-run commits and checkpoints (SandboxGitOperations), the base refresh (PushPlainAsync); CreateOnlyBranchPush only creates branches."
+    evidence: "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:302-304; src/backend/AgentSmith.Application/Services/Handlers/RefreshBranchBaseHandler.cs:58; src/backend/AgentSmith.Application/Services/Sandbox/CreateOnlyBranchPush.cs:12"
+  - claim: "The run row family projects run events onto the Run row; the run id is ambient through IRunContextAccessor; on the server events reach the projection through the Redis stream, after the push."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRowFamily.cs:23-60; src/backend/AgentSmith.Contracts/Events/IRunContextAccessor.cs:17-19"
+
+scope:
+  in: |
+    GitBranchPusher, inside a run, reads HEAD and publishes BranchPushedEvent before it pushes. The run row family appends the sha
+    to Run.PushedHeadsJson. The record writer asks whether the head in question is one of the project's pushed heads; the loss
+    rule counts a moved head only then. A moved head no run recorded yet is kept on PrReviewRecord.AutoCompleteGoneHead and asked
+    about again at every read, so a record that lands after the read still counts and a later push on top does not. An unmoved
+    head that conflicts (Azure's drop) is lost as before. A person's push, conflicting or not, leaves auto-merge off.
+  out: "Reading GitLab's push notes or commit authors (a recorded sha exists now). Re-arming GitHub (unchanged, 7a92c)."
+
+done:
+  - "A push inside a run publishes BranchPushedEvent with the HEAD sha before the push; outside a run nothing is published."
+  - "BranchPushedEvent appends its sha once to Run.PushedHeadsJson."
+  - "Lost on a moved head that agent-smith pushed: lost and armed again; lost on a moved head a person pushed: not lost, not armed, not even after agent-smith pushes on top."
+  - "An own push recorded after the read is armed again at the next read; a sha recorded in another project is not ours."
+  - "Gone on an unmoved head that conflicts now or before stays lost (Azure); gone from an unmoved clean head stays a cancel."
+  - "Migrations for SQLite, SQL Server and PostgreSQL add only Runs.PushedHeadsJson and PrReviewRecords.AutoCompleteGoneHead; the dashboard mirrors the event."

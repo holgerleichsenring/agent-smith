@@ -53,7 +53,7 @@ internal sealed class SpecRevisionRig
 
     public static SpecRevisionText Text() => new(new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader());
 
-    public static SandboxGitOperations Git() => new(new GitBranchPusher(), TestSupport.TestGitCredentials.Resolver,
+    public static SandboxGitOperations Git() => new(AgentSmith.Tests.TestSupport.TestPushers.Plain(), TestSupport.TestGitCredentials.Resolver,
         NullLogger<SandboxGitOperations>.Instance, new TestHelpers.StubSandboxFileReaderFactory(),
         new AgentSmith.Application.Services.Sandbox.SandboxGitIdentity(NullLogger<AgentSmith.Application.Services.Sandbox.SandboxGitIdentity>.Instance));
 
