@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.214.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.213.0...v0.214.0) (2026-11-25)
+
+
+### Features
+
+* **series:** the master speaks only when it acted (2026-11-25-e94ec) ([2f3815c](https://github.com/holgerleichsenring/agent-smith/commit/2f3815c72cb39cd89d641c0bbb212f9edaaff76a))
+* **series:** the series conversation without status (2026-11-25-e94ea..c) ([e583ffd](https://github.com/holgerleichsenring/agent-smith/commit/e583ffd68190714d9b45d286e84c8406343e4177))
+
 ## [0.213.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.212.2...v0.213.0) (2026-11-25)
 
 
