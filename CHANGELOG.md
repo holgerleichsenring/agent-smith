@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.218.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.217.0...v0.218.0) (2026-11-25)
+
+
+### Features
+
+* **machine-identity:** agent-smith acts under a per-project machine identity, never approves its own PR (2026-11-25-9992h) ([4698b85](https://github.com/holgerleichsenring/agent-smith/commit/4698b85e014a6b6e2040eb528bce98e5e321633d))
+* **machine-identity:** agent-smith acts under a per-project machine identity, never approves its own PR (2026-11-25-9992h) ([2809120](https://github.com/holgerleichsenring/agent-smith/commit/2809120c1238c1897103fccf181b613f0ecb1adf))
+
 ## [0.217.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.216.0...v0.217.0) (2026-11-25)
 
 
