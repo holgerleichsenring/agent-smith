@@ -17,7 +17,11 @@ public sealed class GitLabCiReaderTests
     [Theory]
     [InlineData("success", CiStates.Green)]
     [InlineData("running", CiStates.Pending)]
-    [InlineData("manual", CiStates.Pending)]
+    [InlineData("manual", CiStates.NotStarted)] // 2026-11-25-7a92a: a blocking manual job waits for a person
+    [InlineData("scheduled", CiStates.Pending)]
+    [InlineData("waiting_for_resource", CiStates.Pending)]
+    [InlineData("skipped", CiStates.Green)]
+    [InlineData("canceled", CiStates.Red)]
     public async Task HeadPipelineStatus_DecidesTheHead(string status, string expected) =>
         (await ReadAsync(Mr($$"""{"id":9,"status":"{{status}}","sha":"abc","web_url":"https://gl/p/9"}"""))).State.Should().Be(expected);
 

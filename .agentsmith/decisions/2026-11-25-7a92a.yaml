@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-7a92a
+
+decisions:
+  - category: Architecture
+    chose: "The caller vouches for a settled head (CiReadRequest.HeadSettled, from the stored record and merge.ci_settle_seconds); only then is 'nothing reported on this head' not started"
+    over: "detailed_merge_status (preparing/unchecked/checking) as 'GitLab is still processing'; a new start-grace limit; NotStarted at once like Azure"
+    reason: |
+      Azure's not_started is a host fact; on GitHub and GitLab 'nothing on the head' is an inference that is most wrong right after a
+      push, which is exactly when several callers re-queue. The adversarial review showed mergeability and pipeline creation are separate
+      GitLab jobs, so the merge status proves nothing. merge.ci_settle_seconds already is 'a host registers its checks seconds to minutes
+      after a push', so no new limit is added. Host facts (GitHub STALE, GitLab manual) still decide at once.
+  - category: Implementation
+    chose: "A series-branch target keeps a silent head none"
+    over: "not_started for every target"
+    reason: |
+      SeriesCiStart (f9c5d) starts a series pull request's CI only while it reads none; not_started there would stop that start and leave
+      a GitHub absent check nobody can re-run.
+  - category: Implementation
+    chose: "GitHub required contexts from rulesets plus classic protection, read only when the unreported checks are judged (settled head, nothing running, nothing failed); an unreadable source adds nothing"
+    over: "Reading them on every CI read; a per-branch cache; failing the read on 403"
+    reason: |
+      Classic protection needs Administration read, which most tokens lack; a 403 must not cost the CI read. A settled green head is judged
+      on every read, two REST calls more than before — that is the case that hides a missing required check, and a cache would be a new
+      time limit. A red head is a fix's and is not judged.
+  - category: Implementation
+    chose: "manual is not started in the merge-request read only; the shared pipeline mapping (deploys) is unchanged"
+    over: "Changing GitLabPipelineStatus for every caller"
+    reason: "A deploy pipeline waiting on a manual production job is a deploy decision, out of this spec; the merge request's head pipeline blocked on a manual job does not start by itself."
+  - category: Implementation
+    chose: "Behaviour change accepted: a GitHub head missing a required check no longer merges as 'no CI' under merge past protection"
+    over: "Skipping absent-check detection when protection is bypassed"
+    reason: "Azure reads a required build that never started as not_started under every merge mode; parity is the goal, and the hold says the honest step."
+  - category: Implementation
+    chose: "GitHub WAITING and ACTION_REQUIRED keep their mapping (pending, failed)"
+    over: "Reading WAITING as not started"
+    reason: "The GitHub docs do not tie WAITING to an environment approval; no documented evidence, no change."

@@ -8,7 +8,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <summary>
 /// 2026-11-17-3435a: a GitLab merge request's CI — its head pipeline, decided per pipeline as GitLab does (a running
 /// pipeline with a failed job is pending until GitLab calls it failed). A red one is read with its failed jobs through
-/// <see cref="GitLabPipelineFailures"/> (2026-11-18-3863e), as a deploy's pipeline is.
+/// <see cref="GitLabPipelineFailures"/> (2026-11-18-3863e), as a deploy's pipeline is. 2026-11-25-7a92a: how the head stands —
+/// a manual pipeline and, on a settled head, a missing one included — is <see cref="GitLabHeadPipeline"/>'s.
 /// </summary>
 public sealed class GitLabCiReader(string baseUrl, string projectPath, string token, HttpClient http)
 {
@@ -20,14 +21,13 @@ public sealed class GitLabCiReader(string baseUrl, string projectPath, string to
             throw new ArgumentException($"Not a GitLab merge request URL: {prUrl}", nameof(prUrl));
         using var mr = await GetJsonAsync($"{Api}/merge_requests/{iid}", ct);
         var head = request.HeadSha ?? Str(mr.RootElement, "sha");
-        if (!mr.RootElement.TryGetProperty("head_pipeline", out var pipeline) || pipeline.ValueKind != JsonValueKind.Object)
-            return PullRequestCi.NoneOn(head);
-        var at = Time(pipeline, "finished_at") ?? Time(pipeline, "updated_at");
-        var outcome = Str(pipeline, "sha") != head ? CiCheckOutcome.Pending : GitLabPipelineStatus.Outcome(Str(pipeline, "status"));
+        if (GitLabHeadPipeline.Outcome(mr.RootElement, head, request.HeadSettled) is not { } outcome) return PullRequestCi.NoneOn(head);
+        var pipeline = GitLabHeadPipeline.Pipeline(mr.RootElement);
+        var at = pipeline is { } p ? Time(p, "finished_at") ?? Time(p, "updated_at") : null;
         var state = CiVerdict.Of([new CiCheck("pipeline", outcome, false, at)]);
-        return new PullRequestCi(state, head, at, state == CiStates.Red
+        return new PullRequestCi(state, head, at, state == CiStates.Red && pipeline is { } failed
             ? await new GitLabPipelineFailures(new PipelineHttp(http, r => r.Headers.Add("PRIVATE-TOKEN", token)), Api)
-                .ReadAsync(pipeline.GetProperty("id").GetInt64(), Str(pipeline, "web_url"), request, ct) : []);
+                .ReadAsync(failed.GetProperty("id").GetInt64(), Str(failed, "web_url"), request, ct) : []);
     }
 
     private async Task<JsonDocument> GetJsonAsync(string url, CancellationToken ct)

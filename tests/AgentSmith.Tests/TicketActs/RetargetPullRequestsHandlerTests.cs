@@ -41,7 +41,7 @@ public sealed class RetargetPullRequestsHandlerTests
 
         await RunAsync();
 
-        requeuer.Verify(r => r.RequeueNotStartedAsync(Url, It.IsAny<CancellationToken>()), Times.Once);
+        requeuer.Verify(r => r.RequeueNotStartedAsync(Url, false, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

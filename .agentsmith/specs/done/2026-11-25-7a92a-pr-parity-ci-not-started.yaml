@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-7a92a
+goal: "GitHub and GitLab CI reads say not_started, as Azure does, for a check or pipeline that will not start by itself on a settled head, instead of pending or green forever."
+
+applies_to: "default (Infrastructure GitHub and GitLab CI reads; Server CI record read)"
+
+requires: [2026-11-25-ef94, 2026-11-23-0219]
+
+facts:
+  - claim: "Azure reads a build policy not started only from host state (expired, or queued with no build on the head)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiPolicies.cs:52-68"
+  - claim: "merge.ci_settle_seconds is the existing bound for 'a host registers its checks seconds to minutes after a push'; CiBuildRequeue waits it before queueing a not_started head."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:52-56; src/backend/AgentSmith.Server/Services/Rework/CiBuildRequeue.cs:44-49"
+  - claim: "Several callers re-queue as soon as a read says not_started, some right after a push, so an inference from 'nothing on the head yet' must not be made on a fresh head."
+    evidence: "src/backend/AgentSmith.Application/Services/BaseRefresh/RefreshedPullRequestFollowUp.cs:24; src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:368; src/backend/AgentSmith.Application/Services/Series/SeriesFinalMerge.cs:53"
+  - claim: "GitHub maps every completed conclusion outside FAILURE, TIMED_OUT, CANCELLED, ACTION_REQUIRED and STARTUP_FAILURE to passed, so STALE reads green."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubCiContexts.cs:33-36"
+  - claim: "GitHub marks a check run stale when it stays incomplete for more than 14 days; success, skipped and neutral are successful; a required check that never reports leaves the PR 'Waiting for status to be reported'."
+    evidence: "observed: 2026-11-25, https://docs.github.com/en/rest/guides/using-the-rest-api-to-interact-with-checks ; https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks"
+  - claim: "statusCheckRollup lists only contexts that reported; required ones are listed by GET /repos/{o}/{r}/rules/branches/{branch} (Metadata read) and GET .../branches/{branch}/protection/required_status_checks (Administration read)."
+    evidence: "observed: 2026-11-25, https://docs.github.com/en/graphql/reference/commits ; https://docs.github.com/en/rest/repos/rules ; https://docs.github.com/en/rest/branches/branch-protection"
+  - claim: "GitLab reads a head pipeline of an older sha as pending forever, and the shared pipeline mapping (also the deploy's) calls manual pending."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabCiReader.cs:23-27; src/backend/AgentSmith.Infrastructure/Services/Providers/Pipelines/GitLabPipelineStatus.cs:9-14"
+  - claim: "GitLab: manual means 'Pipeline needs to be manually started' (a manual job without allow_failure blocks it); scheduled waits for a delayed job; detailed_merge_status ci_must_pass means a pipeline must succeed before merge."
+    evidence: "observed: 2026-11-25, https://docs.gitlab.com/api/graphql/reference/enums/ ; https://docs.gitlab.com/ci/jobs/job_control/ ; https://docs.gitlab.com/api/merge_requests/"
+  - claim: "A series-branch head that reports nothing is started by SeriesCiStart only while its CI reads none."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/SeriesCiStart.cs:45-46"
+
+scope:
+  in: |
+    CiReadRequest carries HeadSettled: the caller vouches the head has been on the pull request for merge.ci_settle_seconds
+    (PrRecordCiRead from the stored record's head-moved or opened time; every other read false). Host facts decide at once:
+    GitHub STALE and GitLab manual on the head are not started. Inferences decide only on a settled head into a non-series
+    branch: GitHub, a required context (ruleset plus classic protection, read only then; an unreadable source counts as none)
+    with no context on the head, or a status EXPECTED, is not started while nothing else runs; GitLab, no pipeline on the head
+    is not started when an older pipeline exists or GitLab says ci_must_pass. Otherwise those read as before (pending/none).
+    The deploy mapping is unchanged. The not_started hold texts name both steps: queue the build or start its manual job.
+  out: "Requeue (7a92b). A new limit (none: the existing settle is reused). GitHub WAITING (environment approval) stays pending: the docs do not tie it to approvals."
+
+done:
+  - "GitHub: STALE reads not_started on any head; an absent required context or EXPECTED status reads not_started on a settled head with nothing running, pending otherwise; SKIPPED and NEUTRAL read green; a series-branch target keeps none."
+  - "GitLab: manual reads not_started; an older-sha pipeline reads not_started on a settled head, pending otherwise; no pipeline ever reads none unless ci_must_pass on a settled head."
+  - "PrRecordCiRead sets HeadSettled only when the stored head equals the read head and has stood for merge.ci_settle_seconds."
+  - "The dashboard's not_started sentences (en, de) name queueing the build or starting its manual job; dashboard tests pass."

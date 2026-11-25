@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// 2026-11-24-629ab: the pipeline step that arms a pull request's auto-complete again after its host dropped it at a conflict
+/// 2026-11-24-629ab: the pipeline step that arms a pull request's auto-complete again after its host dropped it at a conflict (GitLab: at a new head)
 /// that has ended (<see cref="IPullRequestAutoCompleteRearmer"/>). A host without one, a local repository or a host refusal
 /// changes nothing and says why; it never fails the run.
 /// </summary>

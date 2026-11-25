@@ -20,8 +20,18 @@ public sealed class GitLabMergeRequestRead(string baseUrl, string projectPath, s
             && a.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.Number ? id.GetInt64() : (long?)null;
         return new GitLabMergeRequest(author, Str(root, "state") ?? "opened", Time(root, "created_at"), Time(root, "merged_at"), Time(root, "closed_at"),
             Str(root, "sha"), root.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True, // 8d16
-            Str(root, "merge_commit_sha"), Str(root, "squash_commit_sha"), Conflicts(root)); // 2026-11-23-8df6a
+            Str(root, "merge_commit_sha"), Str(root, "squash_commit_sha"), Conflicts(root)) // 2026-11-23-8df6a
+        {
+            AutoMergeArmed = Flag(root, "merge_when_pipeline_succeeds"), // 2026-11-25-7a92c
+            SameProject = Id(root, "source_project_id") is { } source && Id(root, "target_project_id") is { } target ? source == target : null,
+        };
     }
+
+    private static bool? Flag(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False ? v.ValueKind == JsonValueKind.True : null;
+
+    private static long? Id(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
 
     // 2026-11-24-6811a: has_conflicts stays false while GitLab still checks, so unchecked or checking decides nothing.
     internal static bool? Conflicts(JsonElement root)

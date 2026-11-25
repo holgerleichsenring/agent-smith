@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-7a92b
+
+decisions:
+  - category: Architecture
+    chose: "IPullRequestBuildRequeuer takes headSettled; only CompletePullRequestsHandler's not-started re-queue (asked by CiBuildRequeue after merge.ci_settle_seconds) passes true"
+    over: "Each provider guessing a fresh push itself; passing the merge policy into every caller; skipping GitHub and GitLab in the immediate callers"
+    reason: |
+      The refresh follow-up, a draft's publish and a retarget re-queue right after a push. An inferred not_started there would start
+      a second GitLab pipeline beside the one GitLab is creating. The one caller that knows the head stood is the not-started re-queue,
+      so it vouches; Azure's reading is a host fact and ignores the flag. A person's merge stays unsettled: it may follow a push.
+  - category: Architecture
+    chose: "GitLab starts the head's CI through GitLabCiTrigger, the pull-request CI start f9c5d built"
+    over: "A second pipeline-creating call in the requeuer"
+    reason: "No second path: the same merge-request pipeline, refused a branch pipeline, and its CI-file check."
+  - category: Implementation
+    chose: "GitHub re-runs only the workflow run behind a deciding STALE Actions check"
+    over: "workflow_dispatch for an absent required check; re-requesting other apps' check suites"
+    reason: |
+      Every documented re-run endpoint needs an existing run or suite. A dispatched run's checks need not attach to the pull request's
+      required context, and series branches already have f9c5d's dispatch. Another app's suite may refuse a token that is not that app.
+  - category: Implementation
+    chose: "A pull request from another repository or project is never queued"
+    over: "Queuing it like any other"
+    reason: "A fork's runs wait on a maintainer's approval; a re-run with a write token would pass that gate and pull_request_target's secrets."
+  - category: Implementation
+    chose: "The re-queue decides on the reported checks' own isRequired and reads the head as the pull request's last commit"
+    over: "Re-reading the rulesets for unreported required checks; the CI reader's headRefOid/object(oid) query"
+    reason: |
+      An unreported required check has no run, so it never changes what is re-run; the extra REST reads would buy nothing. One
+      GraphQL call answers fork flag, head and rollup together.

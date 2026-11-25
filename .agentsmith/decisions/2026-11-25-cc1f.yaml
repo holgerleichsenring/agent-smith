@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-cc1f
+
+decisions:
+  - category: Architecture
+    chose: "A RefreshOnly item per open pull request, named by its URL, target, head, draft, conflict and (GitHub) review state, beside today's items"
+    over: "Widening the act items' cursor filter; reading updatedAt only"
+    reason: |
+      Azure's lister names its refresh by state the list carries; the same shape for GitHub and GitLab needs no new nudge kind, origin or
+      store (the sweep's per-name nudge-once set). A host's updated time misses a conflict computed after the target moved, so the name
+      is read from the state itself. The URL keeps names apart across repositories, which share one set.
+  - category: Implementation
+    chose: "A refresh item carries the read's since"
+    over: "The pull request's own updated time"
+    reason: "GitLab's act read is ascending and cut without a resume point; a newer refresh item would move the cursor past unread changes."
+  - category: Implementation
+    chose: "GitLab lists its open merge requests a second time, newest first, with the same page budget as the act read (at most twice the calls of before)"
+    over: "Listing all open merge requests once for acts and names"
+    reason: "The act listing keeps its updated_after cursor unchanged; a budget-cut name listing keeps the recently touched ones."
+  - category: Implementation
+    chose: "The sweep keeps the last refresh name per pull request and nudges when it differs; act names keep nudge-once"
+    over: "The nudge-once set for refresh names too"
+    reason: |
+      A refresh name is a state, and a state can come back: ready, draft, ready again, or a conflict that clears on the same head. In
+      the set, the second change would never be read. One entry per pull request also bounds the memory, where the set grew with every
+      change. Azure's refresh items get the same treatment: a vote that returns to an earlier value is read again.
