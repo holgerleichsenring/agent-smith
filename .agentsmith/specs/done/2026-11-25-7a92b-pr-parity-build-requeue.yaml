@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-7a92b
+goal: "GitHub and GitLab queue a not-started head's CI again where the host allows it (IPullRequestBuildRequeuer), as Azure re-queues build policies, and never on a fresh push or a fork."
+
+applies_to: "default (Contracts requeue; Infrastructure GitHub and GitLab source providers)"
+
+requires: [2026-11-25-7a92a]
+
+facts:
+  - claim: "Every re-queue goes through PullRequestBuildRequeue, which casts the provider to IPullRequestBuildRequeuer; GitHub and GitLab are not one."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestBuildRequeue.cs:24-35"
+  - claim: "Azure queues exactly what its CI read calls not started and required, and returns the count."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBuildRequeue.cs:16-33"
+  - claim: "Only CiBuildRequeue marks a pull request NotStarted for CompletePullRequestsHandler's re-queue, after merge.ci_settle_seconds of not_started on its head."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/CiBuildRequeue.cs:34,44-49; src/backend/AgentSmith.Application/Services/Handlers/CompletePullRequestsHandler.cs:65-70,86-87"
+  - claim: "GitLabCiTrigger (f9c5d) already starts a merge request's CI: a merge-request pipeline, refused a pipeline on the source branch, none without a CI file."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabCiTrigger.cs:7-31; https://docs.gitlab.com/api/merge_requests/ ; https://docs.gitlab.com/api/pipelines/"
+  - claim: "GitHub re-runs an existing workflow run (POST /repos/{o}/{r}/actions/runs/{run_id}/rerun, Actions write); every re-run endpoint needs an existing run; a fork's first-time run needs a maintainer's approval."
+    evidence: "observed: 2026-11-25, https://docs.github.com/en/rest/actions/workflow-runs"
+
+scope:
+  in: |
+    The requeuer is told whether the head is settled (true only from CompletePullRequestsHandler's not_started re-queue) and reads
+    CI with it, so an inferred not_started is never queued on a fresh push; Azure ignores it. GitLab: a settled head with no
+    pipeline is started through the existing GitLabCiTrigger (1 when started); a manual job is left (0, logged). GitHub: each
+    workflow run behind a deciding STALE Actions check is re-run once; an absent required check or a non-Actions stale check has
+    no run to re-run (logged). A pull request from another repository or project is never queued. Both providers implement it.
+  out: "workflow_dispatch for an absent check on the default branch (its runs need not attach to the required context; series keep f9c5d). Re-requesting other apps' check suites."
+
+done:
+  - "GitLab: a settled head without a pipeline starts one through GitLabCiTrigger (count 1); the same head unsettled, a manual head, a running head and a fork count 0 and post nothing."
+  - "GitHub: two STALE Actions checks of one run re-run it once (count 1); absent required, non-Actions stale and a cross-repository PR count 0."
+  - "CompletePullRequestsHandler's not-started re-queue passes settled; every other caller does not."
+  - "The real SourceProviderFactory's GitHub and GitLab providers are IPullRequestBuildRequeuer."

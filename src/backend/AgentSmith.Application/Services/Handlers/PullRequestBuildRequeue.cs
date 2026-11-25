@@ -13,20 +13,21 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class PullRequestBuildRequeue(ISourceProviderFactory sources, ILogger<PullRequestBuildRequeue> logger)
 {
-    /// <summary>Re-queues through the repo's provider; returns how many builds were queued.</summary>
-    public Task<int> RequeueAsync(RepoConnection repo, string prUrl, CancellationToken ct)
+    /// <summary>Re-queues through the repo's provider; returns how many builds were queued. 2026-11-25-7a92b: only a caller
+    /// that knows the head stood for merge.ci_settle_seconds passes <paramref name="headSettled"/>.</summary>
+    public Task<int> RequeueAsync(RepoConnection repo, string prUrl, CancellationToken ct, bool headSettled = false)
     {
         ArgumentNullException.ThrowIfNull(repo);
-        return repo.Type == RepoType.Local ? Task.FromResult(0) : RequeueAsync(sources.Create(repo), prUrl, ct);
+        return repo.Type == RepoType.Local ? Task.FromResult(0) : RequeueAsync(sources.Create(repo), prUrl, ct, headSettled);
     }
 
     /// <summary>Re-queues through a provider the caller already holds; returns how many builds were queued.</summary>
-    public async Task<int> RequeueAsync(ISourceProvider provider, string prUrl, CancellationToken ct)
+    public async Task<int> RequeueAsync(ISourceProvider provider, string prUrl, CancellationToken ct, bool headSettled = false)
     {
         if (provider is not IPullRequestBuildRequeuer requeuer) return 0;
         try
         {
-            var queued = await requeuer.RequeueNotStartedAsync(prUrl, ct);
+            var queued = await requeuer.RequeueNotStartedAsync(prUrl, headSettled, ct);
             if (queued > 0) logger.LogInformation("{Url}: {Count} required build(s) queued again", prUrl, queued);
             return queued;
         }

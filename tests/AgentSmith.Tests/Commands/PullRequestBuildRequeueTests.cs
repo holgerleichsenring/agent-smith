@@ -23,9 +23,22 @@ public sealed class PullRequestBuildRequeueTests
     [Fact]
     public async Task RequeueAsync_AProviderThatRequeues_AnswersItsCount()
     {
-        _provider.As<IPullRequestBuildRequeuer>().Setup(r => r.RequeueNotStartedAsync(Url, default)).ReturnsAsync(2);
+        _provider.As<IPullRequestBuildRequeuer>().Setup(r => r.RequeueNotStartedAsync(Url, It.IsAny<bool>(), default)).ReturnsAsync(2);
 
         (await Sut.RequeueAsync(new RepoConnection { Name = "api", Type = RepoType.AzureDevOps }, Url, default)).Should().Be(2);
+    }
+
+    // 2026-11-25-7a92b: unsettled unless the caller vouches for the head.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RequeueAsync_TheSettledFlag_ReachesTheProvider(bool settled)
+    {
+        _provider.As<IPullRequestBuildRequeuer>().Setup(r => r.RequeueNotStartedAsync(Url, settled, default)).ReturnsAsync(1);
+
+        var queued = settled ? await Sut.RequeueAsync(_provider.Object, Url, default, headSettled: true) : await Sut.RequeueAsync(_provider.Object, Url, default);
+
+        queued.Should().Be(1);
     }
 
     [Fact]
@@ -39,7 +52,7 @@ public sealed class PullRequestBuildRequeueTests
     [Fact]
     public async Task RequeueAsync_AHostThatThrows_IsZero()
     {
-        _provider.As<IPullRequestBuildRequeuer>().Setup(r => r.RequeueNotStartedAsync(Url, default))
+        _provider.As<IPullRequestBuildRequeuer>().Setup(r => r.RequeueNotStartedAsync(Url, It.IsAny<bool>(), default))
             .ThrowsAsync(new InvalidOperationException("TF400813"));
 
         (await Sut.RequeueAsync(_provider.Object, Url, default)).Should().Be(0);

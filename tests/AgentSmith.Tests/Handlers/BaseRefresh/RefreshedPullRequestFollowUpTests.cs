@@ -21,7 +21,7 @@ public sealed class RefreshedPullRequestFollowUpTests
     {
         _provider.As<IPrMarkedThreadResolver>().Setup(r => r.ResolveMarkedThreadsAsync("5", RefreshBranchBaseHandler.Marker, It.IsAny<CancellationToken>()))
             .Callback(() => _calls.Add("resolve")).ReturnsAsync(1);
-        _provider.As<IPullRequestBuildRequeuer>().Setup(q => q.RequeueNotStartedAsync(Url, It.IsAny<CancellationToken>()))
+        _provider.As<IPullRequestBuildRequeuer>().Setup(q => q.RequeueNotStartedAsync(Url, false, It.IsAny<CancellationToken>()))
             .Callback(() => _calls.Add("requeue")).ReturnsAsync(1);
     }
 
@@ -49,7 +49,7 @@ public sealed class RefreshedPullRequestFollowUpTests
     [Fact]
     public async Task RunAsync_AHostTimeoutInTheRequeue_DoesNotFailThePush()
     {
-        _provider.As<IPullRequestBuildRequeuer>().Setup(q => q.RequeueNotStartedAsync(Url, It.IsAny<CancellationToken>()))
+        _provider.As<IPullRequestBuildRequeuer>().Setup(q => q.RequeueNotStartedAsync(Url, false, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TaskCanceledException("HttpClient.Timeout"));
 
         (await Sut().RunAsync(_repo, Url, "5", CancellationToken.None)).Should().Contain("Resolved 1").And.NotContain("Queued");

@@ -83,8 +83,10 @@ public sealed class CompletePullRequestsHandler(
         return CommandResult.Ok($"auto-complete the host dropped at a conflict, armed again — {string.Join("; ", said)}");
     }
 
+    // 2026-11-25-7a92b: CiBuildRequeue asks only for a head not started for merge.ci_settle_seconds, so the head is settled.
     private async Task<int> QueuedAsync(CompletePullRequestsContext context, CiGreenPullRequest pr, CancellationToken ct) =>
-        requeue is not null && context.Configs.FirstOrDefault(r => r.Name == pr.Repo) is { } repo ? await requeue.RequeueAsync(repo, pr.Url, ct) : 0;
+        requeue is not null && context.Configs.FirstOrDefault(r => r.Name == pr.Repo) is { } repo
+            ? await requeue.RequeueAsync(repo, pr.Url, ct, headSettled: pr.NotStarted) : 0;
 
     // A pull request opened against a rung is left open, as a merge would leave it; the rest wait for CI.
     private async Task<CommandResult> AwaitCiAsync(

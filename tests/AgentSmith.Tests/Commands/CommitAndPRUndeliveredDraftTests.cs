@@ -44,7 +44,7 @@ public sealed class CommitAndPRUndeliveredDraftTests
             .Callback<string, string, CancellationToken>((url, body, _) => { if (url == Url) _body = body; })
             .ReturnsAsync(true);
         _provider.Setup(p => p.MarkPullRequestReadyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
-        _requeuer.Setup(r => r.RequeueNotStartedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _requeuer.Setup(r => r.RequeueNotStartedAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class CommitAndPRUndeliveredDraftTests
         (await RunAsync(carriedWork: false)).IsSuccess.Should().BeTrue();
 
         _provider.Verify(p => p.MarkPullRequestReadyAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _requeuer.Verify(r => r.RequeueNotStartedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _requeuer.Verify(r => r.RequeueNotStartedAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
         _body.Should().StartWith(CodePullRequestBanner.NothingDelivered);
     }
 
@@ -64,7 +64,7 @@ public sealed class CommitAndPRUndeliveredDraftTests
 
         _provider.Verify(p => p.MarkPullRequestReadyAsync(Url, It.IsAny<CancellationToken>()), Times.Once);
         _provider.Verify(p => p.MarkPullRequestReadyAsync(SpecUrl, It.IsAny<CancellationToken>()), Times.Once);
-        _requeuer.Verify(r => r.RequeueNotStartedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _requeuer.Verify(r => r.RequeueNotStartedAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
         _body.Should().NotContain("No spec delivered");
     }
 

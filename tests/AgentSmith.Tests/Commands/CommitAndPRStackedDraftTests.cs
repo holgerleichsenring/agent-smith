@@ -73,11 +73,11 @@ public sealed class CommitAndPRStackedDraftTests
         provider.Setup(p => p.FindOpenPullRequestAsync(It.IsAny<Repository>(), It.IsAny<CancellationToken>())).ReturnsAsync(Url);
         provider.Setup(p => p.UpdatePullRequestBodyAsync(Url, It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         provider.Setup(p => p.MarkPullRequestReadyAsync(Url, It.IsAny<CancellationToken>())).ReturnsAsync(true);
-        requeuer.Setup(r => r.RequeueNotStartedAsync(Url, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        requeuer.Setup(r => r.RequeueNotStartedAsync(Url, It.IsAny<bool>(), It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         (await RunAsync(provider.Object)).IsSuccess.Should().BeTrue();
 
-        requeuer.Verify(r => r.RequeueNotStartedAsync(Url, It.IsAny<CancellationToken>()), Times.Once);
+        requeuer.Verify(r => r.RequeueNotStartedAsync(Url, It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // Azure DevOps as the run meets it: one active draft on the branch, targeting the rung; a search that names another

@@ -355,7 +355,7 @@ public sealed class CompletePullRequestsHandlerTests
     {
         await RunAsync(new MergePolicyConfig { RespectBranchProtection = true }, passed: null, Green("a", askedBy: "Dana"));
 
-        _calls.Should().Equal("ready https://x/a/pull/1", "requeue https://x/a/pull/1", "approve https://x/a/pull/1", "merge https://x/a/pull/1");
+        _calls.Should().Equal("ready https://x/a/pull/1", "requeue-unsettled https://x/a/pull/1", "approve https://x/a/pull/1", "merge https://x/a/pull/1");
     }
 
     // 2026-11-23-0219: a person's merge queues again the required builds that have not started, after the draft step and before
@@ -364,7 +364,7 @@ public sealed class CompletePullRequestsHandlerTests
     public async Task MergeGreen_APersonAskedMerge_RequeuesNotStartedBuilds_TheCiMergeDoesNot()
     {
         await RunAsync(new MergePolicyConfig { RespectBranchProtection = true }, passed: null, Green("a", askedBy: "Dana"));
-        _calls.Should().Contain("requeue https://x/a/pull/1");
+        _calls.Should().Contain("requeue-unsettled https://x/a/pull/1");
 
         _calls.Clear();
         await RunAsync(OnCi(respect: true), passed: null, Green("a"));
@@ -391,7 +391,7 @@ public sealed class CompletePullRequestsHandlerTests
 
         await RunAsync(new MergePolicyConfig(), passed: null, Green("a", askedBy: "Dana"));
 
-        _calls.Should().Equal("requeue https://x/a/pull/1", "merge https://x/a/pull/1");
+        _calls.Should().Equal("requeue-unsettled https://x/a/pull/1", "merge https://x/a/pull/1");
     }
 
     [Fact]
@@ -492,10 +492,10 @@ public sealed class CompletePullRequestsHandlerTests
                 return Task.FromResult(_ready);
             });
         provider.As<AgentSmith.Contracts.Reviews.IPullRequestBuildRequeuer>()
-            .Setup(r => r.RequeueNotStartedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns<string, CancellationToken>((url, _) =>
+            .Setup(r => r.RequeueNotStartedAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Returns<string, bool, CancellationToken>((url, settled, _) =>
             {
-                _calls.Add($"requeue {url}");
+                _calls.Add(settled ? $"requeue {url}" : $"requeue-unsettled {url}"); // 2026-11-25-7a92b
                 return Task.FromResult(1);
             });
         provider.As<IPullRequestAutoCompleteRearmer>().Setup(r => r.RearmAutoCompleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))

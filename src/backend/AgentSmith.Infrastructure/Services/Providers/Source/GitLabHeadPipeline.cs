@@ -31,6 +31,9 @@ public static class GitLabHeadPipeline
     public static JsonElement? Pipeline(JsonElement mr) =>
         mr.TryGetProperty("head_pipeline", out var p) && p.ValueKind == JsonValueKind.Object ? p : null;
 
+    /// <summary>2026-11-25-7a92b: whether a pipeline ran (or runs) on the head itself.</summary>
+    public static bool HasPipelineOn(JsonElement mr, string? head) => Pipeline(mr) is { } p && Str(p, "sha") == head;
+
     private static string? Str(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 }

@@ -350,7 +350,7 @@ public sealed class AzureReposSourceProvider(
         await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
             .GetPolicyConfigurationsAsync(projectId, policyType: Guid.Parse(AzureReposCiPolicies.BuildPolicyType), cancellationToken: c);
     // 2026-11-23-0219: the build-policy evaluations that have not started on the head, queued again.
-    public Task<int> RequeueNotStartedAsync(string prUrl, CancellationToken ct) =>
+    public Task<int> RequeueNotStartedAsync(string prUrl, bool headSettled, CancellationToken ct) => // a head Azure reads no inference on
         new AzureReposBuildRequeue(CreateConnectionAsync,
             async (projectId, artifact, c) => await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
                 .GetPolicyEvaluationsAsync(projectId, artifact, cancellationToken: c),

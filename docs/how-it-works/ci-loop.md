@@ -30,6 +30,14 @@ Where the host requires an approval, `approval_auth` names the secret of a secon
 
 Every open pull request's CI is read with its record and shown on the ticket page: `none`, `pending`, `green` or `red`. A pending CI is read again every `ci_poll_seconds` for up to `ci_pending_seconds`, whatever the project's merge mode, because who acts next on a pull request depends on its CI. A CI still running after `holds.escalate_after_minutes` is reported to the admin. One rule for every host: where checks are marked required, only those count; any failed check is red; otherwise anything running is pending; otherwise green.
 
+A required build that hasn't started on the head and won't start by itself reads `not_started`. The ticket says what to do, and after `ci_settle_seconds` codeably queues it again once per spell, where the host allows it:
+
+- **Azure DevOps**: an expired build policy, or one queued with no build on the head. Its evaluation is queued again.
+- **GitHub**: a check run GitHub marked stale, which gets its Actions workflow run re-run. A required check (ruleset or branch protection) that never reported on a head that has stood for `ci_settle_seconds`, with nothing else running, has no run to re-run, so the ticket asks you to start it.
+- **GitLab**: a head pipeline waiting for a manual job, which a person has to run. A head that has stood for `ci_settle_seconds` without a pipeline, when an earlier head had one or GitLab says a pipeline must pass, gets a merge-request pipeline, or a pipeline on the source branch if that's refused, as long as the default branch has a CI file.
+
+On GitHub and GitLab, runs of a pull request from a fork are never started. A head that reports nothing into a series branch is left to the series start below.
+
 For a red head, codeably stores which checks failed, with a bounded excerpt of the evidence (the host's summary and annotations, then the end of the log) and a link. GitHub check runs and statuses, Azure DevOps build policies and statuses, and GitLab head pipelines are all read. The token needs read access to checks and logs on GitHub, Build (read) on Azure DevOps and `read_api` on GitLab.
 
 ## Series branches
