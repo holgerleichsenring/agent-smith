@@ -20,14 +20,10 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
 FROM node:20-alpine AS build
 WORKDIR /repo/src/dashboard
 RUN corepack enable
-# p0169f-followup: Next.js evaluates rewrites() at BUILD time and bakes the
-# destinations into the standalone bundle's server.js. The proxy target
-# must be supplied as a build arg; runtime env-vars are too late.
-# Default matches local dev; compose passes AGENTSMITH_BACKEND_URL=http://server:8081
-# via build.args so the in-container Next.js server reaches the backend
-# through compose DNS.
-ARG AGENTSMITH_BACKEND_URL=http://localhost:8081
-ENV AGENTSMITH_BACKEND_URL=$AGENTSMITH_BACKEND_URL
+# 2026-11-25-7f25a: Next.js evaluates rewrites() at BUILD time and writes the
+# /api and /hub destinations into .next/routes-manifest.json. This build bakes the
+# local-dev default; docker-entrypoint.sh rewrites both destinations from the
+# container's AGENTSMITH_BACKEND_URL on every start, so no build arg sets the target.
 COPY --from=deps /repo/src/dashboard/node_modules ./node_modules
 COPY DESIGN.md /repo/DESIGN.md
 COPY tools/build-tokens.mjs /repo/tools/build-tokens.mjs

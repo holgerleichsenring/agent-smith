@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-7f25a
+
+decisions:
+  - category: Architecture
+    chose: "The image entrypoint rewrites the /api and /hub destinations in .next/routes-manifest.json at every container start"
+    over: "A middleware rewrite to the external URL; a custom server replacing the generated server.js"
+    reason: |
+      The production router reads rewrites only from routes-manifest.json, and an Upgrade request on an external
+      rewrite is proxied by that same router, so SignalR keeps working through the mechanism it already used.
+      Middleware adds an edge-runtime hop on every request and a new runtime env dependency; a custom server means
+      maintaining Next's start options ourselves. The entrypoint already writes runtime settings before the server
+      starts, so this adds one step to an existing place.
+  - category: Implementation
+    chose: "destination = backend + source, derived each start; a missing manifest, a missing rule or a non-http(s) URL refuses to start"
+    over: "Patching the previous destination in place; skipping silently when the file or a rule is absent"
+    reason: |
+      A container restart keeps its filesystem, so patching over the last value breaks the second start with another
+      value. A silent skip would ship the build-time target again and look like a pass. A vitest case pins that the
+      sources in next.config.ts are exactly the two the entrypoint rewrites.
+  - category: Implementation
+    chose: "Drop the AGENTSMITH_BACKEND_URL build arg; the build bakes the local-dev default the entrypoint overwrites"
+    over: "Keeping the build arg as a second way to set the target"
+    reason: |
+      Two ways to set one value would disagree; the build-time one is what caused #900. The stale copy in server.js
+      (_originalRewrites) is read only by next build and the dev hot reloader, never by the production router.
