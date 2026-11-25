@@ -55,8 +55,7 @@ public sealed class CompletePullRequestsHandler(
             return CommandResult.Ok($"CI for the pull requests — {(ciStart is null ? "none started" : await ciStart.StartAsync(context, request, ct))}; nothing merges.");
         if (context.Review != ReviewMode.None && request.AskedBy is null) return CommandResult.Ok(Manual(context.Review));
         var entries = request.PullRequests.Select(p => new OpenedPullRequest(p.Repo, p.Url, OpenStatus.Opened)).ToList();
-        var lines = await merges.RunAsync(context, entries, new BranchName(request.Branch), request.AttemptRunId, ct,
-            asked: request.AskedBy is not null, judged: request.Judged);
+        var lines = await merges.RunAsync(context, entries, new BranchName(request.Branch), request.AttemptRunId, ct, PullRequestMergeAsk.Of(request));
         if (context.Pipeline.TryGet<ActSlot<IReadOnlyList<PullRequestMergeLine>>>(ContextKeys.ActOutcome, out var slot)) slot?.Set(lines);
         var why = request.AskedBy is { } by ? $"asked by {by}" : "review: none, CI green";
         return CommandResult.Ok($"{why} ({Mode(context.Protection)}) — {Joined(lines)}");

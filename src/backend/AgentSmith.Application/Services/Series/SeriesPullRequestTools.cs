@@ -35,15 +35,22 @@ public sealed class SeriesPullRequestTools(
 
     [Description("Merges a ticket's waiting pull requests, or with ticket 'final' the series' final pull requests into the default branch. "
         + "how 'now' merges at once past branch protection where agent-smith's identity may; 'auto' arms the host's auto-merge, which completes once "
-        + "the host's rules pass (a series branch has no rules, so there it merges at once). It merges whatever its prerequisites, CI or base: you judge "
-        + "when; the host's own refusal comes back as the answer.")]
+        + "the host's rules pass (a series branch has no rules, so there it merges at once). A prerequisite not merged into its target yet, or a base "
+        + "the host could not say, comes back as a refusal that overrideReason passes; a pull request targeting another branch than the series or "
+        + "default branch is refused until retarget_pull_request moves it; the host's own refusals come back as the answer.")]
     public Task<string> MergePullRequestAsync([Description("The ticket's key or id, or 'final'.")] string ticket,
-        [Description("'now' or 'auto'.")] string how, [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default)
+        [Description("'now' or 'auto'.")] string how, [Description(SeriesActSay.Why)] string? reason = null,
+        [Description("Only after a refusal for a prerequisite or an unreadable base: one sentence of why it lands anyway. Logged and said with the act.")]
+        string? overrideReason = null, CancellationToken ct = default)
     {
         if (How(how) is not { } protection) return Task.FromResult($"'{how}' is no way to merge; say now or auto.");
-        var did = $" ({how.Trim().ToLowerInvariant()})";
-        return IsFinal(ticket) ? AllowedAsync("merged the final pull requests" + did, reason, () => finals.MergeAsync(context, beat.Record, protection, ct))
-            : OnTicketAsync(ticket, key => $"merged {key}{did}", reason, id => acts.MergeAsync(beat.Record, id, protection, ct));
+        var mode = how.Trim().ToLowerInvariant();
+        var given = string.IsNullOrWhiteSpace(overrideReason) ? null : overrideReason.Trim();
+        return IsFinal(ticket) ? AllowedAsync($"merged the final pull requests ({mode})", reason, async () => (given is null ? string.Empty
+                : "overrideReason does not apply to the final pull requests. ") + await finals.MergeAsync(context, beat.Record, protection, ct))
+            : SeriesTicketLookup.Find(beat, ticket) is not { } fact ? Task.FromResult(SeriesTicketLookup.Unknown(beat, ticket))
+            : beat.Record.MayStartRuns ? new SeriesTicketMerge(beat, acts).MergeAsync(fact, mode, protection, reason, given, ct)
+            : Task.FromResult(NotAllowed());
     }
 
     [Description("Brings a ticket's open pull requests up to date with their base through a refresh-base run, or with ticket 'final' the series "
@@ -95,6 +102,8 @@ public sealed class SeriesPullRequestTools(
 
     // A write takes the approver's runs.control, as every act of the series does; 9992h: it is said with its reason.
     private async Task<string> AllowedAsync(string did, string? reason, Func<Task<string>> act) => beat.Record.MayStartRuns
-        ? SeriesActSay.Acted(beat, did, reason, await act())
-        : $"The series' approver {beat.Record.Principal} may not start runs (runs.control), so the series changes no pull request.";
+        ? SeriesActSay.Acted(beat, did, reason, await act()) : NotAllowed();
+
+    private string NotAllowed() =>
+        $"The series' approver {beat.Record.Principal} may not start runs (runs.control), so the series changes no pull request.";
 }

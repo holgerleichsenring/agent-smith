@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-96aeb
+
+decisions:
+  - category: Scope
+    chose: "The series master's merge is checked again in the API, as feedback: an unlanded prerequisite refuses with the prerequisite and its target named, and an overrideReason merges it anyway, logged and said with the act"
+    over: "Leaving the order to the model alone (9992e); a hard lock with no override"
+    reason: "decider: operator. Whether a ticket lands before its prerequisite was decided only by the model; the API answers now, and a reasoned override keeps the master's judgement where the ordering is deliberate."
+  - category: Security
+    chose: "Per refusal: prerequisite — feedback with override; base the host could not say — feedback with override; base off the series and default branch — an invariant, refused even with an override (retarget_pull_request is the remedy); rung — not checked on a merge (it never fires in a merge-green run, the base guard reads the same fact from the host); conflict, moved base, required reviews and checks — the host's own refusal, not duplicated"
+    over: "Making every refusal overridable; keeping all three as hard locks"
+    reason: |
+      decider: claude (the operator asked to decide per refusal). A merge into a foreign branch records a landing that is none
+      (StackedMergeLanding exempts only a required ticket's branch), which would wake the dependents — a safety property, so it
+      lives in the API. An unreadable base is uncertainty, not a known wrong target, and a ticket with requirements holds its
+      landing until the target is read. The rung check reads a target recorded by a checkout, which a merge-green run has not.
+  - category: Architecture
+    chose: "CiGreenMergeRequest gains ChecksTarget, OverrideReason and SeriesMembers; the sequence takes one PullRequestMergeAsk; the master's merge is judged only with an override; a person's page merge passes judged explicitly"
+    over: "A default of judged = true on SeriesMergeNextAct.MergeAsync"
+    reason: "Safety in the API: an open default would let the next caller skip the checks silently, so the parameter is required and the page states it."
+  - category: Implementation
+    chose: "A judged merge still computes the prerequisite and unreadable-base refusals and records them on its line (PullRequestMergeLine.Overrode); the act text says 'merged X over its refusal; override: <reason>' only when one was passed, 'merge of X refused' when nothing merged"
+    over: "Writing the override into the act text whenever one was given; building the act text before the outcome (as before)"
+    reason: "The act log, the ticket's last act and the conversation must say what happened: a refused merge said as 'merged' and an override that overrode nothing would both be false."
+  - category: Implementation
+    chose: "The override is recorded where every act is: the act log (SeriesRunRecord.Acts via SeriesActedFunction), the ticket's last act, the conversation line (said with the override when no reason was given) and the merge sequence's log line"
+    over: "A new store or a decision file per override"
+    reason: "decider: operator (use the existing place). The act log is the series' record of what its master did and why."
+  - category: Scope
+    chose: "A person's merge from the series page stays judged; 'final' ignores overrideReason and says so"
+    over: "Checking the page merge too"
+    reason: "The page's Merge button has no override channel; a refusal there would leave the person stuck, and the click is the person's decision. The final pull requests have no prerequisites."
+  - category: Implementation
+    chose: "A merge is 'merged' only when every repository merged or armed; some but not all is 'refused in part'; the merged milestone stays quiet only after the master's own merge that merged (SeriesTicketMerge.Merged), not after one it was refused"
+    over: "Any repository merged counts as merged; suppressing the milestone after any merge_pull_request act"
+    reason: "With refusals routine, a refused act followed by a later merge (the prerequisite landed, a person merged) would never be told, and a half-merged ticket said as merged hides the repository still open."
+  - category: Implementation
+    chose: "A person's page merge reads no requirements at all (judged and not target-checked), as before"
+    over: "Reading them to name what the click went past"
+    reason: "A failure of the ticket store must not fail a person's merge it never held."
+

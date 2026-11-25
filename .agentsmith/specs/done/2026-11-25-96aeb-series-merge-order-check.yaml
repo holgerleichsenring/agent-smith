@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-96aeb
+goal: "The master's merge_pull_request answers an unmerged prerequisite as a refusal and merges anyway only with an override reason, logged and said with the act; a foreign target stays refused."
+
+applies_to: "default (Application merge sequence and series PR tools, Server series merge act, series-master prompt)"
+
+requires: [2026-11-25-9992e, 2026-11-25-9992h]
+
+facts:
+  - claim: "Every merge the series master asks for is judged, and a judged request skips the unlanded-prerequisite, rung and base refusals."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesMergeNextAct.cs:46-49 and src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:37,50-52"
+  - claim: "A person's merge from the series page goes through the same act with the same judged request."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SeriesRunEndpoints.cs:30,54"
+  - claim: "The unlanded refusal names the prerequisites but not the branch it must reach."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:79-88"
+  - claim: "The rung refusal reads a target a checkout recorded in the same pipeline; a merge-green run has no checkout step, so it never fires there — the base guard, which reads the base from the host, is the target check of a merge-green run."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.TicketActs.cs:40, src/backend/AgentSmith.Application/Services/Handlers/CheckoutSourceHandler.cs:63, src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:72-76, src/backend/AgentSmith.Application/Services/Handlers/PullRequestBaseGuard.cs:15-27, src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs:130"
+  - claim: "A refusal on an asked merge marks nothing on the attempt (mark is null when asked)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:36,101-107"
+  - claim: "Every master act is logged on the record with its text and reason, shown as the ticket's last act and said in the conversation when it has a reason."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesActSay.cs:10-17, src/backend/AgentSmith.Application/Services/Series/SeriesActedFunction.cs, src/backend/AgentSmith.Application/Services/Series/SeriesTicketLastAct.cs:8-14"
+  - claim: "The act text is built before the outcome, so a refused merge is logged and said as 'merged'; an act without a reason is not said at all."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesPullRequestTools.cs:44-48 and src/backend/AgentSmith.Application/Services/Series/SeriesActSay.cs:13-14"
+  - claim: "A merge into a branch that is neither the default branch nor a required ticket's branch records a landing, which wakes the dependents."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/StackedMergeLanding.cs:10-14,32 and src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:42-52,74"
+  - claim: "The tool tells the master today that it merges whatever the prerequisites, CI or base."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesPullRequestTools.cs:37-40 and src/backend/AgentSmith.Application/Prompts/Resources/series-master.md:30-33"
+
+scope:
+  in: |
+    Per refusal, decided: prerequisite — feedback with override; base unreadable (the host could not say the target) — feedback
+    with override; base wrong (a target other than the series branch or the default branch) — an invariant, refused with the
+    retarget_pull_request remedy, because merging there records a false landing that wakes dependents; rung — not checked
+    separately (it never fires in a merge-green run; the base guard reads the same fact from the host); conflict, a moved base,
+    required reviews and checks — the host's own refusal, not duplicated.
+    merge_pull_request(ticket, how, reason, overrideReason): without overrideReason the master's merge is checked and a refusal
+    answers "SCRUM-11, a prerequisite, is not merged into <target> yet", the target named per prerequisite (the series branch
+    when the prerequisite is a ticket of this series and the series has one, else the default branch), and how to override.
+    With overrideReason the prerequisite and unreadable-base refusals are computed and passed, and each line names what it went
+    past. The act's text follows the outcome ("merged SCRUM-12 (now)", "merge of SCRUM-12 refused: ...") and with an override
+    carries "over <refusal>; override: <reason>"; an override is said in the conversation even without a reason, so the act log,
+    the ticket's last act and the conversation carry it. A person's merge from the series page stays judged — the button has no
+    override channel and the click is the person's decision — and passes judged explicitly. 'final' ignores overrideReason and
+    says so.
+    series-master.md gets one line describing the override.
+  out: "A refusal on the person's page merge. New stores for the reason: the act log is the place."
+
+steps:
+  - id: contract
+    action: "ISeriesPullRequestActs.MergeAsync takes overrideReason and returns the answer with whether anything merged or armed; CiGreenMergeRequest gains ChecksTarget and OverrideReason; SeriesMergeNextAct.MergeAsync takes them explicitly (the page passes judged)."
+  - id: sequence
+    action: "PullRequestMergeSequence: a target-checked merge refuses a wrong base always and an unreadable one unless overridden; the prerequisite refusal names each prerequisite's target; an override computes the refusals and records them on the line; PullRequestBaseGuard tells an unreadable base apart and names the series branch."
+  - id: tool
+    action: "SeriesPullRequestTools.merge_pull_request gains overrideReason; its description and the refused answer name it; the act text follows the outcome and carries the override; SeriesActSay says an override without a reason."
+  - id: prompt
+    action: "series-master.md: one line on what overrideReason does; the tool description says what is checked."
+  - id: tests
+    action: "Refused with the prerequisite and target named; merged with overrideReason and the act log and conversation carry it; a wrong base refused even with an override, an unreadable one merged with it; a page merge stays judged; a refused merge is not logged as merged; existing tests pinning the old wording and Judged updated."
+
+done:
+  - "A master merge before its prerequisite landed answers '<key>, a prerequisite, is not merged into <target> yet' and merges nothing (test)."
+  - "The same call with overrideReason merges, and the act log entry, the ticket's last act and the conversation line carry the reason (tests)."
+  - "A person's merge from the series page is not refused for a prerequisite; a master merge onto a foreign base is refused even with an override (tests)."
+  - "dotnet build and the affected tests are green."

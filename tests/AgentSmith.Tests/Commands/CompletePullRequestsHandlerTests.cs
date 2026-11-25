@@ -197,9 +197,9 @@ public sealed class CompletePullRequestsHandlerTests
 
         _merged.Should().BeEmpty();
         _outcomes.Select(o => (o.RunId, o.Status, o.Reason)).Should().Equal(
-            ("run-1", PullRequestStatuses.CompletionRefused, "not merged: #40 and #41 it requires have not landed"),
-            ("attempt-1", PullRequestStatuses.AwaitingCi, "not merged: #40 and #41 it requires have not landed"));
-        result.Message.Should().Contain("a: not merged: #40 and #41 it requires have not landed");
+            ("run-1", PullRequestStatuses.CompletionRefused, "not merged: prerequisites #40 and #41 are not merged into the default branch yet"),
+            ("attempt-1", PullRequestStatuses.AwaitingCi, "not merged: prerequisites #40 and #41 are not merged into the default branch yet"));
+        result.Message.Should().Contain("a: not merged: prerequisites #40 and #41 are not merged into the default branch yet");
     }
 
     [Fact]
@@ -236,7 +236,7 @@ public sealed class CompletePullRequestsHandlerTests
         });
 
         _merged.Should().BeEmpty();
-        result.Message.Should().Contain("a: opened against 'agent-smith/41'").And.Contain("b: not merged: #41 it requires has not landed");
+        result.Message.Should().Contain("a: opened against 'agent-smith/41'").And.Contain("b: not merged: #41, a prerequisite, is not merged into the default branch yet");
     }
 
     // 2026-11-23-31dce
@@ -311,7 +311,7 @@ public sealed class CompletePullRequestsHandlerTests
         var result = await RunAsync(EndReview(), passed: null, Green("a", askedBy: "Dana"));
 
         _merged.Should().BeEmpty();
-        result.Message.Should().Contain("a: not merged: #41 it requires has not landed");
+        result.Message.Should().Contain("a: not merged: #41, a prerequisite, is not merged into the default branch yet");
         _outcomes.Should().ContainSingle().Which.RunId.Should().Be("run-1");
     }
 
@@ -423,6 +423,66 @@ public sealed class CompletePullRequestsHandlerTests
         _merged.Should().Equal(("https://x/a/pull/1", BranchProtection.Respect));
         result.Message.Should().Contain("a: merged");
     }
+
+    // 2026-11-25-96aeb: the series master's merge is checked — an unlanded prerequisite refuses, overridably, naming its target.
+    [Fact]
+    public async Task MergeGreen_AMasterMerge_WithAnUnlandedPrerequisite_IsRefusedOverridably_AndMarksNoAttempt()
+    {
+        Requires("41");
+
+        var result = await RunAsync(EndReview(), passed: null, pipeline => pipeline.Set(ContextKeys.CiGreenMerge, Master()));
+
+        _merged.Should().BeEmpty();
+        _outcomes.Should().OnlyContain(o => o.RunId == "run-1", "an asked merge marks a refusal on its own run only");
+        result.Message.Should().Contain("a: not merged: #41, a prerequisite, is not merged into the default branch yet");
+    }
+
+    [Fact]
+    public async Task MergeGreen_AMasterMergeWithAnOverride_Merges_AndNamesTheRefusalItWentPast()
+    {
+        Requires("41");
+        _bases["https://x/a/pull/1"] = null;
+        var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
+
+        await RunAsync(EndReview(), passed: null, pipeline =>
+        {
+            pipeline.Set(ContextKeys.CiGreenMerge, Master() with { Judged = true, OverrideReason = "41 only renames a field" });
+            pipeline.Set(ContextKeys.ActOutcome, slot);
+        });
+
+        _merged.Should().ContainSingle();
+        slot.Value.Should().ContainSingle().Which.Overrode.Should().Equal(
+            "not merged: #41, a prerequisite, is not merged into the default branch yet", PullRequestBaseGuard.Unread);
+    }
+
+    [Fact]
+    public async Task MergeGreen_AMasterMergeOntoAForeignBase_IsRefusedEvenWithAnOverride()
+    {
+        _bases["https://x/a/pull/1"] = "agent-smith/41";
+        var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
+
+        await RunAsync(EndReview(), passed: null, pipeline =>
+        {
+            pipeline.Set(ContextKeys.CiGreenMerge, Master() with { Judged = true, OverrideReason = "land it" });
+            pipeline.Set(ContextKeys.ActOutcome, slot);
+        });
+
+        _merged.Should().BeEmpty();
+        slot.Value.Should().ContainSingle().Which.Should().Match<PullRequestMergeLine>(l => !l.Overridable && l.Text.Contains("targets 'agent-smith/41'"));
+    }
+
+    [Fact]
+    public void PrerequisiteWords_APrerequisiteOfTheSeries_LandsOnItsBranch_AnyOtherOnTheDefaultBranch()
+    {
+        TicketRequirementEdge Edge(string id) => new("gh", "github-42", "42", "p", $"github-{id}", id, false, DateTimeOffset.UnixEpoch, "c-1");
+
+        PullRequestPrerequisiteWords.Refusal([Edge("40"), Edge("41")], "agent-smith/series/sr-1", ["40"]).Should().Be(
+            "not merged: #40, a prerequisite, is not merged into the series branch 'agent-smith/series/sr-1' yet; "
+            + "#41, a prerequisite, is not merged into the default branch yet");
+    }
+
+    private static CiGreenMergeRequest Master() =>
+        new("42", "attempt-1", "agent-smith/42", [new CiGreenPullRequest("a", "https://x/a/pull/1")]) { AskedBy = "series master", ChecksTarget = true };
 
     [Fact]
     public async Task CodeRun_OfATicketASeriesHolds_MergesNothing_AndMarksNothingAwaitingCi()

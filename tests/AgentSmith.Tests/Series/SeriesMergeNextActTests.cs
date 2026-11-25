@@ -83,6 +83,7 @@ public sealed class SeriesMergeNextActTests : IDisposable
         var asked = _asked.Should().ContainSingle().Subject;
         asked.AskedBy.Should().Be("Dana");
         (asked.Judged, asked.Protection).Should().Be((true, (BranchProtection?)null), "the person judged it; the policy's protection holds");
+        asked.ChecksTarget.Should().BeFalse("2026-11-25-96aeb: no order check holds a person's merge");
         (asked.TicketId, asked.AttemptRunId, asked.Branch).Should().Be(("1", "run-1", "agent-smith/1"));
         asked.PullRequests.Should().Equal(new CiGreenPullRequest("api", "https://github.com/o/api/pull/1"));
     }

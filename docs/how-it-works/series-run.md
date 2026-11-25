@@ -81,6 +81,8 @@ The project's `review` setting decides when a person looks at a series, and the 
 - `each`: no series branch. Each ticket's pull request goes into the default branch, and the master merges it once a person approved it.
 - `none`: no series branch. The master merges each ticket into the default branch on green; the host's branch protection still decides.
 
+Whatever the review, the master's merge is checked first. A ticket whose prerequisite is not merged into its target yet (the series branch for a ticket of the series, the default branch for any other) is refused with that prerequisite named, and so is a pull request whose base the host could not report. The master can merge it anyway by giving a reason; a merge that went past a refusal names it with that reason in the master's act log, the ticket's last act and the conversation. A pull request that targets a branch other than the series or default branch is always refused until it is retargeted, because merging it there would record a landing that isn't one. Your own merge from the series page is not checked.
+
 `series_status` and the series page show the series' review.
 
 ## The series branch

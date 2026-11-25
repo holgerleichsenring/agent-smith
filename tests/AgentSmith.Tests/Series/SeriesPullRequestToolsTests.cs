@@ -21,6 +21,7 @@ public sealed class SeriesPullRequestToolsTests
     private readonly Mock<ISeriesPullRequestActs> _acts = new();
     private readonly Mock<ISourceProvider> _host = new();
     private readonly Mock<ISeriesRunLaunch> _launch = new();
+    private SeriesBeat? _beat;
 
     private SeriesPullRequestTools Tools(bool mayStartRuns = true)
     {
@@ -35,8 +36,8 @@ public sealed class SeriesPullRequestToolsTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "beat-1");
         var sources = Mock.Of<ISourceProviderFactory>(f => f.Create(It.IsAny<RepoConnection>()) == _host.Object);
-        var beat = new SeriesBeat(record, [.. record.Tickets.Select(t => new SeriesTicketFact(t))], SeriesRecords.T);
-        return new SeriesPullRequestTools(beat, new SeriesMasterContext(pipeline, project), _acts.Object,
+        _beat = new SeriesBeat(record, [.. record.Tickets.Select(t => new SeriesTicketFact(t))], SeriesRecords.T);
+        return new SeriesPullRequestTools(_beat, new SeriesMasterContext(pipeline, project), _acts.Object,
             SeriesFinalDoubles.Merge(sources, _launch.Object), SeriesFinalDoubles.Ci(sources));
     }
 
@@ -45,9 +46,28 @@ public sealed class SeriesPullRequestToolsTests
     [InlineData("auto", BranchProtection.Respect)]
     public async Task MergePullRequest_ATicket_ReachesTheMergeActWithItsProtection(string how, BranchProtection protection)
     {
-        _acts.Setup(a => a.MergeAsync(It.IsAny<SeriesRunRecord>(), "44", protection, It.IsAny<CancellationToken>())).ReturnsAsync("api: merged");
+        _acts.Setup(a => a.MergeAsync(It.IsAny<SeriesRunRecord>(), "44", protection, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SeriesMergeOutcome("api: merged", Moved: true));
 
         (await Tools().MergePullRequestAsync("SCRUM-44", how, "CI is green")).Should().Be("api: merged");
+    }
+
+    // 2026-11-25-96aeb: the act says what the merge did, and an override is said even without a reason.
+    [Fact]
+    public async Task MergePullRequest_ARefusal_IsSaidAsRefused_AndAnOverrideIsSaidWithItsReason()
+    {
+        _acts.Setup(a => a.MergeAsync(It.IsAny<SeriesRunRecord>(), "44", BranchProtection.Bypass, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SeriesMergeOutcome("api: not merged: #43, a prerequisite, ...", Moved: false));
+        _acts.Setup(a => a.MergeAsync(It.IsAny<SeriesRunRecord>(), "44", BranchProtection.Bypass, "43 only renames", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SeriesMergeOutcome("api: merged", Moved: true, Overrode: true));
+        var tools = Tools();
+
+        await tools.MergePullRequestAsync("SCRUM-44", "now", "CI is green");
+        _beat!.ActDid.Should().Be("merge of SCRUM-44 refused");
+        await tools.MergePullRequestAsync("SCRUM-44", "now", overrideReason: " 43 only renames ");
+
+        _beat.ActDid.Should().Be("merged SCRUM-44 (now) over its refusal; override: 43 only renames");
+        _beat.Said.Should().EndWith("agent-smith merged SCRUM-44 (now) over its refusal; override: 43 only renames");
     }
 
     [Fact]

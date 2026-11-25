@@ -10,12 +10,12 @@ namespace AgentSmith.Application.Services.Series;
 public static class SeriesMilestones
 {
     /// <summary>The members that merged since the last beat, with how many are in — less the ones whose newest act is the
-    /// master's own merge, which was said with that act.</summary>
+    /// master's own merge, which was said with that act (2026-11-25-96aeb: a merge it was refused says nothing of the kind).</summary>
     public static string? Merged(SeriesBeat beat)
     {
         ArgumentNullException.ThrowIfNull(beat);
         var merged = Turned(beat, SeriesTicketKinds.Merged)
-            .Where(f => beat.Record.Acts.LastOrDefault(a => a.Ticket == f.Ticket.TicketId)?.Tool != SeriesPullRequestTools.MergeTool)
+            .Where(f => !SeriesTicketMerge.Merged(beat.Record.Acts.LastOrDefault(a => a.Ticket == f.Ticket.TicketId)))
             .Select(f => f.Ticket.Key).ToList();
         return merged.Count == 0 ? null
             : $"{Join(merged)} merged; {beat.Facts.Count(f => f.Landed)} of {beat.Facts.Count} are in.";

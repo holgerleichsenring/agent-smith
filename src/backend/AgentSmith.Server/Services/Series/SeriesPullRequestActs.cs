@@ -21,13 +21,22 @@ public sealed class SeriesPullRequestActs(
     SeriesMergeNextAct merge, TicketProjects projects, PrReviewRecordRepository records, BaseRefreshAsked refreshes,
     PullRequestRetargetRun retargets, ISourceProviderFactory sources, SeriesTicketCi ci) : ISeriesPullRequestActs
 {
-    public async Task<string> MergeAsync(SeriesRunRecord series, string ticketId, BranchProtection how, CancellationToken cancellationToken)
+    /// <summary>2026-11-25-96aeb: the hint a refusal an override passes ends with.</summary>
+    public const string OverrideHint = "To merge it anyway, call merge_pull_request again with overrideReason: one sentence of why it lands now.";
+
+    public async Task<SeriesMergeOutcome> MergeAsync(
+        SeriesRunRecord series, string ticketId, BranchProtection how, string? overrideReason, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(series);
-        var result = await merge.MergeAsync(series.Id, ticketId, SeriesTicketMessage.AuthorOf(projects.Of(series.Project)), cancellationToken, how);
-        if (result.Refusal is { } refused) return refused;
-        return result.Body is SeriesMergeAnswer { PullRequests: { Count: > 0 } lines }
-            ? string.Join(" ", lines.Select(l => l.Text)) : $"Ticket {ticketId}: the merge run said nothing per repository.";
+        var result = await merge.MergeAsync(series.Id, ticketId, SeriesTicketMessage.AuthorOf(projects.Of(series.Project)), judged: false,
+            cancellationToken, how, overrideReason);
+        if (result.Refusal is { } refused) return new(refused, Moved: false);
+        if (result.Body is not SeriesMergeAnswer { PullRequests: { Count: > 0 } lines })
+            return new($"Ticket {ticketId}: the merge run said nothing per repository.", Moved: false);
+        var moved = lines.Count(l => l.Outcome is "merged" or "armed");
+        var hint = moved < lines.Count && overrideReason is null && lines.Any(l => l.Overridable);
+        var text = string.Join(" ", lines.Select(l => l.Overrode.Count == 0 ? l.Text : $"{l.Text} (went past: {string.Join("; ", l.Overrode)})"));
+        return new(hint ? $"{text} {OverrideHint}" : text, moved == lines.Count, lines.Any(l => l.Overrode.Count > 0), moved is > 0 && moved < lines.Count);
     }
 
     public async Task<string> RefreshAsync(SeriesRunRecord series, string ticketId, CancellationToken cancellationToken)

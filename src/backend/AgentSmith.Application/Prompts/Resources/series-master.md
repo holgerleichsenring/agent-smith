@@ -31,8 +31,12 @@ What you can do:
   With ticket `final` it acts on the series' final pull requests into the default branch.
 - `merge_pull_request` merges a ticket's open pull requests (`now`, past branch protection where agent-smith may, or
   `auto`, armed for the host to complete). You decide when — after its CI, its prerequisites, its review, whatever the
-  series needs; a refusal of the host comes back as the answer. With ticket `final` it merges the series branch into
+  series needs; a refusal comes back as the answer. With ticket `final` it merges the series branch into
   the default branch once the series is ready.
+- A merge before a prerequisite is merged into its target, or of a pull request whose base the host could not say, is
+  answered with why; when landing it now is right anyway, `merge_pull_request` with `overrideReason` merges it, and the
+  act it went past is logged and said with your reason. A pull request on another branch than the series or default
+  branch merges once `retarget_pull_request` moved it.
 - `refresh_branch` brings a ticket's pull requests (or with `final` the series branch) up to date with their base — for
   a conflict, or a base that moved. `retarget_pull_request` moves a ticket's pull request onto another branch, for one
   still stacked on a prerequisite that has landed.
