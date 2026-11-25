@@ -49,4 +49,11 @@ public sealed record SeriesRunDetailView(
 
     /// <inheritdoc cref="QuestionChoices"/>
     public int? QuestionRecommended { get; init; }
+
+    /// <summary>2026-11-25-433fa: the key of the ticket whose pull requests merge next (the list row's), null when none is
+    /// ready — the chat's status line says it.</summary>
+    public string? NextMerge { get; init; }
+
+    /// <summary>2026-11-25-433fa: how far the series is, one of <see cref="SeriesProgressWord"/>'s words — merged over total.</summary>
+    public string Progress { get; init; } = SeriesProgressWord.None;
 }

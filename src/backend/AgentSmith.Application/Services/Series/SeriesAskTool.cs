@@ -10,7 +10,9 @@ namespace AgentSmith.Application.Services.Series;
 /// The series goes on meanwhile; the answer reaches the master in a later beat.</summary>
 public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int defaultMinutes)
 {
-    public AIFunction GetTool() => AIFunctionFactory.Create(AskHumanAsync, "ask_human");
+    public const string Name = "ask_human";
+
+    public AIFunction GetTool() => AIFunctionFactory.Create(AskHumanAsync, Name);
 
     [Description("Asks the operator, in the conversation, one decision only they can make. Recommend a choice where you can: it is taken by default at the deadline if nobody answers. The series goes on meanwhile and the answer reaches you in a later beat.")]
     public async Task<string> AskHumanAsync(

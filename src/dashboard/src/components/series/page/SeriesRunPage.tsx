@@ -11,11 +11,13 @@ import "@/styles/series.css";
 import { SeriesConversationSection } from "./SeriesConversationSection";
 import { SeriesOverviewSection } from "./SeriesOverviewSection";
 import { SeriesSectionBar } from "./SeriesSectionBar";
+import { SeriesStatusLine } from "./SeriesStatusLine";
 import { useSeriesRunDetail } from "./useSeriesRunDetail";
 
 // 2026-11-23-31dcd: one series, built like the ticket page — its bar beside the icon-only sidebar.
 // 2026-11-25-9992j: ONE pane — the graph (what the series stands at) and the series chat below it, the page's only input.
 // The sections are gone; an older ?section=talk link scrolls to the chat, any other name lands on the top.
+// 2026-11-25-433fa: the chat opens with the series' status line, pinned while the chat scrolls.
 
 export const SERIES_CHAT_ID = "series-chat";
 
@@ -52,6 +54,7 @@ function SeriesPane({ detail }: { detail: SeriesRunDetail }) {
           <SeriesOverviewSection detail={detail} />
           <section ref={chat} id={SERIES_CHAT_ID} className="sr-chat" aria-label={t("series.chat.title")} data-testid="series-chat">
             <h2>{t("series.chat.title")}</h2>
+            <SeriesStatusLine detail={detail} />
             <SeriesConversationSection detail={detail} />
           </section>
         </section>

@@ -162,7 +162,15 @@ export interface SeriesRunDetail {
    *  draws them as buttons, and a choice sent as a message is the answer. */
   questionChoices: string[];
   questionRecommended: number | null;
+  /** 2026-11-25-433fa: the key of the ticket whose pull requests merge next; null when none is ready. */
+  nextMerge?: string | null;
+  /** 2026-11-25-433fa: how far the series is — merged over total, as the server words it (SeriesProgressWord). */
+  progress?: SeriesProgressWord;
 }
+
+/** 2026-11-25-433fa: none before the first merge, all once every ticket merged, else the nearest mark. */
+export type SeriesProgressWord =
+  | "none" | "begun" | "quarter" | "third" | "half" | "twoThirds" | "threeQuarters" | "nearly" | "all";
 
 /** 2026-11-24-f9c5f: one repo's final pull request of a series, as its last beat saw it. */
 export interface SeriesRunDelivery {

@@ -20,6 +20,11 @@
 .mock-tickets .sr-state.bad { color: var(--bad); }
 .mock-tickets .sr-chat { display: grid; gap: 10px; min-width: 0; margin-top: 22px; scroll-margin-top: 16px; }
 .mock-tickets .sr-chat h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--ink); }
+/* 2026-11-25-433fa: the status line stays at the top of the chat while it scrolls. */
+.mock-tickets .sr-status {
+  position: sticky; top: 0; z-index: 1; margin: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--ink); font-size: 13px; overflow-wrap: anywhere;
+}
 .mock-tickets .sr-talk { display: flex; flex-direction: column; gap: 12px; min-width: 0; background: transparent; }
 /* 2026-11-23-f562: the order graph (repo lanes, depth columns, one colour per ticket by the server's kind, orthogonal
    edges, the needed chain in the accent) and a node's details. The graph scrolls sideways inside its own box, never the

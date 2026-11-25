@@ -15,6 +15,10 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
 
     public DateTimeOffset Now { get; } = now;
 
+    /// <summary>2026-11-25-433fa: the series' state when the beat read it — a beat that moved it (the check, delivering, done)
+    /// tells every member's page at its end.</summary>
+    public string StartState { get; } = record.State;
+
     /// <summary>2026-11-25-9992h: the name the series acts under — its project's machine identity, agent-smith without one.</summary>
     public string Actor { get; set; } = Contracts.Runs.AttemptChannels.SeriesActor;
 

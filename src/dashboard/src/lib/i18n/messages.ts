@@ -928,6 +928,20 @@ export const coreMessages = {
   // 2026-11-25-9992j: the series page is the graph and the chat; a ticket's details are to read.
   "series.chat.title": { en: "Chat", de: "Chat" },
   "series.chat.questionHint": { en: "Or write your own answer below.", de: "Oder schreib unten deine eigene Antwort." },
+  // 2026-11-25-433fa: the status line pinned at the top of the chat, worded from what the server read.
+  "series.status.label": { en: "Where the series stands", de: "Stand der Serie" },
+  "series.status.merged": { en: "{merged} of {total} merged", de: "{merged} von {total} gemergt" },
+  "series.status.working": { en: { one: "1 in progress: {keys}", other: "{count} in progress: {keys}" }, de: { one: "1 in Arbeit: {keys}", other: "{count} in Arbeit: {keys}" } },
+  "series.status.more": { en: "+{count}", de: "+{count}" },
+  "series.status.needsYou": { en: { one: "1 needs you", other: "{count} need you" }, de: { one: "1 braucht dich", other: "{count} brauchen dich" } },
+  "series.status.next": { en: "next: {key}", de: "als Nächstes: {key}" },
+  "series.status.progress.begun": { en: "just begun", de: "gerade begonnen" },
+  "series.status.progress.quarter": { en: "about a quarter done", de: "etwa ein Viertel geschafft" },
+  "series.status.progress.third": { en: "about a third done", de: "etwa ein Drittel geschafft" },
+  "series.status.progress.half": { en: "about half done", de: "etwa die Hälfte geschafft" },
+  "series.status.progress.twoThirds": { en: "about two thirds done", de: "etwa zwei Drittel geschafft" },
+  "series.status.progress.threeQuarters": { en: "about three quarters done", de: "etwa drei Viertel geschafft" },
+  "series.status.progress.nearly": { en: "nearly done", de: "fast geschafft" },
   "series.graph.working": { en: "working on it now", de: "wird gerade bearbeitet" },
   "series.details.cost": { en: "Cost so far: {cost}", de: "Bisher gekostet: {cost}" },
   // 2026-11-25-9992e: the series master's newest act on the ticket, in its own words.
