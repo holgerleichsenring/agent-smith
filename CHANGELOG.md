@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.212.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.212.0...v0.212.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **ci:** newest Azure PR status per context decides (2026-11-25-ef94) ([2205427](https://github.com/holgerleichsenring/agent-smith/commit/22054273de88c186c2362a2fcee84b014c7bdd17))
+* **ci:** newest Azure PR status per context decides before not-applicable is dropped (2026-11-25-ef94) ([a7085ae](https://github.com/holgerleichsenring/agent-smith/commit/a7085aece2b0f1da6c9118120fbd302c7a797947))
+
 ## [0.212.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.211.0...v0.212.0) (2026-11-25)
 
 
