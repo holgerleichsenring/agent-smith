@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-c4eb
+goal: "An Azure pull request's sweep refresh name holds every listed field its record mirrors, so a retarget, conflict, draft lift or foreign push re-reads it once."
+
+applies_to: "default (Infrastructure Azure Repos changed-PR list, change sweep)"
+
+requires: [2026-10-13-9a59c, 2026-11-24-6811a, 2026-11-24-9dc0c]
+
+facts:
+  - claim: "The RefreshOnly item was named by reviewer votes only and a pull request without reviewers yielded nothing, so the record was re-read only when a vote changed."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposChangedPullRequests.cs:35-39 (before)"
+  - claim: "The sweep nudges a Dedupe name once per process; a new name is a new nudge."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepSources.cs:57"
+  - claim: "The refresh read mirrors head, draft, conflicts (merge status and merged target commit) and auto-complete from the pull request."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:35-39"
+  - claim: "A stacked PR retargeted to its base and then conflicting kept HasConflicts=0 and a days-old CheckedAt in its record while Azure reported mergeStatus=conflicts, so the UI showed PR waiting."
+    evidence: "observed: 2026-11-25, production database read-only"
+
+scope:
+  in: "Refresh name = id, target ref, merge status, draft, last merge source and target commit, auto-complete set, votes; a refresh item for a PR without reviewers; tests."
+  out: "The -5 wait-for-author item (unchanged). A target branch that moves while Azure keeps its old merge (no new merged target commit, no merge status change) is not in the list, so the stale-target read (9dc0c) still waits for another change; reading every target tip per sweep is not done here. GitHub and GitLab listers have the same blind spot (GitHub lists only reviews newer than the cursor; GitLab keys on updated_at, which a base-branch move does not touch) and are left to the GitHub/GitLab parity work in progress."
+
+done:
+  - "A merge status change, retarget, draft lift, head change, merged target change and auto-complete change each yield a new refresh name; an unchanged PR keeps its name."
+  - "A PR without reviewers yields one refresh item."
