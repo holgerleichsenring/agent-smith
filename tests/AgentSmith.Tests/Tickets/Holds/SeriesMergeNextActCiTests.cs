@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Server.Models;
@@ -14,7 +15,8 @@ public sealed class SeriesMergeNextActCiTests
     private static readonly MergePolicyConfig Respect = new() { RespectBranchProtection = true };
 
     private static SeriesRunTicketView Ticket(params string?[] ci) => new("42", "#42", "T", false, 0, [], ["api"], false, "success",
-        [.. ci.Select((c, i) => new SeriesRunPullRequestView($"repo{i}", $"{i}", $"u{i}", PrReviewStates.Open, c, null, null, null))]);
+        [.. ci.Select((c, i) => new SeriesRunPullRequestView($"repo{i}", $"{i}", $"u{i}", PrReviewStates.Open, c, null, null, null))])
+        { Ci = PullRequestHeadCi.Of(ci) }; // 2026-11-25-9992a: the ticket's one CI, as SeriesStatusReader sets it
 
     [Fact]
     public void CiHolds_Red_RefusesUnderEitherProtection()

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Series;
 using AgentSmith.Application.Services.Filing;
 using AgentSmith.Application.Services.Holds;
 using AgentSmith.Contracts.Models.Configuration;
@@ -21,9 +22,6 @@ namespace AgentSmith.Server.Services.Tickets.Holds;
 public sealed class TicketOpenPullRequestsReader(
     ITicketRequirementStore requirements, ITicketLandingStore landings, IServiceScopeFactory scopes)
 {
-    // 2026-11-23-0219: a build that never started outranks one that runs — nothing finishes it by itself.
-    private static readonly string[] Precedence = [CiStates.Red, CiStates.NotStarted, CiStates.Pending, CiStates.Green, CiStates.None];
-
     public async Task<IReadOnlyDictionary<(string Project, string TicketId), TicketOpenPullRequests>> ReadAsync(
         ILookup<(string Project, string TicketId), PrReviewRecordView> records, IReadOnlyDictionary<string, ResolvedProject> configured,
         CancellationToken ct)
@@ -50,8 +48,8 @@ public sealed class TicketOpenPullRequestsReader(
         IReadOnlyDictionary<string, PullRequestRefreshSaid>? refreshes = null)
     {
         ArgumentNullException.ThrowIfNull(open);
-        var ci = open.Select(Current).OfType<PrRecordCiView>().ToList();
-        var state = Precedence.FirstOrDefault(s => ci.Any(c => c.State == s));
+        var ci = open.Select(AgentSmith.Application.Services.Series.PullRequestHeadCi.OnHead).OfType<PrRecordCiView>().ToList();
+        var state = AgentSmith.Application.Services.Series.PullRequestHeadCi.Of(ci.Select(c => c.State)); // 2026-11-25-9992a: the one rule
         var inState = ci.Where(c => c.State == state).ToList();
         // A wait or a failure holds since its first read; a green or quiet set since the last of them turned so.
         var since = state is CiStates.Red or CiStates.Pending or CiStates.NotStarted ? inState.Min(c => c.At) : inState.Max(c => c.At);
@@ -82,14 +80,6 @@ public sealed class TicketOpenPullRequestsReader(
         using var scope = scopes.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<PullRequestMergeSaidReader>().RefreshesAsync(urls, ct);
     }
-
-    // The record's CI on its head; a read for an older head is pending since the head moved; none before any read.
-    private static PrRecordCiView? Current(PrReviewRecordView record) => record.Ci switch
-    {
-        null => null,
-        { } read when read.IsOn(record.HeadSha) => read,
-        _ => new PrRecordCiView(CiStates.Pending, record.HeadSha, record.HeadMovedAt, []),
-    };
 
     // The display keys of each ticket's requirements that have not landed — one edge read and one landing read per project.
     private async Task<Dictionary<string, IReadOnlyList<string>>> UnlandedAsync(

@@ -32,9 +32,13 @@ public sealed class SeriesRunSweeper(IServiceScopeFactory scopes, TimeProvider c
         await using var scope = scopes.CreateAsyncScope();
         var store = scope.ServiceProvider.GetRequiredService<ISeriesRunStore>();
         var started = 0;
+        var idle = new List<SeriesRunRecord>(); // a series runs one beat at a time: one under way reads nothing
         foreach (var record in await store.ActiveAsync(ct))
+            if (!await UnfinishedAsync(scope.ServiceProvider, record.BeatRunId, ct)) idle.Add(record);
+        var facts = await FactsAsync(scope.ServiceProvider, idle, ct);
+        foreach (var record in idle)
         {
-            try { started += await BeatIfDueAsync(scope.ServiceProvider, store, record, ct) ? 1 : 0; }
+            try { started += await BeatIfDueAsync(scope.ServiceProvider, store, record, facts, ct) ? 1 : 0; }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogError(ex, "Series {Series} could not be beaten this scan", record.Id);
@@ -43,10 +47,24 @@ public sealed class SeriesRunSweeper(IServiceScopeFactory scopes, TimeProvider c
         return started;
     }
 
-    private async Task<bool> BeatIfDueAsync(IServiceProvider services, ISeriesRunStore store, SeriesRunRecord record, CancellationToken ct)
+    // 2026-11-25-9992a: every idle series' one state at once — one hold read per project, not one per series. A read that fails
+    // is left to each series, which then reads its own and fails alone.
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<SeriesTicketFact>>?> FactsAsync(
+        IServiceProvider services, IReadOnlyList<SeriesRunRecord> idle, CancellationToken ct)
     {
-        if (await UnfinishedAsync(services, record.BeatRunId, ct)) return false;
-        var facts = await services.GetRequiredService<ISeriesTicketFacts>().ReadAsync(record.Project, record.Tickets, ct);
+        if (idle.Count == 0) return null;
+        try { return await services.GetRequiredService<ISeriesTicketFacts>().ReadManyAsync(idle, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Series facts could not be read at once this scan; each series reads its own");
+            return null;
+        }
+    }
+
+    private async Task<bool> BeatIfDueAsync(IServiceProvider services, ISeriesRunStore store, SeriesRunRecord record,
+        IReadOnlyDictionary<string, IReadOnlyList<SeriesTicketFact>>? read, CancellationToken ct)
+    {
+        var facts = read?.GetValueOrDefault(record.Id) ?? await services.GetRequiredService<ISeriesTicketFacts>().ReadAsync(record, ct);
         if (await services.GetRequiredService<SeriesBeatDemand>().WhyAsync(record, facts, clock.GetUtcNow(), ct) is not { } why)
             return false;
         var runId = await services.GetRequiredService<ISeriesRunLaunch>()

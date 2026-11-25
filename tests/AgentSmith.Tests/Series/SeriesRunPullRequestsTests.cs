@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Server.Models;

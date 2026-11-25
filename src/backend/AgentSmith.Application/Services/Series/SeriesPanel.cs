@@ -20,7 +20,7 @@ public static class SeriesPanel
             SeriesTable.Money(facts.Sum(f => f.CostUsd) + record.MasterCostUsd),
             left is { } l ? $"{(now + l).UtcDateTime:HH:mm} UTC" : null, rows,
             [.. path.Select(f => f.Ticket.Key)], left is { } span ? $"{path.Count} tickets, about {SeriesTable.Duration(span)} left" : null,
-            SeriesPolicy.Line(project, dialogue, record.IntegrationBranch), question);
+            SeriesPolicy.Line(project, dialogue, record.IntegrationBranch), question) { WorkingOn = SeriesWorkingOn.Of(facts) };
     }
 
     private static string Head(SeriesRunRecord record, string? question) => record.State switch

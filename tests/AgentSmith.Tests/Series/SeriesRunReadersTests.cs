@@ -201,14 +201,15 @@ public sealed class SeriesRunReadersTests : IDisposable
     }
 
     [Fact]
-    public async Task SeriesRunCosts_SumsTheNamedTicketsOfTheProjectOnly()
+    public async Task SeriesRunCosts_SumsEachNamedTicketOfTheProjectOnly()
     {
         await _h.AddAsync(TicketStoreHarness.Run("run-1", ticket: "1", cost: 1.5m), TicketStoreHarness.Run("run-2", ticket: "1", cost: 2m),
             TicketStoreHarness.Run("run-3", ticket: "2", cost: 4m), TicketStoreHarness.Run("run-4", ticket: "1", project: "beta", cost: 8m));
 
-        var cost = await ReadAsync(s => s.GetRequiredService<SeriesRunCosts>().OfAsync("alpha", ["1"], default));
+        var cost = await ReadAsync(s => s.GetRequiredService<SeriesRunCosts>().ByTicketAsync("alpha", ["1"], default));
 
-        cost.Should().Be(3.5m);
+        cost.Keys.Should().Equal("1");
+        cost["1"].CostUsd.Should().Be(3.5m);
     }
 
     [Fact]
@@ -279,7 +280,7 @@ public sealed class SeriesRunReadersTests : IDisposable
         services.AddSingleton<ISeriesRunStore, SeriesRunRepository>().AddTransient<SeriesRunOrder>();
         services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>();
         services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
-            .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>();
+            .AddScoped<SeriesRunOverviewReader>().AddScoped<SeriesRunDetailReader>().AddScoped<SeriesParkedQuestion>().AddScoped<SeriesStatusReader>() /* 2026-11-25-9992a */;
         services.AddTransient<SeriesRunHolds>(); // 31dcg
     }
 

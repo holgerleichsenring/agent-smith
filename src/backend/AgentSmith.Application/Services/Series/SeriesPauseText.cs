@@ -15,7 +15,7 @@ public static class SeriesPauseText
     public static bool Running(SeriesTicketFact f) =>
         f is { LatestRunId: not null, LatestFinished: false } && f.LatestStatus is not (RunStatuses.Queued or RunStatuses.WaitingForInput);
 
-    public static bool CiRed(SeriesTicketFact f) => f is { Landed: false, LatestStatus: RunStatuses.Success, CiState: CiStates.Red };
+    public static bool CiRed(SeriesTicketFact f) => f is { Landed: false, LatestStatus: RunStatuses.Success, Ci: CiStates.Red };
 
     public static string Pause(bool already, IReadOnlyList<SeriesTicketFact> all, string runs) =>
         (already ? "The series stays paused. " : $"The series is paused: {Holds} ") + runs
@@ -26,7 +26,7 @@ public static class SeriesPauseText
     public static string Resume(IReadOnlyList<SeriesTicketFact> started, IReadOnlyList<SeriesTicketFact> all)
     {
         var ci = all.Where(CiRed).ToList();
-        var red = all.Where(f => !CiRed(f) && SeriesTicketState.Of(f, all).Kind == SeriesTicketState.Red).ToList();
+        var red = all.Where(f => !CiRed(f) && f.Kind == SeriesTicketKinds.Failed && f.LatestStatus != RunStatuses.Success).ToList();
         return "The series resumes" + (started.Count == 0 ? "." : $" and starts {Keys(started)}.")
             + (ci.Count == 0 ? string.Empty : $" The red CI of {Keys(ci)} goes back to the CI loop.")
             + (red.Count == 0 ? string.Empty : $" {Keys(red)} {(red.Count == 1 ? "is red and waits" : "are red and wait")} for a retry; "

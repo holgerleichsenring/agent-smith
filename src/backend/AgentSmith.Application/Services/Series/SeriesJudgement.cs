@@ -17,18 +17,24 @@ public static class SeriesJudgement
     public static IEnumerable<string> Stalled(SeriesBeat beat, int statusMinutes)
     {
         ArgumentNullException.ThrowIfNull(beat);
-        var running = beat.Rows.Where(r => r.Kind == SeriesTicketState.Running).Select(r => r.Ticket).ToList();
+        // 2026-11-22-d434b: a run waiting for its model place is another run's turn, not a stall
+        var running = beat.Facts.Where(f => f.Working && f.Hold?.Case != Holds.TicketHoldCases.ModelWait).Select(f => f.Ticket.Key).ToList();
         if (running.Count == 0 || beat.Table != beat.Record.LastTable
             || !SeriesBeatDue.Cadence(beat.Record, beat.Now, statusMinutes)) return [];
         return [$"Nothing moved for {statusMinutes} minutes while {string.Join(", ", running)} run(s): is one slow or stuck?"];
     }
 
+    /// <summary>2026-11-25-9992a: a failed ticket the last beat saw otherwise — absent, of another kind, or failed in other
+    /// words. A line of a snapshot stored before kinds were kept names no kind and flags nothing: the words changed with the
+    /// one state, not the tickets.</summary>
     public static IReadOnlyList<string> NewlyRed(SeriesRunRecord record, IReadOnlyList<SeriesTableRow> rows)
     {
         ArgumentNullException.ThrowIfNull(record);
         var before = SeriesTable.Parse(record.LastTable);
-        return [.. rows.Where(r => r.Kind == SeriesTicketState.Red
-                && (!before.TryGetValue(r.Ticket, out var was) || was != r.State))
+        return [.. rows.Where(r => r.Kind == SeriesTicketKinds.Failed && Turned(r, before))
             .Select(r => $"{r.Ticket} turned red: {r.State}")];
     }
+
+    private static bool Turned(SeriesTableRow row, IReadOnlyDictionary<string, (string? Kind, string State)> before) =>
+        !before.TryGetValue(row.Ticket, out var was) || (was.Kind is { } kind && (kind != row.Kind || was.State != row.State));
 }

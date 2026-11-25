@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Runs;
@@ -48,10 +49,24 @@ internal sealed class SeriesRig(DateTimeOffset start)
             LatestStatus = RunStatuses.Success, LatestFinished = true, LandedAt = start.AddHours(3), FirstStartedAt = start, CostUsd = 6m,
         };
 
-        public Task<IReadOnlyList<SeriesTicketFact>> ReadAsync(string project, IReadOnlyList<SeriesTicket> tickets, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<SeriesTicketFact>>([.. tickets.Select(t => _facts.TryGetValue(t.TicketId, out var f) ? f(t) : Base(t))]);
+        // 2026-11-25-9992a: the scripted one state; SeriesStatusReader itself is proven through the real composition
+        // (SeriesStatusReaderTests), this rig scripts what its runs would leave.
+        public Task<IReadOnlyList<SeriesTicketFact>> ReadAsync(SeriesRunRecord record, CancellationToken ct) =>
+            Task.FromResult(Read(record));
 
-        private static SeriesTicketFact Base(SeriesTicket t) => new(t) { Requires = Requires.GetValueOrDefault(t.TicketId) ?? [] };
+        public Task<IReadOnlyDictionary<string, IReadOnlyList<SeriesTicketFact>>> ReadManyAsync(
+            IReadOnlyList<SeriesRunRecord> records, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<SeriesTicketFact>>>(records.ToDictionary(r => r.Id, Read));
+
+        private IReadOnlyList<SeriesTicketFact> Read(SeriesRunRecord record) =>
+            [.. record.Tickets.Select(t => _facts.TryGetValue(t.TicketId, out var f) ? f(t) : Base(t))];
+
+        // 2026-11-25-9992a: a never-run ticket with requirements is held on them, as the ticket list's hold reads it.
+        private static SeriesTicketFact Base(SeriesTicket t) => Requires.GetValueOrDefault(t.TicketId) is { } requires
+            ? new(t) { Requires = requires, Hold = new AgentSmith.Application.Services.Holds.TicketHold(
+                AgentSmith.Application.Services.Holds.TicketHoldAddressees.Nobody, AgentSmith.Application.Services.Holds.TicketHoldCases.Prerequisite,
+                null, null) { Names = [.. requires.Select(id => $"#{id}")] } }
+            : new(t);
     }
 
     private sealed class RecordingLaunch(List<(string, string, string)> launches) : ISeriesRunLaunch

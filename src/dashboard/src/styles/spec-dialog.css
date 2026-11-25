@@ -130,9 +130,10 @@
 .mock-dialog .dl-series-what { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mock-dialog .dl-series-ticket-state { flex: 0 1 auto; min-width: 0; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
 .mock-dialog .dl-series-num { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
-.mock-dialog .dl-series-row:is([data-kind="running"], [data-kind="model wait"], [data-kind="green"]) .dl-series-ticket-state { color: var(--run); }
-.mock-dialog .dl-series-row[data-kind="red"] .dl-series-ticket-state { color: var(--bad); }
-.mock-dialog .dl-series-row[data-kind="landed"] .dl-series-ticket-state { color: var(--ok); }
+/* 2026-11-25-9992a: the server's one kind, as on the series Overview */
+.mock-dialog .dl-series-row:is([data-kind="running"], [data-kind="pr"], [data-kind="needed"]) .dl-series-ticket-state { color: var(--run); }
+.mock-dialog .dl-series-row[data-kind="failed"] .dl-series-ticket-state { color: var(--bad); }
+.mock-dialog .dl-series-row[data-kind="merged"] .dl-series-ticket-state { color: var(--ok); }
 .mock-dialog .dl-series-head { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; max-width: 100%; }
 .mock-dialog .dl-series-act { background: none; border: 0; padding: 0; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font: inherit; }
 .mock-dialog .dl-series-act:disabled { color: var(--ink-3); cursor: default; }
