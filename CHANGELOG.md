@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.222.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.221.0...v0.222.0) (2026-11-25)
+
+
+### Features
+
+* **series:** past dialogue.series_master_thread_max_chars the series master writes notes in place of its older beats, the latest stay; stored turns carry no table (2026-11-25-433fb) ([a92242f](https://github.com/holgerleichsenring/agent-smith/commit/a92242f2cbd2161aa65abf15f0ad1e18785b8186))
+* **series:** status line + milestones in the series chat; the master's thread compacts over days (2026-11-25-433fa, 433fb) ([c2ceaf1](https://github.com/holgerleichsenring/agent-smith/commit/c2ceaf185c4d7c202ba3cce959d3107fdab9d5a4))
+* **series:** the series chat pins one status line worded from the one truth and moves in place on the ticket nudge; merged and stuck milestones in one sentence (2026-11-25-433fa) ([fa44568](https://github.com/holgerleichsenring/agent-smith/commit/fa4456847dcebe1ff6ad527b503c4b2155c8ad18))
+
 ## [0.221.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.220.0...v0.221.0) (2026-11-25)
 
 
