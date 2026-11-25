@@ -117,15 +117,15 @@ public sealed class SeriesTableTests
         var facts = new[] { SeriesRecords.Fact("43", RunStatuses.Running, finished: false) };
         var record = SeriesRecords.Running();
 
-        SeriesBeatDue.Why(record, facts, SeriesRecords.T, 15).Should().NotBeNull("the first beat has seen nothing");
+        SeriesBeatDue.Why(record, facts, SeriesRecords.T).Should().NotBeNull("the first beat has seen nothing");
         var seen = record with { LastTable = SeriesTable.Snapshot(SeriesTable.Rows(facts, SeriesRecords.T)), LastStatusAt = SeriesRecords.T };
-        SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(14), 15).Should().BeNull();
-        SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(15), 15).Should().Be("the stall check is due");
+        SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(14)).Should().BeNull();
+        SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddDays(2)).Should().BeNull("2026-11-25-96aec: no beat runs on time alone");
     }
 
-    // 2026-11-25-9992e: a Delivering series has no CI-poll beat of its own; only the status cadence beats it.
+    // 2026-11-25-9992e: a Delivering series has no CI-poll beat of its own; 2026-11-25-96aec: nor a cadence beat.
     [Fact]
-    public void SeriesBeatDue_Delivering_BeatsOnTheStatusCadenceOnly()
+    public void SeriesBeatDue_Delivering_HasNoBeatOfItsOwn()
     {
         var facts = new[] { SeriesRecords.Fact("43", landed: SeriesRecords.T) };
         var record = SeriesRecords.Running() with
@@ -134,7 +134,7 @@ public sealed class SeriesTableTests
             LastStatusAt = SeriesRecords.T,
         };
 
-        SeriesBeatDue.Why(record, facts, SeriesRecords.T.AddSeconds(60), 15).Should().BeNull();
-        SeriesBeatDue.Why(record, facts, SeriesRecords.T.AddMinutes(15), 15).Should().Be("the stall check is due");
+        SeriesBeatDue.Why(record, facts, SeriesRecords.T.AddSeconds(60)).Should().BeNull();
+        SeriesBeatDue.Why(record, facts, SeriesRecords.T.AddMinutes(15)).Should().BeNull();
     }
 }

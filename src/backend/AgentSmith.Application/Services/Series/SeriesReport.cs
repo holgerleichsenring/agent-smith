@@ -21,8 +21,8 @@ public static class SeriesReport
         return messages;
     }
 
-    /// <summary>The record after the beat: the table it saw (what the next beat tells a change by), when it last ran —
-    /// the stall check's clock — and the messages it read.</summary>
+    /// <summary>The record after the beat: the table it saw (what the next beat tells a change by), when it last ran
+    /// (the final pull requests' poll reads it), and the messages it read.</summary>
     public static SeriesRunRecord Seen(SeriesRunRecord record, SeriesBeat beat) => record with
     {
         LastTable = beat.Table,

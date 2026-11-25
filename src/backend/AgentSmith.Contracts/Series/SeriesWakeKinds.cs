@@ -8,4 +8,7 @@ public static class SeriesWakeKinds
     public const string PullRequest = "pr";
     public const string Comment = "comment";
     public const string Run = "run";
+
+    /// <summary>2026-11-25-96aec: a person's new approval or change request on a ticket's pull request — never the master's own.</summary>
+    public const string Review = "review";
 }

@@ -13,7 +13,8 @@ namespace AgentSmith.Application.Services.Series;
 /// <para>2026-11-25-9992e: and logs it — a <see cref="SeriesAct"/> with the call's ticket (its id), what it did and its reason
 /// goes on the series' record (<see cref="SeriesRunRecord.Acts"/>) and into the log.</para>
 /// </summary>
-public sealed class SeriesActedFunction(AIFunction inner, SeriesBeat beat, ISeriesRunStore store, ILogger logger) : AIFunction
+public sealed class SeriesActedFunction(AIFunction inner, SeriesBeat beat, ISeriesRunStore store, ILogger logger, TimeProvider? clock = null)
+    : AIFunction
 {
     public override string Name => inner.Name;
     public override string Description => inner.Description;
@@ -26,9 +27,13 @@ public sealed class SeriesActedFunction(AIFunction inner, SeriesBeat beat, ISeri
         beat.MasterActed |= !(Name == SeriesPullRequestTools.CiTool
             && string.Equals(Text(arguments, "act")?.Trim(), SeriesCiActs.Read, StringComparison.OrdinalIgnoreCase));
         (beat.ActDid, beat.ActTicket) = (null, null);
+        var started = (clock ?? TimeProvider.System).GetUtcNow(); // 2026-11-25-96aec: what it recorded on its ticket is its own
         var result = await inner.InvokeAsync(arguments, cancellationToken);
         var ticket = beat.ActTicket ?? TicketOf(Text(arguments, "ticket")); // 2026-11-25-9992f: an added ticket by its new id
-        var act = new SeriesAct(beat.Now, Name, ticket, beat.ActDid ?? Name, Text(arguments, "reason"));
+        var act = new SeriesAct(beat.Now, Name, ticket, beat.ActDid ?? Name, Text(arguments, "reason"))
+        {
+            StartedAt = started, DoneAt = (clock ?? TimeProvider.System).GetUtcNow(),
+        };
         if (await store.UpdateAsync(beat.Record.Id, r => r with { Acts = [.. r.Acts, act] }, cancellationToken) is { } kept)
             beat.Record = kept;
         logger.LogInformation("Series {Series}: the master acted — {Tool} on {Ticket}, because {Reason}: {Outcome}",

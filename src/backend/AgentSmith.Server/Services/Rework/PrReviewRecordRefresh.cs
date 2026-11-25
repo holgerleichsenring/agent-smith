@@ -97,7 +97,7 @@ public sealed class PrReviewRecordRefresh(
                 await conflicts.LaunchIfDueAsync(project, repo, host, new RefreshedPullRequest(pr.Url, record.Number, pr.TicketId),
                     ConflictBaseRefresh.ConflictsSince(stored, record.HeadSha, new DateTimeOffset(record.CheckedAtTicks, TimeSpan.Zero)), ct);
             var wrote = await writer.WriteAsync(record, entries, start, ct);
-            if (held) foreach (var wake in SeriesPrChange.Of(stored, record)) await wakes.WakeAsync(project.Name, pr.TicketId, wake, ct); // 9992g
+            if (held) foreach (var wake in SeriesPrChange.Of(stored, record, entries, project.Merge.CiPendingSeconds)) await wakes.WakeAsync(project.Name, pr.TicketId, wake, ct); // 9992g
             return wrote;
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

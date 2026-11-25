@@ -18,12 +18,19 @@ public sealed class PullRequestBaseGuard(ISourceProviderFactory sources)
         ArgumentNullException.ThrowIfNull(repo);
         if (repo.Type == RepoType.Local) return null;
         if (await sources.Create(repo).ReadPullRequestBaseAsync(prUrl, ct) is not { } current)
-            return "its base could not be read from the host, so it is not known to target the default branch; left open";
+            return Unread;
         if (seriesBranch is not null && string.Equals(current, seriesBranch, StringComparison.Ordinal)) return null;
         var main = string.IsNullOrWhiteSpace(repo.DefaultBranch) ? null : repo.DefaultBranch;
         var wrong = main is null ? WorkBranches.Owns(current) : !string.Equals(current, main, StringComparison.Ordinal);
         if (!wrong) return null;
-        return $"targets '{current}', not the default branch{(main is null ? string.Empty : $" '{main}'")}, and merging it would "
-            + "land it there rather than on the default branch; left open until it is moved";
+        var onto = seriesBranch is null ? string.Empty : $"the series branch '{seriesBranch}' or "; // 2026-11-25-96aeb
+        return $"targets '{current}', not {onto}the default branch{(main is null ? string.Empty : $" '{main}'")}, and merging it would "
+            + "land it there rather than on the default branch; left open until it is retargeted";
     }
+
+    /// <summary>2026-11-25-96aeb: the refusal when the host could not say the base — one a judged merge passes.</summary>
+    public const string Unread = "its base could not be read from the host, so it is not known to target the default branch; left open";
+
+    /// <summary>2026-11-25-96aeb: the refusal is the unreadable base's.</summary>
+    public static bool IsUnread(string refusal) => string.Equals(refusal, Unread, StringComparison.Ordinal);
 }

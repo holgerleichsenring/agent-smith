@@ -79,28 +79,16 @@ public sealed class SeriesReportTests
         beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = "SCRUM-43=coding" };
 
         SeriesReport.Messages(beat, Project).Should().BeEmpty("the series page shows every ticket's state");
-        SeriesReport.Seen(beat.Record, beat).LastStatusAt.Should().Be(SeriesRecords.T.AddMinutes(45), "a quiet beat still restarts the stall clock");
+        SeriesReport.Seen(beat.Record, beat).LastStatusAt.Should().Be(SeriesRecords.T.AddMinutes(45), "a quiet beat still stamps when it ran");
     }
 
     [Fact]
-    public void Stalled_TableStillForAPeriodWhileTicketsRun_AsksTheMaster()
+    public void ATicketWaitingForItsModelPlace_ReadsAsRunning()
     {
-        var beat = new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T.AddMinutes(15));
-        beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = beat.Table };
-
-        SeriesJudgement.Stalled(beat, 15).Should().ContainSingle().Which.Should().Contain("SCRUM-43");
-    }
-
-    [Fact]
-    public void Stalled_TheOnlyLiveTicketWaitsForItsModelPlace_AsksNothing()
-    {
-        // 2026-11-22-d434b: measured — every beat said "nothing moved" while #43 waited on the model gate.
+        // 2026-11-22-d434b: a run waiting for its model place is another run's turn, not a stall.
         SeriesTicketFact[] facts = [Facts()[0].Held(AgentSmith.Application.Services.Holds.TicketHoldAddressees.Nobody,
             AgentSmith.Application.Services.Holds.TicketHoldCases.ModelWait), .. Facts()[1..]];
-        var beat = new SeriesBeat(SeriesRecords.Running(), facts, SeriesRecords.T.AddMinutes(15));
-        beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = beat.Table };
 
-        SeriesJudgement.Stalled(beat, 15).Should().BeEmpty("a run waiting for its model place is not stuck");
         (facts[0].State, facts[0].Kind).Should().Be(("waiting for its model place", SeriesTicketKinds.Running));
     }
 

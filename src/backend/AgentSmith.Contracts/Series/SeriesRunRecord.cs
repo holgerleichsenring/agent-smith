@@ -31,7 +31,7 @@ public sealed record SeriesRunRecord(
     /// <summary>The newest verify run's id.</summary>
     public string? VerifyRunId { get; init; }
 
-    /// <summary>When the last beat ran: the stall check's clock, and null until the opening is posted.</summary>
+    /// <summary>When the last beat ran, and null until the opening is posted.</summary>
     public DateTimeOffset? LastStatusAt { get; init; }
 
     /// <summary>The table as the last beat saw it, to tell a change; 2026-11-25-e94eb: never posted.</summary>
@@ -57,7 +57,11 @@ public sealed record SeriesRunRecord(
     /// <summary>2026-11-25-9992g: what happened on its tickets that the master has not judged yet, oldest first.</summary>
     public IReadOnlyList<SeriesWake> Wakes { get; init; } = [];
 
-    /// <summary>2026-11-25-9992g: when the master's loop last failed; its wakes then wait a status period before the next try.
+    /// <summary>2026-11-25-96aec: the once-keys the series has raised (<see cref="SeriesWake.Once"/>, a check run that ended
+    /// without a verdict): each wakes its master once, ever.</summary>
+    public IReadOnlyList<string> Raised { get; init; } = [];
+
+    /// <summary>2026-11-25-9992g: when the master's loop last failed; nothing beats it for dialogue.series_status_minutes after.
     /// Null once it judged again.</summary>
     public DateTimeOffset? MasterFailedAt { get; init; }
 

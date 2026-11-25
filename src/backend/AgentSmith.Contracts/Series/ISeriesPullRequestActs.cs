@@ -8,9 +8,12 @@ namespace AgentSmith.Contracts.Series;
 /// </summary>
 public interface ISeriesPullRequestActs
 {
-    /// <summary>The ticket's waiting pull requests through a merge-green run asked by the series master and judged:
-    /// <paramref name="how"/> Bypass merges now where the identity may, Respect arms the host's auto-merge.</summary>
-    Task<string> MergeAsync(SeriesRunRecord series, string ticketId, BranchProtection how, CancellationToken cancellationToken);
+    /// <summary>The ticket's waiting pull requests through a merge-green run asked by the series master:
+    /// <paramref name="how"/> Bypass merges now where the identity may, Respect arms the host's auto-merge. 2026-11-25-96aeb: checked —
+    /// an unlanded prerequisite or an unreadable base refuses unless <paramref name="overrideReason"/> says why to merge anyway; a
+    /// base off the series and default branch always refuses.</summary>
+    Task<SeriesMergeOutcome> MergeAsync(
+        SeriesRunRecord series, string ticketId, BranchProtection how, string? overrideReason, CancellationToken cancellationToken);
 
     /// <summary>A refresh-base run for each of the ticket's open pull requests.</summary>
     Task<string> RefreshAsync(SeriesRunRecord series, string ticketId, CancellationToken cancellationToken);

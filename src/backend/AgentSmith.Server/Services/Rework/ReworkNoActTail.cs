@@ -38,6 +38,7 @@ public sealed class ReworkNoActTail(
     private async Task<bool> HeldAsync(ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, CancellationToken ct) =>
         nudge.Origin == ReworkNudgeOrigin.RunEnd
             ? await wakes.WakeAsync(project.Name, nudge.TicketId,
-                new SeriesWake(SeriesWakeKinds.Run, $"its run {attempt.RunId} ended {attempt.Status}"), ct)
+                new SeriesWake(SeriesWakeKinds.Run, $"its run {attempt.RunId} ended {attempt.Status}")
+                { Once = $"run:{attempt.RunId}:{attempt.Status}" }, ct) // 2026-11-25-96aec: an act's run end re-reads the same attempt
             : await seriesRuns.HoldsTicketAsync(project.Name, nudge.TicketId, ct);
 }

@@ -24,16 +24,19 @@ namespace AgentSmith.Server.Services.Series;
 /// base on the host and hands back each repo's outcome; a lease another run holds is said as such.
 /// <para>2026-11-24-a4e7: a run that merged or armed a pull request has the ticket's records read from the host before the
 /// act answers, so the page's next read shows the merge instead of the same Merge again.</para>
-/// <para>2026-11-25-9992e: the merge is judged — whoever asked decided it — so no merge-order, CI, prerequisite, rung or base
-/// refusal holds it; the host's own rules still answer. The master names the protection: now past it, or armed. It reads the
+/// <para>2026-11-25-9992e: a person's merge is judged — the click decided it — so no merge-order, CI, prerequisite, rung or base
+/// refusal holds it; the host's own rules still answer. 2026-11-25-96aeb: the series master's is checked (see
+/// <see cref="AgentSmith.Application.Services.Handlers.PullRequestMergeSequence"/>) unless it gives an override reason. The master names the protection: now past it, or armed. It reads the
 /// series and the records only, so a process without the dashboard's readers runs it as well.</para>
 /// </summary>
 public sealed class SeriesMergeNextAct(
     ISeriesRunStore series, TicketProjects projects, PrReviewRecordRepository pullRequests, IPreviousAttemptReader attempts,
     IMergeGreenRun merges, IPrRecordRefreshNow records)
 {
-    public async Task<TicketCloseResult> MergeAsync(string seriesId, string ticketId, string askedBy, CancellationToken ct,
-        BranchProtection? protection = null)
+    /// <param name="judged">2026-11-25-96aeb: true for a person's merge from the series page, which no order check holds; the
+    /// series master's is checked, and judged only when it gives <paramref name="overrideReason"/>.</param>
+    public async Task<TicketCloseResult> MergeAsync(string seriesId, string ticketId, string askedBy, bool judged, CancellationToken ct,
+        BranchProtection? protection = null, string? overrideReason = null)
     {
         if (await series.GetAsync(seriesId, ct) is not { } record || projects.Of(record.Project) is not { } project)
             return TicketCloseResult.Refuse(Status404NotFound, $"There is no series {seriesId}.");
@@ -45,7 +48,9 @@ public sealed class SeriesMergeNextAct(
             return TicketCloseResult.Refuse(Status409Conflict, $"{ticket.Key} has no attempt whose pull requests could merge.");
         var request = new CiGreenMergeRequest(ticketId, attempt.RunId, TicketBranchNamer.Compose(new TicketId(ticketId)).Value, waiting)
         {
-            AskedBy = askedBy, Judged = true, SeriesBranch = record.IntegrationBranch, Protection = protection,
+            AskedBy = askedBy, Judged = judged || overrideReason is not null, ChecksTarget = !judged, OverrideReason = overrideReason,
+            SeriesBranch = record.IntegrationBranch, Protection = protection,
+            SeriesMembers = record.IntegrationBranch is null ? [] : [.. record.Tickets.Select(t => t.TicketId)],
         };
         return await RunAsync(project, ticket, request, ct);
     }
@@ -70,5 +75,5 @@ public sealed class SeriesMergeNextAct(
     }
 
     private static SeriesMergeOutcomeView View(PullRequestMergeLine line) =>
-        new(line.Repo, line.Outcome.ToString().ToLowerInvariant(), line.Text);
+        new(line.Repo, line.Outcome.ToString().ToLowerInvariant(), line.Text) { Overridable = line.Overridable, Overrode = line.Overrode };
 }

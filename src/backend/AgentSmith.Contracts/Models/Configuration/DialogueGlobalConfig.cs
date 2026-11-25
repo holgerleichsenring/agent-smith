@@ -68,9 +68,13 @@ public sealed class DialogueGlobalConfig
     /// <summary>2026-11-25-433fb: the latest beats a compaction of the series master's thread keeps verbatim. Default 4.</summary>
     public int SeriesMasterThreadKeepTurns { get; set; } = 4;
 
-    /// <summary>2026-11-17-0207b: the series beat's cadence in minutes. 2026-11-25-e94eb: no table is posted any more;
-    /// it is how long nothing may move while tickets run before the master looks whether one is stuck.</summary>
+    /// <summary>2026-11-17-0207b: the series beat's cadence in minutes. 2026-11-25-96aec: no beat runs on a cadence any more;
+    /// it is how long a series master's events wait after its loop failed before the next try.</summary>
     public int SeriesStatusMinutes { get; set; } = 15;
+
+    /// <summary>2026-11-25-96aec: how long, in seconds, the oldest waiting event on a series' tickets may wait so the events
+    /// arriving together reach its master as one turn; 0 wakes it at once. A cap on the delay, not a quiet period. Default 60.</summary>
+    public int SeriesWakeSettleSeconds { get; set; } = 60;
 
     /// <summary>2026-11-17-0207c: how long a series waits on a question that names a recommendation before it takes the
     /// recommendation, in minutes — the operator's policy; a question without one waits for the operator.</summary>

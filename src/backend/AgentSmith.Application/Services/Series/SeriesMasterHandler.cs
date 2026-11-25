@@ -28,7 +28,7 @@ public sealed class SeriesMasterHandler(
     ISeriesConversation conversation, SeriesProgress progress, SeriesPause pause, ISeriesPullRequestActs pullRequests,
     SeriesFinalMerge finals, SeriesFinalCi finalCi, SeriesBudgetQuestion budgets, // 2026-11-25-9992g
     ISeriesEditActs edits, // 2026-11-25-9992f
-    ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null)
+    ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null, TimeProvider? clock = null)
     : ICommandHandler<SeriesMasterContext>
 {
     public const string MasterName = "series-master";
@@ -63,7 +63,7 @@ public sealed class SeriesMasterHandler(
         return CommandResult.Ok($"The series master judged: {string.Join("; ", beat.Reasons)}");
     }
 
-    // 2026-11-25-9992g: a failed loop keeps its wakes and the spend it made; they wait a status period, not the next sweep.
+    // 2026-11-25-9992g: a failed loop keeps its wakes and the spend it made; they wait dialogue.series_status_minutes, not the next sweep.
     private async Task<CommandResult> FailedAsync(SeriesBeat beat, Exception ex, decimal spent, CancellationToken ct)
     {
         logger.LogWarning(ex, "Series {Series}: the master's loop failed", beat.Record.Id);
@@ -71,7 +71,7 @@ public sealed class SeriesMasterHandler(
             is { } kept) beat.Record = kept;
         var minutes = config.Dialogue.SeriesStatusMinutes;
         return CommandResult.Fail($"The series master's loop failed ({ex.Message}); its events wait {minutes} minutes "
-            + "(dialogue.series_status_minutes, the stall cadence) so a failing model is not retried every sweep.");
+            + "(dialogue.series_status_minutes) so a failing model is not retried every sweep.");
     }
 
     private AgenticLoopRequest Request(SeriesMasterContext context, SeriesBeat beat, string prompt)
@@ -86,7 +86,7 @@ public sealed class SeriesMasterHandler(
         var prs = new SeriesPullRequestTools(beat, context, pullRequests, finals, finalCi).GetTools(); // 2026-11-25-9992e
         var cut = new SeriesEditTools(beat, edits, store).GetTools(); // 2026-11-25-9992f
         var acted = new SeriesActTools(beat, acts, store, pause).GetTools().Append(ask).Append(check).Concat(prs).Concat(cut)
-            .Select(f => (AIFunction)new SeriesActedFunction(f, beat, store, logger));
+            .Select(f => (AIFunction)new SeriesActedFunction(f, beat, store, logger, clock));
         IList<AITool> tools = [.. new SeriesReadTools(beat).GetTools().Concat(acted)
             .Select(f => new MidTurnMessageAIFunction(f, messages)), .. records?.Tools() ?? []];
         var agent = context.Project.Agent;
@@ -102,6 +102,7 @@ public sealed class SeriesMasterHandler(
         {
             ThreadJson = SeriesThread.Append(r.ThreadJson, prompt, answer), MasterCostUsd = r.MasterCostUsd + spent,
             Wakes = beat.Unjudged(r.Wakes), MasterFailedAt = null, // 2026-11-25-9992g: exactly the wakes it judged
+            Raised = [.. r.Raised, .. beat.Raised.Where(k => !r.Raised.Contains(k))], // 2026-11-25-96aec
         }, ct);
         if (kept is not null) beat.Record = kept;
     }

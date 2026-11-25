@@ -14,4 +14,14 @@ public static class SeriesActSay
         if (!string.IsNullOrWhiteSpace(reason)) beat.Said.Add($"{beat.Actor} {did}: {reason.Trim()}");
         return answer;
     }
+
+    /// <summary>2026-11-25-96aeb: an act whose words carry its own why (a merge over a refusal, with its override) is said
+    /// without a reason.</summary>
+    public static string Told(SeriesBeat beat, string did, string answer)
+    {
+        ArgumentNullException.ThrowIfNull(beat);
+        beat.ActDid = did;
+        beat.Said.Add($"{beat.Actor} {did}");
+        return answer;
+    }
 }

@@ -51,7 +51,7 @@ internal static class SeriesRunEndpoints
     {
         ArgumentNullException.ThrowIfNull(ctx);
         var by = DisplayName.Of(ctx.User) ?? SpecDialogOwnership.PrincipalOf(ctx.User);
-        var result = await act.MergeAsync(id, TicketQueryEndpoints.Decoded(ticketId), by, cancellationToken);
+        var result = await act.MergeAsync(id, TicketQueryEndpoints.Decoded(ticketId), by, judged: true, cancellationToken); // 96aeb: the click decided
         return result.Refusal is { } sentence ? Results.Text(sentence, "text/plain", statusCode: result.Status) : Results.Ok(result.Body);
     }
 

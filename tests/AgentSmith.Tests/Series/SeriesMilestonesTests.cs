@@ -50,6 +50,16 @@ public sealed class SeriesMilestonesTests
         SeriesMilestones.Merged(beat).Should().Be("SCRUM-44 merged; 2 of 2 are in.");
     }
 
+    // 2026-11-25-96aeb: a merge the master was refused says nothing, so the later merge is told.
+    [Fact]
+    public void Merged_TheMastersMergeWasRefused_IsToldWhenItMerges()
+    {
+        var act = new SeriesAct(SeriesRecords.T.AddMinutes(-30), SeriesPullRequestTools.MergeTool, "43", "merge of SCRUM-43 refused", "green");
+        var beat = Beat(Seen(act), SeriesRecords.Fact("43", RunStatuses.Success, landed: Now), SeriesRecords.Fact("44", RunStatuses.Success, landed: Now));
+
+        SeriesMilestones.Merged(beat).Should().Be("SCRUM-43 and SCRUM-44 merged; 2 of 2 are in.");
+    }
+
     [Fact]
     public void Stuck_ATicketTurnedRed_ToldAfterTheMastersLine()
     {

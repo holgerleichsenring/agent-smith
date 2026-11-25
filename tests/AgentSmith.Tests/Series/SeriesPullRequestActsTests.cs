@@ -69,15 +69,27 @@ public sealed class SeriesPullRequestActsTests : IDisposable
     public void Dispose() => _h.Dispose();
 
     [Fact]
-    public async Task Merge_IsTheSeriesPagesMerge_AskedByTheMaster_JudgedWithItsProtection()
+    public async Task Merge_IsTheSeriesPagesMerge_AskedByTheMaster_CheckedWithItsProtection()
     {
         var series = await SeedAsync();
 
-        var said = await ActsAsync((acts, ct) => acts.MergeAsync(series, "1", BranchProtection.Respect, ct));
+        var said = await ActsAsync(async (acts, ct) => (await acts.MergeAsync(series, "1", BranchProtection.Respect, null, ct)).Answer);
 
         said.Should().Be($"api: armed — auto-complete set ({Pr})");
         _asked.Should().ContainSingle().Which.Should().Match<CiGreenMergeRequest>(r =>
-            r.AskedBy == "agent-smith (series master)" && r.Judged && r.Protection == BranchProtection.Respect);
+            r.AskedBy == "agent-smith (series master)" && !r.Judged && r.ChecksTarget && r.Protection == BranchProtection.Respect);
+    }
+
+    // 2026-11-25-96aeb: an override judges the master's merge and carries its reason; the target is still checked.
+    [Fact]
+    public async Task Merge_WithAnOverride_IsJudged_AndCarriesItsReason()
+    {
+        var series = await SeedAsync();
+
+        await ActsAsync(async (acts, ct) => (await acts.MergeAsync(series, "1", BranchProtection.Bypass, "41 only renames", ct)).Answer);
+
+        _asked.Should().ContainSingle().Which.Should().Match<CiGreenMergeRequest>(r =>
+            r.Judged && r.ChecksTarget && r.OverrideReason == "41 only renames");
     }
 
     [Fact]

@@ -85,7 +85,7 @@ public sealed class SeriesWakeBeatTests
         var spent = Woken(SeriesRunStates.Running, Wake(SeriesWakeKinds.Ci, "red")) with { MasterCostUsd = 5m };
 
         (await _rig.DueAsync(spent, Now)).Should().BeNull("the master could not judge them; the budget question waits instead");
-        SeriesBeatDue.Woken(spent with { BudgetRaisedUsd = 20m }, 5m, Now, 15).Should().BeTrue();
+        SeriesBeatDue.Woken(spent with { BudgetRaisedUsd = 20m }, _rig.Config.Dialogue, Now).Should().BeTrue();
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public sealed class SeriesWakeBeatTests
     }
 
     [Fact]
-    public async Task AFailedLoop_KeepsTheWakes_AndWaitsTheStallCadenceBeforeTheNextTry()
+    public async Task AFailedLoop_KeepsTheWakes_AndWaitsTheStatusMinutesBeforeTheNextTry()
     {
         _rig.Loop.Reset();
         _rig.Loop.Setup(l => l.RunAsync(It.IsAny<AgentSmith.Application.Services.Loop.AgenticLoopRequest>(), It.IsAny<CancellationToken>()))
@@ -123,6 +123,6 @@ public sealed class SeriesWakeBeatTests
         var failed = _rig.Store.Records["sr-1"];
         (failed.Wakes.Count, failed.MasterFailedAt).Should().Be((1, Now));
         (await _rig.DueAsync(failed, Now.AddMinutes(1))).Should().BeNull("not every sweep");
-        SeriesBeatDue.Woken(failed, 20m, Now.AddMinutes(15), 15).Should().BeTrue("a status period later it tries again");
+        SeriesBeatDue.Woken(failed, _rig.Config.Dialogue, Now.AddMinutes(15)).Should().BeTrue("a status period later it tries again");
     }
 }
