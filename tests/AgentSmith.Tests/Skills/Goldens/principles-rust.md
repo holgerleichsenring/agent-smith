@@ -141,7 +141,9 @@ states what applies instead.
 - Organize by modules: a module is one cohesive responsibility, and several
   small, closely related types live together in one module file. Split a
   module when its responsibility sentence needs an "and".
-- Max 40 lines per function, counted as physical lines of the item —
+- Max 40 lines per function, counted as if each statement and each closing
+  brace began its own line (a block holding one expression may stay on
+  one line, as rustfmt keeps it) —
   extract when reached. The Limits section states it as data. Cohesion is measured per module, not per type.
   Source: measured — the p95 of tokio (33), ripgrep (42) and serde (41),
   `#[cfg(test)]` modules excluded, ratified 2026-10-06 (agent-smith decisions/2026-10-03-24d4.yaml). clippy's

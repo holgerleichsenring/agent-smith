@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-6482
+goal: "The embedded skills catalog is pinned to v5.45.0, which words the line count as 2026-11-24-8756 measures it (breaks included, not physical)."
+
+applies_to: "default (Infrastructure.Core skills pin)"
+
+requires: [2026-11-24-8756]
+
+facts:
+  - claim: "DELTA-FORMAT, the C# and Rust deltas and project-bootstrap still say lines are physical."
+    evidence: "observed: 2026-11-25, agent-smith-skills v5.44.0, principles/DELTA-FORMAT.md:115, principles/deltas/csharp.md:9, principles/deltas/rust.md:19"
+  - claim: "The v5.45.0 release tarball hashes to 83b1042829de140dba0929a0718f80d0054e89dcd2ec1f1de3218b802f67254f and differs from v5.44.0 only in DELTA-FORMAT, the C# and Rust deltas, project-bootstrap 2.10.1, changelog and version."
+    evidence: "observed: 2026-11-25, the release asset's .sha256, shasum -a 256 and git diff --stat v5.44.0 v5.45.0 in agent-smith-skills"
+  - claim: "The pin lives in SkillsCatalogVersion and SkillsCatalogSha256."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55"
+
+scope:
+  in: "SkillsCatalogVersion v5.45.0 and its sha256; the v5.44.0 tarball replaced; the C# and Rust principles goldens follow the reworded delta lines."
+  out: "Any skill text change (released from agent-smith-skills)."
+
+done:
+  - "Build and the full suite are green on the v5.45.0 pin."

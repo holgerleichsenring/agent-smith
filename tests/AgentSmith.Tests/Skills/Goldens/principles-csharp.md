@@ -131,7 +131,8 @@ states what applies instead.
 
 ### Layout and size
 
-- Max 55 lines per method, counted as physical lines of the declaration —
+- Max 55 lines per method, counted as if each statement and each closing
+  brace began its own line —
   extract helper methods when reached. The Limits section states it as data.
   Source: measured — the p95 of CleanArchitecture (39), efcore (56) and
   aspire (70), tests and generated code excluded, ratified 2026-10-06
@@ -146,9 +147,10 @@ states what applies instead.
 
 - One statement per line, and a method or accessor body that holds a statement
   never shares a line with its signature (`=> expression;` and
-  `{ get; set; }` may): the method limit above counts physical lines, so a
-  body written on one line hides its size from it. Keep this yourself — the
-  SDK's formatter does not split such a line.
+  `{ get; set; }` may). The method limit counts each statement and closing
+  brace as a line of its own, so joining lines never shortens a method;
+  keep the layout yourself — the SDK's formatter does not split such a
+  line.
 - The formatter is CSharpier where the repository configures it
   (`.csharpierrc` or a `csharpier` entry in `.config/dotnet-tools.json`),
   otherwise `dotnet format whitespace`; it runs over the files a change
