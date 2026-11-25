@@ -562,15 +562,18 @@ projects:
     # Statuses, comment_keyword and pr_trigger_label come from the acme-github tracker.
     resolution:
       repo: https://github.com/acme/app.git
-    # 2026-11-17-023fa / 3435: whether a green run merges its own pull requests. Every open
-    # pull request's CI is read with its record; the ci_* bounds limit what a red one stores.
+    # 2026-11-25-9992i: when a person looks. end (default): a series collects its tickets on a
+    # series branch and a person reviews one final pull request per repository; each: a person
+    # approves every ticket's pull request; none: merged on green, the host's branch protection
+    # still decides (auto-merge). A standalone ticket under end or each waits for a person.
+    # review: end
+    # 2026-11-17-3435: how the host's CI is read. Every open pull request's CI is read with its
+    # record; the ci_* bounds limit what a red one stores.
     # merge:
-    #   when: manual                  # manual | on_gate_green | on_ci_green
-    #   series_when: on_ci_green      # a series' ticket pull requests into its series branch
-    #   ci_poll_seconds: 60           # on_ci_green: how often CI is read
-    #   ci_settle_seconds: 180        # on_ci_green: "no CI" must last this long
-    #   ci_pending_seconds: 3600      # on_ci_green: stop fast polling a stuck head
-    #   ci_fix_attempts: 3            # on_ci_green: red-CI fix runs in a row before a hand-back
+    #   ci_poll_seconds: 60           # how often CI is read
+    #   ci_settle_seconds: 180        # "no CI" must last this long
+    #   ci_pending_seconds: 3600      # stop fast polling a stuck head
+    #   ci_fix_attempts: 3            # review none: red-CI fix runs in a row before a hand-back
     #   ci_excerpt_chars: 4000        # evidence kept per failed check
     #   ci_failed_checks_read: 5      # failed checks whose logs are read
     # 2026-11-25-9992h: the identity agent-smith acts under; a hoster left out uses each repo's own auth.

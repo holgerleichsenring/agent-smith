@@ -27,7 +27,7 @@ public sealed class GitOpsDelivery(ISourceProviderFactory sources, DeployCiStatu
             new Repository(order.Branch, order.Repo.Url), order.Title, order.Body, cancellationToken);
         var stands = order.Approval
             ? $"pull request {url} waits for a person to merge it"
-            : Merged(url, await provider.MergePullRequestAsync(url, order.Branch, order.Protection, cancellationToken));
+            : Merged(url, await provider.MergePullRequestAsync(url, order.Branch, order.Protection, MergeStyle.HostDefault, cancellationToken));
         return (true, $"{stands}; {await ci.ReadAsync(provider, url, order.Ci, cancellationToken)}", url);
     }
 

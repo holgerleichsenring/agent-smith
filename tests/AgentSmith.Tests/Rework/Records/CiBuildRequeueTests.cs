@@ -11,14 +11,14 @@ namespace AgentSmith.Tests.Rework.Records;
 
 /// <summary>
 /// 2026-11-24-629aa: after a refresh, an open pull request whose required build has not started on its head for
-/// merge.ci_settle_seconds gets one merge-green run that queues it again — under every merge.when — and its head is marked
+/// merge.ci_settle_seconds gets one merge-green run that queues it again — under every review — and its head is marked
 /// acted, so the next refresh starts nothing; a draft, a pending head and a held lease start nothing.
 /// </summary>
 public sealed class CiBuildRequeueTests : IDisposable
 {
     private readonly PrReviewRefreshHarness _h = new();
     private readonly List<CiGreenMergeRequest> _launched = [];
-    private ResolvedProject _project = Project(MergeWhen.Manual);
+    private ResolvedProject _project = Project(ReviewMode.End);
     private string _ci = CiStates.NotStarted;
     private string _head = "abc";
     private bool _draft;
@@ -44,10 +44,10 @@ public sealed class CiBuildRequeueTests : IDisposable
     }
 
     [Theory]
-    [InlineData(MergeWhen.Manual)]
-    [InlineData(MergeWhen.OnGateGreen)]
-    [InlineData(MergeWhen.OnCiGreen)]
-    public async Task ANotStartedHead_PastTheSettle_IsQueuedAgainOnce(MergeWhen when)
+    [InlineData(ReviewMode.End)]
+    [InlineData(ReviewMode.Each)]
+    [InlineData(ReviewMode.None)]
+    public async Task ANotStartedHead_PastTheSettle_IsQueuedAgainOnce(ReviewMode when)
     {
         _project = Project(when);
         await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
@@ -161,10 +161,10 @@ public sealed class CiBuildRequeueTests : IDisposable
 
     private Task RefreshAsync() => _h.Refresh().RefreshAsync(_project, "7", null, CancellationToken.None);
 
-    private static ResolvedProject Project(MergeWhen when) => new()
+    private static ResolvedProject Project(ReviewMode when) => new()
     {
         Name = "p", Tracker = PrReviewRefreshHarness.Project.Tracker, Repos = PrReviewRefreshHarness.Project.Repos,
-        Merge = new MergePolicyConfig { When = when },
+        Review = when,
     };
 
     public void Dispose() => _h.Dispose();

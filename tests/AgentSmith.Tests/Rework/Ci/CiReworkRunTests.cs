@@ -74,7 +74,7 @@ public sealed class CiReworkRunTests
     private static PipelineContext Pipeline(int streak)
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "p", Merge = new MergePolicyConfig { When = MergeWhen.OnCiGreen } });
+        pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "p", Review = ReviewMode.None });
         pipeline.Set(ContextKeys.PreviousAttempt, new PreviousAttempt("r1", RunStatuses.Success, T, true)
         {
             AwaitingCiUrls = new Dictionary<string, string> { ["api"] = Url }, CiFixStreak = streak,

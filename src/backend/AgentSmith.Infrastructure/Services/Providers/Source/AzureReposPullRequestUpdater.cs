@@ -65,17 +65,18 @@ public sealed class AzureReposPullRequestUpdater(
     // refuses, so the pull request is ARMED instead and finishes itself when
     // the required build goes green. See AzureReposAutoComplete for why that identity.
     public Task<PullRequestCompletion> CompleteAsync(string prUrl, CancellationToken cancellationToken) =>
-        CompleteAsync(prUrl, BranchProtection.Respect, cancellationToken);
+        CompleteAsync(prUrl, BranchProtection.Respect, MergeStyle.HostDefault, cancellationToken);
 
     // 2026-11-17-023fa: Bypass completes now past the policies; Respect arms as init does (2026-11-25-9992h: no vote).
-    public Task<PullRequestCompletion> CompleteAsync(string prUrl, BranchProtection protection, CancellationToken cancellationToken) =>
+    // 2026-11-25-9992i: a squash style completes with mergeStrategy squash either way.
+    public Task<PullRequestCompletion> CompleteAsync(string prUrl, BranchProtection protection, MergeStyle style, CancellationToken cancellationToken) =>
         OnPullRequestAsync(prUrl, (client, pr, prId) => protection == BranchProtection.Bypass
-            ? _bypass.CompleteAsync(client, pr, prId, cancellationToken)
-            : ArmAsync(client, pr, prId, cancellationToken), cancellationToken);
+            ? _bypass.CompleteAsync(client, pr, prId, style, cancellationToken)
+            : ArmAsync(client, pr, prId, style, cancellationToken), cancellationToken);
 
     // 2026-11-25-9992h: armed as the token's own identity (the machine), read from the connection.
-    private async Task<PullRequestCompletion> ArmAsync(GitHttpClient client, GitPullRequest pr, int prId, CancellationToken ct) =>
-        await _autoComplete.ArmAsync(client, pr, prId, await SelfAsync(ct), ct);
+    private async Task<PullRequestCompletion> ArmAsync(GitHttpClient client, GitPullRequest pr, int prId, MergeStyle style, CancellationToken ct) =>
+        await _autoComplete.ArmAsync(client, pr, prId, await SelfAsync(ct), style, ct);
 
     private Task<string?> SelfAsync(CancellationToken ct) => clientFactory.AuthorizedIdentityIdAsync(organizationUrl, personalAccessToken, ct);
 

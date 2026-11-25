@@ -1,15 +1,18 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration.Retired;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Configuration;
 
 /// <summary>
-/// 2026-11-17-023fa: the project's merge block loads from YAML with underscored keys and enum values; a project
-/// without the block is manual, which is how every project behaved before it existed.
+/// 2026-11-17-023fa: the project's merge block loads from YAML with underscored keys. 2026-11-25-9992i: it carries the CI
+/// reading keys only; when a person looks is the project's review (end by default), and a file still naming a retired merge
+/// key is told so by name.
 /// </summary>
 public sealed class MergePolicyYamlTests
 {
@@ -30,16 +33,6 @@ public sealed class MergePolicyYamlTests
 
         """;
 
-    [Fact]
-    public void MergeBlock_Loads_WhenAndProtection()
-    {
-        var project = Load(Head + "    merge:\n      when: on_gate_green\n      respect_branch_protection: true\n");
-
-        project.Merge.When.Should().Be(MergeWhen.OnGateGreen);
-        project.Merge.RespectBranchProtection.Should().BeTrue();
-        project.Merge.Protection.Should().Be(BranchProtection.Respect);
-    }
-
     // 2026-11-17-3435a
     [Fact]
     public void MergeBlock_Loads_CiEvidenceBounds()
@@ -53,46 +46,65 @@ public sealed class MergePolicyYamlTests
 
     // 2026-11-17-3435b
     [Fact]
-    public void MergeBlock_Loads_OnCiGreen_AndItsKeys()
+    public void MergeBlock_Loads_TheCiLoopsKeys()
     {
-        var project = Load(Head + "    merge:\n      when: on_ci_green\n      ci_poll_seconds: 30\n      ci_settle_seconds: 90\n"
+        var project = Load(Head + "    merge:\n      ci_poll_seconds: 30\n      ci_settle_seconds: 90\n"
             + "      ci_pending_seconds: 600\n      ci_fix_attempts: 5\n");
 
-        project.Merge.When.Should().Be(MergeWhen.OnCiGreen);
         (project.Merge.CiPollSeconds, project.Merge.CiSettleSeconds, project.Merge.CiPendingSeconds).Should().Be((30, 90, 600));
         project.Merge.CiFixAttempts.Should().Be(5); // 2026-11-17-3435c
     }
 
-    // 2026-11-24-f9c5a
+    // 2026-11-25-9992i
+    [Theory]
+    [InlineData("    review: each\n", ReviewMode.Each)]
+    [InlineData("    review: none\n", ReviewMode.None)]
+    [InlineData("    review: end\n", ReviewMode.End)]
+    [InlineData("", ReviewMode.End)]
+    public void Review_Loads_AndDefaultsToEnd(string line, ReviewMode expected) =>
+        Load(Head + line).Review.Should().Be(expected);
+
+    // 2026-11-25-9992i
     [Fact]
-    public void SeriesWhen_Loads_AndDefaultsToOnCiGreen()
+    public void Review_AnUnknownValue_IsRefusedByName()
     {
-        Load(Head + "    merge:\n      series_when: on_gate_green\n").Merge.SeriesWhen.Should().Be(MergeWhen.OnGateGreen);
-        Load(Head).Merge.SeriesWhen.Should().Be(MergeWhen.OnCiGreen, "a series runs through unless the project says otherwise");
+        var findings = new List<StartupFinding>();
+
+        ProjectModeResolver.Review("app", "sometimes", findings).Should().BeNull();
+
+        findings.Should().ContainSingle().Which.Reason.Should().Contain("review 'sometimes'").And.Contain("end, each, none");
     }
 
-    // 2026-11-24-f9c5a
+    // 2026-11-25-9992i: the loader ignores the retired keys; the retired-key table names each one with review.
     [Fact]
-    public void IntoSeriesBranch_TakesSeriesWhen_GoesPastProtection_AndLeavesTheOriginal()
+    public void RetiredMergeKeys_AreEachReported_NamingReview()
     {
-        var merge = new MergePolicyConfig
-        {
-            When = MergeWhen.Manual, SeriesWhen = MergeWhen.OnGateGreen, RespectBranchProtection = true, CiSettleSeconds = 42,
-        };
+        const string yaml = """
+            projects:
+              app:
+                merge:
+                  when: on_ci_green
+                  series_when: manual
+                  respect_branch_protection: true
+                  refresh_open_pull_requests: true
+                  ci_poll_seconds: 30
+            """;
 
-        var series = merge.IntoSeriesBranch();
+        var findings = new RetiredConfigKeyDetector(new RawConfigTreeReader(), new ConfigKeyPathMatcher())
+            .InYaml(yaml, "config/agentsmith.yml");
 
-        (series.When, series.Protection, series.CiSettleSeconds).Should().Be((MergeWhen.OnGateGreen, BranchProtection.Bypass, 42));
-        (merge.When, merge.Protection).Should().Be((MergeWhen.Manual, BranchProtection.Respect));
+        findings.Select(f => f.Field).Should().BeEquivalentTo("projects.app.merge.when", "projects.app.merge.series_when",
+            "projects.app.merge.respect_branch_protection", "projects.app.merge.refresh_open_pull_requests");
+        findings.Should().AllSatisfy(f => f.Reason.Should().Contain("review: end | each | none"));
     }
 
+    // 2026-11-25-9992i: a file still naming them loads, at review: end.
     [Fact]
-    public void NoMergeBlock_IsManual_AndWouldBypass()
+    public void RetiredMergeKeys_AreIgnoredByTheLoader()
     {
-        var project = Load(Head);
+        var project = Load(Head + "    merge:\n      when: on_ci_green\n      respect_branch_protection: true\n");
 
-        project.Merge.When.Should().Be(MergeWhen.Manual);
-        project.Merge.Protection.Should().Be(BranchProtection.Bypass, "respect_branch_protection defaults to false");
+        (project.Review, project.Merge.CiPollSeconds).Should().Be((ReviewMode.End, 60));
     }
 
     private static ResolvedProject Load(string yaml)

@@ -88,7 +88,7 @@ The `deploy` run then:
 2. decides the version. An entry environment takes the version you named. An environment the template says `promotes_from` another takes the version that environment's manifest carries now, and a typed version for it is refused: the template decides what reaches it
 3. reads the environment's manifest on its repository's default branch. If it already carries the version, nothing is written
 4. otherwise writes the new version into the scalar at `version_key` (nothing else in the file changes) on a fresh branch `agent-smith/deploy/<context>-<environment>/<run id>`, and opens a pull request to the default branch
-5. leaves that pull request for a person to merge when the environment needs approval (the default), or merges it in the project's merge mode (`merge.respect_branch_protection`) when approval is off. A merge the host only arms or refuses is reported, and the pull request waits for a person
+5. leaves that pull request for a person to merge when the environment needs approval (the default), or, when approval is off, arms the host's auto-merge so its branch protection decides. A merge the host only arms or refuses is reported, and the pull request waits for a person
 6. reads the pull request's CI as the host reports it then (none, pending, green, or red with the failed checks and their links) and puts it in the run's outcome
 
 A version is letters, digits, `.`, `_` and `-`, starting with a letter or digit, so a tag or a commit sha. A digest (`sha256:…`) is refused. agent-smith doesn't build images: your CI builds the image for a version, and the deploy points an environment at it.

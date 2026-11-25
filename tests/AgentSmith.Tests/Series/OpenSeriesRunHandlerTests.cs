@@ -30,8 +30,45 @@ public sealed class OpenSeriesRunHandlerTests
         return pipeline;
     }
 
+    private static readonly ResolvedProject Sample = new() { Name = "sample" };
+
     private Task<AgentSmith.Domain.Models.CommandResult> RunAsync(PipelineContext pipeline) =>
-        Handler.ExecuteAsync(new OpenSeriesRunContext(pipeline, new ResolvedProject { Name = "sample" }), default);
+        Handler.ExecuteAsync(new OpenSeriesRunContext(pipeline, Sample), default);
+
+    // 2026-11-25-9992i: the series carries the project's review from its opening; only end integrates on a series branch.
+    [Theory]
+    [InlineData(ReviewMode.End, true)]
+    [InlineData(ReviewMode.Each, false)]
+    [InlineData(ReviewMode.None, false)]
+    public async Task Membership_OpensUnderTheProjectsReview_WithABranchOnlyForEnd(ReviewMode review, bool branch)
+    {
+        var pipeline = Filed(2);
+
+        await new SeriesMembership(_store, TimeProvider.System).WriteAsync(pipeline,
+            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), new ResolvedProject { Name = "sample", Review = review },
+            pipeline.Get<FilingReportSlot>(ContextKeys.FilingReport).Report!.Filed, default);
+
+        var record = _store.Records.Values.Should().ContainSingle().Subject;
+        (record.Review, record.EffectiveReview, record.IntegrationBranch is not null).Should().Be((review, review, branch));
+    }
+
+    // 2026-11-25-9992i: an end series opened after its tickets started cannot have its branch, so it is reviewed per ticket.
+    [Fact]
+    public async Task OpenSeriesRun_OpenedAfterTheStarts_UnderEnd_IsReviewedPerTicket()
+    {
+        await RunAsync(Filed(2));
+
+        _store.Records.Values.Should().ContainSingle().Which.Review.Should().Be(ReviewMode.Each);
+    }
+
+    // 2026-11-25-9992i: a series opened before the setting has no review of its own — end with a branch, else each.
+    [Fact]
+    public void ARecordWithoutAReview_ReadsAsEndWithABranch_ElseEach()
+    {
+        SeriesRecords.Running().EffectiveReview.Should().Be(ReviewMode.Each);
+        (SeriesRecords.Running() with { IntegrationBranch = "agent-smith/series/sr-1" }).EffectiveReview.Should().Be(ReviewMode.End);
+        (SeriesRecords.Running() with { Review = ReviewMode.None, IntegrationBranch = "b" }).EffectiveReview.Should().Be(ReviewMode.None);
+    }
 
     [Fact]
     public async Task OpenSeriesRun_TwoTicketsFiled_OpensOneSeriesForTheConversation()
@@ -52,7 +89,7 @@ public sealed class OpenSeriesRunHandlerTests
     {
         var pipeline = Filed(2);
         await new SeriesMembership(_store, TimeProvider.System).WriteAsync(pipeline,
-            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), "sample",
+            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), Sample,
             pipeline.Get<FilingReportSlot>(ContextKeys.FilingReport).Report!.Filed, default);
         var opened = _store.Records.Values.Should().ContainSingle().Subject;
 
@@ -70,7 +107,7 @@ public sealed class OpenSeriesRunHandlerTests
         await _store.OpenAsync(SeriesRecords.Running("sr-1") with { State = SeriesRunStates.Verifying }, default);
         var pipeline = Filed(1, series: "sr-1");
         await new SeriesMembership(_store, TimeProvider.System).WriteAsync(pipeline,
-            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), "sample",
+            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), Sample,
             pipeline.Get<FilingReportSlot>(ContextKeys.FilingReport).Report!.Filed, default);
         _store.Records["sr-1"].Tickets.Should().HaveCount(4);
 
@@ -110,7 +147,7 @@ public sealed class OpenSeriesRunHandlerTests
         await _store.OpenAsync(SeriesRecords.Running("sr-1") with { Verdicts = [verdict] }, default);
         var pipeline = Filed(1, series: "sr-1", masterAddition: true);
         await new SeriesMembership(_store, TimeProvider.System).WriteAsync(pipeline,
-            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), "sample",
+            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), Sample,
             pipeline.Get<FilingReportSlot>(ContextKeys.FilingReport).Report!.Filed, default);
 
         await RunAsync(pipeline);

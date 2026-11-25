@@ -38,8 +38,8 @@ public sealed record ConfigCapabilities(
     public IReadOnlyDictionary<string, IReadOnlyList<string>> AgentProviderPriceLists { get; init; } =
         new Dictionary<string, IReadOnlyList<string>>();
 
-    /// <summary>2026-11-17-b34eb: the project's merge.when modes, from the MergeWhen enum.</summary>
-    public IReadOnlyList<string> MergeWhen { get; init; } = [];
+    /// <summary>2026-11-25-9992i: the project's review modes (end, each, none), from the ReviewMode enum.</summary>
+    public IReadOnlyList<string> Review { get; init; } = [];
 
     /// <summary>2026-11-17-b34eb: the project's requires_start modes, from the RequiresStart enum.</summary>
     public IReadOnlyList<string> RequiresStart { get; init; } = [];

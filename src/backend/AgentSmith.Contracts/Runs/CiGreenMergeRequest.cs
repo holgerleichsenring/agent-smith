@@ -10,11 +10,11 @@ public sealed record CiGreenMergeRequest(
     string TicketId, string AttemptRunId, string Branch, IReadOnlyList<CiGreenPullRequest> PullRequests)
 {
     /// <summary>2026-11-23-31dce: the person who asked for this merge from the series page; null when the CI watch
-    /// asked. A merge a person asked for runs under merge: manual too — the click is the manual merge.</summary>
+    /// asked. A merge a person asked for runs under every review — the click is the person's merge.</summary>
     public string? AskedBy { get; init; }
 
-    /// <summary>2026-11-24-f9c5c: the series branch these pull requests target; its merge follows merge.series_when past
-    /// protection and the base guard accepts it. Null for pull requests into the default branch.</summary>
+    /// <summary>2026-11-24-f9c5c: the series branch these pull requests target; it merges past protection (a series branch
+    /// carries no host policy) and the base guard accepts it. Null for pull requests into the default branch.</summary>
     public string? SeriesBranch { get; init; }
 
     /// <summary>2026-11-25-9992e: a merge somebody judged — the series master, or a person from the series page: no unlanded

@@ -14,7 +14,7 @@ public sealed class CiActTests
 {
     private static readonly DateTimeOffset T = new(2026, 11, 17, 10, 0, 0, TimeSpan.Zero);
     private const string Url = "https://x/api/pull/1";
-    private static readonly ResolvedProject OnCi = new() { Name = "p", Merge = new MergePolicyConfig { When = MergeWhen.OnCiGreen } };
+    private static readonly ResolvedProject OnCi = new() { Name = "p", Review = ReviewMode.None };
 
     [Fact]
     public void RedOnHead_AfterTheCutoff_IsAnAct_EvenWhenActed()
@@ -38,20 +38,18 @@ public sealed class CiActTests
         CiAct.Of(OnCi, Green(), [Record(CiStates.Red, T.AddMinutes(10), ciHead: "old")]).Should().BeNull();
         CiAct.Of(OnCi, Green(), [Record(CiStates.Red, T.AddMinutes(-10))]).Should().BeNull();
         CiAct.Of(OnCi, Green() with { Status = RunStatuses.Failed }, [Record(CiStates.Red, T.AddMinutes(10))]).Should().BeNull();
-        CiAct.Of(new ResolvedProject { Merge = new MergePolicyConfig { When = MergeWhen.OnGateGreen } }, Green(),
+        CiAct.Of(new ResolvedProject { Review = ReviewMode.Each }, Green(),
             [Record(CiStates.Red, T.AddMinutes(10))]).Should().BeNull();
     }
 
-    // 2026-11-24-f9c5c: a red head of a pull request into a series branch acts on merge.series_when, not merge.when.
+    // 2026-11-25-9992i: the project's review decides, whatever the pull request targets — none acts on a red head, end does not.
     [Fact]
-    public void RedIntoASeriesBranch_ActsOnSeriesWhen()
+    public void RedIntoASeriesBranch_ActsOnTheProjectsReview()
     {
         var red = Record(CiStates.Red, T.AddMinutes(10)) with { TargetBranch = "agent-smith/series/sr-1" };
-        var manualProject = new ResolvedProject { Name = "p", Merge = new MergePolicyConfig { When = MergeWhen.Manual, SeriesWhen = MergeWhen.OnCiGreen } };
-        var seriesManual = new ResolvedProject { Name = "p", Merge = new MergePolicyConfig { When = MergeWhen.OnCiGreen, SeriesWhen = MergeWhen.Manual } };
 
-        CiAct.Of(manualProject, Green(), [red]).Should().NotBeNull();
-        CiAct.Of(seriesManual, Green(), [red]).Should().BeNull();
+        CiAct.Of(OnCi, Green(), [red]).Should().NotBeNull();
+        CiAct.Of(new ResolvedProject { Name = "p", Review = ReviewMode.End }, Green(), [red]).Should().BeNull();
     }
 
     [Fact]

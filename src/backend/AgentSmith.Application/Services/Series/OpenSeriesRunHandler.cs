@@ -31,7 +31,7 @@ public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clo
             return CommandResult.Ok($"Opened series run {opened} over {tickets.Count} tickets.");
         if (tickets.Count < 2)
             return CommandResult.Ok($"{tickets.Count} ticket filed: a single ticket is worked in its own conversation, no series run opened.");
-        var id = await new SeriesMembership(store, clock).OpenAsync(request, context.Project.Name, tickets, cancellationToken, withBranch: false);
+        var id = await new SeriesMembership(store, clock).OpenAsync(request, context.Project, tickets, cancellationToken, withBranch: false);
         return CommandResult.Ok($"Opened series run {id} over {tickets.Count} tickets.");
     }
 

@@ -5,13 +5,11 @@ using AgentSmith.Contracts.Runs;
 namespace AgentSmith.Application.Services.Rework;
 
 /// <summary>
-/// 2026-11-17-3435c: a red CI as an act on a merge: on_ci_green ticket, read from its pull-request records — the one
+/// 2026-11-17-3435c: a red CI as an act on a review: none ticket (2026-11-25-9992i), read from its pull-request records — the one
 /// rule the rework worker and the run both apply. Either the newest attempt finished green and a pull request it left
 /// waiting for CI went red on its head after the attempt's cutoff (the act's time is when the red was first read); or
 /// the newest attempt was itself a CI fix that finished and left a red head unmoved (the act's time is its end), which
 /// the run then hands back. The cutoff makes it idempotent: an attempt started after the red no longer precedes it.
-/// <para>2026-11-24-f9c5c: on the mode of the attempt's pull requests' target — merge.series_when when they target a series
-/// branch.</para>
 /// </summary>
 public static class CiAct
 {
@@ -19,9 +17,8 @@ public static class CiAct
 
     public static CiRedFinding? Of(ResolvedProject project, PreviousAttempt attempt, IReadOnlyList<PrReviewRecordView> records)
     {
-        if (!project.Merge.ActsOnCi || !attempt.Finished) return null;
+        if (project.Review != ReviewMode.None || !attempt.Finished) return null;
         var byUrl = records.ToDictionary(r => r.Url.Trim(), StringComparer.Ordinal);
-        if (project.Merge.WhenInto(Target(attempt, byUrl)) != MergeWhen.OnCiGreen) return null;
         if (attempt.Status == RunStatuses.Success && Red(attempt.AwaitingCiUrls, byUrl, r => attempt.Precedes(r.Ci!.At!.Value)) is { Count: > 0 } red)
             return new CiRedFinding(Act(red.Max(r => r.Record.Ci!.At!.Value), red), [.. red.Select(r => r.Pr)], false);
         if (attempt.CauseChannel != AttemptChannels.Ci || attempt.Status == RunStatuses.WaitingForInput || attempt.FinishedAt is not { } end)
@@ -29,11 +26,6 @@ public static class CiAct
         var unmoved = Red(attempt.PullRequestUrls, byUrl, r => r.HeadMovedAt is not { } moved || moved < attempt.StartedAt);
         return unmoved.Count > 0 ? new CiRedFinding(Act(end, unmoved), [.. unmoved.Select(r => r.Pr)], true) : null;
     }
-
-    // The series branch the attempt's pull requests target, when their records say one; null otherwise.
-    private static string? Target(PreviousAttempt attempt, IReadOnlyDictionary<string, PrReviewRecordView> byUrl) =>
-        attempt.AwaitingCiUrls.Values.Concat(attempt.PullRequestUrls.Values).Select(u => byUrl.GetValueOrDefault(u.Trim())?.TargetBranch)
-            .FirstOrDefault(AgentSmith.Contracts.Providers.WorkBranches.IsSeries);
 
     private static List<(CiRedPullRequest Pr, PrReviewRecordView Record)> Red(IReadOnlyDictionary<string, string> urls,
         IReadOnlyDictionary<string, PrReviewRecordView> byUrl, Func<PrReviewRecordView, bool> counts) =>

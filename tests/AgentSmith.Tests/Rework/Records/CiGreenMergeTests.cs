@@ -11,7 +11,7 @@ using Moq;
 namespace AgentSmith.Tests.Rework.Records;
 
 /// <summary>
-/// 2026-11-17-3435b: after a refresh, a merge: on_ci_green ticket whose newest attempt finished green with its pull
+/// 2026-11-17-3435b: after a refresh, a review: none ticket whose newest attempt finished green with its pull
 /// requests awaiting CI starts one merge-green run once CI is green on every one of them; each head and verdict is
 /// acted on once, and only a run that ran marks it.
 /// </summary>
@@ -19,7 +19,7 @@ public sealed class CiGreenMergeTests : IDisposable
 {
     private readonly PrReviewRefreshHarness _h = new();
     private readonly List<CiGreenMergeRequest> _launched = [];
-    private ResolvedProject _project = Project(MergeWhen.OnCiGreen);
+    private ResolvedProject _project = Project(ReviewMode.None);
 
     public CiGreenMergeTests()
     {
@@ -157,9 +157,9 @@ public sealed class CiGreenMergeTests : IDisposable
     {
         Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
         await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
-        _project = Project(MergeWhen.OnGateGreen);
+        _project = Project(ReviewMode.Each);
         await RefreshAsync();
-        _project = Project(MergeWhen.OnCiGreen);
+        _project = Project(ReviewMode.None);
         Attempt(RunStatuses.Failed, PrReviewRefreshHarness.Pr1);
         await RefreshAsync();
         Attempt(RunStatuses.Success, PrReviewRefreshHarness.Pr1);
@@ -244,11 +244,11 @@ public sealed class CiGreenMergeTests : IDisposable
         _h.Records().Single().CiActed.Should().Be(red).And.Be("abc:red", "the fix nudge acted on it and a landing changes nothing about it");
     }
 
-    // 2026-11-24-f9c5c: a pull request into a series branch merges under merge.series_when, and the request names the branch.
+    // 2026-11-24-f9c5c: the request names the series branch a pull request merges into (it then merges past protection).
     [Fact]
-    public async Task IntoASeriesBranch_MergesUnderSeriesWhen_AndNamesTheBranch()
+    public async Task IntoASeriesBranch_NamesTheBranch()
     {
-        _project = Project(MergeWhen.Manual);
+        _project = Project(ReviewMode.None);
         Target(PrReviewRefreshHarness.Pr1, "agent-smith/series/sr-1");
         Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
         await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
@@ -274,12 +274,11 @@ public sealed class CiGreenMergeTests : IDisposable
             "2026-11-24-f9c5d: the only run is the one that starts its CI before anything merges");
     }
 
-    // 2026-11-24-f9c5c: series_when manual leaves a series-branch pull request to a person while merge.when is on_ci_green.
+    // 2026-11-25-9992i: review: end leaves every pull request to a person — a green one launches nothing.
     [Fact]
-    public async Task IntoASeriesBranch_SeriesWhenManual_LaunchesNothing()
+    public async Task AnEndProject_LaunchesNothing()
     {
-        _project = Project(MergeWhen.OnCiGreen);
-        _project.Merge.SeriesWhen = MergeWhen.Manual;
+        _project = Project(ReviewMode.End);
         Target(PrReviewRefreshHarness.Pr1, "agent-smith/series/sr-1");
         Ci(PrReviewRefreshHarness.Pr1, CiStates.Green);
         await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
@@ -337,10 +336,10 @@ public sealed class CiGreenMergeTests : IDisposable
                 AwaitingCiUrls = new Dictionary<string, string> { ["api"] = url },
             });
 
-    private static ResolvedProject Project(MergeWhen when) => new()
+    private static ResolvedProject Project(ReviewMode when) => new()
     {
         Name = "p", Tracker = PrReviewRefreshHarness.Project.Tracker, Repos = PrReviewRefreshHarness.Project.Repos,
-        Merge = new MergePolicyConfig { When = when },
+        Review = when,
     };
 
     public void Dispose() => _h.Dispose();

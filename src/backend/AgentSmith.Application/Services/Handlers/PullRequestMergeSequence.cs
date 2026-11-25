@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// 2026-11-17-3435b: merges a run's pull requests in order, extracted from 023fa's CompletePullRequestsHandler so a code run
-/// (on_gate_green) and a merge-green run (on_ci_green) merge the same way: a pull request opened against a rung is left open, the
+/// and a merge-green run merge the same way (2026-11-25-9992i: only the merge-green run merges now): a pull request opened against a rung is left open, the
 /// first refusal stops the rest, every outcome is recorded per repo (on a merge-green run, on the attempt that waited for CI too).
 /// <para>2026-11-23-97c2a: while a required ticket has not landed every pull request is refused (a rung's own refusal still names
 /// its rung); a merge-green run's attempt keeps its pull requests awaiting CI, so the CI merge asks again once it landed. Without
@@ -54,7 +54,7 @@ public sealed class PullRequestMergeSequence(
         if (asked && drafts is not null && await drafts.RefusalAsync(repo, entry.Url!, ct) is { } draft)
             return await RefuseAsync(context, entry, mark, draft, ct);
         if (asked && requeue is not null) await requeue.RequeueAsync(repo, entry.Url!, ct);
-        var completion = await completer.CompleteAsync(context.Pipeline, repo, entry, branch, context.Policy.Protection, ct);
+        var completion = await completer.CompleteAsync(context.Pipeline, repo, entry, branch, context.Protection, context.Style, ct);
         if ((completion.Outcome == PullRequestCompletionOutcome.Refused ? mark : attemptRunId) is { } on)
             await completer.PublishOnAsync(on, entry, InitCompletionReport.StatusOf(completion), completion.Reason, ct);
         logger.LogInformation("{Repo}: merge {Outcome}", repo.Name, completion.Outcome);

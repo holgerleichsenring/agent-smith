@@ -107,8 +107,8 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
         _fastForward.RunAsync(basePath, sourceBranch.Value, DefaultBranch, cancellationToken);
 
     public Task<PullRequestCompletion> MergePullRequestAsync( // 2026-11-17-023fa: nothing protects a local branch
-        string prUrl, BranchName sourceBranch, BranchProtection protection, CancellationToken cancellationToken) =>
-        CompletePullRequestAsync(prUrl, sourceBranch, cancellationToken);
+        string prUrl, BranchName sourceBranch, BranchProtection protection, MergeStyle style, CancellationToken cancellationToken) =>
+        CompletePullRequestAsync(prUrl, sourceBranch, cancellationToken); // 2026-11-25-9992i: a fast-forward has no squash
 
     // 2026-09-22-b6ad: git plumbing against a scratch index, so the operator's working tree and staged changes are
     // untouched; it answers a real commit sha, because the pointer the caller records needs one. 2026-11-24-f9c5b: a start branch.

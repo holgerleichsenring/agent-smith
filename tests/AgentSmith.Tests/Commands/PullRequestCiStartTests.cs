@@ -73,7 +73,7 @@ public sealed class PullRequestCiStartTests
         var repos = new[] { "a", "b" }.Select(n => new RepoConnection { Name = n, Type = RepoType.GitHub, Url = $"https://x/{n}" }).ToList();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-ci");
-        var context = new CompletePullRequestsContext(new MergePolicyConfig(), new BranchName("agent-smith/42"), repos, pipeline);
+        var context = new CompletePullRequestsContext(ReviewMode.End, BranchProtection.Respect, new BranchName("agent-smith/42"), repos, pipeline);
         return await new PullRequestCiStart(completer, NullLogger<PullRequestCiStart>.Instance, triggers.Object)
             .StartAsync(context, new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42", prs), default);
     }

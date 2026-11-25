@@ -22,7 +22,7 @@ public sealed class CiRework(IServiceScopeFactory scopes)
     {
         var pipeline = context.Pipeline;
         if (context.TicketId is not { } ticket || !pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)
-            || project is not { Merge.ActsOnCi: true } // 2026-11-24-f9c5c: CiAct decides by the pull requests' target
+            || project is not { Review: ReviewMode.None } // 2026-11-25-9992i: only review: none acts on CI
             || !pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var previous) || previous is null) return false;
         IReadOnlyList<PrReviewRecordView> records;
         using (var scope = scopes.CreateScope())

@@ -20,7 +20,7 @@ namespace AgentSmith.Tests.Rework.Records;
 
 /// <summary>
 /// 2026-11-24-297b: a pull request its host says conflicts is handed to one refresh-base run by the record read, in a
-/// project without merge.refresh_open_pull_requests — once per conflict on a head, never while one is at work, never for a
+/// project — once per conflict on a head, never while one is at work, never for a
 /// ticket that is not free — and the queued run is there before the conflict is, so the hold says refreshing.
 /// </summary>
 public sealed class ConflictBaseRefreshTests : IDisposable

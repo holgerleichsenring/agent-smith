@@ -18,7 +18,7 @@ public sealed class CiReworkAct(IServiceScopeFactory scopes, ISeriesRunStore? se
 {
     public async Task<PendingReworkAct?> NewestAsync(ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken ct)
     {
-        if (!project.Merge.ActsOnCi) return null; // 2026-11-24-f9c5c: CiAct decides by the pull requests' target
+        if (project.Review != ReviewMode.None) return null; // 2026-11-25-9992i: only review: none acts on CI
         if (series is not null && await series.HoldsTicketAsync(project.Name, ticketId, ct)) return null;
         IReadOnlyList<PrReviewRecordView> records;
         using (var scope = scopes.CreateScope())

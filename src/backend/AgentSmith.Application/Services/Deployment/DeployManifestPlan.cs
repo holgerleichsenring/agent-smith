@@ -43,7 +43,7 @@ public sealed partial class DeployManifestPlan(DeployVersion versions, Deploymen
             + $"`{declared.Manifest}`. Per the deployment template `{binding.TemplateContext}` of `{binding.Repo.Name}` at "
             + $"`{input.TemplateSha ?? binding.Revision ?? "its default branch"}`, by agent-smith run {run}.";
         return new GitOpsOrder(repo, declared.Manifest!, content, branch, $"Deploy {request.Context} {version} to {declared.Name}",
-            body, input.Target.Environment.Approval, project.Merge.Protection,
+            body, input.Target.Environment.Approval, BranchProtection.Respect, // 2026-11-25-9992i: the host's protection is the environment's
             new CiReadRequest(null, project.Merge.CiExcerptChars, project.Merge.CiFailedChecksRead), version);
     }
 

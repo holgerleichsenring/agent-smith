@@ -28,7 +28,8 @@ internal static class ProjectEntityMapping
             ToSandbox(project),
             [.. project.DesignSources], RequiresStartNames.Written(project.RequiresStart), ProjectMergeMapping.ToEntity(project.Merge), // 9a39a, b34eb
             [.. project.Registries.Select(r => new RegistryConfig(r.Host, r.Username, r.Token))], // 2026-11-25-9992d
-            ProjectMachineMapping.ToEntity(project.Machine)); // 2026-11-25-9992h
+            ProjectMachineMapping.ToEntity(project.Machine), // 2026-11-25-9992h
+            ReviewModeNames.Written(project.Review)); // 2026-11-25-9992i
     }
 
     /// <summary>

@@ -20,7 +20,7 @@ namespace AgentSmith.Server.Services.Series;
 /// <summary>
 /// 2026-11-23-31dce: the one merge of a series ticket — a person's from the series page, and (2026-11-25-9992e) the series
 /// master's merge_pull_request. The ticket's pull requests that wait for a merge (per repo the open record, else one not read
-/// yet) go to a merge-green run marked as asked by whoever asked, which runs under merge: manual too. The run re-reads every
+/// yet) go to a merge-green run marked as asked by whoever asked, which runs under every review. The run re-reads every
 /// base on the host and hands back each repo's outcome; a lease another run holds is said as such.
 /// <para>2026-11-24-a4e7: a run that merged or armed a pull request has the ticket's records read from the host before the
 /// act answers, so the page's next read shows the merge instead of the same Merge again.</para>

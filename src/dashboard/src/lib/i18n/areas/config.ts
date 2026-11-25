@@ -60,8 +60,8 @@ export const configMessages = {
   },
   "config.merge.ciSettle.label": { en: "CI settle seconds", de: "CI-Ruhezeit (Sekunden)" },
   "config.merge.ciSettle.help": {
-    en: "how long 'no CI reporting' must last before it merges",
-    de: "wie lange „keine CI meldet sich“ anhalten muss, bevor gemergt wird",
+    en: "how long 'no CI reporting' must last before it counts as none: a build that never started is queued again, and under review none it merges",
+    de: "wie lange „keine CI meldet sich“ anhalten muss, bis es als keine CI gilt: ein nie gestarteter Build wird neu eingereiht, und bei Review none wird gemergt",
   },
   "config.merge.ciFix.label": { en: "CI fix attempts", de: "CI-Fix-Versuche" },
   "config.merge.ciFix.help": {
@@ -263,26 +263,11 @@ export const configMessages = {
     en: "when a ticket that requires another may start: once each prerequisite pushed a green branch, or once each merged",
     de: "wann ein Ticket, das ein anderes voraussetzt, starten darf: sobald jede Voraussetzung einen grünen Branch gepusht hat oder sobald jede gemergt ist",
   },
-  "config.merge.when.label": { en: "merge when", de: "Mergen wann" },
-  "config.merge.when.help": {
-    en: "whether a green code run merges its own pull requests",
-    de: "ob ein grüner Code-Run seine eigenen Pull Requests mergt",
-  },
-  // 2026-11-24-f9c5a
-  "config.merge.seriesWhen.label": { en: "merge into a series branch when", de: "In einen Serien-Branch mergen wann" },
-  "config.merge.seriesWhen.help": {
-    en: "a series' ticket pull requests into its series branch; the series' final pull request into the default branch follows 'merge when'",
-    de: "die Ticket-Pull-Requests einer Serie in ihren Serien-Branch; der letzte Pull Request der Serie in den Default-Branch folgt „Mergen wann“",
-  },
-  "config.merge.respectProtection.label": { en: "respect branch protection", de: "Branch-Schutz beachten" },
-  "config.merge.respectProtection.help": {
-    en: "on: arm the host's auto-complete or auto-merge and let its rules decide; off: merge past them, which needs the token's bypass permission",
-    de: "an: Auto-Complete oder Auto-Merge des Hosts scharf schalten und seine Regeln entscheiden lassen; aus: an ihnen vorbei mergen, was die Bypass-Berechtigung des Tokens braucht",
-  },
-  "config.merge.refreshOpen.label": { en: "refresh open pull requests", de: "Offene Pull Requests auffrischen" },
-  "config.merge.refreshOpen.help": {
-    en: "a pull request the host says conflicts is brought up to date anyway; this also merges a landed ticket's base into the conflict-free open agent-smith pull requests on that repository and base, to keep their branches current",
-    de: "ein Pull Request mit Konflikt laut Host wird ohnehin aktualisiert; dies mergt zusätzlich die Base eines gelandeten Tickets in die konfliktfreien offenen agent-smith Pull Requests auf diesem Repository und dieser Base, damit ihre Branches aktuell bleiben",
+  // 2026-11-25-9992i: the one merge decision
+  "config.merge.review.label": { en: "review", de: "Review" },
+  "config.merge.review.help": {
+    en: "when a person looks. end: a series collects its tickets on a series branch and you review one pull request per repository at the end. each: you approve every ticket's pull request. none: agent-smith merges on green, and the host's branch protection still decides",
+    de: "wann ein Mensch draufschaut. end: eine Serie sammelt ihre Tickets auf einem Serien-Branch, und du prüfst am Ende einen Pull Request pro Repository. each: du gibst jeden Ticket-Pull-Request frei. none: agent-smith mergt bei Grün, und der Branch-Schutz des Hosts entscheidet weiterhin",
   },
 
   // --- project pipeline: how a ticket is routed ---

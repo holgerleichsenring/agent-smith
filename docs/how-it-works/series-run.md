@@ -69,13 +69,23 @@ Write in the same conversation. A message from someone holding `runs.control` go
 
 When the master asks a question with a recommended answer, or a ticket's run parks on a question with one, the question appears in the conversation. Answer it there. If nobody answers within `dialogue.question_default_minutes` (default 120), the series takes the recommendation, posts *Taken by default at HH:mm: …* and hands the answer on: to the master, or to the parked run, which resumes. A question without a recommendation waits for you.
 
+## When you look: review
+
+The project's `review` setting decides when a person looks at a series, and the series keeps the value it opened with:
+
+- `end` (default): the series works on a series branch, and the master merges each ticket into it once its build and tests are green. You review one pull request per repository at the end.
+- `each`: no series branch. Each ticket's pull request goes into the default branch, and the master merges it once a person approved it.
+- `none`: no series branch. The master merges each ticket into the default branch on green; the host's branch protection still decides.
+
+`series_status` and the series page show the series' review.
+
 ## The series branch
 
-A series works on its own branch in every repository it touches, `agent-smith/series/<id>`, cut from the default branch by its first ticket there. Each ticket starts from that branch once the tickets it requires have landed on it, opens its pull request against it, and merges into it under `merge.series_when` (default `on_ci_green`; `manual` for teams that review every ticket). What else lands on the default branch meanwhile does not reach the series until its end. A ticket outside the series that requires one of its tickets waits until the series has reached the default branch. If a series pull request reports no CI, agent-smith starts its repository's pull-request CI ([CI loop](ci-loop.md#series-branches)).
+A series under `review: end` works on its own branch in every repository it touches, `agent-smith/series/<id>`, cut from the default branch by its first ticket there. Each ticket starts from that branch once the tickets it requires have landed on it, opens its pull request against it, and the series master merges it there. What else lands on the default branch meanwhile does not reach the series until its end. A ticket outside the series that requires one of its tickets waits until the series has reached the default branch. If a series pull request reports no CI, agent-smith starts its repository's pull-request CI ([CI loop](ci-loop.md#series-branches)).
 
-When every ticket has landed on the series branch, one pull request per repository takes it into the default branch. After the check passes, that pull request merges under `merge.when` in the project's protection mode; a conflict with the default branch starts a `refresh-base` run that brings the series branch up to date. The series is done once every one has merged. A closed one is said, and the branch is kept: only its final merge removes it.
+When every ticket has landed on the series branch, one pull request per repository takes it into the default branch. Its description has a section per ticket: the ticket's title and pull request, what the master did on it and why, and what it could not verify, such as a CI on the ticket's last head that wasn't green or was never read. After the check passes, a person reviews and merges it, or asks the master to; a conflict with the default branch is the master's to refresh. The series is done once every one has merged. A closed one is said, and the branch is kept: only its final merge removes it.
 
-A series opened before series branches existed keeps working ticket by ticket into the default branch.
+A series opened before series branches existed keeps working ticket by ticket into the default branch. A series opened before the `review` setting keeps its branch or its lack of one, and runs as `end` with a branch, as `each` without.
 
 ## The check on main
 

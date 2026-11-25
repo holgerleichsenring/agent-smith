@@ -48,11 +48,11 @@ public sealed class SeriesRunReadersTests : IDisposable
     }
 
     // 2026-11-23-0219: a person's merge the host refused is said on its own merge run only; the detail carries it on the pull
-    // request, and whether a merge asked while CI waits arms auto-complete.
+    // request, and whether a merge asked while CI waits arms auto-complete (2026-11-25-9992i: every merge into the default branch).
+    // 2026-11-25-9992i: and the series' review — a series opened before the setting without a branch reads as each.
     [Fact]
     public async Task Detail_AWaitingPullRequest_CarriesTheNewestMergeRunsRefusal_AndMergeArms()
     {
-        _h.Config.Projects["alpha"].Merge.RespectBranchProtection = true;
         await OpenAsync("sr-1", Tickets("1"));
         await _h.AddAsync(Record("1", "api", CiStates.NotStarted), TicketStoreHarness.Run("run-1", ticket: "1"),
             TicketStoreHarness.Run("merge-1", ticket: "1", pipeline: "merge-green"),
@@ -64,7 +64,7 @@ public sealed class SeriesRunReadersTests : IDisposable
 
         var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
 
-        detail.MergeArms.Should().BeTrue();
+        (detail.MergeArms, detail.Review).Should().Be((true, "each"));
         var pr = detail.Tickets.Single().PullRequests.Single();
         (pr.Ci, pr.MergeSaid?.Status, pr.MergeSaid?.Reason).Should().Be((CiStates.NotStarted,
             AgentSmith.Contracts.Runs.PullRequestStatuses.CompletionRefused, "cannot bypass branch policies"));

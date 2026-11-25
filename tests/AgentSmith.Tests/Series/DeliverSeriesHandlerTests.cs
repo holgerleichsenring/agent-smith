@@ -58,10 +58,10 @@ public sealed class DeliverSeriesHandlerTests
     {
         var beat = await BeatAsync(SeriesRunStates.Running);
 
-        _created.Should().ContainSingle().Which.Should().Contain("- SCRUM-43: work").And.Contain(Branch);
-        beat.Said.Should().ContainSingle().Which.Should().Contain(Final).And.Contain("the series master merges it");
+        _created.Should().ContainSingle().Which.Should().Contain("## SCRUM-43: work").And.Contain(Branch); // 2026-11-25-9992i
+        beat.Said.Should().ContainSingle().Which.Should().Contain(Final).And.Contain("open for your review");
         _store.Records["sr-1"].Deliveries.Should().ContainSingle().Which.Should().Match<SeriesDelivery>(d => d.Repo == "api" && d.Number == "90");
-        _host.Verify(h => h.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()), Times.Never);
+        _host.Verify(h => h.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<MergeStyle>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public sealed class DeliverSeriesHandlerTests
 
         await BeatAsync(state);
 
-        _host.Verify(h => h.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()), Times.Never);
+        _host.Verify(h => h.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<MergeStyle>(), It.IsAny<CancellationToken>()), Times.Never);
         _launch.VerifyNoOtherCalls();
         _store.Records["sr-1"].State.Should().Be(state);
         _store.Records["sr-1"].Deliveries.Single().Url.Should().Be(Final);

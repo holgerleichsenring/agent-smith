@@ -11,7 +11,7 @@ import type { ConfigCapabilities, StudioAgent, StudioProject } from "@/lib/confi
 const capabilities = {
   trackerTypes: [], connectionTypes: [], agentProviders: [], resolutionStrategies: [], permissions: [],
   builtInRoles: [], pipelines: [], roles: [],
-  mergeWhen: ["manual", "on_gate_green", "on_ci_green"],
+  review: ["end", "each", "none"],
   requiresStart: ["on_merge", "on_green_push"],
 } as ConfigCapabilities;
 
@@ -25,66 +25,38 @@ function options(testId: string): string[] {
 }
 
 describe("ProjectMergeSection", () => {
-  // 2026-11-17-3435d
-  it("shows the CI loop's keys for on_ci_green and writes them", () => {
+  // 2026-11-17-3435d; 2026-11-25-9992i: the merge block holds the CI reading keys only, and each shows under every review.
+  it("shows the CI loop's keys under every review and writes them", () => {
     const onChange = vi.fn();
-    const ci = { ...project, merge: { when: "on_ci_green", respectBranchProtection: true, refreshOpenPullRequests: false } };
-    render(<ProjectMergeSection project={ci} onChange={onChange} capabilities={capabilities} />);
+    render(<ProjectMergeSection project={{ ...project, review: "each" }} onChange={onChange} capabilities={capabilities} />);
 
     fireEvent.change(screen.getByTestId("form-field-merge-ciFixAttempts"), { target: { value: "5" } });
-    expect(onChange.mock.calls.at(-1)![0].merge).toMatchObject({ when: "on_ci_green", ciFixAttempts: 5 });
+    expect(onChange.mock.calls.at(-1)![0].merge).toEqual({ ciFixAttempts: 5 });
+    for (const key of ["ciPollSeconds", "ciPendingSeconds", "ciSettleSeconds", "ciExcerptChars", "ciFailedChecksRead"]) {
+      expect(screen.getByTestId(`form-field-merge-${key}`)).toBeTruthy();
+    }
     // 2026-11-25-9992h: nothing approves, so the form offers no approval identity.
     expect(screen.queryByTestId("form-field-merge-approvalAuth")).toBeNull();
   });
 
-  // 2026-11-23-849e: the poll and the pending bound re-read every project's pending CI, so they show for every mode.
-  it("hides the merge-on-green keys for another mode but keeps the poll and the evidence bounds", () => {
-    const manual = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: false, seriesWhen: "manual" } };
-    render(<ProjectMergeSection project={manual} onChange={() => {}} capabilities={capabilities} />);
-    expect(screen.queryByTestId("form-field-merge-ciSettleSeconds")).toBeNull();
-    expect(screen.getByTestId("form-field-merge-ciPollSeconds")).toBeTruthy();
-    expect(screen.getByTestId("form-field-merge-ciPendingSeconds")).toBeTruthy();
-    expect(screen.getByTestId("form-field-merge-ciExcerptChars")).toBeTruthy();
-  });
-
-  // 2026-11-24-6811c: the fix budget also bounds a base refresh's repair passes; 2026-11-24-297b: a conflicting pull request
-  // is refreshed in every project, so a manual project without the refresh setting shows it too.
-  it("shows the fix attempts in any mode", () => {
-    const manual = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: false, seriesWhen: "manual" } };
-    render(<ProjectMergeSection project={manual} onChange={() => {}} capabilities={capabilities} />);
-    expect(screen.getByTestId("form-field-merge-ciFixAttempts")).toBeTruthy();
-    expect(screen.queryByTestId("form-field-merge-ciSettleSeconds")).toBeNull();
-  });
-
-  it("offers the server's modes, a mode it gained included", () => {
+  // 2026-11-25-9992i: one review select replaces the two merge-mode selects and the two protection/refresh switches.
+  it("offers one review select and none of the retired merge controls", () => {
     render(<ProjectMergeSection project={project} onChange={() => {}} capabilities={capabilities} />);
-    expect(options("form-field-merge-when")).toEqual(["manual", "on_gate_green", "on_ci_green"]);
+    expect(options("form-field-review")).toEqual(["end", "each", "none"]);
     expect(options("form-field-requiresStart")).toEqual(["on_merge", "on_green_push"]);
+    for (const retired of ["merge-when", "merge-seriesWhen", "merge-respectBranchProtection", "merge-refreshOpenPullRequests"]) {
+      expect(screen.queryByTestId(`form-field-${retired}`)).toBeNull();
+    }
   });
 
-  it("reads a project without a merge block as manual and writes the block once touched", () => {
+  it("reads a project without a review as end and patches the review", () => {
     const onChange = vi.fn();
     render(<ProjectMergeSection project={project} onChange={onChange} capabilities={capabilities} />);
-    expect((screen.getByTestId("form-field-merge-when") as HTMLSelectElement).value).toBe("manual");
+    expect((screen.getByTestId("form-field-review") as HTMLSelectElement).value).toBe("end");
 
-    fireEvent.change(screen.getByTestId("form-field-merge-when"), { target: { value: "on_gate_green" } });
+    fireEvent.change(screen.getByTestId("form-field-review"), { target: { value: "none" } });
 
-    expect(onChange).toHaveBeenLastCalledWith({
-      ...project, merge: { when: "on_gate_green", respectBranchProtection: false, refreshOpenPullRequests: false, seriesWhen: "on_ci_green" },
-    });
-  });
-
-  // 2026-11-24-f9c5a
-  it("shows series_when beside merge.when, on_ci_green by default, writes it, and shows the CI keys for it", () => {
-    const onChange = vi.fn();
-    const manual = { ...project, merge: { when: "manual", respectBranchProtection: false, refreshOpenPullRequests: false } };
-    render(<ProjectMergeSection project={manual} onChange={onChange} capabilities={capabilities} />);
-    expect((screen.getByTestId("form-field-merge-seriesWhen") as HTMLSelectElement).value).toBe("on_ci_green");
-    expect(screen.getByTestId("form-field-merge-ciSettleSeconds")).toBeTruthy();
-
-    fireEvent.change(screen.getByTestId("form-field-merge-seriesWhen"), { target: { value: "manual" } });
-
-    expect(onChange.mock.calls.at(-1)![0].merge).toMatchObject({ when: "manual", seriesWhen: "manual" });
+    expect(onChange).toHaveBeenLastCalledWith({ ...project, review: "none" });
   });
 
   it("patches requires_start", () => {

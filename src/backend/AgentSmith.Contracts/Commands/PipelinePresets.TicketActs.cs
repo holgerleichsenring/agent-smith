@@ -34,7 +34,7 @@ public static partial class PipelinePresets
     public static readonly IReadOnlyList<string> Retarget = [CommandNames.RetargetPullRequests];
 
     /// <summary>2026-11-17-3435b: preset name of a CI-green merge — a gate-passed attempt's pull requests merged once the
-    /// host's CI is green on every one (merge: on_ci_green). The server's CI watch starts it with the ticket's lease.</summary>
+    /// host's CI is green on every one (review: none, 2026-11-25-9992i). The server's CI watch starts it with the ticket's lease.</summary>
     public const string MergeGreenName = "merge-green";
 
     public static readonly IReadOnlyList<string> MergeGreen = [CommandNames.CompletePullRequests];

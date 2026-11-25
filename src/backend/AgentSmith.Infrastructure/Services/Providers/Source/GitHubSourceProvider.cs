@@ -287,11 +287,11 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     // head the merge then deletes, since GitHub has no per-pull-request delete option.
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
-        _merger.CompleteAsync(prUrl, sourceBranch.Value, cancellationToken);
+        _merger.CompleteAsync(prUrl, sourceBranch.Value, MergeStyle.HostDefault, cancellationToken);
 
     public Task<PullRequestCompletion> MergePullRequestAsync(
-        string prUrl, BranchName sourceBranch, BranchProtection protection, CancellationToken cancellationToken) =>
-        _merge.MergeAsync(prUrl, sourceBranch.Value, protection, cancellationToken);
+        string prUrl, BranchName sourceBranch, BranchProtection protection, MergeStyle style, CancellationToken cancellationToken) =>
+        _merge.MergeAsync(prUrl, sourceBranch.Value, protection, style, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
         await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(CreateGitHubClient()), cancellationToken);

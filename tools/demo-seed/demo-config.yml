@@ -67,8 +67,8 @@ projects:
     pipeline: code
     resolution:
       tag: shop
+    review: none
     merge:
-      when: on_ci_green
       ci_fix_attempts: 3
   billing:
     agent: claude-default

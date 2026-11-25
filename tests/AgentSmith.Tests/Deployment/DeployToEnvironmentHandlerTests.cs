@@ -41,7 +41,7 @@ public sealed class DeployToEnvironmentHandlerTests
         result.IsSuccess.Should().BeTrue(result.Message);
         result.Message.Should().Contain("v1 to prod").And.Contain("waits for a person to merge it");
         fixture.Ops.Verify(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(),
-            It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<BranchProtection>(), It.IsAny<MergeStyle>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public sealed class DeployToEnvironmentHandlerTests
     public async Task Execute_MergeRefused_IsSaidAndTheRunSucceeds()
     {
         var fixture = new DeployFixture();
-        fixture.App.Setup(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(),
+        fixture.App.Setup(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<MergeStyle>(),
             It.IsAny<CancellationToken>())).ReturnsAsync(PullRequestCompletion.Refused("branch policy"));
 
         var result = await fixture.Handler().ExecuteAsync(DeployFixture.Context("test", "v2"), CancellationToken.None);

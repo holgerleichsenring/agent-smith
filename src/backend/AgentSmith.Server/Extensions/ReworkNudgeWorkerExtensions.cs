@@ -26,8 +26,8 @@ internal static class ReworkNudgeWorkerExtensions
         services.AddSingleton<IMergeGreenRun, MergeGreenRun>().AddSingleton<CiGreenMerge>().AddSingleton<CiRedNudge>(); // 3435c // 2026-11-17-3435b
         services.AddSingleton<CiBuildRequeue>().AddSingleton<AutoCompleteRearm>(); // 2026-11-24-629aa, 629ab
         services.AddSingleton<TicketLandingRecorder>().AddSingleton<StackedMergeLanding>(); // 2026-10-14-dbceg, 2026-11-22-6d85b
-        // 2026-11-17-023fb: the landing hook's first subscriber, and the scoped launch it starts runs with.
-        services.AddSingleton<ITicketLandedSubscriber, Services.Branches.SiblingBaseRefresh>();
+        // 2026-11-17-023fb: the scoped launch refresh runs start with. 2026-11-25-9992i: the landing hook's sibling refresh went —
+        // a conflicting pull request is ConflictBaseRefresh's, a conflict-free one is left as it is.
         services.TryAddScoped<Infrastructure.Persistence.Repositories.InitRunRepository>();
         services.AddScoped<Services.Branches.BaseRefreshLauncher>();
         services.AddSingleton<Services.Branches.RefreshableTicket>().AddSingleton<Services.Branches.ConflictBaseRefresh>(); // 2026-11-24-297b

@@ -2,8 +2,8 @@ namespace AgentSmith.Contracts.Commands;
 
 public static partial class CommandNames
 {
-    /// <summary>2026-11-17-023fa: merges a green code run's pull requests when the project's merge policy is
-    /// on_gate_green, after PrCrossLink. Never a finalizer: a red run never reaches it.</summary>
+    /// <summary>2026-11-17-023fa: the merge step, after PrCrossLink — 2026-11-25-9992i: a code run's marks its gate-passed pull
+    /// requests awaiting CI under review: none, a merge-green run's merges. Never a finalizer: a red run never reaches it.</summary>
     public const string CompletePullRequests = "CompletePullRequestsCommand";
 
     /// <summary>2026-11-17-023fb: merges a landed base into an open agent-smith pull request's branch and pushes it

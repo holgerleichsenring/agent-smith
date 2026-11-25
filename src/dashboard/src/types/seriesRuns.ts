@@ -148,14 +148,14 @@ export interface SeriesRunDetail {
   conversationOpen: boolean;
   /** 2026-11-23-31dcf: every requires edge between two of its tickets. */
   edges: SeriesRunEdge[];
-  /** 2026-11-23-0219: the project merges with respect_branch_protection: true, so a Merge while CI waits arms auto-complete. */
+  /** 2026-11-23-0219: a Merge while CI waits arms auto-complete — 2026-11-25-9992i: every merge into the default branch. */
   mergeArms?: boolean;
   /** 2026-11-24-f9c5f: the branch its tickets integrate on; absent or null for a series without one. */
   integrationBranch?: string | null;
   /** 2026-11-24-f9c5f: per repo the final pull request from the series branch into the default branch. */
   deliveries?: SeriesRunDelivery[];
-  /** 2026-11-24-f9c5f: manual · on_gate_green · on_ci_green — what the final pull requests merge under. */
-  mergeWhen?: string;
+  /** 2026-11-25-9992i: end · each · none — when a person looks; end is the series whose final pull requests a person reviews. */
+  review?: string;
   /** 2026-11-25-9992a: the keys of the tickets a run of the series is at work on now. */
   workingOn: string[];
   /** 2026-11-25-9992j: the waiting question's choices (empty without one) and the recommended choice's index; the chat

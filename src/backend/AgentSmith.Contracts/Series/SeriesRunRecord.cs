@@ -74,6 +74,15 @@ public sealed record SeriesRunRecord(
     /// before the branch existed (it runs as it did) and for one opened over a single ticket.</summary>
     public string? IntegrationBranch { get; init; }
 
+    /// <summary>2026-11-25-9992i: the project's review, copied when the series opened; null on a series opened before.</summary>
+    public Models.Configuration.ReviewMode? Review { get; init; }
+
+    /// <summary>2026-11-25-9992i: the review this series runs under — its own, or for a series opened before the setting end
+    /// when it integrates on a series branch, else each. Read, never repaired.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Models.Configuration.ReviewMode EffectiveReview =>
+        Review ?? (IntegrationBranch is null ? Models.Configuration.ReviewMode.Each : Models.Configuration.ReviewMode.End);
+
     /// <summary>2026-11-24-f9c5e: per repo the final pull request the series opened from its branch; empty before.</summary>
     public IReadOnlyList<SeriesDelivery> Deliveries { get; init; } = [];
 

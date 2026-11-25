@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Series;
 /// takes the completion every merge path takes (2026-11-25-9992h: no approval, a required review is a person's). 2026-11-25-9992e: the series master asks for it
 /// (merge_pull_request "final") when it judges the series ready — now past protection where the identity may, or armed for
 /// the host to complete — and for the refresh that brings a conflicting series branch up to date with its base
-/// (refresh_branch "final"); nothing here waits on merge.when or the CI, and nothing refreshes by itself.
+/// (refresh_branch "final"); nothing here waits on a setting or the CI, and nothing refreshes by itself.
 /// </summary>
 public sealed class SeriesFinalMerge(
     PullRequestCompleter completer, ISeriesRunLaunch launch)
@@ -54,7 +54,7 @@ public sealed class SeriesFinalMerge(
         BranchProtection how, CancellationToken ct)
     {
         var entry = new OpenedPullRequest(repo.Name, delivery.Url, OpenStatus.Opened);
-        var completion = await completer.CompleteAsync(context.Pipeline, repo, entry, new BranchName(branch), how, ct);
+        var completion = await completer.CompleteAsync(context.Pipeline, repo, entry, new BranchName(branch), how, MergeStyle.HostDefault, ct);
         return completion.Outcome switch
         {
             PullRequestCompletionOutcome.Merged => $"{delivery.Url} merged: {repo.Name} has the series.",

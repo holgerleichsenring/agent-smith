@@ -38,9 +38,10 @@ public sealed class ResolvedProjectBuilder(
         var designSources = ProjectDesignSourceResolver.Resolve(
             name, raw.DesignSources, catalogs.DesignSources, findings);
 
-        var requiresStart = ResolveRequiresStart(name, raw.RequiresStart, findings);
+        var requiresStart = ProjectModeResolver.RequiresStart(name, raw.RequiresStart, findings);
+        var review = ProjectModeResolver.Review(name, raw.Review, findings); // 2026-11-25-9992i
         if (agent is null || tracker is null || repoList is null || pipelines is null
-            || designSources is null || requiresStart is null) return null;
+            || designSources is null || requiresStart is null || review is null) return null;
         if (ProjectMachineStamp.Apply(name, raw.Machine, repoList, findings) is not { } repos) return null; // 2026-11-25-9992h
 
         return CreateProject(name, raw, agent, ProjectMachineStamp.Tracker(tracker, raw.Machine), repos, pipelines) with // 2026-11-25-0873
@@ -48,6 +49,7 @@ public sealed class ResolvedProjectBuilder(
             Templates = templates,
             DesignSources = designSources,
             RequiresStart = requiresStart.Value,
+            Review = review.Value,
         };
     }
 
@@ -65,15 +67,6 @@ public sealed class ResolvedProjectBuilder(
 
         findings.Add(ProjectFindings.Blocking(project, "agent",
             $"Project '{project}': references agent '{agentName}' which is not defined in agents: catalog."));
-        return null;
-    }
-
-    // 2026-11-17-9a39a: a value the project cannot be read by is a finding naming it, as a bad reference is.
-    private static RequiresStart? ResolveRequiresStart(string project, string? written, List<StartupFinding> findings)
-    {
-        if (RequiresStartNames.Parse(written) is { } mode) return mode;
-        findings.Add(ProjectFindings.Blocking(project, "requires_start",
-            $"Project '{project}': requires_start '{written}' is neither '{RequiresStartNames.OnGreenPush}' nor '{RequiresStartNames.OnMerge}'."));
         return null;
     }
 

@@ -18,7 +18,7 @@ public static partial class CommandNames
     public const string PostSeriesStatus = "PostSeriesStatusCommand";
 
     /// <summary>2026-11-24-f9c5e: a beat's delivery of a series with a series branch: once every ticket landed, one pull request
-    /// per repo from the series branch into the default branch, merged under merge.when once the series check passed.</summary>
+    /// per repo from the series branch into the default branch, reviewed by a person and merged by the series master once the series check passed (2026-11-25-9992i).</summary>
     public const string DeliverSeries = "DeliverSeriesCommand";
 
     /// <summary>2026-11-17-0207d: the series-verify run's check of the series' done criteria on the default branch;

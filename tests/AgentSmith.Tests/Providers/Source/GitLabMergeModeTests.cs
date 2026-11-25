@@ -25,7 +25,7 @@ public sealed class GitLabMergeModeTests
         string? body = null;
         var sut = Sut(req => { body = req; return Json(HttpStatusCode.OK, """{"iid":7,"state":"merged"}"""); });
 
-        var completion = await sut.MergePullRequestAsync(MrUrl, Branch, BranchProtection.Bypass, CancellationToken.None);
+        var completion = await sut.MergePullRequestAsync(MrUrl, Branch, BranchProtection.Bypass, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
         body.Should().NotContain("merge_when_pipeline_succeeds");
@@ -39,22 +39,22 @@ public sealed class GitLabMergeModeTests
     {
         var sut = Sut(_ => Json(status, """{"message":"Branch cannot be merged"}"""));
 
-        var completion = await sut.MergePullRequestAsync(MrUrl, Branch, BranchProtection.Bypass, CancellationToken.None);
+        var completion = await sut.MergePullRequestAsync(MrUrl, Branch, BranchProtection.Bypass, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Conflicts.Should().Be(conflicts);
     }
 
     [Fact]
-    public async Task Bypass_Refused_NamesPolicyPermissionAndKey()
+    public async Task Bypass_Refused_NamesPolicyPermissionAndTheAlternative()
     {
         var sut = Sut(_ => Json(HttpStatusCode.MethodNotAllowed, """{"message":"Branch cannot be merged: approvals are missing"}"""));
 
-        var completion = await sut.MergePullRequestAsync(MrUrl, Branch, BranchProtection.Bypass, CancellationToken.None);
+        var completion = await sut.MergePullRequestAsync(MrUrl, Branch, BranchProtection.Bypass, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().StartWith("cannot bypass the merge checks");
         completion.Reason.Should().Contain("on GitLab: GitLab answered 405: Branch cannot be merged: approvals are missing");
-        completion.Reason.Should().EndWith("or set respect_branch_protection: true");
+        completion.Reason.Should().EndWith("or merge with how auto so the host's rules decide");
     }
 
     [Fact]
@@ -67,10 +67,26 @@ public sealed class GitLabMergeModeTests
             return Json(HttpStatusCode.OK, """{"iid":7,"state":"opened","merge_when_pipeline_succeeds":true}""");
         });
 
-        var completion = await sut.MergePullRequestAsync(MrUrl, Branch, BranchProtection.Respect, CancellationToken.None);
+        var completion = await sut.MergePullRequestAsync(MrUrl, Branch, BranchProtection.Respect, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Armed);
         body.Should().Contain("\"merge_when_pipeline_succeeds\":true");
+    }
+
+    // 2026-11-25-9992i: a merge into a series branch asks GitLab to squash — merging now or armed; any other merge does not.
+    [Theory]
+    [InlineData(BranchProtection.Bypass)]
+    [InlineData(BranchProtection.Respect)]
+    public async Task Squash_SendsSquashTrue_HostDefaultSendsNone(BranchProtection protection)
+    {
+        var bodies = new List<string>();
+        var sut = Sut(req => { bodies.Add(req); return Json(HttpStatusCode.OK, """{"iid":7,"state":"merged"}"""); });
+
+        await sut.MergePullRequestAsync(MrUrl, Branch, protection, MergeStyle.Squash, CancellationToken.None);
+        await sut.MergePullRequestAsync(MrUrl, Branch, protection, MergeStyle.HostDefault, CancellationToken.None);
+
+        bodies[0].Should().Contain("\"squash\":true").And.Contain("should_remove_source_branch");
+        bodies[1].Should().NotContain("squash");
     }
 
     [Fact]

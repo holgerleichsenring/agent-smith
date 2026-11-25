@@ -10,29 +10,28 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.Server.Services.Rework;
 
 /// <summary>
-/// 2026-11-17-3435b: after a refresh, a ticket of a merge: on_ci_green project whose newest attempt finished green with
+/// 2026-11-17-3435b: after a refresh, a ticket of a review: none project (2026-11-25-9992i) whose newest attempt finished green with
 /// its pull requests awaiting CI is merged once CI is green on every one of THOSE pull requests (an older attempt's
 /// closed one does not block it) — or reports nothing for merge.ci_settle_seconds. Each head and verdict is acted on
 /// once: only a merge-green run that ran marks the records, so a held lease is tried again on the next refresh.
-/// <para>2026-11-24-f9c5c: the mode is the awaited pull requests' target's — merge.series_when for a series branch, which the
-/// request then names — and a series-branch head merges on green only: one that reports nothing is f9c5d's to start.</para>
+/// <para>2026-11-24-f9c5c: a pull request into a series branch is named on the request (it merges past protection) and merges
+/// on green only: one that reports nothing is the series master's to start.</para>
 /// </summary>
 public sealed class CiGreenMerge(
     IServiceScopeFactory scopes, IPreviousAttemptReader attempts, IActiveRunLease leases, IMergeGreenRun run, TimeProvider clock)
 {
     public async Task<bool> AfterRefreshAsync(ResolvedProject project, string ticketId, CancellationToken ct)
     {
-        if (!project.Merge.ActsOnCi) return false;
+        if (project.Review != ReviewMode.None) return false; // 2026-11-25-9992i
         var attempt = await attempts.LatestAsync(project.Name, ticketId, null, ct);
         if (attempt is not { Finished: true, Status: RunStatuses.Success } || attempt.AwaitingCiUrls.Count == 0) return false;
         using var scope = scopes.CreateScope();
         var records = (await scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>().ByTicketAsync(project.Name, ticketId, ct))
             .ToDictionary(r => r.PrKey, StringComparer.Ordinal);
         var awaited = attempt.AwaitingCiUrls.Select(p => (Repo: p.Key, Url: p.Value, Record: records.GetValueOrDefault(PrKey.Of(p.Value)))).ToList();
-        // 2026-11-24-f9c5c: a target not read yet waits for the read — the mode and the base guard both turn on it.
+        // 2026-11-24-f9c5c: a target not read yet waits for the read — the protection and the base guard both turn on it.
         if (awaited.Any(a => a.Record is { TargetBranch: null })) return false;
         var series = SeriesTarget(awaited.Select(a => a.Record));
-        if (project.Merge.WhenInto(series) != MergeWhen.OnCiGreen) return false;
         if (awaited.Any(a => a.Record?.Ci is not { } ci || !Green(a.Record, ci, project, series is not null)) || awaited.All(a => Acted(a.Record!)))
             return false;
         if (await leases.GetByTicketAsync(project.Name, new TicketId(ticketId), ct) is not null) return false;

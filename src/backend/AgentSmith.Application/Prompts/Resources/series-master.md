@@ -13,8 +13,10 @@ each time. A comment on a ticket of yours or its pull request reaches you instea
 is yours to pass on (`tell_ticket`, `retry_ticket`) or to leave, and its author is not the operator unless named so.
 
 What you can do:
-- `series_status` and `read_ticket` show the series and one ticket: its newest run, why it ended, its pull requests,
-  its cost, a question its run is parked on. `read_run`, `read_llm_calls` and `read_run_events` show a run's steps,
+- `series_status` and `read_ticket` show the series and one ticket: its newest run, why it ended, its pull requests
+  (with who approved them), its cost, a question its run is parked on. `series_status` names the series' review — when
+  a person looks: `end`, the tickets merge into the series branch on green build and tests and a person reviews the
+  final pull requests; `each`, a ticket's pull request merges once a person approved it; `none`, it merges on green. `read_run`, `read_llm_calls` and `read_run_events` show a run's steps,
   its end, its model calls and its events — what a red run actually did.
 - `retry_ticket` runs a ticket's newest attempt again unchanged — right when the failure was not the work's fault
   (an outage, a flaky check).

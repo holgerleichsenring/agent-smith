@@ -43,8 +43,11 @@ public sealed record ResolvedProject
     /// <summary>2026-11-25-9992d: the private package feeds this project's runs stage, tokens resolved.</summary>
     public IReadOnlyList<RegistryConfig> Registries { get; init; } = [];
 
-    /// <summary>2026-11-17-023fa: whether a green code run merges its own pull requests.</summary>
+    /// <summary>2026-11-17-023fa: how the host's CI is read (2026-11-25-9992i: the decision went to <see cref="Review"/>).</summary>
     public MergePolicyConfig Merge { get; init; } = new();
+
+    /// <summary>2026-11-25-9992i: when a person looks — at the series' end, at each ticket, or never (merge on green).</summary>
+    public ReviewMode Review { get; init; } = ReviewMode.End;
 
     /// <summary>2026-11-17-9a39a: when a ticket that requires another may start.</summary>
     public RequiresStart RequiresStart { get; init; } = RequiresStart.OnGreenPush;

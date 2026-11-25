@@ -62,7 +62,7 @@ public sealed class SeriesPullRequestToolsTests
     [Fact]
     public async Task MergePullRequest_Final_MergesTheFinalPullRequestPastProtection()
     {
-        _host.Setup(h => h.MergePullRequestAsync(Final, new BranchName(Branch), BranchProtection.Bypass, It.IsAny<CancellationToken>()))
+        _host.Setup(h => h.MergePullRequestAsync(Final, new BranchName(Branch), BranchProtection.Bypass, It.IsAny<MergeStyle>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(PullRequestCompletion.Merged());
 
         (await Tools().MergePullRequestAsync("final", "now", "the series check passed")).Should().Contain($"{Final} merged");
@@ -71,7 +71,7 @@ public sealed class SeriesPullRequestToolsTests
     [Fact]
     public async Task MergePullRequest_FinalThatConflicts_SaysSoAndRefreshesNothingByItself()
     {
-        _host.Setup(h => h.MergePullRequestAsync(Final, It.IsAny<BranchName>(), BranchProtection.Respect, It.IsAny<CancellationToken>()))
+        _host.Setup(h => h.MergePullRequestAsync(Final, It.IsAny<BranchName>(), BranchProtection.Respect, It.IsAny<MergeStyle>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(PullRequestCompletion.Refused("conflicts") with { Conflicts = true });
 
         (await Tools().MergePullRequestAsync("final", "auto")).Should().Contain("refresh_branch brings");

@@ -349,11 +349,11 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     // GitLab recovers everything it needs from the URL.
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
-        _mergeRequests.CompleteAsync(prUrl, cancellationToken);
+        _mergeRequests.CompleteAsync(prUrl, MergeStyle.HostDefault, cancellationToken);
 
     public Task<PullRequestCompletion> MergePullRequestAsync(
-        string prUrl, BranchName sourceBranch, BranchProtection protection, CancellationToken cancellationToken) =>
-        _merge.MergeAsync(prUrl, protection, cancellationToken);
+        string prUrl, BranchName sourceBranch, BranchProtection protection, MergeStyle style, CancellationToken cancellationToken) =>
+        _merge.MergeAsync(prUrl, protection, style, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
         await _branchRead.TryReadFileAsync(path, await DefaultBranchNameAsync(cancellationToken), cancellationToken);

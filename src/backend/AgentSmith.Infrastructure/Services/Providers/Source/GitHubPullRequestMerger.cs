@@ -12,7 +12,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// method the repository is known to allow is the platform declining (p0490) and is reported as such.
 /// 2026-11-17-713eb: a merged agent-smith/ head is deleted afterwards — GitHub has no per-pull-request
 /// option for it. A delete that fails (a repository that deletes on merge itself answers 422) leaves the
-/// completion Merged; the branch sweep removes what is left.
+/// completion Merged; the branch sweep removes what is left. 2026-11-25-9992i: a squash style merges by squash only — a
+/// repository that turned squash off is refused by name rather than merged another way.
 /// </summary>
 public sealed class GitHubPullRequestMerger(
     GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token, ILogger logger)
@@ -20,7 +21,10 @@ public sealed class GitHubPullRequestMerger(
     private const string NoneAllowed =
         "The repository allows no merge method (allow_merge_commit, allow_squash_merge and allow_rebase_merge are all off).";
 
-    public async Task<PullRequestCompletion> CompleteAsync(string prUrl, string? sourceBranch, CancellationToken cancellationToken)
+    private const string NoSquash = "The repository does not allow squash merges (allow_squash_merge), and a merge into a series branch squashes.";
+
+    public async Task<PullRequestCompletion> CompleteAsync(
+        string prUrl, string? sourceBranch, MergeStyle style, CancellationToken cancellationToken)
     {
         if (!GitHubPullRequestUpdater.TryParsePullNumber(prUrl, out var prNumber))
             return PullRequestCompletion.Refused($"'{prUrl}' is not a GitHub pull request URL.");
@@ -28,8 +32,8 @@ public sealed class GitHubPullRequestMerger(
         try
         {
             var client = clientFactory.Create(address, token);
-            var methods = Candidates(await client.Repository.Get(address.Owner, address.Repo));
-            if (methods.Count == 0) return PullRequestCompletion.Refused(NoneAllowed);
+            var methods = Candidates(await client.Repository.Get(address.Owner, address.Repo), style);
+            if (methods.Count == 0) return PullRequestCompletion.Refused(style == MergeStyle.Squash ? NoSquash : NoneAllowed);
             var completion = await MergeAsync(client, prNumber, methods);
             if (completion.Outcome == PullRequestCompletionOutcome.Merged) await DeleteHeadAsync(client, sourceBranch);
             return completion;
@@ -92,7 +96,10 @@ public sealed class GitHubPullRequestMerger(
         return PullRequestCompletion.Refused(merge.Message ?? "GitHub declined the merge.");
     }
 
-    private static IReadOnlyList<(PullRequestMergeMethod Method, bool Known)> Candidates(Octokit.Repository repository) =>
+    private static IReadOnlyList<(PullRequestMergeMethod Method, bool Known)> Candidates(Octokit.Repository repository, MergeStyle style) =>
+        style == MergeStyle.Squash ? [.. All(repository).Where(c => c.Method == PullRequestMergeMethod.Squash)] : All(repository);
+
+    private static IReadOnlyList<(PullRequestMergeMethod Method, bool Known)> All(Octokit.Repository repository) =>
     [
         .. new (PullRequestMergeMethod Method, bool? Allowed)[]
         {

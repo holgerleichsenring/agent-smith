@@ -901,8 +901,8 @@ export const coreMessages = {
   },
   "series.final.opens": { en: "Every ticket landed; the next beat opens one pull request per repository.", de: "Alle Tickets sind gelandet; der nächste Takt öffnet einen Pull Request pro Repository." },
   "series.final.waitsCheck": { en: "Merges once the series check passed.", de: "Wird gemergt, sobald der Serien-Check bestanden ist." },
-  "series.final.merging": { en: "The series check passed; agent-smith merges these under merge.when.", de: "Der Serien-Check ist bestanden; agent-smith mergt diese nach merge.when." },
-  "series.final.yourMerge": { en: "The series check passed; these wait for your merge (merge.when: manual).", de: "Der Serien-Check ist bestanden; diese warten auf deinen Merge (merge.when: manual)." },
+  "series.final.merging": { en: "The series check passed; the series master merges these.", de: "Der Serien-Check ist bestanden; der Serien-Master mergt diese." },
+  "series.final.yourMerge": { en: "The series check passed; these wait for your review and merge (review: end).", de: "Der Serien-Check ist bestanden; diese warten auf dein Review und deinen Merge (review: end)." },
   "series.final.done": { en: "Merged into the default branch; the series is done.", de: "In den Default-Branch gemergt; die Serie ist fertig." },
   "series.conversation.sub": {
     en: "The series tells you here what it did and asks when it needs you. While it runs, it reads what you write.",

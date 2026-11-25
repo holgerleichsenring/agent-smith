@@ -19,6 +19,10 @@ public sealed record SeriesRunPullRequestView(
     /// <summary>2026-11-23-0219: the newest merge-green run's refusal or armed auto-complete on it; null when none said one.</summary>
     public AgentSmith.Contracts.Runs.PullRequestMergeSaid? MergeSaid { get; init; }
 
+    /// <summary>2026-11-25-9992i: who approves it now on the host (a standing approval, ours left out) — under review: each the
+    /// series master merges once a person did.</summary>
+    public IReadOnlyList<string> ApprovedBy { get; init; } = [];
+
     /// <summary>The pull request waits for a merge: open, or opened and not read by the host yet.</summary>
     public static bool Waits(SeriesRunPullRequestView pullRequest)
     {

@@ -1232,7 +1232,7 @@ export type PullRequestStatus =
   | "completed"
   | "completion_armed"
   | "completion_refused"
-  /** 2026-11-17-3435b: the run's gate passed; the pull request waits for the host's CI (merge: on_ci_green). */
+  /** 2026-11-17-3435b: the run's gate passed; the pull request waits for the host's CI (review: none). */
   | "awaiting_ci"
   /** 2026-11-24-6811c: a refresh-base run left the branch unchanged; the PR is still open and the reason says why. */
   | "refresh_refused";

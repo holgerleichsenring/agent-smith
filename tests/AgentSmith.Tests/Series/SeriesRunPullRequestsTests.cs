@@ -48,6 +48,31 @@ public sealed class SeriesRunPullRequestsTests
         _pullRequests.TargetsElsewhere(pullRequest, Project).Should().BeTrue("outside its series it is just another branch");
     }
 
+    // 2026-11-25-9992i: who approves a pull request now — standing approvals only, agent-smith's own left out — so the master of
+    // an each series sees a person's approval in read_ticket.
+    [Fact]
+    public void ApprovedBy_NamesTheStandingApprovalsOfPeople()
+    {
+        var record = Record("1", PrReviewStates.Open) with
+        {
+            Entries =
+            [
+                Entry("dana", PrReviewDecisions.Approved, standing: true),
+                Entry("lee", PrReviewDecisions.ApprovedWithSuggestions, standing: true),
+                Entry("kim", PrReviewDecisions.Approved, standing: false),
+                Entry("sam", PrReviewDecisions.ChangesRequested, standing: true),
+                Entry("agent", PrReviewDecisions.Approved, standing: true, ours: true),
+            ],
+        };
+
+        SeriesRunPullRequests.ApprovedBy(record).Should().Equal("dana", "lee");
+        _pullRequests.Of([record], Project).Single().ApprovedBy.Should().Equal("dana", "lee");
+    }
+
+    private static PrReviewEntryView Entry(string author, string decision, bool standing, bool ours = false) =>
+        new($"h-{author}", PrReviewEntryKinds.Decision, decision, standing, author, true, ours, false, false, null, null, null, null,
+            string.Empty, false, DateTimeOffset.UnixEpoch);
+
     private static PrReviewRecordView Record(string number, string state) =>
         new($"k{number}", $"https://github.com/o/api/pull/{number}", "api", number, "alpha", "1", "run", state, null,
             DateTimeOffset.UnixEpoch, null, []);

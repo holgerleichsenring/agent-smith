@@ -108,9 +108,9 @@ public sealed class AutoCompleteRearmTests : IDisposable
     }
 
     [Theory]
-    [InlineData(MergeWhen.Manual)]
-    [InlineData(MergeWhen.OnCiGreen)]
-    public async Task LostAtAConflict_IsArmedAgainOnce_WhenItNoLongerConflicts(MergeWhen when)
+    [InlineData(ReviewMode.End)]
+    [InlineData(ReviewMode.None)]
+    public async Task LostAtAConflict_IsArmedAgainOnce_WhenItNoLongerConflicts(ReviewMode when)
     {
         await LoseAtAConflictAsync();
         await RefreshAsync(when);
@@ -265,7 +265,7 @@ public sealed class AutoCompleteRearmTests : IDisposable
         _h.Records().Single().AutoCompleteLostAtTicks.Should().NotBeNull();
     }
 
-    private async Task RefreshAsync(MergeWhen when = MergeWhen.Manual)
+    private async Task RefreshAsync(ReviewMode when = ReviewMode.End)
     {
         _h.Clock.Now = _h.Clock.Now.AddSeconds(1);
         await _h.Refresh().RefreshAsync(Project(when), "7", null, CancellationToken.None);
@@ -297,10 +297,10 @@ public sealed class AutoCompleteRearmTests : IDisposable
         }
     }
 
-    private static ResolvedProject Project(MergeWhen when) => new()
+    private static ResolvedProject Project(ReviewMode when) => new()
     {
         Name = "p", Tracker = PrReviewRefreshHarness.Project.Tracker, Repos = PrReviewRefreshHarness.Project.Repos,
-        Merge = new MergePolicyConfig { When = when },
+        Review = when,
     };
 
     public void Dispose() => _h.Dispose();

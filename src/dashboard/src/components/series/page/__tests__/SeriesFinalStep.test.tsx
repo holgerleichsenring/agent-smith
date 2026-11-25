@@ -23,13 +23,13 @@ describe("SeriesFinalStep", () => {
     expect(screen.getByTestId("series-final-waits")).toHaveTextContent(`Waits for 2 tickets to land on ${Branch}.`);
   });
 
-  it("SeriesFinalStep_Delivering_ShowsEachRepoWithItsSentence_AndAPersonsMergeUnderManual", () => {
+  it("SeriesFinalStep_Delivering_ShowsEachRepoWithItsSentence_AndAPersonsReviewUnderEnd", () => {
     render(<SeriesFinalStep detail={seriesDetail({
-      integrationBranch: Branch, state: "delivering", mergeWhen: "manual",
+      integrationBranch: Branch, state: "delivering", review: "end",
       tickets: [seriesTicket({ landed: true })],
       deliveries: [{ repo: "server", url: "https://git.test/server/pull/90", number: "90", said: "waits for your merge into the default branch." }],
     })} />);
-    expect(screen.getByTestId("series-final-waits")).toHaveTextContent("these wait for your merge (merge.when: manual)");
+    expect(screen.getByTestId("series-final-waits")).toHaveTextContent("these wait for your review and merge (review: end)");
     expect(screen.getByTestId("series-final-server")).toHaveTextContent("server #90 waits for your merge");
     expect(screen.getByRole("link", { name: "#90" })).toHaveAttribute("href", "https://git.test/server/pull/90");
   });

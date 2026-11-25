@@ -31,13 +31,16 @@ public sealed class AzureReposAutoComplete(
     /// accepted the instruction and is waiting, and refused when it declined.
     /// </summary>
     public async Task<PullRequestCompletion> ArmAsync(
-        GitHttpClient client, GitPullRequest pr, int prId, string? self, CancellationToken cancellationToken)
+        GitHttpClient client, GitPullRequest pr, int prId, string? self, MergeStyle style, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(pr);
         if (Self(self) is not { } identity) return Unknown(prId);
+        // 2026-11-25-9992i: a squash style arms with mergeStrategy squash.
+        var options = style == MergeStyle.Squash
+            ? new GitPullRequestCompletionOptions { DeleteSourceBranch = true, MergeStrategy = GitPullRequestMergeStrategy.Squash } : null;
         var updated = await client.UpdatePullRequestAsync(
-            Arming(pr, identity), project, repoName, prId, cancellationToken: cancellationToken);
+            Arming(pr, identity, options), project, repoName, prId, cancellationToken: cancellationToken);
         return Interpret(updated, prId);
     }
 

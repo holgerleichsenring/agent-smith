@@ -9,23 +9,24 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// policies and required reviewers are for people, not for a run whose own gate verified the change. The update
 /// carries the last merge source commit Azure requires to complete, BypassPolicy with a reason, and deletes the source
 /// branch as the armed completion does. Azure merges asynchronously, so an answer still active with a queued merge is
-/// armed rather than refused. A missing permission is refused with the permission and the key named.
+/// armed rather than refused. A missing permission is refused with the permission and the auto alternative named.
 /// </summary>
 public sealed class AzureReposPolicyBypass(string project, string repoName, ILogger logger)
 {
     public const string Policy = "branch policies";
     public const string Permission = "the token's identity 'Bypass policies when completing pull requests' on the repository";
-    public const string Reason = "Merged by agent-smith: the run's own gate verified this change green (merge: on_gate_green).";
+    // 2026-11-25-9992i: a bypass is asked only into a series branch or by a judged merge (the series master's how now).
+    public const string Reason = "Merged by agent-smith: a merge asked past protection (into a series branch, or the series master's how now).";
 
     public async Task<PullRequestCompletion> CompleteAsync(
-        GitHttpClient client, GitPullRequest pr, int prId, CancellationToken cancellationToken)
+        GitHttpClient client, GitPullRequest pr, int prId, MergeStyle style, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(pr);
         try
         {
             var updated = await client.UpdatePullRequestAsync(
-                Completing(pr), project, repoName, prId, cancellationToken: cancellationToken);
+                Completing(pr, style), project, repoName, prId, cancellationToken: cancellationToken);
             return Interpret(updated, prId);
         }
         catch (Exception ex)
@@ -35,14 +36,15 @@ public sealed class AzureReposPolicyBypass(string project, string repoName, ILog
         }
     }
 
-    /// <summary>The update that completes past the policies.</summary>
-    public static GitPullRequest Completing(GitPullRequest pr) => new()
+    /// <summary>The update that completes past the policies; 2026-11-25-9992i: squashed for a squash style.</summary>
+    public static GitPullRequest Completing(GitPullRequest pr, MergeStyle style) => new()
     {
         Status = PullRequestStatus.Completed,
         LastMergeSourceCommit = pr.LastMergeSourceCommit,
         CompletionOptions = new GitPullRequestCompletionOptions
         {
             BypassPolicy = true, BypassReason = Reason, DeleteSourceBranch = true,
+            MergeStrategy = style == MergeStyle.Squash ? GitPullRequestMergeStrategy.Squash : null,
         },
     };
 

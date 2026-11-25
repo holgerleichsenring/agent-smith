@@ -6,15 +6,13 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 namespace AgentSmith.Server.Services.Sweep;
 
 /// <summary>
-/// 2026-11-17-3435b: which open pull requests the CI loop reads next — those of merge: on_ci_green projects whose CI is
+/// 2026-11-17-3435b: which open pull requests the CI loop reads next — those of review: none projects whose CI is
 /// unread, on an older head, none, pending for less than merge.ci_pending_seconds, or a verdict not acted on, and not
 /// read for merge.ci_poll_seconds. The cadence the re-read ticks at is the smallest poll of those projects.
 /// <para>2026-11-23-849e: every project's open pull requests carry a hold that reads their CI (d60d), so every project is
-/// watched while its CI is pending within merge.ci_pending_seconds, at the same poll. Only an on_ci_green project acts on a
-/// verdict, so only it keeps unread, moved-head and unacted records due. The loop now ticks at the smallest poll of every
-/// project (60 s by default) instead of only while an on_ci_green project is configured.</para>
-/// <para>2026-11-24-f9c5c: acting is per record — merge.when on_ci_green for a pull request into the default branch,
-/// merge.series_when on_ci_green for one into a series branch.</para>
+/// watched while its CI is pending within merge.ci_pending_seconds, at the same poll. Only a review: none project
+/// (2026-11-25-9992i) acts on a verdict, so only it keeps unread, moved-head and unacted records due. The loop ticks at the
+/// smallest poll of every project (60 s by default).</para>
 /// <para>2026-11-25-9992e: the tickets an active series holds are read for their master while their CI waits, in every mode
 /// (<see cref="PrRecordCiDue.SeriesTickets"/>).</para>
 /// </summary>
@@ -33,8 +31,8 @@ public static class CiWatchSelection
         foreach (var project in watched)
             due.AddRange(await records.CiDueAsync(project.Name, new PrRecordCiDue(
                 (now - TimeSpan.FromSeconds(project.Merge.CiPollSeconds)).UtcTicks,
-                (now - TimeSpan.FromSeconds(project.Merge.CiPendingSeconds)).UtcTicks, project.Merge.When == MergeWhen.OnCiGreen,
-                project.Merge.SeriesWhen == MergeWhen.OnCiGreen) { SeriesTickets = SeriesTickets(activeSeries, project.Name) }, ct));
+                (now - TimeSpan.FromSeconds(project.Merge.CiPendingSeconds)).UtcTicks, project.Review == ReviewMode.None)
+                { SeriesTickets = SeriesTickets(activeSeries, project.Name) }, ct));
         return due;
     }
 

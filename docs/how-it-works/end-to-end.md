@@ -93,15 +93,15 @@ More on the run page and the ticket page: [Dashboard](../reference/operations/da
 
 ## 5. CI decides when it merges
 
-A green run opens its pull requests. What happens next depends on the project's merge policy:
+A green run opens its pull requests. What happens next depends on the project's `review`:
 
-| `merge.when` | What happens |
+| `review` | What happens to a single ticket's pull requests |
 |---|---|
-| `manual` (default) | A person reviews and merges. |
-| `on_gate_green` | The run merges its own pull requests as its last step once every spec passed. |
-| `on_ci_green` | The pull requests wait for CI. Green on all of them, and a `merge-green` run merges. Red, and a fix run starts with the failed checks' evidence, up to `ci_fix_attempts` times before the ticket comes back to you. |
+| `end` (default) | A person reviews and merges. A series collects its tickets on a series branch and a person reviews one pull request per repository at its end. |
+| `each` | A person reviews and merges; in a series the master merges each one after a person approved it. |
+| `none` | The pull requests wait for CI. Green on all of them, and a `merge-green` run merges them under the host's branch protection. Red, and a fix run starts with the failed checks' evidence, up to `ci_fix_attempts` times before the ticket comes back to you. |
 
-Every open pull request shows its CI state on the ticket page. Details, branch protection and approvals: [CI loop and merge policy](ci-loop.md).
+Every open pull request shows its CI state on the ticket page. Details and branch protection: [CI loop and merge policy](ci-loop.md).
 
 ## 6. The next ticket starts on a green push
 

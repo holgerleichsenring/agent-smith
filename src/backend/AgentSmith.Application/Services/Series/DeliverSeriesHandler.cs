@@ -44,7 +44,7 @@ public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullR
     private async Task<SeriesDeliveryStep> StepAsync(SeriesBeat beat, RepoConnection repo, string branch, CancellationToken ct)
     {
         var known = beat.Record.Deliveries.FirstOrDefault(d => d.Repo == repo.Name);
-        try { return await finals.StepAsync(beat.Record, repo, branch, known, ct); }
+        try { return await finals.StepAsync(beat.Record, repo, branch, known, beat.Facts, ct); }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             return SeriesDeliveryStep.Of(known ?? new SeriesDelivery(repo.Name, string.Empty, string.Empty), "failed",

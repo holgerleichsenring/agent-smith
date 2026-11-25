@@ -10,12 +10,13 @@ namespace AgentSmith.Application.Services.Series;
 /// 2026-11-24-f9c5e: one repo's final pull request of a series — the series branch into the default branch. The host is read
 /// every beat (the branch's pull requests); one is opened when none is open or merged. A closed one is said and waits for the
 /// operator. 2026-11-25-9992e: an open one is read only — the series master merges it or refreshes its branch
-/// (<see cref="SeriesFinalMerge"/>); this step no longer merges or refreshes on its own.
+/// (<see cref="SeriesFinalMerge"/>); this step no longer merges or refreshes on its own. 2026-11-25-9992i: its body is the
+/// review the person reads at the series' end (<see cref="SeriesFinalBody"/>).
 /// </summary>
 public sealed class SeriesFinalPullRequest(ISourceProviderFactory sources)
 {
     public async Task<SeriesDeliveryStep> StepAsync(SeriesRunRecord record, RepoConnection repo, string branch, SeriesDelivery? known,
-        CancellationToken ct)
+        IReadOnlyList<SeriesTicketFact> facts, CancellationToken ct)
     {
         var provider = sources.Create(repo);
         var host = provider as IWorkBranchCleanup;
@@ -28,13 +29,13 @@ public sealed class SeriesFinalPullRequest(ISourceProviderFactory sources)
             if (known is not null && from.Any(p => p.State == BranchPullRequestState.Closed))
                 return SeriesDeliveryStep.Of(known, "closed", $"The final pull request of {repo.Name} ({known.Url}) was closed without "
                     + $"merging; {branch} keeps the series' work. Reopen it to deliver the series, or stop the series.");
-            url = await provider.CreatePullRequestAsync(source, Title(record), Body(record, branch), ct);
+            url = await provider.CreatePullRequestAsync(source, Title(record), SeriesFinalBody.Of(record, branch, facts), ct);
             return SeriesDeliveryStep.Of(new SeriesDelivery(repo.Name, url, Number(url)), "opened",
-                $"Every ticket landed on {branch}. The final pull request of {repo.Name} into the default branch is open: {url}; "
-                + "the series master merges it.");
+                $"Every ticket landed on {branch}. The final pull request of {repo.Name} into the default branch is open for your "
+                + $"review: {url}.");
         }
         var delivery = known is not null && known.Url == url ? known : new SeriesDelivery(repo.Name, url, Number(url));
-        return SeriesDeliveryStep.Of(delivery, "open, the series master merges it", null);
+        return SeriesDeliveryStep.Of(delivery, "open for review", null);
     }
 
     // Merged and nothing landed on the branch since: the branch is gone (the host deleted it) or still at the merged head. A
@@ -47,11 +48,6 @@ public sealed class SeriesFinalPullRequest(ISourceProviderFactory sources)
 
     private static string Title(SeriesRunRecord record) => record.Tickets.Count == 0 ? $"Series {record.Id}"
         : $"Series: {record.Tickets[0].Title}" + (record.Tickets.Count > 1 ? $" and {record.Tickets.Count - 1} more" : string.Empty);
-
-    // Every ticket of the series, a GitHub issue with the keyword that closes it once this reaches the default branch.
-    private static string Body(SeriesRunRecord record, string branch) =>
-        $"Delivers series {record.Id} from `{branch}` into the default branch: its tickets landed there one by one.\n\n"
-        + string.Join("\n", record.Tickets.Select(t => $"- {(t.Key.StartsWith('#') ? $"Closes {t.Key}" : t.Key)}: {t.Title}"));
 
     private static string Number(string url) => url.TrimEnd('/').Split('/')[^1];
 }

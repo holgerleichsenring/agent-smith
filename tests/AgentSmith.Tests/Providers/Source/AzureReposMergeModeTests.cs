@@ -33,7 +33,7 @@ public sealed class AzureReposMergeModeTests
                 (u, _, _, _, _, _) => sent = u)
             .ReturnsAsync(() => new GitPullRequest { Status = PullRequestStatus.Completed });
 
-        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, CancellationToken.None);
+        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
         sent!.Status.Should().Be(PullRequestStatus.Completed);
@@ -54,7 +54,7 @@ public sealed class AzureReposMergeModeTests
             Status = PullRequestStatus.Active, MergeStatus = PullRequestAsyncStatus.Queued,
         });
 
-        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, CancellationToken.None);
+        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Armed, "Azure merges asynchronously");
     }
@@ -68,25 +68,25 @@ public sealed class AzureReposMergeModeTests
             Status = PullRequestStatus.Active, MergeStatus = PullRequestAsyncStatus.Conflicts,
         });
 
-        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, CancellationToken.None);
+        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().Contain("conflicts");
     }
 
     [Fact]
-    public async Task Bypass_WithoutPermission_NamesThePermissionAndTheKey()
+    public async Task Bypass_WithoutPermission_NamesThePermissionAndTheAlternative()
     {
         var client = NewClient();
         Update(client).ThrowsAsync(new VssServiceException(
             "TF401027: You need the Git 'PullRequestBypassPolicy' permission to perform this action."));
 
-        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, CancellationToken.None);
+        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().StartWith("cannot bypass branch policies on Azure Repos: TF401027");
         completion.Reason.Should().Contain("Bypass policies when completing pull requests");
-        completion.Reason.Should().EndWith("or set respect_branch_protection: true");
+        completion.Reason.Should().EndWith("or merge with how auto so the host's rules decide");
     }
 
     [Fact]
@@ -98,13 +98,33 @@ public sealed class AzureReposMergeModeTests
                 (u, _, _, _, _, _) => sent = u)
             .ReturnsAsync(() => new GitPullRequest { Status = PullRequestStatus.Active, AutoCompleteSetBy = Creator });
 
-        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Respect, CancellationToken.None);
+        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Respect, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Armed);
         sent!.AutoCompleteSetBy!.Id.Should().Be(Self);
         sent.CompletionOptions!.BypassPolicy.Should().NotBe(true);
         client.Verify(c => c.CreatePullRequestReviewerAsync(It.IsAny<IdentityRefWithVote>(), It.IsAny<string>(),
             It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // 2026-11-25-9992i: a merge into a series branch completes with mergeStrategy squash — now past the policies, or armed;
+    // any other merge leaves the strategy to the repository.
+    [Theory]
+    [InlineData(BranchProtection.Bypass)]
+    [InlineData(BranchProtection.Respect)]
+    public async Task Squash_CompletesWithTheSquashStrategy_HostDefaultSetsNone(BranchProtection protection)
+    {
+        var client = NewClient();
+        var sent = new List<GitPullRequest>();
+        Update(client).Callback<GitPullRequest, string, string, int, object, CancellationToken>((u, _, _, _, _, _) => sent.Add(u))
+            .ReturnsAsync(() => new GitPullRequest { Status = PullRequestStatus.Completed });
+
+        await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, protection, MergeStyle.Squash, CancellationToken.None);
+        await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, protection, MergeStyle.HostDefault, CancellationToken.None);
+
+        sent[0].CompletionOptions!.MergeStrategy.Should().Be(GitPullRequestMergeStrategy.Squash);
+        sent[0].CompletionOptions!.DeleteSourceBranch.Should().BeTrue();
+        sent[1].CompletionOptions!.MergeStrategy.Should().BeNull();
     }
 
     // 2026-11-24-629ab: armed again after a conflict dropped it — the pull request's own options, and no vote.
