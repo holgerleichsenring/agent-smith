@@ -7,9 +7,13 @@ import type { NextConfig } from "next";
 // configurable via AGENTSMITH_BACKEND_URL; defaults match local dev.
 // Next.js rewrites forward WebSocket upgrades transparently since v12.
 //
-// The env-var read happens INSIDE rewrites() so the standalone build
-// doesn't snapshot a build-time default. rewrites() is invoked at server
-// boot and re-uses the resolved destinations for subsequent requests.
+// 2026-11-25-7f25a: with output "standalone", rewrites() runs at `next build`,
+// not at server boot; the resolved destinations land in
+// .next/routes-manifest.json, which is the only place the production server
+// reads them from. `next dev` evaluates this function itself, so the variable
+// works there as written. The image's docker-entrypoint.sh rewrites the two
+// destinations from AGENTSMITH_BACKEND_URL at container start — keep these two
+// sources in step with the list it rewrites (dockerEntrypoint.test.ts checks it).
 
 const nextConfig: NextConfig = {
   output: "standalone",

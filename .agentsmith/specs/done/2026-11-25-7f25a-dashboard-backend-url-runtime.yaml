@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-7f25a
+goal: "The dashboard image proxies /api and /hub, WebSocket upgrades included, to the AGENTSMITH_BACKEND_URL set at container start, so one image serves every installation."
+
+applies_to: "dashboard (image entrypoint, next.config.ts, Dockerfile) + deploy templates"
+
+requires: [2026-08-25-21ae]
+
+facts:
+  - claim: "next.config.ts reads AGENTSMITH_BACKEND_URL inside rewrites() and its comment says that runs at server boot; with output standalone it runs at next build."
+    evidence: "src/dashboard/next.config.ts:10-12,17-23"
+  - claim: "next build writes the resolved destinations into .next/routes-manifest.json (and a copy into server.js and required-server-files.json as _originalRewrites)."
+    evidence: "observed: 2026-11-25, pnpm build with AGENTSMITH_BACKEND_URL=http://build-time-default:8081, grep of .next/standalone"
+  - claim: "In production the router reads rewrites from routes-manifest.json, and an upgrade request matching an external rewrite is proxied by the same router (proxyRequest)."
+    evidence: "node_modules/next/dist/server/lib/router-utils/filesystem.js:179-233; node_modules/next/dist/server/lib/router-server.js:447-500 (next 15.0.3)"
+  - claim: "The Dockerfile build stage defaults AGENTSMITH_BACKEND_URL to http://localhost:8081 and the compose example passes no such build arg, so the compose dashboard proxies to localhost:8081 inside its own container, where nothing listens."
+    evidence: "src/dashboard/Dockerfile:22-30; deploy/docker-compose.example.yml:225-241"
+  - claim: "The image entrypoint already writes runtime settings before exec'ing the server, and its contract is asserted by running it from vitest."
+    evidence: "src/dashboard/docker-entrypoint.sh; src/dashboard/src/lib/runtimeSettings/__tests__/dockerEntrypoint.test.ts"
+
+scope:
+  in: "The entrypoint rewrites the /api/:path* and /hub/:path* destinations in routes-manifest.json from AGENTSMITH_BACKEND_URL (default http://localhost:8081) on every start; the Dockerfile drops the build arg; the misleading comments in next.config.ts, Dockerfile and the k8s template are corrected; vitest cases."
+  out: "A middleware rewrite or a custom server (see decisions); the browser-facing hub URL, which stays same-origin."
+
+steps:
+  - id: entrypoint
+    action: "docker-entrypoint.sh: a node one-shot that parses the manifest (path from AGENTSMITH_ROUTES_MANIFEST_FILE, default /app/.next/routes-manifest.json; rewrites as an array or as beforeFiles/afterFiles/fallback), sets destination = backend + source for the two proxy rules, and fails the start when the file or either rule is missing or the URL is not http(s)."
+  - id: dockerfile
+    action: "Dockerfile: remove the build-stage ARG/ENV; comment says the entrypoint sets the target at start."
+  - id: comments
+    action: "next.config.ts, k8s dashboard template, compose example: comments say the value is read at container start."
+  - id: tests
+    action: "dockerEntrypoint.test.ts: existing cases point the manifest variable at a fixture; destination follows the variable, default, trailing slash, a second start with another value, invalid URL refuses to start, missing rule refuses; next.config.ts sources equal the two the entrypoint rewrites."
+  - id: verify
+    action: "Verify on the built standalone bundle: start it through the entrypoint with a listener's URL and show HTTP and an upgrade request reach the listener."
+
+done:
+  - "A standalone build started through the entrypoint with AGENTSMITH_BACKEND_URL=http://127.0.0.1:<port> sends GET /api/* and a raw-socket WebSocket Upgrade on /hub/* to a node listener there, which answers 200 and 101."
+  - "Restarting with a different value moves the target; no rebuild."
+  - "The vitest cases pass; the dashboard build passes."

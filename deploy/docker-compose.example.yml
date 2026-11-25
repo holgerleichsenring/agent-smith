@@ -235,9 +235,10 @@ services:
     environment:
       - NODE_ENV=production
       - AGENT_SMITH_API_URL=http://server:8081
-      # p0169f-followup: next.config.ts rewrites /hub/* and /api/* to this
+      # p0169f-followup: the dashboard proxies /hub/* and /api/* to this
       # target so the browser stays same-origin. In compose, the dashboard's
-      # Next.js server reaches the backend via compose DNS.
+      # Next.js server reaches the backend via compose DNS. Read by the image
+      # entrypoint at start (2026-11-25-7f25a): a restart, never a rebuild.
       - AGENTSMITH_BACKEND_URL=http://server:8081
       # 2026-08-25-21ae: read by the image entrypoint at start and written into a
       # document the browser fetches, NOT compiled into the bundle — so changing
