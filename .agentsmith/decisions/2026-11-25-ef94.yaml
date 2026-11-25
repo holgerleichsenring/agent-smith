@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-ef94
+
+decisions:
+  - category: Implementation
+    chose: "Newest per context first, then drop not applicable"
+    over: "Ignoring the codecoverage context by name"
+    reason: |
+      The status's own newest state already says it does not apply; naming one context would be a guess about one
+      installation and miss every other check that posts the same sequence.
