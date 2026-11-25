@@ -20,6 +20,7 @@ public sealed class SeriesMasterActLogTests
     private readonly Mock<IAgenticLoopRunner> _loop = new();
     private readonly Mock<ISeriesTicketActs> _acts = new();
     private readonly Mock<ISeriesPullRequestActs> _pullRequests = new();
+    private readonly Mock<ISeriesEditActs> _edits = new(); // 2026-11-25-9992f
     private readonly Mock<ISeriesConversation> _conversation = new();
     private IList<AITool> _tools = [];
 
@@ -27,7 +28,7 @@ public sealed class SeriesMasterActLogTests
         Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"), _acts.Object, _store, new AgentSmithConfig(), _conversation.Object,
         new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()),
         new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), _acts.Object, Mock.Of<ISeriesConversation>()),
-        _pullRequests.Object, SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store),
+        _pullRequests.Object, SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store), _edits.Object,
         NullLogger<SeriesMasterHandler>.Instance, records);
 
     private async Task<SeriesBeat> JudgeAsync(string? tool, string arguments = "{}", ISeriesRecordReads? records = null)
@@ -78,6 +79,18 @@ public sealed class SeriesMasterActLogTests
         beat.Said.Should().BeEmpty("a read is not said in the conversation");
     }
 
+    // 2026-11-25-9992f: add_ticket names no ticket in its arguments; its act is the added ticket's.
+    [Fact]
+    public async Task AnAddedTicket_IsTheActsTicket()
+    {
+        _edits.Setup(e => e.AddTicketAsync(It.IsAny<SeriesRunRecord>(), "Index", "add it", It.IsAny<IReadOnlyList<string>>(),
+            It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(new SeriesCutAnswer("Filed SCRUM-46.", true, "46", "SCRUM-46"));
+
+        await JudgeAsync("add_ticket", """{"title":"Index","body":"add it","requiredBy":["SCRUM-43"],"reason":"43 needs it"}""");
+
+        SeriesTicketLastAct.Of(_store.Records["sr-1"].Acts, "46").Should().Be(new SeriesTicketLastAct("added SCRUM-46", "43 needs it", SeriesRecords.T));
+    }
+
     [Fact]
     public void LastAct_IsTheNewestActNamingTheTicket()
     {
@@ -102,6 +115,7 @@ public sealed class SeriesMasterActLogTests
         await JudgeAsync(null, records: reads.Object);
 
         _tools.Select(t => t.Name).Should().OnlyHaveUniqueItems().And.HaveCountLessThanOrEqualTo(20)
-            .And.Contain(["merge_pull_request", "refresh_branch", "retarget_pull_request", "ci"]);
+            .And.Contain(["merge_pull_request", "refresh_branch", "retarget_pull_request", "ci", "add_ticket", "link_tickets"])
+            .And.NotContain("propose_recut", "2026-11-25-9992f: the master re-cuts the series itself");
     }
 }

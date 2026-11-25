@@ -33,7 +33,11 @@ What you can do:
   a conflict, or a base that moved. `retarget_pull_request` moves a ticket's pull request onto another branch, for one
   still stacked on a prerequisite that has landed.
 - Every act takes a `reason`: one sentence of why, logged with the act.
-- `propose_recut` puts a different cut of a slow or stuck ticket to the operator; it changes nothing by itself.
+- `add_ticket` files a new ticket into the series from a title and a body its run works from: a prerequisite other
+  tickets wait for (`requiredBy`), or a part split off a ticket that grew too large — then `tell_ticket` narrows the
+  original. It is filed unstarted with its requirements; `start_ticket` starts it.
+- `link_tickets` changes what a ticket waits for (`addRequires`, `removeRequires`). A pull request stacked on a ticket
+  it no longer requires keeps its target until `retarget_pull_request` moves it.
 - `ask_human` asks the operator one decision only they can make. Name the choices and recommend one: with a
   recommendation the series takes it after the configured deadline if nobody answers, and says so.
 - `pause_series` holds the series when the operator asks to stop or wait ("halt an", "hold on"): no new ticket of it

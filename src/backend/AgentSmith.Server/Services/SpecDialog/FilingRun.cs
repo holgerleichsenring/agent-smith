@@ -26,14 +26,12 @@ public sealed class FilingRun(IActRun runs) : IFilingRun
         return await RunRequestAsync(project, ConversationApproval.Request(state, proposal, mayStartRuns, proposalId));
     }
 
-    public async Task<FilingReport> RunRequestAsync(string project, FilingRequest request)
+    public async Task<FilingReport> RunRequestAsync(string project, FilingRequest request, string? seriesRunId = null)
     {
         var slot = new FilingReportSlot();
-        var result = await runs.RunAsync(project, PipelinePresets.FileName, new Dictionary<string, object>
-        {
-            [ContextKeys.FilingRequest] = request,
-            [ContextKeys.FilingReport] = slot,
-        });
+        var seeds = new Dictionary<string, object> { [ContextKeys.FilingRequest] = request, [ContextKeys.FilingReport] = slot };
+        if (!string.IsNullOrEmpty(seriesRunId)) seeds[ContextKeys.SeriesRunId] = seriesRunId; // 2026-11-25-9992f: joins it
+        var result = await runs.RunAsync(project, PipelinePresets.FileName, seeds);
         return slot.Report ?? new FilingReport([], result.Message ?? "The filing run ended before it filed anything.");
     }
 }

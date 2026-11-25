@@ -21,11 +21,13 @@ namespace AgentSmith.Application.Services.Series;
 /// its reason (<see cref="SeriesActedFunction"/>); its surface stays within the house cap of 20 tools.
 /// 2026-11-25-9992g: the events on its tickets wake it (<see cref="SeriesBeat.Wakes"/>), cleared once judged; before its
 /// budget is spent the conversation is asked to raise it or stop (<see cref="SeriesBudgetQuestion"/>).
+/// 2026-11-25-9992f: it adds tickets and re-links requirements itself (<see cref="SeriesEditTools"/>).
 /// </summary>
 public sealed class SeriesMasterHandler(
     IAgenticLoopRunner loop, IPromptCatalog prompts, ISeriesTicketActs acts, ISeriesRunStore store, AgentSmithConfig config,
     ISeriesConversation conversation, SeriesProgress progress, SeriesPause pause, ISeriesPullRequestActs pullRequests,
     SeriesFinalMerge finals, SeriesFinalCi finalCi, SeriesBudgetQuestion budgets, // 2026-11-25-9992g
+    ISeriesEditActs edits, // 2026-11-25-9992f
     ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null)
     : ICommandHandler<SeriesMasterContext>
 {
@@ -81,7 +83,8 @@ public sealed class SeriesMasterHandler(
             "Starts the series check again (on the series branch when it has one, else the default branch) — for a check that ended without a verdict.");
         // 2026-11-25-e94ec: an act marks the beat, whose reply is posted only then (SeriesBeat.MasterSpeaks); a read does not.
         var prs = new SeriesPullRequestTools(beat, context, pullRequests, finals, finalCi).GetTools(); // 2026-11-25-9992e
-        var acted = new SeriesActTools(beat, acts, store, pause).GetTools().Append(ask).Append(check).Concat(prs)
+        var cut = new SeriesEditTools(beat, edits, store).GetTools(); // 2026-11-25-9992f
+        var acted = new SeriesActTools(beat, acts, store, pause).GetTools().Append(ask).Append(check).Concat(prs).Concat(cut)
             .Select(f => (AIFunction)new SeriesActedFunction(f, beat, store, logger));
         IList<AITool> tools = [.. new SeriesReadTools(beat).GetTools().Concat(acted)
             .Select(f => new MidTurnMessageAIFunction(f, messages)), .. records?.Tools() ?? []];

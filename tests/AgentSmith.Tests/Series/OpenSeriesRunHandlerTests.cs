@@ -16,10 +16,11 @@ public sealed class OpenSeriesRunHandlerTests
 
     private OpenSeriesRunHandler Handler => new(_store, TimeProvider.System);
 
-    private static PipelineContext Filed(int count, string? series = null)
+    private static PipelineContext Filed(int count, string? series = null, bool masterAddition = false)
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.FilingRequest, new FilingRequest("conv-1", "operator", [], [], null, MayStartRuns: true));
+        pipeline.Set(ContextKeys.FilingRequest, new FilingRequest("conv-1", "operator", [], [], null, MayStartRuns: true)
+            { IsSeriesMasterAddition = masterAddition });
         pipeline.Set(ContextKeys.FilingReport, new FilingReportSlot
         {
             Report = new FilingReport([.. Enumerable.Range(1, count).Select(i =>
@@ -99,6 +100,25 @@ public sealed class OpenSeriesRunHandlerTests
         record.Tickets.Should().HaveCount(4);
         record.Tickets[^1].FollowUp.Should().BeTrue();
         record.State.Should().Be(SeriesRunStates.Running, "the follow-up is worked before the series checks again");
+    }
+
+    // 2026-11-25-9992f: a ticket the master adds is a member like any other — no follow-up, and no verdict's.
+    [Fact]
+    public async Task OpenSeriesRun_ATicketTheMasterAdded_JoinsAsAMember_NotAsTheChecksFollowUp()
+    {
+        var verdict = new SeriesVerdict("verify-1", SeriesRecords.T, [new SeriesCriterionResult("1: works", true, "ok")]);
+        await _store.OpenAsync(SeriesRecords.Running("sr-1") with { Verdicts = [verdict] }, default);
+        var pipeline = Filed(1, series: "sr-1", masterAddition: true);
+        await new SeriesMembership(_store, TimeProvider.System).WriteAsync(pipeline,
+            pipeline.Get<FilingRequest>(ContextKeys.FilingRequest), "sample",
+            pipeline.Get<FilingReportSlot>(ContextKeys.FilingReport).Report!.Filed, default);
+
+        await RunAsync(pipeline);
+
+        var record = _store.Records["sr-1"];
+        record.Tickets.Should().HaveCount(4);
+        record.Tickets[^1].FollowUp.Should().BeFalse();
+        record.Verdicts.Should().ContainSingle().Which.FollowUpTicketId.Should().BeNull();
     }
 
     [Fact]

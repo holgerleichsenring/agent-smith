@@ -22,7 +22,7 @@ public sealed class SeriesMasterHandlerTests
     private SeriesMasterHandler Handler => new(_loop.Object, Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"),
         Mock.Of<ISeriesTicketActs>(), _store, _config, Mock.Of<ISeriesConversation>(), new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()),
         new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), Mock.Of<ISeriesConversation>()),
-        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store, _config),
+        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store, _config), Mock.Of<ISeriesEditActs>(),
         Microsoft.Extensions.Logging.Abstractions.NullLogger<SeriesMasterHandler>.Instance);
 
     private async Task<SeriesBeat> RunAsync(SeriesRunRecord record, params string[] reasons)

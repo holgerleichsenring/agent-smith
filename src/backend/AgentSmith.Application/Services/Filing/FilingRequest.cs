@@ -26,6 +26,10 @@ public sealed record FilingRequest(
     /// has it, so its pull request into that branch carries no default-branch commits the series lacks; null otherwise.</summary>
     public Domain.Models.BranchName? SpecBranchFrom { get; init; }
 
+    /// <summary>2026-11-25-9992f: a ticket the series master adds to its series — a member like any other, not the series
+    /// check's follow-up, so it is neither marked a follow-up nor recorded as a verdict's.</summary>
+    public bool IsSeriesMasterAddition { get; init; }
+
     /// <summary>The approval a record of this filing carries.</summary>
     public ApprovalSource Approval => new(Conversation, Principal, ScopeRepos, OwnerWords);
 }

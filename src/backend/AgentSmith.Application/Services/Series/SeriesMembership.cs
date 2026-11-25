@@ -26,7 +26,7 @@ public sealed class SeriesMembership(ISeriesRunStore store, TimeProvider clock)
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(request);
         var joining = pipeline.TryGet<string>(ContextKeys.SeriesRunId, out var id) && !string.IsNullOrEmpty(id);
-        var tickets = OpenSeriesRunHandler.Members(filed, joining, clock);
+        var tickets = OpenSeriesRunHandler.Members(filed, joining && !request.IsSeriesMasterAddition, clock); // 9992f
         if (joining) await store.UpdateAsync(id!, r => OpenSeriesRunHandler.Joined(r, tickets), ct);
         else if (tickets.Count >= 2) pipeline.Set(ContextKeys.SeriesRunOpened, await OpenAsync(request, project, tickets, ct, withBranch: true));
     }

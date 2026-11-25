@@ -239,6 +239,9 @@ internal sealed class WatchedRequirements(InMemoryTicketFacts facts) : ITicketRe
     public Task<int> AddAsync(IReadOnlyList<TicketRequirementEdge> edges, CancellationToken cancellationToken) =>
         Fail ? throw new InvalidOperationException("the requirements table is gone") : facts.AddAsync(edges, cancellationToken);
 
+    public Task<bool> RemoveAsync(string tracker, string ticketKey, string requiredTicketKey, CancellationToken cancellationToken) =>
+        facts.RemoveAsync(tracker, ticketKey, requiredTicketKey, cancellationToken);
+
     public Task<IReadOnlyList<TicketRequirementEdge>> RequiredOfAsync(string tracker, string ticketKey, CancellationToken cancellationToken) =>
         facts.RequiredOfAsync(tracker, ticketKey, cancellationToken);
 

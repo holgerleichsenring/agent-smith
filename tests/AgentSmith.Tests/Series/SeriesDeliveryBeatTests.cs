@@ -92,5 +92,5 @@ public sealed class SeriesDeliveryBeatTests
         Mock.Of<ISeriesTicketActs>(), _store, _config, _conversation.Object, new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()),
         new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), _conversation.Object),
         Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(),
-        AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store, _config), NullLogger<SeriesMasterHandler>.Instance);
+        AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store, _config), Mock.Of<ISeriesEditActs>(), NullLogger<SeriesMasterHandler>.Instance);
 }

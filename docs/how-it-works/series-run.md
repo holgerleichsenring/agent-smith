@@ -25,7 +25,8 @@ In a beat the series master reads the facts of every ticket (state, requires, sp
 | start a ticket | a filed ticket whose prerequisites allow it |
 | retry a ticket | a failed attempt, once it has looked at why |
 | tell a ticket | send a message to the ticket's running or next run |
-| propose a re-cut | post a proposal to split or change tickets; it changes nothing until you approve |
+| add a ticket | file a prerequisite or a split-off part into the series, unstarted, with its requirements; it starts it once they stand |
+| re-link tickets | add or remove what a ticket of the series waits for; a link that would make a ticket wait on itself is refused |
 | ask you | post a question in the conversation |
 | stop the series | when going on makes no sense, with the reason |
 

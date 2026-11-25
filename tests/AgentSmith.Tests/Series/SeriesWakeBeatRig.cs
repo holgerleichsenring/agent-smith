@@ -66,6 +66,6 @@ internal sealed class SeriesWakeBeatRig
     private SeriesMasterHandler Master() => new(Loop.Object, Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"),
         Mock.Of<ISeriesTicketActs>(), Store, Config, _conversation.Object, new SeriesProgress(Store, Mock.Of<ISeriesRunLaunch>()),
         new SeriesPause(Store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), _conversation.Object),
-        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), SeriesWakeDoubles.Budget(Store, Config),
+        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), SeriesWakeDoubles.Budget(Store, Config), Mock.Of<ISeriesEditActs>(),
         NullLogger<SeriesMasterHandler>.Instance);
 }

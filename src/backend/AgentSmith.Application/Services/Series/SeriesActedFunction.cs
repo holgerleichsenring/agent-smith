@@ -25,9 +25,10 @@ public sealed class SeriesActedFunction(AIFunction inner, SeriesBeat beat, ISeri
         // A CI read changes nothing a person reads about; it is logged, but the beat stays a looking one.
         beat.MasterActed |= !(Name == SeriesPullRequestTools.CiTool
             && string.Equals(Text(arguments, "act")?.Trim(), SeriesCiActs.Read, StringComparison.OrdinalIgnoreCase));
-        beat.ActDid = null;
+        (beat.ActDid, beat.ActTicket) = (null, null);
         var result = await inner.InvokeAsync(arguments, cancellationToken);
-        var act = new SeriesAct(beat.Now, Name, TicketOf(Text(arguments, "ticket")), beat.ActDid ?? Name, Text(arguments, "reason"));
+        var ticket = beat.ActTicket ?? TicketOf(Text(arguments, "ticket")); // 2026-11-25-9992f: an added ticket by its new id
+        var act = new SeriesAct(beat.Now, Name, ticket, beat.ActDid ?? Name, Text(arguments, "reason"));
         if (await store.UpdateAsync(beat.Record.Id, r => r with { Acts = [.. r.Acts, act] }, cancellationToken) is { } kept)
             beat.Record = kept;
         logger.LogInformation("Series {Series}: the master acted — {Tool} on {Ticket}, because {Reason}: {Outcome}",

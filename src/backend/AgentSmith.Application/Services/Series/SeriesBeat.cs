@@ -10,7 +10,8 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
 {
     public SeriesRunRecord Record { get; set; } = record;
 
-    public IReadOnlyList<SeriesTicketFact> Facts { get; } = facts;
+    /// <summary>2026-11-25-9992f: settable — a ticket the master adds in this beat is a member its next tool call can name.</summary>
+    public IReadOnlyList<SeriesTicketFact> Facts { get; set; } = facts;
 
     public DateTimeOffset Now { get; } = now;
 
@@ -20,6 +21,10 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
     /// <summary>2026-11-25-9992e: what the act under way did, in words ("merged SCRUM-12 (now)"), set by
     /// <see cref="SeriesActSay"/> and logged with the act by <see cref="SeriesActedFunction"/>; null before an act says it.</summary>
     public string? ActDid { get; set; }
+
+    /// <summary>2026-11-25-9992f: the ticket the act under way acted on when its arguments name none (an added ticket's id);
+    /// logged in place of the call's ticket argument.</summary>
+    public string? ActTicket { get; set; }
 
     /// <summary>Why the master judges this beat; empty when nothing needs it.</summary>
     public List<string> Reasons { get; } = [];

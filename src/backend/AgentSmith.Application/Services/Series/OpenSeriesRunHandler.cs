@@ -24,9 +24,9 @@ public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clo
         if (!pipeline.TryGet<FilingRequest>(ContextKeys.FilingRequest, out var request) || request is null
             || !pipeline.TryGet<FilingReportSlot>(ContextKeys.FilingReport, out var slot) || slot?.Report is not { } report)
             return CommandResult.Ok("No filing to own: no series run opened.");
-        var tickets = Members(report.Filed, followUp: pipeline.Has(ContextKeys.SeriesRunId), clock);
+        var tickets = Members(report.Filed, followUp: pipeline.Has(ContextKeys.SeriesRunId) && !request.IsSeriesMasterAddition, clock);
         if (pipeline.TryGet<string>(ContextKeys.SeriesRunId, out var joined) && !string.IsNullOrEmpty(joined))
-            return await JoinAsync(joined!, tickets, NotStarted(report), cancellationToken);
+            return await JoinAsync(joined!, tickets, request.IsSeriesMasterAddition ? null : NotStarted(report), cancellationToken);
         if (pipeline.TryGet<string>(ContextKeys.SeriesRunOpened, out var opened) && !string.IsNullOrEmpty(opened))
             return CommandResult.Ok($"Opened series run {opened} over {tickets.Count} tickets.");
         if (tickets.Count < 2)
@@ -35,12 +35,13 @@ public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clo
         return CommandResult.Ok($"Opened series run {id} over {tickets.Count} tickets.");
     }
 
+    // 2026-11-25-9992f: starts null for a ticket the master added — it is no verdict's follow-up.
     private async Task<CommandResult> JoinAsync(
-        string id, IReadOnlyList<SeriesTicket> tickets, IReadOnlyDictionary<string, string?> starts, CancellationToken ct)
+        string id, IReadOnlyList<SeriesTicket> tickets, IReadOnlyDictionary<string, string?>? starts, CancellationToken ct)
     {
         var joined = await store.UpdateAsync(id, r => Joined(r, tickets) with
         {
-            Verdicts = FiledFor(r.Verdicts, tickets, starts), // 0207d: the check's follow-up, and whether it started
+            Verdicts = starts is null ? r.Verdicts : FiledFor(r.Verdicts, tickets, starts), // 0207d: the check's follow-up
         }, ct);
         return joined is null
             ? CommandResult.Ok($"Series run {id} does not exist; the {tickets.Count} filed ticket(s) stand on their own.")
