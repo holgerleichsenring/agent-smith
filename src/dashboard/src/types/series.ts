@@ -5,7 +5,7 @@ export interface SeriesTicketRow {
   ticket: string;
   what: string;
   state: string;
-  /** landed · running · model wait (2026-11-22-d434b) · green · red · waiting · held · not started */
+  /** 2026-11-25-9992a: the server's one kind — merged · now · needed · question · failed · running · pr · waiting */
   kind: string;
   cost: string;
   time: string;
@@ -31,4 +31,6 @@ export interface SeriesRunView {
   criticalPathLeft: string | null;
   policy: string;
   question: string | null;
+  /** 2026-11-25-9992a: the keys of the tickets a run of the series is at work on now. */
+  workingOn: string[];
 }

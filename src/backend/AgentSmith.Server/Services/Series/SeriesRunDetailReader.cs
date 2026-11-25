@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Series;
@@ -16,26 +17,25 @@ namespace AgentSmith.Server.Services.Series;
 /// unit of work. 2026-11-23-31dcg: and each ticket's hold, as the ticket list reads it (<see cref="SeriesRunHolds"/>).
 /// 2026-11-23-0219: and whether a merge arms auto-complete, and per waiting pull request the newest merge run's refusal or arm.</summary>
 public sealed class SeriesRunDetailReader(
-    ISeriesRunStore store, TicketProjects projects, SeriesRunProjectReads reads, SeriesRunTickets tickets, SeriesRunNames names,
-    SeriesRunCosts costs, SpecDialogSessionRepository sessions, SeriesRunHolds holds, PullRequestMergeSaidReader mergeSaid)
+    ISeriesRunStore store, TicketProjects projects, SeriesStatusReader status, SeriesRunNames names,
+    SpecDialogSessionRepository sessions, PullRequestMergeSaidReader mergeSaid)
 {
     /// <param name="withHolds">2026-11-23-31dcg: false for a reader that needs the merge order only (the merge act), which
     /// then pays no ticket-list read.</param>
     public async Task<SeriesRunDetailView?> ReadAsync(string id, CancellationToken ct, bool withHolds = true)
     {
         if (await store.GetAsync(id, ct) is not { } record || projects.Of(record.Project) is not { } project) return null;
-        var facts = await reads.ReadAsync(project, record.Tickets, ct);
-        // 2026-11-23-8d16: a project with no held ticket reads as no holds, not as holds unread (the merge act's null).
-        var held = withHolds ? (await holds.ReadAsync(ProjectScope.Single(record.Project), ct)).GetValueOrDefault(record.Project)
-            ?? new Dictionary<string, AgentSmith.Application.Services.Holds.TicketHold>() : null;
-        var shape = tickets.Of(record, facts, held);
+        // 2026-11-25-9992a: the one state; 2026-11-23-8d16: a project with no held ticket reads as no holds, not as holds unread.
+        var read = (await status.StatusesAsync([record], withHolds, ct))[record.Id];
+        var (facts, shape, held) = (read.ProjectFacts, read.Shape, read.Holds);
         var shown = withHolds ? await WithMergeSaidAsync(shape.Tickets, facts, ct) : shape.Tickets;
         var name = (await names.OfAsync([record], ct))[record.Id];
-        var spent = await costs.OfAsync(record.Project, [.. record.Tickets.Select(t => t.TicketId)], ct);
+        var spent = read.Facts.Sum(f => f.CostUsd);
         var session = await sessions.GetBySessionIdAsync(record.Conversation, ct);
         return new SeriesRunDetailView(record.Id, name, record.Project, record.State, record.Conversation, record.StartedAt,
             record.FinishedAt, shape.Counts, SeriesRunQuestion.Of(record, held), shown, shape.MergeOrder)
         {
+            WorkingOn = SeriesWorkingOn.Of(read.Facts), // 2026-11-25-9992a
             // 2026-11-24-f9c5c: a merge into a series branch never arms auto-complete; it merges once green.
             Repos = Repos(project, shape.Tickets), MergeArms = record.IntegrationBranch is null && project.Merge.RespectBranchProtection,
             IntegrationBranch = record.IntegrationBranch, CostUsd = spent + record.MasterCostUsd,
@@ -57,7 +57,7 @@ public sealed class SeriesRunDetailReader(
         IReadOnlyList<SeriesRunTicketView> shown, SeriesRunProjectFacts facts, CancellationToken ct)
     {
         IReadOnlyCollection<string> waiting =
-            [.. shown.SelectMany(t => t.PullRequests).Where(SeriesRunPullRequests.Waits).Select(p => p.Url).Distinct(StringComparer.Ordinal)];
+            [.. shown.SelectMany(t => t.PullRequests).Where(SeriesRunPullRequestView.Waits).Select(p => p.Url).Distinct(StringComparer.Ordinal)];
         var said = await mergeSaid.NewestAsync(waiting, ct);
         var refreshing = (await mergeSaid.RefreshesAsync(waiting, ct)).Where(r => r.Value.InFlight) // 2026-11-24-6811d
             .ToDictionary(r => r.Key, r => r.Value.RunId, StringComparer.Ordinal);
@@ -69,7 +69,7 @@ public sealed class SeriesRunDetailReader(
             .GroupBy(r => r.Url, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Max(r => r.HeadMovedAt!.Value), StringComparer.Ordinal);
         bool Current(string url, PullRequestMergeSaid s) => !moved.TryGetValue(url, out var at) || s.At >= at;
         return [.. shown.Select(t => t with { PullRequests = [.. t.PullRequests.Select(p =>
-            SeriesRunPullRequests.Waits(p) && said.TryGetValue(p.Url, out var s) && Current(p.Url, s) ? p with { MergeSaid = s } : p)] })];
+            SeriesRunPullRequestView.Waits(p) && said.TryGetValue(p.Url, out var s) && Current(p.Url, s) ? p with { MergeSaid = s } : p)] })];
     }
 
     // The repos the series' tickets have pull requests in, in the project's repo order.

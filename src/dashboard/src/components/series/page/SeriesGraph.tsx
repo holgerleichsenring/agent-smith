@@ -3,11 +3,11 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useT } from "@/hooks/useT";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
-import { SERIES_NODE_KINDS, seriesNeededChain, seriesNodeKind, waitingPullRequests } from "./seriesNodeKind";
+import { SERIES_NODE_KINDS, seriesNeededChain, waitingPullRequests } from "./seriesNodeKind";
 import { NODE_H, NODE_W, seriesNodeId, seriesOrderLayout } from "./seriesOrderLayout";
 
 // 2026-11-23-f562: the Overview's order graph — repo lanes, depth columns, every ticket in ONE colour by its hold
-// (seriesNodeKind), edges orthogonal and the needed-merge chain's edges in the accent, a legend and the course select.
+// (ticket.kind, the server's), edges orthogonal and the needed-merge chain's edges in the accent, a legend and the course select.
 // Clicking a ticket opens its menu (drawn by the caller below the node, outside the scrolling box so it is never clipped);
 // the graph scrolls sideways in its own box, and scrolling it closes the menu.
 
@@ -72,7 +72,7 @@ export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose
             })}
           </svg>
           {layout.nodes.map(({ ticket, alsoIn, x, y }) => {
-            const kind = seriesNodeKind(ticket, detail);
+            const kind = ticket.kind;
             const pr = waitingPullRequests(ticket.pullRequests)[0] ?? (ticket.landed ? ticket.pullRequests[0] : undefined);
             return (
               <button key={ticket.ticketId} id={seriesNodeId(ticket.ticketId)} type="button" style={{ left: x, top: y, width: NODE_W, height: NODE_H }}

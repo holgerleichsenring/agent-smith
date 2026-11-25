@@ -12,7 +12,8 @@ public static class SeriesRunExtensions
     public static IServiceCollection AddSeriesRuns(this IServiceCollection services)
     {
         services.AddSeriesRunPipeline();
-        services.AddScoped<SeriesParkedQuestion>().AddScoped<SeriesTicketCi>().AddScoped<ISeriesTicketFacts, SeriesTicketFacts>();
+        services.AddScoped<SeriesParkedQuestion>().AddScoped<SeriesStatusReader>() // 2026-11-25-9992a: the one state
+            .AddScoped<ISeriesTicketFacts>(sp => sp.GetRequiredService<SeriesStatusReader>());
         services.TryAddSingleton<Services.Preconditions.InterruptedRestartWindow>(); // 2026-11-22-6d85c
         services.AddScoped<SeriesTicketMessage>().AddScoped<SeriesRunCancel>().AddScoped<ISeriesTicketActs, SeriesTicketActs>();
         services.AddScoped<ISeriesConversation, SeriesConversation>().AddScoped<ISeriesRunLaunch, SeriesRunLaunch>();

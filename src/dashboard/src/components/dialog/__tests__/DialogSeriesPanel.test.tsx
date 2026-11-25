@@ -10,14 +10,14 @@ const series: SeriesRunView = {
   id: "sr-1", state: "running", headState: "series running · 1 question for you", landed: 6, total: 25,
   elapsed: "1 h 03 min", cost: "$96.0", eta: "22:50 UTC",
   tickets: [
-    { ticket: "SCRUM-43", what: "Schema", state: "landed", kind: "landed", cost: "$4.0", time: "22m" },
+    { ticket: "SCRUM-43", what: "Schema", state: "merged", kind: "merged", cost: "$4.0", time: "22m" },
     { ticket: "SCRUM-44", what: "Forwarding", state: "coding", kind: "running", cost: "$2.5", time: "12m" },
-    { ticket: "SCRUM-46", what: "Notices", state: "red · a test expects the old schema", kind: "red", cost: "$3.0", time: "30m" },
-    { ticket: "SCRUM-47", what: "Docs", state: "waits on SCRUM-44", kind: "held", cost: "–", time: "–" },
+    { ticket: "SCRUM-46", what: "Notices", state: "red · a test expects the old schema", kind: "failed", cost: "$3.0", time: "30m" },
+    { ticket: "SCRUM-47", what: "Docs", state: "waits on SCRUM-44", kind: "waiting", cost: "–", time: "–" },
   ],
   criticalPath: ["SCRUM-43", "SCRUM-44", "SCRUM-47"], criticalPathLeft: "3 tickets, about 2 h 10 min left",
   policy: "merge on green CI · start on green push · questions default to the recommendation after 2 h 00 min",
-  question: "Keep the original deadline?",
+  question: "Keep the original deadline?", workingOn: ["SCRUM-44"],
 };
 
 describe("DialogSeriesPanel", () => {
@@ -43,7 +43,7 @@ describe("DialogSeriesPanel", () => {
     render(<DialogSeriesPanel series={series} />);
 
     const red = screen.getByTestId("dialog-series-tickets").querySelectorAll("li")[2];
-    expect(red).toHaveAttribute("data-kind", "red");
+    expect(red).toHaveAttribute("data-kind", "failed");
     expect(red).toHaveTextContent("SCRUM-46Noticesred · a test expects the old schema$3.030m");
   });
 

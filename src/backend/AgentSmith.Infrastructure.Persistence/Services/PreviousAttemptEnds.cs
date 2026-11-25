@@ -39,7 +39,7 @@ internal sealed class PreviousAttemptEnds(IServiceScopeFactory scopes)
         var newest = keys.GroupBy(k => k.TicketId, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.Select(k => k.Id).Max(StringComparer.Ordinal)!).ToList();
         var runs = await uow.Set<Run>().AsNoTracking().Where(r => newest.Contains(r.Id))
-            .Select(r => new { r.Id, r.TicketId, r.Status, r.StartedAt, r.FinishedAt, r.CancelReason, r.EndKind, r.PullRequestsJson })
+            .Select(r => new { r.Id, r.TicketId, r.Status, r.StartedAt, r.FinishedAt, r.CancelReason, r.EndKind, r.EndDetailJson, r.PullRequestsJson })
             .ToListAsync(ct);
         var mayStop = runs.Where(r => r.FinishedAt is not null && SeriesBoundaryEnd.Ends(r.Status, r.CancelReason)).Select(r => r.Id).ToList();
         HashSet<string> stopped = mayStop.Count == 0 ? [] : (await uow.Set<RunSpec>().AsNoTracking()
@@ -50,6 +50,7 @@ internal sealed class PreviousAttemptEnds(IServiceScopeFactory scopes)
             OpenedPullRequest = AttemptPullRequests.OpenedAny(r.PullRequestsJson),
             StoppedAtBoundary = stopped.Contains(r.Id),
             FinishedAt = r.FinishedAt, EndKind = r.EndKind, CancelReason = r.CancelReason,
+            EndDetail = EndDetailJson.Read(r.EndDetailJson), // 2026-11-25-9992a: the series' one state quotes why it ended
         }, StringComparer.OrdinalIgnoreCase);
     }
 

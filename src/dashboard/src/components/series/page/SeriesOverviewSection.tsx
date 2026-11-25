@@ -10,7 +10,7 @@ import { SeriesActionList } from "./SeriesActionList";
 import { SeriesGraph } from "./SeriesGraph";
 import { SeriesMergeOutcome } from "./SeriesMergeOutcome";
 import { SeriesNodeMenu } from "./SeriesNodeMenu";
-import { seriesNodeKind, seriesOverviewCounts, type SeriesNodeKind } from "./seriesNodeKind";
+import { seriesOverviewCounts, type SeriesNodeKind } from "./seriesNodeKind";
 import { seriesCourse, seriesNodeId } from "./seriesOrderLayout";
 import { seriesNodeSentence, seriesTicketActs } from "./seriesTicketActs";
 import { useSeriesMerge, type SeriesMerge } from "./useSeriesMerge";
@@ -18,7 +18,7 @@ import { useSeriesRetry } from "./useSeriesRetry";
 
 // 2026-11-23-f562: the series page's Overview, its first section — what one act did (once, here), the summary chips, the
 // order graph with a menu per ticket, and the action list below in the same colours. It replaced Merge next, Who moves
-// next, Order and branches and Your next step; every count is read from seriesNodeKind, so chips, graph and list agree.
+// next, Order and branches and Your next step; every count is read from the server's ticket.kind, so chips, graph and list agree.
 
 interface Props {
   detail: SeriesRunDetail;
@@ -68,7 +68,7 @@ export function SeriesOverviewSection({ detail, reload, merge: shared }: Props) 
       <SeriesGraph detail={detail} lit={lit} from={from} onFrom={setFrom} openId={openId} onClose={close}
         onNode={(id) => setOpenId((open) => (open === id ? null : id))}
         menu={(ticket, at) => {
-          const kind = seriesNodeKind(ticket, detail);
+          const kind = ticket.kind;
           return <SeriesNodeMenu ticket={ticket} kind={kind} sentence={seriesNodeSentence(ticket, detail, kind, t)} at={at}
             acts={seriesTicketActs(ticket, detail, kind, lacks, t)} handlers={handlers} onClose={close} />;
         }} />

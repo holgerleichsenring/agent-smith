@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { hold } from "@/components/tickets/__tests__/ticketFixtures";
 import { translator } from "@/lib/i18n/translate";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
-import { seriesNodeKind } from "../seriesNodeKind";
 import { seriesNodeSentence, seriesTicketActs } from "../seriesTicketActs";
 import { overviewDetail } from "./seriesFixtures";
 
@@ -12,7 +11,7 @@ const t = translator("en");
 const acts = (ticketId: string, lacks = false) => {
   const detail = overviewDetail();
   const ticket = detail.tickets.find((candidate) => candidate.ticketId === ticketId)!;
-  return seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), lacks, t);
+  return seriesTicketActs(ticket, detail, ticket.kind, lacks, t);
 };
 const with_ = (ticketId: string, over: Partial<SeriesRunTicket>): { detail: SeriesRunDetail; ticket: SeriesRunTicket } => {
   const detail = overviewDetail();
@@ -21,7 +20,7 @@ const with_ = (ticketId: string, over: Partial<SeriesRunTicket>): { detail: Seri
   return { detail, ticket: detail.tickets[at] };
 };
 const shapeOf = ({ detail, ticket }: { detail: SeriesRunDetail; ticket: SeriesRunTicket }) =>
-  seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), false, t).map((a) => `${a.id}:${a.kind}${a.href ? `>${a.href}` : ""}${a.run ? `@${a.run}` : ""}`);
+  seriesTicketActs(ticket, detail, ticket.kind, false, t).map((a) => `${a.id}:${a.kind}${a.href ? `>${a.href}` : ""}${a.run ? `@${a.run}` : ""}`);
 const shape = (ticketId: string, lacks = false) => acts(ticketId, lacks).map((a) => `${a.id}:${a.kind}${a.href ? `>${a.href}` : ""}${a.disabledBy ? ":disabled" : ""}`);
 
 describe("seriesTicketActs", () => {
@@ -39,7 +38,7 @@ describe("seriesTicketActs", () => {
     // 2026-11-24-a4e7: an arm the host dropped would strand the ticket; a second Merge simply arms it again.
     const pr = overviewDetail().tickets.find((candidate) => candidate.ticketId === "50")!.pullRequests[0];
     const armed = with_("50", { pullRequests: [{ ...pr, mergeSaid: { status: "completion_armed", reason: null, at: "2026-11-24T08:00:00Z" } }] });
-    const kind = seriesNodeKind(armed.ticket, armed.detail);
+    const kind = armed.ticket.kind;
 
     const merge = seriesTicketActs(armed.ticket, armed.detail, kind, false, t)[0];
 
@@ -54,7 +53,7 @@ describe("seriesTicketActs", () => {
     const said = with_("50", { pullRequests: [{ ...pr, mergeSaid: { status: "completion_refused",
       reason: "CI started: dispatched ci.yml on agent-smith/50", at: "2026-11-24T08:00:00Z" } }] });
 
-    const sentence = seriesNodeSentence(said.ticket, said.detail, seriesNodeKind(said.ticket, said.detail), t);
+    const sentence = seriesNodeSentence(said.ticket, said.detail, said.ticket.kind, t);
 
     expect(sentence).toContain("CI started: dispatched ci.yml on agent-smith/50");
     expect(sentence).not.toContain("The last merge was refused");
@@ -116,7 +115,7 @@ describe("seriesTicketActs", () => {
 describe("seriesNodeSentence", () => {
   it("SeriesNodeSentence_IsTheHoldsSentence_LedByTheNeededMark_AndADraftSaysSo", () => {
     const detail = overviewDetail();
-    const of = (id: string) => { const ticket = detail.tickets.find((c) => c.ticketId === id)!; return seriesNodeSentence(ticket, detail, seriesNodeKind(ticket, detail), t); };
+    const of = (id: string) => { const ticket = detail.tickets.find((c) => c.ticketId === id)!; return seriesNodeSentence(ticket, detail, ticket.kind, t); };
 
     expect(of("50")).toBe("Its pull request is next in the series' merge order. #51 is next after it. Needed so #62 can start.");
     expect(of("48")).toBe("Merged.");
@@ -128,18 +127,18 @@ describe("seriesNodeSentence", () => {
   it("SeriesTicketActs_APrConflict_KeepsItsPullRequestOnTheRow", () => {
     const pr = { repo: "server", number: "9", url: "https://git.test/server/pull/9", state: "open", ci: "green", ciFailure: null,
       ciLog: null, target: null, hasConflicts: true };
-    const { detail, ticket } = with_("50", { pullRequests: [pr], hold: hold("pr_conflict", { addressee: "decide" }), status: "success" });
-    const prAct = seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), false, t).find((a) => a.id === "pr-server");
+    const { detail, ticket } = with_("50", { pullRequests: [pr], hold: hold("pr_conflict", { addressee: "decide" }), kind: "failed", status: "success" });
+    const prAct = seriesTicketActs(ticket, detail, ticket.kind, false, t).find((a) => a.id === "pr-server");
     expect(prAct?.menuOnly).toBeFalsy();
-    expect(seriesNodeKind(ticket, detail)).toBe("failed");
+    expect(ticket.kind).toBe("failed");
   });
   // 2026-11-24-6811d: a ticket being brought up to date is at work — no Merge — and its run link opens the refresh run.
   it("SeriesTicketActs_Refreshing_OffersNoMerge_AndLinksTheRefreshRun", () => {
     const pr = { repo: "server", number: "9", url: "https://git.test/server/pull/9", state: "open", ci: "green", ciFailure: null,
       ciLog: null, target: null, refreshRunId: "rf-1" };
-    const { detail, ticket } = with_("50", { pullRequests: [pr], hold: hold("refreshing"), status: "success", runId: "code-1" });
-    const acts = seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), false, t);
-    expect(seriesNodeKind(ticket, detail)).toBe("running");
+    const { detail, ticket } = with_("50", { pullRequests: [pr], hold: hold("refreshing"), kind: "running", status: "success", runId: "code-1" });
+    const acts = seriesTicketActs(ticket, detail, ticket.kind, false, t);
+    expect(ticket.kind).toBe("running");
     expect(acts.some((a) => a.kind === "merge")).toBe(false);
     expect(acts.find((a) => a.id === "run")?.href).toContain("rf-1");
   });
@@ -147,11 +146,11 @@ describe("seriesNodeSentence", () => {
   it("SeriesTicketActs_ARefusedRefresh_OffersTryAgainOnItsPullRequest", () => {
     const url = "https://git.test/server/pull/9";
     const pr = { repo: "server", number: "9", url, state: "open", ci: "green", ciFailure: null, ciLog: null, target: null };
-    const { detail, ticket } = with_("50", { pullRequests: [pr], status: "success",
+    const { detail, ticket } = with_("50", { pullRequests: [pr], status: "success", kind: "failed",
       hold: hold("refresh_refused", { act: { kind: "pull_request", target: url } }) });
-    const offered = seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), false, t);
+    const offered = seriesTicketActs(ticket, detail, ticket.kind, false, t);
     expect(offered.find((a) => a.id === "refresh")).toMatchObject({ kind: "refresh", label: "Try again", url });
     expect(offered.find((a) => a.id === "pr-server")?.menuOnly).toBeFalsy();
-    expect(seriesTicketActs(ticket, detail, seriesNodeKind(ticket, detail), true, t).some((a) => a.id === "refresh")).toBe(false);
+    expect(seriesTicketActs(ticket, detail, ticket.kind, true, t).some((a) => a.id === "refresh")).toBe(false);
   });
 });

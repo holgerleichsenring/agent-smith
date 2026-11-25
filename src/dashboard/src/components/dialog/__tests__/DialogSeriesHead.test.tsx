@@ -8,7 +8,7 @@ import type { SeriesRunView } from "@/types/series";
 
 const series: SeriesRunView = {
   id: "sr-1", state: "running", headState: "series running", landed: 2, total: 25, elapsed: "40m", cost: "$12.0",
-  eta: null, tickets: [], criticalPath: [], criticalPathLeft: null, policy: "merge by hand", question: null,
+  eta: null, tickets: [], criticalPath: [], criticalPathLeft: null, policy: "merge by hand", question: null, workingOn: [],
 };
 
 describe("DialogSeriesHead", () => {

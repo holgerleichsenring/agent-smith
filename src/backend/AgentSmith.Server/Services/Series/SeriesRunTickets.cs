@@ -10,8 +10,8 @@ namespace AgentSmith.Server.Services.Series;
 /// and newest status — its progress counts and its merge order (<see cref="SeriesRunOrder"/>). 2026-11-24-f9c5c: an open pull
 /// request's target is read per head; the series' branch is a merge target like the default branch; the merge itself still
 /// reads the host's base.
-/// <para>2026-11-23-31dcg: each ticket carries its hold, read where the ticket list reads it, and the held count is the
-/// tickets whose hold names someone and is not the next merge — none when no holds were read (the merge order alone needs none).</para>
+/// <para>2026-11-23-31dcg: each ticket carries its hold, read where the ticket list reads it. 2026-11-25-9992a: the counts,
+/// kinds and words come from the tickets' one state (<see cref="SeriesStatusReader"/>), not from this shape.</para>
 /// </summary>
 public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests pullRequests)
 {
@@ -24,8 +24,8 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
             .ToDictionary(id => id, id => pullRequests.Of(facts.PullRequests[id], facts.Project), StringComparer.Ordinal);
         var ordered = record.Tickets.Select(t => new SeriesRunOrderTicket(t.TicketId, t.Key, facts.Requires.GetValueOrDefault(t.TicketId) ?? [])
         {
-            HasOpenPullRequest = prs[t.TicketId].Any(SeriesRunPullRequests.Waits),
-            TargetsElsewhere = prs[t.TicketId].Any(p => SeriesRunPullRequests.Waits(p)
+            HasOpenPullRequest = prs[t.TicketId].Any(SeriesRunPullRequestView.Waits),
+            TargetsElsewhere = prs[t.TicketId].Any(p => SeriesRunPullRequestView.Waits(p)
                 && pullRequests.TargetsElsewhere(p, facts.Project, record.IntegrationBranch)), // 2026-11-24-f9c5c
         }).ToList();
         var depths = order.Depths(ordered);
@@ -33,7 +33,7 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
                 with { Hold = holds?.GetValueOrDefault(t.TicketId) }, index))
             .OrderBy(x => x.View.Depth).ThenBy(x => x.index).Select(x => x.View).ToList();
         var merges = Needed(order.MergeOrder(ordered, facts.Landed), tickets, holds);
-        return new SeriesRunTicketsShape(tickets, Counts(tickets, facts), merges) { NextMerge = NextMerge(merges, holds) };
+        return new SeriesRunTicketsShape(tickets, merges) { NextMerge = NextMerge(merges, holds) };
     }
 
     /// <summary>2026-11-23-8d16: each step with the keys of the series' tickets that start only once it merged — read from
@@ -67,12 +67,4 @@ public sealed class SeriesRunTickets(SeriesRunOrder order, SeriesRunPullRequests
             [.. prs.Select(p => p.Repo).Distinct(StringComparer.Ordinal)], facts.Landed.Contains(ticket.TicketId),
             facts.Attempts.GetValueOrDefault(ticket.TicketId)?.Status, prs)
         { RunId = facts.Attempts.GetValueOrDefault(ticket.TicketId)?.RunId }; // 2026-11-23-f562
-
-    private static SeriesRunCounts Counts(IReadOnlyList<SeriesRunTicketView> tickets, SeriesRunProjectFacts facts)
-    {
-        var open = tickets.Where(t => !t.Landed).ToList();
-        var waiting = open.Where(t => t.PullRequests.Any(SeriesRunPullRequests.Waits)).ToList();
-        return new(tickets.Count, tickets.Count - open.Count, waiting.Count, tickets.Count(t => SeriesRunTicketView.Held(t.Hold)),
-            open.Count(t => t.PullRequests.Count == 0 && !facts.Attempts.ContainsKey(t.TicketId)));
-    }
 }
