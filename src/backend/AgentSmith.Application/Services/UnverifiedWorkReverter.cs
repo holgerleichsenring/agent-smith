@@ -16,12 +16,11 @@ namespace AgentSmith.Application.Services;
 /// None of it was verified, and a ready pull request must not carry it. Every source path
 /// changed since the verified head is restored from that head or, when it did not exist
 /// there, removed; the run record is not source and stays. The result is proven by asking
-/// git the same question again — an answer that is not empty is not a delivery. A secondary
-/// sandbox of its repository commits the restored index locally: nothing else ever commits it.
+/// git the same question again — an answer that is not empty is not a delivery.
 /// </para>
 /// </summary>
 public sealed class UnverifiedWorkReverter(
-    SandboxGitOperations gitOps, SandboxTargets targets, ILogger<UnverifiedWorkReverter> logger)
+    SandboxGitOperations gitOps, ILogger<UnverifiedWorkReverter> logger)
 {
     private const int GitTimeoutSeconds = 120;
 
@@ -47,13 +46,8 @@ public sealed class UnverifiedWorkReverter(
         }
         var beyond = await BeyondAsync(sandbox, head, cancellationToken);
         if (beyond is null) return false;
-        if (beyond.Count > 0 && (!await RevertAsync(sandboxKey, sandbox, head, beyond, cancellationToken)
-                                 || await BeyondAsync(sandbox, head, cancellationToken) is not { Count: 0 }))
-            return false;
-        if (!targets.IsSecondary(pipeline, sandboxKey) || !await gitOps.HasStagedChangesAsync(sandbox, cancellationToken))
-            return true;
-        return await RunAsync(sandbox, ["commit", "--no-verify", "-q", "-m", "agent-smith: unverified work reverted"],
-            cancellationToken) is not null;
+        return beyond.Count == 0 || (await RevertAsync(sandboxKey, sandbox, head, beyond, cancellationToken)
+                                     && await BeyondAsync(sandbox, head, cancellationToken) is { Count: 0 });
     }
 
     private async Task<bool> RevertAsync(

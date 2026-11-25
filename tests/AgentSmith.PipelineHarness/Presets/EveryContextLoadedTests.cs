@@ -62,8 +62,8 @@ public sealed class EveryContextLoadedTests
             services.RemoveAll<ISourceProviderFactory>();
             services.AddSingleton<ISourceProviderFactory>(
                 new MultiContextSourceProviderFactory(["backend", "frontend"], ContextYamlFor));
-            services.RemoveAll<ISandboxFactory>();
-            services.AddSingleton<ISandboxFactory>(new ContextFilesSandboxFactory());
+            services.RemoveAll<IWorkspaceFactory>();
+            services.AddSingleton<IWorkspaceFactory>(new ContextFilesWorkspaceFactory());
             services.RemoveAll<IPromptCatalog>();
             services.AddSingleton<IPromptCatalog, MasterTokensPromptCatalog>();
         });
@@ -86,22 +86,35 @@ public sealed class EveryContextLoadedTests
     /// would always "exist" and shadow the per-context files. This one serves the two contexts'
     /// files and declares the flat path absent — the layout of a contexts repository.
     /// </summary>
-    private sealed class ContextFilesSandboxFactory : ISandboxFactory
+    // 2026-11-25-9992b: the run's workspace — one container per image, every one the files' sandbox.
+    private sealed class ContextFilesWorkspaceFactory : IWorkspaceFactory
     {
-        public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken) =>
-            Task.FromResult<ISandbox>(new ContextFilesSandbox(
-                spec.RepoName is { } repo ? Domain.Entities.Repository.WorkPathFor(repo) : "/work"));
+        public Task<IWorkspace> CreateAsync(WorkspaceSpec spec, CancellationToken cancellationToken) =>
+            Task.FromResult<IWorkspace>(new ContextFilesWorkspace([.. spec.Toolchains.Select(t => t.Image)]));
+    }
+
+    private sealed class ContextFilesWorkspace(IReadOnlyList<string> images) : IWorkspace
+    {
+        private readonly ContextFilesSandbox _sandbox = new();
+
+        public IReadOnlyList<string> Images => images;
+
+        public bool Serves(string image) => images.Contains(image);
+
+        public ISandbox Container(string image) => _sandbox;
+
+        public ValueTask DisposeAsync() => _sandbox.DisposeAsync();
     }
 
     // 2026-11-25-9992c: the files sit under the repository's root, /work/<repo> behind the run's RepoSandbox.
-    private sealed class ContextFilesSandbox(string root) : ISandbox
+    private sealed class ContextFilesSandbox : ISandbox
     {
         private readonly Dictionary<string, string> Files = new(StringComparer.Ordinal)
         {
-            [$"{root}/.agentsmith/contexts/backend/principles.md"] = BackendPrinciples,
-            [$"{root}/.agentsmith/contexts/frontend/principles.md"] = FrontendPrinciples,
-            [$"{root}/.agentsmith/contexts/backend/context.yaml"] = ContextYaml("backend"),
-            [$"{root}/.agentsmith/contexts/frontend/context.yaml"] = ContextYaml("frontend"),
+            [".agentsmith/contexts/backend/principles.md"] = BackendPrinciples,
+            [".agentsmith/contexts/frontend/principles.md"] = FrontendPrinciples,
+            [".agentsmith/contexts/backend/context.yaml"] = ContextYaml("backend"),
+            [".agentsmith/contexts/frontend/context.yaml"] = ContextYaml("frontend"),
         };
 
         private readonly StubSandbox _inner = new();
@@ -112,9 +125,11 @@ public sealed class EveryContextLoadedTests
         {
             if (step.Kind != StepKind.ReadFile || step.Path is null)
                 return _inner.RunStepAsync(step, progress, cancellationToken);
-            if (Files.TryGetValue(step.Path, out var content))
+            var root = StubTree.RootOf(step) + "/";
+            var path = step.Path.StartsWith(root, StringComparison.Ordinal) ? step.Path[root.Length..] : step.Path;
+            if (Files.TryGetValue(path, out var content))
                 return Task.FromResult(Result(step, 0, content));
-            if (step.Path == $"{root}/.agentsmith/principles.md")
+            if (path == ".agentsmith/principles.md")
                 return Task.FromResult(Result(step, 1, null));
             return _inner.RunStepAsync(step, progress, cancellationToken);
         }

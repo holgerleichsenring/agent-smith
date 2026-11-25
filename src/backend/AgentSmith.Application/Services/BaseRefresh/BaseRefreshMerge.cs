@@ -49,7 +49,7 @@ public sealed class BaseRefreshMerge(
         IReadOnlyList<CodeChange>? lastWrote = null;
         for (var passes = 0; ; passes++)
         {
-            var verdict = await verify.RunAsync(context.Pipeline, repo, head, merge.BaseRef!, ct);
+            var verdict = await verify.RunAsync(context.Pipeline, repo, ct);
             if (verdict.Problem is { } problem) return await RefuseAsync(sandbox, head, $"The merge of {merge.BaseRef} could not be checked: {problem}", ct);
             if (verdict.Red is not { } red)
                 return verdict.Ran > 0 ? BaseRefreshOutcome.Push($"{verdict.Ran} declared stage(s) green")

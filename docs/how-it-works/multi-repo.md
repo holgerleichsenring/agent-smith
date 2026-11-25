@@ -12,14 +12,14 @@ One entry under `projects:` with more than one repo in its `repos:` list. See [R
 
 **One ClaimRequest per ticket.** The enqueue layer doesn't fan out per-repo. Multi-repo projects produce exactly one entry on the Redis job queue per ticket. See [Ticket lifecycle](../reference/concepts/ticket-lifecycle.md) for the claim machinery.
 
-**N sandboxes, eager.** `PipelineSandboxCoordinator.EnsureSandboxesAsync` creates all the sandboxes before the first sandbox-requiring command runs: one per repo, or one per toolchain image when a repo's contexts need different ones. Contexts of one repo that share an image share one sandbox, sized to the largest resource request among them. Predictable timing beats lazy per-repo creation; the cost (a sandbox for a docs repo that the bug-fix doesn't end up touching) is small.
+**One workspace, eager.** `PipelineSandboxCoordinator.EnsureSandboxesAsync` creates the run's workspace before the first sandbox-requiring command runs: one pod with one toolchain container per distinct image across all repos, every container mounting one `/work`, each repo cloned once into `/work/<repo>`. Contexts that share an image share one container, across repos, sized to the largest resource request among them. Predictable timing beats lazy per-repo creation; the cost (a clone of a docs repo that the bug-fix doesn't end up touching) is small. A repo brought in mid-run is cloned beside the others; if its image is missing, every repo's work is pushed, the pod is replaced with the extra container, and every repo is cloned again at its saved commit.
 
 **Path-prefix routing.** The agent's tool surface looks like one filesystem partitioned by repo:
 
 ```
-todolist-api/src/Auth.cs            → Sandboxes["todolist-api"]   reads /work/src/Auth.cs
-todolist-web/src/auth/login.ts      → Sandboxes["todolist-web"]   reads /work/src/auth/login.ts
-todolist-docs/auth.md               → Sandboxes["todolist-docs"]  reads /work/auth.md
+todolist-api/src/Auth.cs            → Sandboxes["todolist-api"]   reads /work/todolist-api/src/Auth.cs
+todolist-web/src/auth/login.ts      → Sandboxes["todolist-web"]   reads /work/todolist-web/src/auth/login.ts
+todolist-docs/auth.md               → Sandboxes["todolist-docs"]  reads /work/todolist-docs/auth.md
 ```
 
 The first segment of every file path is the repo's name in the project. Unknown prefix throws with the known-repos list. The `run_command` tool requires an explicit `repo` argument on multi-repo runs — paths inside a shell command don't carry a prefix the framework can parse.
@@ -78,7 +78,7 @@ Single-repo projects use the same code paths. `Sandboxes` is a dict with one ent
 
 ## Mixed toolchains across repos
 
-When the repos in a project use different languages, each sandbox gets its own image. Each context declares its stack in its `context.yaml`:
+When the repos in a project use different languages, the workspace gets one container per image. Each context declares its stack in its `context.yaml`:
 
 ```yaml
 # todolist-api: .agentsmith/contexts/api/context.yaml
@@ -91,9 +91,9 @@ stack:
   lang: TypeScript
 ```
 
-`SandboxImageChain` picks one image per sandbox, most authoritative first: the project's `sandbox.toolchain_image`, then its per-language `sandbox.images` map, then the `stack.image` the context names (only if it comes from a registry the installation trusts; otherwise it's skipped with a warning), then the built-in image for the language, and last a generic image that carries git and no language toolchain. The run log names the link that decided and why. Landing on the generic image is logged as a warning, because a sandbox without a toolchain can't build or test, and that's better read in the log than discovered as a command-not-found halfway through the run.
+`SandboxImageChain` picks one image per context, most authoritative first: the project's `sandbox.toolchain_image`, then its per-language `sandbox.images` map, then the `stack.image` the context names (only if it comes from a registry the installation trusts; otherwise it's skipped with a warning), then the built-in image for the language, and last a generic image that carries git and no language toolchain. The run log names the link that decided and why. Landing on the generic image is logged as a warning, because a container without a toolchain can't build or test, and that's better read in the log than discovered as a command-not-found halfway through the run.
 
-Commands run in the sandbox of the repo they're addressed to, so `dotnet test` runs in the .NET sandbox and `npm test` in the Node one. Before `VerifySpec`, every sandbox of one repository is brought to the union of their work; two sandboxes that changed the same file differently make verify red, naming the file.
+Commands run in the repo they're addressed to, in the container whose image the command's context needs, so `dotnet test` runs in the .NET container and `npm test` in the Node one. A repository whose contexts need two images is still cloned once: both containers see the same `/work/<repo>`, so there is no second copy to reconcile before `VerifySpec`.
 
 ## CLI ergonomics
 

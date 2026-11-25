@@ -92,6 +92,7 @@ internal static class ServerSandboxExtensions
     {
         services.TryAddSingleton<InProcessStepEnvironmentReader>(); // 2026-10-25-c5a7h
         services.AddSingleton<ISandboxFactory, InProcessSandboxFactory>();
+        services.AddSingleton<IWorkspaceFactory, InProcessWorkspaceFactory>(); // 2026-11-25-9992b
         services.AddSingleton<IPreflightSandboxProbe, SandboxRoundTripProbe>();
     }
 

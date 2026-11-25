@@ -69,6 +69,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Registry.RegistryAuthTemplateStore>();
         services.AddTransient<Registry.GenericRegistryAuthApplier>();
         services.AddTransient<ICommandHandler<EnsurePrerequisitesContext>, EnsurePrerequisitesHandler>();
+        services.AddTransient<PrerequisiteInstall>(); // 2026-11-25-9992b
         services.AddContextLoading(); // 2026-09-04-cf3d: both loaders + the per-context reader
         // p0380: plan-time experiential-memory index + green-run narrative twin.
         services.AddTransient<ICommandHandler<LoadMemoryIndexContext>, LoadMemoryIndexHandler>();

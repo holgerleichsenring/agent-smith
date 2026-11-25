@@ -19,7 +19,6 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolv
     private const int GitTimeoutSeconds = 120;
     // p0299: untracked path (inside .git/, never staged by `git add -A`) used to hand a
     // secondary sandbox's staged diff to `git apply` in the primary sandbox.
-    private const string ConsolidatePatchPath = ".git/agentsmith-consolidate.patch";
     internal const string CredHelper =
         "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
 
@@ -149,29 +148,6 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolv
         logger.LogWarning(
             "git apply {Path} failed (exit {Exit}): {Error}", patchPath, result.ExitCode, result.ErrorMessage);
         return false;
-    }
-
-    // p0299: fold every NON-primary sandbox's staged diff into the primary sandbox's
-    // working tree (write the diff to an untracked file in the primary, then `git apply`),
-    // so a mixed-stack monorepo — one independent clone per toolchain sandbox — commits the
-    // union of all its edits instead of only matches[0]. Returns how many were consolidated.
-    // Single-sandbox repos take the early return and behave exactly as before.
-    public async Task<int> ConsolidateSecondarySandboxesAsync(
-        IReadOnlyList<KeyValuePair<string, ISandbox>> matches, ISandbox primary, CancellationToken ct)
-    {
-        if (matches.Count <= 1) return 0;
-        var consolidated = 0;
-        for (var i = 1; i < matches.Count; i++)
-        {
-            var secondary = matches[i].Value;
-            await StageAllAsync(secondary, ct);
-            var diff = await GetStagedDiffAsync(secondary, ct);
-            if (string.IsNullOrWhiteSpace(diff)) continue;
-            await readerFactory.Create(primary).WriteAsync(ConsolidatePatchPath, diff, ct);
-            if (await ApplyPatchFileAsync(primary, ConsolidatePatchPath, ct))
-                consolidated++;
-        }
-        return consolidated;
     }
 
     // p0235: the staged file paths, used to tell a real code change apart from a

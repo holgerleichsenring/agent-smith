@@ -16,13 +16,13 @@ namespace AgentSmith.Tests.Services;
 public sealed class PipelineExecutorLifecycleFailureTests
 {
     [Fact]
-    public async Task ExecuteAsync_SandboxFactoryThrows_MarksLifecycleFailed()
+    public async Task ExecuteAsync_WorkspaceFactoryThrows_MarksLifecycleFailed()
     {
         var h = new PipelineExecutorTestBuilder();
         // Sandbox factory throws (production symptom: K8s Forbidden because the pod's
         // ServiceAccount lacked pods/create RBAC).
-        h.SandboxFactoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
+        h.WorkspaceFactoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<WorkspaceSpec>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("K8s pod create denied"));
 
         // Pipeline must contain a sandbox-requiring command for sandbox-coordinator
@@ -41,7 +41,7 @@ public sealed class PipelineExecutorLifecycleFailureTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_SandboxFactoryThrows_TerminalizesNativeTicketStatus()
+    public async Task ExecuteAsync_WorkspaceFactoryThrows_TerminalizesNativeTicketStatus()
     {
         // p0269: a thrown sandbox-spawn failure (e.g. k8s ResourceQuota Forbidden)
         // aborts BEFORE any step returns a failure CommandResult, so the step-failure
@@ -50,8 +50,8 @@ public sealed class PipelineExecutorLifecycleFailureTests
         // configured failed_status) — otherwise it stays in trigger_statuses and the
         // poller re-claims it every cycle (the every-minute re-trigger loop).
         var h = new PipelineExecutorTestBuilder();
-        h.SandboxFactoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
+        h.WorkspaceFactoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<WorkspaceSpec>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("exceeded quota: pods"));
 
         var ticketProviderMock = new Mock<ITicketProvider>();
@@ -85,8 +85,8 @@ public sealed class PipelineExecutorLifecycleFailureTests
         // the ticket is reclaimable and re-runs when capacity frees; only the lifecycle
         // tag is marked. Every OTHER thrown exception still terminalizes (the test above).
         var h = new PipelineExecutorTestBuilder();
-        h.SandboxFactoryMock
-            .Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
+        h.WorkspaceFactoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<WorkspaceSpec>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new AgentSmith.Domain.Exceptions.CapacityExhaustedException(
                 "agentsmith", "requests.cpu", "exceeded quota: compute"));
 

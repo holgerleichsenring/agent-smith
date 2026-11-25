@@ -25,8 +25,6 @@ public static class SandboxGitServicesExtensions
         services.AddTransient<BaseRefresh.BaseMergeResolutionCommit>().AddTransient<BaseRefresh.BaseRefreshGit>(); // 2026-11-24-6811c
         services.AddTransient<WorkBranchBaseMergeReport>();
         services.AddTransient<SandboxWorkBranchCheckout>();
-        services.AddTransient<SandboxTreeGit>().AddTransient<SandboxTreeSpread>();
-        services.AddTransient<SandboxTreeSync>();
         return services;
     }
 }

@@ -14,7 +14,7 @@ namespace AgentSmith.Infrastructure.Services.Sandbox;
 /// unauthenticated. A canonical path that only half exists is worse than none.
 /// </para>
 /// <para>
-/// 2026-11-25-9992c: a <see cref="InProcessRepoMount"/> serves a host directory at
+/// 2026-11-25-9992c: each <see cref="InProcessRepoMount"/> (2026-11-25-9992b: one per repository) serves a host directory at
 /// <c>/work/&lt;repo&gt;</c>, ahead of <c>/work</c> itself, both ways.
 /// </para>
 /// </summary>
@@ -24,12 +24,12 @@ public sealed class SandboxPathMap
     private const string HomeRoot = "/root";
 
     private readonly string workDir;
-    private readonly InProcessRepoMount? mount;
+    private readonly IReadOnlyList<InProcessRepoMount> mounts;
 
-    public SandboxPathMap(string jobId, string workDir, InProcessRepoMount? mount = null)
+    public SandboxPathMap(string jobId, string workDir, IReadOnlyList<InProcessRepoMount>? mounts = null)
     {
         this.workDir = workDir;
-        this.mount = mount;
+        this.mounts = mounts ?? [];
         var slug = jobId.Length > 12 ? jobId[..12] : jobId;
         HomeDir = Path.Combine(Path.GetTempPath(), $"agentsmith-home-{slug}");
     }
@@ -49,8 +49,9 @@ public sealed class SandboxPathMap
 
     public string Resolve(string raw)
     {
-        if (mount is not null && TryUnder(raw, Repository.WorkPathFor(mount.RepoName), mount.SourceDir, out var underRepo))
-            return underRepo;
+        foreach (var mount in mounts)
+            if (TryUnder(raw, Repository.WorkPathFor(mount.RepoName), mount.SourceDir, out var underRepo))
+                return underRepo;
         if (TryUnder(raw, WorkRoot, workDir, out var underWork)) return underWork;
         if (TryUnder(raw, HomeRoot, HomeDir, out var underHome)) return underHome;
         if (TryUnder(raw, PackageCacheCatalog.Root, CacheDir, out var underCache)) return underCache;
@@ -61,8 +62,9 @@ public sealed class SandboxPathMap
     /// <summary>The canonical path of a host path this map serves — the mounted repository first.</summary>
     public string Virtualise(string actual)
     {
-        if (mount is not null && Rebase(actual, mount.SourceDir, Repository.WorkPathFor(mount.RepoName)) is { } underRepo)
-            return underRepo;
+        foreach (var mount in mounts)
+            if (Rebase(actual, mount.SourceDir, Repository.WorkPathFor(mount.RepoName)) is { } underRepo)
+                return underRepo;
         return Rebase(actual, workDir, WorkRoot) ?? actual;
     }
 

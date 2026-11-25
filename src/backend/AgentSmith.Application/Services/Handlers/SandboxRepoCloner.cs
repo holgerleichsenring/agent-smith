@@ -56,21 +56,17 @@ public sealed class SandboxRepoCloner(
         var (credential, missing) = Credential(config);
         if (credential is null) return FailWith(missing!, config);
 
-        // 2026-09-13-a284: one repository's sandboxes are clones of the SAME repository, so
-        // they resolve the same rung; the first one that names it answers for the repo.
-        string? rung = null;
-        foreach (var (key, sandbox) in sandboxes)
-        {
-            var clone = await CloneIntoRootAsync(sandbox, config, credential, ct);
-            if (clone.ExitCode != 0) return FailWith(CloneProblem(key, clone), config);
-            // p0496: the identity comes BEFORE the branch switch — a three-way base merge commits.
-            await identity.EnsureConfiguredAsync(sandbox, ct);
-            var placement = await branchCheckout.SwitchAsync(sandbox, config, branch, ct);
-            if (placement.Problem is not null)
-                return FailWith($"sandbox '{key}': {placement.Problem}", config);
-            rung ??= placement.Rung;
-        }
-        return RepoCheckout.Ready(repo, rung);
+        // 2026-11-25-9992b: every key of a repository is a toolchain container over the SAME tree of the run's
+        // workspace, so the repository is cloned and placed once, through its first key.
+        var (key, sandbox) = sandboxes[0];
+        var clone = await CloneIntoRootAsync(sandbox, config, credential, ct);
+        if (clone.ExitCode != 0) return FailWith(CloneProblem(key, clone), config);
+        // p0496: the identity comes BEFORE the branch switch — a three-way base merge commits.
+        await identity.EnsureConfiguredAsync(sandbox, ct);
+        var placement = await branchCheckout.SwitchAsync(sandbox, config, branch, ct);
+        return placement.Problem is not null
+            ? FailWith($"sandbox '{key}': {placement.Problem}", config)
+            : RepoCheckout.Ready(repo, placement.Rung);
     }
 
     // 2026-11-25-9992c: the clone lands IN the root, made first when it is not the workspace root.

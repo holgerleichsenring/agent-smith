@@ -1,24 +1,18 @@
-using System.Text.RegularExpressions;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Domain.Exceptions;
-using k8s;
-using k8s.Models;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using StackExchange.Redis;
 
 namespace AgentSmith.Server.Services.Sandbox;
 
-public sealed partial class KubernetesSandboxFactory(
-    IKubernetes client,
-    IConnectionMultiplexer redis,
+/// <summary>
+/// A single sandbox on Kubernetes: a pod with one toolchain container, deleted with the sandbox. 2026-11-25-9992b: the
+/// pod is created and awaited by <see cref="KubernetesPodLauncher"/> and its container sandbox built by
+/// <see cref="KubernetesContainerSandboxes"/>, both shared with <see cref="KubernetesWorkspaceFactory"/>.
+/// </summary>
+public sealed class KubernetesSandboxFactory(
     PodSpecBuilder podSpecBuilder,
+    KubernetesPodLauncher launcher,
+    KubernetesContainerSandboxes containers,
     KubernetesSandboxOptions options,
-    IOptions<SandboxGlobalConfig> sandboxConfig,
-    IWireProtocolWatcher protocol,
-    SandboxBusCredentials busCredentials,
-    ILoggerFactory loggerFactory) : ISandboxFactory
+    SandboxBusCredentials busCredentials) : ISandboxFactory
 {
     public async Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
@@ -28,80 +22,9 @@ public sealed partial class KubernetesSandboxFactory(
         var podName = $"agentsmith-sandbox-{jobId[..12]}";
         // 2026-10-25-c5a7e: the sandbox reaches Redis as its own job's ACL user.
         var bus = await busCredentials.IssueAsync(jobId, options.RedisUrl, spec.RequiresPerJobBus); // 4778: before the pod
-        var pod = podSpecBuilder.Build(podName, jobId, bus.Url, spec, options.OwnerReference);
-
-        try
-        {
-            await client.CoreV1.CreateNamespacedPodAsync(pod, options.Namespace, cancellationToken: cancellationToken);
-        }
-        catch (k8s.Autorest.HttpOperationException ex)
-            when (ex.Response.StatusCode == System.Net.HttpStatusCode.Forbidden
-                  && TryMapQuotaMessage(ExtractStatusMessage(ex), options.Namespace, ex, out var capacityEx))
-        {
-            // p0269a: a ResourceQuota rejection is a first-class CAPACITY signal, not a
-            // fatal error. Translate it at THIS boundary (where the k8s status is
-            // structured) into the typed exception so the core requeues the run as
-            // waiting instead of terminal-failing it. Non-quota 403s (RBAC) fall through.
-            throw capacityEx!;
-        }
-        loggerFactory.CreateLogger<KubernetesSandboxFactory>()
-            .LogInformation("Sandbox pod {Pod} created in namespace {Ns}", podName, options.Namespace);
-
-        var watcher = new KubernetesPodWatcher(client, loggerFactory.CreateLogger<KubernetesPodWatcher>());
-        await watcher.WaitForReadyAsync(podName, options.Namespace,
-            TimeSpan.FromSeconds(spec.TimeoutSeconds), spec.ImagePullSecrets, cancellationToken);
-
-        var channel = new SandboxRedisChannel(
-            redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>(), protocol);
-        return new KubernetesSandbox(client, options.Namespace, podName, jobId, channel, bus,
-            // p0230: per-project resolved cap rides on the spec; fall back to global.
-            spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,
-            spec.ToolchainImage,
-            // 2026-08-28-b630: the pod spec above projected exactly these, so the sandbox
-            // can be asked whether they arrived — by name, never by value.
-            spec.Secrets ?? ResolvedSandboxSecrets.Empty,
-            loggerFactory.CreateLogger<KubernetesSandbox>());
+        var toolchain = new PodToolchain(spec.ToolchainImage, spec.Resources, jobId, bus.Url);
+        var pod = podSpecBuilder.Build(podName, [toolchain], spec, options.OwnerReference);
+        await launcher.LaunchAsync(pod, TimeSpan.FromSeconds(spec.TimeoutSeconds), spec.ImagePullSecrets, cancellationToken);
+        return containers.Create(podName, 0, toolchain, bus, spec, ownsPod: true);
     }
-
-    // p0269a: a ResourceQuota rejection is a 403 Forbidden whose V1Status message
-    // reads "exceeded quota: <name>, requested: <resource>=<n>, used: ..., limited: ...".
-    // An RBAC 403 is also Forbidden but carries no "exceeded quota" marker — those are
-    // genuine failures and must NOT be mapped to a capacity signal. Pure so it is unit-
-    // tested without a k8s client mock; this is provider-boundary translation of a
-    // structured status, not a core message heuristic.
-    internal static bool TryMapQuotaMessage(
-        string? message, string ns, Exception? inner, out CapacityExhaustedException? mapped)
-    {
-        mapped = null;
-        if (message is null || !message.Contains("exceeded quota", StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        var resourceMatch = QuotaResourceRegex().Match(message);
-        var exhaustedResource = resourceMatch.Success ? resourceMatch.Groups[1].Value : null;
-        var text = $"Kubernetes ResourceQuota in namespace '{ns}' rejected the sandbox pod: {message}";
-        mapped = inner is null
-            ? new CapacityExhaustedException(ns, exhaustedResource, text)
-            : new CapacityExhaustedException(ns, exhaustedResource, text, inner);
-        return true;
-    }
-
-    // The k8s client puts the V1Status JSON in Response.Content. Deserialize for a clean
-    // message; fall back to the raw content if that fails so the marker check still runs.
-    private static string? ExtractStatusMessage(k8s.Autorest.HttpOperationException ex)
-    {
-        var content = ex.Response?.Content;
-        if (string.IsNullOrEmpty(content)) return ex.Message;
-        try
-        {
-            var status = KubernetesJson.Deserialize<V1Status>(content);
-            return string.IsNullOrEmpty(status?.Message) ? content : status.Message;
-        }
-        catch
-        {
-            return content;
-        }
-    }
-
-    [GeneratedRegex(@"requested:\s*([^=,\s]+)=", RegexOptions.IgnoreCase)]
-    private static partial Regex QuotaResourceRegex();
 }

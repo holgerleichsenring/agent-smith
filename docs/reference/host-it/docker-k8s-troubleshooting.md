@@ -58,7 +58,7 @@ host yourself (`docker login` + `docker pull`), or run sandboxes on Kubernetes.
 
 ## The checkout fails: the image has no git
 
-A repository is cloned inside its own sandbox, so the toolchain image must carry git.
+A repository is cloned inside the run's workspace, so the toolchain image must carry git.
 The checkout step says so by name when it doesn't. Name an image variant that ships git
 in the context's `stack.image`, or in `projects.<name>.sandbox.toolchain_image` /
 `sandbox.images`.

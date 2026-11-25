@@ -17,10 +17,11 @@ public sealed class MidRunRegistryAuth(SetupRegistryAuthHandler handler, AgentSm
     {
         if (config.Registries.Count == 0) return [];
         var written = new List<string>();
-        await handler.StageInSandboxAsync(repoKey, sandbox, () => pipeline.Resolved().Agent, written, cancellationToken);
+        await handler.StageInSandboxAsync(repoKey, sandbox, handler.RootsOf(pipeline, sandbox),
+            () => pipeline.Resolved().Agent, written, cancellationToken);
         var staged = pipeline.TryGet<List<string>>(ContextKeys.StagedRegistries, out var held) && held is not null
             ? new List<string>(held) : [];
-        staged.AddRange(written.Select(w => $"{repoKey}: {w}"));
+        staged.AddRange(written.Select(w => $"{repoKey}: {w}").Where(line => !staged.Contains(line)).ToList()); // 9992b: a restart re-stages
         pipeline.Set(ContextKeys.StagedRegistries, staged);
         return written;
     }

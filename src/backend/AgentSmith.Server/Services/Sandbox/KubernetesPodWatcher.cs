@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
-/// Polls Pod status until the toolchain container is Ready, throwing on
+/// Polls Pod status until every named toolchain container is Ready, throwing on
 /// detected pull / crash / config failures across BOTH the init-container
 /// (agent-loader) and the main container (toolchain), or on timeout. On
 /// failure or timeout the pod is left in place for `kubectl describe`
@@ -24,8 +24,8 @@ public sealed class KubernetesPodWatcher(IKubernetes client, ILogger logger)
     ];
 
     public async Task WaitForReadyAsync(
-        string podName, string ns, TimeSpan timeout, IReadOnlyList<string>? pullSecrets,
-        CancellationToken cancellationToken)
+        string podName, string ns, IReadOnlyList<string> containers, TimeSpan timeout,
+        IReadOnlyList<string>? pullSecrets, CancellationToken cancellationToken)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
         string? lastPhase = null;
@@ -40,7 +40,7 @@ public sealed class KubernetesPodWatcher(IKubernetes client, ILogger logger)
                 lastPhase = phase;
             }
             ThrowIfFailed(podName, pod, pullSecrets);
-            if (IsToolchainReady(pod)) return;
+            if (AllReady(pod, containers)) return;
             await Task.Delay(PollInterval, cancellationToken);
         }
 
@@ -82,11 +82,9 @@ public sealed class KubernetesPodWatcher(IKubernetes client, ILogger logger)
                 $"{waiting.Message ?? "<no message>"}" + ImagePullSecretNote.For(reason, pullSecrets));
     }
 
-    private static bool IsToolchainReady(V1Pod pod)
-    {
-        var toolchain = pod.Status?.ContainerStatuses?.FirstOrDefault(s => s.Name == "toolchain");
-        return toolchain?.Ready == true;
-    }
+    // 2026-11-25-9992b: a workspace pod is ready when EVERY toolchain container is; a fatal one fails it by name above.
+    private static bool AllReady(V1Pod pod, IReadOnlyList<string> containers) =>
+        containers.All(name => pod.Status?.ContainerStatuses?.FirstOrDefault(s => s.Name == name)?.Ready == true);
 
     private async Task<V1Pod?> TryReadPodAsync(string podName, string ns, CancellationToken ct)
     {

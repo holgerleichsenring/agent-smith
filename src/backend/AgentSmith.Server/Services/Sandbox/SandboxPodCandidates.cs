@@ -20,6 +20,21 @@ public static class SandboxPodCandidates
                 LabelOrEmpty(pod, SandboxPodLabels.ConversationIdLabel),
                 Age(pod, now)))];
 
+    /// <summary>
+    /// 2026-11-25-9992b: the job id of every toolchain container of <paramref name="pod"/> — the annotation a
+    /// workspace pod carries, else the pipeline-id label of a pod from before it.
+    /// </summary>
+    public static IReadOnlyList<string> JobIds(V1Pod pod)
+    {
+        var annotated = pod.Metadata?.Annotations is { } annotations
+                        && annotations.TryGetValue(SandboxPodLabels.JobIdsAnnotation, out var value)
+            ? SandboxPodLabels.SplitJobIds(value)
+            : [];
+        if (annotated.Count > 0) return annotated;
+        var single = LabelOrEmpty(pod, SandboxPodLabels.PipelineIdLabel);
+        return single.Length > 0 ? [single] : [];
+    }
+
     // No creation timestamp at all is treated as old, which is what the corpse sweep
     // has always done: an undatable pod cannot be saved by the spawn-window rail.
     private static TimeSpan Age(V1Pod pod, DateTimeOffset now)

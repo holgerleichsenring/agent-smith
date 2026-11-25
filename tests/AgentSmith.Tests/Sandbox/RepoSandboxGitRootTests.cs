@@ -90,7 +90,7 @@ public sealed class RepoSandboxGitRootTests
         pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.VerifiedHeads,
             new Dictionary<string, string> { ["api"] = StepRecordingSandbox.Head });
 
-        await new UnverifiedWorkReverter(GitOps(), new SandboxTargets(), NullLogger<UnverifiedWorkReverter>.Instance)
+        await new UnverifiedWorkReverter(GitOps(), NullLogger<UnverifiedWorkReverter>.Instance)
             .RestoreAsync(pipeline, "api", _repo, CancellationToken.None);
 
         _backend.Git.Should().Contain(s => s.Args!.Contains("add"));

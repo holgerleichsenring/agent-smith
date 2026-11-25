@@ -26,7 +26,7 @@ namespace AgentSmith.Tests.Tools;
 /// </summary>
 public sealed class EnsureRepoSandboxToolHostTests
 {
-    private readonly Mock<ISandboxFactory> _factoryMock = new();
+    private readonly StubWorkspaceFactory _workspaces = new(new StubSandboxFactory());
     private readonly Mock<ISandboxLanguageResolver> _resolverMock = new();
     private readonly Mock<ISourceProviderFactory> _sourceFactoryMock = new();
     private readonly SandboxSpecBuilder _specBuilder =
@@ -34,19 +34,6 @@ public sealed class EnsureRepoSandboxToolHostTests
 
     public EnsureRepoSandboxToolHostTests()
     {
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() =>
-            {
-                var sandbox = new Mock<ISandbox>();
-                sandbox.Setup(s => s.RunStepAsync(
-                        It.IsAny<AgentSmith.Sandbox.Wire.Step>(),
-                        It.IsAny<IProgress<AgentSmith.Sandbox.Wire.StepEvent>?>(),
-                        It.IsAny<CancellationToken>()))
-                    .Returns<AgentSmith.Sandbox.Wire.Step, IProgress<AgentSmith.Sandbox.Wire.StepEvent>?, CancellationToken>(
-                        (step, _, _) => Task.FromResult(new AgentSmith.Sandbox.Wire.StepResult(
-                            AgentSmith.Sandbox.Wire.StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
-                return sandbox.Object;
-            });
         _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", "csharp") });
         // "Local" provider — checkout trusts the bind-mount, no in-sandbox clone.
@@ -71,9 +58,10 @@ public sealed class EnsureRepoSandboxToolHostTests
 
         first.Should().Contain("Sandbox ready for repo 'client'");
         second.Should().Contain("already available");
-        // Exactly ONE extra spawn across both calls (initial run spawned 1).
-        _factoryMock.Verify(
-            f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        // 2026-11-25-9992b: the workspace already serves the repository's image, so it is cloned beside the
+        // other one — no restart, no second container.
+        _workspaces.Created.Should().ContainSingle();
+        _workspaces.Sandboxes.Spawned.Should().ContainSingle();
         // The scope seam was widened…
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)
             .Select(r => r.Name).Should().BeEquivalentTo("server", "client");
@@ -88,6 +76,7 @@ public sealed class EnsureRepoSandboxToolHostTests
     [Fact]
     public async Task EnsureRepoSandbox_NoCapacity_HonestDeny_RunContinues()
     {
+        ClientNeedsItsOwnImage();
         var (pipeline, _, fs) = await BootRunAsync();
         var probe = new Mock<ISandboxCapacityProbe>();
         probe.Setup(p => p.HasCapacityAsync(It.IsAny<RunFootprint>(), It.IsAny<CancellationToken>()))
@@ -99,15 +88,34 @@ public sealed class EnsureRepoSandboxToolHostTests
         // The deny is a readable tool ANSWER, not a crash — the run continues.
         answer.Should().Be(EnsureRepoSandboxToolHost.CapacityDenyAnswer);
         // Nothing was spawned and the scope seam is untouched.
-        _factoryMock.Verify(
-            f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()), Times.Once);
+        _workspaces.Created.Should().ContainSingle("the denied restart never happened");
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)
             .Should().ContainSingle(r => r.Name == "server");
-        // The single-sandbox footprint was probed (own probe, no orchestrator pod).
+        // Only the container the workspace would gain was probed (own probe, no orchestrator pod).
         probe.Verify(p => p.HasCapacityAsync(
             It.Is<RunFootprint>(f => f.Sandboxes.Count == 1),
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    // 2026-11-25-9992b: a repository whose image the workspace already serves takes no new capacity, so no probe asks.
+    [Fact]
+    public async Task EnsureRepoSandbox_ImagePresent_ClonesWithoutAProbe()
+    {
+        var (pipeline, _, fs) = await BootRunAsync();
+        var probe = new Mock<ISandboxCapacityProbe>(MockBehavior.Strict);
+        var sut = Host(pipeline, fs, probe.Object);
+
+        var answer = await sut.EnsureRepoSandbox("client");
+
+        answer.Should().Contain("Sandbox ready for repo 'client'");
+        probe.VerifyNoOtherCalls();
+        _workspaces.Created.Should().ContainSingle();
+    }
+
+    private void ClientNeedsItsOwnImage() =>
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.Is<RepoConnection>(c => c.Name == "client"),
+                It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", "typescript") });
 
     [Fact]
     public async Task EnsureRepoSandbox_UnknownRepo_NamesConfiguredRepos()
@@ -135,13 +143,7 @@ public sealed class EnsureRepoSandboxToolHostTests
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { server });
         pipeline.Set(ContextKeys.PipelineName, "code");
 
-        var coordinator = new PipelineSandboxCoordinator(
-            _factoryMock.Object, _specBuilder, _resolverMock.Object,
-            EventTestStubs.NoOp, EventTestStubs.RunContext,
-            new NoOpSandboxLivenessSupervisor(),
-new AgentSmith.Application.Services.Sandbox.SandboxRelease(
-                AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
-            NullLogger<PipelineSandboxCoordinator>.Instance);
+        var coordinator = TestCoordinators.Create(_workspaces, _resolverMock.Object, _specBuilder);
         await coordinator.EnsureSandboxesAsync(project, pipeline, CancellationToken.None);
 
         var sandboxes = pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
@@ -157,6 +159,7 @@ new AgentSmith.Application.Services.Sandbox.SandboxRelease(
     [Fact]
     public async Task Release_TheMidRunEscalationDoor_WhenTheRoomIsShort_ReleasesBeforeTheDenial()
     {
+        ClientNeedsItsOwnImage();
         var (pipeline, _, fs) = await BootRunAsync();
         var recording = new AgentSmith.Tests.Sandbox.RecordingHeldSandboxes();
         var sut = Host(pipeline, fs, recording.DenyingProbe("namespace memory quota exhausted"), recording);
@@ -172,7 +175,7 @@ new AgentSmith.Application.Services.Sandbox.SandboxRelease(
     private EnsureRepoSandboxToolHost Host(
         PipelineContext pipeline, FilesystemToolHost fs, ISandboxCapacityProbe probe,
         IHeldSandboxRegister? heldSandboxes = null) =>
-        new(pipeline, fs, probe, new StubSandboxResourceResolver(),
+        new(pipeline, fs, probe,
             new SandboxRepoCloner(_sourceFactoryMock.Object, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
             NullLogger<EnsureRepoSandboxToolHost>.Instance, new SandboxTargets(),
             heldSandboxes ?? Spawning.CapacityTestDoubles.NoHolds());

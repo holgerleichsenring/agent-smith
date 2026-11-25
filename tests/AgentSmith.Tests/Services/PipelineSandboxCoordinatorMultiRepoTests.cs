@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -31,9 +32,72 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
 
         result.Should().HaveCount(2);
         result.Keys.Should().BeEquivalentTo(new[] { "server", "client" });
-        harness.FactoryMock.Verify(f => f.CreateAsync(
-            It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(2));
+        // 2026-11-25-9992b: both repositories share the image, so the one workspace holds one container for both.
+        harness.Workspaces.Created.Should().ContainSingle();
+        harness.Workspaces.Sandboxes.Spawned.Should().ContainSingle();
+    }
+
+    // 2026-11-25-9992b: two repositories with two images are ONE workspace with a toolchain per image; each
+    // (repository, image) group is still its own key, served by its image's container.
+    [Fact]
+    public async Task Coordinator_TwoReposTwoImages_OneWorkspaceOneToolchainPerImage()
+    {
+        var harness = new Harness().WithRepo("api").WithRepo("web")
+            .WithDiscoveries("api",
+                new RemoteContextDiscovery("server", "src/Server", "csharp"),
+                new RemoteContextDiscovery("client", "src/Client", "typescript"))
+            .WithDiscoveries("web", new RemoteContextDiscovery("default", ".", "typescript"));
+
+        var result = await harness.Sut.EnsureSandboxesAsync(new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        var workspace = harness.Workspaces.Created.Should().ContainSingle().Subject;
+        workspace.Spec.Toolchains.Select(t => t.Image).Should().OnlyHaveUniqueItems().And.HaveCount(2);
+        result.Keys.Should().BeEquivalentTo("api-server", "api-client", "web");
+        var repos = harness.Pipeline.Get<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos);
+        repos.Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["api-server"] = "api", ["api-client"] = "api", ["web"] = "web",
+        });
+        result["api-client"].Backend().Should().BeSameAs(result["web"].Backend(), "one image, one container");
+        result["api-server"].Backend().Should().NotBeSameAs(result["api-client"].Backend());
+    }
+
+    // A repeated call with nothing new reuses every key and the workspace.
+    [Fact]
+    public async Task Coordinator_RepeatedEnsure_ReusesKeysAndWorkspace()
+    {
+        var harness = new Harness().WithRepo("api").WithRepo("web");
+
+        var first = (await harness.Sut.EnsureSandboxesAsync(new ResolvedProject(), harness.Pipeline, CancellationToken.None))
+            .ToDictionary(kv => kv.Key, kv => kv.Value);
+        var second = await harness.Sut.EnsureSandboxesAsync(new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        second.Should().BeEquivalentTo(first);
+        harness.Workspaces.Created.Should().ContainSingle();
+    }
+
+    // A repository brought in with an image the workspace lacks goes through the restart: the workspace is created
+    // again with every toolchain, and the keys handed out before reach the new containers.
+    [Fact]
+    public async Task Coordinator_NewImageOnASecondCall_RestartsTheWorkspaceWithEveryToolchain()
+    {
+        var harness = new Harness().WithRepo("api")
+            .WithDiscoveries("api", new RemoteContextDiscovery("default", ".", "csharp"))
+            .WithDiscoveries("web", new RemoteContextDiscovery("default", ".", "typescript"));
+        var first = await harness.Sut.EnsureSandboxesAsync(new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+        var apiKey = first.Keys.Single();
+
+        harness.WithRepo("web");
+        var second = await harness.Sut.EnsureSandboxesAsync(new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        harness.Workspaces.Created.Should().HaveCount(2);
+        harness.Workspaces.Created[0].DisposeCount.Should().Be(1, "the old workspace is gone");
+        harness.Workspaces.Created[1].Spec.Toolchains.Should().HaveCount(2);
+        second.Keys.Should().HaveCount(2).And.Contain(apiKey);
+        harness.Workspaces.Created[1].Containers.Should().Contain(c => ReferenceEquals(c, second[apiKey].Backend()));
+        harness.Workspaces.Created[1].Containers.SelectMany(c => c.RanSteps).Should().Contain(
+            s => s.Command == "git" && s.Args!.Contains("-B") && s.WorkingDirectory == "/work/api",
+            "the repository the run had is checked out again at its saved commit");
     }
 
     // p0336c: same-image contexts of one repo collapse into ONE pod even when
@@ -71,8 +135,9 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
         await harness.Sut.DisposeAsync();
         await harness.Sut.DisposeAsync();
 
-        foreach (var sandbox in harness.SandboxMocks)
-            sandbox.Verify(s => s.DisposeAsync(), Times.Once);
+        var workspace = harness.Workspaces.Created.Should().ContainSingle().Subject;
+        workspace.DisposeCount.Should().Be(1);
+        workspace.Containers.Should().NotBeEmpty().And.OnlyContain(c => c.Disposed);
     }
 
     [Fact]
@@ -149,10 +214,6 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
                 new RemoteContextDiscovery("client", "src/Client", "typescript"),
                 new RemoteContextDiscovery("docs", "docs", "markdown"));
 
-        var captured = new List<SandboxSpec>();
-        harness.FactoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .Callback<SandboxSpec, CancellationToken>((spec, _) => captured.Add(spec))
-            .ReturnsAsync(() => new Mock<ISandbox>().Object);
 
         await harness.Sut.EnsureSandboxesAsync(
             new ResolvedProject(), harness.Pipeline, CancellationToken.None);
@@ -162,7 +223,7 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
         sandboxes!.Should().HaveCount(3);
         sandboxes.Keys.Should().BeEquivalentTo(new[] { "server", "client", "docs" });
 
-        captured.Select(s => s.ToolchainImage).Should().HaveCount(3)
+        harness.Workspaces.Sandboxes.Spawned.Select(s => s.Spec.ToolchainImage).Should().HaveCount(3)
             .And.OnlyHaveUniqueItems("each context should map to its own toolchain image");
     }
 
@@ -198,38 +259,22 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
     private sealed class Harness
     {
         public PipelineContext Pipeline { get; } = new();
-        public Mock<ISandboxFactory> FactoryMock { get; } = new();
+        public StubWorkspaceFactory Workspaces { get; } = new(new StubSandboxFactory());
         public Mock<ISandboxLanguageResolver> LanguageResolverMock { get; } = new();
-        public List<Mock<ISandbox>> SandboxMocks { get; } = new();
         public PipelineSandboxCoordinator Sut { get; }
 
         private readonly List<RepoConnection> _repos = new();
 
         public Harness()
         {
-            FactoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-                .Returns(() =>
-                {
-                    var sandbox = new Mock<ISandbox>();
-                    SandboxMocks.Add(sandbox);
-                    return Task.FromResult(sandbox.Object);
-                });
             LanguageResolverMock.Setup(r => r.ResolveAllAsync(
                     It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", null) });
 
-            Sut = new PipelineSandboxCoordinator(
-                FactoryMock.Object,
+            Sut = TestCoordinators.Create(Workspaces, LanguageResolverMock.Object,
                 new SandboxSpecBuilder(
                     WiredResourceResolver.Create(),
-                    new StubAgentImageResolver()),
-                LanguageResolverMock.Object,
-                AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
-                AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
-                new NoOpSandboxLivenessSupervisor(),
-new AgentSmith.Application.Services.Sandbox.SandboxRelease(
-                    AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
-                NullLogger<PipelineSandboxCoordinator>.Instance);
+                    new StubAgentImageResolver()));
 
             Pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, _repos);
         }

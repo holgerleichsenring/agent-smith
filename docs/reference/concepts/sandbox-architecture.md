@@ -1,19 +1,21 @@
 # Sandbox Architecture
 
-The server orchestrates ephemeral sandboxes for each pipeline run: one per repo and
-toolchain image. A sandbox runs an upstream toolchain image (e.g.
-`mcr.microsoft.com/dotnet/sdk:8.0`) with `AgentSmith.Sandbox.Agent` injected as the
-entry-point via an init container. Server and agent communicate via Redis — no
+The server gives each pipeline run one **workspace**: one pod (Kubernetes), one volume set
+(Docker) or one directory (in-process), with a container per toolchain image the run needs.
+Every container mounts the same `/work`, and the run's repositories sit side by side in it at
+`/work/<repo>`, so a script in one repository can reach `../OtherRepo`. A container runs an
+upstream toolchain image (e.g. `mcr.microsoft.com/dotnet/sdk:10.0`) with
+`AgentSmith.Sandbox.Agent` injected as its entry point by an init container; each container
+has its own agent, job id and bus credential. Server and agent communicate via Redis — no
 `kubectl exec`, no SSH.
 
 ## Pieces
 
-- **Server-Pod** — `AgentSmith.Server` orchestrates the pipeline. Creates the
-  sandboxes for the repos in the run's scope, pushes Steps
-  to Redis, reads Results.
-- **Sandbox-Pod** — runs the user-selected toolchain image with the agent binary
-  mounted via shared `emptyDir`. The agent polls Redis, executes Steps, streams
-  events back.
+- **Server-Pod** — `AgentSmith.Server` orchestrates the pipeline. Creates the run's
+  workspace for the repos in its scope, pushes Steps to Redis, reads Results.
+- **Workspace pod** — one toolchain container per image, each with the agent binary
+  mounted via a shared `emptyDir`, all over one `/work`. Each agent polls Redis,
+  executes Steps, streams events back.
 - **Wire** — `AgentSmith.Sandbox.Wire` defines the Step / StepEvent / StepResult
   records and the Redis key conventions. Both Server and Agent reference Wire
   so the on-the-wire format has a single source of truth.
@@ -41,18 +43,27 @@ enforce identical numbers.
 
 ```text
 Pod (RestartPolicy=Never)
-│   labels: app, pipeline-id, owner (this deployment), run-id, conversation-id
+│   labels: app, pipeline-id (the first container's job id), owner (this deployment), run-id, conversation-id
+│   annotations: agentsmith.io/job-ids (every container's job id, comma-separated)
 │   imagePullSecrets: sandbox.image_pull_secrets
 ├── initContainer agent-loader     image: <agent_registry>/agent-smith-sandbox-agent:<tag>
 │   args: --inject /shared/agent
 │   volumeMounts: /shared
-└── container toolchain            image: <toolchain image>
-    command: [/shared/agent]
-    args: --job-id $JOB_ID [--run-id $RUN_ID]
-    env: REDIS_URL, JOB_ID, GIT_TOKEN and sandbox.secrets.env (secretKeyRef)
-    volumeMounts: /shared (ro), /work, sandbox.secrets.files (ro)
-    workingDir: /work
+├── container toolchain-0          image: <first toolchain image>
+│   command: [/shared/agent]
+│   args: --job-id $JOB_ID [--run-id $RUN_ID]
+│   env: REDIS_URL, JOB_ID (its own) and sandbox.secrets.env (secretKeyRef)
+│   volumeMounts: /shared (ro), /work, its own home (hardened), sandbox.secrets.files (ro)
+│   workingDir: /work
+└── container toolchain-1 …        one per further image, same shape
 ```
+
+A single-repo sandbox (a read-only source scope, a probe) is the one-container case. The
+containers share no process namespace. Kubernetes cannot add a container to a running pod:
+when a repository brought in mid-run (`ensure_repo_sandbox`) needs an image the workspace
+lacks, every repository's work is pushed to its branch, the pod is replaced with the extra
+container, and every repository is cloned again at the commit it stood at. A repository whose
+image is already there is just cloned beside the others.
 
 The Redis URL reaches the agent through `REDIS_URL` only, never on its command line, where
 every process in the container could read it. A command the agent runs (a build, a test, a
@@ -74,12 +85,13 @@ unusual UIDs override via `SandboxSpec.SecurityContext`.
 
 `SandboxServiceCollectionExtensions.AddSandbox()` (Server) auto-detects:
 
-1. `SANDBOX_TYPE=kubernetes` or `KUBERNETES_SERVICE_HOST` set → `KubernetesSandboxFactory`
-2. `SANDBOX_TYPE=docker` or `/var/run/docker.sock` exists → `DockerSandboxFactory`
-   (mirrors the K8s shape: `agent-loader` container exits, then a `toolchain`
-   container starts with two named volumes — shared agent binary RO, work tree RW)
-3. Otherwise → `InProcessSandbox` (no container isolation — single-tenant
-   developer machine). The CLI always uses this backend.
+1. `SANDBOX_TYPE=kubernetes` or `KUBERNETES_SERVICE_HOST` set → `KubernetesWorkspaceFactory`
+   (and `KubernetesSandboxFactory` for single-repo sandboxes)
+2. `SANDBOX_TYPE=docker` or `/var/run/docker.sock` exists → `DockerWorkspaceFactory`
+   (mirrors the K8s shape: the `agent-loader` container exits, then one toolchain
+   container per image starts over one volume set — shared agent binary RO, work tree RW)
+3. Otherwise → `InProcessWorkspaceFactory` (no container isolation — single-tenant
+   developer machine; every toolchain runs on the host). The CLI always uses this backend.
 
 `DOCKER_HOST` overrides the default socket URI when set.
 
@@ -95,20 +107,20 @@ unusual UIDs override via `SandboxSpec.SecurityContext`.
    `projects.<name>.sandbox.images.<language>`, the context's `stack.image` (only if it
    passes `sandbox.allowed_registries`), a built-in per-language table, and a generic
    image with git and no toolchain. One log line names the link that decided.
-3. Contexts of one repo that resolve to the same image share one sandbox, sized to the
-   largest resource envelope among them. A different image means a separate sandbox.
-   The capacity footprint is computed from the same grouping.
-4. `ISandboxFactory.CreateAsync` creates the sandbox and waits for it to be ready.
-5. `CheckoutSource` clones inside the sandbox. An image without git fails here with
-   an error saying so.
+3. Contexts that resolve to the same image share one container of the workspace, across
+   repositories, sized to the largest resource envelope among them. The capacity footprint
+   is the workspace pod: the sum of its containers.
+4. `IWorkspaceFactory.CreateAsync` creates the workspace and waits until every container is ready.
+5. `CheckoutSource` clones each repository once into `/work/<repo>`. An image without git
+   fails here with an error saying so.
 6. Before a declared `verify` stage runs, its binary is looked up on the image's
    `PATH`; a missing one is a warning naming image, binary, stage and context.
 7. Handlers push their Steps through the sandbox. A `run_command` without its own
    timeout gets `run_command_timeout_seconds` (default 300); a command may ask for
    more, up to `step_timeout_seconds` (default 900), which caps every step. A command
    killed at the cap is reported as timed out.
-8. `await using` triggers `DisposeAsync` at pipeline end → Shutdown step + 10 s
-   grace + pod delete.
+8. `await using` triggers `DisposeAsync` at pipeline end → a Shutdown step to every
+   container + 10 s grace + one pod delete.
 
 A server crash can leave sandboxes behind. On Kubernetes a corpse reaper deletes this
 deployment's pods whose run is no longer live, on a timer and at admission; on Docker

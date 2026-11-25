@@ -18,7 +18,7 @@ namespace AgentSmith.Tests.Spawning;
 public sealed class RunFootprintCalculatorTests
 {
     [Fact]
-    public async Task FootprintCalculator_DistinctImagesInRepo_SplitPerImage()
+    public async Task FootprintCalculator_DistinctImages_OneContainerEachAcrossRepos()
     {
         var project = Project("server", "client", "api");
         var language = new Mock<ISandboxLanguageResolver>();
@@ -32,8 +32,10 @@ public sealed class RunFootprintCalculatorTests
         var footprint = await Calculator(language)
             .CalculateAsync(project, "code", ContextReadBranches.None, CancellationToken.None);
 
-        footprint.Pods.Should().HaveCount(4, "server splits sdk8 + sdk9 (distinct images); client + api one each");
-        footprint.Pods.Select(p => p.Repo).Should().Equal("server", "server", "client", "api");
+        // 2026-11-25-9992b: one workspace, one container per distinct image — client and api share theirs.
+        footprint.Pods.Should().HaveCount(3, "server needs sdk8 + sdk9; client and api share one image");
+        footprint.Pods.Select(p => p.Image).Should().OnlyHaveUniqueItems();
+        footprint.Pods.Select(p => p.Repo).Should().Equal("server", "server", "client+api");
     }
 
     // p0336c: the DAP-Server case after the encrypter net9->net8 migration — five

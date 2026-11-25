@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -25,7 +26,7 @@ namespace AgentSmith.Tests.Services;
 /// </summary>
 public sealed class PipelineSandboxCoordinatorPerStackSizeTests
 {
-    private readonly Mock<ISandboxFactory> _factoryMock = new();
+    private readonly StubWorkspaceFactory _workspaces = new(new StubSandboxFactory());
     private readonly Mock<ISandboxLanguageResolver> _resolverMock = new();
     private readonly SandboxSpecBuilder _specBuilder = new(
         WiredResourceResolver.Create(),
@@ -43,18 +44,15 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
                 new RemoteContextDiscovery("build", "src/Api", "csharp", Resources: Heavy),
                 new RemoteContextDiscovery("scan", "src/Api", "csharp", Resources: Light),
             });
-        SandboxSpec? captured = null;
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .Callback<SandboxSpec, CancellationToken>((spec, _) => captured = spec)
-            .ReturnsAsync(new Mock<ISandbox>().Object);
 
         var context = NewContext("sample-server");
         var sandboxes = await NewSut().EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
         // Same image, different size → ONE pod at the max envelope (p0336c).
-        _factoryMock.Verify(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()), Times.Once);
+        _workspaces.Created.Should().ContainSingle("a run has one workspace");
+        _workspaces.Sandboxes.Spawned.Should().ContainSingle("one container per distinct image");
         sandboxes.Should().HaveCount(1);
-        captured!.Resources.MemoryLimit.Should().Be("4Gi", "the merged pod takes the heavier context's limit");
+        _workspaces.Sandboxes.Spawned.Single().Spec.Resources.MemoryLimit.Should().Be("4Gi", "the merged pod takes the heavier context's limit");
     }
 
     [Fact]
@@ -66,13 +64,12 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
                 new RemoteContextDiscovery("a", "src/A", "csharp", Resources: Heavy),
                 new RemoteContextDiscovery("b", "src/B", "csharp", Resources: Heavy),
             });
-        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Mock<ISandbox>().Object);
 
         var context = NewContext("sample-server");
         var sandboxes = await NewSut().EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
-        _factoryMock.Verify(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()), Times.Once);
+        _workspaces.Created.Should().ContainSingle("a run has one workspace");
+        _workspaces.Sandboxes.Spawned.Should().ContainSingle("one container per distinct image");
         sandboxes.Should().HaveCount(1);
     }
 
@@ -87,14 +84,6 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
         return context;
     }
 
-    private PipelineSandboxCoordinator NewSut() => new(
-        _factoryMock.Object,
-        _specBuilder,
-        _resolverMock.Object,
-        AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
-        AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
-        new NoOpSandboxLivenessSupervisor(),
-        new AgentSmith.Application.Services.Sandbox.SandboxRelease(
-            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
-        NullLogger<PipelineSandboxCoordinator>.Instance);
+    private PipelineSandboxCoordinator NewSut() =>
+        TestCoordinators.Create(_workspaces, _resolverMock.Object, _specBuilder);
 }

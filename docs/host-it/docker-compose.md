@@ -10,7 +10,7 @@ cp deploy/docker-compose.example.yml deploy/docker-compose.yml
 
 - Long-running server. Webhooks work, polling works, chat (Slack / Teams) works, jobs queue and survive restarts. One process does all of it (`AgentSmith.Server`).
 - A relational system of record. Every run fact lands in a database (SQLite on a volume by default; point `persistence:` at PostgreSQL, MySQL or SQL Server for a shared setup). Redis carries the in-flight queue and change notifications.
-- Per-repo sandboxes. The server creates Docker containers on demand, one per repo and toolchain image per run. The sandbox-agent image is injected into them as a carrier, and the package caches outlive them (see [Package cache](#package-cache)).
+- One workspace per run. The server creates Docker containers on demand, one per toolchain image the run needs, all over one shared `/work` volume set with the run's repos side by side at `/work/<repo>`; repos that need the same image share a container. The sandbox-agent image is injected into them as a carrier, and the package caches outlive them (see [Package cache](#package-cache)).
 - The dashboard on port 3000, if you enable its profile — runs list, live timeline, system view, config explorer, connection diagnostics.
 
 The server is single-replica in this setup. For multi-replica you want [Kubernetes](kubernetes.md).
@@ -25,7 +25,7 @@ It defines seven services:
 | `migrate` | `holgerleichsenring/agent-smith-cli` | One-shot `agentsmith database migrate` — applies schema migrations, then exits. The server waits for it. |
 | `redis` | `redis:7-alpine` | In-flight queue, change notifications, leases. AOF persistence on a volume. |
 | `dashboard` | `holgerleichsenring/agentsmith-dashboard` | Optional (compose profile `dashboard`), port 3000, proxies to the server. |
-| `sandbox-agent` | `holgerleichsenring/agent-smith-sandbox-agent` | Not a service — the carrier image the server injects into per-repo sandbox containers. Just needs to be present. |
+| `sandbox-agent` | `holgerleichsenring/agent-smith-sandbox-agent` | Not a service — the carrier image the server injects into sandbox containers. Just needs to be present. |
 | `agentsmith` | `holgerleichsenring/agent-smith-cli` | One-shot CLI for ad-hoc runs against the same config. |
 | `ollama` | `ollama/ollama` | Optional local model server, for running against Ollama instead of a hosted provider. |
 

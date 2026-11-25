@@ -120,7 +120,7 @@ public sealed class DockerSandboxFactoryTests
         calls.VolumesRemoved.Should().HaveCount(3).And.Contain(n => n.EndsWith("-home"));
     }
 
-    private static DockerOneShotRunner OneShot(Mock<IDockerClient> docker) =>
+    internal static DockerOneShotRunner OneShot(Mock<IDockerClient> docker) =>
         new(docker.Object, NullLogger<DockerOneShotRunner>.Instance);
 
     private static IConnectionMultiplexer BuildRedisMock()
@@ -131,7 +131,7 @@ public sealed class DockerSandboxFactoryTests
         return redis.Object;
     }
 
-    private static Mock<IDockerClient> BuildDockerMock(out DockerCallTracker tracker)
+    internal static Mock<IDockerClient> BuildDockerMock(out DockerCallTracker tracker)
     {
         tracker = new DockerCallTracker();
         var local = tracker;
@@ -331,7 +331,7 @@ public sealed class DockerSandboxFactoryTests
                 System.Net.HttpStatusCode.NotFound, "image not found in registry"));
     }
 
-    private sealed class DockerCallTracker
+    internal sealed class DockerCallTracker
     {
         public List<(string? Name, string Id)> ContainersCreated { get; } = new();
         public List<string> ContainersStarted { get; } = new();

@@ -1,15 +1,5 @@
 namespace AgentSmith.Contracts.Sandbox;
 
-/// <param name="InitialSourcePath">
-/// Optional absolute host-filesystem path to a directory that should be used as the
-/// sandbox's <c>/work</c>. Set by the pipeline when a previous step (e.g.
-/// TryCheckoutSourceHandler in api-security-scan) cloned the source host-side and the
-/// sandbox needs to see the same files at <c>/work</c>. Honored by InProcessSandboxFactory
-/// (uses the directory as workDir instead of creating an empty temp dir).
-/// Container-based factories (Docker/Kubernetes) ignore this — they have their own
-/// in-sandbox source-loading mechanism (CheckoutSourceHandler runs <c>git clone</c>
-/// directly into the sandbox's <c>/work</c> volume).
-/// </param>
 /// <param name="ExtraBinds">
 /// Optional extra host-side bind mounts to add to the toolchain container, in
 /// docker-style <c>host-path:container-path[:ro]</c> form. Test-only escape hatch
@@ -24,7 +14,6 @@ public sealed record SandboxSpec(
     string AgentImage = "agent-smith-sandbox-agent:latest",
     SandboxSecurityContext? SecurityContext = null,
     int TimeoutSeconds = 120,
-    string? InitialSourcePath = null,
     IReadOnlyList<string>? ExtraBinds = null,
     // p0201: run-id flows into Docker container labels so the orphan reaper
     // can scope cleanup to a single run and the liveness watcher can ask the
@@ -53,7 +42,4 @@ public sealed record SandboxSpec(
     bool NoPackageCaches = false,
     // 2026-11-10-4778: the spawn fails closed when the bus credential it was issued is the shared one, because a
     // single job can fall back alone. Honored by the Docker and Kubernetes factories.
-    bool RequiresPerJobBus = false,
-    // 2026-11-25-9992c: the repository this sandbox serves, at /work/<repo>. The in-process
-    // backend mounts InitialSourcePath there; null for a single-repo sandbox, whose tree is /work.
-    string? RepoName = null);
+    bool RequiresPerJobBus = false);

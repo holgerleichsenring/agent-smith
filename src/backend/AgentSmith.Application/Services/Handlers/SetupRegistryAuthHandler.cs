@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Registry;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -75,9 +76,8 @@ public sealed class SetupRegistryAuthHandler(
         {
             var written = new List<string>();
             totalApplied += await StageInSandboxAsync(
-                repoKey, sandbox, AgentFactory, written, cancellationToken);
-            // Reported from what was WRITTEN, per ecosystem — never a path this code
-            // assumed. A .NET config named to an npm repo is worse than saying nothing.
+                repoKey, sandbox, RootsOf(context.Pipeline, sandbox), AgentFactory, written, cancellationToken);
+            // Reported from what was WRITTEN, per ecosystem — never a path this code assumed.
             staged.AddRange(written.Select(w => $"{repoKey}: {w}"));
         }
 
@@ -91,12 +91,21 @@ public sealed class SetupRegistryAuthHandler(
             $"Registry auth staged: {totalApplied} credential(s) across {sandboxes.Count} sandbox(es).");
     }
 
+    /// <summary>2026-11-25-9992b: every repository root of the run's workspace — one container serves them all and
+    /// shares one home, so it stages the feeds of each; a sandbox outside a run has its own root only.</summary>
+    internal IReadOnlyList<string> RootsOf(PipelineContext pipeline, ISandbox sandbox) =>
+        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, out var owners) && owners is { Count: > 0 }
+            ? [.. owners.Values.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).Select(Repository.WorkPathFor)]
+            : [sandbox.WorkDirectory()];
+
     internal async Task<int> StageInSandboxAsync(
-        string repoKey, ISandbox sandbox, Func<AgentConfig> agentFactory,
+        string repoKey, ISandbox sandbox, IReadOnlyList<string> roots, Func<AgentConfig> agentFactory,
         List<string> written, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
-        var listing = await reader.ListAsync(sandbox.WorkDirectory(), maxDepth: 6, ct);
+        // Each root listed on its own, so one repository's tree never crowds another's configs out of the listing cap.
+        var listing = new List<string>();
+        foreach (var root in roots) listing.AddRange(await reader.ListAsync(root, maxDepth: 6, ct));
 
         var nugetMatches = await CollectNuGetMatchesAsync(listing, reader, repoKey, ct);
         var npmMatches = await CollectNpmMatchesAsync(listing, reader, repoKey, ct);

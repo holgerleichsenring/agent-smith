@@ -14,7 +14,7 @@ This page is the orientation of the documentation; the product overview is on [c
 
 ## What it does
 
-You describe a change, or drop a ticket into your tracker. codeably reads your code and turns the work into specs: per spec a goal, the steps and the list of what has to be true when it's done. It clones every repository the work touches into its own sandbox on your infrastructure, builds the specs one at a time, runs each repository's own build and tests, and checks every done criterion against the branch with the evidence it found. Then it opens one pull request per repository, cross-linked, and writes the ticket back. If the ticket is too thin, it asks instead of guessing.
+You describe a change, or drop a ticket into your tracker. codeably reads your code and turns the work into specs: per spec a goal, the steps and the list of what has to be true when it's done. It clones every repository the work touches into one sandbox workspace on your infrastructure, builds the specs one at a time, runs each repository's own build and tests, and checks every done criterion against the branch with the evidence it found. Then it opens one pull request per repository, cross-linked, and writes the ticket back. If the ticket is too thin, it asks instead of guessing.
 
 <ol class="cb-stages">
 <li><strong>Describe it.</strong> The home page asks "What should we work on?" and hands your first message to <a href="how-it-works/work-it-out/">Work it out</a>, a conversation with an agent that reads your code while it answers.</li>

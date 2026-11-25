@@ -13,21 +13,21 @@ public sealed class PodStartFailureTests
     [Fact]
     public void PodStartFailure_NoPodReason_NamesTheTerminatedContainer()
     {
-        var pod = Failed(reason: null, Terminated("toolchain", 127, "Error", "exec /shared/agent: no such file or directory"));
+        var pod = Failed(reason: null, Terminated("toolchain-0", 127, "Error", "exec /shared/agent: no such file or directory"));
 
         var message = PodStartFailure.Describe("pod-1", pod);
 
-        message.Should().Be("Sandbox pod pod-1 failed: container toolchain exited 127 (Error)"
+        message.Should().Be("Sandbox pod pod-1 failed: container toolchain-0 exited 127 (Error)"
             + " — exec /shared/agent: no such file or directory");
     }
 
     [Fact]
     public void PodStartFailure_PodReasonAndExitedContainer_KeepsBoth()
     {
-        var pod = Failed(reason: "Evicted", Terminated("toolchain", 137, "OOMKilled", null));
+        var pod = Failed(reason: "Evicted", Terminated("toolchain-0", 137, "OOMKilled", null));
 
         PodStartFailure.Describe("pod-1", pod)
-            .Should().Be("Sandbox pod pod-1 failed: Evicted; container toolchain exited 137 (OOMKilled)");
+            .Should().Be("Sandbox pod pod-1 failed: Evicted; container toolchain-0 exited 137 (OOMKilled)");
     }
 
     [Fact]

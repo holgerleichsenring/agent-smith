@@ -18,11 +18,11 @@ namespace AgentSmith.Infrastructure.Services.Sandbox;
 /// per-job tempdir). Pass <c>false</c> when reusing an existing operator-owned path
 /// such as a CLI <c>--source-path</c> argument or a previously host-cloned source —
 /// disposing must not <c>rm -rf</c> the operator's working tree.
-/// 2026-11-25-9992c: <paramref name="repoMount"/> serves a host directory at /work/&lt;repo&gt; — never deleted.
+/// 2026-11-25-9992c: <paramref name="repoMounts"/> serve host directories at /work/&lt;repo&gt; — never deleted (2026-11-25-9992b: one per repository of a run's workspace).
 /// </summary>
 public sealed class InProcessSandbox(
     string jobId, string workDir, bool ownsWorkDir, InProcessStepEnvironment environment, ILogger logger,
-    InProcessRepoMount? repoMount = null) : ISandbox, ISandboxWorkDirectory
+    IReadOnlyList<InProcessRepoMount>? repoMounts = null) : ISandbox, ISandboxWorkDirectory
 {
     public string JobId => jobId;
     public string WorkDir => workDir;
@@ -379,7 +379,7 @@ public sealed class InProcessSandbox(
 
     // /work is the canonical workspace mount (Repository.WorkspaceRoot) and /work/<repo> a mounted
     // repository. In CLI mode, route those paths back to the host directories behind them.
-    private readonly SandboxPathMap paths = new(jobId, workDir, repoMount);
+    private readonly SandboxPathMap paths = new(jobId, workDir, repoMounts);
 
     private string ResolvePath(string raw) => paths.Resolve(raw);
 

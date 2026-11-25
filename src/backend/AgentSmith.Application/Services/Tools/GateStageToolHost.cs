@@ -9,24 +9,23 @@ namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
 /// run_gate_stage: the coding master runs any stage a context of the run DECLARED, in THAT
-/// context's own sandbox, over its levelled work, before it gives its verdict. The master's
-/// run_command reaches only a repository's first sandbox, so without this a stage of another
-/// toolchain image could first run at verification. Nothing the model writes becomes a
+/// context's own toolchain container, before it gives its verdict. The master's run_command reaches
+/// only a repository's first toolchain, so without this a stage of another toolchain image could
+/// first run at verification. 2026-11-25-9992b: every container of the workspace sees the one tree. Nothing the model writes becomes a
 /// command: the label picks a declared line. when_changed does not filter what is asked for.
 /// </summary>
 public sealed class GateStageToolHost(
-    SandboxTreeSync treeSync, SandboxTargets targets, ContextVerifyStagesResolver declared,
+    SandboxTargets targets, ContextVerifyStagesResolver declared,
     VerifyStageResolver resolver, VerifyCommandRunner runner)
 {
     public const string Name = "run_gate_stage";
 
     private const string Description =
         "Runs one verify stage a context of this run DECLARED — by repository and label, exactly the "
-        + "declared command, in that context's own sandbox — after levelling every sandbox of the run "
-        + "to the union of the work, and returns the exit code with the end of the output. Any "
-        + "non-zero exit is red. Name the context when two contexts declare the label. A stage of a "
-        + "repository's first sandbox can also be run with run_command, which needs no levelling; a "
-        + "checkpoint the secret scan declines makes every later levelling red.";
+        + "declared command, in that context's own toolchain container over the repository's one tree — "
+        + "and returns the exit code with the end of the output. Any non-zero exit is red. Name the "
+        + "context when two contexts declare the label. A stage of a repository's first toolchain can "
+        + "also be run with run_command.";
 
     /// <summary>Every declared stage of the run as (repository, context, label), in sandbox order.
     /// Empty exactly when the tool is not offered, so the prompt block and the tool agree.</summary>
@@ -57,8 +56,6 @@ public sealed class GateStageToolHost(
     public async Task<string> RunAsync(
         PipelineContext pipeline, string repository, string label, string? context, CancellationToken ct)
     {
-        var sync = await treeSync.SyncAsync(pipeline, ct);
-        if (!sync.IsLevel) return sync.Message!;
         if (!targets.TryResolve(pipeline, out var sandboxes, out _)
             || !pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, out var owners)
             || owners is null)

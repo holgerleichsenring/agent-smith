@@ -11,27 +11,40 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Services.Sandbox;
 
 /// <summary>
-/// 2026-11-25-9992c: a run repository lives at /work/&lt;repo&gt;, so an in-process sandbox handed a host-cloned
-/// source AND the repository's name serves that source there — /work itself is a fresh directory of its own,
-/// and the source survives the sandbox.
+/// 2026-11-25-9992c; 2026-11-25-9992b: a run repository lives at /work/&lt;repo&gt;, so the in-process workspace
+/// serves every host source it is handed there — /work itself is a fresh directory of its own, any image is served
+/// by the one host sandbox, and every source survives the workspace.
 /// </summary>
 [Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
-public sealed class InProcessSandboxRepoMountTests : IDisposable
+public sealed class InProcessWorkspaceTests : IDisposable
 {
     private readonly string _source = Path.Combine(Path.GetTempPath(), $"agentsmith-src-mount-{Guid.NewGuid():N}");
 
-    public InProcessSandboxRepoMountTests() => Directory.CreateDirectory(_source);
+    public InProcessWorkspaceTests() => Directory.CreateDirectory(_source);
 
     public void Dispose()
     {
+        _workspace?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         if (Directory.Exists(_source)) Directory.Delete(_source, recursive: true);
+        if (Directory.Exists(_other)) Directory.Delete(_other, recursive: true);
     }
 
-    private async Task<ISandbox> RepoAsync() =>
-        new RepoSandbox(await new InProcessSandboxFactory(InProcessStepEnvironmentReaders.Empty(), NullLoggerFactory.Instance)
-            .CreateAsync(new SandboxSpec("irrelevant", ResourceLimits.Default, InitialSourcePath: _source, RepoName: "api"),
-                CancellationToken.None), "api");
+    private readonly string _other = Path.Combine(Path.GetTempPath(), $"agentsmith-src-other-{Guid.NewGuid():N}");
+    private IWorkspace? _workspace;
+
+    private async Task<IWorkspace> WorkspaceAsync()
+    {
+        Directory.CreateDirectory(_other);
+        var spec = new WorkspaceSpec(new SandboxSpec("dotnet:9", ResourceLimits.Default),
+            [new WorkspaceToolchain("dotnet:9", ResourceLimits.Default), new WorkspaceToolchain("node:20", ResourceLimits.Default)],
+            new Dictionary<string, string> { ["api"] = _source, ["web"] = _other });
+        return _workspace = await new InProcessWorkspaceFactory(InProcessStepEnvironmentReaders.Empty(), NullLoggerFactory.Instance)
+            .CreateAsync(spec, CancellationToken.None);
+    }
+
+    private async Task<ISandbox> RepoAsync(string repo = "api", string image = "dotnet:9") =>
+        new RepoSandbox((_workspace ?? await WorkspaceAsync()).Container(image), repo);
 
     private static Step Shell(string script, string? workingDirectory = null) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "/bin/sh", Args: ["-c", script],
@@ -87,12 +100,37 @@ public sealed class InProcessSandboxRepoMountTests : IDisposable
     }
 
     [Fact]
-    public async Task DisposeAsync_MountedSource_IsNeverDeleted()
+    public async Task DisposeAsync_MountedSources_AreNeverDeleted()
     {
-        var sandbox = await RepoAsync();
+        var workspace = await WorkspaceAsync();
+        _workspace = null;
 
-        await sandbox.DisposeAsync();
+        await workspace.DisposeAsync();
 
         Directory.Exists(_source).Should().BeTrue();
+        Directory.Exists(_other).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Container_AnyImage_IsTheOneHostSandbox()
+    {
+        var workspace = await WorkspaceAsync();
+
+        workspace.Serves("python:3.12").Should().BeTrue("in-process every step runs on the host");
+        workspace.Container("python:3.12").Should().BeSameAs(workspace.Container("dotnet:9"));
+        workspace.Images.Should().Equal("dotnet:9", "node:20");
+    }
+
+    [Fact]
+    public async Task WriteFile_UnderASecondRepository_LandsInItsOwnSource()
+    {
+        var sandbox = await RepoAsync("web", "node:20");
+
+        var result = await sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteFile,
+            Path: "x.txt", Content: "second"), null, CancellationToken.None);
+
+        result.ExitCode.Should().Be(0);
+        (await File.ReadAllTextAsync(Path.Combine(_other, "x.txt"))).Should().Be("second");
+        File.Exists(Path.Combine(_source, "x.txt")).Should().BeFalse();
     }
 }

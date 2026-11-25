@@ -55,10 +55,8 @@ public sealed class SandboxBusPerJobRequirementTests
             "K8S_NAMESPACE" => "agentsmith", "REDIS_URL" => "redis:6379", _ => null,
         }).Read();
         var client = new Mock<IKubernetes>(MockBehavior.Strict);
-        var factory = new KubernetesSandboxFactory(client.Object, Mock.Of<IConnectionMultiplexer>(),
-            new PodSpecBuilder(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity(options)),
-            options, Options.Create(new SandboxGlobalConfig()), Mock.Of<IWireProtocolWatcher>(),
-            SandboxBusDoubles.Credentials(SandboxBusCredentialMode.PerJob, RefusingRedis()), NullLoggerFactory.Instance);
+        var factory = KubernetesFactoryDoubles.Sandbox(client.Object, Mock.Of<IConnectionMultiplexer>(), options,
+            SandboxBusDoubles.Credentials(SandboxBusCredentialMode.PerJob, RefusingRedis()));
 
         var act = () => factory.CreateAsync(
             new SandboxSpec("node:20", ResourceLimits.Default, RequiresPerJobBus: true), CancellationToken.None);

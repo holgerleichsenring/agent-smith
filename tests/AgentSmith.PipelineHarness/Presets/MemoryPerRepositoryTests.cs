@@ -46,17 +46,18 @@ public sealed class MemoryPerRepositoryTests
         var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue($"a real change and a green verdict pass: {result.Message}");
-        var sandboxes = harness.StubSandboxFactory.Spawned.Select(s => s.Sandbox).ToList();
-        sandboxes.Should().HaveCount(2);
+        // 2026-11-25-9992b: both repositories share the run's workspace; each one's work is its own tree's steps.
+        var server = harness.StubSandboxFactory.StepsIn("sample-server").ToList();
+        var client = harness.StubSandboxFactory.StepsIn("sample-client").ToList();
         // The server is the checkout its source change was routed to by name.
-        var server = sandboxes.Single(s => s.RanSteps.Any(IsSourceWrite));
-        var client = sandboxes.Single(s => s != server);
-        var memoryWrite = server.RanSteps.FindIndex(IsMemoryWrite);
+        server.Should().Contain(s => IsSourceWrite(s));
+        client.Should().NotContain(s => IsSourceWrite(s));
+        var memoryWrite = server.FindIndex(IsMemoryWrite);
         memoryWrite.Should().BeGreaterThan(-1, "the fact is about the server");
-        server.RanSteps.FindLastIndex(IsWorkCommit).Should().BeGreaterThan(memoryWrite,
+        server.FindLastIndex(IsWorkCommit).Should().BeGreaterThan(memoryWrite,
             "the server's commit carries the memory");
-        client.RanSteps.Should().NotContain(s => IsMemoryWrite(s), "the client is not what the fact is about");
-        client.RanSteps.Should().NotContain(s => IsWorkCommit(s), "the client changed nothing");
+        client.Should().NotContain(s => IsMemoryWrite(s), "the client is not what the fact is about");
+        client.Should().NotContain(s => IsWorkCommit(s), "the client changed nothing");
         runner.LastContext!.Get<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests)
             .Where(o => o.Status == OpenStatus.Opened).Should().ContainSingle()
             .Which.RepoName.Should().Be("sample-server");

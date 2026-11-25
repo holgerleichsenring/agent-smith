@@ -1,5 +1,4 @@
 using AgentSmith.Application.Models;
-using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
@@ -14,20 +13,19 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Per-context ISandbox lifecycle for one pipeline run (p0158e + p0161a). Each
-/// discovered .agentsmith/contexts/&lt;name&gt; gets its own sandbox with its own
-/// toolchain image, resolved via the p0135 chain applied to THAT discovery's
-/// language. Sandboxes dictionary is keyed by SandboxKeyComposer's composite
-/// key. The parallel SandboxDiscoveries dictionary carries each sandbox's
-/// Workdir + Language for handlers iterating sandbox keys.
+/// The run's sandboxes (p0158e, p0161a). 2026-11-25-9992b: a run has ONE workspace — one pod or volume set with a
+/// container per toolchain image, every repository side by side under /work — and each (repository, image) group of
+/// contexts is a sandbox key served by its image's container. A group whose image the workspace lacks (a repository
+/// brought in mid-run) restarts the workspace with that container (<see cref="WorkspaceRestart"/>).
+/// The Sandboxes dictionary is keyed by SandboxKeyComposer's composite key; SandboxDiscoveries carries each key's
+/// Workdir + Language.
 ///
-/// Lifetime: transient / per-pipeline-run. Owns mutable state (the cached
-/// per-key sandboxes + discoveries), so the DI registration MUST be transient.
+/// Lifetime: transient / per-pipeline-run. Owns mutable state, so the DI registration MUST be transient.
 /// </summary>
 public sealed class PipelineSandboxCoordinator(
-    ISandboxFactory sandboxFactory,
-    SandboxSpecBuilder sandboxSpecBuilder,
-    ISandboxLanguageResolver sandboxLanguageResolver,
+    IWorkspaceFactory workspaces,
+    WorkspaceGroupPlanner planner,
+    WorkspaceRestart restart,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     ISandboxLivenessSupervisor livenessSupervisor,
@@ -38,20 +36,17 @@ public sealed class PipelineSandboxCoordinator(
     private readonly Dictionary<string, RemoteContextDiscovery> _discoveries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<RemoteContextDiscovery>> _contextsBySandbox = new(StringComparer.Ordinal);
     // p0249: sandbox key -> owning repo name, recorded where the key is composed.
-    // The authoritative repo->sandbox source so consumers never reverse-engineer
-    // the repo from the composite key string.
     private readonly Dictionary<string, string> _sandboxRepos = new(StringComparer.Ordinal);
-    // 2026-08-31-7097: sandbox key -> the toolchain image the BACKEND pulled, taken from
-    // the sandbox itself. A backend that runs on the host names none and gets no entry.
+    // 2026-08-31-7097: sandbox key -> the toolchain image the BACKEND pulled, read from its container.
     private readonly Dictionary<string, string> _sandboxImages = new(StringComparer.Ordinal);
-    // p0268: (repo, group-identity) -> sandbox key. Group identity is (image, resources);
-    // this makes EnsureSandboxesAsync idempotent — a repeated call (or the same group
-    // appearing twice) reuses the existing sandbox instead of creating a second — while
-    // still letting two DISTINCT groups that compose the same key be disambiguated.
+    // p0268: group identity (repo, image) -> sandbox key, so a repeated call reuses the key.
     private readonly Dictionary<string, string> _groupKeyToSandboxKey = new(StringComparer.Ordinal);
+    private readonly List<WorkspaceGroup> _groups = [];
+    // 2026-11-25-9992b: one container reserves once; its first key's SandboxCreated carries the request.
+    private readonly HashSet<string> _announcedImages = new(StringComparer.Ordinal);
+    private RunWorkspace? _workspace;
     private string? _runId;
-    // p0320a: the run's pipeline name, read once from the PipelineContext so every
-    // spec build sizes pipeline-aware (light profile for non-code-changing pipelines).
+    // p0320a: read once from the PipelineContext so every spec build sizes pipeline-aware.
     private string? _pipelineName;
     private bool _disposed;
 
@@ -66,108 +61,92 @@ public sealed class PipelineSandboxCoordinator(
     {
         _runId ??= context.TryGet<string>(ContextKeys.RunId, out var rid) ? rid : null;
         _pipelineName ??= context.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
-        // p0261: `--context NAME` pins every repo to one named context instead of
-        // the per-repo discovery / synthetic-default fallback. Unset → unchanged.
-        var contextOverride = context.TryGet<string>(ContextKeys.SourceContext, out var ctxName)
-            && !string.IsNullOrWhiteSpace(ctxName) ? ctxName : null;
         var repos = context.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
-        // p0331: ScopeRepos already read every repo's context.yamls remotely and cached the
-        // discoveries — consume them instead of a second remote pass. Both read on the branch
-        // this run works on (2026-10-12-6bfaa). `--context NAME` keeps its own resolution.
-        var inventory = context.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
-            ContextKeys.RemoteContextInventory, out var inv) ? inv : null;
-        foreach (var repo in repos)
+        var fresh = new List<WorkspaceGroup>();
+        foreach (var group in await planner.PlanAsync(projectConfig, context, _pipelineName, repos, cancellationToken))
         {
-            var readBranches = ContextReadBranches.For(context, repo.Name); // 2026-11-23-31dca: the repo's own rung
-            var discoveries = contextOverride is not null
-                ? await sandboxLanguageResolver.ResolveContextAsync(repo, contextOverride, readBranches, cancellationToken)
-                : inventory is not null && inventory.TryGetValue(repo.Name ?? string.Empty, out var cached)
-                    ? cached
-                    : await sandboxLanguageResolver.ResolveAllAsync(repo, readBranches, cancellationToken);
-            // p0336c: group by RESOLVED toolchain IMAGE only (was image+resources).
-            // Same-image contexts of one repo build SEQUENTIALLY under the single
-            // agentic loop, so splitting them into separate pods by declared
-            // resources (p0268) buys no parallelism and only inflates the reserved
-            // footprint — collapse them into ONE pod sized to the group's MAX
-            // resource envelope. A genuine image/SDK difference still separates.
-            // The per-sandbox context list still carries every context for probes.
-            var specced = discoveries
-                .Select(d => (Discovery: d, Spec: sandboxSpecBuilder.Build(
-                    projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources)))
-                .ToList();
-            var groups = ToolchainGroupOrder.RootFirst(specced.GroupBy(x => x.Spec.ToolchainImage, StringComparer.Ordinal), x => x.Discovery.Workdir).ToList();
-            foreach (var group in groups)
-            {
-                var members = group.ToList();
-                var mergedSpec = members[0].Spec with
-                {
-                    Resources = ResourceEnvelope.Max(members.Select(m => m.Spec.Resources)),
-                };
-                await EnsureOneGroupAsync(projectConfig, repo,
-                    members.Select(m => m.Discovery).ToList(), mergedSpec,
-                    repos.Count, groups.Count, context, cancellationToken);
-            }
+            if (_groupKeyToSandboxKey.TryGetValue(group.Identity, out var cachedKey)) MergeContexts(cachedKey, group.Discoveries);
+            else if (!fresh.Any(f => f.Identity == group.Identity)) fresh.Add(group);
         }
+        if (fresh.Count > 0) await EnsureWorkspaceAsync(fresh, context, cancellationToken);
+        foreach (var group in fresh) await AttachAsync(group, repos.Count, cancellationToken);
+        Publish(context, projectConfig);
+        return _sandboxes;
+    }
+
+    public async Task<IReadOnlyList<ResourceLimits>> AddedToolchainsAsync(
+        ResolvedProject projectConfig, PipelineContext context, RepoConnection repo, CancellationToken cancellationToken)
+    {
+        var groups = await planner.PlanAsync(projectConfig, context, _pipelineName, [repo], cancellationToken);
+        return [.. planner.Toolchains(groups)
+            .Where(t => _workspace?.Serves(t.Image) != true).Select(t => t.Resources)];
+    }
+
+    private async Task EnsureWorkspaceAsync(
+        IReadOnlyList<WorkspaceGroup> fresh, PipelineContext context, CancellationToken ct)
+    {
+        IReadOnlyList<WorkspaceGroup> all = [.. _groups, .. fresh];
+        var toolchains = planner.Toolchains(all);
+        _workspace ??= new RunWorkspace(workspaces);
+        if (!_workspace.IsCreated)
+            await _workspace.CreateAsync(SpecFor(toolchains, all, context), ct);
+        else if (toolchains.Any(t => !_workspace.Serves(t.Image)))
+            foreach (var note in await restart.RestartAsync(
+                         context, _workspace, SpecFor(toolchains, all, context), livenessSupervisor, WatchAll, ct))
+                logger.LogWarning("Workspace restart: {Note}", note);
+        _groups.AddRange(fresh);
+    }
+
+    // The base is project-level (agent image, security, secrets, step cap); every group of the run shares it.
+    private WorkspaceSpec SpecFor(
+        IReadOnlyList<WorkspaceToolchain> toolchains, IReadOnlyList<WorkspaceGroup> groups, PipelineContext context)
+    {
+        var hostSource = context.TryGet<string>(ContextKeys.SourcePath, out var source) && !string.IsNullOrEmpty(source)
+            ? source : null;
+        var mounts = hostSource is null ? null : groups.Select(g => g.Repo.Name).Distinct(StringComparer.Ordinal)
+            .ToDictionary(name => name, _ => hostSource, StringComparer.Ordinal);
+        var first = toolchains[0];
+        return new WorkspaceSpec(
+            groups[0].Spec with { ToolchainImage = first.Image, Resources = first.Resources, RunId = _runId },
+            toolchains, mounts);
+    }
+
+    private async Task AttachAsync(WorkspaceGroup group, int repoCount, CancellationToken ct)
+    {
+        var representative = group.Discoveries[0];
+        // p0322b: multi-group keys carry the representative's CONTEXT NAME, unique per repo by construction.
+        var key = EnsureUniqueKey(SandboxKeyComposer.ComposeForGroup(
+            repoCount, group.Repo.Name, group.RepoGroupCount, representative.ContextName));
+        _sandboxRepos[key] = group.Repo.Name;
+        _groupKeyToSandboxKey[group.Identity] = key;
+        var container = new WorkspaceContainerSandbox(_workspace!, group.Image);
+        if (container.Backend() is ISandboxToolchainImage named && !string.IsNullOrEmpty(named.ToolchainImage))
+            _sandboxImages[key] = named.ToolchainImage;
+        // 2026-11-25-9992c: the repository's own root outermost, so every caller of this key speaks to /work/<repo>.
+        var sandbox = new RepoSandbox(
+            new SandboxEventProjector(container, eventPublisher, runContext, key, logger), group.Repo.Name);
+        _sandboxes[key] = sandbox;
+        _discoveries[key] = representative;
+        _contextsBySandbox[key] = [.. group.Discoveries];
+        StartLivenessWatcher(key, sandbox);
+        logger.LogInformation("Sandbox {Key}: image={Image} in the run's workspace, contexts [{Contexts}]",
+            key, group.Image, string.Join(", ", group.Discoveries.Select(d => $"{d.ContextName}@{d.Workdir}")));
+        await PublishCreatedAsync(key, group, ct);
+    }
+
+    private void Publish(PipelineContext context, ResolvedProject projectConfig)
+    {
         context.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, _sandboxes);
         context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, _sandboxRepos);
         context.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries, _discoveries);
         context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxImages, _sandboxImages);
-        var contextsView = _contextsBySandbox.ToDictionary(
-            kv => kv.Key, kv => (IReadOnlyList<RemoteContextDiscovery>)kv.Value, StringComparer.Ordinal);
-        context.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
-            ContextKeys.SandboxContexts, contextsView);
+        context.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(ContextKeys.SandboxContexts,
+            _contextsBySandbox.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<RemoteContextDiscovery>)kv.Value, StringComparer.Ordinal));
         context.Set(ContextKeys.Sandbox, _sandboxes[_sandboxes.Keys.First()]);
-        // p0331: publish the LIVE coordinator + project so the master's
-        // ensure_repo_sandbox tool can escalate into THIS run's sandbox set.
-        // The coordinator is transient and OWNED by PipelineExecutor
-        // (`await using`); the context only borrows the reference — a DI
-        // resolve inside a handler would yield a fresh empty instance.
+        // p0331: the LIVE coordinator + project, so ensure_repo_sandbox grows THIS run's workspace. The coordinator is
+        // owned by PipelineExecutor (`await using`); a DI resolve inside a handler would yield a fresh empty instance.
         context.Set<IPipelineSandboxCoordinator>(ContextKeys.SandboxCoordinator, this);
         context.Set(ContextKeys.ProjectConfig, projectConfig);
-        return _sandboxes;
-    }
-
-    private async Task EnsureOneGroupAsync(
-        ResolvedProject projectConfig, RepoConnection repo,
-        IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup, SandboxSpec spec,
-        int repoCount, int repoGroupCount,
-        PipelineContext context, CancellationToken ct)
-    {
-        var representative = discoveriesInGroup[0];
-        // p0336c: the group is one toolchain image (resources already merged to the
-        // max envelope), so identity is (repo, image) — a re-entrant escalation for
-        // the same image reuses the cached pod.
-        var groupIdentity = $"{repo.Name}\n{spec.ToolchainImage}";
-
-        // p0268: same (repo, image, resources) seen again — a repeated EnsureSandboxesAsync
-        // call or the same group twice. Reuse the cached sandbox (idempotent), merging any
-        // new contexts into its per-sandbox list; never create a second pod.
-        if (_groupKeyToSandboxKey.TryGetValue(groupIdentity, out var cachedKey))
-        {
-            MergeContexts(cachedKey, discoveriesInGroup);
-            return;
-        }
-
-        // p0322b: multi-group keys carry the representative's CONTEXT NAME —
-        // unique per repo by directory construction and human-meaningful —
-        // instead of lang+size slugs that collided across image-differing groups.
-        var key = SandboxKeyComposer.ComposeForGroup(
-            repoCount, repo.Name, repoGroupCount, representative.ContextName);
-        // p0268: a key clash now means two GENUINELY different groups composed the
-        // same name (residual: sanitization collapsing two context names). Disambiguate
-        // LOUDLY rather than silently dropping the second (feedback_no_silent_defer).
-        key = EnsureUniqueKey(key);
-        // p0249: record the owning repo for this key the moment it is composed —
-        // authoritative, so SandboxesForRepo never has to parse it back out.
-        _sandboxRepos[key] = repo.Name;
-        _groupKeyToSandboxKey[groupIdentity] = key;
-        var sandbox = await CreateOneAsync(representative, spec with { RepoName = repo.Name },
-            discoveriesInGroup, key, context, ct);
-        _sandboxes[key] = sandbox;
-        _discoveries[key] = representative;
-        _contextsBySandbox[key] = discoveriesInGroup.ToList();
-        StartLivenessWatcher(key, sandbox);
-        await PublishCreatedAsync(key, representative, projectConfig, ct);
     }
 
     private void MergeContexts(string key, IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup)
@@ -178,102 +157,56 @@ public sealed class PipelineSandboxCoordinator(
                 _contextsBySandbox[key].Add(d);
     }
 
+    private void WatchAll()
+    {
+        foreach (var (key, sandbox) in _sandboxes) StartLivenessWatcher(key, sandbox);
+    }
+
     private void StartLivenessWatcher(string sandboxKey, ISandbox sandbox)
     {
         if (string.IsNullOrEmpty(_runId)) return;
         livenessSupervisor.Watch(_runId!, sandboxKey, sandbox);
     }
 
-    // p0268: guarantee the composed key is unique within this run. Context names are
-    // unique per repo (p0322b), so the residual is sanitization collapsing two names;
-    // this numeric backstop ensures a distinct sandbox is never silently merged away.
-    // It WARNs because needing it means the composed key under-distinguished.
+    // p0268: a key clash means two genuinely different groups composed the same name (sanitization collapsing two
+    // context names); disambiguate LOUDLY rather than silently dropping the second.
     private string EnsureUniqueKey(string key)
     {
         if (!_sandboxes.ContainsKey(key)) return key;
         for (var n = 2; ; n++)
         {
             var candidate = $"{key}-{n}";
-            if (!_sandboxes.ContainsKey(candidate))
-            {
-                logger.LogWarning(
-                    "Sandbox key '{Key}' already in use; using '{Candidate}' so the distinct sandbox is not dropped.",
-                    key, candidate);
-                return candidate;
-            }
+            if (_sandboxes.ContainsKey(candidate)) continue;
+            logger.LogWarning(
+                "Sandbox key '{Key}' already in use; using '{Candidate}' so the distinct sandbox is not dropped.",
+                key, candidate);
+            return candidate;
         }
     }
 
-    private Task PublishCreatedAsync(
-        string sandboxKey, RemoteContextDiscovery discovery, ResolvedProject projectConfig, CancellationToken ct)
+    // p0332: the resolved memory request, so reserved resource-time is the workspace's real reservation — carried by
+    // the first key of each container only, because the keys of one container share its reservation.
+    private Task PublishCreatedAsync(string sandboxKey, WorkspaceGroup group, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_runId)) return Task.CompletedTask;
-        var spec = sandboxSpecBuilder.Build(
-            projectConfig, discovery.Language, _pipelineName, discovery.ToolchainImage,
-            discovery.Resources);
-        // p0332: carry the resolved memory request so reserved resource-time is
-        // computed from the sandbox's real reservation, not the global default.
+        // A backend that serves any image (in-process) gains no container, so the group's own request stands in.
+        var reserved = _announcedImages.Add(group.Image)
+            ? (_workspace!.Spec!.Toolchains.FirstOrDefault(t => t.Image == group.Image)?.Resources ?? group.Spec.Resources).MemoryRequest
+            : null;
         return eventPublisher.PublishAsync(
-            new SandboxCreatedEvent(
-                _runId!, sandboxKey, spec.ToolchainImage, discovery.Language,
-                DateTimeOffset.UtcNow, MemoryRequest: spec.Resources.MemoryRequest), ct);
-    }
-
-    private async Task<ISandbox> CreateOneAsync(
-        RemoteContextDiscovery representative, SandboxSpec spec,
-        IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup,
-        string key, PipelineContext context, CancellationToken ct)
-    {
-        if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath)
-            && !string.IsNullOrEmpty(hostSourcePath))
-            spec = spec with { InitialSourcePath = hostSourcePath };
-        if (!string.IsNullOrEmpty(_runId)) spec = spec with { RunId = _runId };
-        var languageTag = representative.Language ?? "null (generic fallback)";
-        if (discoveriesInGroup.Count == 1)
-        {
-            logger.LogInformation(
-                "Sandbox {Key}/{Ctx}: lang={Language} image={Image} workdir={Workdir}",
-                key, representative.ContextName, languageTag, spec.ToolchainImage, representative.Workdir);
-        }
-        else
-        {
-            var contexts = string.Join(", ", discoveriesInGroup.Select(d => $"{d.ContextName}@{d.Workdir}"));
-            logger.LogInformation(
-                "Sandbox {Key}: lang={Language} image={Image} shared by {Count} contexts [{Contexts}]",
-                key, languageTag, spec.ToolchainImage, discoveriesInGroup.Count, contexts);
-        }
-        var sandbox = await sandboxFactory.CreateAsync(spec, ct);
-        RecordImage(key, sandbox);
-        logger.LogInformation("Sandbox {Key} published (image={Image})", key, spec.ToolchainImage);
-        // 2026-11-25-9992c: the repository's own root, outermost, so every caller of this key —
-        // tool hosts, git helpers, the projector's events — speaks to /work/<repo>.
-        return sandbox is null
-            ? null!
-            : new RepoSandbox(new SandboxEventProjector(sandbox, eventPublisher, runContext, key, logger),
-                spec.RepoName!);
-    }
-
-    // 2026-08-31-7097: read from the created sandbox BEFORE the projector wraps it, so
-    // what is recorded is the image a backend really started — the in-process backend
-    // pulls nothing, names nothing, and is absent here rather than credited with one.
-    private void RecordImage(string key, ISandbox sandbox)
-    {
-        if (sandbox is ISandboxToolchainImage named && !string.IsNullOrEmpty(named.ToolchainImage))
-            _sandboxImages[key] = named.ToolchainImage;
+            new SandboxCreatedEvent(_runId!, sandboxKey, group.Image, group.Discoveries[0].Language,
+                DateTimeOffset.UtcNow, MemoryRequest: reserved), ct);
     }
 
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
-        // p0201: stop watchers BEFORE disposing the sandboxes so a graceful
-        // shutdown (heartbeat key deletion is part of HeartbeatLoop.Dispose)
-        // never trips the watcher's "vanished" detection. Each sandbox's own
-        // DisposeAsync sends the Shutdown step then deletes the heartbeat key.
+        // p0201: stop watchers BEFORE the workspace goes, so a graceful shutdown never trips "vanished".
         await livenessSupervisor.DisposeAsync();
-        // 2026-10-13-9a59i: each sandbox's exit is read before its own DisposeAsync sends the
-        // Shutdown step, deletes the heartbeat key and removes it.
+        // 2026-10-13-9a59i: each key's exit is read through its container before the workspace removes it.
         await release.ReleaseAllAsync(_runId, _sandboxes);
+        if (_workspace is not null) await _workspace.DisposeAsync();
         _sandboxes.Clear();
         _discoveries.Clear();
         _contextsBySandbox.Clear();
