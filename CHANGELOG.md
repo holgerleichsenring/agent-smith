@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.220.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.219.0...v0.220.0) (2026-11-25)
+
+
+### Features
+
+* **machine-identity:** an Azure DevOps machine identity can be a service principal; Entra tokens go as Bearer (2026-11-25-d0e2) ([6d1b106](https://github.com/holgerleichsenring/agent-smith/commit/6d1b1069ace5b5057587a4f5c8ceeca34bf71955))
+* **machine-identity:** Azure service principal; trackers, PoCs and preflight under the machine (d0e2, 0873) ([fb836da](https://github.com/holgerleichsenring/agent-smith/commit/fb836dab37fd1f84c69988dc32bbadfdbdee978c))
+* **machine-identity:** tracker writes, PoC acts and preflight probes run under the machine identity (2026-11-25-0873) ([f714a75](https://github.com/holgerleichsenring/agent-smith/commit/f714a753ddce806e6b1c75452f2e43a5cb455f7b))
+
 ## [0.219.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.218.0...v0.219.0) (2026-11-25)
 
 
