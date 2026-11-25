@@ -70,8 +70,8 @@ export function seriesTicketActs(ticket: SeriesRunTicket, detail: SeriesRunDetai
   const conversation: SeriesAct = { id: "conversation", kind: "link", href: talk, label: t("series.act.conversation") };
   const run = ticket.runId ?? null;
   const acts: SeriesAct[] = [];
-  const ciWaitHold = ticket.hold?.case === "ci_running" || ticket.hold?.case === "ci_not_started";
-  const whenGreen = (kind === "pr" || kind === "needed" || (kind === "failed" && ciWaitHold)) && mergesWhenGreen(detail, ticket);
+  // 2026-11-25-9992a: an escalated CI wait keeps its kind (pr or needed) on the server, so only those merge when green
+  const whenGreen = (kind === "pr" || kind === "needed") && mergesWhenGreen(detail, ticket);
   if (whenGreen && !lacks) acts.push(whenGreenAct(detail, t));
   else if ((kind === "now" || kind === "needed" || kind === "pr") && !lacks)
     acts.push({ id: "merge", kind: "merge", label: t("series.merge.button"), tone: kind === "now" ? "primary" : undefined,

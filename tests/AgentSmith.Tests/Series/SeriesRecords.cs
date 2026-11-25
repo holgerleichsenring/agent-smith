@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Holds;
+using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Series;
 
 namespace AgentSmith.Tests.Series;
@@ -17,4 +19,13 @@ internal static class SeriesRecords
         params string[] requires) =>
         new(Ticket(id)) { LatestStatus = status, LatestFinished = finished, LandedAt = landed, Requires = requires,
             LatestRunId = status is null ? null : $"run-{id}", FirstStartedAt = status is null ? null : T, CostUsd = status is null ? 0 : 1.5m };
+
+    /// <summary>2026-11-25-9992a: the fact held as the ticket list reads it.</summary>
+    internal static SeriesTicketFact Held(this SeriesTicketFact fact, string addressee, string @case, DateTimeOffset? since = null,
+        params string[] names) => fact with { Hold = new TicketHold(addressee, @case, null, since) { Names = names } };
+
+    /// <summary>2026-11-25-9992a: one pull request of the fact, in a state, with its CI on its head.</summary>
+    internal static SeriesTicketFact WithPr(this SeriesTicketFact fact, string state, string? ci, string? failure = null) =>
+        fact with { PullRequests = [.. fact.PullRequests, new SeriesRunPullRequestView("api", $"{fact.PullRequests.Count + 1}",
+            $"https://host/pr/{fact.Ticket.TicketId}/{fact.PullRequests.Count + 1}", state, ci, failure, null, "main")] };
 }

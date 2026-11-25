@@ -13,8 +13,7 @@ namespace AgentSmith.Server.Services.Series;
 /// 2026-11-23-31dcg: its held count is the tickets whose hold names someone and is not the next merge, from the holds the ticket list reads.
 /// </summary>
 public sealed class SeriesRunOverviewReader(
-    ISeriesRunStore store, TicketProjects projects, SeriesRunProjectReads reads, SeriesRunTickets tickets, SeriesRunNames names,
-    SeriesRunHolds holds)
+    ISeriesRunStore store, TicketProjects projects, SeriesStatusReader status, SeriesRunNames names)
 {
     public async Task<IReadOnlyList<SeriesRunRow>> ReadAsync(ProjectScope scope, CancellationToken ct)
     {
@@ -22,20 +21,12 @@ public sealed class SeriesRunOverviewReader(
         var records = (await store.ListAsync(scope.Only, ct)).Where(r => scope.Admits(r.Project) && projects.Of(r.Project) is not null).ToList();
         if (records.Count == 0) return [];
         var called = await names.OfAsync(records, ct);
-        var held = await holds.ReadAsync(ProjectScope.Of(records.Select(r => r.Project).Distinct(StringComparer.Ordinal)), ct);
-        var rows = new Dictionary<string, SeriesRunRow>(StringComparer.Ordinal);
-        foreach (var project in records.GroupBy(r => r.Project, StringComparer.Ordinal))
-        {
-            var facts = await reads.ReadAsync(projects.Of(project.Key)!, [.. project.SelectMany(r => r.Tickets)], ct);
-            var projectHolds = held.GetValueOrDefault(project.Key) ?? new Dictionary<string, AgentSmith.Application.Services.Holds.TicketHold>();
-            foreach (var record in project) // 849e: read holds, none is no merge; 8d16: and the question by them
-                rows[record.Id] = Row(record, called[record.Id], tickets.Of(record, facts, projectHolds), projectHolds);
-        }
-        return [.. records.Select(r => rows[r.Id])];
+        var read = await status.StatusesAsync(records, withHolds: true, ct); // 2026-11-25-9992a: the one state
+        return [.. records.Select(r => Row(r, called[r.Id], read[r.Id]))];
     }
 
-    private static SeriesRunRow Row(SeriesRunRecord record, string name, SeriesRunTicketsShape shape,
-        IReadOnlyDictionary<string, AgentSmith.Application.Services.Holds.TicketHold> holds) => new(
-        record.Id, name, record.Project, record.State, shape.Counts,
-        shape.NextMerge, SeriesRunQuestion.Of(record, holds), record.LastActivityAt); // 2026-11-23-849e: the hold's rule
+    // 849e: read holds, none is no merge; 8d16: and the question by them
+    private static SeriesRunRow Row(SeriesRunRecord record, string name, SeriesRunStatus status) => new(
+        record.Id, name, record.Project, record.State, status.Shape.Counts,
+        status.Shape.NextMerge, SeriesRunQuestion.Of(record, status.Holds), record.LastActivityAt); // 2026-11-23-849e: the hold's rule
 }

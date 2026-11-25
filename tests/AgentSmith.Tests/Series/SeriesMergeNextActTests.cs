@@ -50,7 +50,7 @@ public sealed class SeriesMergeNextActTests : IDisposable
             services.AddTransient<SeriesRunPullRequests>().AddTransient<SeriesRunTickets>();
             services.AddScoped<SeriesRunProjectReads>().AddScoped<SeriesRunNames>().AddScoped<SeriesRunCosts>()
                 .AddScoped<SeriesRunDetailReader>().AddScoped<SeriesMergeNextAct>().AddSingleton(_merges.Object)
-                .AddSingleton(_refresh.Object);
+                .AddSingleton(_refresh.Object).AddScoped<SeriesParkedQuestion>().AddScoped<SeriesStatusReader>() /* 2026-11-25-9992a */;
             services.AddTransient<SeriesRunHolds>(); // 31dcg: the detail reads the holds
         });
         _h.Config.Projects["alpha"] = new()

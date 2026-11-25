@@ -6,7 +6,7 @@ import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { namesOf } from "../../tickets/holds/holdWords";
 import { SeriesActButtons, type SeriesActHandlers } from "./SeriesActButtons";
-import { seriesNodeKind, seriesOverviewCounts, type SeriesNodeKind } from "./seriesNodeKind";
+import { seriesOverviewCounts, type SeriesNodeKind } from "./seriesNodeKind";
 import { mergesWhenGreen } from "./seriesCiState";
 import { seriesNodeSentence, seriesTicketActs } from "./seriesTicketActs";
 import { SeriesTicketBadges } from "./SeriesTicketBadges";
@@ -28,7 +28,7 @@ const YOURS: SeriesNodeKind[] = ["now", "question", "failed"];
 export function SeriesActionList({ detail, lacks, handlers, onChain }: Props) {
   const t = useT();
   const counts = seriesOverviewCounts(detail, !lacks);
-  const of = (kinds: SeriesNodeKind[]) => kinds.flatMap((kind) => detail.tickets.filter((ticket) => seriesNodeKind(ticket, detail) === kind));
+  const of = (kinds: SeriesNodeKind[]) => kinds.flatMap((kind) => detail.tickets.filter((ticket) => ticket.kind === kind));
   // 2026-11-23-8071: without runs.control the merge now is not the viewer's move — it leads Needed next, Merge disabled.
   const yours = of(lacks ? YOURS.filter((kind) => kind !== "now") : YOURS);
   const needed = of(lacks ? ["now", "needed"] : ["needed"]);
@@ -78,7 +78,7 @@ export function SeriesActionList({ detail, lacks, handlers, onChain }: Props) {
 function Row({ detail, ticket, lacks, handlers, onChain }: { detail: SeriesRunDetail; ticket: SeriesRunTicket; lacks: boolean;
   handlers: SeriesActHandlers; onChain: (ticketId: string | null) => void }) {
   const t = useT();
-  const kind = seriesNodeKind(ticket, detail);
+  const kind = ticket.kind;
   return (
     <div className={`sr-list-row ${kind}`} data-testid={`series-row-${ticket.ticketId}`} data-kind={kind}
       onMouseEnter={() => onChain(ticket.ticketId)} onMouseLeave={() => onChain(null)}

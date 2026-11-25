@@ -21,7 +21,7 @@ public sealed class SeriesActToolsTests
 
     // SCRUM-43 is coding, SCRUM-44 waits on it, SCRUM-45 never started and waits on nothing.
     private void Facts(bool landed43 = false) =>
-        _facts.Setup(f => f.ReadAsync("sample", It.IsAny<IReadOnlyList<SeriesTicket>>(), It.IsAny<CancellationToken>())).ReturnsAsync(
+        _facts.Setup(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())).ReturnsAsync(
             [SeriesRecords.Fact("43", landed43 ? RunStatuses.Success : RunStatuses.Running, finished: landed43,
                 landed: landed43 ? SeriesRecords.T : null),
              SeriesRecords.Fact("44", requires: "43"), SeriesRecords.Fact("45")]);
@@ -109,7 +109,7 @@ public sealed class SeriesActToolsTests
     {
         var record = SeriesRecords.Running() with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running };
         await _store.OpenAsync(record, default);
-        _facts.Setup(f => f.ReadAsync("sample", It.IsAny<IReadOnlyList<SeriesTicket>>(), It.IsAny<CancellationToken>())).ReturnsAsync(
+        _facts.Setup(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())).ReturnsAsync(
             [SeriesRecords.Fact("43", RunStatuses.Failed), SeriesRecords.Fact("44", RunStatuses.Success), SeriesRecords.Fact("45", RunStatuses.Success)]);
 
         (await Tools(record).ResumeSeriesAsync()).Should()
@@ -170,7 +170,7 @@ public sealed class SeriesActToolsTests
     {
         var record = SeriesRecords.Running();
         await _store.OpenAsync(record, default);
-        _facts.Setup(f => f.ReadAsync("sample", It.IsAny<IReadOnlyList<SeriesTicket>>(), It.IsAny<CancellationToken>())).ReturnsAsync(
+        _facts.Setup(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())).ReturnsAsync(
             [SeriesRecords.Fact("43", RunStatuses.Queued, finished: false), SeriesRecords.Fact("44", RunStatuses.WaitingForInput, finished: false),
              SeriesRecords.Fact("45")]);
 
@@ -186,8 +186,8 @@ public sealed class SeriesActToolsTests
     {
         var record = SeriesRecords.Running() with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running };
         await _store.OpenAsync(record, default);
-        _facts.Setup(f => f.ReadAsync("sample", It.IsAny<IReadOnlyList<SeriesTicket>>(), It.IsAny<CancellationToken>())).ReturnsAsync(
-            [SeriesRecords.Fact("43", RunStatuses.Success) with { CiState = AgentSmith.Contracts.Reviews.CiStates.Red },
+        _facts.Setup(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())).ReturnsAsync(
+            [SeriesRecords.Fact("43", RunStatuses.Success).WithPr(AgentSmith.Contracts.Reviews.PrReviewStates.Open, AgentSmith.Contracts.Reviews.CiStates.Red),
              SeriesRecords.Fact("44", RunStatuses.Queued, finished: false), SeriesRecords.Fact("45", RunStatuses.Success)]);
         Starts("44", true, "Ticket 44 started: moved");
         _acts.Setup(a => a.AskCiLoopAsync("sample", "43", It.IsAny<CancellationToken>())).ReturnsAsync("back to the loop");

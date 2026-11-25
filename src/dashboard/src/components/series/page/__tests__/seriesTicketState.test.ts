@@ -3,21 +3,27 @@ import { translator } from "@/lib/i18n/translate";
 import { seriesTicketState } from "../seriesTicketState";
 import { seriesTicket } from "./seriesFixtures";
 
-// 2026-11-23-31dcd: merged first, then a waiting pull request, then the newest attempt; never a raw status word.
+// 2026-11-23-31dcd: never a raw status word. 2026-11-25-9992a: the Tickets section renders the server's one kind in the
+// viewer's language — the same kind the Overview colours and the master reads.
 
 const t = translator("en");
+const open = { repo: "server", number: "9937", url: "u", state: "open", ci: "red", ciFailure: null, ciLog: null, target: null };
 
 describe("seriesTicketState", () => {
   it.each([
-    ["running", "working", "run"],
-    ["waiting_for_input", "asks a question", "need"],
-    ["failed", "failed", "bad"],
-    ["success", "done", "idle"],
-    ["cancelled", "cancelled", "idle"],
-    ["shortfall", "fell short", "bad"],
-    ["something_new", "ended", "idle"],
-  ])("seriesTicketState_%s", (status, text, tone) => {
-    expect(seriesTicketState(seriesTicket({ status }), t)).toEqual({ text, tone });
+    ["running", "success", "working", "run"],
+    ["question", "waiting_for_input", "asks a question", "need"],
+    ["failed", "failed", "failed", "bad"],
+    ["failed", "shortfall", "fell short", "bad"],
+    ["waiting", "success", "done", "idle"],
+    ["waiting", "something_new", "ended", "idle"],
+  ] as const)("seriesTicketState_%s_%s", (kind, status, text, tone) => {
+    expect(seriesTicketState(seriesTicket({ kind, status }), t)).toEqual({ text, tone });
+  });
+
+  it("seriesTicketState_TheKindWins_ARedCiIsFailed_NotAWaitingPullRequest", () => {
+    expect(seriesTicketState(seriesTicket({ kind: "failed", status: "success", pullRequests: [open] }), t)).toEqual({ text: "failed", tone: "bad" });
+    expect(seriesTicketState(seriesTicket({ kind: "pr", status: "success", pullRequests: [open] }), t).text).toBe("PR #9937 waiting");
   });
 
   // 2026-11-24-f9c5f

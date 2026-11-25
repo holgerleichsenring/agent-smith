@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Holds;
 using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Runs;
@@ -18,8 +19,9 @@ public sealed class SeriesReportTests
     private static readonly DialogueGlobalConfig Dialogue = new();
 
     private static SeriesTicketFact[] Facts() =>
-        [SeriesRecords.Fact("43", RunStatuses.Running, finished: false), SeriesRecords.Fact("44", requires: "43"),
-         SeriesRecords.Fact("45", requires: "43")];
+        [SeriesRecords.Fact("43", RunStatuses.Running, finished: false).Held(TicketHoldAddressees.Nobody, TicketHoldCases.Working),
+         SeriesRecords.Fact("44", requires: "43").Held(TicketHoldAddressees.Nobody, TicketHoldCases.Prerequisite, null, "SCRUM-43"),
+         SeriesRecords.Fact("45", requires: "43").Held(TicketHoldAddressees.Nobody, TicketHoldCases.Prerequisite, null, "SCRUM-43")];
 
     // 2026-11-25-e94eb: every series conversation opens the same way and gets no table — the series page is the status.
     [Fact]
@@ -81,12 +83,13 @@ public sealed class SeriesReportTests
     public void Stalled_TheOnlyLiveTicketWaitsForItsModelPlace_AsksNothing()
     {
         // 2026-11-22-d434b: measured — every beat said "nothing moved" while #43 waited on the model gate.
-        SeriesTicketFact[] facts = [Facts()[0] with { WaitingForModel = true }, .. Facts()[1..]];
+        SeriesTicketFact[] facts = [Facts()[0].Held(AgentSmith.Application.Services.Holds.TicketHoldAddressees.Nobody,
+            AgentSmith.Application.Services.Holds.TicketHoldCases.ModelWait), .. Facts()[1..]];
         var beat = new SeriesBeat(SeriesRecords.Running(), facts, SeriesRecords.T.AddMinutes(15));
         beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = beat.Table };
 
         SeriesJudgement.Stalled(beat, 15).Should().BeEmpty("a run waiting for its model place is not stuck");
-        SeriesTicketState.Of(facts[0], facts).Should().Be(("waiting for its model place", SeriesTicketState.ModelWait));
+        (facts[0].State, facts[0].Kind).Should().Be(("waiting for its model place", SeriesTicketKinds.Running));
     }
 
     [Fact]
