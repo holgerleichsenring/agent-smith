@@ -12,6 +12,7 @@ import { ClearTerminalRunsButton } from "./ClearTerminalRunsButton";
 import { SystemRunsToggle } from "./mission/SystemRunsToggle";
 import { loadMoreCursor, oldestStart, splitSystemRuns } from "@/lib/runs/systemRuns";
 import { useShowSystemRuns } from "@/hooks/useShowSystemRuns";
+import { spendKey, useRunSpend } from "@/hooks/useRunSpend";
 import { bucketRuns, deriveMetrics } from "./mission/missionBuckets";
 import { MetricStrip } from "./mission/MetricStrip";
 import { RunStatePills } from "./mission/RunStatePills";
@@ -64,6 +65,8 @@ export function MissionControl() {
   const split = useMemo(() => splitSystemRuns(runs, showSystem), [runs, showSystem]);
   const buckets = useMemo(() => bucketRuns(split.shown), [split]);
   const metrics = useMemo(() => deriveMetrics(split.shown), [split]);
+  // 2026-11-24-0fbfb: Cost today is the server's rollup since local midnight, read again when a run starts or its cost moves.
+  const spend = useRunSpend("today", spendKey(overview));
   // Load more pages through every finished run, so it stays offered when the loaded ones are all hidden system runs.
   const finishedLoaded = useMemo(() => bucketRuns(runs).finished.length, [runs]);
 
@@ -141,7 +144,7 @@ export function MissionControl() {
     <div data-testid="mission-control" data-bucket={filter}>
       <RunStatePills buckets={buckets} />
       <SystemRunsToggle show={showSystem} system={split.system} systemFailed={split.systemFailed} onChange={setShowSystem} />
-      <MetricStrip metrics={metrics} />
+      <MetricStrip metrics={metrics} spend={spend.spend} />
 
       {shows("needs-you") && (
         <Section

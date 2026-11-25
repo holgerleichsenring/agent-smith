@@ -466,6 +466,7 @@ export const runsMessages = {
   "runs.mission.pillsLabel": { en: "Run state", de: "Run-Status" },
   "runs.mission.finishedToday": { en: "Finished today", de: "Heute beendet" },
   "runs.mission.costToday": { en: "Cost today", de: "Kosten heute" },
+  "runs.mission.costSplit": { en: "work {work} · system {system}", de: "Arbeit {work} · System {system}" }, // 2026-11-24-0fbfb
   "runs.mission.inflowLive": { en: "inflow live", de: "Zulauf live" },
   "runs.mission.inflowIdle": { en: "inflow idle", de: "Zulauf ruhig" },
   "runs.mission.lastPickup": { en: "last pickup", de: "zuletzt aufgenommen" },

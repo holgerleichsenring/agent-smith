@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { useT } from "@/hooks/useT";
+import type { RunSpend } from "@/lib/runSpendApi";
 import type { MissionMetrics } from "./missionBuckets";
 
 // p0343: the mission-control metric strip. Every value is derived client-side
@@ -12,6 +13,8 @@ import type { MissionMetrics } from "./missionBuckets";
 // p0343c (pixel identity): emits the runs-list.html .health/.metric DOM
 // verbatim — 5 honest cells (the mock's capacity cell has no live data source
 // on the overview payload and is omitted rather than faked).
+// 2026-11-24-0fbfb: Cost today is the server's spend rollup since the viewer's local midnight, work and system apart,
+// whatever the list shows; "—" until it answered.
 
 interface Cell {
   label: string;
@@ -25,7 +28,7 @@ function money(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
-export function MetricStrip({ metrics }: { metrics: MissionMetrics }) {
+export function MetricStrip({ metrics, spend }: { metrics: MissionMetrics; spend: RunSpend | null }) {
   const t = useT();
   const cells: Cell[] = [
     { label: t("runs.mission.needsYou"), value: metrics.needsYou, hot: metrics.needsYou > 0, testId: "metric-needs-you" },
@@ -39,7 +42,8 @@ export function MetricStrip({ metrics }: { metrics: MissionMetrics }) {
     },
     {
       label: t("runs.mission.costToday"),
-      value: <span className="num">{money(metrics.costTodayUsd)}</span>,
+      value: spend ? <span className="num">{money(spend.totalUsd)}</span> : "—",
+      small: spend ? t("runs.mission.costSplit", { work: money(spend.work.costUsd), system: money(spend.system.costUsd) }) : undefined,
       testId: "metric-cost",
     },
   ];

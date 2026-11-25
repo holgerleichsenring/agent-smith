@@ -7,13 +7,14 @@ import { useDateLocale, useT } from "@/hooks/useT";
 // Every one is the figure useCostRollup already read; folding them into one
 // card changes where they sit, not what they say.
 
-export function SpendCard({ cost, ready }: { cost: CostRollup; ready: boolean }) {
+// 2026-11-24-0fbfb: the figures are the server's spend rollup; null until it answered.
+export function SpendCard({ cost, failed = false }: { cost: CostRollup | null; failed?: boolean }) {
   const t = useT();
   return (
     <OverviewCard
       label={t("overview.spend.label")}
-      value={ready ? <span data-testid="kcard-cost-week">${cost.week.toFixed(2)}</span> : "—"}
-      detail={ready ? <SpendDetail cost={cost} /> : t("overview.spend.reading")}
+      value={cost ? <span data-testid="kcard-cost-week">${cost.week.toFixed(2)}</span> : "—"}
+      detail={cost ? <SpendDetail cost={cost} /> : t(failed ? "overview.spend.failed" : "overview.spend.reading")}
       testId="overview-spend-card"
     />
   );

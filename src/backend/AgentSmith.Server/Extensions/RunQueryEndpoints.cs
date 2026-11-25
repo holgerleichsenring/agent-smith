@@ -40,6 +40,7 @@ internal static class RunQueryEndpoints
         // a control — nothing here moves the run.
         app.MapCriterionJudgementEndpoints();
         app.MapRunComputeEndpoints(); // 2026-10-13-9a59i: every spawn and how it ended
+        app.MapRunSpendEndpoints(); // 2026-11-24-0fbfb: what the caller's projects spent since an instant
         return app;
     }
 
