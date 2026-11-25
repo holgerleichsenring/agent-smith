@@ -16,7 +16,7 @@ public sealed class GitHubTicketStatusTransitionerTests
     public async Task TransitionAsync_HappyPath_ReturnsSucceeded()
     {
         var handler = new SequentialHandler();
-        handler.Enqueue(IssueResponse("bug", etag: "\"v1\""));
+        handler.Enqueue(IssueResponse("bug"));
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK));
 
         var sut = Create(handler);
@@ -29,21 +29,49 @@ public sealed class GitHubTicketStatusTransitionerTests
         result.IsSuccess.Should().BeTrue();
     }
 
+    // 2026-11-25-7f25b: GitHub answers a conditional header on a write with 400 ("Conditional
+    // request headers are not allowed in unsafe requests unless supported by the endpoint"), so
+    // an If-Match on the labels PATCH failed every claim. The handler answers exactly that way.
     [Fact]
-    public async Task TransitionAsync_IfMatchConflict_ReturnsPreconditionFailed()
+    public async Task TransitionAsync_GitHubRefusesConditionalHeaders_TheWriteCarriesNoneAndSucceeds()
     {
-        var handler = new SequentialHandler();
-        handler.Enqueue(IssueResponse("bug", etag: "\"v1\""));
-        handler.Enqueue(new HttpResponseMessage(HttpStatusCode.PreconditionFailed));
+        var handler = new RefusesConditionalHeadersHandler(IssueResponse("bug"));
 
-        var sut = Create(handler);
-        var result = await sut.TransitionAsync(
+        var result = await Create(handler).TransitionAsync(
             new TicketId("42"),
             TicketLifecycleStatus.Pending,
             TicketLifecycleStatus.Enqueued,
             CancellationToken.None);
 
-        result.Outcome.Should().Be(TransitionOutcome.PreconditionFailed);
+        result.Outcome.Should().Be(TransitionOutcome.Succeeded);
+        handler.Methods.Should().Equal(HttpMethod.Get, HttpMethod.Patch);
+        handler.Refused.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ReadCurrentAsync_GitHubRefusesConditionalHeaders_TheReadCarriesNone()
+    {
+        var handler = new RefusesConditionalHeadersHandler(IssueResponse("agent-smith:enqueued"));
+
+        var result = await Create(handler).ReadCurrentAsync(new TicketId("42"), CancellationToken.None);
+
+        result.Should().Be(TicketLifecycleStatus.Enqueued);
+        handler.Refused.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task TransitionAsync_IssueNotFound_SendsNoConditionalHeader()
+    {
+        var handler = new RefusesConditionalHeadersHandler(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        var result = await Create(handler).TransitionAsync(
+            new TicketId("42"),
+            TicketLifecycleStatus.Pending,
+            TicketLifecycleStatus.Enqueued,
+            CancellationToken.None);
+
+        result.Outcome.Should().Be(TransitionOutcome.NotFound);
+        handler.Refused.Should().BeEmpty();
     }
 
     [Fact]
@@ -70,7 +98,7 @@ public sealed class GitHubTicketStatusTransitionerTests
     public async Task ReadCurrentAsync_NoLifecycleLabel_ReturnsNull()
     {
         var handler = new SequentialHandler();
-        handler.Enqueue(IssueResponse("bug", etag: "\"v1\""));
+        handler.Enqueue(IssueResponse("bug"));
 
         var sut = Create(handler);
         var result = await sut.ReadCurrentAsync(new TicketId("42"), CancellationToken.None);
@@ -88,7 +116,7 @@ public sealed class GitHubTicketStatusTransitionerTests
         // which is why init-project runs were silently re-routed to fix-bug
         // (default_pipeline) on the next poll cycle.
         var handler = new SequentialHandler();
-        handler.Enqueue(IssueResponseMulti(["agent-smith:init", "agent-smith:pending"], etag: "\"v1\""));
+        handler.Enqueue(IssueResponseMulti(["agent-smith:init", "agent-smith:pending"]));
         handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK));
 
         var sut = Create(handler);
@@ -116,10 +144,10 @@ public sealed class GitHubTicketStatusTransitionerTests
             client, NullLogger<GitHubTicketStatusTransitioner>.Instance);
     }
 
-    private static HttpResponseMessage IssueResponse(string labelName, string etag)
-        => IssueResponseMulti([labelName], etag);
+    private static HttpResponseMessage IssueResponse(string labelName)
+        => IssueResponseMulti([labelName]);
 
-    private static HttpResponseMessage IssueResponseMulti(string[] labelNames, string etag)
+    private static HttpResponseMessage IssueResponseMulti(string[] labelNames)
     {
         var labelsJson = string.Join(", ",
             labelNames.Select(n => $"{{ \"name\": \"{n}\" }}"));
@@ -129,12 +157,42 @@ public sealed class GitHubTicketStatusTransitionerTests
             "labels": [ {{labelsJson}} ]
         }
         """;
+        // GitHub sends an ETag on every issue read; a transitioner that echoes it back on the
+        // write is exactly what the refusing handler below catches.
         var resp = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
         };
-        resp.Headers.ETag = new System.Net.Http.Headers.EntityTagHeaderValue(etag);
+        resp.Headers.ETag = new System.Net.Http.Headers.EntityTagHeaderValue("\"v1\"");
         return resp;
+    }
+
+    /// <summary>Answers the first request with the given response and every later one with 200,
+    /// except that any request carrying a conditional header gets GitHub's 400.</summary>
+    private sealed class RefusesConditionalHeadersHandler(HttpResponseMessage first) : HttpMessageHandler
+    {
+        private static readonly string[] Conditional =
+            ["If-Match", "If-None-Match", "If-Modified-Since", "If-Unmodified-Since"];
+
+        public List<HttpMethod> Methods { get; } = [];
+        public List<string> Refused { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Methods.Add(request.Method);
+            var sent = Conditional.Where(request.Headers.Contains).ToList();
+            if (sent.Count > 0)
+            {
+                Refused.Add($"{request.Method} {string.Join(",", sent)}");
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent(
+                        "{\"message\":\"Bad Request\",\"errors\":[\"Conditional request headers are not allowed in unsafe requests unless supported by the endpoint\"],\"status\":\"400\"}")
+                });
+            }
+            return Task.FromResult(Methods.Count == 1 ? first : new HttpResponseMessage(HttpStatusCode.OK));
+        }
     }
 
     private sealed class SequentialHandler : HttpMessageHandler

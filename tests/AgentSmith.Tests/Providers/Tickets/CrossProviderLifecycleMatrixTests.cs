@@ -15,9 +15,9 @@ namespace AgentSmith.Tests.Providers.Tickets;
 /// (GitHub / GitLab / AzureDevOps / Jira). Proves the claim/lifecycle state
 /// machine (Pending → Enqueued → InProgress → Done) and the precondition guard
 /// behave UNIFORMLY across providers, despite each speaking a different HTTP
-/// shape (GitHub ETag labels, GitLab label arrays, AzDO System.Tags + rev,
+/// shape (GitHub label arrays, GitLab label arrays, AzDO System.Tags + rev,
 /// Jira label add/remove). Per-platform HTTP-quirk regressions (AzDO op:replace,
-/// ETag/rev mismatch) stay in PlatformTransitionerTests; this suite is the
+/// rev mismatch) stay in PlatformTransitionerTests; this suite is the
 /// cross-provider flow contract — it must not be duplicated per platform.
 /// </summary>
 public sealed class CrossProviderLifecycleMatrixTests

@@ -36,7 +36,7 @@ public sealed class BoardRefusalKeepsTheClaimTests
     [Fact]
     public async Task Claim_APreconditionFailedLifecycleWrite_KeepsTheLeaseAndProceeds()
     {
-        Answering(TransitionResult.PreconditionFailed("etag mismatch"));
+        Answering(TransitionResult.PreconditionFailed("rev mismatch"));
 
         var result = await ExecuteAsync();
 

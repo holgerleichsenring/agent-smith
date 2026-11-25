@@ -12,8 +12,8 @@ using AgentSmith.Infrastructure.Services.Providers;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
-/// <summary>Azure DevOps lifecycle transitioner: JSON Patch on /workitems/{id} with the item's
-/// `rev` as If-Match (412 on mismatch); lifecycle rides in the System.Tags list.</summary>
+/// <summary>Azure DevOps lifecycle transitioner: JSON Patch on /workitems/{id} whose first op
+/// tests the item's `rev` (a mismatch is refused); lifecycle rides in the System.Tags list.</summary>
 public sealed class AzureDevOpsTicketStatusTransitioner(
     AzureDevOpsTicketConnection connection,
     HttpClient httpClient,

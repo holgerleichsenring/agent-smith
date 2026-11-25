@@ -86,11 +86,11 @@ A single-replica deployment holds both leases. Leases use SETNX with CAS-checked
 
 ## Atomic transitions per platform
 
-The lifecycle is the source of truth, so transitions must be atomic against concurrent modifications. Each platform uses the strongest primitive its API offers:
+Lifecycle labels are markers, and the active-run lease is what keeps a ticket to one run. Each platform writes them with what its API accepts:
 
 | Platform | Mechanism | Failure mode |
 |----------|-----------|--------------|
-| **GitHub** | GET captures ETag; PATCH `/issues/{n}` with `If-Match: {ETag}` and a full labels array | 412 Precondition Failed → `PreconditionFailed` outcome (race with another writer) |
+| **GitHub** | GET reads the labels; PATCH `/issues/{n}` with the full labels array, unconditionally (GitHub refuses `If-Match` on this write with 400) | Last-write-wins; a label a person adds between the GET and the PATCH can be lost |
 | **Azure DevOps** | JSON Patch with explicit `test /rev` operation before the `add /fields/System.Tags` | 412/409 → `PreconditionFailed` (rev mismatch) |
 | **GitLab** | `PUT /issues/{iid}` with `add_labels`/`remove_labels` (targets only lifecycle labels, leaves others untouched) | No ETag — last-write-wins at the platform; SETNX claim-lock is the primary race guard |
 | **Jira (label mode)** | `PUT /rest/api/3/issue/{key}` with labels update operations, wrapped in an additional SETNX lock | Lock held → `PreconditionFailed`; otherwise success |

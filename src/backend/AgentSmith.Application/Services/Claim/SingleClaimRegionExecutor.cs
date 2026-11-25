@@ -47,8 +47,8 @@ internal sealed class SingleClaimRegionExecutor(
         {
             TransitionOutcome.Succeeded => await EnqueueAsync(request, ct),
             // 2026-09-25-3c7ab: a CONCURRENCY refusal is not a statement about the work. Its
-            // three sources are a GitHub ETag mismatch, an Azure DevOps rev mismatch or 409, and
-            // a Redis label-lock already held — every one of them means somebody else wrote to
+            // sources are an Azure DevOps rev mismatch or 409 and a Redis label-lock already
+            // held (GitHub writes unconditionally since 2026-11-25-7f25b) — each means somebody else wrote to
             // this ticket in the same second, and an operator typing a comment is enough. The
             // index granted this claim; reporting it as AlreadyClaimed was a lie about it, and
             // releasing the lease handed the ticket back over a label nobody reads as authority.
