@@ -42,13 +42,58 @@ public sealed class ChangedListRefreshTests
         Reviewers = [.. reviewers.Select(r => new IdentityRefWithVote { Id = r.Id, Vote = r.Vote })],
     };
 
+    // The name of a pull request Pr() builds: no target, merge status, head or auto-complete reported.
+    private static string Refresh(int id, string votes) => $"refresh|{id}||NotSet|draft:False|||auto:False|{votes}";
+
+    private static async Task<string> RefreshNameAsync(GitPullRequest pr) => (await AzureAsync(pr)).Single(i => i.RefreshOnly).Dedupe!;
+
+    private static GitPullRequest Listed(Action<GitPullRequest>? change = null)
+    {
+        var pr = Pr(9, ("a", 10));
+        pr.TargetRefName = "refs/heads/agent-smith/series-1";
+        pr.MergeStatus = PullRequestAsyncStatus.Succeeded;
+        pr.IsDraft = true;
+        pr.LastMergeSourceCommit = new GitCommitRef { CommitId = "head1" };
+        pr.LastMergeTargetCommit = new GitCommitRef { CommitId = "target1" };
+        change?.Invoke(pr);
+        return pr;
+    }
+
+    [Fact]
+    public async Task ChangedPullRequests_AzureDevOps_EveryMirroredFieldChange_IsANewRefreshName()
+    {
+        var before = await RefreshNameAsync(Listed());
+        var after = new[]
+        {
+            await RefreshNameAsync(Listed(p => p.MergeStatus = PullRequestAsyncStatus.Conflicts)),
+            await RefreshNameAsync(Listed(p => p.TargetRefName = "refs/heads/develop")),
+            await RefreshNameAsync(Listed(p => p.IsDraft = false)),
+            await RefreshNameAsync(Listed(p => p.LastMergeSourceCommit = new GitCommitRef { CommitId = "head2" })),
+            await RefreshNameAsync(Listed(p => p.LastMergeTargetCommit = new GitCommitRef { CommitId = "target2" })),
+            await RefreshNameAsync(Listed(p => p.AutoCompleteSetBy = new IdentityRef { Id = "x" })),
+        };
+
+        after.Should().NotContain(before).And.OnlyHaveUniqueItems();
+        (await RefreshNameAsync(Listed())).Should().Be(before, "an unchanged pull request keeps its name and is not read again");
+    }
+
+    [Fact]
+    public async Task ChangedPullRequests_AzureDevOps_NoReviewers_ListsARefreshItem()
+    {
+        var item = (await AzureAsync(Pr(9))).Single();
+
+        item.RefreshOnly.Should().BeTrue();
+        item.Dedupe.Should().Be(Refresh(9, ""));
+        item.PrUrl.Should().Be($"{RepoUrl}/pullrequest/9");
+    }
+
     [Fact]
     public async Task ChangedPullRequests_AzureDevOpsApproval_RefreshItem_MinusFiveItemUnchanged()
     {
         var items = await AzureAsync(Pr(9, ("b", 10), ("a", -5)), Pr(10, ("creator", 10)));
 
         items.Select(i => (i.Dedupe, i.RefreshOnly)).Should().Equal(
-            ("9|a", false), ("refresh|9|a:-5,b:10", true), ("refresh|10|creator:10", true));
+            ("9|a", false), (Refresh(9, "a:-5,b:10"), true), (Refresh(10, "creator:10"), true));
         items.Take(2).Should().OnlyContain(i => i.PrUrl == $"{RepoUrl}/pullrequest/9");
     }
 
@@ -58,7 +103,7 @@ public sealed class ChangedListRefreshTests
         var items = await AzureAsync(Pr(9, ("creator", -5), ("b", 10)));
 
         items.Select(i => (i.Dedupe, i.RefreshOnly)).Should().Equal(
-            ("9|creator", false), ("refresh|9|b:10,creator:-5", true));
+            ("9|creator", false), (Refresh(9, "b:10,creator:-5"), true));
     }
 
     [Fact]
@@ -68,7 +113,7 @@ public sealed class ChangedListRefreshTests
         var reset = (await AzureAsync(Pr(9, ("creator", 0)))).Single();
 
         reset.RefreshOnly.Should().BeTrue();
-        reset.Dedupe.Should().Be("refresh|9|creator:0").And.NotBe(waiting.Single(i => i.RefreshOnly).Dedupe);
+        reset.Dedupe.Should().Be(Refresh(9, "creator:0")).And.NotBe(waiting.Single(i => i.RefreshOnly).Dedupe);
     }
 
     [Fact]
@@ -76,7 +121,7 @@ public sealed class ChangedListRefreshTests
     {
         var items = await AzureAsync(Pr(9, ("a", 10)), Pr(10, ("a", 10)));
 
-        items.Select(i => i.Dedupe).Should().Equal("refresh|9|a:10", "refresh|10|a:10");
+        items.Select(i => i.Dedupe).Should().Equal(Refresh(9, "a:10"), Refresh(10, "a:10"));
     }
 
     [Fact]
@@ -85,7 +130,7 @@ public sealed class ChangedListRefreshTests
         var approved = (await AzureAsync(Pr(9, ("a", 10)))).Single().Dedupe;
         var reset = (await AzureAsync(Pr(9, ("a", 0)))).Single().Dedupe;
 
-        reset.Should().Be("refresh|9|a:0").And.NotBe(approved);
+        reset.Should().Be(Refresh(9, "a:0")).And.NotBe(approved);
     }
 
     [Fact]

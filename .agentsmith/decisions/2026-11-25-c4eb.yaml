@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-c4eb
+
+decisions:
+  - category: Implementation
+    chose: "Name the refresh by every listed field the record mirrors"
+    over: "A periodic re-read of every open record, or a name from the PR's last-updated time"
+    reason: |
+      The list already returns each mirrored field, so a change is visible at no extra call and an unchanged PR
+      is read nothing more. Azure's list carries no update time that a merge-status or retarget change moves.
+  - category: Implementation
+    chose: "Include the last merge target commit and auto-complete beside the asked fields"
+    over: "Only target, merge status, draft, head and votes"
+    reason: |
+      HasConflicts reads the merged target commit (9dc0c) and AutoCompleteArmed reads auto-complete; leaving either
+      out keeps the same stale-record defect for that field.
