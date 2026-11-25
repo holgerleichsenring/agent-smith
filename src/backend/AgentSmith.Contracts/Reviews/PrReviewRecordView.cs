@@ -54,4 +54,15 @@ public sealed record PrReviewRecordView(
 
     /// <summary>2026-11-24-6811a: since when it conflicts; null when it does not.</summary>
     public DateTimeOffset? ConflictsAt { get; init; }
+
+    /// <summary>2026-11-24-629ab: the host said last that the open pull request merges cleanly — decided, not merely no
+    /// conflict known.</summary>
+    public bool MergesCleanly { get; init; }
+
+    /// <summary>2026-11-24-629ab: when a read found the auto-complete gone from a pull request that conflicted; null when
+    /// nothing was lost or it is armed again.</summary>
+    public DateTimeOffset? AutoCompleteLostAt { get; init; }
+
+    /// <summary>2026-11-24-629ab: the head the CI loop last armed auto-complete again on; null before it did.</summary>
+    public string? AutoCompleteRearmedHead { get; init; }
 }

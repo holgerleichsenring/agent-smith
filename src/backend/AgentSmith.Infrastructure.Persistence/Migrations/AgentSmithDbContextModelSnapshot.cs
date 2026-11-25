@@ -1208,6 +1208,16 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool?>("AutoCompleteArmed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("AutoCompleteLostAtTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AutoCompleteRearmedHead")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("CheckedAtTicks")
                         .HasColumnType("INTEGER");
 
