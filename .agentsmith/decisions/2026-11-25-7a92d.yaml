@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-7a92d
+
+decisions:
+  - category: Implementation
+    chose: "GitHub hides the token's marked comments as RESOLVED (minimizeComment)"
+    over: "OUTDATED; deleting them; editing their text; resolveReviewThread"
+    reason: |
+      The refresh posts its notice as an issue comment, which GitHub cannot resolve; the marker is never on a review thread. Hiding keeps
+      the record readable as Azure's resolved thread does, and RESOLVED ('the content has been resolved') keeps the follow-up's 'Resolved N earlier refusal thread(s)' true, where OUTDATED would not. The note
+      that 2026-10-08-f147's delete serves (a fresh review summary) is a different notice.
+  - category: Implementation
+    chose: "The token's own comments by viewerDidAuthor; every page read"
+    over: "Comparing the author's login with the viewer's; the first 100 comments"
+    reason: "viewerDidAuthor holds for a GitHub App token too; an old notice may sit past the first page."
+  - category: Implementation
+    chose: "GitLab is left out"
+    over: "Resolving GitLab discussions"
+    reason: "The GitLab notice is a plain MR note, which is not resolvable and blocks nothing; the code would always resolve nothing."

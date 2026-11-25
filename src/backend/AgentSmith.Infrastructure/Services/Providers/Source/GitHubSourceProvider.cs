@@ -18,7 +18,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (it is metadata, not git plumbing).
 /// </summary>
-public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser, IWorkBranchCleanup
+public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPrMarkedThreadResolver, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly GitHubRepoAddress _address;
     private readonly string _owner;
@@ -336,6 +336,10 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         return new GitHubCiReader(client, _address, (job, _) => client.Actions.Workflows.Jobs.GetLogs(_owner, _repo, job), _logger)
             .ReadAsync(prUrl, request, cancellationToken);
     }
+
+    // 2026-11-25-7a92d: the token's marked comments hidden as resolved — GitHub resolves no issue comment.
+    public Task<int> ResolveMarkedThreadsAsync(string prIdentifier, string markerPrefix, CancellationToken cancellationToken) =>
+        new GitHubMarkedComments(CreateGitHubClient(), _address, _logger).MinimizeAsync(prIdentifier, markerPrefix, cancellationToken);
 
     // 2026-11-25-7a92b: stale Actions runs re-run; STALE is a host fact, so the settled flag changes nothing here.
     public Task<int> RequeueNotStartedAsync(string prUrl, bool headSettled, CancellationToken ct) =>

@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.BaseRefresh;
 
 /// <summary>
 /// 2026-11-24-5ee0: what a pushed refresh leaves its pull request: the refusals earlier refreshes posted on it are resolved
-/// (<see cref="IPrMarkedThreadResolver"/>, on Azure Repos where an open one blocks completion), and the required builds that
+/// (<see cref="IPrMarkedThreadResolver"/>, on Azure Repos where an open one blocks completion; 2026-11-25-7a92d: on GitHub hidden as resolved), and the required builds that
 /// have not started on it are queued (<see cref="PullRequestBuildRequeue"/>, the policy evaluation's own re-queue on Azure).
 /// Each is best effort: the push stands whatever a host refuses.
 /// </summary>
