@@ -156,6 +156,28 @@ public sealed class StackedPullRequestRetargetTests
                 PullRequestUrls = repos.ToDictionary(r => r, r => $"https://git.test/o/{r}/pull/{ticket}"),
             });
 
+    // 2026-11-25-9992e: a ticket an active series holds is retargeted by its series master, never by the nudge's upkeep.
+    [Theory]
+    [InlineData(true, 0)]
+    [InlineData(false, 1)]
+    public async Task Upkeep_ATicketASeriesHolds_IsNotRetargeted(bool held, int moves)
+    {
+        _provider.Setup(p => p.ReadPullRequestBaseAsync(DependentPr, default)).ReturnsAsync("agent-smith/41");
+        var series = new AgentSmith.Tests.Series.InMemorySeriesRunStore();
+        if (held)
+            await series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+            {
+                Project = Project, Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("42")],
+            }, default);
+        var empty = new InMemoryTicketFacts();
+        var wake = new StackedDependentsWake(empty, empty, TicketRequirementDoubles.Of(empty), _attempts.Object, _leases.Object,
+            Mock.Of<IReworkNudges>(), NullLogger<StackedDependentsWake>.Instance);
+
+        await new StackedTicketUpkeep(wake, Retarget(), series).KeepAsync(Of(), "42", Attempt(DependentPr), default);
+
+        _moved.Should().HaveCount(moves);
+    }
+
     private StackedPullRequestRetarget Retarget()
     {
         var sources = new Mock<ISourceProviderFactory>();

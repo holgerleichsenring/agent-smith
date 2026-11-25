@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
+using AgentSmith.Contracts.Series;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 
 namespace AgentSmith.Server.Services.Sweep;
@@ -14,6 +15,8 @@ namespace AgentSmith.Server.Services.Sweep;
 /// project (60 s by default) instead of only while an on_ci_green project is configured.</para>
 /// <para>2026-11-24-f9c5c: acting is per record — merge.when on_ci_green for a pull request into the default branch,
 /// merge.series_when on_ci_green for one into a series branch.</para>
+/// <para>2026-11-25-9992e: the tickets an active series holds are read for their master while their CI waits, in every mode
+/// (<see cref="PrRecordCiDue.SeriesTickets"/>).</para>
 /// </summary>
 public static class CiWatchSelection
 {
@@ -23,15 +26,19 @@ public static class CiWatchSelection
     public static TimeSpan? Cadence(IReadOnlyList<ResolvedProject> watched) =>
         watched.Count == 0 ? null : TimeSpan.FromSeconds(watched.Min(p => Math.Max(1, p.Merge.CiPollSeconds)));
 
-    public static async Task<IReadOnlyList<PrReviewRecordView>> DueAsync(
-        IReadOnlyList<ResolvedProject> watched, PrReviewRecordRepository records, DateTimeOffset now, CancellationToken ct)
+    public static async Task<IReadOnlyList<PrReviewRecordView>> DueAsync(IReadOnlyList<ResolvedProject> watched,
+        PrReviewRecordRepository records, IReadOnlyList<SeriesRunRecord> activeSeries, DateTimeOffset now, CancellationToken ct)
     {
         var due = new List<PrReviewRecordView>();
         foreach (var project in watched)
-            due.AddRange(await records.CiDueAsync(project.Name,
+            due.AddRange(await records.CiDueAsync(project.Name, new PrRecordCiDue(
                 (now - TimeSpan.FromSeconds(project.Merge.CiPollSeconds)).UtcTicks,
-                (now - TimeSpan.FromSeconds(project.Merge.CiPendingSeconds)).UtcTicks, project.Merge.When == MergeWhen.OnCiGreen, ct,
-                project.Merge.SeriesWhen == MergeWhen.OnCiGreen));
+                (now - TimeSpan.FromSeconds(project.Merge.CiPendingSeconds)).UtcTicks, project.Merge.When == MergeWhen.OnCiGreen,
+                project.Merge.SeriesWhen == MergeWhen.OnCiGreen) { SeriesTickets = SeriesTickets(activeSeries, project.Name) }, ct));
         return due;
     }
+
+    /// <summary>2026-11-25-9992e: the ticket ids the project's active series hold.</summary>
+    public static IReadOnlyCollection<string> SeriesTickets(IReadOnlyList<SeriesRunRecord> activeSeries, string project) =>
+        [.. activeSeries.Where(s => s.Project == project).SelectMany(s => s.Tickets.Select(t => t.TicketId)).Distinct(StringComparer.Ordinal)];
 }

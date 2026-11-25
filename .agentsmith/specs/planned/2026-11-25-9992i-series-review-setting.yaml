@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992i
+goal: "One project setting, review: end | each | none (default end), says when a person looks, replacing merge.when, series_when, respect_branch_protection and refresh_open_pull_requests, migrated once."
+
+applies_to: "default (Contracts config, Infrastructure studio + migration, Application series + merge, dashboard config form)"
+
+requires: [2026-11-25-9992e, 2026-11-25-9992g, 2026-11-24-f9c5a, 2026-11-22-747da]
+
+facts:
+  - claim: "MergePolicyConfig carries the decision switches When, SeriesWhen, RespectBranchProtection and RefreshOpenPullRequests beside seven CI reading knobs."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:10-89"
+  - claim: "Every series opened from a filing of two or more gets a series branch."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMembership.cs:31 and :41"
+  - claim: "The final PR's body lists the tickets only."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesFinalPullRequest.cs:52-54"
+  - claim: "The studio maps the merge block field by field, the modes by snake_case name."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ProjectMergeMapping.cs:15-45"
+  - claim: "Stored config is moved once by an IDataMigration run from `database migrate`, recorded in DataMigrationHistory."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Contracts/IDataMigration.cs:3-22 and src/backend/AgentSmith.Infrastructure.Migration/Services/ConfigDocuments/PipelineAliasMigration.cs:30-45"
+  - claim: "SiblingBaseRefresh refreshes conflict-free PRs only under refresh_open_pull_requests; conflicting ones ConflictBaseRefresh also refreshes."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/SiblingBaseRefresh.cs:54 and src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:95-97"
+
+scope:
+  in: |
+    ProjectConfig.Review (ReviewMode End|Each|None, YAML `review:`), default end. SeriesRunRecord.Review is copied from it when
+    the series opens, and series_status shows it.
+      end:  the series opens with its series branch. The master merges each ticket into it (skill: on green build and tests).
+            One final PR into the target branch per repo, whose body has a section per ticket: what was built (title + the
+            ticket PR), the master's acts on it (SeriesAct reasons, 9992e), and what it could not verify (CI not green or
+            unread on the ticket's last head). A ticket's PR merges into the series branch as one commit (squash where the host
+            offers it).
+      each: no series branch; a PR per ticket into the target. The master merges after a person's approval, shown as
+            approvals on the PR in read_ticket.
+      none: no series branch; the master merges on green into the target.
+    A standalone ticket (no series): none merges on CI green through the existing CI loop (CiGreenMerge); end and each
+    leave the PR for a person.
+    Removed:
+      - MergePolicyConfig.When, SeriesWhen, RespectBranchProtection, RefreshOpenPullRequests, IntoSeriesBranch, WhenInto,
+        ActsOnCi, MergeWhen.OnGateGreen;
+      - SiblingBaseRefresh;
+      - the studio fields and dashboard inputs for those keys.
+    Protection: the master picks it per merge (9992e how now|auto). The host's branch protection is a hard limit of the
+    environment (concept revision), so a standalone none-merge arms the host's auto-merge: the host's rules decide.
+    approval_auth stays for the approve step.
+    The seven CI reading knobs stay under merge:.
+    Migration: an IDataMigration rewrites each stored project document once:
+      - series_when manual → each;
+      - else when manual or absent → end;
+      - else (on_ci_green / on_gate_green) → none.
+    It then drops the four keys. The mapping errs toward more human review: when on_ci_green with series_when manual maps to
+    each, so that project's standalone tickets now wait for a person. Projects whose standalone merge changes (that one, or
+    bypass → auto-merge) are named in the migration's log. A YAML file still naming a removed key gets a RetiredConfigKeys
+    finding naming `review`. That is the existing path for retired keys; the loader ignores unmatched keys.
+    Running series: a series opened before keeps its branch or lack of one. Its record has no Review and reads as end when
+    it has a series branch, else as each. Nothing is repaired at start.
+  out: "Per-series override in the chat (a later spec). The UI series page (j). Host branch policies (the environment decides)."
+
+steps:
+  - id: config
+    action: "ReviewMode + ProjectConfig.Review; remove the four keys and their helpers from MergePolicyConfig; four RetiredConfigKeys rows naming review; ResolvedProject carries Review."
+  - id: consumers
+    action: "CompletePullRequests (standalone: none = await CI, else manual), CiGreenMerge/CiWatchSelection/CiAct/CiRework (ActsOnCi → Review None), SeriesMembership (branch only for end), SeriesOpening/SeriesPolicy/SeriesRunDetailReader/SeriesMergeNextAct/SeriesBeatDemand, PullRequestApprovalStep, TicketHoldInputsReader, deploy plans; delete SiblingBaseRefresh."
+  - id: final
+    action: "SeriesFinalPullRequest body: per-ticket sections from the series facts and SeriesRunRecord.Acts; ticket-into-series merges squash where the provider supports a merge method."
+  - id: studio
+    action: "ProjectMergeMapping + studio entity + capabilities + dashboard (ProjectMergeSection.tsx, MergeCiFields.tsx, their tests, i18n messages, types/seriesRuns.ts and seriesTicketActs.ts where they read respect_branch_protection): one Review select (end/each/none) at project level; the CI knobs stay. Docs: ci-loop.md, series-run.md, deployment-templates.md."
+  - id: migrate
+    action: "ReviewSettingMigration (IDataMigration) over config documents, registered like PipelineAliasMigration; tests over each mapping row and idempotence."
+  - id: tests
+    action: "Each mode's series shape (branch or not), the final PR body sections, the standalone none-merge, the YAML refusal, the migration rows."
+
+done:
+  - "review: end | each | none is the only merge-decision key; the four retired keys exist nowhere in config, studio, dashboard or docs except the migration and the retired-key rows (grep, docs included)."
+  - "The migration maps every old combination to the documented value once, leaves other documents untouched, and running it twice changes nothing (tests)."
+  - "An end series opens with its branch and its final PR body has a section per ticket with the master's reasons; each/none open without one (tests)."
+  - "dotnet build, the affected tests and the dashboard tests and build are green."

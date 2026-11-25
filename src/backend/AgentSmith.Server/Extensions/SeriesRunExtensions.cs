@@ -25,6 +25,7 @@ public static class SeriesRunExtensions
         services.AddScoped<SeriesRunCosts>(); // 2026-11-23-31dcd
         services.AddScoped<Services.Measurement.ModelMeasurementReader>(); // 2026-11-25-9992k
         services.AddScoped<SeriesMergeNextAct>(); // 2026-11-23-31dce: the series page's merge
+        services.AddScoped<SeriesTicketCi>().AddScoped<ISeriesPullRequestActs, SeriesPullRequestActs>(); // 2026-11-25-9992e: the master's
         services.TryAddScoped<SeriesRunProjectReads>();
         services.AddTransient<SeriesRunHolds>(); // 2026-11-23-31dcg
         services.AddTransient<SeriesRunChangesReader>(); // 2026-11-23-31dcj: read when Changed in this series opens

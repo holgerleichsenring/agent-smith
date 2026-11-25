@@ -86,6 +86,15 @@ export interface SeriesRunTicket {
   working: boolean;
   /** 2026-11-25-9992j: what every run of the ticket cost; the ticket details show it. */
   costUsd: number;
+  /** 2026-11-25-9992e: the series master's newest act on the ticket, from its act log; null when it never acted on it. */
+  lastAct?: SeriesTicketLastAct | null;
+}
+
+/** 2026-11-25-9992e: one act of the series master — what it did (its words, English), the reason it gave, and when. */
+export interface SeriesTicketLastAct {
+  text: string;
+  reason: string | null;
+  at: string;
 }
 
 /** 2026-11-23-0219: what a merge run said about a pull request it did not merge (PullRequestMergeSaid). */

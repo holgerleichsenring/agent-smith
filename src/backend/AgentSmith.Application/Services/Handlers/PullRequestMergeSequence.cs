@@ -13,10 +13,10 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-11-17-3435b: merges a run's pull requests in order, extracted from 023fa's CompletePullRequestsHandler so a code run
 /// (on_gate_green) and a merge-green run (on_ci_green) merge the same way: a pull request opened against a rung is left open, the
 /// first refusal stops the rest, every outcome is recorded per repo (on a merge-green run, on the attempt that waited for CI too).
-/// <para>2026-11-23-97c2a: no path lands a ticket before a ticket it requires — while one has not landed, every pull request
-/// is refused (a rung's own refusal still names its rung), whichever path asked; a merge-green run's attempt keeps its pull
-/// requests awaiting CI, so the CI merge asks again once the required ticket landed. Without the requirement reader (a process
-/// with no ticket store) there are no requirements to read.</para>
+/// <para>2026-11-23-97c2a: while a required ticket has not landed every pull request is refused (a rung's own refusal still names
+/// its rung); a merge-green run's attempt keeps its pull requests awaiting CI, so the CI merge asks again once it landed. Without
+/// the requirement reader (a process with no ticket store) there are none. 2026-11-25-9992e: a judged merge (<paramref name="judged"/>,
+/// the series master's or a person's from the series page) is held by none of these, nor by the base guard below.</para>
 /// <para>2026-11-23-31dce: on a merge-green run each pull request's base is read from the host first and one off the default
 /// branch is refused (<see cref="PullRequestBaseGuard"/>) and, like an unlanded requirement, keeps the attempt's pull request
 /// awaiting CI; every repo answers a <see cref="PullRequestMergeLine"/>. A merge a person asked for (<paramref name="asked"/>)
@@ -30,26 +30,26 @@ public sealed class PullRequestMergeSequence(
     ILogger<PullRequestMergeSequence> logger, UnmetTicketRequirements? requirements = null, PullRequestDraftStep? drafts = null, PullRequestBuildRequeue? requeue = null)
 {
     public async Task<IReadOnlyList<PullRequestMergeLine>> RunAsync(CompletePullRequestsContext context,
-        IReadOnlyList<OpenedPullRequest> entries, BranchName branch, string? attemptRunId, CancellationToken ct, bool asked = false)
+        IReadOnlyList<OpenedPullRequest> entries, BranchName branch, string? attemptRunId, CancellationToken ct, bool asked = false, bool judged = false)
     {
         ArgumentNullException.ThrowIfNull(context);
         var mark = asked ? null : attemptRunId; // the attempt a refusal is marked on
-        if (await UnlandedAsync(context, ct) is { } unlanded) return await RefuseEachAsync(context, entries, mark, unlanded, ct);
+        if (!judged && await UnlandedAsync(context, ct) is { } unlanded) return await RefuseEachAsync(context, entries, mark, unlanded, ct);
         var lines = new List<PullRequestMergeLine>();
         foreach (var entry in entries)
             lines.Add(lines.Any(l => l.Outcome == PullRequestCompletionOutcome.Refused)
                 ? Refused(entry, "not attempted, an earlier repository was not merged")
-                : await OneAsync(context, entry, branch, attemptRunId, mark, asked, ct));
+                : await OneAsync(context, entry, branch, attemptRunId, mark, asked, judged, ct));
         return lines;
     }
 
     private async Task<PullRequestMergeLine> OneAsync(CompletePullRequestsContext context, OpenedPullRequest entry,
-        BranchName branch, string? attemptRunId, string? mark, bool asked, CancellationToken ct)
+        BranchName branch, string? attemptRunId, string? mark, bool asked, bool judged, CancellationToken ct)
     {
         if (context.Configs.FirstOrDefault(r => r.Name == entry.RepoName) is not { } repo)
             return Refused(entry, "not merged, the repository is not in this run");
-        if (RungRefusal(context.Pipeline, repo.Name, context.SeriesBranch) is { } rung) return await RefuseAsync(context, entry, mark, rung, ct);
-        if (attemptRunId is not null && await bases.RefusalAsync(repo, entry.Url!, ct, context.SeriesBranch) is { } offMain)
+        if (!judged && RungRefusal(context.Pipeline, repo.Name, context.SeriesBranch) is { } rung) return await RefuseAsync(context, entry, mark, rung, ct);
+        if (attemptRunId is not null && !judged && await bases.RefusalAsync(repo, entry.Url!, ct, context.SeriesBranch) is { } offMain)
             return await HoldAsync(context, entry, mark, offMain, ct);
         if (asked && drafts is not null && await drafts.RefusalAsync(repo, entry.Url!, ct) is { } draft)
             return await RefuseAsync(context, entry, mark, draft, ct);

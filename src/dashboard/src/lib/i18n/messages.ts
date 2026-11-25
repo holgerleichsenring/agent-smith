@@ -930,6 +930,8 @@ export const coreMessages = {
   "series.chat.questionHint": { en: "Or write your own answer below.", de: "Oder schreib unten deine eigene Antwort." },
   "series.graph.working": { en: "working on it now", de: "wird gerade bearbeitet" },
   "series.details.cost": { en: "Cost so far: {cost}", de: "Bisher gekostet: {cost}" },
+  // 2026-11-25-9992e: the series master's newest act on the ticket, in its own words.
+  "series.details.lastAct": { en: "Series master {when}: {text}", de: "Series-Master {when}: {text}" },
   "series.details.ci.none": { en: "no CI", de: "kein CI" },
   "series.details.ci.pending": { en: "CI running", de: "CI läuft" },
   "series.details.ci.not_started": { en: "build not started", de: "Build nicht gestartet" },

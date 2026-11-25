@@ -74,10 +74,27 @@ public sealed class SeriesStatusReaderTests : IDisposable
         detail.WorkingOn.Should().Equal("#1");
     }
 
-    private async Task<(SeriesTicketFact Fact, AgentSmith.Server.Models.SeriesRunTicketView Page)> ReadAsync()
+    // 2026-11-25-9992e: the master's newest act on the ticket, from the act log, for the master and the page alike.
+    [Fact]
+    public async Task TheMastersLastAct_IsOnTheFactAndThePage()
+    {
+        IReadOnlyList<SeriesAct> acts =
+        [
+            new(T, "merge_pull_request", "1", "merged #1 (auto)", "green"),
+            new(T.AddMinutes(5), "ci", "1", "read the CI of #1", null),
+            new(T.AddMinutes(9), "pause_series", null, "paused the series", "the operator asked"),
+        ];
+
+        var (fact, page) = await ReadAsync(acts);
+
+        var expected = new SeriesTicketLastAct("read the CI of #1", null, T.AddMinutes(5));
+        (fact.LastAct, page.LastAct).Should().Be((expected, expected));
+    }
+
+    private async Task<(SeriesTicketFact Fact, AgentSmith.Server.Models.SeriesRunTicketView Page)> ReadAsync(IReadOnlyList<SeriesAct>? acts = null)
     {
         var record = new SeriesRunRecord("sr-1", "conv-1", "alpha", "operator", true, SeriesRunStates.Running,
-            [new SeriesTicket("1", "#1", "work", false, T)], T);
+            [new SeriesTicket("1", "#1", "work", false, T)], T) { Acts = acts ?? [] };
         await _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(record, default);
         await using var scope = _h.Services.CreateAsyncScope();
         var facts = await scope.ServiceProvider.GetRequiredService<ISeriesTicketFacts>().ReadAsync(record, default);

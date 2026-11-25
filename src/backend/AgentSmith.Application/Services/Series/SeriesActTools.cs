@@ -77,7 +77,8 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
             beat.Record.Project, fact.Ticket.TicketId, text, beat.Record.Principal, beat.Record.MayStartRuns, ct));
 
     [Description("Proposes to the operator, in the conversation, cutting a slow or stuck ticket differently. It changes nothing; the operator answers in the conversation.")]
-    public string ProposeRecut([Description("The ticket's key or id.")] string ticket, [Description("The cut you propose and why.")] string proposal)
+    public string ProposeRecut([Description("The ticket's key or id.")] string ticket, [Description("The cut you propose and why.")] string proposal,
+        [Description(SeriesActSay.Why)] string? reason = null)
     {
         if (SeriesTicketLookup.Find(beat, ticket) is not { } fact) return SeriesTicketLookup.Unknown(beat, ticket);
         beat.Said.Add($"Proposal for {fact.Ticket.Key}: {proposal}");

@@ -28,7 +28,7 @@ public sealed class SeriesReadTools(SeriesBeat beat)
         }),
     }, Json);
 
-    [Description("One ticket's facts: its state and kind, its hold (who moves it and why, since when), its newest run, that run's status and why it ended, its pull requests per repo with CI on their heads and conflicts, its cost, when it started and landed, and a question its run is parked on.")]
+    [Description("One ticket's facts: its state and kind, its hold (who moves it and why, since when), its newest run, that run's status and why it ended, its pull requests per repo with CI on their heads and conflicts, its cost, when it started and landed, a question its run is parked on, and your own last act on it with its reason.")]
     public string ReadTicket([Description("The ticket's key or id as the table shows it.")] string ticket) =>
         SeriesTicketLookup.Find(beat, ticket) is { } fact
             ? JsonSerializer.Serialize(new
@@ -38,6 +38,7 @@ public sealed class SeriesReadTools(SeriesBeat beat)
                 fact.LatestRunId, fact.LatestStatus, fact.LatestFinished, fact.EndDetail,
                 pullRequests = fact.PullRequests.Select(p => new { p.Repo, p.Number, p.Url, p.State, p.Ci, p.CiFailure, p.HasConflicts, p.Target }),
                 fact.CostUsd, fact.FirstStartedAt, fact.LandedAt, requires = Keys(fact.Requires), question = fact.PendingQuestion?.Text,
+                lastAct = fact.LastAct, // 2026-11-25-9992e
             }, Json)
             : SeriesTicketLookup.Unknown(beat, ticket);
 

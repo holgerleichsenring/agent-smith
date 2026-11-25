@@ -17,6 +17,10 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
     /// <summary>2026-11-25-9992h: the name the series acts under — its project's machine identity, agent-smith without one.</summary>
     public string Actor { get; set; } = Contracts.Runs.AttemptChannels.SeriesActor;
 
+    /// <summary>2026-11-25-9992e: what the act under way did, in words ("merged SCRUM-12 (now)"), set by
+    /// <see cref="SeriesActSay"/> and logged with the act by <see cref="SeriesActedFunction"/>; null before an act says it.</summary>
+    public string? ActDid { get; set; }
+
     /// <summary>Why the master judges this beat; empty when nothing needs it.</summary>
     public List<string> Reasons { get; } = [];
 

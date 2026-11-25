@@ -25,9 +25,6 @@ public interface ISeriesTicketActs
     /// start by name is left to that start, and the answer says whether it started.</summary>
     Task<SeriesStart> StartIfReadyAsync(string project, string ticketId, CancellationToken cancellationToken);
 
-    /// <summary>2026-11-19-1b72a: asks the CI loop again for a ticket whose red CI waited out a pause (merge: on_ci_green).</summary>
-    Task<string> AskCiLoopAsync(string project, string ticketId, CancellationToken cancellationToken);
-
     /// <summary>2026-11-24-f9c5e: wakes the tickets outside the series that wait on its tickets, now that the series reached
     /// the default branch; answers how many were woken.</summary>
     Task<int> WakeDependentsAsync(string project, IReadOnlyList<string> ticketIds, CancellationToken cancellationToken);

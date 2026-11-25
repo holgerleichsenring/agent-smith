@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992f
+goal: "The series master adds a ticket to its series (a prerequisite or split-off part) through the filing run and re-links requirements, instead of proposing a re-cut to the operator."
+
+applies_to: "default (Application series master, Server series acts + filing, ticket requirement store)"
+
+requires: [2026-11-25-9992e, 2026-11-24-f9c5b, 2026-10-14-dbcef]
+
+facts:
+  - claim: "propose_recut only adds a line to the beat's report and changes nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesActTools.cs:72-78"
+  - claim: "The series check files its follow-up into the series through a FilingRequest with FollowUp (title and body, no proposal)."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesFollowUp.cs:14-26"
+  - claim: "A filing seeded with ContextKeys.SeriesRunId joins that series before any ticket starts."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMembership.cs:23-32"
+  - claim: "The filing run's seeds are fixed to the request and the report slot."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FilingRun.cs:31-36"
+  - claim: "Requirement edges live in ITicketRequirementStore, which is insert only."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ITicketRequirementStore.cs:5-16"
+  - claim: "A series ticket's requires are read from the project's edges each read, never copied into the record."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunProjectReads.cs:24-28 and src/backend/AgentSmith.Contracts/Series/SeriesTicket.cs:10"
+
+scope:
+  in: |
+    Two master tools in SeriesEditTools, each with a reason (logged as a SeriesAct, 9992e):
+      add_ticket(title, body, requires[], required_by[], reason): files one ticket into the series through the 'file' run (a
+        FilingRequest with FollowUp and MayStartRuns false, so it starts only by start_ticket once its edges exist, the series id seeded, the series branch as SpecBranchFrom when the series has one), then
+        stores its edges: it requires `requires`, and each of `required_by` requires it. A prerequisite is
+        add_ticket(required_by=[X]). A split is add_ticket per new part plus tell_ticket to narrow the original.
+      link_tickets(ticket, add_requires[], remove_requires[], reason): adds or removes requirement edges between members.
+        ITicketRequirementStore gains RemoveAsync(tracker, ticketKey, requiredTicketKey) (all three stores).
+    A new edge copies StartsWhenMet from the dependent's existing edges, true when it has none.
+    RemoveAsync changes the store's documented contract ('insert only') and its summary says so. Removing an edge under a
+    PR stacked on the required ticket's branch leaves that PR's target alone; retargeting it is the master's
+    retarget_pull_request (skill hint).
+    The tools refuse only what the environment refuses: an unknown ticket, a self-edge, a cycle, and a principal without
+    runs.control (as every act).
+    propose_recut is deleted (replaced). IFilingRun.RunRequestAsync takes an optional series id it seeds.
+  out: "Closing or retitling tracker tickets. Spec derivation for the added ticket (a follow-up ticket is worked from its body, as the series check's follow-up is). When to ask the operator is a skill hint (9992l), not code."
+
+steps:
+  - id: store
+    action: "ITicketRequirementStore.RemoveAsync in the contract and its implementations (every ITicketRequirementStore implementation, checked by grep, and the test fakes)."
+  - id: acts
+    action: "ISeriesTicketActs gains AddTicketAsync(record, title, body, requires, requiredBy) and LinkAsync(project, ticket, add, remove); Server implements them over IFilingRun (series seed) and the requirement store, with a cycle check over the project's edges."
+  - id: tools
+    action: "SeriesEditTools (add_ticket, link_tickets) in SeriesMasterHandler; delete propose_recut and its tests; the tool cap test holds at ≤ 20."
+  - id: tests
+    action: "add_ticket files one ticket that joins the series with its edges; link_tickets adds and removes an edge and refuses a cycle; the next series read shows the new requires."
+
+done:
+  - "add_ticket files a tracker ticket through the 'file' run that joins the series and carries the named requirement edges (test)."
+  - "link_tickets adds and removes edges; a cycle or self-edge is refused with the ticket named (test)."
+  - "propose_recut is gone; the series master offers at most 20 tools (test)."
+  - "dotnet build and the affected tests are green."

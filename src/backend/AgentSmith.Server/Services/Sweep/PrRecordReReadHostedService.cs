@@ -96,8 +96,9 @@ public sealed class PrRecordReReadHostedService(
     private async Task<IReadOnlyList<PrReviewRecordView>> CiDueAsync(IReadOnlyList<ResolvedProject> projects, CancellationToken ct)
     {
         using var scope = services.CreateScope();
+        var series = await scope.ServiceProvider.GetRequiredService<AgentSmith.Contracts.Series.ISeriesRunStore>().ActiveAsync(ct); // 2026-11-25-9992e
         return await CiWatchSelection.DueAsync(CiWatchSelection.Watched(projects),
-            scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>(), clock.GetUtcNow(), ct);
+            scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>(), series, clock.GetUtcNow(), ct);
     }
 
     private async Task<int> NudgeAsync(IReadOnlyList<PrReviewRecordView> selected, CancellationToken ct)

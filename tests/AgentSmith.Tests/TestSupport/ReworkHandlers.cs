@@ -39,7 +39,8 @@ internal static class ReworkHandlers
         return new(new StackedDependentsWake(facts, facts, unmet, attempts, leases, Mock.Of<IReworkNudges>(),
                 NullLogger<StackedDependentsWake>.Instance),
             new StackedPullRequestRetarget(facts, facts, new GreenPrerequisites(facts, attempts, facts, facts), attempts, leases, Mock.Of<ISourceProviderFactory>(),
-                Mock.Of<IServiceScopeFactory>(), NullLogger<StackedPullRequestRetarget>.Instance));
+                Mock.Of<IServiceScopeFactory>(), NullLogger<StackedPullRequestRetarget>.Instance),
+            new AgentSmith.Tests.Series.InMemorySeriesRunStore()); // 2026-11-25-9992e: no series holds a ticket
     }
 
     // 2026-10-14-dbceh: a start over empty requirement stores — it never starts anything.

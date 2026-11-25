@@ -17,4 +17,11 @@ public sealed record CompletePullRequestsContext(
     PipelineContext Pipeline,
     string? Tracker = null,
     string? TicketKey = null,
-    string? SeriesBranch = null) : ICommandContext;
+    string? SeriesBranch = null) : ICommandContext
+{
+    /// <summary>2026-11-25-9992e: the project's name; with <see cref="TicketId"/>, what asks whether a series holds the ticket.</summary>
+    public string? Project { get; init; }
+
+    /// <summary>2026-11-25-9992e: the run's ticket id, as the series store names its members.</summary>
+    public string? TicketId { get; init; }
+}

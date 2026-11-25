@@ -26,7 +26,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>2026-11-17-9a39b/c, real server composition: the prerequisite's green run wakes the held dependent, which starts
 /// stacked on agent-smith/1; once the prerequisite lands, ONE 'retarget' run moves the dependent's pull request to main.
-/// The tracker, the spawn and the source host are the harness's boundary.</summary>
+/// The tracker, the spawn and the source host are the harness's boundary. 2026-11-25-9992e: while the series is active its
+/// master owns the retarget, so the nudge moves nothing; once the series stopped the ticket is standalone again.</summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class StackedStartCompositionTests
 {
@@ -77,11 +78,22 @@ public sealed class StackedStartCompositionTests
         await StackedSeries.RunAsync(sp, "2", DependentPr);
         await harness.Services.GetRequiredService<TicketLandingRecorder>().RecordByHandAsync(project, "1", "sample.user", "merged", default);
         await handler.HandleAsync(project, StackedSeries.Nudge("2", ReworkNudgeOrigin.RequirementsMet), default);
+        provider.Verify(p => p.RetargetPullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<CancellationToken>()), Times.Never,
+            "the active series' master retargets its tickets");
+        await StopSeriesAsync(sp);
+        await handler.HandleAsync(project, StackedSeries.Nudge("2", ReworkNudgeOrigin.RequirementsMet), default);
 
         provider.Verify(p => p.RetargetPullRequestAsync(DependentPr, new BranchName("main"), It.IsAny<CancellationToken>()), Times.Once);
         var listed = await events.ListedRunsAsync(harness.Services);
         listed.Single(r => r.Pipeline == PipelinePresets.RetargetName).Steps.Select(s => s.CommandName)
             .Should().Contain(CommandNames.RetargetPullRequests);
+    }
+
+    private static async Task StopSeriesAsync(IServiceProvider sp)
+    {
+        var store = sp.GetRequiredService<AgentSmith.Contracts.Series.ISeriesRunStore>();
+        foreach (var series in await store.ActiveAsync(default))
+            await store.UpdateAsync(series.Id, r => r with { State = AgentSmith.Contracts.Series.SeriesRunStates.Stopped }, default);
     }
 
     // 2026-11-24-f9c5b: a series filed now integrates on its series branch and never stacks; stacking stays for a series

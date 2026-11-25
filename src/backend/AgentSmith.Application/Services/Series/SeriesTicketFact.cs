@@ -42,6 +42,9 @@ public sealed record SeriesTicketFact(SeriesTicket Ticket)
     /// <summary>2026-11-25-9992a: the keys of the series' tickets that start only once this one merged.</summary>
     public IReadOnlyList<string> NeededBy { get; init; } = [];
 
+    /// <summary>2026-11-25-9992e: the series master's newest act on this ticket; null when it never acted on it.</summary>
+    public SeriesTicketLastAct? LastAct { get; init; }
+
     /// <summary>The master question the newest attempt is parked on, with the job id its answer is delivered to.</summary>
     public DialogQuestion? PendingQuestion { get; init; }
 

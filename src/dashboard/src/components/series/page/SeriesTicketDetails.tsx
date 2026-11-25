@@ -7,13 +7,13 @@ import type { TextKey } from "@/lib/i18n/translate";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunTicket } from "@/types/seriesRuns";
 import { holdSentence } from "../../tickets/holds/holdWords";
-import { money } from "../../tickets/ticketFormat";
+import { ago, money } from "../../tickets/ticketFormat";
 import { seriesNodeId } from "./seriesOrderLayout";
 
 // 2026-11-25-9992j: what a click on a graph node opens — the ticket to read, nothing to operate: its key and title, its
 // state in the graph's words and the hold's sentence, each pull request with its CI and conflict, what it cost, and the
 // way to its page. Acts are the master's, asked in the chat. Focus moves into it; Escape closes it and gives focus back
-// to the node, a click outside closes it.
+// to the node, a click outside closes it. 2026-11-25-9992e: and the series master's last act on it — what, why, when.
 
 interface Props {
   ticket: SeriesRunTicket;
@@ -68,6 +68,12 @@ export function SeriesTicketDetails({ ticket, project, integrationBranch = null,
             </li>
           ))}
         </ul>
+      )}
+      {ticket.lastAct && (
+        <div className="sr-menu-why" data-testid={`series-details-lastact-${ticket.ticketId}`}>
+          {t("series.details.lastAct", { when: ago(t, ticket.lastAct.at) ?? "", text: ticket.lastAct.text })}
+          {ticket.lastAct.reason && <span> — {ticket.lastAct.reason}</span>}
+        </div>
       )}
       <div className="sr-menu-why" data-testid={`series-details-cost-${ticket.ticketId}`}>{t("series.details.cost", { cost: money(ticket.costUsd) })}</div>
       <Link className="tk-link" href={ticketPath(project, ticket.ticketId)} data-testid={`series-details-open-${ticket.ticketId}`}>{t("hold.act.open")}</Link>

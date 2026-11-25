@@ -96,6 +96,28 @@ describe("SeriesOverviewSection", () => {
     expect(within(details).queryAllByRole("button")).toHaveLength(0);
   });
 
+  // 2026-11-25-9992e: the series master's newest act on the ticket — what, why, when — and none before it acted.
+  it("Details_ShowTheMastersLastAct_WithItsReason", async () => {
+    const detail = overviewDetail();
+    const at = detail.tickets.findIndex((ticket) => ticket.ticketId === "56");
+    detail.tickets[at] = { ...detail.tickets[at],
+      lastAct: { text: "merged #56 (now)", reason: "CI is green", at: new Date(Date.now() - 3 * 3600_000).toISOString() } };
+    hoisted.fetch.mockResolvedValue(detail);
+    render(<SeriesRunPage id="sr-1" />);
+    const details = await open("56");
+
+    const last = within(details).getByTestId("series-details-lastact-56");
+    expect(last).toHaveTextContent("Series master 3h ago: merged #56 (now)");
+    expect(last).toHaveTextContent("— CI is green");
+    expect(within(details).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("Details_WithoutAnActOfTheMaster_ShowNoLastAct", async () => {
+    render(<SeriesRunPage id="sr-1" />);
+
+    expect(within(await open("56")).queryByTestId("series-details-lastact-56")).toBeNull();
+  });
+
   it("CourseSelect_LightsTheChosenTicketsCourse_AndAllLightsEverything", async () => {
     render(<SeriesRunPage id="sr-1" />);
     fireEvent.change(await screen.findByTestId("series-graph-from"), { target: { value: "61" } });

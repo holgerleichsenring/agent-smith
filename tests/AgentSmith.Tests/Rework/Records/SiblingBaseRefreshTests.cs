@@ -49,6 +49,20 @@ public sealed class SiblingBaseRefreshTests : IDisposable
         work[0].Siblings.Select(s => s.TicketId).Should().Equal("8");
     }
 
+    // 2026-11-25-9992e: a sibling of a ticket an active series holds is its master's to refresh.
+    [Fact]
+    public async Task ASiblingASeriesHolds_IsLeftToItsMaster()
+    {
+        await SeedAsync(Pr1, "7", PrReviewStates.Merged);
+        await SeedAsync(Pr2, "8", PrReviewStates.Open, conflicts: true);
+        await _h.Series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+        {
+            Project = "p", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("8")],
+        }, default);
+
+        (await Sut().SiblingsAsync(Refreshing, "7", CancellationToken.None)).Should().BeEmpty();
+    }
+
     [Fact]
     public async Task ASiblingWithARunningRun_IsLeftToIt()
     {
@@ -151,7 +165,7 @@ public sealed class SiblingBaseRefreshTests : IDisposable
 
     private SiblingBaseRefresh Sut(IConfigurationLoader? config = null) => new(
         _h.Store.ScopeFactory, config ?? Mock.Of<IConfigurationLoader>(), new ServerContext("unused.yml"),
-        new RefreshableTicket(_leases.Object, _attempts.Object, _closed.Object), _h.Sources.Object, NullLogger<SiblingBaseRefresh>.Instance);
+        new RefreshableTicket(_leases.Object, _attempts.Object, _closed.Object), _h.Sources.Object, NullLogger<SiblingBaseRefresh>.Instance, _h.Series);
 
     private async Task SeedAsync(string url, string ticket, string state, string repo = "api", string repoUrl = "https://github.com/o/api",
         bool conflicts = false)

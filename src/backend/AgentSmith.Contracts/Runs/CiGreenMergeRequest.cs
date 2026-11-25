@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Configuration;
+
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
@@ -14,4 +16,11 @@ public sealed record CiGreenMergeRequest(
     /// <summary>2026-11-24-f9c5c: the series branch these pull requests target; its merge follows merge.series_when past
     /// protection and the base guard accepts it. Null for pull requests into the default branch.</summary>
     public string? SeriesBranch { get; init; }
+
+    /// <summary>2026-11-25-9992e: a merge somebody judged — the series master, or a person from the series page: no unlanded
+    /// prerequisite, rung or base refusal holds it; the host's own rules still apply.</summary>
+    public bool Judged { get; init; }
+
+    /// <summary>2026-11-25-9992e: the protection this merge asks the host for, over the policy's; null keeps the policy's.</summary>
+    public BranchProtection? Protection { get; init; }
 }

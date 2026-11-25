@@ -14,21 +14,21 @@ using Moq;
 
 namespace AgentSmith.Tests.Commands;
 
-/// <summary>2026-11-24-f9c5d: before a merge-green run merges, a series pull request with no CI has its CI started; started
-/// and impossible keep it awaiting CI with the sentence on the attempt, and no CI anywhere lets the merge go ahead.</summary>
+/// <summary>2026-11-24-f9c5d: a pull request with no CI has its CI started; started and impossible are said with the sentence
+/// on the attempt and on the run. 2026-11-25-9992e: the series master asks for it and nothing merges with it — a repository
+/// with no CI at all is said as such.</summary>
 public sealed class PullRequestCiStartTests
 {
     private readonly List<PullRequestOutcomeEvent> _said = [];
     private readonly Dictionary<string, CiTrigger> _answers = new(StringComparer.Ordinal);
 
     [Fact]
-    public async Task Started_KeepsItAwaiting_WithTheSentence_AndMergesNothing()
+    public async Task Started_KeepsItAwaiting_WithTheSentence()
     {
         _answers["a"] = CiTrigger.Started("dispatched ci.yml on agent-smith/42", "https://x/actions");
 
-        var (mayMerge, said) = await StartAsync(new CiGreenPullRequest("a", "https://x/a/pull/1") { NoCi = true });
+        var said = await StartAsync(new CiGreenPullRequest("a", "https://x/a/pull/1") { NoCi = true });
 
-        mayMerge.Should().BeFalse();
         said.Should().Contain("dispatched ci.yml");
         _said.Should().ContainSingle(e => e.RunId == "attempt-1").Which.Should().Match<PullRequestOutcomeEvent>(e =>
             e.Status == PullRequestStatuses.AwaitingCi && e.Reason!.StartsWith("CI started: dispatched ci.yml"));
@@ -41,29 +41,25 @@ public sealed class PullRequestCiStartTests
     {
         _answers["a"] = CiTrigger.Impossible("ci.yml runs for pull requests into main only");
 
-        var (mayMerge, _) = await StartAsync(new CiGreenPullRequest("a", "https://x/a/pull/1") { NoCi = true });
+        await StartAsync(new CiGreenPullRequest("a", "https://x/a/pull/1") { NoCi = true });
 
-        mayMerge.Should().BeFalse();
         _said.Should().OnlyContain(e => e.Reason!.StartsWith("CI not started: ci.yml runs"));
     }
 
     [Fact]
-    public async Task NoCiAnywhere_LetsTheMergeGoAhead_ButNotBesideAPullRequestWithCi()
+    public async Task NoCiAnywhere_IsSaid()
     {
         _answers["a"] = CiTrigger.None("no workflow runs for pull requests into main");
 
-        (await StartAsync(new CiGreenPullRequest("a", "https://x/a/pull/1") { NoCi = true })).MayMerge.Should().BeTrue();
-        _said.Should().BeEmpty();
-        (await StartAsync(new CiGreenPullRequest("a", "https://x/a/pull/1") { NoCi = true }, new CiGreenPullRequest("b", "https://x/b/pull/1")))
-            .MayMerge.Should().BeFalse("the other repository's CI decides; this one merges by hand");
-        _said.Should().NotBeEmpty().And.OnlyContain(e => e.Reason!.Contains("merges by hand"));
+        (await StartAsync(new CiGreenPullRequest("a", "https://x/a/pull/1") { NoCi = true })).Should().Contain("no workflow runs");
+        _said.Should().NotBeEmpty().And.OnlyContain(e => e.Reason!.StartsWith("no CI: no workflow runs"));
     }
 
     [Fact]
     public async Task NothingWithoutCi_StartsNothing() =>
-        (await StartAsync(new CiGreenPullRequest("a", "https://x/a/pull/1"))).Should().Be((true, string.Empty));
+        (await StartAsync(new CiGreenPullRequest("a", "https://x/a/pull/1"))).Should().BeEmpty();
 
-    private async Task<(bool MayMerge, string Said)> StartAsync(params CiGreenPullRequest[] prs)
+    private async Task<string> StartAsync(params CiGreenPullRequest[] prs)
     {
         var triggers = new Mock<IPullRequestCiTriggerFactory>();
         triggers.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns((RepoConnection r) =>

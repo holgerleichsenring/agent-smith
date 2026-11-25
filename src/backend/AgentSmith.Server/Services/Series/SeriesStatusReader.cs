@@ -65,7 +65,10 @@ public sealed class SeriesStatusReader(
         var needed = shape.MergeOrder.ToDictionary(s => s.TicketId, s => s.NeededBy ?? [], StringComparer.Ordinal);
         var list = new List<SeriesTicketFact>();
         foreach (var ticket in record.Tickets)
-            list.Add(await FactAsync(ticket, views[ticket.TicketId], facts, spent, needed, ct));
+            list.Add(await FactAsync(ticket, views[ticket.TicketId], facts, spent, needed, ct) with
+            {
+                LastAct = SeriesTicketLastAct.Of(record.Acts, ticket.TicketId), // 2026-11-25-9992e
+            });
         var byId = list.GroupBy(f => f.Ticket.TicketId, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         shape = shape with
         {
@@ -76,7 +79,7 @@ public sealed class SeriesStatusReader(
     }
 
     private static SeriesRunTicketView Shown(SeriesRunTicketView view, SeriesTicketFact fact) =>
-        view with { Kind = fact.Kind, State = fact.State, Ci = fact.Ci, Working = fact.Working, CostUsd = fact.CostUsd };
+        view with { Kind = fact.Kind, State = fact.State, Ci = fact.Ci, Working = fact.Working, CostUsd = fact.CostUsd, LastAct = fact.LastAct };
 
     private async Task<SeriesTicketFact> FactAsync(SeriesTicket ticket, SeriesRunTicketView view, SeriesRunProjectFacts facts,
         IReadOnlyDictionary<string, SeriesTicketSpend> spent, IReadOnlyDictionary<string, IReadOnlyList<string>> needed, CancellationToken ct)

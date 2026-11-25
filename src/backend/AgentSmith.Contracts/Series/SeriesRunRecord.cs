@@ -60,8 +60,8 @@ public sealed record SeriesRunRecord(
     /// <summary>2026-11-24-f9c5e: per repo the final pull request the series opened from its branch; empty before.</summary>
     public IReadOnlyList<SeriesDelivery> Deliveries { get; init; } = [];
 
-    /// <summary>2026-11-24-f9c5e: when a beat last delivered — read the final pull requests from their hosts.</summary>
-    public DateTimeOffset? LastDeliveredAt { get; init; }
+    /// <summary>2026-11-25-9992e: every act of the series master, oldest first, each with the reason it gave.</summary>
+    public IReadOnlyList<SeriesAct> Acts { get; init; } = [];
 
     /// <summary>The optimistic version the store compares on update.</summary>
     public int Version { get; init; }

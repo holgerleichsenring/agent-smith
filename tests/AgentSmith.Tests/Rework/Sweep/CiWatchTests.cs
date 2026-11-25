@@ -101,6 +101,37 @@ public sealed class CiWatchTests : IDisposable
         _nudged.Select(n => (n.Project, n.TicketId)).Should().BeEquivalentTo([("gate", "7")]);
     }
 
+    // 2026-11-25-9992e: a ticket an active series holds is read at every poll while its CI waits — unread, pending past
+    // ci_pending_seconds, in any mode — and its verdicts are its master's, so an unacted one is not due.
+    [Fact]
+    public async Task ASeriesTicket_IsDueWhileItsCiWaits_InEveryMode_ItsVerdictIsNot()
+    {
+        await _h.Series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+        {
+            Project = "gate", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("10"), AgentSmith.Tests.Series.SeriesRecords.Ticket("11")],
+        }, default);
+        await _h.Series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running("sr-2", "conv-2") with
+        {
+            Project = "ci", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("12")],
+        }, default);
+        await SeedAsync("gate", "10", "j", checkedAgo: TimeSpan.FromMinutes(2), ci: CiStates.Pending, ciAgo: TimeSpan.FromHours(2));
+        await SeedAsync("gate", "11", "k", checkedAgo: TimeSpan.FromMinutes(2), ci: null);
+        await SeedAsync("ci", "12", "l", ci: CiStates.Green);
+
+        (await Sut().CiOnceAsync(CancellationToken.None)).Should().Be(2);
+
+        _nudged.Select(n => (n.Project, n.TicketId)).Should().BeEquivalentTo([("gate", "10"), ("gate", "11")]);
+    }
+
+    [Fact]
+    public void SeriesTickets_AreTheProjectsActiveSeriesMembers()
+    {
+        var series = AgentSmith.Tests.Series.SeriesRecords.Running();
+
+        CiWatchSelection.SeriesTickets([series, series with { Id = "sr-2" }], "sample").Should().BeEquivalentTo(["43", "44", "45"]);
+        CiWatchSelection.SeriesTickets([series], "other").Should().BeEmpty();
+    }
+
     private async Task SeedAsync(string project, string ticket, string number, string? ci, string? acted = null,
         TimeSpan? checkedAgo = null, TimeSpan? ciAgo = null, string? target = null)
     {

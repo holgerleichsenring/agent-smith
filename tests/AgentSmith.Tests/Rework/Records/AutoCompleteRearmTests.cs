@@ -250,7 +250,8 @@ public sealed class AutoCompleteRearmTests : IDisposable
     {
         using var scope = _h.Store.ScopeFactory.CreateScope();
         return scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>()
-            .CiDueAsync("p", _h.Clock.Now.AddHours(1).UtcTicks, 0, actsOnVerdict: false, CancellationToken.None).GetAwaiter().GetResult();
+            .CiDueAsync("p", new PrRecordCiDue(_h.Clock.Now.AddHours(1).UtcTicks, 0, ActsOnVerdict: false), CancellationToken.None)
+            .GetAwaiter().GetResult();
     }
 
     // Armed, then a sibling merged: the host says it conflicts and drops auto-complete.

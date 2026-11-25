@@ -27,6 +27,10 @@ public interface ISeriesRunStore
     /// <summary>2026-11-19-1b72a: the running or verifying (not paused) series of the project that holds the ticket, if one does.</summary>
     Task<SeriesRunRecord?> RunningWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken);
 
+    /// <summary>2026-11-25-9992e: whether a running, verifying, delivering or paused series of the project holds the ticket —
+    /// then its series master owns the ticket's merges, refreshes, retargets and CI.</summary>
+    Task<bool> HoldsTicketAsync(string project, string ticketId, CancellationToken cancellationToken);
+
     /// <summary>2026-11-23-31dcc: the newest series run of the project that holds the ticket, active or ended; null when no
     /// series ever held it.</summary>
     Task<SeriesRunRecord?> ForTicketAsync(string project, string ticketId, CancellationToken cancellationToken);

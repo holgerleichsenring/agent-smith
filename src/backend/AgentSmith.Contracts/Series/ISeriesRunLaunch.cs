@@ -9,12 +9,10 @@ public interface ISeriesRunLaunch
     Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken cancellationToken,
         string? checkoutBranch = null);
 
-    /// <summary>2026-11-24-f9c5e: brings the series branch's final pull request up to date with the base it conflicts with,
-    /// through the one conflict trigger every pull request takes (2026-11-24-297b): one refresh-base run per conflict on a head,
-    /// none while one is at work. <paramref name="conflictsSince"/> is when this conflict began on this head. Answers whether a
-    /// run started.</summary>
-    Task<bool> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber, DateTimeOffset conflictsSince,
-        CancellationToken cancellationToken);
+    /// <summary>2026-11-24-f9c5e: brings the series branch of a final pull request up to date with its base through a
+    /// refresh-base run. 2026-11-25-9992e: the series master asks for it; none starts while one is at work. Answers the
+    /// sentence of what happened.</summary>
+    Task<string> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber, CancellationToken cancellationToken);
 
     /// <summary>2026-11-17-0207d: whether a run the series launched has ended (or is gone).</summary>
     Task<bool> FinishedAsync(string runId, CancellationToken cancellationToken);

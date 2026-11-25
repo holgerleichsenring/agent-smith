@@ -67,6 +67,23 @@ public sealed class ConflictBaseRefreshTests : IDisposable
         ConflictBaseRefresh.ConflictsSince(null, "a", T.AddHours(1)).Should().Be(T.AddHours(1));
     }
 
+    // 2026-11-25-9992e: a ticket an active series holds is refreshed by its series master, never by the read.
+    [Fact]
+    public async Task AConflictingRead_OfATicketASeriesHolds_LaunchesNoRefresh_AndStillRecordsTheConflict()
+    {
+        await _h.Series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+        {
+            Project = "p", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("7")],
+        }, default);
+        await _h.RunAsync("r1", Pr1);
+        State(true, "a");
+
+        await _h.RefreshAsync();
+
+        RefreshRuns().Should().BeEmpty();
+        _h.Records().Single().HasConflicts.Should().BeTrue();
+    }
+
     [Fact]
     public async Task AConflictingRead_LaunchesOneRefresh_AndTheHoldReadsItAtWork()
     {

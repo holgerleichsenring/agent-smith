@@ -11,13 +11,15 @@ namespace AgentSmith.Application.Services.Rework;
 /// it — the first red pull request, so the existing 'started' notice goes there — and the evidence as its text.
 /// 2026-11-19-1b72a: a ticket of a paused series has no CI act — the automatic fix waits with the series, and its resume
 /// asks the loop again; a retry or rework a person asks for is no CI act and is not held.
+/// 2026-11-25-9992e: a ticket any active series holds has no CI act either — its series master reads the red CI and tells
+/// the ticket, retries it or restarts its CI; nothing reworks it on its own.
 /// </summary>
 public sealed class CiReworkAct(IServiceScopeFactory scopes, ISeriesRunStore? series = null) : ICiReworkAct
 {
     public async Task<PendingReworkAct?> NewestAsync(ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken ct)
     {
         if (!project.Merge.ActsOnCi) return null; // 2026-11-24-f9c5c: CiAct decides by the pull requests' target
-        if (series is not null && await series.PausedWithTicketAsync(project.Name, ticketId, ct) is not null) return null;
+        if (series is not null && await series.HoldsTicketAsync(project.Name, ticketId, ct)) return null;
         IReadOnlyList<PrReviewRecordView> records;
         using (var scope = scopes.CreateScope())
             records = scope.ServiceProvider.GetService<IPrReviewRecordReader>() is { } reader

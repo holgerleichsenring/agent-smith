@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Contracts.Series;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Services.Rework;
@@ -300,6 +301,27 @@ public sealed class CiGreenMergeTests : IDisposable
             RequiredTicketKey = $"github-{required}", RequiredTicketId = required, StartsWhenMet = true, FiledInConversation = "s-1",
         });
         await db.SaveChangesAsync();
+    }
+
+    // 2026-11-25-9992e: a ticket an active series holds is read only — no merge on green, no rework nudge on red, nothing marked
+    // acted; its series master decides. A ticket of a stopped series is standalone again.
+    [Theory]
+    [InlineData(CiStates.Green, SeriesRunStates.Running, false)]
+    [InlineData(CiStates.Red, SeriesRunStates.Paused, false)]
+    [InlineData(CiStates.Green, SeriesRunStates.Stopped, true)]
+    public async Task ATicketASeriesHolds_HasNoCiLoop(string ci, string seriesState, bool loops)
+    {
+        await _h.Series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+        {
+            Project = "p", State = seriesState, Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("7")],
+        }, default);
+        Ci(PrReviewRefreshHarness.Pr1, ci);
+        await _h.RunAsync("r1", PrReviewRefreshHarness.Pr1);
+
+        await RefreshAsync();
+
+        _launched.Should().HaveCount(loops ? 1 : 0);
+        _h.Records().Single().CiActed.Should().Be(loops ? $"abc:{ci}" : null);
     }
 
     private Task RefreshAsync() => _h.Refresh().RefreshAsync(_project, "7", null, CancellationToken.None);

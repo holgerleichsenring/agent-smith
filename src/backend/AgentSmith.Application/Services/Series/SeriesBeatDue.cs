@@ -7,13 +7,12 @@ namespace AgentSmith.Application.Services.Series;
 /// the table moved since the last beat saw it — the first beat included, which has seen nothing — and, from 0207b,
 /// when the status cadence is due. 2026-11-25-e94eb: no status is posted any more; the cadence is the stall check's —
 /// a beat a whole dialogue.series_status_minutes after the last, which asks the master when nothing moved.
+/// 2026-11-25-9992e: a delivering series has no beat of its own at the CI poll any more — its master reads the final pull
+/// requests' CI with ci "final" and merges them itself.
 /// </summary>
 public static class SeriesBeatDue
 {
-    /// <param name="deliverEvery">2026-11-24-f9c5e: how often a Delivering series reads its final pull requests again —
-    /// merge.ci_poll_seconds under merge.when on_ci_green; null leaves it to the status cadence.</param>
-    public static string? Why(SeriesRunRecord record, IReadOnlyList<SeriesTicketFact> facts, DateTimeOffset now, int statusMinutes,
-        TimeSpan? deliverEvery = null)
+    public static string? Why(SeriesRunRecord record, IReadOnlyList<SeriesTicketFact> facts, DateTimeOffset now, int statusMinutes)
     {
         ArgumentNullException.ThrowIfNull(record);
         if (!record.IsActive) return null;
@@ -21,8 +20,6 @@ public static class SeriesBeatDue
         if (table != record.LastTable) return "the table changed";
         if (record.Question is { Answer: null, DeadlineAt: { } deadline } && deadline <= now) return "a question's deadline passed"; // 0207c
         if (record.Verdicts.LastOrDefault() is { Reported: false }) return "the series check reported"; // 0207d
-        if (record.State == SeriesRunStates.Delivering && deliverEvery is { } every
-            && (record.LastDeliveredAt is not { } last || now - last >= every)) return "the series delivers"; // f9c5e
         return Cadence(record, now, statusMinutes) ? "the stall check is due" : null;
     }
 

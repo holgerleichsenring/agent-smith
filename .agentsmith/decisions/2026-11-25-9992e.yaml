@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992e
+
+decisions:
+  - category: Architecture
+    chose: "One membership question, ISeriesRunStore.HoldsTicketAsync(project, ticketId), true for Running, Verifying, Delivering and Paused; every removed path asks it"
+    over: "Reading RunParentTicket.Series / the series-branch stamp; a membership flag on the PR record"
+    reason: |
+      The branch stamp misses a series without a branch and stays on a ticket whose series stopped. The store is the
+      truth of who owns a ticket now: a paused series keeps its tickets (its master still owns them), a stopped or done
+      one makes them standalone again. It reads the project's active rows once per PR read; the rows are few, the cost
+      is accepted, and no new column or migration is needed.
+  - category: Scope
+    chose: "PrReviewRecordRefresh skips the whole CI acting chain (requeue, auto-complete re-arm, green merge, red nudge) for a ticket a series holds; CiReworkAct also answers no CI act for it (was: paused series only)"
+    over: "Gating each CI step separately; keeping the red-CI rework for series tickets"
+    reason: |
+      The series master reads CI (ci read), restarts it (ci requeue/start), merges (merge_pull_request) and tells or
+      retries the ticket on red. A second actor that merges or reworks behind it is the code lock against its judgement
+      the spec removes. The CI read itself stays, so the master's facts and the holds see the CI.
+  - category: Scope
+    chose: "The read's conflict refresh is skipped for a series ticket; the conflict is still recorded"
+    over: "Keeping the automatic refresh for series tickets"
+    reason: "refresh_branch is the master's act; the recorded conflict is what it reads to decide."
+  - category: Scope
+    chose: "SiblingBaseRefresh skips the PRs of tickets a series holds; the class and its key stay for 9992i"
+    over: "Deleting SiblingBaseRefresh now"
+    reason: "Standalone siblings still need it until 9992i decides the merge keys together, as the spec scopes."
+  - category: Scope
+    chose: "StackedTicketUpkeep skips the retarget for a series ticket and keeps the dependents wake"
+    over: "Skipping the whole upkeep"
+    reason: "The wake is an automatic start, which stays (see below); the retarget is retarget_pull_request now."
+  - category: Scope
+    chose: "A code run of a series ticket merges nothing and marks nothing awaiting_ci; CompletePullRequestsHandler answers 'the series master merges it' (asked through the store, by the context's new Project and TicketId)"
+    over: "Detecting the series from context.SeriesBranch"
+    reason: "A series without a branch must be detected too, and a stopped series' ticket merges standalone again — only the store says both."
+  - category: Scope
+    chose: "SeriesCiStart deleted with its registration and tests; PullRequestCiStart stays behind the master's ci start (a NoCi request), which now merges nothing"
+    over: "Keeping SeriesCiStart for series-branch PRs"
+    reason: "It was the CI loop's start for series tickets only; the master's ci start replaces it. A start request that also merged would be a merge nobody asked for, so MayMerge went."
+  - category: Scope
+    chose: "SeriesFinalPullRequest only opens and reads the final PRs; SeriesFinalMerge merges or refreshes them only when the master asks (merge_pull_request/refresh_branch 'final'); the conflict marks and CI-wait marks on SeriesDelivery went"
+    over: "Keeping the merge.when-driven final merge in the delivery step"
+    reason: |
+      The automatic merge and conflict refresh of the final PR were exactly the decisions without anybody deciding. The
+      delivery step still sets the series done and wakes its dependents once every final PR merged in Delivering. The
+      marks (ConflictHead/Since, NoCiHead/Since, ArmedHead, RequeuedHead) only served the automatic merge; content is
+      JSON, so old rows deserialize without them.
+  - category: Scope
+    chose: "SeriesBeatDemand.DeliverEvery and SeriesRunRecord.LastDeliveredAt removed; a delivering series beats on the status cadence and the table like any other"
+    over: "Keeping a CI-poll beat for a delivering series"
+    reason: "The beat existed to merge the final PRs on green CI; the master reads them with ci 'final'. Waking the master on events is 9992g."
+  - category: Scope
+    chose: "AskCiLoopAsync and the resume's call to it removed; the resume line says a red CI is the master's to judge"
+    over: "Keeping the resume hand-back for standalone tickets"
+    reason: "A resume only concerns a series' own tickets, which have no CI loop any more."
+  - category: Scope
+    chose: "SeriesMergeNextAct's NotNext and CiHolds refusals removed with their tests; the person's series merge and the master's merge_pull_request are one act (SeriesMergeNextAct), both Judged"
+    over: "A second merge path for the master; keeping the merge-order and CI refusals for the person"
+    reason: |
+      One path. A person clicking Merge decided it as much as the master does, so the same act runs without the order
+      and CI refusals; the host's own rules still answer. The act now reads the series store and the PR records instead
+      of the series page's detail reader, so a process without the dashboard's readers (the beat's worker) can run it —
+      the harness composition proved the detail reader is not composed there.
+  - category: Architecture
+    chose: "CiGreenMergeRequest.Judged skips the unlanded-prerequisite, rung and base refusals in PullRequestMergeSequence; Protection overrides the policy's protection for that merge (via MergePolicyConfig.WithProtection in the context builder)"
+    over: "A prerequisite lock that refuses even the master's merge"
+    reason: "The master decides; no code lock against its judgement. The CI loop's own request is not judged and keeps every refusal for standalone tickets."
+  - category: Architecture
+    chose: "The act log: SeriesActedFunction records SeriesAct(At, Tool, Ticket, Reason, Outcome) on SeriesRunRecord.Acts and logs it, for every act tool; every act tool takes an optional reason; a ci read is logged but does not mark the beat as acted"
+    over: "A separate act table; logging only the new tools"
+    reason: |
+      The record's content is JSON, so the list needs no migration, and the wrapper already wraps every act once. A CI
+      read changes nothing a person reads about, so it keeps the beat a looking one (no posted reply).
+  - category: Architecture
+    chose: "The ticket acts live in a new port ISeriesPullRequestActs (Server SeriesPullRequestActs + SeriesTicketCi); the 'final' acts are handled in Application by SeriesFinalMerge and SeriesFinalCi inside the beat"
+    over: "Adding MergeAsync/RefreshAsync/RetargetAsync/CiAsync to ISeriesTicketActs and routing 'final' through the server"
+    reason: |
+      SeriesTicketActs is at the 120-line limit, and the final PR acts need the beat's pipeline context, which only the
+      Application step has; Application must not reference Server. The interface split is by responsibility: ticket
+      lifecycle acts vs pull-request acts.
+  - category: Implementation
+    chose: "The master's refresh goes through BaseRefreshAsked: BaseRefreshStart, refused only while a refresh is at work on that PR; the final PR's refresh (ISeriesRunLaunch.RefreshAsync) uses the same"
+    over: "The conflict-due rule of ConflictBaseRefresh; BaseRefreshRetry's 'a refused refresh stands' rule"
+    reason: "The master judged it due; a second run beside one at work would only race it. ConflictBaseRefresh and BaseRefreshRetry keep serving standalone tickets and the person's Try again."
+  - category: Implementation
+    chose: "CI polling as data: PrRecordCiDue (the CiDueAsync predicate, moved out of the 120-line repository) keeps an open PR of a series ticket due every ci_poll_seconds while its head's CI is unread, pending or not started, in every merge mode; its verdicts are not due"
+    over: "Due only under on_ci_green and unacted"
+    reason: "The master reads the CI from the records; a series ticket's unacted verdict would otherwise be polled forever, since nothing marks it acted any more."
+  - category: Scope
+    chose: "Standalone tickets keep their CI loop, conflict refresh, sibling refresh, stacked retarget and code-run merge unchanged"
+    over: "Removing the loop for every ticket"
+    reason: "No master exists for a standalone ticket; removing it there would leave nobody to merge."
+  - category: Scope
+    chose: "Holds stay as data; no decision reads them"
+    over: "Removing the holds a removed path used to resolve"
+    reason: "The page, the list and the master read them as state (9992a); they decide nothing."
+  - category: Scope
+    chose: "Automatic ticket starts (DependentsWake, RequirementsMetStart, StackedDependentsWake, SeriesAutoStart) are kept and flagged as candidates for a later start_ticket-only spec"
+    over: "Removing them here"
+    reason: "The operator did not name them; the spec keeps them out of scope."
+  - category: Implementation
+    chose: "The series-master prompt describes the four new tools and that the master owns its tickets' pull requests; the pause/resume wording no longer mentions a CI loop"
+    over: "Leaving the prompt saying merges and red-CI fixes happen on their own"
+    reason: "The prompt would otherwise tell the master something false about its series."
+  - category: Architecture
+    chose: "The master's last act per ticket (SeriesTicketLastAct {Text, Reason, At}) is read from SeriesRunRecord.Acts onto SeriesTicketFact by SeriesStatusReader, and from there onto SeriesRunTicketView (lastAct), read_ticket and the series page's ticket details"
+    over: "A second store of 'last act' per ticket; computing it in the browser from the whole act log"
+    reason: |
+      The act log is already the record; the fact is the one truth every reader renders (9992a), so the newest act is
+      derived once there. Each act now carries its words (SeriesAct.Text), set by the one say path SeriesActSay (9992h)
+      on the beat and picked up by SeriesActedFunction — the four pull-request tools say their acts through it too, so
+      there is one reason description (SeriesActSay.Why) and one say/log path. The ticket is logged by its id, so the
+      newest act is found whichever name the master used; a CI read is logged with its words but not said.
+  - category: Implementation
+    chose: "A delivering series with final pull requests is beaten every merge.ci_poll_seconds ('the final pull requests are read', clocked by LastStatusAt) so the delivery step reads them and ends the series; that reason never reaches the master, and the master judges nothing in a beat whose series ended"
+    over: "Leaving the final read to the stall cadence; making the read a master reason"
+    reason: |
+      A final pull request the master merged or armed was otherwise only noticed at the stall check, minutes later. The
+      read needs no model: DeliverSeries reads the host and sets the series done. ReadSeriesHandler builds the master's
+      reasons from the beat itself, never from the sweep's demand, so no LLM call is spent on it.
+  - category: Implementation
+    chose: "SeriesAct keeps At, Tool, Ticket, Text and Reason on the record; the act's answer goes to the log only"
+    over: "Storing each act's full answer on the record"
+    reason: "The act log grows with every act for the series' whole life; an answer can be long (per-repo merge lines, CI excerpts), a line per act stays small."
+  - category: TradeOff
+    chose: "A CI start the master asks for still leaves the attempt's awaiting_ci mark (PullRequestCiStart publishes it on the attempt)"
+    over: "A start path that marks nothing on the attempt"
+    reason: |
+      Nothing reads that mark for a ticket a series holds — the CI loop is off for it. It only matters once the series
+      stops and the ticket is standalone again, where the CI loop then treats the pull request as awaiting CI, which is
+      what it is. Accepted rather than a second start path.

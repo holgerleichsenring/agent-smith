@@ -20,10 +20,11 @@ namespace AgentSmith.Server.Services.Branches;
 /// repository are not touched: their base did not move.
 /// <para>2026-11-24-297b: in every project a landing refreshes the siblings whose record conflicts — the base moved, so a
 /// refused refresh is tried again; the setting adds the conflict-free ones. A sibling a refresh is at work on is left to it.</para>
+/// <para>2026-11-25-9992e: a sibling of a ticket an active series holds is its series master's to refresh (refresh_branch).</para>
 /// </summary>
 public sealed class SiblingBaseRefresh(
     IServiceScopeFactory scopes, IConfigurationLoader configLoader, ServerContext server, RefreshableTicket tickets,
-    ISourceProviderFactory sources, ILogger<SiblingBaseRefresh> logger) : ITicketLandedSubscriber
+    ISourceProviderFactory sources, ILogger<SiblingBaseRefresh> logger, AgentSmith.Contracts.Series.ISeriesRunStore series) : ITicketLandedSubscriber
 {
     public async Task LandedAsync(TicketLandingFact landing, CancellationToken cancellationToken)
     {
@@ -57,7 +58,8 @@ public sealed class SiblingBaseRefresh(
                 .NewestRefreshesAsync([.. open.Select(r => r.Url)], ct);
             var free = new List<PrReviewRecordView>();
             foreach (var sibling in open.Where(r => atWork.GetValueOrDefault(r.Url) is not { InFlight: true }))
-                if (await tickets.FreeAsync(project, sibling.TicketId, ct)) free.Add(sibling);
+                if (!await series.HoldsTicketAsync(project.Name, sibling.TicketId, ct) && await tickets.FreeAsync(project, sibling.TicketId, ct))
+                    free.Add(sibling);
             if (free.Count > 0) work.Add(new SiblingRefresh(repo, merged.Url, free));
         }
         return work;

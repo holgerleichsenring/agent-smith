@@ -24,7 +24,9 @@ public sealed class SeriesMasterLineTests
     private SeriesMasterHandler Handler => new(_loop.Object, Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"),
         Mock.Of<ISeriesTicketActs>(), _store, new AgentSmithConfig(), _conversation.Object,
         new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()),
-        new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), Mock.Of<ISeriesConversation>()));
+        new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), Mock.Of<ISeriesConversation>()),
+        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(),
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<SeriesMasterHandler>.Instance);
 
     /// <summary>A beat whose master calls the named tool once, then answers.</summary>
     private async Task<SeriesBeat> JudgeAsync(string? tool, string arguments = "{}")

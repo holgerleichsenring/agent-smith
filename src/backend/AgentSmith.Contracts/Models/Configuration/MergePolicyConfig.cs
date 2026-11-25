@@ -83,6 +83,14 @@ public sealed class MergePolicyConfig
         return copy;
     }
 
+    /// <summary>2026-11-25-9992e: this policy with the protection a judged merge asks for; the original is left unchanged.</summary>
+    public MergePolicyConfig WithProtection(BranchProtection protection)
+    {
+        var copy = (MergePolicyConfig)MemberwiseClone();
+        copy.RespectBranchProtection = protection == BranchProtection.Respect;
+        return copy;
+    }
+
     /// <summary>2026-11-24-f9c5c: the mode that decides a pull request into <paramref name="target"/> — series_when for a series
     /// branch, when for every other target (an unknown one included).</summary>
     public MergeWhen WhenInto(string? target) => Providers.WorkBranches.IsSeries(target) ? SeriesWhen : When;
