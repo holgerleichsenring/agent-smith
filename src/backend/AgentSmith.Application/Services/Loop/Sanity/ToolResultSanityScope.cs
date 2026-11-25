@@ -10,7 +10,8 @@ public sealed record ToolResultSanityScope(
     IReadOnlyList<string> NamedRepositories,
     IReadOnlyDictionary<string, string> KeyToRepository)
 {
-    private const string WorkRoot = "/work";
+    // 2026-11-25-9992c: the workspace mount; the repository name behind it is stripped as the path's repository.
+    private const string WorkRoot = Domain.Entities.Repository.WorkspaceRoot;
 
     /// <summary>The one repository of a single-repository run; null on a multi-repository one.</summary>
     public string? SingleRepository =>

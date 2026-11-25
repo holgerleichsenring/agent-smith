@@ -12,7 +12,7 @@ namespace AgentSmith.Server.Services.Sandbox;
 public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner, DockerHardening hardening)
 {
     public const string SharedMount = "/shared";
-    public const string WorkMount = "/work";
+    public const string WorkMount = Domain.Entities.Repository.WorkspaceRoot;
 
     /// <summary>p0201: stable docker label keys for ownership + run scoping. The
     /// orphan reaper filters on JobIdLabel; the watcher and reaper read RunIdLabel

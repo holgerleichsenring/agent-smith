@@ -84,19 +84,9 @@ public sealed class LoadSkillsHandler(
             }
         }
 
-        // 4. Try relative to repo root
-        if (context.Pipeline.TryGet<Domain.Entities.Repository>(ContextKeys.Repository, out var repo)
-            && repo is not null)
-        {
-            var repoRelative = Path.Combine(repo.LocalPath, "config", skillsPath);
-            if (Directory.Exists(repoRelative))
-            {
-                logger.LogDebug("Skills path resolved relative to repo: {Dir}", repoRelative);
-                return repoRelative;
-            }
-        }
-
-        // 5. Fallback: CWD/config/
+        // 2026-11-25-9992c: the "relative to the repository root" rung is gone — that root is a sandbox path
+        // (/work/<repo>), not a directory of this process, so the host check could never find it.
+        // 4. Fallback: CWD/config/
         var cwdRelative = Path.Combine("config", skillsPath);
         logger.LogDebug("Skills path fallback to CWD: {Dir}", cwdRelative);
         return cwdRelative;

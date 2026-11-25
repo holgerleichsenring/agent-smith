@@ -59,7 +59,7 @@ public sealed class MemoryIndexReader(
     private async Task<string?> TryReadIndexAsync(ISandboxFileReader? reader, string name, CancellationToken ct)
     {
         if (reader is null) return null;
-        var path = Path.Combine(Repository.SandboxWorkPath, ProjectMetaPaths.MemoryIndex);
+        var path = ProjectMetaPaths.MemoryIndex;
         var content = await reader.TryReadAsync(path, ct);
         if (content is not null)
             logger.LogInformation("{Repo}: loaded memory index ({Chars} chars)", name, content.Length);

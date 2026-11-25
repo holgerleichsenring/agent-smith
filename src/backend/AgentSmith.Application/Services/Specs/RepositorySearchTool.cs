@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-09-07-b7e2: the account's branch search, offered to the derivation — the same
-/// argv grep under /work, read-only by construction, with its path contained.
+/// argv grep under the repository root, read-only by construction, with its path contained.
 /// </summary>
 public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
 {

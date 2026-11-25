@@ -23,7 +23,7 @@ public sealed class PostExecutePassTools(
     IDialogueTransport? dialogueTransport)
 {
     public (FilesystemToolHost Fs, LogDecisionToolHost Log, HumanToolHost Human) For(
-        RepoDiffPartition partition, string repoLocalPath)
+        RepoDiffPartition partition)
     {
         ArgumentNullException.ThrowIfNull(partition);
         if (partition.ChangedRepoNames.Count == 0)
@@ -32,7 +32,7 @@ public sealed class PostExecutePassTools(
         var changed = partition.ChangedRepoSandboxes.ToDictionary(
             kv => kv.Key, kv => readerFactory.Create(kv.Value), StringComparer.Ordinal);
         return (
-            new FilesystemToolHost(partition.ChangedSandboxes, partition.ChangedRepoNames[0], repoLocalPath),
+            new FilesystemToolHost(partition.ChangedRepoSandboxes, partition.ChangedRepoNames[0]),
             new LogDecisionToolHost(decisionLogger, new FixedRunRepositories(changed)),
             new HumanToolHost(dialogueTransport));
     }

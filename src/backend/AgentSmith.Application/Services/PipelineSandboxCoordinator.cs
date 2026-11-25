@@ -161,7 +161,8 @@ public sealed class PipelineSandboxCoordinator(
         // authoritative, so SandboxesForRepo never has to parse it back out.
         _sandboxRepos[key] = repo.Name;
         _groupKeyToSandboxKey[groupIdentity] = key;
-        var sandbox = await CreateOneAsync(representative, spec, discoveriesInGroup, key, context, ct);
+        var sandbox = await CreateOneAsync(representative, spec with { RepoName = repo.Name },
+            discoveriesInGroup, key, context, ct);
         _sandboxes[key] = sandbox;
         _discoveries[key] = representative;
         _contextsBySandbox[key] = discoveriesInGroup.ToList();
@@ -244,7 +245,12 @@ public sealed class PipelineSandboxCoordinator(
         var sandbox = await sandboxFactory.CreateAsync(spec, ct);
         RecordImage(key, sandbox);
         logger.LogInformation("Sandbox {Key} published (image={Image})", key, spec.ToolchainImage);
-        return sandbox is null ? null! : new SandboxEventProjector(sandbox, eventPublisher, runContext, key, logger);
+        // 2026-11-25-9992c: the repository's own root, outermost, so every caller of this key —
+        // tool hosts, git helpers, the projector's events — speaks to /work/<repo>.
+        return sandbox is null
+            ? null!
+            : new RepoSandbox(new SandboxEventProjector(sandbox, eventPublisher, runContext, key, logger),
+                spec.RepoName!);
     }
 
     // 2026-08-31-7097: read from the created sandbox BEFORE the projector wraps it, so

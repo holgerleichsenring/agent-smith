@@ -107,7 +107,7 @@ public sealed class StateIndexMergeTests
     private static async Task<string> GitAsync(ISandbox sandbox, params string[] args) =>
         (await sandbox.RunStepAsync(new AgentSmith.Sandbox.Wire.Step(AgentSmith.Sandbox.Wire.Step.CurrentSchemaVersion,
             Guid.NewGuid(), AgentSmith.Sandbox.Wire.StepKind.Run, Command: "git", Args: args,
-            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: 60), progress: null, CancellationToken.None))
+            WorkingDirectory: Repository.WorkspaceRoot, TimeoutSeconds: 60), progress: null, CancellationToken.None))
         .OutputContent ?? string.Empty;
 
     private static async Task<(RepoCheckout Checkout, ISandbox Sandbox)> CheckOutAsync(GitRemoteFixture fixture)

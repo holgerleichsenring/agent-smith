@@ -32,7 +32,6 @@ public sealed class SetupRegistryAuthHandler(
     ILogger<SetupRegistryAuthHandler> logger)
     : ICommandHandler<SetupRegistryAuthContext>
 {
-    private const string WorkRoot = "/work";
     private const string UserNuGetConfigPath = "/root/.nuget/NuGet/NuGet.Config";
     private const string UserNpmrcPath = "/root/.npmrc";
 
@@ -97,7 +96,7 @@ public sealed class SetupRegistryAuthHandler(
         List<string> written, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
-        var listing = await reader.ListAsync(WorkRoot, maxDepth: 6, ct);
+        var listing = await reader.ListAsync(sandbox.WorkDirectory(), maxDepth: 6, ct);
 
         var nugetMatches = await CollectNuGetMatchesAsync(listing, reader, repoKey, ct);
         var npmMatches = await CollectNpmMatchesAsync(listing, reader, repoKey, ct);
@@ -162,7 +161,7 @@ public sealed class SetupRegistryAuthHandler(
             .ToList();
         if (configs.Count == 0)
         {
-            logger.LogInformation("{Repo}: no nuget.config files found under /work.", repoKey);
+            logger.LogInformation("{Repo}: no nuget.config files found under the repository root.", repoKey);
             return Array.Empty<NugetMatch>();
         }
 
@@ -207,7 +206,7 @@ public sealed class SetupRegistryAuthHandler(
             .ToList();
         if (rcFiles.Count == 0)
         {
-            logger.LogInformation("{Repo}: no .npmrc files found under /work.", repoKey);
+            logger.LogInformation("{Repo}: no .npmrc files found under the repository root.", repoKey);
             return Array.Empty<NpmMatch>();
         }
 

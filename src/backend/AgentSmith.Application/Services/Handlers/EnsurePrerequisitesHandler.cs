@@ -54,7 +54,7 @@ public sealed class EnsurePrerequisitesHandler(
                 continue;
             }
             outcomes.Add(await RunOneAsync(
-                key, sandbox, Repository.SandboxWorkPath, command!, cancellationToken));
+                key, sandbox, sandbox.WorkDirectory(), command!, cancellationToken));
         }
 
         return BuildAggregateResult(outcomes, RunsHardened(context.Pipeline));

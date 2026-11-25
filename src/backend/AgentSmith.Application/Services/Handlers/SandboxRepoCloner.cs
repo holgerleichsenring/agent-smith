@@ -12,15 +12,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0331: the single "get this repo's source into these sandboxes" path —
-/// resolve the branch via ISourceProvider, then `git clone` + branch-switch
-/// inside each sandbox at /work. Extracted from CheckoutSourceHandler so the
-/// mid-run ensure_repo_sandbox escalation reuses the exact checkout the
-/// pipeline's CheckoutSource step performs (no second implementation to drift).
-/// Local providers trust the bind-mount and skip the clone.
-/// p0411: checkout is also where the sandbox's committing git identity is
-/// established — once, so the staging/commit/checkpoint paths stop re-writing a
-/// fact that has not changed since the repo arrived.
+/// p0331: the single "get this repo's source into these sandboxes" path — resolve the branch via ISourceProvider,
+/// then `git clone` + branch-switch inside each sandbox at its root (/work/&lt;repo&gt;); CheckoutSource and the
+/// mid-run ensure_repo_sandbox share it. Local providers trust the bind-mount and skip the clone. p0411: checkout
+/// is also where the sandbox's committing git identity is established, once.
 /// </summary>
 public sealed class SandboxRepoCloner(
     ISourceProviderFactory factory,
@@ -66,11 +61,9 @@ public sealed class SandboxRepoCloner(
         string? rung = null;
         foreach (var (key, sandbox) in sandboxes)
         {
-            var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config, credential), null, ct);
+            var clone = await CloneIntoRootAsync(sandbox, config, credential, ct);
             if (clone.ExitCode != 0) return FailWith(CloneProblem(key, clone), config);
-            // p0496: the identity comes BEFORE the branch switch. A base merge writes a
-            // merge commit, and a sandbox with no committing user cannot make one — a
-            // fast-forward passed without it and a three-way merge did not.
+            // p0496: the identity comes BEFORE the branch switch — a three-way base merge commits.
             await identity.EnsureConfiguredAsync(sandbox, ct);
             var placement = await branchCheckout.SwitchAsync(sandbox, config, branch, ct);
             if (placement.Problem is not null)
@@ -80,9 +73,18 @@ public sealed class SandboxRepoCloner(
         return RepoCheckout.Ready(repo, rung);
     }
 
-    // A fresh clone has no committing identity, so every path that produces a
-    // working sandbox ends here. The bind-mounted local repo goes through it too —
-    // the probe leaves an identity the operator already configured untouched.
+    // 2026-11-25-9992c: the clone lands IN the root, made first when it is not the workspace root.
+    private static async Task<StepResult> CloneIntoRootAsync(
+        ISandbox sandbox, RepoConnection config, GitCredential credential, CancellationToken ct)
+    {
+        var root = sandbox.WorkDirectory();
+        if (CheckoutStepFactory.BuildMakeRootStep(root) is { } makeRoot
+            && await sandbox.RunStepAsync(makeRoot, null, ct) is { ExitCode: not 0 } refused)
+            return refused;
+        return await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config, credential, root), null, ct);
+    }
+
+    // A fresh clone has no committing identity; a bind-mounted repo's configured one is left untouched.
     private async Task EnsureIdentityAsync(
         IReadOnlyList<KeyValuePair<string, ISandbox>> sandboxes, CancellationToken ct)
     {
@@ -90,9 +92,7 @@ public sealed class SandboxRepoCloner(
             await identity.EnsureConfiguredAsync(sandbox, ct);
     }
 
-    // 2026-08-25-014d: no part of the product judges an image by its name any more, so
-    // the image that turns out to carry no git is discovered right here — and says so,
-    // instead of leaving an operator to read `exit=-1` as a broken repository.
+    // 2026-08-25-014d: an image that carries no git is discovered here and named, never read as a broken repository.
     private static string CloneProblem(string key, StepResult clone) =>
         MissingGitInImage.Explains(clone)
             ? $"git clone into sandbox '{key}' could not start: {MissingGitInImage.Cause} "

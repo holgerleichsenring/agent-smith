@@ -30,7 +30,7 @@ public sealed class SandboxBaseBranch(ILogger<SandboxBaseBranch> logger)
         var result = await sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
                 Command: "git", Args: ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-                WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: TimeoutSeconds),
+                TimeoutSeconds: TimeoutSeconds),
             progress: null, cancellationToken);
         if (result.ExitCode != 0)
         {

@@ -97,7 +97,7 @@ public sealed class SpecFormatRun(
     {
         try
         {
-            return await runner.RunAsync(key, Stage, sandbox, Repository.SandboxWorkPath, invocation.CommandLine, ct);
+            return await runner.RunAsync(key, Stage, sandbox, sandbox.WorkDirectory(), invocation.CommandLine, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

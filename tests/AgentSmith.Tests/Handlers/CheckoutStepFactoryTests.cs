@@ -22,7 +22,7 @@ public sealed class CheckoutStepFactoryTests
     [Fact]
     public void RunCheckout_IsUnchanged_AndStillClonesTheWholeHistory()
     {
-        var args = CheckoutStepFactory.BuildCloneStep(Repo, Credential).Args!;
+        var args = CheckoutStepFactory.BuildCloneStep(Repo, Credential, "/work").Args!;
 
         args.Should().HaveCount(5, "the credential, the word, the url and the target — nothing else");
         args[0].Should().Be("-c");
@@ -32,7 +32,7 @@ public sealed class CheckoutStepFactoryTests
     [Fact]
     public void ScopeClone_AsksForOneBranchAtOneCommit()
     {
-        var args = CheckoutStepFactory.BuildScopeCloneStep(Repo, Credential).Args!;
+        var args = CheckoutStepFactory.BuildScopeCloneStep(Repo, Credential, "/work").Args!;
 
         args.Skip(2).Should().Equal(
             "clone", "--depth", "1", "--single-branch", "https://stub.test/repo-a", ".");
@@ -61,10 +61,42 @@ public sealed class CheckoutStepFactoryTests
     [Fact]
     public void CheckoutStepFactory_CloneStep_CarriesTheGivenCredentialAsGitToken()
     {
-        var step = CheckoutStepFactory.BuildCloneStep(Repo, new GitCredential("token-b"));
+        var step = CheckoutStepFactory.BuildCloneStep(Repo, new GitCredential("token-b"), "/work");
 
         step.Env.Should().ContainKey("GIT_TOKEN").WhoseValue.Should().Be("token-b");
     }
+
+    // 2026-11-25-9992c: a run repository's clone lands in its own root, which is made first.
+    [Fact]
+    public void BuildCloneStep_RepoRoot_ClonesIntoTheRoot()
+    {
+        var step = CheckoutStepFactory.BuildCloneStep(Repo, Credential, "/work/repo-a");
+
+        step.WorkingDirectory.Should().Be("/work/repo-a");
+        step.Args![^1].Should().Be(".");
+    }
+
+    [Theory]
+    [InlineData("/work/api", "/work", "api")]
+    [InlineData("/work/api/", "/work", "api")]
+    public void BuildMakeRootStep_RepoRoot_MakesTheLeafFromItsParent(string root, string from, string leaf)
+    {
+        var step = CheckoutStepFactory.BuildMakeRootStep(root)!;
+
+        step.Command.Should().Be("mkdir");
+        step.WorkingDirectory.Should().Be(from);
+        step.Args.Should().Equal("-p", leaf);
+    }
+
+    [Theory]
+    [InlineData("/work")]
+    [InlineData("/work/")]
+    public void BuildMakeRootStep_WorkspaceRoot_MakesNothing(string root) =>
+        CheckoutStepFactory.BuildMakeRootStep(root).Should().BeNull();
+
+    [Fact]
+    public void BuildCheckoutStep_NamesNoWorkingDirectory_SoItRunsAtTheSandboxRoot() =>
+        CheckoutStepFactory.BuildCheckoutStep("main").WorkingDirectory.Should().BeNull();
 
     [Fact]
     public void CreateRemoteBranch_NoCredential_SetsNoGitToken() =>

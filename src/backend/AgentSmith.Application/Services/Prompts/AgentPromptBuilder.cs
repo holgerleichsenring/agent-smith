@@ -53,13 +53,14 @@ public sealed class AgentPromptBuilder
         Plan plan, Repository repository, string? verifyNotes = null,
         IReadOnlyList<string>? contextKeys = null,
         IReadOnlyDictionary<string, string>? perKeyLanguages = null,
-        string? appliesTo = null)
+        string? appliesTo = null, string? repositoryPath = null)
     {
         var steps = string.Join('\n', plan.Steps.Select(
             s => $"  {s.Order}. [{s.ChangeType}] {s.Description} → {s.TargetFile}"));
 
+        // 2026-11-25-9992c: the path is the caller's — the repository's own root, Repository.WorkPathFor.
         return $"""
-            Execute the following implementation plan in repository at: {repository.LocalPath}
+            Execute the following implementation plan in repository{(repositoryPath is null ? string.Empty : $" at: {repositoryPath}")}
             Branch: {repository.CurrentBranch}
             {BuildAppliesToSection(appliesTo)}{BuildContextsInScopeSection(contextKeys, perKeyLanguages)}{BuildVerifyNotesSection(verifyNotes)}
             ## Plan

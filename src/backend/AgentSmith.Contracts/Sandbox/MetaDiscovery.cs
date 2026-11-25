@@ -4,7 +4,7 @@ namespace AgentSmith.Contracts.Sandbox;
 /// One discovered context inside a cloned repo's sandbox (p0161). Produced by
 /// IProjectMetaResolver.ResolveAllAsync via ISandboxFileReader after the
 /// sandbox is up. One MetaDiscovery per `.agentsmith/contexts/&lt;name&gt;/`
-/// sub-directory found under /work.
+/// sub-directory found under the sandbox's repository root.
 /// </summary>
 /// <param name="MetaDir">Absolute path to the context's `.agentsmith/contexts/&lt;name&gt;/` dir inside the sandbox.</param>
 /// <param name="ContextName">Sub-directory name (the context key).</param>

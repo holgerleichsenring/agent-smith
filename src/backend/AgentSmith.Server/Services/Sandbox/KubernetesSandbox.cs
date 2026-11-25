@@ -19,8 +19,11 @@ public sealed class KubernetesSandbox(
     int stepTimeoutCapSeconds,
     string toolchainImage,
     ResolvedSandboxSecrets injectedSecrets,
-    ILogger logger) : IHoldableSandbox, ISandboxToolchainImage, ISandboxSecretInjection, ISandboxExitReader
+    ILogger logger) : IHoldableSandbox, ISandboxToolchainImage, ISandboxSecretInjection, ISandboxExitReader, ISandboxWorkDirectory
 {
+    /// <summary>2026-11-25-9992c: the pod holds one tree at the workspace mount; a run repository's RepoSandbox names its own.</summary>
+    public string WorkDirectory => Domain.Entities.Repository.WorkspaceRoot;
+
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
     private readonly KubernetesPodExitReader _exits = new(client);
 

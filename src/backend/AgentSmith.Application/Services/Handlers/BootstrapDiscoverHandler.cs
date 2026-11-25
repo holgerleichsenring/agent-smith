@@ -113,18 +113,18 @@ public sealed class BootstrapDiscoverHandler(
             return DiscoverResult.Failed(CommandResult.Fail(
                 $"BootstrapDiscover: no ProjectMap available for repo '{repo.Name}'"));
 
-        var tools = BuildTools(sandbox, repository);
+        var tools = BuildTools(sandbox);
         var isInteractive = dialogueTransport is not null;
         var (system, user) = BootstrapDiscoverPromptFactory.Build(
-            skill, repository, repo.Name, projectMap, isInteractive, declared);
+            skill, repository, repo.Name, sandbox.WorkDirectory(), projectMap, isInteractive, declared);
         var responseText = await CallSkillAsync(context, skill, system, user, tools, repo.Name, ct);
 
         return ParseAndProject(repo, responseText, context.Pipeline);
     }
 
-    private IList<AITool> BuildTools(ISandbox sandbox, Repository repository)
+    private IList<AITool> BuildTools(ISandbox sandbox)
     {
-        var fs = new FilesystemToolHost(sandbox, repository.LocalPath);
+        var fs = new FilesystemToolHost(sandbox);
         var human = new HumanToolHost(dialogueTransport);
         return toolSurface.BootstrapDiscover(fs, human);
     }

@@ -14,8 +14,7 @@ public static class SeriesVerifySurface
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         var sandboxes = pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
-        var repository = pipeline.Get<Repository>(ContextKeys.Repository);
-        var fs = new FilesystemToolHost(sandboxes, sandboxes.Keys.First(), repository.LocalPath,
+        var fs = new FilesystemToolHost(sandboxes, sandboxes.Keys.First(),
             keyToRepo: pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, out var map) ? map : null);
         return [.. fs.GetTools(null, null).Where(t => Reads(t.Name))
             .Select(BoundedResultTool.Wrap), verdict.GetTool()];

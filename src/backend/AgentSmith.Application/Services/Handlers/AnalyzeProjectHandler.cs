@@ -12,8 +12,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Runs the agentic ProjectAnalyzer per discovered context (p0161a).
 /// Iterates ContextKeys.Sandboxes keys; per key analyzes the sub-tree at
-/// `/work/{discovery.Workdir}` (which is /work only where the declared workdir
-/// is "." and a sub-folder otherwise). Populates ContextKeys.RepoProjectMaps and
+/// `{sandbox root}/{discovery.Workdir}` (the sandbox's repository root where the declared
+/// workdir is "." and a sub-folder of it otherwise). Populates ContextKeys.RepoProjectMaps and
 /// ContextKeys.RepoCodeMaps (keyed by sandbox key) — the only analysis surface;
 /// p0384 removed the singular first-key collapse so downstream prompts see EVERY
 /// scoped repo. Cache I/O goes through p0182's IProjectMapStore — Redis on the
@@ -87,7 +87,7 @@ public sealed class AnalyzeProjectHandler(
         RemoteContextDiscovery discovery, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
-        var subTreePath = SubTreePath(discovery.Workdir);
+        var subTreePath = SubTreePath(sandbox, discovery.Workdir);
         var cacheKeyId = CacheKeyForDiscovery(key, discovery);
         // p0240: the repo HEAD SHA invalidates the cache on a source-only commit
         // — without it a stale ProjectMap was served whenever dependency
@@ -137,8 +137,8 @@ public sealed class AnalyzeProjectHandler(
         }
     }
 
-    private static string SubTreePath(string workdir) =>
-        workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";
+    private static string SubTreePath(ISandbox sandbox, string workdir) =>
+        workdir == "." ? sandbox.WorkDirectory() : sandbox.PathUnderRoot(workdir);
 
     private static string CacheKeyForDiscovery(string key, RemoteContextDiscovery discovery) =>
         discovery.Workdir == "." ? key : $"{key}@{discovery.Workdir}";

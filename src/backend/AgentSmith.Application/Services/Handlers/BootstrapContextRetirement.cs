@@ -39,13 +39,13 @@ public sealed class BootstrapContextRetirement(
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         ArgumentNullException.ThrowIfNull(derived);
-        var declared = await metaResolver.ResolveAllAsync(readerFactory.Create(sandbox), ct);
+        var declared = await metaResolver.ResolveAllAsync(readerFactory.Create(sandbox), sandbox.WorkDirectory(), ct);
         var retired = new List<string>();
         var refused = new List<string>();
         foreach (var context in declared)
         {
             if (derived.Contains(context.ContextName, StringComparer.Ordinal)) continue;
-            var paths = BootstrapPaths.For(context.ContextName);
+            var paths = BootstrapPaths.For(sandbox.WorkDirectory(), context.ContextName);
             var result = await sandbox.RunStepAsync(MoveStep(paths), progress: null, ct);
             if (result.ExitCode != 0)
             {

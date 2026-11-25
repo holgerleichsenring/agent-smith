@@ -250,7 +250,7 @@ public sealed class SourceScopeMaterialiserTests
     public void SourceScope_TheFourReads_AreUnchangedAgainstANarrowClone()
     {
         var served = Enum.GetValues<StepKind>()
-            .Where(kind => SourceScopeRefusal.Unless(Step(kind), SourceScopeWritePolicy.Nothing) is null)
+            .Where(kind => SourceScopeRefusal.Unless(Step(kind), new SourceScopeWritePolicy([], "/work")) is null)
             .ToList();
 
         served.Should().BeEquivalentTo(

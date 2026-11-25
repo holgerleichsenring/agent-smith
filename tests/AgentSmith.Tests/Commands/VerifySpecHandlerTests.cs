@@ -154,7 +154,7 @@ public sealed class VerifySpecHandlerTests
         await Handler().ExecuteAsync(context, CancellationToken.None);
 
         var test = sandbox.RanSteps.Single(s => CommandLineOf(s) == "dotnet test Sample.Tests.Unit");
-        test.WorkingDirectory.Should().Be(Repository.SandboxWorkPath,
+        test.WorkingDirectory.Should().Be(Repository.WorkspaceRoot,
             "meta.workdir says where the source lives, not where a command runs — the "
             + "analyzer wrote this path from the root, which is where it stood");
     }
@@ -168,7 +168,7 @@ public sealed class VerifySpecHandlerTests
         await Handler().ExecuteAsync(context, CancellationToken.None);
 
         var build = sandbox.RanSteps.Single(s => CommandLineOf(s) == "npm run build");
-        build.WorkingDirectory.Should().Be(Repository.SandboxWorkPath,
+        build.WorkingDirectory.Should().Be(Repository.WorkspaceRoot,
             "every command runs in the frame it was written in");
     }
 
@@ -412,7 +412,7 @@ public sealed class VerifySpecHandlerTests
         await Handler().ExecuteAsync(context, CancellationToken.None);
 
         sandbox.RanSteps.Single(s => CommandLineOf(s) == "dotnet test tests/Sample.Tests")
-            .WorkingDirectory.Should().Be(Repository.SandboxWorkPath);
+            .WorkingDirectory.Should().Be(Repository.WorkspaceRoot);
     }
 
     /// <summary>
@@ -453,7 +453,7 @@ public sealed class VerifySpecHandlerTests
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain($"run at {Repository.SandboxWorkPath}");
+        result.Message.Should().Contain($"run at {Repository.WorkspaceRoot}");
     }
 
     /// <summary>
@@ -500,7 +500,7 @@ public sealed class VerifySpecHandlerTests
             ["npm run lint", "npm run build"],
             "the declaration states the order, and both contexts are in this sandbox");
         ran.Select(s => s.WorkingDirectory).Should().Equal(
-            [Repository.SandboxWorkPath, Repository.SandboxWorkPath],
+            [Repository.WorkspaceRoot, Repository.WorkspaceRoot],
             "both declarations are honoured, and both run in the frame they were written "
             + "in — the collapse is about WHOSE stages run, not about where");
         sandbox.RanSteps.Should().NotContain(s => IsDotnet(s),
@@ -544,7 +544,7 @@ public sealed class VerifySpecHandlerTests
                     new ContextYamlVerifyStage("bundle", "make bundle", "bundle.yml"),
                     new ContextYamlVerifyStage("test", "make test")),
             ]);
-        sandbox.MissingPaths.Add($"{Repository.SandboxWorkPath}/bundle.yml");
+        sandbox.MissingPaths.Add($"{Repository.WorkspaceRoot}/bundle.yml");
 
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 

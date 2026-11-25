@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Pushes a WIP commit per repo when the pipeline failed mid-run after local
 /// changes exist. Iterates Configs and attempts the push per-repo in its own
-/// /work/{name}/ subdir; aggregates outcomes so the operator log lists each
+/// sandbox, at /work/{name}/; aggregates outcomes so the operator log lists each
 /// repo's result. Stamps the worst-case failure kind into
 /// ContextKeys.PersistFailureKind so the executor's wrapper can route logs
 /// accordingly.

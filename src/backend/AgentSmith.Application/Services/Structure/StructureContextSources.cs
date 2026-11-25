@@ -16,7 +16,7 @@ public sealed class StructureContextSources(
     /// <summary>The sources the context's context.yaml in the sandbox declares, empty when none.</summary>
     public async Task<IReadOnlyList<string>> WrittenAsync(ISandbox sandbox, string contextName, CancellationToken ct)
     {
-        var path = $"{ProjectMetaPaths.MetaDirFor(contextName)}/{ProjectMetaPaths.ContextYamlFile}";
+        var path = $"{ProjectMetaPaths.MetaDirFor(sandbox.WorkDirectory(), contextName)}/{ProjectMetaPaths.ContextYamlFile}";
         try
         {
             return Summary(await files.Create(sandbox).TryReadAsync(path, ct))?.Sources ?? [];

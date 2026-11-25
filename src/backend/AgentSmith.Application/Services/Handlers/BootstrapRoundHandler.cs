@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
@@ -59,7 +60,7 @@ public sealed class BootstrapRoundHandler(
                 + "carries a RepoProjectMaps entry)");
 
         var bundle = toolHostFactory.Create(
-            sandbox, repo.LocalPath, context.RepoName, context.ContextName, pipeline);
+            sandbox, sandbox.WorkDirectory(), context.RepoName, context.ContextName, pipeline);
         var appliesTo = ResolveAppliesTo(pipeline);
         var existing = await metaFiles.ReadAsync(sandbox, context.ContextName, cancellationToken);
         if (existing.Error is not null) return CommandResult.Fail(existing.Error);
@@ -72,7 +73,7 @@ public sealed class BootstrapRoundHandler(
             principlesPath, existing.Principles, cancellationToken);
         if (transfer.Error is not null) return CommandResult.Fail(transfer.Error);
         var (system, user) = BootstrapPromptFactory.Build(
-            role, repo, projectMap, context.ContextName, context.Workdir, appliesTo,
+            role, repo, sandbox.WorkDirectory(), projectMap, context.ContextName, context.Workdir, appliesTo,
             existing.ContextYaml, existing.Principles, transfer.Mode);
         var responseText = await CallSkillAsync(
             context, role, system, user, bundle.Tools, pipeline, cancellationToken);

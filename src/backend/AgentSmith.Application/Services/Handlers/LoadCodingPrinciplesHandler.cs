@@ -81,7 +81,7 @@ public sealed class LoadCodingPrinciplesHandler(
         RemoteContextDiscovery representative, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
-        var direct = Path.Combine(Repository.SandboxWorkPath, context.RelativePath);
+        var direct = sandbox.PathUnderRoot(context.RelativePath);
         if (await reader.ExistsAsync(direct, ct))
             return [new ContextDocument(key, null, null, direct, await reader.ReadRequiredAsync(direct, ct))];
 

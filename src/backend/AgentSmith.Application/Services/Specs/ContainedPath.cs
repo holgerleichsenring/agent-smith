@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Entities;
-
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
@@ -7,7 +5,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// enough: by the time the derivation runs, SetupRegistryAuth has written registry
 /// credentials under /root, and a file read or a grep pointed there would read them into
 /// the model's context and into the trace. So every path a look names is resolved under
-/// /work, and an absolute path or one that climbs out is refused before anything runs.
+/// the sandbox's repository root, and an absolute path or one that climbs out is refused before anything runs.
 /// </summary>
 internal static class ContainedPath
 {
@@ -39,9 +37,8 @@ internal static class ContainedPath
         return true;
     }
 
-    /// <summary>The absolute path inside the sandbox, for a reader that takes one.</summary>
-    public static string Absolute(string relative) =>
-        relative == Here
-            ? Repository.SandboxWorkPath
-            : $"{Repository.SandboxWorkPath}/{relative}";
+    /// <summary>The absolute path inside the sandbox, under its repository root <paramref name="root"/>
+    /// (ISandbox.WorkDirectory()), for a reader that takes one.</summary>
+    public static string Absolute(string root, string relative) =>
+        relative == Here ? root : $"{root.TrimEnd('/')}/{relative}";
 }

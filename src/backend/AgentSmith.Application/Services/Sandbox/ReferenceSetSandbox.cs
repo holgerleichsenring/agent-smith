@@ -32,11 +32,14 @@ public sealed class ReferenceSetSandbox(
     ReferenceSetMaterialiser materialiser,
     ILogger logger,
     SandboxStepWatch? watch = null,
-    ISourceScopeObserverAccessor? observers = null) : ISourceScopeSandbox
+    ISourceScopeObserverAccessor? observers = null) : ISourceScopeSandbox, ISandboxWorkDirectory
 {
+    /// <summary>2026-11-25-9992c: a single-tree sandbox; the upload's copy lies under the workspace root.</summary>
+    public string WorkDirectory => Domain.Entities.Repository.WorkspaceRoot;
+
     /// <summary>2026-11-09-9631a: the cached sandbox, and what happens when it turns out to be gone.</summary>
     private readonly ReopeningStepRunner _steps = new(address, watch, logger);
-    private readonly ReferenceReadLog _reads = new();
+    private readonly ReferenceReadLog _reads = new(Domain.Entities.Repository.WorkspaceRoot);
 
     public string RepoName => address;
 

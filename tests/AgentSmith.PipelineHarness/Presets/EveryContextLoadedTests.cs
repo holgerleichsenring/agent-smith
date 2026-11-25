@@ -89,17 +89,19 @@ public sealed class EveryContextLoadedTests
     private sealed class ContextFilesSandboxFactory : ISandboxFactory
     {
         public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken) =>
-            Task.FromResult<ISandbox>(new ContextFilesSandbox());
+            Task.FromResult<ISandbox>(new ContextFilesSandbox(
+                spec.RepoName is { } repo ? Domain.Entities.Repository.WorkPathFor(repo) : "/work"));
     }
 
-    private sealed class ContextFilesSandbox : ISandbox
+    // 2026-11-25-9992c: the files sit under the repository's root, /work/<repo> behind the run's RepoSandbox.
+    private sealed class ContextFilesSandbox(string root) : ISandbox
     {
-        private static readonly Dictionary<string, string> Files = new(StringComparer.Ordinal)
+        private readonly Dictionary<string, string> Files = new(StringComparer.Ordinal)
         {
-            ["/work/.agentsmith/contexts/backend/principles.md"] = BackendPrinciples,
-            ["/work/.agentsmith/contexts/frontend/principles.md"] = FrontendPrinciples,
-            ["/work/.agentsmith/contexts/backend/context.yaml"] = ContextYaml("backend"),
-            ["/work/.agentsmith/contexts/frontend/context.yaml"] = ContextYaml("frontend"),
+            [$"{root}/.agentsmith/contexts/backend/principles.md"] = BackendPrinciples,
+            [$"{root}/.agentsmith/contexts/frontend/principles.md"] = FrontendPrinciples,
+            [$"{root}/.agentsmith/contexts/backend/context.yaml"] = ContextYaml("backend"),
+            [$"{root}/.agentsmith/contexts/frontend/context.yaml"] = ContextYaml("frontend"),
         };
 
         private readonly StubSandbox _inner = new();
@@ -112,7 +114,7 @@ public sealed class EveryContextLoadedTests
                 return _inner.RunStepAsync(step, progress, cancellationToken);
             if (Files.TryGetValue(step.Path, out var content))
                 return Task.FromResult(Result(step, 0, content));
-            if (step.Path == "/work/.agentsmith/principles.md")
+            if (step.Path == $"{root}/.agentsmith/principles.md")
                 return Task.FromResult(Result(step, 1, null));
             return _inner.RunStepAsync(step, progress, cancellationToken);
         }

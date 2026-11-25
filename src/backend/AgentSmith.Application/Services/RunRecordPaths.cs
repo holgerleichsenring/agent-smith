@@ -24,8 +24,8 @@ public static class RunRecordPaths
 
     /// <summary>
     /// Repo-relative run-record dir the AGENT writes into. Relative on purpose —
-    /// the sandbox file tools root relative paths at /work (the repo root), the
-    /// same place WriteRunResultHandler resolves <c>Repository.LocalPath</c> to.
+    /// the sandbox file tools root relative paths at the repository root (/work/&lt;repo&gt;),
+    /// the same place WriteRunResultHandler's relative paths resolve to.
     /// </summary>
     public static string RelativeDir(string runId) =>
         $"{AgentSmithDir}/{RunsDir}/{DirName(runId)}";

@@ -219,7 +219,7 @@ public sealed class AgenticMasterHandler(
 
         logger.LogInformation(
             "Running master skill '{Skill}' for repo {Repo}",
-            context.MasterSkillName, context.Repository.LocalPath);
+            context.MasterSkillName, sandboxes[defaultKey].WorkDirectory());
         var runCommandTimeout = context.Pipeline.TryGet<int>(ContextKeys.RunCommandTimeoutSeconds, out var rct)
             ? rct : (int?)null;
         // p0495: the operator's step cap is the ceiling a run_command may ask for.
@@ -234,12 +234,13 @@ public sealed class AgenticMasterHandler(
         // runs, so every exit path hands the account what the agent ran, and a spliced
         // repair pass records onto the first pass's list instead of replacing it.
         var fs = new FilesystemToolHost(
-            sandboxes, defaultKey, context.Repository.LocalPath,
+            sandboxes, defaultKey,
             runCommandTimeoutSeconds: runCommandTimeout, stepTimeoutCapSeconds: stepTimeoutCap,
             keyToRepo: keyToRepo, logger: logger)
         { Commands = Specs.SpecRunCommandScope.Open(context.Pipeline), ResolvesUnprefixedReads = isSpecDialog, DraftReader = isSpecDialog ? SpecDialog.Writes.DraftFiles.Reader(context.Pipeline) : null }; // 85e2, 06fc
         templates.AttachTo(fs); // 2026-09-13-6f35: reachable by name, refused on write by kind
-        var records = recordHosts.Create(context.Pipeline, context.Repository.LocalPath, codingMaster: !isScanMaster && !isSpecDialog);
+        // 2026-11-25-9992c: "." — each repository's files are read through its own sandbox, which roots it.
+        var records = recordHosts.Create(context.Pipeline, ".", codingMaster: !isScanMaster && !isSpecDialog);
         // p0315b: the dialogue job id (spec-dialog: the session id) makes ask_human
         // live — questions publish on job:{id}:out and the thread's answers come
         // back on job:{id}:in. Absent (run jobs today) → the tool reports itself

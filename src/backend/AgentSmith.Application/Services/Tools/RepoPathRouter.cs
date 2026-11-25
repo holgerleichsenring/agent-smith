@@ -22,6 +22,16 @@ internal static class RepoPathRouter
         IReadOnlyDictionary<string, ISandbox> sandboxes, string? path) =>
         Match(sandboxes, path);
 
+    /// <summary>2026-11-25-9992c: a path written from the workspace root, /work/&lt;repo&gt;/..., as the repo-prefixed
+    /// form when what follows the root names a registered key; any other path as it came.</summary>
+    internal static string? Addressed(IReadOnlyDictionary<string, SandboxStepRunner> runners, string? path)
+    {
+        var rootPrefix = Domain.Entities.Repository.WorkspaceRoot + "/";
+        if (path is null || !path.StartsWith(rootPrefix, StringComparison.Ordinal)) return path;
+        var unrooted = path[rootPrefix.Length..];
+        return Match(runners, unrooted).Value is null ? path : unrooted;
+    }
+
     /// <summary>2026-11-17-5701f: the path below a leading '<paramref name="name"/>/', by the rule
     /// <see cref="Match{T}"/> routes on; null when the path does not start with the name and a slash, or names
     /// nothing below it.</summary>

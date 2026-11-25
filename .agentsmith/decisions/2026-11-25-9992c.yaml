@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992c
+
+decisions:
+  - category: Architecture
+    chose: "The sandbox knows where its repository is (ISandboxWorkDirectory + WorkDirectory() over the wrapper chain); RepoSandbox per run key roots a step's empty or relative working directory and paths at Repository.WorkPathFor(repo)"
+    over: "Threading a repository root parameter through every git and file helper, or teaching the agent a per-repo default"
+    reason: "Most helpers hold only an ISandbox; the sandbox is the one object that is always in hand. One agent serves several repositories once 9992b shares a container, so the agent cannot know the repository; the server-side handle can."
+  - category: Architecture
+    chose: "Repository.LocalPath and SandboxWorkPath are removed; WorkspaceRoot names the mount and WorkPathFor the one repository root"
+    over: "Giving Repository a name so LocalPath could return /work/<repo>"
+    reason: "Repository is a branch and a remote; 145 constructions would need a name the providers do not have, and the run-wide ContextKeys.Repository is one object for several repositories. Removing the member made the compiler list every site that assumed the root."
+  - category: Architecture
+    chose: "Every production ISandbox declares a root or wraps one, held by SandboxRootDeclarationRuleTests; the /work fallback of WorkDirectory() serves only test doubles"
+    over: "A silent /work default for any sandbox that names none"
+    reason: "Review: a run sandbox that lost its wrapper would work in the wrong place and every fake would agree; the ratchet makes a missing declaration a red test instead."
+  - category: Implementation
+    chose: "The clone runs from the root's parent with a relative target directory"
+    over: "git clone <url> /work/<repo> with an absolute target"
+    reason: "Backends translate a step's working directory and paths, never its arguments; the in-process sandbox serves /work from a host directory, so an absolute argument would clone onto the host's real /work."
+  - category: Scope
+    chose: "Read-only source scopes, reference sets, the browser, probes and PoC writes stay single-repo sandboxes at /work"
+    over: "Moving every sandbox to /work/<repo>"
+    reason: "They hold one tree and no sibling, so ../OtherRepo has nothing to find; they now read their root from the sandbox like every run caller."
+  - category: Implementation
+    chose: "In-process, a reused host source with a repository name is mounted at /work/<repo> beside an owned temp /work"
+    over: "Reusing the source as /work"
+    reason: "Keeps one path language across backends; its host siblings are visible as ../X there, which is the operator's own checkout."

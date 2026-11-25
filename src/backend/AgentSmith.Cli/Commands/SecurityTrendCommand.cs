@@ -3,6 +3,7 @@ using System.CommandLine.Invocation;
 using System.Globalization;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -52,7 +53,7 @@ internal static class SecurityTrendCommand
             var sandbox = new InProcessSandbox(Guid.NewGuid().ToString("N"), projectPath,
                 ownsWorkDir: false, InProcessStepEnvironment.For(null, []), NullLogger<InProcessSandbox>.Instance);
             var reader = new SandboxFileReaderFactory().Create(sandbox);
-            var sandboxSecurityDir = $"/work/.agentsmith/security";
+            var sandboxSecurityDir = sandbox.PathUnderRoot(".agentsmith/security");
             var snapshots = await new SnapshotYamlParser()
                 .LoadSnapshotsAsync(reader, sandboxSecurityDir, ctx.GetCancellationToken());
 

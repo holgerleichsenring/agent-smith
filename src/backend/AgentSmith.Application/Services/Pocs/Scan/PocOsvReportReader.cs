@@ -18,8 +18,7 @@ public sealed class PocOsvReportReader(ISandboxFileReaderFactory files)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         var split = await sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "sh", Args: ["-c", $"mkdir -p {Parts} && split -l {LinesPerPart} -a 4 {PocOsvRun.Report} {Parts}/p-"],
-            WorkingDirectory: Repository.SandboxWorkPath), null, ct);
+            Command: "sh", Args: ["-c", $"mkdir -p {Parts} && split -l {LinesPerPart} -a 4 {PocOsvRun.Report} {Parts}/p-"]), null, ct);
         if (split.ExitCode != 0) return null;
         var reader = files.Create(sandbox);
         var report = new System.Text.StringBuilder();

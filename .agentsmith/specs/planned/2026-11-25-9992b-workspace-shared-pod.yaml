@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992b
+goal: "A run gets one workspace: one pod (Kubernetes) or one shared volume (Docker) with a standard toolchain container per image, all mounting one /work, replacing one pod per repository."
+
+applies_to: "default (Contracts sandbox, Application coordinator/checkout/ensure_repo_sandbox/footprint/checkpoint, Server Kubernetes and Docker backends and reapers, Infrastructure in-process, harness)"
+
+requires: [2026-11-25-9992c]
+
+facts:
+  - claim: "The coordinator creates one sandbox per (repository, toolchain image) through ISandboxFactory, keyed by a composite key."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:79,245"
+  - claim: "A Kubernetes sandbox is a pod with the agent-loader init container and one toolchain container named toolchain over emptyDir /shared and /work; exit and readiness read that one name."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:30-31,138-143; src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodExitReader.cs:14,38; src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodWatcher.cs:87"
+  - claim: "A repository with two toolchain images is two clones, levelled before a stage by SandboxTreeSync."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxTreeSync.cs:9-20; src/backend/AgentSmith.Application/Services/Tools/GateStageToolHost.cs:60"
+  - claim: "ensure_repo_sandbox probes capacity for one more sandbox, then spawns through the run's coordinator and checks the source out."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs:94,119"
+  - claim: "The checkpoint commits and pushes each repository's work and swallows a failed push; it returns nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/RunWorkCheckpointer.cs:54,59-85"
+  - claim: "Liveness watchers can only be added or all disposed; a vanished heartbeat cancels the run."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ISandboxLivenessSupervisor.cs:11-18"
+  - claim: "The corpse reaper deletes one bus credential per pod, named by its pipeline-id label."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs:49; src/backend/AgentSmith.Server/Services/Sandbox/SandboxPodLabels.cs:33-42"
+  - claim: "The footprint reserves one pod per (repository, image) and sums their limits."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/RunFootprintCalculator.cs:31-50"
+
+scope:
+  in: "IWorkspaceFactory/IWorkspace/WorkspaceSpec: one workspace per run with one container per distinct toolchain image (each its own agent, job id and per-job bus credential) over one /work; containers share no process namespace. Kubernetes: one pod, containers toolchain-<n>, exit/readiness per container, every job id on an annotation the reapers read. Docker: one volume set, one loader, N containers; volumes removed with the workspace. In-process: one root. Coordinator: sandbox key -> container of its image through a workspace slot; git and lifecycle once per repository; the workspace released once; SandboxCreated per container. ensure_repo_sandbox: image present -> clone into the same /work, no probe; image missing -> restart: take the step gate (waits for steps in flight), push the checkpoint with a per-repository result, refuse when a tree stays dirty, probe the larger pod, dispose, create, restore every repository by clone + checkout of the run branch at its recorded head (mismatch fails the restart naming the repository), re-run registry auth and prerequisites for it, re-watch liveness, release the gate. A repository is cloned once; SandboxTreeSync and its spread/conflict types are removed. Footprint: one workspace pod, sum of its containers. Harness composes the workspace."
+  out: "Ephemeral containers. A per-node fit check (needs cluster-wide node reads); a pod too large for any node stays Pending and the watcher's unschedulable reason fails the spawn. Secret scoping and project feeds (2026-11-25-9992d). Single-repo sandboxes (source scope, browser, probes, PoC writes, design work clones) keep ISandboxFactory. Reference sets carried into a repository are not re-carried after a restart (they are re-read on demand)."
+
+done:
+  - "Two repositories with two images give one pod with two toolchain containers and one /work holding both repositories (PodSpecBuilder and coordinator tests)."
+  - "Docker builds one volume set and one container per image; in-process uses one root."
+  - "ensure_repo_sandbox with the image present clones without a restart or probe; with a missing image it restarts in the stated order and restores every repository at its head; a dirty tree or a head mismatch refuses or fails with the repository named (tests over a fake workspace factory)."
+  - "A repository with two images is cloned once and SandboxTreeSync is gone; reapers delete every job id's bus credential."
+  - "The footprint reports one workspace pod whose limits are the sum of its containers."
+  - "dotnet build, affected tests and the composition harness are green; the spec gate passes."

@@ -14,7 +14,6 @@ public sealed class RenderSourceStager(ReferenceSetMaterialiser sets, RepoRender
 {
     internal const string SetsRoot = "sets";
     internal const string MocksRoot = "mocks";
-    private const string WorkRoot = "/work";
 
     /// <summary>The staged source, or why it could not be staged.</summary>
     public async Task<(StagedSource? Staged, string? Refusal)> StageAsync(
@@ -26,13 +25,13 @@ public sealed class RenderSourceStager(ReferenceSetMaterialiser sets, RepoRender
         if (source is { Inline: { } inline, SetId: { } mock })
         {
             await sets.WriteUnderAsync(browser, inline, $"{MocksRoot}/{mock}", ct);
-            return (new StagedSource(null, $"{WorkRoot}/{MocksRoot}/{mock}", source.Page, []), null);
+            return (new StagedSource(null, browser.PathUnderRoot($"{MocksRoot}/{mock}"), source.Page, []), null);
         }
         if (source.SetId is { } setId)
         {
             var root = $"{SetsRoot}/{setId}";
             await sets.PrepareUnderAsync(browser, source.Session, setId, root, ct);
-            return (new StagedSource(null, $"{WorkRoot}/{root}", source.Page, []), null);
+            return (new StagedSource(null, browser.PathUnderRoot(root), source.Page, []), null);
         }
         return await repos.CopyAsync(browser, scope.RepoSandboxes, source.Repo, source.RepoPath!, ct);
     }

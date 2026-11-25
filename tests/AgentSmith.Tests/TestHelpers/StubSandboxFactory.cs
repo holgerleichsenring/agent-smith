@@ -69,7 +69,8 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     {
         var sandbox = new StubSandbox(
             MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles, ShellAnswers,
-            AdvancesHeadOnCommit, GitAnswers) { OnStep = Observe };
+            AdvancesHeadOnCommit, GitAnswers,
+            spec.RepoName is { } repo ? AgentSmith.Domain.Entities.Repository.WorkPathFor(repo) : "/work") { OnStep = Observe };
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

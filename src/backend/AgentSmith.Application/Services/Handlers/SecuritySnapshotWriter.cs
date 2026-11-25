@@ -66,7 +66,7 @@ public sealed class SecuritySnapshotWriter(
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
         var reader = readerFactory.Create(sandbox);
 
-        var securityDir = Path.Combine(repo.LocalPath, SecurityDir);
+        var securityDir = sandbox.PathUnderRoot(SecurityDir);
         var fileName = $"{snapshot.Date:yyyy-MM-dd}-{SanitizeBranch(snapshot.Branch)}.yaml";
         var filePath = Path.Combine(securityDir, fileName);
 

@@ -25,7 +25,7 @@ public sealed class DeploymentTemplateRead(
         try
         {
             await scope.MaterializeAsync(cancellationToken);
-            text = await files.Create(scope).TryReadAsync(ContainedPath.Absolute(path), cancellationToken);
+            text = await files.Create(scope).TryReadAsync(ContainedPath.Absolute(scope.WorkDirectory(), path), cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

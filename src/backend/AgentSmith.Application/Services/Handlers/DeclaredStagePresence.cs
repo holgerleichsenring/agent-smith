@@ -40,7 +40,7 @@ public sealed class DeclaredStagePresence(
         ArgumentNullException.ThrowIfNull(stage);
         if (string.IsNullOrWhiteSpace(stage.WhenPresent)) return true;
 
-        var path = FromRoot(stage.WhenPresent);
+        var path = sandbox.PathUnderRoot(FromRoot(stage.WhenPresent));
         if (await readerFactory.Create(sandbox).ExistsAsync(path, cancellationToken)) return true;
 
         logger.LogInformation(
@@ -50,9 +50,7 @@ public sealed class DeclaredStagePresence(
         return false;
     }
 
-    private static string FromRoot(string relative)
-    {
-        var trimmed = relative.Trim().Replace('\\', '/').TrimStart('/');
-        return $"{Repository.SandboxWorkPath.TrimEnd('/')}/{trimmed}";
-    }
+    // Under the sandbox's repository root (2026-11-25-9992c), whatever slashes the declaration wrote.
+    private static string FromRoot(string relative) =>
+        relative.Trim().Replace('\\', '/').TrimStart('/');
 }

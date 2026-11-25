@@ -53,4 +53,7 @@ public sealed record SandboxSpec(
     bool NoPackageCaches = false,
     // 2026-11-10-4778: the spawn fails closed when the bus credential it was issued is the shared one, because a
     // single job can fall back alone. Honored by the Docker and Kubernetes factories.
-    bool RequiresPerJobBus = false);
+    bool RequiresPerJobBus = false,
+    // 2026-11-25-9992c: the repository this sandbox serves, at /work/<repo>. The in-process
+    // backend mounts InitialSourcePath there; null for a single-repo sandbox, whose tree is /work.
+    string? RepoName = null);

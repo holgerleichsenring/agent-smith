@@ -91,7 +91,6 @@ public sealed class WorkCloneOpener(
             Args: ["-c", GitStepCredentials.Helper, "clone",
                 .. fullHistory ? new[] { "--single-branch" } : ["--depth", DefaultDepth.ToString(System.Globalization.CultureInfo.InvariantCulture), "--single-branch"],
                 repo.Url!, "."],
-            WorkingDirectory: Repository.SandboxWorkPath,
             Env: CloneEnv(credential),
             TimeoutSeconds: 300);
 
@@ -105,7 +104,7 @@ public sealed class WorkCloneOpener(
     public static Step CheckoutStep(string sha) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git", Args: ["checkout", "--detach", sha],
-            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: 60);
+            TimeoutSeconds: 60);
 
     private static string Text(StepResult result) =>
         (result.ErrorMessage ?? result.OutputContent ?? string.Empty).Trim();

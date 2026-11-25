@@ -104,7 +104,7 @@ public sealed class UnverifiedWorkReverter(
     {
         var result = await sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-                Command: "git", Args: args, WorkingDirectory: "/work", TimeoutSeconds: GitTimeoutSeconds),
+                Command: "git", Args: args, TimeoutSeconds: GitTimeoutSeconds),
             progress: null, ct);
         if (result.ExitCode == 0) return result.OutputContent ?? string.Empty;
         logger.LogWarning("git {Args} exited {Exit}: {Error}", string.Join(' ', args), result.ExitCode, result.ErrorMessage);

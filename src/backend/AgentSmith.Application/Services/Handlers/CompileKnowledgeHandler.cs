@@ -35,7 +35,7 @@ public sealed class CompileKnowledgeHandler(
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
         var reader = readerFactory.Create(sandbox);
 
-        var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
+        var agentDir = sandbox.PathUnderRoot(AgentSmithDir);
         var wikiDir = Path.Combine(agentDir, WikiDir);
         var runsDir = Path.Combine(agentDir, RunsDir);
 

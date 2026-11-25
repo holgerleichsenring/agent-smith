@@ -46,6 +46,5 @@ internal static class AuditCommands
 
     private static Step Run(string command, string[] args) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: command, Args: args, WorkingDirectory: Repository.SandboxWorkPath,
-            TimeoutSeconds: TimeoutSeconds);
+            Command: command, Args: args, TimeoutSeconds: TimeoutSeconds);
 }

@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
@@ -26,13 +27,16 @@ public sealed class SourceScopeSandbox(
     ISourceScopeObserverAccessor observers,
     ILogger logger,
     IReadOnlyCollection<string>? writablePrefixes = null,
-    SandboxStepWatch? watch = null) : ISourceScopeSandbox
+    SandboxStepWatch? watch = null) : ISourceScopeSandbox, ISandboxWorkDirectory
 {
+    /// <summary>2026-11-25-9992c: a source scope is a single-repo sandbox; its tree is the workspace root.</summary>
+    public string WorkDirectory => Repository.WorkspaceRoot;
+
     /// <summary>2026-11-09-9631a: the cached sandbox, and what happens when it turns out to be gone.</summary>
     private readonly ReopeningStepRunner _steps = new(repo.Name, watch, logger);
 
     /// <summary>2026-09-22-46ef: empty means every write is refused — the default.</summary>
-    private readonly SourceScopeWritePolicy _writes = new(writablePrefixes ?? []);
+    private readonly SourceScopeWritePolicy _writes = new(writablePrefixes ?? [], Repository.WorkspaceRoot);
 
     public string RepoName => repo.Name;
 

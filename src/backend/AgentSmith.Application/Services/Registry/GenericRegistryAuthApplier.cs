@@ -23,8 +23,6 @@ public sealed class GenericRegistryAuthApplier(
     AgentSmithConfig config,
     ILogger<GenericRegistryAuthApplier> logger)
 {
-    private const string WorkRoot = "/work";
-
     public async Task<IReadOnlyList<StagedAuthFile>> ApplyAsync(
         string repoKey, ISandbox sandbox, ISandboxFileReader reader,
         IReadOnlyList<string> listing, ISet<string> coveredHosts,
@@ -51,7 +49,7 @@ public sealed class GenericRegistryAuthApplier(
         RegistryAuthStagingResult result;
         try
         {
-            result = await stager.StageAsync(sandbox, WorkRoot, uncovered, agentFactory(), ct);
+            result = await stager.StageAsync(sandbox, sandbox.WorkDirectory(), uncovered, agentFactory(), ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {

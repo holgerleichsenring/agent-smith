@@ -59,7 +59,7 @@ public sealed class SpecDoneRecorder(
         var files = readerFactory.Create(target.Sandbox);
         var move = await doneFiles.WriteAsync(files, record.Spec, record.Body, ct);
         var index = await indexWriter.WriteAsync(pipeline, target.Sandbox, target.SandboxKey,
-            Repository.SandboxWorkPath, record.Spec.SpecId, record.IndexLine, ct);
+            target.Sandbox.WorkDirectory(), record.Spec.SpecId, record.IndexLine, ct);
         var executed = record.Set with { Executed = [.. record.Set.Executed, record.Spec.SpecId] };
         var manifest = seriesFiles.Manifest(executed.OfRepository(record.Carrier.Name));
         await files.WriteAsync(manifest.Path, manifest.Content, ct);

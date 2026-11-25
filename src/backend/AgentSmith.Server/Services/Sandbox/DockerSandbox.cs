@@ -19,8 +19,11 @@ public sealed class DockerSandbox(
     SandboxBusCredential bus,
     int stepTimeoutCapSeconds,
     string toolchainImage,
-    ILogger logger) : IHoldableSandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage, ISandboxExitReader
+    ILogger logger) : IHoldableSandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage, ISandboxExitReader, ISandboxWorkDirectory
 {
+    /// <summary>2026-11-25-9992c: the container holds one tree at the workspace mount; a run repository's RepoSandbox names its own.</summary>
+    public string WorkDirectory => Domain.Entities.Repository.WorkspaceRoot;
+
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
     private readonly DockerContainerProbe _probe = new(docker);
 

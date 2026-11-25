@@ -67,7 +67,7 @@ internal sealed class SourceScopeLook(ISourceScopeSandbox scope)
         // shared with a master's own greps.
         var step = new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Grep, TimeoutSeconds: TimeoutSeconds,
-            Path: ContainedPath.Absolute(under), Pattern: pattern, HeadLimit: HeadLimit,
+            Path: ContainedPath.Absolute(scope.WorkDirectory(), under), Pattern: pattern, HeadLimit: HeadLimit,
             SearchHidden: true);
         var result = await scope.RunStepAsync(step, progress: null, ct);
         if (result.ExitCode != 0 || result.OutputContent is null)
@@ -94,7 +94,7 @@ internal sealed class SourceScopeLook(ISourceScopeSandbox scope)
     {
         var step = new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile, TimeoutSeconds: TimeoutSeconds,
-            Path: ContainedPath.Absolute(under), WorkingDirectory: Repository.SandboxWorkPath);
+            Path: ContainedPath.Absolute(scope.WorkDirectory(), under));
         var result = await scope.RunStepAsync(step, progress: null, ct);
         if (result.ExitCode == 0) return new SourceScopeRead(result.OutputContent ?? string.Empty, Ran: true);
         return StepErrors.IsFileNotFound(result.ErrorMessage)

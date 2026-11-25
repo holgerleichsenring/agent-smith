@@ -26,10 +26,10 @@ public sealed class AcquireSourceHandler(
 
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
         var fileName = Path.GetFileName(sourceFilePath);
-        var targetPath = Path.Combine(Repository.SandboxWorkPath, fileName);
+        var targetPath = sandbox.PathUnderRoot(fileName);
         var content = await File.ReadAllBytesAsync(sourceFilePath, cancellationToken);
         var failure = await binaryWriter.WriteAsync(
-            sandbox, Repository.SandboxWorkPath, fileName, content, cancellationToken);
+            sandbox, sandbox.WorkDirectory(), fileName, content, cancellationToken);
         if (failure is not null)
             return CommandResult.Fail($"Could not place {fileName} in the sandbox: {failure}");
 

@@ -8,10 +8,9 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Runs git commit + push inside a per-repo sandbox where /work is the repo
-/// root (p0158e). Replaces LibGit2Sharp-based git ops in the handler chain.
-/// Caller passes the right per-repo sandbox; the working directory is always
-/// /work inside that sandbox.
+/// Runs git commit + push inside a per-repo sandbox (p0158e). Replaces LibGit2Sharp-based git ops in the
+/// handler chain. Caller passes the right per-repo sandbox; its steps name no working directory, so they run
+/// at that sandbox's repository root (2026-11-25-9992c: /work/&lt;repo&gt;).
 /// </summary>
 public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolver credentials,
     ILogger<SandboxGitOperations> logger, ISandboxFileReaderFactory readerFactory,

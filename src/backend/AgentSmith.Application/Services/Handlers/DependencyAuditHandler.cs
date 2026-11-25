@@ -23,11 +23,9 @@ public sealed class DependencyAuditHandler(
     public async Task<CommandResult> ExecuteAsync(
         DependencyAuditContext context, CancellationToken cancellationToken)
     {
-        var repo = context.Pipeline.Get<Repository>(ContextKeys.Repository);
-
-        logger.LogInformation("Starting dependency audit for {RepoPath}", repo.LocalPath);
-
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+        logger.LogInformation("Starting dependency audit for {RepoPath}", sandbox.WorkDirectory());
+
         var reader = readerFactory.Create(sandbox);
         var result = await dependencyAuditor.AuditAsync(sandbox, reader, cancellationToken);
 

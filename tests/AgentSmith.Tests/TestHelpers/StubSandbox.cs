@@ -17,9 +17,13 @@ internal sealed class StubSandbox(
     IReadOnlyDictionary<string, string>? sourceFiles = null,
     IReadOnlyDictionary<string, (int ExitCode, string Output)>? shellAnswers = null,
     bool advancesHead = false,
-    IReadOnlyDictionary<string, (int ExitCode, string Output)>? gitAnswers = null)
+    IReadOnlyDictionary<string, (int ExitCode, string Output)>? gitAnswers = null,
+    string root = "/work")
     : IHoldableSandbox, ISandboxToolchainImage
 {
+    // 2026-11-25-9992c: the repository's root the paths arrive under — /work/<repo> behind a RepoSandbox.
+    private readonly string _rootPrefix = root.TrimEnd('/') + "/";
+
     /// <summary>2026-10-12-50bda: the image a container backend would name; null (the default)
     /// records none, as the in-process backend does.</summary>
     public string ToolchainImage => toolchainImage!;
@@ -64,7 +68,7 @@ internal sealed class StubSandbox(
             Origin = step.Args?.FirstOrDefault(a => a.Contains("://", StringComparison.Ordinal));
         if (step.Kind == StepKind.WriteFile && step.Path is { } wp)
         {
-            var rel = wp.StartsWith("/work/", StringComparison.Ordinal) ? wp["/work/".Length..] : wp;
+            var rel = Normalize(wp);
             if (!rel.StartsWith('/') && !_stagedFiles.Contains(rel)) _stagedFiles.Add(rel);
             _writtenFiles[Normalize(wp)] = step.Content ?? string.Empty;
         }
@@ -167,8 +171,8 @@ internal sealed class StubSandbox(
         StepResult.CurrentSchemaVersion, step.StepId, exit, TimedOut: false, DurationSeconds: 0.01,
         ErrorMessage: null, OutputContent: output);
 
-    private static string Normalize(string path) =>
-        path.StartsWith("/work/", StringComparison.Ordinal) ? path["/work/".Length..] : path;
+    private string Normalize(string path) =>
+        path.StartsWith(_rootPrefix, StringComparison.Ordinal) ? path[_rootPrefix.Length..] : path;
 
     private static bool IsGitDiff(Step step) => IsGit(step, "diff");
 

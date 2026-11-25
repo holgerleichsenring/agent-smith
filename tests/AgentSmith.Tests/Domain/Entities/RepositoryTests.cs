@@ -7,12 +7,10 @@ namespace AgentSmith.Tests.Domain.Entities;
 public sealed class RepositoryTests
 {
     [Fact]
-    public void LocalPath_AlwaysReturnsWorkConstant()
+    public void WorkPathFor_RepoName_IsUnderTheWorkspaceRoot()
     {
-        var repo = new Repository(new BranchName("main"), "https://example.com/repo.git");
-
-        repo.LocalPath.Should().Be("/work");
-        repo.LocalPath.Should().Be(Repository.SandboxWorkPath);
+        Repository.WorkPathFor("api").Should().Be("/work/api");
+        Repository.WorkspaceRoot.Should().Be("/work");
     }
 
     [Fact]

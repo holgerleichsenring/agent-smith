@@ -9,33 +9,37 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// held upload (read without counting as what the turn opened), and a run's carried copy inside the carrying
 /// repository, whose paths are rooted at the copy so <c>reference:&lt;name&gt;/&lt;path&gt;</c> addresses both alike.
 /// </summary>
-public sealed class ReviewReferenceView : ISourceScopeSandbox
+public sealed class ReviewReferenceView : ISourceScopeSandbox, ISandboxWorkDirectory
 {
     private readonly Func<Step, CancellationToken, Task<StepResult>> _run;
     private readonly Func<bool> _materialized;
     private readonly Func<CancellationToken, Task<string>> _materialize;
     private readonly string _root;
 
-    private ReviewReferenceView(string address, string jobId, string root, Func<Step, CancellationToken, Task<StepResult>> run,
+    private ReviewReferenceView(string address, ISandbox source, string root, Func<Step, CancellationToken, Task<StepResult>> run,
         Func<bool> materialized, Func<CancellationToken, Task<string>> materialize)
     {
-        (RepoName, JobId, _root, _run, _materialized, _materialize) = (address, jobId, root, run, materialized, materialize);
+        (RepoName, JobId, WorkDirectory, _root, _run, _materialized, _materialize) =
+            (address, source.JobId, source.WorkDirectory(), root, run, materialized, materialize);
     }
 
     /// <summary>A design turn's held upload, under <paramref name="address"/>; a set's reads are not counted as the turn's.</summary>
     public static ReviewReferenceView Over(string address, ISourceScopeSandbox upload) => new(
-        address, upload.JobId, string.Empty,
+        address, upload, string.Empty,
         upload is ReferenceSetSandbox set ? set.RunUnrecordedAsync : (step, ct) => upload.RunStepAsync(step, null, ct),
         () => upload.IsMaterialized, upload.MaterializeAsync);
 
     /// <summary>A run's carried copy at <paramref name="root"/> inside <paramref name="repository"/>.</summary>
     public static ReviewReferenceView Carried(string address, ISandbox repository, string root) => new(
-        address, repository.JobId, root.Trim('/'), (step, ct) => repository.RunStepAsync(step, null, ct), () => true,
+        address, repository, root.Trim('/'), (step, ct) => repository.RunStepAsync(step, null, ct), () => true,
         _ => Task.FromResult(string.Empty));
 
     public string RepoName { get; }
 
     public string JobId { get; }
+
+    /// <summary>2026-11-25-9992c: the root of the sandbox behind the view, which absolute paths arrive under.</summary>
+    public string WorkDirectory { get; }
 
     public bool IsMaterialized => _materialized();
 
@@ -52,10 +56,10 @@ public sealed class ReviewReferenceView : ISourceScopeSandbox
         return _run(_root.Length == 0 ? step : step with { Path = Rooted(step.Path) }, cancellationToken);
     }
 
-    // A path arrives relative or under the work root ("/work/x"); either way the copy's root goes in front of it.
+    // A path arrives relative or under the source's root ("/work/api/x"); either way the copy's root goes in front of it.
     private string Rooted(string? path)
     {
-        const string work = Domain.Entities.Repository.SandboxWorkPath;
+        var work = WorkDirectory.TrimEnd('/');
         var absolute = path is not null && (path == work || path.StartsWith(work + "/", StringComparison.Ordinal));
         var rest = (absolute ? path![work.Length..] : path ?? string.Empty).Trim('/');
         var rooted = rest.Length == 0 || rest == "." ? _root : $"{_root}/{rest}";

@@ -17,13 +17,19 @@ public sealed class InProcessSandboxFactory(
         // ownsWorkDir tracks who is responsible for cleanup: we own (and must delete on
         // dispose) only the fallback temp dir we created. Reused InitialSourcePath is
         // the operator's working tree — DisposeAsync must never recursive-delete that.
+        //
+        // 2026-11-25-9992c: a run repository (spec.RepoName) lives at /work/<repo>, so its reused source is
+        // MOUNTED there and /work is a fresh owned dir; without a name the source still IS /work.
         var reuseSource = !string.IsNullOrEmpty(spec.InitialSourcePath) && Directory.Exists(spec.InitialSourcePath);
-        var workDir = reuseSource
+        var mount = reuseSource && !string.IsNullOrEmpty(spec.RepoName)
+            ? new InProcessRepoMount(spec.RepoName!, spec.InitialSourcePath!)
+            : null;
+        var workDir = reuseSource && mount is null
             ? spec.InitialSourcePath!
             : Path.Combine(Path.GetTempPath(), $"agentsmith-{jobId[..12]}");
         Directory.CreateDirectory(workDir);
-        var sandbox = new InProcessSandbox(jobId, workDir, ownsWorkDir: !reuseSource,
-            environment.Read(), loggerFactory.CreateLogger<InProcessSandbox>());
+        var sandbox = new InProcessSandbox(jobId, workDir, ownsWorkDir: workDir != spec.InitialSourcePath,
+            environment.Read(), loggerFactory.CreateLogger<InProcessSandbox>(), mount);
         return Task.FromResult<ISandbox>(sandbox);
     }
 }

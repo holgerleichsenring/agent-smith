@@ -82,7 +82,7 @@ public sealed class RepositoryFileReadTool(
     private async Task<SourceScopeRead> ReadAt(
         ISandbox sandbox, SourceScopeLook? opened, string under, CancellationToken ct) =>
         opened is null
-            ? new SourceScopeRead(await files.Create(sandbox).TryReadAsync(ContainedPath.Absolute(under), ct), Ran: true)
+            ? new SourceScopeRead(await files.Create(sandbox).TryReadAsync(ContainedPath.Absolute(sandbox.WorkDirectory(), under), ct), Ran: true)
             : await opened.ReadAsync(under, ct);
 
     /// <summary>

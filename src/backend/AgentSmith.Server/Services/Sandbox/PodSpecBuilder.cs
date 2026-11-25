@@ -13,7 +13,7 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels, PodSecurity podSecur
     private const string SharedVolume = "agent-shared";
     private const string WorkVolume = "agent-work";
     private const string SharedMount = "/shared";
-    private const string WorkMount = "/work";
+    private const string WorkMount = Domain.Entities.Repository.WorkspaceRoot;
 
     public V1Pod Build(string podName, string jobId, string redisUrl, SandboxSpec spec, V1OwnerReference? owner)
     {

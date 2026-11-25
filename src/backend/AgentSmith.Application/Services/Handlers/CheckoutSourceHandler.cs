@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Checks out the run's repos. Iterates Configs: each repo is cloned into
-/// its OWN per-repo sandbox at /work (the per-repo sandbox is created by
+/// its OWN per-repo sandbox at /work/&lt;repo&gt; (the per-repo sandbox is created by
 /// PipelineSandboxCoordinator before this handler runs). Local providers
 /// trust the sandbox bind-mount and skip the clone. The primary Repository
 /// (Configs[0]) is published on ContextKeys.Repository for downstream skills
@@ -48,7 +48,7 @@ public sealed class CheckoutSourceHandler(
         for (var i = 0; i < context.Configs.Count; i++)
         {
             var config = context.Configs[i];
-            logger.LogInformation("Checking out {Repo} into its sandbox(es) at /work...", config.Name);
+            logger.LogInformation("Checking out {Repo} into its sandbox(es) at {Root}...", config.Name, Repository.WorkPathFor(config.Name));
             var checkout = await cloner.CheckoutIntoSandboxesAsync(
                 config, context.Branch,
                 sandboxTargets.SandboxesForRepo(context.Pipeline, config), ct);

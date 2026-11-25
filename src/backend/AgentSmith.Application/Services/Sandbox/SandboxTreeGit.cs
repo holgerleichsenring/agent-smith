@@ -76,7 +76,7 @@ public sealed class SandboxTreeGit(ISandboxBinaryFileWriter bytes, SandboxGitIde
     /// <summary>Applies an encoded change to the index and working tree; null on success, else git's reason.</summary>
     public async Task<string?> ApplyAsync(ISandbox sandbox, string encoded, bool checkOnly, CancellationToken ct)
     {
-        if (await bytes.WriteAsync(sandbox, Repository.SandboxWorkPath, PatchPath,
+        if (await bytes.WriteAsync(sandbox, sandbox.WorkDirectory(), PatchPath,
                 Convert.FromBase64String(encoded), ct) is { } failed)
             return failed;
         string[] args = checkOnly
@@ -107,6 +107,6 @@ public sealed class SandboxTreeGit(ISandboxBinaryFileWriter bytes, SandboxGitIde
         ISandbox sandbox, string command, IReadOnlyList<string> args, CancellationToken ct) =>
         sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: command, Args: args,
-                WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: GitTimeoutSeconds),
+                TimeoutSeconds: GitTimeoutSeconds),
             progress: null, ct);
 }

@@ -48,7 +48,7 @@ public sealed class VerifyStageResolver(
         if (contexts.Count > 0)
             return await DeclaredAsync(key, sandbox, contexts, notes, ct);
 
-        var inferred = Inferred(key, map);
+        var inferred = Inferred(key, map, sandbox.WorkDirectory());
         if (inferred.Count > 0) return inferred;
 
         // 2026-08-31-77a8: a repository that declared nothing has no source left. It is
@@ -87,7 +87,7 @@ public sealed class VerifyStageResolver(
             }
             if (!await presence.IsSatisfiedAsync(key, stage, sandbox, ct))
                 continue;
-            stages.Add(new VerifyStage(stage.Label, stage.Command, Repository.SandboxWorkPath));
+            stages.Add(new VerifyStage(stage.Label, stage.Command, sandbox.WorkDirectory()));
         }
         if (stages.Count == 0)
             notes.EveryDeclaredStageSkipped(key, contexts.Sum(c => c.Stages.Count));
@@ -95,13 +95,13 @@ public sealed class VerifyStageResolver(
     }
 
     // 2026-09-03-7bac: the analyzer's ci commands run where the analyzer stood — its
-    // tools resolve '.' to /work whatever sub-tree it was pointed at, so its paths are
+    // tools resolve '.' to the repository root whatever sub-tree it was pointed at, so its paths are
     // root-relative. Run 5a18 proves it both ways: one directory down, its bare
     // 'dotnet build' passed while 'dotnet test <sibling test project>' could not find a
     // project that exists at the root.
     // p0451: a command the ANALYZER guessed and that cannot fail is filtered out and the
     // resolver falls through — the framework's own guess is not authoritative.
-    private List<VerifyStage> Inferred(string key, ProjectMap? map)
+    private List<VerifyStage> Inferred(string key, ProjectMap? map, string root)
     {
         foreach (var (stage, command) in Stages(map?.Ci))
             if (!string.IsNullOrWhiteSpace(command) && !VerificationCommand.CanFail(command))
@@ -110,7 +110,7 @@ public sealed class VerifyStageResolver(
                     key, stage, command);
         return [.. Stages(map?.Ci)
             .Where(s => VerificationCommand.CanFail(s.Command))
-            .Select(s => new VerifyStage(s.Stage, s.Command!, Repository.SandboxWorkPath))];
+            .Select(s => new VerifyStage(s.Stage, s.Command!, root))];
     }
 
     private static string Named(string key) => string.IsNullOrEmpty(key) ? "(default)" : key;

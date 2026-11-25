@@ -98,9 +98,9 @@ public sealed class TargetProbeTests
         var step = sandbox.RanSteps.Should().ContainSingle().Subject;
         step.Command.Should().Be("/bin/sh", "an injected credential is reached as $VAR");
         step.Args.Should().Equal(["-c", Command]);
-        step.WorkingDirectory.Should().Be("/work",
-            "2026-09-03-7bac: a probe runs where every other command runs; the declaring "
-            + "context's meta.workdir places nothing");
+        step.WorkingDirectory.Should().BeNull(
+            "2026-09-03-7bac: a probe runs where every other command runs — 2026-11-25-9992c: at its sandbox's "
+            + "repository root, which the step leaves to the sandbox; the declaring context's meta.workdir places nothing");
     }
 
     private static readonly ContextYamlTargetProbe Probe = new(Target, Command);

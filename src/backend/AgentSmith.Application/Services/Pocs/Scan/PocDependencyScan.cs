@@ -49,7 +49,7 @@ public sealed class PocDependencyScan(
         if (result.ExitCode is not (0 or 1))
             return PocDependencyResult.Failed($"osv-scanner exited {result.ExitCode}: {(result.ErrorMessage ?? result.OutputContent ?? string.Empty).Trim()} "
                 + $"(its vulnerability database comes from {PocOsvRun.DatabaseHost} through the sandbox's egress)");
-        var found = await reports.ReadAsync(sandbox, ct) is { } json ? parser.Parse(json, $"{Repository.SandboxWorkPath}/{PocOsvRun.LockfileRoot}/") : null;
+        var found = await reports.ReadAsync(sandbox, ct) is { } json ? parser.Parse(json, sandbox.PathUnderRoot($"{PocOsvRun.LockfileRoot}/")) : null;
         return found is null ? PocDependencyResult.Failed($"osv-scanner's report ({PocOsvRun.Report}) could not be read or parsed") : new PocDependencyResult(found, notes);
     }
 

@@ -80,8 +80,7 @@ public sealed class GitBranchPusher(IEventPublisher events, IRunContextAccessor 
         ISandbox sandbox, string[] args, IReadOnlyDictionary<string, string>? env, CancellationToken ct) =>
         sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-                Command: "git", Args: args, WorkingDirectory: Repository.SandboxWorkPath,
-                Env: env, TimeoutSeconds: GitTimeoutSeconds),
+                Command: "git", Args: args, Env: env, TimeoutSeconds: GitTimeoutSeconds),
             progress: null, ct);
 
     private static bool Mentions(StepResult result, string phrase) =>

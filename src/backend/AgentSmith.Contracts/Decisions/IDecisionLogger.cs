@@ -11,8 +11,8 @@ public interface IDecisionLogger
     /// <summary>
     /// Records one decision. <paramref name="repositoryFiles"/> is the TARGET REPOSITORY's file
     /// surface — the sandbox the run checked it out into — not a path on the host running this
-    /// process: the repository root is the sandbox mount <c>/work</c> (Repository.SandboxWorkPath),
-    /// which exists only inside that sandbox. Null for a caller that has no repository in hand; the
+    /// process: the repository root is a sandbox path (ISandbox.WorkDirectory(), /work/&lt;repo&gt; for a run's
+    /// repository), which exists only inside that sandbox. Null for a caller that has no repository in hand; the
     /// decision is then mirrored to the run's event stream only.
     /// </summary>
     Task<DecisionLogOutcome> LogAsync(ISandboxFileReader? repositoryFiles, DecisionCategory category,

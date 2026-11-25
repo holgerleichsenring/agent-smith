@@ -34,7 +34,7 @@ public sealed class SandboxRunStartCommit(ILogger<SandboxRunStartCommit> logger)
                 Command: "git",
                 Args: ["log", "--format=%H", "--fixed-strings",
                     $"--grep={RunCheckpointCommit.MessageFor(runId)}", "HEAD"],
-                WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: TimeoutSeconds),
+                TimeoutSeconds: TimeoutSeconds),
             progress: null, cancellationToken);
         if (result.ExitCode != 0)
         {

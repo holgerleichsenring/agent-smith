@@ -47,8 +47,7 @@ public sealed class BranchChangedFiles(
     {
         var result = await sandbox.RunStepAsync(
             new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-                Command: "git", Args: args, WorkingDirectory: Repository.SandboxWorkPath,
-                TimeoutSeconds: GitTimeoutSeconds),
+                Command: "git", Args: args, TimeoutSeconds: GitTimeoutSeconds),
             progress: null, cancellationToken);
         return result.ExitCode == 0 ? result.OutputContent ?? string.Empty : null;
     }

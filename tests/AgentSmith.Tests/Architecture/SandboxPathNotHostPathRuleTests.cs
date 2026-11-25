@@ -4,8 +4,8 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Architecture;
 
 /// <summary>
-/// 2026-09-19-c511a: the repository root of a run is the sandbox mount <c>/work</c>, which exists
-/// inside the sandbox and nowhere else. A file in <c>AgentSmith.Application</c> or
+/// 2026-09-19-c511a: the repository root of a run is a sandbox path (2026-11-25-9992c: /work/&lt;repo&gt;, named by
+/// ISandbox.WorkDirectory() or Repository.WorkPathFor), which exists inside the sandbox and nowhere else. A file in <c>AgentSmith.Application</c> or
 /// <c>AgentSmith.Infrastructure.Core</c> that names that path and ALSO calls System.IO is one
 /// refactor away from doing to the host what FileDecisionLogger did: compose
 /// <c>/work/.agentsmith/decisions/…</c> and hand it to Directory.CreateDirectory in the server
@@ -41,7 +41,7 @@ public sealed class SandboxPathNotHostPathRuleTests
     };
 
     private static readonly Regex SandboxWorkPath = new(
-        @"Repository\.LocalPath|SandboxWorkPath|""/work""", RegexOptions.Compiled);
+        @"Repository\.(WorkspaceRoot|WorkPathFor)|\.WorkDirectory\(\)|PathUnderRoot|""/work""", RegexOptions.Compiled);
 
     private static readonly Regex HostFileSystem = new(
         @"\bDirectory\.(CreateDirectory|Exists|EnumerateFiles|GetFiles|Delete)\(|"
