@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.221.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.220.0...v0.221.0) (2026-11-25)
+
+
+### Features
+
+* **review:** one project setting review: end | each | none replaces the merge-policy switches, migrated once; a series ticket squashes into its series branch and the final PR sums up each ticket (2026-11-25-9992i) ([b635b13](https://github.com/holgerleichsenring/agent-smith/commit/b635b1301a8db067b33468a9d5ba551481612c92))
+* **series-master:** CI results, PR changes, trusted comments and run ends wake the series master, and it asks before its budget is spent (2026-11-25-9992g) ([342d4bc](https://github.com/holgerleichsenring/agent-smith/commit/342d4bc8cab12db303366f94bce2f63f246a71de))
+* **series-master:** merge/refresh/retarget/CI and edit tools, event wakes, one review setting (2026-11-25-9992e/f/g/i) ([3b2385c](https://github.com/holgerleichsenring/agent-smith/commit/3b2385c3065b801cc686741251e7542bfe97a677))
+* **series-master:** the series master adds tickets to its series through the filing run and re-links their requirements; propose_recut is gone (2026-11-25-9992f) ([23496d1](https://github.com/holgerleichsenring/agent-smith/commit/23496d1fa0a1aed8dd129154a87a331a185a257b))
+* **workspace:** a run is one pod with a toolchain container per image over one /work (2026-11-25-9992b) ([cc8501a](https://github.com/holgerleichsenring/agent-smith/commit/cc8501a25ce333f15facb5526764ea2bf3529015))
+* **workspace:** one workspace per run, repos at /work/&lt;repo&gt;, scoped secrets and project feeds (2026-11-25-9992b/c/d) ([6ff9ef5](https://github.com/holgerleichsenring/agent-smith/commit/6ff9ef5b9ca1948438c244d321ad71978761d07c))
+* **workspace:** repository-scoped secrets per command and private feeds per project (2026-11-25-9992d) ([21d59f1](https://github.com/holgerleichsenring/agent-smith/commit/21d59f1f12c59a50682af80c37015c04c179ab13))
+
 ## [0.220.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.219.0...v0.220.0) (2026-11-25)
 
 
