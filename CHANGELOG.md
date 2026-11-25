@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.223.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.223.0...v0.223.1) (2026-11-25)
+
+
+### Bug Fixes
+
+* **dashboard:** proxy target from AGENTSMITH_BACKEND_URL at container start (2026-11-25-7f25a) ([9dde394](https://github.com/holgerleichsenring/agent-smith/commit/9dde394cafafa9fb3635daac4ce33adcf67bdfb7))
+* **dashboard:** the image proxies /api and /hub to the AGENTSMITH_BACKEND_URL set at container start (2026-11-25-7f25a) ([1c56d0d](https://github.com/holgerleichsenring/agent-smith/commit/1c56d0daddced41b9eed10f3628420687ee7e7f2)), closes [#900](https://github.com/holgerleichsenring/agent-smith/issues/900)
+* **tickets:** the GitHub lifecycle-label PATCH sends no If-Match (2026-11-25-7f25b) ([bcaae85](https://github.com/holgerleichsenring/agent-smith/commit/bcaae8562e4f283485cc2e2bdc3d4841d1bcd305))
+* **tickets:** the GitHub lifecycle-label PATCH sends no If-Match (2026-11-25-7f25b) ([1e78fc3](https://github.com/holgerleichsenring/agent-smith/commit/1e78fc3e7c982b1d946824a259a8a65981aa16f1)), closes [#827](https://github.com/holgerleichsenring/agent-smith/issues/827)
+
 ## [0.223.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.222.0...v0.223.0) (2026-11-25)
 
 
