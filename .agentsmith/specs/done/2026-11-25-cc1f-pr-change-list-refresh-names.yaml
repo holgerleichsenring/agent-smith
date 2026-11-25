@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-cc1f
+goal: "GitHub and GitLab polling list every open pull request with a refresh name of its target, head, draft, conflict and review state, so any such change re-reads its record."
+
+applies_to: "default (Infrastructure GitHub and GitLab changed pull-request listers)"
+
+requires: [2026-11-25-7a92d, 2026-10-13-9a59c]
+
+facts:
+  - claim: "GitHub lists an open pull request only when a review was submitted after the cursor, so a retarget, a push, a draft lift or a new conflict without a review re-reads nothing."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubChangedPullRequests.cs:38-49"
+  - claim: "GitLab lists merge requests updated after the cursor; a conflict GitLab computes after the target moved need not touch updated_at."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabChangedPullRequests.cs:15-36; observed: 2026-11-25, https://docs.gitlab.com/api/merge_requests/ (updated_after; detailed_merge_status is computed asynchronously)"
+  - claim: "The sweep nudges a Dedupe-named item once per name; a RefreshOnly item only re-reads the record; the cursor moves to the newest item's At."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepSources.cs:55-64; src/backend/AgentSmith.Server/Services/Sweep/SweepCursorPolicy.cs:15-20"
+  - claim: "Azure names its refresh items by the pull request and its reviewers' votes (being widened separately to target, merge status, draft and head)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposChangedPullRequests.cs:32-39"
+
+scope:
+  in: |
+    Beside today's items, each open pull request is listed RefreshOnly with Dedupe 'refresh|<url>|<target>|<head>|<draft>|<conflict>|<reviews>':
+    GitHub from the same paged query (baseRefName, headRefOid, isDraft, mergeable, latestReviews state and time); GitLab from a
+    listing of open merge requests (target_branch, sha, draft, the conflict reading GitLabMergeRequestRead already makes), newest
+    first, with the same page budget as the act read. A pull request without reviews is listed too. Such an item carries the read's own since, so it
+    never moves the cursor. The sweep nudges a refresh name when it differs from the last one nudged for that pull request (one
+    entry per pull request), so a state that returns is read again; act names keep nudge-once.
+  out: "Azure's lister (changed in its own spec). The act items and their cursor semantics (unchanged)."
+
+done:
+  - "GitHub: two reads of one pull request differing only in base, head, draft, mergeable or a review give different refresh names; identical reads give the same; one with no reviews is listed."
+  - "GitLab: the same for target, sha, draft and conflict; the act listing's items are unchanged."
+  - "No refresh item moves the sweep cursor."
+  - "The sweep re-reads a pull request whose state returns to an earlier name (ready, draft, ready again) and not an unchanged one."
