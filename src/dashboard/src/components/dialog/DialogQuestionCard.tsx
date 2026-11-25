@@ -27,18 +27,25 @@ interface Control {
   label: string;
   answer: string;
   primary: boolean;
+  recommended?: boolean;
 }
 
 export function DialogQuestionCard({
   question,
   onAnswer,
+  recommended = null,
+  hint,
 }: {
   question: SpecDialogQuestionPush;
   onAnswer: (answer: string) => void;
+  /** 2026-11-25-9992j: the index of the recommended choice, drawn as the primary button and marked so. */
+  recommended?: number | null;
+  /** 2026-11-25-9992j: what writing below does, where it is not the edit note of a proposal. */
+  hint?: string;
 }) {
   const t = useT();
   const expired = hasExpired(question);
-  const controls = expired ? [] : controlsFor(t, question);
+  const controls = expired ? [] : controlsFor(t, question, recommended);
   return (
     <div
       data-testid="dialog-question"
@@ -59,6 +66,7 @@ export function DialogQuestionCard({
             className={control.primary ? "btn primary" : "btn"}
           >
             {control.label}
+            {control.recommended && <span className="ml-1 opacity-80">({t("dialog.question.recommended")})</span>}
           </button>
         ))}
         {/* 2026-09-17-042ek: an EXPIRED card promised a revision it cannot deliver — the
@@ -66,16 +74,16 @@ export function DialogQuestionCard({
         <span className="ec-sub min-w-44 flex-1">
           {expired
             ? t("dialog.question.expiredHint")
-            : t("dialog.question.noteHint")}
+            : hint ?? t("dialog.question.noteHint")}
         </span>
       </div>
     </div>
   );
 }
 
-function controlsFor(t: T, question: SpecDialogQuestionPush): Control[] {
+function controlsFor(t: T, question: SpecDialogQuestionPush, recommended: number | null): Control[] {
   if (question.kind === "approval") return [];
-  if (question.choices.length > 0) return question.choices.map(asControl);
+  if (question.choices.length > 0) return question.choices.map((choice, at) => asControl(choice, at === recommended));
   if (question.kind === "confirmation")
     return [
       { label: t("dialog.question.yes"), answer: "yes", primary: true },
@@ -85,6 +93,6 @@ function controlsFor(t: T, question: SpecDialogQuestionPush): Control[] {
   return [];
 }
 
-function asControl(choice: SpecDialogChoice): Control {
-  return { label: choice.label, answer: choice.label, primary: false };
+function asControl(choice: SpecDialogChoice, recommended: boolean): Control {
+  return { label: choice.label, answer: choice.label, primary: recommended, recommended };
 }

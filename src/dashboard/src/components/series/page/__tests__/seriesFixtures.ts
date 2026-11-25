@@ -6,7 +6,7 @@ import type { SeriesRunDetail, SeriesRunPullRequest, SeriesRunTicket } from "@/t
 export function seriesTicket(over: Partial<SeriesRunTicket> = {}): SeriesRunTicket {
   return {
     ticketId: "48", key: "#48", title: "Approval contracts", followUp: false, depth: 0, requires: [], repos: ["server"],
-    landed: false, status: null, pullRequests: [], kind: over.landed ? "merged" : "waiting", state: "", ci: null, working: false, ...over,
+    landed: false, status: null, pullRequests: [], kind: over.landed ? "merged" : "waiting", state: "", ci: null, working: false, costUsd: 0, ...over,
   };
 }
 
@@ -21,7 +21,7 @@ export function seriesDetail(over: Partial<SeriesRunDetail> = {}): SeriesRunDeta
       seriesTicket({ ticketId: "49", key: "#49", title: "Domain", depth: 1, kind: "pr", ci: "green",
         pullRequests: [{ repo: "server", number: "9935", url: "u", state: "open", ci: "green", ciFailure: null, ciLog: null, target: null }] }),
     ],
-    mergeOrder: [], repos: ["server", "worker"], costUsd: 41.2, threadId: "d-thread1", conversationOpen: true, edges: [], workingOn: [], ...over,
+    mergeOrder: [], repos: ["server", "worker"], costUsd: 41.2, threadId: "d-thread1", conversationOpen: true, edges: [], workingOn: [], questionChoices: [], questionRecommended: null, ...over,
   };
 }
 

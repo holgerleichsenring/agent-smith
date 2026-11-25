@@ -54,7 +54,7 @@ export function yourMove(
 ): YourMove {
   const hold = view.hold ?? null;
   const move = hold && hold.addressee !== "nobody" ? heldMove(view, hold, endDetail ?? null, t) : moveOf(view, bucket, t);
-  // 2026-11-23-31dch: a plan question's act opens the series' conversation; the others answer here.
+  // 2026-11-23-31dch: a plan question's act opens the series' conversation; 2026-11-25-9992j: so does any question in an active series.
   const question = hold?.case === "question" || hold?.case === "question_environment";
   // 2026-11-23-d60d: several open pull requests name no single one — the block's rows under the box are the way on.
   const next = move.act ? actLabel(t, move.act, question)

@@ -1,23 +1,26 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useT } from "@/hooks/useT";
 import { SERIES_PATH } from "@/lib/seriesRunAddress";
 import type { SeriesRunDetail } from "@/types/seriesRuns";
 import "@/styles/ticket-thread.css";
 import "@/styles/series.css";
-import { SERIES_SECTION_PARAM, seriesSectionOf, seriesSections } from "./seriesPageSections";
+import { SeriesConversationSection } from "./SeriesConversationSection";
+import { SeriesOverviewSection } from "./SeriesOverviewSection";
 import { SeriesSectionBar } from "./SeriesSectionBar";
-import { useSeriesMerge } from "./useSeriesMerge";
 import { useSeriesRunDetail } from "./useSeriesRunDetail";
 
-// 2026-11-23-31dcd: one series, built like the ticket page — its bar beside the icon-only sidebar and ONE section
-// beside it, the one ?section= names (the first listed one without it). Selecting a section rewrites the address.
-// 2026-11-23-f562: the Overview is the first section; Your next step is gone, its lines are the Overview's You're up.
+// 2026-11-23-31dcd: one series, built like the ticket page — its bar beside the icon-only sidebar.
+// 2026-11-25-9992j: ONE pane — the graph (what the series stands at) and the series chat below it, the page's only input.
+// The sections are gone; an older ?section=talk link scrolls to the chat, any other name lands on the top.
+
+export const SERIES_CHAT_ID = "series-chat";
 
 export function SeriesRunPage({ id }: { id: string }) {
-  const { read, reload } = useSeriesRunDetail(id);
+  const { read } = useSeriesRunDetail(id);
   const t = useT();
   if (read.kind !== "read") {
     return (
@@ -31,30 +34,26 @@ export function SeriesRunPage({ id }: { id: string }) {
       </div>
     );
   }
-  return <SeriesSections detail={read.detail} reload={reload} />;
+  return <SeriesPane detail={read.detail} />;
 }
 
-function SeriesSections({ detail, reload }: { detail: SeriesRunDetail; reload: () => void }) {
+function SeriesPane({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
   const params = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname() ?? SERIES_PATH;
-  const section = seriesSectionOf(params?.get(SERIES_SECTION_PARAM) ?? null);
-  const merge = useSeriesMerge(detail.id, reload); // 2026-11-23-8d16: the page's one merge act
-  const select = (next: string) => {
-    const query = new URLSearchParams(params?.toString() ?? "");
-    if (next === seriesSections[0].id) query.delete(SERIES_SECTION_PARAM);
-    else query.set(SERIES_SECTION_PARAM, next);
-    const search = query.toString();
-    router.replace(search ? `${pathname}?${search}` : pathname, { scroll: false });
-  };
+  const chat = useRef<HTMLElement>(null);
+  const toChat = params?.get("section") === "talk";
+  useEffect(() => { if (toChat) chat.current?.scrollIntoView?.({ block: "start" }); }, [toChat]);
   return (
     <div className="mock-shell mock-tickets tk-shell" data-testid="series-page">
-      <SeriesSectionBar detail={detail} current={section} onSelect={select} />
-      <main className="main tk-page" data-section={section.id}>
-        <div className="tk-heading"><h1 data-testid="series-section-title">{t(section.label)}</h1></div>
-        <section className="tk-pane" data-testid={`series-pane-${section.id}`}>
-          <section.Pane detail={detail} reload={reload} merge={merge} />
+      <SeriesSectionBar detail={detail} />
+      <main className="main tk-page">
+        <div className="tk-heading"><h1 data-testid="series-title">{detail.name}</h1></div>
+        <section className="tk-pane" data-testid="series-pane">
+          <SeriesOverviewSection detail={detail} />
+          <section ref={chat} id={SERIES_CHAT_ID} className="sr-chat" aria-label={t("series.chat.title")} data-testid="series-chat">
+            <h2>{t("series.chat.title")}</h2>
+            <SeriesConversationSection detail={detail} />
+          </section>
         </section>
       </main>
     </div>
