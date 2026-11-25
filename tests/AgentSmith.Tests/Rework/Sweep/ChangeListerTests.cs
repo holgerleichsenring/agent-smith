@@ -65,7 +65,7 @@ public sealed class ChangeListerTests
 
         var page = await new GitHubChangedPullRequests(client, GitHubRepoAddress.Parse("https://github.com/o/r")).ChangedSinceAsync(Since, null, 10, CancellationToken.None);
 
-        page.Items.Select(i => i.PrUrl).Should().Equal("https://github.com/o/r/pull/p1", "https://github.com/o/r/pull/p2");
+        page.Items.Where(i => i.Dedupe is null).Select(i => i.PrUrl).Should().Equal("https://github.com/o/r/pull/p1", "https://github.com/o/r/pull/p2");
     }
 
     private static string Page(string id, bool hasNext, string? cursor) => $$"""

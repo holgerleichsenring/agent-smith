@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-7a92d
+goal: "After a refresh pushes, GitHub hides the earlier refusal comments agent-smith posted (IPrMarkedThreadResolver) as resolved, as Azure resolves its threads."
+
+applies_to: "default (Infrastructure GitHub source provider; Contracts docs)"
+
+requires: [2026-11-25-7a92c, 2026-11-24-5ee0]
+
+facts:
+  - claim: "The refresh posts its refusal through PostCommentAsync with the marker '<!-- agent-smith:base-refresh -->'; after a pushed refresh the follow-up resolves marked threads only through IPrMarkedThreadResolver, which only Azure implements."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RefreshBranchBaseHandler.cs:32,74-77; src/backend/AgentSmith.Application/Services/BaseRefresh/RefreshedPullRequestFollowUp.cs:30-40"
+  - claim: "On GitHub that comment is an issue comment; on GitLab a plain note, which is not resolvable and blocks nothing."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:181-188; src/backend/AgentSmith.Contracts/Providers/IPrMarkedThreadResolver.cs:3-8; https://docs.gitlab.com/user/project/merge_requests/"
+  - claim: "A GitHub issue comment cannot be resolved; minimizeComment hides it with a classifier, RESOLVED being 'the content has been resolved'; IssueComment has isMinimized and viewerDidAuthor."
+    evidence: "observed: 2026-11-25, https://docs.github.com/en/graphql/reference/issues ; https://docs.github.com/en/graphql/reference/meta"
+  - claim: "Azure resolves only the token's own threads, since a marker is text anyone can paste."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposMarkedThreads.cs:7-11"
+
+scope:
+  in: "GitHub: the PR's comments the viewer authored, starting with the marker and not minimized, are minimized as RESOLVED, paged through all comments; one refused comment leaves the rest. On GitHub this is cosmetic: an issue comment never blocks a merge. Contract doc updated."
+  out: "GitLab (its notice is a plain note, nothing to resolve). Deleting the notices."
+
+done:
+  - "Of comments (ours marked, ours marked already minimized, a stranger's marked, ours unmarked) one is minimized as RESOLVED; count 1; a second page is read."
+  - "The real SourceProviderFactory's GitHub provider is an IPrMarkedThreadResolver."

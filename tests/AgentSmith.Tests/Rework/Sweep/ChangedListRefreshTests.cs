@@ -149,7 +149,7 @@ public sealed class ChangedListRefreshTests
 
         var page = await new GitHubChangedPullRequests(GitHubGraphQlHost.Replying(reply), GitHubRepoAddress.Parse("https://github.com/o/r")).ChangedSinceAsync(Since, null, 10, CancellationToken.None);
 
-        page.Items.Select(i => (i.PrUrl, i.RefreshOnly)).Should().Equal(
+        page.Items.Where(i => i.Dedupe is null).Select(i => (i.PrUrl, i.RefreshOnly)).Should().Equal(
             ("https://github.com/o/r/pull/1", true), ("https://github.com/o/r/pull/2", false));
     }
 
@@ -178,5 +178,33 @@ public sealed class ChangedListRefreshTests
 
         nudges.Select(n => n.Origin).Should().Equal(ReworkNudgeOrigin.Refresh, ReworkNudgeOrigin.Sweep);
         nudges[0].IsLate.Should().BeTrue("a sweep's refresh never pulls a backing-off nudge forward");
+    }
+
+    // 2026-11-25-cc1f: a refresh name is the pull request's state — one that returns (ready, draft, ready) is read again.
+    [Fact]
+    public async Task ChangeSweep_ARefreshNameThatReturns_IsReadAgain_AnUnchangedOneIsNot()
+    {
+        var attempts = new Mock<IPreviousAttemptReader>();
+        attempts.Setup(a => a.LatestAsync("p", "12", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PreviousAttempt("run-1", "success", Since, true));
+        var nudges = new List<ReworkNudgeRequest>();
+        var queue = new Mock<IReworkNudges>();
+        queue.Setup(n => n.EnqueueAsync(It.IsAny<ReworkNudgeRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<ReworkNudgeRequest, CancellationToken>((r, _) => nudges.Add(r)).Returns(Task.CompletedTask);
+        var tracker = new TrackerConnection { Name = "t", Polling = new PollingConfig { Enabled = true } };
+        var config = new AgentSmithConfig { Projects = new() { ["p"] = new() { Name = "p", Tracker = tracker,
+            Repos = [new RepoConnection { Name = "r", Url = "https://github.com/o/r", Type = RepoType.GitHub }] } } };
+        var provider = new Mock<ISourceProvider>();
+        provider.As<IChangedPullRequestLister>();
+        var sources = new Mock<ISourceProviderFactory>();
+        sources.Setup(s => s.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
+        var source = new ChangeSweepSources(Mock.Of<ITicketProviderFactory>(), sources.Object, new ConfiguredRepoFinder(), attempts.Object, queue.Object)
+            .For(config, [tracker]).Single();
+
+        foreach (var name in new[] { "ready", "ready", "draft", "ready" })
+            await source.NudgeAsync(new ChangedItem(Since, PrUrl: "https://github.com/o/r/pull/1", HeadRef: "agent-smith/12",
+                Dedupe: $"refresh|https://github.com/o/r/pull/1|{name}", RefreshOnly: true), CancellationToken.None);
+
+        nudges.Should().HaveCount(3, "ready, draft and ready again; the repeated ready is unchanged");
     }
 }

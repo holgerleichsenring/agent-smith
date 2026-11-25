@@ -1108,13 +1108,14 @@ export const coreMessages = {
   },
   "hold.wait.ci_running": { en: "CI has been running since {at}", de: "Die CI läuft seit {at}" },
   // 2026-11-23-0219: a required build that never started is no wait — it does not start by itself.
+  // 2026-11-25-7a92a: on GitLab it may wait on a manual job, so the step names both: queue the build or start its manual job.
   "hold.sentence.ci_not_started": {
-    en: "The required build has not started on its pull request and will not start by itself: queue it on the host, or merge it from its series once CI is green.",
-    de: "Der Pflicht-Build ist auf seinem Pull Request nicht gestartet und startet nicht von selbst: stoß ihn auf dem Host an oder merge ihn aus seiner Serie, sobald die CI grün ist.",
+    en: "The required build has not started on its pull request and will not start by itself: queue it on the host (or start its manual job), or merge it from its series once CI is green.",
+    de: "Der Pflicht-Build ist auf seinem Pull Request nicht gestartet und startet nicht von selbst: stoß ihn auf dem Host an (oder starte seinen manuellen Job) oder merge ihn aus seiner Serie, sobald die CI grün ist.",
   },
   "hold.escalated.ci_not_started": {
-    en: "The required build has not started for {duration}: queue it on the host. Longer than {minutes} minutes ({key}), reported to the admin.",
-    de: "Der Pflicht-Build ist seit {duration} nicht gestartet: stoß ihn auf dem Host an. Länger als {minutes} Minuten ({key}), an den Admin gemeldet.",
+    en: "The required build has not started for {duration}: queue it on the host, or start its manual job. Longer than {minutes} minutes ({key}), reported to the admin.",
+    de: "Der Pflicht-Build ist seit {duration} nicht gestartet: stoß ihn auf dem Host an oder starte seinen manuellen Job. Länger als {minutes} Minuten ({key}), an den Admin gemeldet.",
   },
   "hold.title.merge_ready": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
   "hold.title.ci_failed": { en: "Your move: CI failed", de: "Du bist dran: die CI ist fehlgeschlagen" },

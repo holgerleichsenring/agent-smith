@@ -22,13 +22,21 @@ A red, partial or record-only run never merges, whatever the policy. Neither doe
 `respect_branch_protection` decides who has the last word:
 
 - **Off (default):** the merge goes past branch policies, required reviews and required checks, which exist for people. The token needs the permission to bypass them: on Azure DevOps *Bypass policies when completing pull requests*; on GitHub repository admin with bypassing allowed, or the token's actor on the ruleset's bypass list. GitLab has no API bypass for required approvals or pipelines, so it merges when its merge checks allow.
-- **On:** codeably arms the host's own mechanism (auto-complete on Azure DevOps, auto-merge on GitHub, merge when the pipeline succeeds on GitLab) and the host's rules decide.
+- **On:** codeably arms the host's own mechanism (auto-complete on Azure DevOps, auto-merge on GitHub, merge when the pipeline succeeds on GitLab) and the host's rules decide. Azure DevOps drops auto-complete at a merge conflict, and GitLab drops auto-merge when new commits arrive. Once the pull request merges cleanly on its new head, codeably arms it again, once per head, whoever pushed; the host's merge checks (approvals, the pipeline) still decide. If you take it off a head that hasn't changed, it stays off. GitHub keeps auto-merge through codeably's pushes, so nothing needs arming there.
 
 Where the host requires an approval, `approval_auth` names the secret of a second identity that approves. GitHub never lets the author approve its own pull request, so a required review there needs one. A refusal leaves the pull request open and the run's result names the reason, the missing permission and the key to change.
 
 ## Reading CI
 
 Every open pull request's CI is read with its record and shown on the ticket page: `none`, `pending`, `green` or `red`. A pending CI is read again every `ci_poll_seconds` for up to `ci_pending_seconds`, whatever the project's merge mode, because who acts next on a pull request depends on its CI. A CI still running after `holds.escalate_after_minutes` is reported to the admin. One rule for every host: where checks are marked required, only those count; any failed check is red; otherwise anything running is pending; otherwise green.
+
+A required build that hasn't started on the head and won't start by itself reads `not_started`. The ticket says what to do, and after `ci_settle_seconds` codeably queues it again once per spell, where the host allows it:
+
+- **Azure DevOps**: an expired build policy, or one queued with no build on the head. Its evaluation is queued again.
+- **GitHub**: a check run GitHub marked stale, which gets its Actions workflow run re-run. A required check (ruleset or branch protection) that never reported on a head that has stood for `ci_settle_seconds`, with nothing else running, has no run to re-run, so the ticket asks you to start it.
+- **GitLab**: a head pipeline waiting for a manual job, which a person has to run. A head that has stood for `ci_settle_seconds` without a pipeline, when an earlier head had one or GitLab says a pipeline must pass, gets a merge-request pipeline, or a pipeline on the source branch if that's refused, as long as the default branch has a CI file.
+
+On GitHub and GitLab, runs of a pull request from a fork are never started. A head that reports nothing into a series branch is left to the series start below.
 
 For a red head, codeably stores which checks failed, with a bounded excerpt of the evidence (the host's summary and annotations, then the end of the log) and a link. GitHub check runs and statuses, Azure DevOps build policies and statuses, and GitLab head pipelines are all read. The token needs read access to checks and logs on GitHub, Build (read) on Azure DevOps and `read_api` on GitLab.
 

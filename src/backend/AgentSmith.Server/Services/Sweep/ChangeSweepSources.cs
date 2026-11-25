@@ -26,6 +26,10 @@ public sealed class ChangeSweepSources(
 {
     private readonly HashSet<string> _nudgedOnce = new(StringComparer.Ordinal);
 
+    // 2026-11-25-cc1f: a refresh name is a pull request's state; it is nudged when it differs from the one last nudged for that
+    // pull request, so a state that returns (ready, draft, ready again) is read again, and one entry per pull request is kept.
+    private readonly Dictionary<string, string> _lastRefresh = new(StringComparer.Ordinal);
+
     public IReadOnlyList<SweepSource> For(AgentSmithConfig config, IEnumerable<TrackerConnection> polling)
     {
         var list = new List<SweepSource>();
@@ -54,13 +58,21 @@ public sealed class ChangeSweepSources(
     private async Task NudgePullRequestAsync(AgentSmithConfig config, RepoConnection repo, ChangedItem item, CancellationToken ct)
     {
         if (!item.SameRepository || TicketBranchNamer.TicketOf(item.HeadRef) is not { } ticket) return;
-        if (item.Dedupe is not null && !_nudgedOnce.Add(item.Dedupe)) return;
+        if (item.Dedupe is not null && !Fresh(item)) return;
         var owners = new List<string>();
         foreach (var owner in repoFinder.FindAll(config, repo.Url!))
             if (await attempts.LatestAsync(owner.ProjectName, ticket, null, ct) is not null) owners.Add(owner.ProjectName);
         if (owners.Count == 1)
             await nudges.EnqueueAsync(new ReworkNudgeRequest(owners[0], ticket,
                 item.RefreshOnly ? ReworkNudgeOrigin.Refresh : ReworkNudgeOrigin.Sweep, item.PrUrl), ct);
+    }
+
+    private bool Fresh(ChangedItem item)
+    {
+        if (!item.RefreshOnly || item.PrUrl is not { } url) return _nudgedOnce.Add(item.Dedupe!);
+        if (_lastRefresh.TryGetValue(url, out var last) && last == item.Dedupe) return false;
+        _lastRefresh[url] = item.Dedupe!;
+        return true;
     }
 
     // A cursor key fits an indexed column; a long repository URL is named by its hash.

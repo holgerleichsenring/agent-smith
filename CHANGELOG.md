@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.213.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.212.2...v0.213.0) (2026-11-25)
+
+
+### Features
+
+* after a pushed refresh GitHub hides agent-smith's own earlier refusal comments as resolved, as Azure resolves its threads (2026-11-25-7a92d) ([d60be43](https://github.com/holgerleichsenring/agent-smith/commit/d60be4389d163cd1605f0a3f36f40791ca34179e))
+* GitHub and GitLab CI reads say not_started for a stale check run, a manual pipeline, and on a settled head an absent required check or a missing head pipeline (2026-11-25-7a92a) ([21d6b31](https://github.com/holgerleichsenring/agent-smith/commit/21d6b31f948875fcb7469ad14af774d63dda9f64))
+* GitHub and GitLab polling re-read a pull request's record when its target, head, draft, conflict or review state changes, reviewed or not (2026-11-25-cc1f) ([8007852](https://github.com/holgerleichsenring/agent-smith/commit/8007852a5243231e8898a9efe659db9450ddb620))
+* GitHub and GitLab pull requests handled as Azure DevOps does — CI not started, re-queue, auto-merge re-arm, marked notices, change-list refresh names (2026-11-25-7a92a..d, cc1f) ([37a5b03](https://github.com/holgerleichsenring/agent-smith/commit/37a5b03fdbc48dc1d42f2a687cddc9848e46d561))
+* GitHub re-runs a stale Actions run and GitLab starts a settled head's missing pipeline when CI has not started, never for a fork or on a fresh push (2026-11-25-7a92b) ([f8414ec](https://github.com/holgerleichsenring/agent-smith/commit/f8414ec610cc5769a0e238dbb99208281c9a0a7c))
+* GitLab reports whether auto-merge is set and arms it again after a new head cancelled it, as Azure re-arms auto-complete; GitHub keeps auto-merge and needs none (2026-11-25-7a92c) ([0c6b3c0](https://github.com/holgerleichsenring/agent-smith/commit/0c6b3c04dd2c5af75cf101e6a9e73d5419f6def3))
+
 ## [0.212.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.212.1...v0.212.2) (2026-11-25)
 
 

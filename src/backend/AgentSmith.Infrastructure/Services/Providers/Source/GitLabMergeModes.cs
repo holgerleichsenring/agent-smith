@@ -29,7 +29,8 @@ public sealed class GitLabMergeModes(
             : completion;
     }
 
-    private async Task<PullRequestCompletion> ArmAsync(string prUrl, CancellationToken ct)
+    /// <summary>Asks GitLab to merge when the pipeline succeeds; 2026-11-25-7a92c: also the re-arm's arming.</summary>
+    public async Task<PullRequestCompletion> ArmAsync(string prUrl, CancellationToken ct)
     {
         if (!GitLabMergeRequestUpdater.TryParseMergeRequestIid(prUrl, out var iid))
             return PullRequestCompletion.Refused($"'{prUrl}' is not a GitLab merge request URL.");

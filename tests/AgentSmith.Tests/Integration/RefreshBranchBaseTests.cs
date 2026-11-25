@@ -486,7 +486,7 @@ public sealed class RefreshBranchBaseTests
     {
         host.As<IPrMarkedThreadResolver>().Setup(r => r.ResolveMarkedThreadsAsync("5", RefreshBranchBaseHandler.Marker, It.IsAny<CancellationToken>()))
             .Callback(() => _followed.Add("resolve")).ReturnsAsync(1);
-        host.As<AgentSmith.Contracts.Reviews.IPullRequestBuildRequeuer>().Setup(q => q.RequeueNotStartedAsync(PrUrl, It.IsAny<CancellationToken>()))
+        host.As<AgentSmith.Contracts.Reviews.IPullRequestBuildRequeuer>().Setup(q => q.RequeueNotStartedAsync(PrUrl, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .Callback(() => _followed.Add("requeue")).ReturnsAsync(1);
     }
 }

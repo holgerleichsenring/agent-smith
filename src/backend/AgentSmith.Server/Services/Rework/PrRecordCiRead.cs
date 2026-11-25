@@ -20,7 +20,7 @@ public sealed class PrRecordCiRead(ILogger<PrRecordCiRead> logger)
         if (record.State != PrReviewStates.Open || provider is not IPullRequestCiReader reader) return;
         var evidenceStored = stored?.Ci is { State: CiStates.Red } ci && ci.IsOn(record.HeadSha);
         var request = new CiReadRequest(record.HeadSha, project.Merge.CiExcerptChars,
-            evidenceStored ? 0 : project.Merge.CiFailedChecksRead);
+            evidenceStored ? 0 : project.Merge.CiFailedChecksRead) { HeadSettled = Settled(project, record, stored) };
         try
         {
             var read = await reader.ReadCiAsync(record.Url, request, ct);
@@ -34,4 +34,10 @@ public sealed class PrRecordCiRead(ILogger<PrRecordCiRead> logger)
             logger.LogWarning(ex, "The CI of {Url} could not be read; the stored CI stands", record.Url);
         }
     }
+
+    /// <summary>2026-11-25-7a92a: the head this read sees is the one stored, and has stood since it moved there (or since the pull
+    /// request opened) for merge.ci_settle_seconds — only then may a host call "nothing on this head" not started.</summary>
+    internal static bool Settled(ResolvedProject project, PrReviewRecord record, PrReviewRecordView? stored) =>
+        stored is { HeadSha: { } was } && was == record.HeadSha && (stored.HeadMovedAt ?? stored.StateAt) is { } since
+        && new DateTimeOffset(record.CheckedAtTicks, TimeSpan.Zero) - since >= TimeSpan.FromSeconds(project.Merge.CiSettleSeconds);
 }

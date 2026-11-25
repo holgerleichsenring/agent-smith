@@ -28,12 +28,21 @@ public static class GitHubCiContexts
         && suite.TryGetProperty("app", out var app) && app.ValueKind == JsonValueKind.Object && Str(app, "slug") == "github-actions"
         && node.TryGetProperty("databaseId", out var id) && id.ValueKind == JsonValueKind.Number ? id.GetInt64() : null;
 
+    /// <summary>2026-11-25-7a92a: a commit status GitHub expects and nobody has reported yet.</summary>
+    public static bool IsExpected(JsonElement node) => !IsCheckRun(node) && Str(node, "state") == "EXPECTED";
+
     private static bool IsCheckRun(JsonElement node) => Str(node, "__typename") == "CheckRun";
 
+    // 2026-11-25-7a92a: STALE is a run GitHub gave up on after 14 days incomplete — it never finished, nothing finishes it.
+    // SUCCESS, NEUTRAL and SKIPPED are GitHub's successful conclusions.
     private static CiCheckOutcome RunOutcome(JsonElement node) =>
         Str(node, "status") != "COMPLETED" ? CiCheckOutcome.Pending
-        : Str(node, "conclusion") is "FAILURE" or "TIMED_OUT" or "CANCELLED" or "ACTION_REQUIRED" or "STARTUP_FAILURE"
-            ? CiCheckOutcome.Failed : CiCheckOutcome.Passed;
+        : Str(node, "conclusion") switch
+        {
+            "FAILURE" or "TIMED_OUT" or "CANCELLED" or "ACTION_REQUIRED" or "STARTUP_FAILURE" => CiCheckOutcome.Failed,
+            "STALE" => CiCheckOutcome.NotStarted,
+            _ => CiCheckOutcome.Passed,
+        };
 
     private static CiCheckOutcome StatusOutcome(string? state) => state switch
     {
