@@ -15,17 +15,17 @@ namespace AgentSmith.Server.Services.Series;
 /// </summary>
 public sealed class SeriesRunLaunch(
     InitRunRepository runs, QueuedRunDispatch dispatch, RunRepository rows, TimeProvider clock, ILogger<SeriesRunLaunch> logger,
-    TicketProjects projects, Branches.ConflictBaseRefresh conflicts, AgentSmith.Contracts.Providers.ISourceProviderFactory sources)
+    TicketProjects projects, Branches.BaseRefreshAsked refreshes)
     : ISeriesRunLaunch
 {
-    /// <summary>2026-11-24-f9c5f: a series' final pull request that conflicts goes through 2026-11-24-297b's conflict refresh,
-    /// the one path a conflicting pull request is brought up to date by.</summary>
-    public async Task<bool> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber,
-        DateTimeOffset conflictsSince, CancellationToken cancellationToken)
+    /// <summary>2026-11-24-f9c5f: a series' final pull request is refreshed through the start every refresh takes.
+    /// 2026-11-25-9992e: when the series master asks (<see cref="Branches.BaseRefreshAsked"/>), not on a conflict by itself.</summary>
+    public async Task<string> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber,
+        CancellationToken cancellationToken)
     {
-        if (projects.Of(project) is not { } resolved || resolved.Repos.FirstOrDefault(r => r.Name == repo) is not { } connection) return false;
-        return await conflicts.LaunchIfDueAsync(resolved, connection, sources.Create(connection),
-            Branches.RefreshedPullRequest.SeriesFinal(prUrl, prNumber, branch), conflictsSince, cancellationToken);
+        if (projects.Of(project) is not { } resolved || resolved.Repos.FirstOrDefault(r => r.Name == repo) is not { } connection)
+            return $"{prUrl}: not refreshed — the repository {repo} is not configured in {project}.";
+        return await refreshes.StartAsync(resolved, connection, Branches.RefreshedPullRequest.SeriesFinal(prUrl, prNumber, branch), cancellationToken);
     }
 
     public async Task<string> LaunchAsync(string project, string pipeline, string seriesRunId, CancellationToken cancellationToken,

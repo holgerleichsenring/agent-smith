@@ -34,19 +34,16 @@ public static class ConfigStudioCapabilities
         Pipelines: PipelinePresets.Names,
         Roles: RoleCapabilities)
     {
-        MergeWhen = MergeWhenNames, // 2026-11-17-b34eb
+        Review = ReviewModeNames.All, // 2026-11-25-9992i
         RequiresStart = RequiresStartModeNames,
     };
-
-    /// <summary>2026-11-17-b34eb: the YAML names of every <see cref="Configuration.MergeWhen"/> mode, in enum order.</summary>
-    public static IReadOnlyList<string> MergeWhenNames { get; } = [.. Enum.GetValues<MergeWhen>().Select(SnakeName)];
 
     /// <summary>2026-11-17-b34eb: the YAML names of every <see cref="Configuration.RequiresStart"/> mode, in enum order.</summary>
     public static IReadOnlyList<string> RequiresStartModeNames { get; } =
         [.. Enum.GetValues<RequiresStart>().Select(SnakeName)];
 
-    /// <summary>2026-11-17-b34eb: a member's snake_case name — the YAML loader's underscored naming (OnGateGreen →
-    /// on_gate_green), so a closed list the form offers is exactly what the loader binds.</summary>
+    /// <summary>2026-11-17-b34eb: a member's snake_case name — the YAML loader's underscored naming (OnGreenPush →
+    /// on_green_push), so a closed list the form offers is exactly what the loader binds.</summary>
     public static string SnakeName<TEnum>(TEnum value) where TEnum : struct, Enum =>
         string.Concat(value.ToString().Select((c, i) => i > 0 && char.IsUpper(c) ? "_" + char.ToLowerInvariant(c)
             : char.ToLowerInvariant(c).ToString()));

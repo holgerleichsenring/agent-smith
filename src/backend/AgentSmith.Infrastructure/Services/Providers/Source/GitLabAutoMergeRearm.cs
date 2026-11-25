@@ -19,6 +19,6 @@ public sealed class GitLabAutoMergeRearm(GitLabMergeRequestRead mergeRequests, G
         if (mr.AutoMergeArmed == true) return PullRequestCompletion.Armed("GitLab's auto-merge is set already.");
         if (mr.SameProject != true)
             return PullRequestCompletion.Refused($"!{iid} comes from another project; its auto-merge is not armed again by agent-smith.");
-        return await merge.ArmAsync(prUrl, ct);
+        return await merge.ArmAsync(prUrl, MergeStyle.HostDefault, ct);
     }
 }

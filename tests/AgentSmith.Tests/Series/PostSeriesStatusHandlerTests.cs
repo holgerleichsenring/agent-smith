@@ -17,7 +17,7 @@ public sealed class PostSeriesStatusHandlerTests
     private readonly Mock<ISeriesConversation> _conversation = new();
     private readonly List<string> _said = [];
 
-    private static readonly ResolvedProject Project = new() { Name = "sample", Merge = new MergePolicyConfig { When = MergeWhen.Manual } };
+    private static readonly ResolvedProject Project = new() { Name = "sample" };
 
     private async Task PostAsync(SeriesRunRecord record, params SeriesTicketFact[] facts)
     {

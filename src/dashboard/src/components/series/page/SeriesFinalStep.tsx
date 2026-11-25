@@ -5,7 +5,7 @@ import type { SeriesRunDetail } from "@/types/seriesRuns";
 
 // 2026-11-24-f9c5f: the series' last step — its branch into the default branch, one pull request per repo — after the tickets:
 // what it waits for (the tickets, the check), then each repo's pull request with what the series said about it, and a
-// person's merge under merge.when manual. A series without a branch has no such step.
+// person's review and merge under review: end (2026-11-25-9992i). A series without a branch has no such step.
 
 export function SeriesFinalStep({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
@@ -16,7 +16,7 @@ export function SeriesFinalStep({ detail }: { detail: SeriesRunDetail }) {
   const waits = left > 0 ? t("series.final.waitsTickets", { count: left, branch })
     : detail.state === "done" ? t("series.final.done")
     : deliveries.length === 0 ? t("series.final.opens")
-    : detail.state === "delivering" ? (detail.mergeWhen === "manual" ? t("series.final.yourMerge") : t("series.final.merging"))
+    : detail.state === "delivering" ? ((detail.review ?? "end") === "end" ? t("series.final.yourMerge") : t("series.final.merging"))
     : t("series.final.waitsCheck");
   return (
     <>

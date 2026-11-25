@@ -18,24 +18,25 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class PullRequestCompleter(
     ISourceProviderFactory sourceFactory, IEventPublisher events, ILogger<PullRequestCompleter> logger)
 {
-    /// <summary>Completes <paramref name="entry"/>; <paramref name="protection"/> null is init's completion.</summary>
+    /// <summary>Completes <paramref name="entry"/>; <paramref name="protection"/> null is init's completion. 2026-11-25-9992i:
+    /// <paramref name="style"/> is how a merge lands its commits.</summary>
     public async Task<PullRequestCompletion> CompleteAsync(
         PipelineContext pipeline, RepoConnection repo, OpenedPullRequest entry, BranchName branch,
-        BranchProtection? protection, CancellationToken ct)
+        BranchProtection? protection, MergeStyle style, CancellationToken ct)
     {
-        var completion = await TryCompleteAsync(repo, entry, branch, protection, ct);
+        var completion = await TryCompleteAsync(repo, entry, branch, protection, style, ct);
         await PublishAsync(pipeline, entry, completion, ct);
         return completion;
     }
 
     private async Task<PullRequestCompletion> TryCompleteAsync(
-        RepoConnection repo, OpenedPullRequest entry, BranchName branch, BranchProtection? protection, CancellationToken ct)
+        RepoConnection repo, OpenedPullRequest entry, BranchName branch, BranchProtection? protection, MergeStyle style, CancellationToken ct)
     {
         try
         {
             var provider = sourceFactory.Create(repo);
             var completion = protection is { } mode
-                ? await provider.MergePullRequestAsync(entry.Url!, branch, mode, ct)
+                ? await provider.MergePullRequestAsync(entry.Url!, branch, mode, style, ct)
                 : await provider.CompletePullRequestAsync(entry.Url!, branch, ct);
             logger.LogInformation(
                 "{Repo}: PR {Outcome} ({Url}){Reason}", repo.Name, completion.Outcome, entry.Url,

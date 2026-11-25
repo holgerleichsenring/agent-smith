@@ -13,7 +13,8 @@ namespace AgentSmith.Server.Services.Branches;
 /// nothing a person would not pay anyway — the record read starts the refresh-base run for it in every project, before
 /// the conflict is written, so no page reads the conflict without the refresh at work. One refresh per conflict on a head:
 /// none while one is at work, none if one started since the conflict began (a refused one stands until the head moves,
-/// or a landing moves the base — <see cref="SiblingBaseRefresh"/>), and none for a ticket that is not free.
+/// or a landing moves the base), and none for a ticket that is not free. 2026-11-25-9992i: the one automatic base refresh
+/// left — the landing-driven refresh of conflict-free siblings is gone.
 /// </summary>
 public sealed class ConflictBaseRefresh(
     IServiceScopeFactory scopes, BaseRefreshStart start, ILogger<ConflictBaseRefresh> logger)

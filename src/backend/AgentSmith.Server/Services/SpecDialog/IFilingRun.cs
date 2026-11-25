@@ -14,6 +14,7 @@ public interface IFilingRun
     /// <param name="proposalId">The proposal the approval decided; its approve turn is left out of the owner words.</param>
     Task<FilingReport> RunAsync(ConversationState state, OutcomeProposal proposal, bool mayStartRuns, string? proposalId = null);
 
-    /// <summary>2026-11-17-e061d: files a request built elsewhere — a person's act's follow-up — into <paramref name="project"/>.</summary>
-    Task<FilingReport> RunRequestAsync(string project, FilingRequest request);
+    /// <summary>2026-11-17-e061d: files a request built elsewhere — a person's act's follow-up — into <paramref name="project"/>.
+    /// 2026-11-25-9992f: with <paramref name="seriesRunId"/> the filed ticket joins that series before it could start.</summary>
+    Task<FilingReport> RunRequestAsync(string project, FilingRequest request, string? seriesRunId = null);
 }

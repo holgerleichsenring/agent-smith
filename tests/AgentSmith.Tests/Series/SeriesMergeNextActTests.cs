@@ -29,9 +29,9 @@ using Moq;
 namespace AgentSmith.Tests.Series;
 
 /// <summary>2026-11-23-31dce: POST /api/series-runs/{id}/tickets/{ticketId}/merge over a real migrated store — the ready
-/// ticket's open pull requests go to a merge-green run asked by the caller and its outcome comes back; a ticket that is not
-/// next is refused naming what comes first and nothing starts; a held lease and a run that ended first say so.
-/// 2026-11-24-a4e7: a merged or armed pull request has the ticket's records read again before the answer.</summary>
+/// ticket's open pull requests go to a merge-green run asked by the caller and its outcome comes back; a held lease and a run
+/// that ended first say so. 2026-11-24-a4e7: a merged or armed pull request has the ticket's records read again before the
+/// answer. 2026-11-25-9992e: the merge is judged — a ticket that is not next merges too, the merge order refuses nothing.</summary>
 public sealed class SeriesMergeNextActTests : IDisposable
 {
     private static readonly DateTimeOffset T = TicketStoreHarness.T;
@@ -82,6 +82,7 @@ public sealed class SeriesMergeNextActTests : IDisposable
         answer.PullRequests.Should().Equal(new SeriesMergeOutcomeView("api", "merged", "api: merged (https://github.com/o/api/pull/1)"));
         var asked = _asked.Should().ContainSingle().Subject;
         asked.AskedBy.Should().Be("Dana");
+        (asked.Judged, asked.Protection).Should().Be((true, (BranchProtection?)null), "the person judged it; the policy's protection holds");
         (asked.TicketId, asked.AttemptRunId, asked.Branch).Should().Be(("1", "run-1", "agent-smith/1"));
         asked.PullRequests.Should().Equal(new CiGreenPullRequest("api", "https://github.com/o/api/pull/1"));
     }
@@ -112,8 +113,8 @@ public sealed class SeriesMergeNextActTests : IDisposable
         var now = new PrRecordRefreshNow(refreshes.Refresh(), locks.Object, Mock.Of<IReworkNudges>(), NullLogger<PrRecordRefreshNow>.Instance);
         await using var scope = _h.Services.CreateAsyncScope();
         var sp = scope.ServiceProvider;
-        var act = new SeriesMergeNextAct(sp.GetRequiredService<SeriesRunDetailReader>(), sp.GetRequiredService<TicketProjects>(),
-            sp.GetRequiredService<IPreviousAttemptReader>(), _merges.Object, now);
+        var act = new SeriesMergeNextAct(sp.GetRequiredService<ISeriesRunStore>(), sp.GetRequiredService<TicketProjects>(),
+            sp.GetRequiredService<PrReviewRecordRepository>(), sp.GetRequiredService<IPreviousAttemptReader>(), _merges.Object, now);
 
         var result = await SeriesRunEndpoints.MergeAsync("sr-1", "1", new DefaultHttpContext(), act, default);
 
@@ -121,14 +122,13 @@ public sealed class SeriesMergeNextActTests : IDisposable
     }
 
     [Fact]
-    public async Task Merge_ATicketThatIsNotNext_IsRefusedNamingWhatComesFirst_AndNothingStarts()
+    public async Task Merge_ATicketThatIsNotNext_IsMergedJudged()
     {
         await SeedAsync();
 
-        var (status, said) = Said(await MergeAsync("2"));
+        (await MergeAsync("2")).Should().BeOfType<Ok<object>>();
 
-        (status, said).Should().Be((StatusCodes.Status409Conflict, "SCRUM-2 is not next: SCRUM-1 merges first."));
-        _asked.Should().BeEmpty();
+        _asked.Should().ContainSingle().Which.Should().Match<CiGreenMergeRequest>(r => r.TicketId == "2" && r.Judged);
     }
 
     [Fact]
@@ -156,17 +156,6 @@ public sealed class SeriesMergeNextActTests : IDisposable
 
         Said(await MergeAsync("3")).Should().Be((StatusCodes.Status409Conflict, "SCRUM-3 has no open pull request to merge."));
         Said(await MergeAsync("9")).Status.Should().Be(StatusCodes.Status404NotFound);
-    }
-
-    [Theory]
-    [InlineData(SeriesRunMergeWaits.Ready, null)]
-    [InlineData(SeriesRunMergeWaits.Retarget, "SCRUM-5 is not next: a pull request of it still targets another branch")]
-    public void NotNext_SaysWhyAStepWaits(string wait, string? expected)
-    {
-        var why = SeriesMergeNextAct.NotNext(new SeriesRunMergeStep("5", "SCRUM-5", 0, wait, []));
-
-        if (expected is null) why.Should().BeNull();
-        else why.Should().StartWith(expected);
     }
 
     public void Dispose() => _h.Dispose();

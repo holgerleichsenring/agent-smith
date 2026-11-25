@@ -71,7 +71,8 @@ public sealed class GitLabIssueCommentWebhookHandler(
             var act = PayloadActTime.Act(
                 PayloadActTime.Text(root, "user", "username"), PayloadActTime.Text(noteAttrs, "created_at"));
             return await router.RouteAsync(config, matches, new KeywordComment(envelope, issueState, noteBody,
-                planAnswers.Count > 0 ? new Dictionary<string, string>(planAnswers) : null, act), cancellationToken);
+                planAnswers.Count > 0 ? new Dictionary<string, string>(planAnswers) : null, act) { Writer = TicketCommentWriter.GitLab(root) },
+                cancellationToken);
         }
         catch (Exception ex)
         {

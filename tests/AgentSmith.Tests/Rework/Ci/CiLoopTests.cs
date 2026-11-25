@@ -25,7 +25,7 @@ public sealed class CiLoopTests : IDisposable
     private static readonly ResolvedProject Project = new()
     {
         Name = "p", Tracker = PrReviewRefreshHarness.Project.Tracker, Repos = PrReviewRefreshHarness.Project.Repos,
-        Merge = new MergePolicyConfig { When = MergeWhen.OnCiGreen },
+        Review = ReviewMode.None,
     };
 
     public CiLoopTests()

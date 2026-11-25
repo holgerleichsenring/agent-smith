@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992e
+goal: "The series master merges, refreshes, retargets and reads or restarts CI for its tickets through tools, each act logged with its reason, and the server stops doing these on its own for series tickets."
+
+applies_to: "default (Application series master + handlers, Server rework/branches/series)"
+
+requires: [2026-11-25-9992a, 2026-11-17-0207a, 2026-11-24-f9c5e, 2026-11-25-098f]
+
+facts:
+  - claim: "After every PR read, the CI loop runs SeriesCiStart, CiBuildRequeue, AutoCompleteRearm, CiGreenMerge and CiRedNudge in turn, stopping at the first that acts."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:59-61"
+  - claim: "A conflicting open PR starts a refresh-base run during the read, in every project, with no config gate."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:95-97"
+  - claim: "A landing refreshes the other open PRs on the same repo and base (conflicting ones always)."
+    evidence: "src/backend/AgentSmith.Server/Services/Branches/SiblingBaseRefresh.cs:20 and :54"
+  - claim: "Every nudge of a ticket with an attempt retargets its stacked PRs."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/StackedTicketUpkeep.cs:11 and src/backend/AgentSmith.Server/Services/Rework/StackedPullRequestRetarget.cs:31"
+  - claim: "A delivering series merges its final PRs in the beat, and a conflict starts a refresh, with nobody deciding either."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesFinalPullRequest.cs:40-44"
+  - claim: "The merge sequence refuses every PR while a required ticket has not landed, whichever path asked."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestMergeSequence.cs:31 and :79-88"
+  - claim: "A person's merge from the series page runs merge-green with AskedBy and refuses a ticket that is not next or whose CI waits."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesMergeNextAct.cs:41-42"
+  - claim: "The master's act tools are wrapped once by SeriesActedFunction, which marks the beat."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:52-53"
+  - claim: "The series master has 15 tools and no test caps them; the house cap for a master is 20."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:51-52 and src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:43-58"
+  - claim: "Resume hands a red CI back to the CI loop through AskCiLoopAsync."
+    evidence: "src/backend/AgentSmith.Contracts/Series/ISeriesTicketActs.cs:28-29"
+
+scope:
+  in: |
+    Four master tools in SeriesPullRequestTools. Each takes a `reason` (one sentence):
+      merge_pull_request(ticket|"final", how now|auto, reason): ticket PRs go through the merge-green run as an asked merge
+        (AskedBy = the master's author), with no prerequisite, rung or base refusal for an asked merge. "now" merges past
+        protection where the identity may, "auto" arms the host's auto-merge. "final" merges the series' final PRs through
+        SeriesFinalMerge, called from the master's act instead of from the delivery step.
+      refresh_branch(ticket|"final", reason): the refresh-base run through BaseRefreshStart for the ticket's open PRs (or the
+        final PRs).
+      retarget_pull_request(ticket, repo, target, reason): the retarget run (PullRequestRetargetRun).
+      ci(ticket|"final", act read|requeue|start, reason): read = the PR records read from the host now (IPrRecordRefreshNow),
+        then the ticket's PRs with CI on head. requeue and start = a merge-green run carrying NotStarted or NoCi.
+    Every act tool (old and new) is logged: SeriesActedFunction appends a SeriesAct (at, tool, ticket, reason, outcome) to
+    SeriesRunRecord.Acts (JSON content, no migration) and logs it. The existing act tools gain an optional reason.
+    propose_recut stays until 9992f. The series master's surface is capped at 20 tools by a test.
+    Removed for a ticket of an active series (the master owns it):
+      - the CI loop's acting chain (requeue, re-arm, green merge, red nudge → rework);
+      - the conflict refresh;
+      - the sibling refresh;
+      - the stacked retarget upkeep;
+      - the code run's own merge or awaiting_ci mark (CompletePullRequests answers "the series master merges it").
+    Deleted outright:
+      - SeriesCiStart (series-branch only);
+      - the final PR's automatic merge and conflict refresh in SeriesFinalPullRequest;
+      - AskCiLoopAsync and its resume call.
+    SiblingBaseRefresh skips a series ticket's PRs; it and its key go in 9992i with the other merge keys.
+    One merge path: the person's series merge (SeriesMergeNextAct) calls the same merge act as the master, and its
+    NotNext and CiHolds refusals go.
+    DeliverSeriesHandler only opens the final PRs, reads them and sets the series done, waking the dependents, once they
+    merged. SeriesBeatDemand.DeliverEvery goes; the master reads the final PRs with ci(final).
+    Membership is one store query, ISeriesRunStore.HoldsTicketAsync(project, ticketId). It covers Running, Verifying,
+    Delivering and Paused, so a paused series' tickets stay the master's. It scans the project's series rows once per PR
+    read; the count is small and the cost is accepted. A ticket of a stopped or done series is standalone again.
+    CI polling stays as data. An open PR of a series ticket is CI-due every ci_poll_seconds while its head's CI is unread,
+    pending or not started, in every mode.
+  out: "Automatic ticket STARTS (DependentsWake, RequirementsMetStart, StackedDependentsWake, SeriesAutoStart) stay; the operator did not name them, so they are flagged in the report as candidates for a later start_ticket-only spec. Waking the master on these events (9992g). The review setting and the removal of merge.when/series_when (9992i). Standalone tickets keep their CI loop: no master exists for them. Holds stay as data (no decision reads them). The person's series merge endpoint stays (the UI, j, drops its button). Machine identity (h)."
+
+steps:
+  - id: contracts
+    action: "SeriesAct record + SeriesRunRecord.Acts; ISeriesTicketActs gains MergeAsync, RefreshAsync, RetargetAsync, CiAsync (the final PR addressed as ticket 'final'); drop AskCiLoopAsync. CiGreenMergeRequest gains Judged (no prerequisite/rung/base refusal) and Protection."
+  - id: tools
+    action: "SeriesPullRequestTools (4 tools) wired into SeriesMasterHandler; SeriesActedFunction records SeriesAct with the reason argument; tool-count test ≤ 20."
+  - id: server
+    action: "SeriesTicketActs implements the four acts over MergeGreenRun, BaseRefreshStart, PullRequestRetargetRun and IPrRecordRefreshNow; the final PR acts reach SeriesFinalMerge through the beat."
+  - id: remove
+    action: "One series-membership check (ISeriesRunStore.HoldsTicketAsync, Running/Verifying/Delivering/Paused) gates PrReviewRecordRefresh's CI chain and conflict refresh, StackedTicketUpkeep's retarget, SiblingBaseRefresh and CompletePullRequests' code-run merge. SiblingBaseRefresh skips series tickets. Delete SeriesCiStart, AskCiLoopAsync and the final PR's automatic merge and refresh; migrate or delete their tests."
+  - id: poll
+    action: "CiWatchSelection/CiDueAsync keep a series ticket's open PR due while its CI waits, in every mode."
+  - id: tests
+    action: "Unit tests per tool, the asked-merge with an unlanded prerequisite merges, a series ticket's red CI starts no rework, a conflicting series PR starts no refresh, a standalone ticket's CI loop is unchanged."
+
+done:
+  - "The master can merge (now or auto), refresh, retarget and read/requeue/start CI for a ticket or the final PRs; each call leaves a SeriesAct with its reason on the record (tests)."
+  - "For a ticket of an active series, no server path merges, re-arms, requeues, starts CI, refreshes, retargets or starts a CI rework on its own (tests)."
+  - "SeriesCiStart, AskCiLoopAsync and the final PR's automatic merge and conflict refresh are gone."
+  - "The series master offers at most 20 tools (test)."
+  - "dotnet build and the affected tests are green."

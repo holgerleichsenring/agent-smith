@@ -581,6 +581,7 @@
         "mock_max_chars": { "type": "integer", "description": "The longest HTML mock a design conversation keeps; it stays below the tool-result bound so a mock reads back whole. Default 90000." },
         "mock_versions_per_spec": { "type": "integer", "description": "The most mock versions one spec keeps in a conversation. Default 20." },
         "mock_versions_per_conversation": { "type": "integer", "description": "The most mock versions one conversation keeps over all its specs. Default 100." },
+        "series_master_budget_ask_usd": { "type": "number", "description": "Once no more than this is left of a series master's budget, in USD, the series asks its conversation once whether to raise the budget by series_master_budget_usd or stop the series; there is no default answer. 0 asks only once it is spent. Default 2." },
         "series_master_budget_usd": { "type": "number", "description": "What a series master's own loops may spend over one series, in USD; past it the series keeps reporting but its master judges no more. Default 20." },
         "series_status_minutes": { "type": "integer", "description": "How long nothing may move while a series run's tickets run before its master looks whether one is stuck. Default 15." },
         "question_default_minutes": { "type": "integer", "description": "How long a series waits on a question that names a recommendation before it takes the recommendation and says so; a question without one waits for the operator. Default 120." }
@@ -1076,6 +1077,11 @@
           "minItems": 1
         },
         "default_pipeline": { "type": "string" },
+        "review": {
+          "type": "string",
+          "enum": ["end", "each", "none"],
+          "description": "2026-11-25-9992i: when a person looks. end (default): a series integrates on its series branch and a person reviews its final pull request per repository; a standalone ticket's pull request stays open for a person. each: no series branch, a person approves every ticket's pull request into the target. none: no series branch, the series master merges each ticket on green; a standalone ticket merges once its CI is green, arming the host's auto-merge so its branch protection decides."
+        },
         "requires_start": {
           "type": "string",
           "enum": ["on_green_push", "on_merge"],
@@ -1095,19 +1101,15 @@
         "jira_trigger": { "$ref": "#/$defs/jiraTrigger", "deprecated": true, "description": "2026-10-29-6bd3a: superseded by resolution plus the tracker's fields. Still read: at load it is folded into whatever the project and its tracker leave unset." },
         "merge": {
           "type": "object",
-          "description": "2026-11-17-023fa: whether a green code run merges its own pull requests. Absent means manual.",
+          "description": "2026-11-17-023fa: how the host's CI is read. 2026-11-25-9992i: when a pull request merges is the project's review; absent means every key at its default.",
           "additionalProperties": false,
           "properties": {
-            "when": { "type": "string", "enum": ["manual", "on_gate_green", "on_ci_green"], "description": "manual (default): pull requests stay open for a person. on_gate_green: a run whose every spec verified green merges its pull requests at its end. on_ci_green (2026-11-17-3435b): a gate-passed run's pull requests wait for the host's CI; once it is green on every one a merge-green run merges them (2026-11-25-9992h: nothing approves)." },
-            "series_when": { "type": "string", "enum": ["manual", "on_gate_green", "on_ci_green"], "description": "2026-11-24-f9c5a: when a ticket pull request of a series merges into its series branch (agent-smith/series/<id>); when keeps governing every pull request into the default branch, the series' final one included. on_ci_green (default): the series runs through, each ticket merging on green CI. manual: a person reviews and merges every ticket. on_gate_green: each merges at the end of its green run. Merges into a series branch go past protection: the branch carries no host policy." },
-            "ci_poll_seconds": { "type": "integer", "minimum": 1, "description": "2026-11-17-3435b: with on_ci_green, how often the open pull requests' CI is read. 2026-11-18-3863f: also how often a running deploy's pull request or pipeline run is read, whatever when says. Default 60: a green head merges within a minute at a few host calls per pull request per minute." },
+            "ci_poll_seconds": { "type": "integer", "minimum": 1, "description": "2026-11-17-3435b: how often the open pull requests' CI is read. 2026-11-18-3863f: also how often a running deploy's pull request or pipeline run is read. Default 60: a green head merges within a minute at a few host calls per pull request per minute." },
             "ci_settle_seconds": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435b: how long a head with no CI reporting must stay so before it counts as having none and merges. Default 180: a host registers its checks seconds to minutes after a push." },
             "ci_pending_seconds": { "type": "integer", "minimum": 1, "description": "2026-11-17-3435b: after how long a head still pending is no longer read every ci_poll_seconds (the five-minute re-read still sees it). 2026-11-18-3863f: a deploy still pending this long after delivery stops being followed. Default 3600: outlasts a slow suite, stops a manual job polling forever." },
-            "ci_fix_attempts": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435c: with on_ci_green, how many rework runs in a row a red CI may start before the ticket is handed back with the evidence. Default 3: room for a flaky suite and a follow-up fix, while a fix that cannot converge stops spending. A person's answer resets the count." },
-            "refresh_open_pull_requests": { "type": "boolean", "description": "2026-11-17-023fb: when a ticket lands, merge its base into every other open agent-smith pull request on that repository and base, as a run per pull request. Default false." },
+            "ci_fix_attempts": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435c: with review: none, how many rework runs in a row a red CI may start before the ticket is handed back with the evidence. Default 3: room for a flaky suite and a follow-up fix, while a fix that cannot converge stops spending. A person's answer resets the count." },
             "ci_excerpt_chars": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435a: characters kept of each failed CI check's evidence (the host's summary and annotations, then the end of its log). Default 4000: a test failure's assertion and stack fit, a record row and a prompt section stay small." },
-            "ci_failed_checks_read": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435a: how many failed checks of one red head have their logs read; the rest are named with their links. Default 5: each costs a host call and a log download." },
-            "respect_branch_protection": { "type": "boolean", "description": "false (default): merge past branch policies, protection rules and approval rules, which needs the token's bypass permission (Azure: Bypass policies when completing pull requests; GitHub: admin or ruleset bypass). true: arm auto-complete / auto-merge and let the host's rules decide." }
+            "ci_failed_checks_read": { "type": "integer", "minimum": 0, "description": "2026-11-17-3435a: how many failed checks of one red head have their logs read; the rest are named with their links. Default 5: each costs a host call and a log download." }
           }
         },
         "registries": {

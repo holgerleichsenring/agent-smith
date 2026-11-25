@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992i
+
+decisions:
+  - category: Architecture
+    chose: "One project setting, review: end | each | none (ProjectConfig/ResolvedProject.Review, YAML projects.<name>.review, default end); MergePolicyConfig keeps only the CI reading knobs"
+    over: "Keeping merge.when, merge.series_when, merge.respect_branch_protection and merge.refresh_open_pull_requests beside a new key; a per-series override"
+    reason: |
+      Four switches each decided a piece of one question — when does a person look — and their combinations had no
+      meaning of their own (series_when manual with when on_ci_green, bypass on a series branch). One setting with three
+      values is the question asked once. No second path: the four keys, their helpers (IntoSeriesBranch, WhenInto,
+      ActsOnCi, WithProtection, Protection, MergeWhen) and their studio/dashboard controls are gone. A per-series override
+      is out of scope (a later spec).
+  - category: Implementation
+    chose: "Mapping row: series_when manual → each"
+    over: "end (series branch, review at the end)"
+    reason: "A team that reviewed every series ticket keeps reviewing every ticket; each is the one value where a person looks at each pull request."
+  - category: Implementation
+    chose: "Mapping row: otherwise when manual or absent → end"
+    over: "each"
+    reason: "Absent was manual: nothing merged by itself. end keeps standalone pull requests for a person and keeps the series branch every series of two or more already had (series_when on_ci_green was the default)."
+  - category: Implementation
+    chose: "Mapping row: otherwise when on_ci_green or on_gate_green → none"
+    over: "Mapping on_gate_green to end"
+    reason: "Both merged without a person. on_gate_green is gone as a mode; the nearest is merging on CI green, which is stricter than the gate alone."
+  - category: TradeOff
+    chose: "The mapping errs toward more human review, and the migration logs every project whose standalone behaviour changes: each-mapped with when ≠ manual (standalone tickets now wait for a person), none-mapped with respect_branch_protection false (bypass → auto-merge), on_gate_green (merges on CI green, not at the run's end)"
+    over: "A silent mapping; mapping when on_ci_green + series_when manual to none"
+    reason: "A change the operator did not ask for must be readable once, by project name, at the migrate that made it. The on_gate_green line is a third change the spec's two did not name; leaving it out would hide one. The bypass line says GitHub needs allow_auto_merge on the repository, or the armed merge is refused."
+  - category: Architecture
+    chose: "ReviewSettingMigration (IDataMigration '2026-11-25-9992i-review-setting'), registered beside ProjectRegistriesMigration in StoreMigrateExtensions and StoreMigrateRun; the mapping in ReviewSettingMapping; a project doc naming none of the four keys is not re-saved; a review already stored is never overwritten, readable or not — the old keys are dropped and the project named in the log"
+    over: "A startup repair; reading the old keys as a fallback"
+    reason: |
+      A stored review is the operator's word, even one the loader cannot read (its finding names it there).
+      Startup changes nothing; stored data moves once through `database migrate`, recorded in DataMigrationHistory. The
+      keys drop with the move, so a second run finds nothing (idempotent, tested). Keys match case-insensitively and
+      the stored MergeWhen value is read as its number or its name, because the store binds case-insensitively.
+  - category: Architecture
+    chose: "Four RetiredConfigKeys rows (projects.*.merge.when / series_when / respect_branch_protection / refresh_open_pull_requests) naming review; the loader ignores the keys"
+    over: "A blocking finding; keeping the keys deprecated in the schema"
+    reason: "The retired-key table is the existing path for a key the product stopped reading; the schema drops them like every retired project key."
+  - category: Architecture
+    chose: "Standalone tickets: CompletePullRequestsHandler under review none marks the gate-passed pull requests awaiting CI (CiGreenMerge merges, under BranchProtection.Respect); under end or each it leaves them for a person; the on_gate_green merge at the run's end is gone"
+    over: "Keeping a gate-green merge for review none"
+    reason: "none means 'merge on green', and green is the host's CI; the CI loop (CiGreenMerge, CiRework, CiRedNudge, CiWatchSelection/PrRecordCiDue) now asks Review == None instead of ActsOnCi/WhenInto."
+  - category: Architecture
+    chose: "Branch protection is an environment limit (concept revision): every merge into the default branch respects it (arms auto-complete/auto-merge); Bypass only into a series branch (no host policy) or when a judged request names it (the master's how now). Decided in CompletePullRequestsContextBuilder.Protection; the context carries Review and Protection instead of a MergePolicyConfig. Deploy GitOps merges respect it too."
+    over: "Bypass by default (the old respect_branch_protection false); a protection setting"
+    reason: |
+      The host's rules are the operator's environment; agent-smith does not configure itself past them. The series
+      master still chooses per merge (9992e how now|auto). BypassRefusal names the auto alternative instead of the
+      retired key. A person's merge from the series page into the default branch arms too, so the page's MergeArms is
+      'no series branch'.
+  - category: Architecture
+    chose: "SeriesRunRecord.Review copied from the project when the series opens (SeriesMembership.OpenAsync); only end gets a series branch; EffectiveReview reads an old record without Review as end when it has IntegrationBranch, else each (computed, JsonIgnore)"
+    over: "Repairing running series at start; re-reading the project's review on every beat"
+    reason: "A running series keeps the shape it opened with — its branch or its lack of one. Nothing is repaired; the record's JSON content needs no migration."
+  - category: Implementation
+    chose: "An end series opened after its tickets started (OpenSeriesRunHandler's fallback, no branch possible) is stored as each"
+    over: "Storing end without a branch"
+    reason: "end without a series branch has no final pull request to review; the nearest honest value is a person per ticket."
+  - category: Implementation
+    chose: "The final pull request's body (SeriesFinalBody): a section per ticket — title, its pull requests, the master's acts on it with their reasons (SeriesRunRecord.Acts), and 'Not verified' for a pull request whose CI on its last head was not green or never read; GitHub issues keep 'Closes #N'"
+    over: "The ticket list only"
+    reason: "Under end the final pull request is the one place a person reviews the series; it has to say what was built, what the master decided and why, and what nobody verified."
+  - category: Architecture
+    chose: "A required MergeStyle (HostDefault | Squash) on ISourceProvider.MergePullRequestAsync, every caller and test double migrated; CompletePullRequestsContextBuilder.Style asks Squash for every merge into a series branch (code run stamped with it, CI-loop request or the master's judged merge naming it), HostDefault for every other merge (default branch, the series' final PR, deploys, init)"
+    over: "No squash, each host merging with the repository's method; an optional parameter defaulting to the old behaviour"
+    reason: |
+      One commit per ticket on the series branch is the operator's requirement. A series branch carries no repository
+      policy, so squashing there overrides no repository's own settings; everything else keeps its method. Per host:
+      GitHub REST merge_method squash only (a repository with allow_squash_merge off is refused by name, never merged
+      another way) and auto-merge mergeMethod SQUASH; GitLab squash: true on the merge PUT and on the merge-when-pipeline
+      arm; Azure DevOps completionOptions.mergeStrategy squash on the bypass completion and on the armed auto-complete;
+      a local repository fast-forwards, which has nothing to squash. A required parameter, so no caller keeps the old
+      shape by omission.
+  - category: Scope
+    chose: "SiblingBaseRefresh deleted with its registration and tests; ITicketLandedSubscriber stays as the generic landing hook (no subscriber now)"
+    over: "Keeping the sibling refresh under another switch"
+    reason: "Its only switch was refresh_open_pull_requests. A conflicting pull request is still refreshed by ConflictBaseRefresh in every project; a conflict-free one is left as it is."
+  - category: Scope
+    chose: "The six CI knobs stay under merge: (ci_poll_seconds, ci_settle_seconds, ci_pending_seconds, ci_excerpt_chars, ci_failed_checks_read, ci_fix_attempts); approval_auth was already retired by 9992h"
+    over: "Moving them under review"
+    reason: "They say how the host's CI is read, which every review needs (the holds, the master's ci read, the requeue of never-started builds). The studio shows all of them under every review."
+  - category: Implementation
+    chose: "series_status shows review and the series branch; read_ticket shows who approved each pull request (SeriesRunPullRequestView.ApprovedBy from standing approvals, ours left out); the series page view's MergeWhen became Review; the dashboard type follows"
+    over: "Leaving the master to infer the review from the branch"
+    reason: "Under each the master merges after a person's approval, so it has to see the approval; the prompt names the three values once."
+  - category: Implementation
+    chose: "The studio refuses an unknown review at save (RawProjectPatch via ProjectMergeMapping.ReviewToRaw, reached from DbConfigStore.UpsertProject), naming the value and end, each, none"
+    over: "Storing it and leaving the loader's blocking finding to say so"
+    reason: "merge.when was refused the same way; a save must never store a value the loader drops the project for."

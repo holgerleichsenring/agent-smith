@@ -64,7 +64,7 @@ public sealed class DeployCompositionTests
 
         result.IsSuccess.Should().BeTrue(result.Message);
         fixture.App.Verify(p => p.MergePullRequestAsync("https://stub.test/app/pull/1", It.IsAny<BranchName>(),
-            It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()), Times.Once, "test needs no approval");
+            It.IsAny<BranchProtection>(), It.IsAny<MergeStyle>(), It.IsAny<CancellationToken>()), Times.Once, "test needs no approval");
         fixture.App.Verify(p => p.WriteFilesToBranchAsync(It.IsAny<BranchName>(),
             It.Is<IReadOnlyList<RepoFile>>(f => f.Single().Content == DeployFixture.Manifest("v2")),
             It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<BranchName?>()), Times.Once);

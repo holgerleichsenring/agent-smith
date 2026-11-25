@@ -53,6 +53,18 @@ public sealed class TicketRequirementStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task TicketRequirementStore_Remove_DeletesThatEdgeOnly()
+    {
+        // 2026-11-25-9992f: the series master removes an edge between its tickets.
+        await Store.AddAsync([Edge("a-3", "a-1"), Edge("a-3", "a-2")], default);
+
+        (await Store.RemoveAsync(Tracker, "jira-a-3", "jira-a-1", default)).Should().BeTrue();
+        (await Store.RemoveAsync(Tracker, "jira-a-3", "jira-a-1", default)).Should().BeFalse("it is gone");
+
+        (await Store.RequiredOfAsync(Tracker, "jira-a-3", default)).Should().ContainSingle().Which.RequiredTicketKey.Should().Be("jira-a-2");
+    }
+
+    [Fact]
     public async Task TicketRequirementStore_SameEdgeTwice_StoresOneRowAndReportsNoneAdded()
     {
         await Store.AddAsync([Edge("a-2", "a-1")], default);

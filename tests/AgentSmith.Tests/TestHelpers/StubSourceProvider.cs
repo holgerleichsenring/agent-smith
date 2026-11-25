@@ -119,7 +119,7 @@ internal sealed class StubSourceProvider(string? contextYaml = null) : ISourcePr
         Task.FromResult(PullRequestCompletion.Merged());
 
     public Task<PullRequestCompletion> MergePullRequestAsync(
-        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection,
+        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection, AgentSmith.Contracts.Providers.MergeStyle style,
         CancellationToken cancellationToken) =>
         Task.FromResult(PullRequestCompletion.Merged());
 

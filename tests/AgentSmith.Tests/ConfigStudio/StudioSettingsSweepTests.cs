@@ -1,7 +1,6 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using FluentAssertions;
@@ -16,77 +15,66 @@ public sealed class StudioSettingsSweepTests
     {
         var capabilities = ConfigStudioCapabilities.Build([]);
 
-        capabilities.MergeWhen.Should().Equal([.. Enum.GetValues<MergeWhen>().Select(ConfigStudioCapabilities.SnakeName)]);
-        capabilities.MergeWhen.Should().StartWith(["manual", "on_gate_green"]);
+        capabilities.Review.Should().Equal(["end", "each", "none"]); // 2026-11-25-9992i
         capabilities.RequiresStart.Should().BeEquivalentTo(["on_merge", "on_green_push"]);
     }
 
+    // 2026-11-17-3435d: a block sent without the CI keys stores their defaults.
     [Fact]
     public void ProjectMerge_RoundTripsThroughProjectionAndPatch()
     {
-        var sent = new ProjectEntity("app", "a", "t", [], null, [],
-            Merge: new ProjectMerge("on_gate_green", RespectBranchProtection: true, RefreshOpenPullRequests: true));
+        var sent = new ProjectEntity("app", "a", "t", [], null, [], Merge: new ProjectMerge());
 
         var stored = RawProjectPatch.Apply(sent, new RawProjectEntry());
 
-        stored.Merge!.When.Should().Be(MergeWhen.OnGateGreen);
-        ProjectEntityMapping.ToProject("app", stored).Merge.Should().Be(sent.Merge with
-        {
-            CiPollSeconds = 60, CiSettleSeconds = 180, CiPendingSeconds = 3600, CiFixAttempts = 3, CiExcerptChars = 4000,
-            CiFailedChecksRead = 5, // 2026-11-17-3435d: a block sent without the CI keys stores their defaults
-            SeriesWhen = "on_ci_green", // 2026-11-24-f9c5a: and without the series mode its default
-        });
+        ProjectEntityMapping.ToProject("app", stored).Merge.Should().Be(new ProjectMerge(
+            CiPollSeconds: 60, CiSettleSeconds: 180, CiPendingSeconds: 3600, CiFixAttempts: 3, CiExcerptChars: 4000, CiFailedChecksRead: 5));
     }
 
     // 2026-11-17-3435d
     [Fact]
     public void ProjectMerge_CiLoopKeys_RoundTrip_AndASaveKeepsThem()
     {
-        var sent = new ProjectEntity("app", "a", "t", [], null, [], Merge: new ProjectMerge("on_ci_green", true, false,
+        var sent = new ProjectEntity("app", "a", "t", [], null, [], Merge: new ProjectMerge(
             CiPollSeconds: 30, CiSettleSeconds: 90, CiPendingSeconds: 600, CiFixAttempts: 2, CiExcerptChars: 1500,
             CiFailedChecksRead: 3));
 
         var stored = RawProjectPatch.Apply(sent, new RawProjectEntry());
 
-        stored.Merge!.When.Should().Be(MergeWhen.OnCiGreen);
-        stored.Merge.CiFixAttempts.Should().Be(2);
-        ProjectEntityMapping.ToProject("app", stored).Merge.Should().Be(sent.Merge with { SeriesWhen = "on_ci_green" });
-    }
-
-    // 2026-11-24-f9c5a
-    [Fact]
-    public void ProjectMerge_SeriesWhen_RoundTrips_AndAnUnknownOneIsRefusedByName()
-    {
-        var sent = new ProjectEntity("app", "a", "t", [], null, [],
-            Merge: new ProjectMerge("on_ci_green", false, false, SeriesWhen: "manual"));
-
-        var stored = RawProjectPatch.Apply(sent, new RawProjectEntry());
-
-        stored.Merge!.SeriesWhen.Should().Be(MergeWhen.Manual);
-        ProjectEntityMapping.ToProject("app", stored).Merge!.SeriesWhen.Should().Be("manual");
-        var unknown = () => RawProjectPatch.Apply(new ProjectEntity("app", "a", "t", [], null, [],
-            Merge: new ProjectMerge("manual", false, false, SeriesWhen: "sometimes")), new RawProjectEntry());
-        unknown.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>().WithMessage("*merge.series_when 'sometimes'*");
+        stored.Merge!.CiFixAttempts.Should().Be(2);
+        ProjectEntityMapping.ToProject("app", stored).Merge.Should().Be(sent.Merge);
     }
 
     [Fact]
     public void ProjectMerge_AbsentInTheSave_KeepsTheStoredBlock_AndAProjectWithoutOneReadsNull()
     {
-        var stored = new RawProjectEntry { Merge = new MergePolicyConfig { When = MergeWhen.OnGateGreen } };
+        var stored = new RawProjectEntry { Merge = new MergePolicyConfig { CiPollSeconds = 15 } };
 
-        RawProjectPatch.Apply(new ProjectEntity("app", "a", "t", [], null, []), stored).Merge!.When
-            .Should().Be(MergeWhen.OnGateGreen);
+        RawProjectPatch.Apply(new ProjectEntity("app", "a", "t", [], null, []), stored).Merge!.CiPollSeconds.Should().Be(15);
         ProjectEntityMapping.ToProject("app", new RawProjectEntry()).Merge.Should().BeNull();
     }
 
+    // 2026-11-25-9992i: review crosses as written, reads as end when the project says nothing, and survives a save without it.
     [Fact]
-    public void ProjectMerge_AnUnknownMode_IsRefusedByKey()
+    public void Review_RoundTrips_DefaultsToEnd_AndASaveWithoutItKeepsIt()
     {
-        var sent = new ProjectEntity("app", "a", "t", [], null, [], Merge: new ProjectMerge("sometimes", false, false));
+        var stored = RawProjectPatch.Apply(new ProjectEntity("app", "a", "t", [], null, [], Review: "none"), new RawProjectEntry());
 
-        var act = () => RawProjectPatch.Apply(sent, new RawProjectEntry());
+        stored.Review.Should().Be("none");
+        ProjectEntityMapping.ToProject("app", stored).Review.Should().Be("none");
+        RawProjectPatch.Apply(new ProjectEntity("app", "a", "t", [], null, []), stored).Review.Should().Be("none");
+        RawProjectPatch.Apply(new ProjectEntity("app", "a", "t", [], null, [], Review: " "), stored).Review.Should().BeNull();
+        ProjectEntityMapping.ToProject("app", new RawProjectEntry()).Review.Should().Be("end");
+    }
 
-        act.Should().Throw<ConfigurationException>().WithMessage("*merge.when 'sometimes'*manual*on_gate_green*");
+    // 2026-11-25-9992i: an unknown review is refused at save, by value and with the allowed names, as merge.when's was.
+    [Fact]
+    public void Review_AnUnknownValue_IsRefusedAtSave()
+    {
+        var act = () => RawProjectPatch.Apply(new ProjectEntity("app", "a", "t", [], null, [], Review: "on_ci_green"), new RawProjectEntry());
+
+        act.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>()
+            .WithMessage("*review 'on_ci_green' is not a known mode (end, each, none)*");
     }
 
     [Fact]

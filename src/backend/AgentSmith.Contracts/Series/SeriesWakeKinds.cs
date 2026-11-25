@@ -1,0 +1,11 @@
+namespace AgentSmith.Contracts.Series;
+
+/// <summary>2026-11-25-9992g: what woke a series master — a CI result on a pull request's head, another change of a pull
+/// request (its state, a conflict, its target), a person's comment on the ticket or its pull request, a ticket run's end.</summary>
+public static class SeriesWakeKinds
+{
+    public const string Ci = "ci";
+    public const string PullRequest = "pr";
+    public const string Comment = "comment";
+    public const string Run = "run";
+}

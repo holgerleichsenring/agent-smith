@@ -179,4 +179,32 @@ public sealed class PrCommentReworkCommandTests
           "issue": { "number": 42, "pull_request": { "url": "x" } },
           "repository": { "full_name": "org/my-api", "html_url": "https://github.com/org/my-api" } }
         """;
+
+    // 2026-11-25-9992g: on the pull request of a ticket a series holds, a comment — a command too — wakes the series master
+    // with its author and text instead of a rework; one by an author who may not write is never handed to the master.
+    [Theory]
+    [InlineData("/agentsmith rework the parser", true)]
+    [InlineData("looks odd to me", true)]
+    [InlineData("/agentsmith rework the parser", false)]
+    public async Task PrCommentCommandAdmission_SeriesTicket_WakesTheMasterInsteadOfARework(string body, bool trusted)
+    {
+        var store = new AgentSmith.Tests.Series.InMemorySeriesRunStore();
+        await store.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+        {
+            Project = "test-project", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("42")],
+        }, default);
+        _fixture.SeriesStore = store;
+        _fixture.Wakes.Setup(w => w.WakeAsync("test-project", "42", It.IsAny<AgentSmith.Contracts.Series.SeriesWake>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var trust = new Mock<IPrCommentAuthorTrust>();
+        trust.Setup(t => t.IsTrustedAsync(It.IsAny<PrCommentAuthor>(), It.IsAny<CancellationToken>())).ReturnsAsync(trusted);
+
+        var result = await _fixture.Admission().AdmitAsync(Command(body), trust.Object, CancellationToken.None);
+
+        _fixture.Acts().Should().BeEmpty("a series ticket is reworked only when its master says so");
+        _fixture.Wakes.Verify(w => w.WakeAsync("test-project", "42", It.Is<AgentSmith.Contracts.Series.SeriesWake>(k =>
+            k.Kind == AgentSmith.Contracts.Series.SeriesWakeKinds.Comment && k.Text == body && k.Author == "alice" && k.PrUrl == PrUrl),
+            It.IsAny<CancellationToken>()), trusted ? Times.Once() : Times.Never());
+        result.Handled.Should().Be(trusted);
+    }
 }

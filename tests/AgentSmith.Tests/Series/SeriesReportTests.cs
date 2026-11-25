@@ -13,7 +13,7 @@ public sealed class SeriesReportTests
 {
     private static readonly ResolvedProject Project = new()
     {
-        Name = "sample", Merge = new MergePolicyConfig { When = MergeWhen.OnGateGreen },
+        Name = "sample",
     };
 
     private static readonly DialogueGlobalConfig Dialogue = new();
@@ -27,14 +27,16 @@ public sealed class SeriesReportTests
     [Fact]
     public void FirstBeat_OpensWithWhatStartedWhatWaitsAndThePolicy_AndNoTable()
     {
-        var messages = SeriesReport.Messages(new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T), Project);
+        var record = SeriesRecords.Running() with { Review = ReviewMode.None }; // 2026-11-25-9992i
+        var messages = SeriesReport.Messages(new SeriesBeat(record, Facts(), SeriesRecords.T), Project);
 
         messages.Should().ContainSingle().Which.Should().Be("Filed 3 tickets. SCRUM-43 started; 2 wait on their prerequisites and "
-            + "start as soon as the ticket they need has a green push. I merge each one when its gate is green. I write here only "
+            + "start as soon as the ticket they need has a green push. I merge each one when its build and tests are green. I write here only "
             + "when you are needed; the series page on the dashboard shows every ticket, and asking me to hold pauses the series.");
     }
 
-    // 2026-11-24-f9c5c: a series with a branch says it merges its tickets there under merge.series_when, and waits on landings.
+    // 2026-11-24-f9c5c: a series with a branch says it merges its tickets there, and waits on landings; 2026-11-25-9992i: a series
+    // opened before the review setting reads as end with its branch.
     [Fact]
     public void FirstBeat_ASeriesWithABranch_StatesTheSeriesRule()
     {
@@ -43,8 +45,18 @@ public sealed class SeriesReportTests
         var messages = SeriesReport.Messages(new SeriesBeat(record, Facts(), SeriesRecords.T), Project);
 
         messages.Should().ContainSingle().Which.Should().Contain("start once the ticket they need is merged")
-            .And.Contain("I merge each one into agent-smith/series/sr-1 when its CI is green")
-            .And.Contain("the series reaches the default branch as one pull request per repository at the end");
+            .And.Contain("I merge each one into agent-smith/series/sr-1 when its build and tests are green")
+            .And.Contain("the series reaches the default branch as one pull request per repository at the end, for you to review");
+    }
+
+    // 2026-11-25-9992i: a series under review: each says a person approves each pull request first.
+    [Fact]
+    public void FirstBeat_AnEachSeries_SaysItMergesAfterYourApproval()
+    {
+        var record = SeriesRecords.Running() with { Review = ReviewMode.Each };
+
+        SeriesReport.Messages(new SeriesBeat(record, Facts(), SeriesRecords.T), Project).Should().ContainSingle()
+            .Which.Should().Contain("I merge each one once you approved its pull request");
     }
 
     [Fact]
@@ -94,6 +106,13 @@ public sealed class SeriesReportTests
 
     [Fact]
     public void Policy_Line_NamesMergeStartAndQuestionDefault() =>
-        SeriesPolicy.Line(Project, Dialogue).Should().Be(
-            "merge on green gate · start on green push · questions default to the recommendation after 2 h 00 min");
+        SeriesPolicy.Line(Project, Dialogue, ReviewMode.None).Should().Be(
+            "merge on green · start on green push · questions default to the recommendation after 2 h 00 min");
+
+    // 2026-11-25-9992i
+    [Theory]
+    [InlineData(ReviewMode.End, "you review the final pull request")]
+    [InlineData(ReviewMode.Each, "you approve each pull request")]
+    [InlineData(ReviewMode.None, "merge on green")]
+    public void Policy_Merge_NamesTheReview(ReviewMode review, string said) => SeriesPolicy.Merge(review).Should().Be(said);
 }

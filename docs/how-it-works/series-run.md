@@ -25,7 +25,8 @@ In a beat the series master reads the facts of every ticket (state, requires, sp
 | start a ticket | a filed ticket whose prerequisites allow it |
 | retry a ticket | a failed attempt, once it has looked at why |
 | tell a ticket | send a message to the ticket's running or next run |
-| propose a re-cut | post a proposal to split or change tickets; it changes nothing until you approve |
+| add a ticket | file a prerequisite or a split-off part into the series, unstarted, with its requirements; it starts it once they stand |
+| re-link tickets | add or remove what a ticket of the series waits for; a link that would make a ticket wait on itself is refused |
 | ask you | post a question in the conversation |
 | stop the series | when going on makes no sense, with the reason |
 
@@ -48,7 +49,9 @@ A wait that runs past `holds.escalate_after_minutes` keeps its kind, and its sta
 
 Tickets still start and merge by the project's own rules: [stacked start](stacked-start.md) for dependents, the [merge policy and CI loop](ci-loop.md) for merging. The series doesn't watch CI itself; it reads what the CI loop recorded.
 
-The master's own spend has a budget, `dialogue.series_master_budget_usd` (default 20 USD). The ticket runs keep their own caps.
+The master's own spend has a budget, `dialogue.series_master_budget_usd` (default 20 USD). The ticket runs keep their own caps. Once no more than `dialogue.series_master_budget_ask_usd` (default 2 USD) is left, the series asks once in the conversation: raise the budget by `dialogue.series_master_budget_usd`, or stop the series. Raising is the recommended choice, but the question has no deadline, so nothing is raised or stopped until a person answers with one of the choices (a button, or just "raise" or "stop"). Any other answer goes to the master, and the question comes back in a later beat. A raise adds to the setting, so changing the setting later still counts. While the budget question waits, a ticket's question waits behind it and is passed on once it is answered.
+
+Events on the series' tickets wake the master: a pull request's CI reaching a verdict on its head (green, red, not started), a pull request that merged, closed, conflicts or moved to another target, a ticket run's end, and every comment on a ticket or its pull request, with or without the keyword. On a ticket a series holds, a comment doesn't start a rework. The master gets it, quoted with its author, and decides: it can pass the comment on to the ticket or retry it. On a pull request, and on a GitHub or GitLab issue, a comment reaches the master only when its author can write to the repository; a stranger's comment on a series ticket starts nothing. Jira and Azure DevOps comments come from the organisation's own members and are passed on as they are. The master reads a comment as data from its author, not as the operator's words or as instructions. A paused series keeps its events and hands them over at the first beat after resume. Standalone tickets keep their rework.
 
 ## What you see in the conversation
 
@@ -66,13 +69,23 @@ Write in the same conversation. A message from someone holding `runs.control` go
 
 When the master asks a question with a recommended answer, or a ticket's run parks on a question with one, the question appears in the conversation. Answer it there. If nobody answers within `dialogue.question_default_minutes` (default 120), the series takes the recommendation, posts *Taken by default at HH:mm: …* and hands the answer on: to the master, or to the parked run, which resumes. A question without a recommendation waits for you.
 
+## When you look: review
+
+The project's `review` setting decides when a person looks at a series, and the series keeps the value it opened with:
+
+- `end` (default): the series works on a series branch, and the master merges each ticket into it once its build and tests are green. You review one pull request per repository at the end.
+- `each`: no series branch. Each ticket's pull request goes into the default branch, and the master merges it once a person approved it.
+- `none`: no series branch. The master merges each ticket into the default branch on green; the host's branch protection still decides.
+
+`series_status` and the series page show the series' review.
+
 ## The series branch
 
-A series works on its own branch in every repository it touches, `agent-smith/series/<id>`, cut from the default branch by its first ticket there. Each ticket starts from that branch once the tickets it requires have landed on it, opens its pull request against it, and merges into it under `merge.series_when` (default `on_ci_green`; `manual` for teams that review every ticket). What else lands on the default branch meanwhile does not reach the series until its end. A ticket outside the series that requires one of its tickets waits until the series has reached the default branch. If a series pull request reports no CI, agent-smith starts its repository's pull-request CI ([CI loop](ci-loop.md#series-branches)).
+A series under `review: end` works on its own branch in every repository it touches, `agent-smith/series/<id>`, cut from the default branch by its first ticket there. Each ticket starts from that branch once the tickets it requires have landed on it, opens its pull request against it, and the series master merges it there. What else lands on the default branch meanwhile does not reach the series until its end. A ticket outside the series that requires one of its tickets waits until the series has reached the default branch. If a series pull request reports no CI, agent-smith starts its repository's pull-request CI ([CI loop](ci-loop.md#series-branches)).
 
-When every ticket has landed on the series branch, one pull request per repository takes it into the default branch. After the check passes, that pull request merges under `merge.when` in the project's protection mode; a conflict with the default branch starts a `refresh-base` run that brings the series branch up to date. The series is done once every one has merged. A closed one is said, and the branch is kept: only its final merge removes it.
+When every ticket has landed on the series branch, one pull request per repository takes it into the default branch. Its description has a section per ticket: the ticket's title and pull request, what the master did on it and why, and what it could not verify, such as a CI on the ticket's last head that wasn't green or was never read. After the check passes, a person reviews and merges it, or asks the master to; a conflict with the default branch is the master's to refresh. The series is done once every one has merged. A closed one is said, and the branch is kept: only its final merge removes it.
 
-A series opened before series branches existed keeps working ticket by ticket into the default branch.
+A series opened before series branches existed keeps working ticket by ticket into the default branch. A series opened before the `review` setting keeps its branch or its lack of one, and runs as `end` with a branch, as `each` without.
 
 ## The check on main
 
@@ -88,6 +101,7 @@ Once every ticket has landed, a `series-verify` run checks out the series branch
 | `dialogue.series_status_minutes` | 15 | How long nothing may move while tickets run before the master checks for a stuck one |
 | `dialogue.question_default_minutes` | 120 | When a recommended answer is taken by default |
 | `dialogue.series_master_budget_usd` | 20 | The series master's own spend |
+| `dialogue.series_master_budget_ask_usd` | 2 | At or below this much left, the series asks to raise the budget or stop |
 
 They are under **Dialogue** in [Settings](../configure-it/settings.md). The full list is in the [agentsmith.yml reference](../reference/configuration/agentsmith-yml.md).
 

@@ -20,6 +20,9 @@ internal sealed class InMemoryTicketFacts : ITicketRequirementStore, ITicketLand
         return Task.FromResult(edges.Count);
     }
 
+    public Task<bool> RemoveAsync(string tracker, string ticketKey, string requiredTicketKey, CancellationToken cancellationToken) =>
+        Task.FromResult(Edges.RemoveAll(e => e.Tracker == tracker && e.TicketKey == ticketKey && e.RequiredTicketKey == requiredTicketKey) > 0);
+
     public Task<IReadOnlyList<TicketRequirementEdge>> RequiredOfAsync(string tracker, string ticketKey, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<TicketRequirementEdge>>([.. Edges.Where(e => e.Tracker == tracker && e.TicketKey == ticketKey)]);
 

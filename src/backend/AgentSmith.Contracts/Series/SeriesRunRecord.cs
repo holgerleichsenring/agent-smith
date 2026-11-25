@@ -47,6 +47,23 @@ public sealed record SeriesRunRecord(
     /// <summary>True once the conversation was told the master's budget is spent.</summary>
     public bool BudgetSaid { get; init; }
 
+    /// <summary>2026-11-25-9992g: what the conversation added to the configured budget, so a later change of the setting
+    /// still applies; 0 until a raise.</summary>
+    public decimal BudgetRaisedUsd { get; init; }
+
+    /// <summary>2026-11-25-9992g: true once the budget question was asked; a raise asks it anew.</summary>
+    public bool BudgetAsked { get; init; }
+
+    /// <summary>2026-11-25-9992g: what happened on its tickets that the master has not judged yet, oldest first.</summary>
+    public IReadOnlyList<SeriesWake> Wakes { get; init; } = [];
+
+    /// <summary>2026-11-25-9992g: when the master's loop last failed; its wakes then wait a status period before the next try.
+    /// Null once it judged again.</summary>
+    public DateTimeOffset? MasterFailedAt { get; init; }
+
+    /// <summary>2026-11-25-9992g: the budget the master judges within — the configured one plus what was raised.</summary>
+    public decimal BudgetUsd(decimal configured) => configured + BudgetRaisedUsd;
+
     public DateTimeOffset? FinishedAt { get; init; }
 
     /// <summary>2026-11-19-1b72a: the state a paused series returns to on resume; null unless paused.</summary>
@@ -57,11 +74,20 @@ public sealed record SeriesRunRecord(
     /// before the branch existed (it runs as it did) and for one opened over a single ticket.</summary>
     public string? IntegrationBranch { get; init; }
 
+    /// <summary>2026-11-25-9992i: the project's review, copied when the series opened; null on a series opened before.</summary>
+    public Models.Configuration.ReviewMode? Review { get; init; }
+
+    /// <summary>2026-11-25-9992i: the review this series runs under — its own, or for a series opened before the setting end
+    /// when it integrates on a series branch, else each. Read, never repaired.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Models.Configuration.ReviewMode EffectiveReview =>
+        Review ?? (IntegrationBranch is null ? Models.Configuration.ReviewMode.Each : Models.Configuration.ReviewMode.End);
+
     /// <summary>2026-11-24-f9c5e: per repo the final pull request the series opened from its branch; empty before.</summary>
     public IReadOnlyList<SeriesDelivery> Deliveries { get; init; } = [];
 
-    /// <summary>2026-11-24-f9c5e: when a beat last delivered — read the final pull requests from their hosts.</summary>
-    public DateTimeOffset? LastDeliveredAt { get; init; }
+    /// <summary>2026-11-25-9992e: every act of the series master, oldest first, each with the reason it gave.</summary>
+    public IReadOnlyList<SeriesAct> Acts { get; init; } = [];
 
     /// <summary>The optimistic version the store compares on update.</summary>
     public int Version { get; init; }

@@ -11,8 +11,9 @@ namespace AgentSmith.Application.Services.Series;
 /// <summary>
 /// 2026-11-24-f9c5e: a beat's delivery of a series with a series branch. Once every ticket landed, each repo a ticket pull request
 /// merged into the series branch gets one pull request from it into the default branch (<see cref="SeriesFinalPullRequest"/>);
-/// in Delivering — the series check passed with no new failure — they merge under merge.when, and the series is done once every
-/// one merged, which also wakes the tickets outside the series that waited for it. A series without a branch has nothing here.
+/// in Delivering — the series check passed with no new failure — the series is done once every one merged, which also wakes the
+/// tickets outside the series that waited for it. A series without a branch has nothing here. 2026-11-25-9992e: this step
+/// opens and reads them only; the series master merges them (merge_pull_request "final").
 /// </summary>
 public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullRequest finals, ISeriesTicketActs acts, IServiceScopeFactory scopes)
     : ICommandHandler<DeliverSeriesContext>
@@ -22,16 +23,15 @@ public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullR
         if (!context.Pipeline.TryGet<SeriesBeat>(ContextKeys.SeriesBeat, out var beat) || beat is null) return CommandResult.Ok("No series to deliver.");
         if (beat.Record.IntegrationBranch is not { } branch) return CommandResult.Ok("The series has no series branch; nothing to deliver.");
         if (beat.Facts.Count == 0 || !beat.Facts.All(f => f.Landed)) return CommandResult.Ok($"Not every ticket landed on {branch} yet.");
-        var merging = beat.Record.State == SeriesRunStates.Delivering;
         var (repos, unread) = await ReposAsync(context.Project, beat.Record, branch, cancellationToken);
         if (unread) return CommandResult.Ok("A landed ticket's pull request has no target read yet; the next beat delivers.");
         var steps = new List<(string Repo, SeriesDeliveryStep Step)>();
-        foreach (var repo in repos) steps.Add((repo.Name, await StepAsync(context, beat, repo, branch, merging, cancellationToken)));
+        foreach (var repo in repos) steps.Add((repo.Name, await StepAsync(beat, repo, branch, cancellationToken)));
         beat.Said.AddRange(steps.Select(s => s.Step.Say).OfType<string>());
-        var done = merging && steps.Count > 0 && steps.All(s => s.Step.Merged);
+        var done = beat.Record.State == SeriesRunStates.Delivering && steps.Count > 0 && steps.All(s => s.Step.Merged);
         if (await store.UpdateAsync(beat.Record.Id, r => r with
             {
-                Deliveries = [.. steps.Select(s => s.Step.Delivery).OfType<SeriesDelivery>()], LastDeliveredAt = beat.Now,
+                Deliveries = [.. steps.Select(s => s.Step.Delivery).OfType<SeriesDelivery>()],
                 State = done && r.State == SeriesRunStates.Delivering ? SeriesRunStates.Done : r.State,
                 FinishedAt = done && r.State == SeriesRunStates.Delivering ? beat.Now : r.FinishedAt,
             }, cancellationToken) is { } kept) beat.Record = kept;
@@ -41,11 +41,10 @@ public sealed class DeliverSeriesHandler(ISeriesRunStore store, SeriesFinalPullR
     }
 
     // One repo's step; a host that fails is said and tried again next beat, and never stops the beat's other steps.
-    private async Task<SeriesDeliveryStep> StepAsync(DeliverSeriesContext context, SeriesBeat beat, RepoConnection repo, string branch,
-        bool merging, CancellationToken ct)
+    private async Task<SeriesDeliveryStep> StepAsync(SeriesBeat beat, RepoConnection repo, string branch, CancellationToken ct)
     {
         var known = beat.Record.Deliveries.FirstOrDefault(d => d.Repo == repo.Name);
-        try { return await finals.StepAsync(context, beat.Record, repo, branch, known, merging, beat.Now, ct); }
+        try { return await finals.StepAsync(beat.Record, repo, branch, known, beat.Facts, ct); }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             return SeriesDeliveryStep.Of(known ?? new SeriesDelivery(repo.Name, string.Empty, string.Empty), "failed",

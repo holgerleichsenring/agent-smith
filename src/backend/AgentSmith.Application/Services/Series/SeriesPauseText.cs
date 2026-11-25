@@ -6,11 +6,11 @@ namespace AgentSmith.Application.Services.Series;
 
 /// <summary>2026-11-19-1b72a: the one line a pause or a resume says in the conversation, from what it found and did — a run
 /// actually under way finishes (or was cancelled), a queued start is held, a parked run waits for its answer; a resume
-/// names only what started, the red CIs it handed back to the CI loop and the red tickets that wait for a retry.</summary>
+/// names only what started, the red CIs the series master reads (2026-11-25-9992e) and the red tickets that wait for a retry.</summary>
 public static class SeriesPauseText
 {
     public const string Holds = "no new ticket starts — a queued start waits for the resume — though a start already under way may still "
-        + "begin, and an automatic fix of a red CI waits too; a retry or rework you ask for still runs.";
+        + "begin; a retry or rework you ask for still runs.";
 
     public static bool Running(SeriesTicketFact f) =>
         f is { LatestRunId: not null, LatestFinished: false } && f.LatestStatus is not (RunStatuses.Queued or RunStatuses.WaitingForInput);
@@ -28,7 +28,7 @@ public static class SeriesPauseText
         var ci = all.Where(CiRed).ToList();
         var red = all.Where(f => !CiRed(f) && f.Kind == SeriesTicketKinds.Failed && f.LatestStatus != RunStatuses.Success).ToList();
         return "The series resumes" + (started.Count == 0 ? "." : $" and starts {Keys(started)}.")
-            + (ci.Count == 0 ? string.Empty : $" The red CI of {Keys(ci)} goes back to the CI loop.")
+            + (ci.Count == 0 ? string.Empty : $" The red CI of {Keys(ci)} is the series master's to judge.")
             + (red.Count == 0 ? string.Empty : $" {Keys(red)} {(red.Count == 1 ? "is red and waits" : "are red and wait")} for a retry; "
                 + $"say retry to run {(red.Count == 1 ? "it" : "them")} again.");
     }

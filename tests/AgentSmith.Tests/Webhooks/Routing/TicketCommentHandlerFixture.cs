@@ -54,7 +54,8 @@ internal sealed class TicketCommentHandlerFixture
         Spawn.Object, new Mock<ITicketProviderFactory>().Object, NullLogger<WebhookSpawnDispatcher>.Instance);
 
     private KeywordCommentRouter Router() => new(
-        Dispatcher(), Attempts.Object, new Mock<IReworkNudges>().Object, NullLogger<KeywordCommentRouter>.Instance);
+        Dispatcher(), Attempts.Object, new Mock<IReworkNudges>().Object, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.TicketComments(),
+        NullLogger<KeywordCommentRouter>.Instance);
 
     private static PlanAnswerParser Answers() => new(NullLogger<PlanAnswerParser>.Instance);
 

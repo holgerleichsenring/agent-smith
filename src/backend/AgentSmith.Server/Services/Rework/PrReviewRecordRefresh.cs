@@ -24,14 +24,15 @@ namespace AgentSmith.Server.Services.Rework;
 /// pull requests ended with one merged; a refresh that changed anything tells the ticket's pages.
 /// <para>2026-11-23-8d16: and whether an open one is still a draft — read only; a person's merge takes it out of draft.</para>
 /// <para>2026-11-24-297b: an open one the host says conflicts is handed to <see cref="ConflictBaseRefresh"/> before it is written.</para>
+/// <para>2026-11-25-9992e: a ticket an active series holds is read only — its master merges, refreshes and acts on its CI; 9992g: what a read changed wakes it.</para>
 /// </summary>
 public sealed class PrReviewRecordRefresh(
     IServiceScopeFactory scopes,
     ISourceProviderFactory sources,
     IPrReviewAuthorTrust trust,
     PrReviewEntryBuilder builder,
-    PrRecordCiRead ci, CiGreenMerge ciMerge, CiRedNudge ciRed, // 2026-11-17-3435a/b/c
-    SeriesCiStart ciStart, CiBuildRequeue requeue, AutoCompleteRearm rearm, // 2026-11-24-f9c5d, 629aa, 629ab
+    PrRecordCiRead ci, CiGreenMerge ciMerge, CiRedNudge ciRed, CiBuildRequeue requeue, AutoCompleteRearm rearm, // 3435a/b/c, 629aa/ab
+    AgentSmith.Contracts.Series.ISeriesRunStore series, AgentSmith.Contracts.Series.ISeriesWakes wakes, // 2026-11-25-9992e, 9992g
     PrRecordTargetRead target, // 2026-11-22-6d85b
     ConflictBaseRefresh conflicts, // 2026-11-24-297b
     TicketLandingRecorder landing,
@@ -53,12 +54,12 @@ public sealed class PrReviewRecordRefresh(
         var orphans = records.Keys.Except(named.Select(n => PrKey.Of(n.Url)), StringComparer.Ordinal).ToList();
         await writer.DeleteAsync(orphans, ct);
         var changed = orphans.Count > 0;
-        var once = new PrReviewAuthorTrustOnce(trust);
+        var (once, held) = (new PrReviewAuthorTrustOnce(trust), await series.HoldsTicketAsync(project.Name, ticketId, ct));
         foreach (var pr in named.Where(n => IsDue(n, records.GetValueOrDefault(PrKey.Of(n.Url)), nudgedUrl)))
-            changed |= await OneAsync(project, pr, records.GetValueOrDefault(PrKey.Of(pr.Url)), writer, once, ct);
-        if (ciLoop && !await ciStart.AfterRefreshAsync(project, ticketId, ct) && !await requeue.AfterRefreshAsync(project, ticketId, ct)
+            changed |= await OneAsync(project, pr, records.GetValueOrDefault(PrKey.Of(pr.Url)), writer, once, held, ct);
+        if (ciLoop && !held && !await requeue.AfterRefreshAsync(project, ticketId, ct)
             && !await rearm.AfterRefreshAsync(project, ticketId, ct) && !await ciMerge.AfterRefreshAsync(project, ticketId, ct))
-            await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c, f9c5d, 629aa/ab: a CI to start, queue or arm again comes first
+            await ciRed.AfterRefreshAsync(project, ticketId, ct); // 3435b/c, 629aa/ab: a CI to queue or arm again comes first
         await landing.RecordMergedAsync(project, ticketId, ct);
         if (changed) await activity.ChangedAsync(project.Name, KeyOf(project, ticketId), ct);
     }
@@ -73,7 +74,7 @@ public sealed class PrReviewRecordRefresh(
         || record.StateAt is not { } ended || clock.GetUtcNow() - ended < RecentlyEnded;
 
     private async Task<bool> OneAsync(ResolvedProject project, NamedPullRequest pr, PrReviewRecordView? stored,
-        PrReviewRecordWriter writer, PrReviewAuthorTrustOnce once, CancellationToken ct)
+        PrReviewRecordWriter writer, PrReviewAuthorTrustOnce once, bool held, CancellationToken ct)
     {
         var start = clock.GetUtcNow().UtcTicks;
         var repo = project.Repos.FirstOrDefault(r => r.Name == pr.Repo);
@@ -92,10 +93,12 @@ public sealed class PrReviewRecordRefresh(
             record.ConflictsAtTicks = record.HasConflicts == true ? record.CheckedAtTicks : null;
             await ci.ApplyAsync(project, states, record, stored, ct);
             await target.ApplyAsync(states, record, stored, ct); // 2026-11-22-6d85b: where a merge landed
-            if (record.HasConflicts == true) // 2026-11-24-297b: started before the conflict is written, so no page sees it alone
+            if (record.HasConflicts == true && !held) // 2026-11-24-297b: started before the conflict is written, so no page sees it alone
                 await conflicts.LaunchIfDueAsync(project, repo, host, new RefreshedPullRequest(pr.Url, record.Number, pr.TicketId),
                     ConflictBaseRefresh.ConflictsSince(stored, record.HeadSha, new DateTimeOffset(record.CheckedAtTicks, TimeSpan.Zero)), ct);
-            return await writer.WriteAsync(record, entries, start, ct);
+            var wrote = await writer.WriteAsync(record, entries, start, ct);
+            if (held) foreach (var wake in SeriesPrChange.Of(stored, record)) await wakes.WakeAsync(project.Name, pr.TicketId, wake, ct); // 9992g
+            return wrote;
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {

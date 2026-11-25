@@ -3,8 +3,9 @@ using AgentSmith.Contracts.Tickets;
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
-/// 2026-10-14-dbcef: which filed ticket must wait for which other ticket to be merged. Insert only:
-/// an edge is written once at filing and outlives every run of both tickets.
+/// 2026-10-14-dbcef: which filed ticket must wait for which other ticket to be merged. An edge is written at filing and
+/// outlives every run of both tickets. 2026-11-25-9992f: no longer insert only — the series master adds and removes edges
+/// between its tickets (<see cref="RemoveAsync"/>), so an edge stands until someone who owns the tickets removes it.
 /// </summary>
 public interface ITicketRequirementStore
 {
@@ -14,6 +15,10 @@ public interface ITicketRequirementStore
     /// naming two dependents, an edge requiring its own ticket, or edges disagreeing on StartsWhenMet.
     /// </summary>
     Task<int> AddAsync(IReadOnlyList<TicketRequirementEdge> edges, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-25-9992f: removes the edge by which <paramref name="ticketKey"/> requires
+    /// <paramref name="requiredTicketKey"/>; answers whether one was stored.</summary>
+    Task<bool> RemoveAsync(string tracker, string ticketKey, string requiredTicketKey, CancellationToken cancellationToken);
 
     /// <summary>The edges of the dependent ticket — what it waits for; empty for an unknown ticket.</summary>
     Task<IReadOnlyList<TicketRequirementEdge>> RequiredOfAsync(

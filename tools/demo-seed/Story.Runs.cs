@@ -76,7 +76,7 @@ internal static partial class Story
                .Tool("git", "commit + push agent-smith/41 (format)", repo: "shop-api", role: null, seconds: 2.0)
                .Raw(new PullRequestOutcomeEvent(run.RunId, "shop-api", "opened", run.Tick(1), pr)))
            .Step("CompletePullRequestsCommand", "Complete pull requests", seconds: 2, body: b => b
-               .Detail("merge", "merge.when on_ci_green: waits for CI on the new head, then merges."))
+               .Detail("merge", "review: none: waits for CI on the new head, then merges."))
            .Finish("success", "Fixed the failing 'build / format' check; CI green on the new head and the pull request merged.", 0.1516m, pr);
         await run.WriteAsync(ct);
     }

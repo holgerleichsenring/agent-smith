@@ -10,41 +10,21 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// 2026-11-17-023fa: the code preset through the real composition — a green run on a project with merge: on_gate_green
-/// merges its pull request in the project's protection mode as its last step; the same run on a manual project
-/// merges nothing.
+/// 2026-11-17-023fa: the code and merge-green presets through the real composition. 2026-11-25-9992i: a green code run merges
+/// nothing under any review — end and each leave its pull request for a person, none waits for CI — and the merge-green run
+/// merges under the host's branch protection (auto-merge), whose rules decide.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
-public sealed class MergeOnGateGreenTests
+public sealed class MergeByReviewTests
 {
     [Theory]
-    [InlineData(false, BranchProtection.Bypass)]
-    [InlineData(true, BranchProtection.Respect)]
-    public async Task GreenRun_OnGateGreen_MergesItsPullRequest(bool respect, BranchProtection expected)
+    [InlineData(ReviewMode.End)]
+    [InlineData(ReviewMode.Each)]
+    [InlineData(ReviewMode.None)]
+    public async Task GreenRun_MergesNothing_UnderEveryReview(ReviewMode review)
     {
         var merges = new List<BranchProtection>();
-        var result = await RunGreenAsync(merges, new MergePolicyConfig { When = MergeWhen.OnGateGreen, RespectBranchProtection = respect });
-
-        result.IsSuccess.Should().BeTrue(result.Message);
-        merges.Should().Equal(expected);
-    }
-
-    [Fact]
-    public async Task GreenRun_Manual_MergesNothing()
-    {
-        var merges = new List<BranchProtection>();
-        var result = await RunGreenAsync(merges, merge: null);
-
-        result.IsSuccess.Should().BeTrue(result.Message);
-        merges.Should().BeEmpty();
-    }
-
-    // 2026-11-17-3435b: on_ci_green — the code run merges nothing; the merge-green run merges what CI cleared.
-    [Fact]
-    public async Task GreenRun_OnCiGreen_MergesNothing()
-    {
-        var merges = new List<BranchProtection>();
-        var result = await RunGreenAsync(merges, new MergePolicyConfig { When = MergeWhen.OnCiGreen });
+        var result = await RunGreenAsync(merges, review);
 
         result.IsSuccess.Should().BeTrue(result.Message);
         merges.Should().BeEmpty();
@@ -59,19 +39,19 @@ public sealed class MergeOnGateGreenTests
             services.RemoveAll<ISourceProviderFactory>();
             services.AddSingleton<ISourceProviderFactory>(new RecordingFactory(new StubSourceProviderFactory(), merges));
         });
-        var runner = new PipelineRunner(harness.Services) { MergeOverride = new MergePolicyConfig { When = MergeWhen.OnCiGreen } };
+        var runner = new PipelineRunner(harness.Services) { Review = ReviewMode.None };
         runner.RequestContext[AgentSmith.Contracts.Commands.ContextKeys.CiGreenMerge] = new AgentSmith.Contracts.Runs.CiGreenMergeRequest(
             "42", "attempt-1", "agent-smith/42", [new AgentSmith.Contracts.Runs.CiGreenPullRequest("primary", "https://stub.test/primary/pull/1")]);
 
         var result = await runner.RunAsync(AgentSmith.Contracts.Commands.PipelinePresets.MergeGreenName);
 
         result.IsSuccess.Should().BeTrue(result.Message);
-        merges.Should().Equal(BranchProtection.Bypass);
+        merges.Should().Equal(BranchProtection.Respect);
     }
 
-    // 2026-11-23-31dce: a merge a person asked for from the series page runs under merge: manual and hands back its outcome.
+    // 2026-11-23-31dce: a merge a person asked for from the series page runs under review: end and hands back its outcome.
     [Fact]
-    public async Task MergeGreenRun_AskedByAPerson_UnderManual_MergesAndFillsTheOutcomeSlot()
+    public async Task MergeGreenRun_AskedByAPerson_UnderEnd_MergesAndFillsTheOutcomeSlot()
     {
         var merges = new List<BranchProtection>();
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
@@ -80,7 +60,7 @@ public sealed class MergeOnGateGreenTests
             services.AddSingleton<ISourceProviderFactory>(new RecordingFactory(new StubSourceProviderFactory(), merges));
         });
         var slot = new AgentSmith.Application.Services.TicketActs.ActSlot<IReadOnlyList<AgentSmith.Application.Models.PullRequestMergeLine>>();
-        var runner = new PipelineRunner(harness.Services) { MergeOverride = new MergePolicyConfig { When = MergeWhen.Manual } };
+        var runner = new PipelineRunner(harness.Services);
         runner.RequestContext[AgentSmith.Contracts.Commands.ContextKeys.CiGreenMerge] = new AgentSmith.Contracts.Runs.CiGreenMergeRequest(
             "42", "attempt-1", "agent-smith/42", [new AgentSmith.Contracts.Runs.CiGreenPullRequest("primary", "https://stub.test/primary/pull/1")])
         { AskedBy = "Dana" };
@@ -89,11 +69,11 @@ public sealed class MergeOnGateGreenTests
         var result = await runner.RunAsync(AgentSmith.Contracts.Commands.PipelinePresets.MergeGreenName);
 
         result.IsSuccess.Should().BeTrue(result.Message);
-        merges.Should().Equal(BranchProtection.Bypass);
+        merges.Should().Equal(BranchProtection.Respect);
         slot.Value.Should().ContainSingle().Which.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
     }
 
-    private static async Task<AgentSmith.Domain.Models.CommandResult> RunGreenAsync(List<BranchProtection> merges, MergePolicyConfig? merge)
+    private static async Task<AgentSmith.Domain.Models.CommandResult> RunGreenAsync(List<BranchProtection> merges, ReviewMode review)
     {
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
         {
@@ -106,7 +86,7 @@ public sealed class MergeOnGateGreenTests
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
             .EnqueueReport();
-        var runner = new PipelineRunner(harness.Services) { MergeOverride = merge };
+        var runner = new PipelineRunner(harness.Services) { Review = review };
         return await runner.RunAsync("code");
     }
 

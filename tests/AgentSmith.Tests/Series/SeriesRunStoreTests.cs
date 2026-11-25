@@ -73,6 +73,23 @@ public sealed class SeriesRunStoreTests : IDisposable
         (await Store.RunningWithTicketAsync("sample", "44", default))!.Id.Should().Be("sr-1");
     }
 
+    // 2026-11-25-9992e: running, verifying, delivering and paused hold their tickets for the master; stopped and done do not.
+    [Theory]
+    [InlineData(SeriesRunStates.Running, true)]
+    [InlineData(SeriesRunStates.Verifying, true)]
+    [InlineData(SeriesRunStates.Delivering, true)]
+    [InlineData(SeriesRunStates.Paused, true)]
+    [InlineData(SeriesRunStates.Stopped, false)]
+    [InlineData(SeriesRunStates.Done, false)]
+    public async Task HoldsTicketAsync_IsTrueForAnActiveSeriesOnly(string state, bool holds)
+    {
+        await Store.OpenAsync(SeriesRecords.Running("sr-1", "conv-1") with { State = state }, default);
+
+        (await Store.HoldsTicketAsync("sample", "44", default)).Should().Be(holds);
+        (await Store.HoldsTicketAsync("sample", "99", default)).Should().BeFalse("not a ticket of the series");
+        (await Store.HoldsTicketAsync("other", "44", default)).Should().BeFalse("another project's ticket 44");
+    }
+
     [Fact]
     public async Task ListAsync_NamedProjects_AnswersActiveAndEndedNewestActivityFirst()
     {

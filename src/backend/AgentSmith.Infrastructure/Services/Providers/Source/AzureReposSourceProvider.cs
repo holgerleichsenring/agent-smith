@@ -386,8 +386,8 @@ public sealed class AzureReposSourceProvider(
         _pullRequests.CompleteAsync(prUrl, cancellationToken);
 
     public Task<PullRequestCompletion> MergePullRequestAsync(
-        string prUrl, BranchName sourceBranch, BranchProtection protection, CancellationToken cancellationToken) =>
-        _pullRequests.CompleteAsync(prUrl, protection, cancellationToken);
+        string prUrl, BranchName sourceBranch, BranchProtection protection, MergeStyle style, CancellationToken cancellationToken) =>
+        _pullRequests.CompleteAsync(prUrl, protection, style, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
         await _branchRead.TryReadFileAsync(path, await DefaultBranchNameAsync(cancellationToken), cancellationToken);

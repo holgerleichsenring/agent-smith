@@ -14,7 +14,7 @@ using Moq;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// 2026-11-17-3435c: the code preset through the real composition on a merge: on_ci_green project whose pull request is
+/// 2026-11-17-3435c: the code preset through the real composition on a review: none project whose pull request is
 /// red on CI after merge.ci_fix_attempts fix runs: FetchTicket reads the red CI as the run's act, splices the hand-back
 /// in, and the run parks with the evidence before any model call or sandbox.
 /// </summary>
@@ -35,7 +35,7 @@ public sealed class CiFixBudgetTests
             services.RemoveAll<IPrReviewRecordReader>();
             services.AddSingleton(Records());
         });
-        var runner = new PipelineRunner(harness.Services) { MergeOverride = new MergePolicyConfig { When = MergeWhen.OnCiGreen } };
+        var runner = new PipelineRunner(harness.Services) { Review = ReviewMode.None };
         runner.RequestContext[ContextKeys.ProjectName] = "p";
 
         await runner.RunAsync(PipelinePresets.CodeName);

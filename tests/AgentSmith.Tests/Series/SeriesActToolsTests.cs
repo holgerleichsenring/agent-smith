@@ -197,7 +197,7 @@ public sealed class SeriesActToolsTests
     }
 
     [Fact]
-    public async Task ResumeSeries_RedCi_GoesBackToTheCiLoop_AndAQueuedTicketIsOfferedToTheStart()
+    public async Task ResumeSeries_RedCi_IsTheMastersToJudge_AndAQueuedTicketIsOfferedToTheStart()
     {
         var record = SeriesRecords.Running() with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running };
         await _store.OpenAsync(record, default);
@@ -205,10 +205,8 @@ public sealed class SeriesActToolsTests
             [SeriesRecords.Fact("43", RunStatuses.Success).WithPr(AgentSmith.Contracts.Reviews.PrReviewStates.Open, AgentSmith.Contracts.Reviews.CiStates.Red),
              SeriesRecords.Fact("44", RunStatuses.Queued, finished: false), SeriesRecords.Fact("45", RunStatuses.Success)]);
         Starts("44", true, "Ticket 44 started: moved");
-        _acts.Setup(a => a.AskCiLoopAsync("sample", "43", It.IsAny<CancellationToken>())).ReturnsAsync("back to the loop");
 
         (await Tools(record).ResumeSeriesAsync()).Should()
-            .StartWith("The series resumes and starts SCRUM-44. The red CI of SCRUM-43 goes back to the CI loop.");
-        _acts.Verify(a => a.AskCiLoopAsync("sample", "43", It.IsAny<CancellationToken>()), Times.Once);
+            .StartWith("The series resumes and starts SCRUM-44. The red CI of SCRUM-43 is the series master's to judge.");
     }
 }

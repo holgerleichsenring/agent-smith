@@ -286,43 +286,54 @@ Refused: an unknown project, a repo that project doesn't carry, a wildcard repo,
 
 Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md) has what each one does at runtime.
 
+### projects.review
+
+```yaml
+review: end                         # end (default) | each | none
+```
+
+When a person looks at the project's work (2026-11-25-9992i). A series copies it when it opens and keeps it.
+
+| Value | A series | A single ticket |
+|-------|----------|-----------------|
+| `end` | Works on a series branch (`agent-smith/series/<id>`, one per repository it touches). The series master merges each ticket into it, past protection: the branch carries no host policy. One final pull request per repository goes into the default branch, its description a section per ticket (title and pull request, the master's acts with their reasons, what it could not verify); a person reviews and merges it. | Its pull requests stay open for a person. |
+| `each` | No series branch. Each ticket's pull request goes into the default branch; the master merges it once a person approved it. | Its pull requests stay open for a person. |
+| `none` | No series branch. The master merges each ticket into the default branch on green. | A run whose every spec passed merges nothing at its end: each pull request reads *waiting for CI*. Once CI is green on every one of the attempt's pull requests (or nothing reports on the head for `ci_settle_seconds`), a `merge-green` run, listed in the ticket's Runs, arms the host's auto-merge, and the ticket lands. A head is acted on once per verdict. |
+
+The host's branch protection is a limit of the environment, not a setting: a merge into the default branch arms Azure DevOps auto-complete, GitHub auto-merge or GitLab's merge when the pipeline succeeds, and the host's rules decide. Only a merge into a series branch and a merge the series master asks for with `how: now` go past protection; those need the token's bypass permission (Azure DevOps *Bypass policies when completing pull requests*; GitHub repository admin with bypassing allowed, or the token's actor on a ruleset's bypass list; GitLab has no API bypass and merges when its checks allow).
+
+`review` replaced four keys of the merge block (retired 2026-11-25). A file still naming one of them gets an advisory finding naming the key; a stored configuration was moved by `database migrate` once, erring toward more review: a project whose series tickets waited for a person became `each`, otherwise one whose green runs merged nothing by themselves became `end`, and one that merged on green became `none`. The migration's log names every project whose single tickets now behave otherwise. A pull request without a conflict is no longer refreshed when a ticket lands; a conflicting one still is.
+
 ### projects.merge
 
 ```yaml
 merge:
-  when: on_gate_green               # manual (default) | on_gate_green | on_ci_green
-  series_when: on_ci_green          # on_ci_green (default) | manual | on_gate_green
-  respect_branch_protection: false  # default false
-  refresh_open_pull_requests: false # default false
   ci_excerpt_chars: 4000            # default 4000
   ci_failed_checks_read: 5          # default 5
-  ci_poll_seconds: 60               # on_ci_green: default 60
-  ci_settle_seconds: 180            # on_ci_green: default 180
-  ci_pending_seconds: 3600          # on_ci_green: default 3600
-  ci_fix_attempts: 3                # on_ci_green: default 3
+  ci_poll_seconds: 60               # default 60
+  ci_settle_seconds: 180            # default 180
+  ci_pending_seconds: 3600          # default 3600
+  ci_fix_attempts: 3                # review none: default 3
 ```
+
+How the host's CI is read; every key applies under every review unless it says otherwise.
 
 | Key | Description |
 |-----|-------------|
-| `when` | `manual`: the run opens its pull requests and a person merges them. `on_gate_green`: a run whose every spec passed its verification merges its pull requests as its last step, and later work fixes forward. A red, partial or record-only run never merges. |
-| `series_when` | The same modes for a series' ticket pull requests into its series branch (`agent-smith/series/<id>`, one per repository a series of two or more tickets works in). Default `on_ci_green`: the series runs through, each ticket merging into its series branch on green CI. `manual`: a person reviews and merges every ticket. `when` keeps governing every pull request into the default branch, the series' final one included. A merge into a series branch always goes past protection: the branch carries no host policy. |
-| `respect_branch_protection` | `false`: merge past branch policies, protection rules and approval rules, which are there for people. That needs the token's permission: on Azure DevOps *Bypass policies when completing pull requests*; on GitHub repository admin with *Do not allow bypassing the above settings* off, or the token's actor on a ruleset's bypass list. GitLab has no API bypass for required approvals or pipelines, so it merges when its merge checks allow. `true`: Azure DevOps arms auto-complete, GitHub enables auto-merge, GitLab merges when the pipeline succeeds. |
-
-| `refresh_open_pull_requests` | A pull request its host says conflicts with its base gets its base merged in by a `refresh-base` run whatever this says: it can't merge as it is. `true` adds the rest: when a ticket lands, every other open agent-smith pull request on the same repository and base gets that base merged in by a `refresh-base` run, pushed without force. Collisions of `state.done` index lines in `.agentsmith/contexts/*/context.yaml` and of `.agentsmith/memory/MEMORY.md` entry lines are united; a master resolves any other conflict, and the declared `verify` stages build and test every merge before the push. A merge that can't be resolved or stays red leaves the branch unchanged, is said on the pull request and holds the ticket for a person. Each refresh spends model tokens and a build-sized sandbox. Closed, running, queued and waiting tickets are skipped. A host that dismisses approvals on a push clears them. |
-
-| `on_ci_green` (a `when` value) | A run whose every spec passed merges nothing at its end: each of its pull requests reads *waiting for CI*. agent-smith reads their CI every `ci_poll_seconds`; once it is green on every one of the attempt's pull requests (or nothing reports on the head for `ci_settle_seconds`), a `merge-green` run, listed in the ticket's Runs, merges them, and the ticket lands. A head is acted on once per verdict; a new head or a new verdict is acted on again. |
-| `ci_poll_seconds` | With `on_ci_green`, how often the open pull requests' CI is read. Also how often a deploy's pull request or pipeline run is read while it runs, whatever `when` says ([following a deploy](../../configure-it/deployment-templates.md#following-a-deploy)). Default 60. |
-| `ci_settle_seconds` | How long a head with no CI reporting must stay so before it counts as having none and merges. Default 180: a host registers its checks seconds to minutes after a push. |
+| `ci_poll_seconds` | How often the open pull requests' pending CI is read. Also how often a deploy's pull request or pipeline run is read while it runs ([following a deploy](../../configure-it/deployment-templates.md#following-a-deploy)). Default 60. |
+| `ci_settle_seconds` | How long a head with no CI reporting must stay so before it counts as having none: a build that never started is queued again, and under `review: none` the pull request merges. Default 180: a host registers its checks seconds to minutes after a push. |
 | `ci_pending_seconds` | After how long a head still pending is no longer read every `ci_poll_seconds`; the five-minute re-read still sees it move. A deploy still pending this long after it was delivered stops being followed, and says so. Default 3600. |
-| `ci_fix_attempts` | With `on_ci_green`, a red CI on the head the newest green attempt pushed starts a rework run that carries the failed checks' evidence (names, excerpts, links) as its task; the fix is verified locally and pushed to the same pull request, never force-pushed, and CI is watched again. After `ci_fix_attempts` such runs in a row (default 3), or after a fix that pushed nothing, the next run hands the ticket back in its clarification status with the evidence on the ticket; a person's comment or approval starts the next attempt and the count starts again. A red pull request is never merged. It also bounds how many repair passes a base refresh may make on a build or test stage the merged base turned red. |
+| `ci_fix_attempts` | With `review: none`, a red CI on the head the newest green attempt pushed starts a rework run that carries the failed checks' evidence (names, excerpts, links) as its task; the fix is verified locally and pushed to the same pull request, never force-pushed, and CI is watched again. After `ci_fix_attempts` such runs in a row (default 3), or after a fix that pushed nothing, the next run hands the ticket back in its clarification status with the evidence on the ticket; a person's comment or approval starts the next attempt and the count starts again. A red pull request is never merged. It also bounds how many repair passes a base refresh may make on a build or test stage the merged base turned red. |
 | `ci_excerpt_chars` | How many characters of each failed CI check's evidence are read, stored and shown: the host's summary and annotations, then the end of its log. Default 4000. |
 | `ci_failed_checks_read` | How many failed checks of one red head have their logs read; the rest are named with their links. Default 5. |
 
+A pull request its host says conflicts with its base gets its base merged in by a `refresh-base` run, pushed without force. Collisions of `state.done` index lines in `.agentsmith/contexts/*/context.yaml` and of `.agentsmith/memory/MEMORY.md` entry lines are united; a master resolves any other conflict, and the declared `verify` stages build and test every merge before the push. A merge that can't be resolved or stays red leaves the branch unchanged, is said on the pull request and holds the ticket for a person.
+
 Every open pull request's CI is read with its record and shown on the ticket page: `none` (nothing reports on the head), `pending`, `green` or `red`. One rule decides for every host: where checks are marked required only those count; any failed check is red; else anything running is pending; else green. GitHub reads the check runs and commit statuses of the head (a failed GitHub Actions job adds the end of its log), Azure DevOps the build-validation policies (the failed build's task issues and log end) and the pull request's statuses of its latest iteration, GitLab the head pipeline (each failed job's stage, name and trace end). The token needs read access to checks, commit statuses and Actions logs on GitHub, Build (read) on Azure DevOps, and `read_api` on GitLab; a refused read leaves the stored CI as it was.
 
-A merge the host refuses leaves the pull request open. The step result and the run's pull-request record name the reason; a missing bypass permission reads `cannot bypass <policy> on <provider>: <reason>; grant <permission> or set respect_branch_protection: true`. Repositories merge in order and the first refusal stops the rest. A pull request opened against a feature rung is left open. A local repository fast-forwards its default branch either way.
+A merge the host refuses leaves the pull request open. The step result and the run's pull-request record name the reason; a missing bypass permission reads `cannot bypass <policy> on <provider>: <reason>; grant <permission>, or merge with how auto so the host's rules decide`. Repositories merge in order and the first refusal stops the rest. A pull request opened against a feature rung is left open. A local repository fast-forwards its default branch either way.
 
-Nothing approves a pull request. A review the host requires is a person's: with `respect_branch_protection: true` the armed auto-complete or auto-merge waits for it. (`approval_auth` was retired on 2026-11-25.)
+Nothing approves a pull request. A review the host requires is a person's: the armed auto-complete or auto-merge waits for it. (`approval_auth` was retired on 2026-11-25.)
 
 ### projects.machine
 
@@ -357,11 +368,11 @@ Setting it up:
 
 - **GitHub:** create a GitHub App with Contents, Pull requests and Workflows (write: a change under `.github/workflows/` is pushed too) and Checks, Commit statuses and Actions (read) permissions, install it on the owner of the repositories, and store its private key as a secret. Alternatively, use a machine user's token without `app_id`.
 - **GitLab:** create a project or group access token (`api`, `write_repository`), which comes with its own bot user, and store it as a secret.
-- **Azure DevOps:** create a user for the bot, give it Contribute and Contribute to pull requests on the repositories (plus *Bypass policies when completing pull requests* for the default `respect_branch_protection: false`), and store its personal access token as a secret. Or use a service principal, which needs no person's account:
+- **Azure DevOps:** create a user for the bot, give it Contribute and Contribute to pull requests on the repositories (plus *Bypass policies when completing pull requests* for merges into a series branch and the series master's `how: now`), and store its personal access token as a secret. Or use a service principal, which needs no person's account:
   1. The Azure DevOps organization must be connected to Microsoft Entra ID (*Organization settings → Microsoft Entra*). In that tenant, register an app and create a client secret. Note the tenant id and the application (client) id.
   2. In Azure DevOps, under *Organization settings → Users*, add the service principal with the **Basic** access level (Stakeholder has no Azure Repos). Search for it by the app's name; Azure DevOps keys it by the object id under *Enterprise applications*, not the one under *App registrations*.
   3. Add it to each project's **Contributors** group. That gives Contribute, Create branch, Contribute to pull requests and work item edits on the project's boards. If repositories or area paths narrow those rights, grant them to the principal there.
-  4. For the default `respect_branch_protection: false`, also grant *Bypass policies when completing pull requests* on the repositories. No security group has it by default.
+  4. For merges into a series branch and the series master's `how: now`, also grant *Bypass policies when completing pull requests* on the repositories. No security group has it by default.
   5. Store the client secret as a secret and set `tenant_id` and `client_id`. Entra client secrets expire; renew the secret before it does.
   Azure DevOps Server has no Entra principals; use a bot user's PAT there. The bearer header is passed to git with `--config-env`, which needs git 2.31 or later in the sandbox image.
 
@@ -409,7 +420,7 @@ These blocks apply to every project unless a project overrides them. On a server
 | `limits` | per-skill ceilings of the agentic loop |
 | `pipeline_cost_cap` | money and token caps per run, see [Pipeline cost cap](pipeline-cost-cap.md) |
 | `queue` | `max_parallel_jobs` (4), `consume_block_seconds` (5), `shutdown_grace_seconds` (30), `redis_retry_interval_seconds` (30) |
-| `dialogue` | `hot_wait_seconds` (600), `approval_timeout_seconds` (259200), `dashboard_url`, `admin_agent` (the agent the admin assistant runs on), `admin_read_limit` (50), `admin_result_max_chars` (40000), `series_master_budget_usd` (20), `series_status_minutes` (15), `question_default_minutes` (120) |
+| `dialogue` | `hot_wait_seconds` (600), `approval_timeout_seconds` (259200), `dashboard_url`, `admin_agent` (the agent the admin assistant runs on), `admin_read_limit` (50), `admin_result_max_chars` (40000), `series_master_budget_usd` (20), `series_master_budget_ask_usd` (2), `series_status_minutes` (15), `question_default_minutes` (120) |
 | `skills` | an override for where the skill catalog comes from; normally unset |
 | `pipeline_data_flow` | whether the data-flow gate warns or enforces |
 | `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE`, when set, wins over it |

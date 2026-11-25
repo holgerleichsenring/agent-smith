@@ -79,8 +79,8 @@ internal sealed class SeriesRig(DateTimeOffset start)
 
         public Task<bool> FinishedAsync(string runId, CancellationToken ct) => Task.FromResult(true);
 
-        public Task<bool> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber, DateTimeOffset conflictsSince,
-            CancellationToken ct) => Task.FromResult(true); // 2026-11-24-f9c5f
+        public Task<string> RefreshAsync(string project, string repo, string branch, string prUrl, string prNumber,
+            CancellationToken ct) => Task.FromResult($"{prUrl}: refreshing"); // 2026-11-24-f9c5f, 2026-11-25-9992e
     }
 
     private sealed class ScriptedCriteria : ISeriesCriteria

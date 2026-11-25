@@ -90,14 +90,6 @@ public sealed class SeriesTicketActs(
         string project, string ticketId, string text, string principal, bool mayStartRuns, CancellationToken cancellationToken) =>
         messages.SendAsync(project, ticketId, text, principal, mayStartRuns, cancellationToken);
 
-    /// <summary>2026-11-19-1b72a: one Sweep nudge, as <see cref="CiRedNudge"/> sends after a refresh: the rework handler
-    /// reads the red-CI act again now the pause no longer hides it.</summary>
-    public async Task<string> AskCiLoopAsync(string project, string ticketId, CancellationToken cancellationToken)
-    {
-        await nudges.EnqueueAsync(new ReworkNudgeRequest(project, ticketId, ReworkNudgeOrigin.Sweep), cancellationToken);
-        return $"Ticket {ticketId}'s red CI goes back to the CI loop.";
-    }
-
     public Task<string> CancelAsync(string runId, CancellationToken cancellationToken) => cancels.CancelAsync(runId, cancellationToken);
 
     /// <summary>2026-11-18-3863h: the series deploys only where no person approves; the binding is read here, never left

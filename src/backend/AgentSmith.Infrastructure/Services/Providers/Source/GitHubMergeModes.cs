@@ -6,10 +6,11 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
-/// 2026-11-17-023fa: a code run's merge of a GitHub pull request. Bypass merges now through the REST merge init uses,
-/// as the token's identity — an admin passes branch protection unless admins are enforced, a ruleset's bypass actor
-/// passes its rules; a refusal names that permission and the key that waits instead. Respect enables GitHub's
-/// auto-merge, so the protection decides when; a pull request with nothing left to wait for ("clean status") merges now.
+/// 2026-11-17-023fa: a merge of a GitHub pull request. Bypass merges now through the REST merge init uses, as the token's
+/// identity — an admin passes branch protection unless admins are enforced, a ruleset's bypass actor passes its rules; a
+/// refusal names that permission and the auto merge that lets the host decide instead (2026-11-25-9992i). Respect enables
+/// GitHub's auto-merge, so the protection decides when; a pull request with nothing left to wait for ("clean status") merges
+/// now. 2026-11-25-9992i: a squash style merges and arms with SQUASH.
 /// </summary>
 public sealed class GitHubMergeModes(
     GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token,
@@ -26,17 +27,17 @@ public sealed class GitHubMergeModes(
         "mutation($id: ID!, $method: PullRequestMergeMethod!) { enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: $method}) { clientMutationId } }";
 
     public async Task<PullRequestCompletion> MergeAsync(
-        string prUrl, string sourceBranch, BranchProtection protection, CancellationToken ct)
+        string prUrl, string sourceBranch, BranchProtection protection, MergeStyle style, CancellationToken ct)
     {
-        if (protection == BranchProtection.Respect) return await ArmAsync(prUrl, sourceBranch, ct);
-        var completion = await merger.CompleteAsync(prUrl, sourceBranch, ct);
+        if (protection == BranchProtection.Respect) return await ArmAsync(prUrl, sourceBranch, style, ct);
+        var completion = await merger.CompleteAsync(prUrl, sourceBranch, style, ct);
         return completion.Outcome == PullRequestCompletionOutcome.Refused
             ? BypassRefusal.Of(Policy, "GitHub", completion.Reason ?? "GitHub refused the merge", Permission)
                 with { Conflicts = completion.Conflicts } // 2026-11-24-f9c5e
             : completion;
     }
 
-    private async Task<PullRequestCompletion> ArmAsync(string prUrl, string sourceBranch, CancellationToken ct)
+    private async Task<PullRequestCompletion> ArmAsync(string prUrl, string sourceBranch, MergeStyle style, CancellationToken ct)
     {
         if (!GitHubPullRequestUpdater.TryParsePullNumber(prUrl, out var number))
             return PullRequestCompletion.Refused($"'{prUrl}' is not a GitHub pull request URL.");
@@ -47,7 +48,7 @@ public sealed class GitHubMergeModes(
                 new { owner = address.Owner, name = address.Repo, number }, "pull request lookup")).GetProperty("repository");
             await query.RunAsync(Mutation, new
             {
-                id = found.GetProperty("pullRequest").GetProperty("id").GetString(), method = MethodOf(found),
+                id = found.GetProperty("pullRequest").GetProperty("id").GetString(), method = style == MergeStyle.Squash ? "SQUASH" : MethodOf(found),
             }, "enablePullRequestAutoMerge");
             logger.LogInformation("PR #{Pr}: auto-merge enabled", number);
             return PullRequestCompletion.Armed("GitHub auto-merge is enabled; it merges when the branch protection passes.");
@@ -55,7 +56,7 @@ public sealed class GitHubMergeModes(
         catch (InvalidOperationException ex) when (ex.Message.Contains("clean status", StringComparison.OrdinalIgnoreCase))
         {
             // Nothing is left to wait for, so there is nothing to respect: merge it now.
-            return await merger.CompleteAsync(prUrl, sourceBranch, ct);
+            return await merger.CompleteAsync(prUrl, sourceBranch, style, ct);
         }
         catch (Exception ex)
         {

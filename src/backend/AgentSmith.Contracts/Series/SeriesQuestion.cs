@@ -33,6 +33,12 @@ public sealed record SeriesQuestion(
     /// <summary>True once the answer reached the master or the parked run.</summary>
     public bool Delivered { get; init; }
 
+    /// <summary>2026-11-25-9992g: its recommendation is never taken by default — it has no deadline and waits for a person.</summary>
+    public bool NoDefault { get; init; }
+
+    /// <summary>2026-11-25-9992g: the series' own question on the master's budget (raise it or stop the series).</summary>
+    public bool Budget { get; init; }
+
     /// <summary>The recommended choice's label, if any.</summary>
     public string? Recommended =>
         RecommendedIndex is { } at && at >= 0 && at < Choices.Count ? Choices[at] : null;

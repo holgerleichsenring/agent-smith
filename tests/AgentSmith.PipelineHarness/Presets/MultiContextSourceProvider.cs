@@ -88,9 +88,9 @@ internal sealed class MultiContextSourceProvider(
         _inner.CompletePullRequestAsync(prUrl, sourceBranch, cancellationToken);
 
     public Task<PullRequestCompletion> MergePullRequestAsync(
-        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection,
+        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection, AgentSmith.Contracts.Providers.MergeStyle style,
         CancellationToken cancellationToken) =>
-        _inner.MergePullRequestAsync(prUrl, sourceBranch, protection, cancellationToken);
+        _inner.MergePullRequestAsync(prUrl, sourceBranch, protection, style, cancellationToken);
 
     public Task<BranchWriteResult> WriteFilesToBranchAsync(
         BranchName branch, IReadOnlyList<RepoFile> files, string message,

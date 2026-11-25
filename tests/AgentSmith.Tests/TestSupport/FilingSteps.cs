@@ -29,11 +29,12 @@ internal sealed class FilingSteps(AgentSmithConfig config, PlanFilingHandler pla
         FileAsync(state, proposal, mayStartRuns, CancellationToken.None, proposalId);
 
     /// <summary>2026-11-17-e061d: a request built elsewhere, filed the same way.</summary>
-    public async Task<FilingReport> RunRequestAsync(string projectName, FilingRequest request)
+    public async Task<FilingReport> RunRequestAsync(string projectName, FilingRequest request, string? seriesRunId = null)
     {
         if (LiveConfig.Projects(config).Of(projectName) is not { } project)
             return new FilingReport([], $"Project '{projectName}' not found in configuration.");
         var (pipeline, slot) = Seeded(request, project);
+        if (seriesRunId is not null) pipeline.Set(ContextKeys.SeriesRunId, seriesRunId); // 2026-11-25-9992f
         var planned = await plan.ExecuteAsync(new PlanFilingContext(pipeline, project), CancellationToken.None);
         Filed = null;
         if (!planned.IsSuccess) return new FilingReport([], planned.Message);

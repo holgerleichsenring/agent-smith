@@ -21,7 +21,9 @@ public sealed class SeriesMasterHandlerTests
 
     private SeriesMasterHandler Handler => new(_loop.Object, Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"),
         Mock.Of<ISeriesTicketActs>(), _store, _config, Mock.Of<ISeriesConversation>(), new SeriesProgress(_store, Mock.Of<ISeriesRunLaunch>()),
-        new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), Mock.Of<ISeriesConversation>()));
+        new SeriesPause(_store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), Mock.Of<ISeriesConversation>()),
+        Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store, _config), Mock.Of<ISeriesEditActs>(),
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<SeriesMasterHandler>.Instance);
 
     private async Task<SeriesBeat> RunAsync(SeriesRunRecord record, params string[] reasons)
     {
@@ -64,10 +66,12 @@ public sealed class SeriesMasterHandlerTests
 
         var first = await RunAsync(spent, "SCRUM-44 turned red");
         _store.Records.Clear();
-        var second = await RunAsync(spent with { BudgetSaid = true }, "SCRUM-45 turned red");
+        var second = await RunAsync(spent with { BudgetSaid = true, BudgetAsked = true }, "SCRUM-45 turned red");
 
         _loop.VerifyNoOtherCalls();
-        first.Said.Should().ContainSingle().Which.Should().Contain("dialogue.series_master_budget_usd");
+        first.Said.Should().ContainSingle(s => s.Contains("judges no more; the tickets keep running"))
+            .Which.Should().Contain("dialogue.series_master_budget_usd");
+        first.Said.Should().ContainSingle(s => s.Contains("dialogue.series_master_budget_ask_usd"), "2026-11-25-9992g: asked once as well");
         second.Said.Should().BeEmpty();
     }
 }

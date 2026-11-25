@@ -31,7 +31,7 @@ public sealed class ReworkPendingActs(
             await NewestHandbackAnswerAsync(project, ticketId, since, cancellationToken)),
             RetryAct.Of(since) is { } retry ? new PendingReworkAct(retry) : null),
             OverruleAct.Of(since) is { } overrule ? new PendingReworkAct(overrule, Text: OverruleAct.TextOf(since)) : null);
-        // 2026-11-17-3435c: a red CI on a merge: on_ci_green ticket — never a hand-back's answer, so not read there.
+        // 2026-11-17-3435c: a red CI on a review: none ticket — never a hand-back's answer, so not read there.
         return ci is null ? newest : Newer(newest, await ci.NewestAsync(project, ticketId, since, cancellationToken));
     }
 

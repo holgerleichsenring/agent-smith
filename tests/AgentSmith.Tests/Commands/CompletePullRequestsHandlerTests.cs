@@ -18,17 +18,20 @@ using Moq;
 namespace AgentSmith.Tests.Commands;
 
 /// <summary>
-/// 2026-11-17-023fa: a green code run merges its own pull requests only when the project says on_gate_green and
-/// only those CommitAndPR published as gate-passed; it merges in the project's protection mode, stops at the first
-/// refusal, leaves a rung-targeted pull request open, and records and says every outcome.
+/// 2026-11-17-023fa: the merge step merges only the pull requests CommitAndPR published as gate-passed, in the protection the
+/// context names, stops at the first refusal, leaves a rung-targeted pull request open, and records and says every outcome.
+/// 2026-11-25-9992i: a code run merges nothing itself — under review: none its pull requests wait for CI, under end and each they
+/// stay open for a person; the merge-green run merges.
 /// </summary>
 public sealed class CompletePullRequestsHandlerTests
 {
     private readonly List<(string Url, BranchProtection Mode)> _merged = [];
+    private readonly List<MergeStyle> _styles = []; // 2026-11-25-9992i
     private readonly List<PullRequestOutcomeEvent> _outcomes = [];
     private readonly Dictionary<string, PullRequestCompletion> _answers = new();
     private readonly Mock<ITicketRequirementStore> _edges = new();
     private readonly Mock<ITicketLandingStore> _landings = new();
+    private readonly AgentSmith.Tests.Series.InMemorySeriesRunStore _series = new(); // 2026-11-25-9992e
     private readonly Dictionary<string, string?> _bases = new();
     private readonly List<string> _calls = []; // 2026-11-23-8d16: ready, approve and merge in the order they were asked
     private bool _ready = true;
@@ -41,19 +44,22 @@ public sealed class CompletePullRequestsHandlerTests
             .ReturnsAsync([]);
     }
 
-    [Fact]
-    public async Task Manual_MergesNothing()
+    [Theory]
+    [InlineData(ReviewMode.End, "review: end")]
+    [InlineData(ReviewMode.Each, "review: each")]
+    public async Task EndOrEach_ACodeRunMergesNothing_AndMarksNothingAwaitingCi(ReviewMode review, string said)
     {
-        var result = await RunAsync(new MergePolicyConfig(), Passed("a"));
+        var result = await RunAsync((review, BranchProtection.Respect), Passed("a"));
 
-        result.Message.Should().Contain("merge: manual");
+        result.Message.Should().Contain(said).And.Contain("stay open for a person");
         _merged.Should().BeEmpty();
+        _outcomes.Should().BeEmpty();
     }
 
     [Fact]
     public async Task NoGatePassedPullRequests_MergesNothing_AndSaysWhy()
     {
-        var result = await RunAsync(OnGreen(), passed: null);
+        var result = await RunAsync(OnCi(), passed: null);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("did not pass its gate");
@@ -61,9 +67,9 @@ public sealed class CompletePullRequestsHandlerTests
     }
 
     [Fact]
-    public async Task OnGateGreen_MergesEach_InTheProjectsMode_AndRecordsIt()
+    public async Task MergeGreen_MergesEach_InTheContextsProtection_AndRecordsIt()
     {
-        var result = await RunAsync(OnGreen(respect: true), Passed("a", "b"));
+        var result = await RunAsync(OnCi(respect: true), passed: null, Green(["a", "b"], null, null));
 
         _merged.Should().Equal(("https://x/a/pull/1", BranchProtection.Respect), ("https://x/b/pull/1", BranchProtection.Respect));
         _outcomes.Should().AllSatisfy(o => o.Status.Should().Be(PullRequestStatuses.Completed));
@@ -74,15 +80,15 @@ public sealed class CompletePullRequestsHandlerTests
     public async Task FirstRefusal_StopsTheRest_AndNamesTheReason()
     {
         _answers["https://x/a/pull/1"] = PullRequestCompletion.Refused(
-            "cannot bypass branch protection on GitHub: review required; grant admin or set respect_branch_protection: true");
+            "cannot bypass branch protection on GitHub: review required; grant admin, or merge with how auto so the host's rules decide");
 
-        var result = await RunAsync(OnGreen(), Passed("a", "b"));
+        var result = await RunAsync(OnCi(), passed: null, Green(["a", "b"], null, null));
 
         _merged.Select(m => m.Url).Should().Equal("https://x/a/pull/1");
-        _merged.Single().Mode.Should().Be(BranchProtection.Bypass, "respect_branch_protection defaults to false");
+        _merged.Single().Mode.Should().Be(BranchProtection.Bypass, "the context names the protection");
         result.Message.Should().Contain("a: still open — cannot bypass branch protection");
         result.Message.Should().Contain("b: not attempted");
-        _outcomes.Single().Status.Should().Be(PullRequestStatuses.CompletionRefused);
+        _outcomes.First().Status.Should().Be(PullRequestStatuses.CompletionRefused);
     }
 
     [Fact]
@@ -90,7 +96,7 @@ public sealed class CompletePullRequestsHandlerTests
     {
         _answers["https://x/a/pull/1"] = PullRequestCompletion.Armed("waiting on the build policy");
 
-        var result = await RunAsync(OnGreen(respect: true), Passed("a", "b"));
+        var result = await RunAsync(OnCi(respect: true), passed: null, Green(["a", "b"], null, null));
 
         _merged.Should().HaveCount(2);
         result.Message.Should().Contain("a: armed — waiting on the build policy");
@@ -100,43 +106,42 @@ public sealed class CompletePullRequestsHandlerTests
     [Fact]
     public async Task RungTarget_IsLeftOpen_AndNamed()
     {
-        var result = await RunAsync(OnGreen(), Passed("a"), pipeline => PullRequestTargets.Record(pipeline, "a", "feature/epic"));
+        var result = await RunAsync(OnCi(), Passed("a"), pipeline => PullRequestTargets.Record(pipeline, "a", "feature/epic"));
 
         _merged.Should().BeEmpty();
-        result.Message.Should().Contain("opened against 'feature/epic'");
+        result.Message.Should().Contain("every pull request was opened against a rung");
         _outcomes.Single().Status.Should().Be(PullRequestStatuses.CompletionRefused);
+        _outcomes.Single().Reason.Should().Contain("opened against 'feature/epic'");
     }
 
-    // 2026-11-24-f9c5c: a series ticket's pull request onto its series branch merges under the series policy (past protection);
-    // one onto another branch is still a rung refusal.
+    // 2026-11-25-9992i: a merge into a series branch squashes; one into the default branch keeps the host's method.
     [Fact]
-    public async Task SeriesBranchTarget_MergesUnderSeriesWhen_PastProtection()
+    public async Task MergeGreen_IntoASeriesBranch_Squashes_ElseTheHostsMethod()
     {
-        var policy = new MergePolicyConfig { When = MergeWhen.Manual, SeriesWhen = MergeWhen.OnGateGreen, RespectBranchProtection = true };
-        const string series = "agent-smith/series/sr-1";
+        await RunAsync(OnCi(), passed: null, Green("a", askedBy: "series master"), "agent-smith/series/sr-1");
+        await RunAsync(OnCi(), passed: null, Green("a", askedBy: "series master"));
 
-        var result = await RunAsync(policy.IntoSeriesBranch(), Passed("a"), p => PullRequestTargets.Record(p, "a", series), series);
-
-        _merged.Should().Equal(("https://x/a/pull/1", BranchProtection.Bypass));
-        result.Message.Should().Contain("a: merged");
+        _styles.Should().Equal(MergeStyle.Squash, MergeStyle.HostDefault);
     }
 
+    // 2026-11-24-f9c5c: a pull request onto another branch than the series branch is still a rung refusal.
     [Fact]
     public async Task SeriesBranchRun_APullRequestOntoAnotherRung_IsStillLeftOpen()
     {
-        var result = await RunAsync(OnGreen(), Passed("a"), p => PullRequestTargets.Record(p, "a", "agent-smith/41"), "agent-smith/series/sr-1");
+        var result = await RunAsync(OnCi(), Passed("a"), p => PullRequestTargets.Record(p, "a", "agent-smith/41"), "agent-smith/series/sr-1");
 
         _merged.Should().BeEmpty();
-        result.Message.Should().Contain("opened against 'agent-smith/41'");
+        _outcomes.Single().Reason.Should().Contain("opened against 'agent-smith/41'");
     }
 
+    // 2026-11-25-9992i: the builder carries the project's review; a series-branch run merges past protection, every other merge
+    // under the host's branch protection, and a judged request under the protection it names.
     [Fact]
-    public void Builder_ARunStampedWithASeriesBranch_MergesUnderTheSeriesPolicy()
+    public void Builder_CarriesTheReview_AndPicksTheProtection()
     {
         var project = new ResolvedProject
         {
-            Name = "p", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
-            Merge = new MergePolicyConfig { When = MergeWhen.OnGateGreen, SeriesWhen = MergeWhen.Manual, RespectBranchProtection = true },
+            Name = "p", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub }, Review = ReviewMode.None,
         };
         var stamped = new PipelineContext();
         stamped.Set(ContextKeys.SeriesBranch, "agent-smith/series/sr-1");
@@ -145,8 +150,9 @@ public sealed class CompletePullRequestsHandlerTests
         var series = (CompletePullRequestsContext)builder.Build(null!, project, stamped);
         var plain = (CompletePullRequestsContext)builder.Build(null!, project, new PipelineContext());
 
-        (series.Policy.When, series.Policy.Protection, series.SeriesBranch).Should().Be((MergeWhen.Manual, BranchProtection.Bypass, "agent-smith/series/sr-1"));
-        (plain.Policy.When, plain.SeriesBranch).Should().Be((MergeWhen.OnGateGreen, (string?)null));
+        (series.Review, series.Protection, series.SeriesBranch).Should().Be((ReviewMode.None, BranchProtection.Bypass, "agent-smith/series/sr-1"));
+        (plain.Review, plain.Protection, plain.SeriesBranch).Should().Be((ReviewMode.None, BranchProtection.Respect, (string?)null));
+        (series.Style, plain.Style).Should().Be((MergeStyle.Squash, MergeStyle.HostDefault), "2026-11-25-9992i: one commit per ticket on a series branch");
     }
 
     // 2026-11-17-3435b
@@ -183,23 +189,6 @@ public sealed class CompletePullRequestsHandlerTests
 
     // 2026-11-23-97c2a
     [Fact]
-    public async Task OnGateGreen_ARequiredTicketNotLanded_MergesNothing_AndEachRepoRecordsTheRefusal()
-    {
-        Requires("41");
-
-        var result = await RunAsync(OnGreen(), Passed("a", "b"));
-
-        _merged.Should().BeEmpty();
-        _outcomes.Should().HaveCount(2).And.AllSatisfy(o =>
-        {
-            o.Status.Should().Be(PullRequestStatuses.CompletionRefused);
-            o.Reason.Should().Be("not merged: #41 it requires has not landed");
-        });
-        result.Message.Should().Contain("a: not merged: #41 it requires has not landed")
-            .And.Contain("b: not merged: #41 it requires has not landed");
-    }
-
-    [Fact]
     public async Task OnCiGreen_MergeGreenRun_ARequiredTicketNotLanded_IsRefused_AndTheAttemptKeepsAwaitingCi()
     {
         Requires("40", "41");
@@ -220,7 +209,7 @@ public sealed class CompletePullRequestsHandlerTests
         _landings.Setup(r => r.LandedAsync("gh", It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new TicketLandingFact("gh", "github-41", "41", "p", TicketLandingKinds.Merged, DateTimeOffset.UnixEpoch, null, null, null)]);
 
-        await RunAsync(OnGreen(), Passed("a"));
+        await RunAsync(OnCi(), passed: null, Green("a"));
 
         _merged.Should().ContainSingle();
     }
@@ -228,7 +217,7 @@ public sealed class CompletePullRequestsHandlerTests
     [Fact]
     public async Task NoRequirementRows_MergesAsBefore_WithOneRequirementReadAndNoLandingRead()
     {
-        await RunAsync(OnGreen(), Passed("a"));
+        await RunAsync(OnCi(), passed: null, Green("a"));
 
         _merged.Should().ContainSingle();
         _edges.Verify(e => e.RequiredOfAsync("gh", "github-42", It.IsAny<CancellationToken>()), Times.Once);
@@ -240,7 +229,11 @@ public sealed class CompletePullRequestsHandlerTests
     {
         Requires("41");
 
-        var result = await RunAsync(OnGreen(), Passed("a", "b"), pipeline => PullRequestTargets.Record(pipeline, "a", "agent-smith/41"));
+        var result = await RunAsync(OnCi(), passed: null, pipeline =>
+        {
+            Green(["a", "b"], null, null)(pipeline);
+            PullRequestTargets.Record(pipeline, "a", "agent-smith/41");
+        });
 
         _merged.Should().BeEmpty();
         result.Message.Should().Contain("a: opened against 'agent-smith/41'").And.Contain("b: not merged: #41 it requires has not landed");
@@ -248,11 +241,11 @@ public sealed class CompletePullRequestsHandlerTests
 
     // 2026-11-23-31dce
     [Fact]
-    public async Task Manual_APersonAskedMerge_Runs_AndFillsTheOutcomeSlot()
+    public async Task EndReview_APersonAskedMerge_Runs_AndFillsTheOutcomeSlot()
     {
         var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
 
-        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", "b", askedBy: "Dana", slot: slot));
+        var result = await RunAsync(EndReview(), passed: null, Green("a", "b", askedBy: "Dana", slot: slot));
 
         _merged.Should().HaveCount(2);
         result.Message.Should().StartWith("asked by Dana").And.Contain("a: merged");
@@ -261,13 +254,13 @@ public sealed class CompletePullRequestsHandlerTests
     }
 
     [Fact]
-    public async Task Manual_TheCiWatchsMergeGreenRequest_StillMergesNothing()
+    public async Task EndReview_TheCiWatchsMergeGreenRequest_StillMergesNothing()
     {
         var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
 
-        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", slot: slot));
+        var result = await RunAsync(EndReview(), passed: null, Green("a", slot: slot));
 
-        result.Message.Should().Contain("merge: manual");
+        result.Message.Should().Contain("review: end");
         _merged.Should().BeEmpty();
         slot.IsSet.Should().BeFalse();
     }
@@ -278,7 +271,7 @@ public sealed class CompletePullRequestsHandlerTests
         _bases["https://x/a/pull/1"] = "agent-smith/41";
         var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
 
-        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", "b", askedBy: "Dana", slot: slot));
+        var result = await RunAsync(EndReview(), passed: null, Green("a", "b", askedBy: "Dana", slot: slot));
 
         _merged.Should().BeEmpty();
         result.Message.Should().Contain("a: targets 'agent-smith/41', not the default branch").And.Contain("b: not attempted");
@@ -311,11 +304,11 @@ public sealed class CompletePullRequestsHandlerTests
     }
 
     [Fact]
-    public async Task Manual_APersonAskedMerge_StillMeetsTheUnlandedRequirementGuard()
+    public async Task EndReview_APersonAskedMerge_StillMeetsTheUnlandedRequirementGuard()
     {
         Requires("41");
 
-        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", askedBy: "Dana"));
+        var result = await RunAsync(EndReview(), passed: null, Green("a", askedBy: "Dana"));
 
         _merged.Should().BeEmpty();
         result.Message.Should().Contain("a: not merged: #41 it requires has not landed");
@@ -328,7 +321,7 @@ public sealed class CompletePullRequestsHandlerTests
         _answers["https://x/a/pull/1"] = PullRequestCompletion.Refused("the branch policy requires an approval");
         var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
 
-        await RunAsync(new MergePolicyConfig(), passed: null, Green("a", askedBy: "Dana", slot: slot));
+        await RunAsync(EndReview(), passed: null, Green("a", askedBy: "Dana", slot: slot));
 
         slot.Value!.Single().Should().Be(new PullRequestMergeLine("a", PullRequestCompletionOutcome.Refused,
             "a: still open — the branch policy requires an approval"));
@@ -338,7 +331,7 @@ public sealed class CompletePullRequestsHandlerTests
     [Fact]
     public async Task MergeGreen_APersonAskedMerge_TakesEachOutOfDraft_BeforeItMerges()
     {
-        await RunAsync(new MergePolicyConfig { RespectBranchProtection = true }, passed: null, Green("a", askedBy: "Dana"));
+        await RunAsync(EndReview(), passed: null, Green("a", askedBy: "Dana"));
 
         _calls.Should().Equal("ready https://x/a/pull/1", "requeue-unsettled https://x/a/pull/1", "merge https://x/a/pull/1");
     }
@@ -348,7 +341,7 @@ public sealed class CompletePullRequestsHandlerTests
     [Fact]
     public async Task MergeGreen_APersonAskedMerge_RequeuesNotStartedBuilds_TheCiMergeDoesNot()
     {
-        await RunAsync(new MergePolicyConfig { RespectBranchProtection = true }, passed: null, Green("a", askedBy: "Dana"));
+        await RunAsync(EndReview(), passed: null, Green("a", askedBy: "Dana"));
         _calls.Should().Contain("requeue-unsettled https://x/a/pull/1");
 
         _calls.Clear();
@@ -362,7 +355,7 @@ public sealed class CompletePullRequestsHandlerTests
         _ready = false;
         var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
 
-        var result = await RunAsync(new MergePolicyConfig(), passed: null, Green("a", "b", askedBy: "Dana", slot: slot));
+        var result = await RunAsync(EndReview(), passed: null, Green("a", "b", askedBy: "Dana", slot: slot));
 
         _merged.Should().BeEmpty();
         result.Message.Should().Contain("a: still a draft: the host did not take it out of draft").And.Contain("b: not attempted");
@@ -374,7 +367,7 @@ public sealed class CompletePullRequestsHandlerTests
     {
         _draft = false;
 
-        await RunAsync(new MergePolicyConfig(), passed: null, Green("a", askedBy: "Dana"));
+        await RunAsync(EndReview(), passed: null, Green("a", askedBy: "Dana"));
 
         _calls.Should().Equal("requeue-unsettled https://x/a/pull/1", "merge https://x/a/pull/1");
     }
@@ -388,13 +381,13 @@ public sealed class CompletePullRequestsHandlerTests
         _merged.Should().ContainSingle();
     }
 
-    // 2026-11-24-629aa: the CI loop's request for a build that has not started queues it again and merges nothing, under manual too.
+    // 2026-11-24-629aa: the CI loop's request for a build that has not started queues it again and merges nothing, under every review.
     [Theory]
-    [InlineData(MergeWhen.Manual)]
-    [InlineData(MergeWhen.OnCiGreen)]
-    public async Task MergeGreen_ANotStartedRequest_QueuesTheBuildsAgain_AndMergesNothing(MergeWhen when)
+    [InlineData(ReviewMode.End)]
+    [InlineData(ReviewMode.None)]
+    public async Task MergeGreen_ANotStartedRequest_QueuesTheBuildsAgain_AndMergesNothing(ReviewMode review)
     {
-        var result = await RunAsync(new MergePolicyConfig { When = when, RespectBranchProtection = true }, passed: null, pipeline =>
+        var result = await RunAsync((review, BranchProtection.Respect), passed: null, pipeline =>
             pipeline.Set(ContextKeys.CiGreenMerge, new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42",
                 [new CiGreenPullRequest("a", "https://x/a/pull/1") { NotStarted = true }, new CiGreenPullRequest("c", "https://x/c/pull/1") { NotStarted = true }])));
 
@@ -403,17 +396,58 @@ public sealed class CompletePullRequestsHandlerTests
         result.Message.Should().Contain("a: 1 queued").And.Contain("c: 0 queued").And.Contain("nothing merges");
     }
 
-    // 2026-11-24-629ab: the CI loop's request for a dropped auto-complete arms it again and merges nothing, under manual too.
+    // 2026-11-24-629ab: the CI loop's request for a dropped auto-complete arms it again and merges nothing, under every review.
     [Fact]
     public async Task MergeGreen_ARearmRequest_ArmsAgain_AndMergesNothing()
     {
-        var result = await RunAsync(new MergePolicyConfig(), passed: null, pipeline =>
+        var result = await RunAsync(EndReview(), passed: null, pipeline =>
             pipeline.Set(ContextKeys.CiGreenMerge, new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42",
                 [new CiGreenPullRequest("a", "https://x/a/pull/1") { Rearm = true }, new CiGreenPullRequest("c", "https://x/c/pull/1") { Rearm = true }])));
 
         _calls.Should().Equal("rearm https://x/a/pull/1");
         _merged.Should().BeEmpty();
         result.Message.Should().Contain("a: armed — set").And.Contain("c: refused — not armed, the repository is not in this run");
+    }
+
+    // 2026-11-25-9992e: a merge the series master (or a person) judged passes the prerequisite, rung and base refusals.
+    [Fact]
+    public async Task MergeGreen_AJudgedMerge_WithAnUnlandedPrerequisiteAndABaseOffMain_Merges()
+    {
+        Requires("41");
+        _bases["https://x/a/pull/1"] = "agent-smith/41";
+
+        var result = await RunAsync(EndReview(), passed: null, pipeline => pipeline.Set(ContextKeys.CiGreenMerge,
+            new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42", [new CiGreenPullRequest("a", "https://x/a/pull/1")])
+            { AskedBy = "series master", Judged = true }));
+
+        _merged.Should().Equal(("https://x/a/pull/1", BranchProtection.Respect));
+        result.Message.Should().Contain("a: merged");
+    }
+
+    [Fact]
+    public async Task CodeRun_OfATicketASeriesHolds_MergesNothing_AndMarksNothingAwaitingCi()
+    {
+        await _series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+        {
+            Project = "p", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("42")],
+        }, default);
+
+        var result = await RunAsync(OnCi(), Passed("a"));
+
+        _merged.Should().BeEmpty();
+        _outcomes.Should().BeEmpty();
+        result.Message.Should().Be("Not merged: a series holds this ticket, so the series master merges it.");
+    }
+
+    [Fact]
+    public async Task MergeGreen_ACiStartRequest_MergesNothing()
+    {
+        var result = await RunAsync(EndReview(), passed: null, pipeline => pipeline.Set(ContextKeys.CiGreenMerge,
+            new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42", [new CiGreenPullRequest("a", "https://x/a/pull/1") { NoCi = true }])
+            { AskedBy = "series master" }));
+
+        _merged.Should().BeEmpty();
+        result.Message.Should().EndWith("nothing merges.");
     }
 
     private void Requires(params string[] required) =>
@@ -433,17 +467,19 @@ public sealed class CompletePullRequestsHandlerTests
         if (slot is not null) pipeline.Set(ContextKeys.ActOutcome, slot);
     };
 
-    private static MergePolicyConfig OnCi(bool respect = false) =>
-        new() { When = MergeWhen.OnCiGreen, RespectBranchProtection = respect };
+    // 2026-11-25-9992i: review: none, the protection the context names.
+    private static (ReviewMode, BranchProtection) OnCi(bool respect = false) =>
+        (ReviewMode.None, respect ? BranchProtection.Respect : BranchProtection.Bypass);
 
-    private static MergePolicyConfig OnGreen(bool respect = false) =>
-        new() { When = MergeWhen.OnGateGreen, RespectBranchProtection = respect };
+    // A project left at review: end, merging under the host's branch protection.
+    private static (ReviewMode, BranchProtection) EndReview() => (ReviewMode.End, BranchProtection.Respect);
 
     private static List<OpenedPullRequest> Passed(params string[] repos) =>
         [.. repos.Select(r => new OpenedPullRequest(r, $"https://x/{r}/pull/1", OpenStatus.Opened))];
 
     private async Task<CommandResult> RunAsync(
-        MergePolicyConfig policy, List<OpenedPullRequest>? passed, Action<PipelineContext>? arrange = null, string? seriesBranch = null)
+        (ReviewMode Review, BranchProtection Protection) policy, List<OpenedPullRequest>? passed, Action<PipelineContext>? arrange = null,
+        string? seriesBranch = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-1");
@@ -451,9 +487,10 @@ public sealed class CompletePullRequestsHandlerTests
         arrange?.Invoke(pipeline);
         var repos = new[] { "a", "b" }.Select(n => new RepoConnection { Name = n, Type = RepoType.GitHub }).ToList();
         var provider = new Mock<ISourceProvider>();
-        provider.Setup(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()))
-            .Returns<string, BranchName, BranchProtection, CancellationToken>((url, _, mode, _) =>
+        provider.Setup(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<MergeStyle>(), It.IsAny<CancellationToken>()))
+            .Returns<string, BranchName, BranchProtection, MergeStyle, CancellationToken>((url, _, mode, style, _) =>
             {
+                _styles.Add(style);
                 _merged.Add((url, mode));
                 _calls.Add($"merge {url}");
                 return Task.FromResult(_answers.GetValueOrDefault(url) ?? PullRequestCompletion.Merged());
@@ -495,8 +532,12 @@ public sealed class CompletePullRequestsHandlerTests
             new PullRequestDraftStep(factory.Object),
             new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance)), completer,
             requeue: new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance),
-            rearm: new PullRequestAutoCompleteRearm(factory.Object, NullLogger<PullRequestAutoCompleteRearm>.Instance));
-        return await handler.ExecuteAsync(new CompletePullRequestsContext(policy, new BranchName("agent-smith/42"), repos, pipeline,
-            "gh", "github-42", seriesBranch), CancellationToken.None);
+            rearm: new PullRequestAutoCompleteRearm(factory.Object, NullLogger<PullRequestAutoCompleteRearm>.Instance), series: _series);
+        return await handler.ExecuteAsync(new CompletePullRequestsContext(policy.Review, policy.Protection, new BranchName("agent-smith/42"), repos, pipeline,
+            "gh", "github-42", seriesBranch)
+        {
+            Project = "p", TicketId = "42",
+            Style = AgentSmith.Application.Services.Builders.CompletePullRequestsContextBuilder.Style(seriesBranch),
+        }, CancellationToken.None);
     }
 }

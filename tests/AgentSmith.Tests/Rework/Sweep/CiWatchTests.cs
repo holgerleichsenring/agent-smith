@@ -13,10 +13,10 @@ using Moq;
 namespace AgentSmith.Tests.Rework.Sweep;
 
 /// <summary>
-/// 2026-11-17-3435b: the CI loop's tick — open records of merge: on_ci_green projects whose CI is unread, on an older
+/// 2026-11-17-3435b: the CI loop's tick — open records of review: none projects whose CI is unread, on an older
 /// head, pending for less than ci_pending_seconds or a verdict not acted on are nudged every ci_poll_seconds, one nudge
 /// per ticket; acted verdicts, long-pending heads and other projects are not.
-/// 2026-11-23-849e: every project is watched while its CI is pending; only on_ci_green keeps unread and unacted ones due.
+/// 2026-11-23-849e: every project is watched while its CI is pending; only review: none keeps unread and unacted ones due.
 /// </summary>
 public sealed class CiWatchTests : IDisposable
 {
@@ -34,8 +34,8 @@ public sealed class CiWatchTests : IDisposable
         {
             Projects = new Dictionary<string, ResolvedProject>
             {
-                ["ci"] = new() { Name = "ci", Merge = new MergePolicyConfig { When = MergeWhen.OnCiGreen, CiPollSeconds = 30 } },
-                ["gate"] = new() { Name = "gate", Merge = new MergePolicyConfig { When = MergeWhen.OnGateGreen } },
+                ["ci"] = new() { Name = "ci", Review = ReviewMode.None, Merge = new MergePolicyConfig { CiPollSeconds = 30 } },
+                ["gate"] = new() { Name = "gate", Review = ReviewMode.Each },
             },
         });
     }
@@ -88,17 +88,48 @@ public sealed class CiWatchTests : IDisposable
     private PrRecordReReadHostedService Sut() => new(_h.Store.Services, new ServerContext("agentsmith.yml"), _loader.Object, _h.Clock,
         NullLogger<PrRecordReReadHostedService>.Instance);
 
-    // 2026-11-24-f9c5c: acting is per record — a series-branch record acts on merge.series_when (on_ci_green by default), so a
-    // project merging its default branch on its gate still has its series pull requests' verdicts acted on.
+    // 2026-11-25-9992i: acting is the project's review — a review: none project's verdicts are acted on into any branch, a
+    // series branch included; another review's are not.
     [Fact]
-    public async Task ASeriesBranchRecord_IsActedOnBySeriesWhen()
+    public async Task ASeriesBranchRecord_IsActedOnByTheProjectsReview()
     {
-        await SeedAsync("gate", "7", "h", checkedAgo: TimeSpan.FromMinutes(2), ci: CiStates.Green, target: "agent-smith/series/sr-1");
-        await SeedAsync("gate", "8", "i", checkedAgo: TimeSpan.FromMinutes(2), ci: CiStates.Green);
+        await SeedAsync("ci", "7", "h", checkedAgo: TimeSpan.FromMinutes(2), ci: CiStates.Green, target: "agent-smith/series/sr-1");
+        await SeedAsync("gate", "8", "i", checkedAgo: TimeSpan.FromMinutes(2), ci: CiStates.Green, target: "agent-smith/series/sr-1");
 
         (await Sut().CiOnceAsync(CancellationToken.None)).Should().Be(1);
 
-        _nudged.Select(n => (n.Project, n.TicketId)).Should().BeEquivalentTo([("gate", "7")]);
+        _nudged.Select(n => (n.Project, n.TicketId)).Should().BeEquivalentTo([("ci", "7")]);
+    }
+
+    // 2026-11-25-9992e: a ticket an active series holds is read at every poll while its CI waits — unread, pending past
+    // ci_pending_seconds, in any mode — and its verdicts are its master's, so an unacted one is not due.
+    [Fact]
+    public async Task ASeriesTicket_IsDueWhileItsCiWaits_InEveryMode_ItsVerdictIsNot()
+    {
+        await _h.Series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+        {
+            Project = "gate", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("10"), AgentSmith.Tests.Series.SeriesRecords.Ticket("11")],
+        }, default);
+        await _h.Series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running("sr-2", "conv-2") with
+        {
+            Project = "ci", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("12")],
+        }, default);
+        await SeedAsync("gate", "10", "j", checkedAgo: TimeSpan.FromMinutes(2), ci: CiStates.Pending, ciAgo: TimeSpan.FromHours(2));
+        await SeedAsync("gate", "11", "k", checkedAgo: TimeSpan.FromMinutes(2), ci: null);
+        await SeedAsync("ci", "12", "l", ci: CiStates.Green);
+
+        (await Sut().CiOnceAsync(CancellationToken.None)).Should().Be(2);
+
+        _nudged.Select(n => (n.Project, n.TicketId)).Should().BeEquivalentTo([("gate", "10"), ("gate", "11")]);
+    }
+
+    [Fact]
+    public void SeriesTickets_AreTheProjectsActiveSeriesMembers()
+    {
+        var series = AgentSmith.Tests.Series.SeriesRecords.Running();
+
+        CiWatchSelection.SeriesTickets([series, series with { Id = "sr-2" }], "sample").Should().BeEquivalentTo(["43", "44", "45"]);
+        CiWatchSelection.SeriesTickets([series], "other").Should().BeEmpty();
     }
 
     private async Task SeedAsync(string project, string ticket, string number, string? ci, string? acted = null,

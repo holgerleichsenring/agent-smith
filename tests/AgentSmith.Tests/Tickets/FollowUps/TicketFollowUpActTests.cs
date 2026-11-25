@@ -25,8 +25,8 @@ public sealed class TicketFollowUpActTests : IDisposable
     {
         await SeedAsync();
         FilingRequest? sent = null;
-        _filing.Setup(f => f.RunRequestAsync("alpha", It.IsAny<FilingRequest>()))
-            .Callback<string, FilingRequest>((_, r) => sent = r)
+        _filing.Setup(f => f.RunRequestAsync("alpha", It.IsAny<FilingRequest>(), null))
+            .Callback<string, FilingRequest, string?>((_, r, _) => sent = r)
             .ReturnsAsync(new FilingReport([new FiledTicket("https://t/43", "Exports stream CSV") { TicketId = "43", Key = "#43" }], null));
 
         var first = await Act().FileAsync("alpha", "42", new TicketFollowUpRequest("r-1", "s2", 0), "Ada", default);
@@ -37,7 +37,7 @@ public sealed class TicketFollowUpActTests : IDisposable
         sent.FollowUp.Body.Should().Contain("paging first").And.Contain("spec s2 in run r-1");
         sent.Principal.Should().Be("Ada");
         second.Status.Should().Be(409, "the ledger key is spent");
-        _filing.Verify(f => f.RunRequestAsync(It.IsAny<string>(), It.IsAny<FilingRequest>()), Times.Once);
+        _filing.Verify(f => f.RunRequestAsync(It.IsAny<string>(), It.IsAny<FilingRequest>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]

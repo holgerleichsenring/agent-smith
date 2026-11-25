@@ -33,7 +33,8 @@ public static class RawProjectPatch
         if (entity.DesignSources is { } designSources) project.DesignSources = [.. designSources]; // 2026-10-01-7f7aa
         if (entity.RequiresStart is { } requiresStart) // 2026-11-17-9a39a
             project.RequiresStart = string.IsNullOrWhiteSpace(requiresStart) ? null : requiresStart.Trim();
-        if (entity.Merge is { } merge) project.Merge = ProjectMergeMapping.ToRaw(entity.Id, merge); // 2026-11-17-b34eb
+        if (entity.Merge is { } merge) project.Merge = ProjectMergeMapping.ToRaw(merge); // 2026-11-17-b34eb
+        if (entity.Review is { } review) project.Review = ProjectMergeMapping.ReviewToRaw(entity.Id, review); // 2026-11-25-9992i
         if (entity.Registries is { } feeds) // 2026-11-25-9992d
             project.Registries = [.. feeds.Select(f => new RawRegistryEntry { Host = f.Host, Username = f.Username, Token = f.Token })];
         if (entity.Machine is { } machine) project.Machine = ProjectMachineMapping.ToRaw(machine); // 2026-11-25-9992h

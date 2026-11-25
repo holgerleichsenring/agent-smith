@@ -8,9 +8,9 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
 /// 2026-11-17-023fa: a code run's merge of a GitLab merge request. Bypass merges now through the same PUT init uses;
-/// GitLab has no API bypass for required approvals or pipelines, so a refusal names what to grant or the key that
+/// GitLab has no API bypass for required approvals or pipelines, so a refusal names what to grant or the auto merge that
 /// waits instead. Respect asks GitLab to merge when the pipeline succeeds (auto_merge on newer servers) and reads the
-/// answer: merged now, armed, or refused.
+/// answer: merged now, armed, or refused. 2026-11-25-9992i: a squash style asks GitLab to squash (squash: true) either way.
 /// </summary>
 public sealed class GitLabMergeModes(
     string baseUrl, string projectPath, string privateToken, HttpClient httpClient,
@@ -19,10 +19,10 @@ public sealed class GitLabMergeModes(
     public const string Policy = "the merge checks (approvals, pipeline, protected branch)";
     public const string Permission = "the token a role the merge checks let merge (or relax the project's merge checks)";
 
-    public async Task<PullRequestCompletion> MergeAsync(string prUrl, BranchProtection protection, CancellationToken ct)
+    public async Task<PullRequestCompletion> MergeAsync(string prUrl, BranchProtection protection, MergeStyle style, CancellationToken ct)
     {
-        if (protection == BranchProtection.Respect) return await ArmAsync(prUrl, ct);
-        var completion = await updater.CompleteAsync(prUrl, ct);
+        if (protection == BranchProtection.Respect) return await ArmAsync(prUrl, style, ct);
+        var completion = await updater.CompleteAsync(prUrl, style, ct);
         return completion.Outcome == PullRequestCompletionOutcome.Refused
             ? BypassRefusal.Of(Policy, "GitLab", completion.Reason ?? "GitLab refused the merge", Permission)
                 with { Conflicts = completion.Conflicts } // 2026-11-24-f9c5e
@@ -30,7 +30,7 @@ public sealed class GitLabMergeModes(
     }
 
     /// <summary>Asks GitLab to merge when the pipeline succeeds; 2026-11-25-7a92c: also the re-arm's arming.</summary>
-    public async Task<PullRequestCompletion> ArmAsync(string prUrl, CancellationToken ct)
+    public async Task<PullRequestCompletion> ArmAsync(string prUrl, MergeStyle style, CancellationToken ct)
     {
         if (!GitLabMergeRequestUpdater.TryParseMergeRequestIid(prUrl, out var iid))
             return PullRequestCompletion.Refused($"'{prUrl}' is not a GitLab merge request URL.");
@@ -39,10 +39,9 @@ public sealed class GitLabMergeModes(
             using var request = new HttpRequestMessage(HttpMethod.Put,
                 $"{baseUrl}/api/v4/projects/{projectPath}/merge_requests/{iid}/merge")
             {
-                Content = JsonContent.Create(new
-                {
-                    should_remove_source_branch = true, merge_when_pipeline_succeeds = true, auto_merge = true,
-                }),
+                Content = JsonContent.Create(style == MergeStyle.Squash
+                    ? new { should_remove_source_branch = true, merge_when_pipeline_succeeds = true, auto_merge = true, squash = true }
+                    : (object)new { should_remove_source_branch = true, merge_when_pipeline_succeeds = true, auto_merge = true }),
             };
             request.Headers.Add("PRIVATE-TOKEN", privateToken);
             using var response = await httpClient.SendAsync(request, ct);

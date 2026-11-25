@@ -20,7 +20,7 @@ namespace AgentSmith.Tests.Rework.Records;
 
 /// <summary>
 /// 2026-11-24-297b: a pull request its host says conflicts is handed to one refresh-base run by the record read, in a
-/// project without merge.refresh_open_pull_requests — once per conflict on a head, never while one is at work, never for a
+/// project — once per conflict on a head, never while one is at work, never for a
 /// ticket that is not free — and the queued run is there before the conflict is, so the hold says refreshing.
 /// </summary>
 public sealed class ConflictBaseRefreshTests : IDisposable
@@ -65,6 +65,23 @@ public sealed class ConflictBaseRefreshTests : IDisposable
         ConflictBaseRefresh.ConflictsSince(stored with { HasConflicts = false, ConflictsAt = null }, "a", T.AddHours(1))
             .Should().Be(T.AddHours(1));
         ConflictBaseRefresh.ConflictsSince(null, "a", T.AddHours(1)).Should().Be(T.AddHours(1));
+    }
+
+    // 2026-11-25-9992e: a ticket an active series holds is refreshed by its series master, never by the read.
+    [Fact]
+    public async Task AConflictingRead_OfATicketASeriesHolds_LaunchesNoRefresh_AndStillRecordsTheConflict()
+    {
+        await _h.Series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+        {
+            Project = "p", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("7")],
+        }, default);
+        await _h.RunAsync("r1", Pr1);
+        State(true, "a");
+
+        await _h.RefreshAsync();
+
+        RefreshRuns().Should().BeEmpty();
+        _h.Records().Single().HasConflicts.Should().BeTrue();
     }
 
     [Fact]

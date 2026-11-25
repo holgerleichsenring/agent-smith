@@ -13,6 +13,19 @@ public static class SeriesJudgement
     public static IEnumerable<string> Operator(IReadOnlyList<SeriesOperatorMessage> messages) =>
         messages.Select(m => $"The operator wrote ({m.At.UtcDateTime:HH:mm}): {m.Text}");
 
+    /// <summary>2026-11-25-9992g: each wake the beat hands over, naming its ticket by key; a comment is quoted with its
+    /// author like a message in the chat.</summary>
+    public static IEnumerable<string> Woken(SeriesBeat beat)
+    {
+        ArgumentNullException.ThrowIfNull(beat);
+        return beat.Wakes.Select(w => Woken(w, beat.Facts.FirstOrDefault(f => f.Ticket.TicketId == w.TicketId)?.Ticket.Key ?? w.TicketId));
+    }
+
+    private static string Woken(SeriesWake wake, string key) => wake.Kind == SeriesWakeKinds.Comment
+        ? $"{wake.Author ?? "Someone"} commented on {key}{(wake.PrUrl is { } pr ? $"'s pull request {pr}" : string.Empty)} "
+            + $"({wake.At.UtcDateTime:HH:mm}). {SeriesCommentText.Fenced(wake.Text)}"
+        : $"{key} ({wake.At.UtcDateTime:HH:mm}, {wake.Kind}): {wake.Text}";
+
     /// <summary>Nothing moved since the last beat a whole period ago while tickets run: is one stuck?</summary>
     public static IEnumerable<string> Stalled(SeriesBeat beat, int statusMinutes)
     {

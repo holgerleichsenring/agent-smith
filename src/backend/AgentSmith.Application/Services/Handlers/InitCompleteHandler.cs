@@ -55,7 +55,7 @@ public sealed class InitCompleteHandler(
                 logger.LogWarning("{Repo}: not found in Configs; skip", entry.RepoName);
                 continue;
             }
-            var completion = await completer.CompleteAsync(context.Pipeline, repo, entry, context.SourceBranch, null, ct);
+            var completion = await completer.CompleteAsync(context.Pipeline, repo, entry, context.SourceBranch, null, MergeStyle.HostDefault, ct);
             if (completion.Outcome is PullRequestCompletionOutcome.Refused)
                 refusals.Add($"{entry.RepoName}: {completion.Reason}");
             else if (completion.Outcome is PullRequestCompletionOutcome.Armed)

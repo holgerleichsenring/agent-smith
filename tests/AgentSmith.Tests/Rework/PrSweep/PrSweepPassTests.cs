@@ -83,7 +83,7 @@ public sealed class PrSweepPassTests : IDisposable
         var store = new PrSweepStore(ctx, new SqliteUniqueViolationTranslator());
         var admission = new PrCommentCommandAdmission(new CommentIntentParser(_intents.Object), new ServerContext("c.yml"),
             _commands.Object, _owners.Object, Nudges(), AgentSmith.Tests.Webhooks.PrRecordNudges.Of(_owners.Object, Nudges()),
-            NullLogger<PrCommentCommandAdmission>.Instance);
+            AgentSmith.Tests.TestSupport.SeriesWakeDoubles.PrComments(), NullLogger<PrCommentCommandAdmission>.Instance);
         var trust = new Mock<IPrCommentAuthorTrust>();
         trust.Setup(t => t.IsTrustedAsync(It.IsAny<PrCommentAuthor>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         var keyed = new ServiceCollection().AddKeyedSingleton("github", trust.Object).BuildServiceProvider();

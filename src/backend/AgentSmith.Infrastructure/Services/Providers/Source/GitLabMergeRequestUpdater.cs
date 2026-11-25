@@ -60,9 +60,9 @@ public sealed class GitLabMergeRequestUpdater(
     // — approvals missing, pipeline not green, branch protected) or 406 (conflict), and
     // puts the sentence in the response body. That body IS the reason the operator
     // needs, so it is read out and reported as a refusal, not thrown at a finished run.
-    // 2026-11-17-713eb: a merge deletes the source branch.
+    // 2026-11-17-713eb: a merge deletes the source branch. 2026-11-25-9992i: a squash style sends squash: true.
     public async Task<PullRequestCompletion> CompleteAsync(
-        string prUrl, CancellationToken cancellationToken)
+        string prUrl, MergeStyle style, CancellationToken cancellationToken)
     {
         if (!TryParseMergeRequestIid(prUrl, out var iid))
             return PullRequestCompletion.Refused($"'{prUrl}' is not a GitLab merge request URL.");
@@ -70,7 +70,8 @@ public sealed class GitLabMergeRequestUpdater(
         {
             using var response = await PutAsync(
                 $"{MergeRequestUrl(iid)}/merge",
-                new { should_remove_source_branch = true }, cancellationToken);
+                style == MergeStyle.Squash ? new { should_remove_source_branch = true, squash = true }
+                    : (object)new { should_remove_source_branch = true }, cancellationToken);
             var answer = GitLabMergeAnswer.Parse(
                 await response.Content.ReadAsStringAsync(cancellationToken));
             if (!response.IsSuccessStatusCode) // 2026-11-24-f9c5e: 406 is GitLab's 'Branch cannot be merged' — a conflict

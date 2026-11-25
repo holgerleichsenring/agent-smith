@@ -63,8 +63,11 @@ public sealed class RawProjectEntry
     /// <summary>2026-11-25-9992d: the private package feeds this project's runs authenticate against.</summary>
     public List<RawRegistryEntry> Registries { get; set; } = [];
 
-    /// <summary>2026-11-17-023fa: the merge policy; null reads as manual.</summary>
+    /// <summary>2026-11-17-023fa: the merge block — 2026-11-25-9992i: the CI reading keys; null is every default.</summary>
     public MergePolicyConfig? Merge { get; set; }
+
+    /// <summary>2026-11-25-9992i: <c>end</c> (absent), <c>each</c> or <c>none</c>.</summary>
+    public string? Review { get; set; }
 
     /// <summary>2026-11-25-9992h: the identity agent-smith acts under on each hoster; null: each repo's own auth.</summary>
     public MachineIdentityConfig? Machine { get; set; }

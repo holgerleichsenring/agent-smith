@@ -194,17 +194,15 @@ internal static partial class Story
         await sessions.OpenAsync(Platform, Platform, AdminConversation, Owner,
             new ActiveScope { Project = "@agent-smith", Repos = [] }, ct);
         await SayAsync(sessions, clock, TranscriptRole.User,
-            "billing should merge its pull requests the same way shop does, once CI is green. Keep branch protection on.", 0);
+            "billing should merge its pull requests the same way shop does, once CI is green.", 0);
         var store = sp.GetRequiredService<IConfigStore>();
         var kinds = sp.GetRequiredService<ConfigEntityKinds>();
         var before = kinds.Read(store, "projects", "billing") ?? "{}";
         var after = JsonNode.Parse(before)!.AsObject();
-        var shopMerge = JsonNode.Parse(kinds.Read(store, "projects", "shop") ?? "{}")!["merge"]!.DeepClone().AsObject();
-        shopMerge["respectBranchProtection"] = true;
-        after["merge"] = shopMerge;
+        after["review"] = "none"; // 2026-11-25-9992i: merge on green is the project's review
         await SayAsync(sessions, clock, TranscriptRole.Assistant,
-            "I read projects/shop and projects/billing. shop merges on green CI with up to 3 fix runs; billing has no merge block, so its pull requests stay open. "
-            + "The change below gives billing the same block and keeps branch protection respected, so a required review still holds the merge. Apply runs it through the Config studio's validators.\n\n```yaml\nchange: projects/billing\n```", 2,
+            "I read projects/shop and projects/billing. shop has review: none, so its pull requests merge on green CI; billing is at the default review: end, so its pull requests stay open for a person. "
+            + "The change below sets billing to review: none as well. The host's branch protection still decides, so a required review still holds the merge. Apply runs it through the Config studio's validators.\n\n```yaml\nchange: projects/billing\n```", 2,
             kind: SpecDialogTurnKind.ConfigChangeProposal);
         var change = new ConfigChangeOutcome([new ConfigChangeItem(ConfigChangeItem.Upsert, "projects", "billing",
             after.ToJsonString(new JsonSerializerOptions { WriteIndented = false }), before)]);

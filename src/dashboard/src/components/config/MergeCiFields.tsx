@@ -4,11 +4,10 @@ import type { ProjectMerge } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
 import { NumberField } from "./formFields";
 
-// 2026-11-17-3435d: the CI loop's keys of the merge: block. The cadence and the fix budget act only with on_ci_green and
-// are shown then; the evidence bounds apply to every mode (2026-11-25-9992h: no approval identity — nothing approves). A hidden value stays in the form's
-// state, so switching the mode away and back never clears it. Empty is the key's default. 2026-11-23-849e: the poll and the
-// pending bound drive the CI re-read of every project now (the holds read the CI), so they show for every mode.
-// 2026-11-24-f9c5a: the settle and fix keys act for series_when on_ci_green too (absent is on_ci_green), so they show then.
+// 2026-11-17-3435d: the CI loop's keys of the merge: block. The evidence bounds apply to every review (2026-11-25-9992h: no
+// approval identity — nothing approves). Empty is the key's default. 2026-11-23-849e: the poll and the pending bound drive
+// the CI re-read of every project (the holds read the CI). 2026-11-25-9992i: the merge block keeps only these keys and each
+// acts under every review — the settle bound also gates the requeue of builds that never started — so all show.
 
 export function MergeCiFields({ merge, onChange }: {
   merge: ProjectMerge;
@@ -23,11 +22,8 @@ export function MergeCiFields({ merge, onChange }: {
     <>
       {number("ciPollSeconds", t("config.merge.ciPoll.label"), "60", t("config.merge.ciPoll.help"))}
       {number("ciPendingSeconds", t("config.merge.ciPending.label"), "3600", t("config.merge.ciPending.help"))}
-      {/* 2026-11-24-f9c5a: the settle key acts for series_when on_ci_green too (absent is on_ci_green). */}
-      {(merge.when === "on_ci_green" || (merge.seriesWhen ?? "on_ci_green") === "on_ci_green")
-        && number("ciSettleSeconds", t("config.merge.ciSettle.label"), "180", t("config.merge.ciSettle.help"))}
-      {/* 2026-11-24-6811c: the fix budget also bounds a base refresh's repair passes; 2026-11-24-297b: a conflicting pull
-          request is refreshed in every project, so it shows for every mode. */}
+      {number("ciSettleSeconds", t("config.merge.ciSettle.label"), "180", t("config.merge.ciSettle.help"))}
+      {/* 2026-11-24-6811c: the fix budget also bounds a base refresh's repair passes. */}
       {number("ciFixAttempts", t("config.merge.ciFix.label"), "3", t("config.merge.ciFix.help"))}
       {number("ciExcerptChars", t("config.merge.ciExcerpt.label"), "4000", t("config.merge.ciExcerpt.help"))}
       {number("ciFailedChecksRead", t("config.merge.ciFailedChecks.label"), "5", t("config.merge.ciFailedChecks.help"))}

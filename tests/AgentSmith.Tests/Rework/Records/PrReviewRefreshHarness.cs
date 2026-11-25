@@ -40,6 +40,7 @@ internal sealed class PrReviewRefreshHarness : IDisposable
             // 2026-11-24-297b: the refresh-base launch a conflicting read starts, over the store and a queue double.
             services.AddScoped<InitRunRepository>().AddScoped<QueuedRunRepository>();
             services.AddSingleton(Queue.Object).AddSingleton<QueuedRunDispatch>().AddScoped<BaseRefreshLauncher>();
+            services.AddSingleton<AgentSmith.Contracts.Series.ISeriesRunStore, SeriesRunRepository>(); // 2026-11-25-9992e
             configure?.Invoke(services);
         });
         Closed.Setup(c => c.OfAsync(It.IsAny<string>(), It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
@@ -68,12 +69,19 @@ internal sealed class PrReviewRefreshHarness : IDisposable
 
     public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(), new PrRecordCiRead(NullLogger<PrRecordCiRead>.Instance), CiMerge(),
         new CiRedNudge(Store.ScopeFactory, Attempts.Object, Store.Services.GetRequiredService<IReworkNudges>()),
-        new SeriesCiStart(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object, Clock), // 2026-11-24-f9c5d
         new CiBuildRequeue(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object, Clock), // 2026-11-24-629aa
         new AutoCompleteRearm(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object), // 2026-11-24-629ab
+        Series, Wakes, // 2026-11-25-9992e, 9992g
         new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance), Conflicts(),
         Recorder(), Activity.Object, Clock,
         NullLogger<PrReviewRecordRefresh>.Instance);
+
+    /// <summary>2026-11-25-9992g: the wakes a series ticket's read recorded, over the harness store.</summary>
+    public AgentSmith.Contracts.Series.ISeriesWakes Wakes => new AgentSmith.Server.Services.Series.SeriesWakes(Series, Clock,
+        NullLogger<AgentSmith.Server.Services.Series.SeriesWakes>.Instance);
+
+    /// <summary>2026-11-25-9992e: the series runs over the harness store; a ticket one holds is its master's.</summary>
+    public AgentSmith.Contracts.Series.ISeriesRunStore Series => Store.Services.GetRequiredService<AgentSmith.Contracts.Series.ISeriesRunStore>();
 
     /// <summary>2026-11-24-297b: the queue the refresh-base launch pushes to, and the closed marks the free check reads.</summary>
     public Mock<IRedisJobQueue> Queue { get; } = new();

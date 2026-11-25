@@ -60,6 +60,10 @@ public sealed class SeriesRunRepository(IServiceScopeFactory scopeFactory) : ISe
     public Task<SeriesRunRecord?> RunningWithTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
         WithTicketAsync([SeriesRunStates.Running, SeriesRunStates.Verifying, SeriesRunStates.Delivering], project, ticketId, cancellationToken);
 
+    // 2026-11-25-9992e: one read of the project's active rows per ask; the count is small and the cost is accepted.
+    public async Task<bool> HoldsTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        await WithTicketAsync(Active, project, ticketId, cancellationToken) is not null;
+
     // 2026-11-23-31dcc: the members live in the content JSON, so the project's rows are read and the newest holder kept.
     public async Task<SeriesRunRecord?> ForTicketAsync(string project, string ticketId, CancellationToken cancellationToken)
     {

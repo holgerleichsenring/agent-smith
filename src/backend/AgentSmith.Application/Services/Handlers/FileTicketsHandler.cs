@@ -29,7 +29,7 @@ public sealed class FileTicketsHandler(FilingPlanFiler filer, Series.SeriesMembe
         if (series is not null && (await series.JoiningAsync(pipeline, cancellationToken))?.IntegrationBranch is { } branch)
             request = request with { SpecBranchFrom = new Domain.Models.BranchName(branch) };
         var report = await filer.FileAsync(request, context.Project, plan, cancellationToken, series is null ? null
-            : filed => series.WriteAsync(pipeline, request, context.Project.Name, filed, CancellationToken.None));
+            : filed => series.WriteAsync(pipeline, request, context.Project, filed, CancellationToken.None));
         slot.Report = report;
         return report.Filed.Count == 0 && report.Error is { } error
             ? CommandResult.Fail(error)

@@ -238,7 +238,7 @@ public sealed class ClosedTicketFollowUpTests : IDisposable
         var dispatcher = new WebhookSpawnDispatcher(Mock.Of<ISpawnPipelineRunsUseCase>(), _h.Tracker,
             NullLogger<WebhookSpawnDispatcher>.Instance);
         var router = new KeywordCommentRouter(dispatcher, _h.Services.GetRequiredService<IPreviousAttemptReader>(),
-            _h.Services.GetRequiredService<IReworkNudges>(), NullLogger<KeywordCommentRouter>.Instance);
+            _h.Services.GetRequiredService<IReworkNudges>(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.TicketComments(), NullLogger<KeywordCommentRouter>.Instance);
         await router.RouteAsync(_h.Config, matches, new KeywordComment(
             new IncomingTicketEnvelope { TicketId = "42", Platform = "github" }, "Closed", _h.Tracker.Thread[^1].Body, null,
             new ReworkAct("carol", Later)), default);

@@ -6,9 +6,9 @@ namespace AgentSmith.Application.Services.Series;
 /// <summary>
 /// 2026-11-19-1b72a: pausing and resuming a series — the one act behind the master's pause_series and resume_series and
 /// the conversation head's Pause and Resume. A pause holds every new ticket of the series (the claim gate reads the
-/// state) and the automatic CI fix (the CI act reads it), while a run under way finishes, or is cancelled too when asked
-/// to stop now. A resume returns the series to where it was, starts what is ready exactly as the wake would, and hands
-/// red CIs back to the CI loop. Each says so in the conversation in one line (<see cref="SeriesPauseText"/>).
+/// state), while a run under way finishes, or is cancelled too when asked to stop now. A resume returns the series to where
+/// it was and starts what is ready exactly as the wake would; 2026-11-25-9992e: a red CI is its master's to judge, so the
+/// resume hands nothing to a CI loop. Each says so in the conversation in one line (<see cref="SeriesPauseText"/>).
 /// </summary>
 public sealed class SeriesPause(
     ISeriesRunStore store, ISeriesTicketFacts facts, ISeriesTicketActs acts, ISeriesConversation conversation)
@@ -36,7 +36,6 @@ public sealed class SeriesPause(
             : r with { State = r.PausedFrom ?? SeriesRunStates.Running, PausedFrom = null }, ct);
         var all = await facts.ReadAsync(record, ct);
         var (started, answers) = await StartReadyAsync(record, all, ct);
-        foreach (var fact in all.Where(SeriesPauseText.CiRed)) answers.Add(await acts.AskCiLoopAsync(record.Project, fact.Ticket.TicketId, ct));
         var line = SeriesPauseText.Resume(started, all);
         await conversation.SayAsync(record.Conversation, line, ct);
         return string.Join(" ", [line, .. answers]);

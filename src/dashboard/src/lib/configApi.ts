@@ -295,8 +295,8 @@ export interface ConfigCapabilities {
   /** 2026-10-14-dbced: per ComplexityTier name, the cost ceiling a tier left out of perTier
    *  keeps. Absent from an older server: an unset tier shows the Default cap. */
   tierCostCapDefaults?: Record<string, CostCapValues>;
-  /** 2026-11-17-b34eb: a project's merge.when modes, from the server's enum. Absent from an older server. */
-  mergeWhen?: string[];
+  /** 2026-11-25-9992i: a project's review modes (end, each, none), from the server's enum. Absent from an older server. */
+  review?: string[];
   /** 2026-11-17-b34eb: a project's requires_start modes, from the server's enum. Absent from an older server. */
   requiresStart?: string[];
 }
@@ -783,8 +783,10 @@ export interface StudioProject {
   designSources?: string[] | null;
   /** 2026-11-17-9a39a: on_green_push or on_merge. ABSENT leaves the stored value alone. */
   requiresStart?: string | null;
-  /** 2026-11-17-b34eb: the merge block; null when the project declares none (manual). ABSENT leaves it alone. */
+  /** 2026-11-17-b34eb: the merge block's CI reading keys; null when the project declares none. ABSENT leaves it alone. */
   merge?: ProjectMerge | null;
+  /** 2026-11-25-9992i: end, each or none — when a person looks. ABSENT leaves the stored value alone; blank clears it to end. */
+  review?: string | null;
   /** 2026-11-25-9992d: the project's private package feeds. ABSENT leaves the stored list alone; [] clears it. */
   registries?: RegistryEntry[] | null;
   /** 2026-11-25-9992h: the machine identity; null when the project declares none. ABSENT leaves it alone. */
@@ -811,11 +813,8 @@ export interface ProjectMachineHoster {
   clientId?: string | null;
 }
 
-/** 2026-11-17-b34eb: the project's merge: block (when is the YAML name, e.g. manual or on_gate_green). */
+/** 2026-11-17-b34eb: the project's merge: block — 2026-11-25-9992i: the CI reading keys only. */
 export interface ProjectMerge {
-  when: string;
-  respectBranchProtection: boolean;
-  refreshOpenPullRequests: boolean;
   /** 2026-11-17-3435d: the CI loop's keys; absent or null is the key's default. */
   ciPollSeconds?: number | null;
   ciSettleSeconds?: number | null;
@@ -823,8 +822,6 @@ export interface ProjectMerge {
   ciFixAttempts?: number | null;
   ciExcerptChars?: number | null;
   ciFailedChecksRead?: number | null;
-  /** 2026-11-24-f9c5a: a series' ticket pull requests into its series branch; absent or null is on_ci_green. */
-  seriesWhen?: string | null;
 }
 
 export interface StudioMcpServer {
@@ -1097,6 +1094,8 @@ export interface DialogueSetting {
   mockVersionsPerConversation: number;
   /** 2026-11-17-0207a/b/c: the series run's master budget, status cadence and question default. */
   seriesMasterBudgetUsd: number;
+  /** 2026-11-25-9992g: at or below this much left the series asks to raise the budget or stop. */
+  seriesMasterBudgetAskUsd?: number;
   seriesStatusMinutes: number;
   questionDefaultMinutes: number;
 }

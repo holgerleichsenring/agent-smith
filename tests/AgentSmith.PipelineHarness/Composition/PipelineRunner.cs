@@ -121,8 +121,11 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// </summary>
     public Contracts.Models.InlineTicket? InlineTicket { get; set; }
 
-    /// <summary>2026-11-17-023fa: the project's merge block; null is manual.</summary>
+    /// <summary>2026-11-17-023fa: the project's merge block; null is every default.</summary>
     public MergePolicyConfig? MergeOverride { get; set; }
+
+    /// <summary>2026-11-25-9992i: the project's review; end when not set.</summary>
+    public ReviewMode Review { get; set; } = ReviewMode.End;
 
     public async Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
@@ -159,7 +162,7 @@ public sealed class PipelineRunner(IServiceProvider services)
             Agent = agent,
             Pipeline = presetName,
             Sandbox = SandboxOverride,
-            Merge = MergeOverride ?? new MergePolicyConfig(), // 2026-11-17-023fa
+            Merge = MergeOverride ?? new MergePolicyConfig(), Review = Review, // 2026-11-17-023fa, 2026-11-25-9992i
             // p0199c: leave CodingPrinciplesPath unset so LoadCodingPrinciplesHandler
             // resolves the default `.agentsmith/principles.md` AND keeps the
             // nested per-context fallback (`.agentsmith/contexts/<name>/coding-

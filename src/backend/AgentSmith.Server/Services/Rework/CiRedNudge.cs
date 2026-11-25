@@ -17,7 +17,7 @@ public sealed class CiRedNudge(IServiceScopeFactory scopes, IPreviousAttemptRead
 {
     public async Task<bool> AfterRefreshAsync(ResolvedProject project, string ticketId, CancellationToken ct)
     {
-        if (!project.Merge.ActsOnCi // 2026-11-24-f9c5c: CiAct decides by the pull requests' target
+        if (project.Review != ReviewMode.None // 2026-11-25-9992i: only review: none acts on CI
             || await attempts.LatestAsync(project.Name, ticketId, null, ct) is not { } attempt) return false;
         using var scope = scopes.CreateScope();
         var records = await scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>().ByTicketAsync(project.Name, ticketId, ct);

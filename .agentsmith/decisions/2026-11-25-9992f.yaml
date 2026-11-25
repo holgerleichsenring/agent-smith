@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992f
+
+decisions:
+  - category: Scope
+    chose: "propose_recut deleted, replaced by add_ticket and link_tickets; the prompt and docs/how-it-works/series-run.md name the two instead"
+    over: "Keeping propose_recut beside the new tools"
+    reason: |
+      propose_recut only added a line to the beat's report and changed nothing; the master now changes the cut itself. One
+      path: a proposal tool beside the acts would be a second way to the same outcome. The master's surface goes 19 -> 20,
+      inside the house cap the act-log test holds.
+  - category: Architecture
+    chose: "add_ticket files through the 'file' run (IFilingRun.RunRequestAsync with an optional series id seeded as ContextKeys.SeriesRunId), a FilingRequest with FollowUp(title, body) and MayStartRuns false; the master starts it with start_ticket once its edges exist"
+    over: "A filing that starts the ticket at once; a second filer for series tickets"
+    reason: |
+      The filing run is the one filer; the series seed makes SeriesMembership join the ticket before anything could start it,
+      and FileTicketsHandler already writes its branch from the series branch when the joined series has one, so the request
+      does not set SpecBranchFrom a second time. Filed unstarted, the edges are stored after the filing and before any start,
+      so a ticket never runs ahead of a prerequisite it was meant to wait for.
+  - category: Implementation
+    chose: "FilingRequest.IsSeriesMasterAddition: a ticket the master adds joins as a member (SeriesTicket.FollowUp false) and is never written onto the newest verdict as its follow-up"
+    over: "Letting every series-seeded filing count as the series check's follow-up"
+    reason: |
+      Until now only the series check seeded a series id, so the join marked the ticket a follow-up and stamped it on the
+      last verdict without FollowUpTicketId — a passed verdict would then report the master's prerequisite as the check's
+      follow-up. The flag defaults false, so the check's follow-up keeps its behaviour unchanged.
+  - category: Implementation
+    chose: "A new edge copies StartsWhenMet from the dependent's existing edges, true when it has none"
+    over: "Always the approver's runs.control; always false"
+    reason: |
+      The store requires one StartsWhenMet per dependent; copying keeps a dependent's edges consistent. A dependent without
+      edges (the added ticket) starts once its prerequisites land, as a filed ticket with runs.control does; the series'
+      approver holds runs.control, or no act runs at all.
+  - category: Architecture
+    chose: "ITicketRequirementStore.RemoveAsync(tracker, ticketKey, requiredTicketKey) in the contract, the repository and both test stores; the summary no longer says insert only"
+    over: "Marking an edge inactive; keeping the store insert only and re-filing tickets"
+    reason: |
+      The series' requires are read from the edges on every read (SeriesRunProjectReads), so a removed row is the whole
+      change and the next series_status shows it. A soft-delete column would need a migration and a filter on every read.
+      A PR stacked on a required ticket's branch keeps its target when the edge goes; retarget_pull_request is the master's.
+  - category: Scope
+    chose: "No split tool: a split is add_ticket per new part plus tell_ticket narrowing the original"
+    over: "A split_ticket tool"
+    reason: "The two existing acts express it, and the house cap of 20 tools leaves no room for a third."
+  - category: Architecture
+    chose: "A cycle and a self-edge are refused before anything is filed or written, with the tickets named; the graph is the project's edges (ByProjectAsync), with the call's own removals applied first"
+    over: "Letting the master write any edge; refusing edges by judgement (order, state, landed tickets)"
+    reason: |
+      A cycle is environment-level integrity, not a judgement: tickets that wait on each other can never start, and the
+      store refuses a self-edge already. Everything else — which ticket waits for which, a landed or running one — is the
+      master's decision, so nothing else is refused.
+  - category: Architecture
+    chose: "A new port ISeriesEditActs (Contracts/Series, Server SeriesEditActs over IFilingRun and SeriesRequirementLinks) and Application SeriesEditTools; answers are SeriesCutAnswer(Answer, Changed, TicketId, Key)"
+    over: "Adding AddTicketAsync/LinkAsync to ISeriesTicketActs"
+    reason: |
+      SeriesTicketActs is at the 120-line limit (as 9992e found), and a cut change is its own responsibility. Changed lets a
+      refusal go back unsaid while a change is said with the master's reason through SeriesActSay. The name avoids the
+      Dialogue ISeriesEdit, which is a ticket's spec series.
+  - category: Implementation
+    chose: "An added ticket joins the beat's facts and is the logged act's ticket (SeriesBeat.ActTicket), so lastAct and a start_ticket in the same beat find it"
+    over: "Leaving the new ticket unknown to the beat until the next one"
+    reason: "add_ticket names no ticket in its arguments, and the master's natural next call is start_ticket or link_tickets on the new one."
+  - category: Implementation
+    chose: "Tool arguments in camelCase (requiredBy, addRequires, removeRequires) as the other series tools (stopNow)"
+    over: "The spec's snake_case spelling"
+    reason: "The function factory names arguments after the C# parameters; the house names parameters camelCase."

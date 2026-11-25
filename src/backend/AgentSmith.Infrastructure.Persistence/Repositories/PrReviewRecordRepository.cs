@@ -63,24 +63,10 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
                 && o.State != PrReviewStates.Merged && o.State != PrReviewStates.Closed)
             && !unitOfWork.Set<LandedTicket>().Any(l => l.Tracker == tracker && l.TicketId == r.TicketId)), take, ct);
 
-    /// <summary>2026-11-17-3435b: a project's open records whose CI the loop still waits on — unread, on an older head,
-    /// none, pending since after <paramref name="pendingSinceTicks"/>, or a verdict not acted on — checked before the
-    /// bound; oldest check first, no entries (2026-11-23-0219: a build not started waits as pending does). 2026-11-23-849e: <paramref name="actsOnVerdict"/> false (a project that does
-    /// not merge on green CI) keeps only a pending CI within the bound — an unread record or one on an older head is the
-    /// periodic re-read's and the PR sweep's, and a verdict nothing acts on would be read forever. 2026-11-24-629ab: and, in every
-    /// mode, an auto-complete lost at a conflict that has ended and was not armed again on this head.</summary>
-    /// <param name="seriesActsOnVerdict">2026-11-24-f9c5c: whether a record into a series branch is acted on (merge.series_when
-    /// on_ci_green); <paramref name="actsOnVerdict"/> then covers every other record.</param>
-    public Task<IReadOnlyList<PrReviewRecordView>> CiDueAsync(
-        string project, long checkedBeforeTicks, long pendingSinceTicks, bool actsOnVerdict, CancellationToken ct,
-        bool seriesActsOnVerdict = false) =>
-        OldestAsync(Records().Where(r => r.Project == project && r.State == PrReviewStates.Open && r.CheckedAtTicks < checkedBeforeTicks
-            && (((r.CiState == CiStates.Pending || r.CiState == CiStates.NotStarted) && r.CiAtTicks > pendingSinceTicks)
-                || (r.AutoCompleteLostAtTicks != null && r.HasConflicts == false && !r.IsDraft && r.HeadSha != null // 629ab: armed again once
-                    && (r.AutoCompleteRearmedHead == null || r.AutoCompleteRearmedHead != r.HeadSha))
-                || ((r.TargetBranch != null && r.TargetBranch.StartsWith(WorkBranches.SeriesPrefix) ? seriesActsOnVerdict : actsOnVerdict)
-                    && (r.CiState == null || r.CiHeadSha != r.HeadSha
-                    || (r.CiState != CiStates.Pending && r.CiState != CiStates.NotStarted && (r.CiActed == null || r.CiActed != r.CiHeadSha + ":" + r.CiState)))))), int.MaxValue, ct);
+    /// <summary>2026-11-17-3435b: a project's open records whose CI the loop still waits on (<see cref="PrRecordCiDue"/>);
+    /// oldest check first, no entries. 2026-11-25-9992e: the rule moved to its own type.</summary>
+    public Task<IReadOnlyList<PrReviewRecordView>> CiDueAsync(string project, PrRecordCiDue due, CancellationToken ct) =>
+        OldestAsync(Records().Where(due.Where(project)), int.MaxValue, ct);
 
     private static async Task<IReadOnlyList<PrReviewRecordView>> OldestAsync(IQueryable<PrReviewRecord> query, int take, CancellationToken ct) =>
         [.. (await query.OrderBy(r => r.CheckedAtTicks).ThenBy(r => r.Id).Take(take).ToListAsync(ct)).Select(r => View(r, null, []))];

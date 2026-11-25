@@ -34,7 +34,7 @@ public static class PullRequestStatuses
     public const string CompletionArmed = "completion_armed";
 
     /// <summary>2026-11-17-3435b: the run's own gate passed and the pull request waits for the host's CI under
-    /// merge: on_ci_green; a merge-green run merges it once CI is green. OPEN, and waiting for a build, not a person.</summary>
+    /// review: none (2026-11-25-9992i); a merge-green run merges it once CI is green. OPEN, and waiting for a build, not a person.</summary>
     public const string AwaitingCi = "awaiting_ci";
 
     /// <summary>2026-11-24-6811c: a refresh-base run left the pull request's branch unchanged — its base merge conflicted

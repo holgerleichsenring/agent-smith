@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Series;
 /// ticket's run no longer waits on it is dropped first, unanswered, and the next parked one is relayed — so an operator
 /// message never reaches a run that left the question.</para>
 /// </summary>
-public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox inbox)
+public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox inbox, SeriesBudgetQuestion budget) // 2026-11-25-9992g
 {
     public async Task SettleAsync(SeriesBeat beat, int defaultMinutes, CancellationToken ct)
     {
@@ -40,9 +40,12 @@ public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox 
     private async Task AnswerAsync(SeriesBeat beat, SeriesQuestion waiting, CancellationToken ct)
     {
         SeriesQuestion answered;
-        if (beat.Messages.Count > 0)
+        if (beat.Messages.Count > 0) // 2026-11-25-9992g: only the operator's message answers — a comment's wake never does
+        {
             answered = waiting with { Answer = beat.Messages[0].Text, AnsweredAt = beat.Messages[0].At, AnsweredBy = beat.Messages[0].Author };
-        else if (waiting.Recommended is { } recommended && waiting.DeadlineAt <= beat.Now)
+            if (waiting.Budget && await budget.SettledAsync(beat, answered, ct)) return;
+        }
+        else if (!waiting.NoDefault && waiting.Recommended is { } recommended && waiting.DeadlineAt <= beat.Now)
         {
             answered = waiting with { Answer = recommended, AnsweredAt = beat.Now, ByDefault = true };
             beat.Said.Add(SeriesQuestionText.TakenByDefault(waiting, beat.Now));

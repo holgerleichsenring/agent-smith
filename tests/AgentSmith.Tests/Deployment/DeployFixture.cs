@@ -111,7 +111,7 @@ internal sealed class DeployFixture
         provider.Setup(p => p.CreatePullRequestAsync(It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
             .ReturnsAsync(prUrl);
-        provider.Setup(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(),
+        provider.Setup(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<MergeStyle>(),
             It.IsAny<CancellationToken>())).ReturnsAsync(PullRequestCompletion.Merged());
         return provider;
     }

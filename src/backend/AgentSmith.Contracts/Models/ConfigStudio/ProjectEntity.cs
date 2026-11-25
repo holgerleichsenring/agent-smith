@@ -47,7 +47,10 @@ public sealed record ProjectEntity(
     IReadOnlyList<Configuration.RegistryConfig>? Registries = null,
     // 2026-11-25-9992h: the machine identity. Nullable for the same reason Templates is — absent leaves the stored block alone;
     // a sent block with no name, no email and no hoster clears it.
-    ProjectMachine? Machine = null)
+    ProjectMachine? Machine = null,
+    // 2026-11-25-9992i: end, each or none. Nullable for the same reason Templates is — absent leaves the stored value
+    // alone; blank clears it back to the default (end).
+    string? Review = null)
 {
     public ProjectEntity() : this(string.Empty, string.Empty, string.Empty, [], null, []) { }
 }
@@ -68,10 +71,8 @@ public sealed record ProjectMachine(string Name, string Email,
 public sealed record ProjectMachineHoster(string Auth, string? AppId = null, string? InstallationId = null, string? Email = null,
     string? TenantId = null, string? ClientId = null); // 2026-11-25-d0e2: an Azure DevOps service principal
 
-/// <summary>2026-11-17-b34eb: the project's <c>merge:</c> block as the studio edits it; <see cref="When"/> is the
-/// snake_case name the YAML uses (manual, on_gate_green, on_ci_green). 2026-11-17-3435d: and the CI loop's keys; a null
-/// one is the key's default. 2026-11-24-f9c5a: and <see cref="SeriesWhen"/>, the mode of a series' ticket pull requests into
-/// its series branch, in the same names; null is its default.</summary>
-public sealed record ProjectMerge(string When, bool RespectBranchProtection, bool RefreshOpenPullRequests,
+/// <summary>2026-11-17-b34eb: the project's <c>merge:</c> block as the studio edits it. 2026-11-17-3435d: the CI loop's keys;
+/// a null one is the key's default. 2026-11-25-9992i: its decision keys went to <see cref="ProjectEntity.Review"/>.</summary>
+public sealed record ProjectMerge(
     int? CiPollSeconds = null, int? CiSettleSeconds = null, int? CiPendingSeconds = null, int? CiFixAttempts = null,
-    int? CiExcerptChars = null, int? CiFailedChecksRead = null, string? SeriesWhen = null);
+    int? CiExcerptChars = null, int? CiFailedChecksRead = null);

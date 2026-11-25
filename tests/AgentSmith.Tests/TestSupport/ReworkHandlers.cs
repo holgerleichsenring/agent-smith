@@ -19,7 +19,8 @@ internal static class ReworkHandlers
         ClosedTicketActFollowUp followUps, ISeriesAutoStart? series = null, RequirementsMetStart? start = null,
         PreconditionRelease? release = null, StackedTicketUpkeep? stacked = null) =>
         Of(leases, attempts, pending, rework, speech, fallback, withheld, checkpoints, followUps,
-            new ReworkNoActTail(pending, followUps, withheld, series ?? Mock.Of<ISeriesAutoStart>()), start, release,
+            new ReworkNoActTail(pending, followUps, withheld, series ?? Mock.Of<ISeriesAutoStart>(),
+                Mock.Of<AgentSmith.Contracts.Series.ISeriesRunStore>(), Mock.Of<AgentSmith.Contracts.Series.ISeriesWakes>()), start, release,
             stacked ?? NoStackedUpkeep(attempts, leases));
 
     private static ReworkNudgeHandler Of(
@@ -39,7 +40,8 @@ internal static class ReworkHandlers
         return new(new StackedDependentsWake(facts, facts, unmet, attempts, leases, Mock.Of<IReworkNudges>(),
                 NullLogger<StackedDependentsWake>.Instance),
             new StackedPullRequestRetarget(facts, facts, new GreenPrerequisites(facts, attempts, facts, facts), attempts, leases, Mock.Of<ISourceProviderFactory>(),
-                Mock.Of<IServiceScopeFactory>(), NullLogger<StackedPullRequestRetarget>.Instance));
+                Mock.Of<IServiceScopeFactory>(), NullLogger<StackedPullRequestRetarget>.Instance),
+            new AgentSmith.Tests.Series.InMemorySeriesRunStore()); // 2026-11-25-9992e: no series holds a ticket
     }
 
     // 2026-10-14-dbceh: a start over empty requirement stores — it never starts anything.

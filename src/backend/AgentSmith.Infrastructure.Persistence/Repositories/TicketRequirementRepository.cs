@@ -11,7 +11,7 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 
 /// <summary>
 /// 2026-10-14-dbcef: the ticket requirements, served to singleton callers by opening a scope per
-/// operation. Insert only and idempotent: a stored edge is skipped. A racing writer's unique violation
+/// operation. Idempotent inserts: a stored edge is skipped; 2026-11-25-9992f: an edge can be removed. A racing writer's unique violation
 /// rolls this call's whole save back, so the entries are detached, the dependent's edges re-read and
 /// the edges still missing inserted once more; a second violation is a real fault and propagates.
 /// </summary>
@@ -39,6 +39,17 @@ public sealed class TicketRequirementRepository(IServiceScopeFactory scopeFactor
         var retried = await StageMissingAsync(unitOfWork, edges, cancellationToken);
         if (retried.Count > 0) await unitOfWork.SaveChangesAsync(cancellationToken);
         return retried.Count;
+    }
+
+    public async Task<bool> RemoveAsync(string tracker, string ticketKey, string requiredTicketKey, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var rows = await unitOfWork.Set<TicketRequirement>()
+            .Where(r => r.Tracker == tracker && r.TicketKey == ticketKey && r.RequiredTicketKey == requiredTicketKey).ToListAsync(cancellationToken);
+        foreach (var row in rows) unitOfWork.Remove(row);
+        if (rows.Count > 0) await unitOfWork.SaveChangesAsync(cancellationToken);
+        return rows.Count > 0;
     }
 
     public Task<IReadOnlyList<TicketRequirementEdge>> RequiredOfAsync(

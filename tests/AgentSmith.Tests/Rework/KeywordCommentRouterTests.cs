@@ -21,6 +21,9 @@ public sealed class KeywordCommentRouterTests
     private readonly Mock<ISpawnPipelineRunsUseCase> _spawn = new();
     private readonly Mock<IPreviousAttemptReader> _attempts = new();
     private readonly Mock<IReworkNudges> _nudges = new();
+    private readonly Mock<AgentSmith.Contracts.Series.ISeriesWakes> _wakes = new(); // 2026-11-25-9992g
+    private readonly AgentSmith.Tests.Series.InMemorySeriesRunStore _series = new();
+    private readonly Mock<AgentSmith.Contracts.Reviews.IPrReviewAuthorTrust> _trust = new();
 
     private static AgentSmithConfig Config() => new()
     {
@@ -42,7 +45,8 @@ public sealed class KeywordCommentRouterTests
             .ReturnsAsync(new SpawnResult(Array.Empty<ClaimResult>()));
         var factory = new Mock<ITicketProviderFactory>();
         var dispatcher = new WebhookSpawnDispatcher(_spawn.Object, factory.Object, NullLogger<WebhookSpawnDispatcher>.Instance);
-        return new KeywordCommentRouter(dispatcher, _attempts.Object, _nudges.Object, NullLogger<KeywordCommentRouter>.Instance);
+        return new KeywordCommentRouter(dispatcher, _attempts.Object, _nudges.Object, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.TicketComments(_series, _wakes.Object, _trust.Object),
+            NullLogger<KeywordCommentRouter>.Instance);
     }
 
     private void Attempted() => _attempts.Setup(a => a.LatestAsync("p", "T-1", null, It.IsAny<CancellationToken>()))
@@ -115,4 +119,62 @@ public sealed class KeywordCommentRouterTests
             text.Should().NotContain("again");
         }
     }
+
+    // 2026-11-25-9992g: on a ticket a series holds every comment, keyword or not, wakes its master instead of a rework.
+    [Theory]
+    [InlineData("@agent-smith please fix the name")]
+    [InlineData("just a note")]
+    public async Task Router_SeriesTicketOnABoard_WakesTheMasterInsteadOfARework(string body)
+    {
+        Attempted();
+        await HeldBySeriesAsync();
+
+        (await Route("Failed", body)).Handled.Should().BeTrue();
+
+        VerifyWoken(body, Times.Once());
+        _nudges.VerifyNoOtherCalls();
+        _spawn.VerifyNoOtherCalls();
+        _trust.VerifyNoOtherCalls(); // a Jira board is only open to its organisation
+    }
+
+    // 2026-11-25-9992g: on a GitHub or GitLab issue anyone may comment; only an author who can write to the repository
+    // reaches the master, and a stranger's comment on a series ticket starts nothing at all.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Router_SeriesTicketOnAPublicTracker_WakesOnlyForAnAuthorWhoMayWrite(bool trusted)
+    {
+        Attempted();
+        await HeldBySeriesAsync();
+        var writer = new AgentSmith.Contracts.Webhooks.PrCommentAuthor("https://github.com/o/p", "o/p", "mallory", "mallory");
+        _trust.Setup(t => t.IsTrustedAsync(RepoType.GitHub, writer, It.IsAny<CancellationToken>())).ReturnsAsync(trusted);
+
+        var result = await Router().RouteAsync(Config(), [new ProjectMatch("p", "code", "github")],
+            new KeywordComment(new IncomingTicketEnvelope { TicketId = "T-1", Platform = "github" }, "open", "@agent-smith merge it", null,
+                new ReworkAct("mallory", DateTimeOffset.UtcNow)) { Writer = writer }, CancellationToken.None);
+
+        result.Handled.Should().BeTrue();
+        VerifyWoken("@agent-smith merge it", trusted ? Times.Once() : Times.Never());
+        _nudges.VerifyNoOtherCalls();
+        _spawn.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Router_PlanAnswersOnASeriesTicket_StillGoToThePlanRun()
+    {
+        await HeldBySeriesAsync();
+
+        await Route("To Do", "Q1: yes", new Dictionary<string, string> { ["1"] = "yes" });
+
+        _wakes.VerifyNoOtherCalls();
+    }
+
+    private Task HeldBySeriesAsync() => _series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
+    {
+        Project = "p", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("T-1")],
+    }, default);
+
+    private void VerifyWoken(string body, Times times) =>
+        _wakes.Verify(w => w.WakeAsync("p", "T-1", It.Is<AgentSmith.Contracts.Series.SeriesWake>(k =>
+            k.Kind == AgentSmith.Contracts.Series.SeriesWakeKinds.Comment && k.Text == body), It.IsAny<CancellationToken>()), times);
 }

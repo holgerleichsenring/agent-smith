@@ -6,8 +6,8 @@ namespace AgentSmith.Application.Services.Series;
 
 /// <summary>
 /// 2026-11-17-0207a: what the series master does — through the paths a person's act takes, as the series' approver.
-/// Start, retry and tell reach a member ticket; a re-cut is proposed to the operator in the conversation; stop ends the
-/// series and hands the conversation back to the design partner. 2026-11-18-3863h: deploy, to a no-approval environment.
+/// Start, retry and tell reach a member ticket; stop ends the series and hands the conversation back to the design partner.
+/// 2026-11-25-9992f: the master re-cuts the series itself (<see cref="SeriesEditTools"/>), so no re-cut is proposed any more. 2026-11-18-3863h: deploy, to a no-approval environment.
 /// 2026-11-19-1b72a: pause and resume, the act the conversation head's buttons take; a paused series starts no ticket.
 /// 2026-11-25-9992h: each act is said in the conversation under the machine identity the series acts as, with the reason the
 /// master gives for it; the approver's runs.control stays the authority.
@@ -19,7 +19,6 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
         AIFunctionFactory.Create(StartTicketAsync, "start_ticket"),
         AIFunctionFactory.Create(RetryTicketAsync, "retry_ticket"),
         AIFunctionFactory.Create(TellTicketAsync, "tell_ticket"),
-        AIFunctionFactory.Create(ProposeRecut, "propose_recut"),
         AIFunctionFactory.Create(StopSeriesAsync, "stop_series"),
         AIFunctionFactory.Create(DeployAsync, "deploy"), // 2026-11-18-3863h
         AIFunctionFactory.Create(PauseSeriesAsync, "pause_series"), // 2026-11-19-1b72a
@@ -75,14 +74,6 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
         [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default) =>
         OnTicketAsync(ticket, "wrote to", reason, fact => acts.TellAsync(
             beat.Record.Project, fact.Ticket.TicketId, text, beat.Record.Principal, beat.Record.MayStartRuns, ct));
-
-    [Description("Proposes to the operator, in the conversation, cutting a slow or stuck ticket differently. It changes nothing; the operator answers in the conversation.")]
-    public string ProposeRecut([Description("The ticket's key or id.")] string ticket, [Description("The cut you propose and why.")] string proposal)
-    {
-        if (SeriesTicketLookup.Find(beat, ticket) is not { } fact) return SeriesTicketLookup.Unknown(beat, ticket);
-        beat.Said.Add($"Proposal for {fact.Ticket.Key}: {proposal}");
-        return "The proposal is posted to the operator with this beat's report.";
-    }
 
     [Description("Ends the series: its tickets keep running on their own, the status reports stop, and the conversation goes back to the design partner. "
         + "To hold its tickets instead — 'halt', 'stop', 'wait' — pause_series.")]

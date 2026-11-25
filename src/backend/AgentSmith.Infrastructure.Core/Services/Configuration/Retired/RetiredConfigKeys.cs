@@ -21,6 +21,11 @@ public static class RetiredConfigKeys
         "No step of a run reviews a spec any more: the master builds the spec it has and briefs a reviewer itself when it "
         + "wants one (2026-11-18-9c1cb, 2026-11-19-3e10). Remove the key from agentsmith.yml.";
 
+    private const string ReviewReplaces =
+        "One project setting, review: end | each | none (projects.<name>.review, default end), says when a person looks "
+        + "(2026-11-25-9992i). A stored configuration was moved by the data migration of `database migrate`; in "
+        + "agentsmith.yml, set review: and remove the key.";
+
     public static IReadOnlyList<RetiredConfigKey> All { get; } =
     [
         new("trackers.*.parent_link_type", "2026-09-28",
@@ -84,5 +89,13 @@ public static class RetiredConfigKeys
             "Private package feeds are configured per project now, under projects.<name>.registries (2026-11-25-9992d). "
             + "A stored configuration was moved by the data migration of `database migrate`, which copied the list into "
             + "every project that had none of its own; in agentsmith.yml, move the entries under each project."),
+        new("projects.*.merge.when", "2026-11-25", ReviewReplaces),
+        new("projects.*.merge.series_when", "2026-11-25", ReviewReplaces),
+        new("projects.*.merge.respect_branch_protection", "2026-11-25",
+            "The host's branch protection is a limit of the environment, never a setting: a merge on green arms the host's "
+            + "auto-merge and its rules decide. " + ReviewReplaces),
+        new("projects.*.merge.refresh_open_pull_requests", "2026-11-25",
+            "Nothing merges a landed base into conflict-free pull requests any more; a conflicting one is still refreshed. "
+            + ReviewReplaces),
     ];
 }

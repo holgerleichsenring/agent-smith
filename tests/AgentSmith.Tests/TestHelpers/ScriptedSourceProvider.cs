@@ -99,7 +99,7 @@ internal sealed class ScriptedSourceProvider(
         throw new NotSupportedException(Inert);
 
     public Task<PullRequestCompletion> MergePullRequestAsync(
-        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection,
+        string prUrl, BranchName sourceBranch, AgentSmith.Contracts.Models.Configuration.BranchProtection protection, AgentSmith.Contracts.Providers.MergeStyle style,
         CancellationToken cancellationToken) =>
         throw new NotSupportedException(Inert);
 

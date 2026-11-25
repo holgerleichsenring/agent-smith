@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992g
+goal: "CI results, PR changes, tracker and PR comments and ticket-run ends wake the series master with what happened, and it asks in the chat before its budget is spent."
+
+applies_to: "default (Application series beat, Server rework/webhooks/series)"
+
+requires: [2026-11-25-9992e, 2026-11-17-0207b]
+
+facts:
+  - claim: "A beat starts on a changed table snapshot, a passed question deadline, an unreported check, a delivery due or the stall cadence; the operator's messages are the only event."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesBeatDue.cs:15-27 and src/backend/AgentSmith.Application/Services/Series/SeriesBeatDemand.cs:10-18"
+  - claim: "The master is only called when the beat has Reasons, and those are newly red tickets, operator messages, a stall or an answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/ReadSeriesHandler.cs:31-33 and src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:31"
+  - claim: "A tracker comment without the keyword is dropped."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:32-37"
+  - claim: "A PR comment only nudges a refresh (and a rework for a command)."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:38 and :71"
+  - claim: "A ticket run's end is a RunEnd nudge, which reaches the series only through the table."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:46-50"
+  - claim: "Once the budget is spent the master judges no more and says so once; nothing asks before."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:32-33 and :70-81"
+  - claim: "The series record is one JSON document; a new field needs no migration."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SeriesRunRepository.cs:25"
+
+scope:
+  in: |
+    SeriesRunRecord.Wakes: a list of SeriesWake (at, kind ci|pr|comment|run, ticket, text, author). ISeriesWakes.WakeAsync(project,
+    ticketId, wake) appends it to every active or paused series holding the ticket. Called from:
+      - the PR read of a series ticket when a record changed (CI on head turned green/red/not started, conflict, state, target);
+      - the RunEnd nudge of a series ticket's run (its status and end);
+      - a tracker comment on a series ticket, keyword or not, with its author and text;
+      - a PR comment on a series ticket's PR, with its author and text.
+    Operator answers are already wired.
+    On a series ticket, a keyword comment or a PR command no longer enqueues a rework. It wakes the master, which has
+    tell_ticket and retry_ticket. A standalone ticket keeps its rework.
+    Appends go through ISeriesRunStore.UpdateAsync, which re-applies on a version conflict. A paused series keeps its wakes,
+    and the first beat after resume hands them over.
+    SeriesBeatDue answers "events arrived" when Wakes is non-empty. ReadSeriesHandler hands each wake to the master as a
+    Reason. SeriesMasterPrompt lists them, comments quoted like a chat message. A comment counts toward MasterSpeaks like an
+    operator message, and is never taken as the answer to a waiting question. Wakes up to the beat's start are cleared by time (at ≤ the beat's
+    start) once the master judged them.
+    The table-change trigger and the stall cadence (dialogue.series_status_minutes) stay.
+    Budget: once the master's remaining budget is at or below dialogue.series_master_budget_ask_usd (default 2), the beat asks
+    once in the chat: "raise the budget by dialogue.series_master_budget_usd" / "stop the series", as choices with "raise" as the
+    recommended index (the series page renders choices as buttons only with a recommendation) and NO deadline: a budget is
+    never raised or a series stopped by default (SeriesQuestion gains NoDefault). A
+    matching answer raises SeriesRunRecord.MasterBudgetUsd (null = the config value) or stops the series. Any other answer
+    goes to the master. The new key gets a dashboard field next to series_master_budget_usd (SettingsForm.tsx, configApi.ts).
+  out: "Webhook-free CI (polling stays). UI rendering of events (j). Thread compaction (existing agent.compaction)."
+
+steps:
+  - id: model
+    action: "SeriesWake, SeriesRunRecord.Wakes, MasterBudgetUsd, BudgetAsked; ISeriesWakes in Contracts; DialogueGlobalConfig.SeriesMasterBudgetAskUsd + dashboard field."
+  - id: wake
+    action: "Server SeriesWakes over ISeriesRunStore (active + paused with the ticket); call sites in PrReviewRecordRefresh (series branch of 9992e), the RunEnd nudge handling, KeywordCommentRouter before its drop, PrCommentCommandAdmission."
+  - id: beat
+    action: "SeriesBeatDue/ReadSeriesHandler/SeriesJudgement turn wakes into Reasons; SeriesMasterPrompt lists them; clear after KeepAsync; SeriesQuestions ignores comment wakes as answers."
+  - id: budget
+    action: "SeriesMasterHandler asks the budget question once below the ask threshold; SeriesQuestions settles a matching answer (raise/stop); the budget read is record.MasterBudgetUsd ?? config."
+  - id: tests
+    action: "Each source wakes the series holding the ticket and the master sees the text; a comment does not answer a waiting question; the budget question is asked once and a 'raise' answer lets the master judge again."
+
+done:
+  - "A CI result, a PR change, a tracker comment, a PR comment and a ticket-run end on a series ticket each start a beat whose master prompt names the event (tests)."
+  - "A comment reaches the master quoted with its author and never answers the master's waiting question (test)."
+  - "Below dialogue.series_master_budget_ask_usd the conversation is asked once (raise / stop); 'raise' lets it judge again, 'stop' stops the series (tests)."
+  - "dotnet build, the affected tests and the dashboard tests and build are green."

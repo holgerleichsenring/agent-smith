@@ -22,7 +22,7 @@ public sealed class GitHubMergeModeTests
     private static readonly BranchName Branch = new("agent-smith/42");
 
     [Fact]
-    public async Task Bypass_Refused_NamesPolicyPermissionAndKey()
+    public async Task Bypass_Refused_NamesPolicyPermissionAndTheAlternative()
     {
         var pulls = new Mock<IPullRequestsClient>();
         pulls.Setup(c => c.Merge(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<MergePullRequest>()))
@@ -33,13 +33,13 @@ public sealed class GitHubMergeModeTests
         repositories.Setup(r => r.Get("example", "sample-server")).ReturnsAsync(Repo());
         client.SetupGet(c => c.Repository).Returns(repositories.Object);
 
-        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, CancellationToken.None);
+        var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Bypass, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().StartWith("cannot bypass branch protection on GitHub:");
         completion.Reason.Should().Contain("approving review");
         completion.Reason.Should().Contain("ruleset's bypass list");
-        completion.Reason.Should().EndWith("or set respect_branch_protection: true");
+        completion.Reason.Should().EndWith("or merge with how auto so the host's rules decide");
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public sealed class GitHubMergeModeTests
             ? """{"data":{"enablePullRequestAutoMerge":{"clientMutationId":null}}}"""
             : """{"data":{"repository":{"mergeCommitAllowed":false,"squashMergeAllowed":true,"pullRequest":{"id":"PR_node7"}}}}""");
 
-        var completion = await Sut(client).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Respect, CancellationToken.None);
+        var completion = await Sut(client).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Respect, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Armed);
         var mutation = host.Requests.Single(r => r.Query.Contains("enablePullRequestAutoMerge"));
@@ -65,10 +65,73 @@ public sealed class GitHubMergeModeTests
             ? """{"errors":[{"message":"Auto merge is not allowed for this repository"}]}"""
             : """{"data":{"repository":{"mergeCommitAllowed":true,"squashMergeAllowed":true,"pullRequest":{"id":"PR_node7"}}}}""");
 
-        var completion = await Sut(client).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Respect, CancellationToken.None);
+        var completion = await Sut(client).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Respect, MergeStyle.HostDefault, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
         completion.Reason.Should().Contain("allow_auto_merge");
+    }
+
+    // 2026-11-25-9992i: a merge into a series branch squashes — through REST, and as the auto-merge's method.
+    [Fact]
+    public async Task Squash_Bypass_MergesBySquash()
+    {
+        MergePullRequest? sent = null;
+        var completion = await Sut(Client(squash: true, m => sent = m)).MergePullRequestAsync(
+            PrUrl, Branch, BranchProtection.Bypass, MergeStyle.Squash, CancellationToken.None);
+
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Merged);
+        sent!.MergeMethod.Should().Be(PullRequestMergeMethod.Squash);
+    }
+
+    [Fact]
+    public async Task Squash_ARepositoryWithoutSquash_IsRefusedByName_AndNotMergedAnotherWay()
+    {
+        MergePullRequest? sent = null;
+        var completion = await Sut(Client(squash: false, m => sent = m)).MergePullRequestAsync(
+            PrUrl, Branch, BranchProtection.Bypass, MergeStyle.Squash, CancellationToken.None);
+
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
+        completion.Reason.Should().Contain("allow_squash_merge");
+        sent.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Squash_Respect_ArmsWithSquash_WhereAMergeCommitIsAllowedToo()
+    {
+        var host = new GitHubGraphQlHost();
+        var client = host.Client((query, _) => query.Contains("enablePullRequestAutoMerge")
+            ? """{"data":{"enablePullRequestAutoMerge":{"clientMutationId":null}}}"""
+            : """{"data":{"repository":{"mergeCommitAllowed":true,"squashMergeAllowed":true,"pullRequest":{"id":"PR_node7"}}}}""");
+
+        await Sut(client).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Respect, MergeStyle.Squash, CancellationToken.None);
+
+        host.Requests.Single(r => r.Query.Contains("enablePullRequestAutoMerge")).Variables.GetProperty("method").GetString()
+            .Should().Be("SQUASH");
+    }
+
+    [Fact]
+    public async Task HostDefault_Bypass_KeepsTheFirstAllowedMethod()
+    {
+        MergePullRequest? sent = null;
+        await Sut(Client(squash: true, m => sent = m)).MergePullRequestAsync(
+            PrUrl, Branch, BranchProtection.Bypass, MergeStyle.HostDefault, CancellationToken.None);
+
+        sent!.MergeMethod.Should().Be(PullRequestMergeMethod.Merge);
+    }
+
+    private static IGitHubClient Client(bool squash, Action<MergePullRequest> merged)
+    {
+        var pulls = new Mock<IPullRequestsClient>();
+        pulls.Setup(c => c.Merge(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<MergePullRequest>()))
+            .Callback<string, string, int, MergePullRequest>((_, _, _, m) => merged(m))
+            .ReturnsAsync(new PullRequestMerge("sha", true, "merged"));
+        var client = new Mock<IGitHubClient>();
+        client.SetupGet(c => c.PullRequest).Returns(pulls.Object);
+        var repositories = new Mock<IRepositoriesClient>();
+        repositories.Setup(r => r.Get("example", "sample-server")).ReturnsAsync(Repo(squash));
+        client.SetupGet(c => c.Repository).Returns(repositories.Object);
+        client.SetupGet(c => c.Git).Returns(Mock.Of<IGitDatabaseClient>(g => g.Reference == Mock.Of<IReferencesClient>()));
+        return client.Object;
     }
 
     private static ISourceProvider Sut(IGitHubClient client)
@@ -79,7 +142,7 @@ public sealed class GitHubMergeModeTests
             factory.Object, NullLogger<GitHubSourceProvider>.Instance);
     }
 
-    private static Repository Repo() =>
+    private static Repository Repo(bool squash = false) =>
         new(url: "", htmlUrl: "", cloneUrl: "", gitUrl: "", sshUrl: "", svnUrl: "",
             mirrorUrl: "", archiveUrl: "", id: 1, nodeId: "", owner: null!, name: "sample-server",
             fullName: "example/sample-server", isTemplate: false, description: "", homepage: "",
@@ -88,7 +151,7 @@ public sealed class GitHubMergeModeTests
             createdAt: default, updatedAt: default, permissions: null!, parent: null!,
             source: null!, license: null!, hasIssues: false, hasWiki: false,
             hasDownloads: false, hasPages: false, subscribersCount: 0, size: 0,
-            allowRebaseMerge: false, allowSquashMerge: false, allowMergeCommit: true,
+            allowRebaseMerge: false, allowSquashMerge: squash, allowMergeCommit: true,
             archived: false, watchersCount: 0, deleteBranchOnMerge: null,
             visibility: RepositoryVisibility.Public,
             hasDiscussions: false, topics: [], allowAutoMerge: null,

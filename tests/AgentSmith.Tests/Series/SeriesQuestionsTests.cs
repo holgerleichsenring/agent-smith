@@ -17,7 +17,7 @@ public sealed class SeriesQuestionsTests
     private readonly InMemorySeriesRunStore _store = new();
     private readonly Mock<IDialogueAnswerInbox> _inbox = new();
 
-    private SeriesQuestions Questions => new(_store, _inbox.Object);
+    private SeriesQuestions Questions => new(_store, _inbox.Object, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store));
 
     private async Task<SeriesBeat> BeatAsync(SeriesQuestion? question, DateTimeOffset now, IReadOnlyList<SeriesTicketFact>? facts = null,
         params string[] messages)
