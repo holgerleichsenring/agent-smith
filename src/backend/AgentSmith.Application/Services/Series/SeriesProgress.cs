@@ -6,7 +6,8 @@ namespace AgentSmith.Application.Services.Series;
 /// <summary>
 /// 2026-11-17-0207d: where the series stands, moved on at the start of each beat. Once every ticket landed the series
 /// check starts on the default branch; its verdict is reported once; a verdict that filed a follow-up keeps the series
-/// running, one with no new failure ends it. A check that ended without a verdict is said and left to the master.
+/// running, one with no new failure ends it. A check that ended without a verdict is said and left to the master, once
+/// per check run (2026-11-25-96aec).
 /// <para>2026-11-24-f9c5e: a series with a series branch is not ended by its verdict but moved to Delivering: its final pull
 /// requests into the default branch merge next (<see cref="DeliverSeriesHandler"/>), and that ends it.</para>
 /// </summary>
@@ -19,8 +20,11 @@ public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launc
         else if (beat.Record.State == SeriesRunStates.Running && beat.Facts.Count > 0 && beat.Facts.All(f => f.Landed))
             await CheckAsync(beat, ct);
         else if (beat.Record is { State: SeriesRunStates.Verifying, VerifyRunId: { } run } && !Verdicted(beat.Record, run)
-                 && await launch.FinishedAsync(run, ct))
+                 && !beat.Record.Raised.Contains(SeriesBeatDemand.CheckKey(run)) && await launch.FinishedAsync(run, ct))
+        {
             beat.Reasons.Add($"The series check (run {run}) ended without a verdict; check_series starts it again.");
+            beat.Raised.Add(SeriesBeatDemand.CheckKey(run)); // 2026-11-25-96aec: told once, kept once the master judged it
+        }
     }
 
     /// <summary>Starts the series check; what the master's check_series and the last landing both do.</summary>

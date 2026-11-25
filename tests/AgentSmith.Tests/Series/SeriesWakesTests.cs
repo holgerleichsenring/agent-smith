@@ -44,6 +44,20 @@ public sealed class SeriesWakesTests
     }
 
     [Fact]
+    public async Task WakeAsync_AOnceKey_IsRaisedOnce_EvenAfterItsWakeWasCleared()
+    {
+        await _store.OpenAsync(SeriesRecords.Running(), default);
+        var ended = new SeriesWake(SeriesWakeKinds.Run, "its run run-43 ended success") { Once = "run:run-43:success" };
+
+        (await Wakes.WakeAsync("sample", "43", ended, default)).Should().BeTrue();
+        _store.Records["sr-1"] = _store.Records["sr-1"] with { Wakes = [] }; // the master judged it
+        (await Wakes.WakeAsync("sample", "43", ended, default)).Should().BeTrue("the series still holds the ticket");
+
+        _store.Records["sr-1"].Wakes.Should().BeEmpty("a merge-green act's end re-reads the same attempt");
+        _store.Records["sr-1"].Raised.Should().Equal("run:run-43:success");
+    }
+
+    [Fact]
     public void SameAs_IgnoresOnlyTheTime()
     {
         var wake = new SeriesWake(SeriesWakeKinds.Ci, "green") { TicketId = "43", At = SeriesRecords.T };

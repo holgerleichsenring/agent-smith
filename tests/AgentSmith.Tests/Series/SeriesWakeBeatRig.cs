@@ -22,9 +22,11 @@ internal sealed class SeriesWakeBeatRig
 
     public AgentSmithConfig Config { get; } = new() { Projects = new() { ["sample"] = new ResolvedProject { Name = "sample" } } };
 
-    public IReadOnlyList<SeriesTicketFact> Facts { get; } = [SeriesRecords.Fact("43"), SeriesRecords.Fact("44"), SeriesRecords.Fact("45")];
+    public IReadOnlyList<SeriesTicketFact> Facts { get; set; } = [SeriesRecords.Fact("43"), SeriesRecords.Fact("44"), SeriesRecords.Fact("45")];
 
     public List<string> Prompts { get; } = [];
+
+    public Mock<ISeriesRunLaunch> Launch { get; } = new();
 
     private readonly Mock<ISeriesConversation> _conversation = new();
 
@@ -42,7 +44,7 @@ internal sealed class SeriesWakeBeatRig
         record with { LastTable = SeriesTable.Snapshot(SeriesTable.Rows(Facts, now)), LastStatusAt = now };
 
     public Task<string?> DueAsync(SeriesRunRecord record, DateTimeOffset now) =>
-        new SeriesBeatDemand(_conversation.Object, Config).WhyAsync(record, Facts, now, default);
+        new SeriesBeatDemand(_conversation.Object, Config, Launch.Object).WhyAsync(record, Facts, now, default);
 
     public async Task<SeriesBeat> BeatAsync(SeriesRunRecord record, DateTimeOffset now, params SeriesOperatorMessage[] messages)
     {
@@ -56,7 +58,7 @@ internal sealed class SeriesWakeBeatRig
         var facts = Mock.Of<ISeriesTicketFacts>(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>()) == Task.FromResult(Facts));
         await new ReadSeriesHandler(Store, facts, _conversation.Object, Config, clock.Object,
                 new SeriesQuestions(Store, Mock.Of<IDialogueAnswerInbox>(), SeriesWakeDoubles.Budget(Store, Config)),
-                new SeriesProgress(Store, Mock.Of<ISeriesRunLaunch>()))
+                new SeriesProgress(Store, Launch.Object))
             .ExecuteAsync(new ReadSeriesContext(pipeline, Config.Projects["sample"]), default);
         await Master().ExecuteAsync(new SeriesMasterContext(pipeline, Config.Projects["sample"]), default);
         pipeline.TryGet<SeriesBeat>(ContextKeys.SeriesBeat, out var beat);
@@ -64,7 +66,7 @@ internal sealed class SeriesWakeBeatRig
     }
 
     private SeriesMasterHandler Master() => new(Loop.Object, Mock.Of<IPromptCatalog>(p => p.Get(It.IsAny<string>()) == "body"),
-        Mock.Of<ISeriesTicketActs>(), Store, Config, _conversation.Object, new SeriesProgress(Store, Mock.Of<ISeriesRunLaunch>()),
+        Mock.Of<ISeriesTicketActs>(), Store, Config, _conversation.Object, new SeriesProgress(Store, Launch.Object),
         new SeriesPause(Store, Mock.Of<ISeriesTicketFacts>(), Mock.Of<ISeriesTicketActs>(), _conversation.Object),
         Mock.Of<ISeriesPullRequestActs>(), SeriesFinalDoubles.Merge(), SeriesFinalDoubles.Ci(), SeriesWakeDoubles.Budget(Store, Config), Mock.Of<ISeriesEditActs>(),
         NullLogger<SeriesMasterHandler>.Instance);

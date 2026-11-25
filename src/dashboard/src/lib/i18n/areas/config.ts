@@ -1389,10 +1389,16 @@ export const configMessages = {
     en: "the latest beats a compaction of the series master's thread keeps word for word",
     de: "die letzten Runden, die eine Verdichtung des Serien-Master-Verlaufs wörtlich behält",
   },
-  "config.dialogue.seriesStatus.label": { en: "Series stall check after (minutes)", de: "Serien-Stillstandsprüfung nach (Minuten)" },
+  // 2026-11-25-96aec: no cadence any more; a failed master waits this long before its next try.
+  "config.dialogue.seriesStatus.label": { en: "Retry a failed series master after (minutes)", de: "Fehlgeschlagenen Serien-Master erneut versuchen nach (Minuten)" },
   "config.dialogue.seriesStatus.help": {
-    en: "how long nothing may move while a series' tickets run before its master looks whether one is stuck",
-    de: "wie lange sich nichts bewegen darf, während die Tickets einer Serie laufen, bevor ihr Master prüft, ob eines feststeckt",
+    en: "after a series master's turn failed, its events wait this long before it is tried again, so a failing model is not called every few seconds",
+    de: "nachdem ein Durchlauf des Serien-Masters fehlgeschlagen ist, warten seine Ereignisse so lange, bevor er erneut versucht wird, damit ein fehlerhaftes Modell nicht alle paar Sekunden aufgerufen wird",
+  },
+  "config.dialogue.seriesSettle.label": { en: "Gather series events for (seconds)", de: "Serien-Ereignisse sammeln für (Sekunden)" },
+  "config.dialogue.seriesSettle.help": {
+    en: "the series master is woken once the oldest event has waited this long, so events that arrive together cost one turn; 0 wakes it at once. Your messages reach it at once",
+    de: "der Serien-Master wird geweckt, sobald das älteste Ereignis so lange gewartet hat, damit gemeinsam eintreffende Ereignisse einen Durchlauf kosten; 0 weckt ihn sofort. Deine Nachrichten erreichen ihn sofort",
   },
   "config.dialogue.questionDefault.label": { en: "Question default after (minutes)", de: "Standardantwort auf Fragen nach (Minuten)" },
   "config.dialogue.questionDefault.help": {

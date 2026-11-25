@@ -29,16 +29,33 @@ public sealed class ReadSeriesHandler(
         };
         beat.Messages.AddRange(await conversation.AddressedAsync(record.Conversation, record.Id, record.MessagesThrough, cancellationToken));
         if (beat.Messages.Count > 0) beat.MessagesThrough = beat.Messages[^1].Index;
-        // 2026-11-25-9992g: a paused series keeps its wakes; they are never an answer to the waiting question
-        if (record.State != SeriesRunStates.Paused) beat.Wakes.AddRange(record.Wakes.Where(w => w.At <= beat.Now));
         await questions.SettleAsync(beat, config.Dialogue.QuestionDefaultMinutes, cancellationToken); // 0207c
         await progress.MoveAsync(beat, cancellationToken); // 0207d: the series check, its report, the series' end
         beat.Reasons.AddRange(SeriesJudgement.NewlyRed(record, beat.Rows));
+        beat.Reasons.AddRange(SeriesJudgement.NewlyNext(record, beat.Rows)); // 2026-11-25-96aec
         beat.Reasons.AddRange(SeriesJudgement.Operator(beat.Messages));
-        beat.Reasons.AddRange(SeriesJudgement.Woken(beat)); // 2026-11-25-9992g
-        beat.Reasons.AddRange(SeriesJudgement.Stalled(beat, config.Dialogue.SeriesStatusMinutes));
+        HandOver(beat, record); // 2026-11-25-9992g, 96aec
         context.Pipeline.Set(ContextKeys.SeriesBeat, beat);
         return CommandResult.Ok($"Series run {id}: {beat.Facts.Count(f => f.Landed)} of {beat.Facts.Count} landed"
             + (beat.Reasons.Count == 0 ? string.Empty : $"; to judge: {string.Join("; ", beat.Reasons)}"));
+    }
+
+    // 2026-11-25-96aec: the events that need a decision go to the master once they settled, or at once when the beat has a
+    // reason of its own; the rest ride along only with a reason. A paused series keeps them all (9992g) — and they are never
+    // an answer to the waiting question, which was settled above.
+    private void HandOver(SeriesBeat beat, SeriesRunRecord record)
+    {
+        if (record.State == SeriesRunStates.Paused) return;
+        var due = record.Wakes.Where(w => w.At <= beat.Now).ToList();
+        var waking = due.Where(w => SeriesBeatDue.Waking(record, w)).ToList();
+        if (waking.Count > 0 && (beat.Reasons.Count > 0 || SeriesBeatDue.Woken(record, config.Dialogue, beat.Now)))
+        {
+            beat.Wakes.AddRange(waking);
+            beat.Reasons.AddRange(SeriesJudgement.Woken(beat, waking));
+        }
+        if (beat.Reasons.Count == 0) return;
+        var recorded = due.Except(waking).ToList();
+        beat.Wakes.AddRange(recorded);
+        beat.Reasons.AddRange(SeriesJudgement.Recorded(beat, recorded));
     }
 }

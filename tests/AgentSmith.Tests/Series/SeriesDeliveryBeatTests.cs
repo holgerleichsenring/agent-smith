@@ -33,7 +33,7 @@ public sealed class SeriesDeliveryBeatTests
     {
         var facts = new[] { SeriesRecords.Fact("43", landed: SeriesRecords.T) };
         var delivering = Delivering(facts);
-        var demand = new SeriesBeatDemand(_conversation.Object, _config);
+        var demand = new SeriesBeatDemand(_conversation.Object, _config, Mock.Of<ISeriesRunLaunch>());
 
         (await demand.WhyAsync(delivering, facts, SeriesRecords.T.AddSeconds(30), default)).Should().BeNull();
         (await demand.WhyAsync(delivering, facts, SeriesRecords.T.AddSeconds(60), default)).Should().Be(SeriesBeatDemand.FinalsRead);

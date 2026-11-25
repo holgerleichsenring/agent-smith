@@ -18,12 +18,18 @@ public sealed class SeriesPullRequestTools(
     public const string Final = "final";
     public const string CiTool = "ci";
     public const string MergeTool = "merge_pull_request"; // 2026-11-25-433fa: the merged milestone tells the master's own merge by it
+    public const string RefreshTool = "refresh_branch";
+    public const string RetargetTool = "retarget_pull_request";
+
+    /// <summary>2026-11-25-96aec: a tool whose act reads or changes a ticket's pull requests on the host, so the CI and pull-request
+    /// events recorded while it ran are its own (<see cref="SeriesBeatDue.Waking"/>).</summary>
+    public static bool Reads(string tool) => tool is MergeTool or CiTool or RefreshTool or RetargetTool;
 
     public IEnumerable<AIFunction> GetTools() =>
     [
         AIFunctionFactory.Create(MergePullRequestAsync, MergeTool),
-        AIFunctionFactory.Create(RefreshBranchAsync, "refresh_branch"),
-        AIFunctionFactory.Create(RetargetPullRequestAsync, "retarget_pull_request"),
+        AIFunctionFactory.Create(RefreshBranchAsync, RefreshTool),
+        AIFunctionFactory.Create(RetargetPullRequestAsync, RetargetTool),
         AIFunctionFactory.Create(CiAsync, CiTool),
     ];
 

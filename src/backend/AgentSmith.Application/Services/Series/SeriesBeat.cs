@@ -67,6 +67,9 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
     /// <summary>2026-11-25-9992g: the wakes this beat hands the master — none for a paused series, which keeps them.</summary>
     public List<SeriesWake> Wakes { get; } = [];
 
+    /// <summary>2026-11-25-96aec: the once-keys this beat told the master; the record keeps them once it judged.</summary>
+    public List<string> Raised { get; } = [];
+
     /// <summary>2026-11-25-9992g: the stored wakes once the master judged this beat's — exactly the ones it was handed are
     /// cleared; any other, recorded meanwhile or not handed over, stays for the next beat.</summary>
     public IReadOnlyList<SeriesWake> Unjudged(IReadOnlyList<SeriesWake> stored)

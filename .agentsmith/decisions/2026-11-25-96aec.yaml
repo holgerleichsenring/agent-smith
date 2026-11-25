@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-96aec
+
+decisions:
+  - category: Scope
+    chose: "A master turn starts only when a decision is due; every other event is recorded for free and handed over with the next real beat; the speculative stall check is removed, not tuned"
+    over: "Keeping the cadence check with a longer default; waking on every recorded event"
+    reason: "decider: operator. Operator: wakes should cost no money if at all possible, and if nothing changes nothing costs. A cadence beat that asks the model whether something is stuck is a recurring cost paid most often when nothing happened."
+  - category: Architecture
+    chose: "Three classes of event: waking, quiet (SeriesWake.Quiet: first read of the PR its run opened, conflict cleared, target changed) and own (a CI or PR event on a ticket recorded while a master act on its pull requests ran, between the act's beat start and its DoneAt); own is decided when the beat reads the wakes, from the act log"
+    over: "A 'quiet' flag threaded through PrRecordRefreshNow and PrReviewRecordRefresh for an act's own refresh; marking own events from the act log at recording time; deciding by the host's merged-by actor"
+    reason: |
+      The act's in-call refresh records its change before SeriesActedFunction logs the act, so at recording time the act log
+      cannot tell. A refresh flag was too broad (an act's refresh reads every PR and facet of the ticket, so a person's approval
+      read in it would go quiet) and lost races (a busy lock leaves the read to a queued nudge). A merged-by read would need a
+      call per hoster and would call an auto-merge the host completed for the master's arm 'own', hiding the merge its
+      dependents wait on. SeriesAct gains DoneAt (the act's return time); the act's At stays the beat start.
+  - category: Implementation
+    chose: "Once-keys on the record (SeriesWake.Once, SeriesRunRecord.Raised) for the CI deadline per PR and head, a run's end per run id and status, and a check run that ended without a verdict"
+    over: "A crossing test against the stored read time; a new column on the PR record"
+    reason: |
+      A failed host read advances the stored check time, so 'the read that crosses the deadline' can be skipped; a key raised
+      once survives that and every later read past the deadline. The run-end key also stops the master's own merge-green acts
+      from waking it: their RunEnd nudge re-reads the same code attempt, whose wake was already judged and cleared, so SameAs
+      no longer caught it. The record is one JSON document; the list needs no migration.
+  - category: Architecture
+    chose: "A person's new standing approval or change request on a series ticket's PR wakes the master"
+    over: "Leaving review decisions to the stall check's periodic look"
+    reason: "Under review: each the master merges once a person approved; with the cadence look gone nothing else would tell it. A person's review is a person's act, the same class as a comment."
+  - category: Architecture
+    chose: "A ticket that became the series' next merge since the last beat is a reason (SeriesJudgement.NewlyNext), read free from the table like NewlyRed"
+    over: "Waking the master on its own 'now' merge so it takes the next ticket"
+    reason: "With its own merge no longer waking it, a dependent that turned mergeable would otherwise wait for an unrelated event. The table already knows the hold case MergeNext; turning to it is the decision."
+  - category: TradeOff
+    chose: "dialogue.series_wake_settle_seconds (default 60, 0 = at once): the oldest waking event's age caps the delay; a beat with a reason of its own (red, next merge, the operator, an answer, the check's end) hands them over at once; operator messages never wait"
+    over: "A quiet-period debounce that resets on every event; no window"
+    reason: "A debounce can starve under a steady stream; a cap bounds the latency of a decision to one window. 60 s groups the CI results of tickets pushed together at one sweep (15 s) granularity. It is a limit the operator would accept (cost), it lives in config with a dashboard field, and the beat's own text names it."
+  - category: TradeOff
+    chose: "Keep the key dialogue.series_status_minutes with its one remaining meaning — how long a failed master's events wait before the next try — and re-describe it everywhere (schema, docs, dashboard label)"
+    over: "Renaming the key, which would need a config migration for every stored settings document"
+    reason: "The failure backoff predates this spec and still needs a bound; a rename moves no behaviour and costs a data move."
+  - category: Scope
+    chose: "Real stalls detected for free: a CI without a verdict past merge.ci_pending_seconds (an existing key), a dead run (the reaper ends it and its RunEnd wakes), a question's deadline (unchanged), a series check that ended without a verdict (once per run)"
+    over: "A new heartbeat watcher or a new deadline key"
+    reason: "Each already has a server-side signal and a configured bound; a stall the server cannot see without asking the model is not worth a recurring model call."
+  - category: Implementation
+    chose: "While a failed master waits (dialogue.series_status_minutes after MasterFailedAt) the sweep starts no beat for any reason, not only for its wakes"
+    over: "Gating only the wakes, as 9992g did"
+    reason: "A failed master step stops the pipeline before PostSeriesStatus, so the table and the messages read are not saved; the next sweep saw 'the table changed' and called the failing model every 15 s. Gating every beat keeps the unsaved table, so the reasons (red, next merge, the operator) are recomputed once the wait passed. The final pull requests' poll and a check start wait with it — both are rare next to a model outage."
+  - category: TradeOff
+    chose: "A person's review decision is its own wake kind (review), outside the own-act rule; a first good read after a failed first read is quiet like a first read"
+    over: "Folding review decisions into the pull-request wake"
+    reason: "An act's in-call refresh can read a person's approval; inside a pull-request wake it would be taken for the act's own change and hidden, and under review: each nothing else would tell the master."
+  - category: TradeOff
+    chose: "A beat whose master cannot judge because its budget is spent keeps its table as before; its reasons are not replayed after a raise"
+    over: "Withholding the table until the master judged"
+    reason: "Withholding it would start a free beat at every sweep for as long as the budget waits on the operator. After a raise the master reads the whole table at its next turn, and the budget question already told the conversation it stopped judging."

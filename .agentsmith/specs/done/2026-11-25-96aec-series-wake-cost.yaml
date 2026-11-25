@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-96aec
+goal: "The server records every series event for free and starts a master turn only when a decision is due, a burst settles into one turn, and an idle series makes no model call."
+
+applies_to: "default (Application series beat, Server rework PR read, config + dashboard settings)"
+
+requires: [2026-11-25-9992g, 2026-11-25-433fb]
+
+facts:
+  - claim: "A PR read of a held ticket wakes the master on a CI verdict (green, red, not started) on a new head, and on any change of state, conflict (appearing or clearing) or target — a first read of a just-opened PR included."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/SeriesPrChange.cs:14-41, called at src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:100"
+  - claim: "Every recorded wake makes the series due at the next sweep (15 s), and the beat hands every wake up to its start to the master as a reason — no settle window."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesBeatDue.cs:32-37, ReadSeriesHandler.cs:33,38, DialogueResumeSweeper.cs:28"
+  - claim: "A beat a whole dialogue.series_status_minutes after the last starts on cadence alone, and while tickets run and the table did not move it asks the master whether one is stuck — a model call when nothing moved."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesBeatDue.cs:23,40-41 and SeriesJudgement.cs:30-38"
+  - claim: "The master is called only when the beat has reasons; a beat with none costs no model call."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:43"
+  - claim: "The master's own merge and CI read refresh the ticket's records inside the act (PrRecordRefreshNow), before SeriesActedFunction logs the act, so the change it caused is recorded as a wake first; a busy lock leaves it to a queued refresh nudge."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesMergeNextAct.cs:70-71, SeriesTicketCi.cs:23, src/backend/AgentSmith.Server/Services/Rework/PrRecordRefreshNow.cs:24,41"
+  - claim: "A merge-green run (the master's merge and CI acts) carries the ticket id and is not ShownOnTicketOnly, so its end enqueues a RunEnd nudge, whose wake re-reads the newest code attempt — the same text as a wake already judged and cleared."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:46-50, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDerive.cs:16-19, src/backend/AgentSmith.Server/Services/Rework/ReworkNoActTail.cs:40-41"
+  - claim: "A series check that ends without a verdict is noticed only by a beat, and its reason is added again at every beat; the check's run carries no ticket, so its end wakes nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesProgress.cs:21-23"
+  - claim: "A stored CI's At is when its state was first seen on its head; HeadMovedAt is null on a PR's first head."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordCopy.cs:38-46,70"
+  - claim: "Nothing wakes the master when a person approves or requests changes on a series ticket's PR; under review each it learns of an approval only from the stall check's look."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/SeriesPrChange.cs:31-41 (no decision facet); review each in src/backend/AgentSmith.Application/Prompts/Resources/series-master.md:57-61"
+  - claim: "A held ticket's PR is read at every poll while its CI waits, with no deadline; merge.ci_pending_seconds (default 3600) already bounds pending CI elsewhere."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrRecordCiDue.cs:27-28 and src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:40"
+  - claim: "A run that dies is finished by the run reaper, and a finished ticket run enqueues a RunEnd nudge, which wakes the series holding the ticket."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:46-50 and src/backend/AgentSmith.Server/Services/Rework/ReworkNoActTail.cs:38-41"
+  - claim: "The series_master_budget_ask_usd setting reaches the dashboard through DialogueGlobalConfig, the schema, configApi.ts and a NumberField in SettingsForm.tsx with its i18n keys."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/DialogueGlobalConfig.cs:61, config/agentsmith.schema.json:584, src/dashboard/src/lib/configApi.ts:1098, src/dashboard/src/components/config/SettingsForm.tsx:492-494, src/dashboard/src/lib/i18n/areas/config.ts:1376"
+
+scope:
+  in: |
+    Which events wake (a decision is due) and which are only recorded (SeriesWake.Quiet, handed over with the next real beat):
+      wakes  — a CI verdict on a new head (green, red, not started); a CI still without a verdict merge.ci_pending_seconds
+               after it was first seen pending on its head; a PR merged, closed or reopened; a conflict appearing; a person's
+               new standing approval or change request; a person's comment; a ticket run's end; an operator message; an
+               answered question; a ticket that turned next to merge since the last beat (free, from the table like NewlyRed);
+               a series check that ended without a verdict.
+      quiet  — the first read of a PR the ticket's run just opened (its run end wakes); a conflict clearing; a target change.
+      own    — a CI or PR event on a ticket the master acted on (merge, ci, refresh, retarget) at or after the event's time: it
+               was recorded during the master's own act, whose answer told it. Decided when the beat reads the wakes, from the
+               record's act log, because the act is logged only after its in-act refresh recorded the change. Treated as quiet.
+      none   — CI pending or running, a head that moved (a push), a re-read that saw the same, a duplicate (SameAs).
+    Once-only events carry a key kept on the record (SeriesRunRecord.Raised): the CI deadline per PR and head, a run's end per
+    run id and status (a merge-green act's end re-reads the same code attempt and wakes nothing new), the check's end per run id.
+    Settle: one predicate for the sweep and the read — waking events are due once the oldest is dialogue.series_wake_settle_seconds
+    old (default 60, 0 = at once; a cap on the delay, not a quiet-period debounce), the series is not paused, budget is left and
+    the failed-loop wait passed. A beat with a reason of its own (red, next to merge, the operator, an answer, the check's end)
+    hands them over at once; "the table changed" is no such reason. Quiet events ride along only with a reason, listed after
+    the reasons, and are cleared with them.
+    The stall check is removed: no beat on cadence alone, no "nothing moved" reason. dialogue.series_status_minutes keeps one
+    meaning — how long events wait after the master's loop failed — and its description, dashboard label and docs say so. Real
+    stalls are detected free: the CI deadline; a dead run, which the reaper ends and whose end wakes; a question's deadline; the
+    check's end without a verdict.
+    Prompt order is unchanged: system prompt, thread, then the turn (head, table, reasons).
+  out: "A base that moved without a conflict (no host read says it). The table-change beat, which calls no model. Ticket and coding runs' own costs."
+
+steps:
+  - id: model
+    action: "SeriesWake.Quiet and Once; SameAs compares the stored fields; SeriesRunRecord.Raised; DialogueGlobalConfig.SeriesWakeSettleSeconds (60) with schema, docs, configApi.ts, SettingsForm field and i18n; series_status_minutes re-described as the failed-loop wait."
+  - id: rules
+    action: "SeriesPrChange classifies each facet (wake, quiet, none), takes merge.ci_pending_seconds for the CI deadline and the stored and read review decisions for a person's approval or change request; SeriesWakes skips a once-key already raised; the run-end wake is once per run and status."
+  - id: beat
+    action: "One wake predicate (SeriesBeatDue) with settle, own-act and quiet; the cadence reason and SeriesJudgement.Stalled are removed; NewlyNext and the check's end without a verdict are reasons (the latter once per run, also a sweep reason); ReadSeriesHandler hands waking events when settled or another reason stands, quiet and own ones only with a reason, after the others."
+  - id: prompt
+    action: "series-master.md: the stall line goes, the slow-CI line becomes the deadline wake, quiet events arrive as recorded meanwhile; docs/how-it-works/series-run.md and agentsmith-yml.md describe what wakes and the settle key."
+  - id: tests
+    action: "SeriesPrChange per facet; the CI deadline wakes once; own-act events start no turn; a burst inside the settle window is one turn; quiet events alone start no turn and ride along with the next; an idle running series makes zero model calls over two days of sweeps; tests pinning the stall check are rewritten."
+
+done:
+  - "Tests assert which PR-read facets wake, which are quiet and which record nothing, that the CI deadline wakes once per head and that an event of the master's own act starts no turn."
+  - "Three waking events inside dialogue.series_wake_settle_seconds start one master turn; an operator message starts one at once (tests)."
+  - "An idle running series (tickets running, nothing changing) makes zero model calls over 200 sweeps across two days, and quiet events alone make none (test)."
+  - "dialogue.series_wake_settle_seconds has a dashboard field; dotnet build, the affected tests and the dashboard tests and build are green."

@@ -61,7 +61,7 @@ On the series page, one line sits at the top of the chat and stays there while y
 
 The master runs in short beats and keeps a thread between them. Each beat keeps its reasons and the master's answer, not the ticket table, which it reads fresh every beat. Once the thread passes `dialogue.series_master_thread_max_chars` (default 60000 characters), the master writes notes in place of its older beats: what it decided and why, what is still open, the acts it took and its plan. The latest `dialogue.series_master_thread_keep_turns` beats (default 4) stay word for word.
 
-While tickets run and nothing moves for `dialogue.series_status_minutes` (default 15), the master looks whether one is stuck.
+The master costs money only when there is a decision to make. The server records everything that happens on the tickets for free and wakes the master only for a CI result (green, red, or a required build that never started), a CI that has run longer than `merge.ci_pending_seconds` without a result (once per head), a pull request merged, closed or reopened, a conflict with its base, a person's approval or change request, a comment, a ticket run that ended, a ticket that became the next merge, a series check that ended without a verdict, an answered question and your messages. A running CI, a new head, a conflict that cleared and a changed target are recorded and handed over with the next beat that has a decision in it. What the master's own merge or CI read recorded wakes nothing more, because its answer already told it. Events that arrive close together reach the master as one turn: it is woken once the oldest has waited `dialogue.series_wake_settle_seconds` (default 60). Your messages reach it at once. A series where nothing changes makes no model call at all. A run that dies is ended by the run reaper, and its end wakes the master like any other.
 
 The master's reply is posted only when it acted (a retry, a message to a ticket, a pause, a question, the series check), when its own question was answered, or when you wrote to it. A look that changed nothing stays out of the conversation.
 
@@ -102,7 +102,8 @@ Once every ticket has landed, a `series-verify` run checks out the series branch
 
 | Key | Default | What it changes |
 |---|---|---|
-| `dialogue.series_status_minutes` | 15 | How long nothing may move while tickets run before the master checks for a stuck one |
+| `dialogue.series_wake_settle_seconds` | 60 | How long the oldest event may wait so events that arrive together are one master turn; 0 wakes it at once |
+| `dialogue.series_status_minutes` | 15 | How long the master's events wait after its loop failed before it is tried again |
 | `dialogue.question_default_minutes` | 120 | When a recommended answer is taken by default |
 | `dialogue.series_master_budget_usd` | 20 | The series master's own spend |
 | `dialogue.series_master_budget_ask_usd` | 2 | At or below this much left, the series asks to raise the budget or stop |

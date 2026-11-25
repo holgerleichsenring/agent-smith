@@ -1099,7 +1099,10 @@ export interface DialogueSetting {
   /** 2026-11-25-433fb: past this many characters the series master's thread is compacted into its notes; the latest beats stay. */
   seriesMasterThreadMaxChars?: number;
   seriesMasterThreadKeepTurns?: number;
+  /** 2026-11-25-96aec: how long the failed series master's events wait before it is tried again. */
   seriesStatusMinutes: number;
+  /** 2026-11-25-96aec: how long the oldest event waits so events arriving together are one master turn; 0 wakes it at once. */
+  seriesWakeSettleSeconds?: number;
   questionDefaultMinutes: number;
 }
 

@@ -61,8 +61,10 @@ public sealed class SeriesMasterActLogTests
         var beat = await JudgeAsync("retry_ticket", """{"ticket":"SCRUM-43","reason":"the runner timed out, not the work"}""");
 
         beat.MasterActed.Should().BeTrue();
-        _store.Records["sr-1"].Acts.Should().ContainSingle().Which.Should().Be(
+        var act = _store.Records["sr-1"].Acts.Should().ContainSingle().Subject;
+        (act with { StartedAt = null, DoneAt = null }).Should().Be(
             new SeriesAct(SeriesRecords.T, "retry_ticket", "43", "retried SCRUM-43", "the runner timed out, not the work"));
+        act.DoneAt.Should().NotBeNull("2026-11-25-96aec: what the act recorded on its ticket is told apart by it");
         SeriesTicketLastAct.Of(_store.Records["sr-1"].Acts, "43").Should().Be(
             new SeriesTicketLastAct("retried SCRUM-43", "the runner timed out, not the work", SeriesRecords.T));
     }

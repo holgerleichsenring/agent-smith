@@ -498,6 +498,9 @@ function DialogueForm({ value, onChange }: { value: DialogueSetting; onChange: (
       <NumberField label={t("config.dialogue.seriesThreadKeep.label")} value={value.seriesMasterThreadKeepTurns ?? 4}
         onChange={(v) => set({ seriesMasterThreadKeepTurns: keep(v, value.seriesMasterThreadKeepTurns ?? 4) })}
         testId="setting-dialogue-seriesthreadkeep" help={t("config.dialogue.seriesThreadKeep.help")} />
+      <NumberField label={t("config.dialogue.seriesSettle.label")} value={value.seriesWakeSettleSeconds ?? 60}
+        onChange={(v) => set({ seriesWakeSettleSeconds: keep(v, value.seriesWakeSettleSeconds ?? 60) })}
+        testId="setting-dialogue-seriessettle" help={t("config.dialogue.seriesSettle.help")} />
       <NumberField label={t("config.dialogue.seriesStatus.label")} value={value.seriesStatusMinutes}
         onChange={(v) => set({ seriesStatusMinutes: keep(v, value.seriesStatusMinutes) })} testId="setting-dialogue-seriesstatus"
         help={t("config.dialogue.seriesStatus.help")} />
