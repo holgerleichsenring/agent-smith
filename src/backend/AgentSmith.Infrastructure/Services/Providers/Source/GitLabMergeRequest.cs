@@ -8,4 +8,11 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <param name="SquashCommitSha">2026-11-23-8df6a: the squash commit of a squash merge.</param>
 public sealed record GitLabMergeRequest(
     long? AuthorId, string State, DateTimeOffset? CreatedAt, DateTimeOffset? MergedAt, DateTimeOffset? ClosedAt, string? Sha = null,
-    bool IsDraft = false, string? MergeCommitSha = null, string? SquashCommitSha = null, bool? HasConflicts = null);
+    bool IsDraft = false, string? MergeCommitSha = null, string? SquashCommitSha = null, bool? HasConflicts = null)
+{
+    /// <summary>2026-11-25-7a92c: merge_when_pipeline_succeeds — "the merge request is set to auto-merge"; null when not answered.</summary>
+    public bool? AutoMergeArmed { get; init; }
+
+    /// <summary>2026-11-25-7a92c: source and target project are one (no fork); null when not answered.</summary>
+    public bool? SameProject { get; init; }
+}

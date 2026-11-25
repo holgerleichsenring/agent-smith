@@ -18,7 +18,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (REST API call, not git plumbing).
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestAutoCompleteRearmer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -307,6 +307,10 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     // 2026-11-25-7a92b: a settled head without a pipeline gets one, through f9c5d's start; a manual one is left for a person.
     public Task<int> RequeueNotStartedAsync(string prUrl, bool headSettled, CancellationToken ct) => new GitLabPipelineRequeue(new Pipelines.PipelineHttp(
         _httpClient, r => r.Headers.Add("PRIVATE-TOKEN", _privateToken)), $"{_baseUrl}/api/v4/projects/{_projectPath}", _logger).RequeueAsync(prUrl, headSettled, ct);
+
+    // 2026-11-25-7a92c: auto-merge GitLab cancelled at a new head, armed again as the first time.
+    public Task<PullRequestCompletion> RearmAutoCompleteAsync(string prUrl, CancellationToken ct) =>
+        new GitLabAutoMergeRearm(new GitLabMergeRequestRead(_baseUrl, _projectPath, _privateToken, _httpClient), _merge).RearmAsync(prUrl, ct);
 
     // 2026-11-17-3435a: the head pipeline's CI.
     public Task<PullRequestCi> ReadCiAsync(string prUrl, CiReadRequest request, CancellationToken cancellationToken) =>

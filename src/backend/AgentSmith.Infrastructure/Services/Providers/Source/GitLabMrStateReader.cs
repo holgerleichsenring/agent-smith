@@ -38,7 +38,7 @@ public sealed class GitLabMrStateReader(
                 decisions.Add(Decision(note));
         var (state, at) = State(mr);
         return new PrReviewState(iid.ToString(CultureInfo.InvariantCulture), state, at, decisions, mr.Sha,
-            state == PrReviewStates.Merged ? mr.MergeCommitSha ?? mr.SquashCommitSha ?? mr.Sha : null) { IsDraft = mr.IsDraft, HasConflicts = mr.HasConflicts }; // 8d16, 6811a
+            state == PrReviewStates.Merged ? mr.MergeCommitSha ?? mr.SquashCommitSha ?? mr.Sha : null) { IsDraft = mr.IsDraft, HasConflicts = mr.HasConflicts, AutoCompleteArmed = Open(state) ? mr.AutoMergeArmed : null }; // 8d16, 6811a, 7a92c
     }
 
     private PrReviewDecision Decision(GitLabNote note)
@@ -49,6 +49,9 @@ public sealed class GitLabMrStateReader(
             note.Body == GitLabMrActReader.Approved ? PrReviewDecisions.Approved : PrReviewDecisions.ChangesRequested,
             note.CreatedAt, note.Body);
     }
+
+    // 2026-11-25-7a92c: as Azure's read, auto-merge is said of an open merge request only.
+    private static bool Open(string state) => state == PrReviewStates.Open;
 
     private static (string State, DateTimeOffset At) State(GitLabMergeRequest mr) => mr.State switch
     {

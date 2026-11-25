@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-7a92c
+
+decisions:
+  - category: Architecture
+    chose: "GitLab only: its state read reports merge_when_pipeline_succeeds and its provider re-arms through the first arm's PUT"
+    over: "Also GitHub, reading autoMergeRequest and re-arming with enablePullRequestAutoMerge"
+    reason: |
+      GitHub documents dropping auto-merge only for a push by someone without write access or a base switch. Neither happens for an
+      agent-smith pull request from its own repository by agent-smith's own push. A base switch leaves the head unmoved, so the
+      unchanged rule reads it as a person's cancel, and a person's cancel followed by an agent push would be re-armed against the
+      person. The adversarial review showed that GitHub re-arming would mostly hit that wrong case, so GitHub records no loss.
+  - category: Implementation
+    chose: "The unchanged loss rule (lost when a conflict or a moved head took it) also serves GitLab"
+    over: "Reading GitLab's system note for the cancel's reason"
+    reason: |
+      GitLab cancels on new commits, so a lost auto-merge always comes with a moved head. That is exactly the rule's case. The note's
+      wording is not documented, and parsing it would be a guess. A person's cancel on an unmoved head stays a cancel.
+  - category: Implementation
+    chose: "Re-arm with the first arm's options (remove the source branch, the merge request's own squash setting)"
+    over: "Carrying a person's earlier choices"
+    reason: "The cancelled request is gone, so GitLab no longer has its options to read; the first arm is agent-smith's own."
+  - category: Implementation
+    chose: "A merge request from another project is refused"
+    over: "Arming it like any other"
+    reason: "GitLab's cancel guards new commits that nobody reviewed; agent-smith does not overrule it for a fork."
+  - category: Implementation
+    chose: "GitLab's cancel on any new commit, a person's push included, counts as a host drop and is armed again on the new head"
+    over: "Arming again only after a head agent-smith pushed"
+    reason: |
+      This is the operator's rule for the series: arm again when the host dropped it at a conflict or a host event, never after a person
+      took it off an unchanged head. GitLab's cancel on a push is GitLab's act, not a person's. The arm goes through GitLab's own merge
+      checks, so approvals (reset on push where the project says so) and the pipeline still decide. Azure behaves the same way: it re-arms
+      whoever set auto-complete.

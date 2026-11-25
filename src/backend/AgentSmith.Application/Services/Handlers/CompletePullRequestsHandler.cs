@@ -23,7 +23,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// CI (<see cref="PullRequestCiStart"/>), under merge.series_when manual too; the merge follows only when none has CI anywhere.</para>
 /// <para>2026-11-24-629aa: the CI loop's request for pull requests whose required build has not started queues those builds
 /// again (<see cref="PullRequestBuildRequeue"/>) under every merge mode and merges nothing. 2026-11-24-629ab: likewise its request
-/// for pull requests whose auto-complete the host dropped at a conflict arms it again (<see cref="PullRequestAutoCompleteRearm"/>).</para>
+/// for pull requests whose auto-complete the host dropped at a conflict or a new head arms it again (<see cref="PullRequestAutoCompleteRearm"/>).</para>
 /// </summary>
 public sealed class CompletePullRequestsHandler(
     PullRequestMergeSequence merges, PullRequestCompleter completer, PullRequestCiStart? ciStart = null, PullRequestBuildRequeue? requeue = null,
@@ -70,7 +70,8 @@ public sealed class CompletePullRequestsHandler(
         return CommandResult.Ok($"required builds that had not started, queued again — {string.Join("; ", said)}; nothing merges.");
     }
 
-    // 2026-11-24-629ab: each pull request's auto-complete armed again, as the host answered; nothing merges here.
+    // 2026-11-24-629ab: each pull request's auto-complete armed again, as the host answered. 2026-11-25-7a92c: GitLab merges at once when
+    // the head's pipeline already passed; the answer says merged and the next state read records it, as for a person's merge.
     private async Task<CommandResult> RearmAsync(CompletePullRequestsContext context, CiGreenMergeRequest request, CancellationToken ct)
     {
         var said = new List<string>();
@@ -80,7 +81,7 @@ public sealed class CompletePullRequestsHandler(
                 ? await rearm.RearmAsync(repo, pr.Url, ct) : Providers.PullRequestCompletion.Refused("not armed, the repository is not in this run");
             said.Add($"{pr.Repo}: {answer.Outcome.ToString().ToLowerInvariant()}{(answer.Reason is { } why ? $" — {why}" : string.Empty)}");
         }
-        return CommandResult.Ok($"auto-complete the host dropped at a conflict, armed again — {string.Join("; ", said)}");
+        return CommandResult.Ok($"auto-complete the host dropped at a conflict or a new head, armed again — {string.Join("; ", said)}");
     }
 
     // 2026-11-25-7a92b: CiBuildRequeue asks only for a head not started for merge.ci_settle_seconds, so the head is settled.

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-7a92c
+goal: "GitLab reports whether auto-merge is set and arms it again after a new head cancelled it, under the rule Azure's auto-complete follows; GitHub, which keeps it, is said to need none."
+
+applies_to: "default (Infrastructure GitLab state read and merge; Contracts docs)"
+
+requires: [2026-11-25-7a92b, 2026-11-24-629ab]
+
+facts:
+  - claim: "A loss is recorded only when a state read reports armed false after true while the PR conflicts or its head moved; gone from an unmoved clean head is a person's cancel and is never re-armed."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordCopy.cs:64-78"
+  - claim: "GitLab's state read leaves AutoCompleteArmed null and only Azure is an IPullRequestAutoCompleteRearmer."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrStateReader.cs:31; src/backend/AgentSmith.Contracts/Providers/IPullRequestAutoCompleteRearmer.cs:3-7"
+  - claim: "GitLab: merge_when_pipeline_succeeds true means the MR is set to auto-merge; new commits cancel auto-merge so they get a review; a failed pipeline does not (a retried job that succeeds merges); PUT .../merge with auto_merge sets it."
+    evidence: "observed: 2026-11-25, https://docs.gitlab.com/api/merge_requests/ ; https://docs.gitlab.com/user/project/merge_requests/auto_merge/"
+  - claim: "GitHub disables auto-merge only for a push by someone without write access or a base-branch switch; neither an agent-smith push (the token writes) nor a conflict is named."
+    evidence: "observed: 2026-11-25, https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/automatically-merging-a-pull-request"
+  - claim: "GitLab arming exists: PUT merge with auto_merge and should_remove_source_branch, read as merged, armed or refused."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeModes.cs:32-56"
+
+scope:
+  in: |
+    GitLab's MR read takes merge_when_pipeline_succeeds and the state read reports it. GitLabSourceProvider implements
+    IPullRequestAutoCompleteRearmer through the existing arming: armed already answers armed, a merge request from another project
+    is refused, else armed as the first time. The contract docs say GitHub keeps auto-merge through the events agent-smith causes.
+  out: "GitHub re-arm (nothing documented drops it for agent-smith's own pushes; a base switch reads as a cancel by the unchanged rule). Keeping a person's squash or branch-removal choice (the first arm's options are used)."
+
+done:
+  - "GitLab's state read reports armed true/false from merge_when_pipeline_succeeds."
+  - "Rearm of an armed MR posts nothing; of a cross-project MR is refused; of a dropped one PUTs auto_merge and answers armed."
+  - "The host-agnostic loss rule (armed true, then false on a moved head is lost) stays pinned by AutoCompleteRearmTests; GitLab now feeds it."
+  - "The real SourceProviderFactory's GitLab provider is an IPullRequestAutoCompleteRearmer."
