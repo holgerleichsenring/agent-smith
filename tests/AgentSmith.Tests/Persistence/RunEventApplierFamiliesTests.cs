@@ -35,6 +35,7 @@ public sealed class RunEventApplierFamiliesTests
         [typeof(SandboxCreatedEvent)] = ["RunSandboxFamily"],
         [typeof(SandboxDisposedEvent)] = ["RunSandboxFamily"],
         [typeof(SandboxVanishedEvent)] = ["RunSandboxFamily"],
+        [typeof(ToolCallEvent)] = ["RunQuestionFamily"], // 2026-11-25-9992k
         [typeof(SpecStateChangedEvent)] = ["RunSpecFamily"],
         [typeof(SpecRecordedEvent)] = ["RunSpecFamily"],
         [typeof(SpecReviewedEvent)] = ["RunSpecFamily"],

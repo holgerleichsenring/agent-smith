@@ -89,6 +89,8 @@ public sealed class ModelRoleChain(AgentConfig agent)
             Deployment = primary?.Deployment ?? agent.Deployment,
             MaxTokens = primary?.MaxTokens ?? new ModelAssignment().MaxTokens,
             ContextWindowTokens = primary?.ContextWindowTokens,
+            Api = primary?.Api,
+            ReasoningEffort = primary?.ReasoningEffort,
         };
     }
 }

@@ -33,6 +33,8 @@ internal static class RawAgentModelPatch
         ProviderType = Blank(source.ProviderType),
         Endpoint = Blank(source.Endpoint),
         Tier = source.Tier,
+        Api = Blank(source.Api),
+        ReasoningEffort = Blank(source.ReasoningEffort),
     };
 
     private static ConfigurationException UnknownRole(string role) =>

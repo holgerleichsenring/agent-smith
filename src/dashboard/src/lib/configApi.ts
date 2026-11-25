@@ -506,6 +506,10 @@ export interface AgentCatalogModel {
   providerType?: string | null;
   endpoint?: string | null;
   tier?: ModelTier | null;
+  /** 2026-11-25-9992k: the wire the model is called on — "chat_completions" (null) or "responses". */
+  api?: string | null;
+  /** 2026-11-25-9992k: the reasoning effort sent as written; only with api "responses". */
+  reasoningEffort?: string | null;
 }
 
 export interface AgentPricingEntry {

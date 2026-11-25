@@ -2603,6 +2603,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
                     b.Property<string>("PromptHash")
                         .HasColumnType("text");
 
+                    b.Property<long>("ReasoningTokensOut")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Role")
                         .HasColumnType("text");
 

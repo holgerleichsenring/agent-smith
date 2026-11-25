@@ -74,6 +74,7 @@ GET	/api/runs/{runId}/compute	runs.read	run
 GET	/api/runs/{runId}/decisions	runs.read	run
 GET	/api/runs/{runId}/deployment	runs.read	run
 GET	/api/runs/{runId}/dialog-activity	runs.read	run
+GET	/api/runs/{runId}/measurement	runs.read	run
 GET	/api/runs/{runId}/passes	runs.read	run
 GET	/api/runs/{runId}/prompts/digest	runs.read	run
 GET	/api/runs/{runId}/prompts/{promptId}	runs.read	run
@@ -89,6 +90,7 @@ GET	/api/series-runs	runs.read	across
 GET	/api/series-runs/count	runs.read	across
 GET	/api/series-runs/{id}	runs.read	seriesrun
 GET	/api/series-runs/{id}/changes	runs.read	seriesrun
+GET	/api/series-runs/{id}/measurement	runs.read	seriesrun
 GET	/api/spec-dialog/conversations	dialog.write	across
 GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/html	dialog.write	session
 GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/shot	dialog.write	session

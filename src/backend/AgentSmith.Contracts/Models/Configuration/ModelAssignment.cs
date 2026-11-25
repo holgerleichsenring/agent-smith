@@ -31,6 +31,14 @@ public sealed class ModelAssignment
     /// </summary>
     public int? ContextWindowTokens { get; set; }
 
+    /// <summary>2026-11-25-9992k: the wire this role is called on — <see cref="ModelApi"/>; unset is Chat Completions,
+    /// the path every OpenAI and Azure role took before.</summary>
+    public string? Api { get; set; }
+
+    /// <summary>2026-11-25-9992k: the reasoning effort the provider receives, as written (none, low, medium, high, xhigh,
+    /// max — which ones a model takes is the provider's word). Only the Responses API carries it here.</summary>
+    public string? ReasoningEffort { get; set; }
+
     /// <summary>
     /// Where this role sends its requests: its own endpoint, else the agent's when the role
     /// runs on the agent's provider. <c>agent.endpoint</c> belongs to the agent's type (an

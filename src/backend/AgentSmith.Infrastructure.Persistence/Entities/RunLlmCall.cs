@@ -25,6 +25,8 @@ public sealed class RunLlmCall : EntityBase
     public long CachedTokensIn { get; set; }
     /// <summary>p0323: prompt tokens written to the provider's cache this call.</summary>
     public long CacheCreationTokensIn { get; set; }
+    /// <summary>2026-11-25-9992k: the share of TokensOut spent reasoning (0 = none reported).</summary>
+    public long ReasoningTokensOut { get; set; }
 
     /// <summary>
     /// p0388a: the pipeline step this call was made in, so per-step cost and call

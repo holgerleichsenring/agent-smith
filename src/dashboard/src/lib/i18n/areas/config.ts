@@ -813,6 +813,17 @@ export const configMessages = {
   "config.modelEditor.window.fromList": { en: "from price list", de: "aus der Preisliste" },
   "config.modelEditor.maxTokens.label": { en: "max tokens", de: "Max. Tokens" },
   "config.modelEditor.maxTokens.help": { en: "per-call output cap; blank = 8192", de: "Output-Obergrenze pro Aufruf; leer = 8192" },
+  "config.modelEditor.api.label": { en: "api", de: "API" },
+  "config.modelEditor.api.help": {
+    en: "responses for a reasoning model that calls tools (GPT-6); blank = chat_completions",
+    de: "responses für ein Reasoning-Modell, das Tools aufruft (GPT-6); leer = chat_completions",
+  },
+  "config.modelEditor.api.placeholder": { en: "chat_completions", de: "chat_completions" },
+  "config.modelEditor.effort.label": { en: "reasoning effort", de: "Reasoning-Aufwand" },
+  "config.modelEditor.effort.help": {
+    en: "sent as written: none, low, medium, high, xhigh or max, as the model takes them; blank = the model's default",
+    de: "wird so gesendet: none, low, medium, high, xhigh oder max, je nachdem, was das Modell nimmt; leer = Standard des Modells",
+  },
   "config.modelEditor.tier.label": { en: "tier", de: "Stufe" },
   "config.modelEditor.tier.help": {
     en: "an activity that needs a strong model warns when a fast one is picked",

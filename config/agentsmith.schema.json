@@ -1278,6 +1278,15 @@
           "type": "string",
           "description": "This model's own host. Unset: the agent's endpoint, when it runs on the agent's provider."
         },
+        "api": {
+          "type": "string",
+          "enum": ["chat_completions", "responses"],
+          "description": "The OpenAI wire. responses: the Responses API, stateless with reasoning items carried across tool calls (a reasoning model of the GPT-6 family calls tools only there); on Azure at {endpoint}/openai/v1/ by deployment. Unset: chat_completions."
+        },
+        "reasoning_effort": {
+          "type": "string",
+          "description": "Sent as written (none, low, medium, high, xhigh, max: which ones a model takes is the provider's word). Only with api: responses."
+        },
         "tier": {
           "type": "string",
           "enum": ["strong", "fast"],
@@ -1308,6 +1317,15 @@
         "context_window_tokens": {
           "type": "integer",
           "description": "The input window the deployment behind this role accepts. Unset: nothing is derived from it."
+        },
+        "api": {
+          "type": "string",
+          "enum": ["chat_completions", "responses"],
+          "description": "The OpenAI wire. responses: the Responses API, stateless with reasoning items carried across tool calls (a reasoning model of the GPT-6 family calls tools only there); on Azure at {endpoint}/openai/v1/ by deployment. Unset: chat_completions."
+        },
+        "reasoning_effort": {
+          "type": "string",
+          "description": "Sent as written (none, low, medium, high, xhigh, max: which ones a model takes is the provider's word). Only with api: responses."
         }
       }
     },
