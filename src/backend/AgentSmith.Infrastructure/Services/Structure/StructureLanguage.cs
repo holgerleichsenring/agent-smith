@@ -16,4 +16,7 @@ public sealed class StructureLanguage
     public Dictionary<string, StructureContainer> Containers { get; set; } = [];
     public List<string> Exclude { get; set; } = [];
     public string Query { get; set; } = string.Empty;
+
+    /// <summary>2026-11-24-8756: the nodes that carry layout; absent, a unit counts its physical lines.</summary>
+    public StructureLayoutRules? Layout { get; set; }
 }

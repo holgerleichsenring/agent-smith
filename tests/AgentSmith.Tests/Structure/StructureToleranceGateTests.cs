@@ -62,7 +62,7 @@ public sealed class StructureToleranceGateTests
 
         pipeline.Get<IReadOnlyList<StructureFinding>>(ContextKeys.StructureDivergences)
             .Should().ContainSingle().Which.Should().Be(new StructureFinding(
-                "src/Api/A.cs", "A.Long()", StructureMetric.FunctionLines, 5, 4, StructureSeverity.Divergence, Key));
+                "src/Api/A.cs", "A.Long()", StructureMetric.FunctionLines, 5, 4, StructureSeverity.Divergence, Key, PhysicalValue: 5));
     }
 
     [Fact]

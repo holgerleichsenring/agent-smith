@@ -49,7 +49,7 @@ public sealed class StructureRepoSandboxes(
                 repoName, baseRev);
             return StructureGateVerdict.NotJudged($"{repoName}: git could not list the changed files");
         }
-        return await files.JudgeAsync(sandbox, paths, claims, rules, ct);
+        return await files.JudgeAsync(sandbox, baseRev, paths, claims, rules, ct);
     }
 
     // One finding per (path, key, metric), in first-seen order: an excess outranks a divergence,

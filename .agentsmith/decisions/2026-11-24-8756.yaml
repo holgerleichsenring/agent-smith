@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-8756
+
+decisions:
+  - category: Architecture
+    chose: "A unit counts its physical lines plus one per gap a formatter would break on a line: between two layout events (a member's start, a block's braces), except before an opening brace and inside a one-line block holding at most one member in its whole subtree"
+    over: "max(physical, statements + block lines), or counting statements only"
+    reason: |
+      A count of statements plus block lines over-counts formatted code (an Allman method, a guard clause
+      'if (x) return;', 'catch { }'), so untouched units would rise and fail. Breaks per line are zero for code
+      with one statement per line in any brace style, so existing counts stay as they were. Review measured
+      that counting every brace raised standard formatter output (rustfmt's 'if x { 1 } else { 2 }', let-else,
+      unsafe blocks; C# one-line guard blocks and accessors), so a one-line block with one member stays whole.
+      Joining an Allman '{' line or expanding a one-statement block saves or costs a line — the price of not
+      raising formatted code.
+  - category: Implementation
+    chose: "The layout nodes are language data (layout.blocks, layout.member_parents in the structure YAML): block and declaration_list for C# and Rust"
+    over: "A per-language branch in the collector"
+    reason: |
+      A language is a resource, never a branch in code (2026-10-06-8565b). A second review showed a method body
+      wrapped in 'switch (0) { default: ... }' counted one line, so switch bodies, sections (statements only,
+      the label shares their line, so 'case 1: return x;' adds nothing) and Rust match blocks are layout too;
+      compactness counts members over the whole subtree, so nesting one-member wrappers hides nothing.
+      Accessor lists stay out: '{ get; set; }' would count three.
+  - category: Implementation
+    chose: "A baseline records '# counted: breaks'; under one without it the gate also tolerates an excess no larger than the same unit counted at the merge-base; its refresh adds each entry's current breaks; a preserved one stays uncounted"
+    over: "Tolerating by the physical value (first draft), or re-measuring every baseline"
+    reason: |
+      The gate judges every unit of a changed file, touched or not. Review showed the physical fallback both
+      failed unlisted untouched units and let a listed unit grow by joining lines back down; comparing with the
+      unit's own count at the merge-base does neither, provided the old physical rule passed the unit there
+      (second review: otherwise a unit already failing at the base would pass). Newly owned entries of a
+      preserved uncounted baseline are written physical. The base file is read only when an excess remains.
+      The refresh translation keeps growth since the entry visible instead of recording it.
+  - category: Scope
+    decider: claude
+    chose: "file_lines and types_per_file stay as they were; one long statement still counts once"
+    over: "Counting breaks for file_lines, or wrapping long expressions"
+    reason: |
+      The live defect was statements joined onto a line; wrapping an expression would mean modelling a
+      formatter's width rule per language. The operator may extend it.
+  - category: Implementation
+    chose: "The skill wording (DELTA-FORMAT, C# and Rust deltas, project-bootstrap) is changed in agent-smith-skills and pinned by 2026-11-25-6482"
+    over: "Leaving 'physical lines' in the principles"
+    reason: |
+      The principles are what the coding agent reads; saying physical lines while the gate counts breaks would
+      invite exactly the joining this spec stops paying for.

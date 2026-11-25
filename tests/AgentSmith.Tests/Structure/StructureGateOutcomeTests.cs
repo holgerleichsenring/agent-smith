@@ -104,6 +104,17 @@ public sealed class StructureGateOutcomeTests
     }
 
     [Fact]
+    public void StructureFindings_SaysJoiningLinesDoesNotHelp()
+    {
+        // 2026-11-24-8756: the count includes the breaks a formatter would add.
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.StructureFindings, new List<string> { "src/A.cs A.Long(): function_lines 70 > 55" });
+
+        SpecExecutionPromptBlocks.StructureFindings(pipeline)
+            .Should().Contain("each statement and closing brace on a line of its own").And.Contain("joining lines does not shorten it");
+    }
+
+    [Fact]
     public void PromptBlocks_StructureFindingsAfterARepair_ReplaceTheRepairBlock()
     {
         var pipeline = new PipelineContext();

@@ -9,6 +9,12 @@ attribute_kinds: []
 containers:
   impl_item: { fields: [trait, type], separator: " for " }
   mod_item: { fields: [name], separator: "" }
+# 2026-11-24-8756: what a formatter puts on lines of its own — a block's braces and each
+# statement or member (a switch section's statements, a match arm) — so a unit's count
+# includes the breaks joined lines leave out.
+layout:
+  blocks: [block, declaration_list, match_block]
+  member_parents: [block, declaration_list, match_block]
 exclude:
   - "**/tests/**"
   - "**/benches/**"

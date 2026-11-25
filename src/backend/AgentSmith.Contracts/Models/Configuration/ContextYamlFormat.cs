@@ -1,7 +1,8 @@
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
-/// 2026-10-12-fbbdb: the formatter a repository ALREADY runs, read from the <c>format:</c>
+/// 2026-10-12-fbbdb: the formatter of a context — 2026-11-24-6d76b: the repository's own, else the
+/// stack's standard — read from the <c>format:</c>
 /// block of its own context.yaml, in the form that rewrites files rather than checks them.
 /// <para>
 /// The spec commit runs it over the files the spec changed, before the push, so layout is

@@ -16,8 +16,12 @@ public sealed class StructureBaselineEntries(StructureBaselineFile baselineFile)
         ArgumentNullException.ThrowIfNull(isNewlyOwned);
         if (existing is null) return [.. excess.Select(StructureBaselineEntry.Of)];
         var old = baselineFile.Parse(existing);
-        var kept = preserved ? old : baselineFile.Refresh(old, excess, baselineFile.MeasuredWith(existing));
-        var newlyOwned = excess.Where(f => isNewlyOwned(f.Path)).Select(StructureBaselineEntry.Of);
+        var kept = preserved ? old
+            : baselineFile.Refresh(old, excess, baselineFile.MeasuredWith(existing), baselineFile.CountsBreaks(existing));
+        // 2026-11-24-8756: a preserved uncounted baseline holds physical lines, so its additions do too.
+        var physical = preserved && !baselineFile.CountsBreaks(existing);
+        var newlyOwned = excess.Where(f => isNewlyOwned(f.Path))
+            .Select(f => StructureBaselineEntry.Of(physical ? f with { Value = f.PhysicalValue ?? f.Value } : f));
         return [.. kept.Concat(newlyOwned).DistinctBy(e => e.Identity)];
     }
 }

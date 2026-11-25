@@ -4,10 +4,12 @@ namespace AgentSmith.Contracts.Models.Structure;
 /// 2026-10-06-8565b: one unit over one limit. 2026-10-12-fbbda: <paramref name="Severity"/> says
 /// whether it is inside the tolerance band; <paramref name="Repository"/> is stamped by the
 /// commit gate from the sandbox it judged, so a pull request names only its own divergences.
+/// 2026-11-24-8756: <paramref name="PhysicalValue"/> is a unit's physical line count beside its
+/// <paramref name="Value"/>, which includes the breaks a formatter would add; null for a file metric.
 /// </summary>
 public sealed record StructureFinding(
     string Path, string Key, string Metric, int Value, int Limit,
-    StructureSeverity Severity = StructureSeverity.Excess, string? Repository = null)
+    StructureSeverity Severity = StructureSeverity.Excess, string? Repository = null, int? PhysicalValue = null)
 {
     public bool IsExcess => Severity == StructureSeverity.Excess;
 

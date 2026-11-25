@@ -67,13 +67,15 @@ internal static class WriteContextYamlToolDescription
         "words; reference an injected credential by name ($VAR), never by " +
         "value. Declare it only when work here depends on a live target; a " +
         "repository that needs none omits the block. " +
-        // 2026-10-12-fbbdb: layout is the repository's formatter's job, never a criterion.
-        "format is the REWRITING form of the formatter this repository ALREADY runs (its CI " +
-        "or scripts) — { command, when_present? }, the command carrying {files}, which the " +
-        "spec commit replaces with the shell-quoted repository-root-relative paths the spec " +
-        "changed and runs at the REPOSITORY ROOT before the push. A command without {files} " +
-        "is refused. Name the file you read it from in verify_derived_from.files. A " +
-        "repository that runs no formatter omits the block. " +
+        // 2026-10-12-fbbdb: layout is the formatter's job, never a criterion.
+        // 2026-11-24-6d76b: the repository's own formatter, else the stack's standard.
+        "format is the REWRITING form of this stack's formatter — { command, when_present? }, " +
+        "the command carrying {files}, which the spec commit replaces with the shell-quoted " +
+        "repository-root-relative paths the spec changed and runs at the REPOSITORY ROOT before " +
+        "the push and before structure is measured. A command without {files} is refused. It is " +
+        "the formatter the repository runs or configures (name that file in " +
+        "verify_derived_from.files), else the stack's standard formatter the image's SDK ships " +
+        "that formats only the files it is given; a stack with neither omits the block. " +
         // 2026-10-13-50c7: a component is more than its entry project.
         "sources lists the directories BEYOND meta.workdir this component is built and tested " +
         "from — the projects its manifest references, transitively, and the test projects that " +

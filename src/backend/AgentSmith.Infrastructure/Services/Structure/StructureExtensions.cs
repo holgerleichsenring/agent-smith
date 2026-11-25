@@ -10,6 +10,7 @@ public static class StructureExtensions
     {
         services.AddSingleton<StructureLanguageCatalog>();
         services.AddSingleton<StructureGrammarLoader>();
+        services.AddSingleton<StructureLayout>(); // 2026-11-24-8756
         services.AddSingleton<StructureUnitCollector>();
         services.AddSingleton<IStructureEngine, TreeSitterStructureEngine>();
         return services;

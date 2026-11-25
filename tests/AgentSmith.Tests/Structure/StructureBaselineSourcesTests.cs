@@ -75,6 +75,21 @@ public sealed class StructureBaselineSourcesTests
         repo.Files[Baseline].Should().Contain("# owned:\tsrc/Api\tsrc/Core");
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task StructureBaseline_PreservedWithNewSources_KeepsHowItWasCounted(bool counted)
+    {
+        // 2026-11-24-8756: kept entries stay in the unit they were measured in, so the marker does too.
+        var repo = Library();
+        var kept = new StructureBaselineEntry("src/Api/Gone.cs", "Gone.Run()", "function_lines", 40);
+        repo.Files[Baseline] = File.Render([kept], LimitSet(10), countsBreaks: counted);
+
+        await Apply(repo, Scope(PrinciplesMode.PreservedExisting, ["src/Core"], before: "src/Api"));
+
+        File.CountsBreaks(repo.Files[Baseline]).Should().Be(counted);
+    }
+
     [Fact]
     public async Task StructureBaseline_PreservedOwningTheSameDirectories_IsUntouched()
     {

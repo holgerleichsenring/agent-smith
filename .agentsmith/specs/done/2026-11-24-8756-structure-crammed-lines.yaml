@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-24-8756
+goal: "A unit's line count includes the line breaks its statements and braces would take, so joining statements onto one line no longer lowers a measured size."
+
+applies_to: "backend (structure engine, structure baseline, commit gate, structure correction prompt)"
+
+requires: [2026-11-24-6d76a]
+
+facts:
+  - claim: "A unit's lines are physical: EndLine - StartLine + 1, from the first non-attribute line."
+    evidence: "observed: 2026-11-25, origin/main 35539f6, src/backend/AgentSmith.Contracts/Models/Structure/StructureUnit.cs:9-12, src/backend/AgentSmith.Infrastructure/Services/Structure/StructureUnitCollector.cs:23-24"
+  - claim: "A baseline entry tolerates a finding of the same unit up to its value; a refresh keeps the lower of old and new values and adds a new excess only within the old band."
+    evidence: "observed: 2026-11-25, origin/main 35539f6, src/backend/AgentSmith.Application/Services/Structure/StructureContextRules.cs:11-12, src/backend/AgentSmith.Application/Services/Structure/StructureBaselineFile.cs:44-60"
+  - claim: "The gate judges every unit of a changed file, touched or not."
+    evidence: "observed: 2026-11-25, origin/main 35539f6, src/backend/AgentSmith.Application/Services/Structure/StructureGateFiles.cs:28-45"
+  - claim: "observed: coding runs on a .NET target wrote whole methods on one line; dotnet format whitespace does not split them without an .editorconfig."
+    evidence: "observed: 2026-11-24, live run report and scratch run with SDK 10.0.100 (2026-11-24-6d76a)"
+
+decisions:
+  - key: "COUNT THE BREAKS A FORMATTER WOULD ADD. Lines = physical lines + on each line, one per gap between layout events (a block member's start, a block's braces) that a formatter breaks; an opening brace stays on its line (K&R), an empty block stays whole. Code with one statement per line counts as before."
+  - key: "OLD BASELINES STAY VALID. A baseline without the '# counted:' marker tolerates a unit by its physical lines too; a refresh of one re-measures its entries."
+
+scope:
+  in: >
+    Follows 2026-11-24-6d76 (format before measuring). Language data gains a layout block (block kinds whose first and
+    last child are braces; member parents whose named, non-comment children start a statement or member; sections whose
+    statement children are members): C# block, declaration_list, switch_body, switch_section; Rust block,
+    declaration_list, match_block. StructureUnit gains Breaks (Lines includes them, PhysicalLines does not);
+    StructureFinding carries the physical value. The baseline renders '# counted: breaks'; under one without it the
+    gate tolerates an excess no larger than the unit at the merge-base that the physical rule passed there
+    (StructureBaseCounts, StructureContextRules.PassedAtBase); newly owned entries of a preserved one stay physical; its refresh adds
+    each entry's current breaks and judges exposure by the physical value; a preserved one stays uncounted. The
+    master's structure correction says joined lines count as a formatter writes them.
+  out: "Expression-level cramming (one long statement); accessor lists, enum members, struct fields; file_lines and types_per_file; grammars beyond C# and Rust; the skills wording and its pin (2026-11-25-6482)."
+
+steps:
+  - id: count
+    action: "StructureLayout counts breaks per unit from the language's layout data; collector and unit carry it."
+  - id: baseline
+    action: "Finding carries the physical value; baseline marker; StructureBaseCounts for old-baseline tolerance; refresh."
+  - id: prompt
+    action: "Structure correction block names the per-statement count."
+
+tests:
+  - "Measure_CrammedAndFormattedMethod_CountEqual"
+  - "Measure_FormattedAllmanMethod_CountsPhysicalLines"
+  - "Measure_GuardClauseAndEmptyBlock_AddNothing"
+  - "Measure_CrammedClassMembers_CountForTheType"
+  - "Measure_RustCrammedFunction_CountsLikeRustfmt"
+  - "Measure_RustfmtOneLineForms_AddNothing"
+  - "Measure_WrappedStatements_StillCount"
+  - "Measure_RustMatchArmsOnOneLine_Count"
+  - "Tolerates_OldBaseline_UnitPastTheBandAtTheBase_StaysAnExcess"
+  - "Breaks_LanguageWithoutLayout_CountsPhysicalLines"
+  - "Tolerates_OldBaseline_UnitUnchangedSinceTheBase"
+  - "Tolerates_OldBaselineAndGrownUnit_IsAnExcess"
+  - "Tolerates_CountedBaseline_UsesTheCount"
+  - "BaseCounts_FileAtTheBase_CountsItsUnits"
+  - "Refresh_OldBaseline_TranslatesEntriesIntoCounts"
+  - "StructureBaseline_PreservedWithNewSources_KeepsHowItWasCounted"
+  - "Render_WritesTheCountedMarker"
+  - "StructureFindings_SaysJoiningLinesDoesNotHelp"
+
+done:
+  - "A crammed C# method and the same statements one per line measure the same; formatted code counts its physical lines; an untouched unit under an old baseline stays tolerated, a grown one does not; full suite green."

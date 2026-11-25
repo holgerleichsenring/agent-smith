@@ -85,7 +85,9 @@ public sealed class StructureBaseline(
         var preserved = existing is not null && scope.Mode == PrinciplesMode.PreservedExisting;
         var written = entries.Compose(existing, preserved, findings, path => ownership.IsNewlyOwned(owned, path));
         var measuredWith = preserved ? baselineFile.MeasuredWith(existing) : limitSet;
-        await reader.WriteAsync(scope.BaselinePath, baselineFile.Render(written, measuredWith, owned.Directories), ct);
+        // 2026-11-24-8756: a preserved baseline keeps its entries, so it keeps saying how they were counted.
+        var counted = !preserved || baselineFile.CountsBreaks(existing);
+        await reader.WriteAsync(scope.BaselinePath, baselineFile.Render(written, measuredWith, owned.Directories, counted), ct);
         return new StructureBaselineResult(true, written.Count, unreadable, existing is not null);
     }
 

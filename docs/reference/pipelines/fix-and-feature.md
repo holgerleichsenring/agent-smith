@@ -116,7 +116,7 @@ When no park status can be resolved, the run fails rather than leave the ticket 
 
 ## The structure gate
 
-`CommitSpecWork` does two things before the spec's work reaches the branch. It runs the formatter a context declares (`format` in the [context file](../concepts/context-file.md#format-is-the-repositorys-own-formatter)) over the files the spec changed. A formatter that fails is named at the top of that repository's code PR, with its command, exit code and output; the files are committed as written. Then it judges every changed file against the size limits in its context's principles, minus what the context's baseline already tolerates. A unit past the tolerance band goes back to the master for one correction pass ahead of `VerifySpec`; a second one fails the spec. The whole mechanism is on [Structure limits](../../how-it-works/structure-limits.md).
+`CommitSpecWork` does two things before the spec's work reaches the branch. It runs the formatter a context declares (`format` in the [context file](../concepts/context-file.md#format-is-the-stacks-formatter)) over the files the spec changed. A formatter that fails is named at the top of that repository's code PR, with its command, exit code and output; the files are committed as written. Then it judges every changed file against the size limits in its context's principles, minus what the context's baseline already tolerates. A unit past the tolerance band goes back to the master for one correction pass ahead of `VerifySpec`; a second one fails the spec. The whole mechanism is on [Structure limits](../../how-it-works/structure-limits.md).
 
 ## The coding master
 

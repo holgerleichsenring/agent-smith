@@ -13,13 +13,15 @@ namespace AgentSmith.Application.Services.Structure;
 /// kept whatever the baseline says — a unit already inside the band at the base is named too.
 /// 2026-10-13-50c7: the owner is a context; of contexts sharing a workdir, the last with rules
 /// judges, as the last one read always did.
+/// 2026-11-24-8756: under a baseline written before units counted breaks, an excess no larger than
+/// the same unit at the base revision is tolerated.
 /// </summary>
 public sealed class StructureGateFiles(
     IStructureEngine engine, StructureJudge judge, ISandboxFileReaderFactory files,
-    StructureOwnership ownership, ILogger<StructureGateFiles> logger)
+    StructureOwnership ownership, StructureBaseCounts baseCounts, ILogger<StructureGateFiles> logger)
 {
     public async Task<StructureGateVerdict> JudgeAsync(
-        ISandbox sandbox, IReadOnlyList<string> paths, IReadOnlyList<StructureClaim> claims,
+        ISandbox sandbox, string baseRev, IReadOnlyList<string> paths, IReadOnlyList<StructureClaim> claims,
         IReadOnlyDictionary<string, StructureContextRules> rules, CancellationToken ct)
     {
         var reader = files.Create(sandbox);
@@ -38,11 +40,20 @@ public sealed class StructureGateFiles(
             var measurement = engine.Measure(path, content);
             if (measurement.Outcome == StructureOutcome.Unavailable)
                 return new StructureGateVerdict([], measurement.Reason);
-            findings.AddRange(Untolerated(path, measurement, terms));
+            var untolerated = Untolerated(path, measurement, terms).ToList();
+            if (!terms.CountsBreaks && untolerated.Any(f => f.IsExcess))
+                untolerated = NotGrown(untolerated, terms, await baseCounts.ReadAsync(sandbox, baseRev, path, ct));
+            findings.AddRange(untolerated);
             judged++;
         }
         return new StructureGateVerdict(findings) { JudgedFiles = judged, JudgedContexts = rules.Count };
     }
+
+    private static List<StructureFinding> NotGrown(
+        List<StructureFinding> findings, StructureContextRules terms,
+        IReadOnlyDictionary<(string Key, string Metric), StructureUnit> atBase) =>
+        [.. findings.Where(f => !f.IsExcess || !atBase.TryGetValue((f.Key, f.Metric), out var before)
+                                || f.Value > before.Lines || !terms.PassedAtBase(f, before.PhysicalLines))];
 
     private IEnumerable<StructureFinding> Untolerated(
         string path, StructureMeasurement measurement, StructureContextRules terms) =>

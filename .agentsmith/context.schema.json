@@ -537,7 +537,7 @@
     "format": {
       "$comment": "MECHANISM \u2014 2026-10-12-fbbdb: the spec commit runs this over the files the spec changed, before the push. A non-zero exit is logged and noted, never failed.",
       "type": "object",
-      "description": "The REWRITING form of the formatter this repository already runs \u2014 in its CI or its scripts \u2014 so layout is the repository's formatter's job, never a criterion or a gate. The spec commit runs it through /bin/sh -c at the REPOSITORY ROOT over the files the spec changed under this context's workdir, before the work is pushed. Name the file you read it from in verify_derived_from.files. A repository that runs no formatter omits the block \u2014 an invented formatter reformats code nobody asked to change.",
+      "description": "The REWRITING form of this stack's formatter, so layout is the formatter's job, never a criterion or a gate. The spec commit runs it through /bin/sh -c at the REPOSITORY ROOT over the files the spec changed under this context's workdir, before the work is pushed and its structure measured. It is the formatter the repository runs or configures (name that file in verify_derived_from.files), else the stack's standard formatter the image's SDK ships that formats only the files it is given (2026-11-24-6d76b). A stack with neither omits the block; the spec commit then says its source files are committed unformatted.",
       "required": [
         "command"
       ],
@@ -550,7 +550,8 @@
           "description": "The command line, carrying {files} where the changed paths go \u2014 replaced by the shell-quoted, repository-root-relative paths ('./src/A.cs') the spec changed under this context's workdir. Never quote {files} yourself: it is already quoted. A binary is addressed from the repository root. The rewriting form, never a check mode.",
           "examples": [
             "dotnet csharpier format {files}",
-            "npx prettier --write {files}",
+            "dotnet format whitespace --folder --include {files}",
+            "npx prettier --write --ignore-unknown {files}",
             "ruff format {files}"
           ]
         },

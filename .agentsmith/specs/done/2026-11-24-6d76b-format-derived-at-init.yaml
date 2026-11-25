@@ -15,8 +15,10 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolDescription.cs:70-76, .agentsmith/context.schema.json:540"
   - claim: "observed: gofmt -w over a changed go.mod and README.md beside a .go file formats the .go file and exits 2; rustfmt follows a file's mod declarations into files it was not given."
     evidence: "observed: 2026-11-24, review of the skills draft"
-  - claim: "The catalog is embedded as a pinned release tarball."
-    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj"
+  - claim: "The v5.44.0 release tarball hashes to 5fe5547e59d3a13da6ac6c2607507aad8426bb60906fb014167a027c2449d1b8 and differs from v5.43.1 only in project-bootstrap 2.10.0, the C# delta, changelog and version."
+    evidence: "observed: 2026-11-25, shasum -a 256 of the release asset and git diff --stat v5.43.1 v5.44.0 in agent-smith-skills"
+  - claim: "The pin lives in SkillsCatalogVersion and SkillsCatalogSha256."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55"
 
 decisions:
   - key: "THE STACK'S STANDARD WHEN THE REPOSITORY RUNS NONE. Reverses 2026-10-12-fbbdb's 'no formatter in the repository, no format' at the operator's request: unformatted code measured in physical lines rewards cramming."
@@ -30,7 +32,8 @@ scope:
     when the sources visibly use another layout; none, said in the summary. CSharpier where the repository configures
     it, by its pinned major. The C# delta gains a Formatting section naming CSharpier and dotnet format whitespace and
     a one-statement-per-line rule the agent keeps itself. BACKEND: the write_context_yaml format sentence and the
-    context schema's format description follow the skill; pin the released catalog.
+    context schema's format description, ContextYamlFormat's doc and docs/reference/concepts/context-file.md follow the
+    skill; the C# principles golden gains the Formatting section; pin v5.44.0.
   out: "Writing formatter configuration (.editorconfig, tool manifests) into a repository; reformatting untouched files."
 
 steps:
@@ -40,7 +43,7 @@ steps:
     action: "Tool description and schema text follow the skill; pin the released catalog tarball; tests that read the old format wording follow."
 
 tests:
-  - "Catalog pin tests read the new version"
+  - "ComposedPrinciplesGoldenTests (csharp golden carries the Formatting section)"
 
 done:
-  - "The pinned catalog's project-bootstrap declares the stack's standard formatter for a repository that runs none; full suite green."
+  - "The pinned catalog (v5.44.0) carries project-bootstrap 2.10.0; the tool description and schema no longer tell the model to omit format when the repository runs none; full suite green."

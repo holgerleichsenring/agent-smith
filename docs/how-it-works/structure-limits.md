@@ -50,6 +50,8 @@ Every value is a positive whole number (`tolerance_percent` may be 0). A metric 
 
 A tree-sitter parser reads the file and finds its types and functions. Today it knows C# (`.cs`) and Rust (`.rs`). A file in another language isn't measured, and a context whose files are all in other languages has nothing to judge. Test code and generated code are left out by path: for C# that is test projects and `tests/` folders, `*.g.cs`, `*.Designer.cs` and `Migrations/`; for Rust the `tests/` and `benches/` trees.
 
+A unit's lines run from its first line to its last, plus the line breaks a formatter would add: counted as if each statement or member, and each closing brace, began its own line. An opening brace stays on the line it ends, and a block on one line holding at most one statement, nested ones included, may stay as it is (`{ }`, `if (x) { return; }`, `get { return _x; }`), as formatters keep them. A switch section's label shares the line of its first statement; each Rust match arm counts as a line. So `void Get() { var c = 1; if (c > 3) { return 2; } return c; }` counts 5, the same as the method with one statement per line. Joining statements onto one line never shortens a unit. Not counted: one long statement, accessor lists, enum members and struct fields. `file_lines` stays physical.
+
 Which context a file belongs to comes from the context's `meta.workdir` and its `sources:` list, the directories its libraries and test projects live in. The longest directory that holds the file wins. That is on [the context file](../reference/concepts/context-file.md#sources-are-the-rest-of-the-component).
 
 ## The tolerance band
@@ -66,6 +68,7 @@ When the init writes a context's principles, it measures every file the context 
 
 ```
 # path	key	metric	value — units over their Limits when measured, each tolerated up to its value
+# counted: breaks — a unit's lines include the line breaks a formatter would add
 # measured with: function_lines=55 tolerance_percent=25
 # owned:	src/Inventory.Api	src/Inventory.Core
 src/Inventory.Core/Pricing.cs	Calculate	function_lines	91
@@ -76,13 +79,15 @@ One tab-separated line per unit: path, the unit's name, the metric and the value
 
 An entry tolerates its unit up to the recorded value. `Calculate` may stay at 91 lines, or shrink, and nobody complains. If a spec makes it 92, it is a new excess. A unit not in the file has no allowance.
 
+A baseline without the `# counted: breaks` line was written when lines were physical only. Under it the gate also tolerates a unit that counts no more than the same unit at the merge-base and that the old physical-line rule passed there, so code nobody touched does not fail because the count changed, while a unit that grew, joined lines or not, still does. Its next refresh records the counts: each entry plus the breaks its unit has now.
+
 A later init with **Refresh principles** refreshes the baseline, and the file only gets better from it. An entry whose unit is still past the band stays, at the lower of its old and new value; one that came back inside the band disappears. A unit is added only when a changed limit exposes it, compared with the limits in the header (the principles text may already have been edited by hand), or when it sits in a directory the context newly owns. A unit that simply grew past an unchanged limit is not added; it shows up at the commit gate, where it belongs. A baseline written before the header existed has no recorded limits, so its refresh adds every excess it doesn't list.
 
 Without a baseline, a context isn't judged at all. An init that keeps an existing `principles.md` keeps an existing baseline untouched (apart from new owned directories), and no baseline is written when the principles declare no limits or were written by an old catalog's bootstrap skill. The init PR says which of these happened.
 
 ## The commit gate
 
-`CommitSpecWork`, the step that puts a spec's work on the branch, runs the formatter the context declares (see [`format`](../reference/concepts/context-file.md#format-is-the-repositorys-own-formatter)) and then judges the structure. For each repository of the run it:
+`CommitSpecWork`, the step that puts a spec's work on the branch, runs the formatter the context declares (see [`format`](../reference/concepts/context-file.md#format-is-the-stacks-formatter)) and then judges the structure. For each repository of the run it:
 
 1. finds the commit the branch was cut from: the merge-base of `HEAD` with the base the branch is delivered against, falling back to the commit the run started on
 2. reads every context's limits and baseline as they are at that commit

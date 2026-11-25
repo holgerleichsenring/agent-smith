@@ -22,6 +22,7 @@ public static class StructureJudgingExtensions
         services.AddTransient<StructureMergeBase>();
         services.AddTransient<StructureGitReads>();
         services.AddTransient<StructureGateContexts>();
+        services.AddTransient<StructureBaseCounts>(); // 2026-11-24-8756
         services.AddTransient<StructureGateFiles>();
         services.AddTransient<StructureRepoSandboxes>(); // 2026-10-13-e237
         services.AddTransient<StructureGate>();
