@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992j
+
+decisions:
+  - category: Architecture
+    chose: "The series page is one pane: the graph, the series' final step, and the series conversation as the chat below. The section bar, the Tickets section and its Changed-in-this-series notes are gone."
+    over: "Keeping the three sections and only stripping the Overview's controls; or keeping the Tickets table as a read-only list"
+    reason: |
+      The approved mock is the graph plus the chat, and the chat is the only input. The graph already shows every ticket, and
+      its read-only details carry what the table carried (state, pull requests, targets) plus CI and cost. A second list of
+      the same tickets would be a second view to keep in step with the first. An older ?section=talk link (holds, ticket
+      page) still works: it scrolls to the chat.
+  - category: Architecture
+    chose: "A ticket's own question in an active series holds with a conversation act on the series (TicketQuestionHold.Target), so its ticket page links to the series chat instead of offering Send and resume run"
+    over: "Hiding the ticket-page answer in the browser for any ticket with a seriesRun; or keeping both ways to answer"
+    reason: |
+      SeriesQuestions already relays every question that is not the environment's into the conversation, so there were two
+      ways to answer one question. The 2026-11-25 incident (an answer to ticket B landing on ticket A) came from exactly that.
+      The hold is the server's one place for where a person acts; the browser only knows a series membership, ended series
+      included, and could not tell an active one. A question queued behind another one waits until the series relays it,
+      one at a time, as the series already works. The hold's case stays question; only its act moves, and it is worded
+      "Answer in the series chat" rather than the plan question's "Talk about the plan".
+  - category: Implementation
+    chose: "The detail view carries the waiting question's choices and recommended index (QuestionChoices, QuestionRecommended), read by the same rule as its text (SeriesRunQuestion.Waiting); the chat draws them with the existing DialogQuestionCard, which gains an optional recommended index and hint"
+    over: "A new choice-answer endpoint; parsing the choices out of the conversation's prose line; a new card component"
+    reason: |
+      The series takes the conversation's next message as the answer (SeriesQuestions.AnswerAsync), so a click that sends the
+      choice's label is the answer, through the same path as typing it. No endpoint is needed. The card already sends a
+      choice's label as a message; a recommended choice becomes its primary button.
+  - category: Implementation
+    chose: "The choice buttons show only for a viewer with runs.control"
+    over: "Showing them to every viewer"
+    reason: |
+      A message reaches the series beat only when its poster holds runs.control (SpecDialogRunDivert). Anyone else's click
+      would start an ordinary design turn on the word, not answer the question.
+  - category: Scope
+    chose: "The details show state, pull requests (link, repo, target, CI, conflict), cost and the ticket page link, but not the master's last action per ticket"
+    over: "Deriving a last action from the conversation's lines in the browser"
+    reason: |
+      No per-ticket act record exists today. The concept's revision has the master log every act with a one-sentence reason
+      under its machine identity, which the master-tools and identity slices own. Reading it out of prose in the browser
+      would be the derivation 9992a removed. The details pick it up once that record is on the ticket view.
+  - category: Implementation
+    chose: "The client stops calling the series changes endpoint and the series page's merge and retry; the endpoints stay, and mergeSeriesTicket stays because the ticket page's merge still uses it"
+    over: "Removing the endpoints in this slice"
+    reason: |
+      The master-tools slice owns the server mechanisms behind the buttons. Removing an endpoint here could break that
+      slice's work while it is in flight.

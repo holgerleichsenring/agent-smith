@@ -32,9 +32,11 @@ public sealed class SeriesRunDetailReader(
         var name = (await names.OfAsync([record], ct))[record.Id];
         var spent = read.Facts.Sum(f => f.CostUsd);
         var session = await sessions.GetBySessionIdAsync(record.Conversation, ct);
+        var question = SeriesRunQuestion.Waiting(record, held);
         return new SeriesRunDetailView(record.Id, name, record.Project, record.State, record.Conversation, record.StartedAt,
-            record.FinishedAt, shape.Counts, SeriesRunQuestion.Of(record, held), shown, shape.MergeOrder)
+            record.FinishedAt, shape.Counts, question?.Text, shown, shape.MergeOrder)
         {
+            QuestionChoices = question?.Choices ?? [], QuestionRecommended = question?.RecommendedIndex, // 2026-11-25-9992j
             WorkingOn = SeriesWorkingOn.Of(read.Facts), // 2026-11-25-9992a
             // 2026-11-24-f9c5c: a merge into a series branch never arms auto-complete; it merges once green.
             Repos = Repos(project, shape.Tickets), MergeArms = record.IntegrationBranch is null && project.Merge.RespectBranchProtection,

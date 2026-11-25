@@ -158,6 +158,26 @@ public sealed class SeriesRunReadersTests : IDisposable
         detail.ConversationOpen.Should().BeTrue();
         detail.Repos.Should().Equal(["api", "web"], "the project's repo order, not the tickets'");
         detail.CostUsd.Should().Be(1.25m, "ticket 9 is not of the series");
+        detail.Tickets.Single(t => t.TicketId == "1").CostUsd.Should().Be(1.25m, "2026-11-25-9992j: the ticket details show it");
+        detail.Tickets.Single(t => t.TicketId == "2").CostUsd.Should().Be(0m);
+    }
+
+    // 2026-11-25-9992j: the page draws a waiting question's choices as buttons, the recommended one first in weight.
+    [Fact]
+    public async Task Detail_AWaitingQuestion_CarriesItsChoicesAndRecommendation_AnAnsweredOneNone()
+    {
+        var asked = SeriesQuestions.Ask("Merge #1 now?", ["Merge", "Let me look first"], 0, T, 30);
+        await _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(new SeriesRunRecord("sr-1", "conv-sr-1", "alpha", "operator", true,
+            SeriesRunStates.Running, Tickets("1"), T) { Question = asked }, default);
+        await _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(new SeriesRunRecord("sr-2", "conv-sr-2", "alpha", "operator", true,
+            SeriesRunStates.Running, Tickets("2"), T) { Question = asked with { Answer = "Merge" } }, default);
+
+        var waiting = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
+        var answered = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-2", default)))!;
+
+        (waiting.Question, waiting.QuestionRecommended).Should().Be(("Merge #1 now?", 0));
+        waiting.QuestionChoices.Should().Equal("Merge", "Let me look first");
+        (answered.Question, answered.QuestionChoices.Count, answered.QuestionRecommended).Should().Be(((string?)null, 0, (int?)null));
     }
 
     // 2026-11-24-f9c5f: a series with a branch carries it, its final pull requests and what they merge under; one without has neither.

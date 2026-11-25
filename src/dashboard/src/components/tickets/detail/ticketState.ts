@@ -4,7 +4,7 @@ import { seriesRunPath } from "@/lib/seriesRunAddress";
 import {
   RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketHold, type TicketPullRequest, type TicketSeries, type TicketSummary,
 } from "@/types/tickets";
-import { holdSentence, toldOf } from "../holds/holdWords";
+import { holdSentence, seriesTalkLabel, toldOf } from "../holds/holdWords";
 import { isAsked } from "../holds/holdRoutes";
 import { currentModelWait, type ModelWait } from "@/components/jobs/runlog/runNowLines";
 import { closedWords } from "../TicketActivity";
@@ -139,7 +139,7 @@ function holdAct(detail: TicketDetail, head: TicketAttempt | null, hold: TicketH
     case "answer": return { kind: "tab", label: t("hold.act.answerTab"), tab: "conversation" };
     // 2026-11-23-31dch: a conversation with a target is the series' — a plan question is talked through there.
     case "conversation":
-      return act.target ? { kind: "link", label: t("hold.act.plan"), href: `${seriesRunPath(act.target)}?section=talk` } : CONTINUE;
+      return act.target ? { kind: "link", label: seriesTalkLabel(t, hold), href: `${seriesRunPath(act.target)}?section=talk` } : CONTINUE;
     case "retry": {
       const attempt = detail.attempts.find((a) => a.runId === act.target) ?? head;
       return attempt ? { kind: "retry", attempt } : null;

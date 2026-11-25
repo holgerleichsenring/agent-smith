@@ -29,4 +29,7 @@ public sealed record SeriesRunTicketView(
 
     /// <inheritdoc cref="Kind"/>
     public bool Working { get; init; }
+
+    /// <summary>2026-11-25-9992j: what every run of the ticket cost, from the fact — the page's ticket details show it.</summary>
+    public decimal CostUsd { get; init; }
 }
