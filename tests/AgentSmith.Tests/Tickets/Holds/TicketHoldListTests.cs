@@ -61,7 +61,7 @@ public sealed class TicketHoldListTests : IDisposable
             (TicketBucket.Working, TicketHoldAddressees.Nobody, TicketHoldCases.MergeAfter));
         after.Hold.Names.Should().Equal("SCRUM-1");
         list.Counts.NeedsYou.Should().Be(1, "only the merge that comes next is Your move");
-        (next.Hold.Next, next.Hold.Approves).Should().Be(("SCRUM-2", false), "2026-11-23-849e: the step after it; alpha bypasses protection");
+        next.Hold.Next.Should().Be("SCRUM-2", "2026-11-23-849e: the step after it");
     }
 
     // 2026-11-23-849e: the series page, its list row and the ticket's hold share one rule — a ready step whose CI still runs

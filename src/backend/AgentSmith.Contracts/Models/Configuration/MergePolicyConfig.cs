@@ -63,13 +63,6 @@ public sealed class MergePolicyConfig
     public int CiPendingSeconds { get; set; } = 3600;
 
     /// <summary>
-    /// 2026-11-17-3435b: the secret of the identity that approves a pull request the host requires a review for, with
-    /// respect_branch_protection: true. A host refuses the author's own approval (always on GitHub, by setting on Azure
-    /// DevOps and GitLab), and the author is the repo's own token. Null: approve as the repo's token where allowed.
-    /// </summary>
-    public string? ApprovalAuth { get; set; }
-
-    /// <summary>
     /// 2026-11-17-3435c: with on_ci_green, how many rework runs in a row a red CI may start before the ticket is handed
     /// back with the evidence. Three gives a flaky suite and a follow-up fix room while a fix that cannot converge stops
     /// spending; a person's answer resets the count. 2026-11-24-6811c: also how many repair passes a refresh-base run's

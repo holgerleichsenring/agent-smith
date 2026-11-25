@@ -41,7 +41,8 @@ public sealed class SourceProviderFactory(
     private GitHubSourceProvider CreateGitHub(RepoConnection config)
     {
         var token = credentials.For(config);
-        var connection = new GitHubSourceConnection(config.Url!, token, config.DefaultBranch);
+        var connection = new GitHubSourceConnection(config.Url!, token, config.DefaultBranch,
+            config.Machine is { IsGitHubApp: true } ? () => credentials.MachineLogin(config) : null); // 2026-11-25-9992h
         return new GitHubSourceProvider(
             connection, gitHubClientFactory,
             loggerFactory.CreateLogger<GitHubSourceProvider>());

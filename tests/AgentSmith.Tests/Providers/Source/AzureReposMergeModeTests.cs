@@ -14,13 +14,15 @@ namespace AgentSmith.Tests.Providers.Source;
 /// <summary>
 /// 2026-11-17-023fa: a code run's merge on Azure Repos. Bypass completes now past the policies — Status Completed,
 /// the last merge source commit, BypassPolicy with a reason — and a missing permission is a refusal that names the
-/// permission and the key, never a silent fall back to arming. Respect arms auto-complete exactly as init does.
+/// permission and the key, never a silent fall back to arming. Respect arms auto-complete exactly as init does —
+/// 2026-11-25-9992h: as the token's own identity, with no vote.
 /// </summary>
 public sealed class AzureReposMergeModeTests
 {
     private const string PrUrl = "https://dev.azure.com/example/demo/_git/sample-server/pullrequest/7";
     private static readonly BranchName Branch = new("agent-smith/42");
-    private static readonly IdentityRef Creator = new() { Id = "id-42", DisplayName = "agent-smith" };
+    private static readonly IdentityRef Creator = new() { Id = "id-42", DisplayName = "a person" };
+    private const string Self = "machine-id";
 
     [Fact]
     public async Task Bypass_CompletesNow_PastThePolicies()
@@ -88,12 +90,9 @@ public sealed class AzureReposMergeModeTests
     }
 
     [Fact]
-    public async Task Respect_ApprovesAndArms_AsInitDoes()
+    public async Task Respect_ArmsAsTheToken_WithNoVote()
     {
         var client = NewClient();
-        client.Setup(c => c.CreatePullRequestReviewerAsync(It.IsAny<IdentityRefWithVote>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new IdentityRefWithVote());
         GitPullRequest? sent = null;
         Update(client).Callback<GitPullRequest, string, string, int, object, CancellationToken>(
                 (u, _, _, _, _, _) => sent = u)
@@ -102,8 +101,10 @@ public sealed class AzureReposMergeModeTests
         var completion = await Sut(client.Object).MergePullRequestAsync(PrUrl, Branch, BranchProtection.Respect, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Armed);
-        sent!.AutoCompleteSetBy!.Id.Should().Be(Creator.Id);
+        sent!.AutoCompleteSetBy!.Id.Should().Be(Self);
         sent.CompletionOptions!.BypassPolicy.Should().NotBe(true);
+        client.Verify(c => c.CreatePullRequestReviewerAsync(It.IsAny<IdentityRefWithVote>(), It.IsAny<string>(),
+            It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // 2026-11-24-629ab: armed again after a conflict dropped it — the pull request's own options, and no vote.
@@ -126,7 +127,7 @@ public sealed class AzureReposMergeModeTests
         var completion = await ((IPullRequestAutoCompleteRearmer)Sut(client.Object)).RearmAutoCompleteAsync(PrUrl, CancellationToken.None);
 
         completion.Outcome.Should().Be(PullRequestCompletionOutcome.Armed);
-        sent!.AutoCompleteSetBy!.Id.Should().Be(Creator.Id);
+        sent!.AutoCompleteSetBy!.Id.Should().Be(Self, "2026-11-25-9992h: as the token's own identity");
         sent.CompletionOptions!.MergeStrategy.Should().Be(GitPullRequestMergeStrategy.Squash);
         sent.CompletionOptions.DeleteSourceBranch.Should().BeFalse();
         sent.CompletionOptions.BypassPolicy.Should().NotBe(true, "arming again never goes past a policy");
@@ -176,6 +177,8 @@ public sealed class AzureReposMergeModeTests
         factory.Setup(f => f.CreateGitClient(It.IsAny<string>(), It.IsAny<string>())).Returns(gitClient);
         factory.Setup(f => f.CreateGitClientAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(gitClient);
+        factory.Setup(f => f.AuthorizedIdentityIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Self);
         return new AzureReposSourceProvider(
             new AzureReposSourceConnection("https://dev.azure.com/example", "demo", "sample-server", "pat", "main"),
             factory.Object, NullLogger<AzureReposSourceProvider>.Instance);

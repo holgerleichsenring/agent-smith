@@ -13,6 +13,12 @@ public interface ICredentialResolver
 {
     string For(RepoConnection repo);
 
+    /// <summary>
+    /// 2026-11-25-9992h: the login a repository's acts appear under when its token cannot say so itself — a GitHub App's
+    /// <c>{slug}[bot]</c>; null for every other identity, whose token answers who it is.
+    /// </summary>
+    string? MachineLogin(RepoConnection repo) => null;
+
     string For(ResolvedConnection connection);
 
     string For(TrackerConnection tracker);

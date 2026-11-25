@@ -245,7 +245,7 @@ public sealed class DeliverSeriesHandlerTests
                 SeriesRecords.T, SeriesRecords.T, null, []) { TargetBranch = Branch }] : []);
         var scopes = new ServiceCollection().AddSingleton(records.Object).BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
         var completer = new PullRequestCompleter(sources, Mock.Of<IEventPublisher>(), NullLogger<PullRequestCompleter>.Instance);
-        var merge = new SeriesFinalMerge(sources, new PullRequestApprovalStep(sources), completer, _launch.Object);
+        var merge = new SeriesFinalMerge(sources, completer, _launch.Object);
         return new DeliverSeriesHandler(_store, new SeriesFinalPullRequest(sources, merge), _acts.Object, scopes);
     }
 }

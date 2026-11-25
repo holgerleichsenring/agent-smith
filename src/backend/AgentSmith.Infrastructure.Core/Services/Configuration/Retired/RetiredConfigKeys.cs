@@ -76,6 +76,8 @@ public static class RetiredConfigKeys
         new("spec_review.max_concurrent", "2026-11-19", SpecReviewGone),
         new("spec_review.budget_share_percent", "2026-11-19", SpecReviewGone),
         new("spec_review.attack_look_floor", "2026-11-19", SpecReviewGone),
+        new("projects.*.merge.approval_auth", "2026-11-25",
+            "agent-smith no longer approves pull requests: a review a host requires is a person's (2026-11-25-9992h)."),
         new("spec_review.series_contract_max_chars", "2026-11-19",
             "Nothing shows the series contract to a reviewer any more; the reviewer that read it was never wired (2026-11-19-4176)."),
     ];

@@ -11,12 +11,12 @@ namespace AgentSmith.Application.Services.Series;
 /// <summary>
 /// 2026-11-24-f9c5e: merges a series' final pull request under merge.when in the project's protection mode — manual waits for
 /// a person, on_gate_green merges (the series check was the gate), on_ci_green merges on green CI or on none for
-/// merge.ci_settle_seconds and says a red one. The merge takes the steps every merge path takes (approval, completion). A
+/// merge.ci_settle_seconds and says a red one. The merge takes the steps every merge path takes (completion; 2026-11-25-9992h: no approval, a required review is a person's). A
 /// conflict — at a merge or in the host's state — goes to the one conflict refresh (2026-11-24-297b), which brings the series
 /// branch up to date with its base once per conflict.
 /// </summary>
 public sealed class SeriesFinalMerge(
-    ISourceProviderFactory sources, PullRequestApprovalStep approvals, PullRequestCompleter completer, ISeriesRunLaunch launch,
+    ISourceProviderFactory sources, PullRequestCompleter completer, ISeriesRunLaunch launch,
     PullRequestBuildRequeue? requeue = null)
 {
     public async Task<SeriesDeliveryStep> MergeAsync(DeliverSeriesContext context, RepoConnection repo, string branch,
@@ -27,8 +27,6 @@ public sealed class SeriesFinalMerge(
             return SeriesDeliveryStep.Of(delivery, "waits for a person", $"{delivery.Url} waits for your merge into the default branch.");
         if (head is not null && delivery.ArmedHead == head) return SeriesDeliveryStep.Of(delivery, "armed", null); // the host completes it
         if (policy.When == MergeWhen.OnCiGreen && await CiAsync(repo, delivery, head, policy, now, ct) is { } waits) return waits;
-        if (await approvals.ApproveAsync(repo, delivery.Url, policy, ct) is { Outcome: PullRequestApprovalOutcome.Refused } no)
-            return SeriesDeliveryStep.Of(delivery, "not approved", $"{delivery.Url} is not merged: {no.Reason}");
         var entry = new OpenedPullRequest(repo.Name, delivery.Url, OpenStatus.Opened);
         var completion = await completer.CompleteAsync(context.Pipeline, repo, entry, new BranchName(branch), policy.Protection, ct);
         return completion.Outcome switch

@@ -22,6 +22,11 @@ public sealed class ConfigSchemaCoverageTests
         {
             ["connections.*.type=local"] =
                 "a connection is a git host repos are discovered under; a local path is a repos: entry",
+            // 2026-11-25-9992h: one hoster entry type binds all three; only a GitHub App has an app id, a finding refuses it elsewhere.
+            ["projects.*.machine.gitlab.app_id"] = "a GitHub App key; refused on GitLab by a finding",
+            ["projects.*.machine.gitlab.installation_id"] = "a GitHub App key; refused on GitLab by a finding",
+            ["projects.*.machine.azure_devops.app_id"] = "a GitHub App key; refused on Azure DevOps by a finding",
+            ["projects.*.machine.azure_devops.installation_id"] = "a GitHub App key; refused on Azure DevOps by a finding",
         };
 
     /// <summary>Property tables that are mixed into others, which close them.</summary>

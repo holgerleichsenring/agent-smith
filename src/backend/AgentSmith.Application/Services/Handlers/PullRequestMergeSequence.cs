@@ -22,10 +22,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// awaiting CI; every repo answers a <see cref="PullRequestMergeLine"/>. A merge a person asked for (<paramref name="asked"/>)
 /// marks a refusal on its own run only, so a click never ends the attempt's wait for the CI merge.</para>
 /// <para>2026-11-23-8d16: a person's merge takes each out of draft (<see cref="PullRequestDraftStep"/>) and (0219) queues its
-/// not-started builds (<see cref="PullRequestBuildRequeue"/>) before approving; the CI merge does neither.</para>
+/// not-started builds (<see cref="PullRequestBuildRequeue"/>) before merging; the CI merge does neither.</para>
+/// <para>2026-11-25-9992h: nothing approves: a review a host requires is a person's, and the merge waits for it there.</para>
 /// </summary>
 public sealed class PullRequestMergeSequence(
-    PullRequestCompleter completer, PullRequestApprovalStep approvals, PullRequestBaseGuard bases,
+    PullRequestCompleter completer, PullRequestBaseGuard bases,
     ILogger<PullRequestMergeSequence> logger, UnmetTicketRequirements? requirements = null, PullRequestDraftStep? drafts = null, PullRequestBuildRequeue? requeue = null)
 {
     public async Task<IReadOnlyList<PullRequestMergeLine>> RunAsync(CompletePullRequestsContext context,
@@ -53,9 +54,6 @@ public sealed class PullRequestMergeSequence(
         if (asked && drafts is not null && await drafts.RefusalAsync(repo, entry.Url!, ct) is { } draft)
             return await RefuseAsync(context, entry, mark, draft, ct);
         if (asked && requeue is not null) await requeue.RequeueAsync(repo, entry.Url!, ct);
-        if (attemptRunId is not null
-            && await approvals.ApproveAsync(repo, entry.Url!, context.Policy, ct) is { Outcome: PullRequestApprovalOutcome.Refused } no)
-            return await RefuseAsync(context, entry, mark, no.Reason!, ct);
         var completion = await completer.CompleteAsync(context.Pipeline, repo, entry, branch, context.Policy.Protection, ct);
         if ((completion.Outcome == PullRequestCompletionOutcome.Refused ? mark : attemptRunId) is { } on)
             await completer.PublishOnAsync(on, entry, InitCompletionReport.StatusOf(completion), completion.Reason, ct);

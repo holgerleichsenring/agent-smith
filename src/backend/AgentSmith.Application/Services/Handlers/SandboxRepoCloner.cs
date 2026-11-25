@@ -71,7 +71,7 @@ public sealed class SandboxRepoCloner(
             // p0496: the identity comes BEFORE the branch switch. A base merge writes a
             // merge commit, and a sandbox with no committing user cannot make one — a
             // fast-forward passed without it and a three-way merge did not.
-            await identity.EnsureConfiguredAsync(sandbox, ct);
+            await identity.EnsureConfiguredAsync(sandbox, config.Machine, ct); // 2026-11-25-9992h: the machine commits
             var placement = await branchCheckout.SwitchAsync(sandbox, config, branch, ct);
             if (placement.Problem is not null)
                 return FailWith($"sandbox '{key}': {placement.Problem}", config);

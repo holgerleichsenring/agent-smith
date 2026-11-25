@@ -77,6 +77,7 @@ public sealed class SourceConfigOverrider(ILogger<SourceConfigOverrider> logger)
     {
         if (!pipeline.TryGet<string>(ContextKeys.SourceAuth, out var auth) || auth is null) return repo;
         logger.LogDebug("Overriding source auth: {Auth}", auth);
-        return repo with { Auth = auth };
+        // 2026-11-25-9992h: an auth named for this run outranks the project's machine identity — the operator chose it.
+        return repo with { Auth = auth, Machine = null };
     }
 }

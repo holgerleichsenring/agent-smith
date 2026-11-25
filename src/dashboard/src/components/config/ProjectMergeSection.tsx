@@ -1,6 +1,6 @@
 "use client";
 
-import type { ConfigCapabilities, ProjectMerge, StudioEntity, StudioProject } from "@/lib/configApi";
+import type { ConfigCapabilities, ProjectMerge, StudioProject } from "@/lib/configApi";
 import { useT } from "@/hooks/useT";
 import { CheckField, SelectField } from "./formFields";
 import { MergeCiFields } from "./MergeCiFields";
@@ -20,13 +20,10 @@ export function ProjectMergeSection({
   project,
   onChange,
   capabilities,
-  secrets = [],
 }: {
   project: StudioProject;
   onChange: (next: StudioProject) => void;
   capabilities: ConfigCapabilities | null;
-  /** 2026-11-17-3435d: the catalog's secrets, for the approval identity. */
-  secrets?: StudioEntity[];
 }) {
   const t = useT();
   const merge = project.merge ?? NO_MERGE;
@@ -74,7 +71,7 @@ export function ProjectMergeSection({
         testId="form-field-merge-refreshOpenPullRequests"
         onChange={(v) => setMerge({ refreshOpenPullRequests: v })}
       />
-      <MergeCiFields merge={merge} secrets={secrets} onChange={setMerge} />
+      <MergeCiFields merge={merge} onChange={setMerge} />
     </>
   );
 }

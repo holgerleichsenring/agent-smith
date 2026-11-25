@@ -62,20 +62,27 @@ public sealed class AzureReposPullRequestUpdater(
     }
 
     // p0501: an immediate merge (Status = Completed) is the one thing a branch policy
-    // refuses, so the pull request is APPROVED and ARMED instead and finishes itself when
+    // refuses, so the pull request is ARMED instead and finishes itself when
     // the required build goes green. See AzureReposAutoComplete for why that identity.
     public Task<PullRequestCompletion> CompleteAsync(string prUrl, CancellationToken cancellationToken) =>
         CompleteAsync(prUrl, BranchProtection.Respect, cancellationToken);
 
-    // 2026-11-17-023fa: Bypass completes now past the policies; Respect approves and arms as init does.
+    // 2026-11-17-023fa: Bypass completes now past the policies; Respect arms as init does (2026-11-25-9992h: no vote).
     public Task<PullRequestCompletion> CompleteAsync(string prUrl, BranchProtection protection, CancellationToken cancellationToken) =>
         OnPullRequestAsync(prUrl, (client, pr, prId) => protection == BranchProtection.Bypass
             ? _bypass.CompleteAsync(client, pr, prId, cancellationToken)
-            : _autoComplete.ArmAsync(client, pr, prId, cancellationToken), cancellationToken);
+            : ArmAsync(client, pr, prId, cancellationToken), cancellationToken);
+
+    // 2026-11-25-9992h: armed as the token's own identity (the machine), read from the connection.
+    private async Task<PullRequestCompletion> ArmAsync(GitHttpClient client, GitPullRequest pr, int prId, CancellationToken ct) =>
+        await _autoComplete.ArmAsync(client, pr, prId, await SelfAsync(ct), ct);
+
+    private Task<string?> SelfAsync(CancellationToken ct) => clientFactory.AuthorizedIdentityIdAsync(organizationUrl, personalAccessToken, ct);
 
     // 2026-11-24-629ab: auto-complete armed again after a conflict dropped it — no vote (AzureReposAutoComplete.RearmAsync).
     public Task<PullRequestCompletion> RearmAsync(string prUrl, CancellationToken cancellationToken) =>
-        OnPullRequestAsync(prUrl, (client, pr, prId) => _autoComplete.RearmAsync(client, pr, prId, cancellationToken), cancellationToken);
+        OnPullRequestAsync(prUrl, async (client, pr, prId) =>
+            await _autoComplete.RearmAsync(client, pr, prId, await SelfAsync(cancellationToken), cancellationToken), cancellationToken);
 
     private async Task<PullRequestCompletion> OnPullRequestAsync(
         string prUrl, Func<GitHttpClient, GitPullRequest, int, Task<PullRequestCompletion>> act, CancellationToken cancellationToken)

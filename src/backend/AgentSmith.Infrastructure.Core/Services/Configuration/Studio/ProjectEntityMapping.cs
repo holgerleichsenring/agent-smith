@@ -26,7 +26,8 @@ internal static class ProjectEntityMapping
             project.DefaultPipeline,
             TemplateReferenceMapping.ToTemplates(project),
             ToSandbox(project),
-            [.. project.DesignSources], RequiresStartNames.Written(project.RequiresStart), ProjectMergeMapping.ToEntity(project.Merge)); // 9a39a, b34eb
+            [.. project.DesignSources], RequiresStartNames.Written(project.RequiresStart), ProjectMergeMapping.ToEntity(project.Merge), // 9a39a, b34eb
+            ProjectMachineMapping.ToEntity(project.Machine)); // 2026-11-25-9992h
     }
 
     /// <summary>

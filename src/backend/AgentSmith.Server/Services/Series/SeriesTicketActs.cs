@@ -77,9 +77,10 @@ public sealed class SeriesTicketActs(
     {
         if (await attempts.LatestAsync(project, ticketId, null, cancellationToken) is not { } attempt)
             return $"Ticket {ticketId} has no run to retry; start it instead.";
-        // 2026-11-22-50d7a: the series master acts here, named as its messages name it.
+        // 2026-11-22-50d7a: the series master acts here, named as its messages name it — 2026-11-25-9992h: the project's
+        // machine identity; the approver's principal stays the authority the retry is checked against.
         var result = await retry.RetryAsync(
-            attempt.RunId, principal, SeriesTicketMessage.Author, RetryOrigin.Conversation, cancellationToken);
+            attempt.RunId, principal, SeriesTicketMessage.AuthorOf(projects.Of(project)), RetryOrigin.Conversation, cancellationToken);
         return result.Kind == RunRetryResultKind.Requested
             ? $"Retry of ticket {ticketId}'s run {attempt.RunId} requested; a new attempt starts."
             : $"Ticket {ticketId} was not retried: {result.Text ?? result.Kind.ToString()}";
