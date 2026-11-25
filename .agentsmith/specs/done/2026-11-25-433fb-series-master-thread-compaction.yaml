@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-433fb
+goal: "A series master's stored thread past dialogue.series_master_thread_max_chars is compacted: its older turns become notes the master writes, and its latest turns stay verbatim."
+
+applies_to: "default (Application series master, Contracts configuration) + dashboard (settings field)"
+
+requires: [2026-11-17-0207a, 2026-11-25-9992g, 2026-11-25-433fa]
+
+facts:
+  - claim: "Each judged beat appends its prompt and the master's answer to SeriesRunRecord.ThreadJson; nothing ever removes a turn."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:96-101 and src/backend/AgentSmith.Application/Services/Series/SeriesThread.cs:18-19"
+  - claim: "The whole stored thread is replayed as PriorMessages on every beat."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:93"
+  - claim: "Every beat's prompt carries the whole ticket table, so the thread grows by a table per judged beat and old turns hold stale state."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMasterPrompt.cs:19"
+  - claim: "The in-loop fold (CompactingChatClient) bounds one loop's forwarded view and keeps nothing; its summarizer is a coding-agent compactor that preserves files read and the implementation's current state."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:78 and :124, src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactionSummaryRequest.cs:27-36"
+  - claim: "A series runs one beat at a time; the stored thread has one writer at a time, and UpdateAsync re-applies a change over a newer version."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunSweeper.cs:35-37 and src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SeriesRunRepository.cs:10-14"
+  - claim: "Dialogue settings reach the dashboard's settings form field by field (series_master_budget_ask_usd, 9992g)."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:492-494 and src/dashboard/src/lib/configApi.ts:1096-1099"
+
+scope:
+  in: |
+    CONFIG: dialogue.series_master_thread_max_chars (default 60000, about 15k tokens). It bounds what the master carries over
+    from earlier beats, so a series that runs for days stays inside its context and its cost per turn.
+    dialogue.series_master_thread_keep_turns (default 4): the latest beats kept verbatim. Both get dashboard fields next to
+    the series budget (SettingsForm.tsx, configApi.ts, i18n en/de).
+    STORED TURN: a beat's turn is stored without the ticket table (SeriesMasterPrompt.Kept: the head and the reasons). The
+    table is re-read every beat, and an old one is stale state, so the thread then holds only reasons and answers.
+    THREAD (SeriesThread): Size(json) in characters; Turns are user/assistant pairs. Compact(json, olderPairs, notes) replaces
+    the first olderPairs pairs with one pair: the user part says "[Your notes from earlier beats, written when your thread was
+    compacted]" and the assistant part is the notes. Everything after those pairs is kept as stored.
+    COMPACTION (its own step, CompactSeriesThread, the last of the series-run preset after PostSeriesStatus, so the chat is
+    never kept waiting): on a beat the master judged (SeriesBeat.MasterJudged), when the stored thread is over the max, holds
+    more than keep_turns pairs whose older part carries at least half the max (so latest beats that alone outgrow it are not
+    re-folded every beat), and the master's budget is not spent, the master writes its notes; 0 turns it off. It is a
+    single call (ModelUse.Call). The loop is called with the master's agent and model, a short system prompt of
+    its own (the series master writing notes for its later beats; the skill describes tools this call does not have), the
+    older pairs as PriorMessages (an earlier notes pair is among them and is folded in) and an instruction as the turn. The instruction: write the notes your later beats read in place of these turns; what you
+    decided and why, the questions still open, the acts you took and their reasons, your plan from here. The series' tickets
+    are re-read for you every beat, so leave their states out. The call gets no tools.
+    The notes replace those pairs under UpdateAsync, by pair count, so anything appended meanwhile stays. The spend is added
+    to MasterCostUsd and the cost tracker.
+    It logs one line naming the size, the value, the reason and the key: "Series {id}: the master's thread reached {n}
+    characters, past dialogue.series_master_thread_max_chars ({max}), the bound that keeps a series running for days
+    inside the master's context and cost; its {k} older entries (earlier notes among them) became its notes, the latest
+    {keep} beats stay (dialogue.series_master_thread_keep_turns)."
+    A failed or empty summary keeps the thread as it was and logs a warning; the next judged beat tries again. Compaction
+    posts nothing into the chat.
+    The in-loop fold stays as it is: it bounds a single loop's view, this bounds what is stored between loops.
+  out: "Compaction of other masters' threads. Changing the in-loop fold. A token count (characters, like the fold's estimate)."
+
+steps:
+  - id: config
+    action: "DialogueGlobalConfig.SeriesMasterThreadMaxChars/KeepTurns; dashboard fields + configApi + i18n."
+  - id: thread
+    action: "SeriesThread.Size, Pairs, Older, Compact."
+  - id: kept
+    action: "SeriesMasterPrompt.Kept; SeriesMasterHandler stores it in place of the full prompt."
+  - id: compaction
+    action: "CommandNames.CompactSeriesThread with its context, builder, maps (model use, step class, display, progress, beat) and CompactSeriesThreadHandler (Application/Services/Series), last in PipelinePresets.SeriesRun."
+  - id: tests
+    action: "SeriesThread compaction keeps the newest pairs and the notes; SeriesThreadCompaction does nothing under the max, compacts over it, keeps the thread on a failed summary; a PipelineHarness test over the real composition: a long seeded thread compacts after a beat and the next beat's model call sees the notes with the earlier decision and not the replaced turns."
+
+done:
+  - "A stored thread over dialogue.series_master_thread_max_chars is replaced by the master's notes plus the latest dialogue.series_master_thread_keep_turns beats, and the log line names value, reason and key (tests)."
+  - "Through the real composition, the beat after a compaction sends the master its notes carrying an earlier decision (PipelineHarness test)."
+  - "A failed summary keeps the thread byte-identical; a spent budget skips compaction (tests)."
+  - "A stored turn carries no ticket table (test)."
+  - "Both settings have dashboard fields; dotnet build, the affected tests and pnpm test/build are green."

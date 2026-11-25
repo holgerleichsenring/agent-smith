@@ -57,7 +57,8 @@ public sealed class SeriesMasterHandler(
             return await FailedAsync(beat, ex, tracker.CaptureSpend().AccruedUsd - before, ct);
         }
         tracker.Track(result.Response);
-        await KeepAsync(beat, prompt, result.Response.Text, tracker.CaptureSpend().AccruedUsd - before, ct);
+        // 2026-11-25-433fb: the thread keeps the turn without its table; CompactSeriesThread bounds what it keeps
+        await KeepAsync(beat, SeriesMasterPrompt.Kept(beat), result.Response.Text, tracker.CaptureSpend().AccruedUsd - before, ct);
         await budgets.AskIfLowAsync(beat, ct); // 2026-11-25-9992g: this judgement may have spent it down
         return CommandResult.Ok($"The series master judged: {string.Join("; ", beat.Reasons)}");
     }
@@ -96,6 +97,7 @@ public sealed class SeriesMasterHandler(
     private async Task KeepAsync(SeriesBeat beat, string prompt, string answer, decimal spent, CancellationToken ct)
     {
         beat.MasterLine = string.IsNullOrWhiteSpace(answer) ? null : answer.Trim();
+        beat.MasterJudged = true; // 2026-11-25-433fb: its thread grew; CompactSeriesThread looks at it
         var kept = await store.UpdateAsync(beat.Record.Id, r => r with
         {
             ThreadJson = SeriesThread.Append(r.ThreadJson, prompt, answer), MasterCostUsd = r.MasterCostUsd + spent,

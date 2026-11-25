@@ -25,6 +25,7 @@ public static class SeriesRunPipelineExtensions
             .AddTransient<ICommandHandler<DeliverSeriesContext>, DeliverSeriesHandler>();
         services.AddTransient<ICommandHandler<SeriesMasterContext>, SeriesMasterHandler>();
         services.AddTransient<ICommandHandler<PostSeriesStatusContext>, PostSeriesStatusHandler>();
+        services.AddTransient<ICommandHandler<CompactSeriesThreadContext>, CompactSeriesThreadHandler>(); // 2026-11-25-433fb
         return services;
     }
 }

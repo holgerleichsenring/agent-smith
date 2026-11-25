@@ -60,6 +60,14 @@ public sealed class DialogueGlobalConfig
     /// falls silent, not after. 0 asks only once it is spent.</summary>
     public decimal SeriesMasterBudgetAskUsd { get; set; } = 2m;
 
+    /// <summary>2026-11-25-433fb: the most characters the series master's stored thread carries from earlier beats. Past it, the
+    /// master writes notes (decisions and why, open questions, acts, plan) in place of its older beats, so a series that runs for
+    /// days stays inside the master's context and its cost per beat. Default 60000, about 15k tokens.</summary>
+    public int SeriesMasterThreadMaxChars { get; set; } = 60_000;
+
+    /// <summary>2026-11-25-433fb: the latest beats a compaction of the series master's thread keeps verbatim. Default 4.</summary>
+    public int SeriesMasterThreadKeepTurns { get; set; } = 4;
+
     /// <summary>2026-11-17-0207b: the series beat's cadence in minutes. 2026-11-25-e94eb: no table is posted any more;
     /// it is how long nothing may move while tickets run before the master looks whether one is stuck.</summary>
     public int SeriesStatusMinutes { get; set; } = 15;

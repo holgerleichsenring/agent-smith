@@ -45,6 +45,10 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
     /// <summary>The master's closing line, posted as its own message when <see cref="MasterSpeaks"/>.</summary>
     public string? MasterLine { get; set; }
 
+    /// <summary>2026-11-25-433fb: the master judged this beat and its thread grew by it — only then may the thread need
+    /// compacting.</summary>
+    public bool MasterJudged { get; set; }
+
     /// <summary>2026-11-25-e94ec: the master called an act this beat (<see cref="SeriesActedFunction"/>).</summary>
     public bool MasterActed { get; set; }
 

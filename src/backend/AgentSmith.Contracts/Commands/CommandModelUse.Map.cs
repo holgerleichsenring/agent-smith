@@ -39,6 +39,9 @@ public static partial class CommandModelUse
         // 2026-11-17-0207a: the series master's loop over the series' facts and acts, when something needs judgement.
         [CommandNames.SeriesMaster] = new(
             ModelUse.Loop, "series-master", "acts on member tickets and a line for the conversation"),
+        // 2026-11-25-433fb: the master's notes in place of its older beats, once its thread passed its bound; no tools.
+        [CommandNames.CompactSeriesThread] = new(
+            ModelUse.Call, "series master notes prompt", "the master's notes: decisions and why, open questions, acts, plan"),
         // 2026-11-24-6811c: the base-merge master resolves what the unions leave and repairs a stage the merge turned red.
         [CommandNames.RefreshBranchBase] = new(
             ModelUse.Loop, "base-merge-master", "whole or not, with the reason a person reads"),

@@ -13,6 +13,7 @@ public static partial class PipelinePresets
         CommandNames.DeliverSeries, // 2026-11-24-f9c5e
         CommandNames.SeriesMaster,
         CommandNames.PostSeriesStatus,
+        CommandNames.CompactSeriesThread, // 2026-11-25-433fb: after the post, so the chat never waits on it
     ];
 
     /// <summary>2026-11-17-0207d: the series check once every ticket landed — the default branch checked out, the done
