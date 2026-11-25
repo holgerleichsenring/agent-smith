@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-96aea
+goal: "Every ticket is led by a series master: a standalone ticket becomes a series of one, and the server's CI loop and its automatic starts are removed."
+
+applies_to: "default (Application series + merge, Server rework/sweep/series, Persistence data move, Contracts, docs)"
+
+requires: [2026-11-25-96aec, 2026-11-25-96aeb, 2026-11-25-9992e, 2026-11-25-9992g]
+
+facts:
+  - claim: "A filing of one ticket opens no series; both openers stop below two tickets."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMembership.cs:34 and src/backend/AgentSmith.Application/Services/Series/OpenSeriesRunHandler.cs:32"
+  - claim: "Every ticket run that changes code is the one 'code' preset, FetchTicket third (a new step after it is the fourth); its last step CompletePullRequests marks a standalone ticket's gate-passed PRs awaiting CI (review none) or leaves them open."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:37-41,77 and src/backend/AgentSmith.Application/Services/Handlers/CompletePullRequestsHandler.cs:34-45"
+  - claim: "The server's CI loop runs after every PR read of a ticket no series holds: requeue, rearm, green merge, red nudge — each starting a merge-green run or a rework nudge."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:60-62, src/backend/AgentSmith.Server/Services/Rework/CiGreenMerge.cs, src/backend/AgentSmith.Server/Services/Rework/CiBuildRequeue.cs, src/backend/AgentSmith.Server/Services/Rework/AutoCompleteRearm.cs, src/backend/AgentSmith.Server/Services/Rework/CiRedNudge.cs"
+  - claim: "A red CI on a review-none ticket becomes a pending rework act and a fix run's CI read with a fix-attempt budget (merge.ci_fix_attempts)."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/CiRework.cs:19-40, src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:23, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:30,95"
+  - claim: "A conflict on a standalone ticket's PR starts a refresh-base run by itself, and a stacked PR whose prerequisite landed is retargeted by itself."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:96-98 and src/backend/AgentSmith.Server/Services/Rework/StackedTicketUpkeep.cs:15-19"
+  - claim: "A landing wakes each dependent through a RequirementsMet nudge that starts it (DependentsWake -> RequirementsMetStart -> WaitingTicketStart); under on_green_push a green attempt wakes its stacked dependents the same way (StackedDependentsWake)."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:74, src/backend/AgentSmith.Server/Services/Rework/DependentsWake.cs:35-56,92-99, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:40, src/backend/AgentSmith.Server/Services/Rework/StackedDependentsWake.cs:30-40"
+  - claim: "A finished attempt with no act continues the ticket's spec runway by itself, for a series ticket as well."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNoActTail.cs:28 and src/backend/AgentSmith.Server/Services/Rework/SeriesAutoStart.cs:20-78"
+  - claim: "The PR records the CI watch reads include clauses only the CI loop needs (review-none verdicts not acted on, a lost auto-complete)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrRecordCiDue.cs:22-35 and src/backend/AgentSmith.Server/Services/Sweep/CiWatchSelection.cs:28-36"
+  - claim: "A series record is one JSON row per series; data moves run only in `database migrate` through IDataMigration."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SeriesRunRepository.cs:25 and src/backend/AgentSmith.Infrastructure.Persistence/Contracts/IDataMigration.cs:8-22"
+  - claim: "A ticket's own conversation is a spec-dialog session found by tracker and ticket key; its messages go to a running attempt or the ticket's steward, never to a series."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:21-26 and src/backend/AgentSmith.Server/Services/SpecDialog/RunMessages/SpecDialogRunDivert.cs:30-34"
+  - claim: "The series page renders any series, a single ticket as a one-node graph without a final step; the ticket page links to the series that holds it."
+    evidence: "src/dashboard/src/components/series/page/SeriesRunPage.tsx:24-64, src/dashboard/src/components/series/page/SeriesOverviewSection.tsx:28, src/dashboard/src/components/tickets/detail/TicketSectionBar.tsx:57-61"
+  - claim: "Whether a series holds a ticket is answered by deserializing every active series row of the project; with a series per in-flight ticket that runs on every PR read, webhook and claim."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SeriesRunRepository.cs:64"
+  - claim: "A ticket an active series holds has its parked question answered in the series conversation, not on the ticket page."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketQuestionHold.cs:30,50"
+  - claim: "merge.ci_fix_attempts also bounds the refresh-base repair passes the master's refresh_branch runs."
+    evidence: "src/backend/AgentSmith.Application/Services/BaseRefresh/BaseRefreshMerge.cs:62"
+  - claim: "A config change releases a preflight-stopped ticket and starts its next attempt by itself; the tracker poller claims a ticket in a trigger status once its requirements met."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PreconditionRelease.cs:34-37 and src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:21"
+
+scope:
+  in: |
+    Invariant: no server path merges, refreshes, retargets, requeues, re-arms or starts a ticket's work on its own; each of
+    these is an act of the series master holding the ticket, or of a person. Exempt, named: a person's tracker trigger and
+    the poller that reads it, a config change that releases a preflight stop (2026-11-16-f3fbc, operator), the restart of an
+    interrupted attempt, the capacity queue's re-enqueue.
+
+    Proposed design after the 2026-11-26 three-reviewer round (entry paths, data, UI/cost):
+    Opening — one opener (SeriesMembership.OpenOneAsync), atomic through a ticket-hold table (SeriesTicketHolds, unique on
+    project and ticket, schema migration on every provider) that also indexes HoldsTicketAsync/ForTicketAsync, which today
+    deserialize every series row of the project. Callers: a filing of one ticket (its series takes the ticket's own
+    conversation, not the Work it out one, so the design conversation stays free); a code run's fourth step OpenTicketSeries
+    after FetchTicket (skipped without a ticket); a PR read of an open pull request whose ticket nothing holds (old replicas
+    during a rolling deploy, CLI runs). MayStartRuns true, principal the project's machine identity.
+    A series of one is the ticket page's: holds, questions, the merge button and the /series list and count treat it as no
+    series (InActiveSeries false, SeriesQuestions relays nothing, the merge hold stays the host's), comments and PR commands
+    keep their rework path, the master posts no opening and no milestones; it ends Done once the ticket's runway is complete
+    and landed (no series check), Stopped once the ticket is closed without landing.
+    Cost per standalone ticket: a successful run end with an open PR and pending CI is quiet; under review none a green CI is
+    one turn (the merge); under each/end the person merges on the host and the master follows (green is quiet for a series of
+    one); a red CI or a failed run is a turn.
+    Removed, not flagged off: CiGreenMerge, CiBuildRequeue, AutoCompleteRearm, CiRedNudge and the refresh's CI-loop block; CiAct,
+    CiRework, CiReworkAct, ICiReworkAct with their pending-act and FetchTicket wiring and CiFailurePromptSection (it is
+    empty-filtered, so the coding prompt's order holds); the awaiting-CI and re-arm branches with PullRequestAutoCompleteRearm,
+    IPullRequestAutoCompleteRearmer and its GitLab/Azure implementations, CiGreenPullRequest.Rearm and the AutoCompleteLost read;
+    the refresh's own ConflictBaseRefresh launch; StackedPullRequestRetarget and StackedTicketUpkeep; RequirementsMetStart;
+    SeriesAutoStart's automatic call; the CI watch's loop-only clauses (the held-ticket poll bounded by merge.ci_pending_seconds).
+    Kept: MergeGreenRun, CiGreenMergeRequest, ContextKeys.CiGreenMerge and PullRequestBuildRequeue (the master's merge and CI
+    acts); merge.ci_fix_attempts (BaseRefreshMerge bounds its repair passes by it — re-described); SpecHandbackCase.CiFixBudgetSpent
+    (stored as an int, nothing writes it).
+    Replaced by master wakes with once-keys: PrerequisiteLandedWake (from DependentsWake, its recovery kept; a series-branch
+    landing and the series' delivery keyed apart), PrerequisiteGreenWake (from StackedDependentsWake, called where
+    StackedTicketUpkeep was); a run end whose runway has a next spec says so. start_ticket goes through WaitingTicketStart
+    (fallback spawn for a ticket already in a trigger status) and continues a runway through ReworkLaunch.StartSeriesAttemptAsync
+    past the under-way refusal. stop_series no longer says its tickets keep running on their own.
+    In-flight data: `database migrate` (SeriesOfOneMigration, ShippedWith the hold-table migration, deterministic ids so two
+    init containers cannot open two) opens a series of one for every ticket no active series holds that has an open pull
+    request, an unfinished or waiting code run, requirement rows and no code run, a pending RequirementsMet nudge, or a runway
+    with a next spec; review copied from the stored project config with end becoming each; and records a wake for the ones
+    ready to start. Startup changes nothing. Old replicas must be gone before the migrate (their sweeper would check a series
+    of one with old code).
+    series-master.md: the false lines go (tickets start and wake by themselves; filed by a conversation; the check is always
+    run); one static line for a series of one at the end of "How to lead", so the prefix stays stable.
+  out: "Routing every ticket-conversation message to the master. A new dashboard view. Dropping the PR-record columns the loop wrote."
+
+steps:
+  - id: decide
+    action: "The operator answers the open choices listed in the 2026-11-26 report (review each/end for a series of one; the runway continuation's cost; the poller and trigger-status starts; the rolling-deploy requirement) before any code."
+  - id: hold-table
+    action: "SeriesTicketHolds entity, configuration and migrations on every provider; SeriesRunRepository opens atomically and answers HoldsTicketAsync/ForTicketAsync from it."
+  - id: open
+    action: "SeriesMembership.OpenOneAsync; filing of one; OpenTicketSeries step (fourth in Code); PR-read opener; series of one transparent to holds, questions, merge hold, comments and the /series list; ends on landing or close."
+  - id: remove-loop
+    action: "Delete the CI loop, CI rework, re-arm path, conflict auto-refresh and stacked retarget with their tests; simplify CompletePullRequestsHandler, PrReviewRecordRefresh, PrRecordRefreshNow, PrRecordCiDue and CiWatchSelection."
+  - id: remove-starts
+    action: "PrerequisiteLandedWake and PrerequisiteGreenWake with once-keys; delete RequirementsMetStart and SeriesAutoStart's call; start_ticket through WaitingTicketStart and the runway launch."
+  - id: migrate
+    action: "SeriesOfOneMigration as above, with a concurrency test."
+  - id: prompt-docs
+    action: "series-master.md; docs/how-it-works/ci-loop.md, series-run.md, end-to-end.md, agentsmith-yml.md."
+  - id: tests
+    action: "Openers (code run, filing of one, PR read) open one series once under concurrency; a series of one keeps the ticket page's holds and questions; it ends on landing and on close; landings and green prerequisites only wake; start_ticket starts a triggered ticket and continues a runway; the migration is idempotent; a code run merges nothing."
+
+done:
+  - "A code run, a filing of one and a PR read of a ticket no series holds each open exactly one series of one, also when they race (tests)."
+  - "No server path merges, requeues, re-arms, refreshes, retargets or starts a ticket on its own: the removed classes are gone and a landing or green prerequisite only records a master wake (tests)."
+  - "A series of one leaves the ticket page's holds, questions and comments as they were, and ends Done on landing or Stopped on close, with no series check (tests)."
+  - "`database migrate` opens one series of one per in-flight standalone ticket and is idempotent under two concurrent runs (test)."
+  - "dotnet build, the full suite and the dashboard tests and build are green."
