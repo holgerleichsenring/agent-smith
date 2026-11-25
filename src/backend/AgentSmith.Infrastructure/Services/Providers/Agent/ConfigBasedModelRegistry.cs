@@ -18,6 +18,7 @@ public sealed class ConfigBasedModelRegistry(
     public ModelAssignment GetModel(TaskType taskType)
     {
         var assignment = _chain.For(taskType);
+        ModelApi.RefuseOutsideOpenAi(assignment.ProviderType ?? agent.Type, assignment); // 2026-11-25-9992k
 
         logger.LogDebug(
             "Model registry: {TaskType} → {Model} (max {MaxTokens} tokens)",

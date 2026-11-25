@@ -129,6 +129,25 @@ describe("AgentForm (2026-09-30-62bab)", () => {
     expect(screen.queryByTestId("agent-model-window-from-list")).toBeNull();
   });
 
+  // 2026-11-25-9992k: a reasoning model is set to the Responses API with its effort; leaving it clears the effort.
+  it("EditModel_ResponsesApi_ShowsTheEffort_ChatCompletionsClearsIt", async () => {
+    render(<Harness />);
+    await screen.findByText(/public price list/);
+    fireEvent.click(screen.getByTestId("agent-model-card-gpt-4.1"));
+    expect(screen.queryByTestId("agent-model-reasoningEffort")).toBeNull();
+
+    fireEvent.change(screen.getByTestId("agent-model-api"), { target: { value: "responses" } });
+    fireEvent.change(screen.getByTestId("agent-model-reasoningEffort"), { target: { value: "high" } });
+    fireEvent.click(screen.getByTestId("agent-model-apply"));
+    expect(latest.catalog["gpt-4.1"]).toMatchObject({ api: "responses", reasoningEffort: "high" });
+
+    fireEvent.click(screen.getByTestId("agent-model-card-gpt-4.1"));
+    fireEvent.change(screen.getByTestId("agent-model-api"), { target: { value: "" } });
+    expect(screen.queryByTestId("agent-model-reasoningEffort")).toBeNull();
+    fireEvent.click(screen.getByTestId("agent-model-apply"));
+    expect(latest.catalog["gpt-4.1"]).toMatchObject({ api: null, reasoningEffort: null });
+  });
+
   it("AddModel_Override_WritesPricingForTheModelId_UntoggleClearsIt", async () => {
     render(<Harness />);
     await screen.findByText(/public price list/);

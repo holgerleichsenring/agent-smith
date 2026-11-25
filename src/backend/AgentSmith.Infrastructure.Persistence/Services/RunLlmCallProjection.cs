@@ -45,6 +45,7 @@ public sealed class RunLlmCallProjection(
             RunId = e.RunId, Role = e.Role, Phase = e.Phase, Model = e.Model,
             TokensIn = e.TokensIn, TokensOut = e.TokensOut, CostUsd = e.CostUsd, DurationMs = e.DurationMs,
             CachedTokensIn = e.CachedTokensIn, CacheCreationTokensIn = e.CacheCreationTokensIn,
+            ReasoningTokensOut = e.ReasoningTokensOut, // 2026-11-25-9992k
             StepIndex = e.OriginStepIndex, // p0388a
             SpecId = e.OriginSpecId, MasterPass = e.OriginMasterPass, // 2026-10-13-9a59f
             EventSeq = eventSeq,

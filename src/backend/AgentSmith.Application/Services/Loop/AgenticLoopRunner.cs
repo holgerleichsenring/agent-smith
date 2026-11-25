@@ -2,6 +2,7 @@ using System.Diagnostics;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -19,11 +20,15 @@ namespace AgentSmith.Application.Services.Loop;
 /// own different collection paths. This service does not know whether the
 /// caller is a master or a child; that decision lives in the request's
 /// identity tuple.</para>
+/// <para>2026-11-25-9992k: an <c>ask_human</c> tool is handed to the model wrapped in
+/// <see cref="Events.EventPublishingAIFunction"/>, so every question a run puts to the operator is a recorded tool
+/// call the run's metrics count. The other tools are handed over as they are.</para>
 /// </summary>
 public sealed class AgenticLoopRunner(
     IChatClientFactory chatClientFactory,
     IRunContextAccessor runContext,
-    ILogger<AgenticLoopRunner> logger) : IAgenticLoopRunner
+    ILogger<AgenticLoopRunner> logger,
+    IEventPublisher? eventPublisher = null) : IAgenticLoopRunner
 {
     public async Task<AgenticLoopResult> RunAsync(
         AgenticLoopRequest request, CancellationToken cancellationToken)
@@ -51,7 +56,7 @@ public sealed class AgenticLoopRunner(
         messages.Add(userMessage);
         var options = new ChatOptions
         {
-            Tools = request.Tools,
+            Tools = Published(request.Tools),
             MaxOutputTokens = maxTokens,
         };
 
@@ -67,4 +72,9 @@ public sealed class AgenticLoopRunner(
         request.ThreadCapture?.Answered(response.Text);
         return new AgenticLoopResult(response, sw.Elapsed);
     }
+
+    private IList<AITool>? Published(IList<AITool>? tools) =>
+        eventPublisher is null || tools is null ? tools
+        : [.. tools.Select(t => t is AIFunction { Name: RunMetrics.QuestionTool } ask and not Events.EventPublishingAIFunction
+            ? new Events.EventPublishingAIFunction(ask, eventPublisher, runContext) : t)];
 }

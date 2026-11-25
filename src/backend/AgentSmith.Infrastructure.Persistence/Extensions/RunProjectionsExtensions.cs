@@ -46,6 +46,7 @@ public static class RunProjectionsExtensions
         services.AddSingleton<IRunEventFamily, RunRowFamily>();
         services.AddSingleton<IRunEventFamily, RunStepFamily>();
         services.AddSingleton<IRunEventFamily, RunSandboxFamily>();
+        services.AddSingleton<IRunEventFamily, RunQuestionFamily>(); // 2026-11-25-9992k
         services.AddSingleton<IRunEventFamily, RunSpecFamily>();
         services.AddSingleton<IRunEventFamily, RunAttemptFamily>();
         services.AddSingleton<RunPassProjection>().AddSingleton<RunLedgerTransitionProjection>(); // 2026-10-13-9a59f

@@ -22,7 +22,10 @@ public sealed class SeriesAskTool(SeriesBeat beat, ISeriesRunStore store, int de
         if (beat.Record.Question is { Answer: null } waiting)
             return $"A question already waits for the operator: \"{waiting.Text}\". Its answer comes first.";
         var asked = SeriesQuestions.Ask(question, choices?.Select(c => c.label).ToList() ?? [], recommended_index, beat.Now, defaultMinutes);
-        if (await store.UpdateAsync(beat.Record.Id, r => r with { Question = asked }, ct) is { } kept) beat.Record = kept;
+        if (await store.UpdateAsync(beat.Record.Id,
+                r => r with { Question = asked, MasterQuestionsAsked = r.MasterQuestionsAsked + (r.Question is { Answer: null } ? 0 : 1) },
+                ct) is { } kept) // 2026-11-25-9992k: one replacing a waiting question is not a second ask
+            beat.Record = kept;
         beat.Said.Add(SeriesQuestionText.Asked(asked, null));
         return asked.DeadlineAt is { } at
             ? $"Asked. Without an answer the series takes \"{asked.Recommended}\" at {at:u}."

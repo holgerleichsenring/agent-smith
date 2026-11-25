@@ -25,6 +25,8 @@ internal static class SeriesRunEndpoints
         app.MapGet("/api/series-runs/count", CountAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
         app.MapGet("/api/series-runs/{id}", DetailAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.SeriesRun);
         app.MapGet("/api/series-runs/{id}/changes", ChangesAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.SeriesRun);
+        app.MapGet("/api/series-runs/{id}/measurement", MeasurementAsync) // 2026-11-25-9992k
+            .Needs(Permissions.RunsRead).InProject(ProjectFrom.SeriesRun);
         app.MapPost("/api/series-runs/{id}/tickets/{ticketId}/merge", MergeAsync)
             .Needs(Permissions.RunsControl).InProject(ProjectFrom.SeriesRun);
         return app;
@@ -55,6 +57,10 @@ internal static class SeriesRunEndpoints
 
     internal static async Task<IResult> DetailAsync(string id, SeriesRunDetailReader reader, CancellationToken cancellationToken) =>
         await reader.ReadAsync(id, cancellationToken) is { } view ? Results.Ok(view) : Results.NotFound();
+
+    internal static async Task<IResult> MeasurementAsync(
+        string id, Services.Measurement.ModelMeasurementReader reader, CancellationToken cancellationToken) =>
+        await reader.SeriesAsync(id, cancellationToken) is { } view ? Results.Ok(view) : Results.NotFound();
 
     internal static async Task<IResult> ChangesAsync(string id, SeriesRunChangesReader reader, CancellationToken cancellationToken) =>
         await reader.ReadAsync(id, cancellationToken) is { } view ? Results.Ok(view) : Results.NotFound();
