@@ -15,6 +15,7 @@ import { TemplateBindings } from "./TemplateBindings";
 import { TrackerRouting } from "./TrackerRouting";
 import { ProjectSandboxSection } from "./ProjectSandboxSection";
 import { ProjectMergeSection } from "./ProjectMergeSection";
+import { RegistryFeedsField } from "./RegistryFeedsField";
 import { camelCase } from "./capabilityFields";
 import { projectIntegrity, unfinishedTemplates } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
@@ -194,11 +195,15 @@ export function ProjectForm({
         {tab === "routing" && <RoutingSection project={project} onChange={onChange} capabilities={capabilities} />}
 
         {tab === "sandbox" && (
-          <ProjectSandboxSection
-            project={project}
-            onChange={onChange}
-            inheritedSandbox={inheritedSandbox}
-          />
+          <>
+            <ProjectSandboxSection
+              project={project}
+              onChange={onChange}
+              inheritedSandbox={inheritedSandbox}
+            />
+            {/* 2026-11-25-9992d: the project's private package feeds, moved here from the installation Settings. */}
+            <RegistryFeedsField value={project.registries} onChange={(registries) => onChange({ ...project, registries })} />
+          </>
         )}
 
         {tab === "merge" && <ProjectMergeSection project={project} onChange={onChange} capabilities={capabilities} secrets={catalog.secrets} />}

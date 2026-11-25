@@ -66,6 +66,45 @@ public sealed class KubernetesWorkspaceFactoryTests
         _deleted.Should().ContainSingle().Which.Should().Be(_created.Single().Metadata.Name);
     }
 
+    // 2026-11-25-9992d: a project that scopes secrets asks every agent its protocol after the pod is ready; an answer
+    // that never comes fails the spawn, and the pod goes with it.
+    [Fact]
+    public async Task CreateAsync_ScopedSecretsAndNoAnswer_FailsAndDeletesThePod()
+    {
+        var scoped = TwoImages with
+        {
+            Base = TwoImages.Base with
+            {
+                Secrets = new ResolvedSandboxSecrets(
+                    [], [], [new SecretEnvBinding("DB_PASSWORD", new SecretRef("api-creds", "db"), "api")]),
+            },
+        };
+
+        var act = () => Factory().CreateAsync(scoped, CancellationToken.None);
+
+        await act.Should().ThrowAsync<Exception>();
+        _deleted.Should().ContainSingle().Which.Should().Be(_created.Single().Metadata.Name);
+    }
+
+    [Fact]
+    public async Task SingleSandbox_ScopedSecretsAndNoAnswer_FailsAndDeletesItsPod()
+    {
+        var spec = TwoImages.Base with
+        {
+            ToolchainImage = "dotnet:9",
+            Secrets = new ResolvedSandboxSecrets(
+                [], [], [new SecretEnvBinding("DB_PASSWORD", new SecretRef("api-creds", "db"), "api")]),
+        };
+        _status = Status(Ready("toolchain-0"));
+        var factory = KubernetesFactoryDoubles.Sandbox(
+            Client(), DockerWorkspaceFactoryTests.RefusingRedis(), new KubernetesSandboxOptions(), SandboxBusDoubles.Credentials());
+
+        var act = () => factory.CreateAsync(spec, CancellationToken.None);
+
+        await act.Should().ThrowAsync<Exception>();
+        _deleted.Should().ContainSingle().Which.Should().Be(_created.Single().Metadata.Name);
+    }
+
     private KubernetesWorkspaceFactory Factory() => KubernetesFactoryDoubles.Workspace(
         Client(), DockerWorkspaceFactoryTests.RefusingRedis(), new KubernetesSandboxOptions(), SandboxBusDoubles.Credentials());
 

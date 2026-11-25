@@ -743,6 +743,8 @@ export interface ProjectSandboxStructured {
  *  cluster and never enter this product. */
 export interface SandboxSecrets {
   env?: Record<string, string> | null;
+  /** 2026-11-25-9992d: repository -> NAME -> "secretName:key"; only that repository's commands receive them. */
+  repoEnv?: Record<string, Record<string, string>> | null;
   files?: SandboxSecretFile[] | null;
 }
 
@@ -779,6 +781,8 @@ export interface StudioProject {
   requiresStart?: string | null;
   /** 2026-11-17-b34eb: the merge block; null when the project declares none (manual). ABSENT leaves it alone. */
   merge?: ProjectMerge | null;
+  /** 2026-11-25-9992d: the project's private package feeds. ABSENT leaves the stored list alone; [] clears it. */
+  registries?: RegistryEntry[] | null;
 }
 
 /** 2026-11-17-b34eb: the project's merge: block (when is the YAML name, e.g. manual or on_gate_green). */
@@ -959,7 +963,6 @@ export type SettingKey =
   | "queue"
   | "dialogue"
   | "deployment"
-  | "registries"
   | "primary_provider"
   | "pipeline_data_flow"
   | "trace"
@@ -1084,7 +1087,6 @@ export interface RegistryEntry {
   token: string;
 }
 
-export type RegistriesSetting = RegistryEntry[];
 
 /** The root-level default provider — a single nullable scalar. */
 export interface PrimaryProviderSetting {
@@ -1365,7 +1367,6 @@ export interface SettingShapes {
   queue: QueueSetting;
   dialogue: DialogueSetting;
   deployment: DeploymentSetting;
-  registries: RegistriesSetting;
   primary_provider: PrimaryProviderSetting;
   pipeline_data_flow: PipelineDataFlowSetting;
   trace: TraceSetting;

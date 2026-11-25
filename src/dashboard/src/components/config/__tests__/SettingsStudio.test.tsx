@@ -7,7 +7,7 @@ import { resetCapabilitiesCache } from "../useCapabilities";
 // forms load a doc, edit a local draft, and save through the same live-applying
 // PUT the backend records + epoch-bumps. These tests drive the flat form
 // (orchestrator), the enum select (skills), the nested cost-cap sub-forms, and the
-// registries list — plus the dirty-gated Save.
+// sandbox — plus the dirty-gated Save. The registries list moved onto the project (2026-11-25-9992d).
 
 const FIXTURES: Record<string, unknown> = {
   orchestrator: { maxRunWallTimeSeconds: 1800 },
@@ -22,7 +22,6 @@ const FIXTURES: Record<string, unknown> = {
       Large: { usd: 25, tokens: 5000000 },
     },
   },
-  registries: [],
   trace: { enabled: false },
   spec_review: { regroundReadBudget: 24 },
   series: { maxSpecs: 24, specsPerAttempt: 8, secondsPerSpec: 0, budgetUsd: 150, wallClockHours: 12, continueAfterWallTime: true, buildNoteMaxChars: 8000 },
@@ -304,19 +303,6 @@ describe("SettingsStudio", () => {
     expect(screen.getByTestId("setting-sandbox-hold-note")).toHaveTextContent(
       /SANDBOX_HOLD_SECONDS/,
     );
-  });
-
-  it("RegistriesForm_AddsAndEditsAFeed", async () => {
-    render(<SettingsStudio settingKey="registries" />);
-    await screen.findByTestId("setting-registry-add");
-    fireEvent.click(screen.getByTestId("setting-registry-add"));
-    const host = await screen.findByTestId("setting-registry-0-host");
-    fireEvent.change(host, { target: { value: "pkgs.dev.azure.com" } });
-    fireEvent.click(screen.getByTestId("settings-save"));
-    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
-    expect(saveSetting).toHaveBeenCalledWith("registries", [
-      expect.objectContaining({ host: "pkgs.dev.azure.com" }),
-    ]);
   });
 
   it("TraceForm_Toggle_SavesTheStoredSwitch", async () => {

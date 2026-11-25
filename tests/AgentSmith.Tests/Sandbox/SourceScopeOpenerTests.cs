@@ -42,6 +42,31 @@ public sealed class SourceScopeOpenerTests
         ((StubSandbox)spawned).RanSteps.Should().NotBeEmpty();
     }
 
+    // 2026-11-25-9992d: a source scope speaks for no repository, so it carries no repository's scoped secrets.
+    [Fact]
+    public async Task Opener_Spawn_DropsEveryRepositorysScopedSecrets_KeepsTheProjectWideOnes()
+    {
+        var factory = new StubSandboxFactory();
+        var project = new ResolvedProject
+        {
+            Name = "p",
+            Sandbox = new SandboxConfig
+            {
+                Secrets = new SandboxSecrets
+                {
+                    Env = new Dictionary<string, string> { ["FEED"] = "build:feed" },
+                    RepoEnv = new Dictionary<string, Dictionary<string, string>> { ["api"] = new() { ["DB"] = "api:db" } },
+                },
+            },
+        };
+
+        await Opener(factory).SpawnAsync(project, CancellationToken.None);
+
+        var secrets = factory.Spawned.Single().Spec.Secrets!;
+        secrets.RepoEnv.Should().BeEmpty();
+        secrets.Env.Should().ContainSingle().Which.EnvName.Should().Be("FEED");
+    }
+
     private static SourceScopeOpener Opener(StubSandboxFactory factory)
     {
         var specBuilder = new SandboxSpecBuilder(

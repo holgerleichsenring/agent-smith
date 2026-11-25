@@ -19,7 +19,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// pre-stages credentials deterministically before the master ever runs
 /// build/restore/test. It runs after CheckoutSource, reads each repo's
 /// nuget.config + .npmrc files, matches
-/// declared source URLs against the operator's <c>registries:</c> block, and
+/// declared source URLs against the run project's <c>registries:</c> (2026-11-25-9992d), and
 /// writes user-level credential files (~/.nuget/NuGet/NuGet.Config and
 /// ~/.npmrc) inside each sandbox so every downstream step inherits working auth.
 ///
@@ -28,7 +28,6 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class SetupRegistryAuthHandler(
     ISandboxFileReaderFactory readerFactory,
-    AgentSmithConfig config,
     GenericRegistryAuthApplier genericApplier,
     ILogger<SetupRegistryAuthHandler> logger)
     : ICommandHandler<SetupRegistryAuthContext>
@@ -43,19 +42,20 @@ public sealed class SetupRegistryAuthHandler(
         // docs-only repo / public-only project / passive pipeline doesn't
         // block. Downstream build/test steps will still fail loudly with
         // NU1301 / EAUTH if private auth is actually needed.
-        if (config.Registries.Count == 0)
+        var registries = context.Pipeline.ProjectRegistries(); // 2026-11-25-9992d: the run's project's feeds
+        if (registries.Count == 0)
         {
             logger.LogInformation(
-                "No `registries:` block in agentsmith.yml — skipping cleanly. Projects without private feeds (docs-only, public-only) need no setup.");
+                "The project declares no `registries:` — skipping cleanly. Projects without private feeds (docs-only, public-only) need no setup.");
             return CommandResult.Ok("No registries configured; no credentials staged.");
         }
 
         logger.LogInformation(
             "Configured registries: [{Hosts}] | tokens resolved: {Resolved}/{Total} | missing: [{Missing}]",
-            string.Join(", ", config.Registries.Select(r => r.Host)),
-            config.Registries.Count(r => !string.IsNullOrEmpty(r.Token)),
-            config.Registries.Count,
-            string.Join(", ", config.Registries.Where(r => string.IsNullOrEmpty(r.Token)).Select(r => r.Host)));
+            string.Join(", ", registries.Select(r => r.Host)),
+            registries.Count(r => !string.IsNullOrEmpty(r.Token)),
+            registries.Count,
+            string.Join(", ", registries.Where(r => string.IsNullOrEmpty(r.Token)).Select(r => r.Host)));
 
         if (!context.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
                 ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null || sandboxes.Count == 0)
@@ -76,7 +76,7 @@ public sealed class SetupRegistryAuthHandler(
         {
             var written = new List<string>();
             totalApplied += await StageInSandboxAsync(
-                repoKey, sandbox, RootsOf(context.Pipeline, sandbox), AgentFactory, written, cancellationToken);
+                repoKey, sandbox, RootsOf(context.Pipeline, sandbox), registries, AgentFactory, written, cancellationToken);
             // Reported from what was WRITTEN, per ecosystem — never a path this code assumed.
             staged.AddRange(written.Select(w => $"{repoKey}: {w}"));
         }
@@ -99,16 +99,16 @@ public sealed class SetupRegistryAuthHandler(
             : [sandbox.WorkDirectory()];
 
     internal async Task<int> StageInSandboxAsync(
-        string repoKey, ISandbox sandbox, IReadOnlyList<string> roots, Func<AgentConfig> agentFactory,
-        List<string> written, CancellationToken ct)
+        string repoKey, ISandbox sandbox, IReadOnlyList<string> roots, IReadOnlyList<RegistryConfig> registries,
+        Func<AgentConfig> agentFactory, List<string> written, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
         // Each root listed on its own, so one repository's tree never crowds another's configs out of the listing cap.
         var listing = new List<string>();
         foreach (var root in roots) listing.AddRange(await reader.ListAsync(root, maxDepth: 6, ct));
 
-        var nugetMatches = await CollectNuGetMatchesAsync(listing, reader, repoKey, ct);
-        var npmMatches = await CollectNpmMatchesAsync(listing, reader, repoKey, ct);
+        var nugetMatches = await CollectNuGetMatchesAsync(listing, reader, repoKey, registries, ct);
+        var npmMatches = await CollectNpmMatchesAsync(listing, reader, repoKey, registries, ct);
 
         var staged = 0;
         if (nugetMatches.Count > 0)
@@ -153,15 +153,15 @@ public sealed class SetupRegistryAuthHandler(
         // whatever comes next — is staged HERE, so this is where they are reported. The
         // fast paths are an optimisation, not the list of ecosystems that exist.
         var generic = await genericApplier.ApplyAsync(
-            repoKey, sandbox, reader, listing, coveredHosts, agentFactory, ct);
+            repoKey, sandbox, reader, listing, coveredHosts, registries, agentFactory, ct);
         staged += generic.Count;
         written.AddRange(generic.Select(file => $"{file.Path} — staged by the generic path"));
 
         return staged;
     }
 
-    private async Task<IReadOnlyList<NugetMatch>> CollectNuGetMatchesAsync(
-        IReadOnlyList<string> listing, ISandboxFileReader reader, string repoKey, CancellationToken ct)
+    private async Task<IReadOnlyList<NugetMatch>> CollectNuGetMatchesAsync(IReadOnlyList<string> listing,
+        ISandboxFileReader reader, string repoKey, IReadOnlyList<RegistryConfig> registries, CancellationToken ct)
     {
         var configs = listing
             .Where(p => p.EndsWith("/nuget.config", StringComparison.OrdinalIgnoreCase)
@@ -190,7 +190,7 @@ public sealed class SetupRegistryAuthHandler(
                     + "no sources taken from it.", repoKey, path, problem);
             foreach (var (sourceName, sourceUrl) in sources)
             {
-                var reg = FindMatchingRegistry(sourceUrl);
+                var reg = FindMatchingRegistry(sourceUrl, registries);
                 if (reg is null)
                 {
                     logger.LogInformation(
@@ -207,8 +207,8 @@ public sealed class SetupRegistryAuthHandler(
         return DedupBySource(matches);
     }
 
-    private async Task<IReadOnlyList<NpmMatch>> CollectNpmMatchesAsync(
-        IReadOnlyList<string> listing, ISandboxFileReader reader, string repoKey, CancellationToken ct)
+    private async Task<IReadOnlyList<NpmMatch>> CollectNpmMatchesAsync(IReadOnlyList<string> listing,
+        ISandboxFileReader reader, string repoKey, IReadOnlyList<RegistryConfig> registries, CancellationToken ct)
     {
         var rcFiles = listing
             .Where(p => p.EndsWith("/.npmrc", StringComparison.OrdinalIgnoreCase))
@@ -226,7 +226,7 @@ public sealed class SetupRegistryAuthHandler(
             if (string.IsNullOrEmpty(content)) continue;
             foreach (var (registryKey, registryUrl) in PackageSourceParser.NpmRegistries(content))
             {
-                var reg = FindMatchingRegistry(registryUrl);
+                var reg = FindMatchingRegistry(registryUrl, registries);
                 if (reg is null)
                 {
                     logger.LogInformation(
@@ -242,11 +242,11 @@ public sealed class SetupRegistryAuthHandler(
         return DedupByUrl(matches);
     }
 
-    private RegistryConfig? FindMatchingRegistry(string url)
+    private static RegistryConfig? FindMatchingRegistry(string url, IReadOnlyList<RegistryConfig> registries)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return null;
         var host = uri.Host;
-        foreach (var reg in config.Registries)
+        foreach (var reg in registries)
         {
             if (string.Equals(host, reg.Host, StringComparison.OrdinalIgnoreCase)) return reg;
             if (host.EndsWith("." + reg.Host, StringComparison.OrdinalIgnoreCase)) return reg;

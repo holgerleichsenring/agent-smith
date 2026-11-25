@@ -14,12 +14,12 @@ internal static class KubernetesFactoryDoubles
     public static KubernetesSandboxFactory Sandbox(
         IKubernetes client, IConnectionMultiplexer redis, KubernetesSandboxOptions options, SandboxBusCredentials buses) =>
         new(Pods(options), new KubernetesPodLauncher(client, options, NullLoggerFactory.Instance),
-            Containers(client, redis, options), options, buses);
+            Containers(client, redis, options), options, buses, new WorkspaceAgentProtocolGate());
 
     public static KubernetesWorkspaceFactory Workspace(
         IKubernetes client, IConnectionMultiplexer redis, KubernetesSandboxOptions options, SandboxBusCredentials buses) =>
         new(Pods(options), new KubernetesPodLauncher(client, options, NullLoggerFactory.Instance),
-            Containers(client, redis, options), options, buses, NullLoggerFactory.Instance);
+            Containers(client, redis, options), options, buses, new WorkspaceAgentProtocolGate(), NullLoggerFactory.Instance);
 
     private static PodSpecBuilder Pods(KubernetesSandboxOptions options) =>
         new(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity(options));

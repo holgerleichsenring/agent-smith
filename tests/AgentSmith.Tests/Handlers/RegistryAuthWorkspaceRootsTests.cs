@@ -15,7 +15,7 @@ namespace AgentSmith.Tests.Handlers;
 public sealed class RegistryAuthWorkspaceRootsTests
 {
     private static SetupRegistryAuthHandler Handler() => new(
-        Mock.Of<ISandboxFileReaderFactory>(), new AgentSmithConfig(), null!, NullLogger<SetupRegistryAuthHandler>.Instance);
+        Mock.Of<ISandboxFileReaderFactory>(), null!, NullLogger<SetupRegistryAuthHandler>.Instance);
 
     [Fact]
     public void RootsOf_RunWithTwoRepositories_NamesEachRootOnce()

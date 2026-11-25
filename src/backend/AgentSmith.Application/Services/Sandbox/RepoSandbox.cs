@@ -30,6 +30,7 @@ public sealed class RepoSandbox(ISandbox inner, string repoName)
     public ValueTask DisposeAsync() => inner.DisposeAsync();
 
     // A relative path resolves under the step's own working directory, as the agent resolves it.
+    // 2026-11-25-9992d: the step is stamped with this repository as its secret scope.
     internal Step Rooted(Step step)
     {
         var directory = Under(WorkDirectory, step.WorkingDirectory) ?? WorkDirectory;
@@ -38,6 +39,8 @@ public sealed class RepoSandbox(ISandbox inner, string repoName)
             WorkingDirectory = directory,
             Path = Under(directory, step.Path),
             RenameTo = Under(directory, step.RenameTo),
+            // 2026-11-25-9992d: a command of this repository receives its scoped secrets and no other repository's.
+            SecretScope = repoName,
         };
     }
 

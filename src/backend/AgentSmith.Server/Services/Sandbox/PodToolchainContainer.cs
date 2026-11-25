@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Sandbox.Wire;
 using k8s.Models;
 
 namespace AgentSmith.Server.Services.Sandbox;
@@ -28,7 +29,7 @@ public sealed class PodToolchainContainer(PodSecurity podSecurity)
         Args = string.IsNullOrEmpty(spec.RunId)
             ? ["--job-id", toolchain.JobId]
             : ["--job-id", toolchain.JobId, "--run-id", spec.RunId],
-        Env = [.. BuildEnv(toolchain, spec.Secrets?.Env), .. podSecurity.Env(profile)],
+        Env = [.. BuildEnv(toolchain, spec.Secrets), .. podSecurity.Env(profile)],
         VolumeMounts =
         [
             new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount, ReadOnlyProperty = true },
@@ -58,7 +59,9 @@ public sealed class PodToolchainContainer(PodSecurity podSecurity)
         }
     };
 
-    private static List<V1EnvVar> BuildEnv(PodToolchain toolchain, IReadOnlyList<SecretEnvBinding>? secretEnv)
+    // 2026-11-25-9992d: a repository's own variables travel under a scoped name (ScopedSecretNames) the agent hands
+    // only to that repository's commands; the project-wide ones keep their own names.
+    private static List<V1EnvVar> BuildEnv(PodToolchain toolchain, ResolvedSandboxSecrets? secrets)
     {
         var env = new List<V1EnvVar>
         {
@@ -66,8 +69,11 @@ public sealed class PodToolchainContainer(PodSecurity podSecurity)
             new() { Name = "REDIS_URL", Value = toolchain.RedisUrl }
         };
         // 2026-10-02-5f89g: no pod-wide GIT_TOKEN — each git step carries its repo's own.
-        foreach (var binding in secretEnv ?? [])
+        foreach (var binding in secrets?.Env ?? [])
             env.Add(SandboxSecretProjection.EnvVar(binding.EnvName, binding.Source));
+        foreach (var binding in secrets?.RepoEnv ?? [])
+            env.Add(SandboxSecretProjection.EnvVar(
+                ScopedSecretNames.For(binding.Repository!, binding.EnvName), binding.Source));
         return env;
     }
 }

@@ -40,6 +40,9 @@ public sealed record ResolvedProject
     public PollingConfig Polling { get; init; } = new();
     public SandboxConfig? Sandbox { get; init; }
 
+    /// <summary>2026-11-25-9992d: the private package feeds this project's runs stage, tokens resolved.</summary>
+    public IReadOnlyList<RegistryConfig> Registries { get; init; } = [];
+
     /// <summary>2026-11-17-023fa: whether a green code run merges its own pull requests.</summary>
     public MergePolicyConfig Merge { get; init; } = new();
 

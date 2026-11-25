@@ -24,10 +24,10 @@ public sealed class CliConfigCompositionTests
 
             var config = provider.GetRequiredService<AgentSmithConfig>();
 
-            config.Registries.Should().ContainSingle(
+            config.Agents.Should().ContainSingle(
                 "a handler injecting AgentSmithConfig must see what the operator configured, "
                 + "never the empty placeholder")
-                .Which.Host.Should().Be("packages.example.test");
+                .Which.Key.Should().Be("default");
         }
         finally { File.Delete(path); }
     }
@@ -40,10 +40,6 @@ public sealed class CliConfigCompositionTests
               default:
                 type: claude
                 model: sonnet
-            registries:
-            - host: packages.example.test
-              username: any
-              token: plain-token
             """);
         return path;
     }

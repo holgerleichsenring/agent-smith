@@ -179,6 +179,9 @@ projects:
       secrets:
         env:
           FEED_TOKEN: "todolist-build:feed-token"     # secretName:key
+        repo_env:
+          todolist-api:                               # only this repository's commands get it
+            DB_PASSWORD: "todolist-api:db-password"
         files:
           - mount: /secrets/signing.key
             secret: todolist-build
@@ -186,6 +189,8 @@ projects:
 ```
 
 The Secret lives in the namespace sandbox pods run in: `agentsmith` by default, `agentsmith-sandboxes` with sandbox isolation. With isolation on, a reference to a Secret that only exists in the server's namespace, `agentsmith-secrets` among them, does not resolve and the pod does not start. `env` entries become environment variables from a `secretKeyRef`; `files` entries are mounted read-only at `mount`. The command that uses them lives in the context's `prerequisites`. The run preflight checks the declaration without touching the cluster: a reference without a single `:`, a duplicate or a clashing mount is named before anything starts. Once the pod is up, a second check asserts by name that every declared variable and file arrived, and fails naming the missing one, never its value. On the Docker and in-process backends nothing is injected, and the preflight reports "NOT INJECTED" as a warning instead of failing.
+
+`env` reaches every command of every repository in the run. `repo_env` reaches only the named repository's commands: the pod carries those variables under scoped names, and the sandbox agent hands a command its own repository's under their plain names and drops the rest. This needs sandbox agents of wire protocol 3: a run's workspace, or any single sandbox pod, whose project has `repo_env` refuses to start against an older agent image and names the image and the protocol it speaks. A design turn's work clone of a repository carries only that repository's `repo_env`; a read-only source scope carries none. It is not a wall: files under `files` and the repositories' trees are readable by every command in the container, and a command running at the same time for another repository runs as the same user. The agent makes itself non-dumpable, which keeps a same-user command out of its environment; it does not stop root with `CAP_SYS_PTRACE`.
 
 ## Updating
 

@@ -88,4 +88,32 @@ public sealed class RepoSandboxTests
         sandbox.WorkDirectory().Should().Be("/work/api");
         sandbox.Backend().Should().BeSameAs(_inner);
     }
+
+    // 2026-11-25-9992d: a command of this repository receives its scoped secrets and no other repository's.
+    [Fact]
+    public async Task RunStepAsync_EveryStep_IsScopedToTheRepository()
+    {
+        (await SentAsync(Run(null))).SecretScope.Should().Be("api");
+    }
+
+    [Fact]
+    public async Task SecretScopedSandbox_StampsTheScope_AndReRootsNothing()
+    {
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile, Path: "src/a.cs", WorkingDirectory: null);
+
+        await new SecretScopedSandbox(_inner, "api").RunStepAsync(step, null, CancellationToken.None);
+
+        var sent = _inner.Steps.Single();
+        sent.SecretScope.Should().Be("api");
+        sent.Path.Should().Be("src/a.cs", "a work clone's tree is the sandbox's own /work");
+        sent.WorkingDirectory.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RunStepAsync_AStepScopedElsewhere_IsScopedToThisRepository()
+    {
+        var foreign = Run(null) with { SecretScope = "web" };
+
+        (await SentAsync(foreign)).SecretScope.Should().Be("api", "a repository's sandbox never speaks for another");
+    }
 }

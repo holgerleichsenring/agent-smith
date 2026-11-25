@@ -59,6 +59,27 @@ public sealed class InjectedSecretCheckTests
         finding.Message.Should().Contain("NOT INJECTED");
     }
 
+    // 2026-11-25-9992d: a run repository's sandbox wraps the injecting backend; its own scoped variables are tested as
+    // its commands see them (under their names, scoped to it), another repository's not at all.
+    [Fact]
+    public async Task Sandbox_ARepositorysSandbox_TestsItsOwnScopedVariablesOnly()
+    {
+        var injected = new ResolvedSandboxSecrets([new SecretEnvBinding("FEED", Source)], [],
+            [new SecretEnvBinding("API_DB", Source, "api"), new SecretEnvBinding("WEB_NPM", Source, "web")]);
+        var backend = new InjectingSandbox(injected, present: ["FEED"]);
+        var pipeline = new PipelineContext();
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { ["api"] = new RepoSandbox(backend, "api") });
+        pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, new Dictionary<string, string> { ["api"] = "api" });
+        pipeline.Set(ContextKeys.ProjectConfig, Project(injected));
+
+        var finding = await new InjectedSecretCheck(new SandboxSecretPresenceProbe()).RunAsync(pipeline, CancellationToken.None);
+
+        finding.Verdict.Should().Be(RunPreflightVerdict.Fail);
+        finding.Message.Should().Contain("api: API_DB").And.NotContain("WEB_NPM");
+        backend.Script.Should().Contain("${API_DB:-}").And.NotContain("WEB_NPM");
+    }
+
     private static async Task<RunPreflightFinding> Check(ISandbox sandbox, ResolvedSandboxSecrets declared)
     {
         var pipeline = new PipelineContext();

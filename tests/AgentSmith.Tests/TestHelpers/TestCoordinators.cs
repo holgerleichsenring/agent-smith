@@ -36,7 +36,7 @@ internal static class TestCoordinators
             targets, NullLogger<WorkspaceCheckpoint>.Instance);
         // No registry is configured, so the registry handler is never reached.
         var restore = new WorkspaceRepoRestore(TestGitCredentials.Resolver, TestGit.Identity, targets,
-            new MidRunRegistryAuth(null!, new AgentSmithConfig()), new PrerequisiteInstall(NullLogger<PrerequisiteInstall>.Instance),
+            new MidRunRegistryAuth(null!), new PrerequisiteInstall(NullLogger<PrerequisiteInstall>.Instance),
             NullLogger<WorkspaceRepoRestore>.Instance);
         return new WorkspaceRestart(checkpoint, restore, ReferenceCarryDoubles.Materializer(),
             cancellation ?? new Moq.Mock<IRunCancellationRegistry>().Object, NullLogger<WorkspaceRestart>.Instance);

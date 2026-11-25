@@ -18,7 +18,7 @@ public sealed class WorkspaceRepoRestoreTests
 
     private static WorkspaceRepoRestore Restore() => new(
         TestGitCredentials.Resolver, TestGit.Identity, new SandboxTargets(),
-        new MidRunRegistryAuth(null!, new AgentSmithConfig()), new PrerequisiteInstall(NullLogger<PrerequisiteInstall>.Instance),
+        new MidRunRegistryAuth(null!), new PrerequisiteInstall(NullLogger<PrerequisiteInstall>.Instance),
         NullLogger<WorkspaceRepoRestore>.Instance);
 
     private static PipelineContext Pipeline(ISandbox sandbox, string? prerequisites = null)

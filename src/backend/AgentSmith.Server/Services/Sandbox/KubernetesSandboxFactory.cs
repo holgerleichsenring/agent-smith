@@ -12,7 +12,8 @@ public sealed class KubernetesSandboxFactory(
     KubernetesPodLauncher launcher,
     KubernetesContainerSandboxes containers,
     KubernetesSandboxOptions options,
-    SandboxBusCredentials busCredentials) : ISandboxFactory
+    SandboxBusCredentials busCredentials,
+    WorkspaceAgentProtocolGate protocolGate) : ISandboxFactory
 {
     public async Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
@@ -25,6 +26,17 @@ public sealed class KubernetesSandboxFactory(
         var toolchain = new PodToolchain(spec.ToolchainImage, spec.Resources, jobId, bus.Url);
         var pod = podSpecBuilder.Build(podName, [toolchain], spec, options.OwnerReference);
         await launcher.LaunchAsync(pod, TimeSpan.FromSeconds(spec.TimeoutSeconds), spec.ImagePullSecrets, cancellationToken);
-        return containers.Create(podName, 0, toolchain, bus, spec, ownsPod: true);
+        var sandbox = containers.Create(podName, 0, toolchain, bus, spec, ownsPod: true);
+        try
+        {
+            // 2026-11-25-9992d: a pod carrying scoped secrets refuses an agent that would ignore the scope.
+            await protocolGate.RefuseOldAgentsAsync(spec, [(spec.ToolchainImage, sandbox)], cancellationToken);
+            return sandbox;
+        }
+        catch
+        {
+            await sandbox.ForceRemoveAsync(CancellationToken.None); // owns the pod: channel, bus credential, pod
+            throw;
+        }
     }
 }

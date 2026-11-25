@@ -53,7 +53,8 @@
     },
     "registries": {
       "type": "array",
-      "description": "Private package feeds the agent authenticates against inside a sandbox (get_artifact_credentials).",
+      "deprecated": true,
+      "description": "Retired 2026-11-25 and ignored: private package feeds are configured per project, under projects.<name>.registries. A stored configuration was moved by the data migration of `database migrate`. Declared only so an older file still validates; the server reports it as a retired key.",
       "items": { "$ref": "#/$defs/registry" }
     },
     "primary_provider": { "type": "string", "description": "The default agent provider when a project names none." },
@@ -1098,6 +1099,11 @@
             "respect_branch_protection": { "type": "boolean", "description": "false (default): merge past branch policies, protection rules and approval rules, which needs the token's bypass permission (Azure: Bypass policies when completing pull requests; GitHub: admin or ruleset bypass). true: arm auto-complete / auto-merge and let the host's rules decide." }
           }
         },
+        "registries": {
+          "type": "array",
+          "description": "2026-11-25-9992d: private package feeds this project's runs authenticate against inside the sandbox (nuget.config, .npmrc and other feed configs are matched by host). The token is a ${secret} reference.",
+          "items": { "$ref": "#/$defs/registry" }
+        },
         "polling": {
           "type": "object",
           "description": "Deprecated: polling belongs on the tracker (trackers.<name>.polling).",
@@ -1143,8 +1149,17 @@
               "properties": {
                 "env": {
                   "type": "object",
-                  "description": "Env vars sourced from a k8s Secret. Each value is 'secretName:key', e.g. SF_CLIENT_ID: 'sf-creds:client-id'.",
+                  "description": "Env vars sourced from a k8s Secret, for every command of every repository of the project. Each value is 'secretName:key', e.g. SF_CLIENT_ID: 'sf-creds:client-id'.",
                   "additionalProperties": { "type": "string" }
+                },
+                "repo_env": {
+                  "type": "object",
+                  "description": "2026-11-25-9992d: env vars only one repository's commands receive, keyed by repository name, each value 'secretName:key' like env. Needs sandbox agents of wire protocol 3; a workspace refuses an older agent. A secret FILE stays readable by every command of the container.",
+                  "additionalProperties": {
+                    "type": "object",
+                    "additionalProperties": { "type": "string" }
+                  },
+                  "examples": [{"billing-api": {"NUGET_TOKEN": "billing-feed:token"}}]
                 },
                 "files": {
                   "type": "array",

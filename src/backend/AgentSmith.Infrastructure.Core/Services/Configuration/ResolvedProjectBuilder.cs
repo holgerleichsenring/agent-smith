@@ -114,6 +114,7 @@ public sealed class ResolvedProjectBuilder(
             AzuredevopsTrigger = raw.AzuredevopsTrigger,
             Polling = raw.Polling,
             Sandbox = raw.Sandbox,
+            Registries = [.. raw.Registries.Select(r => new RegistryConfig(r.Host, r.Username, r.Token))], // 2026-11-25-9992d
             Merge = raw.Merge ?? new MergePolicyConfig(), // 2026-11-17-023fa
         };
 }

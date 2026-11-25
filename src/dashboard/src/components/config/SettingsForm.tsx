@@ -12,7 +12,6 @@ import type {
   TraceSetting,
   PrimaryProviderSetting,
   QueueSetting,
-  RegistriesSetting,
   SandboxSetting,
   SeriesSetting,
   SettingKey,
@@ -78,8 +77,6 @@ export function SettingsForm({
       );
     case "deployment":
       return <DeploymentForm value={value as DeploymentSetting} onChange={onChange} />;
-    case "registries":
-      return <RegistriesForm value={value as RegistriesSetting} onChange={onChange} />;
     case "primary_provider":
       return (
         <PrimaryProviderForm
@@ -566,44 +563,5 @@ function TraceForm({
   return (
     <CheckField label={t("config.trace.enabled")}
       value={value.enabled} onChange={(v) => set({ enabled: v })} testId="setting-trace-enabled" />
-  );
-}
-
-function RegistriesForm({
-  value,
-  onChange,
-}: {
-  value: RegistriesSetting;
-  onChange: (v: SettingValue) => void;
-}) {
-  const setAt = (i: number, patch: Partial<RegistriesSetting[number]>) =>
-    onChange(value.map((r, j) => (j === i ? { ...r, ...patch } : r)) as SettingValue);
-  const remove = (i: number) => onChange(value.filter((_, j) => j !== i) as SettingValue);
-  const add = () => onChange([...value, { host: "", username: "", token: "" }] as SettingValue);
-  const t = useT();
-
-  return (
-    <>
-      {value.length === 0 && <span className="help">{t("config.registries.none")}</span>}
-      {value.map((entry, i) => (
-        <DrawerSection key={i} title={entry.host || t("config.registries.feed", { n: i + 1 })} defaultOpen
-          testId={`setting-registry-${i}`}>
-          <TextField label={t("config.registries.host")} value={entry.host} onChange={(v) => setAt(i, { host: v })} mono
-            placeholder="pkgs.dev.azure.com" testId={`setting-registry-${i}-host`} />
-          <TextField label={t("config.registries.username")} value={entry.username} onChange={(v) => setAt(i, { username: v })} mono
-            placeholder={t("config.registries.usernamePlaceholder")} testId={`setting-registry-${i}-username`} />
-          <TextField label={t("config.registries.token.label")} value={entry.token} onChange={(v) => setAt(i, { token: v })} mono
-            placeholder="${feed_token}" testId={`setting-registry-${i}-token`}
-            help={t("config.registries.token.help")} />
-          <button type="button" className="btn" onClick={() => remove(i)}
-            data-testid={`setting-registry-${i}-remove`} style={{ color: "var(--bad)" }}>
-            {t("config.registries.remove")}
-          </button>
-        </DrawerSection>
-      ))}
-      <button type="button" className="btn" onClick={add} data-testid="setting-registry-add">
-        {t("config.registries.add")}
-      </button>
-    </>
   );
 }

@@ -52,7 +52,7 @@ Pod (RestartPolicy=Never)
 ├── container toolchain-0          image: <first toolchain image>
 │   command: [/shared/agent]
 │   args: --job-id $JOB_ID [--run-id $RUN_ID]
-│   env: REDIS_URL, JOB_ID (its own) and sandbox.secrets.env (secretKeyRef)
+│   env: REDIS_URL, JOB_ID (its own), sandbox.secrets.env and repo_env under scoped names (secretKeyRef)
 │   volumeMounts: /shared (ro), /work, its own home (hardened), sandbox.secrets.files (ro)
 │   workingDir: /work
 └── container toolchain-1 …        one per further image, same shape
@@ -70,6 +70,15 @@ every process in the container could read it. A command the agent runs (a build,
 shell line the model wrote) doesn't inherit `REDIS_URL` or `JOB_ID` unless the step sets
 them itself. That keeps them out of `env` and `ps`; it doesn't make them unreachable for a
 process that goes looking.
+
+`sandbox.secrets.repo_env` variables travel as `AGENTSMITH_SECRET_<HEX>__<NAME>`, HEX being
+the repository name's UTF-8 bytes in uppercase hex. Every step a repository's sandbox sends
+names that repository (`SecretScope`, wire protocol 3); the agent drops every scoped
+variable from a command's environment and adds back the step's repository's under their
+plain names, unless the step sets the name itself. On Linux the agent makes itself
+non-dumpable at startup, so a command cannot read the full set from the agent's
+`/proc/<pid>/environ`. That does not stop root with `CAP_SYS_PTRACE`. A design turn's work clone carries
+only its own repository's `repo_env`; a read-only source scope carries none.
 
 The agent image tag is derived from the release the server is, unless
 `sandbox.agent_version` (or `deployment.version`) pins one. A pin is reported as an

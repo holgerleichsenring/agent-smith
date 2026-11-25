@@ -109,4 +109,24 @@ public sealed class PodSpecBuilderSecretsTests
 
         pod.Spec.Containers.SelectMany(c => c.Env ?? []).Should().NotContain(e => e.Name == "GIT_TOKEN");
     }
+
+    // 2026-11-25-9992d: a repository's own variable travels under its scoped name; a project-wide one keeps its name.
+    [Fact]
+    public void Build_RepoEnv_IsProjectedUnderTheScopedName_EnvUnderItsOwn()
+    {
+        var secrets = new ResolvedSandboxSecrets(
+            [new SecretEnvBinding("FEED_TOKEN", new SecretRef("build", "feed"))], [],
+            [new SecretEnvBinding("DB_PASSWORD", new SecretRef("api-creds", "db"), "api")]);
+
+        var pod = Builder.Build("p", "j", "redis:6379", SpecWith(secrets), owner: null);
+
+        var env = pod.Spec.Containers.Single(c => c.Name == "toolchain-0").Env;
+        env.Should().Contain(e => e.Name == "FEED_TOKEN" && e.ValueFrom.SecretKeyRef.Name == "build");
+        env.Should().NotContain(e => e.Name == "DB_PASSWORD", "a scoped variable never travels under the name a command reads");
+        var scoped = env.Single(e => e.Name == AgentSmith.Sandbox.Wire.ScopedSecretNames.For("api", "DB_PASSWORD"));
+        scoped.Name.Should().Be("AGENTSMITH_SECRET_617069__DB_PASSWORD");
+        scoped.Value.Should().BeNull();
+        scoped.ValueFrom.SecretKeyRef.Name.Should().Be("api-creds");
+        scoped.ValueFrom.SecretKeyRef.Key.Should().Be("db");
+    }
 }

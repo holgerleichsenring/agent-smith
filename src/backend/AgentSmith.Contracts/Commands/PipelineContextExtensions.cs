@@ -17,6 +17,14 @@ public static class PipelineContextExtensions
     public static ResolvedPipelineConfig Resolved(this PipelineContext pipeline) =>
         pipeline.Get<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline);
 
+    /// <summary>2026-11-25-9992d: the private feeds of the run's project; none outside a project's run.</summary>
+    public static IReadOnlyList<RegistryConfig> ProjectRegistries(this PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        return pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project) && project is not null
+            ? project.Registries : [];
+    }
+
     /// <summary>
     /// 2026-09-01-b467: the id of the run this pipeline is executing, or null outside one.
     /// It is the name the run's own commits carry on the branch, which is how the delivery

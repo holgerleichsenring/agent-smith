@@ -10,6 +10,8 @@ namespace AgentSmith.Sandbox.Agent.Services;
 /// it does not make them unreachable (2026-10-02-f35f).
 /// 2026-10-16-8648: on a musl image the launcher puts the agent's own libstdc++ directory on
 /// LD_LIBRARY_PATH; a step's tools must load the image's libraries, so that entry goes too.
+/// 2026-11-25-9992d: every repository-scoped secret goes as well, except the step's own repository's
+/// (<see cref="ScopedSecretEnvironment"/>).
 /// </summary>
 internal static class AgentProcessEnvironment
 {
@@ -18,12 +20,14 @@ internal static class AgentProcessEnvironment
     /// <summary>The launcher names the directory it prepended to LD_LIBRARY_PATH here.</summary>
     internal const string MuslLibVariable = "AGENTSMITH_MUSL_LIB";
 
-    internal static void Scrub(ProcessStartInfo info, IReadOnlyDictionary<string, string>? stepEnv)
+    internal static void Scrub(
+        ProcessStartInfo info, IReadOnlyDictionary<string, string>? stepEnv, string? secretScope = null)
     {
         ArgumentNullException.ThrowIfNull(info);
         foreach (var key in AgentOnly)
             if (stepEnv?.ContainsKey(key) != true) info.Environment.Remove(key);
         DropLauncherLibraryPath(info, stepEnv);
+        ScopedSecretEnvironment.Apply(info, stepEnv, secretScope); // 2026-11-25-9992d
     }
 
     private static void DropLauncherLibraryPath(ProcessStartInfo info, IReadOnlyDictionary<string, string>? stepEnv)

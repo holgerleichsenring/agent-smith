@@ -67,12 +67,14 @@ public class YamlConfigurationLoaderTests
         {
             var config = _loader.LoadConfig(TestDataPath("registries-config.yml"));
 
-            config.Registries.Should().HaveCount(2);
-            config.Registries[0].Host.Should().Be("pkgs.dev.azure.com");
-            config.Registries[0].Username.Should().Be("any");
-            config.Registries[0].Token.Should().Be("azure-token-xyz");
-            config.Registries[1].Host.Should().Be("my-company.jfrog.io");
-            config.Registries[1].Token.Should().Be("jfrog-token-abc");
+            // 2026-11-25-9992d: the feeds live on the project.
+            var registries = config.Projects["testproject"].Registries;
+            registries.Should().HaveCount(2);
+            registries[0].Host.Should().Be("pkgs.dev.azure.com");
+            registries[0].Username.Should().Be("any");
+            registries[0].Token.Should().Be("azure-token-xyz");
+            registries[1].Host.Should().Be("my-company.jfrog.io");
+            registries[1].Token.Should().Be("jfrog-token-abc");
         }
         finally
         {

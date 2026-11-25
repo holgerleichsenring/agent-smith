@@ -24,7 +24,6 @@ public sealed class RawAgentSmithConfig
     // 2026-11-18-78efb: filled by ConfigSecretResolver, never read from a file.
     [YamlDotNet.Serialization.YamlIgnore] [System.Text.Json.Serialization.JsonIgnore]
     public Dictionary<string, string> UnreadableSecrets { get; set; } = new();
-    public List<RawRegistryEntry> Registries { get; set; } = new();
 
     public QueueConfig Queue { get; set; } = new();
     public SkillsConfig Skills { get; set; } = new();

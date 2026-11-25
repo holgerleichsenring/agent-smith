@@ -188,8 +188,8 @@ public sealed class FixBugTests
             // This test is about the loaded config/registries reaching DI — true
             // regardless of the keystone outcome of a no-change run.
             result.Should().NotBeNull("the pipeline must run to a terminal result");
-            harness.Config.Registries.Should().NotBeEmpty(
-                "the fixture YAML's registries block must reach the production DI graph; " +
+            harness.Config.Projects.Values.SelectMany(project => project.Registries).Should().NotBeEmpty(
+                "the fixture YAML's project registries block must reach the production DI graph; " +
                 "if empty, the p0198-followup ordering bug is back.");
         }
         finally

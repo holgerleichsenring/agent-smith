@@ -24,6 +24,9 @@ public sealed class SetupRegistryAuthHandlerTests
     private const string Token = "secret-token-xyz";
     private const string AzdoHost = "pkgs.dev.azure.com";
 
+    // 2026-11-25-9992d: the feeds are the run's project's; MakeHandler names them, the pipelines carry the project.
+    private IReadOnlyList<RegistryConfig> _registries = [];
+
     [Fact]
     public async Task NoRegistriesConfigured_ReturnsOk_SkipsCleanly()
     {
@@ -40,7 +43,7 @@ public sealed class SetupRegistryAuthHandlerTests
     public async Task NoSandboxesPublished_ReturnsOk_SkipsCleanly()
     {
         var handler = MakeHandler(out _);
-        var pipeline = new PipelineContext();
+        var pipeline = ProjectPipeline();
 
         var result = await handler.ExecuteAsync(new SetupRegistryAuthContext(pipeline), CancellationToken.None);
 
@@ -90,6 +93,25 @@ public sealed class SetupRegistryAuthHandlerTests
         content.Should().Contain(
             "<add key=\"MyPrivate\" value=\"https://pkgs.dev.azure.com/AcmeOrg/.../nuget/v3/index.json\" />");
         content.Should().Contain("<add key=\"nuget.org\"");
+    }
+
+    // 2026-11-25-9992d: the feeds are the run's project's — another project's feed for the same host is not staged.
+    [Fact]
+    public async Task AnotherProjectsFeed_IsNotStagedForThisProjectsRun()
+    {
+        var handler = MakeHandler(out var reader);
+        reader.Setup(r => r.ListAsync("/work", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/nuget.config" });
+        reader.Setup(r => r.TryReadAsync("/work/nuget.config", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NuGetConfigXml("MyPrivate", "https://pkgs.dev.azure.com/AcmeOrg/.../nuget/v3/index.json"));
+        var pipeline = MakePipelineWithSandbox(out _);
+        pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "other-project" });
+        var written = CaptureWrites(reader);
+
+        var result = await handler.ExecuteAsync(new SetupRegistryAuthContext(pipeline), CancellationToken.None);
+
+        result.Message.Should().Contain("No registries configured");
+        written.Should().BeEmpty();
     }
 
     /// <summary>
@@ -329,10 +351,7 @@ public sealed class SetupRegistryAuthHandlerTests
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
 
-        var config = new AgentSmithConfig
-        {
-            Registries = registries ?? new[] { new RegistryConfig(AzdoHost, "any", Token) },
-        };
+        _registries = registries ?? new[] { new RegistryConfig(AzdoHost, "any", Token) };
         var applier = new GenericRegistryAuthApplier(
             new RegistryAuthTemplateStore(
                 new ContextYamlRegistryAuthCodec(new ContextYamlBuilders()), NullLogger<RegistryAuthTemplateStore>.Instance),
@@ -340,14 +359,12 @@ public sealed class SetupRegistryAuthHandlerTests
             stager ?? new RecordingStager(),
             new StagedAuthFileWriter(
                 new RegistryAuthPathGuard(), new SecretLeakGuard(), new RegistryTokenSubstitutor(),
-                config, NullLogger<StagedAuthFileWriter>.Instance),
+                NullLogger<StagedAuthFileWriter>.Instance),
             new RegistryAuthFailureReporter(
                 (decisions ?? new Mock<IDecisionLogger>()).Object,
                 NullLogger<RegistryAuthFailureReporter>.Instance),
-            config,
             NullLogger<GenericRegistryAuthApplier>.Instance);
-        return new SetupRegistryAuthHandler(
-            factory.Object, config, applier, NullLogger<SetupRegistryAuthHandler>.Instance);
+        return new SetupRegistryAuthHandler(factory.Object, applier, NullLogger<SetupRegistryAuthHandler>.Instance);
     }
 
     /// <summary>
@@ -378,7 +395,7 @@ public sealed class SetupRegistryAuthHandlerTests
             throw new InvalidOperationException("scripted stager failure");
     }
 
-    private static PipelineContext MakePipelineWithSandboxAndAgent(out Mock<ISandbox> sandbox)
+    private PipelineContext MakePipelineWithSandboxAndAgent(out Mock<ISandbox> sandbox)
     {
         var pipeline = MakePipelineWithSandbox(out sandbox);
         pipeline.Set(ContextKeys.ResolvedPipeline,
@@ -386,13 +403,20 @@ public sealed class SetupRegistryAuthHandlerTests
         return pipeline;
     }
 
-    private static PipelineContext MakePipelineWithSandbox(out Mock<ISandbox> sandbox)
+    private PipelineContext MakePipelineWithSandbox(out Mock<ISandbox> sandbox)
     {
         sandbox = new Mock<ISandbox>();
-        var pipeline = new PipelineContext();
+        var pipeline = ProjectPipeline();
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes,
             new Dictionary<string, ISandbox> { ["repo"] = sandbox.Object });
+        return pipeline;
+    }
+
+    private PipelineContext ProjectPipeline()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "proj", Registries = _registries });
         return pipeline;
     }
 

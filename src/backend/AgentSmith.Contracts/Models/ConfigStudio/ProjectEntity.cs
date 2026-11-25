@@ -41,7 +41,10 @@ public sealed record ProjectEntity(
     // the stored value alone; blank clears it back to the default.
     string? RequiresStart = null,
     // 2026-11-17-b34eb: the merge block. Nullable for the same reason Templates is — absent leaves the stored block alone.
-    ProjectMerge? Merge = null)
+    ProjectMerge? Merge = null,
+    // 2026-11-25-9992d: the project's private package feeds, the token a secret reference as stored. Nullable for the
+    // same reason Templates is — absent leaves the stored list alone; an empty list clears it.
+    IReadOnlyList<Configuration.RegistryConfig>? Registries = null)
 {
     public ProjectEntity() : this(string.Empty, string.Empty, string.Empty, [], null, []) { }
 }

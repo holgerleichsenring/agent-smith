@@ -20,30 +20,29 @@ public sealed class GenericRegistryAuthApplier(
     IRegistryAuthStager stager,
     StagedAuthFileWriter fileWriter,
     RegistryAuthFailureReporter failureReporter,
-    AgentSmithConfig config,
     ILogger<GenericRegistryAuthApplier> logger)
 {
     public async Task<IReadOnlyList<StagedAuthFile>> ApplyAsync(
         string repoKey, ISandbox sandbox, ISandboxFileReader reader,
-        IReadOnlyList<string> listing, ISet<string> coveredHosts,
+        IReadOnlyList<string> listing, ISet<string> coveredHosts, IReadOnlyList<RegistryConfig> registries,
         Func<AgentConfig> agentFactory, CancellationToken ct)
     {
         var declared = await templateStore.TryReadAsync(repoKey, listing, reader, ct);
         if (declared is not null)
         {
-            var (written, _) = await WriteAllAsync(repoKey, reader, declared, ct);
+            var (written, _) = await WriteAllAsync(repoKey, reader, declared, registries, ct);
             return written;
         }
-        return await StageViaLlmAsync(repoKey, sandbox, reader, listing, coveredHosts, agentFactory, ct);
+        return await StageViaLlmAsync(repoKey, sandbox, reader, listing, coveredHosts, registries, agentFactory, ct);
     }
 
     private async Task<IReadOnlyList<StagedAuthFile>> StageViaLlmAsync(
         string repoKey, ISandbox sandbox, ISandboxFileReader reader,
-        IReadOnlyList<string> listing, ISet<string> coveredHosts,
+        IReadOnlyList<string> listing, ISet<string> coveredHosts, IReadOnlyList<RegistryConfig> registries,
         Func<AgentConfig> agentFactory, CancellationToken ct)
     {
         var uncovered = await hostGrep.FindUncoveredAsync(
-            listing, coveredHosts, config.Registries, reader, repoKey, ct);
+            listing, coveredHosts, registries, reader, repoKey, ct);
         if (uncovered.Count == 0) return [];
 
         RegistryAuthStagingResult result;
@@ -58,7 +57,7 @@ public sealed class GenericRegistryAuthApplier(
             return [];
         }
 
-        var (written, handledHosts) = await WriteAllAsync(repoKey, reader, result.Files, ct);
+        var (written, handledHosts) = await WriteAllAsync(repoKey, reader, result.Files, registries, ct);
         await ReportUnhandledHostsAsync(repoKey, uncovered, handledHosts, ct);
         if (written.Count > 0)
             await templateStore.PersistAsync(repoKey, listing, reader, written, ct);
@@ -68,13 +67,14 @@ public sealed class GenericRegistryAuthApplier(
     // handledHosts = hosts either staged successfully or already covered by a loud
     // per-file failure report — so a host never produces two decision lines.
     private async Task<(IReadOnlyList<StagedAuthFile> Written, ISet<string> HandledHosts)> WriteAllAsync(
-        string repoKey, ISandboxFileReader reader, IReadOnlyList<StagedAuthFile> files, CancellationToken ct)
+        string repoKey, ISandboxFileReader reader, IReadOnlyList<StagedAuthFile> files,
+        IReadOnlyList<RegistryConfig> registries, CancellationToken ct)
     {
         var written = new List<StagedAuthFile>();
         var handledHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in files)
         {
-            var outcome = await fileWriter.WriteAsync(repoKey, reader, file, ct);
+            var outcome = await fileWriter.WriteAsync(repoKey, reader, file, registries, ct);
             if (outcome.Written)
                 written.Add(new StagedAuthFile(outcome.WrittenPath!, file.Content));
             else

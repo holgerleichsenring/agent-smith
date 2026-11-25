@@ -10,14 +10,15 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <see cref="SetupRegistryAuthHandler"/> staged them in the sandboxes the run started with, and adds what it wrote
 /// to the run's staged list — so no master needs a tool that hands it credentials.
 /// </summary>
-public sealed class MidRunRegistryAuth(SetupRegistryAuthHandler handler, AgentSmithConfig config)
+public sealed class MidRunRegistryAuth(SetupRegistryAuthHandler handler)
 {
     public async Task<IReadOnlyList<string>> StageAsync(
         PipelineContext pipeline, string repoKey, ISandbox sandbox, CancellationToken cancellationToken)
     {
-        if (config.Registries.Count == 0) return [];
+        var registries = pipeline.ProjectRegistries(); // 2026-11-25-9992d: the run's project's feeds
+        if (registries.Count == 0) return [];
         var written = new List<string>();
-        await handler.StageInSandboxAsync(repoKey, sandbox, handler.RootsOf(pipeline, sandbox),
+        await handler.StageInSandboxAsync(repoKey, sandbox, handler.RootsOf(pipeline, sandbox), registries,
             () => pipeline.Resolved().Agent, written, cancellationToken);
         var staged = pipeline.TryGet<List<string>>(ContextKeys.StagedRegistries, out var held) && held is not null
             ? new List<string>(held) : [];

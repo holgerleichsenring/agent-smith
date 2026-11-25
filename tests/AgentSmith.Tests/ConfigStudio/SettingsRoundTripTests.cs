@@ -23,7 +23,7 @@ public sealed class SettingsRoundTripTests
         h.Store.SettingTypes.Should().BeEquivalentTo(new[]
         {
             "orchestrator", "limits", "pipeline_cost_cap", "skills", "sandbox", "queue",
-            "dialogue", "deployment", "registries", "primary_provider",
+            "dialogue", "deployment", "primary_provider", // 2026-11-25-9992d: registries moved onto the project
             // 2026-08-25-1806: what a role name means is application configuration too.
             "pipeline_data_flow", "role_mapping", "trace",
             "spec_review", // 2026-10-13-8762g
@@ -34,7 +34,7 @@ public sealed class SettingsRoundTripTests
             "holds", // 2026-11-23-31dci
             "pocs", // 2026-11-23-933da
         });
-        h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret");
+        h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret").And.NotContain("registries");
     }
 
     [Fact]
@@ -242,19 +242,6 @@ public sealed class SettingsRoundTripTests
 
         h.Assembler.Assemble(h.DocStore.LoadAll()).PrimaryProvider.Should().Be("claude-default");
         Wire(h.Store.GetSetting("primary_provider")).GetProperty("value").GetString().Should().Be("claude-default");
-    }
-
-    [Fact]
-    public void SaveSetting_ListRegistries_RoundTrips()
-    {
-        using var h = new DbConfigTestHarness();
-
-        h.Store.SaveSetting("registries",
-            Doc("""[{"host":"pkgs.dev.azure.com","username":"any","token":"${feed_token}"}]"""),
-            new ChangeAttribution("op"));
-
-        var registries = h.Assembler.Assemble(h.DocStore.LoadAll()).Registries;
-        registries.Should().ContainSingle().Which.Host.Should().Be("pkgs.dev.azure.com");
     }
 
     // 2026-09-18-0f27: a settings save binds the client's payload onto a FRESH scratch

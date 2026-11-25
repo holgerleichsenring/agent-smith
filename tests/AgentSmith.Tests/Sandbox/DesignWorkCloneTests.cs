@@ -135,6 +135,35 @@ public sealed class DesignWorkCloneTests
         spec.ToolchainImage.Should().Be("dotnet:9", "the root-first context's image");
     }
 
+    // 2026-11-25-9992d: a work clone carries its own repository's scoped secrets only, and its steps speak for it.
+    [Fact]
+    public async Task WorkClone_CarriesOnlyItsRepositorysScopedSecrets_AndScopesItsSteps()
+    {
+        var project = Project with
+        {
+            Sandbox = new SandboxConfig
+            {
+                Secrets = new SandboxSecrets
+                {
+                    RepoEnv = new Dictionary<string, Dictionary<string, string>>
+                    {
+                        ["api"] = new() { ["API_DB"] = "api:db" },
+                        ["web"] = new() { ["WEB_NPM"] = "web:npm" },
+                    },
+                },
+            },
+        };
+        var sandbox = new Recording();
+        var factory = new Factory(sandbox);
+
+        var clone = await Opener(factory).OpenAsync(project, Repo, Sha, fullHistory: false, default);
+        await clone.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "dotnet"), null, default);
+
+        factory.Spec!.Secrets!.RepoEnv.Should().ContainSingle().Which.EnvName.Should().Be("API_DB");
+        sandbox.Steps.Last().SecretScope.Should().Be("api");
+        clone.Backend().Should().BeSameAs(sandbox);
+    }
+
     [Fact]
     public async Task DesignTurnResources_Dispose_DisposesScopesAndWorkClones()
     {

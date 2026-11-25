@@ -46,6 +46,7 @@ internal static class KubernetesSandboxRegistrations
             sp.GetRequiredService<ILoggerFactory>()));
         services.AddSingleton<ISandboxFactory, KubernetesSandboxFactory>();
         // 2026-11-25-9992b: a run's workspace — one pod, a container per image — on the same pod and container code.
+        services.AddSingleton<WorkspaceAgentProtocolGate>(); // 2026-11-25-9992d
         services.AddSingleton<IWorkspaceFactory, KubernetesWorkspaceFactory>();
         // p0269a: admission reads the namespace ResourceQuota. Replaces the Unbounded
         // default registered in the Application composition.

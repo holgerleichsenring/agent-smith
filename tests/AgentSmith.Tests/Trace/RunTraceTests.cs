@@ -17,7 +17,10 @@ public sealed class RunTraceTests
     {
         var config = new AgentSmithConfig
         {
-            Registries = [new RegistryConfig("packages.example.test", "ci", "glpat-SECRETVALUE123")],
+            Projects = new Dictionary<string, ResolvedProject>
+            {
+                ["p"] = new() { Registries = [new RegistryConfig("packages.example.test", "ci", "glpat-SECRETVALUE123")] },
+            },
             Secrets = new Dictionary<string, string> { ["AZDO_PAT"] = "pat-9f2c11ab4400" },
         };
         var masker = new SecretMasker(new LoadedSecretValues(config));
