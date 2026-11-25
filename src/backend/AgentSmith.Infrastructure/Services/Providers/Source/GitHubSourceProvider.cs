@@ -333,7 +333,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     public Task<PullRequestCi> ReadCiAsync(string prUrl, CiReadRequest request, CancellationToken cancellationToken)
     {
         var client = CreateGitHubClient();
-        return new GitHubCiReader(client, _address, (job, _) => client.Actions.Workflows.Jobs.GetLogs(_owner, _repo, job))
+        return new GitHubCiReader(client, _address, (job, _) => client.Actions.Workflows.Jobs.GetLogs(_owner, _repo, job), _logger)
             .ReadAsync(prUrl, request, cancellationToken);
     }
 
