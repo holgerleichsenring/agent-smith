@@ -46,6 +46,30 @@ public sealed class AzureReposAutoComplete(
         return Interpret(updated, prId);
     }
 
+    /// <summary>
+    /// 2026-11-24-629ab: arms auto-complete again after Azure dropped it at a merge conflict — as the same identity, with the
+    /// pull request's own completion options when it still carries them, and no vote: whoever set it first decided the merge,
+    /// and a vote is a review nobody asked for. One that is armed already is left as it is.
+    /// </summary>
+    public async Task<PullRequestCompletion> RearmAsync(GitHttpClient client, GitPullRequest pr, int prId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(pr);
+        if (pr.AutoCompleteSetBy is not null) return PullRequestCompletion.Armed("Auto-complete is set already.");
+        if (pr.CreatedBy is not { } identity)
+            return PullRequestCompletion.Refused($"Azure DevOps returned no creator identity for pull request !{prId}.");
+        var updated = await client.UpdatePullRequestAsync(
+            Arming(pr, identity, Kept(pr.CompletionOptions)), project, repoName, prId, cancellationToken: cancellationToken);
+        return Interpret(updated, prId);
+    }
+
+    // How the person wanted it merged, never past a policy: a bypass, its reason and ignored policies are not carried over.
+    private static GitPullRequestCompletionOptions? Kept(GitPullRequestCompletionOptions? had) => had is null ? null : new()
+    {
+        MergeStrategy = had.MergeStrategy, SquashMerge = had.SquashMerge, DeleteSourceBranch = had.DeleteSourceBranch,
+        MergeCommitMessage = had.MergeCommitMessage, TransitionWorkItems = had.TransitionWorkItems,
+    };
+
     private async Task ApproveAsync(
         GitHttpClient client, Microsoft.VisualStudio.Services.WebApi.IdentityRef identity,
         int prId, CancellationToken cancellationToken)
@@ -56,13 +80,13 @@ public sealed class AzureReposAutoComplete(
         logger.LogInformation("PR !{PrId} approved by {Identity}", prId, identity.DisplayName ?? identity.Id);
     }
 
-    private static GitPullRequest Arming(
-        GitPullRequest pr, Microsoft.VisualStudio.Services.WebApi.IdentityRef identity) => new()
+    private static GitPullRequest Arming(GitPullRequest pr, Microsoft.VisualStudio.Services.WebApi.IdentityRef identity,
+        GitPullRequestCompletionOptions? options = null) => new()
         {
             AutoCompleteSetBy = identity,
             // 2026-11-17-713eb: the merge deletes the source branch. p0490 kept it as an audit
             // trail; the merged pull request is that trail, and a kept branch only went stale.
-            CompletionOptions = new GitPullRequestCompletionOptions { DeleteSourceBranch = true },
+            CompletionOptions = options ?? new GitPullRequestCompletionOptions { DeleteSourceBranch = true },
         };
 
     private PullRequestCompletion Interpret(GitPullRequest updated, int prId)

@@ -17,4 +17,8 @@ public sealed record PrReviewState(
     /// <summary>2026-11-24-6811a: the host says the pull request conflicts with its base (true), merges cleanly (false), or
     /// has not decided yet — a host computes mergeability after the base moves (null).</summary>
     public bool? HasConflicts { get; init; }
+
+    /// <summary>2026-11-24-629ab: the host says auto-complete is set on the pull request (true) or not (false); null when
+    /// its state read does not say — GitHub and GitLab.</summary>
+    public bool? AutoCompleteArmed { get; init; }
 }

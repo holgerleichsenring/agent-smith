@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-629aa
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "The CI loop queues a required build again when it has not started or expired on the current head for merge.ci_settle_seconds"
+    over: "Leaving it to the post-push re-queue (5ee0) and a person's Queue button"
+    reason: "Operator brief after an Azure evaluation sat queued with buildId 0 for 30+ minutes; the post-push re-queue can also race Azure resetting the evaluation for the new head. Named as the follow-up in 5ee0."
+  - category: Architecture
+    decider: claude
+    chose: "A merge-green run whose pull requests carry NotStarted, started by CiBuildRequeue after a record refresh; CompletePullRequests queues through the existing PullRequestBuildRequeue and returns before any merge"
+    over: "Queuing from the server's refresh, or a new pipeline preset"
+    reason: "The server writes nothing to a host (ServerWritesRatchetTests). SeriesCiStart (f9c5d) already acts from the CI loop through a flagged merge-green run; no second path, no new trigger, no new preset."
+  - category: Implementation
+    decider: claude
+    chose: "Every merge mode, every target branch; drafts and conflicting pull requests skipped"
+    over: "Only merge: on_ci_green"
+    reason: "A build that never starts blocks a person's merge and an armed auto-complete as much as the CI merge. A draft runs no build policy (publishing it re-queues, 0219); Azure builds no pull request that cannot merge, and the conflict refresh (297b) owns that one."
+  - category: Implementation
+    decider: claude
+    chose: "Mark '<head>:not_started@<first-read ticks>' in CiActed — once per spell of not_started on a head"
+    over: "ActedMark '<head>:not_started' (once per head ever), or a new column"
+    reason: "Diff review: with the plain mark, an evaluation that expires after a re-queued head went green would never be queued again under merge: manual (nothing writes a green mark there), while under on_ci_green it would. The first-read time names the spell, so a re-queue that does not take is not repeated and a later expiry is. The CI watch's query compares marks only for decided states, so the suffix changes nothing there."
+  - category: Implementation
+    decider: claude
+    chose: "No new limit: merge.ci_settle_seconds is the wait, merge.ci_pending_seconds bounds how long a not_started record is polled"
+    over: "A requeue-specific setting"
+    reason: "Both already mean 'a host registers its checks a while after a push' and 'stop polling a head that never moves'. A settle at or above the pending bound would leave the rule to the periodic re-read; the defaults (180 s, 3600 s) do not."
+  - category: Scope
+    decider: claude
+    chose: "GitHub and GitLab: a documented no-op"
+    over: "Re-running a check or pipeline there"
+    reason: "Neither provider implements IPullRequestBuildRequeuer and neither CI read says not_started — their CI starts on push and a required check does not expire, so there is nothing the rule would see."

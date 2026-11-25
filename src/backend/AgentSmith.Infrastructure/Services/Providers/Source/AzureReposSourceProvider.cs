@@ -21,7 +21,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup, IPrMarkedThreadResolver
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IPullRequestCiReader, IPullRequestBuildRequeuer, IPullRequestApprover, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser, IWorkBranchCleanup, IPrMarkedThreadResolver, IPullRequestAutoCompleteRearmer
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -380,9 +380,9 @@ public sealed class AzureReposSourceProvider(
     private Task<GitHttpClient> CreateConnectionAsync(CancellationToken cancellationToken) =>
         clientFactory.CreateGitClientAsync(_organizationUrl, _personalAccessToken, cancellationToken);
 
-    public Task<bool> UpdatePullRequestBodyAsync(
-        string prUrl, string newBody, CancellationToken cancellationToken) =>
+    public Task<bool> UpdatePullRequestBodyAsync(string prUrl, string newBody, CancellationToken cancellationToken) =>
         _pullRequests.UpdateBodyAsync(prUrl, newBody, cancellationToken);
+    public Task<PullRequestCompletion> RearmAutoCompleteAsync(string prUrl, CancellationToken ct) => _pullRequests.RearmAsync(prUrl, ct); // 629ab
 
     public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
         _pullRequests.MarkReadyAsync(prUrl, cancellationToken);

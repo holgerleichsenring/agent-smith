@@ -34,7 +34,10 @@ public static class AzureReposVoteDecisions
         // 2026-11-23-8df6a: on an active pull request LastMergeCommit is the test merge, so only a completed one names it.
         return new PrReviewState(pr.PullRequestId.ToString(CultureInfo.InvariantCulture), state, at, decisions,
             pr.LastMergeSourceCommit?.CommitId, state == PrReviewStates.Merged ? pr.LastMergeCommit?.CommitId : null)
-            { IsDraft = pr.IsDraft == true, HasConflicts = Conflicts(pr.MergeStatus, pr.LastMergeTargetCommit?.CommitId, targetTip) }; // 8d16, 6811a, 9dc0c
+            {
+                IsDraft = pr.IsDraft == true, HasConflicts = Conflicts(pr.MergeStatus, pr.LastMergeTargetCommit?.CommitId, targetTip), // 8d16, 6811a, 9dc0c
+                AutoCompleteArmed = state == PrReviewStates.Open ? pr.AutoCompleteSetBy is not null : null, // 2026-11-24-629ab
+            };
     }
 
     private static PrReviewDecision Decision(

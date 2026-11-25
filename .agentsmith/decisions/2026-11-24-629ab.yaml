@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-24-629ab
+
+decisions:
+  - category: Architecture
+    decider: operator
+    chose: "Arm auto-complete again after a conflict refresh when it was armed before the conflict"
+    over: "Leaving the pull request armed by nobody after Azure dropped it"
+    reason: "Operator brief: on 2026-11-24 a pull request a person had armed sat with every policy green and never merged after the refresh-base push. Named as the second follow-up of 5ee0."
+  - category: Architecture
+    decider: claude
+    chose: "The CI loop (AutoCompleteRearm) starts a merge-green run whose pull request carries Rearm, once the record reads the pull request clean"
+    over: "Arming from RefreshedPullRequestFollowUp right after the refresh-base push"
+    reason: "Right after a push Azure has not merged the new head (status undecided), so an arm then can race a conflict still standing; the record knows whether it was armed, the refresh-base run does not. The loop also covers a conflict a person resolved. The server writes nothing to a host, so the arm runs in the existing merge-green run, as 629aa and f9c5d do."
+  - category: Implementation
+    decider: claude
+    chose: "Record AutoCompleteArmed on every read and AutoCompleteLostAtTicks when it disappears from a pull request that conflicts now, conflicted at the read before, or whose head moved"
+    over: "Re-arming whenever a pull request is not armed, or treating an undecided merge status as a conflict"
+    reason: "Only a drop at a conflict is the host's; a person who takes auto-complete off a head that does not conflict meant it, and an undecided status (9dc0c: Azure often reads unknown after the target moves) is no evidence of a conflict — overriding a cancel on a guess is worse than a pull request that waits. A head move covers the refresh that pushed before any read saw the conflict. Diff review raised both."
+  - category: Implementation
+    decider: claude
+    chose: "Re-arm only once the host says the head merges cleanly (HasConflicts false), once per head (AutoCompleteRearmedHead), in every merge mode"
+    over: "Any head not known to conflict; retrying a refused arm; only on_ci_green or respect_branch_protection: true"
+    reason: "An undecided head may still conflict and Azure would drop it again. One try per head, like every CI-loop act: a refusal is said on the merge-green run and waits for a new head or a person, rather than a run every poll. The person or the asked merge that armed it decided the merge; arming is the host's own completion, which never goes past a policy, so neither merge.when nor respect_branch_protection is overridden."
+  - category: Implementation
+    decider: claude
+    chose: "Azure: AutoCompleteSetBy = the pull request's creator (the token, as ArmAsync), the pull request's merge strategy, squash, delete-source, message and work-item transition kept; bypass, its reason and ignored policies dropped; no vote"
+    over: "PullRequestCompleter.CompleteAsync under Respect (which approves first), or copying CompletionOptions whole"
+    reason: "A re-arm restores a decision, it is not a review — the vote would be one nobody asked for. Diff review: copying the options whole would re-send a person's bypass under the token, going past protection."
+  - category: Scope
+    decider: claude
+    chose: "GitHub and GitLab: a documented no-op"
+    over: "Reading auto-merge state there and re-enabling it"
+    reason: "Neither state read carries auto-merge today and no drop at a conflict has been seen there; without the read there is no loss to record. A follow-up once one is."
+  - category: Scope
+    decider: claude
+    chose: "No backfill: a record must read auto-complete set once before it can lose it"
+    over: "Inferring past arms"
+    reason: "Nothing recorded the arm before this spec; a guess would re-arm pull requests people cancelled. The pull request from the brief is armed by hand once."

@@ -68,19 +68,24 @@ public sealed class AzureReposPullRequestUpdater(
         CompleteAsync(prUrl, BranchProtection.Respect, cancellationToken);
 
     // 2026-11-17-023fa: Bypass completes now past the policies; Respect approves and arms as init does.
-    public async Task<PullRequestCompletion> CompleteAsync(
-        string prUrl, BranchProtection protection, CancellationToken cancellationToken)
+    public Task<PullRequestCompletion> CompleteAsync(string prUrl, BranchProtection protection, CancellationToken cancellationToken) =>
+        OnPullRequestAsync(prUrl, (client, pr, prId) => protection == BranchProtection.Bypass
+            ? _bypass.CompleteAsync(client, pr, prId, cancellationToken)
+            : _autoComplete.ArmAsync(client, pr, prId, cancellationToken), cancellationToken);
+
+    // 2026-11-24-629ab: auto-complete armed again after a conflict dropped it — no vote (AzureReposAutoComplete.RearmAsync).
+    public Task<PullRequestCompletion> RearmAsync(string prUrl, CancellationToken cancellationToken) =>
+        OnPullRequestAsync(prUrl, (client, pr, prId) => _autoComplete.RearmAsync(client, pr, prId, cancellationToken), cancellationToken);
+
+    private async Task<PullRequestCompletion> OnPullRequestAsync(
+        string prUrl, Func<GitHttpClient, GitPullRequest, int, Task<PullRequestCompletion>> act, CancellationToken cancellationToken)
     {
         if (!TryParsePullRequestId(prUrl, out var prId))
             return PullRequestCompletion.Refused($"'{prUrl}' is not an Azure Repos pull request URL.");
         try
         {
             var client = CreateGitClient();
-            var pr = await client.GetPullRequestAsync(
-                project, repoName, prId, cancellationToken: cancellationToken);
-            return protection == BranchProtection.Bypass
-                ? await _bypass.CompleteAsync(client, pr, prId, cancellationToken)
-                : await _autoComplete.ArmAsync(client, pr, prId, cancellationToken);
+            return await act(client, await client.GetPullRequestAsync(project, repoName, prId, cancellationToken: cancellationToken), prId);
         }
         catch (Exception ex)
         {

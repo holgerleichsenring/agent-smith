@@ -67,7 +67,8 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
     /// none, pending since after <paramref name="pendingSinceTicks"/>, or a verdict not acted on — checked before the
     /// bound; oldest check first, no entries (2026-11-23-0219: a build not started waits as pending does). 2026-11-23-849e: <paramref name="actsOnVerdict"/> false (a project that does
     /// not merge on green CI) keeps only a pending CI within the bound — an unread record or one on an older head is the
-    /// periodic re-read's and the PR sweep's, and a verdict nothing acts on would be read forever.</summary>
+    /// periodic re-read's and the PR sweep's, and a verdict nothing acts on would be read forever. 2026-11-24-629ab: and, in every
+    /// mode, an auto-complete lost at a conflict that has ended and was not armed again on this head.</summary>
     /// <param name="seriesActsOnVerdict">2026-11-24-f9c5c: whether a record into a series branch is acted on (merge.series_when
     /// on_ci_green); <paramref name="actsOnVerdict"/> then covers every other record.</param>
     public Task<IReadOnlyList<PrReviewRecordView>> CiDueAsync(
@@ -75,6 +76,8 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
         bool seriesActsOnVerdict = false) =>
         OldestAsync(Records().Where(r => r.Project == project && r.State == PrReviewStates.Open && r.CheckedAtTicks < checkedBeforeTicks
             && (((r.CiState == CiStates.Pending || r.CiState == CiStates.NotStarted) && r.CiAtTicks > pendingSinceTicks)
+                || (r.AutoCompleteLostAtTicks != null && r.HasConflicts == false && !r.IsDraft && r.HeadSha != null // 629ab: armed again once
+                    && (r.AutoCompleteRearmedHead == null || r.AutoCompleteRearmedHead != r.HeadSha))
                 || ((r.TargetBranch != null && r.TargetBranch.StartsWith(WorkBranches.SeriesPrefix) ? seriesActsOnVerdict : actsOnVerdict)
                     && (r.CiState == null || r.CiHeadSha != r.HeadSha
                     || (r.CiState != CiStates.Pending && r.CiState != CiStates.NotStarted && (r.CiActed == null || r.CiActed != r.CiHeadSha + ":" + r.CiState)))))), int.MaxValue, ct);
@@ -106,7 +109,8 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
         new(r.PrKey, r.Url, r.Repo, r.Number, r.Project, r.TicketId, r.RunId, r.State, Time(r.StateAtTicks),
             Time(r.CheckedAtTicks)!.Value, Time(newestEntry), [.. entries.Select(Entry)])
         { HeadSha = r.HeadSha, HeadMovedAt = Time(r.HeadMovedAtTicks), ReopenedAt = Time(r.ReopenedAtTicks), Ci = PrRecordCiJson.View(r), CiActed = r.CiActed, TargetBranch = r.TargetBranch,
-            IsDraft = r.IsDraft, MergeSha = r.MergeSha, HasConflicts = r.HasConflicts == true, ConflictsAt = Time(r.ConflictsAtTicks) }; // 8d16, 8df6a, 6811a
+            IsDraft = r.IsDraft, MergeSha = r.MergeSha, HasConflicts = r.HasConflicts == true, ConflictsAt = Time(r.ConflictsAtTicks), // 8d16, 8df6a, 6811a
+            MergesCleanly = r.HasConflicts == false, AutoCompleteLostAt = Time(r.AutoCompleteLostAtTicks), AutoCompleteRearmedHead = r.AutoCompleteRearmedHead }; // 629ab
 
     private static PrReviewEntryView Entry(PrReviewEntry e) =>
         new(e.HostId, e.Kind, e.Decision, e.Standing, e.AuthorLogin, e.Trusted, e.IsOurs, e.IsBot, e.IsSystem,
