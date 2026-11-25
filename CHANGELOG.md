@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.212.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.212.1...v0.212.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* **sweep:** Azure PR refresh name covers target, merge status, draft, head and auto-complete (2026-11-25-c4eb) ([a320c6f](https://github.com/holgerleichsenring/agent-smith/commit/a320c6fdabb5a666f0cb016e8394575df0dd4a67))
+* **sweep:** Azure PR refresh name covers target, merge status, draft, head and auto-complete (2026-11-25-c4eb) ([edc2bec](https://github.com/holgerleichsenring/agent-smith/commit/edc2becfe0b9dabc9ddbb52be28612e0953b88c6))
+
 ## [0.212.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.212.0...v0.212.1) (2026-11-25)
 
 
