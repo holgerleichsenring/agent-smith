@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.217.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.216.0...v0.217.0) (2026-11-25)
+
+
+### Features
+
+* **models:** a catalog model can run on the OpenAI Responses API with a reasoning effort, beside gpt-5.6; runs and series record the comparison (2026-11-25-9992k) ([02bd77f](https://github.com/holgerleichsenring/agent-smith/commit/02bd77f318abd47aad766df22b65e358494b9cb1))
+* **models:** GPT-6 on the Responses API beside gpt-5.6, with comparison numbers (2026-11-25-9992k) ([26572b4](https://github.com/holgerleichsenring/agent-smith/commit/26572b4e3c8336dfa633aaba4561c304a18521c7))
+
 ## [0.216.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.215.0...v0.216.0) (2026-11-25)
 
 
