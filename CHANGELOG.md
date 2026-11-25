@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.219.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.218.0...v0.219.0) (2026-11-25)
+
+
+### Features
+
+* **series-page:** the series page is the graph and the series chat; a ticket click reads, a question's choices are buttons (2026-11-25-9992j) ([1ad8405](https://github.com/holgerleichsenring/agent-smith/commit/1ad84059dc807aeb116fe6a7d81033b6fbe3cbdc))
+* **series-page:** the series page is the graph and the series chat; a ticket click reads, a question's choices are buttons (2026-11-25-9992j) ([cc195af](https://github.com/holgerleichsenring/agent-smith/commit/cc195affc0c83e3af03912a2fa8243ad6700ed02))
+
 ## [0.218.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.217.0...v0.218.0) (2026-11-25)
 
 
