@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.212.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.211.0...v0.212.0) (2026-11-25)
+
+
+### Features
+
+* **auto-complete:** Azure auto-complete dropped at a conflict is armed again once the head merges cleanly (2026-11-24-629ab) ([fc9f58f](https://github.com/holgerleichsenring/agent-smith/commit/fc9f58f4cd5ee6ff2d5454e7c9a4c30b2f983f36))
+* **ci-loop:** a required build that has not started or expired on the head is queued again by a merge-green run (2026-11-24-629aa) ([fc100f2](https://github.com/holgerleichsenring/agent-smith/commit/fc100f2826e58d8544e315df44067b346208b3d2))
+* **ci-loop:** re-queue not-started required builds and re-arm auto-complete dropped at a conflict (2026-11-24-629a) ([536ddac](https://github.com/holgerleichsenring/agent-smith/commit/536ddace9921a8f72115e5a212530ae4908f7dae))
+* **format:** a spec commit says which changed source files no formatter touched (2026-11-24-6d76a) ([35539f6](https://github.com/holgerleichsenring/agent-smith/commit/35539f6e1364b8a16a0371cf402c758e911487cb))
+* **format:** a spec commit says which changed source files no formatter touched, and why (2026-11-24-6d76a) ([d991186](https://github.com/holgerleichsenring/agent-smith/commit/d991186a86d3ee5641be9d1e3c801a429ee151f8))
+* **format:** init declares the stack's standard formatter when the repository runs none; skills catalog pinned to v5.44.0 (2026-11-24-6d76b) ([9ab5d44](https://github.com/holgerleichsenring/agent-smith/commit/9ab5d449acf8435f5388a44d9abeeca26d04319e))
+* init derives the stack's formatter, skills v5.44.0 pinned; joined lines no longer shrink a unit's size (2026-11-24-6d76b, 2026-11-24-8756) ([ac60ee9](https://github.com/holgerleichsenring/agent-smith/commit/ac60ee9b63dbc1cbeac819525716e7eb96363e8a))
+* **spend:** Cost today and the Overview spend come from a server rollup (2026-11-24-0fbfb) ([a5425bb](https://github.com/holgerleichsenring/agent-smith/commit/a5425bb31e873b3f0128baa268fb0e981f012c03))
+* **structure:** a unit's line count includes the breaks a formatter would add, so joining statements never shortens it (2026-11-24-8756) ([0276aad](https://github.com/holgerleichsenring/agent-smith/commit/0276aada2cd62b79c3bafb3abd3f9c150cc48ded))
+
+
+### Bug Fixes
+
+* **run-log:** a later master pass continues its spec — checklist carried, pass named with its reason (2026-11-24-0fbfa) ([166c920](https://github.com/holgerleichsenring/agent-smith/commit/166c920cd4216de3c8c43af2865004f70fb971de))
+* **run-log:** correction pass continues its spec; feat(spend): server spend rollup (2026-11-24-0fbf) ([c30e836](https://github.com/holgerleichsenring/agent-smith/commit/c30e83696e77cc8eddd95bfed6c9a110b88b2bb1))
+
 ## [0.211.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.210.1...v0.211.0) (2026-11-24)
 
 
