@@ -139,6 +139,19 @@ public sealed class AzureReposCiReaderTests
         ci.Failures.Single().Excerpt.Should().Be("lint broke");
     }
 
+    // 2026-11-25-ef94: a coverage check posts pending and then not applicable on every push; the newest one decides.
+    [Fact]
+    public async Task StatusWhoseNewestIsNotApplicable_IsNoCheck_TheEarlierPendingDoesNotStand()
+    {
+        Evaluations(Evaluation(PolicyEvaluationStatus.Approved));
+        var pending = Status(2, GitStatusState.Pending);
+        var notApplicable = Status(2, GitStatusState.NotApplicable);
+        notApplicable.Id = 3;
+        Statuses(pending, notApplicable);
+
+        (await ReadAsync()).State.Should().Be(CiStates.Green);
+    }
+
     // 2026-11-23-c785: Azure files an evaluation with buildId 0 when no build stands behind it; build 0 is never asked for,
     // and the evaluation's own status is the check (asking threw and kept a stale "running" for days).
     [Fact]

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-ef94
+goal: "An Azure pull request status whose newest entry per context says not applicable is no check, so an earlier pending of that context never keeps CI running."
+
+applies_to: "default (Infrastructure Azure Repos CI read)"
+
+requires: [2026-11-17-3435a]
+
+facts:
+  - claim: "Azure posts a codecoverage status per push: queued, pending, then not applicable within a second; the live PR showed it on iterations 7, 8 and 9."
+    evidence: "observed: 2026-11-25, GET pullRequests/{id}/statuses on a live series PR whose build policy was approved on its head"
+  - claim: "The reader dropped not-applicable statuses before taking the newest per context, so the pending one stood and the PR record stayed CiState pending for 8 h, escalated as CI running."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiStatuses.cs:18-20"
+
+scope:
+  in: "Take the newest status per context first, then drop it when not applicable; a regression test."
+  out: "Policy evaluations (already read correctly)."
+
+done:
+  - "A pending followed by a not-applicable status of one context, beside an approved build policy, reads green."

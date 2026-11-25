@@ -6,6 +6,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <summary>
 /// 2026-11-17-3435a: the statuses an external CI posted on a pull request, as checks — only those of its latest
 /// iteration (or of no iteration), the newest per context, so a status about an earlier push never decides the head.
+/// <para>2026-11-25-ef94: the newest status per context is taken first and dropped when it says not applicable — dropping
+/// first left the context's earlier "pending" standing, and the pull request read as CI running for good.</para>
 /// </summary>
 public static class AzureReposCiStatuses
 {
@@ -16,8 +18,8 @@ public static class AzureReposCiStatuses
         var latest = iterations.Count == 0 ? (int?)null : iterations.Max(i => i.Id);
         var statuses = await git.GetPullRequestStatusesAsync(project, repoName, prId, cancellationToken: ct);
         return [.. statuses.Where(s => s.IterationId is null || s.IterationId == latest)
-            .Where(s => s.State != GitStatusState.NotApplicable)
-            .GroupBy(Name).Select(g => g.MaxBy(s => s.Id)!).Select(Item)];
+            .GroupBy(Name).Select(g => g.MaxBy(s => s.Id)!)
+            .Where(s => s.State != GitStatusState.NotApplicable).Select(Item)];
     }
 
     private static string Name(GitPullRequestStatus status) =>
