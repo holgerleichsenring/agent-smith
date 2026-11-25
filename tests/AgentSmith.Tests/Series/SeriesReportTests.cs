@@ -6,8 +6,8 @@ using FluentAssertions;
 
 namespace AgentSmith.Tests.Series;
 
-/// <summary>2026-11-17-0207b: the series opens with what it filed, started and waits on and its policy; the table is
-/// posted on a change and on the cadence, not otherwise; the master's line and the beat's own words come first.</summary>
+/// <summary>2026-11-17-0207b: the series opens with what it filed, started and waits on and its policy; 2026-11-25-e94eb: no table is
+/// posted; the beat's own words and the master's line are.</summary>
 public sealed class SeriesReportTests
 {
     private static readonly ResolvedProject Project = new()
@@ -21,23 +21,15 @@ public sealed class SeriesReportTests
         [SeriesRecords.Fact("43", RunStatuses.Running, finished: false), SeriesRecords.Fact("44", requires: "43"),
          SeriesRecords.Fact("45", requires: "43")];
 
+    // 2026-11-25-e94eb: every series conversation opens the same way and gets no table — the series page is the status.
     [Fact]
-    public void FirstBeat_OpensWithWhatStartedWhatWaitsAndThePolicy()
+    public void FirstBeat_OpensWithWhatStartedWhatWaitsAndThePolicy_AndNoTable()
     {
-        var messages = SeriesReport.Messages(new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T), Project, Dialogue);
+        var messages = SeriesReport.Messages(new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T), Project);
 
-        messages[0].Should().Be("Filed 3 tickets. SCRUM-43 started; 2 wait on their prerequisites and start as soon as the "
-            + "ticket they need has a green push. I merge each one when its gate is green and report here on every change and every 15 minutes.");
-        messages[1].Should().Contain("| SCRUM-43 | work | coding |").And.Contain("1 running · 2 held");
-    }
-
-    [Fact]
-    public void FirstBeat_UnderAPane_OpensWithoutTheTableAndSaysItWritesOnlyWhenNeeded()
-    {
-        var messages = SeriesReport.Messages(new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T), Project, Dialogue, pane: true);
-
-        messages.Should().ContainSingle().Which.Should().EndWith(
-            "I merge each one when its gate is green. I write here only when you are needed; the Series pane shows every ticket, and Pause holds the series.");
+        messages.Should().ContainSingle().Which.Should().Be("Filed 3 tickets. SCRUM-43 started; 2 wait on their prerequisites and "
+            + "start as soon as the ticket they need has a green push. I merge each one when its gate is green. I write here only "
+            + "when you are needed; the series page on the dashboard shows every ticket, and asking me to hold pauses the series.");
     }
 
     // 2026-11-24-f9c5c: a series with a branch says it merges its tickets there under merge.series_when, and waits on landings.
@@ -46,7 +38,7 @@ public sealed class SeriesReportTests
     {
         var record = SeriesRecords.Running() with { IntegrationBranch = "agent-smith/series/sr-1" };
 
-        var messages = SeriesReport.Messages(new SeriesBeat(record, Facts(), SeriesRecords.T), Project, Dialogue, pane: true);
+        var messages = SeriesReport.Messages(new SeriesBeat(record, Facts(), SeriesRecords.T), Project);
 
         messages.Should().ContainSingle().Which.Should().Contain("start once the ticket they need is merged")
             .And.Contain("I merge each one into agent-smith/series/sr-1 when its CI is green")
@@ -54,22 +46,26 @@ public sealed class SeriesReportTests
     }
 
     [Fact]
-    public void LaterBeat_NothingChangedBeforeTheCadence_PostsNoTable()
+    public void LaterBeat_PostsWhatItSaidAndTheMastersLine()
     {
         var beat = new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T.AddMinutes(10));
         beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = beat.Table };
+        beat.Said.Add("SCRUM-44 asks a decision only you can make: …");
         beat.MasterLine = "Passed to SCRUM-44.";
+        beat.MasterActed = true; // 2026-11-25-e94ec: the line of a master that acted
 
-        SeriesReport.Messages(beat, Project, Dialogue).Should().Equal("Passed to SCRUM-44.");
+        SeriesReport.Messages(beat, Project).Should().Equal("SCRUM-44 asks a decision only you can make: …", "Passed to SCRUM-44.");
     }
 
     [Fact]
-    public void LaterBeat_CadenceDue_PostsTheTableAgain()
+    public void LaterBeat_TableChangedAndCadencePassed_PostsNothing()
     {
-        var beat = new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T.AddMinutes(15));
-        beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = beat.Table };
+        var beat = new SeriesBeat(SeriesRecords.Running(), [SeriesRecords.Fact("43", RunStatuses.Success), .. Facts()[1..]],
+            SeriesRecords.T.AddMinutes(45));
+        beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = "SCRUM-43=coding" };
 
-        SeriesReport.Messages(beat, Project, Dialogue).Should().ContainSingle().Which.Should().StartWith("Status at 18:52 UTC.");
+        SeriesReport.Messages(beat, Project).Should().BeEmpty("the series page shows every ticket's state");
+        SeriesReport.Seen(beat.Record, beat).LastStatusAt.Should().Be(SeriesRecords.T.AddMinutes(45), "a quiet beat still restarts the stall clock");
     }
 
     [Fact]

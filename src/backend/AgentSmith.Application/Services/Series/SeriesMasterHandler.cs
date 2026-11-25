@@ -47,8 +47,11 @@ public sealed class SeriesMasterHandler(
         var check = AIFunctionFactory.Create(
             (CancellationToken ct) => progress.CheckAsync(beat, ct), "check_series", // 0207d
             "Starts the series check again (on the series branch when it has one, else the default branch) — for a check that ended without a verdict.");
-        IList<AITool> tools = [.. new SeriesReadTools(beat).GetTools().Concat(new SeriesActTools(beat, acts, store, pause).GetTools())
-            .Append(ask).Append(check).Select(f => new MidTurnMessageAIFunction(f, messages)), .. records?.Tools() ?? []];
+        // 2026-11-25-e94ec: an act marks the beat, whose reply is posted only then (SeriesBeat.MasterSpeaks); a read does not.
+        var acted = new SeriesActTools(beat, acts, store, pause).GetTools().Append(ask).Append(check)
+            .Select(f => (AIFunction)new SeriesActedFunction(f, beat));
+        IList<AITool> tools = [.. new SeriesReadTools(beat).GetTools().Concat(acted)
+            .Select(f => new MidTurnMessageAIFunction(f, messages)), .. records?.Tools() ?? []];
         var agent = context.Project.Agent;
         return new AgenticLoopRequest(agent, TaskType.Primary, prompts.Get(MasterName), prompt, tools,
             Name: MasterName, PriorMessages: SeriesThread.Read(beat.Record.ThreadJson), Compaction: agent.Compaction);
@@ -72,7 +75,7 @@ public sealed class SeriesMasterHandler(
             beat.Record = said;
             beat.Said.Add($"The series master has spent {SeriesTable.Money(said.MasterCostUsd)} of its "
                 + $"{SeriesTable.Money(budget)} (dialogue.series_master_budget_usd), so it judges no more; the tickets keep "
-                + "running and the status keeps coming. Raise the setting to let it judge again.");
+                + "running. Raise the setting to let it judge again.");
         }
         return CommandResult.Ok($"The series master's budget of {budget} USD (dialogue.series_master_budget_usd) is spent.");
     }

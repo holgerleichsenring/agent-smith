@@ -109,11 +109,11 @@ When ticket B requires ticket A, B doesn't have to wait for A's merge. With the 
 
 ## 7. The series run follows the whole filing
 
-A filing of two or more tickets opens a series run. It reads the tickets' state one beat at a time, starts and retries tickets, relays questions and posts a status table into the conversation you filed from: on every change and every 15 minutes by default. A question with a recommendation takes the recommendation if nobody answers in time, and says so. You can write to it in the same conversation.
+A filing of two or more tickets opens a series run. It reads the tickets' state one beat at a time, starts and retries tickets and relays questions into the conversation you filed from. It posts no status there: the series page shows every ticket's state and what waits on you. A question with a recommendation takes the recommendation if nobody answers in time, and says so. You can write to it in the same conversation.
 
 <figure class="cb-shot" markdown>
 ![A Work it out conversation with the series' opening message and a status table; the Series tab on the right shows progress, Now, the critical path and the policy](../assets/screenshots/series-status.png)
-<figcaption>A series in its conversation. The table lists each ticket with its state, cost and time; the Series tab shows what runs now and what is left.</figcaption>
+<figcaption>A series in its conversation. The Series tab shows each ticket, what runs now and what is left; current versions post no status table into the conversation.</figcaption>
 </figure>
 
 When every ticket has landed, a check runs the specs' done criteria on the default branch. A failure becomes one follow-up ticket in the same series; a clean check closes it with a summary. See [Series run](series-run.md).

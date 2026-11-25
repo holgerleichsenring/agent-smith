@@ -15,6 +15,7 @@ public sealed class SeriesMidTurnMessages(SeriesBeat beat, ISeriesConversation c
             beat.Record.Conversation, beat.Record.Id, beat.MessagesThrough, cancellationToken);
         if (waiting.Count == 0) return [];
         beat.MessagesThrough = waiting[^1].Index;
+        beat.Messages.AddRange(waiting); // 2026-11-25-e94ec: the master's reply to them is posted
         return [.. waiting.Select(m => new MidTurnMessage(m.Text, m.At))];
     }
 }

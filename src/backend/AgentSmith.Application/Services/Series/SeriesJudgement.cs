@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Series;
 /// <summary>
 /// 2026-11-17-0207a: why the series master is asked to judge a beat. A table that moved on by itself needs nobody: the
 /// tickets start, merge and wake by their own runs. What needs judgement is a ticket that turned red since the last
-/// posted table — retry it, tell it what failed, or let it be. 2026-11-17-0207b: what the operator wrote, and a
+/// beat — retry it, tell it what failed, or let it be. 2026-11-17-0207b: what the operator wrote, and a
 /// series that stood still for a whole status period while tickets run.
 /// </summary>
 public static class SeriesJudgement
@@ -13,7 +13,7 @@ public static class SeriesJudgement
     public static IEnumerable<string> Operator(IReadOnlyList<SeriesOperatorMessage> messages) =>
         messages.Select(m => $"The operator wrote ({m.At.UtcDateTime:HH:mm}): {m.Text}");
 
-    /// <summary>Nothing moved since the last status a whole period ago while tickets run: is one stuck?</summary>
+    /// <summary>Nothing moved since the last beat a whole period ago while tickets run: is one stuck?</summary>
     public static IEnumerable<string> Stalled(SeriesBeat beat, int statusMinutes)
     {
         ArgumentNullException.ThrowIfNull(beat);

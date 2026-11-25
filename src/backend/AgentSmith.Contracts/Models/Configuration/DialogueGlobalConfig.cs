@@ -55,8 +55,8 @@ public sealed class DialogueGlobalConfig
     /// have their own caps; this bounds the judging, which runs on events, never on a timer.</summary>
     public decimal SeriesMasterBudgetUsd { get; set; } = 20m;
 
-    /// <summary>2026-11-17-0207b: how often a series run reports its table into the conversation when nothing changed,
-    /// in minutes — the cadence the operator chose from a reference session; a change is reported at once.</summary>
+    /// <summary>2026-11-17-0207b: the series beat's cadence in minutes. 2026-11-25-e94eb: no table is posted any more;
+    /// it is how long nothing may move while tickets run before the master looks whether one is stuck.</summary>
     public int SeriesStatusMinutes { get; set; } = 15;
 
     /// <summary>2026-11-17-0207c: how long a series waits on a question that names a recommendation before it takes the

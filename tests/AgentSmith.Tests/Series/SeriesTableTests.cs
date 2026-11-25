@@ -97,7 +97,7 @@ public sealed class SeriesTableTests
         SeriesBeatDue.Why(record, facts, SeriesRecords.T, 15).Should().NotBeNull("the first beat has seen nothing");
         var seen = record with { LastTable = SeriesTable.Snapshot(SeriesTable.Rows(facts, SeriesRecords.T)), LastStatusAt = SeriesRecords.T };
         SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(14), 15).Should().BeNull();
-        SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(15), 15).Should().Be("the status is due");
+        SeriesBeatDue.Why(seen, facts, SeriesRecords.T.AddMinutes(15), 15).Should().Be("the stall check is due");
     }
 
     // 2026-11-24-f9c5e: a Delivering series reads its final pull requests again at the cadence it is given.

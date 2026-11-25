@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-e94eb
+goal: "A series conversation carries no status: the table and the needs-you lines go, the series page shows every ticket, and the opening says it speaks only when a person is needed."
+
+applies_to: "default (Application series report, Server series conversation, dashboard settings copy)"
+
+requires: [2026-11-17-0207b, 2026-11-19-1b72a, 2026-11-25-e94ea]
+
+facts:
+  - claim: "The table is posted when the conversation has no pane, decided by DialogTarget.IsDashboard, which was false for a conversation shown on the dashboard with its Series page."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesReport.cs:19 and src/backend/AgentSmith.Server/Services/Series/SeriesConversation.cs:18-22"
+  - claim: "64 status tables were 130,515 characters, about 83% of a 141-turn series conversation; 17 more turns were merge and failure lines the Overview list already shows."
+    evidence: "observed: 2026-11-25, production series conversation, read-only"
+  - claim: "dialogue.series_status_minutes also sets the stall check: a beat is due a whole period after the last one, and the master is asked when nothing moved while tickets run."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesBeatDue.cs:29-30 and src/backend/AgentSmith.Application/Services/Series/SeriesJudgement.cs:17-24"
+
+scope:
+  in: "SeriesReport posts the opening (first beat), the beat's Said lines and the master's line, never a table; SeriesNeedsYou, SeriesStatusText.Counts and ISeriesConversation.HasPaneAsync are deleted; every beat stamps LastStatusAt; one opening text; the budget-spent line drops 'the status keeps coming'; series_status_minutes is re-described as the stall period in schema, docs and the dashboard field."
+  out: "The config key stays: the stall check still reads it. Renaming LastStatusAt or the PostSeriesStatus command (persisted and pipeline names); LastActivityAt, read from LastStatusAt to order the series list, now moves with every beat as it did under a pane. SeriesStatusText.Table stays (the master's prompt reads it). The master's own lines (2026-11-25-e94ec)."
+
+steps:
+  - id: report
+    action: "SeriesReport.Messages(beat, project): opening, Said, MasterLine; Seen(record, beat) stamps LastStatusAt = beat.Now."
+  - id: delete
+    action: "Delete SeriesNeedsYou (+tests), SeriesStatusText.Counts, HasPaneAsync with its implementation and tests; PostSeriesStatusHandler without the pane read."
+  - id: opening
+    action: "SeriesOpening: one text ending: I write here only when you are needed; the series page on the dashboard shows every ticket, and asking me to hold pauses the series."
+  - id: config-copy
+    action: "Schema, docs/how-it-works/series-run.md, docs/reference/configuration/agentsmith-yml.md, dashboard i18n label and help: series_status_minutes is how long nothing may move while tickets run before the master looks."
+  - id: tests
+    action: "Update SeriesReportTests, PostSeriesStatusHandlerTests, SeriesTableTests, SeriesConversationPaneTests (its pane test deleted, the class renamed SeriesConversationAddressedTests), DeliverSeriesHandlerTests if it reads the pane, and the harness preset SeriesRunCompositionTests."
+
+done:
+  - "No beat posts a 'Status at' table or a needs-you line, with or without a dashboard target."
+  - "The first beat posts the opening once; a beat with nothing said posts nothing and still stamps LastStatusAt."
+  - "The dashboard settings field shows the stall wording; dashboard tests and build green."

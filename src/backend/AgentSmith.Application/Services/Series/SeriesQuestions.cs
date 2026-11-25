@@ -12,15 +12,30 @@ namespace AgentSmith.Application.Services.Series;
 /// <para>2026-11-23-31dch: a plan question is relayed first and says it is about the plan; a question only the environment
 /// can answer is the admin's and is not relayed. The answer is the poster's, delivered through the same inbox the ticket's
 /// answer uses, so the resume and the in-run intake stay the one path.</para>
+/// <para>2026-11-25-e94ea: this is the conversation's one way to show a ticket's question. A relayed question whose
+/// ticket's run no longer waits on it is dropped first, unanswered, and the next parked one is relayed — so an operator
+/// message never reaches a run that left the question.</para>
 /// </summary>
 public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox inbox)
 {
     public async Task SettleAsync(SeriesBeat beat, int defaultMinutes, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(beat);
+        if (beat.Record.Question is { Answer: null } stale && Left(beat, stale))
+        {
+            await KeepAsync(beat, null, ct);
+            if (beat.Record.Question is not null) return; // the drop was not kept: never answer the question the run left
+        }
         if (beat.Record.Question is { Answer: null } waiting) await AnswerAsync(beat, waiting, ct);
         else await RelayAsync(beat, defaultMinutes, ct);
     }
+
+    /// <summary>2026-11-25-e94ea: the asking ticket's run was read and is not parked on this question any more — resumed
+    /// (answered on its own page), ended or parked on another. A ticket whose attempt was not read keeps its question.</summary>
+    private static bool Left(SeriesBeat beat, SeriesQuestion question) =>
+        question.TicketId is { } ticket && question.CheckpointQuestionId is { } asked
+        && beat.Facts.FirstOrDefault(f => f.Ticket.TicketId == ticket) is { LatestStatus: not null } fact
+        && fact.PendingQuestion?.QuestionId != asked;
 
     private async Task AnswerAsync(SeriesBeat beat, SeriesQuestion waiting, CancellationToken ct)
     {
@@ -41,9 +56,13 @@ public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox 
         if (answered.DialogueJobId is { } job && answered.CheckpointQuestionId is { } id)
         {
             await inbox.TryDeliverAsync(job, new DialogAnswer(id, answered.Answer!, null, beat.Now, answered.AnsweredBy ?? beat.Record.Principal), ct);
-            beat.Said.Add($"Passed the answer to {Key(beat, answered.TicketId)}'s run; it goes on with it.");
+            beat.Said.Add($"Passed your answer to {Key(beat, answered.TicketId)}'s run on \"{Headline(answered.Text)}\"; it goes on with it.");
         }
-        else beat.Reasons.Add($"Your question \"{answered.Text}\" is answered{(answered.ByDefault ? " by default" : string.Empty)}: {answered.Answer}");
+        else
+        {
+            beat.MasterAnswered = true; // 2026-11-25-e94ec: what the master makes of the answer is posted
+            beat.Reasons.Add($"Your question \"{answered.Text}\" is answered{(answered.ByDefault ? " by default" : string.Empty)}: {answered.Answer}");
+        }
         await KeepAsync(beat, answered with { Delivered = true }, ct);
     }
 
@@ -80,7 +99,11 @@ public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox 
     private static string Key(SeriesBeat beat, string? ticketId) =>
         beat.Facts.FirstOrDefault(f => f.Ticket.TicketId == ticketId)?.Ticket.Key ?? ticketId ?? "the ticket";
 
-    private async Task KeepAsync(SeriesBeat beat, SeriesQuestion question, CancellationToken ct)
+    // 2026-11-25-e94ea: the question's first line names it in the delivered line, so a misrouted answer shows.
+    private static string Headline(string text) =>
+        text.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? text.Trim();
+
+    private async Task KeepAsync(SeriesBeat beat, SeriesQuestion? question, CancellationToken ct)
     {
         if (await store.UpdateAsync(beat.Record.Id, r => r with { Question = question }, ct) is { } kept) beat.Record = kept;
     }

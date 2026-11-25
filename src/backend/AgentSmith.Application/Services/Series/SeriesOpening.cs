@@ -3,11 +3,11 @@ using AgentSmith.Contracts.Models.Configuration;
 namespace AgentSmith.Application.Services.Series;
 
 /// <summary>2026-11-17-0207b: the series' first message — what was filed, what started, what waits and on what rule,
-/// how it merges and how often it reports. 2026-11-19-1b72a: under a Series pane it writes only when the operator is
-/// needed.</summary>
+/// how it merges. 2026-11-25-e94eb: every series conversation is told it hears only what needs a person; the series
+/// page shows every ticket.</summary>
 public static class SeriesOpening
 {
-    public static string Text(SeriesBeat beat, ResolvedProject project, DialogueGlobalConfig dialogue, bool pane = false)
+    public static string Text(SeriesBeat beat, ResolvedProject project)
     {
         ArgumentNullException.ThrowIfNull(beat);
         var rows = beat.Rows;
@@ -25,9 +25,8 @@ public static class SeriesOpening
             _ => $"Their pull requests{into} stay open for you to merge",
         };
         if (branch is not null) merge += "; the series reaches the default branch as one pull request per repository at the end";
-        return text + (pane
-            ? $"{merge}. I write here only when you are needed; the Series pane shows every ticket, and Pause holds the series."
-            : $"{merge} and report here on every change and every {dialogue.SeriesStatusMinutes} minutes.");
+        return text + $"{merge}. I write here only when you are needed; the series page on the dashboard shows every ticket, "
+            + "and asking me to hold pauses the series.";
     }
 
     private static string WaitRule(ResolvedProject project, string? seriesBranch) =>
