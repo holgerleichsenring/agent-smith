@@ -85,7 +85,7 @@ public sealed class TicketClaimServiceTests
     public async Task ClaimAsync_StatusTransitionPreconditionFailed_KeepsTheClaimAndEnqueues()
     {
         // 2026-09-25-3c7ab: this used to answer AlreadyClaimed and release the lease. A
-        // precondition refusal is an ETag, a rev or a label-lock — somebody else wrote to the
+        // precondition refusal is a rev or a label-lock — somebody else wrote to the
         // ticket in the same second — and the unique index had already granted this claim.
         var (sut, harness) = BuildHarness();
         harness.SetupLockAcquired().SetupReadCurrent(null)

@@ -13,8 +13,10 @@ using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
-/// <summary>Atomic GitHub Issues lifecycle transitioner: reads the issue with its ETag and
-/// PATCHes the labels array with If-Match, so a 412 means another process wrote in between.</summary>
+/// <summary>GitHub Issues lifecycle transitioner: reads the issue's labels and PATCHes the labels
+/// array with the new lifecycle label. The write is unconditional — GitHub refuses conditional
+/// headers on writes with 400 (2026-11-25-7f25b) — and last-write-wins: a label a person adds
+/// between the GET and the PATCH can be lost. Single-run is the active-run lease's job (p0246b).</summary>
 public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
 {
     private readonly string _issues;
@@ -42,7 +44,7 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         TicketId ticketId, CancellationToken cancellationToken)
     {
         using var scope = _logger.BeginScope("ticket={Ticket}", ticketId.Value);
-        var (issue, _) = await FetchIssueAsync(ticketId, cancellationToken);
+        var issue = await FetchIssueAsync(ticketId, cancellationToken);
         return issue is null ? null : ReadLifecycleLabel(issue.Value);
     }
 
@@ -54,7 +56,7 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         _logger.LogInformation(
             "GitHub Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
 
-        var (issue, etag) = await FetchIssueAsync(ticketId, cancellationToken);
+        var issue = await FetchIssueAsync(ticketId, cancellationToken);
         if (issue is null)
         {
             _logger.LogWarning("GitHub Transition #{Ticket}: ticket not found", ticketId.Value);
@@ -62,29 +64,28 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         }
 
         // p0262: lifecycle tags are pure markers — set `to` unconditionally, no `from`
-        // precondition. `from` is advisory; the If-Match ETag below still guards write
-        // atomicity, and run-level single-run is the lease's job (p0246b).
+        // precondition. `from` is advisory, and run-level single-run is the lease's job
+        // (p0246b). 2026-11-25-7f25b: the PATCH carries no If-Match either; GitHub answers a
+        // conditional header on a write with 400, which failed every claim.
         var newLabels = BuildLabels(issue.Value, to);
-        var result = await PatchLabelsAsync(ticketId, newLabels, etag, cancellationToken);
+        var result = await PatchLabelsAsync(ticketId, newLabels, cancellationToken);
         _logger.LogInformation(
             "GitHub Transition #{Ticket}: {Outcome}", ticketId.Value, result.Outcome);
         return result;
     }
 
-    private async Task<(JsonElement?, string?)> FetchIssueAsync(
-        TicketId ticketId, CancellationToken ct)
+    private async Task<JsonElement?> FetchIssueAsync(TicketId ticketId, CancellationToken ct)
     {
         var url = $"{_issues}/{ticketId.Value}";
         var resp = await _http.GetAsync(url, ct);
-        if (resp.StatusCode == HttpStatusCode.NotFound) return (null, null);
+        if (resp.StatusCode == HttpStatusCode.NotFound) return null;
         resp.EnsureSuccessStatusCode();
-        var etag = resp.Headers.ETag?.Tag;
         var json = await resp.Content.ReadAsStringAsync(ct);
-        return (JsonDocument.Parse(json).RootElement, etag);
+        return JsonDocument.Parse(json).RootElement;
     }
 
     private async Task<TransitionResult> PatchLabelsAsync(
-        TicketId ticketId, string[] labels, string? etag, CancellationToken ct)
+        TicketId ticketId, string[] labels, CancellationToken ct)
     {
         var url = $"{_issues}/{ticketId.Value}";
         var body = JsonSerializer.Serialize(new { labels });
@@ -92,12 +93,8 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json")
         };
-        if (!string.IsNullOrEmpty(etag))
-            req.Headers.TryAddWithoutValidation("If-Match", etag);
 
         var resp = await _http.SendAsync(req, ct);
-        if (resp.StatusCode == HttpStatusCode.PreconditionFailed)
-            return TransitionResult.PreconditionFailed("ETag mismatch");
         if (!resp.IsSuccessStatusCode)
         {
             var details = await resp.Content.ReadAsStringAsync(ct);

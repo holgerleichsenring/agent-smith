@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-7f25b
+
+decisions:
+  - category: Implementation
+    chose: "Drop If-Match, the ETag read and the 412 branch; keep the GET and the full-array labels PATCH"
+    over: "Replacing the PATCH with POST /issues/{n}/labels plus DELETE per stale lifecycle label"
+    reason: |
+      GitHub refuses conditional headers on this write, so the guard never existed; p0262 already made lifecycle
+      labels unconditional markers and the active-run lease (p0246b) owns single-run. The GET is still needed to keep
+      the issue's other labels. The add/remove endpoints would close the narrow lost-update window when a person edits
+      labels between the GET and the PATCH, at two to three requests per transition. That window existed before this
+      change too (GitHub never honoured the If-Match), nothing reported it, so the smaller change ships.
+  - category: Architecture
+    chose: "GitHub stays unwrapped by LockedTicketStatusTransitioner"
+    over: "Wrapping GitHub in the Redis label lock as Jira is"
+    reason: |
+      The lock serialises agent-smith's own writers, which all write the same lifecycle-only change while the lease
+      already admits one run; it cannot cover a person editing labels on github.com, the only remaining race.

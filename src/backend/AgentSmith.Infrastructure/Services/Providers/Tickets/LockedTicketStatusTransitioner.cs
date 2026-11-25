@@ -9,8 +9,9 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// Decorator that serializes TransitionAsync via a Redis SETNX lock keyed on the
 /// ticket id. Applied only where the underlying API lacks atomic If-Match
 /// semantics (Jira labels) AND multiple writers can race in the same composition
-/// (Server cluster). ReadCurrentAsync passes through — reads do not need
-/// serialization.
+/// (Server cluster). GitHub and GitLab lack it too and stay unwrapped: their
+/// writers only set lifecycle markers, and the active-run lease owns single-run.
+/// ReadCurrentAsync passes through — reads do not need serialization.
 /// </summary>
 public sealed class LockedTicketStatusTransitioner(
     ITicketStatusTransitioner inner,

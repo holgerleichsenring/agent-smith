@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-7f25b
+goal: "The GitHub lifecycle-label PATCH carries no If-Match, so a claim on a GitHub tracker writes its label instead of failing with HTTP 400."
+
+applies_to: "default (Infrastructure GitHub ticket status transitioner)"
+
+requires: [p0262]
+
+facts:
+  - claim: "PatchLabelsAsync sends the issue's ETag as If-Match on PATCH /issues/{n}; GitHub answers 400 'Conditional request headers are not allowed in unsafe requests unless supported by the endpoint', so every claim fails."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs:86-100; GitHub issue #827 log"
+  - claim: "The class summary and the TransitionAsync comment claim a 412 guard that GitHub never delivers; p0262 already made lifecycle labels unconditional markers and the active-run lease (p0246b) owns single-run."
+    evidence: "GitHubTicketStatusTransitioner.cs:16-17,64-66; src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:35-55"
+  - claim: "The GET stays: it supplies the existing labels the full-array PATCH must keep; only the ETag it returned is dropped."
+    evidence: "GitHubTicketStatusTransitioner.cs:74-84,123-138"
+  - claim: "No other GitHub write in the codebase sends a conditional header; the other GitHub writers go through Octokit without one, and Azure DevOps guards with a JSON-Patch test op on /rev."
+    evidence: "grep If-Match/If-None-Match/If-Unmodified-Since over src: only GitHubTicketStatusTransitioner.cs:96 sends one; AzureDevOpsTicketStatusTransitioner.cs:112"
+  - claim: "TransitionAsync_IfMatchConflict_ReturnsPreconditionFailed passes only because its mock returns 412 itself."
+    evidence: "tests/AgentSmith.Tests/Providers/Tickets/GitHubTicketStatusTransitionerTests.cs:32-47"
+
+scope:
+  in: "Drop the ETag read, the If-Match header and the unreachable 412 branch; correct the summary, the comment and the comments that name a GitHub ETag mismatch as a precondition source; replace the 412 test with one whose handler refuses any conditional header on the PATCH."
+  out: "Switching to the add/remove-label endpoints (see decisions); other providers."
+
+steps:
+  - id: transitioner
+    action: "GitHubTicketStatusTransitioner: FetchIssueAsync returns the issue only; PatchLabelsAsync sends no conditional header and has no 412 branch."
+  - id: comments
+    action: "Comments: class summary, TransitionAsync, SingleClaimRegionExecutor, ITicketStatusTransitioner, LockedTicketStatusTransitioner, AzureDevOpsTicketStatusTransitioner summary, CrossProviderLifecycleMatrixTests, TicketClaimServiceTests; BoardRefusalKeepsTheClaimTests' example reason becomes a rev mismatch."
+  - id: tests
+    action: "Tests: remove TransitionAsync_IfMatchConflict_ReturnsPreconditionFailed; add a case whose handler answers 400 to any conditional header, over TransitionAsync, ReadCurrentAsync and not-found; GitHubTicketStatusTransitionerTests' fixtures stop setting ETag."
+
+done:
+  - "No request the transitioner sends carries If-Match or If-None-Match; a test proves it with a handler that answers 400 the way GitHub does."
+  - "GitHubTicketStatusTransitionerTests, CrossProviderLifecycleMatrixTests, TicketClaimServiceTests and BoardRefusalKeepsTheClaimTests pass."

@@ -5,8 +5,9 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
-/// Atomically transitions a ticket between lifecycle statuses using the
-/// strongest concurrency primitive the platform offers (ETag, rev, or lock).
+/// Transitions a ticket between lifecycle statuses, guarded where the platform's
+/// write accepts a precondition (the Azure DevOps rev) and last-write-wins where it
+/// accepts none; Jira is additionally serialised by a Redis lock in the server.
 /// </summary>
 public interface ITicketStatusTransitioner : ITypedProvider
 {
