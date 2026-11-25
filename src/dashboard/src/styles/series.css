@@ -14,34 +14,17 @@
 .mock-tickets .sr-filter { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); }
 .mock-tickets .sr-filter select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 5px 8px; max-width: 220px; }
 .mock-tickets .sr-empty { padding: 28px 16px; text-align: center; color: var(--ink-3); background: var(--panel); border: 1px dashed var(--line); border-radius: var(--r); }
-/* 2026-11-23-31dcd: one series' page in the ticket page's frame (ticket-thread.css) — the bar's progress and counts
-   line, the Tickets table and the embedded conversation. */
-.mock-tickets .sr-bar-head { padding: 0 8px 6px; }
-.mock-tickets .sr-bar-counts { padding: 0 8px 12px; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.mock-tickets .sr-tickets { width: 100%; border-collapse: collapse; font-size: 13px; }
-.mock-tickets .sr-tickets th { text-align: left; font-weight: 500; font-size: 12px; color: var(--ink-3); padding: 6px 8px; border-bottom: 1px solid var(--line-2); }
-.mock-tickets .sr-tickets td { padding: 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; overflow-wrap: anywhere; }
-.mock-tickets .sr-tickets tbody tr { cursor: pointer; }
-.mock-tickets .sr-tickets tbody tr:hover { background: var(--panel-2); }
-.mock-tickets .sr-tickets a { color: var(--ink-2); text-decoration: none; }
+/* 2026-11-23-31dcd: one series' page in the ticket page's frame (ticket-thread.css). 2026-11-25-9992j: one pane — the
+   graph, the series' last step, and the chat below it. */
 .mock-tickets .sr-state { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
-.mock-tickets .sr-state.ok { color: var(--ok); }
-.mock-tickets .sr-state.run { color: var(--run); }
-.mock-tickets .sr-state.need { color: var(--person); }
 .mock-tickets .sr-state.bad { color: var(--bad); }
-/* 2026-11-23-0219: a ticket's host badges — Draft, Build not started, CI running, CI red. */
-.mock-tickets .sr-badges { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 4px; font-weight: 400; }
-.mock-tickets .sr-badges .sr-state { border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; font-size: 11px; }
+.mock-tickets .sr-chat { display: grid; gap: 10px; min-width: 0; margin-top: 22px; scroll-margin-top: 16px; }
+.mock-tickets .sr-chat h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--ink); }
 .mock-tickets .sr-talk { display: flex; flex-direction: column; gap: 12px; min-width: 0; background: transparent; }
-@media (max-width: 640px) { .mock-tickets .sr-tickets th:nth-child(2), .mock-tickets .sr-tickets td:nth-child(2) { display: none; } }
-/* 2026-11-23-f562: the Overview — summary chips, the order graph (repo lanes, depth columns, one colour per ticket by its
-   hold, orthogonal edges, the needed chain in the accent), a node's menu, and the action list in the same colours. The
-   graph scrolls sideways inside its own box, never the page. */
+/* 2026-11-23-f562: the order graph (repo lanes, depth columns, one colour per ticket by the server's kind, orthogonal
+   edges, the needed chain in the accent) and a node's details. The graph scrolls sideways inside its own box, never the
+   page. 2026-11-25-9992j: a ticket at work carries a pulsing mark, the host's conflict and CI small dots. */
 .mock-tickets .sr-overview { display: grid; gap: 14px; min-width: 0; }
-.mock-tickets .sr-said { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 12.5px; color: var(--ink-2); padding: 8px 12px; border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--panel); overflow-wrap: anywhere; }
-.mock-tickets .sr-said.bad, .mock-tickets .sr-outcome.bad { color: var(--bad); }
-.mock-tickets .sr-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.mock-tickets .sr-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 3px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
 .mock-tickets .sr-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; box-sizing: border-box; }
 .mock-tickets .sr-dot.now { background: var(--accent); }
 .mock-tickets .sr-dot.needed { border: 2px solid var(--accent); }
@@ -67,6 +50,11 @@
 .mock-tickets .sr-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mock-tickets .sr-node-id { display: flex; justify-content: space-between; gap: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; }
 .mock-tickets .sr-node-id > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.mock-tickets .sr-node-marks { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.mock-tickets .sr-mark { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+.mock-tickets .sr-mark.bad { background: var(--bad); }
+.mock-tickets .sr-mark.run { background: var(--run); }
+.mock-tickets .sr-mark.need { background: var(--person); }
 .mock-tickets .sr-node-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mock-tickets .sr-node.now { border: 2px solid var(--accent); background: var(--accent-wash); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 .mock-tickets .sr-node.needed { border: 2px solid var(--accent); }
@@ -76,6 +64,8 @@
 .mock-tickets .sr-node.pr { background: var(--panel-2); }
 .mock-tickets .sr-node.waiting { border-style: dashed; color: var(--ink-3); }
 .mock-tickets .sr-node.merged { border-color: var(--ok); background: var(--ok-wash); }
+.mock-tickets .sr-node.working::after { content: ""; position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--run); box-shadow: 0 0 0 2px var(--panel); animation: sr-working 1.6s ease-in-out infinite; }
+@keyframes sr-working { 50% { opacity: .35; } }
 .mock-tickets .sr-node.dim { opacity: .2; }
 .mock-tickets .sr-edge { fill: none; stroke-width: 1.5; stroke: var(--ink-3); opacity: .7; transition: opacity .15s; }
 .mock-tickets .sr-edge.needed { stroke: var(--accent); stroke-width: 2; opacity: .9; }
@@ -83,41 +73,24 @@
 .mock-tickets .sr-menu { position: absolute; z-index: 5; width: 250px; max-width: calc(100vw - 32px); box-sizing: border-box; display: grid; gap: 8px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-s); box-shadow: var(--shadow); font-size: 12.5px; }
 .mock-tickets .sr-menu-title { font-weight: 650; font-size: 13px; overflow-wrap: anywhere; }
 .mock-tickets .sr-menu-why { color: var(--ink-3); overflow-wrap: anywhere; }
-.mock-tickets .sr-menu .sr-acts { justify-content: flex-start; }
+.mock-tickets .sr-details-prs { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; overflow-wrap: anywhere; }
+/* 2026-11-24-f9c5f: the series' last step below the graph, in a list frame. */
 .mock-tickets .sr-list { display: grid; min-width: 0; border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--panel); overflow: hidden; }
 .mock-tickets .sr-list-group { padding: 8px 12px; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); background: var(--panel-2); border-top: 1px solid var(--line-2); }
 .mock-tickets .sr-list-group:first-child { border-top: 0; }
 .mock-tickets .sr-list-row { display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line-2); font-size: 13px; }
 .mock-tickets .sr-list-bar { align-self: stretch; border-radius: 3px; box-sizing: border-box; }
-.mock-tickets .sr-list-row.now .sr-list-bar { background: var(--accent); }
-.mock-tickets .sr-list-row.question .sr-list-bar { background: var(--person); }
-.mock-tickets .sr-list-row.failed .sr-list-bar { background: var(--bad); }
-.mock-tickets .sr-list-row.needed .sr-list-bar { border: 2px solid var(--accent); }
-.mock-tickets .sr-list-row.needed .sr-list-main { opacity: .8; }
 .mock-tickets .sr-list-row.quiet .sr-list-bar { background: var(--line); }
 .mock-tickets .sr-list-main { min-width: 0; overflow-wrap: anywhere; }
 .mock-tickets .sr-list-title { font-weight: 600; }
-.mock-tickets .sr-list-title a.mono { color: var(--ink-2); text-decoration: none; }
 .mock-tickets .sr-list-sub { font-size: 12.5px; color: var(--ink-3); }
-@media (max-width: 640px) { .mock-tickets .sr-list-row { grid-template-columns: 6px minmax(0, 1fr); } .mock-tickets .sr-list-row .sr-acts { grid-column: 2; justify-content: flex-start; } }
-@media (prefers-reduced-motion: reduce) { .mock-tickets .sr-node, .mock-tickets .sr-edge { transition: none; } }
-/* 2026-11-23-31dcj: Changed in this series, below the Tickets table (2026-11-23-f562) — the ticket page's revision rows. */
-.mock-tickets .sr-changes { margin-top: 22px; }
-.mock-tickets .sr-changes h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--ink); }
-.mock-tickets .sr-changes .revs { margin-top: 10px; }
-.mock-tickets .sr-changes .rv { grid-template-columns: auto minmax(0, 1fr) auto; overflow-wrap: anywhere; }
-.mock-tickets .sr-changes .rc a.mono { color: var(--ink-2); }
+@media (max-width: 640px) { .mock-tickets .sr-list-row { grid-template-columns: 6px minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .mock-tickets .sr-node, .mock-tickets .sr-edge { transition: none; } .mock-tickets .sr-node.working::after { animation: none; } }
 
-/* 2026-11-23-8d16: the acts are buttons — the pane's rule (ticket-thread.css) draws every .btn as underlined text, so the
-   Overview draws its own again: the merge now in the accent, an answer in the person colour, a retry in the failure
-   colour, the rest outlined, a disabled one visibly greyed (2026-11-23-f562: the menu's and the list's). */
-.mock-tickets .sr-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center; }
-.mock-tickets .tk-pane .sr-acts .btn {
+/* 2026-11-23-8d16: the pane's rule (ticket-thread.css) draws every .btn as underlined text, so a question's choices in the
+   chat are drawn as buttons again (2026-11-25-9992j): the recommended one in the accent, the rest outlined. */
+.mock-tickets .tk-pane .sr-question .btn {
   border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px; border-radius: 9px;
   font-size: 12.5px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
-.mock-tickets .tk-pane .sr-acts .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
-.mock-tickets .tk-pane .sr-acts .btn.ask { background: var(--person); border-color: var(--person); color: var(--on-fill); }
-.mock-tickets .tk-pane .sr-acts .btn.bad { background: var(--bad); border-color: var(--bad); color: var(--on-fill); }
-.mock-tickets .tk-pane .sr-acts .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.mock-tickets .tk-pane .sr-acts .btn:disabled {
-  background: var(--panel-2); border-color: var(--line-2); color: var(--ink-3); opacity: 0.6; cursor: not-allowed; }
+.mock-tickets .tk-pane .sr-question .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.mock-tickets .tk-pane .sr-question .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

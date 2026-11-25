@@ -9,10 +9,13 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// reopen — a label is not one — and counts only when "open" is a trigger status. A Bot actor is no
 /// person. Octokit pages the events itself.
 /// </summary>
-public sealed class GitHubStatusHistory(IGitHubClient client, string owner, string repo) : ITicketStatusHistory, ITrackerSelf
+public sealed class GitHubStatusHistory(IGitHubClient client, string owner, string repo, Func<string?>? selfLogin = null)
+    : ITicketStatusHistory, ITrackerSelf
 {
+    // 2026-11-25-0873: an App's installation token cannot read GET /user; its login {slug}[bot] comes from GET /app.
     public async Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken)
     {
+        if (selfLogin?.Invoke() is { Length: > 0 } app) return new TrackerActor(app, app, IsApp: true);
         var me = await client.User.Current();
         return new TrackerActor(me.Login, me.Login);
     }

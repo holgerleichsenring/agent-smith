@@ -17,7 +17,7 @@ public static class TicketSeriesMergeHold
         var after = facts.SeriesMergeOrder.SkipWhile(s => s.TicketId != step.TicketId).Skip(1).FirstOrDefault();
         return TicketHoldOf.Hold(facts, TicketHoldAddressees.Merge, TicketHoldCases.MergeNext,
                 new(TicketHoldActs.Merge, series), facts.EndedAt)
-            with { Names = facts.SeriesStartsOnMerge, Next = after?.Key, Approves = facts.MergeApproves };
+            with { Names = facts.SeriesStartsOnMerge, Next = after?.Key };
     }
 
     /// <summary>A never-run ticket that starts once others merge: it waits on nobody for the merges up to the last one it

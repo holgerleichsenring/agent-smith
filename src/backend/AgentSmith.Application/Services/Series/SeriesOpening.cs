@@ -10,10 +10,10 @@ public static class SeriesOpening
     public static string Text(SeriesBeat beat, ResolvedProject project)
     {
         ArgumentNullException.ThrowIfNull(beat);
-        var rows = beat.Rows;
-        var started = rows.Where(r => r.Kind is SeriesTicketState.Running or SeriesTicketState.ModelWait or SeriesTicketState.Green).Select(r => r.Ticket).ToList();
-        var held = rows.Count(r => r.Kind == SeriesTicketState.Held);
-        var text = $"Filed {rows.Count} tickets. "
+        // 2026-11-25-9992a: from the one state — an attempt began, or the hold waits on prerequisites or their merges
+        var started = beat.Facts.Where(f => f.LatestStatus is not null).Select(f => f.Ticket.Key).ToList();
+        var held = beat.Facts.Count(f => !f.Landed && f.Hold?.Case is Holds.TicketHoldCases.Prerequisite or Holds.TicketHoldCases.StartsOnMerge);
+        var text = $"Filed {beat.Facts.Count} tickets. "
             + (started.Count > 0 ? $"{string.Join(", ", started)} started; " : "None has started yet; ")
             + (held > 0 ? $"{held} wait on their prerequisites and {WaitRule(project, beat.Record.IntegrationBranch)}. " : string.Empty);
         var branch = beat.Record.IntegrationBranch; // 2026-11-24-f9c5c: a series with a branch merges its tickets there

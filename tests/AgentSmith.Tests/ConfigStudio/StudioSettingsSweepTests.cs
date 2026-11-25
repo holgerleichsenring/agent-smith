@@ -44,12 +44,12 @@ public sealed class StudioSettingsSweepTests
     {
         var sent = new ProjectEntity("app", "a", "t", [], null, [], Merge: new ProjectMerge("on_ci_green", true, false,
             CiPollSeconds: 30, CiSettleSeconds: 90, CiPendingSeconds: 600, CiFixAttempts: 2, CiExcerptChars: 1500,
-            CiFailedChecksRead: 3, ApprovalAuth: "approver"));
+            CiFailedChecksRead: 3));
 
         var stored = RawProjectPatch.Apply(sent, new RawProjectEntry());
 
         stored.Merge!.When.Should().Be(MergeWhen.OnCiGreen);
-        (stored.Merge.CiFixAttempts, stored.Merge.ApprovalAuth).Should().Be((2, "approver"));
+        stored.Merge.CiFixAttempts.Should().Be(2);
         ProjectEntityMapping.ToProject("app", stored).Merge.Should().Be(sent.Merge with { SeriesWhen = "on_ci_green" });
     }
 

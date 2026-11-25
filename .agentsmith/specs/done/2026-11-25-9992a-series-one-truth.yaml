@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992a
+goal: "A series' ticket state is computed once on the server, from the ticket's one hold and one CI rule, and the master, the dialog panel, the series page, the series list and the dashboard all read it."
+
+applies_to: "default (Application series + holds, Server series readers, dashboard series views)"
+
+requires: [2026-11-17-0207a, 2026-11-23-31dcb, 2026-11-23-31dcg, 2026-11-23-d60d, 2026-11-23-f562]
+
+facts:
+  - claim: "The master and the dialog panel read a ticket's CI from every PR record of the ticket, open or not, so a closed or merged PR's red head makes the ticket 'CI red'."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesTicketCi.cs:13-14"
+  - claim: "That same filter drops a read on an older head, where the hold counts it pending — a second divergence."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesTicketCi.cs:14"
+  - claim: "The hold (ticket list, ticket page, series page) reads CI from open records only, and a read on an older head counts as pending since the head moved."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Holds/TicketOpenPullRequestsReader.cs:33 and :86-91"
+  - claim: "The series page's per-PR CI uses a third rule: a read on an older head is null, not pending."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunPullRequests.cs:37"
+  - claim: "The master's state word comes from SeriesTicketState over its own facts (attempt status + SeriesTicketCi), not from the hold."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesTicketState.cs:18-27 and :36-43"
+  - claim: "The master's facts are read per ticket by a second reader that repeats the hold's inputs (model wait, restart window, starts-on-merge)."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesTicketFacts.cs:16-21 and :46-73"
+  - claim: "The dashboard derives a ticket's Overview colour and its CI badge in the browser from the hold, the merge order and the PRs."
+    evidence: "src/dashboard/src/components/series/page/seriesNodeKind.ts:28-38 and src/dashboard/src/components/series/page/seriesCiState.ts:15-18"
+  - claim: "The hold is documented as read once on the server, with every surface rendering it and deciding nothing of its own."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketHold.cs:6-8"
+  - claim: "Waits that outlast holds.escalate_after_minutes turn the hold's addressee to admin, which the dashboard paints failed; their case stays the wait's."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketHoldEscalations.cs:15-17 and src/dashboard/src/components/series/page/seriesNodeKind.ts:32"
+  - claim: "The Tickets section, the merge act's CI refusal and the list's counts each derive a state of their own."
+    evidence: "src/dashboard/src/components/series/page/seriesTicketState.ts:9-23, src/backend/AgentSmith.Server/Services/Series/SeriesMergeNextAct.cs:76-80, src/backend/AgentSmith.Server/Services/Series/SeriesRunTickets.cs:71-77"
+  - claim: "The sweeper reads facts once per active series every scan (15 s)."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunSweeper.cs:49"
+  - claim: "Incident 2026-11-25: one PR was green on its host, the Overview said 'CI running 8 h' and the conversation said 'red – operator'."
+    evidence: "observed: 2026-11-25, production series, read-only"
+
+scope:
+  in: |
+    SeriesTicketFact and ISeriesTicketFacts move to Application (AgentSmith.Application.Services.Series). The fact is the one
+    per-ticket model: the hold, the PRs per repo (SeriesRunPullRequestView, moved to Application, same JSON), the CI aggregate
+    over its waiting PRs, NeededBy, and the computed Kind, State and Working. ISeriesTicketFacts.ReadAsync takes the record.
+    One server reader, SeriesStatusReader, builds it from SeriesRunProjectReads, SeriesRunHolds, per-ticket costs and the
+    parked question, and serves the master (ReadSeriesHandler, SeriesPause, SeriesRunSweeper), the panel (SeriesRunViewReader),
+    the page (SeriesRunDetailReader) and the list (SeriesRunOverviewReader).
+    One CI rule, PullRequestHeadCi: the head rule and the precedence, used by the hold's reader and the page's PRs.
+    SeriesTicketState gives the kind (merged, now, needed, question, failed, running, pr, waiting) and the state words, from
+    the hold's CASE — an escalated wait stays running, its words say it is overdue — and, with no hold, from the newest
+    attempt (none: waiting/not started; success: waiting/green; anything else: failed with its end).
+    The hold inputs (TicketHoldSeriesRead) keep reading SeriesRunProjectReads and SeriesRunTickets directly, never
+    SeriesStatusReader, so there is no cycle; the merge act keeps withHolds false.
+    The sweeper reads every active series in one ReadManyAsync per scan (one hold read per project).
+    The table snapshot carries the kind (key=kind|state); NewlyRed flags a ticket whose earlier kind was not failed, and an
+    old snapshot line without a kind flags nothing, so a deploy does not re-report every red ticket (it costs one extra
+    look per active series, which posts nothing unless the master acts).
+    The merge act's CiHolds, the list's Counts, SeriesOpening, SeriesPause and read_ticket read the fact's kind and CI;
+    the dashboard Tickets section renders the server kind.
+    Kinds, state, ci and working go on the page's ticket view; workingOn goes on the page, the panel and series_status.
+    The dashboard reads ticket.kind and ticket.ci and stops deriving them.
+  out: "New master tools (e), the UI redesign (j), removing holds (e/i). The CI loop reading a moved head late (the 'CI running 8 h' staleness) is the CI tool's work; this spec makes every surface say the same thing about it. The ticket-list buckets already read the hold."
+
+steps:
+  - id: ci-rule
+    action: "Application PullRequestHeadCi (OnHead, Precedence, Of). TicketOpenPullRequestsReader and SeriesRunPullRequests use it."
+  - id: model
+    action: "Move SeriesTicketFact, ISeriesTicketFacts and SeriesRunPullRequestView to Application. Drop WaitingForModel, Interrupted, Restarting, StartsOnceMerged, CiState and the URL list; add Hold, PullRequests, Ci, CiFailure, NeededBy, and the computed Kind, State and Working."
+  - id: state
+    action: "SeriesTicketState.Of(fact): kind and words from landed, the hold and the PRs. SeriesTable, SeriesJudgement and SeriesPauseText read it."
+  - id: reader
+    action: "SeriesStatusReader (Server) builds the facts and the page shape in one pass. Delete SeriesTicketFacts and SeriesTicketCi. SeriesRunCosts reads cost and first start per ticket; SeriesRunProjectReads keeps landing times."
+  - id: readers
+    action: "Detail, overview, panel, master, pause and sweeper read through SeriesStatusReader. SeriesRunTicketView carries Kind, State, Ci and Working; the detail and panel views carry WorkingOn. series_status and read_ticket return the kind, the hold case, the CI and the PRs."
+  - id: dashboard
+    action: "Types gain kind, state, ci, working and workingOn. Delete seriesNodeKind's derivation and seriesCiWait, and migrate the callers to ticket.kind and ticket.ci. Change the panel CSS to the new kinds."
+  - id: tests
+    action: "Unit tests for PullRequestHeadCi, SeriesTicketState and the reader through the real composition. Migrate the series tests, the SeriesRig harness and the dashboard tests."
+
+done:
+  - "No server or dashboard code computes a series ticket's state, kind or CI aggregate outside PullRequestHeadCi, SeriesTicketState and SeriesStatusReader; SeriesTicketFacts, SeriesTicketCi and seriesCiWait are gone."
+  - "A ticket whose only red PR record is closed reads green to the master, the panel and the page alike (test)."
+  - "An open PR whose CI read is on an older head reads 'CI running' with the same since on the page's PR row, in the hold and in series_status (test)."
+  - "The page's ticket kind equals the kind series_status reports for the same ticket (test over one composition)."
+  - "dotnet build, the affected tests and the dashboard tests and build are green."

@@ -23,7 +23,10 @@ public sealed class ReadSeriesHandler(
         var record = await store.GetAsync(id!, cancellationToken);
         if (record is null) return CommandResult.Fail($"Series run {id} does not exist.");
         if (!record.IsActive) return CommandResult.Ok($"Series run {id} is {record.State}; this beat has nothing to do.");
-        var beat = new SeriesBeat(record, await facts.ReadAsync(record.Project, record.Tickets, cancellationToken), clock.GetUtcNow());
+        var beat = new SeriesBeat(record, await facts.ReadAsync(record, cancellationToken), clock.GetUtcNow())
+        {
+            Actor = context.Project.ActorName, // 2026-11-25-9992h
+        };
         beat.Messages.AddRange(await conversation.AddressedAsync(record.Conversation, record.Id, record.MessagesThrough, cancellationToken));
         if (beat.Messages.Count > 0) beat.MessagesThrough = beat.Messages[^1].Index;
         await questions.SettleAsync(beat, config.Dialogue.QuestionDefaultMinutes, cancellationToken); // 0207c

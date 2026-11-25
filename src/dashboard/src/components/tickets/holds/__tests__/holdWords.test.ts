@@ -4,7 +4,7 @@ import type { TicketHoldCase } from "@/types/tickets";
 import { hold, list, ticket } from "../../__tests__/ticketFixtures";
 import { attempt } from "../../detail/__tests__/detailFixtures";
 import {
-  countsFor, durationOf, holdActLabel, holdAsk, holdRowAct, holdSentence, holdTag, isPersons, isYourMove, mergeTail, namesOf, sinceClock, toldOf,
+  countsFor, durationOf, holdActLabel, holdAsk, holdRowAct, holdSentence, holdTag, isPersons, isYourMove, mergeTail, namesOf, seriesTalkLabel, sinceClock, toldOf,
   waitClause, yourMoveCount,
 } from "../holdWords";
 import { holdPullRequestHref, holdSeriesHref, isAsked } from "../holdRoutes";
@@ -33,7 +33,7 @@ describe("holdWords", () => {
       .toBe("Wartet auf einen Merge: #1. Für dich gibt es nichts zu tun.");
   });
 
-  // 2026-11-23-849e: the series' one merge says what merging unblocks and that it approves; a ticket that starts on merges
+  // 2026-11-23-849e: the series' one merge says what merging unblocks; a ticket that starts on merges
   // says how many it waits for and which is next; a CI that ran past the minutes says how long and what to check.
   // 2026-11-23-0219: a required build that never started, past the minutes, names how long and the key.
   it("holdSentence_ABuildNotStartedPastTheMinutes_IsReportedWithTheKey", () => {
@@ -44,10 +44,10 @@ describe("holdWords", () => {
   });
 
   it("holdSentence_TheSeriesMerge_TheMergesAStartWaitsFor_AndAHungCi", () => {
-    const merge = hold("merge_next", { next: "#19649", names: ["#19662", "#19665"], approves: true });
+    // 2026-11-25-9992h: merging never approves, so the sentence no longer says it does.
+    const merge = hold("merge_next", { next: "#19649", names: ["#19662", "#19665"] });
     expect(holdSentence(translator("en"), merge)).toBe("Its pull request is next in the series' merge order. #19649 is next after it. Needed so "
-      + "#19662 and #19665 can start. Merging approves the pull request where its host requires a review, as agent-smith's "
-      + "configured identity, and asks the host to complete it once its rules pass.");
+      + "#19662 and #19665 can start.");
     expect(mergeTail(translator("en"), hold("merge_next", { next: "#2" }))).toBe("#2 is next after it.");
     // 2026-11-23-f562: the ticket page says the needed-merge wording, not "erst nach weiteren Merges".
     expect(mergeTail(translator("de"), hold("merge_next", { names: ["#9"] }))).toBe("Nötig, damit #9 starten kann.");
@@ -87,6 +87,15 @@ describe("holdWords", () => {
     expect(holdRowAct(translator("en"), hold("text_edited", { act: { kind: "conversation", target: null } }))).toBe("Discuss in the conversation");
     expect(holdRowAct(translator("en"), hold("working"))).toBe("Open the ticket");
     expect(holdTag(translator("en"), hold("text_edited"))).toBe("plan gap");
+  });
+
+  // 2026-11-25-9992j: a ticket's own question in an active series is answered in the series chat — said so, not "the plan".
+  it("seriesTalkLabel_ATicketsQuestionInTheSeries_IsAnsweredInTheSeriesChat", () => {
+    const asked = hold("question", { act: { kind: "conversation", target: "sr-1" } });
+    expect([seriesTalkLabel(translator("en"), asked), holdActLabel(translator("en"), asked), holdRowAct(translator("de"), asked)])
+      .toEqual(["Answer in the series chat", "Answer in the series chat", "Im Chat der Serie antworten"]);
+    expect(seriesTalkLabel(translator("en"), hold("question_plan", { act: { kind: "conversation", target: "sr-1" } }))).toBe("Talk about the plan");
+    expect(holdSeriesHref(asked, (id) => `/series/${id}`)).toBe("/series/sr-1?section=talk");
   });
 
   // 2026-11-23-31dch: a plan question's act is the series' conversation, in both languages.

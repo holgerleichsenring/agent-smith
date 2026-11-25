@@ -52,7 +52,7 @@ public sealed class WorkspaceRepoRestore(
         var head = await sandbox.RunStepAsync(Git(["rev-parse", "HEAD"]), null, ct);
         if (head.OutputContent?.Trim() != state.Head)
             throw Failed(state, $"the clone stands at {head.OutputContent?.Trim()}, not at the saved {state.Head}");
-        await identity.EnsureConfiguredAsync(sandbox, ct);
+        await identity.EnsureConfiguredAsync(sandbox, state.Repo.Machine, ct); // 9992h: the machine commits
     }
 
     private static async Task RequireAsync(

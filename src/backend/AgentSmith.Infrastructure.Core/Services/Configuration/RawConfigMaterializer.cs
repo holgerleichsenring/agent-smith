@@ -61,8 +61,8 @@ public sealed class RawConfigMaterializer(
         // 2026-10-02-5f89a: discovery during resolution authenticates with THIS configuration's secrets.
         AgentSmithConfig config;
         using (inFlight?.Begin(raw.Secrets)) config = resolver.Resolve(raw);
-        // Advisory, so recorded but never part of what the one-shot loader refuses on.
-        foreach (var finding in _modelRoles.For(config.Agents)) _findings.Record(finding);
+        // Advisory, so recorded but never part of what the one-shot loader refuses on; 2026-11-25-9992h/0873: who acts as the machine.
+        foreach (var finding in _modelRoles.For(config.Agents).Concat(MachineAdvisories.Of(config))) _findings.Record(finding);
         LastResolutionFindings = [.. _unmaterializable, .. resolver.LastFindings];
         return config;
     }

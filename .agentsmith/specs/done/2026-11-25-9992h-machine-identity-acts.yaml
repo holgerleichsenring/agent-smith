@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992h
+goal: "agent-smith acts on GitHub, GitLab and Azure DevOps under a per-project machine identity, visible in commits and acts; it never approves its own PR, and a missing identity is a finding."
+
+applies_to: "default (CredentialResolver, RepoConnection, ResolvedProjectBuilder, SandboxGitIdentity, series acts, merge approval) + dashboard (project form)"
+
+requires: [2026-11-17-3435b, 2026-11-17-0207a]
+
+facts:
+  - claim: "Every hoster act (clone, push, PR create/update, comment, merge, auto-complete) resolves its token through ICredentialResolver.For(RepoConnection), which reads the repo's Auth secret."
+    evidence: "src/backend/AgentSmith.Contracts/Services/CredentialResolver.cs:23; src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:249,304; src/backend/AgentSmith.Infrastructure/Services/Factories/PipelineRunnerFactory.cs:35-54"
+  - claim: "The commit identity is fixed: 'Agent Smith <agent-smith@noreply.local>', set at checkout when the sandbox resolves none; the foreign-commit probe and the branch report know our commits by that email."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxGitIdentity.cs:22-35; src/backend/AgentSmith.Application/Services/Specs/ForeignCommitProbe.cs:53-64; src/backend/AgentSmith.Application/Services/Preflight/Run/BranchStateCheck.cs:102-104"
+  - claim: "agent-smith approves pull requests: GitHub review APPROVE, GitLab /approve, an Azure +10 vote, as the repo token or merge.approval_auth, and Azure auto-complete votes as the PR creator."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestApprovalStep.cs:18-29; src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:43,79"
+  - claim: "A series auto-start is booked as the constant 'agent-smith'; the series' retry and tell are booked as 'series master', under the approver's principal."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/AttemptChannels.cs:37-38; src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:43; src/backend/AgentSmith.Server/Services/Series/SeriesTicketActs.cs:81; src/backend/AgentSmith.Server/Services/Series/SeriesTicketMessage.cs:13"
+  - claim: "GitHub's marked-comment delete finds itself with GET /user, which an App installation token cannot read; Azure finds itself with connectionData."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:240; src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:371-372"
+  - claim: "A project's configuration problems are StartupFindings; the studio shows a draft's findings, advisory ones included, on the project form."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDraftRules.cs:31-48; src/dashboard/src/components/config/ProjectForm.tsx:287-310"
+
+scope:
+  in: |
+    A project's `machine:` block: name and email (actor and commit author) and per hoster (github, gitlab, azure_devops) the
+    `auth` secret — a bot user's token, a GitLab project/group access token, an Azure DevOps bot user PAT, or with `app_id` and
+    `installation_id` a GitHub App's private key. Resolution stamps each of the project's remote repos with its hoster's
+    identity; CredentialResolver.For(repo) then answers the machine's token, for a GitHub App an installation token minted
+    (RS256 JWT, POST /app/installations/{id}/access_tokens, 201) and cached until five minutes before expires_at. Checkout
+    writes the machine as the clone's commit author (local config, over any image default); the probe and branch report count
+    its email and the legacy one as ours. Minting is synchronous (HttpClient.Send, HttpClient's default timeout, one mint per installation
+    at a time) behind IMachineTokens; a failed mint is a MachineCredentialException (a MissingCredentialException) with the
+    host's answer. For an App, "self" is {slug}[bot] read from GET /app. An explicit source auth override drops the stamp. Approval is removed: no
+    IPullRequestApprover, no approval vote on arming auto-complete (armed as the token's own identity), merge.approval_auth
+    retired. The trail of push, PR, comment and merge acts is the hoster's own record of the identity that made them. Series acts are booked under
+    the machine's name and say each act with its reason. A hoster in the project without an identity is an advisory finding
+    (studio and runtime); a block with a hoster but no name or email, or an app_id without installation_id, is blocking.
+    Dashboard: a Machine identity section on the project form. Docs, schema, example.
+  out: "Azure DevOps service principal: 2026-11-25-d0e2. Tracker writes (comments, status) and PoC source/GitOps repos: 2026-11-25-0873. Discovery reads under the connection. A durable act ledger table. RestartActor (a string the interrupted-restart reader matches on)."
+
+done:
+  - "A repo of a project whose machine block names its hoster resolves the machine's token; one without stays on its own Auth."
+  - "A GitHub App identity mints an installation token with an RS256 JWT (iss app id, iat 60 s back, exp ≤ 10 min) at POST {api}/app/installations/{id}/access_tokens, reuses it until 5 min before expires_at, and names the host's answer on a non-201; pinned on faked responses."
+  - "Checkout writes the machine's name and email as the clone's commit author even over an existing identity; the foreign-commit probe and the branch report treat the machine email and the legacy email as ours."
+  - "A GitHub App identity's self login is {slug}[bot] from GET /app (JWT), used to tell its own marked comments; a failed mint refuses the act with the host's answer."
+  - "Azure auto-complete is armed and re-armed as the token's own identity, with no vote; a source auth override wins over the machine."
+  - "No code path approves or votes on a pull request (a test pins that IPullRequestApprover and AzureReposApprovalVote are gone); merge.approval_auth is a retired key; the studio no longer offers it."
+  - "A series auto-start, retry and tell are booked under the machine's name (agent-smith without one), and start/retry/tell/deploy/pause/resume say the act with its reason in the conversation."
+  - "A project with a GitHub, GitLab or Azure DevOps repo and no identity for that hoster carries an advisory finding naming the hoster, the repos and the key; invalid blocks are blocking — in the studio draft and at runtime."
+  - "The project form edits the block (name, email, per hoster auth secret, GitHub app id, installation id, email override) and round-trips it."

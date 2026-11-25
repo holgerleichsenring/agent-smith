@@ -52,7 +52,10 @@ public sealed record LlmCallFinishedEvent(
     // 2026-11-09-0620a: the stored prompt this call was sent (null when nothing was stored) and how many tools
     // it offered — the call table opens the prompt by this id.
     string? PromptId = null,
-    int ToolCount = 0)
+    int ToolCount = 0,
+    // 2026-11-25-9992k: the share of TokensOut the model spent reasoning (OpenAI reasoning_tokens, on Responses and on
+    // Chat Completions). Already inside TokensOut and priced as output; 0 where the provider reports none.
+    long ReasoningTokensOut = 0)
     : RunEvent(RunId, EventType.LlmCallFinished, Timestamp), IMeasuredWork
 {
     [JsonIgnore]

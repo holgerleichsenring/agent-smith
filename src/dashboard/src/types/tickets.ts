@@ -206,8 +206,6 @@ export interface TicketHold {
   next?: string | null;
   /** 2026-11-23-849e: how many merges a starts_on_merge hold waits for. */
   merges?: number | null;
-  /** 2026-11-23-849e: the merge act approves the pull request where its host requires a review. */
-  approves?: boolean;
 }
 
 /** 2026-11-23-31dci: why a wait is the admin's — it lasted longer than afterMinutes, the value of the config key `key`. */

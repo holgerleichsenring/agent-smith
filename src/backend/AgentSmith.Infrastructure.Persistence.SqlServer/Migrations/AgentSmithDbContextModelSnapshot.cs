@@ -2611,6 +2611,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<string>("PromptHash")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<long>("ReasoningTokensOut")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Role")
                         .HasColumnType("nvarchar(max)");
 

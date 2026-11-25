@@ -29,6 +29,23 @@ In a beat the series master reads the facts of every ticket (state, requires, sp
 | ask you | post a question in the conversation |
 | stop the series | when going on makes no sense, with the reason |
 
+### One state per ticket
+
+Every surface reads one state per ticket, worked out once on the server. That covers the master's `series_status` and `read_ticket`, the **Series** tab, the series page's Overview and Tickets, and the series list. The state starts from the ticket's hold, the same one its ticket page and the ticket list show. A ticket's CI is its open pull requests' CI on their current heads. A pull request that is closed or merged doesn't count. A CI read on an older head counts as running from the moment the head moved. Each ticket has one kind:
+
+| Kind | Meaning |
+|---|---|
+| merged | landed |
+| now | its pull request is the series' next merge |
+| needed | other tickets start once its pull request merges |
+| question | a question or a plan change waits on a person |
+| failed | a failure, red CI, a conflict or a stop that a person decides |
+| running | a run is working on it: coding, queued, resuming, restarting, waiting for its model place, or bringing its branch up to date |
+| pr | its pull request waits: CI running, or behind another merge |
+| waiting | not started, or waiting on its prerequisites |
+
+A wait that runs past `holds.escalate_after_minutes` keeps its kind, and its state says it is overdue. The tickets a run is working on are what the series is working on now (`workingOn`).
+
 Tickets still start and merge by the project's own rules: [stacked start](stacked-start.md) for dependents, the [merge policy and CI loop](ci-loop.md) for merging. The series doesn't watch CI itself; it reads what the CI loop recorded.
 
 The master's own spend has a budget, `dialogue.series_master_budget_usd` (default 20 USD). The ticket runs keep their own caps.

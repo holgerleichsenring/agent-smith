@@ -21,7 +21,7 @@ public sealed class SeriesActToolsTests
 
     // SCRUM-43 is coding, SCRUM-44 waits on it, SCRUM-45 never started and waits on nothing.
     private void Facts(bool landed43 = false) =>
-        _facts.Setup(f => f.ReadAsync("sample", It.IsAny<IReadOnlyList<SeriesTicket>>(), It.IsAny<CancellationToken>())).ReturnsAsync(
+        _facts.Setup(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())).ReturnsAsync(
             [SeriesRecords.Fact("43", landed43 ? RunStatuses.Success : RunStatuses.Running, finished: landed43,
                 landed: landed43 ? SeriesRecords.T : null),
              SeriesRecords.Fact("44", requires: "43"), SeriesRecords.Fact("45")]);
@@ -32,6 +32,21 @@ public sealed class SeriesActToolsTests
         _acts.Setup(a => a.RetryAsync("sample", "44", "operator", It.IsAny<CancellationToken>())).ReturnsAsync("retried");
 
         (await Tools(SeriesRecords.Running()).RetryTicketAsync("SCRUM-44")).Should().Be("retried");
+    }
+
+    // 2026-11-25-9992h: an act with its reason is said under the machine's name; the approver stays the authority.
+    [Fact]
+    public async Task RetryTicket_WithAReason_IsSaidUnderTheMachine()
+    {
+        _acts.Setup(a => a.RetryAsync("sample", "44", "operator", It.IsAny<CancellationToken>())).ReturnsAsync("retried");
+        var record = SeriesRecords.Running();
+        var beat = new SeriesBeat(record, [.. record.Tickets.Select(t => new SeriesTicketFact(t))], SeriesRecords.T) { Actor = "agent-smith-bot" };
+        var tools = new SeriesActTools(beat, _acts.Object, _store, new SeriesPause(_store, _facts.Object, _acts.Object, _conversation.Object));
+
+        (await tools.RetryTicketAsync("SCRUM-44", "the runner lost its network")).Should().Be("retried");
+        await tools.RetryTicketAsync("SCRUM-44");
+
+        beat.Said.Should().Equal("agent-smith-bot retried SCRUM-44: the runner lost its network");
     }
 
     [Fact]
@@ -109,7 +124,7 @@ public sealed class SeriesActToolsTests
     {
         var record = SeriesRecords.Running() with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running };
         await _store.OpenAsync(record, default);
-        _facts.Setup(f => f.ReadAsync("sample", It.IsAny<IReadOnlyList<SeriesTicket>>(), It.IsAny<CancellationToken>())).ReturnsAsync(
+        _facts.Setup(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())).ReturnsAsync(
             [SeriesRecords.Fact("43", RunStatuses.Failed), SeriesRecords.Fact("44", RunStatuses.Success), SeriesRecords.Fact("45", RunStatuses.Success)]);
 
         (await Tools(record).ResumeSeriesAsync()).Should()
@@ -170,7 +185,7 @@ public sealed class SeriesActToolsTests
     {
         var record = SeriesRecords.Running();
         await _store.OpenAsync(record, default);
-        _facts.Setup(f => f.ReadAsync("sample", It.IsAny<IReadOnlyList<SeriesTicket>>(), It.IsAny<CancellationToken>())).ReturnsAsync(
+        _facts.Setup(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())).ReturnsAsync(
             [SeriesRecords.Fact("43", RunStatuses.Queued, finished: false), SeriesRecords.Fact("44", RunStatuses.WaitingForInput, finished: false),
              SeriesRecords.Fact("45")]);
 
@@ -186,8 +201,8 @@ public sealed class SeriesActToolsTests
     {
         var record = SeriesRecords.Running() with { State = SeriesRunStates.Paused, PausedFrom = SeriesRunStates.Running };
         await _store.OpenAsync(record, default);
-        _facts.Setup(f => f.ReadAsync("sample", It.IsAny<IReadOnlyList<SeriesTicket>>(), It.IsAny<CancellationToken>())).ReturnsAsync(
-            [SeriesRecords.Fact("43", RunStatuses.Success) with { CiState = AgentSmith.Contracts.Reviews.CiStates.Red },
+        _facts.Setup(f => f.ReadAsync(It.IsAny<SeriesRunRecord>(), It.IsAny<CancellationToken>())).ReturnsAsync(
+            [SeriesRecords.Fact("43", RunStatuses.Success).WithPr(AgentSmith.Contracts.Reviews.PrReviewStates.Open, AgentSmith.Contracts.Reviews.CiStates.Red),
              SeriesRecords.Fact("44", RunStatuses.Queued, finished: false), SeriesRecords.Fact("45", RunStatuses.Success)]);
         Starts("44", true, "Ticket 44 started: moved");
         _acts.Setup(a => a.AskCiLoopAsync("sample", "43", It.IsAny<CancellationToken>())).ReturnsAsync("back to the loop");

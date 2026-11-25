@@ -16,8 +16,8 @@ internal static class GitStepCredentials
     /// 2026-10-02-5f89g: the step env for the repo's own credential; null for
     /// <see cref="GitCredential.None"/>, a local working copy that talks to no remote host.
     /// </summary>
-    public static IReadOnlyDictionary<string, string>? TokenEnv(GitCredential credential) =>
-        credential.HasToken
-            ? new Dictionary<string, string> { ["GIT_TOKEN"] = credential.Token! }
-            : null;
+    public static IReadOnlyDictionary<string, string>? TokenEnv(GitCredential credential) => credential.Env(); // 2026-11-25-d0e2
+
+    /// <summary>2026-11-25-d0e2: the git options before a remote-facing subcommand, the bearer header included.</summary>
+    public static string[] Args(GitCredential credential) => credential.Args(Helper);
 }

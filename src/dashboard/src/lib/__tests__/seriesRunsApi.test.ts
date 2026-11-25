@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchSeriesRun, fetchSeriesRunChanges, fetchSeriesRunCount, fetchSeriesRuns } from "../seriesRunsApi";
+import { fetchSeriesRun, fetchSeriesRunCount, fetchSeriesRuns } from "../seriesRunsApi";
 
 // 2026-11-23-31dcb: the series-run reads address their routes; a project filter rides in the query.
 
@@ -35,14 +35,5 @@ describe("seriesRunsApi", () => {
 
     expect(String(fetchMock.mock.calls[0][0])).toContain("/api/series-runs/count");
     expect(String(fetchMock.mock.calls[1][0])).toContain("/api/series-runs/sr-1");
-  });
-
-  it("fetchSeriesRunChanges_ReadsTheSeriesChangesRoute", async () => { // 2026-11-23-31dcj
-    const fetchMock = vi.fn().mockResolvedValue(json({ changes: [], unread: [] }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(fetchSeriesRunChanges("sr/1")).resolves.toEqual({ changes: [], unread: [] });
-
-    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/api\/series-runs\/sr%2F1\/changes$/);
   });
 });

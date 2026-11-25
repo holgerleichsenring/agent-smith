@@ -48,7 +48,7 @@ public sealed class SeriesMergeNextAct(
     // The ticket's pull requests that wait for a merge — per repo the open record, as the page shows them.
     private static CiGreenMergeRequest Request(SeriesRunTicketView ticket, string attemptRunId, string askedBy) =>
         new(ticket.TicketId, attemptRunId, TicketBranchNamer.Compose(new TicketId(ticket.TicketId)).Value,
-            [.. ticket.PullRequests.Where(SeriesRunPullRequests.Waits).Select(p => new CiGreenPullRequest(p.Repo, p.Url))])
+            [.. ticket.PullRequests.Where(SeriesRunPullRequestView.Waits).Select(p => new CiGreenPullRequest(p.Repo, p.Url))])
         { AskedBy = askedBy };
 
     private async Task<TicketCloseResult> RunAsync(
@@ -65,18 +65,18 @@ public sealed class SeriesMergeNextAct(
     }
 
     /// <summary>2026-11-23-849e: the ready step's CI is red — the act refuses what the page does not offer. 2026-11-23-0219: a
-    /// CI that runs or has not started merges when green — the merge-green run re-queues a build that has not started, approves
-    /// and arms the host's auto-complete, which only <c>respect_branch_protection: true</c> does; without it the act refuses and
+    /// CI that runs or has not started merges when green — the merge-green run re-queues a build that has not started and arms
+    /// the host's auto-complete (2026-11-25-9992h: nothing approves), which only <c>respect_branch_protection: true</c> does; without it the act refuses and
     /// names the key. Null when the merge may go ahead. 2026-11-24-f9c5c: a merge into a series branch never arms; it waits for
     /// green and says so.</summary>
     internal static string? CiHolds(SeriesRunTicketView ticket, MergePolicyConfig merge, string? seriesBranch = null)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(merge);
-        var waiting = ticket.PullRequests.Where(SeriesRunPullRequests.Waits).ToList();
-        if (waiting.Any(p => p.Ci == CiStates.Red)) return $"{ticket.Key} is not merged: its CI is red.";
-        if (merge.RespectBranchProtection || !waiting.Any(p => CiStates.Waits(p.Ci))) return null;
-        var why = waiting.Any(p => p.Ci == CiStates.NotStarted) ? "its required build has not started" : "its CI is still running";
+        // 2026-11-25-9992a: the ticket's one CI (its waiting pull requests together, PullRequestHeadCi), as the page shows it
+        if (ticket.Ci == CiStates.Red) return $"{ticket.Key} is not merged: its CI is red.";
+        if (merge.RespectBranchProtection || !CiStates.Waits(ticket.Ci)) return null;
+        var why = ticket.Ci == CiStates.NotStarted ? "its required build has not started" : "its CI is still running";
         if (seriesBranch is not null) return $"{ticket.Key} is not merged yet: {why}; a merge into {seriesBranch} waits for its CI to be green.";
         return $"{ticket.Key} is not merged yet: {why}, and merging once it is green arms the host's auto-complete, which needs "
             + $"merge.{BypassRefusal.Key}: true (Config → Project → Merge).";

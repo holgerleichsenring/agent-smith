@@ -17,7 +17,7 @@ internal static class ProjectMergeMapping
             ? null
             : new ProjectMerge(ConfigStudioCapabilities.SnakeName(merge.When), merge.RespectBranchProtection,
                 merge.RefreshOpenPullRequests, merge.CiPollSeconds, merge.CiSettleSeconds, merge.CiPendingSeconds, // 3435d
-                merge.CiFixAttempts, merge.CiExcerptChars, merge.CiFailedChecksRead, merge.ApprovalAuth,
+                merge.CiFixAttempts, merge.CiExcerptChars, merge.CiFailedChecksRead,
                 ConfigStudioCapabilities.SnakeName(merge.SeriesWhen)); // 2026-11-24-f9c5a
 
     /// <summary>The stored block for a sent one; an unknown mode is refused by name.</summary>
@@ -38,7 +38,6 @@ internal static class ProjectMergeMapping
             CiFixAttempts = merge.CiFixAttempts ?? defaults.CiFixAttempts,
             CiExcerptChars = merge.CiExcerptChars ?? defaults.CiExcerptChars,
             CiFailedChecksRead = merge.CiFailedChecksRead ?? defaults.CiFailedChecksRead,
-            ApprovalAuth = string.IsNullOrWhiteSpace(merge.ApprovalAuth) ? null : merge.ApprovalAuth.Trim(),
             // 2026-11-24-f9c5a: a missing series mode is its default, like the CI keys.
             SeriesWhen = merge.SeriesWhen is null ? defaults.SeriesWhen : Mode(projectId, "series_when", merge.SeriesWhen),
         };

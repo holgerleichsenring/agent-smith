@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -47,8 +48,9 @@ public sealed class BranchStateCheck(SandboxBaseLadder ladder, ILogger<BranchSta
         var carried = new List<string>();
         foreach (var (key, sandbox) in sandboxes)
         {
-            var parent = RunParentTicket.ForRepo(pipeline, RunParentTicket.RepoOfSandbox(pipeline, key)); // 2026-11-23-31dca
-            var commits = await CountFrameworkCommitsAsync(sandbox, parent, cancellationToken);
+            var repo = RunParentTicket.RepoOfSandbox(pipeline, key);
+            var parent = RunParentTicket.ForRepo(pipeline, repo); // 2026-11-23-31dca
+            var commits = await CountFrameworkCommitsAsync(sandbox, parent, MachineEmail(pipeline, repo), cancellationToken);
             if (commits > 0) carried.Add($"{key}: {commits}");
         }
 
@@ -73,7 +75,7 @@ public sealed class BranchStateCheck(SandboxBaseLadder ladder, ILogger<BranchSta
     /// resolvable base means no count: a count over the base's own history is the false report
     /// this replaced.
     /// </summary>
-    private async Task<int> CountFrameworkCommitsAsync(ISandbox sandbox, string? parent, CancellationToken ct)
+    private async Task<int> CountFrameworkCommitsAsync(ISandbox sandbox, string? parent, string? machineEmail, CancellationToken ct)
     {
         try
         {
@@ -89,7 +91,7 @@ public sealed class BranchStateCheck(SandboxBaseLadder ladder, ILogger<BranchSta
                 TimeoutSeconds: TimeoutSeconds);
             var result = await sandbox.RunStepAsync(step, null, ct);
             if (result.ExitCode != 0) return 0;
-            return CountAuthored(result.OutputContent ?? string.Empty);
+            return CountAuthored(result.OutputContent ?? string.Empty, machineEmail);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -98,7 +100,14 @@ public sealed class BranchStateCheck(SandboxBaseLadder ladder, ILogger<BranchSta
         }
     }
 
-    internal static int CountAuthored(string log) =>
+    /// <summary>2026-11-25-9992h: ours is the framework's email or the repository's machine email.</summary>
+    internal static int CountAuthored(string log, string? machineEmail = null) =>
         log.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Count(line => line.Trim().Equals(SandboxGitIdentity.Email, StringComparison.OrdinalIgnoreCase));
+            .Count(line => SandboxGitIdentity.IsOurs(line.Trim(), machineEmail));
+
+    // The machine email of the repository a sandbox holds; null when the run names no such repository or it has no machine.
+    private static string? MachineEmail(PipelineContext pipeline, string? repo) =>
+        pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var repos)
+            ? repos?.FirstOrDefault(r => r.Name == repo)?.Machine?.Email
+            : null;
 }

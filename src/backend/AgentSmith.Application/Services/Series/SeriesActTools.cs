@@ -9,6 +9,8 @@ namespace AgentSmith.Application.Services.Series;
 /// Start, retry and tell reach a member ticket; a re-cut is proposed to the operator in the conversation; stop ends the
 /// series and hands the conversation back to the design partner. 2026-11-18-3863h: deploy, to a no-approval environment.
 /// 2026-11-19-1b72a: pause and resume, the act the conversation head's buttons take; a paused series starts no ticket.
+/// 2026-11-25-9992h: each act is said in the conversation under the machine identity the series acts as, with the reason the
+/// master gives for it; the approver's runs.control stays the authority.
 /// </summary>
 public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISeriesRunStore store, SeriesPause pause)
 {
@@ -27,46 +29,51 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
     [Description("Pauses the series when the operator asks to hold it: no ticket of it starts until it is resumed, and a running run finishes. "
         + "With stopNow the running runs are cancelled too — for 'stop now', not for 'hold on'. The conversation is told in one line.")]
     public async Task<string> PauseSeriesAsync(
-        [Description("True to cancel the runs under way as well.")] bool stopNow = false, CancellationToken ct = default)
+        [Description("True to cancel the runs under way as well.")] bool stopNow = false,
+        [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default)
     {
         var said = await pause.PauseAsync(beat.Record.Id, stopNow, ct);
         await RereadAsync(ct);
-        return said;
+        return SeriesActSay.Acted(beat, "paused the series", reason, said);
     }
 
     [Description("Resumes a paused series when the operator says to go on: it starts every ticket that is ready and runs on as before. The conversation is told in one line.")]
-    public async Task<string> ResumeSeriesAsync(CancellationToken ct = default)
+    public async Task<string> ResumeSeriesAsync([Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default)
     {
         var said = await pause.ResumeAsync(beat.Record.Id, ct);
         await RereadAsync(ct);
-        return said;
+        return SeriesActSay.Acted(beat, "resumed the series", reason, said);
     }
 
     [Description("Starts a deploy of a context to an environment its deployment binding delivers without a person's approval, as a person's Deploy does; an approval environment is refused. Name the version for an entry environment; leave it empty for one that promotes from another.")]
     public async Task<string> DeployAsync(
         [Description("The context of the project to deliver.")] string context, [Description("The environment.")] string environment,
         [Description("The version (a tag or commit); empty to promote.")] string? version = null,
-        [Description("The member ticket whose page lists the deploy, if any.")] string? ticket = null, CancellationToken ct = default)
+        [Description("The member ticket whose page lists the deploy, if any.")] string? ticket = null,
+        [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default)
     {
         if (!beat.Record.MayStartRuns)
             return $"The series' approver {beat.Record.Principal} may not start runs (runs.control), so the series deploys nothing.";
         var listed = ticket is null ? null : SeriesTicketLookup.Find(beat, ticket)?.Ticket.TicketId;
-        return await acts.DeployAsync(beat.Record.Project, context, environment, string.IsNullOrWhiteSpace(version) ? null : version, listed, ct);
+        return SeriesActSay.Acted(beat, $"deployed {context} to {environment}", reason,
+            await acts.DeployAsync(beat.Record.Project, context, environment, string.IsNullOrWhiteSpace(version) ? null : version, listed, ct));
     }
 
     [Description("Starts a ticket no run has worked yet, once the tickets it requires are met.")]
-    public Task<string> StartTicketAsync([Description("The ticket's key or id.")] string ticket, CancellationToken ct = default) =>
-        OnTicketAsync(ticket, fact => Paused ?? acts.StartAsync(beat.Record.Project, fact.Ticket.TicketId, ct));
+    public Task<string> StartTicketAsync([Description("The ticket's key or id.")] string ticket,
+        [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default) =>
+        OnTicketAsync(ticket, "started", reason, fact => Paused ?? acts.StartAsync(beat.Record.Project, fact.Ticket.TicketId, ct));
 
     [Description("Retries a ticket's newest code run unchanged, after any end but a success — for a failure that was not the work's fault.")]
-    public Task<string> RetryTicketAsync([Description("The ticket's key or id.")] string ticket, CancellationToken ct = default) =>
-        OnTicketAsync(ticket, fact => acts.RetryAsync(beat.Record.Project, fact.Ticket.TicketId, beat.Record.Principal, ct));
+    public Task<string> RetryTicketAsync([Description("The ticket's key or id.")] string ticket,
+        [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default) =>
+        OnTicketAsync(ticket, "retried", reason, fact => acts.RetryAsync(beat.Record.Project, fact.Ticket.TicketId, beat.Record.Principal, ct));
 
     [Description("Writes into a ticket's conversation as the series: a running attempt reads it with its next tool result; otherwise the ticket's steward answers and may revise the ticket's spec or rework it. Use it to pass on what the operator said or what a failure showed.")]
     public Task<string> TellTicketAsync(
         [Description("The ticket's key or id.")] string ticket, [Description("What the ticket's agent should know or do.")] string text,
-        CancellationToken ct = default) =>
-        OnTicketAsync(ticket, fact => acts.TellAsync(
+        [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default) =>
+        OnTicketAsync(ticket, "wrote to", reason, fact => acts.TellAsync(
             beat.Record.Project, fact.Ticket.TicketId, text, beat.Record.Principal, beat.Record.MayStartRuns, ct));
 
     [Description("Proposes to the operator, in the conversation, cutting a slow or stuck ticket differently. It changes nothing; the operator answers in the conversation.")]
@@ -87,13 +94,14 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
         return "The series is stopped.";
     }
 
-    private async Task<string> OnTicketAsync(string ticket, Func<SeriesTicketFact, Task<string>> act)
+    private async Task<string> OnTicketAsync(string ticket, string did, string? reason, Func<SeriesTicketFact, Task<string>> act)
     {
         if (SeriesTicketLookup.Find(beat, ticket) is not { } fact) return SeriesTicketLookup.Unknown(beat, ticket);
         if (!beat.Record.MayStartRuns)
             return $"The series' approver {beat.Record.Principal} may not start runs (runs.control), so the series acts on no ticket.";
-        return await act(fact);
+        return SeriesActSay.Acted(beat, $"{did} {fact.Ticket.Key}", reason, await act(fact));
     }
+
 
     // 2026-11-19-1b72a: a paused series starts no new ticket, by its own hand neither; a retry is no new ticket.
     private Task<string>? Paused => beat.Record.State == SeriesRunStates.Paused

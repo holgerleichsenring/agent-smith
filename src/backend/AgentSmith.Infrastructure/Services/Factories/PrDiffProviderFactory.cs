@@ -8,6 +8,7 @@ using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Infrastructure.Services.Providers;
 
 namespace AgentSmith.Infrastructure.Services.Factories;
 
@@ -59,8 +60,7 @@ public sealed class PrDiffProviderFactory(
         var httpClient = httpClientFactory.CreateClient();
         // The trailing slash keeps the organization (or collection) path when the provider's relative paths resolve.
         httpClient.BaseAddress = new Uri($"{address.OrganizationUrl}/");
-        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes($":{token}")));
+        httpClient.DefaultRequestHeaders.Authorization = AzureDevOpsAuth.Header(token); // 2026-11-25-d0e2
         return new AzureDevOpsPrDiffProvider(
             httpClient, address.Project, address.Repo,
             loggerFactory.CreateLogger<AzureDevOpsPrDiffProvider>());

@@ -16,9 +16,9 @@ namespace AgentSmith.Tests.Providers.Source;
 /// requires an integration build. That is the operator's setup, so auto-completion was
 /// unavailable in exactly the environment it was built for.
 /// <para>
-/// The mechanism that works is APPROVE then ARM: an approving reviewer vote plus
-/// AutoCompleteSetBy, after which the pull request merges itself when the build goes
-/// green. These pin all three outcomes apart — merged, armed, refused — because the
+/// The mechanism that works is to ARM: AutoCompleteSetBy, after which the pull request
+/// merges itself when the build goes green. 2026-11-25-9992h: armed as the token's own
+/// identity (the machine), never as the creator, and with no vote. These pin all three outcomes apart — merged, armed, refused — because the
 /// operator has to be able to tell "it is handling itself" from "it needs you".
 /// </para>
 /// </summary>
@@ -30,18 +30,27 @@ public sealed class AzureReposSourceProviderCompletePrTests
     private const string Pat = "azdo-pat";
     private const string PrUrl = "https://dev.azure.com/example/demo/_git/sample-server/pullrequest/7";
 
-    private static readonly IdentityRef Creator = new() { Id = "id-42", DisplayName = "agent-smith" };
+    private static readonly IdentityRef Creator = new() { Id = "id-42", DisplayName = "a person" };
+    private const string Self = "machine-id";
 
     [Fact]
-    public async Task AzureRepos_CompleteAsync_ApprovesAndArmsAutoComplete()
+    public async Task AzureRepos_TokenIdentityUnknown_IsRefused_ArmingOnNobodysBehalf()
     {
         var client = NewGitClientMock();
         SetupGet(client, Active());
-        IdentityRefWithVote? vote = null;
-        SetupReviewer(client)
-            .Callback<IdentityRefWithVote, string, string, int, string, object, CancellationToken>(
-                (v, _, _, _, _, _, _) => vote = v)
-            .ReturnsAsync(() => new IdentityRefWithVote());
+
+        var completion = await CreateSut(client.Object, self: null).CompletePullRequestAsync(
+            PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
+
+        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Refused);
+        completion.Reason.Should().Contain("did not say who the token is");
+    }
+
+    [Fact]
+    public async Task AzureRepos_CompleteAsync_ArmsAutoCompleteAsTheToken_WithNoVote()
+    {
+        var client = NewGitClientMock();
+        SetupGet(client, Active());
         GitPullRequest? sent = null;
         SetupUpdate(client)
             .Callback<GitPullRequest, string, string, int, object, CancellationToken>(
@@ -51,9 +60,9 @@ public sealed class AzureReposSourceProviderCompletePrTests
         await CreateSut(client.Object).CompletePullRequestAsync(
             PrUrl, new BranchName("agentsmith/init"), CancellationToken.None);
 
-        vote!.Vote.Should().Be(10, "10 is Azure DevOps' approving vote");
-        sent!.AutoCompleteSetBy!.Id.Should().Be(
-            Creator.Id, "our own run opened this PR, so CreatedBy IS the token's identity");
+        client.Verify(c => c.CreatePullRequestReviewerAsync(It.IsAny<IdentityRefWithVote>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<int>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never, "the machine never votes");
+        sent!.AutoCompleteSetBy!.Id.Should().Be(Self, "armed as the token's own identity, not as the pull request's creator");
         sent.Status.Should().Be(
             PullRequestStatus.NotSet, "asking for an immediate merge is what a policy refuses");
         sent.CompletionOptions!.DeleteSourceBranch.Should().Be(true, "2026-11-17-713eb: the merge deletes the agent-smith/ branch");
@@ -160,9 +169,11 @@ public sealed class AzureReposSourceProviderCompletePrTests
             It.IsAny<GitPullRequest>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(),
             It.IsAny<object>(), It.IsAny<CancellationToken>()));
 
-    private static ISourceProvider CreateSut(GitHttpClient gitClient)
+    private static ISourceProvider CreateSut(GitHttpClient gitClient, string? self = Self)
     {
         var factory = new Mock<IAzDoClientFactory>();
+        factory.Setup(f => f.AuthorizedIdentityIdAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(self);
         factory.Setup(f => f.CreateGitClient(It.IsAny<string>(), It.IsAny<string>())).Returns(gitClient);
         factory.Setup(f => f.CreateGitClientAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))

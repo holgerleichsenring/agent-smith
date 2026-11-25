@@ -44,7 +44,10 @@ public sealed record ProjectEntity(
     ProjectMerge? Merge = null,
     // 2026-11-25-9992d: the project's private package feeds, the token a secret reference as stored. Nullable for the
     // same reason Templates is — absent leaves the stored list alone; an empty list clears it.
-    IReadOnlyList<Configuration.RegistryConfig>? Registries = null)
+    IReadOnlyList<Configuration.RegistryConfig>? Registries = null,
+    // 2026-11-25-9992h: the machine identity. Nullable for the same reason Templates is — absent leaves the stored block alone;
+    // a sent block with no name, no email and no hoster clears it.
+    ProjectMachine? Machine = null)
 {
     public ProjectEntity() : this(string.Empty, string.Empty, string.Empty, [], null, []) { }
 }
@@ -55,10 +58,20 @@ public sealed record ProjectEntity(
 /// </summary>
 public sealed record ProjectResolution(string Strategy, string Value);
 
+/// <summary>2026-11-25-9992h: the project's <c>machine:</c> block as the studio edits it — the actor name and commit email, and
+/// per hoster the secret its acts authenticate with (null: no identity on that hoster).</summary>
+public sealed record ProjectMachine(string Name, string Email,
+    ProjectMachineHoster? Github = null, ProjectMachineHoster? Gitlab = null, ProjectMachineHoster? AzureDevops = null);
+
+/// <summary>2026-11-25-9992h: one hoster's entry — <see cref="Auth"/> the secret's name, <see cref="AppId"/> and
+/// <see cref="InstallationId"/> for a GitHub App, <see cref="Email"/> this hoster's commit email when it differs.</summary>
+public sealed record ProjectMachineHoster(string Auth, string? AppId = null, string? InstallationId = null, string? Email = null,
+    string? TenantId = null, string? ClientId = null); // 2026-11-25-d0e2: an Azure DevOps service principal
+
 /// <summary>2026-11-17-b34eb: the project's <c>merge:</c> block as the studio edits it; <see cref="When"/> is the
 /// snake_case name the YAML uses (manual, on_gate_green, on_ci_green). 2026-11-17-3435d: and the CI loop's keys; a null
 /// one is the key's default. 2026-11-24-f9c5a: and <see cref="SeriesWhen"/>, the mode of a series' ticket pull requests into
 /// its series branch, in the same names; null is its default.</summary>
 public sealed record ProjectMerge(string When, bool RespectBranchProtection, bool RefreshOpenPullRequests,
     int? CiPollSeconds = null, int? CiSettleSeconds = null, int? CiPendingSeconds = null, int? CiFixAttempts = null,
-    int? CiExcerptChars = null, int? CiFailedChecksRead = null, string? ApprovalAuth = null, string? SeriesWhen = null);
+    int? CiExcerptChars = null, int? CiFailedChecksRead = null, string? SeriesWhen = null);

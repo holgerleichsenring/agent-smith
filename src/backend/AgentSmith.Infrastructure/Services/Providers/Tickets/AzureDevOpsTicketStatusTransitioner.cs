@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Infrastructure.Services.Providers;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
@@ -146,7 +147,6 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
 
     private void SetAuth(HttpRequestMessage request)
     {
-        var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{_personalAccessToken}"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", token);
+        request.Headers.Authorization = AzureDevOpsAuth.Header(_personalAccessToken); // 2026-11-25-d0e2
     }
 }

@@ -16,21 +16,28 @@ public sealed class SeriesReadTools(SeriesBeat beat)
         AIFunctionFactory.Create(ReadTicket, "read_ticket"),
     ];
 
-    [Description("The series' tickets as a table: ticket, what, state, cost, time, the tickets each requires, and the series' state and spend.")]
+    // 2026-11-25-9992a: the one state the series page shows — kind, words, CI and the hold — and what is at work now.
+    [Description("The series' tickets as a table: ticket, what, state, kind (merged, now, needed, question, failed, running, pr, waiting), CI, cost, time, the tickets each requires, the tickets at work now, and the series' state and spend.")]
     public string SeriesStatus() => JsonSerializer.Serialize(new
     {
         series = beat.Record.Id, state = beat.Record.State, masterCostUsd = beat.Record.MasterCostUsd,
-        tickets = beat.Rows.Zip(beat.Facts, (r, f) => new { r.Ticket, r.What, r.State, r.Cost, r.Time, requires = Keys(f.Requires) }),
+        workingOn = beat.WorkingOn,
+        tickets = beat.Rows.Zip(beat.Facts, (r, f) => new
+        {
+            r.Ticket, r.What, r.State, r.Kind, ci = f.Ci, hold = f.Hold?.Case, r.Cost, r.Time, requires = Keys(f.Requires),
+        }),
     }, Json);
 
-    [Description("One ticket's facts: its newest run, that run's status and why it ended, its pull requests, its cost, when it started and landed, and a question its run is parked on.")]
+    [Description("One ticket's facts: its state and kind, its hold (who moves it and why, since when), its newest run, that run's status and why it ended, its pull requests per repo with CI on their heads and conflicts, its cost, when it started and landed, and a question its run is parked on.")]
     public string ReadTicket([Description("The ticket's key or id as the table shows it.")] string ticket) =>
         SeriesTicketLookup.Find(beat, ticket) is { } fact
             ? JsonSerializer.Serialize(new
             {
-                ticket = fact.Ticket.Key, fact.Ticket.TicketId, fact.Ticket.Title, fact.LatestRunId, fact.LatestStatus,
-                fact.LatestFinished, fact.EndDetail, fact.PullRequests, fact.CostUsd, fact.FirstStartedAt, fact.LandedAt,
-                requires = Keys(fact.Requires), question = fact.PendingQuestion?.Text,
+                ticket = fact.Ticket.Key, fact.Ticket.TicketId, fact.Ticket.Title, fact.State, fact.Kind, fact.Ci, fact.CiFailure,
+                hold = fact.Hold is { } h ? new { h.Addressee, h.Case, h.Since, h.Names } : null,
+                fact.LatestRunId, fact.LatestStatus, fact.LatestFinished, fact.EndDetail,
+                pullRequests = fact.PullRequests.Select(p => new { p.Repo, p.Number, p.Url, p.State, p.Ci, p.CiFailure, p.HasConflicts, p.Target }),
+                fact.CostUsd, fact.FirstStartedAt, fact.LandedAt, requires = Keys(fact.Requires), question = fact.PendingQuestion?.Text,
             }, Json)
             : SeriesTicketLookup.Unknown(beat, ticket);
 

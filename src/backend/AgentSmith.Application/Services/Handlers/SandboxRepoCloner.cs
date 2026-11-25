@@ -62,7 +62,7 @@ public sealed class SandboxRepoCloner(
         var clone = await CloneIntoRootAsync(sandbox, config, credential, ct);
         if (clone.ExitCode != 0) return FailWith(CloneProblem(key, clone), config);
         // p0496: the identity comes BEFORE the branch switch — a three-way base merge commits.
-        await identity.EnsureConfiguredAsync(sandbox, ct);
+        await identity.EnsureConfiguredAsync(sandbox, config.Machine, ct); // 2026-11-25-9992h: the machine commits
         var placement = await branchCheckout.SwitchAsync(sandbox, config, branch, ct);
         return placement.Problem is not null
             ? FailWith($"sandbox '{key}': {placement.Problem}", config)

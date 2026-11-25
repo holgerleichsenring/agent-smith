@@ -43,11 +43,8 @@ public sealed record TicketHoldInputs(
     /// <summary>2026-11-23-849e: each series' merge order and the keys of its tickets that start only on merges, by series id.</summary>
     public IReadOnlyDictionary<string, TicketHoldSeriesPlan> Plans { get; init; } = new Dictionary<string, TicketHoldSeriesPlan>();
 
-    /// <summary>2026-11-23-849e: the projects whose merge approves where the host requires a review.</summary>
-    public IReadOnlySet<string> Approving { get; init; } = new HashSet<string>();
-
     /// <summary>2026-11-23-849e: the facts with the ticket's series — its newest series run, whether it is active, its step,
-    /// that series' merge order and what waits on its merges, and whether a merge of the project approves.</summary>
+    /// that series' merge order and what waits on its merges.</summary>
     public AgentSmith.Application.Services.Holds.TicketHoldFacts WithSeries(AgentSmith.Application.Services.Holds.TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
@@ -56,7 +53,7 @@ public sealed record TicketHoldInputs(
         return facts with
         {
             SeriesId = series, SeriesActive = InActiveSeries(facts.Project, facts.TicketId), MergeStep = StepOf(facts.Project, facts.TicketId),
-            SeriesMergeOrder = plan.MergeOrder, SeriesStartsOnMerge = plan.StartsOnMerge, MergeApproves = Approving.Contains(facts.Project),
+            SeriesMergeOrder = plan.MergeOrder, SeriesStartsOnMerge = plan.StartsOnMerge,
         };
     }
 

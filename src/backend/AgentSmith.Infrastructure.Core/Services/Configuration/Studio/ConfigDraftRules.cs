@@ -45,7 +45,22 @@ public sealed class ConfigDraftRules(
             .. normalizer.Inspect(draft.Id, project),
             .. ProjectTemplateDraftCheck.MessagesFor(draft, catalog)
                 .Select(m => ProjectFindings.Blocking(draft.Id, "templates", m)),
+            .. ProjectMachineFindings.For(draft.Id, project.Machine, Hosters(draft, catalog)), .. MachineAdvisories.Tracker(draft, project, rawTracker), // 9992h, 0873
         ];
+    }
+
+    // 2026-11-25-9992h: the hoster of each repo the draft names — a catalog repo's as the studio infers it, a connection
+    // ref's from its connection; a name that resolves to neither has no hoster to speak of.
+    private static IEnumerable<(string Name, RepoType Type)> Hosters(ProjectEntity draft, ConfigCatalog catalog)
+    {
+        foreach (var name in draft.Repos)
+        {
+            var slash = name.IndexOf('/');
+            if (slash > 0 && catalog.Connections.FirstOrDefault(c => c.Id == name[..slash]) is { } connection)
+                yield return (name, RawConfigPatch.Connection(connection, null).Type);
+            else if (catalog.Repos.FirstOrDefault(r => r.Id == name) is { } repo)
+                yield return (name, RawConfigPatch.Repo(repo, null).Type);
+        }
     }
 
     /// <summary>

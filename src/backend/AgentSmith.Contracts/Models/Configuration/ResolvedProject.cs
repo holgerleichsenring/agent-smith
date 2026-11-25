@@ -48,4 +48,14 @@ public sealed record ResolvedProject
 
     /// <summary>2026-11-17-9a39a: when a ticket that requires another may start.</summary>
     public RequiresStart RequiresStart { get; init; } = RequiresStart.OnGreenPush;
+
+    /// <summary>2026-11-25-9992h: the identity agent-smith acts under; null when the project declares none.</summary>
+    public MachineIdentityConfig? Machine { get; init; }
+
+    /// <summary>2026-11-25-9992h: the name the project's acts are booked under — its machine's once it acts on a hoster, else
+    /// agent-smith: a name with no hoster entry acts under nobody's token of its own.</summary>
+    public string ActorName =>
+        Machine is { Name.Length: > 0 } machine && (machine.Github ?? machine.Gitlab ?? machine.AzureDevops) is not null
+            ? machine.Name.Trim()
+            : Runs.AttemptChannels.SeriesActor;
 }

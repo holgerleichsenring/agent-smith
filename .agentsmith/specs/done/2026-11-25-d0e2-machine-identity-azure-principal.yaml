@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-d0e2
+goal: "A project's Azure DevOps machine identity can be a service principal: agent-smith mints Entra tokens and sends them as Bearer on every Azure DevOps call and git push."
+
+applies_to: "default (MachineIdentity, IMachineTokens, Azure DevOps clients, GitCredential) + dashboard (project machine section)"
+
+requires: [2026-11-25-9992h]
+
+facts:
+  - claim: "A service principal cannot create PATs; it asks Entra for a token (client credentials, POST {tenant}/oauth2/v2.0/token, scope 499b84ac-1321-427f-aa17-267ca6975798/.default; answer access_token, expires_in in seconds) and sends it as a Bearer token; git takes it as http.extraheader 'AUTHORIZATION: bearer'; the .NET client takes VssOAuthAccessTokenCredential."
+    evidence: "observed: 2026-11-25, https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/service-principal-managed-identity, https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow, https://learn.microsoft.com/en-us/azure/devops/repos/git/auth-overview, https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/client-libraries/samples"
+  - claim: "Every Azure DevOps client authenticates with Basic over the token (VssBasicCredential or a Basic header): Azure Repos, PR diff, permission reader, Boards connection, attachments, status transitions."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/DefaultAzDoClientFactory.cs:83; src/backend/AgentSmith.Infrastructure/Services/Factories/PrDiffProviderFactory.cs:63; src/backend/AgentSmith.Infrastructure/Services/Webhooks/AzureDevOpsPermissionReader.cs:50; src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsConnectionCache.cs:55; src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsAttachmentLoader.cs:70,98; src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketStatusTransitioner.cs:150"
+  - claim: "Git steps take the token from GIT_TOKEN through a credential helper; the env is built in GitStepCredentials.TokenEnv, GitBranchPusher.Env and HostSourceCloner."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/GitStepCredentials.cs:12-22; src/backend/AgentSmith.Application/Services/GitBranchPusher.cs:69-70; src/backend/AgentSmith.Infrastructure/Services/Providers/Source/HostSourceCloner.cs:79"
+
+scope:
+  in: |
+    machine.azure_devops with tenant_id and client_id makes the entry a service principal whose auth names the client secret
+    (MachineIdentity.TenantId/ClientId). EntraPrincipalTokens mints and keeps the token per tenant and client for half its
+    expires_in (clients and a CI wait hold a token a while), synchronously as GitHubAppTokens does; a refusal is a MachineCredentialException with Entra's
+    error_description. IMachineTokens takes a MachineTarget (entity, url) instead of a RepoConnection, so a tracker can mint
+    too; MachineTokens composes the GitHub and Entra minters. Bearer is read from the token itself (AzureDevOpsBearer: a JWT;
+    a PAT has no dot): AzureDevOpsAuth gives VssOAuthAccessTokenCredential and a Bearer header at every Azure DevOps client
+    above and at Azure repo discovery, Basic otherwise. GitTokenResolver marks an Azure Repos JWT as GitCredential.Bearer; GitCredential.Env and
+    GitCredential.Args are the one env and option builder: --config-env=http.<origin>.extraheader=AGENTSMITH_GIT_AUTH_HEADER
+    (git 2.31+), scoped to the remote's host, so the
+    token stays off the command line and the hardened sandbox's GIT_CONFIG_* (safe.directory) is untouched. Both Azure
+    connection caches (DefaultAzDoClientFactory, AzureDevOpsConnectionCache) drop every other stale entry before a lookup
+    (not disposed: a client from it may be at work), since a minted token rotates hourly. Blocking findings: tenant_id without client_id or the reverse, either on another
+    hoster, or beside app_id. Dashboard: tenant id and client id fields. Docs (setup steps), schema, example.
+  out: "Managed identities, certificate credentials, sovereign clouds and Azure DevOps Server (no Entra principals there). Studio draft checks (DraftCheckAuth) test a draft's own secret. Stamping trackers: 2026-11-25-0873."
+
+done:
+  - "A service-principal identity mints at {tenant}/oauth2/v2.0/token with client_credentials and the Azure DevOps scope, reuses the token for half its lifetime, and names Entra's answer on a refusal; pinned on faked responses."
+  - "An Entra token goes as Bearer (header and VssOAuthAccessTokenCredential), a PAT as Basic, at the Azure Repos, PR diff, permission reader, Boards connection, attachment and status transition clients; the rule is pinned."
+  - "A git step for a bearer credential carries --config-env=http.<origin>.extraheader and the header in its env, never GIT_CONFIG_COUNT, and real git applies it to the remote's host only; a PAT step only GIT_TOKEN; pinned."
+  - "A stale connection of a rotated token is dropped; the asked key and fresh ones stay; pinned."
+  - "tenant_id/client_id half-set, on another hoster or beside app_id is blocking; the project form edits and round-trips both."

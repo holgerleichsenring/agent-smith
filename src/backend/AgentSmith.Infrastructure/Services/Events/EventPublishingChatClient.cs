@@ -165,7 +165,8 @@ public sealed class EventPublishingChatClient(
             ResponseChars: response?.Text?.Length ?? 0,
             Outcome: outcome,
             PromptId: sent.Id,
-            ToolCount: sent.ToolCount);
+            ToolCount: sent.ToolCount,
+            ReasoningTokensOut: response?.Usage?.ReasoningTokenCount ?? 0); // 2026-11-25-9992k
         await eventPublisher.PublishAsync(finished, cancellationToken);
         // 2026-11-17-7c9bc: the run's ledger holds exactly what was just recorded.
         runContext.CurrentRecordedCalls?.Add(new RecordedCall(

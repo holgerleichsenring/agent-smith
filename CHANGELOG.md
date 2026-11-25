@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.220.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.219.0...v0.220.0) (2026-11-25)
+
+
+### Features
+
+* **machine-identity:** an Azure DevOps machine identity can be a service principal; Entra tokens go as Bearer (2026-11-25-d0e2) ([6d1b106](https://github.com/holgerleichsenring/agent-smith/commit/6d1b1069ace5b5057587a4f5c8ceeca34bf71955))
+* **machine-identity:** Azure service principal; trackers, PoCs and preflight under the machine (d0e2, 0873) ([fb836da](https://github.com/holgerleichsenring/agent-smith/commit/fb836dab37fd1f84c69988dc32bbadfdbdee978c))
+* **machine-identity:** tracker writes, PoC acts and preflight probes run under the machine identity (2026-11-25-0873) ([f714a75](https://github.com/holgerleichsenring/agent-smith/commit/f714a753ddce806e6b1c75452f2e43a5cb455f7b))
+
+## [0.219.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.218.0...v0.219.0) (2026-11-25)
+
+
+### Features
+
+* **series-page:** the series page is the graph and the series chat; a ticket click reads, a question's choices are buttons (2026-11-25-9992j) ([1ad8405](https://github.com/holgerleichsenring/agent-smith/commit/1ad84059dc807aeb116fe6a7d81033b6fbe3cbdc))
+* **series-page:** the series page is the graph and the series chat; a ticket click reads, a question's choices are buttons (2026-11-25-9992j) ([cc195af](https://github.com/holgerleichsenring/agent-smith/commit/cc195affc0c83e3af03912a2fa8243ad6700ed02))
+
+## [0.218.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.217.0...v0.218.0) (2026-11-25)
+
+
+### Features
+
+* **machine-identity:** agent-smith acts under a per-project machine identity, never approves its own PR (2026-11-25-9992h) ([4698b85](https://github.com/holgerleichsenring/agent-smith/commit/4698b85e014a6b6e2040eb528bce98e5e321633d))
+* **machine-identity:** agent-smith acts under a per-project machine identity, never approves its own PR (2026-11-25-9992h) ([2809120](https://github.com/holgerleichsenring/agent-smith/commit/2809120c1238c1897103fccf181b613f0ecb1adf))
+
+## [0.217.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.216.0...v0.217.0) (2026-11-25)
+
+
+### Features
+
+* **models:** a catalog model can run on the OpenAI Responses API with a reasoning effort, beside gpt-5.6; runs and series record the comparison (2026-11-25-9992k) ([02bd77f](https://github.com/holgerleichsenring/agent-smith/commit/02bd77f318abd47aad766df22b65e358494b9cb1))
+* **models:** GPT-6 on the Responses API beside gpt-5.6, with comparison numbers (2026-11-25-9992k) ([26572b4](https://github.com/holgerleichsenring/agent-smith/commit/26572b4e3c8336dfa633aaba4561c304a18521c7))
+
+## [0.216.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.215.0...v0.216.0) (2026-11-25)
+
+
+### Features
+
+* **series:** one state per series ticket, read by every surface (2026-11-25-9992a) ([a89a486](https://github.com/holgerleichsenring/agent-smith/commit/a89a48606603a490ec3b8426976f8a2e8ee687a3))
+* **series:** one state per series ticket, read by the master, the panel, the page, the list and the dashboard (2026-11-25-9992a) ([2664bc4](https://github.com/holgerleichsenring/agent-smith/commit/2664bc4e3b124112b3f0cfaaef74b353ad557963))
+
 ## [0.215.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.214.0...v0.215.0) (2026-11-25)
 
 

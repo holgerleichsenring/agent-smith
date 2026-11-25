@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Series;
 namespace AgentSmith.Server.Models;
 
 /// <summary>2026-11-23-31dcb: one member ticket on the series page.</summary>
@@ -16,9 +17,19 @@ public sealed record SeriesRunTicketView(
     /// null before any attempt.</summary>
     public string? RunId { get; init; }
 
-    /// <summary>2026-11-23-31dcg: whether the series' held count counts it — a hold names someone and is not the merge that
-    /// comes next.</summary>
-    public static bool Held(AgentSmith.Application.Services.Holds.TicketHold? hold) =>
-        hold is not null && hold.Addressee != AgentSmith.Application.Services.Holds.TicketHoldAddressees.Nobody
-        && hold.Case != AgentSmith.Application.Services.Holds.TicketHoldCases.MergeNext;
+    /// <summary>2026-11-25-9992a: the ticket's one kind (<see cref="AgentSmith.Application.Services.Series.SeriesTicketKinds"/>),
+    /// its words, its waiting pull requests' CI together, and whether a run is at work on it — the fact's, never the browser's.</summary>
+    public string Kind { get; init; } = AgentSmith.Application.Services.Series.SeriesTicketKinds.Waiting;
+
+    /// <inheritdoc cref="Kind"/>
+    public string State { get; init; } = string.Empty;
+
+    /// <inheritdoc cref="Kind"/>
+    public string? Ci { get; init; }
+
+    /// <inheritdoc cref="Kind"/>
+    public bool Working { get; init; }
+
+    /// <summary>2026-11-25-9992j: what every run of the ticket cost, from the fact — the page's ticket details show it.</summary>
+    public decimal CostUsd { get; init; }
 }

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.WebApi;
+using AgentSmith.Infrastructure.Services.Providers;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
@@ -64,10 +65,7 @@ public sealed class AzureDevOpsAttachmentLoader(
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, attachment.Uri);
-            var basicCreds = Convert.ToBase64String(
-                System.Text.Encoding.UTF8.GetBytes($":{_personalAccessToken}"));
-            request.Headers.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", basicCreds);
+            request.Headers.Authorization = AzureDevOpsAuth.Header(_personalAccessToken); // 2026-11-25-d0e2
 
             var response = await httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
@@ -95,7 +93,7 @@ public sealed class AzureDevOpsAttachmentLoader(
 
     private WorkItemTrackingHttpClient CreateClient()
     {
-        var credentials = new VssBasicCredential(string.Empty, _personalAccessToken);
+        var credentials = AzureDevOpsAuth.Credential(_personalAccessToken); // 2026-11-25-d0e2
         var vssConnection = new VssConnection(new Uri(_organizationUrl), credentials);
         return vssConnection.GetClient<WorkItemTrackingHttpClient>();
     }

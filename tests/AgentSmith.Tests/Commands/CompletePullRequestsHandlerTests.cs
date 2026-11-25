@@ -27,8 +27,6 @@ public sealed class CompletePullRequestsHandlerTests
     private readonly List<(string Url, BranchProtection Mode)> _merged = [];
     private readonly List<PullRequestOutcomeEvent> _outcomes = [];
     private readonly Dictionary<string, PullRequestCompletion> _answers = new();
-    private readonly List<string> _approved = [];
-    private PullRequestApproval _approval = PullRequestApproval.Approved;
     private readonly Mock<ITicketRequirementStore> _edges = new();
     private readonly Mock<ITicketLandingStore> _landings = new();
     private readonly Dictionary<string, string?> _bases = new();
@@ -163,11 +161,12 @@ public sealed class CompletePullRequestsHandlerTests
     }
 
     [Fact]
-    public async Task OnCiGreen_MergeGreenRun_ApprovesInRespect_MergesAndTellsTheAttempt()
+    public async Task OnCiGreen_MergeGreenRun_InRespect_MergesWithoutApproving_AndTellsTheAttempt()
     {
         var result = await RunAsync(OnCi(respect: true), passed: null, Green("a"));
 
-        _approved.Should().Equal("https://x/a/pull/1");
+        // 2026-11-25-9992h: nothing approves; a review the host requires is a person's, and the armed merge waits for it.
+        _calls.Should().NotContain(c => c.StartsWith("approve", StringComparison.Ordinal));
         _merged.Should().Equal(("https://x/a/pull/1", BranchProtection.Respect));
         _outcomes.Select(o => (o.RunId, o.Status)).Should().Equal(
             ("run-1", PullRequestStatuses.Completed), ("attempt-1", PullRequestStatuses.Completed));
@@ -175,24 +174,11 @@ public sealed class CompletePullRequestsHandlerTests
     }
 
     [Fact]
-    public async Task OnCiGreen_Bypass_NeedsNoApproval()
+    public async Task OnCiGreen_Bypass_Merges()
     {
         await RunAsync(OnCi(), passed: null, Green("a"));
 
-        _approved.Should().BeEmpty();
         _merged.Should().ContainSingle();
-    }
-
-    [Fact]
-    public async Task OnCiGreen_RefusedApproval_LeavesItOpen_NamingTheKey()
-    {
-        _approval = PullRequestApproval.Refused("Can not approve your own pull request");
-
-        var result = await RunAsync(OnCi(respect: true), passed: null, Green("a"));
-
-        _merged.Should().BeEmpty();
-        result.Message.Should().Contain("Can not approve your own pull request").And.Contain("merge.approval_auth");
-        _outcomes.Should().AllSatisfy(o => o.Status.Should().Be(PullRequestStatuses.CompletionRefused));
     }
 
     // 2026-11-23-97c2a
@@ -221,7 +207,6 @@ public sealed class CompletePullRequestsHandlerTests
         var result = await RunAsync(OnCi(respect: true), passed: null, Green("a"));
 
         _merged.Should().BeEmpty();
-        _approved.Should().BeEmpty("nothing is approved for a merge that is refused");
         _outcomes.Select(o => (o.RunId, o.Status, o.Reason)).Should().Equal(
             ("run-1", PullRequestStatuses.CompletionRefused, "not merged: #40 and #41 it requires have not landed"),
             ("attempt-1", PullRequestStatuses.AwaitingCi, "not merged: #40 and #41 it requires have not landed"));
@@ -351,11 +336,11 @@ public sealed class CompletePullRequestsHandlerTests
 
     // 2026-11-23-8d16
     [Fact]
-    public async Task MergeGreen_APersonAskedMerge_TakesEachOutOfDraft_BeforeItApprovesAndMerges()
+    public async Task MergeGreen_APersonAskedMerge_TakesEachOutOfDraft_BeforeItMerges()
     {
         await RunAsync(new MergePolicyConfig { RespectBranchProtection = true }, passed: null, Green("a", askedBy: "Dana"));
 
-        _calls.Should().Equal("ready https://x/a/pull/1", "requeue-unsettled https://x/a/pull/1", "approve https://x/a/pull/1", "merge https://x/a/pull/1");
+        _calls.Should().Equal("ready https://x/a/pull/1", "requeue-unsettled https://x/a/pull/1", "merge https://x/a/pull/1");
     }
 
     // 2026-11-23-0219: a person's merge queues again the required builds that have not started, after the draft step and before
@@ -466,13 +451,6 @@ public sealed class CompletePullRequestsHandlerTests
         arrange?.Invoke(pipeline);
         var repos = new[] { "a", "b" }.Select(n => new RepoConnection { Name = n, Type = RepoType.GitHub }).ToList();
         var provider = new Mock<ISourceProvider>();
-        provider.As<IPullRequestApprover>().Setup(a => a.ApproveIfRequiredAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns<string, CancellationToken>((url, _) =>
-            {
-                _approved.Add(url);
-                _calls.Add($"approve {url}");
-                return Task.FromResult(_approval);
-            });
         provider.Setup(p => p.MergePullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<BranchProtection>(), It.IsAny<CancellationToken>()))
             .Returns<string, BranchName, BranchProtection, CancellationToken>((url, _, mode, _) =>
             {
@@ -511,7 +489,7 @@ public sealed class CompletePullRequestsHandlerTests
             .Callback<RunEvent, CancellationToken>((e, _) => { if (e is PullRequestOutcomeEvent o) _outcomes.Add(o); })
             .Returns(Task.CompletedTask);
         var completer = new PullRequestCompleter(factory.Object, events.Object, NullLogger<PullRequestCompleter>.Instance);
-        var handler = new CompletePullRequestsHandler(new PullRequestMergeSequence(completer, new PullRequestApprovalStep(factory.Object),
+        var handler = new CompletePullRequestsHandler(new PullRequestMergeSequence(completer,
             new PullRequestBaseGuard(factory.Object), NullLogger<PullRequestMergeSequence>.Instance,
             new UnmetTicketRequirements(_edges.Object, _landings.Object, Mock.Of<ISpecApprovalStore>()),
             new PullRequestDraftStep(factory.Object),

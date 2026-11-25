@@ -17,4 +17,7 @@ public sealed record SeriesRunProjectFacts(
 {
     public IReadOnlyDictionary<string, IReadOnlyList<TicketRequirementEdge>> Edges { get; init; } =
         new Dictionary<string, IReadOnlyList<TicketRequirementEdge>>(StringComparer.Ordinal);
+
+    /// <summary>2026-11-25-9992a: when each landed ticket landed, by ticket id.</summary>
+    public IReadOnlyDictionary<string, DateTimeOffset> LandedAt { get; init; } = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
 }

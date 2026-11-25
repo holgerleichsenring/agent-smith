@@ -36,6 +36,7 @@ public static class RawProjectPatch
         if (entity.Merge is { } merge) project.Merge = ProjectMergeMapping.ToRaw(entity.Id, merge); // 2026-11-17-b34eb
         if (entity.Registries is { } feeds) // 2026-11-25-9992d
             project.Registries = [.. feeds.Select(f => new RawRegistryEntry { Host = f.Host, Username = f.Username, Token = f.Token })];
+        if (entity.Machine is { } machine) project.Machine = ProjectMachineMapping.ToRaw(machine); // 2026-11-25-9992h
         ApplyPipelines(entity, project, existing);
         return project;
     }

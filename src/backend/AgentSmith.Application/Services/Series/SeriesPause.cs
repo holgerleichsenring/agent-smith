@@ -22,7 +22,7 @@ public sealed class SeriesPause(
         if (!already)
             await store.UpdateAsync(seriesId, r => r.State == SeriesRunStates.Paused ? r
                 : r with { State = SeriesRunStates.Paused, PausedFrom = r.State }, ct);
-        var all = await facts.ReadAsync(record.Project, record.Tickets, ct);
+        var all = await facts.ReadAsync(record, ct);
         var line = SeriesPauseText.Pause(already, all, await RunsAsync(record, [.. all.Where(SeriesPauseText.Running)], cancelRunning, ct));
         await conversation.SayAsync(record.Conversation, line, ct);
         return line;
@@ -34,7 +34,7 @@ public sealed class SeriesPause(
         if (record.State != SeriesRunStates.Paused) return $"The series is {record.State}, not paused.";
         await store.UpdateAsync(seriesId, r => r.State != SeriesRunStates.Paused ? r
             : r with { State = r.PausedFrom ?? SeriesRunStates.Running, PausedFrom = null }, ct);
-        var all = await facts.ReadAsync(record.Project, record.Tickets, ct);
+        var all = await facts.ReadAsync(record, ct);
         var (started, answers) = await StartReadyAsync(record, all, ct);
         foreach (var fact in all.Where(SeriesPauseText.CiRed)) answers.Add(await acts.AskCiLoopAsync(record.Project, fact.Ticket.TicketId, ct));
         var line = SeriesPauseText.Resume(started, all);

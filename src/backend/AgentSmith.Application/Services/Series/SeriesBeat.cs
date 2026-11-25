@@ -14,6 +14,9 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
 
     public DateTimeOffset Now { get; } = now;
 
+    /// <summary>2026-11-25-9992h: the name the series acts under — its project's machine identity, agent-smith without one.</summary>
+    public string Actor { get; set; } = Contracts.Runs.AttemptChannels.SeriesActor;
+
     /// <summary>Why the master judges this beat; empty when nothing needs it.</summary>
     public List<string> Reasons { get; } = [];
 
@@ -40,6 +43,9 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
     public bool MasterSpeaks => MasterActed || MasterAnswered || Messages.Count > 0;
 
     public IReadOnlyList<SeriesTableRow> Rows => SeriesTable.Rows(Facts, Now);
+
+    /// <summary>2026-11-25-9992a: the keys of the tickets a run of the series is at work on now.</summary>
+    public IReadOnlyList<string> WorkingOn => SeriesWorkingOn.Of(Facts);
 
     public string Table => SeriesTable.Snapshot(Rows);
 }

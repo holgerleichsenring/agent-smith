@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-9992a
+
+decisions:
+  - category: Architecture
+    chose: "SeriesTicketFact, moved to Application, is the one per-ticket state: it carries the ticket's hold and its PRs and computes Kind, State, Ci and Working. SeriesStatusReader builds it for every reader."
+    over: "A new SeriesStatus model beside SeriesTicketFact; or the hold alone as the model"
+    reason: |
+      The fact already said "what is true of one member ticket right now" and the beat code reads it everywhere. Adding
+      the hold to it adds the one truth the ticket list and page already use, without a second record to keep in step.
+      The hold alone lacks cost, times, the parked question and the per-repo PRs the master reads. The type moved because
+      TicketHold lives in Application, which Contracts cannot reference. The interface moved with it.
+  - category: Architecture
+    chose: "The kind comes from the hold's case. An escalated wait (addressee admin past holds.escalate_after_minutes) keeps its case's kind, and its words say it is overdue."
+    over: "The dashboard's former rule: the admin addressee reads failed"
+    reason: |
+      An escalated CI wait or model wait is still moving. Read as failed, it would make SeriesJudgement.NewlyRed report a
+      live run as turned red, and the master might retry it. The kind would also flip with time alone and start extra
+      beats. The escalation stays visible in the words and on the hold itself.
+  - category: Implementation
+    chose: "A ticket nothing holds reads from its newest attempt: none or success waits, live runs, parked with a question asks, any other end failed"
+    over: "Reading 'waiting' for every unheld ticket, as the browser did"
+    reason: |
+      The hold reader holds nothing on a cancelled ticket, one whose PRs all closed, or a success with no PR. A series
+      does not finish without someone acting on a cancelled member, so it reads failed with its end, as the master read
+      it before. The merge act reads without holds (withHolds false) and gets the same fallback.
+  - category: Implementation
+    chose: "One CI rule, PullRequestHeadCi: a read on an older head is pending since the head moved, and heads aggregate red > not_started > pending > green > none, over waiting PRs only"
+    over: "Keeping the page's null-for-older-head row rule, or the master's every-record aggregate"
+    reason: |
+      The hold already used this rule. The page row showed nothing where the hold said 'CI running', and the master
+      counted closed PRs' red heads. That is part of the incident's three truths. Whether the CI loop reads a moved head
+      late (the '8 h' itself) is the CI tool's work (spec e). Every surface now says the same about it.
+  - category: Implementation
+    chose: "The beat's snapshot is key=kind|state. NewlyRed flags a failed ticket whose earlier line has another kind or other words; a line stored before kinds flags nothing."
+    over: "Comparing words only, which re-reports every red ticket once after the deploy"
+    reason: |
+      Every state word changed with the one state. Without the kind guard, the first beat after the deploy would hand the
+      master every red ticket as news. The snapshot still differs once, so each active series gets one extra look,
+      which posts nothing unless the master acts (2026-11-25-e94ec).
+  - category: Implementation
+    chose: "The sweeper skips a series whose beat still runs, then reads the rest in one ReadManyAsync per scan, with one hold read per project. A batch read that fails leaves each series to read its own."
+    over: "One read per series per scan, or one batch whose failure stops every series"
+    reason: |
+      The hold comes from TicketListReader.AllAsync, which reads the whole project. Per series and per 15-second scan,
+      that is a full project read for each series. Batched, it costs what one open series list page costs, and nothing
+      is read for a series that could not beat anyway. Before, each series read inside its own try, so one bad project
+      skipped only its series. The fallback keeps that.
+  - category: Implementation
+    chose: "The dashboard renders the server's kind through its own i18n words (Tickets section), its kind (Overview, list, graph) and its CI (badges, merge-when-green). The server's English words go to the master and the dialog panel."
+    over: "Showing the server's English state words on the dashboard"
+    reason: |
+      The dashboard is translated (German), so English server words would be a regression. Rendering a kind in the
+      viewer's language decides nothing. Only the newest attempt's status picks a word inside a kind (shortfall, ended).
+  - category: Implementation
+    chose: "The pipeline harness's SeriesRig keeps scripting facts, now with the hold its tickets would read. SeriesStatusReaderTests prove the reader through the real composition over a migrated store."
+    over: "Rewiring the rig to script the hold reader's inputs"
+    reason: |
+      The rig proves the beat's flow (open, ask, default, verify, follow up), not the state reading. The reader's truth,
+      meaning the same CI, kind and words for master and page, is pinned where the real DI and store run.

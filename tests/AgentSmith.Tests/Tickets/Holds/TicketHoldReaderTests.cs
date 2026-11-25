@@ -86,10 +86,10 @@ public sealed class TicketHoldReaderTests
     {
         var hold = _reader.Of(Facts(RunStatuses.Success) with
         {
-            SeriesId = "sr-1", MergeStep = Order[0], SeriesMergeOrder = Order, SeriesStartsOnMerge = ["#50", "#51"], MergeApproves = true,
+            SeriesId = "sr-1", MergeStep = Order[0], SeriesMergeOrder = Order, SeriesStartsOnMerge = ["#50", "#51"],
         })!;
 
-        (hold.Addressee, hold.Case, hold.Next, hold.Approves).Should().Be((TicketHoldAddressees.Merge, TicketHoldCases.MergeNext, "#44", true));
+        (hold.Addressee, hold.Case, hold.Next).Should().Be((TicketHoldAddressees.Merge, TicketHoldCases.MergeNext, "#44"));
         hold.Names.Should().Equal("#50", "#51");
     }
 
@@ -211,9 +211,16 @@ public sealed class TicketHoldReaderTests
     {
         _reader.Of(AskedOf(null, "plan"))!.Should().Match<TicketHold>(h =>
             h.Addressee == TicketHoldAddressees.Decide && h.Case == TicketHoldCases.Question && h.Act!.Kind == TicketHoldActs.Answer);
-        _reader.Of(AskedOf("sr-1", "target"))!.Case.Should().Be(TicketHoldCases.Question);
-        _reader.Of(AskedOf("sr-1", "plan") with { SeriesActive = false })!.Case
-            .Should().Be(TicketHoldCases.Question, "a series that ended reads no conversation");
+        _reader.Of(AskedOf("sr-1", "plan") with { SeriesActive = false })!.Should().Match<TicketHold>(h =>
+            h.Case == TicketHoldCases.Question && h.Act!.Kind == TicketHoldActs.Answer, "a series that ended reads no conversation");
+    }
+
+    [Fact]
+    public void Question_TheTargets_InAnActiveSeries_IsAnsweredInTheSeriesChat_NeverOnTheTicket()
+    {
+        // 2026-11-25-9992j: the series relays every question that is not the environment's, so the ticket page links there.
+        _reader.Of(AskedOf("sr-1", "target"))!.Should().Match<TicketHold>(h => h.Addressee == TicketHoldAddressees.Decide
+            && h.Case == TicketHoldCases.Question && h.Act == new TicketHoldAct(TicketHoldActs.Conversation, "sr-1"));
     }
 
     [Fact]

@@ -110,6 +110,22 @@ describe("PocsSettingsForm", () => {
 
   // 2026-11-23-933db: the archive bounds are ten number fields; each edit round-trips, and a value read without archive
   // is given the defaults and sends them back, because a save without archive would reset the limits.
+  // 2026-11-25-0873
+  it("PocsSettingsForm_MachineIdentity_EditsAndRoundTrips_AndClearingItSendsNull", () => {
+    const seen: SettingValue[] = [];
+    render(<Harness seen={seen} />);
+    fireEvent.click(screen.getByTestId("setting-pocs-machine-toggle"));
+    fireEvent.change(screen.getByTestId("setting-pocs-machine-name"), { target: { value: "agent-smith-bot" } });
+    fireEvent.change(screen.getByTestId("setting-pocs-machine-github-auth"), { target: { value: "poc_pull_token" } });
+
+    const saved = JSON.parse(JSON.stringify(seen[seen.length - 1])) as PocsSetting;
+    expect(saved.machine).toEqual({ name: "agent-smith-bot", email: "", github: { auth: "poc_pull_token" } });
+
+    fireEvent.change(screen.getByTestId("setting-pocs-machine-github-auth"), { target: { value: "" } });
+    fireEvent.change(screen.getByTestId("setting-pocs-machine-name"), { target: { value: "" } });
+    expect((seen[seen.length - 1] as PocsSetting).machine).toBeNull();
+  });
+
   it("PocsSettingsForm_ArchiveFields_EditAndRoundTrip", () => {
     const seen: SettingValue[] = [];
     render(<Harness seen={seen} />);

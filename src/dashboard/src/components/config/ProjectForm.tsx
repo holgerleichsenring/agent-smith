@@ -16,6 +16,7 @@ import { TrackerRouting } from "./TrackerRouting";
 import { ProjectSandboxSection } from "./ProjectSandboxSection";
 import { ProjectMergeSection } from "./ProjectMergeSection";
 import { RegistryFeedsField } from "./RegistryFeedsField";
+import { ProjectMachineSection } from "./ProjectMachineSection";
 import { camelCase } from "./capabilityFields";
 import { projectIntegrity, unfinishedTemplates } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
@@ -36,7 +37,8 @@ import type { T, TextKey } from "@/lib/i18n/translate";
 // identity, repos, pipeline, templates or routing.
 // 2026-11-17-b34eb: the seventh, "merge" — when a ticket starts behind another and what happens to a green run's
 // pull requests. Both are about delivery, which none of the six sections is.
-const TABS = ["identity", "repos", "pipeline", "templates", "routing", "sandbox", "merge"] as const;
+// 2026-11-25-9992h: the eighth, "machine" — the identity agent-smith acts under on each hoster.
+const TABS = ["identity", "repos", "pipeline", "templates", "routing", "sandbox", "merge", "machine"] as const;
 export type ProjectTab = (typeof TABS)[number];
 
 const TAB_TITLE = {
@@ -47,6 +49,7 @@ const TAB_TITLE = {
   routing: "config.project.tab.routing",
   sandbox: "config.project.tab.sandbox",
   merge: "config.project.tab.merge",
+  machine: "config.project.tab.machine",
 } as const satisfies Record<ProjectTab, TextKey>;
 
 // Per-strategy value hints for the routing section. The STRATEGY LIST itself comes from
@@ -206,7 +209,9 @@ export function ProjectForm({
           </>
         )}
 
-        {tab === "merge" && <ProjectMergeSection project={project} onChange={onChange} capabilities={capabilities} secrets={catalog.secrets} />}
+        {tab === "merge" && <ProjectMergeSection project={project} onChange={onChange} capabilities={capabilities} />}
+
+        {tab === "machine" && <ProjectMachineSection project={project} onChange={onChange} secrets={catalog.secrets} />}
       </div>
 
       <DraftFindings findings={findings} />

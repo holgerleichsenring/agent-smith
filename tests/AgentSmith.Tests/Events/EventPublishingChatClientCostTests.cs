@@ -102,6 +102,23 @@ public sealed class EventPublishingChatClientCostTests
         finished.CachedTokensIn.Should().Be(500_000, "the cached share must be read from the first-class property");
     }
 
+    [Fact]
+    public async Task ResponseWithReasoningTokens_RecordsThemBesideTheOutputTheyArePricedIn()
+    {
+        // 2026-11-25-9992k: M.E.AI.OpenAI maps output_tokens_details.reasoning_tokens to UsageDetails.ReasoningTokenCount on
+        // both wires; they are inside OutputTokenCount, so the cost is the output price of the whole output.
+        var recorder = new RecordingPublisher();
+        var stub = new StubChat("gpt-4.1", input: 0, output: 1_000_000) { ReasoningTokenCount = 600_000 };
+
+        await NewClient(stub, recorder, StubResolver(input: 2m, output: 8m, cacheRead: 0.50m)).GetResponseAsync(
+            new[] { new ChatMessage(ChatRole.User, "hello") }, options: null, CancellationToken.None);
+
+        var finished = recorder.Events.OfType<LlmCallFinishedEvent>().Single();
+        finished.ReasoningTokensOut.Should().Be(600_000);
+        finished.TokensOut.Should().Be(1_000_000);
+        finished.CostUsd.Should().Be(8m);
+    }
+
     private static IModelPricingResolver StubResolver(decimal input, decimal output, decimal cacheRead)
         => new ModelPricingResolver(new Dictionary<string, ModelPricing>(StringComparer.OrdinalIgnoreCase)
         {
@@ -156,6 +173,8 @@ public sealed class EventPublishingChatClientCostTests
         // adapter sets this, not an AdditionalCounts key).
         public long? CachedInputTokenCount { get; set; }
 
+        public long? ReasoningTokenCount { get; set; } // 2026-11-25-9992k
+
         // 2026-11-17-166ab: what a worker CLI reported for the call, hung on the response as the bridge does.
         public AgentSmith.Contracts.Models.Workers.WorkerCallAccounting? Worker { get; set; }
 
@@ -168,6 +187,7 @@ public sealed class EventPublishingChatClientCostTests
                 InputTokenCount = _input,
                 OutputTokenCount = _output,
                 CachedInputTokenCount = CachedInputTokenCount,
+                ReasoningTokenCount = ReasoningTokenCount,
             };
             if (AdditionalCounts is { Count: > 0 })
             {

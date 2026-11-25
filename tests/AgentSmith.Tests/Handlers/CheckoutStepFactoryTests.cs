@@ -98,6 +98,17 @@ public sealed class CheckoutStepFactoryTests
     public void BuildCheckoutStep_NamesNoWorkingDirectory_SoItRunsAtTheSandboxRoot() =>
         CheckoutStepFactory.BuildCheckoutStep("main").WorkingDirectory.Should().BeNull();
 
+    // 2026-11-25-d0e2: a service principal's Entra token reaches Azure Repos as the bearer header git documents.
+    [Fact]
+    public void CloneStep_BearerCredential_SendsTheBearerHeaderThroughConfigEnv()
+    {
+        var step = CheckoutStepFactory.BuildCloneStep(Repo, new GitCredential("eyJa.b.c", Bearer: true), "/work");
+
+        step.Args![0].Should().Be($"--config-env=http.extraheader={GitCredential.BearerHeaderVariable}");
+        step.Args.Should().Contain("clone");
+        step.Env.Should().Contain(GitCredential.BearerHeaderVariable, "AUTHORIZATION: bearer eyJa.b.c");
+    }
+
     [Fact]
     public void CreateRemoteBranch_NoCredential_SetsNoGitToken() =>
         CheckoutStepFactory.BuildCreateRemoteBranchStep(GitCredential.None, "HEAD", "b").Env.Should().BeNull();

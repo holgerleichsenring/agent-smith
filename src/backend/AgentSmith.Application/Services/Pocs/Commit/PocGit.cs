@@ -18,8 +18,9 @@ public sealed class PocGit(IGitTokenResolver credentials)
         ISandbox sandbox, string what, string[] args, CancellationToken ct, RepoConnection? remote = null)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
-        var env = remote is null ? null : GitStepCredentials.TokenEnv(credentials.For(remote));
-        string[] argv = remote is null ? args : ["-c", GitStepCredentials.Helper, .. args];
+        var credential = remote is null ? null : credentials.For(remote);
+        var env = credential?.Env();
+        string[] argv = credential is null ? args : [.. GitStepCredentials.Args(credential), .. args]; // 2026-11-25-d0e2
         return await RunStepAsync(sandbox, what, new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git", Args: argv, Env: env), ct);
     }

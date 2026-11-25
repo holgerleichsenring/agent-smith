@@ -17,10 +17,8 @@ internal static class CheckoutStepFactory
     private const int CloneTimeoutSeconds = 300;
     private const int CheckoutTimeoutSeconds = 60;
 
-    /// <summary>
-    /// The RUN's clone: the whole history, because a run diffs against a base, reads its own
-    /// log and can be handed a revision reachable from nothing.
-    /// </summary>
+    /// <summary>The RUN's clone: the whole history — a run diffs against a base, reads its own log and can be handed
+    /// a revision reachable from nothing.</summary>
     public static Step BuildCloneStep(RepoConnection config, GitCredential credential, string root) =>
         Clone(config, credential, [], root);
 
@@ -39,7 +37,8 @@ internal static class CheckoutStepFactory
 
     private static Step Clone(RepoConnection config, GitCredential credential, string[] narrowing, string root) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "git", Args: ["-c", GitStepCredentials.Helper, "clone", .. narrowing, config.Url!, "."],
+            Command: "git",
+            Args: [.. GitStepCredentials.Args(credential), "clone", .. narrowing, config.Url!, "."],
             WorkingDirectory: root,
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
@@ -65,7 +64,8 @@ internal static class CheckoutStepFactory
     /// </summary>
     public static Step BuildFetchRevisionStep(GitCredential credential, string revision) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "git", Args: new[] { "-c", GitStepCredentials.Helper, "fetch", "origin", revision },
+            Command: "git",
+            Args: [.. GitStepCredentials.Args(credential), "fetch", "origin", revision],
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
 
@@ -78,7 +78,8 @@ internal static class CheckoutStepFactory
     /// </summary>
     public static Step BuildFetchRevisionAtDepthStep(GitCredential credential, string revision) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "git", Args: ["-c", GitStepCredentials.Helper, "fetch", "--depth", "1", "origin", revision],
+            Command: "git",
+            Args: [.. GitStepCredentials.Args(credential), "fetch", "--depth", "1", "origin", revision],
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
 
@@ -96,14 +97,12 @@ internal static class CheckoutStepFactory
             Command: "git", Args: new[] { "rev-parse", "HEAD" },
             TimeoutSeconds: CheckoutTimeoutSeconds);
 
-    /// <summary>
-    /// 2026-09-13-35a4: creates a branch on the remote at a given ref — NO force and NO
-    /// lease, so a ref that already exists is refused rather than overwritten. It carries
-    /// the credential for the same reason the clone does: it talks to the remote.
-    /// </summary>
+    /// <summary>2026-09-13-35a4: creates a branch on the remote at a given ref — NO force and NO lease, so a ref that
+    /// already exists is refused; it carries the credential because it talks to the remote.</summary>
     public static Step BuildCreateRemoteBranchStep(GitCredential credential, string atRef, string branch) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "git", Args: new[] { "-c", GitStepCredentials.Helper, "push", "origin", $"{atRef}:refs/heads/{branch}" },
+            Command: "git",
+            Args: [.. GitStepCredentials.Args(credential), "push", "origin", $"{atRef}:refs/heads/{branch}"],
             Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
 

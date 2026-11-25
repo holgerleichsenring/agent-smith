@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-9992j
+goal: "The series page is the graph and the series chat below it: a ticket click opens read-only details, the master's questions show their choices as buttons, and no merge, retry or hold control is left."
+
+applies_to: "dashboard (series page), default (series detail view, ticket question hold)"
+
+requires: [2026-11-25-9992a, 2026-11-23-f562, 2026-11-23-31dcd]
+
+facts:
+  - claim: "The series page draws one section at a time from a section bar: Overview, Tickets, Conversation."
+    evidence: "src/dashboard/src/components/series/page/seriesPageSections.ts:34-42 and SeriesRunPage.tsx:52-62"
+  - claim: "The Overview draws an act outcome, summary chips, the graph with a per-node action menu, and You're up / Needed next / when-green groups with Merge, Retry and Try again buttons."
+    evidence: "src/dashboard/src/components/series/page/SeriesOverviewSection.tsx:52-78, SeriesActionList.tsx:42-75, SeriesActButtons.tsx:30-61"
+  - claim: "The series bar draws a progress bar and counts."
+    evidence: "src/dashboard/src/components/series/page/SeriesSectionBar.tsx:40-41"
+  - claim: "The page's ticket view already carries the server's kind, ci and working, and the page carries workingOn (9992a)."
+    evidence: "src/dashboard/src/types/seriesRuns.ts:83-86 and :149"
+  - claim: "A series question has choices and a recommended index on the record; the page view exposes only its text."
+    evidence: "src/backend/AgentSmith.Contracts/Series/SeriesQuestion.cs:8-10 and src/backend/AgentSmith.Server/Services/Series/SeriesRunQuestion.cs:13-18"
+  - claim: "The first conversation message after a question answers it, so a choice sent as a message is the answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestions.cs:43-45"
+  - claim: "The series master relays every non-environment ticket question into the conversation."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestions.cs:69-73 and :93-94"
+  - claim: "A conversation message reaches the series beat only when its poster holds runs.control; anyone else's starts a design turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/RunMessages/SpecDialogRunDivert.cs:28-48"
+  - claim: "A conversation act with a target is worded as talking about the plan, on the ticket list and on Your move."
+    evidence: "src/dashboard/src/components/tickets/holds/holdWords.ts:122 and :153, src/dashboard/src/components/tickets/detail/ticketState.ts:142"
+  - claim: "The ticket page's merge still posts the series merge, so that client call stays."
+    evidence: "src/dashboard/src/components/tickets/detail/YourMoveBox.tsx:6 and :119"
+  - claim: "A ticket's own question in an active series is still held as answered on the ticket, where the page offers Send and resume run."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketQuestionHold.cs:25-31 and src/dashboard/src/components/tickets/detail/ThreadMessages.tsx:113-131"
+  - claim: "The dialog question card draws a question's choices as buttons whose click sends the label as a message."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:31-70 and :76-84"
+  - claim: "The fact behind a ticket view carries its cost; the ticket view does not."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesStatusReader.cs:78-79 and :88"
+
+scope:
+  in: |
+    Page: the series bar (back, name, state, facts) beside ONE pane: the graph (look unchanged: lanes, edges, kind colours,
+    legend, the From select), then the final step (read-only, as today), then the conversation (the existing
+    SeriesConversationSection) as the chat. No section nav; ?section= is ignored except that ?section=talk scrolls to the chat.
+    Graph: a node whose ticket.working is true, or whose key is in workingOn, carries a working mark; a node shows small marks
+    for a conflict, CI red, CI running and build not started (seriesTicketBadges, from ticket.ci and the PRs' hasConflicts).
+    Ticket click: a read-only details popover in the menu's place — key and title, the kind word and the hold's sentence,
+    each PR with link, repo, CI word and conflict, the ticket's cost, and a link to the ticket page. No act buttons.
+    Chat: while detail.question waits and has choices, a question card (DialogQuestionCard, gaining an optional
+    recommended index that draws that choice as the primary button marked "recommended") sits above the composer; a click
+    sends the label through the conversation's send; the card hides once sent. The card is drawn for a viewer with
+    runs.control only (another viewer's message would start a design turn, not answer). The series question is mapped
+    onto the card's shape: kind "choice", the labels as choices, no expiry (the transcript line says when the
+    recommendation is taken), and a hint of its own (write another answer below) in place of the edit-note hint.
+    Server: SeriesRunDetailView gains QuestionChoices and QuestionRecommended (from the same waiting question as Question);
+    SeriesRunTicketView gains CostUsd from the fact. TicketQuestionHold.Target in an active series acts Conversation with the
+    series id, so a series ticket's page links to the series chat instead of Send and resume run; a question queued behind
+    another waits for the series to relay it, one at a time, as SeriesQuestions already does. A conversation act on a
+    question hold is worded "Answer in the series chat" (holdWords, ticketState); the plan's keeps "Talk about the plan".
+    Removed with their client code: chips, the action list (You're up, Needed next, when green, quiet), Merge/Retry/Try again
+    buttons and their hooks, the node menu, the act outcome lines, the progress bar and counts in the bar, the Tickets
+    section and its Changed-in-this-series notes, fetchSeriesRunChanges in the client (mergeSeriesTicket stays: the
+    ticket page's merge uses it), and the i18n
+    keys only these used. The endpoints stay (owned by e/f/g/i).
+  out: "The master's last action per ticket (no per-ticket act record exists; the act log is the master tools' work), the series list page, endpoint removal, any hub event contract."
+
+steps:
+  - id: server
+    action: "SeriesRunQuestion.Waiting returns the waiting question (Of reads it); SeriesRunDetailView QuestionChoices/QuestionRecommended; SeriesRunTicketView CostUsd; TicketQuestionHold.Target conversation act in an active series. Tests."
+  - id: types
+    action: "SeriesRunDetail gains questionChoices and questionRecommended; SeriesRunTicket gains costUsd."
+  - id: page
+    action: "SeriesRunPage draws bar + SeriesOverview (graph, details, final step) + SeriesConversationSection; delete the section table and nav."
+  - id: graph
+    action: "SeriesGraph working and CI/conflict marks; SeriesTicketDetails replaces SeriesNodeMenu."
+  - id: chat
+    action: "DialogQuestionCard recommended; SeriesConversationSection draws the series question card and sends a choice."
+  - id: remove
+    action: "Delete SeriesActionList, SeriesActButtons, SeriesNodeMenu, SeriesMergeOutcome, useSeriesMerge, useSeriesRetry, seriesTicketActs, SeriesTicketsSection, seriesTicketState, SeriesChangesNotes, seriesPageSections, SeriesTicketBadges, the dead helpers in seriesNodeKind/seriesCiState, fetchSeriesRunChanges and its test, and the keys only these used (template-built keys checked by hand)."
+  - id: tests
+    action: "vitest for the page, graph marks, details, question card; migrate the series page tests; C# tests for the view fields and the hold."
+
+done:
+  - "The series page shows the graph and the chat on one pane, with no Merge, Retry, Try again, hold, chip or progress element (test)."
+  - "A working ticket's node carries the working mark; a red CI or conflict shows its mark (test)."
+  - "A node click opens details with PR link, CI and cost, and no button; Escape or a click outside closes them (test)."
+  - "A waiting question with choices draws one button per choice, the recommended one primary, and a click sends its label (test)."
+  - "A viewer without runs.control sees no choice buttons (test)."
+  - "A series ticket's own question in an active series links to the series conversation, not Send and resume run (C# hold test)."
+  - "pnpm test, pnpm build, dotnet build and the affected C# tests are green."

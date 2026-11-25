@@ -13,9 +13,18 @@ public interface ICredentialResolver
 {
     string For(RepoConnection repo);
 
+    /// <summary>
+    /// 2026-11-25-9992h: the login a repository's acts appear under when its token cannot say so itself — a GitHub App's
+    /// <c>{slug}[bot]</c>; null for every other identity, whose token answers who it is.
+    /// </summary>
+    string? MachineLogin(RepoConnection repo) => null;
+
     string For(ResolvedConnection connection);
 
     string For(TrackerConnection tracker);
+
+    /// <summary>2026-11-25-0873: a tracker's <see cref="MachineLogin(RepoConnection)"/> — a GitHub App's <c>{slug}[bot]</c>.</summary>
+    string? MachineLogin(TrackerConnection tracker) => null;
 
     /// <summary>
     /// 2026-11-18-9ae8: a credential named by its environment variable — an agent's api_key_secret, a provider's

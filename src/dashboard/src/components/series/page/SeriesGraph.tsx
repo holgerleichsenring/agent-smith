@@ -3,13 +3,15 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useT } from "@/hooks/useT";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
-import { SERIES_NODE_KINDS, seriesNeededChain, seriesNodeKind, waitingPullRequests } from "./seriesNodeKind";
+import { seriesTicketBadges, type SeriesBadge } from "./seriesCiState";
+import { SERIES_NODE_KINDS, seriesNeededChain, waitingPullRequests } from "./seriesNodeKind";
 import { NODE_H, NODE_W, seriesNodeId, seriesOrderLayout } from "./seriesOrderLayout";
 
 // 2026-11-23-f562: the Overview's order graph — repo lanes, depth columns, every ticket in ONE colour by its hold
-// (seriesNodeKind), edges orthogonal and the needed-merge chain's edges in the accent, a legend and the course select.
-// Clicking a ticket opens its menu (drawn by the caller below the node, outside the scrolling box so it is never clipped);
-// the graph scrolls sideways in its own box, and scrolling it closes the menu.
+// (ticket.kind, the server's), edges orthogonal and the needed-merge chain's edges in the accent, a legend and the course select.
+// Clicking a ticket opens its details (drawn by the caller below the node, outside the scrolling box so it is never clipped);
+// the graph scrolls sideways in its own box, and scrolling it closes them. 2026-11-25-9992j: a ticket a run works on now
+// carries the working mark, and each node its host's marks (conflict, CI).
 
 interface Props {
   detail: SeriesRunDetail;
@@ -25,6 +27,14 @@ interface Props {
 }
 
 const MENU_W = 260;
+
+// 2026-11-25-9992j: the small marks a node carries for its host — a conflict, red CI, CI running, a build not started.
+const MARK_TONE: Record<SeriesBadge, string> = { conflict: "bad", ciRed: "bad", ciRunning: "run", ciNotStarted: "need" };
+
+/** 2026-11-25-9992j: a run is at work on it now — the ticket's own flag or the series' workingOn, both the server's. */
+function isWorkedOn(detail: SeriesRunDetail, ticket: SeriesRunTicket): boolean {
+  return ticket.working || detail.workingOn.includes(ticket.key);
+}
 
 export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose, menu }: Props) {
   const t = useT();
@@ -72,17 +82,24 @@ export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose
             })}
           </svg>
           {layout.nodes.map(({ ticket, alsoIn, x, y }) => {
-            const kind = seriesNodeKind(ticket, detail);
+            const kind = ticket.kind;
             const pr = waitingPullRequests(ticket.pullRequests)[0] ?? (ticket.landed ? ticket.pullRequests[0] : undefined);
+            const working = isWorkedOn(detail, ticket);
+            const marks = seriesTicketBadges(ticket);
+            const said = [t(`series.kind.${kind}`), working ? t("series.graph.working") : null, ...marks.map((m) => t(`series.badge.${m}`))];
             return (
               <button key={ticket.ticketId} id={seriesNodeId(ticket.ticketId)} type="button" style={{ left: x, top: y, width: NODE_W, height: NODE_H }}
-                className={`sr-node ${kind}${on(ticket.ticketId) ? "" : " dim"}`} data-kind={kind}
-                aria-label={`${ticket.key} ${ticket.title}: ${t(`series.kind.${kind}`)}`} aria-haspopup="dialog"
+                className={`sr-node ${kind}${working ? " working" : ""}${on(ticket.ticketId) ? "" : " dim"}`} data-kind={kind}
+                aria-label={`${ticket.key} ${ticket.title}: ${said.filter(Boolean).join(", ")}`} aria-haspopup="dialog"
                 aria-expanded={openId === ticket.ticketId} onClick={(e) => { e.stopPropagation(); onNode(ticket.ticketId); }}
-                data-testid={`series-node-${ticket.ticketId}`}>
+                data-testid={`series-node-${ticket.ticketId}`} data-working={working || undefined}>
                 <span className="sr-node-id">
                   <span>{ticket.key}{alsoIn.length > 0 ? ` ${t("series.graph.alsoIn", { repos: alsoIn.join(" + ") })}` : ""}</span>
-                  {pr && <span>{t("series.merge.pr", { number: pr.number })}</span>}
+                  <span className="sr-node-marks">
+                    {marks.map((mark) => <i key={mark} className={`sr-mark ${MARK_TONE[mark]}`} title={t(`series.badge.${mark}`)}
+                      data-testid={`series-mark-${mark}-${ticket.ticketId}`} />)}
+                    {pr && <span>{t("series.merge.pr", { number: pr.number })}</span>}
+                  </span>
                 </span>
                 <span className="sr-node-name">{ticket.title}</span>
               </button>

@@ -78,8 +78,39 @@ export const configMessages = {
     en: "failed checks of a red head whose logs are read",
     de: "fehlgeschlagene Checks eines roten Heads, deren Logs gelesen werden",
   },
-  "config.merge.approvalAuth.label": { en: "approval identity", de: "Identität für die Freigabe" },
-  "config.merge.approvalAuth.placeholder": { en: "— the repo's token —", de: "— das Token des Repos —" },
+  // --- project: the machine identity (2026-11-25-9992h) ---
+  "config.machine.help": {
+    en: "The identity agent-smith pushes, opens pull requests, comments and merges under. A hoster left empty uses each repository's own token.",
+    de: "Die Identität, unter der agent-smith pusht, Pull Requests öffnet, kommentiert und merged. Ein leerer Host nimmt das Token des jeweiligen Repos.",
+  },
+  "config.machine.name.label": { en: "name", de: "Name" },
+  "config.machine.name.help": { en: "author of its commits and name of its acts", de: "Autor seiner Commits und Name seiner Taten" },
+  "config.machine.email.label": { en: "commit email", de: "Commit-E-Mail" },
+  "config.machine.email.help": { en: "the address its commits carry", de: "die Adresse in seinen Commits" },
+  "config.machine.auth.label": { en: "secret", de: "Secret" },
+  "config.machine.auth.placeholder": { en: "— no machine identity —", de: "— keine Maschinen-Identität —" },
+  "config.machine.appId.label": { en: "GitHub App id", de: "GitHub-App-ID" },
+  "config.machine.appId.help": {
+    en: "set for a GitHub App; the secret is then its private key",
+    de: "für eine GitHub App; das Secret ist dann ihr privater Schlüssel",
+  },
+  "config.machine.installationId.label": { en: "installation id", de: "Installations-ID" },
+  "config.machine.tenantId.label": { en: "Entra tenant id", de: "Entra-Mandanten-ID" },
+  "config.machine.tenantId.help": {
+    en: "with a client id, a service principal: the secret is its client secret",
+    de: "mit einer Client-ID ein Service Principal: das Secret ist sein Client-Secret",
+  },
+  "config.machine.clientId.label": { en: "client id", de: "Client-ID" },
+  "config.pocs.machine.title": { en: "Machine identity", de: "Maschinen-Identität" },
+  "config.pocs.machine.help": {
+    en: "Who the PoC pipelines, commits and builds act as. A poc- project's own machine identity wins.",
+    de: "Als wer die PoC-Pipelines, Commits und Builds handeln. Die eigene Maschinen-Identität eines poc-Projekts geht vor.",
+  },
+  "config.machine.hosterEmail.label": { en: "commit email here", de: "Commit-E-Mail hier" },
+  "config.machine.hosterEmail.help": {
+    en: "when it differs on this hoster, e.g. a GitHub App's bot address",
+    de: "wenn sie bei diesem Host abweicht, z. B. die Bot-Adresse einer GitHub App",
+  },
 
   // --- tracker: the form's tabs ---
   "config.tracker.tab.connection": { en: "Connection", de: "Verbindung" },
@@ -818,6 +849,17 @@ export const configMessages = {
   "config.modelEditor.window.fromList": { en: "from price list", de: "aus der Preisliste" },
   "config.modelEditor.maxTokens.label": { en: "max tokens", de: "Max. Tokens" },
   "config.modelEditor.maxTokens.help": { en: "per-call output cap; blank = 8192", de: "Output-Obergrenze pro Aufruf; leer = 8192" },
+  "config.modelEditor.api.label": { en: "api", de: "API" },
+  "config.modelEditor.api.help": {
+    en: "responses for a reasoning model that calls tools (GPT-6); blank = chat_completions",
+    de: "responses für ein Reasoning-Modell, das Tools aufruft (GPT-6); leer = chat_completions",
+  },
+  "config.modelEditor.api.placeholder": { en: "chat_completions", de: "chat_completions" },
+  "config.modelEditor.effort.label": { en: "reasoning effort", de: "Reasoning-Aufwand" },
+  "config.modelEditor.effort.help": {
+    en: "sent as written: none, low, medium, high, xhigh or max, as the model takes them; blank = the model's default",
+    de: "wird so gesendet: none, low, medium, high, xhigh oder max, je nachdem, was das Modell nimmt; leer = Standard des Modells",
+  },
   "config.modelEditor.tier.label": { en: "tier", de: "Stufe" },
   "config.modelEditor.tier.help": {
     en: "an activity that needs a strong model warns when a fast one is picked",
@@ -1064,6 +1106,7 @@ export const configMessages = {
   "config.project.tab.routing": { en: "routing", de: "Routing" },
   "config.project.tab.sandbox": { en: "sandbox", de: "Sandbox" },
   "config.project.tab.merge": { en: "merge", de: "Merge" },
+  "config.project.tab.machine": { en: "machine identity", de: "Maschinen-Identität" },
   "config.project.agent": { en: "agent", de: "Agent" },
   "config.project.tracker": { en: "tracker", de: "Tracker" },
   "config.project.designSources": { en: "design sources", de: "Design-Quellen" },

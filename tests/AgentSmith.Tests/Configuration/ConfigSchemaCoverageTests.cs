@@ -22,6 +22,23 @@ public sealed class ConfigSchemaCoverageTests
         {
             ["connections.*.type=local"] =
                 "a connection is a git host repos are discovered under; a local path is a repos: entry",
+            // 2026-11-25-9992h: one hoster entry type binds all three; only a GitHub App has an app id, a finding refuses it elsewhere.
+            ["projects.*.machine.gitlab.app_id"] = "a GitHub App key; refused on GitLab by a finding",
+            ["projects.*.machine.gitlab.installation_id"] = "a GitHub App key; refused on GitLab by a finding",
+            ["projects.*.machine.azure_devops.app_id"] = "a GitHub App key; refused on Azure DevOps by a finding",
+            ["projects.*.machine.azure_devops.installation_id"] = "a GitHub App key; refused on Azure DevOps by a finding",
+            ["projects.*.machine.github.tenant_id"] = "an Azure DevOps service principal key; refused on GitHub by a finding",
+            ["projects.*.machine.github.client_id"] = "an Azure DevOps service principal key; refused on GitHub by a finding",
+            ["projects.*.machine.gitlab.tenant_id"] = "an Azure DevOps service principal key; refused on GitLab by a finding",
+            ["projects.*.machine.gitlab.client_id"] = "an Azure DevOps service principal key; refused on GitLab by a finding",
+            ["pocs.machine.gitlab.app_id"] = "a GitHub App key; refused on GitLab by pocs problems",
+            ["pocs.machine.gitlab.installation_id"] = "a GitHub App key; refused on GitLab by pocs problems",
+            ["pocs.machine.azure_devops.app_id"] = "a GitHub App key; refused on Azure DevOps by pocs problems",
+            ["pocs.machine.azure_devops.installation_id"] = "a GitHub App key; refused on Azure DevOps by pocs problems",
+            ["pocs.machine.github.tenant_id"] = "an Azure DevOps service principal key; refused on GitHub by pocs problems",
+            ["pocs.machine.github.client_id"] = "an Azure DevOps service principal key; refused on GitHub by pocs problems",
+            ["pocs.machine.gitlab.tenant_id"] = "an Azure DevOps service principal key; refused on GitLab by pocs problems",
+            ["pocs.machine.gitlab.client_id"] = "an Azure DevOps service principal key; refused on GitLab by pocs problems",
         };
 
     /// <summary>Property tables that are mixed into others, which close them.</summary>
