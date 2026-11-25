@@ -58,7 +58,11 @@ public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox 
             await inbox.TryDeliverAsync(job, new DialogAnswer(id, answered.Answer!, null, beat.Now, answered.AnsweredBy ?? beat.Record.Principal), ct);
             beat.Said.Add($"Passed your answer to {Key(beat, answered.TicketId)}'s run on \"{Headline(answered.Text)}\"; it goes on with it.");
         }
-        else beat.Reasons.Add($"Your question \"{answered.Text}\" is answered{(answered.ByDefault ? " by default" : string.Empty)}: {answered.Answer}");
+        else
+        {
+            beat.MasterAnswered = true; // 2026-11-25-e94ec: what the master makes of the answer is posted
+            beat.Reasons.Add($"Your question \"{answered.Text}\" is answered{(answered.ByDefault ? " by default" : string.Empty)}: {answered.Answer}");
+        }
         await KeepAsync(beat, answered with { Delivered = true }, ct);
     }
 

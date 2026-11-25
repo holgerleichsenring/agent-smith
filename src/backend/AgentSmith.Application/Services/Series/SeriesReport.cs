@@ -15,7 +15,7 @@ public static class SeriesReport
         var messages = new List<string>();
         if (beat.Record.LastStatusAt is null && beat.Record.IsActive) messages.Add(SeriesOpening.Text(beat, project));
         messages.AddRange(beat.Said);
-        if (beat.MasterLine is { Length: > 0 } line) messages.Add(line);
+        if (beat.MasterLine is { Length: > 0 } line && beat.MasterSpeaks) messages.Add(line); // 2026-11-25-e94ec
         return messages;
     }
 

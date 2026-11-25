@@ -39,6 +39,8 @@ The series posts an opening line saying what it filed, what started, what waits 
 
 While tickets run and nothing moves for `dialogue.series_status_minutes` (default 15), the master looks whether one is stuck.
 
+The master's reply is posted only when it acted (a retry, a message to a ticket, a pause, a question, the series check), when its own question was answered, or when you wrote to it. A look that changed nothing stays out of the conversation.
+
 The head of the conversation reads **series running**, **· 1 question for you** while a question waits, and **series done** at the end. The **Series** tab in the right-hand pane opens by default while the series runs. It shows landed of total, elapsed time, cost, an estimate once two tickets have landed, what runs now, the critical path and the policy.
 
 ## Talking to it

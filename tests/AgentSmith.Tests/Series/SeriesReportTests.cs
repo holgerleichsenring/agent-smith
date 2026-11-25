@@ -52,6 +52,7 @@ public sealed class SeriesReportTests
         beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = beat.Table };
         beat.Said.Add("SCRUM-44 asks a decision only you can make: …");
         beat.MasterLine = "Passed to SCRUM-44.";
+        beat.MasterActed = true; // 2026-11-25-e94ec: the line of a master that acted
 
         SeriesReport.Messages(beat, Project).Should().Equal("SCRUM-44 asks a decision only you can make: …", "Passed to SCRUM-44.");
     }

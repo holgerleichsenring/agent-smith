@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-25-e94ec
+goal: "The series master's reply is posted only when it acted, asked or the operator wrote to it in that beat, read from its tool calls, so 'still running, no intervention' never reaches the conversation."
+
+applies_to: "default (Application series master: SeriesMasterHandler, SeriesReport, series-master prompt)"
+
+requires: [2026-11-17-0207a, 2026-11-17-0207b, 2026-11-25-e94eb]
+
+facts:
+  - claim: "Every judged beat posts the master's answer as MasterLine, whatever it did."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesMasterHandler.cs:58-60 and src/backend/AgentSmith.Application/Services/Series/SeriesReport.cs:18"
+  - claim: "The stall reason wakes the master every status period while tickets run and nothing moved."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesJudgement.cs:17-24"
+  - claim: "33 of 141 turns were master lines saying a ticket is slow but not stuck and no intervention is needed; 8 were acts (rework, retry)."
+    evidence: "observed: 2026-11-25, production series conversation, read-only"
+  - claim: "The prompt asks for one sentence when nothing needs doing."
+    evidence: "src/backend/AgentSmith.Application/Prompts/Resources/series-master.md:35-37"
+
+scope:
+  in: "SeriesBeat.MasterActed, set by a wrapper around every act tool, ask_human and check_series; SeriesBeat.MasterAnswered, set when the master's own question is answered or taken by default this beat; operator messages drained mid-turn join beat.Messages (SeriesJudgement.Operator read them before the loop, so nothing is counted twice); SeriesReport posts MasterLine only when MasterActed, MasterAnswered or beat.Messages is not empty; the answer stays in the master's thread either way; the prompt's answer paragraph is rewritten."
+  out: "Read tools (series_status, read_ticket, record reads) do not count as acts. A red ticket the master looks at and leaves is not said; the series page shows it red. No text pattern matching."
+
+steps:
+  - id: acted-wrapper
+    action: "SeriesActedFunction: an AIFunction wrapper that sets beat.MasterActed, then invokes the inner function."
+  - id: handler
+    action: "SeriesMasterHandler wraps SeriesActTools, ask_human and check_series with it, inside the mid-turn wrapper."
+  - id: mid-turn
+    action: "SeriesMidTurnMessages adds drained messages to beat.Messages."
+  - id: answered
+    action: "SeriesQuestions.DeliverAsync sets beat.MasterAnswered for the master's own question."
+  - id: report
+    action: "SeriesReport: MasterLine only when beat.MasterActed || beat.MasterAnswered || beat.Messages.Count > 0."
+  - id: prompt
+    action: "series-master.md: replace 'Say nothing the table already says … say so in one sentence' — the reply is posted when you acted, asked, your question was answered or the operator wrote; otherwise it stays in your thread; the series page shows every ticket's state. Keep the pause/resume no-repeat sentence."
+  - id: tests
+    action: "Tests: SeriesMasterLineTests (new), SeriesReportTests; the harness preset's 'Going with keep' line still posts."
+
+done:
+  - "A beat whose master only read posts no master line; one that retried, told, asked or checked posts it; one with an operator message or its own question answered posts it."
+  - "A mid-turn operator message makes the reply posted."
+  - "The answer is appended to the thread in every case."

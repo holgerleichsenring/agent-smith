@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-e94ec
+
+decisions:
+  - category: Architecture
+    chose: "Decide whether the master's reply is posted from what it did: an act tool, ask_human or check_series called this beat, its own question answered, or an operator message read"
+    over: "Prompt wording alone, or filtering replies by their text ('still running', 'not stuck')"
+    reason: |
+      The harness knows what the master did; its words are a guess at it. A text filter misses the next phrasing and
+      drops a real decision that happens to share words. The prompt is rewritten too, but the gate does not depend on it.
+  - category: Implementation
+    chose: "Every act tool counts, including a refused one; read tools and the curated record reads do not"
+    over: "Count only acts that succeeded"
+    reason: |
+      A refused act (no runs.control, a paused series) is something the operator should hear about, and telling
+      success from refusal would parse tool results. Reads change nothing a person needs to know.
+  - category: Implementation
+    chose: "Messages drained mid-turn join beat.Messages, so the master's reply to them is posted"
+    over: "A separate flag for mid-turn messages"
+    reason: |
+      beat.Messages already means 'the operator wrote to the series this beat'. SeriesJudgement.Operator and
+      SettleAsync read it before the loop runs, so a later addition is counted nowhere twice.
+  - category: Implementation
+    chose: "A red ticket the master looks at and leaves alone is not said in the conversation"
+    over: "Post every reply that follows a newly red ticket"
+    reason: |
+      The series page shows it red and lists it under what needs a person; a reply that only restates it is the
+      status the operator asked to remove. A retry, rework or question about it is an act and is posted.
