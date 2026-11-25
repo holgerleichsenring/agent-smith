@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.224.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.223.1...v0.224.0) (2026-11-25)
+
+
+### Features
+
+* **series:** a master turn starts only when a decision is due (2026-11-25-96aec) ([6106ef8](https://github.com/holgerleichsenring/agent-smith/commit/6106ef84396e0cc24c4a1ea307cfcd8ddae0b433))
+* **series:** the master's merge is checked for prerequisite order, with a reasoned override (2026-11-25-96aeb) ([ba09cb5](https://github.com/holgerleichsenring/agent-smith/commit/ba09cb5c0ea6ee655a37cf42f5f2b1038ae0bd23))
+* **series:** wakes cost nothing unless a decision is due; prerequisite order checked with a reasoned override (2026-11-25-96ae) ([e870f80](https://github.com/holgerleichsenring/agent-smith/commit/e870f809950b5d739a5be2408fb167ca1e96a504))
+
 ## [0.223.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.223.0...v0.223.1) (2026-11-25)
 
 
