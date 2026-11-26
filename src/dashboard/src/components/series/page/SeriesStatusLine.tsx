@@ -21,7 +21,8 @@ const PROGRESS: Partial<Record<SeriesProgressWord, TextKey>> = {
 export function SeriesStatusLine({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
   return (
-    <p className="sr-status" role="status" aria-label={t("series.status.label")} data-testid="series-status-line">
+    <p className="sr-status" role="status" aria-label={t("series.status.label")} title={t("series.conversation.sub")}
+      data-testid="series-status-line">
       {statusParts(detail, t).join(" · ")}
     </p>
   );

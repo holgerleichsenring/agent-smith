@@ -22,11 +22,18 @@ interface Props {
   openId: string | null;
   onNode: (ticketId: string) => void;
   onClose: () => void;
-  /** Where the menu sits in the panel: just below the node. */
-  menu: (ticket: SeriesRunTicket, at: { left: number; top: number }) => ReactNode;
+  /** Where the menu sits: just below the node, in viewport coordinates (2026-11-26-b186: the overview scrolls and would clip it). */
+  menu: (ticket: SeriesRunTicket, at: MenuAt) => ReactNode;
+  /** 2026-11-26-b186: folds the graph to one line; absent, no button. */
+  onHide?: () => void;
 }
 
 const MENU_W = 260;
+/** Below a node with less room than this under it, the menu opens above it. */
+const MENU_ROOM = 320;
+
+/** Where the menu sits in the viewport: under the node, or over it when the node is near the window's foot. */
+export type MenuAt = { left: number; top: number } | { left: number; bottom: number };
 
 // 2026-11-25-9992j: the small marks a node carries for its host — a conflict, red CI, CI running, a build not started.
 const MARK_TONE: Record<SeriesBadge, string> = { conflict: "bad", approval: "person", ciRed: "bad", ciRunning: "run", ciNotStarted: "need" };
@@ -36,32 +43,33 @@ function isWorkedOn(detail: SeriesRunDetail, ticket: SeriesRunTicket): boolean {
   return ticket.working || detail.workingOn.includes(ticket.key);
 }
 
-export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose, menu }: Props) {
+export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose, menu, onHide }: Props) {
   const t = useT();
   const layout = useMemo(() => seriesOrderLayout(detail), [detail]);
   const chain = useMemo(() => seriesNeededChain(detail), [detail]);
   const on = (id: string) => !lit || lit.has(id);
   const open = layout.nodes.find((node) => node.ticket.ticketId === openId);
   const panel = useRef<HTMLElement>(null);
-  const [at, setAt] = useState<{ left: number; top: number } | null>(null);
+  const [at, setAt] = useState<MenuAt | null>(null);
   useLayoutEffect(() => {
     const node = openId ? document.getElementById(seriesNodeId(openId)) : null;
     if (!node || !panel.current) { setAt(null); return; }
-    const [box, own] = [panel.current.getBoundingClientRect(), node.getBoundingClientRect()];
-    setAt({ left: Math.max(0, Math.min(own.left - box.left, box.width - MENU_W)), top: own.bottom - box.top + 6 });
+    const own = node.getBoundingClientRect();
+    const left = Math.max(8, Math.min(own.left, window.innerWidth - MENU_W - 8));
+    setAt(window.innerHeight - own.bottom >= MENU_ROOM || own.top < MENU_ROOM
+      ? { left, top: own.bottom + 6 } : { left, bottom: window.innerHeight - own.top + 6 });
   }, [openId, layout]);
   return (
-    <section ref={panel} className="sr-graph-panel" aria-label={t("series.graph.title")}>
+    <section ref={panel} className="sr-graph-panel" aria-label={t("series.graph.title")} title={t("series.graph.hint")}>
       <div className="sr-graph-head">
-        <div className="sr-legend" data-testid="series-graph-legend">
-          {SERIES_NODE_KINDS.map((kind) => <span key={kind}><i className={`sr-dot ${kind}`} />{t(`series.kind.${kind}`)}</span>)}
-        </div>
         <div className="sr-graph-from">
           <label htmlFor="sr-graph-from">{t("series.graph.from")}</label>
           <select id="sr-graph-from" value={from ?? ""} onChange={(e) => onFrom(e.target.value || null)} data-testid="series-graph-from">
             <option value="">{t("series.graph.all", { count: detail.tickets.length })}</option>
             {detail.tickets.map((ticket) => <option key={ticket.ticketId} value={ticket.ticketId}>{ticket.key} {ticket.title}</option>)}
           </select>
+          {onHide && <button type="button" className="d-link" aria-expanded={true} onClick={onHide} data-testid="series-graph-toggle">
+            {t("series.graph.hide")}</button>}
         </div>
       </div>
       <div className="sr-graph-box" data-testid="series-graph" onScroll={() => { if (openId) onClose(); }}>
@@ -120,6 +128,10 @@ export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose
             );
           })}
         </div>
+      </div>
+      {/* 2026-11-26-b186: the legend under the graph, so a bounded overview shows the graph first */}
+      <div className="sr-legend" data-testid="series-graph-legend">
+        {SERIES_NODE_KINDS.map((kind) => <span key={kind}><i className={`sr-dot ${kind}`} />{t(`series.kind.${kind}`)}</span>)}
       </div>
       {open && at && menu(open.ticket, at)}
     </section>

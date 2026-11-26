@@ -78,10 +78,8 @@ export function SeriesQuestionCard({ detail, threadId, onAnswer, deciding = fals
       : buttons ? t("series.chat.questionHint") : t("series.chat.answerBelow");
   return (
     <div className="sr-question" data-testid="series-question">
-      <p className="sr-question-who" data-testid="series-question-who">
-        {detail.questionTicket ? t("series.chat.ticketAsks", { key: detail.questionTicket }) : t("series.chat.seriesAsks")}
-      </p>
-      <DialogQuestionCard question={question} recommended={buttons ? detail.questionRecommended : null} hint={hint}
+      <DialogQuestionCard question={question} recommended={buttons ? detail.questionRecommended : null} hint={hint} clamp
+        label={detail.questionTicket ? t("series.chat.ticketAsks", { key: detail.questionTicket }) : t("series.chat.seriesAsks")}
         onAnswer={(choice) => answer?.(choice)} />
     </div>
   );

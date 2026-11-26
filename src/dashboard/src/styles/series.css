@@ -38,14 +38,25 @@
 .mock-tickets .sr-scroll-body { display: flex; flex-direction: column; gap: 16px; }
 .mock-tickets .sr-earlier { align-self: center; font-size: 12.5px; }
 @media (min-width: 761px) and (min-height: 700px) {
-  .mock-tickets.tk-shell.sr-page > .tk-page { height: calc(100vh - var(--topbar-h, 0px)); min-height: 0; overflow: hidden; padding-bottom: 12px; }
-  .mock-tickets.sr-page .tk-heading { flex: none; }
-  .mock-tickets.sr-page .tk-pane { flex: 1 1 0; min-height: 0; }
-  .mock-tickets.sr-page .sr-overview { flex: none; max-height: 30vh; overflow-y: auto; }
-  .mock-tickets.sr-page .sr-chat { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; margin-top: 4px; }
-  .mock-tickets.sr-page .sr-talk { flex: 1 1 0; min-height: 0; }
-  .mock-tickets.sr-page .sr-scroll { flex: 1 1 0; min-height: 96px; max-height: none; }
+  .mock-tickets.tk-shell.sr-page > .tk-page { height: calc(100vh - var(--topbar-h, 0px)); min-height: 0; overflow: hidden; padding-top: 10px; padding-bottom: 8px; }
+  .mock-tickets.sr-page .tk-heading { flex: none; margin-bottom: 8px; }
+  .mock-tickets.sr-page .tk-pane { flex: 1 1 0; min-height: 0; gap: 10px; }
+  /* 2026-11-26-b186: the graph takes under a fifth of the screen and scrolls inside itself; the chat takes the rest. */
+  .mock-tickets.sr-page .sr-overview { flex: none; max-height: 18vh; overflow-y: auto; }
+  .mock-tickets.sr-page .sr-chat { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 0; margin-top: 0; }
+  .mock-tickets.sr-page .sr-talk { flex: 1 1 0; min-height: 0; gap: 10px; }
+  .mock-tickets.sr-page .sr-scroll { flex: 1 1 0; min-height: 80px; max-height: none; }
 }
+/* 2026-11-26-b186: the title row carries the status line, one row, cut with an ellipsis (the whole line is its title). */
+.mock-tickets .sr-heading { flex-wrap: nowrap; min-width: 0; }
+.mock-tickets .sr-heading h1 { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mock-tickets .sr-heading .sr-status { flex: 1 1 0; min-width: 0; padding: 4px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 760px) { .mock-tickets .sr-heading { flex-wrap: wrap; } .mock-tickets .sr-heading .sr-status { flex-basis: 100%; white-space: normal; } }
+/* 2026-11-26-b186: the folded graph — one line of counts and the way back. */
+.mock-tickets .sr-graph-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 6px 12px; border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--panel); font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.mock-tickets .sr-graph-from .d-link { margin-left: 6px; white-space: nowrap; }
+/* 2026-11-26-b186: the composer on this page is one row that grows with what is written. */
+.mock-tickets.sr-page .sr-talk textarea.d-input { field-sizing: content; min-height: 40px; max-height: 30vh; resize: none; }
 /* 2026-11-23-f562: the order graph (repo lanes, depth columns, one colour per ticket by the server's kind, orthogonal
    edges, the needed chain in the accent) and a node's details. The graph scrolls sideways inside its own box, never the
    page. 2026-11-25-9992j: a ticket at work carries a pulsing mark, the host's conflict and CI small dots. */
@@ -62,8 +73,8 @@
 .mock-tickets .sr-dot.waiting { border: 1px dashed var(--ink-3); }
 .mock-tickets .sr-dot.merged { background: var(--ok); }
 .mock-tickets .sr-graph-panel { position: relative; min-width: 0; border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--panel); }
-.mock-tickets .sr-graph-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--line-2); }
-.mock-tickets .sr-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-3); }
+.mock-tickets .sr-graph-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: flex-end; padding: 6px 12px; border-bottom: 1px solid var(--line-2); }
+.mock-tickets .sr-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px; border-top: 1px solid var(--line-2); font-size: 12px; color: var(--ink-3); }
 .mock-tickets .sr-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .mock-tickets .sr-graph-from { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-3); min-width: 0; max-width: 100%; }
 .mock-tickets .sr-graph-from select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-s); padding: 5px 8px; min-width: 0; max-width: 100%; }
@@ -100,7 +111,7 @@
 .mock-tickets .sr-edge { fill: none; stroke-width: 1.5; stroke: var(--ink-3); opacity: .7; transition: opacity .15s; }
 .mock-tickets .sr-edge.needed { stroke: var(--accent); stroke-width: 2; opacity: .9; }
 .mock-tickets .sr-edge.dim { opacity: .06; }
-.mock-tickets .sr-menu { position: absolute; z-index: 5; width: 250px; max-width: calc(100vw - 32px); box-sizing: border-box; display: grid; gap: 8px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-s); box-shadow: var(--shadow); font-size: 12.5px; }
+.mock-tickets .sr-menu { position: fixed; z-index: 20; width: 250px; max-width: calc(100vw - 32px); box-sizing: border-box; display: grid; gap: 8px; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-s); box-shadow: var(--shadow); font-size: 12.5px; }
 .mock-tickets .sr-menu-title { font-weight: 650; font-size: 13px; overflow-wrap: anywhere; }
 .mock-tickets .sr-menu-why { color: var(--ink-3); overflow-wrap: anywhere; }
 .mock-tickets .sr-details-prs { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; overflow-wrap: anywhere; }
@@ -125,8 +136,15 @@
 .mock-tickets .tk-pane .sr-question .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
 .mock-tickets .tk-pane .sr-question .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* 2026-11-26-5201c: the questions that wait, pinned above the chat's input; bounded so they never take the chat window. */
-.mock-tickets .sr-questions { flex: 0 1 auto; min-height: 64px; display: grid; align-content: start; gap: 8px; max-height: 24vh; overflow-y: auto; scroll-margin-bottom: 16px; }
+/* 2026-11-26-5201c: the questions that wait, pinned above the chat's input. 2026-11-26-b186: they never scroll and never shrink —
+   a long question folds its text (show all), and the conversation gives way. */
+.mock-tickets .sr-questions { flex: none; display: grid; align-content: start; gap: 6px; scroll-margin-bottom: 16px; }
+.mock-tickets .sr-question .ecard { cursor: default; }
+.mock-tickets .sr-question .d-body { padding: 10px 14px; }
+.mock-tickets .sr-question .fl.on { color: var(--person); }
+.mock-tickets .sr-question [data-testid="dialog-question-text"] { max-height: 40vh; overflow-y: auto; }
+.dq-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.dq-more { font-size: 12.5px; margin-top: 2px; }
 .mock-tickets .sr-question-who { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; color: var(--person); }
 .mock-tickets .sr-question-line { margin: 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
 .mock-tickets .sr-question-line .sr-question-who { display: inline; margin: 0; }

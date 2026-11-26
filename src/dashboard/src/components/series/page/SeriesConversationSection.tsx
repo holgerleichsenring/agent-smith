@@ -63,7 +63,6 @@ function OpenConversation({ detail, threadId }: { detail: SeriesRunDetail; threa
   const chat = useChatWindow(dialog.entries.length);
   return (
     <div className="mock-dialog sr-talk" data-testid="series-talk">
-      <p className="msub">{t("series.conversation.sub")}</p>
       <div ref={chat.box} className="sr-scroll" onScroll={chat.onScroll} data-testid="series-chat-scroll">
         <div ref={chat.content} className="sr-scroll-body">
           {chat.from > 0 && (

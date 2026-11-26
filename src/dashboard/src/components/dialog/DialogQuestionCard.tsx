@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useT } from "@/hooks/useT";
 import { Markdown } from "@/components/ui/Markdown";
 import type { T } from "@/lib/i18n/translate";
@@ -30,11 +31,16 @@ interface Control {
   recommended?: boolean;
 }
 
+/** 2026-11-26-b186: past this many characters a clamped card folds its text — by length, which a test can check. */
+const CLAMP_CHARS = 200;
+
 export function DialogQuestionCard({
   question,
   onAnswer,
   recommended = null,
   hint,
+  label,
+  clamp = false,
 }: {
   question: SpecDialogQuestionPush;
   onAnswer: (answer: string) => void;
@@ -42,8 +48,14 @@ export function DialogQuestionCard({
   recommended?: number | null;
   /** 2026-11-25-9992j: what writing below does, where it is not the edit note of a proposal. */
   hint?: string;
+  /** 2026-11-26-b186: what the card's label says in place of "waiting on you" (the series names who asks). */
+  label?: string;
+  /** 2026-11-26-b186: a long text shows its first lines with "show all"; the buttons always show. */
+  clamp?: boolean;
 }) {
   const t = useT();
+  const [all, setAll] = useState(false);
+  const long = clamp && question.text.length > CLAMP_CHARS;
   const expired = hasExpired(question);
   const controls = expired ? [] : controlsFor(t, question, recommended);
   return (
@@ -53,9 +65,17 @@ export function DialogQuestionCard({
       className={expired ? "ecard inert d-body text-body" : "ecard inert waiting d-body"}
     >
       <div className={expired ? "fl mb-1" : "fl on mb-1"}>
-        {t(expired ? "dialog.question.expired" : "dialog.question.waiting")}
+        {expired ? t("dialog.question.expired") : label ?? t("dialog.question.waiting")}
       </div>
-      {question.text.trim().length > 0 && <Markdown>{question.text}</Markdown>}
+      {question.text.trim().length > 0 && (
+        <div className={long && !all ? "dq-clamp" : undefined} data-testid="dialog-question-text"><Markdown>{question.text}</Markdown></div>
+      )}
+      {long && (
+        <button type="button" className="d-link dq-more" aria-expanded={all} onClick={() => setAll((was) => !was)}
+          data-testid="dialog-question-more">
+          {t(all ? "dialog.question.showLess" : "dialog.question.showAll")}
+        </button>
+      )}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {controls.map((control) => (
           <button

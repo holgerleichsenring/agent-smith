@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-b186
+
+decisions:
+  - category: Architecture
+    chose: "Win the conversation's room by removing chrome and bounding the rest: status line into the title row, no Chat heading or sub line, graph under 18vh with its legend under the graph, a one-row growing composer, a compact question card whose label names the asker"
+    over: "A resizable split; hiding the graph whenever a question waits"
+    reason: |
+      The operator wants the current text easy to read with the graph in view. Measured at 1440x900 and 1280x800 in a
+      production build, the conversation box got 46% and 41% of the viewport with a question pending and the graph open
+      (37% and 32% before the legend moved and the bounds tightened), 60% and 55% with the graph folded. A split handle is a
+      control the mock does not have; folding the graph is the reader's choice, remembered.
+  - category: Implementation
+    chose: "The fold is remembered per browser like useSidebarCollapsed (agentsmith.series-graph-collapsed, read after mount, try/catch)"
+    over: "A per-series key; a server-side preference"
+    reason: |
+      It is a reading preference of the viewer, not of a series, and the dashboard already keeps one such preference this way.
+  - category: Implementation
+    chose: "The question card never scrolls: a long text (over 200 characters) folds to three lines with show all; expanded it is capped at 40vh; buttons and hint always show"
+    over: "Letting the question block scroll (5201c); measuring overflow with a ResizeObserver"
+    reason: |
+      Three nested scrollbars made the card unusable. A length rule is testable where jsdom cannot measure lines; the 40vh cap
+      on the expanded text only keeps a very long question from pushing the composer out of a page that does not scroll.
+  - category: Implementation
+    chose: "A node's details menu sits in viewport coordinates (position fixed), opens above the node when there is no room below, and closes on any scroll"
+    over: "Keeping it inside the graph panel"
+    reason: |
+      The bounded, scrolling overview would clip a menu placed inside it, and the menu carries the ticket's links.
+  - category: Implementation
+    chose: "Renders come from a production build against the scratchpad fixture, which now stubs the SignalR hub over long polling"
+    over: "Screenshots from next dev"
+    reason: |
+      The 'N errors' bubble in the earlier shots was Next's development overlay and the 404 line came from the fixture having no
+      hub; neither exists in production, and both took height from the measurement.
