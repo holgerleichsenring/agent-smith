@@ -154,6 +154,7 @@ POST	/api/runs/{runId}/cancel	runs.control	run
 POST	/api/runs/{runId}/judgements	runs.control	run
 POST	/api/runs/{runId}/retry	runs.control	run
 POST	/api/series-runs/{id}/tickets/{ticketId}/merge	runs.control	seriesrun
+POST	/api/series-runs/{id}/tickets/{ticketId}/start	runs.control	seriesrun
 POST	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/ratify	dialog.write	session
 POST	/api/spec-dialog/conversations/{sessionId}/resume	dialog.write	session
 POST	/api/spec-dialog/images	dialog.write	dialog

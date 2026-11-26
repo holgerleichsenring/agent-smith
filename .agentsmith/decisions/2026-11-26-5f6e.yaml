@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-5f6e
+
+decisions:
+  - category: Architecture
+    chose: "SeriesStart carries a kind (started, queued, refused), the text and the run id; start_ticket's act text follows the kind: 'started <key> (run <id>)', 'queued <key>', 'could not start <key>'"
+    over: "Keeping a string answer and a bool; matching the answer text to pick the act words"
+    reason: "As 96aeb did for merges: the act log, the ticket's last act and the conversation line must say what happened. A typed outcome is read, never parsed."
+  - category: Implementation
+    chose: "WaitingTicketStart reads the poller-route spawn's result: Claimed is started, Queued is queued, routes-nowhere, Rejected, Failed and an empty answer are refused with the claim's words; AlreadyClaimed is started when the ticket's lease names a run (a webhook or the poller claimed it first after the start run made it claimable), else refused"
+    over: "Reporting 'started' once the 'start' run moved the ticket (as before); treating AlreadyClaimed as refused always"
+    reason: "The start run only makes a ticket claimable; whether a run exists is the claim's answer. A lost race with the webhook is a started ticket, and saying 'refused' would send the master to retry a running ticket."
+  - category: Architecture
+    chose: "A ticket counts as completely filed when its approval record exists OR its series filed it from a text with no approved set (SeriesRunRecord.FiledWithoutApprovedSet: a FollowUp member, or an add_ticket act logged for it)"
+    over: "A new completion store or edge column (a migration); comparing edge FiledAt with the member's AddedAt; reading the ticket's approved-set stamp from the tracker at every gate"
+    reason: |
+      decider: claude. Such a ticket never gets an approval record (FilingPlanner files a follow-up with Series: null), and it
+      gets edges only from the series master once its 'file' run returned, so the incomplete-filing gap the record guards
+      (PlannedTicketFiler: edges stored, record not yet) cannot apply to it. The add_ticket act is written only after the
+      filing returned the ticket. Both marks are already on every stored series, so a ticket already stuck (an add_ticket act
+      logged, edges, no record) starts on the next start_ticket with no data repair. The tracker-stamp read was rejected as a
+      tracker call in the claim gate; timestamps as a heuristic around missing data.
+  - category: Implementation
+    chose: "start_ticket passes byName, so an edge that waits for a start by name does not hold it; a resume still leaves such a ticket to that start"
+    over: "Routing start_ticket through the resume's start unchanged (as 96aea did)"
+    reason: "start_ticket IS the start by name the edge waits for; holding it answered 'it waits for a start by name' to the only start that can lift it."
+  - category: Scope
+    chose: "The wake-only parameter onlyWithRequirements and WaitingStart.Pending (with InFlightAsync) are removed"
+    over: "Keeping them unused"
+    reason: "Their only reader, the landing wake's start, was removed in 2026-11-25-96aea; every caller passed false and nothing read Pending."
+  - category: Architecture
+    chose: "A ticket its series filed from a text gets the one pipeline_from_label key the project maps to the code pipeline, written at its start by FiledWorkTagger (the routing tag's path); a filed series ticket keeps the approved-set stamp; never both"
+    over: "Stamping add_ticket's ticket with spec:approved like a series ticket; tagging at creation; a hard-coded 'agent-smith:code'; tagging every unrouted ticket including bugs"
+    reason: |
+      decider: operator (one trigger tag, derived from the project's trigger config, reusing the filing's path) and claude
+      (which one). The stamp means 'an approved set is stored' — without one the run stops at the filed-ticket gate, so the
+      equivalent trigger for a ticket with no set is the map's code key. It is written when the start makes the ticket
+      claimable, as the routing tag is, because an add_ticket ticket is filed unstarted and a tagged ticket in a trigger
+      status would be claimed at once. A bug is deliberately left to the project's rules (FiledWorkStartTests pins it).
+  - category: Scope
+    chose: "The series graph node's details get one act, Start, for a ticket no run worked yet, through start_ticket's start (POST /api/series-runs/{id}/tickets/{ticketId}/start, runs.control); the answer is always 200 with the outcome for a member"
+    over: "Keeping the details read-only (9992j); a ticket-list entry for never-run tickets"
+    reason: "decider: operator (asked for a manual start). A ticket the master added has no run, so the ticket list never lists it and nothing else lets a person start it; the details are where the series shows it. One path: the endpoint calls the same ISeriesTicketActs.StartAsync the master's tool does."
+  - category: Implementation
+    chose: "Each hold names what lifts it (retry or tell, reopen, resume, merge, start_ticket, re-file); the series-master prompt says to act on a refusal rather than repeat the call"
+    over: "Bare hold reasons"
+    reason: "The production trace showed seven identical start_ticket calls on one stuck ticket; the master had no sentence telling it what would change the answer."

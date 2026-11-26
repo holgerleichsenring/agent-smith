@@ -36,7 +36,7 @@ export function SeriesOverviewSection({ detail, collapsed = false, onToggle }:
     <div className="sr-overview">
       <SeriesGraph detail={detail} lit={lit} from={from} onFrom={setFrom} openId={openId} onClose={close} onHide={onToggle}
         onNode={(id) => setOpenId((open) => (open === id ? null : id))}
-        menu={(ticket, at) => <SeriesTicketDetails ticket={ticket} project={detail.project}
+        menu={(ticket, at) => <SeriesTicketDetails ticket={ticket} project={detail.project} seriesId={detail.id}
           integrationBranch={detail.integrationBranch} at={at} onClose={close} />} />
       {detail.integrationBranch && <div className="sr-list" data-testid="series-final"><SeriesFinalStep detail={detail} /></div>}
     </div>

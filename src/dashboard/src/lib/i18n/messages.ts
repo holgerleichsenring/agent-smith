@@ -953,6 +953,8 @@ export const coreMessages = {
   },
   "series.node.openPr": { en: "Open PR #{number} of {key} on the host", de: "PR #{number} von {key} beim Host öffnen" },
   "series.node.openTracker": { en: "Open {key} in the tracker", de: "{key} im Tracker öffnen" },
+  "series.details.start": { en: "Start", de: "Starten" },
+  "series.details.starting": { en: "Starting…", de: "Startet…" },
   "series.details.tracker": { en: "Open in the tracker ↗", de: "Im Tracker öffnen ↗" },
   "series.chat.ticketAsks": { en: "{key} asks", de: "{key} fragt" },
   "series.chat.seriesAsks": { en: "The series asks", de: "Die Serie fragt" },

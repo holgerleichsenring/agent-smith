@@ -8,7 +8,8 @@ namespace AgentSmith.Contracts.Series;
 /// </summary>
 public interface ISeriesTicketActs
 {
-    Task<string> StartAsync(string project, string ticketId, CancellationToken cancellationToken);
+    /// <summary>2026-11-26-5f6e: start_ticket's start, answered as what it came to.</summary>
+    Task<SeriesStart> StartAsync(string project, string ticketId, CancellationToken cancellationToken);
 
     Task<string> RetryAsync(string project, string ticketId, string principal, CancellationToken cancellationToken);
 

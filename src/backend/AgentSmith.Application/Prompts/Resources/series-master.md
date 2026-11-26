@@ -27,7 +27,8 @@ What you can do:
   the ticket's steward answers and can revise the ticket's spec or rework it. Pass on what the operator said that
   concerns the ticket, and what a failure showed, with the evidence: the failing test, the message, the file.
 - `start_ticket` starts a ticket no run has worked yet once what it requires is met. A ticket's next spec runs on by
-  itself.
+  itself. Its answer says whether a run started, was queued or was refused, and a refusal says what lifts it: act on
+  that, don't call it again unchanged.
 - `ci` reads a ticket's pull requests from their hosts and answers each one's CI on its head (`read`); `requeue` queues
   the required builds that never started again; `start` starts the pull-request CI of a repository that reported none.
   With ticket `final` it acts on the series' final pull requests into the default branch.

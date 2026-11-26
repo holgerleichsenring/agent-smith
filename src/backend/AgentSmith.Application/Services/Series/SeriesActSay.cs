@@ -15,6 +15,18 @@ public static class SeriesActSay
         return answer;
     }
 
+    /// <summary>2026-11-26-5f6e: what a start_ticket did, in the words of its outcome.</summary>
+    public static string Started(string key, Contracts.Series.SeriesStart start)
+    {
+        ArgumentNullException.ThrowIfNull(start);
+        return start.Kind switch
+        {
+            Contracts.Series.SeriesStartKind.Started => $"started {key}{(start.RunId is { } run ? $" (run {run})" : string.Empty)}",
+            Contracts.Series.SeriesStartKind.Queued => $"queued {key}",
+            _ => $"could not start {key}",
+        };
+    }
+
     /// <summary>2026-11-25-96aeb: an act whose words carry its own why (a merge over a refusal, with its override) is said
     /// without a reason.</summary>
     public static string Told(SeriesBeat beat, string did, string answer)

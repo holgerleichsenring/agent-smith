@@ -120,6 +120,26 @@ public sealed class RequiresUnmetGateTests
         result.Error.Should().Be(RequiresUnmetGate.IncompleteFiling);
     }
 
+    // 2026-11-26-5f6e: a ticket the series master filed carries no approved set; its logged add_ticket act is its finished filing.
+    [Fact]
+    public async Task Claim_TicketTheSeriesMasterAdded_IsNoIncompleteFiling()
+    {
+        Edges("42", "41");
+        Land("41", TicketLandingKinds.Merged);
+        var series = new InMemorySeriesRunStore();
+        var record = new SeriesRunRecord("sr-1", "conv-1", "my-project", "operator", true, SeriesRunStates.Running,
+            [new SeriesTicket("42", "#42", "prerequisite", false, DateTimeOffset.UnixEpoch)], DateTimeOffset.UnixEpoch);
+        await series.OpenAsync(record, default);
+        var gate = new RequiresUnmetGate(new UnmetTicketRequirements(_facts, _facts, _approvals, series: series));
+
+        (await gate.RefusalAsync(Request(), Config(), default))!.Error.Should().Be(RequiresUnmetGate.IncompleteFiling);
+        await series.UpdateAsync("sr-1", r => r with
+        {
+            Acts = [new SeriesAct(DateTimeOffset.UnixEpoch, SeriesAct.AddTicketTool, "42", "added #42", null)],
+        }, default);
+        (await gate.RefusalAsync(Request(), Config(), default)).Should().BeNull();
+    }
+
     [Fact]
     public async Task Claim_TicketWithEdgesAllLandedButNoApprovalRecord_IsRefusedAsAnIncompleteFiling()
     {

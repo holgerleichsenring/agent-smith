@@ -93,6 +93,12 @@ public sealed record SeriesRunRecord(
     /// <summary>2026-11-25-9992e: every act of the series master, oldest first, each with the reason it gave.</summary>
     public IReadOnlyList<SeriesAct> Acts { get; init; } = [];
 
+    /// <summary>2026-11-26-5f6e: the series filed the ticket itself from a text and no approved set — its check's follow-up,
+    /// or its master's addition (an add_ticket act logged for it, which is written once the 'file' run returned it).</summary>
+    public bool FiledWithoutApprovedSet(string ticketId) =>
+        Tickets.Any(t => t.TicketId == ticketId && t.FollowUp)
+        || Acts.Any(a => a.Tool == SeriesAct.AddTicketTool && a.Ticket == ticketId);
+
     /// <summary>The optimistic version the store compares on update.</summary>
     public int Version { get; init; }
 

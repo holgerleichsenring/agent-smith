@@ -4,7 +4,7 @@
 // 2026-11-25-9992j: the series page no longer reads what changed in its tickets' spec sets; the endpoint stays.
 
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
-import type { SeriesMergeAnswer, SeriesRunActiveCount, SeriesRunDetail, SeriesRunRow } from "@/types/seriesRuns";
+import type { SeriesMergeAnswer, SeriesRunActiveCount, SeriesRunDetail, SeriesRunRow, SeriesStartAnswer } from "@/types/seriesRuns";
 
 export function fetchSeriesRuns(project?: string | null, signal?: AbortSignal): Promise<SeriesRunRow[]> {
   const query = project ? `?project=${encodeURIComponent(project)}` : "";
@@ -22,6 +22,15 @@ export function fetchSeriesRun(id: string, signal?: AbortSignal): Promise<Series
 export type SeriesMergeResult = { kind: "merged"; answer: SeriesMergeAnswer } | { kind: "said"; text: string };
 
 const SENTENCE_STATUSES = new Set([404, 409, 500]);
+
+/** 2026-11-26-5f6e: a person's start of a member ticket no run worked yet (runs.control) — always an outcome for a member:
+ *  started, queued or refused, with the sentence of why. */
+export async function startSeriesTicket(id: string, ticketId: string): Promise<SeriesStartAnswer> {
+  const path = `/api/series-runs/${encodeURIComponent(id)}/tickets/${encodeURIComponent(ticketId)}/start`;
+  const res = await apiFetch(path, { method: "POST" });
+  if (res.ok) return (await res.json()) as SeriesStartAnswer;
+  throw await refused(res, path);
+}
 
 export async function mergeSeriesTicket(id: string, ticketId: string): Promise<SeriesMergeResult> {
   const path = `/api/series-runs/${encodeURIComponent(id)}/tickets/${encodeURIComponent(ticketId)}/merge`;

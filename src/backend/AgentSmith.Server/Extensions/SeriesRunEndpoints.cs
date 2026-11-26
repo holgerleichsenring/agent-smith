@@ -16,6 +16,8 @@ namespace AgentSmith.Server.Extensions;
 /// sentence, only 200 is JSON.</para>
 /// <para>2026-11-23-31dcj: and what changed in its tickets' spec sets, read apart from the page so only an opened section
 /// pays the branch reads.</para>
+/// <para>2026-11-26-5f6e: and a person's start of a member ticket no run worked yet (runs.control), through start_ticket's
+/// start — answered as what it came to, started, queued or refused, always 200 for a member of the series.</para>
 /// </summary>
 internal static class SeriesRunEndpoints
 {
@@ -28,6 +30,8 @@ internal static class SeriesRunEndpoints
         app.MapGet("/api/series-runs/{id}/measurement", MeasurementAsync) // 2026-11-25-9992k
             .Needs(Permissions.RunsRead).InProject(ProjectFrom.SeriesRun);
         app.MapPost("/api/series-runs/{id}/tickets/{ticketId}/merge", MergeAsync)
+            .Needs(Permissions.RunsControl).InProject(ProjectFrom.SeriesRun);
+        app.MapPost("/api/series-runs/{id}/tickets/{ticketId}/start", StartAsync)
             .Needs(Permissions.RunsControl).InProject(ProjectFrom.SeriesRun);
         return app;
     }
@@ -53,6 +57,18 @@ internal static class SeriesRunEndpoints
         var by = DisplayName.Of(ctx.User) ?? SpecDialogOwnership.PrincipalOf(ctx.User);
         var result = await act.MergeAsync(id, TicketQueryEndpoints.Decoded(ticketId), by, judged: true, cancellationToken); // 96aeb: the click decided
         return result.Refusal is { } sentence ? Results.Text(sentence, "text/plain", statusCode: result.Status) : Results.Ok(result.Body);
+    }
+
+    internal static async Task<IResult> StartAsync(
+        string id, string ticketId, ISeriesRunStore store, ISeriesTicketActs acts, CancellationToken cancellationToken)
+    {
+        var ticket = TicketQueryEndpoints.Decoded(ticketId);
+        if (await store.GetAsync(id, cancellationToken) is not { } series || series.Tickets.All(t => t.TicketId != ticket))
+            return Results.NotFound();
+        var start = series.State == SeriesRunStates.Paused
+            ? SeriesStart.Refused("The series is paused, so it starts no new ticket; resume it first.")
+            : await acts.StartAsync(series.Project, ticket, cancellationToken);
+        return Results.Ok(new SeriesStartView(start.Kind.ToString().ToLowerInvariant(), start.Text, start.RunId));
     }
 
     internal static async Task<IResult> DetailAsync(string id, SeriesRunDetailReader reader, CancellationToken cancellationToken) =>

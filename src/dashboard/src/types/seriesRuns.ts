@@ -197,6 +197,13 @@ export interface SeriesMergeOutcome {
   text: string;
 }
 
+/** 2026-11-26-5f6e: the 200 answer of POST /api/series-runs/{id}/tickets/{ticketId}/start. */
+export interface SeriesStartAnswer {
+  kind: "started" | "queued" | "refused";
+  text: string;
+  runId: string | null;
+}
+
 /** 2026-11-23-31dce: the 200 answer of POST /api/series-runs/{id}/tickets/{ticketId}/merge. */
 export interface SeriesMergeAnswer {
   ticketId: string;

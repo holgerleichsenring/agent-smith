@@ -6,8 +6,11 @@ import { overviewDetail } from "./seriesFixtures";
 // read, nothing to operate — a working ticket carries the working mark, the host's conflict and CI show as marks, and a
 // click opens read-only details (state, pull requests with CI, cost, the ticket's page) with no button in them.
 
-const hoisted = vi.hoisted(() => ({ fetch: vi.fn(), search: "" }));
-vi.mock("@/lib/seriesRunsApi", () => ({ fetchSeriesRun: (...a: unknown[]) => hoisted.fetch(...a) }));
+const hoisted = vi.hoisted(() => ({ fetch: vi.fn(), start: vi.fn(), search: "" }));
+vi.mock("@/lib/seriesRunsApi", () => ({
+  fetchSeriesRun: (...a: unknown[]) => hoisted.fetch(...a),
+  startSeriesTicket: (...a: unknown[]) => hoisted.start(...a),
+}));
 vi.mock("@/hooks/useSpecDialog", () => ({
   useSpecDialog: () => ({ entries: [], working: false, readings: [], activity: [], workingSince: null, uploadNote: null, failure: null,
     awaitingProposal: null, question: null, view: { session: { sessionId: "conv-1" } }, send: vi.fn(), attach: vi.fn() }),
@@ -207,6 +210,21 @@ describe("SeriesOverviewSection", () => {
   });
 
   // 2026-11-25-9992e: the series master's newest act on the ticket — what, why, when — and none before it acted.
+  // 2026-11-26-5f6e: a ticket no run worked yet — one the master added is listed nowhere else — is started here, and the
+  // server's answer is shown as is; a worked ticket has no Start.
+  it("Details_ANeverWorkedTicket_HasStart_AndShowsWhatTheStartCameTo", async () => {
+    hoisted.start.mockResolvedValue({ kind: "refused", text: "Ticket 62 was not started: it waits for #51.", runId: null });
+    render(<SeriesRunPage id="sr-1" />);
+    const details = await open("62");
+
+    fireEvent.click(within(details).getByTestId("series-details-start-62"));
+
+    expect(await within(details).findByTestId("series-details-start-said-62")).toHaveTextContent("it waits for #51");
+    expect(hoisted.start).toHaveBeenCalledWith("sr-1", "62");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(within(await open("56")).queryByTestId("series-details-start-56")).toBeNull();
+  });
+
   it("Details_ShowTheMastersLastAct_WithItsReason", async () => {
     const detail = overviewDetail();
     const at = detail.tickets.findIndex((ticket) => ticket.ticketId === "56");

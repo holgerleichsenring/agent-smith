@@ -25,12 +25,25 @@ namespace AgentSmith.Application.Services.Filing;
 /// value that is refused is SKIPPED and reported, never sent — a call the tracker rejects would
 /// cost the filing itself, turning "filed but not started" into "nothing was filed".
 /// </para>
+/// <para>2026-11-26-5f6e: and its trigger label (<see cref="FiledWorkTriggerLabel"/>).</para>
 /// </summary>
 public sealed class FiledWorkTagger(ILogger<FiledWorkTagger> logger)
 {
     /// <summary>Never throws: a tracker that refuses the tag is a sentence on the report, and the
     /// rest of the filing carries on with the labels the ticket actually has.</summary>
     public async Task<FiledWorkTagging> ApplyAsync(
+        ITicketProvider provider, ResolvedProject project, CreatedTicket ticket,
+        IReadOnlyList<string> labels, CancellationToken ct, bool filedFromText = false)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var routed = await RoutingAsync(provider, project, ticket, labels, ct);
+        if (!filedFromText || FiledWorkTriggerLabel.For(project, routed.Labels) is not { } label) return routed;
+        var coded = Refused(project.Tracker.Type, label) is { } refusal ? new FiledWorkTagging(routed.Labels, refusal)
+            : await WriteAsync(provider, project.Tracker.Type, ticket, routed.Labels, label, ct);
+        return coded with { Note = routed.Note + coded.Note };
+    }
+
+    private async Task<FiledWorkTagging> RoutingAsync(
         ITicketProvider provider, ResolvedProject project, CreatedTicket ticket,
         IReadOnlyList<string> labels, CancellationToken ct)
     {
