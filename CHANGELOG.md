@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.229.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.228.1...v0.229.0) (2026-11-26)
+
+
+### Features
+
+* **series:** a draggable, keyboard-operable divider sets the series graph's height, 40% by default, remembered per browser (2026-11-26-f511b) ([369b555](https://github.com/holgerleichsenring/agent-smith/commit/369b555c14f36b7576ab499730c9c7ac85d5cab2))
+* **series:** every ticket that needs you gets a line above the input, the input stays on screen, and a series ticket waiting on another is no longer your decision (2026-11-26-f511a) ([404ae42](https://github.com/holgerleichsenring/agent-smith/commit/404ae421360944179bffc421569806f6b2746e39))
+* **series:** graph divider, one entry per beat, Needs you strip and an input that stays on screen (2026-11-26-f511) ([2f6259c](https://github.com/holgerleichsenring/agent-smith/commit/2f6259ccffbdfd7120cb5c5d098954847f39c6eb))
+* **series:** one chat entry per beat, the master's sentence with its acts as one line under it, and every turn shows its time (2026-11-26-f511c) ([0361562](https://github.com/holgerleichsenring/agent-smith/commit/0361562d67a1de20548ea6d5f17043e1358327b2))
+
+
+### Bug Fixes
+
+* **series:** review of the series page fixes — a closed conversation keeps its graph, a cancelled drag ends, only a series' own draft or taken-up failure waits on another (2026-11-26-f511b) ([6ab4e72](https://github.com/holgerleichsenring/agent-smith/commit/6ab4e72e355c1ffd4ac0d395619723ba1a4a7aa8))
+
 ## [0.228.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.228.0...v0.228.1) (2026-11-26)
 
 
