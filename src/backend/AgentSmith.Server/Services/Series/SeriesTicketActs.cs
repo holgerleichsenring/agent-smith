@@ -36,24 +36,30 @@ public sealed class SeriesTicketActs(
         return woken;
     }
 
-    public async Task<string> StartAsync(string project, string ticketId, CancellationToken cancellationToken)
+    /// <summary>2026-11-26-5f6e: answered as what it came to — started with its run, queued, or refused with why.</summary>
+    public async Task<SeriesStart> StartAsync(string project, string ticketId, CancellationToken cancellationToken)
     {
-        if (projects.Of(project) is not { } resolved) return $"Project '{project}' is not configured.";
+        if (projects.Of(project) is not { } resolved) return SeriesStart.Refused($"Project '{project}' is not configured.");
         // 2026-11-19-1b72a: a queued start or a live run is under way as much as an attempt is — no second start.
         if (await waiting.UnderWayAsync(project, ticketId, cancellationToken) is { } underWay)
-            return $"Ticket {ticketId} is under way: {underWay}; retry or tell it instead.";
+            return SeriesStart.Refused($"Ticket {ticketId} was not started: it is under way — {underWay}; retry or tell it instead.");
         var key = TicketKey.For(resolved.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
         var hold = await requirements.ForStartAsync(resolved, key, cancellationToken);
-        if (hold.Unmet.Count > 0) return RequiresUnmetGate.Sentence(hold);
+        if (hold.Unmet.Count > 0) return SeriesStart.Refused($"Ticket {ticketId} was not started. {RequiresUnmetGate.Sentence(hold)}");
         // 2026-11-25-96aea: the start a landing's wake used to make — a ticket already in a trigger status is spawned too
-        return (await StartIfReadyAsync(project, ticketId, cancellationToken)).Text;
+        return await StartUnderLockAsync(resolved, ticketId, byName: true, cancellationToken);
     }
 
-    /// <summary>2026-11-19-1b72a: a resume (2026-11-25-96aea: and start_ticket) starts a never-worked ticket — the holds, the
-    /// 'start' run and the claim through the poller's route (<see cref="WaitingTicketStart"/>).</summary>
-    public async Task<SeriesStart> StartIfReadyAsync(string project, string ticketId, CancellationToken cancellationToken)
+    /// <summary>2026-11-19-1b72a: a resume starts a never-worked ticket — the holds, the 'start' run and the claim through the
+    /// poller's route (<see cref="WaitingTicketStart"/>); a ticket whose edge waits for a start by name is left to it.</summary>
+    public async Task<SeriesStart> StartIfReadyAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        projects.Of(project) is not { } resolved ? SeriesStart.Refused($"Project '{project}' is not configured.")
+            : await StartUnderLockAsync(resolved, ticketId, byName: false, cancellationToken);
+
+    private async Task<SeriesStart> StartUnderLockAsync(
+        AgentSmith.Contracts.Models.Configuration.ResolvedProject resolved, string ticketId, bool byName, CancellationToken cancellationToken)
     {
-        if (projects.Of(project) is not { } resolved) return new(false, $"Project '{project}' is not configured.");
+        var project = resolved.Name;
         // Under the ticket's nudge lock, so a wake and a resume never both pass the under-way check.
         var key = ReworkNudgeWorker.LockKey(project, ticketId);
         if (await locks.TryAcquireAsync(key, ReworkNudgeRepository.ClaimLease, cancellationToken) is not { } token)
@@ -62,14 +68,13 @@ public sealed class SeriesTicketActs(
             await wakes.WakeAsync(project, ticketId, new SeriesWake(SeriesWakeKinds.Prerequisite,
                 "its start found the ticket busy with another nudge; start_ticket starts it now")
                 { Once = $"busy:{ticketId}:{DateTimeOffset.UtcNow:yyyyMMddHH}" }, cancellationToken); // once an hour at most
-            return new(false, $"Ticket {ticketId} is busy with its nudge right now and was not started; you are told again shortly.");
+            return SeriesStart.Refused($"Ticket {ticketId} is busy with its nudge right now and was not started; you are told again shortly.");
         }
         try
         {
-            var start = await waiting.StartAsync(resolved, ticketId, onlyWithRequirements: false, cancellationToken);
-            return new(start.Started, start.Text);
+            return await waiting.StartAsync(resolved, ticketId, byName, cancellationToken);
         }
-        catch (InvalidOperationException ex) { return new(false, ex.Message); } // its start run ended first
+        catch (InvalidOperationException ex) { return SeriesStart.Refused(ex.Message); } // its start run ended first
         finally { await locks.ReleaseAsync(key, token, CancellationToken.None); }
     }
 

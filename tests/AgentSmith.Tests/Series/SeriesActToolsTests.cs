@@ -77,7 +77,44 @@ public sealed class SeriesActToolsTests
     }
 
     private void Starts(string ticket, bool started, string text) =>
-        _acts.Setup(a => a.StartIfReadyAsync("sample", ticket, It.IsAny<CancellationToken>())).ReturnsAsync(new SeriesStart(started, text));
+        _acts.Setup(a => a.StartIfReadyAsync("sample", ticket, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SeriesStart(started ? SeriesStartKind.Started : SeriesStartKind.Refused, text));
+
+    private (SeriesBeat Beat, SeriesActTools Tools) Beat()
+    {
+        var record = SeriesRecords.Running();
+        var beat = new SeriesBeat(record, [.. record.Tickets.Select(t => new SeriesTicketFact(t))], SeriesRecords.T);
+        return (beat, new SeriesActTools(beat, _acts.Object, _store, new SeriesPause(_store, _facts.Object, _acts.Object, _conversation.Object)));
+    }
+
+    // 2026-11-26-5f6e: the act is logged and said as what the start came to; the answer carries why.
+    [Theory]
+    [InlineData(SeriesStartKind.Started, "run-7", "Ticket 45 started: run run-7.", "started SCRUM-45 (run run-7)")]
+    [InlineData(SeriesStartKind.Queued, "run-7", "Ticket 45 is queued as run run-7: the sandbox host is full.", "queued SCRUM-45")]
+    [InlineData(SeriesStartKind.Refused, null, "Ticket 45 was not started: its filing did not finish.", "could not start SCRUM-45")]
+    public async Task StartTicket_TheActFollowsTheOutcome(SeriesStartKind kind, string? run, string text, string did)
+    {
+        _acts.Setup(a => a.StartAsync("sample", "45", It.IsAny<CancellationToken>())).ReturnsAsync(new SeriesStart(kind, text, run));
+        var (beat, tools) = Beat();
+
+        var said = await tools.StartTicketAsync("SCRUM-45", "its prerequisite landed");
+
+        said.Should().Be(text);
+        beat.ActDid.Should().Be(did);
+        beat.Said.Should().Equal($"{beat.Actor} {did}: its prerequisite landed");
+    }
+
+    [Fact]
+    public async Task StartTicket_PausedSeries_IsLoggedAsRefused()
+    {
+        var record = SeriesRecords.Running() with { State = SeriesRunStates.Paused };
+        var beat = new SeriesBeat(record, [.. record.Tickets.Select(t => new SeriesTicketFact(t))], SeriesRecords.T);
+        var tools = new SeriesActTools(beat, _acts.Object, _store, new SeriesPause(_store, _facts.Object, _acts.Object, _conversation.Object));
+
+        (await tools.StartTicketAsync("SCRUM-45")).Should().Contain("paused");
+        beat.ActDid.Should().Be("could not start SCRUM-45");
+        _acts.Verify(a => a.StartAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 
     [Fact]
     public async Task SeriesActTools_PauseAndResume_ChangeTheState()

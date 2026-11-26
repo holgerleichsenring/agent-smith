@@ -52,7 +52,7 @@ public sealed class SeriesPause(
         {
             var start = await acts.StartIfReadyAsync(record.Project, fact.Ticket.TicketId, ct);
             answers.Add(start.Text);
-            if (start.Started) started.Add(fact);
+            if (start.Kind != SeriesStartKind.Refused) started.Add(fact); // 2026-11-26-5f6e: a queued start is under way
         }
         return (started, answers);
     }

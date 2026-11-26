@@ -58,10 +58,19 @@ public sealed class SeriesActTools(SeriesBeat beat, ISeriesTicketActs acts, ISer
             await acts.DeployAsync(beat.Record.Project, context, environment, string.IsNullOrWhiteSpace(version) ? null : version, listed, ct));
     }
 
-    [Description("Starts a ticket no run has worked yet, once the tickets it requires are met.")]
-    public Task<string> StartTicketAsync([Description("The ticket's key or id.")] string ticket,
-        [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default) =>
-        OnTicketAsync(ticket, "started", reason, fact => Paused ?? acts.StartAsync(beat.Record.Project, fact.Ticket.TicketId, ct));
+    [Description("Starts a ticket no run has worked yet, once the tickets it requires are met. The answer says whether a run started "
+        + "(its run id), was queued (and why), or was refused (why, and what lifts it).")]
+    public async Task<string> StartTicketAsync([Description("The ticket's key or id.")] string ticket,
+        [Description(SeriesActSay.Why)] string? reason = null, CancellationToken ct = default)
+    {
+        if (SeriesTicketLookup.Find(beat, ticket) is not { } fact) return SeriesTicketLookup.Unknown(beat, ticket);
+        if (!beat.Record.MayStartRuns)
+            return $"The series' approver {beat.Record.Principal} may not start runs (runs.control), so the series acts on no ticket.";
+        // 2026-11-26-5f6e: the act is logged and said as what the start came to, never as 'started' when nothing runs
+        var start = Paused is { } paused ? SeriesStart.Refused(await paused)
+            : await acts.StartAsync(beat.Record.Project, fact.Ticket.TicketId, ct);
+        return SeriesActSay.Acted(beat, SeriesActSay.Started(fact.Ticket.Key, start), reason, start.Text);
+    }
 
     [Description("Retries a ticket's newest code run unchanged, after any end but a success — for a failure that was not the work's fault.")]
     public Task<string> RetryTicketAsync([Description("The ticket's key or id.")] string ticket,

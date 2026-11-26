@@ -35,6 +35,9 @@ public sealed class StartActCompositionTests
     public async Task StartTicket_TheHeldDependentOfALandedTicket_StartsInAStartRunAndSpawnsItsRun()
     {
         var (tracker, events, spawn) = (new ActTracker(), new ActRunEvents(), new Mock<ISpawnPipelineRunsUseCase>());
+        spawn.Setup(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), It.IsAny<string>(),
+                It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(), It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()))
+            .ReturnsAsync(new SpawnResult([ClaimResult.Claimed()], "run-2")); // 2026-11-26-5f6e: the start answers the claim
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Filing), services =>
         {
             services.RemoveAll<ITicketProviderFactory>().AddSingleton<ITicketProviderFactory>(new ActTrackerFactory(tracker));
@@ -53,7 +56,7 @@ public sealed class StartActCompositionTests
         // 2026-11-25-96aea: the series master starts it (start_ticket), the landing only woke it
         var said = await sp.GetRequiredService<AgentSmith.Contracts.Series.ISeriesTicketActs>().StartAsync(Project, "2", default);
 
-        said.Should().NotContain("not started");
+        said.Should().Be(new AgentSmith.Contracts.Series.SeriesStart(AgentSmith.Contracts.Series.SeriesStartKind.Started, "Ticket 2 started: run run-2.", "run-2"));
         events.Started.Select(e => e.Pipeline).Should().Equal(PipelinePresets.FileName, PipelinePresets.StartName);
         events.Started.Last().RunId.Should().NotBeNullOrEmpty();
         spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.Is<ResolvedProject>(p => p.Name == Project),
