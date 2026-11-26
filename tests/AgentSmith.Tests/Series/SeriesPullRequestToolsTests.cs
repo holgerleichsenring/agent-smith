@@ -67,7 +67,7 @@ public sealed class SeriesPullRequestToolsTests
         await tools.MergePullRequestAsync("SCRUM-44", "now", overrideReason: " 43 only renames ");
 
         _beat.ActDid.Should().Be("merged SCRUM-44 (now) over its refusal; override: 43 only renames");
-        _beat.Said.Should().EndWith("agent-smith merged SCRUM-44 (now) over its refusal; override: 43 only renames");
+        _beat.Acts.Select(a => a.Notice).Should().EndWith("agent-smith merged SCRUM-44 (now) over its refusal; override: 43 only renames");
     }
 
     [Fact]

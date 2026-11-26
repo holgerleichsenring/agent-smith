@@ -78,7 +78,7 @@ public sealed class SeriesMasterActLogTests
 
         beat.MasterActed.Should().BeFalse();
         _store.Records["sr-1"].Acts.Should().ContainSingle().Which.Should().Match<SeriesAct>(a => a.Text == "read the CI of SCRUM-43");
-        beat.Said.Should().BeEmpty("a read is not said in the conversation");
+        (beat.Said.Count + beat.Acts.Count).Should().Be(0, "a read is not said in the conversation");
     }
 
     // 2026-11-25-9992f: add_ticket names no ticket in its arguments; its act is the added ticket's.

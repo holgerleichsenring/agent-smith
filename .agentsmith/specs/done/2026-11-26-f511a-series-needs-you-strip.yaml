@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-f511a
+goal: "The series chat's input stays on screen under a banner and in a short window, and every ticket that needs a person gets a line above it, not only the ones asking."
+
+applies_to: "dashboard (series page), default (ticket holds and buckets)"
+
+requires: [2026-11-26-5201c, 2026-11-26-b186]
+
+facts:
+  - claim: "The page is sized as the viewport minus the top bar, while the shell's scroller also holds the health, build and sign-in banners above the route."
+    evidence: "src/dashboard/src/styles/series.css:41, src/dashboard/src/app/globals.css:166-170 and src/dashboard/src/app/layout.tsx:73-88"
+  - claim: "The fixed-height layout applies only from 700px of viewport height; below it the page flows, the graph at its natural height and the chat box at 70vh, so the input sits below the fold."
+    evidence: "src/dashboard/src/styles/series.css:37 and :40"
+  - claim: "The block above the input lists only tickets parked on a question; the status line's 'N need you' counts questions, approvals, drafts and failures."
+    evidence: "src/dashboard/src/components/series/page/SeriesQuestionBlock.tsx:24-26 and src/backend/AgentSmith.Server/Models/SeriesRunCounts.cs:16"
+  - claim: "A hold's act already has its words (holdActLabel) and a pull-request act its URL (holdPullRequestHref)."
+    evidence: "src/dashboard/src/components/tickets/holds/holdWords.ts:123 and src/dashboard/src/components/tickets/holds/holdRoutes.ts:12-14"
+  - claim: "Every open draft of a ticket not at work is a person's pr_draft hold, whatever it is stacked on, and every failed head no restart takes up is a person's failed hold — the series kinds and the ticket list's Needs you both read these holds."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketHostStepHold.cs:15-23, src/backend/AgentSmith.Application/Services/Holds/TicketHoldReader.cs:61-73 and src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:84-104"
+  - claim: "A ticket's requirements and the landed tickets are in the series' project facts, and the master's acts with their ticket and time in the series record."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesRunProjectFacts.cs:11-16 and src/backend/AgentSmith.Contracts/Series/SeriesAct.cs:9"
+
+scope:
+  in: |
+    Layout: in the fixed layout the shell's scroller becomes a column when it holds the series page (:has), the page fills
+    what the banners leave instead of 100vh minus the top bar, and the threshold drops from 700px to 520px of height.
+    Needs you: SeriesQuestionBlock's ticket list (ticketQuestions, renamed heldTickets) takes every ticket whose server kind
+    is question, approval, draft or failed (the status line's held count), less the ticket the series' own question names.
+    Each line: key, hold sentence (the ticket's state when it carries no hold), and one link in neutral words: "Open pull
+    request" to the host for a pull_request act, "Answer on its ticket" for a question, else "Open ticket". The lines sit
+    under a "Needs you" label and scroll inside at most five lines (108px), so the composer is never pushed out; the bar's link counts
+    what the block draws (the card plus the lines: "N need you"). New keys en and de: series.chat.needsYou,
+    series.chat.openPullRequest, series.chat.openTicket, series.page.needsYou (replaces series.page.question).
+    Holds (operator addendum): a ticket of an active series waits on another while a requirement of it has not landed
+    (TicketSeriesWait, fed by the hold inputs' series read). Then its open draft is not a person's pr_draft hold and it is not
+    merge-ready; and a failed head the master took up after it failed (tell_ticket, refresh_branch, retarget_pull_request) is
+    not a person's failed hold. Both hold as a prerequisite wait on nobody naming the unlanded requirements, and the bucket of
+    such a wait is Waits on another (blocked) for a run-bearing ticket too, so the ticket list, the ticket page and the series'
+    "Needs you" agree. The blocked section's words drop "filed".
+  out: "The graph's height (2026-11-26-f511b); the act lines (2026-11-26-f511c)."
+
+steps:
+  - id: layout
+    action: "series.css: shell scroller as column under :has(> .sr-page), page flex-fills, threshold 520px."
+  - id: strip
+    action: "SeriesQuestionBlock heldTickets with per-kind link; SeriesSectionBar counts it; i18n keys."
+  - id: holds
+    action: "TicketSeriesWait; TicketHoldFacts.SeriesUnlanded/SeriesTakenUpAt from TicketHoldSeriesRead; Draft, Decide, Merge and Nobody read it; TicketBucketRule.Held makes a prerequisite wait blocked."
+  - id: tests
+    action: "xunit: a stacked draft and a taken-up failure wait on another and read as blocked; an untaken failure, an act before the failure or nothing unlanded stays the person's; TakenUpAt reads only tell, refresh and retarget. vitest: an approval, a draft, a failure and a question each get a line with the right link; a held ticket without a hold shows its state; the series' own question ticket gets none; the bar counts them."
+  - id: render
+    action: "Production build against a 26-ticket fixture, with no series question and with a card plus 8 held lines; composer bottom measured inside the viewport at 1920x1080, 1728x1117, 1440x900, 1280x800, 1280x600 and with a 60px banner injected."
+
+done:
+  - "An approval links to its pull request, a failure and a ticket question to the ticket page, each under 'Needs you' (test)."
+  - "With a banner above the page and at 1280x600, the composer's bottom is inside the viewport (measured render)."
+  - "A draft stacked on an unlanded requirement and a failure its master took up hold as a prerequisite wait, bucket Waits on another (test)."
+  - "The full suite, pnpm test and pnpm build are green."

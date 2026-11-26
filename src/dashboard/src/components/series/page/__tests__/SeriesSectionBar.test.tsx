@@ -13,7 +13,7 @@ describe("SeriesSectionBar", () => {
     expect(screen.getByTestId("series-back")).toHaveAttribute("href", "/series");
     expect(screen.getByTestId("series-head")).toHaveTextContent("series · 3 tickets");
     expect(screen.getByTestId("series-head")).toHaveTextContent("Approval workflow");
-    expect(screen.getByTestId("series-state-word")).toHaveTextContent("running · 1 question for you");
+    expect(screen.getByTestId("series-state-word")).toHaveTextContent("running · 1 needs you");
     expect(screen.getByTestId("series-repos")).toHaveTextContent("server · worker");
     expect(screen.getByTestId("series-conversation-link")).toHaveAttribute("href", "/spec-dialog?open=conv-1&on=d-thread1");
     expect(screen.getByTestId("series-facts")).toHaveTextContent("$41.20 so far");

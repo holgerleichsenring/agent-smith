@@ -2,7 +2,9 @@ namespace AgentSmith.Application.Services.Series;
 
 /// <summary>2026-11-25-9992h: a series act said in the conversation under the machine identity the series acts as, with the
 /// reason the master gave; the tool's answer goes back unchanged. No reason, nothing said. 2026-11-25-9992e: what it did is
-/// kept on the beat either way, the text the act log records.</summary>
+/// kept on the beat either way, the text the act log records. 2026-11-26-f511c: the act is kept on the beat's acts, not in
+/// what it says — the report puts the beat's acts under the master's sentence as one line, so an act and its narration are
+/// one entry (<see cref="SeriesReport"/>).</summary>
 public static class SeriesActSay
 {
     public const string Why = "One sentence: why you take this act. It is said in the conversation with the act.";
@@ -11,7 +13,7 @@ public static class SeriesActSay
     {
         ArgumentNullException.ThrowIfNull(beat);
         beat.ActDid = did;
-        if (!string.IsNullOrWhiteSpace(reason)) beat.Said.Add($"{beat.Actor} {did}: {reason.Trim()}");
+        beat.Acts.Add(new SeriesActLine(did, string.IsNullOrWhiteSpace(reason) ? null : $"{beat.Actor} {did}: {reason.Trim()}"));
         return answer;
     }
 
@@ -33,7 +35,7 @@ public static class SeriesActSay
     {
         ArgumentNullException.ThrowIfNull(beat);
         beat.ActDid = did;
-        beat.Said.Add($"{beat.Actor} {did}");
+        beat.Acts.Add(new SeriesActLine(did, $"{beat.Actor} {did}"));
         return answer;
     }
 }

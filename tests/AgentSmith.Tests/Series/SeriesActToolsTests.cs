@@ -46,7 +46,7 @@ public sealed class SeriesActToolsTests
         (await tools.RetryTicketAsync("SCRUM-44", "the runner lost its network")).Should().Be("retried");
         await tools.RetryTicketAsync("SCRUM-44");
 
-        beat.Said.Should().Equal("agent-smith-bot retried SCRUM-44: the runner lost its network");
+        beat.Acts.Select(a => a.Notice).OfType<string>().Should().Equal("agent-smith-bot retried SCRUM-44: the runner lost its network");
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed class SeriesActToolsTests
 
         said.Should().Be(text);
         beat.ActDid.Should().Be(did);
-        beat.Said.Should().Equal($"{beat.Actor} {did}: its prerequisite landed");
+        beat.Acts.Select(a => a.Notice).Should().Equal($"{beat.Actor} {did}: its prerequisite landed"); // 2026-11-26-f511c: kept on the beat's acts
     }
 
     [Fact]

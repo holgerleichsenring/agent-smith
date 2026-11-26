@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-f511a
+
+decisions:
+  - category: Architecture
+    chose: "The series page fills what the shell's scroller leaves (the scroller becomes a column under :has(> .sr-page)) instead of 100vh minus the top bar"
+    over: "Subtracting a banner height variable; moving the banners out of the scroller for every page"
+    reason: |
+      The banners (health, build, sign-in) sit inside main.shell-main above the route, so a page sized as 100vh minus the top bar
+      is taller than its scroller whenever one shows: with a 60px banner injected at 1440x900 the composer's bottom sat at 940px.
+      Letting flex size the page needs no knowledge of how many banners show or how tall they are, and touches only this page.
+  - category: Implementation
+    chose: "The fixed layout holds from 520px of viewport height (was 700px); the graph gives way down to 44px and the chat never shrinks below its question block, composer and a 64px conversation box"
+    over: "Keeping 700px; bounding the question block instead of the graph"
+    reason: |
+      Below 700px the page flowed: the graph at its natural height (662px for 26 tickets) and the chat box at 70vh, so the input sat
+      ~1350px down in a 600px window — a window that is not maximised, or one with devtools docked, is exactly that. The question
+      block is what the person must act on, so the graph yields, not the block.
+  - category: Implementation
+    chose: "The block above the input lists every ticket whose server kind is question, approval, draft or failed (the status line's held count), each with one link in neutral words"
+    over: "A separate Needs-you list beside the question block; linking by the hold's act words (Retry on a failure that only opens the ticket)"
+    reason: |
+      The operator asked to reuse what 5201c built. The kinds are the ones SeriesRunCounts.Held counts, so "3 need you" and the
+      lines agree; the series' own question ticket stays on its card. A pull-request act opens the host; every other line opens the
+      ticket page, whose own Your move box carries the act.
+  - category: Implementation
+    chose: "Many lines scroll inside at most five lines (108px, 20px line height)"
+    over: "No bound"
+    reason: |
+      With a card and eight held lines at 1280x600 an unbounded block pushed the composer out again. An integer line height keeps
+      three short lines from showing a scrollbar over a sub-pixel overflow.
+  - category: Architecture
+    chose: "Fix the hold at its source: a ticket of an active series with an unlanded requirement holds as a prerequisite wait on nobody when its pull request is a draft, or when its head failed and the master took it up afterwards (tell_ticket, refresh_branch, retarget_pull_request); such a wait is Waits on another (blocked)"
+    over: "Filtering the series strip on the dashboard; a new hold case or bucket"
+    reason: |
+      The operator (via the coordinator) saw #19670 (a draft stacked on #19668, whose red build is being repaired) and #19664 (a
+      failure the master already handled, waiting on the running #19694) under "your decision". The ticket list, the ticket page
+      and the series kinds all read the one hold, so changing it there makes the three agree; a dashboard filter would have made
+      the series strip disagree with the tickets page. The prerequisite case and the blocked bucket already exist for never-run
+      tickets, so no new outcome kind is introduced. A draft whose requirements have landed, a failure nobody took up, and one
+      taken up before it failed stay the person's. "Taken up" reads the master's act log because no other fact says the master
+      already handled the failure.
+  - category: Implementation
+    chose: "After the diff review: only the series' own unlanded tickets count, only an open draft or a taken-up failure waits on another, and a refused act takes nothing up"
+    over: "Every project requirement; every ticket with an unlanded requirement; every logged act"
+    reason: |
+      A requirement outside the series, or closed on its tracker, never lands, so it would have hidden a person's step for good;
+      a closed pull request or a cancelled run would have moved to Waits on another; and SeriesActedFunction logs a refused call
+      under its tool's name, which is no taking up.

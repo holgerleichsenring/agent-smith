@@ -17,9 +17,19 @@ public static class SeriesReport
         if (!one && beat.Record.LastStatusAt is null && beat.Record.IsActive) messages.Add(SeriesOpening.Text(beat, project));
         if (!one && SeriesMilestones.Merged(beat) is { } merged) messages.Add(merged); // 2026-11-25-433fa
         messages.AddRange(beat.Said);
-        if (beat.MasterLine is { Length: > 0 } line && beat.MasterSpeaks) messages.Add(line); // 2026-11-25-e94ec
+        // 2026-11-25-e94ec: the master's line; 2026-11-26-f511c: with the beat's acts as one "↳" line under it, else their notices
+        if (beat.MasterLine is { Length: > 0 } line && beat.MasterSpeaks) messages.Add(WithActs(line, beat.Acts));
+        else messages.AddRange(beat.Acts.Select(a => a.Notice).OfType<string>());
         if (!one) messages.AddRange(SeriesMilestones.Stuck(beat)); // 2026-11-25-433fa
         return messages;
+    }
+
+    /// <summary>2026-11-26-f511c: the master's sentence with the acts of its beat under it: "↳ refreshed #19667 · started the CI of
+    /// #19659". The dashboard draws that line small and muted; a chat platform shows it as written.</summary>
+    public static string WithActs(string line, IReadOnlyList<SeriesActLine> acts)
+    {
+        ArgumentNullException.ThrowIfNull(acts);
+        return acts.Count == 0 ? line : $"{line}\n\n↳ {string.Join(" · ", acts.Select(a => a.Did))}";
     }
 
     /// <summary>The record after the beat: the table it saw (what the next beat tells a change by), when it last ran

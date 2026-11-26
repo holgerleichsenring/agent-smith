@@ -87,6 +87,10 @@ public sealed class TicketBucketRule
         // only a failed head, and a wait's head has not failed.
         if (hold.Addressee == TicketHoldAddressees.Admin)
             return state with { Bucket = TicketBucket.Stuck, Since = hold.Since ?? state.Since, QueuePlace = null };
+        // 2026-11-26-f511a: a ticket that waits on another — a never-run one, or a series ticket whose draft or failure waits on
+        // a requirement that has not landed (TicketSeriesWait) — is Waits on another, whatever its newest attempt left.
+        if (hold is { Addressee: TicketHoldAddressees.Nobody, Case: TicketHoldCases.Prerequisite })
+            return state with { Bucket = TicketBucket.Blocked, Kind = null, Since = hold.Since ?? state.Since, QueuePlace = null };
         if (!hold.IsPersons) return state;
         var kind = hold.Case switch
         {

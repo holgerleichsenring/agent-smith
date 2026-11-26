@@ -37,15 +37,31 @@
 .mock-tickets .sr-scroll { position: relative; display: block; min-height: 0; max-height: 70vh; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
 .mock-tickets .sr-scroll-body { display: flex; flex-direction: column; gap: 16px; }
 .mock-tickets .sr-earlier { align-self: center; font-size: 12.5px; }
-@media (min-width: 761px) and (min-height: 700px) {
-  .mock-tickets.tk-shell.sr-page > .tk-page { height: calc(100vh - var(--topbar-h, 0px)); min-height: 0; overflow: hidden; padding-top: 10px; padding-bottom: 8px; }
+/* 2026-11-26-f511b: the divider exists only in the fixed layout below; a flowing page has nothing to divide. */
+.mock-tickets .sr-divider { display: none; }
+/* 2026-11-26-f511a: the page fills what the shell's scroller has left once its banners (health, build, sign-in) took their
+   rows — sized as 100vh minus the top bar, a banner pushed the input below the fold. It holds from 520px of height, not 700px:
+   a window that is not maximised kept the flowing page, whose input sat a graph and a 70vh chat further down. */
+@media (min-width: 761px) and (min-height: 520px) {
+  .shell-main:has(> .sr-page) { display: flex; flex-direction: column; overflow: hidden; }
+  .shell-main:has(> .sr-page) > :not(.sr-page) { flex: none; }
+  .mock-tickets.tk-shell.sr-page { flex: 1 1 0; min-height: 0; align-items: stretch; }
+  .mock-tickets.tk-shell.sr-page > .tk-bar { height: auto; }
+  .mock-tickets.tk-shell.sr-page > .tk-page { height: auto; min-height: 0; overflow: hidden; padding-top: 10px; padding-bottom: 8px; }
   .mock-tickets.sr-page .tk-heading { flex: none; margin-bottom: 8px; }
-  .mock-tickets.sr-page .tk-pane { flex: 1 1 0; min-height: 0; gap: 10px; }
-  /* 2026-11-26-b186: the graph takes under a fifth of the screen and scrolls inside itself; the chat takes the rest. */
-  .mock-tickets.sr-page .sr-overview { flex: none; max-height: 18vh; overflow-y: auto; }
-  .mock-tickets.sr-page .sr-chat { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 0; margin-top: 0; }
-  .mock-tickets.sr-page .sr-talk { flex: 1 1 0; min-height: 0; gap: 10px; }
-  .mock-tickets.sr-page .sr-scroll { flex: 1 1 0; min-height: 80px; max-height: none; }
+  .mock-tickets.sr-page .tk-pane { flex: 1 1 0; min-height: 0; gap: 4px; }
+  /* 2026-11-26-f511b: the graph is as high as the divider under it says (--sr-graph-h, set once the pane is measured; 40vh
+     until then) and scrolls inside itself; it gives way down to its head when what waits for a person needs the room
+     (f511a), and the chat takes the rest. */
+  .mock-tickets.sr-page .sr-overview { flex: 0 1 auto; min-height: 44px; height: var(--sr-graph-h, auto); max-height: var(--sr-graph-h, 40vh); overflow-y: auto; }
+  .mock-tickets.sr-page .sr-divider { display: flex; flex: none; height: 12px; align-items: center; justify-content: center; cursor: row-resize; touch-action: none; border-radius: 4px; }
+  .mock-tickets.sr-page .sr-divider::after { content: ""; width: 48px; height: 4px; border-radius: 2px; background: var(--line); }
+  .mock-tickets.sr-page .sr-divider:hover::after, .mock-tickets.sr-page .sr-divider:focus-visible::after { background: var(--accent); }
+  .mock-tickets.sr-page .sr-divider:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }  /* 2026-11-26-f511a: the chat never shrinks below its question block, its composer and the conversation box's minimum
+     (min-height auto), so a full block takes room from the graph, never from the input. */
+  .mock-tickets.sr-page .sr-chat { flex: 1 1 0; min-height: auto; display: flex; flex-direction: column; gap: 0; margin-top: 0; }
+  .mock-tickets.sr-page .sr-talk { flex: 1 1 0; min-height: auto; gap: 10px; }
+  .mock-tickets.sr-page .sr-scroll { flex: 1 1 0; height: 0; min-height: 64px; max-height: none; }
 }
 /* 2026-11-26-b186: the title row carries the status line, one row, cut with an ellipsis (the whole line is its title). */
 .mock-tickets .sr-heading { flex-wrap: nowrap; min-width: 0; }
@@ -148,6 +164,14 @@
 .mock-tickets .sr-question-who { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; color: var(--person); }
 .mock-tickets .sr-question-line { margin: 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
 .mock-tickets .sr-question-line .sr-question-who { display: inline; margin: 0; }
+/* 2026-11-26-f511a: the tickets that need a person, under one label; many of them scroll in their own few lines, so the
+   composer below is never pushed out. */
+.mock-tickets .sr-needs { display: grid; gap: 2px; padding: 6px 12px; border: 1px solid var(--line-2); border-left: 3px solid var(--person); border-radius: var(--r-s); background: var(--panel); }
+.mock-tickets .sr-needs-label { margin: 0; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--person); font-weight: 600; }
+.mock-tickets .sr-needs-lines { display: grid; gap: 2px; line-height: 20px; }
+/* 2026-11-26-f511b: only more than five lines scroll — a link's glyphs overflow a short list by a pixel or two, which showed
+   a scrollbar under three lines. */
+.mock-tickets .sr-needs-lines:has(> :nth-child(6)) { max-height: 108px; overflow-y: auto; overscroll-behavior: contain; }
 
 /* 2026-11-26-5201e: a node's marks and links over its key row, beside the node's button: the row lets clicks through to the
    node, its links take them. */

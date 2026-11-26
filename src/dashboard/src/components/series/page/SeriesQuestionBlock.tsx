@@ -9,25 +9,31 @@ import type { SpecDialogQuestionPush } from "@/types/spec-dialog";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { DialogQuestionCard } from "@/components/dialog/DialogQuestionCard";
 import { RUNS_CONTROL } from "@/components/tickets/detail/RetryUnchanged";
-import { isAsked } from "@/components/tickets/holds/holdRoutes";
+import { holdPullRequestHref, isAsked } from "@/components/tickets/holds/holdRoutes";
 import { holdSentence } from "@/components/tickets/holds/holdWords";
+import type { SeriesNodeKind } from "./seriesNodeKind";
 
 // 2026-11-26-5201c: what waits for a person, pinned directly above the chat's input so it is never one message among
 // many: the series' question (the record's, 9992j's card, now drawn with or without choices and naming the ticket that
 // asks) and every other ticket of the series parked on a question, each with the way to its ticket page, where it is
 // answered. The rail's "question for you" and the list's row lead here.
+// 2026-11-26-f511a: every ticket that needs a person gets its line, not only the ones asking — an approval, a draft and a
+// failure too, the tickets the status line counts as "need you" — under a "Needs you" label, each with its one link.
 
 /** Where the rail's and the list's question links land. */
 export const SERIES_QUESTION_ID = "series-question";
 
-/** The series' tickets parked on a question that is not the series' own question. */
-export function ticketQuestions(detail: SeriesRunDetail): SeriesRunTicket[] {
-  return detail.tickets.filter((ticket) => isAsked(ticket.hold) && !(detail.question && ticket.key === detail.questionTicket));
+/** 2026-11-26-f511a: the kinds the server counts as held (SeriesRunCounts.Held) — a person's step on the ticket. */
+const HELD: ReadonlySet<SeriesNodeKind> = new Set<SeriesNodeKind>(["question", "approval", "draft", "failed"]);
+
+/** The series' tickets that need a person, less the one the series' own question names (its card says it). */
+export function heldTickets(detail: SeriesRunDetail): SeriesRunTicket[] {
+  return detail.tickets.filter((ticket) => HELD.has(ticket.kind) && !(detail.question && ticket.key === detail.questionTicket));
 }
 
-/** How many questions the block draws — the rail counts the same ones. */
+/** How many items the block draws — the rail counts the same ones. */
 export function openQuestionCount(detail: SeriesRunDetail): number {
-  return (detail.question ? 1 : 0) + ticketQuestions(detail).length;
+  return (detail.question ? 1 : 0) + heldTickets(detail).length;
 }
 
 interface Props {
@@ -45,14 +51,14 @@ interface Props {
 export function SeriesQuestionBlock({ detail, threadId, onAnswer, failed = false, deciding = false }: Props) {
   // A sent answer hides the card until a send fails or the series asks something else; the block goes with it.
   const [sent, setSent] = useState<string | null>(null);
-  const asked = ticketQuestions(detail);
+  const held = heldTickets(detail);
   const card = detail.question !== null && !(sent === detail.question && !failed);
-  if (!card && asked.length === 0) return null;
+  if (!card && held.length === 0) return null;
   return (
     <div id={SERIES_QUESTION_ID} className="sr-questions" data-testid="series-questions">
       {card && <SeriesQuestionCard detail={detail} threadId={threadId} deciding={deciding}
         onAnswer={onAnswer && ((answer) => { setSent(detail.question); onAnswer(answer); })} />}
-      {asked.map((ticket) => <TicketQuestionLine key={ticket.ticketId} ticket={ticket} project={detail.project} />)}
+      {held.length > 0 && <HeldLines tickets={held} project={detail.project} />}
     </div>
   );
 }
@@ -85,12 +91,34 @@ export function SeriesQuestionCard({ detail, threadId, onAnswer, deciding = fals
   );
 }
 
-function TicketQuestionLine({ ticket, project }: { ticket: SeriesRunTicket; project: string }) {
+function HeldLines({ tickets, project }: { tickets: SeriesRunTicket[]; project: string }) {
   const t = useT();
   return (
+    <div className="sr-needs" data-testid="series-needs-you">
+      <p className="sr-needs-label">{t("series.chat.needsYou")}</p>
+      <div className="sr-needs-lines">
+        {tickets.map((ticket) => <HeldLine key={ticket.ticketId} ticket={ticket} project={project} />)}
+      </div>
+    </div>
+  );
+}
+
+/** One ticket that needs a person: its key, its hold's sentence (its state without a hold) and its one link — the pull
+ *  request on the host, the ticket page to answer its question, or the ticket page. */
+function HeldLine({ ticket, project }: { ticket: SeriesRunTicket; project: string }) {
+  const t = useT();
+  const pullRequest = holdPullRequestHref(ticket.hold);
+  const said = ticket.hold ? holdSentence(t, ticket.hold) : ticket.state;
+  return (
     <p className="sr-question-line" data-testid={`series-ticket-question-${ticket.ticketId}`}>
-      <span className="sr-question-who">{ticket.key}</span> {ticket.hold ? holdSentence(t, ticket.hold) : ""}{" "}
-      <Link className="tk-link" href={ticketPath(project, ticket.ticketId)}>{t("series.chat.answerOnTicket")}</Link>
+      <span className="sr-question-who">{ticket.key}</span> {said}{" "}
+      {pullRequest ? (
+        <a className="tk-link" href={pullRequest} target="_blank" rel="noreferrer">{t("series.chat.openPullRequest")}</a>
+      ) : (
+        <Link className="tk-link" href={ticketPath(project, ticket.ticketId)}>
+          {ticket.kind === "question" || isAsked(ticket.hold) ? t("series.chat.answerOnTicket") : t("series.chat.openTicket")}
+        </Link>
+      )}
     </p>
   );
 }

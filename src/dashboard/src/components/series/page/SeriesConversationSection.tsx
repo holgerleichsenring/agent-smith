@@ -24,6 +24,7 @@ import { useChatWindow } from "./useChatWindow";
 // ones rendered as the reader scrolls up; the working line scrolls with it, the question and the composer stay below.
 // 2026-11-26-5201c: the questions that wait are one block pinned above the input (SeriesQuestionBlock), a closed
 // conversation's too, where they show without buttons.
+// 2026-11-26-f511c: every turn shows its time (DialogTranscript times).
 
 /** The dialog id source of one thread: it starts there and stays there. */
 export function threadSource(threadId: string): DialogIdSource {
@@ -70,7 +71,7 @@ function OpenConversation({ detail, threadId }: { detail: SeriesRunDetail; threa
               {t("series.chat.earlier", { count: chat.from })}
             </button>
           )}
-          <DialogTranscript entries={dialog.entries} from={chat.from} />
+          <DialogTranscript entries={dialog.entries} from={chat.from} times />
           {dialog.working && <DialogWorking readings={dialog.readings} activity={dialog.activity} since={dialog.workingSince} />}
         </div>
       </div>
