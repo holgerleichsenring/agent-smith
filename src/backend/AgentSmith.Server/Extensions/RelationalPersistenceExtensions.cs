@@ -134,7 +134,7 @@ internal static class RelationalPersistenceExtensions
         // p0356: same-ticket resume — the DB-backed prior-run ledger reader
         // replaces the DB-free null default.
         services.RemoveAll<IPriorRunLedgerReader>();
-        services.AddSingleton<IPriorRunLedgerReader, DbPriorRunLedgerReader>().AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IDecidedDefaults, DecidedDefaults>().AddSingleton<IStuckOnPreconditionReader, DbStuckOnPreconditionReader>().AddSingleton<IConfigChangeClock, DbConfigChangeClock>().AddSingleton<IInterruptedAttemptReader, DbInterruptedAttemptReader>(); // f3fbc, 6d85c
+        services.AddSingleton<IPriorRunLedgerReader, DbPriorRunLedgerReader>().AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<AgentSmith.Contracts.Runs.IRunReportReader, DbRunReportReader>().AddSingleton<IDecidedDefaults, DecidedDefaults>().AddSingleton<IStuckOnPreconditionReader, DbStuckOnPreconditionReader>().AddSingleton<IConfigChangeClock, DbConfigChangeClock>().AddSingleton<IInterruptedAttemptReader, DbInterruptedAttemptReader>(); // f3fbc, 6d85c
         Decorate<IDialogueTransport>(services, (inner, sp) =>
             new Services.Dialogue.DurableDialogueTransport(
                 inner, sp.GetRequiredService<IDialogueAnswerInbox>()));

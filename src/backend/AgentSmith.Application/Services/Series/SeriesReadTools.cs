@@ -7,14 +7,15 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Application.Services.Series;
 
 /// <summary>2026-11-17-0207a: the series master's reads over the beat's facts — the table, and one ticket's facts.</summary>
-public sealed class SeriesReadTools(SeriesBeat beat)
+/// <para>2026-11-26-a12ed: read_ticket carries the newest run's own report, read when it is asked for.</para>
+public sealed class SeriesReadTools(SeriesBeat beat, AgentSmith.Contracts.Runs.IRunReportReader? reports = null)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     public IEnumerable<AIFunction> GetTools() =>
     [
         AIFunctionFactory.Create(SeriesStatus, "series_status"),
-        AIFunctionFactory.Create(ReadTicket, "read_ticket"),
+        AIFunctionFactory.Create(ReadTicketAsync, "read_ticket"),
     ];
 
     // 2026-11-25-9992a: the one state the series page shows — kind, words, CI and the hold — and what is at work now.
@@ -31,8 +32,9 @@ public sealed class SeriesReadTools(SeriesBeat beat)
         }),
     }, Json);
 
-    [Description("One ticket's facts: its state and kind, its hold (who moves it and why, since when), its newest run, that run's status and why it ended, its pull requests per repo with CI on their heads, conflicts, whether each is a draft, who approved them and whether the host still needs a person's approval, its cost, when it started and landed, a question its run is parked on, and your own last act on it with its reason.")]
-    public string ReadTicket([Description("The ticket's key or id as the table shows it.")] string ticket) =>
+    [Description("One ticket's facts: its state and kind, its hold (who moves it and why, since when), its newest run, that run's status and why it ended, its pull requests per repo with CI on their heads, conflicts, whether each is a draft, who approved them and whether the host still needs a person's approval, its cost, when it started and landed, a question its run is parked on, your own last act on it with its reason, and report: the newest run's own account as its coding masters wrote it — what they delivered and how they checked it, review findings, deviations, follow-ups and what is open.")]
+    public async Task<string> ReadTicketAsync([Description("The ticket's key or id as the table shows it.")] string ticket,
+        CancellationToken ct = default) =>
         SeriesTicketLookup.Find(beat, ticket) is { } fact
             ? JsonSerializer.Serialize(new
             {
@@ -42,6 +44,7 @@ public sealed class SeriesReadTools(SeriesBeat beat)
                 pullRequests = fact.PullRequests.Select(p => new { p.Repo, p.Number, p.Url, p.State, p.Ci, p.CiFailure, p.HasConflicts, p.IsDraft, p.Target, p.ApprovedBy, p.ApprovalRequired }),
                 fact.CostUsd, fact.FirstStartedAt, fact.LandedAt, requires = Keys(fact.Requires), question = fact.PendingQuestion?.Text,
                 lastAct = fact.LastAct, // 2026-11-25-9992e
+                report = reports is not null && fact.LatestRunId is { } run ? await reports.ReportAsync(run, ct) : null, // a12ed
             }, Json)
             : SeriesTicketLookup.Unknown(beat, ticket);
 

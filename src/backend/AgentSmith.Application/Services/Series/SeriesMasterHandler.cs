@@ -28,7 +28,8 @@ public sealed class SeriesMasterHandler(
     ISeriesConversation conversation, SeriesProgress progress, SeriesPause pause, ISeriesPullRequestActs pullRequests,
     SeriesFinalMerge finals, SeriesFinalCi finalCi, SeriesBudgetQuestion budgets, // 2026-11-25-9992g
     ISeriesEditActs edits, // 2026-11-25-9992f
-    ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null, TimeProvider? clock = null)
+    ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null, TimeProvider? clock = null,
+    AgentSmith.Contracts.Runs.IRunReportReader? reports = null) // 2026-11-26-a12ed
     : ICommandHandler<SeriesMasterContext>
 {
     public const string MasterName = "series-master";
@@ -87,7 +88,7 @@ public sealed class SeriesMasterHandler(
         var cut = new SeriesEditTools(beat, edits, store).GetTools(); // 2026-11-25-9992f
         var acted = new SeriesActTools(beat, acts, store, pause).GetTools().Append(ask).Append(check).Concat(prs).Concat(cut)
             .Select(f => (AIFunction)new SeriesActedFunction(f, beat, store, logger, clock));
-        IList<AITool> tools = [.. new SeriesReadTools(beat).GetTools().Concat(acted)
+        IList<AITool> tools = [.. new SeriesReadTools(beat, reports).GetTools().Concat(acted)
             .Select(f => new MidTurnMessageAIFunction(f, messages)), .. records?.Tools() ?? []];
         var agent = context.Project.Agent;
         return new AgenticLoopRequest(agent, TaskType.Primary, prompts.Get(MasterName), prompt, tools,

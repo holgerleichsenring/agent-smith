@@ -42,11 +42,11 @@ public sealed class ReworkNoActTailTests : IDisposable
     private ReworkSpeech Speech() =>
         new(_store.ScopeFactory, _tickets.Object, Mock.Of<ISourceProviderFactory>(), NullLogger<ReworkSpeech>.Instance);
 
-    private ReworkNoActTail Tail()
+    private ReworkNoActTail Tail(IRunReportReader? reports = null)
     {
         var speech = Speech();
         return new ReworkNoActTail(_pending.Object, ClosedTicketFollowUps.Of(_store.ScopeFactory, _tickets.Object, speech),
-            new ReworkWithheld(_store.ScopeFactory, speech), _series.Object, _seriesRuns.Object, _wakes.Object);
+            new ReworkWithheld(_store.ScopeFactory, speech), _series.Object, _seriesRuns.Object, _wakes.Object, reports);
     }
 
     private static PreviousAttempt Attempt(bool finished) => new("run-1", finished ? "success" : "running", Start, finished);
@@ -130,6 +130,22 @@ public sealed class ReworkNoActTailTests : IDisposable
             k.Kind == AgentSmith.Contracts.Series.SeriesWakeKinds.Run && k.Text.Contains("run-1") && k.Text.Contains("success")),
             It.IsAny<CancellationToken>()), Times.Once);
         _series.Verify(s => s.ContinueAsync(Project, "7", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // 2026-11-26-a12ed: the run-end wake names the run's own report by its headings, so the master sees the outcome at once.
+    [Fact]
+    public async Task ReworkNoActTail_RunEnd_WakeCarriesTheReportsHeadings()
+    {
+        Pending(null);
+        AgentSmith.Contracts.Series.SeriesWake? woken = null;
+        _wakes.Setup(w => w.WakeAsync("p", "7", It.IsAny<AgentSmith.Contracts.Series.SeriesWake>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, AgentSmith.Contracts.Series.SeriesWake, CancellationToken>((_, _, w, _) => woken = w).ReturnsAsync(true);
+        var reports = Mock.Of<IRunReportReader>(r => r.ReportAsync("run-1", It.IsAny<CancellationToken>())
+            == Task.FromResult<string?>("## Delivered\nthe endpoint\n## Deviations\nnone\n## Follow-ups\nrate limit"));
+
+        await Tail(reports).ReadAsync(Project, Nudge, Attempt(finished: true), CancellationToken.None);
+
+        woken!.Text.Should().Be("its run run-1 ended success — report: Delivered · Deviations · Follow-ups");
     }
 
     [Fact]

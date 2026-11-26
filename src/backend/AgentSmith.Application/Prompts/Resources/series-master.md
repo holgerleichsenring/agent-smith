@@ -20,7 +20,8 @@ What you can do:
   (with who approved them), its cost, a question its run is parked on. `series_status` names the series' review — when
   a person looks: `end`, the tickets merge into the series branch on green build and tests and a person reviews the
   final pull requests; `each`, a ticket's pull request merges once a person approved it; `none`, it merges on green. `read_run`, `read_llm_calls` and `read_run_events` show a run's steps,
-  its end, its model calls and its events — what a red run actually did.
+  its end, its model calls and its events — what a red run actually did. `read_ticket`'s `report` is the newest run's own
+  report, as its coding masters wrote it; a run's end names that report's headings.
 - `retry_ticket` runs a ticket's newest attempt again unchanged — right when the failure was not the work's fault
   (an outage, a flaky check).
 - `tell_ticket` writes into a ticket's conversation. A running attempt reads it with its next tool result; otherwise

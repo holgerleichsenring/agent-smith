@@ -16,7 +16,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// </summary>
 public sealed class ReworkNoActTail(
     IReworkPendingActs pending, ClosedTicketActFollowUp followUps, ReworkWithheld withheld, ISeriesAutoStart series,
-    ISeriesRunStore seriesRuns, ISeriesWakes wakes)
+    ISeriesRunStore seriesRuns, ISeriesWakes wakes, IRunReportReader? reports = null) // 2026-11-26-a12ed: the wake names its report
 {
     public async Task<ReworkTail> ReadAsync(
         ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, CancellationToken ct)
@@ -42,12 +42,19 @@ public sealed class ReworkNoActTail(
         return await seriesRuns.LeadsCommentsAsync(project.Name, nudge.TicketId, ct);
     }
 
-    private Task<bool> RecordEndAsync(ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, CancellationToken ct) =>
-        wakes.WakeAsync(project.Name, nudge.TicketId,
-                new SeriesWake(SeriesWakeKinds.Run, $"its run {attempt.RunId} ended {attempt.Status}")
+    private async Task<bool> RecordEndAsync(ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, CancellationToken ct) =>
+        await wakes.WakeAsync(project.Name, nudge.TicketId,
+                new SeriesWake(SeriesWakeKinds.Run, $"its run {attempt.RunId} ended {attempt.Status}" + (RunReportText.Headings(await ReportAsync(attempt.RunId, ct)) is { } headings ? $" — report: {headings}" : string.Empty))
                 {
                     Once = $"run:{attempt.RunId}:{attempt.Status}", // 2026-11-25-96aec: an act's run end re-reads the same attempt
                     // 2026-11-25-96aea: a green run that left a pull request is no decision — the CI verdict that follows is
                     Quiet = attempt.Status == RunStatuses.Success && attempt.PullRequestUrls.Count > 0,
                 }, ct);
+
+    // The report only adds to the wake: an unreadable one costs its headings, never the wake.
+    private async Task<string?> ReportAsync(string runId, CancellationToken ct)
+    {
+        try { return reports is null ? null : await reports.ReportAsync(runId, ct); }
+        catch (Exception) when (!ct.IsCancellationRequested) { return null; }
+    }
 }
