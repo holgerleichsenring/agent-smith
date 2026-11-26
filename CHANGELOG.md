@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.225.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.224.0...v0.225.0) (2026-11-26)
+
+
+### Features
+
+* **series:** every ticket is led by a series master; the server's CI loop and automatic starts are gone (2026-11-25-96aea) ([1bc50f9](https://github.com/holgerleichsenring/agent-smith/commit/1bc50f91981548b433d5385304593fdbcecc84f4))
+* **series:** every ticket is led by a series master; the server's CI loop and automatic starts are gone (2026-11-25-96aea) ([af46155](https://github.com/holgerleichsenring/agent-smith/commit/af4615546c37092ed6debeee8220754f663c33fe))
+
 ## [0.224.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.223.1...v0.224.0) (2026-11-25)
 
 
