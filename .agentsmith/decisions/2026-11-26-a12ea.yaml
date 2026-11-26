@@ -17,4 +17,4 @@ decisions:
   - category: Scope
     chose: "The migration id stays 2026-11-25-96aea-series-of-one; series of one already opened are not touched"
     over: "A new id that re-runs the migration, or a cleanup migration"
-    reason: "decider: claude. The installation that ran it was cleaned by hand; the one still on 0.215 runs the corrected logic at its upgrade, which the upgrade notes tell it to take at 0.229.0 or later. A queued start kept rescheduled by the old server can itself be old; it is still the old server's own start, so it is adopted."
+    reason: "decider: claude. The installation that ran it was cleaned by hand; the one still on 0.215 runs the corrected logic at its upgrade, which the upgrade notes tell it to take at 0.230.0 or later. A queued start kept rescheduled by the old server can itself be old; it is still the old server's own start, so it is adopted."
