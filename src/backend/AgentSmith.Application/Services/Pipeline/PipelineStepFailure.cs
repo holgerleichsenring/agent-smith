@@ -53,9 +53,10 @@ public sealed class PipelineStepFailure(
             {
                 // The step the run never got to, numbered as the runner would have numbered
                 // it, against the LIVE list — an insertion loop's denominator is the list it
-                // grew, not the preset it started from.
+                // grew, not the preset it started from. 2026-11-26-5201g: the step number plus
+                // what is after it, so a resumed segment's short list counts the steps run before.
                 FailedStep = executionCount + 1,
-                TotalSteps = commands.Count,
+                TotalSteps = StepTotal.Of(executionCount + 1, stoppedAt),
                 StepName = StepLabelComposer.Label(stoppedAt.Value),
             },
             executionCount, ct);

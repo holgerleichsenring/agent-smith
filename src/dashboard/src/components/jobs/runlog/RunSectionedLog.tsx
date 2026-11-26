@@ -12,6 +12,8 @@ import { RunLog } from "./RunLog";
 import { DeliveredBody, PlanBody, SpecBody } from "./RunLogSectionBodies";
 import { initiallyOpen, runLogSections, type LogSection } from "./runLogSections";
 import { RunStepDetail } from "./RunStepDetail";
+import { commandKey } from "./runSections";
+import type { StepPass } from "./specPasses";
 import { ledgerSpec } from "./specStepLines";
 import type { GivenPasses } from "./useSpecStepLines";
 
@@ -34,7 +36,7 @@ interface Props {
   /** The Ticket section's body; without one the log has no Ticket section. */
   ticketBody?: ReactNode;
   checkBody: ReactNode;
-  /** The run's passes as the page already read them; an opened spec step reads them itself without. */
+  /** The run's passes as the page already read them; an opened spec section reads them itself without. */
   passes?: GivenPasses;
 }
 
@@ -75,11 +77,16 @@ export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOp
   const hasSpecs = sections.some((s) => s.kind === "spec");
   const ledgerSpecId = ledgerSpec(specs);
 
-  const body = (s: LogSection) => {
+  const body = (s: LogSection, masterPasses: ReadonlyMap<number, StepPass>) => {
     switch (s.kind) {
       case "ticket": return ticketBody;
       case "plan": return <PlanBody runId={runId} ledger={ledger} hasSpecs={hasSpecs} events={events} />;
-      case "spec": return <SpecBody runId={runId} spec={specs.find((x) => x.specId === s.specId)} />;
+      case "spec": {
+        // 2026-11-26-5201g: a spec that ran its master shows its steps once, here, and not under each pass.
+        const ranMaster = s.steps.some((st) => !st.row.planned && commandKey(st.row) === "AgenticMaster");
+        return <SpecBody runId={runId} spec={specs.find((x) => x.specId === s.specId)}
+          steps={ranMaster ? { ledger, ledgerIsThisSpec: ledgerSpecId === s.specId, passes, masterPasses } : undefined} />;
+      }
       case "check": return checkBody;
       case "deliver": return <DeliveredBody runId={runId} snapshot={snapshot} />;
       default: return null;
@@ -90,6 +97,6 @@ export function RunSectionedLog({ runId, snapshot, events, steps, openStep, onOp
     <RunLog sections={sections} events={events} open={open} onToggle={(id) => setToggled((held) => flip(held, id))} idPrefix={idPrefix}
       openStep={openStep} onToggleStep={(i) => { scrolled.current = true; stepClicked.current = true; onOpenStep(openStep === i ? null : i); }}
       mechanicsOpen={mechanics} onToggleMechanics={(id) => setMechanics((m) => flip(m, id))}
-      body={body} detail={(step) => <RunStepDetail runId={runId} step={step} live={isRunLive(snapshot?.status)} ledger={ledger} ledgerSpecId={ledgerSpecId} passes={passes} />} />
+      body={body} detail={(step) => <RunStepDetail runId={runId} step={step} live={isRunLive(snapshot?.status)} />} />
   );
 }

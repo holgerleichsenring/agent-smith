@@ -30,13 +30,17 @@ import { shortTargets } from "./logPaths";
 import { BlockText, InlineText, LogDoc } from "./LogText";
 import { parseSpecRecord } from "./specRecord";
 import { SpecRecordView } from "./SpecRecordView";
+import type { StepPass } from "./specPasses";
+import { specRevisions } from "./specRevisions";
+import { StepSpecSteps } from "./StepSpecSteps";
+import type { GivenPasses } from "./useSpecStepLines";
 import { clockOf, pullRequestLinks } from "./runNowLines";
 import type { RunTicket } from "./useRunTicket";
 
 // 2026-11-17-6d9eb: what a log section holds besides its steps, drawn plain: the ticket as the run read it; the work
 // spec, the agreed plan, the progress ledger and (for a run without specs) its decisions; a spec's decisions and the
 // spec it executed; the criteria with their overrule; the pull requests and the run report. Long documents sit behind
-// a one-line disclosure so the log stays a log.
+// a one-line disclosure so the log stays a log. 2026-11-26-5201g: a spec's section also holds its steps, once.
 
 const Doc = LogDoc;
 
@@ -164,9 +168,20 @@ export function DecisionLine({ name, reason, prefix }: { name: string; reason: s
   );
 }
 
-export function SpecBody({ runId, spec }: { runId: string; spec: RunSpecRow | undefined }) {
+/** 2026-11-26-5201g: what a spec's steps list reads — the run's ledger and whether it is this spec's, the run's passes as
+ *  the page holds them, and the master pass of each step index. */
+export interface SpecBodySteps {
+  ledger: ProgressLedgerEntry[] | null;
+  ledgerIsThisSpec: boolean;
+  passes?: GivenPasses;
+  masterPasses: ReadonlyMap<number, StepPass>;
+}
+
+export function SpecBody({ runId, spec, steps }: { runId: string; spec: RunSpecRow | undefined; steps?: SpecBodySteps }) {
   const t = useT();
   const [read, setRead] = useState(false);
+  const masterPasses = steps?.masterPasses;
+  const revisions = useMemo(() => (spec && masterPasses ? specRevisions(spec.decisions, masterPasses) : []), [spec, masterPasses]);
   if (!spec) return null;
   return (
     <div className="rl-body" data-testid={`spec-body-${spec.specId}`}>
@@ -175,6 +190,10 @@ export function SpecBody({ runId, spec }: { runId: string; spec: RunSpecRow | un
         <div className="rl-body-line rl-bad" data-testid={`spec-body-verdict-${spec.specId}`}>
           {t(spec.status === "handed_back" ? "runs.log.spec.handedBack" : "runs.log.spec.notDelivered", { verdict: spec.verdict })}
         </div>
+      )}
+      {steps && (
+        <StepSpecSteps runId={runId} specId={spec.specId} ledger={steps.ledger} ledgerIsThisSpec={steps.ledgerIsThisSpec}
+          passes={steps.passes} revisions={revisions} />
       )}
       {spec.decisions.length > 0 ? (
         <Doc label={t("runs.log.decisionsCount", { count: spec.decisions.length })} testId={`spec-decisions-${spec.specId}`}>

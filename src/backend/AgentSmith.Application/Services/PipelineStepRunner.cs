@@ -44,7 +44,7 @@ public sealed class PipelineStepRunner(
         CancellationToken cancellationToken)
     {
         var cmd = current.Value;
-        var total = commands.Count;
+        var total = StepTotal.Of(executionCount, current);
         var label = StepLabelComposer.Label(cmd);
 
         // p0388a: the ambient step frame spans the WHOLE step — StepStarted, the
@@ -121,7 +121,7 @@ public sealed class PipelineStepRunner(
         PipelineCommand cmd, string label, TimeSpan elapsed, CommandResult result,
         CancellationToken cancellationToken)
     {
-        var total = commands.Count;
+        var total = StepTotal.Of(executionCount, current);
 
         context.TrackCommand(cmd.DisplayName, result.IsSuccess, result.Message,
             elapsed, result.InsertNext?.Count);
@@ -137,7 +137,7 @@ public sealed class PipelineStepRunner(
         commandList.Insert(current, commands, result);
         await PostSkillDetailAsync(cmd, result, executionCount, context, cancellationToken);
         logger.LogInformation("[{Step}/{Total}] {Command} completed: {Message}",
-            executionCount, commands.Count, cmd.DisplayName, result.Message);
+            executionCount, StepTotal.Of(executionCount, current), cmd.DisplayName, result.Message);
         return new StepExecutionResult(result, null);
     }
 

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-5201g
+
+decisions:
+  - category: Architecture
+    chose: "The step total grows: a step's total is its step number plus the commands still after it in the live list (StepTotal.Of), at the producer"
+    over: "Counting within the pass ('pass 3 · step 4 of 6'); clamping the total to the step number in the dashboard; dropping the run row's max()"
+    reason: |
+      A resumed run re-enters with only its reprovision steps and what remained, while its step number goes on from the
+      checkpoint, so the list length fell below the step number and the run row kept the first segment's larger total:
+      32/30. Fixed where the number is made, every reader (runs list, header, ticket failure comment) reads the same pair
+      and needs no change. The runs list knows nothing of passes, and a resume segment is not a master pass, so a
+      per-pass count could not read the same in both places. A run that never resumes gets exactly today's numbers.
+      A run row stored before this fix keeps its stored total until its next step; no clamp hides that.
+  - category: Implementation
+    chose: "The spec's steps are drawn once in the spec section's body as the spec stands now, and an opened master step no longer draws them"
+    over: "Per-pass snapshots of the steps; keeping the list under each pass with a 'current state' label"
+    reason: |
+      The list always read the current record and ledger, so under pass 1 it showed what pass 3 revised. No per-pass
+      snapshot is stored, and storing one is new state for a view. At the spec it is true by construction.
+  - category: Implementation
+    chose: "A revision line shows the revise_spec decision's sentence whole, prefixed 'revised in pass N', the pass taken from RunLog's existing per-step pass map by the decision's step index"
+    over: "Parsing the reason out of the sentence; a structured revision field on the spec row; a second specPasses computation in RunSectionedLog; tagging the line inside the decisions list instead"
+    reason: |
+      The decision row keeps the source label (revise-spec) as its reason and the sentence names the revision and why, so
+      nothing needs parsing or a new field. The pass map is handed to body() rather than computed twice. The line sits
+      under the steps because that is where the question 'why do these steps differ' is asked; the decisions list stays
+      the complete, collapsed log, so the revision appears there too.

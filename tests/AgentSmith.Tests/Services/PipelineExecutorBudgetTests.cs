@@ -270,6 +270,22 @@ public sealed class PipelineExecutorBudgetTests
             Times.Exactly(3), "500 steps already spent do not exhaust the resumed segment");
     }
 
+    [Fact]
+    public async Task PipelineExecutor_ResumeExhausted_TotalIsNeverBelowTheStepItStoppedAt()
+    {
+        // 2026-11-26-5201g: the resumed list holds only the segment, while the step number goes on from the checkpoint.
+        var h = new PipelineExecutorTestBuilder();
+        var project = new ResolvedProject();
+        var pipeline = WithBudget(new StepBudget(3, "a test budget"));
+        ArrangeLoop(h, project, pipeline);
+
+        var result = await h.Sut.ResumeAsync(
+            [PipelineCommand.Simple(Loop)], project, pipeline, 500, CancellationToken.None);
+
+        result.FailedStep.Should().Be(504);
+        result.TotalSteps.Should().Be(504, "the steps run before the resume count, not only the segment's list");
+    }
+
     private static PipelineContext WithBudget(StepBudget budget)
     {
         var pipeline = new PipelineContext();

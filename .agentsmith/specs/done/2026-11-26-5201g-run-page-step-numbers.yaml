@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-5201g
+goal: "A run's step total never falls below its step number after a resume, and the run page shows a spec's steps once, at the spec, with the pass that revised them."
+
+applies_to: "default (PipelineStepRunner step total), dashboard (run log spec section, RunStepDetail)"
+
+requires: [2026-11-19-1b72d, 2026-11-24-0fbfa]
+
+facts:
+  - claim: "StepStarted's total is the live command list's length, while the step number is the run's execution count."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs:47, :57 and :164"
+  - claim: "A resumed run (an answer after a master question) re-enters with only the reprovision steps plus the remaining commands, and continues the execution count."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/DialogueCheckpointWriter.cs:76-86 and src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:41-44, :96, :134"
+  - claim: "The run row keeps the largest total ever seen, so after a resume the first segment's total stays while the step number passes it (32/30)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStepProjection.cs:26-27 and src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs:53, :59"
+  - claim: "The live fold takes the event's total as it is, so a live view of a resumed run shows a total smaller still."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunSnapshotFold.cs:37-40"
+  - claim: "The exhaustion failure names its total the same way, from the live list."
+    evidence: "src/backend/AgentSmith.Application/Services/Pipeline/PipelineStepFailure.cs:57-58"
+  - claim: "Both the runs list and the run header print stepIndex/totalSteps from the snapshot."
+    evidence: "src/dashboard/src/components/jobs/RunStats.tsx:78 and src/dashboard/src/components/jobs/runlog/runMetaWords.ts:66"
+  - claim: "The spec's steps are drawn inside every opened master step of the spec, each reading the current ledger or the current record and every pass's transitions — not the state at that pass."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunStepDetail.tsx:57 and :74, src/dashboard/src/components/jobs/runlog/useSpecStepLines.ts:34 and :70-75"
+  - claim: "revise_spec logs a decision 'Spec X revised in run Y as revision N: reason' with source revise-spec; the decision row keeps its step index and spec, and the run's spec rows serve it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Revision/SpecRevisionWriter.cs:20 and :47-48, src/backend/AgentSmith.Infrastructure.Core/Services/DecisionEventMirror.cs:28-31, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDecisionProjection.cs:21-24"
+  - claim: "A spec's master steps are numbered as passes by step index (specPasses), only when the spec ran its master more than once."
+    evidence: "src/dashboard/src/components/jobs/runlog/specPasses.ts:49-62"
+  - claim: "The spec section's body is drawn by RunSectionedLog with the run's ledger, the ledger's spec and the given passes in reach."
+    evidence: "src/dashboard/src/components/jobs/runlog/RunSectionedLog.tsx:51, :77 and :82"
+
+scope:
+  in: |
+    D1, total grows: a step's total is its step number plus the commands still after it in the live list
+    (StepTotal.Of), used for StepStarted, the progress report, the failure result and the exhaustion failure. A run that
+    never resumes and never jumps back gets the same number as today (position + after = list length); a resumed one
+    gets the steps already run plus what is ahead, so the list row and the header read "32/36", never "32/30". Chosen
+    over "pass 3 · step 4 of 6": the runs list has no pass knowledge, and a resume segment is not a master pass.
+    D2: the spec's steps list (StepSpecSteps) leaves RunStepDetail and is drawn once in the spec section's body
+    (SpecBody), as the current state, when the spec ran a master step. Under it, one line per revise_spec decision of
+    the spec: "revised in pass N — <the decision as logged>", which already names the revision and its reason (pass from
+    RunLog's existing per-step pass map by the decision's step index, handed to the section body; "revised — …" when the
+    spec ran one pass or the step is unknown). The decision sentence is shown whole, never parsed apart.
+  out: "Per-pass step snapshots (none are stored), what each pass moved, a dashboard clamp of old run rows' stored totals, the planned-steps announcement's indexes, any hub event contract."
+
+steps:
+  - id: total
+    action: "StepTotal.Of(stepNumber, node) in Application/Services/Pipeline; PipelineStepRunner (start, progress, failure, completion log) and PipelineStepFailure exhaustion use it. C# tests for a resumed segment and an untouched run."
+  - id: revisions
+    action: "specRevisions.ts: the spec's revise-spec decisions as {pass, text}, pass looked up in the pass map. Vitest."
+  - id: spec-body
+    action: "RunLog hands body() its masterPasses; SpecBody draws StepSpecSteps and the revision lines; RunSectionedLog hands it ledger, ledger spec and passes; RunStepDetail no longer draws StepSpecSteps. i18n en+de."
+  - id: tests
+    action: "Migrate RunStepDetail's spec-steps tests to the spec section; tests for the revision lines and for a master step without the list."
+
+done:
+  - "A resumed segment's step total is no smaller than its step number; a step of a run that never resumes and never fails gets the list length as before (C# test)."
+  - "The exhaustion failure's TotalSteps is no smaller than its FailedStep after a resume (C# test)."
+  - "An opened master step no longer shows the spec's steps; the spec section shows them once (vitest)."
+  - "A spec revised in pass 2 shows 'revised in pass 2 — <the logged revision and its reason>' under its steps (vitest)."
+  - "pnpm test, pnpm build, dotnet build and the affected C# tests are green; the spec gate passes."

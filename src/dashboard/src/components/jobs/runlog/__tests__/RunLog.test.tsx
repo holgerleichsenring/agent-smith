@@ -89,6 +89,7 @@ describe("RunLog", () => {
     const body = vi.fn(() => null);
     render(<Harness body={body} />);
     fireEvent.click(within(screen.getByTestId("run-section-ticket")).getByRole("button"));
-    expect(body).toHaveBeenCalledWith(expect.objectContaining({ id: "ticket", kind: "ticket" }));
+    // 2026-11-26-5201g: with the master pass of each step index, which a spec's body names its revisions by.
+    expect(body).toHaveBeenCalledWith(expect.objectContaining({ id: "ticket", kind: "ticket" }), new Map());
   });
 });
