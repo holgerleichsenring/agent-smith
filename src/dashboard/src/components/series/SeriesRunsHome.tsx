@@ -74,7 +74,7 @@ function SeriesRunsBody({ read, showEnded }: { read: Read; showEnded: boolean })
   return (
     <>
       <div className="rows" data-testid="series-rows">{shown.map((row) => <SeriesRunListRow key={row.id} row={row} />)}</div>
-      {hidden > 0 && <div className="msub note" data-testid="series-hidden">{t("series.list.hiddenEnded", { count: hidden })}</div>}
+      {hidden > 0 && <div className="msub sr-hidden" data-testid="series-hidden">{t("series.list.hiddenEnded", { count: hidden })}</div>}
     </>
   );
 }

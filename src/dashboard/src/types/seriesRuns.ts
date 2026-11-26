@@ -89,6 +89,8 @@ export interface SeriesRunTicket {
   working: boolean;
   /** 2026-11-25-9992j: what every run of the ticket cost; the ticket details show it. */
   costUsd: number;
+  /** 2026-11-26-5201e: where the ticket opens in its tracker (its newest attempt's fetch); absent or null when unknown. */
+  webUrl?: string | null;
   /** 2026-11-25-9992e: the series master's newest act on the ticket, from its act log; null when it never acted on it. */
   lastAct?: SeriesTicketLastAct | null;
 }

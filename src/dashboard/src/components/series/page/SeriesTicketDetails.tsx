@@ -8,12 +8,13 @@ import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunTicket } from "@/types/seriesRuns";
 import { holdSentence } from "../../tickets/holds/holdWords";
 import { ago, money } from "../../tickets/ticketFormat";
-import { seriesNodeId } from "./seriesOrderLayout";
+import { seriesNodeId, seriesNodeLinksId } from "./seriesOrderLayout";
 
 // 2026-11-25-9992j: what a click on a graph node opens — the ticket to read, nothing to operate: its key and title, its
 // state in the graph's words and the hold's sentence, each pull request with its CI and conflict, what it cost, and the
 // way to its page. Acts are the master's, asked in the chat. Focus moves into it; Escape closes it and gives focus back
 // to the node, a click outside closes it. 2026-11-25-9992e: and the series master's last act on it — what, why, when.
+// 2026-11-26-5201e: and the ticket in its tracker, in a new tab, beside its page here.
 // 2026-11-26-5201f: a pull request the host still needs a person's approval on says so beside its link.
 
 interface Props {
@@ -41,7 +42,8 @@ export function SeriesTicketDetails({ ticket, project, integrationBranch = null,
     };
     const down = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (!ref.current?.contains(target) && !node()?.contains(target)) onClose();
+      const links = document.getElementById(seriesNodeLinksId(ticket.ticketId));
+      if (!ref.current?.contains(target) && !node()?.contains(target) && !links?.contains(target)) onClose();
     };
     document.addEventListener("keydown", key);
     document.addEventListener("mousedown", down);
@@ -79,7 +81,11 @@ export function SeriesTicketDetails({ ticket, project, integrationBranch = null,
         </div>
       )}
       <div className="sr-menu-why" data-testid={`series-details-cost-${ticket.ticketId}`}>{t("series.details.cost", { cost: money(ticket.costUsd) })}</div>
-      <Link className="tk-link" href={ticketPath(project, ticket.ticketId)} data-testid={`series-details-open-${ticket.ticketId}`}>{t("hold.act.open")}</Link>
+      <div className="sr-menu-links">
+        <Link className="tk-link" href={ticketPath(project, ticket.ticketId)} data-testid={`series-details-open-${ticket.ticketId}`}>{t("hold.act.open")}</Link>
+        {ticket.webUrl && <a className="tk-link" href={ticket.webUrl} target="_blank" rel="noreferrer"
+          data-testid={`series-details-tracker-${ticket.ticketId}`}>{t("series.details.tracker")}</a>}
+      </div>
     </div>
   );
 }

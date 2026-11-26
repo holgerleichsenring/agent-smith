@@ -31,6 +31,33 @@ const open = async (ticketId: string) => {
 };
 
 describe("SeriesOverviewSection", () => {
+  // 2026-11-26-5201e: a node links its pull request and its tracker in a new tab, beside its button; the details too.
+  it("Overview_ANode_LinksItsPullRequestAndTracker_InANewTab_OutsideItsButton", async () => {
+    const detail = overviewDetail();
+    detail.tickets = detail.tickets.map((ticket) => ticket.ticketId === "50" ? { ...ticket, webUrl: "https://tracker.test/items/50" } : ticket);
+    hoisted.fetch.mockResolvedValue(detail);
+    render(<SeriesRunPage id="sr-1" />);
+
+    const node = await screen.findByTestId("series-node-50");
+    const pr = screen.getByTestId("series-links-pr-50");
+    const tracker = screen.getByTestId("series-links-tracker-50");
+    expect(pr).toHaveAttribute("href", "https://git.test/server/pull/9937");
+    expect(tracker).toHaveAttribute("href", "https://tracker.test/items/50");
+    for (const link of [pr, tracker]) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noreferrer");
+      expect(node).not.toContainElement(link);
+    }
+    expect(screen.queryByTestId("series-links-tracker-48")).toBeNull();
+
+    const details = await open("50");
+    const inDetails = within(details).getByTestId("series-details-tracker-50");
+    expect(inDetails).toHaveAttribute("href", "https://tracker.test/items/50");
+    expect(inDetails).toHaveAttribute("target", "_blank");
+    fireEvent.mouseDown(screen.getByTestId("series-links-pr-50"));
+    expect(screen.getByTestId("series-details-50")).toBeInTheDocument(); // a node's own link leaves its details open
+  });
+
   it("Overview_EachNode_HasOneColour_AndTheLegendNamesEveryColour", async () => {
     render(<SeriesRunPage id="sr-1" />);
     const kinds = Object.fromEntries((await screen.findAllByTestId(/^series-node-/)).map((n) => [n.dataset.testid, n.dataset.kind]));

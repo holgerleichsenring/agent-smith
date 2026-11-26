@@ -315,6 +315,20 @@ public sealed class SeriesRunReadersTests : IDisposable
         _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(
             new SeriesRunRecord(id, $"conv-{id}", "alpha", "operator", true, SeriesRunStates.Running, tickets, T), default);
 
+    // 2026-11-26-5201e: a ticket's tracker link comes from the ticket list's read, the same one the holds come from.
+    [Fact]
+    public async Task Detail_ATicketThatRan_CarriesItsTrackerUrl_OneThatNeverRanNone()
+    {
+        await OpenAsync("sr-1", Tickets("1", "2"));
+        await _h.AddAsync(TicketStoreHarness.Run("run-1", ticket: "1"),
+            new RunAttempt { RunId = "run-1", WebUrl = "https://tracker.test/items/1" });
+
+        var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default)))!;
+
+        detail.Tickets.Single(t => t.TicketId == "1").WebUrl.Should().Be("https://tracker.test/items/1");
+        detail.Tickets.Single(t => t.TicketId == "2").WebUrl.Should().BeNull();
+    }
+
     // 2026-11-26-5201c: a question a ticket's run asked names that ticket by its key, so the chat's card can say who asks.
     [Fact]
     public async Task Detail_AQuestionATicketAsked_NamesTheTicketsKey()

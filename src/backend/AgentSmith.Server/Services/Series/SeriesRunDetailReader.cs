@@ -18,7 +18,7 @@ namespace AgentSmith.Server.Services.Series;
 /// 2026-11-23-0219: and whether a merge arms auto-complete, and per waiting pull request the newest merge run's refusal or arm.</summary>
 public sealed class SeriesRunDetailReader(
     ISeriesRunStore store, TicketProjects projects, SeriesStatusReader status, SeriesRunNames names,
-    SpecDialogSessionRepository sessions, PullRequestMergeSaidReader mergeSaid)
+    SpecDialogSessionRepository sessions, PullRequestMergeSaidReader mergeSaid, TicketAttemptRecords attempts)
 {
     /// <param name="withHolds">2026-11-23-31dcg: false for a reader that needs the merge order only (the merge act), which
     /// then pays no ticket-list read.</param>
@@ -28,7 +28,7 @@ public sealed class SeriesRunDetailReader(
         // 2026-11-25-9992a: the one state; 2026-11-23-8d16: a project with no held ticket reads as no holds, not as holds unread.
         var read = (await status.StatusesAsync([record], withHolds, ct))[record.Id];
         var (facts, shape, held) = (read.ProjectFacts, read.Shape, read.Holds);
-        var shown = withHolds ? await WithMergeSaidAsync(shape.Tickets, facts, ct) : shape.Tickets;
+        var shown = withHolds ? await WithTrackerAsync(await WithMergeSaidAsync(shape.Tickets, facts, ct), ct) : shape.Tickets;
         var name = (await names.OfAsync([record], ct))[record.Id];
         var spent = read.Facts.Sum(f => f.CostUsd);
         var session = await sessions.GetBySessionIdAsync(record.Conversation, ct);
@@ -70,6 +70,15 @@ public sealed class SeriesRunDetailReader(
         bool Current(string url, PullRequestMergeSaid s) => !moved.TryGetValue(url, out var at) || s.At >= at;
         return [.. shown.Select(t => t with { PullRequests = [.. t.PullRequests.Select(p =>
             SeriesRunPullRequestView.Waits(p) && said.TryGetValue(p.Url, out var s) && Current(p.Url, s) ? p with { MergeSaid = s } : p)] })];
+    }
+
+    // 2026-11-26-5201e: where each ticket opens in its tracker, as its newest attempt fetched it (the attempt record the ticket
+    // list reads it from) — one read for the page; a ticket that never ran has none.
+    private async Task<IReadOnlyList<SeriesRunTicketView>> WithTrackerAsync(IReadOnlyList<SeriesRunTicketView> shown, CancellationToken ct)
+    {
+        var records = await attempts.ForAsync([.. shown.Select(t => t.RunId).OfType<string>().Distinct(StringComparer.Ordinal)], ct);
+        return records.Count == 0 ? shown
+            : [.. shown.Select(t => t.RunId is { } run && records.GetValueOrDefault(run)?.WebUrl is { Length: > 0 } url ? t with { WebUrl = url } : t)];
     }
 
     // The repos the series' tickets have pull requests in, in the project's repo order.
