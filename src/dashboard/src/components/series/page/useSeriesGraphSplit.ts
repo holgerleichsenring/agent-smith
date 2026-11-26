@@ -61,7 +61,10 @@ function measure(pane: HTMLElement): SeriesGraphSizes {
   const parts = overview ? Array.from(overview.children) as HTMLElement[] : [];
   const gap = overview ? parseFloat(getComputedStyle(overview).rowGap) || 0 : 0;
   const natural = parts.reduce((sum, part) => sum + part.offsetHeight, 0) + gap * Math.max(0, parts.length - 1);
-  const chatFixed = chat ? chat.offsetHeight - (scroll?.offsetHeight ?? 0) : 0;
+  // The chat grows into what the graph leaves, so its fixed part is its height less the conversation box — or, with no box
+  // (a closed or gone conversation), what its children take.
+  const chatFixed = !chat ? 0 : scroll ? chat.offsetHeight - scroll.offsetHeight
+    : (Array.from(chat.children) as HTMLElement[]).reduce((sum, part) => sum + part.offsetHeight, 0);
   return { pane: pane.clientHeight, natural, chatFixed };
 }
 
@@ -79,6 +82,7 @@ export interface SeriesGraphSplit {
     onPointerDown: (event: PointerEvent) => void;
     onPointerMove: (event: PointerEvent) => void;
     onPointerUp: (event: PointerEvent) => void;
+    onPointerCancel: (event: PointerEvent) => void;
   };
 }
 
@@ -120,7 +124,7 @@ export function useSeriesGraphSplit(pane: RefObject<HTMLElement | null>, collaps
     set(to, lowest, highest);
   };
   const onPointerDown = (event: PointerEvent) => {
-    if (!measured || height === null) return;
+    if (!measured || height === null || event.button !== 0) return;
     drag.current = { y: event.clientY, height };
     (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
   };
@@ -140,7 +144,7 @@ export function useSeriesGraphSplit(pane: RefObject<HTMLElement | null>, collaps
     separator: {
       role: "separator", tabIndex: 0, "aria-orientation": "horizontal",
       "aria-valuenow": Math.round(shown * 100), "aria-valuemin": Math.round(lowest * 100), "aria-valuemax": Math.round(highest * 100),
-      onKeyDown, onPointerDown, onPointerMove, onPointerUp,
+      onKeyDown, onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp,
     },
   };
 }

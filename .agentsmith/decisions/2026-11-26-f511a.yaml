@@ -40,3 +40,10 @@ decisions:
       tickets, so no new outcome kind is introduced. A draft whose requirements have landed, a failure nobody took up, and one
       taken up before it failed stay the person's. "Taken up" reads the master's act log because no other fact says the master
       already handled the failure.
+  - category: Implementation
+    chose: "After the diff review: only the series' own unlanded tickets count, only an open draft or a taken-up failure waits on another, and a refused act takes nothing up"
+    over: "Every project requirement; every ticket with an unlanded requirement; every logged act"
+    reason: |
+      A requirement outside the series, or closed on its tracker, never lands, so it would have hidden a person's step for good;
+      a closed pull request or a cancelled run would have moved to Waits on another; and SeriesActedFunction logs a refused call
+      under its tool's name, which is no taking up.

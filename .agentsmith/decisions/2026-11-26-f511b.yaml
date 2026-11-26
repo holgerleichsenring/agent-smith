@@ -27,3 +27,8 @@ decisions:
     reason: |
       The overview is bounded and scrolls, so its scrollHeight equals its box whenever the graph is smaller; the parts keep their
       natural heights inside it.
+  - category: Implementation
+    chose: "After the diff review: with no conversation box (a closed or gone conversation) the chat's fixed part is what its children take; a cancelled pointer ends the drag; only the main button drags"
+    over: "Reading the chat's box, which grows into what the graph leaves"
+    reason: |
+      With no box the whole growing chat counted as fixed, and each re-measure lowered the bound until the graph sat at its head.

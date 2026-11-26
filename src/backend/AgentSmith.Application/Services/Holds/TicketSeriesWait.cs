@@ -21,7 +21,9 @@ public static class TicketSeriesWait
     public static DateTimeOffset? TakenUpAt(IReadOnlyList<SeriesAct> acts, string ticketId)
     {
         ArgumentNullException.ThrowIfNull(acts);
-        return acts.Where(a => a.Ticket == ticketId && TakesUp(a.Tool)).Select(a => (DateTimeOffset?)(a.DoneAt ?? a.At)).Max();
+        // A refused call is logged under its tool's name (SeriesActedFunction); only an act that went through says what it did.
+        return acts.Where(a => a.Ticket == ticketId && TakesUp(a.Tool) && a.Text != a.Tool)
+            .Select(a => (DateTimeOffset?)(a.DoneAt ?? a.At)).Max();
     }
 
     /// <summary>The ticket waits on a requirement of its active series that has not landed.</summary>
@@ -38,11 +40,13 @@ public static class TicketSeriesWait
         return facts.HeadStatus == RunStatuses.Failed && WaitsOnAnother(facts) && facts.SeriesTakenUpAt is { } at && facts.EndedAt is { } ended && at >= ended;
     }
 
-    /// <summary>The prerequisite wait on nobody of a ticket that waits on another and is not at work; null otherwise.</summary>
+    /// <summary>The prerequisite wait on nobody of the two cases above — an open draft or a failure taken up, not at work — while
+    /// it waits on another; null otherwise, so a closed pull request or a cancelled run keeps its own state.</summary>
     public static TicketHold? Hold(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        return WaitsOnAnother(facts) && !TicketHoldOf.AtWork(facts)
+        var draft = facts.OpenPullRequests is { Drafts.Count: > 0 };
+        return WaitsOnAnother(facts) && !TicketHoldOf.AtWork(facts) && (draft || TakenUp(facts))
             ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Nobody, TicketHoldCases.Prerequisite, null, facts.EndedAt) with { Names = facts.SeriesUnlanded }
             : null;
     }

@@ -75,9 +75,23 @@ public sealed class TicketSeriesWaitTests
             new(T, "tell_ticket", "19664", "wrote to #19664", "rebase") { DoneAt = T.AddMinutes(1) },
             new(T.AddMinutes(10), SeriesPullRequestTools.CiTool, "19664", "read the CI of #19664", null),
             new(T.AddMinutes(20), SeriesPullRequestTools.RefreshTool, "19665", "refreshed #19665", "conflict"),
+            new(T.AddMinutes(30), SeriesPullRequestTools.RefreshTool, "19664", SeriesPullRequestTools.RefreshTool, "refused"),
         ];
 
-        TicketSeriesWait.TakenUpAt(acts, "19664").Should().Be(T.AddMinutes(1));
+        TicketSeriesWait.TakenUpAt(acts, "19664").Should().Be(T.AddMinutes(1), "a refused call is logged under its tool's name");
         TicketSeriesWait.TakenUpAt(acts, "19666").Should().BeNull();
+    }
+
+    // Review of f511a: only an open draft or a taken-up failure waits on another; a closed pull request or a cancelled run keeps its state.
+    [Fact]
+    public void Hold_NoDraftAndNoFailureTakenUp_IsNone_WhatEverItWaitsOn()
+    {
+        var closed = new TicketHoldFacts("shop", "19671") { HeadStatus = RunStatuses.Success, HeadRunId = "r-1", Attempt = 1, EndedAt = T,
+            SeriesUnlanded = ["#19668"] };
+        var cancelled = closed with { HeadStatus = "cancelled" };
+
+        TicketSeriesWait.Hold(closed).Should().BeNull();
+        TicketSeriesWait.Hold(cancelled).Should().BeNull();
+        _reader.Of(closed).Should().BeNull();
     }
 }

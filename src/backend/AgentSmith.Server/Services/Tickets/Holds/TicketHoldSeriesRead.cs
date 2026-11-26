@@ -69,8 +69,9 @@ internal static class TicketHoldSeriesRead
     private static TicketHoldSeriesWait WaitOf(SeriesRunRecord record, string ticketId, SeriesRunProjectFacts facts)
     {
         var keys = record.Tickets.GroupBy(t => t.TicketId, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First().Key, StringComparer.Ordinal);
-        var unlanded = (facts.Requires.GetValueOrDefault(ticketId) ?? []).Where(id => !facts.Landed.Contains(id))
-            .Select(id => keys.GetValueOrDefault(id) ?? id).Distinct(StringComparer.Ordinal).ToList();
+        // Only the series' own tickets: one outside it, or closed on its tracker, is no wait the master resolves.
+        var unlanded = (facts.Requires.GetValueOrDefault(ticketId) ?? []).Where(id => keys.ContainsKey(id) && !facts.Landed.Contains(id))
+            .Select(id => keys[id]).Distinct(StringComparer.Ordinal).ToList();
         return new TicketHoldSeriesWait(unlanded, TicketSeriesWait.TakenUpAt(record.Acts, ticketId));
     }
 
