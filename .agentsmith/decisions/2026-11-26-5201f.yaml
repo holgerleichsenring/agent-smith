@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-5201f
+
+decisions:
+  - category: Architecture
+    chose: "Approval is a field of the state read (PrReviewState.ApprovalRequired) and a hold case (approval_needed, decide), never a CI check"
+    over: "Reading reviewer policies as CI checks; a new CI state; a new addressee"
+    reason: |
+      A required approval is a person's act. As a CI check it would sit in CiVerdict, escalate as a hung pipeline and tell the
+      master that CI waits, which is the bug that was reported. The state read already carries what the host says about the
+      pull request beside CI (draft, conflicts, auto-complete), and the hold is where every surface reads who moves next. The
+      decide addressee already means "a person decides how it goes on", and it never escalates, so the hold is never overdue.
+      The operator's report asked for this state, apart from CI and addressed to a person. The hold mechanism and the state
+      read are extended; nothing is replaced.
+    decider: operator
+  - category: Architecture
+    chose: "approval_needed is read in the decide branch after a refused refresh, a conflict and red CI, and it blocks the merge branch"
+    over: "Reading it in the merge branch; reading it before red CI"
+    reason: |
+      Red CI and a conflict need work before any approval helps, so they win. Any approval wins over CI that runs or has not
+      started, over merge_ready and over the series' merge_next: the person can approve while CI runs, and nothing merges
+      before the approval. TicketHoldReader is at its 120-line limit, so the order is one more term in the existing expression.
+  - category: Implementation
+    chose: "Per host: Azure counts a blocking Minimum reviewers or Required reviewers evaluation that is not Approved or NotApplicable; GitHub counts reviewDecision REVIEW_REQUIRED or CHANGES_REQUESTED; GitLab counts approvals_left > 0 from GET merge_requests/:iid/approvals"
+    over: "GitLab detailed_merge_status == not_approved; GitHub REVIEW_REQUIRED only"
+    reason: |
+      All three mean the same thing: the host's merge rules still wait for a person's approval. GitLab's
+      detailed_merge_status names one blocking check at a time, so a running pipeline or a draft hides not_approved, which is
+      the same blind spot as the bug. GitHub keeps CHANGES_REQUESTED until someone reviews again, and Azure's reviewer policy
+      reads Rejected after a reject vote. Both still wait for a person, so the sentence says "review it" rather than "approve
+      it". A Broken reviewer evaluation also counts: the host does not let the pull request complete.
+  - category: Implementation
+    chose: "A failed approval read (policy evaluations, GitLab approvals) gives null with a warning, and the record keeps its stored value on the same head. A head move forgets it, an ended pull request clears it, and a draft reads false"
+    over: "Failing the state read; reading null as false"
+    reason: |
+      The state read must not fail because one more host call failed (the same rule as the 9dc0c tip read). Keeping the value
+      on an undecided read matches the conflict rule. The cost: if reads keep failing, a stored true can outlive a real
+      approval on the same head; the warning names the pull request. A push may reset Azure votes, so after a head move only a
+      deciding read counts. A draft cannot be completed, so no approval is asked before it is published.
+  - category: Architecture
+    chose: "A new series kind 'approval' (person-coloured outline, legend 'needs your approval', counted as held), apart from 'question'"
+    over: "Reusing the question kind; reusing now"
+    reason: |
+      'now' would tell the master and NewlyNext that the ticket is next to merge. 'question' would label the node
+      "question / plan" and share its fill. SeriesTicketKinds.Is knows the new kind, so a stored table keeps it, and
+      NewlyNext wakes the master when the approval moves the ticket on to 'now'.
+  - category: Architecture
+    chose: "approval_needed (the host's rule) coexists with ApprovedBy and the series review mode 'each' (agent-smith's rule)"
+    over: "Folding one into the other"
+    reason: |
+      ApprovedBy lists who approved; the review mode decides when the master merges. ApprovalRequired is whether the host
+      still refuses to merge without an approval. A series in review mode 'none' can still sit behind a host reviewer policy,
+      and that was the reported case. Neither replaces the other, so this is no second path.
+  - category: Implementation
+    chose: "The first read that finds an approval required wakes the series master (not quiet)"
+    over: "Recording it quietly (the spec reviewer's suggestion)"
+    reason: |
+      The master cannot approve, but it is how the operator hears about a series ticket in the chat: "#19656 needs a person's
+      approval". It fires once per change to required, and costs one turn per pull request at most. Without it, an idle master
+      never says why the ticket stopped.
+  - category: Scope
+    chose: "Two Azure CI-read changes ship as hardening: a status whose newest state is NotSet is no check, and a series-branch pull request reads its validating builds while no required check stands"
+    over: "Claiming either as the proven cause of the 4-day 'CI running'"
+    reason: |
+      The code shows both could make a pull request read as pending without end. A NotSet status mapped to Pending. With no
+      required check every status decides, and any status kept the series builds unread. No stored record of #19656's checks
+      exists (the record keeps the state, not the check names), so neither is proven to be what happened. The build
+      SourceVersion fallback and the stored CI kept on a failed read are left unchanged and unverified.
+  # Addendum: the operator read 12 live Azure PRs of the series.
+  - category: Architecture
+    chose: "A draft is its own hold case (pr_draft, decide, PR link) and series kind (draft). It comes after a conflict and red CI and before approval_needed and every CI wait, and it is not the hold while a run works or at the series' retarget step"
+    over: "Folding a draft into approval_needed or a CI wait; adding a publish tool for the master"
+    reason: |
+      The host asks nobody to approve a draft, and Azure queues no build or reviewer policy on one, so a draft read as CI
+      pending or as approval would ask for the wrong step. Publishing already exists: the master's merge takes a draft out of
+      draft first (PullRequestDraftStep). A second publish path would need the operator's approval. A stacked draft is moved
+      first, because the merge refuses a pull request that targets another ticket's branch.
+  - category: TradeOff
+    chose: "The draft words never say 'publish it' alone: 'publish it only once its work is complete; its description says what a stopped run left out'"
+    over: "'Draft – publish' as the instruction for every draft"
+    reason: |
+      A run keeps its pull request a draft on purpose when it stopped half-way, stopped at a chunk boundary or delivered no
+      work (CommitAndPRHandler.cs:118-124). Such drafts are unmergeable by construction (p0393a). Those runs end as success,
+      just like a run whose ready mark the host refused, and the hold's facts cannot tell them apart. If the master published
+      every green draft, it would merge half-migrated work. Why each of the six live drafts stayed one is in its run's record,
+      which this change does not read.
+  - category: Implementation
+    chose: "An approved build-policy evaluation also counts for the head when its build's SourceVersion is the pull request's test merge of that head, and a build that cannot be fetched leaves the evaluation's own status as the check (logged)"
+    over: "A commit-parents check per build; leaving RanHead unchanged"
+    reason: |
+      A pull-request build's source version is its test merge. Without pr.sourceSha in its trigger info, an approved build of
+      the head read as pending for good. A build deleted or retained away made the whole CI read throw, so the stored pending
+      stood (PrRecordCiRead). Matching LastMergeCommit while LastMergeSourceCommit is the head is a narrow extra match: a null
+      or newer merge falls back to the old rule. That live builds lack pr.sourceSha, or that a build was gone, is not observed.
+      Both are code paths that end in pending; neither is proven to be what the live PRs hit. A queued reviewer policy cannot
+      reach the CI read at all (tests pin that).
+  - category: Implementation
+    chose: "The retarget hold stays nobody's and never escalates. Its words tell the master to retarget_pull_request, the dashboard says the series master moves it, and a ticket that newly holds as retarget is a reason for the beat (SeriesJudgement.NewlyRetarget, read from the facts' hold case)"
+    over: "A new addressee; a wake from the pull-request read"
+    reason: |
+      The server's stacked retarget is gone (96aea), so "moves onto the default branch first" promised a move nothing makes.
+      Only the master moves the pull request, and the beat brings it back when the base landed. The table row has no hold
+      case, so the reason reads the case from the beat's facts and compares the words with the stored table.
+  # Addendum 2: the coordinator's series watch.
+  - category: Implementation
+    chose: "A merged repo is no stacked base: at the claim, a prerequisite's pull request whose record says merged is left out (each pull request by its own record); at the run's pull-request step, a stacked rung that is no base any more by that same rule targets the series branch, else the configured default branch"
+    over: "Only the claim-time rule; asking the tracker's landing"
+    reason: |
+      Landing is decided per ticket: every pull request ended, one merged. A prerequisite whose pull request in one repo merged
+      while another repo's stays open has not landed, so its merged branch was still offered as a base. A prerequisite can
+      also merge while the dependent's run works, and the run then moved its pull request onto the merged branch at its end.
+      PullRequestReposAsync now takes two reads (runs, records) for any number of tickets; its query-count test says two.
+      The run asks the claim's rule rather than the host: every provider's open-pull-request lookup answers null on a failure,
+      which would read as landed. A read that fails keeps the stamp. One stray pull request refuses a ticket's whole ci start. With no configured default branch, the provider's own default is used,
+      and an existing pull request on the merged branch is then left for the master's retarget.
+  - category: Implementation
+    chose: "The master's ci start or requeue on a pull request that targets neither the series nor the default branch says so and names retarget_pull_request, and runs nothing"
+    over: "Reading the queued branch builds back for any target"
+    reason: |
+      The start queues the builds that validate the default branch on the source branch. The CI read reads them back only for
+      a pull request into a series branch, so on another ticket's branch every start "succeeded" and the read stayed none,
+      which is why the master started four times. The pull request belongs on another target, so the honest answer is the
+      retarget. This is a target rule, not an Azure one, so it holds for GitHub and GitLab alike.
+  - category: Scope
+    chose: "No further change for a CI fact that stayed 'running' after a new head (#19660) beyond the test-merge and unreadable-build reads; tests pin the wake on the new head's verdict and that a record read on an older head stays due"
+    over: "Changing the wake or the CI watch on a guess"
+    reason: |
+      From the code, the master is woken on the first verdict on a new head (SeriesPrChange.Ci), and a record whose CI is on
+      an older head is due on every tick without a window (PrRecordCiDue). Two paths keep a finished build reading pending.
+      One is an approved build without pr.sourceSha that ran the test merge. The other is a build fetch that throws and keeps
+      the stored CI of the old head. Both are fixed. The stored series table moves only at a beat, so it reads as stale while
+      no wake comes. Which path hit #19660 needs its build JSON and the server log, which were not read here.

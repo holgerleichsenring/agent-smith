@@ -8,6 +8,7 @@ namespace AgentSmith.Application.Services.Holds;
 /// can merge now (CI green or none, nothing it requires unlanded) is a merge hold that opens it; one that waits is nobody's —
 /// behind the unlanded tickets it requires, or while its CI runs. A series' next merge keeps the series' own act.
 /// 2026-11-23-0219: a required build that has not started holds as ci_not_started, apart from one that runs.
+/// 2026-11-26-5201f: a person's steps on the host — a draft, an approval — are <see cref="TicketHostStepHold"/>'s.
 /// </summary>
 public static class TicketPullRequestHold
 {
@@ -46,12 +47,12 @@ public static class TicketPullRequestHold
             : null;
     }
 
-    /// <summary>2026-11-24-6811a: an open pull request conflicts with its base, or 6811d: a refresh works on one — no merge is
-    /// offered.</summary>
+    /// <summary>2026-11-24-6811a: an open pull request conflicts with its base, or 6811d: a refresh works on one, or 5201f: one
+    /// waits for a person's approval — no merge is offered.</summary>
     public static bool Blocks(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        return facts.OpenPullRequests is { Conflicts: true } || Refreshing(facts);
+        return facts.OpenPullRequests is { Conflicts: true } or { AwaitingApproval.Count: > 0 } || Refreshing(facts);
     }
 
     /// <summary>Red CI on an open pull request of a ticket that is not at work.</summary>

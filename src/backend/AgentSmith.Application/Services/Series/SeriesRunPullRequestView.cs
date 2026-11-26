@@ -23,6 +23,10 @@ public sealed record SeriesRunPullRequestView(
     /// series master merges once a person did.</summary>
     public IReadOnlyList<string> ApprovedBy { get; init; } = [];
 
+    /// <summary>2026-11-26-5201f: the host's merge rules still need a person's approval on it — the host's rule, apart from the
+    /// series' own review mode, which <see cref="ApprovedBy"/> serves.</summary>
+    public bool ApprovalRequired { get; init; }
+
     /// <summary>The pull request waits for a merge: open, or opened and not read by the host yet.</summary>
     public static bool Waits(SeriesRunPullRequestView pullRequest)
     {

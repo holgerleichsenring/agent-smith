@@ -177,6 +177,10 @@ export type TicketHoldCase =
   | "pr_conflict"
   /** 2026-11-24-6811d: a refresh-base run brings its pull request up to date; or it left the branch unchanged (detail: why) */
   | "refreshing" | "refresh_refused"
+  /** 2026-11-26-5201f: the host still needs a person's approval on an open pull request — a person's step, not CI */
+  | "approval_needed"
+  /** 2026-11-26-5201f: an open pull request is still a draft — the host asks nobody to approve it */
+  | "pr_draft"
   | "working" | "model_wait" | "queued" | "resuming" | "restarting" | "merge_after" | "retarget" | "prerequisite";
 
 /** 2026-11-23-31dcg: the one act of a hold; the target is a run id (retry), a series id (merge, series), a path

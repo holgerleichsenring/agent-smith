@@ -168,9 +168,110 @@ public sealed class AzureReposCiReaderTests
     [Fact]
     public async Task NoPolicyNoStatus_IsNone() => (await ReadAsync()).State.Should().Be(CiStates.None);
 
-    private Task<PullRequestCi> ReadAsync() =>
+    // 2026-11-26-5201f: a status whose newest state is NotSet set no state at all — it is no check, never CI running for good.
+    [Fact]
+    public async Task StatusWhoseNewestIsNotSet_IsNoCheck()
+    {
+        Statuses(Status(2, GitStatusState.NotSet));
+        (await ReadAsync()).State.Should().Be(CiStates.None);
+
+        Evaluations(Evaluation(PolicyEvaluationStatus.Approved));
+        (await ReadAsync()).State.Should().Be(CiStates.Green);
+    }
+
+    // 2026-11-26-5201f: the reported case — the build policy passed, a blocking reviewer policy waits for a person. The reviewer
+    // policy is no CI: the head is green, not running (whether it waits for an approval is the state read's, AzureReposApprovalTests).
+    [Fact]
+    public async Task BuildPassed_AReviewerPolicyPending_IsGreen_NotRunning()
+    {
+        Evaluations(Evaluation(PolicyEvaluationStatus.Approved), AzureReposApprovalTests.Reviewer(AzureReposApprovalPolicies.MinimumReviewersType, PolicyEvaluationStatus.Queued));
+        (await ReadAsync()).State.Should().Be(CiStates.Green);
+
+        Evaluations(AzureReposApprovalTests.Reviewer(AzureReposApprovalPolicies.RequiredReviewersType, PolicyEvaluationStatus.Running));
+        (await ReadAsync()).State.Should().Be(CiStates.None);
+    }
+
+    // 2026-11-26-5201f: a pull request into a series branch is validated by the default branch's builds on its head; a status no
+    // policy requires no longer hides them — before, any status kept them unread and a pending one decided alone.
+    [Fact]
+    public async Task SeriesBranchWithANonRequiredPendingStatus_ReadsTheValidatingBuilds()
+    {
+        SeriesTarget();
+        Statuses(Status(2, GitStatusState.Pending));
+        _build.Setup(c => c.GetBuildsAsync(ProjectId, It.IsAny<IEnumerable<int>>(), It.IsAny<IEnumerable<int>>(), It.IsAny<string>(),
+                It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<string>(), It.IsAny<BuildReason?>(), It.IsAny<BuildStatus?>(),
+                It.IsAny<BuildResult?>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(), It.IsAny<int?>(), It.IsAny<string>(),
+                It.IsAny<int?>(), It.IsAny<QueryDeletedOption?>(), It.IsAny<BuildQueryOrder?>(), It.IsAny<string>(), It.IsAny<IEnumerable<int>>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Build { Id = 80, Definition = new DefinitionReference { Id = 12 }, SourceVersion = "abc",
+                Status = BuildStatus.Completed, Result = BuildResult.Succeeded }]);
+
+        var ci = await ReadAsync((_, _) => Task.FromResult<IReadOnlyList<PolicyConfiguration>>([ValidatingMain(12)]));
+
+        ci.State.Should().Be(CiStates.Green, "the required validating build passed; the optional status decides nothing beside it");
+    }
+
+    // Addendum: a pull-request build's source version is the test merge. One without pr.sourceSha that built the head's test merge
+    // ran the head — it read pending for good; one of another merge still waits.
+    [Fact]
+    public async Task ApprovedBuildOfTheHeadsTestMerge_WithoutSourceSha_IsGreen()
+    {
+        TestMerge("merge-of-abc");
+        _build.Setup(c => c.GetBuildAsync(ProjectId, 55, It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Build { Id = 55, SourceVersion = "merge-of-abc" });
+        Evaluations(Evaluation(PolicyEvaluationStatus.Approved));
+        (await ReadAsync()).State.Should().Be(CiStates.Green);
+
+        TestMerge("merge-of-newer");
+        (await ReadAsync()).State.Should().Be(CiStates.Pending, "a build of another merge did not run this head's");
+    }
+
+    // Addendum: a build that cannot be fetched (deleted, retained away) failed the whole read and kept the stored pending.
+    [Fact]
+    public async Task ABuildThatCannotBeFetched_LeavesTheEvaluationsStatus()
+    {
+        _build.Setup(c => c.GetBuildAsync(ProjectId, 55, It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("build 55 not found"));
+        Evaluations(Evaluation(PolicyEvaluationStatus.Approved));
+
+        (await ReadAsync()).State.Should().Be(CiStates.Green);
+    }
+
+    private void TestMerge(string merge) =>
+        _git.Setup(c => c.GetPullRequestAsync(It.IsAny<string>(), It.IsAny<string>(), 7, It.IsAny<int?>(), It.IsAny<int?>(),
+                It.IsAny<int?>(), It.IsAny<bool?>(), It.IsAny<bool?>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GitPullRequest
+            {
+                PullRequestId = 7, LastMergeSourceCommit = new GitCommitRef { CommitId = "abc" }, LastMergeCommit = new GitCommitRef { CommitId = merge },
+                Repository = new GitRepository { ProjectReference = new TeamProjectReference { Id = ProjectId } },
+            });
+
+    private void SeriesTarget() =>
+        _git.Setup(c => c.GetPullRequestAsync(It.IsAny<string>(), It.IsAny<string>(), 7, It.IsAny<int?>(), It.IsAny<int?>(),
+                It.IsAny<int?>(), It.IsAny<bool?>(), It.IsAny<bool?>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GitPullRequest
+            {
+                PullRequestId = 7, LastMergeSourceCommit = new GitCommitRef { CommitId = "abc" },
+                SourceRefName = "refs/heads/agent-smith/7", TargetRefName = "refs/heads/agent-smith/series/s1",
+                Repository = new GitRepository { Id = RepoId, ProjectReference = new TeamProjectReference { Id = ProjectId } },
+            });
+
+    private static readonly Guid RepoId = Guid.NewGuid();
+
+    private static PolicyConfiguration ValidatingMain(int definition) => new()
+    {
+        IsEnabled = true, IsBlocking = true, Type = new PolicyTypeRef { Id = Guid.Parse(AzureReposCiPolicies.BuildPolicyType) },
+        Settings = JObject.FromObject(new
+        {
+            buildDefinitionId = definition, displayName = "PR build",
+            scope = new[] { new { repositoryId = RepoId.ToString(), refName = "refs/heads/main", matchKind = "exact" } },
+        }),
+    };
+
+    private Task<PullRequestCi> ReadAsync(AzureReposPolicyConfigurations? configurations = null) =>
         new AzureReposCiReader(_ => Task.FromResult(_git.Object), (_, artifact, _) => { _artifact = artifact; return Task.FromResult(_evaluations); }, _ => Task.FromResult(_build.Object),
-            "demo", "sample-server", "https://dev.azure.com/example").ReadAsync(PrUrl, new CiReadRequest(null, 4000, 5), CancellationToken.None);
+            "demo", "sample-server", "https://dev.azure.com/example", configurations, _ => Task.FromResult("main"))
+            .ReadAsync(PrUrl, new CiReadRequest(null, 4000, 5), CancellationToken.None);
 
     private void Evaluations(params PolicyEvaluationRecord[] records) => _evaluations = records;
 

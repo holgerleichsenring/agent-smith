@@ -91,10 +91,7 @@ public sealed class PrReviewRecordRefresh(
             var notes = await threads.ListAsync(pr.Url, ct);
             var entries = await builder.BuildAsync(PrKey.Of(pr.Url), repo.Type, state, notes, once, ct);
             var record = Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha, state.MergeSha);
-            record.IsDraft = state.IsDraft && state.State == PrReviewStates.Open; // 2026-11-23-8d16
-            record.AutoCompleteArmed = state.State == PrReviewStates.Open ? state.AutoCompleteArmed : null; // 2026-11-24-629ab
-            record.HasConflicts = state.State == PrReviewStates.Open ? state.HasConflicts : null; // 2026-11-24-6811a
-            record.ConflictsAtTicks = record.HasConflicts == true ? record.CheckedAtTicks : null;
+            PrReviewRecordOpenState.Map(state, record); // 8d16, 629ab, 6811a, 5201f
             await ci.ApplyAsync(project, states, record, stored, ct);
             await target.ApplyAsync(states, record, stored, ct); // 2026-11-22-6d85b: where a merge landed
             var wrote = await writer.WriteAsync(record, entries, start, ct);

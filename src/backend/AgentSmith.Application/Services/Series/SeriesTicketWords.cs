@@ -25,6 +25,9 @@ internal static class SeriesTicketWords
             $"red · {(fact.EndDetail is { Length: > 0 } why ? why : Spoken(hold.Case))}",
         H.ImageUntrusted or H.BootstrapMissing or H.Preflight => $"stopped · {Spoken(hold.Case)} (admin)",
         H.CiFailed => $"CI red · {fact.CiFailure ?? (hold.Names.Count > 0 ? string.Join(", ", hold.Names) : "a check failed")}",
+        H.ApprovalNeeded => "needs a person's approval on the host" + Pr(hold), // 2026-11-26-5201f
+        H.PrDraft => "PR is still a draft · the host asks nobody to approve it; publish it (merge_pull_request publishes first) only once "
+            + "its work is complete, its description says what a stopped run left out" + Pr(hold),
         H.CiRunning => "CI running" + Since(hold),
         H.CiNotStarted => "build not started" + Since(hold),
         H.PrConflict => "PR conflicts with its base",
@@ -32,7 +35,7 @@ internal static class SeriesTicketWords
         H.MergeNext => "ready to merge · next",
         H.MergeReady => "ready to merge",
         H.MergeAfter => $"merges after {Names(hold)}",
-        H.Retarget => "PR moves onto the default branch first",
+        H.Retarget => $"PR targets {Targets(fact)}, neither the series nor the default branch · move it with retarget_pull_request", // 5201f
         H.StartsOnMerge => $"starts once {Names(hold)} {(hold.Names.Count == 1 ? "is" : "are")} merged",
         H.Prerequisite => $"waits on {Names(hold)}",
         H.TextEdited => "text edited · the plan is settled in the conversation",
@@ -40,6 +43,12 @@ internal static class SeriesTicketWords
     };
 
     private static string Since(TicketHold hold) => hold.Since is { } at ? $" since {at.UtcDateTime.ToString("d MMM HH:mm", System.Globalization.CultureInfo.InvariantCulture)} UTC" : string.Empty;
+
+    private static string Pr(TicketHold hold) => hold.Act?.Target is { } pr ? $" · {pr}" : string.Empty;
+
+    private static string Targets(SeriesTicketFact fact) =>
+        fact.Waiting.Select(p => p.Target).OfType<string>().Distinct(StringComparer.Ordinal).ToList() is { Count: > 0 } targets
+            ? string.Join(", ", targets) : "another branch";
 
     private static string Names(TicketHold hold) => hold.Names.Count == 0 ? "others" : string.Join(", ", hold.Names);
 

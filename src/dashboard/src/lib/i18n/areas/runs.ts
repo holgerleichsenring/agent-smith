@@ -298,6 +298,8 @@ export const runsMessages = {
   "runs.log.specSteps.reading": { en: "reading the spec…", de: "Spec wird gelesen…" },
   "runs.log.specSteps.failed": { en: "the spec's steps could not be read", de: "die Schritte der Spec ließen sich nicht lesen" },
   "runs.log.specSteps.none": { en: "no steps recorded for this spec", de: "für diese Spec sind keine Schritte aufgezeichnet" },
+  "runs.log.specSteps.revised": { en: "revised", de: "überarbeitet" },
+  "runs.log.specSteps.revisedInPass": { en: "revised in pass {pass}", de: "überarbeitet in Durchlauf {pass}" },
   "runs.log.sub.thinking": { en: " · thinking · ", de: " · denkt nach · " },
   "runs.log.sub.noCalls": { en: "no tool calls recorded", de: "keine Tool-Aufrufe aufgezeichnet" },
   "runs.log.calls.none": { en: "no model call recorded here", de: "hier ist kein Modellaufruf aufgezeichnet" },

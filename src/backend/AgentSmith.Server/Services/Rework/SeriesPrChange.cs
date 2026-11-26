@@ -8,7 +8,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// 2026-11-25-9992g: what a read of a series ticket's pull request changed that its master judges. 2026-11-25-96aec: only
 /// what needs a decision wakes it — a CI verdict on the head (green, red, not started), a CI without one merge.ci_pending_seconds
 /// after it was first seen running (once per head), the pull request merged, closed or reopened, a conflict appearing, a
-/// person's new approval or change request. The first read of a pull request its run opened, a conflict that cleared and a
+/// person's new approval or change request, 2026-11-26-5201f: the host starting to need a person's approval. The first read of a pull request its run opened, a conflict that cleared and a
 /// target that changed are recorded quietly (<see cref="SeriesWake.Quiet"/>). A head that moved, a running CI and a re-read
 /// that saw the same record nothing.
 /// </summary>
@@ -51,6 +51,8 @@ public static class SeriesPrChange
     {
         if (StateChanged(stored, read)) yield return $"is {read.State}";
         if (read.HasConflicts == true && stored?.HasConflicts != true) yield return "conflicts with its base";
+        // 2026-11-26-5201f: a person's step the master tells the person about, once per turn to required
+        if (read.ApprovalRequired == true && stored?.ApprovalRequired != true) yield return "waits for a person's approval on the host";
         // 2026-11-25-96aea: an auto-complete the host dropped at the conflict is armed again only by the master's merge
         if (Cleared(stored, read) && stored!.AutoCompleteLostAt is not null) yield return "no longer conflicts with its base; its auto-complete is gone";
     }

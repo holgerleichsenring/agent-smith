@@ -47,6 +47,44 @@ describe("SeriesRunsHome", () => {
     expect(screen.getByTestId("series-held")).toHaveTextContent("1 held");
   });
 
+  // 2026-11-26-5201c: a series waiting on a question opens at it.
+  it("SeriesList_ARowWithAQuestion_OpensThePageAtTheQuestion", async () => {
+    stubStorage();
+    hoisted.runs.mockResolvedValue([row({ question: "Which callback URL?" })]);
+    render(<SeriesRunsHome />);
+
+    expect(await screen.findByTestId("series-row-sr-1")).toHaveAttribute("href", "/series/sr-1?section=question");
+  });
+
+  // 2026-11-26-5201d: done and stopped series sit behind Show ended; their records are untouched.
+  it("SeriesList_EndedSeries_AreHiddenUntilShowEnded_AndCounted", async () => {
+    stubStorage();
+    hoisted.runs.mockResolvedValue([row(), row({ id: "sr-2", state: "stopped" }), row({ id: "sr-3", state: "done" })]);
+    render(<SeriesRunsHome />);
+
+    expect(await screen.findByTestId("series-row-sr-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("series-row-sr-2")).toBeNull();
+    expect(screen.queryByTestId("series-row-sr-3")).toBeNull();
+    expect(screen.getByTestId("series-hidden")).toHaveTextContent("2 ended series hidden.");
+
+    fireEvent.click(screen.getByTestId("series-show-ended"));
+
+    expect(screen.getByTestId("series-row-sr-2")).toBeInTheDocument();
+    expect(screen.getByTestId("series-row-sr-3")).toBeInTheDocument();
+    expect(screen.queryByTestId("series-hidden")).toBeNull();
+    expect(hoisted.runs).toHaveBeenCalledTimes(1);
+  });
+
+  it("SeriesList_OnlyEndedSeries_SaysTheyAreHidden", async () => {
+    stubStorage();
+    hoisted.runs.mockResolvedValue([row({ state: "stopped" })]);
+    render(<SeriesRunsHome />);
+
+    expect(await screen.findByTestId("series-empty")).toHaveTextContent("No active series. 1 ended series is hidden");
+    fireEvent.click(screen.getByTestId("series-show-ended"));
+    expect(screen.getByTestId("series-row-sr-1")).toBeInTheDocument();
+  });
+
   it("SeriesList_ProjectFilter_AsksTheServerForThatProject_AndIsRemembered", async () => {
     const storage = stubStorage();
     render(<SeriesRunsHome />);

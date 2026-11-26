@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-5201e
+goal: "Every series graph node and its ticket details link straight to the ticket in its tracker and to its pull requests on the host, each in a new tab."
+
+applies_to: "dashboard (series graph, ticket details), default (series ticket view)"
+
+requires: [2026-11-25-9992j, 2026-11-23-f562]
+
+facts:
+  - claim: "The ticket details already link each pull request in a new tab and the ticket's agent-smith page, but not the tracker."
+    evidence: "src/dashboard/src/components/series/page/SeriesTicketDetails.tsx:58-77"
+  - claim: "A graph node is one button with key, marks and title, and carries no link."
+    evidence: "src/dashboard/src/components/series/page/SeriesGraph.tsx:91-105"
+  - claim: "The series ticket view carries no tracker URL."
+    evidence: "src/backend/AgentSmith.Server/Models/SeriesRunTicketView.cs:9-11"
+  - claim: "The ticket list's tracker URL is the attempt record's (RunAttempt.WebUrl, read by TicketAttemptRecords); the full read the series holds come from passes no records, so its summaries carry none."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSummaryComposer.cs:61, src/backend/AgentSmith.Server/Services/Tickets/TicketAttemptRecords.cs:17-29 and src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:58-59"
+
+scope:
+  in: |
+    Server: SeriesRunTicketView gains WebUrl; the detail reader fills it from the tickets' newest attempts' records
+    (TicketAttemptRecords, the ticket list's own source), one read per page; null for a ticket that never ran. The list and
+    the master's reads are unchanged.
+    Details: a "Tracker ↗" link (new tab) beside the ticket page link when the URL is known; the pull request links stay.
+    Graph: the node's marks and its pull request label move out of its button into a row laid over the node's key row, a
+    sibling of the button; the pull request label becomes its link and a tracker link (↗) follows it, each in a new tab and
+    aria-labelled. The row lets clicks through to the node; look and size of the node unchanged.
+  out: "A new view, a tracker read on the page, a pull request list on the series page."
+
+steps:
+  - id: server
+    action: "SeriesRunDetailReader fills SeriesRunTicketView.WebUrl from TicketAttemptRecords over the tickets' newest run ids; C# test."
+  - id: types
+    action: "SeriesRunTicket.webUrl."
+  - id: details
+    action: "SeriesTicketDetails: the tracker link."
+  - id: graph
+    action: "SeriesGraph: the node's link row; series.css."
+  - id: tests
+    action: "vitest for the details' tracker link and the node links (href, target _blank, rel); C# test for the view field."
+
+done:
+  - "The details of a ticket with a tracker URL link it in a new tab (test)."
+  - "A graph node offers its tracker and pull request links in a new tab, outside its button (test)."
+  - "The series ticket view carries its newest attempt's tracker URL (C# test)."
+  - "pnpm test, pnpm build, dotnet build and the affected C# tests are green."

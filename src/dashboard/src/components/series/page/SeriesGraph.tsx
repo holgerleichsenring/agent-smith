@@ -1,11 +1,11 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useT } from "@/hooks/useT";
 import type { SeriesRunDetail, SeriesRunTicket } from "@/types/seriesRuns";
 import { seriesTicketBadges, type SeriesBadge } from "./seriesCiState";
 import { SERIES_NODE_KINDS, seriesNeededChain, waitingPullRequests } from "./seriesNodeKind";
-import { NODE_H, NODE_W, seriesNodeId, seriesOrderLayout } from "./seriesOrderLayout";
+import { NODE_H, NODE_W, seriesNodeId, seriesNodeLinksId, seriesOrderLayout } from "./seriesOrderLayout";
 
 // 2026-11-23-f562: the Overview's order graph — repo lanes, depth columns, every ticket in ONE colour by its hold
 // (ticket.kind, the server's), edges orthogonal and the needed-merge chain's edges in the accent, a legend and the course select.
@@ -29,7 +29,7 @@ interface Props {
 const MENU_W = 260;
 
 // 2026-11-25-9992j: the small marks a node carries for its host — a conflict, red CI, CI running, a build not started.
-const MARK_TONE: Record<SeriesBadge, string> = { conflict: "bad", ciRed: "bad", ciRunning: "run", ciNotStarted: "need" };
+const MARK_TONE: Record<SeriesBadge, string> = { conflict: "bad", approval: "person", ciRed: "bad", ciRunning: "run", ciNotStarted: "need" };
 
 /** 2026-11-25-9992j: a run is at work on it now — the ticket's own flag or the series' workingOn, both the server's. */
 function isWorkedOn(detail: SeriesRunDetail, ticket: SeriesRunTicket): boolean {
@@ -87,22 +87,36 @@ export function SeriesGraph({ detail, lit, from, onFrom, openId, onNode, onClose
             const working = isWorkedOn(detail, ticket);
             const marks = seriesTicketBadges(ticket);
             const said = [t(`series.kind.${kind}`), working ? t("series.graph.working") : null, ...marks.map((m) => t(`series.badge.${m}`))];
+            const dim = on(ticket.ticketId) ? "" : " dim";
             return (
-              <button key={ticket.ticketId} id={seriesNodeId(ticket.ticketId)} type="button" style={{ left: x, top: y, width: NODE_W, height: NODE_H }}
-                className={`sr-node ${kind}${working ? " working" : ""}${on(ticket.ticketId) ? "" : " dim"}`} data-kind={kind}
+              <Fragment key={ticket.ticketId}>
+              <button id={seriesNodeId(ticket.ticketId)} type="button" style={{ left: x, top: y, width: NODE_W, height: NODE_H }}
+                className={`sr-node ${kind}${working ? " working" : ""}${dim}`} data-kind={kind}
                 aria-label={`${ticket.key} ${ticket.title}: ${said.filter(Boolean).join(", ")}`} aria-haspopup="dialog"
                 aria-expanded={openId === ticket.ticketId} onClick={(e) => { e.stopPropagation(); onNode(ticket.ticketId); }}
                 data-testid={`series-node-${ticket.ticketId}`} data-working={working || undefined}>
                 <span className="sr-node-id">
                   <span>{ticket.key}{alsoIn.length > 0 ? ` ${t("series.graph.alsoIn", { repos: alsoIn.join(" + ") })}` : ""}</span>
-                  <span className="sr-node-marks">
-                    {marks.map((mark) => <i key={mark} className={`sr-mark ${MARK_TONE[mark]}`} title={t(`series.badge.${mark}`)}
-                      data-testid={`series-mark-${mark}-${ticket.ticketId}`} />)}
+                  {/* the links row's room, held so the key ends in an ellipsis before it as it did */}
+                  <span className="sr-node-marks sr-node-room" aria-hidden="true">
+                    {marks.map((mark) => <i key={mark} className="sr-mark" />)}
                     {pr && <span>{t("series.merge.pr", { number: pr.number })}</span>}
+                    {ticket.webUrl && <span>↗</span>}
                   </span>
                 </span>
                 <span className="sr-node-name">{ticket.title}</span>
               </button>
+              {/* 2026-11-26-5201e: the node's marks and its links — the pull request and the tracker, each in a new tab — sit
+                  over the node's key row, beside its button rather than inside it. */}
+              <span id={seriesNodeLinksId(ticket.ticketId)} className={`sr-node-links${dim}`} style={{ left: x, top: y, width: NODE_W }} data-testid={`series-links-${ticket.ticketId}`}>
+                {marks.map((mark) => <i key={mark} className={`sr-mark ${MARK_TONE[mark]}`} title={t(`series.badge.${mark}`)}
+                  data-testid={`series-mark-${mark}-${ticket.ticketId}`} />)}
+                {pr && <a href={pr.url} target="_blank" rel="noreferrer" aria-label={t("series.node.openPr", { number: pr.number, key: ticket.key })}
+                  data-testid={`series-links-pr-${ticket.ticketId}`}>{t("series.merge.pr", { number: pr.number })}</a>}
+                {ticket.webUrl && <a href={ticket.webUrl} target="_blank" rel="noreferrer" aria-label={t("series.node.openTracker", { key: ticket.key })}
+                  title={t("series.node.openTracker", { key: ticket.key })} data-testid={`series-links-tracker-${ticket.ticketId}`}>↗</a>}
+              </span>
+              </Fragment>
             );
           })}
         </div>

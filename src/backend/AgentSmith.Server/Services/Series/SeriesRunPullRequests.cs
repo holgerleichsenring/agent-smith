@@ -35,7 +35,7 @@ public sealed class SeriesRunPullRequests
         var failed = ci?.State == CiStates.Red ? ci.Failures.FirstOrDefault() : null;
         return new SeriesRunPullRequestView(record.Repo, record.Number, record.Url, record.State, ci?.State,
             PullRequestHeadCi.FirstFailure(ci), failed?.Url, record.TargetBranch)
-            { IsDraft = record.IsDraft, HasConflicts = record.HasConflicts, ApprovedBy = ApprovedBy(record) }; // 8d16, 6811a, 9992i
+            { IsDraft = record.IsDraft, HasConflicts = record.HasConflicts, ApprovedBy = ApprovedBy(record), ApprovalRequired = record.ApprovalRequired }; // 8d16, 6811a, 9992i, 5201f
     }
 
     /// <summary>2026-11-25-9992i: the authors of the record's standing approvals, agent-smith's own left out.</summary>

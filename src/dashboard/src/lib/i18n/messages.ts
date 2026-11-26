@@ -143,6 +143,8 @@ export const coreMessages = {
 
   // --- dialog: a turn's steps ---
   "dialog.steps.reads": { en: { one: "1 read", other: "{count} reads" }, de: { one: "1× gelesen", other: "{count}× gelesen" } },
+  "dialog.steps.total": { en: { one: "1 step", other: "{count} steps" }, de: { one: "1 Schritt", other: "{count} Schritte" } },
+  "dialog.steps.writes": { en: { one: "1 write", other: "{count} writes" }, de: { one: "1× geschrieben", other: "{count}× geschrieben" } },
   "dialog.steps.searches": {
     en: { one: "1 search", other: "{count} searches" },
     de: { one: "1× gesucht", other: "{count}× gesucht" },
@@ -859,6 +861,15 @@ export const coreMessages = {
   "series.list.failed": { en: "Could not read the series: {message}", de: "Die Serien ließen sich nicht lesen: {message}" },
   "series.list.project": { en: "Project", de: "Projekt" },
   "series.list.allProjects": { en: "All projects", de: "Alle Projekte" },
+  "series.list.showEnded": { en: "Show ended", de: "Beendete zeigen" },
+  "series.list.hiddenEnded": {
+    en: { one: "1 ended series hidden.", other: "{count} ended series hidden." },
+    de: { one: "1 beendete Serie ausgeblendet.", other: "{count} beendete Serien ausgeblendet." },
+  },
+  "series.list.allEnded": {
+    en: { one: "No active series. 1 ended series is hidden; tick Show ended to see it.", other: "No active series. {count} ended series are hidden; tick Show ended to see them." },
+    de: { one: "Keine aktive Serie. 1 beendete ist ausgeblendet; Beendete zeigen blendet sie ein.", other: "Keine aktive Serie. {count} beendete sind ausgeblendet; Beendete zeigen blendet sie ein." },
+  },
   "series.state.running": { en: "running", de: "läuft" },
   "series.state.verifying": { en: "checking", de: "prüft" },
   "series.state.delivering": { en: "merging into the default branch", de: "mergt in den Default-Branch" },
@@ -884,7 +895,10 @@ export const coreMessages = {
   // --- series: one series' page (2026-11-23-31dcd) ---
   "series.page.back": { en: "← Series", de: "← Serien" },
   "series.page.kind": { en: { one: "series · 1 ticket", other: "series · {count} tickets" }, de: { one: "Serie · 1 Ticket", other: "Serie · {count} Tickets" } },
-  "series.page.question": { en: "1 question for you", de: "1 Frage an dich" },
+  "series.page.question": {
+    en: { one: "1 question for you", other: "{count} questions for you" },
+    de: { one: "1 Frage an dich", other: "{count} Fragen an dich" },
+  },
   "series.page.loading": { en: "Reading the series…", de: "Serie wird gelesen…" },
   "series.page.notFound": { en: "There is no such series, or it is not yours to see.", de: "Diese Serie gibt es nicht, oder du darfst sie nicht sehen." },
   "series.page.failed": { en: "The series could not be read.", de: "Die Serie ließ sich nicht lesen." },
@@ -923,10 +937,33 @@ export const coreMessages = {
   "series.badge.ciRunning": { en: "CI running", de: "CI läuft" },
   "series.badge.ciRed": { en: "CI red", de: "CI rot" },
   "series.badge.conflict": { en: "Conflict", de: "Konflikt" },
+  // 2026-11-26-5201f: the host still needs a person's approval — a person's step, apart from CI.
+  "series.badge.approval": { en: "Needs your approval", de: "Braucht deine Freigabe" },
+  "series.details.approval": { en: "needs your approval", de: "braucht deine Freigabe" },
+  "series.details.draft": { en: "draft", de: "Entwurf" },
 
   // --- series: the Overview (2026-11-23-f562) ---
   // 2026-11-25-9992j: the series page is the graph and the chat; a ticket's details are to read.
   "series.chat.title": { en: "Chat", de: "Chat" },
+  "series.chat.earlier": {
+    en: { one: "1 earlier message — show it", other: "{count} earlier messages — show more" },
+    de: { one: "1 frühere Nachricht — zeigen", other: "{count} frühere Nachrichten — mehr zeigen" },
+  },
+  "series.node.openPr": { en: "Open PR #{number} of {key} on the host", de: "PR #{number} von {key} beim Host öffnen" },
+  "series.node.openTracker": { en: "Open {key} in the tracker", de: "{key} im Tracker öffnen" },
+  "series.details.tracker": { en: "Open in the tracker ↗", de: "Im Tracker öffnen ↗" },
+  "series.chat.ticketAsks": { en: "{key} asks", de: "{key} fragt" },
+  "series.chat.seriesAsks": { en: "The series asks", de: "Die Serie fragt" },
+  "series.chat.answerBelow": { en: "Answer below.", de: "Antworte unten." },
+  "series.chat.questionNoControl": {
+    en: "Someone who may control runs answers it here.",
+    de: "Beantworten kann es hier, wer Läufe steuern darf.",
+  },
+  "series.chat.questionClosed": {
+    en: "Continue the conversation in Work it out to answer it.",
+    de: "Setze das Gespräch in Work it out fort, um zu antworten.",
+  },
+  "series.chat.answerOnTicket": { en: "Answer on its ticket", de: "Am Ticket antworten" },
   "series.chat.questionHint": { en: "Or write your own answer below.", de: "Oder schreib unten deine eigene Antwort." },
   // 2026-11-25-433fa: the status line pinned at the top of the chat, worded from what the server read.
   "series.status.label": { en: "Where the series stands", de: "Stand der Serie" },
@@ -954,6 +991,8 @@ export const coreMessages = {
   "series.kind.now": { en: "ready to merge", de: "bereit zum Merge" },
   "series.kind.needed": { en: "merge needed (later)", de: "Merge nötig (später)" },
   "series.kind.question": { en: "question / plan", de: "Frage / Plan" },
+  "series.kind.approval": { en: "needs your approval", de: "braucht deine Freigabe" },
+  "series.kind.draft": { en: "draft PR", de: "PR-Entwurf" },
   "series.kind.failed": { en: "failed / decide", de: "fehlgeschlagen / entscheiden" },
   "series.kind.running": { en: "running", de: "läuft" },
   "series.kind.pr": { en: "PR waiting", de: "PR wartet" },
@@ -1062,6 +1101,18 @@ export const coreMessages = {
   },
   "hold.title.merge_ready": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
   "hold.title.ci_failed": { en: "Your move: CI failed", de: "Du bist dran: die CI ist fehlgeschlagen" },
+  // 2026-11-26-5201f: the host waits for a person's approval on the pull request — not for CI.
+  "hold.sentence.approval_needed": {
+    en: "Its pull request needs your approval on the host before it can merge. This is not CI: open the pull request and review it.",
+    de: "Sein Pull Request braucht deine Freigabe auf dem Host, bevor er gemergt werden kann. Das ist nicht die CI: öffne den Pull Request und prüfe ihn.",
+  },
+  // 2026-11-26-5201f: a draft is asked of nobody by the host; a run may keep one on purpose, so the words never just say publish.
+  "hold.sentence.pr_draft": {
+    en: "Its pull request is still a draft, so the host asks nobody to approve it and it cannot merge. Publish it only once its work is complete: a run that stopped keeps it a draft on purpose, and its description says what is missing.",
+    de: "Sein Pull Request ist noch ein Entwurf, daher bittet der Host niemanden um Freigabe und er kann nicht gemergt werden. Veröffentliche ihn erst, wenn seine Arbeit vollständig ist: ein angehaltener Lauf lässt ihn absichtlich als Entwurf, und seine Beschreibung sagt, was fehlt.",
+  },
+  "hold.title.pr_draft": { en: "Your move: the pull request is still a draft", de: "Du bist dran: der Pull Request ist noch ein Entwurf" },
+  "hold.title.approval_needed": { en: "Your move: the pull request needs your approval", de: "Du bist dran: der Pull Request braucht deine Freigabe" },
   // 2026-11-24-6811a: the host says the pull request conflicts with its base; nothing merges it until that is resolved.
   "hold.sentence.pr_conflict": {
     en: "Its pull request conflicts with its base branch, so it cannot merge. Resolve the conflict on the branch, or rework the ticket.",
@@ -1147,8 +1198,8 @@ export const coreMessages = {
     de: { one: "Wird nach {names} gemergt. Für dich gibt es noch nichts zu tun.", other: "Wird nach {names} gemergt. Für dich gibt es noch nichts zu tun." },
   },
   "hold.sentence.retarget": {
-    en: "Its pull request moves onto the default branch first. Nothing for you to do.",
-    de: "Sein Pull Request zieht zuerst auf den Default-Branch um. Für dich gibt es nichts zu tun.",
+    en: "Its pull request targets another ticket's branch; the series master moves it onto the series or default branch. Nothing for you to do.",
+    de: "Sein Pull Request zielt auf den Branch eines anderen Tickets; der Series-Master verschiebt ihn auf den Serien- oder Default-Branch. Für dich gibt es nichts zu tun.",
   },
   "hold.sentence.prerequisite": {
     en: { one: "Starts when {names} finishes. Nothing for you to do.", other: "Starts when {names} finish. Nothing for you to do." },

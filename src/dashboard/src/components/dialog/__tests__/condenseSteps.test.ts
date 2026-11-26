@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SpecDialogActivityPush, SpecDialogActivityStep } from "@/types/spec-dialog";
-import { condenseSteps, inFlight, type RawStep } from "../condenseSteps";
+import { condenseSteps, inFlight, stepSummary, type RawStep } from "../condenseSteps";
 import { translator } from "@/lib/i18n/translate";
 
 const en = translator("en");
@@ -102,5 +102,23 @@ describe("condenseSteps", () => {
     expect(condenseSteps(en, steps).map((line) => line.text))
       .toEqual(["Waited for the model: gpt41 runs 1 at a time (agent.max_concurrent_runs)"]);
     expect(inFlight(steps)).toEqual({ key: 2, who: null });
+  });
+});
+
+// 2026-11-26-5201b: the folded steps' one line.
+describe("stepSummary", () => {
+  it("StepSummary_CountsTheStepsDrawn_AndOfThemReadsSearchesWrites", () => {
+    // 9 raw steps: two silent model steps are no steps; narration and revising are steps but no tool.
+    expect(stepSummary(en, raw)).toBe("7 steps · 2 reads · 2 searches · 1 write");
+  });
+
+  it("StepSummary_ASubAgentsReads_CountByTheToolAfterItsName", () => {
+    const sub: RawStep[] = [
+      { seq: 1, kind: "tool", name: "PoC analyst › directory_tree", detail: null },
+      { seq: 2, kind: "tool", name: "PoC analyst › read_file", detail: "a" },
+      { seq: 3, kind: "model", name: "PoC analyst › m", detail: "{\"verdict\":\"ok\"}" },
+      { seq: 4, kind: "thinking", name: null, detail: null },
+    ];
+    expect(stepSummary(en, sub)).toBe("2 steps · 1 read");
   });
 });

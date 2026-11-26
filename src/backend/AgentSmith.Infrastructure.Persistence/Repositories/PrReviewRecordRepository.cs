@@ -96,7 +96,8 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
             Time(r.CheckedAtTicks)!.Value, Time(newestEntry), [.. entries.Select(Entry)])
         { HeadSha = r.HeadSha, HeadMovedAt = Time(r.HeadMovedAtTicks), ReopenedAt = Time(r.ReopenedAtTicks), Ci = PrRecordCiJson.View(r), CiActed = r.CiActed, TargetBranch = r.TargetBranch,
             IsDraft = r.IsDraft, MergeSha = r.MergeSha, HasConflicts = r.HasConflicts == true, ConflictsAt = Time(r.ConflictsAtTicks), // 8d16, 8df6a, 6811a
-            MergesCleanly = r.HasConflicts == false, AutoCompleteLostAt = Time(r.AutoCompleteLostAtTicks), AutoCompleteRearmedHead = r.AutoCompleteRearmedHead }; // 629ab
+            MergesCleanly = r.HasConflicts == false, AutoCompleteLostAt = Time(r.AutoCompleteLostAtTicks), AutoCompleteRearmedHead = r.AutoCompleteRearmedHead, // 629ab
+            ApprovalRequired = r.ApprovalRequired == true }; // 5201f
 
     private static PrReviewEntryView Entry(PrReviewEntry e) =>
         new(e.HostId, e.Kind, e.Decision, e.Standing, e.AuthorLogin, e.Trusted, e.IsOurs, e.IsBot, e.IsSystem,

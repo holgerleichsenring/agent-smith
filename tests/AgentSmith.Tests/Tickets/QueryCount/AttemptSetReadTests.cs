@@ -1,4 +1,6 @@
+using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Contracts.Services;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -62,9 +64,33 @@ public sealed class AttemptSetReadTests : IDisposable
         ends["3"].StoppedAtBoundary.Should().BeTrue();
     }
 
+    // 2026-11-26-5201f: a repo whose pull request merged there is no base a dependent stacks on, though the ticket has not
+    // landed (another repo's is still open); each pull request by its own record.
+    [Fact]
+    public async Task PullRequestReposAsync_LeavesOutARepoWhosePullRequestMergedThere()
+    {
+        var run = Run("r-5", "5");
+        run.PullRequestsJson = """[{"repo":"server","status":"opened","url":"https://git/s/5"},{"repo":"client","status":"opened","url":"https://git/c/5"}]""";
+        await _h.AddAsync(run, Step("r-5"),
+            new PrReviewRecord { PrKey = PrKey.Of("https://git/s/5"), Url = "https://git/s/5", Repo = "server", Number = "5", Project = "alpha", TicketId = "5",
+                RunId = "r-5", State = PrReviewStates.Merged, CheckedAtTicks = 1 },
+            new PrReviewRecord { PrKey = PrKey.Of("https://git/c/5"), Url = "https://git/c/5", Repo = "client", Number = "6", Project = "alpha", TicketId = "5",
+                RunId = "r-5", State = PrReviewStates.Open, CheckedAtTicks = 1 });
+
+        var repos = await Attempts.PullRequestReposAsync("alpha", ["5"], default);
+
+        repos["5"].Should().BeEquivalentTo(["client"]);
+
+        var rerun = Run("r-5b", "5");
+        rerun.PullRequestsJson = """[{"repo":"server","status":"opened","url":"https://git/s/55"}]""";
+        await _h.AddAsync(rerun, Step("r-5b"));
+        (await Attempts.PullRequestReposAsync("alpha", ["5"], default))["5"].Should().BeEquivalentTo(["client", "server"],
+            "a re-run's new pull request in that repo, not read yet, stands by its own record");
+    }
+
     // 2026-11-23-97c2b
     [Fact]
-    public async Task PullRequestReposAsync_AnswersEachTicketsReposInOneQuery_ATicketWithoutOneAbsent()
+    public async Task PullRequestReposAsync_AnswersEachTicketsReposInTwoReads_ATicketWithoutOneAbsent()
     {
         var older = Run("r-1a", "1", status: RunStatuses.Failed);
         older.PullRequestsJson = """[{"repo":"worker","status":"completion_refused","url":"https://git/w/1"},{"repo":"client","status":"completed","url":"https://git/c/1"},{"repo":"docs","status":"completion_armed","url":"https://git/d/1"}]""";
@@ -77,7 +103,7 @@ public sealed class AttemptSetReadTests : IDisposable
 
         var repos = await Attempts.PullRequestReposAsync("alpha", ["1", "2", "3", "4"], default);
 
-        _h.Commands.Count.Should().Be(1);
+        _h.Commands.Count.Should().Be(2, "2026-11-26-5201f: the runs, and the pull-request records that say which merged — for any number of tickets");
         repos.Keys.Should().BeEquivalentTo(["1", "2"], "3 opened no pull request and 4 has no attempt");
         repos["1"].Should().BeEquivalentTo(["worker", "server", "docs"],
             "every code run's standing pull request counts, an armed one too; a merged one, whose branch a host may delete, does not");

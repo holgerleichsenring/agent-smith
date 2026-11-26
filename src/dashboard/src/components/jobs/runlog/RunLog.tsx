@@ -24,8 +24,9 @@ export interface RunLogProps {
   onToggleStep: (stepIndex: number) => void;
   mechanicsOpen: ReadonlySet<string>;
   onToggleMechanics: (sectionId: string) => void;
-  /** What a section draws besides its steps: the ticket, the plan, a spec's decisions, the criteria, the report. */
-  body: (section: LogSection) => ReactNode;
+  /** What a section draws besides its steps: the ticket, the plan, a spec's steps and decisions, the criteria, the
+   *  report. 2026-11-26-5201g: handed the master pass of each step index, so a spec's body names its passes. */
+  body: (section: LogSection, masterPasses: ReadonlyMap<number, StepPass>) => ReactNode;
   /** The open step's detail. */
   detail: (step: LogStep) => ReactNode;
   /** 2026-11-18-d6d2e: prefixed to every element id, so several logs on one page never share one. */
@@ -64,7 +65,7 @@ export function RunLog(props: RunLogProps) {
             {isOpen && (
               <div className="rl-sec-body" id={`${props.idPrefix ?? ""}run-sec-${s.id}`}>
                 <Steps section={s} passes={passes} masterPasses={masterPasses} {...props} />
-                {props.body(s)}
+                {props.body(s, masterPasses)}
               </div>
             )}
           </section>

@@ -92,6 +92,8 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
     case "merge_next": return { ...base, tone: "person", title: t("hold.title.merge_next") };
     case "merge_ready": return { ...base, tone: "person", title: t("hold.title.merge_ready") };
     case "ci_failed": return { ...base, tone: "bad", title: t("hold.title.ci_failed") };
+    case "approval_needed": return { ...base, tone: "person", title: t("hold.title.approval_needed") }; // 2026-11-26-5201f
+    case "pr_draft": return { ...base, tone: "person", title: t("hold.title.pr_draft") };
     case "pr_conflict": return { ...base, tone: "bad", title: t("hold.title.pr_conflict") }; // 2026-11-24-6811a
     case "refresh_refused": return { ...base, tone: "bad", title: t("hold.title.refresh_refused") }; // 2026-11-24-6811d
   }

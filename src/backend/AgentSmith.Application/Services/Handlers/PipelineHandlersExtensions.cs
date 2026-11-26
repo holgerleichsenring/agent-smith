@@ -117,6 +117,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<RunWorkCheckpointer>(); // p0360: mid-run work durability
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
+        services.AddTransient<LandedRungTarget>(); // 2026-11-26-5201f
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();
         services.AddInitProjectHandlers().AddBranchCleanupHandlers().AddDeploymentHandlers().AddPocHandlers(); // p0490 init tail; 2026-11-17-713ec, 2026-11-18-3863c, 2026-11-23-933db
         services.AddTransient<ICommandHandler<SwitchSkillContext>, SwitchSkillHandler>();

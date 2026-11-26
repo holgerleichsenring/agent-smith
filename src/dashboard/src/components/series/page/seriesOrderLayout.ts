@@ -76,6 +76,11 @@ export function seriesNodeId(ticketId: string): string {
   return `sr-node-${ticketId.replace(/[^A-Za-z0-9-]/g, (c) => `_${c.charCodeAt(0)}_`)}`;
 }
 
+/** 2026-11-26-5201e: the element holding a node's links, beside its button — a click there is still on the node. */
+export function seriesNodeLinksId(ticketId: string): string {
+  return `${seriesNodeId(ticketId)}-links`;
+}
+
 const CORNER = 6;
 const BEND_BEFORE = 12;
 

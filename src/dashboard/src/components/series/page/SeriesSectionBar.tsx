@@ -7,15 +7,18 @@ import { conversationHref } from "@/components/dialog/conversationHref";
 import { money } from "@/components/tickets/ticketFormat";
 import type { SeriesRunDetail } from "@/types/seriesRuns";
 import { seriesStateWord } from "../seriesNextStep";
+import { openQuestionCount, SERIES_QUESTION_ID } from "./SeriesQuestionBlock";
 
 // 2026-11-23-31dcd: the series' own bar beside the icon-only app sidebar, as the ticket page's: back to the list, the
 // series' size, name and state (with the question that waits for a person), and at its foot the project, the repos, the
 // conversation it came from, when it started and what it cost. 2026-11-25-9992j: no progress bar, counts or sections —
 // the page is one pane, the graph says where the series stands.
+// 2026-11-26-5201c: the questions that wait are a link to them, above the chat's input, and count every one drawn there.
 
 export function SeriesSectionBar({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
   const locale = useDateLocale();
+  const questions = openQuestionCount(detail);
   const started = new Date(detail.startedAt).toLocaleDateString(locale, { day: "numeric", month: "short" });
   return (
     <aside className="tk-bar" aria-label={detail.name} data-testid="series-section-bar">
@@ -24,7 +27,8 @@ export function SeriesSectionBar({ detail }: { detail: SeriesRunDetail }) {
         <span className="tk-bar-key">{t("series.page.kind", { count: detail.counts.total })}</span>
         <span className="tk-bar-title">{detail.name}</span>
         <span className={`tk-bar-state ${stateTone(detail)}`} data-testid="series-state-word">
-          {seriesStateWord(detail.state, t)}{detail.question ? ` · ${t("series.page.question")}` : ""}
+          {seriesStateWord(detail.state, t)}
+          {questions > 0 && <> · <a href={`#${SERIES_QUESTION_ID}`} data-testid="series-question-link">{t("series.page.question", { count: questions })}</a></>}
         </span>
       </div>
       <div className="tk-bar-facts" data-testid="series-facts">
@@ -40,7 +44,7 @@ export function SeriesSectionBar({ detail }: { detail: SeriesRunDetail }) {
 
 // The state word's colour: a question waits for a person; otherwise done passed, stopped or paused is quiet, the rest moves.
 function stateTone(detail: SeriesRunDetail): string {
-  if (detail.question) return "need";
+  if (openQuestionCount(detail) > 0) return "need";
   if (detail.state === "done") return "ok";
   if (detail.state === "stopped" || detail.state === "paused") return ""; // the bar's quiet colour
   return "run";

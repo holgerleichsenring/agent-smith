@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-5201d
+
+decisions:
+  - category: Architecture
+    chose: "Hide ended series (done, stopped) in the list behind a Show ended checkbox, a view filter on the rows the server already returns"
+    over: "Deleting a series row; an archive flag on the record; a server-side state filter"
+    reason: |
+      A stopped series of one is what keeps a pull-request read from reopening one for its ticket (SeriesOfOne), so its
+      record must stay; deleting it would bring the series back. An archive flag would be a second meaning of "ended" next
+      to the state. The list endpoint returns every state already, so filtering in the browser needs no new parameter and
+      no permission — it changes nothing.
+  - category: Implementation
+    chose: "A checkbox beside the project filter, not the ticket list's state pills; not remembered across visits"
+    over: "Reusing TicketStatePills; storing the choice like the project filter"
+    reason: |
+      The list asks one question, ended or not; the pills are buckets of ticket states the series list does not have. The
+      default (active only) is what a visit should show; a remembered "show ended" would bring the clutter back silently.
+  - category: Implementation
+    chose: "The list says how many ended series it hides, and an all-ended list says so instead of 'no series'"
+    over: "Hiding silently"
+    reason: |
+      A series that vanishes without a word reads as lost; the count tells the reader where it went.

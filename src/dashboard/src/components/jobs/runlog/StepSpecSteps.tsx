@@ -4,10 +4,13 @@ import { useT } from "@/hooks/useT";
 import type { ProgressLedgerEntry } from "@/types/hub-events";
 import { InlineText } from "./LogText";
 import { StepPart } from "./StepPart";
+import { revisionWords, type SpecRevision } from "./specRevisions";
 import { SPEC_STEP_WORDS, specStepsCount } from "./specStepLines";
 import { useSpecStepLines, type GivenPasses } from "./useSpecStepLines";
 
 // 2026-11-19-1b72d: the opened spec step's first part — the spec's steps, numbered, each done, in progress or open.
+// 2026-11-26-5201g: drawn once, in the spec's section, as the spec stands now — no longer under every master pass, where
+// pass 1 showed what pass 3 revised — and under it the passes that revised the steps, each with the reason it logged.
 
 interface Props {
   runId: string;
@@ -16,9 +19,11 @@ interface Props {
   ledgerIsThisSpec: boolean;
   /** The run's passes as the page already read them; absent, they are read here. */
   passes?: GivenPasses;
+  /** The spec's revise_spec revisions (specRevisions). */
+  revisions?: SpecRevision[];
 }
 
-export function StepSpecSteps({ runId, specId, ledger, ledgerIsThisSpec, passes }: Props) {
+export function StepSpecSteps({ runId, specId, ledger, ledgerIsThisSpec, passes, revisions = [] }: Props) {
   const t = useT();
   const { lines, loading, stepsFailed, statesFailed } = useSpecStepLines(runId, specId, ledger, ledgerIsThisSpec, passes);
   return (
@@ -39,6 +44,11 @@ export function StepSpecSteps({ runId, specId, ledger, ledgerIsThisSpec, passes 
           {t(loading ? "runs.log.specSteps.reading" : stepsFailed ? "runs.log.specSteps.failed" : "runs.log.specSteps.none")}
         </div>
       )}
+      {revisions.map((r, i) => (
+        <div key={i} className="rl-part-row rl-part-note rl-dim" data-testid="step-spec-revision">
+          {revisionWords(t, r)} — <InlineText text={r.text} />
+        </div>
+      ))}
     </StepPart>
   );
 }

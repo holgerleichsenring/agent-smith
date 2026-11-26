@@ -13,19 +13,39 @@
 .mock-tickets .sr-heldcnt.hot { color: var(--person); font-weight: 600; }
 .mock-tickets .sr-filter { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); }
 .mock-tickets .sr-filter select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 5px 8px; max-width: 220px; }
+.mock-tickets .sr-filter.sr-ended-toggle { margin-left: 0; gap: 6px; white-space: nowrap; cursor: pointer; }
+.mock-tickets .sr-ended-toggle input { accent-color: var(--accent); margin: 0; }
 .mock-tickets .sr-empty { padding: 28px 16px; text-align: center; color: var(--ink-3); background: var(--panel); border: 1px dashed var(--line); border-radius: var(--r); }
 /* 2026-11-23-31dcd: one series' page in the ticket page's frame (ticket-thread.css). 2026-11-25-9992j: one pane — the
    graph, the series' last step, and the chat below it. */
 .mock-tickets .sr-state { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .mock-tickets .sr-state.bad { color: var(--bad); }
+.mock-tickets .sr-state.person { color: var(--person); }
 .mock-tickets .sr-chat { display: grid; gap: 10px; min-width: 0; margin-top: 22px; scroll-margin-top: 16px; }
 .mock-tickets .sr-chat h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--ink); }
-/* 2026-11-25-433fa: the status line stays at the top of the chat while it scrolls. */
+/* 2026-11-25-433fa: the status line at the top of the chat. 2026-11-26-5201a: no longer sticky — the transcript scrolls in
+   its own box below it, so nothing passes under it. */
 .mock-tickets .sr-status {
-  position: sticky; top: 0; z-index: 1; margin: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+  margin: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--panel); color: var(--ink); font-size: 13px; overflow-wrap: anywhere;
 }
 .mock-tickets .sr-talk { display: flex; flex-direction: column; gap: 12px; min-width: 0; background: transparent; }
+/* 2026-11-26-5201a: the chat window — the transcript scrolls inside its own box, the composer stays below it. The box is
+   positioned, so a row's absolute sr-only label is placed in it and never grows the shell's scroller. On a narrow
+   or short screen the page flows and the box is bounded; otherwise the page is the viewport's height: the graph takes what it needs up
+   to a bound and scrolls inside itself beyond it, the chat fills the rest, and only the chat's box scrolls. */
+.mock-tickets .sr-scroll { position: relative; display: block; min-height: 0; max-height: 70vh; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.mock-tickets .sr-scroll-body { display: flex; flex-direction: column; gap: 16px; }
+.mock-tickets .sr-earlier { align-self: center; font-size: 12.5px; }
+@media (min-width: 761px) and (min-height: 700px) {
+  .mock-tickets.tk-shell.sr-page > .tk-page { height: calc(100vh - var(--topbar-h, 0px)); min-height: 0; overflow: hidden; padding-bottom: 12px; }
+  .mock-tickets.sr-page .tk-heading { flex: none; }
+  .mock-tickets.sr-page .tk-pane { flex: 1 1 0; min-height: 0; }
+  .mock-tickets.sr-page .sr-overview { flex: none; max-height: 30vh; overflow-y: auto; }
+  .mock-tickets.sr-page .sr-chat { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; margin-top: 4px; }
+  .mock-tickets.sr-page .sr-talk { flex: 1 1 0; min-height: 0; }
+  .mock-tickets.sr-page .sr-scroll { flex: 1 1 0; min-height: 96px; max-height: none; }
+}
 /* 2026-11-23-f562: the order graph (repo lanes, depth columns, one colour per ticket by the server's kind, orthogonal
    edges, the needed chain in the accent) and a node's details. The graph scrolls sideways inside its own box, never the
    page. 2026-11-25-9992j: a ticket at work carries a pulsing mark, the host's conflict and CI small dots. */
@@ -34,6 +54,8 @@
 .mock-tickets .sr-dot.now { background: var(--accent); }
 .mock-tickets .sr-dot.needed { border: 2px solid var(--accent); }
 .mock-tickets .sr-dot.question { background: var(--person); }
+.mock-tickets .sr-dot.approval { border: 2px solid var(--person); }
+.mock-tickets .sr-dot.draft { border: 2px dashed var(--person); }
 .mock-tickets .sr-dot.failed { background: var(--bad); }
 .mock-tickets .sr-dot.running { background: var(--run); }
 .mock-tickets .sr-dot.pr { background: var(--panel-2); border: 1px solid var(--ink-3); }
@@ -60,10 +82,13 @@
 .mock-tickets .sr-mark.bad { background: var(--bad); }
 .mock-tickets .sr-mark.run { background: var(--run); }
 .mock-tickets .sr-mark.need { background: var(--person); }
+.mock-tickets .sr-mark.person { background: var(--panel); box-shadow: inset 0 0 0 2px var(--person); }
 .mock-tickets .sr-node-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mock-tickets .sr-node.now { border: 2px solid var(--accent); background: var(--accent-wash); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 .mock-tickets .sr-node.needed { border: 2px solid var(--accent); }
 .mock-tickets .sr-node.question { border: 2px solid var(--person); background: var(--person-wash); }
+.mock-tickets .sr-node.approval { border: 2px solid var(--person); }
+.mock-tickets .sr-node.draft { border: 2px dashed var(--person); }
 .mock-tickets .sr-node.failed { border: 2px solid var(--bad); background: var(--bad-wash); }
 .mock-tickets .sr-node.running { border-color: var(--run); background: var(--run-wash); }
 .mock-tickets .sr-node.pr { background: var(--panel-2); }
@@ -99,3 +124,19 @@
   font-size: 12.5px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
 .mock-tickets .tk-pane .sr-question .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
 .mock-tickets .tk-pane .sr-question .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 2026-11-26-5201c: the questions that wait, pinned above the chat's input; bounded so they never take the chat window. */
+.mock-tickets .sr-questions { flex: 0 1 auto; min-height: 64px; display: grid; align-content: start; gap: 8px; max-height: 24vh; overflow-y: auto; scroll-margin-bottom: 16px; }
+.mock-tickets .sr-question-who { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; color: var(--person); }
+.mock-tickets .sr-question-line { margin: 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mock-tickets .sr-question-line .sr-question-who { display: inline; margin: 0; }
+
+/* 2026-11-26-5201e: a node's marks and links over its key row, beside the node's button: the row lets clicks through to the
+   node, its links take them. */
+.mock-tickets .sr-node-links { position: absolute; box-sizing: border-box; height: 22px; padding: 4px 8px 0; display: flex; justify-content: flex-end; align-items: center; gap: 5px; pointer-events: none; font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); z-index: 1; transition: opacity .15s; }
+.mock-tickets .sr-node-links a { pointer-events: auto; color: var(--ink-3); text-decoration: none; white-space: nowrap; }
+.mock-tickets .sr-node-links a:hover, .mock-tickets .sr-node-links a:focus-visible { color: var(--accent); text-decoration: underline; }
+.mock-tickets .sr-node-links.dim { opacity: .2; }
+.mock-tickets .sr-menu-links { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.mock-tickets .sr-hidden { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
+.mock-tickets .sr-node-room { visibility: hidden; }

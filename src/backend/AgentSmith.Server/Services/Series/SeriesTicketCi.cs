@@ -17,10 +17,11 @@ namespace AgentSmith.Server.Services.Series;
 /// 2026-11-25-9992e: the series master's CI act on a member ticket: read has the ticket's records read from the host now
 /// (<see cref="IPrRecordRefreshNow"/>) and answers each open pull request's CI on its head (<see cref="PullRequestHeadCi"/>);
 /// requeue and start are a merge-green run over its open pull requests carrying NotStarted or NoCi — the paths the CI loop
-/// took before — which merge nothing.
+/// took before — which merge nothing. 2026-11-26-5201f: never for a pull request on another branch than the series' or the default.
 /// </summary>
 public sealed class SeriesTicketCi(
-    TicketProjects projects, PrReviewRecordRepository records, IPrRecordRefreshNow refresh, IPreviousAttemptReader attempts, IMergeGreenRun merges)
+    TicketProjects projects, PrReviewRecordRepository records, IPrRecordRefreshNow refresh, IPreviousAttemptReader attempts, IMergeGreenRun merges,
+    SeriesRunPullRequests pullRequests)
 {
     public async Task<string> ActAsync(SeriesRunRecord series, string ticketId, string act, CancellationToken ct)
     {
@@ -40,6 +41,7 @@ public sealed class SeriesTicketCi(
     private async Task<string> RunAsync(ResolvedProject project, SeriesRunRecord series, string ticketId,
         IReadOnlyList<PrReviewRecordView> open, string act, CancellationToken ct)
     {
+        if (Elsewhere(project, series, open) is { } stray) return stray; // 2026-11-26-5201f
         if (await attempts.LatestAsync(project.Name, ticketId, null, ct) is not { } attempt)
             return $"Ticket {ticketId} has no attempt whose pull requests the CI could be asked for.";
         var start = act == SeriesCiActs.Start;
@@ -51,11 +53,21 @@ public sealed class SeriesTicketCi(
             + "; read it with ci read.";
     }
 
+    // 2026-11-26-5201f: a pull request on another branch than the series' or the default branch has no build policy to run and
+    // its CI is not read there, so a start or a requeue would "succeed" with nothing running — said instead, with the way on.
+    private string? Elsewhere(ResolvedProject project, SeriesRunRecord series, IReadOnlyList<PrReviewRecordView> open)
+    {
+        var stray = pullRequests.Of(open, project).Where(p => pullRequests.TargetsElsewhere(p, project, series.IntegrationBranch)).ToList();
+        return stray.Count == 0 ? null : string.Join(" ", stray.Select(p => $"{p.Repo} {p.Url} targets {p.Target}, neither the series nor the "
+            + "default branch: no build policy validates it there and its CI is not read, so nothing would run. Retarget it with retarget_pull_request first."));
+    }
+
     private static string Line(PrReviewRecordView record)
     {
         var ci = PullRequestHeadCi.OnHead(record);
         var failure = PullRequestHeadCi.FirstFailure(ci) is { } f ? $" — {f}" : string.Empty;
         return $"{record.Repo} {record.Url} into {record.TargetBranch ?? "an unread target"}: CI {ci?.State ?? "not read yet"}{failure}"
-            + (record.HasConflicts ? ", conflicts with its base" : string.Empty) + (record.IsDraft ? ", draft" : string.Empty) + ".";
+            + (record.HasConflicts ? ", conflicts with its base" : string.Empty) + (record.IsDraft ? ", draft" : string.Empty)
+            + (record.ApprovalRequired ? ", waits for a person's approval on the host" : string.Empty) + "."; // 2026-11-26-5201f
     }
 }

@@ -127,10 +127,10 @@ describe("RunStepDetail, sub-agents", () => {
   });
 });
 
-// 2026-11-19-1b72d: an opened spec step reads as four headed parts — the spec's steps, the sub-agents, build and tests
-// per repository, the activity — in that order.
+// 2026-11-19-1b72d: an opened spec step reads as headed parts — the sub-agents, build and tests per repository, the
+// activity — in that order. 2026-11-26-5201g: the spec's steps left for the spec's section.
 describe("RunStepDetail, headed parts", () => {
-  it("RunStepDetail_Opened_ShowsFourHeadedSections", () => {
+  it("RunStepDetail_Opened_ShowsThreeHeadedSectionsAndNoSpecSteps", () => {
     page = {
       events: [
         ev({ type: EventType.SubAgentSpawned, timestamp: at(1), subAgentId: "a", name: "OutboxReviewer", activity: "Review the outbox",
@@ -144,20 +144,13 @@ describe("RunStepDetail, headed parts", () => {
       ],
       hasOlder: true, loading: false, loadOlder,
     };
-    const ledger = [
-      { id: "s1", activity: "Record today's behaviour in a test", status: "done" as const, target: null },
-      { id: "s2", activity: "Add the event DTOs", status: "in_progress" as const, target: null },
-      { id: "s3", activity: "Map the outbox table", status: "pending" as const, target: null },
-    ];
-    render(<RunStepDetail runId="r1" step={step("AgenticMaster", { specId: "2026-11-19-480fa", subAgents: 1 })} live={false}
-      ledger={ledger} ledgerSpecId="2026-11-19-480fa" />);
+    render(<RunStepDetail runId="r1" step={step("AgenticMaster", { specId: "2026-11-19-480fa", subAgents: 1 })} live={false} />);
 
+    // 2026-11-26-5201g: the spec's steps are drawn in the spec's section, not under each master pass.
     expect(screen.getAllByTestId("step-part-heading").map((h) => h.textContent)).toEqual([
-      "Steps of the spec · 1 of 3 done", "Sub-agents", "Build and tests · 1 of 2 repositories green", "Activity",
+      "Sub-agents", "Build and tests · 1 of 2 repositories green", "Activity",
     ]);
-    expect(screen.getAllByTestId("step-spec-step").map((r) => [r.getAttribute("data-state"), r.textContent])).toEqual([
-      ["done", "1Record today's behaviour in a testdone"], ["in_progress", "2Add the event DTOsin progress"], ["open", "3Map the outbox tableopen"],
-    ]);
+    expect(screen.queryByTestId("step-part-steps")).toBeNull();
     expect(screen.getByTestId("step-sub-agent-status")).toHaveTextContent("finished · 12 tool calls · 29.0s");
     expect(screen.getByTestId("step-repo-server")).toHaveTextContent("dotnet test");
     expect(screen.getByTestId("step-repo-server")).toHaveTextContent("passed · 6.3s");
@@ -166,7 +159,7 @@ describe("RunStepDetail, headed parts", () => {
 
   it("RunStepDetail_AStepWithoutASpec_HasNoStepsPart", () => {
     page = { events: [], hasOlder: false, loading: false, loadOlder };
-    render(<RunStepDetail runId="r1" step={step("AgenticMaster")} live={false} ledger={null} ledgerSpecId={null} />);
+    render(<RunStepDetail runId="r1" step={step("AgenticMaster")} live={false} />);
     expect(screen.queryByTestId("step-part-steps")).toBeNull();
     expect(screen.getAllByTestId("step-part-heading").map((h) => h.textContent)).toEqual(["Activity"]);
   });

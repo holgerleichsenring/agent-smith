@@ -54,12 +54,15 @@ export interface SeriesRunPullRequest {
   refreshRunId?: string | null;
   /** 2026-11-23-0219: the newest merge run's refusal or armed auto-complete on it; null when none said one. */
   mergeSaid?: SeriesMergeSaid | null;
+  /** 2026-11-26-5201f: the host's merge rules still need a person's approval on it. */
+  approvalRequired?: boolean;
 }
 
 /** 2026-11-25-9992a: a ticket's one kind on every series surface, computed on the server (SeriesTicketState) — the Overview's
  *  colours, the master's table and the panel alike: merged; the merge now; a merge others start on; a question or plan gap; a
- *  failure a person decides; at work; a pull request that waits; and the rest waits or never started. */
-export type SeriesNodeKind = "now" | "needed" | "question" | "failed" | "running" | "pr" | "waiting" | "merged";
+ *  failure a person decides; at work; a pull request that waits; and the rest waits or never started. 2026-11-26-5201f: approval —
+ *  a person approves its pull request on the host; draft — its pull request is still a draft. */
+export type SeriesNodeKind = "now" | "needed" | "question" | "approval" | "draft" | "failed" | "running" | "pr" | "waiting" | "merged";
 
 export interface SeriesRunTicket {
   ticketId: string;
@@ -86,6 +89,8 @@ export interface SeriesRunTicket {
   working: boolean;
   /** 2026-11-25-9992j: what every run of the ticket cost; the ticket details show it. */
   costUsd: number;
+  /** 2026-11-26-5201e: where the ticket opens in its tracker (its newest attempt's fetch); absent or null when unknown. */
+  webUrl?: string | null;
   /** 2026-11-25-9992e: the series master's newest act on the ticket, from its act log; null when it never acted on it. */
   lastAct?: SeriesTicketLastAct | null;
 }
@@ -162,6 +167,8 @@ export interface SeriesRunDetail {
    *  draws them as buttons, and a choice sent as a message is the answer. */
   questionChoices: string[];
   questionRecommended: number | null;
+  /** 2026-11-26-5201c: the key of the ticket whose run asked the waiting question; null or absent for the master's own. */
+  questionTicket?: string | null;
   /** 2026-11-25-433fa: the key of the ticket whose pull requests merge next; null when none is ready. */
   nextMerge?: string | null;
   /** 2026-11-25-433fa: how far the series is — merged over total, as the server words it (SeriesProgressWord). */

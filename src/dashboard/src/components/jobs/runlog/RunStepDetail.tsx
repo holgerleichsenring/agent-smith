@@ -8,8 +8,6 @@ import { useRunStepEvents } from "@/hooks/useRunStepEvents";
 import { useSandboxEvents } from "@/hooks/useSandboxEvents";
 import { useDateLocale, useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
-import { splitSpecPrefix } from "@/lib/runStepRail";
-import type { ProgressLedgerEntry } from "@/types/hub-events";
 import type { LogStep } from "./runLogSections";
 import { commandKey } from "./runSections";
 import { kindWord } from "./runNowLines";
@@ -17,8 +15,6 @@ import { InlineText } from "./LogText";
 import { RunStepHead } from "./RunStepHead";
 import { StepCallSequence } from "./StepCallSequence";
 import { StepPart } from "./StepPart";
-import { StepSpecSteps } from "./StepSpecSteps";
-import type { GivenPasses } from "./useSpecStepLines";
 import { StepSubAgents } from "./StepSubAgents";
 import { repoGreenCount, repoOutcomeWords, stepDetailLines, type DetailFilter, type DetailLine, type RepoOutcome } from "./stepDetailLines";
 
@@ -28,6 +24,7 @@ import { repoGreenCount, repoOutcomeWords, stepDetailLines, type DetailFilter, t
 // The events are one page of the step, newest first, followed while the run is live; older pages load on request.
 // 2026-11-19-1b72d: below the head line, headed parts — the spec's steps (on the step that runs a spec's master), the
 // sub-agents, build and tests per repository, and the activity: the event list with its filters, as before.
+// 2026-11-26-5201g: the spec's steps moved to the spec's section (SpecBody), drawn once as the spec stands now.
 
 const FILTERS: Array<{ key: DetailFilter | "all"; label: TextKey }> = [
   { key: "all", label: "runs.log.filter.all" }, { key: "find", label: "runs.log.filter.find" }, { key: "obs", label: "runs.log.filter.obs" },
@@ -42,19 +39,12 @@ interface Props {
   step: LogStep;
   /** The run is still going: the page follows it, and a repository's output can be watched. */
   live: boolean;
-  /** The run's progress ledger and the spec it belongs to (specStepLines.ledgerSpec); absent where no spec is known. */
-  ledger?: ProgressLedgerEntry[] | null;
-  ledgerSpecId?: string | null;
-  /** The run's passes as the page already read them (the ticket page's store); absent, they are read on demand. */
-  passes?: GivenPasses;
 }
 
-export function RunStepDetail({ runId, step, live, ledger = null, ledgerSpecId = null, passes }: Props) {
+export function RunStepDetail({ runId, step, live }: Props) {
   const t = useT();
   const locale = useDateLocale();
   const { row } = step;
-  const specId = row.specId ?? splitSpecPrefix(row.displayName ?? row.stepName).specId;
-  const runsTheSpec = !row.planned && specId !== null && commandKey(row) === "AgenticMaster";
   const page = useRunStepEvents(runId, row.planned ? null : row.stepIndex, live);
   const view = useMemo(() => stepDetailLines(t, locale, page.events, !live), [t, locale, page.events, live]);
   const [filter, setFilter] = useState<DetailFilter | "all">("all");
@@ -71,7 +61,6 @@ export function RunStepDetail({ runId, step, live, ledger = null, ledgerSpecId =
   return (
     <>
       <RunStepHead step={step} />
-      {runsTheSpec && <StepSpecSteps runId={runId} specId={specId} ledger={ledger} ledgerIsThisSpec={ledgerSpecId === specId} passes={passes} />}
       {!row.planned && (
         <StepSubAgents events={page.events} live={live} hasOlder={page.hasOlder} loading={page.loading} loadOlder={page.loadOlder} />
       )}

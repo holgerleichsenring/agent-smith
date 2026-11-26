@@ -1,13 +1,17 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { RunSpecRow } from "@/lib/runSpecsApi";
 import type { RunStepRow } from "@/lib/runStepsApi";
 import type { RunSnapshot } from "@/types/hub-events";
 
 // 2026-11-18-d6d2e: the run page's log on its own — the run page and a ticket report draw it; the caller owns the open
 // step, the ids' prefix and the ticket and check bodies.
 
-vi.mock("@/hooks/useRunSpecs", () => ({ useRunSpecs: () => [] }));
+let specs: RunSpecRow[] = [];
+vi.mock("@/hooks/useRunSpecs", () => ({ useRunSpecs: () => specs }));
 vi.mock("@/hooks/useRunStepEvents", () => ({ useRunStepEvents: () => ({ events: [], hasOlder: false, loading: false, loadOlder: () => {} }) }));
+const RECORD = "spec: s1\ngoal: g\nsteps:\n  - id: a\n    action: First\n  - id: b\n    action: Second\n";
+vi.mock("@/lib/runSpecsApi", () => ({ fetchRunSpec: () => Promise.resolve({ spec: {}, record: RECORD }) }));
 
 const { RunSectionedLog } = await import("../RunSectionedLog");
 
@@ -59,6 +63,26 @@ describe("RunSectionedLog", () => {
     render(<RunSectionedLog runId="r1" snapshot={null} events={[]} steps={[row(1, { status: "success" })]} openStep={1}
       onOpenStep={() => {}} checkBody={null} />);
     expect(screen.getByTestId("run-step-detail-1")).toBeInTheDocument();
+  });
+
+  it("RunSectionedLog_ASpecRevisedInPass2_ShowsItsStepsOnceAtTheSpecWithTheRevision", async () => {
+    // 2026-11-26-5201g: the steps were drawn under every opened master pass, each as the spec stood at the end.
+    const master = (stepIndex: number) => row(stepIndex, { stepName: "AgenticMaster", displayName: "Run master skill", commandName: "AgenticMasterCommand", status: "success" });
+    const passes = [master(1), row(2, { status: "success", commandName: "MasterOpenQuestionsCommand", stepName: "MasterOpenQuestions" }), master(3)];
+    specs = [{ specId: "s1", ordinal: 1, title: "t", status: "in_progress", startedAt: "2026-11-26T10:00:00Z", endedAt: null, verdict: null, steps: [],
+      decisions: [{ stepIndex: 3, name: "Spec s1 revised in run r1 as revision 2: the operator narrowed it", reason: "revise-spec", category: "Implementation", recordedAt: "2026-11-26T11:00:00Z" }] }];
+    try {
+      render(<RunSectionedLog runId="r1" snapshot={null} events={[]} steps={passes} openStep={1} onOpenStep={() => {}} checkBody={null}
+        passes={{ data: null, loading: false, failed: false }} />);
+
+      expect(await screen.findAllByTestId("step-spec-step")).toHaveLength(2);
+      expect(screen.getAllByTestId("step-part-steps")).toHaveLength(1);
+      expect(within(screen.getByTestId("run-step-detail-1")).queryByTestId("step-part-steps")).toBeNull();
+      expect(within(screen.getByTestId("spec-body-s1")).getByTestId("step-part-steps")).toBeInTheDocument();
+      expect(screen.getByTestId("step-spec-revision")).toHaveTextContent("revised in pass 2 — Spec s1 revised in run r1 as revision 2: the operator narrowed it");
+    } finally {
+      specs = [];
+    }
   });
 
   it("RunSectionedLog_TwoLogsWithTheirPrefixes_ShareNoElementId", () => {

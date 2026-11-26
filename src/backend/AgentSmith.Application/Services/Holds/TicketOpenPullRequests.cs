@@ -22,4 +22,10 @@ public sealed record TicketOpenPullRequests(string? Ci, DateTimeOffset? CiSince)
     /// <summary>2026-11-24-6811d: a refresh-base run at work on one of them, or the newest one's refusal still standing (its
     /// head has not moved since); null when neither.</summary>
     public AgentSmith.Contracts.Runs.PullRequestRefreshSaid? Refresh { get; init; }
+
+    /// <summary>2026-11-26-5201f: the URLs of the open ones whose host still needs a person's approval; empty when none.</summary>
+    public IReadOnlyList<string> AwaitingApproval { get; init; } = [];
+
+    /// <summary>2026-11-26-5201f: the URLs of the open ones that are still drafts; empty when none.</summary>
+    public IReadOnlyList<string> Drafts { get; init; } = [];
 }

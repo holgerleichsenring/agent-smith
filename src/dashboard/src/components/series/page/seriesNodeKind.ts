@@ -7,7 +7,7 @@ import type { SeriesNodeKind, SeriesRunDetail, SeriesRunPullRequest } from "@/ty
 export type { SeriesNodeKind } from "@/types/seriesRuns";
 
 /** The kinds in the legend's order. */
-export const SERIES_NODE_KINDS: SeriesNodeKind[] = ["now", "needed", "question", "failed", "running", "pr", "waiting", "merged"];
+export const SERIES_NODE_KINDS: SeriesNodeKind[] = ["now", "needed", "question", "approval", "draft", "failed", "running", "pr", "waiting", "merged"];
 
 /** The pull requests that wait for a merge: open, or opened and not read by the host yet. */
 export function waitingPullRequests(pullRequests: SeriesRunPullRequest[]): SeriesRunPullRequest[] {

@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError } from "@/lib/apiResponse";
-import { seriesDetail } from "./seriesFixtures";
+import { hold } from "@/components/tickets/__tests__/ticketFixtures";
+import { seriesDetail, seriesTicket } from "./seriesFixtures";
 
 // 2026-11-23-31dcd: the series page; its chat posts to the series' own conversation. 2026-11-25-9992j: ONE pane — the graph
 // and the chat under it, no sections; an older ?section=talk link scrolls to the chat; the series' waiting question shows
@@ -82,6 +83,7 @@ describe("SeriesRunPage", () => {
 
     expect(hoisted.dialog.send).toHaveBeenCalledWith("Merge it", "shop");
     expect(screen.queryByTestId("series-question")).toBeNull();
+    expect(screen.queryByTestId("series-questions")).toBeNull(); // 2026-11-26-5201c: no empty block left above the input
   });
 
   it("SeriesPage_AFailedSend_BringsTheChoicesBack", async () => {
@@ -97,22 +99,101 @@ describe("SeriesRunPage", () => {
     hoisted.dialog.failure = null;
   });
 
-  it("SeriesPage_WithoutRunsControl_ShowsNoChoiceButtons", async () => {
+  // 2026-11-26-5201c: another viewer sees the question too, without buttons, and who answers it here.
+  it("SeriesPage_WithoutRunsControl_ShowsTheQuestionWithoutChoiceButtons", async () => {
     hoisted.lacks = true;
     hoisted.fetch.mockResolvedValue(asked());
     render(<SeriesRunPage id="sr-1" />);
 
-    await screen.findByTestId("series-talk");
-    expect(screen.queryByTestId("series-question")).toBeNull();
+    const card = await screen.findByTestId("series-question");
+    expect(card).toHaveTextContent("#50 is ready to merge.");
+    expect(card).toHaveTextContent("Someone who may control runs answers it here.");
+    expect(screen.queryByTestId("dialog-answer-Merge it")).toBeNull();
   });
 
-  it("SeriesPage_AQuestionWithoutChoices_IsAnsweredByWriting", async () => {
+  // 2026-11-26-5201c: a question without choices is a card too, naming its ticket, answered by writing below it.
+  it("SeriesPage_AQuestionWithoutChoices_IsACardNamingItsTicket_AnsweredBelow", async () => {
+    hoisted.fetch.mockResolvedValue(seriesDetail({ question: "Which callback URL?", questionTicket: "#19664" }));
+    render(<SeriesRunPage id="sr-1" />);
+
+    const card = await screen.findByTestId("series-question");
+    expect(screen.getByTestId("series-question-who")).toHaveTextContent("#19664 asks");
+    expect(card).toHaveTextContent("Which callback URL?");
+    expect(card).toHaveTextContent("Answer below.");
+    expect(card.querySelector("button")).toBeNull();
+    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
+  });
+
+  it("SeriesPage_TheQuestionBlock_SitsDirectlyAboveTheInput", async () => {
     hoisted.fetch.mockResolvedValue(seriesDetail({ question: "Which callback URL?" }));
     render(<SeriesRunPage id="sr-1" />);
 
-    await screen.findByTestId("series-talk");
-    expect(screen.queryByTestId("series-question")).toBeNull();
-    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
+    const block = await screen.findByTestId("series-questions");
+    expect(block).toHaveAttribute("id", "series-question");
+    expect(screen.getByTestId("series-question-who")).toHaveTextContent("The series asks");
+    const following = block.compareDocumentPosition(screen.getByTestId("dialog-composer-text"));
+    expect(following & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("series-chat-scroll")).not.toContainElement(block);
+  });
+
+  it("SeriesPage_ATicketParkedOnAQuestion_IsALineToItsTicket_AndTheRailCountsIt", async () => {
+    hoisted.fetch.mockResolvedValue(seriesDetail({
+      question: "Which callback URL?", questionTicket: "#61",
+      tickets: [
+        seriesTicket({ ticketId: "61", key: "#61", kind: "question", hold: hold("question_plan", { act: { kind: "conversation", target: "sr-1" } }) }),
+        seriesTicket({ ticketId: "62", key: "#62", kind: "question", hold: hold("question") }),
+        seriesTicket({ ticketId: "63", key: "#63", kind: "failed", hold: hold("failed") }),
+      ],
+    }));
+    render(<SeriesRunPage id="sr-1" />);
+
+    const line = await screen.findByTestId("series-ticket-question-62");
+    expect(line).toHaveTextContent("#62");
+    expect(line.querySelector("a")).toHaveAttribute("href", "/tickets/shop/62");
+    expect(screen.queryByTestId("series-ticket-question-61")).toBeNull();
+    expect(screen.queryByTestId("series-ticket-question-63")).toBeNull();
+    const link = screen.getByTestId("series-question-link");
+    expect(link).toHaveTextContent("2 questions for you");
+    expect(link).toHaveAttribute("href", "#series-question");
+  });
+
+  it("SeriesPage_AQuestionLink_ScrollsToTheQuestionBlock", async () => {
+    hoisted.search = "section=question";
+    hoisted.fetch.mockResolvedValue(seriesDetail({ question: "Which callback URL?" }));
+    render(<SeriesRunPage id="sr-1" />);
+
+    await screen.findByTestId("series-questions");
+    expect(hoisted.scrolled).toHaveBeenCalledTimes(1);
+    expect(hoisted.scrolled.mock.instances[0]).toBe(screen.getByTestId("series-questions"));
+  });
+
+  it("SeriesPage_AGoneConversation_StillShowsTheQuestion", async () => {
+    hoisted.fetch.mockResolvedValue({ ...asked(), threadId: null });
+    render(<SeriesRunPage id="sr-1" />);
+
+    expect(await screen.findByTestId("series-question")).toHaveTextContent("#50 is ready to merge.");
+    expect(screen.getByTestId("series-talk-gone")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-answer-Merge it")).toBeNull();
+  });
+
+  it("SeriesPage_ADecisionPending_TheQuestionSaysWhereToAnswer", async () => {
+    hoisted.dialog.awaitingProposal = {} as unknown as null;
+    hoisted.fetch.mockResolvedValue(asked());
+    render(<SeriesRunPage id="sr-1" />);
+
+    const card = await screen.findByTestId("series-question");
+    expect(card).toHaveTextContent("Continue the conversation in Work it out to answer it.");
+    expect(screen.queryByTestId("dialog-answer-Merge it")).toBeNull();
+    hoisted.dialog.awaitingProposal = null;
+  });
+
+  it("SeriesPage_AClosedConversation_StillShowsTheQuestion_WithoutButtons", async () => {
+    hoisted.fetch.mockResolvedValue({ ...asked(), conversationOpen: false });
+    render(<SeriesRunPage id="sr-1" />);
+
+    const card = await screen.findByTestId("series-question");
+    expect(card).toHaveTextContent("Continue the conversation in Work it out to answer it.");
+    expect(screen.queryByTestId("dialog-answer-Merge it")).toBeNull();
   });
 
   it("SeriesPage_AClosedConversation_IsContinuedInWorkItOut", async () => {

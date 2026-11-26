@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-5201e
+
+decisions:
+  - category: Implementation
+    chose: "The tracker URL comes from the tickets' newest attempts' records (TicketAttemptRecords) in the series detail reader, one read per page"
+    over: "Carrying the ticket list summaries' WebUrl through SeriesRunHolds (the spec review's suggestion); a tracker read on the page"
+    reason: |
+      The spec review assumed the summaries the series holds come from carry the URL. They do not: the full ticket-list read
+      (TicketListReader.AllAsync) passes no attempt records, and its summaries' WebUrl is null — a test proved it. The
+      records are the ticket list's own source of the URL, so reading them for the page's tickets is the same path, not a
+      second one, and costs one query on the detail page only; the list and the master's reads are unchanged.
+  - category: Implementation
+    chose: "A node's marks, PR label and a tracker ↗ sit in a row laid over its key row, a sibling of the node's button; the PR label becomes the PR's link; an invisible copy inside the button keeps the key's ellipsis"
+    over: "A second row of links under the node; links inside the button; links only in the details popover"
+    reason: |
+      The operator asked for every node to link the tracker and the PR directly. A link cannot live inside a button, the 12px
+      gap between rows has no room for a second row, and moving the existing PR label out keeps the node's look and size. The
+      row lets clicks through to the node, and a click on its link leaves the node's open details open.
+  - category: Implementation
+    chose: "No change to the sidebar's Pull requests entry"
+    over: "Restoring a nav entry"
+    reason: |
+      It was not removed: it shows for a caller with runs.read anywhere (sidebarItems, AppSidebar), labelled by its icon only
+      where the sidebar is collapsed, as on the series and ticket pages. Nothing to restore; the graph links cover the act.
+  - category: Implementation
+    chose: "The series list's hidden-ended count got its own spacing class (found rendering 5201d against fixtures)"
+    over: "A separate commit"
+    reason: |
+      The note class pulled the line up into the rows' frame; a one-line CSS fix rides with the next series commit.

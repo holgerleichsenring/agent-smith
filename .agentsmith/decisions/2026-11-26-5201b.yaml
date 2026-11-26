@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-5201b
+
+decisions:
+  - category: Architecture
+    chose: "Fold the steps in TurnMessage itself, on every surface it serves (the series chat and Work it out)"
+    over: "A prop that folds them on the series page only"
+    reason: |
+      TurnMessage is the one agent-turn renderer; a per-page switch would be a second behaviour of the same message. The
+      operator asked for the chat to read like this session, where tool calls are folded, and Work it out shows the same
+      turns. The master's narration lines fold too; the reply stays visible.
+  - category: Implementation
+    chose: "The summary counts every step condenseSteps draws a line for, and of them the reads, searches and writes by its own name rules (one dropped() helper shared)"
+    over: "Counting the condensed lines; counting raw tool calls only"
+    reason: |
+      Counting lines would say "3 steps" for a burst of 120 reads. Sharing the drop rule keeps the summary present exactly
+      when there are lines, and keeps reads, searches and writes a subset of the steps.
+  - category: Implementation
+    chose: "A button with aria-expanded and aria-controls and component state, not a details element"
+    over: "<details>/<summary>"
+    reason: |
+      It matches SpecCard's fold and the transcript's existing classes. The fold is the turn's one control; the 92e9c test
+      that a turn has no control now says exactly that.

@@ -83,6 +83,47 @@ public sealed class SeriesPrChangeTests
             .Match<SeriesWake>(w => w.Quiet && w.Text.Contains("no longer conflicts"));
     }
 
+    // 2026-11-26-5201f: after a refresh pushed a new head, the first verdict on the new head wakes the master — the stored
+    // pending of the old head is no verdict on it.
+    [Fact]
+    public void AGreenOnANewHead_AfterAPendingOnTheOldOne_Wakes()
+    {
+        var read = Read(ci: CiStates.Green);
+        read.HeadSha = read.CiHeadSha = "def5678aa";
+
+        Of(Stored(ci: CiStates.Pending), read).Should().ContainSingle().Which.Should()
+            .Match<SeriesWake>(w => w.Kind == SeriesWakeKinds.Ci && !w.Quiet && w.Text.Contains("on def5678 is green"));
+    }
+
+    // 2026-11-26-5201f: a record whose CI was read on an older head is read again however long ago that read was, so the new
+    // head's verdict is read; a pending on the current head stops being polled after the window.
+    [Fact]
+    public void CiDue_ARecordReadOnAnOlderHead_IsDue_WithoutTheWindow()
+    {
+        var due = new AgentSmith.Infrastructure.Persistence.Repositories.PrRecordCiDue(CheckedBeforeTicks: 100, PendingSinceTicks: 50) { SeriesTickets = ["7"] }
+            .Where("p").Compile();
+        PrReviewRecord Record(string ciHead) => new()
+        {
+            Project = "p", TicketId = "7", State = PrReviewStates.Open, CheckedAtTicks = 10, HeadSha = "new",
+            CiState = CiStates.Pending, CiHeadSha = ciHead, CiAtTicks = 1,
+        };
+
+        due(Record("old")).Should().BeTrue();
+        due(Record("new")).Should().BeFalse("a pending on the head itself polls only inside the window");
+    }
+
+    // 2026-11-26-5201f: the host starting to need a person's approval wakes the master once, so it tells the person.
+    [Fact]
+    public void AnApprovalBecomingRequired_WakesOnce()
+    {
+        var read = Read();
+        read.ApprovalRequired = true;
+
+        Of(Stored(), read).Should().ContainSingle().Which.Should()
+            .Match<SeriesWake>(w => !w.Quiet && w.Text.Contains("waits for a person's approval on the host"));
+        Of(Stored() with { ApprovalRequired = true }, read).Should().BeEmpty("it already waited at the read before");
+    }
+
     [Fact]
     public void TheFirstGoodReadAfterAFailedOne_IsQuiet() =>
         Of(Stored(PrReviewStates.Unread), Read()).Should().ContainSingle().Which.Quiet.Should().BeTrue("the record never knew a state");

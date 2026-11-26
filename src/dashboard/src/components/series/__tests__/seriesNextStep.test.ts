@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { translator } from "@/lib/i18n/translate";
 import type { SeriesRunRow } from "@/types/seriesRuns";
-import { seriesNextStep, seriesStateWord } from "../seriesNextStep";
+import { seriesEnded, seriesNextStep, seriesStateWord } from "../seriesNextStep";
 
 // 2026-11-23-31dcc: a question first, then the ready merge, then stuck tickets, then the series' own end.
 
@@ -28,5 +28,13 @@ describe("seriesNextStep", () => {
     expect(seriesStateWord("delivering", t)).toBe("merging into the default branch"); // 2026-11-24-f9c5e
     expect(seriesStateWord("odd", t)).toBe("odd");
     expect(seriesStateWord("paused", translator("de"))).toBe("pausiert");
+  });
+});
+
+// 2026-11-26-5201d: what the list hides until Show ended.
+describe("seriesEnded", () => {
+  it("SeriesEnded_DoneAndStopped_AreEnded_TheRestMoves", () => {
+    expect(["done", "stopped"].every(seriesEnded)).toBe(true);
+    expect(["running", "verifying", "delivering", "paused"].some(seriesEnded)).toBe(false);
   });
 });

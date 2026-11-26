@@ -95,6 +95,10 @@ public static class TicketHoldCases
     /// <summary>2026-11-23-d60d: CI failed on an open pull request; the names are the failed checks.</summary>
     public const string CiFailed = "ci_failed";
 
+    /// <summary>2026-11-26-5201f: the host still needs a person's approval on an open pull request — a person's step, not CI —
+    /// or an open pull request is still a draft, which the host asks nobody to approve.</summary>
+    public const string ApprovalNeeded = "approval_needed", PrDraft = "pr_draft";
+
     /// <summary>2026-11-23-d60d: CI still runs on an open pull request.</summary>
     public const string CiRunning = "ci_running";
 

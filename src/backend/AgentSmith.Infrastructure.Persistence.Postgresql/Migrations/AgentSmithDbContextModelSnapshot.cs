@@ -1247,6 +1247,9 @@ namespace AgentSmith.Infrastructure.Persistence.Postgresql.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<bool?>("ApprovalRequired")
+                        .HasColumnType("boolean");
+
                     b.Property<bool?>("AutoCompleteArmed")
                         .HasColumnType("boolean");
 

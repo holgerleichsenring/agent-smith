@@ -33,6 +33,9 @@ public sealed record SeriesRunTicketView(
     /// <summary>2026-11-25-9992j: what every run of the ticket cost, from the fact — the page's ticket details show it.</summary>
     public decimal CostUsd { get; init; }
 
+    /// <summary>2026-11-26-5201e: where the ticket opens in its tracker, as the ticket list reads it; null when it has none.</summary>
+    public string? WebUrl { get; init; }
+
     /// <summary>2026-11-25-9992e: the series master's newest act on the ticket, from the fact; null when it never acted on it.</summary>
     public AgentSmith.Application.Services.Series.SeriesTicketLastAct? LastAct { get; init; }
 }

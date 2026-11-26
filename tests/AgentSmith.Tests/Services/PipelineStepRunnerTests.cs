@@ -125,4 +125,34 @@ public sealed class PipelineStepRunnerTests
             1, 1, It.IsAny<PipelineCommand>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task RunSingleAsync_ResumedSegment_TotalCountsTheStepsRunBefore()
+    {
+        // 2026-11-26-5201g: a resume re-enters with three commands at step 27 — "27 of 3" before, "27 of 29" now.
+        var commands = new LinkedList<PipelineCommand>(new[]
+        {
+            PipelineCommand.Simple("CheckoutSource"), PipelineCommand.Simple("AgenticMaster"), PipelineCommand.Simple("CommitSpecWork"),
+        });
+        var project = new ResolvedProject();
+        var context = new PipelineContext();
+        _factoryMock.Setup(f => f.Create(It.IsAny<PipelineCommand>(), project, context)).Throws(new Exception("stop"));
+
+        var result = await _sut.RunSingleAsync(commands.First!, commands, project, context, 27, CancellationToken.None);
+
+        _progressMock.Verify(p => p.ReportProgressAsync(
+            27, 29, It.IsAny<PipelineCommand>(), It.IsAny<CancellationToken>()), Times.Once);
+        result.Result.FailedStep.Should().Be(27);
+        result.Result.TotalSteps.Should().Be(29);
+    }
+
+    [Fact]
+    public void StepTotal_Of_IsTheStepNumberPlusTheCommandsAfterIt()
+    {
+        var commands = new LinkedList<PipelineCommand>(new[] { PipelineCommand.Simple("A"), PipelineCommand.Simple("B"), PipelineCommand.Simple("C") });
+
+        StepTotal.Of(1, commands.First!).Should().Be(3, "a run that never resumed keeps the list's length");
+        StepTotal.Of(40, commands.First!.Next!).Should().Be(41);
+        StepTotal.Of(7, commands.Last!).Should().Be(7);
+    }
+
 }
