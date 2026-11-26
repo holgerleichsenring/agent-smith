@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.228.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.227.0...v0.228.0) (2026-11-26)
+
+
+### Features
+
+* **series:** the series chat gets the room (2026-11-26-b186) ([e890a9e](https://github.com/holgerleichsenring/agent-smith/commit/e890a9e2e8fdab6f7b7b937ec5c43a885c47c75a))
+* **series:** the series chat gets the room: no chrome over it, a foldable graph under a fifth, a question card that never scrolls (2026-11-26-b186) ([40f4b43](https://github.com/holgerleichsenring/agent-smith/commit/40f4b43acacac8def22f031bbcf87bf2c582715b))
+
 ## [0.227.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.226.0...v0.227.0) (2026-11-26)
 
 
