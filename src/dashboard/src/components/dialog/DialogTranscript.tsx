@@ -45,8 +45,12 @@ export function DialogTranscript({
   entries,
   greeting,
   onOpenUpload,
+  from = 0,
 }: {
   entries: DialogEntry[];
+  /** 2026-11-26-5201a: the first entry to render — a chat window renders the newest ones; the entry before it still
+   *  tells whether the first one answers a decision. */
+  from?: number;
   /** 2026-10-09-86e1: show one upload's files — the pane's Uploads tab, opened on it. */
   onOpenUpload?: (setId: string) => void;
   /** 2026-09-27-481bd: what an empty conversation says. Computed by the surface, which is where
@@ -67,8 +71,8 @@ export function DialogTranscript({
 
   return (
     <div data-testid="dialog-transcript" className="flex flex-col gap-4">
-      {entries.map((entry, at) =>
-        answersDecision(entries, at) ? (
+      {entries.slice(from).map((entry, i) =>
+        answersDecision(entries, from + i) ? (
           <Notice key={entry.key} text={entry.text} />
         ) : (
           <Turn key={entry.key} entry={entry} onOpenUpload={onOpenUpload} />

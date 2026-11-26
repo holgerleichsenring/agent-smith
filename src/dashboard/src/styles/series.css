@@ -20,12 +20,29 @@
 .mock-tickets .sr-state.bad { color: var(--bad); }
 .mock-tickets .sr-chat { display: grid; gap: 10px; min-width: 0; margin-top: 22px; scroll-margin-top: 16px; }
 .mock-tickets .sr-chat h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--ink); }
-/* 2026-11-25-433fa: the status line stays at the top of the chat while it scrolls. */
+/* 2026-11-25-433fa: the status line at the top of the chat. 2026-11-26-5201a: no longer sticky — the transcript scrolls in
+   its own box below it, so nothing passes under it. */
 .mock-tickets .sr-status {
-  position: sticky; top: 0; z-index: 1; margin: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+  margin: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--panel); color: var(--ink); font-size: 13px; overflow-wrap: anywhere;
 }
 .mock-tickets .sr-talk { display: flex; flex-direction: column; gap: 12px; min-width: 0; background: transparent; }
+/* 2026-11-26-5201a: the chat window — the transcript scrolls inside its own box, the composer stays below it. The box is
+   positioned, so a row's absolute sr-only label is placed in it and never grows the shell's scroller. On a narrow
+   screen the page flows and the box is bounded; wider, the page is the viewport's height: the graph takes what it needs up
+   to a bound and scrolls inside itself beyond it, the chat fills the rest, and only the chat's box scrolls. */
+.mock-tickets .sr-scroll { position: relative; display: block; min-height: 0; max-height: 70vh; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.mock-tickets .sr-scroll-body { display: flex; flex-direction: column; gap: 16px; }
+.mock-tickets .sr-earlier { align-self: center; font-size: 12.5px; }
+@media (min-width: 761px) {
+  .mock-tickets.tk-shell.sr-page > .tk-page { height: calc(100vh - var(--topbar-h, 0px)); min-height: 0; overflow: hidden; padding-bottom: 12px; }
+  .mock-tickets.sr-page .tk-heading { flex: none; }
+  .mock-tickets.sr-page .tk-pane { flex: 1 1 auto; min-height: 0; }
+  .mock-tickets.sr-page .sr-overview { flex: 0 0 auto; max-height: 30vh; overflow-y: auto; }
+  .mock-tickets.sr-page .sr-chat { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin-top: 4px; }
+  .mock-tickets.sr-page .sr-talk { flex: 1 1 auto; min-height: 0; }
+  .mock-tickets.sr-page .sr-scroll { flex: 1 1 auto; max-height: none; }
+}
 /* 2026-11-23-f562: the order graph (repo lanes, depth columns, one colour per ticket by the server's kind, orthogonal
    edges, the needed chain in the accent) and a node's details. The graph scrolls sideways inside its own box, never the
    page. 2026-11-25-9992j: a ticket at work carries a pulsing mark, the host's conflict and CI small dots. */

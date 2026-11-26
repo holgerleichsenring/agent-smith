@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-5201a
+goal: "The series page is the graph on top and a chat window filling the rest of the viewport; only the chat scrolls, opening at its newest message and loading older turns upward."
+
+applies_to: "dashboard (series page layout and chat)"
+
+requires: [2026-11-25-9992j, 2026-11-25-433fa, 2026-11-23-31dcd]
+
+facts:
+  - claim: "The series page is one flowing pane, the graph then the chat; the window scrolls the whole page, so a long conversation pushes the composer pages below the graph."
+    evidence: "src/dashboard/src/components/series/page/SeriesRunPage.tsx:50-60 and src/dashboard/src/styles/ticket-thread.css:11"
+  - claim: "The series chat renders every transcript entry the dialog read holds."
+    evidence: "src/dashboard/src/components/series/page/SeriesConversationSection.tsx:77"
+  - claim: "The transcript read has no paging parameter; the whole transcript comes in one GET."
+    evidence: "src/dashboard/src/lib/specDialogApi.ts:21-26 and src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:24-25"
+  - claim: "Every rendered agent turn reads its run's steps once, so rendering every turn of a long conversation pays one read per turn."
+    evidence: "src/dashboard/src/components/dialog/useTurnSteps.ts:25-29"
+  - claim: "The graph already scrolls sideways inside its own box."
+    evidence: "src/dashboard/src/styles/series.css:44"
+
+scope:
+  in: |
+    Layout (above 760px): the series page is exactly the viewport height under the top bar (.tk-page height, not min-height,
+    overflow hidden) and a flex height chain runs down to the transcript (.tk-pane, .sr-chat, .sr-talk: flex 1, min-height
+    0). The overview (graph and final step) takes its natural height up to a bound (30vh) and scrolls inside itself beyond
+    it; the chat panel takes the rest: its title and status line at the top (433fa's sticky rule is retired, nothing scrolls
+    under it), the transcript box filling the middle and scrolling, the question block (bounded, 5201c) and the composer
+    pinned at the bottom. While a shell banner shows, the shell's own scroller moves by the banner's height; that is
+    accepted. At 760px and below the page flows as today and the transcript box is bounded (70vh).
+    Transcript: a hook (useChatWindow) owns the box. The first window is the newest CHAT_PAGE entries; scrolling near the
+    box's top, or the "earlier messages" button above the first shown entry, adds CHAT_PAGE older entries and keeps the
+    reader's place. The box opens at its bottom and re-pins to the bottom when entries arrive or content grows while the
+    reader is at the bottom; when they scrolled up, nothing moves. New entries append; the first shown entry never drops
+    out. The working line sits inside the box. DialogTranscript gains an optional `from` index so the window renders
+    entries[from..] while a notice that answers a decision is still told by the entry before it. CHAT_PAGE is a render-size constant with its reason, not a limit.
+    The older ?section=talk link keeps scrolling the chat into view, which at this layout is a no-op on desktop.
+  out: "A server-side transcript window, a second transcript store, a resizable split, Work it out's own pane."
+
+steps:
+  - id: hook
+    action: "useChatWindow(count): box ref, start index, onScroll, more(); a layout effect pins to the bottom or restores the place."
+  - id: chat
+    action: "SeriesConversationSection renders the window's entries in a .sr-scroll box with the earlier-messages button; working line inside, composer outside."
+  - id: layout
+    action: "series.css: the page's fixed-height column, the bounded overview, the chat panel filling the rest; the narrow-screen fallback."
+  - id: tests
+    action: "vitest (scrollHeight/clientHeight stubbed, jsdom has no layout): only the newest page renders, the box opens at the bottom, older entries load on scroll-up and on the button keeping place, pinned at bottom on a new entry, unmoved when scrolled up."
+
+done:
+  - "A transcript longer than CHAT_PAGE renders only the newest CHAT_PAGE entries and the box opens at its bottom (test)."
+  - "Scrolling to the top or pressing the earlier-messages button shows CHAT_PAGE more without moving the reader's place (test)."
+  - "A new entry while at the bottom keeps the box at the bottom; while scrolled up the scroll position is unchanged (test)."
+  - "On a 1440x900 viewport the graph, the newest message and the composer are visible at once without scrolling the page (render)."
+  - "pnpm test and pnpm build are green."

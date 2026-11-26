@@ -16,12 +16,15 @@ import { DialogWorking } from "@/components/dialog/DialogWorking";
 import { isOpenApproval } from "@/components/tickets/detail/useTicketComposer";
 import type { SeriesRunDetail } from "@/types/seriesRuns";
 import "@/styles/spec-dialog.css";
+import { useChatWindow } from "./useChatWindow";
 
 // 2026-11-23-31dcd: the conversation that filed the series, with Work it out's own hook, transcript and composer. The
 // hook starts ON the conversation's thread (a source that seeds that dialog id and never holds it), so the browser's
 // held Work it out id is never touched and viewing reads and writes nothing. A closed conversation is continued in Work
 // it out, where resuming is a person's act; a proposal waiting for a decision is decided there too, where it is shown.
 // 2026-11-25-9992j: this is the series page's chat, its only input; the series' waiting question sits above the composer.
+// 2026-11-26-5201a: the transcript is a window that scrolls by itself — the newest entries, opened at the bottom, older
+// ones rendered as the reader scrolls up; the working line scrolls with it, the question and the composer stay below.
 
 /** The dialog id source of one thread: it starts there and stays there. */
 export function threadSource(threadId: string): DialogIdSource {
@@ -71,11 +74,21 @@ function OpenConversation({ detail, threadId }: { detail: SeriesRunDetail; threa
   const dialog = useSpecDialog(source);
   const there = dialog.view?.session?.sessionId === detail.conversation;
   const deciding = dialog.awaitingProposal !== null || isOpenApproval(dialog.question);
+  const chat = useChatWindow(dialog.entries.length);
   return (
     <div className="mock-dialog sr-talk" data-testid="series-talk">
       <p className="msub">{t("series.conversation.sub")}</p>
-      <DialogTranscript entries={dialog.entries} />
-      {dialog.working && <DialogWorking readings={dialog.readings} activity={dialog.activity} since={dialog.workingSince} />}
+      <div ref={chat.box} className="sr-scroll" onScroll={chat.onScroll} data-testid="series-chat-scroll">
+        <div ref={chat.content} className="sr-scroll-body">
+          {chat.from > 0 && (
+            <button type="button" className="d-link sr-earlier" onClick={chat.more} data-testid="series-chat-earlier">
+              {t("series.chat.earlier", { count: chat.from })}
+            </button>
+          )}
+          <DialogTranscript entries={dialog.entries} from={chat.from} />
+          {dialog.working && <DialogWorking readings={dialog.readings} activity={dialog.activity} since={dialog.workingSince} />}
+        </div>
+      </div>
       {dialog.failure && <p className="msub" role="alert" data-testid="series-talk-failed">{t("series.conversation.failed", { message: dialog.failure.message })}</p>}
       {there && !deciding && <SeriesQuestionCard detail={detail} threadId={threadId} failed={!!dialog.failure} onAnswer={(answer) => void dialog.send(answer, detail.project)} />}
       {deciding ? (

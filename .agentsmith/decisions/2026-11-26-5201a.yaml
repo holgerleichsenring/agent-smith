@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-5201a
+
+decisions:
+  - category: Architecture
+    chose: "The series page is the viewport's height: the overview bounded at 30vh and scrolling inside itself, the chat filling the rest, and only the transcript box scrolls; the composer and question block stay below it"
+    over: "Scrolling the window to the composer on open; a transcript box of fixed height inside the flowing page; a resizable split"
+    reason: |
+      The operator wants to see the graph and the current text at once without scrolling back and forth, "like this chat". A
+      window scroll to the bottom hides the graph; a fixed-height box in a flowing page still scrolls the page. A height
+      chain down to the transcript is all CSS, and a split handle is a control the mock does not have. While a shell banner
+      shows, the shell scroller moves by its height; that is accepted. At 760px and below the page flows and the box is
+      bounded, because a phone has no room for a fixed column.
+  - category: Implementation
+    chose: "The window is the browser's: useChatWindow renders the newest CHAT_PAGE entries and adds CHAT_PAGE older ones on scrolling near the top or on an earlier-messages button, anchored on its first entry"
+    over: "A server-side transcript window; virtualised rendering; a window that keeps the last N entries"
+    reason: |
+      The dialog read has no paging parameter and the same read feeds Work it out, so a server window would be a new read
+      path. Anchoring on the first entry means an arriving entry appends and nothing above the reader drops out, so a reader
+      who scrolled up never jumps. Fewer rendered turns also means fewer per-turn step reads (useTurnSteps).
+  - category: Implementation
+    chose: "CHAT_PAGE = 30 as a constant with its reason, not a config key"
+    over: "A config key with a dashboard field"
+    reason: |
+      It is a render size, not a limit on what the reader can see: every entry stays reachable by scrolling. Nobody tunes it
+      per installation.
+  - category: Implementation
+    chose: "DialogTranscript gains an optional from index instead of receiving a sliced list"
+    over: "Passing entries.slice(from)"
+    reason: |
+      A notice that answers a decision is told by the entry before it (answersDecision); a sliced list would render the
+      window's first notice as a full agent turn.
+  - category: Implementation
+    chose: "The status line's sticky rule (433fa) is retired"
+    over: "Keeping it sticky"
+    reason: |
+      The transcript now scrolls in its own box below the status line, so nothing passes under it.

@@ -927,6 +927,10 @@ export const coreMessages = {
   // --- series: the Overview (2026-11-23-f562) ---
   // 2026-11-25-9992j: the series page is the graph and the chat; a ticket's details are to read.
   "series.chat.title": { en: "Chat", de: "Chat" },
+  "series.chat.earlier": {
+    en: { one: "1 earlier message — show it", other: "{count} earlier messages — show more" },
+    de: { one: "1 frühere Nachricht — zeigen", other: "{count} frühere Nachrichten — mehr zeigen" },
+  },
   "series.chat.questionHint": { en: "Or write your own answer below.", de: "Oder schreib unten deine eigene Antwort." },
   // 2026-11-25-433fa: the status line pinned at the top of the chat, worded from what the server read.
   "series.status.label": { en: "Where the series stands", de: "Stand der Serie" },

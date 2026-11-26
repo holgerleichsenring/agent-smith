@@ -18,6 +18,7 @@ import { useSeriesRunDetail } from "./useSeriesRunDetail";
 // 2026-11-25-9992j: ONE pane — the graph (what the series stands at) and the series chat below it, the page's only input.
 // The sections are gone; an older ?section=talk link scrolls to the chat, any other name lands on the top.
 // 2026-11-25-433fa: the chat opens with the series' status line, pinned while the chat scrolls.
+// 2026-11-26-5201a: the page is the viewport's height — the graph on top, the chat filling the rest, scrolling by itself.
 
 export const SERIES_CHAT_ID = "series-chat";
 
@@ -46,7 +47,7 @@ function SeriesPane({ detail }: { detail: SeriesRunDetail }) {
   const toChat = params?.get("section") === "talk";
   useEffect(() => { if (toChat) chat.current?.scrollIntoView?.({ block: "start" }); }, [toChat]);
   return (
-    <div className="mock-shell mock-tickets tk-shell" data-testid="series-page">
+    <div className="mock-shell mock-tickets tk-shell sr-page" data-testid="series-page">
       <SeriesSectionBar detail={detail} />
       <main className="main tk-page">
         <div className="tk-heading"><h1 data-testid="series-title">{detail.name}</h1></div>
