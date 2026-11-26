@@ -4,7 +4,8 @@ namespace AgentSmith.Application.Services.Memory;
 /// p0380: maintains memory/MEMORY.md — ONE line per memory, mirroring Claude's
 /// own MEMORY.md. Content lives in the entry files, never in the index. Upsert
 /// replaces the existing line for the same entry name (update-not-duplicate)
-/// or appends a new one.
+/// or appends a new one. 2026-11-26-462aa: a second line for the name, as a union merge
+/// leaves one, is dropped.
 /// </summary>
 public static class MemoryIndexUpdater
 {
@@ -28,6 +29,8 @@ public static class MemoryIndexUpdater
             var label = MemoryIndexLine.TryParse(lines[i])?.Label; // an update keeps the label the evidence gave
             lines[i] = label is null ? FormatLine(entry) : MemoryIndexLine.TryParse(FormatLine(entry))!.Format(label);
             replaced = true;
+            for (var j = lines.Count - 1; j > i; j--)
+                if (lines[j].StartsWith(marker, StringComparison.Ordinal)) lines.RemoveAt(j);
             break;
         }
         if (!replaced) lines.Add(FormatLine(entry));

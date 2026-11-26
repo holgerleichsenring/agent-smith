@@ -6,6 +6,7 @@ namespace AgentSmith.Application.Services.Memory;
 /// 2026-10-25-9324d: the index a master is shown — each entry with its standing and record, holding entries
 /// first, then unconfirmed ones, in file order within each; disputed entries are left out and counted in one
 /// closing line, so a memory the runs turned against is never handed out as guidance.
+/// 2026-11-26-462aa: the first line per name is shown — a union merge can leave two.
 /// </summary>
 public sealed class MemoryIndexComposer
 {
@@ -15,10 +16,14 @@ public sealed class MemoryIndexComposer
         ArgumentNullException.ThrowIfNull(standings);
         var other = new List<string>();
         var entries = new List<(MemoryIndexLine Line, MemoryStanding Standing)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var raw in index.Replace("\r\n", "\n").Split('\n'))
         {
             if (MemoryIndexLine.TryParse(raw) is { } line)
-                entries.Add((line, standings.GetValueOrDefault(line.Name) ?? MemoryStanding.None(line.Name)));
+            {
+                if (seen.Add(line.Name))
+                    entries.Add((line, standings.GetValueOrDefault(line.Name) ?? MemoryStanding.None(line.Name)));
+            }
             else if (raw.Trim().Length > 0) other.Add(raw);
         }
         var shown = entries.Where(e => e.Standing.Label == MemoryStandingLabels.Holding)

@@ -90,6 +90,7 @@ public sealed class MemoryStandingTests
         var files = new InMemorySandboxFileReader();
         var path = ".agentsmith/memory/MEMORY.md"; // 2026-11-25-9992c: relative — the reader roots it at its sandbox
         files.Files[path] = Index;
+        foreach (var name in new[] { "w", "x", "y", "z" }) files.Files[$".agentsmith/memory/{name}.md"] = "body"; // 462aa
 
         var staged = await MemoryStandings.LabelWriter(store).WriteAsync(new PipelineContext(), files, "api", default);
 

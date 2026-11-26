@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-462aa
+
+decisions:
+  - category: Architecture
+    chose: "Keep both indexes as committed, line-per-entry files; move the done index out of context.yaml into contexts/<name>/done.md"
+    over: "Removing the index, or generating it on read; union-merging context.yaml"
+    reason: "Operator: the index gives an agent a one-glance overview and stays. A YAML block cannot be union-merged safely; a Markdown line list can."
+    decider: operator
+  - category: Architecture
+    chose: "merge=union in .gitattributes for contexts/*/done.md and memory/MEMORY.md"
+    over: "Custom merge resolvers in the product only"
+    reason: "Operator: a local merge — refresh-base merges locally in the sandbox and pushes — then keeps both sides' lines. Host-side merges ignore merge drivers; accepted, because the refresh is local. WorkBranchBaseMerger runs a plain `git merge --no-edit`, so the attribute applies."
+    decider: operator
+  - category: Architecture
+    chose: "The writer migrates on its first write: every context's state.done moves into its done.md and the block is spliced out; no reader accepts both"
+    over: "Readers that accept both layouts until a migration"
+    reason: "Operator asked for one of the two and no second permanent path. Diff review: two branches migrating from bases with different state.done blocks delete different hunks of context.yaml and conflict there once; that transition conflict goes to the master. No product code reads state.done (the brief drops it), so the writer is the only place that has to know the old layout, and a migrated repository has only done.md."
+    decider: operator
+  - category: Architecture
+    chose: "The base merge writes the union lines into the clone's $GIT_DIR/info/attributes before merging"
+    over: "Relying on the committed .gitattributes alone"
+    reason: "Spec review: git reads attributes from the work branch's tree, so a branch cut before its repository carried .gitattributes would conflict on done.md and lose the MEMORY.md resolution it had. The same driver, applied to a branch of any age and to the rework checkout."
+    decider: agent
+  - category: Architecture
+    chose: "Remove StateIndexConflictResolver, ContextYamlStateIndexUnion and MemoryIndexUnion"
+    over: "Keeping them beside the union driver"
+    reason: "No second path: with the attribute in info/attributes git never reports a conflict on these files, and the new writer never writes state.done, so the unions could no longer run. A conflict goes straight to the existing master resolution."
+    decider: agent
+  - category: Implementation
+    chose: "MEMORY.md after a union: Relabel keeps the first line per name and drops a line whose file beside MEMORY.md is gone (judged only by a listing that shows MEMORY.md); Upsert drops a second line; the composer shows one line per name"
+    over: "Keeping MemoryIndexUnion's per-name three-way pick"
+    reason: "Spec review: union keeps both versions of a line two branches changed and resurrects a deleted one. The first line is the work branch's, so a description changed only on the base is lost when both sides edited the same line; MemoryIndexUnion kept the changed side. Accepted with the operator's choice of union for MEMORY.md."
+    decider: agent
+  - category: Implementation
+    chose: "done.md: a short prose header, then `- {id}: {entry}` lines newest first, the entry exactly as YAML decoded it (newlines become spaces)"
+    over: "A YAML list or a table"
+    reason: "One line per entry is what union needs; the entry bytes are unchanged, so the 400-character ratchet's measurements do not move. The plugin's migration script writes the same header and lines."
+    decider: agent
+  - category: Implementation
+    chose: "This repository migrated with the plugin's update-project script (migrate-done-index.py, 2026-11-26-462ab)"
+    over: "A second one-off script here"
+    reason: "One migration for both products; it moved 1715 entries and left context.yaml byte-identical outside the block."
+    decider: agent
+  - category: Scope
+    chose: "Spec review BUILD WITH CUTS, every cut applied (info/attributes, MEMORY.md duplicates and deletions, characterisation step, the plugin landing with this spec)"
+    over: "Building the first draft"
+    reason: "Independent adversarial review before code, with real-git experiments."
+    decider: agent

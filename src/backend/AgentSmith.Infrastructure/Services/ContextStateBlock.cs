@@ -35,6 +35,18 @@ internal sealed record ContextStateBlock(int StateLine, int DoneLine, int DoneIn
         return lines.Count;
     }
 
+    /// <summary>2026-11-26-462aa: <see cref="EndOfBlock"/> without the blank lines and the comments at or above the
+    /// head's indent that close it — those introduce the next key, and removing the block must leave them.</summary>
+    public static int EndOfOwnLines(IReadOnlyList<string> lines, int head)
+    {
+        var indent = IndentOf(lines[head]);
+        var end = EndOfBlock(lines, head);
+        while (end > head + 1 && IsBlank(lines[end - 1])
+               && (lines[end - 1].Trim().Length == 0 || IndentOf(lines[end - 1]) <= indent))
+            end--;
+        return end;
+    }
+
     /// <summary>The text after <c>key:</c> on its own line — empty when the value is a block.</summary>
     public static string InlineValue(string line)
     {

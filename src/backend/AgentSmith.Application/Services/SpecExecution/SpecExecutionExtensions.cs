@@ -25,9 +25,9 @@ public static class SpecExecutionExtensions
         services.AddTransient<SpecDoneRecorder>().AddTransient<DefaultVerdictRecord>();
         // p0466's server copy, its own type since 2026-08-26-31e5.
         services.AddTransient<SpecRecordPublisher>();
-        // 2026-08-26-31e5: the state.done line that names the record file.
+        // 2026-08-26-31e5: the done index line that names the record file (2026-11-26-462aa: done.md).
         services.AddTransient<SpecRecordIndexLine>();
-        services.AddTransient<SpecIndexWriter>();
+        services.AddTransient<SpecIndexWriter>().AddTransient<ContextDoneMigration>(); // 2026-11-26-462aa
         services.AddTransient<ICommandHandler<WriteSpecRecordContext>, WriteSpecRecordHandler>();
         return services;
     }

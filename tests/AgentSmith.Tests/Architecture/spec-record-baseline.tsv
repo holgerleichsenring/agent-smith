@@ -5,7 +5,7 @@
 # duplicate-id  two spec files declare the same `phase:` id (p0169j-a..d, whose
 #               slug tails the record still reads by prefix). p0131c left this
 #               list in p0509: p0131c-pre is now read whole and is its own id.
-# unrecorded    a spec in done/ that state.done in context.yaml never recorded
+# unrecorded    a spec in done/ that the context's done index never recorded
 # dangling      a `requires:` naming a spec no file and no context entry defines
 dangling	p0162b -> p0162a
 dangling	p0164a -> p0162a

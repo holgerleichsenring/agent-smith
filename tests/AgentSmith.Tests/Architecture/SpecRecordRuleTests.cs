@@ -38,7 +38,26 @@ public sealed class SpecRecordRuleTests
     public void SpecRecord_EveryDoneSpec_IsRecordedInTheContext() =>
         Assert("unrecorded", Record.UnrecordedDoneSpecs(),
             "a spec in done/ has shipped, and the context is where the next agent reads "
-            + "what shipped. Add it to state.done in contexts/default/context.yaml.");
+            + "what shipped. Add its line to contexts/default/done.md.");
+
+    /// <summary>
+    /// 2026-11-26-462aa: the done index is each context's done.md, which two branches' lines union-merge in. A line
+    /// added to state.done in a context.yaml is the old layout coming back, and with it the merge conflicts.
+    /// </summary>
+    [Fact]
+    public void SpecRecord_NoContextYaml_CarriesStateDone()
+    {
+        var codec = new AgentSmith.Infrastructure.Services.ContextYamlStateDoneCodec(
+            new AgentSmith.Infrastructure.Services.ContextYamlBuilders());
+        var carrying = Directory.EnumerateFiles(SpecRecordFile.ContextsRoot, "context.yaml", SearchOption.AllDirectories)
+            .Where(path => codec.Extract(File.ReadAllText(path)) is { Yaml: not null } or { Error: not null })
+            .Select(path => Path.GetRelativePath(SpecRecordFile.ContextsRoot, path))
+            .ToList();
+
+        carrying.Should().BeEmpty(
+            "a finished spec's line goes into contexts/<name>/done.md, not into state.done.\n  "
+            + string.Join("\n  ", carrying));
+    }
 
     [Fact]
     public void SpecRecord_EveryRequires_NamesASpecThatExists() =>

@@ -27,8 +27,6 @@ public static class TestGit
             NullLogger<AgentSmith.Application.Services.DeliveryDiff>.Instance);
 
     public static WorkBranchBaseMerger Merger => new(
-        new StateIndexConflictResolver(new AgentSmith.Infrastructure.Services.ContextYamlStateIndexUnion(),
-            NullLogger<StateIndexConflictResolver>.Instance), // 2026-11-17-023fb
         new AgentSmith.Application.Services.BaseRefresh.BaseMergeResolutionCommit(new AgentSmith.Application.Services.BaseRefresh.BaseRefreshGit()), // 6811c
         NullLogger<WorkBranchBaseMerger>.Instance);
 

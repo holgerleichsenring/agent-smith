@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-462aa
+goal: "The done index moves out of context.yaml into contexts/<name>/done.md, and done.md and MEMORY.md merge with merge=union, so parallel spec branches stop conflicting there."
+
+applies_to: "default (Application spec record + base merge + memory index, Infrastructure codec, schema, rule tests, CLAUDE.md, docs)"
+
+requires: [2026-11-17-023fb, 2026-11-24-6811b]
+
+facts:
+  - claim: "The record step splices each finished spec's index line into state.done of the carrying context's context.yaml, newest first."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecIndexWriter.cs:47-52 and src/backend/AgentSmith.Infrastructure/Services/ContextYamlStateDoneCodec.cs:18-40"
+  - claim: "The record commit stages the one context path the index writer answers."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecDoneRecorder.cs:61-67"
+  - claim: "The base merge of a refresh is a plain local git merge in the sandbox; a conflict goes to StateIndexConflictResolver (context.yaml state.done and MEMORY.md unions) and then to a master."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/WorkBranchBaseMerger.cs:55,69 and src/backend/AgentSmith.Application/Services/Sandbox/StateIndexConflictResolver.cs:36-38"
+  - claim: "The memory index is written by remember (MemoryIndexUpdater.Upsert) and relabelled by the record step (MemoryIndexLabels.Relabel); the composer shows every entry line it parses."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/FileMemoryStore.cs:41, src/backend/AgentSmith.Application/Services/Memory/MemoryIndexLabelWriter.cs:21 and src/backend/AgentSmith.Application/Services/Memory/MemoryIndexComposer.cs:18-21"
+  - claim: "No product code reads state.done for a prompt or the dashboard; the project brief drops state."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/ProjectBriefBuilder.cs:12,17-20"
+  - claim: "The schema requires state.done and state.active."
+    evidence: ".agentsmith/context.schema.json:1137-1140"
+  - claim: "The record rules read state.done from contexts/default/context.yaml: the 400-character ratchet, the unrecorded-done rule and the pointer-resolves rule."
+    evidence: "tests/AgentSmith.Tests/Architecture/SpecRecordFile.cs:16-39, tests/AgentSmith.Tests/Architecture/SpecRecord.cs:31-80,127-129"
+  - claim: "This repository's default context carries 1715 state.done entries; the dashboard context has no state."
+    evidence: ".agentsmith/contexts/default/context.yaml:92-1811"
+
+scope:
+  in: |
+    done.md: `.agentsmith/contexts/<name>/done.md`, a short prose header, then one line per finished spec, newest first:
+    `- {id}: {entry}`, the entry composed by SpecRecordIndexLine (400 characters). The writer replaces a line with the same id
+    (and drops a duplicate a union left), else inserts it above the first entry.
+    .gitattributes: the record step ensures `.agentsmith/contexts/*/done.md merge=union` and `.agentsmith/memory/MEMORY.md merge=union`
+    in the repository root's .gitattributes, appending only missing lines, staged with the record.
+    Migration of a target repository: the WRITER migrates on its first write. Every `.agentsmith/contexts/*/context.yaml` with a
+    state.done block has its entries moved, in file order, into that context's done.md, and the block spliced out (an empty
+    state left behind is removed); nothing reads both layouts. A context.yaml that does not parse is left as it is and named in the log.
+    A repository that had no state section keeps its context.yaml untouched (the codec's Append, which created state with
+    active: {}, goes away).
+    Base merge: git reads attributes from the work branch's tree, so a branch cut before the migration would not union. Before
+    `git merge`, WorkBranchBaseMerger writes the same two lines into the sandbox clone's `$GIT_DIR/info/attributes`, so the
+    union applies to a branch of any age and to the rework checkout. StateIndexConflictResolver, ContextYamlStateIndexUnion and
+    MemoryIndexUnion are removed — git's union driver replaces them; a conflict goes straight to the existing master resolution.
+    MEMORY.md under union: two different edits of one line (a relabel on each side) leave two lines for one name, and a line one
+    side deleted comes back. The record step's relabel keeps the first line per name and drops a line whose <name>.md is not in
+    the memory directory; remember's Upsert drops a second line for the name; the composer shows the first line per name. Which side's description survives two
+    edits of one line is not decided (the first, the work branch's) — MemoryIndexUnion kept the changed side; that is lost.
+    This repository: a one-off script (the plugin's update-project migration, 2026-11-26-462ab) moves the default context's entries
+    into done.md; .gitattributes added; schema state.required is [active] and state.done is deprecated (accepted, never written);
+    the rule tests read done.md; CLAUDE.md, docs and the context template say done.md.
+  out: "state.planned and state.active stay in context.yaml. Host-side (GitHub/Azure/GitLab) merges ignore merge drivers; the refresh merges locally and pushes. The skills catalog never tells an agent to write state.done or MEMORY.md, so it does not change. The plugin (2026-11-26-462ab) changes the plugin's apply-spec, deliver-spec, bootstrap-project, spec-first-workflow, create-spec, templates and update-project (migration script) to done.md and is released with this spec, so a plugin-guided record here writes done.md too."
+
+decisions:
+  - key: "done.md + merge=union for done.md and MEMORY.md (operator)"
+  - key: "The writer migrates on first write, every context at once (operator: pick one)"
+  - key: "The three conflict unions are removed, the union driver replaces them"
+
+steps:
+  - id: characterise
+    action: "Run StateIndexMergeTests, RefreshBranchBaseTests (memory beside a code conflict), ContextYamlStateIndexUnionTests, MemoryIndexUnionTests and SpecIndexLineTests green before the change; their outcomes are what the rewrite must keep or name as changed."
+  - id: index
+    action: "ContextDoneIndex (Application/SpecExecution): header, Upsert, Entries, Merge; IndexMergeAttributes: the two .gitattributes lines, Ensure."
+  - id: codec
+    action: "IContextYamlStateDoneCodec.Extract replaces Upsert: the state.done entries (YAML-parsed, in order) and the YAML with the block spliced out."
+  - id: writer
+    action: "SpecIndexWriter writes done.md, migrates every context, returns every path it changed; SpecDoneRecorder stages them and .gitattributes."
+  - id: merge
+    action: "WorkBranchBaseMerger writes the two lines into $GIT_DIR/info/attributes before merging. Remove StateIndexConflictResolver, ContextYamlStateIndexUnion, MemoryIndexUnion, their DI and tests; conflicts go to resolveRest. Rewrite StateIndexMergeTests, TestGit, SeriesDoubles, RefreshBranchBaseTests to the new outcome."
+  - id: memory
+    action: "MemoryIndexLabels.Relabel keeps the first line per entry name and drops a line whose file is not in the memory directory (only when the listing shows MEMORY.md itself); MemoryIndexUpdater.Upsert drops a second line for the name; MemoryIndexComposer shows the first line per name."
+  - id: repo
+    action: "Run the migration script on this repository, add .gitattributes, schema state.required [active] + done deprecated, template.context.yaml."
+  - id: rules
+    action: "SpecRecordFile/SpecRecord read done.md (pointer rule over done.md and context.yaml; SpecRecordRuleTests' message names done.md); a rule that no context.yaml here carries state.done."
+  - id: docs
+    action: "CLAUDE.md (Context Files 1, Minting pointer, workflow step 8), docs/reference/architecture/spec-workflow.md, concepts/context-file.md, configuration/agentsmith-yml.md."
+
+upgrade_impact: "A target repository's next spec record moves its state.done into done.md and adds .gitattributes in the same commit. A branch recorded by an older version still carries a state.done line; its refresh against a migrated base conflicts in context.yaml and goes to the master resolution (a rework checkout aborts). MEMORY.md conflicts no longer reach MemoryIndexUnion: the union driver (info/attributes in the sandbox) merges them for branches of any age, with the duplicate and deletion handling above."
+proven_live: "Not run against a live target; real-git integration tests cover the union merge and the migrating writer."
+
+tests:
+  - "Real git: two branches each add a different done.md line (and MEMORY.md line) under the attribute; WorkBranchBaseMerger merges with both, no master, nothing open."
+  - "Real git: both branches migrate the same old context.yaml and add their own line; the merge is clean with both lines."
+  - "Writer on a real sandbox: a context.yaml with state.done becomes done.md with every entry in order plus the new line first; context.yaml keeps everything else byte for byte; a second run writes one line."
+  - "Writer: a second context with state.done is migrated in the same write; .gitattributes gains the two lines once and keeps its own."
+  - "Real git: a branch without .gitattributes, base with it: the merger's info/attributes still unions done.md and MEMORY.md."
+  - "Relabel, Upsert and Compose: two lines with one name leave one; Relabel drops a line whose file is gone."
+  - "Rules: the 400-character ratchet and pointer-resolves read done.md; no context.yaml here carries state.done."
+
+done:
+  - "This repository has contexts/default/done.md with every former entry and no state.done in any context.yaml."
+  - "The full suite and the dashboard are green through the spec gate."

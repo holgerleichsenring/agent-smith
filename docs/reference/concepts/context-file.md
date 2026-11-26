@@ -253,12 +253,20 @@ name sorts first owns it. The baseline records the directories it owned (`# owne
 re-init adds a source, whatever already exceeds the Limits there is baselined that day, as a new
 limit's excess is — a preserved baseline keeps its entries and only gains those.
 
-## `state.done` is written by the run
+## `done.md` is written by the run
 
 When a spec finishes in a target repository, agent-smith writes the executed spec to
-`.agentsmith/specs/done/{id}-{slug}.yaml` **and** the `state.done` line that names it,
-in the context whose sandbox carried the change. Every repository that gets the record
-file gets the line.
+`.agentsmith/specs/done/{id}-{slug}.yaml` **and** the line that names it, `- {id}: …`, in
+`.agentsmith/contexts/<name>/done.md` of the context whose sandbox carried the change.
+Every repository that gets the record file gets the line.
+
+The index is a line file, not a `state.done` block, because git can merge a line file.
+The same write adds `.agentsmith/contexts/*/done.md merge=union` and
+`.agentsmith/memory/MEMORY.md merge=union` to the repository's `.gitattributes`. Two spec
+branches that each added a line then merge locally without a conflict, and a refresh-base
+run merges locally in its sandbox. A repository whose `context.yaml` still has a
+`state.done` block is migrated by the first such write: every context's entries move,
+in their order, into its `done.md`, and the block is removed from the file.
 
 The line is an index entry, not an essay: the goal, cut at a word boundary, then
 `-> .agentsmith/specs/done/…`. It is composed to FIT the cap rather than refused for
@@ -266,11 +274,10 @@ exceeding it — the step runs after the work is committed, so a refusal would f
 nobody could go back and shorten. The reasoning belongs in the spec the pointer names.
 
 The entry is keyed by spec id and upserted: a re-run replaces its own line rather than
-adding a second one under the same key, which would make the file unparseable. New
-entries go first, so the section reads newest to oldest.
+adding a second one. New entries go first, so the file reads newest to oldest.
 
-The edit is a splice. Everything else in the file — the schema header, your comments,
-your flow style — is left exactly as it was.
+The migration's edit of `context.yaml` is a splice. Everything else in the file — the
+schema header, your comments, your flow style — is left exactly as it was.
 
 The same holds for every other write of the file, a re-init included: sections the
 typed document does not model, such as a chronicle, `decisions` or `integrations`
