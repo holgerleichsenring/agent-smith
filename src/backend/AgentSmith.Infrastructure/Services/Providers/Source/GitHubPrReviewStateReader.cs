@@ -13,12 +13,14 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// review leaves no decision. The pull request's author, the token's account (viewer) and bots
 /// are excluded. The decision's host id is the review's node id, which the thread reader gives the
 /// review body's note.
+/// 2026-11-26-5201f: reviewDecision says whether a required review still waits — REVIEW_REQUIRED, or CHANGES_REQUESTED until a
+/// person approves again; APPROVED, or null where no rule requires a review, needs nobody's approval.
 /// </summary>
 public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAddress address) : IPrReviewStateReader
 {
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
-        + "number state isDraft mergeable createdAt mergedAt closedAt headRefOid mergeCommit{oid} author{login} "
+        + "number state isDraft mergeable reviewDecision createdAt mergedAt closedAt headRefOid mergeCommit{oid} author{login} "
         + "latestReviews(first:100){nodes{id state body author{__typename login} submittedAt}}}}}";
 
     public async Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken)
@@ -34,16 +36,19 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAd
         var at = Str(pr, "mergedAt") ?? Str(pr, "closedAt") ?? Str(pr, "createdAt");
         return new PrReviewState(number.ToString(CultureInfo.InvariantCulture), state,
             at is null ? DateTimeOffset.MinValue : DateTimeOffset.Parse(at, CultureInfo.InvariantCulture),
-            [.. pr.GetProperty("latestReviews").GetProperty("nodes").EnumerateArray()
-                .Select(Decision).OfType<PrReviewDecision>()
-                .Where(d => !d.IsBot && d.Author!.AuthorId != author && !string.Equals(d.Author.AuthorId, viewer, StringComparison.OrdinalIgnoreCase))],
-            Str(pr, "headRefOid"), state == PrReviewStates.Merged ? MergeCommit(pr) : null)
+            Decisions(pr, author, viewer), Str(pr, "headRefOid"), state == PrReviewStates.Merged ? MergeCommit(pr) : null)
         {
             IsDraft = pr.TryGetProperty("isDraft", out var draft) && draft.ValueKind == JsonValueKind.True, // 2026-11-23-8d16
             // 2026-11-24-6811a: UNKNOWN while GitHub recomputes after the base moved — not decided, not clean.
             HasConflicts = Str(pr, "mergeable") switch { "CONFLICTING" => true, "MERGEABLE" => false, _ => null },
+            ApprovalRequired = state == PrReviewStates.Open ? Str(pr, "reviewDecision") is "REVIEW_REQUIRED" or "CHANGES_REQUESTED" : null, // 5201f
         };
     }
+
+    private List<PrReviewDecision> Decisions(JsonElement pr, string? author, string? viewer) =>
+        [.. pr.GetProperty("latestReviews").GetProperty("nodes").EnumerateArray()
+            .Select(Decision).OfType<PrReviewDecision>()
+            .Where(d => !d.IsBot && d.Author!.AuthorId != author && !string.Equals(d.Author.AuthorId, viewer, StringComparison.OrdinalIgnoreCase))];
 
     // 2026-11-23-8df6a: the commit the merge landed as — read only for a merged pull request.
     private static string? MergeCommit(JsonElement pr) =>

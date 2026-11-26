@@ -60,7 +60,7 @@ public sealed class TicketHoldReader
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Shortfall, new(TicketHoldActs.Conversation), facts.EndedAt);
         if (facts.HeadStatus != RunStatuses.Failed) // 6811a: a conflict before CI; 6811d: a refusal first, nothing while one works
             return TicketPullRequestHold.RefreshRefused(facts) ?? (TicketPullRequestHold.Refreshing(facts) ? null
-                : TicketPullRequestHold.Conflict(facts) ?? TicketPullRequestHold.CiFailed(facts));
+                : TicketPullRequestHold.Conflict(facts) ?? TicketPullRequestHold.CiFailed(facts) ?? TicketHostStepHold.Draft(facts) ?? TicketHostStepHold.ApprovalNeeded(facts));
         var rework = new TicketHoldAct(TicketHoldActs.Conversation);
         if (facts.EndKind == RunEndKinds.ReadinessUnknown)
             return Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.ReadinessUnknown, retry, facts.EndedAt);

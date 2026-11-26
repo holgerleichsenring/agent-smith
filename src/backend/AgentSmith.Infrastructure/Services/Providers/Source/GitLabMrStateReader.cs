@@ -11,6 +11,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// newest of them decides, and "unapproved" decides nothing. The merge request's author, the
 /// token's own user and bots are excluded. The decision's host id is the system note's id, which
 /// the thread reader returns as a note.
+/// 2026-11-26-5201f: an open one says whether its approval rules still wait for a person (<see cref="GitLabMrApprovals"/>).
 /// </summary>
 public sealed class GitLabMrStateReader(
     string baseUrl, string projectPath, string token, string repoUrl, HttpClient http, ILogger logger) : IPrReviewStateReader
@@ -20,6 +21,7 @@ public sealed class GitLabMrStateReader(
     private readonly GitLabNotesPager _notes = new(baseUrl, projectPath, token, http, logger);
     private readonly GitLabUsers _users = new(baseUrl, token, http);
     private readonly GitLabMergeRequestRead _mergeRequests = new(baseUrl, projectPath, token, http);
+    private readonly GitLabMrApprovals _approvals = new(baseUrl, projectPath, token, http, logger);
 
     public async Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -38,7 +40,8 @@ public sealed class GitLabMrStateReader(
                 decisions.Add(Decision(note));
         var (state, at) = State(mr);
         return new PrReviewState(iid.ToString(CultureInfo.InvariantCulture), state, at, decisions, mr.Sha,
-            state == PrReviewStates.Merged ? mr.MergeCommitSha ?? mr.SquashCommitSha ?? mr.Sha : null) { IsDraft = mr.IsDraft, HasConflicts = mr.HasConflicts, AutoCompleteArmed = Open(state) ? mr.AutoMergeArmed : null }; // 8d16, 6811a, 7a92c
+            state == PrReviewStates.Merged ? mr.MergeCommitSha ?? mr.SquashCommitSha ?? mr.Sha : null) { IsDraft = mr.IsDraft, HasConflicts = mr.HasConflicts, AutoCompleteArmed = Open(state) ? mr.AutoMergeArmed : null, // 8d16, 6811a, 7a92c
+                ApprovalRequired = Open(state) ? await _approvals.RequiredAsync(iid, cancellationToken) : null }; // 2026-11-26-5201f
     }
 
     private PrReviewDecision Decision(GitLabNote note)

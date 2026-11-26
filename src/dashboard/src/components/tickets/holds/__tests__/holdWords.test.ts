@@ -15,7 +15,7 @@ const CASES: TicketHoldCase[] = [
   "image_untrusted", "bootstrap_missing", "preflight", "question", "question_plan", "question_environment", "handback", "readiness_unknown", "infrastructure", "interrupted",
   "criteria_unmet", "failed", "shortfall", "text_edited", "merge_next", "starts_on_merge", "working", "model_wait", "queued", "resuming",
   "restarting", "merge_after", "retarget", "prerequisite", "merge_ready", "ci_failed", "ci_running",
-  "ci_not_started", "pr_conflict", "refreshing", "refresh_refused",
+  "ci_not_started", "pr_conflict", "refreshing", "refresh_refused", "approval_needed", "pr_draft",
 ];
 
 describe("holdWords", () => {
@@ -77,6 +77,15 @@ describe("holdWords", () => {
     expect(toldOf(translator("en"), attempt({ endKind: "bootstrap-missing", endDetail: { subject: "s", repos: ["api"], control: null, setTo: null, settingsPath: null } })))
       .toBe("api has no agent-smith bootstrap.");
     expect(toldOf(translator("en"), attempt())).toBeNull();
+  });
+
+  // 2026-11-26-5201f: an approval the host waits for is a person's step with the pull request's link, said as no CI.
+  it("holdSentence_ApprovalNeeded_IsAPersonsStep_WithThePullRequest", () => {
+    const approval = hold("approval_needed", { act: { kind: "pull_request", target: "https://git.test/pr/7" } });
+    expect(holdSentence(translator("en"), approval)).toBe("Its pull request needs your approval on the host before it can merge. This is not CI: open the pull request and review it.");
+    expect(holdSentence(translator("de"), approval)).toContain("braucht deine Freigabe");
+    expect(holdActLabel(translator("en"), approval)).toBe("Open the pull request");
+    expect(isPersons(approval)).toBe(true);
   });
 
   it("holdActLabel_AndRowAct_NameTheAct", () => {

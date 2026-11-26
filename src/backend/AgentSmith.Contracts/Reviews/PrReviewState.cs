@@ -21,4 +21,9 @@ public sealed record PrReviewState(
     /// <summary>2026-11-24-629ab: the host says auto-complete is set on the pull request (true) or not (false); null when
     /// its state read does not say — GitHub (2026-11-25-7a92c: GitLab says it, as merge_when_pipeline_succeeds).</summary>
     public bool? AutoCompleteArmed { get; init; }
+
+    /// <summary>2026-11-26-5201f: the host's merge rules still need a person's approval on the open pull request (true) — an
+    /// Azure reviewer policy, a GitHub required review, a GitLab approval rule — or do not (false); null when the read could not
+    /// tell. A person's step, never CI.</summary>
+    public bool? ApprovalRequired { get; init; }
 }

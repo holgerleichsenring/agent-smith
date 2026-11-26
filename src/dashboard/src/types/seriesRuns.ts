@@ -54,12 +54,15 @@ export interface SeriesRunPullRequest {
   refreshRunId?: string | null;
   /** 2026-11-23-0219: the newest merge run's refusal or armed auto-complete on it; null when none said one. */
   mergeSaid?: SeriesMergeSaid | null;
+  /** 2026-11-26-5201f: the host's merge rules still need a person's approval on it. */
+  approvalRequired?: boolean;
 }
 
 /** 2026-11-25-9992a: a ticket's one kind on every series surface, computed on the server (SeriesTicketState) — the Overview's
  *  colours, the master's table and the panel alike: merged; the merge now; a merge others start on; a question or plan gap; a
- *  failure a person decides; at work; a pull request that waits; and the rest waits or never started. */
-export type SeriesNodeKind = "now" | "needed" | "question" | "failed" | "running" | "pr" | "waiting" | "merged";
+ *  failure a person decides; at work; a pull request that waits; and the rest waits or never started. 2026-11-26-5201f: approval —
+ *  a person approves its pull request on the host; draft — its pull request is still a draft. */
+export type SeriesNodeKind = "now" | "needed" | "question" | "approval" | "draft" | "failed" | "running" | "pr" | "waiting" | "merged";
 
 export interface SeriesRunTicket {
   ticketId: string;

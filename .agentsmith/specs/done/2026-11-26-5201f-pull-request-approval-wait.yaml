@@ -1,0 +1,150 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-5201f
+goal: "A pull request waiting for a person's approval, or still a draft, holds as that step with its link, apart from CI, on Azure, GitHub and GitLab alike; a stacked PR is told to retarget."
+
+applies_to: "default (provider state reads, PR records, ticket hold, series facts), dashboard (hold words, series graph and details)"
+
+requires: [2026-11-24-629ab, 2026-11-25-9992a, 2026-11-25-9992j, 2026-11-25-ef94]
+
+facts:
+  - claim: "No state read says whether the host still needs a person's approval: PrReviewState carries draft, conflicts and auto-complete only."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrReviewState.cs:10-23"
+  - claim: "Azure's CI read fetches every policy evaluation of the pull request and keeps only the Build policy type; reviewer-policy evaluations are dropped there."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiReader.cs:29-31 and AzureReposCiPolicies.cs:28,33-34"
+  - claim: "Azure's state read (votes, draft, conflicts, auto-complete) reads no policy evaluation; the evaluations delegate exists and is built only for the CI read and the requeue."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewReads.cs:37-46, AzureReposPolicyEvaluations.cs:9-10, AzureReposSourceProvider.cs:327-331,339-341,354"
+  - claim: "Azure statuses map every newest state other than Succeeded/Failed/Error to Pending — NotSet included; only NotApplicable is dropped."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiStatuses.cs:20-35"
+  - claim: "With no required check, every check decides (CiVerdict.Deciding), so one non-required pending status makes the head pending."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/CiVerdict.cs:14-18,22-23"
+  - claim: "The validating builds of a pull request into a series branch are read only when no policy item and no status exists at all, so any status hides them."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiReader.cs:32-34"
+  - claim: "GitHub's state query asks for mergeable and latestReviews but not reviewDecision."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewStateReader.cs:19-22,41-45"
+  - claim: "GitLab's merge-request read takes draft, conflicts and auto-merge; nothing reads the merge request's approvals."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestRead.cs:11-28 and GitLabMrStateReader.cs:28-41"
+  - claim: "The refresh copies the state read's open-only fields onto the record, the copy writes them to the stored row, and the repository's view exposes them."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:93-97, AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordCopy.cs:14-34, PrReviewRecordRepository.cs:94-99"
+  - claim: "A ticket's open pull requests carry CI, conflicts and refresh to its hold; a pending CI holds as ci_running on nobody, which escalates as overdue."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Holds/TicketOpenPullRequestsReader.cs:47-65, AgentSmith.Application/Services/Holds/TicketPullRequestHold.cs:85-95, TicketHoldEscalations.cs:15-33"
+  - claim: "The decide branch of the hold reads an open pull request's refusal, conflict and red CI; the merge branch is skipped while CI holds or a conflict blocks."
+    evidence: "src/backend/AgentSmith.Application/Services/Holds/TicketHoldReader.cs:61-63,88-93"
+  - claim: "A series ticket's kind reads a decide hold as failed; its words and the overdue suffix come from the hold."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesTicketState.cs:17-38 and SeriesTicketWords.cs:11-40"
+  - claim: "The master's ticket JSON and ci read list each pull request's CI, conflicts and approvers; the series page view carries the same per pull request."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesReadTools.cs:36-46, AgentSmith.Server/Services/Series/SeriesTicketCi.cs:54-60, SeriesRunPullRequests.cs:32-39"
+  - claim: "A read that changed what the master judges wakes it; a new conflict is such a change."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/SeriesPrChange.cs:50-56"
+  - claim: "The dashboard words a hold by its case, titles a person's box by case, and the series graph marks CI and conflicts per node with a kind colour and legend."
+    evidence: "src/dashboard/src/components/tickets/holds/holdWords.ts:73-113, components/tickets/detail/yourMove.ts:84-97, components/series/page/seriesCiState.ts:12-20, SeriesGraph.tsx:32,57, seriesNodeKind.ts:10"
+  # Addendum (operator read 12 live Azure PRs of the series).
+  - claim: "A run keeps its pull request a draft when the keystone is unmet, the sequence stopped half-way or at a chunk boundary, or its specs delivered no work; only a complete green run marks it ready, and a host refusal there is only logged."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:118-124,181-182,357-361"
+  - claim: "The only later way out of draft is a merge: the merge sequence publishes a draft before it completes or arms it; no tool publishes alone."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PullRequestDraftStep.cs:7-26 and AgentSmith.Application/Services/Series/SeriesPullRequestTools.cs:28-34"
+  - claim: "Every host's state read already says draft; the record keeps it and the series view carries it, but no hold case says it and the master's ticket JSON leaves it out."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:38, GitHubPrReviewStateReader.cs:41, GitLabMrStateReader.cs:41, AgentSmith.Application/Services/Series/SeriesReadTools.cs:42"
+  - claim: "A build-policy evaluation that approved counts for the head only when the build's pr.sourceSha, else its SourceVersion, is the head; a pull-request build's SourceVersion is its test-merge commit, so a build without pr.sourceSha reads pending for good."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiPolicies.cs:44,57-71"
+  - claim: "A pending read is re-read: the re-read names open records whose CI is pending for every project, and the CI watch names a series ticket's pending records for twice merge.ci_pending_seconds; so a lasting pending is what each read answers, or a read that fails and keeps the stored CI — a build behind an evaluation that cannot be fetched (deleted, retained away) fails the whole read."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:51-56, PrRecordCiDue.cs:18-25, AgentSmith.Server/Services/Rework/PrRecordCiRead.cs:24-35, AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiPolicies.cs:43"
+  - claim: "A pull request targeting neither the series nor the default branch is the merge order's retarget step, held as nobody's retarget worded as moving by itself, though the server's stacked retarget is gone and only the master's retarget_pull_request moves it."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesRunOrder.cs:43, AgentSmith.Application/Services/Holds/TicketHoldReader.cs:115, AgentSmith.Application/Services/Series/SeriesTicketWords.cs:36, src/dashboard/src/lib/i18n/messages.ts:1159-1162"
+  # Addendum 2 (coordinator's series watch, Azure read-only).
+  - claim: "A claim stacks a dependent per repo on an unlanded prerequisite with a standing pull request there; the repos come from its runs' opened pull requests, never from whether that pull request merged, so a prerequisite that merged in this repo but has not landed as a ticket is still a base."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/GreenReads.cs:52-66,85-93 and AgentSmith.Infrastructure.Persistence/Services/PreviousAttemptEnds.cs:58-72"
+  - claim: "The run's pull-request step opens or moves its pull request onto the stamped rung without asking whether the rung still has an open pull request."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:316-319,343-351"
+  - claim: "ci start queues the builds that validate the default branch on the source branch; the CI read reads such builds back only for a pull request into a series branch, so on another ticket's branch the start succeeds and its read stays none."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposCiTrigger.cs:28-44, AzureReposCiReader.cs:32-34, AgentSmith.Server/Services/Series/SeriesTicketCi.cs:40-52"
+  - claim: "After a head move the stored CI of the old head reads as pending since the move until a read on the new head succeeds; a verdict on the new head wakes the master."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/PullRequestHeadCi.cs:17-26, AgentSmith.Server/Services/Rework/SeriesPrChange.cs:41-47"
+
+scope:
+  in: |
+    State: PrReviewState gains bool? ApprovalRequired — the host's merge rules still need a person's approval on the open pull request
+    (true), do not (false), or the read could not tell (null). Azure: a blocking evaluation of the Minimum number of reviewers
+    (fa4e907d-c16b-4a4c-9dfa-4906e5d171dd) or Required reviewers (fd2167ab-b0be-447a-8ec8-39368250530e) policy whose status is
+    not Approved or NotApplicable; AzureReposReviewReads takes the existing AzureReposPolicyEvaluations delegate (one provider method serves the CI read, the
+    requeue and the state read), and a failed
+    evaluations read leaves it null with a warning. GitHub: reviewDecision REVIEW_REQUIRED or CHANGES_REQUESTED is true,
+    APPROVED or null (no review rule) false. GitLab: GET merge_requests/:iid/approvals, approvals_left > 0 true, 0 false,
+    absent or a failed read null.
+    Record: nullable column PrReviewRecord.ApprovalRequired (migration AddPrReviewRecordApproval in each of the three migrations
+    projects); refresh writes it for an open pull request, false for a draft the host answered for (a draft cannot be
+    completed, so no approval is asked yet) (the open-only fields move to PrReviewRecordOpenState, the refresh
+    being at its 120-line limit); the copy keeps the stored value on an undecided read, forgets it on a head move (an Azure push
+    may reset votes) and clears it for an ended one; PrReviewRecordView.ApprovalRequired (== true).
+    Hold: TicketOpenPullRequests.AwaitingApproval (the open ones' URLs); new case approval_needed, addressee decide, act
+    pull_request on the first, for a ticket not at work, read in the decide branch after conflict and red CI (inside the one
+    expression, TicketHoldReader being at 120 lines), so before merge_ready, ci_running and merge_next; it blocks the merge
+    branch; never a nobody wait, so never overdue.
+    Series: kind approval (a person's step, read before a decide hold turns failed; SeriesTicketKinds.Is knows it so a stored
+    table keeps it and NewlyNext wakes the master on approval to now; legend "needs your approval", a person-coloured outline
+    apart from question's fill; counted as held); the master's
+    words "needs a person's approval on the host · <url>" (the master is not the one who approves); SeriesRunPullRequestView.ApprovalRequired in the page view, the master's ticket JSON and its
+    ci read line; a read that first finds approval required wakes the master ("waits for a person's approval").
+    Dashboard: TicketHoldCase approval_needed, sentence + title (en, de), Your move tone person, the graph mark
+    "needs your approval", the details' per-PR word, SeriesNodeKind approval.
+    Draft (addendum): TicketOpenPullRequests.Drafts (the open drafts' URLs); case pr_draft, addressee decide, act opening the
+    first, for a ticket not at work and not at a retarget step, after conflict and red CI and before approval_needed and every CI
+    wait — the host asks nobody to approve a draft. A run keeps a draft on purpose (half-way, chunk stop, no work) and the hold
+    cannot tell that from a host's refusal, so the words never say "publish it" alone: master "PR is still a draft · the host asks
+    nobody to approve it; publish it (merge_pull_request publishes first) only once its work is complete, its description says
+    what a stopped run left out · <url>"; the dashboard alike. The approval and draft holds move to TicketHostStepHold
+    (TicketPullRequestHold at its limit). Series kind draft (legend "draft", counted as held); ReadTicket carries isDraft;
+    details word per PR. No new publish tool: the merge publishes. A green run's ready mark reaches the record with the run-end
+    refresh; until then the record may still say draft.
+    Test merge (addendum): an approved build-policy evaluation also counts for the head when its build's SourceVersion is the
+    pull request's test merge of that head (LastMergeCommit while LastMergeSourceCommit is the head; null names none) — a narrow
+    match beside pr.sourceSha; whether live builds lack pr.sourceSha is not observed. A build that cannot be fetched no longer fails
+    the read: its evaluation's own status decides, as for build id 0 (c785), with a warning.
+    Retarget (addendum): the master's words "PR targets <branch>, neither the series nor the default branch · move it with
+    retarget_pull_request"; the dashboard says the series master moves it; a ticket held as retarget whose table words changed
+    since the last table (SeriesJudgement.NewlyRetarget, read from the facts' hold case) is a reason for the master's beat. It
+    stays a nobody wait that never escalates (not in TicketHoldEscalations.Escalating).
+    Stacked bases (addendum 2): a prerequisite's pull request whose record says merged is no base
+    at the claim (PreviousAttemptEnds.PullRequestReposAsync, now two reads; each pull request by its own record); at the run's
+    pull-request step a stacked rung that is no base any more by that same rule targets the series branch, else the configured
+    default branch (LandedRungTarget); a read that fails keeps the stamp. ci start/requeue on a pull request targeting neither the series nor the default branch says so and
+    the way on (retarget_pull_request) and runs nothing — provider-agnostic, so GitHub and GitLab alike.
+    New head (addendum 2): no further change beyond the test-merge and unreadable-build reads; tests pin that a verdict on the new
+    head wakes the master and that a record read on an older head stays due.
+    CI read (Azure): a status whose newest state is NotSet is no check; a pull request into a series branch reads its validating
+    builds whenever no required check stands (statuses that are not required no longer hide them).
+  out: "Which code path hit #19660 or who retargeted 10051 (the run records and build JSON, not read here); the spec-commit opener's stacked target (SpecPullRequestOpener, at the run's start); why each live draft stayed one (the run's record, not read here); a publish tool of its own; other blocking Azure completion policies (comment resolution, linked work items) — not an approval; the stored CI kept on a failed read (PrRecordCiRead, PullRequestHeadCi head-moved rule) — both unverified as the cause, unchanged; a since for the approval hold (no stamp column); casting or requesting an approval."
+
+steps:
+  - id: contract
+    action: "PrReviewState.ApprovalRequired; AzureReposApprovalPolicies (the rule over evaluations); AzureReposReviewReads reads evaluations; GitHub reviewDecision; GitLabMrApprovals read. Tests per provider."
+  - id: record
+    action: "PrReviewRecord.ApprovalRequired + three migrations; refresh, copy, view. Tests."
+  - id: hold
+    action: "TicketOpenPullRequests.AwaitingApproval; TicketHoldCases.ApprovalNeeded; TicketPullRequestHold.ApprovalNeeded + Blocks; TicketHoldReader decide order. Tests incl. the Azure case: CI pending or none plus approval required holds approval_needed, not ci_running, never escalated."
+  - id: series
+    action: "SeriesTicketKinds.Approval, KindOf, words, counts; SeriesRunPullRequestView.ApprovalRequired in page view, ReadTicket and ci read; SeriesPrChange wake. Tests."
+  - id: ci
+    action: "AzureReposCiStatuses drops NotSet; AzureReposCiReader reads series builds while no required check stands (a reader test with configurations and a non-required status). Hardening: neither is proven the live cause. Tests."
+  - id: draft
+    action: "TicketOpenPullRequests.Drafts; TicketHoldCases.PrDraft; TicketHostStepHold (approval + draft); decide order; kind draft; words; ReadTicket isDraft; dashboard case, union, fixtures, i18n, yourMove, kind, legend, css. Tests."
+  - id: test-merge
+    action: "AzureReposCiPolicies counts a build of the head's test merge, and an unreadable build leaves the evaluation's status; AzureReposCiReader passes both. Tests."
+  - id: retarget
+    action: "Retarget words for the master and the dashboard; SeriesJudgement.NewlyRetarget in the beat. Tests."
+  - id: stacked
+    action: "PullRequestReposAsync leaves merged repos out; LandedRungTarget in CommitAndPRHandler; SeriesTicketCi refuses start/requeue on a stray target. Tests."
+  - id: dashboard
+    action: "types, holdWords sentence/title, yourMove, i18n en+de, SeriesNodeKind approval + legend + css, series badge and details word. vitest."
+
+done:
+  - "Azure: build policies passed or none and a blocking reviewer policy pending reads ApprovalRequired true; its ticket holds approval_needed (decide, PR link), not ci_running, and is never escalated (tests)."
+  - "GitHub REVIEW_REQUIRED and GitLab approvals_left > 0 read ApprovalRequired true; APPROVED / 0 read false (tests)."
+  - "A series ticket held so is kind approval with words naming the PR; the master's ticket JSON carries approvalRequired (tests)."
+  - "A NotSet status is no check; a series-branch pull request with only a non-required status reads its validating builds (tests)."
+  - "The dashboard words approval_needed in en and de, the graph marks it, the details say it per PR (vitest)."
+  - "An open draft of a ticket not at work holds as pr_draft (decide, PR link), not CI running or approval; the series kind is draft and the master's JSON carries isDraft (tests)."
+  - "An approved build evaluation whose build has no pr.sourceSha and ran the head's test merge reads green (test)."
+  - "A retarget hold tells the master to retarget_pull_request, and a ticket turning to it is a beat reason (tests)."
+  - "A merged prerequisite's repo is no stacked base; a landed rung is never a pull request's target; ci start on another ticket's branch says retarget and runs nothing (tests)."
+  - "A verdict on a new head wakes the master; a record read on an older head stays due (tests)."
+  - "dotnet build, the affected C# test classes, pnpm test and pnpm build are green; the spec gate passes."

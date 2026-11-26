@@ -41,7 +41,8 @@ public sealed class CommitAndPRHandler(
     CodePullRequestBanner banners,
     SeriesChunkStop chunkStop,
     ILogger<CommitAndPRHandler> logger,
-    PullRequestBuildRequeue? requeue = null)
+    PullRequestBuildRequeue? requeue = null,
+    LandedRungTarget? rungs = null) // 2026-11-26-5201f
     : ICommandHandler<CommitAndPRContext>
 {
     // p0234: the run record (plan.md / result.md / decisions.md / context.yaml)
@@ -313,7 +314,8 @@ public sealed class CommitAndPRHandler(
             // body carries the run's outcome onto the PR that already exists.
             // 2026-09-13-a284: per repository, because the rung is — this loop carries one
             // branch value for every repo, so one target would send the second one wrong.
-            var target = PullRequestTargets.For(context.Pipeline, repo.Name);
+            // 2026-11-26-5201f: never onto a stacked prerequisite's branch that landed while the run worked.
+            var target = rungs is null ? PullRequestTargets.For(context.Pipeline, repo.Name) : await rungs.ForAsync(context.Pipeline, context.ProjectName, repo, ct);
             var existing = await provider.FindOpenPullRequestAsync(branchRepo, ct);
             if (existing is not null)
                 return (await RefreshAsync(provider, repo.Name, existing, body, isDraft, target, ct), body);

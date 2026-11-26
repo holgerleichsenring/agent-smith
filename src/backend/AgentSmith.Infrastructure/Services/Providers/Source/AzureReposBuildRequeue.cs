@@ -22,7 +22,8 @@ public sealed class AzureReposBuildRequeue(
         if (pr.LastMergeSourceCommit?.CommitId is not { } head) return 0;
         var projectId = pr.Repository.ProjectReference.Id;
         var evaluations = await policies(projectId, AzureReposCiPolicies.ArtifactId(projectId, prId), ct);
-        var items = await AzureReposCiPolicies.ReadAsync(evaluations, await builds(ct), projectId, head, orgUrl, ct);
+        var items = await AzureReposCiPolicies.ReadAsync(evaluations, await builds(ct), projectId, head, orgUrl, ct,
+            pr.LastMergeCommit?.CommitId, (id, ex) => logger.LogWarning(ex, AzureReposCiPolicies.UnreadableBuild, id)); // 5201f
         var queued = 0;
         foreach (var item in items.Where(i => i.Check.Outcome == CiCheckOutcome.NotStarted && i.Check.Required && i.EvaluationId is not null))
         {

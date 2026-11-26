@@ -38,7 +38,7 @@ describe("SeriesOverviewSection", () => {
     expect(kinds["series-node-50"]).toBe("now");
     expect(kinds["series-node-51"]).toBe("needed");
     expect(kinds["series-node-61"]).toBe("question");
-    expect(screen.getByTestId("series-graph-legend").querySelectorAll("span")).toHaveLength(8);
+    expect(screen.getByTestId("series-graph-legend").querySelectorAll("span")).toHaveLength(10);
     expect(screen.getByTestId("series-edge-50>51")).toHaveClass("needed");
     expect(screen.getByTestId("series-edge-50>61")).not.toHaveClass("needed");
   });
@@ -94,6 +94,45 @@ describe("SeriesOverviewSection", () => {
     expect(within(details).getByTestId("series-details-cost-56")).toHaveTextContent("$3.40");
     expect(within(details).getByTestId("series-details-open-56")).toHaveAttribute("href", "/tickets/shop/56");
     expect(within(details).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  // 2026-11-26-5201f: a pull request waiting for a person's approval reads as that person's step — the kind, the hold's
+  // sentence, the PR's link and its word, the node's mark — not as CI running.
+  it("Details_AnApprovalNeeded_SaysSoWithThePullRequest_NotCiRunning", async () => {
+    const detail = overviewDetail();
+    const at = detail.tickets.findIndex((ticket) => ticket.ticketId === "56");
+    const ticket = detail.tickets[at];
+    detail.tickets[at] = { ...ticket, kind: "approval", ci: "green",
+      pullRequests: ticket.pullRequests.map((pr) => ({ ...pr, approvalRequired: true })),
+      hold: { addressee: "decide", case: "approval_needed", act: { kind: "pull_request", target: ticket.pullRequests[0].url }, since: null,
+        attempt: 1, names: [] } };
+    hoisted.fetch.mockResolvedValue(detail);
+    render(<SeriesRunPage id="sr-1" />);
+    expect(await screen.findByTestId("series-mark-approval-56")).toHaveAttribute("title", "Needs your approval");
+    expect(screen.queryByTestId("series-mark-ciRunning-56")).toBeNull();
+    const details = await open("56");
+
+    expect(within(details).getByTestId("series-details-state-56")).toHaveTextContent("needs your approval — Its pull request needs your approval on the host");
+    expect(within(details).getByTestId("series-details-approval-client-56")).toHaveTextContent("needs your approval");
+    expect(within(within(details).getByTestId("series-details-pr-client-56")).getByRole("link")).toHaveAttribute("href", "https://git.test/client/pull/9980");
+  });
+
+  // 2026-11-26-5201f addendum: a draft is its own kind and step — the hold's sentence and the PR's word, not CI or approval.
+  it("Details_ADraft_SaysSo_ApartFromApprovalAndCi", async () => {
+    const detail = overviewDetail();
+    const at = detail.tickets.findIndex((ticket) => ticket.ticketId === "56");
+    const ticket = detail.tickets[at];
+    detail.tickets[at] = { ...ticket, kind: "draft", ci: "pending",
+      pullRequests: ticket.pullRequests.map((pr) => ({ ...pr, isDraft: true })),
+      hold: { addressee: "decide", case: "pr_draft", act: { kind: "pull_request", target: ticket.pullRequests[0].url }, since: null,
+        attempt: 1, names: [] } };
+    hoisted.fetch.mockResolvedValue(detail);
+    render(<SeriesRunPage id="sr-1" />);
+    expect((await screen.findByTestId("series-node-56")).dataset.kind).toBe("draft");
+    const details = await open("56");
+
+    expect(within(details).getByTestId("series-details-state-56")).toHaveTextContent("draft PR — Its pull request is still a draft");
+    expect(within(details).getByTestId("series-details-draft-client-56")).toHaveTextContent("draft");
   });
 
   // 2026-11-25-9992e: the series master's newest act on the ticket — what, why, when — and none before it acted.

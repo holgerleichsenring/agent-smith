@@ -49,6 +49,18 @@ public static class SeriesJudgement
             .Select(r => $"{r.Ticket} is next to merge: {r.State}")];
     }
 
+    /// <summary>2026-11-26-5201f: a ticket held as the retarget whose words the last table did not show — only the master's
+    /// retarget_pull_request moves it (the server's stacked retarget is gone), so it is a reason to judge.</summary>
+    public static IReadOnlyList<string> NewlyRetarget(SeriesRunRecord record, SeriesBeat beat)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        ArgumentNullException.ThrowIfNull(beat);
+        var before = SeriesTable.Parse(record.LastTable);
+        return [.. beat.Rows.Zip(beat.Facts).Where(x => x.Second.Hold?.Case == Holds.TicketHoldCases.Retarget
+                && (!before.TryGetValue(x.First.Ticket, out var was) || was.State != x.First.State))
+            .Select(x => $"{x.First.Ticket} needs a retarget: {x.First.State}")];
+    }
+
     /// <summary>2026-11-25-9992a: a failed ticket the last beat saw otherwise — absent, of another kind, or failed in other
     /// words. A line of a snapshot stored before kinds were kept names no kind and flags nothing: the words changed with the
     /// one state, not the tickets.</summary>

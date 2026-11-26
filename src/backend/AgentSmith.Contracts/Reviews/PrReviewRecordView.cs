@@ -65,4 +65,7 @@ public sealed record PrReviewRecordView(
 
     /// <summary>2026-11-24-629ab: the head the CI loop last armed auto-complete again on; null before it did.</summary>
     public string? AutoCompleteRearmedHead { get; init; }
+
+    /// <summary>2026-11-26-5201f: the host said last that the open pull request still needs a person's approval.</summary>
+    public bool ApprovalRequired { get; init; }
 }

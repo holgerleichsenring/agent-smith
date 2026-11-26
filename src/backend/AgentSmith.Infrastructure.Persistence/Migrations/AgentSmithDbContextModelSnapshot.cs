@@ -1208,6 +1208,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool?>("ApprovalRequired")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool?>("AutoCompleteArmed")
                         .HasColumnType("INTEGER");
 

@@ -937,6 +937,10 @@ export const coreMessages = {
   "series.badge.ciRunning": { en: "CI running", de: "CI läuft" },
   "series.badge.ciRed": { en: "CI red", de: "CI rot" },
   "series.badge.conflict": { en: "Conflict", de: "Konflikt" },
+  // 2026-11-26-5201f: the host still needs a person's approval — a person's step, apart from CI.
+  "series.badge.approval": { en: "Needs your approval", de: "Braucht deine Freigabe" },
+  "series.details.approval": { en: "needs your approval", de: "braucht deine Freigabe" },
+  "series.details.draft": { en: "draft", de: "Entwurf" },
 
   // --- series: the Overview (2026-11-23-f562) ---
   // 2026-11-25-9992j: the series page is the graph and the chat; a ticket's details are to read.
@@ -984,6 +988,8 @@ export const coreMessages = {
   "series.kind.now": { en: "ready to merge", de: "bereit zum Merge" },
   "series.kind.needed": { en: "merge needed (later)", de: "Merge nötig (später)" },
   "series.kind.question": { en: "question / plan", de: "Frage / Plan" },
+  "series.kind.approval": { en: "needs your approval", de: "braucht deine Freigabe" },
+  "series.kind.draft": { en: "draft PR", de: "PR-Entwurf" },
   "series.kind.failed": { en: "failed / decide", de: "fehlgeschlagen / entscheiden" },
   "series.kind.running": { en: "running", de: "läuft" },
   "series.kind.pr": { en: "PR waiting", de: "PR wartet" },
@@ -1092,6 +1098,18 @@ export const coreMessages = {
   },
   "hold.title.merge_ready": { en: "Your move: merge the pull request", de: "Du bist dran: merge den Pull Request" },
   "hold.title.ci_failed": { en: "Your move: CI failed", de: "Du bist dran: die CI ist fehlgeschlagen" },
+  // 2026-11-26-5201f: the host waits for a person's approval on the pull request — not for CI.
+  "hold.sentence.approval_needed": {
+    en: "Its pull request needs your approval on the host before it can merge. This is not CI: open the pull request and review it.",
+    de: "Sein Pull Request braucht deine Freigabe auf dem Host, bevor er gemergt werden kann. Das ist nicht die CI: öffne den Pull Request und prüfe ihn.",
+  },
+  // 2026-11-26-5201f: a draft is asked of nobody by the host; a run may keep one on purpose, so the words never just say publish.
+  "hold.sentence.pr_draft": {
+    en: "Its pull request is still a draft, so the host asks nobody to approve it and it cannot merge. Publish it only once its work is complete: a run that stopped keeps it a draft on purpose, and its description says what is missing.",
+    de: "Sein Pull Request ist noch ein Entwurf, daher bittet der Host niemanden um Freigabe und er kann nicht gemergt werden. Veröffentliche ihn erst, wenn seine Arbeit vollständig ist: ein angehaltener Lauf lässt ihn absichtlich als Entwurf, und seine Beschreibung sagt, was fehlt.",
+  },
+  "hold.title.pr_draft": { en: "Your move: the pull request is still a draft", de: "Du bist dran: der Pull Request ist noch ein Entwurf" },
+  "hold.title.approval_needed": { en: "Your move: the pull request needs your approval", de: "Du bist dran: der Pull Request braucht deine Freigabe" },
   // 2026-11-24-6811a: the host says the pull request conflicts with its base; nothing merges it until that is resolved.
   "hold.sentence.pr_conflict": {
     en: "Its pull request conflicts with its base branch, so it cannot merge. Resolve the conflict on the branch, or rework the ticket.",
@@ -1177,8 +1195,8 @@ export const coreMessages = {
     de: { one: "Wird nach {names} gemergt. Für dich gibt es noch nichts zu tun.", other: "Wird nach {names} gemergt. Für dich gibt es noch nichts zu tun." },
   },
   "hold.sentence.retarget": {
-    en: "Its pull request moves onto the default branch first. Nothing for you to do.",
-    de: "Sein Pull Request zieht zuerst auf den Default-Branch um. Für dich gibt es nichts zu tun.",
+    en: "Its pull request targets another ticket's branch; the series master moves it onto the series or default branch. Nothing for you to do.",
+    de: "Sein Pull Request zielt auf den Branch eines anderen Tickets; der Series-Master verschiebt ihn auf den Serien- oder Default-Branch. Für dich gibt es nichts zu tun.",
   },
   "hold.sentence.prerequisite": {
     en: { one: "Starts when {names} finishes. Nothing for you to do.", other: "Starts when {names} finish. Nothing for you to do." },

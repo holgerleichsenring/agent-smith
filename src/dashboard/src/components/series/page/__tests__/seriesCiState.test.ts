@@ -20,6 +20,13 @@ describe("seriesCiState", () => {
     expect(seriesTicketBadges({ ...ticket, pullRequests: [open({ ci: "red" })], ci: "green" })).toEqual([]);
   });
 
+  // 2026-11-26-5201f: a person's approval the host waits for is its own mark, never a CI one.
+  it("SeriesTicketBadges_AnApprovalRequired_IsItsOwnMark_ApartFromCi", () => {
+    const ticket = { ...overviewDetail().tickets[1], pullRequests: [open({ approvalRequired: true, ci: "green" })], ci: "green" };
+    expect(seriesTicketBadges(ticket)).toEqual(["approval"]);
+    expect(seriesTicketBadges({ ...ticket, pullRequests: [open({ approvalRequired: true, state: "merged" })] })).toEqual([]);
+  });
+
   // 2026-11-24-6811a: the host's conflict comes before the CI — nothing merges it, green or not.
   it("SeriesTicketBadges_AConflictComesBeforeTheCi", () => {
     const ticket = { ...overviewDetail().tickets[1], pullRequests: [open({ hasConflicts: true, ci: "pending" })], ci: "pending" };

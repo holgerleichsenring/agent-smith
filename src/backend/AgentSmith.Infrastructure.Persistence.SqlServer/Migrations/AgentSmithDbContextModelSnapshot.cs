@@ -1249,6 +1249,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<bool?>("ApprovalRequired")
+                        .HasColumnType("bit");
+
                     b.Property<bool?>("AutoCompleteArmed")
                         .HasColumnType("bit");
 

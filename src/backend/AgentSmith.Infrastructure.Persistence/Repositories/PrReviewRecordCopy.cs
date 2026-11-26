@@ -28,6 +28,7 @@ internal static class PrReviewRecordCopy
         stored.HeadSha = read.HeadSha ?? stored.HeadSha;
         stored.IsDraft = read.IsDraft; // 2026-11-23-8d16
         Conflicts(read, stored, headMoved); // 2026-11-24-6811a
+        Approval(read, stored, headMoved); // 2026-11-26-5201f
         stored.TargetBranch = read.TargetBranch ?? stored.TargetBranch; // 2026-11-22-6d85b: read once, after the merge
         stored.MergeSha = read.MergeSha ?? stored.MergeSha; // 2026-11-23-8df6a: a read that names none keeps the known one
         Ci(read, stored);
@@ -62,6 +63,15 @@ internal static class PrReviewRecordCopy
         }
         stored.ConflictsAtTicks = conflicts ? stored.ConflictsAtTicks ?? read.ConflictsAtTicks ?? read.CheckedAtTicks : null;
         stored.HasConflicts = conflicts;
+    }
+
+    // 2026-11-26-5201f: an undecided read keeps what the host said last on the same head; a push may reset the votes (Azure), so
+    // after a head move only a read that decides knows; an ended pull request needs no approval.
+    private static void Approval(PrReviewRecord read, PrReviewRecord stored, bool headMoved)
+    {
+        if (PrReviewStates.IsEnded(read.State)) { stored.ApprovalRequired = null; return; }
+        if (read.ApprovalRequired is { } required) stored.ApprovalRequired = required;
+        else if (headMoved) stored.ApprovalRequired = null;
     }
 
     // 2026-10-15-114fc: taken before the columns are overwritten; a read without a sha neither moves nor erases the head.

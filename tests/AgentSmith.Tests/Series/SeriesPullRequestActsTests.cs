@@ -129,7 +129,23 @@ public sealed class SeriesPullRequestActsTests : IDisposable
         _asked.Select(r => (r.PullRequests[0].NotStarted, r.PullRequests[0].NoCi)).Should().Equal((true, false), (false, true));
     }
 
-    private async Task<SeriesRunRecord> SeedAsync()
+    // 2026-11-26-5201f: a pull request on a merged prerequisite's branch has no build policy there and its CI is not read — a
+    // start or a requeue says so and the way on, instead of "succeeding" with nothing running.
+    [Theory]
+    [InlineData(SeriesCiActs.Start)]
+    [InlineData(SeriesCiActs.Requeue)]
+    public async Task Ci_StartOnABranchNothingValidates_SaysRetarget_AndRunsNothing(string act)
+    {
+        var series = await SeedAsync(target: "agent-smith/19654");
+
+        var said = await ActsAsync((acts, ct) => acts.CiAsync(series, "1", act, ct));
+
+        said.Should().Be($"api {Pr} targets agent-smith/19654, neither the series nor the default branch: no build policy validates it "
+            + "there and its CI is not read, so nothing would run. Retarget it with retarget_pull_request first.");
+        _asked.Should().BeEmpty();
+    }
+
+    private async Task<SeriesRunRecord> SeedAsync(string target = "main")
     {
         var series = new SeriesRunRecord("sr-1", "conv-sr-1", "alpha", "operator", true, SeriesRunStates.Running,
             [.. new[] { "1", "2" }.Select(id => new SeriesTicket(id, $"SCRUM-{id}", $"Ticket {id}", false, T))], T);
@@ -137,7 +153,7 @@ public sealed class SeriesPullRequestActsTests : IDisposable
         await _h.AddAsync(new PrReviewRecord
         {
             PrKey = PrKey.Of(Pr), Url = Pr, Repo = "api", RepoKey = RepoKey.Of("https://github.com/o/api"), Number = "1",
-            Project = "alpha", TicketId = "1", RunId = "run-1", State = PrReviewStates.Open, HeadSha = "abc", TargetBranch = "main",
+            Project = "alpha", TicketId = "1", RunId = "run-1", State = PrReviewStates.Open, HeadSha = "abc", TargetBranch = target,
             CheckedAtTicks = T.UtcTicks, CiState = CiStates.Green, CiHeadSha = "abc", CiFailuresJson = PrRecordCiJson.Failures([]),
         }, TicketStoreHarness.Run("run-1", ticket: "1"));
         return series;
@@ -153,7 +169,7 @@ public sealed class SeriesPullRequestActsTests : IDisposable
         var refreshes = new BaseRefreshAsked(sp.GetRequiredService<IServiceScopeFactory>(), new BaseRefreshStart(free, NullLogger<BaseRefreshStart>.Instance),
             _h.Sources.Object);
         var acts = new SeriesPullRequestActs(sp.GetRequiredService<SeriesMergeNextAct>(), projects, records, refreshes,
-            new PullRequestRetargetRun(_acts.Object), _h.Sources.Object, new SeriesTicketCi(projects, records, _refresh.Object, attempts, _merges.Object));
+            new PullRequestRetargetRun(_acts.Object), _h.Sources.Object, new SeriesTicketCi(projects, records, _refresh.Object, attempts, _merges.Object, new AgentSmith.Server.Services.Series.SeriesRunPullRequests()));
         return await act(acts, CancellationToken.None);
     }
 }

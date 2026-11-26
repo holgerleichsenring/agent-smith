@@ -19,7 +19,7 @@ public sealed class SeriesReadTools(SeriesBeat beat)
 
     // 2026-11-25-9992a: the one state the series page shows — kind, words, CI and the hold — and what is at work now.
     // 2026-11-25-9992i: and the series' review (end, each, none), with its series branch when it has one.
-    [Description("The series' tickets as a table: ticket, what, state, kind (merged, now, needed, question, failed, running, pr, waiting), CI, cost, time, the tickets each requires, the tickets at work now, and the series' state, spend, review (end: you merge each ticket into the series branch and a person reviews the final pull request; each: you merge a ticket once a person approved its pull request; none: you merge on green) and series branch.")]
+    [Description("The series' tickets as a table: ticket, what, state, kind (merged, now, needed, question, approval — a person approves its pull request on the host, draft — its pull request is still a draft, failed, running, pr, waiting), CI, cost, time, the tickets each requires, the tickets at work now, and the series' state, spend, review (end: you merge each ticket into the series branch and a person reviews the final pull request; each: you merge a ticket once a person approved its pull request; none: you merge on green) and series branch.")]
     public string SeriesStatus() => JsonSerializer.Serialize(new
     {
         series = beat.Record.Id, state = beat.Record.State, masterCostUsd = beat.Record.MasterCostUsd,
@@ -31,7 +31,7 @@ public sealed class SeriesReadTools(SeriesBeat beat)
         }),
     }, Json);
 
-    [Description("One ticket's facts: its state and kind, its hold (who moves it and why, since when), its newest run, that run's status and why it ended, its pull requests per repo with CI on their heads, conflicts and who approved them, its cost, when it started and landed, a question its run is parked on, and your own last act on it with its reason.")]
+    [Description("One ticket's facts: its state and kind, its hold (who moves it and why, since when), its newest run, that run's status and why it ended, its pull requests per repo with CI on their heads, conflicts, whether each is a draft, who approved them and whether the host still needs a person's approval, its cost, when it started and landed, a question its run is parked on, and your own last act on it with its reason.")]
     public string ReadTicket([Description("The ticket's key or id as the table shows it.")] string ticket) =>
         SeriesTicketLookup.Find(beat, ticket) is { } fact
             ? JsonSerializer.Serialize(new
@@ -39,7 +39,7 @@ public sealed class SeriesReadTools(SeriesBeat beat)
                 ticket = fact.Ticket.Key, fact.Ticket.TicketId, fact.Ticket.Title, fact.State, fact.Kind, fact.Ci, fact.CiFailure,
                 hold = fact.Hold is { } h ? new { h.Addressee, h.Case, h.Since, h.Names } : null,
                 fact.LatestRunId, fact.LatestStatus, fact.LatestFinished, fact.EndDetail,
-                pullRequests = fact.PullRequests.Select(p => new { p.Repo, p.Number, p.Url, p.State, p.Ci, p.CiFailure, p.HasConflicts, p.Target, p.ApprovedBy }),
+                pullRequests = fact.PullRequests.Select(p => new { p.Repo, p.Number, p.Url, p.State, p.Ci, p.CiFailure, p.HasConflicts, p.IsDraft, p.Target, p.ApprovedBy, p.ApprovalRequired }),
                 fact.CostUsd, fact.FirstStartedAt, fact.LandedAt, requires = Keys(fact.Requires), question = fact.PendingQuestion?.Text,
                 lastAct = fact.LastAct, // 2026-11-25-9992e
             }, Json)

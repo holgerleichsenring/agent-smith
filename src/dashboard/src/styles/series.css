@@ -20,6 +20,7 @@
    graph, the series' last step, and the chat below it. */
 .mock-tickets .sr-state { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .mock-tickets .sr-state.bad { color: var(--bad); }
+.mock-tickets .sr-state.person { color: var(--person); }
 .mock-tickets .sr-chat { display: grid; gap: 10px; min-width: 0; margin-top: 22px; scroll-margin-top: 16px; }
 .mock-tickets .sr-chat h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--ink); }
 /* 2026-11-25-433fa: the status line at the top of the chat. 2026-11-26-5201a: no longer sticky — the transcript scrolls in
@@ -53,6 +54,8 @@
 .mock-tickets .sr-dot.now { background: var(--accent); }
 .mock-tickets .sr-dot.needed { border: 2px solid var(--accent); }
 .mock-tickets .sr-dot.question { background: var(--person); }
+.mock-tickets .sr-dot.approval { border: 2px solid var(--person); }
+.mock-tickets .sr-dot.draft { border: 2px dashed var(--person); }
 .mock-tickets .sr-dot.failed { background: var(--bad); }
 .mock-tickets .sr-dot.running { background: var(--run); }
 .mock-tickets .sr-dot.pr { background: var(--panel-2); border: 1px solid var(--ink-3); }
@@ -79,10 +82,13 @@
 .mock-tickets .sr-mark.bad { background: var(--bad); }
 .mock-tickets .sr-mark.run { background: var(--run); }
 .mock-tickets .sr-mark.need { background: var(--person); }
+.mock-tickets .sr-mark.person { background: var(--panel); box-shadow: inset 0 0 0 2px var(--person); }
 .mock-tickets .sr-node-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mock-tickets .sr-node.now { border: 2px solid var(--accent); background: var(--accent-wash); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
 .mock-tickets .sr-node.needed { border: 2px solid var(--accent); }
 .mock-tickets .sr-node.question { border: 2px solid var(--person); background: var(--person-wash); }
+.mock-tickets .sr-node.approval { border: 2px solid var(--person); }
+.mock-tickets .sr-node.draft { border: 2px dashed var(--person); }
 .mock-tickets .sr-node.failed { border: 2px solid var(--bad); background: var(--bad-wash); }
 .mock-tickets .sr-node.running { border-color: var(--run); background: var(--run-wash); }
 .mock-tickets .sr-node.pr { background: var(--panel-2); }

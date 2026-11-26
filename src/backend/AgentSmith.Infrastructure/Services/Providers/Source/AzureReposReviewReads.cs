@@ -9,10 +9,12 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// author" votes, over the provider's Git client. The repository's ids come with the answer, because
 /// an Azure DevOps author's trust verdict is keyed on them. 2026-10-13-9a59b: and its state with the
 /// standing votes. 2026-11-24-9dc0c: and, for a clean merge status, the target branch's commit now.
+/// 2026-11-26-5201f: and whether a reviewer policy still waits for a person's approval (<see cref="AzureReposApprovalPolicies"/>).
 /// </summary>
 public sealed class AzureReposReviewReads(
     Func<CancellationToken, Task<GitHttpClient>> connect, Func<CancellationToken, Task<string?>> self,
-    string project, string repoName, string repoUrl, ILogger? logger = null) : IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader
+    string project, string repoName, string repoUrl, ILogger? logger = null, AzureReposPolicyEvaluations? policies = null)
+    : IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader
 {
     public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -42,7 +44,24 @@ public sealed class AzureReposReviewReads(
         var threads = await client.GetThreadsAsync(project, repoName, prId, cancellationToken: cancellationToken);
         var tip = pr.Status == PullRequestStatus.Active && pr.MergeStatus == PullRequestAsyncStatus.Succeeded
             ? await TipAsync(client, pr.TargetRefName, cancellationToken) : null;
-        return AzureReposVoteDecisions.Read(pr, threads, await self(cancellationToken), repoUrl, tip);
+        return AzureReposVoteDecisions.Read(pr, threads, await self(cancellationToken), repoUrl, tip)
+            with { ApprovalRequired = pr.Status == PullRequestStatus.Active ? await ApprovalAsync(pr, prId, cancellationToken) : null };
+    }
+
+    // 2026-11-26-5201f: a blocking reviewer policy not approved yet. Evaluations that cannot be read say nothing: the state
+    // read itself must not fail on them.
+    private async Task<bool?> ApprovalAsync(GitPullRequest pr, int prId, CancellationToken ct)
+    {
+        if (policies is null || pr.Repository?.ProjectReference?.Id is not { } projectId) return null;
+        try
+        {
+            return AzureReposApprovalPolicies.Required(await policies(projectId, AzureReposCiPolicies.ArtifactId(projectId, prId), ct));
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger?.LogWarning(ex, "Pull request {PrId}: its policy evaluations could not be read; whether it needs an approval is unknown", prId);
+            return null;
+        }
     }
 
     // 2026-11-24-9dc0c: the target branch's commit now. The refs filter is relative to refs/ and a PREFIX match

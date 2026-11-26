@@ -29,7 +29,7 @@ interface Props {
 const MENU_W = 260;
 
 // 2026-11-25-9992j: the small marks a node carries for its host — a conflict, red CI, CI running, a build not started.
-const MARK_TONE: Record<SeriesBadge, string> = { conflict: "bad", ciRed: "bad", ciRunning: "run", ciNotStarted: "need" };
+const MARK_TONE: Record<SeriesBadge, string> = { conflict: "bad", approval: "person", ciRed: "bad", ciRunning: "run", ciNotStarted: "need" };
 
 /** 2026-11-25-9992j: a run is at work on it now — the ticket's own flag or the series' workingOn, both the server's. */
 function isWorkedOn(detail: SeriesRunDetail, ticket: SeriesRunTicket): boolean {

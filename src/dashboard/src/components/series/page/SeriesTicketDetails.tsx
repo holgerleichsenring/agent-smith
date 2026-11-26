@@ -14,6 +14,7 @@ import { seriesNodeId } from "./seriesOrderLayout";
 // state in the graph's words and the hold's sentence, each pull request with its CI and conflict, what it cost, and the
 // way to its page. Acts are the master's, asked in the chat. Focus moves into it; Escape closes it and gives focus back
 // to the node, a click outside closes it. 2026-11-25-9992e: and the series master's last act on it — what, why, when.
+// 2026-11-26-5201f: a pull request the host still needs a person's approval on says so beside its link.
 
 interface Props {
   ticket: SeriesRunTicket;
@@ -64,6 +65,8 @@ export function SeriesTicketDetails({ ticket, project, integrationBranch = null,
               {pr.target && <span> → {pr.target === integrationBranch ? t("series.tickets.intoSeries") : pr.target}</span>}
               {pr.ci && CI_WORDS[pr.ci] && <span> · {t(CI_WORDS[pr.ci])}</span>}
               {pr.hasConflicts && <span className="sr-state bad"> · {t("series.badge.conflict")}</span>}
+              {pr.isDraft && <span className="sr-state person" data-testid={`series-details-draft-${pr.repo}-${ticket.ticketId}`}> · {t("series.details.draft")}</span>}
+              {pr.approvalRequired && <span className="sr-state person" data-testid={`series-details-approval-${pr.repo}-${ticket.ticketId}`}> · {t("series.details.approval")}</span>}
               {pr.ci === "red" && pr.ciFailure && <div className="sr-menu-why">{pr.ciFailure}</div>}
             </li>
           ))}

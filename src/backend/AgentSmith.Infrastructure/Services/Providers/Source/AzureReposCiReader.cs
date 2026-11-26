@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Reviews;
+using Microsoft.Extensions.Logging;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 
@@ -10,11 +11,12 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// failed status with its description and link.
 /// </summary>
 /// <para>2026-11-24-f9c5d: a pull request into a series branch has no build policy of its own; its checks are the builds of the
-/// definitions that validate the default branch, on its head (<see cref="AzureReposSeriesBuilds"/>).</para>
+/// definitions that validate the default branch, on its head (<see cref="AzureReposSeriesBuilds"/>). 2026-11-26-5201f: read
+/// whenever no required check stands — a status that is not required no longer hides them.</para>
 public sealed class AzureReposCiReader(
     Func<CancellationToken, Task<GitHttpClient>> git, AzureReposPolicyEvaluations policies,
     Func<CancellationToken, Task<BuildHttpClient>> builds, string project, string repoName, string orgUrl,
-    AzureReposPolicyConfigurations? configurations = null, Func<CancellationToken, Task<string>>? defaultBranch = null)
+    AzureReposPolicyConfigurations? configurations = null, Func<CancellationToken, Task<string>>? defaultBranch = null, ILogger? logger = null)
 {
     public async Task<PullRequestCi> ReadAsync(string prUrl, CiReadRequest request, CancellationToken ct)
     {
@@ -27,9 +29,11 @@ public sealed class AzureReposCiReader(
         var projectId = pr.Repository.ProjectReference.Id;
         var buildClient = await builds(ct);
         var evaluations = await policies(projectId, AzureReposCiPolicies.ArtifactId(projectId, prId), ct);
-        var items = (await AzureReposCiPolicies.ReadAsync(evaluations, buildClient, projectId, head, orgUrl, ct))
+        var testMerge = pr.LastMergeSourceCommit?.CommitId == head ? pr.LastMergeCommit?.CommitId : null; // 2026-11-26-5201f
+        var items = (await AzureReposCiPolicies.ReadAsync(evaluations, buildClient, projectId, head, orgUrl, ct, testMerge,
+            (id, ex) => logger?.LogWarning(ex, AzureReposCiPolicies.UnreadableBuild, id)))
             .Concat(await AzureReposCiStatuses.ReadAsync(client, project, repoName, prId, ct)).ToList();
-        if (configurations is not null && items.Count == 0 && AgentSmith.Contracts.Providers.WorkBranches.IsSeries(pr.TargetRefName))
+        if (configurations is not null && !items.Any(i => i.Check.Required) && AgentSmith.Contracts.Providers.WorkBranches.IsSeries(pr.TargetRefName))
             items.AddRange(await AzureReposSeriesBuilds.ReadAsync(AzureReposBuildPolicyScope.Validating(await configurations(projectId, ct),
                 pr.Repository.Id, $"refs/heads/{await MainAsync(pr, ct)}"), buildClient, projectId, pr.SourceRefName, head, orgUrl, ct));
         var checks = items.Select(i => i.Check).ToList();

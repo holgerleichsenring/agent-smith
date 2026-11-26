@@ -61,6 +61,8 @@ public sealed class TicketOpenPullRequestsReader(
             Conflicts = open.Any(r => r.HasConflicts), // 2026-11-24-6811a
             ConflictsSince = open.Where(r => r.HasConflicts).Select(r => r.ConflictsAt).Min(),
             Refresh = RefreshOf(open, refreshes),
+            AwaitingApproval = [.. open.Where(r => r.ApprovalRequired).Select(r => r.Url)], // 2026-11-26-5201f
+            Drafts = [.. open.Where(r => r.IsDraft).Select(r => r.Url)],
         };
     }
 

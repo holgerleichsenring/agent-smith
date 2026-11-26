@@ -324,11 +324,9 @@ public sealed class AzureReposSourceProvider(
 
     // 2026-11-17-3435a: the pull request's build policies and statuses.
     public Task<PullRequestCi> ReadCiAsync(string prUrl, CiReadRequest request, CancellationToken ct) =>
-        new AzureReposCiReader(CreateConnectionAsync,
-            async (projectId, artifact, c) => await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
-                .GetPolicyEvaluationsAsync(projectId, artifact, cancellationToken: c),
+        new AzureReposCiReader(CreateConnectionAsync, PolicyEvaluationsAsync,
             c => clientFactory.CreateBuildClientAsync(_organizationUrl, _personalAccessToken, c),
-            _project, _repoName, _organizationUrl, PolicyConfigurationsAsync, DefaultBranchNameAsync).ReadAsync(prUrl, request, ct);
+            _project, _repoName, _organizationUrl, PolicyConfigurationsAsync, DefaultBranchNameAsync, logger).ReadAsync(prUrl, request, ct);
 
     // 2026-11-24-f9c5d: the project's build-validation policy configurations, read for a pull request into a series branch.
     private async Task<IReadOnlyList<Microsoft.TeamFoundation.Policy.WebApi.PolicyConfiguration>> PolicyConfigurationsAsync(Guid projectId, CancellationToken c) =>
@@ -336,9 +334,7 @@ public sealed class AzureReposSourceProvider(
             .GetPolicyConfigurationsAsync(projectId, policyType: Guid.Parse(AzureReposCiPolicies.BuildPolicyType), cancellationToken: c);
     // 2026-11-23-0219: the build-policy evaluations that have not started on the head, queued again.
     public Task<int> RequeueNotStartedAsync(string prUrl, bool headSettled, CancellationToken ct) => // a head Azure reads no inference on
-        new AzureReposBuildRequeue(CreateConnectionAsync,
-            async (projectId, artifact, c) => await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
-                .GetPolicyEvaluationsAsync(projectId, artifact, cancellationToken: c),
+        new AzureReposBuildRequeue(CreateConnectionAsync, PolicyEvaluationsAsync,
             async (projectId, evaluationId, c) => await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
                 .RequeuePolicyEvaluationAsync(projectId, evaluationId, cancellationToken: c),
             c => clientFactory.CreateBuildClientAsync(_organizationUrl, _personalAccessToken, c),
@@ -351,7 +347,13 @@ public sealed class AzureReposSourceProvider(
     public Task<BranchPullRequests> PullRequestsOfAsync(string branch, CancellationToken ct) => WorkBranchHost().PullRequestsOfAsync(branch, ct);
     public Task<bool> DeleteBranchAsync(WorkBranchTip branch, CancellationToken ct) => WorkBranchHost().DeleteBranchAsync(branch, ct);
 
-    private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, SelfAsync, _project, _repoName, _cloneUrl, logger);
+    private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, SelfAsync, _project, _repoName, _cloneUrl, logger, PolicyEvaluationsAsync);
+
+    // 2026-11-17-3435a: a pull request's policy evaluations — the CI read's, the requeue's and (2026-11-26-5201f) the state read's.
+    private async Task<IReadOnlyList<Microsoft.TeamFoundation.Policy.WebApi.PolicyEvaluationRecord>> PolicyEvaluationsAsync(
+        Guid projectId, string artifact, CancellationToken c) =>
+        await (await clientFactory.CreatePolicyClientAsync(_organizationUrl, _personalAccessToken, c))
+            .GetPolicyEvaluationsAsync(projectId, artifact, cancellationToken: c);
 
     private Task<string?> SelfAsync(CancellationToken cancellationToken) =>
         clientFactory.AuthorizedIdentityIdAsync(_organizationUrl, _personalAccessToken, cancellationToken);

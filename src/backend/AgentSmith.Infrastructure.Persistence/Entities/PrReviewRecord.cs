@@ -92,4 +92,8 @@ public sealed class PrReviewRecord : EntityBase, IProjectOwned
     /// <summary>2026-11-25-098f: the moved head auto-complete was found gone on that no run had recorded pushing yet — asked about
     /// again at every read until a run records it (then lost) or it is set again; null otherwise. A person's head stays here.</summary>
     public string? AutoCompleteGoneHead { get; set; }
+
+    /// <summary>2026-11-26-5201f: the host said last that the open pull request still needs a person's approval (true) or not
+    /// (false); null before a read could tell, after a head move no read decided, and for an ended one.</summary>
+    public bool? ApprovalRequired { get; set; }
 }
