@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-49d3b
+goal: "A NuGet or npm source on a configured registry host gets its credential when a run adds it after checkout: a package command or verify stage re-stages the feeds first."
+
+applies_to: "default (SetupRegistryAuthHandler, MidRunRegistryAuth, FilesystemToolHost.RunCommand, GateStageToolHost, AgenticMasterHandler)"
+
+requires: [2026-11-25-9992d]
+
+facts:
+  - claim: "Credentials are staged once after checkout into /root/.nuget/NuGet/NuGet.Config, one packageSourceCredentials entry per source key found in the repos' nuget.config files and matched to a registry by host."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs:35,101-118,296"
+  - claim: "npm tokens are staged into /root/.npmrc keyed by each matched registry URL's exact path (//host/path/:_authToken); a later registry on another path of the host has no key, so npm has the same gap."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs:36,308-325"
+  - claim: "MidRunRegistryAuth already re-runs the staging for one sandbox (ensure_repo_sandbox) and merges what it wrote into the run's staged list."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MidRunRegistryAuth.cs:13-27"
+  - claim: "The coding master's run_command ends in FilesystemToolHost.RunCommand, which resolves the sandbox and runs the command."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:500-514"
+  - claim: "NuGet applies a credential only to the source whose key it is listed under; there is no host-wide credential in NuGet.Config."
+    evidence: "observed: NuGet packageSourceCredentials docs; live run 2026-11-26 — dotnet tool restore 401 on a second feed of the same host, curl with the same token 200"
+
+scope:
+  in: |
+    Before run_command runs a command naming dotnet, nuget, msbuild, npm, npx, pnpm, yarn, make or a .sh script, and before a
+    declared verify stage runs (run_command stage, run_gate_stage, in that stage's own sandbox), the sandbox's NuGet and npm
+    feeds are staged again from the current repo configs (fast paths only, no generic or LLM path), so a source added since
+    gets its credential. The user-level files already staged are read as one more config, so a re-stage whose listing missed a
+    config (the listing cap after a restore) never drops a credential staged before. Staging writes only the user-level files
+    under /root, never a repository file. A re-stage that fails is logged and the command runs anyway.
+  out: "A tool for the master to re-stage; NuGet credential providers; ecosystems beyond NuGet and npm."
+
+steps:
+  - id: stage
+    action: "SetupRegistryAuthHandler.StageInSandboxAsync takes generic: false to skip the generic path; MidRunRegistryAuth.StageAsync passes it through."
+  - id: restage
+    action: "RegistryFeedRestage: Restores(command) and BeforeCommandAsync(pipeline, key, command, sandbox) calling MidRunRegistryAuth with generic off, failures logged."
+  - id: wire
+    action: "SandboxStepRunner exposes its sandbox; FilesystemToolHost.BeforeCommand (init) is awaited in RunCommand with it; AgenticMasterHandler sets it to RegistryFeedRestage; GateStageToolHost calls it before a stage; DI registration."
+
+tests:
+  - "Staging, then a source added to nuget.config on the same host, then dotnet tool restore through run_command: the user config carries a credential for the new key."
+  - "The same for a second npm registry path on the host."
+  - "A re-stage whose listing no longer holds the nuget.config keeps the credential staged before (the user config is read)."
+  - "A command that is no package command stages nothing; no write lands under the repository root."
+
+done:
+  - "A NuGet source added after checkout gets its credential before the next package command (test)."
+  - "dotnet build and the affected tests are green."

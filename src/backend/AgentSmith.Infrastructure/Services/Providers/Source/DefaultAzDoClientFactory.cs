@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.Policy.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 using Microsoft.VisualStudio.Services.Identity.Client;
@@ -57,6 +58,10 @@ public sealed class DefaultAzDoClientFactory : IAzDoClientFactory
     public Task<BuildHttpClient> CreateBuildClientAsync(
         string organizationUrl, string personalAccessToken, CancellationToken cancellationToken) =>
         Connect(organizationUrl, personalAccessToken).GetClientAsync<BuildHttpClient>(cancellationToken);
+
+    public Task<TestManagementHttpClient> CreateTestClientAsync(
+        string organizationUrl, string personalAccessToken, CancellationToken cancellationToken) =>
+        Connect(organizationUrl, personalAccessToken).GetClientAsync<TestManagementHttpClient>(cancellationToken);
 
     // 2026-10-08-f147: ConnectAsync reads connectionData; AuthorizedIdentity is who the PAT is.
     public async Task<string?> AuthorizedIdentityIdAsync(

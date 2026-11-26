@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-49d3a
+goal: "A red CI comes with its evidence: the series master's ci read and every code run on the ticket get the failed tests with message and stack, or the failed step's log tail."
+
+applies_to: "default (CI readers per host, PR record CI read, series master ci read, FetchTicket, run prompt)"
+
+requires: [2026-11-25-96aea]
+
+facts:
+  - claim: "The master's ci read answers per open pull request only the first failed check and the first line of its excerpt."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesTicketCi.cs:65-68, src/backend/AgentSmith.Application/Services/Series/PullRequestHeadCi.cs:37-38"
+  - claim: "A refresh of a head already stored red reads with FailuresRead 0 and overwrites the stored evidence with the logless read."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrRecordCiRead.cs:21-30"
+  - claim: "Azure reads a failed build's failed tasks, their error issues and the log tail of the last failed task; no test results."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBuildEvidence.cs:16-22"
+  - claim: "GitLab reads each failed job's failure reason and trace tail; no test report. GitHub reads a check run's title, summary, text and annotations plus the Actions job log tail."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Pipelines/GitLabPipelineFailures.cs:20-23, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubCiContexts.cs:19-21"
+  - claim: "2026-11-17-3435c gave a fix run ContextKeys.CiFailures, CiEvidenceText and CiFailurePromptSection after the review section; 96aea removed them with the CI loop (af4615546)."
+    evidence: "af4615546^:src/backend/AgentSmith.Application/Services/Rework/CiRework.cs, af4615546^:src/backend/AgentSmith.Application/Services/Prompts/CiFailurePromptSection.cs, src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:57"
+  - claim: "Each excerpt is bounded by merge.ci_excerpt_chars and the logs read by merge.ci_failed_checks_read, both with dashboard fields."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/MergePolicyConfig.cs:15-21, src/dashboard/src/components/config/MergeCiFields.tsx"
+
+scope:
+  in: |
+    Azure: a failed build's test runs (buildUri) and their failed results (Failed, Error, Timeout, Aborted; top
+    merge.ci_failed_checks_read per run) — every test name and message, then the stacks — lead the excerpt; the log tail
+    (of the FIRST failed task, not the last, which is often PublishTestResults) is read only when no failed result exists or
+    the test read is refused. GitLab: the pipeline's test report, its failed and error cases of the suite named by the job's
+    group name lead the job's excerpt the same way. GitHub unchanged (annotations and output already lead). A refresh of a
+    head stored red keeps its stored evidence. The ci read (ticket and final) answers each red head's failures with their
+    excerpts, bounded per excerpt as stored. FetchTicket reads the ticket's open records (IPrReviewRecordReader, optional)
+    and puts each red head's failures into ContextKeys.CiFailures — no act, no attempt, no hand-back; the recovered
+    CiFailurePromptSection renders them after the review with one line saying what the data is.
+  out: "The server CI loop, fix-run budget and hand-back (stay removed); new limits."
+
+steps:
+  - id: azure
+    action: "AzureReposTestEvidence over TestManagementHttpClient (new IAzDoClientFactory.CreateTestClientAsync); AzureReposBuildEvidence takes it optionally (AzurePipelineRunner passes none), prefers failed tests, tails the first failed task."
+  - id: gitlab
+    action: "GitLabPipelineFailures reads /pipelines/{id}/test_report once (a refused read is no report); a job's failed cases lead its excerpt, no trace then."
+  - id: stored
+    action: "PrRecordCiRead keeps the stored failures when the read is red on the stored red head."
+  - id: read
+    action: "CiEvidenceText (recovered) renders failures; SeriesTicketCi and SeriesFinalCi answer it for red heads."
+  - id: run
+    action: "CiFailureFeedback and ContextKeys.CiFailures recovered; CiEvidenceReader in FetchTicket; CiFailurePromptSection recovered with a data line, rendered after the review."
+
+tests:
+  - "Azure (recorded JSON): one failed test in a VSTest run, PublishTestResults failed -> the excerpt names the test, its message and stack; no test results or a refused test read -> the first failed task's log tail."
+  - "GitLab (recorded JSON): a failed job with a failed test case -> name and message lead; no report -> trace tail."
+  - "GitHub (recorded JSON): a failed check whose annotations name the failing test keeps it in the excerpt."
+  - "PrRecordCiRead: a red head read again keeps its stored excerpt."
+  - "SeriesTicketCi read: a red head answers every failure's excerpt."
+  - "CiEvidenceReader + prompt: red open pull requests land in CiFailures and the section; green or older heads do not."
+
+done:
+  - "The master's ci read on a red Azure build names the failing test with message and stack (test)."
+  - "A code run on a ticket with a red open pull request starts with the evidence in its prompt (test)."
+  - "dotnet build and the affected tests are green."

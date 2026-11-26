@@ -56,6 +56,27 @@ public sealed class GitHubCiReaderTests
         _logsRead.Should().BeEmpty("a commit status has no Actions job");
     }
 
+    // 2026-11-26-49d3a: a test-report check run (recorded statusCheckRollup node) — its output and annotation name the failing
+    // test with message and stack, and they lead the excerpt.
+    [Fact]
+    public async Task FailedTestReportCheck_NamesTheFailingTestWithMessageAndStack()
+    {
+        var ci = await ReadAsync(TestReportRun);
+
+        ci.Failures.Single().Excerpt.Should().StartWith("Integration tests: 1 failed")
+            .And.Contain("OrderImportTests.Imports_the_batch").And.Contain("Expected 12 orders, found 11")
+            .And.Contain("OrderImportTests.cs:line 48");
+    }
+
+    private const string TestReportRun = """
+        {"__typename":"CheckRun","databaseId":77,"name":"Integration tests","status":"COMPLETED","conclusion":"FAILURE",
+         "detailsUrl":"https://github.com/example/sample-server/runs/77","completedAt":"2026-11-26T08:05:00Z",
+         "title":"Integration tests: 1 failed","summary":"213 passed, 1 failed","text":"Failed: Shop.Integration.OrderImportTests.Imports_the_batch",
+         "isRequired":true,"checkSuite":{"app":{"slug":"test-reporter"}},
+         "annotations":{"nodes":[{"path":"tests/OrderImportTests.cs","message":"Expected 12 orders, found 11.\n   at Shop.Integration.OrderImportTests.Imports_the_batch() in /src/OrderImportTests.cs:line 48",
+           "location":{"start":{"line":48}}}]}}
+        """;
+
     private Task<PullRequestCi> ReadAsync(params string[] nodes) => ReadAsync(4000, nodes);
 
     private Task<PullRequestCi> ReadAsync(int chars, params string[] nodes)

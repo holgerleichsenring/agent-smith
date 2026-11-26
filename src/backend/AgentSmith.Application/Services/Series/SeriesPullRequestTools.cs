@@ -68,7 +68,8 @@ public sealed class SeriesPullRequestTools(
         OnTicketAsync(ticket, key => $"retargeted {key} in {repo} onto {target}", reason, id => acts.RetargetAsync(beat.Record, id, repo, target, ct));
 
     [Description("A ticket's pull-request CI, or with ticket 'final' the final pull requests': act 'read' reads the pull requests from their hosts now "
-        + "and answers each one's CI on its head; 'requeue' queues the required builds that have not started again; 'start' starts the "
+        + "and answers each one's CI on its head, a red one with its failed checks' evidence (failed tests with message and stack, or the "
+        + "failed step's log tail) — a code run on the ticket starts with the same evidence; 'requeue' queues the required builds that have not started again; 'start' starts the "
         + "pull-request CI of a repository whose host reported none.")]
     public Task<string> CiAsync([Description("The ticket's key or id, or 'final'.")] string ticket,
         [Description("'read', 'requeue' or 'start'.")] string act, [Description(SeriesActSay.Why)] string? reason = null,

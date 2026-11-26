@@ -41,7 +41,7 @@ A required build that hasn't started on the head and won't start by itself reads
 
 On GitHub and GitLab, runs of a pull request from a fork are never started. A head that reports nothing into a series branch is left to the series start below.
 
-For a red head, codeably stores which checks failed, with a bounded excerpt of the evidence (the host's summary and annotations, then the end of the log) and a link. GitHub check runs and statuses, Azure DevOps build policies and statuses, and GitLab head pipelines are all read. The token needs read access to checks and logs on GitHub, Build (read) on Azure DevOps and `read_api` on GitLab.
+For a red head, codeably stores which checks failed, with a bounded excerpt of the evidence and a link: the failed tests with their message and stack when the host published test results (Azure DevOps test runs, GitLab test reports), else the host's summary and annotations, then the end of the failed step's log. GitHub check runs and statuses, Azure DevOps build policies and statuses, and GitLab head pipelines are all read. The token needs read access to checks and logs on GitHub, Build (read) and Test Management (read) on Azure DevOps and `read_api` on GitLab.
 
 ## Series branches
 
@@ -55,7 +55,7 @@ What the start said shows on the series page beside the pull request. A reposito
 
 ## A red CI
 
-A red CI wakes the series master. It decides: retry the run when the failure wasn't the work's fault, or tell the ticket what failed with the evidence (failed checks, excerpts, links), and the ticket's run fixes it on the same pull request. Nothing starts a fix run by itself.
+A red CI wakes the series master. It decides: retry the run when the failure wasn't the work's fault, or tell the ticket what failed with the evidence (failed checks, excerpts, links), and the ticket's run fixes it on the same pull request. The master's `ci read` answers that evidence, and every run on the ticket starts with it in its prompt. Nothing starts a fix run by itself.
 
 ## Keeping other pull requests current
 

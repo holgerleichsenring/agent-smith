@@ -133,6 +133,8 @@ public sealed class SeriesPullRequestToolsTests
         _host.As<IPullRequestCiReader>().Setup(c => c.ReadCiAsync(Final, It.IsAny<CiReadRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PullRequestCi(CiStates.Red, "abcdef123", null, [new CiFailure("build", "https://ci", "boom\nmore")]));
 
-        (await Tools().CiAsync("final", "read")).Should().Be($"api ({Final}): CI red on head abcdef1 — build: boom.");
+        // 2026-11-26-49d3a: a red head answers its failed checks with their evidence.
+        (await Tools().CiAsync("final", "read")).Should().Be(
+            $"api ({Final}): CI red on head abcdef1.\n\n### build (api, {Final})\nFull log: https://ci\n```\nboom\nmore\n```");
     }
 }

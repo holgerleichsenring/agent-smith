@@ -20,4 +20,8 @@ public static partial class ContextKeys
     /// <summary>2026-11-17-3435b: a merge-green run's <see cref="Runs.CiGreenMergeRequest"/> — 2026-11-25-96aea: the merge, CI
     /// requeue or CI start the series master or a person asked for.</summary>
     public const string CiGreenMerge = "CiGreenMerge";
+
+    /// <summary>2026-11-17-3435c, recovered by 2026-11-26-49d3a: IReadOnlyList&lt;Reviews.CiFailureFeedback&gt; — the red CI
+    /// on the heads of the ticket's open pull requests, read from the records; rendered into the code run's master prompt.</summary>
+    public const string CiFailures = "CiFailures";
 }

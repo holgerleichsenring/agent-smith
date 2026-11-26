@@ -16,7 +16,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposCiReader(
     Func<CancellationToken, Task<GitHttpClient>> git, AzureReposPolicyEvaluations policies,
     Func<CancellationToken, Task<BuildHttpClient>> builds, string project, string repoName, string orgUrl,
-    AzureReposPolicyConfigurations? configurations = null, Func<CancellationToken, Task<string>>? defaultBranch = null, ILogger? logger = null)
+    AzureReposPolicyConfigurations? configurations = null, Func<CancellationToken, Task<string>>? defaultBranch = null, ILogger? logger = null,
+    Func<CancellationToken, Task<Microsoft.TeamFoundation.TestManagement.WebApi.TestManagementHttpClient>>? tests = null) // 2026-11-26-49d3a
 {
     public async Task<PullRequestCi> ReadAsync(string prUrl, CiReadRequest request, CancellationToken ct)
     {
@@ -46,7 +47,7 @@ public sealed class AzureReposCiReader(
     private async Task<string> MainAsync(GitPullRequest pr, CancellationToken ct) => defaultBranch is not null ? await defaultBranch(ct)
         : pr.Repository.DefaultBranch?.Replace("refs/heads/", string.Empty, StringComparison.Ordinal) ?? "main";
 
-    private static async Task<IReadOnlyList<CiFailure>> FailuresAsync(IReadOnlyList<AzureReposCiItem> items, IReadOnlyList<CiCheck> checks,
+    private async Task<IReadOnlyList<CiFailure>> FailuresAsync(IReadOnlyList<AzureReposCiItem> items, IReadOnlyList<CiCheck> checks,
         BuildHttpClient builds, Guid projectId, CiReadRequest request, CancellationToken ct)
     {
         var deciding = CiVerdict.Deciding(checks);
@@ -54,7 +55,7 @@ public sealed class AzureReposCiReader(
         foreach (var item in items.Where(i => i.Check.Outcome == CiCheckOutcome.Failed && deciding.Contains(i.Check)))
         {
             var excerpt = item.BuildId is { } build && failures.Count < request.FailuresRead
-                ? await AzureReposBuildEvidence.ExcerptAsync(builds, projectId, build, request, ct)
+                ? await AzureReposBuildEvidence.ExcerptAsync(builds, projectId, build, request, ct, tests)
                 : CiExcerpt.Of([item.Description], null, request.ExcerptChars);
             failures.Add(new CiFailure(item.Check.Name, item.Url, excerpt));
         }

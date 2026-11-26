@@ -27,13 +27,19 @@ public sealed class PrRecordCiRead(ILogger<PrRecordCiRead> logger)
             record.CiState = read.State;
             record.CiHeadSha = read.HeadSha;
             record.CiAtTicks = record.CheckedAtTicks;
-            record.CiFailuresJson = PrRecordCiJson.Failures(read.Failures);
+            record.CiFailuresJson = PrRecordCiJson.Failures(evidenceStored && stored!.Ci!.IsOn(read.HeadSha)
+                ? KeptEvidence(read.Failures, stored.Ci.Failures) : read.Failures);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "The CI of {Url} could not be read; the stored CI stands", record.Url);
         }
     }
+
+    /// <summary>2026-11-26-49d3a: a head read again red took no logs; each check still failing keeps the evidence stored for it,
+    /// a check failing anew comes as read, one that passed since is gone.</summary>
+    internal static IReadOnlyList<CiFailure> KeptEvidence(IReadOnlyList<CiFailure> read, IReadOnlyList<CiFailure> stored) =>
+        [.. read.Select(f => stored.FirstOrDefault(s => s.Name == f.Name) ?? f)];
 
     /// <summary>2026-11-25-7a92a: the head this read sees is the one stored, and has stood since it moved there (or since the pull
     /// request opened) for merge.ci_settle_seconds — only then may a host call "nothing on this head" not started.</summary>
