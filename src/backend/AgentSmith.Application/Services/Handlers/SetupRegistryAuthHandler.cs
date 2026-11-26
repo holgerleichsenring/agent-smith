@@ -100,7 +100,7 @@ public sealed class SetupRegistryAuthHandler(
 
     internal async Task<int> StageInSandboxAsync(
         string repoKey, ISandbox sandbox, IReadOnlyList<string> roots, IReadOnlyList<RegistryConfig> registries,
-        Func<AgentConfig> agentFactory, List<string> written, CancellationToken ct)
+        Func<AgentConfig> agentFactory, List<string> written, CancellationToken ct, bool withGeneric = true)
     {
         var reader = readerFactory.Create(sandbox);
         // Each root listed on its own, so one repository's tree never crowds another's configs out of the listing cap.
@@ -149,6 +149,7 @@ public sealed class SetupRegistryAuthHandler(
         var coveredHosts = nugetMatches.Select(m => m.Registry.Host)
             .Concat(npmMatches.Select(m => m.Registry.Host))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!withGeneric) return staged; // 2026-11-26-49d3b: a re-stage before a package command runs the fast paths only
         // p0422: every ecosystem beyond the two fast paths — cargo, maven, pip, go and
         // whatever comes next — is staged HERE, so this is where they are reported. The
         // fast paths are an optimisation, not the list of ecosystems that exist.
@@ -169,10 +170,9 @@ public sealed class SetupRegistryAuthHandler(
                      || p.EndsWith("/NuGet.Config", StringComparison.OrdinalIgnoreCase))
             .ToList();
         if (configs.Count == 0)
-        {
             logger.LogInformation("{Repo}: no nuget.config files found under the repository root.", repoKey);
-            return Array.Empty<NugetMatch>();
-        }
+        // 2026-11-26-49d3b: the user config staged before is read too: a re-stage whose listing missed a config keeps its credential.
+        configs.Add(UserNuGetConfigPath);
 
         var matches = new List<NugetMatch>();
         foreach (var path in configs)
@@ -180,7 +180,7 @@ public sealed class SetupRegistryAuthHandler(
             var content = await reader.TryReadAsync(path, ct);
             if (string.IsNullOrEmpty(content))
             {
-                logger.LogWarning("{Repo}: nuget config '{Path}' read back empty — no sources from it.",
+                if (path != UserNuGetConfigPath) logger.LogWarning("{Repo}: nuget config '{Path}' read back empty — no sources from it.",
                     repoKey, path);
                 continue;
             }
@@ -211,13 +211,11 @@ public sealed class SetupRegistryAuthHandler(
         ISandboxFileReader reader, string repoKey, IReadOnlyList<RegistryConfig> registries, CancellationToken ct)
     {
         var rcFiles = listing
-            .Where(p => p.EndsWith("/.npmrc", StringComparison.OrdinalIgnoreCase))
+            .Where(p => p.EndsWith("/.npmrc", StringComparison.OrdinalIgnoreCase) && p != UserNpmrcPath)
             .ToList();
         if (rcFiles.Count == 0)
-        {
             logger.LogInformation("{Repo}: no .npmrc files found under the repository root.", repoKey);
-            return Array.Empty<NpmMatch>();
-        }
+        rcFiles.Add(UserNpmrcPath); // 2026-11-26-49d3b: as for NuGet, what was staged before stays staged
 
         var matches = new List<NpmMatch>();
         foreach (var path in rcFiles)
@@ -226,6 +224,8 @@ public sealed class SetupRegistryAuthHandler(
             if (string.IsNullOrEmpty(content)) continue;
             foreach (var (registryKey, registryUrl) in PackageSourceParser.NpmRegistries(content))
             {
+                // 2026-11-26-49d3b: a mapping the repo defines now wins over the one staged before (npm's later duplicate wins).
+                if (path == UserNpmrcPath && matches.Any(m => string.Equals(m.RegistryKey, registryKey, StringComparison.OrdinalIgnoreCase))) continue;
                 var reg = FindMatchingRegistry(registryUrl, registries);
                 if (reg is null)
                 {

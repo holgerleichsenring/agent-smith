@@ -44,15 +44,39 @@ public sealed class GitLabCiReaderTests
         failure.Excerpt.Should().Contain("failure reason: script_failure").And.EndWith("FAILED test_add");
     }
 
+    // 2026-11-26-49d3a: the pipeline's test report (recorded from GET /pipelines/9/test_report) — the failed case of the job's
+    // suite leads the excerpt, and the trace is not needed.
+    [Fact]
+    public async Task Failed_WithATestReport_TheFailedCaseOfTheJobsSuiteLeads()
+    {
+        var ci = await ReadAsync(Mr("""{"id":9,"status":"failed","sha":"abc","web_url":"https://gl/p/9"}"""), TestReport);
+
+        var excerpt = ci.Failures.Single().Excerpt;
+        excerpt.Should().StartWith("test failed: Calc.Tests.AddTests.adds_two_numbers").And.Contain("expected 3, got 4")
+            .And.Contain("at Calc.Tests.AddTests.adds_two_numbers (AddTests.cs:14)").And.Contain("failure reason: script_failure")
+            .And.NotContain("FAILED test_add").And.NotContain("passes_zero");
+    }
+
+    private const string TestReport = """
+        {"total_time":1.9,"total_count":3,"success_count":2,"failed_count":1,"skipped_count":0,"error_count":0,
+         "test_suites":[{"name":"unit","total_time":1.9,"total_count":3,"success_count":2,"failed_count":1,"skipped_count":0,"error_count":0,
+           "suite_error":null,"test_cases":[
+             {"status":"success","name":"passes_zero","classname":"Calc.Tests.AddTests","file":null,"execution_time":0.01,
+              "system_output":null,"stack_trace":null,"recent_failures":null},
+             {"status":"failed","name":"adds_two_numbers","classname":"Calc.Tests.AddTests","file":null,"execution_time":0.02,
+              "system_output":"expected 3, got 4","stack_trace":"at Calc.Tests.AddTests.adds_two_numbers (AddTests.cs:14)\n","recent_failures":null}]}]}
+        """;
+
     private static string Mr(string pipeline) => $$"""{"iid":7,"sha":"abc","head_pipeline":{{pipeline}}}""";
 
-    private static Task<PullRequestCi> ReadAsync(string mr)
+    private static Task<PullRequestCi> ReadAsync(string mr, string? testReport = null)
     {
         var http = new HttpClient(new Handler(url => url switch
         {
             _ when url.EndsWith("/merge_requests/7", StringComparison.Ordinal) => Json(mr),
             _ when url.Contains("/pipelines/9/jobs", StringComparison.Ordinal) =>
                 Json("""[{"id":31,"name":"unit","stage":"test","web_url":"https://gl/j/31","failure_reason":"script_failure"},{"id":32,"name":"flaky","stage":"test","allow_failure":true}]"""),
+            _ when testReport is not null && url.EndsWith("/pipelines/9/test_report", StringComparison.Ordinal) => Json(testReport),
             _ when url.EndsWith("/jobs/31/trace", StringComparison.Ordinal) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("setup\nFAILED test_add") },
             _ => new HttpResponseMessage(HttpStatusCode.NotFound),
         }));

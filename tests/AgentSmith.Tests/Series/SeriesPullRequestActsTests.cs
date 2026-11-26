@@ -145,7 +145,24 @@ public sealed class SeriesPullRequestActsTests : IDisposable
         _asked.Should().BeEmpty();
     }
 
-    private async Task<SeriesRunRecord> SeedAsync(string target = "main")
+    // 2026-11-26-49d3a: a red head is read with every failed check's evidence as its record stored it.
+    [Fact]
+    public async Task Ci_ReadOfARedHead_AnswersEveryFailedChecksEvidence()
+    {
+        var series = await SeedAsync(failures:
+        [
+            new CiFailure("PR build", "https://ci.example/812", "test failed: OrderImportTests.Imports_the_batch\nExpected 12 orders, found 11."),
+            new CiFailure("lint", null, "2 warnings treated as errors"),
+        ]);
+
+        var said = await ActsAsync((acts, ct) => acts.CiAsync(series, "1", SeriesCiActs.Read, ct));
+
+        said.Should().StartWith($"api {Pr} into main: CI red — PR build: test failed: OrderImportTests.Imports_the_batch.")
+            .And.Contain($"### PR build (api, {Pr})\nFull log: https://ci.example/812")
+            .And.Contain("Expected 12 orders, found 11.").And.Contain($"### lint (api, {Pr})").And.Contain("2 warnings treated as errors");
+    }
+
+    private async Task<SeriesRunRecord> SeedAsync(string target = "main", IReadOnlyList<CiFailure>? failures = null)
     {
         var series = new SeriesRunRecord("sr-1", "conv-sr-1", "alpha", "operator", true, SeriesRunStates.Running,
             [.. new[] { "1", "2" }.Select(id => new SeriesTicket(id, $"SCRUM-{id}", $"Ticket {id}", false, T))], T);
@@ -154,7 +171,7 @@ public sealed class SeriesPullRequestActsTests : IDisposable
         {
             PrKey = PrKey.Of(Pr), Url = Pr, Repo = "api", RepoKey = RepoKey.Of("https://github.com/o/api"), Number = "1",
             Project = "alpha", TicketId = "1", RunId = "run-1", State = PrReviewStates.Open, HeadSha = "abc", TargetBranch = target,
-            CheckedAtTicks = T.UtcTicks, CiState = CiStates.Green, CiHeadSha = "abc", CiFailuresJson = PrRecordCiJson.Failures([]),
+            CheckedAtTicks = T.UtcTicks, CiState = failures is null ? CiStates.Green : CiStates.Red, CiHeadSha = "abc", CiFailuresJson = PrRecordCiJson.Failures(failures ?? []),
         }, TicketStoreHarness.Run("run-1", ticket: "1"));
         return series;
     }

@@ -17,8 +17,9 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
     /// <summary>2026-11-10-85e2: open now — a source scope that has not materialized is not, and asking it would open it.</summary>
     internal bool IsOpen => sandbox is not ISourceScopeSandbox { IsMaterialized: false };
 
-    /// <summary>2026-11-25-9992c: the repository root of the sandbox this runner speaks to.</summary>
+    /// <summary>2026-11-25-9992c: the repository root of the sandbox this runner speaks to; 2026-11-26-49d3b: and the sandbox.</summary>
     internal string Root => sandbox.WorkDirectory();
+    internal ISandbox Sandbox => sandbox;
 
     public SandboxStepRunner(ISandbox sandbox, int? runCommandTimeoutSeconds = null)
         : this(sandbox, new RunCommandTimeout(runCommandTimeoutSeconds, stepTimeoutCapSeconds: null)) { }
@@ -103,8 +104,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
         return (await ExecuteAsync(step, BoundedRunCommandOutput.Render, ct)).Rendered;
     }
 
-    // 2026-10-07-6b9db: the render is the caller's — a program's output keeps its head-only
-    // text, a model-authored command's sections are bounded head and tail.
+    // 2026-10-07-6b9db: the render is the caller's — a program's output keeps its head-only text, a model-authored command's sections are bounded head and tail.
     private async Task<ProgramRun> ExecuteAsync(
         Step step, Func<StepResult, long, StreamedStepOutput, string> render, CancellationToken ct)
     {

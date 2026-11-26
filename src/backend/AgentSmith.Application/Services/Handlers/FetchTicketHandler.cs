@@ -26,7 +26,8 @@ public sealed class FetchTicketHandler(
     EpicGroundFetcher epicGround,
     ILogger<FetchTicketHandler> logger,
     Rework.StatusBackActReader? statusBack = null,
-    Rework.AttemptCauseReader? attemptCause = null)
+    Rework.AttemptCauseReader? attemptCause = null,
+    Rework.CiEvidenceReader? ciEvidence = null) // 2026-11-26-49d3a
     : ICommandHandler<FetchTicketContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -90,6 +91,8 @@ public sealed class FetchTicketHandler(
         Rework.ReworkActReader.Apply(context.Pipeline, context.CommentKeyword);
         // 2026-10-08-e8b9d: and the review on the previous attempt's pull requests.
         await prReview.FetchAsync(context.Pipeline, cancellationToken);
+        // 2026-11-26-49d3a: and the red CI on the ticket's open pull requests, with the evidence the records stored.
+        if (ciEvidence is not null) await ciEvidence.ApplyAsync(context, cancellationToken);
         // 2026-10-08-2123: and whether a person moved the ticket back since that attempt.
         if (statusBack is not null) await statusBack.ApplyAsync(provider, context, cancellationToken);
         // 2026-10-13-9a59d: which of those acts this attempt serves, recorded on the fetched event.

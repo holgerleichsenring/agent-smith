@@ -1,6 +1,7 @@
 using Microsoft.TeamFoundation.Build.WebApi;
 using Microsoft.TeamFoundation.Policy.WebApi;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
+using Microsoft.TeamFoundation.TestManagement.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Identity.Client;
 
@@ -38,5 +39,9 @@ public interface IAzDoClientFactory
 
     /// <summary>2026-11-17-3435a: the build client a failed build's timeline and log are read through.</summary>
     Task<BuildHttpClient> CreateBuildClientAsync(
+        string organizationUrl, string personalAccessToken, CancellationToken cancellationToken);
+
+    /// <summary>2026-11-26-49d3a: the test client a failed build's failed test results are read through.</summary>
+    Task<TestManagementHttpClient> CreateTestClientAsync(
         string organizationUrl, string personalAccessToken, CancellationToken cancellationToken);
 }

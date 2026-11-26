@@ -34,8 +34,10 @@ public sealed class SeriesFinalCi(ISourceProviderFactory sources, PullRequestBui
     {
         if (sources.Create(repo) is not IPullRequestCiReader reader) return "its host reads no CI.";
         var ci = await reader.ReadCiAsync(url, new CiReadRequest(null, policy.CiExcerptChars, policy.CiFailedChecksRead), ct);
-        var failed = ci.Failures.FirstOrDefault() is { } f ? $" — {f.Name}: {f.Excerpt.Split('\n', 2)[0].Trim()}" : string.Empty;
-        return $"CI {ci.State} on head {Short(ci.HeadSha)}{failed}.";
+        // 2026-11-26-49d3a: a red head answers its failed checks with their evidence.
+        var failed = ci.State == CiStates.Red && ci.Failures.Count > 0
+            ? "\n\n" + Rework.CiEvidenceText.Of([new CiFailureFeedback(repo.Name, url, ci.Failures)]) : string.Empty;
+        return $"CI {ci.State} on head {Short(ci.HeadSha)}.{failed}";
     }
 
     private async Task<string> StartAsync(RepoConnection repo, string url, CancellationToken ct)

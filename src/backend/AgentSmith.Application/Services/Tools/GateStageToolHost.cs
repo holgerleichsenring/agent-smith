@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public sealed class GateStageToolHost(
     SandboxTargets targets, ContextVerifyStagesResolver declared,
-    VerifyStageResolver resolver, VerifyCommandRunner runner)
+    VerifyStageResolver resolver, VerifyCommandRunner runner, RegistryFeedRestage? feeds = null)
 {
     public const string Name = "run_gate_stage";
 
@@ -101,6 +101,8 @@ public sealed class GateStageToolHost(
                 : $"{pair} in {repository} is declared, not runnable: its when_present path is absent. Nothing was run.";
 
         var stage = runnable[0];
+        // 2026-11-26-49d3b: a declared stage restores in its own sandbox; a feed the run added since checkout gets its credential.
+        if (feeds is not null) await feeds.StageAsync(pipeline, key, sandbox, ct);
         var outcome = await runner.RunAsync(key, stage.Stage, sandbox, stage.Cwd, stage.Command, ct);
         var output = VerifyCommandRunner.Tail(outcome.Output, VerifyCommandRunner.OutputTailChars);
         // 2026-10-17-a196c: a stage the master ran is a command of this spec, citable for a build or test claim.

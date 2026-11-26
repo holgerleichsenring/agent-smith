@@ -326,7 +326,8 @@ public sealed class AzureReposSourceProvider(
     public Task<PullRequestCi> ReadCiAsync(string prUrl, CiReadRequest request, CancellationToken ct) =>
         new AzureReposCiReader(CreateConnectionAsync, PolicyEvaluationsAsync,
             c => clientFactory.CreateBuildClientAsync(_organizationUrl, _personalAccessToken, c),
-            _project, _repoName, _organizationUrl, PolicyConfigurationsAsync, DefaultBranchNameAsync, logger).ReadAsync(prUrl, request, ct);
+            _project, _repoName, _organizationUrl, PolicyConfigurationsAsync, DefaultBranchNameAsync, logger,
+            c => clientFactory.CreateTestClientAsync(_organizationUrl, _personalAccessToken, c)).ReadAsync(prUrl, request, ct);
 
     // 2026-11-24-f9c5d: the project's build-validation policy configurations, read for a pull request into a series branch.
     private async Task<IReadOnlyList<Microsoft.TeamFoundation.Policy.WebApi.PolicyConfiguration>> PolicyConfigurationsAsync(Guid projectId, CancellationToken c) =>

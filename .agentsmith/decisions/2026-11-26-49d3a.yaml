@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-49d3a
+
+decisions:
+  - category: Architecture
+    chose: "A code run reads the red heads of its ticket's open pull requests in FetchTicket (CiEvidenceReader) and renders them with the recovered CiFailurePromptSection, whoever started the run"
+    over: "Recovering 3435c's CiRework (act, attempt, budget, hand-back); passing the evidence in the tell_ticket/retry_ticket/start message"
+    reason: "decider: operator (recover the old delivery, not the loop). The records hold the evidence already; reading them at fetch covers tell, retry and start alike with no new channel, and setting no act keeps the series master the only one deciding what a red CI means."
+  - category: Implementation
+    chose: "Azure reads the build's test runs by buildUri and their failed, error, timeout and aborted results; when any exist they lead and no log is read, otherwise the FIRST failed task's log tail (by start time); a refused or timed-out test read falls back"
+    over: "The last failed task's log tail only (3435a); a raw REST client for the test API"
+    reason: "decider: claude, from the live case and the spec review. The last failed task of a VSTest build is PublishTestResults, whose log names no test; the SDK's TestManagementHttpClient goes through the same cached connection and credential as the build client."
+  - category: Implementation
+    chose: "GitLab reads the pipeline's test_report once; a job's suite is the one named by the job or its group name ('rspec 1/3' -> 'rspec'), its cases go with the first failed shard only"
+    over: "Prefix matching on the job name; test_report_summary"
+    reason: "decider: claude, from the diff review. GitLab names a suite by the job's group name; a prefix match pulled a 'unit' suite into a 'unit integration' job and repeated a suite on every shard."
+  - category: Implementation
+    chose: "A refresh of a head stored red keeps the stored evidence per check still failing; a check failing anew comes as read"
+    over: "Overwriting with the logless read (before); keeping the whole stored list"
+    reason: "decider: claude. The ci read refreshes first, so the overwrite erased the evidence exactly when the master asked for it; a re-run on the same head may change which checks fail."
+  - category: Scope
+    chose: "No new limit: each excerpt stays bounded by merge.ci_excerpt_chars and the reads by merge.ci_failed_checks_read (also top per Azure test run); failed tests list every name and message before any stack"
+    over: "A stack-line cap; fitting the ci read under the ticket thread's budget"
+    reason: "decider: claude, from both reviews. Both existing keys have dashboard fields; ordering names before stacks keeps a long stack from pushing a later test out, which a cap would otherwise have had to do."

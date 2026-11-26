@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Rework;
 using AgentSmith.Application.Services.Series;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
@@ -32,7 +33,7 @@ public sealed class SeriesTicketCi(
         if (open.Count == 0) return $"Ticket {ticketId} has no open pull request.";
         return act switch
         {
-            SeriesCiActs.Read => string.Join(" ", open.Select(Line)),
+            SeriesCiActs.Read => string.Join(" ", open.Select(Line)) + Evidence(open),
             SeriesCiActs.Requeue or SeriesCiActs.Start => await RunAsync(project, series, ticketId, open, act, ct),
             _ => SeriesCiActs.Unknown(act),
         };
@@ -61,6 +62,10 @@ public sealed class SeriesTicketCi(
         return stray.Count == 0 ? null : string.Join(" ", stray.Select(p => $"{p.Repo} {p.Url} targets {p.Target}, neither the series nor the "
             + "default branch: no build policy validates it there and its CI is not read, so nothing would run. Retarget it with retarget_pull_request first."));
     }
+
+    // 2026-11-26-49d3a: a red head's failed checks with the evidence its record stored — failed tests or the log tail.
+    private static string Evidence(IReadOnlyList<PrReviewRecordView> open) =>
+        CiEvidenceReader.Red(open) is { Count: > 0 } red ? "\n\n" + CiEvidenceText.Of(red) : string.Empty;
 
     private static string Line(PrReviewRecordView record)
     {

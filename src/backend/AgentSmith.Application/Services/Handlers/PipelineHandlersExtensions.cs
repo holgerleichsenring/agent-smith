@@ -40,7 +40,7 @@ public static class PipelineHandlersExtensions
         // 2026-10-08-e8b9d: the review on the previous attempt's pull requests; nobody is trusted
         // where no per-host trust is registered.
         services.AddTransient<IPrReviewFeedbackFetcher, Rework.PrReviewFeedbackFetcher>();
-        services.AddSingleton<Rework.TrackerIdentity>().AddTransient<Rework.StatusBackActReader>().AddTransient<Rework.AttemptCauseReader>().AddTransient<Tickets.TicketClosure>();
+        services.AddSingleton<Rework.TrackerIdentity>().AddTransient<Rework.StatusBackActReader>().AddTransient<Rework.AttemptCauseReader>().AddTransient<Rework.CiEvidenceReader>() /* 49d3a */.AddTransient<Tickets.TicketClosure>();
         services.TryAddSingleton<IPrReviewAuthorTrust, Rework.UntrustingReviewAuthorTrust>();
         services.AddTransient<TicketExtrasFetcher>().AddTransient<EpicGroundFetcher>().AddTransient<SpecDialog.EpicParentReader>();
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
@@ -54,7 +54,7 @@ public static class PipelineHandlersExtensions
         // and the per-run factory for the master's escalation tool host.
         services.AddTransient<SandboxRepoCloner>().AddTransient<Tools.EnsureRepoSandboxToolFactory>();
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);
-        services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>().AddTransient<SetupRegistryAuthHandler>().AddTransient<MidRunRegistryAuth>();
+        services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>().AddTransient<SetupRegistryAuthHandler>().AddTransient<MidRunRegistryAuth>().AddTransient<RegistryFeedRestage>(); // 49d3b
         // p0375: generic registry-auth staging for ecosystems the deterministic
         // NuGet/npm fast-paths do not cover — declared/persisted registry_auth
         // template first, Scout-role LLM fallback second, token substituted host-side.
