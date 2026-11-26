@@ -37,6 +37,7 @@ internal sealed class SpecIdReader
         specId: $@"^\s*spec:\s*""?(?<id>{Whole}(?=""?\s*$)|{Minted}|{Counter})",
         // The colon is the anchor here, so one widened branch says what two would.
         contextId: $@"^    (?<id>{Whole}|{Minted}):",
+        doneId: $@"^- (?<id>{Whole}|{Minted}):",
         inlineRequires: $@"{Whole}(?=\s*(?:""|'|,|\]|$))|{Minted}|{Counter}",
         blockRequires: $@"^\s*-\s*(?<id>{Whole}(?=""?\s*$)|{Minted}|{Counter})");
 
@@ -47,6 +48,7 @@ internal sealed class SpecIdReader
     public static SpecIdReader Legacy { get; } = new(
         specId: $@"^\s*spec:\s*""?(?<id>{Counter})",
         contextId: $@"^    (?<id>{Counter}):",
+        doneId: $@"^- (?<id>{Counter}):",
         inlineRequires: Counter,
         blockRequires: $@"^\s*-\s*(?<id>{Counter})",
         readsEveryNamespace: false);
@@ -55,11 +57,12 @@ internal sealed class SpecIdReader
     private readonly Regex _blockRequires;
 
     private SpecIdReader(
-        string specId, string contextId, string inlineRequires, string blockRequires,
+        string specId, string contextId, string doneId, string inlineRequires, string blockRequires,
         bool readsEveryNamespace = true)
     {
         SpecId = Compiled(specId);
         ContextId = Compiled(contextId);
+        DoneId = Compiled(doneId);
         _inlineRequires = Compiled(inlineRequires);
         _blockRequires = Compiled(blockRequires);
         ReadsEveryNamespace = readsEveryNamespace;
@@ -77,6 +80,9 @@ internal sealed class SpecIdReader
     public Regex SpecId { get; }
 
     public Regex ContextId { get; }
+
+    /// <summary>2026-11-26-462aa: an entry line of a context's done.md, <c>- {id}: …</c>.</summary>
+    public Regex DoneId { get; }
 
     public IEnumerable<string> Requires(string text)
     {

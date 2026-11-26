@@ -41,6 +41,14 @@ public static class ProjectMetaPaths
 
     public const string ContextYamlFile = "context.yaml";
 
+    /// <summary>2026-11-26-462aa: a context's done index — one line per finished spec — beside its
+    /// context.yaml: a line file, so that <c>merge=union</c> keeps both branches' lines.</summary>
+    public const string ContextDoneFile = "done.md";
+
+    /// <summary>2026-11-26-462aa: the repository root's git attributes, where the index files are
+    /// declared <c>merge=union</c>.</summary>
+    public const string GitAttributes = ".gitattributes";
+
     /// <summary>2026-10-01-283dg: a repository's design system — token frontmatter and prose —
     /// at the repository ROOT, outside <see cref="Root"/>, under exactly this name.</summary>
     public const string DesignSystem = "DESIGN.md";

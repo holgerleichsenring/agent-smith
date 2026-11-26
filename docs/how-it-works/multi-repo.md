@@ -44,7 +44,7 @@ todolist-web (branch agent-smith/54)
     └── specs/planned/2026-10-15-3f2ab-todo-due-date-picker.yaml   (+ .md)
 ```
 
-Every manifest lists all members of the series and the repositories it spans, so the next run reads the parts back as one set, in id order. A revision of the series is written to every member repository in one go, all stamped with the same revision time. When a spec has run, it moves to `specs/done/` in its own repository only, together with its `state.done` line in that repository's context.
+Every manifest lists all members of the series and the repositories it spans, so the next run reads the parts back as one set, in id order. A revision of the series is written to every member repository in one go, all stamped with the same revision time. When a spec has run, it moves to `specs/done/` in its own repository only, together with its line in that repository's context `done.md`.
 
 When that write fails in one repository (a push refused, say), it is rolled back in the others and the run stops with the reason, so the series stays on its previous revision everywhere. If a run still finds the repositories carrying different revisions, nothing is derived and nothing is built. The ticket is handed back with "the series is out of step between its repositories", naming the repositories that lag. Two ways out: a comment whose first line is `cut this specification again` plus a move back to a trigger status, which cuts the series again over every repository and keeps the specs that already ran; or a new approval of the specification in the design conversation, filed again.
 

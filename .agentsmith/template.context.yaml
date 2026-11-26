@@ -200,10 +200,9 @@ quality:
 
 # --- Where are we? --------------------------------------------------------
 
+# Finished specs are not listed here: each has one line in done.md beside this
+# file, written by the spec record step and merged with merge=union.
 state:
-  done:
-    v1.0: "Core functionality — one-line summary"
-    # v2.0: "Next milestone summary"
   active:
     v1.1:
       goal: "What you're building right now"

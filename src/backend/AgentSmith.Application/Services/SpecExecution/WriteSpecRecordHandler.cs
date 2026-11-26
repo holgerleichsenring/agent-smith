@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// 2026-10-06-03c7e: the record IS the spec, moved. <c>specs/done/{stem}.yaml</c> is the spec
 /// plus an <c>outcome:</c> block under the stem the series already gave it — one file, no second
 /// slug — and the planned files leave in the same series commit, so the directory says it ran.
-/// Only the repository carrying the series gets the file and its <c>state.done</c> line. The
+/// Only the repository carrying the series gets the file and its done.md line. The
 /// command keeps its name: it is persisted in run history.
 /// </para>
 /// <para>

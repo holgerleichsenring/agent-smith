@@ -1,7 +1,7 @@
 namespace AgentSmith.Application.Services.SpecExecution;
 
 /// <summary>
-/// 2026-08-26-31e5: composes the <c>state.done</c> index line for a finished spec — the
+/// 2026-08-26-31e5: composes the done index line (2026-11-26-462aa: in done.md) for a finished spec — the
 /// pointer to the record file, and as much of the goal as the cap allows, cut at a word
 /// boundary.
 /// <para>

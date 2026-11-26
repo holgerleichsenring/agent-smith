@@ -44,7 +44,7 @@ public sealed class SeriesPerRepoRecordTests
             .TryReadAsync(SeriesPaths.Manifest(SeriesRepoBranches.Base), default))!;
         manifest.Specs.Should().Equal(Id('a'), Id('b'));
         manifest.Revisions[^1].At.Should().Be(set.Current.At.ToString("O"), "the publish stamp is kept");
-        (await _branches.Repo(Server.Name).TryReadAsync("/work/.agentsmith/contexts/default/context.yaml", default))
+        (await _branches.Repo(Server.Name).TryReadAsync("/work/.agentsmith/contexts/default/done.md", default)) // 462aa
             .Should().Contain($"-> {Done}/{Id('a')}-a.yaml");
         (await pointers.GetAsync("p", SeriesRepoBranches.Key, default))!.ExecutedIds.Should().Equal(Id('a'));
     }
