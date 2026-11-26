@@ -141,3 +141,7 @@
 .mock-dialog [data-testid="dialog-series-state"][data-state="done"] { color: var(--ok); }
 .mock-dialog [data-testid="dialog-series-state"]:not([data-state="done"]) { color: var(--run); }
 .mock-dialog [data-testid="dialog-series-state"][data-state="paused"] { color: var(--ink-2); }
+/* 2026-11-26-f511c: a turn's time under its speaker (the series chat), and the acts a series beat took, one small line under
+   the master's sentence. */
+.mock-dialog .dl-time { display: block; margin-top: 2px; font-size: 10.5px; line-height: 14px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mock-dialog .dl-acts { margin: 4px 0 0; font-size: 12px; line-height: 18px; color: var(--ink-3); overflow-wrap: anywhere; }

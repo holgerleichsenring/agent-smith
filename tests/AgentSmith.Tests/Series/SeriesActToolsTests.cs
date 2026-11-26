@@ -46,7 +46,7 @@ public sealed class SeriesActToolsTests
         (await tools.RetryTicketAsync("SCRUM-44", "the runner lost its network")).Should().Be("retried");
         await tools.RetryTicketAsync("SCRUM-44");
 
-        beat.Said.Should().Equal("agent-smith-bot retried SCRUM-44: the runner lost its network");
+        beat.Acts.Select(a => a.Notice).OfType<string>().Should().Equal("agent-smith-bot retried SCRUM-44: the runner lost its network");
     }
 
     [Fact]
