@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Models.Registry;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Registry;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models.Configuration;
@@ -339,6 +340,104 @@ public sealed class SetupRegistryAuthHandlerTests
             - path: {WidgetAuthPath}
               content: '{template}'
         """;
+
+    // 2026-11-26-49d3b: a run adds a second feed of the same host to nuget.config after checkout; the next package command
+    // through run_command stages the feeds again, so dotnet tool restore finds a credential for the new source key.
+    [Fact]
+    public async Task ASourceAddedAfterStaging_GetsItsCredential_BeforeTheNextPackageCommand()
+    {
+        var (handler, files, pipeline, host) = Workspace("/work/nuget.config",
+            NuGetConfigXml("Main", "https://pkgs.dev.azure.com/AcmeOrg/_packaging/Main/nuget/v3/index.json"));
+        await handler.ExecuteAsync(new SetupRegistryAuthContext(pipeline), CancellationToken.None);
+        files["/work/nuget.config"] = files["/work/nuget.config"].Replace("</packageSources>",
+            "<add key=\"Tools\" value=\"https://pkgs.dev.azure.com/AcmeOrg/_packaging/Tools/nuget/v3/index.json\" /></packageSources>");
+        files["/root/.nuget/NuGet/NuGet.Config"].Should().NotContain("<Tools>");
+
+        await host(handler).RunCommand("dotnet tool restore");
+
+        var user = files["/root/.nuget/NuGet/NuGet.Config"];
+        user.Should().Contain("<Tools>").And.Contain("<Main>").And.Contain($"value=\"{Token}\"");
+        files.Where(f => f.Key.StartsWith("/work/", StringComparison.Ordinal)).Should().OnlyContain(f => !f.Value.Contains(Token),
+            "a token lands only in the user-level files, never in the repository");
+    }
+
+    [Fact]
+    public async Task ASecondNpmRegistryPathOnTheHost_GetsItsTokenLine()
+    {
+        var (handler, files, pipeline, host) = Workspace("/work/.npmrc",
+            "registry=https://pkgs.dev.azure.com/AcmeOrg/_packaging/Npm/npm/registry/\n");
+        await handler.ExecuteAsync(new SetupRegistryAuthContext(pipeline), CancellationToken.None);
+        files["/work/.npmrc"] += "@tools:registry=https://pkgs.dev.azure.com/AcmeOrg/_packaging/Tools/npm/registry/\n";
+
+        await host(handler).RunCommand("npm ci");
+
+        files["/root/.npmrc"].Should().Contain("//pkgs.dev.azure.com/AcmeOrg/_packaging/Tools/npm/registry/:_authToken=" + Token)
+            .And.Contain("//pkgs.dev.azure.com/AcmeOrg/_packaging/Npm/npm/registry/:_authToken=" + Token);
+    }
+
+    [Fact]
+    public async Task ARestageWhoseListingMissesTheConfig_KeepsTheCredentialStagedBefore()
+    {
+        var listing = new List<string> { "/work/nuget.config" };
+        var (handler, files, pipeline, host) = Workspace("/work/nuget.config",
+            NuGetConfigXml("Main", "https://pkgs.dev.azure.com/AcmeOrg/_packaging/Main/nuget/v3/index.json"), listing);
+        await handler.ExecuteAsync(new SetupRegistryAuthContext(pipeline), CancellationToken.None);
+        listing.Clear(); // the listing cap after a restore left the nuget.config out
+
+        await host(handler).RunCommand("dotnet build");
+
+        files["/root/.nuget/NuGet/NuGet.Config"].Should().Contain("<Main>").And.Contain($"value=\"{Token}\"");
+    }
+
+    [Theory]
+    [InlineData("git status", false)]
+    [InlineData("cat nuget.config", false)]
+    [InlineData("dotnet tool restore", true)]
+    [InlineData("cd src && /usr/bin/dotnet test", true)]
+    [InlineData("pnpm install", true)]
+    [InlineData("./build.sh", true)]
+    [InlineData("sh -c \"dotnet test\"", true)]
+    [InlineData("(cd web && make)", true)]
+    [InlineData("echo dotnetcore", false)]
+    public void Restores_PackageCommandsOnly(string command, bool expected) =>
+        RegistryFeedRestage.Restores(command).Should().Be(expected);
+
+    [Fact]
+    public async Task ACommandThatIsNoPackageCommand_StagesNothing()
+    {
+        var (handler, files, _, host) = Workspace("/work/nuget.config",
+            NuGetConfigXml("Main", "https://pkgs.dev.azure.com/AcmeOrg/_packaging/Main/nuget/v3/index.json"));
+
+        await host(handler).RunCommand("git status");
+
+        files.Should().NotContainKey("/root/.nuget/NuGet/NuGet.Config");
+    }
+
+    // One repo config in a file map the reader serves and writes; the host runs run_command with the restage before it.
+    private (SetupRegistryAuthHandler Handler, Dictionary<string, string> Files, PipelineContext Pipeline,
+        Func<SetupRegistryAuthHandler, FilesystemToolHost> Host) Workspace(string path, string content, List<string>? listing = null)
+    {
+        var handler = MakeHandler(out var reader);
+        var files = new Dictionary<string, string>(StringComparer.Ordinal) { [path] = content };
+        var listed = listing ?? [path];
+        reader.Setup(r => r.ListAsync("/work", It.IsAny<int?>(), It.IsAny<CancellationToken>())).ReturnsAsync(() => [.. listed]);
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string p, CancellationToken _) => files.GetValueOrDefault(p));
+        reader.Setup(r => r.WriteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, string, CancellationToken>((p, c, _) => files[p] = c).Returns(Task.CompletedTask);
+        var pipeline = MakePipelineWithSandbox(out var sandbox);
+        sandbox.Setup(s => s.RunStepAsync(It.IsAny<AgentSmith.Sandbox.Wire.Step>(), It.IsAny<IProgress<AgentSmith.Sandbox.Wire.StepEvent>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentSmith.Sandbox.Wire.StepResult(1, Guid.NewGuid(), 0, false, 0.1, null));
+        return (handler, files, pipeline, h =>
+        {
+            var restage = new RegistryFeedRestage(new MidRunRegistryAuth(h), NullLogger<RegistryFeedRestage>.Instance);
+            return new FilesystemToolHost(sandbox.Object)
+            {
+                BeforeCommand = (key, command, box, ct) => restage.BeforeCommandAsync(pipeline, key, command, box, ct),
+            };
+        });
+    }
 
     private SetupRegistryAuthHandler MakeHandler(
         out Mock<ISandboxFileReader> reader, IReadOnlyList<RegistryConfig>? registries = null,

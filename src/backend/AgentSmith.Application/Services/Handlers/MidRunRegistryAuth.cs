@@ -13,13 +13,13 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class MidRunRegistryAuth(SetupRegistryAuthHandler handler)
 {
     public async Task<IReadOnlyList<string>> StageAsync(
-        PipelineContext pipeline, string repoKey, ISandbox sandbox, CancellationToken cancellationToken)
+        PipelineContext pipeline, string repoKey, ISandbox sandbox, CancellationToken cancellationToken, bool generic = true)
     {
         var registries = pipeline.ProjectRegistries(); // 2026-11-25-9992d: the run's project's feeds
         if (registries.Count == 0) return [];
         var written = new List<string>();
         await handler.StageInSandboxAsync(repoKey, sandbox, handler.RootsOf(pipeline, sandbox), registries,
-            () => pipeline.Resolved().Agent, written, cancellationToken);
+            () => pipeline.Resolved().Agent, written, cancellationToken, generic);
         var staged = pipeline.TryGet<List<string>>(ContextKeys.StagedRegistries, out var held) && held is not null
             ? new List<string>(held) : [];
         staged.AddRange(written.Select(w => $"{repoKey}: {w}").Where(line => !staged.Contains(line)).ToList()); // 9992b: a restart re-stages

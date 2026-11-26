@@ -156,6 +156,10 @@ public sealed class FilesystemToolHost : IToolHost
     public bool ResolvesUnprefixedReads { get; init; } // 2026-11-10-85e2: a design turn's host only
     public Func<IReadOnlyList<SpecDialog.Writes.DraftFile>>? DraftReader { get; init; } // 2026-11-15-06fc: draft: paths
 
+    /// <summary>2026-11-26-49d3b: awaited before run_command runs a command — the repo key, the command and the sandbox that runs
+    /// it; the coding master stages its feeds again here (<see cref="Handlers.RegistryFeedRestage"/>).</summary>
+    public Func<string, string, ISandbox, CancellationToken, Task>? BeforeCommand { get; init; }
+
     /// <summary>p0331: registers a mid-run sandbox (ensure_repo_sandbox escalation)
     /// under its composite key AND its repo-name alias, mirroring the constructor's
     /// keyToRepo aliasing, so the master addresses the new repo exactly like the
@@ -511,7 +515,12 @@ public sealed class FilesystemToolHost : IToolHost
                 $"Known repos: [{KnownRepoList()}].");
         var (cmdRunner, resolveErr) = Resolve(repo);
         if (resolveErr is not null) return Task.FromResult(resolveErr);
-        return Commands.RecordAsync(repo ?? FirstRepoName(), command, () => cmdRunner!.RunAsync(command, timeout_seconds, ct));
+        var key = repo ?? FirstRepoName();
+        return Commands.RecordAsync(key, command, async () =>
+        {
+            if (BeforeCommand is { } before) await before(key, command, cmdRunner!.Sandbox, ct); // 2026-11-26-49d3b
+            return await cmdRunner!.RunAsync(command, timeout_seconds, ct);
+        });
     }
 
     private static AIFunction Tool(Delegate impl, string name) =>

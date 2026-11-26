@@ -59,7 +59,8 @@ public sealed class AgenticMasterHandler(
     MasterToolComposition composition, // which tool surface this master gets
     Specs.Reports.MasterReportRecorder reportRecorder, // 2026-11-22-96c8a: the report and what is read off it
     TurnActivityTools reportingTools, MidTurnMessageTools midTurn, // 042ee: steps reported; a1fa: messages handed on
-    ILogger<AgenticMasterHandler> logger)
+    ILogger<AgenticMasterHandler> logger,
+    RegistryFeedRestage? feeds = null) // 2026-11-26-49d3b: a package command stages the feeds again first
     : ICommandHandler<AgenticMasterContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -237,7 +238,11 @@ public sealed class AgenticMasterHandler(
             sandboxes, defaultKey,
             runCommandTimeoutSeconds: runCommandTimeout, stepTimeoutCapSeconds: stepTimeoutCap,
             keyToRepo: keyToRepo, logger: logger)
-        { Commands = Specs.SpecRunCommandScope.Open(context.Pipeline), ResolvesUnprefixedReads = isSpecDialog, DraftReader = isSpecDialog ? SpecDialog.Writes.DraftFiles.Reader(context.Pipeline) : null }; // 85e2, 06fc
+        {
+            Commands = Specs.SpecRunCommandScope.Open(context.Pipeline), ResolvesUnprefixedReads = isSpecDialog, // 85e2
+            DraftReader = isSpecDialog ? SpecDialog.Writes.DraftFiles.Reader(context.Pipeline) : null, // 06fc
+            BeforeCommand = feeds is null ? null : (key, command, sandbox, ct) => feeds.BeforeCommandAsync(context.Pipeline, key, command, sandbox, ct),
+        };
         templates.AttachTo(fs); // 2026-09-13-6f35: reachable by name, refused on write by kind
         // 2026-11-25-9992c: "." — each repository's files are read through its own sandbox, which roots it.
         var records = recordHosts.Create(context.Pipeline, ".", codingMaster: !isScanMaster && !isSpecDialog);

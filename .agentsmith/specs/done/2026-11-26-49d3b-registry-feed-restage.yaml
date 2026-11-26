@@ -16,7 +16,7 @@ facts:
   - claim: "The coding master's run_command ends in FilesystemToolHost.RunCommand, which resolves the sandbox and runs the command."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:500-514"
   - claim: "NuGet applies a credential only to the source whose key it is listed under; there is no host-wide credential in NuGet.Config."
-    evidence: "observed: NuGet packageSourceCredentials docs; live run 2026-11-26 — dotnet tool restore 401 on a second feed of the same host, curl with the same token 200"
+    evidence: "observed: 2026-11-26 — NuGet packageSourceCredentials docs; a live run: dotnet tool restore 401 on a second feed of the same host, curl with the same token 200"
 
 scope:
   in: |

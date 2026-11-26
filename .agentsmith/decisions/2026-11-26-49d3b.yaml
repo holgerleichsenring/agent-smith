@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-49d3b
+
+decisions:
+  - category: Architecture
+    chose: "Stage the NuGet and npm feeds again before run_command runs a package-like command (dotnet, nuget, msbuild, npm, npx, pnpm, yarn, make, a .sh script) and before every declared verify stage, through MidRunRegistryAuth with the generic path off"
+    over: "A re-stage tool for the master; a host-wide NuGet credential; the Azure Artifacts credential provider (VSS_NUGET_URI_PREFIXES); re-staging only when a nuget.config is written"
+    reason: "decider: claude, among the operator's three options. NuGet keys credentials by source name only, and the credential provider is not in the images; a tool relies on the agent noticing a 401 (the brittleness p0198 removed); a config can change through write_file, sed or 'dotnet nuget add source' alike, so the command, not the write, is the reliable point. The staging already re-runs cheaply per sandbox (ensure_repo_sandbox)."
+  - category: Implementation
+    chose: "The user-level files staged before (/root/.nuget/NuGet/NuGet.Config, /root/.npmrc) are read as one more config, after the repo's; a repo mapping wins over a staged npm mapping of the same key"
+    over: "Writing only what the current listing finds"
+    reason: "decider: claude, from the spec review. The listing stops at its cap, and after a restore bin/obj/node_modules can push a nested config out; a re-stage must never drop a credential that worked."
+  - category: Scope
+    chose: "npm is fixed the same way, by the same re-stage"
+    over: "A host-level //host/:_authToken line (npm's nerf-dart walk-up)"
+    reason: "decider: claude. npm had the gap (tokens keyed by exact registry path); the operator asked for the same fix, and one mechanism covers both without widening where a token is sent."
+  - category: TradeOff
+    chose: "A false-positive match (echo make, cat run.sh) costs one listing and two user-file writes; no new limit or cache"
+    over: "Fingerprinting the configs to skip unchanged re-stages"
+    reason: "decider: claude. Package commands are a small share of a run's commands, and a fingerprint still needs the listing it would save."
