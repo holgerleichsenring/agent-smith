@@ -36,7 +36,7 @@ The env vars that matter on the server:
 REDIS_PASSWORD=…              # required; the server's REDIS_URL is redis:6379,password=${REDIS_PASSWORD}
 SANDBOX_TYPE=docker           # create each run's sandboxes as Docker containers on this host
 SERVER_PORT=8081              # published webhook/API port
-AGENTSMITH_VERSION=0.229.0    # image tag pin for all agent-smith images
+AGENTSMITH_VERSION=0.230.0    # image tag pin for all agent-smith images
 ```
 <!-- x-release-please-end -->
 
@@ -152,7 +152,7 @@ For per-run visibility, the [dashboard](../reference/operations/dashboard.md) be
 <!-- x-release-please-start-version -->
 ```bash
 # .env
-AGENTSMITH_VERSION=0.229.0
+AGENTSMITH_VERSION=0.230.0
 ```
 <!-- x-release-please-end -->
 
@@ -168,13 +168,15 @@ That one number is the upgrade. The sandbox-agent tag is derived from the releas
 # agentsmith.yml, optional
 deployment:
   registry: my-mirror.example/agent-smith
-  version: 0.229.0       # fills sandbox.agent_version where it is unset
+  version: 0.230.0       # fills sandbox.agent_version where it is unset
 ```
 <!-- x-release-please-end -->
 
 A pinned tag is reported as an advisory finding and never refused. The installation page in the dashboard shows, per project, which agent tag is in use and whether it was derived or pinned.
 
 The migrate job re-runs on every `up` and applies whatever migrations the new version brought. Skills upgrade with the image: each release embeds the catalog it was tested with, so there is no separate skills pin to bump unless you want one (see [Skills catalog](../how-it-works/skills-catalog.md)).
+
+**Upgrading from before 0.225:** go straight to 0.230.0 or later. The migrate job gives each standalone ticket with live work (an open pull request, an unfinished or queued code run, a start queued when its prerequisites landed) a series of one, led by its series master. A filed ticket with prerequisites and no run stays dormant and nothing starts it. Releases 0.225 to 0.229.0 adopted those dormant tickets as well, and their masters started them. Stop the old server before the migrate runs (see [Kubernetes](kubernetes.md)).
 
 ## Building the images yourself
 

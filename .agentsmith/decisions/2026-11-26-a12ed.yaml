@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-a12ed
+
+decisions:
+  - category: Architecture
+    chose: "read_ticket returns the newest run's report, read on demand from the run row's AcceptanceJson (the coding masters' markdown the run page shows) through one IRunReportReader"
+    over: "Loading the report into every beat's facts; reading the record dir's result file; a second tool"
+    reason: "decider: operator (a capability, not an instruction) and claude (on demand, one place). The facts are read every beat for every ticket; the report is wanted for one ticket when the master asks."
+  - category: Implementation
+    chose: "No new size limit: the report lands in the master's thread, which dialogue.series_master_thread_max_chars (config key and dashboard field) already bounds by compaction"
+    over: "A new report_max_chars setting with a dashboard field"
+    reason: "decider: claude, under the operator's rule that a limit is added only when needed and then lives in config. The existing thread budget already folds whatever a long report adds after its beat."
+  - category: Implementation
+    chose: "The run-end wake appends the report's headings (or its first line), 'its run X ended success — report: Delivered · Deviations · Follow-ups'"
+    over: "The whole report in the wake; no report in the wake"
+    reason: "decider: operator (a short form, wakes are coalesced). Headings name what the run reports without its body; read_ticket has the rest."

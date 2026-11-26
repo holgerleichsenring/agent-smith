@@ -40,7 +40,8 @@ public sealed class FiledWorkMove(
             logger.LogWarning(ex, "Ticket {Ticket} could not be read to start it", ticketId);
             return NotStarted(FiledWorkReasons.StatusUnreadable);
         }
-        var tagged = await tagger.ApplyAsync(provider, project, new CreatedTicket(id, null), labels, ct, filedFromText);
+        var tagged = await tagger.ApplyAsync(provider, project, new CreatedTicket(id, null), labels, ct, filedFromText,
+            filedFromText ? configLoader.LoadConfig(serverContext.ConfigPath).PipelineTriggers : null); // 2026-11-26-a12eb
         return tagged.Explaining(await StartAsync(provider, project, id, tagged.Labels, mayStartRuns, ct));
     }
 

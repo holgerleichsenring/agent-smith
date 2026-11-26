@@ -1,6 +1,10 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Runs;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure.Persistence.Services;
@@ -27,6 +31,21 @@ public sealed class DbCapacityQueue(IServiceScopeFactory scopeFactory) : ICapaci
 
     public Task<IReadOnlyDictionary<string, int>> GetPositionsByRunIdAsync(CancellationToken ct)
         => InScope(r => r.GetPositionsByRunIdAsync(ct));
+
+    public Task<CapacityQueueEntry?> FindAsync(string project, string ticketId, CancellationToken ct)
+        => InScope(r => r.FindEntryAsync(project, ticketId, ct)); // 2026-11-26-a12eb
+
+    // 2026-11-26-a12ec: the entry and its queued run row say why it waits now.
+    public async Task ReasonAsync(string project, string ticketId, string reason, CancellationToken ct)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var entry = uow.Set<QueuedTicket>().Where(q => q.Project == project && q.TicketId == ticketId);
+        var runId = await entry.Select(q => q.ReservedRunId).FirstOrDefaultAsync(ct);
+        await entry.ExecuteUpdateAsync(s => s.SetProperty(q => q.Reason, reason), ct);
+        if (runId is not null)
+            await uow.Set<Run>().Where(r => r.Id == runId && r.Status == RunStatuses.Queued).ExecuteUpdateAsync(s => s.SetProperty(r => r.Summary, reason), ct);
+    }
 
     private async Task<T> InScope<T>(Func<QueuedTicketRepository, Task<T>> op)
     {

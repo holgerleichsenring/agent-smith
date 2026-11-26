@@ -80,6 +80,8 @@ public sealed class QueuedTicketRepository(
         (await unitOfWork.Set<QueuedTicket>().AsNoTracking().Select(q => new { q.Project, q.TicketId, q.EnqueuedAt }).ToListAsync(ct))
             .ToDictionary(q => (q.Project, q.TicketId), q => q.EnqueuedAt);
 
+    public async Task<CapacityQueueEntry?> FindEntryAsync(string project, string ticketId, CancellationToken ct) =>
+        await FindAsync(project, ticketId, ct) is { } q ? ToEntry(q) : null; // 2026-11-26-a12eb
     private Task<QueuedTicket?> FindAsync(string project, string ticketId, CancellationToken ct) =>
         unitOfWork.Set<QueuedTicket>()
             .FirstOrDefaultAsync(q => q.Project == project && q.TicketId == ticketId, ct);

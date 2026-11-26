@@ -108,6 +108,36 @@ public sealed class SeriesAddedTicketStartCompositionTests
         start.Should().Be(new SeriesStart(SeriesStartKind.Started, $"Ticket {added} started: run run-5.", "run-5"));
     }
 
+    // 2026-11-26-a12eb: a ticket already waiting in the capacity queue, or one a run holds, is answered with that state; the start
+    // tags, moves and spawns nothing.
+    [Fact]
+    public async Task StartTicket_ATicketWaitingForCapacity_SaysSoAndActsOnNothing()
+    {
+        await using var rig = await Rig.BuildAsync(ClaimResult.Claimed(), "run-6", fixture: FixturePaths.FilingLabels);
+        var added = await rig.AddAsync();
+        await rig.Services.GetRequiredService<ICapacityQueue>().EnqueueAsync(new CapacityQueueCandidate(
+            Project, added, "code", "github", "run-q", "Kubernetes ResourceQuota is full", [], null, null), default);
+
+        var start = await rig.StartAsync(added);
+
+        start.Kind.Should().Be(SeriesStartKind.Refused);
+        start.Text.Should().Contain("already queued since").And.Contain("waiting for sandbox capacity: Kubernetes ResourceQuota is full (run run-q)");
+        rig.Spawned.Should().Be(0);
+        rig.Labels(added).Should().NotContain("agent-smith:code");
+    }
+
+    [Fact]
+    public async Task StartTicket_ATicketARunHolds_SaysItIsRunning()
+    {
+        await using var rig = await Rig.BuildAsync(ClaimResult.Claimed(), "run-7", leasedBefore: "run-r");
+        var added = await rig.AddAsync();
+
+        var start = await rig.StartAsync(added);
+
+        start.Should().Be(SeriesStart.Refused($"Ticket {added} was not started: it is already running (run run-r); nothing was done."));
+        rig.Spawned.Should().Be(0);
+    }
+
     // A one-spec filing as Work it out files a series ticket: the approved set stored, the stamp on the ticket.
     private static AgentSmith.Application.Services.Filing.FilingRequest SeriesFiling() =>
         new("conv-1", "sample.user", [], [], new AgentSmith.Contracts.Models.TicketGraphOutcome([new AgentSmith.Contracts.Models.GraphTicket(
@@ -138,14 +168,15 @@ public sealed class SeriesAddedTicketStartCompositionTests
             _tracker.GetTicketAsync(new AgentSmith.Domain.Models.TicketId(ticketId), default).Result.Labels;
 
         public static async Task<Rig> BuildAsync(ClaimResult claim, string? runId, string? leasedAfterSpawn = null,
-            string fixture = FixturePaths.Filing)
+            string fixture = FixturePaths.Filing, string? leasedBefore = null)
         {
             var (rig, tracker) = (new Rig(), new ActTracker());
             rig._tracker = tracker;
             var leases = new Mock<IActiveRunLease>();
             leases.Setup(l => l.GetByTicketAsync(Project, It.IsAny<AgentSmith.Domain.Models.TicketId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync((string _, AgentSmith.Domain.Models.TicketId id, CancellationToken _) => rig.Spawned > 0 && leasedAfterSpawn is not null
-                    ? new StaleLease(Project, id, leasedAfterSpawn, null) : null);
+                .ReturnsAsync((string _, AgentSmith.Domain.Models.TicketId id, CancellationToken _) => leasedBefore is not null
+                    ? new StaleLease(Project, id, leasedBefore, null)
+                    : rig.Spawned > 0 && leasedAfterSpawn is not null ? new StaleLease(Project, id, leasedAfterSpawn, null) : null);
             rig._spawn.Setup(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.Is<ResolvedProject>(p => p.Name == Project), It.IsAny<string>(),
                     It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(), It.IsAny<CancellationToken>(),
                     It.IsAny<Dictionary<string, string>?>()))
@@ -155,7 +186,7 @@ public sealed class SeriesAddedTicketStartCompositionTests
                 services.RemoveAll<ITicketProviderFactory>().AddSingleton<ITicketProviderFactory>(new ActTrackerFactory(tracker));
                 services.RemoveAll<IEventPublisher>().AddSingleton<IEventPublisher>(new ActRunEvents());
                 services.RemoveAll<ISpawnPipelineRunsUseCase>().AddSingleton(rig._spawn.Object);
-                if (leasedAfterSpawn is not null) services.RemoveAll<IActiveRunLease>().AddSingleton(leases.Object);
+                if (leasedAfterSpawn is not null || leasedBefore is not null) services.RemoveAll<IActiveRunLease>().AddSingleton(leases.Object);
                 services.RemoveAll<IRedisClaimLock>().AddSingleton(Mock.Of<IRedisClaimLock>(l =>
                     l.TryAcquireAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()) == Task.FromResult<string?>("token")));
             });

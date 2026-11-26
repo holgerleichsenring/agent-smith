@@ -4,7 +4,9 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence;
@@ -351,6 +353,46 @@ public sealed class CapacityQueuePumpTests : IDisposable
         run.FinishedAt.Should().Be(finishedByTheDrop);
     }
 
+    // 2026-11-26-a12ec: production held 5 queued code runs and ran none. The head was a claimed run whose pod the quota refused
+    // ("Waiting for capacity — Kubernetes ResourceQuota"), re-queued as a backstop entry the pump leaves to the poller; the poll
+    // refuses it, since it waits on a prerequisite queued behind it, so nothing ever relaunched or dropped it.
+    [Fact]
+    public async Task Pump_ADependentQueuedAheadOfItsPrerequisite_IsSetAside_AndThePrerequisiteRuns()
+    {
+        var facts = new InMemoryTicketFacts();
+        facts.Edges.Add(new TicketRequirementEdge("gh", "github-2", "2", "p1", "github-1", "1", true, default, "s-1"));
+        var approvals = new InMemorySpecApprovalStore();
+        await approvals.SaveAsync(ApprovedSets.Record("github-2", DateTimeOffset.UnixEpoch, tracker: "gh"), default);
+        var harness = new Harness(_connection, ticketStatus: "Approved",
+            requires: new AgentSmith.Application.Services.Claim.RequiresUnmetGate(TicketRequirementDoubles.Of(facts, approvals)));
+        var dependentRun = await harness.EnqueueAsync("2", contextJson: null!); // the backstop entry: no envelope
+        await harness.EnqueueAsync("1");
+
+        await harness.Pump.TickAsync(CancellationToken.None);
+        await harness.Pump.TickAsync(CancellationToken.None);
+
+        harness.LastClaim!.TicketId.Value.Should().Be("1", "the prerequisite is no longer stuck behind its dependent");
+        using var check = new AgentSmithDbContext(Options());
+        check.QueuedTickets.Should().BeEmpty();
+        check.Runs.Single(r => r.Id == dependentRun).Summary.Should().Contain("waits for #1");
+    }
+
+    [Fact]
+    public async Task Pump_AHeadTheLedgerRefuses_SaysTheLedgersReason()
+    {
+        var budget = new Mock<ICapacityBudget>();
+        budget.Setup(b => b.TryReserveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var harness = new Harness(_connection, ticketStatus: "Approved", budget: budget.Object);
+        var reserved = await harness.EnqueueAsync("42");
+
+        await harness.Pump.TickAsync(CancellationToken.None);
+
+        using var check = new AgentSmithDbContext(Options());
+        check.QueuedTickets.Single().Reason.Should().Be("the capacity ledger has no room for this run");
+        check.Runs.Single(r => r.Id == reserved).Summary.Should().Be("the capacity ledger has no room for this run");
+        harness.LastClaim.Should().BeNull();
+    }
+
     private sealed class RecordingNudge : IRunListNudge
     {
         public List<string> RunIds { get; } = [];
@@ -388,7 +430,9 @@ public sealed class CapacityQueuePumpTests : IDisposable
             string ticketStatus,
             ClaimResult? claimResult = null,
             IRunListNudge? nudge = null,
-            bool finalizeThrows = false)
+            bool finalizeThrows = false,
+            ICapacityBudget? budget = null,
+            AgentSmith.Application.Services.Claim.RequiresUnmetGate? requires = null)
         {
             _queue = BuildDbQueue(connection);
             var config = new AgentSmithConfig
@@ -399,7 +443,7 @@ public sealed class CapacityQueuePumpTests : IDisposable
                     {
                         Name = "p1",
                         Repos = [new RepoConnection { Name = "repo-a" }],
-                        Tracker = new TrackerConnection { Type = TrackerType.GitHub },
+                        Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
                         GithubTrigger = new WebhookTriggerConfig
                         {
                             TriggerStatuses = ["Approved"], DoneStatus = "closed",
@@ -431,7 +475,7 @@ public sealed class CapacityQueuePumpTests : IDisposable
 
             Pump = new CapacityQueuePump(
                 _queue, claimService.Object, factory.Object,
-                CapacityTestDoubles.AlwaysReserve(),
+                budget ?? CapacityTestDoubles.AlwaysReserve(),
                 CapacityTestDoubles.NoCorpses(),
                 // 2026-09-21-c724c: the REAL drop — its terminal write goes through the real
                 // finalization projection over this connection, so the row the tick leaves
@@ -456,7 +500,8 @@ public sealed class CapacityQueuePumpTests : IDisposable
                     _queue,
                     NullLogger<AgentSmith.Server.Services.ResumeRunLauncher>.Instance),
                 loader.Object, "config.yaml",
-                NullLogger<CapacityQueuePump>.Instance);
+                NullLogger<CapacityQueuePump>.Instance,
+                new CapacityQueueHead(budget ?? CapacityTestDoubles.AlwaysReserve(), _queue, requires));
         }
 
         public Task<string> EnqueueAsync(string ticketId, string contextJson = "{}") =>

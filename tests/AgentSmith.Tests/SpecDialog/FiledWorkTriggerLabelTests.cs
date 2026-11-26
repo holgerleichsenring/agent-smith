@@ -43,4 +43,14 @@ public sealed class FiledWorkTriggerLabelTests
         FiledWorkTriggerLabel.For(Project(type, new() { ["security"] = "security-scan" }), []).Should().BeNull();
         FiledWorkTriggerLabel.For(Project(type, []), []).Should().BeNull();
     }
+
+    // 2026-11-26-a12eb: a trigger without a map routes by the installation's pipeline_triggers — the label is read from it too.
+    [Fact]
+    public void For_AnEmptyTriggerMap_ReadsTheInstallationsPipelineTriggers()
+    {
+        var global = new PipelineTriggerMap(new Dictionary<string, string> { ["agent-smith:code"] = "code" });
+
+        FiledWorkTriggerLabel.For(Project(TrackerType.AzureDevOps, []), ["NotificationCenter"], global).Should().Be("agent-smith:code");
+        FiledWorkTriggerLabel.For(Project(TrackerType.AzureDevOps, []), ["NotificationCenter"]).Should().BeNull();
+    }
 }

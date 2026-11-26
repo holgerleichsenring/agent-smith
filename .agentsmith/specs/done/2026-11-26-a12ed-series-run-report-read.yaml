@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-a12ed
+goal: "The series master reads a ticket's newest run report: read_ticket returns the coding masters' own report, and the run-end wake carries its headings."
+
+applies_to: "default (Application series read tools and master prompt, Persistence run report read, Server run-end wake)"
+
+requires: [2026-11-25-9992g]
+
+facts:
+  - claim: "Each spec master's markdown report is stored on the run row as AcceptanceJson, an AcceptanceView whose Reports list the markdown per spec; the run page reads it there."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/AcceptanceView.cs:36-37, src/backend/AgentSmith.Contracts/Runs/MasterReportView.cs, src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:108"
+  - claim: "read_ticket returns state, end reason, pull requests, CI, approvals and cost, never the report; the run-end wake says only 'its run X ended <status>'."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesReadTools.cs:34-46, src/backend/AgentSmith.Server/Services/Rework/ReworkNoActTail.cs:45-52"
+  - claim: "The series master's stored thread is bounded by dialogue.series_master_thread_max_chars (a config key with a dashboard field); past it older beats are compacted into notes."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/DialogueGlobalConfig.cs:63-66, src/backend/AgentSmith.Application/Services/Series/CompactSeriesThreadHandler.cs:37"
+
+scope:
+  in: |
+    IRunReportReader reads a run's report from that one place (Run.AcceptanceJson): each spec's markdown, under its spec id
+    when the run had several. read_ticket reads the newest run's report on demand and returns it as `report`; its description
+    says it is the run's own account. The run-end wake appends the report's headings (its sections: what was delivered,
+    deviations, follow-ups, what is open), or its first line when it has none. No new limit: the thread's existing bound,
+    dialogue.series_master_thread_max_chars, compacts what a long report adds. series-master.md gets one hint line.
+  out: "Reports of older runs; parsing the report's sections into fields."
+
+steps:
+  - id: reader
+    action: "Contracts IRunReportReader and RunReportHeadings; Persistence DbRunReportReader over Run.AcceptanceJson; registered beside the attempt reader."
+  - id: read
+    action: "SeriesReadTools.ReadTicket async with the report; SeriesMasterHandler passes the optional reader."
+  - id: wake
+    action: "ReworkNoActTail's run-end wake text adds the headings."
+  - id: prompt
+    action: "series-master.md: one hint line that read_ticket carries the newest run's own report."
+  - id: tests
+    action: "RunReportHeadings units; DbRunReportReader over a stored AcceptanceJson; read_ticket returns the report; the wake carries the headings."
+
+done:
+  - "read_ticket's answer carries the newest run's report as stored (test)."
+  - "The run-end wake reads 'its run X ended success — report: <headings>' (test)."
+  - "dotnet build and the affected tests are green."

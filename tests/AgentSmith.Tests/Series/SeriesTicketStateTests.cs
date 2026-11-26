@@ -127,7 +127,7 @@ public sealed class SeriesTicketStateTests
 
     // 2026-11-26-5201f: the master reads the approval apart from CI — the ticket's kind and each pull request's flag.
     [Fact]
-    public void ReadTicket_CarriesTheApprovalApartFromCi()
+    public async Task ReadTicket_CarriesTheApprovalApartFromCi()
     {
         var fact = SeriesRecords.Fact("43", RunStatuses.Success) with
         {
@@ -136,7 +136,7 @@ public sealed class SeriesTicketStateTests
         };
         var tools = new SeriesReadTools(new SeriesBeat(SeriesRecords.Running(), [fact], SeriesRecords.T));
 
-        var json = tools.ReadTicket("SCRUM-43");
+        var json = await tools.ReadTicketAsync("SCRUM-43");
 
         json.Should().Contain("\"approvalRequired\":true").And.Contain("\"isDraft\":false").And.Contain("\"kind\":\"approval\"").And.Contain("\"ci\":\"green\"");
         tools.SeriesStatus().Should().Contain("\"hold\":\"approval_needed\"");

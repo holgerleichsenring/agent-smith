@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-a12ec
+goal: "The capacity-queue head whose ticket waits on an unmet prerequisite is set aside, not left to block the queue, and a head the ledger refuses shows the ledger's reason."
+
+applies_to: "default (Server capacity-queue pump, Persistence capacity queue)"
+
+requires: [2026-11-26-a12eb]
+
+facts:
+  - claim: "The spawn funnel refuses a ticket with unmet requirements before it queues it."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:64-69"
+  - claim: "A claimed run whose pod the quota refuses is published 'queued' with the reason 'Waiting for capacity — <quota message>', keeps its reservation, and comes back as a backstop entry with no envelope, which the pump leaves to the poller."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:181-206, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:42-44,53-54, src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:65 (before)"
+  - claim: "The poller's spawn of that ticket is refused by the requirements gate while its prerequisite has not landed, so nothing relaunches or drops the backstop head; every ticket behind it, its prerequisite included, waits in line behind it."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:64-69,74-78"
+  - claim: "The pump re-checks only cancel, project and trigger status at the head, then reserves against the ledger; the requirements are read only by the claim, after a reservation succeeds. A head the ledger refuses keeps its place every tick, and everything behind it waits."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:56-105"
+  - claim: "The pump never asks the sandbox probe; the entry keeps the reason written at enqueue (the probe's ResourceQuota words), so a ledger refusal reads as a quota refusal."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:94-95, src/backend/AgentSmith.Application/Services/Spawning/CapacityDeferral.cs:33, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:90-98"
+
+scope:
+  in: |
+    Before the backstop return and before reserving, the pump reads the head's requirements with the claim's own gate
+    (RequiresUnmetGate); a head held by an
+    unmet prerequisite (or a paused series) is dropped as the claim's refusal would drop it — its queued run cancelled with
+    "waits for #X", its reservation released — so the next head moves. It is started again by whoever starts it once the prerequisite
+    lands (its series master, or a person). A head the ledger refuses gets the ledger's words as its reason on the entry and its
+    queued run row (ICapacityQueue.ReasonAsync), so the run list says what really holds it.
+  out: "Why the ledger held reservations with no run (a leak, if any, is named by the new reason, not repaired here)."
+
+steps:
+  - id: head
+    action: "CapacityQueueHead: HeldAsync (RequiresUnmetGate over the head's claim request) and ReserveAsync (the ledger, refreshing the reason on refusal); the pump uses both."
+  - id: queue
+    action: "ICapacityQueue.ReasonAsync (default no-op); DbCapacityQueue updates the entry and its queued run row."
+  - id: wiring
+    action: "CapacityQueuePumpHostedService builds the gate from UnmetTicketRequirements and IPreviousAttemptReader."
+  - id: tests
+    action: "CapacityQueuePumpTests: a dependent at the head, its prerequisite behind it, the ledger refusing the dependent — before, nothing moves; after, the dependent is dropped as waiting and the prerequisite claimed. A ledger refusal rewrites the reason."
+
+done:
+  - "With the dependent queued ahead of its prerequisite, two ticks drop the dependent ('waits for #1') and claim the prerequisite (test, red before)."
+  - "A head the ledger refuses carries the ledger's reason on its entry and queued run row (test)."
+  - "dotnet build and the affected tests are green."

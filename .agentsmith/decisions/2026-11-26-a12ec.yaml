@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-a12ec
+
+decisions:
+  - category: Architecture
+    chose: "The pump reads the head's requirements with the claim's own gate (RequiresUnmetGate) before it reserves, and drops a held head as the claim's refusal does: its queued run cancelled with 'waits for #X', no attempt counted"
+    over: "Parking the entry aside in the queue (a new held state); skipping it and peeking the next entry (breaks strict FIFO); refusing only at enqueue"
+    reason: |
+      decider: operator (the held run must not block the head; it waits as 'waits on #X' and starts when the prerequisite lands)
+      and claude (drop, not a new queue state). The deadlock: a claimed run of the dependent hit the quota at pod creation, was
+      re-queued as a backstop entry (no envelope) that the pump leaves to the poller, and the poll refuses the ticket while its
+      prerequisite is unlanded, so the head stayed for good with its reservation held. The claim's gate is read before the
+      backstop return. A drop that never ran a step is no attempt (PreviousAttemptRows); a backstop run that ran steps counts
+      as one, so its master retries it (retry_ticket) once the prerequisite lands. No second hold path.
+  - category: Implementation
+    chose: "A head the ledger refuses gets the ledger's words as the reason on its entry and queued run row"
+    over: "Keeping the reason written at enqueue (the probe's ResourceQuota words)"
+    reason: "decider: operator (the reason shown must be the real one). The pump never asks the probe; it reserves against the ledger only, so the enqueue-time quota sentence was untrue once the quota freed. If the ledger holds reservations with no run, the new reason names that; repairing such a leak is not in this spec."

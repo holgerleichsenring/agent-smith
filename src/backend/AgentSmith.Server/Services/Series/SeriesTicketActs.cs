@@ -42,7 +42,7 @@ public sealed class SeriesTicketActs(
         if (projects.Of(project) is not { } resolved) return SeriesStart.Refused($"Project '{project}' is not configured.");
         // 2026-11-19-1b72a: a queued start or a live run is under way as much as an attempt is — no second start.
         if (await waiting.UnderWayAsync(project, ticketId, cancellationToken) is { } underWay)
-            return SeriesStart.Refused($"Ticket {ticketId} was not started: it is under way — {underWay}; retry or tell it instead.");
+            return SeriesStart.Refused($"Ticket {ticketId} was not started: {underWay}; nothing was done."); // 2026-11-26-a12eb
         var key = TicketKey.For(resolved.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
         var hold = await requirements.ForStartAsync(resolved, key, cancellationToken);
         if (hold.Unmet.Count > 0) return SeriesStart.Refused($"Ticket {ticketId} was not started. {RequiresUnmetGate.Sentence(hold)}");

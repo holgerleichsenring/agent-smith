@@ -27,6 +27,11 @@ namespace AgentSmith.Application.Services.Polling;
 /// </summary>
 public sealed class PipelineResolver
 {
+    /// <summary>2026-11-26-a12eb: the label map routing reads — the trigger's pipeline_from_label (the tracker's, folded in at
+    /// build), else the installation's pipeline_triggers. Whoever picks a routing label reads the same map.</summary>
+    public static IReadOnlyDictionary<string, string>? MapOf(WebhookTriggerConfig? trigger, PipelineTriggerMap? globalTriggers) =>
+        trigger?.PipelineFromLabel is { Count: > 0 } projectMap ? projectMap : globalTriggers?.AsDictionary;
+
     public string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels)
         => Resolve(trigger, labels, globalTriggers: null, logger: null);
 
@@ -44,9 +49,7 @@ public sealed class PipelineResolver
             .Where(l => !string.IsNullOrEmpty(l) && !LifecycleLabels.IsLifecycleLabel(l))
             .ToList();
 
-        var map = (trigger.PipelineFromLabel is { Count: > 0 } projectMap)
-            ? projectMap
-            : globalTriggers?.AsDictionary;
+        var map = MapOf(trigger, globalTriggers);
 
         if (map is not null)
         {
