@@ -59,7 +59,10 @@ public sealed class CapacityQueuePumpHostedService(
             services.GetRequiredService<IRunCancelStateReader>(),
             services.GetRequiredService<ResumeRunLauncher>(), // p0327
             configLoader, serverContext.ConfigPath,
-            services.GetRequiredService<ILogger<CapacityQueuePump>>());
+            services.GetRequiredService<ILogger<CapacityQueuePump>>(),
+            new CapacityQueueHead(services.GetRequiredService<ICapacityBudget>(), services.GetRequiredService<ICapacityQueue>(),
+                services.GetService<AgentSmith.Application.Services.Claim.UnmetTicketRequirements>() is { } unmet
+                    ? new AgentSmith.Application.Services.Claim.RequiresUnmetGate(unmet, services.GetService<IPreviousAttemptReader>()) : null));
         return pump.RunAsync(ct);
     }
 }

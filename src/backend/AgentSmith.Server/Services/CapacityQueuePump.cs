@@ -33,8 +33,9 @@ public sealed class CapacityQueuePump(
     ResumeRunLauncher resumeLauncher,
     IConfigurationLoader configLoader,
     string configPath,
-    ILogger<CapacityQueuePump> logger)
+    ILogger<CapacityQueuePump> logger, CapacityQueueHead? heads = null) // 2026-11-26-a12ec: a held head is set aside
 {
+    private readonly CapacityQueueHead _heads = heads ?? new(capacityBudget, queue);
     private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(15);
 
     public async Task RunAsync(CancellationToken ct)
@@ -65,9 +66,10 @@ public sealed class CapacityQueuePump(
             await drop.DropAsync(head, "reserved run already cancelled or finished", ct);
             return;
         }
-        if (head.InitialContextJson is null) return; // TOCTOU-backstop entry — poller launches it
-
         var config = configLoader.LoadConfig(configPath);
+        // 2026-11-26-a12ec: read before the backstop return — no poll relaunches a held ticket, so its entry blocked the queue.
+        if (await _heads.HeldAsync(head, ToClaimRequest(head), config, ct) is { } held) { await drop.RefusedAsync(head, held, ct); return; }
+        if (head.InitialContextJson is null) return; // TOCTOU-backstop entry — poller launches it
         if (!config.Projects.TryGetValue(head.Project, out var project))
         {
             await drop.DropAsync(head, $"project '{head.Project}' is no longer configured", ct);
@@ -89,8 +91,7 @@ public sealed class CapacityQueuePump(
         // p0336: reserve the head's full pre-computed footprint against the budget.
         // Fits → the reservation is held for the run's whole life (no mid-run fail);
         // does not fit → the head keeps its place and retries next tick.
-        if (head.ReservedRunId is null || !await capacityBudget.TryReserveAsync(head.ReservedRunId, ct))
-            return;
+        if (!await _heads.ReserveAsync(head, ct)) return;
 
         if (head.IsResume)
         {

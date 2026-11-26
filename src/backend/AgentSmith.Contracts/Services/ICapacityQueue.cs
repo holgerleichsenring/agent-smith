@@ -36,4 +36,7 @@ public interface ICapacityQueue
     /// <summary>2026-11-26-a12eb: the ticket's entry — since when and why it waits — or null when it is not queued.</summary>
     Task<CapacityQueueEntry?> FindAsync(string project, string ticketId, CancellationToken cancellationToken) =>
         Task.FromResult<CapacityQueueEntry?>(null);
+
+    /// <summary>2026-11-26-a12ec: rewrites why the ticket waits, on its entry and its queued run row.</summary>
+    Task ReasonAsync(string project, string ticketId, string reason, CancellationToken cancellationToken) => Task.CompletedTask;
 }
