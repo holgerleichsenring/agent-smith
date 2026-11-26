@@ -32,4 +32,8 @@ public interface ICapacityQueue
     /// queue order at read time (positions are never persisted — the head moves).
     /// </summary>
     Task<IReadOnlyDictionary<string, int>> GetPositionsByRunIdAsync(CancellationToken cancellationToken);
+
+    /// <summary>2026-11-26-a12eb: the ticket's entry — since when and why it waits — or null when it is not queued.</summary>
+    Task<CapacityQueueEntry?> FindAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        Task.FromResult<CapacityQueueEntry?>(null);
 }

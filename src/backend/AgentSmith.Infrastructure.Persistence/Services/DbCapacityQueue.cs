@@ -28,6 +28,9 @@ public sealed class DbCapacityQueue(IServiceScopeFactory scopeFactory) : ICapaci
     public Task<IReadOnlyDictionary<string, int>> GetPositionsByRunIdAsync(CancellationToken ct)
         => InScope(r => r.GetPositionsByRunIdAsync(ct));
 
+    public Task<CapacityQueueEntry?> FindAsync(string project, string ticketId, CancellationToken ct)
+        => InScope(r => r.FindEntryAsync(project, ticketId, ct)); // 2026-11-26-a12eb
+
     private async Task<T> InScope<T>(Func<QueuedTicketRepository, Task<T>> op)
     {
         using var scope = scopeFactory.CreateScope();

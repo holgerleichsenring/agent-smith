@@ -33,11 +33,11 @@ public sealed class FiledWorkTagger(ILogger<FiledWorkTagger> logger)
     /// rest of the filing carries on with the labels the ticket actually has.</summary>
     public async Task<FiledWorkTagging> ApplyAsync(
         ITicketProvider provider, ResolvedProject project, CreatedTicket ticket,
-        IReadOnlyList<string> labels, CancellationToken ct, bool filedFromText = false)
+        IReadOnlyList<string> labels, CancellationToken ct, bool filedFromText = false, PipelineTriggerMap? globalTriggers = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         var routed = await RoutingAsync(provider, project, ticket, labels, ct);
-        if (!filedFromText || FiledWorkTriggerLabel.For(project, routed.Labels) is not { } label) return routed;
+        if (!filedFromText || FiledWorkTriggerLabel.For(project, routed.Labels, globalTriggers) is not { } label) return routed;
         var coded = Refused(project.Tracker.Type, label) is { } refusal ? new FiledWorkTagging(routed.Labels, refusal)
             : await WriteAsync(provider, project.Tracker.Type, ticket, routed.Labels, label, ct);
         return coded with { Note = routed.Note + coded.Note };

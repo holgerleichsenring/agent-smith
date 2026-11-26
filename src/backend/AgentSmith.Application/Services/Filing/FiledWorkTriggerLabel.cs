@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Polling;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -15,13 +16,15 @@ namespace AgentSmith.Application.Services.Filing;
 /// </summary>
 public static class FiledWorkTriggerLabel
 {
-    /// <summary>The key to add, or null when the ticket carries the stamp or a key the map resolves, or the map names none.</summary>
-    public static string? For(ResolvedProject project, IReadOnlyList<string> labels)
+    /// <summary>The key to add, or null when the ticket carries the stamp or a key the map resolves, or the map names none.
+    /// 2026-11-26-a12eb: the map is the one routing reads (<see cref="PipelineResolver.MapOf"/>), the installation's
+    /// pipeline_triggers included when the trigger has none.</summary>
+    public static string? For(ResolvedProject project, IReadOnlyList<string> labels, PipelineTriggerMap? globalTriggers = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(labels);
         var trigger = TriggerSelectionHelper.ByKind(project, project.Tracker.Type.ToString().ToLowerInvariant());
-        if (trigger?.PipelineFromLabel is not { Count: > 0 } map
+        if (PipelineResolver.MapOf(trigger, globalTriggers) is not { Count: > 0 } map
             || labels.Contains(TicketLabelVocabulary.For(project.Tracker).ApprovedSetStamp, StringComparer.OrdinalIgnoreCase)
             || map.Keys.Any(k => labels.Contains(k, StringComparer.OrdinalIgnoreCase))) return null;
         return map.FirstOrDefault(p => p.Value == PipelinePresets.CodeName).Key;

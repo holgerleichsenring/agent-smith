@@ -34,14 +34,20 @@ public sealed class WaitingTicketStart(
     ReworkFallbackSpawn fallback,
     IPreviousAttemptReader attempts,
     IActiveRunLease leases,
+    ICapacityQueue queue,
     ILogger<WaitingTicketStart> logger)
 {
-    /// <summary>Why the ticket is under way already — worked, queued or held by a live run — or null when nothing is.</summary>
+    /// <summary>Where the ticket stands already — waiting for capacity, running, queued or worked — or null when nothing is.
+    /// 2026-11-26-a12eb: read before anything is tagged or moved, and said as the state it is, with since when and the run.</summary>
     public async Task<string?> UnderWayAsync(string project, string ticketId, CancellationToken ct)
     {
-        if (await attempts.HasAttemptAsync(project, ticketId, ct)) return "it was worked already";
-        if (await attempts.HasQueuedAsync(project, ticketId, ct)) return "a start of it is queued already";
-        return await leases.GetByTicketAsync(project, new TicketId(ticketId), ct) is not null ? "a run holds it now" : null;
+        if (await queue.FindAsync(project, ticketId, ct) is { } queued)
+            return $"it is already queued since {queued.EnqueuedAt:yyyy-MM-dd HH:mm} UTC, waiting for sandbox capacity: {queued.Reason}"
+                + (queued.ReservedRunId is { Length: > 0 } run ? $" (run {run})" : string.Empty);
+        if (await leases.GetByTicketAsync(project, new TicketId(ticketId), ct) is { } lease)
+            return $"it is already running (run {lease.RunId ?? "not recorded yet"})";
+        if (await attempts.HasQueuedAsync(project, ticketId, ct)) return "a run of it is already queued";
+        return await attempts.HasAttemptAsync(project, ticketId, ct) ? "it was worked already; retry_ticket runs it again" : null;
     }
 
     /// <param name="byName">True for start_ticket, the start a by-name edge waits for; false for a resume.</param>
@@ -81,7 +87,7 @@ public sealed class WaitingTicketStart(
         var tracker = project.Tracker.Name;
         var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
         var edges = await requirements.RequiredOfAsync(tracker, key, ct);
-        if (await UnderWayAsync(project.Name, ticketId, ct) is { } underWay) return $"{underWay}; retry or tell it instead";
+        if (await UnderWayAsync(project.Name, ticketId, ct) is { } underWay) return $"{underWay}; nothing was done";
         if (await hold.MarkedAsync(project, ticketId, ct)) return "it was marked done by hand or closed; reopen it to start it";
         if (await unmet.PausedSeriesAsync(project.Name, ticketId, ct) is { } paused) return $"series {paused.Id} is paused; resume it first";
         if (edges.Count == 0) return null;

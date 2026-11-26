@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-a12eb
+goal: "start_ticket reads the code-label map the way routing does (project trigger, else the installation's), and answers a ticket already queued or running with that state, acting on nothing."
+
+applies_to: "default (Application polling PipelineResolver and filing trigger label, Server waiting-ticket start, capacity queue)"
+
+requires: [2026-11-26-5f6e]
+
+facts:
+  - claim: "FiledWorkTriggerLabel reads only the project trigger's pipeline_from_label; with that map empty it adds no label."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/FiledWorkTriggerLabel.cs:23-27"
+  - claim: "Routing (poller, webhook and the start run's own resolution) reads the trigger's map, else the installation's pipeline_triggers, as a strict filter; so a ticket without a key of that map is dropped and the start is refused."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/PipelineResolver.cs:47-49,64-66, src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:70-82, src/backend/AgentSmith.Application/Services/Filing/FiledWorkMove.cs:60-64"
+  - claim: "The tracker's own map is folded into the project trigger when the configuration is built, so the trigger's map already carries it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/EffectiveTriggerBuilder.cs:52-53"
+  - claim: "start_ticket's under-way check reads an attempt, a queued code Run row and a lease, and answers each with the same refusal words; the capacity queue entry itself (since when, why) is not read."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/WaitingTicketStart.cs:40-45, src/backend/AgentSmith.Server/Services/Series/SeriesTicketActs.cs:43-45, src/backend/AgentSmith.Contracts/Services/ICapacityQueue.cs"
+
+scope:
+  in: |
+    PipelineResolver.MapOf(trigger, pipeline_triggers) is the one map routing reads; Resolve and FiledWorkTriggerLabel both
+    use it, so the label start_ticket adds is a key the start's own resolution routes to code. The tagger takes the
+    installation's pipeline_triggers from FiledWorkMove's loaded configuration.
+    Before any tag or move, start_ticket reads the ticket's state: a capacity-queue entry (ICapacityQueue.FindAsync) answers
+    "already queued since <when>, waiting for sandbox capacity: <reason> (run <id>)", a lease "already running (run <id>)",
+    a queued code Run row "already queued (run <id>)", an attempt "worked already". Nothing else is done.
+  out: "Changing routing semantics; a tracker map apart from the trigger (it is folded in at build)."
+
+steps:
+  - id: map
+    action: "PipelineResolver.MapOf; Resolve uses it; FiledWorkTriggerLabel.For takes the installation's map; FiledWorkTagger and FiledWorkMove pass it."
+  - id: state
+    action: "ICapacityQueue.FindAsync (default null; DbCapacityQueue reads QueuedTicketRepository); WaitingTicketStart.UnderWayAsync answers the state words; SeriesTicketActs says them and acts on nothing."
+  - id: tests
+    action: "FiledWorkTriggerLabelTests: an empty trigger map with an installation map yields its code key. Harness: a ticket in the capacity queue, and one a run holds, answer their state and get no label and no spawn."
+
+done:
+  - "A ticket filed from a text under an empty trigger map and an installation pipeline_triggers map gets that map's code key (test)."
+  - "start_ticket on a ticket in the capacity queue answers 'already queued since … waiting for sandbox capacity', on one a run holds 'already running (run R)'; no label, no move, no spawn (harness tests)."
+  - "dotnet build and the affected tests are green."

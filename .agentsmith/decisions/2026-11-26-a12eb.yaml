@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-a12eb
+
+decisions:
+  - category: Architecture
+    chose: "PipelineResolver.MapOf(trigger, pipeline_triggers) is the one label map; Resolve and FiledWorkTriggerLabel both read it"
+    over: "Reading TrackerConnection.PipelineFromLabel in the label helper; a second resolver"
+    reason: |
+      decider: operator (reuse the poller's resolver, no duplicate) and claude (which map). No routing code reads the tracker's
+      map directly: EffectiveTriggerBuilder folds it into the trigger at build, and routing falls back to the installation's
+      pipeline_triggers. The label helper missed only that fallback. The spec review found that the stored project document never
+      holds the built trigger, so 'every trigger null' there proves nothing; if the live refusal persists, its exact NotRouted text
+      and the tagger note name the remaining cause (filedFromText false, or the tracker refusing the label).
+  - category: Implementation
+    chose: "start_ticket reads the capacity-queue entry (since when, why, run), then a lease (running, run id), then a queued Run row, then an attempt, before any tag or move, and answers that state with 'nothing was done'"
+    over: "The queued code Run row only, answered 'queued already; retry or tell it instead'"
+    reason: "decider: operator (answer the real state, act on nothing). The queue entry carries since-when and the reason, is matched for any pipeline, and also covers a resume entry with no queued row; the row check stays for a run that hit capacity after its claim. The kind stays Refused: this start did nothing."
