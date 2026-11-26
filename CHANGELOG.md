@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.226.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.225.0...v0.226.0) (2026-11-26)
+
+
+### Features
+
+* **spec-record:** the done index moves to contexts/&lt;name&gt;/done.md and merges with merge=union (2026-11-26-462aa) ([0895e09](https://github.com/holgerleichsenring/agent-smith/commit/0895e091a39e3a86a1a60f3e3d4246a095bd827b))
+* **spec-record:** the done index moves to done.md and merges with merge=union (2026-11-26-462aa) ([43d58be](https://github.com/holgerleichsenring/agent-smith/commit/43d58be8a9e8c52b8d738adca7739d58e411423f))
+
 ## [0.225.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.224.0...v0.225.0) (2026-11-26)
 
 
