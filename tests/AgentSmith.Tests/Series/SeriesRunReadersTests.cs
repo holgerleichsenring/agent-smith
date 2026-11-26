@@ -176,6 +176,7 @@ public sealed class SeriesRunReadersTests : IDisposable
         var answered = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-2", default)))!;
 
         (waiting.Question, waiting.QuestionRecommended).Should().Be(("Merge #1 now?", 0));
+        waiting.QuestionTicket.Should().BeNull("2026-11-26-5201c: the master's own question names no ticket");
         waiting.QuestionChoices.Should().Equal("Merge", "Let me look first");
         (answered.Question, answered.QuestionChoices.Count, answered.QuestionRecommended).Should().Be(((string?)null, 0, (int?)null));
     }
@@ -313,6 +314,21 @@ public sealed class SeriesRunReadersTests : IDisposable
     private Task OpenAsync(string id, IReadOnlyList<SeriesTicket> tickets) =>
         _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(
             new SeriesRunRecord(id, $"conv-{id}", "alpha", "operator", true, SeriesRunStates.Running, tickets, T), default);
+
+    // 2026-11-26-5201c: a question a ticket's run asked names that ticket by its key, so the chat's card can say who asks.
+    [Fact]
+    public async Task Detail_AQuestionATicketAsked_NamesTheTicketsKey()
+    {
+        var asked = SeriesQuestions.Ask("Which callback URL?", [], null, T, 30) with { TicketId = "2" };
+        await _h.Services.GetRequiredService<ISeriesRunStore>().OpenAsync(new SeriesRunRecord("sr-1", "conv-sr-1", "alpha", "operator", true,
+            SeriesRunStates.Running, Tickets("1", "2"), T) { Question = asked }, default);
+
+        // read without holds: with them, a relayed question waits only while its ticket is held on it (SeriesRunQuestion)
+        var detail = (await ReadAsync(s => s.GetRequiredService<SeriesRunDetailReader>().ReadAsync("sr-1", default, withHolds: false)))!;
+
+        (detail.Question, detail.QuestionTicket).Should().Be(("Which callback URL?", "SCRUM-2"));
+        detail.QuestionChoices.Should().BeEmpty();
+    }
 
     private static IReadOnlyList<SeriesTicket> Tickets(params string[] ids) =>
         [.. ids.Select(id => new SeriesTicket(id, $"SCRUM-{id}", $"Ticket {id}", false, T))];

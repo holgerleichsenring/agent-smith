@@ -9,12 +9,13 @@ import { SeriesProgress } from "./SeriesProgress";
 import { seriesNextStep, seriesStateWord } from "./seriesNextStep";
 
 // 2026-11-23-31dcc: one series on the list — name, project and state over the next step, the progress bar with its
-// counts, the held count, and how long ago it last moved. The whole row opens the series' page.
+// counts, the held count, and how long ago it last moved. The whole row opens the series' page — 2026-11-26-5201c: at its
+// question when one waits.
 
 export function SeriesRunListRow({ row }: { row: SeriesRunRow }) {
   const t = useT();
   return (
-    <Link href={seriesRunPath(row.id)} className="trow sr-row" data-testid={`series-row-${row.id}`} data-state={row.state}>
+    <Link href={row.question ? `${seriesRunPath(row.id)}?section=question` : seriesRunPath(row.id)} className="trow sr-row" data-testid={`series-row-${row.id}`} data-state={row.state}>
       <span className={`sd ${dot(row)}`} />
       <div className="rmain">
         <div className="rt">

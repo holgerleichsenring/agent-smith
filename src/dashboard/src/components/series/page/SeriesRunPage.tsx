@@ -10,6 +10,7 @@ import "@/styles/ticket-thread.css";
 import "@/styles/series.css";
 import { SeriesConversationSection } from "./SeriesConversationSection";
 import { SeriesOverviewSection } from "./SeriesOverviewSection";
+import { SERIES_QUESTION_ID } from "./SeriesQuestionBlock";
 import { SeriesSectionBar } from "./SeriesSectionBar";
 import { SeriesStatusLine } from "./SeriesStatusLine";
 import { useSeriesRunDetail } from "./useSeriesRunDetail";
@@ -44,8 +45,15 @@ function SeriesPane({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
   const params = useSearchParams();
   const chat = useRef<HTMLElement>(null);
-  const toChat = params?.get("section") === "talk";
-  useEffect(() => { if (toChat) chat.current?.scrollIntoView?.({ block: "start" }); }, [toChat]);
+  const section = params?.get("section");
+  const toChat = section === "talk" || section === "question";
+  // 2026-11-26-5201c: a link to the question (the list's row, a hold's) lands on the question block when one waits.
+  useEffect(() => {
+    if (!toChat) return;
+    const question = document.getElementById(SERIES_QUESTION_ID);
+    if (question) question.scrollIntoView?.({ block: "nearest" });
+    else chat.current?.scrollIntoView?.({ block: "start" });
+  }, [toChat]);
   return (
     <div className="mock-shell mock-tickets tk-shell sr-page" data-testid="series-page">
       <SeriesSectionBar detail={detail} />

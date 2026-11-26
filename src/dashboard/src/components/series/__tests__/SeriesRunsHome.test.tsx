@@ -47,6 +47,15 @@ describe("SeriesRunsHome", () => {
     expect(screen.getByTestId("series-held")).toHaveTextContent("1 held");
   });
 
+  // 2026-11-26-5201c: a series waiting on a question opens at it.
+  it("SeriesList_ARowWithAQuestion_OpensThePageAtTheQuestion", async () => {
+    stubStorage();
+    hoisted.runs.mockResolvedValue([row({ question: "Which callback URL?" })]);
+    render(<SeriesRunsHome />);
+
+    expect(await screen.findByTestId("series-row-sr-1")).toHaveAttribute("href", "/series/sr-1?section=question");
+  });
+
   it("SeriesList_ProjectFilter_AsksTheServerForThatProject_AndIsRemembered", async () => {
     const storage = stubStorage();
     render(<SeriesRunsHome />);

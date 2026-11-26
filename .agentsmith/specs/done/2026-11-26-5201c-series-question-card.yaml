@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-5201c
+goal: "A series' open question is a card above the chat input naming its ticket, with its choices as buttons or 'answer below'; the rail and the list lead to it, ticket questions too."
+
+applies_to: "dashboard (series page, series list), default (series detail view)"
+
+requires: [2026-11-25-9992j, 2026-11-25-96aea, 2026-11-25-e94ea]
+
+facts:
+  - claim: "The series question card draws only a question with choices, only for a viewer with runs.control."
+    evidence: "src/dashboard/src/components/series/page/SeriesConversationSection.tsx:49-66"
+  - claim: "The card sits between the transcript and the composer, drawn only once the dialog read is on the conversation and no decision waits."
+    evidence: "src/dashboard/src/components/series/page/SeriesConversationSection.tsx:80"
+  - claim: "A series question names the ticket whose run asked it (TicketId), null for the master's own; the detail view carries its text, choices and recommendation but not its ticket."
+    evidence: "src/backend/AgentSmith.Contracts/Series/SeriesQuestion.cs:13-14 and src/backend/AgentSmith.Server/Services/Series/SeriesRunDetailReader.cs:35-39"
+  - claim: "A series of one relays no ticket question; its ticket keeps answering on its ticket page, held as a question."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesQuestions.cs:74"
+  - claim: "The series bar says '1 question for you' as plain text."
+    evidence: "src/dashboard/src/components/series/page/SeriesSectionBar.tsx:27"
+  - claim: "A list row is one link to the series page; its next step says a question waits."
+    evidence: "src/dashboard/src/components/series/SeriesRunListRow.tsx:17 and src/dashboard/src/components/series/seriesNextStep.ts:11"
+  - claim: "?section=talk, which holds and the ticket page link to, scrolls the series page to the chat."
+    evidence: "src/dashboard/src/components/series/page/SeriesRunPage.tsx:46-47 and src/dashboard/src/components/tickets/holds/holdRoutes.ts:22"
+  - claim: "Each series ticket carries its hold, worded by holdSentence."
+    evidence: "src/dashboard/src/types/seriesRuns.ts:78 and src/dashboard/src/components/series/page/SeriesTicketDetails.tsx:9"
+
+scope:
+  in: |
+    Server: SeriesRunDetailView gains QuestionTicket, the key of the ticket whose run asked the waiting question (the
+    record's TicketId against the series' tickets); null for the master's own question or none.
+    Page: one block id="series-question" directly above the composer (or above the closed-conversation line) holds the open
+    questions. The series question is the existing SeriesQuestionCard, extended: drawn whenever a question waits; it names
+    the asking ticket ("#19664 asks") or the series; its choices are buttons only for a viewer with runs.control on the open
+    conversation with no decision pending. The hint: "answer below" without choices, "or write your own answer below" with
+    them, and for a viewer without runs.control that someone who controls runs answers it here. A click still sends the
+    label and hides the card until a failure. The block (SeriesQuestionBlock) is drawn by SeriesConversationSection in every
+    state, the gone and closed conversation too, where it shows no buttons (there is no send). Bounded height (24vh) and scrolling inside, so it never
+    eats the chat window (5201a).
+    A series ticket held on a question (question, question_plan or question_environment: one predicate shared with the
+    hold cases SeriesRunQuestion.Waiting admits) other than the series question's ticket gets a line in
+    the block: its key, its hold sentence and a link to its ticket page, where it is answered.
+    Rail: the question part of the state word is a link to #series-question and counts every open question the block draws.
+    List: a row whose series waits on a question (row.question) opens the page at ?section=question. The page scrolls the
+    question block into view on ?section=question or ?section=talk when there is one, else the chat as before; under
+    5201a's desktop layout the block is already in view, so the scroll matters on narrow screens.
+  out: "A new question store or endpoint, answering a ticket's own question from the series page, a new panel."
+
+steps:
+  - id: server
+    action: "SeriesRunDetailView.QuestionTicket filled in SeriesRunDetailReader; C# test."
+  - id: types
+    action: "SeriesRunDetail.questionTicket."
+  - id: card
+    action: "SeriesQuestionCard: ticket line, no-choice and no-control hints, buttons only when answerable; ticket question lines; the #series-question block."
+  - id: rail-list
+    action: "SeriesSectionBar question link with count; SeriesRunListRow href ?section=question; SeriesRunPage scroll target."
+  - id: tests
+    action: "vitest for the card cases, the ticket lines, the rail link, the list href and the scroll; migrate the page tests."
+
+done:
+  - "A waiting question without choices draws a card naming its ticket that says answer below (test)."
+  - "A question with choices draws buttons for a runs.control viewer and none for another, who still sees the question (test)."
+  - "A ticket held on a question gets a line linking its ticket page (test)."
+  - "The rail's question link points at #series-question; a list row with a question opens ?section=question, which scrolls to the block (test)."
+  - "The detail view carries the asking ticket's key (C# test)."
+  - "pnpm test, pnpm build, dotnet build and the affected C# tests are green."

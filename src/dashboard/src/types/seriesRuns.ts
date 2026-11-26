@@ -162,6 +162,8 @@ export interface SeriesRunDetail {
    *  draws them as buttons, and a choice sent as a message is the answer. */
   questionChoices: string[];
   questionRecommended: number | null;
+  /** 2026-11-26-5201c: the key of the ticket whose run asked the waiting question; null or absent for the master's own. */
+  questionTicket?: string | null;
   /** 2026-11-25-433fa: the key of the ticket whose pull requests merge next; null when none is ready. */
   nextMerge?: string | null;
   /** 2026-11-25-433fa: how far the series is — merged over total, as the server words it (SeriesProgressWord). */

@@ -37,6 +37,7 @@ public sealed class SeriesRunDetailReader(
             record.FinishedAt, shape.Counts, question?.Text, shown, shape.MergeOrder)
         {
             QuestionChoices = question?.Choices ?? [], QuestionRecommended = question?.RecommendedIndex, // 2026-11-25-9992j
+            QuestionTicket = question?.TicketId is { } asking ? shape.Tickets.FirstOrDefault(t => t.TicketId == asking)?.Key : null, // 5201c
             WorkingOn = SeriesWorkingOn.Of(read.Facts), // 2026-11-25-9992a
             NextMerge = shape.NextMerge, Progress = SeriesProgressWord.Of(shape.Counts.Landed, shape.Counts.Total), // 2026-11-25-433fa
             // 2026-11-24-f9c5c: a merge into a series branch never arms auto-complete; 2026-11-25-9992i: one into the default

@@ -886,7 +886,10 @@ export const coreMessages = {
   // --- series: one series' page (2026-11-23-31dcd) ---
   "series.page.back": { en: "← Series", de: "← Serien" },
   "series.page.kind": { en: { one: "series · 1 ticket", other: "series · {count} tickets" }, de: { one: "Serie · 1 Ticket", other: "Serie · {count} Tickets" } },
-  "series.page.question": { en: "1 question for you", de: "1 Frage an dich" },
+  "series.page.question": {
+    en: { one: "1 question for you", other: "{count} questions for you" },
+    de: { one: "1 Frage an dich", other: "{count} Fragen an dich" },
+  },
   "series.page.loading": { en: "Reading the series…", de: "Serie wird gelesen…" },
   "series.page.notFound": { en: "There is no such series, or it is not yours to see.", de: "Diese Serie gibt es nicht, oder du darfst sie nicht sehen." },
   "series.page.failed": { en: "The series could not be read.", de: "Die Serie ließ sich nicht lesen." },
@@ -933,6 +936,18 @@ export const coreMessages = {
     en: { one: "1 earlier message — show it", other: "{count} earlier messages — show more" },
     de: { one: "1 frühere Nachricht — zeigen", other: "{count} frühere Nachrichten — mehr zeigen" },
   },
+  "series.chat.ticketAsks": { en: "{key} asks", de: "{key} fragt" },
+  "series.chat.seriesAsks": { en: "The series asks", de: "Die Serie fragt" },
+  "series.chat.answerBelow": { en: "Answer below.", de: "Antworte unten." },
+  "series.chat.questionNoControl": {
+    en: "Someone who may control runs answers it here.",
+    de: "Beantworten kann es hier, wer Läufe steuern darf.",
+  },
+  "series.chat.questionClosed": {
+    en: "Continue the conversation in Work it out to answer it.",
+    de: "Setze das Gespräch in Work it out fort, um zu antworten.",
+  },
+  "series.chat.answerOnTicket": { en: "Answer on its ticket", de: "Am Ticket antworten" },
   "series.chat.questionHint": { en: "Or write your own answer below.", de: "Oder schreib unten deine eigene Antwort." },
   // 2026-11-25-433fa: the status line pinned at the top of the chat, worded from what the server read.
   "series.status.label": { en: "Where the series stands", de: "Stand der Serie" },

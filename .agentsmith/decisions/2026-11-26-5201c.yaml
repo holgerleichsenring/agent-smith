@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-5201c
+
+decisions:
+  - category: Architecture
+    chose: "Extend 9992j's SeriesQuestionCard (DialogQuestionCard underneath) into one block pinned above the input: the series' question in every case, plus a line per other ticket parked on a question"
+    over: "A second question component; keeping the card for questions with choices only; marking the question inside the transcript"
+    reason: |
+      The question already has one renderer; the operator missed it because a question without choices drew nothing and
+      the question was one message in a long thread. Drawing it always, above the input, with its asker, is the smallest
+      change. The other parked tickets are counted by the series' status ("2 need you"), and a series of one never relays
+      its ticket's question, so their lines say whose they are and link to the ticket page where they are answered.
+  - category: Implementation
+    chose: "The detail view gains QuestionTicket (the asking ticket's key, from the record's TicketId)"
+    over: "Guessing the asker from the tickets' question holds in the browser"
+    reason: |
+      The record knows who asked; a guess from holds is wrong whenever two tickets wait on questions.
+  - category: Implementation
+    chose: "Buttons only for a viewer with runs.control on the open conversation with no decision pending; everyone else sees the question with a hint saying where it is answered"
+    over: "Hiding the card from viewers without runs.control (9992j)"
+    reason: |
+      Only a runs.control poster's message reaches the series (SpecDialogRunDivert); another viewer's starts a design turn.
+      Hiding the question entirely, though, left the rail saying a question waits with nothing to see.
+  - category: Implementation
+    chose: "The rail's question word links to #series-question and counts every question the block draws; a list row with a question opens ?section=question; the older ?section=talk lands on the block too"
+    over: "A new route or panel for questions"
+    reason: |
+      The block is in view under 5201a's desktop layout already; the scroll matters on narrow screens. One count rule
+      (openQuestionCount) keeps the rail and the block from disagreeing.
+  - category: Implementation
+    chose: "The block is bounded (24vh) and may shrink to 64px while the transcript keeps 96px; below 700px of height the page flows instead of the fixed column"
+    over: "Letting the block push the composer out of view"
+    reason: |
+      Rendered at 1440x900 against fixtures, an unbounded block or a transcript sized by its content cut the composer off.
