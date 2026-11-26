@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.227.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.226.0...v0.227.0) (2026-11-26)
+
+
+### Features
+
+* **reviews:** a pull request awaiting approval or still a draft holds as a person's step, not CI running; stacked PRs never land on a merged base (2026-11-26-5201f) ([2c460b1](https://github.com/holgerleichsenring/agent-smith/commit/2c460b1b7e6dbc5f2057b8d84ce75d33d3aa5557))
+* **series:** chat window, pinned questions, ended filter, graph links; PR approval and draft holds; run-page step numbers (2026-11-26-5201) ([6eec79e](https://github.com/holgerleichsenring/agent-smith/commit/6eec79e15f62c32e63d9c2834714caaecc1eb879))
+* **series:** graph nodes and ticket details link the tracker and the pull request in a new tab (2026-11-26-5201e) ([a199189](https://github.com/holgerleichsenring/agent-smith/commit/a1991899eb17fb6643343a1ddc9b92b0e6c2144a))
+* **series:** the open questions pin above the chat input, naming their ticket; the rail and the list lead to them (2026-11-26-5201c) ([c292784](https://github.com/holgerleichsenring/agent-smith/commit/c292784eed99ec24aca8f59477c20b1714b238f9))
+* **series:** the series list hides ended series behind Show ended; the stop record stays (2026-11-26-5201d) ([1fa6986](https://github.com/holgerleichsenring/agent-smith/commit/1fa69868144cd37025a5fd154a73a99ffabe3d54))
+
+
+### Bug Fixes
+
+* **run-page:** a step's total never falls below its number after a resume; a spec's steps show once at the spec with the passes that revised them (2026-11-26-5201g) ([ed2bc65](https://github.com/holgerleichsenring/agent-smith/commit/ed2bc65ed9a71398bfc2bdecad701cbbd4d4f0dd))
+
 ## [0.226.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.225.0...v0.226.0) (2026-11-26)
 
 
