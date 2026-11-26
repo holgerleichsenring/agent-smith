@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.228.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.228.0...v0.228.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* **series:** start_ticket logs started, queued or refused; an add_ticket ticket gets its trigger label and starts (2026-11-26-5f6e) ([de45698](https://github.com/holgerleichsenring/agent-smith/commit/de45698da79309a2f6b5f344e6a49f7b277dc34a))
+* **series:** start_ticket logs started, queued or refused; an add_ticket ticket gets its trigger label and starts; Start in series node details (2026-11-26-5f6e) ([e3d3e54](https://github.com/holgerleichsenring/agent-smith/commit/e3d3e5452b94e3150eed0666ba4ecba3655ef0aa))
+
 ## [0.228.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.227.0...v0.228.0) (2026-11-26)
 
 
