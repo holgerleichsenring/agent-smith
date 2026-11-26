@@ -103,17 +103,20 @@ assumptions:
 
 Evidence is checked mechanically, not by a model: every cited path must be a file that exists, every cited line must lie inside it, and evidence that is not a file — a log, a scan, a conversation — starts with `observed:` and carries its date. A citation of a planned or active spec is refused; a plan is not evidence. This repository's test suite holds every spec in `planned/` to that, and a new date-minted spec has to state at least one fact. In the product, a design proposal gets the same check against the turn's repositories (see [Spec dialogue](../../how-it-works/spec-dialogue.md)).
 
-### Spec Tracking in context.yaml
+### Spec Tracking in context.yaml and done.md
 
-The `state` section in `context.yaml` tracks all specs:
+Finished specs are listed in `done.md` beside the context's `context.yaml`, one line each, newest first:
+
+```markdown
+- p0052: Single executable release: binaries for 5 platforms, GitHub Releases -> .agentsmith/specs/done/p0052-….yaml
+- p0002: Retry and resilience: Polly policies, test retry loop -> .agentsmith/specs/done/p0002-….yaml
+- p0001: Initial pipeline: fetch ticket, checkout, plan, execute, commit -> .agentsmith/specs/done/p0001-….yaml
+```
+
+The `state` section in `context.yaml` tracks the active and planned ones:
 
 ```yaml
 state:
-  done:
-    p0001: "Initial pipeline: fetch ticket, checkout, plan, execute, commit"
-    p0002: "Retry and resilience: Polly policies, test retry loop"
-    # ...
-    p0052: "Single executable release: binaries for 5 platforms, GitHub Releases"
   active: {}
   planned:
     p0023: "Multi-repo support → .agentsmith/specs/planned/p0023-multi-repo.md"
@@ -124,7 +127,7 @@ The key is the spec id; the text after it is a one-line summary, and planned spe
 
 ### Specs in a code run
 
-A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. Its specs are a series under `.agentsmith/specs/planned/` — written in a design conversation, or by the coding master itself from a stand-in when the ticket came without one —, one YAML spec and one Markdown companion each, plus a manifest at `.agentsmith/series/{base}.yaml` that records the ticket, the order and where every part of the ticket went. The series id is minted the same way this project mints its own, today's date plus four random hex digits (`2026-10-15-3f2a`), and its specs are that id plus a letter: `2026-10-15-3f2aa`, `2026-10-15-3f2ab`, and so on. When a spec has run, the run moves it to `.agentsmith/specs/done/` with an outcome block and adds the matching `state.done` line to the context, so the repository carries the same planned → done history this project keeps for itself.
+A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. Its specs are a series under `.agentsmith/specs/planned/` — written in a design conversation, or by the coding master itself from a stand-in when the ticket came without one —, one YAML spec and one Markdown companion each, plus a manifest at `.agentsmith/series/{base}.yaml` that records the ticket, the order and where every part of the ticket went. The series id is minted the same way this project mints its own, today's date plus four random hex digits (`2026-10-15-3f2a`), and its specs are that id plus a letter: `2026-10-15-3f2aa`, `2026-10-15-3f2ab`, and so on. When a spec has run, the run moves it to `.agentsmith/specs/done/` with an outcome block and adds the matching line to the context's `done.md`, so the repository carries the same planned → done history this project keeps for itself.
 
 ## Runs
 

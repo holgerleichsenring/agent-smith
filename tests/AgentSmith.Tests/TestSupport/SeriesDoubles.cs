@@ -89,7 +89,8 @@ internal static class SeriesDoubles
     {
         var targets = new SandboxTargets();
         var indexWriter = new SpecIndexWriter(
-            files, new ContextYamlStateDoneCodec(new ContextYamlBuilders()), targets,
+            files, new ContextDoneMigration(new ContextYamlStateDoneCodec(new ContextYamlBuilders()),
+                NullLogger<ContextDoneMigration>.Instance), targets,
             NullLogger<SpecIndexWriter>.Instance);
         var commit = new SeriesRecordCommit(files, git ?? Git(files),
             new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance));

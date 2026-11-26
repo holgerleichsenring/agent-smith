@@ -28,7 +28,7 @@ internal sealed class SpecRecord(SpecIdReader reader)
             .OrderBy(x => x, StringComparer.Ordinal)
     ];
 
-    /// <summary>A spec in done/ that state.done in the context never recorded.</summary>
+    /// <summary>A spec in done/ that the context's done.md never recorded.</summary>
     public IReadOnlyCollection<string> UnrecordedDoneSpecs()
     {
         var recorded = ContextSpecIds();
@@ -67,8 +67,9 @@ internal sealed class SpecRecord(SpecIdReader reader)
     public IReadOnlyCollection<string> UnresolvedPointers() =>
     [
         .. Directory.EnumerateFiles(
-                Path.Combine(RepoRoot(), ".agentsmith", "contexts"), "context.yaml",
+                Path.Combine(RepoRoot(), ".agentsmith", "contexts"), "*",
                 SearchOption.AllDirectories)
+            .Where(f => Path.GetFileName(f) is "context.yaml" or "done.md") // 2026-11-26-462aa
             .SelectMany(context => PointerPattern.Matches(File.ReadAllText(context))
                 .Select(m => m.Groups["path"].Value)
                 .Where(pointer => !File.Exists(Path.Combine(RepoRoot(), pointer)))
@@ -77,8 +78,10 @@ internal sealed class SpecRecord(SpecIdReader reader)
             .OrderBy(x => x, StringComparer.Ordinal)
     ];
 
+    /// <summary>2026-11-26-462aa: "done" reads the context's done.md; "active" and "planned" its context.yaml.</summary>
     public HashSet<string> ContextIdsUnder(string section)
     {
+        if (section == "done") return DoneIds();
         var yaml = ContextYaml();
         var sections = ContextSectionPattern.Matches(yaml);
         var start = sections.FirstOrDefault(m => m.Groups["section"].Value == section);
@@ -87,7 +90,10 @@ internal sealed class SpecRecord(SpecIdReader reader)
         return Ids(yaml[start.Index..(next?.Index ?? yaml.Length)]);
     }
 
-    public HashSet<string> ContextSpecIds() => Ids(ContextYaml());
+    public HashSet<string> ContextSpecIds() => [.. Ids(ContextYaml()), .. DoneIds()];
+
+    private HashSet<string> DoneIds() =>
+        reader.DoneId.Matches(DoneMd()).Select(m => m.Groups["id"].Value).ToHashSet(StringComparer.Ordinal);
 
     private HashSet<string> Ids(string yaml) =>
         reader.ContextId.Matches(yaml).Select(m => m.Groups["id"].Value)
@@ -126,6 +132,12 @@ internal sealed class SpecRecord(SpecIdReader reader)
     private static string ContextYaml() =>
         File.ReadAllText(Path.Combine(
             RepoRoot(), ".agentsmith", "contexts", "default", "context.yaml"));
+
+    private static string DoneMd()
+    {
+        var path = Path.Combine(RepoRoot(), ".agentsmith", "contexts", "default", "done.md");
+        return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+    }
 
     private static string RepoRoot()
     {

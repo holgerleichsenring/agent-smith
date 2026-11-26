@@ -2,7 +2,7 @@
 
 ## Context Files (read in this order)
 
-1. **Every** `.agentsmith/contexts/<name>/context.yaml` (glob `contexts/*/context.yaml`) — read it down to `state:` for architecture, stack and integrations PER stack. `state.done` is an index, one line per finished spec with a pointer to it: search it for the area you touch, never read it front to back
+1. **Every** `.agentsmith/contexts/<name>/context.yaml` (glob `contexts/*/context.yaml`) — read it down to `state:` for architecture, stack and integrations PER stack. The finished specs are in `done.md` beside it, an index of one line per spec with a pointer to it: search it for the area you touch, never read it front to back
 2. **Every** `.agentsmith/contexts/<name>/principles.md` — code quality rules per stack (ALWAYS follow)
 3. `.agentsmith/specs/active/*.yaml` — the spec being implemented (its `applies_to:` names the dominant context)
 4. `.agentsmith/decisions/*.yaml` — past decisions, one YAML per spec or run (read the active spec's file and its `requires:` chain)
@@ -101,7 +101,7 @@ only. Counter ids run four to six digits, six because ids minted from a ticket n
 
 **An id is frozen; a file name is a pointer.** Every `requires:` edge, every record line
 and every commit message cites the ID, which is why moving a spec file breaks nothing but
-the `-> .agentsmith/specs/…` pointer in `context.yaml` — and that pointer moves with the
+the `-> .agentsmith/specs/…` pointer in `done.md` or `context.yaml` — and that pointer moves with the
 file (`SpecRecord_EveryPointer_ResolvesToAFile` proves every one resolves). Specs from
 p0400 upward and every date-minted spec were relabelled once, in 2026-09-07-4e6a; the
 cut is where the measurement turned (mean slug words 4.0 over p0350–p0399, 5.8 over
@@ -154,7 +154,7 @@ a namespace rather than an ordering. The product still mints a sentence slug fro
    `dotnet test AgentSmith.sln --filter "Category!=LiveLLM"` and the dashboard tests by hand
    before committing.
 7. **Log decisions** — one YAML per spec at `.agentsmith/decisions/{id}.yaml`; each entry: what was chosen, what alternatives existed, and why.
-8. **Update state** — move the spec from `planned`/`active` to `done` in the relevant context's `context.yaml`. The `state.done` entry is an INDEX LINE, **max 400 characters** and enforced by `SpecRecordLengthRatchetTests`: what shipped, in what area, and the `-> .agentsmith/specs/done/…` pointer. The reasoning goes in the spec the pointer names and in `decisions/{id}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
+8. **Update state** — remove the spec from `planned`/`active` in the relevant context's `context.yaml` and add its line at the top of that context's `done.md`: `- {id}: {what shipped} -> .agentsmith/specs/done/…`. The entry is an INDEX LINE, **max 400 characters** and enforced by `SpecRecordLengthRatchetTests`: what shipped, in what area, and the pointer. Never add a `state.done` block to a `context.yaml` (`SpecRecord_NoContextYaml_CarriesStateDone`): `done.md` and `memory/MEMORY.md` are `merge=union` in `.gitattributes`, so two spec branches' lines merge without a conflict in a local merge. The reasoning goes in the spec the pointer names and in `decisions/{id}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
 9. **Move to done** — move the spec file from `active/` to `done/`.
 10. **Commit** — one commit per spec, descriptive message, on the work branch `spec/{id}`.
    Work and integration branches are named `spec/{id}`, never `phase/{id}`.

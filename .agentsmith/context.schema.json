@@ -1135,14 +1135,13 @@
       "type": "object",
       "description": "Project progress",
       "required": [
-        "done",
         "active"
       ],
       "additionalProperties": false,
       "properties": {
         "done": {
           "type": "object",
-          "description": "Completed work. Key = version/spec, value = an index line: what shipped, in what area, and the pointer into specs/done/. The cap is the one SpecRecordIndexLine.MaxChars names — the writer composes every line to fit it, and SpecRecordLengthRatchetTests ratchets the entries written by hand. 3000 is the absolute ceiling no entry may exceed, baselined or not.",
+          "description": "DEPRECATED 2026-11-26-462aa: the done index is contexts/<name>/done.md, one line per finished spec, merged with merge=union. Still accepted so a context written before is valid; the record step moves these entries into done.md on its first write and never writes here.",
           "additionalProperties": {
             "type": "string",
             "maxLength": 3000

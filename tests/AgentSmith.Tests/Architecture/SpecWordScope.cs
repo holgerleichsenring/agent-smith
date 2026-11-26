@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Architecture;
 /// .gitignore into a test, and a file written a minute ago is read before it is staged.
 /// <para>
 /// History is out by path: the spec, decision and note records, the context record
-/// (<c>context.yaml</c> is the index of what shipped), run records and logs, changelogs and
+/// (<c>context.yaml</c> and, 2026-11-26-462aa, <c>done.md</c> are the index of what shipped), run records and logs, changelogs and
 /// EF migrations. They say phase because that was the word on the day.
 /// </para>
 /// </summary>
@@ -49,7 +49,8 @@ internal static class SpecWordScope
         && !path.Contains("/Migrations/", StringComparison.Ordinal)
         && !Path.GetFileName(path).StartsWith("CHANGELOG", StringComparison.Ordinal)
         && !(path.StartsWith(".agentsmith/contexts/", StringComparison.Ordinal)
-             && path.EndsWith("/context.yaml", StringComparison.Ordinal));
+             && (path.EndsWith("/context.yaml", StringComparison.Ordinal)
+                 || path.EndsWith("/done.md", StringComparison.Ordinal)));
 
     private static IEnumerable<string> GitListedPaths()
     {

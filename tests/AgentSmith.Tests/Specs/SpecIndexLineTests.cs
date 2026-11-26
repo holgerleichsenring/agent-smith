@@ -12,12 +12,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// 2026-08-26-31e5: a spec that finished in a target repository leaves an index line in the
-/// context it changed. The pointer has shipped since p0315d and the index never did, so the
-/// chronicle existed as loose files nobody assembled.
+/// 2026-08-26-31e5: a spec that finished in a target repository leaves an index line in the context it changed.
+/// 2026-11-26-462aa: the line goes into the context's done.md, and a repository whose context.yaml files still carry
+/// state.done is migrated by that first write.
 /// <para>
-/// Every case runs the real index writer against a REAL sandbox on a real temp directory: "left
-/// byte-identical" and "no pointer without its line" are only checkable on a disk.
+/// Every case runs the real index writer against a REAL sandbox on a real temp directory: "left byte-identical" and
+/// "no pointer without its line" are only checkable on a disk.
 /// </para>
 /// </summary>
 [Trait("TestProcess", "serial")]
@@ -37,8 +37,15 @@ public sealed class SpecIndexLineTests : IDisposable
           Redis:  { type: bidirectional, does: "Job queue" }
         state:
           done:
+            p0002: "shipped the \"second\" thing -> .agentsmith/specs/done/p0002.yaml"
+            # a comment inside the block
             p0001: "shipped the first thing -> .agentsmith/specs/done/p0001.yaml"
           active: {}
+
+        # the next section's comment
+        verify:
+          - label: test
+            command: dotnet test
         """;
 
     private readonly List<string> _dirs = [];
@@ -50,52 +57,62 @@ public sealed class SpecIndexLineTests : IDisposable
     }
 
     [Fact]
-    public async Task Record_ASpecFinished_WritesAnIndexLineNamingItsFile()
-    {
-        var repo = Repo("app", "default", Seeded);
-
-        await Run([repo]);
-
-        Done(repo)[SpecId].Should().Be($"{Goal} -> {Pointer}");
-    }
-
-    [Fact]
-    public async Task Record_ASpecFinished_LeavesTheRestOfTheContextByteIdentical()
-    {
-        var repo = Repo("app", "default", Seeded);
-
-        await Run([repo]);
-
-        var before = Seeded.Split('\n');
-        var after = Text(repo).Split('\n').Where(l => !l.Contains(SpecId, StringComparison.Ordinal));
-        after.Should().Equal(before,
-            "the chronicle is SPLICED — the yaml-language-server header, the comment and the "
-            + "flow-style integrations line are all still exactly what they were");
-    }
-
-    [Fact]
-    public async Task Record_AContextWithNoStateSection_GetsOneWithTheEntry()
+    public async Task Record_ASpecFinished_WritesItsLineFirstInDoneMd()
     {
         var repo = Repo("app", "default", "meta:\n  workdir: \".\"\n");
 
         await Run([repo]);
 
-        Done(repo).Should().ContainKey(SpecId);
-        Section(repo, "state").Should().ContainKey("active",
-            "/state declares done AND active required, and refuses anything else");
+        var done = Done(repo);
+        done.Should().StartWith(ContextDoneIndex.Header);
+        ContextDoneIndex.Entries(done).Should().ContainSingle().Which.Should().Be(new KeyValuePair<string, string>(SpecId, $"{Goal} -> {Pointer}"));
+        Text(repo).Should().Be("meta:\n  workdir: \".\"\n", "a context.yaml without state.done is not touched");
     }
 
     [Fact]
-    public async Task Record_ASecondSpec_JoinsTheFirstNewestFirst()
+    public async Task Record_AContextWithStateDone_MovesEveryEntryInOrderBelowTheNewLine()
     {
         var repo = Repo("app", "default", Seeded);
 
         await Run([repo]);
 
-        var lines = Text(repo).Split('\n').ToList();
-        lines.FindIndex(l => l.Contains(SpecId, StringComparison.Ordinal))
-            .Should().BeLessThan(lines.FindIndex(l => l.Contains("p0001", StringComparison.Ordinal)),
-                "newest first, the order this repository already writes");
+        ContextDoneIndex.Entries(Done(repo)).Select(e => e.Key).Should().Equal(SpecId, "p0002", "p0001");
+        ContextDoneIndex.Entries(Done(repo))[1].Value.Should().Be(
+            "shipped the \"second\" thing -> .agentsmith/specs/done/p0002.yaml", "the value is read by a YAML parser");
+    }
+
+    [Fact]
+    public async Task Record_AMigratedContext_KeepsEveryOtherLineByteIdentical()
+    {
+        var repo = Repo("app", "default", Seeded);
+
+        await Run([repo]);
+
+        Text(repo).Should().Be("""
+            # yaml-language-server: $schema=../../context.schema.json
+            meta:
+              workdir: "."          # the repo root
+            integrations:
+              Redis:  { type: bidirectional, does: "Job queue" }
+            state:
+              active: {}
+
+            # the next section's comment
+            verify:
+              - label: test
+                command: dotnet test
+            """);
+        ContextSchemaFile.Validate(Text(repo)).Should().BeEmpty("state without done is a valid state");
+    }
+
+    [Fact]
+    public async Task Record_AStateWithOnlyDone_LosesTheEmptiedState()
+    {
+        var repo = Repo("app", "default", "meta:\n  workdir: \".\"\nstate:\n  done:\n    p0001: \"x\"\n\n# verify next\nverify: []\n");
+
+        await Run([repo]);
+
+        Text(repo).Should().Be("meta:\n  workdir: \".\"\n\n# verify next\nverify: []\n");
     }
 
     [Fact]
@@ -106,9 +123,35 @@ public sealed class SpecIndexLineTests : IDisposable
         await Run([repo]);
         await Run([repo]);
 
-        Text(repo).Split('\n').Count(l => l.Contains(SpecId + ":", StringComparison.Ordinal))
-            .Should().Be(1, "a re-run is a designed path, and a duplicate key is unparseable");
-        Done(repo).Should().ContainKey(SpecId);
+        ContextDoneIndex.Entries(Done(repo)).Count(e => e.Key == SpecId)
+            .Should().Be(1, "a re-run is a designed path");
+    }
+
+    [Fact]
+    public async Task Record_AnotherContextWithStateDone_IsMigratedInTheSameWrite()
+    {
+        var repo = Repo("app", "api", Seeded);
+        Seed(repo.WorkDir, "default", Seeded);
+
+        await Run([repo]);
+
+        ContextDoneIndex.Entries(Done(repo)).Select(e => e.Key).Should().Equal(SpecId, "p0002", "p0001");
+        ContextDoneIndex.Entries(File.ReadAllText(DonePath(repo.WorkDir, "default"))).Select(e => e.Key)
+            .Should().Equal(["p0002", "p0001"], "the line goes to the sandbox's context, the migration to every context");
+        Text(repo.WorkDir, "default").Should().NotContain("p0001");
+    }
+
+    [Fact]
+    public async Task Record_GitAttributes_GainTheUnionLinesOnceAndKeepTheirOwn()
+    {
+        var repo = Repo("app", "default", Seeded);
+        File.WriteAllText(Path.Combine(repo.WorkDir, ".gitattributes"), "*.png binary");
+
+        await Run([repo]);
+        await Run([repo]);
+
+        File.ReadAllText(Path.Combine(repo.WorkDir, ".gitattributes")).Should().Be(
+            "*.png binary\n.agentsmith/contexts/*/done.md merge=union\n.agentsmith/memory/MEMORY.md merge=union\n");
     }
 
     [Fact]
@@ -119,7 +162,7 @@ public sealed class SpecIndexLineTests : IDisposable
 
         await Run([repo], goal);
 
-        var entry = (string)Done(repo)[SpecId]!;
+        var entry = ContextDoneIndex.Entries(Done(repo)).Single(e => e.Key == SpecId).Value;
         entry.Length.Should().BeLessThanOrEqualTo(SpecRecordIndexLine.MaxChars,
             "the line is composed to fit — the record step runs AFTER the work is committed, "
             + "so refusing it would fail a run nobody could go back and shorten");
@@ -130,27 +173,16 @@ public sealed class SpecIndexLineTests : IDisposable
     }
 
     [Fact]
-    public async Task Record_ACreatedStateSection_ValidatesAgainstTheSchema()
+    public async Task Record_AContextYamlThatDoesNotParse_IsLeftAsItIs()
     {
-        var repo = Repo("app", "default", "meta:\n  workdir: \".\"\n");
+        const string broken = "meta:\n  workdir: \".\"\nstate:\n  done:\n    p0001: \"unterminated\n";
+        var repo = Repo("app", "default", broken);
 
-        await Run([repo]);
+        var written = await Run([repo]);
 
-        ContextSchemaFile.Validate(Text(repo)).Should().BeEmpty(
-            "a section this step creates in a customer's repository has to be a valid one");
-    }
-
-    [Fact]
-    public async Task Record_TheContext_IsTheOneTheSandboxCarried()
-    {
-        var repo = Repo("app", "api", Seeded);
-        Seed(repo.WorkDir, "default", Seeded);
-
-        await Run([repo]);
-
-        Done(repo).Should().ContainKey(SpecId, "the sandbox carried the 'api' context");
-        Text(repo.WorkDir, "default").Should().Be(Seeded,
-            "applies_to names an area and cannot route; the sandbox names the context");
+        Text(repo).Should().Be(broken);
+        written.Should().NotContain(".agentsmith/contexts/default/context.yaml");
+        ContextDoneIndex.Entries(Done(repo)).Select(e => e.Key).Should().Equal(SpecId);
     }
 
     private sealed record Target(string Name, string ContextName, string WorkDir);
@@ -173,24 +205,19 @@ public sealed class SpecIndexLineTests : IDisposable
     private static string ContextPath(string workDir, string contextName) =>
         Path.Combine(workDir, ".agentsmith", "contexts", contextName, "context.yaml");
 
+    private static string DonePath(string workDir, string contextName) =>
+        Path.Combine(workDir, ".agentsmith", "contexts", contextName, "done.md");
+
     private static string Text(Target repo) => Text(repo.WorkDir, repo.ContextName);
 
     private static string Text(string workDir, string contextName) =>
         File.ReadAllText(ContextPath(workDir, contextName));
 
-    private static Dictionary<object, object?> Section(Target repo, params string[] keys)
-    {
-        var node = new ContextYamlBuilders().Deserializer
-            .Deserialize<Dictionary<object, object?>>(Text(repo))!;
-        foreach (var key in keys) node = (Dictionary<object, object?>)node[key]!;
-        return node;
-    }
-
-    private static Dictionary<object, object?> Done(Target repo) => Section(repo, "state", "done");
+    private static string Done(Target repo) => File.ReadAllText(DonePath(repo.WorkDir, repo.ContextName));
 
     // 2026-10-06-03c7e: the record step writes the line into the carrying repository only, so
     // the line's shape is pinned at the writer the step calls.
-    private static async Task Run(IReadOnlyList<Target> targets, string goal = Goal)
+    private static async Task<IReadOnlyList<string>> Run(IReadOnlyList<Target> targets, string goal = Goal)
     {
         var sandboxes = new Dictionary<string, ISandbox>(StringComparer.Ordinal);
         var discoveries = new Dictionary<string, RemoteContextDiscovery>(StringComparer.Ordinal);
@@ -206,18 +233,21 @@ public sealed class SpecIndexLineTests : IDisposable
         pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
             ContextKeys.SandboxDiscoveries, discoveries);
         var line = new SpecRecordIndexLine().Compose(goal, Pointer)!;
+        IReadOnlyList<string> written = [];
         foreach (var (key, sandbox) in sandboxes)
         {
-            var written = await Writer().WriteAsync(
+            written = await Writer().WriteAsync(
                 pipeline, sandbox, key, Repository.WorkspaceRoot, SpecId, line, CancellationToken.None);
-            written.Should().NotBeNull();
+            written.Should().NotBeEmpty();
             await sandbox.DisposeAsync();
         }
+        return written;
     }
 
     private static SpecIndexWriter Writer() => new(
         new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory(),
-        new ContextYamlStateDoneCodec(new ContextYamlBuilders()),
+        new ContextDoneMigration(new ContextYamlStateDoneCodec(new ContextYamlBuilders()),
+            NullLogger<ContextDoneMigration>.Instance),
         new SandboxTargets(),
         NullLogger<SpecIndexWriter>.Instance);
 }

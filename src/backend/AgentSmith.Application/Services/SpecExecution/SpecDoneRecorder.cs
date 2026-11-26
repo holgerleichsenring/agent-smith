@@ -64,14 +64,14 @@ public sealed class SpecDoneRecorder(
         var manifest = seriesFiles.Manifest(executed.OfRepository(record.Carrier.Name));
         await files.WriteAsync(manifest.Path, manifest.Content, ct);
         var staged = new List<string>(move.Written) { manifest.Path };
-        if (index is not null) staged.Add(index);
+        staged.AddRange(index); // 2026-11-26-462aa: done.md, a migrated context.yaml, .gitattributes
         staged.AddRange(await verdicts.WriteAsync(pipeline, files, record, ct)); // 2026-10-13-8762p
         if (await memoryLabels.WriteAsync(pipeline, files, record.Carrier.Name, ct) is { } labels) staged.Add(labels); // 9324d
         var sha = await commit.CommitAsync(target, record, executed, staged, move.Planned, ct);
         pipeline.Set(ContextKeys.SpecSet, executed);
         logger.LogInformation("Spec {SpecId} recorded in {Path} as {Sha}", record.Spec.SpecId, move.Written[0], sha);
         return CommandResult.Ok($"Spec record {move.Written[0]} committed as {sha}"
-            + (index is null ? " (no index line: no discovered context)" : $", indexed in {index}"));
+            + (index.Count == 0 ? " (no index line: no discovered context)" : $", indexed in {index[0]}"));
     }
 
     private SeriesRecordTarget? Target(PipelineContext pipeline, SpecDoneRecord record)

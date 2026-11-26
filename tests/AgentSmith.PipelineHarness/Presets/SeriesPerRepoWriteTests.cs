@@ -50,7 +50,7 @@ public sealed class SeriesPerRepoWriteTests
         branches.Repo(Server.Name).Paths.Should().Contain([
             SeriesPaths.Manifest(SeriesRepoBranches.Base),
             $"{SeriesPaths.Done}/{SeriesRepoBranches.Id('a')}-a.yaml",
-            "/work/.agentsmith/contexts/default/context.yaml",
+            "/work/.agentsmith/contexts/default/done.md", // 2026-11-26-462aa
         ]);
         pipeline.Get<string>(ContextKeys.SpecRepo).Should().Be("Server");
     }

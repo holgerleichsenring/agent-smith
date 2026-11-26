@@ -47,7 +47,8 @@ public sealed class SpecDoneRecordGitTests
         result.IsSuccess.Should().BeTrue(result.Message);
         (await git.TrackedAsync()).Should().BeEquivalentTo(
             SeriesPaths.Manifest(Base), Done("a-first.yaml"), Done("a-first.md"),
-            Planned("b-second.yaml"), Planned("b-second.md"), ".agentsmith/contexts/default/context.yaml");
+            Planned("b-second.yaml"), Planned("b-second.md"), ".agentsmith/contexts/default/done.md"); // 462aa
+        (await git.GitAsync("ls-files", ".gitattributes")).Trim().Should().Be(".gitattributes", "the union lines ride the record");
         var done = File.ReadAllText(Path.Combine(git.WorkDir, Done("a-first.yaml")));
         done.Should().StartWith($"spec: {A}").And.Contain("outcome:").And.Contain($"run: {RunId}");
         (await git.GitAsync("rev-list", "--count", "HEAD")).Trim().Should().Be("3",
@@ -55,8 +56,8 @@ public sealed class SpecDoneRecordGitTests
         (await git.GitAsync("show", "--name-status", "-M", "--format=", "HEAD"))
             .Should().Contain($"R100\t{Planned("a-first.md")}\t{Done("a-first.md")}",
                 "written then removed, git still reads the move as a rename");
-        File.ReadAllText(Path.Combine(git.WorkDir, ".agentsmith/contexts/default/context.yaml"))
-            .Should().Contain($"{A}: ").And.Contain($"-> {Done("a-first.yaml")}");
+        File.ReadAllText(Path.Combine(git.WorkDir, ".agentsmith/contexts/default/done.md"))
+            .Should().Contain($"- {A}: ").And.Contain($"-> {Done("a-first.yaml")}");
     }
 
     [Fact]
@@ -152,7 +153,7 @@ public sealed class SpecDoneRecordGitTests
         var result = await RecordAsync(carrier, pipeline, set, [Primary, Secondary], new InMemorySpecSetPointerStore());
 
         result.IsSuccess.Should().BeTrue(result.Message);
-        (await carrier.TrackedAsync()).Should().Contain([Done("a-first.yaml"), ".agentsmith/contexts/default/context.yaml"]);
+        (await carrier.TrackedAsync()).Should().Contain([Done("a-first.yaml"), ".agentsmith/contexts/default/done.md"]);
         Directory.Exists(Path.Combine(other.WorkDir, ".agentsmith")).Should().BeFalse(
             "a repository not carrying the series gets neither the file nor the index line");
     }

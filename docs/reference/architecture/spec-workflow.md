@@ -63,16 +63,14 @@ done:
 
 ## Spec tracking
 
-The `state` section of each context's `context.yaml` (`.agentsmith/contexts/<name>/context.yaml`) tracks the specs. A `done` entry is one index line of at most 400 characters: what shipped, and a pointer to the spec.
+Each context's `done.md` (`.agentsmith/contexts/<name>/done.md`, beside its `context.yaml`) lists the finished specs, newest first. An entry is one line of at most 400 characters: what shipped, and a pointer to the spec. Active and planned specs stay in the `state` section of `context.yaml`.
 
-```yaml
-state:
-  done:
-    2026-09-27-481bf: "A ticket says what kind its tracker calls it. -> .agentsmith/specs/done/2026-09-27-481bf-ticket-kind-is-a-word.yaml"
-    p0001: "Initial pipeline: fetch ticket, checkout, plan, execute, commit -> .agentsmith/specs/done/p0001-core-infrastructure.yaml"
-  active: {}
-  planned: {}
+```markdown
+- 2026-09-27-481bf: A ticket says what kind its tracker calls it. -> .agentsmith/specs/done/2026-09-27-481bf-ticket-kind-is-a-word.yaml
+- p0001: Initial pipeline: fetch ticket, checkout, plan, execute, commit -> .agentsmith/specs/done/p0001-core-infrastructure.yaml
 ```
+
+`.gitattributes` declares `done.md` and `.agentsmith/memory/MEMORY.md` `merge=union`. When two spec branches each add a line, a local `git merge` keeps both lines and reports no conflict. Server-side merges on GitHub, Azure DevOps and GitLab ignore merge drivers.
 
 ## Creating a new spec
 
@@ -80,11 +78,11 @@ state:
 2. Move it to `specs/active/` when starting implementation
 3. Implement according to the spec, logging decisions in `decisions/{id}.yaml`
 4. Move it to `specs/done/` when all acceptance criteria are met
-5. Add the `state.done` line to `context.yaml`
+5. Add the spec's line to the context's `done.md`
 
 !!! info "Spec-first workflow"
     The spec is always written **before** implementation starts. This ensures clear scope and prevents scope creep.
 
 ## Specs in your repositories
 
-The `code` pipeline applies the same method to the repositories it works on. Each spec a run executes is written to that repository's `.agentsmith/specs/done/` and indexed with a `state.done` line in its `context.yaml`, so the target repository carries the same planned-to-done record. Those ids are minted from the ticket number plus a series letter: ticket `57` becomes `p0057a`, `p0057b`, and so on.
+The `code` pipeline applies the same method to the repositories it works on. Each spec a run executes is written to that repository's `.agentsmith/specs/done/` and indexed with a line in the context's `done.md`, so the target repository carries the same planned-to-done record. Those ids are minted from the ticket number plus a series letter: ticket `57` becomes `p0057a`, `p0057b`, and so on.

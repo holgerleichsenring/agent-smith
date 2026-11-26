@@ -1,0 +1,2 @@
+.agentsmith/contexts/*/done.md merge=union
+.agentsmith/memory/MEMORY.md merge=union

@@ -1,101 +1,78 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using YamlDotNet.Core;
+using YamlDotNet.RepresentationModel;
 
 namespace AgentSmith.Infrastructure.Services;
 
 /// <summary>
-/// 2026-08-26-31e5: splices one spec index line into <c>state.done</c>, newest first,
-/// replacing an entry that already carries the same spec id.
+/// 2026-08-26-31e5: the state.done block of a context.yaml. 2026-11-26-462aa: read out and spliced away — the done
+/// index is the context's done.md, a line file git can union-merge, where a YAML block cannot be.
 /// <para>
-/// An upsert, not an append, because a re-run is a DESIGNED path — the parking preset
-/// deliberately excludes the record step from the work it skips ahead over — and a second
-/// entry under the same key makes the file unparseable rather than merely untidy.
+/// The entries are read by a YAML parser in file order, so quoting and escapes are decoded; the block is removed as
+/// text, so every other line stays byte for byte. Comment lines inside the block go with it.
 /// </para>
 /// </summary>
 public sealed class ContextYamlStateDoneCodec(ContextYamlBuilders builders) : IContextYamlStateDoneCodec
 {
-    public ContextYamlUpsertResult Upsert(string? yaml, string specId, string entry)
+    public ContextYamlDoneExtraction Extract(string yaml)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(specId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(entry);
-        var text = yaml ?? string.Empty;
-        var eol = text.Contains("\r\n", StringComparison.Ordinal) ? "\r" : string.Empty;
-        var lines = text.Split('\n').ToList();
+        ArgumentNullException.ThrowIfNull(yaml);
+        var lines = yaml.Split('\n').ToList();
         var block = ContextStateBlock.Locate(lines);
+        if (block.DoneLine == ContextStateBlock.Missing) return ContextYamlDoneExtraction.None;
+        if (!TryEntries(yaml, out var entries, out var error)) return ContextYamlDoneExtraction.Failed(error!);
 
-        var spliced = block.StateLine == ContextStateBlock.Missing
-            ? Append(lines, specId, entry, eol)
-            : Insert(lines, block, specId, entry, eol);
-        if (spliced is null)
-            return ContextYamlUpsertResult.Error(
-                "state.done is written inline; the index line needs a block mapping there.");
+        lines.RemoveRange(block.DoneLine, ContextStateBlock.EndOfOwnLines(lines, block.DoneLine) - block.DoneLine);
+        var stateEnd = ContextStateBlock.EndOfOwnLines(lines, block.StateLine);
+        if (lines.Skip(block.StateLine + 1).Take(stateEnd - block.StateLine - 1).All(ContextStateBlock.IsBlank))
+            lines.RemoveRange(block.StateLine, stateEnd - block.StateLine);
 
-        var result = string.Join('\n', spliced);
-        return Reparses(result, out var error)
-            ? ContextYamlUpsertResult.Ok(result)
-            : ContextYamlUpsertResult.Error(error!);
+        var result = string.Join('\n', lines);
+        return Reparses(result, out error)
+            ? new ContextYamlDoneExtraction(result, entries, null)
+            : ContextYamlDoneExtraction.Failed(error!);
     }
 
-    // A repository that has never had a state section gets one in the shape the schema
-    // requires: /state declares done AND active required, and refuses anything else.
-    private static List<string> Append(List<string> lines, string specId, string entry, string eol)
+    private static bool TryEntries(string yaml, out IReadOnlyList<KeyValuePair<string, string>> entries, out string? error)
     {
-        var spliced = new List<string>(lines);
-        while (spliced.Count > 0 && spliced[^1].Trim().Length == 0) spliced.RemoveAt(spliced.Count - 1);
-        spliced.Add(string.Empty + eol);
-        spliced.Add("state:" + eol);
-        spliced.Add("  done:" + eol);
-        spliced.Add($"    {Entry(specId, entry)}" + eol);
-        spliced.Add("  active: {}" + eol);
-        spliced.Add(string.Empty);
-        return spliced;
-    }
-
-    private static List<string>? Insert(
-        List<string> lines, ContextStateBlock block, string specId, string entry, string eol)
-    {
-        var spliced = new List<string>(lines);
-        if (ContextStateBlock.InlineValue(spliced[block.StateLine]).Length > 0) return null;
-
-        var done = block.DoneLine;
-        if (done == ContextStateBlock.Missing)
+        entries = [];
+        try
         {
-            done = block.StateLine + 1;
-            spliced.Insert(done, new string(' ', block.DoneIndent) + "done:" + eol);
+            var stream = new YamlStream();
+            using (var reader = new StringReader(yaml)) stream.Load(reader);
+            if (stream.Documents.Count == 0 || stream.Documents[0].RootNode is not YamlMappingNode root
+                || !root.Children.TryGetValue(new YamlScalarNode("state"), out var state) || state is not YamlMappingNode stateMap
+                || !stateMap.Children.TryGetValue(new YamlScalarNode("done"), out var done))
+            {
+                error = null;
+                return true;
+            }
+            if (done is YamlScalarNode { Value: null or "" }) { error = null; return true; }
+            if (done is not YamlMappingNode doneMap) { error = "state.done is not a mapping"; return false; }
+            var read = new List<KeyValuePair<string, string>>();
+            foreach (var (key, value) in doneMap.Children)
+            {
+                if (key is not YamlScalarNode id || value is not YamlScalarNode scalar)
+                {
+                    error = $"state.done.{key} is not an id with a line of text";
+                    return false;
+                }
+                read.Add(new(id.Value ?? string.Empty, OneLine(scalar.Value)));
+            }
+            entries = read;
+            error = null;
+            return true;
         }
-        else
+        catch (YamlException ex)
         {
-            var inline = ContextStateBlock.InlineValue(spliced[done]);
-            if (inline.Length > 0 && inline != "{}") return null;
-            if (inline == "{}") spliced[done] = new string(' ', block.DoneIndent) + "done:" + eol;
-            RemoveExisting(spliced, done, block.EntryIndent, specId);
-        }
-
-        spliced.Insert(done + 1, new string(' ', block.EntryIndent) + Entry(specId, entry) + eol);
-        return spliced;
-    }
-
-    // The id's own entry and every line that continues it — a folded or quoted value can
-    // run past its first line, and leaving the tail behind would corrupt the block.
-    private static void RemoveExisting(List<string> lines, int done, int entryIndent, string specId)
-    {
-        var end = ContextStateBlock.EndOfBlock(lines, done);
-        for (var i = done + 1; i < end; i++)
-        {
-            if (ContextStateBlock.IsBlank(lines[i])) continue;
-            if (ContextStateBlock.IndentOf(lines[i]) != entryIndent) continue;
-            if (ContextStateBlock.KeyOf(lines[i]) != specId) continue;
-            var tail = ContextStateBlock.EndOfBlock(lines, i);
-            lines.RemoveRange(i, tail - i);
-            return;
+            error = $"the context.yaml does not parse: {ex.Message}";
+            return false;
         }
     }
 
-    // YAML's double-quoted scalar takes the same two escapes JSON does, and the entry is
-    // composed by the writer — one line, no control characters.
-    private static string Entry(string specId, string entry) =>
-        $"{specId}: \"{entry.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
+    private static string OneLine(string? value) =>
+        (value ?? string.Empty).Replace("\r\n", " ").Replace('\n', ' ').Replace('\r', ' ');
 
     private bool Reparses(string yaml, out string? error)
     {
@@ -107,7 +84,7 @@ public sealed class ContextYamlStateDoneCodec(ContextYamlBuilders builders) : IC
         }
         catch (YamlException ex)
         {
-            error = $"the spliced context.yaml no longer parses: {ex.Message}";
+            error = $"the context.yaml without state.done no longer parses: {ex.Message}";
             return false;
         }
     }

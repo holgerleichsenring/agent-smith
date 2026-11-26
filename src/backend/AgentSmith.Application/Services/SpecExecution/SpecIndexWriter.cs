@@ -7,28 +7,32 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.SpecExecution;
 
 /// <summary>
-/// 2026-08-26-31e5: writes the index line for a finished spec into the <c>state.done</c> of
-/// the context the change was made in.
+/// 2026-08-26-31e5: writes the index line for a finished spec into the done index of the context the change was made
+/// in.
 /// <para>
-/// The SANDBOX routes it, not the spec's <c>applies_to</c>: that key is in no schema, is set
-/// by nothing in the product, is absent from half the specs here, and where present names an
-/// AREA ("backend") rather than a context. The change was made in a sandbox, and
+/// The SANDBOX routes it, not the spec's <c>applies_to</c>: that key is in no schema, is set by nothing in the
+/// product, and where present names an AREA ("backend") rather than a context. The change was made in a sandbox, and
 /// <see cref="SandboxTargets"/> already resolves that sandbox's context.
 /// </para>
 /// <para>
-/// 2026-10-06-03c7e: written into the CARRYING repository only, and the path it wrote is
-/// returned so the record commit carries the line beside the done file it names.
+/// 2026-10-06-03c7e: written into the CARRYING repository only, and the paths it wrote are returned so the record
+/// commit carries the line beside the done file it names.
+/// </para>
+/// <para>
+/// 2026-11-26-462aa: the index is the context's done.md, a line file two branches' lines union-merge in. A repository
+/// whose context.yaml files still carry state.done is migrated by this write (<see cref="ContextDoneMigration"/>), and
+/// its .gitattributes gets the union lines (<see cref="IndexMergeAttributes"/>).
 /// </para>
 /// </summary>
 public sealed class SpecIndexWriter(
     ISandboxFileReaderFactory readerFactory,
-    IContextYamlStateDoneCodec codec,
+    ContextDoneMigration migration,
     SandboxTargets sandboxTargets,
     ILogger<SpecIndexWriter> logger)
 {
-    /// <summary>The repo-relative path of the context file the line reached, or null when it
-    /// reached none — a pointer without one is the defect.</summary>
-    public async Task<string?> WriteAsync(
+    /// <summary>The repo-relative paths it changed — the context's done.md first — or none when the line reached no
+    /// context: a pointer without one is the defect.</summary>
+    public async Task<IReadOnlyList<string>> WriteAsync(
         PipelineContext pipeline, ISandbox sandbox, string? sandboxKey,
         string repoLocalPath, string specId, string line, CancellationToken ct)
     {
@@ -38,27 +42,30 @@ public sealed class SpecIndexWriter(
             logger.LogWarning(
                 "SpecIndexWriter: no discovered context for sandbox '{Key}' — no index line",
                 sandboxKey ?? "(single)");
-            return null;
+            return [];
         }
 
-        var relative = $"{ProjectMetaPaths.Contexts}/{discovery.ContextName}/{ProjectMetaPaths.ContextYamlFile}";
-        var path = Path.Combine(repoLocalPath, relative);
         var reader = readerFactory.Create(sandbox);
-        // A context that was discovered but has no file on this sandbox is seeded from the
-        // discovery's own workdir — the alternative is a pointer nothing indexes.
-        var existing = await reader.TryReadAsync(path, ct)
-            ?? $"meta:\n  workdir: \"{discovery.Workdir}\"\n";
+        var plan = await migration.PlanAsync(reader, repoLocalPath, ct);
+        var relative = ContextDoneMigration.DonePath(discovery.ContextName);
+        var path = Path.Combine(repoLocalPath, relative);
+        var existing = plan.Done.TryGetValue(discovery.ContextName, out var moved) ? moved : await reader.TryReadAsync(path, ct);
+        await reader.WriteAsync(path, ContextDoneIndex.Upsert(existing, specId, line), ct);
 
-        var upserted = codec.Upsert(existing, specId, line);
-        if (upserted.Yaml is null)
+        var changed = new List<string> { relative };
+        var files = plan.Done.Where(d => d.Key != discovery.ContextName)
+            .Select(d => (ContextDoneMigration.DonePath(d.Key), d.Value))
+            .Concat(plan.Yaml.Select(y => (ContextDoneMigration.YamlPath(y.Key), y.Value)));
+        var attributes = Path.Combine(repoLocalPath, ProjectMetaPaths.GitAttributes);
+        if (IndexMergeAttributes.Ensure(await reader.TryReadAsync(attributes, ct)) is { } ensured)
+            files = files.Append((ProjectMetaPaths.GitAttributes, ensured));
+        foreach (var (file, text) in files)
         {
-            logger.LogWarning(
-                "SpecIndexWriter: {Path} left untouched — {Reason}", path, upserted.ParseError);
-            return null;
+            await reader.WriteAsync(Path.Combine(repoLocalPath, file), text, ct);
+            changed.Add(file);
         }
-        await reader.WriteAsync(path, upserted.Yaml, ct);
         logger.LogInformation("Spec index line written to {Path}", path);
-        return relative;
+        return changed;
     }
 
     private RemoteContextDiscovery? Discovery(

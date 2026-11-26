@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Sandbox.Wire;
@@ -24,16 +25,20 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// <c>git add -A</c> and force-pushes with a lease, and a tree carrying conflict markers
 /// must never reach it.
 /// </para>
+/// <para>
+/// 2026-11-26-462aa: the index files (done.md, MEMORY.md) merge with git's union driver, written into the clone's
+/// info/attributes first — git reads attributes from the work branch's tree, which an older branch lacks. It replaces
+/// the three index unions (2026-11-17-023fb, 2026-11-24-6811b) this merger ran on a conflict.
+/// </para>
 /// </summary>
 public sealed class WorkBranchBaseMerger(
-    StateIndexConflictResolver stateIndex, // 2026-11-17-023fb: added state.done entries on both sides are no conflict
     BaseRefresh.BaseMergeResolutionCommit resolution, // 2026-11-24-6811c: what a resolver resolved is committed here
     ILogger<WorkBranchBaseMerger> logger)
 {
     internal const int TimeoutSeconds = 300;
 
     /// <summary>Merges the resolved base into the sandbox's current HEAD.</summary>
-    /// <param name="resolveRest">2026-11-24-6811c: given the paths the unions left unmerged, resolves them in the working
+    /// <param name="resolveRest">2026-11-24-6811c: given the paths git left unmerged, resolves them in the working
     /// tree; without one a conflict aborts (a rework's checkout). 2026-11-24-9dc0a: it answers what the server's check
     /// still finds open, and the merge is committed only when nothing is.</param>
     public async Task<BaseMergeResult> MergeIntoCurrentAsync(
@@ -52,6 +57,7 @@ public sealed class WorkBranchBaseMerger(
         if (ancestor.ExitCode != 1)
             return BaseMergeResult.Unavailable($"{baseRef} cannot be read in this sandbox");
 
+        await UnionIndexesAsync(sandbox, ct);
         var merge = await RunAsync(sandbox, ["merge", "--no-edit", baseRef], ct);
         if (merge.ExitCode == 0)
         {
@@ -65,17 +71,11 @@ public sealed class WorkBranchBaseMerger(
         Func<IReadOnlyList<string>, CancellationToken, Task<BaseRefresh.BaseMergeResolution>>? resolveRest, CancellationToken ct)
     {
         var conflicting = await ConflictingPathsAsync(sandbox, ct);
-        // 2026-11-24-6811b: the index files are united one by one; the merge commits only when nothing is left unmerged.
-        var rest = conflicting.Count > 0 ? await stateIndex.ResolveAsync(sandbox, conflicting, ct) : conflicting;
-        if (conflicting.Count > 0 && rest.Count == 0 && (await RunAsync(sandbox, ["commit", "--no-edit"], ct)).ExitCode == 0)
-        {
-            logger.LogInformation("Merged {BaseRef}; the index lines of both sides united", baseRef);
-            return BaseMergeResult.Merged(baseRef);
-        }
-        var resolved = rest.Count > 0 && resolveRest is not null ? await resolution.CommitAsync(sandbox, rest, resolveRest, ct) : null;
+        var resolved = conflicting.Count > 0 && resolveRest is not null
+            ? await resolution.CommitAsync(sandbox, conflicting, resolveRest, ct) : null;
         if (resolved is { IsWhole: true })
         {
-            logger.LogInformation("Merged {BaseRef}; {Count} conflicting path(s) resolved by a master", baseRef, rest.Count);
+            logger.LogInformation("Merged {BaseRef}; {Count} conflicting path(s) resolved by a master", baseRef, conflicting.Count);
             return BaseMergeResult.Merged(baseRef) with { ResolvedByMaster = true };
         }
         var abort = await RunAsync(sandbox, ["merge", "--abort"], ct);
@@ -83,8 +83,8 @@ public sealed class WorkBranchBaseMerger(
             logger.LogWarning("git merge --abort exited {Exit}: {Error}", abort.ExitCode, abort.ErrorMessage);
         if (conflicting.Count > 0)
         {
-            // 2026-11-24-9dc0a: only what is still open — after the master, else after the unions — is named.
-            var open = resolved?.Open is { Count: > 0 } left ? left : rest.Count > 0 ? rest : conflicting;
+            // 2026-11-24-9dc0a: only what is still open after the master is named.
+            var open = resolved?.Open is { Count: > 0 } left ? left : conflicting;
             logger.LogWarning("Merging {BaseRef} conflicts in {Count} path(s)", baseRef, open.Count);
             return BaseMergeResult.Conflicted(baseRef, open, resolved?.Reason);
         }
@@ -92,6 +92,14 @@ public sealed class WorkBranchBaseMerger(
         // the state every run before this one worked in. Reported, not fatal.
         logger.LogWarning("git merge {BaseRef} did not run: {Error}", baseRef, error);
         return BaseMergeResult.Unavailable($"git merge {baseRef} did not run: {error}");
+    }
+
+    // A failure leaves the merge as it was before 462aa: an index line collision then reaches the master.
+    private async Task UnionIndexesAsync(ISandbox sandbox, CancellationToken ct)
+    {
+        var result = await sandbox.RunStepAsync(IndexMergeAttributes.CloneStep(TimeoutSeconds), progress: null, ct);
+        if (result.ExitCode != 0)
+            logger.LogWarning("The index union attributes were not written ({Exit}): {Error}", result.ExitCode, result.ErrorMessage);
     }
 
     private async Task<IReadOnlyList<string>> ConflictingPathsAsync(ISandbox sandbox, CancellationToken ct)
