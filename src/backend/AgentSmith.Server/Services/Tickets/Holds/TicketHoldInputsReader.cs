@@ -38,7 +38,7 @@ public sealed class TicketHoldInputsReader(
         var enqueued = await services.ServiceProvider.GetRequiredService<QueuedTicketRepository>().EnqueuedAtAsync(ct);
         return new TicketHoldInputs(series.Series, series.Steps, edited, since, series.Active)
         {
-            Plans = series.Plans,
+            Plans = series.Plans, SeriesWaits = series.Waits, // 2026-11-26-f511a
             ModelWaits = waits, Enqueued = enqueued, EscalateAfterMinutes = holds?.EscalateAfterMinutes ?? 0,
             Now = (clock ?? TimeProvider.System).GetUtcNow(),
         };

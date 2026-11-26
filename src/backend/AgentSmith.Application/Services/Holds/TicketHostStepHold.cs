@@ -15,7 +15,9 @@ public static class TicketHostStepHold
     public static TicketHold? Draft(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        return Moves(facts) && facts.OpenPullRequests is { Drafts: [var first, ..] }
+        // 2026-11-26-f511a: a draft stacked on a requirement of its active series that has not landed is the master's to
+        // publish once that lands, not a person's step yet (TicketSeriesWait).
+        return Moves(facts) && !TicketSeriesWait.WaitsOnAnother(facts) && facts.OpenPullRequests is { Drafts: [var first, ..] }
             ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.PrDraft, new(TicketHoldActs.PullRequest, first), null)
             : null;
     }

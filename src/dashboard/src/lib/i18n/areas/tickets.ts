@@ -64,10 +64,10 @@ export const ticketsMessages = {
   "tickets.section.stuck.empty": { en: "No ticket is stuck.", de: "Kein Ticket hängt." },
   "tickets.section.blocked.title": { en: "Waits on another", de: "Wartet auf ein anderes" },
   "tickets.section.blocked.sub": {
-    en: "filed, held until what it requires is merged or marked done by hand",
-    de: "angelegt, wartet, bis gemergt oder von Hand als erledigt markiert ist, was es voraussetzt",
+    en: "held until what it requires is merged or marked done by hand",
+    de: "wartet, bis gemergt oder von Hand als erledigt markiert ist, was es voraussetzt",
   },
-  "tickets.section.blocked.empty": { en: "No filed ticket waits for another.", de: "Kein angelegtes Ticket wartet auf ein anderes." },
+  "tickets.section.blocked.empty": { en: "No ticket waits for another.", de: "Kein Ticket wartet auf ein anderes." },
   "tickets.section.filed.title": { en: "Filed, no run on record", de: "Angelegt, noch kein Run" },
   "tickets.section.filed.sub": {
     en: "filed here, nothing it requires is open, no run recorded",

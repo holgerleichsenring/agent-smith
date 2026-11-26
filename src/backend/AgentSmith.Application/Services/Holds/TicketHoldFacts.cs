@@ -75,6 +75,13 @@ public sealed record TicketHoldFacts(string Project, string TicketId)
     /// <summary>A never-run ticket's unlanded requirements that no merge alone lifts.</summary>
     public IReadOnlyList<string> WaitsFor { get; init; } = [];
 
+    /// <summary>2026-11-26-f511a: the keys of the ticket's requirements in its active series that have not landed; empty
+    /// outside an active series (<see cref="TicketSeriesWait"/>).</summary>
+    public IReadOnlyList<string> SeriesUnlanded { get; init; } = [];
+
+    /// <summary>2026-11-26-f511a: when the series master last took the ticket up (<see cref="TicketSeriesWait.TakesUp"/>).</summary>
+    public DateTimeOffset? SeriesTakenUpAt { get; init; }
+
     /// <summary>A person edited the ticket's text and the conversation has not answered it (2026-11-22-a720b).</summary>
     public bool TextEdited { get; init; }
 
