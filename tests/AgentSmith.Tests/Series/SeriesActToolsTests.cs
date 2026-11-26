@@ -101,7 +101,7 @@ public sealed class SeriesActToolsTests
 
         said.Should().Be(text);
         beat.ActDid.Should().Be(did);
-        beat.Said.Should().Equal($"{beat.Actor} {did}: its prerequisite landed");
+        beat.Acts.Select(a => a.Notice).Should().Equal($"{beat.Actor} {did}: its prerequisite landed"); // 2026-11-26-f511c: kept on the beat's acts
     }
 
     [Fact]
