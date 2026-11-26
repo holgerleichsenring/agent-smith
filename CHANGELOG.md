@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.230.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.229.0...v0.230.0) (2026-11-26)
+
+
+### Features
+
+* **series:** read_ticket returns the newest run's own report and the run-end wake names its headings (2026-11-26-a12ed) ([07c8776](https://github.com/holgerleichsenring/agent-smith/commit/07c877607453395bb4b7ccf1df2f28edaf5c3da9))
+
+
+### Bug Fixes
+
+* **series:** series-of-one adopts live work only, start_ticket reads real state, queue head hold, run report for the master (2026-11-26-a12e) ([5077a77](https://github.com/holgerleichsenring/agent-smith/commit/5077a7769a3d4fa4a1f51025ee3a6c26250ec4cb))
+
 ## [0.229.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.228.1...v0.229.0) (2026-11-26)
 
 
