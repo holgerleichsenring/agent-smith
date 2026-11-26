@@ -10,8 +10,4 @@ public sealed record CiGreenPullRequest(string Repo, string Url)
     /// <summary>2026-11-24-629aa: a pull request whose required build has not started (or expired) on its head for
     /// merge.ci_settle_seconds — the run queues it again and merges nothing.</summary>
     public bool NotStarted { get; init; }
-
-    /// <summary>2026-11-24-629ab: a pull request whose host dropped its auto-complete at a conflict that has ended — the run
-    /// arms it again and merges nothing.</summary>
-    public bool Rearm { get; init; }
 }

@@ -133,6 +133,6 @@ public sealed class LandedByHandEndpointTests : IDisposable
 
         Landed(await _f.MarkAsync(trackers: trackers.Object, ct: request.Token));
 
-        _f.Nudged.Should().ContainSingle().Which.TicketId.Should().Be("8");
+        _f.Woken.Woken.Should().ContainSingle().Which.TicketId.Should().Be("8"); // 2026-11-25-96aea: a prerequisite wake
     }
 }

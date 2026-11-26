@@ -41,7 +41,8 @@ public sealed class MergeByReviewTests
         });
         var runner = new PipelineRunner(harness.Services) { Review = ReviewMode.None };
         runner.RequestContext[AgentSmith.Contracts.Commands.ContextKeys.CiGreenMerge] = new AgentSmith.Contracts.Runs.CiGreenMergeRequest(
-            "42", "attempt-1", "agent-smith/42", [new AgentSmith.Contracts.Runs.CiGreenPullRequest("primary", "https://stub.test/primary/pull/1")]);
+            "42", "attempt-1", "agent-smith/42", [new AgentSmith.Contracts.Runs.CiGreenPullRequest("primary", "https://stub.test/primary/pull/1")])
+        { AskedBy = "series master" }; // 2026-11-25-96aea: only an asked merge merges
 
         var result = await runner.RunAsync(AgentSmith.Contracts.Commands.PipelinePresets.MergeGreenName);
 

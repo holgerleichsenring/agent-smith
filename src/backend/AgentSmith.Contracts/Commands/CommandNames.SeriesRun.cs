@@ -7,6 +7,9 @@ public static partial class CommandNames
     /// filing seeded with a series id joins that series.</summary>
     public const string OpenSeriesRun = "OpenSeriesRunCommand";
 
+    /// <summary>2026-11-25-96aea: a code run's fourth step: a ticket no active series holds gets a series of one.</summary>
+    public const string OpenTicketSeries = "OpenTicketSeriesCommand";
+
     /// <summary>A beat's first step: the series record, its tickets' facts, and what needs judgement.</summary>
     public const string ReadSeries = "ReadSeriesCommand";
 

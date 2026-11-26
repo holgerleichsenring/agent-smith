@@ -44,31 +44,6 @@ public sealed class AzureReposAutoComplete(
         return Interpret(updated, prId);
     }
 
-    /// <summary>
-    /// 2026-11-24-629ab: arms auto-complete again after Azure dropped it at a merge conflict — as the same identity, with the
-    /// pull request's own completion options when it still carries them, and no vote: whoever set it first decided the merge,
-    /// and a vote is a review nobody asked for. One that is armed already is left as it is. 2026-11-25-9992h: as the token's
-    /// own identity, like <see cref="ArmAsync"/>.
-    /// </summary>
-    public async Task<PullRequestCompletion> RearmAsync(
-        GitHttpClient client, GitPullRequest pr, int prId, string? self, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(client);
-        ArgumentNullException.ThrowIfNull(pr);
-        if (pr.AutoCompleteSetBy is not null) return PullRequestCompletion.Armed("Auto-complete is set already.");
-        if (Self(self) is not { } identity) return Unknown(prId);
-        var updated = await client.UpdatePullRequestAsync(
-            Arming(pr, identity, Kept(pr.CompletionOptions)), project, repoName, prId, cancellationToken: cancellationToken);
-        return Interpret(updated, prId);
-    }
-
-    // How the person wanted it merged, never past a policy: a bypass, its reason and ignored policies are not carried over.
-    private static GitPullRequestCompletionOptions? Kept(GitPullRequestCompletionOptions? had) => had is null ? null : new()
-    {
-        MergeStrategy = had.MergeStrategy, SquashMerge = had.SquashMerge, DeleteSourceBranch = had.DeleteSourceBranch,
-        MergeCommitMessage = had.MergeCommitMessage, TransitionWorkItems = had.TransitionWorkItems,
-    };
-
     private static Microsoft.VisualStudio.Services.WebApi.IdentityRef? Self(string? self) =>
         string.IsNullOrWhiteSpace(self) ? null : new Microsoft.VisualStudio.Services.WebApi.IdentityRef { Id = self };
 

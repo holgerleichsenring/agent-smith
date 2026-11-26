@@ -28,8 +28,9 @@ public static class InitProjectHandlersExtensions
         services.AddTransient<PullRequestMergeSequence>(); // 2026-11-17-3435b; 2026-11-25-9992h: no approval step
         services.AddTransient<PullRequestCiStart>(); // 2026-11-24-f9c5d
         services.AddTransient<PullRequestBaseGuard>().AddTransient<PullRequestDraftStep>(); // 2026-11-23-31dce, 8d16
-        services.AddTransient<PullRequestBuildRequeue>().AddTransient<PullRequestAutoCompleteRearm>(); // 2026-11-23-0219, 629ab
+        services.AddTransient<PullRequestBuildRequeue>(); // 2026-11-23-0219
         services.AddTransient<ICommandHandler<CompletePullRequestsContext>, CompletePullRequestsHandler>();
+        services.AddTransient<ICommandHandler<OpenTicketSeriesContext>, Series.OpenTicketSeriesHandler>(); // 2026-11-25-96aea
         return services;
     }
 }

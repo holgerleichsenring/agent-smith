@@ -98,6 +98,14 @@ public sealed record SeriesRunRecord(
 
     public bool IsActive => SeriesRunStates.IsActive(State);
 
+    /// <summary>2026-11-25-96aea: a series of one saw its ticket's pull request wait for a merge; it is done only once that
+    /// pull request ended — a landing from before it opened (a ticket's earlier spec) ends nothing.</summary>
+    public bool OneWaited { get; init; }
+
+    /// <summary>2026-11-25-96aea: a series of one — a standalone ticket its master leads; the ticket page stays its surface.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsOne => Tickets.Count == 1;
+
     /// <summary>2026-11-23-31dcb: when the series last moved — the newest of its finish, its last beat and its start.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public DateTimeOffset LastActivityAt => new[] { FinishedAt, LastStatusAt, StartedAt }.Max() ?? StartedAt;

@@ -32,7 +32,7 @@ public sealed class StartActCompositionTests
     private static readonly DateTimeOffset Noon = new(2026, 11, 17, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task RequirementsMet_TheHeldDependentOfALandedTicket_StartsInAStartRunAndSpawnsItsRun()
+    public async Task StartTicket_TheHeldDependentOfALandedTicket_StartsInAStartRunAndSpawnsItsRun()
     {
         var (tracker, events, spawn) = (new ActTracker(), new ActRunEvents(), new Mock<ISpawnPipelineRunsUseCase>());
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Filing), services =>
@@ -40,6 +40,8 @@ public sealed class StartActCompositionTests
             services.RemoveAll<ITicketProviderFactory>().AddSingleton<ITicketProviderFactory>(new ActTrackerFactory(tracker));
             services.RemoveAll<IEventPublisher>().AddSingleton<IEventPublisher>(events);
             services.RemoveAll<ISpawnPipelineRunsUseCase>().AddSingleton(spawn.Object);
+            services.RemoveAll<AgentSmith.Contracts.Services.IRedisClaimLock>().AddSingleton(Mock.Of<AgentSmith.Contracts.Services.IRedisClaimLock>(l =>
+                l.TryAcquireAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()) == Task.FromResult<string?>("token")));
         });
         await using var scope = harness.Services.CreateAsyncScope();
         var sp = scope.ServiceProvider;
@@ -48,12 +50,10 @@ public sealed class StartActCompositionTests
             AgentSmith.Application.Services.Filing.FiledStartState.Started, AgentSmith.Application.Services.Filing.FiledStartState.Held);
         await sp.GetRequiredService<ITicketLandingStore>().TryRecordAsync(new TicketLandingFact(
             "github-filing", "github-1", "1", Project, TicketLandingKinds.Merged, Noon, null, null, null), default);
-        var project = sp.GetRequiredService<AgentSmith.Server.Services.Tickets.TicketProjects>().Of(Project)!;
+        // 2026-11-25-96aea: the series master starts it (start_ticket), the landing only woke it
+        var said = await sp.GetRequiredService<AgentSmith.Contracts.Series.ISeriesTicketActs>().StartAsync(Project, "2", default);
 
-        var end = await harness.Services.GetRequiredService<RequirementsMetStart>().StartAsync(project,
-            new ClaimedReworkNudge(Project, "2", ReworkNudgeOrigin.RequirementsMet, null, null, 1, "claim", 0), default);
-
-        end.Should().Be(ReworkNudgeDisposition.Finish);
+        said.Should().NotContain("not started");
         events.Started.Select(e => e.Pipeline).Should().Equal(PipelinePresets.FileName, PipelinePresets.StartName);
         events.Started.Last().RunId.Should().NotBeNullOrEmpty();
         spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.Is<ResolvedProject>(p => p.Name == Project),

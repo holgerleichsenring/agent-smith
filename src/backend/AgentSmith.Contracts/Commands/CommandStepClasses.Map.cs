@@ -99,7 +99,7 @@ public static partial class CommandStepClasses
         [CommandNames.SpecSequence] = Internal,         // splice mechanics
         [CommandNames.SelectSpec] = Internal,           // the spec header already tells this
         [CommandNames.CollectSpecDialogReply] = Internal,
-        [CommandNames.PlanFiling] = Internal, [CommandNames.OpenSeriesRun] = Internal, [CommandNames.ReadSeries] = Internal, [CommandNames.PostSeriesStatus] = Internal, [CommandNames.CompactSeriesThread] = Internal, /* 433fb */ [CommandNames.DeliverSeries] = Internal, // 0207a, f9c5e
+        [CommandNames.OpenTicketSeries] = Internal, [CommandNames.PlanFiling] = Internal, [CommandNames.OpenSeriesRun] = Internal, [CommandNames.ReadSeries] = Internal, [CommandNames.PostSeriesStatus] = Internal, [CommandNames.CompactSeriesThread] = Internal, /* 433fb */ [CommandNames.DeliverSeries] = Internal, // 0207a, f9c5e
         [CommandNames.WriteSpecRecord] = Internal,
         [CommandNames.WriteRunResult] = Internal,        // run-artifact bookkeeping
         [CommandNames.PrCrossLink] = Internal,

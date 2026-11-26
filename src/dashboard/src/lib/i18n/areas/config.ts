@@ -60,13 +60,13 @@ export const configMessages = {
   },
   "config.merge.ciSettle.label": { en: "CI settle seconds", de: "CI-Ruhezeit (Sekunden)" },
   "config.merge.ciSettle.help": {
-    en: "how long 'no CI reporting' must last before it counts as none: a build that never started is queued again, and under review none it merges",
-    de: "wie lange „keine CI meldet sich“ anhalten muss, bis es als keine CI gilt: ein nie gestarteter Build wird neu eingereiht, und bei Review none wird gemergt",
+    en: "how long 'no CI reporting' must last before it counts as none; the series master then decides",
+    de: "wie lange „keine CI meldet sich“ anhalten muss, bis es als keine CI gilt; danach entscheidet der Serien-Master",
   },
-  "config.merge.ciFix.label": { en: "CI fix attempts", de: "CI-Fix-Versuche" },
+  "config.merge.ciFix.label": { en: "Refresh repair passes", de: "Reparaturdurchgänge beim Aktualisieren" },
   "config.merge.ciFix.help": {
-    en: "red-CI fix runs in a row before the ticket is handed back; also the repair passes a base refresh may make on a red build",
-    de: "Fix-Runs bei roter CI in Folge, bevor das Ticket zurückgegeben wird; auch die Reparaturdurchgänge einer Basis-Aktualisierung bei rotem Build",
+    en: "the repair passes a base refresh may make on a build or test the merged base turned red",
+    de: "die Reparaturdurchgänge, die eine Basis-Aktualisierung bei einem Build oder Test machen darf, den die gemergte Basis rot gemacht hat",
   },
   "config.merge.ciExcerpt.label": { en: "CI excerpt characters", de: "Zeichen im CI-Auszug" },
   "config.merge.ciExcerpt.help": {

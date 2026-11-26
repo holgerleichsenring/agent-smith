@@ -1,6 +1,6 @@
 # Stacked start
 
-<p class="cb-lead">A ticket that requires another one doesn't have to wait for that one to merge. By default it starts as soon as its prerequisite's run is green, on top of the prerequisite's branch.</p>
+<p class="cb-lead">A ticket that requires another one doesn't have to wait for that one to merge. By default its series master starts it as soon as its prerequisite's run is green, on top of the prerequisite's branch.</p>
 
 ## When a dependent starts
 
@@ -21,7 +21,7 @@ Whatever triggers the dependent (its label, a poll, a person, the [series run](s
 <li><strong>Cut from the prerequisite.</strong> The dependent's branch is cut from the prerequisite's branch, so it builds on code that isn't merged yet.</li>
 <li><strong>Target the prerequisite.</strong> Its pull request targets the prerequisite's branch, so the diff shows only its own work.</li>
 <li><strong>Merge it in again.</strong> If the prerequisite's branch moved (a fix run, a rework), the dependent's next run merges it in.</li>
-<li><strong>Retarget on landing.</strong> When the prerequisite lands, a <code>retarget</code> run moves the dependent's pull request onto the base the prerequisite landed on.</li>
+<li><strong>Retarget on landing.</strong> When the prerequisite lands, its series master is told and moves the dependent's pull request onto the base the prerequisite landed on (a <code>retarget</code> run).</li>
 </ol>
 
 A dependent that has started once is not held again: its rework is never refused while the prerequisite reworks. A missing prerequisite branch is never recreated.

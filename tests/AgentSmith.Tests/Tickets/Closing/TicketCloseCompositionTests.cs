@@ -33,7 +33,6 @@ public sealed class TicketCloseCompositionTests
         scope.ServiceProvider.GetRequiredService<TicketCloseAct>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.Acts.IActRun>().Should().BeOfType<AgentSmith.Server.Services.Acts.ActRun>();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.TicketActs.TicketCloseActs>().Should().NotBeNull(); // e061a
-        provider.GetRequiredService<RequirementsMetStart>().Should().NotBeNull();
         provider.GetRequiredService<DependentsWake>().Should().NotBeNull();
     }
 }

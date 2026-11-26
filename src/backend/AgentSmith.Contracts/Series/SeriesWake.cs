@@ -25,6 +25,10 @@ public sealed record SeriesWake(string Kind, string Text, string? Author = null)
     /// request and head, a run's end per run and status; null for an event that may come again.</summary>
     public string? Once { get; init; }
 
+    /// <summary>2026-11-25-96aea: the verdict the event carries — a CI's state on the head, or a pull request's new state; null
+    /// otherwise. A series of one whose person decides the merge takes no turn for a green CI (its ticket's merge hold asks).</summary>
+    public string? Verdict { get; init; }
+
     /// <summary>The same event, whenever it was recorded — a webhook delivered twice wakes once.</summary>
     public bool SameAs(SeriesWake other) => other is not null && this with { At = other.At } == other;
 }

@@ -573,7 +573,7 @@ projects:
     #   ci_poll_seconds: 60           # how often CI is read
     #   ci_settle_seconds: 180        # "no CI" must last this long
     #   ci_pending_seconds: 3600      # stop fast polling a stuck head
-    #   ci_fix_attempts: 3            # review none: red-CI fix runs in a row before a hand-back
+    #   ci_fix_attempts: 3            # repair passes a refresh-base run may make on a red build
     #   ci_excerpt_chars: 4000        # evidence kept per failed check
     #   ci_failed_checks_read: 5      # failed checks whose logs are read
     # 2026-11-25-9992h: the identity agent-smith acts under; a hoster left out uses each repo's own auth.

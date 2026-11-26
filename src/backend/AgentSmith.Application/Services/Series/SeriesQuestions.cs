@@ -71,6 +71,7 @@ public sealed class SeriesQuestions(ISeriesRunStore store, IDialogueAnswerInbox 
 
     private async Task RelayAsync(SeriesBeat beat, int defaultMinutes, CancellationToken ct)
     {
+        if (beat.Record.IsOne) return; // 2026-11-25-96aea: a series of one's ticket keeps answering its questions on its page
         var parked = beat.Facts.Where(f => f.PendingQuestion is { } q && f.DialogueJobId is not null
                 && q.QuestionId != beat.Record.Question?.CheckpointQuestionId && IsRelayed(q))
             .OrderByDescending(f => IsPlan(f.PendingQuestion!)).FirstOrDefault();

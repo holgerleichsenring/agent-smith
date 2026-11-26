@@ -20,7 +20,7 @@ namespace AgentSmith.Application.Services.Rework;
 /// </summary>
 public sealed class ReworkPendingActs(
     ITicketProviderFactory tickets, ISourceProviderFactory sources, IPrReviewAuthorTrust trust,
-    ISpecApprovalStore approvals, ICiReworkAct? ci = null) : IReworkPendingActs // 2026-11-17-3435c
+    ISpecApprovalStore approvals) : IReworkPendingActs
 {
     private readonly PrStandingAct _standing = new(trust);
 
@@ -32,7 +32,7 @@ public sealed class ReworkPendingActs(
             RetryAct.Of(since) is { } retry ? new PendingReworkAct(retry) : null),
             OverruleAct.Of(since) is { } overrule ? new PendingReworkAct(overrule, Text: OverruleAct.TextOf(since)) : null);
         // 2026-11-17-3435c: a red CI on a review: none ticket — never a hand-back's answer, so not read there.
-        return ci is null ? newest : Newer(newest, await ci.NewestAsync(project, ticketId, since, cancellationToken));
+        return newest;
     }
 
     public async Task<PendingReworkAct?> NewestHandbackAnswerAsync(

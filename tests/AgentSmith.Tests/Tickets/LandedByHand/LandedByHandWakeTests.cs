@@ -38,23 +38,6 @@ public sealed class LandedByHandWakeTests : IDisposable
     }
 
     [Fact]
-    public async Task LandedByHand_HeldDependentWhoseApproverCouldStartRuns_IsWokenAndClaimed()
-    {
-        await _f.HeldAsync("8", "7");
-
-        Landed(await _f.MarkAsync());
-
-        var nudge = _f.Nudged.Should().ContainSingle().Subject;
-        (nudge.TicketId, nudge.Origin).Should().Be(("8", ReworkNudgeOrigin.RequirementsMet));
-        (await Start().StartAsync(Project, new ClaimedReworkNudge("p", "8", nudge.Origin, null, null, 1, "tok", 0), default))
-            .Should().Be(ReworkNudgeDisposition.Finish);
-        _f.Tickets.Labels.Should().Equal(Tag);
-        _spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), "code",
-            It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(), It.IsAny<CancellationToken>(),
-            It.IsAny<Dictionary<string, string>?>()), Times.Once());
-    }
-
-    [Fact]
     public async Task LandedByHand_GateThenAdmitsTheDependent()
     {
         await _f.HeldAsync("8", "7");
@@ -87,18 +70,5 @@ public sealed class LandedByHandWakeTests : IDisposable
         Said(mine).Should().Be((StatusCodes.Status409Conflict,
             "7 is already marked done by Grace at 2026-10-13 10:00:00Z: the other mark."));
         racing.Rows().Should().ContainSingle().Which.Note.Should().Be("the other mark");
-    }
-
-    private RequirementsMetStart Start()
-    {
-        _scopes = new ServiceCollection().AddScoped(_ => ActSteps.Start(_f.Config, FiledWorkDoubles.Move(_f.Config), _f.Tickets)).BuildServiceProvider();
-        var fallback = new ReworkFallbackSpawn(_f.Loader.Object, new ServerContext("c.yml"), _f.Tickets,
-            new PolledTicketEnvelope(ApprovedRecordProbes.None()), FiledWorkDoubles.Resolver(), _spawn.Object,
-            NullLogger<ReworkFallbackSpawn>.Instance);
-        return new RequirementsMetStart(new WaitingTicketStart(_f.Requirements,
-            new TicketStartHold(_f.Landings, new ClosedTicketRepository(_f.Store.ScopeFactory), _f.Tickets, NullLogger<TicketStartHold>.Instance),
-            _f.Unmet,
-            _scopes.GetRequiredService<IServiceScopeFactory>(), fallback, Mock.Of<IPreviousAttemptReader>(), Mock.Of<IActiveRunLease>(),
-            NullLogger<WaitingTicketStart>.Instance));
     }
 }

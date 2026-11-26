@@ -39,11 +39,7 @@ public sealed class MergePolicyConfig
     /// </summary>
     public int CiPendingSeconds { get; set; } = 3600;
 
-    /// <summary>
-    /// 2026-11-17-3435c: with review: none, how many rework runs in a row a red CI may start before the ticket is handed
-    /// back with the evidence. Three gives a flaky suite and a follow-up fix room while a fix that cannot converge stops
-    /// spending; a person's answer resets the count. 2026-11-24-6811c: also how many repair passes a refresh-base run's
-    /// master may make on a stage the merged base turned red — the same kind of fix, bounded the same way.
-    /// </summary>
+    /// <summary>2026-11-24-6811c: how many repair passes a refresh-base run's master may make on a stage the merged base turned
+    /// red. 2026-11-25-96aea: its first meaning — red-CI fix runs in a row — went with the server's CI loop.</summary>
     public int CiFixAttempts { get; set; } = 3;
 }

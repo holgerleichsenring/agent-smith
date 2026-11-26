@@ -17,6 +17,7 @@ public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launc
     {
         ArgumentNullException.ThrowIfNull(beat);
         if (beat.Record.Verdicts.LastOrDefault() is { Reported: false } verdict) await ReportAsync(beat, verdict, ct);
+        else if (beat.Record is { State: SeriesRunStates.Running or SeriesRunStates.Paused, IsOne: true }) await EndOneAsync(beat, ct); // 96aea
         else if (beat.Record.State == SeriesRunStates.Running && beat.Facts.Count > 0 && beat.Facts.All(f => f.Landed))
             await CheckAsync(beat, ct);
         else if (beat.Record is { State: SeriesRunStates.Verifying, VerifyRunId: { } run } && !Verdicted(beat.Record, run)
@@ -59,6 +60,20 @@ public sealed class SeriesProgress(ISeriesRunStore store, ISeriesRunLaunch launc
             FinishedAt = ends && next == SeriesRunStates.Done ? beat.Now : r.FinishedAt,
             PausedFrom = !ends ? r.PausedFrom : paused && next == SeriesRunStates.Delivering ? SeriesRunStates.Delivering : null,
         }, ct);
+    }
+
+    /// <summary>2026-11-25-96aea: a series of one is done once the pull request it saw waiting ended, its ticket landed and no run
+    /// of it is at work — the ticket's run checked its spec, so no series check runs; a next spec that starts later opens its own.
+    /// A paused one that finished is done as well: a finished ticket needs no resume.</summary>
+    public static bool OneIsDone(SeriesRunRecord record, IReadOnlyList<SeriesTicketFact> facts) =>
+        (record ?? throw new ArgumentNullException(nameof(record))).OneWaited
+        && facts is [{ Landed: true, LatestFinished: true, Waiting.Count: 0, Working: false }];
+
+    private async Task EndOneAsync(SeriesBeat beat, CancellationToken ct)
+    {
+        if (!beat.Record.OneWaited && beat.Facts is [{ Waiting.Count: > 0 }]) await KeepAsync(beat, r => r with { OneWaited = true }, ct);
+        if (!OneIsDone(beat.Record, beat.Facts)) return;
+        await KeepAsync(beat, r => r with { State = SeriesRunStates.Done, FinishedAt = beat.Now, PausedFrom = null }, ct);
     }
 
     private static bool Verdicted(SeriesRunRecord record, string run) => record.Verdicts.Any(v => v.RunId == run);

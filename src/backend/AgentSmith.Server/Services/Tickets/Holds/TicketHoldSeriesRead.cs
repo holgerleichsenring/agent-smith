@@ -52,7 +52,7 @@ internal static class TicketHoldSeriesRead
         {
             var key = (project, ticket.TicketId);
             read.Series[key] = record.Id;
-            if (record.IsActive) read.Active.Add(key); else read.Active.Remove(key);
+            if (record is { IsActive: true, IsOne: false }) read.Active.Add(key); else read.Active.Remove(key); // 96aea: a series of one keeps the ticket page's questions
             if (order.TryGetValue(ticket.TicketId, out var step)) read.Steps[key] = step;
             else read.Steps.Remove(key);
         }

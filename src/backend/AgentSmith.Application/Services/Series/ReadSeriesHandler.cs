@@ -32,7 +32,7 @@ public sealed class ReadSeriesHandler(
         await questions.SettleAsync(beat, config.Dialogue.QuestionDefaultMinutes, cancellationToken); // 0207c
         await progress.MoveAsync(beat, cancellationToken); // 0207d: the series check, its report, the series' end
         beat.Reasons.AddRange(SeriesJudgement.NewlyRed(record, beat.Rows));
-        beat.Reasons.AddRange(SeriesJudgement.NewlyNext(record, beat.Rows)); // 2026-11-25-96aec
+        if (!SeriesBeatDue.PersonMerges(record)) beat.Reasons.AddRange(SeriesJudgement.NewlyNext(record, beat.Rows)); // 96aec, 96aea
         beat.Reasons.AddRange(SeriesJudgement.Operator(beat.Messages));
         HandOver(beat, record); // 2026-11-25-9992g, 96aec
         context.Pipeline.Set(ContextKeys.SeriesBeat, beat);

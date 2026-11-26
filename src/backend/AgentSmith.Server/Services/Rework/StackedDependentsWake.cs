@@ -11,9 +11,9 @@ namespace AgentSmith.Server.Services.Rework;
 
 /// <summary>
 /// 2026-11-17-9a39a: a prerequisite that pushed a green branch wakes the tickets that wait for it, under
-/// <see cref="RequiresStart.OnGreenPush"/> — one RequirementsMet nudge per dependent that is ready to start, served by
-/// <see cref="RequirementsMetStart"/> as a landing's wake is. Asked on every nudge of a ticket whose newest attempt is
-/// finished, so the prerequisite's own RunEnd nudge carries it.
+/// <see cref="RequiresStart.OnGreenPush"/>. 2026-11-25-96aea: it starts none — it records "&lt;prerequisite&gt; is green" on the
+/// series holding each ready dependent, once per green attempt, and that master decides. Asked on every nudge of a ticket
+/// whose newest attempt is finished, so the prerequisite's own RunEnd nudge carries it.
 /// <para>A failed read or enqueue THROWS: the durable nudge it rides is rescheduled, which is its recovery — there is
 /// no landing row a periodic re-read could re-derive a green wake from.</para>
 /// </summary>
@@ -23,10 +23,10 @@ public sealed class StackedDependentsWake(
     UnmetTicketRequirements unmet,
     IPreviousAttemptReader attempts,
     IActiveRunLease leases,
-    IReworkNudges nudges,
+    AgentSmith.Contracts.Series.ISeriesWakes wakes,
     ILogger<StackedDependentsWake> logger)
 {
-    /// <summary>Nudges every ready dependent of a ticket whose attempt is green; answers how many.</summary>
+    /// <summary>Records the green prerequisite on every ready dependent's series; answers how many were held.</summary>
     public async Task<int> WakeAsync(ResolvedProject project, string ticketId, PreviousAttempt attempt, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -37,8 +37,10 @@ public sealed class StackedDependentsWake(
                      .DistinctBy(e => e.TicketKey, StringComparer.Ordinal))
         {
             if (!await ReadyAsync(project, edge, ct)) continue;
-            await nudges.EnqueueAsync(new ReworkNudgeRequest(edge.Project, edge.TicketId, ReworkNudgeOrigin.RequirementsMet), ct);
-            woken++;
+            var wake = new AgentSmith.Contracts.Series.SeriesWake(AgentSmith.Contracts.Series.SeriesWakeKinds.Prerequisite,
+                $"{RequiresUnmetGate.Named(ticketId)}, which it requires, is green ({attempt.RunId}); start_ticket starts it")
+            { Once = $"green:{attempt.RunId}:{edge.TicketId}" };
+            if (await wakes.WakeAsync(edge.Project, edge.TicketId, wake, ct)) woken++;
         }
         if (woken > 0)
             logger.LogInformation("The green branch of {Project}/{Ticket} woke {Count} waiting ticket(s)", project.Name, ticketId, woken);

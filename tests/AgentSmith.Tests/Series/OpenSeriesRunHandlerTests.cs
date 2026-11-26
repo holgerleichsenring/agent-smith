@@ -118,12 +118,14 @@ public sealed class OpenSeriesRunHandlerTests
     }
 
     [Fact]
-    public async Task OpenSeriesRun_OneTicketFiled_OpensNone()
+    public async Task OpenSeriesRun_OneTicketFiled_OpensASeriesOfOne()
     {
         var result = await RunAsync(Filed(1));
 
-        _store.Records.Should().BeEmpty();
-        result.Message.Should().Contain("single ticket");
+        // 2026-11-25-96aea: a lone ticket is led by a series of one, talked about in the ticket's own conversation
+        var one = _store.Records.Values.Should().ContainSingle().Subject;
+        (one.Tickets.Count, one.IntegrationBranch, one.Conversation).Should().Be((1, (string?)null, string.Empty));
+        result.Message.Should().Contain("Opened series run");
     }
 
     [Fact]

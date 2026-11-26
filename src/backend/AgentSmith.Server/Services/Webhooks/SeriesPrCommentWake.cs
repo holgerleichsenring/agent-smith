@@ -18,7 +18,7 @@ public sealed class SeriesPrCommentWake(IPrTicketOwner owners, ISeriesRunStore s
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(trust);
         if (await owners.FindAsync(command.Author.RepositoryUrl, ticketId, allowedProjects, ct) is not { } owner
-            || !await series.HoldsTicketAsync(owner.ProjectName, ticketId, ct)
+            || !await series.LeadsCommentsAsync(owner.ProjectName, ticketId, ct) // 96aea
             || !await trust.IsTrustedAsync(command.Author, ct)) return false;
         logger.LogInformation("PR comment from {Author} on {Pr}: woke the series holding ticket {Ticket}",
             command.Author.AuthorLogin, command.PrLabel, ticketId);

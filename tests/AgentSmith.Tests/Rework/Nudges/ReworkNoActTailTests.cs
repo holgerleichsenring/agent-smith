@@ -121,6 +121,7 @@ public sealed class ReworkNoActTailTests : IDisposable
         Pending(Act); // a keyword comment on the ticket
         _wakes.Setup(w => w.WakeAsync("p", "7", It.IsAny<AgentSmith.Contracts.Series.SeriesWake>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _seriesRuns.Setup(s => s.LeadsCommentsAsync("p", "7", It.IsAny<CancellationToken>())).ReturnsAsync(true); // a filed series
 
         var tail = await Tail().ReadAsync(Project, Nudge, Attempt(finished: true), CancellationToken.None);
 

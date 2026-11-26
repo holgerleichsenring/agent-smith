@@ -20,7 +20,7 @@ You describe a change, or drop a ticket into your tracker. codeably reads your c
 <li><strong>Describe it.</strong> The home page asks "What should we work on?" and hands your first message to <a href="how-it-works/work-it-out/">Work it out</a>, a conversation with an agent that reads your code while it answers.</li>
 <li><strong>Approve reviewed specs.</strong> It drafts one or more tickets, each with specs a fresh reviewer has already attacked. You press File.</li>
 <li><strong>It builds and verifies.</strong> A run per ticket builds exactly the approved specs, verifies each criterion and opens the pull requests.</li>
-<li><strong>It merges on your terms.</strong> By hand, when the run is green, or when your CI is green, with red checks sent back to a fix run.</li>
+<li><strong>It merges on your terms.</strong> By hand, or when your CI is green; a series master leads every ticket and decides what a red check needs.</li>
 <li><strong>It reports.</strong> Every run records what it cost in tokens and dollars and why it did what it did.</li>
 </ol>
 

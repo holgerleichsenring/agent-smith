@@ -10,7 +10,7 @@ public static partial class CommandDisplayNames
 {
     private static readonly Dictionary<string, string> Labels = new(StringComparer.Ordinal)
     {
-        [CommandNames.FetchTicket] = "Fetch ticket",
+        [CommandNames.FetchTicket] = "Fetch ticket", [CommandNames.OpenTicketSeries] = "Open the ticket's series", // 96aea
         [CommandNames.ScopeRepos] = "Scope repositories", // p0331
         [CommandNames.CheckoutSource] = "Check out source",
         [CommandNames.TryCheckoutSource] = "Resolve source",

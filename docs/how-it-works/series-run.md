@@ -12,7 +12,7 @@
 
 ## When it opens
 
-The `file` run that files your tickets opens the series as its last step, whenever the filing holds two or more tickets. One ticket on its own needs no series: its page and its runs are all there is.
+The `file` run that files your tickets opens the series before it starts them. One ticket on its own is a series of one: its code run opens it when no series holds the ticket. Its master leads its pull requests, CI and merge like any series ticket, but its page stays where you look and answer: its questions, comments and merge stay on the ticket page, and it ends once the ticket merged, without a series check.
 
 ## How it works
 
@@ -51,7 +51,7 @@ Tickets still start and merge by the project's own rules: [stacked start](stacke
 
 The master's own spend has a budget, `dialogue.series_master_budget_usd` (default 20 USD). The ticket runs keep their own caps. Once no more than `dialogue.series_master_budget_ask_usd` (default 2 USD) is left, the series asks once in the conversation: raise the budget by `dialogue.series_master_budget_usd`, or stop the series. Raising is the recommended choice, but the question has no deadline, so nothing is raised or stopped until a person answers with one of the choices (a button, or just "raise" or "stop"). Any other answer goes to the master, and the question comes back in a later beat. A raise adds to the setting, so changing the setting later still counts. While the budget question waits, a ticket's question waits behind it and is passed on once it is answered.
 
-Events on the series' tickets wake the master: a pull request's CI reaching a verdict on its head (green, red, not started), a pull request that merged, closed, conflicts or moved to another target, a ticket run's end, and every comment on a ticket or its pull request, with or without the keyword. On a ticket a series holds, a comment doesn't start a rework. The master gets it, quoted with its author, and decides: it can pass the comment on to the ticket or retry it. On a pull request, and on a GitHub or GitLab issue, a comment reaches the master only when its author can write to the repository; a stranger's comment on a series ticket starts nothing. Jira and Azure DevOps comments come from the organisation's own members and are passed on as they are. The master reads a comment as data from its author, not as the operator's words or as instructions. A paused series keeps its events and hands them over at the first beat after resume. Standalone tickets keep their rework.
+Events on the series' tickets wake the master: a pull request's CI reaching a verdict on its head (green, red, not started), a pull request that merged, closed, conflicts or moved to another target, a ticket run's end, and every comment on a ticket or its pull request, with or without the keyword. On a ticket of a filed series, a comment doesn't start a rework. The master gets it, quoted with its author, and decides: it can pass the comment on to the ticket or retry it. On a pull request, and on a GitHub or GitLab issue, a comment reaches the master only when its author can write to the repository; a stranger's comment on a series ticket starts nothing. Jira and Azure DevOps comments come from the organisation's own members and are passed on as they are. The master reads a comment as data from its author, not as the operator's words or as instructions. A paused series keeps its events and hands them over at the first beat after resume. A standalone ticket (a series of one) keeps its rework.
 
 ## What you see in the conversation
 

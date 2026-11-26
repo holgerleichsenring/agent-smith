@@ -39,7 +39,7 @@ public sealed class PrRecordRefreshNow(
     {
         var key = ReworkNudgeWorker.LockKey(project.Name, ticketId);
         if (await locks.TryAcquireAsync(key, ReworkNudgeRepository.ClaimLease, CancellationToken.None) is not { } token) return;
-        try { await refresh.RefreshAsync(project, ticketId, nudgedUrl: null, CancellationToken.None, ciLoop: false); }
+        try { await refresh.RefreshAsync(project, ticketId, nudgedUrl: null, CancellationToken.None); }
         finally { await locks.ReleaseAsync(key, token, CancellationToken.None); }
     }
 }

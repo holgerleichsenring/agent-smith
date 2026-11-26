@@ -16,41 +16,28 @@ internal static class ReworkHandlers
     public static ReworkNudgeHandler Of(
         IActiveRunLease leases, IPreviousAttemptReader attempts, IReworkPendingActs pending, IReworkEntry rework,
         ReworkSpeech speech, ReworkFallbackSpawn fallback, ReworkWithheld withheld, IRunCheckpointStore checkpoints,
-        ClosedTicketActFollowUp followUps, ISeriesAutoStart? series = null, RequirementsMetStart? start = null,
-        PreconditionRelease? release = null, StackedTicketUpkeep? stacked = null) =>
+        ClosedTicketActFollowUp followUps, ISeriesAutoStart? series = null,
+        PreconditionRelease? release = null, StackedDependentsWake? stacked = null) =>
         Of(leases, attempts, pending, rework, speech, fallback, withheld, checkpoints, followUps,
             new ReworkNoActTail(pending, followUps, withheld, series ?? Mock.Of<ISeriesAutoStart>(),
-                Mock.Of<AgentSmith.Contracts.Series.ISeriesRunStore>(), Mock.Of<AgentSmith.Contracts.Series.ISeriesWakes>()), start, release,
-            stacked ?? NoStackedUpkeep(attempts, leases));
+                Mock.Of<AgentSmith.Contracts.Series.ISeriesRunStore>(), Mock.Of<AgentSmith.Contracts.Series.ISeriesWakes>()), release,
+            stacked ?? NoStackedWake(attempts, leases));
 
     private static ReworkNudgeHandler Of(
         IActiveRunLease leases, IPreviousAttemptReader attempts, IReworkPendingActs pending, IReworkEntry rework,
         ReworkSpeech speech, ReworkFallbackSpawn fallback, ReworkWithheld withheld, IRunCheckpointStore checkpoints,
-        ClosedTicketActFollowUp followUps, ReworkNoActTail tail, RequirementsMetStart? start, PreconditionRelease? release,
-        StackedTicketUpkeep stacked) =>
-        new(leases, attempts, pending, rework, speech, fallback, withheld, checkpoints, followUps, tail, start ?? NoStart(fallback),
+        ClosedTicketActFollowUp followUps, ReworkNoActTail tail, PreconditionRelease? release,
+        StackedDependentsWake stacked) =>
+        new(leases, attempts, pending, rework, speech, fallback, withheld, checkpoints, followUps, tail,
             release ?? new PreconditionRelease(attempts, pending, tail, Hold(new InMemoryTicketFacts()), Mock.Of<IReworkLaunch>(),
                 NullLogger<PreconditionRelease>.Instance), stacked);
 
-    // 2026-11-17-9a39a/c: the stack upkeep over empty requirement stores — it never nudges or moves anything.
-    public static StackedTicketUpkeep NoStackedUpkeep(IPreviousAttemptReader attempts, IActiveRunLease leases)
+    // 2026-11-17-9a39a: the green wake over empty requirement stores — it never records anything.
+    public static StackedDependentsWake NoStackedWake(IPreviousAttemptReader attempts, IActiveRunLease leases)
     {
         var facts = new InMemoryTicketFacts();
-        var unmet = TicketRequirementDoubles.Of(facts);
-        return new(new StackedDependentsWake(facts, facts, unmet, attempts, leases, Mock.Of<IReworkNudges>(),
-                NullLogger<StackedDependentsWake>.Instance),
-            new StackedPullRequestRetarget(facts, facts, new GreenPrerequisites(facts, attempts, facts, facts), attempts, leases, Mock.Of<ISourceProviderFactory>(),
-                Mock.Of<IServiceScopeFactory>(), NullLogger<StackedPullRequestRetarget>.Instance),
-            new AgentSmith.Tests.Series.InMemorySeriesRunStore()); // 2026-11-25-9992e: no series holds a ticket
-    }
-
-    // 2026-10-14-dbceh: a start over empty requirement stores — it never starts anything.
-    private static RequirementsMetStart NoStart(ReworkFallbackSpawn fallback)
-    {
-        var facts = new InMemoryTicketFacts();
-        return new(new WaitingTicketStart(facts, Hold(facts), TicketRequirementDoubles.Of(facts), Mock.Of<IServiceScopeFactory>(),
-            fallback, Mock.Of<IPreviousAttemptReader>(), Mock.Of<IActiveRunLease>(),
-            NullLogger<WaitingTicketStart>.Instance));
+        return new(facts, facts, TicketRequirementDoubles.Of(facts), attempts, leases, Mock.Of<AgentSmith.Contracts.Series.ISeriesWakes>(),
+            NullLogger<StackedDependentsWake>.Instance);
     }
 
     public static TicketStartHold Hold(InMemoryTicketFacts facts, ITicketProviderFactory? trackers = null) =>

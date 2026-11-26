@@ -11,4 +11,7 @@ public static class SeriesWakeKinds
 
     /// <summary>2026-11-25-96aec: a person's new approval or change request on a ticket's pull request — never the master's own.</summary>
     public const string Review = "review";
+
+    /// <summary>2026-11-25-96aea: a ticket a member requires landed or (on_green_push) went green — whether it starts is the master's.</summary>
+    public const string Prerequisite = "prerequisite";
 }

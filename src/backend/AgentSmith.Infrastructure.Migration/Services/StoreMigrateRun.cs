@@ -17,6 +17,7 @@ public sealed class StoreMigrateRun(
     MigrateContextFactory contexts, RunStoreMigrator migrator,
     RoleMappingMigration roles, PipelineAliasMigration aliases, LegacyTriggerMigration triggers,
     ProjectRegistriesMigration feeds, ReviewSettingMigration review,
+    SeriesOfOne.SeriesOfOneMigration seriesOfOne, // 2026-11-25-96aea: after the review move, which it reads
     ILogger<StoreMigrateRun> logger)
 {
     /// <summary>Migrates the store the bootstrap configuration names; 0 when it is current, 1 when it cannot be.</summary>
@@ -50,7 +51,7 @@ public sealed class StoreMigrateRun(
         await using var db = await contexts.OpenAsync(options, ct);
         // Never the connection string — it may carry credentials.
         logger.LogInformation("Applying relational-persistence migrations (provider={Provider})...", options.Provider);
-        await migrator.MigrateAsync(db, [roles, aliases, triggers, feeds, review], ct);
+        await migrator.MigrateAsync(db, [roles, aliases, triggers, feeds, review, seriesOfOne], ct);
         logger.LogInformation("Done — schema and data are up to date.");
     }
 

@@ -27,13 +27,6 @@ public sealed class SourceProviderParityTests
     public void Create_EveryHost_RequeuesNotStartedBuilds(RepoType type, string url) =>
         Provider(type, url).Should().BeAssignableTo<IPullRequestBuildRequeuer>();
 
-    // 2026-11-25-7a92c: GitHub keeps auto-merge through agent-smith's pushes and conflicts, so it has nothing to arm again.
-    [Theory]
-    [InlineData(RepoType.GitLab, "https://gitlab.example.com/group/sample-server")]
-    [InlineData(RepoType.AzureDevOps, "https://dev.azure.com/example/sample/_git/sample-server")]
-    public void Create_AHostThatDropsAutoMerge_ArmsItAgain(RepoType type, string url) =>
-        Provider(type, url).Should().BeAssignableTo<IPullRequestAutoCompleteRearmer>();
-
     internal static ISourceProvider Provider(RepoType type, string url) =>
         Factory.Create(new RepoConnection { Name = "sample", Type = type, Url = url, Auth = "repo_token" });
 }

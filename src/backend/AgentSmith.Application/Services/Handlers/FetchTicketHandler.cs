@@ -26,8 +26,7 @@ public sealed class FetchTicketHandler(
     EpicGroundFetcher epicGround,
     ILogger<FetchTicketHandler> logger,
     Rework.StatusBackActReader? statusBack = null,
-    Rework.AttemptCauseReader? attemptCause = null,
-    Rework.CiRework? ciRework = null) // 2026-11-17-3435c
+    Rework.AttemptCauseReader? attemptCause = null)
     : ICommandHandler<FetchTicketContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -91,8 +90,6 @@ public sealed class FetchTicketHandler(
         Rework.ReworkActReader.Apply(context.Pipeline, context.CommentKeyword);
         // 2026-10-08-e8b9d: and the review on the previous attempt's pull requests.
         await prReview.FetchAsync(context.Pipeline, cancellationToken);
-        // 2026-11-17-3435c: and the red CI a fix serves; over its budget the run hands back before any sandbox.
-        var handBack = ciRework is not null && await ciRework.ApplyAsync(context, cancellationToken);
         // 2026-10-08-2123: and whether a person moved the ticket back since that attempt.
         if (statusBack is not null) await statusBack.ApplyAsync(provider, context, cancellationToken);
         // 2026-10-13-9a59d: which of those acts this attempt serves, recorded on the fetched event.
@@ -106,7 +103,7 @@ public sealed class FetchTicketHandler(
         await PublishFetchedEventAsync(ticket, attachmentCount, cancellationToken, actsReadAt, cause);
 
         var fetched = $"Ticket {context.TicketId} fetched from {provider.ProviderType}{ground}";
-        return handBack ? CommandResult.OkAndContinueWith(fetched, PipelineCommand.Simple(CommandNames.SpecHandback)) : CommandResult.Ok(fetched);
+        return CommandResult.Ok(fetched);
     }
 
     // p0326: the inline payload becomes the run's Ticket without any provider —

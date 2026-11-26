@@ -9,8 +9,8 @@ namespace AgentSmith.Application.Services.Series;
 /// <summary>
 /// 2026-11-17-0207a: the 'file' run's last step. A filing seeded with a series id — the series' own verify filing its
 /// follow-up — joins that series; otherwise a filing that created two or more tickets opens a series run for its
-/// conversation, owned by the approver. One ticket is no series: it has its own ticket conversation. Never fails the
-/// filing: the tickets exist either way.
+/// conversation, owned by the approver; 2026-11-25-96aea: one ticket is a series of one, talked about in the ticket's own
+/// conversation. Never fails the filing: the tickets exist either way.
 /// <para>2026-11-24-f9c5b: the filing step already opened or joined the series before starting its tickets
 /// (<see cref="SeriesMembership"/>); this step reports the opened one, and a join here adds nothing new and keeps the
 /// follow-up's start on the verdict. A series it opens itself — the write before the starts failed or did not run — has its
@@ -29,10 +29,19 @@ public sealed class OpenSeriesRunHandler(ISeriesRunStore store, TimeProvider clo
             return await JoinAsync(joined!, tickets, request.IsSeriesMasterAddition ? null : NotStarted(report), cancellationToken);
         if (pipeline.TryGet<string>(ContextKeys.SeriesRunOpened, out var opened) && !string.IsNullOrEmpty(opened))
             return CommandResult.Ok($"Opened series run {opened} over {tickets.Count} tickets.");
-        if (tickets.Count < 2)
-            return CommandResult.Ok($"{tickets.Count} ticket filed: a single ticket is worked in its own conversation, no series run opened.");
+        if (tickets.Count == 0) return CommandResult.Ok("No ticket filed: no series run opened.");
+        if (tickets.Count == 1) return await OneAsync(request, context.Project, tickets[0], cancellationToken); // 2026-11-25-96aea
         var id = await new SeriesMembership(store, clock).OpenAsync(request, context.Project, tickets, cancellationToken, withBranch: false);
         return CommandResult.Ok($"Opened series run {id} over {tickets.Count} tickets.");
+    }
+
+    // 2026-11-25-96aea: a lone ticket the filing step could not write a series for — unless its own run opened one meanwhile.
+    private async Task<CommandResult> OneAsync(FilingRequest request, AgentSmith.Contracts.Models.Configuration.ResolvedProject project,
+        SeriesTicket ticket, CancellationToken ct)
+    {
+        if (await store.HoldsTicketAsync(project.Name, ticket.TicketId, ct)) return CommandResult.Ok($"{ticket.Key} is held by a series already.");
+        var id = await new SeriesMembership(store, clock).OpenOneAsync(project, ticket, string.Empty, request.Principal, ct, request.MayStartRuns);
+        return CommandResult.Ok($"Opened series run {id} over {ticket.Key}.");
     }
 
     // 2026-11-25-9992f: starts null for a ticket the master added — it is no verdict's follow-up.

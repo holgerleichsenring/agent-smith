@@ -19,7 +19,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// <para>2026-10-13-9a59t: on a ticket a person closed an act files a follow-up (<see cref="ClosedTicketActFollowUp"/>),
 /// superseding a waiting attempt; an act already followed up is served and never reworks the ticket.</para>
 /// <para>2026-10-13-8762v: the end of a finished attempt is <see cref="ReworkNoActTail"/>'s, the series' auto-start included.</para>
-/// <para>2026-10-14-dbceh: a never-run ticket whose requirements landed is started here, reversing 2026-09-22-766b's removal on a stored edge.</para>
+/// <para>2026-11-25-96aea: a never-run ticket is started by its series master, never here (dbceh's start is gone).</para>
 /// </summary>
 public sealed class ReworkNudgeHandler(
     IActiveRunLease leases,
@@ -32,13 +32,13 @@ public sealed class ReworkNudgeHandler(
     IRunCheckpointStore checkpoints,
     ClosedTicketActFollowUp followUps,
     ReworkNoActTail tail,
-    RequirementsMetStart start, PreconditionRelease release, StackedTicketUpkeep stacked) // 2026-11-16-f3fbc, 2026-11-17-9a39a/c
+    PreconditionRelease release, StackedDependentsWake stacked) // 2026-11-16-f3fbc, 2026-11-17-9a39a; 96aea: wakes, starts none
 {
     public async Task<ReworkNudgeDisposition> HandleAsync(ResolvedProject project, ClaimedReworkNudge nudge, CancellationToken ct)
     {
         var attempt = await attempts.LatestAsync(project.Name, nudge.TicketId, null, ct);
-        if (attempt is null) return nudge.Origin == ReworkNudgeOrigin.RequirementsMet ? await start.StartAsync(project, nudge, ct) : ReworkNudgeDisposition.Finish;
-        await stacked.KeepAsync(project, nudge.TicketId, attempt, ct); // 2026-11-17-9a39a/c: before any return a live run takes
+        if (attempt is null) return ReworkNudgeDisposition.Finish; // 2026-11-25-96aea: a series master starts a never-worked ticket
+        await stacked.WakeAsync(project, nudge.TicketId, attempt, ct); // 2026-11-17-9a39a: before any return a live run takes
         var live = await leases.GetByTicketAsync(project.Name, new TicketId(nudge.TicketId), ct);
         if (live is null && await HandbackActAsync(project, nudge, attempt, ct) is { } answer)
             return await AnswerAsync(project, nudge, attempt, answer,

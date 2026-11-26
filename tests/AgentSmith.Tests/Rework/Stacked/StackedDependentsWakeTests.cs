@@ -21,7 +21,7 @@ public sealed class StackedDependentsWakeTests
     private readonly InMemoryTicketFacts _facts = new();
     private readonly InMemorySpecApprovalStore _approvals = new();
     private readonly Mock<IPreviousAttemptReader> _attempts = new() { CallBase = true }; // 9719d: the set reads loop LatestAsync
-    private readonly Mock<IReworkNudges> _nudges = new();
+    private readonly RecordingSeriesWakes _nudges = new();
 
     public StackedDependentsWakeTests()
     {
@@ -31,13 +31,13 @@ public sealed class StackedDependentsWakeTests
     }
 
     [Fact]
-    public async Task WakeAsync_GreenPrerequisite_NudgesTheReadyDependentOnce()
+    public async Task WakeAsync_GreenPrerequisite_WakesTheReadyDependentsSeries_AndStartsNothing()
     {
         var woken = await Wake().WakeAsync(Of(RequiresStart.OnGreenPush), "41", Green(), default);
 
         woken.Should().Be(1);
-        _nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r =>
-            r.TicketId == "42" && r.Origin == ReworkNudgeOrigin.RequirementsMet), default), Times.Once);
+        _nudges.Woken.Should().ContainSingle().Which.Should().Match<(string Project, string TicketId, AgentSmith.Contracts.Series.SeriesWake Wake)>(w =>
+            w.TicketId == "42" && w.Wake.Kind == AgentSmith.Contracts.Series.SeriesWakeKinds.Prerequisite && w.Wake.Once == "green:run-41:42");
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class StackedDependentsWakeTests
 
     private StackedDependentsWake Wake() =>
         new(_facts, _facts, new UnmetTicketRequirements(_facts, _facts, _approvals, new GreenPrerequisites(_facts, _attempts.Object, _facts, _facts)),
-            _attempts.Object, Mock.Of<IActiveRunLease>(), _nudges.Object, NullLogger<StackedDependentsWake>.Instance);
+            _attempts.Object, Mock.Of<IActiveRunLease>(), _nudges, NullLogger<StackedDependentsWake>.Instance);
 
     private static PreviousAttempt Green() =>
         new("run-41", RunStatuses.Success, DateTimeOffset.UnixEpoch, Finished: true) { OpenedPullRequest = true };

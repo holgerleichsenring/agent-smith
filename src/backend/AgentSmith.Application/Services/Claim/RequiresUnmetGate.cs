@@ -77,5 +77,5 @@ public sealed class RequiresUnmetGate(UnmetTicketRequirements requirements, IPre
     }
 
     /// <summary>A required ticket as every sentence names it; 2026-11-23-97c2a: the merge refusal names it the same way.</summary>
-    internal static string Named(string id) => id.Length > 0 && id.All(char.IsAsciiDigit) ? $"#{id}" : id;
+    public static string Named(string id) => id.Length > 0 && id.All(char.IsAsciiDigit) ? $"#{id}" : id;
 }

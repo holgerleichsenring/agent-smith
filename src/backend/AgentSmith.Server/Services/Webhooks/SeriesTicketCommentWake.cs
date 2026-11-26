@@ -18,7 +18,7 @@ public sealed class SeriesTicketCommentWake(
     public async Task<bool> TakenAsync(string project, KeywordComment comment, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(comment);
-        if (comment.Envelope.TicketId is not { Length: > 0 } ticketId || !await series.HoldsTicketAsync(project, ticketId, ct))
+        if (comment.Envelope.TicketId is not { Length: > 0 } ticketId || !await series.LeadsCommentsAsync(project, ticketId, ct)) // 96aea
             return false;
         if (!await TrustedAsync(comment, ct))
         {

@@ -31,7 +31,6 @@ public sealed class RequiresGateCompositionTests
         provider.GetRequiredService<TicketLandingRecorder>().Should().NotBeNull();
         provider.GetRequiredService<ReworkNudgeHandler>().Should().NotBeNull();
         provider.GetRequiredService<DependentsWake>().Should().BeSameAs(provider.GetRequiredService<DependentsWake>());
-        provider.GetRequiredService<RequirementsMetStart>().Should().NotBeNull();
         provider.GetRequiredService<PrRecordReReadHostedService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.Continuation.OperatorStart>().Should().NotBeNull();
     }
