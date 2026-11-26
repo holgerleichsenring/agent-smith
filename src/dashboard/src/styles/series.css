@@ -13,6 +13,8 @@
 .mock-tickets .sr-heldcnt.hot { color: var(--person); font-weight: 600; }
 .mock-tickets .sr-filter { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); }
 .mock-tickets .sr-filter select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 5px 8px; max-width: 220px; }
+.mock-tickets .sr-filter.sr-ended-toggle { margin-left: 0; gap: 6px; white-space: nowrap; cursor: pointer; }
+.mock-tickets .sr-ended-toggle input { accent-color: var(--accent); margin: 0; }
 .mock-tickets .sr-empty { padding: 28px 16px; text-align: center; color: var(--ink-3); background: var(--panel); border: 1px dashed var(--line); border-radius: var(--r); }
 /* 2026-11-23-31dcd: one series' page in the ticket page's frame (ticket-thread.css). 2026-11-25-9992j: one pane — the
    graph, the series' last step, and the chat below it. */

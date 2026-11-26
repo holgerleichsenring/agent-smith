@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-5201d
+goal: "The series list shows active series by default; done and stopped ones sit behind a 'show ended' toggle, and their records, the stop included, stay."
+
+applies_to: "dashboard (series list)"
+
+requires: [2026-11-23-31dcc, 2026-11-25-96aea]
+
+facts:
+  - claim: "The series list draws every row the server returns, of every state, filtered only by project."
+    evidence: "src/dashboard/src/components/series/SeriesRunsHome.tsx:29-31 and :63"
+  - claim: "A stopped series of one is what keeps a pull-request read from re-opening one for its ticket, so its record must stay."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesOfOne.cs:22-23"
+  - claim: "The list endpoint takes a project and no state filter."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SeriesRunEndpoints.cs:36-38"
+
+scope:
+  in: |
+    A "Show ended" checkbox in the list's head beside the project filter, off by default: rows in state done or stopped are
+    hidden unless it is on. While rows are hidden the list says how many ended series it hides; when every row is hidden,
+    the empty line says so instead of "no series". A view filter: it needs no permission and changes no record. A checkbox,
+    not the ticket list's state pills (TicketStatePills): the list has one question to ask (ended or not), and the pills
+    are buckets of ticket states the series list does not have.
+  out: "Deleting or archiving a series record, a server-side state filter, remembering the toggle across visits."
+
+steps:
+  - id: filter
+    action: "SeriesRunsHome: the toggle, the hidden count, the ended rule (seriesEnded in seriesNextStep.ts); i18n keys."
+  - id: tests
+    action: "vitest: ended rows hidden by default, shown with the toggle, the hidden count and the all-ended empty line."
+
+done:
+  - "A done or stopped series is not listed until Show ended is on (test)."
+  - "The list says how many ended series it hides (test)."
+  - "pnpm test and pnpm build are green."

@@ -861,6 +861,15 @@ export const coreMessages = {
   "series.list.failed": { en: "Could not read the series: {message}", de: "Die Serien ließen sich nicht lesen: {message}" },
   "series.list.project": { en: "Project", de: "Projekt" },
   "series.list.allProjects": { en: "All projects", de: "Alle Projekte" },
+  "series.list.showEnded": { en: "Show ended", de: "Beendete zeigen" },
+  "series.list.hiddenEnded": {
+    en: { one: "1 ended series hidden.", other: "{count} ended series hidden." },
+    de: { one: "1 beendete Serie ausgeblendet.", other: "{count} beendete Serien ausgeblendet." },
+  },
+  "series.list.allEnded": {
+    en: { one: "No active series. 1 ended series is hidden; tick Show ended to see it.", other: "No active series. {count} ended series are hidden; tick Show ended to see them." },
+    de: { one: "Keine aktive Serie. 1 beendete ist ausgeblendet; Beendete zeigen blendet sie ein.", other: "Keine aktive Serie. {count} beendete sind ausgeblendet; Beendete zeigen blendet sie ein." },
+  },
   "series.state.running": { en: "running", de: "läuft" },
   "series.state.verifying": { en: "checking", de: "prüft" },
   "series.state.delivering": { en: "merging into the default branch", de: "mergt in den Default-Branch" },

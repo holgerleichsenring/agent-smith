@@ -14,6 +14,12 @@ export function seriesNextStep(row: SeriesRunRow, t: T): string {
   return t("series.next.working");
 }
 
+/** 2026-11-26-5201d: a series that will not move again — done, or stopped by a person. Its record stays (a stopped
+ *  series of one is what keeps its ticket from being reopened); the list only hides it until asked. */
+export function seriesEnded(state: string): boolean {
+  return state === "done" || state === "stopped";
+}
+
 /** The series' state word; an unknown state reads as it came. */
 export function seriesStateWord(state: string, t: T): string {
   switch (state) {
