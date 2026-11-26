@@ -17,7 +17,8 @@ namespace AgentSmith.Infrastructure.Migration.Services.SeriesOfOne;
 /// 2026-11-25-96aea: the standalone tickets in flight (<see cref="SeriesOfOneCandidates"/>) each get a series of one, so their
 /// series master leads them now the server's CI loop and automatic starts are gone. Its id is derived from project and ticket,
 /// so a second migrate — or a second init container racing this one — opens no second; its review is the stored project's (none
-/// stays none, anything else is each: one ticket, one flow); a ticket whose start waits gets a wake its master decides on.
+/// stays none, anything else is each: one ticket, one flow); a ticket whose start was queued gets a wake its master decides on (2026-11-26-a12ea: a filed ticket nobody started is
+/// no candidate and gets none).
 /// Safe under replicas: 1 with strategy: Recreate, where the old server is gone before this runs.
 /// </summary>
 public sealed class SeriesOfOneMigration(ILogger<SeriesOfOneMigration> logger) : IDataMigration
@@ -44,8 +45,8 @@ public sealed class SeriesOfOneMigration(ILogger<SeriesOfOneMigration> logger) :
     {
         var now = DateTimeOffset.UtcNow;
         var key = Application.Services.Claim.RequiresUnmetGate.Named(ticket.TicketId);
-        var wake = new SeriesWake(SeriesWakeKinds.Prerequisite, "it was filed waiting on its prerequisites; start_ticket starts it once "
-            + "all it requires is met") { At = now, TicketId = ticket.TicketId, Once = $"migrated-start:{ticket.TicketId}" };
+        var wake = new SeriesWake(SeriesWakeKinds.Prerequisite, "its prerequisites landed and its start was queued when the series "
+            + "of one arrived; start_ticket starts it") { At = now, TicketId = ticket.TicketId, Once = $"migrated-start:{ticket.TicketId}" };
         return new SeriesRunRecord(IdOf(ticket.Project, ticket.TicketId), string.Empty, ticket.Project, Contracts.Runs.AttemptChannels.SeriesActor,
             true, SeriesRunStates.Running, [new SeriesTicket(ticket.TicketId, key, ticket.Title ?? key, false, now)], now)
         {

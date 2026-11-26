@@ -176,6 +176,8 @@ A pinned tag is reported as an advisory finding and never refused. The installat
 
 The migrate job re-runs on every `up` and applies whatever migrations the new version brought. Skills upgrade with the image: each release embeds the catalog it was tested with, so there is no separate skills pin to bump unless you want one (see [Skills catalog](../how-it-works/skills-catalog.md)).
 
+**Upgrading from before 0.225:** go straight to 0.228.2 or later. The migrate job gives each standalone ticket with live work (an open pull request, an unfinished or queued code run, a start queued when its prerequisites landed) a series of one, led by its series master. A filed ticket with prerequisites and no run stays dormant and nothing starts it. Releases 0.225 to 0.228.1 adopted those dormant tickets as well, and their masters started them. Stop the old server before the migrate runs (see [Kubernetes](kubernetes.md)).
+
 ## Building the images yourself
 
 `docker compose -f deploy/docker-compose.yml build` builds the CLI, `migrate` and `server`; `--profile build-only build sandbox-agent` and `--profile dashboard build dashboard` build the rest. Nothing inside a build can read the git revision, so pass the identity in front of it:

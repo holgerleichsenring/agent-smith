@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-a12ea
+
+decisions:
+  - category: Architecture
+    chose: "A series-of-one candidate needs live work: an open PR record, a code run not finished and not cancel-requested (queued, running or waiting for input), or a queued RequirementsMet start on a ticket no code run worked; requirement rows alone qualify nothing and leave no wake"
+    over: "Keeping 'has prerequisites and no run' as a candidate (96aea); adopting it with no wake; an age cut-off on the filing"
+    reason: |
+      decider: operator (necessary, after 17 dormant tickets were adopted in production and their masters started weeks-old
+      work). The old server started such a ticket only at the moment its last prerequisite landed — the RequirementsMet nudge.
+      A ticket whose prerequisites landed long ago and that nobody started was parked; the migration must keep it parked.
+      An age cut-off would be a heuristic around a fact the nudge table already holds.
+  - category: Implementation
+    chose: "A queued start is read by Origin RequirementsMet or, once a worker claimed it, by the ClaimToken prefix '6:'; a nudge on a ticket that has a code run is no start"
+    over: "Origin only"
+    reason: "decider: claude, from the spec review. A claim overwrites Origin with Refresh and keeps the origin in the token, so a start in flight when the old server stopped would be lost; on a worked ticket that nudge does nothing."
+  - category: Scope
+    chose: "The migration id stays 2026-11-25-96aea-series-of-one; series of one already opened are not touched"
+    over: "A new id that re-runs the migration, or a cleanup migration"
+    reason: "decider: claude. The installation that ran it was cleaned by hand; the one still on 0.215 runs the corrected logic at its upgrade, which the upgrade notes tell it to take at 0.228.2 or later. A queued start kept rescheduled by the old server can itself be old; it is still the old server's own start, so it is adopted."

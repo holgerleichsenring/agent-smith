@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-a12ea
+goal: "The series-of-one migration adopts only tickets with live work (an open PR, an unfinished or queued code run, a queued start); a dormant filed ticket stays out and gets no wake."
+
+applies_to: "default (Infrastructure.Migration series-of-one candidates, kubernetes and docker-compose upgrade notes)"
+
+requires: [2026-11-25-96aea]
+
+facts:
+  - claim: "A ticket with requirement rows and no code run is a candidate, whatever its age, and is marked AwaitsStart, which gives its series a Prerequisite wake telling the master to start it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Migration/Services/SeriesOfOne/SeriesOfOneCandidates.cs:28-36, src/backend/AgentSmith.Infrastructure.Migration/Services/SeriesOfOne/SeriesOfOneMigration.cs:47-56"
+  - claim: "Before 96aea a ticket with requirements was started only by the RequirementsMet nudge queued when its last prerequisite landed; one whose prerequisites landed long ago and that nobody started stayed parked."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:21-22"
+  - claim: "A ticket an active series holds, or whose newest series was stopped, is skipped; with requirement rows dropped a filing adds no candidate unless it queued a run or a start, and the migrate runs with the old server gone."
+    evidence: "src/backend/AgentSmith.Infrastructure.Migration/Services/SeriesOfOne/SeriesOfOneCandidates.cs:35,44-55, docs/host-it/kubernetes.md:212"
+  - claim: "A claimed nudge has its Origin overwritten with Refresh; the claimed origin lives on as the ClaimToken prefix '<origin>:'."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:36-42,72-74"
+  - claim: "The migration id is 2026-11-25-96aea-series-of-one; an installation that ran it does not run it again, one still on 0.215 does at its upgrade."
+    evidence: "src/backend/AgentSmith.Infrastructure.Migration/Services/SeriesOfOne/SeriesOfOneMigration.cs:25"
+
+scope:
+  in: |
+    A candidate is a standalone ticket with live work: an open pull request record, a code run not finished (FinishedAt null
+    covers queued and running) and not cancel-requested, or waiting for input, or a queued RequirementsMet start (by Origin, or
+    by ClaimToken prefix for one claimed when the old server stopped) on a ticket no code run worked — on a ticket with an
+    attempt that nudge does nothing. Requirement rows alone qualify nothing, so a
+    dormant filed ticket is not adopted and leaves no wake; starting it stays a person's act (or its series master's, once a
+    series holds it). AwaitsStart is that queued start: the nudge was the old server's start at the moment a prerequisite
+    landed. The ever-filed set, read only for requirement rows, goes. The migration id stays, so an installation that ran it
+    is untouched. The kubernetes and docker-compose upgrade notes say what is adopted, and that an installation before 0.225
+    must upgrade to this release or later, never to 0.225-0.228.
+  out: "Cleaning up series of one an installation already opened (the operator deleted them by hand); changing the series master's start."
+
+steps:
+  - id: candidates
+    action: "SeriesOfOneCandidates drops the requirement-row source and the ever-filed set, skips cancel-requested runs, reads a queued start by Origin or ClaimToken prefix on a never-worked ticket; AwaitsStart is that start; summaries say live work."
+  - id: migration
+    action: "SeriesOfOneMigration's summary and the wake's words follow: the wake is for a queued start only."
+  - id: docs
+    action: "docs/host-it/kubernetes.md upgrade paragraph and docs/host-it/docker-compose.md: what is adopted, a dormant ticket is not, and the version to upgrade to from before 0.225."
+  - id: tests
+    action: "SeriesOfOneMigrationTests: a dormant ticket with requires and no run is not adopted; a queued start on a worked ticket opens nothing; an open PR, an unfinished run, a queued run, a queued and a claimed start still are, only the starts with a wake."
+
+done:
+  - "A ticket with requirement rows, no run and no queued start opens no series of one (test, red before)."
+  - "A ticket with an open PR, an unfinished run, a queued run or a queued or claimed RequirementsMet start opens one; only the start carries a wake (test)."
+  - "A queued start on a ticket a code run worked opens nothing; a ticket an active series holds is still skipped (test)."
+  - "The upgrade notes name what is adopted and that an installation before 0.225 upgrades to this release or later."
+  - "dotnet build and the affected tests are green."
