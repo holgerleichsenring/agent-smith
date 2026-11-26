@@ -117,7 +117,7 @@ describe("SeriesRunPage", () => {
     render(<SeriesRunPage id="sr-1" />);
 
     const card = await screen.findByTestId("series-question");
-    expect(screen.getByTestId("series-question-who")).toHaveTextContent("#19664 asks");
+    expect(card).toHaveTextContent("#19664 asks"); // 2026-11-26-b186: the asker is the card's label
     expect(card).toHaveTextContent("Which callback URL?");
     expect(card).toHaveTextContent("Answer below.");
     expect(card.querySelector("button")).toBeNull();
@@ -130,7 +130,7 @@ describe("SeriesRunPage", () => {
 
     const block = await screen.findByTestId("series-questions");
     expect(block).toHaveAttribute("id", "series-question");
-    expect(screen.getByTestId("series-question-who")).toHaveTextContent("The series asks");
+    expect(block).toHaveTextContent("The series asks");
     const following = block.compareDocumentPosition(screen.getByTestId("dialog-composer-text"));
     expect(following & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("series-chat-scroll")).not.toContainElement(block);
@@ -202,6 +202,39 @@ describe("SeriesRunPage", () => {
 
     expect(await screen.findByTestId("series-talk-closed")).toHaveTextContent("This conversation is closed.");
     expect(hoisted.dialog.open).not.toHaveBeenCalled();
+  });
+
+  // 2026-11-26-b186: nothing fixed stands over the conversation — no "Chat" heading, no sub line; the status line is in
+  // the title row.
+  it("SeriesPage_NoChromeOverTheChat_TheStatusLineInTheTitleRow", async () => {
+    render(<SeriesRunPage id="sr-1" />);
+
+    const chat = await screen.findByTestId("series-chat");
+    expect(chat.querySelector("h2")).toBeNull();
+    expect(screen.queryByText(/The series tells you here/)).toBeNull();
+    expect(screen.getByTestId("series-title").parentElement).toContainElement(screen.getByTestId("series-status-line"));
+  });
+
+  it("SeriesPage_ALongQuestion_FoldsItsText_TheButtonsStay", async () => {
+    const text = "Shall the recipient detail wait for the server contract? ".repeat(6);
+    hoisted.fetch.mockResolvedValue(seriesDetail({ question: text, questionChoices: ["Wait", "Stub it"], questionRecommended: 0 }));
+    render(<SeriesRunPage id="sr-1" />);
+
+    const more = await screen.findByTestId("dialog-question-more");
+    expect(screen.getByTestId("dialog-question-text")).toHaveClass("dq-clamp");
+    expect(screen.getByTestId("dialog-answer-Wait")).toBeInTheDocument();
+    fireEvent.click(more);
+    expect(screen.getByTestId("dialog-question-text")).not.toHaveClass("dq-clamp");
+    expect(more).toHaveTextContent("Show less");
+  });
+
+  it("SeriesPage_AShortQuestion_IsNotFolded", async () => {
+    hoisted.fetch.mockResolvedValue(seriesDetail({ question: "Which callback URL?" }));
+    render(<SeriesRunPage id="sr-1" />);
+
+    await screen.findByTestId("series-question");
+    expect(screen.queryByTestId("dialog-question-more")).toBeNull();
+    expect(screen.getByTestId("dialog-question-text")).not.toHaveClass("dq-clamp");
   });
 
   it("SeriesPage_UnknownSeries_SaysSo", async () => {

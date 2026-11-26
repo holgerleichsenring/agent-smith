@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { overviewDetail } from "./seriesFixtures";
 
 // 2026-11-23-f562: the series graph — one colour per ticket, the legend, the course select. 2026-11-25-9992j: a picture to
@@ -29,6 +29,50 @@ const open = async (ticketId: string) => {
   fireEvent.click(await screen.findByTestId(`series-node-${ticketId}`));
   return screen.getByTestId(`series-details-${ticketId}`);
 };
+
+// 2026-11-26-b186: the graph folds to one line of counts, and the fold is remembered per browser.
+describe("the graph's fold", () => {
+  const original = Object.getOwnPropertyDescriptor(window, "localStorage");
+  afterEach(() => { if (original) Object.defineProperty(window, "localStorage", original); });
+
+  function storage(initial: Record<string, string> = {}, broken = false): Map<string, string> {
+    const backing = new Map(Object.entries(initial));
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (k: string) => { if (broken) throw new Error("blocked"); return backing.get(k) ?? null; },
+        setItem: (k: string, v: string) => { if (broken) throw new Error("blocked"); backing.set(k, v); },
+      },
+    });
+    return backing;
+  }
+
+  it("SeriesGraph_Hide_FoldsToACountsLine_AndIsRemembered", async () => {
+    const backing = storage();
+    const first = render(<SeriesRunPage id="sr-1" />);
+    fireEvent.click(await screen.findByTestId("series-graph-toggle"));
+
+    expect(screen.queryByTestId("series-graph")).toBeNull();
+    expect(screen.getByTestId("series-graph-collapsed")).toHaveTextContent("merged");
+    expect(backing.get("agentsmith.series-graph-collapsed")).toBe("1");
+
+    first.unmount();
+    render(<SeriesRunPage id="sr-1" />);
+    expect(await screen.findByTestId("series-graph-collapsed")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("series-graph-toggle"));
+    expect(screen.getByTestId("series-graph")).toBeInTheDocument();
+    expect(backing.get("agentsmith.series-graph-collapsed")).toBe("0");
+  });
+
+  it("SeriesGraph_BlockedStorage_StartsOpen_AndStillFolds", async () => {
+    storage({}, true);
+    render(<SeriesRunPage id="sr-1" />);
+
+    expect(await screen.findByTestId("series-graph")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("series-graph-toggle"));
+    expect(screen.getByTestId("series-graph-collapsed")).toBeInTheDocument();
+  });
+});
 
 describe("SeriesOverviewSection", () => {
   // 2026-11-26-5201e: a node links its pull request and its tracker in a new tab, beside its button; the details too.

@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-b186
+goal: "The series chat gets the room: no fixed chrome above it, a collapsible graph under a fifth high, a compact question card that never scrolls, and the conversation as the one scroll region."
+
+applies_to: "dashboard (series page)"
+
+requires: [2026-11-26-5201a, 2026-11-26-5201c]
+
+facts:
+  - claim: "Above the conversation sit the page title, the overview (bounded at 30vh), a 'Chat' heading, the status line and a fixed sub line."
+    evidence: "src/dashboard/src/components/series/page/SeriesRunPage.tsx:61-70, src/dashboard/src/styles/series.css:44 and src/dashboard/src/components/series/page/SeriesConversationSection.tsx:66"
+  - claim: "The question block is bounded at 24vh and scrolls inside itself, a third scroll region beside the graph and the transcript."
+    evidence: "src/dashboard/src/styles/series.css:129"
+  - claim: "The overview's graph hint line and final step sit inside the overview, under the graph."
+    evidence: "src/dashboard/src/components/series/page/SeriesOverviewSection.tsx:27-28"
+  - claim: "DialogQuestionCard draws a 'waiting' label, the whole text as markdown, then its buttons with the hint on the same row; its consumers are the series block and the ticket composer."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:50-79"
+  - claim: "The composer's textarea has rows=3 and a 66px minimum height."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:238 and src/dashboard/src/styles/mock-parity.css:1660"
+  - claim: "A node's details menu is placed absolutely inside the graph panel, so a bounded, scrolling overview would clip it."
+    evidence: "src/dashboard/src/components/series/page/SeriesGraph.tsx:46-52 and src/dashboard/src/styles/series.css:103"
+  - claim: "Per-browser collapse state follows useSidebarCollapsed: an agentsmith.* key read after mount, every access in try/catch."
+    evidence: "src/dashboard/src/hooks/useSidebarCollapsed.ts"
+
+scope:
+  in: |
+    Chrome: the "Chat" heading and the sub line go (the section keeps its aria-label; the sub line becomes the status line's
+    title); the status line moves into the title row beside the series name, one row, ellipsis when long. Page padding on
+    this page is trimmed.
+    Graph: the overview is at most 18vh and scrolls inside itself (the graph's own region); the graph hint becomes the graph
+    panel's title. A "Hide graph" button in the graph's head collapses it to one line: the series' counts and "Show graph";
+    the final step hides with it. The choice is remembered per viewer like useSidebarCollapsed (key
+    agentsmith.series-graph-collapsed, try/catch); without storage the graph starts expanded. A node's details menu is
+    placed in viewport coordinates (position fixed) so the bounded overview never clips it, and closes on any scroll.
+    Question: the block never scrolls and never shrinks; the conversation gives way. The card is compact: the asker
+    ("#19664 asks") replaces the "waiting" label; text over 200 characters is clamped to three lines with show all / show
+    less (by length, which a test can check); the buttons and hint always show (DialogQuestionCard gains optional label and
+    clamp props; the ticket composer's use is unchanged).
+    Composer on this page: one row that grows with its text (field-sizing: content), up to a bound.
+    One scroll region besides the graph's: the transcript.
+    Toasts: the "N errors" bubble in the earlier screenshots is Next's development overlay and the SignalR 404 is the fixture
+    having no hub; neither exists in a production build. Renders are taken from a production build against the scratchpad
+    fixture backend (fixtures/server.mjs: series sr-1, a 180-entry transcript, a pending question).
+    New keys with en and de: series.graph.hide, series.graph.show, dialog.question.showAll, dialog.question.showLess; the
+    folded line reuses series.counts. A node's menu opens above the node when the window has no room under it; an expanded
+    question's text is capped at 40vh so "show all" never pushes the composer out.
+  out: "A resizable split, new panels, Work it out's pane."
+
+steps:
+  - id: chrome
+    action: "SeriesRunPage: title row with the status line; drop the h2; SeriesConversationSection drops the sub line."
+  - id: graph
+    action: "useSeriesGraphCollapsed; SeriesOverviewSection collapsed line; SeriesGraph hide button and fixed menu; CSS 20vh."
+  - id: question
+    action: "DialogQuestionCard label and clamp props; SeriesQuestionCard uses them; .sr-questions unbounded, no shrink; composer one growing row."
+  - id: tests
+    action: "vitest: collapse toggles and is remembered, a throwing storage leaves it expanded, no Chat heading or sub line, long question clamped with show all, short one not, buttons always there."
+  - id: render
+    action: "Production build against the fixture; screenshots at 1440x900 and 1280x800, graph expanded with a question pending and graph collapsed; series-chat-scroll clientHeight measured over CDP."
+
+done:
+  - "Collapsing the graph shows one counts line and is remembered across a remount; a throwing localStorage leaves it expanded (test)."
+  - "The series page has no 'Chat' heading and no sub line; the status line sits in the title row (test)."
+  - "A question over 200 characters shows clamped with 'show all'; its buttons are always rendered (test)."
+  - "At 1440x900 and 1280x800, with a question pending and the graph expanded, series-chat-scroll is at least 40% of the viewport height; with the graph collapsed it takes the remaining height (measured render)."
+  - "pnpm test and pnpm build are green."

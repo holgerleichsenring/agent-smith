@@ -142,6 +142,8 @@ export const coreMessages = {
   "dialog.approval.summarySpec": { en: "File this spec? One ticket.", de: "Diese Spec anlegen? Ein Ticket." },
 
   // --- dialog: a turn's steps ---
+  "dialog.question.showAll": { en: "Show all", de: "Alles zeigen" },
+  "dialog.question.showLess": { en: "Show less", de: "Weniger zeigen" },
   "dialog.steps.reads": { en: { one: "1 read", other: "{count} reads" }, de: { one: "1× gelesen", other: "{count}× gelesen" } },
   "dialog.steps.total": { en: { one: "1 step", other: "{count} steps" }, de: { one: "1 Schritt", other: "{count} Schritte" } },
   "dialog.steps.writes": { en: { one: "1 write", other: "{count} writes" }, de: { one: "1× geschrieben", other: "{count}× geschrieben" } },
@@ -1003,6 +1005,8 @@ export const coreMessages = {
   "series.graph.all": { en: { one: "all (1 ticket)", other: "all ({count} tickets)" }, de: { one: "alle (1 Ticket)", other: "alle ({count} Tickets)" } },
   "series.graph.noRepo": { en: "No pull request yet", de: "Noch kein Pull Request" },
   "series.graph.alsoIn": { en: "+ {repos}", de: "+ {repos}" },
+  "series.graph.hide": { en: "Hide graph", de: "Graph ausblenden" },
+  "series.graph.show": { en: "Show graph", de: "Graph zeigen" },
   "series.graph.hint": {
     en: "Click a ticket to see where it stands. To change anything, tell the series in the chat below.",
     de: "Klick auf ein Ticket, um zu sehen, wo es steht. Willst du etwas ändern, sag es der Serie unten im Chat.",

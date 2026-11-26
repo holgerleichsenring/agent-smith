@@ -45,10 +45,16 @@ export function SeriesTicketDetails({ ticket, project, integrationBranch = null,
       const links = document.getElementById(seriesNodeLinksId(ticket.ticketId));
       if (!ref.current?.contains(target) && !node()?.contains(target) && !links?.contains(target)) onClose();
     };
+    // 2026-11-26-b186: placed in viewport coordinates, so any scroll (the overview's, the page's) leaves it behind — close it.
+    const scrolled = (e: Event) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
     document.addEventListener("keydown", key);
     document.addEventListener("mousedown", down);
+    document.addEventListener("scroll", scrolled, true);
     ref.current?.querySelector<HTMLElement>("a, button")?.focus();
-    return () => { document.removeEventListener("keydown", key); document.removeEventListener("mousedown", down); };
+    return () => {
+      document.removeEventListener("keydown", key); document.removeEventListener("mousedown", down);
+      document.removeEventListener("scroll", scrolled, true);
+    };
   }, [ticket.ticketId, onClose]);
   const why = ticket.kind === "merged" ? t("series.node.merged") : ticket.hold ? holdSentence(t, ticket.hold) : t("series.node.notStarted");
   return (
