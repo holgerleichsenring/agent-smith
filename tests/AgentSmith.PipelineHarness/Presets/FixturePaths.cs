@@ -13,6 +13,7 @@ internal static class FixturePaths
 
     public const string Default = "agentsmith.yml";
     public const string Filing = "agentsmith-filing.yml"; // 2026-11-17-5701b
+    public const string FilingLabels = "agentsmith-filing-labels.yml"; // 2026-11-26-5f6e: with a pipeline_from_label map
     public const string Admin = "agentsmith-admin.yml"; // 2026-11-17-f3a8a
     public const string Deploy = "agentsmith-deploy.yml"; // 2026-11-18-3863c
     public const string Pocs = "agentsmith-pocs.yml"; // 2026-11-23-933db

@@ -1,0 +1,48 @@
+# 2026-11-26-5f6e: agentsmith-filing.yml with a pipeline_from_label map, so a ticket without the approved-set stamp routes
+# to the code pipeline only through the map's code label.
+
+agents:
+  openai-default:
+    type: openai
+    api_key: dummy
+    models:
+      primary:
+        model: gpt-4
+        max_tokens: 4096
+
+trackers:
+  github-filing:
+    type: github
+    url: https://github.com/agent-smith-fixtures/repo
+    auth: gh_token
+    needs_clarification_status: "Question"
+    trigger_statuses: ["open"]
+    done_status: "closed"
+    pipeline_from_label:
+      "agent-smith:code": code
+      "agent-smith:init": init-project
+
+repos:
+  filing-fixture:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    url: https://stub.test/filing-fixture
+    auth: ""
+
+projects:
+  fixture-file:
+    agent: openai-default
+    tracker: github-filing
+    repos: [filing-fixture]
+    resolution: { tag: fixture-file }
+
+secrets:
+  gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
+
+skills:
+  source: default
+  version: v3.5.0
+  cache_dir: /tmp/agentsmith-harness/skills
+
+sandbox:
+  agent_version: "0.0.0-harness"

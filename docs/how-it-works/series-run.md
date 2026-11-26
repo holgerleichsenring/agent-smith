@@ -22,7 +22,7 @@ In a beat the series master reads the facts of every ticket (state, requires, sp
 
 | It can | What that means |
 |---|---|
-| start a ticket | a filed ticket whose prerequisites allow it |
+| start a ticket | a filed ticket whose prerequisites allow it; the act log says whether a run started (with its id), was queued, or was refused, and why. You can start a ticket no run worked yet yourself with **Start** in its graph node's details |
 | retry a ticket | a failed attempt, once it has looked at why |
 | tell a ticket | send a message to the ticket's running or next run |
 | add a ticket | file a prerequisite or a split-off part into the series, unstarted, with its requirements; it starts it once they stand |

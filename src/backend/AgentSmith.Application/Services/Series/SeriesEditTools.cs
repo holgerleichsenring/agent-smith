@@ -11,9 +11,10 @@ namespace AgentSmith.Application.Services.Series;
 /// </summary>
 public sealed class SeriesEditTools(SeriesBeat beat, ISeriesEditActs edits, ISeriesRunStore store)
 {
+
     public IEnumerable<AIFunction> GetTools() =>
     [
-        AIFunctionFactory.Create(AddTicketAsync, "add_ticket"),
+        AIFunctionFactory.Create(AddTicketAsync, SeriesAct.AddTicketTool),
         AIFunctionFactory.Create(LinkTicketsAsync, "link_tickets"),
     ];
 

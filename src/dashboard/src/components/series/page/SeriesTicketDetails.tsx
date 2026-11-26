@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useT } from "@/hooks/useT";
 import type { TextKey } from "@/lib/i18n/translate";
+import { startSeriesTicket } from "@/lib/seriesRunsApi";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { SeriesRunTicket } from "@/types/seriesRuns";
 import { holdSentence } from "../../tickets/holds/holdWords";
@@ -16,10 +17,14 @@ import { seriesNodeId, seriesNodeLinksId } from "./seriesOrderLayout";
 // to the node, a click outside closes it. 2026-11-25-9992e: and the series master's last act on it — what, why, when.
 // 2026-11-26-5201e: and the ticket in its tracker, in a new tab, beside its page here.
 // 2026-11-26-5201f: a pull request the host still needs a person's approval on says so beside its link.
+// 2026-11-26-5f6e: a ticket no run worked yet has one act, Start — a ticket the master added has no run, so the ticket list
+// does not show it and this is where a person starts it; the answer (started, queued or refused, and why) is shown as is.
 
 interface Props {
   ticket: SeriesRunTicket;
   project: string;
+  /** The series, so Start reaches its member ticket (2026-11-26-5f6e). */
+  seriesId?: string;
   /** The series branch, so a pull request into it says so (2026-11-24-f9c5f); null without one. */
   integrationBranch?: string | null;
   at: CSSProperties;
@@ -31,9 +36,18 @@ const CI_WORDS: Record<string, TextKey> = {
   green: "series.details.ci.green", red: "series.details.ci.red",
 };
 
-export function SeriesTicketDetails({ ticket, project, integrationBranch = null, at, onClose }: Props) {
+export function SeriesTicketDetails({ ticket, project, seriesId, integrationBranch = null, at, onClose }: Props) {
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);
+  const [starting, setStarting] = useState(false);
+  const [said, setSaid] = useState<string | null>(null);
+  const startable = !!seriesId && !ticket.landed && ticket.status === null && !ticket.working;
+  const start = async () => {
+    setStarting(true);
+    try { setSaid((await startSeriesTicket(seriesId!, ticket.ticketId)).text); }
+    catch (e) { setSaid(e instanceof Error ? e.message : String(e)); }
+    finally { setStarting(false); }
+  };
   useEffect(() => {
     const node = () => document.getElementById(seriesNodeId(ticket.ticketId));
     const key = (e: KeyboardEvent) => {
@@ -81,7 +95,10 @@ export function SeriesTicketDetails({ ticket, project, integrationBranch = null,
         </div>
       )}
       <div className="sr-menu-why" data-testid={`series-details-cost-${ticket.ticketId}`}>{t("series.details.cost", { cost: money(ticket.costUsd) })}</div>
+      {said && <div className="sr-menu-why" role="status" data-testid={`series-details-start-said-${ticket.ticketId}`}>{said}</div>}
       <div className="sr-menu-links">
+        {startable && <button type="button" className="btn sm" disabled={starting} onClick={start}
+          data-testid={`series-details-start-${ticket.ticketId}`}>{starting ? t("series.details.starting") : t("series.details.start")}</button>}
         <Link className="tk-link" href={ticketPath(project, ticket.ticketId)} data-testid={`series-details-open-${ticket.ticketId}`}>{t("hold.act.open")}</Link>
         {ticket.webUrl && <a className="tk-link" href={ticket.webUrl} target="_blank" rel="noreferrer"
           data-testid={`series-details-tracker-${ticket.ticketId}`}>{t("series.details.tracker")}</a>}

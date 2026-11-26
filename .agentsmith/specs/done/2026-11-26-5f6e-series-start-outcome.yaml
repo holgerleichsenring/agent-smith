@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-5f6e
+goal: "start_ticket logs what happened — started with its run, queued, or refused with what lifts it — and a ticket add_ticket filed gets its trigger label and starts."
+
+applies_to: "default (Application series act tools and requirement reads, Server series start, fallback spawn and series endpoint, dashboard series details)"
+
+requires: [2026-11-25-96aea, 2026-11-25-96aeb, 2026-11-25-9992f]
+
+facts:
+  - claim: "Every start_ticket act is logged as 'started <key>' whatever StartAsync answered; the answer goes to the log only."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesActTools.cs:62-64,88-94 (before this spec) and src/backend/AgentSmith.Application/Services/Series/SeriesActedFunction.cs:33"
+  - claim: "A ticket with requirement edges and no approval record is held as 'its filing did not finish' at the start and refused at the claim."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/WaitingTicketStart.cs:83, src/backend/AgentSmith.Application/Services/Claim/RequiresUnmetGate.cs:38-39, src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:92-93"
+  - claim: "add_ticket files a follow-up with no series, so no approval record is ever written for it, then stores its edges."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesEditActs.cs:25-31,69-73, src/backend/AgentSmith.Application/Services/Filing/FilingPlanner.cs:19,32-34, src/backend/AgentSmith.Application/Services/Filing/PlannedTicketFiler.cs:35-37"
+  - claim: "After the 'start' run said Started, the poller-route spawn's outcome is dropped: a ticket that routes nowhere, a refused or failed claim and a queued one all answer 'Ticket N started'."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/WaitingTicketStart.cs:61-62 and src/backend/AgentSmith.Server/Services/Rework/ReworkFallbackSpawn.cs:35-41"
+  - claim: "A filed series ticket triggers code through the approved-set stamp; add_ticket's ticket has no stamp and no label, so under a pipeline_from_label map the start run's resolution drops it and it is never moved or claimed."
+    evidence: "src/backend/AgentSmith.Application/Services/Filing/ApprovedSetTicketFiler.cs:31-32, src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:62-79, src/backend/AgentSmith.Application/Services/Filing/FiledWorkMove.cs:57-61"
+  - claim: "start_ticket goes through the resume's start, which holds a ticket whose edges wait for a start by name — start_ticket is that start."
+    evidence: "src/backend/AgentSmith.Server/Services/Series/SeriesTicketActs.cs:49, src/backend/AgentSmith.Server/Services/Rework/WaitingTicketStart.cs:84-86"
+
+scope:
+  in: |
+    SeriesStart carries a kind (started, queued, refused), the text and the run id; StartAsync answers it. WaitingTicketStart
+    reads the fallback spawn's result: claimed is started with the run id, queued is queued with the queue's reason, every other
+    outcome (routes nowhere, rejected, already claimed, failed) is refused with the claim's words. Each hold names what lifts it.
+    start_ticket's act text follows the outcome: "started <key> (run <id>)", "queued <key>", "could not start <key>". A claim
+    lost to the webhook after the start run made the ticket claimable is started with the run its lease names.
+    A ticket its series filed from a text — a FollowUp member, or one with an add_ticket act logged for it — carries no
+    approved set, so it is no incomplete filing. start_ticket is a start by name, so the by-name hold does not hold it; a
+    resume still leaves such a ticket to its start.
+    A ticket its series filed from a text gets, at its start, the one pipeline_from_label key the project's trigger routes to
+    the code pipeline (FiledWorkTagger, the routing tag's path) — the stamp's alternative, never both, never the stamp itself,
+    which would stop a run with no stored set at the filed-ticket gate. Bugs and a person's tickets are left to the rules.
+    A ticket no run worked yet is listed nowhere but its series, so the series graph node's details get Start (runs.control):
+    POST /api/series-runs/{id}/tickets/{ticketId}/start runs start_ticket's start and answers the outcome, shown as is.
+  out: "Re-cutting how list filings mark completion; the rework comment's own fallback answer."
+
+steps:
+  - id: contract
+    action: "SeriesStartKind and SeriesStart(Kind, Text, RunId); ISeriesTicketActs.StartAsync answers SeriesStart; WaitingStart carries the same kind and run id."
+  - id: spawn
+    action: "ReworkFallbackSpawn answers the spawn result, or why nothing routes it; WaitingTicketStart maps it to started, queued or refused; its holds name what lifts them; start_ticket passes byName."
+  - id: filing
+    action: "UnmetTicketRequirements.FiledCompletelyAsync takes the project and ticket id and also counts SeriesRunRecord.FiledWithoutApprovedSet; every caller passes them."
+  - id: act
+    action: "SeriesActTools.start_ticket logs and says the outcome; SeriesPause counts a queued start as started."
+  - id: trigger
+    action: "FiledWorkTriggerLabel names the map's code key; FiledWorkTagger writes it for a ticket filed from a text, via StartTicketRequest.FiledFromText from WaitingTicketStart."
+  - id: dashboard
+    action: "POST /api/series-runs/{id}/tickets/{ticketId}/start (runs.control, route baseline); Start in SeriesTicketDetails for a never-worked ticket, its answer shown."
+  - id: tests
+    action: "Harness: add_ticket with a requirement that landed, then start_ticket, spawns its run (red before). Units: the act text per outcome; refused and queued spawns answer refused and queued; a by-name edge starts by start_ticket."
+
+done:
+  - "A ticket filed with add_ticket requiring a landed ticket is started by start_ticket and its coding run is spawned (harness test, failing before the fix)."
+  - "start_ticket's act reads 'started <key> (run <id>)', 'queued <key>' or 'could not start <key>', and the answer names why and what unblocks it (tests)."
+  - "Under a pipeline_from_label map, a series-filed ticket carries only the stamp and an add_ticket ticket only the map's code label after start_ticket, which spawns its run (harness test, red before)."
+  - "A person starts a never-worked series ticket from its graph node's details and reads the outcome (endpoint and dashboard tests)."
+  - "dotnet build and the affected tests are green."

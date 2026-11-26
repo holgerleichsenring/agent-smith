@@ -88,9 +88,19 @@ public sealed class UnmetTicketRequirements(
     /// Whether the ticket's filing finished: its ticket-text approval record is stored, which filing writes
     /// last, after the ticket and its edges. Asked only for a ticket WITH requirement rows — an ordinary
     /// ticket has no approval record and is never asked.
+    /// <para>2026-11-26-5f6e: a ticket its series filed from a text — its check's follow-up, its master's addition — carries
+    /// no approved set, so no record ever comes; such a ticket gets edges only from the series master once its 'file' run
+    /// returned (<see cref="SeriesRunRecord.FiledWithoutApprovedSet"/>), never mid-filing.</para>
     /// </summary>
-    public async Task<bool> FiledCompletelyAsync(string tracker, string ticketKey, CancellationToken cancellationToken) =>
-        await approvals.GetAsync(tracker, ticketKey, cancellationToken) is not null;
+    public async Task<bool> FiledCompletelyAsync(
+        string tracker, string ticketKey, string project, string ticketId, CancellationToken cancellationToken) =>
+        await approvals.GetAsync(tracker, ticketKey, cancellationToken) is not null
+        || await FiledFromTextAsync(project, ticketId, cancellationToken);
+
+    /// <summary>2026-11-26-5f6e: its series filed the ticket from a text (<see cref="SeriesRunRecord.FiledWithoutApprovedSet"/>).</summary>
+    public async Task<bool> FiledFromTextAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        series is not null && await series.ForTicketAsync(project, ticketId, cancellationToken) is { } owner
+        && owner.FiledWithoutApprovedSet(ticketId);
 
     /// <summary>2026-11-19-1b72a: the paused series the ticket belongs to, which holds every start of it until it is
     /// resumed; null when no paused series holds it.</summary>

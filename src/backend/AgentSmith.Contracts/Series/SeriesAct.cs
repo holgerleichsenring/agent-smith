@@ -8,6 +8,9 @@ namespace AgentSmith.Contracts.Series;
 /// </summary>
 public sealed record SeriesAct(DateTimeOffset At, string Tool, string? Ticket, string Text, string? Reason)
 {
+    /// <summary>2026-11-26-5f6e: the master's add_ticket tool, whose act marks a ticket it filed.</summary>
+    public const string AddTicketTool = "add_ticket";
+
     /// <summary>2026-11-25-96aec: when the act was called (<see cref="At"/> is when its beat began). An event recorded on its
     /// ticket between this and <see cref="DoneAt"/> was recorded by the act itself. Null on an act logged before.</summary>
     public DateTimeOffset? StartedAt { get; init; }

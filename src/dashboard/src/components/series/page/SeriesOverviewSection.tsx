@@ -22,7 +22,7 @@ export function SeriesOverviewSection({ detail }: { detail: SeriesRunDetail }) {
     <div className="sr-overview">
       <SeriesGraph detail={detail} lit={lit} from={from} onFrom={setFrom} openId={openId} onClose={close}
         onNode={(id) => setOpenId((open) => (open === id ? null : id))}
-        menu={(ticket, at) => <SeriesTicketDetails ticket={ticket} project={detail.project}
+        menu={(ticket, at) => <SeriesTicketDetails ticket={ticket} project={detail.project} seriesId={detail.id}
           integrationBranch={detail.integrationBranch} at={at} onClose={close} />} />
       <p className="msub">{t("series.graph.hint")}</p>
       {detail.integrationBranch && <div className="sr-list" data-testid="series-final"><SeriesFinalStep detail={detail} /></div>}

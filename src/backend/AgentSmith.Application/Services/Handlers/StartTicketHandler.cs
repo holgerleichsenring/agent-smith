@@ -24,7 +24,7 @@ public sealed class StartTicketHandler(FiledWorkMove move, ITicketProviderFactor
                 + $"ContextKeys.{nameof(ContextKeys.StartTicketRequest)} and ContextKeys.{nameof(ContextKeys.ActOutcome)}. Nothing was started.");
         var project = context.Project;
         var started = await move.StartExistingAsync(
-            trackers.Create(project.Tracker), project, request.TicketId, request.MayStartRuns, CancellationToken.None);
+            trackers.Create(project.Tracker), project, request.TicketId, request.MayStartRuns, CancellationToken.None, request.FiledFromText);
         slot.Set(started);
         return CommandResult.Ok($"Ticket {request.TicketId}: {started.State} — {started.Reason}");
     }

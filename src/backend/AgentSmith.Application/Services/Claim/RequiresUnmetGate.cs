@@ -35,7 +35,7 @@ public sealed class RequiresUnmetGate(UnmetTicketRequirements requirements, IPre
         var key = TicketKey.For(tracker.Type.ToString().ToLowerInvariant(), request.TicketId.Value).Value;
         var hold = await requirements.ForStartAsync(project, key, cancellationToken); // 2026-11-17-9a39a
         if (!hold.HasRequirements) return null;
-        if (!await requirements.FiledCompletelyAsync(tracker.Name, key, cancellationToken))
+        if (!await requirements.FiledCompletelyAsync(tracker.Name, key, project.Name, request.TicketId.Value, cancellationToken))
             return ClaimResult.Rejected(ClaimRejectionReason.TicketRequiresUnmet, IncompleteFiling);
         return hold.Unmet.Count == 0 ? null
             : ClaimResult.Rejected(ClaimRejectionReason.TicketRequiresUnmet, Sentence(hold));
