@@ -33,7 +33,7 @@ public sealed class SeriesEditToolsTests
         said.Should().Be("Filed SCRUM-46.");
         SeriesTicketLookup.Find(_beat, "SCRUM-46")!.Requires.Should().Equal("43");
         (_beat.ActTicket, _beat.ActDid).Should().Be(("46", "added SCRUM-46"));
-        _beat.Said.Should().ContainSingle().Which.Should().EndWith("added SCRUM-46: 44 needs the index first");
+        _beat.Acts.Should().ContainSingle().Which.Notice.Should().EndWith("added SCRUM-46: 44 needs the index first");
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public sealed class SeriesEditToolsTests
             It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>())).ReturnsAsync(new SeriesCutAnswer("Refused: a cycle.", false));
 
         (await tools.AddTicketAsync("x", "y", reason: "why")).Should().Be("Refused: a cycle.");
-        _beat.Said.Should().BeEmpty();
+        _beat.Acts.Should().BeEmpty();
         _beat.Facts.Should().HaveCount(3);
     }
 

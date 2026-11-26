@@ -66,7 +66,7 @@ public sealed class SeriesMasterLineTests
         var beat = await JudgeAsync("retry_ticket", """{"ticket":"SCRUM-43"}""");
 
         beat.MasterActed.Should().BeTrue();
-        SeriesReport.Messages(beat, Project).Should().Equal("SCRUM-43 is still running, not stuck.");
+        SeriesReport.Messages(beat, Project).Should().Equal("SCRUM-43 is still running, not stuck.\n\n↳ retried SCRUM-43"); // 2026-11-26-f511c
     }
 
     [Fact]

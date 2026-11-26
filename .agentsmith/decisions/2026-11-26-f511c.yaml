@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-f511c
+
+decisions:
+  - category: Architecture
+    chose: "Fix the double entry where it is posted: a beat's write acts go to SeriesBeat.Acts, and the report posts the master's sentence with one '↳ did · did' line under it, or the acts' notices when the master said nothing"
+    over: "Folding the pairs in the dashboard; a structured field on the transcript turn"
+    reason: |
+      The server posted both (SeriesActSay into Said, then the master's line), so every client — the dashboard and the chat
+      platforms — showed the pair. A text line reads on Slack and Teams as written and needs no contract change; the dashboard
+      only draws the trailing '↳' lines small. A client-side fold of old pairs would be a heuristic over free text; old
+      transcripts keep their pairs and read as before. The act log, the ticket's last act and the Acts list are untouched.
+  - category: Implementation
+    chose: "A reasonless act is named in the '↳' line; with no master line it still says nothing, as before"
+    over: "Leaving reasonless acts out of the line"
+    reason: |
+      One entry per beat should say what the beat did. Without a sentence to hang under, 9992h's rule (no reason, nothing said)
+      holds. The acts now follow the beat's other words (a question, an answer passed on) instead of sitting among them.
+  - category: Implementation
+    chose: "Turn times come from the existing sinceClock with a week option ('Wed 14:05' for the six days before today), shown only where DialogTranscript is asked (the series chat), folded within a minute, full date as the title"
+    over: "A new formatter; lastActive's relative words ('3 days ago'); showing them in every transcript"
+    reason: |
+      The operator asked for compact clock times and to reuse the dashboard's formatting; sinceClock already says '00:12' today and
+      '21 Nov 00:12' before, so one option adds the weekday without a second formatter. Work it out's transcript was not part of the
+      ask, so it is unchanged.

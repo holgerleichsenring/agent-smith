@@ -43,17 +43,24 @@ public sealed record TicketHoldInputs(
     /// <summary>2026-11-23-849e: each series' merge order and the keys of its tickets that start only on merges, by series id.</summary>
     public IReadOnlyDictionary<string, TicketHoldSeriesPlan> Plans { get; init; } = new Dictionary<string, TicketHoldSeriesPlan>();
 
+    /// <summary>2026-11-26-f511a: per ticket of an active series, the keys of its requirements that have not landed and when
+    /// its master last took it up (<see cref="AgentSmith.Application.Services.Holds.TicketSeriesWait"/>).</summary>
+    public IReadOnlyDictionary<(string Project, string TicketId), TicketHoldSeriesWait> SeriesWaits { get; init; } =
+        new Dictionary<(string, string), TicketHoldSeriesWait>();
+
     /// <summary>2026-11-23-849e: the facts with the ticket's series — its newest series run, whether it is active, its step,
-    /// that series' merge order and what waits on its merges.</summary>
+    /// that series' merge order and what waits on its merges. 2026-11-26-f511a: and what of it it waits on.</summary>
     public AgentSmith.Application.Services.Holds.TicketHoldFacts WithSeries(AgentSmith.Application.Services.Holds.TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
         var series = SeriesOf(facts.Project, facts.TicketId);
         var plan = PlanOf(series);
+        var wait = SeriesWaits.GetValueOrDefault((facts.Project, facts.TicketId)) ?? TicketHoldSeriesWait.None;
         return facts with
         {
             SeriesId = series, SeriesActive = InActiveSeries(facts.Project, facts.TicketId), MergeStep = StepOf(facts.Project, facts.TicketId),
             SeriesMergeOrder = plan.MergeOrder, SeriesStartsOnMerge = plan.StartsOnMerge,
+            SeriesUnlanded = wait.Unlanded, SeriesTakenUpAt = wait.TakenUpAt,
         };
     }
 

@@ -44,12 +44,16 @@ const KIND_OF_CASE: Partial<Record<TicketHold["case"], string>> = {
 };
 
 /** 2026-11-23-31dci: "00:12" for a wait that began today, "21 Nov 00:12" for an older one — in the reader's clock and,
- *  2026-11-23-5669b, the chosen language's locale. */
-export function sinceClock(iso: string, locale: string, now: Date = new Date()): string {
+ *  2026-11-23-5669b, the chosen language's locale. 2026-11-26-f511c: with week, "Wed 14:05" for one of the six days before
+ *  today (the series chat's turns). */
+export function sinceClock(iso: string, locale: string, now: Date = new Date(), week = false): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return iso;
   const time = at.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hour12: false });
   if (at.toDateString() === now.toDateString()) return time;
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (week && at.getTime() < now.getTime() && at.getTime() >= midnight - 6 * 86_400_000)
+    return `${at.toLocaleDateString(locale, { weekday: "short" })} ${time}`;
   return `${at.toLocaleDateString(locale, { day: "numeric", month: "short" })} ${time}`;
 }
 

@@ -14,6 +14,7 @@ import { openQuestionCount, SERIES_QUESTION_ID } from "./SeriesQuestionBlock";
 // conversation it came from, when it started and what it cost. 2026-11-25-9992j: no progress bar, counts or sections —
 // the page is one pane, the graph says where the series stands.
 // 2026-11-26-5201c: the questions that wait are a link to them, above the chat's input, and count every one drawn there.
+// 2026-11-26-f511a: "N need you" — the block now holds approvals and failures too.
 
 export function SeriesSectionBar({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
@@ -28,7 +29,7 @@ export function SeriesSectionBar({ detail }: { detail: SeriesRunDetail }) {
         <span className="tk-bar-title">{detail.name}</span>
         <span className={`tk-bar-state ${stateTone(detail)}`} data-testid="series-state-word">
           {seriesStateWord(detail.state, t)}
-          {questions > 0 && <> · <a href={`#${SERIES_QUESTION_ID}`} data-testid="series-question-link">{t("series.page.question", { count: questions })}</a></>}
+          {questions > 0 && <> · <a href={`#${SERIES_QUESTION_ID}`} data-testid="series-question-link">{t("series.page.needsYou", { count: questions })}</a></>}
         </span>
       </div>
       <div className="tk-bar-facts" data-testid="series-facts">

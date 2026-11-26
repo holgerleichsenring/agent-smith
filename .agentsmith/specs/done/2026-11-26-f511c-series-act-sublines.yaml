@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-f511c
+goal: "A series beat posts one chat entry: the master's sentence with the acts it took as one compact '↳' line under it, instead of an act notice beside its narration."
+
+applies_to: "default (series master report), dashboard (dialog transcript)"
+
+requires: [2026-11-25-9992h, 2026-11-25-e94ec]
+
+facts:
+  - claim: "Every act with a reason adds its own notice '<actor> <did>: <reason>' to the beat's Said, and Told adds one without a reason (a merge over a refusal)."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesActSay.cs:11-26"
+  - claim: "A beat posts its Said and then the master's line, each as a separate conversation notice."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesReport.cs:19-20 and src/backend/AgentSmith.Application/Services/Series/PostSeriesStatusHandler.cs:20-22"
+  - claim: "The act log records what the act did and its reason independently of what is said."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesActedFunction.cs:33"
+  - claim: "An agent notice renders as markdown in the transcript."
+    evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:117-128"
+
+scope:
+  in: |
+    SeriesActSay (Acted and Told) keeps every write act on the beat (beat.Acts: what it did and its notice, null for an
+    act without a reason) instead of in Said. SeriesReport: with a master line, one message: the line, a blank line, "↳ "
+    and the acts' did joined with " · " (a reasonless act is named too); without one, each act's notice as before, a
+    reasonless act still says nothing. The acts now follow the beat's other words (questions, answers passed on) instead
+    of sitting among them. Slack and Teams receive the same text; "↳" reads there as written. The act log, the ticket's last
+    act and the Acts list are untouched. Old transcripts keep their pairs and read as before. Dashboard: an agent text's trailing lines starting with "↳ " render as one muted, small line
+    under the text (actLines), on every transcript that draws agent text.
+    Times (operator addendum): the series chat's turns show their time under the speaker, muted, in local time — "14:05"
+    today, "Wed 14:05" within the six days before, a date beyond — with the full date and time as the hover title; a turn
+    within a minute of the one before shows none. DialogTranscript takes a times flag (the series chat sets it), and the
+    words come from the existing sinceClock, which gains a week option; no new formatter.
+  out: "Folding the pairs of old transcripts; a structured turn field."
+
+steps:
+  - id: server
+    action: "SeriesBeat.Acts, SeriesActSay writes it, SeriesReport composes; tests updated from Said to Acts."
+  - id: dashboard
+    action: "DialogTranscript AgentText splits the trailing ↳ lines; CSS .dl-acts."
+  - id: times
+    action: "sinceClock week option; DialogMessage at; DialogTranscript times with the one-minute fold; SeriesConversationSection sets it."
+  - id: tests
+    action: "xunit: a beat with a line and two acts posts one message ending in the ↳ line; without a line the notices are posted. vitest: the ↳ line renders apart; times show, fold within a minute, carry the full date as title; sinceClock's weekday."
+
+done:
+  - "A beat with a master line and two said acts posts exactly one message: the line, then '↳ refreshed X · started the CI of Y' (test)."
+  - "A beat without a master line posts each act's notice with its reason (test)."
+  - "A series chat turn shows its time ('Wed 14:05' within the week), none within a minute of the one before (test)."
+  - "The full suite, pnpm test and pnpm build are green."

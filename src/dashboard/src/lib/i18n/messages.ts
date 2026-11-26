@@ -897,9 +897,10 @@ export const coreMessages = {
   // --- series: one series' page (2026-11-23-31dcd) ---
   "series.page.back": { en: "← Series", de: "← Serien" },
   "series.page.kind": { en: { one: "series · 1 ticket", other: "series · {count} tickets" }, de: { one: "Serie · 1 Ticket", other: "Serie · {count} Tickets" } },
-  "series.page.question": {
-    en: { one: "1 question for you", other: "{count} questions for you" },
-    de: { one: "1 Frage an dich", other: "{count} Fragen an dich" },
+  // 2026-11-26-f511a: the bar counts every item above the chat's input — questions, approvals, failures.
+  "series.page.needsYou": {
+    en: { one: "1 needs you", other: "{count} need you" },
+    de: { one: "1 braucht dich", other: "{count} brauchen dich" },
   },
   "series.page.loading": { en: "Reading the series…", de: "Serie wird gelesen…" },
   "series.page.notFound": { en: "There is no such series, or it is not yours to see.", de: "Diese Serie gibt es nicht, oder du darfst sie nicht sehen." },
@@ -968,6 +969,10 @@ export const coreMessages = {
     de: "Setze das Gespräch in Work it out fort, um zu antworten.",
   },
   "series.chat.answerOnTicket": { en: "Answer on its ticket", de: "Am Ticket antworten" },
+  // 2026-11-26-f511a: the "Needs you" lines above the input and their links.
+  "series.chat.needsYou": { en: "Needs you", de: "Braucht dich" },
+  "series.chat.openPullRequest": { en: "Open pull request ↗", de: "Pull Request öffnen ↗" },
+  "series.chat.openTicket": { en: "Open ticket", de: "Ticket öffnen" },
   "series.chat.questionHint": { en: "Or write your own answer below.", de: "Oder schreib unten deine eigene Antwort." },
   // 2026-11-25-433fa: the status line pinned at the top of the chat, worded from what the server read.
   "series.status.label": { en: "Where the series stands", de: "Stand der Serie" },
@@ -1009,6 +1014,8 @@ export const coreMessages = {
   "series.graph.alsoIn": { en: "+ {repos}", de: "+ {repos}" },
   "series.graph.hide": { en: "Hide graph", de: "Graph ausblenden" },
   "series.graph.show": { en: "Show graph", de: "Graph zeigen" },
+  // 2026-11-26-f511b: the divider between the graph and the chat.
+  "series.graph.resize": { en: "Graph height — drag or use the arrow keys", de: "Höhe des Graphen — ziehen oder Pfeiltasten" },
   "series.graph.hint": {
     en: "Click a ticket to see where it stands. To change anything, tell the series in the chat below.",
     de: "Klick auf ein Ticket, um zu sehen, wo es steht. Willst du etwas ändern, sag es der Serie unten im Chat.",

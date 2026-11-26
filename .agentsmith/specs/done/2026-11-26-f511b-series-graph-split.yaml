@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-f511b
+goal: "A draggable, keyboard-operable divider sets the series graph's height, by default 40% of the pane or the graph's own height if smaller, remembered per viewer."
+
+applies_to: "dashboard (series page)"
+
+requires: [2026-11-26-b186, 2026-11-26-f511a]
+
+facts:
+  - claim: "The overview is capped at 18vh in the fixed layout, about one row of nodes per repo lane."
+    evidence: "src/dashboard/src/styles/series.css:45"
+  - claim: "The fold is a per-browser preference in localStorage, read after mount, every access in try/catch."
+    evidence: "src/dashboard/src/components/series/page/useSeriesGraphCollapsed.ts:8-29"
+
+scope:
+  in: |
+    useSeriesGraphSplit keeps the graph's share of the pane (agentsmith.series-graph-split, a fraction, read after mount,
+    try/catch; default 0.4). The drawn height is the share of the pane, at most the graph's natural height and at most the
+    pane less the chat's fixed parts (question block, composer) and 96px of conversation; at least 48px, and the floor wins
+    when the bounds collide (the graph's head with its Hide button stays reachable). A pure function (seriesGraphHeight)
+    computes it; a ResizeObserver on the pane, the graph's inner panel (its natural height, scrollHeight) and the chat feeds
+    the sizes; jsdom has none, so the hook runs without one. The divider is a focusable role=separator, aria-orientation
+    horizontal, aria-valuenow (the drawn height) and min/max in percent of the pane (the stored share while the pane is
+    unmeasured), aria-controls the overview; it drags with the
+    pointer and moves 5% on ArrowUp/ArrowDown, to the bounds on Home/End. The fold stays; folded, no divider. Outside the
+    fixed layout (narrow or short) the divider is hidden and the graph flows. CSS removes the 18vh cap. Key
+    series.graph.resize en and de. The "Needs you" lines (f511a) scroll only beyond five: a link's glyphs overflowed three
+    lines by a pixel and showed a scrollbar.
+  out: "A horizontal split; a per-series height."
+
+steps:
+  - id: hook
+    action: "seriesGraphHeight (pure) and useSeriesGraphSplit (storage, observer, drag, keys)."
+  - id: wire
+    action: "SeriesRunPage renders the divider between overview and chat; the overview takes the height as a CSS variable."
+  - id: tests
+    action: "vitest: the bounds of seriesGraphHeight; keys move aria-valuenow and are remembered across a remount; a throwing storage leaves the default; folded shows no divider."
+  - id: render
+    action: "Screenshots at 1920x1080, 1728x1117, 1440x900, 1280x800: default, dragged, folded."
+
+done:
+  - "seriesGraphHeight never leaves the chat less than its fixed parts plus 96px and never exceeds the graph's natural height (test)."
+  - "ArrowDown raises aria-valuenow by 5 and the value survives a remount; a throwing localStorage keeps 40 (test)."
+  - "pnpm test and pnpm build are green."

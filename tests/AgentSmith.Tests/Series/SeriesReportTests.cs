@@ -71,6 +71,35 @@ public sealed class SeriesReportTests
         SeriesReport.Messages(beat, Project).Should().Equal("SCRUM-44 asks a decision only you can make: …", "Passed to SCRUM-44.");
     }
 
+    // 2026-11-26-f511c: an act and the master's narration of it are one entry — the sentence, and the beat's acts as one line under it.
+    [Fact]
+    public void LaterBeat_TheMastersLine_CarriesTheBeatsActsAsOneLine_NoNoticeBesideIt()
+    {
+        var beat = new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T.AddMinutes(10));
+        beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = beat.Table };
+        SeriesActSay.Acted(beat, "refreshed SCRUM-44", "it conflicts with develop", "ok");
+        SeriesActSay.Acted(beat, "started the CI of SCRUM-45", null, "ok");
+        beat.MasterLine = "SCRUM-44 is brought up to date with develop.";
+        beat.MasterActed = true;
+
+        SeriesReport.Messages(beat, Project).Should().Equal(
+            "SCRUM-44 is brought up to date with develop.\n\n↳ refreshed SCRUM-44 · started the CI of SCRUM-45");
+    }
+
+    [Fact]
+    public void LaterBeat_NoMastersLine_PostsEachActsNotice_AReasonlessActNone()
+    {
+        var beat = new SeriesBeat(SeriesRecords.Running(), Facts(), SeriesRecords.T.AddMinutes(10));
+        beat.Record = beat.Record with { LastStatusAt = SeriesRecords.T, LastTable = beat.Table };
+        SeriesActSay.Acted(beat, "refreshed SCRUM-44", "it conflicts with develop", "ok");
+        SeriesActSay.Acted(beat, "started the CI of SCRUM-45", null, "ok");
+        SeriesActSay.Told(beat, "merged SCRUM-43 (now) over its refusal", "ok");
+        beat.MasterActed = true;
+
+        SeriesReport.Messages(beat, Project).Should().Equal(
+            "agent-smith refreshed SCRUM-44: it conflicts with develop", "agent-smith merged SCRUM-43 (now) over its refusal");
+    }
+
     [Fact]
     public void LaterBeat_TableChangedAndCadencePassed_PostsNothing()
     {

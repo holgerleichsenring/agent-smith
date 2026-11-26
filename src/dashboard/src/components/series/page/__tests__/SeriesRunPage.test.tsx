@@ -136,25 +136,54 @@ describe("SeriesRunPage", () => {
     expect(screen.getByTestId("series-chat-scroll")).not.toContainElement(block);
   });
 
-  it("SeriesPage_ATicketParkedOnAQuestion_IsALineToItsTicket_AndTheRailCountsIt", async () => {
+  // 2026-11-26-f511a: every ticket that needs a person gets a line under "Needs you", each with its one link.
+  it("SeriesPage_EveryTicketThatNeedsYou_IsALineWithItsLink_AndTheRailCountsThem", async () => {
     hoisted.fetch.mockResolvedValue(seriesDetail({
       question: "Which callback URL?", questionTicket: "#61",
       tickets: [
         seriesTicket({ ticketId: "61", key: "#61", kind: "question", hold: hold("question_plan", { act: { kind: "conversation", target: "sr-1" } }) }),
         seriesTicket({ ticketId: "62", key: "#62", kind: "question", hold: hold("question") }),
-        seriesTicket({ ticketId: "63", key: "#63", kind: "failed", hold: hold("failed") }),
+        seriesTicket({ ticketId: "63", key: "#63", kind: "failed", hold: hold("failed", { act: { kind: "retry", target: "run-63" } }) }),
+        seriesTicket({ ticketId: "64", key: "#64", kind: "approval",
+          hold: hold("approval_needed", { act: { kind: "pull_request", target: "https://git.test/server/pull/9964" } }) }),
+        seriesTicket({ ticketId: "65", key: "#65", kind: "draft",
+          hold: hold("pr_draft", { act: { kind: "pull_request", target: "https://git.test/server/pull/9965" } }) }),
+        seriesTicket({ ticketId: "66", key: "#66", kind: "failed", state: "failed, waits for your decision", hold: null }),
+        seriesTicket({ ticketId: "67", key: "#67", kind: "running", hold: hold("working") }),
       ],
     }));
     render(<SeriesRunPage id="sr-1" />);
 
-    const line = await screen.findByTestId("series-ticket-question-62");
-    expect(line).toHaveTextContent("#62");
-    expect(line.querySelector("a")).toHaveAttribute("href", "/tickets/shop/62");
+    const needs = await screen.findByTestId("series-needs-you");
+    expect(needs).toHaveTextContent("Needs you");
+    const link = (id: string) => screen.getByTestId(`series-ticket-question-${id}`).querySelector("a");
+    expect(link("62")).toHaveAttribute("href", "/tickets/shop/62");
+    expect(link("62")).toHaveTextContent("Answer on its ticket");
+    expect(link("63")).toHaveAttribute("href", "/tickets/shop/63");
+    expect(link("63")).toHaveTextContent("Open ticket");
+    expect(link("64")).toHaveAttribute("href", "https://git.test/server/pull/9964");
+    expect(link("64")).toHaveTextContent("Open pull request");
+    expect(link("65")).toHaveAttribute("href", "https://git.test/server/pull/9965");
+    expect(screen.getByTestId("series-ticket-question-66")).toHaveTextContent("#66 failed, waits for your decision");
     expect(screen.queryByTestId("series-ticket-question-61")).toBeNull();
-    expect(screen.queryByTestId("series-ticket-question-63")).toBeNull();
-    const link = screen.getByTestId("series-question-link");
-    expect(link).toHaveTextContent("2 questions for you");
-    expect(link).toHaveAttribute("href", "#series-question");
+    expect(screen.queryByTestId("series-ticket-question-67")).toBeNull();
+    const rail = screen.getByTestId("series-question-link");
+    expect(rail).toHaveTextContent("6 need you");
+    expect(rail).toHaveAttribute("href", "#series-question");
+  });
+
+  it("SeriesPage_NoSeriesQuestion_AnApprovalStillShowsAboveTheInput", async () => {
+    hoisted.fetch.mockResolvedValue(seriesDetail({
+      tickets: [seriesTicket({ ticketId: "64", key: "#64", kind: "approval",
+        hold: hold("approval_needed", { act: { kind: "pull_request", target: "https://git.test/server/pull/9964" } }) })],
+    }));
+    render(<SeriesRunPage id="sr-1" />);
+
+    const block = await screen.findByTestId("series-questions");
+    expect(screen.queryByTestId("series-question")).toBeNull();
+    expect(block).toHaveTextContent("#64");
+    const following = block.compareDocumentPosition(screen.getByTestId("dialog-composer-text"));
+    expect(following & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("SeriesPage_AQuestionLink_ScrollsToTheQuestionBlock", async () => {

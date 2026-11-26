@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Holds;
 /// <para>2026-11-23-31dci: a nobody hold says since when it waits, and a wait on something outside the run (the model place,
 /// sandbox capacity, the restart) that outlasts <see cref="TicketHoldFacts.EscalateAfterMinutes"/> is the admin's
 /// (<see cref="TicketHoldEscalations"/>) — decided when the hold is read, so nothing runs in the background or is stored.</para>
-/// <para>2026-11-23-d60d: an open pull request always holds (<see cref="TicketPullRequestHold"/>); no in-review state.</para>
+/// <para>2026-11-23-d60d: an open pull request always holds (<see cref="TicketPullRequestHold"/>); no in-review state. 2026-11-26-f511a: <see cref="TicketSeriesWait"/>.</para>
 /// </summary>
 public sealed class TicketHoldReader
 {
@@ -23,7 +23,7 @@ public sealed class TicketHoldReader
     {
         ArgumentNullException.ThrowIfNull(facts);
         if (facts.Finished) return null;
-        return Admin(facts) ?? Decide(facts) ?? Plan(facts) ?? Merge(facts) ?? TicketHoldEscalations.Of(Nobody(facts), facts);
+        return Admin(facts) ?? (TicketSeriesWait.TakenUp(facts) ? null : Decide(facts)) ?? Plan(facts) ?? Merge(facts) ?? TicketHoldEscalations.Of(Nobody(facts), facts);
     }
 
     /// <summary>A precondition stopped the newest attempt — an image, a bootstrap or another configured precondition — or
@@ -88,7 +88,7 @@ public sealed class TicketHoldReader
     public TicketHold? Merge(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        if (AtWork(facts) || TicketPullRequestHold.CiHolds(facts) || TicketPullRequestHold.Blocks(facts)) return null;
+        if (AtWork(facts) || TicketPullRequestHold.CiHolds(facts) || TicketPullRequestHold.Blocks(facts) || TicketSeriesWait.WaitsOnAnother(facts)) return null;
         return TicketSeriesMergeHold.Next(facts) ?? TicketPullRequestHold.Ready(facts);
     }
 
@@ -115,6 +115,6 @@ public sealed class TicketHoldReader
         if (facts.MergeStep is { Wait: SeriesRunMergeWaits.Retarget }) return none(TicketHoldCases.Retarget, facts.EndedAt);
         if (TicketPullRequestHold.Waiting(facts) is { } waits) return waits;
         if (TicketSeriesMergeHold.StartsOnMerge(facts) is { } merges) return merges; // 2026-11-23-849e: nobody's, not a merge
-        return facts.WaitsFor.Count > 0 ? none(TicketHoldCases.Prerequisite, facts.FiledAt) with { Names = facts.WaitsFor } : null;
+        return facts.WaitsFor.Count > 0 ? none(TicketHoldCases.Prerequisite, facts.FiledAt) with { Names = facts.WaitsFor } : TicketSeriesWait.Hold(facts);
     }
 }

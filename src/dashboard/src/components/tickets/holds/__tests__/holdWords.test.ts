@@ -180,6 +180,15 @@ describe("holdWords", () => {
     expect(sinceClock(new Date(2026, 10, 21, 9, 5).toISOString(), "en-GB", now)).toBe("21 Nov 09:05");
     expect(sinceClock("not a date", "en-GB", now)).toBe("not a date");
   });
+  // 2026-11-26-f511c: with week, a day of the six before today carries its weekday; older ones keep their date.
+  it("sinceClock_WithWeek_ADayThisWeekIsItsWeekday_AnOlderOneItsDate", () => {
+    const now = new Date(2026, 10, 26, 9, 0); // a Thursday
+    expect(sinceClock(new Date(2026, 10, 26, 8, 5).toISOString(), "en-GB", now, true)).toBe("08:05");
+    expect(sinceClock(new Date(2026, 10, 25, 14, 5).toISOString(), "en-GB", now, true)).toBe("Wed 14:05");
+    expect(sinceClock(new Date(2026, 10, 20, 14, 5).toISOString(), "en-GB", now, true)).toBe("Fri 14:05");
+    expect(sinceClock(new Date(2026, 10, 19, 14, 5).toISOString(), "en-GB", now, true)).toBe("19 Nov 14:05");
+    expect(sinceClock(new Date(2026, 10, 25, 14, 5).toISOString(), "en-GB", now)).toBe("25 Nov 14:05");
+  });
   // 2026-11-23-d60d: an open pull request's holds — it merges now, its CI failed on named checks, its CI still runs.
   it("holdSentence_AnOpenPullRequest_MergesNow_NamesItsFailedChecks_SaysSinceWhenCiRuns", () => {
     const de = translator("de");

@@ -36,6 +36,10 @@ public sealed class SeriesBeat(SeriesRunRecord record, IReadOnlyList<SeriesTicke
     /// <summary>Messages the beat posts into the conversation, in order.</summary>
     public List<string> Said { get; } = [];
 
+    /// <summary>2026-11-26-f511c: the write acts the master took this beat, in order — posted as one "↳" line under its
+    /// sentence, or as their notices when it has none (<see cref="SeriesReport"/>).</summary>
+    public List<SeriesActLine> Acts { get; } = [];
+
     /// <summary>2026-11-17-0207b: the operator's messages to the series this beat read, and the transcript index read
     /// through — the record keeps it once the beat reported.</summary>
     public List<SeriesOperatorMessage> Messages { get; } = [];
