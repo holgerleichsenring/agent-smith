@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-26-5201b
+goal: "An agent turn's tool steps fold into one summary line (steps, reads, searches, writes) that expands on click; the turn's reply stays visible."
+
+applies_to: "dashboard (dialog transcript turn)"
+
+requires: [2026-11-12-92e9c, 2026-11-13-3dc8]
+
+facts:
+  - claim: "TurnMessage draws every condensed step line above the reply, always open."
+    evidence: "src/dashboard/src/components/dialog/TurnMessage.tsx:38-44"
+  - claim: "The step lines are condensed from the raw steps: reads and searches in a row are one counted line, a write a line of its own, a silent model or thinking step no line."
+    evidence: "src/dashboard/src/components/dialog/condenseSteps.ts:46-68"
+  - claim: "TurnMessage is the one agent-turn renderer of both the series chat and Work it out, through DialogTranscript."
+    evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:11 and :93"
+
+scope:
+  in: |
+    TurnMessage draws, where a turn has step lines, one summary button (aria-expanded) that counts the turn's steps and of
+    them its reads, searches and writes, e.g. "42 steps · 20 reads · 3 searches · 5 writes"; a click shows the existing
+    lines below it, another hides them. Closed by default; the master's narration lines (said) fold with the rest, on Work
+    it out too. A step is every raw step condenseSteps does not drop (thinking and silent or sub-agent model steps are no
+    steps); reads, searches and writes are tool steps by condenseSteps' own name rules, so they never exceed the steps. The
+    reply, spec lines, questions and course line are unchanged. One behaviour on every surface TurnMessage serves.
+  out: "The live working line (DialogWorking), the step fetch, the run page."
+
+steps:
+  - id: summary
+    action: "condenseSteps.ts gains stepSummary(t, steps): the counted parts; i18n keys for steps and writes."
+  - id: turn
+    action: "TurnMessage: the summary button, the lines behind it, closed by default."
+  - id: tests
+    action: "vitest: closed by default with the summary text, a click expands and collapses, the reply stays visible; migrate the TurnMessage tests."
+
+done:
+  - "A turn with steps shows one summary line and no step lines until it is clicked; the reply is visible (test)."
+  - "The summary counts steps, reads, searches and writes from the raw steps (test)."
+  - "pnpm test and pnpm build are green."

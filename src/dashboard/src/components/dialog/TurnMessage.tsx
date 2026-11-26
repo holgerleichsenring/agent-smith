@@ -2,9 +2,9 @@
 
 import { useT } from "@/hooks/useT";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import type { SpecDialogActivityPush } from "@/types/spec-dialog";
-import { condenseSteps } from "./condenseSteps";
+import { condenseSteps, stepSummary } from "./condenseSteps";
 import { waitsFor } from "./graphTicketWaits";
 import { courseOf, MARK_WORD, markOf } from "./turnCourse";
 import { rowsOf, type TurnProposal } from "./turnProposal";
@@ -15,6 +15,8 @@ import { useTurnSteps } from "./useTurnSteps";
 // order they came, the reply, one line per spec with the review's mark, what a bug, comment or list would file, the
 // open questions as text, and one course line. Nothing in it is a control: a past proposal's detail lives in its run,
 // which the course line links to, and the decision on the awaiting one is taken outside the turn.
+// 2026-11-26-5201b: the steps fold into one summary line ("42 steps · 20 reads"), closed by default; a click opens the
+// lines and another closes them. The fold is the turn's one control; the reply stays visible.
 
 export function TurnMessage({
   reply,
@@ -33,14 +35,24 @@ export function TurnMessage({
   const { steps, firstAt, lastAt } = useTurnSteps(runId, live);
   const lines = condenseSteps(t, steps);
   const course = courseOf(t, proposal ?? null, firstAt, lastAt);
+  const [open, setOpen] = useState(false);
+  const stepsId = useId();
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="turn-message" data-kind={proposal?.kind}>
       {lines.length > 0 && (
-        <ul className="flex flex-col gap-0.5 font-mono dsh-mono text-mute" data-testid="turn-steps">
-          {lines.map((line) => (
-            <li key={line.key} data-testid="turn-step" data-kind={line.kind}>{line.text}</li>
-          ))}
-        </ul>
+        <div className="flex flex-col gap-0.5">
+          <button type="button" className="self-start text-left font-mono dsh-mono text-mute hover:text-ink" aria-expanded={open} aria-controls={stepsId}
+            onClick={() => setOpen((was) => !was)} data-testid="turn-steps-summary">
+            <span aria-hidden="true">{open ? "▾" : "▸"} </span>{stepSummary(t, steps)}
+          </button>
+          {open && (
+            <ul id={stepsId} className="flex flex-col gap-0.5 font-mono dsh-mono text-mute" data-testid="turn-steps">
+              {lines.map((line) => (
+                <li key={line.key} data-testid="turn-step" data-kind={line.kind}>{line.text}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
       {reply}
       {proposal && <Outcome proposal={proposal} />}

@@ -44,14 +44,42 @@ interface Burst {
   searches: number;
 }
 
+/** Whether condenseSteps draws no line for a step: a model call that started, or a model step that said nothing or was a
+ *  sub-agent's. */
+function dropped(step: RawStep): boolean {
+  const name = step.name ?? "";
+  return step.kind === "thinking" || (step.kind === "model" && (!step.detail?.trim() || name.includes(PREFIX)));
+}
+
+/** 2026-11-26-5201b: the one line a turn's folded steps show — how many steps it took, and of them its reads, searches
+ *  and writes ("42 steps · 20 reads · 3 searches · 5 writes"). A step is every step condenseSteps does not drop; the
+ *  reads, searches and writes are tool steps by its own name rules, so they never add up to more than the steps. */
+export function stepSummary(t: T, steps: RawStep[]): string {
+  let total = 0, reads = 0, searches = 0, writes = 0;
+  for (const step of steps) {
+    if (dropped(step)) continue;
+    total += 1;
+    if (step.kind !== "tool") continue;
+    const tool = toolOf(step.name ?? "");
+    if (SEARCH.test(tool)) searches += 1;
+    else if (READ.test(tool)) reads += 1;
+    else if (WRITE.test(tool)) writes += 1;
+  }
+  return [
+    t("dialog.steps.total", { count: total }),
+    reads > 0 ? t("dialog.steps.reads", { count: reads }) : null,
+    searches > 0 ? t("dialog.steps.searches", { count: searches }) : null,
+    writes > 0 ? t("dialog.steps.writes", { count: writes }) : null,
+  ].filter(Boolean).join(" · ");
+}
+
 /** The lines of one turn, in the order its steps came. */
 export function condenseSteps(t: T, steps: RawStep[]): StepLine[] {
   const lines: StepLine[] = [];
   let burst: Burst | null = null;
   for (const [index, step] of steps.entries()) {
     const name = step.name ?? "";
-    if (step.kind === "thinking") continue;
-    if (step.kind === "model" && (!step.detail?.trim() || name.includes(PREFIX))) continue;
+    if (dropped(step)) continue;
     const tool = toolOf(name);
     if (step.kind === "tool" && (READ.test(tool) || SEARCH.test(tool))) {
       burst ??= { key: step.seq, reads: 0, searches: 0 };

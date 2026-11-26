@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SpecDialogActivityStep, SpecDialogProposalPush, SpecDialogReviewRound, SpecDraftProposal } from "@/types/spec-dialog";
 import { withInterrupted, type DialogEntry } from "@/hooks/useSpecDialog";
@@ -48,6 +48,7 @@ beforeEach(() => {
 describe("TurnMessage", () => {
   it("RendersStepsSpecsQuestionsCourse", async () => {
     render(<TurnMessage reply={<p>Four slices.</p>} proposal={turnProposalOf(epic)} runId="run-1" />);
+    fireEvent.click(await screen.findByTestId("turn-steps-summary"));
 
     await waitFor(() => expect(screen.getAllByTestId("turn-step").map((line) => line.textContent))
       .toEqual(["1 read · 1 search", "write_file s1"]));
@@ -62,11 +63,31 @@ describe("TurnMessage", () => {
     expect(within(course).getByTestId("turn-course-run")).toHaveAttribute("href", "/jobs/run-1");
   });
 
-  it("HasNoButtons", async () => {
+  it("HasNoControl_ButTheStepsFold", async () => {
     const { container } = render(<TurnMessage reply={<p>Done.</p>} proposal={turnProposalOf(epic)} runId="run-1" />);
-    await waitFor(() => expect(screen.getAllByTestId("turn-step")).toHaveLength(2));
+    const fold = await screen.findByTestId("turn-steps-summary");
 
-    expect(container.querySelectorAll("button, input, textarea, details")).toHaveLength(0);
+    expect(container.querySelectorAll("button, input, textarea, details")).toHaveLength(1);
+    expect(container.querySelector("button")).toBe(fold);
+  });
+
+  // 2026-11-26-5201b: the steps are one summary line until a click; the reply is visible either way.
+  it("Steps_FoldedByDefault_OpenAndCloseOnClick_TheReplyStays", async () => {
+    render(<TurnMessage reply={<p>Done.</p>} runId="run-1" />);
+    const fold = await screen.findByTestId("turn-steps-summary");
+
+    expect(fold).toHaveTextContent("3 steps · 1 read · 1 search · 1 write");
+    expect(fold).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("turn-step")).toBeNull();
+    expect(screen.getByText("Done.")).toBeInTheDocument();
+
+    fireEvent.click(fold);
+    expect(screen.getAllByTestId("turn-step")).toHaveLength(2);
+    expect(fold).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(fold);
+    expect(screen.queryByTestId("turn-step")).toBeNull();
+    expect(screen.getByText("Done.")).toBeInTheDocument();
   });
 
   it("BugCommentTicketList_AsLines", () => {
@@ -101,6 +122,7 @@ describe("TurnMessage", () => {
     const live = [{ dialogId: "d-1", kind: "model", name: null, detail: "Checking the import path", at: "2026-11-12T10:00:00Z",
       seq: 1, turnStartedAt: "2026-11-12T10:00:00Z" } as const];
     render(<TurnMessage reply={<p>Answer.</p>} runId="run-1" live={[...live]} />);
+    fireEvent.click(screen.getByTestId("turn-steps-summary"));
 
     expect(screen.getByTestId("turn-step")).toHaveTextContent("Checking the import path");
     expect(fetchDialogActivity).not.toHaveBeenCalled();

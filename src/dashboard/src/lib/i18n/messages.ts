@@ -143,6 +143,8 @@ export const coreMessages = {
 
   // --- dialog: a turn's steps ---
   "dialog.steps.reads": { en: { one: "1 read", other: "{count} reads" }, de: { one: "1× gelesen", other: "{count}× gelesen" } },
+  "dialog.steps.total": { en: { one: "1 step", other: "{count} steps" }, de: { one: "1 Schritt", other: "{count} Schritte" } },
+  "dialog.steps.writes": { en: { one: "1 write", other: "{count} writes" }, de: { one: "1× geschrieben", other: "{count}× geschrieben" } },
   "dialog.steps.searches": {
     en: { one: "1 search", other: "{count} searches" },
     de: { one: "1× gesucht", other: "{count}× gesucht" },
