@@ -1012,6 +1012,8 @@ export const coreMessages = {
   "series.graph.alsoIn": { en: "+ {repos}", de: "+ {repos}" },
   "series.graph.hide": { en: "Hide graph", de: "Graph ausblenden" },
   "series.graph.show": { en: "Show graph", de: "Graph zeigen" },
+  // 2026-11-26-f511b: the divider between the graph and the chat.
+  "series.graph.resize": { en: "Graph height — drag or use the arrow keys", de: "Höhe des Graphen — ziehen oder Pfeiltasten" },
   "series.graph.hint": {
     en: "Click a ticket to see where it stands. To change anything, tell the series in the chat below.",
     de: "Klick auf ein Ticket, um zu sehen, wo es steht. Willst du etwas ändern, sag es der Serie unten im Chat.",

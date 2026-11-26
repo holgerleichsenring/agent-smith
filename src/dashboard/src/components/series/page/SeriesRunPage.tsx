@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useT } from "@/hooks/useT";
@@ -9,11 +9,12 @@ import type { SeriesRunDetail } from "@/types/seriesRuns";
 import "@/styles/ticket-thread.css";
 import "@/styles/series.css";
 import { SeriesConversationSection } from "./SeriesConversationSection";
-import { SeriesOverviewSection } from "./SeriesOverviewSection";
+import { SERIES_OVERVIEW_ID, SeriesOverviewSection } from "./SeriesOverviewSection";
 import { SERIES_QUESTION_ID } from "./SeriesQuestionBlock";
 import { SeriesSectionBar } from "./SeriesSectionBar";
 import { SeriesStatusLine } from "./SeriesStatusLine";
 import { useSeriesGraphCollapsed } from "./useSeriesGraphCollapsed";
+import { useSeriesGraphSplit } from "./useSeriesGraphSplit";
 import { useSeriesRunDetail } from "./useSeriesRunDetail";
 
 // 2026-11-23-31dcd: one series, built like the ticket page — its bar beside the icon-only sidebar.
@@ -23,6 +24,7 @@ import { useSeriesRunDetail } from "./useSeriesRunDetail";
 // 2026-11-26-5201a: the page is the viewport's height — the graph on top, the chat filling the rest, scrolling by itself.
 // 2026-11-26-b186: no chrome over the chat — the status line sits in the title row, the "Chat" heading is gone, and the
 // graph folds to one line on request, remembered per browser.
+// 2026-11-26-f511b: a divider between the graph and the chat sets the graph's height, by pointer or keys, remembered per browser.
 
 export const SERIES_CHAT_ID = "series-chat";
 
@@ -48,7 +50,9 @@ function SeriesPane({ detail }: { detail: SeriesRunDetail }) {
   const t = useT();
   const params = useSearchParams();
   const chat = useRef<HTMLElement>(null);
+  const pane = useRef<HTMLElement>(null);
   const [collapsed, toggleGraph] = useSeriesGraphCollapsed();
+  const split = useSeriesGraphSplit(pane, collapsed, detail);
   const section = params?.get("section");
   const toChat = section === "talk" || section === "question";
   // 2026-11-26-5201c: a link to the question (the list's row, a hold's) lands on the question block when one waits.
@@ -66,8 +70,13 @@ function SeriesPane({ detail }: { detail: SeriesRunDetail }) {
           <h1 data-testid="series-title">{detail.name}</h1>
           <SeriesStatusLine detail={detail} />
         </div>
-        <section className="tk-pane" data-testid="series-pane">
+        <section ref={pane} className="tk-pane" data-testid="series-pane"
+          style={split.height === null ? undefined : ({ "--sr-graph-h": `${split.height}px` } as CSSProperties)}>
           <SeriesOverviewSection detail={detail} collapsed={collapsed} onToggle={toggleGraph} />
+          {!collapsed && (
+            <div {...split.separator} className="sr-divider" aria-controls={SERIES_OVERVIEW_ID} aria-label={t("series.graph.resize")}
+              data-testid="series-graph-divider" />
+          )}
           <section ref={chat} id={SERIES_CHAT_ID} className="sr-chat" aria-label={t("series.chat.title")} data-testid="series-chat">
             <SeriesConversationSection detail={detail} />
           </section>

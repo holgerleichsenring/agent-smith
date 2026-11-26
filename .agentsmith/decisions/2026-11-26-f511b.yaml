@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-26-f511b
+
+decisions:
+  - category: Architecture
+    chose: "A divider the viewer drags or moves with the keys sets the graph's share of the pane (default 40%), drawn at most at the graph's own height and never so high that the chat loses its question block, composer and 96px of conversation"
+    over: "The fixed 18vh cap (b186); a bigger fixed cap"
+    reason: |
+      The operator saw about one row of nodes per repo lane at 18vh with a 26-ticket series, which is no overview. Rendered at
+      1920x1080 the default draws 386px (both lanes' first rows and more); dragging 150px down shows the whole 551px graph at
+      1728x1117 while the conversation keeps 246px. A fixed bound suits one screen and one series size only; b186 rejected the
+      split as a control the mock lacked, and the operator has now asked for it.
+  - category: Implementation
+    chose: "The share is remembered per browser in localStorage (agentsmith.series-graph-split, try/catch, read after mount), as the fold is"
+    over: "A per-series share; a server-side preference"
+    reason: |
+      It is the viewer's reading preference, and the fold beside it is kept the same way.
+  - category: Implementation
+    chose: "The graph's head (48px) wins when the bounds collide; aria-valuenow reports the drawn height in percent of the pane, the stored share while the pane is unmeasured"
+    over: "Letting the chat's room win down to no graph"
+    reason: |
+      The Hide button lives in the graph's head; it must stay reachable. The CSS still lets the graph shrink (flex-shrink, f511a)
+      before the chat's minimum, so the input never leaves the screen. jsdom lays nothing out, so the tests read the stored share.
+  - category: Implementation
+    chose: "The sizes come from a ResizeObserver on the pane, the graph's parts, the chat and its scroll box; the graph's own height is the sum of its parts"
+    over: "The overview's scrollHeight"
+    reason: |
+      The overview is bounded and scrolls, so its scrollHeight equals its box whenever the graph is smaller; the parts keep their
+      natural heights inside it.
