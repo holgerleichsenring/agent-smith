@@ -21,6 +21,7 @@ public sealed class SeriesBudgetQuestion(ISeriesRunStore store, AgentSmithConfig
         var record = beat.Record;
         var left = record.BudgetUsd(Dialogue.SeriesMasterBudgetUsd) - record.MasterCostUsd;
         if (!record.IsActive || beat.BudgetHeard || record.BudgetAsked || Blocked(record) || left > Dialogue.SeriesMasterBudgetAskUsd) return;
+        if (string.IsNullOrEmpty(record.Conversation)) return; // 2026-11-25-96aea: a series of one without a conversation has nobody to ask
         var asked = Question(record, left, beat.Now);
         var kept = await store.UpdateAsync(record.Id,
             r => r.BudgetAsked || Blocked(r) ? r : r with { Question = asked, BudgetAsked = true }, ct);

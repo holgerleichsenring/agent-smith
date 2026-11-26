@@ -80,11 +80,6 @@ public sealed class AzureReposPullRequestUpdater(
 
     private Task<string?> SelfAsync(CancellationToken ct) => clientFactory.AuthorizedIdentityIdAsync(organizationUrl, personalAccessToken, ct);
 
-    // 2026-11-24-629ab: auto-complete armed again after a conflict dropped it — no vote (AzureReposAutoComplete.RearmAsync).
-    public Task<PullRequestCompletion> RearmAsync(string prUrl, CancellationToken cancellationToken) =>
-        OnPullRequestAsync(prUrl, async (client, pr, prId) =>
-            await _autoComplete.RearmAsync(client, pr, prId, await SelfAsync(cancellationToken), cancellationToken), cancellationToken);
-
     private async Task<PullRequestCompletion> OnPullRequestAsync(
         string prUrl, Func<GitHttpClient, GitPullRequest, int, Task<PullRequestCompletion>> act, CancellationToken cancellationToken)
     {

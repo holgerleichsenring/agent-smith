@@ -36,7 +36,7 @@ public sealed class StackedStartCompositionTests
     private const string DependentPr = StackedSeries.DependentPr;
 
     [Fact]
-    public async Task GreenPrerequisite_StartsTheDependentStacked_AndItsLandingMovesTheDependentsPullRequest()
+    public async Task GreenPrerequisite_WakesTheDependentsMaster_WhichStartsItStacked()
     {
         var (tracker, events, spawn, nudges) = (new ActTracker(), new ActRunEvents(), new Mock<ISpawnPipelineRunsUseCase>(), new List<ReworkNudgeRequest>());
         var provider = StackedSeries.Host();
@@ -61,39 +61,19 @@ public sealed class StackedStartCompositionTests
 
         await handler.HandleAsync(project, StackedSeries.Nudge("1", ReworkNudgeOrigin.RunEnd), default);
 
-        nudges.Should().ContainSingle(n => n.TicketId == "2" && n.Origin == ReworkNudgeOrigin.RequirementsMet,
-            "the prerequisite's green branch wakes the dependent it holds");
-        await handler.HandleAsync(project, StackedSeries.Nudge("2", ReworkNudgeOrigin.RequirementsMet), default);
-        events.Started.Select(e => e.Pipeline).Should().Equal(PipelinePresets.FileName, PipelinePresets.StartName);
-        spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.Is<ResolvedProject>(p => p.Name == Project),
-            It.IsAny<string>(), It.Is<IncomingTicketEnvelope>(e => e.TicketId == "2"), It.IsAny<WebhookTriggerConfig>(),
-            It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Once);
+        // 2026-11-25-96aea: the green branch wakes the series master holding the dependent; nothing starts by itself
+        var store = sp.GetRequiredService<AgentSmith.Contracts.Series.ISeriesRunStore>();
+        var series = (await store.ActiveAsync(default)).Should().ContainSingle().Subject;
+        series.Wakes.Should().ContainSingle(w => w.TicketId == "2" && w.Kind == AgentSmith.Contracts.Series.SeriesWakeKinds.Prerequisite,
+            "the prerequisite's green branch is the master's to act on");
+        nudges.Should().NotContain(n => n.Origin == ReworkNudgeOrigin.RequirementsMet);
+        events.Started.Select(e => e.Pipeline).Should().Equal(PipelinePresets.FileName);
         var config = new AgentSmithConfig { Projects = new() { [Project] = project } };
         var (claim, refused) = await StackedBaseStamp.ApplyAsync(new ClaimRequest("github", Project, new TicketId("2"), PipelinePresets.CodeName),
             config, sp.GetRequiredService<UnmetTicketRequirements>(), default);
         refused.Should().BeNull();
         claim.InitialContext![ContextKeys.StackedOnTicket].Should().BeEquivalentTo(new Dictionary<string, string> { ["filing-fixture"] = "1" },
-            "the dependent's run is cut from and targets agent-smith/1 in the repo 1 worked in (2026-11-23-31dca)");
-
-        await StackedSeries.RunAsync(sp, "2", DependentPr);
-        await harness.Services.GetRequiredService<TicketLandingRecorder>().RecordByHandAsync(project, "1", "sample.user", "merged", default);
-        await handler.HandleAsync(project, StackedSeries.Nudge("2", ReworkNudgeOrigin.RequirementsMet), default);
-        provider.Verify(p => p.RetargetPullRequestAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<CancellationToken>()), Times.Never,
-            "the active series' master retargets its tickets");
-        await StopSeriesAsync(sp);
-        await handler.HandleAsync(project, StackedSeries.Nudge("2", ReworkNudgeOrigin.RequirementsMet), default);
-
-        provider.Verify(p => p.RetargetPullRequestAsync(DependentPr, new BranchName("main"), It.IsAny<CancellationToken>()), Times.Once);
-        var listed = await events.ListedRunsAsync(harness.Services);
-        listed.Single(r => r.Pipeline == PipelinePresets.RetargetName).Steps.Select(s => s.CommandName)
-            .Should().Contain(CommandNames.RetargetPullRequests);
-    }
-
-    private static async Task StopSeriesAsync(IServiceProvider sp)
-    {
-        var store = sp.GetRequiredService<AgentSmith.Contracts.Series.ISeriesRunStore>();
-        foreach (var series in await store.ActiveAsync(default))
-            await store.UpdateAsync(series.Id, r => r with { State = AgentSmith.Contracts.Series.SeriesRunStates.Stopped }, default);
+            "the dependent's run, once its master starts it, is cut from and targets agent-smith/1 (2026-11-23-31dca)");
     }
 
     // 2026-11-24-f9c5b: a series filed now integrates on its series branch and never stacks; stacking stays for a series

@@ -44,28 +44,6 @@ public sealed class CompletePullRequestsHandlerTests
             .ReturnsAsync([]);
     }
 
-    [Theory]
-    [InlineData(ReviewMode.End, "review: end")]
-    [InlineData(ReviewMode.Each, "review: each")]
-    public async Task EndOrEach_ACodeRunMergesNothing_AndMarksNothingAwaitingCi(ReviewMode review, string said)
-    {
-        var result = await RunAsync((review, BranchProtection.Respect), Passed("a"));
-
-        result.Message.Should().Contain(said).And.Contain("stay open for a person");
-        _merged.Should().BeEmpty();
-        _outcomes.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task NoGatePassedPullRequests_MergesNothing_AndSaysWhy()
-    {
-        var result = await RunAsync(OnCi(), passed: null);
-
-        result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("did not pass its gate");
-        _merged.Should().BeEmpty();
-    }
-
     [Fact]
     public async Task MergeGreen_MergesEach_InTheContextsProtection_AndRecordsIt()
     {
@@ -103,17 +81,6 @@ public sealed class CompletePullRequestsHandlerTests
         _outcomes.First().Status.Should().Be(PullRequestStatuses.CompletionArmed);
     }
 
-    [Fact]
-    public async Task RungTarget_IsLeftOpen_AndNamed()
-    {
-        var result = await RunAsync(OnCi(), Passed("a"), pipeline => PullRequestTargets.Record(pipeline, "a", "feature/epic"));
-
-        _merged.Should().BeEmpty();
-        result.Message.Should().Contain("every pull request was opened against a rung");
-        _outcomes.Single().Status.Should().Be(PullRequestStatuses.CompletionRefused);
-        _outcomes.Single().Reason.Should().Contain("opened against 'feature/epic'");
-    }
-
     // 2026-11-25-9992i: a merge into a series branch squashes; one into the default branch keeps the host's method.
     [Fact]
     public async Task MergeGreen_IntoASeriesBranch_Squashes_ElseTheHostsMethod()
@@ -122,16 +89,6 @@ public sealed class CompletePullRequestsHandlerTests
         await RunAsync(OnCi(), passed: null, Green("a", askedBy: "series master"));
 
         _styles.Should().Equal(MergeStyle.Squash, MergeStyle.HostDefault);
-    }
-
-    // 2026-11-24-f9c5c: a pull request onto another branch than the series branch is still a rung refusal.
-    [Fact]
-    public async Task SeriesBranchRun_APullRequestOntoAnotherRung_IsStillLeftOpen()
-    {
-        var result = await RunAsync(OnCi(), Passed("a"), p => PullRequestTargets.Record(p, "a", "agent-smith/41"), "agent-smith/series/sr-1");
-
-        _merged.Should().BeEmpty();
-        _outcomes.Single().Reason.Should().Contain("opened against 'agent-smith/41'");
     }
 
     // 2026-11-25-9992i: the builder carries the project's review; a series-branch run merges past protection, every other merge
@@ -155,90 +112,6 @@ public sealed class CompletePullRequestsHandlerTests
         (series.Style, plain.Style).Should().Be((MergeStyle.Squash, MergeStyle.HostDefault), "2026-11-25-9992i: one commit per ticket on a series branch");
     }
 
-    // 2026-11-17-3435b
-    [Fact]
-    public async Task OnCiGreen_CodeRun_RecordsAwaitingCi_AndMergesNothing()
-    {
-        var result = await RunAsync(OnCi(), Passed("a", "b"));
-
-        _merged.Should().BeEmpty();
-        _outcomes.Should().HaveCount(2).And.AllSatisfy(o => o.Status.Should().Be(PullRequestStatuses.AwaitingCi));
-        result.Message.Should().Contain("a, b wait for CI");
-    }
-
-    [Fact]
-    public async Task OnCiGreen_MergeGreenRun_InRespect_MergesWithoutApproving_AndTellsTheAttempt()
-    {
-        var result = await RunAsync(OnCi(respect: true), passed: null, Green("a"));
-
-        // 2026-11-25-9992h: nothing approves; a review the host requires is a person's, and the armed merge waits for it.
-        _calls.Should().NotContain(c => c.StartsWith("approve", StringComparison.Ordinal));
-        _merged.Should().Equal(("https://x/a/pull/1", BranchProtection.Respect));
-        _outcomes.Select(o => (o.RunId, o.Status)).Should().Equal(
-            ("run-1", PullRequestStatuses.Completed), ("attempt-1", PullRequestStatuses.Completed));
-        result.Message.Should().Contain("CI green").And.Contain("a: merged");
-    }
-
-    [Fact]
-    public async Task OnCiGreen_Bypass_Merges()
-    {
-        await RunAsync(OnCi(), passed: null, Green("a"));
-
-        _merged.Should().ContainSingle();
-    }
-
-    // 2026-11-23-97c2a
-    [Fact]
-    public async Task OnCiGreen_MergeGreenRun_ARequiredTicketNotLanded_IsRefused_AndTheAttemptKeepsAwaitingCi()
-    {
-        Requires("40", "41");
-
-        var result = await RunAsync(OnCi(respect: true), passed: null, Green("a"));
-
-        _merged.Should().BeEmpty();
-        _outcomes.Select(o => (o.RunId, o.Status, o.Reason)).Should().Equal(
-            ("run-1", PullRequestStatuses.CompletionRefused, "not merged: prerequisites #40 and #41 are not merged into the default branch yet"),
-            ("attempt-1", PullRequestStatuses.AwaitingCi, "not merged: prerequisites #40 and #41 are not merged into the default branch yet"));
-        result.Message.Should().Contain("a: not merged: prerequisites #40 and #41 are not merged into the default branch yet");
-    }
-
-    [Fact]
-    public async Task ARequiredTicketLanded_MergesAsBefore()
-    {
-        Requires("41");
-        _landings.Setup(r => r.LandedAsync("gh", It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new TicketLandingFact("gh", "github-41", "41", "p", TicketLandingKinds.Merged, DateTimeOffset.UnixEpoch, null, null, null)]);
-
-        await RunAsync(OnCi(), passed: null, Green("a"));
-
-        _merged.Should().ContainSingle();
-    }
-
-    [Fact]
-    public async Task NoRequirementRows_MergesAsBefore_WithOneRequirementReadAndNoLandingRead()
-    {
-        await RunAsync(OnCi(), passed: null, Green("a"));
-
-        _merged.Should().ContainSingle();
-        _edges.Verify(e => e.RequiredOfAsync("gh", "github-42", It.IsAny<CancellationToken>()), Times.Once);
-        _landings.Verify(r => r.LandedAsync(It.IsAny<string>(), It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task ARequiredTicketNotLanded_ARungTarget_StillNamesItsRung()
-    {
-        Requires("41");
-
-        var result = await RunAsync(OnCi(), passed: null, pipeline =>
-        {
-            Green(["a", "b"], null, null)(pipeline);
-            PullRequestTargets.Record(pipeline, "a", "agent-smith/41");
-        });
-
-        _merged.Should().BeEmpty();
-        result.Message.Should().Contain("a: opened against 'agent-smith/41'").And.Contain("b: not merged: #41, a prerequisite, is not merged into the default branch yet");
-    }
-
     // 2026-11-23-31dce
     [Fact]
     public async Task EndReview_APersonAskedMerge_Runs_AndFillsTheOutcomeSlot()
@@ -254,18 +127,6 @@ public sealed class CompletePullRequestsHandlerTests
     }
 
     [Fact]
-    public async Task EndReview_TheCiWatchsMergeGreenRequest_StillMergesNothing()
-    {
-        var slot = new ActSlot<IReadOnlyList<PullRequestMergeLine>>();
-
-        var result = await RunAsync(EndReview(), passed: null, Green("a", slot: slot));
-
-        result.Message.Should().Contain("review: end");
-        _merged.Should().BeEmpty();
-        slot.IsSet.Should().BeFalse();
-    }
-
-    [Fact]
     public async Task MergeGreen_ABaseOnAPrerequisitesBranch_IsRefusedInsideTheRun_AndStopsTheRest()
     {
         _bases["https://x/a/pull/1"] = "agent-smith/41";
@@ -278,18 +139,6 @@ public sealed class CompletePullRequestsHandlerTests
         slot.Value!.Should().AllSatisfy(l => l.Outcome.Should().Be(PullRequestCompletionOutcome.Refused));
         _outcomes.Select(o => (o.RunId, o.Status)).Should().Equal([("run-1", PullRequestStatuses.CompletionRefused)],
             "a person's refused merge leaves the attempt's record as it was");
-    }
-
-    [Fact]
-    public async Task OnCiGreen_TheCiWatchsMerge_ABaseOffTheDefaultBranch_KeepsTheAttemptAwaitingCi()
-    {
-        _bases["https://x/a/pull/1"] = "agent-smith/41";
-
-        await RunAsync(OnCi(), passed: null, Green("a"));
-
-        _merged.Should().BeEmpty();
-        _outcomes.Select(o => (o.RunId, o.Status)).Should().Equal(
-            ("run-1", PullRequestStatuses.CompletionRefused), ("attempt-1", PullRequestStatuses.AwaitingCi));
     }
 
     [Fact]
@@ -339,14 +188,10 @@ public sealed class CompletePullRequestsHandlerTests
     // 2026-11-23-0219: a person's merge queues again the required builds that have not started, after the draft step and before
     // the approval and the arm; the CI watch's own merge never does.
     [Fact]
-    public async Task MergeGreen_APersonAskedMerge_RequeuesNotStartedBuilds_TheCiMergeDoesNot()
+    public async Task MergeGreen_AnAskedMerge_RequeuesNotStartedBuilds()
     {
         await RunAsync(EndReview(), passed: null, Green("a", askedBy: "Dana"));
         _calls.Should().Contain("requeue-unsettled https://x/a/pull/1");
-
-        _calls.Clear();
-        await RunAsync(OnCi(respect: true), passed: null, Green("a"));
-        _calls.Should().NotContain(c => c.StartsWith("requeue", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -372,15 +217,6 @@ public sealed class CompletePullRequestsHandlerTests
         _calls.Should().Equal("requeue-unsettled https://x/a/pull/1", "merge https://x/a/pull/1");
     }
 
-    [Fact]
-    public async Task OnCiGreen_TheCiWatchsMerge_NeverTakesADraftOut()
-    {
-        await RunAsync(OnCi(), passed: null, Green("a"));
-
-        _calls.Should().NotContain(c => c.StartsWith("ready", StringComparison.Ordinal));
-        _merged.Should().ContainSingle();
-    }
-
     // 2026-11-24-629aa: the CI loop's request for a build that has not started queues it again and merges nothing, under every review.
     [Theory]
     [InlineData(ReviewMode.End)]
@@ -394,19 +230,6 @@ public sealed class CompletePullRequestsHandlerTests
         _calls.Should().Equal("requeue https://x/a/pull/1");
         _merged.Should().BeEmpty();
         result.Message.Should().Contain("a: 1 queued").And.Contain("c: 0 queued").And.Contain("nothing merges");
-    }
-
-    // 2026-11-24-629ab: the CI loop's request for a dropped auto-complete arms it again and merges nothing, under every review.
-    [Fact]
-    public async Task MergeGreen_ARearmRequest_ArmsAgain_AndMergesNothing()
-    {
-        var result = await RunAsync(EndReview(), passed: null, pipeline =>
-            pipeline.Set(ContextKeys.CiGreenMerge, new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42",
-                [new CiGreenPullRequest("a", "https://x/a/pull/1") { Rearm = true }, new CiGreenPullRequest("c", "https://x/c/pull/1") { Rearm = true }])));
-
-        _calls.Should().Equal("rearm https://x/a/pull/1");
-        _merged.Should().BeEmpty();
-        result.Message.Should().Contain("a: armed — set").And.Contain("c: refused — not armed, the repository is not in this run");
     }
 
     // 2026-11-25-9992e: a merge the series master (or a person) judged passes the prerequisite, rung and base refusals.
@@ -485,21 +308,6 @@ public sealed class CompletePullRequestsHandlerTests
         new("42", "attempt-1", "agent-smith/42", [new CiGreenPullRequest("a", "https://x/a/pull/1")]) { AskedBy = "series master", ChecksTarget = true };
 
     [Fact]
-    public async Task CodeRun_OfATicketASeriesHolds_MergesNothing_AndMarksNothingAwaitingCi()
-    {
-        await _series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
-        {
-            Project = "p", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("42")],
-        }, default);
-
-        var result = await RunAsync(OnCi(), Passed("a"));
-
-        _merged.Should().BeEmpty();
-        _outcomes.Should().BeEmpty();
-        result.Message.Should().Be("Not merged: a series holds this ticket, so the series master merges it.");
-    }
-
-    [Fact]
     public async Task MergeGreen_ACiStartRequest_MergesNothing()
     {
         var result = await RunAsync(EndReview(), passed: null, pipeline => pipeline.Set(ContextKeys.CiGreenMerge,
@@ -523,7 +331,7 @@ public sealed class CompletePullRequestsHandlerTests
     private static Action<PipelineContext> Green(string[] repos, string? askedBy, ActSlot<IReadOnlyList<PullRequestMergeLine>>? slot) => pipeline =>
     {
         pipeline.Set(ContextKeys.CiGreenMerge, new CiGreenMergeRequest("42", "attempt-1", "agent-smith/42",
-            [.. repos.Select(r => new CiGreenPullRequest(r, $"https://x/{r}/pull/1"))]) { AskedBy = askedBy });
+            [.. repos.Select(r => new CiGreenPullRequest(r, $"https://x/{r}/pull/1"))]) { AskedBy = askedBy ?? "series master" }); // 96aea: only an asked merge merges
         if (slot is not null) pipeline.Set(ContextKeys.ActOutcome, slot);
     };
 
@@ -573,12 +381,6 @@ public sealed class CompletePullRequestsHandlerTests
                 _calls.Add(settled ? $"requeue {url}" : $"requeue-unsettled {url}"); // 2026-11-25-7a92b
                 return Task.FromResult(1);
             });
-        provider.As<IPullRequestAutoCompleteRearmer>().Setup(r => r.RearmAutoCompleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns<string, CancellationToken>((url, _) =>
-            {
-                _calls.Add($"rearm {url}");
-                return Task.FromResult(PullRequestCompletion.Armed("set"));
-            });
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
         var events = new Mock<IEventPublisher>();
@@ -590,9 +392,8 @@ public sealed class CompletePullRequestsHandlerTests
             new PullRequestBaseGuard(factory.Object), NullLogger<PullRequestMergeSequence>.Instance,
             new UnmetTicketRequirements(_edges.Object, _landings.Object, Mock.Of<ISpecApprovalStore>()),
             new PullRequestDraftStep(factory.Object),
-            new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance)), completer,
-            requeue: new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance),
-            rearm: new PullRequestAutoCompleteRearm(factory.Object, NullLogger<PullRequestAutoCompleteRearm>.Instance), series: _series);
+            new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance)),
+            requeue: new PullRequestBuildRequeue(factory.Object, NullLogger<PullRequestBuildRequeue>.Instance));
         return await handler.ExecuteAsync(new CompletePullRequestsContext(policy.Review, policy.Protection, new BranchName("agent-smith/42"), repos, pipeline,
             "gh", "github-42", seriesBranch)
         {

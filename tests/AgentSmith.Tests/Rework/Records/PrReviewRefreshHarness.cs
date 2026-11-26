@@ -67,12 +67,9 @@ internal sealed class PrReviewRefreshHarness : IDisposable
         Repos = [new RepoConnection { Name = "api", Type = RepoType.GitHub, Url = "https://github.com/o/api" }],
     };
 
-    public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(), new PrRecordCiRead(NullLogger<PrRecordCiRead>.Instance), CiMerge(),
-        new CiRedNudge(Store.ScopeFactory, Attempts.Object, Store.Services.GetRequiredService<IReworkNudges>()),
-        new CiBuildRequeue(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object, Clock), // 2026-11-24-629aa
-        new AutoCompleteRearm(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object), // 2026-11-24-629ab
+    public PrReviewRecordRefresh Refresh() => new(Store.ScopeFactory, Sources.Object, Trust.Object, new PrReviewEntryBuilder(), new PrRecordCiRead(NullLogger<PrRecordCiRead>.Instance),
         Series, Wakes, // 2026-11-25-9992e, 9992g
-        new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance), Conflicts(),
+        new PrRecordTargetRead(NullLogger<PrRecordTargetRead>.Instance),
         Recorder(), Activity.Object, Clock,
         NullLogger<PrReviewRecordRefresh>.Instance);
 
@@ -89,16 +86,12 @@ internal sealed class PrReviewRefreshHarness : IDisposable
 
     public RefreshableTicket Tickets() => new(Leases.Object, Attempts.Object, Closed.Object);
 
-    public ConflictBaseRefresh Conflicts() => new(Store.ScopeFactory, Start(), NullLogger<ConflictBaseRefresh>.Instance);
-
     public BaseRefreshStart Start() => new(Tickets(), NullLogger<BaseRefreshStart>.Instance); // 2026-11-24-9dc0e
 
     public BaseRefreshRetry Retry() => new(Store.ScopeFactory, Start(), Sources.Object); // 2026-11-24-9dc0e
 
     /// <summary>2026-11-17-3435b: the merge-green runs the CI loop started.</summary>
     public Mock<IMergeGreenRun> MergeRuns { get; } = new();
-
-    public CiGreenMerge CiMerge() => new(Store.ScopeFactory, Attempts.Object, Leases.Object, MergeRuns.Object, Clock);
 
     // 2026-10-14-dbceg: the landing recorder over the harness store.
     public TicketLandingRecorder Recorder() => new(Store.ScopeFactory, new LandedTicketRepository(Store.ScopeFactory), Wake(),
@@ -119,16 +112,16 @@ internal sealed class PrReviewRefreshHarness : IDisposable
     public InMemorySpecApprovalStore Approvals { get; } = new();
 
     public DependentsWake Wake() =>
-        WakeOver(Store, Store.Services.GetRequiredService<IReworkNudges>(), Attempts.Object, Leases.Object, Approvals, Clock);
+        WakeOver(Store, Store.Services.GetService<AgentSmith.Contracts.Series.ISeriesWakes>() ?? Wakes, Attempts.Object, Leases.Object, Approvals, Clock);
 
-    public static DependentsWake WakeOver(ServerStateStore store, IReworkNudges nudges, IPreviousAttemptReader? attempts = null,
+    public static DependentsWake WakeOver(ServerStateStore store, AgentSmith.Contracts.Series.ISeriesWakes wakes, IPreviousAttemptReader? attempts = null,
         IActiveRunLease? leases = null, ISpecApprovalStore? approvals = null, TimeProvider? clock = null)
     {
         var requirements = new TicketRequirementRepository(store.ScopeFactory);
         var landings = new LandedTicketRepository(store.ScopeFactory);
         return new(requirements, landings, new ClosedTicketRepository(store.ScopeFactory), new UnmetTicketRequirements(requirements, landings, approvals ?? new InMemorySpecApprovalStore()),
-            attempts ?? Mock.Of<IPreviousAttemptReader>(), leases ?? Mock.Of<IActiveRunLease>(), nudges, clock ?? TimeProvider.System,
-            NullLogger<DependentsWake>.Instance, store.ScopeFactory);
+            attempts ?? Mock.Of<IPreviousAttemptReader>(), leases ?? Mock.Of<IActiveRunLease>(), wakes, clock ?? TimeProvider.System,
+            NullLogger<DependentsWake>.Instance);
     }
 
     public List<LandedTicket> Landings() => [.. Store.Context().Set<LandedTicket>().AsNoTracking().OrderBy(l => l.Id)];

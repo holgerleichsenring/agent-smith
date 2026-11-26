@@ -47,6 +47,8 @@ public static partial class PipelinePresets
         // p0428: the preconditions that inspect the sandboxes and the branch — after checkout,
         // and before the credential staging that an unwritable sandbox home kills.
         CommandNames.RunPreflight,
+        // 2026-11-25-96aea: past the refusals that start nothing, a ticket no series holds is led by a series of one
+        CommandNames.OpenTicketSeries,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
         CommandNames.LoadDesignSystem, // 2026-10-01-283dg

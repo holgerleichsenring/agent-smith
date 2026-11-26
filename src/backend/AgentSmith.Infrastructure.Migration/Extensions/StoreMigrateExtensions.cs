@@ -26,6 +26,7 @@ public static class StoreMigrateExtensions
         services.AddSingleton<ConfigDocJson>().AddSingleton<ConfigDocumentAssembler>();
         services.AddSingleton<RoleMappingMigration>().AddSingleton<PipelineAliasMigration>().AddSingleton<LegacyTriggerMigration>();
         services.AddSingleton<ProjectRegistriesMigration>().AddSingleton<ReviewSettingMigration>(); // 2026-11-25-9992d, 9992i
+        services.AddSingleton<Services.SeriesOfOne.SeriesOfOneMigration>(); // 2026-11-25-96aea
         services.AddSingleton<MigrateContextFactory>().AddSingleton<StoreMigrateRun>();
         return services.AddRunStoreRepair();
     }

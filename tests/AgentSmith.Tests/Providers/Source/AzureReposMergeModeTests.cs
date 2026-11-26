@@ -127,51 +127,6 @@ public sealed class AzureReposMergeModeTests
         sent[1].CompletionOptions!.MergeStrategy.Should().BeNull();
     }
 
-    // 2026-11-24-629ab: armed again after a conflict dropped it — the pull request's own options, and no vote.
-    [Fact]
-    public async Task Rearm_SetsAutoComplete_WithThePullRequestsMergeOptions_NoBypass_AndCastsNoVote()
-    {
-        var client = NewClient();
-        var options = new GitPullRequestCompletionOptions
-        {
-            MergeStrategy = GitPullRequestMergeStrategy.Squash, DeleteSourceBranch = false, BypassPolicy = true, BypassReason = "hotfix",
-            AutoCompleteIgnoreConfigIds = [3],
-        };
-        client.Setup(c => c.GetPullRequestAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int?>(), It.IsAny<int?>(),
-                It.IsAny<int?>(), It.IsAny<bool?>(), It.IsAny<bool?>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new GitPullRequest { PullRequestId = 7, Status = PullRequestStatus.Active, CreatedBy = Creator, CompletionOptions = options });
-        GitPullRequest? sent = null;
-        Update(client).Callback<GitPullRequest, string, string, int, object, CancellationToken>((u, _, _, _, _, _) => sent = u)
-            .ReturnsAsync(() => new GitPullRequest { Status = PullRequestStatus.Active, AutoCompleteSetBy = Creator });
-
-        var completion = await ((IPullRequestAutoCompleteRearmer)Sut(client.Object)).RearmAutoCompleteAsync(PrUrl, CancellationToken.None);
-
-        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Armed);
-        sent!.AutoCompleteSetBy!.Id.Should().Be(Self, "2026-11-25-9992h: as the token's own identity");
-        sent.CompletionOptions!.MergeStrategy.Should().Be(GitPullRequestMergeStrategy.Squash);
-        sent.CompletionOptions.DeleteSourceBranch.Should().BeFalse();
-        sent.CompletionOptions.BypassPolicy.Should().NotBe(true, "arming again never goes past a policy");
-        sent.CompletionOptions.BypassReason.Should().BeNull();
-        sent.CompletionOptions.AutoCompleteIgnoreConfigIds.Should().BeNullOrEmpty();
-        client.Verify(c => c.CreatePullRequestReviewerAsync(It.IsAny<IdentityRefWithVote>(), It.IsAny<string>(),
-            It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task Rearm_LeavesAnArmedPullRequest_Alone()
-    {
-        var client = NewClient();
-        client.Setup(c => c.GetPullRequestAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int?>(), It.IsAny<int?>(),
-                It.IsAny<int?>(), It.IsAny<bool?>(), It.IsAny<bool?>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => new GitPullRequest { PullRequestId = 7, Status = PullRequestStatus.Active, CreatedBy = Creator, AutoCompleteSetBy = Creator });
-
-        var completion = await ((IPullRequestAutoCompleteRearmer)Sut(client.Object)).RearmAutoCompleteAsync(PrUrl, CancellationToken.None);
-
-        completion.Outcome.Should().Be(PullRequestCompletionOutcome.Armed);
-        client.Verify(c => c.UpdatePullRequestAsync(It.IsAny<GitPullRequest>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<int>(), It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
     private static Mock<GitHttpClient> NewClient()
     {
         var client = new Mock<GitHttpClient>(new Uri("https://localhost/fake"),

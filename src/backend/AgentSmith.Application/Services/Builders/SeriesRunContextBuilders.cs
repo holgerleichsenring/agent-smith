@@ -11,6 +11,7 @@ internal static class SeriesRunContextBuilders
     internal static void Add(IServiceCollection services)
     {
         Add<OpenSeriesRunContextBuilder>(services, CommandNames.OpenSeriesRun);
+        Add<OpenTicketSeriesContextBuilder>(services, CommandNames.OpenTicketSeries); // 2026-11-25-96aea
         Add<ReadSeriesContextBuilder>(services, CommandNames.ReadSeries);
         Add<DeliverSeriesContextBuilder>(services, CommandNames.DeliverSeries); // 2026-11-24-f9c5e
         Add<SeriesMasterContextBuilder>(services, CommandNames.SeriesMaster);

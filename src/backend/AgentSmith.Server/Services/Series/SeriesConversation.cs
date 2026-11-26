@@ -11,9 +11,18 @@ public sealed class SeriesConversation(SpecDialogSessionRepository sessions, Spe
 {
     public async Task SayAsync(string conversation, string text, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(conversation)) return;
         var session = await sessions.GetBySessionIdAsync(conversation, cancellationToken);
         if (session is null || !session.IsOpen) return;
         await notices.SayAsync(SpecDialogSessionMapper.ToState(session), text, cancellationToken);
+    }
+
+    public async Task<string?> TicketConversationAsync(
+        AgentSmith.Contracts.Models.Configuration.ResolvedProject project, string ticketId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var key = AgentSmith.Contracts.Specs.TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
+        return (await sessions.GetByTicketAsync(project.Tracker.Name, key, cancellationToken))?.SessionId;
     }
 
     /// <summary>2026-11-17-0207b: the operator turns the divert stamped with the series' id, from the stored transcript,
@@ -21,6 +30,7 @@ public sealed class SeriesConversation(SpecDialogSessionRepository sessions, Spe
     public async Task<IReadOnlyList<SeriesOperatorMessage>> AddressedAsync(
         string conversation, string seriesRunId, int afterIndex, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrEmpty(conversation)) return []; // 2026-11-25-96aea: a series of one without a conversation
         var session = await sessions.GetBySessionIdAsync(conversation, cancellationToken);
         if (session is null) return [];
         return [.. SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson).Select((turn, index) => (turn, index))

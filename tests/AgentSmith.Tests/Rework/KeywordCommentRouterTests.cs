@@ -171,7 +171,7 @@ public sealed class KeywordCommentRouterTests
 
     private Task HeldBySeriesAsync() => _series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
     {
-        Project = "p", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("T-1")],
+        Project = "p", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("T-1"), AgentSmith.Tests.Series.SeriesRecords.Ticket("T-2")], // a filed series
     }, default);
 
     private void VerifyWoken(string body, Times times) =>

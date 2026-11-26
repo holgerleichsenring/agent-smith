@@ -48,6 +48,9 @@ internal sealed class LandedByHandFixture : IDisposable
     public SettableClock Clock { get; } = new() { Now = T.AddHours(1) };
     public ServerStateStore Store { get; }
     public Mock<IReworkNudges> Nudges { get; } = new();
+
+    /// <summary>2026-11-25-96aea: what a landing woke — a prerequisite wake per dependent.</summary>
+    public RecordingSeriesWakes Woken { get; } = new();
     public List<ReworkNudgeRequest> Nudged { get; } = [];
     public Mock<ISystemEventPublisher> Events { get; } = new();
     public Mock<ITicketActivityNudge> Activity { get; } = new();
@@ -79,7 +82,7 @@ internal sealed class LandedByHandFixture : IDisposable
     public UnmetTicketRequirements Unmet => new(Requirements, Landings, Approvals);
 
     public TicketLandingRecorder Recorder() => new(Store.ScopeFactory, Landings,
-        PrReviewRefreshHarness.WakeOver(Store, Nudges.Object, approvals: Approvals, clock: Clock),
+        PrReviewRefreshHarness.WakeOver(Store, Woken, approvals: Approvals, clock: Clock),
         Events.Object, Activity.Object, [], new StackedMergeLanding(Requirements, Landings, Store.ScopeFactory), Clock,
         NullLogger<TicketLandingRecorder>.Instance);
 

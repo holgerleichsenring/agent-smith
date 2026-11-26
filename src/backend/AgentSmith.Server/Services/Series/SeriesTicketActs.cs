@@ -18,10 +18,10 @@ namespace AgentSmith.Server.Services.Series;
 /// message goes into the ticket's conversation (<see cref="SeriesTicketMessage"/>).
 /// </summary>
 public sealed class SeriesTicketActs(
-    TicketProjects projects, UnmetTicketRequirements requirements, TicketStartRun starts, IPreviousAttemptReader attempts,
+    TicketProjects projects, UnmetTicketRequirements requirements, IPreviousAttemptReader attempts,
     RunRetry retry, SeriesTicketMessage messages, Deployment.DeployLauncher deploys, SeriesRunCancel cancels,
-    WaitingTicketStart waiting, IReworkNudges nudges, IRedisClaimLock locks,
-    ITicketLandingStore landings, DependentsWake wake) : ISeriesTicketActs // 2026-11-24-f9c5e
+    WaitingTicketStart waiting, IRedisClaimLock locks,
+    ITicketLandingStore landings, DependentsWake wake, ISeriesWakes wakes) : ISeriesTicketActs // 2026-11-24-f9c5e, 96aea
 {
     /// <summary>2026-11-24-f9c5e: each landed ticket's dependents woken through the landing's own wake, now the series' work is on
     /// the default branch — the outside ones were held until then (f9c5b).</summary>
@@ -32,7 +32,7 @@ public sealed class SeriesTicketActs(
         var woken = 0;
         foreach (var landed in await landings.LandedAsync(resolved.Tracker.Name,
                      [.. ticketIds.Select(id => TicketKey.For(platform, id).Value)], cancellationToken))
-            woken += await wake.WakeAsync(landed, cancellationToken);
+            woken += await wake.WakeAsync(landed, cancellationToken, "reached the default branch with its series");
         return woken;
     }
 
@@ -45,13 +45,12 @@ public sealed class SeriesTicketActs(
         var key = TicketKey.For(resolved.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
         var hold = await requirements.ForStartAsync(resolved, key, cancellationToken);
         if (hold.Unmet.Count > 0) return RequiresUnmetGate.Sentence(hold);
-        var (started, ended) = await starts.StartAsync(resolved, ticketId, mayStartRuns: true);
-        return started is null ? $"Ticket {ticketId} was not started: {ended}"
-            : $"Ticket {ticketId}: {started.State} — {started.Reason}";
+        // 2026-11-25-96aea: the start a landing's wake used to make — a ticket already in a trigger status is spawned too
+        return (await StartIfReadyAsync(project, ticketId, cancellationToken)).Text;
     }
 
-    /// <summary>2026-11-19-1b72a: a resume starts a never-worked ticket exactly as the wake does — the same holds, the
-    /// same 'start' run and the same claim through the poller's route (<see cref="WaitingTicketStart"/>).</summary>
+    /// <summary>2026-11-19-1b72a: a resume (2026-11-25-96aea: and start_ticket) starts a never-worked ticket — the holds, the
+    /// 'start' run and the claim through the poller's route (<see cref="WaitingTicketStart"/>).</summary>
     public async Task<SeriesStart> StartIfReadyAsync(string project, string ticketId, CancellationToken cancellationToken)
     {
         if (projects.Of(project) is not { } resolved) return new(false, $"Project '{project}' is not configured.");
@@ -59,10 +58,11 @@ public sealed class SeriesTicketActs(
         var key = ReworkNudgeWorker.LockKey(project, ticketId);
         if (await locks.TryAcquireAsync(key, ReworkNudgeRepository.ClaimLease, cancellationToken) is not { } token)
         {
-            // The nudge holding the lock may not start it (a ticket without requirements is no wake's): queue one that will,
-            // served after it under the same lock and asking the same question.
-            await nudges.EnqueueAsync(new ReworkNudgeRequest(project, ticketId, ReworkNudgeOrigin.RequirementsMet), cancellationToken);
-            return new(false, $"Ticket {ticketId} is busy with its nudge right now; its start is queued behind it.");
+            // 2026-11-25-96aea: nothing queues a start any more — the master is told again once the nudge is done
+            await wakes.WakeAsync(project, ticketId, new SeriesWake(SeriesWakeKinds.Prerequisite,
+                "its start found the ticket busy with another nudge; start_ticket starts it now")
+                { Once = $"busy:{ticketId}:{DateTimeOffset.UtcNow:yyyyMMddHH}" }, cancellationToken); // once an hour at most
+            return new(false, $"Ticket {ticketId} is busy with its nudge right now and was not started; you are told again shortly.");
         }
         try
         {

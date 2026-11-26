@@ -14,7 +14,7 @@ The short version:
 <li><strong>It drafts tickets</strong>, each with its own specs, and reviews every spec before you see the offer to file.</li>
 <li><strong>Filing</strong> writes each ticket's approved specs onto its branch. From then on the branch is the only place the specs live.</li>
 <li><strong>A coding run per ticket</strong> builds those specs as written, verifies each one and opens the pull requests.</li>
-<li><strong>The CI loop</strong> watches the pull requests, sends a red check back to a fix run, and merges when your policy says so.</li>
+<li><strong>The series master</strong> leads every ticket, a single one as a series of one: it reads the CI, decides what a red check needs, and merges when your review says so.</li>
 <li><strong>Dependent tickets start</strong> on a green prerequisite, stacked on its branch, without waiting for the merge.</li>
 <li><strong>The series run</strong> follows all tickets of one filing, reports in the conversation and checks the result on main.</li>
 <li><strong>Deploy</strong> goes through a deployment template: a GitOps pull request or a pipeline trigger, followed until it settles.</li>
@@ -95,11 +95,13 @@ More on the run page and the ticket page: [Dashboard](../reference/operations/da
 
 A green run opens its pull requests. What happens next depends on the project's `review`:
 
+Every ticket is led by a series master; a single ticket is a series of one.
+
 | `review` | What happens to a single ticket's pull requests |
 |---|---|
-| `end` (default) | A person reviews and merges. A series collects its tickets on a series branch and a person reviews one pull request per repository at its end. |
-| `each` | A person reviews and merges; in a series the master merges each one after a person approved it. |
-| `none` | The pull requests wait for CI. Green on all of them, and a `merge-green` run merges them under the host's branch protection. Red, and a fix run starts with the failed checks' evidence, up to `ci_fix_attempts` times before the ticket comes back to you. |
+| `end` (default) | Same as `each` for one ticket. A series collects its tickets on a series branch and asks you before one pull request per repository goes to the default branch. |
+| `each` | The ticket page asks you: **Merge** (codeably merges it), or look at the pull request first. Merging on the host works too. |
+| `none` | The series master merges once CI is green on all of them, under the host's branch protection. A red CI wakes it: it retries the run or tells the ticket what failed. |
 
 Every open pull request shows its CI state on the ticket page. Details and branch protection: [CI loop and merge policy](ci-loop.md).
 

@@ -22,7 +22,7 @@ public sealed class SeriesMembership(ISeriesRunStore store, TimeProvider clock)
         pipeline.TryGet<string>(ContextKeys.SeriesRunId, out var id) && !string.IsNullOrEmpty(id)
             ? await store.GetAsync(id!, ct) : null;
 
-    /// <summary>Opens or joins the series for the created tickets; nothing for a lone ticket outside a series.</summary>
+    /// <summary>Opens or joins the series for the created tickets; a lone ticket gets a series of one (2026-11-25-96aea).</summary>
     public async Task WriteAsync(PipelineContext pipeline, FilingRequest request, ResolvedProject project,
         IReadOnlyList<FiledTicket> filed, CancellationToken ct)
     {
@@ -32,6 +32,20 @@ public sealed class SeriesMembership(ISeriesRunStore store, TimeProvider clock)
         var tickets = OpenSeriesRunHandler.Members(filed, joining && !request.IsSeriesMasterAddition, clock); // 9992f
         if (joining) await store.UpdateAsync(id!, r => OpenSeriesRunHandler.Joined(r, tickets), ct);
         else if (tickets.Count >= 2) pipeline.Set(ContextKeys.SeriesRunOpened, await OpenAsync(request, project, tickets, ct, withBranch: true));
+        else if (tickets.Count == 1) // 2026-11-25-96aea: a filing of one is a series of one, talked about in its ticket's own conversation
+            pipeline.Set(ContextKeys.SeriesRunOpened, await OpenOneAsync(project, tickets[0], string.Empty, request.Principal, ct, request.MayStartRuns));
+    }
+
+    /// <summary>2026-11-25-96aea: opens a series of one over the ticket — no series branch, the project's review with end
+    /// becoming each (one flow with one ticket); answers its id.</summary>
+    public async Task<string> OpenOneAsync(ResolvedProject project, SeriesTicket ticket, string conversation, string principal,
+        CancellationToken ct, bool mayStartRuns = true, string? id = null)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        id ??= SeriesRunIds.Mint();
+        await store.OpenAsync(new SeriesRunRecord(id, conversation, project.Name, principal, mayStartRuns, SeriesRunStates.Running,
+            [ticket], clock.GetUtcNow()) { Review = Review(project.Review, null) }, ct);
+        return id;
     }
 
     /// <summary>Opens a series over the tickets under the project's review; answers its id. With <paramref name="withBranch"/>

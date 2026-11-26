@@ -191,7 +191,7 @@ public sealed class PrCommentReworkCommandTests
         var store = new AgentSmith.Tests.Series.InMemorySeriesRunStore();
         await store.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running() with
         {
-            Project = "test-project", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("42")],
+            Project = "test-project", Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket("42"), AgentSmith.Tests.Series.SeriesRecords.Ticket("43")], // filed
         }, default);
         _fixture.SeriesStore = store;
         _fixture.Wakes.Setup(w => w.WakeAsync("test-project", "42", It.IsAny<AgentSmith.Contracts.Series.SeriesWake>(), It.IsAny<CancellationToken>()))

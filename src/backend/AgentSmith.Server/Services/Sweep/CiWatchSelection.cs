@@ -6,15 +6,9 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 namespace AgentSmith.Server.Services.Sweep;
 
 /// <summary>
-/// 2026-11-17-3435b: which open pull requests the CI loop reads next — those of review: none projects whose CI is
-/// unread, on an older head, none, pending for less than merge.ci_pending_seconds, or a verdict not acted on, and not
-/// read for merge.ci_poll_seconds. The cadence the re-read ticks at is the smallest poll of those projects.
-/// <para>2026-11-23-849e: every project's open pull requests carry a hold that reads their CI (d60d), so every project is
-/// watched while its CI is pending within merge.ci_pending_seconds, at the same poll. Only a review: none project
-/// (2026-11-25-9992i) acts on a verdict, so only it keeps unread, moved-head and unacted records due. The loop ticks at the
-/// smallest poll of every project (60 s by default).</para>
-/// <para>2026-11-25-9992e: the tickets an active series holds are read for their master while their CI waits, in every mode
-/// (<see cref="PrRecordCiDue.SeriesTickets"/>).</para>
+/// 2026-11-17-3435b: which open pull requests the CI watch reads next, at the smallest merge.ci_poll_seconds of every project.
+/// 2026-11-25-96aea: the server's CI loop is gone; only the tickets an active series holds are read, for their master
+/// (<see cref="PrRecordCiDue"/>), and every standalone ticket is a series of one.
 /// </summary>
 public static class CiWatchSelection
 {
@@ -31,7 +25,7 @@ public static class CiWatchSelection
         foreach (var project in watched)
             due.AddRange(await records.CiDueAsync(project.Name, new PrRecordCiDue(
                 (now - TimeSpan.FromSeconds(project.Merge.CiPollSeconds)).UtcTicks,
-                (now - TimeSpan.FromSeconds(project.Merge.CiPendingSeconds)).UtcTicks, project.Review == ReviewMode.None)
+                (now - 2 * TimeSpan.FromSeconds(project.Merge.CiPendingSeconds)).UtcTicks) // not a limit: past the deadline wake, read once more
                 { SeriesTickets = SeriesTickets(activeSeries, project.Name) }, ct));
         return due;
     }

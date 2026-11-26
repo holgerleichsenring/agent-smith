@@ -19,6 +19,8 @@ public sealed class SeriesEditActs(TicketProjects projects, IFilingRun filing, S
     {
         ArgumentNullException.ThrowIfNull(series);
         if (projects.Of(series.Project) is not { } project) return new($"Project '{series.Project}' is not configured.", false);
+        if (string.IsNullOrEmpty(series.Conversation)) // 2026-11-25-96aea: a series of one without a conversation has nobody to report a series to
+            return new("This series of one has no conversation to lead a series in; file the ticket in a Work it out conversation instead.", false);
         if (AddCycle(series, await links.GraphAsync(project, cancellationToken), requires, requiredBy) is { } refused) return new(refused, false);
         var report = await filing.RunRequestAsync(project.Name, Request(series, title, body), series.Id);
         if (report.Filed.FirstOrDefault(f => !string.IsNullOrEmpty(f.TicketId)) is not { } filed)

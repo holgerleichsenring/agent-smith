@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Services.Rework;
 
 /// <summary>
 /// 2026-11-16-f3fbc: what keeps agent-smith from starting a ticket by itself, lifted out of
-/// <see cref="RequirementsMetStart"/> so a precondition release asks the same: a ticket a person marked done by
+/// RequirementsMetStart (removed 2026-11-25-96aea) so a precondition release asks the same: a ticket a person marked done by
 /// hand or closed (2026-10-15-114fa), and one the tracker counts closed. A tracker read failure holds it; the
 /// next nudge reads again.
 /// </summary>

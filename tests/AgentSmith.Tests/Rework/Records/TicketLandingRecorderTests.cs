@@ -112,7 +112,7 @@ public sealed class TicketLandingRecorderTests : IDisposable
         Mock<ISystemEventPublisher> eventsA = new(), eventsB = new();
         Mock<ITicketActivityNudge> activityA = new(), activityB = new();
         TicketLandingRecorder Replica(Mock<ISystemEventPublisher> events, Mock<ITicketActivityNudge> activity) =>
-            new(store!.ScopeFactory, new LandedTicketRepository(store.ScopeFactory), WakeOver(store, Mock.Of<IReworkNudges>()),
+            new(store!.ScopeFactory, new LandedTicketRepository(store.ScopeFactory), WakeOver(store, new RecordingSeriesWakes()),
                 events.Object, activity.Object, [], StackedOver(store), _h.Clock, NullLogger<TicketLandingRecorder>.Instance);
         using var racing = new ServerStateStore(unitOfWork: db => new RacingUnitOfWork(db, async () =>
         {

@@ -15,7 +15,8 @@ public sealed class SpecDerivePresetTests
     {
         var front = PipelinePresets.Code
             .TakeWhile(c => c != CommandNames.EnsurePrerequisites)
-            .Where(c => c != CommandNames.PipelineNameInitializer);
+            .Where(c => c != CommandNames.PipelineNameInitializer)
+            .Where(c => c != CommandNames.OpenTicketSeries); // 2026-11-25-96aea: a derivation leaves the ticket alone, opens no series
 
         PipelinePresets.TryResolve(PipelinePresets.SpecDeriveName).Should().Equal(
             [.. front, CommandNames.MaterializeReferenceSets, CommandNames.SpecSequence],

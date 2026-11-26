@@ -296,13 +296,15 @@ When a person looks at the project's work (2026-11-25-9992i). A series copies it
 
 | Value | A series | A single ticket |
 |-------|----------|-----------------|
-| `end` | Works on a series branch (`agent-smith/series/<id>`, one per repository it touches). The series master merges each ticket into it, past protection: the branch carries no host policy. One final pull request per repository goes into the default branch, its description a section per ticket (title and pull request, the master's acts with their reasons, what it could not verify); a person reviews and merges it. | Its pull requests stay open for a person. |
-| `each` | No series branch. Each ticket's pull request goes into the default branch; the master merges it once a person approved it. | Its pull requests stay open for a person. |
-| `none` | No series branch. The master merges each ticket into the default branch on green. | A run whose every spec passed merges nothing at its end: each pull request reads *waiting for CI*. Once CI is green on every one of the attempt's pull requests (or nothing reports on the head for `ci_settle_seconds`), a `merge-green` run, listed in the ticket's Runs, arms the host's auto-merge, and the ticket lands. A head is acted on once per verdict. |
+| `end` | Works on a series branch (`agent-smith/series/<id>`, one per repository it touches). The series master merges each ticket into it, past protection: the branch carries no host policy. One final pull request per repository goes into the default branch, its description a section per ticket (title and pull request, the master's acts with their reasons, what it could not verify); the master asks before it, and a person reviews it. | A series of one: the same as `each`. |
+| `each` | No series branch. Each ticket's pull request goes into the default branch; the master asks after each ticket. | A series of one: the ticket page's *Your move* asks — **Merge** merges it, or look at the pull request first; merging on the host works too. |
+| `none` | No series branch. The master merges each ticket into the default branch on green. | A series of one: its master merges it on green. |
+
+Every merge question offers **Merge it** and **Look at the pull request first** with a link to each pull request, and takes no default.
 
 The host's branch protection is a limit of the environment, not a setting: a merge into the default branch arms Azure DevOps auto-complete, GitHub auto-merge or GitLab's merge when the pipeline succeeds, and the host's rules decide. Only a merge into a series branch and a merge the series master asks for with `how: now` go past protection; those need the token's bypass permission (Azure DevOps *Bypass policies when completing pull requests*; GitHub repository admin with bypassing allowed, or the token's actor on a ruleset's bypass list; GitLab has no API bypass and merges when its checks allow).
 
-`review` replaced four keys of the merge block (retired 2026-11-25). A file still naming one of them gets an advisory finding naming the key; a stored configuration was moved by `database migrate` once, erring toward more review: a project whose series tickets waited for a person became `each`, otherwise one whose green runs merged nothing by themselves became `end`, and one that merged on green became `none`. The migration's log names every project whose single tickets now behave otherwise. A pull request without a conflict is no longer refreshed when a ticket lands; a conflicting one still is.
+`review` replaced four keys of the merge block (retired 2026-11-25). A file still naming one of them gets an advisory finding naming the key; a stored configuration was moved by `database migrate` once, erring toward more review: a project whose series tickets waited for a person became `each`, otherwise one whose green runs merged nothing by themselves became `end`, and one that merged on green became `none`. The migration's log names every project whose single tickets now behave otherwise. A conflicting pull request is refreshed by its series master (`refresh_branch`), nothing refreshes by itself.
 
 ### projects.merge
 
@@ -313,7 +315,7 @@ merge:
   ci_poll_seconds: 60               # default 60
   ci_settle_seconds: 180            # default 180
   ci_pending_seconds: 3600          # default 3600
-  ci_fix_attempts: 3                # review none: default 3
+  ci_fix_attempts: 3                # refresh-base repair passes: default 3
 ```
 
 How the host's CI is read; every key applies under every review unless it says otherwise.
@@ -321,9 +323,9 @@ How the host's CI is read; every key applies under every review unless it says o
 | Key | Description |
 |-----|-------------|
 | `ci_poll_seconds` | How often the open pull requests' pending CI is read. Also how often a deploy's pull request or pipeline run is read while it runs ([following a deploy](../../configure-it/deployment-templates.md#following-a-deploy)). Default 60. |
-| `ci_settle_seconds` | How long a head with no CI reporting must stay so before it counts as having none: a build that never started is queued again, and under `review: none` the pull request merges. Default 180: a host registers its checks seconds to minutes after a push. |
-| `ci_pending_seconds` | After how long a head still pending is no longer read every `ci_poll_seconds`; the five-minute re-read still sees it move. A deploy still pending this long after it was delivered stops being followed, and says so. Default 3600. |
-| `ci_fix_attempts` | With `review: none`, a red CI on the head the newest green attempt pushed starts a rework run that carries the failed checks' evidence (names, excerpts, links) as its task; the fix is verified locally and pushed to the same pull request, never force-pushed, and CI is watched again. After `ci_fix_attempts` such runs in a row (default 3), or after a fix that pushed nothing, the next run hands the ticket back in its clarification status with the evidence on the ticket; a person's comment or approval starts the next attempt and the count starts again. A red pull request is never merged. It also bounds how many repair passes a base refresh may make on a build or test stage the merged base turned red. |
+| `ci_settle_seconds` | How long a head with no CI reporting must stay so before it counts as having none; the series master then queues a build that never started again or merges. Default 180: a host registers its checks seconds to minutes after a push. |
+| `ci_pending_seconds` | After how long a head still pending wakes its series master once; it is read every `ci_poll_seconds` for up to twice this, and the five-minute re-read still sees it move afterwards. A deploy still pending this long after it was delivered stops being followed, and says so. Default 3600. |
+| `ci_fix_attempts` | How many repair passes a refresh-base run may make on a build or test stage the merged base turned red (default 3). A red CI starts no fix run by itself; the series master decides. |
 | `ci_excerpt_chars` | How many characters of each failed CI check's evidence are read, stored and shown: the host's summary and annotations, then the end of its log. Default 4000. |
 | `ci_failed_checks_read` | How many failed checks of one red head have their logs read; the rest are named with their links. Default 5. |
 

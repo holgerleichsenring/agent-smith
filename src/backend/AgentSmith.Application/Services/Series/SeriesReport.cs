@@ -13,11 +13,12 @@ public static class SeriesReport
     {
         ArgumentNullException.ThrowIfNull(beat);
         var messages = new List<string>();
-        if (beat.Record.LastStatusAt is null && beat.Record.IsActive) messages.Add(SeriesOpening.Text(beat, project));
-        if (SeriesMilestones.Merged(beat) is { } merged) messages.Add(merged); // 2026-11-25-433fa
+        var one = beat.Record.IsOne; // 2026-11-25-96aea: a series of one says no opening and no milestones — the ticket page shows them
+        if (!one && beat.Record.LastStatusAt is null && beat.Record.IsActive) messages.Add(SeriesOpening.Text(beat, project));
+        if (!one && SeriesMilestones.Merged(beat) is { } merged) messages.Add(merged); // 2026-11-25-433fa
         messages.AddRange(beat.Said);
         if (beat.MasterLine is { Length: > 0 } line && beat.MasterSpeaks) messages.Add(line); // 2026-11-25-e94ec
-        messages.AddRange(SeriesMilestones.Stuck(beat)); // 2026-11-25-433fa
+        if (!one) messages.AddRange(SeriesMilestones.Stuck(beat)); // 2026-11-25-433fa
         return messages;
     }
 

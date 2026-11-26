@@ -23,7 +23,7 @@ public static partial class CommandNames
 
     private static readonly Dictionary<string, string> Labels = new(StringComparer.OrdinalIgnoreCase)
     {
-        [FetchTicket] = "Fetching ticket",
+        [FetchTicket] = "Fetching ticket", [OpenTicketSeries] = "Opening the ticket's series", // 2026-11-25-96aea
         [ScopeRepos] = "Scoping repositories", // p0331
         [CheckoutSource] = "Checking out source",
         [RunConfigPreflight] = "Checking configuration", // 2026-11-16-f3fba

@@ -17,11 +17,7 @@ public static partial class ContextKeys
 
     public const string BaseRefreshBaseBranch = "BaseRefreshBaseBranch";
 
-    /// <summary>2026-11-17-3435b: a merge-green run's <see cref="Runs.CiGreenMergeRequest"/> — the pull requests whose CI
-    /// went green, seeded in process by the server's CI watch.</summary>
+    /// <summary>2026-11-17-3435b: a merge-green run's <see cref="Runs.CiGreenMergeRequest"/> — 2026-11-25-96aea: the merge, CI
+    /// requeue or CI start the series master or a person asked for.</summary>
     public const string CiGreenMerge = "CiGreenMerge";
-
-    /// <summary>2026-11-17-3435c: IReadOnlyList&lt;Reviews.CiFailureFeedback&gt; — the red CI a fix run serves, per pull
-    /// request, read from the records; rendered into the master prompt.</summary>
-    public const string CiFailures = "CiFailures";
 }

@@ -23,16 +23,14 @@ namespace AgentSmith.Tests.Rework.Sweep;
 /// </summary>
 public sealed class DependentsRecoveryTests : IDisposable
 {
-    private readonly List<ReworkNudgeRequest> _nudged = [];
+    private readonly AgentSmith.Tests.TestSupport.RecordingSeriesWakes _woken = new();
     private readonly Mock<IConfigurationLoader> _loader = new();
     private readonly PrReviewRefreshHarness _h;
 
     public DependentsRecoveryTests()
     {
-        var nudges = new Mock<IReworkNudges>();
-        nudges.Setup(n => n.EnqueueAsync(It.IsAny<ReworkNudgeRequest>(), It.IsAny<CancellationToken>()))
-            .Callback((ReworkNudgeRequest r, CancellationToken _) => _nudged.Add(r)).Returns(Task.CompletedTask);
-        _h = new PrReviewRefreshHarness(services => services.AddSingleton(nudges.Object).AddSingleton(_ => _h!.Wake()));
+        _h = new PrReviewRefreshHarness(services => services.AddSingleton<AgentSmith.Contracts.Series.ISeriesWakes>(_woken)
+            .AddSingleton(_ => _h!.Wake()));
         _loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
         {
             Projects = new Dictionary<string, ResolvedProject> { ["p"] = PrReviewRefreshHarness.Project },
@@ -43,7 +41,8 @@ public sealed class DependentsRecoveryTests : IDisposable
 
     private DateTimeOffset Now => _h.Clock.GetUtcNow();
 
-    private IEnumerable<string> Woken => _nudged.Where(n => n.Origin == ReworkNudgeOrigin.RequirementsMet).Select(n => n.TicketId);
+    // 2026-11-25-96aea: a recovered wake is a prerequisite wake on the dependent's series, never a start.
+    private IEnumerable<string> Woken => _woken.Woken.Where(w => w.Wake.Kind == AgentSmith.Contracts.Series.SeriesWakeKinds.Prerequisite).Select(w => w.TicketId);
 
     [Fact]
     public async Task ReRead_HeldDependentAllLandedNoRun_EnqueuesOneRequirementsMetNudge()

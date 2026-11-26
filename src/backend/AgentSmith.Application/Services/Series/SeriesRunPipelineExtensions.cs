@@ -11,6 +11,7 @@ public static class SeriesRunPipelineExtensions
 {
     public static IServiceCollection AddSeriesRunPipeline(this IServiceCollection services)
     {
+        services.AddScoped<SeriesOfOne>(); // 2026-11-25-96aea
         services.AddScoped<SeriesBeatDemand>().AddScoped<SeriesQuestions>().AddScoped<ISeriesCriteria, SeriesCriteria>().AddScoped<SeriesProgress>();
         services.AddScoped<SeriesPause>(); // 2026-11-19-1b72a: the master's pause and the head's buttons
         services.AddScoped<SeriesBudgetQuestion>(); // 2026-11-25-9992g

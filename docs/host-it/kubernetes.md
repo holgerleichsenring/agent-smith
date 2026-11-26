@@ -209,6 +209,8 @@ kubectl apply -f deploy/k8s/
 kubectl -n agentsmith rollout status deployment/agentsmith-server
 ```
 
+**Upgrading to the series of one (0.225):** every standalone ticket is now led by a series master, and the server's own CI loop and automatic starts are gone. `database migrate` gives each ticket in flight (an open pull request, an unfinished run, a start waiting on prerequisites) a series of one. That move is safe when the old server is gone before the migrate runs: `replicas: 1` with `strategy: Recreate`. A rolling update or several replicas let an old pod keep merging or starting tickets beside the new series masters while the move runs, so for this release scale to one replica with `Recreate`, roll out, then go back. A migrated ticket takes its project's `review` from the stored configuration; a project whose `review: none` lives only in the file gets its in-flight tickets asked before they merge.
+
 `RollingUpdate` is the default strategy. The migrate init-container applies any new migrations before the new server accepts traffic. Runs execute in the server pod, so a run still going on the replaced pod ends with it and the corpse reaper removes its workspace pod; a run parked on a question holds no pod and resumes on the new one. Roll out between runs when you can.
 
 ## Resources

@@ -21,10 +21,10 @@ public static class SeriesPrChange
         ArgumentNullException.ThrowIfNull(entries);
         if (read.State is PrReviewStates.Unread or PrReviewStates.Unsupported) return [];
         var wakes = new List<SeriesWake>();
-        if (Ci(stored, read) is { } ci) wakes.Add(new SeriesWake(SeriesWakeKinds.Ci, ci));
+        if (Ci(stored, read) is { } ci) wakes.Add(new SeriesWake(SeriesWakeKinds.Ci, ci) { Verdict = read.CiState });
         if (SeriesPrCiDeadline.Of(stored, read, pendingSeconds) is { } late) wakes.Add(late);
         var waking = Waking(stored, read).ToList();
-        if (waking.Count > 0) wakes.Add(Change(read, waking, quiet: false));
+        if (waking.Count > 0) wakes.Add(Change(read, waking, quiet: false) with { Verdict = StateChanged(stored, read) ? read.State : null });
         var reviewed = SeriesPrDecisions.New(stored, entries).ToList(); // a person's, never the master's own act
         if (reviewed.Count > 0) wakes.Add(new SeriesWake(SeriesWakeKinds.Review, $"pull request {read.Url} {string.Join("; ", reviewed)}"));
         var quiet = Quiet(stored, read).ToList();
@@ -49,15 +49,21 @@ public static class SeriesPrChange
     // A state change is a decision unless it is the first read of the pull request its run opened.
     private static IEnumerable<string> Waking(PrReviewRecordView? stored, PrReviewRecord read)
     {
-        if (stored is null || FirstRead(stored) ? read.State != PrReviewStates.Open : stored.State != read.State)
-            yield return $"is {read.State}";
+        if (StateChanged(stored, read)) yield return $"is {read.State}";
         if (read.HasConflicts == true && stored?.HasConflicts != true) yield return "conflicts with its base";
+        // 2026-11-25-96aea: an auto-complete the host dropped at the conflict is armed again only by the master's merge
+        if (Cleared(stored, read) && stored!.AutoCompleteLostAt is not null) yield return "no longer conflicts with its base; its auto-complete is gone";
     }
+
+    private static bool StateChanged(PrReviewRecordView? stored, PrReviewRecord read) =>
+        stored is null || FirstRead(stored) ? read.State != PrReviewStates.Open : stored.State != read.State;
+
+    private static bool Cleared(PrReviewRecordView? stored, PrReviewRecord read) => read.HasConflicts == false && stored?.HasConflicts == true;
 
     private static IEnumerable<string> Quiet(PrReviewRecordView? stored, PrReviewRecord read)
     {
         if ((stored is null || FirstRead(stored)) && read.State == PrReviewStates.Open) yield return "is open";
-        if (read.HasConflicts == false && stored?.HasConflicts == true) yield return "no longer conflicts with its base";
+        if (Cleared(stored, read) && stored!.AutoCompleteLostAt is null) yield return "no longer conflicts with its base";
         if (stored?.TargetBranch is { } before && read.TargetBranch is { } now && before != now) yield return $"now targets {now}";
     }
 }

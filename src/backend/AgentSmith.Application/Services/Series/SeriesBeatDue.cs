@@ -47,10 +47,19 @@ public static class SeriesBeatDue
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(wake);
-        if (wake.Quiet) return false;
+        if (wake.Quiet || PersonMerges(record, wake)) return false;
         return wake.Kind is not (SeriesWakeKinds.Ci or SeriesWakeKinds.PullRequest)
             || !record.Acts.Any(a => a.Ticket == wake.TicketId && a is { StartedAt: { } from, DoneAt: { } until }
                 && from <= wake.At && wake.At <= until && SeriesPullRequestTools.Reads(a.Tool));
+    }
+
+    /// <summary>2026-11-25-96aea: a series of one whose review lets a person decide the merge asks through its ticket's merge hold
+    /// (its Merge button and pull request link): a green CI, or its turning next to merge, is no turn of the master's.</summary>
+    public static bool PersonMerges(SeriesRunRecord record, SeriesWake? wake = null)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        return record.IsOne && record.EffectiveReview != ReviewMode.None
+            && (wake is null || wake.Kind == SeriesWakeKinds.Ci && wake.Verdict == Contracts.Reviews.CiStates.Green);
     }
 
     /// <summary>2026-11-25-9992g: the master's loop has not failed within dialogue.series_status_minutes.</summary>

@@ -34,11 +34,20 @@ public sealed class ReworkNoActTail(
     public async Task<bool> SpentAsync(ResolvedProject project, ClaimedReworkNudge nudge, PendingReworkAct? act, CancellationToken ct) =>
         act is null || await followUps.IsFollowedUpAsync(project, nudge.TicketId, act, ct);
 
-    // A run's end is recorded for the series holding the ticket, whose answer says it holds it.
-    private async Task<bool> HeldAsync(ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, CancellationToken ct) =>
-        nudge.Origin == ReworkNudgeOrigin.RunEnd
-            ? await wakes.WakeAsync(project.Name, nudge.TicketId,
+    // A run's end is recorded for the series holding the ticket; 2026-11-25-96aea: a comment act stays the ticket's own unless a
+    // filed series leads it — a series of one keeps its ticket's rework.
+    private async Task<bool> HeldAsync(ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, CancellationToken ct)
+    {
+        if (nudge.Origin == ReworkNudgeOrigin.RunEnd) await RecordEndAsync(project, nudge, attempt, ct);
+        return await seriesRuns.LeadsCommentsAsync(project.Name, nudge.TicketId, ct);
+    }
+
+    private Task<bool> RecordEndAsync(ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, CancellationToken ct) =>
+        wakes.WakeAsync(project.Name, nudge.TicketId,
                 new SeriesWake(SeriesWakeKinds.Run, $"its run {attempt.RunId} ended {attempt.Status}")
-                { Once = $"run:{attempt.RunId}:{attempt.Status}" }, ct) // 2026-11-25-96aec: an act's run end re-reads the same attempt
-            : await seriesRuns.HoldsTicketAsync(project.Name, nudge.TicketId, ct);
+                {
+                    Once = $"run:{attempt.RunId}:{attempt.Status}", // 2026-11-25-96aec: an act's run end re-reads the same attempt
+                    // 2026-11-25-96aea: a green run that left a pull request is no decision — the CI verdict that follows is
+                    Quiet = attempt.Status == RunStatuses.Success && attempt.PullRequestUrls.Count > 0,
+                }, ct);
 }

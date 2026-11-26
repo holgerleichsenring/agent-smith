@@ -47,27 +47,6 @@ public sealed class PrReviewRecordWriter(IUnitOfWork unitOfWork, IUniqueViolatio
         return false;
     }
 
-    /// <summary>2026-11-17-3435b: what the CI loop acted on ('head:state'); written apart from a read, which never sets it.</summary>
-    public Task MarkCiActedAsync(string prKey, string acted, CancellationToken ct) =>
-        unitOfWork.Set<PrReviewRecord>().Where(r => r.PrKey == prKey)
-            .ExecuteUpdateAsync(s => s.SetProperty(r => r.CiActed, acted), ct);
-
-    /// <summary>2026-11-24-629ab: the head the CI loop armed auto-complete again on; written apart from a read.</summary>
-    public Task MarkRearmedAsync(string prKey, string head, CancellationToken ct) =>
-        unitOfWork.Set<PrReviewRecord>().Where(r => r.PrKey == prKey)
-            .ExecuteUpdateAsync(s => s.SetProperty(r => r.AutoCompleteRearmedHead, head), ct);
-
-    /// <summary>
-    /// 2026-11-23-97c2a: forgets what the CI merge acted on for the ticket's pull requests with green or no CI, so the next
-    /// refresh asks the merge once more — a ticket it requires landed, and the merge it refused may pass now. A red verdict
-    /// keeps its mark: that one is the fix nudge's, and a landing changes nothing about it.
-    /// </summary>
-    public Task ClearCiMergeMarksAsync(string project, string ticketId, CancellationToken ct) =>
-        unitOfWork.Set<PrReviewRecord>()
-            .Where(r => r.Project == project && r.TicketId == ticketId && r.CiActed != null
-                && (r.CiState == CiStates.Green || r.CiState == CiStates.None))
-            .ExecuteUpdateAsync(s => s.SetProperty(r => r.CiActed, (string?)null), ct);
-
     /// <summary>Records no run of the ticket names any more, with their entries.</summary>
     public async Task DeleteAsync(IReadOnlyCollection<string> prKeys, CancellationToken ct)
     {

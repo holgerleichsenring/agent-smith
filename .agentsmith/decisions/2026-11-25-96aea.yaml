@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-25-96aea
+
+decisions:
+  - category: Scope
+    chose: "A standalone ticket is a series of one, opened by a filing of one or by its code run's OpenTicketSeries step; the server's CI loop and its automatic starts are removed and replaced by master wakes"
+    over: "Keeping the server's CI loop for standalone tickets beside the series master"
+    reason: "decider: operator ('it should be only one place'). Two places decided a ticket's merge and start; the master is now the one, the server records."
+  - category: Scope
+    chose: "Review for a series of one: each and end are one flow — the master asks after each ticket under each and before the final pull request under end, a series of one the same way; every merge question offers 'Merge it' and 'Look at the pull request first' as buttons with a clickable link to the pull request and takes no default; a person's host merge is followed at no cost, a click merges under agent-smith's identity, agent-smith never approves"
+    over: "The person merges a single ticket on the host only; the master merges after an approval without asking"
+    reason: "decider: operator, 2026-11-26: 'With one ticket, each is the same as end; it makes no difference who merges, and both should be possible.' Every merge question must let the person stay in the dashboard."
+  - category: Architecture
+    chose: "A series of one asks its merge question through the ticket page's merge hold — its Merge button and the pull request's link, added here — so its green CI and its turning next to merge are no master turn under each/end; a series with a conversation asks with ask_human mergeOf"
+    over: "A master turn per ticket that posts the same question into a conversation a ticket often does not have"
+    reason: "decider: claude, within the operator's answer. The hold already is the dashboard's question with a Merge button; a turn that only repeats it costs money (96aec) and needs a conversation a standalone ticket rarely has."
+  - category: Scope
+    chose: "The next spec of a multi-spec ticket runs on at once: SeriesAutoStart's continuation stays automatic, no master turn"
+    over: "start_ticket for every next spec"
+    reason: "decider: operator, 2026-11-26: specs inside a ticket are not a hold point."
+  - category: Scope
+    chose: "Named exceptions to the invariant: the trigger-status poller re-claiming a ticket, a config change releasing a stopped ticket, the next-spec continuation, the restart of an interrupted attempt, the capacity queue's re-enqueue; their design is unchanged"
+    over: "Converting them into master wakes now"
+    reason: "decider: operator, 2026-11-26. External triggers are to be discussed separately."
+  - category: TradeOff
+    chose: "The migration is safe under replicas: 1 with strategy: Recreate; a rolling or multi-replica deploy of this release is documented as unsafe (kubernetes.md, upgrade notes, release notes); the migration's ids derive from project and ticket so a second run opens no duplicate"
+    over: "A ticket-hold table and a PR-read opener for rolling deploys"
+    reason: "decider: operator, 2026-11-26: the deployments run replicas: 1, strategy: Recreate, so the old pod stops before the init container migrates; do not hold the build for multi-replica."
+  - category: TradeOff
+    chose: "The check whether a series holds a ticket stays a read of the project's active series rows"
+    over: "An index table on (project, ticket) now"
+    reason: "decider: claude. A schema change on every provider for a cost that grows with in-flight tickets of one project (tens, not thousands); the operator said not to hold the build for scale-out. Revisit when one project carries hundreds of in-flight tickets."
+  - category: Implementation
+    chose: "merge.ci_fix_attempts is kept and re-described as the bound of the refresh-base repair passes; SpecHandbackCase.CiFixBudgetSpent stays as a stored value nothing writes"
+    over: "Deleting the key with the CI rework"
+    reason: "BaseRefreshMerge bounds the repair passes of the master's refresh_branch by it; the handback case is stored as an int."
+  - category: Implementation
+    chose: "The ticket page's Your move box already carried the pull request's link beside its Merge button; the conversation's merge question did not (its text was the master's), so ask_human mergeOf adds the buttons, the links and no default"
+    over: "A new link component on the ticket page"
+    reason: "decider: claude. The operator asked to check the rendering and add the link where it was missing; the series question card renders its text as Markdown, so a Markdown link is clickable and needs no new view."
+  - category: Implementation
+    chose: "A PR read of an open pull request whose ticket no active series holds opens a series of one too"
+    over: "Ending a series of one only once its ticket's runway is complete"
+    reason: "decider: claude. A ticket lands as soon as its pull requests so far merged; a later spec's pull request then belongs to no series. The read that sees it is the one place every such pull request passes, so it is led without a second rule about runways."
+  - category: TradeOff
+    chose: "A successful run end that left a pull request is quiet; a series of one under each/end takes no master turn on its green CI or its turning next to merge; every table change still starts a free beat run"
+    over: "A master turn per run end and per green CI of every standalone ticket"
+    reason: "decider: claude, from the cost rule (96aec). Under none a standalone ticket costs one turn (the merge), under each/end none unless something goes red. The beat runs a table change starts make no model call; they are run rows, not money."
+  - category: Implementation
+    chose: "The class names DependentsWake and StackedDependentsWake are kept; what they do changed (a master wake, never a start)"
+    over: "Renaming them PrerequisiteLandedWake/PrerequisiteGreenWake as the first draft of the spec said"
+    reason: "decider: claude. A rename touches every test fixture for no behaviour; the names still say what triggers them."
+  - category: Scope
+    chose: "A comment on a series of one keeps its ticket's rework path; only a ticket of a filed series sends comments to its master (SeriesCommentLead)"
+    over: "Every comment of every ticket to a master"
+    reason: "decider: claude. The operator's one place is about leading merges, CI and starts; a person's comment on a standalone ticket is that person's act and was answered by its rework and steward, which a master without a conversation could not replace."
+  - category: Implementation
+    chose: "OpenTicketSeries runs after RunPreflight; a read never reopens a stopped series; two openers racing keep the older series; a busy lock at start_ticket records a wake so the master tries again"
+    over: "Opening right after FetchTicket; a hold table"
+    reason: "decider: claude, after the diff review. A run refused before it worked opens nothing to linger; a stop is a decision; with replicas: 1 a check-then-stop race is the only one left, and the older series wins deterministically."
+  - category: TradeOff
+    chose: "A series of one ends Done only on a landing after it opened; a ticket closed in the tracker without a pull request leaves its series of one idle (no model call) until its master or a person stops it; a series of one without a conversation is not asked about its budget"
+    over: "Reading the tracker's closed marks in every beat; asking a budget question nobody can see"
+    reason: "decider: claude. An idle series costs nothing (96aec); the budget is the environment's limit and the ticket page still offers its merge."
+  - category: Implementation
+    chose: "The migration reads each project's review from the stored configuration; a ticket waiting on prerequisites is migrated only when no series ever held it"
+    over: "Reading the configuration file"
+    reason: "decider: claude. A project configured only in the file migrates as each (the person merges), the safe side; the upgrade note says so. A waiting ticket of a series that ended belongs to that series' story, not a new series."
+  - category: Implementation
+    chose: "A series of one is done once the pull request it saw waiting ended and its ticket landed (SeriesRunRecord.OneWaited), paused or not; its id derives from the ticket and the series before it (SeriesRunIds.OneOf), so of two racing openers the store's unique id lets exactly one open"
+    over: "Comparing the ticket's one landing row with the series' start; keeping the older of two racing series by start time and stopping the newer"
+    reason: "decider: claude, after the second diff review. A ticket's landing row is written once, so a later spec's series compared against it never ended; start-time order let both racers keep, and a stopped loser blocked the ticket for good."
+

@@ -31,6 +31,12 @@ public interface ISeriesRunStore
     /// then its series master owns the ticket's merges, refreshes, retargets and CI.</summary>
     Task<bool> HoldsTicketAsync(string project, string ticketId, CancellationToken cancellationToken);
 
+    /// <summary>2026-11-25-96aea: whether a comment on the ticket or its pull request is a series master's to answer — a ticket
+    /// of a filed series, running or paused. A series of one keeps its ticket's own rework path.</summary>
+    async Task<bool> LeadsCommentsAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        (await RunningWithTicketAsync(project, ticketId, cancellationToken) ?? await PausedWithTicketAsync(project, ticketId, cancellationToken))
+            is { IsOne: false };
+
     /// <summary>2026-11-23-31dcc: the newest series run of the project that holds the ticket, active or ended; null when no
     /// series ever held it.</summary>
     Task<SeriesRunRecord?> ForTicketAsync(string project, string ticketId, CancellationToken cancellationToken);

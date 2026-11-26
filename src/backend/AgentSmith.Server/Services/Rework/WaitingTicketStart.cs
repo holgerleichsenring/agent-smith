@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Rework;
 
 /// <summary>
-/// 2026-11-19-1b72a: the one start of a ticket that waited — lifted out of <see cref="RequirementsMetStart"/> so a
+/// 2026-11-19-1b72a: the one start of a ticket that waited — lifted out of RequirementsMetStart (removed 2026-11-25-96aea) so a
 /// series' resume starts exactly as the wake does. Never one a person marked done by hand or closed, one the tracker
 /// counts closed, one a paused series holds, one whose requirements are unmet (read as every start reads them, so
 /// on_green_push counts), whose filing did not finish or whose edge waits for a start by name. A started ticket is
