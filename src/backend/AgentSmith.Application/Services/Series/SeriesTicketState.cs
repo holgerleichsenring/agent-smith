@@ -24,6 +24,7 @@ public static class SeriesTicketState
             return SeriesTicketKinds.Question;
         if (hold.Case == H.ApprovalNeeded) return SeriesTicketKinds.Approval; // 2026-11-26-5201f: a person's step, not a failure
         if (hold.Case == H.PrDraft) return SeriesTicketKinds.Draft;
+        if (hold.Case == H.StartRefused) return SeriesTicketKinds.Approval; // 2026-11-27-ecf2e: a person starts it, nothing failed
         if (hold.Escalation is null && hold.Addressee is TicketHoldAddressees.Decide or TicketHoldAddressees.Admin)
             return SeriesTicketKinds.Failed;
         if (hold.Case is H.Working or H.ModelWait or H.Queued or H.Resuming or H.Restarting or H.Refreshing) return SeriesTicketKinds.Running;

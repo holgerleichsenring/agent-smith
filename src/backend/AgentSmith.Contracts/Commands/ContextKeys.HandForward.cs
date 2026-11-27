@@ -19,6 +19,10 @@ public static partial class ContextKeys
     /// case), appended after each report read and read by the spec's account.</summary>
     public const string SpecFollowUps = "SpecFollowUps";
 
+    /// <summary>2026-11-27-ecf2e (operator): true when a series-started run's ticket carries the approved-set stamp but no
+    /// approval record is stored, so it derived its own spec; each spec's report then says so first.</summary>
+    public const string SpecWithoutApprovedSet = "SpecWithoutApprovedSet";
+
     /// <summary>2026-11-22-96c8a: the ticket instructions the run's masters refused (IReadOnlyList&lt;IgnoredInstruction&gt;,
     /// one per quote), across every spec and pass; a failed read never clears it. Read by WriteRunResult.</summary>
     public const string RunIgnoredInstructions = "RunIgnoredInstructions";

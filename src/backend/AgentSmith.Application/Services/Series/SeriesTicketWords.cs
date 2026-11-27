@@ -39,6 +39,7 @@ internal static class SeriesTicketWords
         H.StartsOnMerge => $"starts once {Names(hold)} {(hold.Names.Count == 1 ? "is" : "are")} merged",
         H.Prerequisite => $"waits on {Names(hold)}",
         H.TextEdited => "text edited · the plan is settled in the conversation",
+        H.StartRefused => "start refused · the series' approver may not start runs; a person starts it", // 2026-11-27-ecf2e
         _ => Spoken(hold.Case),
     };
 

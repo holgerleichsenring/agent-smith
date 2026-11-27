@@ -26,6 +26,25 @@ public static class TicketSeriesWait
             .Select(a => (DateTimeOffset?)(a.DoneAt ?? a.At)).Max();
     }
 
+    /// <summary>2026-11-27-ecf2e: when the master's start of the ticket was last refused because the series' approver may not
+    /// start runs — a start_ticket call on a series that may start none; null otherwise.</summary>
+    public static DateTimeOffset? StartRefusedAt(SeriesRunRecord record, string ticketId)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        if (record.MayStartRuns) return null;
+        return record.Acts.Where(a => a.Ticket == ticketId && a.Tool == "start_ticket").Select(a => (DateTimeOffset?)a.At).Max();
+    }
+
+    /// <summary>2026-11-27-ecf2e (operator): a never-run ticket whose start the master was refused, waiting on nothing else, is a
+    /// person's step — they start it themselves (its series' page offers Start); null otherwise.</summary>
+    public static TicketHold? StartRefused(TicketHoldFacts facts)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        return facts is { SeriesStartRefusedAt: { } at, HeadStatus: null, WaitsFor.Count: 0 } && !WaitsOnAnother(facts) && !TicketHoldOf.AtWork(facts)
+            ? TicketHoldOf.Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.StartRefused, new(TicketHoldActs.Series, facts.SeriesId), at)
+            : null;
+    }
+
     /// <summary>The ticket waits on a requirement of its active series that has not landed.</summary>
     public static bool WaitsOnAnother(TicketHoldFacts facts)
     {

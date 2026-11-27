@@ -62,7 +62,7 @@ internal static class TicketHoldSeriesRead
             if (SeriesLeads.Questions(record, budget)) read.Active.Add(key); else read.Active.Remove(key);
             if (order.TryGetValue(ticket.TicketId, out var step)) read.Steps[key] = step;
             else read.Steps.Remove(key);
-            if (record is { IsActive: true, IsOne: false }) read.Waits[key] = WaitOf(record, ticket.TicketId, facts);
+            if (record is { IsActive: true }) read.Waits[key] = WaitOf(record, ticket.TicketId, facts); // ecf2e: a series of one's refused start too
             else read.Waits.Remove(key);
         }
     }
@@ -74,7 +74,7 @@ internal static class TicketHoldSeriesRead
         // Only the series' own tickets: one outside it, or closed on its tracker, is no wait the master resolves.
         var unlanded = (facts.Requires.GetValueOrDefault(ticketId) ?? []).Where(id => keys.ContainsKey(id) && !facts.Landed.Contains(id))
             .Select(id => keys[id]).Distinct(StringComparer.Ordinal).ToList();
-        return new TicketHoldSeriesWait(unlanded, TicketSeriesWait.TakenUpAt(record.Acts, ticketId));
+        return new TicketHoldSeriesWait(unlanded, TicketSeriesWait.TakenUpAt(record.Acts, ticketId), TicketSeriesWait.StartRefusedAt(record, ticketId));
     }
 
     // The never-run, unlanded series tickets a start would hold until others merge (2026-11-22-6d85d), by ticket id.

@@ -29,7 +29,10 @@ public sealed class SpecDialogRunDivert(
         if (admitted.Decision is not null && state.Transcript[^1].DecisionProposalId is not null) return false;
         if (state.TicketKey is null) return await ToSeriesAsync(admitted, ct);
         if (await ticketText.GetAsync(state.JobId, ct) is not { TicketId: { Length: > 0 } ticketId }) return false;
-        if (await running.RunIdAsync(state.Scope?.Project ?? state.Project, ticketId, ct) is not { } runId) return false;
+        // 2026-11-27-ecf2e: a series of one asks in its ticket's conversation; while its question waits and no attempt runs,
+        // the answer is the series' — every other message there keeps its conversation turn.
+        if (await running.RunIdAsync(state.Scope?.Project ?? state.Project, ticketId, ct) is not { } runId)
+            return await ToSeriesAsync(admitted, ct, waitingOnly: true);
         if (admitted.Decision is not null) state = await admission.UndecideAsync(state, ct);
         if (!await AddressAsync(state, state.Transcript[^1], runId, ct)) return false;
         logger.LogInformation("Conversation {Session}: a message for ticket {Ticket} goes to its running attempt {Run}",
@@ -40,9 +43,10 @@ public sealed class SpecDialogRunDivert(
     }
 
     // 2026-11-17-0207b: the conversation's running series takes the message; no notice — its master answers.
-    private async Task<bool> ToSeriesAsync(SpecDialogAdmitted admitted, CancellationToken ct)
+    private async Task<bool> ToSeriesAsync(SpecDialogAdmitted admitted, CancellationToken ct, bool waitingOnly = false)
     {
         if (series is null || await series.ActiveForConversationAsync(admitted.State.JobId, ct) is not { } run) return false;
+        if (waitingOnly && run.Question is not { Answer: null }) return false;
         var state = admitted.Decision is null ? admitted.State : await admission.UndecideAsync(admitted.State, ct);
         logger.LogInformation("Conversation {Session}: a message goes to series run {Series}", state.JobId, run.Id);
         return await AddressAsync(state, state.Transcript[^1], ct, t => t with { SeriesRunId = run.Id });

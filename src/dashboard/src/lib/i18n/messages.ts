@@ -1134,6 +1134,12 @@ export const coreMessages = {
   },
   "hold.title.pr_draft": { en: "Your move: the pull request is still a draft", de: "Du bist dran: der Pull Request ist noch ein Entwurf" },
   "hold.title.approval_needed": { en: "Your move: the pull request needs your approval", de: "Du bist dran: der Pull Request braucht deine Freigabe" },
+  // 2026-11-27-ecf2e: the series master may not start the ticket — the series' approver lacked runs.control when it was filed.
+  "hold.sentence.start_refused": {
+    en: "Not started: its series may not start runs, because the person who approved it could not start runs then. Start it yourself from the series page.",
+    de: "Nicht gestartet: seine Serie darf keine Läufe starten, weil die Person, die sie freigegeben hat, damals keine Läufe starten durfte. Starte es selbst auf der Seite der Serie.",
+  },
+  "hold.title.start_refused": { en: "Your move: start this ticket", de: "Du bist dran: starte dieses Ticket" },
   // 2026-11-24-6811a: the host says the pull request conflicts with its base; nothing merges it until that is resolved.
   "hold.sentence.pr_conflict": {
     en: "Its pull request conflicts with its base branch, so it cannot merge. Resolve the conflict on the branch, or rework the ticket.",

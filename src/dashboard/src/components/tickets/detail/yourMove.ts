@@ -96,6 +96,7 @@ function heldMove(view: TicketStateView, hold: TicketHold, endDetail: EndDetail 
     case "pr_draft": return { ...base, tone: "person", title: t("hold.title.pr_draft") };
     case "pr_conflict": return { ...base, tone: "bad", title: t("hold.title.pr_conflict") }; // 2026-11-24-6811a
     case "refresh_refused": return { ...base, tone: "bad", title: t("hold.title.refresh_refused") }; // 2026-11-24-6811d
+    case "start_refused": return { ...base, tone: "person", title: t("hold.title.start_refused") }; // 2026-11-27-ecf2e
   }
   // 2026-11-23-31dci: a wait that outlasted the configured minutes is no stop — the admin was told, nothing failed.
   if (hold.escalation) return { ...base, tone: "amber", title: t("hold.title.escalated") };

@@ -82,6 +82,10 @@ public sealed record TicketHoldFacts(string Project, string TicketId)
     /// <summary>2026-11-26-f511a: when the series master last took the ticket up (<see cref="TicketSeriesWait.TakesUp"/>).</summary>
     public DateTimeOffset? SeriesTakenUpAt { get; init; }
 
+    /// <summary>2026-11-27-ecf2e: when the series master was refused starting the ticket — the series' approver may not start
+    /// runs (runs.control, sampled at filing); null when it was not.</summary>
+    public DateTimeOffset? SeriesStartRefusedAt { get; init; }
+
     /// <summary>A person edited the ticket's text and the conversation has not answered it (2026-11-22-a720b).</summary>
     public bool TextEdited { get; init; }
 

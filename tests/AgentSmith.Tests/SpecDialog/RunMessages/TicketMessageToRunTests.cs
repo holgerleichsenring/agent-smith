@@ -60,6 +60,39 @@ public sealed class TicketMessageToRunTests : IDisposable
         (await _rig.TranscriptAsync()).Should().NotContain(t => t.RunId == TicketMessageRig.Run);
     }
 
+    // 2026-11-27-ecf2e (operator): a series of one asks in its ticket's conversation; while its question waits and no attempt
+    // runs, the answer goes to the series — any other message there keeps its turn.
+    [Fact]
+    public async Task Router_ASeriesOfOneWaitsOnItsQuestion_TheAnswerGoesToTheSeries()
+    {
+        var state = await _rig.OpenBoundAsync();
+        var one = AgentSmith.Tests.Series.SeriesRecords.Running(conversation: state.JobId)
+            with { Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket(TicketMessageRig.TicketId)] };
+        await _rig.Series.OpenAsync(one with
+        {
+            Question = new AgentSmith.Contracts.Series.SeriesQuestion("q-1", "Which branch?", [], null, DateTimeOffset.UtcNow, null),
+        }, default);
+
+        await _rig.SendAsync("main");
+
+        _rig.Runner.Verify(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        (await _rig.TranscriptAsync()).Single(t => t.Role == TranscriptRole.User).SeriesRunId.Should().Be("sr-1");
+    }
+
+    [Fact]
+    public async Task Router_ASeriesOfOneWithNoQuestion_LeavesTheTicketChatItsTurn()
+    {
+        var state = await _rig.OpenBoundAsync();
+        await _rig.Series.OpenAsync(AgentSmith.Tests.Series.SeriesRecords.Running(conversation: state.JobId)
+            with { Tickets = [AgentSmith.Tests.Series.SeriesRecords.Ticket(TicketMessageRig.TicketId)] }, default);
+
+        await _rig.SendAsync("what did the last run do?");
+
+        _rig.Runner.Verify(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task Router_PosterWithoutRunsControl_DoesNotSteerTheRun()
     {

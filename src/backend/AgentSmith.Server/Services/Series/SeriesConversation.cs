@@ -22,7 +22,8 @@ public sealed class SeriesConversation(SpecDialogSessionRepository sessions, Spe
     {
         ArgumentNullException.ThrowIfNull(project);
         var key = AgentSmith.Contracts.Specs.TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
-        return (await sessions.GetByTicketAsync(project.Tracker.Name, key, cancellationToken))?.SessionId;
+        // 2026-11-27-ecf2e: only an open one — a closed conversation shows nothing the series says.
+        return await sessions.GetByTicketAsync(project.Tracker.Name, key, cancellationToken) is { IsOpen: true } open ? open.SessionId : null;
     }
 
     /// <summary>2026-11-17-0207b: the operator turns the divert stamped with the series' id, from the stored transcript,

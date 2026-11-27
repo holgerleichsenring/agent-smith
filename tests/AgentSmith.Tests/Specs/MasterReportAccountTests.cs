@@ -26,6 +26,21 @@ public sealed class MasterReportAccountTests
         account.FollowUps.Should().ContainSingle().Which.Goal.Should().Be("Exports stream CSV over paging");
     }
 
+    // 2026-11-27-ecf2e (operator): a run that wrote its own spec for want of a stored approved set says so first; a missing
+    // report stays missing.
+    [Fact]
+    public void For_ASpecWrittenWithoutAStoredApprovedSet_SaysSoFirst()
+    {
+        var pipeline = Pipeline(Finished("## Delivered\n- the 404", "x"));
+        pipeline.Set(ContextKeys.SpecWithoutApprovedSet, true);
+
+        MasterReportAccount.For(pipeline, ["api"]).Report.Should()
+            .Be("No stored approved spec; wrote its own from the ticket.\n\n## Delivered\n- the 404");
+        var unreported = Pipeline(null);
+        unreported.Set(ContextKeys.SpecWithoutApprovedSet, true);
+        MasterReportAccount.For(unreported, ["api"]).Report.Should().BeNull();
+    }
+
     [Fact]
     public void For_AfterAStageRepair_TheRepairsReportStands_AndBothPassesFollowUpsAreKept()
     {

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-ecf2e
+
+decisions:
+  - category: Architecture
+    chose: "A series of one uses its ticket's conversation (the ticket page's chat) as its conversation; the master asks there as a normal chat message and the operator answers there"
+    over: "The question falling back to the ticket page's answer form, as for every series of one today"
+    reason: "decider: operator, 2026-11-27 — most series of one have no conversation, so the master has nowhere to ask; one question, one place. The existing ticket-conversation lookup (SeriesConversation.TicketConversationAsync) and the series' Conversation binding are reused; no new store."
+  - category: Implementation
+    chose: "Bind at the series' next beat when it has none; the store keeps its conversation column in step on every update; a series of one with a conversation leads its run's questions (so the run page's answer form no longer takes them); in the ticket chat, a message goes to the series only while its question waits and no attempt runs"
+    over: "Binding only when the series opens; sending every ticket-chat message to an active series of one"
+    reason: "decider: claude, from the spec and diff reviews — the ticket's conversation often exists only after the series opened; a series of one is active for most of its ticket's life, so diverting every message would swallow design talk, hand-back and rework replies the ticket page sends people to the chat for. Only an open conversation is bound (a closed one shows nothing). Tracker and pull-request comments on a series of one keep their rework path (LeadsCommentsAsync unchanged), so its run's question is answered in the ticket chat or by its deadline default, not by a tracker comment."
+  - category: Implementation
+    chose: "A refused start counts as a person's step in the series graph (the approval kind), not a failure"
+    over: "The Decide hold's default failed kind"
+    reason: "decider: claude, from the diff review — red would read as a failure and give the master a 'turned red' reason that invites another refused start_ticket."
+  - category: Architecture
+    chose: "A start the master was refused because the series' approver lacks runs.control stays refused; a never-run ticket waiting on nothing else then holds as a person's step (start_refused, act: the series' page, which offers Start), shown in the series' Needs-you strip and on the tickets page"
+    over: "Starting it anyway; the refusal visible only in the master's act log"
+    reason: "decider: operator, 2026-11-27 — keep the behaviour, make the refusal visible as a person's step. MayStartRuns is sampled at filing, so the words name a person's start, not granting the permission later."
+  - category: Scope
+    chose: "The 20-tool cap stays lifted for the series master only"
+    over: "Lifting it for other masters, or restoring it"
+    reason: "decider: operator, 2026-11-27 — keep. Already so (MasterToolComposition, SeriesMasterHandler); no change."
+  - category: Architecture
+    chose: "A stamped ticket its series started with no stored approved set writes its own spec as now, and the spec's report opens with 'No stored approved spec; wrote its own from the ticket.'"
+    over: "Parking it for a missing set; saying it only in the log"
+    reason: "decider: operator, 2026-11-27 — make it visible in the run's report. The line goes onto the master's report only (a missing report stays missing, so the no-report refusal is unchanged); the build note is a note for the next spec's master, not the operator."
+  - category: Scope
+    chose: "A stopped series is not reopened by a trigger"
+    over: "Reopening it on a tracker trigger"
+    reason: "decider: operator, 2026-11-27 — keep. Already so (SeriesOfOne, SeriesTicketEntry); no change."

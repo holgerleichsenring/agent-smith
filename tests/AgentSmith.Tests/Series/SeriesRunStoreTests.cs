@@ -27,6 +27,17 @@ public sealed class SeriesRunStoreTests : IDisposable
         (await Store.ActiveAsync(default)).Should().ContainSingle();
     }
 
+    // 2026-11-27-ecf2e: a series of one takes its ticket's conversation after it opened; the lookups by conversation follow.
+    [Fact]
+    public async Task Update_AChangedConversation_MovesTheConversationColumn()
+    {
+        await Store.OpenAsync(SeriesRecords.Running("sr-1", ""), default);
+
+        await Store.UpdateAsync("sr-1", r => r with { Conversation = "ticket-conv" }, default);
+
+        (await Store.ActiveForConversationAsync("ticket-conv", default))!.Id.Should().Be("sr-1");
+    }
+
     [Fact]
     public async Task SeriesRunStore_Stopped_IsNoLongerActiveButStillTheLatest()
     {
