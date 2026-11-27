@@ -120,7 +120,7 @@ public sealed class SeriesMasterLineTests
         }, default);
         var beat = new SeriesBeat(_store.Records["sr-1"], [], SeriesRecords.T.AddMinutes(121));
 
-        await new SeriesQuestions(_store, Mock.Of<IDialogueAnswerInbox>(), AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store)).SettleAsync(beat, 120, default);
+        await new SeriesQuestions(_store, AgentSmith.Tests.TestSupport.SeriesWakeDoubles.Budget(_store)).SettleAsync(beat, default);
 
         beat.MasterAnswered.Should().BeTrue();
     }

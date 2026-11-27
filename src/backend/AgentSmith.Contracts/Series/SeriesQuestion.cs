@@ -1,18 +1,30 @@
 namespace AgentSmith.Contracts.Series;
 
 /// <summary>
-/// 2026-11-17-0207c: the one question a series waits on — the master's own ask_human, or a parked ticket run's master
-/// question relayed into the conversation. With a recommendation it has a deadline, after which the recommendation is
-/// taken by default; without one it waits for the operator.
+/// 2026-11-17-0207c: the one question a series waits on — the master's own ask_human. With a recommendation it has a
+/// deadline, after which the recommendation is taken by default; without one it waits for the operator.
+/// 2026-11-27-3532b: a parked ticket run's question is no longer relayed here — it goes to the master as a reason.
 /// </summary>
 public sealed record SeriesQuestion(
     string Id, string Text, IReadOnlyList<string> Choices, int? RecommendedIndex, DateTimeOffset AskedAt,
     DateTimeOffset? DeadlineAt)
 {
-    /// <summary>The ticket whose parked run asked it; null for the master's own question.</summary>
+    /// <summary>The ticket whose parked run asked it, on a question relayed before 2026-11-27-3532b; the next beat drops
+    /// such a question. Null for the master's own question.</summary>
     public string? TicketId { get; init; }
 
-    /// <summary>The parked run's dialogue job id and question id, where a relayed answer is delivered.</summary>
+    /// <summary>2026-11-27-3532b: the ticket whose run's question the master carried to the operator (ask_human forTicket);
+    /// its answer reaches the master, which answers the run with tell_ticket.</summary>
+    public string? ForTicket { get; init; }
+
+    /// <summary>2026-11-27-3532b: the run and checkpoint question <see cref="ForTicket"/>'s run was parked on when it was
+    /// carried — tell_ticket answers that question, and refuses once the run waits on another.</summary>
+    public string? ForRunId { get; init; }
+
+    /// <inheritdoc cref="ForRunId"/>
+    public string? ForQuestionId { get; init; }
+
+    /// <summary>The parked run's dialogue job id and question id, on a question relayed before 2026-11-27-3532b.</summary>
     public string? DialogueJobId { get; init; }
 
     /// <inheritdoc cref="DialogueJobId"/>

@@ -15,11 +15,11 @@ namespace AgentSmith.Server.Services.Series;
 /// <summary>
 /// 2026-11-17-0207a: the series master's acts on a member ticket, each through the path a person's act takes: a
 /// never-worked ticket whose requirements are met gets a 'start' run, a worked one is retried through Retry, and a
-/// message goes into the ticket's conversation (<see cref="SeriesTicketMessage"/>).
+/// message answers its parked run or goes into its conversation (<see cref="SeriesTicketAnswer"/>).
 /// </summary>
 public sealed class SeriesTicketActs(
     TicketProjects projects, UnmetTicketRequirements requirements, IPreviousAttemptReader attempts,
-    RunRetry retry, SeriesTicketMessage messages, Deployment.DeployLauncher deploys, SeriesRunCancel cancels,
+    RunRetry retry, SeriesTicketAnswer answers, Deployment.DeployLauncher deploys, SeriesRunCancel cancels,
     WaitingTicketStart waiting, IRedisClaimLock locks,
     ITicketLandingStore landings, DependentsWake wake, ISeriesWakes wakes) : ISeriesTicketActs // 2026-11-24-f9c5e, 96aea
 {
@@ -91,9 +91,8 @@ public sealed class SeriesTicketActs(
             : $"Ticket {ticketId} was not retried: {result.Text ?? result.Kind.ToString()}";
     }
 
-    public Task<string> TellAsync(
-        string project, string ticketId, string text, string principal, bool mayStartRuns, CancellationToken cancellationToken) =>
-        messages.SendAsync(project, ticketId, text, principal, mayStartRuns, cancellationToken);
+    public Task<string> TellAsync(SeriesTell tell, CancellationToken cancellationToken) =>
+        answers.TellAsync(tell, cancellationToken); // 2026-11-27-3532b
 
     public Task<string> CancelAsync(string runId, CancellationToken cancellationToken) => cancels.CancelAsync(runId, cancellationToken);
 

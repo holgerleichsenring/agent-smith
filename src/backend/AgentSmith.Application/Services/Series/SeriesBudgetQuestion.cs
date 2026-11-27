@@ -7,8 +7,7 @@ namespace AgentSmith.Application.Services.Series;
 /// 2026-11-25-9992g: the series asks the conversation before its master's budget is spent — in any beat once no more than
 /// dialogue.series_master_budget_ask_usd is left: raise the budget by dialogue.series_master_budget_usd, or stop the
 /// series. "Raise" is recommended so the page draws the choices as buttons, but the question has no deadline: a budget is
-/// never raised, nor a series stopped, by default. It goes before a relayed ticket question (which is relayed again once
-/// it is answered) and after the master's own. An answer that is exactly a choice ("raise", "stop", or a label) settles
+/// never raised, nor a series stopped, by default. It goes after the master's own question. An answer that is exactly a choice ("raise", "stop", or a label) settles
 /// it; any other goes to the master, and the question is asked again in a later beat.
 /// </summary>
 public sealed class SeriesBudgetQuestion(ISeriesRunStore store, AgentSmithConfig config)
@@ -27,7 +26,7 @@ public sealed class SeriesBudgetQuestion(ISeriesRunStore store, AgentSmithConfig
             r => r.BudgetAsked || Blocked(r) ? r : r with { Question = asked, BudgetAsked = true }, ct);
         if (kept is null) return;
         beat.Record = kept;
-        if (kept.Question?.Id == asked.Id) beat.Said.Add(SeriesQuestionText.Asked(asked, null));
+        if (kept.Question?.Id == asked.Id) beat.Said.Add(SeriesQuestionText.Asked(asked));
     }
 
     /// <summary>Settles an answer that is exactly one of the choices; for any other it clears the ask, so a later beat
@@ -65,6 +64,10 @@ public sealed class SeriesBudgetQuestion(ISeriesRunStore store, AgentSmithConfig
         return record.MasterCostUsd >= record.BudgetUsd(Dialogue.SeriesMasterBudgetUsd);
     }
 
+    /// <summary>2026-11-27-3532b: whether the series leads its tickets' run questions (<see cref="SeriesLeads"/>) — with a spent
+    /// budget it does not, and the ticket page answers them.</summary>
+    public bool Leads(SeriesRunRecord record) => SeriesLeads.Questions(record, Dialogue.SeriesMasterBudgetUsd);
+
     /// <summary>Tells the conversation once that the master judges no more, naming what lets it judge again as things
     /// stand: the waiting budget question, or the setting. Answers the step's line.</summary>
     public async Task<string> SpentAsync(SeriesBeat beat, CancellationToken ct)
@@ -83,7 +86,7 @@ public sealed class SeriesBudgetQuestion(ISeriesRunStore store, AgentSmithConfig
         return $"The series master's budget of {budget} USD (dialogue.series_master_budget_usd) is spent.";
     }
 
-    // The master's own question comes first; a relayed ticket question gives way and is relayed again afterwards.
+    // The master's own question comes first; a ticket question relayed before 2026-11-27-3532b gives way.
     private static bool Blocked(SeriesRunRecord record) => record.Question is { Answer: null, TicketId: null };
 
     private SeriesQuestion Question(SeriesRunRecord record, decimal left, DateTimeOffset now) =>

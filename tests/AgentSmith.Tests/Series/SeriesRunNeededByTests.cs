@@ -34,24 +34,17 @@ public sealed class SeriesRunNeededByTests
         SeriesRunTickets.Needed(Order, [Ticket("50")], null).Should().BeSameAs(Order, "without holds nothing is marked");
     }
 
+    // 2026-11-27-3532b: only the master's own question waits on a person; a ticket's relayed from before is none.
     [Fact]
-    public void Question_ARelayedOneWaitsOnlyWhileItsTicketsHoldIsTheQuestion()
+    public void Question_OnlyTheMastersOwnWaits_ARelayedOneFromBeforeIsNone()
     {
         var record = new SeriesRunRecord("sr-1", "c", "p", "u", true, SeriesRunStates.Running, [], DateTimeOffset.UnixEpoch)
         {
             Question = new SeriesQuestion("q", "Which tenant?", [], null, DateTimeOffset.UnixEpoch, null) { TicketId = "50" },
         };
-        var asked = new Dictionary<string, TicketHold> { ["50"] = new(TicketHoldAddressees.Decide, TicketHoldCases.Question, null, null) };
-        var working = new Dictionary<string, TicketHold> { ["50"] = new(TicketHoldAddressees.Nobody, TicketHoldCases.Working, null, null) };
 
-        SeriesRunQuestion.Of(record, asked).Should().Be("Which tenant?");
-        SeriesRunQuestion.Of(record, new Dictionary<string, TicketHold>
-            { ["50"] = new(TicketHoldAddressees.Admin, TicketHoldCases.QuestionEnvironment, null, null) })
-            .Should().Be("Which tenant?", "a park the environment and the plan answer is relayed and still waits");
-        SeriesRunQuestion.Of(record, working).Should().BeNull("it was answered on the ticket's page");
-        SeriesRunQuestion.Of(record, new Dictionary<string, TicketHold>()).Should().BeNull();
-        SeriesRunQuestion.Of(record).Should().Be("Which tenant?", "without holds the record decides");
-        SeriesRunQuestion.Of(record with { Question = record.Question! with { TicketId = null } }, working)
-            .Should().Be("Which tenant?", "the master's own question is no ticket's hold");
+        SeriesRunQuestion.Of(record).Should().BeNull("the next beat drops it and the master is asked it");
+        SeriesRunQuestion.Of(record with { Question = record.Question! with { TicketId = null } }).Should().Be("Which tenant?");
+        SeriesRunQuestion.Of(record with { Question = record.Question! with { TicketId = null, Answer = "t1" } }).Should().BeNull();
     }
 }

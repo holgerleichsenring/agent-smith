@@ -142,8 +142,6 @@ export const coreMessages = {
   "dialog.approval.summarySpec": { en: "File this spec? One ticket.", de: "Diese Spec anlegen? Ein Ticket." },
 
   // --- dialog: a turn's steps ---
-  "dialog.question.showAll": { en: "Show all", de: "Alles zeigen" },
-  "dialog.question.showLess": { en: "Show less", de: "Weniger zeigen" },
   "dialog.steps.reads": { en: { one: "1 read", other: "{count} reads" }, de: { one: "1× gelesen", other: "{count}× gelesen" } },
   "dialog.steps.total": { en: { one: "1 step", other: "{count} steps" }, de: { one: "1 Schritt", other: "{count} Schritte" } },
   "dialog.steps.writes": { en: { one: "1 write", other: "{count} writes" }, de: { one: "1× geschrieben", other: "{count}× geschrieben" } },
@@ -957,23 +955,14 @@ export const coreMessages = {
   "series.details.start": { en: "Start", de: "Starten" },
   "series.details.starting": { en: "Starting…", de: "Startet…" },
   "series.details.tracker": { en: "Open in the tracker ↗", de: "Im Tracker öffnen ↗" },
-  "series.chat.ticketAsks": { en: "{key} asks", de: "{key} fragt" },
-  "series.chat.seriesAsks": { en: "The series asks", de: "Die Serie fragt" },
-  "series.chat.answerBelow": { en: "Answer below.", de: "Antworte unten." },
-  "series.chat.questionNoControl": {
-    en: "Someone who may control runs answers it here.",
-    de: "Beantworten kann es hier, wer Läufe steuern darf.",
-  },
-  "series.chat.questionClosed": {
-    en: "Continue the conversation in Work it out to answer it.",
-    de: "Setze das Gespräch in Work it out fort, um zu antworten.",
-  },
+  // 2026-11-27-3532e: the master's question's choices as quick replies under the chat.
+  "series.chat.quickReplies": { en: "Quick replies", de: "Schnellantworten" },
+  "series.chat.choices": { en: "Choices: {choices}", de: "Auswahl: {choices}" },
   "series.chat.answerOnTicket": { en: "Answer on its ticket", de: "Am Ticket antworten" },
   // 2026-11-26-f511a: the "Needs you" lines above the input and their links.
   "series.chat.needsYou": { en: "Needs you", de: "Braucht dich" },
   "series.chat.openPullRequest": { en: "Open pull request ↗", de: "Pull Request öffnen ↗" },
   "series.chat.openTicket": { en: "Open ticket", de: "Ticket öffnen" },
-  "series.chat.questionHint": { en: "Or write your own answer below.", de: "Oder schreib unten deine eigene Antwort." },
   // 2026-11-25-433fa: the status line pinned at the top of the chat, worded from what the server read.
   "series.status.label": { en: "Where the series stands", de: "Stand der Serie" },
   "series.status.merged": { en: "{merged} of {total} merged", de: "{merged} von {total} gemergt" },

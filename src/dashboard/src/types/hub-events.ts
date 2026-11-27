@@ -1006,6 +1006,8 @@ export interface PendingQuestionInfo {
   defaultAnswer: string | null;
   askedAt: string;
   answerDeadlineAt: string;
+  /** 2026-11-27-3532e: the series whose master holds the question, on the run's own read; absent where a person answers. */
+  seriesId?: string | null;
 }
 
 /** p0344b: server-computed state of one story beat. Derived from the typed

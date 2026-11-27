@@ -23,7 +23,8 @@ public sealed class TicketHoldReader
     {
         ArgumentNullException.ThrowIfNull(facts);
         if (facts.Finished) return null;
-        return Admin(facts) ?? (TicketSeriesWait.TakenUp(facts) ? null : Decide(facts)) ?? Plan(facts) ?? Merge(facts) ?? TicketHoldEscalations.Of(Nobody(facts), facts);
+        // 2026-11-27-3532b: a series-led ticket's parked question is its master's, whatever else its facts say
+        return TicketHoldEscalations.Of(TicketQuestionHold.Master(facts), facts) ?? Admin(facts) ?? (TicketSeriesWait.TakenUp(facts) ? null : Decide(facts)) ?? Plan(facts) ?? Merge(facts) ?? TicketHoldEscalations.Of(Nobody(facts), facts);
     }
 
     /// <summary>A precondition stopped the newest attempt — an image, a bootstrap or another configured precondition — or
@@ -71,12 +72,11 @@ public sealed class TicketHoldReader
             : Hold(facts, TicketHoldAddressees.Decide, TicketHoldCases.Failed, rework, facts.EndedAt);
     }
 
-    /// <summary>A plan question its series settles, or a person edited the ticket's text after its specs were approved and
-    /// the conversation has not answered it.</summary>
+    /// <summary>A person edited the ticket's text after its specs were approved and the conversation has not answered it.
+    /// 2026-11-27-3532b: a plan question in a series is its master's (<see cref="TicketQuestionHold.Master"/>).</summary>
     public TicketHold? Plan(TicketHoldFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
-        if (TicketQuestionHold.Plan(facts) is { } plan) return plan;
         return facts.TextEdited
             ? Hold(facts, TicketHoldAddressees.Plan, TicketHoldCases.TextEdited, new(TicketHoldActs.Conversation), null)
             : null;

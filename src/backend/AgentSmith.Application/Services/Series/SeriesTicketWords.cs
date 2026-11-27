@@ -16,7 +16,7 @@ internal static class SeriesTicketWords
         H.Resuming => "resuming",
         H.Restarting => "interrupted · restarting",
         H.Refreshing => "refreshing its pull request's branch",
-        H.Question => "question",
+        H.Question => hold.Addressee == TicketHoldAddressees.Nobody ? "question · the series master's" : "question", // 3532b
         H.QuestionPlan => "plan question",
         H.QuestionEnvironment => "question for the admin",
         H.Handback => "handed back",

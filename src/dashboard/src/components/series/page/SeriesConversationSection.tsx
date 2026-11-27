@@ -22,8 +22,8 @@ import { useChatWindow } from "./useChatWindow";
 // 2026-11-25-9992j: this is the series page's chat, its only input; the series' waiting question sits above the composer.
 // 2026-11-26-5201a: the transcript is a window that scrolls by itself — the newest entries, opened at the bottom, older
 // ones rendered as the reader scrolls up; the working line scrolls with it, the question and the composer stay below.
-// 2026-11-26-5201c: the questions that wait are one block pinned above the input (SeriesQuestionBlock), a closed
-// conversation's too, where they show without buttons.
+// 2026-11-26-5201c: what waits is one block above the input (SeriesQuestionBlock), a closed conversation's too.
+// 2026-11-27-3532e: the master's question is its chat message; the block carries its quick replies.
 // 2026-11-26-f511c: every turn shows its time (DialogTranscript times).
 
 /** The dialog id source of one thread: it starts there and stays there. */
@@ -36,7 +36,7 @@ export function SeriesConversationSection({ detail }: { detail: SeriesRunDetail 
   if (!detail.threadId) {
     return (
       <>
-        <SeriesQuestionBlock detail={detail} threadId={null} onAnswer={null} />
+        <SeriesQuestionBlock detail={detail} onAnswer={null} withText />
         <p className="msub" data-testid="series-talk-gone">{t("series.conversation.gone")}</p>
       </>
     );
@@ -44,7 +44,7 @@ export function SeriesConversationSection({ detail }: { detail: SeriesRunDetail 
   if (!detail.conversationOpen) {
     return (
       <>
-        <SeriesQuestionBlock detail={detail} threadId={null} onAnswer={null} />
+        <SeriesQuestionBlock detail={detail} onAnswer={null} withText />
         <p className="msub" data-testid="series-talk-closed">
           {t("series.conversation.closed")}{" "}
           <Link href={conversationHref({ sessionId: detail.conversation, openDialogId: null })}>{t("series.conversation.continue")}</Link>
@@ -76,7 +76,7 @@ function OpenConversation({ detail, threadId }: { detail: SeriesRunDetail; threa
         </div>
       </div>
       {dialog.failure && <p className="msub" role="alert" data-testid="series-talk-failed">{t("series.conversation.failed", { message: dialog.failure.message })}</p>}
-      <SeriesQuestionBlock detail={detail} threadId={threadId} failed={!!dialog.failure} deciding={deciding}
+      <SeriesQuestionBlock detail={detail} failed={!!dialog.failure}
         onAnswer={there && !deciding ? (answer) => void dialog.send(answer, detail.project) : null} />
       {deciding ? (
         <p className="msub" data-testid="series-talk-decide">

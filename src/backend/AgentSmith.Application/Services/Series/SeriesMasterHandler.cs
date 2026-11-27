@@ -104,6 +104,8 @@ public sealed class SeriesMasterHandler(
             ThreadJson = SeriesThread.Append(r.ThreadJson, prompt, answer), MasterCostUsd = r.MasterCostUsd + spent,
             Wakes = beat.Unjudged(r.Wakes), MasterFailedAt = null, // 2026-11-25-9992g: exactly the wakes it judged
             Raised = [.. r.Raised, .. beat.Raised.Where(k => !r.Raised.Contains(k))], // 2026-11-25-96aec
+            // 2026-11-27-3532b: the answer it was handed this beat reached it — as its wakes, only once it judged
+            Question = beat.MasterAnswered && r.Question is { Answer: not null, Delivered: false } handed ? handed with { Delivered = true } : r.Question,
         }, ct);
         if (kept is not null) beat.Record = kept;
     }

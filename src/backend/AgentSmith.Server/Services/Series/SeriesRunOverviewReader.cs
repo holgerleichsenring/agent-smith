@@ -25,8 +25,8 @@ public sealed class SeriesRunOverviewReader(
         return [.. records.Select(r => Row(r, called[r.Id], read[r.Id]))];
     }
 
-    // 849e: read holds, none is no merge; 8d16: and the question by them
+    // 849e: read holds, none is no merge
     private static SeriesRunRow Row(SeriesRunRecord record, string name, SeriesRunStatus status) => new(
         record.Id, name, record.Project, record.State, status.Shape.Counts,
-        status.Shape.NextMerge, SeriesRunQuestion.Of(record, status.Holds), record.LastActivityAt); // 2026-11-23-849e: the hold's rule
+        status.Shape.NextMerge, SeriesRunQuestion.Of(record), record.LastActivityAt);
 }

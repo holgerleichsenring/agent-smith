@@ -29,7 +29,7 @@ public sealed class ReadSeriesHandler(
         };
         beat.Messages.AddRange(await conversation.AddressedAsync(record.Conversation, record.Id, record.MessagesThrough, cancellationToken));
         if (beat.Messages.Count > 0) beat.MessagesThrough = beat.Messages[^1].Index;
-        await questions.SettleAsync(beat, config.Dialogue.QuestionDefaultMinutes, cancellationToken); // 0207c
+        await questions.SettleAsync(beat, cancellationToken); // 0207c; 2026-11-27-3532b: a run's question is a reason
         await progress.MoveAsync(beat, cancellationToken); // 0207d: the series check, its report, the series' end
         beat.Reasons.AddRange(SeriesJudgement.NewlyRed(record, beat.Rows));
         beat.Reasons.AddRange(SeriesJudgement.NewlyRetarget(record, beat)); // 2026-11-26-5201f
