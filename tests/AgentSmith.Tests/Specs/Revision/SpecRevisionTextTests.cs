@@ -70,4 +70,17 @@ public sealed class SpecRevisionTextTests
         SpecRevisionRig.Text().Read(bare, revised, isStandIn: true).Draft.Should().NotBeNull();
         SpecRevisionRig.Text().Read(bare, revised).Refusal.Should().Contain("keeps spec");
     }
+
+    // 2026-11-27-6625: while the spec is not done, a revision may name another repository; the draft carries it.
+    [Fact]
+    public void Read_ReposMovedWhileMayMove_IsTheDraftWithTheNewRepositories()
+    {
+        var moved = CutRevisionFixtures.With("applies_to: \"backend (export)\"", "applies_to: \"billing (export)\"\nrepos: [billing]");
+
+        var (draft, refusal) = SpecRevisionRig.Text().Read(Current, moved, mayMoveRepos: true);
+
+        refusal.Should().BeNull();
+        draft!.Repos.Should().Equal("billing");
+        SpecRevisionRig.Text().Read(Current, moved).Refusal.Should().Contain("repos and applies_to");
+    }
 }

@@ -26,4 +26,17 @@ public sealed class SpecIdentityRuleTests
         SpecIdentityRule.Holds(Draft(), Draft(With(from, to))).Should().BeFalse();
         SpecIdentityRule.Holds(Draft(), Draft(With("one file.\"", "one dated file.\""))).Should().BeTrue();
     }
+
+    // 2026-11-27-6625: a spec not done yet may move its repos and applies_to; its id and requires still bind.
+    [Fact]
+    public void Holds_ReposAndAppliesToMovedWhileMayMove_HoldsButIdStillBinds()
+    {
+        var moved = Draft(With("applies_to: \"backend (export)\"", "applies_to: \"billing (export)\"\nrepos: [billing]"));
+
+        SpecIdentityRule.Holds(Draft(), moved, mayMoveRepos: true).Should().BeTrue();
+        SpecIdentityRule.Holds(Draft(), Draft(With("spec: 2026-10-14-5678a", "spec: 2026-10-14-9999a")), mayMoveRepos: true)
+            .Should().BeFalse();
+        SpecIdentityRule.Holds(Draft(), Draft(With("requires: [2026-10-14-1234a]", "requires: []")), mayMoveRepos: true)
+            .Should().BeFalse();
+    }
 }

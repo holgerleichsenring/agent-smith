@@ -13,6 +13,8 @@ namespace AgentSmith.Application.Services.Specs.Revision;
 /// "revision N (revised in run &lt;id&gt;: &lt;reason&gt;)". The run's decision log and the spec's row record it, and
 /// the spec's criteria become the revised ones. A write the branch did not take leaves the run's set as it was.
 /// 2026-11-19-3e10: the master's text is written as it is; no review round is held or stored.
+/// 2026-11-27-6625: the set's member takes the revision's repos before the publish, so placement writes it where the
+/// revision says and CurrentSpec — read by the write guard and the spec's checks — carries them.
 /// </summary>
 public sealed class SpecRevisionWriter(
     SpecReviewRevision revision, IDecisionLogger decisions, ISpecProgressRecorder progress, ILogger<SpecRevisionWriter> logger)
@@ -25,17 +27,26 @@ public sealed class SpecRevisionWriter(
         ArgumentNullException.ThrowIfNull(text);
         var before = pipeline.Get<SpecSet>(ContextKeys.SpecSet);
         // 2026-11-19-6b0ba: a written revision is the spec its master wrote — no longer the ticket's stand-in.
-        pipeline.Set(ContextKeys.SpecSet, before with { StandIns = [.. before.StandIns.Where(id => id != text.SpecId)] });
+        var was = before.Specs.First(s => s.SpecId == text.SpecId).Draft.Repos;
+        pipeline.Set(ContextKeys.SpecSet, before with
+        {
+            StandIns = [.. before.StandIns.Where(id => id != text.SpecId)],
+            Specs = [.. before.Specs.Select(s => s.SpecId == text.SpecId ? s with { Draft = s.Draft with { Repos = text.Repos } } : s)],
+        });
+        // 2026-11-27-6625: placement may move the carrying repository with the spec; a failed write puts it back too.
+        var carrier = pipeline.TryGet<string>(ContextKeys.SpecRepo, out var held) ? held : null;
         var published = await revision.PublishAsync(pipeline, [text], Cause(pipeline, reason), ct);
         if (!published.IsSuccess)
         {
             pipeline.Set(ContextKeys.SpecSet, before);
+            if (carrier is null) pipeline.Remove(ContextKeys.SpecRepo);
+            else pipeline.Set(ContextKeys.SpecRepo, carrier);
             return SpecRevisionReplies.NotRevised(published.Message);
         }
         var number = pipeline.Get<SpecSet>(ContextKeys.SpecSet).Current.Number;
         var spec = SpecCriteriaReset.Apply(pipeline, text.SpecId);
         await RecordAsync(pipeline, spec, number, reason, ct);
-        return SpecRevisionReplies.Written(spec, number);
+        return SpecRevisionReplies.Written(spec, number, Moved(was, spec.Repos) ? was : null);
     }
 
     /// <summary>The revision's cause: the run that revised the spec and why.</summary>
@@ -50,6 +61,9 @@ public sealed class SpecRevisionWriter(
             note: $"revision {number}: {Clean(reason)}", cancellationToken: ct);
         logger.LogInformation("Spec {Spec} revised by its master as revision {Number}: {Reason}", spec.SpecId, number, reason);
     }
+
+    private static bool Moved(IReadOnlyList<string> was, IReadOnlyList<string> now) =>
+        !was.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(now);
 
     private static string RunId(PipelineContext pipeline) =>
         pipeline.TryGet<string>(ContextKeys.RunId, out var id) && !string.IsNullOrEmpty(id) ? id! : "(no run id)";

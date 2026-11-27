@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-6625
+
+decisions:
+  - category: Architecture
+    chose: "revise_spec may change repos and applies_to of the spec its master works while the spec is not executed; spec id and requires stay immutable"
+    over: "Keeping repos and applies_to immutable, so a wrongly placed spec ends in ask_human, a cancel, a ticket edit and a restart"
+    reason: "decider: operator, 2026-11-27 — 'That the spec does not allow it is consistent; that the master cannot fix it is not. When it already called revise_spec, it should solve the problem itself. The master may make mistakes.' The write guard keeps refusing writes outside the spec's repos; only who can correct the spec changes."
+  - category: Architecture
+    chose: "A repository the revision newly names joins through the master's own ensure_repo_sandbox, handed to revise_spec as a delegate; whether it joined is read from ContextKeys.Repos and SandboxTargets"
+    over: "A second provisioning path inside the revision; parsing ensure's answer text; refusing and telling the master to call ensure_repo_sandbox first"
+    reason: "decider: operator (no second path) — ensure_repo_sandbox is the one way a repository joins a run, restart with its toolchain included. Reading the run's state keeps the answer's wording free to change."
+  - category: Implementation
+    chose: "The writer sets the set member's repos before the publish and restores them and the carrying repository (SpecRepo) on a failed write"
+    over: "Changing SpecReviewRevision.Replace, which every in-run revision uses"
+    reason: "decider: claude — Replace keeping the placed repos is right for review rounds and rewrites; only the master's revision moves a spec, so the move stays in its writer, beside the stand-in change it already makes and rolls back. Placement then writes the spec, and its record when it is the first spec, into the new repository."
+  - category: Scope
+    chose: "The wrong repository keeps what it already holds — the earlier spec copy, its manifest, any draft spec pull request and work; the reply tells the master so"
+    over: "Removing the copy and closing the draft pull request in this spec"
+    reason: "decider: claude — urgent fix for a parked live run; the master can see and act on what the reply names. A cleanup is its own spec if it recurs."
+  - category: Implementation
+    chose: "A revision naming several repositories is refused before any repository joins"
+    over: "Letting placement refuse it after ensure has already grown or restarted the workspace"
+    reason: "decider: claude, from the diff review — one spec is written into exactly one repository (SeriesRepos); refusing early keeps a doomed revision from restarting the workspace."

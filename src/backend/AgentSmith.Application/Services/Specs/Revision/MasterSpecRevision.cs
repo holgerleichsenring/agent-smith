@@ -10,18 +10,26 @@ namespace AgentSmith.Application.Services.Specs.Revision;
 /// the branch: a reason, the gate (<see cref="SpecRevisionGate"/>), the schema and identity read
 /// (<see cref="SpecRevisionText"/>); then the writer records it and its criteria become the spec's
 /// (<see cref="SpecRevisionWriter"/>). No reviewer judges the master's text; it may brief one itself.
+/// 2026-11-27-6625: until the spec is done it may move to another repository, which joins the workspace first
+/// (<see cref="SpecRepoJoin"/>).
 /// </summary>
-public sealed class MasterSpecRevision(SpecRevisionGate gate, SpecRevisionText texts, SpecRevisionWriter writer)
+public sealed class MasterSpecRevision(SpecRevisionGate gate, SpecRevisionText texts, SpecRepoJoin join, SpecRevisionWriter writer)
 {
-    public async Task<string> ReviseAsync(PipelineContext pipeline, string? yaml, string? reason, CancellationToken ct)
+    /// <param name="ensure">2026-11-27-6625: the master's ensure_repo_sandbox, for a repository the revision moves to.</param>
+    public async Task<string> ReviseAsync(
+        PipelineContext pipeline, string? yaml, string? reason, CancellationToken ct,
+        Func<string, CancellationToken, Task<string>>? ensure = null)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (string.IsNullOrWhiteSpace(reason)) return SpecRevisionReplies.NotRevised("give the reason for the revision");
         if (await gate.RefusalAsync(pipeline, ct) is { } refused) return SpecRevisionReplies.NotRevised(refused);
         var current = pipeline.Get<SpecDraft>(ContextKeys.CurrentSpec);
-        var (draft, refusal) = texts.Read(current, yaml, pipeline.Get<SpecSet>(ContextKeys.SpecSet).IsStandIn(current.SpecId));
-        return draft is null
-            ? SpecRevisionReplies.NotRevised(refusal!)
+        var set = pipeline.Get<SpecSet>(ContextKeys.SpecSet);
+        var (draft, refusal) = texts.Read(current, yaml, set.IsStandIn(current.SpecId),
+            mayMoveRepos: !set.Executed.Contains(current.SpecId, StringComparer.Ordinal));
+        if (draft is null) return SpecRevisionReplies.NotRevised(refusal!);
+        return await join.RefusalAsync(pipeline, current, draft, ensure, ct) is { } absent
+            ? SpecRevisionReplies.NotRevised(absent)
             : await writer.WriteAsync(pipeline, draft, reason, ct);
     }
 }
