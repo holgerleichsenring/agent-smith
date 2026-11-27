@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-11-27-ecf2d
+goal: "The series check reads a landed ticket's specs where it landed once its work branch is gone, so a fully merged series ends without 'could not be read' lines."
+
+applies_to: "default (SeriesCriteria, TicketBranchSeries)"
+
+requires: [2026-11-17-0207d]
+
+facts:
+  - claim: "The series' summary lists every unread ticket as 'Not checked, the specs could not be read: …'."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesSummaryText.cs:17"
+  - claim: "SeriesCriteria reads each ticket's specs from its work branch and names every ticket whose read has no set."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesCriteria.cs:22-28"
+  - claim: "A branch the host cannot resolve throws, and TicketBranchSeries turns it into 'branch … could not be read (…)'; a ticket without a pointer reads as nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketBranchSeries.cs:28-30,44-52"
+  - claim: "Cleanup deletes a work branch once its pull request merged or closed."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CleanupWorkBranchesHandler.cs:45-63; src/backend/AgentSmith.Application/Services/Branches/WorkBranchVerdict.cs:23-34"
+  - claim: "The check starts automatically once every ticket landed, and the master's check_series can start it before."
+    evidence: "src/backend/AgentSmith.Application/Services/Series/SeriesProgress.cs:21-22,32-45"
+  - claim: "A ticket's landing is stored and read by key per tracker; the series delivery reads stores through a scope, a missing one read as unknown."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ITicketLandingStore.cs:14-16; src/backend/AgentSmith.Application/Services/Series/DeliverSeriesHandler.cs:64-76"
+  - claim: "One repository failing makes the whole set unreadable."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesJoin.cs:19-20"
+
+scope:
+  in: |
+    TicketBranchSeries.ReadLandedAsync reads each repository on the ticket branch while it still reads (a record-only
+    repository kept its branch, 2026-11-27-ecf2c), else where the ticket landed: the series branch, else the repository's
+    configured default branch, else the one its host names. When a ticket's work branch gives no set and its stored
+    landing is a merge, SeriesCriteria reads it that way and checks its criteria from it; a set broken there (Unreadable)
+    is named with that reason; nothing there is skipped, since a merged ticket's unreadable branch is not an error. A
+    ticket that has not landed, landed by hand, or whose landing cannot be read (no store, or the store fails) is named
+    as today. The class doc says so.
+  out: "The other readers of the ticket branch (ticket page, text-edit notice, approved-set divergence, and the series changes endpoint SeriesRunChangesReader, which no dashboard surface draws); reading at a merge commit; wording a check with no criteria."
+
+steps:
+  - id: read
+    action: "TicketBranchSeries.ReadLandedAsync(project, key, ticketId, seriesBranch, ct): per repository the ticket branch, else (Unreadable or nothing there) the landed branch."
+  - id: criteria
+    action: "SeriesCriteria takes IServiceScopeFactory for ITicketLandingStore (failures read as none); on no set from the ticket branch and a merged landing, read landed; answered adds criteria, Unreadable is named, anything else skipped."
+  - id: fake
+    action: "RecordingBranchSources: Gone — branches, by name or repo:branch, whose read throws TF401175."
+  - id: tests
+    action: "xunit: deleted ticket branches with the specs on the default branch or the series branch give the criteria and no unread line, and the summary has no 'could not be read'; a record-only repository is read on its kept branch; nothing on either is skipped; a broken set where it landed, an unlanded and a by-hand ticket are named."
+
+tests:
+  - "ReadAsync_TicketBranchesDeletedAfterMerge_ReadsTheCriteriaWhereTheyLanded"
+  - "ReadAsync_TicketBranchesDeletedAndNothingWhereTheyLanded_NamesNoTicket"
+  - "ReadAsync_ABrokenSetWhereItLanded_IsNamed"
+  - "ReadAsync_AnUnlandedTicketsBranchGone_IsNamed"
+  - "ReadAsync_ASeriesBranch_ReadsTheCriteriaThere"
+  - "ReadAsync_ARecordOnlyRepositoryKeptItsBranch_ReadsItThereAndTheMergedOneWhereItLanded"
+  - "ReadAsync_ATicketLandedByHand_IsNamed"
+  - "Of_ASeriesWhoseTicketBranchesWereDeletedAfterMerge_HasNoErrorLines"
+
+done:
+  - "A series whose ticket branches were deleted after merge produces a final message with no error lines (test)."
+  - "dotnet build and the affected tests are green."

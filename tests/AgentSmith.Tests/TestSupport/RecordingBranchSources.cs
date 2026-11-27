@@ -37,6 +37,18 @@ internal sealed class RecordingBranchSources : ISourceProviderFactory
     /// <summary>2026-11-17-a0b6a: when set, a branch READ throws with it — a host that cannot be asked.</summary>
     internal Exception? ReadThrows { get; set; }
 
+    /// <summary>2026-11-27-ecf2d: branches deleted on the host, by name or as repo:branch — a read of one throws as Azure Repos
+    /// does (TF401175).</summary>
+    internal HashSet<string> Gone { get; } = new(StringComparer.Ordinal);
+
+    private void ThrowIfUnreadable(string repo, BranchName branch)
+    {
+        if (ReadThrows is not null) throw ReadThrows;
+        if (Gone.Contains(branch.Value) || Gone.Contains($"{repo}:{branch.Value}"))
+            throw new InvalidOperationException(
+                $"TF401175: The version descriptor <Branch: {branch.Value}> could not be resolved to a version in the repository");
+    }
+
     /// <summary>Called as the write lands, so a test can journal WHEN it happened.</summary>
     internal Action? OnWrite { get; set; }
 
@@ -93,7 +105,7 @@ internal sealed class RecordingBranchSources : ISourceProviderFactory
         // filed set reads back through the host-side branch read; a read of a branch nothing wrote answers null.
         public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken)
         {
-            if (owner.ReadThrows is not null) throw owner.ReadThrows;
+            owner.ThrowIfUnreadable(repo, branch);
             return Task.FromResult(owner.OnBranch(repo, branch.Value).LastOrDefault(w => w.ContentOf(path) is not null)
                 ?.ContentOf(path));
         }
@@ -101,7 +113,7 @@ internal sealed class RecordingBranchSources : ISourceProviderFactory
         public Task<IReadOnlyList<string>> ListDirectoryAsync(
             string path, BranchName branch, CancellationToken cancellationToken)
         {
-            if (owner.ReadThrows is not null) throw owner.ReadThrows;
+            owner.ThrowIfUnreadable(repo, branch);
             var prefix = path.TrimEnd('/') + "/";
             return Task.FromResult<IReadOnlyList<string>>([.. owner.OnBranch(repo, branch.Value)
                 .SelectMany(w => w.Paths)
