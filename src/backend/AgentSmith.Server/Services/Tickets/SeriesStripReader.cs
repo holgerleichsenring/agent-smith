@@ -53,6 +53,7 @@ public sealed class SeriesStripReader(TicketSeriesRecordsReader recordsReader)
             "done" => "done",
             "failed" => "failed",
             "handed_back" => "handed_back",
+            Infrastructure.Persistence.Services.RunSpecProjection.Superseded => Infrastructure.Persistence.Services.RunSpecProjection.Superseded, // 3532d
             InProgress => IsLive(cutRun.Status) ? "live" : "failed",
             _ => "not_started",
         };

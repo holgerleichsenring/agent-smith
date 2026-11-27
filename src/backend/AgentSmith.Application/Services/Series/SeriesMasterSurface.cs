@@ -17,7 +17,7 @@ public sealed class SeriesMasterSurface(
     ISeriesTicketActs acts, ISeriesRunStore store, AgentSmithConfig config, ISeriesConversation conversation,
     SeriesProgress progress, SeriesPause pause, ISeriesPullRequestActs pullRequests, SeriesFinalMerge finals,
     SeriesFinalCi finalCi, ISeriesEditActs edits, ILogger logger, ISeriesRecordReads? records, TimeProvider? clock,
-    IRunReportReader? reports)
+    IRunReportReader? reports, ISeriesSpecRetirement? retirement = null)
 {
     public IList<AITool> Tools(SeriesBeat beat, SeriesMasterContext context, SeriesSourceMap sources)
     {
@@ -37,7 +37,8 @@ public sealed class SeriesMasterSurface(
                 progress.CheckAsync(beat, ct), "check_series", // 0207d; 2026-11-25-9992e: with the reason logged
             "Starts the series check again (on the series branch when it has one, else the default branch) — for a check that ended without a verdict.");
         var prs = new SeriesPullRequestTools(beat, context, pullRequests, finals, finalCi).GetTools(); // 2026-11-25-9992e
-        var cut = new SeriesEditTools(beat, edits, store).GetTools(); // 2026-11-25-9992f
+        var cut = new SeriesEditTools(beat, edits, store).GetTools() // 2026-11-25-9992f
+            .Concat(retirement is null ? [] : new SeriesSpecTools(beat, retirement).GetTools()); // 2026-11-27-3532d
         return new SeriesActTools(beat, acts, store, pause).GetTools().Append(ask).Append(check).Concat(prs).Concat(cut)
             .Select(f => (AIFunction)new SeriesActedFunction(f, beat, store, logger, clock));
     }

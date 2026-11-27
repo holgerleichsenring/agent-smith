@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-11-27-3532d
+
+decisions:
+  - category: Architecture
+    chose: "The coding master, and the series master for a ticket of its series, can retire an undelivered spec, keeping its record, and write its replacement under a new id"
+    over: "Keeping a spec that proves unimplementable until a person cancels, edits the ticket and restarts"
+    reason: "decider: operator, 2026-11-27 — 'If you find a spec cannot be implemented, it may be retired and another written — as you would after checking with me.' Whether a replacement goes beyond the ticket or plan is a hint in the skill text (ask with a recommendation, else decide and say so), not a lock."
+  - category: Architecture
+    chose: "The series master's retirement is recorded through SeriesEditAct under the series' conversation and approver, counting under the series' plan approval"
+    over: "A storage or approval path of the series master's own"
+    reason: "decider: operator — as for add_ticket, the series master acts under the plan the operator approved; the one edit of a worked ticket's series (SeriesEditList, TicketContinuation, ApprovedSpecSetRecorder, ContinuationMerge) carries it."
+  - category: Architecture
+    chose: "The one record of a retirement is the replacement's supersedes line; SpecSet.Retired, UnexecutedTail, ExecutedHead and the progress seed read it off the members"
+    over: "A retired list in the series manifest, or a superseded_by stamp in the retired yaml"
+    reason: "decider: claude — one copy cannot disagree with another; the retired yaml stays exactly as written. The reason lives in the revision cause, the decision log and the progress note (in run), the act log and the approval (series master)."
+  - category: Architecture
+    chose: "A retired spec stays a set member with its yaml in specs/planned/ (SpecSet.Planned renders it), never runs and settles as SpecRunState.Superseded"
+    over: "Moving it to done/ (read as executed) or dropping its file"
+    reason: "decider: claude — done/ means executed to every reader, and a dropped file drops the member on the next read; a settled state keeps the half-migrated check (IsPartial) and the shortfall honest."
+  - category: Implementation
+    chose: "revise_spec gains retire; the coding master retires only the spec it builds, always with a replacement"
+    over: "A parallel retire tool; retiring later specs or retiring without a replacement in a run"
+    reason: "decider: claude, from the pre-code review — no second path; the rest of the spliced block verifies and records the replacement because it reads CurrentSpec. A drop without replacement stays the between-attempts edit."
+  - category: Implementation
+    chose: "In-run ids are minted as the series' first free member letter over the set's ids, its executed ids and ContextKeys.SpecTakenIds, refused when a..z are taken; the replacement keeps the retired spec's label"
+    over: "SeriesIdFactory.NextFree walking past z; a slug from the new goal"
+    reason: "decider: claude — the member letters are the id shape's own bound, not a new limit; a label kept means a relabel never rides on a retirement."
+  - category: Implementation
+    chose: "Between attempts a retirement is an appended spec naming the retired one in supersedes; SeriesEditList places it behind the retired spec and re-cuts the later specs that required it"
+    over: "A new edit kind 'retire'"
+    reason: "decider: claude, from the pre-code review — the existing append carries it; the series master's retire_spec stamps supersedes and a placeholder id and calls the same edit."
+  - category: Implementation
+    chose: "The multi-repository join orders by id and then puts each replacement behind the spec it supersedes; a retired spec is no gap in the executed prefix"
+    over: "Refusing a replacement with a later letter as a backward edge"
+    reason: "decider: claude, from the pre-code review — a replacement's letter is always later; the set's order, not the letter, is where it runs."
+  - category: Implementation
+    chose: "ContinuationMerge discards a retirement whose retired spec ran since the approval, with its replacement and a note, and maps its edges back; an appended id that moves is rewritten into re-cut specs too"
+    over: "Building a replacement for work that already ran"
+    reason: "decider: claude — an executed spec is append-only; the race note says what was discarded."
+  - category: Implementation
+    chose: "The steps still ahead of a retired spec are restamped with the replacement's id before each step (SpecBlockRestamp, read off the set); the retired spec's accounts are dropped; SpecSequence publishes Superseded for retired specs so each attempt's rows say so"
+    over: "Leaving the retired id on the labels, events and passes; a draft pull request held by a retired account"
+    reason: "decider: claude, from the pre-code review — labels and attribution name the spec the steps work; read off the set so a resumed run restamps too."
+  - category: Implementation
+    chose: "Row ordinals after a retirement come from the republished cut (SpecSetPublishedEvent re-orders not_started rows) and the set position the state events carry"
+    over: "A second renumbering pass"
+    reason: "decider: claude — the retirement publishes one revision, whose cut already renumbers every row that has not started; no two rows share an ordinal."
+  - category: Implementation
+    chose: "An approval's replacement of a spec a run retired meanwhile is discarded with a note and its edges go to the replacement that run wrote; a discarded replacement maps by its approved id, the id re-cut specs cite"
+    over: "Building two replacements of one retired spec; mapping by the re-minted id, which no re-cut spec names"
+    reason: "decider: claude, from the post-code review — one replacement stands per retired spec, and the map has to be keyed on what the text says."
+  - category: Implementation
+    chose: "An edit that drops a replacement while the spec it retired stays is refused whole"
+    over: "Letting the drop reopen the retired spec silently"
+    reason: "decider: claude, from the post-code review — a retired spec reopening is a re-cut nobody asked for; dropping both is the edit that says so."
+  - category: Implementation
+    chose: "A retired spec is terminal but owes no verdict: TicketRunRecordVerdicts keeps it out of the states that report a missing verdict; the chunk sentence counts only the specs that stand"
+    over: "Adding superseded to that list, which would show 'no verdict recorded' on every retired spec"
+    reason: "decider: claude — the list there means 'a verdict is owed', not 'the spec ended'; RunSpecProjection.IsTerminal and the dashboard's terminal set do carry superseded."
+  - category: Implementation
+    chose: "SeriesIdFactory.FreeWithin takes the first free letter from 'a', so a letter a dropped spec gave up (no done/ file, not in the set) can be minted again"
+    over: "Reserving every letter a series ever used"
+    reason: "decider: claude — the existing continuation behaviour (SeriesContinuationIds reserves only basis, executed and recorded ids); ids frozen anywhere — done/ files, executed ids, the set — stay taken."

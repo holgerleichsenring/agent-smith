@@ -20,6 +20,7 @@ const CELL_CLASS: Record<string, string> = {
   asked: "ask",
   failed: "bad",
   handed_back: "ask",
+  superseded: "", // 2026-11-27-3532d: retired, never built
   not_started: "",
 };
 

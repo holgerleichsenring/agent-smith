@@ -20,6 +20,9 @@ public sealed class RunSpecProjection
     /// <summary>The artifact kind a spec record is stored under, one row per spec.</summary>
     public const string RecordKindPrefix = "spec_record:";
 
+    /// <summary>2026-11-27-3532d: the status of a spec retired undelivered.</summary>
+    public const string Superseded = "superseded";
+
     /// <summary>2026-09-17-042eh: the artifact kind the spec's review findings are stored
     /// under, one row per spec, in the same table and read the same way.</summary>
     public const string ReviewKindPrefix = "spec_review:";
@@ -85,7 +88,7 @@ public sealed class RunSpecProjection
         uow.Set<RunSpec>().FirstOrDefaultAsync(p => p.RunId == runId && p.SpecId == specId, ct);
 
     private static bool IsTerminal(SpecRunState state) =>
-        state is SpecRunState.Done or SpecRunState.Failed or SpecRunState.HandedBack;
+        state is SpecRunState.Done or SpecRunState.Failed or SpecRunState.HandedBack or SpecRunState.Superseded;
 
     private static string StatusOf(SpecRunState state) => state switch
     {
@@ -95,6 +98,8 @@ public sealed class RunSpecProjection
         // 2026-09-17-0e79c: its own status, so a reader can tell a spec that was never built
         // from one whose build went red without parsing the verdict.
         SpecRunState.HandedBack => "handed_back",
+        // 2026-11-27-3532d: retired undelivered; its replacement is built in its place.
+        SpecRunState.Superseded => Superseded,
         _ => "not_started",
     };
 }

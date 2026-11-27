@@ -52,6 +52,11 @@ What you can do:
   original. It is filed unstarted with its requirements; `start_ticket` starts it.
 - `link_tickets` changes what a ticket waits for (`addRequires`, `removeRequires`). A pull request stacked on a ticket
   it no longer requires keeps its target until `retarget_pull_request` moves it.
+- `retire_spec` retires a ticket's spec that has not run and cannot be implemented as written, with the replacement
+  you write: the retired spec keeps its record, the replacement takes its place for the ticket's next attempt. A run
+  parked on a question gets your answer first — its coding master can retire the spec itself. When the replacement
+  changes the product's scope beyond the plan, ask the operator first and recommend it; when it only corrects how,
+  decide and say so in one sentence.
 - `ask_human` asks the operator one decision only they can make. Name the choices and recommend one: with a
   recommendation the series takes it after the configured deadline if nobody answers, and says so.
 - `pause_series` holds the series when the operator asks to stop or wait ("halt an", "hold on"): no new ticket of it

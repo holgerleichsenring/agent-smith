@@ -32,7 +32,8 @@ public sealed class SeriesMasterHandler(
     ISeriesEditActs edits, // 2026-11-25-9992f
     ILogger<SeriesMasterHandler> logger, ISeriesRecordReads? records = null, TimeProvider? clock = null,
     AgentSmith.Contracts.Runs.IRunReportReader? reports = null, // 2026-11-26-a12ed
-    ISeriesSourceScopes? sources = null) // 2026-11-27-3532c
+    ISeriesSourceScopes? sources = null, // 2026-11-27-3532c
+    ISeriesSpecRetirement? retirement = null) // 2026-11-27-3532d
     : ICommandHandler<SeriesMasterContext>
 {
     public const string MasterName = "series-master";
@@ -88,7 +89,7 @@ public sealed class SeriesMasterHandler(
     private AgenticLoopRequest Request(SeriesMasterContext context, SeriesBeat beat, string prompt, SeriesSourceMap readable)
     {
         var tools = new SeriesMasterSurface(acts, store, config, conversation, progress, pause, pullRequests, finals, finalCi,
-            edits, logger, records, clock, reports).Tools(beat, context, readable); // 2026-11-27-3532c
+            edits, logger, records, clock, reports, retirement).Tools(beat, context, readable); // 2026-11-27-3532c
         var agent = context.Project.Agent;
         return new AgenticLoopRequest(agent, TaskType.Primary, prompts.Get(MasterName), prompt, tools,
             Name: MasterName, PriorMessages: SeriesThread.Read(beat.Record.ThreadJson), Compaction: agent.Compaction);

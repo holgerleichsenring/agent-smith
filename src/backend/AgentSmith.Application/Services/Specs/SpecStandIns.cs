@@ -16,7 +16,8 @@ public sealed class SpecStandIns(
     SpecDraftReader draftReader,
     DerivedSpecYamlRenderer yamlRenderer)
 {
-    /// <param name="previous">The set the branch carries; its executed head is kept as it ran.</param>
+    /// <param name="previous">The set the branch carries; its executed head is kept as it ran — 2026-11-27-3532d: a retired
+    /// spec in it with it, still superseded by the replacement that ran.</param>
     /// <param name="taken">Ids (or spec file names) a new spec must not take.</param>
     public SpecSet Build(
         string key, string series, Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous,
@@ -38,7 +39,7 @@ public sealed class SpecStandIns(
             key, specs, SpecAccounting.Empty,
             [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
             source, Handback: null, TicketPinnedWhole: true,
-            ExecutedSpecIds: [.. head.Select(p => p.SpecId)], Series: series)
+            ExecutedSpecIds: [.. head.Select(p => p.SpecId).Where(id => previous!.Executed.Contains(id, StringComparer.Ordinal))], Series: series)
         {
             StandIns = [.. specs.Skip(head.Count).Select(p => p.SpecId)],
         };

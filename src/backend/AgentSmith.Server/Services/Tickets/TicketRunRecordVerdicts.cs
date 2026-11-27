@@ -14,6 +14,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// </summary>
 public sealed class TicketRunRecordVerdicts
 {
+    // 2026-11-27-3532d: superseded is terminal too, but a retired spec owes no verdict, so it never reads as one missing.
     private static readonly string[] Terminal = ["done", "failed", "handed_back"];
 
     public TicketRunRecordComposition Join(IReadOnlyList<TicketRunRecordSpec> specs, TicketRunRecord record)

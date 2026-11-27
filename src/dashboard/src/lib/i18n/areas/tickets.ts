@@ -708,6 +708,7 @@ export const ticketsMessages = {
   "tickets.spec.state.not_started": { en: "not started", de: "nicht gestartet" },
   "tickets.spec.state.failed": { en: "not done", de: "nicht fertig" },
   "tickets.spec.state.handed_back": { en: "handed back", de: "zurückgegeben" },
+  "tickets.spec.state.superseded": { en: "retired", de: "abgelöst" },
   "tickets.spec.state.carried": { en: "carried", de: "übernommen" },
   "tickets.specs.counterRev": { en: "{count} · rev {rev}", de: "{count} · Rev. {rev}" },
   "tickets.specs.runRecord": {

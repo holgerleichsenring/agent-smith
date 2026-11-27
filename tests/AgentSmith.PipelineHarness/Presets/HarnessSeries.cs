@@ -16,8 +16,9 @@ internal static class HarnessSeries
 
     private const string Platform = "harness";
 
-    /// <summary>A spec of the series: its goal, its one done line, the repository it changes and its one step.</summary>
-    public sealed record Member(string Goal, string Done, string Repo = "primary", string Step = "guard");
+    /// <summary>A spec of the series: its goal, its one done line, the repository it changes and its one step. 2026-11-27-3532d:
+    /// and the member it requires, by its letter's index.</summary>
+    public sealed record Member(string Goal, string Done, string Repo = "primary", string Step = "guard", int? Requires = null);
 
     public static readonly Member[] TwoSpecs =
     [
@@ -46,7 +47,8 @@ internal static class HarnessSeries
 
     private static DerivedSpec Spec(string id, Member member)
     {
-        var yaml = $"spec: {id}\ngoal: \"{member.Goal}\"\nrepos: [{member.Repo}]\nsteps:\n  - id: {member.Step}\n"
+        var requires = member.Requires is { } index ? $"requires: [{SeriesIdFactory(index)}]\n" : string.Empty;
+        var yaml = $"spec: {id}\ngoal: \"{member.Goal}\"\n{requires}repos: [{member.Repo}]\nsteps:\n  - id: {member.Step}\n"
             + $"    action: \"{member.Goal}\"\ndone:\n  - \"{member.Done}\"\n";
         return new DerivedSpec(new SpecDraftReader().Read(yaml) with { Repos = [member.Repo] }, id, string.Empty, []);
     }

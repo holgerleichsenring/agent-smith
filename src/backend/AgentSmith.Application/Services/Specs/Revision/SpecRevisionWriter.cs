@@ -33,20 +33,62 @@ public sealed class SpecRevisionWriter(
             StandIns = [.. before.StandIns.Where(id => id != text.SpecId)],
             Specs = [.. before.Specs.Select(s => s.SpecId == text.SpecId ? s with { Draft = s.Draft with { Repos = text.Repos } } : s)],
         });
-        // 2026-11-27-6625: placement may move the carrying repository with the spec; a failed write puts it back too.
-        var carrier = pipeline.TryGet<string>(ContextKeys.SpecRepo, out var held) ? held : null;
-        var published = await revision.PublishAsync(pipeline, [text], Cause(pipeline, reason), ct);
-        if (!published.IsSuccess)
-        {
-            pipeline.Set(ContextKeys.SpecSet, before);
-            if (carrier is null) pipeline.Remove(ContextKeys.SpecRepo);
-            else pipeline.Set(ContextKeys.SpecRepo, carrier);
-            return SpecRevisionReplies.NotRevised(published.Message);
-        }
+        if (await PublishAsync(pipeline, before, [text], Cause(pipeline, reason), ct) is { } refused) return refused;
         var number = pipeline.Get<SpecSet>(ContextKeys.SpecSet).Current.Number;
         var spec = SpecCriteriaReset.Apply(pipeline, text.SpecId);
         await RecordAsync(pipeline, spec, number, reason, ct);
         return SpecRevisionReplies.Written(spec, number, Moved(was, spec.Repos) ? was : null);
+    }
+
+    /// <summary>
+    /// 2026-11-27-3532d: writes a retirement — <paramref name="retired"/> is the set <see cref="SpecRetirement"/> left,
+    /// published as one revision caused "retired in run &lt;id&gt;: &lt;reason&gt;". The replacement becomes the spec the
+    /// run builds, so the rest of the retired spec's block verifies and records it; the retired spec's accounts are
+    /// dropped, its row is superseded and the replacement's row stands behind it.
+    /// </summary>
+    public async Task<string> RetireAsync(
+        PipelineContext pipeline, SpecSet retired, SpecDraft replacement, string retiredId, string reason, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        ArgumentNullException.ThrowIfNull(retired);
+        ArgumentNullException.ThrowIfNull(replacement);
+        var before = pipeline.Get<SpecSet>(ContextKeys.SpecSet);
+        var was = before.Specs.First(s => s.SpecId == retiredId).Draft.Repos;
+        pipeline.Set(ContextKeys.SpecSet, retired);
+        if (await PublishAsync(pipeline, before, [], RetiredCause(pipeline, retiredId, replacement.SpecId, reason), ct) is { } refused)
+            return refused;
+        var number = pipeline.Get<SpecSet>(ContextKeys.SpecSet).Current.Number;
+        pipeline.Set(ContextKeys.RunAccounts, RunAccountLedger.Current(pipeline).Without(retiredId));
+        var spec = SpecCriteriaReset.Apply(pipeline, replacement.SpecId);
+        var note = $"superseded by {spec.SpecId} in revision {number}: {Clean(reason)}";
+        var table = pipeline.TryGet<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress, out var held) && held is not null
+            ? held : SpecSequenceProgress.ForSet(before);
+        pipeline.Set(ContextKeys.SpecSequenceProgress, table.Superseding(retiredId, spec.SpecId, spec.Goal, note));
+        await progress.RecordAsync(pipeline, retiredId, SpecRunState.Superseded, note: note, cancellationToken: ct);
+        await progress.RecordAsync(pipeline, spec.SpecId, SpecRunState.InProgress,
+            note: $"replaces {retiredId}: {Clean(reason)}", cancellationToken: ct);
+        await decisions.LogAsync(null, DecisionCategory.Implementation,
+            $"Spec {retiredId} retired in run {RunId(pipeline)}, superseded by {spec.SpecId} (revision {number}): {Clean(reason)}", ct, Source);
+        logger.LogInformation("Spec {Retired} retired by its master for {Replacement} in revision {Number}: {Reason}",
+            retiredId, spec.SpecId, number, reason);
+        return SpecRevisionReplies.Retired(retiredId, spec, number, Moved(was, spec.Repos) ? was : null);
+    }
+
+    /// <summary>2026-11-27-3532d: a retirement's cause: the run, the retired spec, its replacement and why.</summary>
+    public static string RetiredCause(PipelineContext pipeline, string retiredId, string replacementId, string reason) =>
+        $"retired in run {RunId(pipeline)}: {retiredId} superseded by {replacementId}: {Clean(reason)}";
+
+    // 2026-11-27-6625: placement may move the carrying repository with the spec; a failed write puts it and the set back.
+    private async Task<string?> PublishAsync(
+        PipelineContext pipeline, SpecSet before, IReadOnlyList<SpecDraft> texts, string cause, CancellationToken ct)
+    {
+        var carrier = pipeline.TryGet<string>(ContextKeys.SpecRepo, out var held) ? held : null;
+        var published = await revision.PublishAsync(pipeline, texts, cause, ct);
+        if (published.IsSuccess) return null;
+        pipeline.Set(ContextKeys.SpecSet, before);
+        if (carrier is null) pipeline.Remove(ContextKeys.SpecRepo);
+        else pipeline.Set(ContextKeys.SpecRepo, carrier);
+        return SpecRevisionReplies.NotRevised(published.Message);
     }
 
     /// <summary>The revision's cause: the run that revised the spec and why.</summary>

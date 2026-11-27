@@ -20,6 +20,9 @@ public sealed class SeriesEditAct(
     ApprovedSpecSetRecorder approvals, ITicketActivityNudge activity, Application.Services.Specs.ISeriesSettingsReader settings,
     ILogger<SeriesEditAct> logger)
 {
+    /// <summary>2026-11-27-3532d: how the answer of a recorded edit begins.</summary>
+    public const string Recorded = "Recorded for the next attempt";
+
     /// <summary>The sentence the conversation is told.</summary>
     public async Task<string> EditAsync(ResolvedProject project, string ticketId, string conversation, string principal,
         IReadOnlyList<SeriesEdit> edits, CancellationToken ct)
@@ -28,7 +31,7 @@ public sealed class SeriesEditAct(
         var next = await series.ReadAsync(project, ticketId, mayStartRuns: true, ct);
         if (next.Read.State is not { } state) return next.Read.Failure!;
         if (Refusal(state) is { } refused) return refused;
-        var (drafts, error) = list.Apply(next.Specs, edits);
+        var (drafts, error) = list.Apply(next.Specs, edits, state.ExecutedIds); // 2026-11-27-3532d: a spec that ran is never retired
         if (error is not null) return $"Nothing was recorded: {error}.";
         var goal = state.Record?.Set.Goal ?? drafts.FirstOrDefault()?.Goal ?? string.Empty;
         // The edited list is the whole series, so the previous record's ids need not stay reserved: an id it
@@ -69,6 +72,6 @@ public sealed class SeriesEditAct(
     }
 
     private static string Answer(TicketContinuationDecision decision) =>
-        $"Recorded for the next attempt; nothing was started. {decision.Reason}\n" + string.Join("\n", decision.Specs.Select(s =>
+        $"{Recorded}; nothing was started. {decision.Reason}\n" + string.Join("\n", decision.Specs.Select(s =>
             $"- {s.SpecId}: {s.Disposition}{(s.Note is null ? string.Empty : $" ({s.Note})")} — {s.Goal}"));
 }

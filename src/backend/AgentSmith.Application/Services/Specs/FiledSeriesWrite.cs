@@ -22,7 +22,7 @@ public sealed class FiledSeriesWrite(ISourceProviderFactory sources, SeriesFiles
             var sub = placement.Set.OfRepository(repo.Name);
             var result = await sources.Create(repo).WriteFilesToBranchAsync(branch,
                 [.. files.Render(sub).Select(f => new RepoFile(f.Path, f.Content)),
-                    .. sub.UnexecutedTail.Select(s => mocks?.GetValueOrDefault(s.SpecId)).OfType<RepoFile>()],
+                    .. sub.Planned().Select(s => mocks?.GetValueOrDefault(s.SpecId)).OfType<RepoFile>()],
                 SeriesWriter.MessageFor(sub), cancellationToken, startFrom); // 2026-11-24-f9c5b
             if (!result.Written)
             {
